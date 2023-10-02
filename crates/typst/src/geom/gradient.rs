@@ -1,10 +1,10 @@
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 use std::f64::{EPSILON, NEG_INFINITY};
-use std::fmt::{Debug, Write};
+use std::fmt::{self, Debug, Write};
 use std::hash::Hash;
 
 use ecow::EcoVec;
-use typst_macros::{cast, func, scope, ty};
+use typst_macros::{cast, func, scope, ty, Cast};
 use typst_syntax::{Span, Spanned};
 
 use super::color::Rgba;
@@ -24,7 +24,6 @@ use crate::geom::{ColorSpace, Smart};
 /// details on the progress of gradients.
 ///
 /// ## Stops
-///
 /// A gradient is composed of a series of stops, each stop has a color and an offset.
 /// The offset is a [ratio]($ratio) between 0% and 100% that determines the position
 /// of the stop along the gradient. The stop's color is the color of the gradient at that
@@ -32,7 +31,6 @@ use crate::geom::{ColorSpace, Smart};
 /// automatically computed for you, and all the stops will be evenly spaced.
 ///
 /// ## Usage
-///
 /// Gradients can be used for the following purposes:
 /// - As fills to paint the interior of a shape: `rect(fill: gradient.linear(..))`
 /// - As strokes to paint the outline of a shape: `rect(stroke: 1pt + gradient.linear(..))`
@@ -40,12 +38,10 @@ use crate::geom::{ColorSpace, Smart};
 ///   `gradient.linear(..).sample(0.5)`
 ///
 /// ## 🚧 Gradients on text
-///
 /// Currently gradients are not supported on text. However, in an upcoming release,
 /// gradients will be supported on text.
 ///
 /// ## Relativeness
-///
 /// Gradients can be relative to either the shape they are painted on, or to the
 /// nearest parent containers. This is controlled by the `relative` argument of the
 /// constructors. By default, gradients are relative to the shape they are painted on,
@@ -60,7 +56,6 @@ use crate::geom::{ColorSpace, Smart};
 ///   parent of a gradient, but a [`grid`]($grid) will.
 ///
 /// ## Color spaces and interpolation
-///
 /// Gradients can be interpolated in any color space. By default, gradients are
 /// interpolated in the [Oklab]($color.oklab) color space, which is a perceptually
 /// uniform color space. This means that the gradient will be perceived as having
@@ -99,24 +94,21 @@ use crate::geom::{ColorSpace, Smart};
 ///   ("HSV", color.hsv),
 /// )
 ///
-/// #for space in spaces {
+/// #for (name, space) in spaces {
 ///   block(
 ///     width: 100%,
 ///     height: 10pt,
-///     fill: gradient.linear(red, blue, space: space.at(1))
-///   )[
-///     #space.at(0)
-///   ]
+///     fill: gradient.linear(red, blue, space: space),
+///     name
+///   )
 /// }
 /// ```
 ///
 /// ## Direction
-///
 /// Some gradients are sensitive to the direction of the gradient. For example, a
-/// linear gradient has an angle that determines the direction of the gradient. Instead
-/// of the traditional clockwise angle, Typst uses an anti-clockwise angle, with 0° being
-/// from left-to-right, 90° from top-to-bottom, 180° from right-to-left, and 270° from
-/// bottom-to-top.
+/// linear gradient has an angle that determines the direction of the gradient. Typst
+/// uses a clockwise angle, with 0° being from left-to-right, 90° from top-to-bottom,
+/// 180° from right-to-left, and 270° from bottom-to-top.
 ///
 /// ```example
 /// #set block(spacing: 0pt)
@@ -130,7 +122,6 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ## Note on compatibility
-///
 /// Typst's gradients were designed to be widely compatible; however, in
 /// [PDF.js](https://mozilla.github.io/pdf.js/), the PDF reader bundled with Firefox,
 /// gradients in `rotate` blocks may not be rendered correctly. This is a bug in
@@ -139,13 +130,11 @@ use crate::geom::{ColorSpace, Smart};
 /// expected.
 ///
 /// ## Presets
-///
 /// Typst also includes a number of preset color maps. In the following section, the
 /// list of available presets is given, along with a sample of each gradient and
 /// relevant comments. Most of these color maps are chosen to be color blind friendly.
 ///
 /// ### Turbo
-///
 /// The [`turbo`]($gradient.turbo) gradient is a rainbow-like gradient that is
 /// perceptually uniform. Turbo is a gradient that takes an optional number of
 /// stops, which is set to 20 by default.
@@ -155,7 +144,6 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ### Cividis
-///
 /// The [`cividis`]($gradient.cividis) gradient is a blue to gray to
 /// yellow gradient that is perceptually uniform. Cividis is a gradient
 /// that takes an optional number of stops, which is set to 20 by default.
@@ -165,7 +153,6 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ### Rainbow
-///
 /// The [`rainbow`]($gradient.rainbow) gradient cycles through the full
 /// color spectrum. Rainbow is a gradient that takes an
 /// optional number of stops, which is set to 20 by default. This color map is best
@@ -184,7 +171,6 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ### Spectral
-///
 /// The [`spectral`]($gradient.spectral) gradient is a red to yellow to blue
 /// gradient that is perceptually uniform. Spectral does not take any parameters.
 ///
@@ -193,7 +179,6 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ### Viridis
-///
 /// The [`viridis`]($gradient.viridis) gradient is a purple to teal to yellow
 /// gradient that is perceptually uniform. Viridis does not take any parameters.
 ///
@@ -202,7 +187,6 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ### Inferno
-///
 /// The [`inferno`]($gradient.inferno) gradient is a black to red to yellow
 /// gradient that is perceptually uniform. Inferno does not take any parameters.
 ///
@@ -211,7 +195,6 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ### Magma
-///
 /// The [`magma`]($gradient.magma) gradient is a black to purple to yellow
 /// gradient that is perceptually uniform. Magma does not take any parameters.
 ///
@@ -220,7 +203,6 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ### Plasma
-///
 /// The [`plasma`]($gradient.plasma) gradient is a purple to pink to yellow
 /// gradient that is perceptually uniform. Plasma does not take any parameters.
 ///
@@ -229,7 +211,6 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ### Rocket
-///
 /// The [`rocket`]($gradient.rocket) gradient is a black to red to white
 /// gradient that is perceptually uniform. Rocket does not take any parameters.
 ///
@@ -238,7 +219,6 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ### Mako
-///
 /// The [`mako`]($gradient.mako) gradient is a black to teal to yellow
 /// gradient that is perceptually uniform. Mako does not take any parameters.
 ///
@@ -247,7 +227,6 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ### Vlag
-///
 /// The [`vlag`]($gradient.vlag) gradient is a light blue to white to red
 /// gradient that is perceptually uniform. Vlag does not take any parameters.
 ///
@@ -256,7 +235,6 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ### Icefire
-///
 /// The [`icefire`]($gradient.icefire) gradient is a light teal to black to yellow
 /// gradient that is perceptually uniform. Icefire does not take any parameters.
 ///
@@ -265,7 +243,6 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ### Flare
-///
 /// The [`flare`]($gradient.flare) gradient is an orange to purple gradient
 /// that is perceptually uniform. Flare does not take any parameters.
 ///
@@ -274,7 +251,6 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ### Crest
-///
 /// The [`crest`]($gradient.crest) gradient is a blue to white to red gradient
 /// that is perceptually uniform. Crest does not take any parameters.
 ///
@@ -283,7 +259,6 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ### Regarding presets like "jet" and "parula"
-///
 /// - [Jet](https://jakevdp.github.io/blog/2014/10/16/how-bad-is-your-colormap/)
 ///   is not a good color map, as it is not perceptually uniform. As such,
 ///   it is not color blind friendly and should not be used for data visualization,
@@ -291,7 +266,6 @@ use crate::geom::{ColorSpace, Smart};
 /// - [Parula](https://www.mathworks.com/help/matlab/ref/parula.html)
 ///   is a good color map included in MATLAB, but it is not included as
 ///   a preset in Typst. This is because it is owned by MathWorks and is not public.
-///
 #[ty(scope)]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Gradient {
@@ -299,7 +273,7 @@ pub enum Gradient {
 }
 
 impl Debug for Gradient {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Linear(linear) => linear.fmt(f),
         }
@@ -345,14 +319,9 @@ impl Gradient {
 
         /// The relative placement of the gradient.
         ///
-        /// - `"this"`: The gradient is relative to the bounding box of the
-        ///   container onto which it is painted.
-        /// - `"parent"`: The gradient is relative to the bounding box of the
-        ///   parent that contains the element onto which the gradient is applied.
-        ///
         /// For an element placed at the root/top level of the document, the parent
-        /// is the page itself. For other elements, the parent is the innermost block
-        /// or box that contains the element.
+        /// is the page itself. For other elements, the parent is the innermost block,
+        /// box, column, grid, or stack that contains the element.
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<Relative>,
@@ -431,7 +400,7 @@ impl Gradient {
         /// The position at which to sample the gradient.
         t: RatioOrAngle,
     ) -> Color {
-        let value: f64 = t.into();
+        let value: f64 = t.to_ratio().get();
 
         match self {
             Self::Linear(linear) => sample_stops(&linear.stops, linear.space, value),
@@ -711,8 +680,23 @@ impl Gradient {
                 let t = i as f32 / (stops.v - 1) as f32;
                 let ts = (t - 0.5).abs();
 
+                let h = (360.0 * t + 20.0).to_radians();
+                let l = 0.8 - 0.8 * ts;
+                let a = (1.5 - 1.5 * ts) * l * (1.0 - l);
+
+                let (sinh, cosh) = h.sin_cos();
+
+                let r = l - a * (0.14861 * cosh - 1.78277 * sinh).min(1.0);
+                let g = l - a * (0.29227 * cosh + 0.90649 * sinh).min(1.0);
+                let b = l + a * (1.97294 * cosh);
+
                 Stop::new(
-                    cubehelix_to_rgb(360.0 * t - 100.0, 1.5 - 1.5 * ts, 0.8 - 0.8 * ts),
+                    Color::Rgba(Rgba::new(
+                        r.clamp(0.0, 1.0),
+                        g.clamp(0.0, 1.0),
+                        b.clamp(0.0, 1.0),
+                        1.0,
+                    )),
                     t as f64,
                 )
                 .into_value()
@@ -836,23 +820,14 @@ impl Debug for LinearGradient {
 }
 
 /// What is the gradient relative to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Cast, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Relative {
     /// The gradient is relative to itself (its own bounding box).
+    #[string("self")]
     This,
 
     /// The gradient is relative to its parent (the parent's bounding box).
     Parent,
-}
-
-cast! {
-    Relative,
-    self => match self {
-        Self::This => "self".into_value(),
-        Self::Parent => "parent".into_value(),
-    },
-    "self" => Self::This,
-    "parent" => Self::Parent,
 }
 
 /// A color stop.
@@ -871,7 +846,7 @@ impl Stop {
 cast! {
     Stop,
     self => if let Some(offset) = self.offset {
-        array![ self.color.into_value(), offset ].into_value()
+        array![self.color.into_value(), offset].into_value()
     } else {
         self.color.into_value()
     },
@@ -926,6 +901,16 @@ pub enum RatioOrAngle {
     Angle(Angle),
 }
 
+impl RatioOrAngle {
+    pub fn to_ratio(self) -> Ratio {
+        match self {
+            Self::Ratio(ratio) => ratio,
+            Self::Angle(angle) => Ratio::new(angle.to_rad().rem_euclid(TAU) / TAU),
+        }
+        .clamp(Ratio::zero(), Ratio::one())
+    }
+}
+
 cast! {
     RatioOrAngle,
     self => match self {
@@ -934,16 +919,6 @@ cast! {
     },
     ratio: Ratio => Self::Ratio(ratio),
     angle: Angle => Self::Angle(angle),
-}
-
-impl From<RatioOrAngle> for f64 {
-    fn from(value: RatioOrAngle) -> Self {
-        match value {
-            RatioOrAngle::Ratio(ratio) => ratio.get(),
-            RatioOrAngle::Angle(angle) => angle.to_rad().rem_euclid(TAU) / TAU,
-        }
-        .clamp(0.0, 1.0)
-    }
 }
 
 /// Pre-processes the stops, checking that they are valid and computing the
@@ -967,7 +942,7 @@ fn process_stops(stops: &[Spanned<Stop>]) -> SourceResult<Vec<(Color, Ratio)>> {
             };
 
             if stop.get() < last_stop {
-                bail!(*span, "offsets must be in stricly monotonic");
+                bail!(*span, "offsets must be in strictly monotonic order");
             }
 
             last_stop = stop.get();
@@ -1016,39 +991,26 @@ fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> C
     let (col_1, pos_1) = stops[low];
     let t = (t - pos_0.get()) / (pos_1.get() - pos_0.get());
 
-    Color::mix(
-        vec![WeightedColor::new(col_0, 1.0 - t), WeightedColor::new(col_1, t)],
+    Color::mix_noalloc(
+        [WeightedColor::new(col_0, 1.0 - t), WeightedColor::new(col_1, t)],
         mixing_space,
     )
     .unwrap()
 }
 
-fn cubehelix_to_rgb(h: f32, s: f32, l: f32) -> Color {
-    let h = (h + 120.0).to_radians();
-    let l = l;
-    let a = s * l * (1.0 - l);
-
-    let (sinh, cosh) = h.sin_cos();
-
-    let r = l - a * (0.14861 * cosh - 1.78277 * sinh).min(1.0);
-    let g = l - a * (0.29227 * cosh + 0.90649 * sinh).min(1.0);
-    let b = l + a * (1.97294 * cosh);
-
-    Color::Rgba(Rgba::new(r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0), 1.0))
-}
-
 macro_rules! preset {
     ($name:ident; $($colors:literal),* $(,)*) => {
-        #[comemo::memoize]
         fn $name() -> Array {
-            let colors = [$(Color::from_u32($colors)),*];
-            Array::from(
-                colors
-                    .iter()
-                    .enumerate()
-                    .map(|(i, c)| Stop::new(*c, i as f64 / (colors.len() - 1) as f64).into_value())
-                    .collect::<EcoVec<_>>()
-            )
+            static COLORS: once_cell::sync::Lazy<Array> = once_cell::sync::Lazy::new(|| {
+                Array::from(
+                    [$(Color::from_u32($colors)),*]
+                        .iter()
+                        .map(|c| c.into_value())
+                        .collect::<EcoVec<_>>()
+                )
+            });
+
+            COLORS.clone()
         }
     };
 }
@@ -1064,3 +1026,24 @@ preset!(vlag; 0x2369bdff, 0x266abdff, 0x296cbcff, 0x2c6dbcff, 0x2f6ebcff, 0x316f
 preset!(icefire; 0xbde7dbff, 0xbae5daff, 0xb7e3d9ff, 0xb4e1d9ff, 0xb2dfd8ff, 0xafddd7ff, 0xacdbd7ff, 0xa9d9d6ff, 0xa7d7d5ff, 0xa4d5d5ff, 0xa1d3d4ff, 0x9ed1d3ff, 0x9bcfd3ff, 0x98cdd2ff, 0x95cbd2ff, 0x93cad1ff, 0x90c8d1ff, 0x8dc6d0ff, 0x8ac4d0ff, 0x87c2cfff, 0x84c1cfff, 0x81bfcfff, 0x7ebdceff, 0x7bbbceff, 0x78b9ceff, 0x75b8ceff, 0x72b6ceff, 0x6eb4cdff, 0x6bb2cdff, 0x68b0cdff, 0x65afcdff, 0x63adcdff, 0x60abcdff, 0x5da9cdff, 0x5aa7cdff, 0x58a5cdff, 0x55a3cdff, 0x53a2cdff, 0x50a0cdff, 0x4e9ecdff, 0x4c9ccdff, 0x499aceff, 0x4798ceff, 0x4596ceff, 0x4394ceff, 0x4192ceff, 0x3f90ceff, 0x3e8ecfff, 0x3c8ccfff, 0x3a89cfff, 0x3987cfff, 0x3885d0ff, 0x3783d0ff, 0x3781d0ff, 0x377fd0ff, 0x377cd0ff, 0x377ad0ff, 0x3878cfff, 0x3975cfff, 0x3a73ceff, 0x3b71cdff, 0x3d6eccff, 0x3e6ccbff, 0x3f69c9ff, 0x4167c7ff, 0x4265c5ff, 0x4363c3ff, 0x4560c1ff, 0x465ebeff, 0x475cbcff, 0x475ab9ff, 0x4858b6ff, 0x4956b3ff, 0x4954b0ff, 0x4952adff, 0x4a50a9ff, 0x4a4fa5ff, 0x494da1ff, 0x494c9eff, 0x494a9aff, 0x484996ff, 0x474792ff, 0x47468eff, 0x46458aff, 0x454386ff, 0x444282ff, 0x43417fff, 0x42407bff, 0x413e77ff, 0x3f3d74ff, 0x3e3c70ff, 0x3d3b6dff, 0x3c3a69ff, 0x3b3866ff, 0x393763ff, 0x38365fff, 0x37355cff, 0x363459ff, 0x343356ff, 0x333153ff, 0x323050ff, 0x312f4dff, 0x302e4aff, 0x2e2d48ff, 0x2d2c45ff, 0x2c2b42ff, 0x2b2a40ff, 0x2a293dff, 0x29283bff, 0x282739ff, 0x272636ff, 0x262534ff, 0x252532ff, 0x242430ff, 0x24232eff, 0x23222dff, 0x22222bff, 0x222129ff, 0x212028ff, 0x212026ff, 0x202025ff, 0x201f24ff, 0x1f1f23ff, 0x1f1f21ff, 0x1f1e21ff, 0x1f1e20ff, 0x1f1e1fff, 0x1f1e1eff, 0x1f1e1eff, 0x201e1eff, 0x211e1eff, 0x221e1eff, 0x231e1eff, 0x251e1fff, 0x261e1fff, 0x271e1fff, 0x291e20ff, 0x2a1e20ff, 0x2c1e21ff, 0x2d1f21ff, 0x2f1f22ff, 0x311f23ff, 0x332023ff, 0x352024ff, 0x372025ff, 0x392126ff, 0x3b2127ff, 0x3d2228ff, 0x3f2228ff, 0x412329ff, 0x43232aff, 0x46242bff, 0x48242cff, 0x4a252eff, 0x4d252fff, 0x4f2630ff, 0x522731ff, 0x542732ff, 0x572833ff, 0x5a2834ff, 0x5c2935ff, 0x5f2936ff, 0x622937ff, 0x642a38ff, 0x672a39ff, 0x6a2b3aff, 0x6d2b3bff, 0x702b3cff, 0x722c3dff, 0x752c3eff, 0x782c3fff, 0x7b2d40ff, 0x7e2d40ff, 0x812d41ff, 0x842d42ff, 0x872d42ff, 0x8a2e43ff, 0x8d2e43ff, 0x902e44ff, 0x932e44ff, 0x962e44ff, 0x992e44ff, 0x9c2f45ff, 0x9f2f44ff, 0xa22f44ff, 0xa52f44ff, 0xa83044ff, 0xab3043ff, 0xae3143ff, 0xb13242ff, 0xb33341ff, 0xb63441ff, 0xb93540ff, 0xbb363fff, 0xbe373eff, 0xc0393dff, 0xc33a3cff, 0xc53c3cff, 0xc73d3bff, 0xc93f3aff, 0xcc4139ff, 0xce4338ff, 0xd04537ff, 0xd24737ff, 0xd34936ff, 0xd54b35ff, 0xd74e35ff, 0xd95034ff, 0xda5334ff, 0xdc5534ff, 0xde5733ff, 0xdf5a33ff, 0xe15c33ff, 0xe25f33ff, 0xe36233ff, 0xe56433ff, 0xe66734ff, 0xe76a34ff, 0xe86d35ff, 0xe96f36ff, 0xea7238ff, 0xeb753aff, 0xec783bff, 0xed7b3eff, 0xed7e40ff, 0xee8142ff, 0xef8445ff, 0xef8748ff, 0xf0894bff, 0xf18c4eff, 0xf18f51ff, 0xf29255ff, 0xf29558ff, 0xf3985bff, 0xf39a5fff, 0xf49d63ff, 0xf5a066ff, 0xf5a36aff, 0xf6a56dff, 0xf6a871ff, 0xf7ab75ff, 0xf7ae79ff, 0xf8b07cff, 0xf8b380ff, 0xf9b684ff, 0xfab887ff, 0xfabb8bff, 0xfbbe8fff, 0xfbc192ff, 0xfcc396ff, 0xfcc69aff, 0xfdc99eff, 0xfdcca1ff, 0xfecea5ff, 0xfed1a9ff, 0xffd4acff);
 preset!(flare; 0xedb081ff, 0xedaf80ff, 0xedae7fff, 0xedad7fff, 0xedac7eff, 0xedab7eff, 0xecaa7dff, 0xeca97cff, 0xeca87cff, 0xeca77bff, 0xeca67bff, 0xeca57aff, 0xeca479ff, 0xeca379ff, 0xeca278ff, 0xeca178ff, 0xeca077ff, 0xec9f76ff, 0xeb9e76ff, 0xeb9d75ff, 0xeb9c75ff, 0xeb9b74ff, 0xeb9a73ff, 0xeb9973ff, 0xeb9972ff, 0xeb9872ff, 0xeb9771ff, 0xea9671ff, 0xea9570ff, 0xea946fff, 0xea936fff, 0xea926eff, 0xea916eff, 0xea906dff, 0xea8f6cff, 0xea8e6cff, 0xe98d6bff, 0xe98c6bff, 0xe98b6aff, 0xe98a6aff, 0xe98969ff, 0xe98868ff, 0xe98768ff, 0xe98667ff, 0xe88567ff, 0xe88466ff, 0xe88366ff, 0xe88265ff, 0xe88165ff, 0xe88064ff, 0xe87f64ff, 0xe77e63ff, 0xe77d63ff, 0xe77c63ff, 0xe77b62ff, 0xe77a62ff, 0xe67961ff, 0xe67861ff, 0xe67760ff, 0xe67660ff, 0xe67560ff, 0xe5745fff, 0xe5735fff, 0xe5725fff, 0xe5715eff, 0xe5705eff, 0xe46f5eff, 0xe46e5eff, 0xe46d5dff, 0xe46c5dff, 0xe36b5dff, 0xe36a5dff, 0xe3695dff, 0xe3685cff, 0xe2675cff, 0xe2665cff, 0xe2655cff, 0xe1645cff, 0xe1635cff, 0xe1625cff, 0xe0615cff, 0xe0605cff, 0xe05f5cff, 0xdf5f5cff, 0xdf5e5cff, 0xde5d5cff, 0xde5c5cff, 0xde5b5cff, 0xdd5a5cff, 0xdd595cff, 0xdc585cff, 0xdc575cff, 0xdb565dff, 0xdb565dff, 0xda555dff, 0xda545dff, 0xd9535dff, 0xd9525eff, 0xd8525eff, 0xd7515eff, 0xd7505eff, 0xd64f5fff, 0xd64f5fff, 0xd54e5fff, 0xd44d60ff, 0xd44c60ff, 0xd34c60ff, 0xd24b60ff, 0xd24a61ff, 0xd14a61ff, 0xd04962ff, 0xd04962ff, 0xcf4862ff, 0xce4763ff, 0xcd4763ff, 0xcc4663ff, 0xcc4664ff, 0xcb4564ff, 0xca4564ff, 0xc94465ff, 0xc84465ff, 0xc84365ff, 0xc74366ff, 0xc64366ff, 0xc54266ff, 0xc44267ff, 0xc34167ff, 0xc24167ff, 0xc14168ff, 0xc14068ff, 0xc04068ff, 0xbf4069ff, 0xbe3f69ff, 0xbd3f69ff, 0xbc3f69ff, 0xbb3f6aff, 0xba3e6aff, 0xb93e6aff, 0xb83e6bff, 0xb73d6bff, 0xb63d6bff, 0xb53d6bff, 0xb43d6bff, 0xb33c6cff, 0xb23c6cff, 0xb13c6cff, 0xb13c6cff, 0xb03b6dff, 0xaf3b6dff, 0xae3b6dff, 0xad3b6dff, 0xac3a6dff, 0xab3a6dff, 0xaa3a6eff, 0xa93a6eff, 0xa8396eff, 0xa7396eff, 0xa6396eff, 0xa5396eff, 0xa4386fff, 0xa3386fff, 0xa2386fff, 0xa1386fff, 0xa1376fff, 0xa0376fff, 0x9f376fff, 0x9e3770ff, 0x9d3670ff, 0x9c3670ff, 0x9b3670ff, 0x9a3670ff, 0x993570ff, 0x983570ff, 0x973570ff, 0x963570ff, 0x953470ff, 0x943470ff, 0x943471ff, 0x933471ff, 0x923371ff, 0x913371ff, 0x903371ff, 0x8f3371ff, 0x8e3271ff, 0x8d3271ff, 0x8c3271ff, 0x8b3271ff, 0x8a3171ff, 0x893171ff, 0x883171ff, 0x873171ff, 0x873171ff, 0x863071ff, 0x853071ff, 0x843071ff, 0x833070ff, 0x822f70ff, 0x812f70ff, 0x802f70ff, 0x7f2f70ff, 0x7e2f70ff, 0x7d2e70ff, 0x7c2e70ff, 0x7b2e70ff, 0x7a2e70ff, 0x792e6fff, 0x782e6fff, 0x772d6fff, 0x762d6fff, 0x752d6fff, 0x752d6fff, 0x742d6eff, 0x732c6eff, 0x722c6eff, 0x712c6eff, 0x702c6eff, 0x6f2c6dff, 0x6e2c6dff, 0x6d2b6dff, 0x6c2b6dff, 0x6b2b6cff, 0x6a2b6cff, 0x692b6cff, 0x682a6cff, 0x672a6bff, 0x662a6bff, 0x652a6bff, 0x642a6aff, 0x642a6aff, 0x63296aff, 0x62296aff, 0x612969ff, 0x602969ff, 0x5f2969ff, 0x5e2868ff, 0x5d2868ff, 0x5c2868ff, 0x5b2867ff, 0x5a2767ff, 0x592767ff, 0x582766ff, 0x582766ff, 0x572766ff, 0x562666ff, 0x552665ff, 0x542665ff, 0x532665ff, 0x522564ff, 0x512564ff, 0x502564ff, 0x4f2463ff, 0x4f2463ff, 0x4e2463ff, 0x4d2463ff, 0x4c2362ff, 0x4b2362ff);
 preset!(crest; 0xa5cd90ff, 0xa4cc90ff, 0xa3cc91ff, 0xa2cb91ff, 0xa0cb91ff, 0x9fca91ff, 0x9eca91ff, 0x9dc991ff, 0x9cc891ff, 0x9bc891ff, 0x9ac791ff, 0x99c791ff, 0x98c691ff, 0x96c691ff, 0x95c591ff, 0x94c591ff, 0x93c491ff, 0x92c491ff, 0x91c391ff, 0x90c391ff, 0x8fc291ff, 0x8ec291ff, 0x8dc191ff, 0x8bc191ff, 0x8ac091ff, 0x89bf91ff, 0x88bf91ff, 0x87be91ff, 0x86be91ff, 0x85bd91ff, 0x84bd91ff, 0x82bc91ff, 0x81bc91ff, 0x80bb91ff, 0x7fbb91ff, 0x7eba91ff, 0x7dba91ff, 0x7cb991ff, 0x7bb991ff, 0x79b891ff, 0x78b891ff, 0x77b791ff, 0x76b791ff, 0x75b690ff, 0x74b690ff, 0x73b590ff, 0x72b490ff, 0x71b490ff, 0x70b390ff, 0x6fb390ff, 0x6eb290ff, 0x6db290ff, 0x6cb190ff, 0x6bb190ff, 0x6ab090ff, 0x69b090ff, 0x68af90ff, 0x67ae90ff, 0x66ae90ff, 0x65ad90ff, 0x64ad90ff, 0x63ac90ff, 0x62ac90ff, 0x62ab90ff, 0x61aa90ff, 0x60aa90ff, 0x5fa990ff, 0x5ea990ff, 0x5da890ff, 0x5ca890ff, 0x5ba790ff, 0x5ba690ff, 0x5aa690ff, 0x59a590ff, 0x58a590ff, 0x57a490ff, 0x57a490ff, 0x56a390ff, 0x55a290ff, 0x54a290ff, 0x53a190ff, 0x53a190ff, 0x52a090ff, 0x519f90ff, 0x509f90ff, 0x509e90ff, 0x4f9e90ff, 0x4e9d90ff, 0x4e9d90ff, 0x4d9c90ff, 0x4c9b90ff, 0x4b9b90ff, 0x4b9a8fff, 0x4a9a8fff, 0x49998fff, 0x49988fff, 0x48988fff, 0x47978fff, 0x47978fff, 0x46968fff, 0x45958fff, 0x45958fff, 0x44948fff, 0x43948fff, 0x43938fff, 0x42928fff, 0x41928fff, 0x41918fff, 0x40918fff, 0x40908eff, 0x3f8f8eff, 0x3e8f8eff, 0x3e8e8eff, 0x3d8e8eff, 0x3c8d8eff, 0x3c8c8eff, 0x3b8c8eff, 0x3a8b8eff, 0x3a8b8eff, 0x398a8eff, 0x388a8eff, 0x38898eff, 0x37888eff, 0x37888dff, 0x36878dff, 0x35878dff, 0x35868dff, 0x34858dff, 0x33858dff, 0x33848dff, 0x32848dff, 0x31838dff, 0x31828dff, 0x30828dff, 0x2f818dff, 0x2f818dff, 0x2e808dff, 0x2d808cff, 0x2d7f8cff, 0x2c7e8cff, 0x2c7e8cff, 0x2b7d8cff, 0x2a7d8cff, 0x2a7c8cff, 0x297b8cff, 0x287b8cff, 0x287a8cff, 0x277a8cff, 0x27798cff, 0x26788cff, 0x25788cff, 0x25778cff, 0x24778bff, 0x24768bff, 0x23758bff, 0x23758bff, 0x22748bff, 0x22748bff, 0x21738bff, 0x21728bff, 0x20728bff, 0x20718bff, 0x20718bff, 0x1f708bff, 0x1f6f8aff, 0x1e6f8aff, 0x1e6e8aff, 0x1e6d8aff, 0x1e6d8aff, 0x1d6c8aff, 0x1d6c8aff, 0x1d6b8aff, 0x1d6a8aff, 0x1d6a8aff, 0x1c6989ff, 0x1c6889ff, 0x1c6889ff, 0x1c6789ff, 0x1c6689ff, 0x1c6689ff, 0x1c6589ff, 0x1c6488ff, 0x1c6488ff, 0x1c6388ff, 0x1d6388ff, 0x1d6288ff, 0x1d6188ff, 0x1d6187ff, 0x1d6087ff, 0x1d5f87ff, 0x1d5f87ff, 0x1e5e87ff, 0x1e5d86ff, 0x1e5d86ff, 0x1e5c86ff, 0x1e5b86ff, 0x1f5b86ff, 0x1f5a85ff, 0x1f5985ff, 0x1f5985ff, 0x205885ff, 0x205784ff, 0x205784ff, 0x205684ff, 0x215584ff, 0x215583ff, 0x215483ff, 0x225383ff, 0x225283ff, 0x225282ff, 0x225182ff, 0x235082ff, 0x235081ff, 0x234f81ff, 0x244e81ff, 0x244e80ff, 0x244d80ff, 0x254c80ff, 0x254c7fff, 0x254b7fff, 0x254a7fff, 0x26497eff, 0x26497eff, 0x26487eff, 0x27477dff, 0x27477dff, 0x27467cff, 0x27457cff, 0x28457cff, 0x28447bff, 0x28437bff, 0x28427aff, 0x29427aff, 0x29417aff, 0x294079ff, 0x294079ff, 0x2a3f78ff, 0x2a3e78ff, 0x2a3d78ff, 0x2a3d77ff, 0x2a3c77ff, 0x2a3b76ff, 0x2b3b76ff, 0x2b3a76ff, 0x2b3975ff, 0x2b3875ff, 0x2b3875ff, 0x2b3774ff, 0x2b3674ff, 0x2c3574ff, 0x2c3573ff, 0x2c3473ff, 0x2c3373ff, 0x2c3272ff, 0x2c3172ff, 0x2c3172ff);
+
+impl Angle {
+    /// Corrects this angle for the aspect ratio of a gradient.
+    ///
+    /// This is used specifically for gradients.
+    pub fn correct_aspect_ratio(self, aspect_ratio: Ratio) -> Self {
+        // Handle the direction of the gradient
+        let angle = self.to_rad().rem_euclid(TAU);
+
+        // Aspect ratio correction
+        let angle = (angle.tan() / aspect_ratio.get()).atan();
+        let angle = match self.quadrant() {
+            Quadrant::First => angle,
+            Quadrant::Second => angle + PI,
+            Quadrant::Third => angle + PI,
+            Quadrant::Fourth => angle + TAU,
+        };
+
+        Self::rad(angle.rem_euclid(TAU))
+    }
+}

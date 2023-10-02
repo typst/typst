@@ -11,9 +11,8 @@ pub enum Paint {
 }
 
 impl Paint {
+    /// Temporary method to unwrap a solid color used for text rendering.
     // TODO: implement gradients on text.
-    /// Temporary method to unwrap a solid color used
-    /// for text rendering.
     pub fn unwrap_solid(&self) -> Color {
         match self {
             Self::Solid(color) => *color,

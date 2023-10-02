@@ -33,12 +33,12 @@ impl Geometry {
         Shape { geometry: self, fill: None, stroke: Some(stroke) }
     }
 
-    /// The size of the geometry.
-    pub fn size(&self) -> Size {
+    /// The bounding box of the geometry.
+    pub fn bbox_size(&self) -> Size {
         match self {
             Self::Line(line) => Size::new(line.x, line.y),
             Self::Rect(s) => *s,
-            Self::Path(p) => p.size(),
+            Self::Path(p) => p.bbox_size(),
         }
     }
 }

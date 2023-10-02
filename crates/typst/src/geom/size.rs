@@ -19,7 +19,7 @@ impl Size {
         Point::new(self.x, self.y)
     }
 
-    /// Convert to a ratio.
+    /// Converts to a ratio of width to height.
     pub fn aspect_ratio(self) -> Ratio {
         Ratio::new(self.x / self.y)
     }

@@ -48,18 +48,26 @@ pub struct Frame {
 
 /// Constructor, accessors and setters.
 impl Frame {
-    /// Create a new, empty soft frame.
+    /// Create a new, empty frame.
     ///
     /// Panics the size is not finite.
     #[track_caller]
-    pub fn soft(size: Size) -> Self {
+    pub fn with_kind(size: Size, kind: FrameKind) -> Self {
         assert!(size.is_finite());
         Self {
             size,
             baseline: None,
             items: Arc::new(vec![]),
-            kind: FrameKind::Soft,
+            kind,
         }
+    }
+
+    /// Create a new, empty soft frame.
+    ///
+    /// Panics the size is not finite.
+    #[track_caller]
+    pub fn soft(size: Size) -> Self {
+        Self::with_kind(size, FrameKind::Soft)
     }
 
     /// Create a new, empty hard frame.
@@ -67,13 +75,7 @@ impl Frame {
     /// Panics if the size is not finite.
     #[track_caller]
     pub fn hard(size: Size) -> Self {
-        assert!(size.is_finite());
-        Self {
-            size,
-            baseline: None,
-            items: Arc::new(vec![]),
-            kind: FrameKind::Hard,
-        }
+        Self::with_kind(size, FrameKind::Hard)
     }
 
     /// Sets the frame's hardness.
@@ -216,7 +218,7 @@ impl Frame {
 
     /// Whether the given frame should be inlined.
     fn should_inline(&self, frame: &Frame) -> bool {
-        // We do not inline big frames, or hard frames.
+        // We do not inline big frames and hard frames.
         frame.kind().is_soft() && (self.items.is_empty() || frame.items.len() <= 5)
     }
 
@@ -430,17 +432,6 @@ impl Frame {
     }
 }
 
-/// Tools for rendering.
-impl Frame {
-    /// The size the frame should be considered for scaling gradients.
-    pub fn render_size(&self, parent_size: Size) -> Size {
-        match self.kind {
-            FrameKind::Soft => parent_size,
-            FrameKind::Hard => self.size,
-        }
-    }
-}
-
 impl Debug for Frame {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("Frame ")?;
@@ -450,11 +441,19 @@ impl Debug for Frame {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+/// The hardness of a frame.
+///
+/// This corresponds to whether or not the frame is considered to be the
+/// innermost parent of its contents. This is used to determine the
+/// coordinate reference system for gradients.
+#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum FrameKind {
     /// A container which follows its parent's size.
+    ///
+    /// Soft frames are the default since they do not impact the layout of
+    /// a gradient set on one of its children.
+    #[default]
     Soft,
-
     /// A container which uses its own size.
     Hard,
 }
@@ -468,14 +467,6 @@ impl FrameKind {
     /// Returns `true` if the frame is hard.
     pub fn is_hard(self) -> bool {
         matches!(self, Self::Hard)
-    }
-}
-
-impl Default for FrameKind {
-    fn default() -> Self {
-        // The default value is only ever used in [`std::mem::take`].
-        // Therefore its exact value is irrelevant.
-        Self::Soft
     }
 }
 

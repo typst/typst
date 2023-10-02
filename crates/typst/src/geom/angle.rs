@@ -1,5 +1,3 @@
-use std::f64::consts::{FRAC_PI_2, TAU};
-
 use super::*;
 
 /// An angle describing a rotation.
@@ -77,23 +75,6 @@ impl Angle {
     pub fn tan(self) -> f64 {
         self.to_rad().tan()
     }
-
-    /// Corrects this angle for the aspect ratio of a gradient.
-    pub fn correct_aspect_ratio(self, aspect_ratio: Ratio) -> Self {
-        // Handle the direction of the gradient
-        let angle = self.to_rad().rem_euclid(TAU);
-
-        // Aspect ratio correction
-        let angle = (angle.tan() / aspect_ratio.get()).atan();
-        let angle = match self.quadrant() {
-            Quadrant::First => angle,
-            Quadrant::Second => angle + PI,
-            Quadrant::Third => angle + PI,
-            Quadrant::Fourth => angle + TAU,
-        };
-
-        Self::rad(angle.rem_euclid(TAU))
-    }
 }
 
 #[scope]
@@ -111,7 +92,9 @@ impl Angle {
     }
 
     /// Get the quadrant of the Cartesian plane that this angle lies in.
+    ///
     /// The angle is automatically normalized to the range `0deg..=360deg`.
+    ///
     /// The quadrants are defined as follows:
     /// - First: `0deg..=90deg` (top-right)
     /// - Second: `90deg..=180deg` (top-left)
@@ -119,12 +102,12 @@ impl Angle {
     /// - Fourth: `270deg..=360deg` (bottom-right)
     #[func]
     pub fn quadrant(self) -> Quadrant {
-        let rad = self.to_rad().rem_euclid(TAU);
-        if (0.0..=FRAC_PI_2).contains(&rad) {
+        let angle = self.to_deg().rem_euclid(360.0);
+        if angle <= 90.0 {
             Quadrant::First
-        } else if (FRAC_PI_2..=PI).contains(&rad) {
+        } else if angle <= 180.0 {
             Quadrant::Second
-        } else if (PI..=(3.0 * FRAC_PI_2)).contains(&rad) {
+        } else if angle <= 270.0 {
             Quadrant::Third
         } else {
             Quadrant::Fourth
@@ -276,7 +259,7 @@ cast! {
         2 => Self::Second,
         3 => Self::Third,
         4 => Self::Fourth,
-        _ => bail!("Invalid quadrant value: {}", v),
+        _ => bail!("quadrant must be 1, 2, 3, or 4, but is {}", v),
     },
     "first" => Self::First,
     "second" => Self::Second,

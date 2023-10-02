@@ -3,13 +3,12 @@ use pdf_writer::types::FunctionShadingType;
 use pdf_writer::{types::ColorSpaceOperand, Name};
 use pdf_writer::{Finish, Ref};
 
+use super::color::{ColorSpaceExt, PaintEncode};
+use super::page::{PageContext, Transforms};
+use super::{PdfContext, RefExt};
 use crate::geom::{
     Abs, Color, ColorSpace, Gradient, Numeric, Quadrant, Ratio, Relative, Transform,
 };
-
-use super::color::{CSFunctions, PaintEncode};
-use super::page::{PageContext, Transforms};
-use super::{PdfContext, RefExt};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub(super) struct PdfGradient {
@@ -24,6 +23,8 @@ pub(super) struct PdfGradient {
     pub gradient: Gradient,
 }
 
+/// Writes the actual gradients (shading patterns) to the PDF.
+/// This is performed once after writing all pages.
 pub fn write_gradients(ctx: &mut PdfContext) {
     for PdfGradient { transform, aspect_ratio, gradient } in
         ctx.gradient_map.items().cloned().collect::<Vec<_>>()
@@ -58,7 +59,6 @@ pub fn write_gradients(ctx: &mut PdfContext) {
         };
 
         shading_pattern.matrix(transform.as_array());
-        shading_pattern.finish();
     }
 }
 
@@ -78,13 +78,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
         }
 
         bounds.push(second.offset.unwrap().get() as f32);
-        functions.push(single_gradient(
-            ctx,
-            None,
-            first.color,
-            second.color,
-            gradient.space(),
-        ));
+        functions.push(single_gradient(ctx, first.color, second.color, gradient.space()));
         encode.extend([0.0, 1.0]);
     }
 
@@ -97,24 +91,24 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
     bounds.pop();
 
     // Create the stitching function.
-    let mut stitching_function = ctx.writer.stitching_function(function);
-    stitching_function.domain([0.0, 1.0]);
-    stitching_function.range(gradient.space().range());
-    stitching_function.functions(functions);
-    stitching_function.bounds(bounds);
-    stitching_function.encode(encode);
+    ctx.writer
+        .stitching_function(function)
+        .domain([0.0, 1.0])
+        .range(gradient.space().range())
+        .functions(functions)
+        .bounds(bounds)
+        .encode(encode);
 
     function
 }
 
 fn single_gradient(
     ctx: &mut PdfContext,
-    ref_: Option<Ref>,
     first_color: Color,
     second_color: Color,
     color_space: ColorSpace,
 ) -> Ref {
-    let reference = ref_.unwrap_or_else(|| ctx.alloc.bump());
+    let reference = ctx.alloc.bump();
     let mut exp = ctx.writer.exponential_function(reference);
 
     exp.range(color_space.range());
@@ -196,4 +190,18 @@ fn use_gradient(
 
     let index = ctx.parent.gradient_map.insert(pdf_gradient);
     eco_format!("Gr{}", index)
+}
+
+impl Transform {
+    /// Convert to an array of floats.
+    pub fn as_array(self) -> [f32; 6] {
+        [
+            self.sx.get() as f32,
+            self.ky.get() as f32,
+            self.kx.get() as f32,
+            self.sy.get() as f32,
+            self.tx.to_pt() as f32,
+            self.ty.to_pt() as f32,
+        ]
+    }
 }

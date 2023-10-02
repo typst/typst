@@ -134,12 +134,6 @@ impl Div<Ratio> for f64 {
     }
 }
 
-impl From<Abs> for Ratio {
-    fn from(value: Abs) -> Self {
-        Self::new(value.to_pt())
-    }
-}
-
 assign_impl!(Ratio += Ratio);
 assign_impl!(Ratio -= Ratio);
 assign_impl!(Ratio *= Ratio);

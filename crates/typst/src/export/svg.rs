@@ -63,13 +63,17 @@ struct SVGRenderer {
     /// x1 y1 x2 y2 x y Z`.
     clip_paths: Deduplicator<EcoString>,
     /// Deduplicated gradients with transform matrices. They use a reference
-    /// (`href`) instead of being defined inline. This saves a lot of space
-    /// since gradients are being reused but with different transforms can be
-    /// deduplicated.
+    /// (`href`) to a "source" gradient instead of being defined inline.
+    /// This saves a lot of space since gradients are often reused but with
+    /// different transforms. Therefore this allows us to reuse the same gradient
+    /// multiple times.
     gradient_refs: Deduplicator<GradientRef>,
     /// These are the actual gradients being written in the SVG file.
     /// These gradients are deduplicated because they do not contain the transform
     /// matrix, allowing them to be reused across multiple invocations.
+    ///
+    /// The `Ratio` is the aspect ratio of the gradient, this is used to correct
+    /// the angle of the gradient.
     gradients: Deduplicator<(Gradient, Ratio)>,
 }
 
@@ -111,15 +115,25 @@ impl State {
     }
 }
 
+/// A reference to a deduplicated gradient, with a transform matrix.
+///
+/// Allows gradients to be reused across multiple invocations,
+/// simply by changing the transform matrix.
 #[derive(Hash)]
 struct GradientRef {
+    /// The ID of the deduplicated gradient
     id: Id,
+    /// The gradient kind (used to determine the SVG element to use)
+    /// but without needing to clone the entire gradient.
     kind: GradientKind,
+    /// The transform matrix to apply to the gradient.
     transform: Transform,
 }
 
+/// The kind of linear gradient.
 #[derive(Hash, Clone, Copy, PartialEq, Eq)]
 enum GradientKind {
+    /// A linear gradient.
     Linear,
 }
 
@@ -173,10 +187,10 @@ impl SVGRenderer {
     }
 
     /// Render a frame with the given transform.
-    fn render_frame(&mut self, state: State, transform: Transform, frame: &Frame) {
+    fn render_frame(&mut self, state: State, ts: Transform, frame: &Frame) {
         self.xml.start_element("g");
-        if !transform.is_identity() {
-            self.xml.write_attribute("transform", &SvgMatrix(transform));
+        if !ts.is_identity() {
+            self.xml.write_attribute("transform", &SvgMatrix(ts));
         }
 
         for (pos, item) in frame.items() {
@@ -403,7 +417,7 @@ impl SVGRenderer {
         paint: &Paint,
         shape: &Shape,
     ) -> Transform {
-        let mut shape_size = shape.geometry.size();
+        let mut shape_size = shape.geometry.bbox_size();
         // Edge cases for strokes.
         if shape_size.x.to_pt() == 0.0 {
             shape_size.x = Abs::pt(1.0);
@@ -415,13 +429,15 @@ impl SVGRenderer {
 
         if let Paint::Gradient(gradient) = paint {
             match gradient.unwrap_relative(false) {
-                Relative::This => {
-                    Transform::scale(shape_size.x.into(), shape_size.y.into())
-                }
-                Relative::Parent => {
-                    Transform::scale(state.size.x.into(), state.size.y.into())
-                        .post_concat(state.transform.invert())
-                }
+                Relative::This => Transform::scale(
+                    Ratio::new(shape_size.x.to_pt()),
+                    Ratio::new(shape_size.y.to_pt()),
+                ),
+                Relative::Parent => Transform::scale(
+                    Ratio::new(state.size.x.to_pt()),
+                    Ratio::new(state.size.y.to_pt()),
+                )
+                .post_concat(state.transform.invert().unwrap()),
             }
         } else {
             Transform::identity()
@@ -430,7 +446,7 @@ impl SVGRenderer {
 
     /// Calculate the size of the shape's fill.
     fn shape_fill_size(&self, state: State, paint: &Paint, shape: &Shape) -> Size {
-        let mut shape_size = shape.geometry.size();
+        let mut shape_size = shape.geometry.bbox_size();
         // Edge cases for strokes.
         if shape_size.x.to_pt() == 0.0 {
             shape_size.x = Abs::pt(1.0);
@@ -451,42 +467,39 @@ impl SVGRenderer {
     }
 
     /// Write a fill attribute.
-    fn write_fill(&mut self, fill: &Paint, size: Size, transform: Transform) {
+    fn write_fill(&mut self, fill: &Paint, size: Size, ts: Transform) {
         match fill {
             Paint::Solid(color) => self.xml.write_attribute("fill", &color.encode()),
             Paint::Gradient(gradient) => {
-                let id = self.push_gradient(gradient, size, transform);
+                let id = self.push_gradient(gradient, size, ts);
                 self.xml.write_attribute_fmt("fill", format_args!("url(#{id})"));
             }
         }
     }
 
-    /// Pushes a gradient to the SVG file. If the gradient is already present,
-    /// returns the id of the existing gradient. Otherwise, inserts the gradient
-    /// and returns the id of the inserted gradient. If the transform of the gradient
-    /// is the identify matrix, the returned ID will be the ID of the "source" gradient,
+    /// Pushes a gradient to the list of gradients to write SVG file.
+    ///
+    /// If the gradient is already present, returns the id of the existing
+    /// gradient. Otherwise, inserts the gradient and returns the id of the
+    /// inserted gradient. If the transform of the gradient is the identify
+    /// matrix, the returned ID will be the ID of the "source" gradient,
     /// this is a file size optimization.
-    fn push_gradient(
-        &mut self,
-        gradient: &Gradient,
-        size: Size,
-        transform: Transform,
-    ) -> Id {
+    fn push_gradient(&mut self, gradient: &Gradient, size: Size, ts: Transform) -> Id {
         let gradient_id = self
             .gradients
             .insert_with(hash128(&(gradient, size.aspect_ratio())), || {
                 (gradient.clone(), size.aspect_ratio())
             });
 
-        if transform.is_identity() {
+        if ts.is_identity() {
             return gradient_id;
         }
 
         self.gradient_refs
-            .insert_with(hash128(&(gradient_id, transform)), || GradientRef {
+            .insert_with(hash128(&(gradient_id, ts)), || GradientRef {
                 id: gradient_id,
                 kind: gradient.into(),
-                transform,
+                transform: ts,
             })
     }
 
@@ -662,8 +675,8 @@ impl SVGRenderer {
                         for i in 0..=32 {
                             let t0 = i as f64 / 32.0;
                             let t = start_t + (end_t - start_t) * t0;
-                            let c = Color::mix(
-                                vec![
+                            let c = Color::mix_noalloc(
+                                [
                                     WeightedColor::new(start_c, 1.0 - t0),
                                     WeightedColor::new(end_c, t0),
                                 ],

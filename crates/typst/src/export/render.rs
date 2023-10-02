@@ -79,8 +79,8 @@ pub fn render_merged(
 }
 
 /// Additional metadata carried through the rendering process.
-#[derive(Clone, Default)]
-struct State {
+#[derive(Clone, Copy, Default)]
+struct State<'a> {
     /// The transform of the current item.
     transform: sk::Transform,
 
@@ -88,7 +88,7 @@ struct State {
     container_transform: sk::Transform,
 
     /// The mask of the current item.
-    mask: Option<Arc<sk::Mask>>,
+    mask: Option<&'a sk::Mask>,
 
     /// The pixel per point ratio.
     pixel_per_pt: f32,
@@ -97,7 +97,7 @@ struct State {
     size: Size,
 }
 
-impl State {
+impl<'a> State<'a> {
     fn new(size: Size, transform: sk::Transform, pixel_per_pt: f32) -> Self {
         Self {
             size,
@@ -109,39 +109,42 @@ impl State {
     }
 
     /// Pre translate the current item's transform.
-    fn pre_translate(&self, pos: Point) -> Self {
+    fn pre_translate(self, pos: Point) -> Self {
         Self {
             transform: self.transform.pre_translate(pos.x.to_f32(), pos.y.to_f32()),
-            ..self.clone()
+            ..self
         }
     }
 
     /// Pre concat the current item's transform.
-    fn pre_concat(&self, transform: sk::Transform) -> Self {
+    fn pre_concat(self, transform: sk::Transform) -> Self {
         Self {
             transform: self.transform.pre_concat(transform),
-            ..self.clone()
+            ..self
         }
     }
 
     /// Sets the current mask.
-    fn with_mask(&self, mask: Option<Arc<sk::Mask>>) -> Self {
+    fn with_mask<'b>(self, mask: Option<&'b sk::Mask>) -> State<'b>
+    where
+        'a: 'b,
+    {
         // Ensure that we're using the parent's mask if we don't have one.
         if mask.is_some() {
-            Self { mask, ..self.clone() }
+            State { mask, ..self }
         } else {
-            self.clone()
+            self
         }
     }
 
     /// Sets the size of the first hard frame in the hierarchy.
-    fn with_size(&self, size: Size) -> Self {
-        Self { size, ..self.clone() }
+    fn with_size(self, size: Size) -> Self {
+        Self { size, ..self }
     }
 
     /// Pre concat the container's transform.
-    fn pre_concat_container(&self, container_transform: sk::Transform) -> Self {
-        Self { container_transform, ..self.clone() }
+    fn pre_concat_container(self, container_transform: sk::Transform) -> Self {
+        Self { container_transform, ..self }
     }
 }
 
@@ -182,7 +185,7 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, group: &GroupItem) {
             .with_size(group.frame.size()),
     };
 
-    let mut mask = state.mask.as_deref();
+    let mut mask = state.mask;
     let storage;
     if group.clips {
         let size: geom::Axes<Abs> = group.frame.size();
@@ -223,7 +226,7 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, group: &GroupItem) {
         }
     }
 
-    render_frame(canvas, state.with_mask(mask.cloned().map(Arc::new)), &group.frame);
+    render_frame(canvas, state.with_mask(mask), &group.frame);
 }
 
 /// Render a text run into the canvas.
@@ -234,9 +237,9 @@ fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
         let offset = x + glyph.x_offset.at(text.size).to_f32();
         let state = state.pre_translate(Point::new(Abs::raw(offset as _), Abs::raw(0.0)));
 
-        render_svg_glyph(canvas, &state, text, id)
-            .or_else(|| render_bitmap_glyph(canvas, &state, text, id))
-            .or_else(|| render_outline_glyph(canvas, &state, text, id));
+        render_svg_glyph(canvas, state, text, id)
+            .or_else(|| render_bitmap_glyph(canvas, state, text, id))
+            .or_else(|| render_outline_glyph(canvas, state, text, id));
 
         x += glyph.x_advance.at(text.size).to_f32();
     }
@@ -245,7 +248,7 @@ fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
 /// Render an SVG glyph into the canvas.
 fn render_svg_glyph(
     canvas: &mut sk::Pixmap,
-    state: &State,
+    state: State,
     text: &TextItem,
     id: GlyphId,
 ) -> Option<()> {
@@ -323,7 +326,7 @@ fn render_svg_glyph(
         pixmap.as_ref(),
         &sk::PixmapPaint::default(),
         sk::Transform::identity(),
-        state.mask.as_deref(),
+        state.mask,
     );
 
     Some(())
@@ -332,7 +335,7 @@ fn render_svg_glyph(
 /// Render a bitmap glyph into the canvas.
 fn render_bitmap_glyph(
     canvas: &mut sk::Pixmap,
-    state: &State,
+    state: State,
     text: &TextItem,
     id: GlyphId,
 ) -> Option<()> {
@@ -363,7 +366,7 @@ fn render_bitmap_glyph(
 /// Render an outline glyph into the canvas. This is the "normal" case.
 fn render_outline_glyph(
     canvas: &mut sk::Pixmap,
-    state: &State,
+    state: State,
     text: &TextItem,
     id: GlyphId,
 ) -> Option<()> {
@@ -390,7 +393,7 @@ fn render_outline_glyph(
         // system is Y-up.
         let scale = text.size.to_f32() / text.font.units_per_em() as f32;
         let ts = ts.pre_scale(scale, -scale);
-        canvas.fill_path(&path, &paint, rule, ts, state.mask.as_deref());
+        canvas.fill_path(&path, &paint, rule, ts, state.mask);
         return Some(());
     }
 
@@ -452,7 +455,7 @@ fn render_outline_glyph(
             pixmap.as_ref(),
             &sk::PixmapPaint::default(),
             sk::Transform::identity(),
-            state.mask.as_deref(),
+            state.mask,
         );
     } else {
         let cw = canvas.width() as i32;
@@ -516,14 +519,14 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
     if let Some(fill) = &shape.fill {
         let mut pixmap = None;
         let mut paint: sk::Paint =
-            fill.as_sk_paint(&state, shape.geometry.size(), None, &mut pixmap);
+            fill.as_sk_paint(state, shape.geometry.bbox_size(), None, &mut pixmap);
 
         if matches!(shape.geometry, Geometry::Rect(_)) {
             paint.anti_alias = false;
         }
 
         let rule = sk::FillRule::default();
-        canvas.fill_path(&path, &paint, rule, ts, state.mask.as_deref());
+        canvas.fill_path(&path, &paint, rule, ts, state.mask);
     }
 
     if let Some(FixedStroke {
@@ -553,7 +556,7 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
 
             let mut pixmap = None;
             let paint =
-                paint.as_sk_paint(&state, shape.geometry.size(), None, &mut pixmap);
+                paint.as_sk_paint(state, shape.geometry.bbox_size(), None, &mut pixmap);
 
             let stroke = sk::Stroke {
                 width,
@@ -562,7 +565,7 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
                 dash,
                 miter_limit: miter_limit.get() as f32,
             };
-            canvas.stroke_path(&path, &paint, &stroke, ts, state.mask.as_deref());
+            canvas.stroke_path(&path, &paint, &stroke, ts, state.mask);
         }
     }
 
@@ -640,7 +643,7 @@ fn render_image(
     };
 
     let rect = sk::Rect::from_xywh(0.0, 0.0, view_width, view_height)?;
-    canvas.fill_rect(rect, &paint, ts, state.mask.as_deref());
+    canvas.fill_rect(rect, &paint, ts, state.mask);
 
     Some(())
 }
@@ -704,22 +707,12 @@ impl From<sk::Transform> for Transform {
     }
 }
 
-/// Transforms a [`Paint`] into a [`sk::Paint`].
-/// Applying the necessary transform, if the paint is a gradient.
-trait IntoSkPaint {
+impl Paint {
+    /// Transforms a [`Paint`] into a [`sk::Paint`].
+    /// Applying the necessary transform, if the paint is a gradient.
     fn as_sk_paint<'a>(
         &self,
-        state: &State,
-        item_size: Size,
-        fill_transform: Option<sk::Transform>,
-        pixmap: &'a mut Option<Arc<sk::Pixmap>>,
-    ) -> sk::Paint<'a>;
-}
-
-impl IntoSkPaint for Paint {
-    fn as_sk_paint<'a>(
-        &self,
-        state: &State,
+        state: State,
         item_size: Size,
         fill_transform: Option<sk::Transform>,
         pixmap: &'a mut Option<Arc<sk::Pixmap>>,
@@ -772,6 +765,9 @@ impl IntoSkPaint for Paint {
                     width.max(state.pixel_per_pt.ceil() as u32),
                     height.max(state.pixel_per_pt.ceil() as u32),
                 ));
+
+                // We can use FilterQuality::Nearest here because we're
+                // rendering to a pixmap that is already at native resolution.
                 sk_paint.shader = sk::Pattern::new(
                     pixmap.as_ref().unwrap().as_ref().as_ref(),
                     sk::SpreadMode::Pad,

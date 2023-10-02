@@ -848,6 +848,16 @@ impl Color {
         #[default(ColorSpace::Oklab)]
         space: ColorSpace,
     ) -> StrResult<Color> {
+        Self::mix_noalloc(colors, space)
+    }
+}
+
+impl Color {
+    /// See [`Color::mix`], but does not allocate.
+    pub fn mix_noalloc(
+        colors: impl IntoIterator<Item = WeightedColor>,
+        space: ColorSpace,
+    ) -> StrResult<Color> {
         let mut total = 0.0;
         let mut acc = [0.0; 4];
 
@@ -882,9 +892,6 @@ impl Color {
             ColorSpace::D65Gray => Color::Luma(Luma::new(m[0])),
         })
     }
-}
-
-impl Color {
     /// Construct a new RGBA color from 8-bit values.
     pub fn from_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self::Rgba(Rgba::new(
@@ -906,6 +913,7 @@ impl Color {
         )
     }
 
+    /// Returns the alpha channel of the color, if it has one.
     pub fn alpha(&self) -> Option<f32> {
         match self {
             Color::Luma(_) | Color::Cmyk(_) => None,
@@ -917,6 +925,7 @@ impl Color {
         }
     }
 
+    /// Sets the alpha channel of the color, if it has one.
     pub fn with_alpha(mut self, alpha: f32) -> Self {
         match &mut self {
             Color::Luma(_) | Color::Cmyk(_) => {}
@@ -930,6 +939,7 @@ impl Color {
         self
     }
 
+    /// Converts the color to a vec of four floats.
     pub fn to_vec4(&self) -> [f32; 4] {
         match self {
             Color::Luma(c) => [c.luma; 4],

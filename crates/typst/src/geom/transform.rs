@@ -73,37 +73,37 @@ impl Transform {
     ///
     /// # Panics
     /// If the determinant is zero.
-    pub fn invert(self) -> Self {
+    pub fn invert(self) -> Option<Self> {
         // Allow the trivial case to be inlined.
         if self.is_identity() {
-            return self;
+            return Some(self);
         }
 
         // Fast path for scale-translate-only transforms.
         if self.kx.is_zero() && self.ky.is_zero() {
             if self.sx.is_zero() || self.sy.is_zero() {
-                return Self::translate(-self.tx, -self.ty);
+                return Some(Self::translate(-self.tx, -self.ty));
             }
 
             let inv_x = 1.0 / self.sx;
             let inv_y = 1.0 / self.sy;
-            return Self {
+            return Some(Self {
                 sx: Ratio::new(inv_x),
                 ky: Ratio::zero(),
                 kx: Ratio::zero(),
                 sy: Ratio::new(inv_y),
                 tx: -self.tx * inv_x,
                 ty: -self.ty * inv_y,
-            };
+            });
         }
 
         let det = self.sx * self.sy - self.kx * self.ky;
         if det.get() < 1e-12 {
-            panic!("Transform is not invertible");
+            return None;
         }
 
         let inv_det = 1.0 / det;
-        Self {
+        Some(Self {
             sx: (self.sy * inv_det),
             ky: (-self.ky * inv_det),
             kx: (-self.kx * inv_det),
@@ -116,19 +116,7 @@ impl Transform {
                 (self.ky.get() * self.tx.to_pt() - self.sx.get() * self.ty.to_pt())
                     * inv_det,
             ),
-        }
-    }
-
-    /// Convert to an array of floats.
-    pub fn as_array(self) -> [f32; 6] {
-        [
-            self.sx.get() as f32,
-            self.ky.get() as f32,
-            self.kx.get() as f32,
-            self.sy.get() as f32,
-            self.tx.to_pt() as f32,
-            self.ty.to_pt() as f32,
-        ]
+        })
     }
 }
 

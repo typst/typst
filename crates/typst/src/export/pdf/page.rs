@@ -13,8 +13,8 @@ use super::{deflate, AbsExt, EmExt, PdfContext, RefExt};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Color, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint,
-    Point, Ratio, Shape, Size, Transform,
+    self, Abs, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint, Point,
+    Ratio, Shape, Size, Transform,
 };
 use crate::image::Image;
 
@@ -319,7 +319,7 @@ impl PageContext<'_, '_> {
             .map(|stroke| {
                 let color = match &stroke.paint {
                     Paint::Solid(color) => *color,
-                    Paint::Gradient(_) => Color::BLACK,
+                    Paint::Gradient(_) => return 255,
                 };
 
                 color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
@@ -329,7 +329,7 @@ impl PageContext<'_, '_> {
             .map(|paint| {
                 let color = match paint {
                     Paint::Solid(color) => *color,
-                    Paint::Gradient(_) => Color::BLACK,
+                    Paint::Gradient(_) => return 255,
                 };
 
                 color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
@@ -573,11 +573,11 @@ fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
     }
 
     if let Some(fill) = &shape.fill {
-        ctx.set_fill(fill, ctx.state.transforms(shape.geometry.size(), pos));
+        ctx.set_fill(fill, ctx.state.transforms(shape.geometry.bbox_size(), pos));
     }
 
     if let Some(stroke) = stroke {
-        ctx.set_stroke(stroke, ctx.state.transforms(shape.geometry.size(), pos));
+        ctx.set_stroke(stroke, ctx.state.transforms(shape.geometry.bbox_size(), pos));
     }
 
     ctx.set_opacities(stroke, shape.fill.as_ref());
