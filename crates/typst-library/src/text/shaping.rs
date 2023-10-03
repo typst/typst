@@ -429,12 +429,17 @@ impl<'a> ShapedText<'a> {
     }
 
     /// Push a hyphen to end of the text.
-    pub fn push_hyphen(&mut self, vt: &Vt) {
+    pub fn push_hyphen(&mut self, vt: &Vt, fallback: bool) {
         let world = vt.world;
         let book = world.book();
+        let fallback_func = if fallback {
+            Some(|| book.select_fallback(None, self.variant, "-"))
+        } else {
+            None
+        };
         let mut chain = families(self.styles)
             .map(|family| book.select(family.as_str(), self.variant))
-            .chain(std::iter::once_with(|| book.select_fallback(None, self.variant, "-")))
+            .chain(fallback_func.iter().map(|f| f()))
             .flatten();
 
         chain.find_map(|id| {
