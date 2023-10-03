@@ -12,7 +12,7 @@ use typst_syntax::{Span, Spanned};
 use super::color::{Hsl, Hsv, Rgba};
 use super::*;
 use crate::diag::{bail, error, SourceResult};
-use crate::eval::{array, Array, Func, IntoValue};
+use crate::eval::{array, Args, Array, Func, IntoValue};
 use crate::geom::{ColorSpace, Smart};
 
 /// A color gradient.
@@ -120,10 +120,10 @@ use crate::geom::{ColorSpace, Smart};
 /// #set block(spacing: 0pt)
 /// #stack(
 ///   dir: ltr,
-///   square(size: 50pt, fill: gradient.linear(red, blue, dir: 0deg)),
-///   square(size: 50pt, fill: gradient.linear(red, blue, dir: 90deg)),
-///   square(size: 50pt, fill: gradient.linear(red, blue, dir: 180deg)),
-///   square(size: 50pt, fill: gradient.linear(red, blue, dir: 270deg)),
+///   square(size: 50pt, fill: gradient.linear(red, blue, angle: 0deg)),
+///   square(size: 50pt, fill: gradient.linear(red, blue, angle: 90deg)),
+///   square(size: 50pt, fill: gradient.linear(red, blue, angle: 180deg)),
+///   square(size: 50pt, fill: gradient.linear(red, blue, angle: 270deg)),
 /// )
 /// ```
 ///
@@ -293,15 +293,13 @@ impl Gradient {
     /// Creates a new linear gradient.
     #[func(title = "Linear Gradient")]
     pub fn linear(
+        /// The args of this function.
+        args: Args,
         /// The call site of this function.
         span: Span,
         /// The color [stops](#stops) of the gradient.
         #[variadic]
         stops: Vec<Spanned<Stop>>,
-        /// The direction or angle of the gradient.
-        #[named]
-        #[default(DirOrAngle::Dir(Dir::LTR))]
-        dir: DirOrAngle,
         /// The color space in which to interpolate the gradient.
         ///
         /// Defaults to a perceptually uniform color space called
@@ -317,15 +315,36 @@ impl Gradient {
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<Relative>,
+        /// The direction of the gradient.
+        #[external]
+        #[default(Dir::LTR)]
+        dir: Dir,
+        /// The angle of the gradient.
+        #[external]
+        angle: Angle,
     ) -> SourceResult<Gradient> {
+        let mut args = args;
         if stops.len() < 2 {
             bail!(error!(span, "a gradient must have at least two stops")
                 .with_hint("try filling the shape with a single color instead"));
         }
 
+        let angle = if let Some(angle) = args.named::<Angle>("angle")? {
+            angle
+        } else if let Some(dir) = args.named::<Dir>("dir")? {
+            match dir {
+                Dir::LTR => Angle::rad(0.0),
+                Dir::RTL => Angle::rad(PI),
+                Dir::TTB => Angle::rad(FRAC_PI_2),
+                Dir::BTT => Angle::rad(3.0 * FRAC_PI_2),
+            }
+        } else {
+            Angle::rad(0.0)
+        };
+
         Ok(Self::Linear(Arc::new(LinearGradient {
             stops: process_stops(&stops)?,
-            angle: dir.into(),
+            angle,
             space,
             relative,
             anti_alias: true,
@@ -360,9 +379,9 @@ impl Gradient {
         }
     }
 
-    /// Returns the direction of this gradient.
+    /// Returns the angle of this gradient.
     #[func]
-    pub fn dir(&self) -> Angle {
+    pub fn angle(&self) -> Angle {
         match self {
             Self::Linear(linear) => linear.angle,
         }
@@ -870,37 +889,6 @@ cast! {
                 offset: Some(b.cast()?)
             },
             _ => Err("a color stop must contain exactly two entries")?,
-        }
-    }
-}
-
-/// A direction or an angle.
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub enum DirOrAngle {
-    Dir(Dir),
-    Angle(Angle),
-}
-
-cast! {
-    DirOrAngle,
-    self => match self {
-        Self::Dir(dir) => dir.into_value(),
-        Self::Angle(angle) => angle.into_value(),
-    },
-    dir: Dir => Self::Dir(dir),
-    angle: Angle => Self::Angle(angle),
-}
-
-impl From<DirOrAngle> for Angle {
-    fn from(value: DirOrAngle) -> Self {
-        match value {
-            DirOrAngle::Dir(dir) => match dir {
-                Dir::LTR => Angle::zero(),
-                Dir::RTL => Angle::rad(PI),
-                Dir::TTB => Angle::rad(FRAC_PI_2),
-                Dir::BTT => Angle::rad(3.0 * FRAC_PI_2),
-            },
-            DirOrAngle::Angle(angle) => angle,
         }
     }
 }

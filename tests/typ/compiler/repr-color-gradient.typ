@@ -17,6 +17,6 @@
 #set page(width: 400pt)
 #set text(0.8em)
 #gradient.linear(blue, red) \
-#gradient.linear(blue, red, dir: 45deg) \
-#gradient.linear(blue, red, dir: 45deg, relative: "self") \
-#gradient.linear(blue, red, dir: 45deg, space: rgb)
+#gradient.linear(blue, red, dir: ttb) \
+#gradient.linear(blue, red, angle: 45deg, relative: "self") \
+#gradient.linear(blue, red, angle: 45deg, space: rgb)

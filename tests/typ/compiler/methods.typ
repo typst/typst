@@ -151,11 +151,11 @@
 #test(gradient.linear(red, green, relative: "self").relative(), "self")
 #test(gradient.linear(red, green, relative: "parent").relative(), "parent")
 #test(gradient.linear(red, green).relative(), auto)
-#test(gradient.linear(red, green).dir(), 0deg)
-#test(gradient.linear(red, green, dir: ltr).dir(), 0deg)
-#test(gradient.linear(red, green, dir: rtl).dir(), 180deg)
-#test(gradient.linear(red, green, dir: ttb).dir(), 90deg)
-#test(gradient.linear(red, green, dir: btt).dir(), 270deg)
+#test(gradient.linear(red, green).angle(), 0deg)
+#test(gradient.linear(red, green, dir: ltr).angle(), 0deg)
+#test(gradient.linear(red, green, dir: rtl).angle(), 180deg)
+#test(gradient.linear(red, green, dir: ttb).angle(), 90deg)
+#test(gradient.linear(red, green, dir: btt).angle(), 270deg)
 #test(
   gradient.linear(red, green, blue).repeat(2).stops(),
   ((red, 0%), (green, 25%), (blue, 50%), (red, 50%), (green, 75%), (blue, 100%))

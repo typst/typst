@@ -231,7 +231,7 @@ fn register_gradient(
         Relative::Parent => transforms.container_size,
     };
 
-    let (offset_x, offset_y) = match gradient.dir().quadrant() {
+    let (offset_x, offset_y) = match gradient.angle().quadrant() {
         Quadrant::First => (Abs::zero(), Abs::zero()),
         Quadrant::Second => (size.x, Abs::zero()),
         Quadrant::Third => (size.x, size.y),
@@ -252,7 +252,7 @@ fn register_gradient(
                 Ratio::new(size.y.to_pt()),
             ))
             .pre_concat(Transform::rotate(Gradient::correct_aspect_ratio(
-                gradient.dir(),
+                gradient.angle(),
                 size.aspect_ratio(),
             ))),
         gradient: gradient.clone(),
