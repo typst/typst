@@ -71,8 +71,7 @@ impl Transform {
 
     /// Inverts the transformation.
     ///
-    /// # Panics
-    /// If the determinant is zero.
+    /// Returns `None` if the determinant of the matrix is zero.
     pub fn invert(self) -> Option<Self> {
         // Allow the trivial case to be inlined.
         if self.is_identity() {

@@ -5,15 +5,14 @@ use super::*;
 pub enum Paint {
     /// A solid color.
     Solid(Color),
-
     /// A gradient.
     Gradient(Gradient),
 }
 
 impl Paint {
     /// Temporary method to unwrap a solid color used for text rendering.
-    // TODO: implement gradients on text.
     pub fn unwrap_solid(&self) -> Color {
+        // TODO: Implement gradients on text.
         match self {
             Self::Solid(color) => *color,
             Self::Gradient(_) => panic!("expected solid color"),

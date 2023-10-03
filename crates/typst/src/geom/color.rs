@@ -859,20 +859,20 @@ impl Color {
         #[default(ColorSpace::Oklab)]
         space: ColorSpace,
     ) -> StrResult<Color> {
-        Self::mix_noalloc(colors, space)
+        Self::mix_iter(colors, space)
     }
 }
 
 impl Color {
-    /// See [`Color::mix`], but does not allocate.
-    pub fn mix_noalloc(
+    /// Same as [`Color::mix`], but takes an iterator instead of a vector.
+    pub fn mix_iter(
         colors: impl IntoIterator<Item = WeightedColor>,
         space: ColorSpace,
     ) -> StrResult<Color> {
         let mut total = 0.0;
         let mut acc = [0.0; 4];
 
-        for WeightedColor { color, weight } in colors.into_iter() {
+        for WeightedColor { color, weight } in colors {
             let weight = weight as f32;
             let v = color.to_space(space).to_vec4();
             acc[0] += weight * v[0];
@@ -903,6 +903,7 @@ impl Color {
             ColorSpace::D65Gray => Color::Luma(Luma::new(m[0])),
         })
     }
+
     /// Construct a new RGBA color from 8-bit values.
     pub fn from_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self::Rgba(Rgba::new(

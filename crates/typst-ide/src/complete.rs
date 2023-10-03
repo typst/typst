@@ -1189,7 +1189,6 @@ impl<'a> CompletionContext<'a> {
                         "color.hsl(${h}, ${s}, ${l}, ${a})",
                         "A custom HSLA color.",
                     );
-
                     self.scope_completions(false, |value| value.ty() == *ty);
                 } else if *ty == Type::of::<Func>() {
                     self.snippet_completion(

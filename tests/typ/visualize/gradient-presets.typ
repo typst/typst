@@ -1,9 +1,9 @@
-// Test all gradient presets
----
+// Test all gradient presets.
 
+---
 #set page(width: 200pt, height: auto, margin: 0pt)
 #set text(fill: white, size: 18pt)
-#set block(spacing: 0pt)
+#set text(top-edge: "bounds", bottom-edge: "bounds")
 
 #let presets = (
   ("turbo", gradient.turbo()),
@@ -22,9 +22,12 @@
   ("crest", gradient.crest),
 )
 
-#for preset in presets {
-  block(width: 100%, height: 20pt, fill: gradient.linear(..preset.at(1)))[
-    #align(center + horizon, smallcaps(preset.at(0)))
-  ]
-  v(4pt)
-}
+#stack(
+  spacing: 3pt,
+  ..presets.map(((name, preset)) => block(
+    width: 100%,
+    height: 20pt,
+    fill: gradient.linear(..preset),
+    align(center + horizon, smallcaps(name)),
+  ))
+)

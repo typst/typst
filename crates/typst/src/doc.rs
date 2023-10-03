@@ -52,7 +52,7 @@ impl Frame {
     ///
     /// Panics the size is not finite.
     #[track_caller]
-    pub fn with_kind(size: Size, kind: FrameKind) -> Self {
+    pub fn new(size: Size, kind: FrameKind) -> Self {
         assert!(size.is_finite());
         Self {
             size,
@@ -67,7 +67,7 @@ impl Frame {
     /// Panics the size is not finite.
     #[track_caller]
     pub fn soft(size: Size) -> Self {
-        Self::with_kind(size, FrameKind::Soft)
+        Self::new(size, FrameKind::Soft)
     }
 
     /// Create a new, empty hard frame.
@@ -75,7 +75,7 @@ impl Frame {
     /// Panics if the size is not finite.
     #[track_caller]
     pub fn hard(size: Size) -> Self {
-        Self::with_kind(size, FrameKind::Hard)
+        Self::new(size, FrameKind::Hard)
     }
 
     /// Sets the frame's hardness.
@@ -444,8 +444,8 @@ impl Debug for Frame {
 /// The hardness of a frame.
 ///
 /// This corresponds to whether or not the frame is considered to be the
-/// innermost parent of its contents. This is used to determine the
-/// coordinate reference system for gradients.
+/// innermost parent of its contents. This is used to determine the coordinate
+/// reference system for gradients.
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum FrameKind {
     /// A container which follows its parent's size.

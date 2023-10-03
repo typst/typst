@@ -77,6 +77,7 @@ struct SVGRenderer {
     gradients: Deduplicator<(Gradient, Ratio)>,
 }
 
+/// Contextual information for rendering.
 #[derive(Clone, Copy)]
 struct State {
     /// The transform of the current item.
@@ -428,7 +429,7 @@ impl SVGRenderer {
 
         if let Paint::Gradient(gradient) = paint {
             match gradient.unwrap_relative(false) {
-                Relative::This => Transform::scale(
+                Relative::Self_ => Transform::scale(
                     Ratio::new(shape_size.x.to_pt()),
                     Ratio::new(shape_size.y.to_pt()),
                 ),
@@ -457,7 +458,7 @@ impl SVGRenderer {
 
         if let Paint::Gradient(gradient) = paint {
             match gradient.unwrap_relative(false) {
-                Relative::This => shape_size,
+                Relative::Self_ => shape_size,
                 Relative::Parent => state.size,
             }
         } else {
@@ -647,7 +648,7 @@ impl SVGRenderer {
                     self.xml.write_attribute("spreadMethod", "pad");
                     self.xml.write_attribute("gradientUnits", "userSpaceOnUse");
 
-                    let angle = linear.angle.correct_aspect_ratio(*ratio);
+                    let angle = Gradient::correct_aspect_ratio(linear.angle, *ratio);
                     let (sin, cos) = (angle.sin(), angle.cos());
                     let length = sin.abs() + cos.abs();
                     let (x1, y1, x2, y2) = match angle.quadrant() {

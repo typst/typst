@@ -59,36 +59,32 @@ impl Path {
         let mut max_x = -Abs::inf();
         let mut max_y = -Abs::inf();
 
-        let mut current = Point::zero();
+        let mut cursor = Point::zero();
         for item in self.0.iter() {
             match item {
-                PathItem::MoveTo(item) => {
-                    min_x = min_x.min(current.x);
-                    min_y = min_y.min(current.y);
-                    max_x = max_x.max(current.x);
-                    max_y = max_y.max(current.y);
-
-                    current = *item;
+                PathItem::MoveTo(to) => {
+                    min_x = min_x.min(cursor.x);
+                    min_y = min_y.min(cursor.y);
+                    max_x = max_x.max(cursor.x);
+                    max_y = max_y.max(cursor.y);
+                    cursor = *to;
                 }
-                PathItem::LineTo(item) => {
-                    min_x = min_x.min(current.x);
-                    min_y = min_y.min(current.y);
-                    max_x = max_x.max(current.x);
-                    max_y = max_y.max(current.y);
-
-                    current = *item;
+                PathItem::LineTo(to) => {
+                    min_x = min_x.min(cursor.x);
+                    min_y = min_y.min(cursor.y);
+                    max_x = max_x.max(cursor.x);
+                    max_y = max_y.max(cursor.y);
+                    cursor = *to;
                 }
-                PathItem::CubicTo(c0, c1, item) => {
+                PathItem::CubicTo(c0, c1, end) => {
                     // Compute the bounding box of the bezier curve.
-                    let (xl, xh) = cubic_bezier_bounds_1d(current.x, c0.x, c1.x, item.x);
-                    let (yl, yh) = cubic_bezier_bounds_1d(current.y, c0.y, c1.y, item.y);
-
+                    let (xl, xh) = cubic_bezier_bounds_1d(cursor.x, c0.x, c1.x, end.x);
+                    let (yl, yh) = cubic_bezier_bounds_1d(cursor.y, c0.y, c1.y, end.y);
                     min_x = min_x.min(xl).min(xh);
                     min_y = min_y.min(yl).min(yh);
                     max_x = max_x.max(xl).max(xh);
                     max_y = max_y.max(yl).max(yh);
-
-                    current = *item;
+                    cursor = *end;
                 }
                 PathItem::ClosePath => (),
             }
