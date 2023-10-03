@@ -11,7 +11,7 @@ use crate::doc::{Frame, FrameItem, FrameKind, GroupItem, TextItem};
 use crate::font::Font;
 use crate::geom::{
     Abs, Angle, Axes, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin, Paint,
-    PathItem, Point, Quadrant, Ratio, Relative, Shape, Size, Transform, WeightedColor,
+    PathItem, Point, Quadrant, Ratio, RatioOrAngle, Relative, Shape, Size, Transform,
 };
 use crate::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::util::hash128;
@@ -665,8 +665,8 @@ impl SVGRenderer {
                     self.xml.write_attribute("y2", &y2);
 
                     for window in linear.stops.windows(2) {
-                        let (start_c, start_t) = window[0];
-                        let (end_c, end_t) = window[1];
+                        let (_, start_t) = window[0];
+                        let (_, end_t) = window[1];
 
                         // Generate 32 stops between the two stops.
                         // This is a workaround for a bug in many readers:
@@ -674,14 +674,7 @@ impl SVGRenderer {
                         for i in 0..=32 {
                             let t0 = i as f64 / 32.0;
                             let t = start_t + (end_t - start_t) * t0;
-                            let c = Color::mix_noalloc(
-                                [
-                                    WeightedColor::new(start_c, 1.0 - t0),
-                                    WeightedColor::new(end_c, t0),
-                                ],
-                                linear.space,
-                            )
-                            .unwrap();
+                            let c = gradient.sample(RatioOrAngle::Ratio(t));
 
                             self.xml.start_element("stop");
                             self.xml.write_attribute_fmt("offset", format_args!("{t:?}"));

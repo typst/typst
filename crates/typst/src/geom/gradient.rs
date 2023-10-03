@@ -8,7 +8,7 @@ use ecow::EcoVec;
 use typst_macros::{cast, func, scope, ty, Cast};
 use typst_syntax::{Span, Spanned};
 
-use super::color::Rgba;
+use super::color::{Hsl, Hsv, Rgba};
 use super::*;
 use crate::diag::{bail, error, SourceResult};
 use crate::eval::{array, Array, Func, IntoValue};
@@ -666,7 +666,7 @@ impl Gradient {
     /// is more intended for decorative purposes than for data visualization.
     ///
     /// ```example
-    /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.rainbow(2)))
+    /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.rainbow(20)))
     /// ````
     #[func]
     fn rainbow(
@@ -685,11 +685,10 @@ impl Gradient {
                 let l = 0.8 - 0.8 * ts;
                 let a = (1.5 - 1.5 * ts) * l * (1.0 - l);
 
-                let (sinh, cosh) = h.sin_cos();
-
-                let r = l - a * (0.14861 * cosh - 1.78277 * sinh).min(1.0);
-                let g = l - a * (0.29227 * cosh + 0.90649 * sinh).min(1.0);
-                let b = l + a * (1.97294 * cosh);
+                let (sin, cos) = h.sin_cos();
+                let r = l - a * (0.14861 * cos - 1.78277 * sin).min(1.0);
+                let g = l - a * (0.29227 * cos + 0.90649 * sin).min(1.0);
+                let b = l + a * (1.97294 * cos);
 
                 Stop::new(
                     Color::Rgba(Rgba::new(
@@ -827,7 +826,7 @@ pub enum Relative {
 }
 
 /// A color stop.
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Stop {
     pub color: Color,
     pub offset: Option<Ratio>,
@@ -987,11 +986,35 @@ fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> C
     let (col_1, pos_1) = stops[low];
     let t = (t - pos_0.get()) / (pos_1.get() - pos_0.get());
 
-    Color::mix_noalloc(
+    let out = Color::mix_noalloc(
         [WeightedColor::new(col_0, 1.0 - t), WeightedColor::new(col_1, t)],
         mixing_space,
     )
-    .unwrap()
+    .unwrap();
+
+    // Special case for handling multi-turn hue interpolation.
+    if mixing_space == ColorSpace::Hsl || mixing_space == ColorSpace::Hsv {
+        let hue_0 = col_0.to_space(mixing_space).to_vec4()[0];
+        let hue_1 = col_1.to_space(mixing_space).to_vec4()[0];
+
+        // Check if we need to interpolate over the 360° boundary.
+        if (hue_0 - hue_1).abs() > 180.0 {
+            let hue_0 = if hue_0 < hue_1 { hue_0 + 360.0 } else { hue_0 };
+            let hue_1 = if hue_1 < hue_0 { hue_1 + 360.0 } else { hue_1 };
+
+            let hue = (hue_0 * (1.0 - t as f32) + hue_1 * t as f32).rem_euclid(360.0);
+
+            if mixing_space == ColorSpace::Hsl {
+                let [_, saturation, lightness, alpha] = out.to_hsl().to_vec4();
+                return Color::Hsl(Hsl::new(hue, saturation, lightness, alpha));
+            } else if mixing_space == ColorSpace::Hsv {
+                let [_, saturation, value, alpha] = out.to_hsv().to_vec4();
+                return Color::Hsv(Hsv::new(hue, saturation, value, alpha));
+            }
+        }
+    }
+
+    out
 }
 
 impl Angle {

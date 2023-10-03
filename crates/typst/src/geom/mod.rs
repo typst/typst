@@ -38,7 +38,7 @@ pub use self::dir::Dir;
 pub use self::ellipse::ellipse;
 pub use self::em::Em;
 pub use self::fr::Fr;
-pub use self::gradient::{Gradient, LinearGradient, Relative};
+pub use self::gradient::{Gradient, LinearGradient, RatioOrAngle, Relative};
 pub use self::length::Length;
 pub use self::paint::Paint;
 pub use self::path::{Path, PathItem};

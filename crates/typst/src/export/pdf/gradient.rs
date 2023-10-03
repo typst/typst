@@ -77,6 +77,71 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
             continue;
         }
 
+        // If the color space is HSL or HSV, and we cross the 0°/360° boundary,
+        // we need to create two separate stops.
+        if gradient.space() == ColorSpace::Hsl || gradient.space() == ColorSpace::Hsv {
+            let t1 = first.offset.unwrap().get() as f32;
+            let t2 = second.offset.unwrap().get() as f32;
+            let [h1, s1, x1, _] = first.color.to_space(gradient.space()).to_vec4();
+            let [h2, s2, x2, _] = second.color.to_space(gradient.space()).to_vec4();
+
+            // Compute the intermediary stop at 360°.
+            if (h1 - h2).abs() > 180.0 {
+                let h1 = if h1 < h2 { h1 + 360.0 } else { h1 };
+                let h2 = if h2 < h1 { h2 + 360.0 } else { h2 };
+
+                // We compute where the crossing happens between zero and one
+                let t = (360.0 - h1) / (h2 - h1);
+                // We then map it back to the original range.
+                let t_prime = t * (t2 - t1) + t1;
+
+                // If the crossing happens between the two stops,
+                // we need to create an extra stop.
+                if t_prime <= t2 && t_prime >= t1 {
+                    bounds.push(t_prime);
+                    bounds.push(t_prime);
+                    bounds.push(t2);
+                    encode.extend([0.0, 1.0]);
+                    encode.extend([0.0, 1.0]);
+                    encode.extend([0.0, 1.0]);
+
+                    // These need to be individual function to encode 360.0 correctly.
+                    let func1 = ctx.alloc.bump();
+                    ctx.writer
+                        .exponential_function(func1)
+                        .range(gradient.space().range())
+                        .c0(gradient.space().convert(first.color))
+                        .c1([1.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t])
+                        .domain([0.0, 1.0])
+                        .n(1.0);
+
+                    let func2 = ctx.alloc.bump();
+                    ctx.writer
+                        .exponential_function(func2)
+                        .range(gradient.space().range())
+                        .c0([1.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t])
+                        .c1([0.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t])
+                        .domain([0.0, 1.0])
+                        .n(1.0);
+
+                    let func3 = ctx.alloc.bump();
+                    ctx.writer
+                        .exponential_function(func3)
+                        .range(gradient.space().range())
+                        .c0([0.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t])
+                        .c1(gradient.space().convert(second.color))
+                        .domain([0.0, 1.0])
+                        .n(1.0);
+
+                    functions.push(func1);
+                    functions.push(func2);
+                    functions.push(func3);
+
+                    continue;
+                }
+            }
+        }
+
         bounds.push(second.offset.unwrap().get() as f32);
         functions.push(single_gradient(ctx, first.color, second.color, gradient.space()));
         encode.extend([0.0, 1.0]);
@@ -109,14 +174,14 @@ fn single_gradient(
     color_space: ColorSpace,
 ) -> Ref {
     let reference = ctx.alloc.bump();
-    let mut exp = ctx.writer.exponential_function(reference);
 
-    exp.range(color_space.range());
-    exp.c0(color_space.convert(first_color));
-    exp.c1(color_space.convert(second_color));
-    exp.domain([0.0, 1.0]);
-    exp.n(1.0);
-    exp.finish();
+    ctx.writer
+        .exponential_function(reference)
+        .range(color_space.range())
+        .c0(color_space.convert(first_color))
+        .c1(color_space.convert(second_color))
+        .domain([0.0, 1.0])
+        .n(1.0);
 
     reference
 }

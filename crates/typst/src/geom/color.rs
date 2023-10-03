@@ -17,6 +17,9 @@ pub type Hsl = palette::hsl::Hsla<encoding::Srgb, f32>;
 pub type Hsv = palette::hsv::Hsva<encoding::Srgb, f32>;
 pub type Luma = palette::luma::Luma<encoding::Srgb, f32>;
 
+/// Equivalent of [`std::f32::EPSILON`] but for hue angles.
+const ANGLE_EPSILON: f32 = 1e-5;
+
 /// A color in a specific color space.
 ///
 /// Typst supports:
@@ -615,14 +618,18 @@ impl Color {
             Self::Hsl(c) => {
                 if alpha {
                     array![
-                        Angle::deg(c.hue.into_degrees().rem_euclid(360.0) as _),
+                        Angle::deg(
+                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
+                        ),
                         Ratio::new(c.saturation as _),
                         Ratio::new(c.lightness as _),
                         Ratio::new(c.alpha as _),
                     ]
                 } else {
                     array![
-                        Angle::deg(c.hue.into_degrees().rem_euclid(360.0) as _),
+                        Angle::deg(
+                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
+                        ),
                         Ratio::new(c.saturation as _),
                         Ratio::new(c.lightness as _),
                     ]
@@ -631,14 +638,18 @@ impl Color {
             Self::Hsv(c) => {
                 if alpha {
                     array![
-                        Angle::deg(c.hue.into_degrees().rem_euclid(360.0) as _),
+                        Angle::deg(
+                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
+                        ),
                         Ratio::new(c.saturation as _),
                         Ratio::new(c.value as _),
                         Ratio::new(c.alpha as _),
                     ]
                 } else {
                     array![
-                        Angle::deg(c.hue.into_degrees().rem_euclid(360.0) as _),
+                        Angle::deg(
+                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
+                        ),
                         Ratio::new(c.saturation as _),
                         Ratio::new(c.value as _),
                     ]
@@ -948,14 +959,17 @@ impl Color {
             Color::LinearRgb(c) => [c.red, c.green, c.blue, c.alpha],
             Color::Cmyk(c) => [c.c, c.m, c.y, c.k],
             Color::Hsl(c) => [
-                c.hue.into_degrees().rem_euclid(360.0),
+                c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON),
                 c.saturation,
                 c.lightness,
                 c.alpha,
             ],
-            Color::Hsv(c) => {
-                [c.hue.into_degrees().rem_euclid(360.0), c.saturation, c.value, c.alpha]
-            }
+            Color::Hsv(c) => [
+                c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON),
+                c.saturation,
+                c.value,
+                c.alpha,
+            ],
         }
     }
 
@@ -1121,7 +1135,9 @@ impl Debug for Color {
                     write!(
                         f,
                         "color.hsl({:?}, {:?}, {:?})",
-                        Angle::deg(c.hue.into_degrees().rem_euclid(360.0) as _),
+                        Angle::deg(
+                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
+                        ),
                         Ratio::new(c.saturation as _),
                         Ratio::new(c.lightness as _),
                     )
@@ -1129,7 +1145,9 @@ impl Debug for Color {
                     write!(
                         f,
                         "color.hsl({:?}, {:?}, {:?}, {:?})",
-                        Angle::deg(c.hue.into_degrees().rem_euclid(360.0) as _),
+                        Angle::deg(
+                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
+                        ),
                         Ratio::new(c.saturation as _),
                         Ratio::new(c.lightness as _),
                         Ratio::new(c.alpha as _),
@@ -1141,7 +1159,9 @@ impl Debug for Color {
                     write!(
                         f,
                         "color.hsv({:?}, {:?}, {:?})",
-                        Angle::deg(c.hue.into_degrees().rem_euclid(360.0) as _),
+                        Angle::deg(
+                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
+                        ),
                         Ratio::new(c.saturation as _),
                         Ratio::new(c.value as _),
                     )
@@ -1149,7 +1169,9 @@ impl Debug for Color {
                     write!(
                         f,
                         "color.hsv({:?}, {:?}, {:?}, {:?})",
-                        Angle::deg(c.hue.into_degrees().rem_euclid(360.0) as _),
+                        Angle::deg(
+                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
+                        ),
                         Ratio::new(c.saturation as _),
                         Ratio::new(c.value as _),
                         Ratio::new(c.alpha as _),

@@ -459,7 +459,7 @@ impl ColorSpaceExt for ColorSpace {
         // Also map the angle range of HSV/HSL to 0..1 instead of 0..360
         let [x, y, z] = match self {
             Self::Oklab => [x, y + 0.4, z + 0.4],
-            Self::Hsv | Self::Hsl => [x.to_degrees().rem_euclid(360.0) / 360.0, y, z],
+            Self::Hsv | Self::Hsl => [x / 360.0, y, z],
             _ => [x, y, z],
         };
 
