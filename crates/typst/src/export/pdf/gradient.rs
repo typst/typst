@@ -70,21 +70,21 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
     let mut encode = vec![];
 
     // Create the individual gradient functions for each pair of stops.
-    for window in gradient.stops().windows(2) {
+    for window in gradient.stops_ref().windows(2) {
         let (first, second) = (window[0], window[1]);
 
         // Skip stops with the same position.
-        if first.offset.unwrap().get() == second.offset.unwrap().get() {
+        if first.1.get() == second.1.get() {
             continue;
         }
 
         // If the color space is HSL or HSV, and we cross the 0°/360° boundary,
         // we need to create two separate stops.
         if gradient.space() == ColorSpace::Hsl || gradient.space() == ColorSpace::Hsv {
-            let t1 = first.offset.unwrap().get() as f32;
-            let t2 = second.offset.unwrap().get() as f32;
-            let [h1, s1, x1, _] = first.color.to_space(gradient.space()).to_vec4();
-            let [h2, s2, x2, _] = second.color.to_space(gradient.space()).to_vec4();
+            let t1 = first.1.get() as f32;
+            let t2 = second.1.get() as f32;
+            let [h1, s1, x1, _] = first.0.to_space(gradient.space()).to_vec4();
+            let [h2, s2, x2, _] = second.0.to_space(gradient.space()).to_vec4();
 
             // Compute the intermediary stop at 360°.
             if (h1 - h2).abs() > 180.0 {
@@ -111,7 +111,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
                     ctx.writer
                         .exponential_function(func1)
                         .range(gradient.space().range())
-                        .c0(gradient.space().convert(first.color))
+                        .c0(gradient.space().convert(first.0))
                         .c1([1.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t])
                         .domain([0.0, 1.0])
                         .n(1.0);
@@ -130,7 +130,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
                         .exponential_function(func3)
                         .range(gradient.space().range())
                         .c0([0.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t])
-                        .c1(gradient.space().convert(second.color))
+                        .c1(gradient.space().convert(second.0))
                         .domain([0.0, 1.0])
                         .n(1.0);
 
@@ -143,8 +143,8 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
             }
         }
 
-        bounds.push(second.offset.unwrap().get() as f32);
-        functions.push(single_gradient(ctx, first.color, second.color, gradient.space()));
+        bounds.push(second.1.get() as f32);
+        functions.push(single_gradient(ctx, first.0, second.0, gradient.space()));
         encode.extend([0.0, 1.0]);
     }
 

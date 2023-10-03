@@ -507,19 +507,19 @@ impl Gradient {
         }
 
         let n = repetitions.v;
-        let mut stops = std::iter::repeat(self.stops())
+        let mut stops = std::iter::repeat(self.stops_ref())
             .take(n)
             .enumerate()
             .flat_map(|(i, stops)| {
                 let mut stops = stops
                     .iter()
-                    .map(move |stop| {
-                        let offset = i as f64 / n as f64;
-                        let r = stop.offset.unwrap();
+                    .map(move |&(color, offset)| {
+                        let t = i as f64 / n as f64;
+                        let r = offset.get();
                         if i % 2 == 1 && mirror {
-                            (stop.color, Ratio::new(offset + (1.0 - r.get()) / n as f64))
+                            (color, Ratio::new(t + (1.0 - r) / n as f64))
                         } else {
-                            (stop.color, Ratio::new(offset + r.get() / n as f64))
+                            (color, Ratio::new(t + r / n as f64))
                         }
                     })
                     .collect::<Vec<_>>();
@@ -690,6 +690,13 @@ impl Gradient {
 }
 
 impl Gradient {
+    /// Returns a reference to the stops of this gradient.
+    pub fn stops_ref(&self) -> &[(Color, Ratio)] {
+        match self {
+            Gradient::Linear(linear) => &linear.stops,
+        }
+    }
+
     /// Samples the gradient at a given position, in the given container.
     /// Handles the aspect ratio and angle directly.
     pub fn sample_at(&self, (x, y): (f32, f32), (width, height): (f32, f32)) -> Color {
@@ -932,6 +939,7 @@ cast! {
 ///
 /// This is split into its own function because it is used by all of the
 /// different gradient types.
+#[comemo::memoize]
 fn process_stops(stops: &[Spanned<Stop>]) -> SourceResult<Vec<(Color, Ratio)>> {
     let has_offset = stops.iter().any(|stop| stop.v.offset.is_some());
     if has_offset {
@@ -952,7 +960,7 @@ fn process_stops(stops: &[Spanned<Stop>]) -> SourceResult<Vec<(Color, Ratio)>> {
             last_stop = stop.get();
         }
 
-        return stops
+        let out = stops
             .iter()
             .map(|Spanned { v: Stop { color, offset }, span }| {
                 if offset.unwrap().get() > 1.0 || offset.unwrap().get() < 0.0 {
@@ -960,7 +968,19 @@ fn process_stops(stops: &[Spanned<Stop>]) -> SourceResult<Vec<(Color, Ratio)>> {
                 }
                 Ok((*color, offset.unwrap()))
             })
-            .collect::<SourceResult<Vec<_>>>();
+            .collect::<SourceResult<Vec<_>>>()?;
+
+        if out[0].1 != Ratio::zero() {
+            bail!(error!(stops[0].span, "first stop must have an offset of 0%")
+                .with_hint("try setting this stop to `0%`"));
+        }
+
+        if out[out.len() - 1].1 != Ratio::one() {
+            bail!(error!(stops[0].span, "last stop must have an offset of 100%")
+                .with_hint("try setting this stop to `100%`"));
+        }
+
+        return Ok(out);
     }
 
     Ok(stops
