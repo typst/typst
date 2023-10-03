@@ -9,8 +9,6 @@ mod outline;
 mod page;
 
 pub use self::color::{ColorEncode, ColorSpaces};
-use self::gradient::PdfGradient;
-use self::page::Page;
 pub use self::page::{PdfPageLabel, PdfPageLabelStyle};
 
 use std::cmp::Eq;
@@ -24,6 +22,8 @@ use pdf_writer::writers::PageLabel;
 use pdf_writer::{Finish, Name, PdfWriter, Ref, TextStr};
 use xmp_writer::{LangId, RenditionClass, XmpWriter};
 
+use self::gradient::PdfGradient;
+use self::page::Page;
 use crate::doc::{Document, Lang};
 use crate::font::Font;
 use crate::geom::{Abs, Dir, Em};

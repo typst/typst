@@ -236,6 +236,7 @@ struct State {
 }
 
 impl State {
+    /// Creates a new, clean state for a given page `size`.
     pub fn new(size: Size) -> Self {
         Self {
             transform: Transform::identity(),
@@ -252,12 +253,12 @@ impl State {
 
     /// Creates the [`Transforms`] structure for the current item.
     pub fn transforms(&self, size: Size, pos: Point) -> Transforms {
-        Transforms::new(
-            self.size,
+        Transforms {
+            transform: self.transform.pre_concat(Transform::translate(pos.x, pos.y)),
+            container_transform: self.container_transform,
+            container_size: self.size,
             size,
-            self.transform.pre_concat(Transform::translate(pos.x, pos.y)),
-            self.container_transform,
-        )
+        }
     }
 }
 
@@ -272,22 +273,6 @@ pub(super) struct Transforms {
     pub container_size: Size,
     /// The size of the item.
     pub size: Size,
-}
-
-impl Transforms {
-    pub fn new(
-        container_size: Size,
-        size: Size,
-        transform: Transform,
-        container_transform: Transform,
-    ) -> Self {
-        Self {
-            transform,
-            container_transform,
-            container_size,
-            size,
-        }
-    }
 }
 
 impl PageContext<'_, '_> {
@@ -474,6 +459,7 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
 
     ctx.save_state();
     ctx.transform(translation.pre_concat(group.transform));
+
     if group.frame.kind().is_hard() {
         ctx.group_transform(translation.pre_concat(group.transform));
         ctx.size(group.frame.size());

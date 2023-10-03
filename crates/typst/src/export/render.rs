@@ -121,15 +121,12 @@ impl<'a> State<'a> {
     }
 
     /// Sets the current mask.
-    fn with_mask<'b>(self, mask: Option<&'b sk::Mask>) -> State<'b>
-    where
-        'a: 'b,
-    {
+    fn with_mask(self, mask: Option<&sk::Mask>) -> State<'_> {
         // Ensure that we're using the parent's mask if we don't have one.
         if mask.is_some() {
             State { mask, ..self }
         } else {
-            self
+            State { mask: None, ..self }
         }
     }
 
@@ -379,9 +376,9 @@ fn render_outline_glyph(
             builder.0.finish()?
         };
 
-        // TODO: implement gradients on text.
+        // TODO: Implement gradients on text.
         let mut pixmap = None;
-        let paint = text.fill.as_sk_paint(state, Size::zero(), None, &mut pixmap);
+        let paint = to_sk_paint(&text.fill, state, Size::zero(), None, &mut pixmap);
 
         let rule = sk::FillRule::default();
 
@@ -515,7 +512,7 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
     if let Some(fill) = &shape.fill {
         let mut pixmap = None;
         let mut paint: sk::Paint =
-            fill.as_sk_paint(state, shape.geometry.bbox_size(), None, &mut pixmap);
+            to_sk_paint(fill, state, shape.geometry.bbox_size(), None, &mut pixmap);
 
         if matches!(shape.geometry, Geometry::Rect(_)) {
             paint.anti_alias = false;
@@ -552,7 +549,7 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
 
             let mut pixmap = None;
             let paint =
-                paint.as_sk_paint(state, shape.geometry.bbox_size(), None, &mut pixmap);
+                to_sk_paint(paint, state, shape.geometry.bbox_size(), None, &mut pixmap);
 
             let stroke = sk::Stroke {
                 width,
@@ -703,82 +700,77 @@ impl From<sk::Transform> for Transform {
     }
 }
 
-impl Paint {
-    /// Transforms a [`Paint`] into a [`sk::Paint`].
-    /// Applying the necessary transform, if the paint is a gradient.
-    fn as_sk_paint<'a>(
-        &self,
-        state: State,
-        item_size: Size,
-        fill_transform: Option<sk::Transform>,
-        pixmap: &'a mut Option<Arc<sk::Pixmap>>,
-    ) -> sk::Paint<'a> {
-        /// Actual sampling of the gradient, cached for performance.
-        #[comemo::memoize]
-        fn cached(gradient: &Gradient, width: u32, height: u32) -> Arc<sk::Pixmap> {
-            let mut pixmap = sk::Pixmap::new(width.max(1), height.max(1)).unwrap();
-            for x in 0..width {
-                for y in 0..height {
-                    let color: sk::Color = gradient
-                        .sample_at((x as f32, y as f32), (width as f32, height as f32))
-                        .into();
+/// Transforms a [`Paint`] into a [`sk::Paint`].
+/// Applying the necessary transform, if the paint is a gradient.
+fn to_sk_paint<'a>(
+    paint: &Paint,
+    state: State,
+    item_size: Size,
+    fill_transform: Option<sk::Transform>,
+    pixmap: &'a mut Option<Arc<sk::Pixmap>>,
+) -> sk::Paint<'a> {
+    /// Actual sampling of the gradient, cached for performance.
+    #[comemo::memoize]
+    fn cached(gradient: &Gradient, width: u32, height: u32) -> Arc<sk::Pixmap> {
+        let mut pixmap = sk::Pixmap::new(width.max(1), height.max(1)).unwrap();
+        for x in 0..width {
+            for y in 0..height {
+                let color: sk::Color = gradient
+                    .sample_at((x as f32, y as f32), (width as f32, height as f32))
+                    .into();
 
-                    pixmap.pixels_mut()[(y * width + x) as usize] =
-                        color.premultiply().to_color_u8();
-                }
-            }
-
-            Arc::new(pixmap)
-        }
-
-        let mut sk_paint: sk::Paint<'_> = sk::Paint::default();
-        match self {
-            Paint::Solid(color) => {
-                sk_paint.set_color((*color).into());
-                sk_paint.anti_alias = true;
-            }
-            Paint::Gradient(gradient) => {
-                let container_size = match gradient.unwrap_relative(false) {
-                    Relative::This => item_size,
-                    Relative::Parent => state.size,
-                };
-
-                let fill_transform = fill_transform.unwrap_or_else(|| {
-                    match gradient.unwrap_relative(false) {
-                        Relative::This => sk::Transform::identity(),
-                        Relative::Parent => state
-                            .container_transform
-                            .post_concat(state.transform.invert().unwrap()),
-                    }
-                });
-                let width =
-                    (container_size.x.to_f32() * state.pixel_per_pt).ceil() as u32;
-                let height =
-                    (container_size.y.to_f32() * state.pixel_per_pt).ceil() as u32;
-
-                *pixmap = Some(cached(
-                    gradient,
-                    width.max(state.pixel_per_pt.ceil() as u32),
-                    height.max(state.pixel_per_pt.ceil() as u32),
-                ));
-
-                // We can use FilterQuality::Nearest here because we're
-                // rendering to a pixmap that is already at native resolution.
-                sk_paint.shader = sk::Pattern::new(
-                    pixmap.as_ref().unwrap().as_ref().as_ref(),
-                    sk::SpreadMode::Pad,
-                    sk::FilterQuality::Nearest,
-                    1.0,
-                    fill_transform
-                        .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt),
-                );
-
-                sk_paint.anti_alias = gradient.anti_alias();
+                pixmap.pixels_mut()[(y * width + x) as usize] =
+                    color.premultiply().to_color_u8();
             }
         }
 
-        sk_paint
+        Arc::new(pixmap)
     }
+
+    let mut sk_paint: sk::Paint<'_> = sk::Paint::default();
+    match paint {
+        Paint::Solid(color) => {
+            sk_paint.set_color((*color).into());
+            sk_paint.anti_alias = true;
+        }
+        Paint::Gradient(gradient) => {
+            let container_size = match gradient.unwrap_relative(false) {
+                Relative::Self_ => item_size,
+                Relative::Parent => state.size,
+            };
+
+            let fill_transform =
+                fill_transform.unwrap_or_else(|| match gradient.unwrap_relative(false) {
+                    Relative::Self_ => sk::Transform::identity(),
+                    Relative::Parent => state
+                        .container_transform
+                        .post_concat(state.transform.invert().unwrap()),
+                });
+            let width = (container_size.x.to_f32() * state.pixel_per_pt).ceil() as u32;
+            let height = (container_size.y.to_f32() * state.pixel_per_pt).ceil() as u32;
+
+            *pixmap = Some(cached(
+                gradient,
+                width.max(state.pixel_per_pt.ceil() as u32),
+                height.max(state.pixel_per_pt.ceil() as u32),
+            ));
+
+            // We can use FilterQuality::Nearest here because we're
+            // rendering to a pixmap that is already at native resolution.
+            sk_paint.shader = sk::Pattern::new(
+                pixmap.as_ref().unwrap().as_ref().as_ref(),
+                sk::SpreadMode::Pad,
+                sk::FilterQuality::Nearest,
+                1.0,
+                fill_transform
+                    .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt),
+            );
+
+            sk_paint.anti_alias = gradient.anti_alias();
+        }
+    }
+
+    sk_paint
 }
 
 impl From<Color> for sk::Color {

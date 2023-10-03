@@ -1,6 +1,6 @@
 // Test whether gradients work well when they are contained within a transform.
----
 
+---
 #let grad = gradient.linear(red, blue, green, purple, relative: "parent");
 #let my-rect = rect(width: 50pt, height: 50pt, fill: grad)
 #set page(

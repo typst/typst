@@ -5,20 +5,20 @@ use pdf_writer::{Finish, Ref};
 
 use super::color::{ColorSpaceExt, PaintEncode};
 use super::page::{PageContext, Transforms};
-use super::{PdfContext, RefExt};
+use super::{AbsExt, PdfContext, RefExt};
 use crate::geom::{
     Abs, Color, ColorSpace, Gradient, Numeric, Quadrant, Ratio, Relative, Transform,
 };
 
+/// A unique-transform-aspect-ratio combination that will be encoded into the
+/// PDF.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub(super) struct PdfGradient {
+pub struct PdfGradient {
     /// The transform to apply to the gradient.
     pub transform: Transform,
-
     /// The aspect ratio of the gradient.
     /// Required for aspect ratio correction.
     pub aspect_ratio: Ratio,
-
     /// The gradient.
     pub gradient: Gradient,
 }
@@ -42,7 +42,7 @@ pub fn write_gradients(ctx: &mut PdfContext) {
                 ctx.colors
                     .write(gradient.space(), shading.color_space(), &mut ctx.alloc);
 
-                let angle = linear.angle.correct_aspect_ratio(aspect_ratio);
+                let angle = Gradient::correct_aspect_ratio(linear.angle, aspect_ratio);
                 let (sin, cos) = (angle.sin(), angle.cos());
                 let length = sin.abs() + cos.abs();
 
@@ -58,10 +58,11 @@ pub fn write_gradients(ctx: &mut PdfContext) {
             }
         };
 
-        shading_pattern.matrix(transform.as_array());
+        shading_pattern.matrix(transform_to_array(transform));
     }
 }
 
+/// Writes an expotential or stitched function that expresses the gradient.
 fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
     let function = ctx.alloc.bump();
     let mut functions = vec![];
@@ -102,6 +103,8 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
     function
 }
 
+/// Writes an expontential function that expresses a single segment (between two
+/// stops) of a gradient.
 fn single_gradient(
     ctx: &mut PdfContext,
     first_color: Color,
@@ -125,7 +128,7 @@ impl PaintEncode for Gradient {
     fn set_as_fill(&self, ctx: &mut PageContext, transforms: Transforms) {
         ctx.reset_fill_color_space();
 
-        let id = use_gradient(ctx, self, transforms);
+        let id = register_gradient(ctx, self, transforms);
         let name = Name(id.as_bytes());
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
@@ -135,7 +138,7 @@ impl PaintEncode for Gradient {
     fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms) {
         ctx.reset_stroke_color_space();
 
-        let id = use_gradient(ctx, self, transforms);
+        let id = register_gradient(ctx, self, transforms);
         let name = Name(id.as_bytes());
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
@@ -143,7 +146,8 @@ impl PaintEncode for Gradient {
     }
 }
 
-fn use_gradient(
+/// Deduplicates a gradient to a named PDF resource.
+fn register_gradient(
     ctx: &mut PageContext,
     gradient: &Gradient,
     mut transforms: Transforms,
@@ -158,7 +162,7 @@ fn use_gradient(
     }
 
     let size = match gradient.unwrap_relative(false) {
-        Relative::This => transforms.size,
+        Relative::Self_ => transforms.size,
         Relative::Parent => transforms.container_size,
     };
 
@@ -170,7 +174,7 @@ fn use_gradient(
     };
 
     let transform = match gradient.unwrap_relative(false) {
-        Relative::This => transforms.transform,
+        Relative::Self_ => transforms.transform,
         Relative::Parent => transforms.container_transform,
     };
 
@@ -182,9 +186,10 @@ fn use_gradient(
                 Ratio::new(size.x.to_pt()),
                 Ratio::new(size.y.to_pt()),
             ))
-            .pre_concat(Transform::rotate(
-                gradient.dir().correct_aspect_ratio(size.aspect_ratio()),
-            )),
+            .pre_concat(Transform::rotate(Gradient::correct_aspect_ratio(
+                gradient.dir(),
+                size.aspect_ratio(),
+            ))),
         gradient: gradient.clone(),
     };
 
@@ -192,16 +197,14 @@ fn use_gradient(
     eco_format!("Gr{}", index)
 }
 
-impl Transform {
-    /// Convert to an array of floats.
-    pub fn as_array(self) -> [f32; 6] {
-        [
-            self.sx.get() as f32,
-            self.ky.get() as f32,
-            self.kx.get() as f32,
-            self.sy.get() as f32,
-            self.tx.to_pt() as f32,
-            self.ty.to_pt() as f32,
-        ]
-    }
+/// Convert to an array of floats.
+fn transform_to_array(ts: Transform) -> [f32; 6] {
+    [
+        ts.sx.get() as f32,
+        ts.ky.get() as f32,
+        ts.kx.get() as f32,
+        ts.sy.get() as f32,
+        ts.tx.to_f32(),
+        ts.ty.to_f32(),
+    ]
 }

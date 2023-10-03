@@ -216,16 +216,14 @@ impl Debug for AngleUnit {
 }
 
 /// A quadrant of the Cartesian plane.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Quadrant {
     /// The first quadrant, containing positive x and y values.
     First,
-
     /// The second quadrant, containing negative x and positive y values.
     Second,
-
     /// The third quadrant, containing negative x and y values.
     Third,
-
     /// The fourth quadrant, containing positive x and negative y values.
     Fourth,
 }
@@ -254,12 +252,8 @@ cast! {
         2 => Self::Second,
         3 => Self::Third,
         4 => Self::Fourth,
-        _ => bail!("quadrant must be 1, 2, 3, or 4, but is {}", v),
+        _ => bail!("quadrant must be 1, 2, 3, or 4, but is {v}"),
     },
-    "first" => Self::First,
-    "second" => Self::Second,
-    "third" => Self::Third,
-    "fourth" => Self::Fourth,
 }
 
 #[cfg(test)]

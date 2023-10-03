@@ -178,14 +178,13 @@ pub struct TextElem {
     /// ```
     #[parse({
         let paint: Option<Spanned<Paint>> = args.named_or_find("fill")?;
-        // TODO: Support gradients.
         if let Some(paint) = &paint {
+            // TODO: Implement gradients on text.
             if matches!(paint.v, Paint::Gradient(_)) {
                 bail!(error!(paint.span, "text fill must be a solid color")
                     .with_hint("gradients on text will be supported soon"));
             }
         }
-
         paint.map(|paint| paint.v)
     })]
     #[default(Color::BLACK.into())]

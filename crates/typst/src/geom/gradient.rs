@@ -5,6 +5,7 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use ecow::EcoVec;
+use once_cell::sync::Lazy;
 use typst_macros::{cast, func, scope, ty, Cast};
 use typst_syntax::{Span, Spanned};
 
@@ -16,9 +17,9 @@ use crate::geom::{ColorSpace, Smart};
 
 /// A color gradient.
 ///
-/// Typst supports linear gradients through the [`gradient.linear`
-/// function]($gradient.linear). Radial and conic gradients will be available
-/// soon.
+/// Typst supports linear gradients through the
+/// [`gradient.linear` function]($gradient.linear). Radial and conic gradients
+/// will be available soon.
 ///
 /// See the [tracking issue](https://github.com/typst/typst/issues/2282) for
 /// more details on the progress of gradient implementation.
@@ -275,14 +276,6 @@ pub enum Gradient {
     Linear(Arc<LinearGradient>),
 }
 
-impl Debug for Gradient {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Linear(linear) => linear.fmt(f),
-        }
-    }
-}
-
 #[scope]
 impl Gradient {
     pub const SPECTRAL: fn() -> Array = spectral;
@@ -298,20 +291,17 @@ impl Gradient {
     pub const CREST: fn() -> Array = crest;
 
     /// Creates a new linear gradient.
-    #[func(title = "Linear gradient")]
+    #[func(title = "Linear Gradient")]
     pub fn linear(
         /// The call site of this function.
         span: Span,
-
         /// The color [stops](#stops) of the gradient.
         #[variadic]
         stops: Vec<Spanned<Stop>>,
-
         /// The direction or angle of the gradient.
         #[named]
         #[default(DirOrAngle::Dir(Dir::LTR))]
         dir: DirOrAngle,
-
         /// The color space in which to interpolate the gradient.
         ///
         /// Defaults to a perceptually uniform color space called
@@ -319,7 +309,6 @@ impl Gradient {
         #[named]
         #[default(ColorSpace::Oklab)]
         space: ColorSpace,
-
         /// The [relative placement](#relativeness) of the gradient.
         ///
         /// For an element placed at the root/top level of the document, the parent
@@ -334,10 +323,8 @@ impl Gradient {
                 .with_hint("try filling the shape with a single color instead"));
         }
 
-        let stops = process_stops(&stops)?;
-
         Ok(Self::Linear(Arc::new(LinearGradient {
-            stops,
+            stops: process_stops(&stops)?,
             angle: dir.into(),
             space,
             relative,
@@ -399,7 +386,6 @@ impl Gradient {
     #[func]
     pub fn sample(
         &self,
-
         /// The position at which to sample the gradient.
         t: RatioOrAngle,
     ) -> Color {
@@ -410,7 +396,7 @@ impl Gradient {
         }
     }
 
-    /// Sample the gradient at the given positions.
+    /// Samples the gradient at the given positions.
     ///
     /// The position is either a position along the gradient (a [ratio]($ratio)
     /// between `{0%}` and `{100%}`) or an [angle]($angle). Any value outside
@@ -420,19 +406,14 @@ impl Gradient {
     #[func]
     pub fn samples(
         &self,
-
         /// The positions at which to sample the gradient.
         #[variadic]
         ts: Vec<RatioOrAngle>,
     ) -> Array {
-        Array::from(
-            ts.into_iter()
-                .map(|t| self.sample(t).into_value())
-                .collect::<EcoVec<_>>(),
-        )
+        ts.into_iter().map(|t| self.sample(t).into_value()).collect()
     }
 
-    /// Create a sharp version of this gradient.
+    /// Creates a sharp version of this gradient.
     ///
     /// _Sharp gradients_ have discreet jumps between colors, instead of a
     /// smooth transition. They are  particularly useful for creating color
@@ -446,13 +427,11 @@ impl Gradient {
     #[func]
     pub fn sharp(
         &self,
-
         /// The number of stops in the gradient.
         steps: Spanned<usize>,
-
         /// How much to smooth the gradient.
-        #[default(Spanned::new(Ratio::zero(), Span::detached()))]
         #[named]
+        #[default(Spanned::new(Ratio::zero(), Span::detached()))]
         smoothness: Spanned<Ratio>,
     ) -> SourceResult<Gradient> {
         if steps.v < 2 {
@@ -511,15 +490,13 @@ impl Gradient {
         })
     }
 
-    /// Repeat this gradient a given number of times, optionally mirroring it at
-    /// each repetition.
+    /// Repeats this gradient a given number of times, optionally mirroring it
+    /// at each repetition.
     #[func]
     pub fn repeat(
         &self,
-
         /// The number of times to repeat the gradient.
         repetitions: Spanned<usize>,
-
         /// Whether to mirror the gradient at each repetition.
         #[named]
         #[default(false)]
@@ -580,7 +557,9 @@ impl Gradient {
     /// ````
     #[func]
     fn turbo(
-        #[default(Spanned::new(20, Span::detached()))] stops: Spanned<i64>,
+        /// How many stops to sample.
+        #[default(Spanned::new(20, Span::detached()))]
+        stops: Spanned<i64>,
     ) -> SourceResult<Value> {
         fn at(t: f32) -> Rgba {
             let t = t.clamp(0.0, 1.0);
@@ -608,7 +587,7 @@ impl Gradient {
             (0..stops.v)
                 .map(|i| {
                     let t = i as f64 / (stops.v - 1) as f64;
-                    Stop::new(Color::Rgba(at(t as f32)), t).into_value()
+                    Stop::new(Color::Rgba(at(t as f32)), Ratio::new(t)).into_value()
                 })
                 .collect::<EcoVec<_>>(),
         )
@@ -625,7 +604,9 @@ impl Gradient {
     /// ````
     #[func]
     fn cividis(
-        #[default(Spanned::new(20, Span::detached()))] stops: Spanned<i64>,
+        /// How many stops to sample.
+        #[default(Spanned::new(20, Span::detached()))]
+        stops: Spanned<i64>,
     ) -> SourceResult<Value> {
         fn at(t: f32) -> Rgba {
             let t = t.clamp(0.0, 1.0);
@@ -649,7 +630,7 @@ impl Gradient {
             (0..stops.v)
                 .map(|i| {
                     let t = i as f64 / (stops.v - 1) as f64;
-                    Stop::new(Color::Rgba(at(t as f32)), t).into_value()
+                    Stop::new(Color::Rgba(at(t as f32)), Ratio::new(t)).into_value()
                 })
                 .collect::<EcoVec<_>>(),
         )
@@ -671,7 +652,9 @@ impl Gradient {
     /// ````
     #[func]
     fn rainbow(
-        #[default(Spanned::new(20, Span::detached()))] stops: Spanned<i64>,
+        /// How many stops to sample.
+        #[default(Spanned::new(20, Span::detached()))]
+        stops: Spanned<i64>,
     ) -> SourceResult<Array> {
         if stops.v < 2 {
             bail!(stops.span, "number of stops must be bigger or equal to 2");
@@ -699,7 +682,7 @@ impl Gradient {
                         b.clamp(0.0, 1.0),
                         1.0,
                     )),
-                    t as f64,
+                    Ratio::new(t as _),
                 )
                 .into_value()
             })
@@ -760,13 +743,36 @@ impl Gradient {
             if on_text {
                 Relative::Parent
             } else {
-                Relative::This
+                Relative::Self_
             }
         })
     }
+
+    /// Corrects this angle for the aspect ratio of a gradient.
+    ///
+    /// This is used specifically for gradients.
+    pub fn correct_aspect_ratio(angle: Angle, aspect_ratio: Ratio) -> Angle {
+        let rad = (angle.to_rad().rem_euclid(TAU).tan() / aspect_ratio.get()).atan();
+        let rad = match angle.quadrant() {
+            Quadrant::First => rad,
+            Quadrant::Second => rad + PI,
+            Quadrant::Third => rad + PI,
+            Quadrant::Fourth => rad + TAU,
+        };
+        Angle::rad(rad.rem_euclid(TAU))
+    }
 }
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+impl Debug for Gradient {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Linear(linear) => linear.fmt(f),
+        }
+    }
+}
+
+/// A gradient that interpolates between two colors along an axis.
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct LinearGradient {
     /// The color stops of this gradient.
     pub stops: Vec<(Color, Ratio)>,
@@ -821,8 +827,7 @@ impl Debug for LinearGradient {
 #[derive(Cast, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Relative {
     /// The gradient is relative to itself (its own bounding box).
-    #[string("self")]
-    This,
+    Self_,
     /// The gradient is relative to its parent (the parent's bounding box).
     Parent,
 }
@@ -830,13 +835,16 @@ pub enum Relative {
 /// A color stop.
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Stop {
+    /// The color for this stop.
     pub color: Color,
+    /// The offset of the stop along the gradient.
     pub offset: Option<Ratio>,
 }
 
 impl Stop {
-    pub fn new(color: Color, offset: f64) -> Self {
-        Self { color, offset: Some(Ratio::new(offset)) }
+    /// Create a new stop from a `color` and an `offset`.
+    pub fn new(color: Color, offset: Ratio) -> Self {
+        Self { color, offset: Some(offset) }
     }
 }
 
@@ -988,38 +996,18 @@ fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> C
     let (col_1, pos_1) = stops[low];
     let t = (t - pos_0.get()) / (pos_1.get() - pos_0.get());
 
-    Color::mix_noalloc(
+    Color::mix_iter(
         [WeightedColor::new(col_0, 1.0 - t), WeightedColor::new(col_1, t)],
         mixing_space,
     )
     .unwrap()
 }
 
-impl Angle {
-    /// Corrects this angle for the aspect ratio of a gradient.
-    ///
-    /// This is used specifically for gradients.
-    pub fn correct_aspect_ratio(self, aspect_ratio: Ratio) -> Self {
-        // Handle the direction of the gradient
-        let angle = self.to_rad().rem_euclid(TAU);
-
-        // Aspect ratio correction
-        let angle = (angle.tan() / aspect_ratio.get()).atan();
-        let angle = match self.quadrant() {
-            Quadrant::First => angle,
-            Quadrant::Second => angle + PI,
-            Quadrant::Third => angle + PI,
-            Quadrant::Fourth => angle + TAU,
-        };
-
-        Self::rad(angle.rem_euclid(TAU))
-    }
-}
-
+/// Defines a tradient preset as a series of colors expressed as u32s.
 macro_rules! preset {
     ($name:ident; $($colors:literal),* $(,)*) => {
         fn $name() -> Array {
-            static COLORS: once_cell::sync::Lazy<Array> = once_cell::sync::Lazy::new(|| {
+            static COLORS: Lazy<Array> = Lazy::new(|| {
                 Array::from(
                     [$(Color::from_u32($colors)),*]
                         .iter()
