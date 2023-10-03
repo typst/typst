@@ -128,7 +128,8 @@ use crate::geom::{ColorSpace, Smart};
 /// ## Note on compatibility
 /// Gradients in [{`rotate`}]($rotate) blocks may not be rendered correctly by
 /// [PDF.js](https://mozilla.github.io/pdf.js/), the PDF reader bundled with
-/// Firefox. This is due to an issue in PDF.js.
+/// Firefox. This is due to an issue in PDF.js, you can find the issue as reported
+/// on [their GitHub](https://github.com/mozilla/pdf.js/issues/17065).
 ///
 /// ## Presets
 ///
