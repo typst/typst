@@ -70,6 +70,28 @@ impl Angle {
     pub fn tan(self) -> f64 {
         self.to_rad().tan()
     }
+
+    /// Get the quadrant of the Cartesian plane that this angle lies in.
+    ///
+    /// The angle is automatically normalized to the range `0deg..=360deg`.
+    ///
+    /// The quadrants are defined as follows:
+    /// - First: `0deg..=90deg` (top-right)
+    /// - Second: `90deg..=180deg` (top-left)
+    /// - Third: `180deg..=270deg` (bottom-left)
+    /// - Fourth: `270deg..=360deg` (bottom-right)
+    pub fn quadrant(self) -> Quadrant {
+        let angle = self.to_deg().rem_euclid(360.0);
+        if angle <= 90.0 {
+            Quadrant::First
+        } else if angle <= 180.0 {
+            Quadrant::Second
+        } else if angle <= 270.0 {
+            Quadrant::Third
+        } else {
+            Quadrant::Fourth
+        }
+    }
 }
 
 #[scope]
@@ -84,29 +106,6 @@ impl Angle {
     #[func(name = "deg", title = "Degrees")]
     pub fn to_deg(self) -> f64 {
         self.to_unit(AngleUnit::Deg)
-    }
-
-    /// Get the quadrant of the Cartesian plane that this angle lies in.
-    ///
-    /// The angle is automatically normalized to the range `0deg..=360deg`.
-    ///
-    /// The quadrants are defined as follows:
-    /// - First: `0deg..=90deg` (top-right)
-    /// - Second: `90deg..=180deg` (top-left)
-    /// - Third: `180deg..=270deg` (bottom-left)
-    /// - Fourth: `270deg..=360deg` (bottom-right)
-    #[func]
-    pub fn quadrant(self) -> Quadrant {
-        let angle = self.to_deg().rem_euclid(360.0);
-        if angle <= 90.0 {
-            Quadrant::First
-        } else if angle <= 180.0 {
-            Quadrant::Second
-        } else if angle <= 270.0 {
-            Quadrant::Third
-        } else {
-            Quadrant::Fourth
-        }
     }
 }
 
@@ -216,7 +215,7 @@ impl Debug for AngleUnit {
 }
 
 /// A quadrant of the Cartesian plane.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Quadrant {
     /// The first quadrant, containing positive x and y values.
     First,
@@ -226,34 +225,6 @@ pub enum Quadrant {
     Third,
     /// The fourth quadrant, containing positive x and negative y values.
     Fourth,
-}
-
-impl Debug for Quadrant {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Quadrant::First => "1",
-            Quadrant::Second => "2",
-            Quadrant::Third => "3",
-            Quadrant::Fourth => "4",
-        })
-    }
-}
-
-cast! {
-    Quadrant,
-    self => match self {
-        Self::First => 1.into_value(),
-        Self::Second => 2.into_value(),
-        Self::Third => 3.into_value(),
-        Self::Fourth => 4.into_value(),
-    },
-    v: i64 => match v {
-        1 => Self::First,
-        2 => Self::Second,
-        3 => Self::Third,
-        4 => Self::Fourth,
-        _ => bail!("quadrant must be 1, 2, 3, or 4, but is {v}"),
-    },
 }
 
 #[cfg(test)]
