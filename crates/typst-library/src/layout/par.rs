@@ -1272,7 +1272,7 @@ fn line<'a>(
             if hyphen || start < range.end || before.is_empty() {
                 let mut reshaped = shaped.reshape(vt, &p.spans, start..range.end);
                 if hyphen || shy {
-                    reshaped.push_hyphen(vt);
+                    reshaped.push_hyphen(vt, TextElem::fallback_in(p.styles));
                 }
                 let punct = reshaped.glyphs.last();
                 if let Some(punct) = punct {
