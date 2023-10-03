@@ -70,6 +70,28 @@ impl Angle {
     pub fn tan(self) -> f64 {
         self.to_rad().tan()
     }
+
+    /// Get the quadrant of the Cartesian plane that this angle lies in.
+    ///
+    /// The angle is automatically normalized to the range `0deg..=360deg`.
+    ///
+    /// The quadrants are defined as follows:
+    /// - First: `0deg..=90deg` (top-right)
+    /// - Second: `90deg..=180deg` (top-left)
+    /// - Third: `180deg..=270deg` (bottom-left)
+    /// - Fourth: `270deg..=360deg` (bottom-right)
+    pub fn quadrant(self) -> Quadrant {
+        let angle = self.to_deg().rem_euclid(360.0);
+        if angle <= 90.0 {
+            Quadrant::First
+        } else if angle <= 180.0 {
+            Quadrant::Second
+        } else if angle <= 270.0 {
+            Quadrant::Third
+        } else {
+            Quadrant::Fourth
+        }
+    }
 }
 
 #[scope]
@@ -190,6 +212,19 @@ impl Debug for AngleUnit {
             Self::Deg => "deg",
         })
     }
+}
+
+/// A quadrant of the Cartesian plane.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum Quadrant {
+    /// The first quadrant, containing positive x and y values.
+    First,
+    /// The second quadrant, containing negative x and positive y values.
+    Second,
+    /// The third quadrant, containing negative x and y values.
+    Third,
+    /// The fourth quadrant, containing positive x and negative y values.
+    Fourth,
 }
 
 #[cfg(test)]

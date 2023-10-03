@@ -171,7 +171,7 @@ fn draw_cancel_line(
     let start = Axes::new(-mid.x, mid.y).zip_map(scales, |l, s| l * s);
     let delta = Axes::new(width, -height).zip_map(scales, |l, s| l * s);
 
-    let mut frame = Frame::new(body_size);
+    let mut frame = Frame::soft(body_size);
     frame.push(
         start.to_point(),
         FrameItem::Shape(Geometry::Line(delta.to_point()).stroked(stroke), span),

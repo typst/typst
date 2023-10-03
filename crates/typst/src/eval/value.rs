@@ -18,7 +18,7 @@ use super::{
 };
 use crate::diag::StrResult;
 use crate::eval::Datetime;
-use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel};
+use crate::geom::{Abs, Angle, Color, Em, Fr, Gradient, Length, Ratio, Rel};
 use crate::model::{Label, Styles};
 use crate::syntax::{ast, Span};
 
@@ -48,6 +48,8 @@ pub enum Value {
     Fraction(Fr),
     /// A color value: `#f79143ff`.
     Color(Color),
+    /// A gradient value: `gradient.linear(...)`.
+    Gradient(Gradient),
     /// A symbol: `arrow.l`.
     Symbol(Symbol),
     /// A version.
@@ -123,6 +125,7 @@ impl Value {
             Self::Relative(_) => Type::of::<Rel<Length>>(),
             Self::Fraction(_) => Type::of::<Fr>(),
             Self::Color(_) => Type::of::<Color>(),
+            Self::Gradient(_) => Type::of::<Gradient>(),
             Self::Symbol(_) => Type::of::<Symbol>(),
             Self::Version(_) => Type::of::<Version>(),
             Self::Str(_) => Type::of::<Str>(),
@@ -235,6 +238,7 @@ impl Debug for Value {
             Self::Relative(v) => Debug::fmt(v, f),
             Self::Fraction(v) => Debug::fmt(v, f),
             Self::Color(v) => Debug::fmt(v, f),
+            Self::Gradient(v) => Debug::fmt(v, f),
             Self::Symbol(v) => Debug::fmt(v, f),
             Self::Version(v) => Debug::fmt(v, f),
             Self::Str(v) => Debug::fmt(v, f),
@@ -283,6 +287,7 @@ impl Hash for Value {
             Self::Relative(v) => v.hash(state),
             Self::Fraction(v) => v.hash(state),
             Self::Color(v) => v.hash(state),
+            Self::Gradient(v) => v.hash(state),
             Self::Symbol(v) => v.hash(state),
             Self::Version(v) => v.hash(state),
             Self::Str(v) => v.hash(state),
@@ -588,6 +593,7 @@ primitive! { Rel<Length>:  "relative length",
 }
 primitive! { Fr: "fraction", Fraction }
 primitive! { Color: "color", Color }
+primitive! { Gradient: "gradient", Gradient }
 primitive! { Symbol: "symbol", Symbol }
 primitive! { Version: "version", Version }
 primitive! {

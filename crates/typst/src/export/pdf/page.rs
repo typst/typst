@@ -39,7 +39,7 @@ pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
         label: None,
         uses_opacities: false,
         content: Content::new(),
-        state: State::default(),
+        state: State::new(frame.size()),
         saves: vec![],
         bottom: 0.0,
         links: vec![],
@@ -104,6 +104,14 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
     }
 
     images.finish();
+
+    let mut patterns = resources.patterns();
+    for (gradient_ref, gr) in ctx.gradient_map.pdf_indices(&ctx.gradient_refs) {
+        let name = eco_format!("Gr{}", gr);
+        patterns.pair(Name(name.as_bytes()), gradient_ref);
+    }
+
+    patterns.finish();
 
     let mut ext_gs_states = resources.ext_g_states();
     for (gs_ref, gs) in ctx.ext_gs_map.pdf_indices(&ctx.ext_gs_refs) {
@@ -211,15 +219,60 @@ pub struct PageContext<'a, 'b> {
 
 /// A simulated graphics state used to deduplicate graphics state changes and
 /// keep track of the current transformation matrix for link annotations.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 struct State {
+    /// The transform of the current item.
     transform: Transform,
+    /// The transform of first hard frame in the hierarchy.
+    container_transform: Transform,
+    /// The size of the first hard frame in the hierarchy.
+    size: Size,
     font: Option<(Font, Abs)>,
     fill: Option<Paint>,
     fill_space: Option<Name<'static>>,
     external_graphics_state: Option<ExternalGraphicsState>,
     stroke: Option<FixedStroke>,
     stroke_space: Option<Name<'static>>,
+}
+
+impl State {
+    /// Creates a new, clean state for a given page `size`.
+    pub fn new(size: Size) -> Self {
+        Self {
+            transform: Transform::identity(),
+            container_transform: Transform::identity(),
+            size,
+            font: None,
+            fill: None,
+            fill_space: None,
+            external_graphics_state: None,
+            stroke: None,
+            stroke_space: None,
+        }
+    }
+
+    /// Creates the [`Transforms`] structure for the current item.
+    pub fn transforms(&self, size: Size, pos: Point) -> Transforms {
+        Transforms {
+            transform: self.transform.pre_concat(Transform::translate(pos.x, pos.y)),
+            container_transform: self.container_transform,
+            container_size: self.size,
+            size,
+        }
+    }
+}
+
+/// Subset of the state used to calculate the transform of gradients and patterns.
+#[derive(Clone, Copy)]
+pub(super) struct Transforms {
+    /// The transform of the current item.
+    pub transform: Transform,
+    /// The transform of first hard frame in the hierarchy.
+    pub container_transform: Transform,
+    /// The size of the first hard frame in the hierarchy.
+    pub container_size: Size,
+    /// The size of the item.
+    pub size: Size,
 }
 
 impl PageContext<'_, '_> {
@@ -249,13 +302,21 @@ impl PageContext<'_, '_> {
     fn set_opacities(&mut self, stroke: Option<&FixedStroke>, fill: Option<&Paint>) {
         let stroke_opacity = stroke
             .map(|stroke| {
-                let Paint::Solid(color) = stroke.paint;
+                let color = match &stroke.paint {
+                    Paint::Solid(color) => *color,
+                    Paint::Gradient(_) => return 255,
+                };
+
                 color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
             })
             .unwrap_or(255);
         let fill_opacity = fill
             .map(|paint| {
-                let Paint::Solid(color) = paint;
+                let color = match paint {
+                    Paint::Solid(color) => *color,
+                    Paint::Gradient(_) => return 255,
+                };
+
                 color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
             })
             .unwrap_or(255);
@@ -278,6 +339,11 @@ impl PageContext<'_, '_> {
         ]);
     }
 
+    fn group_transform(&mut self, transform: Transform) {
+        self.state.container_transform =
+            self.state.container_transform.pre_concat(transform);
+    }
+
     fn set_font(&mut self, font: &Font, size: Abs) {
         if self.state.font.as_ref().map(|(f, s)| (f, *s)) != Some((font, size)) {
             self.parent.font_map.insert(font.clone());
@@ -287,9 +353,15 @@ impl PageContext<'_, '_> {
         }
     }
 
-    fn set_fill(&mut self, fill: &Paint) {
-        if self.state.fill.as_ref() != Some(fill) {
-            fill.set_as_fill(self);
+    fn size(&mut self, size: Size) {
+        self.state.size = size;
+    }
+
+    fn set_fill(&mut self, fill: &Paint, transforms: Transforms) {
+        if self.state.fill.as_ref() != Some(fill)
+            || matches!(self.state.fill, Some(Paint::Gradient(_)))
+        {
+            fill.set_as_fill(self, transforms);
             self.state.fill = Some(fill.clone());
         }
     }
@@ -305,8 +377,13 @@ impl PageContext<'_, '_> {
         self.state.fill_space = None;
     }
 
-    fn set_stroke(&mut self, stroke: &FixedStroke) {
-        if self.state.stroke.as_ref() != Some(stroke) {
+    fn set_stroke(&mut self, stroke: &FixedStroke, transforms: Transforms) {
+        if self.state.stroke.as_ref() != Some(stroke)
+            || matches!(
+                self.state.stroke.as_ref().map(|s| &s.paint),
+                Some(Paint::Gradient(_))
+            )
+        {
             let FixedStroke {
                 paint,
                 thickness,
@@ -316,7 +393,7 @@ impl PageContext<'_, '_> {
                 miter_limit,
             } = stroke;
 
-            paint.set_as_stroke(self);
+            paint.set_as_stroke(self, transforms);
 
             self.content.set_line_width(thickness.to_f32());
             if self.state.stroke.as_ref().map(|s| &s.line_cap) != Some(line_cap) {
@@ -359,10 +436,11 @@ fn write_frame(ctx: &mut PageContext, frame: &Frame) {
     for &(pos, ref item) in frame.items() {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
+
         match item {
             FrameItem::Group(group) => write_group(ctx, pos, group),
-            FrameItem::Text(text) => write_text(ctx, x, y, text),
-            FrameItem::Shape(shape, _) => write_shape(ctx, x, y, shape),
+            FrameItem::Text(text) => write_text(ctx, pos, text),
+            FrameItem::Shape(shape, _) => write_shape(ctx, pos, shape),
             FrameItem::Image(image, size, _) => write_image(ctx, x, y, image, *size),
             FrameItem::Meta(meta, size) => match meta {
                 Meta::Link(dest) => write_link(ctx, pos, dest, *size),
@@ -382,6 +460,11 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
     ctx.save_state();
     ctx.transform(translation.pre_concat(group.transform));
 
+    if group.frame.kind().is_hard() {
+        ctx.group_transform(translation.pre_concat(group.transform));
+        ctx.size(group.frame.size());
+    }
+
     if group.clips {
         let size = group.frame.size();
         let w = size.x.to_f32();
@@ -399,7 +482,10 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
 }
 
 /// Encode a text run into the content stream.
-fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &TextItem) {
+fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
+    let x = pos.x.to_f32();
+    let y = pos.y.to_f32();
+
     *ctx.parent.languages.entry(text.lang).or_insert(0) += text.glyphs.len();
 
     let glyph_set = ctx.parent.glyph_sets.entry(text.font.clone()).or_default();
@@ -408,7 +494,7 @@ fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &TextItem) {
         glyph_set.entry(g.id).or_insert_with(|| segment.into());
     }
 
-    ctx.set_fill(&text.fill);
+    ctx.set_fill(&text.fill, ctx.state.transforms(Size::zero(), pos));
     ctx.set_font(&text.font, text.size);
     ctx.set_opacities(None, Some(&text.fill));
     ctx.content.begin_text();
@@ -456,7 +542,10 @@ fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &TextItem) {
 }
 
 /// Encode a geometrical shape into the content stream.
-fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
+fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
+    let x = pos.x.to_f32();
+    let y = pos.y.to_f32();
+
     let stroke = shape.stroke.as_ref().and_then(|stroke| {
         if stroke.thickness.to_f32() > 0.0 {
             Some(stroke)
@@ -470,11 +559,11 @@ fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
     }
 
     if let Some(fill) = &shape.fill {
-        ctx.set_fill(fill);
+        ctx.set_fill(fill, ctx.state.transforms(shape.geometry.bbox_size(), pos));
     }
 
     if let Some(stroke) = stroke {
-        ctx.set_stroke(stroke);
+        ctx.set_stroke(stroke, ctx.state.transforms(shape.geometry.bbox_size(), pos));
     }
 
     ctx.set_opacities(stroke, shape.fill.as_ref());

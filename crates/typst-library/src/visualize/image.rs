@@ -206,7 +206,7 @@ impl Layout for ImageElem {
         // First, place the image in a frame of exactly its size and then resize
         // the frame to the target size, center aligning the image in the
         // process.
-        let mut frame = Frame::new(fitted);
+        let mut frame = Frame::soft(fitted);
         frame.push(Point::zero(), FrameItem::Image(image, fitted, self.span()));
         frame.resize(target, Axes::splat(FixedAlign::Center));
 

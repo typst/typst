@@ -714,7 +714,7 @@ fn prepare<'a>(
                 }
             }
             Segment::Meta => {
-                let mut frame = Frame::new(Size::zero());
+                let mut frame = Frame::soft(Size::zero());
                 frame.meta(styles, true);
                 items.push(Item::Meta(frame));
             }
@@ -1521,7 +1521,7 @@ fn commit(
     }
 
     let size = Size::new(width, top + bottom);
-    let mut output = Frame::new(size);
+    let mut output = Frame::soft(size);
     output.set_baseline(top);
 
     // Construct the line's frame.

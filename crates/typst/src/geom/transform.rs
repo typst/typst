@@ -68,6 +68,55 @@ impl Transform {
     pub fn post_concat(self, next: Self) -> Self {
         next.pre_concat(self)
     }
+
+    /// Inverts the transformation.
+    ///
+    /// Returns `None` if the determinant of the matrix is zero.
+    pub fn invert(self) -> Option<Self> {
+        // Allow the trivial case to be inlined.
+        if self.is_identity() {
+            return Some(self);
+        }
+
+        // Fast path for scale-translate-only transforms.
+        if self.kx.is_zero() && self.ky.is_zero() {
+            if self.sx.is_zero() || self.sy.is_zero() {
+                return Some(Self::translate(-self.tx, -self.ty));
+            }
+
+            let inv_x = 1.0 / self.sx;
+            let inv_y = 1.0 / self.sy;
+            return Some(Self {
+                sx: Ratio::new(inv_x),
+                ky: Ratio::zero(),
+                kx: Ratio::zero(),
+                sy: Ratio::new(inv_y),
+                tx: -self.tx * inv_x,
+                ty: -self.ty * inv_y,
+            });
+        }
+
+        let det = self.sx * self.sy - self.kx * self.ky;
+        if det.get() < 1e-12 {
+            return None;
+        }
+
+        let inv_det = 1.0 / det;
+        Some(Self {
+            sx: (self.sy * inv_det),
+            ky: (-self.ky * inv_det),
+            kx: (-self.kx * inv_det),
+            sy: (self.sx * inv_det),
+            tx: Abs::pt(
+                (self.kx.get() * self.ty.to_pt() - self.sy.get() * self.tx.to_pt())
+                    * inv_det,
+            ),
+            ty: Abs::pt(
+                (self.ky.get() * self.tx.to_pt() - self.sx.get() * self.ty.to_pt())
+                    * inv_det,
+            ),
+        })
+    }
 }
 
 impl Default for Transform {

@@ -133,6 +133,39 @@
 #test-repr(oklab(rgb(1, 2, 3)).components(), (8.23%, -0.004, -0.007, 100%))
 
 ---
+// Test gradient functions.
+#test(gradient.linear(red, green, blue).kind(), gradient.linear)
+#test(gradient.linear(red, green, blue).stops(), ((red, 0%), (green, 50%), (blue, 100%)))
+#test(gradient.linear(red, green, blue, space: rgb).sample(0%), red)
+#test(gradient.linear(red, green, blue, space: rgb).sample(25%), rgb("#97873b"))
+#test(gradient.linear(red, green, blue, space: rgb).sample(50%), green)
+#test(gradient.linear(red, green, blue, space: rgb).sample(75%), rgb("#17a08c"))
+#test(gradient.linear(red, green, blue, space: rgb).sample(100%), blue)
+#test(gradient.linear(red, green, space: rgb).space(), rgb)
+#test(gradient.linear(red, green, space: oklab).space(), oklab)
+#test(gradient.linear(red, green, space: cmyk).space(), cmyk)
+#test(gradient.linear(red, green, space: luma).space(), luma)
+#test(gradient.linear(red, green, space: color.linear-rgb).space(), color.linear-rgb)
+#test(gradient.linear(red, green, space: color.hsl).space(), color.hsl)
+#test(gradient.linear(red, green, space: color.hsv).space(), color.hsv)
+#test(gradient.linear(red, green, relative: "self").relative(), "self")
+#test(gradient.linear(red, green, relative: "parent").relative(), "parent")
+#test(gradient.linear(red, green).relative(), auto)
+#test(gradient.linear(red, green).angle(), 0deg)
+#test(gradient.linear(red, green, dir: ltr).angle(), 0deg)
+#test(gradient.linear(red, green, dir: rtl).angle(), 180deg)
+#test(gradient.linear(red, green, dir: ttb).angle(), 90deg)
+#test(gradient.linear(red, green, dir: btt).angle(), 270deg)
+#test(
+  gradient.linear(red, green, blue).repeat(2).stops(),
+  ((red, 0%), (green, 25%), (blue, 50%), (red, 50%), (green, 75%), (blue, 100%))
+)
+#test(
+  gradient.linear(red, green, blue).repeat(2, mirror: true).stops(),
+  ((red, 0%), (green, 25%), (blue, 50%), (green, 75%), (red, 100%))
+)
+
+---
 // Test alignment methods.
 #test(start.axis(), "horizontal")
 #test(end.axis(), "horizontal")

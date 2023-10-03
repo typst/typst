@@ -3,7 +3,7 @@ use std::sync::Arc;
 use pdf_writer::types::DeviceNSubtype;
 use pdf_writer::{writers, Dict, Filter, Name, PdfWriter, Ref};
 
-use super::page::PageContext;
+use super::page::{PageContext, Transforms};
 use super::RefExt;
 use crate::export::pdf::deflate;
 use crate::geom::{Color, ColorSpace, Paint};
@@ -302,120 +302,192 @@ impl ColorEncode for ColorSpace {
 }
 
 /// Encodes a paint into either a fill or stroke color.
-pub trait PaintEncode {
+pub(super) trait PaintEncode {
     /// Set the paint as the fill color.
-    fn set_as_fill(&self, page_context: &mut PageContext);
+    fn set_as_fill(&self, ctx: &mut PageContext, transforms: Transforms);
 
     /// Set the paint as the stroke color.
-    fn set_as_stroke(&self, page_context: &mut PageContext);
+    fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms);
 }
 
 impl PaintEncode for Paint {
-    fn set_as_fill(&self, ctx: &mut PageContext) {
-        let Paint::Solid(color) = self;
-        match color {
+    fn set_as_fill(&self, ctx: &mut PageContext, transforms: Transforms) {
+        match self {
+            Self::Solid(c) => c.set_as_fill(ctx, transforms),
+            Self::Gradient(gradient) => gradient.set_as_fill(ctx, transforms),
+        }
+    }
+
+    fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms) {
+        match self {
+            Self::Solid(c) => c.set_as_stroke(ctx, transforms),
+            Self::Gradient(gradient) => gradient.set_as_stroke(ctx, transforms),
+        }
+    }
+}
+
+impl PaintEncode for Color {
+    fn set_as_fill(&self, ctx: &mut PageContext, _: Transforms) {
+        match self {
             Color::Luma(_) => {
                 ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(D65_GRAY);
 
-                let [l, _, _, _] = ColorSpace::D65Gray.encode(*color);
+                let [l, _, _, _] = ColorSpace::D65Gray.encode(*self);
                 ctx.content.set_fill_color([l]);
             }
             Color::Oklab(_) => {
                 ctx.parent.colors.oklab(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(OKLAB);
 
-                let [l, a, b, _] = ColorSpace::Oklab.encode(*color);
+                let [l, a, b, _] = ColorSpace::Oklab.encode(*self);
                 ctx.content.set_fill_color([l, a, b]);
             }
             Color::LinearRgb(_) => {
                 ctx.parent.colors.linear_rgb();
                 ctx.set_fill_color_space(LINEAR_SRGB);
 
-                let [r, g, b, _] = ColorSpace::LinearRgb.encode(*color);
+                let [r, g, b, _] = ColorSpace::LinearRgb.encode(*self);
                 ctx.content.set_fill_color([r, g, b]);
             }
             Color::Rgba(_) => {
                 ctx.parent.colors.srgb(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(SRGB);
 
-                let [r, g, b, _] = ColorSpace::Srgb.encode(*color);
+                let [r, g, b, _] = ColorSpace::Srgb.encode(*self);
                 ctx.content.set_fill_color([r, g, b]);
             }
             Color::Cmyk(_) => {
                 ctx.reset_fill_color_space();
 
-                let [c, m, y, k] = ColorSpace::Cmyk.encode(*color);
+                let [c, m, y, k] = ColorSpace::Cmyk.encode(*self);
                 ctx.content.set_fill_cmyk(c, m, y, k);
             }
             Color::Hsl(_) => {
                 ctx.parent.colors.hsl(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(HSL);
 
-                let [h, s, l, _] = ColorSpace::Hsl.encode(*color);
+                let [h, s, l, _] = ColorSpace::Hsl.encode(*self);
                 ctx.content.set_fill_color([h, s, l]);
             }
             Color::Hsv(_) => {
                 ctx.parent.colors.hsv(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(HSV);
 
-                let [h, s, v, _] = ColorSpace::Hsv.encode(*color);
+                let [h, s, v, _] = ColorSpace::Hsv.encode(*self);
                 ctx.content.set_fill_color([h, s, v]);
             }
         }
     }
 
-    fn set_as_stroke(&self, ctx: &mut PageContext) {
-        let Paint::Solid(color) = self;
-        match color {
+    fn set_as_stroke(&self, ctx: &mut PageContext, _: Transforms) {
+        match self {
             Color::Luma(_) => {
                 ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(D65_GRAY);
 
-                let [l, _, _, _] = ColorSpace::D65Gray.encode(*color);
+                let [l, _, _, _] = ColorSpace::D65Gray.encode(*self);
                 ctx.content.set_stroke_color([l]);
             }
             Color::Oklab(_) => {
                 ctx.parent.colors.oklab(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(OKLAB);
 
-                let [l, a, b, _] = ColorSpace::Oklab.encode(*color);
+                let [l, a, b, _] = ColorSpace::Oklab.encode(*self);
                 ctx.content.set_stroke_color([l, a, b]);
             }
             Color::LinearRgb(_) => {
                 ctx.parent.colors.linear_rgb();
                 ctx.set_stroke_color_space(LINEAR_SRGB);
 
-                let [r, g, b, _] = ColorSpace::LinearRgb.encode(*color);
+                let [r, g, b, _] = ColorSpace::LinearRgb.encode(*self);
                 ctx.content.set_stroke_color([r, g, b]);
             }
             Color::Rgba(_) => {
                 ctx.parent.colors.srgb(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(SRGB);
 
-                let [r, g, b, _] = ColorSpace::Srgb.encode(*color);
+                let [r, g, b, _] = ColorSpace::Srgb.encode(*self);
                 ctx.content.set_stroke_color([r, g, b]);
             }
             Color::Cmyk(_) => {
                 ctx.reset_stroke_color_space();
 
-                let [c, m, y, k] = ColorSpace::Cmyk.encode(*color);
+                let [c, m, y, k] = ColorSpace::Cmyk.encode(*self);
                 ctx.content.set_stroke_cmyk(c, m, y, k);
             }
             Color::Hsl(_) => {
                 ctx.parent.colors.hsl(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(HSL);
 
-                let [h, s, l, _] = ColorSpace::Hsl.encode(*color);
+                let [h, s, l, _] = ColorSpace::Hsl.encode(*self);
                 ctx.content.set_stroke_color([h, s, l]);
             }
             Color::Hsv(_) => {
                 ctx.parent.colors.hsv(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(HSV);
 
-                let [h, s, v, _] = ColorSpace::Hsv.encode(*color);
+                let [h, s, v, _] = ColorSpace::Hsv.encode(*self);
                 ctx.content.set_stroke_color([h, s, v]);
             }
         }
+    }
+}
+
+/// Extra color space functions.
+pub(super) trait ColorSpaceExt {
+    /// Returns the range of the color space.
+    fn range(self) -> [f32; 6];
+
+    /// Converts a color to the color space.
+    fn convert<U: QuantizedColor>(self, color: Color) -> [U; 3];
+}
+
+impl ColorSpaceExt for ColorSpace {
+    fn range(self) -> [f32; 6] {
+        [0.0, 1.0, 0.0, 1.0, 0.0, 1.0]
+    }
+
+    fn convert<U: QuantizedColor>(self, color: Color) -> [U; 3] {
+        let range = self.range();
+        let [x, y, z, _] = color.to_space(self).to_vec4();
+
+        // We need to add 0.4 to y and z for Oklab
+        // This is because DeviceN color spaces in PDF can **only** be in
+        // the range 0..1 and some readers enforce that.
+        // The oklab color space is in the range -0.4..0.4
+        // Also map the angle range of HSV/HSL to 0..1 instead of 0..360
+        let [x, y, z] = match self {
+            Self::Oklab => [x, y + 0.4, z + 0.4],
+            Self::Hsv | Self::Hsl => [x / 360.0, y, z],
+            _ => [x, y, z],
+        };
+
+        [
+            U::quantize(x, [range[0], range[1]]),
+            U::quantize(y, [range[2], range[3]]),
+            U::quantize(z, [range[4], range[5]]),
+        ]
+    }
+}
+
+/// Quantizes a color component to a specific type.
+pub(super) trait QuantizedColor {
+    fn quantize(color: f32, range: [f32; 2]) -> Self;
+}
+
+impl QuantizedColor for u16 {
+    fn quantize(color: f32, range: [f32; 2]) -> Self {
+        let value = (color - range[0]) / (range[1] - range[0]);
+        (value.max(0.0).min(1.0) * Self::MAX as f32)
+            .round()
+            .max(0.0)
+            .min(Self::MAX as f32) as Self
+    }
+}
+
+impl QuantizedColor for f32 {
+    fn quantize(color: f32, [min, max]: [f32; 2]) -> Self {
+        color.clamp(min, max)
     }
 }

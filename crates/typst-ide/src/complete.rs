@@ -1169,6 +1169,26 @@ impl<'a> CompletionContext<'a> {
                         "cmyk(${c}, ${m}, ${y}, ${k})",
                         "A custom CMYK color.",
                     );
+                    self.snippet_completion(
+                        "oklab()",
+                        "oklab(${l}, ${a}, ${b}, ${alpha})",
+                        "A custom Oklab color.",
+                    );
+                    self.snippet_completion(
+                        "color.linear-rgb()",
+                        "color.linear-rgb(${r}, ${g}, ${b}, ${a})",
+                        "A custom linear RGBA color.",
+                    );
+                    self.snippet_completion(
+                        "color.hsv()",
+                        "color.hsv(${h}, ${s}, ${v}, ${a})",
+                        "A custom HSVA color.",
+                    );
+                    self.snippet_completion(
+                        "color.hsl()",
+                        "color.hsl(${h}, ${s}, ${l}, ${a})",
+                        "A custom HSLA color.",
+                    );
                     self.scope_completions(false, |value| value.ty() == *ty);
                 } else if *ty == Type::of::<Func>() {
                     self.snippet_completion(

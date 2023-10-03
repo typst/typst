@@ -492,7 +492,7 @@ fn layout(
         if kind.is_quadratic() {
             size = Size::splat(size.min_by_side());
         }
-        frame = Frame::new(size);
+        frame = Frame::soft(size);
     }
 
     // Prepare stroke.

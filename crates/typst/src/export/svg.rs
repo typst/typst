@@ -7,11 +7,11 @@ use ecow::{eco_format, EcoString};
 use ttf_parser::{GlyphId, OutlineBuilder};
 use xmlwriter::XmlWriter;
 
-use crate::doc::{Frame, FrameItem, GroupItem, TextItem};
+use crate::doc::{Frame, FrameItem, FrameKind, GroupItem, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    Abs, Angle, Axes, Color, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem,
-    Ratio, Shape, Size, Transform,
+    Abs, Angle, Axes, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin, Paint,
+    PathItem, Point, Quadrant, Ratio, RatioOrAngle, Relative, Shape, Size, Transform,
 };
 use crate::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::util::hash128;
@@ -21,7 +21,9 @@ use crate::util::hash128;
 pub fn svg(frame: &Frame) -> String {
     let mut renderer = SVGRenderer::new();
     renderer.write_header(frame.size());
-    renderer.render_frame(frame, Transform::identity());
+
+    let state = State::new(frame.size(), Transform::identity());
+    renderer.render_frame(state, Transform::identity(), frame);
     renderer.finalize()
 }
 
@@ -40,7 +42,9 @@ pub fn svg_merged(frames: &[Frame], padding: Abs) -> String {
 
     let [x, mut y] = [padding; 2];
     for frame in frames {
-        renderer.render_frame(frame, Transform::translate(x, y));
+        let ts = Transform::translate(x, y);
+        let state = State::new(frame.size(), ts);
+        renderer.render_frame(state, ts, frame);
         y += frame.height() + padding;
     }
 
@@ -58,6 +62,87 @@ struct SVGRenderer {
     /// attribute of the group. The clip path is in the format of `M x y L x y C
     /// x1 y1 x2 y2 x y Z`.
     clip_paths: Deduplicator<EcoString>,
+    /// Deduplicated gradients with transform matrices. They use a reference
+    /// (`href`) to a "source" gradient instead of being defined inline.
+    /// This saves a lot of space since gradients are often reused but with
+    /// different transforms. Therefore this allows us to reuse the same gradient
+    /// multiple times.
+    gradient_refs: Deduplicator<GradientRef>,
+    /// These are the actual gradients being written in the SVG file.
+    /// These gradients are deduplicated because they do not contain the transform
+    /// matrix, allowing them to be reused across multiple invocations.
+    ///
+    /// The `Ratio` is the aspect ratio of the gradient, this is used to correct
+    /// the angle of the gradient.
+    gradients: Deduplicator<(Gradient, Ratio)>,
+}
+
+/// Contextual information for rendering.
+#[derive(Clone, Copy)]
+struct State {
+    /// The transform of the current item.
+    transform: Transform,
+    /// The size of the first hard frame in the hierarchy.
+    size: Size,
+}
+
+impl State {
+    fn new(size: Size, transform: Transform) -> Self {
+        Self { size, transform }
+    }
+
+    /// Pre translate the current item's transform.
+    fn pre_translate(self, pos: Point) -> Self {
+        self.pre_concat(Transform::translate(pos.x, pos.y))
+    }
+
+    /// Pre concat the current item's transform.
+    fn pre_concat(self, transform: Transform) -> Self {
+        Self {
+            transform: self.transform.pre_concat(transform),
+            ..self
+        }
+    }
+
+    /// Sets the size of the first hard frame in the hierarchy.
+    fn with_size(self, size: Size) -> Self {
+        Self { size, ..self }
+    }
+
+    /// Sets the current item's transform.
+    fn with_transform(self, transform: Transform) -> Self {
+        Self { transform, ..self }
+    }
+}
+
+/// A reference to a deduplicated gradient, with a transform matrix.
+///
+/// Allows gradients to be reused across multiple invocations,
+/// simply by changing the transform matrix.
+#[derive(Hash)]
+struct GradientRef {
+    /// The ID of the deduplicated gradient
+    id: Id,
+    /// The gradient kind (used to determine the SVG element to use)
+    /// but without needing to clone the entire gradient.
+    kind: GradientKind,
+    /// The transform matrix to apply to the gradient.
+    transform: Transform,
+}
+
+/// The kind of linear gradient.
+#[derive(Hash, Clone, Copy, PartialEq, Eq)]
+enum GradientKind {
+    /// A linear gradient.
+    Linear,
+}
+
+impl From<&Gradient> for GradientKind {
+    fn from(value: &Gradient) -> Self {
+        match value {
+            Gradient::Linear { .. } => GradientKind::Linear,
+        }
+    }
 }
 
 /// Represents a glyph to be rendered.
@@ -79,6 +164,8 @@ impl SVGRenderer {
             xml: XmlWriter::new(xmlwriter::Options::default()),
             glyphs: Deduplicator::new('g'),
             clip_paths: Deduplicator::new('c'),
+            gradient_refs: Deduplicator::new('g'),
+            gradients: Deduplicator::new('f'),
         }
     }
 
@@ -100,13 +187,18 @@ impl SVGRenderer {
     }
 
     /// Render a frame with the given transform.
-    fn render_frame(&mut self, frame: &Frame, ts: Transform) {
+    fn render_frame(&mut self, state: State, ts: Transform, frame: &Frame) {
         self.xml.start_element("g");
         if !ts.is_identity() {
             self.xml.write_attribute("transform", &SvgMatrix(ts));
         }
 
         for (pos, item) in frame.items() {
+            // File size optimization
+            if matches!(item, FrameItem::Meta(_, _)) {
+                continue;
+            }
+
             let x = pos.x.to_pt();
             let y = pos.y.to_pt();
             self.xml.start_element("g");
@@ -114,11 +206,17 @@ impl SVGRenderer {
                 .write_attribute_fmt("transform", format_args!("translate({x} {y})"));
 
             match item {
-                FrameItem::Group(group) => self.render_group(group),
-                FrameItem::Text(text) => self.render_text(text),
-                FrameItem::Shape(shape, _) => self.render_shape(shape),
+                FrameItem::Group(group) => {
+                    self.render_group(state.pre_translate(*pos), group)
+                }
+                FrameItem::Text(text) => {
+                    self.render_text(state.pre_translate(*pos), text)
+                }
+                FrameItem::Shape(shape, _) => {
+                    self.render_shape(state.pre_translate(*pos), shape)
+                }
                 FrameItem::Image(image, size, _) => self.render_image(image, size),
-                FrameItem::Meta(_, _) => {}
+                FrameItem::Meta(_, _) => unreachable!(),
             };
 
             self.xml.end_element();
@@ -129,7 +227,14 @@ impl SVGRenderer {
 
     /// Render a group. If the group has `clips` set to true, a clip path will
     /// be created.
-    fn render_group(&mut self, group: &GroupItem) {
+    fn render_group(&mut self, state: State, group: &GroupItem) {
+        let state = match group.frame.kind() {
+            FrameKind::Soft => state.pre_concat(group.transform),
+            FrameKind::Hard => {
+                state.with_transform(group.transform).with_size(group.frame.size())
+            }
+        };
+
         self.xml.start_element("g");
         self.xml.write_attribute("class", "typst-group");
 
@@ -146,14 +251,15 @@ impl SVGRenderer {
             self.xml.write_attribute_fmt("clip-path", format_args!("url(#{id})"));
         }
 
-        self.render_frame(&group.frame, group.transform);
+        self.render_frame(state, group.transform, &group.frame);
         self.xml.end_element();
     }
 
     /// Render a text item. The text is rendered as a group of glyphs. We will
     /// try to render the text as SVG first, then bitmap, then outline. If none
     /// of them works, we will skip the text.
-    fn render_text(&mut self, text: &TextItem) {
+    // TODO: implement gradient on text.
+    fn render_text(&mut self, _state: State, text: &TextItem) {
         let scale: f64 = text.size.to_pt() / text.font.units_per_em();
         let inv_scale: f64 = text.font.units_per_em() / text.size.to_pt();
 
@@ -270,25 +376,33 @@ impl SVGRenderer {
         self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
         self.xml
             .write_attribute_fmt("x", format_args!("{}", x_offset * inv_scale));
-        self.write_fill(&text.fill);
+        self.write_fill(&text.fill, Size::zero(), Transform::identity());
         self.xml.end_element();
 
         Some(())
     }
 
     /// Render a shape element.
-    fn render_shape(&mut self, shape: &Shape) {
+    fn render_shape(&mut self, state: State, shape: &Shape) {
         self.xml.start_element("path");
         self.xml.write_attribute("class", "typst-shape");
 
         if let Some(paint) = &shape.fill {
-            self.write_fill(paint);
+            self.write_fill(
+                paint,
+                self.shape_fill_size(state, paint, shape),
+                self.shape_paint_transform(state, paint, shape),
+            );
         } else {
             self.xml.write_attribute("fill", "none");
         }
 
         if let Some(stroke) = &shape.stroke {
-            self.write_stroke(stroke);
+            self.write_stroke(
+                stroke,
+                self.shape_fill_size(state, &stroke.paint, shape),
+                self.shape_paint_transform(state, &stroke.paint, shape),
+            );
         }
 
         let path = convert_geometry_to_path(&shape.geometry);
@@ -296,16 +410,114 @@ impl SVGRenderer {
         self.xml.end_element();
     }
 
+    /// Calculate the transform of the shape's fill or stroke.
+    fn shape_paint_transform(
+        &self,
+        state: State,
+        paint: &Paint,
+        shape: &Shape,
+    ) -> Transform {
+        let mut shape_size = shape.geometry.bbox_size();
+        // Edge cases for strokes.
+        if shape_size.x.to_pt() == 0.0 {
+            shape_size.x = Abs::pt(1.0);
+        }
+
+        if shape_size.y.to_pt() == 0.0 {
+            shape_size.y = Abs::pt(1.0);
+        }
+
+        if let Paint::Gradient(gradient) = paint {
+            match gradient.unwrap_relative(false) {
+                Relative::Self_ => Transform::scale(
+                    Ratio::new(shape_size.x.to_pt()),
+                    Ratio::new(shape_size.y.to_pt()),
+                ),
+                Relative::Parent => Transform::scale(
+                    Ratio::new(state.size.x.to_pt()),
+                    Ratio::new(state.size.y.to_pt()),
+                )
+                .post_concat(state.transform.invert().unwrap()),
+            }
+        } else {
+            Transform::identity()
+        }
+    }
+
+    /// Calculate the size of the shape's fill.
+    fn shape_fill_size(&self, state: State, paint: &Paint, shape: &Shape) -> Size {
+        let mut shape_size = shape.geometry.bbox_size();
+        // Edge cases for strokes.
+        if shape_size.x.to_pt() == 0.0 {
+            shape_size.x = Abs::pt(1.0);
+        }
+
+        if shape_size.y.to_pt() == 0.0 {
+            shape_size.y = Abs::pt(1.0);
+        }
+
+        if let Paint::Gradient(gradient) = paint {
+            match gradient.unwrap_relative(false) {
+                Relative::Self_ => shape_size,
+                Relative::Parent => state.size,
+            }
+        } else {
+            shape_size
+        }
+    }
+
     /// Write a fill attribute.
-    fn write_fill(&mut self, fill: &Paint) {
-        let Paint::Solid(color) = fill;
-        self.xml.write_attribute("fill", &color.encode());
+    fn write_fill(&mut self, fill: &Paint, size: Size, ts: Transform) {
+        match fill {
+            Paint::Solid(color) => self.xml.write_attribute("fill", &color.encode()),
+            Paint::Gradient(gradient) => {
+                let id = self.push_gradient(gradient, size, ts);
+                self.xml.write_attribute_fmt("fill", format_args!("url(#{id})"));
+            }
+        }
+    }
+
+    /// Pushes a gradient to the list of gradients to write SVG file.
+    ///
+    /// If the gradient is already present, returns the id of the existing
+    /// gradient. Otherwise, inserts the gradient and returns the id of the
+    /// inserted gradient. If the transform of the gradient is the identify
+    /// matrix, the returned ID will be the ID of the "source" gradient,
+    /// this is a file size optimization.
+    fn push_gradient(&mut self, gradient: &Gradient, size: Size, ts: Transform) -> Id {
+        let gradient_id = self
+            .gradients
+            .insert_with(hash128(&(gradient, size.aspect_ratio())), || {
+                (gradient.clone(), size.aspect_ratio())
+            });
+
+        if ts.is_identity() {
+            return gradient_id;
+        }
+
+        self.gradient_refs
+            .insert_with(hash128(&(gradient_id, ts)), || GradientRef {
+                id: gradient_id,
+                kind: gradient.into(),
+                transform: ts,
+            })
     }
 
     /// Write a stroke attribute.
-    fn write_stroke(&mut self, stroke: &FixedStroke) {
-        let Paint::Solid(color) = stroke.paint;
-        self.xml.write_attribute("stroke", &color.encode());
+    fn write_stroke(
+        &mut self,
+        stroke: &FixedStroke,
+        size: Size,
+        fill_transform: Transform,
+    ) {
+        match &stroke.paint {
+            Paint::Solid(color) => self.xml.write_attribute("stroke", &color.encode()),
+            Paint::Gradient(gradient) => {
+                let id = self.push_gradient(gradient, size, fill_transform);
+                self.xml.write_attribute_fmt("stroke", format_args!("url(#{id})"));
+            }
+        }
+
         self.xml.write_attribute("stroke-width", &stroke.thickness.to_pt());
         self.xml.write_attribute(
             "stroke-linecap",
@@ -354,11 +566,17 @@ impl SVGRenderer {
     fn finalize(mut self) -> String {
         self.write_glyph_defs();
         self.write_clip_path_defs();
+        self.write_gradients();
+        self.write_gradient_refs();
         self.xml.end_document()
     }
 
     /// Build the glyph definitions.
     fn write_glyph_defs(&mut self) {
+        if self.glyphs.is_empty() {
+            return;
+        }
+
         self.xml.start_element("defs");
         self.xml.write_attribute("id", "glyph");
 
@@ -394,6 +612,10 @@ impl SVGRenderer {
 
     /// Build the clip path definitions.
     fn write_clip_path_defs(&mut self) {
+        if self.clip_paths.is_empty() {
+            return;
+        }
+
         self.xml.start_element("defs");
         self.xml.write_attribute("id", "clip-path");
 
@@ -403,6 +625,103 @@ impl SVGRenderer {
             self.xml.start_element("path");
             self.xml.write_attribute("d", &path);
             self.xml.end_element();
+            self.xml.end_element();
+        }
+
+        self.xml.end_element();
+    }
+
+    /// Write the raw gradients (without transform) to the SVG file.
+    fn write_gradients(&mut self) {
+        if self.gradients.is_empty() {
+            return;
+        }
+
+        self.xml.start_element("defs");
+        self.xml.write_attribute("id", "gradients");
+
+        for (id, (gradient, ratio)) in self.gradients.iter() {
+            match &gradient {
+                Gradient::Linear(linear) => {
+                    self.xml.start_element("linearGradient");
+                    self.xml.write_attribute("id", &id);
+                    self.xml.write_attribute("spreadMethod", "pad");
+                    self.xml.write_attribute("gradientUnits", "userSpaceOnUse");
+
+                    let angle = Gradient::correct_aspect_ratio(linear.angle, *ratio);
+                    let (sin, cos) = (angle.sin(), angle.cos());
+                    let length = sin.abs() + cos.abs();
+                    let (x1, y1, x2, y2) = match angle.quadrant() {
+                        Quadrant::First => (0.0, 0.0, cos * length, sin * length),
+                        Quadrant::Second => (1.0, 0.0, cos * length + 1.0, sin * length),
+                        Quadrant::Third => {
+                            (1.0, 1.0, cos * length + 1.0, sin * length + 1.0)
+                        }
+                        Quadrant::Fourth => (0.0, 1.0, cos * length, sin * length + 1.0),
+                    };
+
+                    self.xml.write_attribute("x1", &x1);
+                    self.xml.write_attribute("y1", &y1);
+                    self.xml.write_attribute("x2", &x2);
+                    self.xml.write_attribute("y2", &y2);
+
+                    for window in linear.stops.windows(2) {
+                        let (_, start_t) = window[0];
+                        let (_, end_t) = window[1];
+
+                        // Generate (256 / len) stops between the two stops.
+                        // This is a workaround for a bug in many readers:
+                        // They tend to just ignore the color space of the gradient.
+                        // The goal is to have smooth gradients but not to balloon the file size
+                        // too much if there are already a lot of stops as in most presets.
+                        let len = (256 / linear.stops.len() as u32).max(1);
+                        for i in 0..len {
+                            let t0 = i as f64 / (len - 1) as f64;
+                            let t = start_t + (end_t - start_t) * t0;
+                            let c = gradient.sample(RatioOrAngle::Ratio(t));
+
+                            self.xml.start_element("stop");
+                            self.xml.write_attribute_fmt("offset", format_args!("{t:?}"));
+                            self.xml.write_attribute("stop-color", &c.to_hex());
+                            self.xml.end_element();
+                        }
+                    }
+
+                    self.xml.end_element();
+                }
+            }
+        }
+
+        self.xml.end_element()
+    }
+
+    fn write_gradient_refs(&mut self) {
+        if self.gradient_refs.is_empty() {
+            return;
+        }
+
+        self.xml.start_element("defs");
+        self.xml.write_attribute("id", "gradient-refs");
+        for (id, gradient_ref) in self.gradient_refs.iter() {
+            match gradient_ref.kind {
+                GradientKind::Linear => {
+                    self.xml.start_element("linearGradient");
+                    self.xml.write_attribute(
+                        "gradientTransform",
+                        &SvgMatrix(gradient_ref.transform),
+                    );
+                }
+            }
+
+            self.xml.write_attribute("id", &id);
+
+            // Writing the href attribute to the "reference" gradient.
+            self.xml
+                .write_attribute_fmt("href", format_args!("#{}", gradient_ref.id));
+
+            // Also writing the xlink:href attribute for compatibility.
+            self.xml
+                .write_attribute_fmt("xlink:href", format_args!("#{}", gradient_ref.id));
             self.xml.end_element();
         }
 
@@ -557,7 +876,7 @@ fn convert_image_to_base64_url(image: &Image) -> EcoString {
 #[derive(Debug, Clone)]
 struct Deduplicator<T> {
     kind: char,
-    vec: Vec<T>,
+    vec: Vec<(u128, T)>,
     present: HashMap<u128, Id>,
 }
 
@@ -576,24 +895,32 @@ impl<T> Deduplicator<T> {
     {
         *self.present.entry(hash).or_insert_with(|| {
             let index = self.vec.len();
-            self.vec.push(f());
-            Id(self.kind, index)
+            self.vec.push((hash, f()));
+            Id(self.kind, hash, index)
         })
     }
 
     /// Iterate over the the elements alongside their ids.
     fn iter(&self) -> impl Iterator<Item = (Id, &T)> {
-        self.vec.iter().enumerate().map(|(i, v)| (Id(self.kind, i), v))
+        self.vec
+            .iter()
+            .enumerate()
+            .map(|(i, (id, v))| (Id(self.kind, *id, i), v))
+    }
+
+    /// Returns true if the deduplicator is empty.
+    fn is_empty(&self) -> bool {
+        self.vec.is_empty()
     }
 }
 
 /// Identifies a `<def>`.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-struct Id(char, usize);
+struct Id(char, u128, usize);
 
 impl Display for Id {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{}", self.0, self.1)
+        write!(f, "{}{:0X}", self.0, self.1)
     }
 }
 
