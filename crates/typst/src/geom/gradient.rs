@@ -16,70 +16,71 @@ use crate::geom::{ColorSpace, Smart};
 
 /// A color gradient.
 ///
-/// Typst supports:
-/// - Linear gradients through the [`gradient.linear` function]($gradient.linear)
-/// - 🚧 Radial gradient will soon™️ be available
-/// - 🚧 Conic gradient will soon™️ be available
+/// Typst supports linear gradients through the [`gradient.linear`
+/// function]($gradient.linear). Radial and conic gradients will be available
+/// soon.
 ///
-/// See the [tracking issue](https://github.com/typst/typst/issues/2282) for more
-/// details on the progress of gradients.
+/// See the [tracking issue](https://github.com/typst/typst/issues/2282) for
+/// more details on the progress of gradient implementation.
 ///
 /// ## Stops
-/// A gradient is composed of a series of stops, each stop has a color and an offset.
-/// The offset is a [ratio]($ratio) between 0% and 100% that determines the position
-/// of the stop along the gradient. The stop's color is the color of the gradient at that
-/// position. In Typst, you can choose to omit the offset, in which case it will be
-/// automatically computed for you, and all the stops will be evenly spaced.
+/// A gradient is composed of a series of stops. Each of these stops has a color
+/// and an offset. The offset is a [ratio]($ratio) between `{0%}` and `{100%}`
+/// that determines how far along the gradient the stop is located. The stop's
+/// color is the color of the gradient at that position. You can choose to omit
+/// the offsets when defining a gradient. In this case, Typst will space all
+/// stops evenly.
 ///
 /// ## Usage
 /// Gradients can be used for the following purposes:
-/// - As fills to paint the interior of a shape: `rect(fill: gradient.linear(..))`
-/// - As strokes to paint the outline of a shape: `rect(stroke: 1pt + gradient.linear(..))`
+/// - As fills to paint the interior of a shape: `{rect(fill:
+///   gradient.linear(..))}`
+/// - As strokes to paint the outline of a shape: `{rect(stroke: 1pt +
+///   gradient.linear(..))}`
 /// - As color maps you can [sample]($gradient.sample) from:
-///   `gradient.linear(..).sample(0.5)`
+///   `{gradient.linear(..).sample(0.5)}`
 ///
-/// ## 🚧 Gradients on text
-/// Currently gradients are not supported on text. However, in an upcoming release,
-/// gradients will be supported on text.
+/// Gradients are not currently supported on text.
 ///
 /// ## Relativeness
-/// Gradients can be relative to either the shape they are painted on, or to the
-/// nearest parent containers. This is controlled by the `relative` argument of the
-/// constructors. By default, gradients are relative to the shape they are painted on,
-/// unless they are painted on text, in which case they are relative to the parent.
+/// The location of the `{0%}` and `{100%}` stops is dependant on the dimensions
+/// of a container. This container can either be the shape they are painted on,
+/// or to the closest container ancestor. This is controlled by the `relative`
+/// argument of a gradient constructor. By default, gradients are relative to
+/// the shape they are painted on.
 ///
-/// The way the parent is determined is as follows:
-/// - For shapes that are placed at the root/top level of the document, the parent
-///   is the page itself.
-/// - For other shapes, the parent is the innermost [`block`]($block) or [`box`]($box)
-///   that contains the shape. This includes the boxes and blocks that are implicitly
-///   created by show rules. For example, a [`rotate`]($rotate) will not affect the
-///   parent of a gradient, but a [`grid`]($grid) will.
+/// Typst determines ancestor container as follows:
+/// - For shapes that are placed at the root/top level of the document, the
+///   closest ancestor is the page itself.
+/// - For other shapes, the ancestor is the innermost [`block`]($block) or
+///   [`box`]($box) that contains the shape. This includes the boxes and blocks
+///   that are implicitly created by show rules and elements. For example, a
+///   [`rotate`]($rotate) will not affect the parent of a gradient, but a
+///   [`grid`]($grid) will.
 ///
 /// ## Color spaces and interpolation
 /// Gradients can be interpolated in any color space. By default, gradients are
-/// interpolated in the [Oklab]($color.oklab) color space, which is a perceptually
-/// uniform color space. This means that the gradient will be perceived as having
-/// a uniform progression of colors. This is particularly useful for data
-/// visualization. You can learn more with Thomas Bury's
-/// [blog post](https://towardsdatascience.com/your-colour-map-is-bad-heres-how-to-fix-it-lessons-learnt-from-the-event-horizon-telescope-b82523f09469)
-/// or in Björn Ottosson's [blog post](https://bottosson.github.io/posts/oklab/) or
-/// on matplotlib's [blog](https://matplotlib.org/stable/users/explain/colors/colormaps.html).
+/// interpolated in the [Oklab]($color.oklab) color space, which is a
+/// [perceptually
+/// uniform](https://programmingdesignsystems.com/color/perceptually-uniform-color-spaces/index.html)
+/// color space. This means that the gradient will be perceived as having a
+/// smooth progression of colors. This is particularly useful for data
+/// visualization.
 ///
 /// However, you can choose to interpolate the gradient in any supported color
 /// space you want, but beware that some color spaces are not suitable for
-/// perceptually interpolating between colors. Below you can find a list of
-/// color spaces and whether they are suitable for perceptual interpolation.
+/// perceptually interpolating between colors. Consult the table below when
+/// choosing an interpolation space.
 ///
 /// |           Color space           | Perceptually uniform? |
-/// | ------------------------------- | --------------------- |
-/// |      [Oklab]($color.oklab)      |           ✅          |
-/// |      [sRGB]($color.rgb)         |           ❌          |
-/// | [linear-RGB]($color.linear-rgb) |           ✅          |
-/// |      [CMYK]($color.cmyk)        |           ❌          |
-/// |     [Grayscale]($color.luma)    |           ✅          |
-/// |       [HSL]($color.hsl)         |           ❌          |
-/// |       [HSV]($color.hsv)         |           ❌          |
+/// | ------------------------------- |:----------------------|
+/// |      [Oklab]($color.oklab)      | *Yes*                 |
+/// |      [sRGB]($color.rgb)         | *No*                  |
+/// | [linear-RGB]($color.linear-rgb) | *Yes*                 |
+/// |      [CMYK]($color.cmyk)        | *No*                  |
+/// |     [Grayscale]($color.luma)    | *Yes*                 |
+/// |       [HSL]($color.hsl)         | *No*                  |
+/// |       [HSV]($color.hsv)         | *No*                  |
 ///
 /// ```example
 /// #set text(fill: white)
@@ -99,17 +100,21 @@ use crate::geom::{ColorSpace, Smart};
 ///   block(
 ///     width: 100%,
 ///     height: 10pt,
-///     fill: gradient.linear(red, blue, space: space),
+///     fill: gradient.linear(
+///       red,
+///       blue,
+///       space: space
+///     ),
 ///     name
 ///   )
 /// }
 /// ```
 ///
 /// ## Direction
-/// Some gradients are sensitive to direction. For example, a linear gradient has an
-/// angle that determines the its direction. Typst uses a clockwise angle, with 0° being
-/// from left-to-right, 90° from top-to-bottom, 180° from right-to-left, and 270°
-/// from bottom-to-top.
+/// Some gradients are sensitive to direction. For example, a linear gradient
+/// has an angle that determines the its direction. Typst uses a clockwise
+/// angle, with 0° being from left-to-right, 90° from top-to-bottom, 180° from
+/// right-to-left, and 270° from bottom-to-top.
 ///
 /// ```example
 /// #set block(spacing: 0pt)
@@ -123,17 +128,15 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ## Note on compatibility
-/// Typst's gradients were designed to be widely compatible; however, in
-/// [PDF.js](https://mozilla.github.io/pdf.js/), the PDF reader bundled with Firefox,
-/// gradients in `rotate` blocks may not be rendered correctly. This is a bug in
-/// PDF.js and not in Typst. Despite this, every type of gradient has been
-/// tested in every major PDF reader, and should work in most browsers as
-/// expected.
+/// Gradients in [{`rotate`}]($rotate) blocks may not be rendered correctly by
+/// [PDF.js](https://mozilla.github.io/pdf.js/), the PDF reader bundled with
+/// Firefox. This is due to an issue in PDF.js.
 ///
 /// ## Presets
-/// Typst also includes a number of preset color maps. In the following section, the
-/// list of available presets is given, along with a sample of each gradient and
-/// relevant comments. Most of these color maps are chosen to be color blind friendly.
+/// Typst also includes a number of preset color maps. In the following section,
+/// the list of available presets is given, along with a sample of each gradient
+/// and relevant comments. Most of these color maps are chosen to be color blind
+/// friendly.
 ///
 /// ### Turbo
 /// The [`turbo`]($gradient.turbo) gradient is a rainbow-like gradient that is
@@ -141,31 +144,32 @@ use crate::geom::{ColorSpace, Smart};
 /// stops, which is set to 20 by default.
 ///
 /// ```example
-/// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.turbo(10)))
+/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.turbo(10)))
 /// ```
 ///
 /// ### Cividis
-/// The [`cividis`]($gradient.cividis) gradient is a blue to gray to
-/// yellow gradient that is perceptually uniform. Cividis is a gradient
-/// that takes an optional number of stops, which is set to 20 by default.
+/// The [`cividis`]($gradient.cividis) gradient is a blue to gray to yellow
+/// gradient. Cividis is a gradient that takes an optional number of stops,
+/// which is set to 20 by default.
 ///
 /// ```example
-/// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.cividis(10)))
+/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.cividis(10)))
 /// ```
 ///
 /// ### Rainbow
-/// The [`rainbow`]($gradient.rainbow) gradient cycles through the full
-/// color spectrum. Rainbow is a gradient that takes an
-/// optional number of stops, which is set to 20 by default. This color map is best
-/// used by setting the interpolation color space to [HSL]($color.hsl).
+/// The [`rainbow`]($gradient.rainbow) gradient cycles through the full color
+/// spectrum. Rainbow is a gradient that takes an optional number of stops,
+/// which is set to 20 by default. This color map is best used by setting the
+/// interpolation color space to [HSL]($color.hsl).
 ///
-/// **Attention:** The rainbow gradient is **not** suitable for data visualization. It is
-/// **not** perceptually uniform, so the differences between values become unclear to your readers.
-/// It should only be used for decorative purposes.
+/// **Attention:** The rainbow gradient is _not suitable_ for data visualization
+/// because it is not perceptually uniform, so the differences between values
+/// become unclear to your readers. It should only be used for decorative
+/// purposes.
 ///
 /// ```example
 /// #rect(
-///   width: 100pt,
+///   width: 100%,
 ///   height: 20pt,
 ///   fill: gradient.linear(..gradient.rainbow(10), space: color.hsl)
 /// )
@@ -173,100 +177,99 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// ### Spectral
 /// The [`spectral`]($gradient.spectral) gradient is a red to yellow to blue
-/// gradient that is perceptually uniform. Spectral does not take any parameters.
+/// gradient. Spectral does not take any parameters.
 ///
 /// ```example
-/// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.spectral))
+/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.spectral))
 /// ```
 ///
 /// ### Viridis
 /// The [`viridis`]($gradient.viridis) gradient is a purple to teal to yellow
-/// gradient that is perceptually uniform. Viridis does not take any parameters.
+/// gradient. Viridis does not take any parameters.
 ///
 /// ```example
-/// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.viridis))
+/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.viridis))
 /// ```
 ///
 /// ### Inferno
 /// The [`inferno`]($gradient.inferno) gradient is a black to red to yellow
-/// gradient that is perceptually uniform. Inferno does not take any parameters.
+/// gradient. Inferno does not take any parameters.
 ///
 /// ```example
-/// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.inferno))
+/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.inferno))
 /// ```
 ///
 /// ### Magma
 /// The [`magma`]($gradient.magma) gradient is a black to purple to yellow
-/// gradient that is perceptually uniform. Magma does not take any parameters.
+/// gradient. Magma does not take any parameters.
 ///
 /// ```example
-/// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.magma))
+/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.magma))
 /// ```
 ///
 /// ### Plasma
 /// The [`plasma`]($gradient.plasma) gradient is a purple to pink to yellow
-/// gradient that is perceptually uniform. Plasma does not take any parameters.
+/// gradient. Plasma does not take any parameters.
 ///
 /// ```example
-/// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.plasma))
+/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.plasma))
 /// ```
 ///
 /// ### Rocket
 /// The [`rocket`]($gradient.rocket) gradient is a black to red to white
-/// gradient that is perceptually uniform. Rocket does not take any parameters.
+/// gradient. Rocket does not take any parameters.
 ///
 /// ```example
-/// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.rocket))
+/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.rocket))
 /// ```
 ///
 /// ### Mako
-/// The [`mako`]($gradient.mako) gradient is a black to teal to yellow
-/// gradient that is perceptually uniform. Mako does not take any parameters.
+/// The [`mako`]($gradient.mako) gradient is a black to teal to yellow gradient
+///. Mako does not take any parameters.
 ///
 /// ```example
-/// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.mako))
+/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.mako))
 /// ```
 ///
 /// ### Vlag
 /// The [`vlag`]($gradient.vlag) gradient is a light blue to white to red
-/// gradient that is perceptually uniform. Vlag does not take any parameters.
+/// gradient. Vlag does not take any parameters.
 ///
 /// ```example
-/// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.vlag))
+/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.vlag))
 /// ```
 ///
 /// ### Icefire
-/// The [`icefire`]($gradient.icefire) gradient is a light teal to black to yellow
-/// gradient that is perceptually uniform. Icefire does not take any parameters.
+/// The [`icefire`]($gradient.icefire) gradient is a light teal to black to
+/// yellow gradient. Icefire does not take any parameters.
 ///
 /// ```example
-/// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.icefire))
+/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.icefire))
 /// ```
 ///
 /// ### Flare
-/// The [`flare`]($gradient.flare) gradient is an orange to purple gradient
-/// that is perceptually uniform. Flare does not take any parameters.
+/// The [`flare`]($gradient.flare) gradient is an orange to purple gradient that
+/// is perceptually uniform. Flare does not take any parameters.
 ///
 /// ```example
-/// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.flare))
+/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.flare))
 /// ```
 ///
 /// ### Crest
-/// The [`crest`]($gradient.crest) gradient is a blue to white to red gradient
-/// that is perceptually uniform. Crest does not take any parameters.
+/// The [`crest`]($gradient.crest) gradient is a blue to white to red gradient .
+///Crest does not take any parameters.
 ///
 /// ```example
-/// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.crest))
+/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.crest))
 /// ```
 ///
-/// ### Regarding presets like "jet" and "parula"
-/// - [Jet](https://jakevdp.github.io/blog/2014/10/16/how-bad-is-your-colormap/)
-///   is not a good color map, as it is not perceptually uniform. As such,
-///   it is not color blind friendly and should not be used for data visualization,
-///   due to which it is not included in Typst.
-/// - [Parula](https://www.mathworks.com/help/matlab/ref/parula.html)
-///   is a good color map included in MATLAB, but it is not included as
-///   a preset in Typst because it is owned by MathWorks and is not public.
+/// ### On other presets
+/// [Jet](https://jakevdp.github.io/blog/2014/10/16/how-bad-is-your-colormap/)
+/// is not color blind friendly and should not be used for data visualization,
+/// which is why it is not included in Typst. Other popular presets are not
+/// neccesarily under a free licence, which is why we could not include them.
+///
+/// Feel free to use or create a package with other presets useful to you!
 #[ty(scope)]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Gradient {
@@ -301,7 +304,7 @@ impl Gradient {
         /// The call site of this function.
         span: Span,
 
-        /// The color stops of the gradient.
+        /// The color [stops](#stops) of the gradient.
         #[variadic]
         stops: Vec<Spanned<Stop>>,
 
@@ -318,7 +321,7 @@ impl Gradient {
         #[default(ColorSpace::Oklab)]
         space: ColorSpace,
 
-        /// The relative placement of the gradient.
+        /// The [relative placement](#relativeness) of the gradient.
         ///
         /// For an element placed at the root/top level of the document, the parent
         /// is the page itself. For other elements, the parent is the innermost block,
@@ -389,11 +392,11 @@ impl Gradient {
 
     /// Sample the gradient at a given position.
     ///
-    /// The position is either the progress along the gradient (a [ratio]($ratio)
-    /// between 0% and 100%) or an [angle]($angle). Any value outside
+    /// The position is either a position along the gradient (a [ratio]($ratio)
+    /// between `{0%}` and `{100%}`) or an [angle]($angle). Any value outside
     /// of this range will be clamped.
     ///
-    /// 🚧 The angle will be mainly used for conic gradients once they are ready.
+    /// _The angle will be used for conic gradients once they are available._
     #[func]
     pub fn sample(
         &self,
@@ -410,11 +413,11 @@ impl Gradient {
 
     /// Sample the gradient at the given positions.
     ///
-    /// The positions are either the progress along the gradient (a [ratio]($ratio)
-    /// between 0% and 100%) or an [angle]($angle). Any value outside
+    /// The position is either a position along the gradient (a [ratio]($ratio)
+    /// between `{0%}` and `{100%}`) or an [angle]($angle). Any value outside
     /// of this range will be clamped.
     ///
-    /// 🚧 Angles will be mainly used for conic gradients once they are ready.
+    /// _The angle will be used for conic gradients once they are available._
     #[func]
     pub fn samples(
         &self,
@@ -432,13 +435,14 @@ impl Gradient {
 
     /// Create a sharp version of this gradient.
     ///
-    /// This is particularly useful for creating color lists that come from
-    /// a preset gradient.
+    /// _Sharp gradients_ have discreet jumps between colors, instead of a
+    /// smooth transition. They are  particularly useful for creating color
+    /// lists for a preset gradient.
     ///
     /// ```example
     /// #let grad = gradient.linear(..gradient.rainbow(20))
-    /// #rect(width: 100pt, height: 20pt, fill: grad)
-    /// #rect(width: 100pt, height: 20pt, fill: grad.sharp(5))
+    /// #rect(width: 100%, height: 20pt, fill: grad)
+    /// #rect(width: 100%, height: 20pt, fill: grad.sharp(5))
     /// ```
     #[func]
     pub fn sharp(
@@ -565,16 +569,16 @@ impl Gradient {
         })
     }
 
-    /// Creates a [turbo] stop list.
+    /// Creates a
+    /// [turbo](https://ai.googleblog.com/2019/08/turbo-improved-rainbow-colormap-for.html)
+    /// stop list.
     ///
     /// You can control the number of stops in the gradient using the `stops`
     /// parameter, which is set to 20 by default.
     ///
     /// ```example
-    /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.turbo(10)))
+    /// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.turbo(10)))
     /// ````
-    ///
-    /// [turbo]: https://ai.googleblog.com/2019/08/turbo-improved-rainbow-colormap-for.html
     #[func]
     fn turbo(
         #[default(Spanned::new(20, Span::detached()))] stops: Spanned<i64>,
@@ -612,16 +616,14 @@ impl Gradient {
         .into_value())
     }
 
-    /// Creates a [cividis] stop list.
+    /// Creates a [cividis](https://bids.github.io/colormap/) stop list.
     ///
     /// You can control the number of stops in the gradient using the `stops`
     /// parameter, which is set to 20 by default.
     ///
     /// ```example
-    /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.cividis(10)))
+    /// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.cividis(10)))
     /// ````
-    ///
-    /// [cividis]: https://bids.github.io/colormap/
     #[func]
     fn cividis(
         #[default(Spanned::new(20, Span::detached()))] stops: Spanned<i64>,
@@ -662,11 +664,11 @@ impl Gradient {
     ///
     /// This color map is best used by setting the interpolation color space to
     /// [HSL]($color.hsl). It should also be noted that this is not a good
-    /// choice for a color scale, as it is not perceptually uniform. This preset
-    /// is more intended for decorative purposes than for data visualization.
+    /// choice to visualize data, as it is not perceptually uniform. This preset
+    /// is instead intended for decorative purposes.
     ///
     /// ```example
-    /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.rainbow(2)))
+    /// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.rainbow(2)))
     /// ````
     #[func]
     fn rainbow(
