@@ -445,7 +445,7 @@ impl Gradient {
                 angle: grad.angle,
                 space: grad.space,
                 relative: grad.relative,
-                anti_alias: true,
+                anti_alias: grad.anti_alias,
             })),
         })
     }
@@ -762,7 +762,7 @@ fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> C
             let hue_0 = if hue_0 < hue_1 { hue_0 + 360.0 } else { hue_0 };
             let hue_1 = if hue_1 < hue_0 { hue_1 + 360.0 } else { hue_1 };
 
-            let hue = (hue_0 * (1.0 - t as f32) + hue_1 * t as f32).rem_euclid(360.0);
+            let hue = hue_0 * (1.0 - t as f32) + hue_1 * t as f32;
 
             if mixing_space == ColorSpace::Hsl {
                 let [_, saturation, lightness, alpha] = out.to_hsl().to_vec4();

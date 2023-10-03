@@ -666,16 +666,27 @@ impl SVGRenderer {
                     self.xml.write_attribute("y2", &y2);
 
                     for window in linear.stops.windows(2) {
-                        let (_, start_t) = window[0];
-                        let (_, end_t) = window[1];
+                        let (start_c, start_t) = window[0];
+                        let (end_c, end_t) = window[1];
+
+                        self.xml.start_element("stop");
+                        self.xml
+                            .write_attribute_fmt("offset", format_args!("{start_t:?}"));
+                        self.xml.write_attribute("stop-color", &start_c.to_hex());
+                        self.xml.end_element();
 
                         // Generate (256 / len) stops between the two stops.
                         // This is a workaround for a bug in many readers:
                         // They tend to just ignore the color space of the gradient.
                         // The goal is to have smooth gradients but not to balloon the file size
                         // too much if there are already a lot of stops as in most presets.
-                        let len = (256 / linear.stops.len() as u32).max(1);
-                        for i in 0..len {
+                        let len = if gradient.anti_alias() {
+                            (256 / linear.stops.len() as u32).max(2)
+                        } else {
+                            2
+                        };
+
+                        for i in 1..(len - 1) {
                             let t0 = i as f64 / (len - 1) as f64;
                             let t = start_t + (end_t - start_t) * t0;
                             let c = gradient.sample(RatioOrAngle::Ratio(t));
@@ -685,6 +696,11 @@ impl SVGRenderer {
                             self.xml.write_attribute("stop-color", &c.to_hex());
                             self.xml.end_element();
                         }
+
+                        self.xml.start_element("stop");
+                        self.xml.write_attribute_fmt("offset", format_args!("{end_t:?}"));
+                        self.xml.write_attribute("stop-color", &end_c.to_hex());
+                        self.xml.end_element()
                     }
 
                     self.xml.end_element();
