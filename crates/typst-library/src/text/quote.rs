@@ -187,7 +187,7 @@ impl Show for QuoteElem {
                 }
 
                 // use v(1em, weak: true) bring the attribution closer to the quote
-                let weak_v = VElem::weak(Spacing::Rel(Em::new(1.0).into())).pack();
+                let weak_v = VElem::weak(Spacing::Rel(Em::new(0.9).into())).pack();
                 realized += weak_v + Content::sequence(seq).aligned(Align::END);
             } else if let Some(source) = citation {
                 realized += CiteElem::new(vec![source]).pack();
@@ -206,12 +206,13 @@ impl Show for QuoteElem {
 
 impl Finalize for QuoteElem {
     fn finalize(&self, realized: Content, _: StyleChain) -> Content {
-        let x: Rel = Em::new(1.0).into();
-        let y: Rel = Em::new(0.5).into();
+        let x = Em::new(1.0).into();
+        let above = Em::new(2.4).into();
+        let below = Em::new(1.8).into();
         realized
             .styled(PadElem::set_left(x))
             .styled(PadElem::set_right(x))
-            .styled(PadElem::set_top(y))
-            .styled(PadElem::set_bottom(y))
+            .styled(BlockElem::set_above(VElem::block_around(above)))
+            .styled(BlockElem::set_below(VElem::block_around(below)))
     }
 }
