@@ -1,3 +1,5 @@
+use kurbo::Shape;
+
 use super::*;
 
 /// A bezier path.
@@ -77,13 +79,18 @@ impl Path {
                     cursor = *to;
                 }
                 PathItem::CubicTo(c0, c1, end) => {
-                    // Compute the bounding box of the bezier curve.
-                    let (xl, xh) = cubic_bezier_bounds_1d(cursor.x, c0.x, c1.x, end.x);
-                    let (yl, yh) = cubic_bezier_bounds_1d(cursor.y, c0.y, c1.y, end.y);
-                    min_x = min_x.min(xl).min(xh);
-                    min_y = min_y.min(yl).min(yh);
-                    max_x = max_x.max(xl).max(xh);
-                    max_y = max_y.max(yl).max(yh);
+                    let cubic = kurbo::CubicBez::new(
+                        kurbo::Point::new(cursor.x.to_pt(), cursor.y.to_pt()),
+                        kurbo::Point::new(c0.x.to_pt(), c0.y.to_pt()),
+                        kurbo::Point::new(c1.x.to_pt(), c1.y.to_pt()),
+                        kurbo::Point::new(end.x.to_pt(), end.y.to_pt()),
+                    );
+
+                    let bbox = cubic.bounding_box();
+                    min_x = min_x.min(Abs::pt(bbox.x0)).min(Abs::pt(bbox.x1));
+                    min_y = min_y.min(Abs::pt(bbox.y0)).min(Abs::pt(bbox.y1));
+                    max_x = max_x.max(Abs::pt(bbox.x0)).max(Abs::pt(bbox.x1));
+                    max_y = max_y.max(Abs::pt(bbox.y0)).max(Abs::pt(bbox.y1));
                     cursor = *end;
                 }
                 PathItem::ClosePath => (),
@@ -92,62 +99,4 @@ impl Path {
 
         Size::new(max_x - min_x, max_y - min_y)
     }
-}
-
-/// Compute the 1D bound of a cubic bezier curve.
-/// Returns:
-/// - The lower bound.
-/// - The upper bound.
-///
-/// Source: https://gist.github.com/steveruizok/1ef8a9e0257768c3f8e33c9904b38de5
-fn cubic_bezier_bounds_1d(p0: Abs, c0: Abs, c1: Abs, p1: Abs) -> (Abs, Abs) {
-    let a = 3.0 * p1.to_pt() - 9.0 * c1.to_pt() + 9.0 * c0.to_pt() - 3.0 * p0.to_pt();
-    let b = 6.0 * p0.to_pt() - 12.0 * c0.to_pt() + 6.0 * c1.to_pt();
-    let c = 3.0 * c0.to_pt() - 3.0 * p0.to_pt();
-    let disc = b * b - 4.0 * a * c;
-
-    let mut xl = p0.to_pt();
-    let mut xh = p0.to_pt();
-    if p1.to_pt() < xl {
-        xl = p1.to_pt();
-    }
-
-    if p1.to_pt() > xh {
-        xh = p1.to_pt();
-    }
-
-    if disc >= 0.0 {
-        let t1 = (-b + disc.sqrt()) / (2.0 * a);
-        if t1 > 0.0 && t1 < 1.0 {
-            let x1 = bez1d(p0.to_pt(), c0.to_pt(), c1.to_pt(), p1.to_pt(), t1);
-            if x1 < xl {
-                xl = x1;
-            }
-
-            if x1 > xh {
-                xh = x1;
-            }
-        }
-
-        let t2 = (-b - disc.sqrt()) / (2.0 * a);
-        if t2 > 0.0 && t2 < 1.0 {
-            let x2 = bez1d(p0.to_pt(), c0.to_pt(), c1.to_pt(), p1.to_pt(), t2);
-            if x2 < xl {
-                xl = x2;
-            }
-
-            if x2 > xh {
-                xh = x2;
-            }
-        }
-    }
-
-    (Abs::pt(xl), Abs::pt(xh))
-}
-
-fn bez1d(a: f64, b: f64, c: f64, d: f64, t: f64) -> f64 {
-    a * (1.0 - t) * (1.0 - t) * (1.0 - t)
-        + 3.0 * b * t * (1.0 - t) * (1.0 - t)
-        + 3.0 * c * t * t * (1.0 - t)
-        + d * t * t * t
 }
