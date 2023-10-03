@@ -403,7 +403,7 @@ pub(super) fn decorate(
     let min_width = 0.162 * text.size;
 
     let start = pos.x - deco.extent;
-    let end = pos.x + (width + 2.0 * deco.extent);
+    let end = pos.x + width + deco.extent;
 
     let mut push_segment = |from: Abs, to: Abs, prepend: bool| {
         let origin = Point::new(from, pos.y + offset);
