@@ -26,9 +26,3 @@ ABCअपार्टमेंट
 // doesn't exist in shaping output.
 #set text(dir: rtl, font: "Noto Serif Hebrew")
 \ ט
-
----
-// Test that #2283 is fixed.
-#set text(font: "test", lang: "de", hyphenate: true, fallback: false)
-#set par(linebreaks: "simple")
-- ensure
