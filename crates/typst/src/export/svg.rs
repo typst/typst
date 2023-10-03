@@ -669,11 +669,14 @@ impl SVGRenderer {
                         let (_, start_t) = window[0];
                         let (_, end_t) = window[1];
 
-                        // Generate 32 stops between the two stops.
+                        // Generate (256 / len) stops between the two stops.
                         // This is a workaround for a bug in many readers:
                         // They tend to just ignore the color space of the gradient.
-                        for i in 0..=32 {
-                            let t0 = i as f64 / 32.0;
+                        // The goal is to have smooth gradients but not to balloon the file size
+                        // too much if there are already a lot of stops as in most presets.
+                        let len = (256 / linear.stops.len() as u32).max(1);
+                        for i in 0..len {
+                            let t0 = i as f64 / (len - 1) as f64;
                             let t = start_t + (end_t - start_t) * t0;
                             let c = gradient.sample(RatioOrAngle::Ratio(t));
 
