@@ -161,7 +161,7 @@ use crate::geom::{ColorSpace, Smart};
 ///   spacing: 3pt,
 ///   ..presets.map(((name, preset)) => block(
 ///     width: 100%,
-///    height: 20pt,
+///     height: 20pt,
 ///     fill: gradient.linear(..preset),
 ///     align(center + horizon, smallcaps(name)),
 ///   ))
