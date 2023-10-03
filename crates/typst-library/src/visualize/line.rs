@@ -75,6 +75,9 @@ impl Layout for LineElem {
         let size = start.max(start + delta).max(Size::zero());
         let target = regions.expand.select(regions.size, size);
 
+        if !target.is_finite() {
+            bail!(error!(self.span(), "cannot create line with infinite length"));
+        }
         let mut frame = Frame::soft(target);
         let shape = Geometry::Line(delta.to_point()).stroked(stroke);
         frame.push(start.to_point(), FrameItem::Shape(shape, self.span()));

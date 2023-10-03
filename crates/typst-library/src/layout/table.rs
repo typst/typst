@@ -163,6 +163,7 @@ impl Layout for TableElem {
             &cells,
             regions,
             styles,
+            self.span(),
         );
 
         // Measure the columns and layout the grid row-by-row.
