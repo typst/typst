@@ -9,7 +9,7 @@ use once_cell::sync::Lazy;
 use typst_macros::{cast, func, scope, ty, Cast};
 use typst_syntax::{Span, Spanned};
 
-use super::color::{Hsl, Hsv, Rgba};
+use super::color::{Hsl, Hsv};
 use super::*;
 use crate::diag::{bail, error, SourceResult};
 use crate::eval::{array, Args, Array, Func, IntoValue};
@@ -140,27 +140,26 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// ### Turbo
 /// The [`turbo`]($gradient.turbo) gradient is a rainbow-like gradient that is
-/// perceptually uniform. Turbo is a gradient that takes an optional number of
-/// stops.
+/// perceptually uniform. You can learn more about the turbo color map on
+/// Google's [blog post](https://ai.googleblog.com/2019/08/turbo-improved-rainbow-colormap-for.html).
 ///
 /// ```example
-/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.turbo(10)))
+/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.turbo))
 /// ```
 ///
 /// ### Cividis
 /// The [`cividis`]($gradient.cividis) gradient is a blue to gray to yellow
-/// gradient. Cividis is a gradient that takes an optional number of stops,
-/// which is set to 20 by default.
+/// gradient. You can learn more about the Cividis color map on the
+/// Berkley Institute for Data Science's [blog post](https://bids.github.io/colormap/).
 ///
 /// ```example
-/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.cividis(10)))
+/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.cividis))
 /// ```
 ///
 /// ### Rainbow
 /// The [`rainbow`]($gradient.rainbow) gradient cycles through the full color
-/// spectrum. Rainbow is a gradient that takes an optional number of stops,
-/// which is set to 20 by default. This color map is best used by setting the
-/// interpolation color space to [HSL]($color.hsl).
+/// spectrum. This color map is best used by setting the interpolation color
+/// space to [HSL]($color.hsl).
 ///
 /// **Attention:** The rainbow gradient is _not suitable_ for data visualization
 /// because it is not perceptually uniform, so the differences between values
@@ -171,7 +170,7 @@ use crate::geom::{ColorSpace, Smart};
 /// #rect(
 ///   width: 100%,
 ///   height: 20pt,
-///   fill: gradient.linear(..gradient.rainbow(10), space: color.hsl)
+///   fill: gradient.linear(..gradient.rainbow, space: color.hsl)
 /// )
 /// ```
 ///
@@ -278,6 +277,9 @@ pub enum Gradient {
 
 #[scope]
 impl Gradient {
+    pub const TURBO: fn() -> Array = turbo;
+    pub const CIVIDIS: fn() -> Array = cividis;
+    pub const RAINBOW: fn() -> Array = rainbow;
     pub const SPECTRAL: fn() -> Array = spectral;
     pub const VIRIDIS: fn() -> Array = viridis;
     pub const INFERNO: fn() -> Array = inferno;
@@ -439,7 +441,7 @@ impl Gradient {
     /// lists for a preset gradient.
     ///
     /// ```example
-    /// #let grad = gradient.linear(..gradient.rainbow(20))
+    /// #let grad = gradient.linear(..gradient.rainbow)
     /// #rect(width: 100%, height: 20pt, fill: grad)
     /// #rect(width: 100%, height: 20pt, fill: grad.sharp(5))
     /// ```
@@ -562,149 +564,6 @@ impl Gradient {
                 anti_alias: true,
             })),
         })
-    }
-
-    /// Creates a
-    /// [turbo](https://ai.googleblog.com/2019/08/turbo-improved-rainbow-colormap-for.html)
-    /// stop list.
-    ///
-    /// You can control the number of stops in the gradient using the `stops`
-    /// parameter, which is set to 20 by default.
-    ///
-    /// ```example
-    /// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.turbo(10)))
-    /// ````
-    #[func]
-    fn turbo(
-        /// How many stops to sample.
-        #[default(Spanned::new(20, Span::detached()))]
-        stops: Spanned<i64>,
-    ) -> SourceResult<Value> {
-        fn at(t: f32) -> Rgba {
-            let t = t.clamp(0.0, 1.0);
-            let r = (34.61
-                + t * (1172.33
-                    - t * (10793.56 - t * (33300.12 - t * (38394.49 - t * 14825.05)))))
-                .round();
-            let g = (23.31
-                + t * (557.33
-                    + t * (1225.33 - t * (3574.96 - t * (1073.77 + t * 707.56)))))
-                .round();
-            let b = (27.2
-                + t * (3211.1
-                    - t * (15327.97 - t * (27814.0 - t * (22569.18 - t * 6838.66)))))
-                .round();
-
-            Rgba::new(r / 255.0, g / 255.0, b / 255.0, 1.0)
-        }
-
-        if stops.v < 2 {
-            bail!(stops.span, "number of stops must be bigger or equal to 2");
-        }
-
-        Ok(Array::from(
-            (0..stops.v)
-                .map(|i| {
-                    let t = i as f64 / (stops.v - 1) as f64;
-                    Stop::new(Color::Rgba(at(t as f32)), Ratio::new(t)).into_value()
-                })
-                .collect::<EcoVec<_>>(),
-        )
-        .into_value())
-    }
-
-    /// Creates a [cividis](https://bids.github.io/colormap/) stop list.
-    ///
-    /// You can control the number of stops in the gradient using the `stops`
-    /// parameter, which is set to 20 by default.
-    ///
-    /// ```example
-    /// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.cividis(10)))
-    /// ````
-    #[func]
-    fn cividis(
-        /// How many stops to sample.
-        #[default(Spanned::new(20, Span::detached()))]
-        stops: Spanned<i64>,
-    ) -> SourceResult<Value> {
-        fn at(t: f32) -> Rgba {
-            let t = t.clamp(0.0, 1.0);
-            let r = -4.54
-                - t * (35.34
-                    - t * (2381.73 - t * (6402.7 - t * (7024.72 - t * 2710.57))));
-            let g = 32.49
-                + t * (170.73 + t * (52.82 - t * (131.46 - t * (176.58 - t * 67.37))));
-            let b = 81.24
-                + t * (442.36
-                    - t * (2482.43 - t * (6167.24 - t * (6614.94 - t * 2475.67))));
-
-            Rgba::new(r / 255.0, g / 255.0, b / 255.0, 1.0)
-        }
-
-        if stops.v < 2 {
-            bail!(stops.span, "number of stops must be bigger or equal to 2");
-        }
-
-        Ok(Array::from(
-            (0..stops.v)
-                .map(|i| {
-                    let t = i as f64 / (stops.v - 1) as f64;
-                    Stop::new(Color::Rgba(at(t as f32)), Ratio::new(t)).into_value()
-                })
-                .collect::<EcoVec<_>>(),
-        )
-        .into_value())
-    }
-
-    /// Creates a list of rainbow color stops with the given parameters.
-    ///
-    /// You can control the number of stops in the gradient using the `stops`
-    /// parameter, which is set to 20 by default.
-    ///
-    /// This color map is best used by setting the interpolation color space to
-    /// [HSL]($color.hsl). It should also be noted that this is not a good
-    /// choice to visualize data, as it is not perceptually uniform. This preset
-    /// is instead intended for decorative purposes.
-    ///
-    /// ```example
-    /// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.rainbow(20)))
-    /// ````
-    #[func]
-    fn rainbow(
-        /// How many stops to sample.
-        #[default(Spanned::new(20, Span::detached()))]
-        stops: Spanned<i64>,
-    ) -> SourceResult<Array> {
-        if stops.v < 2 {
-            bail!(stops.span, "number of stops must be bigger or equal to 2");
-        }
-
-        Ok((0..stops.v)
-            .map(|i| {
-                let t = i as f32 / (stops.v - 1) as f32;
-                let ts = (t - 0.5).abs();
-
-                let h = (360.0 * t + 20.0).to_radians();
-                let l = 0.8 - 0.8 * ts;
-                let a = (1.5 - 1.5 * ts) * l * (1.0 - l);
-
-                let (sin, cos) = h.sin_cos();
-                let r = l - a * (0.14861 * cos - 1.78277 * sin).min(1.0);
-                let g = l - a * (0.29227 * cos + 0.90649 * sin).min(1.0);
-                let b = l + a * (1.97294 * cos);
-
-                Stop::new(
-                    Color::Rgba(Rgba::new(
-                        r.clamp(0.0, 1.0),
-                        g.clamp(0.0, 1.0),
-                        b.clamp(0.0, 1.0),
-                        1.0,
-                    )),
-                    Ratio::new(t as _),
-                )
-                .into_value()
-            })
-            .collect())
     }
 }
 
@@ -1052,6 +911,9 @@ macro_rules! preset {
     };
 }
 
+preset!(turbo; 0x23171bff, 0x271a28ff, 0x2b1c33ff, 0x2f1e3fff, 0x32204aff, 0x362354ff, 0x39255fff, 0x3b2768ff, 0x3e2a72ff, 0x402c7bff, 0x422f83ff, 0x44318bff, 0x453493ff, 0x46369bff, 0x4839a2ff, 0x493ca8ff, 0x493eafff, 0x4a41b5ff, 0x4a44bbff, 0x4b46c0ff, 0x4b49c5ff, 0x4b4ccaff, 0x4b4ecfff, 0x4b51d3ff, 0x4a54d7ff, 0x4a56dbff, 0x4959deff, 0x495ce2ff, 0x485fe5ff, 0x4761e7ff, 0x4664eaff, 0x4567ecff, 0x446aeeff, 0x446df0ff, 0x426ff2ff, 0x4172f3ff, 0x4075f5ff, 0x3f78f6ff, 0x3e7af7ff, 0x3d7df7ff, 0x3c80f8ff, 0x3a83f9ff, 0x3985f9ff, 0x3888f9ff, 0x378bf9ff, 0x368df9ff, 0x3590f8ff, 0x3393f8ff, 0x3295f7ff, 0x3198f7ff, 0x309bf6ff, 0x2f9df5ff, 0x2ea0f4ff, 0x2da2f3ff, 0x2ca5f1ff, 0x2ba7f0ff, 0x2aaaefff, 0x2aacedff, 0x29afecff, 0x28b1eaff, 0x28b4e8ff, 0x27b6e6ff, 0x27b8e5ff, 0x26bbe3ff, 0x26bde1ff, 0x26bfdfff, 0x25c1dcff, 0x25c3daff, 0x25c6d8ff, 0x25c8d6ff, 0x25cad3ff, 0x25ccd1ff, 0x25cecfff, 0x26d0ccff, 0x26d2caff, 0x26d4c8ff, 0x27d6c5ff, 0x27d8c3ff, 0x28d9c0ff, 0x29dbbeff, 0x29ddbbff, 0x2adfb8ff, 0x2be0b6ff, 0x2ce2b3ff, 0x2de3b1ff, 0x2ee5aeff, 0x30e6acff, 0x31e8a9ff, 0x32e9a6ff, 0x34eba4ff, 0x35eca1ff, 0x37ed9fff, 0x39ef9cff, 0x3af09aff, 0x3cf197ff, 0x3ef295ff, 0x40f392ff, 0x42f490ff, 0x44f58dff, 0x46f68bff, 0x48f788ff, 0x4af786ff, 0x4df884ff, 0x4ff981ff, 0x51fa7fff, 0x54fa7dff, 0x56fb7aff, 0x59fb78ff, 0x5cfc76ff, 0x5efc74ff, 0x61fd71ff, 0x64fd6fff, 0x66fd6dff, 0x69fd6bff, 0x6cfd69ff, 0x6ffe67ff, 0x72fe65ff, 0x75fe63ff, 0x78fe61ff, 0x7bfe5fff, 0x7efd5dff, 0x81fd5cff, 0x84fd5aff, 0x87fd58ff, 0x8afc56ff, 0x8dfc55ff, 0x90fb53ff, 0x93fb51ff, 0x96fa50ff, 0x99fa4eff, 0x9cf94dff, 0x9ff84bff, 0xa2f84aff, 0xa6f748ff, 0xa9f647ff, 0xacf546ff, 0xaff444ff, 0xb2f343ff, 0xb5f242ff, 0xb8f141ff, 0xbbf03fff, 0xbeef3eff, 0xc1ed3dff, 0xc3ec3cff, 0xc6eb3bff, 0xc9e93aff, 0xcce839ff, 0xcfe738ff, 0xd1e537ff, 0xd4e336ff, 0xd7e235ff, 0xd9e034ff, 0xdcdf33ff, 0xdedd32ff, 0xe0db32ff, 0xe3d931ff, 0xe5d730ff, 0xe7d52fff, 0xe9d42fff, 0xecd22eff, 0xeed02dff, 0xf0ce2cff, 0xf1cb2cff, 0xf3c92bff, 0xf5c72bff, 0xf7c52aff, 0xf8c329ff, 0xfac029ff, 0xfbbe28ff, 0xfdbc28ff, 0xfeb927ff, 0xffb727ff, 0xffb526ff, 0xffb226ff, 0xffb025ff, 0xffad25ff, 0xffab24ff, 0xffa824ff, 0xffa623ff, 0xffa323ff, 0xffa022ff, 0xff9e22ff, 0xff9b21ff, 0xff9921ff, 0xff9621ff, 0xff9320ff, 0xff9020ff, 0xff8e1fff, 0xff8b1fff, 0xff881eff, 0xff851eff, 0xff831dff, 0xff801dff, 0xff7d1dff, 0xff7a1cff, 0xff781cff, 0xff751bff, 0xff721bff, 0xff6f1aff, 0xfd6c1aff, 0xfc6a19ff, 0xfa6719ff, 0xf96418ff, 0xf76118ff, 0xf65f18ff, 0xf45c17ff, 0xf25916ff, 0xf05716ff, 0xee5415ff, 0xec5115ff, 0xea4f14ff, 0xe84c14ff, 0xe64913ff, 0xe44713ff, 0xe24412ff, 0xdf4212ff, 0xdd3f11ff, 0xda3d10ff, 0xd83a10ff, 0xd5380fff, 0xd3360fff, 0xd0330eff, 0xce310dff, 0xcb2f0dff, 0xc92d0cff, 0xc62a0bff, 0xc3280bff, 0xc1260aff, 0xbe2409ff, 0xbb2309ff, 0xb92108ff, 0xb61f07ff, 0xb41d07ff, 0xb11b06ff, 0xaf1a05ff, 0xac1805ff, 0xaa1704ff, 0xa81604ff, 0xa51403ff, 0xa31302ff, 0xa11202ff, 0x9f1101ff, 0x9d1000ff, 0x9b0f00ff, 0x9a0e00ff, 0x980e00ff, 0x960d00ff, 0x950c00ff, 0x940c00ff, 0x930c00ff, 0x920c00ff, 0x910b00ff, 0x910c00ff, 0x900c00ff, 0x900c00ff, 0x900c00ff);
+preset!(cividis; 0x002051ff, 0x002153ff, 0x002255ff, 0x002356ff, 0x002358ff, 0x002459ff, 0x00255aff, 0x00255cff, 0x00265dff, 0x00275eff, 0x00275fff, 0x002860ff, 0x002961ff, 0x002962ff, 0x002a63ff, 0x002b64ff, 0x012b65ff, 0x022c65ff, 0x032d66ff, 0x042d67ff, 0x052e67ff, 0x052f68ff, 0x063069ff, 0x073069ff, 0x08316aff, 0x09326aff, 0x0b326aff, 0x0c336bff, 0x0d346bff, 0x0e346bff, 0x0f356cff, 0x10366cff, 0x12376cff, 0x13376dff, 0x14386dff, 0x15396dff, 0x17396dff, 0x183a6dff, 0x193b6dff, 0x1a3b6dff, 0x1c3c6eff, 0x1d3d6eff, 0x1e3e6eff, 0x203e6eff, 0x213f6eff, 0x23406eff, 0x24406eff, 0x25416eff, 0x27426eff, 0x28436eff, 0x29436eff, 0x2b446eff, 0x2c456eff, 0x2e456eff, 0x2f466eff, 0x30476eff, 0x32486eff, 0x33486eff, 0x34496eff, 0x364a6eff, 0x374a6eff, 0x394b6eff, 0x3a4c6eff, 0x3b4d6eff, 0x3d4d6eff, 0x3e4e6eff, 0x3f4f6eff, 0x414f6eff, 0x42506eff, 0x43516dff, 0x44526dff, 0x46526dff, 0x47536dff, 0x48546dff, 0x4a546dff, 0x4b556dff, 0x4c566dff, 0x4d576dff, 0x4e576eff, 0x50586eff, 0x51596eff, 0x52596eff, 0x535a6eff, 0x545b6eff, 0x565c6eff, 0x575c6eff, 0x585d6eff, 0x595e6eff, 0x5a5e6eff, 0x5b5f6eff, 0x5c606eff, 0x5d616eff, 0x5e616eff, 0x60626eff, 0x61636fff, 0x62646fff, 0x63646fff, 0x64656fff, 0x65666fff, 0x66666fff, 0x67676fff, 0x686870ff, 0x696970ff, 0x6a6970ff, 0x6b6a70ff, 0x6c6b70ff, 0x6d6c70ff, 0x6d6c71ff, 0x6e6d71ff, 0x6f6e71ff, 0x706f71ff, 0x716f71ff, 0x727071ff, 0x737172ff, 0x747172ff, 0x757272ff, 0x767372ff, 0x767472ff, 0x777473ff, 0x787573ff, 0x797673ff, 0x7a7773ff, 0x7b7774ff, 0x7b7874ff, 0x7c7974ff, 0x7d7a74ff, 0x7e7a74ff, 0x7f7b75ff, 0x807c75ff, 0x807d75ff, 0x817d75ff, 0x827e75ff, 0x837f76ff, 0x848076ff, 0x858076ff, 0x858176ff, 0x868276ff, 0x878376ff, 0x888477ff, 0x898477ff, 0x898577ff, 0x8a8677ff, 0x8b8777ff, 0x8c8777ff, 0x8d8877ff, 0x8e8978ff, 0x8e8a78ff, 0x8f8a78ff, 0x908b78ff, 0x918c78ff, 0x928d78ff, 0x938e78ff, 0x938e78ff, 0x948f78ff, 0x959078ff, 0x969178ff, 0x979278ff, 0x989278ff, 0x999378ff, 0x9a9478ff, 0x9b9578ff, 0x9b9678ff, 0x9c9678ff, 0x9d9778ff, 0x9e9878ff, 0x9f9978ff, 0xa09a78ff, 0xa19a78ff, 0xa29b78ff, 0xa39c78ff, 0xa49d78ff, 0xa59e77ff, 0xa69e77ff, 0xa79f77ff, 0xa8a077ff, 0xa9a177ff, 0xaaa276ff, 0xaba376ff, 0xaca376ff, 0xada476ff, 0xaea575ff, 0xafa675ff, 0xb0a775ff, 0xb2a874ff, 0xb3a874ff, 0xb4a974ff, 0xb5aa73ff, 0xb6ab73ff, 0xb7ac72ff, 0xb8ad72ff, 0xbaae72ff, 0xbbae71ff, 0xbcaf71ff, 0xbdb070ff, 0xbeb170ff, 0xbfb26fff, 0xc1b36fff, 0xc2b46eff, 0xc3b56dff, 0xc4b56dff, 0xc5b66cff, 0xc7b76cff, 0xc8b86bff, 0xc9b96aff, 0xcaba6aff, 0xccbb69ff, 0xcdbc68ff, 0xcebc68ff, 0xcfbd67ff, 0xd1be66ff, 0xd2bf66ff, 0xd3c065ff, 0xd4c164ff, 0xd6c263ff, 0xd7c363ff, 0xd8c462ff, 0xd9c561ff, 0xdbc660ff, 0xdcc660ff, 0xddc75fff, 0xdec85eff, 0xe0c95dff, 0xe1ca5cff, 0xe2cb5cff, 0xe3cc5bff, 0xe4cd5aff, 0xe6ce59ff, 0xe7cf58ff, 0xe8d058ff, 0xe9d157ff, 0xead256ff, 0xebd355ff, 0xecd454ff, 0xedd453ff, 0xeed553ff, 0xf0d652ff, 0xf1d751ff, 0xf1d850ff, 0xf2d950ff, 0xf3da4fff, 0xf4db4eff, 0xf5dc4dff, 0xf6dd4dff, 0xf7de4cff, 0xf8df4bff, 0xf8e04bff, 0xf9e14aff, 0xfae249ff, 0xfae349ff, 0xfbe448ff, 0xfbe548ff, 0xfce647ff, 0xfce746ff, 0xfde846ff, 0xfde946ff, 0xfdea45ff);
+preset!(rainbow;  0x7c4bbbff, 0x7f4bbcff, 0x824bbdff, 0x854abeff, 0x884abeff, 0x8b4abfff, 0x8e49bfff, 0x9149c0ff, 0x9449c0ff, 0x9748c0ff, 0x9a48c1ff, 0x9e48c1ff, 0xa148c1ff, 0xa447c1ff, 0xa747c1ff, 0xaa47c0ff, 0xad47c0ff, 0xb046c0ff, 0xb446bfff, 0xb746bfff, 0xba46beff, 0xbd46beff, 0xc046bdff, 0xc346bcff, 0xc646bbff, 0xc946baff, 0xcc46b9ff, 0xcf46b8ff, 0xd246b7ff, 0xd446b5ff, 0xd747b4ff, 0xda47b3ff, 0xdd47b1ff, 0xdf47b0ff, 0xe248aeff, 0xe448acff, 0xe748abff, 0xe949a9ff, 0xec49a7ff, 0xee4aa5ff, 0xf04ba3ff, 0xf34ba1ff, 0xf54c9fff, 0xf74c9dff, 0xf94d9bff, 0xfb4e98ff, 0xfd4f96ff, 0xfe5094ff, 0xff5191ff, 0xff528fff, 0xff538dff, 0xff548aff, 0xff5588ff, 0xff5685ff, 0xff5783ff, 0xff5880ff, 0xff5a7eff, 0xff5b7bff, 0xff5c79ff, 0xff5e76ff, 0xff5f74ff, 0xff6171ff, 0xff626fff, 0xff646cff, 0xff666aff, 0xff6767ff, 0xff6965ff, 0xff6b63ff, 0xff6d60ff, 0xff6e5eff, 0xff705cff, 0xff7259ff, 0xff7457ff, 0xff7655ff, 0xff7853ff, 0xff7a51ff, 0xff7c4fff, 0xff7f4dff, 0xff814bff, 0xff8349ff, 0xff8547ff, 0xff8745ff, 0xff8a44ff, 0xff8c42ff, 0xff8e40ff, 0xff913fff, 0xff933eff, 0xff953cff, 0xff983bff, 0xfd9a3aff, 0xfb9c39ff, 0xfa9f38ff, 0xf8a137ff, 0xf6a436ff, 0xf4a636ff, 0xf2a935ff, 0xf0ab35ff, 0xeeae34ff, 0xecb034ff, 0xeab234ff, 0xe8b534ff, 0xe6b734ff, 0xe4ba34ff, 0xe1bc34ff, 0xdfbf35ff, 0xddc135ff, 0xdbc336ff, 0xd9c636ff, 0xd6c837ff, 0xd4ca38ff, 0xd2cd39ff, 0xd0cf3aff, 0xcdd13bff, 0xcbd33dff, 0xc9d63eff, 0xc7d840ff, 0xc5da41ff, 0xc3dc43ff, 0xc1de45ff, 0xbfe047ff, 0xbde249ff, 0xbbe44bff, 0xb9e64dff, 0xb7e84fff, 0xb5ea52ff, 0xb3ec54ff, 0xb2ed57ff, 0xb0ef59ff, 0xadf05aff, 0xaaf15aff, 0xa6f159ff, 0xa2f259ff, 0x9ff259ff, 0x9bf358ff, 0x97f358ff, 0x94f459ff, 0x90f459ff, 0x8df559ff, 0x89f559ff, 0x85f65aff, 0x82f65bff, 0x7ff65bff, 0x7ef75cff, 0x7cf75dff, 0x7bf75eff, 0x7af75fff, 0x79f760ff, 0x78f762ff, 0x77f763ff, 0x76f764ff, 0x75f766ff, 0x74f768ff, 0x73f769ff, 0x72f76bff, 0x71f76dff, 0x70f76fff, 0x6ff671ff, 0x6ef673ff, 0x6df675ff, 0x6df577ff, 0x6cf579ff, 0x6bf47cff, 0x6af37eff, 0x69f380ff, 0x68f283ff, 0x67f185ff, 0x66f188ff, 0x66f08aff, 0x65ef8dff, 0x64ee8fff, 0x63ed92ff, 0x62ec94ff, 0x62eb97ff, 0x61ea9aff, 0x60e89cff, 0x5fe79fff, 0x5fe6a1ff, 0x5ee4a4ff, 0x5de3a7ff, 0x5ce2a9ff, 0x5ce0acff, 0x5bdfafff, 0x5addb1ff, 0x5adbb4ff, 0x59dab6ff, 0x58d8b9ff, 0x58d6bbff, 0x57d5beff, 0x56d3c0ff, 0x56d1c2ff, 0x55cfc5ff, 0x54cdc7ff, 0x54cbc9ff, 0x53c9cbff, 0x52c7cdff, 0x52c5cfff, 0x51c3d1ff, 0x51c1d3ff, 0x50bfd5ff, 0x50bdd7ff, 0x4fbbd9ff, 0x4eb9daff, 0x4eb6dcff, 0x4db4ddff, 0x4db2dfff, 0x4cb0e0ff, 0x4caee2ff, 0x4babe3ff, 0x4ba9e4ff, 0x4aa7e5ff, 0x4aa4e6ff, 0x49a2e7ff, 0x49a0e8ff, 0x489ee8ff, 0x489be9ff, 0x4799e9ff, 0x4797eaff, 0x4694eaff, 0x4692eaff, 0x4690ebff, 0x458eebff, 0x478bebff, 0x4889ebff, 0x4a87eaff, 0x4c85eaff, 0x4e82eaff, 0x5080e9ff, 0x527ee9ff, 0x537ce8ff, 0x557ae7ff, 0x5778e7ff, 0x5975e6ff, 0x5b73e5ff, 0x5c71e4ff, 0x5e6fe3ff, 0x606de1ff, 0x626be0ff, 0x6369dfff, 0x6567ddff, 0x6765dcff, 0x6864daff, 0x6a62d9ff, 0x6b60d7ff, 0x6d5ed5ff, 0x6e5cd3ff, 0x705bd1ff, 0x7159cfff, 0x7357cdff, 0x7456cbff, 0x7554c9ff, 0x7652c7ff, 0x7751c5ff, 0x794fc2ff, 0x7a4ec0ff, 0x7b4dbeff, 0x7c4bbbff);
 preset!(spectral; 0x9e0142ff, 0xd53e4fff, 0xf46d43ff, 0xfdae61ff, 0xfee08bff, 0xffffbfff, 0xe6f598ff, 0xabdda4ff, 0x66c2a5ff, 0x3288bdff, 0x5e4fa2ff);
 preset!(viridis; 0x440154ff, 0x482777ff, 0x3f4a8aff, 0x31678eff, 0x26838fff, 0x1f9d8aff, 0x6cce5aff, 0xb6de2bff, 0xfee825ff);
 preset!(inferno; 0x000004ff, 0x170b3aff, 0x420a68ff, 0x6b176eff, 0x932667ff, 0xbb3654ff, 0xdd513aff, 0xf3771aff, 0xfca50aff, 0xf6d644ff, 0xfcffa4ff);

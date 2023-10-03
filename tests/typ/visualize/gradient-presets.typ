@@ -6,9 +6,9 @@
 #set text(top-edge: "bounds", bottom-edge: "bounds")
 
 #let presets = (
-  ("turbo", gradient.turbo()),
-  ("cividis", gradient.cividis()),
-  ("rainbow", gradient.rainbow()),
+  ("turbo", gradient.turbo),
+  ("cividis", gradient.cividis),
+  ("rainbow", gradient.rainbow),
   ("spectral", gradient.spectral),
   ("viridis", gradient.viridis),
   ("inferno", gradient.inferno),
