@@ -33,10 +33,10 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// ## Usage
 /// Gradients can be used for the following purposes:
-/// - As fills to paint the interior of a shape: `{rect(fill:
-///   gradient.linear(..))}`
-/// - As strokes to paint the outline of a shape: `{rect(stroke: 1pt +
-///   gradient.linear(..))}`
+/// - As fills to paint the interior of a shape:
+///   `{rect(fill: gradient.linear(..))}`
+/// - As strokes to paint the outline of a shape:
+///   `{rect(stroke: 1pt + gradient.linear(..))}`
 /// - As color maps you can [sample]($gradient.sample) from:
 ///   `{gradient.linear(..).sample(0.5)}`
 ///
@@ -49,7 +49,7 @@ use crate::geom::{ColorSpace, Smart};
 /// argument of a gradient constructor. By default, gradients are relative to
 /// the shape they are painted on.
 ///
-/// Typst determines ancestor container as follows:
+/// Typst determines the ancestor container as follows:
 /// - For shapes that are placed at the root/top level of the document, the
 ///   closest ancestor is the page itself.
 /// - For other shapes, the ancestor is the innermost [`block`]($block) or
@@ -61,8 +61,7 @@ use crate::geom::{ColorSpace, Smart};
 /// ## Color spaces and interpolation
 /// Gradients can be interpolated in any color space. By default, gradients are
 /// interpolated in the [Oklab]($color.oklab) color space, which is a
-/// [perceptually
-/// uniform](https://programmingdesignsystems.com/color/perceptually-uniform-color-spaces/index.html)
+/// [perceptually uniform](https://programmingdesignsystems.com/color/perceptually-uniform-color-spaces/index.html)
 /// color space. This means that the gradient will be perceived as having a
 /// smooth progression of colors. This is particularly useful for data
 /// visualization.
@@ -141,7 +140,7 @@ use crate::geom::{ColorSpace, Smart};
 /// ### Turbo
 /// The [`turbo`]($gradient.turbo) gradient is a rainbow-like gradient that is
 /// perceptually uniform. Turbo is a gradient that takes an optional number of
-/// stops, which is set to 20 by default.
+/// stops.
 ///
 /// ```example
 /// #rect(width: 100%, height: 20pt, fill: gradient.linear(..gradient.turbo(10)))
@@ -755,7 +754,7 @@ impl Gradient {
     }
 
     /// Returns the relative placement of this gradient, handling
-    /// the special case of `Auto`.
+    /// the special case of `auto`.
     pub fn unwrap_relative(&self, on_text: bool) -> Relative {
         self.relative().unwrap_or_else(|| {
             if on_text {
