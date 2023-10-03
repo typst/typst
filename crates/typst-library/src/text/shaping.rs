@@ -446,7 +446,12 @@ impl<'a> ShapedText<'a> {
                 .glyphs
                 .last()
                 .map(|g| g.range.end..g.range.end)
-                .unwrap_or_default();
+                // In the unlikely chance that we hyphenate after an
+                // empty line, ensure that the glyph range still falls
+                // after self.base so that subtracting either of the
+                // endpoints by self.base doesn’t underflow.
+                // See <https://github.com/typst/typst/issues/2283>.
+                .unwrap_or_else(|| self.base..self.base);
             self.width += x_advance.at(self.size);
             self.glyphs.to_mut().push(ShapedGlyph {
                 font,
