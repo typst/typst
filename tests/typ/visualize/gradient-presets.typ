@@ -6,20 +6,20 @@
 #set text(top-edge: "bounds", bottom-edge: "bounds")
 
 #let presets = (
-  ("turbo", gradient.turbo),
-  ("cividis", gradient.cividis),
-  ("rainbow", gradient.rainbow),
-  ("spectral", gradient.spectral),
-  ("viridis", gradient.viridis),
-  ("inferno", gradient.inferno),
-  ("magma", gradient.magma),
-  ("plasma", gradient.plasma),
-  ("rocket", gradient.rocket),
-  ("mako", gradient.mako),
-  ("vlag", gradient.vlag),
-  ("icefire", gradient.icefire),
-  ("flare", gradient.flare),
-  ("crest", gradient.crest),
+  ("turbo", color.map.turbo),
+  ("cividis", color.map.cividis),
+  ("rainbow", color.map.rainbow),
+  ("spectral", color.map.spectral),
+  ("viridis", color.map.viridis),
+  ("inferno", color.map.inferno),
+  ("magma", color.map.magma),
+  ("plasma", color.map.plasma),
+  ("rocket", color.map.rocket),
+  ("mako", color.map.mako),
+  ("vlag", color.map.vlag),
+  ("icefire", color.map.icefire),
+  ("flare", color.map.flare),
+  ("crest", color.map.crest),
 )
 
 #stack(
