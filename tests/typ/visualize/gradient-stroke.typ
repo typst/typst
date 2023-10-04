@@ -1,8 +1,9 @@
 // Test gradients on strokes.
 
 ---
-#set page(width: 100pt, height: 100pt)
-#align(center + horizon, square(size: 50pt, fill: black, stroke: 5pt + gradient.linear(red, blue)))
+#set page(width: 100pt, height: auto, margin: 0pt)
+#align(center + top, square(size: 50pt, fill: black, stroke: 5pt + gradient.linear(red, blue)))
+#align(center + bottom, square(size: 50pt, fill: black, stroke: 5pt + gradient.radial(red, blue, radius: 70.7%, start-radius: 50%)))
 
 ---
 // Test gradient on lines

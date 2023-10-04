@@ -9,22 +9,32 @@ use typst_syntax::{Span, Spanned};
 
 use super::color::{Hsl, Hsv};
 use super::*;
-use crate::diag::{bail, error, SourceResult};
+use crate::diag::{bail, error, At, SourceResult};
 use crate::eval::{array, Args, Array, Func, IntoValue};
 use crate::geom::{ColorSpace, Smart};
 
 /// A color gradient.
 ///
 /// Typst supports linear gradients through the
-/// [`gradient.linear` function]($gradient.linear). Radial and conic gradients
-/// will be available soon.
+/// [`gradient.linear` function]($gradient.linear) and radial gradients through
+/// the [`gradient.radial` function]($gradient.radial). Conic gradients will be
+/// available soon.
 ///
 /// See the [tracking issue](https://github.com/typst/typst/issues/2282) for
 /// more details on the progress of gradient implementation.
 ///
+/// ```example
+/// #stack(
+///   dir: ltr,
+///   square(size: 50pt, fill: gradient.linear(..color.map.rainbow)),
+///   square(size: 50pt, fill: gradient.radial(..color.map.rainbow)),
+/// )
+/// ```
+///
 /// ## Stops
 /// A gradient is composed of a series of stops. Each of these stops has a color
-/// and an offset. The offset is a [ratio]($ratio) between `{0%}` and `{100%}`
+/// and an offset. The offset is a [ratio]($ratio) between `{0%}` and `{100%}` or
+/// an angle between `{0deg}` and `{360deg}`. The offset is a relative position
 /// that determines how far along the gradient the stop is located. The stop's
 /// color is the color of the gradient at that position. You can choose to omit
 /// the offsets when defining a gradient. In this case, Typst will space all
@@ -172,6 +182,7 @@ use crate::geom::{ColorSpace, Smart};
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Gradient {
     Linear(Arc<LinearGradient>),
+    Radial(Arc<RadialGradient>),
 }
 
 #[scope]
@@ -237,11 +248,128 @@ impl Gradient {
         })))
     }
 
+    /// Creates a new radial gradient.
+    #[func]
+    fn radial(
+        /// The call site of this function.
+        span: Span,
+        /// The color [stops](#stops) of the gradient.
+        #[variadic]
+        stops: Vec<Spanned<Stop>>,
+        /// The color space in which to interpolate the gradient.
+        ///
+        /// Defaults to a perceptually uniform color space called
+        /// [Oklab]($color.oklab).
+        #[named]
+        #[default(ColorSpace::Oklab)]
+        space: ColorSpace,
+        /// The [relative placement](#relativeness) of the gradient.
+        ///
+        /// For an element placed at the root/top level of the document, the parent
+        /// is the page itself. For other elements, the parent is the innermost block,
+        /// box, column, grid, or stack that contains the element.
+        #[named]
+        #[default(Smart::Auto)]
+        relative: Smart<Relative>,
+        /// The center of the last circle of the gradient.
+        #[named]
+        #[default(Spanned::new(array![Ratio::new(0.5), Ratio::new(0.5)], Span::detached()))]
+        center: Spanned<Array>,
+        /// The radius of the last circle of the gradient.
+        #[named]
+        #[default(Spanned::new(Ratio::new(0.5), Span::detached()))]
+        radius: Spanned<Ratio>,
+        /// The center of the start circle of the gradient.
+        /// 
+        /// By default it is set to the same as the center of the last circle.
+        #[named]
+        #[default(Spanned::new(Smart::Auto, Span::detached()))]
+        start_center: Spanned<Smart<Array>>,
+        /// The radius of the start circle of the gradient.
+        #[named]
+        #[default(Spanned::new(Ratio::new(0.0), Span::detached()))]
+        start_radius: Spanned<Ratio>,
+    ) -> SourceResult<Gradient> {
+        if stops.len() < 2 {
+            bail!(error!(span, "a gradient must have at least two stops")
+                .with_hint("try filling the shape with a single color instead"));
+        }
+
+        if radius.v.get() <= 0.0 {
+            bail!(error!(
+                radius.span,
+                "the radius must be bigger than zero"
+            )
+            .with_hint("try using a radius of `50%` instead"));
+        }
+
+        if start_radius.v.get() < 0.0 {
+            bail!(error!(
+                radius.span,
+                "the start radius must be bigger or equal to zero"
+            )
+            .with_hint("try using a start radius of `0%` instead"));
+        }
+
+        if start_radius.v > radius.v {
+            bail!(error!(
+                start_radius.span,
+                "the start radius must be smaller than the end radius"
+            )
+            .with_hint("try using a start radius of `0%` instead"));
+        }
+
+        let mut iter = center.v.into_iter();
+        let center = match (iter.next(), iter.next(), iter.next()) {
+            (Some(a), Some(b), None) => {
+                Axes::new(a.cast().at(center.span)?, b.cast().at(center.span)?)
+            }
+            _ => bail!(error!(
+                center.span,
+                "the center is defined with an array of two ratios"
+            )
+            .with_hint("try using the array `(50%, 50%)` instead")),
+        };
+
+        let start_center = match start_center.v {
+            Smart::Auto => center,
+            Smart::Custom(v) => {
+                let mut iter = v.into_iter();
+                match (iter.next(), iter.next(), iter.next()) {
+                    (Some(a), Some(b), None) => {
+                        Axes::new(a.cast().at(start_center.span)?, b.cast().at(start_center.span)?)
+                    }
+                    _ => bail!(error!(
+                        start_center.span,
+                        "the start center is defined with an array of two ratios"
+                    )
+                    .with_hint("try using the array `(50%, 50%)` instead")),
+                }
+            }
+        };
+
+        Ok(Gradient::Radial(Arc::new(RadialGradient {
+            stops: process_stops(&stops)?,
+            center,
+            radius: radius.v,
+            start_center,
+            start_radius: start_radius.v,
+            space,
+            relative,
+            anti_alias: true,
+        })))
+    }
+
     /// Returns the stops of this gradient.
     #[func]
     pub fn stops(&self) -> Vec<Stop> {
         match self {
             Self::Linear(linear) => linear
+                .stops
+                .iter()
+                .map(|(color, offset)| Stop { color: *color, offset: Some(*offset) })
+                .collect(),
+            Self::Radial(radial) => radial
                 .stops
                 .iter()
                 .map(|(color, offset)| Stop { color: *color, offset: Some(*offset) })
@@ -254,6 +382,7 @@ impl Gradient {
     pub fn space(&self) -> ColorSpace {
         match self {
             Self::Linear(linear) => linear.space,
+            Self::Radial(radial) => radial.space,
         }
     }
 
@@ -262,14 +391,16 @@ impl Gradient {
     pub fn relative(&self) -> Smart<Relative> {
         match self {
             Self::Linear(linear) => linear.relative,
+            Self::Radial(radial) => radial.relative,
         }
     }
 
     /// Returns the angle of this gradient.
     #[func]
-    pub fn angle(&self) -> Angle {
+    pub fn angle(&self) -> Option<Angle> {
         match self {
-            Self::Linear(linear) => linear.angle,
+            Self::Linear(linear) => Some(linear.angle),
+            Self::Radial(_) => None,
         }
     }
 
@@ -278,6 +409,7 @@ impl Gradient {
     pub fn kind(&self) -> Func {
         match self {
             Self::Linear(_) => Self::linear_data().into(),
+            Self::Radial(_) => Self::radial_data().into(),
         }
     }
 
@@ -298,6 +430,7 @@ impl Gradient {
 
         match self {
             Self::Linear(linear) => sample_stops(&linear.stops, linear.space, value),
+            Self::Radial(radial) => sample_stops(&radial.stops, radial.space, value),
         }
     }
 
@@ -392,6 +525,16 @@ impl Gradient {
                 relative: linear.relative,
                 anti_alias: false,
             })),
+            Self::Radial(radial) => Self::Radial(Arc::new(RadialGradient {
+                stops,
+                center: radial.center,
+                radius: radial.radius,
+                start_center: radial.start_center,
+                start_radius: radial.start_radius,
+                space: radial.space,
+                relative: radial.relative,
+                anti_alias: false,
+            })),
         })
     }
 
@@ -440,12 +583,22 @@ impl Gradient {
         stops.dedup();
 
         Ok(match self {
-            Self::Linear(grad) => Self::Linear(Arc::new(LinearGradient {
+            Self::Linear(linear) => Self::Linear(Arc::new(LinearGradient {
                 stops,
-                angle: grad.angle,
-                space: grad.space,
-                relative: grad.relative,
-                anti_alias: grad.anti_alias,
+                angle: linear.angle,
+                space: linear.space,
+                relative: linear.relative,
+                anti_alias: linear.anti_alias,
+            })),
+            Self::Radial(radial) => Self::Radial(Arc::new(RadialGradient {
+                stops,
+                center: radial.center,
+                radius: radial.radius,
+                start_center: radial.start_center,
+                start_radius: radial.start_radius,
+                space: radial.space,
+                relative: radial.relative,
+                anti_alias: radial.anti_alias,
             })),
         })
     }
@@ -456,17 +609,17 @@ impl Gradient {
     pub fn stops_ref(&self) -> &[(Color, Ratio)] {
         match self {
             Gradient::Linear(linear) => &linear.stops,
+            Gradient::Radial(radial) => &radial.stops,
         }
     }
 
     /// Samples the gradient at a given position, in the given container.
     /// Handles the aspect ratio and angle directly.
     pub fn sample_at(&self, (x, y): (f32, f32), (width, height): (f32, f32)) -> Color {
+        // Normalize the coordinates.
+        let (mut x, mut y) = (x / width, y / height);
         let t = match self {
             Self::Linear(linear) => {
-                // Normalize the coordinates.
-                let (mut x, mut y) = (x / width, y / height);
-
                 // Handle the direction of the gradient.
                 let angle = linear.angle.to_rad().rem_euclid(TAU);
 
@@ -492,15 +645,35 @@ impl Gradient {
 
                 (x as f64 * cos.abs() + y as f64 * sin.abs()) / length
             }
+            Self::Radial(radial) => {
+                let (x, y) = (x as f64, y as f64);
+                let (cx, cy) = (radial.center.x.get(), radial.center.y.get());
+                let (fx, fy) = (radial.start_center.x.get(), radial.start_center.y.get());
+                let r = radial.radius.get();
+                let fr = radial.start_radius.get();
+
+                let t_outer = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
+                let t_inner = ((x - fx).powi(2) + (y - fy).powi(2)).sqrt();
+
+                if t_inner <= fr {
+                    0.0
+                } else if t_outer >= r {
+                    1.0
+                } else {
+                    ((t_inner - fr) * (t_outer - r) / ((r - fr) * (fr - r))).sqrt()
+                }
+
+            }
         };
 
-        self.sample(RatioOrAngle::Ratio(Ratio::new(t)))
+        self.sample(RatioOrAngle::Ratio(Ratio::new(t.clamp(0.0, 1.0))))
     }
 
     /// Does this gradient need to be anti-aliased?
     pub fn anti_alias(&self) -> bool {
         match self {
             Self::Linear(linear) => linear.anti_alias,
+            Self::Radial(radial) => radial.anti_alias,
         }
     }
 
@@ -535,6 +708,7 @@ impl Debug for Gradient {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Linear(linear) => linear.fmt(f),
+            Self::Radial(radial) => radial.fmt(f),
         }
     }
 }
@@ -581,6 +755,67 @@ impl Debug for LinearGradient {
 
         for (i, (color, offset)) in self.stops.iter().enumerate() {
             write!(f, "({color:?}, {offset:?})")?;
+
+            if i != self.stops.len() - 1 {
+                f.write_str(", ")?;
+            }
+        }
+
+        f.write_char(')')
+    }
+}
+
+/// A gradient that interpolates between two colors along a circle.
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub struct RadialGradient {
+    /// The color stops of this gradient.
+    pub stops: Vec<(Color, Ratio)>,
+    /// The center of last circle of this gradient.
+    pub center: Axes<Ratio>,
+    /// The radius of last circle of this gradient.
+    pub radius: Ratio,
+    /// The center of first circle of this gradient.
+    pub start_center: Axes<Ratio>,
+    /// The radius of first circle of this gradient.
+    pub start_radius: Ratio,
+    /// The color space in which to interpolate the gradient.
+    pub space: ColorSpace,
+    /// The relative placement of the gradient.
+    pub relative: Smart<Relative>,
+    /// Whether to anti-alias the gradient (used for sharp gradients).
+    pub anti_alias: bool,
+}
+
+impl Debug for RadialGradient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("gradient.radial(")?;
+
+        if self.center.x != Ratio::new(0.5) || self.center.y != Ratio::new(0.5) {
+            write!(f, "center: ({:?} {:?}), ", self.center.x, self.center.y)?;
+        }
+
+        if self.radius != Ratio::new(0.5) {
+            write!(f, "radius: {:?}, ", self.radius)?;
+        }
+
+        if self.start_center != self.center {
+            write!(f, "start-center: ({:?} {:?}), ", self.start_center.x, self.start_center.y)?;
+        }
+
+        if self.start_radius != Ratio::zero() {
+            write!(f, "start-radius: {:?}, ", self.start_radius)?;
+        }
+
+        if self.space != ColorSpace::Oklab {
+            write!(f, "space: {:?}, ", self.space.into_value())?;
+        }
+
+        if self.relative.is_custom() {
+            write!(f, "relative: {:?}, ", self.relative.into_value())?;
+        }
+
+        for (i, (color, offset)) in self.stops.iter().enumerate() {
+            write!(f, "({color:?}, {:?})", Angle::deg(offset.get() * 360.0))?;
 
             if i != self.stops.len() - 1 {
                 f.write_str(", ")?;
