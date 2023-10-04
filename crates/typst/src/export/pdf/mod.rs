@@ -19,7 +19,7 @@ use std::num::NonZeroUsize;
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
 use pdf_writer::writers::PageLabel;
-use pdf_writer::{Finish, Name, PdfWriter, Ref, TextStr};
+use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
 use xmp_writer::{LangId, RenditionClass, XmpWriter};
 
 use self::gradient::PdfGradient;
@@ -52,7 +52,7 @@ pub fn pdf(document: &Document) -> Vec<u8> {
 pub struct PdfContext<'a> {
     document: &'a Document,
     introspector: Introspector,
-    writer: PdfWriter,
+    writer: Pdf,
     colors: ColorSpaces,
     pages: Vec<Page>,
     page_heights: Vec<f32>,
@@ -84,7 +84,7 @@ impl<'a> PdfContext<'a> {
         Self {
             document,
             introspector: Introspector::new(&document.pages),
-            writer: PdfWriter::new(),
+            writer: Pdf::new(),
             colors: ColorSpaces::default(),
             pages: vec![],
             page_heights: vec![],

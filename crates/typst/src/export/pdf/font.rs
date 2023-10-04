@@ -6,7 +6,7 @@ use pdf_writer::{Filter, Finish, Name, Rect, Str};
 use ttf_parser::{name_id, GlyphId, Tag};
 use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 
-use super::{deflate, EmExt, PdfContext, RefExt};
+use super::{deflate, EmExt, PdfContext};
 use crate::eval::Bytes;
 use crate::font::Font;
 use crate::util::SliceExt;

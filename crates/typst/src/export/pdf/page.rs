@@ -9,7 +9,7 @@ use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
 use super::color::PaintEncode;
 use super::extg::ExternalGraphicsState;
-use super::{deflate, AbsExt, EmExt, PdfContext, RefExt};
+use super::{deflate, AbsExt, EmExt, PdfContext};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::eval::Repr;
 use crate::font::Font;

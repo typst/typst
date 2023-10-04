@@ -4,7 +4,7 @@ use std::sync::Arc;
 use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Filter, Finish};
 
-use super::{deflate, PdfContext, RefExt};
+use super::{deflate, PdfContext};
 use crate::{
     geom::ColorSpace,
     image::{ImageKind, RasterFormat, RasterImage},

@@ -5,7 +5,7 @@ use pdf_writer::{Finish, Ref};
 
 use super::color::{ColorSpaceExt, PaintEncode};
 use super::page::{PageContext, Transforms};
-use super::{AbsExt, PdfContext, RefExt};
+use super::{AbsExt, PdfContext};
 use crate::geom::{
     Abs, Color, ColorSpace, Gradient, Numeric, Quadrant, Ratio, Relative, Transform,
 };

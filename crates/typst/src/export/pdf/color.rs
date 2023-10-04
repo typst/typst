@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
 use pdf_writer::types::DeviceNSubtype;
-use pdf_writer::{writers, Dict, Filter, Name, PdfWriter, Ref};
+use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
 
 use super::page::{PageContext, Transforms};
-use super::RefExt;
 use crate::export::pdf::deflate;
 use crate::geom::{Color, ColorSpace, Paint};
 
@@ -162,7 +161,7 @@ impl ColorSpaces {
 
     /// Write the necessary color spaces functions and ICC profiles to the
     /// PDF file.
-    pub fn write_functions(&self, writer: &mut PdfWriter) {
+    pub fn write_functions(&self, writer: &mut Chunk) {
         // Write the Oklab function & color space
         if let Some(oklab) = self.oklab {
             let code = oklab_function();

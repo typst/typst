@@ -2,7 +2,7 @@ use std::num::NonZeroUsize;
 
 use pdf_writer::{Finish, Ref, TextStr};
 
-use super::{AbsExt, PdfContext, RefExt};
+use super::{AbsExt, PdfContext};
 use crate::geom::{Abs, Smart};
 use crate::model::Content;
 

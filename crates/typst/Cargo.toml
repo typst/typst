@@ -31,7 +31,7 @@ kurbo = "0.9"
 log = "0.4"
 miniz_oxide = "0.7"
 once_cell = "1"
-pdf-writer = "0.8.1"
+pdf-writer = "0.9"
 pixglyph = "0.2"
 palette = { version = "0.7.3", default-features = false, features = ["approx", "libm"] }
 regex = "1"
@@ -41,7 +41,7 @@ rustybuzz = "0.7"
 serde = { version = "1.0.184", features = ["derive"] }
 siphasher = "0.3"
 subsetter = "0.1.1"
-svg2pdf = "0.7.1"
+svg2pdf = "0.8"
 tiny-skia = "0.10.0"
 toml = { version = "0.8", default-features = false, features = ["parse"] }
 tracing = "0.1.37"
