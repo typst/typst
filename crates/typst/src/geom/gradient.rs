@@ -3,8 +3,6 @@ use std::f64::{EPSILON, NEG_INFINITY};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use num_complex::Complex;
-
 use super::color::{Hsl, Hsv};
 use super::*;
 use crate::diag::{bail, error, SourceResult};
@@ -633,26 +631,23 @@ impl Gradient {
                 (x as f64 * cos.abs() + y as f64 * sin.abs()) / length
             }
             Self::Radial(radial) => {
-                // Source: https://typst.app/project/pqm3YG1dPKZ93lA4rzo6Zh
-                // Based on a möbius transformation from the annulus.
+                // Source: https://www.shadertoy.com/view/XldBR8
                 let cr = radial.radius.get();
                 let fr = radial.focal_radius.get();
 
-                let z = Complex::new(x as f64, y as f64);
-                let p = Complex::new(radial.center.x.get(), radial.center.y.get());
-                let q = Complex::new(
-                    radial.focal_center.x.get(),
-                    radial.focal_center.y.get(),
-                );
+                let x = radial.center.x.get() - x as f64;
+                let y = radial.center.y.get() - y as f64;
+                let dx = radial.center.x.get() - radial.focal_center.x.get();
+                let dy = radial.center.y.get() - radial.focal_center.y.get();
+                let r0 = cr;
+                let dr = fr - cr;
 
-                let a = (q - p).norm() / cr;
-                let rho = fr / cr;
-                let c = 1.0 + a.powi(2) - rho.powi(2);
-                let d = 2.0 / (c + (c.powi(2) - 4.0 * a.powi(2)).sqrt());
+                let a = dx.powi(2) + dy.powi(2) - dr.powi(2);
+                let b = -2.0 * (y * dy + x * dx + r0 * dr);
+                let c = x.powi(2) + y.powi(2) - r0.powi(2);
+                let t = (-b + (b.powi(2) - 4.0 * a * c).sqrt()) / (2.0 * a);
 
-                cr * ((z - p - d * (q - p))
-                    / (cr.powi(2) - d * (q - p).conj() * (z - p)))
-                    .norm()
+                1.0 - t
             }
         };
 
