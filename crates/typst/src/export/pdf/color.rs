@@ -35,9 +35,9 @@ static GRAY_ICC_DEFLATED: Lazy<Vec<u8>> =
 static OKLAB_DEFLATED: Lazy<Vec<u8>> =
     Lazy::new(|| deflate(minify(include_str!("postscript/oklab.ps")).as_bytes()));
 static HSV_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(minify(include_str!("postscript/hsl.ps")).as_bytes()));
-static HSL_DEFLATED: Lazy<Vec<u8>> =
     Lazy::new(|| deflate(minify(include_str!("postscript/hsv.ps")).as_bytes()));
+static HSL_DEFLATED: Lazy<Vec<u8>> =
+    Lazy::new(|| deflate(minify(include_str!("postscript/hsl.ps")).as_bytes()));
 
 /// The color spaces present in the PDF document
 #[derive(Default)]
