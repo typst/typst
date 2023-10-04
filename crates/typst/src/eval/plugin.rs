@@ -12,9 +12,6 @@ use crate::World;
 
 /// A WebAssembly plugin.
 ///
-/// This is **advanced functionality** and not to be confused with
-/// [Typst packages]($scripting/#packages).
-///
 /// Typst is capable of interfacing with plugins compiled to WebAssembly. Plugin
 /// functions may accept multiple [byte buffers]($bytes) as arguments and return
 /// a single byte buffer. They should typically be wrapped in idiomatic Typst
@@ -29,6 +26,20 @@ use crate::World;
 /// emscripten), which allows printing, reading files, etc. This ABI will not
 /// directly work with Typst. You will either need to compile to a different
 /// target or [stub all functions](https://github.com/astrale-sharp/wasm-minimal-protocol/blob/master/wasi-stub).
+///
+/// # Plugins and Packages
+/// Plugins are distributed as packages. A package can make use of a plugin
+/// simply by including a WebAssembly file and loading it. Because the
+/// byte-based plugin interface is quite low-level, plugins are typically
+/// exposed through wrapper functions, that also live in the same package.
+///
+/// # Purity
+/// Plugin functions must be pure: Given the same arguments, they must always
+/// return the same value. The reason for this is that Typst functions must be
+/// pure (which is quite fundamental to the language design) and, since Typst
+/// function can call plugin functions, this requirement is inherited. In
+/// particular, if a plugin function is called twice with the same arguments,
+/// Typst might cache the results and call your function only once.
 ///
 /// # Example
 /// ```example
