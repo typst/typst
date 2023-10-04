@@ -290,6 +290,18 @@ cast! {
     },
 }
 
+cast! {
+    Axes<Ratio>,
+    self => array![self.x, self.y].into_value(),
+    array: Array => {
+        let mut iter = array.into_iter();
+        match (iter.next(), iter.next(), iter.next()) {
+            (Some(a), Some(b), None) => Axes::new(a.cast()?, b.cast()?),
+            _ => bail!("ratio array must contain exactly two entries"),
+        }
+    },
+}
+
 impl<T: Resolve> Resolve for Axes<T> {
     type Output = Axes<T::Output>;
 

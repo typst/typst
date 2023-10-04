@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use super::color::{Hsl, Hsv};
 use super::*;
-use crate::diag::{bail, error, At, SourceResult};
+use crate::diag::{bail, error, SourceResult};
 use crate::eval::{array, cast, func, scope, ty, Args, Array, Cast, Func, IntoValue};
 use crate::geom::{ColorSpace, Smart};
 use crate::syntax::{Span, Spanned};
@@ -297,8 +297,8 @@ impl Gradient {
         relative: Smart<Relative>,
         /// The center of the last circle of the gradient.
         #[named]
-        #[default(Spanned::new(array![Ratio::new(0.5), Ratio::new(0.5)], Span::detached()))]
-        center: Spanned<Array>,
+        #[default(Axes::splat(Ratio::new(0.5)))]
+        center: Axes<Ratio>,
         /// The radius of the last circle of the gradient.
         ///
         /// By default, it is set to `{50%}`. The ending radius must be bigger
@@ -310,8 +310,8 @@ impl Gradient {
         ///
         /// By default it is set to the same as the center of the last circle.
         #[named]
-        #[default(Spanned::new(Smart::Auto, Span::detached()))]
-        start_center: Spanned<Smart<Array>>,
+        #[default(Smart::Auto)]
+        start_center: Smart<Axes<Ratio>>,
         /// The radius of the start circle of the gradient.
         ///
         /// By default, it is set to `{0%}`. The starting radius must be smaller
@@ -346,41 +346,11 @@ impl Gradient {
             .with_hint("try using a start radius of `0%` instead"));
         }
 
-        let mut iter = center.v.into_iter();
-        let center = match (iter.next(), iter.next(), iter.next()) {
-            (Some(a), Some(b), None) => {
-                Axes::new(a.cast().at(center.span)?, b.cast().at(center.span)?)
-            }
-            _ => bail!(error!(
-                center.span,
-                "the center is defined with an array of two ratios"
-            )
-            .with_hint("try using the array `(50%, 50%)` instead")),
-        };
-
-        let start_center = match start_center.v {
-            Smart::Auto => center,
-            Smart::Custom(v) => {
-                let mut iter = v.into_iter();
-                match (iter.next(), iter.next(), iter.next()) {
-                    (Some(a), Some(b), None) => Axes::new(
-                        a.cast().at(start_center.span)?,
-                        b.cast().at(start_center.span)?,
-                    ),
-                    _ => bail!(error!(
-                        start_center.span,
-                        "the start center is defined with an array of two ratios"
-                    )
-                    .with_hint("try using the array `(50%, 50%)` instead")),
-                }
-            }
-        };
-
         Ok(Gradient::Radial(Arc::new(RadialGradient {
             stops: process_stops(&stops)?,
             center,
             radius: radius.v,
-            start_center,
+            start_center: start_center.unwrap_or(center),
             start_radius: start_radius.v,
             space,
             relative,
