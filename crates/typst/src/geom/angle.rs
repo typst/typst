@@ -12,7 +12,7 @@ use super::*;
 /// #rotate(10deg)[Hello there!]
 /// ```
 #[ty(scope)]
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Angle(Scalar);
 
 impl Angle {
@@ -119,9 +119,9 @@ impl Numeric for Angle {
     }
 }
 
-impl Debug for Angle {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}deg", round_2(self.to_deg()))
+impl Repr for Angle {
+    fn repr(&self) -> EcoString {
+        format_float(self.to_deg(), Some(2), "deg")
     }
 }
 
@@ -187,7 +187,7 @@ impl Sum for Angle {
 }
 
 /// Different units of angular measurement.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum AngleUnit {
     /// Radians.
     Rad,
@@ -202,15 +202,6 @@ impl AngleUnit {
             Self::Rad => 1.0,
             Self::Deg => PI / 180.0,
         }
-    }
-}
-
-impl Debug for AngleUnit {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Rad => "rad",
-            Self::Deg => "deg",
-        })
     }
 }
 

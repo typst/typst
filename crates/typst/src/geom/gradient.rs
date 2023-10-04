@@ -1,17 +1,14 @@
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 use std::f64::{EPSILON, NEG_INFINITY};
-use std::fmt::{self, Debug, Write};
 use std::hash::Hash;
 use std::sync::Arc;
-
-use typst_macros::{cast, func, scope, ty, Cast};
-use typst_syntax::{Span, Spanned};
 
 use super::color::{Hsl, Hsv};
 use super::*;
 use crate::diag::{bail, error, SourceResult};
-use crate::eval::{array, Args, Array, Func, IntoValue};
+use crate::eval::{array, cast, func, scope, ty, Args, Array, Cast, Func, IntoValue};
 use crate::geom::{ColorSpace, Smart};
+use crate::syntax::{Span, Spanned};
 
 /// A color gradient.
 ///
@@ -169,7 +166,7 @@ use crate::geom::{ColorSpace, Smart};
 /// )
 /// ```
 #[ty(scope)]
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Gradient {
     Linear(Arc<LinearGradient>),
 }
@@ -531,16 +528,16 @@ impl Gradient {
     }
 }
 
-impl Debug for Gradient {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Repr for Gradient {
+    fn repr(&self) -> EcoString {
         match self {
-            Self::Linear(linear) => linear.fmt(f),
+            Self::Linear(linear) => linear.repr(),
         }
     }
 }
 
 /// A gradient that interpolates between two colors along an axis.
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct LinearGradient {
     /// The color stops of this gradient.
     pub stops: Vec<(Color, Ratio)>,
@@ -554,40 +551,50 @@ pub struct LinearGradient {
     pub anti_alias: bool,
 }
 
-impl Debug for LinearGradient {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("gradient.linear(")?;
+impl Repr for LinearGradient {
+    fn repr(&self) -> EcoString {
+        let mut r = EcoString::from("gradient.linear(");
 
         let angle = self.angle.to_rad().rem_euclid(TAU);
         if angle.abs() < EPSILON {
             // Default value, do nothing
         } else if (angle - FRAC_PI_2).abs() < EPSILON {
-            f.write_str("dir: rtl, ")?;
+            r.push_str("dir: rtl, ");
         } else if (angle - PI).abs() < EPSILON {
-            f.write_str("dir: ttb, ")?;
+            r.push_str("dir: ttb, ");
         } else if (angle - 3.0 * FRAC_PI_2).abs() < EPSILON {
-            f.write_str("dir: btt, ")?;
+            r.push_str("dir: btt, ");
         } else {
-            write!(f, "angle: {:?}, ", self.angle)?;
+            r.push_str("angle: ");
+            r.push_str(&self.angle.repr());
+            r.push_str(", ");
         }
 
         if self.space != ColorSpace::Oklab {
-            write!(f, "space: {:?}, ", self.space.into_value())?;
+            r.push_str("space: ");
+            r.push_str(&self.space.into_value().repr());
+            r.push_str(", ");
         }
 
         if self.relative.is_custom() {
-            write!(f, "relative: {:?}, ", self.relative.into_value())?;
+            r.push_str("relative: ");
+            r.push_str(&self.relative.into_value().repr());
+            r.push_str(", ");
         }
 
         for (i, (color, offset)) in self.stops.iter().enumerate() {
-            write!(f, "({color:?}, {offset:?})")?;
-
+            r.push('(');
+            r.push_str(&color.repr());
+            r.push_str(", ");
+            r.push_str(&offset.repr());
+            r.push(')');
             if i != self.stops.len() - 1 {
-                f.write_str(", ")?;
+                r.push_str(", ");
             }
         }
 
-        f.write_char(')')
+        r.push(')');
+        r
     }
 }
 

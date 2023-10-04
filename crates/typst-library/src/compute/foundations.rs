@@ -1,5 +1,5 @@
 use typst::eval::{
-    Datetime, Duration, EvalMode, Module, Never, NoneValue, Plugin, Regex, Version,
+    Datetime, Duration, EvalMode, Module, Never, NoneValue, Plugin, Regex, Repr, Version,
 };
 
 use crate::prelude::*;
@@ -51,7 +51,7 @@ pub fn repr(
     /// The value whose string representation to produce.
     value: Value,
 ) -> Str {
-    value.repr()
+    value.repr().into()
 }
 
 /// Fails with an error.
@@ -135,7 +135,11 @@ impl assert {
             if let Some(message) = message {
                 bail!("equality assertion failed: {message}");
             } else {
-                bail!("equality assertion failed: value {left:?} was not equal to {right:?}");
+                bail!(
+                    "equality assertion failed: value {} was not equal to {}",
+                    left.repr(),
+                    right.repr()
+                );
             }
         }
         Ok(NoneValue)
@@ -165,7 +169,9 @@ impl assert {
                 bail!("inequality assertion failed: {message}");
             } else {
                 bail!(
-                    "inequality assertion failed: value {left:?} was equal to {right:?}"
+                    "inequality assertion failed: value {} was equal to {}",
+                    left.repr(),
+                    right.repr()
                 );
             }
         }

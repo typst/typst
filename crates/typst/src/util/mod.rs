@@ -1,7 +1,7 @@
 //! Utilities.
 
 pub mod fat;
-mod fmt;
+pub mod fmt;
 
 pub use self::fmt::{pretty_array_like, pretty_comma_list, separated_list};
 

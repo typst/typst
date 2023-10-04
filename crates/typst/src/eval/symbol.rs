@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::sync::Arc;
 
-use ecow::EcoString;
+use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
 
 use super::{cast, func, scope, ty, Array};
@@ -43,11 +43,11 @@ pub use typst_macros::symbols;
 /// $arrow.t.quad$
 /// ```
 #[ty(scope)]
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Symbol(Repr);
 
 /// The internal representation.
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum Repr {
     Single(char),
     Const(&'static [(&'static str, char)]),
@@ -55,7 +55,7 @@ enum Repr {
 }
 
 /// A collection of symbols.
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum List {
     Static(&'static [(&'static str, char)]),
     Runtime(Box<[(EcoString, char)]>),
@@ -208,15 +208,15 @@ impl Symbol {
     }
 }
 
-impl Debug for Symbol {
+impl Display for Symbol {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_char(self.get())
     }
 }
 
-impl Display for Symbol {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_char(self.get())
+impl super::Repr for Symbol {
+    fn repr(&self) -> EcoString {
+        eco_format!("\"{}\"", self.get())
     }
 }
 

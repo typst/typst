@@ -3,7 +3,7 @@ use super::*;
 /// A 64-bit float that implements `Eq`, `Ord` and `Hash`.
 ///
 /// Panics if it's `NaN` during any of those operations.
-#[derive(Default, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct Scalar(f64);
 
 // We have to detect NaNs this way since `f64::is_nan` isn’t const
@@ -61,9 +61,9 @@ impl From<Scalar> for f64 {
     }
 }
 
-impl Debug for Scalar {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Debug::fmt(&self.0, f)
+impl Repr for Scalar {
+    fn repr(&self) -> EcoString {
+        self.0.repr()
     }
 }
 

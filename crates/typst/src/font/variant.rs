@@ -1,8 +1,9 @@
+use ecow::EcoString;
 use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::eval::{cast, Cast, IntoValue};
+use crate::eval::{cast, Cast, IntoValue, Repr};
 use crate::geom::Ratio;
 
 /// Properties that distinguish a font from other fonts in the same family.
@@ -176,7 +177,7 @@ cast! {
 }
 
 /// The width of a font.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct FontStretch(u16);
@@ -247,10 +248,9 @@ impl Default for FontStretch {
         Self::NORMAL
     }
 }
-
-impl Debug for FontStretch {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.to_ratio().fmt(f)
+impl Repr for FontStretch {
+    fn repr(&self) -> EcoString {
+        self.to_ratio().repr()
     }
 }
 
@@ -291,6 +291,6 @@ mod tests {
 
     #[test]
     fn test_font_stretch_debug() {
-        assert_eq!(format!("{:?}", FontStretch::EXPANDED), "125%")
+        assert_eq!(FontStretch::EXPANDED.repr(), "125%")
     }
 }

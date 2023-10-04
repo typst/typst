@@ -1,11 +1,11 @@
 use std::cmp::Ordering;
-use std::fmt::{self, Debug, Display, Formatter, Write};
+use std::fmt::{self, Display, Formatter, Write};
 use std::hash::Hash;
 use std::iter::repeat;
 
-use ecow::{eco_format, EcoVec};
+use ecow::{eco_format, EcoString, EcoVec};
 
-use super::{cast, func, scope, ty};
+use super::{cast, func, scope, ty, Repr};
 use crate::diag::{bail, error, StrResult};
 use crate::util::pretty_array_like;
 
@@ -19,7 +19,7 @@ use crate::util::pretty_array_like;
 /// The first three components have names: `major`, `minor`, `patch`. All
 /// components after that do not have names.
 #[ty(scope)]
-#[derive(Default, Clone, Hash)]
+#[derive(Debug, Default, Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Version(EcoVec<u32>);
 
@@ -165,7 +165,7 @@ impl PartialEq for Version {
 }
 
 impl Display for Version {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let mut first = true;
         for &v in &self.0 {
             if !first {
@@ -178,11 +178,10 @@ impl Display for Version {
     }
 }
 
-impl Debug for Version {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("version")?;
+impl Repr for Version {
+    fn repr(&self) -> EcoString {
         let parts: Vec<_> = self.0.iter().map(|v| eco_format!("{v}")).collect();
-        f.write_str(&pretty_array_like(&parts, false))
+        eco_format!("version{}", &pretty_array_like(&parts, false))
     }
 }
 

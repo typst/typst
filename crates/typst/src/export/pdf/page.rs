@@ -11,6 +11,7 @@ use super::color::PaintEncode;
 use super::extg::ExternalGraphicsState;
 use super::{deflate, AbsExt, EmExt, PdfContext, RefExt};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
+use crate::eval::Repr;
 use crate::font::Font;
 use crate::geom::{
     self, Abs, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint, Point,
@@ -708,6 +709,12 @@ pub struct PdfPageLabel {
     /// Describes where to start counting from when setting a style.
     /// (Has to be greater or equal than 1)
     pub offset: Option<NonZeroUsize>,
+}
+
+impl Repr for PdfPageLabel {
+    fn repr(&self) -> EcoString {
+        eco_format!("{self:?}")
+    }
 }
 
 /// A PDF page label number style.

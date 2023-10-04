@@ -6,9 +6,9 @@ use std::ops::Range;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use ecow::EcoString;
+use ecow::{eco_format, EcoString};
 
-use crate::eval::{cast, dict, ty, Dict, Value};
+use crate::eval::{cast, dict, ty, Dict, Repr, Value};
 use crate::export::PdfPageLabel;
 use crate::font::Font;
 use crate::geom::{
@@ -762,6 +762,12 @@ impl Debug for Meta {
     }
 }
 
+impl Repr for Meta {
+    fn repr(&self) -> EcoString {
+        eco_format!("{self:?}")
+    }
+}
+
 /// A link destination.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Destination {
@@ -771,6 +777,12 @@ pub enum Destination {
     Position(Position),
     /// An unresolved link to a location in the document.
     Location(Location),
+}
+
+impl Repr for Destination {
+    fn repr(&self) -> EcoString {
+        eco_format!("{self:?}")
+    }
 }
 
 cast! {

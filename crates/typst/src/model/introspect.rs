@@ -1,17 +1,17 @@
 use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 
 use comemo::{Prehashed, Track, Tracked, Validate};
-use ecow::EcoVec;
+use ecow::{EcoString, EcoVec};
 use indexmap::IndexMap;
 
 use super::{Content, Selector};
 use crate::diag::{bail, StrResult};
 use crate::doc::{Frame, FrameItem, Meta, Position};
-use crate::eval::{cast, func, scope, ty, Dict, Value, Vm};
+use crate::eval::{cast, func, scope, ty, Dict, Repr, Value, Vm};
 use crate::geom::{Point, Transform};
 use crate::model::Label;
 use crate::util::NonZeroExt;
@@ -24,7 +24,7 @@ use crate::util::NonZeroExt;
 /// or shown element with the [`location()`]($content.location) method on
 /// content.
 #[ty(scope)]
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Location {
     /// The hash of the element.
     hash: u128,
@@ -83,9 +83,9 @@ impl Location {
     }
 }
 
-impl Debug for Location {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("..")
+impl Repr for Location {
+    fn repr(&self) -> EcoString {
+        "..".into()
     }
 }
 

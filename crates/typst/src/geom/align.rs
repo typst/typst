@@ -42,7 +42,7 @@ use super::*;
 /// #left.y (none)
 /// ```
 #[ty(scope, name = "alignment")]
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Align {
     H(HAlign),
     V(VAlign),
@@ -149,12 +149,12 @@ impl Add for Align {
     }
 }
 
-impl Debug for Align {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Repr for Align {
+    fn repr(&self) -> EcoString {
         match self {
-            Self::H(x) => x.fmt(f),
-            Self::V(y) => y.fmt(f),
-            Self::Both(x, y) => write!(f, "{x:?} + {y:?}"),
+            Self::H(x) => x.repr(),
+            Self::V(y) => y.repr(),
+            Self::Both(x, y) => eco_format!("{} + {}", x.repr(), y.repr()),
         }
     }
 }
@@ -195,7 +195,7 @@ cast! {
 }
 
 /// Where to align something horizontally.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum HAlign {
     #[default]
     Start,
@@ -229,15 +229,15 @@ impl HAlign {
     }
 }
 
-impl Debug for HAlign {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Start => "start",
-            Self::Left => "left",
-            Self::Center => "center",
-            Self::Right => "right",
-            Self::End => "end",
-        })
+impl Repr for HAlign {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::Start => "start".into(),
+            Self::Left => "left".into(),
+            Self::Center => "center".into(),
+            Self::Right => "right".into(),
+            Self::End => "end".into(),
+        }
     }
 }
 
@@ -268,12 +268,12 @@ cast! {
     self => Align::H(self).into_value(),
     align: Align => match align {
         Align::H(v) => v,
-        v => bail!("expected `start`, `left`, `center`, `right`, or `end`, found {v:?}"),
+        v => bail!("expected `start`, `left`, `center`, `right`, or `end`, found {}", v.repr()),
     }
 }
 
 /// Where to align something vertically.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum VAlign {
     #[default]
     Top,
@@ -301,13 +301,13 @@ impl VAlign {
     }
 }
 
-impl Debug for VAlign {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Top => "top",
-            Self::Horizon => "horizon",
-            Self::Bottom => "bottom",
-        })
+impl Repr for VAlign {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::Top => "top".into(),
+            Self::Horizon => "horizon".into(),
+            Self::Bottom => "bottom".into(),
+        }
     }
 }
 
@@ -330,7 +330,7 @@ cast! {
     self => Align::V(self).into_value(),
     align: Align => match align {
         Align::V(v) => v,
-        v => bail!("expected `top`, `horizon`, or `bottom`, found {v:?}"),
+        v => bail!("expected `top`, `horizon`, or `bottom`, found {}", v.repr()),
     }
 }
 
@@ -338,7 +338,7 @@ cast! {
 ///
 /// For horizontal alignment, start is globally left and for vertical alignment
 /// it is globally top.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum FixedAlign {
     Start,
     Center,
@@ -354,16 +354,6 @@ impl FixedAlign {
             Self::Center => extent / 2.0,
             Self::End => extent,
         }
-    }
-}
-
-impl Debug for FixedAlign {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Start => "start",
-            Self::Center => "center",
-            Self::End => "end",
-        })
     }
 }
 

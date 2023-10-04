@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::EcoVec;
 use once_cell::sync::Lazy;
 use palette::encoding::{self, Linear};
 use palette::{Darken, Desaturate, FromColor, Lighten, RgbHue, Saturate, ShiftHue};
@@ -185,7 +185,7 @@ const ANGLE_EPSILON: f32 = 1e-5;
 ///
 /// Feel free to use or create a package with other presets useful to you!
 #[ty(scope)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum Color {
     /// A 32-bit luma color.
     Luma(Luma),
@@ -1223,106 +1223,101 @@ impl Color {
     }
 }
 
-impl Debug for Color {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Repr for Color {
+    fn repr(&self) -> EcoString {
         match self {
-            Self::Luma(c) => write!(f, "luma({:?})", Ratio::new(c.luma as _)),
-            Self::Rgba(_) => write!(f, "rgb({:?})", self.to_hex()),
+            Self::Luma(c) => eco_format!("luma({})", Ratio::new(c.luma as _).repr()),
+            Self::Rgba(_) => eco_format!("rgb({})", self.to_hex().repr()),
             Self::LinearRgb(c) => {
                 if c.alpha == 1.0 {
-                    write!(
-                        f,
-                        "color.linear-rgb({:?}, {:?}, {:?})",
-                        Ratio::new(c.red as _),
-                        Ratio::new(c.green as _),
-                        Ratio::new(c.blue as _),
+                    eco_format!(
+                        "color.linear-rgb({}, {}, {})",
+                        Ratio::new(c.red as _).repr(),
+                        Ratio::new(c.green as _).repr(),
+                        Ratio::new(c.blue as _).repr(),
                     )
                 } else {
-                    write!(
-                        f,
-                        "color.linear-rgb({:?}, {:?}, {:?}, {:?})",
-                        Ratio::new(c.red as _),
-                        Ratio::new(c.green as _),
-                        Ratio::new(c.blue as _),
-                        Ratio::new(c.alpha as _),
+                    eco_format!(
+                        "color.linear-rgb({}, {}, {}, {})",
+                        Ratio::new(c.red as _).repr(),
+                        Ratio::new(c.green as _).repr(),
+                        Ratio::new(c.blue as _).repr(),
+                        Ratio::new(c.alpha as _).repr(),
                     )
                 }
             }
             Self::Cmyk(c) => {
-                write!(
-                    f,
-                    "rgb({:?}, {:?}, {:?}, {:?})",
-                    Ratio::new(c.c as _),
-                    Ratio::new(c.m as _),
-                    Ratio::new(c.y as _),
-                    Ratio::new(c.k as _),
+                eco_format!(
+                    "rgb({}, {}, {}, {})",
+                    Ratio::new(c.c as _).repr(),
+                    Ratio::new(c.m as _).repr(),
+                    Ratio::new(c.y as _).repr(),
+                    Ratio::new(c.k as _).repr(),
                 )
             }
             Self::Oklab(c) => {
                 if c.alpha == 1.0 {
-                    write!(
-                        f,
-                        "oklab({:?}, {:.3}, {:.3})",
-                        Ratio::new(c.l as _),
-                        (c.a * 1000.0).round() / 1000.0,
-                        (c.b * 1000.0).round() / 1000.0,
+                    eco_format!(
+                        "oklab({}, {}, {})",
+                        Ratio::new(c.l as _).repr(),
+                        format_float(c.a as _, Some(3), ""),
+                        format_float(c.b as _, Some(3), ""),
                     )
                 } else {
-                    write!(
-                        f,
-                        "oklab({:?}, {:?}, {:?}, {:?})",
-                        Ratio::new(c.l as _),
-                        (c.a * 1000.0).round() / 1000.0,
-                        (c.b * 1000.0).round() / 1000.0,
-                        Ratio::new(c.alpha as _),
+                    eco_format!(
+                        "oklab({}, {}, {}, {})",
+                        Ratio::new(c.l as _).repr(),
+                        format_float(c.a as _, Some(3), ""),
+                        format_float(c.b as _, Some(3), ""),
+                        Ratio::new(c.alpha as _).repr(),
                     )
                 }
             }
             Self::Hsl(c) => {
                 if c.alpha == 1.0 {
-                    write!(
-                        f,
-                        "color.hsl({:?}, {:?}, {:?})",
+                    eco_format!(
+                        "color.hsl({}, {}, {})",
                         Angle::deg(
                             c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        ),
-                        Ratio::new(c.saturation as _),
-                        Ratio::new(c.lightness as _),
+                        )
+                        .repr(),
+                        Ratio::new(c.saturation as _).repr(),
+                        Ratio::new(c.lightness as _).repr(),
                     )
                 } else {
-                    write!(
-                        f,
-                        "color.hsl({:?}, {:?}, {:?}, {:?})",
+                    eco_format!(
+                        "color.hsl({}, {}, {}, {})",
                         Angle::deg(
                             c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        ),
-                        Ratio::new(c.saturation as _),
-                        Ratio::new(c.lightness as _),
-                        Ratio::new(c.alpha as _),
+                        )
+                        .repr(),
+                        Ratio::new(c.saturation as _).repr(),
+                        Ratio::new(c.lightness as _).repr(),
+                        Ratio::new(c.alpha as _).repr(),
                     )
                 }
             }
             Self::Hsv(c) => {
                 if c.alpha == 1.0 {
-                    write!(
-                        f,
-                        "color.hsv({:?}, {:?}, {:?})",
+                    eco_format!(
+                        "color.hsv({}, {}, {})",
                         Angle::deg(
                             c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        ),
-                        Ratio::new(c.saturation as _),
-                        Ratio::new(c.value as _),
+                        )
+                        .repr(),
+                        Ratio::new(c.saturation as _).repr(),
+                        Ratio::new(c.value as _).repr(),
                     )
                 } else {
-                    write!(
-                        f,
-                        "color.hsv({:?}, {:?}, {:?}, {:?})",
+                    eco_format!(
+                        "color.hsv({}, {}, {}, {})",
                         Angle::deg(
                             c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        ),
-                        Ratio::new(c.saturation as _),
-                        Ratio::new(c.value as _),
-                        Ratio::new(c.alpha as _),
+                        )
+                        .repr(),
+                        Ratio::new(c.saturation as _).repr(),
+                        Ratio::new(c.value as _).repr(),
+                        Ratio::new(c.alpha as _).repr(),
                     )
                 }
             }
@@ -1404,7 +1399,7 @@ impl FromStr for Color {
 }
 
 /// An 8-bit CMYK color.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Cmyk {
     /// The cyan component.
     pub c: f32,

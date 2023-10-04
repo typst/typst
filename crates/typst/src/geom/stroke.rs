@@ -1,6 +1,5 @@
-use crate::eval::{dict, Cast, FromValue, NoneValue};
-
 use super::*;
+use crate::eval::{dict, Cast, FromValue, NoneValue};
 
 /// Defines how to draw a line.
 ///
@@ -67,7 +66,7 @@ use super::*;
 /// dictionary format above. For example, `{(2pt + blue).thickness}` is `{2pt}`.
 /// Meanwhile, `{(2pt + blue).cap}` is `{auto}` because it's unspecified.
 #[ty]
-#[derive(Default, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Stroke<T: Numeric = Length> {
     /// The stroke's paint.
     pub paint: Smart<Paint>,
@@ -146,8 +145,9 @@ impl Stroke<Abs> {
     }
 }
 
-impl<T: Numeric + Debug> Debug for Stroke<T> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl<T: Numeric + Repr> Repr for Stroke<T> {
+    fn repr(&self) -> EcoString {
+        let mut r = EcoString::new();
         let Self {
             paint,
             thickness,
@@ -163,46 +163,59 @@ impl<T: Numeric + Debug> Debug for Stroke<T> {
         {
             match (&self.paint, &self.thickness) {
                 (Smart::Custom(paint), Smart::Custom(thickness)) => {
-                    write!(f, "{thickness:?} + {paint:?}")
+                    r.push_str(&thickness.repr());
+                    r.push_str(" + ");
+                    r.push_str(&paint.repr());
                 }
-                (Smart::Custom(paint), Smart::Auto) => paint.fmt(f),
-                (Smart::Auto, Smart::Custom(thickness)) => thickness.fmt(f),
-                (Smart::Auto, Smart::Auto) => f.pad("1pt + black"),
+                (Smart::Custom(paint), Smart::Auto) => r.push_str(&paint.repr()),
+                (Smart::Auto, Smart::Custom(thickness)) => r.push_str(&thickness.repr()),
+                (Smart::Auto, Smart::Auto) => r.push_str("1pt + black"),
             }
         } else {
-            write!(f, "(")?;
+            r.push('(');
             let mut sep = "";
             if let Smart::Custom(paint) = &paint {
-                write!(f, "{}paint: {:?}", sep, paint)?;
+                r.push_str(sep);
+                r.push_str("paint: ");
+                r.push_str(&paint.repr());
                 sep = ", ";
             }
             if let Smart::Custom(thickness) = &thickness {
-                write!(f, "{}thickness: {:?}", sep, thickness)?;
+                r.push_str(sep);
+                r.push_str("thickness: ");
+                r.push_str(&thickness.repr());
                 sep = ", ";
             }
             if let Smart::Custom(cap) = &line_cap {
-                write!(f, "{}cap: {:?}", sep, cap)?;
+                r.push_str(sep);
+                r.push_str("cap: ");
+                r.push_str(&cap.repr());
                 sep = ", ";
             }
             if let Smart::Custom(join) = &line_join {
-                write!(f, "{}join: {:?}", sep, join)?;
+                r.push_str(sep);
+                r.push_str("join: ");
+                r.push_str(&join.repr());
                 sep = ", ";
             }
             if let Smart::Custom(dash) = &dash_pattern {
-                write!(f, "{}dash: ", sep)?;
+                r.push_str(sep);
+                r.push_str("cap: ");
                 if let Some(dash) = dash {
-                    Debug::fmt(dash, f)?;
+                    r.push_str(&dash.repr());
                 } else {
-                    Debug::fmt(&NoneValue, f)?;
+                    r.push_str(&NoneValue.repr());
                 }
                 sep = ", ";
             }
             if let Smart::Custom(miter_limit) = &miter_limit {
-                write!(f, "{}miter-limit: {:?}", sep, miter_limit)?;
+                r.push_str(sep);
+                r.push_str("miter-limit: ");
+                r.push_str(&miter_limit.repr());
             }
-            write!(f, ")")?;
-            Ok(())
+            r.push(')');
         }
+        r
     }
 }
 
@@ -277,43 +290,43 @@ cast! {
 }
 
 /// The line cap of a stroke
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Cast)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum LineCap {
     Butt,
     Round,
     Square,
 }
 
-impl Debug for LineCap {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Repr for LineCap {
+    fn repr(&self) -> EcoString {
         match self {
-            LineCap::Butt => write!(f, "\"butt\""),
-            LineCap::Round => write!(f, "\"round\""),
-            LineCap::Square => write!(f, "\"square\""),
+            Self::Butt => "butt".repr(),
+            Self::Round => "round".repr(),
+            Self::Square => "square".repr(),
         }
     }
 }
 
 /// The line join of a stroke
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Cast)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum LineJoin {
     Miter,
     Round,
     Bevel,
 }
 
-impl Debug for LineJoin {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Repr for LineJoin {
+    fn repr(&self) -> EcoString {
         match self {
-            LineJoin::Miter => write!(f, "\"miter\""),
-            LineJoin::Round => write!(f, "\"round\""),
-            LineJoin::Bevel => write!(f, "\"bevel\""),
+            Self::Miter => "miter".repr(),
+            Self::Round => "round".repr(),
+            Self::Bevel => "bevel".repr(),
         }
     }
 }
 
 /// A line dash pattern.
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct DashPattern<T: Numeric = Length, DT = DashLength<T>> {
     /// The dash array.
     pub array: Vec<DT>,
@@ -321,18 +334,19 @@ pub struct DashPattern<T: Numeric = Length, DT = DashLength<T>> {
     pub phase: T,
 }
 
-impl<T: Numeric + Debug, DT: Debug> Debug for DashPattern<T, DT> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "(array: (")?;
+impl<T: Numeric + Repr, DT: Repr> Repr for DashPattern<T, DT> {
+    fn repr(&self) -> EcoString {
+        let mut r = EcoString::from("(array: (");
         for (i, elem) in self.array.iter().enumerate() {
-            if i == 0 {
-                write!(f, "{:?}", elem)?;
-            } else {
-                write!(f, ", {:?}", elem)?;
+            if i != 0 {
+                r.push_str(", ")
             }
+            r.push_str(&elem.repr())
         }
-        write!(f, "), phase: {:?})", self.phase)?;
-        Ok(())
+        r.push_str("), phase: ");
+        r.push_str(&self.phase.repr());
+        r.push(')');
+        r
     }
 }
 
@@ -384,7 +398,7 @@ cast! {
 }
 
 /// The length of a dash in a line dash pattern.
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum DashLength<T: Numeric = Length> {
     LineWidth,
     Length(T),
@@ -399,11 +413,11 @@ impl<T: Numeric> DashLength<T> {
     }
 }
 
-impl<T: Numeric + Debug> Debug for DashLength<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl<T: Numeric + Repr> Repr for DashLength<T> {
+    fn repr(&self) -> EcoString {
         match self {
-            Self::LineWidth => write!(f, "\"dot\""),
-            Self::Length(v) => Debug::fmt(v, f),
+            Self::LineWidth => "dot".repr(),
+            Self::Length(v) => v.repr(),
         }
     }
 }

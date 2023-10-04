@@ -288,7 +288,13 @@ impl Plugin {
 
 impl Debug for Plugin {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("plugin(..)")
+        f.pad("Plugin(..)")
+    }
+}
+
+impl super::Repr for Plugin {
+    fn repr(&self) -> EcoString {
+        "plugin(..)".into()
     }
 }
 

@@ -1,4 +1,4 @@
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
@@ -24,7 +24,7 @@ use crate::diag::StrResult;
 /// >>> #(-3)
 /// ```
 #[ty]
-#[derive(Clone, Hash)]
+#[derive(Debug, Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Module {
     /// The module's name.
@@ -34,7 +34,7 @@ pub struct Module {
 }
 
 /// The internal representation.
-#[derive(Clone, Hash)]
+#[derive(Debug, Clone, Hash)]
 struct Repr {
     /// The top-level definitions that were bound in this module.
     scope: Scope,
@@ -100,9 +100,9 @@ impl Module {
     }
 }
 
-impl Debug for Module {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "<module {}>", self.name())
+impl super::Repr for Module {
+    fn repr(&self) -> EcoString {
+        eco_format!("<module {}>", self.name())
     }
 }
 
