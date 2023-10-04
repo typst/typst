@@ -13,7 +13,7 @@ use super::*;
 /// Left #h(1fr) Left-ish #h(2fr) Right
 /// ```
 #[ty(name = "fraction")]
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Fr(Scalar);
 
 impl Fr {
@@ -63,9 +63,9 @@ impl Numeric for Fr {
     }
 }
 
-impl Debug for Fr {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}fr", round_2(self.get()))
+impl Repr for Fr {
+    fn repr(&self) -> EcoString {
+        format_float(self.get(), Some(2), "fr")
     }
 }
 

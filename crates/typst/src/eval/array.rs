@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{Debug, Formatter};
 use std::num::NonZeroI64;
 use std::ops::{Add, AddAssign};
 
@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     cast, func, ops, scope, ty, Args, Bytes, CastInfo, FromValue, Func, IntoValue,
-    Reflect, Value, Version, Vm,
+    Reflect, Repr, Value, Version, Vm,
 };
 use crate::diag::{At, SourceResult, StrResult};
 use crate::eval::ops::{add, mul};
@@ -808,14 +808,23 @@ cast! {
 }
 
 impl Debug for Array {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        f.debug_list().entries(&self.0).finish()
+    }
+}
+
+impl Repr for Array {
+    fn repr(&self) -> EcoString {
         let max = 40;
-        let mut pieces: Vec<_> =
-            self.iter().take(max).map(|value| eco_format!("{value:?}")).collect();
+        let mut pieces: Vec<_> = self
+            .iter()
+            .take(max)
+            .map(|value| eco_format!("{}", value.repr()))
+            .collect();
         if self.len() > max {
             pieces.push(eco_format!(".. ({} items omitted)", self.len() - max));
         }
-        f.write_str(&pretty_array_like(&pieces, self.len() == 1))
+        pretty_array_like(&pieces, self.len() == 1).into()
     }
 }
 

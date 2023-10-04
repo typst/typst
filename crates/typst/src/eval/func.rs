@@ -1,7 +1,8 @@
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked, TrackedMut};
+use ecow::EcoString;
 use once_cell::sync::Lazy;
 
 use super::{
@@ -118,7 +119,7 @@ pub use typst_macros::func;
 /// [`array.push(value)`]($array.push). These can modify the values they are
 /// called on.
 #[ty(scope, name = "function")]
-#[derive(Clone, Hash)]
+#[derive(Debug, Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Func {
     /// The internal representation.
@@ -128,7 +129,7 @@ pub struct Func {
 }
 
 /// The different kinds of function representations.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 enum Repr {
     /// A native Rust function.
     Native(Static<NativeFuncData>),
@@ -363,11 +364,11 @@ impl Func {
     }
 }
 
-impl Debug for Func {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl super::Repr for Func {
+    fn repr(&self) -> EcoString {
         match self.name() {
-            Some(name) => write!(f, "{name}"),
-            None => f.write_str("(..) => .."),
+            Some(name) => name.into(),
+            None => "(..) => ..".into(),
         }
     }
 }
@@ -412,6 +413,7 @@ pub trait NativeFunc {
 }
 
 /// Defines a native function.
+#[derive(Debug)]
 pub struct NativeFuncData {
     pub function: fn(&mut Vm, &mut Args) -> SourceResult<Value>,
     pub name: &'static str,
@@ -461,7 +463,7 @@ pub struct ParamInfo {
 }
 
 /// A user-defined closure.
-#[derive(Hash)]
+#[derive(Debug, Hash)]
 pub(super) struct Closure {
     /// The closure's syntax node. Must be castable to `ast::Closure`.
     pub node: SyntaxNode,

@@ -1,11 +1,10 @@
 //! Operations on values.
 
 use std::cmp::Ordering;
-use std::fmt::Debug;
 
 use ecow::eco_format;
 
-use super::{format_str, IntoValue, Regex, Value};
+use super::{format_str, IntoValue, Regex, Repr, Value};
 use crate::diag::{bail, StrResult};
 use crate::geom::{Align, Length, Numeric, Rel, Smart, Stroke};
 use Value::*;
@@ -436,9 +435,9 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
 }
 
 /// Try to compare two values.
-fn try_cmp_values<T: PartialOrd + Debug>(a: &T, b: &T) -> StrResult<Ordering> {
+fn try_cmp_values<T: PartialOrd + Repr>(a: &T, b: &T) -> StrResult<Ordering> {
     a.partial_cmp(b)
-        .ok_or_else(|| eco_format!("cannot compare {:?} with {:?}", a, b))
+        .ok_or_else(|| eco_format!("cannot compare {} with {}", a.repr(), b.repr()))
 }
 
 /// Try to compare two datetimes.

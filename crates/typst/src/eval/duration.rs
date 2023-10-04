@@ -1,15 +1,15 @@
-use ecow::eco_format;
-use std::fmt;
-use std::fmt::{Debug, Formatter};
+use ecow::{eco_format, EcoString};
+
+use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use time::ext::NumericalDuration;
 
-use super::{func, scope, ty};
+use super::{func, scope, ty, Repr};
 use crate::util::pretty_array_like;
 
 /// Represents a positive or negative span of time.
 #[ty(scope)]
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Duration(time::Duration);
 
 impl Duration {
@@ -111,41 +111,41 @@ impl Duration {
     }
 }
 
-impl Debug for Duration {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Repr for Duration {
+    fn repr(&self) -> EcoString {
         let mut tmp = self.0;
         let mut vec = Vec::with_capacity(5);
 
         let weeks = tmp.whole_seconds() / 604_800.0 as i64;
         if weeks != 0 {
-            vec.push(eco_format!("weeks: {weeks}"));
+            vec.push(eco_format!("weeks: {}", weeks.repr()));
         }
         tmp -= weeks.weeks();
 
         let days = tmp.whole_days();
         if days != 0 {
-            vec.push(eco_format!("days: {days}"));
+            vec.push(eco_format!("days: {}", days.repr()));
         }
         tmp -= days.days();
 
         let hours = tmp.whole_hours();
         if hours != 0 {
-            vec.push(eco_format!("hours: {hours}"));
+            vec.push(eco_format!("hours: {}", hours.repr()));
         }
         tmp -= hours.hours();
 
         let minutes = tmp.whole_minutes();
         if minutes != 0 {
-            vec.push(eco_format!("minutes: {minutes}"));
+            vec.push(eco_format!("minutes: {}", minutes.repr()));
         }
         tmp -= minutes.minutes();
 
         let seconds = tmp.whole_seconds();
         if seconds != 0 {
-            vec.push(eco_format!("seconds: {seconds}"));
+            vec.push(eco_format!("seconds: {}", seconds.repr()));
         }
 
-        write!(f, "duration{}", &pretty_array_like(&vec, false))
+        eco_format!("duration{}", &pretty_array_like(&vec, false))
     }
 }
 

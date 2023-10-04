@@ -1,9 +1,8 @@
-use std::fmt::{self, Debug, Formatter, Write};
 use std::str::FromStr;
 
 use ecow::{eco_vec, EcoVec};
 use smallvec::{smallvec, SmallVec};
-use typst::eval::Tracer;
+use typst::eval::{Repr, Tracer};
 use typst::model::DelayedErrors;
 
 use super::{FigureElem, HeadingElem, Numbering, NumberingPattern};
@@ -199,7 +198,7 @@ use crate::prelude::*;
 /// documentation for more details on state management in Typst and why it
 /// doesn't just use normal variables for counters.
 #[ty(scope)]
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Counter(CounterKey);
 
 impl Counter {
@@ -452,11 +451,9 @@ impl Counter {
     }
 }
 
-impl Debug for Counter {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("counter(")?;
-        self.0.fmt(f)?;
-        f.write_char(')')
+impl Repr for Counter {
+    fn repr(&self) -> EcoString {
+        eco_format!("counter({})", self.0.repr())
     }
 }
 
@@ -465,7 +462,7 @@ cast! {
 }
 
 /// Identifies a counter.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CounterKey {
     /// The page counter.
     Page,
@@ -495,19 +492,19 @@ cast! {
     v: LocatableSelector => Self::Selector(v.0),
 }
 
-impl Debug for CounterKey {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Repr for CounterKey {
+    fn repr(&self) -> EcoString {
         match self {
-            Self::Page => f.pad("page"),
-            Self::Selector(selector) => selector.fmt(f),
-            Self::Str(str) => str.fmt(f),
+            Self::Page => "page".into(),
+            Self::Selector(selector) => selector.repr(),
+            Self::Str(str) => str.repr(),
         }
     }
 }
 
 /// An update to perform on a counter.
 #[ty]
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CounterUpdate {
     /// Set the counter to the specified state.
     Set(CounterState),
@@ -517,9 +514,9 @@ pub enum CounterUpdate {
     Func(Func),
 }
 
-impl Debug for CounterUpdate {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("..")
+impl Repr for CounterUpdate {
+    fn repr(&self) -> EcoString {
+        "..".into()
     }
 }
 

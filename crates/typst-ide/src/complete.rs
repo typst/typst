@@ -6,7 +6,7 @@ use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use typst::doc::Frame;
 use typst::eval::{
-    format_str, AutoValue, CastInfo, Func, Library, NoneValue, Scope, Type, Value,
+    format_str, AutoValue, CastInfo, Func, Library, NoneValue, Repr, Scope, Type, Value,
 };
 use typst::geom::Color;
 use typst::syntax::{
@@ -1089,14 +1089,14 @@ impl<'a> CompletionContext<'a> {
         docs: Option<&str>,
     ) {
         let at = label.as_deref().map_or(false, |field| !is_ident(field));
-        let label = label.unwrap_or_else(|| value.repr().into());
+        let label = label.unwrap_or_else(|| value.repr());
 
         let detail = docs.map(Into::into).or_else(|| match value {
             Value::Symbol(_) => None,
             Value::Func(func) => func.docs().map(plain_docs_sentence),
             v => {
                 let repr = v.repr();
-                (repr.as_str() != label).then(|| repr.into())
+                (repr.as_str() != label).then_some(repr)
             }
         });
 

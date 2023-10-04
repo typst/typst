@@ -3,7 +3,7 @@ use std::fmt::Write;
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use typst::doc::Frame;
-use typst::eval::{CapturesVisitor, CastInfo, Tracer, Value};
+use typst::eval::{CapturesVisitor, CastInfo, Repr, Tracer, Value};
 use typst::geom::{round_2, Length, Numeric};
 use typst::syntax::ast::{self, AstNode};
 use typst::syntax::{LinkedNode, Source, SyntaxKind};
@@ -83,7 +83,7 @@ fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
                 write!(pieces.last_mut().unwrap(), " (x{count})").unwrap();
             }
         }
-        pieces.push(value.repr().into());
+        pieces.push(value.repr());
         last = Some((value, 1));
     }
 

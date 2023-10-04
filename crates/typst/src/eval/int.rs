@@ -1,8 +1,8 @@
 use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize};
 
-use ecow::eco_format;
+use ecow::{eco_format, EcoString};
 
-use super::{cast, func, scope, ty, Str, Value};
+use super::{cast, func, scope, ty, Repr, Str, Value};
 
 /// A whole number.
 ///
@@ -48,6 +48,18 @@ impl i64 {
         value: ToInt,
     ) -> i64 {
         value.0
+    }
+}
+
+impl Repr for i64 {
+    fn repr(&self) -> EcoString {
+        eco_format!("{self}")
+    }
+}
+
+impl Repr for f64 {
+    fn repr(&self) -> EcoString {
+        eco_format!("{self}")
     }
 }
 

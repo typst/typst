@@ -21,7 +21,7 @@ use serde::Deserialize;
 use serde_yaml as yaml;
 use typst::diag::{bail, StrResult};
 use typst::doc::Frame;
-use typst::eval::{CastInfo, Func, Library, Module, ParamInfo, Scope, Type, Value};
+use typst::eval::{CastInfo, Func, Library, Module, ParamInfo, Repr, Scope, Type, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Smart};
 use typst_library::layout::{Margin, PageElem};

@@ -3,7 +3,7 @@ use super::*;
 /// A length that is relative to the font size.
 ///
 /// `1em` is the same as the font size.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Em(Scalar);
 
 impl Em {
@@ -68,9 +68,9 @@ impl Numeric for Em {
     }
 }
 
-impl Debug for Em {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}em", self.get())
+impl Repr for Em {
+    fn repr(&self) -> EcoString {
+        format_float(self.get(), None, "em")
     }
 }
 

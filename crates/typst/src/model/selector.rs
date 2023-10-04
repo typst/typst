@@ -1,5 +1,5 @@
 use std::any::{Any, TypeId};
-use std::fmt::{self, Debug, Formatter, Write};
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString, EcoVec};
@@ -7,8 +7,8 @@ use ecow::{eco_format, EcoString, EcoVec};
 use super::{Content, Element, Label, Locatable, Location};
 use crate::diag::{bail, StrResult};
 use crate::eval::{
-    cast, func, scope, ty, CastInfo, Dict, FromValue, Func, Reflect, Regex, Str, Symbol,
-    Type, Value,
+    cast, func, scope, ty, CastInfo, Dict, FromValue, Func, Reflect, Regex, Repr, Str,
+    Symbol, Type, Value,
 };
 use crate::util::pretty_array_like;
 
@@ -49,7 +49,7 @@ use crate::util::pretty_array_like;
 /// === But this will not.
 /// ```
 #[ty(scope)]
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Selector {
     /// Matches a specific type of element.
     ///
@@ -209,42 +209,37 @@ impl From<Location> for Selector {
     }
 }
 
-impl Debug for Selector {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Repr for Selector {
+    fn repr(&self) -> EcoString {
         match self {
             Self::Elem(elem, dict) => {
-                f.write_str(elem.name())?;
                 if let Some(dict) = dict {
-                    f.write_str(".where")?;
-                    dict.fmt(f)?;
+                    eco_format!("{}.where{}", elem.name(), dict.repr())
+                } else {
+                    elem.name().into()
                 }
-                Ok(())
             }
-            Self::Label(label) => label.fmt(f),
-            Self::Regex(regex) => regex.fmt(f),
-            Self::Can(cap) => cap.fmt(f),
+            Self::Label(label) => label.repr(),
+            Self::Regex(regex) => regex.repr(),
+            Self::Can(cap) => eco_format!("{cap:?}"),
             Self::Or(selectors) | Self::And(selectors) => {
-                f.write_str(if matches!(self, Self::Or(_)) { "or" } else { "and" })?;
-                let pieces: Vec<_> =
-                    selectors.iter().map(|sel| eco_format!("{sel:?}")).collect();
-                f.write_str(&pretty_array_like(&pieces, false))
+                let function = if matches!(self, Self::Or(_)) { "or" } else { "and" };
+                let pieces: Vec<_> = selectors.iter().map(Selector::repr).collect();
+                eco_format!("{}{}", function, pretty_array_like(&pieces, false))
             }
-            Self::Location(loc) => loc.fmt(f),
+            Self::Location(loc) => loc.repr(),
             Self::Before { selector, end: split, inclusive }
             | Self::After { selector, start: split, inclusive } => {
-                selector.fmt(f)?;
-
-                if matches!(self, Self::Before { .. }) {
-                    f.write_str(".before(")?;
-                } else {
-                    f.write_str(".after(")?;
-                }
-
-                split.fmt(f)?;
-                if !*inclusive {
-                    f.write_str(", inclusive: false")?;
-                }
-                f.write_char(')')
+                let method =
+                    if matches!(self, Self::Before { .. }) { "before" } else { "after" };
+                let inclusive_arg = if !*inclusive { ", inclusive: false" } else { "" };
+                eco_format!(
+                    "{}.{}({}{})",
+                    selector.repr(),
+                    method,
+                    split.repr(),
+                    inclusive_arg
+                )
             }
         }
     }

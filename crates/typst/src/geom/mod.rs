@@ -61,9 +61,12 @@ use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::ops::*;
 
+use ecow::{eco_format, EcoString};
+
 use crate::diag::{bail, StrResult};
-use crate::eval::{array, cast, func, scope, ty, Array, Dict, Value};
+use crate::eval::{array, cast, func, scope, ty, Array, Dict, Repr, Value};
 use crate::model::{Fold, Resolve, StyleChain};
+use crate::util::fmt::format_float;
 
 /// Generic access to a structure's components.
 pub trait Get<Index> {
