@@ -2,9 +2,8 @@ use std::fmt::{self, Debug, Formatter};
 
 use ecow::{eco_format, EcoString, EcoVec};
 
-use super::{func, scope, ty, Array, Dict, FromValue, IntoValue, Str, Value};
+use super::{func, scope, ty, Array, Dict, FromValue, IntoValue, Repr, Str, Value};
 use crate::diag::{bail, At, SourceDiagnostic, SourceResult};
-use crate::eval::repr::Repr;
 use crate::syntax::{Span, Spanned};
 use crate::util::pretty_array_like;
 

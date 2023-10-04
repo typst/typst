@@ -3,16 +3,12 @@ use std::f64::{EPSILON, NEG_INFINITY};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use ecow::EcoString;
-use typst_macros::{cast, func, scope, ty, Cast};
-use typst_syntax::{Span, Spanned};
-
 use super::color::{Hsl, Hsv};
 use super::*;
 use crate::diag::{bail, error, SourceResult};
-use crate::eval::repr::Repr;
-use crate::eval::{array, Args, Array, Func, IntoValue};
+use crate::eval::{array, cast, func, scope, ty, Args, Array, Cast, Func, IntoValue};
 use crate::geom::{ColorSpace, Smart};
+use crate::syntax::{Span, Spanned};
 
 /// A color gradient.
 ///

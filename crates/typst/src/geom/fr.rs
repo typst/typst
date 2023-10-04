@@ -1,6 +1,4 @@
 use super::*;
-use crate::util::fmt::format_float;
-use ecow::EcoString;
 
 /// Defines how the the remaining space in a layout is distributed.
 ///

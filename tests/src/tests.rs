@@ -22,8 +22,9 @@ use walkdir::WalkDir;
 
 use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
-use typst::eval::repr::Repr;
-use typst::eval::{eco_format, func, Bytes, Datetime, Library, NoneValue, Tracer, Value};
+use typst::eval::{
+    eco_format, func, Bytes, Datetime, Library, NoneValue, Repr, Tracer, Value,
+};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, Smart};
 use typst::syntax::{FileId, PackageVersion, Source, SyntaxNode, VirtualPath};

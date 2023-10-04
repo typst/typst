@@ -7,8 +7,7 @@ use once_cell::sync::Lazy;
 
 use super::{Content, Selector, Styles};
 use crate::diag::SourceResult;
-use crate::eval::repr::Repr;
-use crate::eval::{cast, Args, Dict, Func, ParamInfo, Scope, Value, Vm};
+use crate::eval::{cast, Args, Dict, Func, ParamInfo, Repr, Scope, Value, Vm};
 use crate::util::Static;
 
 /// A document element.

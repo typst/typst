@@ -1,5 +1,4 @@
 use super::*;
-use ecow::EcoString;
 
 /// The four directions into which content can be laid out.
 ///

@@ -9,9 +9,8 @@ use time::error::{Format, InvalidFormatDescription};
 use time::macros::format_description;
 use time::{format_description, Month, PrimitiveDateTime};
 
-use super::{cast, func, scope, ty, Dict, Duration, Str, Value, Vm};
+use super::{cast, func, scope, ty, Dict, Duration, Repr, Str, Value, Vm};
 use crate::diag::{bail, StrResult};
-use crate::eval::repr::Repr;
 use crate::geom::Smart;
 use crate::util::pretty_array_like;
 use crate::World;

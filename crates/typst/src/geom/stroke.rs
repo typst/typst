@@ -1,7 +1,5 @@
-use crate::eval::{dict, Cast, FromValue, NoneValue};
-use ecow::EcoString;
-
 use super::*;
+use crate::eval::{dict, Cast, FromValue, NoneValue};
 
 /// Defines how to draw a line.
 ///

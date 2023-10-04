@@ -6,10 +6,9 @@ use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{Content, Element, Label, Locatable, Location};
 use crate::diag::{bail, StrResult};
-use crate::eval::repr::Repr;
 use crate::eval::{
-    cast, func, scope, ty, CastInfo, Dict, FromValue, Func, Reflect, Regex, Str, Symbol,
-    Type, Value,
+    cast, func, scope, ty, CastInfo, Dict, FromValue, Func, Reflect, Regex, Repr, Str,
+    Symbol, Type, Value,
 };
 use crate::util::pretty_array_like;
 

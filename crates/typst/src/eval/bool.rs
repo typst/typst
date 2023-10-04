@@ -1,4 +1,6 @@
-use super::ty;
+use ecow::EcoString;
+
+use super::{ty, Repr};
 
 /// A type with two states.
 ///
@@ -13,3 +15,12 @@ use super::ty;
 /// ```
 #[ty(title = "Boolean")]
 type bool;
+
+impl Repr for bool {
+    fn repr(&self) -> EcoString {
+        match self {
+            true => "true".into(),
+            false => "false".into(),
+        }
+    }
+}

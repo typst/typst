@@ -3,8 +3,7 @@ use std::str::FromStr;
 
 use ecow::{eco_vec, EcoVec};
 use smallvec::{smallvec, SmallVec};
-use typst::eval::repr::Repr;
-use typst::eval::Tracer;
+use typst::eval::{Repr, Tracer};
 use typst::model::DelayedErrors;
 
 use super::{FigureElem, HeadingElem, Numbering, NumberingPattern};

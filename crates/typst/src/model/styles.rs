@@ -8,8 +8,7 @@ use ecow::{eco_vec, EcoString, EcoVec};
 
 use super::{Content, Element, NativeElement, Selector, Vt};
 use crate::diag::{SourceResult, Trace, Tracepoint};
-use crate::eval::repr::Repr;
-use crate::eval::{cast, ty, Args, FromValue, Func, IntoValue, Value, Vm};
+use crate::eval::{cast, ty, Args, FromValue, Func, IntoValue, Repr, Value, Vm};
 use crate::syntax::Span;
 
 /// A list of style properties.

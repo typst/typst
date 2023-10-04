@@ -1,5 +1,4 @@
 use super::*;
-use ecow::EcoString;
 
 /// How a fill or stroke should be painted.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]

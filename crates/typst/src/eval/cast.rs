@@ -6,9 +6,8 @@ use std::ops::Add;
 
 use ecow::{eco_format, EcoString};
 
-use super::{Type, Value};
+use super::{Repr, Type, Value};
 use crate::diag::{At, SourceResult, StrResult};
-use crate::eval::repr::Repr;
 use crate::syntax::{Span, Spanned};
 use crate::util::separated_list;
 

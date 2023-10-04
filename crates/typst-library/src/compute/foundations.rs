@@ -1,6 +1,5 @@
-use typst::eval::repr::Repr;
 use typst::eval::{
-    Datetime, Duration, EvalMode, Module, Never, NoneValue, Plugin, Regex, Version,
+    Datetime, Duration, EvalMode, Module, Never, NoneValue, Plugin, Regex, Repr, Version,
 };
 
 use crate::prelude::*;

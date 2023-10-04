@@ -1,8 +1,7 @@
 use std::fmt::Debug;
 
 use ecow::{eco_vec, EcoVec};
-use typst::eval::repr::Repr;
-use typst::eval::Tracer;
+use typst::eval::{Repr, Tracer};
 use typst::model::DelayedErrors;
 
 use crate::prelude::*;

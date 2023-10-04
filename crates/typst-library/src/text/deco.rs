@@ -1,6 +1,5 @@
 use kurbo::{BezPath, Line, ParamCurve};
 use ttf_parser::{GlyphId, OutlineBuilder};
-use typst::eval::repr::Repr;
 
 use super::{BottomEdge, BottomEdgeMetric, TextElem, TopEdge, TopEdgeMetric};
 use crate::prelude::*;

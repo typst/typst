@@ -8,11 +8,10 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     cast, func, ops, scope, ty, Args, Bytes, CastInfo, FromValue, Func, IntoValue,
-    Reflect, Value, Version, Vm,
+    Reflect, Repr, Value, Version, Vm,
 };
 use crate::diag::{At, SourceResult, StrResult};
 use crate::eval::ops::{add, mul};
-use crate::eval::repr::Repr;
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 

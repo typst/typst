@@ -4,11 +4,10 @@ use std::fmt::{self, Debug, Display, Formatter};
 use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 
-use super::{cast, func, Func, NativeFuncData, Scope, Value};
+use super::{cast, func, Func, NativeFuncData, Repr, Scope, Value};
 use crate::diag::StrResult;
 use crate::util::Static;
 
-use crate::eval::repr::Repr;
 #[doc(inline)]
 pub use typst_macros::{scope, ty};
 

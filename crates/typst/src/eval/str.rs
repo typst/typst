@@ -8,13 +8,14 @@ use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
-    cast, dict, func, scope, ty, Args, Array, Bytes, Dict, Func, IntoValue, Type, Value,
-    Version, Vm,
+    cast, dict, func, scope, ty, Args, Array, Bytes, Dict, Func, IntoValue, Repr, Type,
+    Value, Version, Vm,
 };
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::geom::Align;
 use crate::model::Label;
 use crate::syntax::{Span, Spanned};
+use crate::util::fmt::format_int_with_base;
 
 /// Create a new [`Str`] from a format string.
 #[macro_export]
@@ -28,8 +29,6 @@ macro_rules! __format_str {
 #[doc(inline)]
 pub use crate::__format_str as format_str;
 
-use crate::eval::repr::Repr;
-use crate::util::fmt::format_int_with_base;
 #[doc(hidden)]
 pub use ecow::eco_format;
 
@@ -70,18 +69,8 @@ pub use ecow::eco_format;
 /// - `[\t]` for a tab
 /// - `[\u{1f600}]` for a hexadecimal Unicode escape sequence
 #[ty(scope, title = "String")]
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    Serialize,
-    Deserialize
-)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Str(EcoString);
 
@@ -799,6 +788,29 @@ cast! {
     String,
     self => Value::Str(self.into()),
     v: Str => v.into(),
+}
+
+impl Repr for &str {
+    fn repr(&self) -> EcoString {
+        let mut r = EcoString::with_capacity(self.len() + 2);
+        r.push('"');
+        for c in self.chars() {
+            match c {
+                '\0' => r.push_str(r"\u{0}"),
+                '\'' => r.push('\''),
+                '"' => r.push_str(r#"\""#),
+                _ => c.escape_debug().for_each(|c| r.push(c)),
+            }
+        }
+        r.push('"');
+        r
+    }
+}
+
+impl Repr for EcoString {
+    fn repr(&self) -> EcoString {
+        self.as_ref().repr()
+    }
 }
 
 /// A regular expression.

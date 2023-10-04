@@ -1,6 +1,4 @@
 use super::*;
-use crate::eval::repr::Repr;
-use ecow::{eco_format, EcoString};
 
 /// A length in relation to some known length.
 ///

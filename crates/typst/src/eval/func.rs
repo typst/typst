@@ -18,7 +18,6 @@ use crate::syntax::{FileId, Span, SyntaxNode};
 use crate::util::Static;
 use crate::World;
 
-use crate::eval::repr;
 #[doc(inline)]
 pub use typst_macros::func;
 
@@ -365,7 +364,7 @@ impl Func {
     }
 }
 
-impl repr::Repr for Func {
+impl super::Repr for Func {
     fn repr(&self) -> EcoString {
         match self.name() {
             Some(name) => name.into(),

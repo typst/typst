@@ -5,7 +5,6 @@ use ecow::{eco_format, EcoString};
 
 use super::{ty, Content, Scope, Value};
 use crate::diag::StrResult;
-use crate::eval::repr;
 
 /// An evaluated module, either built-in or resulting from a file.
 ///
@@ -101,7 +100,7 @@ impl Module {
     }
 }
 
-impl repr::Repr for Module {
+impl super::Repr for Module {
     fn repr(&self) -> EcoString {
         eco_format!("<module {}>", self.name())
     }

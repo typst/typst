@@ -27,7 +27,6 @@ mod module;
 mod none;
 pub mod ops;
 mod plugin;
-pub mod repr;
 mod scope;
 mod symbol;
 mod tracer;
@@ -66,7 +65,7 @@ pub use self::str::{format_str, Regex, Str};
 pub use self::symbol::{symbols, Symbol};
 pub use self::tracer::Tracer;
 pub use self::ty::{scope, ty, NativeType, NativeTypeData, Type};
-pub use self::value::{Dynamic, Value};
+pub use self::value::{Dynamic, Repr, Value};
 pub use self::version::Version;
 
 use std::collections::HashSet;

@@ -1,11 +1,10 @@
-use crate::eval::repr::Repr;
 use ecow::{eco_format, EcoString};
 
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use time::ext::NumericalDuration;
 
-use super::{func, scope, ty};
+use super::{func, scope, ty, Repr};
 use crate::util::pretty_array_like;
 
 /// Represents a positive or negative span of time.

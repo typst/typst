@@ -1,5 +1,4 @@
 use super::*;
-use ecow::{eco_format, EcoString};
 
 /// Where to [align]($align) something along an axis.
 ///

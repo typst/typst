@@ -10,7 +10,6 @@ use super::{cast, func, scope, ty, Array};
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::syntax::{Span, Spanned};
 
-use crate::eval::repr;
 #[doc(inline)]
 pub use typst_macros::symbols;
 
@@ -215,7 +214,7 @@ impl Display for Symbol {
     }
 }
 
-impl repr::Repr for Symbol {
+impl super::Repr for Symbol {
     fn repr(&self) -> EcoString {
         eco_format!("\"{}\"", self.get())
     }

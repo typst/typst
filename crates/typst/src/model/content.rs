@@ -13,8 +13,7 @@ use super::{
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::doc::Meta;
-use crate::eval::repr::Repr;
-use crate::eval::{func, scope, ty, Dict, FromValue, IntoValue, Str, Value, Vm};
+use crate::eval::{func, scope, ty, Dict, FromValue, IntoValue, Repr, Str, Value, Vm};
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 

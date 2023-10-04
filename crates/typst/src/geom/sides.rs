@@ -1,6 +1,5 @@
-use crate::eval::{CastInfo, FromValue, IntoValue, Reflect};
-
 use super::*;
+use crate::eval::{CastInfo, FromValue, IntoValue, Reflect};
 
 /// A container with left, top, right and bottom components.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]

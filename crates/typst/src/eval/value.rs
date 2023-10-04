@@ -17,7 +17,6 @@ use super::{
     Version,
 };
 use crate::diag::StrResult;
-use crate::eval::repr::Repr;
 use crate::eval::Datetime;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Gradient, Length, Ratio, Rel};
 use crate::model::{Label, Styles};
@@ -487,6 +486,12 @@ impl PartialEq for Dynamic {
     fn eq(&self, other: &Self) -> bool {
         self.0.dyn_eq(other)
     }
+}
+
+/// A trait that defines the `repr` of a Typst value.
+pub trait Repr {
+    /// Return the debug representation of the value.
+    fn repr(&self) -> EcoString;
 }
 
 trait Bounds: Debug + Repr + Sync + Send + 'static {

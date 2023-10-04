@@ -5,9 +5,8 @@ use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use typst::doc::Frame;
-use typst::eval::repr::Repr;
 use typst::eval::{
-    format_str, AutoValue, CastInfo, Func, Library, NoneValue, Scope, Type, Value,
+    format_str, AutoValue, CastInfo, Func, Library, NoneValue, Repr, Scope, Type, Value,
 };
 use typst::geom::Color;
 use typst::syntax::{

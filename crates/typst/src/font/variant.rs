@@ -3,8 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::eval::repr::Repr;
-use crate::eval::{cast, Cast, IntoValue};
+use crate::eval::{cast, Cast, IntoValue, Repr};
 use crate::geom::Ratio;
 
 /// Properties that distinguish a font from other fonts in the same family.

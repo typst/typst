@@ -5,9 +5,8 @@ use std::iter::repeat;
 
 use ecow::{eco_format, EcoString, EcoVec};
 
-use super::{cast, func, scope, ty};
+use super::{cast, func, scope, ty, Repr};
 use crate::diag::{bail, error, StrResult};
-use crate::eval::repr::Repr;
 use crate::util::pretty_array_like;
 
 /// A version, with any number of components.

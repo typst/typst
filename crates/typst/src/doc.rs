@@ -8,8 +8,7 @@ use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
 
-use crate::eval::repr::Repr;
-use crate::eval::{cast, dict, ty, Dict, Value};
+use crate::eval::{cast, dict, ty, Dict, Repr, Value};
 use crate::export::PdfPageLabel;
 use crate::font::Font;
 use crate::geom::{

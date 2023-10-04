@@ -7,9 +7,8 @@ use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
 
-use super::{cast, func, scope, ty, Array, Reflect, Str, Value};
+use super::{cast, func, scope, ty, Array, Reflect, Repr, Str, Value};
 use crate::diag::{bail, StrResult};
-use crate::eval::repr::Repr;
 
 /// A sequence of bytes.
 ///

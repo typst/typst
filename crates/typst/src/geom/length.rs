@@ -1,8 +1,5 @@
-use ecow::{eco_format, EcoString};
-
 use super::*;
 use crate::diag::{At, Hint, SourceResult};
-use crate::eval::repr::Repr;
 use crate::syntax::Span;
 
 /// A size or distance, possibly expressed with contextual units.

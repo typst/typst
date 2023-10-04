@@ -11,7 +11,7 @@ use super::color::PaintEncode;
 use super::extg::ExternalGraphicsState;
 use super::{deflate, AbsExt, EmExt, PdfContext, RefExt};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
-use crate::eval::repr::Repr;
+use crate::eval::Repr;
 use crate::font::Font;
 use crate::geom::{
     self, Abs, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint, Point,

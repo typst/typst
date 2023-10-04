@@ -1,5 +1,4 @@
 use super::*;
-use ecow::EcoString;
 
 /// A 64-bit float that implements `Eq`, `Ord` and `Hash`.
 ///

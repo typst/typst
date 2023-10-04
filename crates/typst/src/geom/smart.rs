@@ -1,6 +1,5 @@
-use crate::eval::{AutoValue, CastInfo, FromValue, IntoValue, Reflect};
-
 use super::*;
+use crate::eval::{AutoValue, CastInfo, FromValue, IntoValue, Reflect};
 
 /// A value that can be automatically determined.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]

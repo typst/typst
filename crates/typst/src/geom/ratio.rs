@@ -1,7 +1,4 @@
 use super::*;
-use crate::eval::repr::Repr;
-use crate::util::fmt::format_float;
-use ecow::EcoString;
 
 /// A ratio of a whole.
 ///

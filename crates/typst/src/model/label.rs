@@ -2,8 +2,7 @@ use std::fmt::Debug;
 
 use ecow::{eco_format, EcoString};
 
-use crate::eval::repr::Repr;
-use crate::eval::{func, scope, ty};
+use crate::eval::{func, scope, ty, Repr};
 
 /// A label for an element.
 ///

@@ -7,7 +7,7 @@ use ecow::{eco_format, EcoString};
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::{array, func, scope, ty, Array, Str, Value};
+use super::{array, func, scope, ty, Array, Repr, Str, Value};
 use crate::diag::StrResult;
 use crate::syntax::is_ident;
 use crate::util::{pretty_array_like, separated_list, ArcExt};
@@ -26,7 +26,6 @@ macro_rules! __dict {
 
 #[doc(inline)]
 pub use crate::__dict as dict;
-use crate::eval::repr::Repr;
 
 /// A map from string keys to values.
 ///

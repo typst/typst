@@ -7,7 +7,6 @@ use wasmi::{AsContext, AsContextMut, Caller, Engine, Linker, Module};
 
 use super::{func, scope, ty, Bytes, Vm};
 use crate::diag::{bail, At, SourceResult, StrResult};
-use crate::eval::repr;
 use crate::syntax::Spanned;
 use crate::World;
 
@@ -293,7 +292,7 @@ impl Debug for Plugin {
     }
 }
 
-impl repr::Repr for Plugin {
+impl super::Repr for Plugin {
     fn repr(&self) -> EcoString {
         "plugin(..)".into()
     }

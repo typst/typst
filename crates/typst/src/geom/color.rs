@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::EcoVec;
 use once_cell::sync::Lazy;
 use palette::encoding::{self, Linear};
 use palette::{Darken, Desaturate, FromColor, Lighten, RgbHue, Saturate, ShiftHue};

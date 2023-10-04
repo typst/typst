@@ -1,9 +1,8 @@
 use ecow::EcoString;
 use std::fmt::Debug;
 
-use super::{ty, CastInfo, FromValue, IntoValue, Reflect, Type, Value};
+use super::{ty, CastInfo, FromValue, IntoValue, Reflect, Repr, Type, Value};
 use crate::diag::StrResult;
-use crate::eval::repr::Repr;
 
 /// A value that indicates a smart default.
 ///
