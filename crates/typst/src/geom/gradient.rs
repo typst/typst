@@ -652,6 +652,19 @@ impl Gradient {
                 let r = radial.radius.get();
                 let fr = radial.start_radius.get();
 
+                // To do this, we need to apply a mobius transformation from
+                // an annulus with off-center inner circle to an annulus
+                // with everything centered.
+                // We do this in the following way:
+                // - We start by defining:
+                //   `z = z' - (cx + i * cy)`
+                // - We then define the function `f` that maps the inner circle
+                //   onto the x axis:
+                //   `f(x) = (z - (fx + i * fy)) / fr`
+                // - We then define the function
+                //   `g(zeta) = (zeta - alpha) / (1 - alpha * zeta)`
+                // - We solve to find alpha, knowing that 
+
                 let t_outer = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
                 let t_inner = ((x - fx).powi(2) + (y - fy).powi(2)).sqrt();
 
