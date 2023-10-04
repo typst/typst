@@ -148,7 +148,7 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.into_frame(),
             Self::Variant(variant) => variant.frame,
             Self::Frame(fragment) => fragment.frame,
-            _ => Frame::new(self.size()),
+            _ => Frame::soft(self.size()),
         }
     }
 
@@ -309,7 +309,7 @@ impl GlyphFragment {
             }],
         };
         let size = Size::new(self.width, self.ascent + self.descent);
-        let mut frame = Frame::new(size);
+        let mut frame = Frame::soft(size);
         frame.set_baseline(self.ascent);
         frame.push(Point::with_y(self.ascent + self.shift), FrameItem::Text(item));
         frame.meta_iter(self.meta);

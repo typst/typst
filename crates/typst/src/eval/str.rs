@@ -9,7 +9,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     cast, dict, func, scope, ty, Args, Array, Bytes, Dict, Func, IntoValue, Type, Value,
-    Vm,
+    Version, Vm,
 };
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::geom::Align;
@@ -618,6 +618,7 @@ cast! {
     ToStr,
     v: i64 => Self::Int(v),
     v: f64 => Self::Str(format_str!("{}", v)),
+    v: Version => Self::Str(format_str!("{}", v)),
     v: Bytes => Self::Str(
         std::str::from_utf8(&v)
             .map_err(|_| "bytes are not valid utf-8")?

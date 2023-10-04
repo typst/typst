@@ -143,11 +143,11 @@ And finally a little loop:
 ```
 
 A function call always involves the name of the function ([`rect`]($rect),
-[`underline`]($underline), [`calc.max`]($calc.max), [`range`]($range)) followed
-by parentheses (as opposed to LaTeX where the square brackets and curly braces
-are optional if the macro requires no arguments). The expected list of arguments
-passed within those parentheses depends on the concrete function and is
-specified in the [reference]($reference).
+[`underline`]($underline), [`calc.max`]($calc.max), [`range`]($array.range))
+followed by parentheses (as opposed to LaTeX where the square brackets and curly
+braces are optional if the macro requires no arguments). The expected list of
+arguments passed within those parentheses depends on the concrete function and
+is specified in the [reference]($reference).
 
 ### Arguments
 A function can have multiple arguments. Some arguments are positional, i.e., you

@@ -108,14 +108,15 @@ Let's dissect what's going on:
 Typst's CLI is available from different sources:
 
 - You can get sources and pre-built binaries for the latest release of Typst
-  from the [releases page][releases].
+  from the [releases page][releases]. Download the archive for your platform and
+  place it in a directory that is in your `PATH`. To stay up to date with future
+  releases, you can simply run `typst update`.
 
 - You can install Typst through different package managers. Note that the
   versions in the package managers might lag behind the latest release.
-  - macOS/Linux: `brew install typst`
-  - Arch Linux: `pacman -S typst`
-  - Void Linux: `xbps-install typst`
-  - Windows Package Manager: `winget install --id Typst.Typst`
+  - Linux: View [Typst on Repology][repology]
+  - macOS: `brew install typst`
+  - Windows: `winget install --id Typst.Typst`
 
 - If you have a [Rust][rust] toolchain installed, you can also install the
   latest development version with
@@ -162,6 +163,19 @@ TYPST_FONT_PATHS=path/to/fonts typst fonts
 If you prefer an integrated IDE-like experience with autocompletion and instant
 preview, you can also check out the [Typst web app][app], which is currently in
 public beta.
+
+## Community
+The main place where the community gathers is our [Discord server][discord].
+Feel free to join there to ask questions, help out others, share cool things
+you created with Typst, or just to chat.
+
+Aside from that there are a few places where you can find things built by
+the community:
+
+- The official [package list](https://typst.app/docs/packages)
+- The [Awesome Typst](https://github.com/qjcg/awesome-typst) repository
+
+If you had a bad experience in our community, please [reach out to us][contact].
 
 ## Contributing
 We would love to see contributions from the community. If you experience bugs,
@@ -224,6 +238,8 @@ instant preview. To achieve these goals, we follow three core design principles:
 [scripting]: https://typst.app/docs/reference/scripting/
 [rust]: https://rustup.rs/
 [releases]: https://github.com/typst/typst/releases/
+[repology]: https://repology.org/project/typst/versions
+[contact]: https://typst.app/contact
 [architecture]: https://github.com/typst/typst/blob/main/docs/dev/architecture.md
 [contributing]: https://github.com/typst/typst/blob/main/CONTRIBUTING.md
 [packages]: https://github.com/typst/packages/

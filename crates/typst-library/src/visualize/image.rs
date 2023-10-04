@@ -159,9 +159,9 @@ impl Layout for ImageElem {
         let image = Image::with_fonts(
             data.into(),
             format,
-            vt.world,
-            families(styles).map(|s| s.as_str().into()).collect(),
             self.alt(styles),
+            vt.world,
+            &families(styles).map(|s| s.as_str().into()).collect::<Vec<_>>(),
         )
         .at(self.span())?;
 
@@ -206,7 +206,7 @@ impl Layout for ImageElem {
         // First, place the image in a frame of exactly its size and then resize
         // the frame to the target size, center aligning the image in the
         // process.
-        let mut frame = Frame::new(fitted);
+        let mut frame = Frame::soft(fitted);
         frame.push(Point::zero(), FrameItem::Image(image, fitted, self.span()));
         frame.resize(target, Axes::splat(FixedAlign::Center));
 
@@ -242,6 +242,7 @@ impl LocalName for ImageElem {
             Lang::NYNORSK => "Figur",
             Lang::POLISH => "Rysunek",
             Lang::PORTUGUESE => "Figura",
+            Lang::ROMANIAN => "Figura",
             Lang::RUSSIAN => "Рисунок",
             Lang::SLOVENIAN => "Slika",
             Lang::SPANISH => "Figura",

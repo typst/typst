@@ -22,13 +22,18 @@ impl FontBook {
         Self { families: BTreeMap::new(), infos: vec![] }
     }
 
-    /// Create a font book for a collection of fonts.
-    pub fn from_fonts<'a>(fonts: impl IntoIterator<Item = &'a Font>) -> Self {
+    /// Create a font book from a collection of font infos.
+    pub fn from_infos(infos: impl IntoIterator<Item = FontInfo>) -> Self {
         let mut book = Self::new();
-        for font in fonts {
-            book.push(font.info().clone());
+        for info in infos {
+            book.push(info);
         }
         book
+    }
+
+    /// Create a font book for a collection of fonts.
+    pub fn from_fonts<'a>(fonts: impl IntoIterator<Item = &'a Font>) -> Self {
+        Self::from_infos(fonts.into_iter().map(|font| font.info().clone()))
     }
 
     /// Insert metadata into the font book.

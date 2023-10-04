@@ -44,6 +44,7 @@ fn global(math: Module) -> Module {
 
 /// Defines scoped values that are globally available, too.
 fn prelude(global: &mut Scope) {
+    global.reset_category();
     global.define("black", Color::BLACK);
     global.define("gray", Color::GRAY);
     global.define("silver", Color::SILVER);

@@ -2741,6 +2741,7 @@ dependencies = [
  "fontdb",
  "image",
  "indexmap 2.0.0",
+ "kurbo",
  "log",
  "miniz_oxide",
  "once_cell",

@@ -515,7 +515,7 @@ description: |
   - Added [`zip`]($array.zip), [`sum`]($array.sum), and
     [`product`]($array.product) methods for arrays
   - Added `fact`, `perm`, `binom`, `gcd`, `lcm`, `atan2`, `quo`, `trunc`, and
-    `fract` [calculation]($category/calculate)
+    `fract` [calculation]($category/foundations/calc) functions
 
 - Improvements
   - Text in SVGs now displays properly

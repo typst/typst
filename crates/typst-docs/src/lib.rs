@@ -732,6 +732,7 @@ const TYPE_ORDER: &[&str] = &[
     "relative",
     "fraction",
     "color",
+    "gradient",
     "datetime",
     "duration",
     "str",

@@ -32,4 +32,13 @@ impl Geometry {
     pub fn stroked(self, stroke: FixedStroke) -> Shape {
         Shape { geometry: self, fill: None, stroke: Some(stroke) }
     }
+
+    /// The bounding box of the geometry.
+    pub fn bbox_size(&self) -> Size {
+        match self {
+            Self::Line(line) => Size::new(line.x, line.y),
+            Self::Rect(s) => *s,
+            Self::Path(p) => p.bbox_size(),
+        }
+    }
 }

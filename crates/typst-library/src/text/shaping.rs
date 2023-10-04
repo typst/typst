@@ -228,7 +228,7 @@ impl<'a> ShapedText<'a> {
         let size = Size::new(self.width, top + bottom);
 
         let mut offset = Abs::zero();
-        let mut frame = Frame::new(size);
+        let mut frame = Frame::soft(size);
         frame.set_baseline(top);
 
         let shift = TextElem::baseline_in(self.styles);
@@ -429,13 +429,21 @@ impl<'a> ShapedText<'a> {
     }
 
     /// Push a hyphen to end of the text.
-    pub fn push_hyphen(&mut self, vt: &Vt) {
-        families(self.styles).find_map(|family| {
-            let world = vt.world;
-            let font = world
-                .book()
-                .select(family.as_str(), self.variant)
-                .and_then(|id| world.font(id))?;
+    pub fn push_hyphen(&mut self, vt: &Vt, fallback: bool) {
+        let world = vt.world;
+        let book = world.book();
+        let fallback_func = if fallback {
+            Some(|| book.select_fallback(None, self.variant, "-"))
+        } else {
+            None
+        };
+        let mut chain = families(self.styles)
+            .map(|family| book.select(family.as_str(), self.variant))
+            .chain(fallback_func.iter().map(|f| f()))
+            .flatten();
+
+        chain.find_map(|id| {
+            let font = world.font(id)?;
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
@@ -443,7 +451,11 @@ impl<'a> ShapedText<'a> {
                 .glyphs
                 .last()
                 .map(|g| g.range.end..g.range.end)
-                .unwrap_or_default();
+                // In the unlikely chance that we hyphenate after an empty line,
+                // ensure that the glyph range still falls after self.base so
+                // that subtracting either of the endpoints by self.base doesn't
+                // underflow. See <https://github.com/typst/typst/issues/2283>.
+                .unwrap_or_else(|| self.base..self.base);
             self.width += x_advance.at(self.size);
             self.glyphs.to_mut().push(ShapedGlyph {
                 font,

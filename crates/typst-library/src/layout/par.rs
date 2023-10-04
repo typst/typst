@@ -714,7 +714,7 @@ fn prepare<'a>(
                 }
             }
             Segment::Meta => {
-                let mut frame = Frame::new(Size::zero());
+                let mut frame = Frame::soft(Size::zero());
                 frame.meta(styles, true);
                 items.push(Item::Meta(frame));
             }
@@ -1272,7 +1272,7 @@ fn line<'a>(
             if hyphen || start < range.end || before.is_empty() {
                 let mut reshaped = shaped.reshape(vt, &p.spans, start..range.end);
                 if hyphen || shy {
-                    reshaped.push_hyphen(vt);
+                    reshaped.push_hyphen(vt, TextElem::fallback_in(p.styles));
                 }
                 let punct = reshaped.glyphs.last();
                 if let Some(punct) = punct {
@@ -1521,7 +1521,7 @@ fn commit(
     }
 
     let size = Size::new(width, top + bottom);
-    let mut output = Frame::new(size);
+    let mut output = Frame::soft(size);
     output.set_baseline(top);
 
     // Construct the line's frame.

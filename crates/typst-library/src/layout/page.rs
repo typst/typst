@@ -381,7 +381,7 @@ impl PageElem {
         if extend_to.is_some_and(|p| p.matches(page_counter.physical().get())) {
             // Insert empty page after the current pages.
             let size = area.map(Abs::is_finite).select(area, Size::zero());
-            frames.push(Frame::new(size));
+            frames.push(Frame::hard(size));
         }
 
         let fill = self.fill(styles);
@@ -738,12 +738,12 @@ pub struct Paper {
 impl Paper {
     /// The width of the paper.
     pub fn width(self) -> Abs {
-        Abs::mm(self.width.0)
+        Abs::mm(self.width.get())
     }
 
     /// The height of the paper.
     pub fn height(self) -> Abs {
-        Abs::mm(self.height.0)
+        Abs::mm(self.height.get())
     }
 }
 
@@ -756,8 +756,8 @@ macro_rules! papers {
         impl Paper {
             $(pub const $var: Self = Self {
                 name: $name,
-                width: Scalar($width),
-                height: Scalar($height),
+                width: Scalar::new($width),
+                height: Scalar::new($height),
             };)*
         }
 

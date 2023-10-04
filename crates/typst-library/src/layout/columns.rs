@@ -100,7 +100,7 @@ impl Layout for ColumnsElem {
             // case, the frame is first created with zero height and then
             // resized.
             let height = if regions.expand.y { region.y } else { Abs::zero() };
-            let mut output = Frame::new(Size::new(regions.size.x, height));
+            let mut output = Frame::hard(Size::new(regions.size.x, height));
             let mut cursor = Abs::zero();
 
             for _ in 0..columns {

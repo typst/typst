@@ -106,7 +106,7 @@ impl LayoutMath for PrimesElem {
                 // Custom amount of primes
                 let prime = ctx.layout_fragment(&TextElem::packed('′'))?.into_frame();
                 let width = prime.width() * (count + 1) as f64 / 2.0;
-                let mut frame = Frame::new(Size::new(width, prime.height()));
+                let mut frame = Frame::soft(Size::new(width, prime.height()));
                 frame.set_baseline(prime.ascent());
 
                 for i in 0..count {
@@ -260,7 +260,7 @@ fn layout_attachments(
         return Ok(());
     }
 
-    let mut frame = Frame::new(Size::new(
+    let mut frame = Frame::soft(Size::new(
         pre_width_max + base_width + post_max_width + scaled!(ctx, space_after_script),
         ascent + descent,
     ));
@@ -331,7 +331,7 @@ fn attach_top_and_bottom(
     let base_pos = Point::new((width - base.width()) / 2.0, base_offset);
     let delta = base.italics_correction() / 2.0;
 
-    let mut frame = Frame::new(Size::new(width, height));
+    let mut frame = Frame::soft(Size::new(width, height));
     frame.set_baseline(base_pos.y + base.ascent());
     frame.push_frame(base_pos, base.into_frame());
 

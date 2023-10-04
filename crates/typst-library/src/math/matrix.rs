@@ -378,6 +378,7 @@ fn layout_mat_body(
     let default_stroke_thickness = DEFAULT_STROKE_THICKNESS.scaled(ctx);
     let default_stroke = FixedStroke {
         thickness: default_stroke_thickness,
+        paint: TextElem::fill_in(ctx.styles()),
         line_cap: LineCap::Square,
         ..Default::default()
     };
@@ -395,7 +396,7 @@ fn layout_mat_body(
     let ncols = rows.first().map_or(0, |row| row.len());
     let nrows = rows.len();
     if ncols == 0 || nrows == 0 {
-        return Ok(Frame::new(Size::zero()));
+        return Ok(Frame::soft(Size::zero()));
     }
 
     // Before the full matrix body can be laid out, the
@@ -430,7 +431,7 @@ fn layout_mat_body(
         heights.iter().map(|&(a, b)| a + b).sum::<Abs>() + gap.y * (nrows - 1) as f64;
 
     // Width starts at zero because it can't be calculated until later
-    let mut frame = Frame::new(Size::new(Abs::zero(), total_height));
+    let mut frame = Frame::soft(Size::new(Abs::zero(), total_height));
 
     let mut x = Abs::zero();
 

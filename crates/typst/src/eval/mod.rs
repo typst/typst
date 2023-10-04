@@ -32,6 +32,7 @@ mod scope;
 mod symbol;
 mod tracer;
 mod ty;
+mod version;
 
 #[doc(hidden)]
 pub use {
@@ -66,6 +67,7 @@ pub use self::symbol::{symbols, Symbol};
 pub use self::tracer::Tracer;
 pub use self::ty::{scope, ty, NativeType, NativeTypeData, Type};
 pub use self::value::{Dynamic, Value};
+pub use self::version::Version;
 
 use std::collections::HashSet;
 use std::mem;

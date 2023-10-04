@@ -14,11 +14,12 @@ use typst::eval::Duration;
 use super::{
     fields, ops, Args, Array, AutoValue, Bytes, CastInfo, Content, Dict, FromValue, Func,
     IntoValue, Module, NativeType, NoneValue, Plugin, Reflect, Scope, Str, Symbol, Type,
+    Version,
 };
 use crate::diag::StrResult;
 use crate::eval::repr::Repr;
 use crate::eval::Datetime;
-use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel};
+use crate::geom::{Abs, Angle, Color, Em, Fr, Gradient, Length, Ratio, Rel};
 use crate::model::{Label, Styles};
 use crate::syntax::{ast, Span};
 
@@ -48,8 +49,12 @@ pub enum Value {
     Fraction(Fr),
     /// A color value: `#f79143ff`.
     Color(Color),
+    /// A gradient value: `gradient.linear(...)`.
+    Gradient(Gradient),
     /// A symbol: `arrow.l`.
     Symbol(Symbol),
+    /// A version.
+    Version(Version),
     /// A string: `"string"`.
     Str(Str),
     /// Raw bytes.
@@ -121,7 +126,9 @@ impl Value {
             Self::Relative(_) => Type::of::<Rel<Length>>(),
             Self::Fraction(_) => Type::of::<Fr>(),
             Self::Color(_) => Type::of::<Color>(),
+            Self::Gradient(_) => Type::of::<Gradient>(),
             Self::Symbol(_) => Type::of::<Symbol>(),
+            Self::Version(_) => Type::of::<Version>(),
             Self::Str(_) => Type::of::<Str>(),
             Self::Bytes(_) => Type::of::<Bytes>(),
             Self::Label(_) => Type::of::<Label>(),
@@ -149,6 +156,7 @@ impl Value {
     pub fn field(&self, field: &str) -> StrResult<Value> {
         match self {
             Self::Symbol(symbol) => symbol.clone().modified(field).map(Self::Symbol),
+            Self::Version(version) => version.component(field).map(Self::Int),
             Self::Dict(dict) => dict.get(field).cloned(),
             Self::Content(content) => content.get(field),
             Self::Type(ty) => ty.field(field).cloned(),
@@ -194,6 +202,7 @@ impl Value {
             Self::Int(v) => item!(text)(eco_format!("{v}")),
             Self::Float(v) => item!(text)(eco_format!("{v}")),
             Self::Str(v) => item!(text)(v.into()),
+            Self::Version(v) => item!(text)(eco_format!("{v}")),
             Self::Symbol(v) => item!(text)(v.get().into()),
             Self::Content(v) => v,
             Self::Module(module) => module.content(),
@@ -225,7 +234,9 @@ impl Repr for Value {
             Self::Relative(v) => v.repr(),
             Self::Fraction(v) => v.repr(),
             Self::Color(v) => v.repr(),
+            Self::Gradient(v) => v.repr(),
             Self::Symbol(v) => v.repr(),
+            Self::Version(v) => v.repr(),
             Self::Str(v) => v.repr(),
             Self::Bytes(v) => v.repr(),
             Self::Label(v) => v.repr(),
@@ -272,7 +283,9 @@ impl Hash for Value {
             Self::Relative(v) => v.hash(state),
             Self::Fraction(v) => v.hash(state),
             Self::Color(v) => v.hash(state),
+            Self::Gradient(v) => v.hash(state),
             Self::Symbol(v) => v.hash(state),
+            Self::Version(v) => v.hash(state),
             Self::Str(v) => v.hash(state),
             Self::Bytes(v) => v.hash(state),
             Self::Label(v) => v.hash(state),
@@ -576,7 +589,9 @@ primitive! { Rel<Length>:  "relative length",
 }
 primitive! { Fr: "fraction", Fraction }
 primitive! { Color: "color", Color }
+primitive! { Gradient: "gradient", Gradient }
 primitive! { Symbol: "symbol", Symbol }
+primitive! { Version: "version", Version }
 primitive! {
     Str: "string",
     Str,

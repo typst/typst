@@ -3,6 +3,7 @@
 mod color;
 mod extg;
 mod font;
+mod gradient;
 mod image;
 mod outline;
 mod page;
@@ -21,6 +22,7 @@ use pdf_writer::writers::PageLabel;
 use pdf_writer::{Finish, Name, PdfWriter, Ref, TextStr};
 use xmp_writer::{LangId, RenditionClass, XmpWriter};
 
+use self::gradient::PdfGradient;
 use self::page::Page;
 use crate::doc::{Document, Lang};
 use crate::font::Font;
@@ -39,6 +41,7 @@ pub fn pdf(document: &Document) -> Vec<u8> {
     page::construct_pages(&mut ctx, &document.pages);
     font::write_fonts(&mut ctx);
     image::write_images(&mut ctx);
+    gradient::write_gradients(&mut ctx);
     extg::write_external_graphics_states(&mut ctx);
     page::write_page_tree(&mut ctx);
     write_catalog(&mut ctx);
@@ -57,10 +60,12 @@ pub struct PdfContext<'a> {
     page_tree_ref: Ref,
     font_refs: Vec<Ref>,
     image_refs: Vec<Ref>,
+    gradient_refs: Vec<Ref>,
     ext_gs_refs: Vec<Ref>,
     page_refs: Vec<Ref>,
     font_map: Remapper<Font>,
     image_map: Remapper<Image>,
+    gradient_map: Remapper<PdfGradient>,
     ext_gs_map: Remapper<ExternalGraphicsState>,
     /// For each font a mapping from used glyphs to their text representation.
     /// May contain multiple chars in case of ligatures or similar things. The
@@ -88,9 +93,11 @@ impl<'a> PdfContext<'a> {
             page_refs: vec![],
             font_refs: vec![],
             image_refs: vec![],
+            gradient_refs: vec![],
             ext_gs_refs: vec![],
             font_map: Remapper::new(),
             image_map: Remapper::new(),
+            gradient_map: Remapper::new(),
             ext_gs_map: Remapper::new(),
             glyph_sets: HashMap::new(),
             languages: HashMap::new(),
@@ -254,13 +261,13 @@ where
         Self { to_pdf: HashMap::new(), to_items: vec![] }
     }
 
-    fn insert(&mut self, item: T) {
+    fn insert(&mut self, item: T) -> usize {
         let to_layout = &mut self.to_items;
-        self.to_pdf.entry(item.clone()).or_insert_with(|| {
+        *self.to_pdf.entry(item.clone()).or_insert_with(|| {
             let pdf_index = to_layout.len();
             to_layout.push(item);
             pdf_index
-        });
+        })
     }
 
     fn map(&self, item: &T) -> usize {

@@ -1,6 +1,6 @@
 use typst::eval::repr::Repr;
 use typst::eval::{
-    Datetime, Duration, EvalMode, Module, Never, NoneValue, Plugin, Regex,
+    Datetime, Duration, EvalMode, Module, Never, NoneValue, Plugin, Regex, Version,
 };
 
 use crate::prelude::*;
@@ -23,6 +23,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_type::<Regex>();
     global.define_type::<Datetime>();
     global.define_type::<Duration>();
+    global.define_type::<Version>();
     global.define_type::<Plugin>();
     global.define_func::<repr>();
     global.define_func::<panic>();

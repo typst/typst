@@ -18,6 +18,11 @@ impl Size {
     pub fn to_point(self) -> Point {
         Point::new(self.x, self.y)
     }
+
+    /// Converts to a ratio of width to height.
+    pub fn aspect_ratio(self) -> Ratio {
+        Ratio::new(self.x / self.y)
+    }
 }
 
 impl Numeric for Size {
