@@ -1494,6 +1494,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-complex"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ba157ca0885411de85d6ca030ba7e2a83a28636056c7c699b07c8b6f7383214"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "num-format"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2745,6 +2754,7 @@ dependencies = [
  "kurbo",
  "log",
  "miniz_oxide",
+ "num-complex",
  "once_cell",
  "palette",
  "pdf-writer",

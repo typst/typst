@@ -3,6 +3,8 @@ use std::f64::{EPSILON, NEG_INFINITY};
 use std::hash::Hash;
 use std::sync::Arc;
 
+use num_complex::Complex;
+
 use super::color::{Hsl, Hsv};
 use super::*;
 use crate::diag::{bail, error, SourceResult};
@@ -631,26 +633,26 @@ impl Gradient {
                 (x as f64 * cos.abs() + y as f64 * sin.abs()) / length
             }
             Self::Radial(radial) => {
-                // Source: https://www.shadertoy.com/view/XldBR8
-                let (x, y) = (x as f64, y as f64);
-                let (cx, cy) = (radial.center.x.get(), radial.center.y.get());
-                let (fx, fy) = (radial.start_center.x.get(), radial.start_center.y.get());
+                // Source: https://typst.app/project/pqm3YG1dPKZ93lA4rzo6Zh
+                // Based on a möbius transformation from the annulus.
                 let cr = radial.radius.get();
                 let fr = radial.start_radius.get();
 
-                let x = cx - x;
-                let y = cy - y;
-                let dx = cx - fx;
-                let dy = cy - fy;
-                let r0 = cr;
-                let dr = fr - cr;
+                let z = Complex::new(x as f64, y as f64);
+                let p = Complex::new(radial.center.x.get(), radial.center.y.get());
+                let q = Complex::new(
+                    radial.start_center.x.get(),
+                    radial.start_center.y.get(),
+                );
 
-                let a = dx.powi(2) + dy.powi(2) - dr.powi(2);
-                let b = -2.0 * (y * dy + x * dx + r0 * dr);
-                let c = x.powi(2) + y.powi(2) - r0.powi(2);
-                let t = (-b + (b.powi(2) - 4.0 * a * c).sqrt()) / (2.0 * a);
+                let a = (q - p).norm() / cr;
+                let rho = fr / cr;
+                let c = 1.0 + a.powi(2) - rho.powi(2);
+                let d = 2.0 / (c + (c.powi(2) - 4.0 * a.powi(2)).sqrt());
 
-                1.0 - t
+                cr * ((z - p - d * (q - p))
+                    / (cr.powi(2) - (d * (q - p).conj() * (z - p))))
+                    .norm()
             }
         };
 
