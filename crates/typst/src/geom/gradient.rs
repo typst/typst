@@ -297,48 +297,35 @@ impl Gradient {
         relative: Smart<Relative>,
         /// The center of the last circle of the gradient.
         #[named]
-        #[default(Axes::splat(Ratio::new(0.5)))]
-        center: Axes<Ratio>,
+        #[default(Axes::splat(PositiveRatio::new(0.5)))]
+        center: Axes<PositiveRatio>,
         /// The radius of the last circle of the gradient.
         ///
         /// By default, it is set to `{50%}`. The ending radius must be bigger
         /// than the starting radius, and it must be bigger or equal to `{0%}`.
         #[named]
-        #[default(Spanned::new(Ratio::new(0.5), Span::detached()))]
-        radius: Spanned<Ratio>,
+        #[default(Spanned::new(PositiveRatio::new(0.5), Span::detached()))]
+        radius: Spanned<PositiveRatio>,
         /// The center of the start circle of the gradient.
         ///
         /// By default it is set to the same as the center of the last circle.
         #[named]
         #[default(Smart::Auto)]
-        start_center: Smart<Axes<Ratio>>,
+        start_center: Smart<Axes<PositiveRatio>>,
         /// The radius of the start circle of the gradient.
         ///
         /// By default, it is set to `{0%}`. The starting radius must be smaller
         /// than the ending radius, and it must be bigger or equal to `{0%}`.
         #[named]
-        #[default(Spanned::new(Ratio::new(0.0), Span::detached()))]
-        start_radius: Spanned<Ratio>,
+        #[default(Spanned::new(PositiveRatio::new(0.0), Span::detached()))]
+        start_radius: Spanned<PositiveRatio>,
     ) -> SourceResult<Gradient> {
         if stops.len() < 2 {
             bail!(error!(span, "a gradient must have at least two stops")
                 .with_hint("try filling the shape with a single color instead"));
         }
 
-        if radius.v.get() <= 0.0 {
-            bail!(error!(radius.span, "the radius must be bigger than zero")
-                .with_hint("try using a radius of `50%` instead"));
-        }
-
-        if start_radius.v.get() < 0.0 {
-            bail!(error!(
-                radius.span,
-                "the start radius must be bigger or equal to zero"
-            )
-            .with_hint("try using a start radius of `0%` instead"));
-        }
-
-        if start_radius.v > radius.v {
+        if start_radius.v.0 > radius.v.0 {
             bail!(error!(
                 start_radius.span,
                 "the start radius must be smaller than the end radius"
@@ -348,10 +335,10 @@ impl Gradient {
 
         Ok(Gradient::Radial(Arc::new(RadialGradient {
             stops: process_stops(&stops)?,
-            center,
-            radius: radius.v,
-            start_center: start_center.unwrap_or(center),
-            start_radius: start_radius.v,
+            center: center.map(From::from),
+            radius: radius.v.into(),
+            start_center: start_center.unwrap_or(center).map(From::from),
+            start_radius: start_radius.v.into(),
             space,
             relative,
             anti_alias: true,
@@ -927,6 +914,44 @@ cast! {
     },
     ratio: Ratio => Self::Ratio(ratio),
     angle: Angle => Self::Angle(angle),
+}
+
+/// A ratio that is guaranteed to be in the range `[0, 1]`.
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+pub struct PositiveRatio(Ratio);
+
+impl From<PositiveRatio> for Ratio {
+    fn from(value: PositiveRatio) -> Self {
+        value.0
+    }
+}
+
+impl PositiveRatio {
+    /// Creates a new `PositiveRatio` from a `value`.
+    /// 
+    /// # Panics
+    /// Panics if the value is not in the range `[0, 1]`.
+    pub fn new(value: f64) -> Self {
+        assert!(value >= 0.0 && value <= 1.0);
+
+        Self(Ratio::new(value))
+    }
+}
+
+cast! {
+    PositiveRatio,
+    self => self.0.into_value(),
+    ratio: Ratio => {
+        if ratio.get() < 0.0 {
+            Err("ratio must be positive")?
+        }
+
+        if ratio.get() > 1.0 {
+            Err("ratio must be less than or equal to 1")?
+        }
+
+        Self(ratio)
+    },
 }
 
 /// Pre-processes the stops, checking that they are valid and computing the
