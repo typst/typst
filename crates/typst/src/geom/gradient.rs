@@ -645,23 +645,14 @@ impl Gradient {
                     radial.focal_center.y.get(),
                 );
 
-                let t_inner = (z - q).norm() / fr;
-                let t_outer = (z - p).norm() / cr;
+                let a = (q - p).norm() / cr;
+                let rho = fr / cr;
+                let c = 1.0 + a.powi(2) - rho.powi(2);
+                let d = 2.0 / (c + (c.powi(2) - 4.0 * a.powi(2)).sqrt());
 
-                if t_inner <= 1.0 {
-                    0.0
-                } else if t_outer >= 1.0 {
-                    1.0
-                } else {
-                    let a = (q - p).norm() / cr;
-                    let rho = fr / cr;
-                    let c = 1.0 + a.powi(2) - rho.powi(2);
-                    let d = 2.0 / (c + (c.powi(2) - 4.0 * a.powi(2)).sqrt());
-
-                    cr * ((z - p - d * (q - p))
-                        / (cr.powi(2) - d * (q - p).conj() * (z - p)))
-                        .norm()
-                }
+                cr * ((z - p - d * (q - p))
+                    / (cr.powi(2) - d * (q - p).conj() * (z - p)))
+                    .norm()
             }
         };
 
