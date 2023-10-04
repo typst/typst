@@ -8,7 +8,7 @@ use pdf_writer::types::{
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
 use super::color::PaintEncode;
-use super::extg::ExternalGraphicsState;
+use super::extg::ExtGState;
 use super::{deflate, AbsExt, EmExt, PdfContext};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::eval::Repr;
@@ -32,7 +32,6 @@ pub fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
 pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
     let page_ref = ctx.alloc.bump();
     ctx.page_refs.push(page_ref);
-    ctx.page_heights.push(frame.height().to_f32());
 
     let mut ctx = PageContext {
         parent: ctx,
@@ -81,7 +80,7 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
         write_page(ctx, i);
     }
 
-    let mut pages = ctx.writer.pages(ctx.page_tree_ref);
+    let mut pages = ctx.pdf.pages(ctx.page_tree_ref);
     pages
         .count(ctx.page_refs.len() as i32)
         .kids(ctx.page_refs.iter().copied());
@@ -115,7 +114,7 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
     patterns.finish();
 
     let mut ext_gs_states = resources.ext_g_states();
-    for (gs_ref, gs) in ctx.ext_gs_map.pdf_indices(&ctx.ext_gs_refs) {
+    for (gs_ref, gs) in ctx.extg_map.pdf_indices(&ctx.ext_gs_refs) {
         let name = eco_format!("Gs{}", gs);
         ext_gs_states.pair(Name(name.as_bytes()), gs_ref);
     }
@@ -125,7 +124,7 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
     pages.finish();
 
     // Write all of the functions used by the document.
-    ctx.colors.write_functions(&mut ctx.writer);
+    ctx.colors.write_functions(&mut ctx.pdf);
 }
 
 /// Write a page tree node.
@@ -134,7 +133,7 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
     let page = &ctx.pages[i];
     let content_id = ctx.alloc.bump();
 
-    let mut page_writer = ctx.writer.page(page.id);
+    let mut page_writer = ctx.pdf.page(page.id);
     page_writer.parent(ctx.page_tree_ref);
 
     let w = page.size.x.to_f32();
@@ -172,13 +171,13 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
 
         let index = pos.page.get() - 1;
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-        if let Some(&height) = ctx.page_heights.get(index) {
+        if let Some(page) = ctx.pages.get(index) {
             annotation
                 .action()
                 .action_type(ActionType::GoTo)
                 .destination()
                 .page(ctx.page_refs[index])
-                .xyz(pos.point.x.to_f32(), height - y.to_f32(), None);
+                .xyz(pos.point.x.to_f32(), (page.size.y - y).to_f32(), None);
         }
     }
 
@@ -186,7 +185,7 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
     page_writer.finish();
 
     let data = deflate(&page.content);
-    ctx.writer.stream(content_id, &data).filter(Filter::FlateDecode);
+    ctx.pdf.stream(content_id, &data).filter(Filter::FlateDecode);
 }
 
 /// Data for an exported page.
@@ -231,7 +230,7 @@ struct State {
     font: Option<(Font, Abs)>,
     fill: Option<Paint>,
     fill_space: Option<Name<'static>>,
-    external_graphics_state: Option<ExternalGraphicsState>,
+    external_graphics_state: Option<ExtGState>,
     stroke: Option<FixedStroke>,
     stroke_space: Option<Name<'static>>,
 }
@@ -287,11 +286,11 @@ impl PageContext<'_, '_> {
         self.state = self.saves.pop().expect("missing state save");
     }
 
-    fn set_external_graphics_state(&mut self, graphics_state: &ExternalGraphicsState) {
+    fn set_external_graphics_state(&mut self, graphics_state: &ExtGState) {
         let current_state = self.state.external_graphics_state.as_ref();
         if current_state != Some(graphics_state) {
-            self.parent.ext_gs_map.insert(*graphics_state);
-            let name = eco_format!("Gs{}", self.parent.ext_gs_map.map(graphics_state));
+            self.parent.extg_map.insert(*graphics_state);
+            let name = eco_format!("Gs{}", self.parent.extg_map.map(graphics_state));
             self.content.set_parameters(Name(name.as_bytes()));
 
             if graphics_state.uses_opacities() {
@@ -321,10 +320,7 @@ impl PageContext<'_, '_> {
                 color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
             })
             .unwrap_or(255);
-        self.set_external_graphics_state(&ExternalGraphicsState {
-            stroke_opacity,
-            fill_opacity,
-        });
+        self.set_external_graphics_state(&ExtGState { stroke_opacity, fill_opacity });
     }
 
     fn transform(&mut self, transform: Transform) {

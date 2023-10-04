@@ -35,7 +35,7 @@ pub fn write_gradients(ctx: &mut PdfContext) {
         let mut shading_pattern = match &gradient {
             Gradient::Linear(linear) => {
                 let shading_function = shading_function(ctx, &gradient);
-                let mut shading_pattern = ctx.writer.shading_pattern(shading);
+                let mut shading_pattern = ctx.pdf.shading_pattern(shading);
                 let mut shading = shading_pattern.function_shading();
                 shading.shading_type(FunctionShadingType::Axial);
 
@@ -108,7 +108,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
 
                     // These need to be individual function to encode 360.0 correctly.
                     let func1 = ctx.alloc.bump();
-                    ctx.writer
+                    ctx.pdf
                         .exponential_function(func1)
                         .range(gradient.space().range())
                         .c0(gradient.space().convert(first.0))
@@ -117,7 +117,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
                         .n(1.0);
 
                     let func2 = ctx.alloc.bump();
-                    ctx.writer
+                    ctx.pdf
                         .exponential_function(func2)
                         .range(gradient.space().range())
                         .c0([1.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t])
@@ -126,7 +126,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
                         .n(1.0);
 
                     let func3 = ctx.alloc.bump();
-                    ctx.writer
+                    ctx.pdf
                         .exponential_function(func3)
                         .range(gradient.space().range())
                         .c0([0.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t])
@@ -157,7 +157,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
     bounds.pop();
 
     // Create the stitching function.
-    ctx.writer
+    ctx.pdf
         .stitching_function(function)
         .domain([0.0, 1.0])
         .range(gradient.space().range())
@@ -178,7 +178,7 @@ fn single_gradient(
 ) -> Ref {
     let reference = ctx.alloc.bump();
 
-    ctx.writer
+    ctx.pdf
         .exponential_function(reference)
         .range(color_space.range())
         .c0(color_space.convert(first_color))

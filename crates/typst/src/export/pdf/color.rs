@@ -1,5 +1,4 @@
-use std::sync::Arc;
-
+use once_cell::sync::Lazy;
 use pdf_writer::types::DeviceNSubtype;
 use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
 
@@ -27,13 +26,18 @@ const HSL_S: Name<'static> = Name(b"S");
 const HSL_L: Name<'static> = Name(b"L");
 
 // The ICC profiles.
-const SRGB_ICC: &[u8] = include_bytes!("./icc/sRGB-v4.icc");
-const GRAY_ICC: &[u8] = include_bytes!("./icc/sGrey-v4.icc");
+static SRGB_ICC_DEFLATED: Lazy<Vec<u8>> =
+    Lazy::new(|| deflate(include_bytes!("icc/sRGB-v4.icc")));
+static GRAY_ICC_DEFLATED: Lazy<Vec<u8>> =
+    Lazy::new(|| deflate(include_bytes!("icc/sGrey-v4.icc")));
 
 // The PostScript functions for color spaces.
-const OKLAB_SOURCE: &str = include_str!("./postscript/oklab.ps");
-const HSL_SOURCE: &str = include_str!("./postscript/hsl.ps");
-const HSV_SOURCE: &str = include_str!("./postscript/hsv.ps");
+static OKLAB_DEFLATED: Lazy<Vec<u8>> =
+    Lazy::new(|| deflate(minify(include_str!("postscript/oklab.ps")).as_bytes()));
+static HSV_DEFLATED: Lazy<Vec<u8>> =
+    Lazy::new(|| deflate(minify(include_str!("postscript/hsl.ps")).as_bytes()));
+static HSL_DEFLATED: Lazy<Vec<u8>> =
+    Lazy::new(|| deflate(minify(include_str!("postscript/hsv.ps")).as_bytes()));
 
 /// The color spaces present in the PDF document
 #[derive(Default)]
@@ -161,85 +165,52 @@ impl ColorSpaces {
 
     /// Write the necessary color spaces functions and ICC profiles to the
     /// PDF file.
-    pub fn write_functions(&self, writer: &mut Chunk) {
-        // Write the Oklab function & color space
+    pub fn write_functions(&self, chunk: &mut Chunk) {
+        // Write the Oklab function & color space.
         if let Some(oklab) = self.oklab {
-            let code = oklab_function();
-            writer
-                .post_script_function(oklab, &code)
+            chunk
+                .post_script_function(oklab, &OKLAB_DEFLATED)
                 .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .filter(Filter::FlateDecode);
         }
 
-        // Write the HSV function & color space
+        // Write the HSV function & color space.
         if let Some(hsv) = self.hsv {
-            let code = hsv_function();
-            writer
-                .post_script_function(hsv, &code)
+            chunk
+                .post_script_function(hsv, &HSV_DEFLATED)
                 .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .filter(Filter::FlateDecode);
         }
 
-        // Write the HSL function & color space
+        // Write the HSL function & color space.
         if let Some(hsl) = self.hsl {
-            let code = hsl_function();
-            writer
-                .post_script_function(hsl, &code)
+            chunk
+                .post_script_function(hsl, &HSL_DEFLATED)
                 .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .filter(Filter::FlateDecode);
         }
 
-        // Write the sRGB color space
+        // Write the sRGB color space.
         if let Some(srgb) = self.srgb {
-            let profile = srgb_icc();
-            writer
-                .icc_profile(srgb, &profile)
+            chunk
+                .icc_profile(srgb, &SRGB_ICC_DEFLATED)
                 .n(3)
-                .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0]);
+                .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
+                .filter(Filter::FlateDecode);
         }
 
-        // Write the gray color space
+        // Write the gray color space.
         if let Some(gray) = self.d65_gray {
-            let profile = gray_icc();
-            writer.icc_profile(gray, &profile).n(1).range([0.0, 1.0]);
+            chunk
+                .icc_profile(gray, &GRAY_ICC_DEFLATED)
+                .n(1)
+                .range([0.0, 1.0])
+                .filter(Filter::FlateDecode);
         }
     }
-}
-
-/// Deflated sRGB ICC profile
-#[comemo::memoize]
-fn srgb_icc() -> Arc<Vec<u8>> {
-    Arc::new(deflate(SRGB_ICC))
-}
-
-/// Deflated gray ICC profile
-#[comemo::memoize]
-fn gray_icc() -> Arc<Vec<u8>> {
-    Arc::new(deflate(GRAY_ICC))
-}
-
-/// Deflated Oklab PostScript function
-#[comemo::memoize]
-fn oklab_function() -> Arc<Vec<u8>> {
-    let code = minify(OKLAB_SOURCE);
-    Arc::new(deflate(code.as_bytes()))
-}
-
-/// Deflated HSV PostScript function
-#[comemo::memoize]
-fn hsv_function() -> Arc<Vec<u8>> {
-    let code = minify(HSV_SOURCE);
-    Arc::new(deflate(code.as_bytes()))
-}
-
-/// Deflated HSL PostScript function
-#[comemo::memoize]
-fn hsl_function() -> Arc<Vec<u8>> {
-    let code = minify(HSL_SOURCE);
-    Arc::new(deflate(code.as_bytes()))
 }
 
 /// This function removes comments, line spaces and carriage returns from a

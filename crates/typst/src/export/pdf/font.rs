@@ -58,7 +58,7 @@ pub fn write_fonts(ctx: &mut PdfContext) {
         };
 
         // Write the base font object referencing the CID font.
-        ctx.writer
+        ctx.pdf
             .type0_font(type0_ref)
             .base_font(Name(base_font_type0.as_bytes()))
             .encoding_predefined(Name(b"Identity-H"))
@@ -66,7 +66,7 @@ pub fn write_fonts(ctx: &mut PdfContext) {
             .to_unicode(cmap_ref);
 
         // Write the CID font referencing the font descriptor.
-        let mut cid = ctx.writer.cid_font(cid_ref);
+        let mut cid = ctx.pdf.cid_font(cid_ref);
         cid.subtype(if is_cff { CidFontType::Type0 } else { CidFontType::Type2 });
         cid.base_font(Name(base_font.as_bytes()));
         cid.system_info(SYSTEM_INFO);
@@ -125,7 +125,7 @@ pub fn write_fonts(ctx: &mut PdfContext) {
         let stem_v = 10.0 + 0.244 * (f32::from(ttf.weight().to_number()) - 50.0);
 
         // Write the font descriptor (contains metrics about the font).
-        let mut font_descriptor = ctx.writer.font_descriptor(descriptor_ref);
+        let mut font_descriptor = ctx.pdf.font_descriptor(descriptor_ref);
         font_descriptor
             .name(Name(base_font.as_bytes()))
             .flags(flags)
@@ -147,13 +147,13 @@ pub fn write_fonts(ctx: &mut PdfContext) {
         // Write the /ToUnicode character map, which maps glyph ids back to
         // unicode codepoints to enable copying out of the PDF.
         let cmap = create_cmap(ttf, glyph_set);
-        ctx.writer.cmap(cmap_ref, &cmap.finish());
+        ctx.pdf.cmap(cmap_ref, &cmap.finish());
 
         // Subset and write the font's bytes.
         let glyphs: Vec<_> = glyph_set.keys().copied().collect();
         let data = subset_font(font, &glyphs);
 
-        let mut stream = ctx.writer.stream(data_ref, &data);
+        let mut stream = ctx.pdf.stream(data_ref, &data);
         stream.filter(Filter::FlateDecode);
         if is_cff {
             stream.pair(Name(b"Subtype"), Name(b"CIDFontType0C"));

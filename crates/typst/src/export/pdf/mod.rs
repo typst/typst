@@ -30,7 +30,7 @@ use crate::geom::{Abs, Dir, Em};
 use crate::image::Image;
 use crate::model::Introspector;
 
-use extg::ExternalGraphicsState;
+use extg::ExtGState;
 
 /// Export a document into a PDF file.
 ///
@@ -45,28 +45,21 @@ pub fn pdf(document: &Document) -> Vec<u8> {
     extg::write_external_graphics_states(&mut ctx);
     page::write_page_tree(&mut ctx);
     write_catalog(&mut ctx);
-    ctx.writer.finish()
+    ctx.pdf.finish()
 }
 
 /// Context for exporting a whole PDF document.
 pub struct PdfContext<'a> {
+    /// The document that we're currently exporting.
     document: &'a Document,
+    /// An introspector for the document, used to resolve locations links and
+    /// the document outline.
     introspector: Introspector,
-    writer: Pdf,
-    colors: ColorSpaces,
+
+    /// The writer we are writing the PDF into.
+    pdf: Pdf,
+    /// Content of exported pages.
     pages: Vec<Page>,
-    page_heights: Vec<f32>,
-    alloc: Ref,
-    page_tree_ref: Ref,
-    font_refs: Vec<Ref>,
-    image_refs: Vec<Ref>,
-    gradient_refs: Vec<Ref>,
-    ext_gs_refs: Vec<Ref>,
-    page_refs: Vec<Ref>,
-    font_map: Remapper<Font>,
-    image_map: Remapper<Image>,
-    gradient_map: Remapper<PdfGradient>,
-    ext_gs_map: Remapper<ExternalGraphicsState>,
     /// For each font a mapping from used glyphs to their text representation.
     /// May contain multiple chars in case of ligatures or similar things. The
     /// same glyph can have a different text representation within one document,
@@ -74,7 +67,35 @@ pub struct PdfContext<'a> {
     /// PDF's /ToUnicode map for glyphs that don't have an entry in the font's
     /// cmap. This is important for copy-paste and searching.
     glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
+    /// The number of glyphs for all referenced languages in the document.
+    /// We keep track of this to determine the main document language.
     languages: HashMap<Lang, usize>,
+
+    /// Allocator for indirect reference IDs.
+    alloc: Ref,
+    /// The ID of the page tree.
+    page_tree_ref: Ref,
+    /// The IDs of written pages.
+    page_refs: Vec<Ref>,
+    /// The IDs of written fonts.
+    font_refs: Vec<Ref>,
+    /// The IDs of written images.
+    image_refs: Vec<Ref>,
+    /// The IDs of written gradients.
+    gradient_refs: Vec<Ref>,
+    /// The IDs of written external graphics states.
+    ext_gs_refs: Vec<Ref>,
+    /// Handles color space writing.
+    colors: ColorSpaces,
+
+    /// Deduplicates fonts used across the document.
+    font_map: Remapper<Font>,
+    /// Deduplicates images used across the document.
+    image_map: Remapper<Image>,
+    /// Deduplicates gradients used across the document.
+    gradient_map: Remapper<PdfGradient>,
+    /// Deduplicates external graphics states used across the document.
+    extg_map: Remapper<ExtGState>,
 }
 
 impl<'a> PdfContext<'a> {
@@ -84,10 +105,10 @@ impl<'a> PdfContext<'a> {
         Self {
             document,
             introspector: Introspector::new(&document.pages),
-            writer: Pdf::new(),
-            colors: ColorSpaces::default(),
+            pdf: Pdf::new(),
             pages: vec![],
-            page_heights: vec![],
+            glyph_sets: HashMap::new(),
+            languages: HashMap::new(),
             alloc,
             page_tree_ref,
             page_refs: vec![],
@@ -95,12 +116,11 @@ impl<'a> PdfContext<'a> {
             image_refs: vec![],
             gradient_refs: vec![],
             ext_gs_refs: vec![],
+            colors: ColorSpaces::default(),
             font_map: Remapper::new(),
             image_map: Remapper::new(),
             gradient_map: Remapper::new(),
-            ext_gs_map: Remapper::new(),
-            glyph_sets: HashMap::new(),
-            languages: HashMap::new(),
+            extg_map: Remapper::new(),
         }
     }
 }
@@ -127,7 +147,7 @@ fn write_catalog(ctx: &mut PdfContext) {
     let page_labels = write_page_labels(ctx);
 
     // Write the document information.
-    let mut info = ctx.writer.document_info(ctx.alloc.bump());
+    let mut info = ctx.pdf.document_info(ctx.alloc.bump());
     let mut xmp = XmpWriter::new();
     if let Some(title) = &ctx.document.title {
         info.title(TextStr(title));
@@ -160,13 +180,13 @@ fn write_catalog(ctx: &mut PdfContext) {
 
     let xmp_buf = xmp.finish(None);
     let meta_ref = ctx.alloc.bump();
-    let mut meta_stream = ctx.writer.stream(meta_ref, xmp_buf.as_bytes());
-    meta_stream.pair(Name(b"Type"), Name(b"Metadata"));
-    meta_stream.pair(Name(b"Subtype"), Name(b"XML"));
-    meta_stream.finish();
+    ctx.pdf
+        .stream(meta_ref, xmp_buf.as_bytes())
+        .pair(Name(b"Type"), Name(b"Metadata"))
+        .pair(Name(b"Subtype"), Name(b"XML"));
 
     // Write the document catalog.
-    let mut catalog = ctx.writer.catalog(ctx.alloc.bump());
+    let mut catalog = ctx.pdf.catalog(ctx.alloc.bump());
     catalog.pages(ctx.page_tree_ref);
     catalog.viewer_preferences().direction(dir);
     catalog.pair(Name(b"Metadata"), meta_ref);
@@ -215,7 +235,7 @@ fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
         }
 
         let id = ctx.alloc.bump();
-        let mut entry = ctx.writer.indirect(id).start::<PageLabel>();
+        let mut entry = ctx.pdf.indirect(id).start::<PageLabel>();
 
         // Only add what is actually provided. Don't add empty prefix string if
         // it wasn't given for example.
@@ -307,19 +327,5 @@ trait EmExt {
 impl EmExt for Em {
     fn to_font_units(self) -> f32 {
         1000.0 * self.get() as f32
-    }
-}
-
-/// Additional methods for [`Ref`].
-trait RefExt {
-    /// Bump the reference up by one and return the previous one.
-    fn bump(&mut self) -> Self;
-}
-
-impl RefExt for Ref {
-    fn bump(&mut self) -> Self {
-        let prev = *self;
-        *self = Self::new(prev.get() + 1);
-        prev
     }
 }

@@ -92,7 +92,7 @@ pub fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
         prev_ref = Some(write_outline_item(ctx, node, root_id, prev_ref, i + 1 == len));
     }
 
-    ctx.writer
+    ctx.pdf
         .outline(root_id)
         .first(start_ref)
         .last(Ref::new(ctx.alloc.get() - 1))
@@ -140,7 +140,7 @@ fn write_outline_item(
     let id = ctx.alloc.bump();
     let next_ref = Ref::new(id.get() + node.len() as i32);
 
-    let mut outline = ctx.writer.outline_item(id);
+    let mut outline = ctx.pdf.outline_item(id);
     outline.parent(parent_ref);
 
     if !is_last {
@@ -164,11 +164,11 @@ fn write_outline_item(
     let loc = node.element.location().unwrap();
     let pos = ctx.introspector.position(loc);
     let index = pos.page.get() - 1;
-    if let Some(&height) = ctx.page_heights.get(index) {
+    if let Some(page) = ctx.pages.get(index) {
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
         outline.dest().page(ctx.page_refs[index]).xyz(
             pos.point.x.to_f32(),
-            height - y.to_f32(),
+            (page.size.y - y).to_f32(),
             None,
         );
     }
