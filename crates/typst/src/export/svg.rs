@@ -677,9 +677,9 @@ impl SVGRenderer {
                     self.xml.write_attribute("cx", &radial.center.x.get());
                     self.xml.write_attribute("cy", &radial.center.y.get());
                     self.xml.write_attribute("r", &radial.radius.get());
-                    self.xml.write_attribute("fx", &radial.start_center.x.get());
-                    self.xml.write_attribute("fy", &radial.start_center.y.get());
-                    self.xml.write_attribute("fr", &radial.start_radius.get());
+                    self.xml.write_attribute("fx", &radial.focal_center.x.get());
+                    self.xml.write_attribute("fy", &radial.focal_center.y.get());
+                    self.xml.write_attribute("fr", &radial.focal_radius.get());
                 }
             }
 

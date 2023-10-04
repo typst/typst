@@ -70,9 +70,9 @@ pub fn write_gradients(ctx: &mut PdfContext) {
                     .anti_alias(gradient.anti_alias())
                     .function(shading_function)
                     .coords([
-                        radial.start_center.x.get() as f32,
-                        radial.start_center.y.get() as f32,
-                        radial.start_radius.get() as f32,
+                        radial.focal_center.x.get() as f32,
+                        radial.focal_center.y.get() as f32,
+                        radial.focal_radius.get() as f32,
                         radial.center.x.get() as f32,
                         radial.center.y.get() as f32,
                         radial.radius.get() as f32,

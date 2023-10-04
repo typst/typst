@@ -339,8 +339,8 @@ impl Gradient {
             stops: process_stops(&stops)?,
             center: center.map(From::from),
             radius: radius.v.into(),
-            start_center: focal_center.unwrap_or(center).map(From::from),
-            start_radius: focal_radius.v.into(),
+            focal_center: focal_center.unwrap_or(center).map(From::from),
+            focal_radius: focal_radius.v.into(),
             space,
             relative,
             anti_alias: true,
@@ -516,8 +516,8 @@ impl Gradient {
                 stops,
                 center: radial.center,
                 radius: radial.radius,
-                start_center: radial.start_center,
-                start_radius: radial.start_radius,
+                focal_center: radial.focal_center,
+                focal_radius: radial.focal_radius,
                 space: radial.space,
                 relative: radial.relative,
                 anti_alias: false,
@@ -581,8 +581,8 @@ impl Gradient {
                 stops,
                 center: radial.center,
                 radius: radial.radius,
-                start_center: radial.start_center,
-                start_radius: radial.start_radius,
+                focal_center: radial.focal_center,
+                focal_radius: radial.focal_radius,
                 space: radial.space,
                 relative: radial.relative,
                 anti_alias: radial.anti_alias,
@@ -636,23 +636,32 @@ impl Gradient {
                 // Source: https://typst.app/project/pqm3YG1dPKZ93lA4rzo6Zh
                 // Based on a möbius transformation from the annulus.
                 let cr = radial.radius.get();
-                let fr = radial.start_radius.get();
+                let fr = radial.focal_radius.get();
 
                 let z = Complex::new(x as f64, y as f64);
                 let p = Complex::new(radial.center.x.get(), radial.center.y.get());
                 let q = Complex::new(
-                    radial.start_center.x.get(),
-                    radial.start_center.y.get(),
+                    radial.focal_center.x.get(),
+                    radial.focal_center.y.get(),
                 );
 
-                let a = (q - p).norm() / cr;
-                let rho = fr / cr;
-                let c = 1.0 + a.powi(2) - rho.powi(2);
-                let d = 2.0 / (c + (c.powi(2) - 4.0 * a.powi(2)).sqrt());
+                let t_inner = (z - q).norm() / fr;
+                let t_outer = (z - p).norm() / cr;
 
-                cr * ((z - p - d * (q - p))
-                    / (cr.powi(2) - (d * (q - p).conj() * (z - p))))
-                    .norm()
+                if t_inner <= 1.0 {
+                    0.0
+                } else if t_outer >= 1.0 {
+                    1.0
+                } else {
+                    let a = (q - p).norm() / cr;
+                    let rho = fr / cr;
+                    let c = 1.0 + a.powi(2) - rho.powi(2);
+                    let d = 2.0 / (c + (c.powi(2) - 4.0 * a.powi(2)).sqrt());
+
+                    cr * ((z - p - d * (q - p))
+                        / (cr.powi(2) - d * (q - p).conj() * (z - p)))
+                        .norm()
+                }
             }
         };
 
@@ -775,9 +784,9 @@ pub struct RadialGradient {
     /// The radius of last circle of this gradient.
     pub radius: Ratio,
     /// The center of first circle of this gradient.
-    pub start_center: Axes<Ratio>,
+    pub focal_center: Axes<Ratio>,
     /// The radius of first circle of this gradient.
-    pub start_radius: Ratio,
+    pub focal_radius: Ratio,
     /// The color space in which to interpolate the gradient.
     pub space: ColorSpace,
     /// The relative placement of the gradient.
@@ -804,17 +813,17 @@ impl Repr for RadialGradient {
             r.push_str(", ");
         }
 
-        if self.start_center != self.center {
+        if self.focal_center != self.center {
             r.push_str("focal-center: (");
-            r.push_str(&self.start_center.x.repr());
+            r.push_str(&self.focal_center.x.repr());
             r.push_str(", ");
-            r.push_str(&self.start_center.y.repr());
+            r.push_str(&self.focal_center.y.repr());
             r.push_str("), ");
         }
 
-        if self.start_radius != Ratio::zero() {
+        if self.focal_radius != Ratio::zero() {
             r.push_str("focal-radius: ");
-            r.push_str(&self.start_radius.repr());
+            r.push_str(&self.focal_radius.repr());
             r.push_str(", ");
         }
 
