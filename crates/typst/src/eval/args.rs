@@ -252,9 +252,7 @@ impl Args {
 
 impl Debug for Args {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let pieces: Vec<_> =
-            self.items.iter().map(|arg| eco_format!("{arg:?}")).collect();
-        f.write_str(&pretty_array_like(&pieces, false))
+        f.debug_list().entries(&self.items).finish()
     }
 }
 

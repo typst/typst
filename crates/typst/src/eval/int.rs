@@ -53,13 +53,13 @@ impl i64 {
 
 impl Repr for i64 {
     fn repr(&self) -> EcoString {
-        eco_format!("{}", self)
+        eco_format!("{self}")
     }
 }
 
 impl Repr for f64 {
     fn repr(&self) -> EcoString {
-        eco_format!("{}", self)
+        eco_format!("{self}")
     }
 }
 

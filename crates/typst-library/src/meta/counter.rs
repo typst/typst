@@ -1,4 +1,3 @@
-use std::fmt::{self, Debug, Formatter};
 use std::str::FromStr;
 
 use ecow::{eco_vec, EcoVec};
@@ -463,7 +462,7 @@ cast! {
 }
 
 /// Identifies a counter.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CounterKey {
     /// The page counter.
     Page,
@@ -493,16 +492,6 @@ cast! {
     v: LocatableSelector => Self::Selector(v.0),
 }
 
-impl Debug for CounterKey {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Page => f.pad("page"),
-            Self::Selector(selector) => selector.fmt(f),
-            Self::Str(str) => str.fmt(f),
-        }
-    }
-}
-
 impl Repr for CounterKey {
     fn repr(&self) -> EcoString {
         match self {
@@ -515,7 +504,7 @@ impl Repr for CounterKey {
 
 /// An update to perform on a counter.
 #[ty]
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CounterUpdate {
     /// Set the counter to the specified state.
     Set(CounterState),
@@ -523,12 +512,6 @@ pub enum CounterUpdate {
     Step(NonZeroUsize),
     /// Apply the given function to the counter's state.
     Func(Func),
-}
-
-impl Debug for CounterUpdate {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("..")
-    }
 }
 
 impl Repr for CounterUpdate {

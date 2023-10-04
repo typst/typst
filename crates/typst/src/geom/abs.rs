@@ -220,7 +220,7 @@ cast! {
 }
 
 /// Different units of absolute measurement.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum AbsUnit {
     /// Points.
     Pt,
@@ -241,17 +241,6 @@ impl AbsUnit {
             AbsUnit::Cm => 28.3465,
             AbsUnit::In => 72.0,
         }
-    }
-}
-
-impl Debug for AbsUnit {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            AbsUnit::Mm => "mm",
-            AbsUnit::Pt => "pt",
-            AbsUnit::Cm => "cm",
-            AbsUnit::In => "in",
-        })
     }
 }
 

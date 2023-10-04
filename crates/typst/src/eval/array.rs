@@ -808,8 +808,8 @@ cast! {
 }
 
 impl Debug for Array {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_list().entries(self.0.iter()).finish()
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        f.debug_list().entries(&self.0).finish()
     }
 }
 

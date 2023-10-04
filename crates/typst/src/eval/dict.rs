@@ -217,7 +217,7 @@ impl Repr for Dict {
             .take(max)
             .map(|(key, value)| {
                 if is_ident(key) {
-                    eco_format!("{}: {}", key, value.repr())
+                    eco_format!("{key}: {}", value.repr())
                 } else {
                     eco_format!("{}: {}", key.repr(), value.repr())
                 }

@@ -156,7 +156,7 @@ where
 }
 
 /// The two layouting axes.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Axis {
     /// The horizontal axis.
     X,
@@ -182,27 +182,16 @@ impl Axis {
             Self::Y => Self::X,
         }
     }
-
-    /// A description of this axis' direction.
-    pub fn description(self) -> &'static str {
-        match self {
-            Self::X => "horizontal",
-            Self::Y => "vertical",
-        }
-    }
-}
-
-impl Debug for Axis {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(self.description())
-    }
 }
 
 cast! {
     Axis,
-    self => self.description().into_value(),
+    self => match self {
+        Self::X => "horizontal".into_value(),
+        Self::Y => "vertical".into_value(),
+    },
     "horizontal" => Self::X,
-    "vertical" => Self::X,
+    "vertical" => Self::Y,
 }
 
 impl<T> Axes<Option<T>> {

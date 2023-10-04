@@ -348,7 +348,7 @@ impl Fold for Decoration {
 
 impl Repr for Decoration {
     fn repr(&self) -> EcoString {
-        eco_format!("{:?}", self)
+        eco_format!("{self:?}")
     }
 }
 

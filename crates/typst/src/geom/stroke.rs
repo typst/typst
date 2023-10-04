@@ -326,7 +326,7 @@ impl Repr for LineJoin {
 }
 
 /// A line dash pattern.
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct DashPattern<T: Numeric = Length, DT = DashLength<T>> {
     /// The dash array.
     pub array: Vec<DT>,
@@ -334,34 +334,19 @@ pub struct DashPattern<T: Numeric = Length, DT = DashLength<T>> {
     pub phase: T,
 }
 
-impl<T: Numeric + Debug, DT: Debug> Debug for DashPattern<T, DT> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "(array: (")?;
-        for (i, elem) in self.array.iter().enumerate() {
-            if i == 0 {
-                write!(f, "{:?}", elem)?;
-            } else {
-                write!(f, ", {:?}", elem)?;
-            }
-        }
-        write!(f, "), phase: {:?})", self.phase)?;
-        Ok(())
-    }
-}
-
 impl<T: Numeric + Repr, DT: Repr> Repr for DashPattern<T, DT> {
     fn repr(&self) -> EcoString {
-        let mut representation = EcoString::from("(array: (");
+        let mut r = EcoString::from("(array: (");
         for (i, elem) in self.array.iter().enumerate() {
             if i != 0 {
-                representation.push_str(", ")
+                r.push_str(", ")
             }
-            representation.push_str(&elem.repr())
+            r.push_str(&elem.repr())
         }
-        representation.push_str("), phase: ");
-        representation.push_str(&self.phase.repr());
-        representation.push(')');
-        representation
+        r.push_str("), phase: ");
+        r.push_str(&self.phase.repr());
+        r.push(')');
+        r
     }
 }
 

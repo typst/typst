@@ -338,7 +338,7 @@ cast! {
 ///
 /// For horizontal alignment, start is globally left and for vertical alignment
 /// it is globally top.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum FixedAlign {
     Start,
     Center,
@@ -354,16 +354,6 @@ impl FixedAlign {
             Self::Center => extent / 2.0,
             Self::End => extent,
         }
-    }
-}
-
-impl Debug for FixedAlign {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Start => "start",
-            Self::Center => "center",
-            Self::End => "end",
-        })
     }
 }
 

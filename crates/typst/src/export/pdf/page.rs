@@ -713,7 +713,7 @@ pub struct PdfPageLabel {
 
 impl Repr for PdfPageLabel {
     fn repr(&self) -> EcoString {
-        eco_format!("{:?}", self)
+        eco_format!("{self:?}")
     }
 }
 

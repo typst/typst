@@ -187,7 +187,7 @@ impl Sum for Angle {
 }
 
 /// Different units of angular measurement.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum AngleUnit {
     /// Radians.
     Rad,
@@ -202,15 +202,6 @@ impl AngleUnit {
             Self::Rad => 1.0,
             Self::Deg => PI / 180.0,
         }
-    }
-}
-
-impl Debug for AngleUnit {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Rad => "rad",
-            Self::Deg => "deg",
-        })
     }
 }
 

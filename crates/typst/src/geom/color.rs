@@ -9,7 +9,6 @@ use super::*;
 use crate::diag::{bail, error, At, SourceResult};
 use crate::eval::{cast, Args, Array, IntoValue, Module, Scope, Str};
 use crate::syntax::{Span, Spanned};
-use crate::util::fmt::format_float;
 
 // Type aliases for `palette` internal types in f32.
 pub type Oklab = palette::oklab::Oklaba<f32>;

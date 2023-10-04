@@ -133,7 +133,7 @@ impl Hash for Font {
 
 impl Debug for Font {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Font({},{:?})", self.info().family, self.info().variant)
+        write!(f, "Font({}, {:?})", self.info().family, self.info().variant)
     }
 }
 

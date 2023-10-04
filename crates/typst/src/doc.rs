@@ -764,7 +764,7 @@ impl Debug for Meta {
 
 impl Repr for Meta {
     fn repr(&self) -> EcoString {
-        eco_format!("{:?}", self)
+        eco_format!("{self:?}")
     }
 }
 
@@ -781,7 +781,7 @@ pub enum Destination {
 
 impl Repr for Destination {
     fn repr(&self) -> EcoString {
-        eco_format!("{:?}", self)
+        eco_format!("{self:?}")
     }
 }
 
