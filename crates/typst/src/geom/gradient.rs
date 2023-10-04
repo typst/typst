@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 use std::f64::{EPSILON, NEG_INFINITY};
 use std::hash::Hash;
@@ -185,6 +187,14 @@ pub enum Gradient {
 #[scope]
 impl Gradient {
     /// Creates a new linear gradient.
+    ///
+    /// ```example
+    /// #rect(
+    ///   width: 100%,
+    ///   height: 20pt,
+    ///   fill: gradient.linear(..color.map.viridis)
+    /// )
+    /// ```
     #[func(title = "Linear Gradient")]
     pub fn linear(
         /// The args of this function.
@@ -246,6 +256,32 @@ impl Gradient {
     }
 
     /// Creates a new radial gradient.
+    ///
+    /// ```example
+    /// #circle(
+    ///   radius: 20pt,
+    ///   fill: gradient.radial(..color.map.viridis)
+    /// )
+    /// ```
+    ///
+    /// # Focal point
+    /// The gradient is defined by two circles: the start circle and the end circle.
+    /// The start circle is a circle with center `start-center` and radius `start-radius`,
+    /// that defines the points at which the gradient starts and has the color of the
+    /// first stop. The end circle is a circle with center `center` and radius `radius`,
+    /// that defines the points at which the gradient ends and has the color of the last
+    /// stop. The gradient is then interpolated between these two circles.
+    ///
+    /// Using these four values, also called the focal point for the starting circle and
+    /// the center and radius for the end circle, we can define a gradient with more
+    /// interesting properties than a basic radial gradient:
+    ///
+    /// ```example
+    /// #circle(
+    ///   radius: 20pt,
+    ///   fill: gradient.radial(..color.map.viridis, start-center: (10%, 40%), start-radius: 5%)
+    /// )
+    /// ```
     #[func]
     fn radial(
         /// The call site of this function.
@@ -273,16 +309,22 @@ impl Gradient {
         #[default(Spanned::new(array![Ratio::new(0.5), Ratio::new(0.5)], Span::detached()))]
         center: Spanned<Array>,
         /// The radius of the last circle of the gradient.
+        ///
+        /// By default, it is set to `{50%}`. The ending radius must be bigger
+        /// than the starting radius, and it must be bigger or equal to `{0%}`.
         #[named]
         #[default(Spanned::new(Ratio::new(0.5), Span::detached()))]
         radius: Spanned<Ratio>,
         /// The center of the start circle of the gradient.
-        /// 
+        ///
         /// By default it is set to the same as the center of the last circle.
         #[named]
         #[default(Spanned::new(Smart::Auto, Span::detached()))]
         start_center: Spanned<Smart<Array>>,
         /// The radius of the start circle of the gradient.
+        ///
+        /// By default, it is set to `{0%}`. The starting radius must be smaller
+        /// than the ending radius, and it must be bigger or equal to `{0%}`.
         #[named]
         #[default(Spanned::new(Ratio::new(0.0), Span::detached()))]
         start_radius: Spanned<Ratio>,
@@ -293,11 +335,8 @@ impl Gradient {
         }
 
         if radius.v.get() <= 0.0 {
-            bail!(error!(
-                radius.span,
-                "the radius must be bigger than zero"
-            )
-            .with_hint("try using a radius of `50%` instead"));
+            bail!(error!(radius.span, "the radius must be bigger than zero")
+                .with_hint("try using a radius of `50%` instead"));
         }
 
         if start_radius.v.get() < 0.0 {
@@ -333,9 +372,10 @@ impl Gradient {
             Smart::Custom(v) => {
                 let mut iter = v.into_iter();
                 match (iter.next(), iter.next(), iter.next()) {
-                    (Some(a), Some(b), None) => {
-                        Axes::new(a.cast().at(start_center.span)?, b.cast().at(start_center.span)?)
-                    }
+                    (Some(a), Some(b), None) => Axes::new(
+                        a.cast().at(start_center.span)?,
+                        b.cast().at(start_center.span)?,
+                    ),
                     _ => bail!(error!(
                         start_center.span,
                         "the start center is defined with an array of two ratios"
@@ -643,36 +683,26 @@ impl Gradient {
                 (x as f64 * cos.abs() + y as f64 * sin.abs()) / length
             }
             Self::Radial(radial) => {
+                // Source: https://www.shadertoy.com/view/XldBR8
                 let (x, y) = (x as f64, y as f64);
                 let (cx, cy) = (radial.center.x.get(), radial.center.y.get());
                 let (fx, fy) = (radial.start_center.x.get(), radial.start_center.y.get());
-                let r = radial.radius.get();
+                let cr = radial.radius.get();
                 let fr = radial.start_radius.get();
 
-                // To do this, we need to apply a mobius transformation from
-                // an annulus with off-center inner circle to an annulus
-                // with everything centered.
-                // We do this in the following way:
-                // - We start by defining:
-                //   `z = z' - (cx + i * cy)`
-                // - We then define the function `f` that maps the inner circle
-                //   onto the x axis:
-                //   `f(x) = (z - (fx + i * fy)) / fr`
-                // - We then define the function
-                //   `g(zeta) = (zeta - alpha) / (1 - alpha * zeta)`
-                // - We solve to find alpha, knowing that 
+                let x = cx - x;
+                let y = cy - y;
+                let dx = cx - fx;
+                let dy = cy - fy;
+                let r0 = cr;
+                let dr = fr - cr;
 
-                let t_outer = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
-                let t_inner = ((x - fx).powi(2) + (y - fy).powi(2)).sqrt();
+                let a = dx.powi(2) + dy.powi(2) - dr.powi(2);
+                let b = -2.0 * (y * dy + x * dx + r0 * dr);
+                let c = x.powi(2) + y.powi(2) - r0.powi(2);
+                let t = (-b + (b.powi(2) - 4.0 * a * c).sqrt()) / (2.0 * a);
 
-                if t_inner <= fr {
-                    0.0
-                } else if t_outer >= r {
-                    1.0
-                } else {
-                    ((t_inner - fr) * (t_outer - r) / ((r - fr) * (fr - r))).sqrt()
-                }
-
+                1.0 - t
             }
         };
 
@@ -854,7 +884,7 @@ impl Repr for RadialGradient {
             r.push('(');
             r.push_str(&color.repr());
             r.push_str(", ");
-            r.push_str(&Angle::deg(offset .get() * 360.0).repr());
+            r.push_str(&Angle::deg(offset.get() * 360.0).repr());
             r.push(')');
             if i != self.stops.len() - 1 {
                 r.push_str(", ");
@@ -865,7 +895,6 @@ impl Repr for RadialGradient {
         r
     }
 }
-
 
 /// What is the gradient relative to.
 #[derive(Cast, Debug, Clone, Copy, PartialEq, Eq, Hash)]

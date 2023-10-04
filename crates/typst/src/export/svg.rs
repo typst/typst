@@ -8,6 +8,7 @@ use ttf_parser::{GlyphId, OutlineBuilder};
 use xmlwriter::XmlWriter;
 
 use crate::doc::{Frame, FrameItem, FrameKind, GroupItem, TextItem};
+use crate::eval::Repr;
 use crate::font::Font;
 use crate::geom::{
     Abs, Angle, Axes, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin, Paint,
@@ -687,7 +688,7 @@ impl SVGRenderer {
                 let (end_c, end_t) = window[1];
 
                 self.xml.start_element("stop");
-                self.xml.write_attribute_fmt("offset", format_args!("{start_t:?}"));
+                self.xml.write_attribute("offset", &start_t.repr());
                 self.xml.write_attribute("stop-color", &start_c.to_hex());
                 self.xml.end_element();
 
@@ -708,13 +709,13 @@ impl SVGRenderer {
                     let c = gradient.sample(RatioOrAngle::Ratio(t));
 
                     self.xml.start_element("stop");
-                    self.xml.write_attribute_fmt("offset", format_args!("{t:?}"));
+                    self.xml.write_attribute("offset", &t.repr());
                     self.xml.write_attribute("stop-color", &c.to_hex());
                     self.xml.end_element();
                 }
 
                 self.xml.start_element("stop");
-                self.xml.write_attribute_fmt("offset", format_args!("{end_t:?}"));
+                self.xml.write_attribute("offset", &end_t.repr());
                 self.xml.write_attribute("stop-color", &end_c.to_hex());
                 self.xml.end_element()
             }
