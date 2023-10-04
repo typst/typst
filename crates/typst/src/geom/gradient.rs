@@ -19,7 +19,7 @@ use crate::syntax::{Span, Spanned};
 /// See the [tracking issue](https://github.com/typst/typst/issues/2282) for
 /// more details on the progress of gradient implementation.
 ///
-/// ## Stops
+/// # Stops
 /// A gradient is composed of a series of stops. Each of these stops has a color
 /// and an offset. The offset is a [ratio]($ratio) between `{0%}` and `{100%}`
 /// that determines how far along the gradient the stop is located. The stop's
@@ -27,7 +27,7 @@ use crate::syntax::{Span, Spanned};
 /// the offsets when defining a gradient. In this case, Typst will space all
 /// stops evenly.
 ///
-/// ## Usage
+/// # Usage
 /// Gradients can be used for the following purposes:
 /// - As fills to paint the interior of a shape:
 ///   `{rect(fill: gradient.linear(..))}`
@@ -38,7 +38,7 @@ use crate::syntax::{Span, Spanned};
 ///
 /// Gradients are not currently supported on text.
 ///
-/// ## Relativeness
+/// # Relativeness
 /// The location of the `{0%}` and `{100%}` stops is dependant on the dimensions
 /// of a container. This container can either be the shape they are painted on,
 /// or to the closest container ancestor. This is controlled by the `relative`
@@ -54,7 +54,7 @@ use crate::syntax::{Span, Spanned};
 ///   [`rotate`]($rotate) will not affect the parent of a gradient, but a
 ///   [`grid`]($grid) will.
 ///
-/// ## Color spaces and interpolation
+/// # Color spaces and interpolation
 /// Gradients can be interpolated in any color space. By default, gradients are
 /// interpolated in the [Oklab]($color.oklab) color space, which is a
 /// [perceptually uniform](https://programmingdesignsystems.com/color/perceptually-uniform-color-spaces/index.html)
@@ -78,34 +78,33 @@ use crate::syntax::{Span, Spanned};
 /// |       [HSV]($color.hsv)         | *No*                  |
 ///
 /// ```example
-/// #set text(fill: white)
-/// #set block(spacing: 0pt)
-///
+/// >>> #set text(fill: white, font: "IBM Plex Sans", 8pt)
+/// >>> #set block(spacing: 0pt)
 /// #let spaces = (
 ///   ("Oklab", color.oklab),
-///   ("sRGB", color.rgb),
 ///   ("linear-RGB", color.linear-rgb),
+///   ("sRGB", color.rgb),
 ///   ("CMYK", color.cmyk),
-///   ("Grayscale", color.luma),
 ///   ("HSL", color.hsl),
 ///   ("HSV", color.hsv),
+///   ("Grayscale", color.luma),
 /// )
 ///
 /// #for (name, space) in spaces {
 ///   block(
 ///     width: 100%,
-///     height: 10pt,
+///     inset: 4pt,
 ///     fill: gradient.linear(
 ///       red,
 ///       blue,
-///       space: space
+///       space: space,
 ///     ),
-///     name
+///     strong(upper(name)),
 ///   )
 /// }
 /// ```
 ///
-/// ## Direction
+/// # Direction
 /// Some gradients are sensitive to direction. For example, a linear gradient
 /// has an angle that determines the its direction. Typst uses a clockwise
 /// angle, with 0° being from left-to-right, 90° from top-to-bottom, 180° from
@@ -122,14 +121,7 @@ use crate::syntax::{Span, Spanned};
 /// )
 /// ```
 ///
-/// ## Note on compatibility
-/// Gradients in [{`rotate`}]($rotate) blocks may not be rendered correctly by
-/// [PDF.js](https://mozilla.github.io/pdf.js/), the PDF reader bundled with
-/// Firefox. This is due to an issue in PDF.js, you can find the issue as reported
-/// on [their GitHub](https://github.com/mozilla/pdf.js/issues/17065).
-///
-/// ## Presets
-///
+/// # Presets
 /// You can find the full list of presets in the documentation of [`color`]($color),
 /// below is an overview of them. Note that not all presets are suitable for data
 /// visualization and full details and relevant sources can be found in the
