@@ -1,5 +1,3 @@
-#![allow(clippy::too_many_arguments)]
-
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 use std::f64::{EPSILON, NEG_INFINITY};
 use std::hash::Hash;
@@ -185,6 +183,7 @@ pub enum Gradient {
 }
 
 #[scope]
+#[allow(clippy::too_many_arguments)]
 impl Gradient {
     /// Creates a new linear gradient.
     ///
