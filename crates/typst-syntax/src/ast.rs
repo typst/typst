@@ -454,6 +454,7 @@ impl Shorthand<'_> {
     pub const MARKUP_LIST: &'static [(&'static str, char)] = &[
         ("...", '…'),
         ("~", '\u{00A0}'),
+        ("-", '\u{2212}'), // Only before a digit
         ("--", '\u{2013}'),
         ("---", '\u{2014}'),
         ("-?", '\u{00AD}'),

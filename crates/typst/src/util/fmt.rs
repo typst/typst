@@ -6,14 +6,10 @@ pub fn format_int_with_base(mut n: i64, base: i64) -> EcoString {
         return "0".into();
     }
 
-    // In Rust, `format!("{:x}", -14i64)` is not `-e` but `fffffffffffffff2`.
-    // So we can only use the built-in for decimal, not bin/oct/hex.
-    if base == 10 {
-        return eco_format!("{n}");
-    }
-
-    // The largest output is `to_base(i64::MIN, 2)`, which is 65 chars long.
-    const SIZE: usize = 65;
+    // The largest output is `to_base(i64::MIN, 2)`, which is 64 bytes long,
+    // plus the length of the minus sign.
+    const MINUS_SIGN: char = '\u{2212}';
+    const SIZE: usize = 64 + MINUS_SIGN.len_utf8();
     let mut digits = [b'\0'; SIZE];
     let mut i = SIZE;
 
@@ -32,8 +28,8 @@ pub fn format_int_with_base(mut n: i64, base: i64) -> EcoString {
     }
 
     if negative {
-        i -= 1;
-        digits[i] = b'-';
+        i -= MINUS_SIGN.len_utf8();
+        MINUS_SIGN.encode_utf8(&mut digits[i..]);
     }
 
     std::str::from_utf8(&digits[i..]).unwrap_or_default().into()
@@ -46,7 +42,13 @@ pub fn format_float(mut value: f64, precision: Option<u8>, suffix: &str) -> EcoS
         let offset = 10_f64.powi(p as i32);
         value = (value * offset).round() / offset;
     }
-    eco_format!("{}{}", value, suffix)
+    if value.is_nan() {
+        "NaN".into()
+    } else if value.is_sign_negative() {
+        eco_format!("\u{2212}{}{}", value.abs(), suffix)
+    } else {
+        eco_format!("{}{}", value, suffix)
+    }
 }
 
 /// Format pieces separated with commas and a final "and" or "or".
