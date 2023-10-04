@@ -255,7 +255,7 @@ impl Gradient {
     /// )
     /// ```
     ///
-    /// # Focal point
+    /// _Focal Point_
     /// The gradient is defined by two circles: the start circle and the end circle.
     /// The start circle is a circle with center `start-center` and radius `start-radius`,
     /// that defines the points at which the gradient starts and has the color of the
