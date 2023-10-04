@@ -1,8 +1,8 @@
 use std::any::Any;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 
-use super::*;
 use super::gradient::PositiveRatio;
+use super::*;
 
 /// A container with a horizontal and vertical component.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]

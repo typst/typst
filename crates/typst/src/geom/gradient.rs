@@ -928,11 +928,11 @@ impl From<PositiveRatio> for Ratio {
 
 impl PositiveRatio {
     /// Creates a new `PositiveRatio` from a `value`.
-    /// 
+    ///
     /// # Panics
     /// Panics if the value is not in the range `[0, 1]`.
     pub fn new(value: f64) -> Self {
-        assert!(value >= 0.0 && value <= 1.0);
+        assert!((0.0..=1.0).contains(&value));
 
         Self(Ratio::new(value))
     }
