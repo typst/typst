@@ -1,22 +1,18 @@
+use std::collections::HashMap;
 use std::io::Cursor;
 use std::sync::Arc;
 
 use image::{DynamicImage, GenericImageView, Rgba};
-use pdf_writer::{Filter, Finish};
+use pdf_writer::{Chunk, Filter, Finish, Ref};
 
 use super::{deflate, PdfContext};
-use crate::{
-    geom::ColorSpace,
-    image::{ImageKind, RasterFormat, RasterImage},
-};
+use crate::geom::ColorSpace;
+use crate::image::{ImageKind, RasterFormat, RasterImage, SvgImage};
 
 /// Embed all used images into the PDF.
 #[tracing::instrument(skip_all)]
 pub fn write_images(ctx: &mut PdfContext) {
     for image in ctx.image_map.items() {
-        let image_ref = ctx.alloc.bump();
-        ctx.image_refs.push(image_ref);
-
         // Add the primary image.
         match image.kind() {
             ImageKind::Raster(raster) => {
@@ -24,6 +20,9 @@ pub fn write_images(ctx: &mut PdfContext) {
                 let (data, filter, has_color) = encode_raster_image(raster);
                 let width = image.width();
                 let height = image.height();
+
+                let image_ref = ctx.alloc.bump();
+                ctx.image_refs.push(image_ref);
 
                 let mut image = ctx.pdf.image_xobject(image_ref, &data);
                 image.filter(filter);
@@ -74,19 +73,15 @@ pub fn write_images(ctx: &mut PdfContext) {
                     }
                 }
             }
-            // Safety: We do not keep any references to tree nodes beyond the
-            // scope of `with`.
-            ImageKind::Svg(svg) => unsafe {
-                svg.with(|tree| {
-                    let next_ref = svg2pdf::convert_tree_into(
-                        tree,
-                        svg2pdf::Options::default(),
-                        &mut ctx.pdf,
-                        image_ref,
-                    );
-                    ctx.alloc = next_ref;
+
+            ImageKind::Svg(svg) => {
+                let chunk = encode_svg(svg);
+                let mut map = HashMap::new();
+                chunk.renumber_into(&mut ctx.pdf, |old| {
+                    *map.entry(old).or_insert_with(|| ctx.alloc.bump())
                 });
-            },
+                ctx.image_refs.push(map[&Ref::new(1)]);
+            }
         }
     }
 }
@@ -148,4 +143,28 @@ fn encode_alpha(raster: &RasterImage) -> (Arc<Vec<u8>>, Filter) {
         .map(|(_, _, Rgba([_, _, _, a]))| a)
         .collect();
     (Arc::new(deflate(&pixels)), Filter::FlateDecode)
+}
+
+/// Encode an SVG into a chunk of PDF objects.
+///
+/// The main XObject will have ID 1.
+#[comemo::memoize]
+#[tracing::instrument(skip_all)]
+fn encode_svg(svg: &SvgImage) -> Arc<Chunk> {
+    let mut chunk = Chunk::new();
+
+    // Safety: We do not keep any references to tree nodes beyond the
+    // scope of `with`.
+    unsafe {
+        svg.with(|tree| {
+            svg2pdf::convert_tree_into(
+                tree,
+                svg2pdf::Options::default(),
+                &mut chunk,
+                Ref::new(1),
+            );
+        });
+    }
+
+    Arc::new(chunk)
 }
