@@ -259,7 +259,7 @@ impl Gradient {
     ///
     /// _Focal Point_
     /// The gradient is defined by two circles: the start circle and the end circle.
-    /// The start circle is a circle with center `start-center` and radius `start-radius`,
+    /// The start circle is a circle with center `focal-center` and radius `focal-radius`,
     /// that defines the points at which the gradient starts and has the color of the
     /// first stop. The end circle is a circle with center `center` and radius `radius`,
     /// that defines the points at which the gradient ends and has the color of the last
@@ -272,7 +272,7 @@ impl Gradient {
     /// ```example
     /// #circle(
     ///   radius: 20pt,
-    ///   fill: gradient.radial(..color.map.viridis, start-center: (10%, 40%), start-radius: 5%)
+    ///   fill: gradient.radial(..color.map.viridis, focal-center: (10%, 40%), focal-radius: 5%)
     /// )
     /// ```
     #[func]
@@ -313,23 +313,23 @@ impl Gradient {
         /// By default it is set to the same as the center of the last circle.
         #[named]
         #[default(Smart::Auto)]
-        start_center: Smart<Axes<PositiveRatio>>,
+        focal_center: Smart<Axes<PositiveRatio>>,
         /// The radius of the start circle of the gradient.
         ///
         /// By default, it is set to `{0%}`. The starting radius must be smaller
         /// than the ending radius, and it must be bigger or equal to `{0%}`.
         #[named]
         #[default(Spanned::new(PositiveRatio::new(0.0), Span::detached()))]
-        start_radius: Spanned<PositiveRatio>,
+        focal_radius: Spanned<PositiveRatio>,
     ) -> SourceResult<Gradient> {
         if stops.len() < 2 {
             bail!(error!(span, "a gradient must have at least two stops")
                 .with_hint("try filling the shape with a single color instead"));
         }
 
-        if start_radius.v.0 > radius.v.0 {
+        if focal_radius.v.0 > radius.v.0 {
             bail!(error!(
-                start_radius.span,
+                focal_radius.span,
                 "the start radius must be smaller than the end radius"
             )
             .with_hint("try using a start radius of `0%` instead"));
@@ -339,8 +339,8 @@ impl Gradient {
             stops: process_stops(&stops)?,
             center: center.map(From::from),
             radius: radius.v.into(),
-            start_center: start_center.unwrap_or(center).map(From::from),
-            start_radius: start_radius.v.into(),
+            start_center: focal_center.unwrap_or(center).map(From::from),
+            start_radius: focal_radius.v.into(),
             space,
             relative,
             anti_alias: true,
@@ -805,7 +805,7 @@ impl Repr for RadialGradient {
         }
 
         if self.start_center != self.center {
-            r.push_str("start-center: (");
+            r.push_str("focal-center: (");
             r.push_str(&self.start_center.x.repr());
             r.push_str(", ");
             r.push_str(&self.start_center.y.repr());
@@ -813,7 +813,7 @@ impl Repr for RadialGradient {
         }
 
         if self.start_radius != Ratio::zero() {
-            r.push_str("start-radius: ");
+            r.push_str("focal-radius: ");
             r.push_str(&self.start_radius.repr());
             r.push_str(", ");
         }

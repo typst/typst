@@ -8,7 +8,7 @@
   square(
     size: 50pt,
     fill: black,
-    stroke: 5pt + gradient.radial(red, blue, radius: 70.7%, start-center: (10%, 10%))
+    stroke: 5pt + gradient.radial(red, blue, radius: 70.7%, focal-center: (10%, 10%))
   )
 )
 
