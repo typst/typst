@@ -14,7 +14,7 @@ use usvg::{NodeExt, TreeParsing};
 use crate::doc::{Frame, FrameItem, FrameKind, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin, Paint,
+    self, Abs, Axes, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin, Paint,
     PathItem, Point, Ratio, Relative, Shape, Size, Transform,
 };
 use crate::image::{Image, ImageKind, RasterFormat};
@@ -378,7 +378,7 @@ fn render_outline_glyph(
 
         // TODO: Implement gradients on text.
         let mut pixmap = None;
-        let paint = to_sk_paint(&text.fill, state, Size::zero(), None, &mut pixmap);
+        let paint = to_sk_paint(&text.fill, state, Size::zero(), None, &mut pixmap, None, None);
 
         let rule = sk::FillRule::default();
 
@@ -512,7 +512,7 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
     if let Some(fill) = &shape.fill {
         let mut pixmap = None;
         let mut paint: sk::Paint =
-            to_sk_paint(fill, state, shape.geometry.bbox_size(), None, &mut pixmap);
+            to_sk_paint(fill, state, shape.geometry.bbox_size(), None, &mut pixmap, None, None);
 
         if matches!(shape.geometry, Geometry::Rect(_)) {
             paint.anti_alias = false;
@@ -547,9 +547,22 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
                 sk::StrokeDash::new(dash_array, pattern.phase.to_f32())
             });
 
+            let bbox = shape.geometry.bbox_size();
+            let offset_bbox = offset_bounding_box(bbox, *thickness);
+
             let mut pixmap = None;
-            let paint =
-                to_sk_paint(paint, state, shape.geometry.bbox_size(), None, &mut pixmap);
+            let paint = to_sk_paint(
+                paint,
+                state,
+                offset_bbox,
+                None,
+                &mut pixmap,
+                None,
+                Some(Axes::new(
+                    Ratio::new(offset_bbox.x.to_pt() / bbox.x.to_pt()),
+                    Ratio::new(offset_bbox.y.to_pt() / bbox.y.to_pt()),
+                )),
+            );
 
             let stroke = sk::Stroke {
                 width,
@@ -708,15 +721,33 @@ fn to_sk_paint<'a>(
     item_size: Size,
     fill_transform: Option<sk::Transform>,
     pixmap: &'a mut Option<Arc<sk::Pixmap>>,
+    offset: Option<Point>,
+    scale: Option<Axes<Ratio>>,
 ) -> sk::Paint<'a> {
     /// Actual sampling of the gradient, cached for performance.
     #[comemo::memoize]
-    fn cached(gradient: &Gradient, width: u32, height: u32) -> Arc<sk::Pixmap> {
+    fn cached(
+        gradient: &Gradient,
+        width: u32,
+        height: u32,
+        offset: Point,
+        scale: Axes<Ratio>,
+    ) -> Arc<sk::Pixmap> {
+        if offset != Point::zero() {
+            eprintln!("{:?}", scale);
+            eprintln!("{:?}", offset);
+        }
         let mut pixmap = sk::Pixmap::new(width.max(1), height.max(1)).unwrap();
         for x in 0..width {
             for y in 0..height {
                 let color: sk::Color = gradient
-                    .sample_at((x as f32, y as f32), (width as f32, height as f32))
+                    .sample_at(
+                        (
+                            x as f32 * scale.x.get() as f32 - offset.x.to_f32(),
+                            y as f32 * scale.y.get() as f32 - offset.y.to_f32(),
+                        ),
+                        (width as f32, height as f32),
+                    )
                     .into();
 
                 pixmap.pixels_mut()[(y * width + x) as usize] =
@@ -753,6 +784,8 @@ fn to_sk_paint<'a>(
                 gradient,
                 width.max(state.pixel_per_pt.ceil() as u32),
                 height.max(state.pixel_per_pt.ceil() as u32),
+                offset.map(|x| x * state.pixel_per_pt as f64).unwrap_or_default(),
+                scale.unwrap_or_else(|| Axes::new(Ratio::new(1.0), Ratio::new(1.0))),
             ));
 
             // We can use FilterQuality::Nearest here because we're
@@ -859,4 +892,8 @@ fn alpha_mul(color: u32, scale: u32) -> u32 {
     let rb = ((color & mask) * scale) >> 8;
     let ag = ((color >> 8) & mask) * scale;
     (rb & mask) | (ag & !mask)
+}
+
+fn offset_bounding_box(bbox: Size, stroke_width: Abs) -> Size {
+    Size::new(bbox.x + stroke_width * 2.0, bbox.y + stroke_width * 2.0)
 }
