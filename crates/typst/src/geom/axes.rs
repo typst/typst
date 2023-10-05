@@ -1,7 +1,6 @@
 use std::any::Any;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 
-use super::gradient::PositiveRatio;
 use super::*;
 
 /// A container with a horizontal and vertical component.
@@ -292,7 +291,7 @@ cast! {
 }
 
 cast! {
-    Axes<PositiveRatio>,
+    Axes<Ratio>,
     self => array![self.x, self.y].into_value(),
     array: Array => {
         let mut iter = array.into_iter();

@@ -256,8 +256,8 @@ impl Gradient {
     /// ```
     ///
     /// _Focal Point_
-    /// The gradient is defined by two circles: the start circle and the end circle.
-    /// The start circle is a circle with center `focal-center` and radius `focal-radius`,
+    /// The gradient is defined by two circles: the focal circle and the end circle.
+    /// The focal circle is a circle with center `focal-center` and radius `focal-radius`,
     /// that defines the points at which the gradient starts and has the color of the
     /// first stop. The end circle is a circle with center `center` and radius `radius`,
     /// that defines the points at which the gradient ends and has the color of the last
@@ -296,49 +296,69 @@ impl Gradient {
         #[default(Smart::Auto)]
         relative: Smart<Relative>,
         /// The center of the last circle of the gradient.
+        ///
+        /// A value of `{(50%, 50%)}` means that the end circle is
+        /// centered inside of its container.
         #[named]
-        #[default(Axes::splat(PositiveRatio::new(0.5)))]
-        center: Axes<PositiveRatio>,
+        #[default(Axes::splat(Ratio::new(0.5)))]
+        center: Axes<Ratio>,
         /// The radius of the last circle of the gradient.
         ///
         /// By default, it is set to `{50%}`. The ending radius must be bigger
-        /// than the starting radius, and it must be bigger or equal to `{0%}`.
+        /// than the focal radius.
         #[named]
-        #[default(Spanned::new(PositiveRatio::new(0.5), Span::detached()))]
-        radius: Spanned<PositiveRatio>,
-        /// The center of the start circle of the gradient.
+        #[default(Spanned::new(Ratio::new(0.5), Span::detached()))]
+        radius: Spanned<Ratio>,
+        /// The center of the focal circle of the gradient.
+        ///
+        /// The focal center must be inside of the end circle.
+        ///
+        /// A value of `{(50%, 50%)}` means that the focal circle is
+        /// centered inside of its container.
         ///
         /// By default it is set to the same as the center of the last circle.
         #[named]
         #[default(Smart::Auto)]
-        focal_center: Smart<Axes<PositiveRatio>>,
-        /// The radius of the start circle of the gradient.
+        focal_center: Smart<Axes<Ratio>>,
+        /// The radius of the focal circle of the gradient.
         ///
-        /// By default, it is set to `{0%}`. The starting radius must be smaller
-        /// than the ending radius, and it must be bigger or equal to `{0%}`.
+        /// The focal center must be inside of the end circle.
+        ///
+        /// By default, it is set to `{0%}`. The focal radius must be smaller
+        /// than the ending radius`.
         #[named]
-        #[default(Spanned::new(PositiveRatio::new(0.0), Span::detached()))]
-        focal_radius: Spanned<PositiveRatio>,
+        #[default(Spanned::new(Ratio::new(0.0), Span::detached()))]
+        focal_radius: Spanned<Ratio>,
     ) -> SourceResult<Gradient> {
         if stops.len() < 2 {
             bail!(error!(span, "a gradient must have at least two stops")
                 .with_hint("try filling the shape with a single color instead"));
         }
 
-        if focal_radius.v.0 > radius.v.0 {
+        if focal_radius.v > radius.v {
             bail!(error!(
                 focal_radius.span,
-                "the start radius must be smaller than the end radius"
+                "the focal radius must be smaller than the end radius"
             )
-            .with_hint("try using a start radius of `0%` instead"));
+            .with_hint("try using a focal radius of `0%` instead"));
+        }
+
+        let focal_center = focal_center.unwrap_or(center);
+        if ((focal_center.x - center.x).get().powi(2)
+            + (focal_center.y - center.y).get().powi(2))
+        .sqrt()
+            >= (radius.v - focal_radius.v).get()
+        {
+            bail!(error!(span, "the focal circle must be inside of the end circle")
+                .with_hint("try using a focal center of `auto` instead"));
         }
 
         Ok(Gradient::Radial(Arc::new(RadialGradient {
             stops: process_stops(&stops)?,
             center: center.map(From::from),
-            radius: radius.v.into(),
-            focal_center: focal_center.unwrap_or(center).map(From::from),
-            focal_radius: focal_radius.v.into(),
+            radius: radius.v,
+            focal_center,
+            focal_radius: focal_radius.v,
             space,
             relative,
             anti_alias: true,
@@ -911,44 +931,6 @@ cast! {
     },
     ratio: Ratio => Self::Ratio(ratio),
     angle: Angle => Self::Angle(angle),
-}
-
-/// A ratio that is guaranteed to be in the range `[0, 1]`.
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct PositiveRatio(Ratio);
-
-impl From<PositiveRatio> for Ratio {
-    fn from(value: PositiveRatio) -> Self {
-        value.0
-    }
-}
-
-impl PositiveRatio {
-    /// Creates a new `PositiveRatio` from a `value`.
-    ///
-    /// # Panics
-    /// Panics if the value is not in the range `[0, 1]`.
-    pub fn new(value: f64) -> Self {
-        assert!((0.0..=1.0).contains(&value));
-
-        Self(Ratio::new(value))
-    }
-}
-
-cast! {
-    PositiveRatio,
-    self => self.0.into_value(),
-    ratio: Ratio => {
-        if ratio.get() < 0.0 {
-            Err("ratio must be positive")?
-        }
-
-        if ratio.get() > 1.0 {
-            Err("ratio must be less than or equal to 1")?
-        }
-
-        Self(ratio)
-    },
 }
 
 /// Pre-processes the stops, checking that they are valid and computing the
