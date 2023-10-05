@@ -1,7 +1,9 @@
-use ecow::eco_format;
+use crate::eval::Repr;
+use ecow::{eco_format, EcoString};
 
 use super::{cast, func, scope, ty, Str};
 use crate::geom::Ratio;
+use crate::util::fmt::format_float;
 
 /// A floating-point number.
 ///
@@ -44,6 +46,12 @@ impl f64 {
         value: ToFloat,
     ) -> f64 {
         value.0
+    }
+}
+
+impl Repr for f64 {
+    fn repr(&self) -> EcoString {
+        format_float(*self, None, "")
     }
 }
 

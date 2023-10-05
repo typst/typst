@@ -1,5 +1,6 @@
 use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize};
 
+use crate::util::fmt::format_int_with_base;
 use ecow::{eco_format, EcoString};
 
 use super::{cast, func, scope, ty, Repr, Str, Value};
@@ -53,13 +54,7 @@ impl i64 {
 
 impl Repr for i64 {
     fn repr(&self) -> EcoString {
-        eco_format!("{self}")
-    }
-}
-
-impl Repr for f64 {
-    fn repr(&self) -> EcoString {
-        eco_format!("{self}")
+        format_int_with_base(*self, 10)
     }
 }
 

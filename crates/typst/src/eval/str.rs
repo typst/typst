@@ -15,7 +15,7 @@ use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::geom::Align;
 use crate::model::Label;
 use crate::syntax::{Span, Spanned};
-use crate::util::fmt::format_int_with_base;
+use crate::util::fmt::{format_float, format_int_with_base};
 
 /// Create a new [`Str`] from a format string.
 #[macro_export]
@@ -606,7 +606,7 @@ pub enum ToStr {
 cast! {
     ToStr,
     v: i64 => Self::Int(v),
-    v: f64 => Self::Str(format_str!("{}", v)),
+    v: f64 => Self::Str(format_float(v, None, "").into()),
     v: Version => Self::Str(format_str!("{}", v)),
     v: Bytes => Self::Str(
         std::str::from_utf8(&v)
