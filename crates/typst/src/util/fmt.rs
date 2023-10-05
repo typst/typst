@@ -1,5 +1,7 @@
 use ecow::{eco_format, EcoString};
 
+pub const MINUS_SIGN: char = '\u{2212}';
+
 /// Format an integer in a base.
 pub fn format_int_with_base(mut n: i64, base: i64) -> EcoString {
     if n == 0 {
@@ -8,7 +10,6 @@ pub fn format_int_with_base(mut n: i64, base: i64) -> EcoString {
 
     // The largest output is `to_base(i64::MIN, 2)`, which is 64 bytes long,
     // plus the length of the minus sign.
-    const MINUS_SIGN: char = '\u{2212}';
     const SIZE: usize = 64 + MINUS_SIGN.len_utf8();
     let mut digits = [b'\0'; SIZE];
     let mut i = SIZE;
@@ -45,7 +46,7 @@ pub fn format_float(mut value: f64, precision: Option<u8>, suffix: &str) -> EcoS
     if value.is_nan() {
         "NaN".into()
     } else if value.is_sign_negative() {
-        eco_format!("\u{2212}{}{}", value.abs(), suffix)
+        eco_format!("{}{}{}", MINUS_SIGN, value.abs(), suffix)
     } else {
         eco_format!("{}{}", value, suffix)
     }

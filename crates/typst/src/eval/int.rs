@@ -1,6 +1,6 @@
-use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize};
+use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError};
 
-use crate::util::fmt::format_int_with_base;
+use crate::util::fmt::{format_int_with_base, MINUS_SIGN};
 use ecow::{eco_format, EcoString};
 
 use super::{cast, func, scope, ty, Repr, Str, Value};
@@ -61,11 +61,26 @@ impl Repr for i64 {
 /// A value that can be cast to an integer.
 pub struct ToInt(i64);
 
+fn parse_int(mut s: &str) -> Result<i64, ParseIntError> {
+    let mut sign = 1;
+    if s.starts_with(MINUS_SIGN) {
+        sign = -1;
+        s = &s[MINUS_SIGN.len_utf8()..];
+    } else if s.starts_with('-') {
+        sign = -1;
+        s = &s['-'.len_utf8()..];
+    }
+    if sign == -1 && s == "9223372036854775808" {
+        return Ok(i64::MIN);
+    }
+    Ok(sign * s.parse::<i64>()?)
+}
+
 cast! {
     ToInt,
     v: bool => Self(v as i64),
     v: f64 => Self(v as i64),
-    v: Str => Self(v.parse().map_err(|_| eco_format!("invalid integer: {}", v))?),
+    v: Str =>   Self(parse_int(&v).map_err(|_| eco_format!("invalid integer: {}", v))?),
     v: i64 => Self(v),
 }
 
