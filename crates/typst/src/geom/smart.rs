@@ -105,6 +105,8 @@ impl<T> Smart<T> {
     where
         T: Default,
     {
+        // we want to do this; the Clippy lint is not type-aware
+        #[allow(clippy::unwrap_or_default)]
         self.unwrap_or_else(T::default)
     }
 }
