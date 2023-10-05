@@ -238,10 +238,10 @@ could add an `else` to add another header instead of deleting it.
 
 ## Add and customize page numbers { #page-numbers }
 Page numbers help readers keep track of and reference your document more easily.
-The simplest way to insert footnotes is the [`numbering`]($page.numbering)
-argument of the [`{page}`]($page) set rule. You can pass a [_numbering
-pattern_]($numbering.numbering) string that shows how you want your pages to be
-numbered.
+The simplest way to insert page numbers is the [`numbering`]($page.numbering)
+argument of the [`{page}`]($page) set rule. You can pass a
+[_numbering pattern_]($numbering.numbering) string that shows how you want your
+pages to be numbered.
 
 ```example
 >>> #set page("iso-b6", margin: 1.75cm)
