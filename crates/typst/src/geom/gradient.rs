@@ -344,11 +344,9 @@ impl Gradient {
         }
 
         let focal_center = focal_center.unwrap_or(center);
-        if ((focal_center.x - center.x).get().powi(2)
-            + (focal_center.y - center.y).get().powi(2))
-        .sqrt()
-            >= (radius.v - focal_radius.v).get()
-        {
+        let d_center_sqr = (focal_center.x - center.x).get().powi(2)
+            + (focal_center.y - center.y).get().powi(2);
+        if d_center_sqr.sqrt() >= (radius.v - focal_radius.v).get() {
             bail!(error!(span, "the focal circle must be inside of the end circle")
                 .with_hint("try using a focal center of `auto` instead"));
         }
