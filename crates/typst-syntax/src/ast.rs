@@ -1465,6 +1465,11 @@ impl BinOp {
         }
     }
 
+    /// Whether this operator is an assignment operator.
+    pub fn is_assignment(self) -> bool {
+        self.precedence() == 1
+    }
+
     /// The associativity of this operator.
     pub fn assoc(self) -> Assoc {
         match self {

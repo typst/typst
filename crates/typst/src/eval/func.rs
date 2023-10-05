@@ -9,7 +9,7 @@ use super::{
     cast, scope, ty, Args, CastInfo, Eval, FlowEvent, IntoValue, Route, Scope, Scopes,
     Tracer, Type, Value, Vm,
 };
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{bail, error, SourceDiagnostic, SourceResult, StrResult};
 use crate::model::{
     Content, DelayedErrors, Element, Introspector, Locator, Selector, Vt,
 };
@@ -612,6 +612,7 @@ pub struct CapturesVisitor<'a> {
     external: Option<&'a Scopes<'a>>,
     internal: Scopes<'a>,
     captures: Scope,
+    errors: Vec<SourceDiagnostic>,
 }
 
 impl<'a> CapturesVisitor<'a> {
@@ -621,12 +622,16 @@ impl<'a> CapturesVisitor<'a> {
             external,
             internal: Scopes::new(None),
             captures: Scope::new(),
+            errors: Vec::new(),
         }
     }
 
     /// Return the scope of captured variables.
-    pub fn finish(self) -> Scope {
-        self.captures
+    pub fn finish(self) -> SourceResult<Scope> {
+        if !self.errors.is_empty() {
+            return Err(Box::new(self.errors));
+        }
+        Ok(self.captures)
     }
 
     /// Visit any node and collect all captured variables.
@@ -637,9 +642,22 @@ impl<'a> CapturesVisitor<'a> {
             // Identifiers that shouldn't count as captures because they
             // actually bind a new name are handled below (individually through
             // the expressions that contain them).
-            Some(ast::Expr::Ident(ident)) => self.capture(&ident, Scopes::get),
+            Some(ast::Expr::Ident(ident)) => self.capture(node, &ident, Scopes::get),
             Some(ast::Expr::MathIdent(ident)) => {
-                self.capture(&ident, Scopes::get_in_math)
+                self.capture(node, &ident, Scopes::get_in_math)
+            }
+
+            Some(ast::Expr::DestructAssign(assign)) => {
+                for child in assign.to_untyped().children() {
+                    self.visit(child);
+                }
+                for ident in assign.pattern().idents() {
+                    self.verify_assignable(ident.span(), &ident);
+                }
+            }
+            Some(ast::Expr::Binary(bin)) if bin.op().is_assignment() => {
+                self.visit(bin.rhs().to_untyped());
+                self.verify_assignable_expr(bin.lhs());
             }
 
             // Code and content blocks create a scope.
@@ -752,19 +770,55 @@ impl<'a> CapturesVisitor<'a> {
     #[inline]
     fn capture(
         &mut self,
+        node: &SyntaxNode,
         ident: &str,
         getter: impl FnOnce(&'a Scopes<'a>, &str) -> StrResult<&'a Value>,
     ) {
-        if self.internal.get(ident).is_err() {
+        if let Err(e) = self.internal.get(ident) {
             let Some(value) = self
                 .external
                 .map(|external| getter(external, ident).ok())
                 .unwrap_or(Some(&Value::None))
             else {
+                self.errors.push(SourceDiagnostic::error(node.span(), e));
                 return;
             };
 
             self.captures.define_captured(ident, value.clone());
+        }
+    }
+
+    fn verify_assignable_expr(&mut self, expr: ast::Expr<'_>) {
+        match expr {
+            ast::Expr::Ident(v) => self.verify_assignable(expr.span(), &v),
+            ast::Expr::Parenthesized(v) => self.verify_assignable_expr(v.expr()),
+            ast::Expr::FieldAccess(v) => self.verify_assignable_expr(v.target()),
+            ast::Expr::FuncCall(v) => {
+                for arg in v.args().items() {
+                    self.visit(arg.to_untyped());
+                }
+                self.verify_assignable_expr(v.callee());
+            }
+            _ => {
+                self.errors
+                    .push(error!(expr.span(), "cannot mutate a temporary value"));
+            }
+        }
+    }
+
+    fn verify_assignable(&mut self, span: Span, ident: &str) {
+        if self.internal.get_mut(ident).is_err() {
+            match &mut self.external {
+                Some(external) => match external.get(ident) {
+                    Err(e) => self.errors.push(SourceDiagnostic::error(span, e)),
+                    Ok(_) => self.errors.push(error!(
+                        span,
+                        "variables from outside the function are \
+                    read-only and cannot be modified"
+                    )),
+                },
+                None => (),
+            }
         }
     }
 }
@@ -786,7 +840,7 @@ mod tests {
         let root = parse(text);
         visitor.visit(&root);
 
-        let captures = visitor.finish();
+        let captures = visitor.finish().unwrap();
         let mut names: Vec<_> = captures.iter().map(|(k, _)| k).collect();
         names.sort();
 

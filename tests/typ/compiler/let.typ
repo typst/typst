@@ -259,3 +259,26 @@ Three
 
 // Error: 15 expected expression
 #let func(x) =
+
+---
+// Test that undeclared variables raise an error even when never
+// encountered at run time.
+
+// Error: 16-17 unknown variable: a
+#let func(x) = a + 1
+
+---
+// Test that violating mutability raises an error even when never
+// encountered at run time.
+
+#let b = 1
+// Error: 17-18 variables from outside the function are read-only and cannot be modified
+#let func(x) = (b = 2)
+
+---
+#let b = 1
+#let func2(x) = {
+    let c = 0
+// Error: 6-7 variables from outside the function are read-only and cannot be modified
+    (b, c) = (15, 3)
+}
