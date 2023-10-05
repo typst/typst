@@ -10,11 +10,11 @@ use crate::prelude::*;
 /// Plato is often misquoted as the author of #quote[I know that I know
 /// nothing], however, this is a derivation form his orginal quote:
 /// #set quote(block: true)
-/// #quote(author: [Plato])[
+/// #quote(attribution: [Plato])[
 ///   ... ἔοικα γοῦν τούτου γε σμικρῷ τινι αὐτῷ τούτῳ σοφώτερος εἶναι, ὅτι
 ///   ἃ μὴ οἶδα οὐδὲ οἴομαι εἰδέναι.
 /// ]
-/// #quote(author: [from the Henry Cary literal translation of 1897])[
+/// #quote(attribution: [from the Henry Cary literal translation of 1897])[
 ///   ... I seem, then, in just this little thing to be wiser than this man at
 ///   any rate, that what I do not know I do not think I know either.
 /// ]
@@ -38,10 +38,10 @@ pub struct QuoteElem {
     /// Whether this is a block quote.
     ///
     /// ```example
-    /// #quote(author: [René Descartes])[cogito, ergo sum]
+    /// #quote(attribution: [René Descartes])[cogito, ergo sum]
     ///
     /// #set quote(block: true)
-    /// #quote(author: [JFK])[Ich bin ein Berliner.]
+    /// #quote(attribution: [JFK])[Ich bin ein Berliner.]
     /// ```
     block: bool,
 
@@ -67,30 +67,30 @@ pub struct QuoteElem {
     /// ```
     quotes: Smart<bool>,
 
-    /// The source to this quote, can be a URL or bibliography key.
+    /// The attribution of this quote, usually the author or source. Can be a
+    /// label pointing to a bibliopgraphy entry or any content. By default only
+    /// displayed for block quotes, but can be changed using a `{show}` rule.
     ///
     /// ```example
-    /// #show link: set text(blue)
-    /// #quote(source: "https://typst.app/home")[Compose papers faster]
+    /// #quote(attribution: [René Descartes])[cogito, ergo sum] \
     ///
-    /// #quote(source: <tolkien54>)[
+    /// #show quote.where(block: false): it => [
+    ///   "#it.body"
+    ///   #if it.attribution != none [(#it.attribution)]
+    /// ]
+    /// #quote(attribution: link("https://typst.app/home")[typst.com])[
+    ///   Compose papers faster
+    /// ]
+    ///
+    /// #set quote(block: true)
+    /// #quote(attribution: <tolkien54>)[
     ///   You cannot pass... I am a servant of the Secret Fire, wielder of the
     ///   flame of Anor. You cannot pass. The dark fire will not avail you,
     ///   flame of Udûn. Go back to the Shadow! You cannot pass.
     /// ]
-    /// #bibliography("works.bib")
+    /// #bibliography("works.bib", style: "apa")
     /// ```
-    source: Option<Source>,
-
-    /// The author of this quote. By default only displayed for block quotes.
-    ///
-    /// ```example
-    /// #quote(author: [René Descartes])[cogito, ergo sum]
-    ///
-    /// #set quote(block: true)
-    /// #quote(author: [René Descartes])[cogito, ergo sum]
-    /// ```
-    author: Option<Content>,
+    attribution: Option<Attribution>,
 
     /// The quote.
     #[required]
@@ -98,35 +98,25 @@ pub struct QuoteElem {
 }
 
 #[derive(Debug, Clone)]
-pub enum Source {
-    Url(EcoString),
+pub enum Attribution {
+    Content(Content),
     Label(Label),
 }
 
 cast! {
-    Source,
+    Attribution,
     self => match self {
-        Self::Url(url) => url.into_value(),
+        Self::Content(content) => content.into_value(),
         Self::Label(label) => label.into_value(),
     },
-    url: EcoString => Self::Url(url),
+    content: Content => Self::Content(content),
     label: Label => Self::Label(label),
 }
 
 impl Show for QuoteElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
-        let author = self.author(styles);
         let block = self.block(styles);
-
-        let (citation, url) = if let Some(source) = self.source(styles) {
-            match source {
-                Source::Url(url) => (None, Some(url)),
-                Source::Label(label) => (Some(label.0), None),
-            }
-        } else {
-            (None, None)
-        };
 
         if self.quotes(styles) == Smart::Custom(true) || !block {
             // use h(0pt, weak: true) to make the quotes "sticky"
@@ -145,59 +135,49 @@ impl Show for QuoteElem {
         if block {
             realized = BlockElem::new().with_body(Some(realized)).pack();
 
-            if let Some(author) = author {
+            if let Some(attribution) = self.attribution(styles) {
                 let mut seq = vec![TextElem::packed('—'), SpaceElem::new().pack()];
 
-                if let Some(source) = citation {
-                    vt.delayed(|vt| {
-                        let bib =
-                            BibliographyElem::find(vt.introspector).at(self.span())?;
+                match attribution {
+                    Attribution::Content(content) => {
+                        seq.push(content);
+                    }
+                    Attribution::Label(label) => {
+                        let citation = vt.delayed(|vt| {
+                            let citation = CiteElem::new(vec![label.0]);
+                            let bib =
+                                BibliographyElem::find(vt.introspector).at(self.span())?;
 
-                        // TODO: these should use the citation-format attribute once CSL is
-                        //       implemented
-                        match bib.style(styles) {
-                            // author-date and author
-                            BibliographyStyle::Apa
-                            | BibliographyStyle::Mla
-                            | BibliographyStyle::ChicagoAuthorDate => {
-                                seq.push(
-                                    CiteElem::new(vec![source])
-                                        .with_brackets(false)
-                                        .pack(),
-                                );
-                            }
-                            // notes
-                            BibliographyStyle::ChicagoNotes => {
-                                seq.extend([author, CiteElem::new(vec![source]).pack()]);
-                            }
-                            // label and numeric
-                            BibliographyStyle::Ieee => {
-                                seq.extend([
-                                    author,
-                                    TextElem::packed(", "),
-                                    CiteElem::new(vec![source]).pack(),
-                                ]);
-                            }
-                        }
+                            // TODO: these should use the citation-format attribute, once CSL
+                            // is implemented and retreive the authors for non-author formats
+                            // themeselves, see:
+                            // - https://github.com/typst/typst/pull/2252#issuecomment-1741146989
+                            // - https://github.com/typst/typst/pull/2252#issuecomment-1744634132
+                            Ok(match bib.style(styles) {
+                                // author-date and author
+                                BibliographyStyle::Apa
+                                | BibliographyStyle::Mla
+                                | BibliographyStyle::ChicagoAuthorDate => {
+                                    citation.with_brackets(false).pack()
+                                }
+                                // notes, label and numeric
+                                BibliographyStyle::ChicagoNotes
+                                | BibliographyStyle::Ieee => citation.pack(),
+                            })
+                        });
 
-                        Ok(())
-                    });
-                } else {
-                    seq.push(author);
+                        seq.push(citation);
+                    }
                 }
 
-                // use v(1em, weak: true) bring the attribution closer to the quote
+                // use v(0.9em, weak: true) bring the attribution closer to the quote
                 let weak_v = VElem::weak(Spacing::Rel(Em::new(0.9).into())).pack();
                 realized += weak_v + Content::sequence(seq).aligned(Align::END);
-            } else if let Some(source) = citation {
-                realized += CiteElem::new(vec![source]).pack();
             }
 
             realized = PadElem::new(realized).pack();
-        }
-
-        if let Some(url) = url {
-            realized = realized.linked(Destination::Url(url));
+        } else if let Some(Attribution::Label(label)) = self.attribution(styles) {
+            realized += SpaceElem::new().pack() + CiteElem::new(vec![label.0]).pack();
         }
 
         Ok(realized)

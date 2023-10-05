@@ -2,21 +2,21 @@
 
 ---
 // Text direction affects author positioning
-And I quote: #quote(author: [René Descartes])[cogito, ergo sum].
+And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 
 #set text(lang: "ar")
-#quote(author: [عالم])[مرحبًا]
+#quote(attribution: [عالم])[مرحبًا]
 
 ---
 // Text direction affects block alignment
 #set quote(block: true)
-#quote(author: [René Descartes])[cogito, ergo sum]
+#quote(attribution: [René Descartes])[cogito, ergo sum]
 
 #set text(lang: "ar")
-#quote(author: [عالم])[مرحبًا]
+#quote(attribution: [عالم])[مرحبًا]
 
 ---
-// Indentation bar is aligned with text
+// Spacing with other blocks
 #set quote(block: true)
 
 #lorem(10)
@@ -24,28 +24,28 @@ And I quote: #quote(author: [René Descartes])[cogito, ergo sum].
 #lorem(10)
 
 ---
-// citation-format: label or numeric
-#set quote(block: true, source: <tolkien54>)
-#text(0pt, bibliography("/files/works.bib", style: "ieee"))
+// Inline citation
+#bibliography("/files/works.bib")
 
-#quote(author: [Tolkien])[
-  In a hole in the ground there lived a hobbit.
-]
+#quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
 
 ---
-// citation-format: note
-#set quote(block: true, source: <tolkien54>)
-#text(0pt, bibliography("/files/works.bib", style: "chicago-notes"))
+// Citation-format: label or numeric
+#set quote(block: true)
+#bibliography("/files/works.bib", style: "ieee")
 
-#quote(author: [Tolkien])[
-  In a hole in the ground there lived a hobbit.
-]
+#quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
 
 ---
-// citation-format: author-date or author
-#set quote(block: true, source: <tolkien54>)
-#text(0pt, bibliography("/files/works.bib", style: "apa"))
+// Citation-format: note
+#set quote(block: true)
+#bibliography("/files/works.bib", style: "chicago-notes")
 
-#quote(author: [Tolkien])[
-  In a hole in the ground there lived a hobbit.
-]
+#quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
+
+---
+// Citation-format: author-date or author
+#set quote(block: true)
+#bibliography("/files/works.bib", style: "apa")
+
+#quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
