@@ -627,7 +627,12 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Return the scope of captured variables.
-    pub fn finish(self) -> SourceResult<Scope> {
+    pub fn finish(self) -> Scope {
+        self.captures
+    }
+
+    /// Return the scope of captured variables, or an error if there were any.
+    pub fn try_finish(self) -> SourceResult<Scope> {
         if !self.errors.is_empty() {
             return Err(Box::new(self.errors));
         }
@@ -840,7 +845,7 @@ mod tests {
         let root = parse(text);
         visitor.visit(&root);
 
-        let captures = visitor.finish().unwrap();
+        let captures = visitor.try_finish().unwrap();
         let mut names: Vec<_> = captures.iter().map(|(k, _)| k).collect();
         names.sort();
 

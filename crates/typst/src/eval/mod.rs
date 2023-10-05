@@ -1344,7 +1344,7 @@ impl Eval for ast::Closure<'_> {
         let captured = {
             let mut visitor = CapturesVisitor::new(Some(&vm.scopes));
             visitor.visit(self.to_untyped());
-            visitor.finish()?
+            visitor.try_finish()?
         };
 
         // Define the closure.
