@@ -59,16 +59,8 @@ impl Repr for f64 {
 /// A value that can be cast to a float.
 pub struct ToFloat(f64);
 
-fn parse_float(mut s: &str) -> Result<f64, ParseFloatError> {
-    let mut sign = 1.0;
-    if s.starts_with(MINUS_SIGN) {
-        sign = -1.0;
-        s = &s[MINUS_SIGN.len_utf8()..];
-    } else if s.starts_with('-') {
-        sign = -1.0;
-        s = &s['-'.len_utf8()..];
-    }
-    Ok(sign * s.parse::<f64>()?)
+fn parse_float(s: EcoString) -> Result<f64, ParseFloatError> {
+    s.replace(MINUS_SIGN, "-").parse()
 }
 
 cast! {
@@ -76,6 +68,6 @@ cast! {
     v: bool => Self(v as i64 as f64),
     v: i64 => Self(v as f64),
     v: Ratio => Self(v.get()),
-    v: Str => Self(parse_float(&v).map_err(|_| eco_format!("invalid float: {}", v))?),
+    v: Str => Self(parse_float(v.clone().into()).map_err(|_| eco_format!("invalid float: {}", v))?),
     v: f64 => Self(v),
 }
