@@ -83,6 +83,9 @@ pub fn write_gradients(ctx: &mut PdfContext) {
 
                 shading_pattern
             }
+            Gradient::Conic(_) => {
+                todo!()
+            }
         };
 
         shading_pattern.matrix(transform_to_array(transform));

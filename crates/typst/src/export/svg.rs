@@ -138,6 +138,8 @@ enum GradientKind {
     Linear,
     /// A radial gradient.
     Radial,
+    /// A conic gradient.
+    Conic,
 }
 
 impl From<&Gradient> for GradientKind {
@@ -145,6 +147,7 @@ impl From<&Gradient> for GradientKind {
         match value {
             Gradient::Linear { .. } => GradientKind::Linear,
             Gradient::Radial { .. } => GradientKind::Radial,
+            Gradient::Conic { .. } => GradientKind::Conic,
         }
     }
 }
@@ -681,6 +684,7 @@ impl SVGRenderer {
                     self.xml.write_attribute("fy", &radial.focal_center.y.get());
                     self.xml.write_attribute("fr", &radial.focal_radius.get());
                 }
+                Gradient::Conic(_) => {}
             }
 
             for window in gradient.stops_ref().windows(2) {
@@ -746,6 +750,13 @@ impl SVGRenderer {
                     self.xml.start_element("radialGradient");
                     self.xml.write_attribute(
                         "gradientTransform",
+                        &SvgMatrix(gradient_ref.transform),
+                    );
+                }
+                GradientKind::Conic => {
+                    self.xml.start_element("pattern");
+                    self.xml.write_attribute(
+                        "patternTransform",
                         &SvgMatrix(gradient_ref.transform),
                     );
                 }
