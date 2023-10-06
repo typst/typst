@@ -84,29 +84,13 @@ impl PartialEq<f64> for Scalar {
 
 impl Ord for Scalar {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).expect("float is NaN")
+        self.0.partial_cmp(&other.0).expect("float is NaN")
     }
 }
 
 impl PartialOrd for Scalar {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.0.partial_cmp(&other.0)
-    }
-
-    fn lt(&self, other: &Self) -> bool {
-        self.0 < other.0
-    }
-
-    fn le(&self, other: &Self) -> bool {
-        self.0 <= other.0
-    }
-
-    fn gt(&self, other: &Self) -> bool {
-        self.0 > other.0
-    }
-
-    fn ge(&self, other: &Self) -> bool {
-        self.0 >= other.0
+        Some(self.cmp(other))
     }
 }
 
