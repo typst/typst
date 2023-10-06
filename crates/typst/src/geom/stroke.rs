@@ -15,6 +15,7 @@ use crate::eval::{dict, Cast, FromValue, NoneValue};
 ///   line(stroke: 2pt + red),
 ///   line(stroke: (paint: blue, thickness: 4pt, cap: "round")),
 ///   line(stroke: (paint: blue, thickness: 1pt, dash: "dashed")),
+///   line(stroke: 2pt + gradient.linear(..color.map.rainbow)),
 /// )
 /// ```
 ///
