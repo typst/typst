@@ -3,6 +3,8 @@ use std::f64::{EPSILON, NEG_INFINITY};
 use std::hash::Hash;
 use std::sync::Arc;
 
+use kurbo::Vec2;
+
 use super::color::{Hsl, Hsv};
 use super::*;
 use crate::diag::{bail, error, SourceResult};
@@ -649,23 +651,26 @@ impl Gradient {
                 (x as f64 * cos.abs() + y as f64 * sin.abs()) / length
             }
             Self::Radial(radial) => {
-                // Source: https://www.shadertoy.com/view/XldBR8
+                // Source: @Enivex - https://typst.app/project/pYLeS0QyCCe8mf0pdnwoAI
                 let cr = radial.radius.get();
                 let fr = radial.focal_radius.get();
+                let z = Vec2::new(x as f64, y as f64);
+                let p = Vec2::new(radial.center.x.get(), radial.center.y.get());
+                let q =
+                    Vec2::new(radial.focal_center.x.get(), radial.focal_center.y.get());
 
-                let x = radial.center.x.get() - x as f64;
-                let y = radial.center.y.get() - y as f64;
-                let dx = radial.center.x.get() - radial.focal_center.x.get();
-                let dy = radial.center.y.get() - radial.focal_center.y.get();
-                let r0 = cr;
-                let dr = fr - cr;
+                if (z - q).hypot() < fr {
+                    0.0
+                } else if (z - p).hypot() > cr {
+                    1.0
+                } else {
+                    let uz = (z - q).normalize();
+                    let az = (q - p).dot(uz);
+                    let rho = cr.powi(2) - (q - p).hypot().powi(2);
+                    let bz = (az.powi(2) + rho).sqrt() - az;
 
-                let a = dx.powi(2) + dy.powi(2) - dr.powi(2);
-                let b = -2.0 * (y * dy + x * dx + r0 * dr);
-                let c = x.powi(2) + y.powi(2) - r0.powi(2);
-                let t = (-b + (b.powi(2) - 4.0 * a * c).sqrt()) / (2.0 * a);
-
-                1.0 - t
+                    ((z - q).hypot() - fr) / (bz - fr)
+                }
             }
         };
 
