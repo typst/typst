@@ -105,8 +105,7 @@ fn scale(
 pub fn floor(
     /// The size of the brackets, relative to the height of the wrapped content.
     #[named]
-    #[default(Smart::Auto)]
-    size: Smart<Rel<Length>>,
+    size: Option<Smart<Rel<Length>>>,
     /// The expression to floor.
     body: Content,
 ) -> Content {
@@ -122,8 +121,7 @@ pub fn floor(
 pub fn ceil(
     /// The size of the brackets, relative to the height of the wrapped content.
     #[named]
-    #[default(Smart::Auto)]
-    size: Smart<Rel<Length>>,
+    size: Option<Smart<Rel<Length>>>,
     /// The expression to ceil.
     body: Content,
 ) -> Content {
@@ -139,8 +137,7 @@ pub fn ceil(
 pub fn round(
     /// The size of the brackets, relative to the height of the wrapped content.
     #[named]
-    #[default(Smart::Auto)]
-    size: Smart<Rel<Length>>,
+    size: Option<Smart<Rel<Length>>>,
     /// The expression to round.
     body: Content,
 ) -> Content {
@@ -156,8 +153,7 @@ pub fn round(
 pub fn abs(
     /// The size of the brackets, relative to the height of the wrapped content.
     #[named]
-    #[default(Smart::Auto)]
-    size: Smart<Rel<Length>>,
+    size: Option<Smart<Rel<Length>>>,
     /// The expression to take the absolute value of.
     body: Content,
 ) -> Content {
@@ -173,8 +169,7 @@ pub fn abs(
 pub fn norm(
     /// The size of the brackets, relative to the height of the wrapped content.
     #[named]
-    #[default(Smart::Auto)]
-    size: Smart<Rel<Length>>,
+    size: Option<Smart<Rel<Length>>>,
     /// The expression to take the norm of.
     body: Content,
 ) -> Content {
@@ -185,13 +180,16 @@ fn delimited(
     body: Content,
     left: char,
     right: char,
-    size: Smart<Rel<Length>>,
+    size: Option<Smart<Rel<Length>>>,
 ) -> Content {
-    LrElem::new(Content::sequence([
+    let mut elem = LrElem::new(Content::sequence([
         TextElem::packed(left),
         body,
         TextElem::packed(right),
-    ]))
-    .with_size(size)
-    .pack()
+    ]));
+    // Push size only if size is provided
+    if let Some(size) = size {
+        elem.push_size(size);
+    }
+    elem.pack()
 }
