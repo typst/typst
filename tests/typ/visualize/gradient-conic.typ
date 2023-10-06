@@ -3,23 +3,23 @@
 ---
 #square(
   size: 50pt,
-  fill: gradient.conic(..color.map.rainbow, space: color.hsl),
+  fill: gradient.conic(..color.map.rainbow, space: color.hsv),
 )
 
 ---
 #square(
   size: 50pt,
-  fill: gradient.conic(..color.map.rainbow, space: color.hsl, center: (10%, 10%)),
+  fill: gradient.conic(..color.map.rainbow, space: color.hsv, center: (10%, 10%)),
 )
 
 ---
 #square(
   size: 50pt,
-  fill: gradient.conic(..color.map.rainbow, space: color.hsl, center: (90%, 90%)),
+  fill: gradient.conic(..color.map.rainbow, space: color.hsv, center: (90%, 90%)),
 )
 
 ---
 #square(
   size: 50pt,
-  fill: gradient.conic(..color.map.rainbow, space: color.hsl, angle: 90deg),
+  fill: gradient.conic(..color.map.rainbow, space: color.hsv, angle: 90deg),
 )
