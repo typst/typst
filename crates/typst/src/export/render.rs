@@ -551,25 +551,31 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
             });
 
             let bbox = shape.geometry.bbox_size();
-            let offset_bbox = (!matches!(shape.geometry, Geometry::Line(..))).then(|| {
-                offset_bounding_box(bbox, *thickness)
-            }).unwrap_or(bbox);
+            let offset_bbox = (!matches!(shape.geometry, Geometry::Line(..)))
+                .then(|| offset_bounding_box(bbox, *thickness))
+                .unwrap_or(bbox);
 
-            let fill_transform = (!matches!(shape.geometry, Geometry::Line(..))).then(|| sk::Transform::from_translate(
-                -thickness.to_f32(),
-                -thickness.to_f32(),
-            ));
+            let fill_transform =
+                (!matches!(shape.geometry, Geometry::Line(..))).then(|| {
+                    sk::Transform::from_translate(
+                        -thickness.to_f32(),
+                        -thickness.to_f32(),
+                    )
+                });
 
-            let gradient_map = (!matches!(shape.geometry, Geometry::Line(..))).then(|| (
-                Point::new(
-                    -*thickness * state.pixel_per_pt as f64,
-                    -*thickness * state.pixel_per_pt as f64,
-                ),
-                Axes::new(
-                    Ratio::new(offset_bbox.x / bbox.x),
-                    Ratio::new(offset_bbox.y / bbox.y),
-                ),
-            ));
+            let gradient_map =
+                (!matches!(shape.geometry, Geometry::Line(..))).then(|| {
+                    (
+                        Point::new(
+                            -*thickness * state.pixel_per_pt as f64,
+                            -*thickness * state.pixel_per_pt as f64,
+                        ),
+                        Axes::new(
+                            Ratio::new(offset_bbox.x / bbox.x),
+                            Ratio::new(offset_bbox.y / bbox.y),
+                        ),
+                    )
+                });
 
             let mut pixmap = None;
             let paint = to_sk_paint(
