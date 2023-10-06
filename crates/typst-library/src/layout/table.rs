@@ -114,8 +114,9 @@ pub struct TableElem {
     pub stroke: Option<Stroke>,
 
     /// How much to pad the cells' content.
-    #[default(Abs::pt(5.0).into())]
-    pub inset: Rel<Length>,
+    #[fold]
+    #[default(Sides::splat(Abs::pt(5.0).into()))]
+    pub inset: Sides<Option<Rel<Length>>>,
 
     /// The contents of the table cells.
     #[variadic]
@@ -141,7 +142,7 @@ impl Layout for TableElem {
             .into_iter()
             .enumerate()
             .map(|(i, child)| {
-                let mut child = child.padded(Sides::splat(inset));
+                let mut child = child.padded(inset);
 
                 let x = i % cols;
                 let y = i / cols;
