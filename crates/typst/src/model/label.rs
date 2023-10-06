@@ -7,8 +7,9 @@ use crate::eval::{func, scope, ty, Repr};
 /// A label for an element.
 ///
 /// Inserting a label into content attaches it to the closest previous element
-/// that is not a space. Then, the element can be [referenced]($ref) and styled
-/// through the label.
+/// that is not a space, both of which must be in the same scope, i.e.,
+/// `text #[<l>]` wouldn't work. Then, the element can be
+/// [referenced]($func/ref) and styled through the label.
 ///
 /// # Example
 /// ```example
