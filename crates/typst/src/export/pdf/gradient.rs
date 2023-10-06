@@ -7,7 +7,8 @@ use super::color::{ColorSpaceExt, PaintEncode};
 use super::page::{PageContext, Transforms};
 use super::{AbsExt, PdfContext};
 use crate::geom::{
-    Abs, Color, ColorSpace, Gradient, Numeric, Quadrant, Ratio, Relative, Transform,
+    Abs, Angle, Color, ColorSpace, Gradient, Numeric, Quadrant, Ratio, Relative,
+    Transform,
 };
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
@@ -50,6 +51,32 @@ pub fn write_gradients(ctx: &mut PdfContext) {
                     .anti_alias(gradient.anti_alias())
                     .function(shading_function)
                     .coords([0.0, 0.0, length as f32, 0.0])
+                    .extend([true; 2]);
+
+                shading.finish();
+
+                shading_pattern
+            }
+            Gradient::Radial(radial) => {
+                let shading_function = shading_function(ctx, &gradient);
+                let mut shading_pattern = ctx.pdf.shading_pattern(shading);
+                let mut shading = shading_pattern.function_shading();
+                shading.shading_type(FunctionShadingType::Radial);
+
+                ctx.colors
+                    .write(gradient.space(), shading.color_space(), &mut ctx.alloc);
+
+                shading
+                    .anti_alias(gradient.anti_alias())
+                    .function(shading_function)
+                    .coords([
+                        radial.focal_center.x.get() as f32,
+                        radial.focal_center.y.get() as f32,
+                        radial.focal_radius.get() as f32,
+                        radial.center.x.get() as f32,
+                        radial.center.y.get() as f32,
+                        radial.radius.get() as f32,
+                    ])
                     .extend([true; 2]);
 
                 shading.finish();
@@ -231,12 +258,13 @@ fn register_gradient(
         Relative::Parent => transforms.container_size,
     };
 
-    let (offset_x, offset_y) = match gradient.angle().quadrant() {
-        Quadrant::First => (Abs::zero(), Abs::zero()),
-        Quadrant::Second => (size.x, Abs::zero()),
-        Quadrant::Third => (size.x, size.y),
-        Quadrant::Fourth => (Abs::zero(), size.y),
-    };
+    let (offset_x, offset_y) =
+        match gradient.angle().unwrap_or_else(Angle::zero).quadrant() {
+            Quadrant::First => (Abs::zero(), Abs::zero()),
+            Quadrant::Second => (size.x, Abs::zero()),
+            Quadrant::Third => (size.x, size.y),
+            Quadrant::Fourth => (Abs::zero(), size.y),
+        };
 
     let transform = match gradient.unwrap_relative(false) {
         Relative::Self_ => transforms.transform,
@@ -252,7 +280,7 @@ fn register_gradient(
                 Ratio::new(size.y.to_pt()),
             ))
             .pre_concat(Transform::rotate(Gradient::correct_aspect_ratio(
-                gradient.angle(),
+                gradient.angle().unwrap_or_else(Angle::zero),
                 size.aspect_ratio(),
             ))),
         gradient: gradient.clone(),
