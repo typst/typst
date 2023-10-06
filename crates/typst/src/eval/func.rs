@@ -663,6 +663,7 @@ impl<'a> CapturesVisitor<'a> {
             Some(ast::Expr::Binary(bin)) if bin.op().is_assignment() => {
                 self.visit(bin.rhs().to_untyped());
                 self.verify_assignable_expr(bin.lhs());
+                self.visit(bin.lhs().to_untyped());
             }
 
             // Code and content blocks create a scope.
@@ -845,7 +846,7 @@ mod tests {
         let root = parse(text);
         visitor.visit(&root);
 
-        let captures = visitor.try_finish().unwrap();
+        let captures = visitor.finish();
         let mut names: Vec<_> = captures.iter().map(|(k, _)| k).collect();
         names.sort();
 
