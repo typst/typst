@@ -723,18 +723,12 @@ impl Gradient {
         let (mut x, mut y) = (x / width, y / height);
         let t = match self {
             Self::Linear(linear) => {
-                // Handle the direction of the gradient.
-                let angle = linear.angle.to_rad().rem_euclid(TAU);
-
                 // Aspect ratio correction.
-                let angle = (angle.tan() * height as f64).atan2(width as f64);
-                let angle = match linear.angle.quadrant() {
-                    Quadrant::First => angle,
-                    Quadrant::Second => angle + PI,
-                    Quadrant::Third => angle + PI,
-                    Quadrant::Fourth => angle + TAU,
-                };
-
+                let angle = Gradient::correct_aspect_ratio(
+                    linear.angle,
+                    Ratio::new((width / height) as f64),
+                )
+                .to_rad() as f64;
                 let (sin, cos) = angle.sin_cos();
 
                 let length = sin.abs() + cos.abs();
@@ -773,7 +767,11 @@ impl Gradient {
             Self::Conic(conic) => {
                 let (x, y) =
                     (x as f64 - conic.center.x.get(), y as f64 - conic.center.y.get());
-                ((-y.atan2(x) + PI + conic.angle.to_rad()) % TAU) / TAU
+                let angle = Gradient::correct_aspect_ratio(
+                    conic.angle,
+                    Ratio::new((width / height) as f64),
+                );
+                ((-y.atan2(x) + PI + angle.to_rad()) % TAU) / TAU
             }
         };
 
