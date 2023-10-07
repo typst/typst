@@ -75,7 +75,7 @@ pub struct TranslateElem {
     /// ```example
     /// #let locale = translate(
     ///   (lang, region) => {
-    ///     if region != none { lang }
+    ///     if region == none { lang }
     ///     else [#(lang)-#region]
     ///   }
     /// )
