@@ -728,7 +728,7 @@ impl Gradient {
                     linear.angle,
                     Ratio::new((width / height) as f64),
                 )
-                .to_rad() as f64;
+                .to_rad();
                 let (sin, cos) = angle.sin_cos();
 
                 let length = sin.abs() + cos.abs();
