@@ -6,6 +6,7 @@ mod quotes;
 mod raw;
 mod shaping;
 mod shift;
+mod translate;
 
 pub use self::deco::*;
 pub use self::misc::*;
@@ -13,6 +14,7 @@ pub use self::quotes::*;
 pub use self::raw::*;
 pub use self::shaping::*;
 pub use self::shift::*;
+pub use self::translate::*;
 
 use rustybuzz::Tag;
 use ttf_parser::Rect;
@@ -28,6 +30,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_elem::<TextElem>();
     global.define_elem::<LinebreakElem>();
     global.define_elem::<SmartquoteElem>();
+    global.define_elem::<TranslateElem>();
     global.define_elem::<StrongElem>();
     global.define_elem::<EmphElem>();
     global.define_elem::<SubElem>();
