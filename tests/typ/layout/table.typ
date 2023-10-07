@@ -30,6 +30,26 @@
 )
 
 ---
+// Test inset.
+#table(
+  columns: 3,
+  inset: 10pt,
+  [A], [B], [C]
+)
+
+#table(
+  columns: 3,
+  inset: (y: 10pt),
+  [A], [B], [C]
+)
+
+#table(
+  columns: 3,
+  inset: (left: 20pt, rest: 10pt),
+  [A], [B], [C]
+)
+
+---
 // Ref: false
 #table()
 
