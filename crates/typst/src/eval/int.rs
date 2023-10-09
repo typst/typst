@@ -61,27 +61,24 @@ impl Repr for i64 {
 /// A value that can be cast to an integer.
 pub struct ToInt(i64);
 
+cast! {
+    ToInt,
+    v: bool => Self(v as i64),
+    v: f64 => Self(v as i64),
+    v: Str => Self(parse_int(&v).map_err(|_| eco_format!("invalid integer: {}", v))?),
+    v: i64 => Self(v),
+}
+
 fn parse_int(mut s: &str) -> Result<i64, ParseIntError> {
     let mut sign = 1;
-    if s.starts_with(MINUS_SIGN) {
+    if let Some(rest) = s.strip_prefix('-').or_else(|| s.strip_prefix(MINUS_SIGN)) {
         sign = -1;
-        s = &s[MINUS_SIGN.len_utf8()..];
-    } else if s.starts_with('-') {
-        sign = -1;
-        s = &s['-'.len_utf8()..];
+        s = rest;
     }
     if sign == -1 && s == "9223372036854775808" {
         return Ok(i64::MIN);
     }
     Ok(sign * s.parse::<i64>()?)
-}
-
-cast! {
-    ToInt,
-    v: bool => Self(v as i64),
-    v: f64 => Self(v as i64),
-    v: Str =>   Self(parse_int(&v).map_err(|_| eco_format!("invalid integer: {}", v))?),
-    v: i64 => Self(v),
 }
 
 macro_rules! signed_int {

@@ -1,6 +1,6 @@
 use ecow::{eco_format, EcoString};
 
-pub const MINUS_SIGN: char = '\u{2212}';
+pub const MINUS_SIGN: &str = "\u{2212}";
 
 /// Format an integer in a base.
 pub fn format_int_with_base(mut n: i64, base: i64) -> EcoString {
@@ -10,7 +10,7 @@ pub fn format_int_with_base(mut n: i64, base: i64) -> EcoString {
 
     // The largest output is `to_base(i64::MIN, 2)`, which is 64 bytes long,
     // plus the length of the minus sign.
-    const SIZE: usize = 64 + MINUS_SIGN.len_utf8();
+    const SIZE: usize = 64 + MINUS_SIGN.len();
     let mut digits = [b'\0'; SIZE];
     let mut i = SIZE;
 
@@ -29,8 +29,9 @@ pub fn format_int_with_base(mut n: i64, base: i64) -> EcoString {
     }
 
     if negative {
-        i -= MINUS_SIGN.len_utf8();
-        MINUS_SIGN.encode_utf8(&mut digits[i..]);
+        let prev = i;
+        i -= MINUS_SIGN.len();
+        digits[i..prev].copy_from_slice(MINUS_SIGN.as_bytes());
     }
 
     std::str::from_utf8(&digits[i..]).unwrap_or_default().into()
