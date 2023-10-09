@@ -29,7 +29,7 @@ pub struct FracElem {
 impl LayoutMath for FracElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.num(), &self.denom(), false, self.span())
+        layout(ctx, &self.num(), &[self.denom()], false, self.span())
     }
 }
 
@@ -38,6 +38,7 @@ impl LayoutMath for FracElem {
 /// # Example
 /// ```example
 /// $ binom(n, k) $
+/// $ binom(n, k_1, k_2, k_3, ..., k_m) $
 /// ```
 #[elem(title = "Binomial", LayoutMath)]
 pub struct BinomElem {
@@ -47,7 +48,16 @@ pub struct BinomElem {
 
     /// The binomial's lower index.
     #[required]
-    pub lower: Content,
+    #[variadic]
+    #[parse(
+        let values = args.all::<Spanned<Value>>()?;
+        if values.is_empty() {
+            // Prevents one element binomials
+            bail!(args.span, "missing argument: lower");
+        }
+        values.into_iter().map(|spanned| spanned.v.display()).collect()
+    )]
+    pub lower: Vec<Content>,
 }
 
 impl LayoutMath for BinomElem {
@@ -60,7 +70,7 @@ impl LayoutMath for BinomElem {
 fn layout(
     ctx: &mut MathContext,
     num: &Content,
-    denom: &Content,
+    denom: &[Content],
     binom: bool,
     span: Span,
 ) -> SourceResult<()> {
@@ -93,7 +103,10 @@ fn layout(
     ctx.unstyle();
 
     ctx.style(ctx.style.for_denominator());
-    let denom = ctx.layout_frame(denom)?;
+    let denom = ctx.layout_frame(&Content::sequence(
+        // Add a comma between each element.
+        denom.iter().flat_map(|a| [TextElem::packed(','), a.clone()]).skip(1),
+    ))?;
     ctx.unstyle();
 
     let around = FRAC_AROUND.scaled(ctx);
