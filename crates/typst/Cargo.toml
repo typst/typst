@@ -22,7 +22,7 @@ base64 = "0.21.2"
 bitflags = { version = "2", features = ["serde"] }
 bytemuck = "1"
 comemo = "0.3"
-ecow = { version = "0.1.2", features = ["serde"] }
+ecow = { version = "0.2", features = ["serde"] }
 flate2 = "1"
 fontdb = { version = "0.14", default-features = false }
 image = { version = "0.24", default-features = false, features = ["png", "jpeg", "gif"] }
