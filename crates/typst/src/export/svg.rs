@@ -18,10 +18,10 @@ use crate::geom::{
 use crate::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::util::hash128;
 
-/// The number of segment in a conic gradient.
+/// The number of segments in a conic gradient.
 /// This is a heuristic value that seems to work well.
 /// Smaller values could be interesting for optimization.
-const CONIC_SEGMENT: usize = 720;
+const CONIC_SEGMENT: usize = 360;
 
 /// Export a frame into a SVG file.
 #[tracing::instrument(skip_all)]
@@ -83,7 +83,7 @@ struct SVGRenderer {
     /// the angle of the gradient.
     gradients: Deduplicator<(Gradient, Ratio)>,
     /// These are the gradients that compose a conic gradient.
-    subgradients: Deduplicator<SVGSubGradient>,
+    conic_subgradients: Deduplicator<SVGSubGradient>,
 }
 
 /// Contextual information for rendering.
@@ -196,7 +196,7 @@ impl SVGRenderer {
             clip_paths: Deduplicator::new('c'),
             gradient_refs: Deduplicator::new('g'),
             gradients: Deduplicator::new('f'),
-            subgradients: Deduplicator::new('s'),
+            conic_subgradients: Deduplicator::new('s'),
         }
     }
 
@@ -772,7 +772,7 @@ impl SVGRenderer {
                                 .sample(RatioOrAngle::Ratio(Ratio::new(t2 as f64))),
                         };
                         let id = self
-                            .subgradients
+                            .conic_subgradients
                             .insert_with(hash128(&subgradient), || subgradient);
 
                         // Add the path to the pattern.
@@ -837,13 +837,13 @@ impl SVGRenderer {
 
     /// Write the sub-gradients that are used for conic gradients.
     fn write_subgradients(&mut self) {
-        if self.subgradients.is_empty() {
+        if self.conic_subgradients.is_empty() {
             return;
         }
 
         self.xml.start_element("defs");
         self.xml.write_attribute("id", "subgradients");
-        for (id, gradient) in self.subgradients.iter() {
+        for (id, gradient) in self.conic_subgradients.iter() {
             let x1 = 2.0 - gradient.t0.cos() as f32 + gradient.center.x.get() as f32;
             let y1 = gradient.t0.sin() as f32 + gradient.center.y.get() as f32;
             let x2 = 2.0 - gradient.t1.cos() as f32 + gradient.center.x.get() as f32;

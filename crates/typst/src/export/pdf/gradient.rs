@@ -89,7 +89,7 @@ pub fn write_gradients(ctx: &mut PdfContext) {
                 shading_pattern
             }
             Gradient::Conic(conic) => {
-                let vertices = compute_vertices(conic);
+                let vertices = compute_vertex_stream(conic);
 
                 let stream_shading_id = ctx.alloc.bump();
                 let mut stream_shading =
@@ -357,63 +357,63 @@ fn transform_to_array(ts: Transform) -> [f32; 6] {
     ]
 }
 
-/// Low level representation of a Coons Patch in PDF.
-#[repr(C, packed)]
-#[derive(Clone, Copy)]
-struct Patch {
-    flag: u8,
-    points: [[u16; 2]; 12],
-    colors: [[u16; 3]; 4],
-}
+/// Writes a single Coons Patch as defined in the PDF specification
+/// to a binary vec.
+///
+/// Structure:
+///  - flag: `u8`
+///  - points: `[u16; 24]`
+///  - colors: `[u16; 12]`
+fn write_patch(
+    target: &mut Vec<u8>,
+    t: f32,
+    t1: f32,
+    c0: [u16; 3],
+    c1: [u16; 3],
+    angle: Angle,
+) {
+    let theta = -TAU * t + angle.to_rad() as f32 + PI;
+    let theta1 = -TAU * t1 + angle.to_rad() as f32 + PI;
 
-unsafe impl bytemuck::Pod for Patch {}
-unsafe impl bytemuck::Zeroable for Patch {}
+    let (cp1, cp2) =
+        control_point(Point::new(Abs::pt(0.5), Abs::pt(0.5)), 0.5, theta, theta1);
 
-impl Patch {
-    /// Crates a new coons patch with correct parameters
-    pub fn new(t: f32, t1: f32, c0: [u16; 3], c1: [u16; 3], angle: Angle) -> Self {
-        let theta = -TAU * t + angle.to_rad() as f32 + PI;
-        let theta1 = -TAU * t1 + angle.to_rad() as f32 + PI;
+    // Push the flag
+    target.push(0);
 
-        let (cp1, cp2) =
-            control_point(Point::new(Abs::pt(0.5), Abs::pt(0.5)), 0.5, theta, theta1);
+    let p1 =
+        [u16::quantize(0.5, [0.0, 1.0]).to_be(), u16::quantize(0.5, [0.0, 1.0]).to_be()];
 
-        let p1 = [
-            u16::quantize(0.5, [0.0, 1.0]).to_be(),
-            u16::quantize(0.5, [0.0, 1.0]).to_be(),
-        ];
+    let p2 = [
+        u16::quantize(theta.cos(), [-1.0, 1.0]).to_be(),
+        u16::quantize(theta.sin(), [-1.0, 1.0]).to_be(),
+    ];
 
-        let p2 = [
-            u16::quantize(theta.cos(), [-1.0, 1.0]).to_be(),
-            u16::quantize(theta.sin(), [-1.0, 1.0]).to_be(),
-        ];
+    let p3 = [
+        u16::quantize(theta1.cos(), [-1.0, 1.0]).to_be(),
+        u16::quantize(theta1.sin(), [-1.0, 1.0]).to_be(),
+    ];
 
-        let p3 = [
-            u16::quantize(theta1.cos(), [-1.0, 1.0]).to_be(),
-            u16::quantize(theta1.sin(), [-1.0, 1.0]).to_be(),
-        ];
+    let cp1 = [
+        u16::quantize(cp1.x.to_f32(), [0.0, 1.0]).to_be(),
+        u16::quantize(cp1.y.to_f32(), [0.0, 1.0]).to_be(),
+    ];
 
-        let cp1 = [
-            u16::quantize(cp1.x.to_f32(), [0.0, 1.0]).to_be(),
-            u16::quantize(cp1.y.to_f32(), [0.0, 1.0]).to_be(),
-        ];
+    let cp2 = [
+        u16::quantize(cp2.x.to_f32(), [0.0, 1.0]).to_be(),
+        u16::quantize(cp2.y.to_f32(), [0.0, 1.0]).to_be(),
+    ];
 
-        let cp2 = [
-            u16::quantize(cp2.x.to_f32(), [0.0, 1.0]).to_be(),
-            u16::quantize(cp2.y.to_f32(), [0.0, 1.0]).to_be(),
-        ];
+    // Push the points
+    target.extend_from_slice(bytemuck::cast_slice(&[
+        p1, p1, p2, p2, cp1, cp2, p3, p3, p1, p1, p1, p1,
+    ]));
 
-        let points = [p1, p1, p2, p2, cp1, cp2, p3, p3, p1, p1, p1, p1];
+    let colors =
+        [c0.map(u16::to_be), c0.map(u16::to_be), c1.map(u16::to_be), c1.map(u16::to_be)];
 
-        let colors = [
-            c0.map(u16::to_be),
-            c0.map(u16::to_be),
-            c1.map(u16::to_be),
-            c1.map(u16::to_be),
-        ];
-
-        Self { flag: 0, points, colors }
-    }
+    // Push the colors.
+    target.extend_from_slice(bytemuck::cast_slice(&colors));
 }
 
 fn control_point(c: Point, r: f32, angle_start: f32, angle_end: f32) -> (Point, Point) {
@@ -434,7 +434,7 @@ fn control_point(c: Point, r: f32, angle_start: f32, angle_end: f32) -> (Point, 
 }
 
 #[comemo::memoize]
-fn compute_vertices(conic: &ConicGradient) -> Arc<Vec<u8>> {
+fn compute_vertex_stream(conic: &ConicGradient) -> Arc<Vec<u8>> {
     // Generated vertices for the Coons patches
     let mut vertices = Vec::new();
 
@@ -501,23 +501,25 @@ fn compute_vertices(conic: &ConicGradient) -> Arc<Vec<u8>> {
                         let c0 = c0.map(|c| u16::quantize(c, [0.0, 1.0]));
                         let c1 = c1.map(|c| u16::quantize(c, [0.0, 1.0]));
 
-                        vertices.push(Patch::new(
+                        write_patch(
+                            &mut vertices,
                             t_x as f32,
                             t_prime,
                             conic.space.convert(c),
                             c0,
                             conic.angle,
-                        ));
+                        );
 
-                        vertices.push(Patch::new(t_prime, t_prime, c0, c1, conic.angle));
+                        write_patch(&mut vertices, t_prime, t_prime, c0, c1, conic.angle);
 
-                        vertices.push(Patch::new(
+                        write_patch(
+                            &mut vertices,
                             t_prime,
                             t_next as f32,
                             c1,
                             conic.space.convert(c_next),
                             conic.angle,
-                        ));
+                        );
 
                         t_x = t_next;
                         continue;
@@ -525,17 +527,18 @@ fn compute_vertices(conic: &ConicGradient) -> Arc<Vec<u8>> {
                 }
             }
 
-            vertices.push(Patch::new(
+            write_patch(
+                &mut vertices,
                 t_x as f32,
                 t_next as f32,
                 conic.space.convert(c),
                 conic.space.convert(c_next),
                 conic.angle,
-            ));
+            );
 
             t_x = t_next;
         }
     }
 
-    Arc::new(deflate(bytemuck::cast_slice(&vertices)))
+    Arc::new(deflate(&vertices))
 }
