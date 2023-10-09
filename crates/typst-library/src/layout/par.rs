@@ -723,7 +723,7 @@ fn prepare<'a>(
         cursor = end;
     }
 
-    if TextElem::cjk_latin_spacing_in(styles) {
+    if TextElem::cjk_latin_spacing_in(styles).is_auto() {
         add_cjk_latin_spacing(&mut items);
     }
 
@@ -892,7 +892,7 @@ fn linebreak_simple<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line
     let mut lines = vec![];
     let mut start = 0;
     let mut last = None;
-    let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(p.styles);
+    let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(p.styles).is_auto();
 
     for (end, mandatory, hyphen) in breakpoints(p) {
         // Compute the line and its size.
@@ -972,7 +972,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
     }];
 
     let em = TextElem::size_in(p.styles);
-    let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(p.styles);
+    let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(p.styles).is_auto();
 
     for (end, mandatory, hyphen) in breakpoints(p) {
         let k = table.len();

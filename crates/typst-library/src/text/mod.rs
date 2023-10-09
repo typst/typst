@@ -218,14 +218,13 @@ pub struct TextElem {
     /// Whether to automatically insert spacing between CJK and Latin characters.
     ///
     /// ```example
-    /// #set text(cjk-latin-spacing: true)
+    /// #set text(cjk-latin-spacing: auto)
     /// 第4章介绍了基本的API。
     ///
-    /// #set text(cjk-latin-spacing: false)
+    /// #set text(cjk-latin-spacing: none)
     /// 第4章介绍了基本的API。
     /// ```
-    #[default(true)]
-    pub cjk_latin_spacing: bool,
+    pub cjk_latin_spacing: Smart<Option<()>>,
 
     /// An amount to shift the text baseline by.
     ///
