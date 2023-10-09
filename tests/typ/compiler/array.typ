@@ -65,8 +65,16 @@
 
 ---
 // Test remove with default value.
-#test((1, 2, 3).remove(2, default: 5), 3)
-#test((1, 2, 3).remove(3, default: 5), 5)
+
+#{
+  let array = (1, 2, 3)
+  test(array.remove(2, default: 5), 3)
+}
+
+#{
+  let array = (1, 2, 3)
+  test(array.remove(3, default: 5), 5)
+}
 
 ---
 // Test bad lvalue.
