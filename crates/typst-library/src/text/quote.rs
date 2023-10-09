@@ -68,7 +68,7 @@ pub struct QuoteElem {
     quotes: Smart<bool>,
 
     /// The attribution of this quote, usually the author or source. Can be a
-    /// label pointing to a bibliopgraphy entry or any content. By default only
+    /// label pointing to a bibliography entry or any content. By default only
     /// displayed for block quotes, but can be changed using a `{show}` rule.
     ///
     /// ```example
@@ -160,7 +160,7 @@ impl Show for QuoteElem {
                                 BibliographyElem::find(vt.introspector).at(self.span())?;
 
                             // TODO: these should use the citation-format attribute, once CSL
-                            // is implemented and retreive the authors for non-author formats
+                            // is implemented and retrieve the authors for non-author formats
                             // themeselves, see:
                             // - https://github.com/typst/typst/pull/2252#issuecomment-1741146989
                             // - https://github.com/typst/typst/pull/2252#issuecomment-1744634132
