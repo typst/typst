@@ -8,12 +8,12 @@ use ecow::{eco_vec, EcoString, EcoVec};
 
 use super::{Content, Element, NativeElement, Selector, Vt};
 use crate::diag::{SourceResult, Trace, Tracepoint};
-use crate::eval::{cast, ty, Args, FromValue, Func, IntoValue, Value, Vm};
+use crate::eval::{cast, ty, Args, FromValue, Func, IntoValue, Repr, Value, Vm};
 use crate::syntax::Span;
 
 /// A list of style properties.
 #[ty]
-#[derive(Default, PartialEq, Clone, Hash)]
+#[derive(Debug, Default, PartialEq, Clone, Hash)]
 pub struct Styles(EcoVec<Prehashed<Style>>);
 
 impl Styles {
@@ -86,9 +86,9 @@ impl From<Style> for Styles {
     }
 }
 
-impl Debug for Styles {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("..")
+impl Repr for Styles {
+    fn repr(&self) -> EcoString {
+        "..".into()
     }
 }
 

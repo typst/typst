@@ -148,7 +148,7 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.into_frame(),
             Self::Variant(variant) => variant.frame,
             Self::Frame(fragment) => fragment.frame,
-            _ => Frame::new(self.size()),
+            _ => Frame::soft(self.size()),
         }
     }
 
@@ -187,6 +187,7 @@ pub struct GlyphFragment {
     pub font: Font,
     pub lang: Lang,
     pub fill: Paint,
+    pub shift: Abs,
     pub width: Abs,
     pub ascent: Abs,
     pub descent: Abs,
@@ -225,6 +226,7 @@ impl GlyphFragment {
             font: ctx.font.clone(),
             lang: TextElem::lang_in(ctx.styles()),
             fill: TextElem::fill_in(ctx.styles()),
+            shift: TextElem::baseline_in(ctx.styles()),
             style: ctx.style,
             font_size: ctx.size,
             width: Abs::zero(),
@@ -307,9 +309,9 @@ impl GlyphFragment {
             }],
         };
         let size = Size::new(self.width, self.ascent + self.descent);
-        let mut frame = Frame::new(size);
+        let mut frame = Frame::soft(size);
         frame.set_baseline(self.ascent);
-        frame.push(Point::with_y(self.ascent), FrameItem::Text(item));
+        frame.push(Point::with_y(self.ascent + self.shift), FrameItem::Text(item));
         frame.meta_iter(self.meta);
         frame
     }

@@ -54,7 +54,7 @@ impl Layout for RepeatElem {
             bail!(self.span(), "repeat with no size restrictions");
         }
 
-        let mut frame = Frame::new(size);
+        let mut frame = Frame::soft(size);
         if piece.has_baseline() {
             frame.set_baseline(piece.baseline());
         }

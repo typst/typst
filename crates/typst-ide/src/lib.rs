@@ -2,22 +2,20 @@
 
 mod analyze;
 mod complete;
-mod highlight;
 mod jump;
 mod tooltip;
 
 pub use self::analyze::analyze_labels;
 pub use self::complete::{autocomplete, Completion, CompletionKind};
-pub use self::highlight::{highlight, highlight_html, Tag};
 pub use self::jump::{jump_from_click, jump_from_cursor, Jump};
 pub use self::tooltip::{tooltip, Tooltip};
 
 use std::fmt::Write;
 
 use ecow::{eco_format, EcoString};
+use typst::font::{FontInfo, FontStyle};
 
 use self::analyze::*;
-use crate::font::{FontInfo, FontStyle};
 
 /// Extract the first sentence of plain text of a piece of documentation.
 ///
@@ -80,8 +78,7 @@ fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> Ec
     }
 
     let count = infos.len();
-    let s = if count == 1 { "" } else { "s" };
-    let mut detail = eco_format!("{count} variant{s}.");
+    let mut detail = eco_format!("{count} variant{}.", if count == 1 { "" } else { "s" });
 
     if min_weight == max_weight {
         write!(detail, " Weight {min_weight}.").unwrap();

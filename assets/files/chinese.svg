@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="250" height="24" viewBox="0 0 250 22">
+  <text x="0" y="10" font-size="10">此文本为中文。</text>
+  <text x="0" y="22" font-size="10">The text above is in Chinese.</text>
+</svg>

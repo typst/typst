@@ -1,4 +1,4 @@
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
@@ -7,7 +7,7 @@ use ecow::{eco_format, EcoString};
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::{array, func, scope, ty, Array, Str, Value};
+use super::{array, func, scope, ty, Array, Repr, Str, Value};
 use crate::diag::StrResult;
 use crate::syntax::is_ident;
 use crate::util::{pretty_array_like, separated_list, ArcExt};
@@ -117,7 +117,7 @@ impl Dict {
     pub fn finish(&self, expected: &[&str]) -> StrResult<()> {
         if let Some((key, _)) = self.iter().next() {
             let parts: Vec<_> = expected.iter().map(|s| eco_format!("\"{s}\"")).collect();
-            let mut msg = format!("unexpected key {key:?}, valid keys are ");
+            let mut msg = format!("unexpected key {}, valid keys are ", key.repr());
             msg.push_str(&separated_list(&parts, "and"));
             return Err(msg.into());
         }
@@ -200,9 +200,15 @@ impl Dict {
 }
 
 impl Debug for Dict {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_map().entries(self.0.iter()).finish()
+    }
+}
+
+impl Repr for Dict {
+    fn repr(&self) -> EcoString {
         if self.is_empty() {
-            return f.write_str("(:)");
+            return "(:)".into();
         }
 
         let max = 40;
@@ -211,9 +217,9 @@ impl Debug for Dict {
             .take(max)
             .map(|(key, value)| {
                 if is_ident(key) {
-                    eco_format!("{key}: {value:?}")
+                    eco_format!("{key}: {}", value.repr())
                 } else {
-                    eco_format!("{key:?}: {value:?}")
+                    eco_format!("{}: {}", key.repr(), value.repr())
                 }
             })
             .collect();
@@ -222,7 +228,7 @@ impl Debug for Dict {
             pieces.push(eco_format!(".. ({} pairs omitted)", self.len() - max));
         }
 
-        f.write_str(&pretty_array_like(&pieces, false))
+        pretty_array_like(&pieces, false).into()
     }
 }
 
@@ -310,15 +316,15 @@ impl From<IndexMap<Str, Value>> for Dict {
 /// The missing key access error message.
 #[cold]
 fn missing_key(key: &str) -> EcoString {
-    eco_format!("dictionary does not contain key {:?}", Str::from(key))
+    eco_format!("dictionary does not contain key {}", key.repr())
 }
 
 /// The missing key access error message when no default was fiven.
 #[cold]
 fn missing_key_no_default(key: &str) -> EcoString {
     eco_format!(
-        "dictionary does not contain key {:?} \
+        "dictionary does not contain key {} \
          and no default value was specified",
-        Str::from(key)
+        key.repr()
     )
 }

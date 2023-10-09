@@ -1,6 +1,7 @@
 //! Computational functions.
 
 pub mod calc;
+pub mod sys;
 
 mod data;
 mod foundations;
@@ -15,4 +16,5 @@ pub(super) fn define(global: &mut Scope) {
     self::foundations::define(global);
     self::data::define(global);
     self::calc::define(global);
+    self::sys::define(global);
 }

@@ -16,7 +16,7 @@ use super::*;
 /// #stack(dir: direction.rtl)[A][B][C]
 /// ```
 #[ty(scope, name = "direction")]
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Dir {
     /// Left to right.
     LTR,
@@ -117,14 +117,14 @@ impl Dir {
     }
 }
 
-impl Debug for Dir {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::LTR => "ltr",
-            Self::RTL => "rtl",
-            Self::TTB => "ttb",
-            Self::BTT => "btt",
-        })
+impl Repr for Dir {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::LTR => "ltr".into(),
+            Self::RTL => "rtl".into(),
+            Self::TTB => "ttb".into(),
+            Self::BTT => "btt".into(),
+        }
     }
 }
 

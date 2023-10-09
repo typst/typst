@@ -1,8 +1,8 @@
 use std::fmt::{self, Debug, Formatter};
 
-use ecow::{eco_format, EcoVec};
+use ecow::{eco_format, EcoString, EcoVec};
 
-use super::{func, scope, ty, Array, Dict, FromValue, IntoValue, Str, Value};
+use super::{func, scope, ty, Array, Dict, FromValue, IntoValue, Repr, Str, Value};
 use crate::diag::{bail, At, SourceDiagnostic, SourceResult};
 use crate::syntax::{Span, Spanned};
 use crate::util::pretty_array_like;
@@ -47,7 +47,7 @@ pub struct Args {
 }
 
 /// An argument to a function call: `12` or `draw: false`.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Arg {
     /// The span of the whole argument.
     pub span: Span,
@@ -252,18 +252,23 @@ impl Args {
 
 impl Debug for Args {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let pieces: Vec<_> =
-            self.items.iter().map(|arg| eco_format!("{arg:?}")).collect();
-        f.write_str(&pretty_array_like(&pieces, false))
+        f.debug_list().entries(&self.items).finish()
     }
 }
 
-impl Debug for Arg {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Repr for Args {
+    fn repr(&self) -> EcoString {
+        let pieces = self.items.iter().map(Arg::repr).collect::<Vec<_>>();
+        pretty_array_like(&pieces, false).into()
+    }
+}
+
+impl Repr for Arg {
+    fn repr(&self) -> EcoString {
         if let Some(name) = &self.name {
-            f.write_str(name)?;
-            f.write_str(": ")?;
+            eco_format!("{}: {}", name, self.value.v.repr())
+        } else {
+            self.value.v.repr()
         }
-        Debug::fmt(&self.value.v, f)
     }
 }

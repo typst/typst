@@ -1,6 +1,7 @@
 use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
+use crate::eval::Version;
 use crate::geom::{Align, Length, Rel, Stroke};
 
 use super::{IntoValue, Type, Value};
@@ -16,6 +17,10 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
 
     // Special cases, such as module and dict, are handled by Value itself
     let result = match value {
+        Value::Version(version) => match version.component(field) {
+            Ok(i) => i.into_value(),
+            Err(_) => return missing(),
+        },
         Value::Length(length) => match field {
             "em" => length.em.get().into_value(),
             "abs" => length.abs.into_value(),
@@ -34,7 +39,9 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
                     "cap" => stroke.line_cap.into_value(),
                     "join" => stroke.line_join.into_value(),
                     "dash" => stroke.dash_pattern.clone().into_value(),
-                    "miter-limit" => stroke.miter_limit.map(|limit| limit.0).into_value(),
+                    "miter-limit" => {
+                        stroke.miter_limit.map(|limit| limit.get()).into_value()
+                    }
                     _ => return missing(),
                 }
             } else if let Some(align) = dynamic.downcast::<Align>() {
@@ -67,7 +74,9 @@ fn missing_field(ty: Type, field: &str) -> EcoString {
 
 /// List the available fields for a type.
 pub fn fields_on(ty: Type) -> &'static [&'static str] {
-    if ty == Type::of::<Length>() {
+    if ty == Type::of::<Version>() {
+        &Version::COMPONENTS
+    } else if ty == Type::of::<Length>() {
         &["em", "abs"]
     } else if ty == Type::of::<Rel>() {
         &["ratio", "length"]

@@ -161,7 +161,7 @@ fn assemble(
         baseline = full / 2.0 + axis;
     }
 
-    let mut frame = Frame::new(size);
+    let mut frame = Frame::soft(size);
     let mut offset = Abs::zero();
     frame.set_baseline(baseline);
     frame.meta_iter(base.meta);

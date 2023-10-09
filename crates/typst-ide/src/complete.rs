@@ -4,20 +4,20 @@ use std::collections::{BTreeSet, HashSet};
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
+use typst::doc::Frame;
+use typst::eval::{
+    format_str, AutoValue, CastInfo, Func, Library, NoneValue, Repr, Scope, Type, Value,
+};
+use typst::geom::Color;
+use typst::syntax::{
+    ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
+};
+use typst::util::separated_list;
+use typst::World;
 use unscanny::Scanner;
 
 use super::analyze::analyze_labels;
 use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
-use crate::doc::Frame;
-use crate::eval::{
-    format_str, AutoValue, CastInfo, Func, Library, NoneValue, Scope, Type, Value,
-};
-use crate::geom::Color;
-use crate::syntax::{
-    ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
-};
-use crate::util::separated_list;
-use crate::World;
 
 /// Autocomplete a cursor position in a source file.
 ///
@@ -27,7 +27,7 @@ use crate::World;
 /// When `explicit` is `true`, the user requested the completion by pressing
 /// control and space or something similar.
 pub fn autocomplete(
-    world: &(dyn World + 'static),
+    world: &dyn World,
     frames: &[Frame],
     source: &Source,
     cursor: usize,
@@ -365,7 +365,7 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         }
     }
 
-    for &(method, args) in crate::eval::mutable_methods_on(value.ty()) {
+    for &(method, args) in typst::eval::mutable_methods_on(value.ty()) {
         ctx.completions.push(Completion {
             kind: CompletionKind::Func,
             label: method.into(),
@@ -378,7 +378,7 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         })
     }
 
-    for &field in crate::eval::fields_on(value.ty()) {
+    for &field in typst::eval::fields_on(value.ty()) {
         // Complete the field name along with its value. Notes:
         // 1. No parentheses since function fields cannot currently be called
         // with method syntax;
@@ -457,10 +457,9 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
         if let Some(ast::Expr::Import(import)) = prev.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
         if let Some(source) = prev.children().find(|child| child.is::<ast::Expr>());
-        if let Some(value) = analyze_expr(ctx.world, &source).into_iter().next();
         then {
             ctx.from = ctx.cursor;
-            import_item_completions(ctx, items, &value);
+            import_item_completions(ctx, items, &source);
             return true;
         }
     }
@@ -475,10 +474,9 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
         if let Some(ast::Expr::Import(import)) = grand.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
         if let Some(source) = grand.children().find(|child| child.is::<ast::Expr>());
-        if let Some(value) = analyze_expr(ctx.world, &source).into_iter().next();
         then {
             ctx.from = ctx.leaf.offset();
-            import_item_completions(ctx, items, &value);
+            import_item_completions(ctx, items, &source);
             return true;
         }
     }
@@ -490,22 +488,16 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
 fn import_item_completions<'a>(
     ctx: &mut CompletionContext<'a>,
     existing: ast::ImportItems<'a>,
-    value: &Value,
+    source: &LinkedNode,
 ) {
-    let module = match value {
-        Value::Str(path) => match analyze_import(ctx.world, ctx.source, path) {
-            Some(module) => module,
-            None => return,
-        },
-        Value::Module(module) => module.clone(),
-        _ => return,
-    };
+    let Some(value) = analyze_import(ctx.world, source) else { return };
+    let Some(scope) = value.scope() else { return };
 
     if existing.iter().next().is_none() {
         ctx.snippet_completion("*", "*", "Import everything.");
     }
 
-    for (name, value) in module.scope().iter() {
+    for (name, value) in scope.iter() {
         if existing.iter().all(|item| item.original_name().as_str() != name) {
             ctx.value_completion(Some(name.clone()), value, false, None);
         }
@@ -952,10 +944,9 @@ fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
 
 /// Context for autocompletion.
 struct CompletionContext<'a> {
-    world: &'a (dyn World + 'static),
+    world: &'a (dyn World + 'a),
     frames: &'a [Frame],
     library: &'a Library,
-    source: &'a Source,
     global: &'a Scope,
     math: &'a Scope,
     text: &'a str,
@@ -972,7 +963,7 @@ struct CompletionContext<'a> {
 impl<'a> CompletionContext<'a> {
     /// Create a new autocompletion context.
     fn new(
-        world: &'a (dyn World + 'static),
+        world: &'a (dyn World + 'a),
         frames: &'a [Frame],
         source: &'a Source,
         cursor: usize,
@@ -985,7 +976,6 @@ impl<'a> CompletionContext<'a> {
             world,
             frames,
             library,
-            source,
             global: library.global.scope(),
             math: library.math.scope(),
             text,
@@ -1099,14 +1089,14 @@ impl<'a> CompletionContext<'a> {
         docs: Option<&str>,
     ) {
         let at = label.as_deref().map_or(false, |field| !is_ident(field));
-        let label = label.unwrap_or_else(|| value.repr().into());
+        let label = label.unwrap_or_else(|| value.repr());
 
         let detail = docs.map(Into::into).or_else(|| match value {
             Value::Symbol(_) => None,
             Value::Func(func) => func.docs().map(plain_docs_sentence),
             v => {
                 let repr = v.repr();
-                (repr.as_str() != label).then(|| repr.into())
+                (repr.as_str() != label).then_some(repr)
             }
         });
 
@@ -1146,7 +1136,7 @@ impl<'a> CompletionContext<'a> {
     /// Add completions for a castable.
     fn cast_completions(&mut self, cast: &'a CastInfo) {
         // Prevent duplicate completions from appearing.
-        if !self.seen_casts.insert(crate::util::hash128(cast)) {
+        if !self.seen_casts.insert(typst::util::hash128(cast)) {
             return;
         }
 
@@ -1179,6 +1169,26 @@ impl<'a> CompletionContext<'a> {
                         "cmyk(${c}, ${m}, ${y}, ${k})",
                         "A custom CMYK color.",
                     );
+                    self.snippet_completion(
+                        "oklab()",
+                        "oklab(${l}, ${a}, ${b}, ${alpha})",
+                        "A custom Oklab color.",
+                    );
+                    self.snippet_completion(
+                        "color.linear-rgb()",
+                        "color.linear-rgb(${r}, ${g}, ${b}, ${a})",
+                        "A custom linear RGBA color.",
+                    );
+                    self.snippet_completion(
+                        "color.hsv()",
+                        "color.hsv(${h}, ${s}, ${v}, ${a})",
+                        "A custom HSVA color.",
+                    );
+                    self.snippet_completion(
+                        "color.hsl()",
+                        "color.hsl(${h}, ${s}, ${l}, ${a})",
+                        "A custom HSLA color.",
+                    );
                     self.scope_completions(false, |value| value.ty() == *ty);
                 } else if *ty == Type::of::<Func>() {
                     self.snippet_completion(
@@ -1205,6 +1215,7 @@ impl<'a> CompletionContext<'a> {
     }
 
     /// Add completions for definitions that are available at the cursor.
+    ///
     /// Filters the global/math scope with the given filter.
     fn scope_completions(&mut self, parens: bool, filter: impl Fn(&Value) -> bool) {
         let mut defined = BTreeSet::new();
@@ -1213,20 +1224,47 @@ impl<'a> CompletionContext<'a> {
         while let Some(node) = &ancestor {
             let mut sibling = Some(node.clone());
             while let Some(node) = &sibling {
-                if let Some(v) = node.get().cast::<ast::LetBinding>() {
+                if let Some(v) = node.cast::<ast::LetBinding>() {
                     for ident in v.kind().idents() {
-                        defined.insert(ident.get());
+                        defined.insert(ident.get().clone());
                     }
                 }
+
+                if let Some(v) = node.cast::<ast::ModuleImport>() {
+                    let imports = v.imports();
+                    match imports {
+                        None | Some(ast::Imports::Wildcard) => {
+                            if let Some(value) = node
+                                .children()
+                                .find(|child| child.is::<ast::Expr>())
+                                .and_then(|source| analyze_import(self.world, &source))
+                            {
+                                if imports.is_none() {
+                                    defined.extend(value.name().map(Into::into));
+                                } else if let Some(scope) = value.scope() {
+                                    for (name, _) in scope.iter() {
+                                        defined.insert(name.clone());
+                                    }
+                                }
+                            }
+                        }
+                        Some(ast::Imports::Items(items)) => {
+                            for item in items.iter() {
+                                defined.insert(item.bound_name().get().clone());
+                            }
+                        }
+                    }
+                }
+
                 sibling = node.prev_sibling();
             }
 
             if let Some(parent) = node.parent() {
-                if let Some(v) = parent.get().cast::<ast::ForLoop>() {
+                if let Some(v) = parent.cast::<ast::ForLoop>() {
                     if node.prev_sibling_kind() != Some(SyntaxKind::In) {
                         let pattern = v.pattern();
                         for ident in pattern.idents() {
-                            defined.insert(ident.get());
+                            defined.insert(ident.get().clone());
                         }
                     }
                 }
@@ -1257,7 +1295,7 @@ impl<'a> CompletionContext<'a> {
             if !name.is_empty() {
                 self.completions.push(Completion {
                     kind: CompletionKind::Constant,
-                    label: name.clone(),
+                    label: name,
                     apply: None,
                     detail: None,
                 });

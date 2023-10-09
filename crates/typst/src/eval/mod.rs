@@ -31,6 +31,7 @@ mod scope;
 mod symbol;
 mod tracer;
 mod ty;
+mod version;
 
 #[doc(hidden)]
 pub use {
@@ -50,8 +51,12 @@ pub use self::cast::{
 pub use self::datetime::Datetime;
 pub use self::dict::{dict, Dict};
 pub use self::duration::Duration;
-pub use self::func::{func, Func, NativeFunc, NativeFuncData, ParamInfo};
+pub use self::fields::fields_on;
+pub use self::func::{
+    func, CapturesVisitor, Func, NativeFunc, NativeFuncData, ParamInfo,
+};
 pub use self::library::{set_lang_items, LangItems, Library};
+pub use self::methods::mutable_methods_on;
 pub use self::module::Module;
 pub use self::none::NoneValue;
 pub use self::plugin::Plugin;
@@ -60,21 +65,18 @@ pub use self::str::{format_str, Regex, Str};
 pub use self::symbol::{symbols, Symbol};
 pub use self::tracer::Tracer;
 pub use self::ty::{scope, ty, NativeType, NativeTypeData, Type};
-pub use self::value::{Dynamic, Value};
-
-pub(crate) use self::fields::fields_on;
-pub(crate) use self::methods::mutable_methods_on;
+pub use self::value::{Dynamic, Repr, Value};
+pub use self::version::Version;
 
 use std::collections::HashSet;
 use std::mem;
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::{EcoString, EcoVec};
-use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 
-use self::func::{CapturesVisitor, Closure};
+use self::func::Closure;
 use crate::diag::{
     bail, error, warning, At, FileError, Hint, SourceDiagnostic, SourceResult, StrResult,
     Trace, Tracepoint,
@@ -254,7 +256,7 @@ pub struct Vm<'a> {
 
 impl<'a> Vm<'a> {
     /// Create a new virtual machine.
-    fn new(
+    pub fn new(
         vt: Vt<'a>,
         route: Tracked<'a, Route>,
         file: Option<FileId>,
@@ -1340,7 +1342,7 @@ impl Eval for ast::Closure<'_> {
 
         // Collect captured variables.
         let captured = {
-            let mut visitor = CapturesVisitor::new(&vm.scopes);
+            let mut visitor = CapturesVisitor::new(Some(&vm.scopes));
             visitor.visit(self.to_untyped());
             visitor.finish()
         };
@@ -1731,120 +1733,84 @@ impl Eval for ast::ForLoop<'_> {
     }
 }
 
-/// Applies imports from `import` to the current scope.
-fn apply_imports<V: IntoValue + Clone>(
-    imports: Option<ast::Imports>,
-    vm: &mut Vm,
-    source_value: V,
-    new_name: Option<&str>,
-    name: impl FnOnce(&V) -> EcoString,
-    scope: impl Fn(&V) -> &Scope,
-) -> SourceResult<()> {
-    if let Some(new_name) = new_name {
-        // Renamed module => define it on the scope (possibly with further items).
-        if imports.is_none() {
-            // Avoid unneeded clone when there are no imported items.
-            vm.scopes.top.define(new_name, source_value);
-            return Ok(());
-        } else {
-            vm.scopes.top.define(new_name, source_value.clone());
-        }
-    }
-
-    match imports {
-        None => {
-            // If the module were renamed and there were no imported items, we
-            // would have returned above. It is therefore safe to import the
-            // module with its original name here.
-            vm.scopes.top.define(name(&source_value), source_value);
-        }
-        Some(ast::Imports::Wildcard) => {
-            for (var, value) in scope(&source_value).iter() {
-                vm.scopes.top.define(var.clone(), value.clone());
-            }
-        }
-        Some(ast::Imports::Items(items)) => {
-            let mut errors = vec![];
-            let scope = scope(&source_value);
-            for item in items.iter() {
-                let original_ident = item.original_name();
-                if let Some(value) = scope.get(&original_ident) {
-                    if let ast::ImportItem::Renamed(renamed_item) = &item {
-                        if renamed_item.original_name().as_str()
-                            == renamed_item.new_name().as_str()
-                        {
-                            vm.vt.tracer.warn(warning!(
-                                renamed_item.new_name().span(),
-                                "unnecessary import rename to same name",
-                            ));
-                        }
-                    }
-                    vm.define(item.bound_name(), value.clone());
-                } else {
-                    errors.push(error!(original_ident.span(), "unresolved import"));
-                }
-            }
-            if !errors.is_empty() {
-                return Err(Box::new(errors));
-            }
-        }
-    }
-
-    Ok(())
-}
-
 impl Eval for ast::ModuleImport<'_> {
     type Output = Value;
 
     #[tracing::instrument(name = "ModuleImport::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let span = self.source().span();
-        let source = self.source().eval(vm)?;
-        let new_name_ident = self.new_name();
-        let new_name = new_name_ident.map(ast::Ident::as_str);
-        if_chain! {
-            if let Some(new_name_ident) = new_name_ident;
-            if let ast::Expr::Ident(ident) = self.source();
-            if ident.as_str() == new_name_ident.as_str();
-            then {
-                // warn on `import x as x`
-                vm.vt.tracer.warn(warning!(
-                    new_name_ident.span(),
-                    "unnecessary import rename to same name",
-                ));
+        let source = self.source();
+        let source_span = source.span();
+        let mut source = source.eval(vm)?;
+        let new_name = self.new_name();
+        let imports = self.imports();
+
+        match &source {
+            Value::Func(func) => {
+                if func.scope().is_none() {
+                    bail!(source_span, "cannot import from user-defined functions");
+                }
+            }
+            Value::Type(_) => {}
+            other => {
+                source = Value::Module(import(vm, other.clone(), source_span, true)?);
             }
         }
-        if let Value::Func(func) = source {
-            let Some(scope) = func.scope() else {
-                bail!(span, "cannot import from user-defined functions");
-            };
-            apply_imports(
-                self.imports(),
-                vm,
-                func,
-                new_name,
-                |func| func.name().unwrap_or_default().into(),
-                |_| scope,
-            )?;
-        } else if let Value::Type(ty) = source {
-            apply_imports(
-                self.imports(),
-                vm,
-                ty,
-                new_name,
-                |ty| ty.short_name().into(),
-                |ty| ty.scope(),
-            )?;
-        } else {
-            let module = import(vm, source, span, true)?;
-            apply_imports(
-                self.imports(),
-                vm,
-                module,
-                new_name,
-                |module| module.name().clone(),
-                |module| module.scope(),
-            )?;
+
+        if let Some(new_name) = &new_name {
+            if let ast::Expr::Ident(ident) = self.source() {
+                if ident.as_str() == new_name.as_str() {
+                    // Warn on `import x as x`
+                    vm.vt.tracer.warn(warning!(
+                        new_name.span(),
+                        "unnecessary import rename to same name",
+                    ));
+                }
+            }
+
+            // Define renamed module on the scope.
+            vm.scopes.top.define(new_name.as_str(), source.clone());
+        }
+
+        let scope = source.scope().unwrap();
+        match imports {
+            None => {
+                // Only import here if there is no rename.
+                if new_name.is_none() {
+                    let name: EcoString = source.name().unwrap().into();
+                    vm.scopes.top.define(name, source);
+                }
+            }
+            Some(ast::Imports::Wildcard) => {
+                for (var, value) in scope.iter() {
+                    vm.scopes.top.define(var.clone(), value.clone());
+                }
+            }
+            Some(ast::Imports::Items(items)) => {
+                let mut errors = vec![];
+                for item in items.iter() {
+                    let original_ident = item.original_name();
+                    if let Some(value) = scope.get(&original_ident) {
+                        // Warn on `import ...: x as x`
+                        if let ast::ImportItem::Renamed(renamed_item) = &item {
+                            if renamed_item.original_name().as_str()
+                                == renamed_item.new_name().as_str()
+                            {
+                                vm.vt.tracer.warn(warning!(
+                                    renamed_item.new_name().span(),
+                                    "unnecessary import rename to same name",
+                                ));
+                            }
+                        }
+
+                        vm.define(item.bound_name(), value.clone());
+                    } else {
+                        errors.push(error!(original_ident.span(), "unresolved import"));
+                    }
+                }
+                if !errors.is_empty() {
+                    return Err(Box::new(errors));
+                }
+            }
         }
 
         Ok(Value::None)
@@ -1864,7 +1830,7 @@ impl Eval for ast::ModuleInclude<'_> {
 }
 
 /// Process an import of a module relative to the current location.
-fn import(
+pub fn import(
     vm: &mut Vm,
     source: Value,
     span: Span,
@@ -1873,13 +1839,10 @@ fn import(
     let path = match source {
         Value::Str(path) => path,
         Value::Module(module) => return Ok(module),
-        v => {
-            if allow_scopes {
-                bail!(span, "expected path, module, function, or type, found {}", v.ty())
-            } else {
-                bail!(span, "expected path or module, found {}", v.ty())
-            }
+        v if allow_scopes => {
+            bail!(span, "expected path, module, function, or type, found {}", v.ty())
         }
+        v => bail!(span, "expected path or module, found {}", v.ty()),
     };
 
     // Handle package and file imports.

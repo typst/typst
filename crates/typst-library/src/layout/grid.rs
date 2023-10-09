@@ -114,6 +114,7 @@ impl Layout for GridElem {
             &cells,
             regions,
             styles,
+            self.span(),
         );
 
         // Measure the columns and layout the grid row-by-row.
@@ -161,6 +162,8 @@ pub struct GridLayouter<'a> {
     initial: Size,
     /// Frames for finished regions.
     finished: Vec<Frame>,
+    /// The span of the grid element.
+    span: Span,
 }
 
 /// The resulting sizes of columns and rows in a grid.
@@ -202,6 +205,7 @@ impl<'a> GridLayouter<'a> {
         cells: &'a [Content],
         regions: Regions<'a>,
         styles: StyleChain<'a>,
+        span: Span,
     ) -> Self {
         let mut cols = vec![];
         let mut rows = vec![];
@@ -272,6 +276,7 @@ impl<'a> GridLayouter<'a> {
             lrows: vec![],
             initial: regions.size,
             finished: vec![],
+            span,
         }
     }
 
@@ -563,7 +568,11 @@ impl<'a> GridLayouter<'a> {
         height: Abs,
         y: usize,
     ) -> SourceResult<Frame> {
-        let mut output = Frame::new(Size::new(self.width, height));
+        if !height.is_finite() {
+            bail!(error!(self.span, "cannot create grid with infinite height"));
+        }
+
+        let mut output = Frame::soft(Size::new(self.width, height));
         let mut pos = Point::zero();
 
         for (x, &rcol) in self.rcols.iter().enumerate() {
@@ -593,7 +602,7 @@ impl<'a> GridLayouter<'a> {
         // Prepare frames.
         let mut outputs: Vec<_> = heights
             .iter()
-            .map(|&h| Frame::new(Size::new(self.width, h)))
+            .map(|&h| Frame::soft(Size::new(self.width, h)))
             .collect();
 
         // Prepare regions.
@@ -647,7 +656,7 @@ impl<'a> GridLayouter<'a> {
         }
 
         // The frame for the region.
-        let mut output = Frame::new(size);
+        let mut output = Frame::soft(size);
         let mut pos = Point::zero();
         let mut rrows = vec![];
 

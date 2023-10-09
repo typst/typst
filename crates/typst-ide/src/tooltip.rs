@@ -1,21 +1,21 @@
 use std::fmt::Write;
 
 use ecow::{eco_format, EcoString};
-
 use if_chain::if_chain;
+use typst::doc::Frame;
+use typst::eval::{CapturesVisitor, CastInfo, Repr, Tracer, Value};
+use typst::geom::{round_2, Length, Numeric};
+use typst::syntax::ast::{self, AstNode};
+use typst::syntax::{LinkedNode, Source, SyntaxKind};
+use typst::util::{pretty_comma_list, separated_list};
+use typst::World;
 
 use super::analyze::analyze_labels;
 use super::{analyze_expr, plain_docs_sentence, summarize_font_family};
-use crate::doc::Frame;
-use crate::eval::{CastInfo, Tracer, Value};
-use crate::geom::{round_2, Length, Numeric};
-use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
-use crate::util::pretty_comma_list;
-use crate::World;
 
 /// Describe the item under the cursor.
 pub fn tooltip(
-    world: &(dyn World + 'static),
+    world: &dyn World,
     frames: &[Frame],
     source: &Source,
     cursor: usize,
@@ -29,6 +29,7 @@ pub fn tooltip(
         .or_else(|| font_tooltip(world, &leaf))
         .or_else(|| ref_tooltip(world, frames, &leaf))
         .or_else(|| expr_tooltip(world, &leaf))
+        .or_else(|| closure_tooltip(&leaf))
 }
 
 /// A hover tooltip.
@@ -41,7 +42,7 @@ pub enum Tooltip {
 }
 
 /// Tooltip for a hovered expression.
-fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tooltip> {
+fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
     let mut ancestor = leaf;
     while !ancestor.is::<ast::Expr>() {
         ancestor = ancestor.parent()?;
@@ -82,7 +83,7 @@ fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tool
                 write!(pieces.last_mut().unwrap(), " (x{count})").unwrap();
             }
         }
-        pieces.push(value.repr().into());
+        pieces.push(value.repr());
         last = Some((value, 1));
     }
 
@@ -100,6 +101,32 @@ fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tool
     (!tooltip.is_empty()).then(|| Tooltip::Code(tooltip.into()))
 }
 
+/// Tooltip for a hovered closure.
+fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
+    // Find the closure to analyze.
+    let mut ancestor = leaf;
+    while !ancestor.is::<ast::Closure>() {
+        ancestor = ancestor.parent()?;
+    }
+    let closure = ancestor.cast::<ast::Closure>()?.to_untyped();
+
+    // Analyze the closure's captures.
+    let mut visitor = CapturesVisitor::new(None);
+    visitor.visit(closure);
+
+    let captures = visitor.finish();
+    let mut names: Vec<_> =
+        captures.iter().map(|(name, _)| eco_format!("`{name}`")).collect();
+    if names.is_empty() {
+        return None;
+    }
+
+    names.sort();
+
+    let tooltip = separated_list(&names, "and");
+    Some(Tooltip::Text(eco_format!("This closure captures {tooltip}.")))
+}
+
 /// Tooltip text for a hovered length.
 fn length_tooltip(length: Length) -> Option<Tooltip> {
     length.em.is_zero().then(|| {
@@ -115,7 +142,7 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
 
 /// Tooltip for a hovered reference.
 fn ref_tooltip(
-    world: &(dyn World + 'static),
+    world: &dyn World,
     frames: &[Frame],
     leaf: &LinkedNode,
 ) -> Option<Tooltip> {
@@ -134,10 +161,7 @@ fn ref_tooltip(
 }
 
 /// Tooltips for components of a named parameter.
-fn named_param_tooltip(
-    world: &(dyn World + 'static),
-    leaf: &LinkedNode,
-) -> Option<Tooltip> {
+fn named_param_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
     let (func, named) = if_chain! {
         // Ensure that we are in a named pair in the arguments to a function
         // call or set rule.

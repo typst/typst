@@ -13,28 +13,28 @@ use super::*;
 /// Left #h(1fr) Left-ish #h(2fr) Right
 /// ```
 #[ty(name = "fraction")]
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Fr(Scalar);
 
 impl Fr {
     /// Takes up zero space: `0fr`.
     pub const fn zero() -> Self {
-        Self(Scalar(0.0))
+        Self(Scalar::ZERO)
     }
 
     /// Takes up as much space as all other items with this fraction: `1fr`.
     pub const fn one() -> Self {
-        Self(Scalar(1.0))
+        Self(Scalar::ONE)
     }
 
     /// Create a new fraction.
     pub const fn new(ratio: f64) -> Self {
-        Self(Scalar(ratio))
+        Self(Scalar::new(ratio))
     }
 
     /// Get the underlying number.
     pub const fn get(self) -> f64 {
-        (self.0).0
+        (self.0).get()
     }
 
     /// The absolute value of this fraction.
@@ -63,9 +63,9 @@ impl Numeric for Fr {
     }
 }
 
-impl Debug for Fr {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}fr", round_2(self.get()))
+impl Repr for Fr {
+    fn repr(&self) -> EcoString {
+        format_float(self.get(), Some(2), "fr")
     }
 }
 

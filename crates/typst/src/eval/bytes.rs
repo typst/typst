@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Deref};
 use std::sync::Arc;
 
@@ -7,7 +7,7 @@ use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
 
-use super::{cast, func, scope, ty, Array, Reflect, Str, Value};
+use super::{cast, func, scope, ty, Array, Reflect, Repr, Str, Value};
 use crate::diag::{bail, StrResult};
 
 /// A sequence of bytes.
@@ -38,7 +38,7 @@ use crate::diag::{bail, StrResult};
 /// #str(data.slice(1, 4))
 /// ```
 #[ty(scope)]
-#[derive(Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct Bytes(Arc<Prehashed<Cow<'static, [u8]>>>);
 
 impl Bytes {
@@ -179,9 +179,9 @@ impl AsRef<[u8]> for Bytes {
     }
 }
 
-impl Debug for Bytes {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "bytes({})", self.len())
+impl Repr for Bytes {
+    fn repr(&self) -> EcoString {
+        eco_format!("bytes({})", self.len())
     }
 }
 

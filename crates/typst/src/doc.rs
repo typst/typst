@@ -6,15 +6,14 @@ use std::ops::Range;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use ecow::EcoString;
+use ecow::{eco_format, EcoString};
 
-use crate::eval::{cast, dict, ty, Dict, Value};
+use crate::eval::{cast, dict, ty, Dict, Repr, Value};
 use crate::export::PdfPageLabel;
 use crate::font::Font;
 use crate::geom::{
-    self, rounded_rect, Abs, Axes, Color, Corners, Dir, Em, FixedAlign, FixedStroke,
-    Geometry, Length, Numeric, Paint, Point, Rel, RgbaColor, Shape, Sides, Size,
-    Transform,
+    self, styled_rect, Abs, Axes, Color, Corners, Dir, Em, FixedAlign, FixedStroke,
+    Geometry, Length, Numeric, Paint, Point, Rel, Shape, Sides, Size, Transform,
 };
 use crate::image::Image;
 use crate::model::{Content, Location, MetaElem, StyleChain};
@@ -29,6 +28,8 @@ pub struct Document {
     pub title: Option<EcoString>,
     /// The document's author.
     pub author: Vec<EcoString>,
+    /// The document's keywords.
+    pub keywords: Vec<EcoString>,
 }
 
 /// A finished layout with items at fixed positions.
@@ -41,6 +42,8 @@ pub struct Frame {
     baseline: Option<Abs>,
     /// The items composing this layout.
     items: Arc<Vec<(Point, FrameItem)>>,
+    /// The hardness of this frame.
+    kind: FrameKind,
 }
 
 /// Constructor, accessors and setters.
@@ -49,9 +52,40 @@ impl Frame {
     ///
     /// Panics the size is not finite.
     #[track_caller]
-    pub fn new(size: Size) -> Self {
+    pub fn new(size: Size, kind: FrameKind) -> Self {
         assert!(size.is_finite());
-        Self { size, baseline: None, items: Arc::new(vec![]) }
+        Self {
+            size,
+            baseline: None,
+            items: Arc::new(vec![]),
+            kind,
+        }
+    }
+
+    /// Create a new, empty soft frame.
+    ///
+    /// Panics the size is not finite.
+    #[track_caller]
+    pub fn soft(size: Size) -> Self {
+        Self::new(size, FrameKind::Soft)
+    }
+
+    /// Create a new, empty hard frame.
+    ///
+    /// Panics if the size is not finite.
+    #[track_caller]
+    pub fn hard(size: Size) -> Self {
+        Self::new(size, FrameKind::Hard)
+    }
+
+    /// Sets the frame's hardness.
+    pub fn set_kind(&mut self, kind: FrameKind) {
+        self.kind = kind;
+    }
+
+    /// Whether the frame is hard or soft.
+    pub fn kind(&self) -> FrameKind {
+        self.kind
     }
 
     /// Whether the frame contains no items.
@@ -184,7 +218,8 @@ impl Frame {
 
     /// Whether the given frame should be inlined.
     fn should_inline(&self, frame: &Frame) -> bool {
-        self.items.is_empty() || frame.items.len() <= 5
+        // We do not inline big frames and hard frames.
+        frame.kind().is_soft() && (self.items.is_empty() || frame.items.len() <= 5)
     }
 
     /// Inline a frame at the given layer.
@@ -302,9 +337,8 @@ impl Frame {
         let outset = outset.relative_to(self.size());
         let size = self.size() + outset.sum_by_axis();
         let pos = Point::new(-outset.left, -outset.top);
-        let radius = radius.map(|side| side.relative_to(size.x.min(size.y) / 2.0));
         self.prepend_multiple(
-            rounded_rect(size, radius, fill, stroke)
+            styled_rect(size, radius, fill, stroke)
                 .into_iter()
                 .map(|x| (pos, FrameItem::Shape(x, span))),
         )
@@ -329,7 +363,7 @@ impl Frame {
     where
         F: FnOnce(&mut GroupItem),
     {
-        let mut wrapper = Frame::new(self.size);
+        let mut wrapper = Frame::soft(self.size);
         wrapper.baseline = self.baseline;
         let mut group = GroupItem::new(std::mem::take(self));
         f(&mut group);
@@ -352,8 +386,7 @@ impl Frame {
             0,
             Point::zero(),
             FrameItem::Shape(
-                Geometry::Rect(self.size)
-                    .filled(RgbaColor { a: 100, ..Color::TEAL.to_rgba() }.into()),
+                Geometry::Rect(self.size).filled(Color::TEAL.with_alpha(0.5).into()),
                 Span::detached(),
             ),
         );
@@ -405,6 +438,35 @@ impl Debug for Frame {
         f.debug_list()
             .entries(self.items.iter().map(|(_, item)| item))
             .finish()
+    }
+}
+
+/// The hardness of a frame.
+///
+/// This corresponds to whether or not the frame is considered to be the
+/// innermost parent of its contents. This is used to determine the coordinate
+/// reference system for gradients.
+#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum FrameKind {
+    /// A container which follows its parent's size.
+    ///
+    /// Soft frames are the default since they do not impact the layout of
+    /// a gradient set on one of its children.
+    #[default]
+    Soft,
+    /// A container which uses its own size.
+    Hard,
+}
+
+impl FrameKind {
+    /// Returns `true` if the frame is soft.
+    pub fn is_soft(self) -> bool {
+        matches!(self, Self::Soft)
+    }
+
+    /// Returns `true` if the frame is hard.
+    pub fn is_hard(self) -> bool {
+        matches!(self, Self::Hard)
     }
 }
 
@@ -586,6 +648,8 @@ impl Lang {
     pub const TURKISH: Self = Self(*b"tr ", 2);
     pub const UKRAINIAN: Self = Self(*b"ua ", 2);
     pub const VIETNAMESE: Self = Self(*b"vi ", 2);
+    pub const HUNGARIAN: Self = Self(*b"hu ", 2);
+    pub const ROMANIAN: Self = Self(*b"ro ", 2);
 
     /// Return the language code as an all lowercase string slice.
     pub fn as_str(&self) -> &str {
@@ -698,6 +762,12 @@ impl Debug for Meta {
     }
 }
 
+impl Repr for Meta {
+    fn repr(&self) -> EcoString {
+        eco_format!("{self:?}")
+    }
+}
+
 /// A link destination.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Destination {
@@ -707,6 +777,12 @@ pub enum Destination {
     Position(Position),
     /// An unresolved link to a location in the document.
     Location(Location),
+}
+
+impl Repr for Destination {
+    fn repr(&self) -> EcoString {
+        eco_format!("{self:?}")
+    }
 }
 
 cast! {

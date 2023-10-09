@@ -21,7 +21,7 @@ use serde::Deserialize;
 use serde_yaml as yaml;
 use typst::diag::{bail, StrResult};
 use typst::doc::Frame;
-use typst::eval::{CastInfo, Func, Library, Module, ParamInfo, Scope, Type, Value};
+use typst::eval::{CastInfo, Func, Library, Module, ParamInfo, Repr, Scope, Type, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Smart};
 use typst_library::layout::{Margin, PageElem};
@@ -382,7 +382,7 @@ fn param_model(resolver: &dyn Resolver, info: &ParamInfo) -> ParamModel {
         strings,
         default: info.default.map(|default| {
             let node = typst::syntax::parse_code(&default().repr());
-            Html::new(typst::ide::highlight_html(&node))
+            Html::new(typst::syntax::highlight_html(&node))
         }),
         positional: info.positional,
         named: info.named,
@@ -731,6 +731,7 @@ const TYPE_ORDER: &[&str] = &[
     "relative",
     "fraction",
     "color",
+    "gradient",
     "datetime",
     "duration",
     "str",

@@ -163,6 +163,7 @@ impl Layout for TableElem {
             &cells,
             regions,
             styles,
+            self.span(),
         );
 
         // Measure the columns and layout the grid row-by-row.
@@ -314,10 +315,12 @@ impl LocalName for TableElem {
             Lang::FINNISH => "Taulukko",
             Lang::FRENCH => "Tableau",
             Lang::GERMAN => "Tabelle",
+            Lang::HUNGARIAN => "Táblázat",
             Lang::ITALIAN => "Tabella",
             Lang::NYNORSK => "Tabell",
             Lang::POLISH => "Tabela",
             Lang::PORTUGUESE => "Tabela",
+            Lang::ROMANIAN => "Tabelul",
             Lang::RUSSIAN => "Таблица",
             Lang::SLOVENIAN => "Tabela",
             Lang::SPANISH => "Tabla",

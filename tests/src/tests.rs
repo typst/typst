@@ -22,10 +22,12 @@ use walkdir::WalkDir;
 
 use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
-use typst::eval::{eco_format, func, Bytes, Datetime, Library, NoneValue, Tracer, Value};
+use typst::eval::{
+    eco_format, func, Bytes, Datetime, Library, NoneValue, Repr, Tracer, Value,
+};
 use typst::font::{Font, FontBook};
-use typst::geom::{Abs, Color, RgbaColor, Smart};
-use typst::syntax::{FileId, PackageVersion, Source, Span, SyntaxNode, VirtualPath};
+use typst::geom::{Abs, Color, Smart};
+use typst::syntax::{FileId, PackageVersion, Source, SyntaxNode, VirtualPath};
 use typst::{World, WorldExt};
 use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
@@ -154,7 +156,15 @@ fn library() -> Library {
     #[func]
     fn test(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
         if lhs != rhs {
-            bail!("Assertion failed: {lhs:?} != {rhs:?}");
+            bail!("Assertion failed: {} != {}", lhs.repr(), rhs.repr());
+        }
+        Ok(NoneValue)
+    }
+
+    #[func]
+    fn test_repr(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
+        if lhs.repr() != rhs.repr() {
+            bail!("Assertion failed: {} != {}", lhs.repr(), rhs.repr());
         }
         Ok(NoneValue)
     }
@@ -188,13 +198,14 @@ fn library() -> Library {
 
     // Hook up helpers into the global scope.
     lib.global.scope_mut().define_func::<test>();
+    lib.global.scope_mut().define_func::<test_repr>();
     lib.global.scope_mut().define_func::<print>();
     lib.global
         .scope_mut()
-        .define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
+        .define("conifer", Color::from_u8(0x9f, 0xEB, 0x52, 0xFF));
     lib.global
         .scope_mut()
-        .define("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
+        .define("forest", Color::from_u8(0x43, 0xA1, 0x27, 0xFF));
 
     lib
 }
@@ -770,7 +781,6 @@ fn test_reparse(
     ];
 
     let mut ok = true;
-
     let mut apply = |replace: Range<usize>, with| {
         let mut incr_source = Source::detached(text);
         if incr_source.root().len() != text.len() {
@@ -786,18 +796,14 @@ fn test_reparse(
 
         let edited_src = incr_source.text();
         let ref_source = Source::detached(edited_src);
-        let mut ref_root = ref_source.root().clone();
-        let mut incr_root = incr_source.root().clone();
+        let ref_root = ref_source.root();
+        let incr_root = incr_source.root();
 
         // Ensures that the span numbering invariants hold.
-        let spans_ok = test_spans(output, &ref_root) && test_spans(output, &incr_root);
+        let spans_ok = test_spans(output, ref_root) && test_spans(output, incr_root);
 
-        // Remove all spans so that the comparison works out.
-        let tree_ok = {
-            ref_root.synthesize(Span::detached());
-            incr_root.synthesize(Span::detached());
-            ref_root == incr_root
-        };
+        // Ensure that the reference and incremental trees are the same.
+        let tree_ok = ref_root.spanless_eq(incr_root);
 
         if !tree_ok {
             writeln!(

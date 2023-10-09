@@ -12,13 +12,14 @@ mod dir;
 mod ellipse;
 mod em;
 mod fr;
+mod gradient;
 mod length;
 mod paint;
 mod path;
 mod point;
 mod ratio;
+mod rect;
 mod rel;
-mod rounded;
 mod scalar;
 mod shape;
 mod sides;
@@ -29,23 +30,22 @@ mod transform;
 
 pub use self::abs::{Abs, AbsUnit};
 pub use self::align::{Align, FixedAlign, HAlign, VAlign};
-pub use self::angle::{Angle, AngleUnit};
+pub use self::angle::{Angle, AngleUnit, Quadrant};
 pub use self::axes::{Axes, Axis};
-pub use self::color::{
-    CmykColor, Color, ColorSpace, LumaColor, RgbaColor, WeightedColor,
-};
+pub use self::color::{Color, ColorSpace, WeightedColor};
 pub use self::corners::{Corner, Corners};
 pub use self::dir::Dir;
 pub use self::ellipse::ellipse;
 pub use self::em::Em;
 pub use self::fr::Fr;
+pub use self::gradient::{Gradient, LinearGradient, RatioOrAngle, Relative};
 pub use self::length::Length;
 pub use self::paint::Paint;
 pub use self::path::{Path, PathItem};
 pub use self::point::Point;
 pub use self::ratio::Ratio;
+pub use self::rect::styled_rect;
 pub use self::rel::Rel;
-pub use self::rounded::rounded_rect;
 pub use self::scalar::Scalar;
 pub use self::shape::{Geometry, Shape};
 pub use self::sides::{Side, Sides};
@@ -61,9 +61,12 @@ use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::ops::*;
 
+use ecow::{eco_format, EcoString};
+
 use crate::diag::{bail, StrResult};
-use crate::eval::{array, cast, func, scope, ty, Array, Dict, Value};
+use crate::eval::{array, cast, func, scope, ty, Array, Dict, Repr, Value};
 use crate::model::{Fold, Resolve, StyleChain};
+use crate::util::fmt::format_float;
 
 /// Generic access to a structure's components.
 pub trait Get<Index> {

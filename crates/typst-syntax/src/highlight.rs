@@ -1,4 +1,4 @@
-use crate::syntax::{ast, LinkedNode, SyntaxKind, SyntaxNode};
+use crate::{ast, LinkedNode, SyntaxKind, SyntaxNode};
 
 /// A syntax highlighting tag.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -48,6 +48,31 @@ pub enum Tag {
 }
 
 impl Tag {
+    /// The list of all tags.
+    pub const LIST: &'static [Tag] = &[
+        Self::Comment,
+        Self::Punctuation,
+        Self::Escape,
+        Self::Strong,
+        Self::Emph,
+        Self::Link,
+        Self::Raw,
+        Self::MathDelimiter,
+        Self::MathOperator,
+        Self::Heading,
+        Self::ListMarker,
+        Self::ListTerm,
+        Self::Label,
+        Self::Ref,
+        Self::Keyword,
+        Self::Operator,
+        Self::Number,
+        Self::String,
+        Self::Function,
+        Self::Interpolated,
+        Self::Error,
+    ];
+
     /// Return the recommended TextMate grammar scope for the given highlighting
     /// tag.
     pub fn tm_scope(&self) -> &'static str {
@@ -380,7 +405,6 @@ mod tests {
     use std::ops::Range;
 
     use super::*;
-    use crate::syntax::parse;
 
     #[test]
     fn test_highlighting() {
@@ -389,7 +413,7 @@ mod tests {
         #[track_caller]
         fn test(text: &str, goal: &[(Range<usize>, Tag)]) {
             let mut vec = vec![];
-            let root = parse(text);
+            let root = crate::parse(text);
             highlight_tree(&mut vec, &LinkedNode::new(&root));
             assert_eq!(vec, goal);
         }

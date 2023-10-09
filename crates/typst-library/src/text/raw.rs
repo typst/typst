@@ -297,11 +297,7 @@ impl Synthesize for RawElem {
 
         let theme = theme.as_deref().unwrap_or(&THEME);
 
-        let foreground = theme
-            .settings
-            .foreground
-            .map(to_typst)
-            .map_or(Color::BLACK, Color::from);
+        let foreground = theme.settings.foreground.unwrap_or(synt::Color::BLACK);
 
         let mut seq = vec![];
         if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
@@ -432,6 +428,7 @@ impl LocalName for RawElem {
             Lang::ITALIAN => "Codice",
             Lang::NYNORSK => "Utskrift",
             Lang::POLISH => "Program",
+            Lang::ROMANIAN => "Listă", // TODO: I dunno
             Lang::RUSSIAN => "Листинг",
             Lang::SLOVENIAN => "Program",
             Lang::SPANISH => "Listado",
@@ -526,8 +523,8 @@ fn highlight_themed<F1, F2>(
         } 
 
         let mut scopes = scopes.clone();
-        if let Some(tag) = typst::ide::highlight(&child) {
-            scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap());
+        if let Some(tag) = typst::syntax::highlight(&child) {
+            scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap())
         }
 
         highlight_themed(&child, scopes, highlighter, line, content, style_fn, line_fn);
@@ -535,12 +532,11 @@ fn highlight_themed<F1, F2>(
 }
 
 /// Style a piece of text with a syntect style.
-fn styled(piece: &str, foreground: Paint, style: synt::Style) -> Content {
+fn styled(piece: &str, foreground: synt::Color, style: synt::Style) -> Content {
     let mut body = TextElem::packed(piece);
 
-    let paint = to_typst(style.foreground).into();
-    if paint != foreground {
-        body = body.styled(TextElem::set_fill(paint));
+    if style.foreground != foreground {
+        body = body.styled(TextElem::set_fill(to_typst(style.foreground).into()));
     }
 
     if style.font_style.contains(synt::FontStyle::BOLD) {
@@ -558,11 +554,12 @@ fn styled(piece: &str, foreground: Paint, style: synt::Style) -> Content {
     body
 }
 
-fn to_typst(synt::Color { r, g, b, a }: synt::Color) -> RgbaColor {
-    RgbaColor { r, g, b, a }
+fn to_typst(synt::Color { r, g, b, a }: synt::Color) -> Color {
+    Color::from_u8(r, g, b, a)
 }
 
-fn to_syn(RgbaColor { r, g, b, a }: RgbaColor) -> synt::Color {
+fn to_syn(color: Color) -> synt::Color {
+    let [r, g, b, a] = color.to_vec4_u8();
     synt::Color { r, g, b, a }
 }
 
@@ -732,7 +729,7 @@ fn item(
     synt::ThemeItem {
         scope: scope.parse().unwrap(),
         style: synt::StyleModifier {
-            foreground: color.map(|s| to_syn(s.parse::<RgbaColor>().unwrap())),
+            foreground: color.map(|s| to_syn(s.parse::<Color>().unwrap())),
             background: None,
             font_style,
         },

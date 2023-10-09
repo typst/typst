@@ -12,23 +12,23 @@ use super::*;
 /// #rotate(10deg)[Hello there!]
 /// ```
 #[ty(scope)]
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Angle(Scalar);
 
 impl Angle {
     /// The zero angle.
     pub const fn zero() -> Self {
-        Self(Scalar(0.0))
+        Self(Scalar::ZERO)
     }
 
     /// Create an angle from a number of raw units.
     pub const fn raw(raw: f64) -> Self {
-        Self(Scalar(raw))
+        Self(Scalar::new(raw))
     }
 
     /// Create an angle from a value in a unit.
     pub fn with_unit(val: f64, unit: AngleUnit) -> Self {
-        Self(Scalar(val * unit.raw_scale()))
+        Self(Scalar::new(val * unit.raw_scale()))
     }
 
     /// Create an angle from a number of radians.
@@ -43,7 +43,7 @@ impl Angle {
 
     /// Get the value of this angle in raw units.
     pub const fn to_raw(self) -> f64 {
-        (self.0).0
+        (self.0).get()
     }
 
     /// Get the value of this angle in a unit.
@@ -69,6 +69,28 @@ impl Angle {
     /// Get the tangent of this angle in radians.
     pub fn tan(self) -> f64 {
         self.to_rad().tan()
+    }
+
+    /// Get the quadrant of the Cartesian plane that this angle lies in.
+    ///
+    /// The angle is automatically normalized to the range `0deg..=360deg`.
+    ///
+    /// The quadrants are defined as follows:
+    /// - First: `0deg..=90deg` (top-right)
+    /// - Second: `90deg..=180deg` (top-left)
+    /// - Third: `180deg..=270deg` (bottom-left)
+    /// - Fourth: `270deg..=360deg` (bottom-right)
+    pub fn quadrant(self) -> Quadrant {
+        let angle = self.to_deg().rem_euclid(360.0);
+        if angle <= 90.0 {
+            Quadrant::First
+        } else if angle <= 180.0 {
+            Quadrant::Second
+        } else if angle <= 270.0 {
+            Quadrant::Third
+        } else {
+            Quadrant::Fourth
+        }
     }
 }
 
@@ -97,9 +119,9 @@ impl Numeric for Angle {
     }
 }
 
-impl Debug for Angle {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}deg", round_2(self.to_deg()))
+impl Repr for Angle {
+    fn repr(&self) -> EcoString {
+        format_float(self.to_deg(), Some(2), "deg")
     }
 }
 
@@ -165,7 +187,7 @@ impl Sum for Angle {
 }
 
 /// Different units of angular measurement.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum AngleUnit {
     /// Radians.
     Rad,
@@ -183,13 +205,17 @@ impl AngleUnit {
     }
 }
 
-impl Debug for AngleUnit {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Rad => "rad",
-            Self::Deg => "deg",
-        })
-    }
+/// A quadrant of the Cartesian plane.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum Quadrant {
+    /// The first quadrant, containing positive x and y values.
+    First,
+    /// The second quadrant, containing negative x and positive y values.
+    Second,
+    /// The third quadrant, containing negative x and y values.
+    Third,
+    /// The fourth quadrant, containing positive x and negative y values.
+    Fourth,
 }
 
 #[cfg(test)]

@@ -27,6 +27,9 @@ pub struct DocumentElem {
     /// The document's authors.
     pub author: Author,
 
+    /// The document's keywords.
+    pub keywords: Keywords,
+
     /// The page runs.
     #[internal]
     #[variadic]
@@ -48,7 +51,10 @@ impl LayoutRoot for DocumentElem {
         let mut pages = vec![];
         let mut page_counter = ManualPageCounter::new();
 
-        for mut child in &self.children() {
+        let children = self.children();
+        let mut iter = children.iter().peekable();
+
+        while let Some(mut child) = iter.next() {
             let outer = styles;
             let mut styles = styles;
             if let Some((elem, local)) = child.to_styled() {
@@ -57,7 +63,13 @@ impl LayoutRoot for DocumentElem {
             }
 
             if let Some(page) = child.to::<PageElem>() {
-                let fragment = page.layout(vt, styles, &mut page_counter)?;
+                let extend_to = iter.peek().and_then(|&next| {
+                    next.to_styled()
+                        .map_or(next, |(elem, _)| elem)
+                        .to::<PageElem>()?
+                        .clear_to(styles)
+                });
+                let fragment = page.layout(vt, styles, &mut page_counter, extend_to)?;
                 pages.extend(fragment);
             } else {
                 bail!(child.span(), "unexpected document child");
@@ -68,6 +80,7 @@ impl LayoutRoot for DocumentElem {
             pages,
             title: self.title(styles),
             author: self.author(styles).0,
+            keywords: self.keywords(styles).0,
         })
     }
 }
@@ -78,6 +91,17 @@ pub struct Author(Vec<EcoString>);
 
 cast! {
     Author,
+    self => self.0.into_value(),
+    v: EcoString => Self(vec![v]),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+}
+
+/// A list of keywords.
+#[derive(Debug, Default, Clone, Hash)]
+pub struct Keywords(Vec<EcoString>);
+
+cast! {
+    Keywords,
     self => self.0.into_value(),
     v: EcoString => Self(vec![v]),
     v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),

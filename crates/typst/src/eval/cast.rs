@@ -6,7 +6,7 @@ use std::ops::Add;
 
 use ecow::{eco_format, EcoString};
 
-use super::{Type, Value};
+use super::{Repr, Type, Value};
 use crate::diag::{At, SourceResult, StrResult};
 use crate::syntax::{Span, Spanned};
 use crate::util::separated_list;
@@ -183,6 +183,12 @@ impl<T: IntoValue> IntoResult for SourceResult<T> {
     }
 }
 
+impl<T: IntoValue> IntoValue for fn() -> T {
+    fn into_value(self) -> Value {
+        self().into_value()
+    }
+}
+
 /// Try to cast a Typst [`Value`] into a Rust type.
 ///
 /// See also: [`Reflect`].
@@ -233,7 +239,7 @@ impl CastInfo {
         self.walk(|info| match info {
             CastInfo::Any => parts.push("anything".into()),
             CastInfo::Value(value, _) => {
-                parts.push(value.repr().into());
+                parts.push(value.repr());
                 if value.ty() == found.ty() {
                     matching_type = true;
                 }
@@ -253,14 +259,12 @@ impl CastInfo {
             msg.push_str(", found ");
             write!(msg, "{}", found.ty()).unwrap();
         }
-        if_chain::if_chain! {
-            if let Value::Int(i) = found;
-            if parts.iter().any(|p| p == "length");
-            if !matching_type;
-            then {
+
+        if let Value::Int(i) = found {
+            if parts.iter().any(|p| p == "length") && !matching_type {
                 write!(msg, ": a length needs a unit - did you mean {i}pt?").unwrap();
             }
-        };
+        }
 
         msg.into()
     }

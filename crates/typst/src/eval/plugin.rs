@@ -12,9 +12,6 @@ use crate::World;
 
 /// A WebAssembly plugin.
 ///
-/// This is **advanced functionality** and not to be confused with
-/// [Typst packages]($scripting/#packages).
-///
 /// Typst is capable of interfacing with plugins compiled to WebAssembly. Plugin
 /// functions may accept multiple [byte buffers]($bytes) as arguments and return
 /// a single byte buffer. They should typically be wrapped in idiomatic Typst
@@ -29,6 +26,20 @@ use crate::World;
 /// emscripten), which allows printing, reading files, etc. This ABI will not
 /// directly work with Typst. You will either need to compile to a different
 /// target or [stub all functions](https://github.com/astrale-sharp/wasm-minimal-protocol/blob/master/wasi-stub).
+///
+/// # Plugins and Packages
+/// Plugins are distributed as packages. A package can make use of a plugin
+/// simply by including a WebAssembly file and loading it. Because the
+/// byte-based plugin interface is quite low-level, plugins are typically
+/// exposed through wrapper functions, that also live in the same package.
+///
+/// # Purity
+/// Plugin functions must be pure: Given the same arguments, they must always
+/// return the same value. The reason for this is that Typst functions must be
+/// pure (which is quite fundamental to the language design) and, since Typst
+/// function can call plugin functions, this requirement is inherited. In
+/// particular, if a plugin function is called twice with the same arguments,
+/// Typst might cache the results and call your function only once.
 ///
 /// # Example
 /// ```example
@@ -120,11 +131,19 @@ struct Repr {
 /// Owns all data associated with the WebAssembly module.
 type Store = wasmi::Store<StoreData>;
 
+/// If there was an error reading/writing memory, keep the offset + length to
+/// display an error message.
+struct MemoryError {
+    offset: u32,
+    length: u32,
+    write: bool,
+}
 /// The persistent store data used for communication between store and host.
 #[derive(Default)]
 struct StoreData {
     args: Vec<Bytes>,
     output: Vec<u8>,
+    memory_error: Option<MemoryError>,
 }
 
 #[scope]
@@ -245,6 +264,14 @@ impl Plugin {
         let mut code = wasmi::Value::I32(-1);
         func.call(store.as_context_mut(), &lengths, std::slice::from_mut(&mut code))
             .map_err(|err| eco_format!("plugin panicked: {err}"))?;
+        if let Some(MemoryError { offset, length, write }) =
+            store.data_mut().memory_error.take()
+        {
+            return Err(eco_format!(
+                "plugin tried to {kind} out of bounds: pointer {offset:#x} is out of bounds for {kind} of length {length}",
+                kind = if write { "write" } else { "read" }
+            ));
+        }
 
         // Extract the returned data.
         let output = std::mem::take(&mut store.data_mut().output);
@@ -272,7 +299,13 @@ impl Plugin {
 
 impl Debug for Plugin {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("plugin(..)")
+        f.pad("Plugin(..)")
+    }
+}
+
+impl super::Repr for Plugin {
+    fn repr(&self) -> EcoString {
+        "plugin(..)".into()
     }
 }
 
@@ -294,7 +327,14 @@ fn wasm_minimal_protocol_write_args_to_buffer(mut caller: Caller<StoreData>, ptr
     let arguments = std::mem::take(&mut caller.data_mut().args);
     let mut offset = ptr as usize;
     for arg in arguments {
-        memory.write(&mut caller, offset, arg.as_slice()).unwrap();
+        if memory.write(&mut caller, offset, arg.as_slice()).is_err() {
+            caller.data_mut().memory_error = Some(MemoryError {
+                offset: offset as u32,
+                length: arg.len() as u32,
+                write: true,
+            });
+            return;
+        }
         offset += arg.len();
     }
 }
@@ -308,6 +348,10 @@ fn wasm_minimal_protocol_send_result_to_host(
     let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
     let mut buffer = std::mem::take(&mut caller.data_mut().output);
     buffer.resize(len as usize, 0);
-    memory.read(&caller, ptr as _, &mut buffer).unwrap();
+    if memory.read(&caller, ptr as _, &mut buffer).is_err() {
+        caller.data_mut().memory_error =
+            Some(MemoryError { offset: ptr, length: len, write: false });
+        return;
+    }
     caller.data_mut().output = buffer;
 }

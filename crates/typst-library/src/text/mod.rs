@@ -16,6 +16,7 @@ pub use self::shift::*;
 
 use rustybuzz::Tag;
 use ttf_parser::Rect;
+use typst::diag::{bail, error, SourceResult};
 use typst::font::{Font, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 
 use crate::layout::ParElem;
@@ -169,13 +170,23 @@ pub struct TextElem {
     #[default(Abs::pt(11.0))]
     pub size: TextSize,
 
-    /// The glyph fill color.
+    /// The glyph fill paint.
     ///
     /// ```example
     /// #set text(fill: red)
     /// This text is red.
     /// ```
-    #[parse(args.named_or_find("fill")?)]
+    #[parse({
+        let paint: Option<Spanned<Paint>> = args.named_or_find("fill")?;
+        if let Some(paint) = &paint {
+            // TODO: Implement gradients on text.
+            if matches!(paint.v, Paint::Gradient(_)) {
+                bail!(error!(paint.span, "text fill must be a solid color")
+                    .with_hint("gradients on text will be supported soon"));
+            }
+        }
+        paint.map(|paint| paint.v)
+    })]
     #[default(Color::BLACK.into())]
     pub fill: Paint,
 

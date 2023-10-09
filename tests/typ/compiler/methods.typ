@@ -97,39 +97,73 @@
 
 ---
 // Test color kind method.
-#test(rgb(1, 2, 3, 4).kind(), rgb)
-#test(cmyk(4%, 5%, 6%, 7%).kind(), cmyk)
-#test(luma(40).kind(), luma)
-#test(rgb(1, 2, 3, 4).kind() != luma, true)
+#test(rgb(1, 2, 3, 4).space(), rgb)
+#test(cmyk(4%, 5%, 6%, 7%).space(), cmyk)
+#test(luma(40).space(), luma)
+#test(rgb(1, 2, 3, 4).space() != luma, true)
 
 ---
-// Test color '.rgba()', '.cmyk()' and '.luma()' without conversions
-#test(rgb(1, 2, 3, 4).to-rgba(), (1, 2, 3, 4))
-#test(rgb(1, 2, 3).to-rgba(), (1, 2, 3, 255))
-#test(cmyk(20%, 20%, 40%, 20%).to-cmyk(), (20%, 20%, 40%, 20%))
-#test(luma(40).to-luma(), 40)
+// Test color '.components()' without conversions
+#test-repr(rgb(1, 2, 3, 4).components(), (0.39%, 0.78%, 1.18%, 1.57%))
+#test-repr(luma(40).components(), (15.69%, ))
+#test-repr(cmyk(4%, 5%, 6%, 7%).components(), (4%, 5%, 6%, 7%))
+#test-repr(oklab(10%, 0.2, 0.3).components(), (10%, 0.2, 0.3, 100%))
+#test-repr(color.linear-rgb(10%, 20%, 30%).components(), (10%, 20%, 30%, 100%))
+#test-repr(color.hsv(10deg, 20%, 30%).components(), (10deg, 20%, 30%, 100%))
+#test-repr(color.hsl(10deg, 20%, 30%).components(), (10deg, 20%, 30%, 100%))
 
 ---
 // Test color conversions.
 #test(rgb(1, 2, 3).to-hex(), "#010203")
 #test(rgb(1, 2, 3, 4).to-hex(), "#01020304")
-#test(cmyk(4%, 5%, 6%, 7%).to-rgba(), (228, 225, 223, 255))
-#test(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e4e1df")
-#test(luma(40).to-rgba(), (40, 40, 40, 255))
 #test(luma(40).to-hex(), "#282828")
-#test(repr(luma(40).to-cmyk()), repr((11.76%, 10.59%, 10.59%, 14.12%)))
+#test-repr(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e4e1df")
+#test-repr(rgb(cmyk(4%, 5%, 6%, 7%)).components(), (89.28%, 88.35%, 87.42%, 100%))
+#test-repr(rgb(luma(40%)).components(false), (40%, 40%, 40%))
+#test-repr(cmyk(luma(40)).components(), (11.76%, 10.67%, 10.51%, 14.12%))
+#test-repr(cmyk(rgb(1, 2, 3)), cmyk(66.67%, 33.33%, 0%, 98.82%))
+#test-repr(luma(rgb(1, 2, 3)), luma(0.73%))
+#test-repr(color.hsl(luma(40)), color.hsl(0deg, 0%, 15.69%))
+#test-repr(color.hsv(luma(40)), color.hsv(0deg, 0%, 15.69%))
+#test-repr(color.linear-rgb(luma(40)), color.linear-rgb(2.12%, 2.12%, 2.12%))
+#test-repr(color.linear-rgb(rgb(1, 2, 3)), color.linear-rgb(0.03%, 0.06%, 0.09%))
+#test-repr(color.hsl(rgb(1, 2, 3)), color.hsl(-150deg, 50%, 0.78%))
+#test-repr(color.hsv(rgb(1, 2, 3)), color.hsv(-150deg, 66.67%, 1.18%))
+#test-repr(oklab(luma(40)).components(), (27.68%, 0.0, 0.0, 100%))
+#test-repr(oklab(rgb(1, 2, 3)).components(), (8.23%, -0.004, -0.007, 100%))
 
 ---
-// Error: 2-27 cannot obtain cmyk values from rgba color
-#rgb(1, 2, 3, 4).to-cmyk()
-
----
-// Error: 2-27 cannot obtain the luma value of rgba color
-#rgb(1, 2, 3, 4).to-luma()
-
----
-// Error: 2-32 cannot obtain the luma value of cmyk color
-#cmyk(4%, 5%, 6%, 7%).to-luma()
+// Test gradient functions.
+#test(gradient.linear(red, green, blue).kind(), gradient.linear)
+#test(gradient.linear(red, green, blue).stops(), ((red, 0%), (green, 50%), (blue, 100%)))
+#test(gradient.linear(red, green, blue, space: rgb).sample(0%), red)
+#test(gradient.linear(red, green, blue, space: rgb).sample(25%), rgb("#97873b"))
+#test(gradient.linear(red, green, blue, space: rgb).sample(50%), green)
+#test(gradient.linear(red, green, blue, space: rgb).sample(75%), rgb("#17a08c"))
+#test(gradient.linear(red, green, blue, space: rgb).sample(100%), blue)
+#test(gradient.linear(red, green, space: rgb).space(), rgb)
+#test(gradient.linear(red, green, space: oklab).space(), oklab)
+#test(gradient.linear(red, green, space: cmyk).space(), cmyk)
+#test(gradient.linear(red, green, space: luma).space(), luma)
+#test(gradient.linear(red, green, space: color.linear-rgb).space(), color.linear-rgb)
+#test(gradient.linear(red, green, space: color.hsl).space(), color.hsl)
+#test(gradient.linear(red, green, space: color.hsv).space(), color.hsv)
+#test(gradient.linear(red, green, relative: "self").relative(), "self")
+#test(gradient.linear(red, green, relative: "parent").relative(), "parent")
+#test(gradient.linear(red, green).relative(), auto)
+#test(gradient.linear(red, green).angle(), 0deg)
+#test(gradient.linear(red, green, dir: ltr).angle(), 0deg)
+#test(gradient.linear(red, green, dir: rtl).angle(), 180deg)
+#test(gradient.linear(red, green, dir: ttb).angle(), 90deg)
+#test(gradient.linear(red, green, dir: btt).angle(), 270deg)
+#test(
+  gradient.linear(red, green, blue).repeat(2).stops(),
+  ((red, 0%), (green, 25%), (blue, 50%), (red, 50%), (green, 75%), (blue, 100%))
+)
+#test(
+  gradient.linear(red, green, blue).repeat(2, mirror: true).stops(),
+  ((red, 0%), (green, 25%), (blue, 50%), (green, 75%), (red, 100%))
+)
 
 ---
 // Test alignment methods.

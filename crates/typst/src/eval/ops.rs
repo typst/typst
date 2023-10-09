@@ -1,11 +1,10 @@
 //! Operations on values.
 
 use std::cmp::Ordering;
-use std::fmt::Debug;
 
 use ecow::eco_format;
 
-use super::{format_str, IntoValue, Regex, Value};
+use super::{format_str, IntoValue, Regex, Repr, Value};
 use crate::diag::{bail, StrResult};
 use crate::geom::{Align, Length, Numeric, Rel, Smart, Stroke};
 use Value::*;
@@ -115,6 +114,14 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Color(color), Length(thickness)) | (Length(thickness), Color(color)) => Stroke {
             paint: Smart::Custom(color.into()),
+            thickness: Smart::Custom(thickness),
+            ..Stroke::default()
+        }
+        .into_value(),
+
+        (Gradient(gradient), Length(thickness))
+        | (Length(thickness), Gradient(gradient)) => Stroke {
+            paint: Smart::Custom(gradient.into()),
             thickness: Smart::Custom(thickness),
             ..Stroke::default()
         }
@@ -366,6 +373,7 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Fraction(a), Fraction(b)) => a == b,
         (Color(a), Color(b)) => a == b,
         (Symbol(a), Symbol(b)) => a == b,
+        (Version(a), Version(b)) => a == b,
         (Str(a), Str(b)) => a == b,
         (Bytes(a), Bytes(b)) => a == b,
         (Label(a), Label(b)) => a == b,
@@ -408,6 +416,7 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
         (Ratio(a), Ratio(b)) => a.cmp(b),
         (Relative(a), Relative(b)) => try_cmp_values(a, b)?,
         (Fraction(a), Fraction(b)) => a.cmp(b),
+        (Version(a), Version(b)) => a.cmp(b),
         (Str(a), Str(b)) => a.cmp(b),
 
         // Some technically different things should be comparable.
@@ -426,9 +435,9 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
 }
 
 /// Try to compare two values.
-fn try_cmp_values<T: PartialOrd + Debug>(a: &T, b: &T) -> StrResult<Ordering> {
+fn try_cmp_values<T: PartialOrd + Repr>(a: &T, b: &T) -> StrResult<Ordering> {
     a.partial_cmp(b)
-        .ok_or_else(|| eco_format!("cannot compare {:?} with {:?}", a, b))
+        .ok_or_else(|| eco_format!("cannot compare {} with {}", a.repr(), b.repr()))
 }
 
 /// Try to compare two datetimes.

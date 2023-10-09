@@ -156,7 +156,7 @@ where
 }
 
 /// The two layouting axes.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Axis {
     /// The horizontal axis.
     X,
@@ -182,27 +182,16 @@ impl Axis {
             Self::Y => Self::X,
         }
     }
-
-    /// A description of this axis' direction.
-    pub fn description(self) -> &'static str {
-        match self {
-            Self::X => "horizontal",
-            Self::Y => "vertical",
-        }
-    }
-}
-
-impl Debug for Axis {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(self.description())
-    }
 }
 
 cast! {
     Axis,
-    self => self.description().into_value(),
+    self => match self {
+        Self::X => "horizontal".into_value(),
+        Self::Y => "vertical".into_value(),
+    },
     "horizontal" => Self::X,
-    "vertical" => Self::X,
+    "vertical" => Self::Y,
 }
 
 impl<T> Axes<Option<T>> {
@@ -297,6 +286,18 @@ cast! {
         match (iter.next(), iter.next(), iter.next()) {
             (Some(a), Some(b), None) => Axes::new(a.cast()?, b.cast()?),
             _ => bail!("point array must contain exactly two entries"),
+        }
+    },
+}
+
+cast! {
+    Axes<Ratio>,
+    self => array![self.x, self.y].into_value(),
+    array: Array => {
+        let mut iter = array.into_iter();
+        match (iter.next(), iter.next(), iter.next()) {
+            (Some(a), Some(b), None) => Axes::new(a.cast()?, b.cast()?),
+            _ => bail!("ratio array must contain exactly two entries"),
         }
     },
 }

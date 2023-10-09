@@ -1,7 +1,8 @@
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked, TrackedMut};
+use ecow::EcoString;
 use once_cell::sync::Lazy;
 
 use super::{
@@ -118,7 +119,7 @@ pub use typst_macros::func;
 /// [`array.push(value)`]($array.push). These can modify the values they are
 /// called on.
 #[ty(scope, name = "function")]
-#[derive(Clone, Hash)]
+#[derive(Debug, Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Func {
     /// The internal representation.
@@ -128,7 +129,7 @@ pub struct Func {
 }
 
 /// The different kinds of function representations.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 enum Repr {
     /// A native Rust function.
     Native(Static<NativeFuncData>),
@@ -363,11 +364,11 @@ impl Func {
     }
 }
 
-impl Debug for Func {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl super::Repr for Func {
+    fn repr(&self) -> EcoString {
         match self.name() {
-            Some(name) => write!(f, "{name}"),
-            None => f.write_str("(..) => .."),
+            Some(name) => name.into(),
+            None => "(..) => ..".into(),
         }
     }
 }
@@ -375,6 +376,15 @@ impl Debug for Func {
 impl PartialEq for Func {
     fn eq(&self, other: &Self) -> bool {
         self.repr == other.repr
+    }
+}
+
+impl PartialEq<&NativeFuncData> for Func {
+    fn eq(&self, other: &&NativeFuncData) -> bool {
+        match &self.repr {
+            Repr::Native(native) => native.function == other.function,
+            _ => false,
+        }
     }
 }
 
@@ -403,6 +413,7 @@ pub trait NativeFunc {
 }
 
 /// Defines a native function.
+#[derive(Debug)]
 pub struct NativeFuncData {
     pub function: fn(&mut Vm, &mut Args) -> SourceResult<Value>,
     pub name: &'static str,
@@ -452,7 +463,7 @@ pub struct ParamInfo {
 }
 
 /// A user-defined closure.
-#[derive(Hash)]
+#[derive(Debug, Hash)]
 pub(super) struct Closure {
     /// The closure's syntax node. Must be castable to `ast::Closure`.
     pub node: SyntaxNode,
@@ -597,15 +608,15 @@ cast! {
 }
 
 /// A visitor that determines which variables to capture for a closure.
-pub(super) struct CapturesVisitor<'a> {
-    external: &'a Scopes<'a>,
+pub struct CapturesVisitor<'a> {
+    external: Option<&'a Scopes<'a>>,
     internal: Scopes<'a>,
     captures: Scope,
 }
 
 impl<'a> CapturesVisitor<'a> {
     /// Create a new visitor for the given external scopes.
-    pub fn new(external: &'a Scopes) -> Self {
+    pub fn new(external: Option<&'a Scopes<'a>>) -> Self {
         Self {
             external,
             internal: Scopes::new(None),
@@ -626,8 +637,10 @@ impl<'a> CapturesVisitor<'a> {
             // Identifiers that shouldn't count as captures because they
             // actually bind a new name are handled below (individually through
             // the expressions that contain them).
-            Some(ast::Expr::Ident(ident)) => self.capture(ident),
-            Some(ast::Expr::MathIdent(ident)) => self.capture_in_math(ident),
+            Some(ast::Expr::Ident(ident)) => self.capture(&ident, Scopes::get),
+            Some(ast::Expr::MathIdent(ident)) => {
+                self.capture(&ident, Scopes::get_in_math)
+            }
 
             // Code and content blocks create a scope.
             Some(ast::Expr::Code(_) | ast::Expr::Content(_)) => {
@@ -736,20 +749,22 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Capture a variable if it isn't internal.
-    fn capture(&mut self, ident: ast::Ident) {
-        if self.internal.get(&ident).is_err() {
-            if let Ok(value) = self.external.get(&ident) {
-                self.captures.define_captured(ident.get().clone(), value.clone());
-            }
-        }
-    }
+    #[inline]
+    fn capture(
+        &mut self,
+        ident: &str,
+        getter: impl FnOnce(&'a Scopes<'a>, &str) -> StrResult<&'a Value>,
+    ) {
+        if self.internal.get(ident).is_err() {
+            let Some(value) = self
+                .external
+                .map(|external| getter(external, ident).ok())
+                .unwrap_or(Some(&Value::None))
+            else {
+                return;
+            };
 
-    /// Capture a variable in math mode if it isn't internal.
-    fn capture_in_math(&mut self, ident: ast::MathIdent) {
-        if self.internal.get(&ident).is_err() {
-            if let Ok(value) = self.external.get_in_math(&ident) {
-                self.captures.define_captured(ident.get().clone(), value.clone());
-            }
+            self.captures.define_captured(ident, value.clone());
         }
     }
 }
@@ -767,7 +782,7 @@ mod tests {
         scopes.top.define("y", 0);
         scopes.top.define("z", 0);
 
-        let mut visitor = CapturesVisitor::new(&scopes);
+        let mut visitor = CapturesVisitor::new(Some(&scopes));
         let root = parse(text);
         visitor.visit(&root);
 

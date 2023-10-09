@@ -215,7 +215,7 @@ impl<'a> Handler<'a> {
                 };
 
                 let root = parser(&code[1..code.len() - 1]);
-                let html = typst::ide::highlight_html(&root);
+                let html = typst::syntax::highlight_html(&root);
                 *event = md::Event::Html(html.into());
             }
 
@@ -370,7 +370,7 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
     }
 
     let root = typst::syntax::parse(&display);
-    let highlighted = Html::new(typst::ide::highlight_html(&root));
+    let highlighted = Html::new(typst::syntax::highlight_html(&root));
     if lang == "typ" {
         return Html::new(format!("<pre>{}</pre>", highlighted.as_str()));
     }

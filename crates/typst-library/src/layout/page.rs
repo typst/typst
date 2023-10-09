@@ -310,7 +310,6 @@ pub struct PageElem {
     pub body: Content,
 
     /// Whether the page should be aligned to an even or odd page.
-    /// Not part of the public API for now.
     #[internal]
     pub clear_to: Option<Parity>,
 }
@@ -328,6 +327,7 @@ impl PageElem {
         vt: &mut Vt,
         styles: StyleChain,
         page_counter: &mut ManualPageCounter,
+        extend_to: Option<Parity>,
     ) -> SourceResult<Fragment> {
         tracing::info!("Page layout");
 
@@ -378,12 +378,10 @@ impl PageElem {
         let mut frames = child.layout(vt, styles, regions)?.into_frames();
 
         // Align the child to the pagebreak's parity.
-        if self
-            .clear_to(styles)
-            .is_some_and(|p| !p.matches(page_counter.physical().get()))
-        {
+        if extend_to.is_some_and(|p| p.matches(page_counter.physical().get())) {
+            // Insert empty page after the current pages.
             let size = area.map(Abs::is_finite).select(area, Size::zero());
-            frames.insert(0, Frame::new(size));
+            frames.push(Frame::hard(size));
         }
 
         let fill = self.fill(styles);
@@ -740,12 +738,12 @@ pub struct Paper {
 impl Paper {
     /// The width of the paper.
     pub fn width(self) -> Abs {
-        Abs::mm(self.width.0)
+        Abs::mm(self.width.get())
     }
 
     /// The height of the paper.
     pub fn height(self) -> Abs {
-        Abs::mm(self.height.0)
+        Abs::mm(self.height.get())
     }
 }
 
@@ -758,8 +756,8 @@ macro_rules! papers {
         impl Paper {
             $(pub const $var: Self = Self {
                 name: $name,
-                width: Scalar($width),
-                height: Scalar($height),
+                width: Scalar::new($width),
+                height: Scalar::new($height),
             };)*
         }
 

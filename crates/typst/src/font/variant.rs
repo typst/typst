@@ -1,8 +1,9 @@
+use ecow::EcoString;
 use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::eval::{cast, Cast, IntoValue};
+use crate::eval::{cast, Cast, IntoValue, Repr};
 use crate::geom::Ratio;
 
 /// Properties that distinguish a font from other fonts in the same family.
@@ -59,6 +60,16 @@ impl FontStyle {
 impl Default for FontStyle {
     fn default() -> Self {
         Self::Normal
+    }
+}
+
+impl From<usvg::FontStyle> for FontStyle {
+    fn from(style: usvg::FontStyle) -> Self {
+        match style {
+            usvg::FontStyle::Normal => Self::Normal,
+            usvg::FontStyle::Italic => Self::Italic,
+            usvg::FontStyle::Oblique => Self::Oblique,
+        }
     }
 }
 
@@ -166,7 +177,7 @@ cast! {
 }
 
 /// The width of a font.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct FontStretch(u16);
@@ -237,10 +248,25 @@ impl Default for FontStretch {
         Self::NORMAL
     }
 }
+impl Repr for FontStretch {
+    fn repr(&self) -> EcoString {
+        self.to_ratio().repr()
+    }
+}
 
-impl Debug for FontStretch {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.to_ratio().fmt(f)
+impl From<usvg::FontStretch> for FontStretch {
+    fn from(stretch: usvg::FontStretch) -> Self {
+        match stretch {
+            usvg::FontStretch::UltraCondensed => Self::ULTRA_CONDENSED,
+            usvg::FontStretch::ExtraCondensed => Self::EXTRA_CONDENSED,
+            usvg::FontStretch::Condensed => Self::CONDENSED,
+            usvg::FontStretch::SemiCondensed => Self::SEMI_CONDENSED,
+            usvg::FontStretch::Normal => Self::NORMAL,
+            usvg::FontStretch::SemiExpanded => Self::SEMI_EXPANDED,
+            usvg::FontStretch::Expanded => Self::EXPANDED,
+            usvg::FontStretch::ExtraExpanded => Self::EXTRA_EXPANDED,
+            usvg::FontStretch::UltraExpanded => Self::ULTRA_EXPANDED,
+        }
     }
 }
 
@@ -265,6 +291,6 @@ mod tests {
 
     #[test]
     fn test_font_stretch_debug() {
-        assert_eq!(format!("{:?}", FontStretch::EXPANDED), "125%")
+        assert_eq!(FontStretch::EXPANDED.repr(), "125%")
     }
 }

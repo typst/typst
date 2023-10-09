@@ -5,16 +5,17 @@ use pdf_writer::types::{
     ActionType, AnnotationType, ColorSpaceOperand, LineCapStyle, LineJoinStyle,
     NumberingStyle,
 };
-use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
-use super::extg::ExternalGraphicsState;
-use super::{deflate, AbsExt, EmExt, PdfContext, RefExt, D65_GRAY, SRGB};
+use super::color::PaintEncode;
+use super::extg::ExtGState;
+use super::{deflate, AbsExt, EmExt, PdfContext};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
+use crate::eval::Repr;
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Color, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint,
-    Point, Ratio, Shape, Size, Transform,
+    self, Abs, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint, Point,
+    Ratio, Shape, Size, Transform,
 };
 use crate::image::Image;
 
@@ -31,7 +32,6 @@ pub fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
 pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
     let page_ref = ctx.alloc.bump();
     ctx.page_refs.push(page_ref);
-    ctx.page_heights.push(frame.height().to_f32());
 
     let mut ctx = PageContext {
         parent: ctx,
@@ -39,7 +39,7 @@ pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
         label: None,
         uses_opacities: false,
         content: Content::new(),
-        state: State::default(),
+        state: State::new(frame.size()),
         saves: vec![],
         bottom: 0.0,
         links: vec![],
@@ -80,16 +80,14 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
         write_page(ctx, i);
     }
 
-    let mut pages = ctx.writer.pages(ctx.page_tree_ref);
+    let mut pages = ctx.pdf.pages(ctx.page_tree_ref);
     pages
         .count(ctx.page_refs.len() as i32)
         .kids(ctx.page_refs.iter().copied());
 
     let mut resources = pages.resources();
-    let mut spaces = resources.color_spaces();
-    spaces.insert(SRGB).start::<ColorSpace>().srgb();
-    spaces.insert(D65_GRAY).start::<ColorSpace>().d65_gray();
-    spaces.finish();
+    ctx.colors
+        .write_color_spaces(resources.color_spaces(), &mut ctx.alloc);
 
     let mut fonts = resources.fonts();
     for (font_ref, f) in ctx.font_map.pdf_indices(&ctx.font_refs) {
@@ -107,8 +105,16 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
 
     images.finish();
 
+    let mut patterns = resources.patterns();
+    for (gradient_ref, gr) in ctx.gradient_map.pdf_indices(&ctx.gradient_refs) {
+        let name = eco_format!("Gr{}", gr);
+        patterns.pair(Name(name.as_bytes()), gradient_ref);
+    }
+
+    patterns.finish();
+
     let mut ext_gs_states = resources.ext_g_states();
-    for (gs_ref, gs) in ctx.ext_gs_map.pdf_indices(&ctx.ext_gs_refs) {
+    for (gs_ref, gs) in ctx.extg_map.pdf_indices(&ctx.ext_gs_refs) {
         let name = eco_format!("Gs{}", gs);
         ext_gs_states.pair(Name(name.as_bytes()), gs_ref);
     }
@@ -116,6 +122,9 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
 
     resources.finish();
     pages.finish();
+
+    // Write all of the functions used by the document.
+    ctx.colors.write_functions(&mut ctx.pdf);
 }
 
 /// Write a page tree node.
@@ -124,7 +133,7 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
     let page = &ctx.pages[i];
     let content_id = ctx.alloc.bump();
 
-    let mut page_writer = ctx.writer.page(page.id);
+    let mut page_writer = ctx.pdf.page(page.id);
     page_writer.parent(ctx.page_tree_ref);
 
     let w = page.size.x.to_f32();
@@ -162,13 +171,13 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
 
         let index = pos.page.get() - 1;
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-        if let Some(&height) = ctx.page_heights.get(index) {
+        if let Some(page) = ctx.pages.get(index) {
             annotation
                 .action()
                 .action_type(ActionType::GoTo)
                 .destination()
                 .page(ctx.page_refs[index])
-                .xyz(pos.point.x.to_f32(), height - y.to_f32(), None);
+                .xyz(pos.point.x.to_f32(), (page.size.y - y).to_f32(), None);
         }
     }
 
@@ -176,7 +185,7 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
     page_writer.finish();
 
     let data = deflate(&page.content);
-    ctx.writer.stream(content_id, &data).filter(Filter::FlateDecode);
+    ctx.pdf.stream(content_id, &data).filter(Filter::FlateDecode);
 }
 
 /// Data for an exported page.
@@ -196,11 +205,11 @@ pub struct Page {
 }
 
 /// An exporter for the contents of a single PDF page.
-struct PageContext<'a, 'b> {
-    parent: &'a mut PdfContext<'b>,
+pub struct PageContext<'a, 'b> {
+    pub parent: &'a mut PdfContext<'b>,
     page_ref: Ref,
     label: Option<PdfPageLabel>,
-    content: Content,
+    pub content: Content,
     state: State,
     saves: Vec<State>,
     bottom: f32,
@@ -210,15 +219,60 @@ struct PageContext<'a, 'b> {
 
 /// A simulated graphics state used to deduplicate graphics state changes and
 /// keep track of the current transformation matrix for link annotations.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 struct State {
+    /// The transform of the current item.
     transform: Transform,
+    /// The transform of first hard frame in the hierarchy.
+    container_transform: Transform,
+    /// The size of the first hard frame in the hierarchy.
+    size: Size,
     font: Option<(Font, Abs)>,
     fill: Option<Paint>,
     fill_space: Option<Name<'static>>,
-    external_graphics_state: Option<ExternalGraphicsState>,
+    external_graphics_state: Option<ExtGState>,
     stroke: Option<FixedStroke>,
     stroke_space: Option<Name<'static>>,
+}
+
+impl State {
+    /// Creates a new, clean state for a given page `size`.
+    pub fn new(size: Size) -> Self {
+        Self {
+            transform: Transform::identity(),
+            container_transform: Transform::identity(),
+            size,
+            font: None,
+            fill: None,
+            fill_space: None,
+            external_graphics_state: None,
+            stroke: None,
+            stroke_space: None,
+        }
+    }
+
+    /// Creates the [`Transforms`] structure for the current item.
+    pub fn transforms(&self, size: Size, pos: Point) -> Transforms {
+        Transforms {
+            transform: self.transform.pre_concat(Transform::translate(pos.x, pos.y)),
+            container_transform: self.container_transform,
+            container_size: self.size,
+            size,
+        }
+    }
+}
+
+/// Subset of the state used to calculate the transform of gradients and patterns.
+#[derive(Clone, Copy)]
+pub(super) struct Transforms {
+    /// The transform of the current item.
+    pub transform: Transform,
+    /// The transform of first hard frame in the hierarchy.
+    pub container_transform: Transform,
+    /// The size of the first hard frame in the hierarchy.
+    pub container_size: Size,
+    /// The size of the item.
+    pub size: Size,
 }
 
 impl PageContext<'_, '_> {
@@ -232,11 +286,11 @@ impl PageContext<'_, '_> {
         self.state = self.saves.pop().expect("missing state save");
     }
 
-    fn set_external_graphics_state(&mut self, graphics_state: &ExternalGraphicsState) {
+    fn set_external_graphics_state(&mut self, graphics_state: &ExtGState) {
         let current_state = self.state.external_graphics_state.as_ref();
         if current_state != Some(graphics_state) {
-            self.parent.ext_gs_map.insert(*graphics_state);
-            let name = eco_format!("Gs{}", self.parent.ext_gs_map.map(graphics_state));
+            self.parent.extg_map.insert(*graphics_state);
+            let name = eco_format!("Gs{}", self.parent.extg_map.map(graphics_state));
             self.content.set_parameters(Name(name.as_bytes()));
 
             if graphics_state.uses_opacities() {
@@ -248,28 +302,25 @@ impl PageContext<'_, '_> {
     fn set_opacities(&mut self, stroke: Option<&FixedStroke>, fill: Option<&Paint>) {
         let stroke_opacity = stroke
             .map(|stroke| {
-                let Paint::Solid(color) = stroke.paint;
-                if let Color::Rgba(rgba_color) = color {
-                    rgba_color.a
-                } else {
-                    255
-                }
+                let color = match &stroke.paint {
+                    Paint::Solid(color) => *color,
+                    Paint::Gradient(_) => return 255,
+                };
+
+                color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
             })
             .unwrap_or(255);
         let fill_opacity = fill
             .map(|paint| {
-                let Paint::Solid(color) = paint;
-                if let Color::Rgba(rgba_color) = color {
-                    rgba_color.a
-                } else {
-                    255
-                }
+                let color = match paint {
+                    Paint::Solid(color) => *color,
+                    Paint::Gradient(_) => return 255,
+                };
+
+                color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
             })
             .unwrap_or(255);
-        self.set_external_graphics_state(&ExternalGraphicsState {
-            stroke_opacity,
-            fill_opacity,
-        });
+        self.set_external_graphics_state(&ExtGState { stroke_opacity, fill_opacity });
     }
 
     fn transform(&mut self, transform: Transform) {
@@ -285,6 +336,11 @@ impl PageContext<'_, '_> {
         ]);
     }
 
+    fn group_transform(&mut self, transform: Transform) {
+        self.state.container_transform =
+            self.state.container_transform.pre_concat(transform);
+    }
+
     fn set_font(&mut self, font: &Font, size: Abs) {
         if self.state.font.as_ref().map(|(f, s)| (f, *s)) != Some((font, size)) {
             self.parent.font_map.insert(font.clone());
@@ -294,41 +350,37 @@ impl PageContext<'_, '_> {
         }
     }
 
-    fn set_fill(&mut self, fill: &Paint) {
-        if self.state.fill.as_ref() != Some(fill) {
-            let f = |c| c as f32 / 255.0;
-            let Paint::Solid(color) = fill;
-            match color {
-                Color::Luma(c) => {
-                    self.set_fill_color_space(D65_GRAY);
-                    self.content.set_fill_gray(f(c.0));
-                }
-                Color::Rgba(c) => {
-                    self.set_fill_color_space(SRGB);
-                    self.content.set_fill_color([f(c.r), f(c.g), f(c.b)]);
-                }
-                Color::Cmyk(c) => {
-                    self.reset_fill_color_space();
-                    self.content.set_fill_cmyk(f(c.c), f(c.m), f(c.y), f(c.k));
-                }
-            }
+    fn size(&mut self, size: Size) {
+        self.state.size = size;
+    }
+
+    fn set_fill(&mut self, fill: &Paint, transforms: Transforms) {
+        if self.state.fill.as_ref() != Some(fill)
+            || matches!(self.state.fill, Some(Paint::Gradient(_)))
+        {
+            fill.set_as_fill(self, transforms);
             self.state.fill = Some(fill.clone());
         }
     }
 
-    fn set_fill_color_space(&mut self, space: Name<'static>) {
+    pub fn set_fill_color_space(&mut self, space: Name<'static>) {
         if self.state.fill_space != Some(space) {
             self.content.set_fill_color_space(ColorSpaceOperand::Named(space));
             self.state.fill_space = Some(space);
         }
     }
 
-    fn reset_fill_color_space(&mut self) {
+    pub fn reset_fill_color_space(&mut self) {
         self.state.fill_space = None;
     }
 
-    fn set_stroke(&mut self, stroke: &FixedStroke) {
-        if self.state.stroke.as_ref() != Some(stroke) {
+    fn set_stroke(&mut self, stroke: &FixedStroke, transforms: Transforms) {
+        if self.state.stroke.as_ref() != Some(stroke)
+            || matches!(
+                self.state.stroke.as_ref().map(|s| &s.paint),
+                Some(Paint::Gradient(_))
+            )
+        {
             let FixedStroke {
                 paint,
                 thickness,
@@ -338,22 +390,7 @@ impl PageContext<'_, '_> {
                 miter_limit,
             } = stroke;
 
-            let f = |c| c as f32 / 255.0;
-            let Paint::Solid(color) = paint;
-            match color {
-                Color::Luma(c) => {
-                    self.set_stroke_color_space(D65_GRAY);
-                    self.content.set_stroke_gray(f(c.0));
-                }
-                Color::Rgba(c) => {
-                    self.set_stroke_color_space(SRGB);
-                    self.content.set_stroke_color([f(c.r), f(c.g), f(c.b)]);
-                }
-                Color::Cmyk(c) => {
-                    self.reset_stroke_color_space();
-                    self.content.set_stroke_cmyk(f(c.c), f(c.m), f(c.y), f(c.k));
-                }
-            }
+            paint.set_as_stroke(self, transforms);
 
             self.content.set_line_width(thickness.to_f32());
             if self.state.stroke.as_ref().map(|s| &s.line_cap) != Some(line_cap) {
@@ -373,20 +410,20 @@ impl PageContext<'_, '_> {
                 }
             }
             if self.state.stroke.as_ref().map(|s| &s.miter_limit) != Some(miter_limit) {
-                self.content.set_miter_limit(miter_limit.0 as f32);
+                self.content.set_miter_limit(miter_limit.get() as f32);
             }
             self.state.stroke = Some(stroke.clone());
         }
     }
 
-    fn set_stroke_color_space(&mut self, space: Name<'static>) {
+    pub fn set_stroke_color_space(&mut self, space: Name<'static>) {
         if self.state.stroke_space != Some(space) {
             self.content.set_stroke_color_space(ColorSpaceOperand::Named(space));
             self.state.stroke_space = Some(space);
         }
     }
 
-    fn reset_stroke_color_space(&mut self) {
+    pub fn reset_stroke_color_space(&mut self) {
         self.state.stroke_space = None;
     }
 }
@@ -396,10 +433,11 @@ fn write_frame(ctx: &mut PageContext, frame: &Frame) {
     for &(pos, ref item) in frame.items() {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
+
         match item {
             FrameItem::Group(group) => write_group(ctx, pos, group),
-            FrameItem::Text(text) => write_text(ctx, x, y, text),
-            FrameItem::Shape(shape, _) => write_shape(ctx, x, y, shape),
+            FrameItem::Text(text) => write_text(ctx, pos, text),
+            FrameItem::Shape(shape, _) => write_shape(ctx, pos, shape),
             FrameItem::Image(image, size, _) => write_image(ctx, x, y, image, *size),
             FrameItem::Meta(meta, size) => match meta {
                 Meta::Link(dest) => write_link(ctx, pos, dest, *size),
@@ -419,6 +457,11 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
     ctx.save_state();
     ctx.transform(translation.pre_concat(group.transform));
 
+    if group.frame.kind().is_hard() {
+        ctx.group_transform(translation.pre_concat(group.transform));
+        ctx.size(group.frame.size());
+    }
+
     if group.clips {
         let size = group.frame.size();
         let w = size.x.to_f32();
@@ -436,7 +479,10 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
 }
 
 /// Encode a text run into the content stream.
-fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &TextItem) {
+fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
+    let x = pos.x.to_f32();
+    let y = pos.y.to_f32();
+
     *ctx.parent.languages.entry(text.lang).or_insert(0) += text.glyphs.len();
 
     let glyph_set = ctx.parent.glyph_sets.entry(text.font.clone()).or_default();
@@ -445,7 +491,7 @@ fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &TextItem) {
         glyph_set.entry(g.id).or_insert_with(|| segment.into());
     }
 
-    ctx.set_fill(&text.fill);
+    ctx.set_fill(&text.fill, ctx.state.transforms(Size::zero(), pos));
     ctx.set_font(&text.font, text.size);
     ctx.set_opacities(None, Some(&text.fill));
     ctx.content.begin_text();
@@ -493,7 +539,10 @@ fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &TextItem) {
 }
 
 /// Encode a geometrical shape into the content stream.
-fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
+fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
+    let x = pos.x.to_f32();
+    let y = pos.y.to_f32();
+
     let stroke = shape.stroke.as_ref().and_then(|stroke| {
         if stroke.thickness.to_f32() > 0.0 {
             Some(stroke)
@@ -507,11 +556,11 @@ fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
     }
 
     if let Some(fill) = &shape.fill {
-        ctx.set_fill(fill);
+        ctx.set_fill(fill, ctx.state.transforms(shape.geometry.bbox_size(), pos));
     }
 
     if let Some(stroke) = stroke {
-        ctx.set_stroke(stroke);
+        ctx.set_stroke(stroke, ctx.state.transforms(shape.geometry.bbox_size(), pos));
     }
 
     ctx.set_opacities(stroke, shape.fill.as_ref());
@@ -656,6 +705,12 @@ pub struct PdfPageLabel {
     /// Describes where to start counting from when setting a style.
     /// (Has to be greater or equal than 1)
     pub offset: Option<NonZeroUsize>,
+}
+
+impl Repr for PdfPageLabel {
+    fn repr(&self) -> EcoString {
+        eco_format!("{self:?}")
+    }
 }
 
 /// A PDF page label number style.

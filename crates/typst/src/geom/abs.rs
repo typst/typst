@@ -1,28 +1,28 @@
 use super::*;
 
 /// An absolute length.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Abs(Scalar);
 
 impl Abs {
     /// The zero length.
     pub const fn zero() -> Self {
-        Self(Scalar(0.0))
+        Self(Scalar::ZERO)
     }
 
     /// The infinite length.
     pub const fn inf() -> Self {
-        Self(Scalar(f64::INFINITY))
+        Self(Scalar::INFINITY)
     }
 
     /// Create an absolute length from a number of raw units.
     pub const fn raw(raw: f64) -> Self {
-        Self(Scalar(raw))
+        Self(Scalar::new(raw))
     }
 
     /// Create an absolute length from a value in a unit.
     pub fn with_unit(val: f64, unit: AbsUnit) -> Self {
-        Self(Scalar(val * unit.raw_scale()))
+        Self(Scalar::new(val * unit.raw_scale()))
     }
 
     /// Create an absolute length from a number of points.
@@ -47,7 +47,7 @@ impl Abs {
 
     /// Get the value of this absolute length in raw units.
     pub const fn to_raw(self) -> f64 {
-        (self.0).0
+        (self.0).get()
     }
 
     /// Get the value of this absolute length in a unit.
@@ -133,9 +133,9 @@ impl Numeric for Abs {
     }
 }
 
-impl Debug for Abs {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}pt", round_2(self.to_pt()))
+impl Repr for Abs {
+    fn repr(&self) -> EcoString {
+        format_float(self.to_pt(), Some(2), "pt")
     }
 }
 
@@ -220,7 +220,7 @@ cast! {
 }
 
 /// Different units of absolute measurement.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum AbsUnit {
     /// Points.
     Pt,
@@ -241,17 +241,6 @@ impl AbsUnit {
             AbsUnit::Cm => 28.3465,
             AbsUnit::In => 72.0,
         }
-    }
-}
-
-impl Debug for AbsUnit {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            AbsUnit::Mm => "mm",
-            AbsUnit::Pt => "pt",
-            AbsUnit::Cm => "cm",
-            AbsUnit::In => "in",
-        })
     }
 }
 

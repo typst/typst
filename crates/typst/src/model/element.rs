@@ -1,16 +1,17 @@
+use ecow::EcoString;
 use std::any::TypeId;
 use std::cmp::Ordering;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::Debug;
 
 use once_cell::sync::Lazy;
 
 use super::{Content, Selector, Styles};
 use crate::diag::SourceResult;
-use crate::eval::{cast, Args, Dict, Func, ParamInfo, Scope, Value, Vm};
+use crate::eval::{cast, Args, Dict, Func, ParamInfo, Repr, Scope, Value, Vm};
 use crate::util::Static;
 
 /// A document element.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Element(Static<NativeElementData>);
 
 impl Element {
@@ -93,9 +94,9 @@ impl Element {
     }
 }
 
-impl Debug for Element {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(self.name())
+impl Repr for Element {
+    fn repr(&self) -> EcoString {
+        self.name().into()
     }
 }
 
@@ -150,6 +151,7 @@ pub trait Set {
 }
 
 /// Defines a native element.
+#[derive(Debug)]
 pub struct NativeElementData {
     pub name: &'static str,
     pub title: &'static str,

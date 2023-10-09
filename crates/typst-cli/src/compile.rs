@@ -22,9 +22,15 @@ type CodespanError = codespan_reporting::files::Error;
 impl CompileCommand {
     /// The output path.
     pub fn output(&self) -> PathBuf {
-        self.output
-            .clone()
-            .unwrap_or_else(|| self.common.input.with_extension("pdf"))
+        self.output.clone().unwrap_or_else(|| {
+            self.common.input.with_extension(
+                match self.output_format().unwrap_or(OutputFormat::Pdf) {
+                    OutputFormat::Pdf => "pdf",
+                    OutputFormat::Png => "png",
+                    OutputFormat::Svg => "svg",
+                },
+            )
+        })
     }
 
     /// The format to use for generated output, either specified by the user or inferred from the extension.
@@ -69,8 +75,7 @@ pub fn compile_once(
         Status::Compiling.print(command).unwrap();
     }
 
-    // Reset everything and ensure that the main file is present.
-    world.reset();
+    // Ensure that the main file is present.
     world.source(world.main()).map_err(|err| err.to_string())?;
 
     let mut tracer = Tracer::new();

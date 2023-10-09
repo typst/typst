@@ -25,6 +25,16 @@ A B \
 A #h(-1fr) B
 
 ---
+// Test spacing collapsing with different font sizes.
+#grid(columns: 2)[
+  #text(size: 12pt, block(below: 1em)[A])
+  #text(size: 8pt, block(above: 1em)[B])
+][
+  #text(size: 12pt, block(below: 1em)[A])
+  #text(size: 8pt, block(above: 1.25em)[B])
+]
+
+---
 // Test RTL spacing.
 #set text(dir: rtl)
 A #h(10pt) B \

@@ -156,7 +156,7 @@ impl MathRow {
         }
 
         let AlignmentResult { points, width } = alignments(&rows);
-        let mut frame = Frame::new(Size::zero());
+        let mut frame = Frame::soft(Size::zero());
 
         for (i, row) in rows.into_iter().enumerate() {
             let sub = row.into_line_frame(&points, align);
@@ -179,7 +179,7 @@ impl MathRow {
 
     fn into_line_frame(self, points: &[Abs], align: FixedAlign) -> Frame {
         let ascent = self.ascent();
-        let mut frame = Frame::new(Size::new(Abs::zero(), ascent + self.descent()));
+        let mut frame = Frame::soft(Size::new(Abs::zero(), ascent + self.descent()));
         frame.set_baseline(ascent);
 
         let mut next_x = {

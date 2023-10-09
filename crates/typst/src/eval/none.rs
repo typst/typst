@@ -1,8 +1,9 @@
-use std::fmt::{self, Debug, Formatter};
+use ecow::EcoString;
+use std::fmt::Debug;
 
 use serde::{Serialize, Serializer};
 
-use super::{cast, ty, CastInfo, FromValue, IntoValue, Reflect, Type, Value};
+use super::{cast, ty, CastInfo, FromValue, IntoValue, Reflect, Repr, Type, Value};
 use crate::diag::StrResult;
 
 /// A value that indicates the absence of any other value.
@@ -18,7 +19,7 @@ use crate::diag::StrResult;
 /// Not visible: #none
 /// ```
 #[ty(name = "none")]
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct NoneValue;
 
 impl Reflect for NoneValue {
@@ -50,9 +51,9 @@ impl FromValue for NoneValue {
     }
 }
 
-impl Debug for NoneValue {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("none")
+impl Repr for NoneValue {
+    fn repr(&self) -> EcoString {
+        "none".into()
     }
 }
 

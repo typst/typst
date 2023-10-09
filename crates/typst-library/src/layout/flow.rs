@@ -29,6 +29,12 @@ impl Layout for FlowElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
+        if !regions.size.x.is_finite() && regions.expand.x {
+            bail!(error!(self.span(), "cannot expand into infinite width"));
+        }
+        if !regions.size.y.is_finite() && regions.expand.y {
+            bail!(error!(self.span(), "cannot expand into infinite height"));
+        }
         let mut layouter = FlowLayouter::new(regions, styles);
 
         for mut child in &self.children() {
@@ -55,7 +61,7 @@ impl Layout for FlowElem {
                 let layoutable = child.with::<dyn Layout>().unwrap();
                 layouter.layout_single(vt, layoutable, styles)?;
             } else if child.is::<MetaElem>() {
-                let mut frame = Frame::new(Size::zero());
+                let mut frame = Frame::soft(Size::zero());
                 frame.meta(styles, true);
                 layouter.items.push(FlowItem::Frame {
                     frame,
@@ -484,7 +490,7 @@ impl<'a> FlowLayouter<'a> {
             size.y = self.initial.y;
         }
 
-        let mut output = Frame::new(size);
+        let mut output = Frame::soft(size);
         let mut ruler = FixedAlign::Start;
         let mut float_top_offset = Abs::zero();
         let mut offset = float_top_height;

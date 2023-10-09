@@ -589,9 +589,11 @@ fn collect<'a>(
         } else if let Some(elem) = child.to::<SmartquoteElem>() {
             let prev = full.len();
             if SmartquoteElem::enabled_in(styles) {
+                let quotes = SmartquoteElem::quotes_in(styles);
                 let lang = TextElem::lang_in(styles);
                 let region = TextElem::region_in(styles);
-                let quotes = Quotes::from_lang(
+                let quotes = Quotes::new(
+                    &quotes,
                     lang,
                     region,
                     SmartquoteElem::alternative_in(styles),
@@ -712,7 +714,7 @@ fn prepare<'a>(
                 }
             }
             Segment::Meta => {
-                let mut frame = Frame::new(Size::zero());
+                let mut frame = Frame::soft(Size::zero());
                 frame.meta(styles, true);
                 items.push(Item::Meta(frame));
             }
@@ -903,7 +905,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
     // Cost parameters.
     const HYPH_COST: Cost = 0.5;
     const RUNT_COST: Cost = 0.5;
-    const CONSECUTIVE_DASH_COST: Cost = 300.0;
+    const CONSECUTIVE_DASH_COST: Cost = 0.3;
     const MAX_COST: Cost = 1_000_000.0;
     const MIN_RATIO: f64 = -1.0;
 
@@ -993,7 +995,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
             // In Knuth paper, cost = (1 + 100|r|^3 + p)^2 + a,
             // where r is the ratio, p=50 is the penalty, and a=3000 is consecutive the penalty.
             // We divide the whole formula by 10, resulting (0.01 + |r|^3 + p)^2 + a,
-            // where p=0.5 and a=300
+            // where p=0.5 and a=0.3
             cost = (0.01 + cost).powi(2);
 
             // Penalize two consecutive dashes (not necessarily hyphens) extra.
@@ -1270,7 +1272,7 @@ fn line<'a>(
             if hyphen || start < range.end || before.is_empty() {
                 let mut reshaped = shaped.reshape(vt, &p.spans, start..range.end);
                 if hyphen || shy {
-                    reshaped.push_hyphen(vt);
+                    reshaped.push_hyphen(vt, TextElem::fallback_in(p.styles));
                 }
                 let punct = reshaped.glyphs.last();
                 if let Some(punct) = punct {
@@ -1519,7 +1521,7 @@ fn commit(
     }
 
     let size = Size::new(width, top + bottom);
-    let mut output = Frame::new(size);
+    let mut output = Frame::soft(size);
     output.set_baseline(top);
 
     // Construct the line's frame.

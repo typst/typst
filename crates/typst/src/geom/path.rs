@@ -1,3 +1,5 @@
+use kurbo::Shape;
+
 use super::*;
 
 /// A bezier path.
@@ -50,5 +52,51 @@ impl Path {
     /// Push a [`ClosePath`](PathItem::ClosePath) item.
     pub fn close_path(&mut self) {
         self.0.push(PathItem::ClosePath);
+    }
+
+    /// Computes the size of bounding box of this path.
+    pub fn bbox_size(&self) -> Size {
+        let mut min_x = Abs::inf();
+        let mut min_y = Abs::inf();
+        let mut max_x = -Abs::inf();
+        let mut max_y = -Abs::inf();
+
+        let mut cursor = Point::zero();
+        for item in self.0.iter() {
+            match item {
+                PathItem::MoveTo(to) => {
+                    min_x = min_x.min(cursor.x);
+                    min_y = min_y.min(cursor.y);
+                    max_x = max_x.max(cursor.x);
+                    max_y = max_y.max(cursor.y);
+                    cursor = *to;
+                }
+                PathItem::LineTo(to) => {
+                    min_x = min_x.min(cursor.x);
+                    min_y = min_y.min(cursor.y);
+                    max_x = max_x.max(cursor.x);
+                    max_y = max_y.max(cursor.y);
+                    cursor = *to;
+                }
+                PathItem::CubicTo(c0, c1, end) => {
+                    let cubic = kurbo::CubicBez::new(
+                        kurbo::Point::new(cursor.x.to_pt(), cursor.y.to_pt()),
+                        kurbo::Point::new(c0.x.to_pt(), c0.y.to_pt()),
+                        kurbo::Point::new(c1.x.to_pt(), c1.y.to_pt()),
+                        kurbo::Point::new(end.x.to_pt(), end.y.to_pt()),
+                    );
+
+                    let bbox = cubic.bounding_box();
+                    min_x = min_x.min(Abs::pt(bbox.x0)).min(Abs::pt(bbox.x1));
+                    min_y = min_y.min(Abs::pt(bbox.y0)).min(Abs::pt(bbox.y1));
+                    max_x = max_x.max(Abs::pt(bbox.x0)).max(Abs::pt(bbox.x1));
+                    max_y = max_y.max(Abs::pt(bbox.y0)).max(Abs::pt(bbox.y1));
+                    cursor = *end;
+                }
+                PathItem::ClosePath => (),
+            }
+        }
+
+        Size::new(max_x - min_x, max_y - min_y)
     }
 }
