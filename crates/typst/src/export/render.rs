@@ -14,7 +14,7 @@ use usvg::{NodeExt, TreeParsing};
 use crate::doc::{Frame, FrameItem, FrameKind, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin, Paint,
+    self, Abs, Axes, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin, Paint,
     PathItem, Point, Ratio, Relative, Shape, Size, Transform,
 };
 use crate::image::{Image, ImageKind, RasterFormat};
@@ -136,8 +136,11 @@ impl<'a> State<'a> {
     }
 
     /// Pre concat the container's transform.
-    fn pre_concat_container(self, container_transform: sk::Transform) -> Self {
-        Self { container_transform, ..self }
+    fn pre_concat_container(self, transform: sk::Transform) -> Self {
+        Self {
+            container_transform: self.container_transform.pre_concat(transform),
+            ..self
+        }
     }
 }
 
@@ -378,7 +381,7 @@ fn render_outline_glyph(
 
         // TODO: Implement gradients on text.
         let mut pixmap = None;
-        let paint = to_sk_paint(&text.fill, state, Size::zero(), None, &mut pixmap);
+        let paint = to_sk_paint(&text.fill, state, Size::zero(), None, &mut pixmap, None);
 
         let rule = sk::FillRule::default();
 
@@ -512,7 +515,7 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
     if let Some(fill) = &shape.fill {
         let mut pixmap = None;
         let mut paint: sk::Paint =
-            to_sk_paint(fill, state, shape.geometry.bbox_size(), None, &mut pixmap);
+            to_sk_paint(fill, state, shape.geometry.bbox_size(), None, &mut pixmap, None);
 
         if matches!(shape.geometry, Geometry::Rect(_)) {
             paint.anti_alias = false;
@@ -547,10 +550,42 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
                 sk::StrokeDash::new(dash_array, pattern.phase.to_f32())
             });
 
-            let mut pixmap = None;
-            let paint =
-                to_sk_paint(paint, state, shape.geometry.bbox_size(), None, &mut pixmap);
+            let bbox = shape.geometry.bbox_size();
+            let offset_bbox = (!matches!(shape.geometry, Geometry::Line(..)))
+                .then(|| offset_bounding_box(bbox, *thickness))
+                .unwrap_or(bbox);
 
+            let fill_transform =
+                (!matches!(shape.geometry, Geometry::Line(..))).then(|| {
+                    sk::Transform::from_translate(
+                        -thickness.to_f32(),
+                        -thickness.to_f32(),
+                    )
+                });
+
+            let gradient_map =
+                (!matches!(shape.geometry, Geometry::Line(..))).then(|| {
+                    (
+                        Point::new(
+                            -*thickness * state.pixel_per_pt as f64,
+                            -*thickness * state.pixel_per_pt as f64,
+                        ),
+                        Axes::new(
+                            Ratio::new(offset_bbox.x / bbox.x),
+                            Ratio::new(offset_bbox.y / bbox.y),
+                        ),
+                    )
+                });
+
+            let mut pixmap = None;
+            let paint = to_sk_paint(
+                paint,
+                state,
+                offset_bbox,
+                fill_transform,
+                &mut pixmap,
+                gradient_map,
+            );
             let stroke = sk::Stroke {
                 width,
                 line_cap: line_cap.into(),
@@ -700,23 +735,40 @@ impl From<sk::Transform> for Transform {
     }
 }
 
-/// Transforms a [`Paint`] into a [`sk::Paint`].
+// Transforms a [`Paint`] into a [`sk::Paint`].
 /// Applying the necessary transform, if the paint is a gradient.
+///
+/// `gradient_map` is used to scale and move the gradient being sampled,
+/// this is used to line up the stroke and the fill of a shape.
 fn to_sk_paint<'a>(
     paint: &Paint,
     state: State,
     item_size: Size,
     fill_transform: Option<sk::Transform>,
     pixmap: &'a mut Option<Arc<sk::Pixmap>>,
+    gradient_map: Option<(Point, Axes<Ratio>)>,
 ) -> sk::Paint<'a> {
     /// Actual sampling of the gradient, cached for performance.
     #[comemo::memoize]
-    fn cached(gradient: &Gradient, width: u32, height: u32) -> Arc<sk::Pixmap> {
+    fn cached(
+        gradient: &Gradient,
+        width: u32,
+        height: u32,
+        gradient_map: Option<(Point, Axes<Ratio>)>,
+    ) -> Arc<sk::Pixmap> {
+        let (offset, scale) =
+            gradient_map.unwrap_or_else(|| (Point::zero(), Axes::splat(Ratio::one())));
         let mut pixmap = sk::Pixmap::new(width.max(1), height.max(1)).unwrap();
         for x in 0..width {
             for y in 0..height {
                 let color: sk::Color = gradient
-                    .sample_at((x as f32, y as f32), (width as f32, height as f32))
+                    .sample_at(
+                        (
+                            (x as f32 + offset.x.to_f32()) * scale.x.get() as f32,
+                            (y as f32 + offset.y.to_f32()) * scale.y.get() as f32,
+                        ),
+                        (width as f32, height as f32),
+                    )
                     .into();
 
                 pixmap.pixels_mut()[(y * width + x) as usize] =
@@ -734,18 +786,18 @@ fn to_sk_paint<'a>(
             sk_paint.anti_alias = true;
         }
         Paint::Gradient(gradient) => {
-            let container_size = match gradient.unwrap_relative(false) {
+            let relative = gradient.unwrap_relative(false);
+            let container_size = match relative {
                 Relative::Self_ => item_size,
                 Relative::Parent => state.size,
             };
 
-            let fill_transform =
-                fill_transform.unwrap_or_else(|| match gradient.unwrap_relative(false) {
-                    Relative::Self_ => sk::Transform::identity(),
-                    Relative::Parent => state
-                        .container_transform
-                        .post_concat(state.transform.invert().unwrap()),
-                });
+            let fill_transform = match relative {
+                Relative::Self_ => fill_transform.unwrap_or_default(),
+                Relative::Parent => state
+                    .container_transform
+                    .post_concat(state.transform.invert().unwrap()),
+            };
             let width = (container_size.x.to_f32() * state.pixel_per_pt).ceil() as u32;
             let height = (container_size.y.to_f32() * state.pixel_per_pt).ceil() as u32;
 
@@ -753,6 +805,7 @@ fn to_sk_paint<'a>(
                 gradient,
                 width.max(state.pixel_per_pt.ceil() as u32),
                 height.max(state.pixel_per_pt.ceil() as u32),
+                gradient_map,
             ));
 
             // We can use FilterQuality::Nearest here because we're
@@ -859,4 +912,8 @@ fn alpha_mul(color: u32, scale: u32) -> u32 {
     let rb = ((color & mask) * scale) >> 8;
     let ag = ((color >> 8) & mask) * scale;
     (rb & mask) | (ag & !mask)
+}
+
+fn offset_bounding_box(bbox: Size, stroke_width: Abs) -> Size {
+    Size::new(bbox.x + stroke_width * 2.0, bbox.y + stroke_width * 2.0)
 }

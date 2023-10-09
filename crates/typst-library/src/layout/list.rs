@@ -162,6 +162,7 @@ impl Layout for ListElem {
             &cells,
             regions,
             styles,
+            self.span(),
         );
 
         Ok(layouter.layout(vt)?.fragment)

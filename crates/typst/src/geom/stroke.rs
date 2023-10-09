@@ -141,6 +141,8 @@ impl Stroke<Abs> {
 
     /// Unpack the stroke, filling missing fields with the default values.
     pub fn unwrap_or_default(self) -> FixedStroke {
+        // we want to do this; the Clippy lint is not type-aware
+        #[allow(clippy::unwrap_or_default)]
         self.unwrap_or(FixedStroke::default())
     }
 }

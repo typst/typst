@@ -1,10 +1,9 @@
-// Test whether `relative: "parent"` works correctly.
-
+// Test whether `relative: "parent"` works correctly on radial gradients.
 
 ---
 // The image should look as if there is a single gradient that is being used for
 // both the page and the rectangles.
-#let grad = gradient.linear(red, blue, green, purple, relative: "parent");
+#let grad = gradient.radial(red, blue, green, purple, relative: "parent");
 #let my-rect = rect(width: 50%, height: 50%, fill: grad)
 #set page(
   height: 200pt,
@@ -18,7 +17,7 @@
 ---
 // The image should look as if there are multiple gradients, one for each
 // rectangle.
-#let grad = gradient.linear(red, blue, green, purple, relative: "self");
+#let grad = gradient.radial(red, blue, green, purple, relative: "self");
 #let my-rect = rect(width: 50%, height: 50%, fill: grad)
 #set page(
   height: 200pt,

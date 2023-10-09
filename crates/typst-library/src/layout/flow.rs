@@ -29,6 +29,12 @@ impl Layout for FlowElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
+        if !regions.size.x.is_finite() && regions.expand.x {
+            bail!(error!(self.span(), "cannot expand into infinite width"));
+        }
+        if !regions.size.y.is_finite() && regions.expand.y {
+            bail!(error!(self.span(), "cannot expand into infinite height"));
+        }
         let mut layouter = FlowLayouter::new(regions, styles);
 
         for mut child in &self.children() {
