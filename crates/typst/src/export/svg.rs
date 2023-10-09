@@ -8,6 +8,7 @@ use ttf_parser::{GlyphId, OutlineBuilder};
 use xmlwriter::XmlWriter;
 
 use crate::doc::{Frame, FrameItem, FrameKind, GroupItem, TextItem};
+use crate::eval::Repr;
 use crate::font::Font;
 use crate::geom::{
     Abs, Angle, Axes, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin, Paint,
@@ -135,12 +136,15 @@ struct GradientRef {
 enum GradientKind {
     /// A linear gradient.
     Linear,
+    /// A radial gradient.
+    Radial,
 }
 
 impl From<&Gradient> for GradientKind {
     fn from(value: &Gradient) -> Self {
         match value {
             Gradient::Linear { .. } => GradientKind::Linear,
+            Gradient::Radial { .. } => GradientKind::Radial,
         }
     }
 }
@@ -664,48 +668,59 @@ impl SVGRenderer {
                     self.xml.write_attribute("y1", &y1);
                     self.xml.write_attribute("x2", &x2);
                     self.xml.write_attribute("y2", &y2);
-
-                    for window in linear.stops.windows(2) {
-                        let (start_c, start_t) = window[0];
-                        let (end_c, end_t) = window[1];
-
-                        self.xml.start_element("stop");
-                        self.xml
-                            .write_attribute_fmt("offset", format_args!("{start_t:?}"));
-                        self.xml.write_attribute("stop-color", &start_c.to_hex());
-                        self.xml.end_element();
-
-                        // Generate (256 / len) stops between the two stops.
-                        // This is a workaround for a bug in many readers:
-                        // They tend to just ignore the color space of the gradient.
-                        // The goal is to have smooth gradients but not to balloon the file size
-                        // too much if there are already a lot of stops as in most presets.
-                        let len = if gradient.anti_alias() {
-                            (256 / linear.stops.len() as u32).max(2)
-                        } else {
-                            2
-                        };
-
-                        for i in 1..(len - 1) {
-                            let t0 = i as f64 / (len - 1) as f64;
-                            let t = start_t + (end_t - start_t) * t0;
-                            let c = gradient.sample(RatioOrAngle::Ratio(t));
-
-                            self.xml.start_element("stop");
-                            self.xml.write_attribute_fmt("offset", format_args!("{t:?}"));
-                            self.xml.write_attribute("stop-color", &c.to_hex());
-                            self.xml.end_element();
-                        }
-
-                        self.xml.start_element("stop");
-                        self.xml.write_attribute_fmt("offset", format_args!("{end_t:?}"));
-                        self.xml.write_attribute("stop-color", &end_c.to_hex());
-                        self.xml.end_element()
-                    }
-
-                    self.xml.end_element();
+                }
+                Gradient::Radial(radial) => {
+                    self.xml.start_element("radialGradient");
+                    self.xml.write_attribute("id", &id);
+                    self.xml.write_attribute("spreadMethod", "pad");
+                    self.xml.write_attribute("gradientUnits", "userSpaceOnUse");
+                    self.xml.write_attribute("cx", &radial.center.x.get());
+                    self.xml.write_attribute("cy", &radial.center.y.get());
+                    self.xml.write_attribute("r", &radial.radius.get());
+                    self.xml.write_attribute("fx", &radial.focal_center.x.get());
+                    self.xml.write_attribute("fy", &radial.focal_center.y.get());
+                    self.xml.write_attribute("fr", &radial.focal_radius.get());
                 }
             }
+
+            for window in gradient.stops_ref().windows(2) {
+                let (start_c, start_t) = window[0];
+                let (end_c, end_t) = window[1];
+
+                self.xml.start_element("stop");
+                self.xml.write_attribute("offset", &start_t.repr());
+                self.xml.write_attribute("stop-color", &start_c.to_hex());
+                self.xml.end_element();
+
+                // Generate (256 / len) stops between the two stops.
+                // This is a workaround for a bug in many readers:
+                // They tend to just ignore the color space of the gradient.
+                // The goal is to have smooth gradients but not to balloon the file size
+                // too much if there are already a lot of stops as in most presets.
+                let len = if gradient.anti_alias() {
+                    (256 / gradient.stops_ref().len() as u32).max(2)
+                } else {
+                    2
+                };
+
+                for i in 1..(len - 1) {
+                    let t0 = i as f64 / (len - 1) as f64;
+                    let t = start_t + (end_t - start_t) * t0;
+                    let c = gradient.sample(RatioOrAngle::Ratio(t));
+
+                    self.xml.start_element("stop");
+                    self.xml.write_attribute("offset", &t.repr());
+                    self.xml.write_attribute("stop-color", &c.to_hex());
+                    self.xml.end_element();
+                }
+
+                self.xml.start_element("stop");
+                self.xml.write_attribute("offset", &end_t.repr());
+                self.xml.write_attribute("stop-color", &end_c.to_hex());
+                self.xml.end_element()
+            }
+
+            self.xml.end_element();
         }
 
         self.xml.end_element()
@@ -722,6 +737,13 @@ impl SVGRenderer {
             match gradient_ref.kind {
                 GradientKind::Linear => {
                     self.xml.start_element("linearGradient");
+                    self.xml.write_attribute(
+                        "gradientTransform",
+                        &SvgMatrix(gradient_ref.transform),
+                    );
+                }
+                GradientKind::Radial => {
+                    self.xml.start_element("radialGradient");
                     self.xml.write_attribute(
                         "gradientTransform",
                         &SvgMatrix(gradient_ref.transform),

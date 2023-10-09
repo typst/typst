@@ -103,10 +103,13 @@ fn scale(
 /// ```
 #[func]
 pub fn floor(
+    /// The size of the brackets, relative to the height of the wrapped content.
+    #[named]
+    size: Option<Smart<Rel<Length>>>,
     /// The expression to floor.
     body: Content,
 ) -> Content {
-    delimited(body, '⌊', '⌋')
+    delimited(body, '⌊', '⌋', size)
 }
 
 /// Ceils an expression.
@@ -116,10 +119,13 @@ pub fn floor(
 /// ```
 #[func]
 pub fn ceil(
+    /// The size of the brackets, relative to the height of the wrapped content.
+    #[named]
+    size: Option<Smart<Rel<Length>>>,
     /// The expression to ceil.
     body: Content,
 ) -> Content {
-    delimited(body, '⌈', '⌉')
+    delimited(body, '⌈', '⌉', size)
 }
 
 /// Rounds an expression.
@@ -129,10 +135,13 @@ pub fn ceil(
 /// ```
 #[func]
 pub fn round(
+    /// The size of the brackets, relative to the height of the wrapped content.
+    #[named]
+    size: Option<Smart<Rel<Length>>>,
     /// The expression to round.
     body: Content,
 ) -> Content {
-    delimited(body, '⌊', '⌉')
+    delimited(body, '⌊', '⌉', size)
 }
 
 /// Takes the absolute value of an expression.
@@ -142,10 +151,13 @@ pub fn round(
 /// ```
 #[func]
 pub fn abs(
+    /// The size of the brackets, relative to the height of the wrapped content.
+    #[named]
+    size: Option<Smart<Rel<Length>>>,
     /// The expression to take the absolute value of.
     body: Content,
 ) -> Content {
-    delimited(body, '|', '|')
+    delimited(body, '|', '|', size)
 }
 
 /// Takes the norm of an expression.
@@ -155,17 +167,29 @@ pub fn abs(
 /// ```
 #[func]
 pub fn norm(
+    /// The size of the brackets, relative to the height of the wrapped content.
+    #[named]
+    size: Option<Smart<Rel<Length>>>,
     /// The expression to take the norm of.
     body: Content,
 ) -> Content {
-    delimited(body, '‖', '‖')
+    delimited(body, '‖', '‖', size)
 }
 
-fn delimited(body: Content, left: char, right: char) -> Content {
-    LrElem::new(Content::sequence([
+fn delimited(
+    body: Content,
+    left: char,
+    right: char,
+    size: Option<Smart<Rel<Length>>>,
+) -> Content {
+    let mut elem = LrElem::new(Content::sequence([
         TextElem::packed(left),
         body,
         TextElem::packed(right),
-    ]))
-    .pack()
+    ]));
+    // Push size only if size is provided
+    if let Some(size) = size {
+        elem.push_size(size);
+    }
+    elem.pack()
 }
