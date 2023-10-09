@@ -339,8 +339,8 @@ impl<'a> AstNode<'a> for Expr<'a> {
 }
 
 impl Expr<'_> {
-    /// Can this expression be embedded into markup with a hashtag?
-    pub fn hashtag(self) -> bool {
+    /// Can this expression be embedded into markup with a hash?
+    pub fn hash(self) -> bool {
         matches!(
             self,
             Self::Ident(_)

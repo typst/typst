@@ -97,7 +97,7 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
     }
 
     // Start of an interpolated identifier: "#|".
-    if ctx.leaf.kind() == SyntaxKind::Hashtag {
+    if ctx.leaf.kind() == SyntaxKind::Hash {
         ctx.from = ctx.cursor;
         code_completions(ctx, true);
         return true;
@@ -268,7 +268,7 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
     }
 
     // Start of an interpolated identifier: "#|".
-    if ctx.leaf.kind() == SyntaxKind::Hashtag {
+    if ctx.leaf.kind() == SyntaxKind::Hash {
         ctx.from = ctx.cursor;
         code_completions(ctx, true);
         return true;
@@ -326,7 +326,7 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
         if let Some(prev) = ctx.leaf.prev_sibling();
         if prev.is::<ast::Expr>();
         if prev.parent_kind() != Some(SyntaxKind::Markup) ||
-           prev.prev_sibling_kind() == Some(SyntaxKind::Hashtag);
+           prev.prev_sibling_kind() == Some(SyntaxKind::Hash);
         if let Some(value) = analyze_expr(ctx.world, &prev).into_iter().next();
         then {
             ctx.from = ctx.cursor;
@@ -796,8 +796,8 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
 
 /// Add completions for expression snippets.
 #[rustfmt::skip]
-fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
-    ctx.scope_completions(true, |value| !hashtag || {
+fn code_completions(ctx: &mut CompletionContext, hash: bool) {
+    ctx.scope_completions(true, |value| !hash || {
         matches!(value, Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_))
     });
 
@@ -933,7 +933,7 @@ fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
         "Creates a mapping from names to value.",
     );
 
-    if !hashtag {
+    if !hash {
         ctx.snippet_completion(
             "function",
             "(${params}) => ${output}",

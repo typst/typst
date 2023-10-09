@@ -117,7 +117,7 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::Link
         | SyntaxKind::Label => p.eat(),
 
-        SyntaxKind::Hashtag => embedded_code_expr(p),
+        SyntaxKind::Hash => embedded_code_expr(p),
         SyntaxKind::Star => strong(p),
         SyntaxKind::Underscore => emph(p),
         SyntaxKind::HeadingMarker if *at_start => heading(p),
@@ -254,7 +254,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     let m = p.marker();
     let mut continuable = false;
     match p.current() {
-        SyntaxKind::Hashtag => embedded_code_expr(p),
+        SyntaxKind::Hash => embedded_code_expr(p),
         SyntaxKind::MathIdent => {
             continuable = true;
             p.eat();
@@ -595,7 +595,7 @@ fn code_expr_or_pattern(p: &mut Parser) {
 fn embedded_code_expr(p: &mut Parser) {
     p.enter_newline_mode(NewlineMode::Stop);
     p.enter(LexMode::Code);
-    p.assert(SyntaxKind::Hashtag);
+    p.assert(SyntaxKind::Hash);
     p.unskip();
 
     let stmt = matches!(

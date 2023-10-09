@@ -49,7 +49,7 @@ fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
     }
 
     let expr = ancestor.cast::<ast::Expr>()?;
-    if !expr.hashtag() && !matches!(expr, ast::Expr::MathIdent(_)) {
+    if !expr.hash() && !matches!(expr, ast::Expr::MathIdent(_)) {
         return None;
     }
 

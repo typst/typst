@@ -125,8 +125,8 @@ fn try_reparse(
             end += 1;
         }
 
-        // Also take hashtag.
-        if start > 0 && children[start - 1].kind() == SyntaxKind::Hashtag {
+        // Also take hash.
+        if start > 0 && children[start - 1].kind() == SyntaxKind::Hash {
             start -= 1;
         }
 

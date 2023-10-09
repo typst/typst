@@ -20,7 +20,7 @@ math: |
   In math, single letters are always displayed as is. Multiple letters, however,
   are interpreted as variables and functions. To display multiple letters
   verbatim, you can place them into quotes and to access single letter
-  variables, you can use the [hashtag syntax]($scripting/#expressions).
+  variables, you can use the [hash syntax]($scripting/#expressions).
 
   ```example
   $ A = pi r^2 $
@@ -51,11 +51,11 @@ math: |
       &= (n(n+1)) / 2 $
   ```
 
-  Math mode supports special function calls without the hashtag prefix. In these
+  Math mode supports special function calls without the hash prefix. In these
   "math calls", the argument list works a little differently than in code:
 
   - Within them, Typst is still in "math mode". Thus, you can write math
-    directly into them, but need to use hashtag syntax to pass code expressions
+    directly into them, but need to use hash syntax to pass code expressions
     (except for strings, which are available in the math syntax).
   - They support positional and named arguments, but don't support trailing
     content blocks and argument spreading.
@@ -76,7 +76,7 @@ math: |
   directly preceded by an identifier, so to display it verbatim in those cases,
   you can just insert a space before it.
 
-  Functions calls preceded by a hashtag are normal code function calls and not
+  Functions calls preceded by a hash are normal code function calls and not
   affected by these rules.
 
   All math functions are part of the `math` [module]($scripting/#modules), which

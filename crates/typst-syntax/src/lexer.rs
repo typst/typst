@@ -175,7 +175,7 @@ impl Lexer<'_> {
             '*' if !self.in_word() => SyntaxKind::Star,
             '_' if !self.in_word() => SyntaxKind::Underscore,
 
-            '#' => SyntaxKind::Hashtag,
+            '#' => SyntaxKind::Hash,
             '[' => SyntaxKind::LeftBracket,
             ']' => SyntaxKind::RightBracket,
             '\'' => SyntaxKind::SmartQuote,
@@ -425,7 +425,7 @@ impl Lexer<'_> {
             '~' if self.s.eat_if('>') => SyntaxKind::Shorthand,
             '*' | '-' => SyntaxKind::Shorthand,
 
-            '#' => SyntaxKind::Hashtag,
+            '#' => SyntaxKind::Hash,
             '_' => SyntaxKind::Underscore,
             '$' => SyntaxKind::Dollar,
             '/' => SyntaxKind::Slash,

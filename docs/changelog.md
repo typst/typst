@@ -888,8 +888,8 @@ description: |
 [Go to the announcement blog post.](https://typst.app/blog/2023/january-update)
 - New expression syntax in markup/math
   - Blocks cannot be directly embedded in markup anymore
-  - Like other expressions, they now require a leading hashtag
-  - More expressions available with hashtag, including literals (`[#"string"]`)
+  - Like other expressions, they now require a leading hash
+  - More expressions available with hash, including literals (`[#"string"]`)
     as well as field access and method call without space: `[#emoji.face]`
 - New import syntax
   - `[#import "module.typ"]` creates binding named `module`
@@ -906,7 +906,7 @@ description: |
   - Symbols now listed in documentation
 - New `{math}` module
   - Contains all math-related functions
-  - Variables and function calls directly in math (without hashtag) access this
+  - Variables and function calls directly in math (without hash) access this
     module instead of the global scope, but can also access local variables
   - Can be explicitly used in code, e.g. `[#set math.vec(delim: "[")]`
 - Delimiter matching in math
@@ -924,7 +924,7 @@ description: |
   - Alignment points also work for underbraces, vectors, cases, and matrices
   - Multiple alignment points are supported
 - More capable math function calls
-  - Function calls directly in math can now take code expressions with hashtag
+  - Function calls directly in math can now take code expressions with hash
   - They can now also take named arguments
   - Within math function calls, semicolons turn preceding arguments to arrays to
     support matrices: `[$mat(1, 2; 3, 4)$]`
