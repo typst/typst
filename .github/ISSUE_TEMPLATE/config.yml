@@ -1,8 +1,11 @@
 blank_issues_enabled: true
 contact_links:
+  - name: 💻 Web App Issues
+    url: https://github.com/typst/webapp-issues/issues
+    about: Bug reports or feature requests for Typst's official web app
   - name: 💬 Typst Discord
     url: https://discord.gg/2uDybryKPe
-    about: Get answers to your questions about Typst on our Discord server
+    about: Get answers to your questions about Typst on our Discord server.
   - name: 🗣️ Discussions on GitHub
     url: https://github.com/typst/typst/discussions
     about: Do you have a question instead of a specific bug or feature request? Open a discussion thread!
