@@ -12,7 +12,7 @@ fn main() {
 #show raw.line: it => {
     box(stack(
         dir: ltr,
-        box(width: 15pt)[#it.line],
+        box(width: 15pt)[#it.number],
         it.body,
     ))
     linebreak()
@@ -32,14 +32,14 @@ fn main() {
     width: 100%,
     height: 1.75em,
     inset: 0.25em,
-    fill: if calc.rem(it.line, 2) == 0 {
+    fill: if calc.rem(it.number, 2) == 0 {
       luma(90%)
     } else {
       white
     },
     align(horizon, stack(
       dir: ltr,
-      box(width: 15pt)[#it.line],
+      box(width: 15pt)[#it.number],
       it.body,
     ))
   )

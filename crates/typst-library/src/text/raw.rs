@@ -460,7 +460,7 @@ impl PlainText for RawElem {
 pub struct RawLine {
     /// The line number of the raw line inside of the raw block, starts at 1.
     #[required]
-    pub line: i64,
+    pub number: i64,
 
     /// The line of raw text.
     #[required]
