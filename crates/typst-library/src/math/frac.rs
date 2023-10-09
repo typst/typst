@@ -1,5 +1,3 @@
-use std::iter;
-
 use super::*;
 
 const FRAC_AROUND: Em = Em::new(0.1);
@@ -53,12 +51,10 @@ pub struct BinomElem {
     #[variadic]
     #[parse(
         let values = args.all::<Spanned<Value>>()?;
-
-        // Prevents one element binomials
         if values.is_empty() {
-            bail!(Span::detached(), "missing argument: lower");
+            // Prevents one element binomials
+            bail!(args.span, "missing argument: lower");
         }
-
         values.into_iter().map(|spanned| spanned.v.display()).collect()
     )]
     pub lower: Vec<Content>,
@@ -108,13 +104,8 @@ fn layout(
 
     ctx.style(ctx.style.for_denominator());
     let denom = ctx.layout_frame(&Content::sequence(
-        denom
-            .iter()
-            // add a comma between each element
-            .zip(iter::repeat(TextElem::packed(",")))
-            .flat_map(|(a, sep)| vec![sep, a.clone()])
-            .skip(1) // remove comma before first element
-            .collect::<Vec<_>>(),
+        // Add a comma between each element.
+        denom.iter().flat_map(|a| [TextElem::packed(','), a.clone()]).skip(1),
     ))?;
     ctx.unstyle();
 
