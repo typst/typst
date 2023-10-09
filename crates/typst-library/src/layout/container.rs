@@ -156,11 +156,7 @@ impl Layout for BoxElem {
             let size = frame.size() + outset.sum_by_axis();
 
             let radius = self.radius(styles);
-            frame.clip(if radius.is_uniform() && radius.top_right.is_zero() {
-                Path::rect(size)
-            } else {
-                path_rect(size, radius, stroke.clone())
-            });
+            frame.clip(path_rect(size, radius, stroke.clone()));
         }
 
         // Add fill and/or stroke.
@@ -427,11 +423,7 @@ impl Layout for BlockElem {
                 let size = frame.size() + outset.sum_by_axis();
 
                 let radius = self.radius(styles);
-                frame.clip(if radius.is_uniform() && radius.top_right.is_zero() {
-                    Path::rect(size)
-                } else {
-                    path_rect(size, radius, stroke.clone())
-                });
+                frame.clip(path_rect(size, radius, stroke.clone()));
             }
         }
 

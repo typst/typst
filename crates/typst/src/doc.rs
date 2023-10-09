@@ -351,7 +351,11 @@ impl Frame {
         }
     }
 
-    /// Clip the contents of a frame to its size.
+    /// Clip the contents of a frame to a clip path.
+    ///
+    /// The clip path can be the size of the frame in the case of a
+    /// rectangular frame. In the case of a frame with rounded corner,
+    /// this should be a path that matches the frame's outline.
     pub fn clip(&mut self, clip_path: Path) {
         if !self.is_empty() {
             self.group(|g| g.clip_path = Some(clip_path));
