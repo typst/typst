@@ -450,9 +450,9 @@ impl PlainText for RawElem {
 }
 
 /// A stylized line of raw text.
-/// 
+///
 /// This is a helper element that is synthesized by [`raw`]($raw) elements.
-/// 
+///
 /// It allows you to access various properties of the line, such as the line
 /// number, the raw non-highlighted text, the highlighted tex, and whether it
 /// is the first or last line of the raw block.
