@@ -51,13 +51,20 @@ pub fn call_mut(
             "insert" => {
                 array.insert(args.expect("index")?, args.expect("value")?).at(span)?
             }
-            "remove" => output = array.remove(args.expect("index")?).at(span)?,
+            "remove" => {
+                output = array
+                    .remove(args.expect("index")?, args.named("default")?)
+                    .at(span)?
+            }
             _ => return missing(),
         },
 
         Value::Dict(dict) => match method {
             "insert" => dict.insert(args.expect::<Str>("key")?, args.expect("value")?),
-            "remove" => output = dict.remove(args.expect::<Str>("key")?).at(span)?,
+            "remove" => {
+                output =
+                    dict.remove(args.expect("key")?, args.named("default")?).at(span)?
+            }
             _ => return missing(),
         },
 

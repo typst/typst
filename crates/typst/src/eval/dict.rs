@@ -169,11 +169,17 @@ impl Dict {
 
     /// Removes a pair from the dictionary by key and return the value.
     #[func]
-    pub fn remove(&mut self, key: Str) -> StrResult<Value> {
-        match Arc::make_mut(&mut self.0).shift_remove(&key) {
-            Some(value) => Ok(value),
-            None => Err(missing_key(&key)),
-        }
+    pub fn remove(
+        &mut self,
+        key: Str,
+        /// A default value to return if the key does not exist.
+        #[named]
+        default: Option<Value>,
+    ) -> StrResult<Value> {
+        Arc::make_mut(&mut self.0)
+            .shift_remove(&key)
+            .or(default)
+            .ok_or_else(|| missing_key(&key))
     }
 
     /// Returns the keys of the dictionary as an array in insertion order.

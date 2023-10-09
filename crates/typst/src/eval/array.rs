@@ -247,9 +247,14 @@ impl Array {
         /// The index at which to remove the item. If negative, indexes from
         /// the back.
         index: i64,
+        /// A default value to return if the index is out of bounds.
+        #[named]
+        default: Option<Value>,
     ) -> StrResult<Value> {
-        let i = self.locate(index, false)?;
-        Ok(self.0.remove(i))
+        self.locate_opt(index, false)
+            .map(|i| self.0.remove(i))
+            .or(default)
+            .ok_or_else(|| out_of_bounds_no_default(index, self.len()))
     }
 
     /// Extracts a subslice of the array. Fails with an error if the start or
