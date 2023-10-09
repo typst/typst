@@ -11,7 +11,7 @@ scripting concepts.
 In Typst, markup and code are fused into one. All but the most common elements
 are created with _functions._ To make this as convenient as possible, Typst
 provides compact syntax to embed a code expression into markup: An expression is
-introduced with a hashtag (`#`) and normal markup parsing resumes after the
+introduced with a hash (`#`) and normal markup parsing resumes after the
 expression is finished. If a character would continue the expression but should
 be interpreted as text, the expression can forcibly be ended with a semicolon
 (`;`).
@@ -26,7 +26,7 @@ The example above shows a few of the available expressions, including
 [function calls]($function), [field accesses]($scripting/#fields), and
 [method calls]($scripting/#methods). More kinds of expressions are
 discussed in the remainder of this chapter. A few kinds of expressions are not
-compatible with the hashtag syntax (e.g. binary operator expressions). To embed
+compatible with the hash syntax (e.g. binary operator expressions). To embed
 these into markup, you can use parentheses, as in `[#(1 + 2)]`.
 
 ## Blocks

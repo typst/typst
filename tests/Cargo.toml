@@ -11,7 +11,7 @@ typst = { path = "../crates/typst" }
 typst-library = { path = "../crates/typst-library" }
 clap = { version = "4.4", features = ["derive"] }
 comemo = "0.3"
-ecow = { version = "0.1.2", features = ["serde"] }
+ecow = { version = "0.2", features = ["serde"] }
 iai = { git = "https://github.com/typst/iai" }
 once_cell = "1"
 oxipng = { git = "https://github.com/typst/oxipng", rev = "b8ec65b", default-features = false, features = ["filetime", "parallel", "zopfli"] }

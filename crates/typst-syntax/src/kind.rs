@@ -72,8 +72,8 @@ pub enum SyntaxKind {
     /// A root in math: `√x`, `∛x` or `∜x`.
     MathRoot,
 
-    /// A hashtag that switches into code mode: `#`.
-    Hashtag,
+    /// A hash that switches into code mode: `#`.
+    Hash,
     /// A left curly brace, starting a code block: `{`.
     LeftBrace,
     /// A right curly brace, terminating a code block: `}`.
@@ -385,7 +385,7 @@ impl SyntaxKind {
             Self::MathFrac => "math fraction",
             Self::MathRoot => "math root",
             Self::MathPrimes => "math primes",
-            Self::Hashtag => "hashtag",
+            Self::Hash => "hash",
             Self::LeftBrace => "opening brace",
             Self::RightBrace => "closing brace",
             Self::LeftBracket => "opening bracket",

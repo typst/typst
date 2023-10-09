@@ -64,7 +64,7 @@ Let's dissect what's going on:
   select a particular symbol variant.
 
 - Now, we get to some [scripting]. To input code into a Typst document, we can
-  write a hashtag followed by an expression. We define two variables and a
+  write a hash followed by an expression. We define two variables and a
   recursive function to compute the n-th fibonacci number. Then, we display the
   results in a center-aligned table. The table function takes its cells
   row-by-row. Therefore, we first pass the formulas `$F_1$` to `$F_8$` and then

@@ -174,7 +174,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::MathRoot => None,
         SyntaxKind::MathPrimes => None,
 
-        SyntaxKind::Hashtag => highlight_hashtag(node),
+        SyntaxKind::Hash => highlight_hash(node),
         SyntaxKind::LeftBrace => Some(Tag::Punctuation),
         SyntaxKind::RightBrace => Some(Tag::Punctuation),
         SyntaxKind::LeftBracket => Some(Tag::Punctuation),
@@ -322,8 +322,8 @@ fn highlight_ident(node: &LinkedNode) -> Option<Tag> {
         return Some(Tag::Function);
     }
 
-    // Are we (or an ancestor field access) directly after a hashtag.
-    if ancestor.prev_leaf().map(|leaf| leaf.kind()) == Some(SyntaxKind::Hashtag) {
+    // Are we (or an ancestor field access) directly after a hash.
+    if ancestor.prev_leaf().map(|leaf| leaf.kind()) == Some(SyntaxKind::Hash) {
         return Some(Tag::Interpolated);
     }
 
@@ -339,11 +339,11 @@ fn highlight_ident(node: &LinkedNode) -> Option<Tag> {
     None
 }
 
-/// Highlight a hashtag based on context.
-fn highlight_hashtag(node: &LinkedNode) -> Option<Tag> {
+/// Highlight a hash based on context.
+fn highlight_hash(node: &LinkedNode) -> Option<Tag> {
     let next = node.next_sibling()?;
     let expr = next.cast::<ast::Expr>()?;
-    if !expr.hashtag() {
+    if !expr.hash() {
         return None;
     }
     highlight(&next.leftmost_leaf()?)

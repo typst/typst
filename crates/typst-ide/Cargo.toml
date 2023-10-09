@@ -19,7 +19,7 @@ bench = false
 [dependencies]
 typst = { path = "../typst" }
 comemo = "0.3"
-ecow = { version = "0.1.2", features = ["serde"] }
+ecow = { version = "0.2", features = ["serde"] }
 if_chain = "1"
 serde = { version = "1.0.184", features = ["derive"] }
 unscanny = "0.1"

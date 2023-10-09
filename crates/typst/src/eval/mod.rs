@@ -223,7 +223,7 @@ pub fn eval_string(
 /// In which mode to evaluate a string.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum EvalMode {
-    /// Evaluate as code, as after a hashtag.
+    /// Evaluate as code, as after a hash.
     Code,
     /// Evaluate as markup, like in a Typst file.
     Markup,
