@@ -42,6 +42,19 @@ impl PathExtension for Path {
     }
 }
 
+/// Creates a new rectangle as a path.
+pub fn path_rect(
+    size: Size,
+    radius: Corners<Rel<Abs>>,
+    stroke: Sides<Option<FixedStroke>>,
+) -> Path {
+    if stroke.is_uniform() && radius.iter().cloned().all(Rel::is_zero) {
+        Path::rect(size)
+    } else {
+        segmented_path_rect(size, radius, stroke)
+    }
+}
+
 /// Create a styled rectangle with shapes.
 /// - use rect primitive for simple rectangles
 /// - stroke sides if possible
@@ -66,6 +79,67 @@ fn simple_rect(
     stroke: Option<FixedStroke>,
 ) -> Vec<Shape> {
     vec![Shape { geometry: Geometry::Rect(size), fill, stroke }]
+}
+
+fn segmented_path_rect(
+    size: Size,
+    radius: Corners<Rel<Abs>>,
+    strokes: Sides<Option<FixedStroke>>,
+) -> Path {
+    let stroke_widths = strokes
+        .clone()
+        .map(|s| s.map(|s| s.thickness / 2.0).unwrap_or(Abs::zero()));
+
+    let max_radius = (size.x.min(size.y)) / 2.0
+        + stroke_widths.iter().cloned().min().unwrap_or(Abs::zero());
+
+    let radius = radius.map(|side| side.relative_to(max_radius * 2.0).min(max_radius));
+
+    let corners = Corners {
+        top_left: Corner::TopLeft,
+        top_right: Corner::TopRight,
+        bottom_right: Corner::BottomRight,
+        bottom_left: Corner::BottomLeft,
+    }
+    .map(|corner| ControlPoints {
+        radius: radius.get(corner),
+        stroke_before: stroke_widths.get(corner.side_ccw()),
+        stroke_after: stroke_widths.get(corner.side_cw()),
+        corner,
+        size,
+        same: match (
+            strokes.get_ref(corner.side_ccw()),
+            strokes.get_ref(corner.side_cw()),
+        ) {
+            (Some(a), Some(b)) => a.paint == b.paint && a.dash_pattern == b.dash_pattern,
+            (None, None) => true,
+            _ => false,
+        },
+    });
+
+    // insert stroked sides below filled sides
+    let mut path = Path::new();
+    let current = corners.iter().find(|c| !c.same).map(|c| c.corner);
+    if let Some(mut current) = current {
+        // multiple segments
+        // start at a corner with a change between sides and iterate clockwise all other corners
+        let mut last = current;
+        for _ in 0..4 {
+            current = current.next_cw();
+            if corners.get_ref(current).same {
+                continue;
+            }
+            // create segment
+            let start = last;
+            let end = current;
+            last = current;
+            path_segment(start, end, &corners, &mut path);
+        }
+    } else if strokes.top.is_some() {
+        // single segment
+        path_segment(Corner::TopLeft, Corner::TopLeft, &corners, &mut path);
+    }
+    path
 }
 
 /// Use stroke and fill for the rectangle
@@ -169,6 +243,43 @@ fn segmented_rect(
         res.push(shape);
     }
     res
+}
+
+fn path_segment(
+    start: Corner,
+    end: Corner,
+    corners: &Corners<ControlPoints>,
+    path: &mut Path,
+) {
+    // create start corner
+    let c = corners.get_ref(start);
+    if start == end || !c.arc() {
+        path.move_to(c.end());
+    } else {
+        path.arc_move(c.mid(), c.center(), c.end());
+    }
+
+    // create corners between start and end
+    let mut current = start.next_cw();
+    while current != end {
+        let c = corners.get_ref(current);
+        if c.arc() {
+            path.arc_line(c.start(), c.center(), c.end());
+        } else {
+            path.line_to(c.end());
+        }
+        current = current.next_cw();
+    }
+
+    // create end corner
+    let c = corners.get_ref(end);
+    if !c.arc() {
+        path.line_to(c.start());
+    } else if start == end {
+        path.arc_line(c.start(), c.center(), c.end());
+    } else {
+        path.arc_line(c.start(), c.center(), c.mid());
+    }
 }
 
 /// Returns the shape for the segment and whether the shape should be drawn on top.

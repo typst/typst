@@ -13,7 +13,7 @@ use crate::export::PdfPageLabel;
 use crate::font::Font;
 use crate::geom::{
     self, styled_rect, Abs, Axes, Color, Corners, Dir, Em, FixedAlign, FixedStroke,
-    Geometry, Length, Numeric, Paint, Point, Rel, Shape, Sides, Size, Transform,
+    Geometry, Length, Numeric, Paint, Path, Point, Rel, Shape, Sides, Size, Transform,
 };
 use crate::image::Image;
 use crate::model::{Content, Location, MetaElem, StyleChain};
@@ -352,9 +352,9 @@ impl Frame {
     }
 
     /// Clip the contents of a frame to its size.
-    pub fn clip(&mut self) {
+    pub fn clip(&mut self, clip_path: Path) {
         if !self.is_empty() {
-            self.group(|g| g.clips = true);
+            self.group(|g| g.clip_path = Some(clip_path));
         }
     }
 
@@ -505,7 +505,7 @@ pub struct GroupItem {
     /// A transformation to apply to the group.
     pub transform: Transform,
     /// Whether the frame should be a clipping boundary.
-    pub clips: bool,
+    pub clip_path: Option<Path>,
 }
 
 impl GroupItem {
@@ -514,7 +514,7 @@ impl GroupItem {
         Self {
             frame,
             transform: Transform::identity(),
-            clips: false,
+            clip_path: None,
         }
     }
 }
