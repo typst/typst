@@ -765,7 +765,7 @@ fn add_cjk_latin_spacing(items: &mut [Item]) {
                 if glyph.is_cjk_script()
                     && next.map_or(false, |g| g.is_letter_or_number())
                 {
-                    // The spacing is default to 1/4 em, and can be shirnked to 1/8 em.
+                    // The spacing is default to 1/4 em, and can be shrunk to 1/8 em.
                     glyph.x_advance += Em::new(0.25);
                     glyph.adjustability.shrinkability.1 += Em::new(0.125);
                     text.width += Em::new(0.25).at(text.size);
