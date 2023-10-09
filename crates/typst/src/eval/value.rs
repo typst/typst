@@ -21,6 +21,7 @@ use crate::eval::Datetime;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Gradient, Length, Ratio, Rel};
 use crate::model::{Label, Styles};
 use crate::syntax::{ast, Span};
+use crate::util::fmt::{format_float, format_int_with_base};
 
 /// A computational value.
 #[derive(Debug, Default, Clone)]
@@ -198,8 +199,8 @@ impl Value {
     pub fn display(self) -> Content {
         match self {
             Self::None => Content::empty(),
-            Self::Int(v) => item!(text)(eco_format!("{v}")),
-            Self::Float(v) => item!(text)(eco_format!("{v}")),
+            Self::Int(v) => item!(text)(format_int_with_base(v, 10)),
+            Self::Float(v) => item!(text)(format_float(v, None, "")),
             Self::Str(v) => item!(text)(v.into()),
             Self::Version(v) => item!(text)(eco_format!("{v}")),
             Self::Symbol(v) => item!(text)(v.get().into()),

@@ -15,7 +15,7 @@ use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::geom::Align;
 use crate::model::Label;
 use crate::syntax::{Span, Spanned};
-use crate::util::fmt::format_int_with_base;
+use crate::util::fmt::{format_float, format_int_with_base};
 
 /// Create a new [`Str`] from a format string.
 #[macro_export]
@@ -610,7 +610,7 @@ pub enum ToStr {
 cast! {
     ToStr,
     v: i64 => Self::Int(v),
-    v: f64 => Self::Str(format_str!("{}", v)),
+    v: f64 => Self::Str(format_float(v, None, "").into()),
     v: Version => Self::Str(format_str!("{}", v)),
     v: Bytes => Self::Str(
         std::str::from_utf8(&v)
@@ -970,13 +970,13 @@ mod tests {
         );
         assert_eq!(
             &format_int_with_base(i64::MIN, 2),
-            "-1000000000000000000000000000000000000000000000000000000000000000"
+            "\u{2212}1000000000000000000000000000000000000000000000000000000000000000"
         );
         assert_eq!(&format_int_with_base(i64::MAX, 10), "9223372036854775807");
-        assert_eq!(&format_int_with_base(i64::MIN, 10), "-9223372036854775808");
+        assert_eq!(&format_int_with_base(i64::MIN, 10), "\u{2212}9223372036854775808");
         assert_eq!(&format_int_with_base(i64::MAX, 16), "7fffffffffffffff");
-        assert_eq!(&format_int_with_base(i64::MIN, 16), "-8000000000000000");
+        assert_eq!(&format_int_with_base(i64::MIN, 16), "\u{2212}8000000000000000");
         assert_eq!(&format_int_with_base(i64::MAX, 36), "1y2p0ij32e8e7");
-        assert_eq!(&format_int_with_base(i64::MIN, 36), "-1y2p0ij32e8e8");
+        assert_eq!(&format_int_with_base(i64::MIN, 36), "\u{2212}1y2p0ij32e8e8");
     }
 }
