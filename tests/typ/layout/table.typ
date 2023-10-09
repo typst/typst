@@ -49,6 +49,18 @@
   [A], [B], [C]
 )
 
+#table(
+  columns: 2,
+  inset: (
+    left: 20pt,
+    right: 5pt,
+    top: 10pt,
+    bottom: 3pt,
+  ),
+  [A],
+  [B],
+)
+
 ---
 // Ref: false
 #table()

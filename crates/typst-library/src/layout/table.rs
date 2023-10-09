@@ -114,6 +114,24 @@ pub struct TableElem {
     pub stroke: Option<Stroke>,
 
     /// How much to pad the cells' content.
+    ///
+    /// ```example
+    /// #table(
+    ///   inset: 10pt,
+    ///   [Hello],
+    ///   [World],
+    /// )
+    ///
+    /// #table(
+    ///   columns: 2,
+    ///   inset: (
+    ///     x: 20pt,
+    ///     y: 10pt,
+    ///   ),
+    ///   [Hello],
+    ///   [World],
+    /// )
+    /// ```
     #[fold]
     #[default(Sides::splat(Abs::pt(5.0).into()))]
     pub inset: Sides<Option<Rel<Length>>>,
