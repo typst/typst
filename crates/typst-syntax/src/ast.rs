@@ -173,6 +173,8 @@ pub enum Expr<'a> {
     Unary(Unary<'a>),
     /// A binary operation: `a + b`.
     Binary(Binary<'a>),
+    /// A ternary comparisonoperation: `a < b < c`.
+    TernaryComp(TernaryComp<'a>),
     /// A field access: `properties.age`.
     FieldAccess(FieldAccess<'a>),
     /// An invocation of a function or method: `f(x, y)`.
@@ -257,6 +259,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::Dict => node.cast().map(Self::Dict),
             SyntaxKind::Unary => node.cast().map(Self::Unary),
             SyntaxKind::Binary => node.cast().map(Self::Binary),
+            SyntaxKind::TernaryComp => node.cast().map(Self::TernaryComp),
             SyntaxKind::FieldAccess => node.cast().map(Self::FieldAccess),
             SyntaxKind::FuncCall => node.cast().map(Self::FuncCall),
             SyntaxKind::Closure => node.cast().map(Self::Closure),
@@ -319,6 +322,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::Parenthesized(v) => v.to_untyped(),
             Self::Unary(v) => v.to_untyped(),
             Self::Binary(v) => v.to_untyped(),
+            Self::TernaryComp(v) => v.to_untyped(),
             Self::FieldAccess(v) => v.to_untyped(),
             Self::FuncCall(v) => v.to_untyped(),
             Self::Closure(v) => v.to_untyped(),
@@ -1372,6 +1376,46 @@ impl<'a> Binary<'a> {
     }
 }
 
+node! {
+    /// A ternary comparison operation: `a < b <= c`.
+    TernaryComp
+}
+
+impl<'a> TernaryComp<'a> {
+    /// The left-hand side of the operation: `a`.
+    pub fn lhs(self) -> Expr<'a> {
+        self.0.cast_first_match().unwrap_or_default()
+    }
+
+    /// The left hand side operator: `<`.
+    pub fn lhs_op(self) -> BinOp {
+        self.0
+            .children()
+            .find_map(|node| BinOp::from_kind(node.kind()))
+            .unwrap_or(BinOp::Add)
+    }
+
+    /// The middle of the operation: `b`.
+    pub fn mid(self) -> Expr<'a> {
+        self.0.cast_nth_match(1).unwrap_or_default()
+    }
+
+    /// The left hand side operator: `<=`.
+    pub fn rhs_op(self) -> BinOp {
+        self.0
+            .children()
+            .skip_while(|node| BinOp::from_kind(node.kind()).is_none())
+            .skip(1)
+            .find_map(|node| BinOp::from_kind(node.kind()))
+            .unwrap_or(BinOp::Add)
+    }
+
+    /// The right-hand side of the operation: `c`.
+    pub fn rhs(self) -> Expr<'a> {
+        self.0.cast_last_match().unwrap_or_default()
+    }
+}
+
 /// A binary operator.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum BinOp {
@@ -1437,6 +1481,20 @@ impl BinOp {
             SyntaxKind::HyphEq => Self::SubAssign,
             SyntaxKind::StarEq => Self::MulAssign,
             SyntaxKind::SlashEq => Self::DivAssign,
+            _ => return Option::None,
+        })
+    }
+
+    /// Try to convert the token into a binary operation but
+    /// only if it is a comparison operator.
+    pub fn from_kind_comp(token: SyntaxKind) -> Option<Self> {
+        Some(match token {
+            SyntaxKind::EqEq => Self::Eq,
+            SyntaxKind::ExclEq => Self::Neq,
+            SyntaxKind::Lt => Self::Lt,
+            SyntaxKind::LtEq => Self::Leq,
+            SyntaxKind::Gt => Self::Gt,
+            SyntaxKind::GtEq => Self::Geq,
             _ => return Option::None,
         })
     }
@@ -1514,6 +1572,11 @@ impl BinOp {
             Self::MulAssign => "*=",
             Self::DivAssign => "/=",
         }
+    }
+
+    /// Whether this operator is a comparison operator.
+    pub fn is_comp(self) -> bool {
+        matches!(self, Self::Eq | Self::Neq | Self::Lt | Self::Leq | Self::Gt | Self::Geq)
     }
 }
 

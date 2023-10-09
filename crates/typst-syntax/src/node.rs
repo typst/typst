@@ -119,6 +119,11 @@ impl SyntaxNode {
         self.children().find_map(Self::cast)
     }
 
+    /// Cast the nth child that can cast to the AST type `T`.
+    pub fn cast_nth_match<'a, T: AstNode<'a>>(&'a self, n: usize) -> Option<T> {
+        self.children().filter_map(Self::cast).nth(n)
+    }
+
     /// Cast the last child that can cast to the AST type `T`.
     pub fn cast_last_match<'a, T: AstNode<'a>>(&'a self) -> Option<T> {
         self.children().rev().find_map(Self::cast)

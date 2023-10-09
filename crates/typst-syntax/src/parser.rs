@@ -687,6 +687,28 @@ fn code_expr_prec(
 
             p.eat();
             code_expr_prec(p, false, prec, false);
+
+            // Special case for ternary comparison operations.
+            if op.is_comp() && ast::BinOp::NotIn.precedence() >= min_prec {
+                if let Some(second_op) = ast::BinOp::from_kind_comp(p.current()) {
+                    let mut prec = second_op.precedence();
+                    if prec < min_prec {
+                        break;
+                    }
+
+                    match second_op.assoc() {
+                        ast::Assoc::Left => prec += 1,
+                        ast::Assoc::Right => {}
+                    }
+
+                    p.eat();
+                    code_expr_prec(p, false, prec, false);
+
+                    p.wrap(m, SyntaxKind::TernaryComp);
+                    continue;
+                }
+            }
+
             p.wrap(m, SyntaxKind::Binary);
             continue;
         }

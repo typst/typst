@@ -301,3 +301,33 @@
 #let inc2 = inc.with(y: 2)
 #test(inc2(2), 4)
 #test(inc2(2, y: 4), 6)
+
+---
+// Test ternary comparison operations
+
+#test(1 < 2 < 3, true)
+#test(1 < 2 < 1, false)
+#test(1 < 2 <= 2, true)
+#test(1 < 2 <= 1, false)
+#test(1 <= 2 < 3, true)
+#test(1 <= 2 < 1, false)
+#test(1 <= 2 <= 2, true)
+#test(1 <= 2 <= 1, false)
+#test(1 != 2 != 3, true)
+#test(1 != 2 != 1, true)
+#test(1 != 2 == 2, true)
+#test(1 != 2 == 1, false)
+#test(1 == 2 != 3, false)
+#test(1 == 2 != 1, false)
+#test(1 == 2 == 2, false)
+#test(1 == 2 == 1, false)
+
+---
+// Test ternary comparison with more complex expressions
+#let a = (1, 2, 3)
+#let b = (a: 1, b: 2, c: 3)
+
+#test(a.at(0) < a.at(1) < a.at(2), true)
+#test(a.at(0) < b.a * 2 < a.at(2), true)
+#test(a.at(0) < b.c * 2 < a.at(2), false)
+#test(a.at(0) < b.c * 2 >= a.at(2), true)

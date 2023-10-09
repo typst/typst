@@ -505,6 +505,7 @@ impl Eval for ast::Expr<'_> {
             Self::Closure(v) => v.eval(vm),
             Self::Unary(v) => v.eval(vm),
             Self::Binary(v) => v.eval(vm),
+            Self::TernaryComp(v) => v.eval(vm),
             Self::Let(v) => v.eval(vm),
             Self::DestructAssign(v) => v.eval(vm),
             Self::Set(_) => bail!(forbidden("set")),
@@ -1076,23 +1077,71 @@ impl Eval for ast::Binary<'_> {
     }
 }
 
-/// Apply a basic binary operation.
+impl<'a> Eval for ast::TernaryComp<'a> {
+    type Output = Value;
+
+    #[tracing::instrument(name = "TernaryComp::eval", skip_all)]
+    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let mut side = |lhs: &dyn Fn() -> ast::Expr<'a>,
+                        op,
+                        rhs: &dyn Fn() -> ast::Expr<'a>| match op {
+            ast::BinOp::Eq => apply_binary_op(lhs, op, rhs, self.span(), vm, ops::eq),
+            ast::BinOp::Neq => apply_binary_op(lhs, op, rhs, self.span(), vm, ops::neq),
+            ast::BinOp::Lt => apply_binary_op(lhs, op, rhs, self.span(), vm, ops::lt),
+            ast::BinOp::Leq => apply_binary_op(lhs, op, rhs, self.span(), vm, ops::leq),
+            ast::BinOp::Gt => apply_binary_op(lhs, op, rhs, self.span(), vm, ops::gt),
+            ast::BinOp::Geq => apply_binary_op(lhs, op, rhs, self.span(), vm, ops::geq),
+            _ => bail!(
+                self.span(),
+                "{} is not a valid comparison operator",
+                self.lhs_op().as_str()
+            ),
+        };
+
+        let lhs = side(&|| self.lhs(), self.lhs_op(), &|| self.mid())?;
+        let rhs = side(&|| self.mid(), self.rhs_op(), &|| self.rhs())?;
+        match (&lhs, &rhs) {
+            (Value::Bool(a), Value::Bool(b)) => Ok(Value::Bool(*a && *b)),
+
+            // This should not occur since the parser should prevent it.
+            _ => bail!(self.span(), "cannot compare {} and {}", lhs.ty(), rhs.ty()),
+        }
+    }
+}
+
+/// Apply a basic binary operation from a binary expression.
 fn apply_binary_expr(
     binary: ast::Binary,
     vm: &mut Vm,
     op: fn(Value, Value) -> StrResult<Value>,
 ) -> SourceResult<Value> {
-    let lhs = binary.lhs().eval(vm)?;
+    apply_binary_op(|| binary.lhs(), binary.op(), || binary.rhs(), binary.span(), vm, op)
+}
+
+/// Apply a basic binary operation.
+fn apply_binary_op<'a, L, R>(
+    lhs: L,
+    operator: ast::BinOp,
+    rhs: R,
+    span: Span,
+    vm: &mut Vm,
+    op: fn(Value, Value) -> StrResult<Value>,
+) -> SourceResult<Value>
+where
+    L: FnOnce() -> ast::Expr<'a>,
+    R: FnOnce() -> ast::Expr<'a>,
+{
+    let lhs = lhs().eval(vm)?;
 
     // Short-circuit boolean operations.
-    if (binary.op() == ast::BinOp::And && lhs == false.into_value())
-        || (binary.op() == ast::BinOp::Or && lhs == true.into_value())
+    if (operator == ast::BinOp::And && lhs == false.into_value())
+        || (operator == ast::BinOp::Or && lhs == true.into_value())
     {
         return Ok(lhs);
     }
 
-    let rhs = binary.rhs().eval(vm)?;
-    op(lhs, rhs).at(binary.span())
+    let rhs = rhs().eval(vm)?;
+    op(lhs, rhs).at(span)
 }
 
 /// Apply an assignment operation.
