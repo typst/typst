@@ -119,8 +119,8 @@ parallels programming languages like Python, providing the option to input and
 execute segments of code.
 
 Within Typst's markup, you can switch to code mode for a single command (or
-rather, _expression_) using a hashtag (`#`). This is how you call functions to,
-for example, split your project into different [files]($scripting/#modules) or
+rather, _expression_) using a hash (`#`). This is how you call functions to, for
+example, split your project into different [files]($scripting/#modules) or
 render text based on some [condition]($scripting/#conditionals). Within code
 mode, it is possible to include normal markup [_content_]($content) by using
 square brackets. Within code mode, this content is treated just as any other

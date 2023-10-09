@@ -574,7 +574,7 @@ fn test_part(
                 Severity::Warning => AnnotationKind::Warning,
             },
             range: world.range(diagnostic.span),
-            message: diagnostic.message.replace('\\', "/").into(),
+            message: diagnostic.message.replace("\\", "/"),
         };
 
         if validate_hints {

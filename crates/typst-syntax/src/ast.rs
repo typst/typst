@@ -339,8 +339,8 @@ impl<'a> AstNode<'a> for Expr<'a> {
 }
 
 impl Expr<'_> {
-    /// Can this expression be embedded into markup with a hashtag?
-    pub fn hashtag(self) -> bool {
+    /// Can this expression be embedded into markup with a hash?
+    pub fn hash(self) -> bool {
         matches!(
             self,
             Self::Ident(_)
@@ -454,6 +454,7 @@ impl Shorthand<'_> {
     pub const MARKUP_LIST: &'static [(&'static str, char)] = &[
         ("...", '…'),
         ("~", '\u{00A0}'),
+        ("-", '\u{2212}'), // Only before a digit
         ("--", '\u{2013}'),
         ("---", '\u{2014}'),
         ("-?", '\u{00AD}'),

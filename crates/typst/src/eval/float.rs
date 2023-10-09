@@ -1,7 +1,10 @@
-use ecow::eco_format;
+use std::num::ParseFloatError;
 
-use super::{cast, func, scope, ty, Str};
+use ecow::{eco_format, EcoString};
+
+use super::{cast, func, scope, ty, Repr, Str};
 use crate::geom::Ratio;
+use crate::util::fmt::{format_float, MINUS_SIGN};
 
 /// A floating-point number.
 ///
@@ -47,6 +50,12 @@ impl f64 {
     }
 }
 
+impl Repr for f64 {
+    fn repr(&self) -> EcoString {
+        format_float(*self, None, "")
+    }
+}
+
 /// A value that can be cast to a float.
 pub struct ToFloat(f64);
 
@@ -55,6 +64,13 @@ cast! {
     v: bool => Self(v as i64 as f64),
     v: i64 => Self(v as f64),
     v: Ratio => Self(v.get()),
-    v: Str => Self(v.parse().map_err(|_| eco_format!("invalid float: {}", v))?),
+    v: Str => Self(
+        parse_float(v.clone().into())
+            .map_err(|_| eco_format!("invalid float: {}", v))?
+    ),
     v: f64 => Self(v),
+}
+
+fn parse_float(s: EcoString) -> Result<f64, ParseFloatError> {
+    s.replace(MINUS_SIGN, "-").parse()
 }

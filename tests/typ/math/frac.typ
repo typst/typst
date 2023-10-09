@@ -17,6 +17,10 @@ $ x = (-b plus.minus sqrt(b^2 - 4a c))/(2a) $
 $ binom(circle, square) $
 
 ---
+// Test multinomial coefficients.
+$ binom(n, k_1, k_2, k_3) $
+
+---
 // Error: 8-13 missing argument: lower
 $ binom(x^2) $
 

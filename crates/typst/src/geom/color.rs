@@ -453,7 +453,7 @@ impl Color {
         /// The color in hexadecimal notation.
         ///
         /// Accepts three, four, six or eight hexadecimal digits and optionally
-        /// a leading hashtag.
+        /// a leading hash.
         ///
         /// If this string is given, the individual components should not be given.
         ///
@@ -1361,11 +1361,11 @@ impl FromStr for Color {
     type Err = &'static str;
 
     /// Constructs a new color from hex strings like the following:
-    /// - `#aef` (shorthand, with leading hashtag),
+    /// - `#aef` (shorthand, with leading hash),
     /// - `7a03c2` (without alpha),
     /// - `abcdefff` (with alpha).
     ///
-    /// The hashtag is optional and both lower and upper case are fine.
+    /// The hash is optional and both lower and upper case are fine.
     fn from_str(hex_str: &str) -> Result<Self, Self::Err> {
         let hex_str = hex_str.strip_prefix('#').unwrap_or(hex_str);
         if hex_str.chars().any(|c| !c.is_ascii_hexdigit()) {

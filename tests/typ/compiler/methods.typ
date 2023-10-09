@@ -76,7 +76,7 @@
 #test((5em + 6in).abs.inches(), 6.0)
 
 ---
-// Error: 2-21 cannot convert a length with non-zero em units (`-6pt + 10.5em`) to pt
+// Error: 2-21 cannot convert a length with non-zero em units (`−6pt + 10.5em`) to pt
 // Hint: 2-21 use `length.abs.pt()` instead to ignore its em component
 #(10.5em - 6pt).pt()
 
@@ -86,7 +86,7 @@
 #(3em).cm()
 
 ---
-// Error: 2-20 cannot convert a length with non-zero em units (`-226.77pt + 93em`) to mm
+// Error: 2-20 cannot convert a length with non-zero em units (`−226.77pt + 93em`) to mm
 // Hint: 2-20 use `length.abs.mm()` instead to ignore its em component
 #(93em - 80mm).mm()
 

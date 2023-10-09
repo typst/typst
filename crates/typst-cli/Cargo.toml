@@ -26,7 +26,7 @@ chrono = { version = "0.4.24", default-features = false, features = ["clock", "s
 clap = { version = "4.4", features = ["derive", "env"] }
 codespan-reporting = "0.11"
 comemo = "0.3"
-ecow = "0.1.1"
+ecow = "0.2"
 dirs = "5"
 flate2 = "1"
 filetime = "0.2"

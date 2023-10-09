@@ -120,8 +120,10 @@ default. It's also lacking a caption. Let's fix that by using the
 [figure]($figure) function. This function takes the figure's contents as a
 positional argument and an optional caption as a named argument.
 
-Within the argument list of the `figure` function, Typst is already in code mode. This means, you can now remove the hashtag before the image function call.
-The hashtag is only needed directly in markup (to disambiguate text from function calls).
+Within the argument list of the `figure` function, Typst is already in code
+mode. This means, you can now remove the hash before the image function call.
+The hash is only needed directly in markup (to disambiguate text from function
+calls).
 
 The caption consists of arbitrary markup. To give markup to a function, we
 enclose it in square brackets. This construct is called a _content block._
