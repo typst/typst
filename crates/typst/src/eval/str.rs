@@ -591,7 +591,11 @@ impl Str {
     /// Reverse the string.
     #[func(title = "Reverse")]
     pub fn rev(&self) -> Str {
-        self.as_str().graphemes(true).rev().collect::<String>().into()
+        let mut s = EcoString::with_capacity(self.0.len());
+        for grapheme in self.as_str().graphemes(true).rev() {
+            s.push_str(grapheme);
+        }
+        s.into()
     }
 }
 
