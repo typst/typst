@@ -723,7 +723,9 @@ fn prepare<'a>(
         cursor = end;
     }
 
-    add_cjk_latin_spacing(&mut items);
+    if TextElem::cjk_latin_spacing_in(styles) {
+        add_cjk_latin_spacing(&mut items);
+    }
 
     Ok(Preparation {
         bidi,
@@ -890,10 +892,11 @@ fn linebreak_simple<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line
     let mut lines = vec![];
     let mut start = 0;
     let mut last = None;
+    let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(p.styles);
 
     for (end, mandatory, hyphen) in breakpoints(p) {
         // Compute the line and its size.
-        let mut attempt = line(vt, p, start..end, mandatory, hyphen);
+        let mut attempt = line(vt, p, start..end, mandatory, hyphen, cjk_latin_spacing);
 
         // If the line doesn't fit anymore, we push the last fitting attempt
         // into the stack and rebuild the line from the attempt's end. The
@@ -902,7 +905,7 @@ fn linebreak_simple<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line
             if let Some((last_attempt, last_end)) = last.take() {
                 lines.push(last_attempt);
                 start = last_end;
-                attempt = line(vt, p, start..end, mandatory, hyphen);
+                attempt = line(vt, p, start..end, mandatory, hyphen, cjk_latin_spacing);
             }
         }
 
@@ -965,10 +968,11 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
     let mut table = vec![Entry {
         pred: 0,
         total: 0.0,
-        line: line(vt, p, 0..0, false, false),
+        line: line(vt, p, 0..0, false, false, false),
     }];
 
     let em = TextElem::size_in(p.styles);
+    let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(p.styles);
 
     for (end, mandatory, hyphen) in breakpoints(p) {
         let k = table.len();
@@ -980,7 +984,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
             // Layout the line.
             let start = pred.line.end;
 
-            let attempt = line(vt, p, start..end, mandatory, hyphen);
+            let attempt = line(vt, p, start..end, mandatory, hyphen, cjk_latin_spacing);
 
             // Determine how much the line's spaces would need to be stretched
             // to make it the desired width.
@@ -1264,6 +1268,7 @@ fn line<'a>(
     mut range: Range,
     mandatory: bool,
     hyphen: bool,
+    cjk_latin_spacing: bool,
 ) -> Line<'a> {
     let end = range.end;
     let mut justify = p.justify && end < p.bidi.text.len() && !mandatory;
@@ -1309,7 +1314,8 @@ fn line<'a>(
         let gb_style = is_gb_style(shaped.lang, shaped.region);
         let maybe_adjust_last_glyph = trimmed
             .ends_with(['”', '’', '，', '。', '、', '：', '；', '》', '）', '』', '」'])
-            || trimmed.chars().next_back().map_or(false, char_is_cjk_script);
+            || (cjk_latin_spacing
+                && trimmed.chars().next_back().map_or(false, char_is_cjk_script));
 
         // Usually, we don't want to shape an empty string because:
         // - We don't want the height of trimmed whitespace in a different
@@ -1336,7 +1342,8 @@ fn line<'a>(
                         let punct = reshaped.glyphs.to_mut().last_mut().unwrap();
                         punct.shrink_right(shrink_amount);
                         reshaped.width -= shrink_amount.at(reshaped.size);
-                    } else if last_glyph.is_cjk_script()
+                    } else if cjk_latin_spacing
+                        && last_glyph.is_cjk_script()
                         && (last_glyph.x_advance - last_glyph.x_offset) > Em::one()
                     {
                         // If the last glyph is a CJK character adjusted by [`add_cjk_latin_spacing`],
@@ -1361,7 +1368,7 @@ fn line<'a>(
     // Deal with CJK characters at line starts.
     let text = &p.bidi.text[range.start..end];
     let maybe_adjust_first_glyph = text.starts_with(['“', '‘', '《', '（', '『', '「'])
-        || text.chars().next().map_or(false, char_is_cjk_script);
+        || (cjk_latin_spacing && text.chars().next().map_or(false, char_is_cjk_script));
 
     // Reshape the start item if it's split in half.
     let mut first = None;
@@ -1395,7 +1402,9 @@ fn line<'a>(
                     let amount_abs = shrink_amount.at(reshaped.size);
                     reshaped.width -= amount_abs;
                     width -= amount_abs;
-                } else if first_glyph.is_cjk_script() && first_glyph.x_offset > Em::zero()
+                } else if cjk_latin_spacing
+                    && first_glyph.is_cjk_script()
+                    && first_glyph.x_offset > Em::zero()
                 {
                     // If the first glyph is a CJK character adjusted by [`add_cjk_latin_spacing`],
                     // restore the original width.

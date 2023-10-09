@@ -153,7 +153,7 @@ impl ShapedGlyph {
     pub fn is_letter_or_number(&self) -> bool {
         matches!(self.c.script(), Script::Latin | Script::Greek | Script::Cyrillic)
             || matches!(self.c, '#' | '$' | '%' | '&')
-            || self.c.is_digit(10)
+            || self.c.is_ascii_digit()
     }
 
     pub fn base_adjustability(&self, gb_style: bool) -> Adjustability {

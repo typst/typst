@@ -215,6 +215,18 @@ pub struct TextElem {
     #[default(Rel::one())]
     pub spacing: Rel<Length>,
 
+    /// Whether to automatically insert spacing between CJK and Latin characters.
+    ///
+    /// ```example
+    /// #set text(cjk-latin-spacing: true)
+    /// 第4章介绍了基本的API。
+    ///
+    /// #set text(cjk-latin-spacing: false)
+    /// 第4章介绍了基本的API。
+    /// ```
+    #[default(true)]
+    pub cjk_latin_spacing: bool,
+
     /// An amount to shift the text baseline by.
     ///
     /// ```example
