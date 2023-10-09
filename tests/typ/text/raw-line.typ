@@ -26,17 +26,28 @@ fn main() {
 
 ---
 #set page(width: 200pt)
+#show raw: it => stack(dir: ttb, ..it.lines)
 #show raw.line: it => {
-    box(stack(
-        dir: ltr,
-        box(width: 15pt)[#it.line],
-        it.body,
-    ), fill: if calc.rem(it.line, 2) == 0 { luma(40%) } else { white })
+  box(
+    width: 100%,
+    height: 1.75em,
+    inset: 0.25em,
+    fill: if calc.rem(it.line, 2) == 0 {
+      luma(90%)
+    } else {
+      white
+    },
+    align(horizon, stack(
+      dir: ltr,
+      box(width: 15pt)[#it.line],
+      it.body,
+    ))
+  )
 }
 
 ```typ
 #show raw.line: block.with(
-    fill: luma(60%)
+  fill: luma(60%)
 );
 
 Hello, world!
@@ -46,38 +57,38 @@ Hello, world!
 
 ---
 #set page(width: 200pt)
-#show raw: it => block[
-    #stack(dir: ttb, spacing: 0pt, ..it.lines)
-    #place(top + right, dx: -0.5em, dy: 0.25em, box(inset: 0.5em, fill: orange.lighten(80%), radius: 0.25em)[ #it.lang ])
-]
-#show raw.line: it => box(
-    fill: if calc.rem(it.line, 2) == 0 { luma(80%) } else { white },
-    radius: if it.first and it.last {
-        0.25em
-    } else if it.first {
-        (top-left: 0.25em, top-right: 0.25em)
-    } else if it.last {
-        (bottom-left: 0.25em, bottom-right: 0.25em)
-    } else {
-        0pt
-    },
-    stroke: if it.first and it.last {
-        0.5pt + luma(200)
-    } else if it.first {
-        (top: 1.5pt + luma(200), x: 1.5pt + luma(200))
-    } else if it.last {
-        (bottom: 1.5pt + luma(200), x: 1.5pt + luma(200))
-    } else {
-        (left: 1.5pt + luma(200), right: 1.5pt + luma(200))
-    },
-    width: 100%,
-    inset: 0.75em,
-    stack(
-        dir: ltr,
-        box(width: 15pt)[#it.line],
-        it.body,
-    )
-)
+#show raw.line: set text(fill: red)
+
+```py
+import numpy as np
+
+def f(x):
+    return x**2
+
+x = np.linspace(0, 10, 100)
+y = f(x)
+
+print(x)
+print(y)
+```
+
+---
+// Ref: false
+
+// Test line extraction works.
+
+#show raw: code => {
+  test(code.lines.at(0).text, "import numpy as np")
+  test(code.lines.at(1).text, "")
+  test(code.lines.at(2).text, "def f(x):")
+  test(code.lines.at(3).text, "    return x**2")
+  test(code.lines.at(4).text, "")
+  test(code.lines.at(5).text, "x = np.linspace(0, 10, 100)")
+  test(code.lines.at(6).text, "y = f(x)")
+  test(code.lines.at(7).text, "")
+  test(code.lines.at(8).text, "print(x)")
+  test(code.lines.at(9).text, "print(y)")
+}
 
 ```py
 import numpy as np
