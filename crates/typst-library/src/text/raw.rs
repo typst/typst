@@ -1,13 +1,15 @@
 use std::hash::Hash;
+use std::ops::Range;
 use std::sync::Arc;
 
+use ecow::EcoVec;
 use once_cell::sync::Lazy;
 use once_cell::unsync::Lazy as UnsyncLazy;
 use syntect::highlighting as synt;
 use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst::diag::FileError;
 use typst::eval::Bytes;
-use typst::syntax::{self, LinkedNode};
+use typst::syntax::{self, is_newline, LinkedNode};
 use typst::util::option_eq;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -17,6 +19,10 @@ use super::{
 use crate::layout::BlockElem;
 use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
+
+// Shorthand for highlighter closures.
+type StyleFn<'a> = &'a mut dyn FnMut(&LinkedNode, Range<usize>, synt::Style) -> Content;
+type LineFn<'a> = &'a mut dyn FnMut(i64, Range<usize>, &mut Vec<Content>);
 
 /// Raw text with optional syntax highlighting.
 ///
@@ -58,6 +64,7 @@ use crate::prelude::*;
 /// the single backtick syntax. If your text should start or end with a
 /// backtick, put a space before or after it (it will be trimmed).
 #[elem(
+    scope,
     title = "Raw Text / Code",
     Synthesize,
     Show,
@@ -239,6 +246,19 @@ pub struct RawElem {
     /// ````
     #[default(2)]
     pub tab_size: usize,
+
+    /// The stylized lines of raw text.
+    ///
+    /// Made accessible for the [`raw.line` element]($raw.line).
+    /// Allows more styling control in `show` rules.
+    #[synthesized]
+    pub lines: Vec<Content>,
+}
+
+#[scope]
+impl RawElem {
+    #[elem]
+    type RawLine;
 }
 
 impl RawElem {
@@ -261,13 +281,7 @@ impl RawElem {
 impl Synthesize for RawElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_lang(self.lang(styles));
-        Ok(())
-    }
-}
 
-impl Show for RawElem {
-    #[tracing::instrument(name = "RawElem::show", skip_all)]
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut text = self.text();
         if text.contains('\t') {
             let tab_size = RawElem::tab_size_in(styles);
@@ -292,24 +306,31 @@ impl Show for RawElem {
 
         let foreground = theme.settings.foreground.unwrap_or(synt::Color::BLACK);
 
-        let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
+        let mut seq = vec![];
+        if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
             let root = match lang.as_deref() {
                 Some("typc") => syntax::parse_code(&text),
                 _ => syntax::parse(&text),
             };
 
-            let mut seq = vec![];
-            let highlighter = synt::Highlighter::new(theme);
-            highlight_themed(
-                &LinkedNode::new(&root),
-                vec![],
-                &highlighter,
-                &mut |node, style| {
-                    seq.push(styled(&text[node.range()], foreground, style));
+            ThemedHighlighter::new(
+                &text,
+                LinkedNode::new(&root),
+                synt::Highlighter::new(theme),
+                &mut |_, range, style| styled(&text[range], foreground, style),
+                &mut |i, range, line| {
+                    seq.push(
+                        RawLine::new(
+                            i + 1,
+                            text.split(is_newline).count() as i64,
+                            EcoString::from(&text[range]),
+                            Content::sequence(line.drain(..)),
+                        )
+                        .pack(),
+                    );
                 },
-            );
-
-            Content::sequence(seq)
+            )
+            .highlight();
         } else if let Some((syntax_set, syntax)) = lang.and_then(|token| {
             SYNTAXES
                 .find_syntax_by_token(&token)
@@ -320,25 +341,49 @@ impl Show for RawElem {
                         .map(|syntax| (&**extra_syntaxes, syntax))
                 })
         }) {
-            let mut seq = vec![];
             let mut highlighter = syntect::easy::HighlightLines::new(syntax, theme);
+            let len = text.lines().count();
             for (i, line) in text.lines().enumerate() {
-                if i != 0 {
-                    seq.push(LinebreakElem::new().pack());
-                }
-
+                let mut line_content = vec![];
                 for (style, piece) in
                     highlighter.highlight_line(line, syntax_set).into_iter().flatten()
                 {
-                    seq.push(styled(piece, foreground, style));
+                    line_content.push(styled(piece, foreground, style));
                 }
-            }
 
-            Content::sequence(seq)
+                seq.push(
+                    RawLine::new(
+                        i as i64 + 1,
+                        len as i64,
+                        EcoString::from(line),
+                        Content::sequence(line_content),
+                    )
+                    .pack(),
+                );
+            }
         } else {
-            TextElem::packed(text)
+            seq.extend(text.lines().map(TextElem::packed));
         };
 
+        self.push_lines(seq);
+
+        Ok(())
+    }
+}
+
+impl Show for RawElem {
+    #[tracing::instrument(name = "RawElem::show", skip_all)]
+    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        let mut lines = EcoVec::with_capacity((2 * self.lines().len()).saturating_sub(1));
+        for (i, line) in self.lines().into_iter().enumerate() {
+            if i != 0 {
+                lines.push(LinebreakElem::new().pack());
+            }
+
+            lines.push(line);
+        }
+
+        let mut realized = Content::sequence(lines);
         if self.block(styles) {
             // Align the text before inserting it into the block.
             realized = realized.aligned(self.align(styles).into());
@@ -402,28 +447,140 @@ impl PlainText for RawElem {
     }
 }
 
-/// Highlight a syntax node in a theme by calling `f` with ranges and their
-/// styles.
-fn highlight_themed<F>(
-    node: &LinkedNode,
+/// A highlighted line of raw text.
+///
+/// This is a helper element that is synthesized by [`raw`]($raw) elements.
+///
+/// It allows you to access various properties of the line, such as the line
+/// number, the raw non-highlighted text, the highlighted text, and whether it
+/// is the first or last line of the raw block.
+#[elem(name = "line", title = "Raw Text / Code Line", Show, PlainText)]
+pub struct RawLine {
+    /// The line number of the raw line inside of the raw block, starts at 1.
+    #[required]
+    pub number: i64,
+
+    /// The total number of lines in the raw block.
+    #[required]
+    pub count: i64,
+
+    /// The line of raw text.
+    #[required]
+    pub text: EcoString,
+
+    /// The highlighted raw text.
+    #[required]
+    pub body: Content,
+}
+
+impl Show for RawLine {
+    fn show(&self, _vt: &mut Vt, _styles: StyleChain) -> SourceResult<Content> {
+        Ok(self.body())
+    }
+}
+
+impl PlainText for RawLine {
+    fn plain_text(&self, text: &mut EcoString) {
+        text.push_str(&self.text());
+    }
+}
+
+/// Wrapper struct for the state required to highlight typst code.
+struct ThemedHighlighter<'a> {
+    /// The code being highlighted.
+    code: &'a str,
+    /// The current node being highlighted.
+    node: LinkedNode<'a>,
+    /// The highlighter.
+    highlighter: synt::Highlighter<'a>,
+    /// The current scopes.
     scopes: Vec<syntect::parsing::Scope>,
-    highlighter: &synt::Highlighter,
-    f: &mut F,
-) where
-    F: FnMut(&LinkedNode, synt::Style),
-{
-    if node.children().len() == 0 {
-        let style = highlighter.style_for_stack(&scopes);
-        f(node, style);
-        return;
+    /// The current highlighted line.
+    current_line: Vec<Content>,
+    /// The range of the current line.
+    range: Range<usize>,
+    /// The current line number.
+    line: i64,
+    /// The function to style a piece of text.
+    style_fn: StyleFn<'a>,
+    /// The function to append a line.
+    line_fn: LineFn<'a>,
+}
+
+impl<'a> ThemedHighlighter<'a> {
+    pub fn new(
+        code: &'a str,
+        top: LinkedNode<'a>,
+        highlighter: synt::Highlighter<'a>,
+        style_fn: StyleFn<'a>,
+        line_fn: LineFn<'a>,
+    ) -> Self {
+        Self {
+            code,
+            node: top,
+            highlighter,
+            range: 0..0,
+            scopes: Vec::new(),
+            current_line: Vec::new(),
+            line: 0,
+            style_fn,
+            line_fn,
+        }
     }
 
-    for child in node.children() {
-        let mut scopes = scopes.clone();
-        if let Some(tag) = typst::syntax::highlight(&child) {
-            scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap())
+    pub fn highlight(&mut self) {
+        self.highlight_inner();
+
+        if !self.current_line.is_empty() {
+            (self.line_fn)(
+                self.line,
+                self.range.start..self.code.len(),
+                &mut self.current_line,
+            );
+
+            self.current_line.clear();
         }
-        highlight_themed(&child, scopes, highlighter, f);
+    }
+
+    fn highlight_inner(&mut self) {
+        if self.node.children().len() == 0 {
+            let style = self.highlighter.style_for_stack(&self.scopes);
+            let segment = &self.code[self.node.range()];
+
+            let mut len = 0;
+            for (i, line) in segment.split(is_newline).enumerate() {
+                if i != 0 {
+                    (self.line_fn)(
+                        self.line,
+                        self.range.start..self.range.end + len - 1,
+                        &mut self.current_line,
+                    );
+                    self.range.start = self.range.end + len;
+                    self.line += 1;
+                }
+
+                let offset = self.node.range().start + len;
+                let token_range = offset..(offset + line.len());
+                self.current_line
+                    .push((self.style_fn)(&self.node, token_range, style));
+
+                len += line.len() + 1;
+            }
+
+            self.range.end += segment.len();
+        }
+
+        for child in self.node.children() {
+            let mut scopes = self.scopes.clone();
+            if let Some(tag) = typst::syntax::highlight(&child) {
+                scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap())
+            }
+
+            std::mem::swap(&mut scopes, &mut self.scopes);
+            self.node = child;
+            self.highlight_inner();
+            std::mem::swap(&mut scopes, &mut self.scopes);
+        }
     }
 }
 
