@@ -42,6 +42,19 @@ impl PathExtension for Path {
     }
 }
 
+/// Creates a new rectangle as a path.
+pub fn path_rect(
+    size: Size,
+    radius: Corners<Rel<Abs>>,
+    stroke: &Sides<Option<FixedStroke>>,
+) -> Path {
+    if stroke.is_uniform() && radius.iter().cloned().all(Rel::is_zero) {
+        Path::rect(size)
+    } else {
+        segmented_path_rect(size, radius, stroke)
+    }
+}
+
 /// Create a styled rectangle with shapes.
 /// - use rect primitive for simple rectangles
 /// - stroke sides if possible
@@ -68,24 +81,13 @@ fn simple_rect(
     vec![Shape { geometry: Geometry::Rect(size), fill, stroke }]
 }
 
-/// Use stroke and fill for the rectangle
-fn segmented_rect(
+fn corners_control_points(
     size: Size,
-    radius: Corners<Rel<Abs>>,
-    fill: Option<Paint>,
-    strokes: Sides<Option<FixedStroke>>,
-) -> Vec<Shape> {
-    let mut res = vec![];
-    let stroke_widths = strokes
-        .clone()
-        .map(|s| s.map(|s| s.thickness / 2.0).unwrap_or(Abs::zero()));
-
-    let max_radius = (size.x.min(size.y)) / 2.0
-        + stroke_widths.iter().cloned().min().unwrap_or(Abs::zero());
-
-    let radius = radius.map(|side| side.relative_to(max_radius * 2.0).min(max_radius));
-
-    let corners = Corners {
+    radius: Corners<Abs>,
+    strokes: &Sides<Option<FixedStroke>>,
+    stroke_widths: Sides<Abs>,
+) -> Corners<ControlPoints> {
+    Corners {
         top_left: Corner::TopLeft,
         top_right: Corner::TopRight,
         bottom_right: Corner::BottomRight,
@@ -105,7 +107,67 @@ fn segmented_rect(
             (None, None) => true,
             _ => false,
         },
-    });
+    })
+}
+
+fn segmented_path_rect(
+    size: Size,
+    radius: Corners<Rel<Abs>>,
+    strokes: &Sides<Option<FixedStroke>>,
+) -> Path {
+    let stroke_widths = strokes
+        .as_ref()
+        .map(|s| s.as_ref().map_or(Abs::zero(), |s| s.thickness / 2.0));
+
+    let max_radius = (size.x.min(size.y)) / 2.0
+        + stroke_widths.iter().cloned().min().unwrap_or(Abs::zero());
+
+    let radius = radius.map(|side| side.relative_to(max_radius * 2.0).min(max_radius));
+
+    // insert stroked sides below filled sides
+    let mut path = Path::new();
+    let corners = corners_control_points(size, radius, strokes, stroke_widths);
+    let current = corners.iter().find(|c| !c.same).map(|c| c.corner);
+    if let Some(mut current) = current {
+        // multiple segments
+        // start at a corner with a change between sides and iterate clockwise all other corners
+        let mut last = current;
+        for _ in 0..4 {
+            current = current.next_cw();
+            if corners.get_ref(current).same {
+                continue;
+            }
+            // create segment
+            let start = last;
+            let end = current;
+            last = current;
+            path_segment(start, end, &corners, &mut path);
+        }
+    } else if strokes.top.is_some() {
+        // single segment
+        path_segment(Corner::TopLeft, Corner::TopLeft, &corners, &mut path);
+    }
+    path
+}
+
+/// Use stroke and fill for the rectangle
+fn segmented_rect(
+    size: Size,
+    radius: Corners<Rel<Abs>>,
+    fill: Option<Paint>,
+    strokes: Sides<Option<FixedStroke>>,
+) -> Vec<Shape> {
+    let mut res = vec![];
+    let stroke_widths = strokes
+        .as_ref()
+        .map(|s| s.as_ref().map_or(Abs::zero(), |s| s.thickness / 2.0));
+
+    let max_radius = (size.x.min(size.y)) / 2.0
+        + stroke_widths.iter().cloned().min().unwrap_or(Abs::zero());
+
+    let radius = radius.map(|side| side.relative_to(max_radius * 2.0).min(max_radius));
+
+    let corners = corners_control_points(size, radius, &strokes, stroke_widths);
 
     // insert stroked sides below filled sides
     let mut stroke_insert = 0;
@@ -171,6 +233,43 @@ fn segmented_rect(
     res
 }
 
+fn path_segment(
+    start: Corner,
+    end: Corner,
+    corners: &Corners<ControlPoints>,
+    path: &mut Path,
+) {
+    // create start corner
+    let c = corners.get_ref(start);
+    if start == end || !c.arc() {
+        path.move_to(c.end());
+    } else {
+        path.arc_move(c.mid(), c.center(), c.end());
+    }
+
+    // create corners between start and end
+    let mut current = start.next_cw();
+    while current != end {
+        let c = corners.get_ref(current);
+        if c.arc() {
+            path.arc_line(c.start(), c.center(), c.end());
+        } else {
+            path.line_to(c.end());
+        }
+        current = current.next_cw();
+    }
+
+    // create end corner
+    let c = corners.get_ref(end);
+    if !c.arc() {
+        path.line_to(c.start());
+    } else if start == end {
+        path.arc_line(c.start(), c.center(), c.end());
+    } else {
+        path.arc_line(c.start(), c.center(), c.mid());
+    }
+}
+
 /// Returns the shape for the segment and whether the shape should be drawn on top.
 fn segment(
     start: Corner,
@@ -228,35 +327,8 @@ fn stroke_segment(
     stroke: FixedStroke,
 ) -> Shape {
     // create start corner
-    let c = corners.get_ref(start);
     let mut path = Path::new();
-    if start == end || !c.arc() {
-        path.move_to(c.end());
-    } else {
-        path.arc_move(c.mid(), c.center(), c.end());
-    }
-
-    // create corners between start and end
-    let mut current = start.next_cw();
-    while current != end {
-        let c = corners.get_ref(current);
-        if c.arc() {
-            path.arc_line(c.start(), c.center(), c.end());
-        } else {
-            path.line_to(c.end());
-        }
-        current = current.next_cw();
-    }
-
-    // create end corner
-    let c = corners.get_ref(end);
-    if !c.arc() {
-        path.line_to(c.start());
-    } else if start == end {
-        path.arc_line(c.start(), c.center(), c.end());
-    } else {
-        path.arc_line(c.start(), c.center(), c.mid());
-    }
+    path_segment(start, end, corners, &mut path);
 
     Shape {
         geometry: Geometry::Path(path),

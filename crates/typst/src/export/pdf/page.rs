@@ -462,14 +462,8 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
         ctx.size(group.frame.size());
     }
 
-    if group.clips {
-        let size = group.frame.size();
-        let w = size.x.to_f32();
-        let h = size.y.to_f32();
-        ctx.content.move_to(0.0, 0.0);
-        ctx.content.line_to(w, 0.0);
-        ctx.content.line_to(w, h);
-        ctx.content.line_to(0.0, h);
+    if let Some(clip_path) = &group.clip_path {
+        write_path(ctx, 0.0, 0.0, clip_path);
         ctx.content.clip_nonzero();
         ctx.content.end_path();
     }

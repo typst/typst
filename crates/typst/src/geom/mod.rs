@@ -46,7 +46,7 @@ pub use self::paint::Paint;
 pub use self::path::{Path, PathItem};
 pub use self::point::Point;
 pub use self::ratio::Ratio;
-pub use self::rect::styled_rect;
+pub use self::rect::{path_rect, styled_rect};
 pub use self::rel::Rel;
 pub use self::scalar::Scalar;
 pub use self::shape::{Geometry, Shape};

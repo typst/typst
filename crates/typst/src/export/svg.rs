@@ -12,8 +12,9 @@ use crate::doc::{Frame, FrameItem, FrameKind, GroupItem, TextItem};
 use crate::eval::Repr;
 use crate::font::Font;
 use crate::geom::{
-    Abs, Angle, Axes, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin, Paint,
-    PathItem, Point, Quadrant, Ratio, RatioOrAngle, Relative, Shape, Size, Transform,
+    self, Abs, Angle, Axes, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin,
+    Paint, PathItem, Point, Quadrant, Ratio, RatioOrAngle, Relative, Shape, Size,
+    Transform,
 };
 use crate::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::util::hash128;
@@ -269,16 +270,9 @@ impl SVGRenderer {
         self.xml.start_element("g");
         self.xml.write_attribute("class", "typst-group");
 
-        if group.clips {
+        if let Some(clip_path) = &group.clip_path {
             let hash = hash128(&group);
-            let size = group.frame.size();
-            let x = size.x.to_pt();
-            let y = size.y.to_pt();
-            let id = self.clip_paths.insert_with(hash, || {
-                let mut builder = SvgPathBuilder(EcoString::new());
-                builder.rect(x as f32, y as f32);
-                builder.0
-            });
+            let id = self.clip_paths.insert_with(hash, || convert_path(clip_path));
             self.xml.write_attribute_fmt("clip-path", format_args!("url(#{id})"));
         }
 
@@ -1014,28 +1008,32 @@ fn convert_geometry_to_path(geometry: &Geometry) -> EcoString {
             let y = rect.y.to_pt() as f32;
             builder.rect(x, y);
         }
-        Geometry::Path(p) => {
-            for item in &p.0 {
-                match item {
-                    PathItem::MoveTo(m) => {
-                        builder.move_to(m.x.to_pt() as f32, m.y.to_pt() as f32)
-                    }
-                    PathItem::LineTo(l) => {
-                        builder.line_to(l.x.to_pt() as f32, l.y.to_pt() as f32)
-                    }
-                    PathItem::CubicTo(c1, c2, t) => builder.curve_to(
-                        c1.x.to_pt() as f32,
-                        c1.y.to_pt() as f32,
-                        c2.x.to_pt() as f32,
-                        c2.y.to_pt() as f32,
-                        t.x.to_pt() as f32,
-                        t.y.to_pt() as f32,
-                    ),
-                    PathItem::ClosePath => builder.close(),
-                }
-            }
-        }
+        Geometry::Path(p) => return convert_path(p),
     };
+    builder.0
+}
+
+fn convert_path(path: &geom::Path) -> EcoString {
+    let mut builder = SvgPathBuilder::default();
+    for item in &path.0 {
+        match item {
+            PathItem::MoveTo(m) => {
+                builder.move_to(m.x.to_pt() as f32, m.y.to_pt() as f32)
+            }
+            PathItem::LineTo(l) => {
+                builder.line_to(l.x.to_pt() as f32, l.y.to_pt() as f32)
+            }
+            PathItem::CubicTo(c1, c2, t) => builder.curve_to(
+                c1.x.to_pt() as f32,
+                c1.y.to_pt() as f32,
+                c2.x.to_pt() as f32,
+                c2.y.to_pt() as f32,
+                t.x.to_pt() as f32,
+                t.y.to_pt() as f32,
+            ),
+            PathItem::ClosePath => builder.close(),
+        }
+    }
     builder.0
 }
 

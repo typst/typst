@@ -183,13 +183,9 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, group: &GroupItem) {
 
     let mut mask = state.mask;
     let storage;
-    if group.clips {
-        let size: geom::Axes<Abs> = group.frame.size();
-        let w = size.x.to_f32();
-        let h = size.y.to_f32();
-        if let Some(path) = sk::Rect::from_xywh(0.0, 0.0, w, h)
-            .map(sk::PathBuilder::from_rect)
-            .and_then(|path| path.transform(state.transform))
+    if let Some(clip_path) = group.clip_path.as_ref() {
+        if let Some(path) =
+            convert_path(clip_path).and_then(|path| path.transform(state.transform))
         {
             if let Some(mask) = mask {
                 let mut mask = mask.clone();
