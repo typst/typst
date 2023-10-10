@@ -7,13 +7,13 @@ world 1
 
 Space
 
-Hello #box(width: 1em, height: 1em, clip: true)[#rect(width: 3em, height: 3em, fill: red)] 
+Hello #box(width: 1em, height: 1em, clip: true)[#rect(width: 3em, height: 3em, fill: red)]
 world 2
 
 ---
 // Test cliping text
 #block(width: 5em, height: 2em, clip: false, stroke: 1pt + black)[
-  But, soft! what light through 
+  But, soft! what light through
 ]
 
 #v(2em)

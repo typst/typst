@@ -46,7 +46,7 @@ impl PathExtension for Path {
 pub fn path_rect(
     size: Size,
     radius: Corners<Rel<Abs>>,
-    stroke: Sides<Option<FixedStroke>>,
+    stroke: &Sides<Option<FixedStroke>>,
 ) -> Path {
     if stroke.is_uniform() && radius.iter().cloned().all(Rel::is_zero) {
         Path::rect(size)
@@ -113,11 +113,11 @@ fn corners_control_points(
 fn segmented_path_rect(
     size: Size,
     radius: Corners<Rel<Abs>>,
-    strokes: Sides<Option<FixedStroke>>,
+    strokes: &Sides<Option<FixedStroke>>,
 ) -> Path {
     let stroke_widths = strokes
-        .clone()
-        .map(|s| s.map(|s| s.thickness / 2.0).unwrap_or(Abs::zero()));
+        .as_ref()
+        .map(|s| s.as_ref().map_or(Abs::zero(), |s| s.thickness / 2.0));
 
     let max_radius = (size.x.min(size.y)) / 2.0
         + stroke_widths.iter().cloned().min().unwrap_or(Abs::zero());
@@ -126,7 +126,7 @@ fn segmented_path_rect(
 
     // insert stroked sides below filled sides
     let mut path = Path::new();
-    let corners = corners_control_points(size, radius, &strokes, stroke_widths);
+    let corners = corners_control_points(size, radius, strokes, stroke_widths);
     let current = corners.iter().find(|c| !c.same).map(|c| c.corner);
     if let Some(mut current) = current {
         // multiple segments
@@ -159,8 +159,8 @@ fn segmented_rect(
 ) -> Vec<Shape> {
     let mut res = vec![];
     let stroke_widths = strokes
-        .clone()
-        .map(|s| s.map(|s| s.thickness / 2.0).unwrap_or(Abs::zero()));
+        .as_ref()
+        .map(|s| s.as_ref().map_or(Abs::zero(), |s| s.thickness / 2.0));
 
     let max_radius = (size.x.min(size.y)) / 2.0
         + stroke_widths.iter().cloned().min().unwrap_or(Abs::zero());

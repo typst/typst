@@ -46,6 +46,16 @@ impl<T> Sides<T> {
         }
     }
 
+    /// Convert from `&Sides<T>` to `Sides<&T>`.
+    pub fn as_ref(&self) -> Sides<&T> {
+        Sides {
+            left: &self.left,
+            top: &self.top,
+            right: &self.right,
+            bottom: &self.bottom,
+        }
+    }
+
     /// Zip two instances into one.
     pub fn zip<U>(self, other: Sides<U>) -> Sides<(T, U)> {
         Sides {
