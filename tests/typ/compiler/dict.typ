@@ -41,6 +41,18 @@
 #test((a: 1, b: 2).at("c", default: 3), 3)
 
 ---
+// Test remove with default value.
+#{
+  let dict = (a: 1, b: 2)
+  test(dict.remove("b", default: 3), 2)
+}
+
+#{
+  let dict = (a: 1, b: 2)
+  test(dict.remove("c", default: 3), 3)
+}
+
+---
 // Missing lvalue is not automatically none-initialized.
 #{
   let dict = (:)

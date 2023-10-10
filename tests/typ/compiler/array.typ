@@ -64,6 +64,19 @@
 #test((1, 2, 3).at(3, default: 5), 5)
 
 ---
+// Test remove with default value.
+
+#{
+  let array = (1, 2, 3)
+  test(array.remove(2, default: 5), 3)
+}
+
+#{
+  let array = (1, 2, 3)
+  test(array.remove(3, default: 5), 5)
+}
+
+---
 // Test bad lvalue.
 // Error: 2:3-2:14 cannot mutate a temporary value
 #let array = (1, 2, 3)
