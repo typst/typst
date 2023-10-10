@@ -332,10 +332,10 @@
 ---
 // Test invalid chained operations
 
-// Error: 7-8 only transitive comparisons are allowed
-#test(1 > 2 < 3)
+// Error: 14-16 only transitive comparisons are allowed
+#test(1 != 2 != 3, true)
 
 #let (a, b, c, d, e) = (1, 2, 3, 4, 5)
 
-// Error: 7-8 can only chain at most two comparisons
-#test(a < b > c == d != e)
+// Error: 17-19 can only chain at most two comparisons
+#test(a < b > c == d != e, false)

@@ -174,7 +174,7 @@ pub enum Expr<'a> {
     /// A binary operation: `a + b`.
     Binary(Binary<'a>),
     /// A chained comparison operation: `a < b < c`.
-    ChainedComp(ChainedComp<'a>),
+    ChainedComparison(ChainedComparison<'a>),
     /// A field access: `properties.age`.
     FieldAccess(FieldAccess<'a>),
     /// An invocation of a function or method: `f(x, y)`.
@@ -259,7 +259,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::Dict => node.cast().map(Self::Dict),
             SyntaxKind::Unary => node.cast().map(Self::Unary),
             SyntaxKind::Binary => node.cast().map(Self::Binary),
-            SyntaxKind::ChainedComp => node.cast().map(Self::ChainedComp),
+            SyntaxKind::ChainedComparison => node.cast().map(Self::ChainedComparison),
             SyntaxKind::FieldAccess => node.cast().map(Self::FieldAccess),
             SyntaxKind::FuncCall => node.cast().map(Self::FuncCall),
             SyntaxKind::Closure => node.cast().map(Self::Closure),
@@ -322,7 +322,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::Parenthesized(v) => v.to_untyped(),
             Self::Unary(v) => v.to_untyped(),
             Self::Binary(v) => v.to_untyped(),
-            Self::ChainedComp(v) => v.to_untyped(),
+            Self::ChainedComparison(v) => v.to_untyped(),
             Self::FieldAccess(v) => v.to_untyped(),
             Self::FuncCall(v) => v.to_untyped(),
             Self::Closure(v) => v.to_untyped(),
@@ -1378,10 +1378,10 @@ impl<'a> Binary<'a> {
 
 node! {
     /// A chained comparison operation: `a < b <= c`.
-    ChainedComp
+    ChainedComparison
 }
 
-impl<'a> ChainedComp<'a> {
+impl<'a> ChainedComparison<'a> {
     /// The left-hand side of the operation: `a`.
     pub fn lhs(self) -> Expr<'a> {
         self.0.cast_first_match().unwrap_or_default()
@@ -1397,7 +1397,11 @@ impl<'a> ChainedComp<'a> {
 
     /// The middle of the operation: `b`.
     pub fn mid(self) -> Expr<'a> {
-        self.0.cast_nth_match(1).unwrap_or_default()
+        self.0
+            .children()
+            .filter_map(SyntaxNode::cast)
+            .nth(1)
+            .unwrap_or_default()
     }
 
     /// The left hand side operator: `<=`.
@@ -1487,7 +1491,7 @@ impl BinOp {
 
     /// Try to convert the token into a binary operation but
     /// only if it is a comparison operator.
-    pub fn from_kind_comp(token: SyntaxKind) -> Option<Self> {
+    pub fn from_comparison_kind(token: SyntaxKind) -> Option<Self> {
         Some(match token {
             SyntaxKind::EqEq => Self::Eq,
             SyntaxKind::ExclEq => Self::Neq,
@@ -1575,8 +1579,24 @@ impl BinOp {
     }
 
     /// Whether this operator is a comparison operator.
-    pub fn is_comp(self) -> bool {
+    pub fn is_comparison(self) -> bool {
         matches!(self, Self::Eq | Self::Neq | Self::Lt | Self::Leq | Self::Gt | Self::Geq)
+    }
+
+    /// Whether this operator, along with a second one, form a transitive comparison.
+    pub fn is_transitive(self, other: Self) -> bool {
+        !matches!(
+            (self, other),
+            (Self::Gt, Self::Lt)
+                | (Self::Gt, Self::Leq)
+                | (Self::Geq, Self::Lt)
+                | (Self::Geq, Self::Leq)
+                | (Self::Lt, Self::Gt)
+                | (Self::Lt, Self::Geq)
+                | (Self::Leq, Self::Gt)
+                | (Self::Leq, Self::Geq)
+                | (Self::Neq, Self::Neq)
+        )
     }
 }
 

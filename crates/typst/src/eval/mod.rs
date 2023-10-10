@@ -505,7 +505,7 @@ impl Eval for ast::Expr<'_> {
             Self::Closure(v) => v.eval(vm),
             Self::Unary(v) => v.eval(vm),
             Self::Binary(v) => v.eval(vm),
-            Self::ChainedComp(v) => v.eval(vm),
+            Self::ChainedComparison(v) => v.eval(vm),
             Self::Let(v) => v.eval(vm),
             Self::DestructAssign(v) => v.eval(vm),
             Self::Set(_) => bail!(forbidden("set")),
@@ -1053,6 +1053,21 @@ impl Eval for ast::Binary<'_> {
 
     #[tracing::instrument(name = "Binary::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        fn apply_binary_expr(
+            binary: ast::Binary,
+            vm: &mut Vm,
+            op: fn(Value, Value) -> StrResult<Value>,
+        ) -> SourceResult<Value> {
+            apply_binary_op(
+                &binary.lhs(),
+                binary.op(),
+                &binary.rhs(),
+                binary.span(),
+                vm,
+                op,
+            )
+        }
+
         match self.op() {
             ast::BinOp::Add => apply_binary_expr(self, vm, ops::add),
             ast::BinOp::Sub => apply_binary_expr(self, vm, ops::sub),
@@ -1077,29 +1092,31 @@ impl Eval for ast::Binary<'_> {
     }
 }
 
-impl<'a> Eval for ast::ChainedComp<'a> {
+impl<'a> Eval for ast::ChainedComparison<'a> {
     type Output = Value;
 
-    #[tracing::instrument(name = "ChainedComp::eval", skip_all)]
+    #[tracing::instrument(name = "ChainedComparison::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let mut side = |lhs: &dyn Fn() -> ast::Expr<'a>,
-                        op,
-                        rhs: &dyn Fn() -> ast::Expr<'a>| match op {
-            ast::BinOp::Eq => apply_binary_op(lhs, op, rhs, self.span(), vm, ops::eq),
-            ast::BinOp::Neq => apply_binary_op(lhs, op, rhs, self.span(), vm, ops::neq),
-            ast::BinOp::Lt => apply_binary_op(lhs, op, rhs, self.span(), vm, ops::lt),
-            ast::BinOp::Leq => apply_binary_op(lhs, op, rhs, self.span(), vm, ops::leq),
-            ast::BinOp::Gt => apply_binary_op(lhs, op, rhs, self.span(), vm, ops::gt),
-            ast::BinOp::Geq => apply_binary_op(lhs, op, rhs, self.span(), vm, ops::geq),
-            _ => bail!(
-                self.span(),
-                "{} is not a valid comparison operator",
-                self.lhs_op().as_str()
-            ),
-        };
+        fn side<'a>(
+            vm: &mut Vm,
+            span: Span,
+            lhs: &ast::Expr<'a>,
+            op: ast::BinOp,
+            rhs: &ast::Expr<'a>,
+        ) -> SourceResult<Value> {
+            match op {
+                ast::BinOp::Eq => apply_binary_op(lhs, op, rhs, span, vm, ops::eq),
+                ast::BinOp::Neq => apply_binary_op(lhs, op, rhs, span, vm, ops::neq),
+                ast::BinOp::Lt => apply_binary_op(lhs, op, rhs, span, vm, ops::lt),
+                ast::BinOp::Leq => apply_binary_op(lhs, op, rhs, span, vm, ops::leq),
+                ast::BinOp::Gt => apply_binary_op(lhs, op, rhs, span, vm, ops::gt),
+                ast::BinOp::Geq => apply_binary_op(lhs, op, rhs, span, vm, ops::geq),
+                _ => bail!(span, "{} is not a valid comparison operator", op.as_str()),
+            }
+        }
 
-        let lhs = side(&|| self.lhs(), self.lhs_op(), &|| self.mid())?;
-        let rhs = side(&|| self.mid(), self.rhs_op(), &|| self.rhs())?;
+        let lhs = side(vm, self.span(), &self.lhs(), self.lhs_op(), &self.mid())?;
+        let rhs = side(vm, self.span(), &self.mid(), self.rhs_op(), &self.rhs())?;
         match (&lhs, &rhs) {
             (Value::Bool(a), Value::Bool(b)) => Ok(Value::Bool(*a && *b)),
 
@@ -1109,29 +1126,16 @@ impl<'a> Eval for ast::ChainedComp<'a> {
     }
 }
 
-/// Apply a basic binary operation from a binary expression.
-fn apply_binary_expr(
-    binary: ast::Binary,
-    vm: &mut Vm,
-    op: fn(Value, Value) -> StrResult<Value>,
-) -> SourceResult<Value> {
-    apply_binary_op(|| binary.lhs(), binary.op(), || binary.rhs(), binary.span(), vm, op)
-}
-
 /// Apply a basic binary operation.
-fn apply_binary_op<'a, L, R>(
-    lhs: L,
+fn apply_binary_op(
+    lhs: &ast::Expr<'_>,
     operator: ast::BinOp,
-    rhs: R,
+    rhs: &ast::Expr<'_>,
     span: Span,
     vm: &mut Vm,
     op: fn(Value, Value) -> StrResult<Value>,
-) -> SourceResult<Value>
-where
-    L: FnOnce() -> ast::Expr<'a>,
-    R: FnOnce() -> ast::Expr<'a>,
-{
-    let lhs = lhs().eval(vm)?;
+) -> SourceResult<Value> {
+    let lhs = lhs.eval(vm)?;
 
     // Short-circuit boolean operations.
     if (operator == ast::BinOp::And && lhs == false.into_value())
@@ -1140,7 +1144,7 @@ where
         return Ok(lhs);
     }
 
-    let rhs = rhs().eval(vm)?;
+    let rhs = rhs.eval(vm)?;
     op(lhs, rhs).at(span)
 }
 
