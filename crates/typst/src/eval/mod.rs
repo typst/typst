@@ -505,7 +505,7 @@ impl Eval for ast::Expr<'_> {
             Self::Closure(v) => v.eval(vm),
             Self::Unary(v) => v.eval(vm),
             Self::Binary(v) => v.eval(vm),
-            Self::TernaryComp(v) => v.eval(vm),
+            Self::ChainedComp(v) => v.eval(vm),
             Self::Let(v) => v.eval(vm),
             Self::DestructAssign(v) => v.eval(vm),
             Self::Set(_) => bail!(forbidden("set")),
@@ -1077,10 +1077,10 @@ impl Eval for ast::Binary<'_> {
     }
 }
 
-impl<'a> Eval for ast::TernaryComp<'a> {
+impl<'a> Eval for ast::ChainedComp<'a> {
     type Output = Value;
 
-    #[tracing::instrument(name = "TernaryComp::eval", skip_all)]
+    #[tracing::instrument(name = "ChainedComp::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let mut side = |lhs: &dyn Fn() -> ast::Expr<'a>,
                         op,

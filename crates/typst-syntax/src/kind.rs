@@ -214,8 +214,8 @@ pub enum SyntaxKind {
     Unary,
     /// A binary operation: `a + b`.
     Binary,
-    /// A ternary comparison: `a < b < c`.
-    TernaryComp,
+    /// A chained comparison: `a < b < c`.
+    ChainedComp,
     /// A field access: `properties.age`.
     FieldAccess,
     /// An invocation of a function or method: `f(x, y)`.
@@ -455,7 +455,7 @@ impl SyntaxKind {
             Self::Keyed => "keyed pair",
             Self::Unary => "unary expression",
             Self::Binary => "binary expression",
-            Self::TernaryComp => "ternary comparison",
+            Self::ChainedComp => "chained comparison",
             Self::FieldAccess => "field access",
             Self::FuncCall => "function call",
             Self::Args => "call arguments",

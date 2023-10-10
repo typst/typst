@@ -303,7 +303,7 @@
 #test(inc2(2, y: 4), 6)
 
 ---
-// Test ternary comparison operations
+// Test chained comparison operations
 
 #test(1 < 2 < 3, true)
 #test(1 < 2 < 1, false)
@@ -321,7 +321,7 @@
 #test(1 == 2 == 1, false)
 
 ---
-// Test ternary comparison with more complex expressions
+// Test chained comparison with more complex expressions
 #let a = (1, 2, 3)
 #let b = (a: 1, b: 2, c: 3)
 
@@ -330,7 +330,7 @@
 #test(a.at(0) < b.c * 2 < a.at(2), false)
 
 ---
-// Test invalid ternary operations
+// Test invalid chained operations
 
 // Error: 7-8 only transitive comparisons are allowed
 #test(1 > 2 < 3)

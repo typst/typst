@@ -173,8 +173,8 @@ pub enum Expr<'a> {
     Unary(Unary<'a>),
     /// A binary operation: `a + b`.
     Binary(Binary<'a>),
-    /// A ternary comparisonoperation: `a < b < c`.
-    TernaryComp(TernaryComp<'a>),
+    /// A chained comparison operation: `a < b < c`.
+    ChainedComp(ChainedComp<'a>),
     /// A field access: `properties.age`.
     FieldAccess(FieldAccess<'a>),
     /// An invocation of a function or method: `f(x, y)`.
@@ -259,7 +259,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::Dict => node.cast().map(Self::Dict),
             SyntaxKind::Unary => node.cast().map(Self::Unary),
             SyntaxKind::Binary => node.cast().map(Self::Binary),
-            SyntaxKind::TernaryComp => node.cast().map(Self::TernaryComp),
+            SyntaxKind::ChainedComp => node.cast().map(Self::ChainedComp),
             SyntaxKind::FieldAccess => node.cast().map(Self::FieldAccess),
             SyntaxKind::FuncCall => node.cast().map(Self::FuncCall),
             SyntaxKind::Closure => node.cast().map(Self::Closure),
@@ -322,7 +322,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::Parenthesized(v) => v.to_untyped(),
             Self::Unary(v) => v.to_untyped(),
             Self::Binary(v) => v.to_untyped(),
-            Self::TernaryComp(v) => v.to_untyped(),
+            Self::ChainedComp(v) => v.to_untyped(),
             Self::FieldAccess(v) => v.to_untyped(),
             Self::FuncCall(v) => v.to_untyped(),
             Self::Closure(v) => v.to_untyped(),
@@ -1377,11 +1377,11 @@ impl<'a> Binary<'a> {
 }
 
 node! {
-    /// A ternary comparison operation: `a < b <= c`.
-    TernaryComp
+    /// A chained comparison operation: `a < b <= c`.
+    ChainedComp
 }
 
-impl<'a> TernaryComp<'a> {
+impl<'a> ChainedComp<'a> {
     /// The left-hand side of the operation: `a`.
     pub fn lhs(self) -> Expr<'a> {
         self.0.cast_first_match().unwrap_or_default()
