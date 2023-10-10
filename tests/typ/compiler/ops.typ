@@ -333,7 +333,7 @@
 // Test invalid chained operations
 
 // Error: 14-16 only transitive comparisons are allowed
-#test(1 != 2 != 3, true)
+#test(1 != 2 != 1, false)
 
 #let (a, b, c, d, e) = (1, 2, 3, 4, 5)
 
