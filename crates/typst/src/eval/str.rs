@@ -827,14 +827,13 @@ impl Repr for EcoString {
 ///
 /// # Example
 /// ```example
+/// // Works with string methods.
+/// #"a,b;c".split(regex("[,;]"))
+///
 /// // Works with show rules.
 /// #show regex("\d+"): set text(red)
 ///
 /// The numbers 1 to 10.
-///
-/// // Works with string methods.
-/// #("a,b;c"
-///     .split(regex("[,;]")))
 /// ```
 #[ty(scope)]
 #[derive(Debug, Clone)]
