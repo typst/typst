@@ -10,12 +10,12 @@ fn main() {
 ```
 
 #show raw.line: it => {
-    box(stack(
-        dir: ltr,
-        box(width: 15pt)[#it.number],
-        it.body,
-    ))
-    linebreak()
+  box(stack(
+    dir: ltr,
+    box(width: 15pt)[#it.number],
+    it.body,
+  ))
+  linebreak()
 }
 
 ```rs
@@ -78,6 +78,7 @@ print(y)
 // Test line extraction works.
 
 #show raw: code => {
+  test(code.lines.at(0).len, 10)
   test(code.lines.at(0).text, "import numpy as np")
   test(code.lines.at(1).text, "")
   test(code.lines.at(2).text, "def f(x):")

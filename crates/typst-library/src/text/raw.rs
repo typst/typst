@@ -22,7 +22,7 @@ use crate::prelude::*;
 
 // Shorthand for highlighter closures.
 type StyleFn<'a> = &'a mut dyn FnMut(&LinkedNode, Range<usize>, synt::Style) -> Content;
-type LineFn<'a> = &'a mut dyn FnMut(i64, bool, Range<usize>, &mut Vec<Content>);
+type LineFn<'a> = &'a mut dyn FnMut(i64, Range<usize>, &mut Vec<Content>);
 
 /// Raw text with optional syntax highlighting.
 ///
@@ -318,14 +318,13 @@ impl Synthesize for RawElem {
                 LinkedNode::new(&root),
                 synt::Highlighter::new(theme),
                 &mut |_, range, style| styled(&text[range], foreground, style),
-                &mut |i, last, range, line| {
+                &mut |i, range, line| {
                     seq.push(
                         RawLine::new(
                             i + 1,
+                            text.split(is_newline).count() as i64,
                             EcoString::from(&text[range]),
                             Content::sequence(line.drain(..)),
-                            i == 0,
-                            last,
                         )
                         .pack(),
                     );
@@ -355,10 +354,9 @@ impl Synthesize for RawElem {
                 seq.push(
                     RawLine::new(
                         i as i64 + 1,
+                        len as i64,
                         EcoString::from(line),
                         Content::sequence(line_content),
-                        i == 0,
-                        i == len - 1,
                     )
                     .pack(),
                 );
@@ -449,7 +447,7 @@ impl PlainText for RawElem {
     }
 }
 
-/// A stylized line of raw text.
+/// A highlighted line of raw text.
 ///
 /// This is a helper element that is synthesized by [`raw`]($raw) elements.
 ///
@@ -462,6 +460,10 @@ pub struct RawLine {
     #[required]
     pub number: i64,
 
+    /// The total number of lines in the raw block.
+    #[required]
+    pub len: i64,
+
     /// The line of raw text.
     #[required]
     pub text: EcoString,
@@ -469,14 +471,6 @@ pub struct RawLine {
     /// The highlighted raw text.
     #[required]
     pub body: Content,
-
-    /// Whether this is the first line of the raw block.
-    #[required]
-    pub first: bool,
-
-    /// Whether this is the last line of the raw block.
-    #[required]
-    pub last: bool,
 }
 
 impl Show for RawLine {
@@ -540,7 +534,6 @@ impl<'a> ThemedHighlighter<'a> {
         if !self.current_line.is_empty() {
             (self.line_fn)(
                 self.line,
-                true,
                 self.range.start..self.code.len(),
                 &mut self.current_line,
             );
@@ -559,7 +552,6 @@ impl<'a> ThemedHighlighter<'a> {
                 if i != 0 {
                     (self.line_fn)(
                         self.line,
-                        self.range.end + len - 1 == self.code.len(),
                         self.range.start..self.range.end + len - 1,
                         &mut self.current_line,
                     );
