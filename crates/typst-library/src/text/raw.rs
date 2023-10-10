@@ -462,7 +462,7 @@ pub struct RawLine {
 
     /// The total number of lines in the raw block.
     #[required]
-    pub len: i64,
+    pub count: i64,
 
     /// The line of raw text.
     #[required]

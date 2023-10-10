@@ -78,7 +78,10 @@ print(y)
 // Test line extraction works.
 
 #show raw: code => {
-  test(code.lines.at(0).len, 10)
+  for i in code.lines {
+    test(i.count, 10)
+  }
+
   test(code.lines.at(0).text, "import numpy as np")
   test(code.lines.at(1).text, "")
   test(code.lines.at(2).text, "def f(x):")
@@ -89,6 +92,7 @@ print(y)
   test(code.lines.at(7).text, "")
   test(code.lines.at(8).text, "print(x)")
   test(code.lines.at(9).text, "print(y)")
+  test(code.lines.at(10, default: none), none)
 }
 
 ```py
