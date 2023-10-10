@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::f32::consts::TAU;
 use std::fmt::{self, Display, Formatter, Write};
 use std::io::Read;
 
@@ -16,6 +17,11 @@ use crate::geom::{
 };
 use crate::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::util::hash128;
+
+/// The number of segments in a conic gradient.
+/// This is a heuristic value that seems to work well.
+/// Smaller values could be interesting for optimization.
+const CONIC_SEGMENT: usize = 360;
 
 /// Export a frame into a SVG file.
 #[tracing::instrument(skip_all)]
@@ -76,6 +82,8 @@ struct SVGRenderer {
     /// The `Ratio` is the aspect ratio of the gradient, this is used to correct
     /// the angle of the gradient.
     gradients: Deduplicator<(Gradient, Ratio)>,
+    /// These are the gradients that compose a conic gradient.
+    conic_subgradients: Deduplicator<SVGSubGradient>,
 }
 
 /// Contextual information for rendering.
@@ -131,6 +139,21 @@ struct GradientRef {
     transform: Transform,
 }
 
+/// A subgradient for conic gradients.
+#[derive(Hash)]
+struct SVGSubGradient {
+    /// The center point of the gradient.
+    center: Axes<Ratio>,
+    /// The start point of the subgradient.
+    t0: Angle,
+    /// The end point of the subgradient.
+    t1: Angle,
+    /// The color at the start point of the subgradient.
+    c0: Color,
+    /// The color at the end point of the subgradient.
+    c1: Color,
+}
+
 /// The kind of linear gradient.
 #[derive(Hash, Clone, Copy, PartialEq, Eq)]
 enum GradientKind {
@@ -138,6 +161,8 @@ enum GradientKind {
     Linear,
     /// A radial gradient.
     Radial,
+    /// A conic gradient.
+    Conic,
 }
 
 impl From<&Gradient> for GradientKind {
@@ -145,6 +170,7 @@ impl From<&Gradient> for GradientKind {
         match value {
             Gradient::Linear { .. } => GradientKind::Linear,
             Gradient::Radial { .. } => GradientKind::Radial,
+            Gradient::Conic { .. } => GradientKind::Conic,
         }
     }
 }
@@ -170,6 +196,7 @@ impl SVGRenderer {
             clip_paths: Deduplicator::new('c'),
             gradient_refs: Deduplicator::new('g'),
             gradients: Deduplicator::new('f'),
+            conic_subgradients: Deduplicator::new('s'),
         }
     }
 
@@ -572,6 +599,7 @@ impl SVGRenderer {
         self.write_clip_path_defs();
         self.write_gradients();
         self.write_gradient_refs();
+        self.write_subgradients();
         self.xml.end_document()
     }
 
@@ -681,6 +709,87 @@ impl SVGRenderer {
                     self.xml.write_attribute("fy", &radial.focal_center.y.get());
                     self.xml.write_attribute("fr", &radial.focal_radius.get());
                 }
+                Gradient::Conic(conic) => {
+                    self.xml.start_element("pattern");
+                    self.xml.write_attribute("id", &id);
+                    self.xml.write_attribute("viewBox", "0 0 1 1");
+                    self.xml.write_attribute("preserveAspectRatio", "none");
+                    self.xml.write_attribute("patternUnits", "userSpaceOnUse");
+                    self.xml.write_attribute("width", "2");
+                    self.xml.write_attribute("height", "2");
+                    self.xml.write_attribute("x", "-0.5");
+                    self.xml.write_attribute("y", "-0.5");
+
+                    // The rotation angle, negated to match rotation in PNG.
+                    let angle: f32 =
+                        -(Gradient::correct_aspect_ratio(conic.angle, *ratio).to_rad()
+                            as f32)
+                            .rem_euclid(TAU);
+                    let center: (f32, f32) =
+                        (conic.center.x.get() as f32, conic.center.y.get() as f32);
+
+                    // We build an arg segment for each segment of a circle.
+                    let dtheta = TAU / CONIC_SEGMENT as f32;
+                    for i in 0..CONIC_SEGMENT {
+                        let theta1 = dtheta * i as f32;
+                        let theta2 = dtheta * (i + 1) as f32;
+
+                        // Create the path for the segment.
+                        let mut builder = SvgPathBuilder::default();
+                        builder.move_to(
+                            correct_pattern_pos(center.0),
+                            correct_pattern_pos(center.1),
+                        );
+                        builder.line_to(
+                            correct_pattern_pos(-2.0 * (theta1 + angle).cos() + center.0),
+                            correct_pattern_pos(2.0 * (theta1 + angle).sin() + center.1),
+                        );
+                        builder.arc(
+                            (2.0, 2.0),
+                            0.0,
+                            0,
+                            1,
+                            (
+                                correct_pattern_pos(
+                                    -2.0 * (theta2 + angle).cos() + center.0,
+                                ),
+                                correct_pattern_pos(
+                                    2.0 * (theta2 + angle).sin() + center.1,
+                                ),
+                            ),
+                        );
+                        builder.close();
+
+                        let t1 = (i as f32) / CONIC_SEGMENT as f32;
+                        let t2 = (i + 1) as f32 / CONIC_SEGMENT as f32;
+                        let subgradient = SVGSubGradient {
+                            center: conic.center,
+                            t0: Angle::rad((theta1 + angle) as f64),
+                            t1: Angle::rad((theta2 + angle) as f64),
+                            c0: gradient
+                                .sample(RatioOrAngle::Ratio(Ratio::new(t1 as f64))),
+                            c1: gradient
+                                .sample(RatioOrAngle::Ratio(Ratio::new(t2 as f64))),
+                        };
+                        let id = self
+                            .conic_subgradients
+                            .insert_with(hash128(&subgradient), || subgradient);
+
+                        // Add the path to the pattern.
+                        self.xml.start_element("path");
+                        self.xml.write_attribute("d", &builder.0);
+                        self.xml.write_attribute_fmt("fill", format_args!("url(#{id})"));
+                        self.xml
+                            .write_attribute_fmt("stroke", format_args!("url(#{id})"));
+                        self.xml.write_attribute("stroke-width", "0");
+                        self.xml.write_attribute("shape-rendering", "optimizeSpeed");
+                        self.xml.end_element();
+                    }
+
+                    // We skip the default stop generation code.
+                    self.xml.end_element();
+                    continue;
+                }
             }
 
             for window in gradient.stops_ref().windows(2) {
@@ -726,6 +835,43 @@ impl SVGRenderer {
         self.xml.end_element()
     }
 
+    /// Write the sub-gradients that are used for conic gradients.
+    fn write_subgradients(&mut self) {
+        if self.conic_subgradients.is_empty() {
+            return;
+        }
+
+        self.xml.start_element("defs");
+        self.xml.write_attribute("id", "subgradients");
+        for (id, gradient) in self.conic_subgradients.iter() {
+            let x1 = 2.0 - gradient.t0.cos() as f32 + gradient.center.x.get() as f32;
+            let y1 = gradient.t0.sin() as f32 + gradient.center.y.get() as f32;
+            let x2 = 2.0 - gradient.t1.cos() as f32 + gradient.center.x.get() as f32;
+            let y2 = gradient.t1.sin() as f32 + gradient.center.y.get() as f32;
+
+            self.xml.start_element("linearGradient");
+            self.xml.write_attribute("id", &id);
+            self.xml.write_attribute("gradientUnits", "objectBoundingBox");
+            self.xml.write_attribute("x1", &x1);
+            self.xml.write_attribute("y1", &y1);
+            self.xml.write_attribute("x2", &x2);
+            self.xml.write_attribute("y2", &y2);
+
+            self.xml.start_element("stop");
+            self.xml.write_attribute("offset", "0%");
+            self.xml.write_attribute("stop-color", &gradient.c0.to_hex());
+            self.xml.end_element();
+
+            self.xml.start_element("stop");
+            self.xml.write_attribute("offset", "100%");
+            self.xml.write_attribute("stop-color", &gradient.c1.to_hex());
+            self.xml.end_element();
+
+            self.xml.end_element();
+        }
+        self.xml.end_element();
+    }
+
     fn write_gradient_refs(&mut self) {
         if self.gradient_refs.is_empty() {
             return;
@@ -746,6 +892,13 @@ impl SVGRenderer {
                     self.xml.start_element("radialGradient");
                     self.xml.write_attribute(
                         "gradientTransform",
+                        &SvgMatrix(gradient_ref.transform),
+                    );
+                }
+                GradientKind::Conic => {
+                    self.xml.start_element("pattern");
+                    self.xml.write_attribute(
+                        "patternTransform",
                         &SvgMatrix(gradient_ref.transform),
                     );
                 }
@@ -996,6 +1149,26 @@ impl SvgPathBuilder {
         self.line_to(width, 0.0);
         self.close();
     }
+
+    /// Creates an arc path.
+    fn arc(
+        &mut self,
+        radius: (f32, f32),
+        x_axis_rot: f32,
+        large_arc_flag: u32,
+        sweep_flag: u32,
+        pos: (f32, f32),
+    ) {
+        write!(
+            &mut self.0,
+            "A {rx} {ry} {x_axis_rot} {large_arc_flag} {sweep_flag} {x} {y} ",
+            rx = radius.0,
+            ry = radius.1,
+            x = pos.0,
+            y = pos.1,
+        )
+        .unwrap();
+    }
 }
 
 /// A builder for SVG path. This is used to build the path for a glyph.
@@ -1090,4 +1263,9 @@ impl ColorEncode for Color {
             }
         }
     }
+}
+
+/// Maps a coordinate in a unit size square to a coordinate in the pattern.
+fn correct_pattern_pos(x: f32) -> f32 {
+    (x + 0.5) / 2.0
 }

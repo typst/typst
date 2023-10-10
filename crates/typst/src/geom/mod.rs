@@ -32,13 +32,15 @@ pub use self::abs::{Abs, AbsUnit};
 pub use self::align::{Align, FixedAlign, HAlign, VAlign};
 pub use self::angle::{Angle, AngleUnit, Quadrant};
 pub use self::axes::{Axes, Axis};
-pub use self::color::{Color, ColorSpace, WeightedColor};
+pub use self::color::{Color, ColorSpace, Hsl, Hsv, WeightedColor};
 pub use self::corners::{Corner, Corners};
 pub use self::dir::Dir;
 pub use self::ellipse::ellipse;
 pub use self::em::Em;
 pub use self::fr::Fr;
-pub use self::gradient::{Gradient, LinearGradient, RatioOrAngle, Relative};
+pub use self::gradient::{
+    ConicGradient, Gradient, LinearGradient, RatioOrAngle, Relative,
+};
 pub use self::length::Length;
 pub use self::paint::Paint;
 pub use self::path::{Path, PathItem};

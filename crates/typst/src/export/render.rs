@@ -735,7 +735,7 @@ impl From<sk::Transform> for Transform {
     }
 }
 
-// Transforms a [`Paint`] into a [`sk::Paint`].
+/// Transforms a [`Paint`] into a [`sk::Paint`].
 /// Applying the necessary transform, if the paint is a gradient.
 ///
 /// `gradient_map` is used to scale and move the gradient being sampled,

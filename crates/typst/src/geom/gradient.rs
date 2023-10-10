@@ -15,9 +15,9 @@ use crate::syntax::{Span, Spanned};
 /// A color gradient.
 ///
 /// Typst supports linear gradients through the
-/// [`gradient.linear` function]($gradient.linear) and radial gradients through
-/// the [`gradient.radial` function]($gradient.radial). Conic gradients will be
-/// available soon.
+/// [`gradient.linear` function]($gradient.linear), radial gradients through
+/// the [`gradient.radial` function]($gradient.radial), and conic gradients
+/// through the [`gradient.conic` function]($gradient.conic).
 ///
 /// See the [tracking issue](https://github.com/typst/typst/issues/2282) for
 /// more details on the progress of gradient implementation.
@@ -27,6 +27,7 @@ use crate::syntax::{Span, Spanned};
 ///   dir: ltr,
 ///   square(size: 50pt, fill: gradient.linear(..color.map.rainbow)),
 ///   square(size: 50pt, fill: gradient.radial(..color.map.rainbow)),
+///   square(size: 50pt, fill: gradient.conic(..color.map.rainbow)),
 /// )
 /// ```
 ///
@@ -174,6 +175,7 @@ use crate::syntax::{Span, Spanned};
 pub enum Gradient {
     Linear(Arc<LinearGradient>),
     Radial(Arc<RadialGradient>),
+    Conic(Arc<ConicGradient>),
 }
 
 #[scope]
@@ -365,6 +367,75 @@ impl Gradient {
         })))
     }
 
+    /// Creates a new conic gradient (i.e a gradient whose color changes
+    /// radially around a center point).
+    ///
+    /// ```example
+    /// #circle(
+    ///   radius: 20pt,
+    ///   fill: gradient.conic(..color.map.viridis)
+    /// )
+    /// ```
+    ///
+    /// _Center Point_
+    /// You can control the center point of the gradient by using the `center`
+    /// argument. By default, the center point is the center of the shape.
+    ///
+    /// ```example
+    /// #circle(
+    ///   radius: 20pt,
+    ///   fill: gradient.conic(..color.map.viridis, center: (10%, 40%))
+    /// )
+    /// ```
+    #[func]
+    pub fn conic(
+        /// The call site of this function.
+        span: Span,
+        /// The color [stops](#stops) of the gradient.
+        #[variadic]
+        stops: Vec<Spanned<Stop>>,
+        /// The angle of the gradient.
+        #[named]
+        #[default(Angle::zero())]
+        angle: Angle,
+        /// The color space in which to interpolate the gradient.
+        ///
+        /// Defaults to a perceptually uniform color space called
+        /// [Oklab]($color.oklab).
+        #[named]
+        #[default(ColorSpace::Oklab)]
+        space: ColorSpace,
+        /// The [relative placement](#relativeness) of the gradient.
+        ///
+        /// For an element placed at the root/top level of the document, the parent
+        /// is the page itself. For other elements, the parent is the innermost block,
+        /// box, column, grid, or stack that contains the element.
+        #[named]
+        #[default(Smart::Auto)]
+        relative: Smart<Relative>,
+        /// The center of the last circle of the gradient.
+        ///
+        /// A value of `{(50%, 50%)}` means that the end circle is
+        /// centered inside of its container.
+        #[named]
+        #[default(Axes::splat(Ratio::new(0.5)))]
+        center: Axes<Ratio>,
+    ) -> SourceResult<Gradient> {
+        if stops.len() < 2 {
+            bail!(error!(span, "a gradient must have at least two stops")
+                .with_hint("try filling the shape with a single color instead"));
+        }
+
+        Ok(Gradient::Conic(Arc::new(ConicGradient {
+            stops: process_stops(&stops)?,
+            angle,
+            center: center.map(From::from),
+            space,
+            relative,
+            anti_alias: true,
+        })))
+    }
+
     /// Returns the stops of this gradient.
     #[func]
     pub fn stops(&self) -> Vec<Stop> {
@@ -379,6 +450,11 @@ impl Gradient {
                 .iter()
                 .map(|(color, offset)| Stop { color: *color, offset: Some(*offset) })
                 .collect(),
+            Self::Conic(conic) => conic
+                .stops
+                .iter()
+                .map(|(color, offset)| Stop { color: *color, offset: Some(*offset) })
+                .collect(),
         }
     }
 
@@ -388,6 +464,7 @@ impl Gradient {
         match self {
             Self::Linear(linear) => linear.space,
             Self::Radial(radial) => radial.space,
+            Self::Conic(conic) => conic.space,
         }
     }
 
@@ -397,6 +474,7 @@ impl Gradient {
         match self {
             Self::Linear(linear) => linear.relative,
             Self::Radial(radial) => radial.relative,
+            Self::Conic(conic) => conic.relative,
         }
     }
 
@@ -406,6 +484,7 @@ impl Gradient {
         match self {
             Self::Linear(linear) => Some(linear.angle),
             Self::Radial(_) => None,
+            Self::Conic(conic) => Some(conic.angle),
         }
     }
 
@@ -415,6 +494,7 @@ impl Gradient {
         match self {
             Self::Linear(_) => Self::linear_data().into(),
             Self::Radial(_) => Self::radial_data().into(),
+            Self::Conic(_) => Self::conic_data().into(),
         }
     }
 
@@ -436,6 +516,7 @@ impl Gradient {
         match self {
             Self::Linear(linear) => sample_stops(&linear.stops, linear.space, value),
             Self::Radial(radial) => sample_stops(&radial.stops, radial.space, value),
+            Self::Conic(conic) => sample_stops(&conic.stops, conic.space, value),
         }
     }
 
@@ -540,6 +621,14 @@ impl Gradient {
                 relative: radial.relative,
                 anti_alias: false,
             })),
+            Self::Conic(conic) => Self::Conic(Arc::new(ConicGradient {
+                stops,
+                angle: conic.angle,
+                center: conic.center,
+                space: conic.space,
+                relative: conic.relative,
+                anti_alias: false,
+            })),
         })
     }
 
@@ -605,6 +694,14 @@ impl Gradient {
                 relative: radial.relative,
                 anti_alias: radial.anti_alias,
             })),
+            Self::Conic(conic) => Self::Conic(Arc::new(ConicGradient {
+                stops,
+                angle: conic.angle,
+                center: conic.center,
+                space: conic.space,
+                relative: conic.relative,
+                anti_alias: conic.anti_alias,
+            })),
         })
     }
 }
@@ -615,6 +712,7 @@ impl Gradient {
         match self {
             Gradient::Linear(linear) => &linear.stops,
             Gradient::Radial(radial) => &radial.stops,
+            Gradient::Conic(conic) => &conic.stops,
         }
     }
 
@@ -625,18 +723,12 @@ impl Gradient {
         let (mut x, mut y) = (x / width, y / height);
         let t = match self {
             Self::Linear(linear) => {
-                // Handle the direction of the gradient.
-                let angle = linear.angle.to_rad().rem_euclid(TAU);
-
                 // Aspect ratio correction.
-                let angle = (angle.tan() * height as f64).atan2(width as f64);
-                let angle = match linear.angle.quadrant() {
-                    Quadrant::First => angle,
-                    Quadrant::Second => angle + PI,
-                    Quadrant::Third => angle + PI,
-                    Quadrant::Fourth => angle + TAU,
-                };
-
+                let angle = Gradient::correct_aspect_ratio(
+                    linear.angle,
+                    Ratio::new((width / height) as f64),
+                )
+                .to_rad();
                 let (sin, cos) = angle.sin_cos();
 
                 let length = sin.abs() + cos.abs();
@@ -672,6 +764,15 @@ impl Gradient {
                     ((z - q).hypot() - fr) / (bz - fr)
                 }
             }
+            Self::Conic(conic) => {
+                let (x, y) =
+                    (x as f64 - conic.center.x.get(), y as f64 - conic.center.y.get());
+                let angle = Gradient::correct_aspect_ratio(
+                    conic.angle,
+                    Ratio::new((width / height) as f64),
+                );
+                ((-y.atan2(x) + PI + angle.to_rad()) % TAU) / TAU
+            }
         };
 
         self.sample(RatioOrAngle::Ratio(Ratio::new(t.clamp(0.0, 1.0))))
@@ -682,6 +783,7 @@ impl Gradient {
         match self {
             Self::Linear(linear) => linear.anti_alias,
             Self::Radial(radial) => radial.anti_alias,
+            Self::Conic(conic) => conic.anti_alias,
         }
     }
 
@@ -717,6 +819,7 @@ impl Repr for Gradient {
         match self {
             Self::Radial(radial) => radial.repr(),
             Self::Linear(linear) => linear.repr(),
+            Self::Conic(conic) => conic.repr(),
         }
     }
 }
@@ -809,7 +912,7 @@ impl Repr for RadialGradient {
         let mut r = EcoString::from("gradient.radial(");
 
         if self.center.x != Ratio::new(0.5) || self.center.y != Ratio::new(0.5) {
-            r.push_str("space: (");
+            r.push_str("center: (");
             r.push_str(&self.center.x.repr());
             r.push_str(", ");
             r.push_str(&self.center.y.repr());
@@ -834,6 +937,71 @@ impl Repr for RadialGradient {
             r.push_str("focal-radius: ");
             r.push_str(&self.focal_radius.repr());
             r.push_str(", ");
+        }
+
+        if self.space != ColorSpace::Oklab {
+            r.push_str("space: ");
+            r.push_str(&self.space.into_value().repr());
+            r.push_str(", ");
+        }
+
+        if self.relative.is_custom() {
+            r.push_str("relative: ");
+            r.push_str(&self.relative.into_value().repr());
+            r.push_str(", ");
+        }
+
+        for (i, (color, offset)) in self.stops.iter().enumerate() {
+            r.push('(');
+            r.push_str(&color.repr());
+            r.push_str(", ");
+            r.push_str(&offset.repr());
+            r.push(')');
+            if i != self.stops.len() - 1 {
+                r.push_str(", ");
+            }
+        }
+
+        r.push(')');
+        r
+    }
+}
+
+/// A gradient that interpolates between two colors radially
+/// around a center point.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct ConicGradient {
+    /// The color stops of this gradient.
+    pub stops: Vec<(Color, Ratio)>,
+    /// The direction of this gradient.
+    pub angle: Angle,
+    /// The center of last circle of this gradient.
+    pub center: Axes<Ratio>,
+    /// The color space in which to interpolate the gradient.
+    pub space: ColorSpace,
+    /// The relative placement of the gradient.
+    pub relative: Smart<Relative>,
+    /// Whether to anti-alias the gradient (used for sharp gradients).
+    pub anti_alias: bool,
+}
+
+impl Repr for ConicGradient {
+    fn repr(&self) -> EcoString {
+        let mut r = EcoString::from("gradient.conic(");
+
+        let angle = self.angle.to_rad().rem_euclid(TAU);
+        if angle.abs() > EPSILON {
+            r.push_str("angle: ");
+            r.push_str(&self.angle.repr());
+            r.push_str(", ");
+        }
+
+        if self.center.x != Ratio::new(0.5) || self.center.y != Ratio::new(0.5) {
+            r.push_str("center: (");
+            r.push_str(&self.center.x.repr());
+            r.push_str(", ");
+            r.push_str(&self.center.y.repr());
+            r.push_str("), ");
         }
 
         if self.space != ColorSpace::Oklab {
