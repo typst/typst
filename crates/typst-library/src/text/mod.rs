@@ -2,6 +2,7 @@
 
 mod deco;
 mod misc;
+mod quote;
 mod quotes;
 mod raw;
 mod shaping;
@@ -9,6 +10,7 @@ mod shift;
 
 pub use self::deco::*;
 pub use self::misc::*;
+pub use self::quote::*;
 pub use self::quotes::*;
 pub use self::raw::*;
 pub use self::shaping::*;
@@ -36,6 +38,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_elem::<OverlineElem>();
     global.define_elem::<StrikeElem>();
     global.define_elem::<HighlightElem>();
+    global.define_elem::<QuoteElem>();
     global.define_elem::<RawElem>();
     global.define_func::<lower>();
     global.define_func::<upper>();
