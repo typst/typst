@@ -704,8 +704,40 @@ fn code_expr_prec(
                     p.eat();
                     code_expr_prec(p, false, prec, false);
 
-                    p.wrap(m, SyntaxKind::TernaryComp);
-                    continue;
+                    // Check whether it is a transitive comparison.
+                    match (op, second_op) {
+                        (ast::BinOp::Gt, ast::BinOp::Lt)
+                        | (ast::BinOp::Gt, ast::BinOp::Leq)
+                        | (ast::BinOp::Geq, ast::BinOp::Lt)
+                        | (ast::BinOp::Geq, ast::BinOp::Leq)
+                        | (ast::BinOp::Lt, ast::BinOp::Gt)
+                        | (ast::BinOp::Lt, ast::BinOp::Geq)
+                        | (ast::BinOp::Leq, ast::BinOp::Gt)
+                        | (ast::BinOp::Leq, ast::BinOp::Geq)
+                        | (ast::BinOp::Neq, ast::BinOp::Neq) => {
+                            if let Some(node) = p.node_mut(m) {
+                                node.convert_to_error(
+                                    "only transitive comparisons are allowed",
+                                );
+                            }
+                        }
+                        _ => {
+                            p.wrap(m, SyntaxKind::TernaryComp);
+                            continue;
+                        }
+                    }
+
+                    // Check that there is no third comparison.
+                    if op.is_comp()
+                        && ast::BinOp::NotIn.precedence() >= min_prec
+                        && ast::BinOp::from_kind_comp(p.current()).is_some()
+                    {
+                        if let Some(node) = p.node_mut(m) {
+                            node.convert_to_error(
+                                "can only chain at most two comparisons",
+                            );
+                        }
+                    }
                 }
             }
 

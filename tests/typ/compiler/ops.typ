@@ -313,8 +313,6 @@
 #test(1 <= 2 < 1, false)
 #test(1 <= 2 <= 2, true)
 #test(1 <= 2 <= 1, false)
-#test(1 != 2 != 3, true)
-#test(1 != 2 != 1, true)
 #test(1 != 2 == 2, true)
 #test(1 != 2 == 1, false)
 #test(1 == 2 != 3, false)
@@ -330,4 +328,14 @@
 #test(a.at(0) < a.at(1) < a.at(2), true)
 #test(a.at(0) < b.a * 2 < a.at(2), true)
 #test(a.at(0) < b.c * 2 < a.at(2), false)
-#test(a.at(0) < b.c * 2 >= a.at(2), true)
+
+---
+// Test invalid ternary operations
+
+// Error: 7-8 only transitive comparisons are allowed
+#test(1 > 2 < 3)
+
+#let (a, b, c, d, e) = (1, 2, 3, 4, 5)
+
+// Error: 7-8 can only chain at most two comparisons
+#test(a < b > c == d != e)
