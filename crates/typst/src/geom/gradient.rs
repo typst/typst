@@ -31,6 +31,23 @@ use crate::syntax::{Span, Spanned};
 /// )
 /// ```
 ///
+/// # Gradient on text
+/// Gradients are supported on text but only when setting the relativeness to
+/// either `{auto}` or `{"parent"}`. Glyph-by-glyph text gradients will be
+/// supported in a future release. See the
+/// [tracking issue](https://github.com/typst/typst/issues/2282) for a more
+/// detailed status.
+///
+/// You can use gradients on text as follows:
+///
+/// ```example
+/// #set page(margin: 1pt)
+/// #set text(fill: gradient.linear(red, blue))
+/// #show box: set text(fill: gradient.linear(..color.map.rainbow))
+///
+/// This is a gradient on text, but with a #box[twist]!
+/// ```
+///
 /// # Stops
 /// A gradient is composed of a series of stops. Each of these stops has a color
 /// and an offset. The offset is a [ratio]($ratio) between `{0%}` and `{100%}` or
@@ -56,7 +73,8 @@ use crate::syntax::{Span, Spanned};
 /// of a container. This container can either be the shape they are painted on,
 /// or to the closest container ancestor. This is controlled by the `relative`
 /// argument of a gradient constructor. By default, gradients are relative to
-/// the shape they are painted on.
+/// the shape they are painted on, unless the gradient is applied on text, in
+/// which case they are relative to the closest ancestor container.
 ///
 /// Typst determines the ancestor container as follows:
 /// - For shapes that are placed at the root/top level of the document, the
