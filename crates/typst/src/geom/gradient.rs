@@ -725,6 +725,26 @@ impl Gradient {
 }
 
 impl Gradient {
+    /// Clones this gradient, but with a different relative placement.
+    pub fn with_relative(&self, relative: Relative) -> Self {
+        match self {
+            Self::Linear(linear) => {
+                let mut out = (**linear).clone();
+                out.relative = Smart::Custom(relative);
+                Self::Linear(Arc::new(out))
+            }
+            Self::Radial(radial) => {
+                let mut out = (**radial).clone();
+                out.relative = Smart::Custom(relative);
+                Self::Radial(Arc::new(out))
+            }
+            Self::Conic(conic) => {
+                let mut out = (**conic).clone();
+                out.relative = Smart::Custom(relative);
+                Self::Conic(Arc::new(out))
+            }
+        }
+    }
     /// Returns a reference to the stops of this gradient.
     pub fn stops_ref(&self) -> &[(Color, Ratio)] {
         match self {

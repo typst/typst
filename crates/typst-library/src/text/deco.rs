@@ -400,7 +400,7 @@ pub(super) fn decorate(
 
     let offset = offset.unwrap_or(-metrics.position.at(text.size)) - shift;
     let stroke = stroke.clone().unwrap_or(FixedStroke {
-        paint: text.fill.clone(),
+        paint: text.fill.as_decoration(),
         thickness: metrics.thickness.at(text.size),
         ..FixedStroke::default()
     });

@@ -10,11 +10,24 @@ pub enum Paint {
 }
 
 impl Paint {
-    /// Temporary method to unwrap a solid color used for text rendering.
+    /// Uunwraps a solid color used for text rendering.
     pub fn unwrap_solid(&self) -> Color {
         match self {
             Self::Solid(color) => *color,
             Self::Gradient(_) => panic!("expected solid color"),
+        }
+    }
+
+    /// Turns this paint into a paint for a text decoration.
+    ///
+    /// If this paint is a gradient, it will be converted to a gradient with
+    /// relative set to [`Relative::Parent`].
+    pub fn as_decoration(&self) -> Self {
+        match self {
+            Self::Solid(color) => Self::Solid(*color),
+            Self::Gradient(gradient) => {
+                Self::Gradient(gradient.with_relative(Relative::Parent))
+            }
         }
     }
 }
