@@ -863,7 +863,11 @@ impl<'a> MathAttach<'a> {
 
     /// Extract attached primes if present.
     pub fn primes(self) -> Option<MathPrimes<'a>> {
-        self.0.children().nth(1).and_then(|n| n.cast())
+        self.0
+            .children()
+            .skip_while(|node| node.cast::<Expr<'_>>().is_none())
+            .nth(1)
+            .and_then(|n| n.cast())
     }
 }
 
