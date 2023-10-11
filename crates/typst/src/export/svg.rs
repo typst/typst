@@ -51,7 +51,7 @@ pub fn svg_merged(frames: &[Frame], padding: Abs) -> String {
     let [x, mut y] = [padding; 2];
     for frame in frames {
         let ts = Transform::translate(x, y);
-        let state = State::new(frame.size(), ts);
+        let state = State::new(frame.size(), Transform::identity());
         renderer.render_frame(state, ts, frame);
         y += frame.height() + padding;
     }
@@ -262,9 +262,9 @@ impl SVGRenderer {
     fn render_group(&mut self, state: State, group: &GroupItem) {
         let state = match group.frame.kind() {
             FrameKind::Soft => state.pre_concat(group.transform),
-            FrameKind::Hard => {
-                state.with_transform(group.transform).with_size(group.frame.size())
-            }
+            FrameKind::Hard => state
+                .with_transform(Transform::identity())
+                .with_size(group.frame.size()),
         };
 
         self.xml.start_element("g");
@@ -284,7 +284,7 @@ impl SVGRenderer {
     /// try to render the text as SVG first, then bitmap, then outline. If none
     /// of them works, we will skip the text.
     // TODO: implement gradient on text.
-    fn render_text(&mut self, _state: State, text: &TextItem) {
+    fn render_text(&mut self, state: State, text: &TextItem) {
         let scale: f64 = text.size.to_pt() / text.font.units_per_em();
         let inv_scale: f64 = text.font.units_per_em() / text.size.to_pt();
 
@@ -302,7 +302,23 @@ impl SVGRenderer {
 
             self.render_svg_glyph(text, id, offset, inv_scale)
                 .or_else(|| self.render_bitmap_glyph(text, id, offset, inv_scale))
-                .or_else(|| self.render_outline_glyph(text, id, offset, inv_scale));
+                .or_else(|| {
+                    self.render_outline_glyph(
+                        state
+                            .pre_concat(Transform::scale(
+                                Ratio::new(scale),
+                                Ratio::new(-scale),
+                            ))
+                            .pre_translate(Point::new(
+                                Abs::pt(offset / scale),
+                                Abs::zero(),
+                            )),
+                        text,
+                        id,
+                        offset,
+                        inv_scale,
+                    )
+                });
 
             x += glyph.x_advance.at(text.size).to_pt();
         }
@@ -388,23 +404,82 @@ impl SVGRenderer {
     /// Render a glyph defined by an outline.
     fn render_outline_glyph(
         &mut self,
+        state: State,
         text: &TextItem,
-        id: GlyphId,
+        glyph_id: GlyphId,
         x_offset: f64,
         inv_scale: f64,
     ) -> Option<()> {
-        let path = convert_outline_glyph_to_path(&text.font, id)?;
-        let hash = hash128(&(&text.font, id));
+        let path = convert_outline_glyph_to_path(&text.font, glyph_id)?;
+        let hash = hash128(&(&text.font, glyph_id));
         let id = self.glyphs.insert_with(hash, || RenderedGlyph::Path(path));
 
         self.xml.start_element("use");
         self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
         self.xml
             .write_attribute_fmt("x", format_args!("{}", x_offset * inv_scale));
-        self.write_fill(&text.fill, Size::zero(), Transform::identity());
+        self.write_fill(
+            &text.fill,
+            self.text_fill_size(state, &text.fill, text, glyph_id),
+            self.text_paint_transform(state, &text.fill, text, glyph_id),
+        );
         self.xml.end_element();
 
         Some(())
+    }
+
+    // TODO: implement per-glyph gradient.
+    /// Computes the size of the text's fill.
+    fn text_fill_size(
+        &self,
+        state: State,
+        paint: &Paint,
+        _text: &TextItem,
+        _id: GlyphId,
+    ) -> Size {
+        let Paint::Gradient(gradient) = paint else {
+            return Size::zero();
+        };
+
+        match gradient.unwrap_relative(true) {
+            Relative::Self_ => Size::zero(),
+            Relative::Parent => state.size,
+        }
+    }
+
+    fn text_paint_transform(
+        &self,
+        state: State,
+        paint: &Paint,
+        _text: &TextItem,
+        _id: GlyphId,
+    ) -> Transform {
+        let Paint::Gradient(gradient) = paint else {
+            return Transform::identity();
+        };
+
+        // TODO: per-glyph gradient.
+        let mut shape_size = Size::zero();
+        // Edge cases for strokes.
+        if shape_size.x.to_pt() == 0.0 {
+            shape_size.x = Abs::pt(1.0);
+        }
+
+        if shape_size.y.to_pt() == 0.0 {
+            shape_size.y = Abs::pt(1.0);
+        }
+
+        match gradient.unwrap_relative(true) {
+            Relative::Self_ => Transform::scale(
+                Ratio::new(shape_size.x.to_pt()),
+                Ratio::new(shape_size.y.to_pt()),
+            ),
+            Relative::Parent => Transform::scale(
+                Ratio::new(state.size.x.to_pt()),
+                Ratio::new(state.size.y.to_pt()),
+            )
+            .post_concat(state.transform.invert().unwrap()),
+        }
     }
 
     /// Render a shape element.
