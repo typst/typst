@@ -1152,9 +1152,9 @@ impl Iterator for Breakpoints<'_> {
                     | LineBreak::NextLine => true,
                     _ => self.end == self.p.bidi.text.len(),
                 };
-
-                break;
             };
+
+            break;
         }
 
         // Hyphenate the next word.
