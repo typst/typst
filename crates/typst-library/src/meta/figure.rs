@@ -406,7 +406,7 @@ impl Outlinable for FigureElem {
 ///   caption: [A rectangle],
 /// )
 /// ```
-#[elem(name = "caption", Synthesize, Show)]
+#[elem(name = "caption", Synthesize, Show, Construct)]
 pub struct FigureCaption {
     /// The caption's position in the figure. Either `{top}` or `{bottom}`.
     ///
@@ -496,6 +496,13 @@ pub struct FigureCaption {
     /// The figure's location.
     #[synthesized]
     pub location: Option<Location>,
+}
+
+impl Construct for FigureCaption {
+    fn construct(_vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+        bail!(error!(args.span, "cannot construct a `figure.caption` element")
+            .with_hint("use the `figure` element instead"))
+    }
 }
 
 impl Synthesize for FigureCaption {

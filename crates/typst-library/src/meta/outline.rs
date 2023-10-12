@@ -413,7 +413,7 @@ cast! {
 /// = Analysis
 /// == Setup
 /// ```
-#[elem(name = "entry", title = "Outline Entry", Show)]
+#[elem(name = "entry", title = "Outline Entry", Show, Construct)]
 pub struct OutlineEntry {
     /// The nesting level of this outline entry. Starts at `{1}` for top-level
     /// entries.
@@ -447,6 +447,13 @@ pub struct OutlineEntry {
     /// numbering set for the referenced page.
     #[required]
     pub page: Content,
+}
+
+impl Construct for OutlineEntry {
+    fn construct(_vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+        bail!(error!(args.span, "cannot construct an `outline.entry` element")
+            .with_hint("use the `outline` element instead"))
+    }
 }
 
 impl OutlineEntry {

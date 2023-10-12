@@ -454,7 +454,7 @@ impl PlainText for RawElem {
 /// It allows you to access various properties of the line, such as the line
 /// number, the raw non-highlighted text, the highlighted text, and whether it
 /// is the first or last line of the raw block.
-#[elem(name = "line", title = "Raw Text / Code Line", Show, PlainText)]
+#[elem(name = "line", title = "Raw Text / Code Line", Show, PlainText, Construct)]
 pub struct RawLine {
     /// The line number of the raw line inside of the raw block, starts at 1.
     #[required]
@@ -471,6 +471,13 @@ pub struct RawLine {
     /// The highlighted raw text.
     #[required]
     pub body: Content,
+}
+
+impl Construct for RawLine {
+    fn construct(_vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+        bail!(error!(args.span, "cannot construct a `raw.line` element")
+            .with_hint("use the `raw` element instead"))
+    }
 }
 
 impl Show for RawLine {
