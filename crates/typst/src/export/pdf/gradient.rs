@@ -91,7 +91,7 @@ pub fn write_gradients(ctx: &mut PdfContext) {
                 shading_pattern
             }
             Gradient::Conic(conic) => {
-                let vertices = compute_vertex_stream(conic, on_text);
+                let vertices = compute_vertex_stream(conic, aspect_ratio, on_text);
 
                 let stream_shading_id = ctx.alloc.bump();
                 let mut stream_shading =
@@ -454,9 +454,16 @@ fn control_point(c: Point, r: f32, angle_start: f32, angle_end: f32) -> (Point, 
 }
 
 #[comemo::memoize]
-fn compute_vertex_stream(conic: &ConicGradient, on_text: bool) -> Arc<Vec<u8>> {
+fn compute_vertex_stream(
+    conic: &ConicGradient,
+    aspect_ratio: Ratio,
+    on_text: bool,
+) -> Arc<Vec<u8>> {
     // Generated vertices for the Coons patches
     let mut vertices = Vec::new();
+
+    // Correct the gradient's angle
+    let angle = Gradient::correct_aspect_ratio(conic.angle, aspect_ratio);
 
     // We want to generate a vertex based on some conditions, either:
     // - At the boundary of a stop
@@ -527,7 +534,7 @@ fn compute_vertex_stream(conic: &ConicGradient, on_text: bool) -> Arc<Vec<u8>> {
                             t_prime,
                             conic.space.convert(c),
                             c0,
-                            conic.angle,
+                            angle,
                             on_text,
                         );
 
@@ -537,7 +544,7 @@ fn compute_vertex_stream(conic: &ConicGradient, on_text: bool) -> Arc<Vec<u8>> {
                             t_prime,
                             c0,
                             c1,
-                            conic.angle,
+                            angle,
                             on_text,
                         );
 
@@ -547,7 +554,7 @@ fn compute_vertex_stream(conic: &ConicGradient, on_text: bool) -> Arc<Vec<u8>> {
                             t_next as f32,
                             c1,
                             conic.space.convert(c_next),
-                            conic.angle,
+                            angle,
                             on_text,
                         );
 
@@ -563,7 +570,7 @@ fn compute_vertex_stream(conic: &ConicGradient, on_text: bool) -> Arc<Vec<u8>> {
                 t_next as f32,
                 conic.space.convert(c),
                 conic.space.convert(c_next),
-                conic.angle,
+                angle,
                 on_text,
             );
 
