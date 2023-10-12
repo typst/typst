@@ -188,7 +188,7 @@ pub struct TextElem {
                     bail!(
                         error!(
                             paint.span,
-                            "text fill must be a solid color or a gradient relative to the parent"
+                            "gradients on text must be relative to the parent"
                         )
                         .with_hint("make sure to set `relative: auto` on your text fill")
                     );
