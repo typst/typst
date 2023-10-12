@@ -10,7 +10,7 @@ pub enum Paint {
 }
 
 impl Paint {
-    /// Uunwraps a solid color used for text rendering.
+    /// Unwraps a solid color used for text rendering.
     pub fn unwrap_solid(&self) -> Color {
         match self {
             Self::Solid(color) => *color,
