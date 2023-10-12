@@ -274,7 +274,7 @@ pub struct CasesElem {
     ///
     /// ```example
     /// #set math.cases(reverse: true)
-    /// $ x = cases(1, 2) $
+    /// $ cases(1, 2) = x $
     /// ```
     #[default(false)]
     pub reverse: bool,
