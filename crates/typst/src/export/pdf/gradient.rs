@@ -393,7 +393,7 @@ fn write_patch(
     if on_text {
         theta = (TAU - theta).rem_euclid(TAU);
         theta1 = (TAU - theta1).rem_euclid(TAU);
-    };
+    }
 
     let (cp1, cp2) =
         control_point(Point::new(Abs::pt(0.5), Abs::pt(0.5)), 0.5, theta, theta1);
