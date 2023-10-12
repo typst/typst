@@ -29,6 +29,7 @@ use crate::font::Font;
 use crate::geom::{Abs, Dir, Em};
 use crate::image::Image;
 use crate::model::Introspector;
+use crate::eval::Datetime;
 
 use extg::ExtGState;
 
@@ -160,7 +161,23 @@ fn write_catalog(ctx: &mut PdfContext) {
         xmp.creator(authors.iter().map(|s| s.as_str()));
     }
 
-    let creator = eco_format!("Typst {}", env!("CARGO_PKG_VERSION"));
+    let identifiers = &ctx.document.identifier;
+    if !identifiers.is_empty() {
+        xmp.identifier(&identifiers.join(", "));
+        xmp.xmp_identifier(identifiers.iter().map(|s| s.as_str()));
+    }
+
+    if let Some(rating) = ctx.document.rating {
+        xmp.rating(rating as i64);
+    }
+
+    if let Some(nickname) = &ctx.document.nickname {
+        xmp.nickname(nickname.as_str());
+    }
+
+    let typst_creator = eco_format!("Typst {}", env!("CARGO_PKG_VERSION"));
+    let creator = ctx.document.creator_tool.as_ref().unwrap_or(&typst_creator);
+    println!("{:?}", ctx.document.creator_tool);
     info.creator(TextStr(&creator));
     xmp.creator_tool(&creator);
 
@@ -170,6 +187,18 @@ fn write_catalog(ctx: &mut PdfContext) {
         info.keywords(TextStr(&joined));
         xmp.pdf_keywords(&joined);
     }
+
+    if let Some(date) = ctx.document.creation_date {
+        fn extract_date(date: Datetime) -> Option<(u16, u8, u8)> {
+            Some((date.year().and_then(|y| if y < 0 { None } else { Some(y as u16) })?, date.month()?, date.day()?))
+        }
+
+        if let Some((year, month, day)) = extract_date(date) {
+            info.creation_date(pdf_writer::Date::new(year).month(month).day(day));
+            xmp.create_date(xmp_writer::DateTime::date(year, month, day));
+        }
+    }
+
 
     info.finish();
     xmp.num_pages(ctx.document.pages.len() as u32);
@@ -217,7 +246,7 @@ fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
 
     for (i, page) in ctx.pages.iter().enumerate() {
         let nr = NonZeroUsize::new(1 + i).unwrap();
-        let Some(label) = &page.label else { continue };
+        let Some(label) = &page.label else { continue; };
 
         // Don't create a label if neither style nor prefix are specified.
         if label.prefix.is_none() && label.style.is_none() {
@@ -274,8 +303,8 @@ struct Remapper<T> {
 }
 
 impl<T> Remapper<T>
-where
-    T: Eq + Hash + Clone,
+    where
+        T: Eq + Hash + Clone,
 {
     fn new() -> Self {
         Self { to_pdf: HashMap::new(), to_items: vec![] }
@@ -297,11 +326,11 @@ where
     fn pdf_indices<'a>(
         &'a self,
         refs: &'a [Ref],
-    ) -> impl Iterator<Item = (Ref, usize)> + 'a {
+    ) -> impl Iterator<Item=(Ref, usize)> + 'a {
         refs.iter().copied().zip(0..self.to_pdf.len())
     }
 
-    fn items(&self) -> impl Iterator<Item = &T> + '_ {
+    fn items(&self) -> impl Iterator<Item=&T> + '_ {
         self.to_items.iter()
     }
 }
