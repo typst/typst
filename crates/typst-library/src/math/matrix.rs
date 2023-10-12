@@ -270,7 +270,7 @@ pub struct CasesElem {
     #[default(Delimiter::Brace)]
     pub delim: Delimiter,
 
-    /// Whether the direction fo cases should be reversed.
+    /// Whether the direction of cases should be reversed.
     ///
     /// ```example
     /// #set math.cases(reverse: true)
