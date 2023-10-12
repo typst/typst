@@ -97,7 +97,7 @@ pub struct MatElem {
     ///
     /// - `{none}`: No lines are drawn.
     /// - A single number: A vertical augmentation line is drawn
-    ///   after the specified column number.
+    ///   after the specified column number. Negative numbers start from the end.
     /// - A dictionary: With a dictionary, multiple augmentation lines can be
     ///   drawn both horizontally and vertically. Additionally, the style of the
     ///   lines can be set. The dictionary can contain the following keys:
@@ -105,17 +105,19 @@ pub struct MatElem {
     ///     For example, an offset of `2` would result in a horizontal line
     ///     being drawn after the second row of the matrix. Accepts either an
     ///     integer for a single line, or an array of integers
-    ///     for multiple lines.
+    ///     for multiple lines. Like for a single number, negative numbers start from the end.
     ///   - `vline`: The offsets at which vertical lines should be drawn.
     ///     For example, an offset of `2` would result in a vertical line being
     ///     drawn after the second column of the matrix. Accepts either an
     ///     integer for a single line, or an array of integers
-    ///     for multiple lines.
+    ///     for multiple lines. Like for a single number, negative numbers start from the end.
     ///   - `stroke`: How to [stroke]($stroke) the line. If set to `{auto}`,
     ///     takes on a thickness of 0.05em and square line caps.
     ///
     /// ```example
     /// $ mat(1, 0, 1; 0, 1, 2; augment: #2) $
+    /// // Equivalent to:
+    /// $ mat(1, 0, 1; 0, 1, 2; augment: #(-1)) $
     /// ```
     ///
     /// ```example
@@ -203,11 +205,14 @@ impl LayoutMath for MatElem {
 
         if let Some(aug) = &augment {
             for &offset in &aug.hline.0 {
-                if offset == 0 || offset >= self.rows().len() {
+                if offset == 0
+                    || offset >= (self.rows().len() as isize)
+                    || offset <= -(self.rows().len() as isize)
+                {
                     bail!(
                         self.span(),
                         "cannot draw a horizontal line after row {} of a matrix with {} rows",
-                        offset,
+                        if offset < 0 { self.rows().len() as isize + offset } else { offset },
                         self.rows().len()
                     );
                 }
@@ -216,11 +221,14 @@ impl LayoutMath for MatElem {
             let ncols = self.rows().first().map_or(0, |row| row.len());
 
             for &offset in &aug.vline.0 {
-                if offset == 0 || offset >= ncols {
+                if offset == 0
+                    || offset >= (ncols as isize)
+                    || offset <= -(ncols as isize)
+                {
                     bail!(
                         self.span(),
                         "cannot draw a vertical line after column {} of a matrix with {} columns",
-                        offset,
+                        if offset < 0 { ncols as isize + offset } else { offset },
                         ncols
                     );
                 }
@@ -456,7 +464,9 @@ fn layout_mat_body(
         x += rcol;
 
         // If a vertical line should be inserted after this column
-        if vline.0.contains(&(index + 1)) {
+        if vline.0.contains(&(index as isize + 1))
+            || vline.0.contains(&(1 - ((ncols - index) as isize)))
+        {
             frame.push(
                 Point::with_x(x + half_gap.x),
                 line_item(total_height, true, stroke.clone(), span),
@@ -472,8 +482,10 @@ fn layout_mat_body(
 
     // This allows the horizontal lines to be laid out
     for line in hline.0 {
-        let offset = (heights[0..line].iter().map(|&(a, b)| a + b).sum::<Abs>()
-            + gap.y * (line - 1) as f64)
+        let real_line =
+            if line < 0 { nrows - (line.abs() as usize) } else { line as usize };
+        let offset = (heights[0..real_line].iter().map(|&(a, b)| a + b).sum::<Abs>()
+            + gap.y * (real_line - 1) as f64)
             + half_gap.y;
 
         frame.push(
@@ -589,7 +601,7 @@ cast! {
 
         d.into_value()
     },
-    v: usize => Augment {
+    v: isize => Augment {
         hline: Offsets::default(),
         vline: Offsets(vec![v]),
         stroke: Smart::Auto,
@@ -616,11 +628,11 @@ cast! {
 /// The offsets at which augmentation lines
 /// should be drawn on a matrix.
 #[derive(Debug, Default, Clone, Hash)]
-pub struct Offsets(Vec<usize>);
+pub struct Offsets(Vec<isize>);
 
 cast! {
     Offsets,
     self => self.0.into_value(),
-    v: usize => Self(vec![v]),
+    v: isize => Self(vec![v]),
     v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
 }
