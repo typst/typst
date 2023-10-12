@@ -39,7 +39,7 @@ pub struct Document {
     /// The document's keywords.
     pub keywords: Vec<EcoString>,
     /// The document's creation date. Requires a positive year, month and day. If any of these aren't given, no date is written.
-    pub creation_date: Option<Datetime>
+    pub creation_date: Option<Datetime>,
 }
 
 /// A finished layout with items at fixed positions.

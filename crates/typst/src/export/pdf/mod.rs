@@ -25,11 +25,11 @@ use xmp_writer::{LangId, RenditionClass, XmpWriter};
 use self::gradient::PdfGradient;
 use self::page::Page;
 use crate::doc::{Document, Lang};
+use crate::eval::Datetime;
 use crate::font::Font;
 use crate::geom::{Abs, Dir, Em};
 use crate::image::Image;
 use crate::model::Introspector;
-use crate::eval::Datetime;
 
 use extg::ExtGState;
 
@@ -177,9 +177,8 @@ fn write_catalog(ctx: &mut PdfContext) {
 
     let typst_creator = eco_format!("Typst {}", env!("CARGO_PKG_VERSION"));
     let creator = ctx.document.creator_tool.as_ref().unwrap_or(&typst_creator);
-    println!("{:?}", ctx.document.creator_tool);
-    info.creator(TextStr(&creator));
-    xmp.creator_tool(&creator);
+    info.creator(TextStr(creator));
+    xmp.creator_tool(creator);
 
     let keywords = &ctx.document.keywords;
     if !keywords.is_empty() {
@@ -190,7 +189,11 @@ fn write_catalog(ctx: &mut PdfContext) {
 
     if let Some(date) = ctx.document.creation_date {
         fn extract_date(date: Datetime) -> Option<(u16, u8, u8)> {
-            Some((date.year().and_then(|y| if y < 0 { None } else { Some(y as u16) })?, date.month()?, date.day()?))
+            Some((
+                date.year().and_then(|y| if y < 0 { None } else { Some(y as u16) })?,
+                date.month()?,
+                date.day()?,
+            ))
         }
 
         if let Some((year, month, day)) = extract_date(date) {
@@ -198,7 +201,6 @@ fn write_catalog(ctx: &mut PdfContext) {
             xmp.create_date(xmp_writer::DateTime::date(year, month, day));
         }
     }
-
 
     info.finish();
     xmp.num_pages(ctx.document.pages.len() as u32);
@@ -246,7 +248,9 @@ fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
 
     for (i, page) in ctx.pages.iter().enumerate() {
         let nr = NonZeroUsize::new(1 + i).unwrap();
-        let Some(label) = &page.label else { continue; };
+        let Some(label) = &page.label else {
+            continue;
+        };
 
         // Don't create a label if neither style nor prefix are specified.
         if label.prefix.is_none() && label.style.is_none() {
@@ -303,8 +307,8 @@ struct Remapper<T> {
 }
 
 impl<T> Remapper<T>
-    where
-        T: Eq + Hash + Clone,
+where
+    T: Eq + Hash + Clone,
 {
     fn new() -> Self {
         Self { to_pdf: HashMap::new(), to_items: vec![] }
@@ -326,11 +330,11 @@ impl<T> Remapper<T>
     fn pdf_indices<'a>(
         &'a self,
         refs: &'a [Ref],
-    ) -> impl Iterator<Item=(Ref, usize)> + 'a {
+    ) -> impl Iterator<Item = (Ref, usize)> + 'a {
         refs.iter().copied().zip(0..self.to_pdf.len())
     }
 
-    fn items(&self) -> impl Iterator<Item=&T> + '_ {
+    fn items(&self) -> impl Iterator<Item = &T> + '_ {
         self.to_items.iter()
     }
 }

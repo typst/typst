@@ -94,8 +94,6 @@ impl LayoutRoot for DocumentElem {
             }
         }
 
-        println!("{:?}", self.creator_tool(styles));
-
         Ok(Document {
             pages,
             title: self.title(styles),
