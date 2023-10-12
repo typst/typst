@@ -1142,7 +1142,7 @@ impl Iterator for Breakpoints<'_> {
             self.end = self.linebreaks.next()?;
             self.mandatory = false;
 
-            // Fix for: https://github.com/unicode-org/icu4x/issues/4145
+            // Fix for: https://github.com/unicode-org/icu4x/issues/4146
             if let Some(c) = self.p.bidi.text[..self.end].chars().next_back() {
                 self.mandatory = match lb.get(c) {
                     LineBreak::Glue | LineBreak::WordJoiner | LineBreak::ZWJ => continue,
