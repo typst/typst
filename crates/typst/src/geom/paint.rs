@@ -26,7 +26,7 @@ impl Paint {
         match self {
             Self::Solid(color) => Self::Solid(*color),
             Self::Gradient(gradient) => {
-                Self::Gradient(gradient.with_relative(Relative::Parent))
+                Self::Gradient(gradient.clone().with_relative(Relative::Parent))
             }
         }
     }

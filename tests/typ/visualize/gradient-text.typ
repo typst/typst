@@ -6,10 +6,10 @@
 
 ---
 // Ref: false
-// Make sure they don't work when `relative: "self"` (for now).
+// Make sure they don't work when `relative: "self"`.
 
 // Hint: 17-61 make sure to set `relative: auto` on your text fill
-// Error: 17-61 text fill must be a solid color or a gradient relative to the parent
+// Error: 17-61 gradients on text must be relative to the parent
 #set text(fill: gradient.linear(red, blue, relative: "self"))
 
 ---

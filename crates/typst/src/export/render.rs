@@ -384,7 +384,6 @@ fn render_outline_glyph(
 
         let scale = text.size.to_f32() / text.font.units_per_em() as f32;
 
-        // TODO: Implement gradients on text glyph-by-glyph.
         let mut pixmap = None;
         let paint = to_sk_paint(
             &text.fill,
@@ -426,10 +425,25 @@ fn render_outline_glyph(
     // doesn't exist, yet.
     let bitmap =
         rasterize(&text.font, id, ts.tx.to_bits(), ts.ty.to_bits(), ppem.to_bits())?;
+    match &text.fill {
+        Paint::Gradient(gradient) => {
+            let sampler = GradientSampler::new(gradient, &state, Size::zero(), true);
+            write_bitmap(canvas, &bitmap, &state, sampler)?;
+        }
+        Paint::Solid(color) => {
+            write_bitmap(canvas, &bitmap, &state, *color)?;
+        }
+    }
 
-    // TODO: implement per-glyph gradient (non-zero-size).
-    let sampler = GradientSampler::new(&text.fill, &state, Size::zero(), true);
+    Some(())
+}
 
+fn write_bitmap<S: PaintSampler>(
+    canvas: &mut sk::Pixmap,
+    bitmap: &Bitmap,
+    state: &State,
+    sampler: S,
+) -> Option<()> {
     // If we have a clip mask we first render to a pixmap that we then blend
     // with our canvas
     if state.mask.is_some() {
@@ -754,26 +768,37 @@ impl From<sk::Transform> for Transform {
     }
 }
 
+/// Trait for sampling of a paint, used as a generic
+/// abstraction over solid colors and gradients.
+trait PaintSampler: Copy {
+    /// Sample the color at the `pos` in the pixmap.
+    fn sample(self, pos: (u32, u32)) -> Color;
+}
+
+impl PaintSampler for Color {
+    fn sample(self, _: (u32, u32)) -> Color {
+        self
+    }
+}
+
 /// State used when sampling colors for text.
 ///
 /// It caches the inverse transform to the parent, so that we can
 /// reuse it instead of recomputing it for each pixel.
 #[derive(Clone, Copy)]
-enum GradientSampler<'a> {
-    Gradient {
-        gradient: &'a Gradient,
-        container_size: Size,
-        transform_to_parent: sk::Transform,
-    },
-    Solid(Color),
+struct GradientSampler<'a> {
+    gradient: &'a Gradient,
+    container_size: Size,
+    transform_to_parent: sk::Transform,
 }
 
 impl<'a> GradientSampler<'a> {
-    fn new(paint: &'a Paint, state: &State, item_size: Size, on_text: bool) -> Self {
-        let Paint::Gradient(gradient) = paint else {
-            return Self::Solid(paint.unwrap_solid());
-        };
-
+    fn new(
+        gradient: &'a Gradient,
+        state: &State,
+        item_size: Size,
+        on_text: bool,
+    ) -> Self {
         let relative = gradient.unwrap_relative(on_text);
         let container_size = match relative {
             Relative::Self_ => item_size,
@@ -785,36 +810,25 @@ impl<'a> GradientSampler<'a> {
             Relative::Parent => state.container_transform.invert().unwrap(),
         };
 
-        Self::Gradient {
+        Self {
             gradient,
             container_size,
             transform_to_parent: fill_transform,
         }
     }
+}
 
-    /// Unwraps a solid color.
-    fn unwrap_solid(self) -> Color {
-        match self {
-            Self::Solid(color) => color,
-            Self::Gradient { .. } => unreachable!(),
-        }
-    }
-
+impl PaintSampler for GradientSampler<'_> {
     /// Samples a single point in a glyph.
     fn sample(self, (x, y): (u32, u32)) -> Color {
-        let Self::Gradient { gradient, container_size, transform_to_parent } = self
-        else {
-            return self.unwrap_solid();
-        };
-
         // Compute the point in the gradient's coordinate space.
         let mut point = sk::Point { x: x as f32, y: y as f32 };
-        transform_to_parent.map_point(&mut point);
+        self.transform_to_parent.map_point(&mut point);
 
         // Sample the gradient
-        gradient.sample_at(
+        self.gradient.sample_at(
             (point.x, point.y),
-            (container_size.x.to_f32(), container_size.y.to_f32()),
+            (self.container_size.x.to_f32(), self.container_size.y.to_f32()),
         )
     }
 }

@@ -182,7 +182,6 @@ pub struct TextElem {
     #[parse({
         let paint: Option<Spanned<Paint>> = args.named_or_find("fill")?;
         if let Some(paint) = &paint {
-            // TODO: Implement gradients on text.
             if let Paint::Gradient(gradient) = &paint.v {
                 if gradient.relative() == Smart::Custom(Relative::Self_) {
                     bail!(

@@ -283,7 +283,6 @@ impl SVGRenderer {
     /// Render a text item. The text is rendered as a group of glyphs. We will
     /// try to render the text as SVG first, then bitmap, then outline. If none
     /// of them works, we will skip the text.
-    // TODO: implement gradient on text.
     fn render_text(&mut self, state: State, text: &TextItem) {
         let scale: f64 = text.size.to_pt() / text.font.units_per_em();
         let inv_scale: f64 = text.font.units_per_em() / text.size.to_pt();
@@ -420,60 +419,21 @@ impl SVGRenderer {
             .write_attribute_fmt("x", format_args!("{}", x_offset * inv_scale));
         self.write_fill(
             &text.fill,
-            self.text_fill_size(state, &text.fill, text, glyph_id),
-            self.text_paint_transform(state, &text.fill, text, glyph_id),
+            state.size,
+            self.text_paint_transform(state, &text.fill),
         );
         self.xml.end_element();
 
         Some(())
     }
 
-    // TODO: implement per-glyph gradient.
-    /// Computes the size of the text's fill.
-    fn text_fill_size(
-        &self,
-        state: State,
-        paint: &Paint,
-        _text: &TextItem,
-        _id: GlyphId,
-    ) -> Size {
-        let Paint::Gradient(gradient) = paint else {
-            return Size::zero();
-        };
-
-        match gradient.unwrap_relative(true) {
-            Relative::Self_ => Size::zero(),
-            Relative::Parent => state.size,
-        }
-    }
-
-    fn text_paint_transform(
-        &self,
-        state: State,
-        paint: &Paint,
-        _text: &TextItem,
-        _id: GlyphId,
-    ) -> Transform {
+    fn text_paint_transform(&self, state: State, paint: &Paint) -> Transform {
         let Paint::Gradient(gradient) = paint else {
             return Transform::identity();
         };
 
-        // TODO: per-glyph gradient.
-        let mut shape_size = Size::zero();
-        // Edge cases for strokes.
-        if shape_size.x.to_pt() == 0.0 {
-            shape_size.x = Abs::pt(1.0);
-        }
-
-        if shape_size.y.to_pt() == 0.0 {
-            shape_size.y = Abs::pt(1.0);
-        }
-
         match gradient.unwrap_relative(true) {
-            Relative::Self_ => Transform::scale(
-                Ratio::new(shape_size.x.to_pt()),
-                Ratio::new(shape_size.y.to_pt()),
-            ),
+            Relative::Self_ => Transform::scale(Ratio::one(), Ratio::one()),
             Relative::Parent => Transform::scale(
                 Ratio::new(state.size.x.to_pt()),
                 Ratio::new(state.size.y.to_pt()),

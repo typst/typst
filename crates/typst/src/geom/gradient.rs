@@ -19,9 +19,6 @@ use crate::syntax::{Span, Spanned};
 /// the [`gradient.radial` function]($gradient.radial), and conic gradients
 /// through the [`gradient.conic` function]($gradient.conic).
 ///
-/// See the [tracking issue](https://github.com/typst/typst/issues/2282) for
-/// more details on the progress of gradient implementation.
-///
 /// ```example
 /// #stack(
 ///   dir: ltr,
@@ -33,19 +30,21 @@ use crate::syntax::{Span, Spanned};
 ///
 /// # Gradients on text
 /// Gradients are supported on text but only when setting the relativeness to
-/// either `{auto}` or `{"parent"}`. Glyph-by-glyph text gradients will be
-/// supported in a future release. See the
-/// [tracking issue](https://github.com/typst/typst/issues/2282) for a more
-/// detailed status.
+/// either `{auto}` (the default value) or `{"parent"}`. It was decided that
+/// glyph-by-glyph gradients would not be supported out-of-the-box but can be
+/// emulated using [show rules][show].
 ///
 /// You can use gradients on text as follows:
 ///
 /// ```example
 /// #set page(margin: 1pt)
 /// #set text(fill: gradient.linear(red, blue))
-/// #show box: set text(fill: gradient.linear(..color.map.rainbow))
+/// #let rainbow(content) = {
+///     set text(fill: gradient.linear(..color.map.rainbow))
+///     box(content)
+/// }
 ///
-/// This is a gradient on text, but with a #box[twist]!
+/// This is a gradient on text, but with a #rainbow[twist]!
 /// ```
 ///
 /// # Stops
@@ -726,24 +725,20 @@ impl Gradient {
 
 impl Gradient {
     /// Clones this gradient, but with a different relative placement.
-    pub fn with_relative(&self, relative: Relative) -> Self {
-        match self {
+    pub fn with_relative(mut self, relative: Relative) -> Self {
+        match &mut self {
             Self::Linear(linear) => {
-                let mut out = (**linear).clone();
-                out.relative = Smart::Custom(relative);
-                Self::Linear(Arc::new(out))
+                Arc::make_mut(linear).relative = Smart::Custom(relative);
             }
             Self::Radial(radial) => {
-                let mut out = (**radial).clone();
-                out.relative = Smart::Custom(relative);
-                Self::Radial(Arc::new(out))
+                Arc::make_mut(radial).relative = Smart::Custom(relative);
             }
             Self::Conic(conic) => {
-                let mut out = (**conic).clone();
-                out.relative = Smart::Custom(relative);
-                Self::Conic(Arc::new(out))
+                Arc::make_mut(conic).relative = Smart::Custom(relative);
             }
         }
+
+        self
     }
     /// Returns a reference to the stops of this gradient.
     pub fn stops_ref(&self) -> &[(Color, Ratio)] {
