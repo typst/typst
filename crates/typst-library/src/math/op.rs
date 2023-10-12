@@ -72,6 +72,7 @@ macro_rules! ops {
 
 ops! {
     arccos,
+    arccosec,
     arcosech,
     arcosh,
     arcoth,
