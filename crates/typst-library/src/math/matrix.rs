@@ -483,7 +483,7 @@ fn layout_mat_body(
     // This allows the horizontal lines to be laid out
     for line in hline.0 {
         let real_line =
-            if line < 0 { nrows - (line.abs() as usize) } else { line as usize };
+            if line < 0 { nrows - line.unsigned_abs() } else { line as usize };
         let offset = (heights[0..real_line].iter().map(|&(a, b)| a + b).sum::<Abs>()
             + gap.y * (real_line - 1) as f64)
             + half_gap.y;
