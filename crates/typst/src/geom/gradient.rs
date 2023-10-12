@@ -32,7 +32,7 @@ use crate::syntax::{Span, Spanned};
 /// Gradients are supported on text but only when setting the relativeness to
 /// either `{auto}` (the default value) or `{"parent"}`. It was decided that
 /// glyph-by-glyph gradients would not be supported out-of-the-box but can be
-/// emulated using [show rules][show].
+/// emulated using [show rules]($styling/#show-rules).
 ///
 /// You can use gradients on text as follows:
 ///
