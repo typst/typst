@@ -182,10 +182,16 @@ pub struct TextElem {
     #[parse({
         let paint: Option<Spanned<Paint>> = args.named_or_find("fill")?;
         if let Some(paint) = &paint {
-            // TODO: Implement gradients on text.
-            if matches!(paint.v, Paint::Gradient(_)) {
-                bail!(error!(paint.span, "text fill must be a solid color")
-                    .with_hint("gradients on text will be supported soon"));
+            if let Paint::Gradient(gradient) = &paint.v {
+                if gradient.relative() == Smart::Custom(Relative::Self_) {
+                    bail!(
+                        error!(
+                            paint.span,
+                            "gradients on text must be relative to the parent"
+                        )
+                        .with_hint("make sure to set `relative: auto` on your text fill")
+                    );
+                }
             }
         }
         paint.map(|paint| paint.v)

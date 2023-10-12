@@ -27,12 +27,14 @@ pub struct PdfGradient {
     pub aspect_ratio: Ratio,
     /// The gradient.
     pub gradient: Gradient,
+    /// Whether the gradient is applied to text.
+    pub on_text: bool,
 }
 
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
 pub fn write_gradients(ctx: &mut PdfContext) {
-    for PdfGradient { transform, aspect_ratio, gradient } in
+    for PdfGradient { transform, aspect_ratio, gradient, on_text } in
         ctx.gradient_map.items().cloned().collect::<Vec<_>>()
     {
         let shading = ctx.alloc.bump();
@@ -89,7 +91,7 @@ pub fn write_gradients(ctx: &mut PdfContext) {
                 shading_pattern
             }
             Gradient::Conic(conic) => {
-                let vertices = compute_vertex_stream(conic);
+                let vertices = compute_vertex_stream(conic, aspect_ratio, on_text);
 
                 let stream_shading_id = ctx.alloc.bump();
                 let mut stream_shading =
@@ -254,20 +256,25 @@ fn single_gradient(
 }
 
 impl PaintEncode for Gradient {
-    fn set_as_fill(&self, ctx: &mut PageContext, transforms: Transforms) {
+    fn set_as_fill(&self, ctx: &mut PageContext, on_text: bool, transforms: Transforms) {
         ctx.reset_fill_color_space();
 
-        let id = register_gradient(ctx, self, transforms);
+        let id = register_gradient(ctx, self, on_text, transforms);
         let name = Name(id.as_bytes());
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_fill_pattern(None, name);
     }
 
-    fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms) {
+    fn set_as_stroke(
+        &self,
+        ctx: &mut PageContext,
+        on_text: bool,
+        transforms: Transforms,
+    ) {
         ctx.reset_stroke_color_space();
 
-        let id = register_gradient(ctx, self, transforms);
+        let id = register_gradient(ctx, self, on_text, transforms);
         let name = Name(id.as_bytes());
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
@@ -279,6 +286,7 @@ impl PaintEncode for Gradient {
 fn register_gradient(
     ctx: &mut PageContext,
     gradient: &Gradient,
+    on_text: bool,
     mut transforms: Transforms,
 ) -> EcoString {
     // Edge cases for strokes.
@@ -290,17 +298,21 @@ fn register_gradient(
         transforms.size.y = Abs::pt(1.0);
     }
 
-    let size = match gradient.unwrap_relative(false) {
+    let size = match gradient.unwrap_relative(on_text) {
         Relative::Self_ => transforms.size,
         Relative::Parent => transforms.container_size,
     };
+
+    // Correction for y-axis flipping on text.
+    let angle = gradient.angle().unwrap_or_else(Angle::zero);
+    let angle = if on_text { Angle::rad(TAU as f64) - angle } else { angle };
 
     let (offset_x, offset_y) = match gradient {
         Gradient::Conic(conic) => (
             -size.x * (1.0 - conic.center.x.get() / 2.0) / 2.0,
             -size.y * (1.0 - conic.center.y.get() / 2.0) / 2.0,
         ),
-        gradient => match gradient.angle().unwrap_or_else(Angle::zero).quadrant() {
+        _ => match angle.quadrant() {
             Quadrant::First => (Abs::zero(), Abs::zero()),
             Quadrant::Second => (size.x, Abs::zero()),
             Quadrant::Third => (size.x, size.y),
@@ -310,10 +322,10 @@ fn register_gradient(
 
     let rotation = match gradient {
         Gradient::Conic(_) => Angle::zero(),
-        gradient => gradient.angle().unwrap_or_default(),
+        _ => angle,
     };
 
-    let transform = match gradient.unwrap_relative(false) {
+    let transform = match gradient.unwrap_relative(on_text) {
         Relative::Self_ => transforms.transform,
         Relative::Parent => transforms.container_transform,
     };
@@ -339,6 +351,7 @@ fn register_gradient(
                 size.aspect_ratio(),
             ))),
         gradient: gradient.clone(),
+        on_text,
     };
 
     let index = ctx.parent.gradient_map.insert(pdf_gradient);
@@ -371,9 +384,16 @@ fn write_patch(
     c0: [u16; 3],
     c1: [u16; 3],
     angle: Angle,
+    on_text: bool,
 ) {
-    let theta = -TAU * t + angle.to_rad() as f32 + PI;
-    let theta1 = -TAU * t1 + angle.to_rad() as f32 + PI;
+    let mut theta = -TAU * t + angle.to_rad() as f32 + PI;
+    let mut theta1 = -TAU * t1 + angle.to_rad() as f32 + PI;
+
+    // Correction for y-axis flipping on text.
+    if on_text {
+        theta = (TAU - theta).rem_euclid(TAU);
+        theta1 = (TAU - theta1).rem_euclid(TAU);
+    }
 
     let (cp1, cp2) =
         control_point(Point::new(Abs::pt(0.5), Abs::pt(0.5)), 0.5, theta, theta1);
@@ -434,9 +454,16 @@ fn control_point(c: Point, r: f32, angle_start: f32, angle_end: f32) -> (Point, 
 }
 
 #[comemo::memoize]
-fn compute_vertex_stream(conic: &ConicGradient) -> Arc<Vec<u8>> {
+fn compute_vertex_stream(
+    conic: &ConicGradient,
+    aspect_ratio: Ratio,
+    on_text: bool,
+) -> Arc<Vec<u8>> {
     // Generated vertices for the Coons patches
     let mut vertices = Vec::new();
+
+    // Correct the gradient's angle
+    let angle = Gradient::correct_aspect_ratio(conic.angle, aspect_ratio);
 
     // We want to generate a vertex based on some conditions, either:
     // - At the boundary of a stop
@@ -507,10 +534,19 @@ fn compute_vertex_stream(conic: &ConicGradient) -> Arc<Vec<u8>> {
                             t_prime,
                             conic.space.convert(c),
                             c0,
-                            conic.angle,
+                            angle,
+                            on_text,
                         );
 
-                        write_patch(&mut vertices, t_prime, t_prime, c0, c1, conic.angle);
+                        write_patch(
+                            &mut vertices,
+                            t_prime,
+                            t_prime,
+                            c0,
+                            c1,
+                            angle,
+                            on_text,
+                        );
 
                         write_patch(
                             &mut vertices,
@@ -518,7 +554,8 @@ fn compute_vertex_stream(conic: &ConicGradient) -> Arc<Vec<u8>> {
                             t_next as f32,
                             c1,
                             conic.space.convert(c_next),
-                            conic.angle,
+                            angle,
+                            on_text,
                         );
 
                         t_x = t_next;
@@ -533,7 +570,8 @@ fn compute_vertex_stream(conic: &ConicGradient) -> Arc<Vec<u8>> {
                 t_next as f32,
                 conic.space.convert(c),
                 conic.space.convert(c_next),
-                conic.angle,
+                angle,
+                on_text,
             );
 
             t_x = t_next;
