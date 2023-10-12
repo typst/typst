@@ -31,7 +31,7 @@ use crate::syntax::{Span, Spanned};
 /// )
 /// ```
 ///
-/// # Gradient on text
+/// # Gradients on text
 /// Gradients are supported on text but only when setting the relativeness to
 /// either `{auto}` or `{"parent"}`. Glyph-by-glyph text gradients will be
 /// supported in a future release. See the
