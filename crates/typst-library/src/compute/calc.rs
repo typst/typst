@@ -382,7 +382,7 @@ pub fn asinh(
 /// Calculates the inverse hyperbolic cosine.
 ///
 /// ```example
-/// #calc.acosh(0) \
+/// #calc.acosh(1) \
 /// #calc.acosh(1.5)
 /// ```
 #[func(title = "Inverse Hyperbolic Cosine")]
@@ -401,7 +401,7 @@ pub fn acosh(
 ///
 /// ```example
 /// #calc.atanh(0) \
-/// #calc.atanh(1.5)
+/// #calc.atanh(0.5)
 /// ```
 #[func(title = "Inverse Hyperbolic Tangent")]
 pub fn atanh(
