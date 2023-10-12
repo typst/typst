@@ -747,44 +747,41 @@ fn add_cjk_latin_spacing(items: &mut [Item]) {
     let mut items = items.iter_mut().peekable();
     let mut prev: Option<&ShapedGlyph> = None;
     while let Some(item) = items.next() {
-        if let Item::Text(ref mut text) = item {
-            // Since we only call this function in [`prepare`], we can assume
-            // that the Cow is owned, and `to_mut` can be called without overhead.
-            debug_assert!(matches!(text.glyphs, std::borrow::Cow::Owned(_)));
-            let mut glyphs = text.glyphs.to_mut().iter_mut().peekable();
-
-            while let Some(glyph) = glyphs.next() {
-                let next = glyphs.peek().map(|n| n as _).or_else(|| {
-                    items
-                        .peek()
-                        .and_then(|i| i.text())
-                        .and_then(|shaped| shaped.glyphs.first())
-                });
-
-                // Case 1: CJK followed by a Latin character
-                if glyph.is_cjk_script()
-                    && next.map_or(false, |g| g.is_letter_or_number())
-                {
-                    // The spacing is default to 1/4 em, and can be shrunk to 1/8 em.
-                    glyph.x_advance += Em::new(0.25);
-                    glyph.adjustability.shrinkability.1 += Em::new(0.125);
-                    text.width += Em::new(0.25).at(text.size);
-                }
-
-                // Case 2: Latin followed by a CJK character
-                if glyph.is_cjk_script()
-                    && prev.map_or(false, |g| g.is_letter_or_number())
-                {
-                    glyph.x_advance += Em::new(0.25);
-                    glyph.x_offset += Em::new(0.25);
-                    glyph.adjustability.shrinkability.0 += Em::new(0.125);
-                    text.width += Em::new(0.25).at(text.size);
-                }
-
-                prev = Some(glyph);
-            }
-        } else {
+        let Some(text) = item.text_mut() else {
             prev = None;
+            continue;
+        };
+
+        // Since we only call this function in [`prepare`], we can assume
+        // that the Cow is owned, and `to_mut` can be called without overhead.
+        debug_assert!(matches!(text.glyphs, std::borrow::Cow::Owned(_)));
+        let mut glyphs = text.glyphs.to_mut().iter_mut().peekable();
+
+        while let Some(glyph) = glyphs.next() {
+            let next = glyphs.peek().map(|n| n as _).or_else(|| {
+                items
+                    .peek()
+                    .and_then(|i| i.text())
+                    .and_then(|shaped| shaped.glyphs.first())
+            });
+
+            // Case 1: CJK followed by a Latin character
+            if glyph.is_cjk_script() && next.map_or(false, |g| g.is_letter_or_number()) {
+                // The spacing is default to 1/4 em, and can be shrunk to 1/8 em.
+                glyph.x_advance += Em::new(0.25);
+                glyph.adjustability.shrinkability.1 += Em::new(0.125);
+                text.width += Em::new(0.25).at(text.size);
+            }
+
+            // Case 2: Latin followed by a CJK character
+            if glyph.is_cjk_script() && prev.map_or(false, |g| g.is_letter_or_number()) {
+                glyph.x_advance += Em::new(0.25);
+                glyph.x_offset += Em::new(0.25);
+                glyph.adjustability.shrinkability.0 += Em::new(0.125);
+                text.width += Em::new(0.25).at(text.size);
+            }
+
+            prev = Some(glyph);
         }
     }
 }
