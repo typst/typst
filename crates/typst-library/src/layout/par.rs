@@ -1315,8 +1315,7 @@ fn line<'a>(
         // Deal with CJK punctuation at line ends.
         let gb_style = is_gb_style(shaped.lang, shaped.region);
         let maybe_adjust_last_glyph = trimmed.ends_with(END_PUNCT_PAT)
-            || (cjk_latin_spacing
-                && trimmed.chars().next_back().map_or(false, char_is_cjk_script));
+            || (cjk_latin_spacing && trimmed.ends_with(char_is_cjk_script));
 
         // Usually, we don't want to shape an empty string because:
         // - We don't want the height of trimmed whitespace in a different
@@ -1369,7 +1368,7 @@ fn line<'a>(
     // Deal with CJK characters at line starts.
     let text = &p.bidi.text[range.start..end];
     let maybe_adjust_first_glyph = text.starts_with(BEGIN_PUNCT_PAT)
-        || (cjk_latin_spacing && text.chars().next().map_or(false, char_is_cjk_script));
+        || (cjk_latin_spacing && text.starts_with(char_is_cjk_script));
 
     // Reshape the start item if it's split in half.
     let mut first = None;
