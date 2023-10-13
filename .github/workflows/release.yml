@@ -1,0 +1,73 @@
+# Based on ripgrep's release action:
+# https://github.com/BurntSushi/ripgrep/blob/master/.github/workflows/release.yml
+
+name: Build Release Binaries
+on:
+  release:
+    types: [created]
+
+jobs:
+  build-release:
+    name: release ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - target: x86_64-unknown-linux-musl
+          os: ubuntu-latest
+          cross: true
+        - target: aarch64-unknown-linux-musl
+          os: ubuntu-latest
+          cross: true
+        - target: armv7-unknown-linux-musleabi
+          os: ubuntu-latest
+          cross: true
+        - target: x86_64-apple-darwin
+          os: macos-latest
+          cross: false
+        - target: aarch64-apple-darwin
+          os: macos-latest
+          cross: false
+        - target: x86_64-pc-windows-msvc
+          os: windows-latest
+          cross: false
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        target: ${{ matrix.target }}
+
+    - name: Run Cross
+      if: ${{ matrix.cross}}
+      run: |
+        cargo install cross --git https://github.com/cross-rs/cross.git
+        cross build -p typst-cli --release --target ${{ matrix.target }} --features self-update
+
+    - name: Run Cargo
+      if: ${{ !matrix.cross }}
+      run: cargo build -p typst-cli --release --target ${{ matrix.target }} --features self-update
+
+    - name: create artifact directory
+      shell: bash
+      run: |
+        directory=typst-${{ matrix.target }}
+        mkdir $directory
+        cp README.md LICENSE NOTICE $directory
+        if [ -f target/${{ matrix.target }}/release/typst.exe ]; then
+          cp target/${{ matrix.target }}/release/typst.exe $directory
+          7z a -r $directory.zip $directory
+        else
+          cp target/${{ matrix.target }}/release/typst $directory
+          tar cJf $directory.tar.xz $directory
+        fi
+
+    - uses: ncipollo/release-action@v1.12.0
+      with:
+        artifacts: "typst-${{ matrix.target }}.*"
+        allowUpdates: true
+        omitNameDuringUpdate: true
+        omitBodyDuringUpdate: true

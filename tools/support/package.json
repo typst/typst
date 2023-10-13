@@ -1,0 +1,29 @@
+{
+  "name": "typst",
+  "displayName": "Typst",
+  "description": "Typst Language Support.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.53.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "typst",
+        "aliases": ["Typst", "typst"],
+        "extensions": [".typ"],
+        "configuration": "./config.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "typst",
+        "scopeName": "source.typst",
+        "path": "./typst.tmLanguage.json"
+      }
+    ]
+  }
+}

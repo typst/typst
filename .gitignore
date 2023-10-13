@@ -1,0 +1,25 @@
+# General
+.vscode
+.idea
+_things
+desktop.ini
+.DS_Store
+
+# Tests and benchmarks
+tests/png
+tests/pdf
+tests/svg
+tests/target
+tarpaulin-report.html
+
+# Rust
+/target
+**/*.rs.bk
+
+# Node
+node_modules
+package-lock.json
+
+# Nix
+/result
+.direnv/

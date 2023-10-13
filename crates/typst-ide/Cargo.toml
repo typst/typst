@@ -1,0 +1,25 @@
+[package]
+name = "typst-ide"
+description = "IDE functionality for Typst."
+categories = ["compilers", "science"]
+keywords = ["typst"]
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[lib]
+test = false
+doctest = false
+bench = false
+
+[dependencies]
+typst = { path = "../typst" }
+comemo = "0.3"
+ecow = { version = "0.2", features = ["serde"] }
+if_chain = "1"
+serde = { version = "1.0.184", features = ["derive"] }
+unscanny = "0.1"

@@ -1,0 +1,116 @@
+# This is responsible for the fact that certain math functions are grouped
+# together into one documentation page although they are not part of any scope.
+
+- name: variants
+  display: Variants
+  category: math
+  functions: ["serif", "sans", "frak", "mono", "bb", "cal"]
+  description: |
+    Alternate typefaces within formulas.
+
+    These functions are distinct from the [`text`]($text) function because math
+    fonts contain multiple variants of each letter.
+
+- name: styles
+  display: Styles
+  category: math
+  functions: ["upright", "italic", "bold"]
+  description: |
+    Alternate letterforms within formulas.
+
+    These functions are distinct from the [`text`]($text) function because math
+    fonts contain multiple variants of each letter.
+
+- name: sizes
+  display: Sizes
+  category: math
+  functions: ["display", "inline", "script", "sscript"]
+  description: |
+    Forced size styles for expressions within formulas.
+
+    These functions allow manual configuration of the size of equation elements
+    to make them look as in a display/inline equation or as if used in a root or
+    sub/superscripts.
+
+- name: underover
+  display: Under/Over
+  category: math
+  functions: [
+    "underline",
+    "overline",
+    "underbrace",
+    "overbrace",
+    "underbracket",
+    "overbracket",
+  ]
+  description: |
+    Delimiters above or below parts of an equation.
+
+    The braces and brackets further allow you to add an optional annotation
+    below or above themselves.
+
+- name: roots
+  display: Roots
+  category: math
+  functions: ["root", "sqrt"]
+  description: |
+    Square and non-square roots.
+
+    # Example
+    ```example
+    $ sqrt(3 - 2 sqrt(2)) = sqrt(2) - 1 $
+    $ root(3, x) $
+    ```
+
+- name: attach
+  display: Attach
+  category: math
+  functions: ["attach", "scripts", "limits"]
+  description: |
+    Subscript, superscripts, and limits.
+
+    Attachments can be displayed either as sub/superscripts, or limits. Typst
+    automatically decides which is more suitable depending on the base, but you
+    can also control this manually with the `scripts` and `limits` functions.
+
+    # Example
+    ```example
+    $ sum_(i=0)^n a_i = 2^(1+i) $
+    ```
+
+    # Syntax
+    This function also has dedicated syntax for attachments after the base: Use
+    the underscore (`_`) to indicate a subscript i.e. bottom attachment and the
+    hat (`^`) to indicate a superscript i.e. top attachment.
+
+- name: lr
+  display: Left/Right
+  category: math
+  functions: ["lr", "abs", "norm", "floor", "ceil", "round"]
+  description: |
+    Delimiter matching.
+
+    The `lr` function allows you to match two delimiters and scale them with the
+    content they contain. While this also happens automatically for delimiters
+    that match syntactically, `lr` allows you to match two arbitrary delimiters
+    and control their size exactly. Apart from the `lr` function, Typst provides
+    a few more functions that create delimiter pairings for absolute, ceiled,
+    and floored values as well as norms.
+
+    # Example
+    ```example
+    $ [a, b/2] $
+    $ lr(]sum_(x=1)^n] x, size: #50%) $
+    $ abs((x + y) / 2) $
+    ```
+
+- name: calc
+  display: Calculation
+  category: foundations
+  path: ["calc"]
+  description: |
+    Calculations and processing of numeric values.
+
+    These functions are part of the `calc` module and not imported by default.
+    In addition to the functions listed below, the `calc` module also defines
+    the constants `pi`, `tau`, `e`, `inf`, and `nan`.

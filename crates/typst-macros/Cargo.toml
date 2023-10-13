@@ -1,0 +1,22 @@
+[package]
+name = "typst-macros"
+description = "Proc-macros for Typst."
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[lib]
+proc-macro = true
+test = false
+doctest = false
+bench = false
+
+[dependencies]
+heck = "0.4"
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full", "extra-traits"] }

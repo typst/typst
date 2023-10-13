@@ -1,0 +1,87 @@
+{
+  "name": "typst-test-helper",
+  "displayName": "Typst Test Helper",
+  "description": "Helps to run, compare and update Typst tests.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.53.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:ShortcutMenuBar.testOpen",
+    "onCommand:ShortcutMenuBar.testRefresh",
+    "onCommand:ShortcutMenuBar.testRerun",
+    "onCommand:ShortcutMenuBar.testUpdate"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ShortcutMenuBar.testOpen",
+        "title": "Open test output",
+        "category": "ShortcutMenuBar",
+        "icon": {
+          "light": "images/open-light.svg",
+          "dark": "images/open-dark.svg"
+        }
+      },
+      {
+        "command": "ShortcutMenuBar.testRefresh",
+        "title": "Refresh preview",
+        "category": "ShortcutMenuBar",
+        "icon": {
+          "light": "images/refresh-light.svg",
+          "dark": "images/refresh-dark.svg"
+        }
+      },
+      {
+        "command": "ShortcutMenuBar.testRerun",
+        "title": "Rerun test",
+        "category": "ShortcutMenuBar",
+        "icon": {
+          "light": "images/rerun-light.svg",
+          "dark": "images/rerun-dark.svg"
+        }
+      },
+      {
+        "command": "ShortcutMenuBar.testUpdate",
+        "title": "Update reference image",
+        "category": "ShortcutMenuBar",
+        "icon": {
+          "light": "images/update-light.svg",
+          "dark": "images/update-dark.svg"
+        }
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
+          "command": "ShortcutMenuBar.testOpen",
+          "group": "navigation@0"
+        },
+        {
+          "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
+          "command": "ShortcutMenuBar.testRefresh",
+          "group": "navigation@1"
+        },
+        {
+          "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
+          "command": "ShortcutMenuBar.testRerun",
+          "group": "navigation@2"
+        },
+        {
+          "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
+          "command": "ShortcutMenuBar.testUpdate",
+          "group": "navigation@3"
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.53.0",
+    "@types/node": "^12.11.7"
+  }
+}

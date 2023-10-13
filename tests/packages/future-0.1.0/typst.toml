@@ -1,0 +1,5 @@
+[package]
+name = "future"
+version = "0.1.0"
+entrypoint = "lib.typ"
+compiler = "1.0.0"

@@ -1,0 +1,9 @@
+null_key: [null, ~]
+"string": text
+integer: 5
+float: 1.12
+mapping: { '1': "one", '2': "two"}
+seq: [1, 2, 3, 4]
+bool: false
+true: bool
+1: ok

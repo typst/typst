@@ -1,0 +1,24 @@
+[workspace]
+members = ["crates/*", "tests"]
+default-members = ["crates/typst-cli"]
+resolver = "2"
+
+[workspace.package]
+version = "0.8.0"
+rust-version = "1.70" # also change in ci.yml
+authors = ["The Typst Project Developers"]
+edition = "2021"
+homepage = "https://typst.app"
+repository = "https://github.com/typst/typst"
+readme = "README.md"
+license = "Apache-2.0"
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+[profile.release.package."typst-cli"]
+strip = true

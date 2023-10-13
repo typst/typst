@@ -1,0 +1,6 @@
+use_small_heuristics = "Max"
+max_width = 90
+chain_width = 70
+struct_lit_width = 50
+use_field_init_shorthand = true
+merge_derives = false

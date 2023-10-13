@@ -1,0 +1,77 @@
+[package]
+name = "typst-cli"
+description = "The command line interface for Typst."
+categories = ["compilers", "command-line-utilities"]
+keywords = ["typst", "cli"]
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "typst"
+path = "src/main.rs"
+test = false
+doctest = false
+bench = false
+doc = false
+
+[dependencies]
+typst = { path = "../typst" }
+typst-library = { path = "../typst-library" }
+chrono = { version = "0.4.24", default-features = false, features = ["clock", "std"] }
+clap = { version = "4.4", features = ["derive", "env"] }
+codespan-reporting = "0.11"
+comemo = "0.3"
+ecow = "0.2"
+dirs = "5"
+flate2 = "1"
+filetime = "0.2"
+inferno = "0.11.15"
+memmap2 = "0.7"
+notify = "6"
+once_cell = "1"
+open = "5"
+pathdiff = "0.2"
+same-file = "1"
+# https://github.com/mitsuhiko/self-replace/pull/16
+self-replace = { git = "https://github.com/typst/self-replace", optional = true }
+semver = "1"
+serde = "1.0.184"
+serde_json = "1"
+serde_yaml = "0.9"
+siphasher = "0.3"
+tar = "0.4"
+tempfile = "3.7.0"
+tracing = "0.1.37"
+tracing-error = "0.2"
+tracing-flame = "0.2.0"
+tracing-subscriber = "0.3.17"
+ureq = "2"
+rustls = "0.21"
+rustls-pemfile = "1"
+env_proxy = "0.4"
+walkdir = "2"
+xz2 = { version = "0.1", optional = true }
+zip = { version = "0.6", optional = true }
+
+[build-dependencies]
+clap = { version = "4.4", features = ["derive", "string"] }
+clap_complete = "4.2.1"
+clap_mangen = "0.2.10"
+semver = "1"
+
+[features]
+default = ["embed-fonts"]
+
+# Embeds some fonts into the binary:
+# - For text: Linux Libertine, New Computer Modern
+# - For math: New Computer Modern Math
+# - For code: Deja Vu Sans Mono
+embed-fonts = []
+
+# Permits the CLI to update itself without a package manager
+self-update = ["dep:self-replace", "dep:xz2", "dep:zip", "ureq/json"]
