@@ -1272,7 +1272,8 @@ fn line<'a>(
 
     // The CJK punctuation that can appear at the beginning or end of a line.
     const BEGIN_PUNCT_PAT: &[char] = &['“', '‘', '《', '（', '『', '「'];
-    const END_PUNCT_PAT: &[char] = &['”', '’', '，', '。', '、', '：', '；', '》', '）', '』', '」'];
+    const END_PUNCT_PAT: &[char] =
+        &['”', '’', '，', '。', '、', '：', '；', '》', '）', '』', '」'];
 
     if range.is_empty() {
         return Line {
