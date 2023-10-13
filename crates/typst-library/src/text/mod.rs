@@ -17,6 +17,7 @@ pub use self::shift::*;
 use rustybuzz::Tag;
 use ttf_parser::Rect;
 use typst::diag::{bail, error, SourceResult};
+use typst::eval::Never;
 use typst::font::{Font, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 
 use crate::layout::ParElem;
@@ -224,7 +225,7 @@ pub struct TextElem {
     /// #set text(cjk-latin-spacing: none)
     /// 第4章介绍了基本的API。
     /// ```
-    pub cjk_latin_spacing: Smart<Option<()>>,
+    pub cjk_latin_spacing: Smart<Option<Never>>,
 
     /// An amount to shift the text baseline by.
     ///

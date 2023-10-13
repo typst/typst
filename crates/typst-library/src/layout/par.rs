@@ -1270,6 +1270,10 @@ fn line<'a>(
     let end = range.end;
     let mut justify = p.justify && end < p.bidi.text.len() && !mandatory;
 
+    // The CJK punctuation that can appear at the beginning or end of a line.
+    const BEGIN_PUNCT_PAT: &[char] = &['“', '‘', '《', '（', '『', '「'];
+    const END_PUNCT_PAT: &[char] = &['”', '’', '，', '。', '、', '：', '；', '》', '）', '』', '」'];
+
     if range.is_empty() {
         return Line {
             bidi: &p.bidi,
@@ -1309,8 +1313,7 @@ fn line<'a>(
 
         // Deal with CJK punctuation at line ends.
         let gb_style = is_gb_style(shaped.lang, shaped.region);
-        let maybe_adjust_last_glyph = trimmed
-            .ends_with(['”', '’', '，', '。', '、', '：', '；', '》', '）', '』', '」'])
+        let maybe_adjust_last_glyph = trimmed.ends_with(END_PUNCT_PAT)
             || (cjk_latin_spacing
                 && trimmed.chars().next_back().map_or(false, char_is_cjk_script));
 
@@ -1364,7 +1367,7 @@ fn line<'a>(
 
     // Deal with CJK characters at line starts.
     let text = &p.bidi.text[range.start..end];
-    let maybe_adjust_first_glyph = text.starts_with(['“', '‘', '《', '（', '『', '「'])
+    let maybe_adjust_first_glyph = text.starts_with(BEGIN_PUNCT_PAT)
         || (cjk_latin_spacing && text.chars().next().map_or(false, char_is_cjk_script));
 
     // Reshape the start item if it's split in half.

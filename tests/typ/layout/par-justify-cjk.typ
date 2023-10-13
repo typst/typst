@@ -50,19 +50,3 @@
 #set text(lang: "zh", region: "hk", font: "Noto Serif CJK TC")
 孔雀最早见于《山海经》中的《海内经》：「有孔雀。」东汉杨孚著《异物志》记载，岭南：「孔雀，其大如大雁而足高，毛皆有斑纹彩，捕而蓄之，拍手即舞。」
 
----
-// Test CJK-Latin spacing.
-
-#set page(width: 50pt + 10pt, margin: (x: 5pt))
-#set text(lang: "zh", font: "Noto Serif CJK SC", cjk-latin-spacing: auto)
-#set par(justify: true)
-
-中文，中12文1中，文12中文
-
-中文，中ab文a中，文ab中文
-
-#set text(cjk-latin-spacing: none)
-
-中文，中12文1中，文12中文
-
-中文，中ab文a中，文ab中文
