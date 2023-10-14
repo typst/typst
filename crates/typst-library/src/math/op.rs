@@ -12,12 +12,11 @@ use super::*;
 /// ```
 ///
 /// # Predefined Operators { #predefined }
-/// Typst predefines the operators `arccos`, `arccosec`, `arccot`, `arcosech`,
-/// `arcosh`, `arcoth`, `arcsec`, `arcsin`, `arctan`, `arsech`, `arsinh`,
-/// `artanh`, `arg`, `cos`, `cosec`, `cosech`, `cosh`, `cot`, `coth`, `csc`,
+/// Typst predefines the operators `arccos`, `arcosh`, `arcsin`, `arctan`,
+/// `arsinh`, `artanh`, `arg`, `cos`, `cosh`, `cot`, `coth`, `csc`, `csch`,
 /// `ctg`, `deg`, `det`, `dim`, `exp`, `gcd`, `hom`, `id`, `im`, `inf`, `ker`,
 /// `lg`, `lim`, `liminf`, `limsup`, `ln`, `log`, `max`, `min`, `mod`, `Pr`,
-/// `sec`, `sin`, `sinc`, `sinh`, `sup`, `tan`, `tanh`, `tg` and `tr`.
+/// `sec`, `sech`, `sin`, `sinc`, `sinh`, `sup`, `tan`, `tanh`, `tg` and `tr`.
 #[elem(title = "Text Operator", LayoutMath)]
 pub struct OpElem {
     /// The operator's text.
