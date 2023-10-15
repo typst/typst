@@ -6,7 +6,7 @@ use crate::syntax::Span;
 
 /// Whether a specific method is mutating.
 pub fn is_mutating(method: &str) -> bool {
-    matches!(method, "push" | "pop" | "insert" | "remove")
+    matches!(method, "push" | "pop" | "insert" | "remove" | "at-or-insert")
 }
 
 /// Whether a specific method is an accessor.
@@ -27,7 +27,7 @@ pub fn mutable_methods_on(ty: Type) -> &'static [(&'static str, bool)] {
             ("remove", true),
         ]
     } else if ty == Type::of::<Dict>() {
-        &[("at", true), ("insert", true), ("remove", true)]
+        &[("at", true), ("insert", true), ("remove", true), ("at-or-insert", true)]
     } else {
         &[]
     }
@@ -60,6 +60,10 @@ pub fn call_mut(
         },
 
         Value::Dict(dict) => match method {
+            "at-or-insert" => {
+                output =
+                    dict.at_or_insert(args.expect::<Str>("key")?, args.expect("value")?)
+            }
             "insert" => dict.insert(args.expect::<Str>("key")?, args.expect("value")?),
             "remove" => {
                 output =

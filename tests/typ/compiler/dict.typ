@@ -124,3 +124,9 @@
   // Error: 8-15 type dictionary has no method `nonfunc`
   dict.nonfunc()
 }
+---
+#{
+  let dict = (:)
+  test(dict.at-or-insert("A", 1), 1)
+  test(dict.at("A"), 1)
+}
