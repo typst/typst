@@ -33,20 +33,7 @@ pub struct DocumentElem {
     pub keywords: Keywords,
 
     /// The document's creation date. Requires a positive year, month and day. If any of these aren't given, no date is written.
-    pub creation_date: Option<Datetime>,
-
-    /// The document's identifier (a unique set of text strings for this document).
-    pub identifier: Identifier,
-
-    /// The document's rating (-1 for rejected, 0 for unrated, 1-5 otherwise).
-    /// Rarely used in practice, but usable!
-    pub rating: Option<i32>,
-
-    /// The document's nickname.
-    pub nickname: Option<EcoString>,
-
-    /// The tool used to create the document. By default, this is your Typst version.
-    pub creator_tool: Option<EcoString>,
+    pub date: Option<Datetime>,
 
     /// The page runs.
     #[internal]
@@ -99,11 +86,7 @@ impl LayoutRoot for DocumentElem {
             title: self.title(styles),
             author: self.author(styles).0,
             keywords: self.keywords(styles).0,
-            creation_date: self.creation_date(styles),
-            creator_tool: self.creator_tool(styles),
-            identifier: self.identifier(styles).0,
-            rating: self.rating(styles),
-            nickname: self.nickname(styles),
+            date: self.date(styles),
         })
     }
 }

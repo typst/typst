@@ -28,18 +28,10 @@ pub struct Document {
     pub title: Option<EcoString>,
     /// The document's author.
     pub author: Vec<EcoString>,
-    /// The document's identifier (a unique set of text strings for this document).
-    pub identifier: Vec<EcoString>,
-    /// The document's rating (-1 for rejected, 0 for unrated, 1-5 otherwise).
-    pub rating: Option<i32>,
-    /// The document's nickname.
-    pub nickname: Option<EcoString>,
-    /// The tool used to create the document. By default, this is your typst version.
-    pub creator_tool: Option<EcoString>,
     /// The document's keywords.
     pub keywords: Vec<EcoString>,
     /// The document's creation date. Requires a positive year, month and day. If any of these aren't given, no date is written.
-    pub creation_date: Option<Datetime>,
+    pub date: Option<Datetime>,
 }
 
 /// A finished layout with items at fixed positions.

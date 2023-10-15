@@ -161,24 +161,9 @@ fn write_catalog(ctx: &mut PdfContext) {
         xmp.creator(authors.iter().map(|s| s.as_str()));
     }
 
-    let identifiers = &ctx.document.identifier;
-    if !identifiers.is_empty() {
-        xmp.identifier(&identifiers.join(", "));
-        xmp.xmp_identifier(identifiers.iter().map(|s| s.as_str()));
-    }
-
-    if let Some(rating) = ctx.document.rating {
-        xmp.rating(rating as i64);
-    }
-
-    if let Some(nickname) = &ctx.document.nickname {
-        xmp.nickname(nickname.as_str());
-    }
-
-    let typst_creator = eco_format!("Typst {}", env!("CARGO_PKG_VERSION"));
-    let creator = ctx.document.creator_tool.as_ref().unwrap_or(&typst_creator);
-    info.creator(TextStr(creator));
-    xmp.creator_tool(creator);
+    let creator = eco_format!("Typst {}", env!("CARGO_PKG_VERSION"));
+    info.creator(TextStr(creator.as_str()));
+    xmp.creator_tool(creator.as_str());
 
     let keywords = &ctx.document.keywords;
     if !keywords.is_empty() {
@@ -187,7 +172,7 @@ fn write_catalog(ctx: &mut PdfContext) {
         xmp.pdf_keywords(&joined);
     }
 
-    if let Some(date) = ctx.document.creation_date {
+    if let Some(date) = ctx.document.date {
         fn extract_date(date: Datetime) -> Option<(u16, u8, u8)> {
             Some((
                 date.year().and_then(|y| if y < 0 { None } else { Some(y as u16) })?,
