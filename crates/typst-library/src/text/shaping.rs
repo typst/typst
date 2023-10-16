@@ -75,6 +75,8 @@ pub struct ShapedGlyph {
     pub span: (Span, u16),
     /// Wether this glyph is justifiable for CJK scripts.
     pub is_justifiable: bool,
+    /// The script of the glyph.
+    pub script: Script,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -97,9 +99,15 @@ impl ShapedGlyph {
         self.is_justifiable
     }
 
+    /// Updates the justifiability of the glyph.
+    fn update_justifiable(&mut self) {
+        self.is_justifiable =
+            is_justifiable(self.c, self.script, self.x_advance, self.stretchability());
+    }
+
     /// Whether the glyph is part of a CJK script.
     pub fn is_cjk_script(&self) -> bool {
-        is_cjk_script(self.c)
+        is_cjk_script(self.c, self.script)
     }
 
     pub fn is_cjk_punctuation(&self) -> bool {
@@ -167,6 +175,7 @@ impl ShapedGlyph {
         self.x_advance -= amount;
         self.adjustability.shrinkability.0 -= amount;
         self.adjustability.stretchability.0 += amount;
+        self.update_justifiable();
     }
 
     /// Shrink the width of glyph on the right side.
@@ -174,6 +183,7 @@ impl ShapedGlyph {
         self.x_advance -= amount;
         self.adjustability.shrinkability.1 -= amount;
         self.adjustability.stretchability.1 += amount;
+        self.update_justifiable();
     }
 }
 
@@ -441,6 +451,7 @@ impl<'a> ShapedText<'a> {
                 c: '-',
                 span: (Span::detached(), 0),
                 is_justifiable: false,
+                script: Script::Common,
             });
             Some(())
         });
@@ -655,6 +666,7 @@ fn shape_segment(
                     .map_or(text.len(), |info| info.cluster as usize);
 
             let c = text[cluster..].chars().next().unwrap();
+            let script = c.script();
             let x_advance = font.to_em(pos[i].x_advance);
             ctx.glyphs.push(ShapedGlyph {
                 font: font.clone(),
@@ -670,9 +682,11 @@ fn shape_segment(
                 span: ctx.spans.span_at(start),
                 is_justifiable: is_justifiable(
                     c,
+                    script,
                     x_advance,
                     Adjustability::default().stretchability,
                 ),
+                script,
             });
         } else {
             // First, search for the end of the tofu sequence.
@@ -727,6 +741,7 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
     let add_glyph = |(cluster, c): (usize, char)| {
         let start = base + cluster;
         let end = start + c.len_utf8();
+        let script = c.script();
         ctx.glyphs.push(ShapedGlyph {
             font: font.clone(),
             glyph_id: 0,
@@ -740,9 +755,11 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
             span: ctx.spans.span_at(start),
             is_justifiable: is_justifiable(
                 c,
+                script,
                 x_advance,
                 Adjustability::default().stretchability,
             ),
+            script,
         });
     };
     if ctx.dir.is_positive() {
@@ -763,10 +780,12 @@ fn track_and_space(ctx: &mut ShapingContext) {
         // Make non-breaking space same width as normal space.
         if glyph.c == '\u{00A0}' {
             glyph.x_advance -= nbsp_delta(&glyph.font).unwrap_or_default();
+            glyph.update_justifiable();
         }
 
         if glyph.is_space() {
             glyph.x_advance = spacing.relative_to(glyph.x_advance);
+            glyph.update_justifiable();
         }
 
         if glyphs
@@ -774,6 +793,7 @@ fn track_and_space(ctx: &mut ShapingContext) {
             .map_or(false, |next| glyph.range.start != next.range.start)
         {
             glyph.x_advance += tracking;
+            glyph.update_justifiable();
         }
     }
 }
@@ -792,8 +812,7 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
 
     for glyph in &mut ctx.glyphs {
         glyph.adjustability = glyph.base_adjustability(gb_style);
-        glyph.is_justifiable =
-            is_justifiable(glyph.c, glyph.x_advance, glyph.stretchability());
+        glyph.update_justifiable();
     }
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
@@ -990,10 +1009,10 @@ fn is_space(c: char) -> bool {
 
 /// Whether the glyph is part of a CJK script.
 #[inline]
-fn is_cjk_script(c: char) -> bool {
+fn is_cjk_script(c: char, script: Script) -> bool {
     use Script::*;
     // U+30FC: Katakana-Hiragana Prolonged Sound Mark
-    matches!(c.script(), Hiragana | Katakana | Han) || c == '\u{30FC}'
+    matches!(script, Hiragana | Katakana | Han) || c == '\u{30FC}'
 }
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
@@ -1046,10 +1065,15 @@ fn is_cjk_center_aligned_punctuation(c: char, gb_style: bool) -> bool {
 
 /// Whether the glyph is justifiable.
 #[inline]
-fn is_justifiable(c: char, x_advance: Em, stretchability: (Em, Em)) -> bool {
+fn is_justifiable(
+    c: char,
+    script: Script,
+    x_advance: Em,
+    stretchability: (Em, Em),
+) -> bool {
     // GB style is not relevant here.
     is_space(c)
-        || is_cjk_script(c)
+        || is_cjk_script(c, script)
         || is_cjk_left_aligned_punctuation(c, x_advance, stretchability, true)
         || is_cjk_right_aligned_punctuation(c, x_advance, stretchability)
         || is_cjk_center_aligned_punctuation(c, true)
