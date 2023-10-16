@@ -260,6 +260,7 @@ fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
 
 /// Compress data with the DEFLATE algorithm.
 #[tracing::instrument(skip_all)]
+#[comemo::memoize]
 fn deflate(data: &[u8]) -> Vec<u8> {
     const COMPRESSION_LEVEL: u8 = 6;
     miniz_oxide::deflate::compress_to_vec_zlib(data, COMPRESSION_LEVEL)

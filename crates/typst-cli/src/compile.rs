@@ -188,7 +188,7 @@ fn export_image(
             }
             ImageExportFormat::Svg => {
                 let svg = typst::export::svg(frame);
-                fs::write(path, svg)
+                fs::write(path, svg.as_bytes())
                     .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;
             }
         }

@@ -1,6 +1,7 @@
 //! Rendering into raster images.
 
 use std::io::Read;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use image::imageops::FilterType;
@@ -23,18 +24,24 @@ use crate::image::{Image, ImageKind, RasterFormat};
 ///
 /// This renders the frame at the given number of pixels per point and returns
 /// the resulting `tiny-skia` pixel buffer.
-pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
-    let size = frame.size();
-    let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
-    let pxh = (pixel_per_pt * size.y.to_f32()).round().max(1.0) as u32;
+pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> Arc<sk::Pixmap> {
+    #[comemo::memoize]
+    fn cached(frame: &Frame, pixel_per_pt: u32, fill: Color) -> Arc<sk::Pixmap> {
+        let pixel_per_pt = f32::from_bits(pixel_per_pt);
+        let size = frame.size();
+        let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
+        let pxh = (pixel_per_pt * size.y.to_f32()).round().max(1.0) as u32;
 
-    let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
-    canvas.fill(fill.into());
+        let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
+        canvas.fill(fill.into());
 
-    let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
-    render_frame(&mut canvas, State::new(size, ts, pixel_per_pt), frame);
+        let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
+        render_frame(&mut canvas, State::new(size, ts, pixel_per_pt), frame);
 
-    canvas
+        Arc::new(canvas)
+    }
+
+    cached(frame, pixel_per_pt.to_bits(), fill)
 }
 
 /// Export multiple frames into a single raster image.
@@ -53,8 +60,13 @@ pub fn render_merged(
         .collect();
 
     let padding = (pixel_per_pt * padding.to_f32()).round() as u32;
-    let pxw =
-        2 * padding + pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
+    let pxw = 2 * padding
+        + pixmaps
+            .iter()
+            .map(Deref::deref)
+            .map(sk::Pixmap::width)
+            .max()
+            .unwrap_or_default();
     let pxh =
         padding + pixmaps.iter().map(|pixmap| pixmap.height() + padding).sum::<u32>();
 
@@ -66,7 +78,7 @@ pub fn render_merged(
         canvas.draw_pixmap(
             x as i32,
             y as i32,
-            pixmap.as_ref(),
+            (*pixmap).as_ref(),
             &sk::PixmapPaint::default(),
             sk::Transform::identity(),
             None,
