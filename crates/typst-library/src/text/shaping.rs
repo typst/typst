@@ -118,7 +118,7 @@ impl ShapedGlyph {
 
     /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
     pub fn is_cjk_left_aligned_punctuation(&self, gb_style: bool) -> bool {
-        is_cjk_center_aligned_punctuation(self.c, gb_style)
+        is_cjk_left_aligned_punctuation(self.c, self.x_advance, self.stretchability(), gb_style)
     }
 
     /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
