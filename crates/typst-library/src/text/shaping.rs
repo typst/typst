@@ -73,6 +73,8 @@ pub struct ShapedGlyph {
     pub c: char,
     /// The source code location of the glyph and its byte offset within it.
     pub span: (Span, u16),
+    /// Wether this glyph is justifiable for CJK scripts.
+    pub is_justifiable: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -86,23 +88,18 @@ pub struct Adjustability {
 impl ShapedGlyph {
     /// Whether the glyph is a space.
     pub fn is_space(&self) -> bool {
-        matches!(self.c, ' ' | '\u{00A0}' | '　')
+        is_space(self.c)
     }
 
     /// Whether the glyph is justifiable.
     pub fn is_justifiable(&self) -> bool {
         // GB style is not relevant here.
-        self.is_space()
-            || self.is_cjk_script()
-            || self.is_cjk_left_aligned_punctuation(true)
-            || self.is_cjk_right_aligned_punctuation()
-            || self.is_cjk_center_aligned_punctuation(true)
+        self.is_justifiable
     }
 
+    /// Whether the glyph is part of a CJK script.
     pub fn is_cjk_script(&self) -> bool {
-        use Script::*;
-        // U+30FC: Katakana-Hiragana Prolonged Sound Mark
-        matches!(self.c.script(), Hiragana | Katakana | Han) || self.c == '\u{30FC}'
+        is_cjk_script(self.c)
     }
 
     pub fn is_cjk_punctuation(&self) -> bool {
@@ -113,42 +110,17 @@ impl ShapedGlyph {
 
     /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
     pub fn is_cjk_left_aligned_punctuation(&self, gb_style: bool) -> bool {
-        // CJK quotation marks shares codepoints with latin quotation marks.
-        // But only the CJK ones have full width.
-        if matches!(self.c, '”' | '’')
-            && self.x_advance + self.stretchability().1 == Em::one()
-        {
-            return true;
-        }
-
-        if gb_style && matches!(self.c, '，' | '。' | '、' | '：' | '；') {
-            return true;
-        }
-
-        matches!(self.c, '》' | '）' | '』' | '」')
+        is_cjk_center_aligned_punctuation(self.c, gb_style)
     }
 
     /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
     pub fn is_cjk_right_aligned_punctuation(&self) -> bool {
-        // CJK quotation marks shares codepoints with latin quotation marks.
-        // But only the CJK ones have full width.
-        if matches!(self.c, '“' | '‘')
-            && self.x_advance + self.stretchability().0 == Em::one()
-        {
-            return true;
-        }
-
-        matches!(self.c, '《' | '（' | '『' | '「')
+        is_cjk_right_aligned_punctuation(self.c, self.x_advance, self.stretchability())
     }
 
     /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
     pub fn is_cjk_center_aligned_punctuation(&self, gb_style: bool) -> bool {
-        if !gb_style && matches!(self.c, '，' | '。' | '、' | '：' | '；') {
-            return true;
-        }
-
-        // U+30FB: Katakana Middle Dot
-        matches!(self.c, '\u{30FB}')
+        is_cjk_center_aligned_punctuation(self.c, gb_style)
     }
 
     pub fn base_adjustability(&self, gb_style: bool) -> Adjustability {
@@ -468,6 +440,7 @@ impl<'a> ShapedText<'a> {
                 safe_to_break: true,
                 c: '-',
                 span: (Span::detached(), 0),
+                is_justifiable: false,
             });
             Some(())
         });
@@ -681,18 +654,25 @@ fn shape_segment(
                     .and_then(|last| infos.get(last))
                     .map_or(text.len(), |info| info.cluster as usize);
 
+            let c = text[cluster..].chars().next().unwrap();
+            let x_advance = font.to_em(pos[i].x_advance);
             ctx.glyphs.push(ShapedGlyph {
                 font: font.clone(),
                 glyph_id: info.glyph_id as u16,
                 // TODO: Don't ignore y_advance.
-                x_advance: font.to_em(pos[i].x_advance),
+                x_advance,
                 x_offset: font.to_em(pos[i].x_offset),
                 y_offset: font.to_em(pos[i].y_offset),
                 adjustability: Adjustability::default(),
                 range: start..end,
                 safe_to_break: !info.unsafe_to_break(),
-                c: text[cluster..].chars().next().unwrap(),
+                c,
                 span: ctx.spans.span_at(start),
+                is_justifiable: is_justifiable(
+                    c,
+                    x_advance,
+                    Adjustability::default().stretchability,
+                ),
             });
         } else {
             // First, search for the end of the tofu sequence.
@@ -758,6 +738,11 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
             safe_to_break: true,
             c,
             span: ctx.spans.span_at(start),
+            is_justifiable: is_justifiable(
+                c,
+                x_advance,
+                Adjustability::default().stretchability,
+            ),
         });
     };
     if ctx.dir.is_positive() {
@@ -807,6 +792,8 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
 
     for glyph in &mut ctx.glyphs {
         glyph.adjustability = glyph.base_adjustability(gb_style);
+        glyph.is_justifiable =
+            is_justifiable(glyph.c, glyph.x_advance, glyph.stretchability());
     }
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
@@ -993,4 +980,77 @@ fn assert_glyph_ranges_in_order(glyphs: &[ShapedGlyph], dir: Dir) {
             );
         }
     }
+}
+
+/// Whether the glyph is a space.
+#[inline]
+fn is_space(c: char) -> bool {
+    matches!(c, ' ' | '\u{00A0}' | '　')
+}
+
+/// Whether the glyph is part of a CJK script.
+#[inline]
+fn is_cjk_script(c: char) -> bool {
+    use Script::*;
+    // U+30FC: Katakana-Hiragana Prolonged Sound Mark
+    matches!(c.script(), Hiragana | Katakana | Han) || c == '\u{30FC}'
+}
+
+/// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
+#[inline]
+fn is_cjk_left_aligned_punctuation(
+    c: char,
+    x_advance: Em,
+    stretchability: (Em, Em),
+    gb_style: bool,
+) -> bool {
+    // CJK quotation marks shares codepoints with latin quotation marks.
+    // But only the CJK ones have full width.
+    if matches!(c, '”' | '’') && x_advance + stretchability.1 == Em::one() {
+        return true;
+    }
+
+    if gb_style && matches!(c, '，' | '。' | '、' | '：' | '；') {
+        return true;
+    }
+
+    matches!(c, '》' | '）' | '』' | '」')
+}
+
+/// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
+#[inline]
+fn is_cjk_right_aligned_punctuation(
+    c: char,
+    x_advance: Em,
+    stretchability: (Em, Em),
+) -> bool {
+    // CJK quotation marks shares codepoints with latin quotation marks.
+    // But only the CJK ones have full width.
+    if matches!(c, '“' | '‘') && x_advance + stretchability.0 == Em::one() {
+        return true;
+    }
+
+    matches!(c, '《' | '（' | '『' | '「')
+}
+
+/// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
+#[inline]
+fn is_cjk_center_aligned_punctuation(c: char, gb_style: bool) -> bool {
+    if !gb_style && matches!(c, '，' | '。' | '、' | '：' | '；') {
+        return true;
+    }
+
+    // U+30FB: Katakana Middle Dot
+    matches!(c, '\u{30FB}')
+}
+
+/// Whether the glyph is justifiable.
+#[inline]
+fn is_justifiable(c: char, x_advance: Em, stretchability: (Em, Em)) -> bool {
+    // GB style is not relevant here.
+    is_space(c)
+        || is_cjk_script(c)
+        || is_cjk_left_aligned_punctuation(c, x_advance, stretchability, true)
+        || is_cjk_right_aligned_punctuation(c, x_advance, stretchability)
+        || is_cjk_center_aligned_punctuation(c, true)
 }
