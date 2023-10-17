@@ -53,6 +53,7 @@ pub mod model;
 pub use typst_syntax as syntax;
 
 use std::ops::Range;
+use std::path::PathBuf;
 
 use comemo::{Prehashed, Track, TrackedMut};
 use ecow::EcoString;
@@ -182,4 +183,8 @@ impl<T: World> WorldExt for T {
     fn range(&self, span: Span) -> Option<Range<usize>> {
         self.source(span.id()?).ok()?.range(span)
     }
+}
+
+pub trait PathResolver {
+    fn resolve_path(&self, path: FileId) -> Option<PathBuf>;
 }

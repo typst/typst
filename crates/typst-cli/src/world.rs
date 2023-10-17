@@ -13,7 +13,7 @@ use typst::diag::{FileError, FileResult, StrResult};
 use typst::eval::{eco_format, Bytes, Datetime, Library};
 use typst::font::{Font, FontBook};
 use typst::syntax::{FileId, Source, VirtualPath};
-use typst::World;
+use typst::{PathResolver, World};
 
 use crate::args::SharedArgs;
 use crate::fonts::{FontSearcher, FontSlot};
@@ -162,6 +162,12 @@ impl World for SystemWorld {
             naive.month().try_into().ok()?,
             naive.day().try_into().ok()?,
         )
+    }
+}
+
+impl PathResolver for SystemWorld {
+    fn resolve_path(&self, path: FileId) -> Option<PathBuf> {
+        self.slot(path).ok().map(|slot| slot.path.clone())
     }
 }
 
