@@ -186,6 +186,8 @@ pub enum OutputFormat {
     Pdf,
     Png,
     Svg,
+    Txt,
+    SpannedTxt,
 }
 
 impl Display for OutputFormat {

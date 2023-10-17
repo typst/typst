@@ -6,7 +6,7 @@ use codespan_reporting::term::{self, termcolor};
 use termcolor::{ColorChoice, StandardStream};
 use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
 use typst::doc::Document;
-use typst::eval::{eco_format, Tracer};
+use typst::eval::{eco_format, Module, Tracer};
 use typst::geom::Color;
 use typst::syntax::{FileId, Source, Span};
 use typst::{World, WorldExt};
@@ -28,6 +28,8 @@ impl CompileCommand {
                     OutputFormat::Pdf => "pdf",
                     OutputFormat::Png => "png",
                     OutputFormat::Svg => "svg",
+                    OutputFormat::Txt => "txt",
+                    OutputFormat::SpannedTxt => "json",
                 },
             )
         })
@@ -44,6 +46,7 @@ impl CompileCommand {
                 Some(ext) if ext.eq_ignore_ascii_case("pdf") => OutputFormat::Pdf,
                 Some(ext) if ext.eq_ignore_ascii_case("png") => OutputFormat::Png,
                 Some(ext) if ext.eq_ignore_ascii_case("svg") => OutputFormat::Svg,
+                Some(ext) if ext.eq_ignore_ascii_case("txt") => OutputFormat::Txt,
                 _ => bail!("could not infer output format for path {}.\nconsider providing the format manually with `--format/-f`", output.display()),
             }
         } else {
@@ -57,6 +60,27 @@ pub fn compile(mut command: CompileCommand) -> StrResult<()> {
     let mut world = SystemWorld::new(&command.common)?;
     compile_once(&mut world, &mut command, false)?;
     Ok(())
+}
+
+enum Artifact {
+    Doc(Document),
+    Module(Module),
+}
+
+impl Artifact {
+    fn doc(&self) -> &Document {
+        match self {
+            Artifact::Doc(doc) => doc,
+            Artifact::Module(_) => panic!("expected a document"),
+        }
+    }
+
+    fn module(&self) -> &Module {
+        match self {
+            Artifact::Doc(_) => panic!("expected a module"),
+            Artifact::Module(module) => module,
+        }
+    }
 }
 
 /// Compile a single time.
@@ -78,14 +102,21 @@ pub fn compile_once(
     // Ensure that the main file is present.
     world.source(world.main()).map_err(|err| err.to_string())?;
 
+    let only_eval =
+        matches!(command.output_format()?, OutputFormat::Txt | OutputFormat::SpannedTxt);
+
     let mut tracer = Tracer::new();
-    let result = typst::compile(world, &mut tracer);
+    let result = if only_eval {
+        typst::evaluate(world, &mut tracer).map(Artifact::Module)
+    } else {
+        typst::compile(world, &mut tracer).map(Artifact::Doc)
+    };
     let warnings = tracer.warnings();
 
     match result {
         // Export the PDF / PNG.
         Ok(document) => {
-            export(&document, command)?;
+            export(world, &document, command)?;
             let duration = start.elapsed();
 
             tracing::info!("Compilation succeeded in {duration:?}");
@@ -128,11 +159,17 @@ pub fn compile_once(
 }
 
 /// Export into the target format.
-fn export(document: &Document, command: &CompileCommand) -> StrResult<()> {
+fn export(
+    world: &mut SystemWorld,
+    art: &Artifact,
+    command: &CompileCommand,
+) -> StrResult<()> {
     match command.output_format()? {
-        OutputFormat::Png => export_image(document, command, ImageExportFormat::Png),
-        OutputFormat::Svg => export_image(document, command, ImageExportFormat::Svg),
-        OutputFormat::Pdf => export_pdf(document, command),
+        OutputFormat::Png => export_image(art.doc(), command, ImageExportFormat::Png),
+        OutputFormat::Svg => export_image(art.doc(), command, ImageExportFormat::Svg),
+        OutputFormat::Pdf => export_pdf(art.doc(), command),
+        OutputFormat::Txt => export_text(world, art.module(), command, false),
+        OutputFormat::SpannedTxt => export_text(world, art.module(), command, true),
     }
 }
 
@@ -142,6 +179,26 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let buffer = typst::export::pdf(document);
     fs::write(output, buffer)
         .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;
+    Ok(())
+}
+
+/// Export as text.
+fn export_text(
+    world: &mut SystemWorld,
+    module: &Module,
+    command: &CompileCommand,
+    with_span: bool,
+) -> StrResult<()> {
+    let content = module.clone().content();
+
+    let output = command.output();
+    let buffer = if with_span {
+        typst::export::spanned_text(world, world, &content)?
+    } else {
+        content.plain_text().to_string()
+    };
+    fs::write(output, buffer)
+        .map_err(|err| eco_format!("failed to write Text file ({err})"))?;
     Ok(())
 }
 
