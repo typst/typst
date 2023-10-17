@@ -17,8 +17,8 @@ pub fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
     // Therefore, its next descendant must be added at its level, which is
     // enforced in the manner shown below.
     let mut last_skipped_level = None;
-    for heading in ctx.introspector.query(&item!(heading_elem).select()) {
-        let leaf = HeadingNode::leaf((*heading).clone());
+    for heading in ctx.introspector.query(&item!(heading_elem).select()).iter() {
+        let leaf = HeadingNode::leaf((**heading).clone());
 
         if leaf.bookmarked {
             let mut children = &mut tree;
