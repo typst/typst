@@ -375,7 +375,6 @@ pub fn asinh(
     /// The number whose arsinh to calculate.
     value: Num,
 ) -> Angle {
-    // value.asinh()
     Angle::rad(value.float().asinh())
 }
 
