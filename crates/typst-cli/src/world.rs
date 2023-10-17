@@ -44,7 +44,8 @@ pub struct SystemWorld {
     /// The current datetime if requested. This is stored here to ensure it is
     /// always the same within one compilation. Reset between compilations.
     now: OnceCell<DateTime<Local>>,
-    /// The export cache, used for caching output file in `typst watch` sessions.
+    /// The export cache, used for caching output files in `typst watch`
+    /// sessions.
     export_cache: ExportCache,
 }
 
@@ -336,26 +337,26 @@ impl PathHash {
     }
 }
 
-/// This is the export cache, it caches the exported files so that we can
-/// avoid re-exporting them if they haven't changed.
+/// Caches exported files so that we can avoid re-exporting them if they haven't
+/// changed.
 ///
-/// This is done by having a list of size `files.len()` that contains the
-/// hashes of the last rendered frame in each file. If a new frame is inserted,
-/// this will invalidate the rest of the cache, this is deliberate as to decrease
-/// the complexity and memory usage of such a cache.
+/// This is done by having a list of size `files.len()` that contains the hashes
+/// of the last rendered frame in each file. If a new frame is inserted, this
+/// will invalidate the rest of the cache, this is deliberate as to decrease the
+/// complexity and memory usage of such a cache.
 pub struct ExportCache {
-    /// The last frame in each file.
+    /// The hashes of last compilation's frames.
     pub cache: Vec<u128>,
 }
 
 impl ExportCache {
-    /// Instantiates a new export cache.
+    /// Creates a new export cache.
     pub fn new() -> Self {
         Self { cache: Vec::with_capacity(32) }
     }
 
-    /// Returns true if the entry is cached. Always appends the new hash to the
-    /// cold cache.
+    /// Returns true if the entry is cached and appends the new hash to the
+    /// cache (for the next compilation).
     pub fn is_cached(&mut self, i: usize, frame: &Frame) -> bool {
         let hash = hash128(frame);
 

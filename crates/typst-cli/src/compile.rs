@@ -13,7 +13,7 @@ use typst::{World, WorldExt};
 
 use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
 use crate::watch::Status;
-use crate::world::{ExportCache, SystemWorld};
+use crate::world::SystemWorld;
 use crate::{color_stream, set_failed};
 
 type CodespanResult<T> = Result<T, CodespanError>;
@@ -85,7 +85,7 @@ pub fn compile_once(
     match result {
         // Export the PDF / PNG.
         Ok(document) => {
-            export(&document, command, world.export_cache(), watching)?;
+            export(world, &document, command, watching)?;
             let duration = start.elapsed();
 
             tracing::info!("Compilation succeeded in {duration:?}");
@@ -129,26 +129,18 @@ pub fn compile_once(
 
 /// Export into the target format.
 fn export(
+    world: &mut SystemWorld,
     document: &Document,
     command: &CompileCommand,
-    export_cache: &mut ExportCache,
     watching: bool,
 ) -> StrResult<()> {
     match command.output_format()? {
-        OutputFormat::Png => export_image(
-            document,
-            command,
-            export_cache,
-            watching,
-            ImageExportFormat::Png,
-        ),
-        OutputFormat::Svg => export_image(
-            document,
-            command,
-            export_cache,
-            watching,
-            ImageExportFormat::Svg,
-        ),
+        OutputFormat::Png => {
+            export_image(world, document, command, watching, ImageExportFormat::Png)
+        }
+        OutputFormat::Svg => {
+            export_image(world, document, command, watching, ImageExportFormat::Svg)
+        }
         OutputFormat::Pdf => export_pdf(document, command),
     }
 }
@@ -170,9 +162,9 @@ enum ImageExportFormat {
 
 /// Export to one or multiple PNGs.
 fn export_image(
+    world: &mut SystemWorld,
     document: &Document,
     command: &CompileCommand,
-    export_cache: &mut ExportCache,
     watching: bool,
     fmt: ImageExportFormat,
 ) -> StrResult<()> {
@@ -190,6 +182,7 @@ fn export_image(
     let width = 1 + document.pages.len().checked_ilog10().unwrap_or(0) as usize;
     let mut storage;
 
+    let cache = world.export_cache();
     for (i, frame) in document.pages.iter().enumerate() {
         let path = if numbered {
             storage = string.replace("{n}", &format!("{:0width$}", i + 1));
@@ -201,7 +194,7 @@ fn export_image(
         // If we are not watching, don't use the cache.
         // If the frame is in the cache, skip it.
         // If the file does not exist, always create it.
-        if watching && export_cache.is_cached(i, frame) && path.exists() {
+        if watching && cache.is_cached(i, frame) && path.exists() {
             continue;
         }
 
