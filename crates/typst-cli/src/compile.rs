@@ -85,7 +85,7 @@ pub fn compile_once(
     match result {
         // Export the PDF / PNG.
         Ok(document) => {
-            export(&document, command, world.export_cache())?;
+            export(&document, command, world.export_cache(), watching)?;
             let duration = start.elapsed();
 
             tracing::info!("Compilation succeeded in {duration:?}");
@@ -132,14 +132,23 @@ fn export(
     document: &Document,
     command: &CompileCommand,
     export_cache: &mut ExportCache,
+    watching: bool,
 ) -> StrResult<()> {
     match command.output_format()? {
-        OutputFormat::Png => {
-            export_image(document, command, ImageExportFormat::Png, export_cache)
-        }
-        OutputFormat::Svg => {
-            export_image(document, command, ImageExportFormat::Svg, export_cache)
-        }
+        OutputFormat::Png => export_image(
+            document,
+            command,
+            export_cache,
+            watching,
+            ImageExportFormat::Png,
+        ),
+        OutputFormat::Svg => export_image(
+            document,
+            command,
+            export_cache,
+            watching,
+            ImageExportFormat::Svg,
+        ),
         OutputFormat::Pdf => export_pdf(document, command),
     }
 }
@@ -163,8 +172,9 @@ enum ImageExportFormat {
 fn export_image(
     document: &Document,
     command: &CompileCommand,
-    fmt: ImageExportFormat,
     export_cache: &mut ExportCache,
+    watching: bool,
+    fmt: ImageExportFormat,
 ) -> StrResult<()> {
     // Determine whether we have a `{n}` numbering.
     let output = command.output();
@@ -188,9 +198,10 @@ fn export_image(
             output.as_path()
         };
 
+        // If we are not watching, don't use the cache.
         // If the frame is in the cache, skip it.
         // If the file does not exist, always create it.
-        if export_cache.is_cached(i, frame) && path.exists() {
+        if watching && export_cache.is_cached(i, frame) && path.exists() {
             continue;
         }
 
