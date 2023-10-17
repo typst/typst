@@ -1,4 +1,5 @@
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::{
@@ -184,8 +185,14 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
     annotations.finish();
     page_writer.finish();
 
-    let data = deflate(&page.content);
+    let data = deflate_content(&page.content);
     ctx.pdf.stream(content_id, &data).filter(Filter::FlateDecode);
+}
+
+/// Memoized version of [`deflate`] specialized for a page's content stream.
+#[comemo::memoize]
+fn deflate_content(content: &[u8]) -> Arc<Vec<u8>> {
+    Arc::new(deflate(content))
 }
 
 /// Data for an exported page.
