@@ -5,16 +5,15 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
 use termcolor::{ColorChoice, StandardStream};
 use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
-use typst::doc::{Document, Frame};
+use typst::doc::Document;
 use typst::eval::{eco_format, Tracer};
 use typst::geom::Color;
 use typst::syntax::{FileId, Source, Span};
-use typst::util::hash128;
 use typst::{World, WorldExt};
 
 use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
 use crate::watch::Status;
-use crate::world::SystemWorld;
+use crate::world::{ExportCache, SystemWorld};
 use crate::{color_stream, set_failed};
 
 type CodespanResult<T> = Result<T, CodespanError>;
@@ -56,7 +55,7 @@ impl CompileCommand {
 /// Execute a compilation command.
 pub fn compile(mut command: CompileCommand) -> StrResult<()> {
     let mut world = SystemWorld::new(&command.common)?;
-    compile_once(&mut world, &mut command, &mut ExportCache::new(), false)?;
+    compile_once(&mut world, &mut command, false)?;
     Ok(())
 }
 
@@ -67,7 +66,6 @@ pub fn compile(mut command: CompileCommand) -> StrResult<()> {
 pub fn compile_once(
     world: &mut SystemWorld,
     command: &mut CompileCommand,
-    export_cache: &mut ExportCache,
     watching: bool,
 ) -> StrResult<()> {
     tracing::info!("Starting compilation");
@@ -87,7 +85,7 @@ pub fn compile_once(
     match result {
         // Export the PDF / PNG.
         Ok(document) => {
-            export(&document, command, export_cache)?;
+            export(&document, command, world.export_cache())?;
             let duration = start.elapsed();
 
             tracing::info!("Compilation succeeded in {duration:?}");
@@ -159,38 +157,6 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
 enum ImageExportFormat {
     Png,
     Svg,
-}
-
-/// This is the export cache, it caches the exported files so that we can
-/// avoid re-exporting them if they haven't changed.
-///
-/// This is done by having a list of size `files.len()` that contains the
-/// hashes of the last rendered frame in each file. If a new frame is inserted,
-/// this will invalidate the rest of the cache, this is deliberate as to decrease
-/// the complexity and memory usage of such a cache.
-pub struct ExportCache {
-    /// The last frame in each file.
-    pub cache: Vec<u128>,
-}
-
-impl ExportCache {
-    /// Instantiates a new export cache.
-    pub fn new() -> Self {
-        Self { cache: Vec::with_capacity(32) }
-    }
-
-    /// Returns true if the entry is cached. Always appends the new hash to the
-    /// cold cache.
-    pub fn is_cached(&mut self, i: usize, frame: &Frame) -> bool {
-        let hash = hash128(frame);
-
-        if i >= self.cache.len() {
-            self.cache.push(hash);
-            return false;
-        }
-
-        std::mem::replace(&mut self.cache[i], hash) == hash
-    }
 }
 
 /// Export to one or multiple PNGs.
