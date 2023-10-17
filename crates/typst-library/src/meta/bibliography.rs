@@ -106,7 +106,8 @@ cast! {
 impl BibliographyElem {
     /// Find the document's bibliography.
     pub fn find(introspector: Tracked<Introspector>) -> StrResult<Self> {
-        let mut iter = introspector.query(&Self::elem().select()).into_iter();
+        let query = introspector.query(&Self::elem().select());
+        let mut iter = query.iter();
         let Some(elem) = iter.next() else {
             bail!("the document does not contain a bibliography");
         };
@@ -122,7 +123,7 @@ impl BibliographyElem {
     pub fn has(vt: &Vt, key: &str) -> bool {
         vt.introspector
             .query(&Self::elem().select())
-            .into_iter()
+            .iter()
             .flat_map(|elem| {
                 let elem = elem.to::<Self>().unwrap();
                 load(&elem.path(), &elem.data())
@@ -137,7 +138,7 @@ impl BibliographyElem {
     ) -> Vec<(EcoString, Option<EcoString>)> {
         Self::find(introspector)
             .and_then(|elem| load(&elem.path(), &elem.data()))
-            .into_iter()
+            .iter()
             .flatten()
             .map(|entry| {
                 let key = entry.key().into();

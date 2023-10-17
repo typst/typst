@@ -270,6 +270,15 @@ pub struct CasesElem {
     #[default(Delimiter::Brace)]
     pub delim: Delimiter,
 
+    /// Whether the direction of cases should be reversed.
+    ///
+    /// ```example
+    /// #set math.cases(reverse: true)
+    /// $ cases(1, 2) = x $
+    /// ```
+    #[default(false)]
+    pub reverse: bool,
+
     /// The gap between branches.
     ///
     /// ```example
@@ -295,7 +304,14 @@ impl LayoutMath for CasesElem {
             FixedAlign::Start,
             self.gap(ctx.styles()),
         )?;
-        layout_delimiters(ctx, frame, Some(delim.open()), None, self.span())
+
+        let (open, close) = if self.reverse(ctx.styles()) {
+            (None, Some(delim.close()))
+        } else {
+            (Some(delim.open()), None)
+        };
+
+        layout_delimiters(ctx, frame, open, close, self.span())
     }
 }
 
