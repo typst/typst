@@ -136,6 +136,13 @@ impl ShapedGlyph {
         is_cjk_center_aligned_punctuation(self.c, gb_style)
     }
 
+    /// Whether the glyph is a western letter or number.
+    pub fn is_letter_or_number(&self) -> bool {
+        matches!(self.c.script(), Script::Latin | Script::Greek | Script::Cyrillic)
+            || matches!(self.c, '#' | '$' | '%' | '&')
+            || self.c.is_ascii_digit()
+    }
+
     pub fn base_adjustability(&self, gb_style: bool) -> Adjustability {
         let width = self.x_advance;
         if self.is_space() {
@@ -1010,6 +1017,15 @@ fn assert_glyph_ranges_in_order(glyphs: &[ShapedGlyph], dir: Dir) {
 #[inline]
 fn is_space(c: char) -> bool {
     matches!(c, ' ' | '\u{00A0}' | '　')
+}
+
+/// Whether the glyph is part of a CJK script.
+///
+/// This is a version of [`is_cjk_script`] that does not
+/// rely on a pre-cached script value.
+#[inline]
+pub fn char_is_cjk_script(c: char) -> bool {
+    is_cjk_script(c, c.script())
 }
 
 /// Whether the glyph is part of a CJK script.
