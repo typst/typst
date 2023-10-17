@@ -1020,9 +1020,6 @@ fn is_space(c: char) -> bool {
 }
 
 /// Whether the glyph is part of a CJK script.
-///
-/// This is a version of [`is_cjk_script`] that does not
-/// rely on a pre-cached script value.
 #[inline]
 pub fn char_is_cjk_script(c: char) -> bool {
     is_cjk_script(c, c.script())
