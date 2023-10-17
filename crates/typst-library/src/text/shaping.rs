@@ -73,7 +73,7 @@ pub struct ShapedGlyph {
     pub c: char,
     /// The source code location of the glyph and its byte offset within it.
     pub span: (Span, u16),
-    /// Wether this glyph is justifiable for CJK scripts.
+    /// Whether this glyph is justifiable for CJK scripts.
     pub is_justifiable: bool,
     /// The script of the glyph.
     pub script: Script,
