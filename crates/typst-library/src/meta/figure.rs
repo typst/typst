@@ -459,7 +459,6 @@ pub struct FigureCaption {
     ///
     /// If set to `{auto}`, the separator will be adapted to the current
     /// [language]($text.lang) and [region]($text.region).
-    #[default(Smart::Auto)]
     pub separator: Smart<Content>,
 
     /// The caption's body.
@@ -503,35 +502,39 @@ pub struct FigureCaption {
 }
 
 impl FigureCaption {
-    pub fn get_separator(&self, styles: StyleChain) -> Content {
-        match self.separator(styles) {
-            Smart::Auto => {
-                let region = TextElem::region_in(styles);
-                let separator = match TextElem::lang_in(styles) {
-                    Lang::CHINESE => "：",
-                    Lang::FRENCH if option_eq(region, "CH") => "\u{202f}: ",
-                    Lang::FRENCH => "\u{a0}: ",
-                    Lang::DANISH
-                    | Lang::DUTCH
-                    | Lang::ENGLISH
-                    | Lang::GERMAN
-                    | Lang::ITALIAN
-                    | Lang::RUSSIAN
-                    | Lang::SPANISH
-                    | Lang::SWEDISH
-                    | _ => ": ",
-                };
-                TextElem::packed(separator)
-            }
-            Smart::Custom(separator) => separator,
+    /// Gets the default separator in the given language and (optionally)
+    /// region.
+    fn local_separator(lang: Lang, region: Option<Region>) -> &'static str {
+        match lang {
+            Lang::CHINESE => "：",
+            Lang::FRENCH if option_eq(region, "CH") => "\u{202f}: ",
+            Lang::FRENCH => "\u{a0}: ",
+            Lang::DANISH
+            | Lang::DUTCH
+            | Lang::ENGLISH
+            | Lang::GERMAN
+            | Lang::ITALIAN
+            | Lang::RUSSIAN
+            | Lang::SPANISH
+            | Lang::SWEDISH
+            | _ => ": ",
         }
+    }
+
+    fn get_separator(&self, styles: StyleChain) -> Content {
+        self.separator(styles).unwrap_or_else(|| {
+            TextElem::packed(Self::local_separator(
+                TextElem::lang_in(styles),
+                TextElem::region_in(styles),
+            ))
+        })
     }
 }
 
 impl Synthesize for FigureCaption {
     fn synthesize(&mut self, _: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_position(self.position(styles));
-        self.push_separator(self.separator(styles));
+        self.push_separator(Smart::Custom(self.get_separator(styles)));
         Ok(())
     }
 }
