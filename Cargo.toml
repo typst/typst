@@ -22,6 +22,3 @@ codegen-units = 1
 
 [profile.release.package."typst-cli"]
 strip = true
-
-[patch.crates-io]
-xmp-writer = {path = "../xmp-writer"}
