@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -228,19 +227,7 @@ pub fn print_diagnostics(
         config.display_style = term::DisplayStyle::Short;
     }
 
-    let mut unique_diags = HashSet::new();
-    let warnings: Vec<_> = warnings
-        .iter()
-        .filter(|item| unique_diags.insert((item.span, item.message.as_str())))
-        .collect();
-
-    unique_diags.clear();
-    let errors: Vec<_> = errors
-        .iter()
-        .filter(|item| unique_diags.insert((item.span, item.message.as_str())))
-        .collect();
-
-    for diagnostic in warnings.into_iter().chain(errors) {
+    for diagnostic in warnings.iter().chain(errors) {
         let diag = match diagnostic.severity {
             Severity::Error => Diagnostic::error(),
             Severity::Warning => Diagnostic::warning(),
