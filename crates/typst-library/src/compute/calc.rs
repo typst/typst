@@ -443,11 +443,13 @@ pub fn fact(
     Ok(fact_impl(1, number).ok_or("the result is too large")?)
 }
 
-/// Calculates a permutation.
+/// Calculates the `k`-permutation of `n`.
 ///
 /// ```example
-/// #calc.perm(10, 5)
-/// ```
+/// $
+/// "perm"(n, k) &= n!/((n - k)!) \
+/// "perm"(5, 3) &= #calc.perm(5, 3)
+/// $
 #[func(title = "Permutation")]
 pub fn perm(
     /// The base number. Must be non-negative.
@@ -779,6 +781,8 @@ pub fn odd(
 
 /// Calculates the remainder of two numbers.
 ///
+/// The value `calc.rem(x, y)` always has the same sign as `x`, and is smaller in magnitude than `y`.
+///
 /// ```example
 /// #calc.rem(20, 6) \
 /// #calc.rem(1.75, 0.5)
@@ -796,11 +800,13 @@ pub fn rem(
     Ok(dividend.apply2(divisor.v, Rem::rem, Rem::rem))
 }
 
-/// Calculates the quotient of two numbers.
+/// Calculates the quotient (floored division) of two numbers.
 ///
-/// ```example
-/// #calc.quo(14, 5) \
-/// #calc.quo(3.46, 0.5)
+/// $
+/// "quo"(a, b) &= floor(a/b) \
+/// "quo"(14, 5) &= #calc.quo(14, 5) \
+/// "quo"(3.46, 0.5) &= #calc.quo(3.46, 0.5)
+/// $
 /// ```
 #[func(title = "Quotient")]
 pub fn quo(
