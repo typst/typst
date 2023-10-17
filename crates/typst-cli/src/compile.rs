@@ -125,7 +125,6 @@ pub fn compile_once(
             .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
     }
-    export_cache.swap();
 
     Ok(())
 }
@@ -169,38 +168,28 @@ enum ImageExportFormat {
 /// hashes of the last rendered frame in each file. If a new frame is inserted,
 /// this will invalidate the rest of the cache, this is deliberate as to decrease
 /// the complexity and memory usage of such a cache.
-///
-/// The hot cache is the already initialized cache used for deduplication this
-/// time, the second cold cache is used to build the next cache while reusing
-/// the allocation.
 pub struct ExportCache {
     /// The last frame in each file.
-    pub hot_cache: Vec<u128>,
-
-    /// An empty, but pre-allocated cache
-    pub cold_cache: Vec<u128>,
+    pub cache: Vec<u128>,
 }
 
 impl ExportCache {
+    /// Instantiates a new export cache.
     pub fn new() -> Self {
-        Self {
-            hot_cache: Vec::with_capacity(32),
-            cold_cache: Vec::with_capacity(32),
-        }
+        Self { cache: Vec::with_capacity(32) }
     }
 
     /// Returns true if the entry is cached. Always appends the new hash to the
     /// cold cache.
-    pub fn is_cached(&mut self, frame: &Frame) -> bool {
+    pub fn is_cached(&mut self, i: usize, frame: &Frame) -> bool {
         let hash = hash128(frame);
-        self.cold_cache.push(hash);
-        self.hot_cache.get(self.cold_cache.len() - 1) == Some(&hash)
-    }
 
-    /// Swaps the hot and cold cache, clearing the now cold cache.
-    pub fn swap(&mut self) {
-        std::mem::swap(&mut self.hot_cache, &mut self.cold_cache);
-        self.cold_cache.clear();
+        if i >= self.cache.len() {
+            self.cache.push(hash);
+            return false;
+        }
+
+        std::mem::replace(&mut self.cache[i], hash) == hash
     }
 }
 
@@ -226,17 +215,19 @@ fn export_image(
     let mut storage;
 
     for (i, frame) in document.pages.iter().enumerate() {
-        // If the frame is in the cache, skip it.
-        if export_cache.is_cached(frame) {
-            continue;
-        }
-
         let path = if numbered {
             storage = string.replace("{n}", &format!("{:0width$}", i + 1));
             Path::new(&storage)
         } else {
             output.as_path()
         };
+
+        // If the frame is in the cache, skip it.
+        // If the file does not exist, always create it.
+        if export_cache.is_cached(i, frame) && path.exists() {
+            continue;
+        }
+
         match fmt {
             ImageExportFormat::Png => {
                 let pixmap =
