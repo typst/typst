@@ -1,7 +1,7 @@
 use std::any::TypeId;
 use std::fmt::Debug;
 use std::iter::{self, Sum};
-use std::ops::{Add, AddAssign};
+use std::ops::{Add, AddAssign, Range};
 
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString, EcoVec};
@@ -412,6 +412,20 @@ impl Content {
             }
         });
         text
+    }
+
+    /// Extracts the text with spans of this content.
+    pub fn text_with_spans(&self) -> (EcoString, Vec<(Range<usize>, Span)>) {
+        let mut text = EcoString::new();
+        let mut contents = Vec::new();
+        self.traverse(&mut |element| {
+            if let Some(textable) = element.with::<dyn PlainText>() {
+                let start = text.len();
+                textable.plain_text(&mut text);
+                contents.push((start..text.len(), element.span()));
+            }
+        });
+        (text, contents)
     }
 
     /// Traverse this content.
