@@ -437,7 +437,7 @@ fn test(
 
         let svg = typst::export::svg_merged(&document.pages, Abs::pt(5.0));
         fs::create_dir_all(svg_path.parent().unwrap()).unwrap();
-        std::fs::write(svg_path, svg).unwrap();
+        std::fs::write(svg_path, svg.as_bytes()).unwrap();
 
         if let Ok(ref_pixmap) = sk::Pixmap::load_png(ref_path) {
             if canvas.width() != ref_pixmap.width()

@@ -85,7 +85,7 @@ pub fn compile_once(
     match result {
         // Export the PDF / PNG.
         Ok(document) => {
-            export(&document, command)?;
+            export(world, &document, command, watching)?;
             let duration = start.elapsed();
 
             tracing::info!("Compilation succeeded in {duration:?}");
@@ -128,10 +128,19 @@ pub fn compile_once(
 }
 
 /// Export into the target format.
-fn export(document: &Document, command: &CompileCommand) -> StrResult<()> {
+fn export(
+    world: &mut SystemWorld,
+    document: &Document,
+    command: &CompileCommand,
+    watching: bool,
+) -> StrResult<()> {
     match command.output_format()? {
-        OutputFormat::Png => export_image(document, command, ImageExportFormat::Png),
-        OutputFormat::Svg => export_image(document, command, ImageExportFormat::Svg),
+        OutputFormat::Png => {
+            export_image(world, document, command, watching, ImageExportFormat::Png)
+        }
+        OutputFormat::Svg => {
+            export_image(world, document, command, watching, ImageExportFormat::Svg)
+        }
         OutputFormat::Pdf => export_pdf(document, command),
     }
 }
@@ -153,8 +162,10 @@ enum ImageExportFormat {
 
 /// Export to one or multiple PNGs.
 fn export_image(
+    world: &mut SystemWorld,
     document: &Document,
     command: &CompileCommand,
+    watching: bool,
     fmt: ImageExportFormat,
 ) -> StrResult<()> {
     // Determine whether we have a `{n}` numbering.
@@ -171,6 +182,7 @@ fn export_image(
     let width = 1 + document.pages.len().checked_ilog10().unwrap_or(0) as usize;
     let mut storage;
 
+    let cache = world.export_cache();
     for (i, frame) in document.pages.iter().enumerate() {
         let path = if numbered {
             storage = string.replace("{n}", &format!("{:0width$}", i + 1));
@@ -178,6 +190,14 @@ fn export_image(
         } else {
             output.as_path()
         };
+
+        // If we are not watching, don't use the cache.
+        // If the frame is in the cache, skip it.
+        // If the file does not exist, always create it.
+        if watching && cache.is_cached(i, frame) && path.exists() {
+            continue;
+        }
+
         match fmt {
             ImageExportFormat::Png => {
                 let pixmap =
@@ -188,7 +208,7 @@ fn export_image(
             }
             ImageExportFormat::Svg => {
                 let svg = typst::export::svg(frame);
-                fs::write(path, svg)
+                fs::write(path, svg.as_bytes())
                     .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;
             }
         }

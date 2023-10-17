@@ -10,9 +10,11 @@ use filetime::FileTime;
 use same_file::Handle;
 use siphasher::sip128::{Hasher128, SipHasher13};
 use typst::diag::{FileError, FileResult, StrResult};
+use typst::doc::Frame;
 use typst::eval::{eco_format, Bytes, Datetime, Library};
 use typst::font::{Font, FontBook};
 use typst::syntax::{FileId, Source, VirtualPath};
+use typst::util::hash128;
 use typst::World;
 
 use crate::args::SharedArgs;
@@ -42,6 +44,9 @@ pub struct SystemWorld {
     /// The current datetime if requested. This is stored here to ensure it is
     /// always the same within one compilation. Reset between compilations.
     now: OnceCell<DateTime<Local>>,
+    /// The export cache, used for caching output files in `typst watch`
+    /// sessions.
+    export_cache: ExportCache,
 }
 
 impl SystemWorld {
@@ -81,6 +86,7 @@ impl SystemWorld {
             hashes: RefCell::default(),
             slots: RefCell::default(),
             now: OnceCell::new(),
+            export_cache: ExportCache::new(),
         })
     }
 
@@ -121,6 +127,11 @@ impl SystemWorld {
     #[track_caller]
     pub fn lookup(&self, id: FileId) -> Source {
         self.source(id).expect("file id does not point to any source file")
+    }
+
+    /// Gets access to the export cache.
+    pub fn export_cache(&mut self) -> &mut ExportCache {
+        &mut self.export_cache
     }
 }
 
@@ -323,6 +334,38 @@ impl PathHash {
         let mut state = SipHasher13::new();
         handle.hash(&mut state);
         Ok(Self(state.finish128().as_u128()))
+    }
+}
+
+/// Caches exported files so that we can avoid re-exporting them if they haven't
+/// changed.
+///
+/// This is done by having a list of size `files.len()` that contains the hashes
+/// of the last rendered frame in each file. If a new frame is inserted, this
+/// will invalidate the rest of the cache, this is deliberate as to decrease the
+/// complexity and memory usage of such a cache.
+pub struct ExportCache {
+    /// The hashes of last compilation's frames.
+    pub cache: Vec<u128>,
+}
+
+impl ExportCache {
+    /// Creates a new export cache.
+    pub fn new() -> Self {
+        Self { cache: Vec::with_capacity(32) }
+    }
+
+    /// Returns true if the entry is cached and appends the new hash to the
+    /// cache (for the next compilation).
+    pub fn is_cached(&mut self, i: usize, frame: &Frame) -> bool {
+        let hash = hash128(frame);
+
+        if i >= self.cache.len() {
+            self.cache.push(hash);
+            return false;
+        }
+
+        std::mem::replace(&mut self.cache[i], hash) == hash
     }
 }
 
