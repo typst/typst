@@ -1189,18 +1189,25 @@ impl Iterator for Breakpoints<'_> {
 
         let lb = LINEBREAK_DATA.as_borrowed();
 
-        // Get the next "word".
-        self.end = self.linebreaks.next()?;
-        self.mandatory =
-            self.p.bidi.text[..self.end].chars().next_back().map_or(false, |c| {
-                matches!(
-                    lb.get(c),
+        loop {
+            // Get the next "word".
+            self.end = self.linebreaks.next()?;
+            self.mandatory = false;
+
+            // Fix for: https://github.com/unicode-org/icu4x/issues/4146
+            if let Some(c) = self.p.bidi.text[..self.end].chars().next_back() {
+                self.mandatory = match lb.get(c) {
+                    LineBreak::Glue | LineBreak::WordJoiner | LineBreak::ZWJ => continue,
                     LineBreak::MandatoryBreak
-                        | LineBreak::CarriageReturn
-                        | LineBreak::LineFeed
-                        | LineBreak::NextLine
-                ) || self.end == self.p.bidi.text.len()
-            });
+                    | LineBreak::CarriageReturn
+                    | LineBreak::LineFeed
+                    | LineBreak::NextLine => true,
+                    _ => self.end == self.p.bidi.text.len(),
+                };
+            };
+
+            break;
+        }
 
         // Hyphenate the next word.
         if self.p.hyphenate != Some(false) {
