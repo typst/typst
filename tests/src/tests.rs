@@ -545,7 +545,7 @@ fn test_part(
         Ok(document) => (document.pages, tracer.warnings()),
         Err(errors) => {
             let mut warnings = tracer.warnings();
-            warnings.extend(*errors);
+            warnings.extend(errors);
             (vec![], warnings)
         }
     };

@@ -1,6 +1,6 @@
 use std::fmt::{self, Debug, Formatter};
 
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
 use super::{func, scope, ty, Array, Dict, FromValue, IntoValue, Repr, Str, Value};
 use crate::diag::{bail, At, SourceDiagnostic, SourceResult};
@@ -155,7 +155,7 @@ impl Args {
         T: FromValue<Spanned<Value>>,
     {
         let mut list = vec![];
-        let mut errors = vec![];
+        let mut errors = eco_vec![];
         self.items.retain(|item| {
             if item.name.is_some() {
                 return true;
@@ -169,7 +169,7 @@ impl Args {
             false
         });
         if !errors.is_empty() {
-            return Err(Box::new(errors));
+            return Err(errors);
         }
         Ok(list)
     }
