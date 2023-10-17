@@ -441,7 +441,7 @@ nesting and write more legible Typst markup:
 ```
 
 The show rule will wrap everything that comes after it in its function. The
-[`with` mehtod]($function.with) allows us to pass arguments, in this case, the
+[`with` method]($function.with) allows us to pass arguments, in this case, the
 column count, to a function without calling it.
 
 Another use of the `columns` function is to create columns inside of a container
