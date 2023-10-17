@@ -100,9 +100,7 @@ impl ShapedGlyph {
     }
 
     pub fn is_cjk_script(&self) -> bool {
-        use Script::*;
-        // U+30FC: Katakana-Hiragana Prolonged Sound Mark
-        matches!(self.c.script(), Hiragana | Katakana | Han) || self.c == '\u{30FC}'
+        char_is_cjk_script(self.c)
     }
 
     pub fn is_cjk_punctuation(&self) -> bool {
@@ -149,6 +147,13 @@ impl ShapedGlyph {
 
         // U+30FB: Katakana Middle Dot
         matches!(self.c, '\u{30FB}')
+    }
+
+    /// Whether the glyph is a western letter or number.
+    pub fn is_letter_or_number(&self) -> bool {
+        matches!(self.c.script(), Script::Latin | Script::Greek | Script::Cyrillic)
+            || matches!(self.c, '#' | '$' | '%' | '&')
+            || self.c.is_ascii_digit()
     }
 
     pub fn base_adjustability(&self, gb_style: bool) -> Adjustability {
@@ -956,6 +961,12 @@ fn language(styles: StyleChain) -> rustybuzz::Language {
         bcp.push_str(region.as_str());
     }
     rustybuzz::Language::from_str(&bcp).unwrap()
+}
+
+pub fn char_is_cjk_script(c: char) -> bool {
+    use Script::*;
+    // U+30FC: Katakana-Hiragana Prolonged Sound Mark
+    matches!(c.script(), Hiragana | Katakana | Han) || c == '\u{30FC}'
 }
 
 /// Returns true if all glyphs in `glyphs` have ranges within the range `range`.

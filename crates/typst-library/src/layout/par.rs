@@ -16,8 +16,8 @@ use crate::layout::AlignElem;
 use crate::math::EquationElem;
 use crate::prelude::*;
 use crate::text::{
-    is_gb_style, shape, LinebreakElem, Quoter, Quotes, ShapedText, SmartquoteElem,
-    SpaceElem, TextElem,
+    char_is_cjk_script, is_gb_style, shape, LinebreakElem, Quoter, Quotes, ShapedGlyph,
+    ShapedText, SmartquoteElem, SpaceElem, TextElem,
 };
 
 /// Arranges text, spacing and inline-level elements into a paragraph.
@@ -723,6 +723,10 @@ fn prepare<'a>(
         cursor = end;
     }
 
+    if TextElem::cjk_latin_spacing_in(styles).is_auto() {
+        add_cjk_latin_spacing(&mut items);
+    }
+
     Ok(Preparation {
         bidi,
         items,
@@ -734,6 +738,52 @@ fn prepare<'a>(
         justify: ParElem::justify_in(styles),
         hang: ParElem::hanging_indent_in(styles),
     })
+}
+
+/// Add some spacing between Han characters and western characters.
+/// See Requirements for Chinese Text Layout, Section 3.2.2 Mixed Text Composition in Horizontal
+/// Written Mode
+fn add_cjk_latin_spacing(items: &mut [Item]) {
+    let mut items = items.iter_mut().peekable();
+    let mut prev: Option<&ShapedGlyph> = None;
+    while let Some(item) = items.next() {
+        let Some(text) = item.text_mut() else {
+            prev = None;
+            continue;
+        };
+
+        // Since we only call this function in [`prepare`], we can assume
+        // that the Cow is owned, and `to_mut` can be called without overhead.
+        debug_assert!(matches!(text.glyphs, std::borrow::Cow::Owned(_)));
+        let mut glyphs = text.glyphs.to_mut().iter_mut().peekable();
+
+        while let Some(glyph) = glyphs.next() {
+            let next = glyphs.peek().map(|n| n as _).or_else(|| {
+                items
+                    .peek()
+                    .and_then(|i| i.text())
+                    .and_then(|shaped| shaped.glyphs.first())
+            });
+
+            // Case 1: CJK followed by a Latin character
+            if glyph.is_cjk_script() && next.map_or(false, |g| g.is_letter_or_number()) {
+                // The spacing is default to 1/4 em, and can be shrunk to 1/8 em.
+                glyph.x_advance += Em::new(0.25);
+                glyph.adjustability.shrinkability.1 += Em::new(0.125);
+                text.width += Em::new(0.25).at(text.size);
+            }
+
+            // Case 2: Latin followed by a CJK character
+            if glyph.is_cjk_script() && prev.map_or(false, |g| g.is_letter_or_number()) {
+                glyph.x_advance += Em::new(0.25);
+                glyph.x_offset += Em::new(0.25);
+                glyph.adjustability.shrinkability.0 += Em::new(0.125);
+                text.width += Em::new(0.25).at(text.size);
+            }
+
+            prev = Some(glyph);
+        }
+    }
 }
 
 /// Group a range of text by BiDi level and script, shape the runs and generate
@@ -839,10 +889,11 @@ fn linebreak_simple<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line
     let mut lines = vec![];
     let mut start = 0;
     let mut last = None;
+    let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(p.styles).is_auto();
 
     for (end, mandatory, hyphen) in breakpoints(p) {
         // Compute the line and its size.
-        let mut attempt = line(vt, p, start..end, mandatory, hyphen);
+        let mut attempt = line(vt, p, start..end, mandatory, hyphen, cjk_latin_spacing);
 
         // If the line doesn't fit anymore, we push the last fitting attempt
         // into the stack and rebuild the line from the attempt's end. The
@@ -851,7 +902,7 @@ fn linebreak_simple<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line
             if let Some((last_attempt, last_end)) = last.take() {
                 lines.push(last_attempt);
                 start = last_end;
-                attempt = line(vt, p, start..end, mandatory, hyphen);
+                attempt = line(vt, p, start..end, mandatory, hyphen, cjk_latin_spacing);
             }
         }
 
@@ -914,10 +965,11 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
     let mut table = vec![Entry {
         pred: 0,
         total: 0.0,
-        line: line(vt, p, 0..0, false, false),
+        line: line(vt, p, 0..0, false, false, false),
     }];
 
     let em = TextElem::size_in(p.styles);
+    let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(p.styles).is_auto();
 
     for (end, mandatory, hyphen) in breakpoints(p) {
         let k = table.len();
@@ -929,7 +981,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
             // Layout the line.
             let start = pred.line.end;
 
-            let attempt = line(vt, p, start..end, mandatory, hyphen);
+            let attempt = line(vt, p, start..end, mandatory, hyphen, cjk_latin_spacing);
 
             // Determine how much the line's spaces would need to be stretched
             // to make it the desired width.
@@ -1213,9 +1265,15 @@ fn line<'a>(
     mut range: Range,
     mandatory: bool,
     hyphen: bool,
+    cjk_latin_spacing: bool,
 ) -> Line<'a> {
     let end = range.end;
     let mut justify = p.justify && end < p.bidi.text.len() && !mandatory;
+
+    // The CJK punctuation that can appear at the beginning or end of a line.
+    const BEGIN_PUNCT_PAT: &[char] = &['“', '‘', '《', '（', '『', '「'];
+    const END_PUNCT_PAT: &[char] =
+        &['”', '’', '，', '。', '、', '：', '；', '》', '）', '』', '」'];
 
     if range.is_empty() {
         return Line {
@@ -1256,8 +1314,8 @@ fn line<'a>(
 
         // Deal with CJK punctuation at line ends.
         let gb_style = is_gb_style(shaped.lang, shaped.region);
-        let end_cjk_punct = trimmed
-            .ends_with(['”', '’', '，', '。', '、', '：', '；', '》', '）', '』', '」']);
+        let maybe_adjust_last_glyph = trimmed.ends_with(END_PUNCT_PAT)
+            || (cjk_latin_spacing && trimmed.ends_with(char_is_cjk_script));
 
         // Usually, we don't want to shape an empty string because:
         // - We don't want the height of trimmed whitespace in a different
@@ -1268,21 +1326,37 @@ fn line<'a>(
         // need the shaped empty string to make the line the appropriate
         // height. That is the case exactly if the string is empty and there
         // are no other items in the line.
-        if hyphen || start + shaped.text.len() > range.end || end_cjk_punct {
+        if hyphen || start + shaped.text.len() > range.end || maybe_adjust_last_glyph {
             if hyphen || start < range.end || before.is_empty() {
                 let mut reshaped = shaped.reshape(vt, &p.spans, start..range.end);
                 if hyphen || shy {
                     reshaped.push_hyphen(vt, TextElem::fallback_in(p.styles));
                 }
-                let punct = reshaped.glyphs.last();
-                if let Some(punct) = punct {
-                    if punct.is_cjk_left_aligned_punctuation(gb_style) {
-                        let shrink_amount = punct.shrinkability().1;
+
+                if let Some(last_glyph) = reshaped.glyphs.last() {
+                    if last_glyph.is_cjk_left_aligned_punctuation(gb_style) {
+                        // If the last glyph is a CJK punctuation, we want to shrink it.
+                        // See Requirements for Chinese Text Layout, Section 3.1.6.3
+                        // Compression of punctuation marks at line start or line end
+                        let shrink_amount = last_glyph.shrinkability().1;
                         let punct = reshaped.glyphs.to_mut().last_mut().unwrap();
                         punct.shrink_right(shrink_amount);
                         reshaped.width -= shrink_amount.at(reshaped.size);
+                    } else if cjk_latin_spacing
+                        && last_glyph.is_cjk_script()
+                        && (last_glyph.x_advance - last_glyph.x_offset) > Em::one()
+                    {
+                        // If the last glyph is a CJK character adjusted by [`add_cjk_latin_spacing`],
+                        // restore the original width.
+                        let shrink_amount =
+                            last_glyph.x_advance - last_glyph.x_offset - Em::one();
+                        let glyph = reshaped.glyphs.to_mut().last_mut().unwrap();
+                        glyph.x_advance -= shrink_amount;
+                        glyph.adjustability.shrinkability.1 = Em::zero();
+                        reshaped.width -= shrink_amount.at(reshaped.size);
                     }
                 }
+
                 width += reshaped.width;
                 last = Some(Item::Text(reshaped));
             }
@@ -1291,9 +1365,10 @@ fn line<'a>(
         }
     }
 
-    // Deal with CJK punctuation at line starts.
+    // Deal with CJK characters at line starts.
     let text = &p.bidi.text[range.start..end];
-    let start_cjk_punct = text.starts_with(['“', '‘', '《', '（', '『', '「']);
+    let maybe_adjust_first_glyph = text.starts_with(BEGIN_PUNCT_PAT)
+        || (cjk_latin_spacing && text.starts_with(char_is_cjk_script));
 
     // Reshape the start item if it's split in half.
     let mut first = None;
@@ -1303,8 +1378,9 @@ fn line<'a>(
         let end = range.end.min(base + shaped.text.len());
 
         // Reshape if necessary.
-        if range.start + shaped.text.len() > end || start_cjk_punct {
-            if range.start < end || start_cjk_punct {
+        if range.start + shaped.text.len() > end || maybe_adjust_first_glyph {
+            // If the range is empty, we don't want to push an empty text item.
+            if range.start < end {
                 let reshaped = shaped.reshape(vt, &p.spans, range.start..end);
                 width += reshaped.width;
                 first = Some(Item::Text(reshaped));
@@ -1314,14 +1390,29 @@ fn line<'a>(
         }
     }
 
-    if start_cjk_punct {
+    if maybe_adjust_first_glyph {
         let reshaped = first.as_mut().or(last.as_mut()).and_then(Item::text_mut);
         if let Some(reshaped) = reshaped {
-            if let Some(punct) = reshaped.glyphs.first() {
-                if punct.is_cjk_right_aligned_punctuation() {
-                    let shrink_amount = punct.shrinkability().0;
-                    let punct = reshaped.glyphs.to_mut().first_mut().unwrap();
-                    punct.shrink_left(shrink_amount);
+            if let Some(first_glyph) = reshaped.glyphs.first() {
+                if first_glyph.is_cjk_right_aligned_punctuation() {
+                    // If the first glyph is a CJK punctuation, we want to shrink it.
+                    let shrink_amount = first_glyph.shrinkability().0;
+                    let glyph = reshaped.glyphs.to_mut().first_mut().unwrap();
+                    glyph.shrink_left(shrink_amount);
+                    let amount_abs = shrink_amount.at(reshaped.size);
+                    reshaped.width -= amount_abs;
+                    width -= amount_abs;
+                } else if cjk_latin_spacing
+                    && first_glyph.is_cjk_script()
+                    && first_glyph.x_offset > Em::zero()
+                {
+                    // If the first glyph is a CJK character adjusted by [`add_cjk_latin_spacing`],
+                    // restore the original width.
+                    let shrink_amount = first_glyph.x_offset;
+                    let glyph = reshaped.glyphs.to_mut().first_mut().unwrap();
+                    glyph.x_advance -= shrink_amount;
+                    glyph.x_offset = Em::zero();
+                    glyph.adjustability.shrinkability.0 = Em::zero();
                     let amount_abs = shrink_amount.at(reshaped.size);
                     reshaped.width -= amount_abs;
                     width -= amount_abs;
