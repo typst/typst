@@ -5,10 +5,11 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
 use termcolor::{ColorChoice, StandardStream};
 use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
-use typst::doc::Document;
+use typst::doc::{Document, Frame};
 use typst::eval::{eco_format, Tracer};
 use typst::geom::Color;
 use typst::syntax::{FileId, Source, Span};
+use typst::util::hash128;
 use typst::{World, WorldExt};
 
 use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
@@ -55,7 +56,7 @@ impl CompileCommand {
 /// Execute a compilation command.
 pub fn compile(mut command: CompileCommand) -> StrResult<()> {
     let mut world = SystemWorld::new(&command.common)?;
-    compile_once(&mut world, &mut command, false)?;
+    compile_once(&mut world, &mut command, &mut ExportCache::new(), false)?;
     Ok(())
 }
 
@@ -66,6 +67,7 @@ pub fn compile(mut command: CompileCommand) -> StrResult<()> {
 pub fn compile_once(
     world: &mut SystemWorld,
     command: &mut CompileCommand,
+    export_cache: &mut ExportCache,
     watching: bool,
 ) -> StrResult<()> {
     tracing::info!("Starting compilation");
@@ -85,7 +87,7 @@ pub fn compile_once(
     match result {
         // Export the PDF / PNG.
         Ok(document) => {
-            export(&document, command)?;
+            export(&document, command, export_cache)?;
             let duration = start.elapsed();
 
             tracing::info!("Compilation succeeded in {duration:?}");
@@ -123,15 +125,24 @@ pub fn compile_once(
             .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
     }
+    export_cache.swap();
 
     Ok(())
 }
 
 /// Export into the target format.
-fn export(document: &Document, command: &CompileCommand) -> StrResult<()> {
+fn export(
+    document: &Document,
+    command: &CompileCommand,
+    export_cache: &mut ExportCache,
+) -> StrResult<()> {
     match command.output_format()? {
-        OutputFormat::Png => export_image(document, command, ImageExportFormat::Png),
-        OutputFormat::Svg => export_image(document, command, ImageExportFormat::Svg),
+        OutputFormat::Png => {
+            export_image(document, command, ImageExportFormat::Png, export_cache)
+        }
+        OutputFormat::Svg => {
+            export_image(document, command, ImageExportFormat::Svg, export_cache)
+        }
         OutputFormat::Pdf => export_pdf(document, command),
     }
 }
@@ -151,11 +162,54 @@ enum ImageExportFormat {
     Svg,
 }
 
+/// This is the export cache, it caches the exported files so that we can
+/// avoid re-exporting them if they haven't changed.
+///
+/// This is done by having a list of size `files.len()` that contains the
+/// hashes of the last rendered frame in each file. If a new frame is inserted,
+/// this will invalidate the rest of the cache, this is deliberate as to decrease
+/// the complexity and memory usage of such a cache.
+///
+/// The hot cache is the already initialized cache used for deduplication this
+/// time, the second cold cache is used to build the next cache while reusing
+/// the allocation.
+pub struct ExportCache {
+    /// The last frame in each file.
+    pub hot_cache: Vec<u128>,
+
+    /// An empty, but pre-allocated cache
+    pub cold_cache: Vec<u128>,
+}
+
+impl ExportCache {
+    pub fn new() -> Self {
+        Self {
+            hot_cache: Vec::with_capacity(32),
+            cold_cache: Vec::with_capacity(32),
+        }
+    }
+
+    /// Returns true if the entry is cached. Always appends the new hash to the
+    /// cold cache.
+    pub fn is_cached(&mut self, frame: &Frame) -> bool {
+        let hash = hash128(frame);
+        self.cold_cache.push(hash);
+        self.hot_cache.get(self.cold_cache.len() - 1) == Some(&hash)
+    }
+
+    /// Swaps the hot and cold cache, clearing the now cold cache.
+    pub fn swap(&mut self) {
+        std::mem::swap(&mut self.hot_cache, &mut self.cold_cache);
+        self.cold_cache.clear();
+    }
+}
+
 /// Export to one or multiple PNGs.
 fn export_image(
     document: &Document,
     command: &CompileCommand,
     fmt: ImageExportFormat,
+    export_cache: &mut ExportCache,
 ) -> StrResult<()> {
     // Determine whether we have a `{n}` numbering.
     let output = command.output();
@@ -172,6 +226,11 @@ fn export_image(
     let mut storage;
 
     for (i, frame) in document.pages.iter().enumerate() {
+        // If the frame is in the cache, skip it.
+        if export_cache.is_cached(frame) {
+            continue;
+        }
+
         let path = if numbered {
             storage = string.replace("{n}", &format!("{:0width$}", i + 1));
             Path::new(&storage)

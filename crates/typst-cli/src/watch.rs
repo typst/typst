@@ -11,7 +11,7 @@ use typst::eval::eco_format;
 
 use crate::args::CompileCommand;
 use crate::color_stream;
-use crate::compile::compile_once;
+use crate::compile::{compile_once, ExportCache};
 use crate::world::SystemWorld;
 
 /// Execute a watching compilation command.
@@ -19,8 +19,11 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
     // Create the world that serves sources, files, and fonts.
     let mut world = SystemWorld::new(&command.common)?;
 
+    // Create the export cache.
+    let mut export_cache = ExportCache::new();
+
     // Perform initial compilation.
-    compile_once(&mut world, &mut command, true)?;
+    compile_once(&mut world, &mut command, &mut export_cache, true)?;
 
     // Setup file watching.
     let (tx, rx) = std::sync::mpsc::channel();
@@ -74,7 +77,7 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
             world.reset();
 
             // Recompile.
-            compile_once(&mut world, &mut command, true)?;
+            compile_once(&mut world, &mut command, &mut export_cache, true)?;
             comemo::evict(10);
 
             // Adjust the watching.
