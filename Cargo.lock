@@ -2754,6 +2754,7 @@ dependencies = [
  "roxmltree",
  "rustybuzz",
  "serde",
+ "serde_json",
  "siphasher",
  "stacker",
  "subsetter",
