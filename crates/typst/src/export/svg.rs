@@ -26,21 +26,20 @@ const CONIC_SEGMENT: usize = 360;
 
 /// Export a frame into a SVG file.
 #[tracing::instrument(skip_all)]
-#[comemo::memoize]
-pub fn svg(frame: &Frame) -> EcoString {
+pub fn svg(frame: &Frame) -> String {
     let mut renderer = SVGRenderer::new();
     renderer.write_header(frame.size());
 
     let state = State::new(frame.size(), Transform::identity());
     renderer.render_frame(state, Transform::identity(), frame);
-    EcoString::from(renderer.finalize())
+    renderer.finalize()
 }
 
 /// Export multiple frames into a single SVG file.
 ///
 /// The padding will be added around and between the individual frames.
 #[tracing::instrument(skip_all)]
-pub fn svg_merged(frames: &[Frame], padding: Abs) -> EcoString {
+pub fn svg_merged(frames: &[Frame], padding: Abs) -> String {
     let width = 2.0 * padding
         + frames.iter().map(|frame| frame.width()).max().unwrap_or_default();
     let height = padding + frames.iter().map(|page| page.height() + padding).sum::<Abs>();
@@ -57,7 +56,7 @@ pub fn svg_merged(frames: &[Frame], padding: Abs) -> EcoString {
         y += frame.height() + padding;
     }
 
-    EcoString::from(renderer.finalize())
+    renderer.finalize()
 }
 
 /// Renders one or multiple frames to an SVG file.
