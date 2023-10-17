@@ -6,11 +6,11 @@ use crate::{diag::StrResult, model::Content, PathResolver, World};
 /// Text content with span information
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct SpannedText {
-    /// vector of source file paths
+    /// List of source file paths
     pub sources: Vec<String>,
-    /// plain text content of the file
+    /// Plain text content of the file
     pub content: EcoString,
-    /// vector of mapping from content offset to source range
+    /// Mapping from content offset to source range in Base64 VLQs format
     /// The source range is encoded as a tuple of 7 values:
     /// - start of the text range (offset group)
     /// - end of the text range (offset group)
@@ -53,7 +53,7 @@ pub struct SpannedText {
     /// // source end: 5:0
     /// 0, 1, 0, 0, 0, 1, -4
     /// ```
-    pub mappings: Vec<i64>,
+    pub mappings: String,
 }
 
 /// Export the content as text with span information in json format
@@ -72,6 +72,8 @@ pub fn spanned_text(
     let mut rng_diff: i64 = 0;
     let mut line_diff: i64 = 0;
     let mut column_diff: i64 = 0;
+
+    let mut mapping_buf = std::io::BufWriter::new(vec![]);
 
     for (text_rng, span) in mappings {
         // Get source information
@@ -107,27 +109,49 @@ pub fn spanned_text(
 
         // Start and end of the text range
         let st = text_rng.start as i64;
-        text.mappings.push(st - rng_diff);
+        vlq::encode(st - rng_diff, &mut mapping_buf).unwrap();
         rng_diff = st;
         let ed = text_rng.end as i64;
-        text.mappings.push(ed - rng_diff);
+        vlq::encode(ed - rng_diff, &mut mapping_buf).unwrap();
         rng_diff = ed;
 
         // File id
-        text.mappings.push(fid as i64);
+        vlq::encode(fid as i64, &mut mapping_buf).unwrap();
 
         // Line and column of the source start
-        text.mappings.push(sl as i64 - line_diff);
+        vlq::encode(sl as i64 - line_diff, &mut mapping_buf).unwrap();
         line_diff = sl as i64;
-        text.mappings.push(sc as i64 - column_diff);
+        vlq::encode(sc as i64 - column_diff, &mut mapping_buf).unwrap();
         column_diff = sc as i64;
 
         // Line and column of the source end
-        text.mappings.push(el as i64 - line_diff);
+        vlq::encode(el as i64 - line_diff, &mut mapping_buf).unwrap();
         line_diff = el as i64;
-        text.mappings.push(ec as i64 - column_diff);
+        vlq::encode(ec as i64 - column_diff, &mut mapping_buf).unwrap();
         column_diff = ec as i64;
     }
 
+    // Always utf-8 string
+    text.mappings = String::from_utf8(mapping_buf.into_inner().unwrap()).unwrap();
+
     serde_json::to_string(&text).map_err(|e| eco_format!("{}", e))
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn decode_vlq() {
+        let data = b"AaAECAGAaAEHAGACAAACJ";
+
+        let mut input = data.iter().cloned();
+        let mut decoded = vec![];
+        while let Ok(val) = vlq::decode(&mut input) {
+            decoded.push(val);
+        }
+
+        assert_eq!(
+            decoded,
+            vec![0, 13, 0, 2, 1, 0, 3, 0, 13, 0, 2, -3, 0, 3, 0, 1, 0, 0, 0, 1, -4]
+        );
+    }
 }
