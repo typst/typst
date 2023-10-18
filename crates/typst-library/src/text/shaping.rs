@@ -99,12 +99,6 @@ impl ShapedGlyph {
         self.is_justifiable
     }
 
-    /// Updates the justifiability of the glyph.
-    fn update_justifiable(&mut self) {
-        self.is_justifiable =
-            is_justifiable(self.c, self.script, self.x_advance, self.stretchability());
-    }
-
     /// Whether the glyph is part of a CJK script.
     pub fn is_cjk_script(&self) -> bool {
         is_cjk_script(self.c, self.script)
@@ -187,7 +181,6 @@ impl ShapedGlyph {
         self.x_advance -= amount;
         self.adjustability.shrinkability.0 -= amount;
         self.adjustability.stretchability.0 += amount;
-        self.update_justifiable();
     }
 
     /// Shrink the width of glyph on the right side.
@@ -195,7 +188,6 @@ impl ShapedGlyph {
         self.x_advance -= amount;
         self.adjustability.shrinkability.1 -= amount;
         self.adjustability.stretchability.1 += amount;
-        self.update_justifiable();
     }
 }
 
@@ -792,12 +784,10 @@ fn track_and_space(ctx: &mut ShapingContext) {
         // Make non-breaking space same width as normal space.
         if glyph.c == '\u{00A0}' {
             glyph.x_advance -= nbsp_delta(&glyph.font).unwrap_or_default();
-            glyph.update_justifiable();
         }
 
         if glyph.is_space() {
             glyph.x_advance = spacing.relative_to(glyph.x_advance);
-            glyph.update_justifiable();
         }
 
         if glyphs
@@ -805,7 +795,6 @@ fn track_and_space(ctx: &mut ShapingContext) {
             .map_or(false, |next| glyph.range.start != next.range.start)
         {
             glyph.x_advance += tracking;
-            glyph.update_justifiable();
         }
     }
 }
@@ -824,7 +813,6 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
 
     for glyph in &mut ctx.glyphs {
         glyph.adjustability = glyph.base_adjustability(gb_style);
-        glyph.update_justifiable();
     }
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
@@ -1082,6 +1070,12 @@ fn is_cjk_center_aligned_punctuation(c: char, gb_style: bool) -> bool {
 }
 
 /// Whether the glyph is justifiable.
+///
+/// Quotations in latin script and CJK are unfortunately the same codepoint
+/// (U+2018, U+2019, U+201C, U+201D), but quotations in Chinese must be
+/// fullwidth. This heuristics can therefore fail for monospace latin fonts.
+/// However, since monospace fonts are usually not justified this edge case
+/// should be rare enough.
 #[inline]
 fn is_justifiable(
     c: char,
