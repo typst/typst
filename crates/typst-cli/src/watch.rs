@@ -157,7 +157,7 @@ impl Status {
         if std::io::stderr().is_terminal() {
             // Clear the terminal.
             let esc = 27 as char;
-            write!(w, "{esc}c{esc}[1;1H")?;
+            write!(w, "{esc}[2J{esc}[1;1H")?;
         }
 
         w.set_color(&color)?;
