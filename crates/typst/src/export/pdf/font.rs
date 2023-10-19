@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
@@ -7,7 +8,6 @@ use ttf_parser::{name_id, GlyphId, Tag};
 use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 
 use super::{deflate, EmExt, PdfContext};
-use crate::eval::Bytes;
 use crate::font::Font;
 use crate::util::SliceExt;
 
@@ -168,7 +168,7 @@ pub fn write_fonts(ctx: &mut PdfContext) {
 /// - For a font with TrueType outlines, this returns the whole OpenType font.
 /// - For a font with CFF outlines, this returns just the CFF font program.
 #[comemo::memoize]
-fn subset_font(font: &Font, glyphs: &[u16]) -> Bytes {
+fn subset_font(font: &Font, glyphs: &[u16]) -> Arc<Vec<u8>> {
     let data = font.data();
     let profile = subsetter::Profile::pdf(glyphs);
     let subsetted = subsetter::subset(data, font.index(), profile);
@@ -180,7 +180,7 @@ fn subset_font(font: &Font, glyphs: &[u16]) -> Bytes {
         data = cff;
     }
 
-    deflate(data).into()
+    Arc::new(deflate(data))
 }
 
 /// Produce a unique 6 letter tag for a glyph set.

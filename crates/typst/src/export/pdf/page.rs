@@ -1,4 +1,5 @@
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::{
@@ -184,8 +185,14 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
     annotations.finish();
     page_writer.finish();
 
-    let data = deflate(&page.content);
+    let data = deflate_content(&page.content);
     ctx.pdf.stream(content_id, &data).filter(Filter::FlateDecode);
+}
+
+/// Memoized version of [`deflate`] specialized for a page's content stream.
+#[comemo::memoize]
+fn deflate_content(content: &[u8]) -> Arc<Vec<u8>> {
+    Arc::new(deflate(content))
 }
 
 /// Data for an exported page.
@@ -354,11 +361,11 @@ impl PageContext<'_, '_> {
         self.state.size = size;
     }
 
-    fn set_fill(&mut self, fill: &Paint, transforms: Transforms) {
+    fn set_fill(&mut self, fill: &Paint, on_text: bool, transforms: Transforms) {
         if self.state.fill.as_ref() != Some(fill)
             || matches!(self.state.fill, Some(Paint::Gradient(_)))
         {
-            fill.set_as_fill(self, transforms);
+            fill.set_as_fill(self, on_text, transforms);
             self.state.fill = Some(fill.clone());
         }
     }
@@ -390,7 +397,7 @@ impl PageContext<'_, '_> {
                 miter_limit,
             } = stroke;
 
-            paint.set_as_stroke(self, transforms);
+            paint.set_as_stroke(self, false, transforms);
 
             self.content.set_line_width(thickness.to_f32());
             if self.state.stroke.as_ref().map(|s| &s.line_cap) != Some(line_cap) {
@@ -455,13 +462,21 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
     let translation = Transform::translate(pos.x, pos.y);
 
     ctx.save_state();
-    ctx.transform(translation.pre_concat(group.transform));
 
     if group.frame.kind().is_hard() {
-        ctx.group_transform(translation.pre_concat(group.transform));
+        ctx.group_transform(
+            translation
+                .pre_concat(
+                    ctx.state
+                        .transform
+                        .post_concat(ctx.state.container_transform.invert().unwrap()),
+                )
+                .pre_concat(group.transform),
+        );
         ctx.size(group.frame.size());
     }
 
+    ctx.transform(translation.pre_concat(group.transform));
     if let Some(clip_path) = &group.clip_path {
         write_path(ctx, 0.0, 0.0, clip_path);
         ctx.content.clip_nonzero();
@@ -485,7 +500,7 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
         glyph_set.entry(g.id).or_insert_with(|| segment.into());
     }
 
-    ctx.set_fill(&text.fill, ctx.state.transforms(Size::zero(), pos));
+    ctx.set_fill(&text.fill, true, ctx.state.transforms(Size::zero(), pos));
     ctx.set_font(&text.font, text.size);
     ctx.set_opacities(None, Some(&text.fill));
     ctx.content.begin_text();
@@ -550,7 +565,7 @@ fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
     }
 
     if let Some(fill) = &shape.fill {
-        ctx.set_fill(fill, ctx.state.transforms(shape.geometry.bbox_size(), pos));
+        ctx.set_fill(fill, false, ctx.state.transforms(shape.geometry.bbox_size(), pos));
     }
 
     if let Some(stroke) = stroke {

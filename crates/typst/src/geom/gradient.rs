@@ -19,9 +19,6 @@ use crate::syntax::{Span, Spanned};
 /// the [`gradient.radial` function]($gradient.radial), and conic gradients
 /// through the [`gradient.conic` function]($gradient.conic).
 ///
-/// See the [tracking issue](https://github.com/typst/typst/issues/2282) for
-/// more details on the progress of gradient implementation.
-///
 /// ```example
 /// #stack(
 ///   dir: ltr,
@@ -29,6 +26,25 @@ use crate::syntax::{Span, Spanned};
 ///   square(size: 50pt, fill: gradient.radial(..color.map.rainbow)),
 ///   square(size: 50pt, fill: gradient.conic(..color.map.rainbow)),
 /// )
+/// ```
+///
+/// # Gradients on text
+/// Gradients are supported on text but only when setting the relativeness to
+/// either `{auto}` (the default value) or `{"parent"}`. It was decided that
+/// glyph-by-glyph gradients would not be supported out-of-the-box but can be
+/// emulated using [show rules]($styling/#show-rules).
+///
+/// You can use gradients on text as follows:
+///
+/// ```example
+/// #set page(margin: 1pt)
+/// #set text(fill: gradient.linear(red, blue))
+/// #let rainbow(content) = {
+///     set text(fill: gradient.linear(..color.map.rainbow))
+///     box(content)
+/// }
+///
+/// This is a gradient on text, but with a #rainbow[twist]!
 /// ```
 ///
 /// # Stops
@@ -56,7 +72,8 @@ use crate::syntax::{Span, Spanned};
 /// of a container. This container can either be the shape they are painted on,
 /// or to the closest container ancestor. This is controlled by the `relative`
 /// argument of a gradient constructor. By default, gradients are relative to
-/// the shape they are painted on.
+/// the shape they are painted on, unless the gradient is applied on text, in
+/// which case they are relative to the closest ancestor container.
 ///
 /// Typst determines the ancestor container as follows:
 /// - For shapes that are placed at the root/top level of the document, the
@@ -707,6 +724,22 @@ impl Gradient {
 }
 
 impl Gradient {
+    /// Clones this gradient, but with a different relative placement.
+    pub fn with_relative(mut self, relative: Relative) -> Self {
+        match &mut self {
+            Self::Linear(linear) => {
+                Arc::make_mut(linear).relative = Smart::Custom(relative);
+            }
+            Self::Radial(radial) => {
+                Arc::make_mut(radial).relative = Smart::Custom(relative);
+            }
+            Self::Conic(conic) => {
+                Arc::make_mut(conic).relative = Smart::Custom(relative);
+            }
+        }
+
+        self
+    }
     /// Returns a reference to the stops of this gradient.
     pub fn stops_ref(&self) -> &[(Color, Ratio)] {
         match self {

@@ -149,7 +149,7 @@ fn render_frame(canvas: &mut sk::Pixmap, state: State, frame: &Frame) {
     for (pos, item) in frame.items() {
         match item {
             FrameItem::Group(group) => {
-                render_group(canvas, state.pre_translate(*pos), group);
+                render_group(canvas, state, *pos, group);
             }
             FrameItem::Text(text) => {
                 render_text(canvas, state.pre_translate(*pos), text);
@@ -172,11 +172,18 @@ fn render_frame(canvas: &mut sk::Pixmap, state: State, frame: &Frame) {
 }
 
 /// Render a group frame with optional transform and clipping into the canvas.
-fn render_group(canvas: &mut sk::Pixmap, state: State, group: &GroupItem) {
+fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &GroupItem) {
     let state = match group.frame.kind() {
-        FrameKind::Soft => state.pre_concat(group.transform.into()),
+        FrameKind::Soft => state.pre_translate(pos).pre_concat(group.transform.into()),
         FrameKind::Hard => state
+            .pre_translate(pos)
             .pre_concat(group.transform.into())
+            .pre_concat_container(
+                state
+                    .transform
+                    .post_concat(state.container_transform.invert().unwrap()),
+            )
+            .pre_concat_container(Transform::translate(pos.x, pos.y).into())
             .pre_concat_container(group.transform.into())
             .with_size(group.frame.size()),
     };
@@ -375,15 +382,23 @@ fn render_outline_glyph(
             builder.0.finish()?
         };
 
-        // TODO: Implement gradients on text.
+        let scale = text.size.to_f32() / text.font.units_per_em() as f32;
+
         let mut pixmap = None;
-        let paint = to_sk_paint(&text.fill, state, Size::zero(), None, &mut pixmap, None);
+        let paint = to_sk_paint(
+            &text.fill,
+            state.pre_concat(sk::Transform::from_scale(scale, -scale)),
+            Size::zero(),
+            true,
+            None,
+            &mut pixmap,
+            None,
+        );
 
         let rule = sk::FillRule::default();
 
         // Flip vertically because font design coordinate
         // system is Y-up.
-        let scale = text.size.to_f32() / text.font.units_per_em() as f32;
         let ts = ts.pre_scale(scale, -scale);
         canvas.fill_path(&path, &paint, rule, ts, state.mask);
         return Some(());
@@ -410,15 +425,30 @@ fn render_outline_glyph(
     // doesn't exist, yet.
     let bitmap =
         rasterize(&text.font, id, ts.tx.to_bits(), ts.ty.to_bits(), ppem.to_bits())?;
+    match &text.fill {
+        Paint::Gradient(gradient) => {
+            let sampler = GradientSampler::new(gradient, &state, Size::zero(), true);
+            write_bitmap(canvas, &bitmap, &state, sampler)?;
+        }
+        Paint::Solid(color) => {
+            write_bitmap(canvas, &bitmap, &state, *color)?;
+        }
+    }
 
+    Some(())
+}
+
+fn write_bitmap<S: PaintSampler>(
+    canvas: &mut sk::Pixmap,
+    bitmap: &Bitmap,
+    state: &State,
+    sampler: S,
+) -> Option<()> {
     // If we have a clip mask we first render to a pixmap that we then blend
     // with our canvas
     if state.mask.is_some() {
         let mw = bitmap.width;
         let mh = bitmap.height;
-
-        let color = text.fill.unwrap_solid();
-        let color = sk::ColorU8::from(color);
 
         // Pad the pixmap with 1 pixel in each dimension so that we do
         // not get any problem with floating point errors along their border
@@ -426,15 +456,16 @@ fn render_outline_glyph(
         for x in 0..mw {
             for y in 0..mh {
                 let alpha = bitmap.coverage[(y * mw + x) as usize];
-                let color = sk::ColorU8::from_rgba(
-                    color.red(),
-                    color.green(),
-                    color.blue(),
-                    alpha,
-                )
-                .premultiply();
+                let color: sk::ColorU8 = sampler.sample((x, y)).into();
 
-                pixmap.pixels_mut()[((y + 1) * (mw + 2) + (x + 1)) as usize] = color;
+                pixmap.pixels_mut()[((y + 1) * (mw + 2) + (x + 1)) as usize] =
+                    sk::ColorU8::from_rgba(
+                        color.red(),
+                        color.green(),
+                        color.blue(),
+                        alpha,
+                    )
+                    .premultiply();
             }
         }
 
@@ -461,10 +492,6 @@ fn render_outline_glyph(
         let top = bitmap.top;
         let bottom = top + mh;
 
-        // Premultiply the text color.
-        let Paint::Solid(color) = text.fill else { todo!() };
-        let color = bytemuck::cast(sk::ColorU8::from(color).premultiply());
-
         // Blend the glyph bitmap with the existing pixels on the canvas.
         let pixels = bytemuck::cast_slice_mut::<u8, u32>(canvas.data_mut());
         for x in left.clamp(0, cw)..right.clamp(0, cw) {
@@ -475,6 +502,8 @@ fn render_outline_glyph(
                     continue;
                 }
 
+                let color: sk::ColorU8 = sampler.sample((x as _, y as _)).into();
+                let color = bytemuck::cast(color.premultiply());
                 let pi = (y * cw + x) as usize;
                 if cov == 255 {
                     pixels[pi] = color;
@@ -510,8 +539,15 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
 
     if let Some(fill) = &shape.fill {
         let mut pixmap = None;
-        let mut paint: sk::Paint =
-            to_sk_paint(fill, state, shape.geometry.bbox_size(), None, &mut pixmap, None);
+        let mut paint: sk::Paint = to_sk_paint(
+            fill,
+            state,
+            shape.geometry.bbox_size(),
+            false,
+            None,
+            &mut pixmap,
+            None,
+        );
 
         if matches!(shape.geometry, Geometry::Rect(_)) {
             paint.anti_alias = false;
@@ -578,6 +614,7 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
                 paint,
                 state,
                 offset_bbox,
+                false,
                 fill_transform,
                 &mut pixmap,
                 gradient_map,
@@ -731,6 +768,71 @@ impl From<sk::Transform> for Transform {
     }
 }
 
+/// Trait for sampling of a paint, used as a generic
+/// abstraction over solid colors and gradients.
+trait PaintSampler: Copy {
+    /// Sample the color at the `pos` in the pixmap.
+    fn sample(self, pos: (u32, u32)) -> Color;
+}
+
+impl PaintSampler for Color {
+    fn sample(self, _: (u32, u32)) -> Color {
+        self
+    }
+}
+
+/// State used when sampling colors for text.
+///
+/// It caches the inverse transform to the parent, so that we can
+/// reuse it instead of recomputing it for each pixel.
+#[derive(Clone, Copy)]
+struct GradientSampler<'a> {
+    gradient: &'a Gradient,
+    container_size: Size,
+    transform_to_parent: sk::Transform,
+}
+
+impl<'a> GradientSampler<'a> {
+    fn new(
+        gradient: &'a Gradient,
+        state: &State,
+        item_size: Size,
+        on_text: bool,
+    ) -> Self {
+        let relative = gradient.unwrap_relative(on_text);
+        let container_size = match relative {
+            Relative::Self_ => item_size,
+            Relative::Parent => state.size,
+        };
+
+        let fill_transform = match relative {
+            Relative::Self_ => sk::Transform::identity(),
+            Relative::Parent => state.container_transform.invert().unwrap(),
+        };
+
+        Self {
+            gradient,
+            container_size,
+            transform_to_parent: fill_transform,
+        }
+    }
+}
+
+impl PaintSampler for GradientSampler<'_> {
+    /// Samples a single point in a glyph.
+    fn sample(self, (x, y): (u32, u32)) -> Color {
+        // Compute the point in the gradient's coordinate space.
+        let mut point = sk::Point { x: x as f32, y: y as f32 };
+        self.transform_to_parent.map_point(&mut point);
+
+        // Sample the gradient
+        self.gradient.sample_at(
+            (point.x, point.y),
+            (self.container_size.x.to_f32(), self.container_size.y.to_f32()),
+        )
+    }
+}
+
 /// Transforms a [`Paint`] into a [`sk::Paint`].
 /// Applying the necessary transform, if the paint is a gradient.
 ///
@@ -740,6 +842,7 @@ fn to_sk_paint<'a>(
     paint: &Paint,
     state: State,
     item_size: Size,
+    on_text: bool,
     fill_transform: Option<sk::Transform>,
     pixmap: &'a mut Option<Arc<sk::Pixmap>>,
     gradient_map: Option<(Point, Axes<Ratio>)>,
@@ -782,7 +885,7 @@ fn to_sk_paint<'a>(
             sk_paint.anti_alias = true;
         }
         Paint::Gradient(gradient) => {
-            let relative = gradient.unwrap_relative(false);
+            let relative = gradient.unwrap_relative(on_text);
             let container_size = match relative {
                 Relative::Self_ => item_size,
                 Relative::Parent => state.size,

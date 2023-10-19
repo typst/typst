@@ -134,7 +134,7 @@ pub fn eval(
     let root = source.root();
     let errors = root.errors();
     if !errors.is_empty() && vm.inspected.is_none() {
-        return Err(Box::new(errors.into_iter().map(Into::into).collect()));
+        return Err(errors.into_iter().map(Into::into).collect());
     }
 
     // Evaluate the module.
@@ -178,7 +178,7 @@ pub fn eval_string(
 
     let errors = root.errors();
     if !errors.is_empty() {
-        return Err(Box::new(errors.into_iter().map(Into::into).collect()));
+        return Err(errors.into_iter().map(Into::into).collect());
     }
 
     // Prepare VT.
@@ -1786,7 +1786,7 @@ impl Eval for ast::ModuleImport<'_> {
                 }
             }
             Some(ast::Imports::Items(items)) => {
-                let mut errors = vec![];
+                let mut errors = eco_vec![];
                 for item in items.iter() {
                     let original_ident = item.original_name();
                     if let Some(value) = scope.get(&original_ident) {
@@ -1808,7 +1808,7 @@ impl Eval for ast::ModuleImport<'_> {
                     }
                 }
                 if !errors.is_empty() {
-                    return Err(Box::new(errors));
+                    return Err(errors);
                 }
             }
         }

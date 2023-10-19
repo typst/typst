@@ -19,6 +19,7 @@ pub use self::shift::*;
 use rustybuzz::Tag;
 use ttf_parser::Rect;
 use typst::diag::{bail, error, SourceResult};
+use typst::eval::Never;
 use typst::font::{Font, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 
 use crate::layout::ParElem;
@@ -182,10 +183,16 @@ pub struct TextElem {
     #[parse({
         let paint: Option<Spanned<Paint>> = args.named_or_find("fill")?;
         if let Some(paint) = &paint {
-            // TODO: Implement gradients on text.
-            if matches!(paint.v, Paint::Gradient(_)) {
-                bail!(error!(paint.span, "text fill must be a solid color")
-                    .with_hint("gradients on text will be supported soon"));
+            if let Paint::Gradient(gradient) = &paint.v {
+                if gradient.relative() == Smart::Custom(Relative::Self_) {
+                    bail!(
+                        error!(
+                            paint.span,
+                            "gradients on text must be relative to the parent"
+                        )
+                        .with_hint("make sure to set `relative: auto` on your text fill")
+                    );
+                }
             }
         }
         paint.map(|paint| paint.v)
@@ -217,6 +224,17 @@ pub struct TextElem {
     #[resolve]
     #[default(Rel::one())]
     pub spacing: Rel<Length>,
+
+    /// Whether to automatically insert spacing between CJK and Latin characters.
+    ///
+    /// ```example
+    /// #set text(cjk-latin-spacing: auto)
+    /// 第4章介绍了基本的API。
+    ///
+    /// #set text(cjk-latin-spacing: none)
+    /// 第4章介绍了基本的API。
+    /// ```
+    pub cjk_latin_spacing: Smart<Option<Never>>,
 
     /// An amount to shift the text baseline by.
     ///

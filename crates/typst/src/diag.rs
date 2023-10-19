@@ -7,6 +7,7 @@ use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 
 use comemo::Tracked;
+use ecow::{eco_vec, EcoVec};
 
 use crate::syntax::{PackageSpec, Span, Spanned, SyntaxError};
 use crate::{World, WorldExt};
@@ -29,14 +30,14 @@ macro_rules! __bail {
     };
 
     ($error:expr) => {
-        return Err(Box::new(vec![$error]))
+        return Err(::ecow::eco_vec![$error])
     };
 
     ($span:expr, $fmt:literal $(, $arg:expr)* $(,)?) => {
-        return Err(Box::new(vec![$crate::diag::SourceDiagnostic::error(
+        return Err(::ecow::eco_vec![$crate::diag::SourceDiagnostic::error(
             $span,
             $crate::diag::eco_format!($fmt, $($arg),*),
-        )]))
+        )])
     };
 }
 
@@ -75,7 +76,7 @@ macro_rules! __warning {
 }
 
 /// A result that can carry multiple source errors.
-pub type SourceResult<T> = Result<T, Box<Vec<SourceDiagnostic>>>;
+pub type SourceResult<T> = Result<T, EcoVec<SourceDiagnostic>>;
 
 /// An error or warning in a source file.
 ///
@@ -90,10 +91,10 @@ pub struct SourceDiagnostic {
     /// A diagnostic message describing the problem.
     pub message: EcoString,
     /// The trace of function calls leading to the problem.
-    pub trace: Vec<Spanned<Tracepoint>>,
+    pub trace: EcoVec<Spanned<Tracepoint>>,
     /// Additonal hints to the user, indicating how this problem could be avoided
     /// or worked around.
-    pub hints: Vec<EcoString>,
+    pub hints: EcoVec<EcoString>,
 }
 
 /// The severity of a [`SourceDiagnostic`].
@@ -111,9 +112,9 @@ impl SourceDiagnostic {
         Self {
             severity: Severity::Error,
             span,
-            trace: vec![],
+            trace: eco_vec![],
             message: message.into(),
-            hints: vec![],
+            hints: eco_vec![],
         }
     }
 
@@ -122,9 +123,9 @@ impl SourceDiagnostic {
         Self {
             severity: Severity::Warning,
             span,
-            trace: vec![],
+            trace: eco_vec![],
             message: message.into(),
-            hints: vec![],
+            hints: eco_vec![],
         }
     }
 
@@ -152,7 +153,7 @@ impl From<SyntaxError> for SourceDiagnostic {
             severity: Severity::Error,
             span: error.span,
             message: error.message,
-            trace: vec![],
+            trace: eco_vec![],
             hints: error.hints,
         }
     }
@@ -203,7 +204,7 @@ impl<T> Trace<T> for SourceResult<T> {
     {
         self.map_err(|mut errors| {
             let Some(trace_range) = world.range(span) else { return errors };
-            for error in errors.iter_mut() {
+            for error in errors.make_mut().iter_mut() {
                 // Skip traces that surround the error.
                 if let Some(error_range) = world.range(error.span) {
                     if error.span.id() == span.id()
@@ -242,7 +243,7 @@ where
                 diagnostic
                     .hint("you can adjust the project root with the --root argument");
             }
-            Box::new(vec![diagnostic])
+            eco_vec![diagnostic]
         })
     }
 }
@@ -263,9 +264,7 @@ pub struct HintedString {
 impl<T> At<T> for Result<T, HintedString> {
     fn at(self, span: Span) -> SourceResult<T> {
         self.map_err(|diags| {
-            Box::new(vec![
-                SourceDiagnostic::error(span, diags.message).with_hints(diags.hints)
-            ])
+            eco_vec![SourceDiagnostic::error(span, diags.message).with_hints(diags.hints)]
         })
     }
 }

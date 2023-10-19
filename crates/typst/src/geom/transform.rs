@@ -97,7 +97,7 @@ impl Transform {
         }
 
         let det = self.sx * self.sy - self.kx * self.ky;
-        if det.get() < 1e-12 {
+        if det.get().abs() < 1e-12 {
             return None;
         }
 

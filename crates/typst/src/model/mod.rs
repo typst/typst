@@ -8,6 +8,7 @@ mod realize;
 mod selector;
 mod styles;
 
+use ecow::EcoVec;
 #[doc(inline)]
 pub use typst_macros::elem;
 
@@ -89,7 +90,7 @@ pub fn typeset(
 
     // Promote delayed errors.
     if !delayed.0.is_empty() {
-        return Err(Box::new(delayed.0));
+        return Err(delayed.0);
     }
 
     Ok(document)
@@ -123,7 +124,7 @@ impl Vt<'_> {
         match f(self) {
             Ok(value) => value,
             Err(errors) => {
-                for error in *errors {
+                for error in errors {
                     self.delayed.push(error);
                 }
                 T::default()
@@ -134,7 +135,7 @@ impl Vt<'_> {
 
 /// Holds delayed errors.
 #[derive(Default, Clone)]
-pub struct DelayedErrors(Vec<SourceDiagnostic>);
+pub struct DelayedErrors(EcoVec<SourceDiagnostic>);
 
 impl DelayedErrors {
     /// Create an empty list of delayed errors.
