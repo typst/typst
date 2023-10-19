@@ -443,13 +443,14 @@ pub fn fact(
     Ok(fact_impl(1, number).ok_or("the result is too large")?)
 }
 
-/// Calculates the `k`-permutation of `n`.
+/// Calculates a permutation
+/// 
+/// Returns the `k`-permutation of `n`, or the number of ways to choose `k`
+/// items from a set of `n` with regard to order.
 ///
 /// ```example
-/// $
-/// "perm"(n, k) &= n!/((n - k)!) \
-/// "perm"(5, 3) &= #calc.perm(5, 3)
-/// $
+/// $ "perm"(n, k) &= n!/((n - k)!) \
+///   "perm"(5, 3) &= #calc.perm(5, 3) $
 #[func(title = "Permutation")]
 pub fn perm(
     /// The base number. Must be non-negative.
@@ -483,6 +484,9 @@ fn fact_impl(start: u64, end: u64) -> Option<i64> {
 }
 
 /// Calculates a binomial coefficient.
+///
+/// Returns the `k`-combination `n`, or the number of ways to choose `k`
+/// items from a set of `n` without regard to order.
 ///
 /// ```example
 /// #calc.binom(10, 5)
@@ -781,7 +785,8 @@ pub fn odd(
 
 /// Calculates the remainder of two numbers.
 ///
-/// The value `calc.rem(x, y)` always has the same sign as `x`, and is smaller in magnitude than `y`.
+/// The value `calc.rem(x, y)` always has the same sign as `x`, and is smaller
+/// in magnitude than `y`.
 ///
 /// ```example
 /// #calc.rem(20, 6) \
