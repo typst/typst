@@ -52,6 +52,7 @@ pub mod model;
 #[doc(inline)]
 pub use typst_syntax as syntax;
 
+use std::collections::HashSet;
 use std::ops::Range;
 
 use comemo::{Prehashed, Track, TrackedMut};
@@ -79,16 +80,27 @@ pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document>
     let world = world.track();
     let mut tracer = tracer.track_mut();
 
-    // Evaluate the source file into a module.
+    // Try to evaluate the source file into a module.
     let module = eval::eval(
         world,
         route.track(),
         TrackedMut::reborrow_mut(&mut tracer),
         &world.main(),
-    )?;
+    );
 
-    // Typeset it.
-    model::typeset(world, tracer, &module.content())
+    // Try to typeset it.
+    let res = module.and_then(|module| model::typeset(world, tracer, &module.content()));
+
+    // Deduplicate errors.
+    res.map_err(|err| {
+        let mut unique = HashSet::new();
+        err.into_iter()
+            .filter(|diagnostic| {
+                let hash = util::hash128(&(&diagnostic.span, &diagnostic.message));
+                unique.insert(hash)
+            })
+            .collect()
+    })
 }
 
 /// The environment in which typesetting occurs.
