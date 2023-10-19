@@ -151,13 +151,22 @@ Typst further allows you to add custom font paths for your project and list all
 of the fonts it discovered:
 ```sh
 # Adds additional directories to search for fonts.
-typst --font-path path/to/fonts compile file.typ
+typst compile --font-path path/to/fonts file.typ
 
 # Lists all of the discovered fonts in the system and the given directory.
-typst --font-path path/to/fonts fonts
+typst fonts --font-path path/to/fonts
 
 # Or via environment variable (Linux syntax).
 TYPST_FONT_PATHS=path/to/fonts typst fonts
+```
+
+For other CLI subcommands and options, see below:
+```sh
+# Prints available subcommands and options.
+typst help
+
+# Prints detailed usage of a subcommand.
+typst help watch
 ```
 
 If you prefer an integrated IDE-like experience with autocompletion and instant
