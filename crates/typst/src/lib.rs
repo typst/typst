@@ -94,14 +94,12 @@ pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document>
     // Deduplicate errors.
     res.map_err(|err| {
         let mut unique = HashSet::new();
-        Box::new(
-            err.into_iter()
-                .filter(|diagnostic| {
-                    let hash = util::hash128(&(&diagnostic.span, &diagnostic.message));
-                    unique.insert(hash)
-                })
-                .collect(),
-        )
+        err.into_iter()
+            .filter(|diagnostic| {
+                let hash = util::hash128(&(&diagnostic.span, &diagnostic.message));
+                unique.insert(hash)
+            })
+            .collect()
     })
 }
 
