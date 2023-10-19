@@ -443,7 +443,7 @@ pub fn fact(
     Ok(fact_impl(1, number).ok_or("the result is too large")?)
 }
 
-/// Calculates a permutation
+/// Calculates a permutation.
 ///
 /// Returns the `k`-permutation of `n`, or the number of ways to choose `k`
 /// items from a set of `n` with regard to order.
@@ -451,6 +451,7 @@ pub fn fact(
 /// ```example
 /// $ "perm"(n, k) &= n!/((n - k)!) \
 ///   "perm"(5, 3) &= #calc.perm(5, 3) $
+/// ```
 #[func(title = "Permutation")]
 pub fn perm(
     /// The base number. Must be non-negative.
@@ -807,11 +808,10 @@ pub fn rem(
 
 /// Calculates the quotient (floored division) of two numbers.
 ///
-/// $
-/// "quo"(a, b) &= floor(a/b) \
-/// "quo"(14, 5) &= #calc.quo(14, 5) \
-/// "quo"(3.46, 0.5) &= #calc.quo(3.46, 0.5)
-/// $
+/// ```example
+/// $ "quo"(a, b) &= floor(a/b) \
+///   "quo"(14, 5) &= #calc.quo(14, 5) \
+///   "quo"(3.46, 0.5) &= #calc.quo(3.46, 0.5) $
 /// ```
 #[func(title = "Quotient")]
 pub fn quo(
