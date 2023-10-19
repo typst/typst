@@ -444,7 +444,7 @@ pub fn fact(
 }
 
 /// Calculates a permutation
-/// 
+///
 /// Returns the `k`-permutation of `n`, or the number of ways to choose `k`
 /// items from a set of `n` with regard to order.
 ///
@@ -484,7 +484,7 @@ fn fact_impl(start: u64, end: u64) -> Option<i64> {
 }
 
 /// Calculates a binomial coefficient.
-/// 
+///
 /// Returns the `k`-combination `n`, or the number of ways to choose `k`
 /// items from a set of `n` without regard to order.
 ///
