@@ -167,9 +167,8 @@ impl Dict {
         Arc::make_mut(&mut self.0).insert(key, value);
     }
 
-    /// Inserts a new pair into the dictionary and return the value. If the
-    /// dictionary already contains this key, the value is not updated.
-    /// Otherwise, the given value is inserted and returned.
+    /// Gets a value from the dictionary.
+    /// If the key does not exist, inserts the given value and returns it.
     #[func]
     pub fn at_or_insert(
         &mut self,
