@@ -1035,7 +1035,8 @@ fn is_cjk_left_aligned_punctuation(
         return true;
     }
 
-    if gb_style && matches!(c, '，' | '。' | '．' | '、' | '：' | '；' | '！' | '？') {
+    if gb_style && matches!(c, '，' | '。' | '．' | '、' | '：' | '；' | '！' | '？')
+    {
         // In GB style, exclamations and question marks are also left aligned and can be adjusted.
         // Note that they are not adjustable in other styles.
         return true;
@@ -1058,7 +1059,7 @@ fn is_cjk_right_aligned_punctuation(
         return true;
     }
     // See appendix A.3 https://www.w3.org/TR/clreq/#tables_of_chinese_punctuation_marks
-    matches!(c, '《' | '（' | '『' | '「' | '【' | '〖' | '〔' | '〈' | '［' | '｛' )
+    matches!(c, '《' | '（' | '『' | '「' | '【' | '〖' | '〔' | '〈' | '［' | '｛')
 }
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
