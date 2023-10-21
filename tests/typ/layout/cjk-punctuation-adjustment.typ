@@ -20,7 +20,7 @@
 #set page(width: 21em)
 #set text(lang: "zh", region: "CN", font: "Noto Serif CJK SC")
 
-// These examples contains extensive use of Chinese punctuation marks,
+// These examples contain extensive use of Chinese punctuation marks,
 // from 《Which parentheses should be used when applying parentheses?》.
 // link: https://archive.md/2bb1N
 
