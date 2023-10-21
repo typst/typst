@@ -238,7 +238,7 @@ fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
 
     for (i, page) in ctx.pages.iter().enumerate() {
         let nr = NonZeroUsize::new(1 + i).unwrap();
-        let Some(label) = &page.label else { continue; };
+        let Some(label) = &page.label else { continue };
 
         // Don't create a label if neither style nor prefix are specified.
         if label.prefix.is_none() && label.style.is_none() {
