@@ -206,10 +206,7 @@ impl LayoutMath for MatElem {
 
         if let Some(aug) = &augment {
             for &offset in &aug.hline.0 {
-                if offset == 0
-                    || offset >= (rows.len() as isize)
-                    || offset <= -(rows.len() as isize)
-                {
+                if offset == 0 || offset.unsigned_abs() >= rows.len() {
                     bail!(
                         self.span(),
                         "cannot draw a horizontal line after row {} of a matrix with {} rows",
@@ -222,10 +219,7 @@ impl LayoutMath for MatElem {
             let ncols = self.rows().first().map_or(0, |row| row.len());
 
             for &offset in &aug.vline.0 {
-                if offset == 0
-                    || offset >= (ncols as isize)
-                    || offset <= -(ncols as isize)
-                {
+                if offset == 0 || offset.unsigned_abs() >= ncols {
                     bail!(
                         self.span(),
                         "cannot draw a vertical line after column {} of a matrix with {} columns",
