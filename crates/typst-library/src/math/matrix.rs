@@ -202,18 +202,19 @@ impl LayoutMath for MatElem {
         // validate inputs
 
         let augment = self.augment(ctx.styles());
+        let rows = self.rows();
 
         if let Some(aug) = &augment {
             for &offset in &aug.hline.0 {
                 if offset == 0
-                    || offset >= (self.rows().len() as isize)
-                    || offset <= -(self.rows().len() as isize)
+                    || offset >= (rows.len() as isize)
+                    || offset <= -(rows.len() as isize)
                 {
                     bail!(
                         self.span(),
                         "cannot draw a horizontal line after row {} of a matrix with {} rows",
-                        if offset < 0 { self.rows().len() as isize + offset } else { offset },
-                        self.rows().len()
+                        if offset < 0 { rows.len() as isize + offset } else { offset },
+                        rows.len()
                     );
                 }
             }
@@ -238,7 +239,7 @@ impl LayoutMath for MatElem {
         let delim = self.delim(ctx.styles());
         let frame = layout_mat_body(
             ctx,
-            &self.rows(),
+            &rows,
             augment,
             Axes::new(self.column_gap(ctx.styles()), self.row_gap(ctx.styles())),
             self.span(),
