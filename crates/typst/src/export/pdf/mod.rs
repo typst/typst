@@ -25,7 +25,6 @@ use xmp_writer::{LangId, RenditionClass, XmpWriter};
 use self::gradient::PdfGradient;
 use self::page::Page;
 use crate::doc::{Document, Lang};
-use crate::eval::Datetime;
 use crate::font::Font;
 use crate::geom::{Abs, Dir, Em};
 use crate::image::Image;
@@ -162,8 +161,8 @@ fn write_catalog(ctx: &mut PdfContext) {
     }
 
     let creator = eco_format!("Typst {}", env!("CARGO_PKG_VERSION"));
-    info.creator(TextStr(creator.as_str()));
-    xmp.creator_tool(creator.as_str());
+    info.creator(TextStr(&creator));
+    xmp.creator_tool(&creator);
 
     let keywords = &ctx.document.keywords;
     if !keywords.is_empty() {
@@ -173,17 +172,23 @@ fn write_catalog(ctx: &mut PdfContext) {
     }
 
     if let Some(date) = ctx.document.date {
-        fn extract_date(date: Datetime) -> Option<(u16, u8, u8)> {
-            Some((
-                date.year().and_then(|y| if y < 0 { None } else { Some(y as u16) })?,
-                date.month()?,
-                date.day()?,
-            ))
-        }
+        if let Some(year) =
+            date.year().and_then(|y| if y < 0 { None } else { Some(y as u16) })
+        {
+            let mut pdf_writer_date = pdf_writer::Date::new(year);
+            if let Some(month) = date.month() {
+                pdf_writer_date = pdf_writer_date.month(month);
+            }
+            if let Some(day) = date.day() {
+                pdf_writer_date = pdf_writer_date.day(day);
+            }
 
-        if let Some((year, month, day)) = extract_date(date) {
-            info.creation_date(pdf_writer::Date::new(year).month(month).day(day));
-            xmp.create_date(xmp_writer::DateTime::date(year, month, day));
+            info.creation_date(pdf_writer_date);
+
+            let mut xmp_date = xmp_writer::DateTime::year(year);
+            xmp_date.month = date.month();
+            xmp_date.day = date.day();
+            xmp.create_date(xmp_date);
         }
     }
 
@@ -233,9 +238,7 @@ fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
 
     for (i, page) in ctx.pages.iter().enumerate() {
         let nr = NonZeroUsize::new(1 + i).unwrap();
-        let Some(label) = &page.label else {
-            continue;
-        };
+        let Some(label) = &page.label else { continue; };
 
         // Don't create a label if neither style nor prefix are specified.
         if label.prefix.is_none() && label.style.is_none() {

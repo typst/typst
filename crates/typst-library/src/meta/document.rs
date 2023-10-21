@@ -32,7 +32,8 @@ pub struct DocumentElem {
     /// The document's keywords.
     pub keywords: Keywords,
 
-    /// The document's creation date. Requires a positive year, month and day. If any of these aren't given, no date is written.
+    /// The document's creation date. Requires a positive year.
+    /// If no year or a negative year is given, no date is written.
     pub date: Option<Datetime>,
 
     /// The page runs.
@@ -108,17 +109,6 @@ pub struct Keywords(Vec<EcoString>);
 
 cast! {
     Keywords,
-    self => self.0.into_value(),
-    v: EcoString => Self(vec![v]),
-    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
-}
-
-/// A list of identifiers.
-#[derive(Debug, Default, Clone, Hash)]
-pub struct Identifier(Vec<EcoString>);
-
-cast! {
-    Identifier,
     self => self.0.into_value(),
     v: EcoString => Self(vec![v]),
     v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
