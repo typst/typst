@@ -1005,8 +1005,8 @@ fn assert_glyph_ranges_in_order(glyphs: &[ShapedGlyph], dir: Dir) {
 pub(crate) const BEGIN_PUNCT_PAT: &[char] =
     &['“', '‘', '《', '〈', '（', '『', '「', '【', '〖', '〔', '［', '｛'];
 pub(crate) const END_PUNCT_PAT: &[char] = &[
-    '”', '’', '，', '。', '、', '：', '；', '》', '〉', '）', '』', '」', '】', '〗',
-    '〕', '］', '｝',
+    '”', '’', '，', '．', '。', '、', '：', '；', '》', '〉', '）', '』', '」', '】',
+    '〗', '〕', '］', '｝',
 ];
 
 /// Whether the glyph is a space.

@@ -17,7 +17,7 @@ use crate::math::EquationElem;
 use crate::prelude::*;
 use crate::text::{
     char_is_cjk_script, is_gb_style, shape, LinebreakElem, Quoter, Quotes, ShapedGlyph,
-    ShapedText, SmartquoteElem, SpaceElem, TextElem, END_PUNCT_PAT, BEGIN_PUNCT_PAT,
+    ShapedText, SmartquoteElem, SpaceElem, TextElem, BEGIN_PUNCT_PAT, END_PUNCT_PAT,
 };
 
 /// Arranges text, spacing and inline-level elements into a paragraph.
