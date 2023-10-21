@@ -1001,6 +1001,14 @@ fn assert_glyph_ranges_in_order(glyphs: &[ShapedGlyph], dir: Dir) {
     }
 }
 
+// The CJK punctuation that can appear at the beginning or end of a line.
+pub(crate) const BEGIN_PUNCT_PAT: &[char] =
+    &['“', '‘', '《', '〈', '（', '『', '「', '【', '〖', '〔', '［', '｛'];
+pub(crate) const END_PUNCT_PAT: &[char] = &[
+    '”', '’', '，', '。', '、', '：', '；', '》', '〉', '）', '』', '」', '】', '〗',
+    '〕', '］', '｝',
+];
+
 /// Whether the glyph is a space.
 #[inline]
 fn is_space(c: char) -> bool {
