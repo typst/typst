@@ -29,6 +29,10 @@ $a + cancel(x, length: #200%) - cancel(x, length: #50%, stroke: #{red + 1.1pt})$
 $ b + cancel(x, length: #150%) - cancel(a + b + c, length: #50%, stroke: #{blue + 1.2pt}) $
 
 ---
-// Rotated
-$x + cancel(y, rotation: #90deg) - cancel(z, rotation: #135deg)$
-$ e + cancel((j + e)/(f + e)) - cancel((j + e)/(f + e), rotation: #30deg) $
+// Specifying cancel line angle with an absolute angle
+$cancel(x, angle: #0deg) + cancel(x, angle: #45deg) + cancel(x, angle: #90deg) + cancel(x, angle: #135deg)$
+
+---
+// Specifying cancel line angle with a function
+$x + cancel(y, angle: #{angle => angle + 90deg}) - cancel(z, angle: #{angle => angle + 135deg})$
+$ e + cancel((j + e)/(f + e)) - cancel((j + e)/(f + e), angle: #{angle => angle + 30deg}) $
