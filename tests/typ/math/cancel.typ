@@ -25,8 +25,8 @@ $ a + cancel(b + c + d, cross: #true) + e $
 ---
 // Resized and styled
 #set page(width: 200pt, height: auto)
-$a + cancel(x, length: #200%) - cancel(x, length: #50%, stroke: #{red + 1.1pt})$
-$ b + cancel(x, length: #150%) - cancel(a + b + c, length: #50%, stroke: #{blue + 1.2pt}) $
+$a + cancel(x, length: #200%) - cancel(x, length: #50%, stroke: #(red + 1.1pt))$
+$ b + cancel(x, length: #150%) - cancel(a + b + c, length: #50%, stroke: #(blue + 1.2pt)) $
 
 ---
 // Specifying cancel line angle with an absolute angle
@@ -34,5 +34,5 @@ $cancel(x, angle: #0deg) + cancel(x, angle: #45deg) + cancel(x, angle: #90deg) +
 
 ---
 // Specifying cancel line angle with a function
-$x + cancel(y, angle: #{angle => angle + 90deg}) - cancel(z, angle: #{angle => angle + 135deg})$
-$ e + cancel((j + e)/(f + e)) - cancel((j + e)/(f + e), angle: #{angle => angle + 30deg}) $
+$x + cancel(y, angle: #{angle => angle + 90deg}) - cancel(z, angle: #(angle => angle + 135deg))$
+$ e + cancel((j + e)/(f + e)) - cancel((j + e)/(f + e), angle: #(angle => angle + 30deg)) $
