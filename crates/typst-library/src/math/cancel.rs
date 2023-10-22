@@ -207,7 +207,7 @@ fn draw_cancel_line(
                     } else {
                         None
                     }
-                    .or_else(|| Some(default_angle))
+                    .or(Some(default_angle))
                 }
             }
         }
