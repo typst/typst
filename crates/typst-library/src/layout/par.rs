@@ -17,7 +17,7 @@ use crate::math::EquationElem;
 use crate::prelude::*;
 use crate::text::{
     char_is_cjk_script, is_gb_style, shape, LinebreakElem, Quoter, Quotes, ShapedGlyph,
-    ShapedText, SmartquoteElem, SpaceElem, TextElem,
+    ShapedText, SmartquoteElem, SpaceElem, TextElem, BEGIN_PUNCT_PAT, END_PUNCT_PAT,
 };
 
 /// Arranges text, spacing and inline-level elements into a paragraph.
@@ -1286,11 +1286,6 @@ fn line<'a>(
 ) -> Line<'a> {
     let end = range.end;
     let mut justify = p.justify && end < p.bidi.text.len() && !mandatory;
-
-    // The CJK punctuation that can appear at the beginning or end of a line.
-    const BEGIN_PUNCT_PAT: &[char] = &['“', '‘', '《', '（', '『', '「'];
-    const END_PUNCT_PAT: &[char] =
-        &['”', '’', '，', '。', '、', '：', '；', '》', '）', '』', '」'];
 
     if range.is_empty() {
         return Line {
