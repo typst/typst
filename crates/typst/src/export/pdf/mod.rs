@@ -171,6 +171,24 @@ fn write_catalog(ctx: &mut PdfContext) {
         xmp.pdf_keywords(&joined);
     }
 
+    if let Some(date) = ctx.document.date {
+        if let Some(year) = date.year().filter(|&y| y >= 0) {
+            let mut pdf_date = pdf_writer::Date::new(year as u16);
+            if let Some(month) = date.month() {
+                pdf_date = pdf_date.month(month);
+            }
+            if let Some(day) = date.day() {
+                pdf_date = pdf_date.day(day);
+            }
+            info.creation_date(pdf_date);
+
+            let mut xmp_date = xmp_writer::DateTime::year(year as u16);
+            xmp_date.month = date.month();
+            xmp_date.day = date.day();
+            xmp.create_date(xmp_date);
+        }
+    }
+
     info.finish();
     xmp.num_pages(ctx.document.pages.len() as u32);
     xmp.format("application/pdf");

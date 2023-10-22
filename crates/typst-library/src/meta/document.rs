@@ -1,3 +1,5 @@
+use typst::eval::Datetime;
+
 use crate::layout::{LayoutRoot, PageElem};
 use crate::meta::ManualPageCounter;
 use crate::prelude::*;
@@ -29,6 +31,12 @@ pub struct DocumentElem {
 
     /// The document's keywords.
     pub keywords: Keywords,
+
+    /// The document's creation date.
+    ///
+    /// The year component must be at least zero in order to be embedded into
+    /// a PDF.
+    pub date: Option<Datetime>,
 
     /// The page runs.
     #[internal]
@@ -81,6 +89,7 @@ impl LayoutRoot for DocumentElem {
             title: self.title(styles),
             author: self.author(styles).0,
             keywords: self.keywords(styles).0,
+            date: self.date(styles),
         })
     }
 }
