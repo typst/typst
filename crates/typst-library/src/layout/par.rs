@@ -1109,7 +1109,7 @@ static SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
     LineSegmenter::try_new_lstm_with_buffer_provider(&provider).unwrap()
 });
 
-/// The Unicode line break properties for each code point.
+/// The line break segmenter for Chinese/Japanese text.
 static CJ_SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
     let provider = BlobDataProvider::try_new_from_static_blob(ICU_DATA).unwrap();
     let cj_blob = BlobDataProvider::try_new_from_static_blob(CJ_LINEBREAK_DATA).unwrap();
@@ -1117,7 +1117,7 @@ static CJ_SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
     LineSegmenter::try_new_lstm_with_buffer_provider(&cj_provider).unwrap()
 });
 
-/// The line break segmenter for Chinese/Jpanese text.
+/// The Unicode line break properties for each code point.
 static LINEBREAK_DATA: Lazy<CodePointMapData<LineBreak>> = Lazy::new(|| {
     let provider = BlobDataProvider::try_new_from_static_blob(ICU_DATA).unwrap();
     let deser_provider = provider.as_deserializing();
@@ -1170,6 +1170,8 @@ impl Iterator for Breakpoints<'_> {
     type Item = (usize, bool, bool);
 
     fn next(&mut self) -> Option<Self::Item> {
+        let lb = LINEBREAK_DATA.as_borrowed();
+
         // If we're currently in a hyphenated "word", process the next syllable.
         if let Some(syllable) = self.syllables.as_mut().and_then(Iterator::next) {
             self.offset += syllable.len();
@@ -1177,17 +1179,25 @@ impl Iterator for Breakpoints<'_> {
                 self.offset = self.end;
             }
 
-            // Filter out hyphenation opportunities where hyphenation was
-            // actually disabled.
             let hyphen = self.offset < self.end;
-            if hyphen && !self.hyphenate(self.offset) {
-                return self.next();
+            if hyphen {
+                // Filter out hyphenation opportunities where hyphenation was
+                // actually disabled.
+                if !self.hyphenate(self.offset) {
+                    return self.next();
+                }
+
+                // Filter out forbidden hyphenation opportunities.
+                if matches!(
+                    syllable.chars().last().map(|c| lb.get(c)),
+                    Some(LineBreak::Glue | LineBreak::WordJoiner | LineBreak::ZWJ)
+                ) {
+                    return self.next();
+                }
             }
 
             return Some((self.offset, self.mandatory && !hyphen, hyphen));
         }
-
-        let lb = LINEBREAK_DATA.as_borrowed();
 
         loop {
             // Get the next "word".
