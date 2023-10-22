@@ -129,7 +129,6 @@ impl Content {
             Self::Dyn(dyn_) => dyn_.set_location(location),
             Self::Static(static_) => {
                 swap_with_mut(static_);
-
                 Arc::get_mut(static_).unwrap().set_location(location);
             }
         }
@@ -502,7 +501,10 @@ impl std::hash::Hash for Content {
 
         match self {
             Content::Dyn(dyn_) => dyn_.hash(state),
-            Content::Static(static_) => static_.hash(state),
+            Content::Static(static_) => {
+                static_.data().hash(state);
+                static_.hash(state)
+            },
         }
     }
 }
@@ -1052,8 +1054,9 @@ fn missing_field_no_default(field: &str) -> EcoString {
     )
 }
 
+#[doc(hidden)]
 #[allow(invalid_value)]
-fn swap_with_mut(val: &mut Arc<dyn Element>) {
+pub fn swap_with_mut(val: &mut Arc<dyn Element>) {
     // Safety: we forget the old value, so we need to make sure it is not dropped.
     let mut tmp = unsafe { MaybeUninit::uninit().assume_init() };
     std::mem::swap(val, &mut tmp);

@@ -145,7 +145,7 @@ impl LayoutMath for UnderbraceElem {
 /// ```example
 /// $ overbrace(1 + 2 + ... + 5, "numbers") $
 /// ```
-#[elem(LayoutMath)]
+#[selem(LayoutMath)]
 pub struct OverbraceElem {
     /// The content below the brace.
     #[required]

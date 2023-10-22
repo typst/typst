@@ -33,6 +33,8 @@ pub trait Element: Any + Send + Sync + Debug + Repr + 'static {
 
     fn is_guarded(&self, guard: Guard) -> bool;
 
+    fn guards(&self) -> &[::typst::model::Guard];
+
     fn is_pristine(&self) -> bool;
 
     fn mark_prepared(&mut self);

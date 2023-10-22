@@ -33,7 +33,7 @@ use crate::prelude::*;
 ///   flame of Udûn. Go back to the Shadow! You cannot pass.
 /// ]
 /// ```
-#[elem(Finalize, Show)]
+#[selem(Finalize, Show)]
 pub struct QuoteElem {
     /// Whether this is a block quote.
     ///
@@ -108,7 +108,7 @@ pub struct QuoteElem {
     body: Content,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub enum Attribution {
     Content(Content),
     Label(Label),

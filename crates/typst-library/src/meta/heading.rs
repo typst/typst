@@ -38,7 +38,7 @@ use crate::text::{SpaceElem, TextElem, TextSize};
 /// Headings have dedicated syntax: They can be created by starting a line with
 /// one or multiple equals signs, followed by a space. The number of equals
 /// signs determines the heading's logical nesting depth.
-#[elem(Locatable, Synthesize, Count, Show, Finalize, LocalName, Refable, Outlinable)]
+#[selem(Locatable, Synthesize, Count, Show, Finalize, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
     /// The logical nesting depth of the heading, starting from one.
     #[default(NonZeroUsize::ONE)]
@@ -217,7 +217,7 @@ impl Outlinable for HeadingElem {
         let mut content = self.body();
         if let Some(numbering) = self.numbering(StyleChain::default()) {
             let numbers = Counter::of(Self::elem())
-                .at(vt, self.0.location().unwrap())?
+                .at(vt, self.location().unwrap())?
                 .display(vt, &numbering)?;
             content = numbers + SpaceElem::new().pack() + content;
         };

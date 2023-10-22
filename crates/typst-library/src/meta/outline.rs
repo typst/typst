@@ -52,7 +52,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// `title` and `indent` parameters. If desired, however, it is possible to have
 /// more control over the outline's look and style through the
 /// [`outline.entry`]($outline.entry) element.
-#[elem(scope, keywords = ["Table of Contents"], Show, Finalize, LocalName)]
+#[selem(scope, keywords = ["Table of Contents"], Show, Finalize, LocalName)]
 pub struct OutlineElem {
     /// The title of the outline.
     ///
@@ -301,7 +301,7 @@ pub trait Outlinable: Refable {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub enum OutlineIndent {
     Bool(bool),
     Rel(Rel<Length>),

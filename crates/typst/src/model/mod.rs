@@ -14,7 +14,7 @@ pub use typst_macros::elem;
 #[doc(inline)]
 pub use typst_macros::selem;
 
-pub use self::content::{Content, DynContent, MetaElem, PlainText};
+pub use self::content::{Content, DynContent, MetaElem, PlainText, swap_with_mut};
 pub use self::element::{
     Construct, Element, ElementData, NativeElement, NativeElementData, Set,
 };

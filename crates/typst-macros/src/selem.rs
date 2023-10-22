@@ -95,6 +95,11 @@ fn create(element: &Elem) -> TokenStream {
         .iter()
         .all(|capability| capability != "Repr")
         .then(|| create_repr_impl(element));
+    let debug_impl = element
+        .capabilities
+        .iter()
+        .all(|capability| capability != "Debug")
+        .then(|| create_debug_impl(element));
 
     let field_matches = all.clone().map(|field| {
         let name = &field.name;
@@ -164,7 +169,7 @@ fn create(element: &Elem) -> TokenStream {
 
     quote! {
         #[doc = #docs]
-        #[derive(Debug, Clone, Hash)]
+        #[derive(Clone, Hash)]
         #vis struct #ident {
             span: ::typst::syntax::Span,
             location: Option<::typst::model::Location>,
@@ -208,6 +213,7 @@ fn create(element: &Elem) -> TokenStream {
         #locatable_impl
         #partial_eq_impl
         #repr_impl
+        #debug_impl
 
         impl ::typst::model::Element for #ident {
             fn data(&self) -> ::typst::model::ElementData {
@@ -219,7 +225,9 @@ fn create(element: &Elem) -> TokenStream {
             }
 
             fn set_span(&mut self, span: ::typst::syntax::Span) {
-                self.span = span;
+                if self.span().is_detached() {
+                    self.span = span;
+                }
             }
 
             fn location(&self) -> Option<::typst::model::Location> {
@@ -248,6 +256,10 @@ fn create(element: &Elem) -> TokenStream {
 
             fn is_pristine(&self) -> bool {
                 self.guards.is_empty()
+            }
+
+            fn guards(&self) -> &[::typst::model::Guard] {
+                &self.guards
             }
 
             fn mark_prepared(&mut self) {
@@ -287,6 +299,7 @@ fn create(element: &Elem) -> TokenStream {
 
             fn field(&self, name: &str) -> Option<::typst::eval::Value> {
                 match name {
+                    "label" => self.label().cloned().map(::typst::eval::Value::Label),
                     #(
                         #field_matches
                     )*
@@ -346,6 +359,38 @@ fn create_partial_eq_impl(element: &Elem) -> TokenStream {
                 #(
                     &self.#all == &other.#all
                 )&&*
+            }
+        }
+    }
+}
+
+fn create_debug_impl(element: &Elem) -> TokenStream {
+    let ident = &element.ident;
+    let name = &element.name;
+
+    let all = element
+        .fields
+        .iter()
+        .filter(|field| {
+            !field.external
+                && !field.synthesized
+                && (!field.internal || field.parse.is_some())
+                && !field.fold
+        })
+        .map(|field| &field.ident)
+        .collect::<Vec<_>>();
+
+    quote! {
+        impl ::std::fmt::Debug for #ident {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                f.debug_struct(#name)
+                    .field("span", &self.span)
+                    .field("location", &self.location)
+                    .field("label", &self.label)
+                    #(
+                        .field(stringify!(#all), &self.#all)
+                    )*
+                    .finish()
             }
         }
     }
@@ -613,7 +658,8 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
             fn unpack(content: &#model::Content) -> ::std::option::Option<&Self> {
                 content.is::<Self>().then(|| unsafe {
                     let #model::Content::Static(static_) = content else {
-                        unreachable!();
+                        // Safety: we checked that we are `Self`.
+                        unsafe { ::std::hint::unreachable_unchecked(); }
                     };
 
                     // Safety: we checked that we are `Self`.
@@ -624,7 +670,20 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
             }
 
             fn unpack_mut(content: &mut #model::Content) -> Option<&mut Self> {
-                todo!()
+                content.is::<Self>().then(|| unsafe {
+                    let #model::Content::Static(static_) = content else {
+                        // Safety: we checked that we are `Self`.
+                        unsafe { ::std::hint::unreachable_unchecked(); }
+                    };
+
+                    // Make sure we're mutable
+                    ::typst::model::swap_with_mut(static_);
+
+                    // Safety: we checked that we are `Self` and mutable.
+                    unsafe {
+                        &mut *(::std::sync::Arc::as_ptr(static_) as *const () as *mut () as *mut Self)
+                    }
+                })
             }
         }
     }
@@ -779,6 +838,7 @@ fn create_new_func(element: &Elem) -> TokenStream {
         .map(|Field { ident, .. }| {
             quote! { #ident: None }
         });
+
     quote! {
         /// Create a new element.
         pub fn new(#(#params),*) -> Self {

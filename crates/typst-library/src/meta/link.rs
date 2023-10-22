@@ -21,7 +21,7 @@ use crate::text::{Hyphenate, TextElem};
 /// # Syntax
 /// This function also has dedicated syntax: Text that starts with `http://` or
 /// `https://` is automatically turned into a link.
-#[elem(Show)]
+#[selem(Show)]
 pub struct LinkElem {
     /// The destination the link points to.
     ///
@@ -110,7 +110,7 @@ fn body_from_url(url: &EcoString) -> Content {
 }
 
 /// A target where a link can go.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub enum LinkTarget {
     Dest(Destination),
     Label(Label),

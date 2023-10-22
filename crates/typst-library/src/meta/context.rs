@@ -26,7 +26,7 @@ pub fn locate(
 }
 
 /// Executes a `locate` call.
-#[elem(Locatable, Show)]
+#[selem(Locatable, Show)]
 struct LocateElem {
     /// The function to call with the location.
     #[required]
@@ -37,7 +37,7 @@ impl Show for LocateElem {
     #[tracing::instrument(name = "LocateElem::show", skip(self, vt))]
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(vt.delayed(|vt| {
-            let location = self.0.location().unwrap();
+            let location = self.location().unwrap();
             Ok(self.func().call_vt(vt, [location])?.display())
         }))
     }
@@ -142,7 +142,7 @@ pub fn layout(
 }
 
 /// Executes a `layout` call.
-#[elem(Layout)]
+#[selem(Layout)]
 struct LayoutElem {
     /// The function to call with the outer container's (or page's) size.
     #[required]

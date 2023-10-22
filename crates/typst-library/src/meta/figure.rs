@@ -88,7 +88,7 @@ use crate::visualize::ImageElem;
 ///   caption: [I'm up here],
 /// )
 /// ```
-#[elem(scope, Locatable, Synthesize, Count, Show, Finalize, Refable, Outlinable)]
+#[selem(scope, Locatable, Synthesize, Count, Show, Finalize, Refable, Outlinable)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image]($image).
     #[required]
@@ -270,7 +270,7 @@ impl Synthesize for FigureElem {
             caption.push_supplement(supplement.clone());
             caption.push_numbering(numbering.clone());
             caption.push_counter(Some(counter.clone()));
-            caption.push_location(self.0.location());
+            caption.push_figure_location(self.location());
         }
 
         self.push_placement(self.placement(styles));
@@ -373,7 +373,7 @@ impl Outlinable for FigureElem {
             self.counter(),
             self.numbering(StyleChain::default()),
         ) {
-            let location = self.0.location().unwrap();
+            let location = self.location().unwrap();
             let numbers = counter.at(vt, location)?.display(vt, &numbering)?;
 
             if !supplement.is_empty() {
@@ -406,7 +406,7 @@ impl Outlinable for FigureElem {
 ///   caption: [A rectangle],
 /// )
 /// ```
-#[elem(name = "caption", Synthesize, Show)]
+#[selem(name = "caption", Synthesize, Show)]
 pub struct FigureCaption {
     /// The caption's position in the figure. Either `{top}` or `{bottom}`.
     ///
@@ -495,7 +495,7 @@ pub struct FigureCaption {
 
     /// The figure's location.
     #[synthesized]
-    pub location: Option<Location>,
+    pub figure_location: Option<Location>,
 }
 
 impl Synthesize for FigureCaption {
@@ -512,7 +512,7 @@ impl Show for FigureCaption {
         let mut realized = self.body();
 
         if let (Some(mut supplement), Some(numbering), Some(counter), Some(location)) =
-            (self.supplement(), self.numbering(), self.counter(), self.location())
+            (self.supplement(), self.numbering(), self.counter(), self.figure_location())
         {
             let numbers = counter.at(vt, location)?.display(vt, &numbering)?;
             if !supplement.is_empty() {
@@ -531,7 +531,7 @@ cast! {
 }
 
 /// The `kind` parameter of a [`FigureElem`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub enum FigureKind {
     /// The kind is an element function.
     Elem(ElementData),

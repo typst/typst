@@ -36,7 +36,7 @@ impl PlainText for SpaceElem {
 /// This function also has dedicated syntax: To insert a line break, simply write
 /// a backslash followed by whitespace. This always creates an unjustified
 /// break.
-#[elem(title = "Line Break", Behave)]
+#[selem(title = "Line Break", Behave)]
 pub struct LinebreakElem {
     /// Whether to justify the line before the break.
     ///
@@ -79,7 +79,7 @@ impl Behave for LinebreakElem {
 /// simply enclose it in stars/asterisks (`*`). Note that this only works at
 /// word boundaries. To strongly emphasize part of a word, you have to use the
 /// function.
-#[elem(title = "Strong Emphasis", Show)]
+#[selem(title = "Strong Emphasis", Show)]
 pub struct StrongElem {
     /// The delta to apply on the font weight.
     ///
@@ -143,7 +143,7 @@ impl Fold for Delta {
 /// This function also has dedicated syntax: To emphasize content, simply
 /// enclose it in underscores (`_`). Note that this only works at word
 /// boundaries. To emphasize part of a word, you have to use the function.
-#[elem(title = "Emphasis", Show)]
+#[selem(title = "Emphasis", Show)]
 pub struct EmphElem {
     /// The content to emphasize.
     #[required]

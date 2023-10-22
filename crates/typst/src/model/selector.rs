@@ -262,7 +262,7 @@ cast! {
 ///
 /// Hopefully, this is made obsolete by a more powerful query mechanism in the
 /// future.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct LocatableSelector(pub Selector);
 
 impl Reflect for LocatableSelector {

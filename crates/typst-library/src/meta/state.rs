@@ -368,7 +368,7 @@ cast! {
 }
 
 /// Executes a display of a state.
-#[elem(Locatable, Show)]
+#[selem(Locatable, Show)]
 struct DisplayElem {
     /// The state.
     #[required]
@@ -383,7 +383,7 @@ impl Show for DisplayElem {
     #[tracing::instrument(name = "DisplayElem::show", skip(self, vt))]
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(vt.delayed(|vt| {
-            let location = self.0.location().unwrap();
+            let location = self.location().unwrap();
             let value = self.state().at(vt, location)?;
             Ok(match self.func() {
                 Some(func) => func.call_vt(vt, [value])?.display(),
@@ -394,7 +394,7 @@ impl Show for DisplayElem {
 }
 
 /// Executes a display of a state.
-#[elem(Locatable, Show)]
+#[selem(Locatable, Show)]
 struct UpdateElem {
     /// The key that identifies the state.
     #[required]

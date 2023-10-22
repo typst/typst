@@ -594,7 +594,7 @@ cast! {
 }
 
 /// Executes a display of a state.
-#[elem(Locatable, Show)]
+#[selem(Locatable, Show)]
 struct DisplayElem {
     /// The counter.
     #[required]
@@ -613,7 +613,7 @@ impl Show for DisplayElem {
     #[tracing::instrument(name = "DisplayElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(vt.delayed(|vt| {
-            let location = self.0.location().unwrap();
+            let location = self.location().unwrap();
             let counter = self.counter();
             let numbering = self
                 .numbering()
@@ -646,7 +646,7 @@ impl Show for DisplayElem {
 }
 
 /// Executes an update of a counter.
-#[elem(Locatable, Show)]
+#[selem(Locatable, Show)]
 struct UpdateElem {
     /// The key that identifies the counter.
     #[required]

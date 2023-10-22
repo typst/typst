@@ -9,7 +9,7 @@ use crate::prelude::*;
 /// ```example
 /// Revenue#sub[yearly]
 /// ```
-#[elem(title = "Subscript", Show)]
+#[selem(title = "Subscript", Show)]
 pub struct SubElem {
     /// Whether to prefer the dedicated subscript characters of the font.
     ///
@@ -69,7 +69,7 @@ impl Show for SubElem {
 /// ```example
 /// 1#super[st] try!
 /// ```
-#[elem(title = "Superscript", Show)]
+#[selem(title = "Superscript", Show)]
 pub struct SuperElem {
     /// Whether to prefer the dedicated superscript characters of the font.
     ///

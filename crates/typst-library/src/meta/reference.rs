@@ -154,13 +154,13 @@ impl Show for RefElem {
                     bail!(span, "label occurs in the document and its bibliography");
                 }
 
-                return Ok(self.to_citation(vt, styles)?.pack().spanned(span));
+                return Ok(self.to_citation(vt, styles)?.spanned(span).pack());
             }
 
             let elem = elem.at(span)?;
 
             if elem.func() == FootnoteElem::elem() {
-                return Ok(FootnoteElem::with_label(target).pack().spanned(span));
+                return Ok(FootnoteElem::with_label(target).spanned(span).pack());
             }
 
             let refable = elem

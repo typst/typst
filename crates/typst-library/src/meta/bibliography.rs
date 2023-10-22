@@ -3,7 +3,7 @@ use std::ffi::OsStr;
 use std::path::Path;
 use std::sync::Arc;
 
-use ecow::{eco_vec, EcoVec};
+use ecow::EcoVec;
 use hayagriva::io::{BibLaTeXError, YamlBibliographyError};
 use hayagriva::style::{self, Brackets, Citation, Database, DisplayString, Formatting};
 use hayagriva::Entry;
@@ -368,6 +368,16 @@ impl Synthesize for CiteElem {
     }
 }
 
+/*impl CiteElem {
+    pub fn location(&self) -> Option<Location> {
+        self.0.location()
+    }
+
+    pub fn set_location(&mut self, location: Location) {
+        self.0.set_location(location)
+    }
+}*/
+
 impl Show for CiteElem {
     #[tracing::instrument(name = "CiteElem::show", skip(self, vt))]
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
@@ -428,12 +438,9 @@ impl Works {
     /// Prepare all things need to cite a work or format a bibliography.
     fn new(vt: &Vt) -> StrResult<Arc<Self>> {
         let bibliography = BibliographyElem::find(vt.introspector)?;
-        let citations = vt
+        let citations: Vec<_> = vt
             .introspector
-            .query(&Selector::Or(eco_vec![
-                RefElem::elem().select(),
-                CiteElem::elem().select(),
-            ]))
+            .query(&CiteElem::elem().select())
             .into_iter()
             .map(|elem| match elem.to::<RefElem>() {
                 Some(reference) => reference.citation().unwrap(),
@@ -490,6 +497,7 @@ fn create(bibliography: BibliographyElem, citations: Vec<CiteElem>) -> Arc<Works
 
             let mut supplement = citation.supplement(StyleChain::default());
             let brackets = citation.brackets(StyleChain::default());
+
             let style = citation
                 .style(StyleChain::default())
                 .unwrap_or(style.default_citation_style());

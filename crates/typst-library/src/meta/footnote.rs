@@ -10,7 +10,7 @@ use crate::visualize::LineElem;
 
 /// The body of a footnote can be either some content or a label referencing
 /// another footnote.
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Hash)]
 pub enum FootnoteBody {
     Content(Content),
     Reference(Label),
@@ -61,7 +61,7 @@ cast! {
 /// apply to the footnote's content. See [here][issue] for more information.
 ///
 /// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
-#[elem(scope, Locatable, Synthesize, Show, Count)]
+#[selem(scope, Locatable, Synthesize, Show, Count)]
 pub struct FootnoteElem {
     /// How to number footnotes.
     ///
@@ -126,7 +126,7 @@ impl FootnoteElem {
                     .ok_or("referenced element should be a footnote")?;
                 footnote.declaration_location(vt)
             }
-            _ => Ok(self.0.location().unwrap()),
+            _ => Ok(self.location().unwrap()),
         }
     }
 }
@@ -177,7 +177,7 @@ impl Count for FootnoteElem {
 /// #footnote[It's down here]
 /// has red text!
 /// ```
-#[elem(name = "entry", title = "Footnote Entry", Show, Finalize)]
+#[selem(name = "entry", title = "Footnote Entry", Show, Finalize)]
 pub struct FootnoteEntry {
     /// The footnote for this entry. It's location can be used to determine
     /// the footnote counter state.
@@ -268,7 +268,7 @@ impl Show for FootnoteEntry {
         let number_gap = Em::new(0.05);
         let numbering = note.numbering(StyleChain::default());
         let counter = Counter::of(FootnoteElem::elem());
-        let loc = note.0.location().unwrap();
+        let loc = note.location().unwrap();
         let num = counter.at(vt, loc)?.display(vt, &numbering)?;
         let sup = SuperElem::new(num)
             .pack()
