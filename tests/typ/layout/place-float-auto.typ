@@ -17,3 +17,15 @@
 ---
 // Error: 2-45 floating placement must be `auto`, `top`, or `bottom`
 #place(center + horizon, float: true)[Hello]
+
+---
+// Error: 2-36 floating placement must be `auto`, `top`, or `bottom`
+#place(horizon, float: true)[Hello]
+
+---
+// Error: 2-27 floating placement must be `auto`, `top`, or `bottom`
+#place(float: true)[Hello]
+
+---
+// Error: 2-34 floating placement must be `auto`, `top`, or `bottom`
+#place(right, float: true)[Hello]
