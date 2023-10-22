@@ -29,8 +29,9 @@ pub struct CancelElem {
     #[default(Rel::new(Ratio::one(), Abs::pt(3.0).into()))]
     pub length: Rel<Length>,
 
-    /// If the cancel line should be inverted (pointing to the top left instead
-    /// of top right).
+    /// Whether the cancel line should be inverted (flipped along the y-axis).
+    /// For the default angle setting, inverted means the cancel line
+    /// points to the top left instead of top right.
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
@@ -40,8 +41,8 @@ pub struct CancelElem {
     #[default(false)]
     pub inverted: bool,
 
-    /// If two opposing cancel lines should be drawn, forming a cross over the
-    /// element. Overrides `inverted`.
+    /// Whether two opposing cancel lines should be drawn, forming a cross over
+    /// the element. Overrides `inverted`.
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
@@ -50,15 +51,26 @@ pub struct CancelElem {
     #[default(false)]
     pub cross: bool,
 
-    /// How to rotate the cancel line. See the
-    /// [line's documentation]($line.angle) for more details.
+    /// How much to rotate the cancel line.
+    ///
+    /// - If `{auto}`, the line assumes the default angle; that is, along the
+    ///   diagonal line of the content box.
+    /// - If given an angle, the line is rotated by that angle clockwise w.r.t
+    ///   the y-axis.
+    /// - It given a function `angle => angle`, the line is rotated by the angle
+    ///   returned by that function. The function receives the default angle as
+    ///   its input.
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
-    /// $ cancel(Pi, rotation: #30deg) $
+    /// $ cancel(Pi)
+    ///   cancel(Pi, angle: #0deg)
+    ///   cancel(Pi, angle: #45deg)
+    ///   cancel(Pi, angle: #90deg)
+    ///   cancel(1/(1+x), angle: #(a => a + 45deg))
+    ///   cancel(1/(1+x), angle: #(a => a + 90deg)) $
     /// ```
-    #[default(Angle::zero())]
-    pub rotation: Angle,
+    pub angle: Smart<CancelAngle>,
 
     /// How to [stroke]($stroke) the cancel line.
     ///
@@ -102,17 +114,18 @@ impl LayoutMath for CancelElem {
 
         let invert = self.inverted(styles);
         let cross = self.cross(styles);
-        let angle = self.rotation(styles);
+        let angle = self.angle(styles);
 
         let invert_first_line = !cross && invert;
         let first_line = draw_cancel_line(
+            ctx,
             length,
             stroke.clone(),
             invert_first_line,
-            angle,
+            &angle,
             body_size,
             span,
-        );
+        )?;
 
         // The origin of our line is the very middle of the element.
         let center = body_size.to_point() / 2.0;
@@ -121,7 +134,7 @@ impl LayoutMath for CancelElem {
         if cross {
             // Draw the second line.
             let second_line =
-                draw_cancel_line(length, stroke, true, angle, body_size, span);
+                draw_cancel_line(ctx, length, stroke, true, &angle, body_size, span)?;
 
             body.push_frame(center, second_line);
         }
@@ -132,15 +145,77 @@ impl LayoutMath for CancelElem {
     }
 }
 
+/// Defines the cancel line.
+pub enum CancelAngle {
+    Angle(Angle),
+    Func(Func),
+}
+
+cast! {
+    CancelAngle,
+    self => match self {
+        Self::Angle(v) => v.into_value(),
+        Self::Func(v) => v.into_value()
+    },
+    v: Angle => CancelAngle::Angle(v),
+    v: Func => CancelAngle::Func(v),
+}
+
 /// Draws a cancel line.
 fn draw_cancel_line(
-    length: Rel<Abs>,
+    ctx: &mut MathContext,
+    length_scale: Rel<Abs>,
     stroke: FixedStroke,
     invert: bool,
-    angle: Angle,
+    angle: &Smart<CancelAngle>,
     body_size: Size,
     span: Span,
-) -> Frame {
+) -> SourceResult<Frame> {
+    let default = default_angle(body_size);
+    let mut angle = match angle {
+        // Non specified angle defaults to the diagonal
+        Smart::Auto => default,
+        Smart::Custom(angle) => match angle {
+            // This specifies the absolute angle w.r.t y-axis clockwise.
+            CancelAngle::Angle(v) => *v,
+            // This specifies a function that takes the default angle as input.
+            CancelAngle::Func(func) => {
+                func.call_vt(ctx.vt, [default])?.cast().at(span)?
+            }
+        },
+    };
+
+    // invert means flipping along the y-axis
+    if invert {
+        angle *= -1.0;
+    }
+
+    // same as above, the default length is the diagonal of the body box.
+    let default_length = body_size.to_point().hypot();
+    let length = length_scale.relative_to(default_length);
+
+    // Draw a vertical line of length and rotate it by angle
+    let start = Point::new(Abs::zero(), length / 2.0);
+    let delta = Point::new(Abs::zero(), -length);
+
+    let mut frame = Frame::soft(body_size);
+    frame.push(start, FrameItem::Shape(Geometry::Line(delta).stroked(stroke), span));
+
+    // Having the middle of the line at the origin is convenient here.
+    frame.transform(Transform::rotate(angle));
+    Ok(frame)
+}
+
+/// The default line angle for a body of the given size.
+fn default_angle(body: Size) -> Angle {
+    // The default cancel line is the diagonal.
+    // We infer the default angle from
+    // the diagonal w.r.t to the body box.
+    //
+    // The returned angle is in the range of [0, Pi/2]
+    //
+    // Note that the angle is computed w.r.t to the y-axis
+    //
     //            B
     //           /|
     // diagonal / | height
@@ -148,36 +223,7 @@ fn draw_cancel_line(
     //        /   |
     //       O ----
     //         width
-    let diagonal = body_size.to_point().hypot();
-    let length = length.relative_to(diagonal);
-    let (width, height) = (body_size.x, body_size.y);
-    let mid = body_size / 2.0;
-
-    // Scale the amount needed such that the cancel line has the given 'length'
-    // (reference length, or 100%, is the whole diagonal).
-    // Scales from the center.
-    let scale = length.to_raw() / diagonal.to_raw();
-
-    // invert horizontally if 'invert' was given
-    let scale_x = scale * if invert { -1.0 } else { 1.0 };
-    let scale_y = scale;
-    let scales = Axes::new(scale_x, scale_y);
-
-    // Draw a line from bottom left to top right of the given element, where the
-    // origin represents the very middle of that element, that is, a line from
-    // (-width / 2, height / 2) with length components (width, -height) (sign is
-    // inverted in the y-axis). After applying the scale, the line will have the
-    // correct length and orientation (inverted if needed).
-    let start = Axes::new(-mid.x, mid.y).zip_map(scales, |l, s| l * s);
-    let delta = Axes::new(width, -height).zip_map(scales, |l, s| l * s);
-
-    let mut frame = Frame::soft(body_size);
-    frame.push(
-        start.to_point(),
-        FrameItem::Shape(Geometry::Line(delta.to_point()).stroked(stroke), span),
-    );
-
-    // Having the middle of the line at the origin is convenient here.
-    frame.transform(Transform::rotate(angle));
-    frame
+    let (width, height) = (body.x, body.y);
+    let default_angle = (width / height).atan(); // arctangent (in the range [0, Pi/2])
+    Angle::rad(default_angle)
 }
