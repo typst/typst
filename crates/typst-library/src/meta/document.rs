@@ -32,8 +32,10 @@ pub struct DocumentElem {
     /// The document's keywords.
     pub keywords: Keywords,
 
-    /// The document's creation date. Requires a positive year.
-    /// If no year or a negative year is given, no date is written.
+    /// The document's creation date.
+    ///
+    /// The year component must be at least zero in order to be embedded into
+    /// a PDF.
     pub date: Option<Datetime>,
 
     /// The page runs.

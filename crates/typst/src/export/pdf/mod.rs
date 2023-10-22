@@ -172,20 +172,17 @@ fn write_catalog(ctx: &mut PdfContext) {
     }
 
     if let Some(date) = ctx.document.date {
-        if let Some(year) =
-            date.year().and_then(|y| if y < 0 { None } else { Some(y as u16) })
-        {
-            let mut pdf_writer_date = pdf_writer::Date::new(year);
+        if let Some(year) = date.year().filter(|&y| y >= 0) {
+            let mut pdf_date = pdf_writer::Date::new(year as u16);
             if let Some(month) = date.month() {
-                pdf_writer_date = pdf_writer_date.month(month);
+                pdf_date = pdf_date.month(month);
             }
             if let Some(day) = date.day() {
-                pdf_writer_date = pdf_writer_date.day(day);
+                pdf_date = pdf_date.day(day);
             }
+            info.creation_date(pdf_date);
 
-            info.creation_date(pdf_writer_date);
-
-            let mut xmp_date = xmp_writer::DateTime::year(year);
+            let mut xmp_date = xmp_writer::DateTime::year(year as u16);
             xmp_date.month = date.month();
             xmp_date.day = date.day();
             xmp.create_date(xmp_date);

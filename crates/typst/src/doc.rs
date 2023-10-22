@@ -30,7 +30,7 @@ pub struct Document {
     pub author: Vec<EcoString>,
     /// The document's keywords.
     pub keywords: Vec<EcoString>,
-    /// The document's creation date. Requires a positive year, month and day. If any of these aren't given, no date is written.
+    /// The document's creation date.
     pub date: Option<Datetime>,
 }
 
