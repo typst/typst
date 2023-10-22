@@ -11,7 +11,7 @@ use super::*;
 /// $ (a dot b dot cancel(x)) /
 ///     cancel(x) $
 /// ```
-#[elem(LayoutMath)]
+#[selem(LayoutMath)]
 pub struct CancelElem {
     /// The content over which the line should be placed.
     #[required]

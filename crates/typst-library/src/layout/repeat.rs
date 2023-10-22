@@ -23,7 +23,7 @@ use super::AlignElem;
 ///   Berlin, the 22nd of December, 2022
 /// ]
 /// ```
-#[elem(Layout)]
+#[selem(Layout)]
 pub struct RepeatElem {
     /// The content to repeat.
     #[required]

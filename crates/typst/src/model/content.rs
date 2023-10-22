@@ -1,21 +1,530 @@
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::fmt::Debug;
 use std::iter::{self, Sum};
+use std::mem::MaybeUninit;
 use std::ops::{Add, AddAssign};
+use std::sync::Arc;
 
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Serialize, Serializer};
 
 use super::{
-    elem, Behave, Behaviour, Element, Guard, Label, Locatable, Location, NativeElement,
-    Recipe, Selector, Style, Styles, Synthesize,
+    elem, Behave, Behaviour, Element, ElementData, Guard, Label, Locatable, Location,
+    NativeElement, Recipe, Selector, Style, Styles, Synthesize,
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::doc::Meta;
 use crate::eval::{func, scope, ty, Dict, FromValue, IntoValue, Repr, Str, Value, Vm};
 use crate::syntax::Span;
-use crate::util::pretty_array_like;
+
+#[ty(scope)]
+#[derive(Debug, Clone)]
+pub enum Content {
+    Dyn(DynContent),
+    Static(Arc<dyn Element>),
+}
+
+impl Content {
+    // TODO: remove this.
+    pub fn new(elem: ElementData) -> Self {
+        Self::dyn_(DynContent::new(elem))
+    }
+}
+
+impl Default for Content {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
+impl<T: Element> From<T> for Content {
+    fn from(value: T) -> Self {
+        Self::static_(value)
+    }
+}
+
+impl From<DynContent> for Content {
+    fn from(value: DynContent) -> Self {
+        Self::dyn_(value)
+    }
+}
+
+impl From<Arc<dyn Element>> for Content {
+    fn from(value: Arc<dyn Element>) -> Self {
+        Self::Static(value)
+    }
+}
+
+impl Content {
+    #[inline]
+    pub fn static_<E: Element>(elem: E) -> Self {
+        Self::Static(Arc::new(elem))
+    }
+
+    #[inline]
+    pub fn dyn_(dyn_: DynContent) -> Self {
+        Self::Dyn(dyn_)
+    }
+
+    #[inline]
+    pub fn empty() -> Self {
+        Self::dyn_(DynContent::empty())
+    }
+
+    #[inline]
+    pub fn get(&self, name: &str) -> StrResult<Value> {
+        self.field(name).ok_or_else(|| missing_field(name))
+    }
+
+    #[inline]
+    pub fn field(&self, name: &str) -> Option<Value> {
+        match self {
+            Self::Dyn(dyn_) => dyn_.field(name),
+            Self::Static(static_) => static_.field(name),
+        }
+    }
+
+    #[inline]
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Dyn(dyn_) => dyn_.span(),
+            Self::Static(static_) => static_.span(),
+        }
+    }
+
+    #[inline]
+    pub fn label(&self) -> Option<&Label> {
+        match self {
+            Self::Dyn(dyn_) => dyn_.label(),
+            Self::Static(static_) => static_.label(),
+        }
+    }
+
+    pub fn spanned(self, span: Span) -> Self {
+        match self {
+            Content::Dyn(dyn_) => dyn_.spanned(span).into(),
+            Content::Static(mut static_) => {
+                static_ = static_.make_mut();
+                Arc::get_mut(&mut static_).unwrap().set_span(span);
+                static_.into()
+            }
+        }
+    }
+
+    pub fn labelled(self, label: Label) -> Self {
+        match self {
+            Content::Dyn(dyn_) => dyn_.labelled(label).into(),
+            Content::Static(mut static_) => {
+                static_ = static_.make_mut();
+                Arc::get_mut(&mut static_).unwrap().set_label(label);
+                static_.into()
+            }
+        }
+    }
+
+    #[inline]
+    pub fn set_location(&mut self, location: Location) {
+        match self {
+            Self::Dyn(dyn_) => dyn_.set_location(location),
+            Self::Static(static_) => {
+                swap_with_mut(static_);
+
+                Arc::get_mut(static_).unwrap().set_location(location);
+            }
+        }
+    }
+
+    /// Create a new sequence element from multiples elements.
+    pub fn sequence(iter: impl IntoIterator<Item = Self>) -> Self {
+        let mut iter = iter.into_iter();
+        let Some(first) = iter.next() else { return Self::dyn_(DynContent::empty()) };
+        let Some(second) = iter.next() else { return first };
+        let mut content = DynContent::empty();
+        content.attrs.push(Attr::Child(Prehashed::new(first)));
+        content.attrs.push(Attr::Child(Prehashed::new(second)));
+        content
+            .attrs
+            .extend(iter.map(|child| Attr::Child(Prehashed::new(child))));
+        Self::dyn_(content)
+    }
+
+    /// Access the children if this is a sequence.
+    pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Content>> {
+        if !self.is_sequence() {
+            return None;
+        }
+
+        // Todo: make `SequenceElem` a static elem.
+        let Self::Dyn(dyn_) = self else {
+            return None;
+        };
+
+        Some(dyn_.attrs.iter().filter_map(Attr::child))
+    }
+
+    pub fn elem(&self) -> ElementData {
+        match self {
+            Self::Dyn(dyn_) => dyn_.elem,
+            Self::Static(static_) => static_.data(),
+        }
+    }
+
+    /// Whether the contained element is of type `T`.
+    pub fn is<T: NativeElement>(&self) -> bool {
+        self.elem() == T::elem()
+    }
+
+    /// Cast to `T` if the contained element is of type `T`.
+    pub fn to<T: NativeElement>(&self) -> Option<&T> {
+        T::unpack(self)
+    }
+
+    /// Cast to `T` if the contained element is of type `T`.
+    pub fn to_mut<T: NativeElement>(&mut self) -> Option<&mut T> {
+        T::unpack_mut(self)
+    }
+
+    /// Whether the contained element has the given capability.
+    pub fn can<C>(&self) -> bool
+    where
+        C: ?Sized + 'static,
+    {
+        self.elem().can::<C>()
+    }
+
+    /// Whether the contained element has the given capability where the
+    /// capability is given by a `TypeId`.
+    pub fn can_type_id(&self, type_id: TypeId) -> bool {
+        self.elem().can_type_id(type_id)
+    }
+
+    /// Cast to a trait object if the contained element has the given
+    /// capability.
+    pub fn with<C>(&self) -> Option<&C>
+    where
+        C: ?Sized + 'static,
+    {
+        let vtable = self.elem().vtable()(TypeId::of::<C>())?;
+        match self {
+            Content::Dyn(dyn_) => {
+                let data = dyn_ as *const DynContent as *const ();
+                Some(unsafe { &*crate::util::fat::from_raw_parts(data, vtable) })
+            }
+            Content::Static(static_) => {
+                let data = Arc::as_ptr(static_) as *const ();
+                Some(unsafe { &*crate::util::fat::from_raw_parts(data, vtable) })
+            }
+        }
+    }
+
+    pub fn with_mut<C>(&mut self) -> Option<&mut C>
+    where
+        C: ?Sized + 'static,
+    {
+        let vtable = self.elem().vtable()(TypeId::of::<C>())?;
+        match self {
+            Content::Dyn(dyn_) => {
+                let data = dyn_ as *mut DynContent as *mut ();
+                Some(unsafe { &mut *crate::util::fat::from_raw_parts_mut(data, vtable) })
+            }
+            Content::Static(static_) => {
+                swap_with_mut(static_);
+
+                let data = Arc::get_mut(static_).unwrap() as *mut dyn Element as *mut ();
+                Some(unsafe { &mut *crate::util::fat::from_raw_parts_mut(data, vtable) })
+            }
+        }
+    }
+
+    pub fn is_sequence(&self) -> bool {
+        self.is::<SequenceElem>()
+    }
+
+    /// Whether the content is an empty sequence.
+    pub fn is_empty(&self) -> bool {
+        if !self.is::<SequenceElem>() {
+            return false;
+        }
+
+        let Self::Dyn(dyn_) = self else {
+            return false;
+        };
+
+        dyn_.attrs.is_empty()
+    }
+
+    /// Also auto expands sequence of sequences into flat sequence
+    pub fn sequence_recursive_for_each(&self, f: &mut impl FnMut(&Self)) {
+        if let Some(childs) = self.to_sequence() {
+            childs.for_each(|c| c.sequence_recursive_for_each(f));
+        } else {
+            f(self);
+        }
+    }
+
+    /// Access the child and styles.
+    pub fn to_styled(&self) -> Option<(&Content, &Styles)> {
+        if !self.is::<StyledElem>() {
+            return None;
+        }
+
+        let Self::Dyn(dyn_) = self else {
+            return None;
+        };
+
+        let child = dyn_.attrs.iter().find_map(Attr::child)?;
+        let styles = dyn_.attrs.iter().find_map(Attr::styles)?;
+        Some((child, styles))
+    }
+
+    /// Style this content with a recipe, eagerly applying it if possible.
+    pub fn styled_with_recipe(self, vm: &mut Vm, recipe: Recipe) -> SourceResult<Self> {
+        if recipe.selector.is_none() {
+            recipe.apply_vm(vm, self)
+        } else {
+            Ok(self.styled(recipe))
+        }
+    }
+
+    /// Repeat this content `count` times.
+    pub fn repeat(&self, count: usize) -> Self {
+        Self::sequence(vec![self.clone(); count])
+    }
+
+    /// Style this content with a style entry.
+    pub fn styled(mut self, style: impl Into<Style>) -> Self {
+        if self.is::<StyledElem>() {
+            let Self::Dyn(dyn_) = &mut self else { unreachable!() };
+
+            let prev =
+                dyn_.attrs.make_mut().iter_mut().find_map(Attr::styles_mut).unwrap();
+            prev.apply_one(style.into());
+            self
+        } else {
+            self.styled_with_map(style.into().into())
+        }
+    }
+
+    /// Style this content with a full style map.
+    pub fn styled_with_map(mut self, styles: Styles) -> Self {
+        if styles.is_empty() {
+            return self;
+        }
+
+        if self.is::<StyledElem>() {
+            let Self::Dyn(dyn_) = &mut self else { unreachable!() };
+
+            let prev =
+                dyn_.attrs.make_mut().iter_mut().find_map(Attr::styles_mut).unwrap();
+            prev.apply(styles);
+            self
+        } else {
+            let mut content = DynContent::new(StyledElem::elem());
+            content.attrs.push(Attr::Child(Prehashed::new(self)));
+            content.attrs.push(Attr::Styles(styles));
+            content.into()
+        }
+    }
+
+    /// Whether the content needs to be realized specially.
+    pub fn needs_preparation(&self) -> bool {
+        (self.can::<dyn Locatable>()
+            || self.can::<dyn Synthesize>()
+            || self.label().is_some())
+            && !self.is_prepared()
+    }
+
+    /// Queries the content tree for all elements that match the given selector.
+    ///
+    /// Elements produced in `show` rules will not be included in the results.
+    #[tracing::instrument(skip_all)]
+    pub fn query(&self, selector: Selector) -> Vec<&Content> {
+        let mut results = Vec::new();
+        self.traverse(&mut |element| {
+            if selector.matches(element) {
+                results.push(element);
+            }
+        });
+        results
+    }
+
+    /// Queries the content tree for the first element that match the given
+    /// selector.
+    ///
+    /// Elements produced in `show` rules will not be included in the results.
+    #[tracing::instrument(skip_all)]
+    pub fn query_first(&self, selector: Selector) -> Option<&Content> {
+        let mut result = None;
+        self.traverse(&mut |element| {
+            if result.is_none() && selector.matches(element) {
+                result = Some(element);
+            }
+        });
+        result
+    }
+
+    /// Extracts the plain text of this content.
+    pub fn plain_text(&self) -> EcoString {
+        let mut text = EcoString::new();
+        self.traverse(&mut |element| {
+            if let Some(textable) = element.with::<dyn PlainText>() {
+                textable.plain_text(&mut text);
+            }
+        });
+        text
+    }
+
+    pub fn fields_ref(&self) -> EcoVec<(EcoString, Value)> {
+        match self {
+            Content::Dyn(dyn_) => dyn_
+                .fields_ref()
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect(),
+            Content::Static(static_) => static_
+                .fields()
+                .into_iter()
+                .map(|(key, value)| (key.0, value))
+                .collect(),
+        }
+    }
+
+    /// Traverse this content.
+    fn traverse<'a, F>(&'a self, f: &mut F)
+    where
+        F: FnMut(&'a Content),
+    {
+        f(self);
+
+        match self {
+            Self::Dyn(dyn_) => {
+                for attr in &dyn_.attrs {
+                    match attr {
+                        Attr::Child(child) => child.traverse(f),
+                        Attr::Value(value) => walk_value(value, f),
+                        _ => {}
+                    }
+                }
+            }
+            // TODO: implement children on static elements
+            Self::Static(_) => {}
+        }
+
+        /// Walks a given value to find any content that matches the selector.
+        fn walk_value<'a, F>(value: &'a Value, f: &mut F)
+        where
+            F: FnMut(&'a Content),
+        {
+            match value {
+                Value::Content(content) => content.traverse(f),
+                Value::Array(array) => {
+                    for value in array {
+                        walk_value(value, f);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    /// Disable a show rule recipe.
+    pub fn guarded(self, guard: Guard) -> Self {
+        match self {
+            Content::Dyn(dyn_) => dyn_.guarded(guard).into(),
+            Content::Static(static_) => {
+                let mut static_ = static_.make_mut();
+                Arc::get_mut(&mut static_).unwrap().push_guard(guard);
+                static_.into()
+            }
+        }
+    }
+
+    /// Check whether a show rule recipe is disabled.
+    pub fn is_guarded(&self, guard: Guard) -> bool {
+        match self {
+            Content::Dyn(dyn_) => dyn_.is_guarded(guard),
+            Content::Static(static_) => static_.is_guarded(guard),
+        }
+    }
+
+    /// Whether no show rule was executed for this content so far.
+    pub fn is_pristine(&self) -> bool {
+        match self {
+            Content::Dyn(dyn_) => dyn_.is_pristine(),
+            Content::Static(static_) => static_.is_pristine(),
+        }
+    }
+
+    /// Expect a field on the content to exist as a specified type.
+    #[track_caller]
+    pub fn expect_field<T: FromValue>(&self, name: &str) -> T {
+        self.field(name).unwrap().cast().unwrap()
+    }
+
+    /// Whether this content has already been prepared.
+    pub fn is_prepared(&self) -> bool {
+        match self {
+            Content::Dyn(dyn_) => dyn_.is_prepared(),
+            Content::Static(static_) => static_.is_prepared(),
+        }
+    }
+
+    /// Mark this content as prepared.
+    pub fn mark_prepared(&mut self) {
+        match self {
+            Content::Dyn(dyn_) => dyn_.mark_prepared(),
+            Content::Static(static_) => {
+                swap_with_mut(static_);
+                Arc::get_mut(static_).unwrap().mark_prepared();
+            }
+        }
+    }
+
+    /// Attach a field to the content.
+    pub fn with_field(self, name: &str, value: impl IntoValue) -> Self {
+        match self {
+            Content::Dyn(dyn_) => dyn_.with_field(name, value).into(),
+            Content::Static(static_) => {
+                let mut static_ = static_.make_mut();
+                Arc::get_mut(&mut static_)
+                    .unwrap()
+                    .set_field(name, value.into_value())
+                    .unwrap();
+                static_.into()
+            }
+        }
+    }
+}
+
+impl std::hash::Hash for Content {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+
+        match self {
+            Content::Dyn(dyn_) => dyn_.hash(state),
+            Content::Static(static_) => static_.hash(state),
+        }
+    }
+}
+
+impl PartialEq for Content {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Dyn(l0), Self::Dyn(r0)) => l0 == r0,
+            (Self::Static(l0), Self::Static(r0)) => l0.eq(r0 as &dyn Any),
+            _ => false,
+        }
+    }
+}
+
+impl Repr for Content {
+    fn repr(&self) -> EcoString {
+        match self {
+            Content::Dyn(dyn_) => dyn_.repr(),
+            Content::Static(static_) => static_.repr(),
+        }
+    }
+}
 
 /// A piece of document content.
 ///
@@ -60,11 +569,10 @@ use crate::util::pretty_array_like;
 /// In the web app, you can hover over a content variable to see exactly which
 /// elements the content is composed of and what fields they have.
 /// Alternatively, you can inspect the output of the [`repr`]($repr) function.
-#[ty(scope)]
 #[derive(Debug, Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
-pub struct Content {
-    elem: Element,
+pub struct DynContent {
+    elem: ElementData,
     attrs: EcoVec<Attr>,
 }
 
@@ -81,9 +589,9 @@ enum Attr {
     Location(Location),
 }
 
-impl Content {
+impl DynContent {
     /// Create an empty element.
-    pub fn new(elem: Element) -> Self {
+    pub fn new(elem: ElementData) -> Self {
         Self { elem, attrs: EcoVec::new() }
     }
 
@@ -92,89 +600,8 @@ impl Content {
         Self::new(SequenceElem::elem())
     }
 
-    /// Create a new sequence element from multiples elements.
-    pub fn sequence(iter: impl IntoIterator<Item = Self>) -> Self {
-        let mut iter = iter.into_iter();
-        let Some(first) = iter.next() else { return Self::empty() };
-        let Some(second) = iter.next() else { return first };
-        let mut content = Content::empty();
-        content.attrs.push(Attr::Child(Prehashed::new(first)));
-        content.attrs.push(Attr::Child(Prehashed::new(second)));
-        content
-            .attrs
-            .extend(iter.map(|child| Attr::Child(Prehashed::new(child))));
-        content
-    }
-
-    /// Whether the content is an empty sequence.
-    pub fn is_empty(&self) -> bool {
-        self.is::<SequenceElem>() && self.attrs.is_empty()
-    }
-
-    /// Whether the contained element is of type `T`.
-    pub fn is<T: NativeElement>(&self) -> bool {
-        self.elem == T::elem()
-    }
-
-    /// Cast to `T` if the contained element is of type `T`.
-    pub fn to<T: NativeElement>(&self) -> Option<&T> {
-        T::unpack(self)
-    }
-
-    /// Access the children if this is a sequence.
-    pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Self>> {
-        if !self.is_sequence() {
-            return None;
-        }
-        Some(self.attrs.iter().filter_map(Attr::child))
-    }
-
-    pub fn is_sequence(&self) -> bool {
-        self.is::<SequenceElem>()
-    }
-
-    /// Also auto expands sequence of sequences into flat sequence
-    pub fn sequence_recursive_for_each(&self, f: &mut impl FnMut(&Self)) {
-        if let Some(childs) = self.to_sequence() {
-            childs.for_each(|c| c.sequence_recursive_for_each(f));
-        } else {
-            f(self);
-        }
-    }
-
-    /// Access the child and styles.
-    pub fn to_styled(&self) -> Option<(&Content, &Styles)> {
-        if !self.is::<StyledElem>() {
-            return None;
-        }
-        let child = self.attrs.iter().find_map(Attr::child)?;
-        let styles = self.attrs.iter().find_map(Attr::styles)?;
-        Some((child, styles))
-    }
-
-    /// Whether the contained element has the given capability.
-    pub fn can<C>(&self) -> bool
-    where
-        C: ?Sized + 'static,
-    {
-        self.elem.can::<C>()
-    }
-
-    /// Whether the contained element has the given capability where the
-    /// capability is given by a `TypeId`.
-    pub fn can_type_id(&self, type_id: TypeId) -> bool {
-        self.elem.can_type_id(type_id)
-    }
-
-    /// Cast to a trait object if the contained element has the given
-    /// capability.
-    pub fn with<C>(&self) -> Option<&C>
-    where
-        C: ?Sized + 'static,
-    {
-        let vtable = self.elem.vtable()(TypeId::of::<C>())?;
-        let data = self as *const Self as *const ();
-        Some(unsafe { &*crate::util::fat::from_raw_parts(data, vtable) })
+    pub fn location(&self) -> Option<Location> {
+        self.attrs.iter().find_map(Attr::location)
     }
 
     /// Cast to a mutable trait object if the contained element has the given
@@ -224,6 +651,35 @@ impl Content {
             self.attrs.push(Attr::Field(name));
             self.attrs.push(Attr::Value(Prehashed::new(value.into_value())));
         }
+    }
+
+    /// Whether the contained element is of type `T`.
+    pub fn is<T: NativeElement>(&self) -> bool {
+        self.elem == T::elem()
+    }
+
+    pub fn is_sequence(&self) -> bool {
+        self.is::<SequenceElem>()
+    }
+
+    /// Access the children if this is a sequence.
+    pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Content>> {
+        if !self.is_sequence() {
+            return None;
+        }
+
+        Some(self.attrs.iter().filter_map(Attr::child))
+    }
+
+    /// Access the child and styles.
+    pub fn to_styled(&self) -> Option<(&Content, &Styles)> {
+        if !self.is::<StyledElem>() {
+            return None;
+        }
+
+        let child = self.attrs.iter().find_map(Attr::child)?;
+        let styles = self.attrs.iter().find_map(Attr::styles)?;
+        Some((child, styles))
     }
 
     /// Access a field on the content.
@@ -290,51 +746,6 @@ impl Content {
         self.with_field("label", label)
     }
 
-    /// Style this content with a style entry.
-    pub fn styled(mut self, style: impl Into<Style>) -> Self {
-        if self.is::<StyledElem>() {
-            let prev =
-                self.attrs.make_mut().iter_mut().find_map(Attr::styles_mut).unwrap();
-            prev.apply_one(style.into());
-            self
-        } else {
-            self.styled_with_map(style.into().into())
-        }
-    }
-
-    /// Style this content with a full style map.
-    pub fn styled_with_map(mut self, styles: Styles) -> Self {
-        if styles.is_empty() {
-            return self;
-        }
-
-        if self.is::<StyledElem>() {
-            let prev =
-                self.attrs.make_mut().iter_mut().find_map(Attr::styles_mut).unwrap();
-            prev.apply(styles);
-            self
-        } else {
-            let mut content = Content::new(StyledElem::elem());
-            content.attrs.push(Attr::Child(Prehashed::new(self)));
-            content.attrs.push(Attr::Styles(styles));
-            content
-        }
-    }
-
-    /// Style this content with a recipe, eagerly applying it if possible.
-    pub fn styled_with_recipe(self, vm: &mut Vm, recipe: Recipe) -> SourceResult<Self> {
-        if recipe.selector.is_none() {
-            recipe.apply_vm(vm, self)
-        } else {
-            Ok(self.styled(recipe))
-        }
-    }
-
-    /// Repeat this content `count` times.
-    pub fn repeat(&self, count: usize) -> Self {
-        Self::sequence(vec![self.clone(); count])
-    }
-
     /// Disable a show rule recipe.
     pub fn guarded(mut self, guard: Guard) -> Self {
         self.attrs.push(Attr::Guard(guard));
@@ -361,89 +772,9 @@ impl Content {
         self.attrs.push(Attr::Prepared);
     }
 
-    /// Whether the content needs to be realized specially.
-    pub fn needs_preparation(&self) -> bool {
-        (self.can::<dyn Locatable>()
-            || self.can::<dyn Synthesize>()
-            || self.label().is_some())
-            && !self.is_prepared()
-    }
-
     /// Attach a location to this content.
     pub fn set_location(&mut self, location: Location) {
         self.attrs.push(Attr::Location(location));
-    }
-
-    /// Queries the content tree for all elements that match the given selector.
-    ///
-    /// Elements produced in `show` rules will not be included in the results.
-    #[tracing::instrument(skip_all)]
-    pub fn query(&self, selector: Selector) -> Vec<&Content> {
-        let mut results = Vec::new();
-        self.traverse(&mut |element| {
-            if selector.matches(element) {
-                results.push(element);
-            }
-        });
-        results
-    }
-
-    /// Queries the content tree for the first element that match the given
-    /// selector.
-    ///
-    /// Elements produced in `show` rules will not be included in the results.
-    #[tracing::instrument(skip_all)]
-    pub fn query_first(&self, selector: Selector) -> Option<&Content> {
-        let mut result = None;
-        self.traverse(&mut |element| {
-            if result.is_none() && selector.matches(element) {
-                result = Some(element);
-            }
-        });
-        result
-    }
-
-    /// Extracts the plain text of this content.
-    pub fn plain_text(&self) -> EcoString {
-        let mut text = EcoString::new();
-        self.traverse(&mut |element| {
-            if let Some(textable) = element.with::<dyn PlainText>() {
-                textable.plain_text(&mut text);
-            }
-        });
-        text
-    }
-
-    /// Traverse this content.
-    fn traverse<'a, F>(&'a self, f: &mut F)
-    where
-        F: FnMut(&'a Content),
-    {
-        f(self);
-
-        for attr in &self.attrs {
-            match attr {
-                Attr::Child(child) => child.traverse(f),
-                Attr::Value(value) => walk_value(value, f),
-                _ => {}
-            }
-        }
-
-        /// Walks a given value to find any content that matches the selector.
-        fn walk_value<'a, F>(value: &'a Value, f: &mut F)
-        where
-            F: FnMut(&'a Content),
-        {
-            match value {
-                Value::Content(content) => content.traverse(f),
-                Value::Array(array) => {
-                    for value in array {
-                        walk_value(value, f);
-                    }
-                }
-                _ => {}
-            }
-        }
     }
 }
 
@@ -455,8 +786,8 @@ impl Content {
     /// a specific
     /// kind of element.
     #[func]
-    pub fn func(&self) -> Element {
-        self.elem
+    pub fn func(&self) -> ElementData {
+        self.elem()
     }
 
     /// Whether the content has the specified field.
@@ -500,17 +831,20 @@ impl Content {
         static CHILDREN: EcoString = EcoString::inline("children");
 
         let option = if let Some(iter) = self.to_sequence() {
-            Some((&CHILDREN, Value::Array(iter.cloned().map(Value::Content).collect())))
+            Some((
+                CHILDREN.clone(),
+                Value::Array(iter.cloned().map(Value::Content).collect()),
+            ))
         } else if let Some((child, _)) = self.to_styled() {
-            Some((&CHILD, Value::Content(child.clone())))
+            Some((CHILD.clone(), Value::Content(child.clone())))
         } else {
             None
         };
 
         self.fields_ref()
-            .map(|(name, value)| (name, value.clone()))
+            .into_iter()
             .chain(option)
-            .map(|(key, value)| (key.to_owned().into(), value))
+            .map(|(key, value)| (Str::from(key), value))
             .collect()
     }
 
@@ -521,17 +855,20 @@ impl Content {
     /// [counters]($counter), [state]($state) and [queries]($query).
     #[func]
     pub fn location(&self) -> Option<Location> {
-        self.attrs.iter().find_map(|modifier| match modifier {
-            Attr::Location(location) => Some(*location),
-            _ => None,
-        })
+        match self {
+            Self::Dyn(dyn_) => dyn_.attrs.iter().find_map(Attr::location),
+            Self::Static(static_) => static_.location(),
+        }
     }
 }
 
-impl Repr for Content {
+impl Repr for DynContent {
     fn repr(&self) -> EcoString {
-        let name = self.elem.name();
-        if let Some(text) = item!(text_str)(self) {
+        // TODO: todo!()
+        EcoString::new()
+        /*let name = self.elem.name();
+        // TODO: optimize this.
+        if let Some(text) = item!(text_str)(&self.clone().into()) {
             return eco_format!("[{}]", text);
         } else if name == "space" {
             return ("[ ]").into();
@@ -547,17 +884,17 @@ impl Repr for Content {
             pieces.push(EcoString::from(".."));
         }
 
-        eco_format!("{}{}", name, pretty_array_like(&pieces, false))
+        eco_format!("{}{}", name, pretty_array_like(&pieces, false))*/
     }
 }
 
-impl Default for Content {
+impl Default for DynContent {
     fn default() -> Self {
         Self::empty()
     }
 }
 
-impl PartialEq for Content {
+impl PartialEq for DynContent {
     fn eq(&self, other: &Self) -> bool {
         if let (Some(left), Some(right)) = (self.to_sequence(), other.to_sequence()) {
             left.eq(right)
@@ -574,20 +911,20 @@ impl Add for Content {
 
     fn add(self, mut rhs: Self) -> Self::Output {
         let mut lhs = self;
-        match (lhs.is::<SequenceElem>(), rhs.is::<SequenceElem>()) {
-            (true, true) => {
-                lhs.attrs.extend(rhs.attrs);
+        match (lhs.to_mut::<SequenceElem>(), rhs.to_mut::<SequenceElem>()) {
+            (Some(seq_lhs), Some(rhs)) => {
+                seq_lhs.0.attrs.extend(rhs.0.attrs.iter().cloned());
                 lhs
             }
-            (true, false) => {
-                lhs.attrs.push(Attr::Child(Prehashed::new(rhs)));
+            (Some(seq_lhs), None) => {
+                seq_lhs.0.attrs.push(Attr::Child(Prehashed::new(rhs)));
                 lhs
             }
-            (false, true) => {
-                rhs.attrs.insert(0, Attr::Child(Prehashed::new(lhs)));
+            (None, Some(rhs_seq)) => {
+                rhs_seq.0.attrs.insert(0, Attr::Child(Prehashed::new(lhs)));
                 rhs
             }
-            (false, false) => Self::sequence([lhs, rhs]),
+            (None, None) => Self::sequence([lhs, rhs]),
         }
     }
 }
@@ -609,10 +946,13 @@ impl Serialize for Content {
     where
         S: Serializer,
     {
-        serializer.collect_map(
-            iter::once((&"func".into(), &self.func().name().into_value()))
-                .chain(self.fields_ref()),
-        )
+        match self {
+            Content::Dyn(dyn_) => serializer.collect_map(
+                iter::once((&"func".into(), &dyn_.elem.name().into_value()))
+                    .chain(dyn_.fields_ref()),
+            ),
+            Content::Static(_) => todo!(),
+        }
     }
 }
 
@@ -620,6 +960,13 @@ impl Attr {
     fn child(&self) -> Option<&Content> {
         match self {
             Self::Child(child) => Some(child),
+            _ => None,
+        }
+    }
+
+    fn location(&self) -> Option<Location> {
+        match self {
+            Self::Location(location) => Some(*location),
             _ => None,
         }
     }
@@ -703,4 +1050,16 @@ fn missing_field_no_default(field: &str) -> EcoString {
          no default value was specified",
         field.repr()
     )
+}
+
+#[allow(invalid_value)]
+fn swap_with_mut(val: &mut Arc<dyn Element>) {
+    // Safety: we forget the old value, so we need to make sure it is not dropped.
+    let mut tmp = unsafe { MaybeUninit::uninit().assume_init() };
+    std::mem::swap(val, &mut tmp);
+
+    tmp = tmp.make_mut();
+
+    std::mem::swap(val, &mut tmp);
+    std::mem::forget(tmp);
 }

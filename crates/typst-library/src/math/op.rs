@@ -17,7 +17,7 @@ use super::*;
 /// `hom`, `id`, `im`, `inf`, `ker`, `lg`, `lim`, `liminf`, `limsup`, `ln`,
 /// `log`, `max`, `min`, `mod`, `Pr`, `sec`, `sin`, `sinc`, `sinh`, `sup`,
 /// `tan`, `tanh`, `tg` and `tr`.
-#[elem(title = "Text Operator", LayoutMath)]
+#[selem(title = "Text Operator", LayoutMath)]
 pub struct OpElem {
     /// The operator's text.
     #[required]

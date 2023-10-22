@@ -63,7 +63,7 @@ use super::GridLayouter;
 /// Enumeration items can contain multiple paragraphs and other block-level
 /// content. All content that is indented more than an item's marker becomes
 /// part of that item.
-#[elem(scope, title = "Numbered List", Layout)]
+#[selem(scope, title = "Numbered List", Layout)]
 pub struct EnumElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [enum spacing]($enum.spacing). If it is `{true}`, they use normal
@@ -277,7 +277,7 @@ impl Layout for EnumElem {
 }
 
 /// An enumeration item.
-#[elem(name = "item", title = "Numbered List Item")]
+#[selem(name = "item", title = "Numbered List Item")]
 pub struct EnumItem {
     /// The item's number.
     #[positional]
@@ -301,6 +301,7 @@ cast! {
     v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
 }
 
+#[derive(Debug, Clone, Copy, Hash)]
 struct Parent(usize);
 
 cast! {

@@ -204,7 +204,7 @@ fn create(element: &Elem) -> TokenStream {
         #[doc = #docs]
         #[derive(Debug, Clone, Hash)]
         #[repr(transparent)]
-        #vis struct #ident(pub ::typst::model::Content);
+        #vis struct #ident(pub ::typst::model::DynContent);
 
         impl #ident {
             #new
@@ -232,7 +232,7 @@ fn create(element: &Elem) -> TokenStream {
 
         impl ::typst::eval::IntoValue for #ident {
             fn into_value(self) -> ::typst::eval::Value {
-                ::typst::eval::Value::Content(self.0)
+                ::typst::eval::Value::Content(::typst::model::Content::Dyn(self.0))
             }
         }
     }
@@ -253,7 +253,7 @@ fn create_new_func(element: &Elem) -> TokenStream {
     quote! {
         /// Create a new element.
         pub fn new(#(#params),*) -> Self {
-            Self(::typst::model::Content::new(
+            Self(::typst::model::DynContent::new(
                 <Self as ::typst::model::NativeElement>::elem()
             ))
             #(#builder_calls)*
@@ -397,13 +397,28 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
             }
 
             fn pack(self) -> #model::Content {
-                self.0
+                #model::Content::Dyn(self.0)
             }
 
             fn unpack(content: &#model::Content) -> ::std::option::Option<&Self> {
                 // Safety: Elements are #[repr(transparent)].
                 content.is::<Self>().then(|| unsafe {
-                    ::std::mem::transmute(content)
+                    let #model::Content::Dyn(dyn_) = content else {
+                        unreachable!();
+                    };
+
+                    ::std::mem::transmute(dyn_)
+                })
+            }
+
+            fn unpack_mut(content: &mut #model::Content) -> Option<&mut Self> {
+                // Safety: Elements are #[repr(transparent)].
+                content.is::<Self>().then(|| unsafe {
+                    let #model::Content::Dyn(dyn_) = content else {
+                        unreachable!();
+                    };
+
+                    ::std::mem::transmute(dyn_)
                 })
             }
         }
@@ -426,7 +441,7 @@ fn create_vtable_func(element: &Elem) -> TokenStream {
 
     quote! {
         |id| {
-            let null = Self(::typst::model::Content::new(
+            let null = Self(::typst::model::DynContent::new(
                 <#ident as ::typst::model::NativeElement>::elem()
             ));
             #(#checks)*
@@ -511,15 +526,16 @@ fn create_construct_impl(element: &Elem) -> TokenStream {
 
     quote! {
         impl ::typst::model::Construct for #ident {
+            type Output = ::typst::model::Content;
             fn construct(
                 vm: &mut ::typst::eval::Vm,
                 args: &mut ::typst::eval::Args,
             ) -> ::typst::diag::SourceResult<::typst::model::Content> {
-                let mut element = Self(::typst::model::Content::new(
+                let mut element = Self(::typst::model::DynContent::new(
                     <Self as ::typst::model::NativeElement>::elem()
                 ));
                 #(#handlers)*
-                Ok(element.0)
+                Ok(::typst::model::Content::Dyn(element.0))
             }
         }
     }

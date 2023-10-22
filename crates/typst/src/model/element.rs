@@ -1,20 +1,83 @@
+use ::std::hash::Hasher;
+use ::typst::model::{Guard, Label, Location};
+use ::typst::syntax::Span;
 use ecow::EcoString;
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::cmp::Ordering;
 use std::fmt::Debug;
+use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 
 use super::{Content, Selector, Styles};
-use crate::diag::SourceResult;
+use crate::diag::{SourceResult, StrResult};
 use crate::eval::{cast, Args, Dict, Func, ParamInfo, Repr, Scope, Value, Vm};
 use crate::util::Static;
 
+pub trait Element: Any + Send + Sync + Debug + Repr + 'static {
+    fn data(&self) -> ElementData;
+
+    fn span(&self) -> Span;
+
+    fn set_span(&mut self, span: Span);
+
+    fn location(&self) -> Option<Location>;
+
+    fn set_location(&mut self, location: Location);
+
+    fn label(&self) -> Option<&Label>;
+
+    fn set_label(&mut self, label: Label);
+
+    fn push_guard(&mut self, guard: Guard);
+
+    fn is_guarded(&self, guard: Guard) -> bool;
+
+    fn is_pristine(&self) -> bool;
+
+    fn mark_prepared(&mut self);
+
+    fn needs_preparation(&self) -> bool;
+
+    fn is_prepared(&self) -> bool;
+
+    fn hash(&self, hasher: &mut dyn Hasher);
+
+    fn eq(&self, other: &dyn Any) -> bool;
+
+    fn field(&self, name: &str) -> Option<Value>;
+
+    fn children(&self) -> &[Content];
+
+    fn dyn_clone(&self) -> Arc<dyn Element>;
+
+    /// Clones the `Arc` if needed to make it mutable.
+    fn make_mut(self: Arc<Self>) -> Arc<dyn Element>;
+
+    /// Get the fields of the element.
+    fn fields(&self) -> Dict;
+
+    /// Set the fields of the element.
+    fn set_field(&mut self, name: &str, value: Value) -> StrResult<()>;
+
+    fn name(&self) -> &'static str {
+        self.data().name()
+    }
+
+    fn can_type_id(&self, type_id: TypeId) -> bool {
+        self.data().can_type_id(type_id)
+    }
+
+    fn vtable(&self) -> fn(of: TypeId) -> Option<*const ()> {
+        self.data().vtable()
+    }
+}
+
 /// A document element.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Element(Static<NativeElementData>);
+pub struct ElementData(Static<NativeElementData>);
 
-impl Element {
+impl ElementData {
     /// Get the element for `T`.
     pub fn of<T: NativeElement>() -> Self {
         T::elem()
@@ -94,26 +157,26 @@ impl Element {
     }
 }
 
-impl Repr for Element {
+impl Repr for ElementData {
     fn repr(&self) -> EcoString {
         self.name().into()
     }
 }
 
-impl Ord for Element {
+impl Ord for ElementData {
     fn cmp(&self, other: &Self) -> Ordering {
         self.name().cmp(other.name())
     }
 }
 
-impl PartialOrd for Element {
+impl PartialOrd for ElementData {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
 cast! {
-    Element,
+    ElementData,
     self => Value::Func(self.into()),
     v: Func => v.element().ok_or("expected element")?,
 }
@@ -121,8 +184,8 @@ cast! {
 /// A Typst element that is defined by a native Rust type.
 pub trait NativeElement: Construct + Set + Sized + 'static {
     /// Get the element for the native Rust element.
-    fn elem() -> Element {
-        Element::from(Self::data())
+    fn elem() -> ElementData {
+        ElementData::from(Self::data())
     }
 
     /// Get the element data for the native Rust element.
@@ -133,15 +196,21 @@ pub trait NativeElement: Construct + Set + Sized + 'static {
 
     /// Extract this element from type-erased content.
     fn unpack(content: &Content) -> Option<&Self>;
+
+    /// Extract this element from type-erased content.
+    fn unpack_mut(content: &mut Content) -> Option<&mut Self>;
 }
 
 /// An element's constructor function.
 pub trait Construct {
+    /// The output type of the constructor.
+    type Output;
+
     /// Construct an element from the arguments.
     ///
     /// This is passed only the arguments that remain after execution of the
     /// element's set rule.
-    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content>;
+    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Self::Output>;
 }
 
 /// An element's set rule.
@@ -164,7 +233,7 @@ pub struct NativeElementData {
     pub params: Lazy<Vec<ParamInfo>>,
 }
 
-impl From<&'static NativeElementData> for Element {
+impl From<&'static NativeElementData> for ElementData {
     fn from(data: &'static NativeElementData) -> Self {
         Self(Static(data))
     }
@@ -172,5 +241,5 @@ impl From<&'static NativeElementData> for Element {
 
 cast! {
     &'static NativeElementData,
-    self => Element::from(self).into_value(),
+    self => ElementData::from(self).into_value(),
 }

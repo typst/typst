@@ -18,7 +18,7 @@ pub fn sqrt(
 /// ```example
 /// $ root(3, x) $
 /// ```
-#[elem(LayoutMath)]
+#[selem(LayoutMath)]
 pub struct RootElem {
     /// Which root of the radicand to take.
     #[positional]

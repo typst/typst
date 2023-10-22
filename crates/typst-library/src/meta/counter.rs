@@ -208,7 +208,7 @@ impl Counter {
     }
 
     /// The counter for the given element.
-    pub fn of(func: Element) -> Self {
+    pub fn of(func: ElementData) -> Self {
         Self::construct(CounterKey::Selector(Selector::Elem(func, None)))
     }
 
@@ -482,7 +482,7 @@ cast! {
     },
     v: Str => Self::Str(v),
     v: Label => Self::Selector(Selector::Label(v)),
-    v: Element => {
+    v: ElementData => {
         if v == PageElem::elem() {
             Self::Page
         } else {

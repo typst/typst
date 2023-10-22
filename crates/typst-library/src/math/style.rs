@@ -212,7 +212,7 @@ pub fn sscript(
 }
 
 /// A font variant in math.
-#[elem(LayoutMath)]
+#[selem(LayoutMath)]
 pub struct MathStyleElem {
     /// The content to style.
     #[required]
@@ -344,7 +344,7 @@ impl MathStyle {
 /// The size of elements in an equation.
 ///
 /// See the TeXbook p. 141.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Cast)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Cast, Hash)]
 pub enum MathSize {
     /// Second-level sub- and superscripts.
     ScriptScript,
@@ -367,7 +367,7 @@ impl MathSize {
 }
 
 /// A mathematical style variant, as defined by Unicode.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Cast)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Cast, Hash)]
 pub enum MathVariant {
     Serif,
     Sans,

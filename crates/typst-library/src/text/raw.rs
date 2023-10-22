@@ -9,6 +9,7 @@ use syntect::highlighting as synt;
 use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst::diag::FileError;
 use typst::eval::Bytes;
+use typst::model::selem;
 use typst::syntax::{self, is_newline, LinkedNode};
 use typst::util::option_eq;
 use unicode_segmentation::UnicodeSegmentation;
@@ -63,7 +64,7 @@ type LineFn<'a> = &'a mut dyn FnMut(i64, Range<usize>, &mut Vec<Content>);
 /// needed, start the text with a single space (which will be trimmed) or use
 /// the single backtick syntax. If your text should start or end with a
 /// backtick, put a space before or after it (it will be trimmed).
-#[elem(
+#[selem(
     scope,
     title = "Raw Text / Code",
     Synthesize,

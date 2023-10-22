@@ -1,5 +1,5 @@
 use super::{
-    Content, Element, MetaElem, NativeElement, Recipe, Selector, StyleChain, Vt,
+    Content, ElementData, MetaElem, NativeElement, Recipe, Selector, StyleChain, Vt,
 };
 use crate::diag::SourceResult;
 use crate::doc::Meta;
@@ -232,5 +232,5 @@ pub enum Guard {
     /// The nth recipe from the top of the chain.
     Nth(usize),
     /// The [base recipe](Show) for a kind of element.
-    Base(Element),
+    Base(ElementData),
 }

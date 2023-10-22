@@ -14,7 +14,7 @@ use super::*;
 ///
 /// $x loves y and y loves 5$
 /// ```
-#[elem(LayoutMath)]
+#[selem(LayoutMath)]
 pub struct ClassElem {
     /// The class to apply to the content.
     #[required]

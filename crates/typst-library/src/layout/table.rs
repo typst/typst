@@ -34,7 +34,7 @@ use crate::prelude::*;
 ///   [$a$: edge length]
 /// )
 /// ```
-#[elem(Layout, LocalName, Figurable)]
+#[selem(Layout, LocalName, Figurable)]
 pub struct TableElem {
     /// The column sizes. See the [grid documentation]($grid) for more
     /// information on track sizing.

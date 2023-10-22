@@ -15,7 +15,7 @@ use crate::prelude::*;
 ///   rect(width: 90pt),
 /// )
 /// ```
-#[elem(Layout)]
+#[selem(Layout)]
 pub struct StackElem {
     /// The direction along which the items are stacked. Possible values are:
     ///
@@ -79,7 +79,7 @@ impl Layout for StackElem {
 }
 
 /// A child of a stack element.
-#[derive(Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub enum StackChild {
     /// Spacing between other children.
     Spacing(Spacing),

@@ -82,7 +82,7 @@ use crate::text::TextElem;
 /// In @beginning we prove @pythagoras.
 /// $ a^2 + b^2 = c^2 $ <pythagoras>
 /// ```
-#[elem(title = "Reference", Synthesize, Locatable, Show)]
+#[selem(title = "Reference", Synthesize, Locatable, Show)]
 pub struct RefElem {
     /// The target label that should be referenced.
     #[required]
@@ -223,7 +223,7 @@ impl RefElem {
     /// Turn the reference into a citation.
     pub fn to_citation(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<CiteElem> {
         let mut elem = CiteElem::new(vec![self.target().0]);
-        elem.0.set_location(self.0.location().unwrap());
+        elem.set_location(self.location().unwrap());
         elem.synthesize(vt, styles)?;
         elem.push_supplement(match self.supplement(styles) {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),
@@ -235,9 +235,19 @@ impl RefElem {
 }
 
 /// Additional content for a reference.
+#[derive(Clone, Hash, PartialEq)]
 pub enum Supplement {
     Content(Content),
     Func(Func),
+}
+
+impl Debug for Supplement {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Content(arg0) => arg0.fmt(f),
+            Self::Func(_) => f.write_str("<func>"),
+        }
+    }
 }
 
 impl Supplement {

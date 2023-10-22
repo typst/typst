@@ -6,7 +6,7 @@ use std::ptr;
 use comemo::Prehashed;
 use ecow::{eco_vec, EcoString, EcoVec};
 
-use super::{Content, Element, NativeElement, Selector, Vt};
+use super::{Content, ElementData, NativeElement, Selector, Vt};
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::eval::{cast, ty, Args, FromValue, Func, IntoValue, Repr, Value, Vm};
 use crate::syntax::Span;
@@ -144,7 +144,7 @@ impl From<Recipe> for Style {
 #[derive(Clone, PartialEq, Hash)]
 pub struct Property {
     /// The element the property belongs to.
-    elem: Element,
+    elem: ElementData,
     /// The property's name.
     name: EcoString,
     /// The property's value.
@@ -155,7 +155,11 @@ pub struct Property {
 
 impl Property {
     /// Create a new property from a key-value pair.
-    pub fn new(elem: Element, name: impl Into<EcoString>, value: impl IntoValue) -> Self {
+    pub fn new(
+        elem: ElementData,
+        name: impl Into<EcoString>,
+        value: impl IntoValue,
+    ) -> Self {
         Self {
             elem,
             name: name.into(),
@@ -165,12 +169,12 @@ impl Property {
     }
 
     /// Whether this property is the given one.
-    pub fn is(&self, elem: Element, name: &str) -> bool {
+    pub fn is(&self, elem: ElementData, name: &str) -> bool {
         self.elem == elem && self.name == name
     }
 
     /// Whether this property belongs to the given element.
-    pub fn is_of(&self, elem: Element) -> bool {
+    pub fn is_of(&self, elem: ElementData) -> bool {
         self.elem == elem
     }
 }
@@ -195,7 +199,7 @@ pub struct Recipe {
 
 impl Recipe {
     /// Whether this recipe is for the given type of element.
-    pub fn is_of(&self, element: Element) -> bool {
+    pub fn is_of(&self, element: ElementData) -> bool {
         match self.selector {
             Some(Selector::Elem(own, _)) => own == element,
             _ => false,
@@ -212,7 +216,7 @@ impl Recipe {
     /// Apply the recipe to the given content.
     pub fn apply_vm(&self, vm: &mut Vm, content: Content) -> SourceResult<Content> {
         match &self.transform {
-            Transform::Content(content) => Ok(content.clone()),
+            Transform::Content(content) => Ok(content.clone().into()),
             Transform::Func(func) => {
                 let args = Args::new(self.span, [Value::Content(content.clone())]);
                 let mut result = func.call_vm(vm, args);
@@ -230,7 +234,7 @@ impl Recipe {
     /// Apply the recipe to the given content.
     pub fn apply_vt(&self, vt: &mut Vt, content: Content) -> SourceResult<Content> {
         match &self.transform {
-            Transform::Content(content) => Ok(content.clone()),
+            Transform::Content(content) => Ok(content.clone().into()),
             Transform::Func(func) => {
                 let mut result = func.call_vt(vt, [Value::Content(content.clone())]);
                 if self.selector.is_some() {
@@ -320,7 +324,7 @@ impl<'a> StyleChain<'a> {
     /// Cast the first value for the given property in the chain.
     pub fn get<T: FromValue>(
         self,
-        func: Element,
+        func: ElementData,
         name: &'a str,
         inherent: Option<Value>,
         default: impl Fn() -> T,
@@ -333,7 +337,7 @@ impl<'a> StyleChain<'a> {
     /// Cast the first value for the given property in the chain.
     pub fn get_resolve<T: FromValue + Resolve>(
         self,
-        func: Element,
+        func: ElementData,
         name: &'a str,
         inherent: Option<Value>,
         default: impl Fn() -> T,
@@ -344,7 +348,7 @@ impl<'a> StyleChain<'a> {
     /// Cast the first value for the given property in the chain.
     pub fn get_fold<T: FromValue + Fold>(
         self,
-        func: Element,
+        func: ElementData,
         name: &'a str,
         inherent: Option<Value>,
         default: impl Fn() -> T::Output,
@@ -365,7 +369,7 @@ impl<'a> StyleChain<'a> {
     /// Cast the first value for the given property in the chain.
     pub fn get_resolve_fold<T>(
         self,
-        func: Element,
+        func: ElementData,
         name: &'a str,
         inherent: Option<Value>,
         default: impl Fn() -> <T::Output as Fold>::Output,
@@ -399,7 +403,7 @@ impl<'a> StyleChain<'a> {
     /// Iterate over all values for the given property in the chain.
     pub fn properties<T: FromValue + 'a>(
         self,
-        func: Element,
+        func: ElementData,
         name: &'a str,
         inherent: Option<Value>,
     ) -> impl Iterator<Item = T> + '_ {

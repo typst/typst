@@ -15,7 +15,7 @@ const FRAC_AROUND: Em = Em::new(0.1);
 /// expressions into a fraction. Multiple atoms can be grouped into a single
 /// expression using round grouping parenthesis. Such parentheses are removed
 /// from the output, but you can nest multiple to force them.
-#[elem(title = "Fraction", LayoutMath)]
+#[selem(title = "Fraction", LayoutMath)]
 pub struct FracElem {
     /// The fraction's numerator.
     #[required]
@@ -40,7 +40,7 @@ impl LayoutMath for FracElem {
 /// $ binom(n, k) $
 /// $ binom(n, k_1, k_2, k_3, ..., k_m) $
 /// ```
-#[elem(title = "Binomial", LayoutMath)]
+#[selem(title = "Binomial", LayoutMath)]
 pub struct BinomElem {
     /// The binomial's upper index.
     #[required]

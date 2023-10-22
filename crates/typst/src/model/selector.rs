@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use ecow::{eco_format, EcoString, EcoVec};
 
-use super::{Content, Element, Label, Locatable, Location};
+use super::{Content, ElementData, Label, Locatable, Location};
 use crate::diag::{bail, StrResult};
 use crate::eval::{
     cast, func, scope, ty, CastInfo, Dict, FromValue, Func, Reflect, Regex, Repr, Str,
@@ -55,7 +55,7 @@ pub enum Selector {
     ///
     /// If there is a dictionary, only elements with the fields from the
     /// dictionary match.
-    Elem(Element, Option<Dict>),
+    Elem(ElementData, Option<Dict>),
     /// Matches the element at the specified location.
     Location(Location),
     /// Matches elements with a specific label.
@@ -101,20 +101,21 @@ impl Selector {
 
     /// Whether the selector matches for the target.
     pub fn matches(&self, target: &Content) -> bool {
+        // TODO: optimize field access to not clone.
         match self {
             Self::Elem(element, dict) => {
                 target.func() == *element
                     && dict
                         .iter()
                         .flat_map(|dict| dict.iter())
-                        .all(|(name, value)| target.field_ref(name) == Some(value))
+                        .all(|(name, value)| target.field(name).as_ref() == Some(value))
             }
             Self::Label(label) => target.label() == Some(label),
             Self::Regex(regex) => {
                 target.func() == item!(text_elem)
                     && item!(text_str)(target).map_or(false, |text| regex.is_match(&text))
             }
-            Self::Can(cap) => target.can_type_id(*cap),
+            Self::Can(cap) => target.func().can_type_id(*cap),
             Self::Or(selectors) => selectors.iter().any(move |sel| sel.matches(target)),
             Self::And(selectors) => selectors.iter().all(move |sel| sel.matches(target)),
             Self::Location(location) => target.location() == Some(*location),

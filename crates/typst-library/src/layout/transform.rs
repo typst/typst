@@ -20,7 +20,7 @@ use crate::prelude::*;
 ///   )
 /// ))
 /// ```
-#[elem(Layout)]
+#[selem(Layout)]
 pub struct MoveElem {
     /// The horizontal displacement of the content.
     pub dx: Rel<Length>,
@@ -64,7 +64,7 @@ impl Layout for MoveElem {
 ///     .map(i => rotate(24deg * i)[X]),
 /// )
 /// ```
-#[elem(Layout)]
+#[selem(Layout)]
 pub struct RotateElem {
     /// The amount of rotation.
     ///
@@ -130,7 +130,7 @@ impl Layout for RotateElem {
 /// #set align(center)
 /// #scale(x: -100%)[This is mirrored.]
 /// ```
-#[elem(Layout)]
+#[selem(Layout)]
 pub struct ScaleElem {
     /// The horizontal scaling factor.
     ///

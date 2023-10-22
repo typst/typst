@@ -133,7 +133,7 @@ pub fn module() -> Module {
 /// least one space lifts it into a separate block that is centered
 /// horizontally. For more details about math syntax, see the
 /// [main math page]($category/math).
-#[elem(
+#[selem(
     Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName, Refable,
     Outlinable
 )]
@@ -381,7 +381,7 @@ impl Outlinable for EquationElem {
 
         let numbers = self
             .counter()
-            .at(vt, self.0.location().unwrap())?
+            .at(vt, self.location().unwrap())?
             .display(vt, &numbering)?;
 
         Ok(Some(supplement + numbers))

@@ -17,7 +17,7 @@ const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
 /// $ vec(a, b, c) dot vec(1, 2, 3)
 ///     = a + 2b + 3c $
 /// ```
-#[elem(title = "Vector", LayoutMath)]
+#[selem(title = "Vector", LayoutMath)]
 pub struct VecElem {
     /// The delimiter to use.
     ///
@@ -82,7 +82,7 @@ impl LayoutMath for VecElem {
 ///   10, 10, ..., 10;
 /// ) $
 /// ```
-#[elem(title = "Matrix", LayoutMath)]
+#[selem(title = "Matrix", LayoutMath)]
 pub struct MatElem {
     /// The delimiter to use.
     ///
@@ -259,7 +259,7 @@ impl LayoutMath for MatElem {
 ///   4 "else",
 /// ) $
 /// ```
-#[elem(LayoutMath)]
+#[selem(LayoutMath)]
 pub struct CasesElem {
     /// The delimiter to use.
     ///
@@ -555,7 +555,7 @@ fn layout_delimiters(
 
 /// Parameters specifying how augmentation lines
 /// should be drawn on a matrix.
-#[derive(Default, Clone, Hash)]
+#[derive(Debug, Default, Clone, Hash)]
 pub struct Augment<T: Numeric = Length> {
     pub hline: Offsets,
     pub vline: Offsets,

@@ -11,9 +11,13 @@ mod styles;
 use ecow::EcoVec;
 #[doc(inline)]
 pub use typst_macros::elem;
+#[doc(inline)]
+pub use typst_macros::selem;
 
-pub use self::content::{Content, MetaElem, PlainText};
-pub use self::element::{Construct, Element, NativeElement, NativeElementData, Set};
+pub use self::content::{Content, DynContent, MetaElem, PlainText};
+pub use self::element::{
+    Construct, Element, ElementData, NativeElement, NativeElementData, Set,
+};
 pub use self::introspect::{Introspector, Location, Locator};
 pub use self::label::{Label, Unlabellable};
 pub use self::realize::{

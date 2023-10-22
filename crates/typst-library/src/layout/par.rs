@@ -45,7 +45,7 @@ use crate::text::{
 /// let $a$ be the smallest of the
 /// three integers. Then, we ...
 /// ```
-#[elem(title = "Paragraph", Construct)]
+#[selem(title = "Paragraph", Construct)]
 pub struct ParElem {
     /// The spacing between lines.
     #[resolve]
@@ -115,6 +115,8 @@ pub struct ParElem {
 }
 
 impl Construct for ParElem {
+    type Output = Content;
+
     fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
         // element. Instead, it just ensures that the passed content lives in a
@@ -227,7 +229,7 @@ pub enum Linebreaks {
 /// # Syntax
 /// Instead of calling this function, you can insert a blank line into your
 /// markup to create a paragraph break.
-#[elem(title = "Paragraph Break", Unlabellable)]
+#[selem(title = "Paragraph Break", Unlabellable)]
 pub struct ParbreakElem {}
 
 impl Unlabellable for ParbreakElem {}

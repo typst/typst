@@ -7,7 +7,7 @@ pub(super) const DELIM_SHORT_FALL: Em = Em::new(0.1);
 ///
 /// While matched delimiters scale by default, this can be used to scale
 /// unmatched delimiters and to control the delimiter scaling more precisely.
-#[elem(title = "Left/Right", LayoutMath)]
+#[selem(title = "Left/Right", LayoutMath)]
 pub struct LrElem {
     /// The size of the brackets, relative to the height of the wrapped content.
     pub size: Smart<Rel<Length>>,

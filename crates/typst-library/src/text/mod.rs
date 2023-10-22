@@ -581,6 +581,8 @@ impl TextElem {
 }
 
 impl Construct for TextElem {
+    type Output = Content;
+
     fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         // The text constructor is special: It doesn't create a text element.
         // Instead, it leaves the passed argument structurally unchanged, but

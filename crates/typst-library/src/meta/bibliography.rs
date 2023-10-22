@@ -43,7 +43,7 @@ use crate::text::TextElem;
 ///
 /// #bibliography("works.bib")
 /// ```
-#[elem(Locatable, Synthesize, Show, Finalize, LocalName)]
+#[selem(Locatable, Synthesize, Show, Finalize, LocalName)]
 pub struct BibliographyElem {
     /// Path to a Hayagriva `.yml` or BibLaTeX `.bib` file.
     #[required]
@@ -93,7 +93,7 @@ pub struct BibliographyElem {
 }
 
 /// A list of bibliography file paths.
-#[derive(Debug, Default, Clone, Hash)]
+#[derive(Debug, Default, Clone, Hash, PartialEq)]
 pub struct BibPaths(Vec<EcoString>);
 
 cast! {
@@ -307,7 +307,7 @@ impl BibliographyStyle {
 /// This function indirectly has dedicated syntax. [References]($ref) can be
 /// used to cite works from the bibliography. The label then corresponds to the
 /// citation key.
-#[elem(Locatable, Synthesize, Show)]
+#[selem(Locatable, Synthesize, Show)]
 pub struct CiteElem {
     /// The citation keys that identify the elements that shall be cited in
     /// the bibliography.
@@ -373,7 +373,7 @@ impl Show for CiteElem {
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(vt.delayed(|vt| {
             let works = Works::new(vt).at(self.span())?;
-            let location = self.0.location().unwrap();
+            let location = self.location().unwrap();
             works
                 .citations
                 .get(&location)
@@ -450,7 +450,7 @@ fn create(bibliography: BibliographyElem, citations: Vec<CiteElem>) -> Arc<Works
     let span = bibliography.span();
     let entries = load(&bibliography.path(), &bibliography.data()).unwrap();
     let style = bibliography.style(StyleChain::default());
-    let bib_location = bibliography.0.location().unwrap();
+    let bib_location = bibliography.location().unwrap();
     let ref_location = |target: &Entry| {
         let i = entries
             .iter()
@@ -464,7 +464,7 @@ fn create(bibliography: BibliographyElem, citations: Vec<CiteElem>) -> Arc<Works
     let mut preliminary = vec![];
 
     for citation in citations {
-        let cite_id = citation.0.location().unwrap();
+        let cite_id = citation.location().unwrap();
         let entries = citation
             .keys()
             .into_iter()
@@ -485,7 +485,7 @@ fn create(bibliography: BibliographyElem, citations: Vec<CiteElem>) -> Arc<Works
     let citations = preliminary
         .into_iter()
         .map(|(citation, cited)| {
-            let location = citation.0.location().unwrap();
+            let location = citation.location().unwrap();
             let Some(cited) = cited else { return (location, None) };
 
             let mut supplement = citation.supplement(StyleChain::default());

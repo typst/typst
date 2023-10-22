@@ -72,7 +72,7 @@ pub use ecow::eco_format;
 #[derive(Debug, Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct Str(EcoString);
+pub struct Str(pub EcoString);
 
 impl Str {
     /// Create a new, empty string.

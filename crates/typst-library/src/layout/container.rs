@@ -20,7 +20,7 @@ use crate::prelude::*;
 /// )
 /// for more information.
 /// ```
-#[elem(Layout)]
+#[selem(Layout)]
 pub struct BoxElem {
     /// The width of the box.
     ///
@@ -202,7 +202,7 @@ impl Layout for BoxElem {
 /// = Blocky
 /// More text.
 /// ```
-#[elem(Layout)]
+#[selem(Layout)]
 pub struct BlockElem {
     /// The block's width.
     ///

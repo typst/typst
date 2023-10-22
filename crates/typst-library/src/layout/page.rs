@@ -685,7 +685,7 @@ cast! {
 /// == Compound Theory
 /// In 1984, the first ...
 /// ```
-#[elem(title = "Page Break")]
+#[selem(title = "Page Break")]
 pub struct PagebreakElem {
     /// If `{true}`, the page break is skipped if the current page is already
     /// empty.

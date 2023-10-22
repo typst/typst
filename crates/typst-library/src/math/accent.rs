@@ -11,7 +11,7 @@ const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 /// $arrow(a) = accent(a, arrow)$ \
 /// $tilde(a) = accent(a, \u{0303})$
 /// ```
-#[elem(LayoutMath)]
+#[selem(LayoutMath)]
 pub struct AccentElem {
     /// The base to which the accent is applied.
     /// May consist of multiple letters.
@@ -116,6 +116,7 @@ fn attachment(ctx: &MathContext, id: GlyphId, italics_correction: Abs) -> Abs {
 }
 
 /// An accent character.
+#[derive(Debug, PartialEq, Hash, Clone, Copy)]
 pub struct Accent(char);
 
 impl Accent {
