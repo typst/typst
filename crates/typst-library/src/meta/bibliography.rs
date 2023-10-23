@@ -90,6 +90,12 @@ pub struct BibliographyElem {
     /// The bibliography style.
     #[default(BibliographyStyle::Ieee)]
     pub style: BibliographyStyle,
+
+    /// The loaded bibliography.
+    #[not_hash]
+    #[internal]
+    #[synthesized]
+    pub bibliography: EcoVec<hayagriva::Entry>,
 }
 
 /// A list of bibliography file paths.
@@ -126,9 +132,8 @@ impl BibliographyElem {
             .iter()
             .flat_map(|elem| {
                 let elem = elem.to::<Self>().unwrap();
-                load(&elem.path(), &elem.data())
+                elem.bibliography()
             })
-            .flatten()
             .any(|entry| entry.key() == key)
     }
 
@@ -137,7 +142,7 @@ impl BibliographyElem {
         introspector: Tracked<Introspector>,
     ) -> Vec<(EcoString, Option<EcoString>)> {
         Self::find(introspector)
-            .and_then(|elem| load(&elem.path(), &elem.data()))
+            .map(|elem| elem.bibliography())
             .iter()
             .flatten()
             .map(|entry| {
@@ -153,6 +158,7 @@ impl BibliographyElem {
 impl Synthesize for BibliographyElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_style(self.style(styles));
+        self.push_bibliography(load(&self.path(), &self.data()).at(self.span())?);
         Ok(())
     }
 }
@@ -455,7 +461,7 @@ impl Works {
 #[comemo::memoize]
 fn create(bibliography: BibliographyElem, citations: Vec<CiteElem>) -> Arc<Works> {
     let span = bibliography.span();
-    let entries = load(&bibliography.path(), &bibliography.data()).unwrap();
+    let entries = bibliography.bibliography();
     let style = bibliography.style(StyleChain::default());
     let bib_location = bibliography.location().unwrap();
     let ref_location = |target: &Entry| {

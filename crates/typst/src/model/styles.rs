@@ -234,7 +234,7 @@ impl Recipe {
     /// Apply the recipe to the given content.
     pub fn apply_vt(&self, vt: &mut Vt, content: Content) -> SourceResult<Content> {
         match &self.transform {
-            Transform::Content(content) => Ok(content.clone().into()),
+            Transform::Content(content) => Ok(content.clone()),
             Transform::Func(func) => {
                 let mut result = func.call_vt(vt, [Value::Content(content.clone())]);
                 if self.selector.is_some() {

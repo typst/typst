@@ -128,6 +128,18 @@ pub struct Func {
     span: Span,
 }
 
+impl Default for Func {
+    fn default() -> Self {
+        identity::func()
+    }
+}
+
+/// The identity function.
+#[func]
+fn identity(args: Args) -> Value {
+    args.into_value()
+}
+
 /// The different kinds of function representations.
 #[derive(Debug, Clone, PartialEq, Hash)]
 enum Repr {
@@ -261,7 +273,7 @@ impl Func {
             Repr::Element(func) => {
                 let value = func.construct(vm, &mut args)?;
                 args.finish()?;
-                Ok(Value::Content(value.into()))
+                Ok(Value::Content(value))
             }
             Repr::Closure(closure) => {
                 // Determine the route inside the closure.

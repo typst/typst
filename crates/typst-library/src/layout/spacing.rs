@@ -195,6 +195,12 @@ pub enum Spacing {
     Fr(Fr),
 }
 
+impl Default for Spacing {
+    fn default() -> Self {
+        Self::Fr(Fr::one())
+    }
+}
+
 impl Spacing {
     /// Whether this is fractional spacing.
     pub fn is_fractional(self) -> bool {

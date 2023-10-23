@@ -86,6 +86,7 @@ use crate::text::TextElem;
 pub struct RefElem {
     /// The target label that should be referenced.
     #[required]
+    #[empty(Label(EcoString::inline("example")))]
     pub target: Label,
 
     /// A supplement for the reference.

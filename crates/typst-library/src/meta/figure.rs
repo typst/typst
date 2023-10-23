@@ -222,7 +222,7 @@ impl Synthesize for FigureElem {
                 // Default to the local name for the kind, if available.
                 let name = match &kind {
                     FigureKind::Elem(func) => {
-                        let empty = Content::new(*func);
+                        let empty = Content::temp(*func);
                         empty.with::<dyn LocalName>().map(|c| {
                             TextElem::packed(c.local_name(
                                 TextElem::lang_in(styles),

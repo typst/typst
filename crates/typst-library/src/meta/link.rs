@@ -56,6 +56,7 @@ pub struct LinkElem {
         let dest = args.expect::<LinkTarget>("destination")?;
         dest.clone()
     )]
+    #[empty(LinkTarget::Dest(Destination::Url(EcoString::inline("typst.app"))))]
     pub dest: LinkTarget,
 
     /// The content that should become a link.

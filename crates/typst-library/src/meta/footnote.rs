@@ -83,6 +83,7 @@ pub struct FootnoteElem {
     /// The content to put into the footnote. Can also be the label of another
     /// footnote this one should point to.
     #[required]
+    #[empty(FootnoteBody::Content(Content::empty()))]
     pub body: FootnoteBody,
 }
 

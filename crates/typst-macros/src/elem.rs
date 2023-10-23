@@ -380,7 +380,11 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
             name: #name,
             title: #title,
             docs: #docs,
+            static_: false,
             keywords: &[#(#keywords),*],
+            empty: || #model::Content::Dyn(#model::DynContent::new(
+                <#ident as #model::NativeElement>::elem()
+            )),
             construct: <#ident as #model::Construct>::construct,
             set: <#ident as #model::Set>::set,
             vtable: #vtable_func,

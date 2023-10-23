@@ -22,10 +22,10 @@ pub use typst::eval::{
 pub use typst::geom::*;
 #[doc(no_inline)]
 pub use typst::model::{
-    elem, selem, Element, Behave, Behaviour, Construct, Content, DynContent, ElementData, Finalize, Fold,
-    Introspector, Label, Locatable, LocatableSelector, Location, Locator, MetaElem,
-    NativeElement, PlainText, Resolve, Selector, Set, Show, StyleChain, StyleVec, Styles,
-    Synthesize, Unlabellable, Vt,
+    elem, selem, Behave, Behaviour, Construct, Content, DynContent, Element, ElementData,
+    Finalize, Fold, Introspector, Label, Locatable, LocatableSelector, Location, Locator,
+    MetaElem, NativeElement, PlainText, Resolve, Selector, Set, Show, StyleChain,
+    StyleVec, Styles, Synthesize, Unlabellable, Vt,
 };
 #[doc(no_inline)]
 pub use typst::syntax::{FileId, Span, Spanned};

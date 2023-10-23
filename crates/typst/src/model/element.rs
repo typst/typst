@@ -43,9 +43,9 @@ pub trait Element: Any + Send + Sync + Debug + Repr + 'static {
 
     fn is_prepared(&self) -> bool;
 
-    fn hash(&self, hasher: &mut dyn Hasher);
+    fn dyn_hash(&self, hasher: &mut dyn Hasher);
 
-    fn eq(&self, other: &dyn Any) -> bool;
+    fn dyn_eq(&self, other: &dyn Any) -> bool;
 
     fn field(&self, name: &str) -> Option<Value>;
 
@@ -83,6 +83,16 @@ impl ElementData {
     /// Get the element for `T`.
     pub fn of<T: NativeElement>() -> Self {
         T::elem()
+    }
+
+    /// Is the element static?
+    pub fn is_static(self) -> bool {
+        self.0.static_
+    }
+
+    /// Create an element from the given data.
+    pub fn empty(self) -> Content {
+        (self.0.empty)()
     }
 
     /// The element's normal name (e.g. `enum`).
@@ -227,7 +237,10 @@ pub struct NativeElementData {
     pub name: &'static str,
     pub title: &'static str,
     pub docs: &'static str,
+    /// Whether the element is struct-based (true) or dynamic (false).
+    pub static_: bool,
     pub keywords: &'static [&'static str],
+    pub empty: fn() -> Content,
     pub construct: fn(&mut Vm, &mut Args) -> SourceResult<Content>,
     pub set: fn(&mut Vm, &mut Args) -> SourceResult<Styles>,
     pub vtable: fn(of: TypeId) -> Option<*const ()>,

@@ -47,6 +47,7 @@ pub struct ImageElem {
     #[internal]
     #[required]
     #[parse(Readable::Bytes(data))]
+    #[empty(Readable::Str(Str(EcoString::inline(""))))]
     pub data: Readable,
 
     /// The image's format. Detected automatically by default.

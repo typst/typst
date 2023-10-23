@@ -598,6 +598,7 @@ cast! {
 struct DisplayElem {
     /// The counter.
     #[required]
+    #[empty(Counter::of(PageElem::elem()))]
     counter: Counter,
 
     /// The numbering to display the counter with.
@@ -650,10 +651,12 @@ impl Show for DisplayElem {
 struct UpdateElem {
     /// The key that identifies the counter.
     #[required]
+    #[empty(CounterKey::Page)]
     key: CounterKey,
 
     /// The update to perform on the counter.
     #[required]
+    #[empty(CounterUpdate::Step(NonZeroUsize::ONE))]
     update: CounterUpdate,
 }
 

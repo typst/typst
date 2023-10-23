@@ -42,8 +42,10 @@ struct Field {
     internal: bool,
     external: bool,
     synthesized: bool,
+    not_hash: bool,
     parse: Option<BlockWithReturn>,
     default: syn::Expr,
+    empty: syn::Expr,
 }
 
 impl Field {
@@ -74,6 +76,8 @@ fn create(element: &Elem) -> TokenStream {
 
     // Trait implementations.
     let element_impl = create_pack_impl(element);
+    let default_impl = create_default_impl(element);
+    let hash_impl = create_hash_impl(element);
     let construct_impl = element
         .capabilities
         .iter()
@@ -101,7 +105,7 @@ fn create(element: &Elem) -> TokenStream {
         .all(|capability| capability != "Debug")
         .then(|| create_debug_impl(element));
 
-    let field_matches = all.clone().map(|field| {
+    let field_matches = all.clone().filter(|field| !field.internal).map(|field| {
         let name = &field.name;
         let field_ident = &field.ident;
 
@@ -149,7 +153,9 @@ fn create(element: &Elem) -> TokenStream {
     let field_opt_dict = element
         .fields
         .iter()
-        .filter(|field| !field.external && (field.synthesized || !field.inherent()))
+        .filter(|field| {
+            !field.external && !field.internal && (field.synthesized || !field.inherent())
+        })
         .clone()
         .map(|field| {
             let name = &field.name;
@@ -169,7 +175,7 @@ fn create(element: &Elem) -> TokenStream {
 
     quote! {
         #[doc = #docs]
-        #[derive(Clone, Hash)]
+        #[derive(Clone)]
         #vis struct #ident {
             span: ::typst::syntax::Span,
             location: Option<::typst::model::Location>,
@@ -207,7 +213,9 @@ fn create(element: &Elem) -> TokenStream {
             }
         }
 
+        #default_impl
         #element_impl
+        #hash_impl
         #construct_impl
         #set_impl
         #locatable_impl
@@ -274,11 +282,11 @@ fn create(element: &Elem) -> TokenStream {
                 self.prepared
             }
 
-            fn hash(&self, mut hasher: &mut dyn ::std::hash::Hasher) {
+            fn dyn_hash(&self, mut hasher: &mut dyn ::std::hash::Hasher) {
                 <Self as ::std::hash::Hash>::hash(self, &mut hasher);
             }
 
-            fn eq(&self, other: &dyn ::std::any::Any) -> bool {
+            fn dyn_eq(&self, other: &dyn ::std::any::Any) -> bool {
                 if let Some(other) = other.downcast_ref::<Self>() {
                     <Self as ::std::cmp::PartialEq>::eq(self, other)
                 } else {
@@ -466,9 +474,10 @@ fn create_construct_impl(element: &Elem) -> TokenStream {
         }
     });
 
-    let defaults = all.clone().filter(|field| !field.settable()).map(|field| {
-        &field.ident
-    });
+    let defaults = all
+        .clone()
+        .filter(|field| !field.settable())
+        .map(|field| &field.ident);
 
     let handlers = all.filter(|field| field.settable()).map(|field| {
         let push_ident = &field.push_ident;
@@ -635,7 +644,9 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
             name: #name,
             title: #title,
             docs: #docs,
+            static_: true,
             keywords: &[#(#keywords),*],
+            empty: || #model::Content::static_(<#ident as ::std::default::Default>::default()),
             construct: <#ident as #model::Construct>::construct,
             set: <#ident as #model::Set>::set,
             vtable: #vtable_func,
@@ -659,7 +670,7 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
                 content.is::<Self>().then(|| unsafe {
                     let #model::Content::Static(static_) = content else {
                         // Safety: we checked that we are `Self`.
-                        unsafe { ::std::hint::unreachable_unchecked(); }
+                        unreachable!();
                     };
 
                     // Safety: we checked that we are `Self`.
@@ -672,8 +683,7 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
             fn unpack_mut(content: &mut #model::Content) -> Option<&mut Self> {
                 content.is::<Self>().then(|| unsafe {
                     let #model::Content::Static(static_) = content else {
-                        // Safety: we checked that we are `Self`.
-                        unsafe { ::std::hint::unreachable_unchecked(); }
+                        unreachable!();
                     };
 
                     // Make sure we're mutable
@@ -819,6 +829,65 @@ fn create_field(field: &Field) -> TokenStream {
     }
 }
 
+fn create_hash_impl(element: &Elem) -> TokenStream {
+    let ident = &element.ident;
+    let all = element
+        .fields
+        .iter()
+        .filter(|field| !field.not_hash && !field.external)
+        .map(|field| &field.ident)
+        .collect::<Vec<_>>();
+
+    quote! {
+        impl ::std::hash::Hash for #ident {
+            fn hash<H: ::std::hash::Hasher>(&self, hasher: &mut H) {
+                self.location.hash(hasher);
+                self.label.hash(hasher);
+                self.span.hash(hasher);
+                self.prepared.hash(hasher);
+                self.guards.hash(hasher);
+                #(
+                    self.#all.hash(hasher);
+                )*
+            }
+        }
+    }
+}
+
+fn create_default_impl(element: &Elem) -> TokenStream {
+    let ident = &element.ident;
+    let relevant = element
+        .fields
+        .iter()
+        .filter(|field| !field.external && !field.synthesized && field.inherent())
+        .map(|Field { ident, empty, .. }| {
+            quote! { #ident: #empty }
+        });
+    let defaults = element
+        .fields
+        .iter()
+        .filter(|field| !field.external && (field.synthesized || !field.inherent()))
+        .map(|Field { ident, .. }| {
+            quote! { #ident: None }
+        });
+
+    quote! {
+        impl ::std::default::Default for #ident {
+            fn default() -> Self {
+                Self {
+                    span: ::typst::syntax::Span::detached(),
+                    location: None,
+                    label: None,
+                    prepared: false,
+                    guards: ::std::vec::Vec::with_capacity(0),
+                    #(#relevant,)*
+                    #(#defaults,)*
+                }
+            }
+        }
+    }
+}
+
 /// Create the `new` function for the element.
 fn create_new_func(element: &Elem) -> TokenStream {
     let relevant = element
@@ -931,11 +1000,15 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
         positional,
         required,
         variadic,
+        not_hash: has_attr(&mut attrs, "not_hash"),
         synthesized: has_attr(&mut attrs, "synthesized"),
         fold: has_attr(&mut attrs, "fold"),
         resolve: has_attr(&mut attrs, "resolve"),
         parse: parse_attr(&mut attrs, "parse")?.flatten(),
         default: parse_attr::<syn::Expr>(&mut attrs, "default")?
+            .flatten()
+            .unwrap_or_else(|| parse_quote! { ::std::default::Default::default() }),
+        empty: parse_attr::<syn::Expr>(&mut attrs, "empty")?
             .flatten()
             .unwrap_or_else(|| parse_quote! { ::std::default::Default::default() }),
         vis: field.vis.clone(),
