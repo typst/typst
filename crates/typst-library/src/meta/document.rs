@@ -18,7 +18,7 @@ use crate::prelude::*;
 ///
 /// Note that metadata set with this function is not rendered within the
 /// document. Instead, it is embedded in the compiled PDF file.
-#[elem(Construct, LayoutRoot)]
+#[selem(Construct, LayoutRoot)]
 pub struct DocumentElem {
     /// The document's title. This is often rendered as the title of the
     /// PDF viewer window.
@@ -88,7 +88,7 @@ impl LayoutRoot for DocumentElem {
 }
 
 /// A list of authors.
-#[derive(Debug, Default, Clone, Hash)]
+#[derive(Debug, Default, Clone, Hash, PartialEq)]
 pub struct Author(Vec<EcoString>);
 
 cast! {
@@ -99,7 +99,7 @@ cast! {
 }
 
 /// A list of keywords.
-#[derive(Debug, Default, Clone, Hash)]
+#[derive(Debug, Default, Clone, Hash, PartialEq)]
 pub struct Keywords(Vec<EcoString>);
 
 cast! {

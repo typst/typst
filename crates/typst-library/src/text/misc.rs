@@ -2,7 +2,7 @@ use super::TextElem;
 use crate::prelude::*;
 
 /// A text space.
-#[elem(Behave, Unlabellable, PlainText)]
+#[selem(Behave, Unlabellable, PlainText)]
 pub struct SpaceElem {}
 
 impl Behave for SpaceElem {

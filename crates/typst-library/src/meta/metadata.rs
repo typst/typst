@@ -20,7 +20,7 @@ use crate::prelude::*;
 ///   query(<note>, loc).first().value
 /// })
 /// ```
-#[elem(Behave, Show, Locatable)]
+#[selem(Behave, Show, Locatable)]
 pub struct MetadataElem {
     /// The value to embed into the document.
     #[required]

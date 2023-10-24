@@ -336,6 +336,7 @@ impl<T> Container for Vec<T> {
 }
 
 /// An uninhabitable type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Never {}
 
 impl Reflect for Never {

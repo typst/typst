@@ -73,7 +73,7 @@ pub fn style(
 }
 
 /// Executes a style access.
-#[elem(Show)]
+#[selem(Show)]
 struct StyleElem {
     /// The function to call with the styles.
     #[required]

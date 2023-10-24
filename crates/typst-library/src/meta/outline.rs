@@ -413,11 +413,12 @@ cast! {
 /// = Analysis
 /// == Setup
 /// ```
-#[elem(name = "entry", title = "Outline Entry", Show)]
+#[selem(name = "entry", title = "Outline Entry", Show)]
 pub struct OutlineEntry {
     /// The nesting level of this outline entry. Starts at `{1}` for top-level
     /// entries.
     #[required]
+    #[empty(NonZeroUsize::ONE)]
     pub level: NonZeroUsize,
 
     /// The element this entry refers to. Its location will be available

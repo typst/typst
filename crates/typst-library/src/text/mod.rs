@@ -62,7 +62,7 @@ pub(super) fn define(global: &mut Scope) {
 ///   With a function call.
 /// ])
 /// ```
-#[elem(Construct, PlainText)]
+#[selem(Construct, PlainText)]
 pub struct TextElem {
     /// A prioritized sequence of font families.
     ///

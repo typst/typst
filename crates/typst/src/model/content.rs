@@ -7,6 +7,7 @@ use std::sync::Arc;
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Serialize, Serializer};
+use typst_macros::selem;
 
 use super::{
     elem, Behave, Behaviour, Element, ElementData, Guard, Label, Locatable, Location,
@@ -56,7 +57,7 @@ impl Content {
 
     #[inline]
     pub fn empty() -> Self {
-        Self::Dyn(DynContent::empty())
+        Self::static_(SequenceElem::default())
     }
 
     pub fn temp(of: ElementData) -> Self {
@@ -164,13 +165,11 @@ impl Content {
         let mut iter = iter.into_iter();
         let Some(first) = iter.next() else { return Self::empty() };
         let Some(second) = iter.next() else { return first };
-        let mut content = DynContent::empty();
-        content.attrs.push(Attr::Child(Prehashed::new(first)));
-        content.attrs.push(Attr::Child(Prehashed::new(second)));
-        content
-            .attrs
-            .extend(iter.map(|child| Attr::Child(Prehashed::new(child))));
-        Self::Dyn(content)
+        let mut content = SequenceElem::default();
+        content.children.push(first);
+        content.children.push(second);
+        content.children.extend(iter);
+        Self::static_(content)
     }
 
     /// Access the children if this is a sequence.
@@ -180,16 +179,16 @@ impl Content {
         } else {
             matches!(self, Self::Dyn(_))
         });
+
         if !self.is_sequence() {
             return None;
         }
 
-        // Todo: make `SequenceElem` a static elem.
-        let Self::Dyn(dyn_) = self else {
+        let Some(sequence) = SequenceElem::unpack(self) else {
             return None;
         };
 
-        Some(dyn_.attrs.iter().filter_map(Attr::child))
+        Some(sequence.children.iter())
     }
 
     pub fn elem(&self) -> ElementData {
@@ -322,11 +321,11 @@ impl Content {
             return false;
         }
 
-        let Self::Dyn(dyn_) = self else {
+        let Some(sequence) = SequenceElem::unpack(self) else {
             return false;
         };
 
-        dyn_.attrs.is_empty()
+        sequence.children.is_empty()
     }
 
     /// Also auto expands sequence of sequences into flat sequence
@@ -352,16 +351,10 @@ impl Content {
             matches!(self, Self::Dyn(_))
         });
 
-        if !self.is::<StyledElem>() {
-            return None;
-        }
+        let styled = StyledElem::unpack(self)?;
 
-        let Self::Dyn(dyn_) = self else {
-            return None;
-        };
-
-        let child = dyn_.attrs.iter().find_map(Attr::child)?;
-        let styles = dyn_.attrs.iter().find_map(Attr::styles)?;
+        let child = &styled.child;
+        let styles = &styled.styles;
         Some((child, styles))
     }
 
@@ -399,12 +392,8 @@ impl Content {
             matches!(self, Self::Dyn(_))
         });
 
-        if self.is::<StyledElem>() {
-            let Self::Dyn(dyn_) = &mut self else { unreachable!() };
-
-            let prev =
-                dyn_.attrs.make_mut().iter_mut().find_map(Attr::styles_mut).unwrap();
-            prev.apply_one(style.into());
+        if let Some(style_elem) = StyledElem::unpack_mut(&mut self) {
+            style_elem.styles.apply_one(style.into());
             self
         } else {
             self.styled_with_map(style.into().into())
@@ -423,18 +412,11 @@ impl Content {
             return self;
         }
 
-        if self.is::<StyledElem>() {
-            let Self::Dyn(dyn_) = &mut self else { unreachable!() };
-
-            let prev =
-                dyn_.attrs.make_mut().iter_mut().find_map(Attr::styles_mut).unwrap();
-            prev.apply(styles);
+        if let Some(style_elem) = StyledElem::unpack_mut(&mut self) {
+            style_elem.styles.apply(styles.into());
             self
         } else {
-            let mut content = DynContent::new(StyledElem::elem());
-            content.attrs.push(Attr::Child(Prehashed::new(self)));
-            content.attrs.push(Attr::Styles(styles));
-            content.into()
+            StyledElem::new(self, styles).into()
         }
     }
 
@@ -547,7 +529,6 @@ impl Content {
             Self::Dyn(dyn_) => {
                 for attr in &dyn_.attrs {
                     match attr {
-                        Attr::Child(child) => child.traverse(f),
                         Attr::Value(value) => walk_value(value, f),
                         _ => {}
                     }
@@ -709,7 +690,13 @@ impl PartialEq for Content {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Dyn(l0), Self::Dyn(r0)) => l0 == r0,
-            (Self::Static(l0), Self::Static(r0)) => l0.dyn_eq(r0 as &dyn Any),
+            (Self::Static(l0), Self::Static(r0)) => {
+                if let (Some(left), Some(right)) = (self.to_styled(), other.to_styled()) {
+                    left == right
+                }  else {
+                    l0.dyn_eq(r0 as &dyn Any)
+                }
+            },
             _ => false,
         }
     }
@@ -780,8 +767,6 @@ enum Attr {
     Span(Span),
     Field(EcoString),
     Value(Prehashed<Value>),
-    Child(Prehashed<Content>),
-    Styles(Styles),
     Prepared,
     Guard(Guard),
     Location(Location),
@@ -790,12 +775,8 @@ enum Attr {
 impl DynContent {
     /// Create an empty element.
     pub fn new(elem: ElementData) -> Self {
+        debug_assert!(!elem.is_static());
         Self { elem, attrs: EcoVec::new() }
-    }
-
-    /// Create empty content.
-    pub fn empty() -> Self {
-        Self::new(SequenceElem::elem())
     }
 
     pub fn location(&self) -> Option<Location> {
@@ -856,39 +837,9 @@ impl DynContent {
         self.elem == T::elem()
     }
 
-    pub fn is_sequence(&self) -> bool {
-        self.is::<SequenceElem>()
-    }
-
-    /// Access the children if this is a sequence.
-    pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Content>> {
-        if !self.is_sequence() {
-            return None;
-        }
-
-        Some(self.attrs.iter().filter_map(Attr::child))
-    }
-
-    /// Access the child and styles.
-    pub fn to_styled(&self) -> Option<(&Content, &Styles)> {
-        if !self.is::<StyledElem>() {
-            return None;
-        }
-
-        let child = self.attrs.iter().find_map(Attr::child)?;
-        let styles = self.attrs.iter().find_map(Attr::styles)?;
-        Some((child, styles))
-    }
-
     /// Access a field on the content.
     pub fn field(&self, name: &str) -> Option<Value> {
-        if let (Some(iter), "children") = (self.to_sequence(), name) {
-            Some(Value::Array(iter.cloned().map(Value::Content).collect()))
-        } else if let (Some((child, _)), "child") = (self.to_styled(), name) {
-            Some(Value::Content(child.clone()))
-        } else {
-            self.field_ref(name).cloned()
-        }
+        self.field_ref(name).cloned()
     }
 
     /// Access a field on the content by reference.
@@ -1086,21 +1037,9 @@ impl Repr for DynContent {
     }
 }
 
-impl Default for DynContent {
-    fn default() -> Self {
-        Self::empty()
-    }
-}
-
 impl PartialEq for DynContent {
     fn eq(&self, other: &Self) -> bool {
-        if let (Some(left), Some(right)) = (self.to_sequence(), other.to_sequence()) {
-            left.eq(right)
-        } else if let (Some(left), Some(right)) = (self.to_styled(), other.to_styled()) {
-            left == right
-        } else {
-            self.elem == other.elem && self.fields_ref().eq(other.fields_ref())
-        }
+        self.elem == other.elem && self.fields_ref().eq(other.fields_ref())
     }
 }
 
@@ -1111,15 +1050,15 @@ impl Add for Content {
         let mut lhs = self;
         match (lhs.to_mut::<SequenceElem>(), rhs.to_mut::<SequenceElem>()) {
             (Some(seq_lhs), Some(rhs)) => {
-                seq_lhs.0.attrs.extend(rhs.0.attrs.iter().cloned());
+                seq_lhs.children.extend(rhs.children.iter().cloned());
                 lhs
             }
             (Some(seq_lhs), None) => {
-                seq_lhs.0.attrs.push(Attr::Child(Prehashed::new(rhs)));
+                seq_lhs.children.push(rhs);
                 lhs
             }
             (None, Some(rhs_seq)) => {
-                rhs_seq.0.attrs.insert(0, Attr::Child(Prehashed::new(lhs)));
+                rhs_seq.children.insert(0, lhs);
                 rhs
             }
             (None, None) => Self::sequence([lhs, rhs]),
@@ -1155,30 +1094,9 @@ impl Serialize for Content {
 }
 
 impl Attr {
-    fn child(&self) -> Option<&Content> {
-        match self {
-            Self::Child(child) => Some(child),
-            _ => None,
-        }
-    }
-
     fn location(&self) -> Option<Location> {
         match self {
             Self::Location(location) => Some(*location),
-            _ => None,
-        }
-    }
-
-    fn styles(&self) -> Option<&Styles> {
-        match self {
-            Self::Styles(styles) => Some(styles),
-            _ => None,
-        }
-    }
-
-    fn styles_mut(&mut self) -> Option<&mut Styles> {
-        match self {
-            Self::Styles(styles) => Some(styles),
             _ => None,
         }
     }
@@ -1206,15 +1124,25 @@ impl Attr {
 }
 
 /// Defines the `ElemFunc` for sequences.
-#[elem]
-struct SequenceElem {}
+#[selem]
+struct SequenceElem {
+    #[required]
+    #[children]
+    #[empty(Vec::with_capacity(0))]
+    children: Vec<Content>,
+}
 
 /// Defines the `ElemFunc` for styled elements.
-#[elem]
-struct StyledElem {}
+#[selem]
+struct StyledElem {
+    #[required]
+    child: Content,
+    #[required]
+    styles: Styles,
+}
 
 /// Hosts metadata and ensures metadata is produced even for empty elements.
-#[elem(Behave)]
+#[selem(Behave)]
 pub struct MetaElem {
     /// Metadata that should be attached to all elements affected by this style
     /// property.

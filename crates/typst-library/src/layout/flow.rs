@@ -14,7 +14,7 @@ use crate::visualize::{
 ///
 /// This element is responsible for layouting both the top-level content flow
 /// and the contents of boxes.
-#[elem(Layout)]
+#[selem(Layout)]
 pub struct FlowElem {
     /// The children that will be arranges into a flow.
     #[variadic]
