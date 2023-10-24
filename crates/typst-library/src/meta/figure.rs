@@ -211,7 +211,6 @@ impl Synthesize for FigureElem {
         let kind = self.kind(styles).unwrap_or_else(|| {
             self.body()
                 .query_first(Selector::can::<dyn Figurable>())
-                .cloned()
                 .map(|elem| FigureKind::Elem(elem.func()))
                 .unwrap_or_else(|| FigureKind::Elem(ImageElem::elem()))
         });
@@ -245,7 +244,7 @@ impl Synthesize for FigureElem {
                 // just the body, if none was found.
                 let descendant = match kind {
                     FigureKind::Elem(func) => {
-                        self.body().query_first(Selector::Elem(func, None)).cloned()
+                        self.body().query_first(Selector::Elem(func, None))
                     }
                     FigureKind::Name(_) => None,
                 };

@@ -115,13 +115,25 @@ fn create(element: &Elem) -> TokenStream {
         }
     });
 
-    let field_set_matches = settable.clone().map(|field| {
+    let field_set_matches = settable.map(|field| {
         let name = &field.name;
         let field_ident = &field.ident;
 
         quote! {
             #name => {
                 self.#field_ident = Some(::typst::eval::FromValue::from_value(value)?);
+                return Ok(());
+            }
+        }
+    });
+
+    let field_inherent_matches = all.clone().filter(|field| !field.internal && !field.settable()).map(|field| {
+        let name = &field.name;
+        let field_ident = &field.ident;
+
+        quote! {
+            #name => {
+                self.#field_ident = ::typst::eval::FromValue::from_value(value)?;
                 return Ok(());
             }
         }
@@ -308,13 +320,6 @@ fn create(element: &Elem) -> TokenStream {
                 ::std::sync::Arc::new(Clone::clone(self))
             }
 
-            fn make_mut(mut self: ::std::sync::Arc<Self>) -> ::std::sync::Arc<dyn ::typst::model::Element>{
-                if ::std::sync::Arc::get_mut(&mut self).is_none() {
-                    return ::std::sync::Arc::new(<Self as Clone>::clone(&self));
-                }
-                self as _
-            }
-
             fn field(&self, name: &str) -> Option<::typst::eval::Value> {
                 match name {
                     "label" => self.label().cloned().map(::typst::eval::Value::Label),
@@ -338,11 +343,14 @@ fn create(element: &Elem) -> TokenStream {
                     #(
                         #field_set_matches
                     )*
+                    #(
+                        #field_inherent_matches
+                    )*
                     _ => ::typst::diag::bail!(#unknown_field, name),
                 }
             }
 
-            fn children(&self) -> &[Content] {
+            fn children(&self) -> &[::comemo::Prehashed<Content>] {
                 #children
             }
         }
@@ -678,30 +686,21 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
 
             fn unpack(content: &#model::Content) -> ::std::option::Option<&Self> {
                 content.is::<Self>().then(|| unsafe {
-                    let #model::Content::Static(static_) = content else {
-                        // Safety: we checked that we are `Self`.
-                        unreachable!();
-                    };
-
                     // Safety: we checked that we are `Self`.
                     unsafe {
-                        &*(::std::sync::Arc::as_ptr(static_) as *const () as *const Self)
+                        &*(::std::sync::Arc::as_ptr(&content.0) as *const () as *const Self)
                     }
                 })
             }
 
             fn unpack_mut(content: &mut #model::Content) -> Option<&mut Self> {
                 content.is::<Self>().then(|| unsafe {
-                    let #model::Content::Static(static_) = content else {
-                        unreachable!();
-                    };
-
                     // Make sure we're mutable
-                    ::typst::model::swap_with_mut(static_);
+                    ::typst::model::swap_with_mut(&mut content.0);
 
                     // Safety: we checked that we are `Self` and mutable.
                     unsafe {
-                        &mut *(::std::sync::Arc::as_ptr(static_) as *const () as *mut () as *mut Self)
+                        &mut *(::std::sync::Arc::as_ptr(&mut content.0) as *const () as *mut () as *mut Self)
                     }
                 })
             }
@@ -844,20 +843,48 @@ fn create_hash_impl(element: &Elem) -> TokenStream {
     let all = element
         .fields
         .iter()
-        .filter(|field| !field.not_hash && !field.external)
+        .filter(|field| !field.not_hash && !field.external && field.required)
+        .map(|field| &field.ident)
+        .collect::<Vec<_>>();
+
+    let opts = element
+        .fields
+        .iter()
+        .filter(|field| !field.not_hash && !field.external && !field.required)
         .map(|field| &field.ident)
         .collect::<Vec<_>>();
 
     quote! {
         impl ::std::hash::Hash for #ident {
             fn hash<H: ::std::hash::Hasher>(&self, hasher: &mut H) {
-                self.location.hash(hasher);
-                self.label.hash(hasher);
-                self.span.hash(hasher);
-                self.prepared.hash(hasher);
-                self.guards.hash(hasher);
+                if let Some(location) = &self.location {
+                    location.hash(hasher);
+                }
+
+                if let Some(label) = &self.label {
+                    label.hash(hasher);
+                }
+
+                if !self.span.is_detached() {
+                    self.span.hash(hasher);
+                }
+
+                if self.prepared {
+                    self.prepared.hash(hasher);
+                }
+
+                if !self.guards.is_empty() {
+                    self.guards.hash(hasher);
+                }
+
                 #(
                     self.#all.hash(hasher);
+                )*
+
+                #(
+                    if let Some(#opts) = &self.#opts {
+                        #opts.hash(hasher);
+                    }
                 )*
             }
         }

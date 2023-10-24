@@ -543,7 +543,6 @@ pub struct TextElem {
     pub body: Content,
 
     /// The text.
-    #[internal]
     #[required]
     pub text: EcoString,
 

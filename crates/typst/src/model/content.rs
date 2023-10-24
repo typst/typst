@@ -10,7 +10,7 @@ use serde::{Serialize, Serializer};
 use typst_macros::selem;
 
 use super::{
-    elem, Behave, Behaviour, Element, ElementData, Guard, Label, Locatable, Location,
+    Behave, Behaviour, Element, ElementData, Guard, Label, Locatable, Location,
     NativeElement, Recipe, Selector, Style, Styles, Synthesize,
 };
 use crate::diag::{SourceResult, StrResult};
@@ -19,11 +19,9 @@ use crate::eval::{func, scope, ty, Dict, FromValue, IntoValue, Repr, Str, Value,
 use crate::syntax::Span;
 
 #[ty(scope)]
+#[repr(transparent)]
 #[derive(Debug, Clone)]
-pub enum Content {
-    Dyn(DynContent),
-    Static(Arc<dyn Element>),
-}
+pub struct Content(pub Arc<dyn Element>);
 
 impl Default for Content {
     fn default() -> Self {
@@ -37,22 +35,16 @@ impl<T: Element> From<T> for Content {
     }
 }
 
-impl From<DynContent> for Content {
-    fn from(value: DynContent) -> Self {
-        Self::Dyn(value)
-    }
-}
-
 impl From<Arc<dyn Element>> for Content {
     fn from(value: Arc<dyn Element>) -> Self {
-        Self::Static(value)
+        Self(value)
     }
 }
 
 impl Content {
     #[inline]
     pub fn static_<E: Element>(elem: E) -> Self {
-        Self::Static(Arc::new(elem))
+        Self(Arc::new(elem))
     }
 
     #[inline]
@@ -66,98 +58,39 @@ impl Content {
 
     #[inline]
     pub fn get(&self, name: &str) -> StrResult<Value> {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
         self.field(name).ok_or_else(|| missing_field(name))
     }
 
     #[inline]
     pub fn field(&self, name: &str) -> Option<Value> {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-        match self {
-            Self::Dyn(dyn_) => dyn_.field(name),
-            Self::Static(static_) => static_.field(name),
-        }
+        self.0.field(name)
     }
 
     #[inline]
     pub fn span(&self) -> Span {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-        match self {
-            Self::Dyn(dyn_) => dyn_.span(),
-            Self::Static(static_) => static_.span(),
-        }
+        self.0.span()
     }
 
     #[inline]
     pub fn label(&self) -> Option<&Label> {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-        match self {
-            Self::Dyn(dyn_) => dyn_.label(),
-            Self::Static(static_) => static_.label(),
-        }
+       self.0.label()
     }
 
-    pub fn spanned(self, span: Span) -> Self {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-        match self {
-            Content::Dyn(dyn_) => dyn_.spanned(span).into(),
-            Content::Static(mut static_) => {
-                static_ = static_.make_mut();
-                Arc::get_mut(&mut static_).unwrap().set_span(span);
-                static_.into()
-            }
-        }
+    pub fn spanned(mut self, span: Span) -> Self {
+        swap_with_mut(&mut self.0);
+        Arc::get_mut(&mut self.0).unwrap().set_span(span);
+        self
     }
 
-    pub fn labelled(self, label: Label) -> Self {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-        match self {
-            Content::Dyn(dyn_) => dyn_.labelled(label).into(),
-            Content::Static(mut static_) => {
-                static_ = static_.make_mut();
-                Arc::get_mut(&mut static_).unwrap().set_label(label);
-                static_.into()
-            }
-        }
+    pub fn labelled(mut self, label: Label) -> Self {
+        swap_with_mut(&mut self.0);
+        Arc::get_mut(&mut self.0).unwrap().set_label(label);
+        self
     }
 
     pub fn set_location(&mut self, location: Location) {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-        match self {
-            Self::Dyn(dyn_) => dyn_.set_location(location),
-            Self::Static(static_) => {
-                swap_with_mut(static_);
-                Arc::get_mut(static_).unwrap().set_location(location);
-            }
-        }
+        swap_with_mut(&mut self.0);
+        Arc::get_mut(&mut self.0).unwrap().set_location(location);
     }
 
     /// Create a new sequence element from multiples elements.
@@ -166,65 +99,37 @@ impl Content {
         let Some(first) = iter.next() else { return Self::empty() };
         let Some(second) = iter.next() else { return first };
         let mut content = SequenceElem::default();
-        content.children.push(first);
-        content.children.push(second);
-        content.children.extend(iter);
+        content.children.push(Prehashed::new(first));
+        content.children.push(Prehashed::new(second));
+        content.children.extend(iter.map(Prehashed::new));
         Self::static_(content)
     }
 
     /// Access the children if this is a sequence.
     pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Content>> {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
-        if !self.is_sequence() {
-            return None;
-        }
-
         let Some(sequence) = SequenceElem::unpack(self) else {
             return None;
         };
 
-        Some(sequence.children.iter())
+        Some(sequence.children.iter().map(std::ops::Deref::deref))
     }
 
     pub fn elem(&self) -> ElementData {
-        match self {
-            Self::Dyn(dyn_) => dyn_.elem,
-            Self::Static(static_) => static_.data(),
-        }
+        self.0.data()
     }
 
     /// Whether the contained element is of type `T`.
     pub fn is<T: NativeElement>(&self) -> bool {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
         self.elem() == T::elem()
     }
 
     /// Cast to `T` if the contained element is of type `T`.
     pub fn to<T: NativeElement>(&self) -> Option<&T> {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
         T::unpack(self)
     }
 
     /// Cast to `T` if the contained element is of type `T`.
     pub fn to_mut<T: NativeElement>(&mut self) -> Option<&mut T> {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
         T::unpack_mut(self)
     }
 
@@ -233,22 +138,12 @@ impl Content {
     where
         C: ?Sized + 'static,
     {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
         self.elem().can::<C>()
     }
 
     /// Whether the contained element has the given capability where the
     /// capability is given by a `TypeId`.
     pub fn can_type_id(&self, type_id: TypeId) -> bool {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
         self.elem().can_type_id(type_id)
     }
 
@@ -258,69 +153,26 @@ impl Content {
     where
         C: ?Sized + 'static,
     {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
         let vtable = self.elem().vtable()(TypeId::of::<C>())?;
-        match self {
-            Content::Dyn(dyn_) => {
-                let data = dyn_ as *const DynContent as *const ();
-                Some(unsafe { &*crate::util::fat::from_raw_parts(data, vtable) })
-            }
-            Content::Static(static_) => {
-                let data = Arc::as_ptr(static_) as *const ();
-                Some(unsafe { &*crate::util::fat::from_raw_parts(data, vtable) })
-            }
-        }
+        let data = Arc::as_ptr(&self.0) as *const ();
+        Some(unsafe { &*crate::util::fat::from_raw_parts(data, vtable) })
     }
 
     pub fn with_mut<C>(&mut self) -> Option<&mut C>
     where
         C: ?Sized + 'static,
     {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
         let vtable = self.elem().vtable()(TypeId::of::<C>())?;
-        match self {
-            Content::Dyn(dyn_) => {
-                let data = dyn_ as *mut DynContent as *mut ();
-                Some(unsafe { &mut *crate::util::fat::from_raw_parts_mut(data, vtable) })
-            }
-            Content::Static(static_) => {
-                swap_with_mut(static_);
-
-                let data = Arc::get_mut(static_).unwrap() as *mut dyn Element as *mut ();
-                Some(unsafe { &mut *crate::util::fat::from_raw_parts_mut(data, vtable) })
-            }
-        }
+        let data = Arc::as_ptr(&mut self.0) as *const () as *mut ();
+        Some(unsafe { &mut *crate::util::fat::from_raw_parts_mut(data, vtable) })
     }
 
     pub fn is_sequence(&self) -> bool {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
         self.is::<SequenceElem>()
     }
 
     /// Whether the content is an empty sequence.
     pub fn is_empty(&self) -> bool {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
-        if !self.is::<SequenceElem>() {
-            return false;
-        }
-
         let Some(sequence) = SequenceElem::unpack(self) else {
             return false;
         };
@@ -330,12 +182,6 @@ impl Content {
 
     /// Also auto expands sequence of sequences into flat sequence
     pub fn sequence_recursive_for_each(&self, f: &mut impl FnMut(&Self)) {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
         if let Some(childs) = self.to_sequence() {
             childs.for_each(|c| c.sequence_recursive_for_each(f));
         } else {
@@ -345,12 +191,6 @@ impl Content {
 
     /// Access the child and styles.
     pub fn to_styled(&self) -> Option<(&Content, &Styles)> {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
         let styled = StyledElem::unpack(self)?;
 
         let child = &styled.child;
@@ -360,12 +200,6 @@ impl Content {
 
     /// Style this content with a recipe, eagerly applying it if possible.
     pub fn styled_with_recipe(self, vm: &mut Vm, recipe: Recipe) -> SourceResult<Self> {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
         if recipe.selector.is_none() {
             recipe.apply_vm(vm, self)
         } else {
@@ -375,23 +209,11 @@ impl Content {
 
     /// Repeat this content `count` times.
     pub fn repeat(&self, count: usize) -> Self {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
-        Self::sequence(vec![self.clone(); count])
+        Self::sequence(std::iter::repeat_with(|| self.clone()).take(count))
     }
 
     /// Style this content with a style entry.
     pub fn styled(mut self, style: impl Into<Style>) -> Self {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
         if let Some(style_elem) = StyledElem::unpack_mut(&mut self) {
             style_elem.styles.apply_one(style.into());
             self
@@ -402,12 +224,6 @@ impl Content {
 
     /// Style this content with a full style map.
     pub fn styled_with_map(mut self, styles: Styles) -> Self {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
         if styles.is_empty() {
             return self;
         }
@@ -422,12 +238,6 @@ impl Content {
 
     /// Whether the content needs to be realized specially.
     pub fn needs_preparation(&self) -> bool {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
         (self.can::<dyn Locatable>()
             || self.can::<dyn Synthesize>()
             || self.label().is_some())
@@ -438,16 +248,10 @@ impl Content {
     ///
     /// Elements produced in `show` rules will not be included in the results.
     #[tracing::instrument(skip_all)]
-    pub fn query(&self, selector: Selector) -> Vec<&Content> {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
+    pub fn query(&self, selector: Selector) -> Vec<Content> {
         let mut results = Vec::new();
         self.traverse(&mut |element| {
-            if selector.matches(element) {
+            if selector.matches(&element) {
                 results.push(element);
             }
         });
@@ -459,16 +263,10 @@ impl Content {
     ///
     /// Elements produced in `show` rules will not be included in the results.
     #[tracing::instrument(skip_all)]
-    pub fn query_first(&self, selector: Selector) -> Option<&Content> {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
+    pub fn query_first(&self, selector: Selector) -> Option<Content> {
         let mut result = None;
         self.traverse(&mut |element| {
-            if result.is_none() && selector.matches(element) {
+            if result.is_none() && selector.matches(&element) {
                 result = Some(element);
             }
         });
@@ -477,12 +275,6 @@ impl Content {
 
     /// Extracts the plain text of this content.
     pub fn plain_text(&self) -> EcoString {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
         let mut text = EcoString::new();
         self.traverse(&mut |element| {
             if let Some(textable) = element.with::<dyn PlainText>() {
@@ -493,55 +285,26 @@ impl Content {
     }
 
     pub fn fields_ref(&self) -> EcoVec<(EcoString, Value)> {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
-        match self {
-            Content::Dyn(dyn_) => dyn_
-                .fields_ref()
-                .map(|(key, value)| (key.clone(), value.clone()))
-                .collect(),
-            Content::Static(static_) => static_
-                .fields()
-                .into_iter()
-                .map(|(key, value)| (key.0, value))
-                .collect(),
-        }
+        self.0
+            .fields()
+            .into_iter()
+            .map(|(key, value)| (key.0, value))
+            .collect()
     }
 
     /// Traverse this content.
-    fn traverse<'a, F>(&'a self, f: &mut F)
+    fn traverse<F>(&self, f: &mut F)
     where
-        F: FnMut(&'a Content),
+        F: FnMut(Content),
     {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
+        f(self.clone());
 
-        f(self);
-
-        match self {
-            Self::Dyn(dyn_) => {
-                for attr in &dyn_.attrs {
-                    match attr {
-                        Attr::Value(value) => walk_value(value, f),
-                        _ => {}
-                    }
-                }
-            }
-            // TODO: implement children on static elements
-            Self::Static(_) => {}
-        }
+        self.0.fields().into_iter().for_each(|(_, value)| walk_value(value, f));
 
         /// Walks a given value to find any content that matches the selector.
-        fn walk_value<'a, F>(value: &'a Value, f: &mut F)
+        fn walk_value<F>(value: Value, f: &mut F)
         where
-            F: FnMut(&'a Content),
+            F: FnMut(Content),
         {
             match value {
                 Value::Content(content) => content.traverse(f),
@@ -556,376 +319,73 @@ impl Content {
     }
 
     /// Disable a show rule recipe.
-    pub fn guarded(self, guard: Guard) -> Self {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
-        match self {
-            Content::Dyn(dyn_) => dyn_.guarded(guard).into(),
-            Content::Static(static_) => {
-                let mut static_ = static_.make_mut();
-                Arc::get_mut(&mut static_).unwrap().push_guard(guard);
-                static_.into()
-            }
-        }
+    pub fn guarded(mut self, guard: Guard) -> Self {
+        swap_with_mut(&mut self.0);
+        Arc::get_mut(&mut self.0).unwrap().push_guard(guard);
+        self.0.into()
     }
 
     /// Check whether a show rule recipe is disabled.
     pub fn is_guarded(&self, guard: Guard) -> bool {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
-        match self {
-            Content::Dyn(dyn_) => dyn_.is_guarded(guard),
-            Content::Static(static_) => static_.is_guarded(guard),
-        }
+        self.0.is_guarded(guard)
     }
 
     /// Whether no show rule was executed for this content so far.
     pub fn is_pristine(&self) -> bool {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
-        match self {
-            Content::Dyn(dyn_) => dyn_.is_pristine(),
-            Content::Static(static_) => static_.is_pristine(),
-        }
+        self.0.is_pristine()
     }
 
     /// Expect a field on the content to exist as a specified type.
     #[track_caller]
     pub fn expect_field<T: FromValue>(&self, name: &str) -> T {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
         self.field(name).unwrap().cast().unwrap()
     }
 
     /// Whether this content has already been prepared.
     pub fn is_prepared(&self) -> bool {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
-        match self {
-            Content::Dyn(dyn_) => dyn_.is_prepared(),
-            Content::Static(static_) => static_.is_prepared(),
-        }
+        self.0.is_prepared()
     }
 
     /// Mark this content as prepared.
     pub fn mark_prepared(&mut self) {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
-        match self {
-            Content::Dyn(dyn_) => dyn_.mark_prepared(),
-            Content::Static(static_) => {
-                swap_with_mut(static_);
-                Arc::get_mut(static_).unwrap().mark_prepared();
-            }
-        }
+        swap_with_mut(&mut self.0);
+        Arc::get_mut(&mut self.0).unwrap().mark_prepared();
     }
 
     /// Attach a field to the content.
-    pub fn with_field(self, name: &str, value: impl IntoValue) -> Self {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
-        match self {
-            Content::Dyn(dyn_) => dyn_.with_field(name, value).into(),
-            Content::Static(static_) => {
-                let mut static_ = static_.make_mut();
-                Arc::get_mut(&mut static_)
-                    .unwrap()
-                    .set_field(name, value.into_value())
-                    .unwrap();
-                static_.into()
-            }
-        }
+    pub fn with_field(mut self, name: &str, value: impl IntoValue) -> Self {
+        swap_with_mut(&mut self.0);
+        Arc::get_mut(&mut self.0)
+            .unwrap()
+            .set_field(name, value.into_value())
+            .unwrap();
+        self
     }
 }
 
 impl std::hash::Hash for Content {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        assert!(if self.elem().is_static() {
-            matches!(self, Self::Static(_))
-        } else {
-            matches!(self, Self::Dyn(_))
-        });
-
-        core::mem::discriminant(self).hash(state);
-
-        match self {
-            Content::Dyn(dyn_) => dyn_.hash(state),
-            Content::Static(static_) => {
-                static_.data().hash(state);
-                static_.dyn_hash(state)
-            }
-        }
+        self.0.data().hash(state);
+        self.0.dyn_hash(state)
     }
 }
 
 impl PartialEq for Content {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Dyn(l0), Self::Dyn(r0)) => l0 == r0,
-            (Self::Static(l0), Self::Static(r0)) => {
-                if let (Some(left), Some(right)) = (self.to_styled(), other.to_styled()) {
-                    left == right
-                }  else {
-                    l0.dyn_eq(r0 as &dyn Any)
-                }
-            },
-            _ => false,
+        if let (Some(left), Some(right)) = (self.to_styled(), other.to_styled()) {
+            left == right
+        }  else {
+            self.0.dyn_eq(&other.0 as &dyn Any)
         }
     }
 }
 
 impl Repr for Content {
     fn repr(&self) -> EcoString {
-        match self {
-            Content::Dyn(dyn_) => dyn_.repr(),
-            Content::Static(static_) => static_.repr(),
-        }
+        self.0.repr()
     }
 }
 
-/// A piece of document content.
-///
-/// This type is at the heart of Typst. All markup you write and most
-/// [functions]($function) you call produce content values. You can create a
-/// content value by enclosing markup in square brackets. This is also how you
-/// pass content to functions.
-///
-/// # Example
-/// ```example
-/// Type of *Hello!* is
-/// #type([*Hello!*])
-/// ```
-///
-/// Content can be added with the `+` operator,
-/// [joined together]($scripting/#blocks) and multiplied with integers. Wherever
-/// content is expected, you can also pass a [string]($str) or `{none}`.
-///
-/// # Representation
-/// Content consists of elements with fields. When constructing an element with
-/// its _element function,_ you provide these fields as arguments and when you
-/// have a content value, you can access its fields with [field access
-/// syntax]($scripting/#field-access).
-///
-/// Some fields are required: These must be provided when constructing an
-/// element and as a consequence, they are always available through field access
-/// on content of that type. Required fields are marked as such in the
-/// documentation.
-///
-/// Most fields are optional: Like required fields, they can be passed to the
-/// element function to configure them for a single element. However, these can
-/// also be configured with [set rules]($styling/#set-rules) to apply them to
-/// all elements within a scope. Optional fields are only available with field
-/// access syntax when they are were explicitly passed to the element function,
-/// not when they result from a set rule.
-///
-/// Each element has a default appearance. However, you can also completely
-/// customize its appearance with a [show rule]($styling/#show-rules). The show
-/// rule is passed the element. It can access the element's field and produce
-/// arbitrary content from it.
-///
-/// In the web app, you can hover over a content variable to see exactly which
-/// elements the content is composed of and what fields they have.
-/// Alternatively, you can inspect the output of the [`repr`]($repr) function.
-#[derive(Debug, Clone, Hash)]
-#[allow(clippy::derived_hash_with_manual_eq)]
-pub struct DynContent {
-    elem: ElementData,
-    attrs: EcoVec<Attr>,
-}
-
-/// Attributes that can be attached to content.
-#[derive(Debug, Clone, PartialEq, Hash)]
-enum Attr {
-    Span(Span),
-    Field(EcoString),
-    Value(Prehashed<Value>),
-    Prepared,
-    Guard(Guard),
-    Location(Location),
-}
-
-impl DynContent {
-    /// Create an empty element.
-    pub fn new(elem: ElementData) -> Self {
-        debug_assert!(!elem.is_static());
-        Self { elem, attrs: EcoVec::new() }
-    }
-
-    pub fn location(&self) -> Option<Location> {
-        self.attrs.iter().find_map(Attr::location)
-    }
-
-    /// Cast to a mutable trait object if the contained element has the given
-    /// capability.
-    pub fn with_mut<C>(&mut self) -> Option<&mut C>
-    where
-        C: ?Sized + 'static,
-    {
-        let vtable = self.elem.vtable()(TypeId::of::<C>())?;
-        let data = self as *mut Self as *mut ();
-        Some(unsafe { &mut *crate::util::fat::from_raw_parts_mut(data, vtable) })
-    }
-
-    /// The content's span.
-    pub fn span(&self) -> Span {
-        self.attrs.iter().find_map(Attr::span).unwrap_or(Span::detached())
-    }
-
-    /// Attach a span to the content if it doesn't already have one.
-    pub fn spanned(mut self, span: Span) -> Self {
-        if self.span().is_detached() {
-            self.attrs.push(Attr::Span(span));
-        }
-        self
-    }
-
-    /// Attach a field to the content.
-    pub fn with_field(
-        mut self,
-        name: impl Into<EcoString>,
-        value: impl IntoValue,
-    ) -> Self {
-        self.push_field(name, value);
-        self
-    }
-
-    /// Attach a field to the content.
-    pub fn push_field(&mut self, name: impl Into<EcoString>, value: impl IntoValue) {
-        let name = name.into();
-        if let Some(i) = self.attrs.iter().position(|attr| match attr {
-            Attr::Field(field) => *field == name,
-            _ => false,
-        }) {
-            self.attrs.make_mut()[i + 1] =
-                Attr::Value(Prehashed::new(value.into_value()));
-        } else {
-            self.attrs.push(Attr::Field(name));
-            self.attrs.push(Attr::Value(Prehashed::new(value.into_value())));
-        }
-    }
-
-    /// Whether the contained element is of type `T`.
-    pub fn is<T: NativeElement>(&self) -> bool {
-        self.elem == T::elem()
-    }
-
-    /// Access a field on the content.
-    pub fn field(&self, name: &str) -> Option<Value> {
-        self.field_ref(name).cloned()
-    }
-
-    /// Access a field on the content by reference.
-    ///
-    /// Does not include synthesized fields for sequence and styled elements.
-    pub fn field_ref(&self, name: &str) -> Option<&Value> {
-        self.fields_ref()
-            .find(|&(field, _)| field == name)
-            .map(|(_, value)| value)
-    }
-
-    /// Iter over all fields on the content.
-    ///
-    /// Does not include synthesized fields for sequence and styled elements.
-    pub fn fields_ref(&self) -> impl Iterator<Item = (&EcoString, &Value)> {
-        let mut iter = self.attrs.iter();
-        std::iter::from_fn(move || {
-            let field = iter.find_map(Attr::field)?;
-            let value = iter.next()?.value()?;
-            Some((field, value))
-        })
-    }
-
-    /// Borrow the value of the given field.
-    pub fn get(&self, key: &str) -> StrResult<Value> {
-        self.field(key).ok_or_else(|| missing_field(key))
-    }
-
-    /// Try to access a field on the content as a specified type.
-    pub fn cast_field<T: FromValue>(&self, name: &str) -> Option<T> {
-        match self.field(name) {
-            Some(value) => value.cast().ok(),
-            None => None,
-        }
-    }
-
-    /// Expect a field on the content to exist as a specified type.
-    #[track_caller]
-    pub fn expect_field<T: FromValue>(&self, name: &str) -> T {
-        self.field(name).unwrap().cast().unwrap()
-    }
-
-    /// The content's label.
-    pub fn label(&self) -> Option<&Label> {
-        match self.field_ref("label")? {
-            Value::Label(label) => Some(label),
-            _ => None,
-        }
-    }
-
-    /// Attach a label to the content.
-    pub fn labelled(self, label: Label) -> Self {
-        self.with_field("label", label)
-    }
-
-    /// Disable a show rule recipe.
-    pub fn guarded(mut self, guard: Guard) -> Self {
-        self.attrs.push(Attr::Guard(guard));
-        self
-    }
-
-    /// Check whether a show rule recipe is disabled.
-    pub fn is_guarded(&self, guard: Guard) -> bool {
-        self.attrs.contains(&Attr::Guard(guard))
-    }
-
-    /// Whether no show rule was executed for this content so far.
-    pub fn is_pristine(&self) -> bool {
-        !self.attrs.iter().any(|modifier| matches!(modifier, Attr::Guard(_)))
-    }
-
-    /// Whether this content has already been prepared.
-    pub fn is_prepared(&self) -> bool {
-        self.attrs.contains(&Attr::Prepared)
-    }
-
-    /// Mark this content as prepared.
-    pub fn mark_prepared(&mut self) {
-        self.attrs.push(Attr::Prepared);
-    }
-
-    /// Attach a location to this content.
-    pub fn set_location(&mut self, location: Location) {
-        self.attrs.push(Attr::Location(location));
-    }
-}
 
 #[scope]
 impl Content {
@@ -1004,42 +464,7 @@ impl Content {
     /// [counters]($counter), [state]($state) and [queries]($query).
     #[func]
     pub fn location(&self) -> Option<Location> {
-        match self {
-            Self::Dyn(dyn_) => dyn_.attrs.iter().find_map(Attr::location),
-            Self::Static(static_) => static_.location(),
-        }
-    }
-}
-
-impl Repr for DynContent {
-    fn repr(&self) -> EcoString {
-        // TODO: todo!()
-        EcoString::new()
-        /*let name = self.elem.name();
-        // TODO: optimize this.
-        if let Some(text) = item!(text_str)(&self.clone().into()) {
-            return eco_format!("[{}]", text);
-        } else if name == "space" {
-            return ("[ ]").into();
-        }
-
-        let mut pieces: Vec<_> = self
-            .fields()
-            .into_iter()
-            .map(|(name, value)| eco_format!("{}: {}", name, value.repr()))
-            .collect();
-
-        if self.is::<StyledElem>() {
-            pieces.push(EcoString::from(".."));
-        }
-
-        eco_format!("{}{}", name, pretty_array_like(&pieces, false))*/
-    }
-}
-
-impl PartialEq for DynContent {
-    fn eq(&self, other: &Self) -> bool {
-        self.elem == other.elem && self.fields_ref().eq(other.fields_ref())
+       self.0.location()
     }
 }
 
@@ -1054,11 +479,11 @@ impl Add for Content {
                 lhs
             }
             (Some(seq_lhs), None) => {
-                seq_lhs.children.push(rhs);
+                seq_lhs.children.push(Prehashed::new(rhs));
                 lhs
             }
             (None, Some(rhs_seq)) => {
-                rhs_seq.children.insert(0, lhs);
+                rhs_seq.children.insert(0, Prehashed::new(lhs));
                 rhs
             }
             (None, None) => Self::sequence([lhs, rhs]),
@@ -1083,43 +508,8 @@ impl Serialize for Content {
     where
         S: Serializer,
     {
-        match self {
-            Content::Dyn(dyn_) => serializer.collect_map(
-                iter::once((&"func".into(), &dyn_.elem.name().into_value()))
-                    .chain(dyn_.fields_ref()),
-            ),
-            Content::Static(_) => todo!(),
-        }
-    }
-}
-
-impl Attr {
-    fn location(&self) -> Option<Location> {
-        match self {
-            Self::Location(location) => Some(*location),
-            _ => None,
-        }
-    }
-
-    fn field(&self) -> Option<&EcoString> {
-        match self {
-            Self::Field(field) => Some(field),
-            _ => None,
-        }
-    }
-
-    fn value(&self) -> Option<&Value> {
-        match self {
-            Self::Value(value) => Some(value),
-            _ => None,
-        }
-    }
-
-    fn span(&self) -> Option<Span> {
-        match self {
-            Self::Span(span) => Some(*span),
-            _ => None,
-        }
+        serializer.collect_map(iter::once((EcoString::inline("func"), self.func().name().into_value()))
+            .chain(self.fields().into_iter().map(|(key, value)| (key.0, value))))
     }
 }
 
@@ -1129,7 +519,7 @@ struct SequenceElem {
     #[required]
     #[children]
     #[empty(Vec::with_capacity(0))]
-    children: Vec<Content>,
+    children: Vec<Prehashed<Content>>,
 }
 
 /// Defines the `ElemFunc` for styled elements.

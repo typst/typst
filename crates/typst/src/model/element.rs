@@ -1,4 +1,5 @@
 use ::std::hash::Hasher;
+use comemo::Prehashed;
 use ::typst::model::{Guard, Label, Location};
 use ::typst::syntax::Span;
 use ecow::EcoString;
@@ -49,12 +50,9 @@ pub trait Element: Any + Send + Sync + Debug + Repr + 'static {
 
     fn field(&self, name: &str) -> Option<Value>;
 
-    fn children(&self) -> &[Content];
+    fn children(&self) -> &[Prehashed<Content>];
 
     fn dyn_clone(&self) -> Arc<dyn Element>;
-
-    /// Clones the `Arc` if needed to make it mutable.
-    fn make_mut(self: Arc<Self>) -> Arc<dyn Element>;
 
     /// Get the fields of the element.
     fn fields(&self) -> Dict;

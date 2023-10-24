@@ -32,6 +32,7 @@ pub use self::root::*;
 pub use self::style::*;
 pub use self::underover::*;
 
+use comemo::Prehashed;
 use ttf_parser::{GlyphId, Rect};
 use typst::eval::{Module, Scope};
 use typst::font::{Font, FontWeight};

@@ -57,6 +57,7 @@ env_proxy = "0.4"
 walkdir = "2"
 xz2 = { version = "0.1", optional = true }
 zip = { version = "0.6", optional = true }
+mimalloc = "0.1.39"
 
 [build-dependencies]
 clap = { version = "4.4", features = ["derive", "string"] }
