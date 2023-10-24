@@ -48,7 +48,6 @@ pub use self::transform::*;
 
 use std::mem;
 
-use comemo::Prehashed;
 use typed_arena::Arena;
 use typst::diag::SourceResult;
 use typst::eval::Tracer;
