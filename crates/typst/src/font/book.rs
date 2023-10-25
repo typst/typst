@@ -191,13 +191,16 @@ bitflags::bitflags! {
 }
 
 impl FontInfo {
+    /// Compute metadata for font at the `index` of the given data.
+    pub fn new(data: &[u8], index: u32) -> Option<Self> {
+        let ttf = ttf_parser::Face::parse(data, index).ok()?;
+        Self::from_ttf(&ttf)
+    }
+
     /// Compute metadata for all fonts in the given data.
     pub fn iter(data: &[u8]) -> impl Iterator<Item = FontInfo> + '_ {
         let count = ttf_parser::fonts_in_collection(data).unwrap_or(1);
-        (0..count).filter_map(move |index| {
-            let ttf = ttf_parser::Face::parse(data, index).ok()?;
-            Self::from_ttf(&ttf)
-        })
+        (0..count).filter_map(move |index| Self::new(data, index))
     }
 
     /// Compute metadata for a single ttf-parser face.
