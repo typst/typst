@@ -98,11 +98,12 @@ impl Content {
         let mut iter = iter.into_iter();
         let Some(first) = iter.next() else { return Self::empty() };
         let Some(second) = iter.next() else { return first };
-        let mut content = SequenceElem::default();
-        content.children.push(Prehashed::new(first));
-        content.children.push(Prehashed::new(second));
-        content.children.extend(iter.map(Prehashed::new));
-        Self::static_(content)
+        SequenceElem::new(
+            std::iter::once(Prehashed::new(first))
+            .chain(std::iter::once(Prehashed::new(second)))
+            .chain(iter.map(Prehashed::new))
+            .collect()
+        ).into()
     }
 
     /// Access the children if this is a sequence.
@@ -232,7 +233,7 @@ impl Content {
             style_elem.styles.apply(styles.into());
             self
         } else {
-            StyledElem::new(self, styles).into()
+            StyledElem::new(Prehashed::new(self), styles).into()
         }
     }
 
@@ -550,7 +551,7 @@ struct SequenceElem {
 #[selem]
 struct StyledElem {
     #[required]
-    child: Content,
+    child: Prehashed<Content>,
     #[required]
     styles: Styles,
 }
