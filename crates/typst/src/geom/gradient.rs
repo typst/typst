@@ -19,29 +19,41 @@ use crate::syntax::{Span, Spanned};
 /// the [`gradient.radial` function]($gradient.radial), and conic gradients
 /// through the [`gradient.conic` function]($gradient.conic).
 ///
+/// A gradient can be used for the following purposes:
+/// - As a fill to paint the interior of a shape:
+///   `{rect(fill: gradient.linear(..))}`
+/// - As a stroke to paint the outline of a shape:
+///   `{rect(stroke: 1pt + gradient.linear(..))}`
+/// - As the fill of text:
+///   `{set text(fill: gradient.linear(..))}`
+/// - As a color map you can [sample]($gradient.sample) from:
+///   `{gradient.linear(..).sample(0.5)}`
+///
+/// # Examples
 /// ```example
+/// >>> #set square(size: 50pt)
 /// #stack(
 ///   dir: ltr,
-///   square(size: 50pt, fill: gradient.linear(..color.map.rainbow)),
-///   square(size: 50pt, fill: gradient.radial(..color.map.rainbow)),
-///   square(size: 50pt, fill: gradient.conic(..color.map.rainbow)),
+///   spacing: 1fr,
+///   square(fill: gradient.linear(..color.map.rainbow)),
+///   square(fill: gradient.radial(..color.map.rainbow)),
+///   square(fill: gradient.conic(..color.map.rainbow)),
 /// )
 /// ```
 ///
-/// # Gradients on text
-/// Gradients are supported on text but only when setting the relativeness to
-/// either `{auto}` (the default value) or `{"parent"}`. It was decided that
-/// glyph-by-glyph gradients would not be supported out-of-the-box but can be
-/// emulated using [show rules]($styling/#show-rules).
-///
-/// You can use gradients on text as follows:
+/// Gradients are also supported on text, but only when setting the
+/// [relativeness]($gradient.relative) to either `{auto}` (the default value) or
+/// `{"parent"}`. To create word-by-word or glyph-by-glyph gradients, you can
+/// wrap the words or characters of your text in [boxes]($box) manually or
+/// through a [show rule]($styling/#show-rules).
 ///
 /// ```example
-/// #set page(margin: 1pt)
+/// >>> #set page(width: auto, height: auto, margin: 12pt)
+/// >>> #set text(size: 12pt)
 /// #set text(fill: gradient.linear(red, blue))
 /// #let rainbow(content) = {
-///     set text(fill: gradient.linear(..color.map.rainbow))
-///     box(content)
+///   set text(fill: gradient.linear(..color.map.rainbow))
+///   box(content)
 /// }
 ///
 /// This is a gradient on text, but with a #rainbow[twist]!
@@ -56,24 +68,13 @@ use crate::syntax::{Span, Spanned};
 /// the offsets when defining a gradient. In this case, Typst will space all
 /// stops evenly.
 ///
-/// # Usage
-/// Gradients can be used for the following purposes:
-/// - As fills to paint the interior of a shape:
-///   `{rect(fill: gradient.linear(..))}`
-/// - As strokes to paint the outline of a shape:
-///   `{rect(stroke: 1pt + gradient.linear(..))}`
-/// - As color maps you can [sample]($gradient.sample) from:
-///   `{gradient.linear(..).sample(0.5)}`
-///
-/// Gradients are not currently supported on text.
-///
 /// # Relativeness
 /// The location of the `{0%}` and `{100%}` stops is dependant on the dimensions
 /// of a container. This container can either be the shape they are painted on,
-/// or to the closest container ancestor. This is controlled by the `relative`
-/// argument of a gradient constructor. By default, gradients are relative to
-/// the shape they are painted on, unless the gradient is applied on text, in
-/// which case they are relative to the closest ancestor container.
+/// or to the closest surrounding container. This is controlled by the
+/// `relative` argument of a gradient constructor. By default, gradients are
+/// relative to the shape they are painted on, unless the gradient is applied on
+/// text, in which case they are relative to the closest ancestor container.
 ///
 /// Typst determines the ancestor container as follows:
 /// - For shapes that are placed at the root/top level of the document, the
@@ -98,16 +99,16 @@ use crate::syntax::{Span, Spanned};
 /// choosing an interpolation space.
 ///
 /// |           Color space           | Perceptually uniform? |
-/// | ------------------------------- |:----------------------|
-/// |      [Oklab]($color.oklab)      | *Yes*                 |
-/// |      [sRGB]($color.rgb)         | *No*                  |
+/// | ------------------------------- |-----------------------|
+/// | [Oklab]($color.oklab)           | *Yes*                 |
+/// | [sRGB]($color.rgb)              | *No*                  |
 /// | [linear-RGB]($color.linear-rgb) | *Yes*                 |
-/// |      [CMYK]($color.cmyk)        | *No*                  |
-/// |     [Grayscale]($color.luma)    | *Yes*                 |
-/// |       [HSL]($color.hsl)         | *No*                  |
-/// |       [HSV]($color.hsv)         | *No*                  |
+/// | [CMYK]($color.cmyk)             | *No*                  |
+/// | [Grayscale]($color.luma)        | *Yes*                 |
+/// | [HSL]($color.hsl)               | *No*                  |
+/// | [HSV]($color.hsv)               | *No*                  |
 ///
-/// ```example
+/// ```preview
 /// >>> #set text(fill: white, font: "IBM Plex Sans", 8pt)
 /// >>> #set block(spacing: 0pt)
 /// #let spaces = (
@@ -141,52 +142,20 @@ use crate::syntax::{Span, Spanned};
 /// right-to-left, and 270° from bottom-to-top.
 ///
 /// ```example
-/// #set block(spacing: 0pt)
+/// >>> #set square(size: 50pt)
 /// #stack(
 ///   dir: ltr,
-///   square(size: 50pt, fill: gradient.linear(red, blue, angle: 0deg)),
-///   square(size: 50pt, fill: gradient.linear(red, blue, angle: 90deg)),
-///   square(size: 50pt, fill: gradient.linear(red, blue, angle: 180deg)),
-///   square(size: 50pt, fill: gradient.linear(red, blue, angle: 270deg)),
+///   spacing: 1fr,
+///   square(fill: gradient.linear(red, blue, angle: 0deg)),
+///   square(fill: gradient.linear(red, blue, angle: 90deg)),
+///   square(fill: gradient.linear(red, blue, angle: 180deg)),
+///   square(fill: gradient.linear(red, blue, angle: 270deg)),
 /// )
 /// ```
 ///
 /// # Presets
-/// You can find the full list of presets in the documentation of [`color`]($color),
-/// below is an overview of them. Note that not all presets are suitable for data
-/// visualization and full details and relevant sources can be found in the
-/// documentation of [`color`]($color).
-///
-/// ```example
-/// #set text(fill: white, size: 18pt)
-/// #set text(top-edge: "bounds", bottom-edge: "bounds")
-/// #let presets = (
-///   ("turbo", color.map.turbo),
-///   ("cividis", color.map.cividis),
-///   ("rainbow", color.map.rainbow),
-///   ("spectral", color.map.spectral),
-///   ("viridis", color.map.viridis),
-///   ("inferno", color.map.inferno),
-///   ("magma", color.map.magma),
-///   ("plasma", color.map.plasma),
-///   ("rocket", color.map.rocket),
-///   ("mako", color.map.mako),
-///   ("vlag", color.map.vlag),
-///   ("icefire", color.map.icefire),
-///   ("flare", color.map.flare),
-///   ("crest", color.map.crest),
-/// )
-///
-/// #stack(
-///   spacing: 3pt,
-///   ..presets.map(((name, preset)) => block(
-///     width: 100%,
-///     height: 20pt,
-///     fill: gradient.linear(..preset),
-///     align(center + horizon, smallcaps(name)),
-///   ))
-/// )
-/// ```
+/// Typst predefines color maps that you can use with your gradients. See the
+/// [`color`]($color/#predefined-color-maps) documentation for more details.
 #[ty(scope)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Gradient {
@@ -198,13 +167,16 @@ pub enum Gradient {
 #[scope]
 #[allow(clippy::too_many_arguments)]
 impl Gradient {
-    /// Creates a new linear gradient.
+    /// Creates a new linear gradient, in which colors transition along a
+    /// straight line.
     ///
     /// ```example
     /// #rect(
     ///   width: 100%,
     ///   height: 20pt,
-    ///   fill: gradient.linear(..color.map.viridis)
+    ///   fill: gradient.linear(
+    ///     ..color.map.viridis,
+    ///   ),
     /// )
     /// ```
     #[func(title = "Linear Gradient")]
@@ -225,9 +197,10 @@ impl Gradient {
         space: ColorSpace,
         /// The [relative placement](#relativeness) of the gradient.
         ///
-        /// For an element placed at the root/top level of the document, the parent
-        /// is the page itself. For other elements, the parent is the innermost block,
-        /// box, column, grid, or stack that contains the element.
+        /// For an element placed at the root/top level of the document, the
+        /// parent is the page itself. For other elements, the parent is the
+        /// innermost block, box, column, grid, or stack that contains the
+        /// element.
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<Relative>,
@@ -267,31 +240,34 @@ impl Gradient {
         })))
     }
 
-    /// Creates a new radial gradient.
+    /// Creates a new radial gradient, in which colors radiate away from an
+    /// origin.
+    ///
+    /// The gradient is defined by two circles: the focal circle and the end
+    /// circle. The focal circle is a circle with center `focal-center` and
+    /// radius `focal-radius`, that defines the points at which the gradient
+    /// starts and has the color of the first stop. The end circle is a circle
+    /// with center `center` and radius `radius`, that defines the points at
+    /// which the gradient ends and has the color of the last stop. The gradient
+    /// is then interpolated between these two circles.
+    ///
+    /// Using these four values, also called the focal point for the starting
+    /// circle and the center and radius for the end circle, we can define a
+    /// gradient with more interesting properties than a basic radial gradient:
     ///
     /// ```example
-    /// #circle(
-    ///   radius: 20pt,
-    ///   fill: gradient.radial(..color.map.viridis)
-    /// )
-    /// ```
-    ///
-    /// _Focal Point_
-    /// The gradient is defined by two circles: the focal circle and the end circle.
-    /// The focal circle is a circle with center `focal-center` and radius `focal-radius`,
-    /// that defines the points at which the gradient starts and has the color of the
-    /// first stop. The end circle is a circle with center `center` and radius `radius`,
-    /// that defines the points at which the gradient ends and has the color of the last
-    /// stop. The gradient is then interpolated between these two circles.
-    ///
-    /// Using these four values, also called the focal point for the starting circle and
-    /// the center and radius for the end circle, we can define a gradient with more
-    /// interesting properties than a basic radial gradient:
-    ///
-    /// ```example
-    /// #circle(
-    ///   radius: 20pt,
-    ///   fill: gradient.radial(..color.map.viridis, focal-center: (10%, 40%), focal-radius: 5%)
+    /// >>> #set circle(radius: 30pt)
+    /// #stack(
+    ///   dir: ltr,
+    ///   spacing: 1fr,
+    ///   circle(fill: gradient.radial(
+    ///     ..color.map.viridis,
+    ///   )),
+    ///   circle(fill: gradient.radial(
+    ///     ..color.map.viridis,
+    ///     focal-center: (10%, 40%),
+    ///     focal-radius: 5%,
+    ///   )),
     /// )
     /// ```
     #[func]
@@ -316,14 +292,14 @@ impl Gradient {
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<Relative>,
-        /// The center of the last circle of the gradient.
+        /// The center of the end circle of the gradient.
         ///
         /// A value of `{(50%, 50%)}` means that the end circle is
         /// centered inside of its container.
         #[named]
         #[default(Axes::splat(Ratio::new(0.5)))]
         center: Axes<Ratio>,
-        /// The radius of the last circle of the gradient.
+        /// The radius of the end circle of the gradient.
         ///
         /// By default, it is set to `{50%}`. The ending radius must be bigger
         /// than the focal radius.
@@ -384,24 +360,24 @@ impl Gradient {
         })))
     }
 
-    /// Creates a new conic gradient (i.e a gradient whose color changes
-    /// radially around a center point).
+    /// Creates a new conic gradient, in which colors change radially around a
+    /// center point.
     ///
-    /// ```example
-    /// #circle(
-    ///   radius: 20pt,
-    ///   fill: gradient.conic(..color.map.viridis)
-    /// )
-    /// ```
-    ///
-    /// _Center Point_
     /// You can control the center point of the gradient by using the `center`
     /// argument. By default, the center point is the center of the shape.
     ///
     /// ```example
-    /// #circle(
-    ///   radius: 20pt,
-    ///   fill: gradient.conic(..color.map.viridis, center: (10%, 40%))
+    /// >>> #set circle(radius: 30pt)
+    /// #stack(
+    ///   dir: ltr,
+    ///   spacing: 1fr,
+    ///   circle(fill: gradient.conic(
+    ///     ..color.map.viridis,
+    ///   )),
+    ///   circle(fill: gradient.conic(
+    ///     ..color.map.viridis,
+    ///     center: (20%, 30%),
+    ///   )),
     /// )
     /// ```
     #[func]
@@ -453,117 +429,18 @@ impl Gradient {
         })))
     }
 
-    /// Returns the stops of this gradient.
-    #[func]
-    pub fn stops(&self) -> Vec<Stop> {
-        match self {
-            Self::Linear(linear) => linear
-                .stops
-                .iter()
-                .map(|(color, offset)| Stop { color: *color, offset: Some(*offset) })
-                .collect(),
-            Self::Radial(radial) => radial
-                .stops
-                .iter()
-                .map(|(color, offset)| Stop { color: *color, offset: Some(*offset) })
-                .collect(),
-            Self::Conic(conic) => conic
-                .stops
-                .iter()
-                .map(|(color, offset)| Stop { color: *color, offset: Some(*offset) })
-                .collect(),
-        }
-    }
-
-    /// Returns the mixing space of this gradient.
-    #[func]
-    pub fn space(&self) -> ColorSpace {
-        match self {
-            Self::Linear(linear) => linear.space,
-            Self::Radial(radial) => radial.space,
-            Self::Conic(conic) => conic.space,
-        }
-    }
-
-    /// Returns the relative placement of this gradient.
-    #[func]
-    pub fn relative(&self) -> Smart<Relative> {
-        match self {
-            Self::Linear(linear) => linear.relative,
-            Self::Radial(radial) => radial.relative,
-            Self::Conic(conic) => conic.relative,
-        }
-    }
-
-    /// Returns the angle of this gradient.
-    #[func]
-    pub fn angle(&self) -> Option<Angle> {
-        match self {
-            Self::Linear(linear) => Some(linear.angle),
-            Self::Radial(_) => None,
-            Self::Conic(conic) => Some(conic.angle),
-        }
-    }
-
-    /// Returns the kind of this gradient.
-    #[func]
-    pub fn kind(&self) -> Func {
-        match self {
-            Self::Linear(_) => Self::linear_data().into(),
-            Self::Radial(_) => Self::radial_data().into(),
-            Self::Conic(_) => Self::conic_data().into(),
-        }
-    }
-
-    /// Sample the gradient at a given position.
-    ///
-    /// The position is either a position along the gradient (a [ratio]($ratio)
-    /// between `{0%}` and `{100%}`) or an [angle]($angle). Any value outside
-    /// of this range will be clamped.
-    ///
-    /// _The angle will be used for conic gradients once they are available._
-    #[func]
-    pub fn sample(
-        &self,
-        /// The position at which to sample the gradient.
-        t: RatioOrAngle,
-    ) -> Color {
-        let value: f64 = t.to_ratio().get();
-
-        match self {
-            Self::Linear(linear) => sample_stops(&linear.stops, linear.space, value),
-            Self::Radial(radial) => sample_stops(&radial.stops, radial.space, value),
-            Self::Conic(conic) => sample_stops(&conic.stops, conic.space, value),
-        }
-    }
-
-    /// Samples the gradient at the given positions.
-    ///
-    /// The position is either a position along the gradient (a [ratio]($ratio)
-    /// between `{0%}` and `{100%}`) or an [angle]($angle). Any value outside
-    /// of this range will be clamped.
-    ///
-    /// _The angle will be used for conic gradients once they are available._
-    #[func]
-    pub fn samples(
-        &self,
-        /// The positions at which to sample the gradient.
-        #[variadic]
-        ts: Vec<RatioOrAngle>,
-    ) -> Array {
-        ts.into_iter().map(|t| self.sample(t).into_value()).collect()
-    }
-
     /// Creates a sharp version of this gradient.
     ///
-    /// _Sharp gradients_ have discreet jumps between colors, instead of a
+    /// Sharp gradients have discreet jumps between colors, instead of a
     /// smooth transition. They are  particularly useful for creating color
     /// lists for a preset gradient.
     ///
     /// ```example
+    /// #set rect(width: 100%, height: 20pt)
     /// #let grad = gradient.linear(..color.map.rainbow)
-    /// #rect(width: 100%, height: 20pt, fill: grad)
-    /// #rect(width: 100%, height: 20pt, fill: grad.sharp(5))
+    /// #rect(fill: grad)
+    /// #rect(fill: grad.sharp(5))
+    /// #rect(fill: grad.sharp(5, smoothness: 20%))
     /// ```
     #[func]
     pub fn sharp(
@@ -651,6 +528,15 @@ impl Gradient {
 
     /// Repeats this gradient a given number of times, optionally mirroring it
     /// at each repetition.
+    ///
+    /// ```example
+    /// #circle(
+    ///   radius: 40pt,
+    ///   fill: gradient
+    ///     .radial(aqua, white)
+    ///     .repeat(4),
+    /// )
+    /// ```
     #[func]
     pub fn repeat(
         &self,
@@ -720,6 +606,100 @@ impl Gradient {
                 anti_alias: conic.anti_alias,
             })),
         })
+    }
+
+    /// Returns the kind of this gradient.
+    #[func]
+    pub fn kind(&self) -> Func {
+        match self {
+            Self::Linear(_) => Self::linear_data().into(),
+            Self::Radial(_) => Self::radial_data().into(),
+            Self::Conic(_) => Self::conic_data().into(),
+        }
+    }
+
+    /// Returns the stops of this gradient.
+    #[func]
+    pub fn stops(&self) -> Vec<Stop> {
+        match self {
+            Self::Linear(linear) => linear
+                .stops
+                .iter()
+                .map(|(color, offset)| Stop { color: *color, offset: Some(*offset) })
+                .collect(),
+            Self::Radial(radial) => radial
+                .stops
+                .iter()
+                .map(|(color, offset)| Stop { color: *color, offset: Some(*offset) })
+                .collect(),
+            Self::Conic(conic) => conic
+                .stops
+                .iter()
+                .map(|(color, offset)| Stop { color: *color, offset: Some(*offset) })
+                .collect(),
+        }
+    }
+
+    /// Returns the mixing space of this gradient.
+    #[func]
+    pub fn space(&self) -> ColorSpace {
+        match self {
+            Self::Linear(linear) => linear.space,
+            Self::Radial(radial) => radial.space,
+            Self::Conic(conic) => conic.space,
+        }
+    }
+
+    /// Returns the relative placement of this gradient.
+    #[func]
+    pub fn relative(&self) -> Smart<Relative> {
+        match self {
+            Self::Linear(linear) => linear.relative,
+            Self::Radial(radial) => radial.relative,
+            Self::Conic(conic) => conic.relative,
+        }
+    }
+
+    /// Returns the angle of this gradient.
+    #[func]
+    pub fn angle(&self) -> Option<Angle> {
+        match self {
+            Self::Linear(linear) => Some(linear.angle),
+            Self::Radial(_) => None,
+            Self::Conic(conic) => Some(conic.angle),
+        }
+    }
+
+    /// Sample the gradient at a given position.
+    ///
+    /// The position is either a position along the gradient (a [ratio]($ratio)
+    /// between `{0%}` and `{100%}`) or an [angle]($angle). Any value outside
+    /// of this range will be clamped.
+    #[func]
+    pub fn sample(
+        &self,
+        /// The position at which to sample the gradient.
+        t: RatioOrAngle,
+    ) -> Color {
+        let value: f64 = t.to_ratio().get();
+
+        match self {
+            Self::Linear(linear) => sample_stops(&linear.stops, linear.space, value),
+            Self::Radial(radial) => sample_stops(&radial.stops, radial.space, value),
+            Self::Conic(conic) => sample_stops(&conic.stops, conic.space, value),
+        }
+    }
+
+    /// Samples the gradient at multiple positions at once and returns the
+    /// results as an array.
+    #[func]
+    pub fn samples(
+        &self,
+        /// The positions at which to sample the gradient.
+        #[variadic]
+        ts: Vec<RatioOrAngle>,
+    ) -> Array {
+        ts.into_iter().map(|t| self.sample(t).into_value()).collect()
     }
 }
 
