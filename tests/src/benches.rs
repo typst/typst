@@ -106,7 +106,7 @@ impl BenchWorld {
         let book = FontBook::from_fonts([&font]);
 
         Self {
-            library: Prehashed::new(typst_library::build()),
+            library: Prehashed::new(typst_library::build(Default::default())),
             book: Prehashed::new(book),
             font,
             source: Source::detached(TEXT),

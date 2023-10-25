@@ -6,16 +6,18 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
+use ecow::EcoString;
 use filetime::FileTime;
 use same_file::Handle;
 use siphasher::sip128::{Hasher128, SipHasher13};
 use typst::diag::{FileError, FileResult, StrResult};
 use typst::doc::Frame;
-use typst::eval::{eco_format, Bytes, Datetime, Library};
+use typst::eval::{eco_format, Bytes, Datetime, Library, Value};
 use typst::font::{Font, FontBook};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::util::hash128;
 use typst::World;
+use typst_library::SysArguments;
 
 use crate::args::SharedArgs;
 use crate::fonts::{FontSearcher, FontSlot};
@@ -56,8 +58,11 @@ impl SystemWorld {
         searcher.search(&command.font_paths);
 
         // Resolve the system-global input path.
-        let input = command.input.canonicalize().map_err(|_| {
-            eco_format!("input file not found (searched at {})", command.input.display())
+        let input = command.input_file.canonicalize().map_err(|_| {
+            eco_format!(
+                "input file not found (searched at {})",
+                command.input_file.display()
+            )
         })?;
 
         // Resolve the system-global root directory.
@@ -76,11 +81,26 @@ impl SystemWorld {
         let main_path = VirtualPath::within_root(&input, &root)
             .ok_or("input file must be contained in project root")?;
 
+        let mut inputs = HashMap::with_capacity(command.plain_inputs.len());
+        for (k, v) in &command.plain_inputs {
+            inputs.insert(k.clone().into(), Value::Str(v.clone().into()));
+        }
+        for raw in &command.json_inputs {
+            let root: HashMap<EcoString, Value> =
+                serde_json::from_str(raw).map_err(|e| eco_format!("{e}"))?;
+            inputs.reserve(root.len());
+            for (key, val) in root {
+                inputs.insert(key, val);
+            }
+        }
+
+        let sys_args = SysArguments { inputs };
+
         Ok(Self {
             workdir: std::env::current_dir().ok(),
             root,
             main: FileId::new(None, main_path),
-            library: Prehashed::new(typst_library::build()),
+            library: Prehashed::new(typst_library::build(sys_args)),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
             hashes: RefCell::default(),

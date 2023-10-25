@@ -23,7 +23,7 @@ impl CompileCommand {
     /// The output path.
     pub fn output(&self) -> PathBuf {
         self.output.clone().unwrap_or_else(|| {
-            self.common.input.with_extension(
+            self.common.input_file.with_extension(
                 match self.output_format().unwrap_or(OutputFormat::Pdf) {
                     OutputFormat::Pdf => "pdf",
                     OutputFormat::Png => "png",

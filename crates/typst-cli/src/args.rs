@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use semver::Version;
 
+use clap::builder::ValueParser;
 use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
 
 /// The Typst compiler.
@@ -107,7 +108,7 @@ pub enum SerializationFormat {
 #[derive(Debug, Clone, Args)]
 pub struct SharedArgs {
     /// Path to input Typst file
-    pub input: PathBuf,
+    pub input_file: PathBuf,
 
     /// Configures the project root (for absolute paths)
     #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
@@ -129,7 +130,64 @@ pub struct SharedArgs {
         value_parser = clap::value_parser!(DiagnosticFormat)
     )]
     pub diagnostic_format: DiagnosticFormat,
+
+    /// Add an input value visible through sys.inputs
+    #[clap(
+        long = "input",
+        short = 'i',
+        value_name = "KEY=VALUE",
+        action = ArgAction::Append,
+        value_parser = ValueParser::new(parse_input_pair)
+    )]
+    pub plain_inputs: Vec<(String, String)>,
+
+    /// Add input values visible through sys.inputs as a json dictionary
+    #[clap(
+        long = "input-json",
+        value_name = "JSON",
+        action = ArgAction::Append,
+    )]
+    pub json_inputs: Vec<String>,
 }
+
+fn parse_input_pair(raw: &str) -> Result<(String, String), InputPairError> {
+    let (key, val) = raw.split_once('=').ok_or(InputPairError::NoEqual)?;
+    let key = key.trim().to_owned();
+    if key.is_empty() {
+        return Err(InputPairError::MissingKey);
+    }
+    let val = val.trim().to_owned();
+    if val.is_empty() {
+        return Err(InputPairError::MissingValue);
+    }
+    Ok((key, val))
+}
+
+/// An error that occurred while parsing an input argument
+#[derive(Clone, Debug)]
+enum InputPairError {
+    /// Missing equal sign in the value
+    NoEqual,
+    // The key was missing or entirely blank
+    MissingKey,
+    // The value was missing or entirely blank
+    MissingValue,
+}
+
+impl Display for InputPairError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NoEqual => write!(
+                f,
+                "input arguments must be a key and a value separated by an equal sign"
+            ),
+            Self::MissingKey => write!(f, "the key was missing or empty"),
+            Self::MissingValue => write!(f, "the value was missing or empty"),
+        }
+    }
+}
+
+impl std::error::Error for InputPairError {}
 
 /// Lists all discovered fonts in system and custom font paths
 #[derive(Debug, Clone, Parser)]

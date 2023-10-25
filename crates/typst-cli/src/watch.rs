@@ -163,7 +163,7 @@ impl Status {
         w.set_color(&color)?;
         write!(w, "watching")?;
         w.reset()?;
-        writeln!(w, " {}", command.common.input.display())?;
+        writeln!(w, " {}", command.common.input_file.display())?;
 
         w.set_color(&color)?;
         write!(w, "writing to")?;

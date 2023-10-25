@@ -11,8 +11,11 @@ pub mod meta;
 pub mod prelude;
 pub mod shared;
 pub mod symbols;
+pub mod sys;
 pub mod text;
 pub mod visualize;
+
+pub use sys::SysArguments;
 
 use typst::eval::{Array, LangItems, Library, Module, Scope};
 use typst::geom::{Align, Color, Dir, Smart};
@@ -21,18 +24,19 @@ use typst::model::{NativeElement, Styles};
 use self::layout::LayoutRoot;
 
 /// Construct the standard library.
-pub fn build() -> Library {
+pub fn build(sys_args: SysArguments) -> Library {
     let math = math::module();
-    let global = global(math.clone());
+    let global = global(math.clone(), sys_args);
     Library { global, math, styles: styles(), items: items() }
 }
 
 /// Construct the module with global definitions.
 #[tracing::instrument(skip_all)]
-fn global(math: Module) -> Module {
+fn global(math: Module, sys_args: SysArguments) -> Module {
     let mut global = Scope::deduplicating();
     text::define(&mut global);
     global.define_module(math);
+    sys::define(&mut global, sys_args);
     layout::define(&mut global);
     visualize::define(&mut global);
     meta::define(&mut global);

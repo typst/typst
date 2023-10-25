@@ -34,7 +34,7 @@ static CATEGORIES: Lazy<yaml::Mapping> = Lazy::new(|| yaml("reference/categories
 static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| yaml("reference/groups.yml"));
 
 static LIBRARY: Lazy<Prehashed<Library>> = Lazy::new(|| {
-    let mut lib = typst_library::build();
+    let mut lib = typst_library::build(Default::default());
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(240.0).into())));
     lib.styles.set(PageElem::set_height(Smart::Auto));
