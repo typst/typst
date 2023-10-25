@@ -378,7 +378,10 @@ impl PageElem {
         let mut frames = child.layout(vt, styles, regions)?.into_frames();
 
         // Align the child to the pagebreak's parity.
-        if extend_to.is_some_and(|p| p.matches(page_counter.physical().get())) {
+        // Check for page count after adding the pending frames
+        if extend_to
+            .is_some_and(|p| !p.matches(page_counter.physical().get() + frames.len()))
+        {
             // Insert empty page after the current pages.
             let size = area.map(Abs::is_finite).select(area, Size::zero());
             frames.push(Frame::hard(size));
