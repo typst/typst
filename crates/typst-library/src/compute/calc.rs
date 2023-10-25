@@ -32,9 +32,6 @@ fn module() -> Module {
     scope.define_func::<sinh>();
     scope.define_func::<cosh>();
     scope.define_func::<tanh>();
-    scope.define_func::<asinh>();
-    scope.define_func::<acosh>();
-    scope.define_func::<atanh>();
     scope.define_func::<log>();
     scope.define_func::<ln>();
     scope.define_func::<fact>();
@@ -362,56 +359,6 @@ pub fn tanh(
     value: f64,
 ) -> f64 {
     value.tanh()
-}
-
-/// Calculates the inverse hyperbolic sine.
-///
-/// ```example
-/// #calc.asinh(0) \
-/// #calc.asinh(1.5)
-/// ```
-#[func(title = "Inverse Hyperbolic Sine")]
-pub fn asinh(
-    /// The number whose arsinh to calculate.
-    value: Num,
-) -> Angle {
-    Angle::rad(value.float().asinh())
-}
-
-/// Calculates the inverse hyperbolic cosine.
-///
-/// ```example
-/// #calc.acosh(1) \
-/// #calc.acosh(1.5)
-/// ```
-#[func(title = "Inverse Hyperbolic Cosine")]
-pub fn acosh(
-    /// The number whose arcosh to calculate. Must be at least 1.
-    value: Spanned<Num>,
-) -> SourceResult<Angle> {
-    let val = value.v.float();
-    if val < 1.0 {
-        bail!(value.span, "value must be greater than or equal to 1");
-    }
-    Ok(Angle::rad(val.acosh()))
-}
-
-/// Calculates the inverse hyperbolic tangent.
-///
-/// ```example
-/// #calc.atanh(0) \
-/// #calc.atanh(0.5)
-/// ```
-#[func(title = "Inverse Hyperbolic Tangent")]
-pub fn atanh(
-    /// The number whose artanh to calculate. Must be between -1 and 1.
-    value: Spanned<Num>,
-) -> SourceResult<Angle> {
-    let val = value.v.float();
-    if !(val > -1.0 && val < 1.0) {
-        bail!(value.span, "value must be between -1 and 1");
-    }
-    Ok(Angle::rad(val.atanh()))
 }
 
 /// Calculates the logarithm of a number.
