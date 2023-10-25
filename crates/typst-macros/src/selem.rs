@@ -693,6 +693,18 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
                 })
             }
 
+            fn unpack_owned(content: #model::Content) -> Option<::std::sync::Arc<Self>> {
+                content.is::<Self>().then(|| unsafe {
+                    // Safety: we checked that we are `Self`.
+                    unsafe {
+                        ::std::sync::Arc::from_raw(
+                            ::std::sync::Arc::as_ptr(&content.0) as *const () as *const Self
+                        )
+                    }
+                })
+
+            }
+
             fn unpack_mut(content: &mut #model::Content) -> Option<&mut Self> {
                 content.is::<Self>().then(|| unsafe {
                     // Make sure we're mutable

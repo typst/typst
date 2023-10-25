@@ -1,3 +1,5 @@
+use smallvec::{SmallVec, smallvec};
+
 use crate::prelude::*;
 use crate::text::TextElem;
 
@@ -124,13 +126,13 @@ impl Layout for GridElem {
 
 /// Track sizing definitions.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
-pub struct TrackSizings(pub Vec<Sizing>);
+pub struct TrackSizings(pub SmallVec<[Sizing; 4]>);
 
 cast! {
     TrackSizings,
     self => self.0.into_value(),
-    sizing: Sizing => Self(vec![sizing]),
-    count: NonZeroUsize => Self(vec![Sizing::Auto; count.get()]),
+    sizing: Sizing => Self(smallvec![sizing]),
+    count: NonZeroUsize => Self(smallvec![Sizing::Auto; count.get()]),
     values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
 }
 

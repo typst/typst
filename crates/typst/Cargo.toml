@@ -58,6 +58,7 @@ time = { version = "0.3.20", features = ["std", "formatting", "macros", "parsing
 wasmi = "0.31.0"
 xmlparser = "0.13.5"
 lasso = { version = "0.7.2", features = ["ahasher", "multi-threaded"] }
+smallvec = { version = "1.11.1", features = ["union", "const_generics", "const_new"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 stacker = "0.1.15"

@@ -1,14 +1,16 @@
 use comemo::Prehashed;
+use smallvec::SmallVec;
 pub use typst_macros::{cast, Cast};
 use unicode_math_class::MathClass;
 
+use std::borrow::Cow;
 use std::fmt::Write;
 use std::hash::Hash;
 use std::ops::Add;
 
 use ecow::{eco_format, EcoString};
 
-use super::{Repr, Type, Value};
+use super::{Repr, Type, Value, Array};
 use crate::diag::{At, SourceResult, StrResult};
 use crate::syntax::{Span, Spanned};
 use crate::util::separated_list;
@@ -152,6 +154,24 @@ impl<T: Reflect> Reflect for &mut T {
     }
 }
 
+impl<T: Reflect, const N: usize> Reflect for SmallVec<[T; N]> {
+    fn input() -> CastInfo {
+        Array::input()
+    }
+
+    fn output() -> CastInfo {
+        Array::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        let Value::Array(array) = value else {
+            return false;
+        };
+
+        array.iter().all(T::castable)
+    }
+}
+
 /// Cast a Rust type into a Typst [`Value`].
 ///
 /// See also: [`Reflect`].
@@ -166,6 +186,12 @@ impl IntoValue for Value {
     }
 }
 
+impl<'a, T: IntoValue + Clone + 'a> IntoValue for Cow<'a, T> {
+    fn into_value(self) -> Value {
+        self.into_owned().into_value()
+    }
+}
+
 impl<T: IntoValue> IntoValue for Spanned<T> {
     fn into_value(self) -> Value {
         self.v.into_value()
@@ -175,6 +201,12 @@ impl<T: IntoValue> IntoValue for Spanned<T> {
 impl<T: IntoValue + Hash + 'static> IntoValue for Prehashed<T> {
     fn into_value(self) -> Value {
         self.into_inner().into_value()
+    }
+}
+
+impl<T: IntoValue, const N: usize> IntoValue for SmallVec<[T; N]> {
+    fn into_value(self) -> Value {
+        Value::Array(self.into_iter().map(IntoValue::into_value).collect())
     }
 }
 
@@ -241,6 +273,17 @@ impl<T: FromValue> FromValue<Spanned<Value>> for Spanned<T> {
     fn from_value(value: Spanned<Value>) -> StrResult<Self> {
         let span = value.span;
         T::from_value(value.v).map(|t| Spanned::new(t, span))
+    }
+}
+
+impl<T: FromValue, const N: usize> FromValue for SmallVec<[T; N]> {
+    fn from_value(value: Value) -> StrResult<Self> {
+        let array = match value {
+            Value::Array(array) => array,
+            _ => return Err(Self::error(&value)),
+        };
+
+        array.into_iter().map(T::from_value).collect()
     }
 }
 
@@ -360,6 +403,10 @@ impl<T> Container for Option<T> {
 }
 
 impl<T> Container for Vec<T> {
+    type Inner = T;
+}
+
+impl<T, const N: usize> Container for SmallVec<[T; N]> {
     type Inner = T;
 }
 

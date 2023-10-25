@@ -225,7 +225,7 @@ impl Show for RefElem {
 impl RefElem {
     /// Turn the reference into a citation.
     pub fn to_citation(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<CiteElem> {
-        let mut elem = CiteElem::new(vec![self.target().0.resolve().into()]);
+        let mut elem = CiteElem::new(smallvec![self.target().0.resolve().into()]);
         elem.set_location(self.location().unwrap());
         elem.synthesize(vt, styles)?;
         elem.push_supplement(match self.supplement(styles) {

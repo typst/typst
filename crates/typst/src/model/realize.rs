@@ -1,3 +1,7 @@
+use std::borrow::Cow;
+
+use smallvec::smallvec;
+
 use super::{
     Content, ElementData, MetaElem, NativeElement, Recipe, Selector, StyleChain, Vt,
 };
@@ -54,7 +58,7 @@ pub fn realize(
             let meta = Meta::Elem(elem.clone());
             return Ok(Some(
                 (elem + MetaElem::new().pack().spanned(span))
-                    .styled(MetaElem::set_data(vec![meta])),
+                    .styled(MetaElem::set_data(smallvec![meta])),
             ));
         }
 
@@ -200,7 +204,7 @@ pub trait Behave {
     #[allow(unused_variables)]
     fn larger(
         &self,
-        prev: &(Content, Behaviour, StyleChain),
+        prev: &(Cow<Content>, Behaviour, StyleChain),
         styles: StyleChain,
     ) -> bool {
         false

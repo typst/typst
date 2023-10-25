@@ -47,13 +47,13 @@ impl ContentExt for Content {
     }
 
     fn linked(self, dest: Destination) -> Self {
-        self.styled(MetaElem::set_data(vec![Meta::Link(dest)]))
+        self.styled(MetaElem::set_data(smallvec![Meta::Link(dest)]))
     }
 
     fn backlinked(self, loc: Location) -> Self {
         let mut backlink = Content::empty();
         backlink.set_location(loc);
-        self.styled(MetaElem::set_data(vec![Meta::Elem(backlink)]))
+        self.styled(MetaElem::set_data(smallvec![Meta::Elem(backlink)]))
     }
 
     fn aligned(self, align: Align) -> Self {

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::str::FromStr;
 
 use super::{
@@ -244,12 +245,12 @@ impl Synthesize for FigureElem {
                 // just the body, if none was found.
                 let descendant = match kind {
                     FigureKind::Elem(func) => {
-                        self.body().query_first(Selector::Elem(func, None))
+                        self.body().query_first(Selector::Elem(func, None)).map(Cow::Owned)
                     }
                     FigureKind::Name(_) => None,
                 };
 
-                let target = descendant.unwrap_or_else(|| self.body().clone());
+                let target = descendant.unwrap_or_else(|| Cow::Borrowed(self.body()));
                 Some(supplement.resolve(vt, [target])?)
             }
         };

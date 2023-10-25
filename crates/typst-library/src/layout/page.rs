@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::ptr;
 use std::str::FromStr;
 
@@ -654,10 +655,10 @@ pub enum Marginal {
 
 impl Marginal {
     /// Resolve the marginal based on the page number.
-    pub fn resolve(&self, vt: &mut Vt, page: usize) -> SourceResult<Content> {
+    pub fn resolve(&self, vt: &mut Vt, page: usize) -> SourceResult<Cow<'_, Content>> {
         Ok(match self {
-            Self::Content(content) => content.clone(),
-            Self::Func(func) => func.call_vt(vt, [page])?.display(),
+            Self::Content(content) => Cow::Borrowed(content),
+            Self::Func(func) => Cow::Owned(func.call_vt(vt, [page])?.display()),
         })
     }
 }

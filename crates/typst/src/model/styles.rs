@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter, Write};
 use std::iter;
 use std::mem;
@@ -5,6 +6,7 @@ use std::ptr;
 
 use comemo::Prehashed;
 use ecow::{eco_vec, EcoString, EcoVec};
+use smallvec::SmallVec;
 
 use super::{Content, ElementData, NativeElement, Selector, Vt};
 use crate::diag::{SourceResult, Trace, Tracepoint};
@@ -578,7 +580,7 @@ impl<T> StyleVec<T> {
     }
 }
 
-impl StyleVec<Content> {
+impl<'a> StyleVec<Cow<'a, Content>> {
     pub fn to_vec(self) -> Vec<Content> {
         self.items
             .into_iter()
@@ -587,7 +589,7 @@ impl StyleVec<Content> {
                     .iter()
                     .flat_map(|(map, count)| iter::repeat(map).take(*count)),
             )
-            .map(|(content, styles)| content.styled_with_map(styles.clone()))
+            .map(|(content, styles)| content.into_owned().styled_with_map(styles.clone()))
             .collect()
     }
 }
@@ -752,6 +754,15 @@ where
 
 impl<T> Fold for Vec<T> {
     type Output = Vec<T>;
+
+    fn fold(mut self, outer: Self::Output) -> Self::Output {
+        self.extend(outer);
+        self
+    }
+}
+
+impl<T, const N: usize> Fold for SmallVec<[T; N]> {
+    type Output = SmallVec<[T; N]>;
 
     fn fold(mut self, outer: Self::Output) -> Self::Output {
         self.extend(outer);

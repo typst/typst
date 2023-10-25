@@ -19,6 +19,8 @@ mod stretch;
 mod style;
 mod underover;
 
+use std::borrow::Cow;
+
 pub use self::accent::*;
 pub use self::align::*;
 pub use self::attach::*;
@@ -419,7 +421,7 @@ impl LayoutMath for Content {
         if self.is_sequence() {
             let mut bb = BehavedBuilder::new();
             self.sequence_recursive_for_each(&mut |child: &Content| {
-                bb.push(child.clone(), StyleChain::default())
+                bb.push(Cow::Owned(child.clone()), StyleChain::default())
             });
 
             for (child, _) in bb.finish().0.iter() {

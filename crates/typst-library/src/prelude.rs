@@ -6,6 +6,9 @@ pub use std::fmt::{self, Debug, Formatter};
 pub use std::num::NonZeroUsize;
 
 #[doc(no_inline)]
+pub use smallvec::{smallvec, SmallVec};
+
+#[doc(no_inline)]
 pub use comemo::{Track, Tracked, TrackedMut};
 #[doc(no_inline)]
 pub use ecow::{eco_format, EcoString};

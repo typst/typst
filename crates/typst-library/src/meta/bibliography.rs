@@ -111,7 +111,7 @@ cast! {
 
 impl BibliographyElem {
     /// Find the document's bibliography.
-    pub fn find(introspector: Tracked<Introspector>) -> StrResult<Self> {
+    pub fn find<'a>(introspector: Tracked<'a, Introspector>) -> StrResult<Self> {
         let query = introspector.query(&Self::elem().select());
         let mut iter = query.iter();
         let Some(elem) = iter.next() else {
@@ -122,7 +122,7 @@ impl BibliographyElem {
             bail!("multiple bibliographies are not supported");
         }
 
-        Ok(elem.to::<Self>().unwrap().clone())
+        Ok(elem.to::<Self>().cloned().unwrap())
     }
 
     /// Whether the bibliography contains the given key.
@@ -196,9 +196,9 @@ impl Show for BibliographyElem {
                 seq.push(VElem::new(row_gutter).with_weakness(3).pack());
                 seq.push(
                     GridElem::new(cells)
-                        .with_columns(TrackSizings(vec![Sizing::Auto; 2]))
-                        .with_column_gutter(TrackSizings(vec![COLUMN_GUTTER.into()]))
-                        .with_row_gutter(TrackSizings(vec![(row_gutter).into()]))
+                        .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
+                        .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
+                        .with_row_gutter(TrackSizings(smallvec![(row_gutter).into()]))
                         .pack(),
                 );
             } else {
@@ -319,7 +319,11 @@ pub struct CiteElem {
     ///
     /// Reference syntax supports only a single key.
     #[variadic]
-    pub keys: Vec<EcoString>,
+    #[parse({
+        let keys = args.all::<EcoString>()?;
+        keys.into_iter().collect()
+    })]
+    pub keys: SmallVec<[EcoString; 1]>,
 
     /// A supplement for the citation such as page or chapter number.
     ///
@@ -443,13 +447,13 @@ impl Works {
     /// Prepare all things need to cite a work or format a bibliography.
     fn new(vt: &Vt) -> StrResult<Arc<Self>> {
         let bibliography = BibliographyElem::find(vt.introspector)?;
-        let citations: Vec<_> = vt
-            .introspector
-            .query(&CiteElem::elem().select())
-            .into_iter()
+
+        let query: EcoVec<comemo::Prehashed<Content>> = vt.introspector.query(&CiteElem::elem().select());
+        let citations: Vec<_> = query
+            .iter()
             .map(|elem| match elem.to::<RefElem>() {
-                Some(reference) => reference.citation().as_ref().unwrap().clone(),
-                _ => elem.to::<CiteElem>().unwrap().clone(),
+                Some(reference) => reference.citation().as_ref().unwrap(),
+                _ => elem.to::<CiteElem>().unwrap(),
             })
             .collect();
         Ok(create(bibliography, citations))
@@ -458,7 +462,7 @@ impl Works {
 
 /// Generate all citations and the whole bibliography.
 #[comemo::memoize]
-fn create(bibliography: BibliographyElem, citations: Vec<CiteElem>) -> Arc<Works> {
+fn create(bibliography: BibliographyElem, citations: Vec<&CiteElem>) -> Arc<Works> {
     let span = bibliography.span();
     let entries = bibliography.bibliography();
     let style = bibliography.style(StyleChain::default());

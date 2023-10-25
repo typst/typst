@@ -253,7 +253,7 @@ pub struct RawElem {
     /// Made accessible for the [`raw.line` element]($raw.line).
     /// Allows more styling control in `show` rules.
     #[synthesized]
-    pub lines: Vec<Content>,
+    pub lines: Vec<RawLine>,
 }
 
 #[scope]
@@ -326,8 +326,7 @@ impl Synthesize for RawElem {
                             text.split(is_newline).count() as i64,
                             EcoString::from(&text[range]),
                             Content::sequence(line.drain(..)),
-                        )
-                        .pack(),
+                        ),
                     );
                 },
             )
@@ -358,12 +357,18 @@ impl Synthesize for RawElem {
                         len as i64,
                         EcoString::from(line),
                         Content::sequence(line_content),
-                    )
-                    .pack(),
+                    ),
                 );
             }
         } else {
-            seq.extend(text.lines().map(TextElem::packed));
+            let lines = text.lines();
+            let len = lines.clone().count();
+            seq.extend(lines.enumerate().map(|(i, line)| RawLine::new(
+                i as i64 + 1,
+                len as i64,
+                EcoString::from(line),
+                TextElem::packed(line),
+            )));
         };
 
         self.push_lines(seq);
@@ -381,7 +386,7 @@ impl Show for RawElem {
                 lines.push(LinebreakElem::new().pack());
             }
 
-            lines.push(line.clone());
+            lines.push(line.clone().pack());
         }
 
         let mut realized = Content::sequence(lines);

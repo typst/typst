@@ -205,6 +205,9 @@ pub trait NativeElement: Construct + Set + Sized + 'static {
     fn pack(self) -> Content;
 
     /// Extract this element from type-erased content.
+    fn unpack_owned(content: Content) -> Option<Arc<Self>>;
+
+    /// Extract this element from type-erased content.
     fn unpack(content: &Content) -> Option<&Self>;
 
     /// Extract this element from type-erased content.

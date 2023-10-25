@@ -7,6 +7,7 @@ use std::sync::Arc;
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Serialize, Serializer};
+use smallvec::SmallVec;
 use typst_macros::selem;
 
 use super::{
@@ -127,6 +128,11 @@ impl Content {
     /// Cast to `T` if the contained element is of type `T`.
     pub fn to<T: NativeElement>(&self) -> Option<&T> {
         T::unpack(self)
+    }
+
+    /// Cast to `T` if the contained element is of type `T`.
+    pub fn to_owned<T: NativeElement>(self) -> Option<Arc<T>> {
+        T::unpack_owned(self)
     }
 
     /// Cast to `T` if the contained element is of type `T`.
@@ -437,25 +443,7 @@ impl Content {
     /// ```
     #[func]
     pub fn fields(&self) -> Dict {
-        static CHILD: EcoString = EcoString::inline("child");
-        static CHILDREN: EcoString = EcoString::inline("children");
-
-        let option = if let Some(iter) = self.to_sequence() {
-            Some((
-                CHILDREN.clone(),
-                Value::Array(iter.cloned().map(Value::Content).collect()),
-            ))
-        } else if let Some((child, _)) = self.to_styled() {
-            Some((CHILD.clone(), Value::Content(child.clone())))
-        } else {
-            None
-        };
-
-        self.fields_ref()
-            .into_iter()
-            .chain(option)
-            .map(|(key, value)| (Str::from(key), value))
-            .collect()
+        self.0.fields()
     }
 
     /// The location of the content. This is only available on content returned
@@ -562,7 +550,7 @@ pub struct MetaElem {
     /// Metadata that should be attached to all elements affected by this style
     /// property.
     #[fold]
-    pub data: Vec<Meta>,
+    pub data: SmallVec<[Meta; 1]>,
 }
 
 impl Behave for MetaElem {
