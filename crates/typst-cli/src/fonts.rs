@@ -1,6 +1,6 @@
 use std::cell::OnceCell;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use fontdb::{Database, Source};
 use typst::diag::StrResult;
@@ -28,8 +28,6 @@ pub fn fonts(command: &FontsCommand) -> StrResult<()> {
 
 /// Searches for fonts.
 pub struct FontSearcher {
-    /// Font database of fontdb crate used to search fonts.
-    pub db: Database,
     /// Metadata about all discovered fonts.
     pub book: FontBook,
     /// Slots that the fonts are loaded into.
@@ -62,36 +60,33 @@ impl FontSlot {
 impl FontSearcher {
     /// Create a new, empty system searcher.
     pub fn new() -> Self {
-        Self {
-            db: Database::new(),
-            book: FontBook::new(),
-            fonts: vec![],
-        }
+        Self { book: FontBook::new(), fonts: vec![] }
     }
 
     /// Search everything that is available.
     pub fn search(&mut self, font_paths: &[PathBuf]) {
+        let mut db = Database::new();
+
+        // Font paths have highest priority.
         for path in font_paths {
-            self.search_dir(path)
+            db.load_fonts_dir(path);
         }
 
-        self.search_system();
+        // System fonts have second priority.
+        db.load_system_fonts();
 
-        #[cfg(feature = "embed-fonts")]
-        self.add_embedded();
-
-        for face in self.db.faces() {
-            let (path, info) = match face.source {
-                Source::File(ref path) | Source::SharedFile(ref path, _) => {
-                    let info = self
-                        .db
-                        .with_face_data(face.id, FontInfo::new)
-                        .expect("face got from the same database, call with_face_data with it's id must not None");
-
-                    (path, info)
-                }
-                Source::Binary(_) => continue, // already processed when we add it
+        for face in db.faces() {
+            let path = match &face.source {
+                Source::File(path) | Source::SharedFile(path, _) => path,
+                // We never add binary sources to the database, so there
+                // shouln't be any.
+                Source::Binary(_) => continue,
             };
+
+            let info = db
+                .with_face_data(face.id, FontInfo::new)
+                .expect("database must contain this font");
+
             if let Some(info) = info {
                 self.book.push(info);
                 self.fonts.push(FontSlot {
@@ -101,6 +96,10 @@ impl FontSearcher {
                 });
             }
         }
+
+        // Embedded fonts have lowest priority.
+        #[cfg(feature = "embed-fonts")]
+        self.add_embedded();
     }
 
     /// Add fonts that are embedded in the binary.
@@ -139,21 +138,5 @@ impl FontSearcher {
         add!("DejaVuSansMono-Bold.ttf");
         add!("DejaVuSansMono-Oblique.ttf");
         add!("DejaVuSansMono-BoldOblique.ttf");
-    }
-
-    /// Search for fonts in the linux system font directories.
-    fn search_system(&mut self) {
-        self.db.load_system_fonts()
-    }
-
-    /// Search for all fonts in a directory recursively.
-    fn search_dir(&mut self, path: impl AsRef<Path>) {
-        self.db.load_fonts_dir(path)
-    }
-
-    /// Index the fonts in the file at the given path.
-    #[allow(dead_code)] // Keep this in case we need to support adding a single font file
-    fn search_file(&mut self, path: &Path) {
-        let _ = self.db.load_font_file(path);
     }
 }
