@@ -20,7 +20,9 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
     let mut world = SystemWorld::new(&command.common)?;
 
     // Perform initial compilation.
+    ittapi::resume();
     compile_once(&mut world, &mut command, true)?;
+    ittapi::pause();
 
     // Setup file watching.
     let (tx, rx) = std::sync::mpsc::channel();
@@ -74,7 +76,9 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
             world.reset();
 
             // Recompile.
+            ittapi::resume();
             compile_once(&mut world, &mut command, true)?;
+            ittapi::pause();
             comemo::evict(10);
 
             // Adjust the watching.

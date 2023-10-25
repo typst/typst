@@ -34,6 +34,7 @@ static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
 
 /// Entry point.
 fn main() -> ExitCode {
+    ittapi::pause();
     let _guard = match crate::tracing::setup_tracing(&ARGS) {
         Ok(guard) => guard,
         Err(err) => {

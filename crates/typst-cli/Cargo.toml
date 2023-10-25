@@ -58,6 +58,7 @@ walkdir = "2"
 xz2 = { version = "0.1", optional = true }
 zip = { version = "0.6", optional = true }
 mimalloc = "0.1.39"
+ittapi = "0.4.0"
 
 [build-dependencies]
 clap = { version = "4.4", features = ["derive", "string"] }
