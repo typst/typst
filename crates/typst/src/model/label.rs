@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use ecow::{eco_format, EcoString};
 
-use crate::eval::{func, scope, ty, Repr};
+use crate::{eval::{func, scope, ty, Repr}, util::str::PicoStr};
 
 /// A label for an element.
 ///
@@ -30,7 +30,7 @@ use crate::eval::{func, scope, ty, Repr};
 /// code mode. This might change in the future.
 #[ty(scope)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Label(pub EcoString);
+pub struct Label(pub PicoStr);
 
 #[scope]
 impl Label {
@@ -40,13 +40,13 @@ impl Label {
         /// The name of the label.
         name: EcoString,
     ) -> Label {
-        Self(name)
+        Self(PicoStr::from(&name))
     }
 }
 
 impl Repr for Label {
     fn repr(&self) -> EcoString {
-        eco_format!("<{}>", self.0)
+        eco_format!("<{}>", self.0.resolve())
     }
 }
 
