@@ -32,158 +32,122 @@ const ANGLE_EPSILON: f32 = 1e-5;
 /// - HSL through the [`color.hsl` function]($color.hsl)
 /// - HSV through the [`color.hsv` function]($color.hsv)
 ///
-/// Typst provides the following built-in colors:
-///
-/// `black`, `gray`, `silver`, `white`, `navy`, `blue`, `aqua`, `teal`,
-/// `eastern`, `purple`, `fuchsia`, `maroon`, `red`, `orange`, `yellow`,
-/// `olive`, `green`, and `lime`.
 ///
 /// # Example
-/// The predefined colors and the color constructors are available globally and
-/// also in the color type's scope, so you can write either of the following
-/// two:
+///
 /// ```example
 /// #rect(fill: aqua)
-/// #rect(fill: color.aqua)
 /// ```
 ///
-/// ## Color maps
-/// Typst also includes a number of preset color maps. In the following section,
-/// the list of available color maps is given, along with a sample of each gradient
-/// and relevant comments. Most of these color maps are chosen to be color blind
-/// friendly.
+/// # Predefined colors
+/// Typst defines the following built-in colors:
 ///
-/// ### Turbo
-/// The [`turbo`]($color.map.turbo) gradient is a rainbow-like gradient that is
-/// perceptually uniform. You can learn more about the turbo color map on
-/// Google's [blog post](https://ai.googleblog.com/2019/08/turbo-improved-rainbow-colormap-for.html).
+/// | Color     | Definition         |
+/// |-----------|:-------------------|
+/// | `black`   | `{luma(0)}`        |
+/// | `gray`    | `{luma(170)}`      |
+/// | `silver`  | `{luma(221)}`      |
+/// | `white`   | `{luma(255)}`      |
+/// | `navy`    | `{rgb("#001f3f")}` |
+/// | `blue`    | `{rgb("#0074d9")}` |
+/// | `aqua`    | `{rgb("#7fdbff")}` |
+/// | `teal`    | `{rgb("#39cccc")}` |
+/// | `eastern` | `{rgb("#239dad")}` |
+/// | `purple`  | `{rgb("#b10dc9")}` |
+/// | `fuchsia` | `{rgb("#f012be")}` |
+/// | `maroon`  | `{rgb("#85144b")}` |
+/// | `red`     | `{rgb("#ff4136")}` |
+/// | `orange`  | `{rgb("#ff851b")}` |
+/// | `yellow`  | `{rgb("#ffdc00")}` |
+/// | `olive`   | `{rgb("#3d9970")}` |
+/// | `green`   | `{rgb("#2ecc40")}` |
+/// | `lime`    | `{rgb("#01ff70")}` |
 ///
-/// ```example
-/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..color.map.turbo))
-/// ```
+/// The predefined colors and the most important color constructors are
+/// available globally and also in the color type's scope, so you can write
+/// either `color.red` or just `red`.
 ///
-/// ### Cividis
-/// The [`cividis`]($color.map.cividis) gradient is a blue to gray to yellow
-/// gradient. You can learn more about the Cividis color map on the
-/// Berkley Institute for Data Science's [blog post](https://bids.github.io/colormap/).
+/// ```preview
+/// #let colors = (
+///   "black", "gray", "silver", "white",
+///   "navy", "blue", "aqua", "teal",
+///   "eastern", "purple", "fuchsia",
+///   "maroon", "red", "orange", "yellow",
+///   "olive", "green", "lime",
+/// )
 ///
-/// ```example
-/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..color.map.cividis))
-/// ```
-///
-/// ### Rainbow
-/// The [`rainbow`]($color.map.rainbow) gradient cycles through the full color
-/// spectrum. This color map is best used by setting the interpolation color
-/// space to [HSL]($color.hsl).
-///
-/// **Attention:** The rainbow gradient is _not suitable_ for data visualization
-/// because it is not perceptually uniform, so the differences between values
-/// become unclear to your readers. It should only be used for decorative
-/// purposes.
-///
-/// ```example
-/// #rect(
-///   width: 100%,
-///   height: 20pt,
-///   fill: gradient.linear(..color.map.rainbow, space: color.hsl)
+/// #set text(font: "PT Sans")
+/// #set page(width: auto)
+/// #grid(
+///   columns: 9,
+///   gutter: 10pt,
+///   ..colors.map(name => {
+///       let c = eval(name)
+///       let cp = c.components()
+///       let x = cp.sum() / cp.len()
+///       set text(fill: white) if x < 50%
+///       set square(stroke: black) if c == white
+///       set align(center + horizon)
+///       square(size: 50pt,  fill: c, name)
+///   })
 /// )
 /// ```
 ///
-/// ### Spectral
-/// The [`spectral`]($color.map.spectral) gradient is a red to yellow to blue
-/// gradient. Spectral does not take any parameters.
+/// # Predefined color maps
+/// Typst also includes a number of preset color maps that can be used for
+/// gradients. Most of these color maps are chosen to be color blind friendly.
 ///
-/// ```example
-/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..color.map.spectral))
+/// | Map        | Details                                                     |
+/// |------------|:------------------------------------------------------------|
+/// | `turbo`    | A perceptually uniform rainbow-like color map. Read [this blog post](https://ai.googleblog.com/2019/08/turbo-improved-rainbow-colormap-for.html) for more details. |
+/// | `cividis`  | A blue to gray to yellow color map. See [this blog post](https://bids.github.io/colormap/) for more details. |
+/// | `rainbow`  | Cycles through the full color spectrum. This color map is best used by setting the interpolation color space to [HSL]($color.hsl). The rainbow gradient is **not suitable** for data visualization because it is not perceptually uniform, so the differences between values become unclear to your readers. It should only be used for decorative purposes. |
+/// | `spectral` | Red to yellow to blue color map.                            |
+/// | `viridis`  | A purple to teal to yellow color map.                       |
+/// | `inferno`  | A black to red to yellow color map.                         |
+/// | `magma`    | A black to purple to yellow color map.                      |
+/// | `plasma`   | A purple to pink to yellow color map.                       |
+/// | `rocket`   | A black to red to white color map.                          |
+/// | `mako`     | A black to teal to yellow color map.                        |
+/// | `vlag`     | A light blue to white to red color map.                     |
+/// | `icefire`  | A light teal to black to yellow color map.                  |
+/// | `flare`    | A orange to purple color map that is perceptually uniform.  |
+/// | `crest`    | A blue to white to red color map.                           |
+///
+/// Some popular presets are not included because they are not available under a
+/// free licence. Others, like
+/// [Jet](https://jakevdp.github.io/blog/2014/10/16/how-bad-is-your-colormap/),
+/// are not included because they are not not color blind friendly. Feel free to
+/// use or create a package with other presets that are useful to you!
+///
+/// ```preview
+/// #set page(width: auto, height: auto)
+/// #set text(font: "PT Sans", size: 8pt)
+///
+/// #let maps = (
+///   "turbo", "cividis", "rainbow", "spectral",
+///   "viridis", "inferno", "magma", "plasma",
+///   "rocket", "mako", "vlag", "icefire",
+///   "flare", "crest",
+/// )
+///
+/// #stack(dir: ltr, spacing: 3pt, ..maps.map((name) => {
+///   let map = eval("color.map." + name)
+///   stack(
+///     dir: ttb,
+///     block(
+///       width: 15pt,
+///       height: 100pt,
+///       fill: gradient.linear(..map, angle: 90deg),
+///     ),
+///     block(
+///       width: 15pt,
+///       height: 32pt,
+///       move(dy: 8pt, rotate(90deg, name)),
+///     ),
+///   )
+/// }))
 /// ```
-///
-/// ### Viridis
-/// The [`viridis`]($color.map.viridis) gradient is a purple to teal to yellow
-/// gradient. Viridis does not take any parameters.
-///
-/// ```example
-/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..color.map.viridis))
-/// ```
-///
-/// ### Inferno
-/// The [`inferno`]($color.map.inferno) gradient is a black to red to yellow
-/// gradient. Inferno does not take any parameters.
-///
-/// ```example
-/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..color.map.inferno))
-/// ```
-///
-/// ### Magma
-/// The [`magma`]($color.map.magma) gradient is a black to purple to yellow
-/// gradient. Magma does not take any parameters.
-///
-/// ```example
-/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..color.map.magma))
-/// ```
-///
-/// ### Plasma
-/// The [`plasma`]($color.map.plasma) gradient is a purple to pink to yellow
-/// gradient. Plasma does not take any parameters.
-///
-/// ```example
-/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..color.map.plasma))
-/// ```
-///
-/// ### Rocket
-/// The [`rocket`]($color.map.rocket) gradient is a black to red to white
-/// gradient. Rocket does not take any parameters.
-///
-/// ```example
-/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..color.map.rocket))
-/// ```
-///
-/// ### Mako
-/// The [`mako`]($color.map.mako) gradient is a black to teal to yellow gradient
-///. Mako does not take any parameters.
-///
-/// ```example
-/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..color.map.mako))
-/// ```
-///
-/// ### Vlag
-/// The [`vlag`]($color.map.vlag) gradient is a light blue to white to red
-/// gradient. Vlag does not take any parameters.
-///
-/// ```example
-/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..color.map.vlag))
-/// ```
-///
-/// ### Icefire
-/// The [`icefire`]($color.map.icefire) gradient is a light teal to black to
-/// yellow gradient. Icefire does not take any parameters.
-///
-/// ```example
-/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..color.map.icefire))
-/// ```
-///
-/// ### Flare
-/// The [`flare`]($color.map.flare) gradient is an orange to purple gradient that
-/// is perceptually uniform. Flare does not take any parameters.
-///
-/// ```example
-/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..color.map.flare))
-/// ```
-///
-/// ### Crest
-/// The [`crest`]($color.map.crest) gradient is a blue to white to red gradient .
-///Crest does not take any parameters.
-///
-/// ```example
-/// #rect(width: 100%, height: 20pt, fill: gradient.linear(..color.map.crest))
-/// ```
-///
-/// ### On other presets
-/// [Jet](https://jakevdp.github.io/blog/2014/10/16/how-bad-is-your-colormap/)
-/// is not color blind friendly and should not be used for data visualization,
-/// which is why it is not included in Typst. Other popular presets are not
-/// neccesarily under a free licence, which is why we could not include them.
-///
-/// Feel free to use or create a package with other presets useful to you!
 #[ty(scope)]
 #[derive(Debug, Copy, Clone)]
 pub enum Color {
@@ -251,7 +215,6 @@ impl Color {
     pub const MAP: fn() -> Module = || {
         // Lazy to avoid re-allocating.
         static MODULE: Lazy<Module> = Lazy::new(map);
-
         MODULE.clone()
     };
 
@@ -276,10 +239,11 @@ impl Color {
 
     /// Create a grayscale color.
     ///
-    /// A grayscale color is represented internally by a single `lightness` component.
+    /// A grayscale color is represented internally by a single `lightness`
+    /// component.
     ///
-    /// These components are also available using the [`components`]($color.components)
-    /// method.
+    /// These components are also available using the
+    /// [`components`]($color.components) method.
     ///
     /// ```example
     /// #for x in range(250, step: 50) {
@@ -294,7 +258,9 @@ impl Color {
         /// The lightness component.
         #[external]
         lightness: Component,
-        /// The color to convert to grayscale.
+        /// Alternatively: The color to convert to grayscale.
+        ///
+        /// If this is given, the `lightness` should not be given.
         #[external]
         color: Color,
     ) -> SourceResult<Color> {
@@ -315,14 +281,15 @@ impl Color {
     /// - Creating grayscale images with uniform perceived lightness
     /// - Creating smooth and uniform color transition and gradients
     ///
-    /// A linear Oklab color is represented internally by an array of four components:
+    /// A linear Oklab color is represented internally by an array of four
+    /// components:
     /// - lightness ([`ratio`]($ratio))
     /// - a ([`float`]($float) in the range `[-0.4..0.4]`)
     /// - b ([`float`]($float) in the range `[-0.4..0.4]`)
     /// - alpha ([`ratio`]($ratio))
     ///
-    /// These components are also available using the [`components`]($color.components)
-    /// method.
+    /// These components are also available using the
+    /// [`components`]($color.components) method.
     ///
     /// ```example
     /// #square(
@@ -346,7 +313,9 @@ impl Color {
         /// The key component.
         #[external]
         alpha: RatioComponent,
-        /// The color to convert to Oklab.
+        /// Alternatively: The color to convert to Oklab.
+        ///
+        /// If this is given, the individual components should not be given.
         #[external]
         color: Color,
     ) -> SourceResult<Color> {
@@ -375,19 +344,20 @@ impl Color {
     /// perform color operations such as blending and interpolation. Although,
     /// you should prefer to use the [`oklab` function]($color.oklab) for these.
     ///
-    /// A linear RGB(A) color is represented internally by an array of four components:
+    /// A linear RGB(A) color is represented internally by an array of four
+    /// components:
     /// - red ([`ratio`]($ratio))
     /// - green ([`ratio`]($ratio))
     /// - blue ([`ratio`]($ratio))
     /// - alpha ([`ratio`]($ratio))
     ///
-    /// These components are also available using the [`components`]($color.components)
-    /// method.
+    /// These components are also available using the
+    /// [`components`]($color.components) method.
     ///
     /// ```example
-    /// #square(
-    ///   fill: color.linear-rgb(30%, 50%, 10%)
-    /// )
+    /// #square(fill: color.linear-rgb(
+    ///   30%, 50%, 10%,
+    /// ))
     /// ```
     #[func(title = "Linear RGB")]
     pub fn linear_rgb(
@@ -406,7 +376,9 @@ impl Color {
         /// The alpha component.
         #[external]
         alpha: Component,
-        /// The color to convert to linear RGB(A).
+        /// Alternatively: The color to convert to linear RGB(A).
+        ///
+        /// If this is given, the individual components should not be given.
         #[external]
         color: Color,
     ) -> SourceResult<Color> {
@@ -450,20 +422,6 @@ impl Color {
         /// The real arguments (the other arguments are just for the docs, this
         /// function is a bit involved, so we parse the arguments manually).
         args: Args,
-        /// The color in hexadecimal notation.
-        ///
-        /// Accepts three, four, six or eight hexadecimal digits and optionally
-        /// a leading hash.
-        ///
-        /// If this string is given, the individual components should not be given.
-        ///
-        /// ```example
-        /// #text(16pt, rgb("#239dad"))[
-        ///   *Typst*
-        /// ]
-        /// ```
-        #[external]
-        hex: Str,
         /// The red component.
         #[external]
         red: Component,
@@ -476,7 +434,23 @@ impl Color {
         /// The alpha component.
         #[external]
         alpha: Component,
-        /// The color to convert to RGB(A).
+        /// Alternatively: The color in hexadecimal notation.
+        ///
+        /// Accepts three, four, six or eight hexadecimal digits and optionally
+        /// a leading hash.
+        ///
+        /// If this is given, the individual components should not be given.
+        ///
+        /// ```example
+        /// #text(16pt, rgb("#239dad"))[
+        ///   *Typst*
+        /// ]
+        /// ```
+        #[external]
+        hex: Str,
+        /// Alternatively: The color to convert to RGB(a).
+        ///
+        /// If this is given, the individual components should not be given.
         #[external]
         color: Color,
     ) -> SourceResult<Color> {
@@ -511,8 +485,8 @@ impl Color {
     /// - yellow ([`ratio`]($ratio))
     /// - key ([`ratio`]($ratio))
     ///
-    /// These components are also available using the [`components`]($color.components)
-    /// method.
+    /// These components are also available using the
+    /// [`components`]($color.components) method.
     ///
     /// ```example
     /// #square(
@@ -536,7 +510,9 @@ impl Color {
         /// The key component.
         #[external]
         key: RatioComponent,
-        /// The color to convert to CMYK.
+        /// Alternatively: The color to convert to CMYK.
+        ///
+        /// If this is given, the individual components should not be given.
         #[external]
         color: Color,
     ) -> SourceResult<Color> {
@@ -569,8 +545,8 @@ impl Color {
     /// - lightness ([`ratio`]($ratio))
     /// - alpha ([`ratio`]($ratio))
     ///
-    /// These components are also available using the [`components`]($color.components)
-    /// method.
+    /// These components are also available using the
+    /// [`components`]($color.components) method.
     ///
     /// ```example
     /// #square(
@@ -594,7 +570,9 @@ impl Color {
         /// The alpha component.
         #[external]
         alpha: Component,
-        /// The color to convert to HSL.
+        /// Alternatively: The color to convert to HSL.
+        ///
+        /// If this is given, the individual components should not be given.
         #[external]
         color: Color,
     ) -> SourceResult<Color> {
@@ -627,8 +605,8 @@ impl Color {
     /// - value ([`ratio`]($ratio))
     /// - alpha ([`ratio`]($ratio))
     ///
-    /// These components are also available using the [`components`]($color.components)
-    /// method.
+    /// These components are also available using the
+    /// [`components`]($color.components) method.
     ///
     /// ```example
     /// #square(
@@ -652,7 +630,9 @@ impl Color {
         /// The alpha component.
         #[external]
         alpha: Component,
-        /// The color to convert to HSL.
+        /// Alternatively: The color to convert to HSL.
+        ///
+        /// If this is given, the individual components should not be given.
         #[external]
         color: Color,
     ) -> SourceResult<Color> {
@@ -673,7 +653,7 @@ impl Color {
         })
     }
 
-    /// Converts this color into its components.
+    /// Extracts the components of this color.
     ///
     /// The size and values of this array depends on the color space. You can
     /// obtain the color space using [`space`]($color.space). Below is a table
