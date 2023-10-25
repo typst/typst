@@ -2,7 +2,6 @@
 
 pub mod calc;
 pub mod repr;
-pub mod sys;
 
 mod args;
 mod array;
@@ -110,7 +109,6 @@ pub(super) fn define(global: &mut Scope) {
     global.define_func::<eval>();
     global.define_func::<style>();
     global.define_module(calc::module());
-    global.define_module(sys::module());
 }
 
 /// Fails with an error.

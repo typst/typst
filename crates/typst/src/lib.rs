@@ -52,6 +52,7 @@ pub mod realize;
 pub mod symbols;
 pub mod text;
 pub mod visualize;
+pub mod sys;
 
 #[doc(inline)]
 pub use typst_syntax as syntax;
@@ -74,6 +75,7 @@ use crate::model::Document;
 use crate::syntax::{FileId, PackageSpec, Source, Span};
 use crate::text::{Font, FontBook};
 use crate::visualize::Color;
+use crate::sys::SysArguments;
 
 /// Compile a source file into a fully layouted document.
 ///
@@ -253,28 +255,30 @@ pub struct Library {
 
 impl Library {
     /// Construct the standard library.
-    pub fn build() -> Self {
+    pub fn build(sys_args: SysArguments) -> Self {
         let math = math::module();
-        let global = global(math.clone());
+        let sys = sys::module(sys_args);
+        let global = global(math.clone(), sys);
         Self { global, math, styles: Styles::new() }
     }
 }
 
 impl Default for Library {
     fn default() -> Self {
-        Self::build()
+        Self::build(SysArguments::default())
     }
 }
 
 /// Construct the module with global definitions.
 #[tracing::instrument(skip_all)]
-fn global(math: Module) -> Module {
+fn global(math: Module, sys_args: Module) -> Module {
     let mut global = Scope::deduplicating();
     self::foundations::define(&mut global);
     self::model::define(&mut global);
     self::text::define(&mut global);
     global.reset_category();
     global.define_module(math);
+    global.define_module(sys_args);
     self::layout::define(&mut global);
     self::visualize::define(&mut global);
     self::introspection::define(&mut global);

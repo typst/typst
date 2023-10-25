@@ -5,11 +5,12 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
-use ecow::eco_format;
+use ecow::{eco_format, EcoString};
 use typst::diag::{FileError, FileResult, StrResult};
-use typst::foundations::{Bytes, Datetime};
+use typst::foundations::{Bytes, Datetime, Value};
 use typst::layout::Frame;
 use typst::syntax::{FileId, Source, VirtualPath};
+use typst::sys::SysArguments;
 use typst::text::{Font, FontBook};
 use typst::util::hash128;
 use typst::{Library, World};
@@ -51,8 +52,11 @@ impl SystemWorld {
         searcher.search(&command.font_paths);
 
         // Resolve the system-global input path.
-        let input = command.input.canonicalize().map_err(|_| {
-            eco_format!("input file not found (searched at {})", command.input.display())
+        let input = command.input_file.canonicalize().map_err(|_| {
+            eco_format!(
+                "input file not found (searched at {})",
+                command.input_file.display()
+            )
         })?;
 
         // Resolve the system-global root directory.
@@ -71,12 +75,27 @@ impl SystemWorld {
         let main_path = VirtualPath::within_root(&input, &root)
             .ok_or("input file must be contained in project root")?;
 
+        let mut inputs = HashMap::with_capacity(command.plain_inputs.len());
+        for (k, v) in &command.plain_inputs {
+            inputs.insert(k.clone().into(), Value::Str(v.clone().into()));
+        }
+        for raw in &command.json_inputs {
+            let root: HashMap<EcoString, Value> =
+                serde_json::from_str(raw).map_err(|e| eco_format!("{e}"))?;
+            inputs.reserve(root.len());
+            for (key, val) in root {
+                inputs.insert(key, val);
+            }
+        }
+
+        let sys_args = SysArguments { inputs };
+
         Ok(Self {
             workdir: std::env::current_dir().ok(),
             input,
             root,
             main: FileId::new(None, main_path),
-            library: Prehashed::new(Library::build()),
+            library: Prehashed::new(Library::build(sys_args)),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
             slots: RefCell::default(),
