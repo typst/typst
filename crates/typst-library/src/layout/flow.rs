@@ -37,7 +37,7 @@ impl Layout for FlowElem {
         }
         let mut layouter = FlowLayouter::new(regions, styles);
 
-        for mut child in &self.children() {
+        for mut child in self.children() {
             let outer = styles;
             let mut styles = styles;
             if let Some((elem, map)) = child.to_styled() {
@@ -199,7 +199,7 @@ impl<'a> FlowLayouter<'a> {
                     rel.resolve(styles).relative_to(self.initial.y),
                     v.weakness(styles) > 0,
                 ),
-                Spacing::Fr(fr) => FlowItem::Fractional(fr),
+                Spacing::Fr(fr) => FlowItem::Fractional(*fr),
             },
         )
     }

@@ -114,7 +114,7 @@ impl Layout for TermsElem {
             ParElem::leading_in(styles).into()
         } else {
             self.spacing(styles)
-                .unwrap_or_else(|| BlockElem::below_in(styles).amount())
+                .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
         };
 
         let mut seq = vec![];
@@ -125,9 +125,9 @@ impl Layout for TermsElem {
             if !indent.is_zero() {
                 seq.push(HElem::new(indent.into()).pack());
             }
-            seq.push(child.term().strong());
+            seq.push(child.term().clone().strong());
             seq.push(separator.clone());
-            seq.push(child.description());
+            seq.push(child.description().clone());
         }
 
         Content::sequence(seq)

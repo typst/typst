@@ -85,7 +85,7 @@ pub struct CancelElem {
 
 impl LayoutMath for CancelElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let body = ctx.layout_fragment(&self.body())?;
+        let body = ctx.layout_fragment(self.body())?;
         // Use the same math class as the body, in order to preserve automatic spacing around it.
         let body_class = body.class().unwrap_or(MathClass::Special);
         let mut body = body.into_frame();

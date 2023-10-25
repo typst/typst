@@ -468,6 +468,30 @@ impl Content {
     }
 }
 
+impl<'a> Add<&'a Content> for Content {
+    type Output = Self;
+
+    fn add(self, rhs: &'a Content) -> Self::Output {
+        let mut lhs = self;
+        match (lhs.to_mut::<SequenceElem>(), rhs.to::<SequenceElem>()) {
+            (Some(seq_lhs), Some(rhs)) => {
+                seq_lhs.children.extend(rhs.children.iter().cloned());
+                lhs
+            }
+            (Some(seq_lhs), None) => {
+                seq_lhs.children.push(Prehashed::new(rhs.clone()));
+                lhs
+            }
+            (None, Some(_)) => {
+                let mut rhs = rhs.clone();
+                rhs.to_mut::<SequenceElem>().unwrap().children.insert(0, Prehashed::new(lhs));
+                rhs
+            }
+            (None, None) => Self::sequence([lhs, rhs.clone()]),
+        }
+    }
+}
+
 impl Add for Content {
     type Output = Self;
 

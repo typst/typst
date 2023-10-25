@@ -249,7 +249,7 @@ impl Synthesize for FigureElem {
                     FigureKind::Name(_) => None,
                 };
 
-                let target = descendant.unwrap_or_else(|| self.body());
+                let target = descendant.unwrap_or_else(|| self.body().clone());
                 Some(supplement.resolve(vt, [target])?)
             }
         };
@@ -287,7 +287,7 @@ impl Synthesize for FigureElem {
 impl Show for FigureElem {
     #[tracing::instrument(name = "FigureElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.body();
+        let mut realized = self.body().clone();
 
         // Build the caption, if any.
         if let Some(caption) = self.caption(styles) {
@@ -344,7 +344,7 @@ impl Refable for FigureElem {
     }
 
     fn counter(&self) -> Counter {
-        self.counter().unwrap_or_else(|| Counter::of(Self::elem()))
+        self.counter().clone().unwrap_or_else(|| Counter::of(Self::elem()))
     }
 
     fn numbering(&self) -> Option<Numbering> {
@@ -362,7 +362,7 @@ impl Outlinable for FigureElem {
             return Ok(None);
         };
 
-        let mut realized = caption.body();
+        let mut realized = caption.body().clone();
         if let (
             Smart::Custom(Some(Supplement::Content(mut supplement))),
             Some(counter),
@@ -508,12 +508,12 @@ impl Synthesize for FigureCaption {
 impl Show for FigureCaption {
     #[tracing::instrument(name = "FigureCaption::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.body();
+        let mut realized = self.body().clone();
 
         if let (Some(mut supplement), Some(numbering), Some(counter), Some(location)) =
-            (self.supplement(), self.numbering(), self.counter(), self.figure_location())
+            (self.supplement().clone(), self.numbering(), self.counter(), self.figure_location())
         {
-            let numbers = counter.at(vt, location)?.display(vt, &numbering)?;
+            let numbers = counter.at(vt, *location)?.display(vt, &numbering)?;
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');
             }

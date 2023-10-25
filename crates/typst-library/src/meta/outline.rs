@@ -217,7 +217,7 @@ impl Show for OutlineElem {
             };
 
             let level = entry.level();
-            if depth < level {
+            if depth < *level {
                 continue;
             }
 
@@ -226,7 +226,7 @@ impl Show for OutlineElem {
             while ancestors
                 .last()
                 .and_then(|ancestor| ancestor.with::<dyn Outlinable>())
-                .map_or(false, |last| last.level() >= level)
+                .map_or(false, |last| last.level() >= *level)
             {
                 ancestors.pop();
             }
@@ -498,14 +498,14 @@ impl Show for OutlineEntry {
         };
 
         // The body text remains overridable.
-        seq.push(self.body().linked(Destination::Location(location)));
+        seq.push(self.body().clone().linked(Destination::Location(location)));
 
         // Add filler symbols between the section name and page number.
         if let Some(filler) = self.fill() {
             seq.push(SpaceElem::new().pack());
             seq.push(
                 BoxElem::new()
-                    .with_body(Some(filler))
+                    .with_body(Some(filler.clone()))
                     .with_width(Fr::one().into())
                     .pack(),
             );
@@ -515,7 +515,7 @@ impl Show for OutlineEntry {
         }
 
         // Add the page number.
-        let page = self.page().linked(Destination::Location(location));
+        let page = self.page().clone().linked(Destination::Location(location));
         seq.push(page);
 
         Ok(Content::sequence(seq))

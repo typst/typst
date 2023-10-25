@@ -160,7 +160,7 @@ impl Layout for TableElem {
             .into_iter()
             .enumerate()
             .map(|(i, child)| {
-                let mut child = child.padded(inset);
+                let mut child = child.clone().padded(inset);
 
                 let x = i % cols;
                 let y = i / cols;

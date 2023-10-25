@@ -284,9 +284,9 @@ impl Counter {
             }
 
             if let Some(update) = match elem.to::<UpdateElem>() {
-                Some(elem) => Some(elem.update()),
+                Some(elem) => Some(elem.update().clone()),
                 None => match elem.with::<dyn Count>() {
-                    Some(countable) => countable.update(),
+                    Some(countable) => countable.update().clone(),
                     None => Some(CounterUpdate::Step(NonZeroUsize::ONE)),
                 },
             } {
@@ -618,6 +618,7 @@ impl Show for DisplayElem {
             let counter = self.counter();
             let numbering = self
                 .numbering()
+                .clone()
                 .or_else(|| {
                     let CounterKey::Selector(Selector::Elem(func, _)) = counter.0 else {
                         return None;
@@ -635,7 +636,7 @@ impl Show for DisplayElem {
                 })
                 .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
 
-            let state = if self.both() {
+            let state = if *self.both() {
                 counter.both(vt, location)?
             } else {
                 counter.at(vt, location)?
@@ -698,9 +699,9 @@ impl ManualPageCounter {
                 FrameItem::Group(group) => self.visit(vt, &group.frame)?,
                 FrameItem::Meta(Meta::Elem(elem), _) => {
                     let Some(elem) = elem.to::<UpdateElem>() else { continue };
-                    if elem.key() == CounterKey::Page {
+                    if *elem.key() == CounterKey::Page {
                         let mut state = CounterState(smallvec![self.logical]);
-                        state.update(vt, elem.update())?;
+                        state.update(vt, elem.update().clone())?;
                         self.logical = state.first();
                     }
                 }

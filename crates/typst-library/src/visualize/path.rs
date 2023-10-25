@@ -77,7 +77,7 @@ impl Layout for PathElem {
                 .to_point()
         };
 
-        let vertices: Vec<PathVertex> = self.vertices();
+        let vertices = self.vertices();
         let points: Vec<Point> = vertices.iter().map(|c| resolve(c.vertex())).collect();
 
         let mut size = Size::zero();

@@ -110,7 +110,7 @@ impl FootnoteElem {
     }
 
     /// Returns the content of the body of this footnote if it is not a ref.
-    pub fn body_content(&self) -> Option<Content> {
+    pub fn body_content(&self) -> Option<&Content> {
         match self.body() {
             FootnoteBody::Content(content) => Some(content),
             _ => None,
@@ -279,7 +279,7 @@ impl Show for FootnoteEntry {
             HElem::new(self.indent(styles).into()).pack(),
             sup,
             HElem::new(number_gap.into()).with_weak(true).pack(),
-            note.body_content().unwrap(),
+            note.body_content().unwrap().clone(),
         ]))
     }
 }

@@ -283,7 +283,7 @@ impl Synthesize for RawElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_lang(self.lang(styles));
 
-        let mut text = self.text();
+        let mut text = self.text().clone();
         if text.contains('\t') {
             let tab_size = RawElem::tab_size_in(styles);
             text = align_tabs(&text, tab_size);
@@ -381,7 +381,7 @@ impl Show for RawElem {
                 lines.push(LinebreakElem::new().pack());
             }
 
-            lines.push(line);
+            lines.push(line.clone());
         }
 
         let mut realized = Content::sequence(lines);
@@ -476,7 +476,7 @@ pub struct RawLine {
 
 impl Show for RawLine {
     fn show(&self, _vt: &mut Vt, _styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body())
+        Ok(self.body().clone())
     }
 }
 

@@ -126,7 +126,7 @@ cast! {
 
 impl Show for QuoteElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.body();
+        let mut realized = self.body().clone();
         let block = self.block(styles);
 
         if self.quotes(styles) == Smart::Custom(true) || !block {

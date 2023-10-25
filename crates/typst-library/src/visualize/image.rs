@@ -158,7 +158,7 @@ impl Layout for ImageElem {
         };
 
         let image = Image::with_fonts(
-            data.into(),
+            data.clone().into(),
             format,
             self.alt(styles),
             vt.world,

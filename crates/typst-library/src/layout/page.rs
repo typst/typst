@@ -364,7 +364,7 @@ impl PageElem {
                 });
 
         // Realize columns.
-        let mut child = self.body();
+        let mut child = self.body().clone();
         let columns = self.columns(styles);
         if columns.get() > 1 {
             child = ColumnsElem::new(child).with_count(columns).pack();

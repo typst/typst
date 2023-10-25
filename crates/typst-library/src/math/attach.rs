@@ -50,7 +50,7 @@ impl LayoutMath for AttachElem {
                 .transpose()
         };
 
-        let base = ctx.layout_fragment(&self.base())?;
+        let base = ctx.layout_fragment(self.base())?;
 
         ctx.style(ctx.style.for_superscript());
         let tl = layout_attachment(ctx, Self::tl)?;
@@ -91,7 +91,7 @@ pub struct PrimesElem {
 impl LayoutMath for PrimesElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        match self.count() {
+        match *self.count() {
             count @ 1..=4 => {
                 let f = ctx.layout_fragment(&TextElem::packed(match count {
                     1 => '′',
@@ -137,7 +137,7 @@ pub struct ScriptsElem {
 impl LayoutMath for ScriptsElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let mut fragment = ctx.layout_fragment(&self.body())?;
+        let mut fragment = ctx.layout_fragment(self.body())?;
         fragment.set_limits(Limits::Never);
         ctx.push(fragment);
         Ok(())
@@ -166,7 +166,7 @@ pub struct LimitsElem {
 impl LayoutMath for LimitsElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let mut fragment = ctx.layout_fragment(&self.body())?;
+        let mut fragment = ctx.layout_fragment(self.body())?;
         fragment.set_limits(if self.inline(ctx.styles()) {
             Limits::Always
         } else {

@@ -583,7 +583,7 @@ fn collect<'a>(
             }
 
             full.push(SPACING_REPLACE);
-            Segment::Spacing(elem.amount())
+            Segment::Spacing(*elem.amount())
         } else if let Some(elem) = child.to::<LinebreakElem>() {
             let c = if elem.justify(styles) { '\u{2028}' } else { '\n' };
             full.push(c);

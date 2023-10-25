@@ -37,7 +37,7 @@ impl LayoutMath for LrElem {
             }
         }
 
-        let mut fragments = ctx.layout_fragments(&body)?;
+        let mut fragments = ctx.layout_fragments(body)?;
         let axis = scaled!(ctx, axis_height);
         let max_extent = fragments
             .iter()

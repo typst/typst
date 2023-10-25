@@ -78,7 +78,7 @@ pub struct UnderlineElem {
 impl Show for UnderlineElem {
     #[tracing::instrument(name = "UnderlineElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(TextElem::set_deco(Decoration {
+        Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Underline {
                 stroke: self.stroke(styles).unwrap_or_default(),
                 offset: self.offset(styles),
@@ -170,7 +170,7 @@ pub struct OverlineElem {
 impl Show for OverlineElem {
     #[tracing::instrument(name = "OverlineElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(TextElem::set_deco(Decoration {
+        Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Overline {
                 stroke: self.stroke(styles).unwrap_or_default(),
                 offset: self.offset(styles),
@@ -247,7 +247,7 @@ pub struct StrikeElem {
 impl Show for StrikeElem {
     #[tracing::instrument(name = "StrikeElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(TextElem::set_deco(Decoration {
+        Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
             // Note that we do not support evade option for strikethrough.
             line: DecoLine::Strikethrough {
                 stroke: self.stroke(styles).unwrap_or_default(),
@@ -317,7 +317,7 @@ pub struct HighlightElem {
 impl Show for HighlightElem {
     #[tracing::instrument(name = "HighlightElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(TextElem::set_deco(Decoration {
+        Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Highlight {
                 fill: self.fill(styles),
                 top_edge: self.top_edge(styles),

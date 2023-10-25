@@ -60,7 +60,7 @@ impl Layout for StackElem {
         for child in self.children() {
             match child {
                 StackChild::Spacing(kind) => {
-                    layouter.layout_spacing(kind);
+                    layouter.layout_spacing(*kind);
                     deferred = None;
                 }
                 StackChild::Block(block) => {

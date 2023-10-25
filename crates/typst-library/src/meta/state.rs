@@ -233,7 +233,7 @@ impl State {
         for elem in introspector.query(&self.selector()) {
             let elem = elem.to::<UpdateElem>().unwrap();
             match elem.update() {
-                StateUpdate::Set(value) => state = value,
+                StateUpdate::Set(value) => state = value.clone(),
                 StateUpdate::Func(func) => state = func.call_vt(&mut vt, [state])?,
             }
             stops.push(state.clone());

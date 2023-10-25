@@ -103,7 +103,7 @@ impl Layout for PlaceElem {
                 .at(self.span());
         }
 
-        let child = self.body().aligned(alignment.unwrap_or_else(|| Align::CENTER));
+        let child = self.body().clone().aligned(alignment.unwrap_or_else(|| Align::CENTER));
 
         let pod = Regions::one(base, Axes::splat(false));
         let frame = child.layout(vt, styles, pod)?.into_frame();

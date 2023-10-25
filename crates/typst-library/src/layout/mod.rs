@@ -664,7 +664,7 @@ impl<'a> ListBuilder<'a> {
                     .map(|(item, local)| {
                         let item = item.to::<ListItem>().unwrap();
                         item.clone().with_body(
-                            item.body().styled_with_map(local.clone())
+                            item.body().clone().styled_with_map(local.clone())
                         )
                     })
                     .collect::<Vec<_>>(),
@@ -677,7 +677,7 @@ impl<'a> ListBuilder<'a> {
                     .iter()
                     .map(|(item, local)| {
                         let item = item.to::<EnumItem>().unwrap();
-                        item.clone().with_body(item.body().styled_with_map(local.clone()))
+                        item.clone().with_body(item.body().clone().styled_with_map(local.clone()))
                     })
                     .collect::<Vec<_>>(),
             )
@@ -690,9 +690,9 @@ impl<'a> ListBuilder<'a> {
                     .map(|(item, local)| {
                         let item = item.to::<TermItem>().unwrap();
                         item.clone()
-                            .with_term(item.term().styled_with_map(local.clone()))
+                            .with_term(item.term().clone().styled_with_map(local.clone()))
                             .with_description(
-                                item.description().styled_with_map(local.clone()),
+                                item.description().clone().styled_with_map(local.clone()),
                             )
                     })
                     .collect::<Vec<_>>(),

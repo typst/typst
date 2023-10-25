@@ -780,16 +780,16 @@ fn create_field_method(field: &Field) -> TokenStream {
         quote! {
             #[doc = #docs]
             #[track_caller]
-            #vis fn #ident(&self) -> #output {
-                self.#ident.clone()
+            #vis fn #ident(&self) -> &#output {
+                &self.#ident
             }
         }
     } else if field.synthesized {
         quote! {
             #[doc = #docs]
             #[track_caller]
-            #vis fn #ident(&self) -> #output {
-                self.#ident.clone().unwrap()
+            #vis fn #ident(&self) -> &#output {
+                self.#ident.as_ref().unwrap()
             }
         }
     } else {

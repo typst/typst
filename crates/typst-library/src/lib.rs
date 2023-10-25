@@ -97,7 +97,7 @@ fn items() -> LangItems {
         linebreak: || text::LinebreakElem::new().pack(),
         text: |text| text::TextElem::new(text).pack(),
         text_elem: text::TextElem::elem(),
-        text_str: |content| Some(content.to::<text::TextElem>()?.text()),
+        text_str: |content| Some(content.to::<text::TextElem>()?.text().clone()),
         smart_quote: |double| text::SmartquoteElem::new().with_double(double).pack(),
         parbreak: || layout::ParbreakElem::new().pack(),
         strong: |body| text::StrongElem::new(body).pack(),

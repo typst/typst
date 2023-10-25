@@ -161,7 +161,7 @@ impl Show for RefElem {
             let elem = elem.at(span)?;
 
             if elem.func() == FootnoteElem::elem() {
-                return Ok(FootnoteElem::with_label(target).spanned(span).pack());
+                return Ok(FootnoteElem::with_label(target.clone()).spanned(span).pack());
             }
 
             let refable = elem
@@ -223,7 +223,7 @@ impl Show for RefElem {
 impl RefElem {
     /// Turn the reference into a citation.
     pub fn to_citation(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<CiteElem> {
-        let mut elem = CiteElem::new(vec![self.target().0]);
+        let mut elem = CiteElem::new(vec![self.target().0.clone()]);
         elem.set_location(self.location().unwrap());
         elem.synthesize(vt, styles)?;
         elem.push_supplement(match self.supplement(styles) {

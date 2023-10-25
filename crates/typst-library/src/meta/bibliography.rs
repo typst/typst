@@ -141,17 +141,16 @@ impl BibliographyElem {
     pub fn keys(
         introspector: Tracked<Introspector>,
     ) -> Vec<(EcoString, Option<EcoString>)> {
-        Self::find(introspector)
-            .map(|elem| elem.bibliography())
-            .iter()
-            .flatten()
-            .map(|entry| {
-                let key = entry.key().into();
-                let detail =
-                    entry.title().map(|title| title.canonical.value.as_str().into());
-                (key, detail)
-            })
-            .collect()
+        let Ok(elem) = Self::find(introspector) else {
+            return Vec::with_capacity(0);
+        };
+
+        elem.bibliography().into_iter().map(|entry| {
+            let key = entry.key().into();
+            let detail =
+                entry.title().map(|title| title.canonical.value.as_str().into());
+            (key, detail)
+        }).collect()
     }
 }
 
@@ -186,7 +185,7 @@ impl Show for BibliographyElem {
         Ok(vt.delayed(|vt| {
             let works = Works::new(vt).at(self.span())?;
 
-            let row_gutter = BlockElem::below_in(styles).amount();
+            let row_gutter = *BlockElem::below_in(styles).amount();
             if works.references.iter().any(|(prefix, _)| prefix.is_some()) {
                 let mut cells = vec![];
                 for (prefix, reference) in &works.references {
@@ -199,7 +198,7 @@ impl Show for BibliographyElem {
                     GridElem::new(cells)
                         .with_columns(TrackSizings(vec![Sizing::Auto; 2]))
                         .with_column_gutter(TrackSizings(vec![COLUMN_GUTTER.into()]))
-                        .with_row_gutter(TrackSizings(vec![row_gutter.into()]))
+                        .with_row_gutter(TrackSizings(vec![(row_gutter).into()]))
                         .pack(),
                 );
             } else {
@@ -449,7 +448,7 @@ impl Works {
             .query(&CiteElem::elem().select())
             .into_iter()
             .map(|elem| match elem.to::<RefElem>() {
-                Some(reference) => reference.citation().unwrap(),
+                Some(reference) => reference.citation().as_ref().unwrap().clone(),
                 _ => elem.to::<CiteElem>().unwrap().clone(),
             })
             .collect();
