@@ -1206,18 +1206,18 @@ impl Iterator for Breakpoints<'_> {
 
             // Fix for: https://github.com/unicode-org/icu4x/issues/4146
             if let Some(c) = self.p.bidi.text[..self.end].chars().next_back() {
-                let at_end = self.end == self.p.bidi.text.len();
+                if self.end == self.p.bidi.text.len() {
+                    self.mandatory = true;
+                    break;
+                }
+
                 self.mandatory = match lb.get(c) {
-                    LineBreak::Glue | LineBreak::WordJoiner | LineBreak::ZWJ
-                        if !at_end =>
-                    {
-                        continue
-                    }
+                    LineBreak::Glue | LineBreak::WordJoiner | LineBreak::ZWJ => continue,
                     LineBreak::MandatoryBreak
                     | LineBreak::CarriageReturn
                     | LineBreak::LineFeed
                     | LineBreak::NextLine => true,
-                    _ => at_end,
+                    _ => false,
                 };
             }
 
