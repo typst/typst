@@ -460,7 +460,7 @@ impl Array {
     ///
     /// If the arrays to be zipped have different lengths, they are zipped up to
     /// the last element of the shortest array and all remaining elements are
-    /// ignored. 
+    /// ignored.
     ///
     /// This function is variadic, meaning that you can zip multiple arrays
     /// together at once: `{(1, 2).zip(("A", "B"), (10, 20))}` yields

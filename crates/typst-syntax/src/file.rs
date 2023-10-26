@@ -222,7 +222,9 @@ impl FromStr for PackageSpec {
 
         let name = s.eat_until(':');
         if name.is_empty() {
-            Err("package specification \"@{namespace}/{name}:{version}\" is missing name")?;
+            Err(
+                "package specification \"@{namespace}/{name}:{version}\" is missing name",
+            )?;
         } else if !is_ident(name) {
             Err(eco_format!("`{name}` is not a valid package name; expected \"@{{namespace}}/{{name}}:{{version}}\""))?;
         }
