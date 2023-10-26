@@ -34,9 +34,10 @@ pub struct DocumentElem {
 
     /// The document's creation date.
     ///
-    /// The year component must be at least zero in order to be embedded into
-    /// a PDF.
-    pub date: Option<Datetime>,
+    /// The year component must be at least zero in order to be embedded into a
+    /// PDF. If this is `{auto}` (default), Typst uses the current date and time
+    /// instead.
+    pub date: Smart<Option<Datetime>>,
 
     /// The page runs.
     #[internal]

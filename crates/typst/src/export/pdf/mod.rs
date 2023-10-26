@@ -153,7 +153,7 @@ impl<'a> PdfContext<'a> {
 fn write_catalog(ctx: &mut PdfContext, timestamp: Option<Datetime>) {
     let mut hasher = SipHasher13::new();
     ctx.document.hash(&mut hasher);
-    if let Some(date) = ctx.document.date.or(timestamp) {
+    if let Some(date) = ctx.document.date.unwrap_or(timestamp) {
         date.hash(&mut hasher);
     }
     let hash = hasher.finish128();
@@ -203,7 +203,7 @@ fn write_catalog(ctx: &mut PdfContext, timestamp: Option<Datetime>) {
         xmp.pdf_keywords(&joined);
     }
 
-    if let Some(date) = ctx.document.date.or(timestamp) {
+    if let Some(date) = ctx.document.date.unwrap_or(timestamp) {
         if let Some(year) = date.year().filter(|&y| y >= 0) {
             let year = year as u16;
             let mut pdf_date = pdf_writer::Date::new(year);
@@ -214,10 +214,10 @@ fn write_catalog(ctx: &mut PdfContext, timestamp: Option<Datetime>) {
                 hour: date.hour(),
                 minute: date.minute(),
                 second: date.second(),
-                timezone: if ctx.document.date.is_some() {
-                    None
-                } else {
+                timezone: if ctx.document.date.is_auto() {
                     Some(Timezone::Utc)
+                } else {
+                    None
                 },
             };
 
@@ -240,7 +240,7 @@ fn write_catalog(ctx: &mut PdfContext, timestamp: Option<Datetime>) {
                 pdf_date = pdf_date.second(s);
             }
 
-            if ctx.document.date.is_none() {
+            if ctx.document.date.is_auto() {
                 pdf_date = pdf_date.utc_offset_hour(0).utc_offset_minute(0);
             }
 

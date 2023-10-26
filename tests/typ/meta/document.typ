@@ -11,7 +11,7 @@ What's up?
 #set document(author: ("A", "B"), date: datetime.today())
 
 ---
-// Error: 21-28 expected datetime or none, found string
+// Error: 21-28 expected datetime, none, or auto, found string
 #set document(date: "today")
 
 ---
