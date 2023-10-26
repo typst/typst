@@ -56,8 +56,8 @@ pub fn repr(
 
 /// Fails with an error.
 ///
-/// Any arguments that are displayed to the user (not rendered in the document)
-/// as strings, converting with `repr` if necessary.
+/// Arguments are displayed to the user (not rendered in the document) as
+/// strings, converting with `repr` if necessary.
 ///
 /// # Example
 /// The code below produces the error `panicked with: "this is wrong"`.
