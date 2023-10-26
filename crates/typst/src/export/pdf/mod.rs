@@ -20,7 +20,7 @@ use base64::Engine;
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
 use pdf_writer::writers::PageLabel;
-use pdf_writer::{Date, Finish, Name, Pdf, Ref, TextStr};
+use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
 use siphasher::sip128::{Hasher128, SipHasher13};
 use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 
@@ -153,8 +153,8 @@ impl<'a> PdfContext<'a> {
 fn write_catalog(ctx: &mut PdfContext, timestamp: Option<Datetime>) {
     let mut hasher = SipHasher13::new();
     ctx.document.hash(&mut hasher);
-    if let Some(timestamp) = timestamp {
-        timestamp.hash(&mut hasher);
+    if let Some(date) = ctx.document.date.or(timestamp) {
+        date.hash(&mut hasher);
     }
     let hash = hasher.finish128();
 
@@ -205,7 +205,8 @@ fn write_catalog(ctx: &mut PdfContext, timestamp: Option<Datetime>) {
 
     if let Some(date) = ctx.document.date.or(timestamp) {
         if let Some(year) = date.year().filter(|&y| y >= 0) {
-            let mut pdf_date = pdf_writer::Date::new(year as u16);
+            let year = year as u16;
+            let mut pdf_date = pdf_writer::Date::new(year);
             let xmp_date = DateTime {
                 year,
                 month: date.month(),
@@ -228,20 +229,19 @@ fn write_catalog(ctx: &mut PdfContext, timestamp: Option<Datetime>) {
             }
 
             if let Some(h) = date.hour() {
-                date = date.hour(h);
+                pdf_date = pdf_date.hour(h);
             }
 
             if let Some(m) = date.minute() {
-                date = date.minute(m);
+                pdf_date = pdf_date.minute(m);
             }
 
             if let Some(s) = date.second() {
-                date = date.second(s);
+                pdf_date = pdf_date.second(s);
             }
 
             if ctx.document.date.is_none() {
-                date.utc_offset_hour(0);
-                date.utc_offset_minute(0);
+                pdf_date = pdf_date.utc_offset_hour(0).utc_offset_minute(0);
             }
 
             info.creation_date(pdf_date);
