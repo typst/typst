@@ -110,7 +110,7 @@ pub use typst_macros::func;
 /// once?
 /// ```
 ///
-/// # Notable fact
+/// # Note on function purity
 /// In Typst, all functions are _pure._ This means that for the same
 /// arguments, they always return the same result. They cannot "remember" things to
 /// produce another value when they are called a second time.
