@@ -208,7 +208,7 @@ impl FromStr for PackageSpec {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut s = unscanny::Scanner::new(s);
         if !s.eat_if('@') {
-            Err("package specification must start with '@'")?;
+            Err("package specification \"@{namespace}/{name}:{version}\" must start with '@'")?;
         }
 
         let namespace = s.eat_until('/');
@@ -287,7 +287,7 @@ impl FromStr for PackageVersion {
                 .filter(|s| !s.is_empty())
                 .ok_or_else(|| eco_format!("version number \"{{major}}.{{minor}}.{{patch}}\" is missing {kind} version"))?;
             part.parse::<u32>()
-                .map_err(|_| eco_format!("`{part}` is not a valid {kind} version"))
+                .map_err(|_| eco_format!("`{part}` is not a valid {kind} version; expected \"{{major}}.{{minor}}.{{patch}}\""))
         };
 
         let major = next("major")?;
