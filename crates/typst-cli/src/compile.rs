@@ -1,12 +1,13 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
 use termcolor::{ColorChoice, StandardStream};
 use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
 use typst::doc::Document;
-use typst::eval::{eco_format, Tracer};
+use typst::eval::{eco_format, Datetime, Tracer};
 use typst::geom::Color;
 use typst::syntax::{FileId, Source, Span};
 use typst::{World, WorldExt};
@@ -141,17 +142,35 @@ fn export(
         OutputFormat::Svg => {
             export_image(world, document, command, watching, ImageExportFormat::Svg)
         }
-        OutputFormat::Pdf => export_pdf(document, command),
+        OutputFormat::Pdf => export_pdf(document, command, world),
     }
 }
 
 /// Export to a PDF.
-fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
+fn export_pdf(
+    document: &Document,
+    command: &CompileCommand,
+    world: &SystemWorld,
+) -> StrResult<()> {
+    let ident = world.input().to_string_lossy();
+    let buffer = typst::export::pdf(document, Some(&ident), now());
     let output = command.output();
-    let buffer = typst::export::pdf(document);
     fs::write(output, buffer)
         .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;
     Ok(())
+}
+
+/// Get the current date and time in UTC.
+fn now() -> Option<Datetime> {
+    let now = chrono::Local::now().naive_utc();
+    Datetime::from_ymd_hms(
+        now.year(),
+        now.month().try_into().ok()?,
+        now.day().try_into().ok()?,
+        now.hour().try_into().ok()?,
+        now.minute().try_into().ok()?,
+        now.second().try_into().ok()?,
+    )
 }
 
 /// An image format to export in.

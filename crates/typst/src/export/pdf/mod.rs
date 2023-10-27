@@ -16,15 +16,17 @@ use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 
+use base64::Engine;
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
 use pdf_writer::writers::PageLabel;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
-use xmp_writer::{LangId, RenditionClass, XmpWriter};
+use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 
 use self::gradient::PdfGradient;
 use self::page::Page;
 use crate::doc::{Document, Lang};
+use crate::eval::Datetime;
 use crate::font::Font;
 use crate::geom::{Abs, Dir, Em};
 use crate::image::Image;
@@ -35,8 +37,22 @@ use extg::ExtGState;
 /// Export a document into a PDF file.
 ///
 /// Returns the raw bytes making up the PDF file.
+///
+/// The `ident` parameter shall be a string that uniquely and stably identifies
+/// the document. It is used to write a PDF file identifier. It should not
+/// change between compilations of the same document. If it is `None`, a hash of
+/// the document is used instead (which means that it _will_ change across
+/// compilations).
+///
+/// The `timestamp`, if given, is expected to be the creation date of the
+/// document as a UTC datetime. It will be used as the PDFs creation date unless
+/// another date is given through `set document(date: ..)`.
 #[tracing::instrument(skip_all)]
-pub fn pdf(document: &Document) -> Vec<u8> {
+pub fn pdf(
+    document: &Document,
+    ident: Option<&str>,
+    timestamp: Option<Datetime>,
+) -> Vec<u8> {
     let mut ctx = PdfContext::new(document);
     page::construct_pages(&mut ctx, &document.pages);
     font::write_fonts(&mut ctx);
@@ -44,7 +60,7 @@ pub fn pdf(document: &Document) -> Vec<u8> {
     gradient::write_gradients(&mut ctx);
     extg::write_external_graphics_states(&mut ctx);
     page::write_page_tree(&mut ctx);
-    write_catalog(&mut ctx);
+    write_catalog(&mut ctx, ident, timestamp);
     ctx.pdf.finish()
 }
 
@@ -127,7 +143,7 @@ impl<'a> PdfContext<'a> {
 
 /// Write the document catalog.
 #[tracing::instrument(skip_all)]
-fn write_catalog(ctx: &mut PdfContext) {
+fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Datetime>) {
     let lang = ctx
         .languages
         .iter()
@@ -171,21 +187,15 @@ fn write_catalog(ctx: &mut PdfContext) {
         xmp.pdf_keywords(&joined);
     }
 
-    if let Some(date) = ctx.document.date {
-        if let Some(year) = date.year().filter(|&y| y >= 0) {
-            let mut pdf_date = pdf_writer::Date::new(year as u16);
-            if let Some(month) = date.month() {
-                pdf_date = pdf_date.month(month);
-            }
-            if let Some(day) = date.day() {
-                pdf_date = pdf_date.day(day);
-            }
+    if let Some(date) = ctx.document.date.unwrap_or(timestamp) {
+        let tz = ctx.document.date.is_auto();
+        if let Some(pdf_date) = pdf_date(date, tz) {
             info.creation_date(pdf_date);
-
-            let mut xmp_date = xmp_writer::DateTime::year(year as u16);
-            xmp_date.month = date.month();
-            xmp_date.day = date.day();
+            info.modified_date(pdf_date);
+        }
+        if let Some(xmp_date) = xmp_date(date, tz) {
             xmp.create_date(xmp_date);
+            xmp.modify_date(xmp_date);
         }
     }
 
@@ -193,6 +203,25 @@ fn write_catalog(ctx: &mut PdfContext) {
     xmp.num_pages(ctx.document.pages.len() as u32);
     xmp.format("application/pdf");
     xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())));
+
+    // A unique ID for this instance of the document. Changes if anything
+    // changes in the frames.
+    let instance_id =
+        hash_base64(&(&ctx.document, ctx.document.date.unwrap_or(timestamp)));
+
+    if let Some(ident) = ident {
+        // A unique ID for the document that stays stable across compilations.
+        let doc_id = hash_base64(&("PDF-1.7", ident));
+        xmp.document_id(&doc_id);
+        xmp.instance_id(&instance_id);
+        ctx.pdf
+            .set_file_id((doc_id.clone().into_bytes(), instance_id.into_bytes()));
+    } else {
+        // This is not spec-compliant, but some PDF readers really want an ID.
+        let bytes = instance_id.into_bytes();
+        ctx.pdf.set_file_id((bytes.clone(), bytes));
+    }
+
     xmp.rendition_class(RenditionClass::Proof);
     xmp.pdf_version("1.7");
 
@@ -207,7 +236,7 @@ fn write_catalog(ctx: &mut PdfContext) {
     let mut catalog = ctx.pdf.catalog(ctx.alloc.bump());
     catalog.pages(ctx.page_tree_ref);
     catalog.viewer_preferences().direction(dir);
-    catalog.pair(Name(b"Metadata"), meta_ref);
+    catalog.metadata(meta_ref);
 
     // Insert the page labels.
     if !page_labels.is_empty() {
@@ -281,6 +310,59 @@ fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
 fn deflate(data: &[u8]) -> Vec<u8> {
     const COMPRESSION_LEVEL: u8 = 6;
     miniz_oxide::deflate::compress_to_vec_zlib(data, COMPRESSION_LEVEL)
+}
+
+/// Create a base64-encoded hash of the value.
+fn hash_base64<T: Hash>(value: &T) -> String {
+    base64::engine::general_purpose::STANDARD
+        .encode(crate::util::hash128(value).to_be_bytes())
+}
+
+/// Converts a datetime to a pdf-writer date.
+fn pdf_date(datetime: Datetime, tz: bool) -> Option<pdf_writer::Date> {
+    let year = datetime.year().filter(|&y| y >= 0)? as u16;
+
+    let mut pdf_date = pdf_writer::Date::new(year);
+
+    if let Some(month) = datetime.month() {
+        pdf_date = pdf_date.month(month);
+    }
+
+    if let Some(day) = datetime.day() {
+        pdf_date = pdf_date.day(day);
+    }
+
+    if let Some(h) = datetime.hour() {
+        pdf_date = pdf_date.hour(h);
+    }
+
+    if let Some(m) = datetime.minute() {
+        pdf_date = pdf_date.minute(m);
+    }
+
+    if let Some(s) = datetime.second() {
+        pdf_date = pdf_date.second(s);
+    }
+
+    if tz {
+        pdf_date = pdf_date.utc_offset_hour(0).utc_offset_minute(0);
+    }
+
+    Some(pdf_date)
+}
+
+/// Converts a datetime to an xmp-writer datetime.
+fn xmp_date(datetime: Datetime, tz: bool) -> Option<xmp_writer::DateTime> {
+    let year = datetime.year().filter(|&y| y >= 0)? as u16;
+    Some(DateTime {
+        year,
+        month: datetime.month(),
+        day: datetime.day(),
+        hour: datetime.hour(),
+        minute: datetime.minute(),
+        second: datetime.second(),
+        timezone: if tz { Some(Timezone::Utc) } else { None },
+    })
 }
 
 /// Assigns new, consecutive PDF-internal indices to items.
