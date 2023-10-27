@@ -152,24 +152,25 @@ fn export_pdf(
     command: &CompileCommand,
     world: &SystemWorld,
 ) -> StrResult<()> {
+    let ident = world.input().to_string_lossy();
+    let buffer = typst::export::pdf(document, Some(&ident), now());
     let output = command.output();
-    let now = (|| {
-        let now = chrono::Local::now().naive_utc();
-        Datetime::from_ymd_hms(
-            now.year(),
-            now.month().try_into().ok()?,
-            now.day().try_into().ok()?,
-            now.hour().try_into().ok()?,
-            now.minute().try_into().ok()?,
-            now.second().try_into().ok()?,
-        )
-    })();
-
-    let buffer =
-        typst::export::pdf(document, Some(&world.input().to_string_lossy()), now);
     fs::write(output, buffer)
         .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;
     Ok(())
+}
+
+/// Get the current date and time in UTC.
+fn now() -> Option<Datetime> {
+    let now = chrono::Local::now().naive_utc();
+    Datetime::from_ymd_hms(
+        now.year(),
+        now.month().try_into().ok()?,
+        now.day().try_into().ok()?,
+        now.hour().try_into().ok()?,
+        now.minute().try_into().ok()?,
+        now.second().try_into().ok()?,
+    )
 }
 
 /// An image format to export in.
