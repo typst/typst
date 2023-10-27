@@ -208,32 +208,30 @@ impl FromStr for PackageSpec {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut s = unscanny::Scanner::new(s);
         if !s.eat_if('@') {
-            Err("package specification \"@{namespace}/{name}:{version}\" must start with '@'")?;
+            Err("package specification must start with '@'")?;
         }
 
         let namespace = s.eat_until('/');
         if namespace.is_empty() {
-            Err("package specification \"@{namespace}/{name}:{version}\" is missing namespace")?;
+            Err("package specification is missing namespace")?;
         } else if !is_ident(namespace) {
-            Err(eco_format!("`{namespace}` is not a valid package namespace; expected \"@{{namespace}}/{{name}}:{{version}}\""))?;
+            Err(eco_format!("`{namespace}` is not a valid package namespace"))?;
         }
 
         s.eat_if('/');
 
         let name = s.eat_until(':');
         if name.is_empty() {
-            Err(
-                "package specification \"@{namespace}/{name}:{version}\" is missing name",
-            )?;
+            Err("package specification is missing name")?;
         } else if !is_ident(name) {
-            Err(eco_format!("`{name}` is not a valid package name; expected \"@{{namespace}}/{{name}}:{{version}}\""))?;
+            Err(eco_format!("`{name}` is not a valid package name"))?;
         }
 
         s.eat_if(':');
 
         let version = s.after();
         if version.is_empty() {
-            Err("package specification \"@{namespace}/{name}:{version}\" is missing version")?;
+            Err("package specification is missing version")?;
         }
 
         Ok(Self {
@@ -287,9 +285,9 @@ impl FromStr for PackageVersion {
             let part = parts
                 .next()
                 .filter(|s| !s.is_empty())
-                .ok_or_else(|| eco_format!("version number \"{{major}}.{{minor}}.{{patch}}\" is missing {kind} version"))?;
+                .ok_or_else(|| eco_format!("version number is missing {kind} version"))?;
             part.parse::<u32>()
-                .map_err(|_| eco_format!("`{part}` is not a valid {kind} version; expected \"{{major}}.{{minor}}.{{patch}}\""))
+                .map_err(|_| eco_format!("`{part}` is not a valid {kind} version"))
         };
 
         let major = next("major")?;
