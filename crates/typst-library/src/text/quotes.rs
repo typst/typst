@@ -22,7 +22,7 @@ use crate::prelude::*;
 /// # Syntax
 /// This function also has dedicated syntax: The normal quote characters
 /// (`'` and `"`). Typst automatically makes your quotes smart.
-#[selem]
+#[elem]
 pub struct SmartquoteElem {
     /// Whether this should be a double quote.
     #[default(true)]

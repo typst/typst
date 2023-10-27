@@ -2,7 +2,7 @@ use heck::{ToKebabCase, ToShoutySnakeCase, ToUpperCamelCase};
 
 use super::*;
 
-/// Expand the `#[selem]` macro.
+/// Expand the `#[elem]` macro.
 pub fn elem(stream: TokenStream, body: syn::ItemStruct) -> Result<TokenStream> {
     let element = parse(stream, &body)?;
     Ok(create(&element))

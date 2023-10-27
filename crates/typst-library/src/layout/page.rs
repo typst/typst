@@ -28,7 +28,7 @@ use crate::text::TextElem;
 ///
 /// There you go, US friends!
 /// ```
-#[selem]
+#[elem]
 pub struct PageElem {
     /// A standard paper size to set width and height.
     #[external]
