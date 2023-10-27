@@ -27,7 +27,7 @@ pub use typst::fields;
 pub use typst::geom::*;
 #[doc(no_inline)]
 pub use typst::model::{
-    elem, selem, Behave, Behaviour, Construct, Content, Element, ElementData, Finalize,
+    elem, Behave, Behaviour, Construct, Content, Element, ElementData, Finalize,
     Fold, Introspector, Label, Locatable, LocatableSelector, Location, Locator, MetaElem,
     NativeElement, PlainText, Resolve, Selector, Set, Show, StyleChain, StyleVec, Styles,
     Synthesize, Unlabellable, Vt,
