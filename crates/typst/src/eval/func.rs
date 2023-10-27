@@ -2,12 +2,12 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked, TrackedMut};
-use ecow::EcoString;
+use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 
 use super::{
-    cast, scope, ty, Args, CastInfo, Eval, FlowEvent, IntoValue, Route, Scope, Scopes,
-    Tracer, Type, Value, Vm,
+    cast, scope, ty, Args, CastInfo, Dict, Eval, FlowEvent, IntoValue, Route, Scope,
+    Scopes, Tracer, Type, Value, Vm,
 };
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::model::{
@@ -367,12 +367,26 @@ impl Func {
         fields: Vec<Args>,
     ) -> StrResult<Selector> {
         let mut args = args;
-        let fields = args.to_named();
+        let fields: Dict = args.to_named();
         args.items.retain(|arg| arg.name.is_none());
-        Ok(self
+
+        let element = self
             .element()
-            .ok_or("`where()` can only be called on element functions")?
-            .where_(fields))
+            .ok_or("`where()` can only be called on element functions")?;
+
+        let fields = fields
+            .into_iter()
+            .map(|(key, value)| {
+                element.field_id(&key).map(|id| (id, value)).ok_or_else(|| {
+                    eco_format!(
+                        "element `{}` does not have a field `{}`",
+                        element.name(),
+                        key
+                    )
+                })
+            })
+            .collect::<StrResult<Vec<_>>>()?;
+        Ok(element.where_(fields))
     }
 }
 

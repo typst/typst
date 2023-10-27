@@ -118,7 +118,7 @@ impl Layout for TermsElem {
         };
 
         let mut seq = vec![];
-        for (i, child) in self.children().into_iter().enumerate() {
+        for (i, child) in self.children().iter().enumerate() {
             if i > 0 {
                 seq.push(VElem::new(gutter).with_weakness(1).pack());
             }

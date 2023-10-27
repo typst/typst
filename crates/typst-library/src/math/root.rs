@@ -32,7 +32,7 @@ pub struct RootElem {
 impl LayoutMath for RootElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, self.index(ctx.styles()).as_ref(), &self.radicand(), self.span())
+        layout(ctx, self.index(ctx.styles()).as_ref(), self.radicand(), self.span())
     }
 }
 

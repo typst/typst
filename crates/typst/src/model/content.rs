@@ -11,8 +11,8 @@ use smallvec::SmallVec;
 use typst_macros::selem;
 
 use super::{
-    Behave, Behaviour, Element, ElementData, Guard, Label, Locatable, Location,
-    NativeElement, Recipe, Selector, Style, Styles, Synthesize,
+    Behave, Behaviour, Element, ElementData, Guard, Label, Location, NativeElement,
+    Recipe, Selector, Style, Styles,
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::doc::Meta;
@@ -33,7 +33,7 @@ impl Default for Content {
 
 impl<T: Element> From<T> for Content {
     fn from(value: T) -> Self {
-        Self::static_(value)
+        Self::new(value)
     }
 }
 
@@ -45,13 +45,13 @@ impl From<Arc<dyn Element>> for Content {
 
 impl Content {
     #[inline]
-    pub fn static_<E: Element>(elem: E) -> Self {
+    pub fn new<E: Element>(elem: E) -> Self {
         Self(Arc::new(elem))
     }
 
     #[inline]
     pub fn empty() -> Self {
-        Self::static_(SequenceElem::default())
+        Self::new(SequenceElem::default())
     }
 
     pub fn temp(of: ElementData) -> Self {
@@ -59,13 +59,20 @@ impl Content {
     }
 
     #[inline]
-    pub fn get(&self, name: &str) -> StrResult<Value> {
-        self.field(name).ok_or_else(|| missing_field(name))
+    pub fn get_by_name(&self, name: &str) -> StrResult<Value> {
+        let id = self.0.data().field_id(name).ok_or_else(|| missing_field(name))?;
+        self.get(id)
     }
 
     #[inline]
-    pub fn field(&self, name: &str) -> Option<Value> {
-        self.0.field(name)
+    pub fn get(&self, id: u8) -> StrResult<Value> {
+        self.field(id)
+            .ok_or_else(|| missing_field(self.0.data().field_name(id).unwrap()))
+    }
+
+    #[inline]
+    pub fn field(&self, id: u8) -> Option<Value> {
+        self.0.field(id)
     }
 
     #[inline]
@@ -171,8 +178,11 @@ impl Content {
     where
         C: ?Sized + 'static,
     {
+        // Ensure the element is not shared.
+        swap_with_mut(&mut self.0);
+
         let vtable = self.elem().vtable()(TypeId::of::<C>())?;
-        let data = Arc::as_ptr(&mut self.0) as *const () as *mut ();
+        let data = Arc::as_ptr(&self.0) as *const () as *mut ();
         Some(unsafe { &mut *crate::util::fat::from_raw_parts_mut(data, vtable) })
     }
 
@@ -238,7 +248,7 @@ impl Content {
         }
 
         if let Some(style_elem) = StyledElem::unpack_mut(&mut self) {
-            style_elem.styles.apply(styles.into());
+            style_elem.styles.apply(styles);
             self
         } else {
             StyledElem::new(Prehashed::new(self), styles).into()
@@ -247,10 +257,7 @@ impl Content {
 
     /// Whether the content needs to be realized specially.
     pub fn needs_preparation(&self) -> bool {
-        (self.can::<dyn Locatable>()
-            || self.can::<dyn Synthesize>()
-            || self.label().is_some())
-            && !self.is_prepared()
+        self.0.needs_preparation()
     }
 
     /// Queries the content tree for all elements that match the given selector.
@@ -349,8 +356,8 @@ impl Content {
 
     /// Expect a field on the content to exist as a specified type.
     #[track_caller]
-    pub fn expect_field<T: FromValue>(&self, name: &str) -> T {
-        self.field(name).unwrap().cast().unwrap()
+    pub fn expect_field<T: FromValue>(&self, id: u8) -> T {
+        self.field(id).unwrap().cast().unwrap()
     }
 
     /// Whether this content has already been prepared.
@@ -414,7 +421,11 @@ impl Content {
         /// The field to look for.
         field: Str,
     ) -> bool {
-        self.field(&field).is_some()
+        let Some(id) = self.0.data().field_id(&field) else {
+            return false;
+        };
+
+        self.field(id).is_some()
     }
 
     /// Access the specified field on the content. Returns the default value if
@@ -429,7 +440,11 @@ impl Content {
         #[named]
         default: Option<Value>,
     ) -> StrResult<Value> {
-        self.field(&field)
+        let Some(id) = self.0.data().field_id(&field) else {
+            return default.ok_or_else(|| missing_field_no_default(&field));
+        };
+
+        self.field(id)
             .or(default)
             .ok_or_else(|| missing_field_no_default(&field))
     }
@@ -610,7 +625,7 @@ pub trait PlainText {
 
 /// The missing field access error message.
 #[cold]
-fn missing_field(field: &str) -> EcoString {
+pub fn missing_field(field: &str) -> EcoString {
     eco_format!("content does not contain field {}", field.repr())
 }
 
@@ -631,4 +646,32 @@ pub fn swap_with_mut(val: &mut Arc<dyn Element>) {
         Some(_) => {}
         None => *val = val.dyn_clone(),
     };
+}
+
+#[macro_export]
+macro_rules! fields {
+    ($elem:expr; $($key:expr => $value:expr),* $(,)?) => {{
+        use ::typst::model::Element;
+        #[allow(unused_mut)]
+        let mut out = Vec::<(u8, ::typst::eval::Value)>::new();
+        $(
+            out.push((
+                $elem.field_id($key).unwrap(),
+                $value.into_value(),
+            ));
+        )*
+        out
+    }};
+    ($($key:expr => $value:expr),* $(,)?) => {{
+        use ::typst::model::Element;
+        #[allow(unused_mut)]
+        let mut out = Vec::<(u8, ::typst::eval::Value)>::new();
+        $(
+            out.push((
+                $key as u8,
+                $value.into_value(),
+            ));
+        )*
+        out
+    }};
 }

@@ -49,7 +49,7 @@ impl LayoutMath for VecElem {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(
             ctx,
-            &self.children(),
+            self.children(),
             FixedAlign::Center,
             self.gap(ctx.styles()),
         )?;
@@ -230,7 +230,7 @@ impl LayoutMath for MatElem {
         let delim = self.delim(ctx.styles());
         let frame = layout_mat_body(
             ctx,
-            &self.rows(),
+            self.rows(),
             augment,
             Axes::new(self.column_gap(ctx.styles()), self.row_gap(ctx.styles())),
             self.span(),
@@ -300,7 +300,7 @@ impl LayoutMath for CasesElem {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(
             ctx,
-            &self.children(),
+            self.children(),
             FixedAlign::Start,
             self.gap(ctx.styles()),
         )?;

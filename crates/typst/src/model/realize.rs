@@ -134,7 +134,7 @@ fn try_apply(
             let mut result = vec![];
             let mut cursor = 0;
 
-            for m in regex.find_iter(&text) {
+            for m in regex.find_iter(text) {
                 let start = m.start();
                 if cursor < start {
                     result.push(make(&text[cursor..start]));

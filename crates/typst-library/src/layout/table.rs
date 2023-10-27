@@ -157,7 +157,7 @@ impl Layout for TableElem {
         let cols = tracks.x.len().max(1);
         let cells: Vec<_> = self
             .children()
-            .into_iter()
+            .iter()
             .enumerate()
             .map(|(i, child)| {
                 let mut child = child.clone().padded(inset);

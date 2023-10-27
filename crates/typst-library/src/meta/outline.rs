@@ -90,7 +90,7 @@ pub struct OutlineElem {
     /// ```
     #[default(LocatableSelector(Selector::Elem(
         HeadingElem::elem(),
-        Some(dict! { "outlined" => true })
+        Some(fields! { super::HeadingElemFields::Outlined => true })
     )))]
     pub target: LocatableSelector,
 

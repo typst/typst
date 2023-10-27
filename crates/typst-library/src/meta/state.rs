@@ -244,7 +244,10 @@ impl State {
 
     /// The selector for this state's updates.
     fn selector(&self) -> Selector {
-        Selector::Elem(UpdateElem::elem(), Some(dict! { "key" => self.key.clone() }))
+        Selector::Elem(
+            UpdateElem::elem(),
+            Some(fields! { UpdateElemFields::Key => self.key.clone() }),
+        )
     }
 }
 

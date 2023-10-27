@@ -111,7 +111,7 @@ cast! {
 
 impl BibliographyElem {
     /// Find the document's bibliography.
-    pub fn find<'a>(introspector: Tracked<'a, Introspector>) -> StrResult<Self> {
+    pub fn find(introspector: Tracked<Introspector>) -> StrResult<Self> {
         let query = introspector.query(&Self::elem().select());
         let mut iter = query.iter();
         let Some(elem) = iter.next() else {
@@ -160,7 +160,7 @@ impl BibliographyElem {
 impl Synthesize for BibliographyElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_style(self.style(styles));
-        self.push_bibliography(load(&self.path(), &self.data()).at(self.span())?);
+        self.push_bibliography(load(self.path(), self.data()).at(self.span())?);
         Ok(())
     }
 }

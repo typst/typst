@@ -24,7 +24,7 @@ pub struct UnderlineElem {
 impl LayoutMath for UnderlineElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout_underoverline(ctx, &self.body(), self.span(), LineKind::Under)
+        layout_underoverline(ctx, self.body(), self.span(), LineKind::Under)
     }
 }
 
@@ -43,7 +43,7 @@ pub struct OverlineElem {
 impl LayoutMath for OverlineElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout_underoverline(ctx, &self.body(), self.span(), LineKind::Over)
+        layout_underoverline(ctx, self.body(), self.span(), LineKind::Over)
     }
 }
 
@@ -130,7 +130,7 @@ impl LayoutMath for UnderbraceElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout_underoverspreader(
             ctx,
-            &self.body(),
+            self.body(),
             &self.annotation(ctx.styles()),
             '⏟',
             BRACE_GAP,
@@ -161,7 +161,7 @@ impl LayoutMath for OverbraceElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout_underoverspreader(
             ctx,
-            &self.body(),
+            self.body(),
             &self.annotation(ctx.styles()),
             '⏞',
             BRACE_GAP,
@@ -192,7 +192,7 @@ impl LayoutMath for UnderbracketElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout_underoverspreader(
             ctx,
-            &self.body(),
+            self.body(),
             &self.annotation(ctx.styles()),
             '⎵',
             BRACKET_GAP,
@@ -223,7 +223,7 @@ impl LayoutMath for OverbracketElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout_underoverspreader(
             ctx,
-            &self.body(),
+            self.body(),
             &self.annotation(ctx.styles()),
             '⎴',
             BRACKET_GAP,

@@ -167,12 +167,12 @@ impl ParElem {
             let children = par.children();
 
             // Collect all text into one string for BiDi analysis.
-            let (text, segments, spans) = collect(&children, &styles, consecutive)?;
+            let (text, segments, spans) = collect(children, &styles, consecutive)?;
 
             // Perform BiDi analysis and then prepare paragraph layout by building a
             // representation on which we can do line breaking without layouting
             // each and every line from scratch.
-            let p = prepare(&mut vt, &children, &text, segments, spans, styles, region)?;
+            let p = prepare(&mut vt, children, &text, segments, spans, styles, region)?;
 
             // Break the paragraph into lines.
             let lines = linebreak(&vt, &p, region.x - p.hang);
@@ -572,9 +572,9 @@ fn collect<'a>(
         } else if let Some(elem) = child.to::<TextElem>() {
             let prev = full.len();
             if let Some(case) = TextElem::case_in(styles) {
-                full.push_str(&case.apply(&elem.text()));
+                full.push_str(&case.apply(elem.text()));
             } else {
-                full.push_str(&elem.text());
+                full.push_str(elem.text());
             }
             Segment::Text(full.len() - prev)
         } else if let Some(elem) = child.to::<HElem>() {

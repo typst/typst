@@ -68,7 +68,7 @@ impl Layout for StackElem {
                         layouter.layout_spacing(kind);
                     }
 
-                    layouter.layout_block(vt, &block, styles)?;
+                    layouter.layout_block(vt, block, styles)?;
                     deferred = spacing;
                 }
             }

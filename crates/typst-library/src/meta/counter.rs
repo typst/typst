@@ -301,8 +301,10 @@ impl Counter {
 
     /// The selector relevant for this counter's updates.
     fn selector(&self) -> Selector {
-        let mut selector =
-            Selector::Elem(UpdateElem::elem(), Some(dict! { "key" => self.0.clone() }));
+        let mut selector = Selector::Elem(
+            UpdateElem::elem(),
+            Some(fields! { UpdateElemFields::Key => self.0.clone() }),
+        );
 
         if let CounterKey::Selector(key) = &self.0 {
             selector = Selector::Or(eco_vec![selector, key.clone()]);

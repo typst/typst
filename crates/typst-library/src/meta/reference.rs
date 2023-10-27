@@ -134,7 +134,7 @@ impl Synthesize for RefElem {
 
         let target = self.target();
         if !BibliographyElem::has(vt, target.0.resolve()) {
-            if let Ok(elem) = vt.introspector.query_label(&target) {
+            if let Ok(elem) = vt.introspector.query_label(target) {
                 self.push_element(Some(elem.into_inner()));
                 return Ok(());
             }
@@ -149,7 +149,7 @@ impl Show for RefElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(vt.delayed(|vt| {
             let target = self.target();
-            let elem = vt.introspector.query_label(&self.target());
+            let elem = vt.introspector.query_label(self.target());
             let span = self.span();
 
             if BibliographyElem::has(vt, target.0.resolve()) {

@@ -379,7 +379,7 @@ impl Show for RawElem {
     #[tracing::instrument(name = "RawElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut lines = EcoVec::with_capacity((2 * self.lines().len()).saturating_sub(1));
-        for (i, line) in self.lines().into_iter().enumerate() {
+        for (i, line) in self.lines().iter().enumerate() {
             if i != 0 {
                 lines.push(LinebreakElem::new().pack());
             }
@@ -447,7 +447,7 @@ impl Figurable for RawElem {}
 
 impl PlainText for RawElem {
     fn plain_text(&self, text: &mut EcoString) {
-        text.push_str(&self.text());
+        text.push_str(self.text());
     }
 }
 
@@ -485,7 +485,7 @@ impl Show for RawLine {
 
 impl PlainText for RawLine {
     fn plain_text(&self, text: &mut EcoString) {
-        text.push_str(&self.text());
+        text.push_str(self.text());
     }
 }
 

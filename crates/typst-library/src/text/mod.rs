@@ -544,6 +544,7 @@ pub struct TextElem {
 
     /// The text.
     #[required]
+    #[variant(0)]
     pub text: EcoString,
 
     /// A delta to apply on the font weight.
@@ -600,7 +601,7 @@ impl Construct for TextElem {
 
 impl PlainText for TextElem {
     fn plain_text(&self, text: &mut EcoString) {
-        text.push_str(&self.text());
+        text.push_str(self.text());
     }
 }
 

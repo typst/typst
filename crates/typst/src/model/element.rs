@@ -16,42 +16,60 @@ use crate::eval::{cast, Args, Dict, Func, ParamInfo, Repr, Scope, Value, Vm};
 use crate::util::Static;
 
 pub trait Element: Any + Send + Sync + Debug + Repr + 'static {
+    /// Get the element data for this element.
     fn data(&self) -> ElementData;
 
+    /// Get the element's span.
+    ///
+    /// May be detached if it has not been set.
     fn span(&self) -> Span;
 
+    /// Sets the span of this element.
     fn set_span(&mut self, span: Span);
 
+    /// Get the element's location.
     fn location(&self) -> Option<Location>;
 
+    /// Sets the location of this element.
     fn set_location(&mut self, location: Location);
 
+    /// Get the element's label.
     fn label(&self) -> Option<&Label>;
 
+    /// Sets the label of this element.
     fn set_label(&mut self, label: Label);
 
-    fn push_guard(&mut self, guard: Guard);
-
+    /// Checks whether the element is guarded by the given guard.
     fn is_guarded(&self, guard: Guard) -> bool;
 
-    fn guards(&self) -> &[::typst::model::Guard];
+    /// Pushes a guard onto the element.
+    fn push_guard(&mut self, guard: Guard);
 
+    /// Whether the element is pristine.
     fn is_pristine(&self) -> bool;
 
+    /// Mark the element as having been prepared.
     fn mark_prepared(&mut self);
 
+    /// Whether this element needs preparations.
     fn needs_preparation(&self) -> bool;
 
+    /// Whether this element has been prepared.
     fn is_prepared(&self) -> bool;
 
+    /// Dynamically hash the element.
     fn dyn_hash(&self, hasher: &mut dyn Hasher);
 
+    /// Dynamically compare the element.
     fn dyn_eq(&self, other: &Content) -> bool;
 
-    fn field(&self, name: &str) -> Option<Value>;
+    /// Get the field with the given field ID.
+    fn field(&self, id: u8) -> Option<Value>;
 
+    /// Get the children of the element.
     fn children(&self) -> &[Prehashed<Content>];
 
+    /// Dynamically clone the element.
     fn dyn_clone(&self) -> Arc<dyn Element>;
 
     /// Get the fields of the element.
@@ -59,18 +77,6 @@ pub trait Element: Any + Send + Sync + Debug + Repr + 'static {
 
     /// Set the fields of the element.
     fn set_field(&mut self, name: &str, value: Value) -> StrResult<()>;
-
-    fn name(&self) -> &'static str {
-        self.data().name()
-    }
-
-    fn can_type_id(&self, type_id: TypeId) -> bool {
-        self.data().can_type_id(type_id)
-    }
-
-    fn vtable(&self) -> fn(of: TypeId) -> Option<*const ()> {
-        self.data().vtable()
-    }
 }
 
 /// A document element.
@@ -83,9 +89,14 @@ impl ElementData {
         T::elem()
     }
 
-    /// Is the element static?
-    pub fn is_static(self) -> bool {
-        self.0.static_
+    /// Extract the field ID for the given field name.
+    pub fn field_id(&self, name: &str) -> Option<u8> {
+        (self.0.field_id)(name)
+    }
+
+    /// Extract the field name for the given field ID.
+    pub fn field_name(&self, id: u8) -> Option<&'static str> {
+        (self.0.field_name)(id)
     }
 
     /// Create an element from the given data.
@@ -152,7 +163,7 @@ impl ElementData {
 
     /// Create a selector for this element, filtering for those
     /// that [fields](super::Content::field) match the given argument.
-    pub fn where_(self, fields: Dict) -> Selector {
+    pub fn where_(self, fields: Vec<(u8, Value)>) -> Selector {
         Selector::Elem(self, Some(fields))
     }
 
@@ -238,13 +249,13 @@ pub struct NativeElementData {
     pub name: &'static str,
     pub title: &'static str,
     pub docs: &'static str,
-    /// Whether the element is struct-based (true) or dynamic (false).
-    pub static_: bool,
     pub keywords: &'static [&'static str],
     pub empty: fn() -> Content,
     pub construct: fn(&mut Vm, &mut Args) -> SourceResult<Content>,
     pub set: fn(&mut Vm, &mut Args) -> SourceResult<Styles>,
     pub vtable: fn(of: TypeId) -> Option<*const ()>,
+    pub field_id: fn(name: &str) -> Option<u8>,
+    pub field_name: fn(u8) -> Option<&'static str>,
     pub scope: Lazy<Scope>,
     pub params: Lazy<Vec<ParamInfo>>,
 }

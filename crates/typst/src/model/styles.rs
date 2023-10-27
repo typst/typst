@@ -147,8 +147,8 @@ impl From<Recipe> for Style {
 pub struct Property {
     /// The element the property belongs to.
     elem: ElementData,
-    /// The property's name.
-    name: EcoString,
+    /// The property's ID.
+    id: u8,
     /// The property's value.
     value: Value,
     /// The span of the set rule the property stems from.
@@ -157,22 +157,18 @@ pub struct Property {
 
 impl Property {
     /// Create a new property from a key-value pair.
-    pub fn new(
-        elem: ElementData,
-        name: impl Into<EcoString>,
-        value: impl IntoValue,
-    ) -> Self {
+    pub fn new(elem: ElementData, id: impl Into<u8>, value: impl IntoValue) -> Self {
         Self {
             elem,
-            name: name.into(),
+            id: id.into(),
             value: value.into_value(),
             span: None,
         }
     }
 
     /// Whether this property is the given one.
-    pub fn is(&self, elem: ElementData, name: &str) -> bool {
-        self.elem == elem && self.name == name
+    pub fn is(&self, elem: ElementData, id: u8) -> bool {
+        self.elem == elem && self.id == id
     }
 
     /// Whether this property belongs to the given element.
@@ -183,7 +179,7 @@ impl Property {
 
 impl Debug for Property {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "set {}({}: {:?})", self.elem.name(), self.name, self.value)?;
+        write!(f, "set {}({}: {:?})", self.elem.name(), self.id, self.value)?;
         Ok(())
     }
 }
@@ -218,7 +214,7 @@ impl Recipe {
     /// Apply the recipe to the given content.
     pub fn apply_vm(&self, vm: &mut Vm, content: Content) -> SourceResult<Content> {
         match &self.transform {
-            Transform::Content(content) => Ok(content.clone().into()),
+            Transform::Content(content) => Ok(content.clone()),
             Transform::Func(func) => {
                 let args = Args::new(self.span, [Value::Content(content.clone())]);
                 let mut result = func.call_vm(vm, args);
@@ -327,11 +323,11 @@ impl<'a> StyleChain<'a> {
     pub fn get<T: FromValue>(
         self,
         func: ElementData,
-        name: &'a str,
+        id: impl Into<u8>,
         inherent: Option<Value>,
         default: impl Fn() -> T,
     ) -> T {
-        self.properties::<T>(func, name, inherent)
+        self.properties::<T>(func, id, inherent)
             .next()
             .unwrap_or_else(default)
     }
@@ -340,18 +336,18 @@ impl<'a> StyleChain<'a> {
     pub fn get_resolve<T: FromValue + Resolve>(
         self,
         func: ElementData,
-        name: &'a str,
+        id: impl Into<u8>,
         inherent: Option<Value>,
         default: impl Fn() -> T,
     ) -> T::Output {
-        self.get(func, name, inherent, default).resolve(self)
+        self.get(func, id, inherent, default).resolve(self)
     }
 
     /// Cast the first value for the given property in the chain.
     pub fn get_fold<T: FromValue + Fold>(
         self,
         func: ElementData,
-        name: &'a str,
+        id: impl Into<u8>,
         inherent: Option<Value>,
         default: impl Fn() -> T::Output,
     ) -> T::Output {
@@ -365,14 +361,14 @@ impl<'a> StyleChain<'a> {
                 .map(|value| value.fold(next(values, _styles, default)))
                 .unwrap_or_else(default)
         }
-        next(self.properties::<T>(func, name, inherent), self, &default)
+        next(self.properties::<T>(func, id, inherent), self, &default)
     }
 
     /// Cast the first value for the given property in the chain.
     pub fn get_resolve_fold<T>(
         self,
         func: ElementData,
-        name: &'a str,
+        id: impl Into<u8>,
         inherent: Option<Value>,
         default: impl Fn() -> <T::Output as Fold>::Output,
     ) -> <T::Output as Fold>::Output
@@ -394,7 +390,7 @@ impl<'a> StyleChain<'a> {
                 .map(|value| value.resolve(styles).fold(next(values, styles, default)))
                 .unwrap_or_else(default)
         }
-        next(self.properties::<T>(func, name, inherent), self, &default)
+        next(self.properties::<T>(func, id, inherent), self, &default)
     }
 
     /// Iterate over all style recipes in the chain.
@@ -403,23 +399,29 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Iterate over all values for the given property in the chain.
-    pub fn properties<T: FromValue + 'a>(
-        self,
+    pub fn properties<'b, T: FromValue + 'b>(
+        &'b self,
         func: ElementData,
-        name: &'a str,
+        id: impl Into<u8>,
         inherent: Option<Value>,
-    ) -> impl Iterator<Item = T> + '_ {
+    ) -> impl Iterator<Item = T> + 'b {
+        let id = id.into();
         inherent
             .into_iter()
             .chain(
                 self.entries()
                     .filter_map(Style::property)
-                    .filter(move |property| property.is(func, name))
+                    .filter(move |property| property.is(func, id))
                     .map(|property| property.value.clone()),
             )
             .map(move |value| {
                 value.cast().unwrap_or_else(|err| {
-                    panic!("{} (for {}.{})", err, func.name(), name)
+                    panic!(
+                        "{} (for {}.{})",
+                        err,
+                        func.name(),
+                        func.field_name(id).unwrap()
+                    )
                 })
             })
     }

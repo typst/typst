@@ -22,6 +22,8 @@ pub use typst::eval::{
     FromValue, Func, IntoValue, Repr, Scope, Str, Symbol, Type, Value, Vm,
 };
 #[doc(no_inline)]
+pub use typst::fields;
+#[doc(no_inline)]
 pub use typst::geom::*;
 #[doc(no_inline)]
 pub use typst::model::{

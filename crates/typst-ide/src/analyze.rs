@@ -87,8 +87,9 @@ pub fn analyze_labels(
     for elem in introspector.all() {
         let Some(label) = elem.label().cloned() else { continue };
         let details = elem
-            .field("caption")
-            .or_else(|| elem.field("body"))
+            .get_by_name("caption")
+            .ok()
+            .or_else(|| elem.get_by_name("body").ok())
             .and_then(|field| match field {
                 Value::Content(content) => Some(content),
                 _ => None,

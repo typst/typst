@@ -259,8 +259,8 @@ impl Synthesize for FigureElem {
         // Construct the figure's counter.
         let counter = Counter::new(CounterKey::Selector(Selector::Elem(
             Self::elem(),
-            Some(dict! {
-                "kind" => kind.clone(),
+            Some(fields! {
+                FigureElemFields::Kind => kind.clone(),
             }),
         )));
 
@@ -518,7 +518,7 @@ impl Show for FigureCaption {
             self.counter(),
             self.figure_location(),
         ) {
-            let numbers = counter.at(vt, *location)?.display(vt, &numbering)?;
+            let numbers = counter.at(vt, *location)?.display(vt, numbering)?;
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');
             }

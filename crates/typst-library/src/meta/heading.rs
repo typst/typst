@@ -42,6 +42,7 @@ use crate::text::{SpaceElem, TextElem, TextSize};
 pub struct HeadingElem {
     /// The logical nesting depth of the heading, starting from one.
     #[default(NonZeroUsize::ONE)]
+    #[variant(0)]
     pub level: NonZeroUsize,
 
     /// How to number the heading. Accepts a
@@ -91,6 +92,7 @@ pub struct HeadingElem {
     /// in the outline.
     /// ```
     #[default(true)]
+    #[variant(1)]
     pub outlined: bool,
 
     /// Whether the heading should appear as a bookmark in the exported PDF's
@@ -113,10 +115,12 @@ pub struct HeadingElem {
     /// PDF.
     /// ```
     #[default(Smart::Auto)]
+    #[variant(2)]
     pub bookmarked: Smart<bool>,
 
     /// The heading's title.
     #[required]
+    #[variant(3)]
     pub body: Content,
 }
 

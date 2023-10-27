@@ -1,4 +1,4 @@
-use heck::{ToKebabCase, ToPascalCase};
+use heck::{ToKebabCase, ToShoutySnakeCase, ToUpperCamelCase};
 
 use super::*;
 
@@ -29,6 +29,7 @@ struct Field {
     push_ident: Ident,
     set_ident: Ident,
     enum_ident: Ident,
+    const_ident: Ident,
     vis: syn::Visibility,
     ty: syn::Type,
     output: syn::Type,
@@ -44,6 +45,7 @@ struct Field {
     synthesized: bool,
     not_hash: bool,
     children: bool,
+    forced_variant: Option<usize>,
     parse: Option<BlockWithReturn>,
     default: syn::Expr,
     empty: syn::Expr,
@@ -63,20 +65,24 @@ impl Field {
 
 /// Produce the element's definition.
 fn create(element: &Elem) -> TokenStream {
-    let Elem { vis, ident, docs, name, .. } = element;
+    let Elem { vis, ident, docs, .. } = element;
     let all = element.fields.iter().filter(|field| !field.external);
     let settable = all.clone().filter(|field| !field.synthesized && field.settable());
 
+    let fields_enum = create_fields_enum(element);
     let new = create_new_func(element);
     let fields = all.clone().map(create_field);
-    let field_methods = all.clone().map(create_field_method);
-    let field_in_methods = settable.clone().map(create_field_in_method);
+    let field_methods = all.clone().map(|field| create_field_method(element, field));
+    let field_in_methods =
+        settable.clone().map(|field| create_field_in_method(element, field));
     let with_field_methods = all.clone().map(create_with_field_method);
     let push_field_methods = all.clone().map(create_push_field_method);
-    let field_style_methods = settable.clone().map(create_set_field_method);
+    let field_style_methods =
+        settable.clone().map(|field| create_set_field_method(element, field));
 
     // Trait implementations.
-    let element_impl = create_pack_impl(element);
+    let native_element_impl = create_pack_impl(element);
+    let element_impl = create_element_impl(element);
     let default_impl = create_default_impl(element);
     let hash_impl = create_hash_impl(element);
     let construct_impl = element
@@ -106,99 +112,6 @@ fn create(element: &Elem) -> TokenStream {
         .all(|capability| capability != "Debug")
         .then(|| create_debug_impl(element));
 
-    let field_matches = all.clone().filter(|field| !field.internal).map(|field| {
-        let name = &field.name;
-        let field_ident = &field.ident;
-
-        quote! {
-            #name => Some(::typst::eval::IntoValue::into_value(self.#field_ident.clone())),
-        }
-    });
-
-    let field_set_matches = settable.map(|field| {
-        let name = &field.name;
-        let field_ident = &field.ident;
-
-        quote! {
-            #name => {
-                self.#field_ident = Some(::typst::eval::FromValue::from_value(value)?);
-                return Ok(());
-            }
-        }
-    });
-
-    let field_inherent_matches = all
-        .clone()
-        .filter(|field| !field.internal && !field.settable())
-        .map(|field| {
-            let name = &field.name;
-            let field_ident = &field.ident;
-
-            quote! {
-                #name => {
-                    self.#field_ident = ::typst::eval::FromValue::from_value(value)?;
-                    return Ok(());
-                }
-            }
-        });
-
-    let needs_preparation = element
-        .capabilities
-        .iter()
-        .any(|capability| capability == "Locatable" || capability == "Synthesize")
-        .then(|| quote! { true })
-        .unwrap_or_else(|| quote! { false });
-
-    let field_dict = element
-        .fields
-        .iter()
-        .filter(|field| !field.external && !field.synthesized && field.inherent())
-        .clone()
-        .map(|field| {
-            let name = &field.name;
-            let field_ident = &field.ident;
-
-            quote! {
-                fields.insert(
-                    EcoString::inline(#name).into(),
-                    ::typst::eval::IntoValue::into_value(self.#field_ident.clone())
-                );
-            }
-        });
-
-    let field_opt_dict = element
-        .fields
-        .iter()
-        .filter(|field| {
-            !field.external && !field.internal && (field.synthesized || !field.inherent())
-        })
-        .clone()
-        .map(|field| {
-            let name = &field.name;
-            let field_ident = &field.ident;
-
-            quote! {
-                if let Some(value) = &self.#field_ident {
-                    fields.insert(
-                        EcoString::inline(#name).into(),
-                        ::typst::eval::IntoValue::into_value(value.clone())
-                    );
-                }
-            }
-        });
-
-    let unknown_field = format!("unknown field {{}} on {}", name);
-
-    let children = element
-        .fields
-        .iter()
-        .find(|field| field.children)
-        .map(|field| {
-            let ident = &field.ident;
-            quote! { &self.#ident }
-        })
-        .unwrap_or_else(|| quote! { &[] });
-
     quote! {
         #[doc = #docs]
         #[derive(Clone)]
@@ -211,6 +124,8 @@ fn create(element: &Elem) -> TokenStream {
 
             #(#fields,)*
         }
+
+        #fields_enum
 
         impl #ident {
             #new
@@ -241,6 +156,7 @@ fn create(element: &Elem) -> TokenStream {
 
         #default_impl
         #element_impl
+        #native_element_impl
         #hash_impl
         #construct_impl
         #set_impl
@@ -249,119 +165,9 @@ fn create(element: &Elem) -> TokenStream {
         #repr_impl
         #debug_impl
 
-        impl ::typst::model::Element for #ident {
-            fn data(&self) -> ::typst::model::ElementData {
-                ::typst::model::ElementData::of::<Self>()
-            }
-
-            fn span(&self) -> ::typst::syntax::Span {
-                self.span
-            }
-
-            fn set_span(&mut self, span: ::typst::syntax::Span) {
-                if self.span().is_detached() {
-                    self.span = span;
-                }
-            }
-
-            fn location(&self) -> Option<::typst::model::Location> {
-                self.location
-            }
-
-            fn set_location(&mut self, location: ::typst::model::Location) {
-                self.location = Some(location);
-            }
-
-            fn label(&self) -> Option<&::typst::model::Label> {
-                self.label.as_ref()
-            }
-
-            fn set_label(&mut self, label: ::typst::model::Label) {
-                self.label = Some(label);
-            }
-
-            fn push_guard(&mut self, guard: ::typst::model::Guard) {
-                self.guards.push(guard);
-            }
-
-            fn is_guarded(&self, guard: ::typst::model::Guard) -> bool {
-                self.guards.contains(&guard)
-            }
-
-            fn is_pristine(&self) -> bool {
-                self.guards.is_empty()
-            }
-
-            fn guards(&self) -> &[::typst::model::Guard] {
-                &self.guards
-            }
-
-            fn mark_prepared(&mut self) {
-                self.prepared = true;
-            }
-
-            fn needs_preparation(&self) -> bool {
-                (#needs_preparation || self.label().is_some()) && !self.prepared
-            }
-
-            fn is_prepared(&self) -> bool {
-                self.prepared
-            }
-
-            fn dyn_hash(&self, mut hasher: &mut dyn ::std::hash::Hasher) {
-                <Self as ::std::hash::Hash>::hash(self, &mut hasher);
-            }
-
-            fn dyn_eq(&self, other: &::typst::model::Content) -> bool {
-                if let Some(other) = Self::unpack(other) {
-                    <Self as ::std::cmp::PartialEq>::eq(self, other)
-                } else {
-                    false
-                }
-            }
-
-            fn dyn_clone(&self) -> ::std::sync::Arc<dyn ::typst::model::Element> {
-                ::std::sync::Arc::new(Clone::clone(self))
-            }
-
-            fn field(&self, name: &str) -> Option<::typst::eval::Value> {
-                match name {
-                    "label" => self.label().cloned().map(::typst::eval::Value::Label),
-                    #(
-                        #field_matches
-                    )*
-                    _ => None,
-                }
-            }
-
-            fn fields(&self) -> Dict {
-                let mut fields = Dict::new();
-                #(#field_dict)*
-                #(#field_opt_dict)*
-                fields
-            }
-
-            /// Set the fields of the element.
-            fn set_field(&mut self, name: &str, value: Value) -> ::typst::diag::StrResult<()> {
-                match name {
-                    #(
-                        #field_set_matches
-                    )*
-                    #(
-                        #field_inherent_matches
-                    )*
-                    _ => ::typst::diag::bail!(#unknown_field, name),
-                }
-            }
-
-            fn children(&self) -> &[::comemo::Prehashed<Content>] {
-                #children
-            }
-        }
-
         impl ::typst::eval::IntoValue for #ident {
             fn into_value(self) -> ::typst::eval::Value {
-                ::typst::eval::Value::Content(::typst::model::Content::static_(self))
+                ::typst::eval::Value::Content(::typst::model::Content::new(self))
             }
         }
     }
@@ -428,39 +234,6 @@ fn create_debug_impl(element: &Elem) -> TokenStream {
 
 fn create_repr_impl(element: &Elem) -> TokenStream {
     let ident = &element.ident;
-    let all = element
-        .fields
-        .iter()
-        .filter(|field| {
-            !field.external
-                && !field.synthesized
-                && (!field.internal || field.parse.is_some())
-        })
-        .map(|field| {
-            let ident = &field.ident;
-            let fmt_str = format!("{}: {{}}, ", field.name.to_kebab_case());
-            quote! {
-                ::std::write!(&mut buf, eco_format!(#fmt_str, self.#ident.repr())).unwrap();
-            }
-        });
-
-    let opt = element
-        .fields
-        .iter()
-        .filter(|field| {
-            !field.external
-                || ((field.synthesized || field.parse.is_some()) && !field.internal)
-        })
-        .map(|field| {
-            let ident = &field.ident;
-            let fmt_str = format!("{}: {{:?}}, ", field.name.to_kebab_case());
-            quote! {
-                if let Some(value) = &self.#ident {
-                    ::std::write!(&mut buf, eco_format!(#fmt_str, value)).unwrap();
-                }
-            }
-        });
-
     let repr_format = format!("{}{{}}", element.name);
     quote! {
         impl ::typst::eval::Repr for #ident {
@@ -521,7 +294,7 @@ fn create_construct_impl(element: &Elem) -> TokenStream {
 
                 #(#handlers)*
 
-                Ok(::typst::model::Content::static_(element))
+                Ok(::typst::model::Content::new(element))
             }
         }
     }
@@ -647,7 +420,16 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
     let eval = quote! { ::typst::eval };
     let model = quote! { ::typst::model };
 
-    let Elem { name, ident, title, scope, keywords, docs, .. } = element;
+    let Elem {
+        name,
+        ident,
+        enum_ident,
+        title,
+        scope,
+        keywords,
+        docs,
+        ..
+    } = element;
     let vtable_func = create_vtable_func(element);
     let params = element
         .fields
@@ -666,12 +448,13 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
             name: #name,
             title: #title,
             docs: #docs,
-            static_: true,
             keywords: &[#(#keywords),*],
-            empty: || #model::Content::static_(<#ident as ::std::default::Default>::default()),
+            empty: || #model::Content::new(<#ident as ::std::default::Default>::default()),
             construct: <#ident as #model::Construct>::construct,
             set: <#ident as #model::Set>::set,
             vtable: #vtable_func,
+            field_id: |name| <#enum_ident as ::std::str::FromStr>::from_str(name).ok().map(|id| id as u8),
+            field_name: |id| <#enum_ident as ::std::convert::TryFrom<u8>>::try_from(id).ok().map(#enum_ident::to_str),
             scope: #eval::Lazy::new(|| #scope),
             params: #eval::Lazy::new(|| ::std::vec![#(#params),*])
         }
@@ -685,7 +468,7 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
             }
 
             fn pack(self) -> #model::Content {
-                #model::Content::static_(self)
+                #model::Content::new(self)
             }
 
             fn unpack(content: &#model::Content) -> ::std::option::Option<&Self> {
@@ -712,13 +495,223 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
             fn unpack_mut(content: &mut #model::Content) -> Option<&mut Self> {
                 content.is::<Self>().then(|| unsafe {
                     // Make sure we're mutable
-                    ::typst::model::swap_with_mut(&mut content.0);
+                    #model::swap_with_mut(&mut content.0);
 
                     // Safety: we checked that we are `Self` and mutable.
                     unsafe {
                         &mut *(::std::sync::Arc::as_ptr(&mut content.0) as *const () as *mut () as *mut Self)
                     }
                 })
+            }
+        }
+    }
+}
+
+fn create_element_impl(element: &Elem) -> TokenStream {
+    let model = quote! { ::typst::model };
+    let Elem { name, ident, enum_ident, .. } = element;
+
+    let all = element.fields.iter().filter(|field| !field.external);
+    let settable = all.clone().filter(|field| !field.synthesized && field.settable());
+
+    let field_matches = all.clone().filter(|field| !field.internal).map(|field| {
+        let name = &field.enum_ident;
+        let field_ident = &field.ident;
+
+        quote! {
+            #enum_ident::#name => Some(::typst::eval::IntoValue::into_value(self.#field_ident.clone())),
+        }
+    });
+
+    let field_set_matches = settable.map(|field| {
+        let name = &field.name;
+        let field_ident = &field.ident;
+
+        quote! {
+            #name => {
+                self.#field_ident = Some(::typst::eval::FromValue::from_value(value)?);
+                return Ok(());
+            }
+        }
+    });
+
+    let field_inherent_matches = all
+        .clone()
+        .filter(|field| !field.internal && !field.settable())
+        .map(|field| {
+            let name = &field.name;
+            let field_ident = &field.ident;
+
+            quote! {
+                #name => {
+                    self.#field_ident = ::typst::eval::FromValue::from_value(value)?;
+                    return Ok(());
+                }
+            }
+        });
+
+    let needs_preparation = element
+        .capabilities
+        .iter()
+        .any(|capability| capability == "Locatable" || capability == "Synthesize")
+        .then(|| quote! { true })
+        .unwrap_or_else(|| quote! { false });
+
+    let field_dict = element
+        .fields
+        .iter()
+        .filter(|field| !field.external && !field.synthesized && field.inherent())
+        .clone()
+        .map(|field| {
+            let name = &field.name;
+            let field_ident = &field.ident;
+
+            quote! {
+                fields.insert(
+                    EcoString::inline(#name).into(),
+                    ::typst::eval::IntoValue::into_value(self.#field_ident.clone())
+                );
+            }
+        });
+
+    let field_opt_dict = element
+        .fields
+        .iter()
+        .filter(|field| {
+            !field.external && !field.internal && (field.synthesized || !field.inherent())
+        })
+        .clone()
+        .map(|field| {
+            let name = &field.name;
+            let field_ident = &field.ident;
+
+            quote! {
+                if let Some(value) = &self.#field_ident {
+                    fields.insert(
+                        EcoString::inline(#name).into(),
+                        ::typst::eval::IntoValue::into_value(value.clone())
+                    );
+                }
+            }
+        });
+
+    let unknown_field = format!("unknown field {{}} on {}", name);
+
+    let children = element
+        .fields
+        .iter()
+        .find(|field| field.children)
+        .map(|field| {
+            let ident = &field.ident;
+            quote! { &self.#ident }
+        })
+        .unwrap_or_else(|| quote! { &[] });
+
+    quote! {
+        impl #model::Element for #ident {
+            fn data(&self) -> ElementData {
+                <Self as #model::NativeElement>::data().into()
+            }
+
+            fn span(&self) -> ::typst::syntax::Span {
+                self.span
+            }
+
+            fn set_span(&mut self, span: ::typst::syntax::Span) {
+                if self.span().is_detached() {
+                    self.span = span;
+                }
+            }
+
+            fn location(&self) -> Option<#model::Location> {
+                self.location
+            }
+
+            fn set_location(&mut self, location: #model::Location) {
+                self.location = Some(location);
+            }
+
+            fn label(&self) -> Option<&#model::Label> {
+                self.label.as_ref()
+            }
+
+            fn set_label(&mut self, label: #model::Label) {
+                self.label = Some(label);
+            }
+
+            fn push_guard(&mut self, guard: #model::Guard) {
+                self.guards.push(guard);
+            }
+
+            fn is_guarded(&self, guard: #model::Guard) -> bool {
+                self.guards.contains(&guard)
+            }
+
+            fn is_pristine(&self) -> bool {
+                self.guards.is_empty()
+            }
+
+            fn mark_prepared(&mut self) {
+                self.prepared = true;
+            }
+
+            fn needs_preparation(&self) -> bool {
+                (#needs_preparation || self.label().is_some()) && !self.prepared
+            }
+
+            fn is_prepared(&self) -> bool {
+                self.prepared
+            }
+
+            fn dyn_hash(&self, mut hasher: &mut dyn ::std::hash::Hasher) {
+                <Self as ::std::hash::Hash>::hash(self, &mut hasher);
+            }
+
+            fn dyn_eq(&self, other: &#model::Content) -> bool {
+                if let Some(other) = Self::unpack(other) {
+                    <Self as ::std::cmp::PartialEq>::eq(self, other)
+                } else {
+                    false
+                }
+            }
+
+            fn dyn_clone(&self) -> ::std::sync::Arc<dyn #model::Element> {
+                ::std::sync::Arc::new(Clone::clone(self))
+            }
+
+            fn field(&self, id: u8) -> Option<::typst::eval::Value> {
+                let id = <#enum_ident as ::std::convert::TryFrom<u8>>::try_from(id).ok()?;
+                match id {
+                    #enum_ident::Label => self.label().cloned().map(::typst::eval::Value::Label),
+                    #(
+                        #field_matches
+                    )*
+                    _ => None,
+                }
+            }
+
+            fn fields(&self) -> Dict {
+                let mut fields = Dict::new();
+                #(#field_dict)*
+                #(#field_opt_dict)*
+                fields
+            }
+
+            /// Set the fields of the element.
+            fn set_field(&mut self, name: &str, value: Value) -> ::typst::diag::StrResult<()> {
+                match name {
+                    #(
+                        #field_set_matches
+                    )*
+                    #(
+                        #field_inherent_matches
+                    )*
+                    _ => ::typst::diag::bail!(#unknown_field, name),
+                }
+            }
+
+            fn children(&self) -> &[::comemo::Prehashed<Content>] {
+                #children
             }
         }
     }
@@ -761,15 +754,16 @@ fn create_push_field_method(field: &Field) -> TokenStream {
 }
 
 /// Create a setter method for a field.
-fn create_set_field_method(field: &Field) -> TokenStream {
-    let Field { vis, ident, set_ident, name, ty, .. } = field;
+fn create_set_field_method(element: &Elem, field: &Field) -> TokenStream {
+    let enum_ = &element.enum_ident;
+    let Field { vis, ident, set_ident, enum_ident, ty, name, .. } = field;
     let doc = format!("Create a style property for the `{}` field.", name);
     quote! {
         #[doc = #doc]
         #vis fn #set_ident(#ident: #ty) -> ::typst::model::Style {
             ::typst::model::Style::Property(::typst::model::Property::new(
                 <Self as ::typst::model::NativeElement>::elem(),
-                #name,
+                #enum_::#enum_ident,
                 #ident,
             ))
         }
@@ -777,10 +771,10 @@ fn create_set_field_method(field: &Field) -> TokenStream {
 }
 
 /// Create a style chain access method for a field.
-fn create_field_in_method(field: &Field) -> TokenStream {
+fn create_field_in_method(element: &Elem, field: &Field) -> TokenStream {
     let Field { vis, ident_in, name, output, .. } = field;
     let doc = format!("Access the `{}` field in the given style chain.", name);
-    let access = create_style_chain_access(field, quote! { None });
+    let access = create_style_chain_access(element, field, quote! { None });
     quote! {
         #[doc = #doc]
         #vis fn #ident_in(styles: ::typst::model::StyleChain) -> #output {
@@ -790,7 +784,7 @@ fn create_field_in_method(field: &Field) -> TokenStream {
 }
 
 /// Create an accessor methods for a field.
-fn create_field_method(field: &Field) -> TokenStream {
+fn create_field_method(element: &Elem, field: &Field) -> TokenStream {
     let Field { vis, docs, ident, output, .. } = field;
     if field.inherent() && !field.synthesized {
         quote! {
@@ -810,6 +804,7 @@ fn create_field_method(field: &Field) -> TokenStream {
         }
     } else {
         let access = create_style_chain_access(
+            element,
             field,
             quote! { self.#ident.clone().map(::typst::eval::IntoValue::into_value) },
         );
@@ -823,8 +818,13 @@ fn create_field_method(field: &Field) -> TokenStream {
 }
 
 /// Create a style chain access method for a field.
-fn create_style_chain_access(field: &Field, inherent: TokenStream) -> TokenStream {
-    let Field { name, ty, default, .. } = field;
+fn create_style_chain_access(
+    element: &Elem,
+    field: &Field,
+    inherent: TokenStream,
+) -> TokenStream {
+    let enum_ = &element.enum_ident;
+    let Field { ty, default, enum_ident, .. } = field;
     let getter = match (field.fold, field.resolve) {
         (false, false) => quote! { get },
         (false, true) => quote! { get_resolve },
@@ -835,7 +835,7 @@ fn create_style_chain_access(field: &Field, inherent: TokenStream) -> TokenStrea
     quote! {
         styles.#getter::<#ty>(
             <Self as ::typst::model::NativeElement>::elem(),
-            #name,
+            #enum_::#enum_ident,
             #inherent,
             || #default,
         )
@@ -945,6 +945,101 @@ fn create_default_impl(element: &Elem) -> TokenStream {
                     guards: ::std::vec::Vec::with_capacity(0),
                     #(#relevant,)*
                     #(#defaults,)*
+                }
+            }
+        }
+    }
+}
+
+fn create_fields_enum(element: &Elem) -> TokenStream {
+    let Elem { enum_ident, fields, vis, .. } = element;
+
+    let mut fields = fields.iter().filter(|field| !field.external).collect::<Vec<_>>();
+
+    fields.sort_by_key(|field| field.forced_variant.unwrap_or(usize::MAX));
+
+    let field_names = fields.iter().map(|Field { name, .. }| name).collect::<Vec<_>>();
+    let field_consts = fields
+        .iter()
+        .map(|Field { const_ident, .. }| const_ident)
+        .collect::<Vec<_>>();
+    let field_variants = fields
+        .iter()
+        .map(|Field { enum_ident, .. }| enum_ident)
+        .collect::<Vec<_>>();
+    let definitions =
+        fields.iter().map(|Field { forced_variant, enum_ident, .. }| {
+            if let Some(variant) = forced_variant {
+                let variant = proc_macro2::Literal::u8_unsuffixed(*variant as _);
+                quote! { #enum_ident = #variant }
+            } else {
+                quote! { #enum_ident }
+            }
+        });
+
+    quote! {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[repr(u8)]
+        #vis enum #enum_ident {
+            #(#definitions,)*
+            Label = 255,
+        }
+
+        impl #enum_ident{
+            pub fn to_str(self) -> &'static str {
+                match self {
+                    #(
+                        Self::#field_variants => #field_names,
+                    )*
+                    Self::Label => "label",
+                }
+            }
+        }
+
+        impl From<#enum_ident> for u8 {
+            fn from(value: #enum_ident) -> Self {
+                value as u8
+            }
+        }
+
+        impl ::std::convert::TryFrom<u8> for #enum_ident {
+            type Error = ();
+
+            fn try_from(value: u8) -> Result<Self, Self::Error> {
+                #(
+                    const #field_consts: u8 = #enum_ident::#field_variants as u8;
+                )*
+                match value {
+                    #(
+                        #field_consts => Ok(Self::#field_variants),
+                    )*
+                    255 => Ok(Self::Label),
+                    _ => Err(()),
+                }
+            }
+        }
+
+        impl ::std::fmt::Display for #enum_ident {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                match self {
+                    #(
+                        Self::#field_variants => f.write_str(#field_names),
+                    )*
+                    Self::Label => f.write_str("label"),
+                }
+            }
+        }
+
+        impl ::std::str::FromStr for #enum_ident {
+            type Err = ();
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                match s {
+                    #(
+                        #field_names => Ok(Self::#field_variants),
+                    )*
+                    "label" => Ok(Self::Label),
+                    _ => Err(()),
                 }
             }
         }
@@ -1070,6 +1165,10 @@ fn parse_field(field: &syn::Field, has_children: &mut bool) -> Result<Field> {
         docs: documentation(&attrs),
         internal: has_attr(&mut attrs, "internal"),
         external: has_attr(&mut attrs, "external"),
+        forced_variant: parse_attr::<syn::LitInt>(&mut attrs, "variant")?
+            .flatten()
+            .map(|lit| lit.base10_parse())
+            .transpose()?,
         positional,
         required,
         variadic,
@@ -1091,10 +1190,8 @@ fn parse_field(field: &syn::Field, has_children: &mut bool) -> Result<Field> {
         with_ident: Ident::new(&format!("with_{}", ident), ident.span()),
         push_ident: Ident::new(&format!("push_{}", ident), ident.span()),
         set_ident: Ident::new(&format!("set_{}", ident), ident.span()),
-        enum_ident: Ident::new(
-            &format!("set_{}", heck::AsUpperCamelCase(&ident.to_string())),
-            ident.span(),
-        ),
+        enum_ident: Ident::new(&ident.to_string().to_upper_camel_case(), ident.span()),
+        const_ident: Ident::new(&ident.to_string().to_shouty_snake_case(), ident.span()),
         ty: field.ty.clone(),
         output: field.ty.clone(),
     };

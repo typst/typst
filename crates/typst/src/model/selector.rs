@@ -55,7 +55,7 @@ pub enum Selector {
     ///
     /// If there is a dictionary, only elements with the fields from the
     /// dictionary match.
-    Elem(ElementData, Option<Dict>),
+    Elem(ElementData, Option<Vec<(u8, Value)>>),
     /// Matches the element at the specified location.
     Location(Location),
     /// Matches elements with a specific label.
@@ -108,12 +108,12 @@ impl Selector {
                     && dict
                         .iter()
                         .flat_map(|dict| dict.iter())
-                        .all(|(name, value)| target.field(name).as_ref() == Some(value))
+                        .all(|(id, value)| target.field(*id).as_ref() == Some(value))
             }
             Self::Label(label) => target.label() == Some(label),
             Self::Regex(regex) => {
                 target.func() == item!(text_elem)
-                    && item!(text_str)(target).map_or(false, |text| regex.is_match(&text))
+                    && item!(text_str)(target).map_or(false, |text| regex.is_match(text))
             }
             Self::Can(cap) => target.func().can_type_id(*cap),
             Self::Or(selectors) => selectors.iter().any(move |sel| sel.matches(target)),
@@ -215,6 +215,12 @@ impl Repr for Selector {
         match self {
             Self::Elem(elem, dict) => {
                 if let Some(dict) = dict {
+                    let dict = dict
+                        .iter()
+                        .map(|(id, value)| (elem.field_name(*id).unwrap(), value.clone()))
+                        .map(|(name, value)| (EcoString::from(name), value))
+                        .map(|(name, value)| (Str::from(name), value))
+                        .collect::<Dict>();
                     eco_format!("{}.where{}", elem.name(), dict.repr())
                 } else {
                     elem.name().into()
