@@ -348,9 +348,9 @@ fn create_vtable_func(element: &Elem) -> TokenStream {
         quote! {
             if id == ::std::any::TypeId::of::<dyn #capability>() {
                 let vtable = unsafe {
-                    ::typst::util::fat::vtable(&null as &dyn #capability)
+                    let null = ::std::ptr::NonNull::<#ident>::dangling().as_ptr() as *const dyn #capability;
+                    ::typst::util::fat::vtable(null)
                 };
-                std::mem::forget(null);
                 return Some(vtable);
             }
         }
@@ -358,12 +358,8 @@ fn create_vtable_func(element: &Elem) -> TokenStream {
 
     quote! {
         |id| {
-            // Safety: The null pointer is never dereferenced.
-            #[allow(invalid_value)]
-            let null = unsafe { ::std::mem::MaybeUninit::<#ident>::uninit().assume_init() };
             #(#checks)*
 
-            std::mem::forget(null);
             None
         }
     }
