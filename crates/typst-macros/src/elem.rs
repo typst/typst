@@ -348,8 +348,8 @@ fn create_vtable_func(element: &Elem) -> TokenStream {
         quote! {
             if id == ::std::any::TypeId::of::<dyn #capability>() {
                 let vtable = unsafe {
-                    let null = ::std::ptr::NonNull::<#ident>::dangling().as_ptr() as *const dyn #capability;
-                    ::typst::util::fat::vtable(null)
+                    let dangling = ::std::ptr::NonNull::<#ident>::dangling().as_ptr() as *const dyn #capability;
+                    ::typst::util::fat::vtable(dangling)
                 };
                 return Some(vtable);
             }
