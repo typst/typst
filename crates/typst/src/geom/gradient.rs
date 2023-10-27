@@ -182,7 +182,7 @@ impl Gradient {
     #[func(title = "Linear Gradient")]
     pub fn linear(
         /// The args of this function.
-        args: Args,
+        args: &mut Args,
         /// The call site of this function.
         span: Span,
         /// The color [stops](#stops) of the gradient.
@@ -212,12 +212,6 @@ impl Gradient {
         #[external]
         angle: Angle,
     ) -> SourceResult<Gradient> {
-        let mut args = args;
-        if stops.len() < 2 {
-            bail!(error!(span, "a gradient must have at least two stops")
-                .with_hint("try filling the shape with a single color instead"));
-        }
-
         let angle = if let Some(angle) = args.named::<Angle>("angle")? {
             angle
         } else if let Some(dir) = args.named::<Dir>("dir")? {
@@ -230,6 +224,11 @@ impl Gradient {
         } else {
             Angle::rad(0.0)
         };
+
+        if stops.len() < 2 {
+            bail!(error!(span, "a gradient must have at least two stops")
+                .with_hint("try filling the shape with a single color instead"));
+        }
 
         Ok(Self::Linear(Arc::new(LinearGradient {
             stops: process_stops(&stops)?,

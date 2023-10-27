@@ -317,7 +317,7 @@ fn create_wrapper_closure(func: &Func) -> TokenStream {
             .map(|tokens| quote! { #tokens, });
         let vm_ = func.special.vm.then(|| quote! { vm, });
         let vt_ = func.special.vt.then(|| quote! { &mut vm.vt, });
-        let args_ = func.special.args.then(|| quote! { args.take(), });
+        let args_ = func.special.args.then(|| quote! { args, });
         let span_ = func.special.span.then(|| quote! { args.span, });
         let forwarded = func.params.iter().filter(|param| !param.external).map(bind);
         quote! {

@@ -254,7 +254,7 @@ impl Color {
     pub fn luma(
         /// The real arguments (the other arguments are just for the docs, this
         /// function is a bit involved, so we parse the arguments manually).
-        args: Args,
+        args: &mut Args,
         /// The lightness component.
         #[external]
         lightness: Component,
@@ -264,7 +264,6 @@ impl Color {
         #[external]
         color: Color,
     ) -> SourceResult<Color> {
-        let mut args = args;
         Ok(if let Some(color) = args.find::<Color>()? {
             color.to_luma()
         } else {
@@ -300,7 +299,7 @@ impl Color {
     pub fn oklab(
         /// The real arguments (the other arguments are just for the docs, this
         /// function is a bit involved, so we parse the arguments manually).
-        args: Args,
+        args: &mut Args,
         /// The cyan component.
         #[external]
         lightness: RatioComponent,
@@ -319,7 +318,6 @@ impl Color {
         #[external]
         color: Color,
     ) -> SourceResult<Color> {
-        let mut args = args;
         Ok(if let Some(color) = args.find::<Color>()? {
             color.to_oklab()
         } else {
@@ -363,7 +361,7 @@ impl Color {
     pub fn linear_rgb(
         /// The real arguments (the other arguments are just for the docs, this
         /// function is a bit involved, so we parse the arguments manually).
-        args: Args,
+        args: &mut Args,
         /// The red component.
         #[external]
         red: Component,
@@ -382,7 +380,6 @@ impl Color {
         #[external]
         color: Color,
     ) -> SourceResult<Color> {
-        let mut args = args;
         Ok(if let Some(color) = args.find::<Color>()? {
             color.to_linear_rgb()
         } else {
@@ -421,7 +418,7 @@ impl Color {
     pub fn rgb(
         /// The real arguments (the other arguments are just for the docs, this
         /// function is a bit involved, so we parse the arguments manually).
-        args: Args,
+        args: &mut Args,
         /// The red component.
         #[external]
         red: Component,
@@ -454,7 +451,6 @@ impl Color {
         #[external]
         color: Color,
     ) -> SourceResult<Color> {
-        let mut args = args;
         Ok(if let Some(string) = args.find::<Spanned<Str>>()? {
             Self::from_str(&string.v).at(string.span)?
         } else if let Some(color) = args.find::<Color>()? {
@@ -497,7 +493,7 @@ impl Color {
     pub fn cmyk(
         /// The real arguments (the other arguments are just for the docs, this
         /// function is a bit involved, so we parse the arguments manually).
-        args: Args,
+        args: &mut Args,
         /// The cyan component.
         #[external]
         cyan: RatioComponent,
@@ -516,7 +512,6 @@ impl Color {
         #[external]
         color: Color,
     ) -> SourceResult<Color> {
-        let mut args = args;
         Ok(if let Some(color) = args.find::<Color>()? {
             color.to_cmyk()
         } else {
@@ -557,7 +552,7 @@ impl Color {
     pub fn hsl(
         /// The real arguments (the other arguments are just for the docs, this
         /// function is a bit involved, so we parse the arguments manually).
-        args: Args,
+        args: &mut Args,
         /// The hue angle.
         #[external]
         hue: Angle,
@@ -576,7 +571,6 @@ impl Color {
         #[external]
         color: Color,
     ) -> SourceResult<Color> {
-        let mut args = args;
         Ok(if let Some(color) = args.find::<Color>()? {
             color.to_hsl()
         } else {
@@ -617,7 +611,7 @@ impl Color {
     pub fn hsv(
         /// The real arguments (the other arguments are just for the docs, this
         /// function is a bit involved, so we parse the arguments manually).
-        args: Args,
+        args: &mut Args,
         /// The hue angle.
         #[external]
         hue: Angle,
@@ -636,7 +630,6 @@ impl Color {
         #[external]
         color: Color,
     ) -> SourceResult<Color> {
-        let mut args = args;
         Ok(if let Some(color) = args.find::<Color>()? {
             color.to_hsv()
         } else {

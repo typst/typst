@@ -354,7 +354,7 @@ impl Array {
     pub fn range(
         /// The real arguments (the other arguments are just for the docs, this
         /// function is a bit involved, so we parse the arguments manually).
-        args: Args,
+        args: &mut Args,
         /// The start of the range (inclusive).
         #[external]
         #[default]
@@ -367,13 +367,11 @@ impl Array {
         #[default(NonZeroI64::new(1).unwrap())]
         step: NonZeroI64,
     ) -> SourceResult<Array> {
-        let mut args = args;
         let first = args.expect::<i64>("end")?;
         let (start, end) = match args.eat::<i64>()? {
             Some(second) => (first, second),
             None => (0, first),
         };
-        args.finish()?;
 
         let step = step.get();
 
@@ -412,15 +410,15 @@ impl Array {
     /// transformed with the given function.
     #[func]
     pub fn map(
-        &self,
+        self,
         /// The virtual machine.
         vm: &mut Vm,
         /// The function to apply to each item.
         mapper: Func,
     ) -> SourceResult<Array> {
-        self.iter()
+        self.into_iter()
             .map(|item| {
-                let args = Args::new(mapper.span(), [item.clone()]);
+                let args = Args::new(mapper.span(), [item]);
                 mapper.call_vm(vm, args)
             })
             .collect()
@@ -433,20 +431,20 @@ impl Array {
     /// a let binding or for loop.
     #[func]
     pub fn enumerate(
-        &self,
+        self,
         /// The index returned for the first pair of the returned list.
         #[named]
         #[default(0)]
         start: i64,
     ) -> StrResult<Array> {
-        self.iter()
+        self.into_iter()
             .enumerate()
             .map(|(i, value)| {
                 Ok(array![
                     start
                         .checked_add_unsigned(i as u64)
                         .ok_or("array index is too large")?,
-                    value.clone()
+                    value
                 ]
                 .into_value())
             })
@@ -464,33 +462,29 @@ impl Array {
     /// `{((1, 3, 6), (2, 4, 7), (3, 5, 8))}`.
     #[func]
     pub fn zip(
-        &self,
+        self,
         /// The real arguments (the other arguments are just for the docs, this
         /// function is a bit involved, so we parse the arguments manually).
-        args: Args,
+        args: &mut Args,
         /// The arrays to zip with.
         #[external]
         #[variadic]
         others: Vec<Array>,
     ) -> SourceResult<Array> {
-        let mut args = args;
+        let remaining = args.remaining();
 
         // Fast path for one array.
-        if args.remaining() == 0 {
-            return Ok(self
-                .iter()
-                .map(|item| array![item.clone()].into_value())
-                .collect());
+        if remaining == 0 {
+            return Ok(self.into_iter().map(|item| array![item].into_value()).collect());
         }
 
         // Fast path for just two arrays.
-        if args.remaining() == 1 {
+        if remaining == 1 {
             let other = args.expect::<Array>("others")?;
-            args.finish()?;
             return Ok(self
-                .iter()
+                .into_iter()
                 .zip(other)
-                .map(|(first, second)| array![first.clone(), second].into_value())
+                .map(|(first, second)| array![first, second].into_value())
                 .collect());
         }
 
@@ -501,9 +495,8 @@ impl Array {
             .into_iter()
             .map(|i| i.into_iter())
             .collect::<Vec<_>>();
-        args.finish()?;
 
-        for this in self.iter() {
+        for this in self {
             let mut row = Self::with_capacity(1 + iterators.len());
             row.push(this.clone());
 
@@ -524,7 +517,7 @@ impl Array {
     /// Folds all items into a single value using an accumulator function.
     #[func]
     pub fn fold(
-        &self,
+        self,
         /// The virtual machine.
         vm: &mut Vm,
         /// The initial value to start with.
@@ -534,8 +527,8 @@ impl Array {
         folder: Func,
     ) -> SourceResult<Value> {
         let mut acc = init;
-        for item in self.iter() {
-            let args = Args::new(folder.span(), [acc, item.clone()]);
+        for item in self {
+            let args = Args::new(folder.span(), [acc, item]);
             acc = folder.call_vm(vm, args)?;
         }
         Ok(acc)
@@ -544,20 +537,19 @@ impl Array {
     /// Sums all items (works for all types that can be added).
     #[func]
     pub fn sum(
-        &self,
+        self,
         /// What to return if the array is empty. Must be set if the array can
         /// be empty.
         #[named]
         default: Option<Value>,
     ) -> StrResult<Value> {
-        let mut acc = self
-            .0
-            .first()
-            .cloned()
+        let mut iter = self.into_iter();
+        let mut acc = iter
+            .next()
             .or(default)
             .ok_or("cannot calculate sum of empty array with no default")?;
-        for i in self.iter().skip(1) {
-            acc = add(acc, i.clone())?;
+        for item in iter {
+            acc = add(acc, item)?;
         }
         Ok(acc)
     }
@@ -566,20 +558,19 @@ impl Array {
     /// multiplied).
     #[func]
     pub fn product(
-        &self,
+        self,
         /// What to return if the array is empty. Must be set if the array can
         /// be empty.
         #[named]
         default: Option<Value>,
     ) -> StrResult<Value> {
-        let mut acc = self
-            .0
-            .first()
-            .cloned()
+        let mut iter = self.into_iter();
+        let mut acc = iter
+            .next()
             .or(default)
             .ok_or("cannot calculate product of empty array with no default")?;
-        for i in self.iter().skip(1) {
-            acc = mul(acc, i.clone())?;
+        for item in iter {
+            acc = mul(acc, item)?;
         }
         Ok(acc)
     }
@@ -587,14 +578,14 @@ impl Array {
     /// Whether the given function returns `{true}` for any item in the array.
     #[func]
     pub fn any(
-        &self,
+        self,
         /// The virtual machine.
         vm: &mut Vm,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
     ) -> SourceResult<bool> {
-        for item in self.iter() {
-            let args = Args::new(test.span(), [item.clone()]);
+        for item in self {
+            let args = Args::new(test.span(), [item]);
             if test.call_vm(vm, args)?.cast::<bool>().at(test.span())? {
                 return Ok(true);
             }
@@ -606,14 +597,14 @@ impl Array {
     /// Whether the given function returns `{true}` for all items in the array.
     #[func]
     pub fn all(
-        &self,
+        self,
         /// The virtual machine.
         vm: &mut Vm,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
     ) -> SourceResult<bool> {
-        for item in self.iter() {
-            let args = Args::new(test.span(), [item.clone()]);
+        for item in self {
+            let args = Args::new(test.span(), [item]);
             if !test.call_vm(vm, args)?.cast::<bool>().at(test.span())? {
                 return Ok(false);
             }
@@ -624,13 +615,13 @@ impl Array {
 
     /// Combine all nested arrays into a single flat one.
     #[func]
-    pub fn flatten(&self) -> Array {
+    pub fn flatten(self) -> Array {
         let mut flat = EcoVec::with_capacity(self.0.len());
-        for item in self.iter() {
+        for item in self {
             if let Value::Array(nested) = item {
-                flat.extend(nested.flatten().into_iter());
+                flat.extend(nested.flatten());
             } else {
-                flat.push(item.clone());
+                flat.push(item);
             }
         }
         flat.into()
@@ -638,8 +629,8 @@ impl Array {
 
     /// Return a new array with the same items, but in reverse order.
     #[func(title = "Reverse")]
-    pub fn rev(&self) -> Array {
-        self.0.iter().cloned().rev().collect()
+    pub fn rev(self) -> Array {
+        self.into_iter().rev().collect()
     }
 
     /// Split the array at occurrences of the specified value.
@@ -658,7 +649,7 @@ impl Array {
     /// Combine all items in the array into one.
     #[func]
     pub fn join(
-        &self,
+        self,
         /// A value to insert between each item of the array.
         #[default]
         separator: Option<Value>,
@@ -671,7 +662,7 @@ impl Array {
 
         let mut last = last;
         let mut result = Value::None;
-        for (i, value) in self.iter().cloned().enumerate() {
+        for (i, value) in self.into_iter().enumerate() {
             if i > 0 {
                 if i + 1 == len && last.is_some() {
                     result = ops::join(result, last.take().unwrap())?;
@@ -690,7 +681,7 @@ impl Array {
     /// adjacent elements.
     #[func]
     pub fn intersperse(
-        &self,
+        self,
         /// The value that will be placed between each adjacent element.
         separator: Value,
     ) -> Array {
@@ -701,7 +692,7 @@ impl Array {
             n => (2 * n) - 1,
         };
         let mut vec = EcoVec::with_capacity(size);
-        let mut iter = self.iter().cloned();
+        let mut iter = self.into_iter();
 
         if let Some(first) = iter.next() {
             vec.push(first);
@@ -722,7 +713,7 @@ impl Array {
     /// function (if given) yields an error.
     #[func]
     pub fn sorted(
-        &self,
+        self,
         /// The virtual machine.
         vm: &mut Vm,
         /// The callsite span.
@@ -733,7 +724,7 @@ impl Array {
         key: Option<Func>,
     ) -> SourceResult<Array> {
         let mut result = Ok(());
-        let mut vec = self.0.clone();
+        let mut vec = self.0;
         let mut key_of = |x: Value| match &key {
             // NOTE: We are relying on `comemo`'s memoization of function
             // evaluation to not excessively reevaluate the `key`.
@@ -772,7 +763,7 @@ impl Array {
     /// ```
     #[func(title = "Deduplicate")]
     pub fn dedup(
-        &self,
+        self,
         /// The virtual machine.
         vm: &mut Vm,
         /// If given, applies this function to the elements in the array to
@@ -791,10 +782,10 @@ impl Array {
         // This algorithm is O(N^2) because we cannot rely on `HashSet` since:
         // 1. We would like to preserve the order of the elements.
         // 2. We cannot hash arbitrary `Value`.
-        'outer: for value in self.iter() {
+        'outer: for value in self {
             let key = key_of(value.clone())?;
             if out.is_empty() {
-                out.push(value.clone());
+                out.push(value);
                 continue;
             }
 
@@ -804,7 +795,7 @@ impl Array {
                 }
             }
 
-            out.push(value.clone());
+            out.push(value);
         }
 
         Ok(Self(out))

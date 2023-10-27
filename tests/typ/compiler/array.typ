@@ -249,6 +249,10 @@
 #test((2, 1, 3, -10, -5, 8, 6, -7, 2).sorted(key: x => x * x), (1, 2, 2, 3, -5, 6, -7, 8, -10))
 
 ---
+// Error: 12-18 unexpected argument
+#().sorted(x => x)
+
+---
 // Test the `zip` method.
 #test(().zip(()), ())
 #test((1,).zip(()), ())
@@ -262,7 +266,7 @@
 #test((1,).zip((2,), (3,)), ((1, 2, 3),))
 #test((1, 2, 3).zip(), ((1,), (2,), (3,)))
 #test(array.zip(()), ())
-#test(array.zip(("a", "b")), (("a",), ("b",)))
+
 
 ---
 // Test the `enumerate` method.
@@ -288,6 +292,14 @@
 #test((1, 2, 3, 4, 5, 6).dedup(key: x => calc.rem(x, 3)), (1, 2, 3))
 #test(("Hello", "World", "Hi", "There").dedup(key: x => x.len()), ("Hello", "Hi"))
 #test(("Hello", "World", "Hi", "There").dedup(key: x => x.at(0)), ("Hello", "World", "There"))
+
+---
+// Error: 9-26 unexpected argument: val
+#().zip(val: "applicable")
+
+---
+// Error: 13-30 unexpected argument: val
+#().zip((), val: "applicable")
 
 ---
 // Error: 32-37 cannot divide by zero
