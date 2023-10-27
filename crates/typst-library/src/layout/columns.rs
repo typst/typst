@@ -32,7 +32,7 @@ use crate::text::TextElem;
 /// increasingly been used to solve a
 /// variety of problems.
 /// ```
-#[selem(Layout)]
+#[elem(Layout)]
 pub struct ColumnsElem {
     /// The number of columns.
     #[positional]
@@ -150,7 +150,7 @@ impl Layout for ColumnsElem {
 /// understanding of the fundamental
 /// laws of nature.
 /// ```
-#[selem(title = "Column Break", Behave)]
+#[elem(title = "Column Break", Behave)]
 pub struct ColbreakElem {
     /// If `{true}`, the column break is skipped if the current column is
     /// already empty.

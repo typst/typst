@@ -84,7 +84,7 @@ use crate::text::TextElem;
 /// In @beginning we prove @pythagoras.
 /// $ a^2 + b^2 = c^2 $ <pythagoras>
 /// ```
-#[selem(title = "Reference", Synthesize, Locatable, Show)]
+#[elem(title = "Reference", Synthesize, Locatable, Show)]
 pub struct RefElem {
     /// The target label that should be referenced.
     #[required]

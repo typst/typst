@@ -8,7 +8,6 @@ mod cast;
 mod elem;
 mod func;
 mod scope;
-mod selem;
 mod symbols;
 mod ty;
 
@@ -190,74 +189,16 @@ pub fn ty(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 /// - `#[synthesized]`: The field cannot be specified in a constructor or set
 ///   rule. Instead, it is added to an element before its show rule runs
 ///   through the `Synthesize` trait.
+/// - `#[empty]`: The field is empty by default. This is used when we need to create
+///   a temporary element without any fields set.
+/// - `#[not_hash]`: The field is not included in the element's hash.
+/// - `#[variant]`: Allows setting the ID of a field's variant. This is used
+///   for fields that are accessed in `typst` and not `typst-library`. It gives
+///   the field a stable ID that can be used to access it.
 #[proc_macro_attribute]
 pub fn elem(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
     let item = syn::parse_macro_input!(item as syn::ItemStruct);
     elem::elem(stream.into(), item)
-        .unwrap_or_else(|err| err.to_compile_error())
-        .into()
-}
-
-/// Makes a native Rust type usable as a Typst element.
-///
-/// This implements `NativeElement` for the given type.
-///
-/// ```
-/// /// A section heading.
-/// #[elem(Show, Count)]
-/// struct HeadingElem {
-///     /// The logical nesting depth of the heading, starting from one.
-///     #[default(NonZeroUsize::ONE)]
-///     level: NonZeroUsize,
-///
-///     /// The heading's title.
-///     #[required]
-///     body: Content,
-/// }
-/// ```
-///
-/// # Properties
-/// You can customize some properties of the resulting type:
-/// - `scope`: Indicates that the type has an associated scope defined by the
-///   `#[scope]` macro
-/// - `name`: The element's normal name (e.g. `str`). Defaults to the Rust name
-///   in kebab-case.
-/// - `title`: The type's title case name (e.g. `String`). Defaults to the long
-///   name in title case.
-/// - The remaining entries in the `elem` macros list are traits the element
-///   is capable of. These can be dynamically accessed.
-///
-/// # Fields
-/// By default, element fields are named and optional (and thus settable). You
-/// can use various attributes to configure their parsing behaviour:
-///
-/// - `#[positional]`: Makes the argument positional (but still optional).
-/// - `#[required]`: Makes the argument positional and required.
-/// - `#[default(..)]`: Specifies the default value of the argument as `..`.
-/// - `#[variadic]`: Parses a variable number of arguments. The field type must
-///   be `Vec<_>`. The field will be exposed as an array.
-/// - `#[parse({ .. })]`: A block of code that parses the field manually.
-///
-/// In addition that there are a number of attributes that configure other
-/// aspects of the field than the parsing behaviour.
-/// - `#[resolve]`: When accessing the field, it will be automatically
-///   resolved through the `Resolve` trait. This, for instance, turns `Length`
-///   into `Abs`. It's just convenient.
-/// - `#[fold]`: When there are multiple set rules for the field, all values
-///   are folded together into one. E.g. `set rect(stroke: 2pt)` and
-///   `set rect(stroke: red)` are combined into the equivalent of
-///   `set rect(stroke: 2pt + red)` instead of having `red` override `2pt`.
-/// - `#[internal]`: The field does not appear in the documentation.
-/// - `#[external]`: The field appears in the documentation, but is otherwise
-///   ignored. Can be useful if you want to do something manually for more
-///   flexibility.
-/// - `#[synthesized]`: The field cannot be specified in a constructor or set
-///   rule. Instead, it is added to an element before its show rule runs
-///   through the `Synthesize` trait.
-#[proc_macro_attribute]
-pub fn selem(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
-    let item = syn::parse_macro_input!(item as syn::ItemStruct);
-    selem::selem(stream.into(), item)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }

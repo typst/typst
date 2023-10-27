@@ -17,7 +17,7 @@ const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
 /// $ vec(a, b, c) dot vec(1, 2, 3)
 ///     = a + 2b + 3c $
 /// ```
-#[selem(title = "Vector", LayoutMath)]
+#[elem(title = "Vector", LayoutMath)]
 pub struct VecElem {
     /// The delimiter to use.
     ///
@@ -82,7 +82,7 @@ impl LayoutMath for VecElem {
 ///   10, 10, ..., 10;
 /// ) $
 /// ```
-#[selem(title = "Matrix", LayoutMath)]
+#[elem(title = "Matrix", LayoutMath)]
 pub struct MatElem {
     /// The delimiter to use.
     ///
@@ -259,7 +259,7 @@ impl LayoutMath for MatElem {
 ///   4 "else",
 /// ) $
 /// ```
-#[selem(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct CasesElem {
     /// The delimiter to use.
     ///

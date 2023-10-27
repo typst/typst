@@ -13,7 +13,7 @@ use crate::prelude::*;
 ///   stroke: 2pt + maroon,
 /// )
 /// ```
-#[selem(Layout)]
+#[elem(Layout)]
 pub struct LineElem {
     /// The start point of the line.
     ///

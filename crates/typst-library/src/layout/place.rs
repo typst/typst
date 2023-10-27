@@ -20,7 +20,7 @@ use crate::prelude::*;
 ///   ),
 /// )
 /// ```
-#[selem(Layout, Behave)]
+#[elem(Layout, Behave)]
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
     ///

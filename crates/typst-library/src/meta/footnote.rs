@@ -61,7 +61,7 @@ cast! {
 /// apply to the footnote's content. See [here][issue] for more information.
 ///
 /// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
-#[selem(scope, Locatable, Synthesize, Show, Count)]
+#[elem(scope, Locatable, Synthesize, Show, Count)]
 pub struct FootnoteElem {
     /// How to number footnotes.
     ///
@@ -178,7 +178,7 @@ impl Count for FootnoteElem {
 /// #footnote[It's down here]
 /// has red text!
 /// ```
-#[selem(name = "entry", title = "Footnote Entry", Show, Finalize)]
+#[elem(name = "entry", title = "Footnote Entry", Show, Finalize)]
 pub struct FootnoteEntry {
     /// The footnote for this entry. It's location can be used to determine
     /// the footnote counter state.

@@ -17,7 +17,7 @@ use crate::prelude::*;
 ///   (0%,  2cm),
 /// )
 /// ```
-#[selem(scope, Layout)]
+#[elem(scope, Layout)]
 pub struct PolygonElem {
     /// How to fill the polygon.
     ///

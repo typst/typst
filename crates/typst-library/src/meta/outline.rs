@@ -52,7 +52,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// `title` and `indent` parameters. If desired, however, it is possible to have
 /// more control over the outline's look and style through the
 /// [`outline.entry`]($outline.entry) element.
-#[selem(scope, keywords = ["Table of Contents"], Show, Finalize, LocalName)]
+#[elem(scope, keywords = ["Table of Contents"], Show, Finalize, LocalName)]
 pub struct OutlineElem {
     /// The title of the outline.
     ///
@@ -413,7 +413,7 @@ cast! {
 /// = Analysis
 /// == Setup
 /// ```
-#[selem(name = "entry", title = "Outline Entry", Show)]
+#[elem(name = "entry", title = "Outline Entry", Show)]
 pub struct OutlineEntry {
     /// The nesting level of this outline entry. Starts at `{1}` for top-level
     /// entries.

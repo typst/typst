@@ -596,7 +596,7 @@ cast! {
 }
 
 /// Executes a display of a state.
-#[selem(Locatable, Show)]
+#[elem(Locatable, Show)]
 struct DisplayElem {
     /// The counter.
     #[required]
@@ -650,7 +650,7 @@ impl Show for DisplayElem {
 }
 
 /// Executes an update of a counter.
-#[selem(Locatable, Show)]
+#[elem(Locatable, Show)]
 struct UpdateElem {
     /// The key that identifies the counter.
     #[required]

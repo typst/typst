@@ -8,7 +8,7 @@ use comemo::Prehashed;
 use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Serialize, Serializer};
 use smallvec::SmallVec;
-use typst_macros::selem;
+use typst_macros::elem;
 
 use super::{
     Behave, Behaviour, Element, ElementData, Guard, Label, Location, NativeElement,
@@ -548,7 +548,7 @@ impl Serialize for Content {
 }
 
 /// Defines the `ElemFunc` for sequences.
-#[selem(Repr, PartialEq)]
+#[elem(Repr, PartialEq)]
 struct SequenceElem {
     #[required]
     #[empty(Vec::with_capacity(0))]
@@ -581,7 +581,7 @@ impl Repr for SequenceElem {
 }
 
 /// Defines the `ElemFunc` for styled elements.
-#[selem(Repr, PartialEq)]
+#[elem(Repr, PartialEq)]
 struct StyledElem {
     #[required]
     child: Prehashed<Content>,
@@ -602,7 +602,7 @@ impl Repr for StyledElem {
 }
 
 /// Hosts metadata and ensures metadata is produced even for empty elements.
-#[selem(Behave)]
+#[elem(Behave)]
 pub struct MetaElem {
     /// Metadata that should be attached to all elements affected by this style
     /// property.

@@ -2,7 +2,7 @@ use super::TextElem;
 use crate::prelude::*;
 
 /// A text space.
-#[selem(Behave, Unlabellable, PlainText, Repr)]
+#[elem(Behave, Unlabellable, PlainText, Repr)]
 pub struct SpaceElem {}
 
 impl Repr for SpaceElem {
@@ -42,7 +42,7 @@ impl PlainText for SpaceElem {
 /// This function also has dedicated syntax: To insert a line break, simply write
 /// a backslash followed by whitespace. This always creates an unjustified
 /// break.
-#[selem(title = "Line Break", Behave)]
+#[elem(title = "Line Break", Behave)]
 pub struct LinebreakElem {
     /// Whether to justify the line before the break.
     ///
@@ -85,7 +85,7 @@ impl Behave for LinebreakElem {
 /// simply enclose it in stars/asterisks (`*`). Note that this only works at
 /// word boundaries. To strongly emphasize part of a word, you have to use the
 /// function.
-#[selem(title = "Strong Emphasis", Show)]
+#[elem(title = "Strong Emphasis", Show)]
 pub struct StrongElem {
     /// The delta to apply on the font weight.
     ///
@@ -152,7 +152,7 @@ impl Fold for Delta {
 /// This function also has dedicated syntax: To emphasize content, simply
 /// enclose it in underscores (`_`). Note that this only works at word
 /// boundaries. To emphasize part of a word, you have to use the function.
-#[selem(title = "Emphasis", Show)]
+#[elem(title = "Emphasis", Show)]
 pub struct EmphElem {
     /// The content to emphasize.
     #[required]

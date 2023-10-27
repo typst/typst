@@ -38,7 +38,7 @@ use crate::text::{SpaceElem, TextElem, TextSize};
 /// Headings have dedicated syntax: They can be created by starting a line with
 /// one or multiple equals signs, followed by a space. The number of equals
 /// signs determines the heading's logical nesting depth.
-#[selem(Locatable, Synthesize, Count, Show, Finalize, LocalName, Refable, Outlinable)]
+#[elem(Locatable, Synthesize, Count, Show, Finalize, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
     /// The logical nesting depth of the heading, starting from one.
     #[default(NonZeroUsize::ONE)]

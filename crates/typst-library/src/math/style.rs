@@ -212,7 +212,7 @@ pub fn sscript(
 }
 
 /// A font variant in math.
-#[selem(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct MathStyleElem {
     /// The content to style.
     #[required]

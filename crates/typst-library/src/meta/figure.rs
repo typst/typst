@@ -89,7 +89,7 @@ use crate::visualize::ImageElem;
 ///   caption: [I'm up here],
 /// )
 /// ```
-#[selem(scope, Locatable, Synthesize, Count, Show, Finalize, Refable, Outlinable)]
+#[elem(scope, Locatable, Synthesize, Count, Show, Finalize, Refable, Outlinable)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image]($image).
     #[required]
@@ -407,7 +407,7 @@ impl Outlinable for FigureElem {
 ///   caption: [A rectangle],
 /// )
 /// ```
-#[selem(name = "caption", Synthesize, Show)]
+#[elem(name = "caption", Synthesize, Show)]
 pub struct FigureCaption {
     /// The caption's position in the figure. Either `{top}` or `{bottom}`.
     ///

@@ -8,7 +8,7 @@ use super::*;
 ///   tl: 1, tr: 2+3, bl: 4+5, br: 6,
 /// ) $
 /// ```
-#[selem(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct AttachElem {
     /// The base to which things are attached.
     #[required]
@@ -81,7 +81,7 @@ impl LayoutMath for AttachElem {
 /// This function has dedicated syntax: use apostrophes instead of primes. They
 /// will automatically attach to the previous element, moving superscripts to
 /// the next level.
-#[selem(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct PrimesElem {
     /// The number of grouped primes.
     #[required]
@@ -127,7 +127,7 @@ impl LayoutMath for PrimesElem {
 /// ```example
 /// $ scripts(sum)_1^2 != sum_1^2 $
 /// ```
-#[selem(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct ScriptsElem {
     /// The base to attach the scripts to.
     #[required]
@@ -149,7 +149,7 @@ impl LayoutMath for ScriptsElem {
 /// ```example
 /// $ limits(A)_1^2 != A_1^2 $
 /// ```
-#[selem(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct LimitsElem {
     /// The base to attach the limits to.
     #[required]

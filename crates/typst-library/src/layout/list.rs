@@ -35,7 +35,7 @@ use super::GridLayouter;
 /// followed by a space to create a list item. A list item can contain multiple
 /// paragraphs and other block-level content. All content that is indented
 /// more than an item's marker becomes part of that item.
-#[selem(scope, title = "Bullet List", Layout)]
+#[elem(scope, title = "Bullet List", Layout)]
 pub struct ListElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [list spacing]($list.spacing). If it is `{true}`, they use normal
@@ -170,7 +170,7 @@ impl Layout for ListElem {
 }
 
 /// A bullet list item.
-#[selem(name = "item", title = "Bullet List Item")]
+#[elem(name = "item", title = "Bullet List Item")]
 pub struct ListItem {
     /// The item's body.
     #[required]

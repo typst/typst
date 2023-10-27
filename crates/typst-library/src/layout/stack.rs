@@ -15,7 +15,7 @@ use crate::prelude::*;
 ///   rect(width: 90pt),
 /// )
 /// ```
-#[selem(Layout)]
+#[elem(Layout)]
 pub struct StackElem {
     /// The direction along which the items are stacked. Possible values are:
     ///

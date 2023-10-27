@@ -11,7 +11,7 @@ use crate::prelude::*;
 /// Not left nor right, it stands alone \
 /// A work of art, a visual throne
 /// ```
-#[selem(Show)]
+#[elem(Show)]
 pub struct AlignElem {
     /// The [alignment]($alignment) along both axes.
     ///

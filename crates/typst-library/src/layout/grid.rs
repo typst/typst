@@ -60,7 +60,7 @@ use super::Sizing;
 ///   cell[One more thing...],
 /// )
 /// ```
-#[selem(Layout)]
+#[elem(Layout)]
 pub struct GridElem {
     /// The column sizes.
     ///

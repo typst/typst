@@ -135,7 +135,7 @@ pub fn module() -> Module {
 /// least one space lifts it into a separate block that is centered
 /// horizontally. For more details about math syntax, see the
 /// [main math page]($category/math).
-#[selem(
+#[elem(
     Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName, Refable,
     Outlinable
 )]

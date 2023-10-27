@@ -15,7 +15,7 @@ use crate::prelude::*;
 ///   to fit the content.
 /// ]
 /// ```
-#[selem(title = "Rectangle", Layout)]
+#[elem(title = "Rectangle", Layout)]
 pub struct RectElem {
     /// The rectangle's width, relative to its parent container.
     pub width: Smart<Rel<Length>>,
@@ -160,7 +160,7 @@ impl Layout for RectElem {
 ///   sized to fit.
 /// ]
 /// ```
-#[selem(Layout)]
+#[elem(Layout)]
 pub struct SquareElem {
     /// The square's side length. This is mutually exclusive with `width` and
     /// `height`.
@@ -267,7 +267,7 @@ impl Layout for SquareElem {
 ///   to fit the content.
 /// ]
 /// ```
-#[selem(Layout)]
+#[elem(Layout)]
 pub struct EllipseElem {
     /// The ellipse's width, relative to its parent container.
     pub width: Smart<Rel<Length>>,
@@ -345,7 +345,7 @@ impl Layout for EllipseElem {
 ///   sized to fit.
 /// ]
 /// ```
-#[selem(Layout)]
+#[elem(Layout)]
 pub struct CircleElem {
     /// The circle's radius. This is mutually exclusive with `width` and
     /// `height`.

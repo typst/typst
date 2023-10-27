@@ -371,7 +371,7 @@ cast! {
 }
 
 /// Executes a display of a state.
-#[selem(Locatable, Show)]
+#[elem(Locatable, Show)]
 struct DisplayElem {
     /// The state.
     #[required]
@@ -398,7 +398,7 @@ impl Show for DisplayElem {
 }
 
 /// Executes a display of a state.
-#[selem(Locatable, Show)]
+#[elem(Locatable, Show)]
 struct UpdateElem {
     /// The key that identifies the state.
     #[required]

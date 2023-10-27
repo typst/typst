@@ -43,7 +43,7 @@ use crate::text::TextElem;
 ///
 /// #bibliography("works.bib")
 /// ```
-#[selem(Locatable, Synthesize, Show, Finalize, LocalName)]
+#[elem(Locatable, Synthesize, Show, Finalize, LocalName)]
 pub struct BibliographyElem {
     /// Path to a Hayagriva `.yml` or BibLaTeX `.bib` file.
     #[required]
@@ -315,7 +315,7 @@ impl BibliographyStyle {
 /// This function indirectly has dedicated syntax. [References]($ref) can be
 /// used to cite works from the bibliography. The label then corresponds to the
 /// citation key.
-#[selem(Locatable, Synthesize, Show)]
+#[elem(Locatable, Synthesize, Show)]
 pub struct CiteElem {
     /// The citation keys that identify the elements that shall be cited in
     /// the bibliography.

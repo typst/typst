@@ -18,7 +18,7 @@ use PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
 ///   ((50%, 0pt), (40pt, 0pt)),
 /// )
 /// ```
-#[selem(Layout)]
+#[elem(Layout)]
 pub struct PathElem {
     /// How to fill the path.
     ///

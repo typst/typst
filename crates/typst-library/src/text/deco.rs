@@ -10,7 +10,7 @@ use crate::prelude::*;
 /// ```example
 /// This is #underline[important].
 /// ```
-#[selem(Show)]
+#[elem(Show)]
 pub struct UnderlineElem {
     /// How to [stroke]($stroke) the line.
     ///
@@ -96,7 +96,7 @@ impl Show for UnderlineElem {
 /// ```example
 /// #overline[A line over text.]
 /// ```
-#[selem(Show)]
+#[elem(Show)]
 pub struct OverlineElem {
     /// How to [stroke]($stroke) the line.
     ///
@@ -188,7 +188,7 @@ impl Show for OverlineElem {
 /// ```example
 /// This is #strike[not] relevant.
 /// ```
-#[selem(title = "Strikethrough", Show)]
+#[elem(title = "Strikethrough", Show)]
 pub struct StrikeElem {
     /// How to [stroke]($stroke) the line.
     ///
@@ -265,7 +265,7 @@ impl Show for StrikeElem {
 /// ```example
 /// This is #highlight[important].
 /// ```
-#[selem(Show)]
+#[elem(Show)]
 pub struct HighlightElem {
     /// The color to highlight the text with.
     /// (Default: 0xffff5f)

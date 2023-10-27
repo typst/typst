@@ -18,7 +18,7 @@ use crate::prelude::*;
 /// # Syntax
 /// This function also has dedicated syntax: Starting a line with a slash,
 /// followed by a term, a colon and a description creates a term list item.
-#[selem(scope, title = "Term List", Layout)]
+#[elem(scope, title = "Term List", Layout)]
 pub struct TermsElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [term list spacing]($terms.spacing). If it is `{true}`, they use normal
@@ -137,7 +137,7 @@ impl Layout for TermsElem {
 }
 
 /// A term list item.
-#[selem(name = "item", title = "Term List Item")]
+#[elem(name = "item", title = "Term List Item")]
 pub struct TermItem {
     /// The term described by the list item.
     #[required]

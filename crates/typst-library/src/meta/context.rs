@@ -26,7 +26,7 @@ pub fn locate(
 }
 
 /// Executes a `locate` call.
-#[selem(Locatable, Show)]
+#[elem(Locatable, Show)]
 struct LocateElem {
     /// The function to call with the location.
     #[required]
@@ -73,7 +73,7 @@ pub fn style(
 }
 
 /// Executes a style access.
-#[selem(Show)]
+#[elem(Show)]
 struct StyleElem {
     /// The function to call with the styles.
     #[required]
@@ -142,7 +142,7 @@ pub fn layout(
 }
 
 /// Executes a `layout` call.
-#[selem(Layout)]
+#[elem(Layout)]
 struct LayoutElem {
     /// The function to call with the outer container's (or page's) size.
     #[required]

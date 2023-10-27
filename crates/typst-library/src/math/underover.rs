@@ -14,7 +14,7 @@ enum LineKind {
 /// ```example
 /// $ underline(1 + 2 + ... + 5) $
 /// ```
-#[selem(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct UnderlineElem {
     /// The content above the line.
     #[required]
@@ -33,7 +33,7 @@ impl LayoutMath for UnderlineElem {
 /// ```example
 /// $ overline(1 + 2 + ... + 5) $
 /// ```
-#[selem(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct OverlineElem {
     /// The content below the line.
     #[required]
@@ -114,7 +114,7 @@ fn layout_underoverline(
 /// ```example
 /// $ underbrace(1 + 2 + ... + 5, "numbers") $
 /// ```
-#[selem(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct UnderbraceElem {
     /// The content above the brace.
     #[required]
@@ -145,7 +145,7 @@ impl LayoutMath for UnderbraceElem {
 /// ```example
 /// $ overbrace(1 + 2 + ... + 5, "numbers") $
 /// ```
-#[selem(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct OverbraceElem {
     /// The content below the brace.
     #[required]
@@ -176,7 +176,7 @@ impl LayoutMath for OverbraceElem {
 /// ```example
 /// $ underbracket(1 + 2 + ... + 5, "numbers") $
 /// ```
-#[selem(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct UnderbracketElem {
     /// The content above the bracket.
     #[required]
@@ -207,7 +207,7 @@ impl LayoutMath for UnderbracketElem {
 /// ```example
 /// $ overbracket(1 + 2 + ... + 5, "numbers") $
 /// ```
-#[selem(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct OverbracketElem {
     /// The content below the bracket.
     #[required]

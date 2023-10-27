@@ -14,7 +14,7 @@ use crate::prelude::*;
 /// Hello Jane \
 /// #hide[Hello] Joe
 /// ```
-#[selem(Show)]
+#[elem(Show)]
 pub struct HideElem {
     /// The content to hide.
     #[required]

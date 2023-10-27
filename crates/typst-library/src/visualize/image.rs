@@ -30,7 +30,7 @@ use crate::text::families;
 /// ```
 ///
 /// [gh-svg]: https://github.com/typst/typst/issues?q=is%3Aopen+is%3Aissue+label%3Asvg
-#[selem(scope, Layout, LocalName, Figurable)]
+#[elem(scope, Layout, LocalName, Figurable)]
 pub struct ImageElem {
     /// Path to an image file.
     #[required]
