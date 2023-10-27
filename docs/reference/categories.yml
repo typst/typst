@@ -51,6 +51,26 @@ math: |
       &= (n(n+1)) / 2 $
   ```
 
+  When formulas include multiple _alignment points_ ('&'), this creates blocks
+  of "right aligned/left aligned" columns and positions them by equally dividing
+  the blank space remaining between the blocks.  So, in the example
+  below, in "a &= b", the "a" is in a right aligned column while "=b" is left aligned.
+  In "a &= b & text", text is in a right aligned column, but in the next line, "a &= b && text",
+  text is in a left aligned column because "&&" is two alignment points in a row, equivalent to
+  "& <no code here> &".  "& &" and "&&" behave exactly the same way, and adding additional alignment
+  points simply alternates between right aligned/left aligned.  The additional lines in the example
+  below demonstrate this point.
+
+  ```example
+  $ a &= b \
+  a &= b & "text" \
+  a &= b && "text" \
+  (3x + y) / 7 &= 9  && "given"   \
+  3x + y &= 63 & "multiply by 7"   \
+  3x &= 63 - y && "subtract y"   \
+  x &= 21 - y/3  & "divide by 3"   \ $
+  ```
+
   Math mode supports special function calls without the hash prefix. In these
   "math calls", the argument list works a little differently than in code:
 
