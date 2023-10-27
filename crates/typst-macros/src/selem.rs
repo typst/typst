@@ -44,7 +44,6 @@ struct Field {
     external: bool,
     synthesized: bool,
     not_hash: bool,
-    children: bool,
     forced_variant: Option<usize>,
     parse: Option<BlockWithReturn>,
     default: syn::Expr,
@@ -596,17 +595,6 @@ fn create_element_impl(element: &Elem) -> TokenStream {
         });
 
     let unknown_field = format!("unknown field {{}} on {}", name);
-
-    let children = element
-        .fields
-        .iter()
-        .find(|field| field.children)
-        .map(|field| {
-            let ident = &field.ident;
-            quote! { &self.#ident }
-        })
-        .unwrap_or_else(|| quote! { &[] });
-
     quote! {
         impl #model::Element for #ident {
             fn data(&self) -> ElementData {
@@ -708,10 +696,6 @@ fn create_element_impl(element: &Elem) -> TokenStream {
                     )*
                     _ => ::typst::diag::bail!(#unknown_field, name),
                 }
-            }
-
-            fn children(&self) -> &[::comemo::Prehashed<Content>] {
-                #children
             }
         }
     }
@@ -1120,12 +1104,7 @@ fn parse(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
     let syn::Fields::Named(named) = &body.fields else {
         bail!(body, "expected named fields");
     };
-    let mut has_children = false;
-    let fields = named
-        .named
-        .iter()
-        .map(|field| parse_field(field, &mut has_children))
-        .collect::<Result<_>>()?;
+    let fields = named.named.iter().map(parse_field).collect::<Result<_>>()?;
 
     Ok(Elem {
         name,
@@ -1141,7 +1120,7 @@ fn parse(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
     })
 }
 
-fn parse_field(field: &syn::Field, has_children: &mut bool) -> Result<Field> {
+fn parse_field(field: &syn::Field) -> Result<Field> {
     let Some(ident) = field.ident.clone() else {
         bail!(field, "expected named field");
     };
@@ -1154,11 +1133,6 @@ fn parse_field(field: &syn::Field, has_children: &mut bool) -> Result<Field> {
     let variadic = has_attr(&mut attrs, "variadic");
     let required = has_attr(&mut attrs, "required") || variadic;
     let positional = has_attr(&mut attrs, "positional") || required;
-    let children = has_attr(&mut attrs, "children");
-    if children && *has_children {
-        bail!(ident, "only one field can be marked as children");
-    }
-    *has_children |= children;
 
     let mut field = Field {
         name: ident.to_string().to_kebab_case(),
@@ -1174,7 +1148,6 @@ fn parse_field(field: &syn::Field, has_children: &mut bool) -> Result<Field> {
         variadic,
         not_hash: has_attr(&mut attrs, "not_hash"),
         synthesized: has_attr(&mut attrs, "synthesized"),
-        children,
         fold: has_attr(&mut attrs, "fold"),
         resolve: has_attr(&mut attrs, "resolve"),
         parse: parse_attr(&mut attrs, "parse")?.flatten(),

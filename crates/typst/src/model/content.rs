@@ -551,7 +551,6 @@ impl Serialize for Content {
 #[selem(Repr, PartialEq)]
 struct SequenceElem {
     #[required]
-    #[children]
     #[empty(Vec::with_capacity(0))]
     children: Vec<Prehashed<Content>>,
 }

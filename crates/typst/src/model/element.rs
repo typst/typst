@@ -1,7 +1,6 @@
 use ::std::hash::Hasher;
 use ::typst::model::{Guard, Label, Location};
 use ::typst::syntax::Span;
-use comemo::Prehashed;
 use ecow::EcoString;
 use std::any::{Any, TypeId};
 use std::cmp::Ordering;
@@ -65,9 +64,6 @@ pub trait Element: Any + Send + Sync + Debug + Repr + 'static {
 
     /// Get the field with the given field ID.
     fn field(&self, id: u8) -> Option<Value>;
-
-    /// Get the children of the element.
-    fn children(&self) -> &[Prehashed<Content>];
 
     /// Dynamically clone the element.
     fn dyn_clone(&self) -> Arc<dyn Element>;
