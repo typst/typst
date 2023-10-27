@@ -473,9 +473,18 @@ impl Array {
         #[variadic]
         others: Vec<Array>,
     ) -> SourceResult<Array> {
-        // Fast path for just two arrays.
         let mut args = args;
-        if args.remaining() <= 1 {
+
+        // Fast path for one array.
+        if args.remaining() == 0 {
+            return Ok(self
+                .iter()
+                .map(|item| array![item.clone()].into_value())
+                .collect());
+        }
+
+        // Fast path for just two arrays.
+        if args.remaining() == 1 {
             let other = args.expect::<Array>("others")?;
             args.finish()?;
             return Ok(self
