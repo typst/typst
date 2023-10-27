@@ -337,10 +337,10 @@ impl Color {
 
     /// Create an RGB(A) color with linear luma.
     ///
-    /// This color space is similar to Srgb<f32>, but with the distinction that
-    /// the color component are not gamma corrected. This makes it easier to
-    /// perform color operations such as blending and interpolation. Although,
-    /// you should prefer to use the [`oklab` function]($color.oklab) for these.
+    /// This color space is similar to sRGB, but with the distinction that the
+    /// color component are not gamma corrected. This makes it easier to perform
+    /// color operations such as blending and interpolation. Although, you
+    /// should prefer to use the [`oklab` function]($color.oklab) for these.
     ///
     /// A linear RGB(A) color is represented internally by an array of four
     /// components:
