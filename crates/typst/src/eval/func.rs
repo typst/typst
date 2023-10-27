@@ -6,8 +6,8 @@ use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 
 use super::{
-    cast, scope, ty, Args, CastInfo, Dict, Eval, FlowEvent, IntoValue, Route, Scope,
-    Scopes, Tracer, Type, Value, Vm,
+    cast, scope, ty, Args, CastInfo, Eval, FlowEvent, IntoValue, Route, Scope, Scopes,
+    Tracer, Type, Value, Vm,
 };
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::model::{
@@ -136,8 +136,8 @@ impl Default for Func {
 
 /// The identity function.
 #[func]
-fn identity(args: Args) -> Value {
-    args.into_value()
+fn identity(args: &mut Args) -> Value {
+    args.clone().into_value()
 }
 
 /// The different kinds of function representations.
@@ -343,14 +343,17 @@ impl Func {
         self,
         /// The real arguments (the other argument is just for the docs).
         /// The docs argument cannot be called `args`.
-        args: Args,
+        args: &mut Args,
         /// The arguments to apply to the function.
         #[external]
         #[variadic]
         arguments: Vec<Args>,
     ) -> Func {
         let span = self.span;
-        Self { repr: Repr::With(Arc::new((self, args))), span }
+        Self {
+            repr: Repr::With(Arc::new((self, args.take()))),
+            span,
+        }
     }
 
     /// Returns a selector that filters for elements belonging to this function
@@ -360,14 +363,13 @@ impl Func {
         self,
         /// The real arguments (the other argument is just for the docs).
         /// The docs argument cannot be called `args`.
-        args: Args,
+        args: &mut Args,
         /// The fields to filter for.
         #[variadic]
         #[external]
         fields: Vec<Args>,
     ) -> StrResult<Selector> {
-        let mut args = args;
-        let fields: Dict = args.to_named();
+        let fields = args.to_named();
         args.items.retain(|arg| arg.name.is_none());
 
         let element = self

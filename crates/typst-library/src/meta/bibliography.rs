@@ -83,7 +83,6 @@ pub struct BibliographyElem {
     /// The bibliography's heading will not be numbered by default, but you can
     /// force it to be with a show-set rule:
     /// `{show bibliography: set heading(numbering: "1.")}`
-    /// ```
     #[default(Some(Smart::Auto))]
     pub title: Option<Smart<Content>>,
 

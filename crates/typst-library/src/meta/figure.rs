@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::str::FromStr;
+use typst::util::option_eq;
 
 use super::{
     Count, Counter, CounterKey, CounterUpdate, LocalName, Numbering, NumberingPattern,
@@ -381,7 +382,7 @@ impl Outlinable for FigureElem {
                 supplement += TextElem::packed('\u{a0}');
             }
 
-            let separator = caption.separator(StyleChain::default());
+            let separator = caption.get_separator(StyleChain::default());
 
             realized = supplement + numbers + separator + caption.body();
         }
@@ -456,8 +457,10 @@ pub struct FigureCaption {
     ///   caption: [A rectangle],
     /// )
     /// ```
-    #[default(TextElem::packed(": "))]
-    pub separator: Content,
+    ///
+    /// If set to `{auto}`, the separator will be adapted to the current
+    /// [language]($text.lang) and [region]($text.region).
+    pub separator: Smart<Content>,
 
     /// The caption's body.
     ///
@@ -499,10 +502,40 @@ pub struct FigureCaption {
     pub figure_location: Option<Location>,
 }
 
+impl FigureCaption {
+    /// Gets the default separator in the given language and (optionally)
+    /// region.
+    fn local_separator(lang: Lang, region: Option<Region>) -> &'static str {
+        match lang {
+            Lang::CHINESE => "：",
+            Lang::FRENCH if option_eq(region, "CH") => "\u{202f}: ",
+            Lang::FRENCH => "\u{a0}: ",
+            Lang::DANISH
+            | Lang::DUTCH
+            | Lang::ENGLISH
+            | Lang::GERMAN
+            | Lang::ITALIAN
+            | Lang::RUSSIAN
+            | Lang::SPANISH
+            | Lang::SWEDISH
+            | _ => ": ",
+        }
+    }
+
+    fn get_separator(&self, styles: StyleChain) -> Content {
+        self.separator(styles).unwrap_or_else(|| {
+            TextElem::packed(Self::local_separator(
+                TextElem::lang_in(styles),
+                TextElem::region_in(styles),
+            ))
+        })
+    }
+}
+
 impl Synthesize for FigureCaption {
     fn synthesize(&mut self, _: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_position(self.position(styles));
-        self.push_separator(self.separator(styles));
+        self.push_separator(Smart::Custom(self.get_separator(styles)));
         Ok(())
     }
 }
@@ -522,7 +555,7 @@ impl Show for FigureCaption {
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');
             }
-            realized = supplement + numbers + self.separator(styles) + realized;
+            realized = supplement + numbers + self.get_separator(styles) + realized;
         }
 
         Ok(realized)

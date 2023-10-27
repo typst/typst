@@ -17,7 +17,7 @@ use crate::math::EquationElem;
 use crate::prelude::*;
 use crate::text::{
     char_is_cjk_script, is_gb_style, shape, LinebreakElem, Quoter, Quotes, ShapedGlyph,
-    ShapedText, SmartquoteElem, SpaceElem, TextElem,
+    ShapedText, SmartquoteElem, SpaceElem, TextElem, BEGIN_PUNCT_PAT, END_PUNCT_PAT,
 };
 
 /// Arranges text, spacing and inline-level elements into a paragraph.
@@ -1111,7 +1111,7 @@ static SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
     LineSegmenter::try_new_lstm_with_buffer_provider(&provider).unwrap()
 });
 
-/// The Unicode line break properties for each code point.
+/// The line break segmenter for Chinese/Japanese text.
 static CJ_SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
     let provider = BlobDataProvider::try_new_from_static_blob(ICU_DATA).unwrap();
     let cj_blob = BlobDataProvider::try_new_from_static_blob(CJ_LINEBREAK_DATA).unwrap();
@@ -1119,7 +1119,7 @@ static CJ_SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
     LineSegmenter::try_new_lstm_with_buffer_provider(&cj_provider).unwrap()
 });
 
-/// The line break segmenter for Chinese/Jpanese text.
+/// The Unicode line break properties for each code point.
 static LINEBREAK_DATA: Lazy<CodePointMapData<LineBreak>> = Lazy::new(|| {
     let provider = BlobDataProvider::try_new_from_static_blob(ICU_DATA).unwrap();
     let deser_provider = provider.as_deserializing();
@@ -1172,6 +1172,8 @@ impl Iterator for Breakpoints<'_> {
     type Item = (usize, bool, bool);
 
     fn next(&mut self) -> Option<Self::Item> {
+        let lb = LINEBREAK_DATA.as_borrowed();
+
         // If we're currently in a hyphenated "word", process the next syllable.
         if let Some(syllable) = self.syllables.as_mut().and_then(Iterator::next) {
             self.offset += syllable.len();
@@ -1179,17 +1181,25 @@ impl Iterator for Breakpoints<'_> {
                 self.offset = self.end;
             }
 
-            // Filter out hyphenation opportunities where hyphenation was
-            // actually disabled.
             let hyphen = self.offset < self.end;
-            if hyphen && !self.hyphenate(self.offset) {
-                return self.next();
+            if hyphen {
+                // Filter out hyphenation opportunities where hyphenation was
+                // actually disabled.
+                if !self.hyphenate(self.offset) {
+                    return self.next();
+                }
+
+                // Filter out forbidden hyphenation opportunities.
+                if matches!(
+                    syllable.chars().last().map(|c| lb.get(c)),
+                    Some(LineBreak::Glue | LineBreak::WordJoiner | LineBreak::ZWJ)
+                ) {
+                    return self.next();
+                }
             }
 
             return Some((self.offset, self.mandatory && !hyphen, hyphen));
         }
-
-        let lb = LINEBREAK_DATA.as_borrowed();
 
         loop {
             // Get the next "word".
@@ -1198,15 +1208,20 @@ impl Iterator for Breakpoints<'_> {
 
             // Fix for: https://github.com/unicode-org/icu4x/issues/4146
             if let Some(c) = self.p.bidi.text[..self.end].chars().next_back() {
+                if self.end == self.p.bidi.text.len() {
+                    self.mandatory = true;
+                    break;
+                }
+
                 self.mandatory = match lb.get(c) {
                     LineBreak::Glue | LineBreak::WordJoiner | LineBreak::ZWJ => continue,
                     LineBreak::MandatoryBreak
                     | LineBreak::CarriageReturn
                     | LineBreak::LineFeed
                     | LineBreak::NextLine => true,
-                    _ => self.end == self.p.bidi.text.len(),
+                    _ => false,
                 };
-            };
+            }
 
             break;
         }
@@ -1278,11 +1293,6 @@ fn line<'a>(
 ) -> Line<'a> {
     let end = range.end;
     let mut justify = p.justify && end < p.bidi.text.len() && !mandatory;
-
-    // The CJK punctuation that can appear at the beginning or end of a line.
-    const BEGIN_PUNCT_PAT: &[char] = &['“', '‘', '《', '（', '『', '「'];
-    const END_PUNCT_PAT: &[char] =
-        &['”', '’', '，', '。', '、', '：', '；', '》', '）', '』', '」'];
 
     if range.is_empty() {
         return Line {

@@ -4,7 +4,7 @@ use ::typst::syntax::Span;
 use ecow::EcoString;
 use std::any::{Any, TypeId};
 use std::cmp::Ordering;
-use std::fmt::Debug;
+use std::fmt::{self, Debug};
 use std::sync::Arc;
 
 use once_cell::sync::Lazy;
@@ -76,7 +76,7 @@ pub trait Element: Any + Send + Sync + Debug + Repr + 'static {
 }
 
 /// A document element.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ElementData(Static<NativeElementData>);
 
 impl ElementData {
@@ -171,6 +171,12 @@ impl ElementData {
     /// Details about the element's fields.
     pub fn params(&self) -> &'static [ParamInfo] {
         &(self.0).0.params
+    }
+}
+
+impl Debug for ElementData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.pad(self.name())
     }
 }
 

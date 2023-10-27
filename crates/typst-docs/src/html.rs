@@ -356,7 +356,7 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
         md::escape::escape_html(&mut buf, &display).unwrap();
         buf.push_str("</pre>");
         return Html::new(buf);
-    } else if !matches!(lang, "example" | "typ") {
+    } else if !matches!(lang, "example" | "typ" | "preview") {
         let set = &*typst_library::text::SYNTAXES;
         let buf = syntect::html::highlighted_html_for_string(
             &display,
@@ -369,10 +369,14 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
         return Html::new(buf);
     }
 
-    let root = typst::syntax::parse(&display);
-    let highlighted = Html::new(typst::syntax::highlight_html(&root));
-    if lang == "typ" {
-        return Html::new(format!("<pre>{}</pre>", highlighted.as_str()));
+    let mut highlighted = None;
+    if matches!(lang, "example" | "typ") {
+        let root = typst::syntax::parse(&display);
+        let html = Html::new(typst::syntax::highlight_html(&root));
+        if lang == "typ" {
+            return Html::new(format!("<pre>{}</pre>", html.as_str()));
+        }
+        highlighted = Some(html);
     }
 
     let id = FileId::new(None, VirtualPath::new("main.typ"));

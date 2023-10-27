@@ -117,6 +117,10 @@
 #rgb(10%, 20%, 30%, false)
 
 ---
+// Error: 10-20 unexpected argument: key
+#luma(1, key: "val")
+
+---
 // Error: 12-24 expected float or ratio, found string
 // Error: 26-39 expected float or ratio, found string
 #color.mix((red, "yes"), (green, "no"), (green, 10%))

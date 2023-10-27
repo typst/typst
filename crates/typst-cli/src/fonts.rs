@@ -1,12 +1,10 @@
 use std::cell::OnceCell;
-use std::env;
-use std::fs::{self, File};
-use std::path::{Path, PathBuf};
+use std::fs;
+use std::path::PathBuf;
 
-use memmap2::Mmap;
+use fontdb::{Database, Source};
 use typst::diag::StrResult;
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
-use walkdir::WalkDir;
 
 use crate::args::FontsCommand;
 
@@ -67,12 +65,39 @@ impl FontSearcher {
 
     /// Search everything that is available.
     pub fn search(&mut self, font_paths: &[PathBuf]) {
+        let mut db = Database::new();
+
+        // Font paths have highest priority.
         for path in font_paths {
-            self.search_dir(path)
+            db.load_fonts_dir(path);
         }
 
-        self.search_system();
+        // System fonts have second priority.
+        db.load_system_fonts();
 
+        for face in db.faces() {
+            let path = match &face.source {
+                Source::File(path) | Source::SharedFile(path, _) => path,
+                // We never add binary sources to the database, so there
+                // shouln't be any.
+                Source::Binary(_) => continue,
+            };
+
+            let info = db
+                .with_face_data(face.id, FontInfo::new)
+                .expect("database must contain this font");
+
+            if let Some(info) = info {
+                self.book.push(info);
+                self.fonts.push(FontSlot {
+                    path: path.clone(),
+                    index: face.index,
+                    font: OnceCell::new(),
+                });
+            }
+        }
+
+        // Embedded fonts have lowest priority.
         #[cfg(feature = "embed-fonts")]
         self.add_embedded();
     }
@@ -113,70 +138,5 @@ impl FontSearcher {
         add!("DejaVuSansMono-Bold.ttf");
         add!("DejaVuSansMono-Oblique.ttf");
         add!("DejaVuSansMono-BoldOblique.ttf");
-    }
-
-    /// Search for fonts in the linux system font directories.
-    fn search_system(&mut self) {
-        if cfg!(target_os = "macos") {
-            self.search_dir("/Library/Fonts");
-            self.search_dir("/Network/Library/Fonts");
-            self.search_dir("/System/Library/Fonts");
-        } else if cfg!(unix) {
-            self.search_dir("/usr/share/fonts");
-            self.search_dir("/usr/local/share/fonts");
-        } else if cfg!(windows) {
-            self.search_dir(
-                env::var_os("WINDIR")
-                    .map(PathBuf::from)
-                    .unwrap_or_else(|| "C:\\Windows".into())
-                    .join("Fonts"),
-            );
-
-            if let Some(roaming) = dirs::config_dir() {
-                self.search_dir(roaming.join("Microsoft\\Windows\\Fonts"));
-            }
-
-            if let Some(local) = dirs::cache_dir() {
-                self.search_dir(local.join("Microsoft\\Windows\\Fonts"));
-            }
-        }
-
-        if let Some(dir) = dirs::font_dir() {
-            self.search_dir(dir);
-        }
-    }
-
-    /// Search for all fonts in a directory recursively.
-    fn search_dir(&mut self, path: impl AsRef<Path>) {
-        for entry in WalkDir::new(path)
-            .follow_links(true)
-            .sort_by(|a, b| a.file_name().cmp(b.file_name()))
-            .into_iter()
-            .filter_map(|e| e.ok())
-        {
-            let path = entry.path();
-            if matches!(
-                path.extension().and_then(|s| s.to_str()),
-                Some("ttf" | "otf" | "TTF" | "OTF" | "ttc" | "otc" | "TTC" | "OTC"),
-            ) {
-                self.search_file(path);
-            }
-        }
-    }
-
-    /// Index the fonts in the file at the given path.
-    fn search_file(&mut self, path: &Path) {
-        if let Ok(file) = File::open(path) {
-            if let Ok(mmap) = unsafe { Mmap::map(&file) } {
-                for (i, info) in FontInfo::iter(&mmap).enumerate() {
-                    self.book.push(info);
-                    self.fonts.push(FontSlot {
-                        path: path.into(),
-                        index: i as u32,
-                        font: OnceCell::new(),
-                    });
-                }
-            }
-        }
     }
 }

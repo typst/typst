@@ -8,12 +8,13 @@ use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
 
-use crate::eval::{cast, dict, ty, Dict, Repr, Value};
+use crate::eval::{cast, dict, ty, Datetime, Dict, Repr, Value};
 use crate::export::PdfPageLabel;
 use crate::font::Font;
 use crate::geom::{
     self, styled_rect, Abs, Axes, Color, Corners, Dir, Em, FixedAlign, FixedStroke,
-    Geometry, Length, Numeric, Paint, Path, Point, Rel, Shape, Sides, Size, Transform,
+    Geometry, Length, Numeric, Paint, Path, Point, Rel, Shape, Sides, Size, Smart,
+    Transform,
 };
 use crate::image::Image;
 use crate::model::{Content, Location, MetaElem, StyleChain};
@@ -30,6 +31,8 @@ pub struct Document {
     pub author: Vec<EcoString>,
     /// The document's keywords.
     pub keywords: Vec<EcoString>,
+    /// The document's creation date.
+    pub date: Smart<Option<Datetime>>,
 }
 
 /// A finished layout with items at fixed positions.

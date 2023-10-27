@@ -1001,6 +1001,14 @@ fn assert_glyph_ranges_in_order(glyphs: &[ShapedGlyph], dir: Dir) {
     }
 }
 
+// The CJK punctuation that can appear at the beginning or end of a line.
+pub(crate) const BEGIN_PUNCT_PAT: &[char] =
+    &['“', '‘', '《', '〈', '（', '『', '「', '【', '〖', '〔', '［', '｛'];
+pub(crate) const END_PUNCT_PAT: &[char] = &[
+    '”', '’', '，', '．', '。', '、', '：', '；', '》', '〉', '）', '』', '」', '】',
+    '〗', '〕', '］', '｝', '？', '！',
+];
+
 /// Whether the glyph is a space.
 #[inline]
 fn is_space(c: char) -> bool {
@@ -1035,11 +1043,15 @@ fn is_cjk_left_aligned_punctuation(
         return true;
     }
 
-    if gb_style && matches!(c, '，' | '。' | '、' | '：' | '；') {
+    if gb_style && matches!(c, '，' | '。' | '．' | '、' | '：' | '；' | '！' | '？')
+    {
+        // In GB style, exclamations and question marks are also left aligned and can be adjusted.
+        // Note that they are not adjustable in other styles.
         return true;
     }
 
-    matches!(c, '》' | '）' | '』' | '」')
+    // See appendix A.3 https://www.w3.org/TR/clreq/#tables_of_chinese_punctuation_marks
+    matches!(c, '》' | '）' | '』' | '」' | '】' | '〗' | '〕' | '〉' | '］' | '｝')
 }
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
@@ -1054,14 +1066,14 @@ fn is_cjk_right_aligned_punctuation(
     if matches!(c, '“' | '‘') && x_advance + stretchability.0 == Em::one() {
         return true;
     }
-
-    matches!(c, '《' | '（' | '『' | '「')
+    // See appendix A.3 https://www.w3.org/TR/clreq/#tables_of_chinese_punctuation_marks
+    matches!(c, '《' | '（' | '『' | '「' | '【' | '〖' | '〔' | '〈' | '［' | '｛')
 }
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
 #[inline]
 fn is_cjk_center_aligned_punctuation(c: char, gb_style: bool) -> bool {
-    if !gb_style && matches!(c, '，' | '。' | '、' | '：' | '；') {
+    if !gb_style && matches!(c, '，' | '。' | '．' | '、' | '：' | '；') {
         return true;
     }
 
