@@ -314,6 +314,10 @@
 #(1pt, 2pt, 3em).sorted()
 
 ---
+// Error: 42-52 unexpected argument
+#((k: "a", v: 2), (k: "b", v: 1)).sorted(it => it.v)
+
+---
 // Error: 2-18 array index out of bounds (index: -4, len: 3) and no default value was specified
 #(1, 2, 3).at(-4)
 

@@ -307,6 +307,9 @@ fn create_wrapper_closure(func: &Func) -> TokenStream {
         }
     };
 
+    // Throws errors about unexpected arguments.
+    let finish = (!func.special.args).then(|| quote! { args.take().finish()?; });
+
     // This is the actual function call.
     let call = {
         let self_ = func
@@ -332,6 +335,7 @@ fn create_wrapper_closure(func: &Func) -> TokenStream {
         |vm, args| {
             let __typst_func = #parent #ident;
             #handlers
+            #finish
             let output = #call;
             ::typst::eval::IntoResult::into_result(output, args.span)
         }
