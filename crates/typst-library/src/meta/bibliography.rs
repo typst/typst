@@ -145,12 +145,15 @@ impl BibliographyElem {
             return Vec::with_capacity(0);
         };
 
-        elem.bibliography().into_iter().map(|entry| {
-            let key = entry.key().into();
-            let detail =
-                entry.title().map(|title| title.canonical.value.as_str().into());
-            (key, detail)
-        }).collect()
+        elem.bibliography()
+            .into_iter()
+            .map(|entry| {
+                let key = entry.key().into();
+                let detail =
+                    entry.title().map(|title| title.canonical.value.as_str().into());
+                (key, detail)
+            })
+            .collect()
     }
 }
 
@@ -448,7 +451,8 @@ impl Works {
     fn new(vt: &Vt) -> StrResult<Arc<Self>> {
         let bibliography = BibliographyElem::find(vt.introspector)?;
 
-        let query: EcoVec<comemo::Prehashed<Content>> = vt.introspector.query(&CiteElem::elem().select());
+        let query: EcoVec<comemo::Prehashed<Content>> =
+            vt.introspector.query(&CiteElem::elem().select());
         let citations: Vec<_> = query
             .iter()
             .map(|elem| match elem.to::<RefElem>() {

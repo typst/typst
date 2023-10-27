@@ -77,10 +77,6 @@ use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 
 use self::func::Closure;
-use crate::{diag::{
-    bail, error, warning, At, FileError, Hint, SourceDiagnostic, SourceResult, StrResult,
-    Trace, Tracepoint,
-}, util::str::PicoStr};
 use crate::model::{
     Content, DelayedErrors, Introspector, Label, Locator, Recipe, ShowableSelector,
     Styles, Transform, Unlabellable, Vt,
@@ -91,6 +87,13 @@ use crate::syntax::{
     Spanned, SyntaxKind, SyntaxNode, VirtualPath,
 };
 use crate::World;
+use crate::{
+    diag::{
+        bail, error, warning, At, FileError, Hint, SourceDiagnostic, SourceResult,
+        StrResult, Trace, Tracepoint,
+    },
+    util::str::PicoStr,
+};
 
 const MAX_ITERATIONS: usize = 10_000;
 const MAX_CALL_DEPTH: usize = 64;

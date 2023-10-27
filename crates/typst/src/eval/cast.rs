@@ -10,7 +10,7 @@ use std::ops::Add;
 
 use ecow::{eco_format, EcoString};
 
-use super::{Repr, Type, Value, Array};
+use super::{Array, Repr, Type, Value};
 use crate::diag::{At, SourceResult, StrResult};
 use crate::syntax::{Span, Spanned};
 use crate::util::separated_list;

@@ -127,17 +127,20 @@ fn create(element: &Elem) -> TokenStream {
         }
     });
 
-    let field_inherent_matches = all.clone().filter(|field| !field.internal && !field.settable()).map(|field| {
-        let name = &field.name;
-        let field_ident = &field.ident;
+    let field_inherent_matches = all
+        .clone()
+        .filter(|field| !field.internal && !field.settable())
+        .map(|field| {
+            let name = &field.name;
+            let field_ident = &field.ident;
 
-        quote! {
-            #name => {
-                self.#field_ident = ::typst::eval::FromValue::from_value(value)?;
-                return Ok(());
+            quote! {
+                #name => {
+                    self.#field_ident = ::typst::eval::FromValue::from_value(value)?;
+                    return Ok(());
+                }
             }
-        }
-    });
+        });
 
     let needs_preparation = element
         .capabilities
@@ -193,7 +196,8 @@ fn create(element: &Elem) -> TokenStream {
         .map(|field| {
             let ident = &field.ident;
             quote! { &self.#ident }
-        }).unwrap_or_else(|| quote! { &[] });
+        })
+        .unwrap_or_else(|| quote! { &[] });
 
     quote! {
         #[doc = #docs]
@@ -308,8 +312,8 @@ fn create(element: &Elem) -> TokenStream {
                 <Self as ::std::hash::Hash>::hash(self, &mut hasher);
             }
 
-            fn dyn_eq(&self, other: &dyn ::std::any::Any) -> bool {
-                if let Some(other) = other.downcast_ref::<Self>() {
+            fn dyn_eq(&self, other: &::typst::model::Content) -> bool {
+                if let Some(other) = Self::unpack(other) {
                     <Self as ::std::cmp::PartialEq>::eq(self, other)
                 } else {
                     false
@@ -383,7 +387,7 @@ fn create_partial_eq_impl(element: &Elem) -> TokenStream {
             fn eq(&self, other: &Self) -> bool {
                 #empty
                 #(
-                    &self.#all == &other.#all
+                    self.#all == other.#all
                 )&&*
             }
         }
@@ -457,18 +461,14 @@ fn create_repr_impl(element: &Elem) -> TokenStream {
             }
         });
 
+    let repr_format = format!("{}{{}}", element.name);
     quote! {
         impl ::typst::eval::Repr for #ident {
             fn repr(&self) -> ::ecow::EcoString {
-                use std::io::Write;
-                use ::ecow::eco_format;
-
-                let mut buf = ::ecow::EcoString::new();
-
-                /*#(#all)*
-                #(#opt)**/
-
-                buf
+                let fields = self.fields().into_iter()
+                    .map(|(name, value)| eco_format!("{}: {}", name, value.repr()))
+                    .collect::<Vec<_>>();
+                ::ecow::eco_format!(#repr_format, ::typst::util::pretty_array_like(&fields, false))
             }
         }
     }
@@ -566,8 +566,12 @@ fn create_set_impl(element: &Elem) -> TokenStream {
 
 /// Create the element's casting vtable.
 fn create_vtable_func(element: &Elem) -> TokenStream {
+    const FORBIDDEN: &[&str] = &["Construct", "PartialEq"];
     let ident = &element.ident;
-    let relevant = element.capabilities.iter().filter(|&ident| ident != "Construct");
+    let relevant = element
+        .capabilities
+        .iter()
+        .filter(|&ident| !FORBIDDEN.contains(&(&ident.to_string() as &str)));
     let checks = relevant.map(|capability| {
         quote! {
             if id == ::std::any::TypeId::of::<dyn #capability>() {
@@ -866,6 +870,14 @@ fn create_hash_impl(element: &Elem) -> TokenStream {
         .map(|field| &field.ident)
         .collect::<Vec<_>>();
 
+    let i = element
+        .fields
+        .iter()
+        .filter(|field| !field.not_hash && !field.external && !field.required)
+        .enumerate()
+        .map(|(i, _)| i)
+        .collect::<Vec<_>>();
+
     quote! {
         impl ::std::hash::Hash for #ident {
             fn hash<H: ::std::hash::Hasher>(&self, hasher: &mut H) {
@@ -895,6 +907,8 @@ fn create_hash_impl(element: &Elem) -> TokenStream {
 
                 #(
                     if let Some(#opts) = &self.#opts {
+                        // Additional usize discriminant to avoid collisions.
+                        #i.hash(hasher);
                         #opts.hash(hasher);
                     }
                 )*
@@ -1012,7 +1026,11 @@ fn parse(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
         bail!(body, "expected named fields");
     };
     let mut has_children = false;
-    let fields = named.named.iter().map(|field| parse_field(field, &mut has_children)).collect::<Result<_>>()?;
+    let fields = named
+        .named
+        .iter()
+        .map(|field| parse_field(field, &mut has_children))
+        .collect::<Result<_>>()?;
 
     Ok(Elem {
         name,

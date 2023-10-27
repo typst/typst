@@ -62,7 +62,7 @@ pub(super) fn define(global: &mut Scope) {
 ///   With a function call.
 /// ])
 /// ```
-#[selem(Construct, PlainText)]
+#[selem(Construct, PlainText, Repr)]
 pub struct TextElem {
     /// A prioritized sequence of font families.
     ///
@@ -576,6 +576,12 @@ impl TextElem {
     /// Create a new packed text element.
     pub fn packed(text: impl Into<EcoString>) -> Content {
         Self::new(text.into()).pack()
+    }
+}
+
+impl Repr for TextElem {
+    fn repr(&self) -> EcoString {
+        eco_format!("[{}]", self.text)
     }
 }
 

@@ -1,4 +1,4 @@
-use std::any::{Any, TypeId};
+use std::any::TypeId;
 use std::fmt::Debug;
 use std::iter::{self, Sum};
 use std::ops::{Add, AddAssign};
@@ -18,6 +18,7 @@ use crate::diag::{SourceResult, StrResult};
 use crate::doc::Meta;
 use crate::eval::{func, scope, ty, Dict, FromValue, IntoValue, Repr, Str, Value, Vm};
 use crate::syntax::Span;
+use crate::util::pretty_array_like;
 
 #[ty(scope)]
 #[repr(transparent)]
@@ -74,7 +75,7 @@ impl Content {
 
     #[inline]
     pub fn label(&self) -> Option<&Label> {
-       self.0.label()
+        self.0.label()
     }
 
     pub fn spanned(mut self, span: Span) -> Self {
@@ -101,19 +102,20 @@ impl Content {
         let Some(second) = iter.next() else { return first };
         SequenceElem::new(
             std::iter::once(Prehashed::new(first))
-            .chain(std::iter::once(Prehashed::new(second)))
-            .chain(iter.map(Prehashed::new))
-            .collect()
-        ).into()
+                .chain(std::iter::once(Prehashed::new(second)))
+                .chain(iter.map(Prehashed::new))
+                .collect(),
+        )
+        .into()
     }
 
     /// Access the children if this is a sequence.
-    pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Content>> {
+    pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Prehashed<Content>>> {
         let Some(sequence) = SequenceElem::unpack(self) else {
             return None;
         };
 
-        Some(sequence.children.iter().map(std::ops::Deref::deref))
+        Some(sequence.children.iter())
     }
 
     pub fn elem(&self) -> ElementData {
@@ -306,7 +308,10 @@ impl Content {
     {
         f(self.clone());
 
-        self.0.fields().into_iter().for_each(|(_, value)| walk_value(value, f));
+        self.0
+            .fields()
+            .into_iter()
+            .for_each(|(_, value)| walk_value(value, f));
 
         /// Walks a given value to find any content that matches the selector.
         fn walk_value<F>(value: Value, f: &mut F)
@@ -379,11 +384,8 @@ impl std::hash::Hash for Content {
 
 impl PartialEq for Content {
     fn eq(&self, other: &Self) -> bool {
-        if let (Some(left), Some(right)) = (self.to_styled(), other.to_styled()) {
-            left == right
-        }  else {
-            self.0.dyn_eq(&other.0 as &dyn Any)
-        }
+        // Additional short circuit for different elements.
+        self.elem() == other.elem() && self.0.dyn_eq(other)
     }
 }
 
@@ -392,7 +394,6 @@ impl Repr for Content {
         self.0.repr()
     }
 }
-
 
 #[scope]
 impl Content {
@@ -453,7 +454,7 @@ impl Content {
     /// [counters]($counter), [state]($state) and [queries]($query).
     #[func]
     pub fn location(&self) -> Option<Location> {
-       self.0.location()
+        self.0.location()
     }
 }
 
@@ -473,7 +474,10 @@ impl<'a> Add<&'a Content> for Content {
             }
             (None, Some(_)) => {
                 let mut rhs = rhs.clone();
-                rhs.to_mut::<SequenceElem>().unwrap().children.insert(0, Prehashed::new(lhs));
+                rhs.to_mut::<SequenceElem>()
+                    .unwrap()
+                    .children
+                    .insert(0, Prehashed::new(lhs));
                 rhs
             }
             (None, None) => Self::sequence([lhs, rhs.clone()]),
@@ -521,13 +525,15 @@ impl Serialize for Content {
     where
         S: Serializer,
     {
-        serializer.collect_map(iter::once((EcoString::inline("func"), self.func().name().into_value()))
-            .chain(self.fields().into_iter().map(|(key, value)| (key.0, value))))
+        serializer.collect_map(
+            iter::once((EcoString::inline("func"), self.func().name().into_value()))
+                .chain(self.fields().into_iter().map(|(key, value)| (key.0, value))),
+        )
     }
 }
 
 /// Defines the `ElemFunc` for sequences.
-#[selem]
+#[selem(Repr, PartialEq)]
 struct SequenceElem {
     #[required]
     #[children]
@@ -535,13 +541,50 @@ struct SequenceElem {
     children: Vec<Prehashed<Content>>,
 }
 
+impl PartialEq for SequenceElem {
+    fn eq(&self, other: &Self) -> bool {
+        self.children
+            .iter()
+            .map(|c| &**c)
+            .eq(other.children.iter().map(|c| &**c))
+    }
+}
+
+impl Repr for SequenceElem {
+    fn repr(&self) -> EcoString {
+        if self.children.is_empty() {
+            EcoString::inline("[]")
+        } else {
+            eco_format!(
+                "[{}]",
+                pretty_array_like(
+                    &self.children.iter().map(|c| c.0.repr()).collect::<Vec<_>>(),
+                    false
+                )
+            )
+        }
+    }
+}
+
 /// Defines the `ElemFunc` for styled elements.
-#[selem]
+#[selem(Repr, PartialEq)]
 struct StyledElem {
     #[required]
     child: Prehashed<Content>,
     #[required]
     styles: Styles,
+}
+
+impl PartialEq for StyledElem {
+    fn eq(&self, other: &Self) -> bool {
+        *self.child == *other.child
+    }
+}
+
+impl Repr for StyledElem {
+    fn repr(&self) -> EcoString {
+        eco_format!("styled(child: {}, ..)", self.child.0.repr())
+    }
 }
 
 /// Hosts metadata and ensures metadata is produced even for empty elements.

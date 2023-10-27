@@ -1,7 +1,7 @@
 use ::std::hash::Hasher;
-use comemo::Prehashed;
 use ::typst::model::{Guard, Label, Location};
 use ::typst::syntax::Span;
+use comemo::Prehashed;
 use ecow::EcoString;
 use std::any::{Any, TypeId};
 use std::cmp::Ordering;
@@ -46,7 +46,7 @@ pub trait Element: Any + Send + Sync + Debug + Repr + 'static {
 
     fn dyn_hash(&self, hasher: &mut dyn Hasher);
 
-    fn dyn_eq(&self, other: &dyn Any) -> bool;
+    fn dyn_eq(&self, other: &Content) -> bool;
 
     fn field(&self, name: &str) -> Option<Value>;
 

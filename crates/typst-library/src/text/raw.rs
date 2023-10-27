@@ -320,14 +320,12 @@ impl Synthesize for RawElem {
                 synt::Highlighter::new(theme),
                 &mut |_, range, style| styled(&text[range], foreground, style),
                 &mut |i, range, line| {
-                    seq.push(
-                        RawLine::new(
-                            i + 1,
-                            text.split(is_newline).count() as i64,
-                            EcoString::from(&text[range]),
-                            Content::sequence(line.drain(..)),
-                        ),
-                    );
+                    seq.push(RawLine::new(
+                        i + 1,
+                        text.split(is_newline).count() as i64,
+                        EcoString::from(&text[range]),
+                        Content::sequence(line.drain(..)),
+                    ));
                 },
             )
             .highlight();
@@ -351,24 +349,24 @@ impl Synthesize for RawElem {
                     line_content.push(styled(piece, foreground, style));
                 }
 
-                seq.push(
-                    RawLine::new(
-                        i as i64 + 1,
-                        len as i64,
-                        EcoString::from(line),
-                        Content::sequence(line_content),
-                    ),
-                );
+                seq.push(RawLine::new(
+                    i as i64 + 1,
+                    len as i64,
+                    EcoString::from(line),
+                    Content::sequence(line_content),
+                ));
             }
         } else {
             let lines = text.lines();
             let len = lines.clone().count();
-            seq.extend(lines.enumerate().map(|(i, line)| RawLine::new(
-                i as i64 + 1,
-                len as i64,
-                EcoString::from(line),
-                TextElem::packed(line),
-            )));
+            seq.extend(lines.enumerate().map(|(i, line)| {
+                RawLine::new(
+                    i as i64 + 1,
+                    len as i64,
+                    EcoString::from(line),
+                    TextElem::packed(line),
+                )
+            }));
         };
 
         self.push_lines(seq);

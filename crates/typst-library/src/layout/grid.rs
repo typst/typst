@@ -1,4 +1,4 @@
-use smallvec::{SmallVec, smallvec};
+use smallvec::{smallvec, SmallVec};
 
 use crate::prelude::*;
 use crate::text::TextElem;
@@ -109,11 +109,10 @@ impl Layout for GridElem {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         // Prepare grid layout by unifying content and gutter tracks.
-        let cells = self.children();
         let layouter = GridLayouter::new(
             Axes::new(&self.columns(styles).0, &self.rows(styles).0),
             Axes::new(&self.column_gutter(styles).0, &self.row_gutter(styles).0),
-            &cells,
+            &self.children,
             regions,
             styles,
             self.span(),

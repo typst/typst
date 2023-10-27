@@ -244,9 +244,10 @@ impl Synthesize for FigureElem {
                 // Resolve the supplement with the first descendant of the kind or
                 // just the body, if none was found.
                 let descendant = match kind {
-                    FigureKind::Elem(func) => {
-                        self.body().query_first(Selector::Elem(func, None)).map(Cow::Owned)
-                    }
+                    FigureKind::Elem(func) => self
+                        .body()
+                        .query_first(Selector::Elem(func, None))
+                        .map(Cow::Owned),
                     FigureKind::Name(_) => None,
                 };
 
@@ -511,9 +512,12 @@ impl Show for FigureCaption {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
 
-        if let (Some(mut supplement), Some(numbering), Some(counter), Some(location)) =
-            (self.supplement().clone(), self.numbering(), self.counter(), self.figure_location())
-        {
+        if let (Some(mut supplement), Some(numbering), Some(counter), Some(location)) = (
+            self.supplement().clone(),
+            self.numbering(),
+            self.counter(),
+            self.figure_location(),
+        ) {
             let numbers = counter.at(vt, *location)?.display(vt, &numbering)?;
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');

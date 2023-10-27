@@ -2,8 +2,14 @@ use super::TextElem;
 use crate::prelude::*;
 
 /// A text space.
-#[selem(Behave, Unlabellable, PlainText)]
+#[selem(Behave, Unlabellable, PlainText, Repr)]
 pub struct SpaceElem {}
+
+impl Repr for SpaceElem {
+    fn repr(&self) -> EcoString {
+        EcoString::inline("[ ]")
+    }
+}
 
 impl Behave for SpaceElem {
     fn behaviour(&self) -> Behaviour {
@@ -98,7 +104,10 @@ pub struct StrongElem {
 impl Show for StrongElem {
     #[tracing::instrument(name = "StrongElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().clone().styled(TextElem::set_delta(Delta(self.delta(styles)))))
+        Ok(self
+            .body()
+            .clone()
+            .styled(TextElem::set_delta(Delta(self.delta(styles)))))
     }
 }
 
