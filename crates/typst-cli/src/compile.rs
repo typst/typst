@@ -55,8 +55,10 @@ impl CompileCommand {
 /// Execute a compilation command.
 pub fn compile(mut command: CompileCommand) -> StrResult<()> {
     let mut world = SystemWorld::new(&command.common)?;
+    #[cfg(feature = "ittapi")]
     ittapi::resume();
     compile_once(&mut world, &mut command, false)?;
+    #[cfg(feature = "ittapi")]
     ittapi::pause();
     Ok(())
 }

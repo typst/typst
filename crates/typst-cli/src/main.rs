@@ -21,6 +21,7 @@ use termcolor::{ColorChoice, WriteColor};
 
 use crate::args::{CliArguments, Command};
 
+#[cfg(feature = "mimalloc")]
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
@@ -34,6 +35,7 @@ static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
 
 /// Entry point.
 fn main() -> ExitCode {
+    #[cfg(feature = "ittapi")]
     ittapi::pause();
     let _guard = match crate::tracing::setup_tracing(&ARGS) {
         Ok(guard) => guard,
