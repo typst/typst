@@ -406,7 +406,7 @@ impl<'a> StyleChain<'a> {
         inherent: Option<&'b T>,
     ) -> impl Iterator<Item = T> + 'b {
         let id = id.into();
-        inherent.into_iter().cloned().chain(
+        inherent.cloned().into_iter().chain(
             self.entries()
                 .filter_map(Style::property)
                 .filter(move |property| property.is(func, id))
