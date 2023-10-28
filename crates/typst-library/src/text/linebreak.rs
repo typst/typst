@@ -5,6 +5,7 @@ use icu_provider_blob::BlobDataProvider;
 use icu_segmenter::LineSegmenter;
 use once_cell::sync::Lazy;
 use typst::doc::Lang;
+use typst::syntax::link_prefix;
 
 use super::TextElem;
 use crate::layout::Preparation;
@@ -82,25 +83,40 @@ pub(crate) fn breakpoints<'a>(
     p: &'a Preparation<'a>,
     mut f: impl FnMut(usize, Breakpoint),
 ) {
+    let text = p.bidi.text;
+    let hyphenate = p.hyphenate != Some(false);
     let lb = LINEBREAK_DATA.as_borrowed();
     let segmenter = match p.lang {
         Some(Lang::CHINESE | Lang::JAPANESE) => &CJ_SEGMENTER,
         _ => &SEGMENTER,
     };
 
-    let hyphenate = p.hyphenate != Some(false);
     let mut last = 0;
+    let mut iter = segmenter.segment_str(text).peekable();
 
-    // Walk over all UAX #14 linebreak opportunities.
-    for point in segmenter.segment_str(p.bidi.text) {
+    loop {
+        // Special case for links. UAX #14 doesn't handle them well.
+        let (head, tail) = text.split_at(last);
+        if head.ends_with("://") || tail.starts_with("www.") {
+            let (link, _) = link_prefix(tail);
+            let end = last + link.len();
+            linebreak_link(link, |i| f(last + i, Breakpoint::Normal));
+            while iter.peek().map_or(false, |&p| p <= end) {
+                iter.next();
+            }
+        }
+
+        // Get the UAX #14 linebreak opportunities.
+        let Some(point) = iter.next() else { break };
+
         // Skip breakpoint if there is no char before it. icu4x generates one
         // at offset 0, but we don't want it.
-        let Some(c) = p.bidi.text[..point].chars().next_back() else { continue };
+        let Some(c) = text[..point].chars().next_back() else { continue };
 
         // Find out whether the last break was mandatory by checking against
         // rules LB4 and LB5, special-casing the end of text according to LB3.
         // See also: https://docs.rs/icu_segmenter/latest/icu_segmenter/struct.LineSegmenter.html
-        let breakpoint = if point == p.bidi.text.len() {
+        let breakpoint = if point == text.len() {
             Breakpoint::Mandatory
         } else {
             match lb.get(c) {
@@ -121,8 +137,7 @@ pub(crate) fn breakpoints<'a>(
             }
 
             // Extract a hyphenatable "word".
-            let word =
-                &p.bidi.text[last..point].trim_end_matches(|c: char| !c.is_alphabetic());
+            let word = &text[last..point].trim_end_matches(|c: char| !c.is_alphabetic());
             if word.is_empty() {
                 break 'hyphenate;
             }
@@ -164,6 +179,69 @@ pub(crate) fn breakpoints<'a>(
 
         last = point;
     }
+}
+
+/// Produce linebreak opportunities for a link.
+fn linebreak_link(link: &str, mut f: impl FnMut(usize)) {
+    #[derive(PartialEq)]
+    enum Class {
+        Alphabetic,
+        Digit,
+        Open,
+        Other,
+    }
+
+    impl Class {
+        fn of(c: char) -> Self {
+            if c.is_alphabetic() {
+                Class::Alphabetic
+            } else if c.is_numeric() {
+                Class::Digit
+            } else if matches!(c, '(' | '[') {
+                Class::Open
+            } else {
+                Class::Other
+            }
+        }
+    }
+
+    let mut offset = 0;
+    let mut emit = |end: usize| {
+        let piece = &link[offset..end];
+        if piece.len() < 16 {
+            // For bearably long segments, emit them as one.
+            offset = end;
+            f(offset);
+        } else {
+            // If it gets very long (e.g. a hash in the URL), just allow a
+            // break at every char.
+            for c in piece.chars() {
+                offset += c.len_utf8();
+                f(offset);
+            }
+        }
+    };
+
+    let mut prev = Class::Other;
+    for (end, c) in link.char_indices() {
+        let class = Class::of(c);
+
+        // Emit opportunities when going from
+        // - other -> other
+        // - alphabetic -> numeric
+        // - numeric -> alphabetic
+        // Never before after opening delimiters.
+        if end > 0
+            && prev != Class::Open
+            && if class == Class::Other { prev == Class::Other } else { class != prev }
+        {
+            emit(end);
+        }
+
+        prev = class;
+    }
+
+    emit(link.len());
 }
 
 /// Whether hyphenation is enabled at the given offset.
