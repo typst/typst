@@ -72,9 +72,14 @@ pub use typst_macros::func;
 /// You can define your own function with a [let binding]($scripting/#bindings)
 /// that has a parameter list after the binding's name. The parameter list can
 /// contain positional parameters, named parameters with default values and
-/// [argument sinks]($arguments). The right-hand side of the binding can be a
-/// block or any other expression. It defines the function's return value and
-/// can depend on the parameters.
+/// [argument sinks]($arguments).
+///
+/// The right-hand side of a function binding can be a block or any other
+/// expression. It defines the function's return value and can depend on the
+/// parameters. The `return` keyword can be used inside a block to exit a
+/// function early an return a single value. If no `return` keyword is present,
+/// then like a normal [code block]($scripting/#blocks), the value is the result
+/// of joining together the values of each statement in the block.
 ///
 /// ```example
 /// #let alert(body, fill: red) = {
