@@ -14,11 +14,11 @@
 #test({2*}, 2)
 
 ---
-// Error: 3-13 cannot apply '+' to content
+// Error: 3-13 cannot apply unary '+' to content
 #(+([] + []))
 
 ---
-// Error: 3-6 cannot apply '-' to string
+// Error: 3-6 cannot apply unary '-' to string
 #(-"")
 
 ---

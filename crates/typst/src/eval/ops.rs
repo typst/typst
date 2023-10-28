@@ -52,7 +52,7 @@ pub fn pos(value: Value) -> StrResult<Value> {
         Ratio(v) => Ratio(v),
         Relative(v) => Relative(v),
         Fraction(v) => Fraction(v),
-        v => mismatch!("cannot apply '+' to {}", v),
+        v => mismatch!("cannot apply unary '+' to {}", v),
     })
 }
 
@@ -67,7 +67,7 @@ pub fn neg(value: Value) -> StrResult<Value> {
         Relative(v) => Relative(-v),
         Fraction(v) => Fraction(-v),
         Duration(v) => Duration(-v),
-        v => mismatch!("cannot apply '-' to {}", v),
+        v => mismatch!("cannot apply unary '-' to {}", v),
     })
 }
 
