@@ -379,16 +379,6 @@ impl Synthesize for CiteElem {
     }
 }
 
-/*impl CiteElem {
-    pub fn location(&self) -> Option<Location> {
-        self.0.location()
-    }
-
-    pub fn set_location(&mut self, location: Location) {
-        self.0.set_location(location)
-    }
-}*/
-
 impl Show for CiteElem {
     #[tracing::instrument(name = "CiteElem::show", skip(self, vt))]
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {

@@ -83,7 +83,11 @@ fn create(element: &Elem) -> TokenStream {
     let native_element_impl = create_pack_impl(element);
     let element_impl = create_element_impl(element);
     let default_impl = create_default_impl(element);
-    let hash_impl = create_hash_impl(element);
+    let hash_impl = element
+        .capabilities
+        .iter()
+        .all(|capability| capability != "Hash")
+        .then(|| create_hash_impl(element));
     let construct_impl = element
         .capabilities
         .iter()
@@ -338,7 +342,7 @@ fn create_set_impl(element: &Elem) -> TokenStream {
 
 /// Create the element's casting vtable.
 fn create_vtable_func(element: &Elem) -> TokenStream {
-    const FORBIDDEN: &[&str] = &["Construct", "PartialEq"];
+    const FORBIDDEN: &[&str] = &["Construct", "PartialEq", "Hash"];
     let ident = &element.ident;
     let relevant = element
         .capabilities
