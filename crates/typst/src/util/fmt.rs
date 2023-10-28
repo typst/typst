@@ -46,10 +46,11 @@ pub fn format_float(mut value: f64, precision: Option<u8>, suffix: &str) -> EcoS
     }
     if value.is_nan() {
         "NaN".into()
-    } else if value.is_sign_negative() {
+    } else if value < 0.0 {
         eco_format!("{}{}{}", MINUS_SIGN, value.abs(), suffix)
     } else {
-        eco_format!("{}{}", value, suffix)
+        // Call abs to prevent negative zero
+        eco_format!("{}{}", value.abs(), suffix)
     }
 }
 
