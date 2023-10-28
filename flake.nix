@@ -70,6 +70,8 @@
             '';
 
             GEN_ARTIFACTS = "artifacts";
+
+            meta.mainProgram = "typst";
           });
         in
         typst;
