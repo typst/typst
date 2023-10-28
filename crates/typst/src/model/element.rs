@@ -65,14 +65,14 @@ pub trait Element: Any + Send + Sync + Debug + Repr + 'static {
     /// Get the field with the given field ID.
     fn field(&self, id: u8) -> Option<Value>;
 
+    /// Set the fields of the element.
+    fn set_field(&mut self, id: u8, value: Value) -> StrResult<()>;
+
     /// Dynamically clone the element.
     fn dyn_clone(&self) -> Arc<dyn Element>;
 
     /// Get the fields of the element.
     fn fields(&self) -> Dict;
-
-    /// Set the fields of the element.
-    fn set_field(&mut self, name: &str, value: Value) -> StrResult<()>;
 }
 
 /// A document element.

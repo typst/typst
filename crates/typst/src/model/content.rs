@@ -372,11 +372,11 @@ impl Content {
     }
 
     /// Attach a field to the content.
-    pub fn with_field(mut self, name: &str, value: impl IntoValue) -> Self {
+    pub fn with_field(mut self, id: u8, value: impl IntoValue) -> Self {
         swap_with_mut(&mut self.0);
         Arc::get_mut(&mut self.0)
             .unwrap()
-            .set_field(name, value.into_value())
+            .set_field(id, value.into_value())
             .unwrap();
         self
     }

@@ -320,11 +320,11 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
-    pub fn get<T: FromValue>(
+    pub fn get<T: FromValue + Clone>(
         self,
         func: ElementData,
         id: impl Into<u8>,
-        inherent: Option<Value>,
+        inherent: Option<&T>,
         default: impl Fn() -> T,
     ) -> T {
         self.properties::<T>(func, id, inherent)
@@ -333,22 +333,22 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
-    pub fn get_resolve<T: FromValue + Resolve>(
+    pub fn get_resolve<T: FromValue + Clone + Resolve>(
         self,
         func: ElementData,
         id: impl Into<u8>,
-        inherent: Option<Value>,
+        inherent: Option<&T>,
         default: impl Fn() -> T,
     ) -> T::Output {
         self.get(func, id, inherent, default).resolve(self)
     }
 
     /// Cast the first value for the given property in the chain.
-    pub fn get_fold<T: FromValue + Fold>(
+    pub fn get_fold<T: FromValue + Clone + Fold>(
         self,
         func: ElementData,
         id: impl Into<u8>,
-        inherent: Option<Value>,
+        inherent: Option<&T>,
         default: impl Fn() -> T::Output,
     ) -> T::Output {
         fn next<T: Fold>(
@@ -369,11 +369,11 @@ impl<'a> StyleChain<'a> {
         self,
         func: ElementData,
         id: impl Into<u8>,
-        inherent: Option<Value>,
+        inherent: Option<&T>,
         default: impl Fn() -> <T::Output as Fold>::Output,
     ) -> <T::Output as Fold>::Output
     where
-        T: FromValue + Resolve,
+        T: FromValue + Clone + Resolve,
         T::Output: Fold,
     {
         fn next<T>(
@@ -399,31 +399,29 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Iterate over all values for the given property in the chain.
-    pub fn properties<'b, T: FromValue + 'b>(
+    pub fn properties<'b, T: FromValue + Clone + 'b>(
         &'b self,
         func: ElementData,
         id: impl Into<u8>,
-        inherent: Option<Value>,
+        inherent: Option<&'b T>,
     ) -> impl Iterator<Item = T> + 'b {
         let id = id.into();
-        inherent
-            .into_iter()
-            .chain(
-                self.entries()
-                    .filter_map(Style::property)
-                    .filter(move |property| property.is(func, id))
-                    .map(|property| property.value.clone()),
-            )
-            .map(move |value| {
-                value.cast().unwrap_or_else(|err| {
-                    panic!(
-                        "{} (for {}.{})",
-                        err,
-                        func.name(),
-                        func.field_name(id).unwrap()
-                    )
-                })
-            })
+        inherent.into_iter().cloned().chain(
+            self.entries()
+                .filter_map(Style::property)
+                .filter(move |property| property.is(func, id))
+                .map(|property| property.value.clone())
+                .map(move |value| {
+                    value.cast().unwrap_or_else(|err| {
+                        panic!(
+                            "{} (for {}.{})",
+                            err,
+                            func.name(),
+                            func.field_name(id).unwrap()
+                        )
+                    })
+                }),
+        )
     }
 
     /// Convert to a style map.

@@ -130,7 +130,8 @@ fn try_apply(
                 return Ok(None);
             };
 
-            let make = |s: &str| target.clone().with_field("text", s);
+            // We know we are on a `TextElem` and the `text` is always at ID = 0.
+            let make = |s: &str| target.clone().with_field(0, s);
             let mut result = vec![];
             let mut cursor = 0;
 
