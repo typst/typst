@@ -1015,9 +1015,15 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                 // The line is overfull. This is the case if
                 // - justification is on, but we'd need to shrink too much
                 // - justification is off and the line just doesn't fit
-                // Since any longer line will also be overfull, we can deactivate
-                // this breakpoint.
-                active = i + 1;
+                //
+                // If this is the earliest breakpoint in the active set
+                // (active == i), remove it from the active set. If there is an
+                // earlier one (active < i), then the logically shorter line was
+                // in fact longer (can happen with negative spacing) and we
+                // can't trim the active set just yet.
+                if active == i {
+                    active += 1;
+                }
                 MAX_COST
             } else if mandatory || eof {
                 // This is a mandatory break and the line is not overfull, so
