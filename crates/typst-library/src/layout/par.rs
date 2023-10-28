@@ -1001,8 +1001,10 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                 ratio = 0.0;
             }
             if ratio > 1.0 {
-                // We should stretch the line above its stretchability. Now calculate the extra amount.
-                let extra_stretch = (delta - adjust) / attempt.justifiables() as f64;
+                // We should stretch the line above its stretchability. Now
+                // calculate the extra amount. Also, don't divide by zero.
+                let extra_stretch =
+                    (delta - adjust) / attempt.justifiables().max(1) as f64;
                 // Normalize the amount by half Em size.
                 ratio = 1.0 + extra_stretch / (em / 2.0);
             }
