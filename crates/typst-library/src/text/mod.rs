@@ -1,6 +1,7 @@
 //! Text handling.
 
 mod deco;
+mod linebreak;
 mod misc;
 mod quote;
 mod quotes;
@@ -9,6 +10,7 @@ mod shaping;
 mod shift;
 
 pub use self::deco::*;
+pub(crate) use self::linebreak::*;
 pub use self::misc::*;
 pub use self::quote::*;
 pub use self::quotes::*;

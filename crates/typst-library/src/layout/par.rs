@@ -1,11 +1,3 @@
-use std::iter::Peekable;
-
-use icu_properties::{maps::CodePointMapData, LineBreak};
-use icu_provider::AsDeserializingBufferProvider;
-use icu_provider_adapters::fork::ForkByKeyProvider;
-use icu_provider_blob::BlobDataProvider;
-use icu_segmenter::{LineBreakIteratorUtf8, LineSegmenter};
-use once_cell::sync::Lazy;
 use typst::eval::Tracer;
 use typst::model::DelayedErrors;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
@@ -16,8 +8,9 @@ use crate::layout::AlignElem;
 use crate::math::EquationElem;
 use crate::prelude::*;
 use crate::text::{
-    char_is_cjk_script, is_gb_style, shape, LinebreakElem, Quoter, Quotes, ShapedGlyph,
-    ShapedText, SmartquoteElem, SpaceElem, TextElem, BEGIN_PUNCT_PAT, END_PUNCT_PAT,
+    breakpoints, char_is_cjk_script, is_gb_style, shape, Breakpoint, LinebreakElem,
+    Quoter, Quotes, ShapedGlyph, ShapedText, SmartquoteElem, SpaceElem, TextElem,
+    BEGIN_PUNCT_PAT, END_PUNCT_PAT,
 };
 
 /// Arranges text, spacing and inline-level elements into a paragraph.
@@ -246,30 +239,32 @@ const OBJ_REPLACE: char = '\u{FFFC}'; // Object Replacement Character
 /// In many cases, we can directly reuse these results when constructing a line.
 /// Only when a line break falls onto a text index that is not safe-to-break per
 /// rustybuzz, we have to reshape that portion.
-struct Preparation<'a> {
+pub(crate) struct Preparation<'a> {
     /// Bidirectional text embedding levels for the paragraph.
-    bidi: BidiInfo<'a>,
+    pub bidi: BidiInfo<'a>,
     /// Text runs, spacing and layouted elements.
-    items: Vec<Item<'a>>,
+    pub items: Vec<Item<'a>>,
     /// The span mapper.
-    spans: SpanMapper,
+    pub spans: SpanMapper,
     /// The styles shared by all children.
-    styles: StyleChain<'a>,
+    pub styles: StyleChain<'a>,
     /// Whether to hyphenate if it's the same for all children.
-    hyphenate: Option<bool>,
+    pub hyphenate: Option<bool>,
     /// The text language if it's the same for all children.
-    lang: Option<Lang>,
+    pub lang: Option<Lang>,
     /// The paragraph's resolved horizontal alignment.
-    align: FixedAlign,
+    pub align: FixedAlign,
     /// Whether to justify the paragraph.
-    justify: bool,
+    pub justify: bool,
     /// The paragraph's hanging indent.
-    hang: Abs,
+    pub hang: Abs,
+    /// The CJK-latin spacing.
+    pub cjk_latin_spacing: bool,
 }
 
 impl<'a> Preparation<'a> {
     /// Find the item that contains the given `text_offset`.
-    fn find(&self, text_offset: usize) -> Option<&Item<'a>> {
+    pub fn find(&self, text_offset: usize) -> Option<&Item<'a>> {
         let mut cursor = 0;
         for item in &self.items {
             let end = cursor + item.len();
@@ -284,7 +279,7 @@ impl<'a> Preparation<'a> {
     /// Return the items that intersect the given `text_range`.
     ///
     /// Returns the expanded range around the items and the items.
-    fn slice(&self, text_range: Range) -> (Range, &[Item<'a>]) {
+    pub fn slice(&self, text_range: Range) -> (Range, &[Item<'a>]) {
         let mut cursor = 0;
         let mut start = 0;
         let mut end = 0;
@@ -342,7 +337,7 @@ impl Segment<'_> {
 
 /// A prepared item in a paragraph layout.
 #[derive(Debug)]
-enum Item<'a> {
+pub(crate) enum Item<'a> {
     /// A shaped text run with consistent style and direction.
     Text(ShapedText<'a>),
     /// Absolute spacing between other items.
@@ -357,14 +352,14 @@ enum Item<'a> {
 
 impl<'a> Item<'a> {
     /// If this a text item, return it.
-    fn text(&self) -> Option<&ShapedText<'a>> {
+    pub fn text(&self) -> Option<&ShapedText<'a>> {
         match self {
             Self::Text(shaped) => Some(shaped),
             _ => None,
         }
     }
 
-    fn text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
+    pub fn text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
         match self {
             Self::Text(shaped) => Some(shaped),
             _ => None,
@@ -372,7 +367,7 @@ impl<'a> Item<'a> {
     }
 
     /// The text length of the item.
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         match self {
             Self::Text(shaped) => shaped.text.len(),
             Self::Absolute(_) | Self::Fractional(_, _) => SPACING_REPLACE.len_utf8(),
@@ -382,7 +377,7 @@ impl<'a> Item<'a> {
     }
 
     /// The natural layouted width of the item.
-    fn width(&self) -> Abs {
+    pub fn width(&self) -> Abs {
         match self {
             Self::Text(shaped) => shaped.width,
             Self::Absolute(v) => *v,
@@ -737,6 +732,7 @@ fn prepare<'a>(
         align: AlignElem::alignment_in(styles).resolve(styles).x,
         justify: ParElem::justify_in(styles),
         hang: ParElem::hanging_indent_in(styles),
+        cjk_latin_spacing: TextElem::cjk_latin_spacing_in(styles).is_auto(),
     })
 }
 
@@ -889,11 +885,10 @@ fn linebreak_simple<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line
     let mut lines = vec![];
     let mut start = 0;
     let mut last = None;
-    let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(p.styles).is_auto();
 
-    for (end, mandatory, hyphen) in breakpoints(p) {
+    breakpoints(p, |end, breakpoint| {
         // Compute the line and its size.
-        let mut attempt = line(vt, p, start..end, mandatory, hyphen, cjk_latin_spacing);
+        let mut attempt = line(vt, p, start..end, breakpoint);
 
         // If the line doesn't fit anymore, we push the last fitting attempt
         // into the stack and rebuild the line from the attempt's end. The
@@ -902,21 +897,21 @@ fn linebreak_simple<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line
             if let Some((last_attempt, last_end)) = last.take() {
                 lines.push(last_attempt);
                 start = last_end;
-                attempt = line(vt, p, start..end, mandatory, hyphen, cjk_latin_spacing);
+                attempt = line(vt, p, start..end, breakpoint);
             }
         }
 
         // Finish the current line if there is a mandatory line break (i.e.
         // due to "\n") or if the line doesn't fit horizontally already
         // since then no shorter line will be possible.
-        if mandatory || !width.fits(attempt.width) {
+        if breakpoint == Breakpoint::Mandatory || !width.fits(attempt.width) {
             lines.push(attempt);
             start = end;
             last = None;
         } else {
             last = Some((attempt, end));
         }
-    }
+    });
 
     if let Some((line, _)) = last {
         lines.push(line);
@@ -965,13 +960,12 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
     let mut table = vec![Entry {
         pred: 0,
         total: 0.0,
-        line: line(vt, p, 0..0, false, false, false),
+        line: line(vt, p, 0..0, Breakpoint::Mandatory),
     }];
 
     let em = TextElem::size_in(p.styles);
-    let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(p.styles).is_auto();
 
-    for (end, mandatory, hyphen) in breakpoints(p) {
+    breakpoints(p, |end, breakpoint| {
         let k = table.len();
         let eof = end == p.bidi.text.len();
         let mut best: Option<Entry> = None;
@@ -981,7 +975,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
             // Layout the line.
             let start = pred.line.end;
 
-            let attempt = line(vt, p, start..end, mandatory, hyphen, cjk_latin_spacing);
+            let attempt = line(vt, p, start..end, breakpoint);
 
             // Determine how much the line's spaces would need to be stretched
             // to make it the desired width.
@@ -1025,7 +1019,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                     active += 1;
                 }
                 MAX_COST
-            } else if mandatory || eof {
+            } else if breakpoint == Breakpoint::Mandatory || eof {
                 // This is a mandatory break and the line is not overfull, so
                 // all breakpoints before this one become inactive since no line
                 // can span above the mandatory break.
@@ -1048,7 +1042,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
             }
 
             // Penalize hyphens.
-            if hyphen {
+            if breakpoint == Breakpoint::Hyphen {
                 cost += HYPH_COST;
             }
 
@@ -1073,7 +1067,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
         }
 
         table.push(best.unwrap());
-    }
+    });
 
     // Retrace the best path.
     let mut lines = vec![];
@@ -1089,208 +1083,16 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
     lines
 }
 
-/// Generated by the following command:
-///
-/// ```sh
-/// icu4x-datagen --locales full \
-///               --format blob \
-///               --keys-for-bin target/debug/typst \
-///               --out crates/typst-library/assets/icudata.postcard  \
-///               --overwrite
-/// ```
-///
-/// Install icu_datagen with `cargo install icu_datagen`.
-static ICU_DATA: &[u8] = include_bytes!("../../assets/icudata.postcard");
-
-/// Generated by the following command:
-///
-/// ```sh
-/// icu4x-datagen --locales zh ja \
-///               --format blob \
-///               --keys segmenter/line@1 \
-///               --out crates/typst-library/assets/cj_linebreak_data.postcard \
-///               --overwrite
-/// ```
-///
-/// The used icu_datagen should be patched by
-/// https://github.com/peng1999/icu4x/commit/b9beb6cbf633d61fc3d7983e5baf7f4449fbfae5
-static CJ_LINEBREAK_DATA: &[u8] =
-    include_bytes!("../../assets/cj_linebreak_data.postcard");
-
-/// The general line break segmenter.
-static SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
-    let provider = BlobDataProvider::try_new_from_static_blob(ICU_DATA).unwrap();
-    LineSegmenter::try_new_lstm_with_buffer_provider(&provider).unwrap()
-});
-
-/// The line break segmenter for Chinese/Japanese text.
-static CJ_SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
-    let provider = BlobDataProvider::try_new_from_static_blob(ICU_DATA).unwrap();
-    let cj_blob = BlobDataProvider::try_new_from_static_blob(CJ_LINEBREAK_DATA).unwrap();
-    let cj_provider = ForkByKeyProvider::new(cj_blob, provider);
-    LineSegmenter::try_new_lstm_with_buffer_provider(&cj_provider).unwrap()
-});
-
-/// The Unicode line break properties for each code point.
-static LINEBREAK_DATA: Lazy<CodePointMapData<LineBreak>> = Lazy::new(|| {
-    let provider = BlobDataProvider::try_new_from_static_blob(ICU_DATA).unwrap();
-    let deser_provider = provider.as_deserializing();
-    icu_properties::maps::load_line_break(&deser_provider).unwrap()
-});
-
-/// Determine all possible points in the text where lines can broken.
-///
-/// Returns for each breakpoint the text index, whether the break is mandatory
-/// (after `\n`) and whether a hyphen is required (when breaking inside of a
-/// word).
-fn breakpoints<'a>(p: &'a Preparation<'a>) -> Breakpoints<'a> {
-    let mut linebreaks = if matches!(p.lang, Some(Lang::CHINESE | Lang::JAPANESE)) {
-        CJ_SEGMENTER.segment_str(p.bidi.text)
-    } else {
-        SEGMENTER.segment_str(p.bidi.text)
-    };
-    // The iterator always yields a breakpoint at index 0, we want to ignore it
-    linebreaks.next();
-    Breakpoints {
-        p,
-        linebreaks: linebreaks.peekable(),
-        syllables: None,
-        offset: 0,
-        suffix: 0,
-        end: 0,
-        mandatory: false,
-    }
-}
-
-/// An iterator over the line break opportunities in a text.
-struct Breakpoints<'a> {
-    /// The paragraph's items.
-    p: &'a Preparation<'a>,
-    /// The inner iterator over the unicode line break opportunities.
-    linebreaks: Peekable<LineBreakIteratorUtf8<'a, 'a>>,
-    /// Iterator over syllables of the current word.
-    syllables: Option<hypher::Syllables<'a>>,
-    /// The current text offset.
-    offset: usize,
-    /// The trimmed end of the current word.
-    suffix: usize,
-    /// The untrimmed end of the current word.
-    end: usize,
-    /// Whether the break after the current word is mandatory.
-    mandatory: bool,
-}
-
-impl Iterator for Breakpoints<'_> {
-    type Item = (usize, bool, bool);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let lb = LINEBREAK_DATA.as_borrowed();
-
-        // If we're currently in a hyphenated "word", process the next syllable.
-        if let Some(syllable) = self.syllables.as_mut().and_then(Iterator::next) {
-            self.offset += syllable.len();
-            if self.offset == self.suffix {
-                self.offset = self.end;
-            }
-
-            let hyphen = self.offset < self.end;
-            if hyphen {
-                // Filter out hyphenation opportunities where hyphenation was
-                // actually disabled.
-                if !self.hyphenate(self.offset) {
-                    return self.next();
-                }
-
-                // Filter out forbidden hyphenation opportunities.
-                if matches!(
-                    syllable.chars().last().map(|c| lb.get(c)),
-                    Some(LineBreak::Glue | LineBreak::WordJoiner | LineBreak::ZWJ)
-                ) {
-                    return self.next();
-                }
-            }
-
-            return Some((self.offset, self.mandatory && !hyphen, hyphen));
-        }
-
-        loop {
-            // Get the next "word".
-            self.end = self.linebreaks.next()?;
-            self.mandatory = false;
-
-            // Fix for: https://github.com/unicode-org/icu4x/issues/4146
-            if let Some(c) = self.p.bidi.text[..self.end].chars().next_back() {
-                if self.end == self.p.bidi.text.len() {
-                    self.mandatory = true;
-                    break;
-                }
-
-                self.mandatory = match lb.get(c) {
-                    LineBreak::Glue | LineBreak::WordJoiner | LineBreak::ZWJ => continue,
-                    LineBreak::MandatoryBreak
-                    | LineBreak::CarriageReturn
-                    | LineBreak::LineFeed
-                    | LineBreak::NextLine => true,
-                    _ => false,
-                };
-            }
-
-            break;
-        }
-
-        // Hyphenate the next word.
-        if self.p.hyphenate != Some(false) {
-            if let Some(lang) = self.lang(self.offset) {
-                let word = &self.p.bidi.text[self.offset..self.end];
-                let trimmed = word.trim_end_matches(|c: char| !c.is_alphabetic());
-                if !trimmed.is_empty() {
-                    self.suffix = self.offset + trimmed.len();
-                    self.syllables = Some(hypher::hyphenate(trimmed, lang));
-                    return self.next();
-                }
-            }
-        }
-
-        self.offset = self.end;
-        Some((self.end, self.mandatory, false))
-    }
-}
-
-impl Breakpoints<'_> {
-    /// Whether hyphenation is enabled at the given offset.
-    fn hyphenate(&self, offset: usize) -> bool {
-        self.p
-            .hyphenate
-            .or_else(|| {
-                let shaped = self.p.find(offset)?.text()?;
-                Some(TextElem::hyphenate_in(shaped.styles))
-            })
-            .unwrap_or(false)
-    }
-
-    /// The text language at the given offset.
-    fn lang(&self, offset: usize) -> Option<hypher::Lang> {
-        let lang = self.p.lang.or_else(|| {
-            let shaped = self.p.find(offset)?.text()?;
-            Some(TextElem::lang_in(shaped.styles))
-        })?;
-
-        let bytes = lang.as_str().as_bytes().try_into().ok()?;
-        hypher::Lang::from_iso(bytes)
-    }
-}
-
 /// Create a line which spans the given range.
 fn line<'a>(
     vt: &Vt,
     p: &'a Preparation,
     mut range: Range,
-    mandatory: bool,
-    hyphen: bool,
-    cjk_latin_spacing: bool,
+    breakpoint: Breakpoint,
 ) -> Line<'a> {
     let end = range.end;
-    let mut justify = p.justify && end < p.bidi.text.len() && !mandatory;
+    let mut justify =
+        p.justify && end < p.bidi.text.len() && breakpoint != Breakpoint::Mandatory;
 
     if range.is_empty() {
         return Line {
@@ -1326,13 +1128,14 @@ fn line<'a>(
 
         // Deal with hyphens, dashes and justification.
         let shy = trimmed.ends_with('\u{ad}');
+        let hyphen = breakpoint == Breakpoint::Hyphen;
         dash = hyphen || shy || trimmed.ends_with(['-', '–', '—']);
         justify |= text.ends_with('\u{2028}');
 
         // Deal with CJK punctuation at line ends.
         let gb_style = is_gb_style(shaped.lang, shaped.region);
         let maybe_adjust_last_glyph = trimmed.ends_with(END_PUNCT_PAT)
-            || (cjk_latin_spacing && trimmed.ends_with(char_is_cjk_script));
+            || (p.cjk_latin_spacing && trimmed.ends_with(char_is_cjk_script));
 
         // Usually, we don't want to shape an empty string because:
         // - We don't want the height of trimmed whitespace in a different
@@ -1359,7 +1162,7 @@ fn line<'a>(
                         let punct = reshaped.glyphs.to_mut().last_mut().unwrap();
                         punct.shrink_right(shrink_amount);
                         reshaped.width -= shrink_amount.at(reshaped.size);
-                    } else if cjk_latin_spacing
+                    } else if p.cjk_latin_spacing
                         && last_glyph.is_cjk_script()
                         && (last_glyph.x_advance - last_glyph.x_offset) > Em::one()
                     {
@@ -1385,7 +1188,7 @@ fn line<'a>(
     // Deal with CJK characters at line starts.
     let text = &p.bidi.text[range.start..end];
     let maybe_adjust_first_glyph = text.starts_with(BEGIN_PUNCT_PAT)
-        || (cjk_latin_spacing && text.starts_with(char_is_cjk_script));
+        || (p.cjk_latin_spacing && text.starts_with(char_is_cjk_script));
 
     // Reshape the start item if it's split in half.
     let mut first = None;
@@ -1419,7 +1222,7 @@ fn line<'a>(
                     let amount_abs = shrink_amount.at(reshaped.size);
                     reshaped.width -= amount_abs;
                     width -= amount_abs;
-                } else if cjk_latin_spacing
+                } else if p.cjk_latin_spacing
                     && first_glyph.is_cjk_script()
                     && first_glyph.x_offset > Em::zero()
                 {
