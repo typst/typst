@@ -593,7 +593,7 @@ impl<T> StyleVec<T> {
 }
 
 impl<'a> StyleVec<Cow<'a, Content>> {
-    pub fn to_vec(self) -> Vec<Content> {
+    pub fn to_vec(self) -> Vec<Prehashed<Content>> {
         self.items
             .into_iter()
             .zip(
@@ -602,6 +602,7 @@ impl<'a> StyleVec<Cow<'a, Content>> {
                     .flat_map(|(map, count)| iter::repeat(map).take(*count)),
             )
             .map(|(content, styles)| content.into_owned().styled_with_map(styles.clone()))
+            .map(Prehashed::new)
             .collect()
     }
 }

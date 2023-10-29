@@ -180,6 +180,7 @@ fn create(element: &Elem) -> TokenStream {
         quote! {
             location: Option<::typst::model::Location>,
             label: Option<::typst::model::Label>,
+            prepared: bool,
         }
     });
 
@@ -205,7 +206,6 @@ fn create(element: &Elem) -> TokenStream {
         #vis struct #ident {
             span: ::typst::syntax::Span,
             #label_and_location
-            prepared: bool,
             guards: ::std::vec::Vec<::typst::model::Guard>,
 
             #(#fields,)*
@@ -643,11 +643,20 @@ fn create_element_impl(element: &Elem) -> TokenStream {
 
     // Statistically compute whether we need preparation or not.
     let needs_preparation = element
-        .capabilities
-        .iter()
-        .any(|capability| capability == "Locatable" || capability == "Synthesize")
-        .then(|| quote! { !self.prepared })
-        .unwrap_or_else(|| quote! { self.label().is_some() && !self.prepared });
+        .without_capability("Unlabellable", || {
+            element
+                .capabilities
+                .iter()
+                .any(|capability| capability == "Locatable" || capability == "Synthesize")
+                .then(|| quote! { !self.prepared })
+                .unwrap_or_else(|| quote! { self.label().is_some() && !self.prepared })
+        })
+        .unwrap_or_else(|| {
+            assert!(element.capabilities.iter().all(|capability| capability
+                != "Locatable"
+                && capability != "Synthesize"));
+            quote! { false }
+        });
 
     // Creation of the fields dictionary for inherent fields.
     let field_dict = element.inherent_fields().clone().map(|field| {
@@ -721,6 +730,22 @@ fn create_element_impl(element: &Elem) -> TokenStream {
         })
         .unwrap_or_else(|| quote! { None });
 
+    let mark_prepared = element
+        .without_capability("Unlabellable", || {
+            quote! {
+                self.prepared = true;
+            }
+        })
+        .unwrap_or_else(|| quote! {});
+
+    let prepared = element
+        .without_capability("Unlabellable", || {
+            quote! {
+                self.prepared
+            }
+        })
+        .unwrap_or_else(|| quote! { true });
+
     let unknown_field = format!("unknown field {{}} on {}", name);
     let label_error = format!("cannot set label on {}", name);
     quote! {
@@ -768,7 +793,7 @@ fn create_element_impl(element: &Elem) -> TokenStream {
             }
 
             fn mark_prepared(&mut self) {
-                self.prepared = true;
+                #mark_prepared
             }
 
             fn needs_preparation(&self) -> bool {
@@ -776,7 +801,7 @@ fn create_element_impl(element: &Elem) -> TokenStream {
             }
 
             fn is_prepared(&self) -> bool {
-                self.prepared
+                #prepared
             }
 
             fn dyn_hash(&self, mut hasher: &mut dyn ::std::hash::Hasher) {
@@ -1027,6 +1052,10 @@ fn create_hash_impl(element: &Elem) -> TokenStream {
             if let Some(label) = &self.label {
                 label.hash(hasher);
             }
+
+            if self.prepared {
+                self.prepared.hash(hasher);
+            }
         }
     });
 
@@ -1037,10 +1066,6 @@ fn create_hash_impl(element: &Elem) -> TokenStream {
 
                 if !self.span.is_detached() {
                     self.span.hash(hasher);
-                }
-
-                if self.prepared {
-                    self.prepared.hash(hasher);
                 }
 
                 if !self.guards.is_empty() {
@@ -1085,6 +1110,7 @@ fn create_default_impl(element: &Elem) -> TokenStream {
         quote! {
             location: None,
             label: None,
+            prepared: false,
         }
     });
 
@@ -1094,7 +1120,6 @@ fn create_default_impl(element: &Elem) -> TokenStream {
                 Self {
                     span: ::typst::syntax::Span::detached(),
                     #label_and_location
-                    prepared: false,
                     guards: ::std::vec::Vec::with_capacity(0),
                     #(#relevant,)*
                     #(#defaults,)*
@@ -1224,6 +1249,7 @@ fn create_new_func(element: &Elem) -> TokenStream {
         quote! {
             location: None,
             label: None,
+            prepared: false,
         }
     });
 
@@ -1233,7 +1259,6 @@ fn create_new_func(element: &Elem) -> TokenStream {
             Self {
                 span: ::typst::syntax::Span::detached(),
                 #label_and_location
-                prepared: false,
                 guards: ::std::vec::Vec::with_capacity(0),
                 #(#required,)*
                 #(#defaults,)*

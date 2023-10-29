@@ -1,5 +1,7 @@
 use std::mem;
 
+use comemo::Prehashed;
+
 use super::{
     AlignElem, BlockElem, ColbreakElem, ColumnsElem, ParElem, PlaceElem, Spacing, VElem,
 };
@@ -18,7 +20,7 @@ use crate::visualize::{
 pub struct FlowElem {
     /// The children that will be arranges into a flow.
     #[variadic]
-    pub children: Vec<Content>,
+    pub children: Vec<Prehashed<Content>>,
 }
 
 impl Layout for FlowElem {
@@ -37,7 +39,7 @@ impl Layout for FlowElem {
         }
         let mut layouter = FlowLayouter::new(regions, styles);
 
-        for mut child in self.children() {
+        for mut child in self.children().iter().map(|c| &**c) {
             let outer = styles;
             let mut styles = styles;
             if let Some((elem, map)) = child.to_styled() {

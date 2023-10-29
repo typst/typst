@@ -1,3 +1,4 @@
+use comemo::Prehashed;
 use typst::eval::Datetime;
 
 use crate::layout::{LayoutRoot, PageElem};
@@ -45,7 +46,7 @@ pub struct DocumentElem {
     /// The page runs.
     #[internal]
     #[variadic]
-    pub children: Vec<Content>,
+    pub children: Vec<Prehashed<Content>>,
 }
 
 impl Construct for DocumentElem {
@@ -66,7 +67,7 @@ impl LayoutRoot for DocumentElem {
         let mut page_counter = ManualPageCounter::new();
 
         let children = self.children();
-        let mut iter = children.iter().peekable();
+        let mut iter = children.iter().map(|c| &**c).peekable();
 
         while let Some(mut child) = iter.next() {
             let outer = styles;

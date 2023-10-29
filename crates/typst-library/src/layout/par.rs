@@ -1,3 +1,4 @@
+use comemo::Prehashed;
 use typst::eval::Tracer;
 use typst::model::DelayedErrors;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
@@ -104,7 +105,7 @@ pub struct ParElem {
     /// The paragraph's children.
     #[internal]
     #[variadic]
-    pub children: Vec<Content>,
+    pub children: Vec<Prehashed<Content>>,
 }
 
 impl Construct for ParElem {
@@ -533,7 +534,7 @@ impl<'a> Line<'a> {
 /// string-level preprocessing like case transformations.
 #[allow(clippy::type_complexity)]
 fn collect<'a>(
-    children: &'a [Content],
+    children: &'a [Prehashed<Content>],
     styles: &'a StyleChain<'a>,
     consecutive: bool,
 ) -> SourceResult<(String, Vec<(Segment<'a>, StyleChain<'a>)>, SpanMapper)> {
@@ -541,7 +542,7 @@ fn collect<'a>(
     let mut quoter = Quoter::new();
     let mut segments = Vec::with_capacity(2 + children.len());
     let mut spans = SpanMapper::new();
-    let mut iter = children.iter().peekable();
+    let mut iter = children.iter().map(|c| &**c).peekable();
 
     let first_line_indent = ParElem::first_line_indent_in(*styles);
     if !first_line_indent.is_zero()
@@ -664,7 +665,7 @@ fn collect<'a>(
 /// contained inline-level content.
 fn prepare<'a>(
     vt: &mut Vt,
-    children: &'a [Content],
+    children: &'a [Prehashed<Content>],
     text: &'a str,
     segments: Vec<(Segment<'a>, StyleChain<'a>)>,
     spans: SpanMapper,
@@ -863,7 +864,7 @@ fn is_compatible(a: Script, b: Script) -> bool {
 /// paragraph.
 fn shared_get<T: PartialEq>(
     styles: StyleChain<'_>,
-    children: &[Content],
+    children: &[Prehashed<Content>],
     getter: fn(StyleChain) -> T,
 ) -> Option<T> {
     let value = getter(styles);
