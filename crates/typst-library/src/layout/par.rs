@@ -168,11 +168,10 @@ impl ParElem {
             let p = prepare(&mut vt, children, &text, segments, spans, styles, region)?;
 
             // Break the paragraph into lines.
-            let mut scratch = Scratch::new();
-            linebreak(&vt, &p, &mut scratch, region.x - p.hang);
+            let lines = linebreak(&vt, &p, region.x - p.hang);
 
             // Stack the lines into one frame per region.
-            finalize(&mut vt, &p, &scratch.lines, region, expand)
+            finalize(&mut vt, &p, &lines, region, expand)
         }
 
         let fragment = cached(
@@ -876,7 +875,7 @@ fn shared_get<T: PartialEq>(
 }
 
 /// Find suitable linebreaks.
-fn linebreak<'a>(vt: &Vt, p: &'a Preparation<'a>, scratch: &mut Scratch<'a>, width: Abs) {
+fn linebreak<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
     let linebreaks = p.linebreaks.unwrap_or_else(|| {
         if p.justify {
             Linebreaks::Optimized
@@ -886,36 +885,16 @@ fn linebreak<'a>(vt: &Vt, p: &'a Preparation<'a>, scratch: &mut Scratch<'a>, wid
     });
 
     match linebreaks {
-        Linebreaks::Simple => linebreak_simple(vt, p, scratch, width),
-        Linebreaks::Optimized => linebreak_optimized(vt, p, scratch, width),
-    }
-}
-
-struct Scratch<'a> {
-    lines: Vec<Line<'a>>,
-}
-
-impl<'a> Scratch<'a> {
-    pub fn new() -> Self {
-        Self { lines: Vec::with_capacity(16) }
-    }
-
-    pub fn clear(&mut self) {
-        self.lines.clear();
+        Linebreaks::Simple => linebreak_simple(vt, p, width),
+        Linebreaks::Optimized => linebreak_optimized(vt, p, width),
     }
 }
 
 /// Perform line breaking in simple first-fit style. This means that we build
 /// lines greedily, always taking the longest possible line. This may lead to
 /// very unbalanced line, but is fast and simple.
-fn linebreak_simple<'a>(
-    vt: &Vt,
-    p: &'a Preparation<'a>,
-    scratch: &mut Scratch<'a>,
-    width: Abs,
-) {
-    scratch.clear();
-
+fn linebreak_simple<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
+    let mut lines = Vec::with_capacity(16);
     let mut start = 0;
     let mut last = None;
 
@@ -928,7 +907,7 @@ fn linebreak_simple<'a>(
         // resulting line cannot be broken up further.
         if !width.fits(attempt.width) {
             if let Some((last_attempt, last_end)) = last.take() {
-                scratch.lines.push(last_attempt);
+                lines.push(last_attempt);
                 start = last_end;
                 attempt = line(vt, p, start..end, breakpoint);
             }
@@ -938,7 +917,7 @@ fn linebreak_simple<'a>(
         // due to "\n") or if the line doesn't fit horizontally already
         // since then no shorter line will be possible.
         if breakpoint == Breakpoint::Mandatory || !width.fits(attempt.width) {
-            scratch.lines.push(attempt);
+            lines.push(attempt);
             start = end;
             last = None;
         } else {
@@ -947,8 +926,10 @@ fn linebreak_simple<'a>(
     });
 
     if let Some((line, _)) = last {
-        scratch.lines.push(line);
+        lines.push(line);
     }
+
+    lines
 }
 
 /// Perform line breaking in optimized Knuth-Plass style. Here, we use more
@@ -968,14 +949,7 @@ fn linebreak_simple<'a>(
 /// computed and stored in dynamic programming table) is minimal. The final
 /// result is simply the layout determined for the last breakpoint at the end of
 /// text.
-fn linebreak_optimized<'a>(
-    vt: &Vt,
-    p: &'a Preparation<'a>,
-    scratch: &mut Scratch<'a>,
-    width: Abs,
-) {
-    scratch.clear();
-
+fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
     /// The cost of a line or paragraph layout.
     type Cost = f64;
 
@@ -1002,6 +976,7 @@ fn linebreak_optimized<'a>(
     }];
 
     let em = p.size;
+    let mut lines = Vec::with_capacity(16);
     breakpoints(p, |end, breakpoint| {
         let k = table.len();
         let eof = end == p.bidi.text.len();
@@ -1111,11 +1086,12 @@ fn linebreak_optimized<'a>(
     while idx != 0 {
         table.truncate(idx + 1);
         let entry = table.pop().unwrap();
-        scratch.lines.push(entry.line);
+        lines.push(entry.line);
         idx = entry.pred;
     }
 
-    scratch.lines.reverse();
+    lines.reverse();
+    lines
 }
 
 /// Create a line which spans the given range.
