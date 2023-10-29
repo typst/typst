@@ -68,12 +68,14 @@ pub struct GridElem {
     /// with that many `{auto}`-sized columns. Note that opposed to rows and
     /// gutters, providing a single track size will only ever create a single
     /// column.
+    #[borrowed]
     pub columns: TrackSizings,
 
     /// The row sizes.
     ///
     /// If there are more cells than fit the defined rows, the last row is
     /// repeated until there are no more cells.
+    #[borrowed]
     pub rows: TrackSizings,
 
     /// The gaps between rows & columns.
@@ -87,10 +89,12 @@ pub struct GridElem {
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
     )]
+    #[borrowed]
     pub column_gutter: TrackSizings,
 
     /// The gaps between rows. Takes precedence over `gutter`.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
+    #[borrowed]
     pub row_gutter: TrackSizings,
 
     /// The contents of the grid cells.
@@ -108,10 +112,15 @@ impl Layout for GridElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
+        let columns = self.columns(&styles);
+        let rows = self.rows(&styles);
+        let column_gutter = self.column_gutter(&styles);
+        let row_gutter = self.row_gutter(&styles);
+
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(
-            Axes::new(&self.columns(styles).0, &self.rows(styles).0),
-            Axes::new(&self.column_gutter(styles).0, &self.row_gutter(styles).0),
+            Axes::new(&columns.0, &rows.0),
+            Axes::new(&column_gutter.0, &row_gutter.0),
             &self.children,
             regions,
             styles,

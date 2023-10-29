@@ -55,6 +55,7 @@ pub struct HeadingElem {
     /// == A subsection
     /// === A sub-subsection
     /// ```
+    #[borrowed]
     pub numbering: Option<Numbering>,
 
     /// A supplement for the heading.
@@ -134,7 +135,7 @@ impl Synthesize for HeadingElem {
         };
 
         self.push_level(self.level(styles));
-        self.push_numbering(self.numbering(styles));
+        self.push_numbering(self.numbering(&styles).into_owned());
         self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
         self.push_outlined(self.outlined(styles));
         self.push_bookmarked(self.bookmarked(styles));
@@ -147,9 +148,9 @@ impl Show for HeadingElem {
     #[tracing::instrument(name = "HeadingElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
-        if let Some(numbering) = self.numbering(styles) {
+        if let Some(numbering) = self.numbering(&styles).as_ref() {
             realized = Counter::of(Self::elem())
-                .display(Some(numbering), false)
+                .display(Some(numbering.clone()), false)
                 .spanned(self.span())
                 + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;
@@ -183,7 +184,7 @@ impl Finalize for HeadingElem {
 
 impl Count for HeadingElem {
     fn update(&self) -> Option<CounterUpdate> {
-        self.numbering(StyleChain::default())
+        self.numbering(&StyleChain::default())
             .is_some()
             .then(|| CounterUpdate::Step(self.level(StyleChain::default())))
     }
@@ -208,7 +209,7 @@ impl Refable for HeadingElem {
     }
 
     fn numbering(&self) -> Option<Numbering> {
-        self.numbering(StyleChain::default())
+        self.numbering(&StyleChain::default()).into_owned()
     }
 }
 
@@ -219,10 +220,11 @@ impl Outlinable for HeadingElem {
         }
 
         let mut content = self.body().clone();
-        if let Some(numbering) = self.numbering(StyleChain::default()) {
+        let default = StyleChain::default();
+        if let Some(numbering) = self.numbering(&default).as_ref() {
             let numbers = Counter::of(Self::elem())
                 .at(vt, self.location().unwrap())?
-                .display(vt, &numbering)?;
+                .display(vt, numbering)?;
             content = numbers + SpaceElem::new().pack() + content;
         };
 

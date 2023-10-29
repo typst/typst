@@ -33,7 +33,7 @@ pub trait Element: Any + Send + Sync + Debug + Repr + 'static {
     fn set_location(&mut self, location: Location);
 
     /// Get the element's label.
-    fn label(&self) -> Option<&Label>;
+    fn label(&self) -> Option<Label>;
 
     /// Sets the label of this element.
     fn set_label(&mut self, label: Label);

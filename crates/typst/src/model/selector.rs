@@ -110,7 +110,7 @@ impl Selector {
                         .flat_map(|dict| dict.iter())
                         .all(|(id, value)| target.field(*id).as_ref() == Some(value))
             }
-            Self::Label(label) => target.label() == Some(label),
+            Self::Label(label) => target.label() == Some(*label),
             Self::Regex(regex) => {
                 target.func() == item!(text_elem)
                     && item!(text_str)(target).map_or(false, |text| regex.is_match(text))

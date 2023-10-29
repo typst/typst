@@ -562,7 +562,7 @@ fn layout_delimiters(
 
 /// Parameters specifying how augmentation lines
 /// should be drawn on a matrix.
-#[derive(Debug, Default, Clone, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct Augment<T: Numeric = Length> {
     pub hline: Offsets,
     pub vline: Offsets,
@@ -638,7 +638,7 @@ cast! {
 
 /// The offsets at which augmentation lines
 /// should be drawn on a matrix.
-#[derive(Debug, Default, Clone, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct Offsets(Vec<isize>);
 
 cast! {

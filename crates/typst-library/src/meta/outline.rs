@@ -92,6 +92,7 @@ pub struct OutlineElem {
         HeadingElem::elem(),
         Some(fields! { super::HeadingElemFields::Outlined => true })
     )))]
+    #[borrowed]
     pub target: LocatableSelector,
 
     /// The maximum level up to which elements are included in the outline. When
@@ -161,6 +162,7 @@ pub struct OutlineElem {
     /// #lorem(10)
     /// ```
     #[default(None)]
+    #[borrowed]
     pub indent: Option<Smart<OutlineIndent>>,
 
     /// Content to fill the space between the title and the page number. Can be
@@ -199,11 +201,11 @@ impl Show for OutlineElem {
             seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
         }
 
-        let indent = self.indent(styles);
+        let indent = self.indent(&styles);
         let depth = self.depth(styles).unwrap_or(NonZeroUsize::new(usize::MAX).unwrap());
 
         let mut ancestors: Vec<&Content> = vec![];
-        let elems = vt.introspector.query(&self.target(styles).0);
+        let elems = vt.introspector.query(&self.target(&styles).0);
 
         for elem in &elems {
             let Some(entry) = OutlineEntry::from_outlinable(

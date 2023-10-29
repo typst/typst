@@ -41,6 +41,7 @@ pub struct ImageElem {
         let data = vm.world().file(id).at(span)?;
         path
     )]
+    #[borrowed]
     pub path: EcoString,
 
     /// The raw file data.

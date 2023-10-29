@@ -118,7 +118,7 @@ fn try_apply(
         }
 
         Some(Selector::Label(label)) => {
-            if target.label() != Some(label) {
+            if target.label() != Some(*label) {
                 return Ok(None);
             }
 

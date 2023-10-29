@@ -32,7 +32,7 @@ use crate::{
 /// Currently, labels can only be attached to elements in markup mode, not in
 /// code mode. This might change in the future.
 #[ty(scope)]
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Label(pub PicoStr);
 
 #[scope]

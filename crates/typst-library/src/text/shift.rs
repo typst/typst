@@ -146,7 +146,7 @@ fn search_text(content: &Content, sub: bool) -> Option<EcoString> {
 /// given string.
 fn is_shapable(vt: &Vt, text: &str, styles: StyleChain) -> bool {
     let world = vt.world;
-    for family in TextElem::font_in(styles) {
+    for family in TextElem::font_in(&styles).as_ref() {
         if let Some(font) = world
             .book()
             .select(family.as_str(), variant(styles))

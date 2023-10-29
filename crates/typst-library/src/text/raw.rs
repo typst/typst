@@ -145,6 +145,7 @@ pub struct RawElem {
     ///
     /// This is ```typ also *Typst*```, but inline!
     /// ````
+    #[borrowed]
     pub lang: Option<EcoString>,
 
     /// The horizontal alignment that each line in a raw block should have.
@@ -225,11 +226,13 @@ pub struct RawElem {
         let (theme_path, theme_data) = parse_theme(vm, args)?;
         theme_path.map(Some)
     )]
+    #[borrowed]
     pub theme: Option<EcoString>,
 
     /// The raw file buffer of syntax theme file.
     #[internal]
     #[parse(theme_data.map(Some))]
+    #[borrowed]
     pub theme_data: Option<Bytes>,
 
     /// The size for a tab stop in spaces. A tab is replaced with enough spaces to
@@ -280,7 +283,7 @@ impl RawElem {
 
 impl Synthesize for RawElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
-        self.push_lang(self.lang(styles));
+        self.push_lang(self.lang(&styles).into_owned());
 
         let mut text = self.text().clone();
         if text.contains('\t') {
@@ -289,7 +292,8 @@ impl Synthesize for RawElem {
         }
 
         let lang = self
-            .lang(styles)
+            .lang(&styles)
+            .as_ref()
             .as_ref()
             .map(|s| s.to_lowercase())
             .or(Some("txt".into()));
@@ -298,8 +302,9 @@ impl Synthesize for RawElem {
             load_syntaxes(&self.syntaxes(styles), &self.syntaxes_data(styles)).unwrap()
         });
 
-        let theme = self.theme(styles).map(|theme_path| {
-            load_theme(theme_path, self.theme_data(styles).unwrap()).unwrap()
+        let theme = self.theme(&styles).as_ref().as_ref().map(|theme_path| {
+            load_theme(theme_path, self.theme_data(&styles).as_ref().as_ref().unwrap())
+                .unwrap()
         });
 
         let theme = theme.as_deref().unwrap_or(&THEME);
@@ -620,7 +625,7 @@ fn to_syn(color: Color) -> synt::Color {
 }
 
 /// A list of bibliography file paths.
-#[derive(Debug, Default, Clone, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct SyntaxPaths(Vec<EcoString>);
 
 cast! {
@@ -684,7 +689,7 @@ fn parse_syntaxes(
 }
 
 #[comemo::memoize]
-fn load_theme(path: EcoString, bytes: Bytes) -> StrResult<Arc<synt::Theme>> {
+fn load_theme(path: &EcoString, bytes: &Bytes) -> StrResult<Arc<synt::Theme>> {
     let mut cursor = std::io::Cursor::new(bytes.as_slice());
 
     synt::ThemeSet::load_from_reader(&mut cursor)
@@ -708,7 +713,7 @@ fn parse_theme(
     let data = vm.world().file(id).at(span)?;
 
     // Check that parsing works.
-    let _ = load_theme(path.clone(), data.clone()).at(span)?;
+    let _ = load_theme(&path, &data).at(span)?;
 
     Ok((Some(path), Some(data)))
 }

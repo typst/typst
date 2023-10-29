@@ -38,10 +38,12 @@ use crate::prelude::*;
 pub struct TableElem {
     /// The column sizes. See the [grid documentation]($grid) for more
     /// information on track sizing.
+    #[borrowed]
     pub columns: TrackSizings,
 
     /// The row sizes. See the [grid documentation]($grid) for more information
     /// on track sizing.
+    #[borrowed]
     pub rows: TrackSizings,
 
     /// The gaps between rows & columns. See the [grid documentation]($grid) for
@@ -51,6 +53,7 @@ pub struct TableElem {
 
     /// The gaps between columns. Takes precedence over `gutter`. See the
     /// [grid documentation]($grid) for more information on gutters.
+    #[borrowed]
     #[parse(
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
@@ -60,6 +63,7 @@ pub struct TableElem {
     /// The gaps between rows. Takes precedence over `gutter`. See the
     /// [grid documentation]($grid) for more information on gutters.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
+    #[borrowed]
     pub row_gutter: TrackSizings,
 
     /// How to fill the cells.
@@ -82,6 +86,7 @@ pub struct TableElem {
     ///   [Profit:], [500 €], [1000 €], [1500 €],
     /// )
     /// ```
+    #[borrowed]
     pub fill: Celled<Option<Paint>>,
 
     /// How to align the cells' content.
@@ -99,6 +104,7 @@ pub struct TableElem {
     ///   [A], [B], [C],
     /// )
     /// ```
+    #[borrowed]
     pub align: Celled<Smart<Align>>,
 
     /// How to [stroke]($stroke) the cells.
@@ -150,10 +156,14 @@ impl Layout for TableElem {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         let inset = self.inset(styles);
-        let align = self.align(styles);
+        let align = self.align(&styles);
+        let columns = self.columns(&styles);
+        let rows = self.rows(&styles);
+        let column_gutter = self.column_gutter(&styles);
+        let row_gutter = self.row_gutter(&styles);
 
-        let tracks = Axes::new(self.columns(styles).0, self.rows(styles).0);
-        let gutter = Axes::new(self.column_gutter(styles).0, self.row_gutter(styles).0);
+        let tracks = Axes::new(&columns.0[..], &rows.0[..]);
+        let gutter = Axes::new(&column_gutter.0[..], &row_gutter.0[..]);
         let cols = tracks.x.len().max(1);
         let cells: Vec<_> = self
             .children()
@@ -172,18 +182,12 @@ impl Layout for TableElem {
             })
             .collect::<SourceResult<_>>()?;
 
-        let fill = self.fill(styles);
+        let fill = self.fill(&styles);
         let stroke = self.stroke(styles).map(Stroke::unwrap_or_default);
 
         // Prepare grid layout by unifying content and gutter tracks.
-        let layouter = GridLayouter::new(
-            tracks.as_deref(),
-            gutter.as_deref(),
-            &cells,
-            regions,
-            styles,
-            self.span(),
-        );
+        let layouter =
+            GridLayouter::new(tracks, gutter, &cells, regions, styles, self.span());
 
         // Measure the columns and layout the grid row-by-row.
         let mut layout = layouter.layout(vt)?;

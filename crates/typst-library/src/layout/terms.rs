@@ -55,6 +55,7 @@ pub struct TermsElem {
     /// / Colon: A nice separator symbol.
     /// ```
     #[default(HElem::new(Em::new(0.6).into()).with_weak(true).pack())]
+    #[borrowed]
     pub separator: Content,
 
     /// The indentation of each item.
@@ -107,7 +108,7 @@ impl Layout for TermsElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let separator = self.separator(styles);
+        let separator = self.separator(&styles);
         let indent = self.indent(styles);
         let hanging_indent = self.hanging_indent(styles);
         let gutter = if self.tight(styles) {
@@ -126,7 +127,7 @@ impl Layout for TermsElem {
                 seq.push(HElem::new(indent.into()).pack());
             }
             seq.push(child.term().clone().strong());
-            seq.push(separator.clone());
+            seq.push((*separator).clone());
             seq.push(child.description().clone());
         }
 

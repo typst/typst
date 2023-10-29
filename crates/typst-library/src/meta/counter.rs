@@ -627,7 +627,7 @@ impl Show for DisplayElem {
                     };
 
                     if func == HeadingElem::elem() {
-                        HeadingElem::numbering_in(styles)
+                        HeadingElem::numbering_in(&styles).into_owned()
                     } else if func == FigureElem::elem() {
                         FigureElem::numbering_in(styles)
                     } else if func == EquationElem::elem() {

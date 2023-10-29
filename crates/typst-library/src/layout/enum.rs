@@ -107,6 +107,7 @@ pub struct EnumElem {
     /// + Numbering!
     /// ```
     #[default(Numbering::Pattern(NumberingPattern::from_str("1.").unwrap()))]
+    #[borrowed]
     pub numbering: Numbering,
 
     /// Which number to start the enumeration with.
@@ -208,7 +209,7 @@ impl Layout for EnumElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let numbering = self.numbering(styles);
+        let numbering = self.numbering(&styles);
         let indent = self.indent(styles);
         let body_indent = self.body_indent(styles);
         let gutter = if self.tight(styles) {
@@ -238,7 +239,7 @@ impl Layout for EnumElem {
                 parents.pop();
                 content
             } else {
-                match &numbering {
+                match &*numbering {
                     Numbering::Pattern(pattern) => {
                         TextElem::packed(pattern.apply_kth(parents.len(), number))
                     }
@@ -301,7 +302,7 @@ cast! {
     v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
 }
 
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq)]
 struct Parent(usize);
 
 cast! {

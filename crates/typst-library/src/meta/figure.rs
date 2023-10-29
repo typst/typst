@@ -171,6 +171,7 @@ pub struct FigureElem {
     ///   kind: "foo",
     /// )
     /// ```
+    #[borrowed]
     pub supplement: Smart<Option<Supplement>>,
 
     /// How to number the figure. Accepts a
@@ -218,7 +219,7 @@ impl Synthesize for FigureElem {
         });
 
         // Resolve the supplement.
-        let supplement = match self.supplement(styles) {
+        let supplement = match self.supplement(&styles).as_ref() {
             Smart::Auto => {
                 // Default to the local name for the kind, if available.
                 let name = match &kind {
@@ -340,8 +341,9 @@ impl Count for FigureElem {
 impl Refable for FigureElem {
     fn supplement(&self) -> Content {
         // After synthesis, this should always be custom content.
-        match self.supplement(StyleChain::default()) {
-            Smart::Custom(Some(Supplement::Content(content))) => content,
+        let default = StyleChain::default();
+        match self.supplement(&default).as_ref() {
+            Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
             _ => Content::empty(),
         }
     }
@@ -371,7 +373,7 @@ impl Outlinable for FigureElem {
             Some(counter),
             Some(numbering),
         ) = (
-            self.supplement(StyleChain::default()),
+            self.supplement(&StyleChain::default()).into_owned(),
             self.counter(),
             self.numbering(StyleChain::default()),
         ) {

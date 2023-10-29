@@ -8,9 +8,9 @@ use comemo::Prehashed;
 use ecow::{eco_vec, EcoString, EcoVec};
 use smallvec::SmallVec;
 
-use super::{Content, ElementData, NativeElement, Selector, Vt};
+use super::{Block, Blockable, Content, ElementData, NativeElement, Selector, Vt};
 use crate::diag::{SourceResult, Trace, Tracepoint};
-use crate::eval::{cast, ty, Args, FromValue, Func, IntoValue, Repr, Value, Vm};
+use crate::eval::{cast, ty, Args, Func, Repr, Value, Vm};
 use crate::syntax::Span;
 
 /// A list of style properties.
@@ -95,7 +95,7 @@ impl Repr for Styles {
 }
 
 /// A single style property or recipe.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Clone, Hash)]
 pub enum Style {
     /// A style property originating from a set rule or constructor.
     Property(Property),
@@ -143,25 +143,25 @@ impl From<Recipe> for Style {
 }
 
 /// A style property originating from a set rule or constructor.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Clone, Hash)]
 pub struct Property {
     /// The element the property belongs to.
     elem: ElementData,
     /// The property's ID.
     id: u8,
     /// The property's value.
-    value: Value,
+    value: Block,
     /// The span of the set rule the property stems from.
     span: Option<Span>,
 }
 
 impl Property {
     /// Create a new property from a key-value pair.
-    pub fn new(elem: ElementData, id: impl Into<u8>, value: impl IntoValue) -> Self {
+    pub fn new<T: Blockable>(elem: ElementData, id: impl Into<u8>, value: T) -> Self {
         Self {
             elem,
             id: id.into(),
-            value: value.into_value(),
+            value: Block::new(value),
             span: None,
         }
     }
@@ -319,21 +319,32 @@ impl<'a> StyleChain<'a> {
         }
     }
 
+    pub fn get_borrowed<'b, T: Blockable>(
+        &'b self,
+        func: ElementData,
+        id: impl Into<u8>,
+        inherent: Option<&'b T>,
+        default: impl Fn() -> T,
+    ) -> Cow<'b, T> {
+        self.properties::<T>(func, id, inherent)
+            .next()
+            .map(Cow::Borrowed)
+            .unwrap_or_else(|| Cow::Owned(default()))
+    }
+
     /// Cast the first value for the given property in the chain.
-    pub fn get<T: FromValue + Clone>(
+    pub fn get<T: Blockable>(
         self,
         func: ElementData,
         id: impl Into<u8>,
         inherent: Option<&T>,
         default: impl Fn() -> T,
     ) -> T {
-        self.properties::<T>(func, id, inherent)
-            .next()
-            .unwrap_or_else(default)
+        self.get_borrowed(func, id, inherent, default).into_owned()
     }
 
     /// Cast the first value for the given property in the chain.
-    pub fn get_resolve<T: FromValue + Clone + Resolve>(
+    pub fn get_resolve<T: Blockable + Clone + Resolve>(
         self,
         func: ElementData,
         id: impl Into<u8>,
@@ -344,7 +355,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
-    pub fn get_fold<T: FromValue + Clone + Fold>(
+    pub fn get_fold<T: Blockable + Clone + Fold>(
         self,
         func: ElementData,
         id: impl Into<u8>,
@@ -361,7 +372,7 @@ impl<'a> StyleChain<'a> {
                 .map(|value| value.fold(next(values, _styles, default)))
                 .unwrap_or_else(default)
         }
-        next(self.properties::<T>(func, id, inherent), self, &default)
+        next(self.properties::<T>(func, id, inherent).cloned(), self, &default)
     }
 
     /// Cast the first value for the given property in the chain.
@@ -373,7 +384,7 @@ impl<'a> StyleChain<'a> {
         default: impl Fn() -> <T::Output as Fold>::Output,
     ) -> <T::Output as Fold>::Output
     where
-        T: FromValue + Clone + Resolve,
+        T: Blockable + Clone + Resolve,
         T::Output: Fold,
     {
         fn next<T>(
@@ -382,7 +393,7 @@ impl<'a> StyleChain<'a> {
             default: &impl Fn() -> <T::Output as Fold>::Output,
         ) -> <T::Output as Fold>::Output
         where
-            T: Resolve,
+            T: Blockable + Resolve,
             T::Output: Fold,
         {
             values
@@ -390,7 +401,7 @@ impl<'a> StyleChain<'a> {
                 .map(|value| value.resolve(styles).fold(next(values, styles, default)))
                 .unwrap_or_else(default)
         }
-        next(self.properties::<T>(func, id, inherent), self, &default)
+        next(self.properties::<T>(func, id, inherent).cloned(), self, &default)
     }
 
     /// Iterate over all style recipes in the chain.
@@ -399,25 +410,25 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Iterate over all values for the given property in the chain.
-    pub fn properties<'b, T: FromValue + Clone + 'b>(
+    pub fn properties<'b, T: Blockable>(
         &'b self,
         func: ElementData,
         id: impl Into<u8>,
         inherent: Option<&'b T>,
-    ) -> impl Iterator<Item = T> + 'b {
+    ) -> impl Iterator<Item = &'b T> + 'b {
         let id = id.into();
-        inherent.cloned().into_iter().chain(
+        inherent.into_iter().chain(
             self.entries()
                 .filter_map(Style::property)
                 .filter(move |property| property.is(func, id))
-                .map(|property| property.value.clone())
+                .map(|property| &property.value)
                 .map(move |value| {
-                    value.cast().unwrap_or_else(|err| {
+                    value.downcast().unwrap_or_else(|| {
                         panic!(
-                            "{} (for {}.{})",
-                            err,
+                            "for {}.{}: {:?}",
                             func.name(),
-                            func.field_name(id).unwrap()
+                            func.field_name(id).unwrap(),
+                            value
                         )
                     })
                 }),

@@ -77,6 +77,7 @@ pub struct FootnoteElem {
     /// #footnote[Star],
     /// #footnote[Dagger]
     /// ```
+    #[borrowed]
     #[default(Numbering::Pattern(NumberingPattern::from_str("1").unwrap()))]
     pub numbering: Numbering,
 
@@ -134,7 +135,7 @@ impl FootnoteElem {
 
 impl Synthesize for FootnoteElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
-        self.push_numbering(self.numbering(styles));
+        self.push_numbering(self.numbering(&styles).into_owned());
         Ok(())
     }
 }
@@ -144,7 +145,7 @@ impl Show for FootnoteElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(vt.delayed(|vt| {
             let loc = self.declaration_location(vt).at(self.span())?;
-            let numbering = self.numbering(styles);
+            let numbering = self.numbering(&styles);
             let counter = Counter::of(Self::elem());
             let num = counter.at(vt, loc)?.display(vt, &numbering)?;
             let sup = SuperElem::new(num).pack();
@@ -267,7 +268,8 @@ impl Show for FootnoteEntry {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let note = self.note();
         let number_gap = Em::new(0.05);
-        let numbering = note.numbering(StyleChain::default());
+        let default = StyleChain::default();
+        let numbering = note.numbering(&default);
         let counter = Counter::of(FootnoteElem::elem());
         let loc = note.location().unwrap();
         let num = counter.at(vt, loc)?.display(vt, &numbering)?;

@@ -871,6 +871,7 @@ pub fn variant(styles: StyleChain) -> FontVariant {
 }
 
 /// Resolve a prioritized iterator over the font families.
+#[allow(clippy::unnecessary_to_owned)]
 pub fn families(styles: StyleChain) -> impl Iterator<Item = FontFamily> + Clone {
     const FALLBACKS: &[&str] = &[
         "linux libertine",
@@ -881,7 +882,8 @@ pub fn families(styles: StyleChain) -> impl Iterator<Item = FontFamily> + Clone 
     ];
 
     let tail = if TextElem::fallback_in(styles) { FALLBACKS } else { &[] };
-    TextElem::font_in(styles)
+    TextElem::font_in(&styles)
+        .into_owned()
         .into_iter()
         .chain(tail.iter().copied().map(FontFamily::new))
 }

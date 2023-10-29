@@ -82,6 +82,7 @@ pub struct TextElem {
     ///
     /// ```
     #[default(FontList(vec![FontFamily::new("Linux Libertine")]))]
+    #[borrowed]
     pub font: FontList,
 
     /// Whether to allow last resort font fallback when the primary font list
@@ -643,6 +644,15 @@ impl IntoIterator for FontList {
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a FontList {
+    type IntoIter = std::slice::Iter<'a, FontFamily>;
+    type Item = &'a FontFamily;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
     }
 }
 

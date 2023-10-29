@@ -81,7 +81,7 @@ impl Content {
     }
 
     #[inline]
-    pub fn label(&self) -> Option<&Label> {
+    pub fn label(&self) -> Option<Label> {
         self.0.label()
     }
 

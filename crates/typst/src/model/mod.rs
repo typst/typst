@@ -1,5 +1,6 @@
 //! The document model.
 
+mod block;
 mod content;
 mod element;
 mod introspect;
@@ -12,6 +13,7 @@ use ecow::EcoVec;
 #[doc(inline)]
 pub use typst_macros::elem;
 
+pub use self::block::{Block, Blockable};
 pub use self::content::{swap_with_mut, Content, MetaElem, PlainText};
 pub use self::element::{
     Construct, Element, ElementData, NativeElement, NativeElementData, Set,

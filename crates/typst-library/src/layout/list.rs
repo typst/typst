@@ -77,6 +77,7 @@ pub struct ListElem {
     ///   - Items
     /// - Items
     /// ```
+    #[borrowed]
     #[default(ListMarker::Content(vec![TextElem::packed('•')]))]
     pub marker: ListMarker,
 
@@ -138,7 +139,7 @@ impl Layout for ListElem {
 
         let depth = self.depth(styles);
         let marker = self
-            .marker(styles)
+            .marker(&styles)
             .resolve(vt, depth)?
             // avoid '#set align' interference with the list
             .aligned(HAlign::Start + VAlign::Top);

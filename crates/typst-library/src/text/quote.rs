@@ -101,6 +101,7 @@ pub struct QuoteElem {
     ///
     /// #bibliography("works.bib")
     /// ```
+    #[borrowed]
     attribution: Option<Attribution>,
 
     /// The quote.
@@ -146,12 +147,12 @@ impl Show for QuoteElem {
         if block {
             realized = BlockElem::new().with_body(Some(realized)).pack();
 
-            if let Some(attribution) = self.attribution(styles) {
+            if let Some(attribution) = self.attribution(&styles).as_ref() {
                 let mut seq = vec![TextElem::packed('—'), SpaceElem::new().pack()];
 
                 match attribution {
                     Attribution::Content(content) => {
-                        seq.push(content);
+                        seq.push(content.clone());
                     }
                     Attribution::Label(label) => {
                         let citation = vt.delayed(|vt| {
@@ -188,7 +189,8 @@ impl Show for QuoteElem {
             }
 
             realized = PadElem::new(realized).pack();
-        } else if let Some(Attribution::Label(label)) = self.attribution(styles) {
+        } else if let Some(Attribution::Label(label)) = self.attribution(&styles).as_ref()
+        {
             realized += SpaceElem::new().pack()
                 + CiteElem::new(smallvec![label.0.resolve().into()]).pack();
         }

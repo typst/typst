@@ -173,6 +173,7 @@ pub struct PageElem {
     /// #set text(fill: rgb("fdfdfd"))
     /// *Dark mode enabled.*
     /// ```
+    #[borrowed]
     pub fill: Option<Paint>,
 
     /// How to [number]($numbering) the pages.
@@ -189,6 +190,7 @@ pub struct PageElem {
     ///
     /// #lorem(48)
     /// ```
+    #[borrowed]
     pub numbering: Option<Numbering>,
 
     /// The alignment of the page numbering.
@@ -234,6 +236,7 @@ pub struct PageElem {
     ///
     /// #lorem(19)
     /// ```
+    #[borrowed]
     pub header: Option<Content>,
 
     /// The amount the header is raised into the top margin.
@@ -264,6 +267,7 @@ pub struct PageElem {
     ///
     /// #lorem(48)
     /// ```
+    #[borrowed]
     pub footer: Option<Content>,
 
     /// The amount the footer is lowered into the bottom margin.
@@ -287,6 +291,7 @@ pub struct PageElem {
     /// In the year 2023, we plan to take
     /// over the world (of typesetting).
     /// ```
+    #[borrowed]
     pub background: Option<Content>,
 
     /// Content in the page's foreground.
@@ -300,6 +305,7 @@ pub struct PageElem {
     /// "Weak Reject" because they did
     /// not understand our approach...
     /// ```
+    #[borrowed]
     pub foreground: Option<Content>,
 
     /// The contents of the page(s).
@@ -388,40 +394,41 @@ impl PageElem {
             frames.push(Frame::hard(size));
         }
 
-        let fill = self.fill(styles);
-        let foreground = self.foreground(styles);
-        let background = self.background(styles);
+        let fill = self.fill(&styles);
+        let foreground = self.foreground(&styles);
+        let background = self.background(&styles);
         let header_ascent = self.header_ascent(styles);
         let footer_descent = self.footer_descent(styles);
-        let numbering = self.numbering(styles);
+        let numbering = self.numbering(&styles);
         let numbering_meta = Meta::PageNumbering(numbering.clone().into_value());
         let number_align = self.number_align(styles);
-        let mut header = self.header(styles);
-        let mut footer = self.footer(styles);
+        let mut header = self.header(&styles);
+        let mut footer = self.footer(&styles);
 
         // Construct the numbering (for header or footer).
-        let numbering_marginal = numbering.clone().map(|numbering| {
-            let both = match &numbering {
-                Numbering::Pattern(pattern) => pattern.pieces() >= 2,
-                Numbering::Func(_) => true,
-            };
+        let numbering_marginal =
+            Cow::Owned(numbering.as_ref().as_ref().map(|numbering| {
+                let both = match numbering {
+                    Numbering::Pattern(pattern) => pattern.pieces() >= 2,
+                    Numbering::Func(_) => true,
+                };
 
-            let mut counter =
-                Counter::new(CounterKey::Page).display(Some(numbering), both);
+                let mut counter =
+                    Counter::new(CounterKey::Page).display(Some(numbering.clone()), both);
 
-            // We interpret the Y alignment as selecting header or footer
-            // and then ignore it for aligning the actual number.
-            if let Some(x) = number_align.x() {
-                counter = counter.aligned(x.into());
-            }
+                // We interpret the Y alignment as selecting header or footer
+                // and then ignore it for aligning the actual number.
+                if let Some(x) = number_align.x() {
+                    counter = counter.aligned(x.into());
+                }
 
-            counter
-        });
+                counter
+            }));
 
         if matches!(number_align.y(), Some(VAlign::Top)) {
-            header = header.or(numbering_marginal);
+            header = if header.is_some() { header } else { numbering_marginal };
         } else {
-            footer = footer.or(numbering_marginal);
+            footer = if footer.is_some() { footer } else { numbering_marginal };
         }
 
         // Post-process pages.
@@ -456,7 +463,7 @@ impl PageElem {
             ] {
                 tracing::info!("Layouting {name}");
 
-                let Some(content) = marginal else { continue };
+                let Some(content) = &**marginal else { continue };
 
                 let (pos, area, align);
                 if ptr::eq(marginal, &header) {
@@ -489,14 +496,14 @@ impl PageElem {
                 }
             }
 
-            if let Some(fill) = &fill {
+            if let Some(fill) = &*fill {
                 frame.fill(fill.clone());
             }
 
             page_counter.visit(vt, frame)?;
 
             // Add a PDF page label if there is a numbering.
-            if let Some(num) = &numbering {
+            if let Some(num) = &*numbering {
                 if let Some(page_label) = num.apply_pdf(page_counter.logical()) {
                     frame.push_positionless_meta(Meta::PdfPageLabel(page_label));
                 }

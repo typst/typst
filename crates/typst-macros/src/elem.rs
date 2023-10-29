@@ -124,6 +124,7 @@ struct Field {
     external: bool,
     synthesized: bool,
     not_hash: bool,
+    borrowed: bool,
     forced_variant: Option<usize>,
     parse: Option<BlockWithReturn>,
     default: syn::Expr,
@@ -175,13 +176,35 @@ fn create(element: &Elem) -> TokenStream {
     let repr_impl = element.without_capability("Repr", || create_repr_impl(element));
     let debug_impl = element.without_capability("Debug", || create_debug_impl(element));
 
+    let label_and_location = element.without_capability("Unlabellable", || {
+        quote! {
+            location: Option<::typst::model::Location>,
+            label: Option<::typst::model::Label>,
+        }
+    });
+
+    let located = element
+        .without_capability("Unlabellable", || {
+            quote! {
+                self.location = Some(location);
+            }
+        })
+        .unwrap_or_else(|| quote! { drop(location); });
+
+    let labelled = element
+        .without_capability("Unlabellable", || {
+            quote! {
+                self.label = Some(label);
+            }
+        })
+        .unwrap_or_else(|| quote! { drop(label); });
+
     quote! {
         #[doc = #docs]
         #[derive(Clone)]
         #vis struct #ident {
             span: ::typst::syntax::Span,
-            location: Option<::typst::model::Location>,
-            label: Option<::typst::model::Label>,
+            #label_and_location
             prepared: bool,
             guards: ::std::vec::Vec<::typst::model::Guard>,
 
@@ -206,13 +229,13 @@ fn create(element: &Elem) -> TokenStream {
 
             /// Set the element's location.
             pub fn located(mut self, location: ::typst::model::Location) -> Self {
-                self.location = Some(location);
+                #located
                 self
             }
 
             /// Set the element's label.
             pub fn labelled(mut self, label: ::typst::model::Label) -> Self {
-                self.label = Some(label);
+                #labelled
                 self
             }
         }
@@ -261,13 +284,19 @@ fn create_debug_impl(element: &Elem) -> TokenStream {
 
     let all = element.all_fields().map(|field| &field.ident).collect::<Vec<_>>();
 
+    let label_and_location = element.without_capability("Unlabellable", || {
+        quote! {
+            .field("location", &self.location)
+            .field("label", &self.label)
+        }
+    });
+
     quote! {
         impl ::std::fmt::Debug for #ident {
             fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                 f.debug_struct(#name)
                     .field("span", &self.span)
-                    .field("location", &self.location)
-                    .field("label", &self.label)
+                    #label_and_location
                     #(
                         .field(stringify!(#all), &self.#all)
                     )*
@@ -652,6 +681,46 @@ fn create_element_impl(element: &Elem) -> TokenStream {
             }
         });
 
+    let location = element
+        .without_capability("Unlabellable", || {
+            quote! {
+                self.location
+            }
+        })
+        .unwrap_or_else(|| quote! { None });
+
+    let set_location = element
+        .without_capability("Unlabellable", || {
+            quote! {
+                self.location = Some(location);
+            }
+        })
+        .unwrap_or_else(|| quote! { drop(location) });
+
+    let label = element
+        .without_capability("Unlabellable", || {
+            quote! {
+                self.label
+            }
+        })
+        .unwrap_or_else(|| quote! { None });
+
+    let set_label = element
+        .without_capability("Unlabellable", || {
+            quote! {
+                self.label = Some(label);
+            }
+        })
+        .unwrap_or_else(|| quote! { drop(label) });
+
+    let label_field = element
+        .without_capability("Unlabellable", || {
+            quote! {
+                self.label().map(::typst::eval::Value::Label)
+            }
+        })
+        .unwrap_or_else(|| quote! { None });
+
     let unknown_field = format!("unknown field {{}} on {}", name);
     let label_error = format!("cannot set label on {}", name);
     quote! {
@@ -671,19 +740,19 @@ fn create_element_impl(element: &Elem) -> TokenStream {
             }
 
             fn location(&self) -> Option<#model::Location> {
-                self.location
+                #location
             }
 
             fn set_location(&mut self, location: #model::Location) {
-                self.location = Some(location);
+                #set_location
             }
 
-            fn label(&self) -> Option<&#model::Label> {
-                self.label.as_ref()
+            fn label(&self) -> Option<#model::Label> {
+                #label
             }
 
             fn set_label(&mut self, label: #model::Label) {
-                self.label = Some(label);
+                #set_label
             }
 
             fn push_guard(&mut self, guard: #model::Guard) {
@@ -729,7 +798,7 @@ fn create_element_impl(element: &Elem) -> TokenStream {
             fn field(&self, id: u8) -> Option<::typst::eval::Value> {
                 let id = <#enum_ident as ::std::convert::TryFrom<u8>>::try_from(id).ok()?;
                 match id {
-                    #enum_ident::Label => self.label().cloned().map(::typst::eval::Value::Label),
+                    #enum_ident::Label => #label_field,
                     #(
                         #field_matches
                     )*
@@ -825,10 +894,20 @@ fn create_field_in_method(element: &Elem, field: &Field) -> TokenStream {
     let Field { vis, ident_in, name, output, .. } = field;
     let doc = format!("Access the `{}` field in the given style chain.", name);
     let access = create_style_chain_access(element, field, quote! { None });
-    quote! {
-        #[doc = #doc]
-        #vis fn #ident_in(styles: ::typst::model::StyleChain) -> #output {
-            #access
+
+    if field.borrowed {
+        quote! {
+            #[doc = #doc]
+            #vis fn #ident_in<'a: 'b, 'b>(styles: &'b ::typst::model::StyleChain<'a>) -> ::std::borrow::Cow<'b, #output> {
+                #access
+            }
+        }
+    } else {
+        quote! {
+            #[doc = #doc]
+            #vis fn #ident_in(styles: ::typst::model::StyleChain) -> #output {
+                #access
+            }
         }
     }
 }
@@ -852,6 +931,16 @@ fn create_field_method(element: &Elem, field: &Field) -> TokenStream {
                 self.#ident.as_ref().unwrap()
             }
         }
+    } else if field.borrowed {
+        let access =
+            create_style_chain_access(element, field, quote! { self.#ident.as_ref() });
+
+        quote! {
+            #[doc = #docs]
+            #vis fn #ident<'a: 'b, 'b>(&'b self, styles: &'b ::typst::model::StyleChain<'a>) -> ::std::borrow::Cow<'b, #output> {
+                #access
+            }
+        }
     } else {
         let access =
             create_style_chain_access(element, field, quote! { self.#ident.as_ref() });
@@ -873,11 +962,12 @@ fn create_style_chain_access(
 ) -> TokenStream {
     let enum_ = &element.enum_ident;
     let Field { ty, default, enum_ident, .. } = field;
-    let getter = match (field.fold, field.resolve) {
-        (false, false) => quote! { get },
-        (false, true) => quote! { get_resolve },
-        (true, false) => quote! { get_fold },
-        (true, true) => quote! { get_resolve_fold },
+    let getter = match (field.fold, field.resolve, field.borrowed) {
+        (false, false, false) => quote! { get },
+        (false, false, true) => quote! { get_borrowed },
+        (false, true, _) => quote! { get_resolve },
+        (true, false, _) => quote! { get_fold },
+        (true, true, _) => quote! { get_resolve_fold },
     };
 
     quote! {
@@ -928,16 +1018,22 @@ fn create_hash_impl(element: &Elem) -> TokenStream {
         .map(|(i, _)| i)
         .collect::<Vec<_>>();
 
+    let label_and_location = element.without_capability("Unlabellable", || {
+        quote! {
+            if let Some(location) = &self.location {
+                location.hash(hasher);
+            }
+
+            if let Some(label) = &self.label {
+                label.hash(hasher);
+            }
+        }
+    });
+
     quote! {
         impl ::std::hash::Hash for #ident {
             fn hash<H: ::std::hash::Hasher>(&self, hasher: &mut H) {
-                if let Some(location) = &self.location {
-                    location.hash(hasher);
-                }
-
-                if let Some(label) = &self.label {
-                    label.hash(hasher);
-                }
+                #label_and_location
 
                 if !self.span.is_detached() {
                     self.span.hash(hasher);
@@ -985,13 +1081,19 @@ fn create_default_impl(element: &Elem) -> TokenStream {
             quote! { #ident: None }
         });
 
+    let label_and_location = element.without_capability("Unlabellable", || {
+        quote! {
+            location: None,
+            label: None,
+        }
+    });
+
     quote! {
         impl ::std::default::Default for #ident {
             fn default() -> Self {
                 Self {
                     span: ::typst::syntax::Span::detached(),
-                    location: None,
-                    label: None,
+                    #label_and_location
                     prepared: false,
                     guards: ::std::vec::Vec::with_capacity(0),
                     #(#relevant,)*
@@ -1118,13 +1220,19 @@ fn create_new_func(element: &Elem) -> TokenStream {
             quote! { #ident: None }
         });
 
+    let label_and_location = element.without_capability("Unlabellable", || {
+        quote! {
+            location: None,
+            label: None,
+        }
+    });
+
     quote! {
         /// Create a new element.
         pub fn new(#(#params),*) -> Self {
             Self {
                 span: ::typst::syntax::Span::detached(),
-                location: None,
-                label: None,
+                #label_and_location
                 prepared: false,
                 guards: ::std::vec::Vec::with_capacity(0),
                 #(#required,)*
@@ -1214,6 +1322,7 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
         positional,
         required,
         variadic,
+        borrowed: has_attr(&mut attrs, "borrowed"),
         not_hash: has_attr(&mut attrs, "not_hash"),
         synthesized: has_attr(&mut attrs, "synthesized"),
         fold: has_attr(&mut attrs, "fold"),

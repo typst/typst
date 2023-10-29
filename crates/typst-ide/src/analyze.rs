@@ -85,7 +85,7 @@ pub fn analyze_labels(
 
     // Labels in the document.
     for elem in introspector.all() {
-        let Some(label) = elem.label().cloned() else { continue };
+        let Some(label) = elem.label() else { continue };
         let details = elem
             .get_by_name("caption")
             .ok()

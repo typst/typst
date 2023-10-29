@@ -115,6 +115,7 @@ pub struct RefElem {
     /// in @intro[Part], it is done
     /// manually.
     /// ```
+    #[borrowed]
     pub supplement: Smart<Option<Supplement>>,
 
     /// A synthesized citation.
@@ -163,7 +164,7 @@ impl Show for RefElem {
             let elem = elem.at(span)?;
 
             if elem.func() == FootnoteElem::elem() {
-                return Ok(FootnoteElem::with_label(target.clone()).spanned(span).pack());
+                return Ok(FootnoteElem::with_label(*target).spanned(span).pack());
             }
 
             let refable = elem
@@ -204,7 +205,7 @@ impl Show for RefElem {
                 .at(vt, elem.location().unwrap())?
                 .display(vt, &numbering.trimmed())?;
 
-            let supplement = match self.supplement(styles) {
+            let supplement = match self.supplement(&styles).as_ref() {
                 Smart::Auto => refable.supplement(),
                 Smart::Custom(None) => Content::empty(),
                 Smart::Custom(Some(supplement)) => {
@@ -228,7 +229,7 @@ impl RefElem {
         let mut elem = CiteElem::new(smallvec![self.target().0.resolve().into()]);
         elem.set_location(self.location().unwrap());
         elem.synthesize(vt, styles)?;
-        elem.push_supplement(match self.supplement(styles) {
+        elem.push_supplement(match self.supplement(&styles).into_owned() {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),
             _ => None,
         });
