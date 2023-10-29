@@ -6,10 +6,6 @@ use typst_macros::cast;
 /// The global string interner.
 static INTERNER: Lazy<ThreadedRodeo> = Lazy::new(ThreadedRodeo::new);
 
-pub static CHILD: Lazy<PicoStr> = Lazy::new(|| PicoStr::static_("child"));
-pub static CHILDREN: Lazy<PicoStr> = Lazy::new(|| PicoStr::static_("children"));
-pub static LABEL: Lazy<PicoStr> = Lazy::new(|| PicoStr::static_("label"));
-
 /// An interned string.
 ///
 /// The API is purposefully kept small. This is because it might be relatively

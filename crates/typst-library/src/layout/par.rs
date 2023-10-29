@@ -175,10 +175,11 @@ impl ParElem {
             let p = prepare(&mut vt, children, &text, segments, spans, styles, region)?;
 
             // Break the paragraph into lines.
-            let lines = linebreak(&vt, &p, region.x - p.hang);
+            let mut scratch = Scratch::new();
+            linebreak(&vt, &p, &mut scratch, region.x - p.hang);
 
             // Stack the lines into one frame per region.
-            finalize(&mut vt, &p, &lines, region, expand)
+            finalize(&mut vt, &p, &scratch.lines, region, expand)
         }
 
         let fragment = cached(
@@ -255,8 +256,6 @@ struct Preparation<'a> {
     items: Vec<Item<'a>>,
     /// The span mapper.
     spans: SpanMapper,
-    /// The styles shared by all children.
-    styles: StyleChain<'a>,
     /// Whether to hyphenate if it's the same for all children.
     hyphenate: Option<bool>,
     /// The text language if it's the same for all children.
@@ -267,6 +266,16 @@ struct Preparation<'a> {
     justify: bool,
     /// The paragraph's hanging indent.
     hang: Abs,
+    /// Whether to add spacing between CJK and Latin characters.
+    cjk_latin_spacing: bool,
+    /// Whether this is a fallback paragraph.
+    fallback: bool,
+    /// The leading of the paragraph.
+    leading: Abs,
+    /// How to determine line breaks.
+    linebreaks: Smart<Linebreaks>,
+    /// The text size.
+    size: Abs,
 }
 
 impl<'a> Preparation<'a> {
@@ -538,7 +547,7 @@ fn collect<'a>(
 ) -> SourceResult<(String, Vec<(Segment<'a>, StyleChain<'a>)>, SpanMapper)> {
     let mut full = String::new();
     let mut quoter = Quoter::new();
-    let mut segments = vec![];
+    let mut segments = Vec::with_capacity(2 + children.len());
     let mut spans = SpanMapper::new();
     let mut iter = children.iter().peekable();
 
@@ -681,7 +690,7 @@ fn prepare<'a>(
     );
 
     let mut cursor = 0;
-    let mut items = vec![];
+    let mut items = Vec::with_capacity(segments.len());
 
     // Shape / layout the children and collect them into items.
     for (segment, styles) in segments {
@@ -725,7 +734,8 @@ fn prepare<'a>(
         cursor = end;
     }
 
-    if TextElem::cjk_latin_spacing_in(styles).is_auto() {
+    let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(styles).is_auto();
+    if cjk_latin_spacing {
         add_cjk_latin_spacing(&mut items);
     }
 
@@ -733,12 +743,16 @@ fn prepare<'a>(
         bidi,
         items,
         spans,
-        styles,
         hyphenate: shared_get(styles, children, TextElem::hyphenate_in),
         lang: shared_get(styles, children, TextElem::lang_in),
         align: AlignElem::alignment_in(styles).resolve(styles).x,
         justify: ParElem::justify_in(styles),
         hang: ParElem::hanging_indent_in(styles),
+        cjk_latin_spacing,
+        fallback: TextElem::fallback_in(styles),
+        leading: ParElem::leading_in(styles),
+        linebreaks: ParElem::linebreaks_in(styles),
+        size: TextElem::size_in(styles),
     })
 }
 
@@ -869,9 +883,9 @@ fn shared_get<T: PartialEq>(
 }
 
 /// Find suitable linebreaks.
-fn linebreak<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
-    let linebreaks = ParElem::linebreaks_in(p.styles).unwrap_or_else(|| {
-        if ParElem::justify_in(p.styles) {
+fn linebreak<'a>(vt: &Vt, p: &'a Preparation<'a>, scratch: &mut Scratch<'a>, width: Abs) {
+    let linebreaks = p.linebreaks.unwrap_or_else(|| {
+        if p.justify {
             Linebreaks::Optimized
         } else {
             Linebreaks::Simple
@@ -879,32 +893,51 @@ fn linebreak<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
     });
 
     match linebreaks {
-        Linebreaks::Simple => linebreak_simple(vt, p, width),
-        Linebreaks::Optimized => linebreak_optimized(vt, p, width),
+        Linebreaks::Simple => linebreak_simple(vt, p, scratch, width),
+        Linebreaks::Optimized => linebreak_optimized(vt, p, scratch, width),
+    }
+}
+
+struct Scratch<'a> {
+    lines: Vec<Line<'a>>,
+}
+
+impl<'a> Scratch<'a> {
+    pub fn new() -> Self {
+        Self { lines: Vec::with_capacity(16) }
+    }
+
+    pub fn clear(&mut self) {
+        self.lines.clear();
     }
 }
 
 /// Perform line breaking in simple first-fit style. This means that we build
 /// lines greedily, always taking the longest possible line. This may lead to
 /// very unbalanced line, but is fast and simple.
-fn linebreak_simple<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
-    let mut lines = vec![];
+fn linebreak_simple<'a>(
+    vt: &Vt,
+    p: &'a Preparation<'a>,
+    scratch: &mut Scratch<'a>,
+    width: Abs,
+) {
+    scratch.clear();
+
     let mut start = 0;
     let mut last = None;
-    let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(p.styles).is_auto();
 
     for (end, mandatory, hyphen) in breakpoints(p) {
         // Compute the line and its size.
-        let mut attempt = line(vt, p, start..end, mandatory, hyphen, cjk_latin_spacing);
+        let mut attempt = line(vt, p, start..end, mandatory, hyphen, p.cjk_latin_spacing);
 
         // If the line doesn't fit anymore, we push the last fitting attempt
         // into the stack and rebuild the line from the attempt's end. The
         // resulting line cannot be broken up further.
         if !width.fits(attempt.width) {
             if let Some((last_attempt, last_end)) = last.take() {
-                lines.push(last_attempt);
+                scratch.lines.push(last_attempt);
                 start = last_end;
-                attempt = line(vt, p, start..end, mandatory, hyphen, cjk_latin_spacing);
+                attempt = line(vt, p, start..end, mandatory, hyphen, p.cjk_latin_spacing);
             }
         }
 
@@ -912,7 +945,7 @@ fn linebreak_simple<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line
         // due to "\n") or if the line doesn't fit horizontally already
         // since then no shorter line will be possible.
         if mandatory || !width.fits(attempt.width) {
-            lines.push(attempt);
+            scratch.lines.push(attempt);
             start = end;
             last = None;
         } else {
@@ -921,10 +954,8 @@ fn linebreak_simple<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line
     }
 
     if let Some((line, _)) = last {
-        lines.push(line);
+        scratch.lines.push(line);
     }
-
-    lines
 }
 
 /// Perform line breaking in optimized Knuth-Plass style. Here, we use more
@@ -944,7 +975,14 @@ fn linebreak_simple<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line
 /// computed and stored in dynamic programming table) is minimal. The final
 /// result is simply the layout determined for the last breakpoint at the end of
 /// text.
-fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
+fn linebreak_optimized<'a>(
+    vt: &Vt,
+    p: &'a Preparation<'a>,
+    scratch: &mut Scratch<'a>,
+    width: Abs,
+) {
+    scratch.clear();
+
     /// The cost of a line or paragraph layout.
     type Cost = f64;
 
@@ -970,9 +1008,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
         line: line(vt, p, 0..0, false, false, false),
     }];
 
-    let em = TextElem::size_in(p.styles);
-    let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(p.styles).is_auto();
-
+    let em = p.size;
     for (end, mandatory, hyphen) in breakpoints(p) {
         let k = table.len();
         let eof = end == p.bidi.text.len();
@@ -983,7 +1019,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
             // Layout the line.
             let start = pred.line.end;
 
-            let attempt = line(vt, p, start..end, mandatory, hyphen, cjk_latin_spacing);
+            let attempt = line(vt, p, start..end, mandatory, hyphen, p.cjk_latin_spacing);
 
             // Determine how much the line's spaces would need to be stretched
             // to make it the desired width.
@@ -1070,17 +1106,15 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
     }
 
     // Retrace the best path.
-    let mut lines = vec![];
     let mut idx = table.len() - 1;
     while idx != 0 {
         table.truncate(idx + 1);
         let entry = table.pop().unwrap();
-        lines.push(entry.line);
+        scratch.lines.push(entry.line);
         idx = entry.pred;
     }
 
-    lines.reverse();
-    lines
+    scratch.lines.reverse();
 }
 
 /// Generated by the following command:
@@ -1349,7 +1383,7 @@ fn line<'a>(
             if hyphen || start < range.end || before.is_empty() {
                 let mut reshaped = shaped.reshape(vt, &p.spans, start..range.end);
                 if hyphen || shy {
-                    reshaped.push_hyphen(vt, TextElem::fallback_in(p.styles));
+                    reshaped.push_hyphen(vt, p.fallback);
                 }
 
                 if let Some(last_glyph) = reshaped.glyphs.last() {
@@ -1485,11 +1519,10 @@ fn finalize(
         .collect::<SourceResult<_>>()?;
 
     // Prevent orphans.
-    let leading = ParElem::leading_in(p.styles);
     if frames.len() >= 2 && !frames[1].is_empty() {
         let second = frames.remove(1);
         let first = &mut frames[0];
-        merge(first, second, leading);
+        merge(first, second, p.leading);
     }
 
     // Prevent widows.
@@ -1497,7 +1530,7 @@ fn finalize(
     if len >= 2 && !frames[len - 2].is_empty() {
         let second = frames.pop().unwrap();
         let first = frames.last_mut().unwrap();
-        merge(first, second, leading);
+        merge(first, second, p.leading);
     }
 
     Ok(Fragment::frames(frames))

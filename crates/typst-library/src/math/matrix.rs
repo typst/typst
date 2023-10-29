@@ -202,7 +202,6 @@ impl LayoutMath for MatElem {
         // validate inputs
 
         let augment = self.augment(ctx.styles());
-        eprintln!("{:?}\n", augment);
         let rows = self.rows();
 
         if let Some(aug) = &augment {
@@ -563,7 +562,7 @@ fn layout_delimiters(
 
 /// Parameters specifying how augmentation lines
 /// should be drawn on a matrix.
-#[derive(Debug, Default, Clone, PartialEq, Hash)]
+#[derive(Debug, Default, Clone, Hash)]
 pub struct Augment<T: Numeric = Length> {
     pub hline: Offsets,
     pub vline: Offsets,
@@ -595,7 +594,6 @@ impl Fold for Augment<Abs> {
     type Output = Augment<Abs>;
 
     fn fold(mut self, outer: Self::Output) -> Self::Output {
-        eprintln!("{self:?} => {outer:?}");
         self.stroke = self.stroke.fold(outer.stroke);
         self
     }
@@ -640,7 +638,7 @@ cast! {
 
 /// The offsets at which augmentation lines
 /// should be drawn on a matrix.
-#[derive(Debug, Default, Clone, PartialEq, Hash)]
+#[derive(Debug, Default, Clone, Hash)]
 pub struct Offsets(Vec<isize>);
 
 cast! {
