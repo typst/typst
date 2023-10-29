@@ -52,7 +52,17 @@ pub fn pos(value: Value) -> StrResult<Value> {
         Ratio(v) => Ratio(v),
         Relative(v) => Relative(v),
         Fraction(v) => Fraction(v),
-        v => mismatch!("cannot apply unary '+' to {}", v),
+        Symbol(_) | Str(_) | Bytes(_) | Content(_) | Array(_) | Dict(_) | Datetime(_) => {
+            mismatch!("cannot apply unary '+' to {}", value)
+        }
+        Dyn(d) => {
+            if d.is::<Align>() {
+                mismatch!("cannot apply unary '+' to {}", d)
+            } else {
+                mismatch!("cannot apply '+' to {}", d)
+            }
+        }
+        v => mismatch!("cannot apply '+' to {}", v),
     })
 }
 
@@ -67,7 +77,8 @@ pub fn neg(value: Value) -> StrResult<Value> {
         Relative(v) => Relative(-v),
         Fraction(v) => Fraction(-v),
         Duration(v) => Duration(-v),
-        v => mismatch!("cannot apply unary '-' to {}", v),
+        Datetime(_) => mismatch!("cannot apply unary '-' to {}", value),
+        v => mismatch!("cannot apply '-' to {}", v),
     })
 }
 

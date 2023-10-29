@@ -18,7 +18,7 @@
 #(+([] + []))
 
 ---
-// Error: 3-6 cannot apply unary '-' to string
+// Error: 3-6 cannot apply '-' to string
 #(-"")
 
 ---
