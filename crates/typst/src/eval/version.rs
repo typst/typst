@@ -9,15 +9,18 @@ use super::{cast, func, scope, ty, Repr};
 use crate::diag::{bail, error, StrResult};
 use crate::util::pretty_array_like;
 
-/// A version, with any number of components.
+/// A version with an arbitrary number of components.
+///
+/// The first three components have names that can be used as fields: `major`,
+/// `minor`, `patch`. All following components do not have names.
 ///
 /// The list of components is semantically extended by an infinite list of
 /// zeros. This means that, for example, `0.8` is the same as `0.8.0`. As a
 /// special case, the empty version (that has no components at all) is the same
 /// as `0`, `0.0`, `0.0.0`, and so on.
 ///
-/// The first three components have names: `major`, `minor`, `patch`. All
-/// components after that do not have names.
+/// You can convert a version to an array of explicitly given components using
+/// the [`array`]($array) constructor.
 #[ty(scope)]
 #[derive(Debug, Default, Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
@@ -88,10 +91,10 @@ impl Version {
         version
     }
 
-    /// Get a component of a version.
+    /// Retrieves a component of a version.
     ///
-    /// Always non-negative. Returns `0` if the version isn't specified to the
-    /// necessary length.
+    /// The returned integer is always non-negative. Returns `0` if the version
+    /// isn't specified to the necessary length.
     #[func]
     pub fn at(
         &self,

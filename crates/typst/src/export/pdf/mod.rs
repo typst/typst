@@ -39,14 +39,15 @@ use extg::ExtGState;
 /// Returns the raw bytes making up the PDF file.
 ///
 /// The `ident` parameter shall be a string that uniquely and stably identifies
-/// the document. It is used to write a PDF file identifier. It should not
-/// change between compilations of the same document. If it is `None`, a hash of
-/// the document is used instead (which means that it _will_ change across
+/// the document. It should not change between compilations of the same
+/// document. Its hash will be used to create a PDF document identifier (the
+/// identifier itself is not leaked). If `ident` is `None`, a hash of the
+/// document is used instead (which means that it _will_ change across
 /// compilations).
 ///
 /// The `timestamp`, if given, is expected to be the creation date of the
-/// document as a UTC datetime. It will be used as the PDFs creation date unless
-/// another date is given through `set document(date: ..)`.
+/// document as a UTC datetime. It will only be used if `set document(date: ..)`
+/// is `auto`.
 #[tracing::instrument(skip_all)]
 pub fn pdf(
     document: &Document,

@@ -180,8 +180,8 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
     // Add groups.
     for mut group in GROUPS.iter().filter(|g| g.category == category).cloned() {
         let mut focus = module;
-        if group.name == "calc" {
-            focus = get_module(focus, "calc").unwrap();
+        if matches!(group.name.as_str(), "calc" | "sys") {
+            focus = get_module(focus, &group.name).unwrap();
             group.functions = focus
                 .scope()
                 .iter()
@@ -369,8 +369,8 @@ fn param_model(resolver: &dyn Resolver, info: &ParamInfo) -> ParamModel {
     let mut types = vec![];
     let mut strings = vec![];
     casts(resolver, &mut types, &mut strings, &info.input);
-    if !strings.is_empty() && !types.contains(&"string") {
-        types.push("string");
+    if !strings.is_empty() && !types.contains(&"str") {
+        types.push("str");
     }
     types.sort_by_key(|ty| type_index(ty));
 

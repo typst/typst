@@ -5,7 +5,7 @@ use if_chain::if_chain;
 use typst::doc::Frame;
 use typst::eval::{CapturesVisitor, CastInfo, Repr, Tracer, Value};
 use typst::geom::{round_2, Length, Numeric};
-use typst::syntax::ast::{self, AstNode};
+use typst::syntax::ast;
 use typst::syntax::{LinkedNode, Source, SyntaxKind};
 use typst::util::{pretty_comma_list, separated_list};
 use typst::World;
@@ -103,16 +103,21 @@ fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
 
 /// Tooltip for a hovered closure.
 fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
-    // Find the closure to analyze.
-    let mut ancestor = leaf;
-    while !ancestor.is::<ast::Closure>() {
-        ancestor = ancestor.parent()?;
+    // Only show this tooltip when hovering over the equals sign or arrow of
+    // the closure. Showing it across the whole subtree is too noisy.
+    if !matches!(leaf.kind(), SyntaxKind::Eq | SyntaxKind::Arrow) {
+        return None;
     }
-    let closure = ancestor.cast::<ast::Closure>()?.to_untyped();
+
+    // Find the closure to analyze.
+    let parent = leaf.parent()?;
+    if parent.kind() != SyntaxKind::Closure {
+        return None;
+    }
 
     // Analyze the closure's captures.
     let mut visitor = CapturesVisitor::new(None);
-    visitor.visit(closure);
+    visitor.visit(parent);
 
     let captures = visitor.finish();
     let mut names: Vec<_> =
