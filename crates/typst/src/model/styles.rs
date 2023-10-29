@@ -319,6 +319,8 @@ impl<'a> StyleChain<'a> {
         }
     }
 
+    /// Cast the first value for the given property in the chain,
+    /// returning a borrowed value if possible.
     pub fn get_borrowed<'b, T: Blockable>(
         &'b self,
         func: ElementData,
@@ -396,7 +398,7 @@ impl<'a> StyleChain<'a> {
             T: Blockable + Resolve,
             T::Output: Fold,
         {
-            values
+             values
                 .next()
                 .map(|value| value.resolve(styles).fold(next(values, styles, default)))
                 .unwrap_or_else(default)

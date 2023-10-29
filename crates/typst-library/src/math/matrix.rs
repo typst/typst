@@ -202,6 +202,7 @@ impl LayoutMath for MatElem {
         // validate inputs
 
         let augment = self.augment(ctx.styles());
+        eprintln!("{:?}\n", augment);
         let rows = self.rows();
 
         if let Some(aug) = &augment {
@@ -573,7 +574,7 @@ impl Augment<Abs> {
     fn stroke_or(&self, fallback: FixedStroke) -> FixedStroke {
         match &self.stroke {
             Smart::Custom(v) => v.clone().unwrap_or(fallback),
-            _ => fallback,
+            Smart::Auto => fallback,
         }
     }
 }
@@ -594,6 +595,7 @@ impl Fold for Augment<Abs> {
     type Output = Augment<Abs>;
 
     fn fold(mut self, outer: Self::Output) -> Self::Output {
+        eprintln!("{self:?} => {outer:?}");
         self.stroke = self.stroke.fold(outer.stroke);
         self
     }
