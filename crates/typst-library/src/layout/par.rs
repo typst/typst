@@ -718,7 +718,8 @@ fn prepare<'a>(
         cursor = end;
     }
 
-    if TextElem::cjk_latin_spacing_in(styles).is_auto() {
+    let cjk_latin_spacing = TextElem::cjk_latin_spacing_in(styles).is_auto();
+    if cjk_latin_spacing {
         add_cjk_latin_spacing(&mut items);
     }
 
@@ -732,7 +733,7 @@ fn prepare<'a>(
         align: AlignElem::alignment_in(styles).resolve(styles).x,
         justify: ParElem::justify_in(styles),
         hang: ParElem::hanging_indent_in(styles),
-        cjk_latin_spacing: TextElem::cjk_latin_spacing_in(styles).is_auto(),
+        cjk_latin_spacing,
     })
 }
 
