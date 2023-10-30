@@ -48,7 +48,9 @@ pub enum Tag {
 }
 
 impl Tag {
-    /// The list of all tags.
+    /// The list of all tags, in the same order as thy are defined.
+    ///
+    /// Can be used as the counter-part to `tag as usize`.
     pub const LIST: &'static [Tag] = &[
         Self::Comment,
         Self::Punctuation,
@@ -57,13 +59,13 @@ impl Tag {
         Self::Emph,
         Self::Link,
         Self::Raw,
-        Self::MathDelimiter,
-        Self::MathOperator,
+        Self::Label,
+        Self::Ref,
         Self::Heading,
         Self::ListMarker,
         Self::ListTerm,
-        Self::Label,
-        Self::Ref,
+        Self::MathDelimiter,
+        Self::MathOperator,
         Self::Keyword,
         Self::Operator,
         Self::Number,
