@@ -155,6 +155,7 @@ impl Layout for BoxElem {
             let outset = self.outset(styles).relative_to(frame.size());
             let size = frame.size() + outset.sum_by_axis();
             let radius = self.radius(styles);
+            let stroke = stroke.clone().map(|s| Some(s.unwrap_or_default()));
             frame.clip(path_rect(size, radius, &stroke));
         }
 
@@ -421,6 +422,7 @@ impl Layout for BlockElem {
                 let outset = self.outset(styles).relative_to(frame.size());
                 let size = frame.size() + outset.sum_by_axis();
                 let radius = self.radius(styles);
+                let stroke = stroke.clone().map(|s| Some(s.unwrap_or_default()));
                 frame.clip(path_rect(size, radius, &stroke));
             }
         }
