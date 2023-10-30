@@ -448,13 +448,13 @@ impl<'a> FlowLayouter<'a> {
             self.has_footnotes = false;
         }
 
-        if !self.items.is_empty() && self.items.iter().all(|item| {
-            match item {
-                FlowItem::Placed {float: false, ..} => true,
-                FlowItem::Frame {frame, ..} => frame.size().is_zero(),
+        if !self.items.is_empty()
+            && self.items.iter().all(|item| match item {
+                FlowItem::Placed { float: false, .. } => true,
+                FlowItem::Frame { frame, .. } => frame.size().is_zero(),
                 _ => false,
-            }
-        }) {
+            })
+        {
             self.last_frame_only_out_of_flow = Some(self.items.clone());
         }
 
