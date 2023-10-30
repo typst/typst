@@ -51,7 +51,8 @@
 
               buildInputs = optionals pkgs.stdenv.isDarwin [
                 pkgs.darwin.apple_sdk.frameworks.CoreServices
-              ] ++ [pkgs.iconv];
+                pkgs.libiconv
+              ];
 
               nativeBuildInputs = [ pkgs.installShellFiles ];
             };
