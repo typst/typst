@@ -66,14 +66,28 @@ pub(super) fn define(global: &mut Scope) {
 /// ```
 #[elem(Construct, PlainText)]
 pub struct TextElem {
-    /// A prioritized sequence of font families.
+    /// A font family name or priority list of font family names.
     ///
     /// When processing text, Typst tries all specified font families in order
     /// until it finds a font that has the necessary glyphs. In the example
     /// below, the font `Inria Serif` is preferred, but since it does not
     /// contain Arabic glyphs, the arabic text uses `Noto Sans Arabic` instead.
     ///
+    /// The collection of available fonts differs by platform:
+    ///
+    /// - In the web app, you can see the list of available fonts by clicking on
+    ///   the "Ag" button. You can provide additional fonts by uploading `.ttf`
+    ///   or `.otf` files into your project. They will be discovered
+    ///   automatically.
+    ///
+    /// - Locally, Typst uses your installed system fonts. In addition, you can
+    ///   use the `--font-path` argument or `TYPST_FONT_PATHS` environment
+    ///   variable to add directories that should be scanned for fonts.
+    ///
     /// ```example
+    /// #set text(font: "PT Sans")
+    /// This is sans-serif.
+    ///
     /// #set text(font: (
     ///   "Inria Serif",
     ///   "Noto Sans Arabic",
@@ -81,7 +95,6 @@ pub struct TextElem {
     ///
     /// This is Latin. \
     /// هذا عربي.
-    ///
     /// ```
     #[default(FontList(vec![FontFamily::new("Linux Libertine")]))]
     pub font: FontList,
