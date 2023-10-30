@@ -27,7 +27,7 @@ pub fn tooltip(
 
     named_param_tooltip(world, &leaf)
         .or_else(|| font_tooltip(world, &leaf))
-        .or_else(|| ref_tooltip(world, frames, &leaf))
+        .or_else(|| label_tooltip(world, frames, &leaf))
         .or_else(|| expr_tooltip(world, &leaf))
         .or_else(|| closure_tooltip(&leaf))
 }
@@ -145,17 +145,18 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
     })
 }
 
-/// Tooltip for a hovered reference.
-fn ref_tooltip(
+/// Tooltip for a hovered reference or label.
+fn label_tooltip(
     world: &dyn World,
     frames: &[Frame],
     leaf: &LinkedNode,
 ) -> Option<Tooltip> {
-    if leaf.kind() != SyntaxKind::RefMarker {
-        return None;
-    }
+    let target = match leaf.kind() {
+        SyntaxKind::RefMarker => leaf.text().trim_start_matches('@'),
+        SyntaxKind::Label => leaf.text().trim_start_matches('<').trim_end_matches('>'),
+        _ => return None,
+    };
 
-    let target = leaf.text().trim_start_matches('@');
     for (label, detail) in analyze_labels(world, frames).0 {
         if label.0 == target {
             return Some(Tooltip::Text(detail?));
