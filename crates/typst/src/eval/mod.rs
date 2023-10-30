@@ -1187,7 +1187,7 @@ impl Eval for ast::FuncCall<'_> {
             // allowed for functions, types, modules (because they are scopes),
             // and symbols (because they have modifiers).
             //
-            // For dictionaries, it is not allowed because it would be ambigious
+            // For dictionaries, it is not allowed because it would be ambiguous
             // (prioritizing associated functions would make an addition of a
             // new associated function a breaking change and prioritizing fields
             // would break associated functions for certain dictionaries).

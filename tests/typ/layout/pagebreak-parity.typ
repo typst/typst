@@ -12,7 +12,7 @@ Sixth
 #pagebreak()
 Seventh
 #pagebreak(to: "odd")
-#page[Nineth]
+#page[Ninth]
 
 ---
 #set page(width: auto, height: auto)

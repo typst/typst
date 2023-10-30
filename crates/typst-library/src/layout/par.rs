@@ -808,7 +808,7 @@ fn shape_range<'a>(
     let mut cursor = range.start;
 
     // Group by embedding level and script.  If the text's script is explicitly
-    // set (rather than inferred from the glpyhs), we keep the script at an
+    // set (rather than inferred from the glyphs), we keep the script at an
     // unchanging `Script::Unknown` so that only level changes cause breaks.
     for i in range.clone() {
         if !bidi.text.is_char_boundary(i) {

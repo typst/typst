@@ -61,7 +61,7 @@ use crate::visualize::ImageElem;
 /// breakable and non-breakable blocks.
 ///
 /// # Caption customization
-/// You can modify the apperance of the figure's caption with its associated
+/// You can modify the appearance of the figure's caption with its associated
 /// [`caption`]($figure.caption) function. In the example below, we emphasize
 /// all captions:
 ///

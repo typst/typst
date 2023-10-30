@@ -135,8 +135,8 @@ impl Content {
 
     /// Also auto expands sequence of sequences into flat sequence
     pub fn sequence_recursive_for_each(&self, f: &mut impl FnMut(&Self)) {
-        if let Some(childs) = self.to_sequence() {
-            childs.for_each(|c| c.sequence_recursive_for_each(f));
+        if let Some(children) = self.to_sequence() {
+            children.for_each(|c| c.sequence_recursive_for_each(f));
         } else {
             f(self);
         }

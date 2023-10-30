@@ -92,7 +92,7 @@ pub struct SourceDiagnostic {
     pub message: EcoString,
     /// The trace of function calls leading to the problem.
     pub trace: EcoVec<Spanned<Tracepoint>>,
-    /// Additonal hints to the user, indicating how this problem could be avoided
+    /// Additional hints to the user, indicating how this problem could be avoided
     /// or worked around.
     pub hints: EcoVec<EcoString>,
 }
@@ -256,7 +256,7 @@ pub type HintedStrResult<T> = Result<T, HintedString>;
 pub struct HintedString {
     /// A diagnostic message describing the problem.
     pub message: EcoString,
-    /// Additonal hints to the user, indicating how this error could be avoided
+    /// Additional hints to the user, indicating how this error could be avoided
     /// or worked around.
     pub hints: Vec<EcoString>,
 }
@@ -382,7 +382,7 @@ impl From<FileError> for EcoString {
 /// A result type with a package-related error.
 pub type PackageResult<T> = Result<T, PackageError>;
 
-/// An error that occured while trying to load a package.
+/// An error that occurred while trying to load a package.
 ///
 /// Some variants have an optional string can give more details, if available.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
