@@ -2888,6 +2888,7 @@ dependencies = [
  "comemo",
  "ecow",
  "if_chain",
+ "log",
  "serde",
  "typst",
  "unscanny",

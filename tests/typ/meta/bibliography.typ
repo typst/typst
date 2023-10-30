@@ -1,13 +1,6 @@
 // Test citations and bibliographies.
 
 ---
-// Test ambiguous reference.
-= Introduction <arrgh>
-// Error: 1-7 label occurs in the document and its bibliography
-@arrgh
-#bibliography("/files/works.bib")
-
----
 #set page(width: 200pt)
 = Details
 See also #cite("arrgh", "distress", supplement: [p. 22]), @arrgh[p. 4], and @distress[p. 5].
@@ -41,3 +34,12 @@ And quark! @quark
 = Multiple Bibs
 Now we have multiple bibliographies containing #cite("glacier-melt", "keshav2007read")
 #bibliography(("/files/works.bib", "/files/works_too.bib"))
+
+---
+// Test ambiguous reference.
+= Introduction <arrgh>
+
+// Error: 1-7 label occurs in the document and its bibliography
+@arrgh
+#bibliography("/files/works.bib")
+
