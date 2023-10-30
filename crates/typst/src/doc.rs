@@ -4,7 +4,6 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::ops::Range;
 use std::str::FromStr;
-use std::sync::Arc;
 
 use ecow::{eco_format, EcoString, EcoVec};
 
@@ -57,12 +56,7 @@ impl Frame {
     #[track_caller]
     pub fn new(size: Size, kind: FrameKind) -> Self {
         assert!(size.is_finite());
-        Self {
-            size,
-            baseline: None,
-            items: EcoVec::new(),
-            kind,
-        }
+        Self { size, baseline: None, items: EcoVec::new(), kind }
     }
 
     /// Create a new, empty soft frame.
@@ -207,7 +201,9 @@ impl Frame {
     where
         I: IntoIterator<Item = (Point, FrameItem)>,
     {
-        // self.items.splice(0..0, items);
+        for (i, item) in items.into_iter().enumerate() {
+            self.items.insert(i, item);
+        }
     }
 
     /// Add a frame at a position in the background.
@@ -226,40 +222,37 @@ impl Frame {
     }
 
     /// Inline a frame at the given layer.
-    fn inline(&mut self, layer: usize, pos: Point, frame: Frame) {
+    fn inline(&mut self, layer: usize, pos: Point, mut frame: Frame) {
         // Try to just reuse the items.
-        /*if pos.is_zero() && self.items.is_empty() {
+        if pos.is_zero() && self.items.is_empty() {
             self.items = frame.items;
             return;
         }
 
         // Try to transfer the items without adjusting the position.
-        // Also try to reuse the items if the Arc isn't shared.
-        let range = layer..layer;
         if pos.is_zero() {
-            let sink = Arc::make_mut(&mut self.items);
-            match Arc::try_unwrap(frame.items) {
-                Ok(items) => {
-                    sink.splice(range, items);
+            if frame.items.is_unique() {
+                for (i, item) in frame.items.into_iter().enumerate() {
+                    self.items.insert(layer + i, item);
                 }
-                Err(arc) => {
-                    sink.splice(range, arc.iter().cloned());
+            } else {
+                for (i, item) in frame.items.iter().cloned().enumerate() {
+                    self.items.insert(layer + i, item);
                 }
             }
             return;
         }
 
         // We have to adjust the item positions.
-        // But still try to reuse the items if the Arc isn't shared.
-        let sink = Arc::make_mut(&mut self.items);
-        match Arc::try_unwrap(frame.items) {
-            Ok(items) => {
-                sink.splice(range, items.into_iter().map(|(p, e)| (p + pos, e)));
+        if frame.items.is_unique() {
+            for (i, (p, e)) in frame.items.into_iter().enumerate() {
+                self.items.insert(layer + i, (p + pos, e));
             }
-            Err(arc) => {
-                sink.splice(range, arc.iter().cloned().map(|(p, e)| (p + pos, e)));
+        } else {
+            for (i, (p, e)) in frame.items.iter().cloned().enumerate() {
+                self.items.insert(layer + i, (p + pos, e));
             }
-        }*/
+        }
     }
 }
 

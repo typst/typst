@@ -130,14 +130,14 @@ pub struct Func {
 
 impl Default for Func {
     fn default() -> Self {
-        identity::func()
+        nothing::func()
     }
 }
 
 /// The identity function.
 #[func]
-fn identity(args: &mut Args) -> Value {
-    args.clone().into_value()
+fn nothing() -> Value {
+    Value::None
 }
 
 /// The different kinds of function representations.

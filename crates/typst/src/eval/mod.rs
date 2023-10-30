@@ -1285,7 +1285,7 @@ impl Eval for ast::Args<'_> {
     type Output = Args;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let mut items = EcoVec::new();
+        let mut items = EcoVec::with_capacity(self.items().count());
 
         for arg in self.items() {
             let span = arg.span();
