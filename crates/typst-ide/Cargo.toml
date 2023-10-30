@@ -21,5 +21,6 @@ typst = { path = "../typst" }
 comemo = "0.3"
 ecow = { version = "0.2", features = ["serde"] }
 if_chain = "1"
+log = "0.4"
 serde = { version = "1.0.184", features = ["derive"] }
 unscanny = "0.1"
