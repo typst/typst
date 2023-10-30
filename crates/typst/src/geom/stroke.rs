@@ -66,7 +66,7 @@ use crate::eval::{dict, Cast, FromValue, NoneValue};
 /// On a `stroke` object, you can access any of the fields mentioned in the
 /// dictionary format above. For example, `{(2pt + blue).thickness}` is `{2pt}`.
 /// Meanwhile, `{(2pt + blue).cap}` is `{auto}` because it's unspecified.
-#[ty]
+#[ty(scope)]
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Stroke<T: Numeric = Length> {
     /// The stroke's paint.
@@ -249,6 +249,19 @@ impl Fold for Stroke<Abs> {
             dash_pattern: self.dash_pattern.or(outer.dash_pattern),
             miter_limit: self.miter_limit.or(outer.miter_limit),
         }
+    }
+}
+
+#[scope]
+impl Stroke {
+    /// Converts a value into a stroke.
+    ///
+    /// The value may be a length, color or dictionary with any of the keys
+    /// `paint`, `thickness`, `line_cap`, `line_join`, `dash_pattern` or
+    /// `miter_limit`.
+    #[func(constructor)]
+    pub fn construct(stroke: Stroke) -> Stroke {
+        stroke
     }
 }
 

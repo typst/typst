@@ -95,3 +95,13 @@
   ((0%, 50%), (4%, 4%)),
   ((50%, 0%), (4%, 4%)),
 )
+
+---
+// Converting to stroke
+#assert.eq(stroke(red).paint, red)
+#assert.eq(stroke(red).thickness, auto)
+#assert.eq(stroke(2pt).paint, auto)
+#assert.eq(stroke((cap: "round", paint: blue)).cap, "round")
+
+// Error: 9-21 unexpected key "foo", valid keys are "paint", "thickness", "cap", "join", "dash", and "miter-limit"
+#stroke((foo: "bar"))
