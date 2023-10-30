@@ -112,6 +112,9 @@ struct FlowLayouter<'a> {
     footnote_config: FootnoteConfig,
     /// Finished frames for previous regions.
     finished: Vec<Frame>,
+    /// If the last finished frame contains only out-of-flow items (like placed
+    /// elements or counter updates), this contains a copy of those items.
+    last_frame_only_out_of_flow: Option<Vec<FlowItem>>,
 }
 
 /// Cached footnote configuration.
@@ -122,7 +125,7 @@ struct FootnoteConfig {
 }
 
 /// A prepared item in a flow layout.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 enum FlowItem {
     /// Spacing between other items and whether it is weak.
     Absolute(Abs, bool),
@@ -181,6 +184,7 @@ impl<'a> FlowLayouter<'a> {
                 gap: FootnoteEntry::gap_in(styles),
             },
             finished: vec![],
+            last_frame_only_out_of_flow: None,
         }
     }
 
@@ -436,6 +440,24 @@ impl<'a> FlowLayouter<'a> {
 
     /// Finish the frame for one region.
     fn finish_region(&mut self, vt: &mut Vt) -> SourceResult<()> {
+        if let Some(items) = self.last_frame_only_out_of_flow.take() {
+            self.items.splice(0..0, items);
+            self.finished.pop();
+            self.regions.next();
+            self.initial = self.regions.size;
+            self.has_footnotes = false;
+        }
+
+        if !self.items.is_empty() && self.items.iter().all(|item| {
+            match item {
+                FlowItem::Placed {float: false, ..} => true,
+                FlowItem::Frame {frame, ..} => frame.size().is_zero(),
+                _ => false,
+            }
+        }) {
+            self.last_frame_only_out_of_flow = Some(self.items.clone());
+        }
+
         // Trim weak spacing.
         while self
             .items
