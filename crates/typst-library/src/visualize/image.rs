@@ -128,7 +128,7 @@ impl Layout for ImageElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        // Take the format that was explicitly defined, or parse the extention,
+        // Take the format that was explicitly defined, or parse the extension,
         // or try to detect the format.
         let data = self.data();
         let format = match self.format(styles) {

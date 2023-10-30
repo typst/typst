@@ -8,7 +8,7 @@ use crate::prelude::*;
 /// # Example
 /// ```example
 /// Plato is often misquoted as the author of #quote[I know that I know
-/// nothing], however, this is a derivation form his orginal quote:
+/// nothing], however, this is a derivation form his original quote:
 /// #set quote(block: true)
 /// #quote(attribution: [Plato])[
 ///   ... ἔοικα γοῦν τούτου γε σμικρῷ τινι αὐτῷ τούτῳ σοφώτερος εἶναι, ὅτι
@@ -92,7 +92,7 @@ pub struct QuoteElem {
     /// ```
     ///
     /// Note that bilbiography styles which do not include the author in the
-    /// citation (label, numberic and notes) currently produce attributions such
+    /// citation (label, numeric and notes) currently produce attributions such
     /// as `[---#super[1]]` or `[--- [1]]`, this will be fixed soon with CSL
     /// support. In the mean time you can simply cite yourself:
     /// ```example
@@ -161,7 +161,7 @@ impl Show for QuoteElem {
 
                             // TODO: these should use the citation-format attribute, once CSL
                             // is implemented and retrieve the authors for non-author formats
-                            // themeselves, see:
+                            // themselves, see:
                             // - https://github.com/typst/typst/pull/2252#issuecomment-1741146989
                             // - https://github.com/typst/typst/pull/2252#issuecomment-1744634132
                             Ok(match bib.style(styles) {

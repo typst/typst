@@ -31,7 +31,7 @@ pub struct HElem {
     /// next to weak spacing, you can explicitly write `[#" "]` (for a normal
     /// space) or `[~]` (for a non-breaking space). The latter can be useful to
     /// create a construct that always attaches to the preceding word with one
-    /// non-breaking space, independently of wether a markup space existed in
+    /// non-breaking space, independently of whether a markup space existed in
     /// front or not.
     ///
     /// ```example
