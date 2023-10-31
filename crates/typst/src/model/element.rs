@@ -14,72 +14,11 @@ use crate::model::{Guard, Label, Location};
 use crate::syntax::Span;
 use crate::util::Static;
 
-pub trait Element: Any + Send + Sync + Debug + Repr + 'static {
-    /// Get the element data for this element.
-    fn data(&self) -> ElementData;
-
-    /// Get the element's span.
-    ///
-    /// May be detached if it has not been set.
-    fn span(&self) -> Span;
-
-    /// Sets the span of this element.
-    fn set_span(&mut self, span: Span);
-
-    /// Get the element's location.
-    fn location(&self) -> Option<Location>;
-
-    /// Sets the location of this element.
-    fn set_location(&mut self, location: Location);
-
-    /// Get the element's label.
-    fn label(&self) -> Option<Label>;
-
-    /// Sets the label of this element.
-    fn set_label(&mut self, label: Label);
-
-    /// Checks whether the element is guarded by the given guard.
-    fn is_guarded(&self, guard: Guard) -> bool;
-
-    /// Pushes a guard onto the element.
-    fn push_guard(&mut self, guard: Guard);
-
-    /// Whether the element is pristine.
-    fn is_pristine(&self) -> bool;
-
-    /// Mark the element as having been prepared.
-    fn mark_prepared(&mut self);
-
-    /// Whether this element needs preparations.
-    fn needs_preparation(&self) -> bool;
-
-    /// Whether this element has been prepared.
-    fn is_prepared(&self) -> bool;
-
-    /// Dynamically hash the element.
-    fn dyn_hash(&self, hasher: &mut dyn Hasher);
-
-    /// Dynamically compare the element.
-    fn dyn_eq(&self, other: &Content) -> bool;
-
-    /// Get the field with the given field ID.
-    fn field(&self, id: u8) -> Option<Value>;
-
-    /// Set the fields of the element.
-    fn set_field(&mut self, id: u8, value: Value) -> StrResult<()>;
-
-    /// Dynamically clone the element.
-    fn dyn_clone(&self) -> Arc<dyn Element>;
-
-    /// Get the fields of the element.
-    fn fields(&self) -> Dict;
-}
-
 /// A document element.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ElementData(Static<NativeElementData>);
+pub struct Element(Static<NativeElementData>);
 
-impl ElementData {
+impl Element {
     /// Get the element for `T`.
     pub fn of<T: NativeElement>() -> Self {
         T::elem()
@@ -174,74 +113,146 @@ impl ElementData {
     }
 }
 
-impl Debug for ElementData {
+impl Debug for Element {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.pad(self.name())
     }
 }
 
-impl Repr for ElementData {
+impl Repr for Element {
     fn repr(&self) -> EcoString {
         self.name().into()
     }
 }
 
-impl Ord for ElementData {
+impl Ord for Element {
     fn cmp(&self, other: &Self) -> Ordering {
         self.name().cmp(other.name())
     }
 }
 
-impl PartialOrd for ElementData {
+impl PartialOrd for Element {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
 cast! {
-    ElementData,
+    Element,
     self => Value::Func(self.into()),
     v: Func => v.element().ok_or("expected element")?,
 }
 
 /// A Typst element that is defined by a native Rust type.
-pub trait NativeElement: Construct + Set + Sized + 'static {
+pub trait NativeElement: Construct + Set + Any + Send + Sync + Debug + Repr {
     /// Get the element for the native Rust element.
-    fn elem() -> ElementData {
-        ElementData::from(Self::data())
+    fn elem() -> Element
+    where
+        Self: Sized,
+    {
+        Element::from(Self::data())
     }
 
     /// Get the element data for the native Rust element.
-    fn data() -> &'static NativeElementData;
+    fn data() -> &'static NativeElementData
+    where
+        Self: Sized;
+
+    /// Get the element data for the native Rust element.
+    fn dyn_data(&self) -> Element;
 
     /// Pack the element into type-erased content.
     fn pack(self) -> Content;
-    /// Extract this element from type-erased content.
-    fn unpack(content: &Content) -> Option<&Self>;
 
     /// Extract this element from type-erased content.
-    fn unpack_mut(content: &mut Content) -> Option<&mut Self>;
+    fn unpack(content: &Content) -> Option<&Self>
+    where
+        Self: Sized;
 
     /// Extract this element from type-erased content.
-    fn unpack_owned(content: Content) -> Option<Arc<Self>>;
+    fn unpack_mut(content: &mut Content) -> Option<&mut Self>
+    where
+        Self: Sized;
+
+    /// Extract this element from type-erased content.
+    fn unpack_owned(content: Content) -> Option<Arc<Self>>
+    where
+        Self: Sized;
+
+    /// Get the element's span.
+    ///
+    /// May be detached if it has not been set.
+    fn span(&self) -> Span;
+
+    /// Sets the span of this element.
+    fn set_span(&mut self, span: Span);
+
+    /// Get the element's location.
+    fn location(&self) -> Option<Location>;
+
+    /// Sets the location of this element.
+    fn set_location(&mut self, location: Location);
+
+    /// Get the element's label.
+    fn label(&self) -> Option<Label>;
+
+    /// Sets the label of this element.
+    fn set_label(&mut self, label: Label);
+
+    /// Checks whether the element is guarded by the given guard.
+    fn is_guarded(&self, guard: Guard) -> bool;
+
+    /// Pushes a guard onto the element.
+    fn push_guard(&mut self, guard: Guard);
+
+    /// Whether the element is pristine.
+    fn is_pristine(&self) -> bool;
+
+    /// Mark the element as having been prepared.
+    fn mark_prepared(&mut self);
+
+    /// Whether this element needs preparations.
+    fn needs_preparation(&self) -> bool;
+
+    /// Whether this element has been prepared.
+    fn is_prepared(&self) -> bool;
+
+    /// Dynamically hash the element.
+    fn dyn_hash(&self, hasher: &mut dyn Hasher);
+
+    /// Dynamically compare the element.
+    fn dyn_eq(&self, other: &Content) -> bool;
+
+    /// Get the field with the given field ID.
+    fn field(&self, id: u8) -> Option<Value>;
+
+    /// Set the fields of the element.
+    fn set_field(&mut self, id: u8, value: Value) -> StrResult<()>;
+
+    /// Dynamically clone the element.
+    fn dyn_clone(&self) -> Arc<dyn NativeElement>;
+
+    /// Get the fields of the element.
+    fn fields(&self) -> Dict;
 }
 
 /// An element's constructor function.
 pub trait Construct {
-    /// The output type of the constructor.
-    type Output;
-
     /// Construct an element from the arguments.
     ///
     /// This is passed only the arguments that remain after execution of the
     /// element's set rule.
-    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Self::Output>;
+    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content>
+    where
+        Self: Sized;
 }
 
 /// An element's set rule.
 pub trait Set {
     /// Parse relevant arguments into style properties for this element.
-    fn set(vm: &mut Vm, args: &mut Args) -> SourceResult<Styles>;
+    fn set(vm: &mut Vm, args: &mut Args) -> SourceResult<Styles>
+    where
+        Self: Sized;
 }
 
 /// Defines a native element.
@@ -261,7 +272,7 @@ pub struct NativeElementData {
     pub params: Lazy<Vec<ParamInfo>>,
 }
 
-impl From<&'static NativeElementData> for ElementData {
+impl From<&'static NativeElementData> for Element {
     fn from(data: &'static NativeElementData) -> Self {
         Self(Static(data))
     }
@@ -269,5 +280,5 @@ impl From<&'static NativeElementData> for ElementData {
 
 cast! {
     &'static NativeElementData,
-    self => ElementData::from(self).into_value(),
+    self => Element::from(self).into_value(),
 }

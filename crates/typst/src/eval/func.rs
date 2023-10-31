@@ -11,7 +11,7 @@ use super::{
 };
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::model::{
-    Content, DelayedErrors, ElementData, Introspector, Locator, Selector, Vt,
+    Content, DelayedErrors, Element, Introspector, Locator, Selector, Vt,
 };
 use crate::syntax::ast::{self, AstNode};
 use crate::syntax::{FileId, Span, SyntaxNode};
@@ -149,7 +149,7 @@ enum Repr {
     /// A native Rust function.
     Native(Static<NativeFuncData>),
     /// A function for an element.
-    Element(ElementData),
+    Element(Element),
     /// A user-defined closure.
     Closure(Arc<Prehashed<Closure>>),
     /// A nested function with pre-applied arguments.
@@ -252,7 +252,7 @@ impl Func {
     }
 
     /// Extract the element function, if it is one.
-    pub fn element(&self) -> Option<ElementData> {
+    pub fn element(&self) -> Option<Element> {
         match self.repr {
             Repr::Element(func) => Some(func),
             _ => None,
@@ -426,8 +426,8 @@ impl From<Repr> for Func {
     }
 }
 
-impl From<ElementData> for Func {
-    fn from(func: ElementData) -> Self {
+impl From<Element> for Func {
+    fn from(func: Element) -> Self {
         Repr::Element(func).into()
     }
 }

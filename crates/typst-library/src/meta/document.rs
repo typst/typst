@@ -50,8 +50,6 @@ pub struct DocumentElem {
 }
 
 impl Construct for DocumentElem {
-    type Output = Content;
-
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "can only be used in set rules")
     }

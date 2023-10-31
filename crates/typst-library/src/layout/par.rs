@@ -109,8 +109,6 @@ pub struct ParElem {
 }
 
 impl Construct for ParElem {
-    type Output = Content;
-
     fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
         // element. Instead, it just ensures that the passed content lives in a

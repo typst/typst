@@ -8,7 +8,7 @@ use super::{
     Func, IntoValue, Library, Module, NativeFunc, NativeFuncData, NativeType, Type, Value,
 };
 use crate::diag::{bail, StrResult};
-use crate::model::{ElementData, NativeElement};
+use crate::model::{Element, NativeElement};
 
 /// A stack of scopes.
 #[derive(Debug, Default, Clone)]
@@ -148,7 +148,7 @@ impl Scope {
     /// Define a native element.
     pub fn define_elem<T: NativeElement>(&mut self) {
         let data = T::data();
-        self.define(data.name, ElementData::from(data));
+        self.define(data.name, Element::from(data));
     }
 
     /// Define a module.

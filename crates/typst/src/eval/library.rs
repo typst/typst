@@ -10,7 +10,7 @@ use super::Module;
 use crate::diag::SourceResult;
 use crate::doc::Document;
 use crate::geom::{Abs, Dir};
-use crate::model::{Content, ElementData, Introspector, Label, StyleChain, Styles, Vt};
+use crate::model::{Content, Element, Introspector, Label, StyleChain, Styles, Vt};
 use crate::util::hash128;
 
 /// Definition of Typst's standard library.
@@ -43,7 +43,7 @@ pub struct LangItems {
     /// Plain text without markup.
     pub text: fn(text: EcoString) -> Content,
     /// The text element.
-    pub text_elem: ElementData,
+    pub text_elem: Element,
     /// Get the string if this is a text element.
     pub text_str: fn(&Content) -> Option<&EcoString>,
     /// A smart quote: `'` or `"`.
@@ -69,7 +69,7 @@ pub struct LangItems {
     /// A section heading: `= Introduction`.
     pub heading: fn(level: NonZeroUsize, body: Content) -> Content,
     /// The heading element.
-    pub heading_elem: ElementData,
+    pub heading_elem: Element,
     /// An item in a bullet list: `- ...`.
     pub list_item: fn(body: Content) -> Content,
     /// An item in an enumeration (numbered list): `+ ...` or `1. ...`.

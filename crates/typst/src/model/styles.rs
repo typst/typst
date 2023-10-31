@@ -8,7 +8,7 @@ use comemo::Prehashed;
 use ecow::{eco_vec, EcoString, EcoVec};
 use smallvec::SmallVec;
 
-use super::{Block, Blockable, Content, ElementData, NativeElement, Selector, Vt};
+use super::{Block, Blockable, Content, Element, NativeElement, Selector, Vt};
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::eval::{cast, ty, Args, Func, Repr, Value, Vm};
 use crate::syntax::Span;
@@ -146,7 +146,7 @@ impl From<Recipe> for Style {
 #[derive(Clone, Hash)]
 pub struct Property {
     /// The element the property belongs to.
-    elem: ElementData,
+    elem: Element,
     /// The property's ID.
     id: u8,
     /// The property's value.
@@ -157,7 +157,7 @@ pub struct Property {
 
 impl Property {
     /// Create a new property from a key-value pair.
-    pub fn new<T: Blockable>(elem: ElementData, id: impl Into<u8>, value: T) -> Self {
+    pub fn new<T: Blockable>(elem: Element, id: impl Into<u8>, value: T) -> Self {
         Self {
             elem,
             id: id.into(),
@@ -167,12 +167,12 @@ impl Property {
     }
 
     /// Whether this property is the given one.
-    pub fn is(&self, elem: ElementData, id: u8) -> bool {
+    pub fn is(&self, elem: Element, id: u8) -> bool {
         self.elem == elem && self.id == id
     }
 
     /// Whether this property belongs to the given element.
-    pub fn is_of(&self, elem: ElementData) -> bool {
+    pub fn is_of(&self, elem: Element) -> bool {
         self.elem == elem
     }
 }
@@ -197,7 +197,7 @@ pub struct Recipe {
 
 impl Recipe {
     /// Whether this recipe is for the given type of element.
-    pub fn is_of(&self, element: ElementData) -> bool {
+    pub fn is_of(&self, element: Element) -> bool {
         match self.selector {
             Some(Selector::Elem(own, _)) => own == element,
             _ => false,
@@ -323,7 +323,7 @@ impl<'a> StyleChain<'a> {
     /// returning a borrowed value if possible.
     pub fn get_borrowed<'b, T: Blockable>(
         &'b self,
-        func: ElementData,
+        func: Element,
         id: impl Into<u8>,
         inherent: Option<&'b T>,
         default: impl Fn() -> T,
@@ -337,7 +337,7 @@ impl<'a> StyleChain<'a> {
     /// Cast the first value for the given property in the chain.
     pub fn get<T: Blockable>(
         self,
-        func: ElementData,
+        func: Element,
         id: impl Into<u8>,
         inherent: Option<&T>,
         default: impl Fn() -> T,
@@ -348,7 +348,7 @@ impl<'a> StyleChain<'a> {
     /// Cast the first value for the given property in the chain.
     pub fn get_resolve<T: Blockable + Clone + Resolve>(
         self,
-        func: ElementData,
+        func: Element,
         id: impl Into<u8>,
         inherent: Option<&T>,
         default: impl Fn() -> T,
@@ -359,7 +359,7 @@ impl<'a> StyleChain<'a> {
     /// Cast the first value for the given property in the chain.
     pub fn get_fold<T: Blockable + Clone + Fold>(
         self,
-        func: ElementData,
+        func: Element,
         id: impl Into<u8>,
         inherent: Option<&T>,
         default: impl Fn() -> T::Output,
@@ -379,7 +379,7 @@ impl<'a> StyleChain<'a> {
     /// Cast the first value for the given property in the chain.
     pub fn get_resolve_fold<T>(
         self,
-        func: ElementData,
+        func: Element,
         id: impl Into<u8>,
         inherent: Option<&T>,
         default: impl Fn() -> <T::Output as Fold>::Output,
@@ -413,7 +413,7 @@ impl<'a> StyleChain<'a> {
     /// Iterate over all values for the given property in the chain.
     pub fn properties<'b, T: Blockable>(
         &'b self,
-        func: ElementData,
+        func: Element,
         id: impl Into<u8>,
         inherent: Option<&'b T>,
     ) -> impl Iterator<Item = &'b T> + 'b {

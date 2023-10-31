@@ -574,7 +574,7 @@ cast! {
 #[derive(Debug, Clone, Hash, PartialEq)]
 pub enum FigureKind {
     /// The kind is an element function.
-    Elem(ElementData),
+    Elem(Element),
     /// The kind is a name.
     Name(EcoString),
 }
@@ -585,7 +585,7 @@ cast! {
         Self::Elem(v) => v.into_value(),
         Self::Name(v) => v.into_value(),
     },
-    v: ElementData => Self::Elem(v),
+    v: Element => Self::Elem(v),
     v: EcoString => Self::Name(v),
 }
 

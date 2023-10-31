@@ -160,8 +160,7 @@ fn create(element: &Elem) -> TokenStream {
         settable.clone().map(|field| create_set_field_method(element, field));
 
     // Trait implementations.
-    let native_element_impl = create_pack_impl(element);
-    let element_impl = create_element_impl(element);
+    let native_element_impl = create_native_elem_impl(element);
     let default_impl = create_default_impl(element);
     let hash_impl = element.without_capability("Hash", || create_hash_impl(element));
     let construct_impl =
@@ -240,7 +239,6 @@ fn create(element: &Elem) -> TokenStream {
         }
 
         #default_impl
-        #element_impl
         #native_element_impl
         #hash_impl
         #construct_impl
@@ -354,12 +352,10 @@ fn create_construct_impl(element: &Elem) -> TokenStream {
 
     quote! {
         impl ::typst::model::Construct for #ident {
-            type Output = ::typst::model::Content;
-
             fn construct(
                 vm: &mut ::typst::eval::Vm,
                 args: &mut ::typst::eval::Args,
-            ) -> ::typst::diag::SourceResult<Self::Output> {
+            ) -> ::typst::diag::SourceResult<::typst::model::Content> {
                 #(#pre)*
 
                 let mut element = Self::new(#(#defaults),*);
@@ -477,7 +473,7 @@ fn create_param_info(field: &Field) -> TokenStream {
 }
 
 /// Creates the element's `Pack` implementation.
-fn create_pack_impl(element: &Elem) -> TokenStream {
+fn create_native_elem_impl(element: &Elem) -> TokenStream {
     let eval = quote! { ::typst::eval };
     let model = quote! { ::typst::model };
 
@@ -491,6 +487,7 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
         docs,
         ..
     } = element;
+
     let vtable_func = create_vtable_func(element);
     let params = element
         .fields
@@ -503,71 +500,6 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
     } else {
         quote! { #eval::Scope::new() }
     };
-
-    let data = quote! {
-        #model::NativeElementData {
-            name: #name,
-            title: #title,
-            docs: #docs,
-            keywords: &[#(#keywords),*],
-            empty: || #model::Content::new(<#ident as ::std::default::Default>::default()),
-            construct: <#ident as #model::Construct>::construct,
-            set: <#ident as #model::Set>::set,
-            vtable: #vtable_func,
-            field_id: |name| <#enum_ident as ::std::str::FromStr>::from_str(name).ok().map(|id| id as u8),
-            field_name: |id| <#enum_ident as ::std::convert::TryFrom<u8>>::try_from(id).ok().map(#enum_ident::to_str),
-            scope: #eval::Lazy::new(|| #scope),
-            params: #eval::Lazy::new(|| ::std::vec![#(#params),*])
-        }
-    };
-
-    quote! {
-        impl #model::NativeElement for #ident {
-            fn data() -> &'static #model::NativeElementData {
-                static DATA: #model::NativeElementData = #data;
-                &DATA
-            }
-
-            fn pack(self) -> #model::Content {
-                #model::Content::new(self)
-            }
-
-            fn unpack(content: &#model::Content) -> ::std::option::Option<&Self> {
-                content.is::<Self>().then(|| unsafe {
-                    // Safety: we checked that we are `Self`.
-                    &*(::std::sync::Arc::as_ptr(&content.0) as *const () as *const Self)
-                })
-            }
-
-            fn unpack_owned(content: #model::Content) -> Option<::std::sync::Arc<Self>> {
-                content.is::<Self>().then(|| unsafe {
-                    // Safety: we checked that we are `Self`.
-                    ::std::sync::Arc::from_raw(
-                        ::std::sync::Arc::as_ptr(&content.0) as *const () as *const Self
-                    )
-                })
-
-            }
-
-            fn unpack_mut(content: &mut #model::Content) -> Option<&mut Self> {
-                content.is::<Self>().then(|| {
-                    // Make sure we're mutable
-                    #model::swap_with_mut(&mut content.0);
-
-                    // Safety: we checked that we are `Self` and mutable.
-                    unsafe {
-                        &mut *(::std::sync::Arc::as_ptr(&content.0) as *const () as *mut () as *mut Self)
-                    }
-                })
-            }
-        }
-    }
-}
-
-/// Creates the element's `Element` implementation.
-fn create_element_impl(element: &Elem) -> TokenStream {
-    let model = quote! { ::typst::model };
-    let Elem { name, ident, enum_ident, .. } = element;
 
     // Fields that can be accessed using the `field` method.
     let field_matches = element.visible_fields().map(|field| {
@@ -747,10 +679,66 @@ fn create_element_impl(element: &Elem) -> TokenStream {
 
     let unknown_field = format!("unknown field {{}} on {}", name);
     let label_error = format!("cannot set label on {}", name);
+
+    let data = quote! {
+        #model::NativeElementData {
+            name: #name,
+            title: #title,
+            docs: #docs,
+            keywords: &[#(#keywords),*],
+            empty: || #model::Content::new(<#ident as ::std::default::Default>::default()),
+            construct: <#ident as #model::Construct>::construct,
+            set: <#ident as #model::Set>::set,
+            vtable: #vtable_func,
+            field_id: |name| <#enum_ident as ::std::str::FromStr>::from_str(name).ok().map(|id| id as u8),
+            field_name: |id| <#enum_ident as ::std::convert::TryFrom<u8>>::try_from(id).ok().map(#enum_ident::to_str),
+            scope: #eval::Lazy::new(|| #scope),
+            params: #eval::Lazy::new(|| ::std::vec![#(#params),*])
+        }
+    };
+
     quote! {
-        impl #model::Element for #ident {
-            fn data(&self) -> ElementData {
-                <Self as #model::NativeElement>::data().into()
+        impl #model::NativeElement for #ident {
+            fn data() -> &'static #model::NativeElementData {
+                static DATA: #model::NativeElementData = #data;
+                &DATA
+            }
+
+            fn dyn_data(&self) -> #model::Element {
+                #model::Element::of::<Self>()
+            }
+
+            fn pack(self) -> #model::Content {
+                #model::Content::new(self)
+            }
+
+            fn unpack(content: &#model::Content) -> ::std::option::Option<&Self> {
+                content.is::<Self>().then(|| unsafe {
+                    // Safety: we checked that we are `Self`.
+                    &*(::std::sync::Arc::as_ptr(&content.0) as *const () as *const Self)
+                })
+            }
+
+            fn unpack_owned(content: #model::Content) -> Option<::std::sync::Arc<Self>> {
+                content.is::<Self>().then(|| unsafe {
+                    // Safety: we checked that we are `Self`.
+                    ::std::sync::Arc::from_raw(
+                        ::std::sync::Arc::as_ptr(&content.0) as *const () as *const Self
+                    )
+                })
+
+            }
+
+            fn unpack_mut(content: &mut #model::Content) -> Option<&mut Self> {
+                content.is::<Self>().then(|| {
+                    // Make sure we're mutable
+                    #model::swap_with_mut(&mut content.0);
+
+                    // Safety: we checked that we are `Self` and mutable.
+                    unsafe {
+                        &mut *(::std::sync::Arc::as_ptr(&content.0) as *const () as *mut () as *mut Self)
+                    }
+                })
             }
 
             fn span(&self) -> ::typst::syntax::Span {
@@ -815,7 +803,7 @@ fn create_element_impl(element: &Elem) -> TokenStream {
                 }
             }
 
-            fn dyn_clone(&self) -> ::std::sync::Arc<dyn #model::Element> {
+            fn dyn_clone(&self) -> ::std::sync::Arc<dyn #model::NativeElement> {
                 ::std::sync::Arc::new(Clone::clone(self))
             }
 
@@ -837,7 +825,6 @@ fn create_element_impl(element: &Elem) -> TokenStream {
                 fields
             }
 
-            /// Set the fields of the element.
             fn set_field(&mut self, id: u8, value: Value) -> ::typst::diag::StrResult<()> {
                 let id = <#enum_ident as ::std::convert::TryFrom<u8>>::try_from(id)
                     .map_err(|_| ::ecow::eco_format!(#unknown_field, id))?;

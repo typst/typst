@@ -5,14 +5,14 @@ use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
 use comemo::Prehashed;
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
 use smallvec::SmallVec;
 use typst_macros::elem;
 
 use super::{
-    Behave, Behaviour, Element, ElementData, Guard, Label, Location, NativeElement,
-    Recipe, Selector, Style, Styles,
+    Behave, Behaviour, Element, Guard, Label, Location, NativeElement, Recipe, Selector,
+    Style, Styles,
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::doc::Meta;
@@ -23,7 +23,7 @@ use crate::util::pretty_array_like;
 #[ty(scope)]
 #[repr(transparent)]
 #[derive(Debug, Clone)]
-pub struct Content(pub Arc<dyn Element>);
+pub struct Content(pub Arc<dyn NativeElement>);
 
 impl Default for Content {
     fn default() -> Self {
@@ -31,75 +31,148 @@ impl Default for Content {
     }
 }
 
-impl<T: Element> From<T> for Content {
+impl<T: NativeElement> From<T> for Content {
     fn from(value: T) -> Self {
         Self::new(value)
     }
 }
 
-impl From<Arc<dyn Element>> for Content {
-    fn from(value: Arc<dyn Element>) -> Self {
+impl From<Arc<dyn NativeElement>> for Content {
+    fn from(value: Arc<dyn NativeElement>) -> Self {
         Self(value)
     }
 }
 
 impl Content {
+    /// Creates a new content from an element.
     #[inline]
-    pub fn new<E: Element>(elem: E) -> Self {
+    pub fn new<E: NativeElement>(elem: E) -> Self {
         Self(Arc::new(elem))
     }
 
+    /// Creates a new empty sequence content.
     #[inline]
     pub fn empty() -> Self {
         Self::new(SequenceElem::default())
     }
 
-    pub fn temp(of: ElementData) -> Self {
+    /// Creates a temporary content for an element type.
+    #[inline]
+    pub fn temp(of: Element) -> Self {
         of.empty()
     }
 
-    #[inline]
-    pub fn get_by_name(&self, name: &str) -> StrResult<Value> {
-        let id = self.0.data().field_id(name).ok_or_else(|| missing_field(name))?;
-        self.get(id)
+    /// Get the element data of this content.
+    pub fn elem(&self) -> Element {
+        self.0.dyn_data()
     }
 
-    #[inline]
-    pub fn get(&self, id: u8) -> StrResult<Value> {
-        self.field(id)
-            .ok_or_else(|| missing_field(self.0.data().field_name(id).unwrap()))
-    }
-
-    #[inline]
-    pub fn field(&self, id: u8) -> Option<Value> {
-        self.0.field(id)
-    }
-
+    /// Get the span of the content.
     #[inline]
     pub fn span(&self) -> Span {
         self.0.span()
     }
 
-    #[inline]
-    pub fn label(&self) -> Option<Label> {
-        self.0.label()
-    }
-
+    /// Set the span of the content.
     pub fn spanned(mut self, span: Span) -> Self {
         swap_with_mut(&mut self.0);
         Arc::get_mut(&mut self.0).unwrap().set_span(span);
         self
     }
 
+    /// Get the label of the content.
+    #[inline]
+    pub fn label(&self) -> Option<Label> {
+        self.0.label()
+    }
+
+    /// Set the label of the content.
     pub fn labelled(mut self, label: Label) -> Self {
         swap_with_mut(&mut self.0);
         Arc::get_mut(&mut self.0).unwrap().set_label(label);
         self
     }
 
+    /// Set the location of the content.
     pub fn set_location(&mut self, location: Location) {
         swap_with_mut(&mut self.0);
         Arc::get_mut(&mut self.0).unwrap().set_location(location);
+    }
+
+    /// Disable a show rule recipe.
+    pub fn guarded(mut self, guard: Guard) -> Self {
+        swap_with_mut(&mut self.0);
+        Arc::get_mut(&mut self.0).unwrap().push_guard(guard);
+        self.0.into()
+    }
+
+    /// Whether the content needs to be realized specially.
+    pub fn needs_preparation(&self) -> bool {
+        self.0.needs_preparation()
+    }
+
+    /// Check whether a show rule recipe is disabled.
+    pub fn is_guarded(&self, guard: Guard) -> bool {
+        self.0.is_guarded(guard)
+    }
+
+    /// Whether no show rule was executed for this content so far.
+    pub fn is_pristine(&self) -> bool {
+        self.0.is_pristine()
+    }
+
+    /// Whether this content has already been prepared.
+    pub fn is_prepared(&self) -> bool {
+        self.0.is_prepared()
+    }
+
+    /// Mark this content as prepared.
+    pub fn mark_prepared(&mut self) {
+        swap_with_mut(&mut self.0);
+        Arc::get_mut(&mut self.0).unwrap().mark_prepared();
+    }
+
+    /// Get a field by name.
+    ///
+    /// This can potentially allocate a new string.
+    /// If you have access to the field IDs of the elemnt, use [`Self::get`]
+    /// instead.
+    #[inline]
+    pub fn get_by_name(&self, name: &str) -> StrResult<Value> {
+        let id = self.0.dyn_data().field_id(name).ok_or_else(|| missing_field(name))?;
+        self.get(id)
+    }
+
+    /// Get a field by ID, returning a missing field error
+    /// if it does not exist.
+    ///
+    /// This is the preferred way to access fields.
+    /// Only use this if you have set the field IDs yourself or are using
+    /// the field IDs generated by the `#[elem]` macro.
+    #[inline]
+    pub fn get(&self, id: u8) -> StrResult<Value> {
+        self.field(id)
+            .ok_or_else(|| missing_field(self.0.dyn_data().field_name(id).unwrap()))
+    }
+
+    /// Get a field by ID.
+    ///
+    /// This is the preferred way to access fields.
+    /// Only use this if you have set the field IDs yourself or are using
+    /// the field IDs generated by the `#[elem]` macro.
+    #[inline]
+    pub fn field(&self, id: u8) -> Option<Value> {
+        self.0.field(id)
+    }
+
+    /// Set a field to the content.
+    pub fn with_field(mut self, id: u8, value: impl IntoValue) -> Self {
+        swap_with_mut(&mut self.0);
+        Arc::get_mut(&mut self.0)
+            .unwrap()
+            .set_field(id, value.into_value())
+            .unwrap();
+        self
     }
 
     /// Create a new sequence element from multiples elements.
@@ -123,10 +196,6 @@ impl Content {
         };
 
         Some(sequence.children.iter())
-    }
-
-    pub fn elem(&self) -> ElementData {
-        self.0.data()
     }
 
     /// Whether the contained element is of type `T`.
@@ -255,11 +324,6 @@ impl Content {
         }
     }
 
-    /// Whether the content needs to be realized specially.
-    pub fn needs_preparation(&self) -> bool {
-        self.0.needs_preparation()
-    }
-
     /// Queries the content tree for all elements that match the given selector.
     ///
     /// Elements produced in `show` rules will not be included in the results.
@@ -300,14 +364,6 @@ impl Content {
         text
     }
 
-    pub fn fields_ref(&self) -> EcoVec<(EcoString, Value)> {
-        self.0
-            .fields()
-            .into_iter()
-            .map(|(key, value)| (key.0, value))
-            .collect()
-    }
-
     /// Traverse this content.
     fn traverse<F>(&self, f: &mut F)
     where
@@ -337,23 +393,6 @@ impl Content {
         }
     }
 
-    /// Disable a show rule recipe.
-    pub fn guarded(mut self, guard: Guard) -> Self {
-        swap_with_mut(&mut self.0);
-        Arc::get_mut(&mut self.0).unwrap().push_guard(guard);
-        self.0.into()
-    }
-
-    /// Check whether a show rule recipe is disabled.
-    pub fn is_guarded(&self, guard: Guard) -> bool {
-        self.0.is_guarded(guard)
-    }
-
-    /// Whether no show rule was executed for this content so far.
-    pub fn is_pristine(&self) -> bool {
-        self.0.is_pristine()
-    }
-
     /// Expect a field on the content to exist as a specified type.
     #[track_caller]
     pub fn expect_field<T: FromValue>(&self, id: u8) -> T {
@@ -365,32 +404,11 @@ impl Content {
     pub fn expect_field_by_name<T: FromValue>(&self, name: &str) -> T {
         self.get_by_name(name).unwrap().cast().unwrap()
     }
-
-    /// Whether this content has already been prepared.
-    pub fn is_prepared(&self) -> bool {
-        self.0.is_prepared()
-    }
-
-    /// Mark this content as prepared.
-    pub fn mark_prepared(&mut self) {
-        swap_with_mut(&mut self.0);
-        Arc::get_mut(&mut self.0).unwrap().mark_prepared();
-    }
-
-    /// Attach a field to the content.
-    pub fn with_field(mut self, id: u8, value: impl IntoValue) -> Self {
-        swap_with_mut(&mut self.0);
-        Arc::get_mut(&mut self.0)
-            .unwrap()
-            .set_field(id, value.into_value())
-            .unwrap();
-        self
-    }
 }
 
 impl std::hash::Hash for Content {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.data().hash(state);
+        self.0.dyn_data().hash(state);
         self.0.dyn_hash(state)
     }
 }
@@ -416,7 +434,7 @@ impl Content {
     /// a specific
     /// kind of element.
     #[func]
-    pub fn func(&self) -> ElementData {
+    pub fn func(&self) -> Element {
         self.elem()
     }
 
@@ -427,7 +445,7 @@ impl Content {
         /// The field to look for.
         field: Str,
     ) -> bool {
-        let Some(id) = self.0.data().field_id(&field) else {
+        let Some(id) = self.0.dyn_data().field_id(&field) else {
             return false;
         };
 
@@ -446,7 +464,7 @@ impl Content {
         #[named]
         default: Option<Value>,
     ) -> StrResult<Value> {
-        let Some(id) = self.0.data().field_id(&field) else {
+        let Some(id) = self.0.dyn_data().field_id(&field) else {
             return default.ok_or_else(|| missing_field_no_default(&field));
         };
 
@@ -646,7 +664,7 @@ fn missing_field_no_default(field: &str) -> EcoString {
 
 #[doc(hidden)]
 #[allow(invalid_value)]
-pub fn swap_with_mut(val: &mut Arc<dyn Element>) {
+pub fn swap_with_mut(val: &mut Arc<dyn NativeElement>) {
     match Arc::get_mut(val) {
         Some(_) => {}
         None => *val = val.dyn_clone(),
@@ -656,7 +674,7 @@ pub fn swap_with_mut(val: &mut Arc<dyn Element>) {
 #[macro_export]
 macro_rules! fields {
     ($elem:expr; $($key:expr => $value:expr),* $(,)?) => {{
-        use ::typst::model::Element;
+        use ::typst::model::NativeElement;
         #[allow(unused_mut)]
         let mut out = Vec::<(u8, ::typst::eval::Value)>::new();
         $(
@@ -668,7 +686,7 @@ macro_rules! fields {
         out
     }};
     ($($key:expr => $value:expr),* $(,)?) => {{
-        use ::typst::model::Element;
+        use ::typst::model::NativeElement;
         #[allow(unused_mut)]
         let mut out = Vec::<(u8, ::typst::eval::Value)>::new();
         $(

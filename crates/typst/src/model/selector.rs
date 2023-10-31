@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use ecow::{eco_format, EcoString, EcoVec};
 
-use super::{Content, ElementData, Label, Locatable, Location};
+use super::{Content, Element, Label, Locatable, Location};
 use crate::diag::{bail, StrResult};
 use crate::eval::{
     cast, func, scope, ty, CastInfo, Dict, FromValue, Func, Reflect, Regex, Repr, Str,
@@ -55,7 +55,7 @@ pub enum Selector {
     ///
     /// If there is a dictionary, only elements with the fields from the
     /// dictionary match.
-    Elem(ElementData, Option<Vec<(u8, Value)>>),
+    Elem(Element, Option<Vec<(u8, Value)>>),
     /// Matches the element at the specified location.
     Location(Location),
     /// Matches elements with a specific label.
