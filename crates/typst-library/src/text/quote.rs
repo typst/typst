@@ -1,6 +1,6 @@
 use super::{SmartquoteElem, SpaceElem, TextElem};
 use crate::layout::{BlockElem, HElem, PadElem, Spacing, VElem};
-use crate::meta::{BibliographyElem, BibliographyStyle, CiteElem};
+use crate::meta::{CitationForm, CiteElem};
 use crate::prelude::*;
 
 /// Displays a quote alongside it's author.
@@ -125,22 +125,16 @@ cast! {
 }
 
 impl Show for QuoteElem {
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
         let block = self.block(styles);
 
         if self.quotes(styles) == Smart::Custom(true) || !block {
-            // use h(0pt, weak: true) to make the quotes "sticky"
+            // Add zero-width weak spacing to make the quotes "sticky".
+            let hole = HElem::hole().pack();
             let quote = SmartquoteElem::new().with_double(true).pack();
-            let weak_h = HElem::new(Spacing::Rel(Rel::zero())).with_weak(true).pack();
-
-            realized = Content::sequence([
-                quote.clone(),
-                weak_h.clone(),
-                realized,
-                weak_h,
-                quote,
-            ]);
+            realized =
+                Content::sequence([quote.clone(), hole.clone(), realized, hole, quote]);
         }
 
         if block {
@@ -154,41 +148,23 @@ impl Show for QuoteElem {
                         seq.push(content);
                     }
                     Attribution::Label(label) => {
-                        let citation = vt.delayed(|vt| {
-                            let citation = CiteElem::new(vec![label.0]);
-                            let bib =
-                                BibliographyElem::find(vt.introspector).at(self.span())?;
-
-                            // TODO: these should use the citation-format attribute, once CSL
-                            // is implemented and retrieve the authors for non-author formats
-                            // themselves, see:
-                            // - https://github.com/typst/typst/pull/2252#issuecomment-1741146989
-                            // - https://github.com/typst/typst/pull/2252#issuecomment-1744634132
-                            Ok(match bib.style(styles) {
-                                // author-date and author
-                                BibliographyStyle::Apa
-                                | BibliographyStyle::Mla
-                                | BibliographyStyle::ChicagoAuthorDate => {
-                                    citation.with_brackets(false).pack()
-                                }
-                                // notes, label and numeric
-                                BibliographyStyle::ChicagoNotes
-                                | BibliographyStyle::Ieee => citation.pack(),
-                            })
-                        });
-
-                        seq.push(citation);
+                        seq.push(
+                            CiteElem::new(label)
+                                .with_form(Some(CitationForm::Prose))
+                                .pack(),
+                        );
                     }
                 }
 
-                // use v(0.9em, weak: true) bring the attribution closer to the quote
+                // Use v(0.9em, weak: true) bring the attribution closer to the
+                // quote.
                 let weak_v = VElem::weak(Spacing::Rel(Em::new(0.9).into())).pack();
                 realized += weak_v + Content::sequence(seq).aligned(Align::END);
             }
 
             realized = PadElem::new(realized).pack();
         } else if let Some(Attribution::Label(label)) = self.attribution(styles) {
-            realized += SpaceElem::new().pack() + CiteElem::new(vec![label.0]).pack();
+            realized += SpaceElem::new().pack() + CiteElem::new(label).pack();
         }
 
         Ok(realized)

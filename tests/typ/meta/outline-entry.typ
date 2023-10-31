@@ -54,7 +54,6 @@
 === Lower heading
 
 ---
-// Error: 2-23 cannot outline cite
-#outline(target: cite)
-#cite("arrgh", "distress",  supplement: [p. 22])
-#bibliography("/files/works.bib")
+// Error: 2-27 cannot outline metadata
+#outline(target: metadata)
+#metadata("hello")

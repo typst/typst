@@ -18,6 +18,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 ---
 // Spacing with other blocks
 #set quote(block: true)
+#set text(8pt)
 
 #lorem(10)
 #quote(lorem(10))
@@ -25,27 +26,35 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 
 ---
 // Inline citation
-#bibliography("/files/works.bib")
-
+#set text(8pt)
 #quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
+
+#set text(0pt)
+#bibliography("/files/works.bib")
 
 ---
 // Citation-format: label or numeric
+#set text(8pt)
 #set quote(block: true)
-#bibliography("/files/works.bib", style: "ieee")
-
 #quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
+
+#set text(0pt)
+#bibliography("/files/works.bib", style: "ieee")
 
 ---
 // Citation-format: note
+#set text(8pt)
 #set quote(block: true)
-#bibliography("/files/works.bib", style: "chicago-notes")
-
 #quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
+
+#set text(0pt)
+#bibliography("/files/works.bib", style: "chicago-notes")
 
 ---
 // Citation-format: author-date or author
+#set text(8pt)
 #set quote(block: true)
-#bibliography("/files/works.bib", style: "apa")
-
 #quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
+
+#set text(0pt)
+#bibliography("/files/works.bib", style: "apa")

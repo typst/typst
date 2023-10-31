@@ -85,6 +85,9 @@ use crate::text::TextElem;
 #[elem(title = "Reference", Synthesize, Locatable, Show)]
 pub struct RefElem {
     /// The target label that should be referenced.
+    ///
+    /// Can be a label that is defined in the document or an entry from the
+    /// [`bibliography`]($bibliography).
     #[required]
     pub target: Label,
 
@@ -222,7 +225,7 @@ impl Show for RefElem {
 impl RefElem {
     /// Turn the reference into a citation.
     pub fn to_citation(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<CiteElem> {
-        let mut elem = CiteElem::new(vec![self.target().0]);
+        let mut elem = CiteElem::new(self.target());
         elem.0.set_location(self.0.location().unwrap());
         elem.synthesize(vt, styles)?;
         elem.push_supplement(match self.supplement(styles) {

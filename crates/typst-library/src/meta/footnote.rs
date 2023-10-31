@@ -8,24 +8,6 @@ use crate::prelude::*;
 use crate::text::{SuperElem, TextElem, TextSize};
 use crate::visualize::LineElem;
 
-/// The body of a footnote can be either some content or a label referencing
-/// another footnote.
-#[derive(Debug)]
-pub enum FootnoteBody {
-    Content(Content),
-    Reference(Label),
-}
-
-cast! {
-    FootnoteBody,
-    self => match self {
-        Self::Content(v) => v.into_value(),
-        Self::Reference(v) => v.into_value(),
-    },
-    v: Content => Self::Content(v),
-    v: Label => Self::Reference(v),
-}
-
 /// A footnote.
 ///
 /// Includes additional remarks and references on the same page with footnotes.
@@ -147,9 +129,9 @@ impl Show for FootnoteElem {
             let counter = Counter::of(Self::elem());
             let num = counter.at(vt, loc)?.display(vt, &numbering)?;
             let sup = SuperElem::new(num).pack();
-            let hole = HElem::new(Abs::zero().into()).with_weak(true).pack();
             let loc = loc.variant(1);
-            Ok(hole + sup.linked(Destination::Location(loc)))
+            // Add zero-width weak spacing to make the footnote "sticky".
+            Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc)))
         }))
     }
 }
@@ -158,6 +140,24 @@ impl Count for FootnoteElem {
     fn update(&self) -> Option<CounterUpdate> {
         (!self.is_ref()).then(|| CounterUpdate::Step(NonZeroUsize::ONE))
     }
+}
+
+/// The body of a footnote can be either some content or a label referencing
+/// another footnote.
+#[derive(Debug)]
+pub enum FootnoteBody {
+    Content(Content),
+    Reference(Label),
+}
+
+cast! {
+    FootnoteBody,
+    self => match self {
+        Self::Content(v) => v.into_value(),
+        Self::Reference(v) => v.into_value(),
+    },
+    v: Content => Self::Content(v),
+    v: Label => Self::Reference(v),
 }
 
 /// An entry in a footnote list.

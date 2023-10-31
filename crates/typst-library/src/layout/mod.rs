@@ -51,11 +51,10 @@ use std::mem;
 use typed_arena::Arena;
 use typst::diag::SourceResult;
 use typst::eval::Tracer;
-use typst::model::DelayedErrors;
-use typst::model::{applicable, realize, StyleVecBuilder};
+use typst::model::{applicable, realize, DelayedErrors, StyleVecBuilder};
 
 use crate::math::{EquationElem, LayoutMath};
-use crate::meta::DocumentElem;
+use crate::meta::{CiteElem, CiteGroup, DocumentElem};
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
 use crate::text::{LinebreakElem, SmartquoteElem, SpaceElem, TextElem};
@@ -302,6 +301,8 @@ struct Builder<'a, 'v, 't> {
     par: ParBuilder<'a>,
     /// The current list building state.
     list: ListBuilder<'a>,
+    /// The current citation grouping state.
+    cites: CiteGroupBuilder<'a>,
 }
 
 /// Temporary storage arenas for building.
@@ -322,6 +323,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             flow: FlowBuilder::default(),
             par: ParBuilder::default(),
             list: ListBuilder::default(),
+            cites: CiteGroupBuilder::default(),
         }
     }
 
@@ -350,6 +352,12 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             }
             return Ok(());
         }
+
+        if self.cites.accept(content, styles) {
+            return Ok(());
+        }
+
+        self.interrupt_cites()?;
 
         if self.list.accept(content, styles) {
             return Ok(());
@@ -438,7 +446,21 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    fn interrupt_cites(&mut self) -> SourceResult<()> {
+        if !self.cites.items.is_empty() {
+            let staged = mem::take(&mut self.cites.staged);
+            let (group, styles) = mem::take(&mut self.cites).finish();
+            let stored = self.scratch.content.alloc(group);
+            self.accept(stored, styles)?;
+            for (content, styles) in staged {
+                self.accept(content, styles)?;
+            }
+        }
+        Ok(())
+    }
+
     fn interrupt_list(&mut self) -> SourceResult<()> {
+        self.interrupt_cites()?;
         if !self.list.items.is_empty() {
             let staged = mem::take(&mut self.list.staged);
             let (list, styles) = mem::take(&mut self.list).finish();
@@ -711,5 +733,39 @@ impl Default for ListBuilder<'_> {
             tight: true,
             staged: vec![],
         }
+    }
+}
+
+/// Accepts citations.
+#[derive(Default)]
+struct CiteGroupBuilder<'a> {
+    /// The citations.
+    items: StyleVecBuilder<'a, CiteElem>,
+    /// Trailing content for which it is unclear whether it is part of the list.
+    staged: Vec<(&'a Content, StyleChain<'a>)>,
+}
+
+impl<'a> CiteGroupBuilder<'a> {
+    fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
+        if !self.items.is_empty()
+            && (content.is::<SpaceElem>() || content.is::<MetaElem>())
+        {
+            self.staged.push((content, styles));
+            return true;
+        }
+
+        if let Some(citation) = content.to::<CiteElem>() {
+            self.items.push(citation.clone(), styles);
+            return true;
+        }
+
+        false
+    }
+
+    fn finish(self) -> (Content, StyleChain<'a>) {
+        let (items, styles) = self.items.finish();
+        let items = items.into_items();
+        let span = items.first().map(|cite| cite.span()).unwrap_or(Span::detached());
+        (CiteGroup::new(items).pack().spanned(span), styles)
     }
 }

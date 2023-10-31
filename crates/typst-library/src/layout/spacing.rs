@@ -51,6 +51,13 @@ pub struct HElem {
     pub weak: bool,
 }
 
+impl HElem {
+    /// Zero-width horizontal weak spacing that eats surrounding spaces.
+    pub fn hole() -> Self {
+        Self::new(Abs::zero().into()).with_weak(true)
+    }
+}
+
 impl Behave for HElem {
     fn behaviour(&self) -> Behaviour {
         if self.amount().is_fractional() {
