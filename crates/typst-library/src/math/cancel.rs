@@ -57,7 +57,7 @@ pub struct CancelElem {
     ///   diagonal line of the content box.
     /// - If given an angle, the line is rotated by that angle clockwise w.r.t
     ///   the y-axis.
-    /// - It given a function `angle => angle`, the line is rotated by the angle
+    /// - If given a function `angle => angle`, the line is rotated by the angle
     ///   returned by that function. The function receives the default angle as
     ///   its input.
     ///
