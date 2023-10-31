@@ -504,20 +504,10 @@ pub struct FigureCaption {
 impl FigureCaption {
     /// Gets the default separator in the given language and (optionally)
     /// region.
-    fn local_separator(lang: Lang, region: Option<Region>) -> &'static str {
+    fn local_separator(lang: Lang, _region: Option<Region>) -> &'static str {
         match lang {
-            Lang::CHINESE => "：",
-            Lang::FRENCH if option_eq(region, "CH") => "\u{202f}: ",
-            Lang::FRENCH => "\u{a0}: ",
-            Lang::DANISH
-            | Lang::DUTCH
-            | Lang::ENGLISH
-            | Lang::GERMAN
-            | Lang::ITALIAN
-            | Lang::RUSSIAN
-            | Lang::SPANISH
-            | Lang::SWEDISH
-            | _ => ": ",
+            Lang::FRENCH => "\u{a0}– ",
+            Lang::ENGLISH | _ => ": ",
         }
     }
 
