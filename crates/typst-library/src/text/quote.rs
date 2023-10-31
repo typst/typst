@@ -38,10 +38,14 @@ pub struct QuoteElem {
     /// Whether this is a block quote.
     ///
     /// ```example
-    /// #quote(attribution: [René Descartes])[cogito, ergo sum]
-    ///
-    /// #set quote(block: true)
-    /// #quote(attribution: [JFK])[Ich bin ein Berliner.]
+    /// #let descartes = quote(attribution: [René Descartes])[
+    ///   cogito, ergo sum
+    /// ]
+    /// #let jfk = quote(block: true, attribution: [JFK])[
+    ///   Ich bin ein Berliner.
+    /// ]
+    /// An inline citation would look like this: #descartes, and a block
+    /// equation like this: #jfk
     /// ```
     block: bool,
 
@@ -59,11 +63,12 @@ pub struct QuoteElem {
     ///
     /// ```example
     /// #set text(lang: "de")
+    /// Ein deutsch-sprechender Author zitiert unter umständen JFK:
     /// #quote[Ich bin ein Berliner.]
     ///
     /// #set text(lang: "en")
-    /// #set quote(quotes: true)
-    /// #quote(block: true)[I am a Berliner.]
+    /// And an english speaking one may translate the quote:
+    /// #quote[I am a Berliner.]
     /// ```
     quotes: Smart<bool>,
 
@@ -74,10 +79,10 @@ pub struct QuoteElem {
     /// ```example
     /// #quote(attribution: [René Descartes])[cogito, ergo sum] \
     ///
-    /// #show quote.where(block: false): it => [
-    ///   "#it.body"
-    ///   #if it.attribution != none [(#it.attribution)]
-    /// ]
+    /// #show quote.where(block: false): it => {
+    ///   ["] + h(0pt, weak: true) + it.body + h(0pt, weak: true) + ["]
+    ///   if it.attribution != none [ (#it.attribution)]
+    /// }
     /// #quote(attribution: link("https://typst.app/home")[typst.com])[
     ///   Compose papers faster
     /// ]
