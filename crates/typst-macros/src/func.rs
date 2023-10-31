@@ -119,7 +119,7 @@ fn parse(stream: TokenStream, item: &syn::ItemFn) -> Result<Func> {
     })
 }
 
-/// Parse details about a functino parameter.
+/// Parse details about a function parameter.
 fn parse_param(
     special: &mut SpecialParams,
     params: &mut Vec<Param>,

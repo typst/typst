@@ -88,7 +88,7 @@ pub struct FuncModel {
     pub element: bool,
     pub details: Html,
     /// This example is only for nested function models. Others can have
-    /// their example directly in their detals.
+    /// their example directly in their details.
     pub example: Option<Html>,
     #[serde(rename = "self")]
     pub self_: bool,

@@ -650,7 +650,7 @@ pub struct SyntaxError {
     pub span: Span,
     /// The error message.
     pub message: EcoString,
-    /// Additonal hints to the user, indicating how this error could be avoided
+    /// Additional hints to the user, indicating how this error could be avoided
     /// or worked around.
     pub hints: EcoVec<EcoString>,
 }

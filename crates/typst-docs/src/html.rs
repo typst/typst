@@ -53,7 +53,10 @@ impl Html {
             description = Some(document.metadata.description.clone())
         }
 
-        let options = md::Options::ENABLE_TABLES | md::Options::ENABLE_HEADING_ATTRIBUTES;
+        let options = md::Options::ENABLE_TABLES
+            | md::Options::ENABLE_FOOTNOTES
+            | md::Options::ENABLE_STRIKETHROUGH
+            | md::Options::ENABLE_HEADING_ATTRIBUTES;
 
         let ids = Arena::new();
         let mut handler = Handler::new(text, resolver, nesting, &ids);

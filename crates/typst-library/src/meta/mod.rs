@@ -1,6 +1,7 @@
 //! Interaction between document parts.
 
 mod bibliography;
+mod cite;
 mod context;
 mod counter;
 mod document;
@@ -18,6 +19,7 @@ mod reference;
 mod state;
 
 pub use self::bibliography::*;
+pub use self::cite::*;
 pub use self::context::*;
 pub use self::counter::*;
 pub use self::document::*;

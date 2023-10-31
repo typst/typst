@@ -486,7 +486,7 @@ $ f(x) = (x + 1) / x $
 to include more than one value in a sub- or superscript, enclose their contents
 in parentheses: `{$x_(a -> epsilon)$}`.
 
-Since variables in math mode do not need to be preprended with a `#` or a `/`,
+Since variables in math mode do not need to be prepended with a `#` or a `/`,
 you can also call functions without these special characters:
 
 ```example
@@ -545,7 +545,7 @@ The example below
 - sets wide [margins]($page.margin)
 - enables [justification]($par.justify), [tighter lines]($par.leading) and
   [first-line-indent]($par.first-line-indent)
-- [sets the font]($text.font) to "New Computer Modern", an OpenType derivate of
+- [sets the font]($text.font) to "New Computer Modern", an OpenType derivative of
   Computer Modern for both text and [code blocks]($raw)
 - disables paragraph [spacing]($block.spacing)
 - increases [spacing]($block.spacing) around [headings]($heading)

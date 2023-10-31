@@ -451,15 +451,18 @@ impl Array {
             .collect()
     }
 
-    /// Zips the array with other arrays. If the arrays are of unequal length,
-    /// it will only zip up until the last element of the shortest array and the
-    /// remaining elements will be ignored. The return value is an array where
-    /// each element is yet another array, the size of each of those is the
-    /// number of zipped arrays.
+    /// Zips the array with other arrays.
+    ///
+    /// Returns an array of arrays, where the `i`th inner array contains all the
+    /// `i`th elements from each original array.
+    ///
+    /// If the arrays to be zipped have different lengths, they are zipped up to
+    /// the last element of the shortest array and all remaining elements are
+    /// ignored.
     ///
     /// This function is variadic, meaning that you can zip multiple arrays
-    /// together at once: `{(1, 2, 3).zip((3, 4, 5), (6, 7, 8))}` yields
-    /// `{((1, 3, 6), (2, 4, 7), (3, 5, 8))}`.
+    /// together at once: `{(1, 2).zip(("A", "B"), (10, 20))}` yields
+    /// `{((1, "A", 10), (2, "B", 20))}`.
     #[func]
     pub fn zip(
         self,
