@@ -112,22 +112,9 @@ We can clearly see that @fig-cylinder and
 
 ---
 // Test localized default separator
-#set text(lang: "fr", region: "CH")
+#set text(lang: "fr")
 
 #figure(
     circle(),
     caption: [Un cercle.],
-)
-#set text(lang: "es")
-
-#figure(
-    polygon.regular(size: 1cm, vertices: 3),
-    caption: [Un triángulo.],
-)
-
-#set text(lang: "fr", region: "CA")
-
-#figure(
-    square(),
-    caption: [Un carré.],
 )

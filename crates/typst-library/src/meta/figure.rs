@@ -1,5 +1,4 @@
 use std::str::FromStr;
-use typst::util::option_eq;
 
 use super::{
     Count, Counter, CounterKey, CounterUpdate, LocalName, Numbering, NumberingPattern,
