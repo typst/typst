@@ -226,7 +226,7 @@ pub trait NativeElement: Construct + Set + Any + Send + Sync + Debug + Repr {
     /// Get the field with the given field ID.
     fn field(&self, id: u8) -> Option<Value>;
 
-    /// Set the fields of the element.
+    /// Set the field with the given ID.
     fn set_field(&mut self, id: u8, value: Value) -> StrResult<()>;
 
     /// Dynamically clone the element.

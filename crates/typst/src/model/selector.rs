@@ -218,8 +218,7 @@ impl Repr for Selector {
                     let dict = dict
                         .iter()
                         .map(|(id, value)| (elem.field_name(*id).unwrap(), value.clone()))
-                        .map(|(name, value)| (EcoString::from(name), value))
-                        .map(|(name, value)| (Str::from(name), value))
+                        .map(|(name, value)| (EcoString::from(name).into(), value))
                         .collect::<Dict>();
                     eco_format!("{}.where{}", elem.name(), dict.repr())
                 } else {
