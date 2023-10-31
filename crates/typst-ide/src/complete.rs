@@ -1119,7 +1119,7 @@ impl<'a> CompletionContext<'a> {
                     eco_format!(
                         "{}{}{}",
                         if open { "<" } else { "" },
-                        label.as_ref().into(),
+                        label.as_ref(),
                         if close { ">" } else { "" }
                     )
                 }),
