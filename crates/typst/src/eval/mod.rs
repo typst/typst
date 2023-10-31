@@ -53,7 +53,7 @@ pub use self::dict::{dict, Dict};
 pub use self::duration::Duration;
 pub use self::fields::fields_on;
 pub use self::func::{
-    func, CapturesVisitor, Func, NativeFunc, NativeFuncData, ParamInfo,
+    func, nothing, CapturesVisitor, Func, NativeFunc, NativeFuncData, ParamInfo,
 };
 pub use self::library::{set_lang_items, LangItems, Library};
 pub use self::methods::mutable_methods_on;
@@ -77,6 +77,10 @@ use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 
 use self::func::Closure;
+use crate::diag::{
+    bail, error, warning, At, FileError, Hint, SourceDiagnostic, SourceResult, StrResult,
+    Trace, Tracepoint,
+};
 use crate::model::{
     Content, DelayedErrors, Introspector, Label, Locator, Recipe, ShowableSelector,
     Styles, Transform, Unlabellable, Vt,
@@ -87,13 +91,6 @@ use crate::syntax::{
     Spanned, SyntaxKind, SyntaxNode, VirtualPath,
 };
 use crate::World;
-use crate::{
-    diag::{
-        bail, error, warning, At, FileError, Hint, SourceDiagnostic, SourceResult,
-        StrResult, Trace, Tracepoint,
-    },
-    util::str::PicoStr,
-};
 
 const MAX_ITERATIONS: usize = 10_000;
 const MAX_CALL_DEPTH: usize = 64;
@@ -666,7 +663,7 @@ impl Eval for ast::Label<'_> {
 
     #[tracing::instrument(name = "Label::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Label(Label(PicoStr::new(self.get()))))
+        Ok(Value::Label(Label::new(self.get())))
     }
 }
 
@@ -675,7 +672,7 @@ impl Eval for ast::Ref<'_> {
 
     #[tracing::instrument(name = "Ref::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let label = Label(PicoStr::new(self.target()));
+        let label = Label::new(self.target());
         let supplement = self.supplement().map(|block| block.eval(vm)).transpose()?;
         Ok((vm.items.reference)(label, supplement))
     }

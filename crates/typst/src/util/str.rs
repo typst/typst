@@ -17,7 +17,7 @@ pub struct PicoStr(Spur);
 
 impl PicoStr {
     /// Creates a new interned string.
-    pub fn new<S: AsRef<str>>(s: S) -> Self {
+    pub fn new(s: impl AsRef<str>) -> Self {
         Self(INTERNER.get_or_intern(s.as_ref()))
     }
 

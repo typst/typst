@@ -1,17 +1,17 @@
-use ::std::hash::Hasher;
-use ::typst::model::{Guard, Label, Location};
-use ::typst::syntax::Span;
-use ecow::EcoString;
 use std::any::{Any, TypeId};
 use std::cmp::Ordering;
 use std::fmt::{self, Debug};
+use std::hash::Hasher;
 use std::sync::Arc;
 
+use ecow::EcoString;
 use once_cell::sync::Lazy;
 
 use super::{Content, Selector, Styles};
 use crate::diag::{SourceResult, StrResult};
 use crate::eval::{cast, Args, Dict, Func, ParamInfo, Repr, Scope, Value, Vm};
+use crate::model::{Guard, Label, Location};
+use crate::syntax::Span;
 use crate::util::Static;
 
 pub trait Element: Any + Send + Sync + Debug + Repr + 'static {
@@ -216,15 +216,14 @@ pub trait NativeElement: Construct + Set + Sized + 'static {
 
     /// Pack the element into type-erased content.
     fn pack(self) -> Content;
-
-    /// Extract this element from type-erased content.
-    fn unpack_owned(content: Content) -> Option<Arc<Self>>;
-
     /// Extract this element from type-erased content.
     fn unpack(content: &Content) -> Option<&Self>;
 
     /// Extract this element from type-erased content.
     fn unpack_mut(content: &mut Content) -> Option<&mut Self>;
+
+    /// Extract this element from type-erased content.
+    fn unpack_owned(content: Content) -> Option<Arc<Self>>;
 }
 
 /// An element's constructor function.

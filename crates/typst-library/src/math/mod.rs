@@ -19,8 +19,6 @@ mod stretch;
 mod style;
 mod underover;
 
-use std::borrow::Cow;
-
 pub use self::accent::*;
 pub use self::align::*;
 pub use self::attach::*;
@@ -40,6 +38,8 @@ use typst::font::{Font, FontWeight};
 use typst::model::Guard;
 use typst::util::option_eq;
 use unicode_math_class::MathClass;
+
+use std::borrow::Cow;
 
 use self::ctx::*;
 use self::fragment::*;

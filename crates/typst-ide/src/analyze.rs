@@ -104,7 +104,7 @@ pub fn analyze_labels(
 
     // Bibliography keys.
     for (key, detail) in (items.bibliography_keys)(introspector.track()) {
-        output.push((Label((&key).into()), detail));
+        output.push((Label::new(&key), detail));
     }
 
     (output, split)

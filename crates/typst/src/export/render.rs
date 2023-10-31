@@ -897,8 +897,10 @@ fn to_sk_paint<'a>(
                     .container_transform
                     .post_concat(state.transform.invert().unwrap()),
             };
-            let width = (container_size.x.to_f32() * state.pixel_per_pt).ceil() as u32;
-            let height = (container_size.y.to_f32() * state.pixel_per_pt).ceil() as u32;
+            let width =
+                (container_size.x.to_f32() * state.pixel_per_pt).ceil() as u32 * 2;
+            let height =
+                (container_size.y.to_f32() * state.pixel_per_pt).ceil() as u32 * 2;
 
             *pixmap = Some(cached(
                 gradient,
@@ -912,10 +914,10 @@ fn to_sk_paint<'a>(
             sk_paint.shader = sk::Pattern::new(
                 pixmap.as_ref().unwrap().as_ref().as_ref(),
                 sk::SpreadMode::Pad,
-                sk::FilterQuality::Nearest,
+                sk::FilterQuality::Bicubic,
                 1.0,
                 fill_transform
-                    .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt),
+                    .pre_scale(0.5 / state.pixel_per_pt, 0.5 / state.pixel_per_pt),
             );
 
             sk_paint.anti_alias = gradient.anti_alias();

@@ -1,5 +1,3 @@
-use typst::util::str::PicoStr;
-
 use super::{BibliographyElem, CiteElem, Counter, Figurable, Numbering};
 use crate::math::EquationElem;
 use crate::meta::FootnoteElem;
@@ -88,7 +86,7 @@ use crate::text::TextElem;
 pub struct RefElem {
     /// The target label that should be referenced.
     #[required]
-    #[empty(Label(PicoStr::from("example")))]
+    #[empty(Label::new("example"))]
     pub target: Label,
 
     /// A supplement for the reference.
@@ -134,7 +132,7 @@ impl Synthesize for RefElem {
         self.push_element(None);
 
         let target = self.target();
-        if !BibliographyElem::has(vt, target.0.resolve()) {
+        if !BibliographyElem::has(vt, target.as_ref()) {
             if let Ok(elem) = vt.introspector.query_label(target) {
                 self.push_element(Some(elem.into_inner()));
                 return Ok(());
@@ -153,7 +151,7 @@ impl Show for RefElem {
             let elem = vt.introspector.query_label(self.target());
             let span = self.span();
 
-            if BibliographyElem::has(vt, target.0.resolve()) {
+            if BibliographyElem::has(vt, target.as_ref()) {
                 if elem.is_ok() {
                     bail!(span, "label occurs in the document and its bibliography");
                 }
@@ -226,7 +224,7 @@ impl Show for RefElem {
 impl RefElem {
     /// Turn the reference into a citation.
     pub fn to_citation(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<CiteElem> {
-        let mut elem = CiteElem::new(smallvec![self.target().0.resolve().into()]);
+        let mut elem = CiteElem::new(smallvec![self.target().as_ref().into()]);
         elem.set_location(self.location().unwrap());
         elem.synthesize(vt, styles)?;
         elem.push_supplement(match self.supplement(&styles).into_owned() {

@@ -157,7 +157,7 @@ impl Show for QuoteElem {
                     Attribution::Label(label) => {
                         let citation = vt.delayed(|vt| {
                             let citation =
-                                CiteElem::new(smallvec![label.0.resolve().into()]);
+                                CiteElem::new(smallvec![label.as_ref().into()]);
                             let bib =
                                 BibliographyElem::find(vt.introspector).at(self.span())?;
 
@@ -192,7 +192,7 @@ impl Show for QuoteElem {
         } else if let Some(Attribution::Label(label)) = self.attribution(&styles).as_ref()
         {
             realized += SpaceElem::new().pack()
-                + CiteElem::new(smallvec![label.0.resolve().into()]).pack();
+                + CiteElem::new(smallvec![label.as_ref().into()]).pack();
         }
 
         Ok(realized)

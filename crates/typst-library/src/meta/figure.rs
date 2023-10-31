@@ -500,6 +500,7 @@ pub struct FigureCaption {
     pub counter: Option<Counter>,
 
     /// The figure's location.
+    #[internal]
     #[synthesized]
     pub figure_location: Option<Location>,
 }

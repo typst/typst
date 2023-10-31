@@ -128,15 +128,9 @@ pub struct Func {
     span: Span,
 }
 
-impl Default for Func {
-    fn default() -> Self {
-        nothing::func()
-    }
-}
-
 /// The identity function.
 #[func]
-fn nothing() -> Value {
+pub fn nothing() -> Value {
     Value::None
 }
 
@@ -381,13 +375,14 @@ impl Func {
             .map(|(key, value)| {
                 element.field_id(&key).map(|id| (id, value)).ok_or_else(|| {
                     eco_format!(
-                        "element `{}` does not have a field `{}`",
+                        "element `{}` does not have field `{}`",
                         element.name(),
                         key
                     )
                 })
             })
             .collect::<StrResult<Vec<_>>>()?;
+
         Ok(element.where_(fields))
     }
 }

@@ -360,6 +360,12 @@ impl Content {
         self.field(id).unwrap().cast().unwrap()
     }
 
+    /// Expect a field on the content to exist as a specified type.
+    #[track_caller]
+    pub fn expect_field_by_name<T: FromValue>(&self, name: &str) -> T {
+        self.get_by_name(name).unwrap().cast().unwrap()
+    }
+
     /// Whether this content has already been prepared.
     pub fn is_prepared(&self) -> bool {
         self.0.is_prepared()

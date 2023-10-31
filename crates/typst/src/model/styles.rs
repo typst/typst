@@ -426,7 +426,7 @@ impl<'a> StyleChain<'a> {
                 .map(move |value| {
                     value.downcast().unwrap_or_else(|| {
                         panic!(
-                            "for {}.{}: {:?}",
+                            "Attempt to read a value of a different type than was written {}.{}: {:?}",
                             func.name(),
                             func.field_name(id).unwrap(),
                             value

@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::io::Cursor;
 use std::sync::Arc;
 
-use ecow::EcoVec;
 use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Chunk, Filter, Finish, Ref};
 
@@ -93,7 +92,7 @@ pub fn write_images(ctx: &mut PdfContext) {
 /// Skips the alpha channel as that's encoded separately.
 #[comemo::memoize]
 #[tracing::instrument(skip_all)]
-fn encode_raster_image(image: &RasterImage) -> (EcoVec<u8>, Filter, bool) {
+fn encode_raster_image(image: &RasterImage) -> (Arc<Vec<u8>>, Filter, bool) {
     let dynamic = image.dynamic();
     match (image.format(), dynamic) {
         // 8-bit gray JPEG.

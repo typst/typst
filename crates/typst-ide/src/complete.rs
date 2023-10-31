@@ -1073,7 +1073,7 @@ impl<'a> CompletionContext<'a> {
         for (label, detail) in analyze_labels(self.world, self.frames).0 {
             self.completions.push(Completion {
                 kind: CompletionKind::Constant,
-                label: label.0.resolve().into(),
+                label: label.as_ref().into(),
                 apply: None,
                 detail,
             });
