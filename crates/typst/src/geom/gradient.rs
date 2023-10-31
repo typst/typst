@@ -71,7 +71,7 @@ use crate::syntax::{Span, Spanned};
 /// # Relativeness
 /// The location of the `{0%}` and `{100%}` stops is dependant on the dimensions
 /// of a container. This container can either be the shape they are painted on,
-/// or to closest surrounding container. This is controlled by the `relative`
+/// or the closest surrounding container. This is controlled by the `relative`
 /// argument of a gradient constructor. By default, gradients are relative to
 /// the shape they are painted on, unless the gradient is applied on text, in
 /// which case they are relative to the closest ancestor container.
