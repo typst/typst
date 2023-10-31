@@ -345,7 +345,7 @@ impl Datetime {
         result.map(EcoString::from).map_err(format_time_format_error)
     }
 
-    /// The year if it was specified or `{none}`, otherwise.
+    /// The year if it was specified, or `{none}` for times without a date.
     #[func]
     pub fn year(&self) -> Option<i32> {
         match self {
@@ -355,7 +355,7 @@ impl Datetime {
         }
     }
 
-    /// The month if it was specified or `{none}`, otherwise.
+    /// The month if it was specified, or `{none}` for times without a date.
     #[func]
     pub fn month(&self) -> Option<u8> {
         match self {
@@ -365,7 +365,7 @@ impl Datetime {
         }
     }
 
-    /// The weekday if it was specified or `{none}`, otherwise.
+    /// The weekday (counting Monday as 1) or `{none}` for times without a date.
     #[func]
     pub fn weekday(&self) -> Option<u8> {
         match self {
@@ -375,7 +375,7 @@ impl Datetime {
         }
     }
 
-    /// The day if it was specified or `{none}`, otherwise.
+    /// The day if it was specified, or `{none}` for times without a date.
     #[func]
     pub fn day(&self) -> Option<u8> {
         match self {
@@ -385,7 +385,7 @@ impl Datetime {
         }
     }
 
-    /// The hour if it was specified or `{none}`, otherwise.
+    /// The hour if it was specified, or `{none}` for dates without a time.
     #[func]
     pub fn hour(&self) -> Option<u8> {
         match self {
@@ -395,7 +395,7 @@ impl Datetime {
         }
     }
 
-    /// The minute if it was specified or `{none}`, otherwise.
+    /// The minute if it was specified, or `{none}` for dates without a time.
     #[func]
     pub fn minute(&self) -> Option<u8> {
         match self {
@@ -405,17 +405,17 @@ impl Datetime {
         }
     }
 
-    /// The second if it was specified or `{none}`, otherwise.
+    /// The second if it was specified, or `{none}` for dates without a time.
     #[func]
     pub fn second(&self) -> Option<u8> {
         match self {
-            Datetime::Date(_) => None,
+            Self::Date(_) => None,
             Self::Time(time) => Some(time.second()),
             Self::Datetime(datetime) => Some(datetime.second()),
         }
     }
 
-    /// The ordinal (day of the year), if it exists.
+    /// The ordinal (day of the year), or `{none}` for times without a date.
     #[func]
     pub fn ordinal(&self) -> Option<u16> {
         match self {

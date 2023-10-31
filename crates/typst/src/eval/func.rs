@@ -71,10 +71,19 @@ pub use typst_macros::func;
 /// # Defining functions
 /// You can define your own function with a [let binding]($scripting/#bindings)
 /// that has a parameter list after the binding's name. The parameter list can
-/// contain positional parameters, named parameters with default values and
-/// [argument sinks]($arguments). The right-hand side of the binding can be a
-/// block or any other expression. It defines the function's return value and
-/// can depend on the parameters.
+/// contain mandatory positional parameters, named parameters with default
+/// values and [argument sinks]($arguments).
+///
+/// The right-hand side of a function binding is the function body, which can be
+/// a block or any other expression. It defines the function's return value and
+/// can depend on the parameters. If the function body is a [code
+/// block]($scripting/#blocks), the return value is the result of joining the
+/// values of each expression in the block.
+///
+/// Within a function body, the `return` keyword can be used to exit early and
+/// optionally specify a return value. If no explicit return value is given, the
+/// body evaluates to the result of joining all expressions preceding the
+/// `return`.
 ///
 /// ```example
 /// #let alert(body, fill: red) = {
@@ -110,7 +119,7 @@ pub use typst_macros::func;
 /// once?
 /// ```
 ///
-/// # Notable fact
+/// # Note on function purity
 /// In Typst, all functions are _pure._ This means that for the same
 /// arguments, they always return the same result. They cannot "remember" things to
 /// produce another value when they are called a second time.
