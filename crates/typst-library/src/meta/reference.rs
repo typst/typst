@@ -240,19 +240,10 @@ impl RefElem {
 }
 
 /// Additional content for a reference.
-#[derive(Clone, Hash, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub enum Supplement {
     Content(Content),
     Func(Func),
-}
-
-impl Debug for Supplement {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Content(arg0) => arg0.fmt(f),
-            Self::Func(_) => f.write_str("<func>"),
-        }
-    }
 }
 
 impl Supplement {
