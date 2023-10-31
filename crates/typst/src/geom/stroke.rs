@@ -1,5 +1,5 @@
 use super::*;
-use crate::diag::{SourceResult};
+use crate::diag::SourceResult;
 use crate::eval::{dict, Args, Cast, FromValue, NoneValue};
 
 /// Defines how to draw a line.
@@ -288,7 +288,7 @@ impl Stroke {
         miter_limit: f64,
     ) -> SourceResult<Stroke> {
         if let Some(stroke) = args.eat::<Stroke>()? {
-            return Ok(stroke)
+            return Ok(stroke);
         }
 
         fn as_smart<T>(x: Option<T>) -> Smart<T> {
@@ -298,7 +298,7 @@ impl Stroke {
         let paint = as_smart(args.named::<Paint>("paint")?);
         let thickness = as_smart(args.named::<Length>("thickness")?);
         let line_cap = as_smart(args.named::<LineCap>("cap")?);
-        let line_join = as_smart(args.named::<LineJoin> ("join")?);
+        let line_join = as_smart(args.named::<LineJoin>("join")?);
         let dash_pattern = as_smart(args.named::<Option<DashPattern>>("dash")?);
         let miter_limit = as_smart(args.named::<f64>("miter-limit")?.map(Scalar::new));
 
