@@ -1,5 +1,6 @@
 use super::*;
-use crate::eval::{dict, Cast, FromValue, NoneValue};
+use crate::diag::{SourceResult};
+use crate::eval::{dict, Args, Cast, FromValue, NoneValue};
 
 /// Defines how to draw a line.
 ///
@@ -260,8 +261,55 @@ impl Stroke {
     /// `paint`, `thickness`, `line_cap`, `line_join`, `dash_pattern` or
     /// `miter_limit`.
     #[func(constructor)]
-    pub fn construct(stroke: Stroke) -> Stroke {
-        stroke
+    pub fn construct(
+        /// The real arguments (the other arguments are just for the docs, this
+        /// function is a bit involved, so we parse the arguments manually).
+        args: &mut Args,
+        /// The color to use for the stroke.
+        #[external]
+        paint: Paint,
+        /// The stroke's thickness.
+        #[external]
+        thickness: Length,
+        /// How the line terminates. One of `{"butt"}`, `{"round"}`,
+        /// `{"square"}`.
+        #[external]
+        line_cap: LineCap,
+        /// How sharp turns of a contour are rendered. One of `{"miter"}`,
+        /// `{"round"}`, or `{"bevel"}`.
+        #[external]
+        line_join: LineJoin,
+        /// The [dash pattern]($stroke/#complex-strokes) to use.
+        #[external]
+        dash_pattern: Option<DashPattern>,
+        /// Number at which protruding sharp angles are rendered with a bevel
+        /// instead. Only applicable if `join` is `{"miter"}`.
+        #[external]
+        miter_limit: f64,
+    ) -> SourceResult<Stroke> {
+        if let Some(stroke) = args.eat::<Stroke>()? {
+            return Ok(stroke)
+        }
+
+        fn as_smart<T>(x: Option<T>) -> Smart<T> {
+            x.map(Smart::Custom).unwrap_or(Smart::Auto)
+        }
+
+        let paint = as_smart(args.named::<Paint>("paint")?);
+        let thickness = as_smart(args.named::<Length>("thickness")?);
+        let line_cap = as_smart(args.named::<LineCap>("cap")?);
+        let line_join = as_smart(args.named::<LineJoin> ("join")?);
+        let dash_pattern = as_smart(args.named::<Option<DashPattern>>("dash")?);
+        let miter_limit = as_smart(args.named::<f64>("miter-limit")?.map(Scalar::new));
+
+        Ok(Self {
+            paint,
+            thickness,
+            line_cap,
+            line_join,
+            dash_pattern,
+            miter_limit,
+        })
     }
 }
 
