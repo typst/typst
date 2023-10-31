@@ -21,10 +21,6 @@ use termcolor::{ColorChoice, WriteColor};
 
 use crate::args::{CliArguments, Command};
 
-#[cfg(feature = "mimalloc")]
-#[global_allocator]
-static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
 thread_local! {
     /// The CLI's exit code.
     static EXIT: Cell<ExitCode> = Cell::new(ExitCode::SUCCESS);
@@ -35,8 +31,6 @@ static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
 
 /// Entry point.
 fn main() -> ExitCode {
-    #[cfg(feature = "ittapi")]
-    ittapi::pause();
     let _guard = match crate::tracing::setup_tracing(&ARGS) {
         Ok(guard) => guard,
         Err(err) => {
