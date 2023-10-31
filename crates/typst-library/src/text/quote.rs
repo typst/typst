@@ -90,17 +90,6 @@ pub struct QuoteElem {
     /// ]
     /// #bibliography("works.bib", style: "apa")
     /// ```
-    ///
-    /// Note that bilbiography styles which do not include the author in the
-    /// citation (label, numeric and notes) currently produce attributions such
-    /// as `[---#super[1]]` or `[--- [1]]`, this will be fixed soon with CSL
-    /// support. In the mean time you can simply cite yourself:
-    /// ```example
-    /// #set quote(block: true)
-    /// #quote(attribution: [J. R. R. Tolkien, @tolkien54])[In a hole there lived a hobbit.]
-    ///
-    /// #bibliography("works.bib")
-    /// ```
     attribution: Option<Attribution>,
 
     /// The quote.
