@@ -5,7 +5,7 @@ description: |
 ---
 
 # Changelog
-## Unreleased
+## Version 0.9.0 (October 31, 2023) { #v0.9.0 }
 - Bibliography management
   - New bibliography engine based on [CSL](https://citationstyles.org/)
     (Citation Style Language). Ships with about 100 commonly used citation
@@ -190,6 +190,8 @@ description: |
   - Removed unnecessary dependency, which reduces the binary size
   - Fixed compilation of `typst` by itself (without `typst-library`)
   - Fixed warnings with Nix flake when using `lib.getExe`
+
+<contributors from="v0.8.0" to="v0.9.0" />
 
 ## Version 0.8.0 (September 13, 2023) { #v0.8.0 }
 - Scripting
