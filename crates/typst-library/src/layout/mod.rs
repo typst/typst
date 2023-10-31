@@ -755,6 +755,7 @@ impl<'a> CiteGroupBuilder<'a> {
         }
 
         if let Some(citation) = content.to::<CiteElem>() {
+            self.staged.retain(|(elem, _)| !elem.is::<SpaceElem>());
             self.items.push(citation.clone(), styles);
             return true;
         }
