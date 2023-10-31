@@ -190,7 +190,8 @@ pub fn ty(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 ///   rule. Instead, it is added to an element before its show rule runs
 ///   through the `Synthesize` trait.
 /// - `#[empty]`: The field is empty by default. This is used when we need to create
-///   a temporary element without any fields set.
+///   a temporary element without any fields set. This should be non-allocating and
+///   cheap if possible.
 /// - `#[variant]`: Allows setting the ID of a field's variant. This is used
 ///   for fields that are accessed in `typst` and not `typst-library`. It gives
 ///   the field a stable ID that can be used to access it.
