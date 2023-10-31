@@ -227,8 +227,8 @@ impl Show for RefElem {
 impl RefElem {
     /// Turn the reference into a citation.
     pub fn to_citation(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<CiteElem> {
-        let mut elem = CiteElem::new(self.target());
-        elem.0.set_location(self.0.location().unwrap());
+        let mut elem = CiteElem::new(*self.target());
+        elem.set_location(self.location().unwrap());
         elem.synthesize(vt, styles)?;
         elem.push_supplement(match self.supplement(&styles).into_owned() {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),

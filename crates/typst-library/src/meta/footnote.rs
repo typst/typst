@@ -146,7 +146,7 @@ impl Count for FootnoteElem {
 
 /// The body of a footnote can be either some content or a label referencing
 /// another footnote.
-#[derive(Debug)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub enum FootnoteBody {
     Content(Content),
     Reference(Label),

@@ -116,6 +116,7 @@ pub struct BibliographyElem {
     #[internal]
     #[required]
     #[parse(bibliography)]
+    #[empty(Bibliography { map: Arc::new(IndexMap::with_capacity(0)), hash: 0 })]
     pub bibliography: Bibliography,
 
     /// The language setting where the bibliography is.
@@ -220,7 +221,7 @@ impl Show for BibliographyElem {
                 .ok_or("CSL style is not suitable for bibliographies")
                 .at(span)?;
 
-            let row_gutter = BlockElem::below_in(styles).amount();
+            let row_gutter = *BlockElem::below_in(styles).amount();
             if references.iter().any(|(prefix, _)| prefix.is_some()) {
                 let mut cells = vec![];
                 for (prefix, reference) in references {
@@ -645,7 +646,7 @@ impl<'a> Generator<'a> {
         let mut driver = BibliographyDriver::new();
         for elem in &self.groups {
             let group = elem.to::<CiteGroup>().unwrap();
-            let location = group.0.location().unwrap();
+            let location = group.location().unwrap();
             let children = group.children();
 
             // Groups should never be empty.
@@ -657,12 +658,13 @@ impl<'a> Generator<'a> {
             let mut normal = true;
 
             // Create infos and items for each child in the group.
-            for child in &children {
-                let key = child.key();
-                let Some(entry) = database.map.get(&key.0) else {
+            for child in children {
+                let key = *child.key();
+                let Some(entry) = database.map.get(key.as_ref()) else {
                     errors.push(error!(
                         child.span(),
-                        "key `{}` does not exist in the bibliography", key.0
+                        "key `{}` does not exist in the bibliography",
+                        key.as_ref()
                     ));
                     continue;
                 };
@@ -761,7 +763,7 @@ impl<'a> Generator<'a> {
         // so that we can link there.
         let mut links = HashMap::new();
         if let Some(bibliography) = &rendered.bibliography {
-            let location = self.bibliography.0.location().unwrap();
+            let location = self.bibliography.location().unwrap();
             for (k, item) in bibliography.items.iter().enumerate() {
                 links.insert(item.key.as_str(), location.variant(k + 1));
             }
@@ -770,8 +772,7 @@ impl<'a> Generator<'a> {
         let mut output = std::mem::take(&mut self.failures);
         for (info, citation) in self.infos.iter().zip(&rendered.citations) {
             let supplement = |i: usize| info.subinfos.get(i)?.supplement.clone();
-            let link =
-                |i: usize| links.get(info.subinfos.get(i)?.key.0.as_str()).copied();
+            let link = |i: usize| links.get(info.subinfos.get(i)?.key.as_ref()).copied();
 
             let renderer = ElemRenderer {
                 world: self.world,
@@ -811,13 +812,13 @@ impl<'a> Generator<'a> {
         let mut first_occurances = HashMap::new();
         for info in &self.infos {
             for subinfo in &info.subinfos {
-                let key = subinfo.key.0.as_str();
+                let key = subinfo.key.as_ref();
                 first_occurances.entry(key).or_insert(info.location);
             }
         }
 
         // The location of the bibliography.
-        let location = self.bibliography.0.location().unwrap();
+        let location = self.bibliography.location().unwrap();
 
         let mut output = vec![];
         for (k, item) in rendered.items.iter().enumerate() {
@@ -918,8 +919,8 @@ impl ElemRenderer<'_> {
         if let Some(prefix) = suf_prefix {
             const COLUMN_GUTTER: Em = Em::new(0.65);
             content = GridElem::new(vec![prefix, content])
-                .with_columns(TrackSizings(vec![Sizing::Auto; 2]))
-                .with_column_gutter(TrackSizings(vec![COLUMN_GUTTER.into()]))
+                .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
+                .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
                 .pack();
         }
 
@@ -1022,7 +1023,7 @@ fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Con
 }
 
 /// Create a locale code from language and optionally region.
-fn locale(lang: Lang, region: Option<Region>) -> citationberg::LocaleCode {
+fn locale(lang: &Lang, region: &Option<Region>) -> citationberg::LocaleCode {
     let mut value = String::with_capacity(5);
     value.push_str(lang.as_str());
     if let Some(region) = region {

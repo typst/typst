@@ -40,6 +40,7 @@ pub struct CiteElem {
     /// >>> #bibliography("works.bib", style: "apa")
     /// ```
     #[required]
+    #[empty(Label::new("empty"))]
     pub key: Label,
 
     /// A supplement for the citation such as page or chapter number.
@@ -141,7 +142,7 @@ impl Show for CiteGroup {
     #[tracing::instrument(name = "CiteGroup::show", skip(self, vt))]
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(vt.delayed(|vt| {
-            let location = self.0.location().unwrap();
+            let location = self.location().unwrap();
             let span = self.span();
             Works::generate(vt.world, vt.introspector)
                 .at(span)?
