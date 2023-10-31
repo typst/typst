@@ -1026,10 +1026,11 @@ fn create_hash_impl(element: &Elem) -> TokenStream {
         .map(|field| &field.ident)
         .collect::<Vec<_>>();
 
-    let optional_fields = element.construct_fields().filter(|field| !field.inherent());
-
+    let optional_fields = element
+        .fields
+        .iter()
+        .filter(|field| !field.inherent() && !field.external);
     let opts = optional_fields.clone().map(|field| &field.ident).collect::<Vec<_>>();
-
     let i = optional_fields.enumerate().map(|(i, _)| i).collect::<Vec<_>>();
 
     let label_and_location = element.without_capability("Unlabellable", || {
