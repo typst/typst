@@ -33,7 +33,7 @@ use crate::prelude::*;
 ///   flame of Udûn. Go back to the Shadow! You cannot pass.
 /// ]
 /// ```
-#[elem(Finalize, Show)]
+#[elem(Finalize, Show, Synthesize)]
 pub struct QuoteElem {
     /// Whether this is a block quote.
     ///
@@ -122,6 +122,14 @@ cast! {
     },
     content: Content => Self::Content(content),
     label: Label => Self::Label(label),
+}
+
+impl Synthesize for QuoteElem {
+    fn synthesize(&mut self, _: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+        self.push_block(self.block(styles));
+        self.push_quotes(self.quotes(styles));
+        Ok(())
+    }
 }
 
 impl Show for QuoteElem {
