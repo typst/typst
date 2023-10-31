@@ -123,7 +123,6 @@ struct Field {
     internal: bool,
     external: bool,
     synthesized: bool,
-    not_hash: bool,
     borrowed: bool,
     forced_variant: Option<usize>,
     parse: Option<BlockWithReturn>,
@@ -1022,26 +1021,16 @@ fn create_field(field: &Field) -> TokenStream {
 fn create_hash_impl(element: &Elem) -> TokenStream {
     let ident = &element.ident;
     let all = element
-        .fields
-        .iter()
-        .filter(|field| !field.not_hash && !field.external && field.required)
+        .inherent_fields()
+        .filter(|field| field.required)
         .map(|field| &field.ident)
         .collect::<Vec<_>>();
 
-    let opts = element
-        .fields
-        .iter()
-        .filter(|field| !field.not_hash && !field.external && !field.required)
-        .map(|field| &field.ident)
-        .collect::<Vec<_>>();
+    let optional_fields = element.construct_fields().filter(|field| !field.inherent());
 
-    let i = element
-        .fields
-        .iter()
-        .filter(|field| !field.not_hash && !field.external && !field.required)
-        .enumerate()
-        .map(|(i, _)| i)
-        .collect::<Vec<_>>();
+    let opts = optional_fields.clone().map(|field| &field.ident).collect::<Vec<_>>();
+
+    let i = optional_fields.enumerate().map(|(i, _)| i).collect::<Vec<_>>();
 
     let label_and_location = element.without_capability("Unlabellable", || {
         quote! {
@@ -1348,7 +1337,6 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
         required,
         variadic,
         borrowed: has_attr(&mut attrs, "borrowed"),
-        not_hash: has_attr(&mut attrs, "not_hash"),
         synthesized: has_attr(&mut attrs, "synthesized"),
         fold: has_attr(&mut attrs, "fold"),
         resolve: has_attr(&mut attrs, "resolve"),
