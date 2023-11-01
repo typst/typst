@@ -488,14 +488,15 @@ impl<'a> ShapedText<'a> {
         }
 
         // Find any glyph with the text index.
-        let mut idx = match self.glyphs.binary_search_by(|g| {
+        let cmp = |g: &ShapedGlyph| {
             let ordering = g.range.start.cmp(&text_index);
             if ltr {
                 ordering
             } else {
                 ordering.reverse()
             }
-        }) {
+        };
+        let mut idx = match self.glyphs.binary_search_by(cmp) {
             Ok(idx) => idx,
             Err(idx) => {
                 // Handle the special case where we break before a '\n'
