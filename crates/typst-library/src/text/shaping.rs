@@ -502,7 +502,7 @@ impl<'a> ShapedText<'a> {
                 return (idx > 0
                     && self.glyphs[idx - 1].range.end == text_index
                     && self.text[text_index - self.base..].starts_with('\n'))
-                    .then_some(idx);
+                .then_some(idx);
             }
         };
 
