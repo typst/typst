@@ -594,7 +594,13 @@ impl Fold for Augment<Abs> {
     type Output = Augment<Abs>;
 
     fn fold(mut self, outer: Self::Output) -> Self::Output {
-        self.stroke = self.stroke.fold(outer.stroke);
+        // Special case for handling `auto` strokes in subsequent `Augment`.
+        if self.stroke.is_auto() && outer.stroke.is_custom() {
+            self.stroke = outer.stroke;
+        } else {
+            self.stroke = self.stroke.fold(outer.stroke);
+        }
+
         self
     }
 }
@@ -602,12 +608,15 @@ impl Fold for Augment<Abs> {
 cast! {
     Augment,
     self => {
-        let stroke = self.stroke.unwrap_or_default();
+        // if the stroke is auto and there is only one vertical line,
+        if self.stroke.is_auto() && self.hline.0.is_empty() && self.vline.0.len() == 1 {
+            return self.vline.0[0].into_value();
+        }
 
         let d = dict! {
             "hline" => self.hline.into_value(),
             "vline" => self.vline.into_value(),
-            "stroke" => stroke.into_value()
+            "stroke" => self.stroke.into_value()
         };
 
         d.into_value()

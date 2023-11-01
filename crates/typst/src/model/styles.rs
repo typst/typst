@@ -403,8 +403,6 @@ impl<'a> StyleChain<'a> {
                 .unwrap_or_else(default)
         }
 
-        let id = id.into();
-        eprintln!("{:#?}", self.properties::<T>(func, id, inherent).collect::<Vec<_>>());
         next(self.properties::<T>(func, id, inherent).cloned(), self, &default)
     }
 
