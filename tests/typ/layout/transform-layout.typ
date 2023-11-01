@@ -23,17 +23,3 @@ Hello #scaled[World]!
 
 #set scale(layout: true)
 Hello #scaled[World]!
-
----
-
-// Test that translation impact layout.
-#set page(width: 200pt)
-#set text(size: 32pt)
-#let moved(body) = box(move(dx: -10pt, dy: 5pt, body))
-
-#set move(layout: false)
-Hello #moved[World]!
-
-
-#set move(layout: true)
-Hello #moved[World]!

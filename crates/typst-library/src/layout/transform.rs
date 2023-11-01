@@ -6,8 +6,7 @@ use crate::prelude::*;
 ///
 /// The `move` function allows you to move content while the layout still 'sees'
 /// it at the original positions. Containers will still be sized as if the
-/// content was not moved, unless you specify `{layout: true}` in which case
-/// the rest of the layout will be adjusted to account for the movement.
+/// content was not moved.
 ///
 /// # Example
 /// ```example
@@ -29,10 +28,6 @@ pub struct MoveElem {
     /// The vertical displacement of the content.
     pub dy: Rel<Length>,
 
-    /// Whether the movement impacts the layout.
-    #[default(false)]
-    pub layout: bool,
-
     /// The content to move.
     #[required]
     pub body: Content,
@@ -51,17 +46,7 @@ impl Layout for MoveElem {
         let delta = Axes::new(self.dx(styles), self.dy(styles)).resolve(styles);
         let delta = delta.zip_map(regions.base(), Rel::relative_to);
         frame.translate(delta.to_point());
-
-        if !self.layout(styles) {
-            return Ok(Fragment::frame(frame));
-        }
-
-        // If we impact layout we wrap into a frame of the correct size
-        let ts = Transform::translate(delta.x, delta.y);
-        let (_, size) = compute_bounding_box(&frame, ts);
-        let mut out: Frame = Frame::soft(size);
-        out.push(Point::zero(), FrameItem::Group(GroupItem::new(frame)));
-        Ok(Fragment::frame(out))
+        return Ok(Fragment::frame(frame));
     }
 }
 
