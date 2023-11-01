@@ -488,17 +488,23 @@ impl<'a> ShapedText<'a> {
         }
 
         // Find any glyph with the text index.
-        let mut idx = self
-            .glyphs
-            .binary_search_by(|g| {
-                let ordering = g.range.start.cmp(&text_index);
-                if ltr {
-                    ordering
-                } else {
-                    ordering.reverse()
-                }
-            })
-            .ok()?;
+        let mut idx = match self.glyphs.binary_search_by(|g| {
+            let ordering = g.range.start.cmp(&text_index);
+            if ltr {
+                ordering
+            } else {
+                ordering.reverse()
+            }
+        }) {
+            Ok(idx) => idx,
+            Err(idx) => {
+                // Handle the special case where we break before a '\n'
+                return (idx > 0
+                    && self.glyphs[idx - 1].range.end == text_index
+                    && self.text[text_index - self.base..].starts_with('\n'))
+                    .then_some(idx);
+            }
+        };
 
         let next = match towards {
             Side::Left => usize::checked_sub,
