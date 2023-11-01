@@ -346,7 +346,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
-    pub fn get_resolve<T: Blockable + Clone + Resolve>(
+    pub fn get_resolve<T: Blockable + Resolve>(
         self,
         func: Element,
         id: impl Into<u8>,
@@ -357,7 +357,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
-    pub fn get_fold<T: Blockable + Clone + Fold>(
+    pub fn get_fold<T: Blockable + Fold>(
         self,
         func: Element,
         id: impl Into<u8>,
@@ -385,7 +385,7 @@ impl<'a> StyleChain<'a> {
         default: impl Fn() -> <T::Output as Fold>::Output,
     ) -> <T::Output as Fold>::Output
     where
-        T: Blockable + Clone + Resolve,
+        T: Blockable + Resolve,
         T::Output: Fold,
     {
         fn next<T>(
@@ -402,6 +402,9 @@ impl<'a> StyleChain<'a> {
                 .map(|value| value.resolve(styles).fold(next(values, styles, default)))
                 .unwrap_or_else(default)
         }
+
+        let id = id.into();
+        eprintln!("{:#?}", self.properties::<T>(func, id, inherent).collect::<Vec<_>>());
         next(self.properties::<T>(func, id, inherent).cloned(), self, &default)
     }
 
