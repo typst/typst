@@ -390,7 +390,7 @@ impl Func {
                     )
                 })
             })
-            .collect::<StrResult<Vec<_>>>()?;
+            .collect::<StrResult<smallvec::SmallVec<_>>>()?;
 
         Ok(element.where_(fields))
     }

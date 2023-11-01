@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use ecow::EcoString;
 use once_cell::sync::Lazy;
+use smallvec::SmallVec;
 
 use super::{Content, Selector, Styles};
 use crate::diag::{SourceResult, StrResult};
@@ -98,7 +99,7 @@ impl Element {
 
     /// Create a selector for this element, filtering for those
     /// that [fields](super::Content::field) match the given argument.
-    pub fn where_(self, fields: Vec<(u8, Value)>) -> Selector {
+    pub fn where_(self, fields: SmallVec<[(u8, Value); 1]>) -> Selector {
         Selector::Elem(self, Some(fields))
     }
 

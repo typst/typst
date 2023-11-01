@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString, EcoVec};
+use smallvec::SmallVec;
 
 use super::{Content, Element, Label, Locatable, Location};
 use crate::diag::{bail, StrResult};
@@ -55,7 +56,7 @@ pub enum Selector {
     ///
     /// If there is a dictionary, only elements with the fields from the
     /// dictionary match.
-    Elem(Element, Option<Vec<(u8, Value)>>),
+    Elem(Element, Option<SmallVec<[(u8, Value); 1]>>),
     /// Matches the element at the specified location.
     Location(Location),
     /// Matches elements with a specific label.

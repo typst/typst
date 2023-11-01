@@ -688,7 +688,7 @@ macro_rules! fields {
     ($($key:expr => $value:expr),* $(,)?) => {{
         use ::typst::model::NativeElement;
         #[allow(unused_mut)]
-        let mut out = Vec::<(u8, ::typst::eval::Value)>::new();
+        let mut out = smallvec::SmallVec::<[(u8, ::typst::eval::Value); 1]>::new();
         $(
             out.push((
                 $key as u8,
