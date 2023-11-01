@@ -5,7 +5,7 @@ use std::hash::Hash;
 use std::num::NonZeroUsize;
 
 use comemo::{Prehashed, Track, Tracked, Validate};
-use ecow::{EcoString, EcoVec};
+use ecow::{eco_format, EcoString, EcoVec};
 use indexmap::IndexMap;
 
 use super::{Content, Selector};
@@ -388,11 +388,13 @@ impl Introspector {
         let mut found = None;
         for elem in self.all().filter(|elem| elem.label() == Some(label)) {
             if found.is_some() {
-                bail!("label occurs multiple times in the document");
+                bail!("label `{}` occurs multiple times in the document", label.repr());
             }
             found = Some(elem.clone());
         }
-        found.ok_or_else(|| "label does not exist in the document".into())
+        found.ok_or_else(|| {
+            eco_format!("label `{}` does not exist in the document", label.repr())
+        })
     }
 
     /// The total number pages.

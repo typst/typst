@@ -1,7 +1,7 @@
 use ecow::EcoString;
 use std::any::TypeId;
 use std::cmp::Ordering;
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Formatter};
 
 use once_cell::sync::Lazy;
 
@@ -11,7 +11,7 @@ use crate::eval::{cast, Args, Dict, Func, ParamInfo, Repr, Scope, Value, Vm};
 use crate::util::Static;
 
 /// A document element.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Element(Static<NativeElementData>);
 
 impl Element {
@@ -91,6 +91,12 @@ impl Element {
     /// Details about the element's fields.
     pub fn params(&self) -> &'static [ParamInfo] {
         &(self.0).0.params
+    }
+}
+
+impl Debug for Element {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(self.name())
     }
 }
 

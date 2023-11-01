@@ -12,7 +12,7 @@ Sixth
 #pagebreak()
 Seventh
 #pagebreak(to: "odd")
-#page[Nineth]
+#page[Ninth]
 
 ---
 #set page(width: auto, height: auto)
@@ -20,4 +20,16 @@ Seventh
 // Test with auto-sized page.
 First
 #pagebreak(to: "odd")
+Third
+
+---
+#set page(height: 30pt, width: 80pt)
+
+// Test when content extends to more than one page
+First
+
+Second
+
+#pagebreak(to: "odd")
+
 Third

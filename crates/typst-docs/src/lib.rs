@@ -77,7 +77,7 @@ pub trait Resolver {
     fn image(&self, filename: &str, data: &[u8]) -> String;
 
     /// Produce HTML for an example.
-    fn example(&self, hash: u128, source: Html, frames: &[Frame]) -> Html;
+    fn example(&self, hash: u128, source: Option<Html>, frames: &[Frame]) -> Html;
 
     /// Determine the commits between two tags.
     fn commits(&self, from: &str, to: &str) -> Vec<Commit>;
@@ -180,8 +180,8 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
     // Add groups.
     for mut group in GROUPS.iter().filter(|g| g.category == category).cloned() {
         let mut focus = module;
-        if group.name == "calc" {
-            focus = get_module(focus, "calc").unwrap();
+        if matches!(group.name.as_str(), "calc" | "sys") {
+            focus = get_module(focus, &group.name).unwrap();
             group.functions = focus
                 .scope()
                 .iter()
@@ -369,8 +369,8 @@ fn param_model(resolver: &dyn Resolver, info: &ParamInfo) -> ParamModel {
     let mut types = vec![];
     let mut strings = vec![];
     casts(resolver, &mut types, &mut strings, &info.input);
-    if !strings.is_empty() && !types.contains(&"string") {
-        types.push("string");
+    if !strings.is_empty() && !types.contains(&"str") {
+        types.push("str");
     }
     types.sort_by_key(|ty| type_index(ty));
 
@@ -780,7 +780,7 @@ mod tests {
             None
         }
 
-        fn example(&self, _: u128, _: Html, _: &[Frame]) -> Html {
+        fn example(&self, _: u128, _: Option<Html>, _: &[Frame]) -> Html {
             Html::new(String::new())
         }
 

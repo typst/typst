@@ -95,7 +95,10 @@ impl Layout for PlaceElem {
         let float = self.float(styles);
         let alignment = self.alignment(styles);
 
-        if float && alignment.map_or(false, |align| align.y() == Some(VAlign::Horizon)) {
+        if float
+            && alignment
+                .map_or(false, |align| matches!(align.y(), None | Some(VAlign::Horizon)))
+        {
             bail!(self.span(), "floating placement must be `auto`, `top`, or `bottom`");
         } else if !float && alignment.is_auto() {
             return Err("automatic positioning is only available for floating placement")

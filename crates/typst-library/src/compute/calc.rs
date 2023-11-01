@@ -169,7 +169,7 @@ pub fn exp(
     Ok(result)
 }
 
-/// Extracts the square root of a number.
+/// Calculates the square root of a number.
 ///
 /// ```example
 /// #calc.sqrt(16) \
@@ -486,7 +486,7 @@ fn fact_impl(start: u64, end: u64) -> Option<i64> {
 
 /// Calculates a binomial coefficient.
 ///
-/// Returns the `k`-combination `n`, or the number of ways to choose `k`
+/// Returns the `k`-combination of `n`, or the number of ways to choose `k`
 /// items from a set of `n` without regard to order.
 ///
 /// ```example
@@ -615,7 +615,7 @@ pub fn ceil(
 /// ```example
 /// #assert(calc.trunc(3) == 3)
 /// #assert(calc.trunc(-3.7) == -3)
-/// #assert(calc.trunc(15.9) == 15)
+/// #calc.trunc(15.9)
 /// ```
 #[func(title = "Truncate")]
 pub fn trunc(

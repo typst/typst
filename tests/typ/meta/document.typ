@@ -8,7 +8,11 @@ What's up?
 ---
 // This, too.
 // Ref: false
-#set document(author: ("A", "B"))
+#set document(author: ("A", "B"), date: datetime.today())
+
+---
+// Error: 21-28 expected datetime, none, or auto, found string
+#set document(date: "today")
 
 ---
 // This, too.

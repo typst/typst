@@ -25,6 +25,8 @@ use crate::package::prepare_package;
 pub struct SystemWorld {
     /// The working directory.
     workdir: Option<PathBuf>,
+    /// The canonical path to the input file.
+    input: PathBuf,
     /// The root relative to which absolute paths are resolved.
     root: PathBuf,
     /// The input path.
@@ -78,6 +80,7 @@ impl SystemWorld {
 
         Ok(Self {
             workdir: std::env::current_dir().ok(),
+            input,
             root,
             main: FileId::new(None, main_path),
             library: Prehashed::new(typst_library::build()),
@@ -121,6 +124,11 @@ impl SystemWorld {
             slot.reset();
         }
         self.now.take();
+    }
+
+    /// Return the canonical path to the input file.
+    pub fn input(&self) -> &PathBuf {
+        &self.input
     }
 
     /// Lookup a source file by id.

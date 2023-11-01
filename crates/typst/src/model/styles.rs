@@ -564,6 +564,11 @@ impl<T> StyleVec<T> {
         self.items.iter()
     }
 
+    /// Extract the contained items.
+    pub fn into_items(self) -> Vec<T> {
+        self.items
+    }
+
     /// Iterate over the contained style lists. Note that zipping this with
     /// `items()` does not yield the same result as calling `iter()` because
     /// this method only returns lists once that are shared by consecutive

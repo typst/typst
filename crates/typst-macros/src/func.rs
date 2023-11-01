@@ -119,7 +119,7 @@ fn parse(stream: TokenStream, item: &syn::ItemFn) -> Result<Func> {
     })
 }
 
-/// Parse details about a functino parameter.
+/// Parse details about a function parameter.
 fn parse_param(
     special: &mut SpecialParams,
     params: &mut Vec<Param>,
@@ -307,6 +307,9 @@ fn create_wrapper_closure(func: &Func) -> TokenStream {
         }
     };
 
+    // Throws errors about unexpected arguments.
+    let finish = (!func.special.args).then(|| quote! { args.take().finish()?; });
+
     // This is the actual function call.
     let call = {
         let self_ = func
@@ -317,7 +320,7 @@ fn create_wrapper_closure(func: &Func) -> TokenStream {
             .map(|tokens| quote! { #tokens, });
         let vm_ = func.special.vm.then(|| quote! { vm, });
         let vt_ = func.special.vt.then(|| quote! { &mut vm.vt, });
-        let args_ = func.special.args.then(|| quote! { args.take(), });
+        let args_ = func.special.args.then(|| quote! { args, });
         let span_ = func.special.span.then(|| quote! { args.span, });
         let forwarded = func.params.iter().filter(|param| !param.external).map(bind);
         quote! {
@@ -332,6 +335,7 @@ fn create_wrapper_closure(func: &Func) -> TokenStream {
         |vm, args| {
             let __typst_func = #parent #ident;
             #handlers
+            #finish
             let output = #call;
             ::typst::eval::IntoResult::into_result(output, args.span)
         }

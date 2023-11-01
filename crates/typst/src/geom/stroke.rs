@@ -262,6 +262,10 @@ cast! {
         paint: Smart::Custom(color.into()),
         ..Default::default()
     },
+    gradient: Gradient => Self {
+        paint: Smart::Custom(gradient.into()),
+        ..Default::default()
+    },
     mut dict: Dict => {
         fn take<T: FromValue>(dict: &mut Dict, key: &str) -> StrResult<Smart<T>> {
             Ok(dict.take(key).ok().map(T::from_value)
