@@ -6,7 +6,8 @@ use crate::prelude::*;
 ///
 /// The `move` function allows you to move content while the layout still 'sees'
 /// it at the original positions. Containers will still be sized as if the
-/// content was not moved.
+/// content was not moved, unless you specify `{layout: true}` in which case
+/// the rest of the layout will be adjusted to account for the movement.
 ///
 /// # Example
 /// ```example
@@ -28,6 +29,10 @@ pub struct MoveElem {
     /// The vertical displacement of the content.
     pub dy: Rel<Length>,
 
+    /// Whether the movement impacts the layout.
+    #[default(false)]
+    pub layout: bool,
+
     /// The content to move.
     #[required]
     pub body: Content,
@@ -46,14 +51,24 @@ impl Layout for MoveElem {
         let delta = Axes::new(self.dx(styles), self.dy(styles)).resolve(styles);
         let delta = delta.zip_map(regions.base(), Rel::relative_to);
         frame.translate(delta.to_point());
-        Ok(Fragment::frame(frame))
+
+        if !self.layout(styles) {
+            return Ok(Fragment::frame(frame));
+        }
+
+        // If we impact layout we wrap into a frame of the correct size
+        let ts = Transform::translate(delta.x, delta.y);
+        let (_, size) = compute_bounding_box(&frame, ts);
+        let mut out: Frame = Frame::soft(size);
+        out.push(Point::zero(), FrameItem::Group(GroupItem::new(frame)));
+        Ok(Fragment::frame(out))
     }
 }
 
 /// Rotates content without affecting layout.
 ///
 /// Rotates an element by a given angle. The layout will act as if the element
-/// was not rotated.
+/// was not rotated unless you specify `{layout: true}`.
 ///
 /// # Example
 /// ```example
@@ -94,6 +109,20 @@ pub struct RotateElem {
     #[default(HAlign::Center + VAlign::Horizon)]
     pub origin: Align,
 
+    /// Whether the rotation impacts the layout.
+    ///
+    /// If set to `{false}`, the rotated content will be allowed to overlap
+    /// other content. However, when set to `{true}`, it will be compute the
+    /// new size of the rotated content and adjust the layout accordingly.
+    ///
+    /// ```example
+    /// #let rotated(body) = rotate(90deg, layout: true, body)
+    ///
+    /// Hello #rotated[World]!
+    /// ```
+    #[default(false)]
+    pub layout: bool,
+
     /// The content to rotate.
     #[required]
     pub body: Content,
@@ -109,15 +138,24 @@ impl Layout for RotateElem {
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.base(), Axes::splat(false));
         let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
-        let Axes { x, y } = self
-            .origin(styles)
-            .resolve(styles)
-            .zip_map(frame.size(), FixedAlign::position);
+        let align = self.origin(styles).resolve(styles);
+        let Axes { x, y } = align.zip_map(frame.size(), FixedAlign::position);
+
         let ts = Transform::translate(x, y)
             .pre_concat(Transform::rotate(self.angle(styles)))
             .pre_concat(Transform::translate(-x, -y));
         frame.transform(ts);
-        Ok(Fragment::frame(frame))
+
+        // If we don't impact layout we exit early.
+        if !self.layout(styles) {
+            return Ok(Fragment::frame(frame));
+        }
+
+        // If we impact layout we wrap into a frame of the correct size
+        let (offset, size) = compute_bounding_box(&frame, ts);
+        let mut out = Frame::soft(size);
+        out.push(offset, FrameItem::Group(GroupItem::new(frame)));
+        Ok(Fragment::frame(out))
     }
 }
 
@@ -159,6 +197,20 @@ pub struct ScaleElem {
     #[default(HAlign::Center + VAlign::Horizon)]
     pub origin: Align,
 
+    /// Whether the scaling impacts the layout.
+    ///
+    /// If set to `{false}`, the scaled content will be allowed to overlap
+    /// other content. However, when set to `{true}`, it will be compute the
+    /// new size of the scaled content and adjust the layout accordingly.
+    ///
+    /// ```example
+    /// #let scaled(body) = scale(x: 20%, y: 40%, layout: true, body)
+    ///
+    /// Hello #scaled[World]!
+    /// ```
+    #[default(false)]
+    pub layout: bool,
+
     /// The content to scale.
     #[required]
     pub body: Content,
@@ -178,10 +230,40 @@ impl Layout for ScaleElem {
             .origin(styles)
             .resolve(styles)
             .zip_map(frame.size(), FixedAlign::position);
-        let transform = Transform::translate(x, y)
+        let ts = Transform::translate(x, y)
             .pre_concat(Transform::scale(self.x(styles), self.y(styles)))
             .pre_concat(Transform::translate(-x, -y));
-        frame.transform(transform);
-        Ok(Fragment::frame(frame))
+        frame.transform(ts);
+
+        // If we don't impact layout we exit early.
+        if !self.layout(styles) {
+            return Ok(Fragment::frame(frame));
+        }
+
+        // If we impact layout we wrap into a frame of the correct size
+        let (offset, size) = compute_bounding_box(&frame, ts);
+        let mut out = Frame::soft(size);
+        out.push(offset, FrameItem::Group(GroupItem::new(frame)));
+        Ok(Fragment::frame(out))
     }
+}
+
+/// Computes the bounding box and offset of a transformed frame.
+fn compute_bounding_box(frame: &Frame, ts: Transform) -> (Point, Size) {
+    let top_left = ts.transform_point(Point::zero());
+    let top_right = ts.transform_point(Point::new(frame.width(), Abs::zero()));
+    let bottom_left = ts.transform_point(Point::new(Abs::zero(), frame.height()));
+    let bottom_right = ts.transform_point(Point::new(frame.width(), frame.height()));
+
+    // We first compute the new bounding box of the rotated frame.
+    let min_x = top_left.x.min(top_right.x).min(bottom_left.x).min(bottom_right.x);
+    let min_y = top_left.y.min(top_right.y).min(bottom_left.y).min(bottom_right.y);
+    let max_x = top_left.x.max(top_right.x).max(bottom_left.x).max(bottom_right.x);
+    let max_y = top_left.y.max(top_right.y).max(bottom_left.y).max(bottom_right.y);
+
+    // Then we compute the new size of the frame.
+    let width = max_x - min_x;
+    let height = max_y - min_y;
+
+    (Point::new(-min_x, -min_y), Size::new(width, height))
 }

@@ -69,6 +69,13 @@ impl Transform {
         next.pre_concat(self)
     }
 
+    /// Transform a point.
+    pub fn transform_point(self, point: Point) -> Point {
+        let x = self.sx.of(point.x) + self.kx.of(point.y) + self.tx;
+        let y = self.ky.of(point.x) + self.sy.of(point.y) + self.ty;
+        Point { x, y }
+    }
+
     /// Inverts the transformation.
     ///
     /// Returns `None` if the determinant of the matrix is zero.
