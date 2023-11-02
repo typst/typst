@@ -40,14 +40,18 @@ pub struct QuoteElem {
     /// Whether this is a block quote.
     ///
     /// ```example
-    /// #let descartes = quote(attribution: [René Descartes])[
+    /// An inline citation would look like
+    /// this: #quote(
+    ///   attribution: [René Descartes]
+    /// )[
     ///   cogito, ergo sum
-    /// ]
-    /// #let jfk = quote(block: true, attribution: [JFK])[
+    /// ], and a block equation like this:
+    /// #quote(
+    ///   block: true,
+    ///   attribution: [JFK]
+    /// )[
     ///   Ich bin ein Berliner.
     /// ]
-    /// An inline citation would look like this: #descartes, and a block
-    /// equation like this: #jfk
     /// ```
     block: bool,
 
@@ -66,12 +70,14 @@ pub struct QuoteElem {
     /// ```example
     /// #set text(lang: "de")
     ///
-    /// Ein deutsch-sprechender Author zitiert unter umständen JFK:
+    /// Ein deutsch-sprechender Author
+    /// zitiert unter umständen JFK:
     /// #quote[Ich bin ein Berliner.]
     ///
     /// #set text(lang: "en")
     ///
-    /// And an english speaking one may translate the quote:
+    /// And an english speaking one may
+    /// translate the quote:
     /// #quote[I am a Berliner.]
     /// ```
     quotes: Smart<bool>,
@@ -81,23 +87,30 @@ pub struct QuoteElem {
     /// displayed for block quotes, but can be changed using a `{show}` rule.
     ///
     /// ```example
-    /// #quote(attribution: [René Descartes])[cogito, ergo sum] \
+    /// #quote(attribution: [René Descartes])[
+    ///   cogito, ergo sum
+    /// ]
     ///
     /// #show quote.where(block: false): it => {
     ///   ["] + h(0pt, weak: true) + it.body + h(0pt, weak: true) + ["]
     ///   if it.attribution != none [ (#it.attribution)]
     /// }
     ///
-    /// #quote(attribution: link("https://typst.app/home")[typst.com])[
+    /// #quote(
+    ///   attribution: link("https://typst.app/home")[typst.com]
+    /// )[
     ///   Compose papers faster
     /// ]
     ///
     /// #set quote(block: true)
     ///
     /// #quote(attribution: <tolkien54>)[
-    ///   You cannot pass... I am a servant of the Secret Fire, wielder of the
-    ///   flame of Anor. You cannot pass. The dark fire will not avail you,
-    ///   flame of Udûn. Go back to the Shadow! You cannot pass.
+    ///   You cannot pass... I am a servant
+    ///   of the Secret Fire, wielder of the
+    ///   flame of Anor. You cannot pass. The
+    ///   dark fire will not avail you, flame
+    ///   of Udûn. Go back to the Shadow! You
+    ///   cannot pass.
     /// ]
     ///
     /// #bibliography("works.bib", style: "apa")
