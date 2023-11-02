@@ -55,7 +55,7 @@ pub struct QuoteElem {
     /// - `{false}`: Do not wrap this quote in double quotes.
     /// - `{auto}`: Infer whether to wrap this quote in double quotes based on
     ///   the `block` property. If `block` is `{false}`, double quotes are
-    ///   auomatically added.
+    ///   automatically added.
     ///
     /// ```example
     /// #set text(lang: "de")

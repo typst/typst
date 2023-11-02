@@ -507,6 +507,7 @@ impl FigureCaption {
         match lang {
             Lang::CHINESE => "\u{3000}",
             Lang::FRENCH => "\u{a0}– ",
+            Lang::RUSSIAN => ". ",
             Lang::ENGLISH | _ => ": ",
         }
     }
