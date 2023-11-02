@@ -252,6 +252,8 @@ impl Content {
         Some(unsafe { &*crate::util::fat::from_raw_parts(data, vtable) })
     }
 
+    /// Cast to a mutable trait object if the contained element has the given
+    /// capability.
     pub fn with_mut<C>(&mut self) -> Option<&mut C>
     where
         C: ?Sized + 'static,
@@ -262,6 +264,7 @@ impl Content {
         Some(unsafe { &mut *crate::util::fat::from_raw_parts_mut(data, vtable) })
     }
 
+    /// Whether the content is a sequence.
     pub fn is_sequence(&self) -> bool {
         self.is::<SequenceElem>()
     }
@@ -723,16 +726,27 @@ fn missing_field_no_default(field: &str) -> EcoString {
     )
 }
 
+/// Makes sure the content is not shared and returns a mutable reference to the
+/// inner element.
 #[doc(hidden)]
 #[allow(invalid_value)]
 pub fn make_mut(val: &mut Arc<dyn NativeElement>) -> &mut dyn NativeElement {
-    if Arc::strong_count(val) > 1 && Arc::weak_count(val) == 0 {
+    if Arc::strong_count(val) > 1 || Arc::weak_count(val) != 0 {
         *val = val.dyn_clone();
     }
 
     Arc::get_mut(val).unwrap()
 }
 
+/// A helper macro to create a field selector used in [`Selector::Elem`]
+///
+/// Example:
+/// ```rs
+/// let field_selector = fields!(
+///     SequenceElem;
+///     SequenceElemFields::Children => vec![]
+/// );
+/// ```
 #[macro_export]
 macro_rules! fields {
     ($elem:expr; $($key:expr => $value:expr),* $(,)?) => {{

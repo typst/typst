@@ -4,8 +4,9 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::ops::Range;
 use std::str::FromStr;
+use std::sync::Arc;
 
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{eco_format, EcoString};
 
 use crate::eval::{cast, dict, ty, Datetime, Dict, Repr, Value};
 use crate::export::PdfPageLabel;
@@ -43,7 +44,7 @@ pub struct Frame {
     /// frame's implicit baseline is at the bottom.
     baseline: Option<Abs>,
     /// The items composing this layout.
-    items: EcoVec<(Point, FrameItem)>,
+    items: Arc<Vec<(Point, FrameItem)>>,
     /// The hardness of this frame.
     kind: FrameKind,
 }
@@ -56,7 +57,12 @@ impl Frame {
     #[track_caller]
     pub fn new(size: Size, kind: FrameKind) -> Self {
         assert!(size.is_finite());
-        Self { size, baseline: None, items: EcoVec::new(), kind }
+        Self {
+            size,
+            baseline: None,
+            items: Arc::new(vec![]),
+            kind,
+        }
     }
 
     /// Create a new, empty soft frame.
@@ -160,7 +166,7 @@ impl Frame {
 
     /// Add an item at a position in the foreground.
     pub fn push(&mut self, pos: Point, item: FrameItem) {
-        self.items.push((pos, item));
+        Arc::make_mut(&mut self.items).push((pos, item));
     }
 
     /// Add a frame at a position in the foreground.
@@ -184,8 +190,8 @@ impl Frame {
     ///
     /// This panics if the layer is greater than the number of layers present.
     #[track_caller]
-    pub fn insert(&mut self, layer: usize, pos: Point, items: FrameItem) {
-        self.items.insert(layer, (pos, items));
+    pub fn insert(&mut self, layer: usize, pos: Point, item: FrameItem) {
+        Arc::make_mut(&mut self.items).insert(layer, (pos, item));
     }
 
     /// Add an item at a position in the background.
@@ -201,9 +207,7 @@ impl Frame {
     where
         I: IntoIterator<Item = (Point, FrameItem)>,
     {
-        for (i, item) in items.into_iter().enumerate() {
-            self.items.insert(i, item);
-        }
+        Arc::make_mut(&mut self.items).splice(0..0, items);
     }
 
     /// Add a frame at a position in the background.
@@ -222,7 +226,7 @@ impl Frame {
     }
 
     /// Inline a frame at the given layer.
-    fn inline(&mut self, layer: usize, pos: Point, mut frame: Frame) {
+    fn inline(&mut self, layer: usize, pos: Point, frame: Frame) {
         // Try to just reuse the items.
         if pos.is_zero() && self.items.is_empty() {
             self.items = frame.items;
@@ -230,27 +234,30 @@ impl Frame {
         }
 
         // Try to transfer the items without adjusting the position.
+        // Also try to reuse the items if the Arc isn't shared.
+        let range = layer..layer;
         if pos.is_zero() {
-            if frame.items.is_unique() {
-                for (i, item) in frame.items.into_iter().enumerate() {
-                    self.items.insert(layer + i, item);
+            let sink = Arc::make_mut(&mut self.items);
+            match Arc::try_unwrap(frame.items) {
+                Ok(items) => {
+                    sink.splice(range, items);
                 }
-            } else {
-                for (i, item) in frame.items.iter().cloned().enumerate() {
-                    self.items.insert(layer + i, item);
+                Err(arc) => {
+                    sink.splice(range, arc.iter().cloned());
                 }
             }
             return;
         }
 
         // We have to adjust the item positions.
-        if frame.items.is_unique() {
-            for (i, (p, e)) in frame.items.into_iter().enumerate() {
-                self.items.insert(layer + i, (p + pos, e));
+        // But still try to reuse the items if the Arc isn't shared.
+        let sink = Arc::make_mut(&mut self.items);
+        match Arc::try_unwrap(frame.items) {
+            Ok(items) => {
+                sink.splice(range, items.into_iter().map(|(p, e)| (p + pos, e)));
             }
-        } else {
-            for (i, (p, e)) in frame.items.iter().cloned().enumerate() {
-                self.items.insert(layer + i, (p + pos, e));
+            Err(arc) => {
+                sink.splice(range, arc.iter().cloned().map(|(p, e)| (p + pos, e)));
             }
         }
     }
@@ -260,7 +267,11 @@ impl Frame {
 impl Frame {
     /// Remove all items from the frame.
     pub fn clear(&mut self) {
-        self.items.clear();
+        if Arc::strong_count(&self.items) == 1 {
+            Arc::make_mut(&mut self.items).clear();
+        } else {
+            self.items = Arc::new(vec![]);
+        }
     }
 
     /// Resize the frame to a new size, distributing new space according to the
@@ -279,7 +290,7 @@ impl Frame {
             if let Some(baseline) = &mut self.baseline {
                 *baseline += offset.y;
             }
-            for (point, _) in self.items.make_mut().iter_mut() {
+            for (point, _) in Arc::make_mut(&mut self.items) {
                 *point += offset;
             }
         }
@@ -303,7 +314,7 @@ impl Frame {
             }
         }
         if hide {
-            self.items.retain(|(_, item)| {
+            Arc::make_mut(&mut self.items).retain(|(_, item)| {
                 matches!(item, FrameItem::Group(_) | FrameItem::Meta(Meta::Elem(_), _))
             });
         }
