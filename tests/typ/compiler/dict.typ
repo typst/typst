@@ -92,13 +92,13 @@
 #(a: 1, b)
 
 // Identified as dictionary due to initial colon.
+// The boolean key is allowed for now since it will only cause an error at the evaluation stage.
 // Error: 4-5 expected named or keyed pair, found integer
 // Error: 5 expected comma
-// Error: 12-16 expected identifier or string, found boolean
 // Error: 17 expected expression
 #(:1 b:"", true:)
 
-// Error: 3-8 expected identifier or string, found binary expression
+// This is allowed since the key can be an expression.
 #(a + b: "hey")
 
 ---
@@ -124,3 +124,12 @@
   // Error: 8-15 type dictionary has no method `nonfunc`
   dict.nonfunc()
 }
+
+---
+#let a = "hello"
+#let b = "world"
+#let c = "value"
+#(a + b: c)
+// Error: 3-7 key must evaluate to a string, but evaluated to boolean
+// Error: 16-18 key must evaluate to a string, but evaluated to integer
+#(true: false, 42: 3)

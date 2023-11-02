@@ -943,19 +943,18 @@ fn item(p: &mut Parser, keyed: bool) -> SyntaxKind {
 
     let kind = match p.node(m).map(SyntaxNode::kind) {
         Some(SyntaxKind::Ident) => SyntaxKind::Named,
-        Some(SyntaxKind::Str) if keyed => SyntaxKind::Keyed,
+        Some(_) if keyed => SyntaxKind::Keyed,
         _ => {
             for child in p.post_process(m) {
                 if child.kind() == SyntaxKind::Colon {
                     break;
                 }
 
-                let mut message = EcoString::from("expected identifier");
-                if keyed {
-                    message.push_str(" or string");
-                }
-                message.push_str(", found ");
-                message.push_str(child.kind().name());
+                let expected = if keyed { "expression" } else { "identifier" };
+                let message = eco_format!(
+                    "expected {expected}, found {found}",
+                    found = child.kind().name(),
+                );
                 child.convert_to_error(message);
             }
             SyntaxKind::Named
@@ -1235,9 +1234,12 @@ fn validate_dict<'a>(children: impl Iterator<Item = &'a mut SyntaxNode>) {
         match child.kind() {
             SyntaxKind::Named | SyntaxKind::Keyed => {
                 let Some(first) = child.children_mut().first_mut() else { continue };
-                let key = match first.cast::<ast::Str>() {
-                    Some(str) => str.get(),
-                    None => first.text().clone(),
+                let key = if let Some(str) = first.cast::<ast::Str>() {
+                    str.get()
+                } else if let Some(ident) = first.cast::<ast::Ident>() {
+                    ident.get().clone()
+                } else {
+                    continue;
                 };
 
                 if !used.insert(key.clone()) {

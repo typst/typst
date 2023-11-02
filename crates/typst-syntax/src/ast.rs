@@ -1270,11 +1270,8 @@ node! {
 
 impl<'a> Keyed<'a> {
     /// The key: `"spacy key"`.
-    pub fn key(self) -> Str<'a> {
-        self.0
-            .children()
-            .find_map(|node| node.cast::<Str>())
-            .unwrap_or_default()
+    pub fn key(self) -> Expr<'a> {
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The right-hand side of the pair: `true`.
