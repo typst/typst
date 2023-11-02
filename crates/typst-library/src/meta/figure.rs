@@ -509,12 +509,12 @@ impl FigureCaption {
             Lang::CHINESE => "：",
             Lang::FRENCH if option_eq(region, "CH") => "\u{202f}: ",
             Lang::FRENCH => "\u{a0}: ",
+            Lang::RUSSIAN => ". ",
             Lang::DANISH
             | Lang::DUTCH
             | Lang::ENGLISH
             | Lang::GERMAN
             | Lang::ITALIAN
-            | Lang::RUSSIAN
             | Lang::SPANISH
             | Lang::SWEDISH
             | _ => ": ",
