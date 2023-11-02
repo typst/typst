@@ -98,9 +98,6 @@
 // Error: 17 expected expression
 #(:1 b:"", true:)
 
-// This is allowed since the key can be an expression.
-#(a + b: "hey")
-
 ---
 // Error: 3-15 cannot mutate a temporary value
 #((key: "val").other = "some")
@@ -129,7 +126,19 @@
 #let a = "hello"
 #let b = "world"
 #let c = "value"
-#(a + b: c)
+#let d = "conflict"
+
+#assert.eq(((a): b), ("hello": "world"))
+#assert.eq(((a): 1, (a): 2), ("hello": 2))
+#assert.eq((hello: 1, (a): 2), ("hello": 2))
+#assert.eq((a + b: c, (a + b): d, (a): "value2", a: "value3"), ("helloworld": "conflict", "hello": "value2", "a": "value3"))
+
+---
+// Error: 7-10 expected identifier, found group
+// Error: 12-14 expected identifier, found integer
+#let ((a): 10) = "world"
+
+---
 // Error: 3-7 expected string, found boolean
 // Error: 16-18 expected string, found integer
 #(true: false, 42: 3)
