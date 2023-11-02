@@ -956,6 +956,9 @@ fn item(p: &mut Parser, keyed: bool) -> SyntaxKind {
                     found = child.kind().name(),
                 );
                 child.convert_to_error(message);
+                if !keyed {
+                    child.hint("key interpolation is not allowed here");
+                }
             }
             SyntaxKind::Named
         }
