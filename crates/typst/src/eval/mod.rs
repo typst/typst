@@ -1012,13 +1012,22 @@ impl Eval for ast::Dict<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let mut map = indexmap::IndexMap::new();
 
+        let mut invalid_keys = eco_vec![];
+
         for item in self.items() {
             match item {
                 ast::DictItem::Named(named) => {
                     map.insert(named.name().get().clone().into(), named.expr().eval(vm)?);
                 }
                 ast::DictItem::Keyed(keyed) => {
-                    map.insert(keyed.key().get().into(), keyed.expr().eval(vm)?);
+                    let raw_key = keyed.key();
+                    let key = raw_key.eval(vm)?;
+                    let key = key.cast::<Str>().unwrap_or_else(|error| {
+                        let error = SourceDiagnostic::error(raw_key.span(), error);
+                        invalid_keys.push(error);
+                        Str::default()
+                    });
+                    map.insert(key, keyed.expr().eval(vm)?);
                 }
                 ast::DictItem::Spread(expr) => match expr.eval(vm)? {
                     Value::None => {}
@@ -1026,6 +1035,10 @@ impl Eval for ast::Dict<'_> {
                     v => bail!(expr.span(), "cannot spread {} into dictionary", v.ty()),
                 },
             }
+        }
+
+        if !invalid_keys.is_empty() {
+            return Err(invalid_keys);
         }
 
         Ok(map.into())
