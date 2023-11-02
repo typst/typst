@@ -348,10 +348,7 @@ pub struct CasesElem {
     /// #set math.cases(separator: $quad$)
     /// $ x = cases(1, x >= 0, 2, x < 0) $
     /// ```
-    #[default(Content::sequence([
-        TextElem::packed(","),
-        HElem::new(QUAD.into()).pack(),
-    ]))]
+    #[default(TextElem::packed(" "))]
     pub separator: Content,
 
     /// Whether the bracket should appear on the right instead of on the left.

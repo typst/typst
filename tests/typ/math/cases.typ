@@ -9,7 +9,7 @@ $ cases(
 ) $
 
 ---
-#set math.cases(separator: $;quad$)
+#set math.cases(separator: $,quad$)
 $ cases(
   x, "if" (x dot y)/2 <= 0,
   x + y, "if" x divides 2,
