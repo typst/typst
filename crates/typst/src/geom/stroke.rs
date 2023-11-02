@@ -274,14 +274,14 @@ impl Stroke {
         /// How the line terminates. One of `{"butt"}`, `{"round"}`,
         /// `{"square"}`.
         #[external]
-        line_cap: LineCap,
+        cap: LineCap,
         /// How sharp turns of a contour are rendered. One of `{"miter"}`,
         /// `{"round"}`, or `{"bevel"}`.
         #[external]
-        line_join: LineJoin,
+        join: LineJoin,
         /// The [dash pattern]($stroke/#complex-strokes) to use.
         #[external]
-        dash_pattern: Option<DashPattern>,
+        dash: Option<DashPattern>,
         /// Number at which protruding sharp angles are rendered with a bevel
         /// instead. Only applicable if `join` is `{"miter"}`.
         #[external]
