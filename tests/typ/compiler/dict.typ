@@ -130,6 +130,6 @@
 #let b = "world"
 #let c = "value"
 #(a + b: c)
-// Error: 3-7 key must evaluate to a string, but evaluated to boolean
-// Error: 16-18 key must evaluate to a string, but evaluated to integer
+// Error: 3-7 expected string, found boolean
+// Error: 16-18 expected string, found integer
 #(true: false, 42: 3)

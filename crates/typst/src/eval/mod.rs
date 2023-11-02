@@ -1022,12 +1022,8 @@ impl Eval for ast::Dict<'_> {
                 ast::DictItem::Keyed(keyed) => {
                     let raw_key = keyed.key();
                     let key = raw_key.eval(vm)?;
-                    let key_ty = key.ty();
-                    let key = key.cast::<Str>().unwrap_or_else(|_| {
-                        let message = eco_format!(
-                            "key must evaluate to a string, but evaluated to {key_ty}",
-                        );
-                        let error = SourceDiagnostic::error(raw_key.span(), message);
+                    let key = key.cast::<Str>().unwrap_or_else(|error| {
+                        let error = SourceDiagnostic::error(raw_key.span(), error);
                         invalid_keys.push(error);
                         Str::default()
                     });
