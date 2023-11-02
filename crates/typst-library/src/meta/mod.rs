@@ -35,7 +35,6 @@ pub use self::reference::*;
 pub use self::state::*;
 
 use crate::prelude::*;
-use crate::text::TextElem;
 
 /// Hook up all meta definitions.
 pub(super) fn define(global: &mut Scope) {
@@ -60,15 +59,4 @@ pub(super) fn define(global: &mut Scope) {
     global.define_func::<layout>();
     global.define_func::<numbering>();
     global.define_func::<query>();
-}
-
-/// The named with which an element is referenced.
-pub trait LocalName {
-    /// Get the name in the given language and (optionally) region.
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str;
-
-    /// Resolve the local name with a style chain.
-    fn local_name_in(&self, styles: StyleChain) -> &'static str {
-        self.local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
-    }
 }

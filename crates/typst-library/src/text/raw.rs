@@ -17,7 +17,7 @@ use super::{
     FontFamily, FontList, Hyphenate, LinebreakElem, SmartquoteElem, TextElem, TextSize,
 };
 use crate::layout::BlockElem;
-use crate::meta::{Figurable, LocalName};
+use crate::meta::Figurable;
 use crate::prelude::*;
 
 // Shorthand for highlighter closures.
@@ -416,7 +416,7 @@ impl Finalize for RawElem {
 }
 
 impl LocalName for RawElem {
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "List",
             Lang::ARABIC => "قائمة",
@@ -444,6 +444,13 @@ impl LocalName for RawElem {
             Lang::JAPANESE => "リスト",
             Lang::ENGLISH | _ => "Listing",
         }
+    }
+
+    fn local_name_in(styles: StyleChain) -> &'static str
+    where
+        Self: Sized,
+    {
+        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
     }
 }
 

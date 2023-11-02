@@ -22,7 +22,6 @@ use crate::prelude::*;
 pub struct HElem {
     /// How much spacing to insert.
     #[required]
-    #[empty(Spacing::Fr(Fr::zero()))]
     pub amount: Spacing,
 
     /// If `{true}`, the spacing collapses at the start or end of a paragraph.
@@ -112,7 +111,6 @@ impl Behave for HElem {
 pub struct VElem {
     /// How much spacing to insert.
     #[required]
-    #[empty(Spacing::Fr(Fr::zero()))]
     pub amount: Spacing,
 
     /// If `{true}`, the spacing collapses at the start or end of a flow.

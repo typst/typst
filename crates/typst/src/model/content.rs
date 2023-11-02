@@ -56,12 +56,6 @@ impl Content {
         Self::new(SequenceElem::default())
     }
 
-    /// Creates a temporary content for an element type.
-    #[inline]
-    pub fn temp(of: Element) -> Self {
-        of.empty()
-    }
-
     /// Get the element data of this content.
     pub fn elem(&self) -> Element {
         self.0.dyn_data()
@@ -575,8 +569,20 @@ impl Serialize for Content {
 #[elem(Repr, PartialEq)]
 struct SequenceElem {
     #[required]
-    #[empty(Vec::with_capacity(0))]
     children: Vec<Prehashed<Content>>,
+}
+
+impl Default for SequenceElem {
+    fn default() -> Self {
+        Self {
+            span: Span::detached(),
+            location: Default::default(),
+            label: Default::default(),
+            prepared: Default::default(),
+            guards: Default::default(),
+            children: Default::default(),
+        }
+    }
 }
 
 impl PartialEq for SequenceElem {

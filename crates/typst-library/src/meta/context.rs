@@ -1,5 +1,3 @@
-use typst::eval::{nothing, NativeFunc};
-
 use crate::prelude::*;
 
 /// Provides access to the location of content.
@@ -32,7 +30,6 @@ pub fn locate(
 struct LocateElem {
     /// The function to call with the location.
     #[required]
-    #[empty(nothing::func())]
     func: Func,
 }
 
@@ -80,7 +77,6 @@ pub fn style(
 struct StyleElem {
     /// The function to call with the styles.
     #[required]
-    #[empty(nothing::func())]
     func: Func,
 }
 
@@ -150,7 +146,6 @@ pub fn layout(
 struct LayoutElem {
     /// The function to call with the outer container's (or page's) size.
     #[required]
-    #[empty(nothing::func())]
     func: Func,
 }
 

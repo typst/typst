@@ -47,6 +47,7 @@ pub mod export;
 pub mod font;
 pub mod geom;
 pub mod image;
+pub mod meta;
 pub mod model;
 
 #[doc(inline)]

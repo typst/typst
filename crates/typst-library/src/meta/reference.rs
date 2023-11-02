@@ -89,7 +89,6 @@ pub struct RefElem {
     /// Can be a label that is defined in the document or an entry from the
     /// [`bibliography`]($bibliography).
     #[required]
-    #[empty(Label::new("example"))]
     pub target: Label,
 
     /// A supplement for the reference.

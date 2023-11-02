@@ -116,7 +116,6 @@ pub struct BibliographyElem {
     #[internal]
     #[required]
     #[parse(bibliography)]
-    #[empty(Bibliography { map: Arc::new(IndexMap::with_capacity(0)), hash: 0 })]
     pub bibliography: Bibliography,
 
     /// The language setting where the bibliography is.
@@ -200,14 +199,9 @@ impl Show for BibliographyElem {
 
         let mut seq = vec![];
         if let Some(title) = self.title(styles) {
-            let title =
-                title.unwrap_or_else(|| {
-                    TextElem::packed(self.local_name(
-                        TextElem::lang_in(styles),
-                        TextElem::region_in(styles),
-                    ))
-                    .spanned(self.span())
-                });
+            let title = title.unwrap_or_else(|| {
+                TextElem::packed(Self::local_name_in(styles)).spanned(self.span())
+            });
 
             seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
         }
@@ -264,7 +258,7 @@ impl Finalize for BibliographyElem {
 }
 
 impl LocalName for BibliographyElem {
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Bibliografi",
             Lang::ARABIC => "المراجع",
@@ -294,6 +288,13 @@ impl LocalName for BibliographyElem {
             Lang::JAPANESE => "参考文献",
             Lang::ENGLISH | _ => "Bibliography",
         }
+    }
+
+    fn local_name_in(styles: StyleChain) -> &'static str
+    where
+        Self: Sized,
+    {
+        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
     }
 }
 

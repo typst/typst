@@ -137,12 +137,6 @@ pub struct Func {
     span: Span,
 }
 
-/// The identity function.
-#[func]
-pub fn nothing() -> Value {
-    Value::None
-}
-
 /// The different kinds of function representations.
 #[derive(Debug, Clone, PartialEq, Hash)]
 enum Repr {

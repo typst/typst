@@ -127,7 +127,6 @@ struct Field {
     forced_variant: Option<usize>,
     parse: Option<BlockWithReturn>,
     default: syn::Expr,
-    empty: syn::Expr,
 }
 
 impl Field {
@@ -161,7 +160,6 @@ fn create(element: &Elem) -> TokenStream {
 
     // Trait implementations.
     let native_element_impl = create_native_elem_impl(element);
-    let default_impl = create_default_impl(element);
     let hash_impl = element.without_capability("Hash", || create_hash_impl(element));
     let construct_impl =
         element.without_capability("Construct", || create_construct_impl(element));
@@ -238,7 +236,6 @@ fn create(element: &Elem) -> TokenStream {
             }
         }
 
-        #default_impl
         #native_element_impl
         #hash_impl
         #construct_impl
@@ -399,7 +396,7 @@ fn create_set_impl(element: &Elem) -> TokenStream {
 /// Creates the element's casting vtable.
 fn create_vtable_func(element: &Elem) -> TokenStream {
     // Forbidden capabilities (i.e capabilities that are not object safe).
-    const FORBIDDEN: &[&str] = &["Construct", "PartialEq", "Hash"];
+    const FORBIDDEN: &[&str] = &["Construct", "PartialEq", "Hash", "LocalName"];
 
     let ident = &element.ident;
     let relevant = element
@@ -677,21 +674,24 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         })
         .unwrap_or_else(|| quote! { true });
 
+    let local_name = element
+        .with_capability("LocalName", || quote! { Some(#ident::local_name_in) })
+        .unwrap_or_else(|| quote! { None });
+
     let unknown_field = format!("unknown field {{}} on {}", name);
     let label_error = format!("cannot set label on {}", name);
-
     let data = quote! {
         #model::NativeElementData {
             name: #name,
             title: #title,
             docs: #docs,
             keywords: &[#(#keywords),*],
-            empty: || #model::Content::new(<#ident as ::std::default::Default>::default()),
             construct: <#ident as #model::Construct>::construct,
             set: <#ident as #model::Set>::set,
             vtable: #vtable_func,
             field_id: |name| <#enum_ident as ::std::str::FromStr>::from_str(name).ok().map(|id| id as u8),
             field_name: |id| <#enum_ident as ::std::convert::TryFrom<u8>>::try_from(id).ok().map(#enum_ident::to_str),
+            local_name: #local_name,
             scope: #eval::Lazy::new(|| #scope),
             params: #eval::Lazy::new(|| ::std::vec![#(#params),*])
         }
@@ -1065,47 +1065,6 @@ fn create_hash_impl(element: &Elem) -> TokenStream {
     }
 }
 
-/// Creates the element's `Default` implementation.
-fn create_default_impl(element: &Elem) -> TokenStream {
-    let ident = &element.ident;
-    let relevant = element
-        .fields
-        .iter()
-        .filter(|field| !field.external && !field.synthesized && field.inherent())
-        .map(|Field { ident, empty, .. }| {
-            quote! { #ident: #empty }
-        });
-    let defaults = element
-        .fields
-        .iter()
-        .filter(|field| !field.external && (field.synthesized || !field.inherent()))
-        .map(|Field { ident, .. }| {
-            quote! { #ident: None }
-        });
-
-    let label_and_location = element.without_capability("Unlabellable", || {
-        quote! {
-            location: None,
-            label: None,
-            prepared: false,
-        }
-    });
-
-    quote! {
-        impl ::std::default::Default for #ident {
-            fn default() -> Self {
-                Self {
-                    span: ::typst::syntax::Span::detached(),
-                    #label_and_location
-                    guards: ::std::vec::Vec::with_capacity(0),
-                    #(#relevant,)*
-                    #(#defaults,)*
-                }
-            }
-        }
-    }
-}
-
 /// Creates the element's enum for field identifiers.
 fn create_fields_enum(element: &Elem) -> TokenStream {
     let Elem { enum_ident, vis, .. } = element;
@@ -1330,9 +1289,6 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
         resolve: has_attr(&mut attrs, "resolve"),
         parse: parse_attr(&mut attrs, "parse")?.flatten(),
         default: parse_attr::<syn::Expr>(&mut attrs, "default")?
-            .flatten()
-            .unwrap_or_else(|| parse_quote! { ::std::default::Default::default() }),
-        empty: parse_attr::<syn::Expr>(&mut attrs, "empty")?
             .flatten()
             .unwrap_or_else(|| parse_quote! { ::std::default::Default::default() }),
         vis: field.vis.clone(),

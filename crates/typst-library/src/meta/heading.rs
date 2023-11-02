@@ -125,7 +125,7 @@ impl Synthesize for HeadingElem {
     fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         // Resolve the supplement.
         let supplement = match self.supplement(styles) {
-            Smart::Auto => TextElem::packed(self.local_name_in(styles)),
+            Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => supplement.resolve(vt, [self.clone()])?,
         };
@@ -233,7 +233,7 @@ impl Outlinable for HeadingElem {
 }
 
 impl LocalName for HeadingElem {
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Kapitull",
             Lang::ARABIC => "الفصل",
@@ -264,5 +264,12 @@ impl LocalName for HeadingElem {
             Lang::JAPANESE => "節",
             Lang::ENGLISH | _ => "Section",
         }
+    }
+
+    fn local_name_in(styles: StyleChain) -> &'static str
+    where
+        Self: Sized,
+    {
+        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
     }
 }

@@ -189,14 +189,9 @@ impl Show for OutlineElem {
         let mut seq = vec![ParbreakElem::new().pack()];
         // Build the outline title.
         if let Some(title) = self.title(styles) {
-            let title =
-                title.unwrap_or_else(|| {
-                    TextElem::packed(self.local_name(
-                        TextElem::lang_in(styles),
-                        TextElem::region_in(styles),
-                    ))
-                    .spanned(self.span())
-                });
+            let title = title.unwrap_or_else(|| {
+                TextElem::packed(Self::local_name_in(styles)).spanned(self.span())
+            });
 
             seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
         }
@@ -257,7 +252,7 @@ impl Finalize for OutlineElem {
 }
 
 impl LocalName for OutlineElem {
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Përmbajtja",
             Lang::ARABIC => "المحتويات",
@@ -288,6 +283,13 @@ impl LocalName for OutlineElem {
             Lang::JAPANESE => "目次",
             Lang::ENGLISH | _ => "Contents",
         }
+    }
+
+    fn local_name_in(styles: StyleChain) -> &'static str
+    where
+        Self: Sized,
+    {
+        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
     }
 }
 
@@ -420,7 +422,6 @@ pub struct OutlineEntry {
     /// The nesting level of this outline entry. Starts at `{1}` for top-level
     /// entries.
     #[required]
-    #[empty(NonZeroUsize::ONE)]
     pub level: NonZeroUsize,
 
     /// The element this entry refers to. Its location will be available

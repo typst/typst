@@ -40,7 +40,6 @@ pub struct CiteElem {
     /// >>> #bibliography("works.bib", style: "apa")
     /// ```
     #[required]
-    #[empty(Label::new("empty"))]
     pub key: Label,
 
     /// A supplement for the citation such as page or chapter number.

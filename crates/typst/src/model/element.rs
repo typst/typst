@@ -8,7 +8,7 @@ use ecow::EcoString;
 use once_cell::sync::Lazy;
 use smallvec::SmallVec;
 
-use super::{Content, Selector, Styles};
+use super::{Content, Selector, StyleChain, Styles};
 use crate::diag::{SourceResult, StrResult};
 use crate::eval::{cast, Args, Dict, Func, ParamInfo, Repr, Scope, Value, Vm};
 use crate::model::{Guard, Label, Location};
@@ -33,11 +33,6 @@ impl Element {
     /// Extract the field name for the given field ID.
     pub fn field_name(&self, id: u8) -> Option<&'static str> {
         (self.0.field_name)(id)
-    }
-
-    /// Create an element from the given data.
-    pub fn empty(self) -> Content {
-        (self.0.empty)()
     }
 
     /// The element's normal name (e.g. `enum`).
@@ -111,6 +106,11 @@ impl Element {
     /// Details about the element's fields.
     pub fn params(&self) -> &'static [ParamInfo] {
         &(self.0).0.params
+    }
+
+    /// The element's local name, if any.
+    pub fn local_name(&self, styles: StyleChain) -> Option<&'static str> {
+        (self.0).0.local_name.map(|f| f(styles))
     }
 }
 
@@ -263,12 +263,12 @@ pub struct NativeElementData {
     pub title: &'static str,
     pub docs: &'static str,
     pub keywords: &'static [&'static str],
-    pub empty: fn() -> Content,
     pub construct: fn(&mut Vm, &mut Args) -> SourceResult<Content>,
     pub set: fn(&mut Vm, &mut Args) -> SourceResult<Styles>,
     pub vtable: fn(of: TypeId) -> Option<*const ()>,
     pub field_id: fn(name: &str) -> Option<u8>,
     pub field_name: fn(u8) -> Option<&'static str>,
+    pub local_name: Option<fn(StyleChain) -> &'static str>,
     pub scope: Lazy<Scope>,
     pub params: Lazy<Vec<ParamInfo>>,
 }

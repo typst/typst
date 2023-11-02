@@ -1,8 +1,9 @@
 use typst::eval::{CastInfo, Reflect};
 
 use crate::layout::{AlignElem, GridLayouter, TrackSizings};
-use crate::meta::{Figurable, LocalName};
+use crate::meta::Figurable;
 use crate::prelude::*;
+use crate::text::TextElem;
 
 /// A table of items.
 ///
@@ -325,7 +326,7 @@ impl<T: FromValue> FromValue for Celled<T> {
 }
 
 impl LocalName for TableElem {
-    fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
+    fn local_name(lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Tabel",
             Lang::ARABIC => "جدول",
@@ -354,6 +355,10 @@ impl LocalName for TableElem {
             Lang::JAPANESE => "表",
             Lang::ENGLISH | _ => "Table",
         }
+    }
+
+    fn local_name_in(styles: StyleChain) -> &'static str {
+        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
     }
 }
 

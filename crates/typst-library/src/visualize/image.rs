@@ -6,9 +6,9 @@ use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use typst::util::option_eq;
 
 use crate::compute::Readable;
-use crate::meta::{Figurable, LocalName};
+use crate::meta::Figurable;
 use crate::prelude::*;
-use crate::text::families;
+use crate::text::{families, TextElem};
 
 /// A raster or vector graphic.
 ///
@@ -48,7 +48,6 @@ pub struct ImageElem {
     #[internal]
     #[required]
     #[parse(Readable::Bytes(data))]
-    #[empty(Readable::Str(Str(EcoString::inline(""))))]
     pub data: Readable,
 
     /// The image's format. Detected automatically by default.
@@ -225,7 +224,7 @@ impl Layout for ImageElem {
 }
 
 impl LocalName for ImageElem {
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Figurë",
             Lang::ARABIC => "شكل",
@@ -255,6 +254,10 @@ impl LocalName for ImageElem {
             Lang::JAPANESE => "図",
             Lang::ENGLISH | _ => "Figure",
         }
+    }
+
+    fn local_name_in(styles: StyleChain) -> &'static str {
+        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
     }
 }
 

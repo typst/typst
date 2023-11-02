@@ -53,7 +53,7 @@ pub use self::dict::{dict, Dict};
 pub use self::duration::Duration;
 pub use self::fields::fields_on;
 pub use self::func::{
-    func, nothing, CapturesVisitor, Func, NativeFunc, NativeFuncData, ParamInfo,
+    func, CapturesVisitor, Func, NativeFunc, NativeFuncData, ParamInfo,
 };
 pub use self::library::{set_lang_items, LangItems, Library};
 pub use self::methods::mutable_methods_on;

@@ -18,7 +18,6 @@ use super::*;
 pub struct ClassElem {
     /// The class to apply to the content.
     #[required]
-    #[empty(MathClass::Normal)]
     pub class: MathClass,
 
     /// The content to which the class is applied.

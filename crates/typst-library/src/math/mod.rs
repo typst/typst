@@ -47,9 +47,7 @@ use self::row::*;
 use self::spacing::*;
 use crate::layout::{AlignElem, BoxElem, HElem, ParElem, Spacing};
 use crate::meta::Supplement;
-use crate::meta::{
-    Count, Counter, CounterUpdate, LocalName, Numbering, Outlinable, Refable,
-};
+use crate::meta::{Count, Counter, CounterUpdate, Numbering, Outlinable, Refable};
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
 use crate::text::{
@@ -184,7 +182,7 @@ impl Synthesize for EquationElem {
     fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         // Resolve the supplement.
         let supplement = match self.supplement(styles) {
-            Smart::Auto => TextElem::packed(self.local_name_in(styles)),
+            Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => supplement.resolve(vt, [self.clone()])?,
         };
@@ -314,7 +312,7 @@ impl Count for EquationElem {
 }
 
 impl LocalName for EquationElem {
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Ekuacion",
             Lang::ARABIC => "معادلة",
@@ -344,6 +342,10 @@ impl LocalName for EquationElem {
             Lang::JAPANESE => "式",
             Lang::ENGLISH | _ => "Equation",
         }
+    }
+
+    fn local_name_in(styles: StyleChain) -> &'static str {
+        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
     }
 }
 

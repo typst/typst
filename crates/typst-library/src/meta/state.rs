@@ -375,7 +375,6 @@ cast! {
 struct DisplayElem {
     /// The state.
     #[required]
-    #[empty(State { key: Str(EcoString::inline("temp")), init: Value::None })]
     state: State,
 
     /// The function to display the state with.
@@ -406,7 +405,6 @@ struct UpdateElem {
 
     /// The update to perform on the state.
     #[required]
-    #[empty(StateUpdate::Set(Value::None))]
     update: StateUpdate,
 }
 
