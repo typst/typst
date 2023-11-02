@@ -81,16 +81,20 @@
 #func(1 2)
 
 // Error: 7-8 expected identifier, found integer
+// Hint: 7-8 key interpolation is not allowed here
 // Error: 9 expected expression
 #func(1:)
 
 // Error: 7-8 expected identifier, found integer
+// Hint: 7-8 key interpolation is not allowed here
 #func(1:2)
 
 // Error: 7-12 expected identifier, found string
+// Hint: 7-12 key interpolation is not allowed here
 #func("abc": 2)
 
 // Error: 7-10 expected identifier, found group
+// Hint: 7-10 key interpolation is not allowed here
 #func((x):1)
 
 ---

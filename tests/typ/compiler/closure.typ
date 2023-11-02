@@ -175,6 +175,7 @@
 #let f((a: b), (c,), a) = none
 
 // Error: 8-14 expected identifier, found array
+// Hint: 8-14 key interpolation is not allowed here
 #let f((a, b): 0) = none
 
 // Error: 10-19 expected identifier, found destructuring pattern
@@ -206,10 +207,12 @@
 
 ---
 // Error: 10-15 expected identifier, found string
+// Hint: 10-15 key interpolation is not allowed here
 #let foo("key": b) = key
 
 ---
 // Error: 10-14 expected identifier, found `none`
+// Hint: 10-14 key interpolation is not allowed here
 #let foo(none: b) = key
 
 ---

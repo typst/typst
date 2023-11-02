@@ -135,6 +135,7 @@
 
 ---
 // Error: 7-10 expected identifier, found group
+// Hint: 7-10 key interpolation is not allowed here
 // Error: 12-14 expected identifier, found integer
 #let ((a): 10) = "world"
 
