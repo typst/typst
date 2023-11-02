@@ -505,7 +505,7 @@ impl FigureCaption {
     /// region.
     fn local_separator(lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
-            Lang::CHINESE => "\u{3000}",
+            Lang::CHINESE => "\u{2003}",
             Lang::FRENCH => "\u{a0}– ",
             Lang::RUSSIAN => ". ",
             Lang::ENGLISH | _ => ": ",

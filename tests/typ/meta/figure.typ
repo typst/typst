@@ -121,5 +121,5 @@ We can clearly see that @fig-cylinder and
 #set text(lang: "zh")
 #figure(
     rect(),
-    caption: [一个正方形],
+    caption: [一个矩形],
 )
