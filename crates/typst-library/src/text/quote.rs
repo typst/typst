@@ -9,7 +9,9 @@ use crate::prelude::*;
 /// ```example
 /// Plato is often misquoted as the author of #quote[I know that I know
 /// nothing], however, this is a derivation form his original quote:
+///
 /// #set quote(block: true)
+///
 /// #quote(attribution: [Plato])[
 ///   ... ἔοικα γοῦν τούτου γε σμικρῷ τινι αὐτῷ τούτῳ σοφώτερος εἶναι, ὅτι
 ///   ἃ μὴ οἶδα οὐδὲ οἴομαι εἰδέναι.
@@ -63,10 +65,12 @@ pub struct QuoteElem {
     ///
     /// ```example
     /// #set text(lang: "de")
+    ///
     /// Ein deutsch-sprechender Author zitiert unter umständen JFK:
     /// #quote[Ich bin ein Berliner.]
     ///
     /// #set text(lang: "en")
+    ///
     /// And an english speaking one may translate the quote:
     /// #quote[I am a Berliner.]
     /// ```
@@ -83,16 +87,19 @@ pub struct QuoteElem {
     ///   ["] + h(0pt, weak: true) + it.body + h(0pt, weak: true) + ["]
     ///   if it.attribution != none [ (#it.attribution)]
     /// }
+    ///
     /// #quote(attribution: link("https://typst.app/home")[typst.com])[
     ///   Compose papers faster
     /// ]
     ///
     /// #set quote(block: true)
+    ///
     /// #quote(attribution: <tolkien54>)[
     ///   You cannot pass... I am a servant of the Secret Fire, wielder of the
     ///   flame of Anor. You cannot pass. The dark fire will not avail you,
     ///   flame of Udûn. Go back to the Shadow! You cannot pass.
     /// ]
+    ///
     /// #bibliography("works.bib", style: "apa")
     /// ```
     attribution: Option<Attribution>,
