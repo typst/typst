@@ -1,198 +1,100 @@
-use std::{
-    any::{Any, TypeId},
-    fmt::{self, Debug},
-    hash::{Hash, Hasher},
-    mem::size_of,
-};
+use std::any::Any;
+use std::fmt::{self, Debug};
+use std::hash::{Hash, Hasher};
 
-// Make `Style` 2 cache line length.
-const DEFAULT_SIZE: usize = 56;
+use smallbox::{smallbox, SmallBox};
 
-#[repr(C)]
-pub struct Block<const N: usize = DEFAULT_SIZE> {
-    type_: TypeId,
-    storage: Storage<N>,
-}
+/// A small block storage for storing stylechain values
+/// either on the stack (if they fit) or on the heap.
+pub struct Block(SmallBox<dyn Blocked, S3>);
 
-unsafe impl<const N: usize> Send for Block<N> {}
-unsafe impl<const N: usize> Sync for Block<N> {}
-
-impl<const N: usize> Block<N> {
+impl Block {
+    /// Creates a new block.
     pub fn new<T: Blockable>(value: T) -> Self {
-        Self {
-            type_: TypeId::of::<T>(),
-            storage: Storage::of(value),
-        }
+        Self(smallbox!(value))
     }
 
-    pub fn as_ptr(&self) -> *const () {
-        match &self.storage {
-            Storage::Stack(_, data) => data.as_ptr() as *const (),
-            Storage::Heap(_, data) => data.as_ref() as *const dyn Any as *const (),
-        }
+    /// Downcasts the block to the specified type.
+    pub fn downcast<T: Blockable>(&self) -> Option<&T> {
+        self.0.as_any().downcast_ref()
     }
 
-    pub fn as_mut_ptr(&mut self) -> *mut () {
-        match &mut self.storage {
-            Storage::Stack(_, data) => data.as_mut_ptr() as *mut (),
-            Storage::Heap(_, data) => data.as_mut() as *mut dyn Any as *mut (),
-        }
-    }
-
-    pub fn downcast<T: Any>(&self) -> Option<&T> {
-        match &self.storage {
-            Storage::Stack(_, _) if self.type_ == TypeId::of::<T>() => {
-                Some(unsafe { &*(self.as_ptr() as *const T) })
-            }
-            Storage::Heap(_, data) => data.downcast_ref(),
-            _ => None,
-        }
-    }
-
-    pub fn downcast_mut<T: Any>(&mut self) -> Option<&mut T> {
-        match &mut self.storage {
-            Storage::Stack(_, data) if self.type_ == TypeId::of::<T>() => {
-                Some(unsafe { &mut *(data.as_mut_ptr() as *mut T) })
-            }
-            Storage::Heap(_, data) => data.downcast_mut(),
-            _ => None,
-        }
+    /// Downcasts mutably the block to the specified type.
+    pub fn downcast_mut<T: Blockable>(&mut self) -> Option<&mut T> {
+        self.0.as_any_mut().downcast_mut()
     }
 }
 
-impl<const N: usize> Clone for Block<N> {
+impl Hash for Block {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.dyn_hash(state);
+    }
+}
+
+impl Clone for Block {
     fn clone(&self) -> Self {
-        Self {
-            type_: self.type_,
-            storage: match &self.storage {
-                Storage::Stack(vtable, data) => {
-                    Storage::Stack(*vtable, (vtable.clone)(data.as_ptr() as *const ()))
-                }
-                Storage::Heap(vtable, data) => Storage::Heap(
-                    *vtable,
-                    (vtable.clone)(data.as_ref() as *const dyn Any as *const ()),
-                ),
-            },
-        }
+        Self(self.0.dyn_clone())
     }
 }
 
-impl<const N: usize> Hash for Block<N> {
-    fn hash<H: Hasher>(&self, mut state: &mut H) {
-        match &self.storage {
-            Storage::Stack(vtable, _) => (vtable.common.hash)(self.as_ptr(), &mut state),
-            Storage::Heap(vtable, _) => (vtable.common.hash)(self.as_ptr(), &mut state),
-        }
-    }
-}
-
-impl<const N: usize> Debug for Block<N> {
+impl Debug for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.storage {
-            Storage::Stack(vtable, _) => (vtable.common.debug)(self.as_ptr(), f),
-            Storage::Heap(vtable, _) => (vtable.common.debug)(self.as_ptr(), f),
-        }
+        self.0.dyn_debug(f)
     }
 }
 
-pub trait Blockable: Any + Clone + Hash + Send + Sync + Debug {}
+/// A value that can be stored in a block.
+///
+/// Auto derived for all types that implement [`Any`], [`Clone`], [`Hash`],
+/// [`Debug`], [`Send`] and [`Sync`].
+pub trait Blockable: Any + Clone + Hash + Debug + Send + Sync {}
+impl<T: Any + Clone + Hash + Debug + Send + Sync> Blockable for T {}
 
-impl<T: Any + Clone + Hash + Send + Sync + Debug> Blockable for T {}
-
-enum Storage<const N: usize> {
-    Stack(StackVTable<N>, [u8; N]),
-    Heap(HeapVTable, Box<dyn Any + Send + Sync>),
+/// The marker for the size of the block.
+#[doc(hidden)]
+pub struct S3 {
+    _inner: [usize; 3],
 }
 
-impl<const N: usize> Storage<N> {
-    fn of<T: Blockable>(value: T) -> Self {
-        if size_of::<T>() > N {
-            Self::Heap(HeapVTable::of::<T>(), Box::new(value))
-        } else {
-            let mut stack = [0; N];
-            unsafe { std::ptr::write(stack.as_mut_ptr() as *mut T, value) }
+/// A trait object for stored in a block.
+///
+/// Auto derived for all types that can be stored in a block, see
+/// [`Blockable`].
+pub trait Blocked: Send + Sync + 'static {
+    /// Equivalent to [`Hash`] for the block.
+    fn dyn_hash(&self, state: &mut dyn Hasher);
 
-            Self::Stack(StackVTable::of::<T>(), stack)
-        }
+    /// Equivalent to [`Clone`] for the block.
+    fn dyn_clone(&self) -> SmallBox<dyn Blocked, S3>;
+
+    /// Equivalent to [`Debug`] for the block.
+    fn dyn_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
+
+    /// Equivalent to [`Any::downcast_ref`] for the block.
+    fn as_any(&self) -> &dyn Any;
+
+    /// Equivalent to [`Any::downcast_mut`] for the block.
+    fn as_any_mut(&mut self) -> &mut dyn Any;
+}
+
+impl<T: Blockable> Blocked for T {
+    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
+        self.hash(&mut state);
     }
-}
 
-impl<const N: usize> Drop for Storage<N> {
-    fn drop(&mut self) {
-        if let Self::Stack(vtable, data) = self {
-            (vtable.drop)(data.as_mut_ptr() as *mut ());
-        }
+    fn dyn_clone(&self) -> SmallBox<dyn Blocked, S3> {
+        smallbox!(self.clone())
     }
-}
 
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct CommonVTable {
-    hash: fn(*const (), &mut dyn Hasher),
-    debug: fn(*const (), &mut fmt::Formatter<'_>) -> fmt::Result,
-}
-
-impl CommonVTable {
-    fn of<T: Blockable>() -> Self {
-        Self {
-            hash: |ptr, mut hasher| {
-                let ptr = ptr as *const T;
-                let value = unsafe { &*ptr };
-                value.hash(&mut hasher)
-            },
-            debug: |ptr, formatter| {
-                let ptr = ptr as *const T;
-                let value = unsafe { &*ptr };
-                value.fmt(formatter)
-            },
-        }
+    fn dyn_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Debug::fmt(self, f)
     }
-}
 
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct StackVTable<const N: usize> {
-    common: CommonVTable,
-    drop: fn(*mut ()),
-    clone: fn(*const ()) -> [u8; N],
-}
-
-impl<const N: usize> StackVTable<N> {
-    fn of<T: Blockable>() -> Self {
-        Self {
-            common: CommonVTable::of::<T>(),
-            drop: |ptr| {
-                let ptr = ptr as *mut T;
-                unsafe { ptr.drop_in_place() }
-            },
-            clone: |ptr| {
-                let ptr = ptr as *const T;
-                let value = unsafe { &*ptr };
-
-                let mut stack = [0; N];
-                unsafe { std::ptr::write(stack.as_mut_ptr() as *mut T, value.clone()) }
-                stack
-            },
-        }
+    fn as_any(&self) -> &dyn Any {
+        self
     }
-}
 
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct HeapVTable {
-    common: CommonVTable,
-    clone: fn(*const ()) -> Box<dyn Any + Send + Sync>,
-}
-
-impl HeapVTable {
-    fn of<T: Blockable>() -> Self {
-        Self {
-            common: CommonVTable::of::<T>(),
-            clone: |ptr| {
-                let ptr = ptr as *const T;
-                let value = unsafe { &*ptr };
-                Box::new(value.clone())
-            },
-        }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

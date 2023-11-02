@@ -2445,6 +2445,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "smallbox"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d92359f97e6b417da4328a970cf04a044db104fbd57f7d72cb7ff665bb8806af"
+
+[[package]]
 name = "smallvec"
 version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2914,6 +2920,7 @@ dependencies = [
  "rustybuzz",
  "serde",
  "siphasher",
+ "smallbox",
  "smallvec",
  "stacker",
  "subsetter",
