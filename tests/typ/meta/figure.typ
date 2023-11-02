@@ -113,8 +113,13 @@ We can clearly see that @fig-cylinder and
 ---
 // Test localized default separator
 #set text(lang: "fr")
-
 #figure(
     circle(),
     caption: [Un cercle.],
+)
+
+#set text(lang: "zh")
+#figure(
+    rect(),
+    caption: [一个正方形],
 )
