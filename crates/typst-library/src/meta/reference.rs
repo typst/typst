@@ -133,8 +133,8 @@ impl Synthesize for RefElem {
         self.push_citation(Some(citation));
         self.push_element(None);
 
-        let target = self.target();
-        if !BibliographyElem::has(vt, target.as_ref()) {
+        let target = *self.target();
+        if !BibliographyElem::has(vt, target) {
             if let Ok(elem) = vt.introspector.query_label(target) {
                 self.push_element(Some(elem.into_inner()));
                 return Ok(());
@@ -149,11 +149,11 @@ impl Show for RefElem {
     #[tracing::instrument(name = "RefElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(vt.delayed(|vt| {
-            let target = self.target();
-            let elem = vt.introspector.query_label(self.target());
+            let target = *self.target();
+            let elem = vt.introspector.query_label(target);
             let span = self.span();
 
-            if BibliographyElem::has(vt, target.as_ref()) {
+            if BibliographyElem::has(vt, target) {
                 if elem.is_ok() {
                     bail!(span, "label occurs in the document and its bibliography");
                 }
@@ -164,7 +164,7 @@ impl Show for RefElem {
             let elem = elem.at(span)?;
 
             if elem.func() == FootnoteElem::elem() {
-                return Ok(FootnoteElem::with_label(*target).spanned(span).pack());
+                return Ok(FootnoteElem::with_label(target).spanned(span).pack());
             }
 
             let refable = elem

@@ -259,7 +259,7 @@ pub(crate) struct Preparation<'a> {
     pub hang: Abs,
     /// Whether to add spacing between CJK and Latin characters.
     pub cjk_latin_spacing: bool,
-    /// Whether this is a fallback paragraph.
+    /// Whether font fallback is enabled for this paragraph.
     pub fallback: bool,
     /// The leading of the paragraph.
     pub leading: Abs,

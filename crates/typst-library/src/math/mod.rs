@@ -32,14 +32,14 @@ pub use self::root::*;
 pub use self::style::*;
 pub use self::underover::*;
 
+use std::borrow::Cow;
+
 use ttf_parser::{GlyphId, Rect};
 use typst::eval::{Module, Scope};
 use typst::font::{Font, FontWeight};
 use typst::model::Guard;
 use typst::util::option_eq;
 use unicode_math_class::MathClass;
-
-use std::borrow::Cow;
 
 use self::ctx::*;
 use self::fragment::*;

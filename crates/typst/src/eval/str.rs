@@ -72,7 +72,7 @@ pub use ecow::eco_format;
 #[derive(Debug, Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct Str(pub EcoString);
+pub struct Str(EcoString);
 
 impl Str {
     /// Create a new, empty string.
@@ -617,7 +617,7 @@ cast! {
             .map_err(|_| "bytes are not valid utf-8")?
             .into()
     ),
-    v: Label => Self::Str(v.as_ref().into()),
+    v: Label => Self::Str(v.as_str().into()),
     v: Type => Self::Str(v.long_name().into()),
     v: Str => Self::Str(v),
 }

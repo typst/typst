@@ -1,4 +1,4 @@
-use std::any::{Any, TypeId};
+use std::any::TypeId;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug};
 use std::hash::Hasher;
@@ -145,7 +145,7 @@ cast! {
 }
 
 /// A Typst element that is defined by a native Rust type.
-pub trait NativeElement: Construct + Set + Any + Send + Sync + Debug + Repr {
+pub trait NativeElement: Construct + Set + Send + Sync + Debug + Repr + 'static {
     /// Get the element for the native Rust element.
     fn elem() -> Element
     where
@@ -177,6 +177,21 @@ pub trait NativeElement: Construct + Set + Any + Send + Sync + Debug + Repr {
 
     /// Extract this element from type-erased content.
     fn unpack_owned(content: Content) -> Option<Arc<Self>>
+    where
+        Self: Sized;
+
+    /// Set the element's span.
+    fn spanned(self, span: ::typst::syntax::Span) -> Self
+    where
+        Self: Sized;
+
+    /// Set the element's location.
+    fn located(self, location: ::typst::model::Location) -> Self
+    where
+        Self: Sized;
+
+    /// Set the element's label.
+    fn labelled(self, label: ::typst::model::Label) -> Self
     where
         Self: Sized;
 

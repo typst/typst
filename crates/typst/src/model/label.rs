@@ -35,8 +35,20 @@ pub struct Label(PicoStr);
 
 impl Label {
     /// Creates a label from a string, interning it.
-    pub fn new(name: impl AsRef<str>) -> Self {
-        Self(PicoStr::new(name))
+    pub fn new(name: impl Into<PicoStr>) -> Self {
+        Self(name.into())
+    }
+
+    /// Resolves the label to a string.
+    #[inline]
+    pub fn as_str(&self) -> &'static str {
+        self.0.resolve()
+    }
+
+    /// Turns this label into its inner interned string.
+    #[inline]
+    pub fn into_inner(self) -> PicoStr {
+        self.0
     }
 }
 
@@ -58,9 +70,9 @@ impl Repr for Label {
     }
 }
 
-impl AsRef<str> for Label {
-    fn as_ref(&self) -> &str {
-        self.0.resolve()
+impl From<Label> for PicoStr {
+    fn from(value: Label) -> Self {
+        value.into_inner()
     }
 }
 

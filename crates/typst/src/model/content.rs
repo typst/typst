@@ -20,34 +20,58 @@ use crate::eval::{func, scope, ty, Dict, FromValue, IntoValue, Repr, Str, Value,
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
+/// A piece of document content.
+///
+/// This type is at the heart of Typst. All markup you write and most
+/// [functions]($function) you call produce content values. You can create a
+/// content value by enclosing markup in square brackets. This is also how you
+/// pass content to functions.
+///
+/// # Example
+/// ```example
+/// Type of *Hello!* is
+/// #type([*Hello!*])
+/// ```
+///
+/// Content can be added with the `+` operator,
+/// [joined together]($scripting/#blocks) and multiplied with integers. Wherever
+/// content is expected, you can also pass a [string]($str) or `{none}`.
+///
+/// # Representation
+/// Content consists of elements with fields. When constructing an element with
+/// its _element function,_ you provide these fields as arguments and when you
+/// have a content value, you can access its fields with [field access
+/// syntax]($scripting/#field-access).
+///
+/// Some fields are required: These must be provided when constructing an
+/// element and as a consequence, they are always available through field access
+/// on content of that type. Required fields are marked as such in the
+/// documentation.
+///
+/// Most fields are optional: Like required fields, they can be passed to the
+/// element function to configure them for a single element. However, these can
+/// also be configured with [set rules]($styling/#set-rules) to apply them to
+/// all elements within a scope. Optional fields are only available with field
+/// access syntax when they are were explicitly passed to the element function,
+/// not when they result from a set rule.
+///
+/// Each element has a default appearance. However, you can also completely
+/// customize its appearance with a [show rule]($styling/#show-rules). The show
+/// rule is passed the element. It can access the element's field and produce
+/// arbitrary content from it.
+///
+/// In the web app, you can hover over a content variable to see exactly which
+/// elements the content is composed of and what fields they have.
+/// Alternatively, you can inspect the output of the [`repr`]($repr) function.
 #[ty(scope)]
-#[repr(transparent)]
 #[derive(Debug, Clone)]
-pub struct Content(pub Arc<dyn NativeElement>);
-
-impl Default for Content {
-    fn default() -> Self {
-        Self::empty()
-    }
-}
-
-impl<T: NativeElement> From<T> for Content {
-    fn from(value: T) -> Self {
-        Self::new(value)
-    }
-}
-
-impl From<Arc<dyn NativeElement>> for Content {
-    fn from(value: Arc<dyn NativeElement>) -> Self {
-        Self(value)
-    }
-}
+pub struct Content(Arc<dyn NativeElement>, Element);
 
 impl Content {
     /// Creates a new content from an element.
     #[inline]
     pub fn new<E: NativeElement>(elem: E) -> Self {
-        Self(Arc::new(elem))
+        Self(Arc::new(elem), E::elem())
     }
 
     /// Creates a new empty sequence content.
@@ -58,7 +82,7 @@ impl Content {
 
     /// Get the element data of this content.
     pub fn elem(&self) -> Element {
-        self.0.dyn_data()
+        self.1
     }
 
     /// Get the span of the content.
@@ -69,8 +93,7 @@ impl Content {
 
     /// Set the span of the content.
     pub fn spanned(mut self, span: Span) -> Self {
-        swap_with_mut(&mut self.0);
-        Arc::get_mut(&mut self.0).unwrap().set_span(span);
+        make_mut(&mut self.0).set_span(span);
         self
     }
 
@@ -82,21 +105,18 @@ impl Content {
 
     /// Set the label of the content.
     pub fn labelled(mut self, label: Label) -> Self {
-        swap_with_mut(&mut self.0);
-        Arc::get_mut(&mut self.0).unwrap().set_label(label);
+        make_mut(&mut self.0).set_label(label);
         self
     }
 
     /// Set the location of the content.
     pub fn set_location(&mut self, location: Location) {
-        swap_with_mut(&mut self.0);
-        Arc::get_mut(&mut self.0).unwrap().set_location(location);
+        make_mut(&mut self.0).set_location(location);
     }
 
     /// Disable a show rule recipe.
     pub fn guarded(mut self, guard: Guard) -> Self {
-        swap_with_mut(&mut self.0);
-        Arc::get_mut(&mut self.0).unwrap().push_guard(guard);
+        make_mut(&mut self.0).push_guard(guard);
         self.0.into()
     }
 
@@ -122,8 +142,7 @@ impl Content {
 
     /// Mark this content as prepared.
     pub fn mark_prepared(&mut self) {
-        swap_with_mut(&mut self.0);
-        Arc::get_mut(&mut self.0).unwrap().mark_prepared();
+        make_mut(&mut self.0).mark_prepared();
     }
 
     /// Get a field by name.
@@ -133,7 +152,7 @@ impl Content {
     /// instead.
     #[inline]
     pub fn get_by_name(&self, name: &str) -> StrResult<Value> {
-        let id = self.0.dyn_data().field_id(name).ok_or_else(|| missing_field(name))?;
+        let id = self.1.field_id(name).ok_or_else(|| missing_field(name))?;
         self.get(id)
     }
 
@@ -146,7 +165,7 @@ impl Content {
     #[inline]
     pub fn get(&self, id: u8) -> StrResult<Value> {
         self.field(id)
-            .ok_or_else(|| missing_field(self.0.dyn_data().field_name(id).unwrap()))
+            .ok_or_else(|| missing_field(self.1.field_name(id).unwrap()))
     }
 
     /// Get a field by ID.
@@ -161,11 +180,7 @@ impl Content {
 
     /// Set a field to the content.
     pub fn with_field(mut self, id: u8, value: impl IntoValue) -> Self {
-        swap_with_mut(&mut self.0);
-        Arc::get_mut(&mut self.0)
-            .unwrap()
-            .set_field(id, value.into_value())
-            .unwrap();
+        make_mut(&mut self.0).set_field(id, value.into_value()).unwrap();
         self
     }
 
@@ -194,7 +209,7 @@ impl Content {
 
     /// Whether the contained element is of type `T`.
     pub fn is<T: NativeElement>(&self) -> bool {
-        self.elem() == T::elem()
+        self.1 == T::elem()
     }
 
     /// Cast to `T` if the contained element is of type `T`.
@@ -233,7 +248,7 @@ impl Content {
         C: ?Sized + 'static,
     {
         let vtable = self.elem().vtable()(TypeId::of::<C>())?;
-        let data = Arc::as_ptr(&self.0) as *const ();
+        let data = self.as_ptr() as *const ();
         Some(unsafe { &*crate::util::fat::from_raw_parts(data, vtable) })
     }
 
@@ -241,11 +256,9 @@ impl Content {
     where
         C: ?Sized + 'static,
     {
-        // Ensure the element is not shared.
-        swap_with_mut(&mut self.0);
-
+        // Safety: we ensure the element is not shared.
         let vtable = self.elem().vtable()(TypeId::of::<C>())?;
-        let data = Arc::as_ptr(&self.0) as *const () as *mut ();
+        let data = self.as_mut_ptr() as *mut ();
         Some(unsafe { &mut *crate::util::fat::from_raw_parts_mut(data, vtable) })
     }
 
@@ -398,25 +411,25 @@ impl Content {
     pub fn expect_field_by_name<T: FromValue>(&self, name: &str) -> T {
         self.get_by_name(name).unwrap().cast().unwrap()
     }
-}
 
-impl std::hash::Hash for Content {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.dyn_data().hash(state);
-        self.0.dyn_hash(state)
+    /// Returns a pointer to the content.
+    #[inline]
+    pub fn as_ptr(&self) -> *const dyn NativeElement {
+        Arc::as_ptr(&self.0)
     }
-}
 
-impl PartialEq for Content {
-    fn eq(&self, other: &Self) -> bool {
-        // Additional short circuit for different elements.
-        self.elem() == other.elem() && self.0.dyn_eq(other)
+    /// Returns a mutable pointer to the content.
+    ///
+    /// Ensures that the content is not shared.
+    #[inline]
+    pub fn as_mut_ptr(&mut self) -> *mut dyn NativeElement {
+        make_mut(&mut self.0) as *mut dyn NativeElement
     }
-}
 
-impl Repr for Content {
-    fn repr(&self) -> EcoString {
-        self.0.repr()
+    /// Unwraps this content into its inner element.
+    #[inline]
+    pub fn into_inner(self) -> Arc<dyn NativeElement> {
+        self.0
     }
 }
 
@@ -439,7 +452,7 @@ impl Content {
         /// The field to look for.
         field: Str,
     ) -> bool {
-        let Some(id) = self.0.dyn_data().field_id(&field) else {
+        let Some(id) = self.1.field_id(&field) else {
             return false;
         };
 
@@ -458,7 +471,7 @@ impl Content {
         #[named]
         default: Option<Value>,
     ) -> StrResult<Value> {
-        let Some(id) = self.0.dyn_data().field_id(&field) else {
+        let Some(id) = self.1.field_id(&field) else {
             return default.ok_or_else(|| missing_field_no_default(&field));
         };
 
@@ -488,6 +501,45 @@ impl Content {
     #[func]
     pub fn location(&self) -> Option<Location> {
         self.0.location()
+    }
+}
+
+impl Default for Content {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
+impl<T: NativeElement> From<T> for Content {
+    fn from(value: T) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<Arc<dyn NativeElement>> for Content {
+    fn from(value: Arc<dyn NativeElement>) -> Self {
+        let elem = value.dyn_data();
+        Self(value, elem)
+    }
+}
+
+impl std::hash::Hash for Content {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.dyn_hash(state);
+        self.1.hash(state);
+    }
+}
+
+impl PartialEq for Content {
+    fn eq(&self, other: &Self) -> bool {
+        // Additional short circuit for different elements.
+        self.elem() == other.elem() && self.0.dyn_eq(other)
+    }
+}
+
+impl Repr for Content {
+    fn repr(&self) -> EcoString {
+        self.0.repr()
     }
 }
 
@@ -559,8 +611,11 @@ impl Serialize for Content {
         S: Serializer,
     {
         serializer.collect_map(
-            iter::once((EcoString::inline("func"), self.func().name().into_value()))
-                .chain(self.fields().into_iter().map(|(key, value)| (key.0, value))),
+            iter::once((
+                Str::from(EcoString::inline("func")),
+                self.func().name().into_value(),
+            ))
+            .chain(self.fields()),
         )
     }
 }
@@ -670,11 +725,12 @@ fn missing_field_no_default(field: &str) -> EcoString {
 
 #[doc(hidden)]
 #[allow(invalid_value)]
-pub fn swap_with_mut(val: &mut Arc<dyn NativeElement>) {
-    match Arc::get_mut(val) {
-        Some(_) => {}
-        None => *val = val.dyn_clone(),
-    };
+pub fn make_mut(val: &mut Arc<dyn NativeElement>) -> &mut dyn NativeElement {
+    if Arc::strong_count(val) > 1 && Arc::weak_count(val) == 0 {
+        *val = val.dyn_clone();
+    }
+
+    Arc::get_mut(val).unwrap()
 }
 
 #[macro_export]

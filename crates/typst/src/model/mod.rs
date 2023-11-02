@@ -14,7 +14,7 @@ use ecow::EcoVec;
 pub use typst_macros::elem;
 
 pub use self::block::{Block, Blockable};
-pub use self::content::{swap_with_mut, Content, MetaElem, PlainText};
+pub use self::content::{make_mut, Content, MetaElem, PlainText};
 pub use self::element::{Construct, Element, NativeElement, NativeElementData, Set};
 pub use self::introspect::{Introspector, Location, Locator};
 pub use self::label::{Label, Unlabellable};

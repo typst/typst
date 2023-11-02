@@ -89,7 +89,7 @@ impl Show for LinkElem {
             LinkTarget::Dest(dest) => body.linked(dest.clone()),
             LinkTarget::Label(label) => vt
                 .delayed(|vt| {
-                    let elem = vt.introspector.query_label(label).at(self.span())?;
+                    let elem = vt.introspector.query_label(*label).at(self.span())?;
                     let dest = Destination::Location(elem.location().unwrap());
                     Ok(Some(body.clone().linked(dest)))
                 })

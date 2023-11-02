@@ -38,9 +38,9 @@ cast! {
     v: EcoString => Self::new(&v),
 }
 
-impl From<&'static str> for PicoStr {
-    fn from(value: &'static str) -> Self {
-        Self::static_(value)
+impl<'a> From<&'a str> for PicoStr {
+    fn from(value: &'a str) -> Self {
+        Self::new(value)
     }
 }
 

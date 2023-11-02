@@ -103,7 +103,7 @@ impl FootnoteElem {
     pub fn declaration_location(&self, vt: &Vt) -> StrResult<Location> {
         match self.body() {
             FootnoteBody::Reference(label) => {
-                let element: Prehashed<Content> = vt.introspector.query_label(label)?;
+                let element: Prehashed<Content> = vt.introspector.query_label(*label)?;
                 let footnote = element
                     .to::<FootnoteElem>()
                     .ok_or("referenced element should be a footnote")?;

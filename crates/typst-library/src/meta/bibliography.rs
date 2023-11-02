@@ -20,6 +20,7 @@ use typst::diag::FileError;
 use typst::eval::{eval_string, Bytes, CastInfo, EvalMode, Reflect};
 use typst::font::FontStyle;
 use typst::util::option_eq;
+use typst::util::str::PicoStr;
 
 use super::{CitationForm, CiteGroup, LocalName};
 use crate::layout::{
@@ -157,7 +158,8 @@ impl BibliographyElem {
     }
 
     /// Whether the bibliography contains the given key.
-    pub fn has(vt: &Vt, key: &str) -> bool {
+    pub fn has(vt: &Vt, key: impl Into<PicoStr>) -> bool {
+        let key = key.into();
         vt.introspector
             .query(&Self::elem().select())
             .iter()
@@ -302,7 +304,7 @@ impl LocalName for BibliographyElem {
 #[ty]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bibliography {
-    map: Arc<IndexMap<EcoString, hayagriva::Entry>>,
+    map: Arc<IndexMap<PicoStr, hayagriva::Entry>>,
     hash: u128,
 }
 
@@ -373,8 +375,8 @@ impl Bibliography {
         })
     }
 
-    fn has(&self, key: &str) -> bool {
-        self.map.contains_key(key)
+    fn has(&self, key: impl Into<PicoStr>) -> bool {
+        self.map.contains_key(&key.into())
     }
 
     fn entries(&self) -> impl Iterator<Item = &hayagriva::Entry> {
@@ -661,11 +663,11 @@ impl<'a> Generator<'a> {
             // Create infos and items for each child in the group.
             for child in children {
                 let key = *child.key();
-                let Some(entry) = database.map.get(key.as_ref()) else {
+                let Some(entry) = database.map.get(&key.into_inner()) else {
                     errors.push(error!(
                         child.span(),
                         "key `{}` does not exist in the bibliography",
-                        key.as_ref()
+                        key.as_str()
                     ));
                     continue;
                 };
@@ -717,13 +719,13 @@ impl<'a> Generator<'a> {
             driver.citation(CitationRequest::new(
                 items,
                 style,
-                Some(locale(first.lang(), first.region())),
+                Some(locale(*first.lang(), *first.region())),
                 &LOCALES,
                 None,
             ));
         }
 
-        let locale = locale(self.bibliography.lang(), self.bibliography.region());
+        let locale = locale(*self.bibliography.lang(), *self.bibliography.region());
 
         // Add hidden items for everything if we should print the whole
         // bibliography.
@@ -773,7 +775,7 @@ impl<'a> Generator<'a> {
         let mut output = std::mem::take(&mut self.failures);
         for (info, citation) in self.infos.iter().zip(&rendered.citations) {
             let supplement = |i: usize| info.subinfos.get(i)?.supplement.clone();
-            let link = |i: usize| links.get(info.subinfos.get(i)?.key.as_ref()).copied();
+            let link = |i: usize| links.get(info.subinfos.get(i)?.key.as_str()).copied();
 
             let renderer = ElemRenderer {
                 world: self.world,
@@ -813,7 +815,7 @@ impl<'a> Generator<'a> {
         let mut first_occurances = HashMap::new();
         for info in &self.infos {
             for subinfo in &info.subinfos {
-                let key = subinfo.key.as_ref();
+                let key = subinfo.key.as_str();
                 first_occurances.entry(key).or_insert(info.location);
             }
         }
@@ -1024,7 +1026,7 @@ fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Con
 }
 
 /// Create a locale code from language and optionally region.
-fn locale(lang: &Lang, region: &Option<Region>) -> citationberg::LocaleCode {
+fn locale(lang: Lang, region: Option<Region>) -> citationberg::LocaleCode {
     let mut value = String::with_capacity(5);
     value.push_str(lang.as_str());
     if let Some(region) = region {

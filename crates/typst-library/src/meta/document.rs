@@ -44,7 +44,6 @@ pub struct DocumentElem {
     pub date: Smart<Option<Datetime>>,
 
     /// The page runs.
-    #[internal]
     #[variadic]
     pub children: Vec<Prehashed<Content>>,
 }

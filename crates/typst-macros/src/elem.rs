@@ -23,6 +23,8 @@ struct Elem {
 }
 
 impl Elem {
+    /// Calls the closure to produce a token stream if the
+    /// element does not have the given capability.
     fn without_capability(
         &self,
         name: &str,
@@ -34,6 +36,8 @@ impl Elem {
             .then(closure)
     }
 
+    /// Calls the closure to produce a token stream if the
+    /// element has the given capability.
     fn with_capability(
         &self,
         name: &str,
@@ -49,23 +53,27 @@ impl Elem {
     ///
     /// This includes:
     /// - Fields that are not external and therefore present in the struct.
-    fn all_fields(&self) -> impl Iterator<Item = &Field> + Clone {
+    fn real_fields(&self) -> impl Iterator<Item = &Field> + Clone {
         self.fields.iter().filter(|field| !field.external)
     }
 
     /// Fields that are inherent to the element.
     fn inherent_fields(&self) -> impl Iterator<Item = &Field> + Clone {
-        self.all_fields().filter(|field| field.inherent())
+        self.real_fields().filter(|field| field.inherent())
     }
 
     /// Fields that can be set with style rules.
     ///
+    /// The reason why fields that are `parse` and internal are allowed
+    /// is because it's a pattern used a lot for parsing data from the
+    /// input and then storing it in a field.
+    ///
     /// This includes:
     /// - Fields that are not synthesized.
     /// - Fields that are not inherent and therefore present at all times.
-    /// - Fields that are not internal or have a parser.
+    /// - Fields that are not internal.
     fn settable_fields(&self) -> impl Iterator<Item = &Field> + Clone {
-        self.all_fields().filter(|field| {
+        self.real_fields().filter(|field| {
             !field.synthesized
                 && field.settable()
                 && (!field.internal || field.parse.is_some())
@@ -75,30 +83,25 @@ impl Elem {
     /// Fields that are visible to the user.
     ///
     /// This includes:
-    /// - Fields that are not internal or have a parser.
+    /// - Fields that are not internal.
     fn visible_fields(&self) -> impl Iterator<Item = &Field> + Clone {
-        self.all_fields()
-            .filter(|field| !field.internal || field.parse.is_some())
+        self.real_fields().filter(|field| !field.internal)
     }
 
     /// Fields that are relevant for equality.
     ///
     /// This includes:
     /// - Fields that are not synthesized (guarantees equality before and after synthesis).
-    /// - Fields that are not fold (guarantees equality before and after style chain folding).
     fn eq_fields(&self) -> impl Iterator<Item = &Field> + Clone {
-        self.all_fields().filter(|field| !field.synthesized && !field.fold)
+        self.real_fields().filter(|field| !field.synthesized)
     }
 
     /// Fields that are relevant for `Construct` impl.
     ///
     /// This includes:
     /// - Fields that are not synthesized.
-    /// - Fields that are not internal or have a parser.
     fn construct_fields(&self) -> impl Iterator<Item = &Field> + Clone {
-        self.all_fields().filter(|field| {
-            !field.synthesized && (!field.internal || field.parse.is_some())
-        })
+        self.real_fields().filter(|field| !field.synthesized)
     }
 }
 
@@ -141,10 +144,153 @@ impl Field {
     }
 }
 
+/// The `..` in `#[elem(..)]`.
+struct Meta {
+    scope: bool,
+    name: Option<String>,
+    title: Option<String>,
+    keywords: Vec<String>,
+    capabilities: Vec<Ident>,
+}
+
+impl Parse for Meta {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(Self {
+            scope: parse_flag::<kw::scope>(input)?,
+            name: parse_string::<kw::name>(input)?,
+            title: parse_string::<kw::title>(input)?,
+            keywords: parse_string_array::<kw::keywords>(input)?,
+            capabilities: Punctuated::<Ident, Token![,]>::parse_terminated(input)?
+                .into_iter()
+                .collect(),
+        })
+    }
+}
+
+/// Parse details about the element from its struct definition.
+fn parse(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
+    let meta: Meta = syn::parse2(stream)?;
+    let (name, title) = determine_name_and_title(
+        meta.name,
+        meta.title,
+        &body.ident,
+        Some(|base| base.trim_end_matches("Elem")),
+    )?;
+
+    let docs = documentation(&body.attrs);
+
+    let syn::Fields::Named(named) = &body.fields else {
+        bail!(body, "expected named fields");
+    };
+    let fields = named.named.iter().map(parse_field).collect::<Result<_>>()?;
+
+    Ok(Elem {
+        name,
+        title,
+        scope: meta.scope,
+        keywords: meta.keywords,
+        docs,
+        vis: body.vis.clone(),
+        ident: body.ident.clone(),
+        capabilities: meta.capabilities,
+        fields,
+        enum_ident: Ident::new(&format!("{}Fields", body.ident), body.ident.span()),
+    })
+}
+
+fn parse_field(field: &syn::Field) -> Result<Field> {
+    let Some(ident) = field.ident.clone() else {
+        bail!(field, "expected named field");
+    };
+
+    if ident == "label" {
+        bail!(ident, "invalid field name");
+    }
+
+    let mut attrs = field.attrs.clone();
+    let variadic = has_attr(&mut attrs, "variadic");
+    let required = has_attr(&mut attrs, "required") || variadic;
+    let positional = has_attr(&mut attrs, "positional") || required;
+
+    let mut field = Field {
+        name: ident.to_string().to_kebab_case(),
+        docs: documentation(&attrs),
+        internal: has_attr(&mut attrs, "internal"),
+        external: has_attr(&mut attrs, "external"),
+        forced_variant: parse_attr::<syn::LitInt>(&mut attrs, "variant")?
+            .flatten()
+            .map(|lit| lit.base10_parse())
+            .transpose()?,
+        positional,
+        required,
+        variadic,
+        borrowed: has_attr(&mut attrs, "borrowed"),
+        synthesized: has_attr(&mut attrs, "synthesized"),
+        fold: has_attr(&mut attrs, "fold"),
+        resolve: has_attr(&mut attrs, "resolve"),
+        parse: parse_attr(&mut attrs, "parse")?.flatten(),
+        default: parse_attr::<syn::Expr>(&mut attrs, "default")?
+            .flatten()
+            .unwrap_or_else(|| parse_quote! { ::std::default::Default::default() }),
+        vis: field.vis.clone(),
+        ident: ident.clone(),
+        ident_in: Ident::new(&format!("{}_in", ident), ident.span()),
+        with_ident: Ident::new(&format!("with_{}", ident), ident.span()),
+        push_ident: Ident::new(&format!("push_{}", ident), ident.span()),
+        set_ident: Ident::new(&format!("set_{}", ident), ident.span()),
+        enum_ident: Ident::new(&ident.to_string().to_upper_camel_case(), ident.span()),
+        const_ident: Ident::new(&ident.to_string().to_shouty_snake_case(), ident.span()),
+        ty: field.ty.clone(),
+        output: field.ty.clone(),
+    };
+
+    if field.required && (field.fold || field.resolve) {
+        bail!(ident, "required fields cannot be folded or resolved");
+    }
+
+    if field.required && !field.positional {
+        bail!(ident, "only positional fields can be required");
+    }
+
+    if field.resolve {
+        let output = &field.output;
+        field.output = parse_quote! { <#output as ::typst::model::Resolve>::Output };
+    }
+
+    if field.fold {
+        let output = &field.output;
+        field.output = parse_quote! { <#output as ::typst::model::Fold>::Output };
+    }
+
+    validate_attrs(&attrs)?;
+
+    Ok(field)
+}
+
+/// Create argument parsing code for a field.
+fn create_field_parser(field: &Field) -> (TokenStream, TokenStream) {
+    if let Some(BlockWithReturn { prefix, expr }) = &field.parse {
+        return (quote! { #(#prefix);* }, quote! { #expr });
+    }
+
+    let name = &field.name;
+    let value = if field.variadic {
+        quote! { args.all()? }
+    } else if field.required {
+        quote! { args.expect(#name)? }
+    } else if field.positional {
+        quote! { args.find()? }
+    } else {
+        quote! { args.named(#name)? }
+    };
+
+    (quote! {}, value)
+}
+
 /// Produce the element's definition.
 fn create(element: &Elem) -> TokenStream {
     let Elem { vis, ident, docs, .. } = element;
-    let all = element.all_fields();
+    let all = element.real_fields();
     let settable = all.clone().filter(|field| !field.synthesized && field.settable());
 
     let fields_enum = create_fields_enum(element);
@@ -160,7 +306,6 @@ fn create(element: &Elem) -> TokenStream {
 
     // Trait implementations.
     let native_element_impl = create_native_elem_impl(element);
-    let hash_impl = element.without_capability("Hash", || create_hash_impl(element));
     let construct_impl =
         element.without_capability("Construct", || create_construct_impl(element));
     let set_impl = element.without_capability("Set", || create_set_impl(element));
@@ -170,7 +315,6 @@ fn create(element: &Elem) -> TokenStream {
     let partial_eq_impl =
         element.without_capability("PartialEq", || create_partial_eq_impl(element));
     let repr_impl = element.without_capability("Repr", || create_repr_impl(element));
-    let debug_impl = element.without_capability("Debug", || create_debug_impl(element));
 
     let label_and_location = element.without_capability("Unlabellable", || {
         quote! {
@@ -180,25 +324,10 @@ fn create(element: &Elem) -> TokenStream {
         }
     });
 
-    let located = element
-        .without_capability("Unlabellable", || {
-            quote! {
-                self.location = Some(location);
-            }
-        })
-        .unwrap_or_else(|| quote! { drop(location); });
-
-    let labelled = element
-        .without_capability("Unlabellable", || {
-            quote! {
-                self.label = Some(label);
-            }
-        })
-        .unwrap_or_else(|| quote! { drop(label); });
-
     quote! {
         #[doc = #docs]
-        #[derive(Clone)]
+        #[derive(Debug, Clone, Hash)]
+        #[allow(clippy::derived_hash_with_manual_eq)]
         #vis struct #ident {
             span: ::typst::syntax::Span,
             #label_and_location
@@ -216,34 +345,14 @@ fn create(element: &Elem) -> TokenStream {
             #(#with_field_methods)*
             #(#push_field_methods)*
             #(#field_style_methods)*
-
-            /// Set the element's span.
-            pub fn spanned(mut self, span: ::typst::syntax::Span) -> Self {
-                self.span = span;
-                self
-            }
-
-            /// Set the element's location.
-            pub fn located(mut self, location: ::typst::model::Location) -> Self {
-                #located
-                self
-            }
-
-            /// Set the element's label.
-            pub fn labelled(mut self, label: ::typst::model::Label) -> Self {
-                #labelled
-                self
-            }
         }
 
         #native_element_impl
-        #hash_impl
         #construct_impl
         #set_impl
         #locatable_impl
         #partial_eq_impl
         #repr_impl
-        #debug_impl
 
         impl ::typst::eval::IntoValue for #ident {
             fn into_value(self) -> ::typst::eval::Value {
@@ -263,38 +372,7 @@ fn create_partial_eq_impl(element: &Elem) -> TokenStream {
         impl PartialEq for #ident {
             fn eq(&self, other: &Self) -> bool {
                 #empty
-                #(
-                    self.#all == other.#all
-                )&&*
-            }
-        }
-    }
-}
-
-/// Creates the element's `Debug` implementation.
-fn create_debug_impl(element: &Elem) -> TokenStream {
-    let ident = &element.ident;
-    let name = &element.name;
-
-    let all = element.all_fields().map(|field| &field.ident).collect::<Vec<_>>();
-
-    let label_and_location = element.without_capability("Unlabellable", || {
-        quote! {
-            .field("location", &self.location)
-            .field("label", &self.label)
-        }
-    });
-
-    quote! {
-        impl ::std::fmt::Debug for #ident {
-            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-                f.debug_struct(#name)
-                    .field("span", &self.span)
-                    #label_and_location
-                    #(
-                        .field(stringify!(#all), &self.#all)
-                    )*
-                    .finish()
+                #(self.#all == other.#all)&&*
             }
         }
     }
@@ -418,7 +496,6 @@ fn create_vtable_func(element: &Elem) -> TokenStream {
     quote! {
         |id| {
             #(#checks)*
-
             None
         }
     }
@@ -504,12 +581,15 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         let field_ident = &field.ident;
 
         quote! {
-            #enum_ident::#name => Some(::typst::eval::IntoValue::into_value(self.#field_ident.clone())),
+            #enum_ident::#name => Some(
+                ::typst::eval::IntoValue::into_value(self.#field_ident.clone())
+            ),
         }
     });
 
     // Fields that can be set using the `set_field` method.
-    let field_set_matches = element.settable_fields().map(|field| {
+    let field_set_matches = element.visible_fields()
+        .filter(|field| field.settable() && !field.synthesized).map(|field| {
         let name = &field.enum_ident;
         let field_ident = &field.ident;
 
@@ -523,8 +603,8 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
 
     // Fields that are inherent.
     let field_inherent_matches = element
-        .all_fields()
-        .filter(|field| !field.internal && !field.settable())
+        .visible_fields()
+        .filter(|field| field.inherent())
         .map(|field| {
             let name = &field.enum_ident;
             let field_ident = &field.ident;
@@ -539,13 +619,8 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
 
     // Fields that cannot be set or are internal create an error.
     let field_not_set_matches = element
-        .all_fields()
-        .filter(|field| {
-            (field.internal || field.settable())
-                && (field.synthesized
-                    || !field.settable()
-                    || (field.internal && field.parse.is_none()))
-        })
+        .real_fields()
+        .filter(|field| field.internal || field.synthesized)
         .map(|field| {
             let ident = &field.enum_ident;
             let field_name = &field.name;
@@ -553,18 +628,13 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                 // Internal fields create an error that they are unknown.
                 let unknown_field = format!("unknown field `{field_name}` on `{name}`");
                 quote! {
-                    #enum_ident::#ident => {
-                        ::typst::diag::bail!(#unknown_field);
-                    }
+                    #enum_ident::#ident => ::typst::diag::bail!(#unknown_field),
                 }
             } else {
-                // Fields that cannot be set create an error that they are unsettable.
-                let unsettable_field =
-                    format!("cannot set field `{field_name}` on `{name}`");
+                // Fields that cannot be set create an error that they are not settable.
+                let not_settable = format!("cannot set `{field_name}` on `{name}`");
                 quote! {
-                    #enum_ident::#ident => {
-                        ::typst::diag::bail!(#unsettable_field);
-                    }
+                    #enum_ident::#ident => ::typst::diag::bail!(#not_settable),
                 }
             }
         });
@@ -591,9 +661,15 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         let name = &field.name;
         let field_ident = &field.ident;
 
+        let field_call = if name.len() > 15 {
+            quote! { EcoString::from(#name).into() }
+        } else {
+            quote! { EcoString::inline(#name).into() }
+        };
+
         quote! {
             fields.insert(
-                EcoString::inline(#name).into(),
+                #field_call,
                 ::typst::eval::IntoValue::into_value(self.#field_ident.clone())
             );
         }
@@ -608,10 +684,16 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             let name = &field.name;
             let field_ident = &field.ident;
 
+            let field_call = if name.len() > 15 {
+                quote! { EcoString::from(#name).into() }
+            } else {
+                quote! { EcoString::inline(#name).into() }
+            };
+
             quote! {
                 if let Some(value) = &self.#field_ident {
                     fields.insert(
-                        EcoString::inline(#name).into(),
+                        #field_call,
                         ::typst::eval::IntoValue::into_value(value.clone())
                     );
                 }
@@ -619,11 +701,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         });
 
     let location = element
-        .without_capability("Unlabellable", || {
-            quote! {
-                self.location
-            }
-        })
+        .without_capability("Unlabellable", || quote! { self.location })
         .unwrap_or_else(|| quote! { None });
 
     let set_location = element
@@ -635,11 +713,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         .unwrap_or_else(|| quote! { drop(location) });
 
     let label = element
-        .without_capability("Unlabellable", || {
-            quote! {
-                self.label
-            }
-        })
+        .without_capability("Unlabellable", || quote! { self.label })
         .unwrap_or_else(|| quote! { None });
 
     let set_label = element
@@ -659,21 +733,20 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         .unwrap_or_else(|| quote! { None });
 
     let mark_prepared = element
-        .without_capability("Unlabellable", || {
-            quote! {
-                self.prepared = true;
-            }
-        })
+        .without_capability("Unlabellable", || quote! { self.prepared = true; })
         .unwrap_or_else(|| quote! {});
 
     let prepared = element
-        .without_capability("Unlabellable", || {
-            quote! {
-                self.prepared
-            }
-        })
+        .without_capability("Unlabellable", || quote! { self.prepared })
         .unwrap_or_else(|| quote! { true });
 
+    let located = element
+        .without_capability("Unlabellable", || quote! { self.location = Some(location); })
+        .unwrap_or_else(|| quote! { drop(location); });
+
+    let labelled = element
+        .without_capability("Unlabellable", || quote! { self.label = Some(label); })
+        .unwrap_or_else(|| quote! { drop(label); });
     let local_name = element
         .with_capability("LocalName", || quote! { Some(#ident::local_name_in) })
         .unwrap_or_else(|| quote! { None });
@@ -712,33 +785,46 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                 #model::Content::new(self)
             }
 
+            fn unpack_owned(content: #model::Content) -> Option<::std::sync::Arc<Self>> {
+                content.is::<Self>().then(|| unsafe {
+                    // Safety: we checked that we are `Self` and the `Arc` is
+                    // still valid since we used `from_raw` and `into_raw` as
+                    // per std lib docs.
+                    ::std::sync::Arc::from_raw(
+                        ::std::sync::Arc::into_raw(content.into_inner())
+                            as *const () as *const Self
+                    )
+                })
+            }
+
             fn unpack(content: &#model::Content) -> ::std::option::Option<&Self> {
                 content.is::<Self>().then(|| unsafe {
                     // Safety: we checked that we are `Self`.
-                    &*(::std::sync::Arc::as_ptr(&content.0) as *const () as *const Self)
+                    &*(content.as_ptr() as *const () as *const Self)
                 })
-            }
-
-            fn unpack_owned(content: #model::Content) -> Option<::std::sync::Arc<Self>> {
-                content.is::<Self>().then(|| unsafe {
-                    // Safety: we checked that we are `Self`.
-                    ::std::sync::Arc::from_raw(
-                        ::std::sync::Arc::as_ptr(&content.0) as *const () as *const Self
-                    )
-                })
-
             }
 
             fn unpack_mut(content: &mut #model::Content) -> Option<&mut Self> {
-                content.is::<Self>().then(|| {
-                    // Make sure we're mutable
-                    #model::swap_with_mut(&mut content.0);
-
-                    // Safety: we checked that we are `Self` and mutable.
-                    unsafe {
-                        &mut *(::std::sync::Arc::as_ptr(&content.0) as *const () as *mut () as *mut Self)
-                    }
+                content.is::<Self>().then(|| unsafe {
+                    // Safety: `as_mut_ptr` makes sure we're mutable,
+                    // and we checked that we are `Self`.
+                    &mut *(content.as_mut_ptr() as *mut () as *mut Self)
                 })
+            }
+
+            fn spanned(mut self, span: ::typst::syntax::Span) -> Self {
+                self.span = span;
+                self
+            }
+
+            fn located(mut self, location: ::typst::model::Location) -> Self {
+                #located
+                self
+            }
+
+            fn labelled(mut self, label: ::typst::model::Label) -> Self {
+                #labelled
+                self
             }
 
             fn span(&self) -> ::typst::syntax::Span {
@@ -811,9 +897,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                 let id = <#enum_ident as ::std::convert::TryFrom<u8>>::try_from(id).ok()?;
                 match id {
                     #enum_ident::Label => #label_field,
-                    #(
-                        #field_matches
-                    )*
+                    #(#field_matches)*
                     _ => None,
                 }
             }
@@ -829,15 +913,9 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                 let id = <#enum_ident as ::std::convert::TryFrom<u8>>::try_from(id)
                     .map_err(|_| ::ecow::eco_format!(#unknown_field, id))?;
                 match id {
-                    #(
-                        #field_set_matches
-                    )*
-                    #(
-                        #field_inherent_matches
-                    )*
-                    #(
-                        #field_not_set_matches
-                    )*
+                    #(#field_set_matches)*
+                    #(#field_inherent_matches)*
+                    #(#field_not_set_matches)*
                     #enum_ident::Label => {
                         ::typst::diag::bail!(#label_error);
                     }
@@ -1004,73 +1082,11 @@ fn create_field(field: &Field) -> TokenStream {
     }
 }
 
-/// Creates the element's `Hash` implementation.
-fn create_hash_impl(element: &Elem) -> TokenStream {
-    let ident = &element.ident;
-    let all = element
-        .inherent_fields()
-        .filter(|field| field.required)
-        .map(|field| &field.ident)
-        .collect::<Vec<_>>();
-
-    let optional_fields = element
-        .fields
-        .iter()
-        .filter(|field| !field.inherent() && !field.external);
-    let opts = optional_fields.clone().map(|field| &field.ident).collect::<Vec<_>>();
-    let i = optional_fields.enumerate().map(|(i, _)| i).collect::<Vec<_>>();
-
-    let label_and_location = element.without_capability("Unlabellable", || {
-        quote! {
-            if let Some(location) = &self.location {
-                location.hash(hasher);
-            }
-
-            if let Some(label) = &self.label {
-                label.hash(hasher);
-            }
-
-            if self.prepared {
-                self.prepared.hash(hasher);
-            }
-        }
-    });
-
-    quote! {
-        impl ::std::hash::Hash for #ident {
-            fn hash<H: ::std::hash::Hasher>(&self, hasher: &mut H) {
-                #label_and_location
-
-                if !self.span.is_detached() {
-                    self.span.hash(hasher);
-                }
-
-                if !self.guards.is_empty() {
-                    self.guards.hash(hasher);
-                }
-
-                #(
-                    self.#all.hash(hasher);
-                )*
-
-                #(
-                    if let Some(#opts) = &self.#opts {
-                        // Additional usize discriminant to avoid collisions.
-                        #i.hash(hasher);
-                        #opts.hash(hasher);
-                    }
-                )*
-            }
-        }
-    }
-}
-
 /// Creates the element's enum for field identifiers.
 fn create_fields_enum(element: &Elem) -> TokenStream {
     let Elem { enum_ident, vis, .. } = element;
 
-    let mut fields = element.all_fields().collect::<Vec<_>>();
-
+    let mut fields = element.real_fields().collect::<Vec<_>>();
     fields.sort_by_key(|field| field.forced_variant.unwrap_or(usize::MAX));
 
     let field_names = fields.iter().map(|Field { name, .. }| name).collect::<Vec<_>>();
@@ -1100,12 +1116,11 @@ fn create_fields_enum(element: &Elem) -> TokenStream {
             Label = 255,
         }
 
-        impl #enum_ident{
+        impl #enum_ident {
+            #[doc = "Converts this field identifier to the field name."]
             pub fn to_str(self) -> &'static str {
                 match self {
-                    #(
-                        Self::#field_variants => #field_names,
-                    )*
+                    #(Self::#field_variants => #field_names,)*
                     Self::Label => "label",
                 }
             }
@@ -1121,13 +1136,9 @@ fn create_fields_enum(element: &Elem) -> TokenStream {
             type Error = ();
 
             fn try_from(value: u8) -> Result<Self, Self::Error> {
-                #(
-                    const #field_consts: u8 = #enum_ident::#field_variants as u8;
-                )*
+                #(const #field_consts: u8 = #enum_ident::#field_variants as u8;)*
                 match value {
-                    #(
-                        #field_consts => Ok(Self::#field_variants),
-                    )*
+                    #(#field_consts => Ok(Self::#field_variants),)*
                     255 => Ok(Self::Label),
                     _ => Err(()),
                 }
@@ -1136,12 +1147,7 @@ fn create_fields_enum(element: &Elem) -> TokenStream {
 
         impl ::std::fmt::Display for #enum_ident {
             fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-                match self {
-                    #(
-                        Self::#field_variants => f.write_str(#field_names),
-                    )*
-                    Self::Label => f.write_str("label"),
-                }
+                f.pad(self.to_str())
             }
         }
 
@@ -1150,9 +1156,7 @@ fn create_fields_enum(element: &Elem) -> TokenStream {
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 match s {
-                    #(
-                        #field_names => Ok(Self::#field_variants),
-                    )*
+                    #(#field_names => Ok(Self::#field_variants),)*
                     "label" => Ok(Self::Label),
                     _ => Err(()),
                 }
@@ -1201,147 +1205,4 @@ fn create_new_func(element: &Elem) -> TokenStream {
             }
         }
     }
-}
-
-/// The `..` in `#[elem(..)]`.
-struct Meta {
-    scope: bool,
-    name: Option<String>,
-    title: Option<String>,
-    keywords: Vec<String>,
-    capabilities: Vec<Ident>,
-}
-
-impl Parse for Meta {
-    fn parse(input: ParseStream) -> Result<Self> {
-        Ok(Self {
-            scope: parse_flag::<kw::scope>(input)?,
-            name: parse_string::<kw::name>(input)?,
-            title: parse_string::<kw::title>(input)?,
-            keywords: parse_string_array::<kw::keywords>(input)?,
-            capabilities: Punctuated::<Ident, Token![,]>::parse_terminated(input)?
-                .into_iter()
-                .collect(),
-        })
-    }
-}
-
-/// Parse details about the element from its struct definition.
-fn parse(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
-    let meta: Meta = syn::parse2(stream)?;
-    let (name, title) = determine_name_and_title(
-        meta.name,
-        meta.title,
-        &body.ident,
-        Some(|base| base.trim_end_matches("Elem")),
-    )?;
-
-    let docs = documentation(&body.attrs);
-
-    let syn::Fields::Named(named) = &body.fields else {
-        bail!(body, "expected named fields");
-    };
-    let fields = named.named.iter().map(parse_field).collect::<Result<_>>()?;
-
-    Ok(Elem {
-        name,
-        title,
-        scope: meta.scope,
-        keywords: meta.keywords,
-        docs,
-        vis: body.vis.clone(),
-        ident: body.ident.clone(),
-        capabilities: meta.capabilities,
-        fields,
-        enum_ident: Ident::new(&format!("{}Fields", body.ident), body.ident.span()),
-    })
-}
-
-fn parse_field(field: &syn::Field) -> Result<Field> {
-    let Some(ident) = field.ident.clone() else {
-        bail!(field, "expected named field");
-    };
-
-    if ident == "label" {
-        bail!(ident, "invalid field name");
-    }
-
-    let mut attrs = field.attrs.clone();
-    let variadic = has_attr(&mut attrs, "variadic");
-    let required = has_attr(&mut attrs, "required") || variadic;
-    let positional = has_attr(&mut attrs, "positional") || required;
-
-    let mut field = Field {
-        name: ident.to_string().to_kebab_case(),
-        docs: documentation(&attrs),
-        internal: has_attr(&mut attrs, "internal"),
-        external: has_attr(&mut attrs, "external"),
-        forced_variant: parse_attr::<syn::LitInt>(&mut attrs, "variant")?
-            .flatten()
-            .map(|lit| lit.base10_parse())
-            .transpose()?,
-        positional,
-        required,
-        variadic,
-        borrowed: has_attr(&mut attrs, "borrowed"),
-        synthesized: has_attr(&mut attrs, "synthesized"),
-        fold: has_attr(&mut attrs, "fold"),
-        resolve: has_attr(&mut attrs, "resolve"),
-        parse: parse_attr(&mut attrs, "parse")?.flatten(),
-        default: parse_attr::<syn::Expr>(&mut attrs, "default")?
-            .flatten()
-            .unwrap_or_else(|| parse_quote! { ::std::default::Default::default() }),
-        vis: field.vis.clone(),
-        ident: ident.clone(),
-        ident_in: Ident::new(&format!("{}_in", ident), ident.span()),
-        with_ident: Ident::new(&format!("with_{}", ident), ident.span()),
-        push_ident: Ident::new(&format!("push_{}", ident), ident.span()),
-        set_ident: Ident::new(&format!("set_{}", ident), ident.span()),
-        enum_ident: Ident::new(&ident.to_string().to_upper_camel_case(), ident.span()),
-        const_ident: Ident::new(&ident.to_string().to_shouty_snake_case(), ident.span()),
-        ty: field.ty.clone(),
-        output: field.ty.clone(),
-    };
-
-    if field.required && (field.fold || field.resolve) {
-        bail!(ident, "required fields cannot be folded or resolved");
-    }
-
-    if field.required && !field.positional {
-        bail!(ident, "only positional fields can be required");
-    }
-
-    if field.resolve {
-        let output = &field.output;
-        field.output = parse_quote! { <#output as ::typst::model::Resolve>::Output };
-    }
-
-    if field.fold {
-        let output = &field.output;
-        field.output = parse_quote! { <#output as ::typst::model::Fold>::Output };
-    }
-
-    validate_attrs(&attrs)?;
-
-    Ok(field)
-}
-
-/// Create argument parsing code for a field.
-fn create_field_parser(field: &Field) -> (TokenStream, TokenStream) {
-    if let Some(BlockWithReturn { prefix, expr }) = &field.parse {
-        return (quote! { #(#prefix);* }, quote! { #expr });
-    }
-
-    let name = &field.name;
-    let value = if field.variadic {
-        quote! { args.all()? }
-    } else if field.required {
-        quote! { args.expect(#name)? }
-    } else if field.positional {
-        quote! { args.find()? }
-    } else {
-        quote! { args.named(#name)? }
-    };
-
-    (quote! {}, value)
 }
