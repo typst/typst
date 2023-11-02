@@ -3,7 +3,7 @@ use crate::layout::{BlockElem, HElem, PadElem, Spacing, VElem};
 use crate::meta::{CitationForm, CiteElem};
 use crate::prelude::*;
 
-/// Displays a quote alongside an attribution.
+/// Displays a quote alongside an optional attribution.
 ///
 /// # Example
 /// ```example
