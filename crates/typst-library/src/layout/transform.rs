@@ -105,6 +105,10 @@ pub struct RotateElem {
     ///
     /// Hello #rotated[World]!
     /// ```
+    ///
+    /// Using this is equivalent to using the [`measure`]($measure) function
+    /// to measure the size of the content and then wrapping this element in
+    /// a box with the computed size rotated by `angle`.
     #[default(false)]
     pub layout: bool,
 
@@ -121,22 +125,44 @@ impl Layout for RotateElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let pod = Regions::one(regions.base(), Axes::splat(false));
-        let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
+        let angle = self.angle(styles);
+        let layout = self.layout(styles);
         let align = self.origin(styles).resolve(styles);
-        let Axes { x, y } = align.zip_map(frame.size(), FixedAlign::position);
 
-        let ts = Transform::translate(x, y)
-            .pre_concat(Transform::rotate(self.angle(styles)))
-            .pre_concat(Transform::translate(-x, -y));
-        frame.transform(ts);
+        if !layout {
+            // Layout the region.
+            let pod = Regions::one(regions.base(), Axes::splat(false));
+            let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
+            let Axes { x, y } = align.zip_map(frame.size(), FixedAlign::position);
+            let ts = Transform::translate(x, y)
+                .pre_concat(Transform::rotate(angle))
+                .pre_concat(Transform::translate(-x, -y));
 
-        // If we don't impact layout we exit early.
-        if !self.layout(styles) {
+            // Apply the rotation.
+            frame.transform(ts);
+
             return Ok(Fragment::frame(frame));
         }
 
-        // If we impact layout we wrap into a frame of the correct size
+        // Compute the new region's approximate size.
+        let size = Transform::rotate(angle).transform_point(regions.base().to_point());
+
+        // Measure the size of the body.
+        let pod = Regions::one(size.to_size().map(Abs::abs), Axes::splat(false));
+        let frame = self.body().measure(vt, styles, pod)?.into_frame();
+
+        // Actually perform the layout.
+        let pod = Regions::one(frame.size(), Axes::splat(true));
+        let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
+        let Axes { x, y } = align.zip_map(frame.size(), FixedAlign::position);
+
+        // Apply the transform.
+        let ts = Transform::translate(x, y)
+            .pre_concat(Transform::rotate(angle))
+            .pre_concat(Transform::translate(-x, -y));
+        frame.transform(ts);
+
+        // Compute the bounding box and offset and wrap in a new frame.
         let (offset, size) = compute_bounding_box(&frame, ts);
         let mut out = Frame::soft(size);
         out.push(offset, FrameItem::Group(GroupItem::new(frame)));
@@ -193,6 +219,10 @@ pub struct ScaleElem {
     ///
     /// Hello #scaled[World]!
     /// ```
+    ///
+    /// Using this is equivalent to using the [`measure`]($measure) function
+    /// to measure the size of the content and then wrapping this element in
+    /// a box with the computed size scaled by `x` and `y`.
     #[default(false)]
     pub layout: bool,
 
@@ -209,23 +239,48 @@ impl Layout for ScaleElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let pod = Regions::one(regions.base(), Axes::splat(false));
-        let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
-        let Axes { x, y } = self
-            .origin(styles)
-            .resolve(styles)
-            .zip_map(frame.size(), FixedAlign::position);
-        let ts = Transform::translate(x, y)
-            .pre_concat(Transform::scale(self.x(styles), self.y(styles)))
-            .pre_concat(Transform::translate(-x, -y));
-        frame.transform(ts);
+        let sx = self.x(styles);
+        let sy = self.y(styles);
+        let layout = self.layout(styles);
+        let align = self.origin(styles).resolve(styles);
 
-        // If we don't impact layout we exit early.
-        if !self.layout(styles) {
+        if !layout {
+            // Layout the body.
+            let pod = Regions::one(regions.base(), Axes::splat(false));
+            let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
+            let Axes { x, y } = self
+                .origin(styles)
+                .resolve(styles)
+                .zip_map(frame.size(), FixedAlign::position);
+
+            // Apply the transform.
+            let ts = Transform::translate(x, y)
+                .pre_concat(Transform::scale(sx, sy))
+                .pre_concat(Transform::translate(-x, -y));
+            frame.transform(ts);
+
             return Ok(Fragment::frame(frame));
         }
 
-        // If we impact layout we wrap into a frame of the correct size
+        // Compute the new region's approximate size.
+        let size = regions.base().zip_map(Axes::new(sx, sy), |r, s| s.of(r));
+
+        // Measure the size of the body.
+        let pod = Regions::one(size.map(Abs::abs), Axes::splat(false));
+        let frame = self.body().measure(vt, styles, pod)?.into_frame();
+
+        // Actually perform the layout.
+        let pod = Regions::one(frame.size(), Axes::splat(true));
+        let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
+        let Axes { x, y } = align.zip_map(frame.size(), FixedAlign::position);
+
+        // Apply the transform.
+        let ts = Transform::translate(x, y)
+            .pre_concat(Transform::scale(sx, sy))
+            .pre_concat(Transform::translate(-x, -y));
+        frame.transform(ts);
+
+        // Compute the bounding box and wrap in a new frame.
         let (offset, size) = compute_bounding_box(&frame, ts);
         let mut out = Frame::soft(size);
         out.push(offset, FrameItem::Group(GroupItem::new(frame)));
@@ -250,5 +305,5 @@ fn compute_bounding_box(frame: &Frame, ts: Transform) -> (Point, Size) {
     let width = max_x - min_x;
     let height = max_y - min_y;
 
-    (Point::new(-min_x, -min_y), Size::new(width, height))
+    (Point::new(-min_x, -min_y), Size::new(width.abs(), height.abs()))
 }

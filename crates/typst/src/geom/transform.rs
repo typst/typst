@@ -71,8 +71,8 @@ impl Transform {
 
     /// Transform a point.
     pub fn transform_point(self, point: Point) -> Point {
-        let x = self.sx.of(point.x) + self.kx.of(point.y) + self.tx;
-        let y = self.ky.of(point.x) + self.sy.of(point.y) + self.ty;
+        let x = self.sx.get() * point.x + self.kx.get() * point.y + self.tx;
+        let y = self.ky.get() * point.x + self.sy.get() * point.y + self.ty;
         Point { x, y }
     }
 
