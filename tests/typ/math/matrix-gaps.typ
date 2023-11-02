@@ -9,8 +9,8 @@ $ mat(1, 2; 3, 4) $
 $ mat(1, 2; 3, 4) $
 
 ---
-#set math.cases(gap: 1em)
-$ x = cases(1, 2) $
+#set math.group(gap: 1em)
+$ x = group(1, 2) $
 
 ---
 #set math.vec(gap: 1em)

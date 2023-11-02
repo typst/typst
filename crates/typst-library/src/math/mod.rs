@@ -76,6 +76,7 @@ pub fn module() -> Module {
     math.define_elem::<BinomElem>();
     math.define_elem::<VecElem>();
     math.define_elem::<MatElem>();
+    math.define_elem::<GroupElem>();
     math.define_elem::<CasesElem>();
     math.define_elem::<RootElem>();
     math.define_elem::<ClassElem>();

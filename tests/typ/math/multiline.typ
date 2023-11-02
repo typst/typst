@@ -18,10 +18,17 @@ $ a + b &= 2 + 3 &= 5 \
       b &= c     &= 3 $
 
 ---
-// Test in case distinction.
-$ f := cases(
+// Test in group.
+$ f := group(
   1 + 2 &"iff" &x,
   3     &"if"  &y,
+) $
+
+---
+// Test in case distinction.
+$ f := cases(
+  1 + 2, "iff" &x,
+  3,     "if"  &y,
 ) $
 
 ---

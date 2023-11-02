@@ -249,55 +249,54 @@ impl LayoutMath for MatElem {
     }
 }
 
-/// A case distinction.
+/// Multiple rows grouped with a bracket.
 ///
 /// Content across different branches can be aligned with the `&` symbol.
 ///
 /// # Example
 /// ```example
-/// $ f(x, y) := cases(
-///   1 "if" (x dot y)/2 <= 0,
-///   2 "if" x "is even",
-///   3 "if" x in NN,
-///   4 "else",
+/// $ group(
+///   -x &+ 3y &+ 8z &= 4,
+///   5x &- 2y &+ 2z &= 3,
+///   x &+ y &+ z &= 11,
 /// ) $
 /// ```
 #[elem(LayoutMath)]
-pub struct CasesElem {
+pub struct GroupElem {
     /// The delimiter to use.
     ///
     /// ```example
-    /// #set math.cases(delim: "[")
-    /// $ x = cases(1, 2) $
+    /// #set math.group(delim: "[")
+    /// $ x = group(1, 2) $
     /// ```
     #[default(Delimiter::Brace)]
     pub delim: Delimiter,
 
-    /// Whether the direction of cases should be reversed.
+    /// Whether the bracket should appear on the right instead of on the left.
     ///
     /// ```example
-    /// #set math.cases(reverse: true)
-    /// $ cases(1, 2) = x $
+    /// #set math.group(reverse: true)
+    /// $ group(1, 2) = x $
     /// ```
     #[default(false)]
     pub reverse: bool,
 
-    /// The gap between branches.
+    /// The gap between rows.
     ///
     /// ```example
-    /// #set math.cases(gap: 1em)
-    /// $ x = cases(1, 2) $
+    /// #set math.group(gap: 1em)
+    /// $ x = group(1, 2) $
     /// ```
     #[resolve]
     #[default(DEFAULT_ROW_GAP.into())]
     pub gap: Rel<Length>,
 
-    /// The branches of the case distinction.
+    /// The rows of the group.
     #[variadic]
     pub children: Vec<Content>,
 }
 
-impl LayoutMath for CasesElem {
+impl LayoutMath for GroupElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
@@ -307,6 +306,107 @@ impl LayoutMath for CasesElem {
             FixedAlign::Start,
             self.gap(ctx.styles()),
         )?;
+
+        let (open, close) = if self.reverse(ctx.styles()) {
+            (None, Some(delim.close()))
+        } else {
+            (Some(delim.open()), None)
+        };
+
+        layout_delimiters(ctx, frame, open, close, self.span())
+    }
+}
+
+/// A case distinction.
+///
+/// Content across different branches can be aligned with the `&` symbol.
+///
+/// # Example
+/// ```example
+/// $ f(x, y) := cases(
+///   1, "if" (x dot y)/2 <= 0,
+///   2, "if" x "is even",
+///   3, "if" x in NN,
+///   4, "else",
+/// ) $
+/// ```
+#[elem(LayoutMath)]
+pub struct CasesElem {
+    /// The delimiter to use.
+    ///
+    /// ```example
+    /// #set math.cases(delim: "[")
+    /// $ x = cases(1, x >= 0, 2, x < 0) $
+    /// ```
+    #[default(Delimiter::Brace)]
+    pub delim: Delimiter,
+
+    /// The delimiter to use between the value and the condition.
+    ///
+    /// ```example
+    /// // No comma.
+    /// #set math.cases(separator: $quad$)
+    /// $ x = cases(1, x >= 0, 2, x < 0) $
+    /// ```
+    #[default(Content::sequence([
+        TextElem::packed(","),
+        HElem::new(QUAD.into()).pack(),
+    ]))]
+    pub separator: Content,
+
+    /// Whether the bracket should appear on the right instead of on the left.
+    ///
+    /// ```example
+    /// #set math.cases(reverse: true)
+    /// $ x = cases(1, x >= 0, 2, x < 0) $
+    /// ```
+    #[default(false)]
+    pub reverse: bool,
+
+    /// The gap between branches.
+    ///
+    /// ```example
+    /// #set math.cases(row-gap: 1em)
+    /// $ x = cases(1, x >= 0, 2, x < 0) $
+    /// ```
+    #[resolve]
+    #[default(DEFAULT_ROW_GAP.into())]
+    pub row_gap: Rel<Length>,
+
+    /// The branches of the case distinction.
+    ///
+    /// A sequence of values followed by the corresponding condition.
+    #[variadic]
+    #[parse({
+        if args.remaining() % 2 != 0 {
+            bail!(args.span, "missing case condition")
+        } else {
+            args.all()?
+        }
+    })]
+    pub cases: Vec<Content>,
+}
+
+impl LayoutMath for CasesElem {
+    #[tracing::instrument(skip(ctx))]
+    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        let delim = self.delim(ctx.styles());
+        let (values, conditions): (Vec<_>, Vec<_>) =
+            self.cases().into_iter().enumerate().partition(|(i, _)| i % 2 == 0);
+        let rows = values
+            .into_iter()
+            .zip(conditions.into_iter())
+            .map(|((_, value), (_, condition))| {
+                Content::sequence([
+                    value,
+                    self.separator(ctx.styles()),
+                    AlignPointElem::new().pack(),
+                    condition,
+                ])
+            })
+            .collect::<Vec<_>>();
+        let frame =
+            layout_vec_body(ctx, &rows, FixedAlign::Start, self.row_gap(ctx.styles()))?;
 
         let (open, close) = if self.reverse(ctx.styles()) {
             (None, Some(delim.close()))

@@ -95,11 +95,11 @@ description: |
 
 - Math
   - Added `gap` argument for [`vec`]($math.vec.gap), [`mat`]($math.mat.gap), and
-    [`cases`]($math.cases.gap) function
+    [`cases`]($math.group.gap) function
   - Added `size` argument for [`abs`]($math.abs), [`norm`]($math.norm),
     [`floor`]($math.floor), [`ceil`]($math.ceil), and [`round`]($math.round)
     functions
-  - Added [`reverse`]($math.cases.reverse) parameter to cases function
+  - Added [`reverse`]($math.group.reverse) parameter to cases function
   - Added support for multinomial coefficients to [`binom`]($math.binom)
     function
   - Removed `rotation` argument on [`cancel`]($math.cancel) function in favor of
@@ -1054,7 +1054,7 @@ description: |
   outline is present
 - Added [`baseline`]($box.baseline) property on [`box`]($box)
 - Added [`tg`]($math.op) and [`ctg`]($math.op) operators in math
-- Added delimiter setting for [`cases`]($math.cases) function
+- Added delimiter setting for [`cases`]($math.group) function
 - Parentheses are now included when accepting a function autocompletion
 
 ## February 2, 2023 { #_ }

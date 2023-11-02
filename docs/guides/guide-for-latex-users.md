@@ -491,15 +491,15 @@ you can also call functions without these special characters:
 
 ```example
 $ f(x, y) := cases(
-  1 "if" (x dot y)/2 <= 0,
-  2 "if" x "is even",
-  3 "if" x in NN,
-  4 "else",
+  1, "if" (x dot y)/2 <= 0,
+  2, "if" x "is even",
+  3, "if" x in NN,
+  4, "else",
 ) $
 ```
 
 The above example uses the [`cases` function]($math.cases) to describe f. Within
-the cases function, arguments are delimited using commas and the arguments are
+the `cases` function, arguments are delimited using commas and the arguments are
 also interpreted as math. If you need to interpret arguments as Typst
 values instead, prefix them with a `#`:
 
