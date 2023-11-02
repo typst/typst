@@ -696,7 +696,7 @@ fn parse_syntaxes(
 }
 
 #[comemo::memoize]
-fn load_theme(path: &EcoString, bytes: &Bytes) -> StrResult<Arc<synt::Theme>> {
+fn load_theme(path: &str, bytes: &Bytes) -> StrResult<Arc<synt::Theme>> {
     let mut cursor = std::io::Cursor::new(bytes.as_slice());
 
     synt::ThemeSet::load_from_reader(&mut cursor)
