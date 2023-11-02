@@ -17,6 +17,7 @@ math: |
   separate blocks. They will be typeset into their own block if they start and
   end with at least one space (e.g. `[$ x^2 $]`).
 
+  # Variables
   In math, single letters are always displayed as is. Multiple letters, however,
   are interpreted as variables and functions. To display multiple letters
   verbatim, you can place them into quotes and to access single letter
@@ -31,6 +32,7 @@ math: |
   $ #x < 17 $
   ```
 
+  # Symbols
   Math mode makes a wide selection of [symbols]($category/symbols/sym) like
   `pi`, `dot`, or `RR` available. Many mathematical symbols are available in
   different variants. You can select between different variants by applying
@@ -42,6 +44,7 @@ math: |
   $ x < y => x gt.eq.not y $
   ```
 
+  # Line Breaks
   Formulas can also contain line breaks. Each line can contain one or multiple
   _alignment points_ (`&`) which are then aligned.
 
@@ -51,26 +54,7 @@ math: |
       &= (n(n+1)) / 2 $
   ```
 
-  When formulas include multiple _alignment points_ ('&'), this creates blocks
-  of "right aligned/left aligned" columns and positions them by equally dividing
-  the blank space remaining between the blocks.  So, in the example
-  below, in "a &= b", the "a" is in a right aligned column while "=b" is left aligned.
-  In "a &= b & text", text is in a right aligned column, but in the next line, "a &= b && text",
-  text is in a left aligned column because "&&" is two alignment points in a row, equivalent to
-  "& <no code here> &".  "& &" and "&&" behave exactly the same way, and adding additional alignment
-  points simply alternates between right aligned/left aligned.  The additional lines in the example
-  below demonstrate this point.
-
-  ```example
-  $ a &= b \
-  a &= b & "text" \
-  a &= b && "text" \
-  (3x + y) / 7 &= 9  && "given"   \
-  3x + y &= 63 & "multiply by 7"   \
-  3x &= 63 - y && "subtract y"   \
-  x &= 21 - y/3  & "divide by 3"   \ $
-  ```
-
+  # Function calls
   Math mode supports special function calls without the hash prefix. In these
   "math calls", the argument list works a little differently than in code:
 
@@ -99,15 +83,36 @@ math: |
   Functions calls preceded by a hash are normal code function calls and not
   affected by these rules.
 
-  All math functions are part of the `math` [module]($scripting/#modules), which
-  is available by default in equations. Outside of equations, they can be
-  accessed with the `math.` prefix. For example, to set the font used for
-  equations, write:
+  # Alignment
+  When equations include multiple _alignment points_ (`&`), this creates blocks
+  of alternatingly right- and left-aligned columns. In the example below, the
+  expression `(3x + y) / 7` is right-aligned and `= 9` is left-aligned. The word
+  "given" is also left-aligned because `&&` creates two alignment points in a
+  row, alternating the alignment twice. `& &` and `&&` behave exactly the same
+  way. Meanwhile, "multiply by 7" is left-aligned because just one `&` precedes
+  it. Each alignment point simply alternates between right-aligned/left-aligned.
+
+  ```example
+  $ (3x + y) / 7 &= 9 && "given" \
+    3x + y &= 63 & "multiply by 7" \
+    3x &= 63 - y && "subtract y" \
+    x &= 21 - y/3 & "divide by 3" $
+  ```
+
+  # Math fonts
+  You can set the math font by with a [show-set rule]($styling/#show-rules) as
+  demonstrated below. Note that only special OpenType math fonts are suitable
+  for typesetting maths.
 
   ```example
   #show math.equation: set text(font: "Fira Math")
   $ sum_(i in NN) 1 + i $
   ```
+
+  # Math module
+  All math functions are part of the `math` [module]($scripting/#modules), which
+  is available by default in equations. Outside of equations, they can be
+  accessed with the `math.` prefix.
 
 layout: |
   Arranging elements on the page in different ways.
