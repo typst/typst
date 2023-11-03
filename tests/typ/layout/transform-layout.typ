@@ -4,7 +4,7 @@
 // Test that rotation impact layout.
 #set page(width: 200pt)
 #set rotate(layout: true)
-#let one(angle) = box(fill:blue, rotate([Test Text], angle * 1deg))
+#let one(angle) = box(fill: aqua, rotate(angle)[Test Text])
 
 #for angle in range(0, 360, step: 15) {
   one(angle)
