@@ -53,7 +53,7 @@ impl Layout for MoveElem {
 /// Rotates content without affecting layout.
 ///
 /// Rotates an element by a given angle. The layout will act as if the element
-/// was not rotated unless you specify `{layout: true}`.
+/// was not rotated unless you specify `{layreflowout: true}`.
 ///
 /// # Example
 /// ```example
@@ -101,7 +101,7 @@ pub struct RotateElem {
     /// new size of the rotated content and adjust the layout accordingly.
     ///
     /// ```example
-    /// #let rotated(body) = rotate(90deg, layout: true, body)
+    /// #let rotated(body) = rotate(90deg, reflow: true, body)
     ///
     /// Hello #rotated[World]!
     /// ```
@@ -110,7 +110,7 @@ pub struct RotateElem {
     /// to measure the size of the content and then wrapping this element in
     /// a box with the computed size rotated by `angle`.
     #[default(false)]
-    pub layout: bool,
+    pub reflow: bool,
 
     /// The content to rotate.
     #[required]
@@ -126,7 +126,7 @@ impl Layout for RotateElem {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         let angle = self.angle(styles);
-        let layout = self.layout(styles);
+        let layout = self.reflow(styles);
         let align = self.origin(styles).resolve(styles);
 
         if !layout {
@@ -215,7 +215,7 @@ pub struct ScaleElem {
     /// new size of the scaled content and adjust the layout accordingly.
     ///
     /// ```example
-    /// #let scaled(body) = scale(x: 20%, y: 40%, layout: true, body)
+    /// #let scaled(body) = scale(x: 20%, y: 40%, reflow: true, body)
     ///
     /// Hello #scaled[World]!
     /// ```
@@ -224,7 +224,7 @@ pub struct ScaleElem {
     /// to measure the size of the content and then wrapping this element in
     /// a box with the computed size scaled by `x` and `y`.
     #[default(false)]
-    pub layout: bool,
+    pub reflow: bool,
 
     /// The content to scale.
     #[required]
@@ -241,7 +241,7 @@ impl Layout for ScaleElem {
     ) -> SourceResult<Fragment> {
         let sx = self.x(styles);
         let sy = self.y(styles);
-        let layout = self.layout(styles);
+        let layout = self.reflow(styles);
         let align = self.origin(styles).resolve(styles);
 
         if !layout {
