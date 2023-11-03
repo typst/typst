@@ -206,7 +206,7 @@ dependencies = [
 
 [[package]]
 name = "typst-syntax"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "comemo",
  "ecow",
