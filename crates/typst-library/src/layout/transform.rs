@@ -290,10 +290,10 @@ impl Layout for ScaleElem {
 
 /// Computes the bounding box and offset of a transformed frame.
 fn compute_bounding_box(frame: &Frame, ts: Transform) -> (Point, Size) {
-    let top_left = Point::zero().transform(ts);
-    let top_right = Point::new(frame.width(), Abs::zero()).transform(ts);
-    let bottom_left = Point::new(Abs::zero(), frame.height()).transform(ts);
-    let bottom_right = Point::new(frame.width(), frame.height()).transform(ts);
+    let top_left = Point::zero().transform_inf(ts);
+    let top_right = Point::new(frame.width(), Abs::zero()).transform_inf(ts);
+    let bottom_left = Point::new(Abs::zero(), frame.height()).transform_inf(ts);
+    let bottom_right = Point::new(frame.width(), frame.height()).transform_inf(ts);
 
     // We first compute the new bounding box of the rotated frame.
     let min_x = top_left.x.min(top_right.x).min(bottom_left.x).min(bottom_right.x);

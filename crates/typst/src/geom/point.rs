@@ -51,10 +51,22 @@ impl Point {
     }
 
     /// Transform the point with the given transformation.
+    ///
+    /// In the event that one of the coordinates is infinite,
+    /// the result will be zero.
     pub fn transform(self, ts: Transform) -> Self {
         Self::new(
             ts.sx.of(self.x) + ts.kx.of(self.y) + ts.tx,
             ts.ky.of(self.x) + ts.sy.of(self.y) + ts.ty,
+        )
+    }
+
+    /// Transforms the point with the given transformation,
+    /// without accounting for infinite values.
+    pub fn transform_inf(self, ts: Transform) -> Self {
+        Self::new(
+            ts.sx.get() * self.x + ts.kx.get() * self.y + ts.tx,
+            ts.ky.get() * self.x + ts.sy.get() * self.y + ts.ty,
         )
     }
 

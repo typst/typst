@@ -3,9 +3,9 @@
 
 // Test that rotation impact layout.
 #set page(width: 200pt)
-#set rotate(layout: true)
-#let one(angle) = box(fill: aqua, rotate(angle)[Test Text])
+#set rotate(reflow: true)
 
+#let one(angle) = box(fill: aqua, rotate(angle)[Test Text])
 #for angle in range(0, 360, step: 15) {
   one(angle * 1deg)
 }
@@ -17,10 +17,10 @@
 #set text(size: 32pt)
 #let rotated(body) = box(rotate(90deg, box(stroke: 0.5pt, height: 20%, clip: true, body)))
 
-#set rotate(layout: false)
+#set rotate(reflow: false)
 Hello #rotated[World]!\
 
-#set rotate(layout: true)
+#set rotate(reflow: true)
 Hello #rotated[World]!
 
 ---
@@ -30,10 +30,10 @@ Hello #rotated[World]!
 #set text(size: 32pt)
 #let scaled(body) = box(scale(x: 20%, y: 40%, body))
 
-#set scale(layout: false)
+#set scale(reflow: false)
 Hello #scaled[World]!
 
-#set scale(layout: true)
+#set scale(reflow: true)
 Hello #scaled[World]!
 
 ---
@@ -43,8 +43,8 @@ Hello #scaled[World]!
 #set text(size: 32pt)
 #let scaled(body) = box(scale(x: 60%, y: 40%, box(stroke: 0.5pt, width: 30%, clip: true, body)))
 
-#set scale(layout: false)
+#set scale(reflow: false)
 Hello #scaled[World]!\
 
-#set scale(layout: true)
+#set scale(reflow: true)
 Hello #scaled[World]!
