@@ -145,7 +145,7 @@ impl Layout for RotateElem {
         }
 
         // Compute the new region's approximate size.
-        let size = Transform::rotate(angle).transform_point(regions.base().to_point());
+        let size = regions.base().to_point().transform(Transform::rotate(angle));
 
         // Measure the size of the body.
         let pod = Regions::one(size.to_size().map(Abs::abs), Axes::splat(false));
@@ -290,10 +290,10 @@ impl Layout for ScaleElem {
 
 /// Computes the bounding box and offset of a transformed frame.
 fn compute_bounding_box(frame: &Frame, ts: Transform) -> (Point, Size) {
-    let top_left = ts.transform_point(Point::zero());
-    let top_right = ts.transform_point(Point::new(frame.width(), Abs::zero()));
-    let bottom_left = ts.transform_point(Point::new(Abs::zero(), frame.height()));
-    let bottom_right = ts.transform_point(Point::new(frame.width(), frame.height()));
+    let top_left = Point::zero().transform(ts);
+    let top_right = Point::new(frame.width(), Abs::zero()).transform(ts);
+    let bottom_left = Point::new(Abs::zero(), frame.height()).transform(ts);
+    let bottom_right = Point::new(frame.width(), frame.height()).transform(ts);
 
     // We first compute the new bounding box of the rotated frame.
     let min_x = top_left.x.min(top_right.x).min(bottom_left.x).min(bottom_right.x);
