@@ -28,5 +28,15 @@
 }
 
 ---
+// Test paragraph generation
+#set text(8pt)
+
+#{
+  let text = lorem(105, as-paragraphs: true)
+  assert(type(text) == content)
+  text
+}
+
+---
 // Error: 7-9 missing argument: words
 #lorem()

@@ -1,5 +1,5 @@
 use super::TextElem;
-use crate::prelude::*;
+use crate::{layout::ParbreakElem, prelude::*};
 
 /// A text space.
 #[elem(Behave, Unlabellable, PlainText)]
@@ -282,6 +282,22 @@ pub fn smallcaps(
     body.styled(TextElem::set_smallcaps(true))
 }
 
+/// Either a string or content.
+pub enum StrOrContent {
+    Str(Str),
+    Content(Content),
+}
+
+cast! {
+    StrOrContent,
+    self => match self {
+        Self::Str(v) => v.into_value(),
+        Self::Content(v) => v.into_value(),
+    },
+    v: Str => Self::Str(v),
+    v: Content => Self::Content(v),
+}
+
 /// Creates blind text.
 ///
 /// This function yields a Latin-like _Lorem Ipsum_ blind text with the given
@@ -301,6 +317,46 @@ pub fn smallcaps(
 pub fn lorem(
     /// The length of the blind text in words.
     words: usize,
-) -> Str {
-    lipsum::lipsum(words).replace("--", "–").into()
+    /// Whether to split the blind text into paragraphs or not. Defaults to `false`.
+    #[named]
+    as_paragraphs: Option<bool>,
+) -> StrOrContent {
+    let text = lipsum::lipsum(words).replace("--", "–");
+    if as_paragraphs == Some(true) {
+        // Split into natural paragraphs
+        const SENTENCES_PER_PARAGRAPH: usize = 4;
+
+        let mut elems = Vec::new();
+        let mut last_i = 0;
+        let mut sentence_counter = 0;
+        while last_i < text.len() {
+            let mut i = last_i;
+            loop {
+                i = match text[i..].find(&['.', '?', '!']) {
+                    Some(delta) => i + delta + 1,
+                    None => text.len(),
+                };
+                if text[i..].starts_with(" ") && !text[i..].starts_with(" –") {
+                    sentence_counter += 1;
+                }
+                if text[i..].is_empty() || sentence_counter >= SENTENCES_PER_PARAGRAPH {
+                    // Suitable paragraph split point
+                    if !elems.is_empty() {
+                        elems.push(ParbreakElem::new().pack());
+                    }
+                    elems.push(
+                        TextElem::new(text[last_i..i].trim_start_matches(' ').into())
+                            .pack(),
+                    );
+                    sentence_counter = 0;
+                    break;
+                }
+            }
+            last_i = i;
+        }
+        StrOrContent::Content(Content::sequence(elems))
+    } else {
+        // Generate one gigantic paragraph
+        StrOrContent::Str(text.into())
+    }
 }
