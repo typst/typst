@@ -33,7 +33,6 @@ Hello #rotated[World]!
 #set scale(layout: false)
 Hello #scaled[World]!
 
-
 #set scale(layout: true)
 Hello #scaled[World]!
 
