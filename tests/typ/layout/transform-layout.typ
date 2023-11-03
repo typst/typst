@@ -7,7 +7,7 @@
 #let one(angle) = box(fill: aqua, rotate(angle)[Test Text])
 
 #for angle in range(0, 360, step: 15) {
-  one(angle)
+  one(angle * 1deg)
 }
 
 ---
