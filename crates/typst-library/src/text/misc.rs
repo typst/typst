@@ -332,11 +332,11 @@ pub fn lorem(
         while last_i < text.len() {
             let mut i = last_i;
             loop {
-                i = match text[i..].find(&['.', '?', '!']) {
+                i = match text[i..].find(['.', '?', '!']) {
                     Some(delta) => i + delta + 1,
                     None => text.len(),
                 };
-                if text[i..].starts_with(" ") && !text[i..].starts_with(" –") {
+                if text[i..].starts_with(' ') && !text[i..].starts_with(" –") {
                     sentence_counter += 1;
                 }
                 if text[i..].is_empty() || sentence_counter >= SENTENCES_PER_PARAGRAPH {
