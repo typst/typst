@@ -46,7 +46,7 @@ impl Layout for MoveElem {
         let delta = Axes::new(self.dx(styles), self.dy(styles)).resolve(styles);
         let delta = delta.zip_map(regions.base(), Rel::relative_to);
         frame.translate(delta.to_point());
-        return Ok(Fragment::frame(frame));
+        Ok(Fragment::frame(frame))
     }
 }
 
