@@ -97,7 +97,7 @@ pub struct RotateElem {
     /// Whether the rotation impacts the layout.
     ///
     /// If set to `{false}`, the rotated content will be allowed to overlap
-    /// other content. However, when set to `{true}`, it will be compute the
+    /// other content. However, when set to `{true}`, it will compute the
     /// new size of the rotated content and adjust the layout accordingly.
     ///
     /// ```example
