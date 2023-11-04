@@ -80,8 +80,9 @@ fn unknown_variable(var: &str) -> HintedString {
     };
 
     if matches!(var, "none" | "true" | "false" | "auto") {
-        res.hints
-            .push(eco_format!("if you meant to use a literal, add a hash before it"));
+        res.hints.push(eco_format!(
+            "if you meant to use a literal, try adding a hash before it"
+        ));
     } else if var.contains('-') {
         res.hints.push(eco_format!(
             "if you meant to use subtraction, try adding spaces around the minus sign",
