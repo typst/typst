@@ -274,6 +274,11 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
 
     let name: EcoString = category.to_title_case().into();
 
+    let details = Html::markdown(resolver, category_details(category), Some(1));
+    let mut outline = vec![OutlineItem::from_name("Summary")];
+    outline.extend(details.outline());
+    outline.push(OutlineItem::from_name("Definitions"));
+
     PageModel {
         route,
         title: name.clone(),
@@ -281,20 +286,10 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
             "Documentation for functions related to {name} in Typst."
         ),
         part: None,
-        outline: category_outline(),
-        body: BodyModel::Category(CategoryModel {
-            name,
-            details: Html::markdown(resolver, category_details(category), Some(1)),
-            items,
-            shorthands,
-        }),
+        outline,
+        body: BodyModel::Category(CategoryModel { name, details, items, shorthands }),
         children,
     }
-}
-
-/// Produce an outline for a category page.
-fn category_outline() -> Vec<OutlineItem> {
-    vec![OutlineItem::from_name("Summary"), OutlineItem::from_name("Definitions")]
 }
 
 /// Create a page for a function.

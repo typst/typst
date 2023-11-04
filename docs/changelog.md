@@ -173,7 +173,7 @@ description: |
     mode when before a digit. This improves, in particular, how negative integer
     values are displayed in math mode.
   - Added support for specifying a default value instead of failing for
-    [`remove`] function in [array]($array.remove) and
+    `remove` function in [array]($array.remove) and
     [dictionary]($dictionary.remove)
   - Simplified page setup guide examples
   - Switched the documentation from using the word "hashtag" to the word "hash"
