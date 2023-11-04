@@ -1686,7 +1686,7 @@ impl<'s> Parser<'s> {
             let found = self.current.name();
             self.expected_found(kind.name(), found);
             self.hint(eco_format!(
-                "{} is not allowed as an identifier; try `_{}` instead",
+                "{} is not allowed as an identifier; try `{}_` instead",
                 found,
                 found_text
             ));
