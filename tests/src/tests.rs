@@ -366,6 +366,7 @@ fn test(
     let mut line = 0;
     let mut compare_ref = None;
     let mut validate_hints = None;
+    let mut validate_transient_diagnostics = None;
     let mut compare_ever = false;
     let mut rng = LinearShift::new();
 
@@ -395,6 +396,7 @@ fn test(
             for line in part.lines() {
                 compare_ref = get_flag_metadata(line, "Ref").or(compare_ref);
                 validate_hints = get_flag_metadata(line, "Hints").or(validate_hints);
+                validate_transient_diagnostics = get_flag_metadata(line, "ValidateTransientDiagnostics").or(validate_transient_diagnostics);
             }
         } else {
             let (part_ok, compare_here, part_frames) = test_part(
@@ -405,6 +407,7 @@ fn test(
                 i,
                 compare_ref.unwrap_or(true),
                 validate_hints.unwrap_or(true),
+                validate_transient_diagnostics.unwrap_or(false),
                 line,
                 &mut rng,
             );
@@ -516,6 +519,7 @@ fn test_part(
     i: usize,
     compare_ref: bool,
     validate_hints: bool,
+    validate_transient_warnings: bool,
     line: usize,
     rng: &mut LinearShift,
 ) -> (bool, bool, Vec<Frame>) {
@@ -567,8 +571,8 @@ fn test_part(
     // however, as the line of the hint is still verified.
     let mut actual_diagnostics = HashSet::new();
     for diagnostic in &diagnostics {
-        // Ignore diagnostics from other files.
-        if diagnostic.span.id().map_or(false, |id| id != source.id()) {
+        // Ignore diagnostics from other files, unless explicitly enabled.
+        if diagnostic.span.id().map_or(false, |id| !validate_transient_warnings && id != source.id()) {
             continue;
         }
 

@@ -1,4 +1,4 @@
-/// Test markup lints.
+// Test markup lints.
 // Ref: false
 
 ---

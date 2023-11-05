@@ -1,4 +1,4 @@
-/// Test scripted warnings (Inspired by https://github.com/typst/typst/issues/1276#issuecomment-1560091418).
+// Test scripted warnings (Inspired by https://github.com/typst/typst/issues/1276#issuecomment-1560091418).
 // Ref: false
 
 ---
