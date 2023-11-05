@@ -94,6 +94,8 @@ pub struct GridElem {
     /// The contents of the grid cells.
     ///
     /// The cells are populated in row-major order.
+    ///
+    /// You can also [spread](https://typst.app/docs/reference/foundations/arguments/#spreading) an array of content.
     #[variadic]
     pub children: Vec<Content>,
 }
