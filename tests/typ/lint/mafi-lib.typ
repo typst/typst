@@ -1,1 +1,0 @@
-#let cause_warn(x) = warn(x); 
