@@ -605,6 +605,7 @@ fn embedded_code_expr(p: &mut Parser) {
             | SyntaxKind::Show
             | SyntaxKind::Import
             | SyntaxKind::Include
+            | SyntaxKind::Return
     );
 
     let prev = p.prev_end();
