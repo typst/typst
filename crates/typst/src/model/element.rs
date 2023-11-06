@@ -145,6 +145,12 @@ cast! {
     v: Func => v.element().ok_or("expected element")?,
 }
 
+/// Fields of an element.
+pub trait ElementFields {
+    /// The fields of the element.
+    type Fields: TryFrom<u8, Error = ()> + Into<u8>;
+}
+
 /// A Typst element that is defined by a native Rust type.
 pub trait NativeElement: Construct + Set + Send + Sync + Debug + Repr + 'static {
     /// Get the element for the native Rust element.

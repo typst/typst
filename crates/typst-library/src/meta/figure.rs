@@ -256,7 +256,7 @@ impl Synthesize for FigureElem {
         let counter = Counter::new(CounterKey::Selector(Selector::Elem(
             Self::elem(),
             Some(fields! {
-                FigureElemFields::Kind => kind.clone(),
+                <FigureElem as ElementFields>::Fields::Kind => kind.clone(),
             }),
         )));
 

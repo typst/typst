@@ -157,7 +157,7 @@ pub struct Property {
 
 impl Property {
     /// Create a new property from a key-value pair.
-    pub fn new<T: Blockable>(elem: Element, id: impl Into<u8>, value: T) -> Self {
+    pub fn new<T: Blockable>(elem: Element, id: u8, value: T) -> Self {
         Self {
             elem,
             id: id.into(),
@@ -324,7 +324,7 @@ impl<'a> StyleChain<'a> {
     pub fn get_borrowed<'b, T: Blockable + Clone>(
         &'b self,
         func: Element,
-        id: impl Into<u8>,
+        id: u8,
         inherent: Option<&'b T>,
         default: impl Fn() -> T,
     ) -> Cow<'b, T> {
@@ -338,7 +338,7 @@ impl<'a> StyleChain<'a> {
     pub fn get<T: Blockable + Clone>(
         self,
         func: Element,
-        id: impl Into<u8>,
+        id: u8,
         inherent: Option<&T>,
         default: impl Fn() -> T,
     ) -> T {
@@ -349,7 +349,7 @@ impl<'a> StyleChain<'a> {
     pub fn get_resolve<T: Blockable + Clone + Resolve>(
         self,
         func: Element,
-        id: impl Into<u8>,
+        id: u8,
         inherent: Option<&T>,
         default: impl Fn() -> T,
     ) -> T::Output {
@@ -360,7 +360,7 @@ impl<'a> StyleChain<'a> {
     pub fn get_fold<T: Blockable + Clone + Fold>(
         self,
         func: Element,
-        id: impl Into<u8>,
+        id: u8,
         inherent: Option<&T>,
         default: impl Fn() -> T::Output,
     ) -> T::Output {
@@ -380,7 +380,7 @@ impl<'a> StyleChain<'a> {
     pub fn get_resolve_fold<T>(
         self,
         func: Element,
-        id: impl Into<u8>,
+        id: u8,
         inherent: Option<&T>,
         default: impl Fn() -> <T::Output as Fold>::Output,
     ) -> <T::Output as Fold>::Output
@@ -415,7 +415,7 @@ impl<'a> StyleChain<'a> {
     pub fn properties<'b, T: Blockable>(
         &'b self,
         func: Element,
-        id: impl Into<u8>,
+        id: u8,
         inherent: Option<&'b T>,
     ) -> impl Iterator<Item = &'b T> + 'b {
         let id = id.into();

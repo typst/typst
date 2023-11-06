@@ -303,7 +303,9 @@ impl Counter {
     fn selector(&self) -> Selector {
         let mut selector = Selector::Elem(
             UpdateElem::elem(),
-            Some(fields! { UpdateElemFields::Key => self.0.clone() }),
+            Some(
+                fields! { <UpdateElem as ElementFields>::Fields::Key => self.0.clone() },
+            ),
         );
 
         if let CounterKey::Selector(key) = &self.0 {

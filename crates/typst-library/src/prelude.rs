@@ -27,10 +27,10 @@ pub use typst::fields;
 pub use typst::geom::*;
 #[doc(no_inline)]
 pub use typst::model::{
-    elem, Behave, Behaviour, Construct, Content, Element, Finalize, Fold, Introspector,
-    Label, LocalName, Locatable, LocatableSelector, Location, Locator, MetaElem,
-    NativeElement, PlainText, Resolve, Selector, Set, Show, StyleChain, StyleVec, Styles,
-    Synthesize, Unlabellable, Vt,
+    elem, Behave, Behaviour, Construct, Content, Element, ElementFields, Finalize, Fold,
+    Introspector, Label, LocalName, Locatable, LocatableSelector, Location, Locator,
+    MetaElem, NativeElement, PlainText, Resolve, Selector, Set, Show, StyleChain,
+    StyleVec, Styles, Synthesize, Unlabellable, Vt,
 };
 #[doc(no_inline)]
 pub use typst::syntax::{FileId, Span, Spanned};

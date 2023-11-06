@@ -246,7 +246,9 @@ impl State {
     fn selector(&self) -> Selector {
         Selector::Elem(
             UpdateElem::elem(),
-            Some(fields! { UpdateElemFields::Key => self.key.clone() }),
+            Some(
+                fields! { <UpdateElem as ElementFields>::Fields::Key => self.key.clone() },
+            ),
         )
     }
 }

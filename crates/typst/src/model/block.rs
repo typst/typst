@@ -2,16 +2,18 @@ use std::any::Any;
 use std::fmt::{self, Debug};
 use std::hash::{Hash, Hasher};
 
-use smallbox::{smallbox, SmallBox};
-
-/// A small block storage for storing stylechain values
+/// A block storage for storing stylechain values
 /// either on the stack (if they fit) or on the heap.
-pub struct Block(SmallBox<dyn Blockable, S3>);
+///
+/// We're using a `Box` since values will either be contained
+/// in an `Arc` and therefore already on the heap or they will
+/// be small enough that we can just clone them.
+pub struct Block(Box<dyn Blockable>);
 
 impl Block {
     /// Creates a new block.
     pub fn new<T: Blockable>(value: T) -> Self {
-        Self(smallbox!(value))
+        Self(Box::new(value))
     }
 
     /// Downcasts the block to the specified type.
@@ -43,12 +45,6 @@ impl Debug for Block {
     }
 }
 
-/// The marker for the size of the block.
-#[doc(hidden)]
-struct S3 {
-    _inner: [usize; 3],
-}
-
 /// A value that can be stored in a block.
 ///
 /// Auto derived for all types that implement [`Any`], [`Clone`], [`Hash`],
@@ -76,7 +72,7 @@ impl<T: Clone + Hash + Debug + Send + Sync + 'static> Blockable for T {
     }
 
     fn dyn_clone(&self) -> Block {
-        Block(smallbox!(self.clone()))
+        Block(Box::new(self.clone()))
     }
 
     fn dyn_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

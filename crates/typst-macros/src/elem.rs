@@ -551,16 +551,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
     let eval = quote! { ::typst::eval };
     let model = quote! { ::typst::model };
 
-    let Elem {
-        name,
-        ident,
-        enum_ident,
-        title,
-        scope,
-        keywords,
-        docs,
-        ..
-    } = element;
+    let Elem { name, ident, title, scope, keywords, docs, .. } = element;
 
     let vtable_func = create_vtable_func(element);
     let params = element
@@ -577,11 +568,12 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
 
     // Fields that can be accessed using the `field` method.
     let field_matches = element.visible_fields().map(|field| {
+        let elem = &element.ident;
         let name = &field.enum_ident;
         let field_ident = &field.ident;
 
         quote! {
-            #enum_ident::#name => Some(
+            <#elem as #model::ElementFields>::Fields::#name => Some(
                 ::typst::eval::IntoValue::into_value(self.#field_ident.clone())
             ),
         }
@@ -590,11 +582,12 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
     // Fields that can be set using the `set_field` method.
     let field_set_matches = element.visible_fields()
         .filter(|field| field.settable() && !field.synthesized).map(|field| {
+        let elem = &element.ident;
         let name = &field.enum_ident;
         let field_ident = &field.ident;
 
         quote! {
-            #enum_ident::#name => {
+            <#elem as #model::ElementFields>::Fields::#name => {
                 self.#field_ident = Some(::typst::eval::FromValue::from_value(value)?);
                 return Ok(());
             }
@@ -606,11 +599,12 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         .visible_fields()
         .filter(|field| field.inherent())
         .map(|field| {
+            let elem = &element.ident;
             let name = &field.enum_ident;
             let field_ident = &field.ident;
 
             quote! {
-                #enum_ident::#name => {
+                <#elem as #model::ElementFields>::Fields::#name => {
                     self.#field_ident = ::typst::eval::FromValue::from_value(value)?;
                     return Ok(());
                 }
@@ -622,19 +616,20 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         .real_fields()
         .filter(|field| field.internal || field.synthesized)
         .map(|field| {
+            let elem = &element.ident;
             let ident = &field.enum_ident;
             let field_name = &field.name;
             if field.internal {
                 // Internal fields create an error that they are unknown.
                 let unknown_field = format!("unknown field `{field_name}` on `{name}`");
                 quote! {
-                    #enum_ident::#ident => ::typst::diag::bail!(#unknown_field),
+                    <#elem as #model::ElementFields>::Fields::#ident => ::typst::diag::bail!(#unknown_field),
                 }
             } else {
                 // Fields that cannot be set create an error that they are not settable.
                 let not_settable = format!("cannot set `{field_name}` on `{name}`");
                 quote! {
-                    #enum_ident::#ident => ::typst::diag::bail!(#not_settable),
+                    <#elem as #model::ElementFields>::Fields::#ident => ::typst::diag::bail!(#not_settable),
                 }
             }
         });
@@ -765,8 +760,14 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             construct: <#ident as #model::Construct>::construct,
             set: <#ident as #model::Set>::set,
             vtable: #vtable_func,
-            field_id: |name| <#enum_ident as ::std::str::FromStr>::from_str(name).ok().map(|id| id as u8),
-            field_name: |id| <#enum_ident as ::std::convert::TryFrom<u8>>::try_from(id).ok().map(#enum_ident::to_str),
+            field_id: |name|
+                <
+                    <#ident as #model::ElementFields>::Fields as ::std::str::FromStr
+                >::from_str(name).ok().map(|id| id as u8),
+            field_name: |id|
+                <
+                    <#ident as #model::ElementFields>::Fields as ::std::convert::TryFrom<u8>
+                >::try_from(id).ok().map(<#ident as #model::ElementFields>::Fields::to_str),
             local_name: #local_name,
             scope: #eval::Lazy::new(|| #scope),
             params: #eval::Lazy::new(|| ::std::vec![#(#params),*])
@@ -882,9 +883,11 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             }
 
             fn field(&self, id: u8) -> Option<::typst::eval::Value> {
-                let id = <#enum_ident as ::std::convert::TryFrom<u8>>::try_from(id).ok()?;
+                let id = <
+                    <#ident as #model::ElementFields>::Fields as ::std::convert::TryFrom<u8>
+                >::try_from(id).ok()?;
                 match id {
-                    #enum_ident::Label => #label_field,
+                    <#ident as #model::ElementFields>::Fields::Label => #label_field,
                     #(#field_matches)*
                     _ => None,
                 }
@@ -898,13 +901,13 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             }
 
             fn set_field(&mut self, id: u8, value: Value) -> ::typst::diag::StrResult<()> {
-                let id = <#enum_ident as ::std::convert::TryFrom<u8>>::try_from(id)
+                let id = <<#ident as #model::ElementFields>::Fields as ::std::convert::TryFrom<u8>>::try_from(id)
                     .map_err(|_| ::ecow::eco_format!(#unknown_field, id))?;
                 match id {
                     #(#field_set_matches)*
                     #(#field_inherent_matches)*
                     #(#field_not_set_matches)*
-                    #enum_ident::Label => {
+                    <#ident as #model::ElementFields>::Fields::Label => {
                         ::typst::diag::bail!(#label_error);
                     }
                 }
@@ -951,7 +954,8 @@ fn create_push_field_method(field: &Field) -> TokenStream {
 
 /// Create a setter method for a field.
 fn create_set_field_method(element: &Elem, field: &Field) -> TokenStream {
-    let enum_ = &element.enum_ident;
+    let model = quote! { ::typst::model };
+    let elem = &element.ident;
     let Field { vis, ident, set_ident, enum_ident, ty, name, .. } = field;
     let doc = format!("Create a style property for the `{}` field.", name);
     quote! {
@@ -959,7 +963,7 @@ fn create_set_field_method(element: &Elem, field: &Field) -> TokenStream {
         #vis fn #set_ident(#ident: #ty) -> ::typst::model::Style {
             ::typst::model::Style::Property(::typst::model::Property::new(
                 <Self as ::typst::model::NativeElement>::elem(),
-                #enum_::#enum_ident,
+                <#elem as #model::ElementFields>::Fields::#enum_ident as u8,
                 #ident,
             ))
         }
@@ -1037,7 +1041,9 @@ fn create_style_chain_access(
     field: &Field,
     inherent: TokenStream,
 ) -> TokenStream {
-    let enum_ = &element.enum_ident;
+    let model = quote! { ::typst::model };
+    let elem = &element.ident;
+
     let Field { ty, default, enum_ident, .. } = field;
     let getter = match (field.fold, field.resolve, field.borrowed) {
         (false, false, false) => quote! { get },
@@ -1050,7 +1056,7 @@ fn create_style_chain_access(
     quote! {
         styles.#getter::<#ty>(
             <Self as ::typst::model::NativeElement>::elem(),
-            #enum_::#enum_ident,
+            <#elem as #model::ElementFields>::Fields::#enum_ident as u8,
             #inherent,
             || #default,
         )
@@ -1072,7 +1078,8 @@ fn create_field(field: &Field) -> TokenStream {
 
 /// Creates the element's enum for field identifiers.
 fn create_fields_enum(element: &Elem) -> TokenStream {
-    let Elem { enum_ident, vis, .. } = element;
+    let model = quote! { ::typst::model };
+    let Elem { ident, enum_ident, .. } = element;
 
     let mut fields = element.real_fields().collect::<Vec<_>>();
     fields.sort_by_key(|field| field.forced_variant.unwrap_or(usize::MAX));
@@ -1097,59 +1104,66 @@ fn create_fields_enum(element: &Elem) -> TokenStream {
         });
 
     quote! {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        #[repr(u8)]
-        #vis enum #enum_ident {
-            #(#definitions,)*
-            Label = 255,
-        }
+        // To hide the private type
+        const _: () = {
+            impl #model::ElementFields for #ident {
+                type Fields = #enum_ident;
+            }
 
-        impl #enum_ident {
-            #[doc = "Converts this field identifier to the field name."]
-            pub fn to_str(self) -> &'static str {
-                match self {
-                    #(Self::#field_variants => #field_names,)*
-                    Self::Label => "label",
+            #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+            #[repr(u8)]
+            pub enum #enum_ident {
+                #(#definitions,)*
+                Label = 255,
+            }
+
+            impl #enum_ident {
+                #[doc = "Converts this field identifier to the field name."]
+                pub fn to_str(self) -> &'static str {
+                    match self {
+                        #(Self::#field_variants => #field_names,)*
+                        Self::Label => "label",
+                    }
                 }
             }
-        }
 
-        impl From<#enum_ident> for u8 {
-            fn from(value: #enum_ident) -> Self {
-                value as u8
-            }
-        }
-
-        impl ::std::convert::TryFrom<u8> for #enum_ident {
-            type Error = ();
-
-            fn try_from(value: u8) -> Result<Self, Self::Error> {
-                #(const #field_consts: u8 = #enum_ident::#field_variants as u8;)*
-                match value {
-                    #(#field_consts => Ok(Self::#field_variants),)*
-                    255 => Ok(Self::Label),
-                    _ => Err(()),
+            impl From<#enum_ident> for u8 {
+                fn from(value: #enum_ident) -> Self {
+                    value as u8
                 }
             }
-        }
 
-        impl ::std::fmt::Display for #enum_ident {
-            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-                f.pad(self.to_str())
-            }
-        }
+            impl ::std::convert::TryFrom<u8> for #enum_ident {
+                type Error = ();
 
-        impl ::std::str::FromStr for #enum_ident {
-            type Err = ();
-
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                match s {
-                    #(#field_names => Ok(Self::#field_variants),)*
-                    "label" => Ok(Self::Label),
-                    _ => Err(()),
+                fn try_from(value: u8) -> Result<Self, Self::Error> {
+                    #(const #field_consts: u8 = #enum_ident::#field_variants as u8;)*
+                    match value {
+                        #(#field_consts => Ok(Self::#field_variants),)*
+                        255 => Ok(Self::Label),
+                        _ => Err(()),
+                    }
                 }
             }
-        }
+
+            impl ::std::fmt::Display for #enum_ident {
+                fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                    f.pad(self.to_str())
+                }
+            }
+
+            impl ::std::str::FromStr for #enum_ident {
+                type Err = ();
+
+                fn from_str(s: &str) -> Result<Self, Self::Err> {
+                    match s {
+                        #(#field_names => Ok(Self::#field_variants),)*
+                        "label" => Ok(Self::Label),
+                        _ => Err(()),
+                    }
+                }
+            }
+        };
     }
 }
 
