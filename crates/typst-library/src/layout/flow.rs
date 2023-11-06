@@ -47,9 +47,9 @@ impl Layout for FlowElem {
                 styles = outer.chain(map);
             }
 
-            if let Some(elem) = child.unpack::<VElem>() {
+            if let Some(elem) = child.to::<VElem>() {
                 layouter.layout_spacing(vt, elem, styles)?;
-            } else if let Some(elem) = child.unpack::<ParElem>() {
+            } else if let Some(elem) = child.to::<ParElem>() {
                 layouter.layout_par(vt, elem, styles)?;
             } else if child.is::<LineElem>()
                 || child.is::<RectElem>()
@@ -71,7 +71,7 @@ impl Layout for FlowElem {
                     sticky: true,
                     movable: false,
                 });
-            } else if let Some(placed) = child.unpack::<PlaceElem>() {
+            } else if let Some(placed) = child.to::<PlaceElem>() {
                 layouter.layout_placed(vt, placed, styles)?;
             } else if child.can::<dyn Layout>() {
                 layouter.layout_multiple(vt, child, styles)?;
@@ -314,7 +314,7 @@ impl<'a> FlowLayouter<'a> {
         }
 
         // How to align the block.
-        let align = if let Some(align) = block.unpack::<AlignElem>() {
+        let align = if let Some(align) = block.to::<AlignElem>() {
             align.alignment(styles)
         } else if let Some((_, local)) = block.to_styled() {
             AlignElem::alignment_in(styles.chain(local))
@@ -705,7 +705,7 @@ fn find_footnotes(notes: &mut Vec<FootnoteElem>, frame: &Frame) {
             FrameItem::Meta(Meta::Elem(content), _)
                 if !notes.iter().any(|note| note.location() == content.location()) =>
             {
-                let Some(footnote) = content.unpack::<FootnoteElem>() else {
+                let Some(footnote) = content.to::<FootnoteElem>() else {
                     continue;
                 };
                 notes.push(footnote.clone());

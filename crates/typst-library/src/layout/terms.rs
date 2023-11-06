@@ -159,5 +159,5 @@ cast! {
         };
         Self::new(term, description)
     },
-    v: Content => v.unpack::<Self>().cloned().ok_or("expected term item or array")?,
+    v: Content => v.to::<Self>().cloned().ok_or("expected term item or array")?,
 }

@@ -74,11 +74,11 @@ impl LayoutRoot for DocumentElem {
                 child = elem;
             }
 
-            if let Some(page) = child.unpack::<PageElem>() {
+            if let Some(page) = child.to::<PageElem>() {
                 let extend_to = iter.peek().and_then(|&next| {
                     next.to_styled()
                         .map_or(next, |(elem, _)| elem)
-                        .unpack::<PageElem>()?
+                        .to::<PageElem>()?
                         .clear_to(styles)
                 });
                 let fragment = page.layout(vt, styles, &mut page_counter, extend_to)?;

@@ -231,7 +231,7 @@ impl State {
         let mut stops = eco_vec![state.clone()];
 
         for elem in introspector.query(&self.selector()) {
-            let elem = elem.unpack::<UpdateElem>().unwrap();
+            let elem = elem.to::<UpdateElem>().unwrap();
             match elem.update() {
                 StateUpdate::Set(value) => state = value.clone(),
                 StateUpdate::Func(func) => state = func.call_vt(&mut vt, [state])?,

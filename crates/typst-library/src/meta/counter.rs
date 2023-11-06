@@ -283,7 +283,7 @@ impl Counter {
                 }
             }
 
-            if let Some(update) = match elem.unpack::<UpdateElem>() {
+            if let Some(update) = match elem.to::<UpdateElem>() {
                 Some(elem) => Some(elem.update().clone()),
                 None => match elem.with::<dyn Count>() {
                     Some(countable) => countable.update().clone(),
@@ -697,7 +697,7 @@ impl ManualPageCounter {
             match item {
                 FrameItem::Group(group) => self.visit(vt, &group.frame)?,
                 FrameItem::Meta(Meta::Elem(elem), _) => {
-                    let Some(elem) = elem.unpack::<UpdateElem>() else { continue };
+                    let Some(elem) = elem.to::<UpdateElem>() else { continue };
                     if *elem.key() == CounterKey::Page {
                         let mut state = CounterState(smallvec![self.logical]);
                         state.update(vt, elem.update().clone())?;

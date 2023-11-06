@@ -299,7 +299,7 @@ cast! {
         };
         Self::new(body).with_number(number)
     },
-    v: Content => v.unpack::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
+    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq)]

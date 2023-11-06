@@ -107,7 +107,7 @@ impl Synthesize for CiteElem {
 
 cast! {
     CiteElem,
-    v: Content => v.unpack::<Self>().cloned().ok_or("expected citation")?,
+    v: Content => v.to::<Self>().cloned().ok_or("expected citation")?,
 }
 
 /// The form of the citation.

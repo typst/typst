@@ -126,7 +126,7 @@ impl Show for SuperElem {
 fn search_text(content: &Content, sub: bool) -> Option<EcoString> {
     if content.is::<SpaceElem>() {
         Some(' '.into())
-    } else if let Some(elem) = content.unpack::<TextElem>() {
+    } else if let Some(elem) = content.to::<TextElem>() {
         convert_script(elem.text(), sub)
     } else if let Some(children) = content.to_sequence() {
         let mut full = EcoString::new();
