@@ -488,17 +488,35 @@ impl<'a> ShapedText<'a> {
         }
 
         // Find any glyph with the text index.
-        let mut idx = self
-            .glyphs
-            .binary_search_by(|g| {
-                let ordering = g.range.start.cmp(&text_index);
-                if ltr {
-                    ordering
-                } else {
-                    ordering.reverse()
-                }
-            })
-            .ok()?;
+        let found = self.glyphs.binary_search_by(|g: &ShapedGlyph| {
+            let ordering = g.range.start.cmp(&text_index);
+            if ltr {
+                ordering
+            } else {
+                ordering.reverse()
+            }
+        });
+        let mut idx = match found {
+            Ok(idx) => idx,
+            Err(idx) => {
+                // Handle the special case where we break before a '\n'
+                //
+                // For example: (assume `a` is a CJK character with three bytes)
+                // text:  " a     \n b  "
+                // index:   0 1 2 3  4 5
+                // text_index:    ^
+                // glyphs:  0     .  1
+                //
+                // We will get found = Err(1), because '\n' does not have a glyph.
+                // But it's safe to break here. Thus the following condition:
+                // - glyphs[0].end == text_index == 3
+                // - text[3] == '\n'
+                return (idx > 0
+                    && self.glyphs[idx - 1].range.end == text_index
+                    && self.text[text_index - self.base..].starts_with('\n'))
+                .then_some(idx);
+            }
+        };
 
         let next = match towards {
             Side::Left => usize::checked_sub,
