@@ -154,7 +154,7 @@ impl Content {
     /// Get a field by name.
     ///
     /// This can potentially allocate a new string.
-    /// If you have access to the field IDs of the elemnt, use [`Self::get`]
+    /// If you have access to the field IDs of the element, use [`Self::get`]
     /// instead.
     #[inline]
     pub fn get_by_name(&self, name: &str) -> StrResult<Value> {
