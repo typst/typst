@@ -206,7 +206,7 @@ impl Content {
 
     /// Access the children if this is a sequence.
     pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Prehashed<Content>>> {
-        let Some(sequence) = self.unpack_ref::<SequenceElem>() else {
+        let Some(sequence) = self.unpack::<SequenceElem>() else {
             return None;
         };
 
@@ -262,7 +262,7 @@ impl Content {
 
     /// Whether the content is an empty sequence.
     pub fn is_empty(&self) -> bool {
-        let Some(sequence) = self.unpack_ref::<SequenceElem>() else {
+        let Some(sequence) = self.unpack::<SequenceElem>() else {
             return false;
         };
 
@@ -280,7 +280,7 @@ impl Content {
 
     /// Access the child and styles.
     pub fn to_styled(&self) -> Option<(&Content, &Styles)> {
-        let styled = self.unpack_ref::<StyledElem>()?;
+        let styled = self.unpack::<StyledElem>()?;
 
         let child = styled.child();
         let styles = styled.styles();
@@ -440,7 +440,7 @@ impl Content {
 
     /// Downcasts the element to the specified type.
     #[inline]
-    pub fn unpack_ref<T: NativeElement>(&self) -> Option<&T> {
+    pub fn unpack<T: NativeElement>(&self) -> Option<&T> {
         // Early check for performance.
         if T::elem() != self.elem() {
             return None;
@@ -574,7 +574,7 @@ impl<'a> Add<&'a Content> for Content {
 
     fn add(self, rhs: &'a Content) -> Self::Output {
         let mut lhs = self;
-        match (lhs.unpack_mut::<SequenceElem>(), rhs.unpack_ref::<SequenceElem>()) {
+        match (lhs.unpack_mut::<SequenceElem>(), rhs.unpack::<SequenceElem>()) {
             (Some(seq_lhs), Some(rhs)) => {
                 seq_lhs.children.extend(rhs.children.iter().cloned());
                 lhs

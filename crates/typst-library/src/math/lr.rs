@@ -31,7 +31,7 @@ impl LayoutMath for LrElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut body = self.body();
-        if let Some(elem) = body.unpack_ref::<LrElem>() {
+        if let Some(elem) = body.unpack::<LrElem>() {
             if elem.size(ctx.styles()).is_auto() {
                 body = elem.body();
             }

@@ -188,7 +188,7 @@ impl Count for HeadingElem {
 
 cast! {
     HeadingElem,
-    v: Content => v.unpack_ref::<Self>().ok_or("expected heading")?.clone(),
+    v: Content => v.unpack::<Self>().ok_or("expected heading")?.clone(),
 }
 
 impl Refable for HeadingElem {

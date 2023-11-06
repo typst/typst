@@ -870,7 +870,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             }
 
             fn dyn_eq(&self, other: &#model::Content) -> bool {
-                if let Some(other) = other.unpack_ref::<Self>() {
+                if let Some(other) = other.unpack::<Self>() {
                     <Self as ::std::cmp::PartialEq>::eq(self, other)
                 } else {
                     false

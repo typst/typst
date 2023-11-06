@@ -381,7 +381,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         }
 
         let keep = content
-            .unpack_ref::<PagebreakElem>()
+            .unpack::<PagebreakElem>()
             .map_or(false, |pagebreak| !pagebreak.weak(styles));
 
         self.interrupt_page(keep.then_some(styles), false)?;
@@ -519,13 +519,13 @@ struct DocBuilder<'a> {
 
 impl<'a> DocBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
-        if let Some(pagebreak) = content.unpack_ref::<PagebreakElem>() {
+        if let Some(pagebreak) = content.unpack::<PagebreakElem>() {
             self.keep_next = !pagebreak.weak(styles);
             self.clear_next = pagebreak.to(styles);
             return true;
         }
 
-        if let Some(page) = content.unpack_ref::<PageElem>() {
+        if let Some(page) = content.unpack::<PageElem>() {
             let elem = if let Some(clear_to) = self.clear_next.take() {
                 let mut page = page.clone();
                 page.push_clear_to(Some(clear_to));
@@ -577,11 +577,11 @@ impl<'a> FlowBuilder<'a> {
         }
 
         if content.can::<dyn Layout>() || content.is::<ParElem>() {
-            let is_tight_list = if let Some(elem) = content.unpack_ref::<ListElem>() {
+            let is_tight_list = if let Some(elem) = content.unpack::<ListElem>() {
                 elem.tight(styles)
-            } else if let Some(elem) = content.unpack_ref::<EnumElem>() {
+            } else if let Some(elem) = content.unpack::<EnumElem>() {
                 elem.tight(styles)
-            } else if let Some(elem) = content.unpack_ref::<TermsElem>() {
+            } else if let Some(elem) = content.unpack::<TermsElem>() {
                 elem.tight(styles)
             } else {
                 false
@@ -593,7 +593,7 @@ impl<'a> FlowBuilder<'a> {
                 self.0.push(Cow::Owned(spacing.pack()), styles);
             }
 
-            let (above, below) = if let Some(block) = content.unpack_ref::<BlockElem>() {
+            let (above, below) = if let Some(block) = content.unpack::<BlockElem>() {
                 (block.above(styles), block.below(styles))
             } else {
                 (BlockElem::above_in(styles), BlockElem::below_in(styles))
@@ -626,7 +626,7 @@ impl<'a> ParBuilder<'a> {
             || content.is::<LinebreakElem>()
             || content.is::<SmartquoteElem>()
             || content
-                .unpack_ref::<EquationElem>()
+                .unpack::<EquationElem>()
                 .map_or(false, |elem| !elem.block(styles))
             || content.is::<BoxElem>()
         {
@@ -687,7 +687,7 @@ impl<'a> ListBuilder<'a> {
                 items
                     .iter()
                     .map(|(item, local)| {
-                        let item = item.unpack_ref::<ListItem>().unwrap();
+                        let item = item.unpack::<ListItem>().unwrap();
                         item.clone()
                             .with_body(item.body().clone().styled_with_map(local.clone()))
                     })
@@ -700,7 +700,7 @@ impl<'a> ListBuilder<'a> {
                 items
                     .iter()
                     .map(|(item, local)| {
-                        let item = item.unpack_ref::<EnumItem>().unwrap();
+                        let item = item.unpack::<EnumItem>().unwrap();
                         item.clone()
                             .with_body(item.body().clone().styled_with_map(local.clone()))
                     })
@@ -713,7 +713,7 @@ impl<'a> ListBuilder<'a> {
                 items
                     .iter()
                     .map(|(item, local)| {
-                        let item = item.unpack_ref::<TermItem>().unwrap();
+                        let item = item.unpack::<TermItem>().unwrap();
                         item.clone()
                             .with_term(item.term().clone().styled_with_map(local.clone()))
                             .with_description(
@@ -759,7 +759,7 @@ impl<'a> CiteGroupBuilder<'a> {
             return true;
         }
 
-        if let Some(citation) = content.unpack_ref::<CiteElem>() {
+        if let Some(citation) = content.unpack::<CiteElem>() {
             self.staged.retain(|(elem, _)| !elem.is::<SpaceElem>());
             self.items.push(citation.clone(), styles);
             return true;
