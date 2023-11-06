@@ -326,7 +326,7 @@ impl<'a> StyleChain<'a> {
     ) -> &'b T {
         self.properties::<T>(func, id, inherent)
             .next()
-            .unwrap_or_else(|| &default)
+            .unwrap_or_else(|| default)
     }
 
     /// Cast the first value for the given property in the chain.

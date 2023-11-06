@@ -595,7 +595,7 @@ fn collect<'a>(
                 let lang = TextElem::lang_in(styles);
                 let region = TextElem::region_in(styles);
                 let quotes = Quotes::new(
-                    &quotes,
+                    quotes,
                     lang,
                     region,
                     SmartquoteElem::alternative_in(styles),

@@ -164,7 +164,7 @@ impl Show for QuoteElem {
             }
 
             realized = PadElem::new(realized).pack();
-        } else if let Some(Attribution::Label(label)) = &*self.attribution(&styles) {
+        } else if let Some(Attribution::Label(label)) = self.attribution(&styles) {
             realized += SpaceElem::new().pack() + CiteElem::new(*label).pack();
         }
 

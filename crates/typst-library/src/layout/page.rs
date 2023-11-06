@@ -495,14 +495,14 @@ impl PageElem {
                 }
             }
 
-            if let Some(fill) = &*fill {
+            if let Some(fill) = fill {
                 frame.fill(fill.clone());
             }
 
             page_counter.visit(vt, frame)?;
 
             // Add a PDF page label if there is a numbering.
-            if let Some(num) = &*numbering {
+            if let Some(num) = numbering {
                 if let Some(page_label) = num.apply_pdf(page_counter.logical()) {
                     frame.push_positionless_meta(Meta::PdfPageLabel(page_label));
                 }

@@ -239,7 +239,7 @@ impl Layout for EnumElem {
                 parents.pop();
                 content
             } else {
-                match &*numbering {
+                match numbering {
                     Numbering::Pattern(pattern) => {
                         TextElem::packed(pattern.apply_kth(parents.len(), number))
                     }

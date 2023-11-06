@@ -229,7 +229,7 @@ impl Show for OutlineElem {
                 ancestors.pop();
             }
 
-            OutlineIndent::apply(&indent, vt, &ancestors, &mut seq, self.span())?;
+            OutlineIndent::apply(indent, vt, &ancestors, &mut seq, self.span())?;
 
             // Add the overridable outline entry, followed by a line break.
             seq.push(entry.pack());
