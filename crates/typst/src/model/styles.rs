@@ -158,12 +158,7 @@ pub struct Property {
 impl Property {
     /// Create a new property from a key-value pair.
     pub fn new<T: Blockable>(elem: Element, id: u8, value: T) -> Self {
-        Self {
-            elem,
-            id: id.into(),
-            value: Block::new(value),
-            span: None,
-        }
+        Self { elem, id, value: Block::new(value), span: None }
     }
 
     /// Whether this property is the given one.
@@ -418,7 +413,6 @@ impl<'a> StyleChain<'a> {
         id: u8,
         inherent: Option<&'b T>,
     ) -> impl Iterator<Item = &'b T> + 'b {
-        let id = id.into();
         inherent.into_iter().chain(
             self.entries()
                 .filter_map(Style::property)
