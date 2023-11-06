@@ -6,6 +6,7 @@ use super::{
     Counter, CounterKey, HeadingElem, LocalName, Numbering, NumberingPattern, Refable,
 };
 use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem, Spacing};
+use crate::meta::LocalNameIn;
 use crate::prelude::*;
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
 
@@ -283,13 +284,6 @@ impl LocalName for OutlineElem {
             Lang::JAPANESE => "目次",
             Lang::ENGLISH | _ => "Contents",
         }
-    }
-
-    fn local_name_in(styles: StyleChain) -> &'static str
-    where
-        Self: Sized,
-    {
-        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
     }
 }
 

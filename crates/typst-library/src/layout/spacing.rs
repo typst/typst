@@ -76,7 +76,7 @@ impl Behave for HElem {
         prev: &(Cow<Content>, Behaviour, StyleChain),
         styles: StyleChain,
     ) -> bool {
-        let Some(other) = prev.0.to::<Self>() else { return false };
+        let Some(other) = prev.0.unpack_ref::<Self>() else { return false };
         match (self.amount(), other.amount()) {
             (Spacing::Fr(this), Spacing::Fr(other)) => this > other,
             (Spacing::Rel(this), Spacing::Rel(other)) => {
@@ -178,7 +178,7 @@ impl Behave for VElem {
         prev: &(Cow<Content>, Behaviour, StyleChain),
         styles: StyleChain,
     ) -> bool {
-        let Some(other) = prev.0.to::<Self>() else { return false };
+        let Some(other) = prev.0.unpack_ref::<Self>() else { return false };
         match (self.amount(), other.amount()) {
             (Spacing::Fr(this), Spacing::Fr(other)) => this > other,
             (Spacing::Rel(this), Spacing::Rel(other)) => {
@@ -191,7 +191,7 @@ impl Behave for VElem {
 
 cast! {
     VElem,
-    v: Content => v.to::<Self>().cloned().ok_or("expected `v` element")?,
+    v: Content => v.unpack_ref::<Self>().cloned().ok_or("expected `v` element")?,
 }
 
 /// Kinds of spacing.

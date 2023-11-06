@@ -65,13 +65,19 @@ use crate::util::pretty_array_like;
 /// Alternatively, you can inspect the output of the [`repr`]($repr) function.
 #[ty(scope)]
 #[derive(Debug, Clone)]
-pub struct Content(Arc<dyn NativeElement>, Element);
+pub struct Content(Arc<dyn NativeElement>);
 
 impl Content {
     /// Creates a new content from an element.
     #[inline]
     pub fn new<E: NativeElement>(elem: E) -> Self {
-        Self(Arc::new(elem), E::elem())
+        Self(Arc::new(elem))
+    }
+
+    /// Creates a new content from a already shared element.
+    #[inline]
+    pub fn from_shared<E: NativeElement>(elem: Arc<E>) -> Self {
+        Self(elem)
     }
 
     /// Creates a new empty sequence content.
@@ -82,7 +88,7 @@ impl Content {
 
     /// Get the element data of this content.
     pub fn elem(&self) -> Element {
-        self.1
+        self.0.dyn_data()
     }
 
     /// Get the span of the content.
@@ -152,7 +158,7 @@ impl Content {
     /// instead.
     #[inline]
     pub fn get_by_name(&self, name: &str) -> StrResult<Value> {
-        let id = self.1.field_id(name).ok_or_else(|| missing_field(name))?;
+        let id = self.elem().field_id(name).ok_or_else(|| missing_field(name))?;
         self.get(id)
     }
 
@@ -165,7 +171,7 @@ impl Content {
     #[inline]
     pub fn get(&self, id: u8) -> StrResult<Value> {
         self.field(id)
-            .ok_or_else(|| missing_field(self.1.field_name(id).unwrap()))
+            .ok_or_else(|| missing_field(self.elem().field_name(id).unwrap()))
     }
 
     /// Get a field by ID.
@@ -200,7 +206,7 @@ impl Content {
 
     /// Access the children if this is a sequence.
     pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Prehashed<Content>>> {
-        let Some(sequence) = SequenceElem::unpack(self) else {
+        let Some(sequence) = self.unpack_ref::<SequenceElem>() else {
             return None;
         };
 
@@ -209,22 +215,7 @@ impl Content {
 
     /// Whether the contained element is of type `T`.
     pub fn is<T: NativeElement>(&self) -> bool {
-        self.1 == T::elem()
-    }
-
-    /// Cast to `T` if the contained element is of type `T`.
-    pub fn to<T: NativeElement>(&self) -> Option<&T> {
-        T::unpack(self)
-    }
-
-    /// Cast to `T` if the contained element is of type `T`.
-    pub fn to_owned<T: NativeElement>(self) -> Option<Arc<T>> {
-        T::unpack_owned(self)
-    }
-
-    /// Cast to `T` if the contained element is of type `T`.
-    pub fn to_mut<T: NativeElement>(&mut self) -> Option<&mut T> {
-        T::unpack_mut(self)
+        self.elem() == T::elem()
     }
 
     /// Whether the contained element has the given capability.
@@ -271,7 +262,7 @@ impl Content {
 
     /// Whether the content is an empty sequence.
     pub fn is_empty(&self) -> bool {
-        let Some(sequence) = SequenceElem::unpack(self) else {
+        let Some(sequence) = self.unpack_ref::<SequenceElem>() else {
             return false;
         };
 
@@ -289,10 +280,10 @@ impl Content {
 
     /// Access the child and styles.
     pub fn to_styled(&self) -> Option<(&Content, &Styles)> {
-        let styled = StyledElem::unpack(self)?;
+        let styled = self.unpack_ref::<StyledElem>()?;
 
-        let child = &styled.child;
-        let styles = &styled.styles;
+        let child = styled.child();
+        let styles = styled.styles();
         Some((child, styles))
     }
 
@@ -312,7 +303,7 @@ impl Content {
 
     /// Style this content with a style entry.
     pub fn styled(mut self, style: impl Into<Style>) -> Self {
-        if let Some(style_elem) = StyledElem::unpack_mut(&mut self) {
+        if let Some(style_elem) = self.unpack_mut::<StyledElem>() {
             style_elem.styles.apply_one(style.into());
             self
         } else {
@@ -326,7 +317,7 @@ impl Content {
             return self;
         }
 
-        if let Some(style_elem) = StyledElem::unpack_mut(&mut self) {
+        if let Some(style_elem) = self.unpack_mut::<StyledElem>() {
             style_elem.styles.apply(styles);
             self
         } else {
@@ -434,6 +425,40 @@ impl Content {
     pub fn into_inner(self) -> Arc<dyn NativeElement> {
         self.0
     }
+
+    /// Downcast the element into an owned value.
+    #[inline]
+    pub fn unpack_owned<T: NativeElement>(self) -> Option<Arc<T>> {
+        // Early check for performance.
+        if T::elem() != self.elem() {
+            return None;
+        }
+
+        let t = self.0.to_any();
+        Arc::downcast(t).ok()
+    }
+
+    /// Downcasts the element to the specified type.
+    #[inline]
+    pub fn unpack_ref<T: NativeElement>(&self) -> Option<&T> {
+        // Early check for performance.
+        if T::elem() != self.elem() {
+            return None;
+        }
+
+        self.0.as_any().downcast_ref()
+    }
+
+    /// Downcasts mutably the element to the specified type.
+    #[inline]
+    pub fn unpack_mut<T: NativeElement>(&mut self) -> Option<&mut T> {
+        // Early check for performance.
+        if T::elem() != self.elem() {
+            return None;
+        }
+
+        make_mut(&mut self.0).as_any_mut().downcast_mut()
+    }
 }
 
 #[scope]
@@ -455,7 +480,7 @@ impl Content {
         /// The field to look for.
         field: Str,
     ) -> bool {
-        let Some(id) = self.1.field_id(&field) else {
+        let Some(id) = self.elem().field_id(&field) else {
             return false;
         };
 
@@ -474,7 +499,7 @@ impl Content {
         #[named]
         default: Option<Value>,
     ) -> StrResult<Value> {
-        let Some(id) = self.1.field_id(&field) else {
+        let Some(id) = self.elem().field_id(&field) else {
             return default.ok_or_else(|| missing_field_no_default(&field));
         };
 
@@ -521,15 +546,13 @@ impl<T: NativeElement> From<T> for Content {
 
 impl From<Arc<dyn NativeElement>> for Content {
     fn from(value: Arc<dyn NativeElement>) -> Self {
-        let elem = value.dyn_data();
-        Self(value, elem)
+        Self(value)
     }
 }
 
 impl std::hash::Hash for Content {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.dyn_hash(state);
-        self.1.hash(state);
     }
 }
 
@@ -551,7 +574,7 @@ impl<'a> Add<&'a Content> for Content {
 
     fn add(self, rhs: &'a Content) -> Self::Output {
         let mut lhs = self;
-        match (lhs.to_mut::<SequenceElem>(), rhs.to::<SequenceElem>()) {
+        match (lhs.unpack_mut::<SequenceElem>(), rhs.unpack_ref::<SequenceElem>()) {
             (Some(seq_lhs), Some(rhs)) => {
                 seq_lhs.children.extend(rhs.children.iter().cloned());
                 lhs
@@ -562,7 +585,7 @@ impl<'a> Add<&'a Content> for Content {
             }
             (None, Some(_)) => {
                 let mut rhs = rhs.clone();
-                rhs.to_mut::<SequenceElem>()
+                rhs.unpack_mut::<SequenceElem>()
                     .unwrap()
                     .children
                     .insert(0, Prehashed::new(lhs));
@@ -578,7 +601,7 @@ impl Add for Content {
 
     fn add(self, mut rhs: Self) -> Self::Output {
         let mut lhs = self;
-        match (lhs.to_mut::<SequenceElem>(), rhs.to_mut::<SequenceElem>()) {
+        match (lhs.unpack_mut::<SequenceElem>(), rhs.unpack_mut::<SequenceElem>()) {
             (Some(seq_lhs), Some(rhs)) => {
                 seq_lhs.children.extend(rhs.children.iter().cloned());
                 lhs
@@ -729,7 +752,6 @@ fn missing_field_no_default(field: &str) -> EcoString {
 /// Makes sure the content is not shared and returns a mutable reference to the
 /// inner element.
 #[doc(hidden)]
-#[allow(invalid_value)]
 pub fn make_mut(val: &mut Arc<dyn NativeElement>) -> &mut dyn NativeElement {
     if Arc::strong_count(val) > 1 || Arc::weak_count(val) != 0 {
         *val = val.dyn_clone();

@@ -445,13 +445,6 @@ impl LocalName for RawElem {
             Lang::ENGLISH | _ => "Listing",
         }
     }
-
-    fn local_name_in(styles: StyleChain) -> &'static str
-    where
-        Self: Sized,
-    {
-        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
-    }
 }
 
 impl Figurable for RawElem {}

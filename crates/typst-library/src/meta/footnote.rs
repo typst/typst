@@ -105,7 +105,7 @@ impl FootnoteElem {
             FootnoteBody::Reference(label) => {
                 let element: Prehashed<Content> = vt.introspector.query_label(*label)?;
                 let footnote = element
-                    .to::<FootnoteElem>()
+                    .unpack_ref::<FootnoteElem>()
                     .ok_or("referenced element should be a footnote")?;
                 footnote.declaration_location(vt)
             }
@@ -297,5 +297,5 @@ impl Finalize for FootnoteEntry {
 
 cast! {
     FootnoteElem,
-    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::with_content(v.clone())),
+    v: Content => v.unpack_ref::<Self>().cloned().unwrap_or_else(|| Self::with_content(v.clone())),
 }

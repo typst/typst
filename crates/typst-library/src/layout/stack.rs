@@ -201,7 +201,7 @@ impl<'a> StackLayouter<'a> {
         }
 
         // Block-axis alignment of the `AlignElement` is respected by stacks.
-        let align = if let Some(align) = block.to::<AlignElem>() {
+        let align = if let Some(align) = block.unpack_ref::<AlignElem>() {
             align.alignment(styles)
         } else if let Some((_, local)) = block.to_styled() {
             AlignElem::alignment_in(styles.chain(local))

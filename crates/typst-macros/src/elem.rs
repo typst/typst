@@ -748,7 +748,10 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         .without_capability("Unlabellable", || quote! { self.label = Some(label); })
         .unwrap_or_else(|| quote! { drop(label); });
     let local_name = element
-        .with_capability("LocalName", || quote! { Some(#ident::local_name_in) })
+        .with_capability(
+            "LocalName",
+            || quote! { Some(<#ident as crate::meta::LocalNameIn>::local_name_in) },
+        )
         .unwrap_or_else(|| quote! { None });
 
     let unknown_field = format!("unknown field {{}} on {}", name);
@@ -785,31 +788,16 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                 #model::Content::new(self)
             }
 
-            fn unpack_owned(content: #model::Content) -> Option<::std::sync::Arc<Self>> {
-                content.is::<Self>().then(|| unsafe {
-                    // Safety: we checked that we are `Self` and the `Arc` is
-                    // still valid since we used `from_raw` and `into_raw` as
-                    // per std lib docs.
-                    ::std::sync::Arc::from_raw(
-                        ::std::sync::Arc::into_raw(content.into_inner())
-                            as *const () as *const Self
-                    )
-                })
+            fn to_any(self: ::std::sync::Arc<Self>) -> ::std::sync::Arc<dyn ::std::any::Any + Send + Sync> {
+                self
             }
 
-            fn unpack(content: &#model::Content) -> ::std::option::Option<&Self> {
-                content.is::<Self>().then(|| unsafe {
-                    // Safety: we checked that we are `Self`.
-                    &*(content.as_ptr() as *const () as *const Self)
-                })
+            fn as_any(&self) -> &dyn ::std::any::Any {
+                self
             }
 
-            fn unpack_mut(content: &mut #model::Content) -> Option<&mut Self> {
-                content.is::<Self>().then(|| unsafe {
-                    // Safety: `as_mut_ptr` makes sure we're mutable,
-                    // and we checked that we are `Self`.
-                    &mut *(content.as_mut_ptr() as *mut () as *mut Self)
-                })
+            fn as_any_mut(&mut self) -> &mut dyn ::std::any::Any {
+                self
             }
 
             fn spanned(mut self, span: ::typst::syntax::Span) -> Self {
@@ -882,7 +870,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             }
 
             fn dyn_eq(&self, other: &#model::Content) -> bool {
-                if let Some(other) = Self::unpack(other) {
+                if let Some(other) = other.unpack_ref::<Self>() {
                     <Self as ::std::cmp::PartialEq>::eq(self, other)
                 } else {
                     false

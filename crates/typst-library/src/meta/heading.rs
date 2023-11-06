@@ -3,7 +3,7 @@ use typst::util::option_eq;
 
 use super::{Counter, CounterUpdate, LocalName, Numbering, Outlinable, Refable};
 use crate::layout::{BlockElem, HElem, VElem};
-use crate::meta::{Count, Supplement};
+use crate::meta::{Count, LocalNameIn, Supplement};
 use crate::prelude::*;
 use crate::text::{SpaceElem, TextElem, TextSize};
 
@@ -188,7 +188,7 @@ impl Count for HeadingElem {
 
 cast! {
     HeadingElem,
-    v: Content => v.to::<Self>().ok_or("expected heading")?.clone(),
+    v: Content => v.unpack_ref::<Self>().ok_or("expected heading")?.clone(),
 }
 
 impl Refable for HeadingElem {
@@ -264,12 +264,5 @@ impl LocalName for HeadingElem {
             Lang::JAPANESE => "節",
             Lang::ENGLISH | _ => "Section",
         }
-    }
-
-    fn local_name_in(styles: StyleChain) -> &'static str
-    where
-        Self: Sized,
-    {
-        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
     }
 }

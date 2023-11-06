@@ -47,7 +47,9 @@ use self::row::*;
 use self::spacing::*;
 use crate::layout::{AlignElem, BoxElem, HElem, ParElem, Spacing};
 use crate::meta::Supplement;
-use crate::meta::{Count, Counter, CounterUpdate, Numbering, Outlinable, Refable};
+use crate::meta::{
+    Count, Counter, CounterUpdate, LocalNameIn, Numbering, Outlinable, Refable,
+};
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
 use crate::text::{
@@ -343,10 +345,6 @@ impl LocalName for EquationElem {
             Lang::ENGLISH | _ => "Equation",
         }
     }
-
-    fn local_name_in(styles: StyleChain) -> &'static str {
-        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
-    }
 }
 
 impl Refable for EquationElem {
@@ -412,7 +410,7 @@ impl LayoutMath for Content {
         // #let my = $pi$
         // $ my r^2 $
         // ```
-        if let Some(elem) = self.to::<EquationElem>() {
+        if let Some(elem) = self.unpack_ref::<EquationElem>() {
             return elem.layout_math(ctx);
         }
 
@@ -461,7 +459,7 @@ impl LayoutMath for Content {
             return Ok(());
         }
 
-        if let Some(elem) = self.to::<HElem>() {
+        if let Some(elem) = self.unpack_ref::<HElem>() {
             if let Spacing::Rel(rel) = elem.amount() {
                 if rel.rel.is_zero() {
                     ctx.push(MathFragment::Spacing(rel.abs.resolve(ctx.styles())));
@@ -470,13 +468,13 @@ impl LayoutMath for Content {
             return Ok(());
         }
 
-        if let Some(elem) = self.to::<TextElem>() {
+        if let Some(elem) = self.unpack_ref::<TextElem>() {
             let fragment = ctx.layout_text(elem)?;
             ctx.push(fragment);
             return Ok(());
         }
 
-        if let Some(boxed) = self.to::<BoxElem>() {
+        if let Some(boxed) = self.unpack_ref::<BoxElem>() {
             let frame = ctx.layout_box(boxed)?;
             ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
             return Ok(());

@@ -321,7 +321,7 @@ impl<'a> StyleChain<'a> {
 
     /// Cast the first value for the given property in the chain,
     /// returning a borrowed value if possible.
-    pub fn get_borrowed<'b, T: Blockable>(
+    pub fn get_borrowed<'b, T: Blockable + Clone>(
         &'b self,
         func: Element,
         id: impl Into<u8>,
@@ -335,7 +335,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
-    pub fn get<T: Blockable>(
+    pub fn get<T: Blockable + Clone>(
         self,
         func: Element,
         id: impl Into<u8>,
@@ -346,7 +346,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
-    pub fn get_resolve<T: Blockable + Resolve>(
+    pub fn get_resolve<T: Blockable + Clone + Resolve>(
         self,
         func: Element,
         id: impl Into<u8>,
@@ -357,7 +357,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
-    pub fn get_fold<T: Blockable + Fold>(
+    pub fn get_fold<T: Blockable + Clone + Fold>(
         self,
         func: Element,
         id: impl Into<u8>,
@@ -385,7 +385,7 @@ impl<'a> StyleChain<'a> {
         default: impl Fn() -> <T::Output as Fold>::Output,
     ) -> <T::Output as Fold>::Output
     where
-        T: Blockable + Resolve,
+        T: Blockable + Clone + Resolve,
         T::Output: Fold,
     {
         fn next<T>(

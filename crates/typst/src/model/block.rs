@@ -6,7 +6,7 @@ use smallbox::{smallbox, SmallBox};
 
 /// A small block storage for storing stylechain values
 /// either on the stack (if they fit) or on the heap.
-pub struct Block(SmallBox<dyn Blocked, S3>);
+pub struct Block(SmallBox<dyn Blockable, S3>);
 
 impl Block {
     /// Creates a new block.
@@ -33,7 +33,7 @@ impl Hash for Block {
 
 impl Clone for Block {
     fn clone(&self) -> Self {
-        Self(self.0.dyn_clone())
+        self.0.dyn_clone()
     }
 }
 
@@ -43,29 +43,22 @@ impl Debug for Block {
     }
 }
 
+/// The marker for the size of the block.
+#[doc(hidden)]
+struct S3 {
+    _inner: [usize; 3],
+}
+
 /// A value that can be stored in a block.
 ///
 /// Auto derived for all types that implement [`Any`], [`Clone`], [`Hash`],
 /// [`Debug`], [`Send`] and [`Sync`].
-pub trait Blockable: Any + Clone + Hash + Debug + Send + Sync {}
-impl<T: Any + Clone + Hash + Debug + Send + Sync> Blockable for T {}
-
-/// The marker for the size of the block.
-#[doc(hidden)]
-pub struct S3 {
-    _inner: [usize; 3],
-}
-
-/// A trait object for stored in a block.
-///
-/// Auto derived for all types that can be stored in a block, see
-/// [`Blockable`].
-pub trait Blocked: Send + Sync + 'static {
+pub trait Blockable: Send + Sync + 'static {
     /// Equivalent to [`Hash`] for the block.
     fn dyn_hash(&self, state: &mut dyn Hasher);
 
     /// Equivalent to [`Clone`] for the block.
-    fn dyn_clone(&self) -> SmallBox<dyn Blocked, S3>;
+    fn dyn_clone(&self) -> Block;
 
     /// Equivalent to [`Debug`] for the block.
     fn dyn_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
@@ -77,13 +70,13 @@ pub trait Blocked: Send + Sync + 'static {
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-impl<T: Blockable> Blocked for T {
+impl<T: Clone + Hash + Debug + Send + Sync + 'static> Blockable for T {
     fn dyn_hash(&self, mut state: &mut dyn Hasher) {
         self.hash(&mut state);
     }
 
-    fn dyn_clone(&self) -> SmallBox<dyn Blocked, S3> {
-        smallbox!(self.clone())
+    fn dyn_clone(&self) -> Block {
+        Block(smallbox!(self.clone()))
     }
 
     fn dyn_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

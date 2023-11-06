@@ -8,7 +8,7 @@ use typst::util::option_eq;
 use crate::compute::Readable;
 use crate::meta::Figurable;
 use crate::prelude::*;
-use crate::text::{families, TextElem};
+use crate::text::families;
 
 /// A raster or vector graphic.
 ///
@@ -254,10 +254,6 @@ impl LocalName for ImageElem {
             Lang::JAPANESE => "図",
             Lang::ENGLISH | _ => "Figure",
         }
-    }
-
-    fn local_name_in(styles: StyleChain) -> &'static str {
-        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
     }
 }
 

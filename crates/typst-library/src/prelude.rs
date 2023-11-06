@@ -26,13 +26,11 @@ pub use typst::fields;
 #[doc(no_inline)]
 pub use typst::geom::*;
 #[doc(no_inline)]
-pub use typst::meta::LocalName;
-#[doc(no_inline)]
 pub use typst::model::{
     elem, Behave, Behaviour, Construct, Content, Element, Finalize, Fold, Introspector,
-    Label, Locatable, LocatableSelector, Location, Locator, MetaElem, NativeElement,
-    PlainText, Resolve, Selector, Set, Show, StyleChain, StyleVec, Styles, Synthesize,
-    Unlabellable, Vt,
+    Label, LocalName, Locatable, LocatableSelector, Location, Locator, MetaElem,
+    NativeElement, PlainText, Resolve, Selector, Set, Show, StyleChain, StyleVec, Styles,
+    Synthesize, Unlabellable, Vt,
 };
 #[doc(no_inline)]
 pub use typst::syntax::{FileId, Span, Spanned};

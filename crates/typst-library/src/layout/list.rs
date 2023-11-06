@@ -180,7 +180,7 @@ pub struct ListItem {
 
 cast! {
     ListItem,
-    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
+    v: Content => v.unpack_ref::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
 }
 
 /// A list's marker.

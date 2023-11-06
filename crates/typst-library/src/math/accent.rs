@@ -130,7 +130,7 @@ cast! {
     Accent,
     self => self.0.into_value(),
     v: char => Self::new(v),
-    v: Content => match v.to::<TextElem>() {
+    v: Content => match v.unpack_ref::<TextElem>() {
         Some(elem) => Value::Str(elem.text().clone().into()).cast()?,
         None => bail!("expected text"),
     },

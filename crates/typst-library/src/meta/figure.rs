@@ -561,7 +561,7 @@ impl Show for FigureCaption {
 
 cast! {
     FigureCaption,
-    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
+    v: Content => v.unpack_ref::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
 }
 
 /// The `kind` parameter of a [`FigureElem`].
@@ -587,3 +587,16 @@ cast! {
 ///
 /// This trait is used to determine the type of a figure.
 pub trait Figurable: LocalName {}
+
+/// An element that has a local name.
+pub trait LocalNameIn: LocalName {
+    /// Gets the local name from the style chain.
+    fn local_name_in(styles: StyleChain) -> &'static str
+    where
+        Self: Sized,
+    {
+        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
+    }
+}
+
+impl<T: LocalName> LocalNameIn for T {}

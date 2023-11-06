@@ -1,4 +1,4 @@
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::cmp::Ordering;
 use std::fmt::{self, Debug};
 use std::hash::Hasher;
@@ -10,6 +10,7 @@ use smallvec::SmallVec;
 
 use super::{Content, Selector, StyleChain, Styles};
 use crate::diag::{SourceResult, StrResult};
+use crate::doc::{Lang, Region};
 use crate::eval::{cast, Args, Dict, Func, ParamInfo, Repr, Scope, Value, Vm};
 use crate::model::{Guard, Label, Location};
 use crate::syntax::Span;
@@ -165,21 +166,6 @@ pub trait NativeElement: Construct + Set + Send + Sync + Debug + Repr + 'static 
     /// Pack the element into type-erased content.
     fn pack(self) -> Content;
 
-    /// Extract this element from type-erased content.
-    fn unpack(content: &Content) -> Option<&Self>
-    where
-        Self: Sized;
-
-    /// Extract this element from type-erased content.
-    fn unpack_mut(content: &mut Content) -> Option<&mut Self>
-    where
-        Self: Sized;
-
-    /// Extract this element from type-erased content.
-    fn unpack_owned(content: Content) -> Option<Arc<Self>>
-    where
-        Self: Sized;
-
     /// Set the element's span.
     fn spanned(self, span: ::typst::syntax::Span) -> Self
     where
@@ -194,6 +180,14 @@ pub trait NativeElement: Construct + Set + Send + Sync + Debug + Repr + 'static 
     fn labelled(self, label: ::typst::model::Label) -> Self
     where
         Self: Sized;
+
+    /// Packs this element from a shared reference.
+    fn pack_shared(self: Arc<Self>) -> Content
+    where
+        Self: Sized,
+    {
+        Content::from_shared(self)
+    }
 
     /// Get the element's span.
     ///
@@ -250,6 +244,15 @@ pub trait NativeElement: Construct + Set + Send + Sync + Debug + Repr + 'static 
 
     /// Get the fields of the element.
     fn fields(&self) -> Dict;
+
+    /// Get the element as a dynamic value.
+    fn to_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
+
+    /// Get the element as a dynamic value.
+    fn as_any(&self) -> &dyn Any;
+
+    /// Get the element as a mutable dynamic value.
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 /// An element's constructor function.
@@ -297,4 +300,12 @@ impl From<&'static NativeElementData> for Element {
 cast! {
     &'static NativeElementData,
     self => Element::from(self).into_value(),
+}
+
+/// The named with which an element is referenced.
+pub trait LocalName {
+    /// Get the name in the given language and (optionally) region.
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str
+    where
+        Self: Sized;
 }

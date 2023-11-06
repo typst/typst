@@ -28,6 +28,7 @@ fontdb = { version = "0.15", default-features = false }
 image = { version = "0.24", default-features = false, features = ["png", "jpeg", "gif"] }
 indexmap = { version = "2", features = ["serde"] }
 kurbo = "0.9"
+lasso = { version = "0.7.2", features = ["ahasher", "multi-threaded"] }
 log = "0.4"
 miniz_oxide = "0.7"
 once_cell = "1"
@@ -57,7 +58,6 @@ xmp-writer = "0.2"
 time = { version = "0.3.20", features = ["std", "formatting", "macros", "parsing"] }
 wasmi = "0.31.0"
 xmlparser = "0.13.5"
-lasso = { version = "0.7.2", features = ["ahasher", "multi-threaded"] }
 smallvec = { version = "1.11.1", features = ["union", "const_generics", "const_new"] }
 smallbox = "0.8.2"
 

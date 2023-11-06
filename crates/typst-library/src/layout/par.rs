@@ -569,7 +569,7 @@ fn collect<'a>(
         let segment = if child.is::<SpaceElem>() {
             full.push(' ');
             Segment::Text(1)
-        } else if let Some(elem) = child.to::<TextElem>() {
+        } else if let Some(elem) = child.unpack_ref::<TextElem>() {
             let prev = full.len();
             if let Some(case) = TextElem::case_in(styles) {
                 full.push_str(&case.apply(elem.text()));
@@ -577,18 +577,18 @@ fn collect<'a>(
                 full.push_str(elem.text());
             }
             Segment::Text(full.len() - prev)
-        } else if let Some(elem) = child.to::<HElem>() {
+        } else if let Some(elem) = child.unpack_ref::<HElem>() {
             if elem.amount().is_zero() {
                 continue;
             }
 
             full.push(SPACING_REPLACE);
             Segment::Spacing(*elem.amount())
-        } else if let Some(elem) = child.to::<LinebreakElem>() {
+        } else if let Some(elem) = child.unpack_ref::<LinebreakElem>() {
             let c = if elem.justify(styles) { '\u{2028}' } else { '\n' };
             full.push(c);
             Segment::Text(c.len_utf8())
-        } else if let Some(elem) = child.to::<SmartquoteElem>() {
+        } else if let Some(elem) = child.unpack_ref::<SmartquoteElem>() {
             let prev = full.len();
             if SmartquoteElem::enabled_in(styles) {
                 let quotes = SmartquoteElem::quotes_in(&styles);
@@ -606,7 +606,7 @@ fn collect<'a>(
                     } else {
                         child
                     };
-                    if let Some(elem) = child.to::<TextElem>() {
+                    if let Some(elem) = child.unpack_ref::<TextElem>() {
                         elem.text().chars().next()
                     } else if child.is::<SmartquoteElem>() {
                         Some('"')
@@ -625,10 +625,10 @@ fn collect<'a>(
                 full.push(if elem.double(styles) { '"' } else { '\'' });
             }
             Segment::Text(full.len() - prev)
-        } else if let Some(elem) = child.to::<EquationElem>() {
+        } else if let Some(elem) = child.unpack_ref::<EquationElem>() {
             full.push(OBJ_REPLACE);
             Segment::Equation(elem)
-        } else if let Some(elem) = child.to::<BoxElem>() {
+        } else if let Some(elem) = child.unpack_ref::<BoxElem>() {
             let frac = elem.width(styles).is_fractional();
             full.push(if frac { SPACING_REPLACE } else { OBJ_REPLACE });
             Segment::Box(elem, frac)
