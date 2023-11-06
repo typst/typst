@@ -283,7 +283,7 @@ impl RawElem {
 
 impl Synthesize for RawElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
-        self.push_lang(self.lang(&styles).into_owned());
+        self.push_lang(self.lang(&styles).clone());
 
         let mut text = self.text().clone();
         if text.contains('\t') {

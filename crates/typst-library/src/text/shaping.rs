@@ -883,7 +883,7 @@ pub fn families(styles: StyleChain) -> impl Iterator<Item = FontFamily> + Clone 
 
     let tail = if TextElem::fallback_in(styles) { FALLBACKS } else { &[] };
     TextElem::font_in(&styles)
-        .into_owned()
+        .clone()
         .into_iter()
         .chain(tail.iter().copied().map(FontFamily::new))
 }

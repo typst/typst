@@ -229,7 +229,7 @@ impl RefElem {
         let mut elem = CiteElem::new(*self.target());
         elem.set_location(self.location().unwrap());
         elem.synthesize(vt, styles)?;
-        elem.push_supplement(match self.supplement(&styles).into_owned() {
+        elem.push_supplement(match self.supplement(&styles).clone() {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),
             _ => None,
         });

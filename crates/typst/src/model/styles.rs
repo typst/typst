@@ -6,6 +6,7 @@ use std::ptr;
 
 use comemo::Prehashed;
 use ecow::{eco_vec, EcoString, EcoVec};
+use once_cell::sync::Lazy;
 use smallvec::SmallVec;
 
 use super::{Block, Blockable, Content, Element, NativeElement, Selector, Vt};
@@ -321,12 +322,11 @@ impl<'a> StyleChain<'a> {
         func: Element,
         id: u8,
         inherent: Option<&'b T>,
-        default: impl Fn() -> T,
-    ) -> Cow<'b, T> {
+        default: &'static Lazy<T>,
+    ) -> &'b T {
         self.properties::<T>(func, id, inherent)
             .next()
-            .map(Cow::Borrowed)
-            .unwrap_or_else(|| Cow::Owned(default()))
+            .unwrap_or_else(|| &default)
     }
 
     /// Cast the first value for the given property in the chain.
@@ -335,9 +335,9 @@ impl<'a> StyleChain<'a> {
         func: Element,
         id: u8,
         inherent: Option<&T>,
-        default: impl Fn() -> T,
+        default: &'static Lazy<T>,
     ) -> T {
-        self.get_borrowed(func, id, inherent, default).into_owned()
+        self.get_borrowed(func, id, inherent, default).clone()
     }
 
     /// Cast the first value for the given property in the chain.
@@ -346,7 +346,7 @@ impl<'a> StyleChain<'a> {
         func: Element,
         id: u8,
         inherent: Option<&T>,
-        default: impl Fn() -> T,
+        default: &'static Lazy<T>,
     ) -> T::Output {
         self.get(func, id, inherent, default).resolve(self)
     }

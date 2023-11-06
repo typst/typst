@@ -85,7 +85,7 @@ impl StylesExt for Styles {
     fn set_family(&mut self, preferred: FontFamily, existing: StyleChain) {
         self.set(TextElem::set_font(FontList(
             std::iter::once(preferred)
-                .chain(TextElem::font_in(&existing).as_ref().into_iter().cloned())
+                .chain(TextElem::font_in(&existing).into_iter().cloned())
                 .collect(),
         )));
     }

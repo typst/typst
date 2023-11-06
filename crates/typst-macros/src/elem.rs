@@ -979,7 +979,7 @@ fn create_field_in_method(element: &Elem, field: &Field) -> TokenStream {
     if field.borrowed {
         quote! {
             #[doc = #doc]
-            #vis fn #ident_in<'a: 'b, 'b>(styles: &'b ::typst::model::StyleChain<'a>) -> ::std::borrow::Cow<'b, #output> {
+            #vis fn #ident_in<'a: 'b, 'b>(styles: &'b ::typst::model::StyleChain<'a>) -> &'b #output {
                 #access
             }
         }
@@ -1018,7 +1018,7 @@ fn create_field_method(element: &Elem, field: &Field) -> TokenStream {
 
         quote! {
             #[doc = #docs]
-            #vis fn #ident<'a: 'b, 'b>(&'b self, styles: &'b ::typst::model::StyleChain<'a>) -> ::std::borrow::Cow<'b, #output> {
+            #vis fn #ident<'a: 'b, 'b>(&'b self, styles: &'b ::typst::model::StyleChain<'a>) -> &'b #output {
                 #access
             }
         }
@@ -1053,12 +1053,20 @@ fn create_style_chain_access(
         (true, true, _) => quote! { get_resolve_fold },
     };
 
+    let (init, default) = field.fold.then(|| (None, quote! { || #default })).unwrap_or_else(|| (
+        Some(quote! {
+            static DEFAULT: ::once_cell::sync::Lazy<#ty> = ::once_cell::sync::Lazy::new(|| #default);
+        }),
+        quote! { &DEFAULT },
+    ));
+
     quote! {
+        #init
         styles.#getter::<#ty>(
             <Self as ::typst::model::NativeElement>::elem(),
             <#elem as #model::ElementFields>::Fields::#enum_ident as u8,
             #inherent,
-            || #default,
+            #default,
         )
     }
 }

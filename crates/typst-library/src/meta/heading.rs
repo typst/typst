@@ -131,7 +131,7 @@ impl Synthesize for HeadingElem {
         };
 
         self.push_level(self.level(styles));
-        self.push_numbering(self.numbering(&styles).into_owned());
+        self.push_numbering(self.numbering(&styles).clone());
         self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
         self.push_outlined(self.outlined(styles));
         self.push_bookmarked(self.bookmarked(styles));
@@ -205,7 +205,7 @@ impl Refable for HeadingElem {
     }
 
     fn numbering(&self) -> Option<Numbering> {
-        self.numbering(&StyleChain::default()).into_owned()
+        self.numbering(&StyleChain::default()).clone()
     }
 }
 

@@ -367,7 +367,7 @@ impl Outlinable for FigureElem {
             Some(counter),
             Some(numbering),
         ) = (
-            self.supplement(&StyleChain::default()).into_owned(),
+            self.supplement(&StyleChain::default()).clone(),
             self.counter(),
             self.numbering(StyleChain::default()),
         ) {

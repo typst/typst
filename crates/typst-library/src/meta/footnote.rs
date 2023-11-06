@@ -116,7 +116,7 @@ impl FootnoteElem {
 
 impl Synthesize for FootnoteElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
-        self.push_numbering(self.numbering(&styles).into_owned());
+        self.push_numbering(self.numbering(&styles).clone());
         Ok(())
     }
 }
