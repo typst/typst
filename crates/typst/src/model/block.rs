@@ -63,10 +63,10 @@ pub trait Blockable: Send + Sync + 'static {
     /// Equivalent to [`Debug`] for the block.
     fn dyn_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
 
-    /// Equivalent to [`Any::downcast_ref`] for the block.
+    /// Equivalent to `downcast_ref` for the block.
     fn as_any(&self) -> &dyn Any;
 
-    /// Equivalent to [`Any::downcast_mut`] for the block.
+    /// Equivalent to `downcast_mut` for the block.
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
