@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked, TrackedMut};
-use ecow::EcoString;
+use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 
 use super::{
@@ -368,10 +368,25 @@ impl Func {
     ) -> StrResult<Selector> {
         let fields = args.to_named();
         args.items.retain(|arg| arg.name.is_none());
-        Ok(self
+
+        let element = self
             .element()
-            .ok_or("`where()` can only be called on element functions")?
-            .where_(fields))
+            .ok_or("`where()` can only be called on element functions")?;
+
+        let fields = fields
+            .into_iter()
+            .map(|(key, value)| {
+                element.field_id(&key).map(|id| (id, value)).ok_or_else(|| {
+                    eco_format!(
+                        "element `{}` does not have field `{}`",
+                        element.name(),
+                        key
+                    )
+                })
+            })
+            .collect::<StrResult<smallvec::SmallVec<_>>>()?;
+
+        Ok(element.where_(fields))
     }
 }
 

@@ -52,7 +52,7 @@ impl LayoutMath for AccentElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_cramped(true));
-        let base = ctx.layout_fragment(&self.base())?;
+        let base = ctx.layout_fragment(self.base())?;
         ctx.unstyle();
 
         // Preserve class to preserve automatic spacing.
@@ -67,7 +67,7 @@ impl LayoutMath for AccentElem {
         // Forcing the accent to be at least as large as the base makes it too
         // wide in many case.
         let Accent(c) = self.accent();
-        let glyph = GlyphFragment::new(ctx, c, self.span());
+        let glyph = GlyphFragment::new(ctx, *c, self.span());
         let short_fall = ACCENT_SHORT_FALL.scaled(ctx);
         let variant = glyph.stretch_horizontal(ctx, base.width(), short_fall);
         let accent = variant.frame;
@@ -116,6 +116,7 @@ fn attachment(ctx: &MathContext, id: GlyphId, italics_correction: Abs) -> Abs {
 }
 
 /// An accent character.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Accent(char);
 
 impl Accent {
@@ -130,7 +131,7 @@ cast! {
     self => self.0.into_value(),
     v: char => Self::new(v),
     v: Content => match v.to::<TextElem>() {
-        Some(elem) => Value::Str(elem.text().into()).cast()?,
+        Some(elem) => Value::Str(elem.text().clone().into()).cast()?,
         None => bail!("expected text"),
     },
 }

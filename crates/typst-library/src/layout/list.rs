@@ -77,6 +77,7 @@ pub struct ListElem {
     ///   - Items
     /// - Items
     /// ```
+    #[borrowed]
     #[default(ListMarker::Content(vec![TextElem::packed('•')]))]
     pub marker: ListMarker,
 
@@ -133,7 +134,7 @@ impl Layout for ListElem {
             ParElem::leading_in(styles).into()
         } else {
             self.spacing(styles)
-                .unwrap_or_else(|| BlockElem::below_in(styles).amount())
+                .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
         };
 
         let depth = self.depth(styles);
@@ -148,7 +149,7 @@ impl Layout for ListElem {
             cells.push(Content::empty());
             cells.push(marker.clone());
             cells.push(Content::empty());
-            cells.push(item.body().styled(Self::set_depth(Depth)));
+            cells.push(item.body().clone().styled(Self::set_depth(Depth)));
         }
 
         let layouter = GridLayouter::new(
@@ -183,7 +184,7 @@ cast! {
 }
 
 /// A list's marker.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum ListMarker {
     Content(Vec<Content>),
     Func(Func),
@@ -221,6 +222,7 @@ cast! {
     v: Func => Self::Func(v),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Hash)]
 struct Depth;
 
 cast! {

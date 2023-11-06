@@ -113,11 +113,11 @@ struct HeadingNode {
 impl HeadingNode {
     fn leaf(element: Content) -> Self {
         HeadingNode {
-            level: element.expect_field::<NonZeroUsize>("level"),
+            level: element.expect_field_by_name::<NonZeroUsize>("level"),
             // 'bookmarked' set to 'auto' falls back to the value of 'outlined'.
             bookmarked: element
-                .expect_field::<Smart<bool>>("bookmarked")
-                .unwrap_or_else(|| element.expect_field::<bool>("outlined")),
+                .expect_field_by_name::<Smart<bool>>("bookmarked")
+                .unwrap_or_else(|| element.expect_field_by_name::<bool>("outlined")),
             element,
             children: Vec::new(),
         }
@@ -158,7 +158,7 @@ fn write_outline_item(
         outline.count(-(node.children.len() as i32));
     }
 
-    let body = node.element.expect_field::<Content>("body");
+    let body = node.element.expect_field_by_name::<Content>("body");
     outline.title(TextStr(body.plain_text().trim()));
 
     let loc = node.element.location().unwrap();

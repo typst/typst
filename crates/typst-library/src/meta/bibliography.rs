@@ -19,13 +19,13 @@ use typed_arena::Arena;
 use typst::diag::FileError;
 use typst::eval::{eval_string, Bytes, CastInfo, EvalMode, Reflect};
 use typst::font::FontStyle;
-use typst::util::option_eq;
+use typst::util::{option_eq, PicoStr};
 
 use super::{CitationForm, CiteGroup, LocalName};
 use crate::layout::{
     BlockElem, GridElem, HElem, PadElem, ParElem, Sizing, TrackSizings, VElem,
 };
-use crate::meta::{FootnoteElem, HeadingElem};
+use crate::meta::{FootnoteElem, HeadingElem, LocalNameIn};
 use crate::prelude::*;
 use crate::text::{Delta, SubElem, SuperElem, TextElem};
 
@@ -130,7 +130,7 @@ pub struct BibliographyElem {
 }
 
 /// A list of bibliography file paths.
-#[derive(Debug, Default, Clone, Hash)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct BibPaths(Vec<EcoString>);
 
 cast! {
@@ -153,11 +153,12 @@ impl BibliographyElem {
             bail!("multiple bibliographies are not yet supported");
         }
 
-        Ok(elem.to::<Self>().unwrap().clone())
+        Ok(elem.to::<Self>().cloned().unwrap())
     }
 
     /// Whether the bibliography contains the given key.
-    pub fn has(vt: &Vt, key: &str) -> bool {
+    pub fn has(vt: &Vt, key: impl Into<PicoStr>) -> bool {
+        let key = key.into();
         vt.introspector
             .query(&Self::elem().select())
             .iter()
@@ -199,14 +200,9 @@ impl Show for BibliographyElem {
 
         let mut seq = vec![];
         if let Some(title) = self.title(styles) {
-            let title =
-                title.unwrap_or_else(|| {
-                    TextElem::packed(self.local_name(
-                        TextElem::lang_in(styles),
-                        TextElem::region_in(styles),
-                    ))
-                    .spanned(self.span())
-                });
+            let title = title.unwrap_or_else(|| {
+                TextElem::packed(Self::local_name_in(styles)).spanned(self.span())
+            });
 
             seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
         }
@@ -220,7 +216,7 @@ impl Show for BibliographyElem {
                 .ok_or("CSL style is not suitable for bibliographies")
                 .at(span)?;
 
-            let row_gutter = BlockElem::below_in(styles).amount();
+            let row_gutter = *BlockElem::below_in(styles).amount();
             if references.iter().any(|(prefix, _)| prefix.is_some()) {
                 let mut cells = vec![];
                 for (prefix, reference) in references {
@@ -231,9 +227,9 @@ impl Show for BibliographyElem {
                 seq.push(VElem::new(row_gutter).with_weakness(3).pack());
                 seq.push(
                     GridElem::new(cells)
-                        .with_columns(TrackSizings(vec![Sizing::Auto; 2]))
-                        .with_column_gutter(TrackSizings(vec![COLUMN_GUTTER.into()]))
-                        .with_row_gutter(TrackSizings(vec![row_gutter.into()]))
+                        .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
+                        .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
+                        .with_row_gutter(TrackSizings(smallvec![(row_gutter).into()]))
                         .pack(),
                 );
             } else {
@@ -263,7 +259,7 @@ impl Finalize for BibliographyElem {
 }
 
 impl LocalName for BibliographyElem {
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Bibliografi",
             Lang::ARABIC => "المراجع",
@@ -300,7 +296,7 @@ impl LocalName for BibliographyElem {
 #[ty]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bibliography {
-    map: Arc<IndexMap<EcoString, hayagriva::Entry>>,
+    map: Arc<IndexMap<PicoStr, hayagriva::Entry>>,
     hash: u128,
 }
 
@@ -371,8 +367,8 @@ impl Bibliography {
         })
     }
 
-    fn has(&self, key: &str) -> bool {
-        self.map.contains_key(key)
+    fn has(&self, key: impl Into<PicoStr>) -> bool {
+        self.map.contains_key(&key.into())
     }
 
     fn entries(&self) -> impl Iterator<Item = &hayagriva::Entry> {
@@ -645,7 +641,7 @@ impl<'a> Generator<'a> {
         let mut driver = BibliographyDriver::new();
         for elem in &self.groups {
             let group = elem.to::<CiteGroup>().unwrap();
-            let location = group.0.location().unwrap();
+            let location = group.location().unwrap();
             let children = group.children();
 
             // Groups should never be empty.
@@ -657,12 +653,13 @@ impl<'a> Generator<'a> {
             let mut normal = true;
 
             // Create infos and items for each child in the group.
-            for child in &children {
-                let key = child.key();
-                let Some(entry) = database.map.get(&key.0) else {
+            for child in children {
+                let key = *child.key();
+                let Some(entry) = database.map.get(&key.into_inner()) else {
                     errors.push(error!(
                         child.span(),
-                        "key `{}` does not exist in the bibliography", key.0
+                        "key `{}` does not exist in the bibliography",
+                        key.as_str()
                     ));
                     continue;
                 };
@@ -714,13 +711,13 @@ impl<'a> Generator<'a> {
             driver.citation(CitationRequest::new(
                 items,
                 style,
-                Some(locale(first.lang(), first.region())),
+                Some(locale(*first.lang(), *first.region())),
                 &LOCALES,
                 None,
             ));
         }
 
-        let locale = locale(self.bibliography.lang(), self.bibliography.region());
+        let locale = locale(*self.bibliography.lang(), *self.bibliography.region());
 
         // Add hidden items for everything if we should print the whole
         // bibliography.
@@ -761,7 +758,7 @@ impl<'a> Generator<'a> {
         // so that we can link there.
         let mut links = HashMap::new();
         if let Some(bibliography) = &rendered.bibliography {
-            let location = self.bibliography.0.location().unwrap();
+            let location = self.bibliography.location().unwrap();
             for (k, item) in bibliography.items.iter().enumerate() {
                 links.insert(item.key.as_str(), location.variant(k + 1));
             }
@@ -770,8 +767,7 @@ impl<'a> Generator<'a> {
         let mut output = std::mem::take(&mut self.failures);
         for (info, citation) in self.infos.iter().zip(&rendered.citations) {
             let supplement = |i: usize| info.subinfos.get(i)?.supplement.clone();
-            let link =
-                |i: usize| links.get(info.subinfos.get(i)?.key.0.as_str()).copied();
+            let link = |i: usize| links.get(info.subinfos.get(i)?.key.as_str()).copied();
 
             let renderer = ElemRenderer {
                 world: self.world,
@@ -811,13 +807,13 @@ impl<'a> Generator<'a> {
         let mut first_occurances = HashMap::new();
         for info in &self.infos {
             for subinfo in &info.subinfos {
-                let key = subinfo.key.0.as_str();
+                let key = subinfo.key.as_str();
                 first_occurances.entry(key).or_insert(info.location);
             }
         }
 
         // The location of the bibliography.
-        let location = self.bibliography.0.location().unwrap();
+        let location = self.bibliography.location().unwrap();
 
         let mut output = vec![];
         for (k, item) in rendered.items.iter().enumerate() {
@@ -918,8 +914,8 @@ impl ElemRenderer<'_> {
         if let Some(prefix) = suf_prefix {
             const COLUMN_GUTTER: Em = Em::new(0.65);
             content = GridElem::new(vec![prefix, content])
-                .with_columns(TrackSizings(vec![Sizing::Auto; 2]))
-                .with_column_gutter(TrackSizings(vec![COLUMN_GUTTER.into()]))
+                .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
+                .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
                 .pack();
         }
 

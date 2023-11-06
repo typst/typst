@@ -78,6 +78,7 @@ pub struct SmartquoteElem {
     /// #set smartquote(quotes: (single: ("[[", "]]"),  double: auto))
     /// 'Das sind eigene Anführungszeichen.'
     /// ```
+    #[borrowed]
     pub quotes: Smart<QuoteDict>,
 }
 

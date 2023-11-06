@@ -107,6 +107,7 @@ pub struct EnumElem {
     /// + Numbering!
     /// ```
     #[default(Numbering::Pattern(NumberingPattern::from_str("1.").unwrap()))]
+    #[borrowed]
     pub numbering: Numbering,
 
     /// Which number to start the enumeration with.
@@ -215,7 +216,7 @@ impl Layout for EnumElem {
             ParElem::leading_in(styles).into()
         } else {
             self.spacing(styles)
-                .unwrap_or_else(|| BlockElem::below_in(styles).amount())
+                .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
         };
 
         let mut cells = vec![];
@@ -238,7 +239,7 @@ impl Layout for EnumElem {
                 parents.pop();
                 content
             } else {
-                match &numbering {
+                match numbering {
                     Numbering::Pattern(pattern) => {
                         TextElem::packed(pattern.apply_kth(parents.len(), number))
                     }
@@ -254,7 +255,7 @@ impl Layout for EnumElem {
             cells.push(Content::empty());
             cells.push(resolved);
             cells.push(Content::empty());
-            cells.push(item.body().styled(Self::set_parents(Parent(number))));
+            cells.push(item.body().clone().styled(Self::set_parents(Parent(number))));
             number = number.saturating_add(1);
         }
 
@@ -301,6 +302,7 @@ cast! {
     v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Hash)]
 struct Parent(usize);
 
 cast! {

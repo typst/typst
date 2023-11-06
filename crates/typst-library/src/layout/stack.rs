@@ -60,7 +60,7 @@ impl Layout for StackElem {
         for child in self.children() {
             match child {
                 StackChild::Spacing(kind) => {
-                    layouter.layout_spacing(kind);
+                    layouter.layout_spacing(*kind);
                     deferred = None;
                 }
                 StackChild::Block(block) => {
@@ -68,7 +68,7 @@ impl Layout for StackElem {
                         layouter.layout_spacing(kind);
                     }
 
-                    layouter.layout_block(vt, &block, styles)?;
+                    layouter.layout_block(vt, block, styles)?;
                     deferred = spacing;
                 }
             }
@@ -79,7 +79,7 @@ impl Layout for StackElem {
 }
 
 /// A child of a stack element.
-#[derive(Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub enum StackChild {
     /// Spacing between other children.
     Spacing(Spacing),

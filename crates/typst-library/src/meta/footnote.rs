@@ -59,6 +59,7 @@ pub struct FootnoteElem {
     /// #footnote[Star],
     /// #footnote[Dagger]
     /// ```
+    #[borrowed]
     #[default(Numbering::Pattern(NumberingPattern::from_str("1").unwrap()))]
     pub numbering: Numbering,
 
@@ -91,7 +92,7 @@ impl FootnoteElem {
     }
 
     /// Returns the content of the body of this footnote if it is not a ref.
-    pub fn body_content(&self) -> Option<Content> {
+    pub fn body_content(&self) -> Option<&Content> {
         match self.body() {
             FootnoteBody::Content(content) => Some(content),
             _ => None,
@@ -102,20 +103,20 @@ impl FootnoteElem {
     pub fn declaration_location(&self, vt: &Vt) -> StrResult<Location> {
         match self.body() {
             FootnoteBody::Reference(label) => {
-                let element: Prehashed<Content> = vt.introspector.query_label(&label)?;
+                let element: Prehashed<Content> = vt.introspector.query_label(*label)?;
                 let footnote = element
                     .to::<FootnoteElem>()
                     .ok_or("referenced element should be a footnote")?;
                 footnote.declaration_location(vt)
             }
-            _ => Ok(self.0.location().unwrap()),
+            _ => Ok(self.location().unwrap()),
         }
     }
 }
 
 impl Synthesize for FootnoteElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
-        self.push_numbering(self.numbering(styles));
+        self.push_numbering(self.numbering(styles).clone());
         Ok(())
     }
 }
@@ -127,7 +128,7 @@ impl Show for FootnoteElem {
             let loc = self.declaration_location(vt).at(self.span())?;
             let numbering = self.numbering(styles);
             let counter = Counter::of(Self::elem());
-            let num = counter.at(vt, loc)?.display(vt, &numbering)?;
+            let num = counter.at(vt, loc)?.display(vt, numbering)?;
             let sup = SuperElem::new(num).pack();
             let loc = loc.variant(1);
             // Add zero-width weak spacing to make the footnote "sticky".
@@ -144,7 +145,7 @@ impl Count for FootnoteElem {
 
 /// The body of a footnote can be either some content or a label referencing
 /// another footnote.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum FootnoteBody {
     Content(Content),
     Reference(Label),
@@ -266,10 +267,11 @@ impl Show for FootnoteEntry {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let note = self.note();
         let number_gap = Em::new(0.05);
-        let numbering = note.numbering(StyleChain::default());
+        let default = StyleChain::default();
+        let numbering = note.numbering(default);
         let counter = Counter::of(FootnoteElem::elem());
-        let loc = note.0.location().unwrap();
-        let num = counter.at(vt, loc)?.display(vt, &numbering)?;
+        let loc = note.location().unwrap();
+        let num = counter.at(vt, loc)?.display(vt, numbering)?;
         let sup = SuperElem::new(num)
             .pack()
             .linked(Destination::Location(loc))
@@ -278,7 +280,7 @@ impl Show for FootnoteEntry {
             HElem::new(self.indent(styles).into()).pack(),
             sup,
             HElem::new(number_gap.into()).with_weak(true).pack(),
-            note.body_content().unwrap(),
+            note.body_content().unwrap().clone(),
         ]))
     }
 }

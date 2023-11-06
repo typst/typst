@@ -3,7 +3,7 @@ use typst::util::option_eq;
 
 use super::{Counter, CounterUpdate, LocalName, Numbering, Outlinable, Refable};
 use crate::layout::{BlockElem, HElem, VElem};
-use crate::meta::{Count, Supplement};
+use crate::meta::{Count, LocalNameIn, Supplement};
 use crate::prelude::*;
 use crate::text::{SpaceElem, TextElem, TextSize};
 
@@ -54,6 +54,7 @@ pub struct HeadingElem {
     /// == A subsection
     /// === A sub-subsection
     /// ```
+    #[borrowed]
     pub numbering: Option<Numbering>,
 
     /// A supplement for the heading.
@@ -124,13 +125,13 @@ impl Synthesize for HeadingElem {
     fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         // Resolve the supplement.
         let supplement = match self.supplement(styles) {
-            Smart::Auto => TextElem::packed(self.local_name_in(styles)),
+            Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => supplement.resolve(vt, [self.clone()])?,
         };
 
         self.push_level(self.level(styles));
-        self.push_numbering(self.numbering(styles));
+        self.push_numbering(self.numbering(styles).clone());
         self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
         self.push_outlined(self.outlined(styles));
         self.push_bookmarked(self.bookmarked(styles));
@@ -142,10 +143,10 @@ impl Synthesize for HeadingElem {
 impl Show for HeadingElem {
     #[tracing::instrument(name = "HeadingElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.body();
-        if let Some(numbering) = self.numbering(styles) {
+        let mut realized = self.body().clone();
+        if let Some(numbering) = self.numbering(styles).as_ref() {
             realized = Counter::of(Self::elem())
-                .display(Some(numbering), false)
+                .display(Some(numbering.clone()), false)
                 .spanned(self.span())
                 + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;
@@ -204,7 +205,7 @@ impl Refable for HeadingElem {
     }
 
     fn numbering(&self) -> Option<Numbering> {
-        self.numbering(StyleChain::default())
+        self.numbering(StyleChain::default()).clone()
     }
 }
 
@@ -214,11 +215,12 @@ impl Outlinable for HeadingElem {
             return Ok(None);
         }
 
-        let mut content = self.body();
-        if let Some(numbering) = self.numbering(StyleChain::default()) {
+        let mut content = self.body().clone();
+        let default = StyleChain::default();
+        if let Some(numbering) = self.numbering(default).as_ref() {
             let numbers = Counter::of(Self::elem())
-                .at(vt, self.0.location().unwrap())?
-                .display(vt, &numbering)?;
+                .at(vt, self.location().unwrap())?
+                .display(vt, numbering)?;
             content = numbers + SpaceElem::new().pack() + content;
         };
 
@@ -231,7 +233,7 @@ impl Outlinable for HeadingElem {
 }
 
 impl LocalName for HeadingElem {
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Kapitull",
             Lang::ARABIC => "الفصل",

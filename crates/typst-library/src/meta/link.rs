@@ -84,12 +84,12 @@ impl LinkElem {
 impl Show for LinkElem {
     #[tracing::instrument(name = "LinkElem::show", skip(self, vt))]
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
-        let body = self.body();
+        let body = self.body().clone();
         let linked = match self.dest() {
-            LinkTarget::Dest(dest) => body.linked(dest),
+            LinkTarget::Dest(dest) => body.linked(dest.clone()),
             LinkTarget::Label(label) => vt
                 .delayed(|vt| {
-                    let elem = vt.introspector.query_label(&label).at(self.span())?;
+                    let elem = vt.introspector.query_label(*label).at(self.span())?;
                     let dest = Destination::Location(elem.location().unwrap());
                     Ok(Some(body.clone().linked(dest)))
                 })
@@ -110,7 +110,7 @@ fn body_from_url(url: &EcoString) -> Content {
 }
 
 /// A target where a link can go.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum LinkTarget {
     Dest(Destination),
     Label(Label),

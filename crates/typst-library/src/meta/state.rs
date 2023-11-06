@@ -233,7 +233,7 @@ impl State {
         for elem in introspector.query(&self.selector()) {
             let elem = elem.to::<UpdateElem>().unwrap();
             match elem.update() {
-                StateUpdate::Set(value) => state = value,
+                StateUpdate::Set(value) => state = value.clone(),
                 StateUpdate::Func(func) => state = func.call_vt(&mut vt, [state])?,
             }
             stops.push(state.clone());
@@ -244,7 +244,7 @@ impl State {
 
     /// The selector for this state's updates.
     fn selector(&self) -> Selector {
-        Selector::Elem(UpdateElem::elem(), Some(dict! { "key" => self.key.clone() }))
+        select_where!(UpdateElem, Key => self.key.clone())
     }
 }
 
@@ -383,7 +383,7 @@ impl Show for DisplayElem {
     #[tracing::instrument(name = "DisplayElem::show", skip(self, vt))]
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(vt.delayed(|vt| {
-            let location = self.0.location().unwrap();
+            let location = self.location().unwrap();
             let value = self.state().at(vt, location)?;
             Ok(match self.func() {
                 Some(func) => func.call_vt(vt, [value])?.display(),

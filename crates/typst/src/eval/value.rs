@@ -158,7 +158,7 @@ impl Value {
             Self::Symbol(symbol) => symbol.clone().modified(field).map(Self::Symbol),
             Self::Version(version) => version.component(field).map(Self::Int),
             Self::Dict(dict) => dict.get(field).cloned(),
-            Self::Content(content) => content.get(field),
+            Self::Content(content) => content.field_by_name(field),
             Self::Type(ty) => ty.field(field).cloned(),
             Self::Func(func) => func.field(field).cloned(),
             Self::Module(module) => module.field(field).cloned(),

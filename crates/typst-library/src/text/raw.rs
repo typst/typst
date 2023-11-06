@@ -17,7 +17,7 @@ use super::{
     FontFamily, FontList, Hyphenate, LinebreakElem, SmartquoteElem, TextElem, TextSize,
 };
 use crate::layout::BlockElem;
-use crate::meta::{Figurable, LocalName};
+use crate::meta::Figurable;
 use crate::prelude::*;
 
 // Shorthand for highlighter closures.
@@ -145,6 +145,7 @@ pub struct RawElem {
     ///
     /// This is ```typ also *Typst*```, but inline!
     /// ````
+    #[borrowed]
     pub lang: Option<EcoString>,
 
     /// The horizontal alignment that each line in a raw block should have.
@@ -225,11 +226,13 @@ pub struct RawElem {
         let (theme_path, theme_data) = parse_theme(vm, args)?;
         theme_path.map(Some)
     )]
+    #[borrowed]
     pub theme: Option<EcoString>,
 
     /// The raw file buffer of syntax theme file.
     #[internal]
     #[parse(theme_data.map(Some))]
+    #[borrowed]
     pub theme_data: Option<Bytes>,
 
     /// The size for a tab stop in spaces. A tab is replaced with enough spaces to
@@ -252,7 +255,7 @@ pub struct RawElem {
     /// Made accessible for the [`raw.line` element]($raw.line).
     /// Allows more styling control in `show` rules.
     #[synthesized]
-    pub lines: Vec<Content>,
+    pub lines: Vec<RawLine>,
 }
 
 #[scope]
@@ -280,16 +283,19 @@ impl RawElem {
 
 impl Synthesize for RawElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
-        self.push_lang(self.lang(styles));
+        self.push_lang(self.lang(styles).clone());
 
-        let mut text = self.text();
+        let mut text = self.text().clone();
         if text.contains('\t') {
             let tab_size = RawElem::tab_size_in(styles);
             text = align_tabs(&text, tab_size);
         }
 
+        let count = text.lines().count() as i64;
+
         let lang = self
             .lang(styles)
+            .as_ref()
             .as_ref()
             .map(|s| s.to_lowercase())
             .or(Some("txt".into()));
@@ -298,12 +304,12 @@ impl Synthesize for RawElem {
             load_syntaxes(&self.syntaxes(styles), &self.syntaxes_data(styles)).unwrap()
         });
 
-        let theme = self.theme(styles).map(|theme_path| {
-            load_theme(theme_path, self.theme_data(styles).unwrap()).unwrap()
+        let theme = self.theme(styles).as_ref().as_ref().map(|theme_path| {
+            load_theme(theme_path, self.theme_data(styles).as_ref().as_ref().unwrap())
+                .unwrap()
         });
 
         let theme = theme.as_deref().unwrap_or(&THEME);
-
         let foreground = theme.settings.foreground.unwrap_or(synt::Color::BLACK);
 
         let mut seq = vec![];
@@ -319,15 +325,12 @@ impl Synthesize for RawElem {
                 synt::Highlighter::new(theme),
                 &mut |_, range, style| styled(&text[range], foreground, style),
                 &mut |i, range, line| {
-                    seq.push(
-                        RawLine::new(
-                            i + 1,
-                            text.split(is_newline).count() as i64,
-                            EcoString::from(&text[range]),
-                            Content::sequence(line.drain(..)),
-                        )
-                        .pack(),
-                    );
+                    seq.push(RawLine::new(
+                        i + 1,
+                        count,
+                        EcoString::from(&text[range]),
+                        Content::sequence(line.drain(..)),
+                    ));
                 },
             )
             .highlight();
@@ -342,7 +345,6 @@ impl Synthesize for RawElem {
                 })
         }) {
             let mut highlighter = syntect::easy::HighlightLines::new(syntax, theme);
-            let len = text.lines().count();
             for (i, line) in text.lines().enumerate() {
                 let mut line_content = vec![];
                 for (style, piece) in
@@ -351,18 +353,23 @@ impl Synthesize for RawElem {
                     line_content.push(styled(piece, foreground, style));
                 }
 
-                seq.push(
-                    RawLine::new(
-                        i as i64 + 1,
-                        len as i64,
-                        EcoString::from(line),
-                        Content::sequence(line_content),
-                    )
-                    .pack(),
-                );
+                seq.push(RawLine::new(
+                    i as i64 + 1,
+                    count,
+                    EcoString::from(line),
+                    Content::sequence(line_content),
+                ));
             }
         } else {
-            seq.extend(text.lines().map(TextElem::packed));
+            let lines = text.lines();
+            seq.extend(lines.enumerate().map(|(i, line)| {
+                RawLine::new(
+                    i as i64 + 1,
+                    count,
+                    EcoString::from(line),
+                    TextElem::packed(line),
+                )
+            }));
         };
 
         self.push_lines(seq);
@@ -375,12 +382,12 @@ impl Show for RawElem {
     #[tracing::instrument(name = "RawElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut lines = EcoVec::with_capacity((2 * self.lines().len()).saturating_sub(1));
-        for (i, line) in self.lines().into_iter().enumerate() {
+        for (i, line) in self.lines().iter().enumerate() {
             if i != 0 {
                 lines.push(LinebreakElem::new().pack());
             }
 
-            lines.push(line);
+            lines.push(line.clone().pack());
         }
 
         let mut realized = Content::sequence(lines);
@@ -408,7 +415,7 @@ impl Finalize for RawElem {
 }
 
 impl LocalName for RawElem {
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "List",
             Lang::ARABIC => "قائمة",
@@ -443,7 +450,7 @@ impl Figurable for RawElem {}
 
 impl PlainText for RawElem {
     fn plain_text(&self, text: &mut EcoString) {
-        text.push_str(&self.text());
+        text.push_str(self.text());
     }
 }
 
@@ -475,13 +482,13 @@ pub struct RawLine {
 
 impl Show for RawLine {
     fn show(&self, _vt: &mut Vt, _styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body())
+        Ok(self.body().clone())
     }
 }
 
 impl PlainText for RawLine {
     fn plain_text(&self, text: &mut EcoString) {
-        text.push_str(&self.text());
+        text.push_str(self.text());
     }
 }
 
@@ -617,7 +624,7 @@ fn to_syn(color: Color) -> synt::Color {
 }
 
 /// A list of bibliography file paths.
-#[derive(Debug, Default, Clone, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct SyntaxPaths(Vec<EcoString>);
 
 cast! {
@@ -681,7 +688,7 @@ fn parse_syntaxes(
 }
 
 #[comemo::memoize]
-fn load_theme(path: EcoString, bytes: Bytes) -> StrResult<Arc<synt::Theme>> {
+fn load_theme(path: &str, bytes: &Bytes) -> StrResult<Arc<synt::Theme>> {
     let mut cursor = std::io::Cursor::new(bytes.as_slice());
 
     synt::ThemeSet::load_from_reader(&mut cursor)
@@ -705,7 +712,7 @@ fn parse_theme(
     let data = vm.world().file(id).at(span)?;
 
     // Check that parsing works.
-    let _ = load_theme(path.clone(), data.clone()).at(span)?;
+    let _ = load_theme(&path, &data).at(span)?;
 
     Ok((Some(path), Some(data)))
 }

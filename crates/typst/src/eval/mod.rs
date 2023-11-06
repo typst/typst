@@ -663,7 +663,7 @@ impl Eval for ast::Label<'_> {
 
     #[tracing::instrument(name = "Label::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Label(Label(self.get().into())))
+        Ok(Value::Label(Label::new(self.get())))
     }
 }
 
@@ -672,7 +672,7 @@ impl Eval for ast::Ref<'_> {
 
     #[tracing::instrument(name = "Ref::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let label = Label(self.target().into());
+        let label = Label::new(self.target());
         let supplement = self.supplement().map(|block| block.eval(vm)).transpose()?;
         Ok((vm.items.reference)(label, supplement))
     }
@@ -1295,7 +1295,7 @@ impl Eval for ast::Args<'_> {
     type Output = Args;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let mut items = EcoVec::new();
+        let mut items = EcoVec::with_capacity(self.items().count());
 
         for arg in self.items() {
             let span = arg.span();

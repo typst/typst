@@ -1,5 +1,6 @@
 //! The document model.
 
+mod block;
 mod content;
 mod element;
 mod introspect;
@@ -12,14 +13,17 @@ use ecow::EcoVec;
 #[doc(inline)]
 pub use typst_macros::elem;
 
+pub use self::block::{Block, Blockable};
 pub use self::content::{Content, MetaElem, PlainText};
-pub use self::element::{Construct, Element, NativeElement, NativeElementData, Set};
+pub use self::element::{
+    Construct, Element, ElementFields, LocalName, NativeElement, NativeElementData, Set,
+};
 pub use self::introspect::{Introspector, Location, Locator};
 pub use self::label::{Label, Unlabellable};
 pub use self::realize::{
     applicable, realize, Behave, Behaviour, Finalize, Guard, Locatable, Show, Synthesize,
 };
-pub use self::selector::{LocatableSelector, Selector, ShowableSelector};
+pub use self::selector::{select_where, LocatableSelector, Selector, ShowableSelector};
 pub use self::styles::{
     Fold, Property, Recipe, Resolve, Style, StyleChain, StyleVec, StyleVecBuilder,
     Styles, Transform,

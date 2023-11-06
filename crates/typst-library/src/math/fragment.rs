@@ -196,7 +196,7 @@ pub struct GlyphFragment {
     pub font_size: Abs,
     pub class: Option<MathClass>,
     pub span: Span,
-    pub meta: Vec<Meta>,
+    pub meta: SmallVec<[Meta; 1]>,
     pub limits: Limits,
 }
 

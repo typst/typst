@@ -64,7 +64,7 @@ pub(super) fn define(global: &mut Scope) {
 ///   With a function call.
 /// ])
 /// ```
-#[elem(Construct, PlainText)]
+#[elem(Construct, PlainText, Repr)]
 pub struct TextElem {
     /// A font family name or priority list of font family names.
     ///
@@ -97,6 +97,7 @@ pub struct TextElem {
     /// هذا عربي.
     /// ```
     #[default(FontList(vec![FontFamily::new("Linux Libertine")]))]
+    #[borrowed]
     pub font: FontList,
 
     /// Whether to allow last resort font fallback when the primary font list
@@ -558,8 +559,8 @@ pub struct TextElem {
     pub body: Content,
 
     /// The text.
-    #[internal]
     #[required]
+    #[variant(0)]
     pub text: EcoString,
 
     /// A delta to apply on the font weight.
@@ -595,6 +596,12 @@ impl TextElem {
     }
 }
 
+impl Repr for TextElem {
+    fn repr(&self) -> EcoString {
+        eco_format!("[{}]", self.text)
+    }
+}
+
 impl Construct for TextElem {
     fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         // The text constructor is special: It doesn't create a text element.
@@ -608,7 +615,7 @@ impl Construct for TextElem {
 
 impl PlainText for TextElem {
     fn plain_text(&self, text: &mut EcoString) {
-        text.push_str(&self.text());
+        text.push_str(self.text());
     }
 }
 
@@ -644,12 +651,12 @@ cast! {
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct FontList(pub Vec<FontFamily>);
 
-impl IntoIterator for FontList {
-    type IntoIter = std::vec::IntoIter<FontFamily>;
-    type Item = FontFamily;
+impl<'a> IntoIterator for &'a FontList {
+    type IntoIter = std::slice::Iter<'a, FontFamily>;
+    type Item = &'a FontFamily;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
+        self.0.iter()
     }
 }
 

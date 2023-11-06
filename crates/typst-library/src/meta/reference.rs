@@ -115,6 +115,7 @@ pub struct RefElem {
     /// in @intro[Part], it is done
     /// manually.
     /// ```
+    #[borrowed]
     pub supplement: Smart<Option<Supplement>>,
 
     /// A synthesized citation.
@@ -132,9 +133,9 @@ impl Synthesize for RefElem {
         self.push_citation(Some(citation));
         self.push_element(None);
 
-        let target = self.target();
-        if !BibliographyElem::has(vt, &target.0) {
-            if let Ok(elem) = vt.introspector.query_label(&target) {
+        let target = *self.target();
+        if !BibliographyElem::has(vt, target) {
+            if let Ok(elem) = vt.introspector.query_label(target) {
                 self.push_element(Some(elem.into_inner()));
                 return Ok(());
             }
@@ -148,22 +149,22 @@ impl Show for RefElem {
     #[tracing::instrument(name = "RefElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(vt.delayed(|vt| {
-            let target = self.target();
-            let elem = vt.introspector.query_label(&self.target());
+            let target = *self.target();
+            let elem = vt.introspector.query_label(target);
             let span = self.span();
 
-            if BibliographyElem::has(vt, &target.0) {
+            if BibliographyElem::has(vt, target) {
                 if elem.is_ok() {
                     bail!(span, "label occurs in the document and its bibliography");
                 }
 
-                return Ok(self.to_citation(vt, styles)?.pack().spanned(span));
+                return Ok(self.to_citation(vt, styles)?.spanned(span).pack());
             }
 
             let elem = elem.at(span)?;
 
             if elem.func() == FootnoteElem::elem() {
-                return Ok(FootnoteElem::with_label(target).pack().spanned(span));
+                return Ok(FootnoteElem::with_label(target).spanned(span).pack());
             }
 
             let refable = elem
@@ -204,7 +205,7 @@ impl Show for RefElem {
                 .at(vt, elem.location().unwrap())?
                 .display(vt, &numbering.trimmed())?;
 
-            let supplement = match self.supplement(styles) {
+            let supplement = match self.supplement(styles).as_ref() {
                 Smart::Auto => refable.supplement(),
                 Smart::Custom(None) => Content::empty(),
                 Smart::Custom(Some(supplement)) => {
@@ -225,10 +226,10 @@ impl Show for RefElem {
 impl RefElem {
     /// Turn the reference into a citation.
     pub fn to_citation(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<CiteElem> {
-        let mut elem = CiteElem::new(self.target());
-        elem.0.set_location(self.0.location().unwrap());
+        let mut elem = CiteElem::new(*self.target());
+        elem.set_location(self.location().unwrap());
         elem.synthesize(vt, styles)?;
-        elem.push_supplement(match self.supplement(styles) {
+        elem.push_supplement(match self.supplement(styles).clone() {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),
             _ => None,
         });
@@ -238,6 +239,7 @@ impl RefElem {
 }
 
 /// Additional content for a reference.
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Supplement {
     Content(Content),
     Func(Func),

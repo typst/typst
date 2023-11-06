@@ -932,6 +932,15 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
+dependencies = [
+ "ahash 0.8.6",
+]
+
+[[package]]
+name = "hashbrown"
 version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f93e7192158dbcda357bdec5fb5788eebf8bbac027f3f33e719d29135ae84156"
@@ -1396,6 +1405,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd85a5776cd9500c2e2059c8c76c3b01528566b7fcbaf8098b55a33fc298849b"
 dependencies = [
  "arrayvec",
+]
+
+[[package]]
+name = "lasso"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4644821e1c3d7a560fe13d842d13f587c07348a1a05d3a797152d41c90c56df2"
+dependencies = [
+ "ahash 0.8.6",
+ "dashmap",
+ "hashbrown 0.13.2",
 ]
 
 [[package]]
@@ -2881,6 +2901,7 @@ dependencies = [
  "image",
  "indexmap 2.0.2",
  "kurbo",
+ "lasso",
  "log",
  "miniz_oxide",
  "once_cell",
@@ -2893,6 +2914,7 @@ dependencies = [
  "rustybuzz",
  "serde",
  "siphasher",
+ "smallvec",
  "stacker",
  "subsetter",
  "svg2pdf",

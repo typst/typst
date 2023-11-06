@@ -384,7 +384,7 @@ impl Introspector {
     }
 
     /// Query for a unique element with the label.
-    pub fn query_label(&self, label: &Label) -> StrResult<Prehashed<Content>> {
+    pub fn query_label(&self, label: Label) -> StrResult<Prehashed<Content>> {
         let mut found = None;
         for elem in self.all().filter(|elem| elem.label() == Some(label)) {
             if found.is_some() {

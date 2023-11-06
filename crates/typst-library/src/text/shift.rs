@@ -44,7 +44,7 @@ pub struct SubElem {
 impl Show for SubElem {
     #[tracing::instrument(name = "SubElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let body = self.body();
+        let body = self.body().clone();
         let mut transformed = None;
         if self.typographic(styles) {
             if let Some(text) = search_text(&body, true) {
@@ -104,7 +104,7 @@ pub struct SuperElem {
 impl Show for SuperElem {
     #[tracing::instrument(name = "SuperElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let body = self.body();
+        let body = self.body().clone();
         let mut transformed = None;
         if self.typographic(styles) {
             if let Some(text) = search_text(&body, false) {
@@ -127,7 +127,7 @@ fn search_text(content: &Content, sub: bool) -> Option<EcoString> {
     if content.is::<SpaceElem>() {
         Some(' '.into())
     } else if let Some(elem) = content.to::<TextElem>() {
-        convert_script(&elem.text(), sub)
+        convert_script(elem.text(), sub)
     } else if let Some(children) = content.to_sequence() {
         let mut full = EcoString::new();
         for item in children {

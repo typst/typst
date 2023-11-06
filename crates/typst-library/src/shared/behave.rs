@@ -1,16 +1,18 @@
 //! Element interaction.
 
+use std::borrow::Cow;
+
 use typst::model::{Behave, Behaviour, Content, StyleChain, StyleVec, StyleVecBuilder};
 
 /// A wrapper around a [`StyleVecBuilder`] that allows elements to interact.
 #[derive(Debug)]
 pub struct BehavedBuilder<'a> {
     /// The internal builder.
-    builder: StyleVecBuilder<'a, Content>,
+    builder: StyleVecBuilder<'a, Cow<'a, Content>>,
     /// Staged weak and ignorant elements that we can't yet commit to the
     /// builder. The option is `Some(_)` for weak elements and `None` for
     /// ignorant elements.
-    staged: Vec<(Content, Behaviour, StyleChain<'a>)>,
+    staged: Vec<(Cow<'a, Content>, Behaviour, StyleChain<'a>)>,
     /// What the last non-ignorant item was.
     last: Behaviour,
 }
@@ -41,7 +43,7 @@ impl<'a> BehavedBuilder<'a> {
     }
 
     /// Push an item into the sequence.
-    pub fn push(&mut self, elem: Content, styles: StyleChain<'a>) {
+    pub fn push(&mut self, elem: Cow<'a, Content>, styles: StyleChain<'a>) {
         let interaction = elem
             .with::<dyn Behave>()
             .map_or(Behaviour::Supportive, Behave::behaviour);
@@ -81,12 +83,12 @@ impl<'a> BehavedBuilder<'a> {
     }
 
     /// Iterate over the contained elements.
-    pub fn elems(&self) -> impl DoubleEndedIterator<Item = &Content> {
+    pub fn elems(&self) -> impl DoubleEndedIterator<Item = &Cow<'a, Content>> {
         self.builder.elems().chain(self.staged.iter().map(|(item, ..)| item))
     }
 
     /// Return the finish style vec and the common prefix chain.
-    pub fn finish(mut self) -> (StyleVec<Content>, StyleChain<'a>) {
+    pub fn finish(mut self) -> (StyleVec<Cow<'a, Content>>, StyleChain<'a>) {
         self.flush(false);
         self.builder.finish()
     }

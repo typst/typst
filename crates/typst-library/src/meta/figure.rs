@@ -1,9 +1,8 @@
+use std::borrow::Cow;
 use std::str::FromStr;
 use typst::util::option_eq;
 
-use super::{
-    Count, Counter, CounterKey, CounterUpdate, LocalName, Numbering, NumberingPattern,
-};
+use super::{Count, Counter, CounterKey, CounterUpdate, Numbering, NumberingPattern};
 use crate::layout::{BlockElem, PlaceElem, VElem};
 use crate::meta::{Outlinable, Refable, Supplement};
 use crate::prelude::*;
@@ -170,6 +169,7 @@ pub struct FigureElem {
     ///   kind: "foo",
     /// )
     /// ```
+    #[borrowed]
     pub supplement: Smart<Option<Supplement>>,
 
     /// How to number the figure. Accepts a
@@ -212,25 +212,21 @@ impl Synthesize for FigureElem {
         let kind = self.kind(styles).unwrap_or_else(|| {
             self.body()
                 .query_first(Selector::can::<dyn Figurable>())
-                .cloned()
                 .map(|elem| FigureKind::Elem(elem.func()))
                 .unwrap_or_else(|| FigureKind::Elem(ImageElem::elem()))
         });
 
         // Resolve the supplement.
-        let supplement = match self.supplement(styles) {
+        let supplement = match self.supplement(styles).as_ref() {
             Smart::Auto => {
                 // Default to the local name for the kind, if available.
                 let name = match &kind {
-                    FigureKind::Elem(func) => {
-                        let empty = Content::new(*func);
-                        empty.with::<dyn LocalName>().map(|c| {
-                            TextElem::packed(c.local_name(
-                                TextElem::lang_in(styles),
-                                TextElem::region_in(styles),
-                            ))
-                        })
-                    }
+                    FigureKind::Elem(func) => func
+                        .local_name(
+                            TextElem::lang_in(styles),
+                            TextElem::region_in(styles),
+                        )
+                        .map(TextElem::packed),
                     FigureKind::Name(_) => None,
                 };
 
@@ -245,24 +241,21 @@ impl Synthesize for FigureElem {
                 // Resolve the supplement with the first descendant of the kind or
                 // just the body, if none was found.
                 let descendant = match kind {
-                    FigureKind::Elem(func) => {
-                        self.body().query_first(Selector::Elem(func, None)).cloned()
-                    }
+                    FigureKind::Elem(func) => self
+                        .body()
+                        .query_first(Selector::Elem(func, None))
+                        .map(Cow::Owned),
                     FigureKind::Name(_) => None,
                 };
 
-                let target = descendant.unwrap_or_else(|| self.body());
+                let target = descendant.unwrap_or_else(|| Cow::Borrowed(self.body()));
                 Some(supplement.resolve(vt, [target])?)
             }
         };
 
         // Construct the figure's counter.
-        let counter = Counter::new(CounterKey::Selector(Selector::Elem(
-            Self::elem(),
-            Some(dict! {
-                "kind" => kind.clone(),
-            }),
-        )));
+        let counter =
+            Counter::new(CounterKey::Selector(select_where!(Self, Kind => kind.clone())));
 
         // Fill the figure's caption.
         let mut caption = self.caption(styles);
@@ -271,7 +264,7 @@ impl Synthesize for FigureElem {
             caption.push_supplement(supplement.clone());
             caption.push_numbering(numbering.clone());
             caption.push_counter(Some(counter.clone()));
-            caption.push_location(self.0.location());
+            caption.push_figure_location(self.location());
         }
 
         self.push_placement(self.placement(styles));
@@ -289,7 +282,7 @@ impl Synthesize for FigureElem {
 impl Show for FigureElem {
     #[tracing::instrument(name = "FigureElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.body();
+        let mut realized = self.body().clone();
 
         // Build the caption, if any.
         if let Some(caption) = self.caption(styles) {
@@ -339,14 +332,15 @@ impl Count for FigureElem {
 impl Refable for FigureElem {
     fn supplement(&self) -> Content {
         // After synthesis, this should always be custom content.
-        match self.supplement(StyleChain::default()) {
-            Smart::Custom(Some(Supplement::Content(content))) => content,
+        let default = StyleChain::default();
+        match self.supplement(default).as_ref() {
+            Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
             _ => Content::empty(),
         }
     }
 
     fn counter(&self) -> Counter {
-        self.counter().unwrap_or_else(|| Counter::of(Self::elem()))
+        self.counter().clone().unwrap_or_else(|| Counter::of(Self::elem()))
     }
 
     fn numbering(&self) -> Option<Numbering> {
@@ -364,17 +358,17 @@ impl Outlinable for FigureElem {
             return Ok(None);
         };
 
-        let mut realized = caption.body();
+        let mut realized = caption.body().clone();
         if let (
             Smart::Custom(Some(Supplement::Content(mut supplement))),
             Some(counter),
             Some(numbering),
         ) = (
-            self.supplement(StyleChain::default()),
+            self.supplement(StyleChain::default()).clone(),
             self.counter(),
             self.numbering(StyleChain::default()),
         ) {
-            let location = self.0.location().unwrap();
+            let location = self.location().unwrap();
             let numbers = counter.at(vt, location)?.display(vt, &numbering)?;
 
             if !supplement.is_empty() {
@@ -497,8 +491,9 @@ pub struct FigureCaption {
     pub counter: Option<Counter>,
 
     /// The figure's location.
+    #[internal]
     #[synthesized]
-    pub location: Option<Location>,
+    pub figure_location: Option<Location>,
 }
 
 impl FigureCaption {
@@ -542,12 +537,15 @@ impl Synthesize for FigureCaption {
 impl Show for FigureCaption {
     #[tracing::instrument(name = "FigureCaption::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.body();
+        let mut realized = self.body().clone();
 
-        if let (Some(mut supplement), Some(numbering), Some(counter), Some(location)) =
-            (self.supplement(), self.numbering(), self.counter(), self.location())
-        {
-            let numbers = counter.at(vt, location)?.display(vt, &numbering)?;
+        if let (Some(mut supplement), Some(numbering), Some(counter), Some(location)) = (
+            self.supplement().clone(),
+            self.numbering(),
+            self.counter(),
+            self.figure_location(),
+        ) {
+            let numbers = counter.at(vt, *location)?.display(vt, numbering)?;
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');
             }
@@ -564,7 +562,7 @@ cast! {
 }
 
 /// The `kind` parameter of a [`FigureElem`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum FigureKind {
     /// The kind is an element function.
     Elem(Element),
@@ -585,4 +583,4 @@ cast! {
 /// An element that can be auto-detected in a figure.
 ///
 /// This trait is used to determine the type of a figure.
-pub trait Figurable: LocalName {}
+pub trait Figurable {}

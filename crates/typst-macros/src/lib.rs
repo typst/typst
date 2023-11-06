@@ -189,6 +189,9 @@ pub fn ty(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 /// - `#[synthesized]`: The field cannot be specified in a constructor or set
 ///   rule. Instead, it is added to an element before its show rule runs
 ///   through the `Synthesize` trait.
+/// - `#[variant]`: Allows setting the ID of a field's variant. This is used
+///   for fields that are accessed in `typst` and not `typst-library`. It gives
+///   the field a stable ID that can be used to access it.
 #[proc_macro_attribute]
 pub fn elem(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
     let item = syn::parse_macro_input!(item as syn::ItemStruct);
