@@ -108,7 +108,7 @@ impl Layout for TermsElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let separator = self.separator(&styles);
+        let separator = self.separator(styles);
         let indent = self.indent(styles);
         let hanging_indent = self.hanging_indent(styles);
         let gutter = if self.tight(styles) {

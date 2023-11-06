@@ -301,12 +301,7 @@ impl Counter {
 
     /// The selector relevant for this counter's updates.
     fn selector(&self) -> Selector {
-        let mut selector = Selector::Elem(
-            UpdateElem::elem(),
-            Some(
-                fields! { <UpdateElem as ElementFields>::Fields::Key => self.0.clone() },
-            ),
-        );
+        let mut selector = select_where!(UpdateElem, Key => self.0.clone());
 
         if let CounterKey::Selector(key) = &self.0 {
             selector = Selector::Or(eco_vec![selector, key.clone()]);
@@ -628,7 +623,7 @@ impl Show for DisplayElem {
                     };
 
                     if func == HeadingElem::elem() {
-                        HeadingElem::numbering_in(&styles).clone()
+                        HeadingElem::numbering_in(styles).clone()
                     } else if func == FigureElem::elem() {
                         FigureElem::numbering_in(styles)
                     } else if func == EquationElem::elem() {

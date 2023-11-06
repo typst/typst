@@ -112,10 +112,10 @@ impl Layout for GridElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let columns = self.columns(&styles);
-        let rows = self.rows(&styles);
-        let column_gutter = self.column_gutter(&styles);
-        let row_gutter = self.row_gutter(&styles);
+        let columns = self.columns(styles);
+        let rows = self.rows(styles);
+        let column_gutter = self.column_gutter(styles);
+        let row_gutter = self.row_gutter(styles);
 
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(

@@ -116,7 +116,7 @@ impl FootnoteElem {
 
 impl Synthesize for FootnoteElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
-        self.push_numbering(self.numbering(&styles).clone());
+        self.push_numbering(self.numbering(styles).clone());
         Ok(())
     }
 }
@@ -126,7 +126,7 @@ impl Show for FootnoteElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(vt.delayed(|vt| {
             let loc = self.declaration_location(vt).at(self.span())?;
-            let numbering = self.numbering(&styles);
+            let numbering = self.numbering(styles);
             let counter = Counter::of(Self::elem());
             let num = counter.at(vt, loc)?.display(vt, numbering)?;
             let sup = SuperElem::new(num).pack();
@@ -145,7 +145,7 @@ impl Count for FootnoteElem {
 
 /// The body of a footnote can be either some content or a label referencing
 /// another footnote.
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum FootnoteBody {
     Content(Content),
     Reference(Label),
@@ -268,7 +268,7 @@ impl Show for FootnoteEntry {
         let note = self.note();
         let number_gap = Em::new(0.05);
         let default = StyleChain::default();
-        let numbering = note.numbering(&default);
+        let numbering = note.numbering(default);
         let counter = Counter::of(FootnoteElem::elem());
         let loc = note.location().unwrap();
         let num = counter.at(vt, loc)?.display(vt, numbering)?;

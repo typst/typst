@@ -283,7 +283,7 @@ impl RawElem {
 
 impl Synthesize for RawElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
-        self.push_lang(self.lang(&styles).clone());
+        self.push_lang(self.lang(styles).clone());
 
         let mut text = self.text().clone();
         if text.contains('\t') {
@@ -291,8 +291,10 @@ impl Synthesize for RawElem {
             text = align_tabs(&text, tab_size);
         }
 
+        let count = text.lines().count() as i64;
+
         let lang = self
-            .lang(&styles)
+            .lang(styles)
             .as_ref()
             .as_ref()
             .map(|s| s.to_lowercase())
@@ -302,13 +304,12 @@ impl Synthesize for RawElem {
             load_syntaxes(&self.syntaxes(styles), &self.syntaxes_data(styles)).unwrap()
         });
 
-        let theme = self.theme(&styles).as_ref().as_ref().map(|theme_path| {
-            load_theme(theme_path, self.theme_data(&styles).as_ref().as_ref().unwrap())
+        let theme = self.theme(styles).as_ref().as_ref().map(|theme_path| {
+            load_theme(theme_path, self.theme_data(styles).as_ref().as_ref().unwrap())
                 .unwrap()
         });
 
         let theme = theme.as_deref().unwrap_or(&THEME);
-
         let foreground = theme.settings.foreground.unwrap_or(synt::Color::BLACK);
 
         let mut seq = vec![];
@@ -326,7 +327,7 @@ impl Synthesize for RawElem {
                 &mut |i, range, line| {
                     seq.push(RawLine::new(
                         i + 1,
-                        text.split(is_newline).count() as i64,
+                        count,
                         EcoString::from(&text[range]),
                         Content::sequence(line.drain(..)),
                     ));
@@ -344,7 +345,6 @@ impl Synthesize for RawElem {
                 })
         }) {
             let mut highlighter = syntect::easy::HighlightLines::new(syntax, theme);
-            let len = text.lines().count();
             for (i, line) in text.lines().enumerate() {
                 let mut line_content = vec![];
                 for (style, piece) in
@@ -355,18 +355,17 @@ impl Synthesize for RawElem {
 
                 seq.push(RawLine::new(
                     i as i64 + 1,
-                    len as i64,
+                    count,
                     EcoString::from(line),
                     Content::sequence(line_content),
                 ));
             }
         } else {
             let lines = text.lines();
-            let len = lines.clone().count();
             seq.extend(lines.enumerate().map(|(i, line)| {
                 RawLine::new(
                     i as i64 + 1,
-                    len as i64,
+                    count,
                     EcoString::from(line),
                     TextElem::packed(line),
                 )

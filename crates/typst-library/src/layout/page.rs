@@ -394,16 +394,16 @@ impl PageElem {
             frames.push(Frame::hard(size));
         }
 
-        let fill = self.fill(&styles);
-        let foreground = Cow::Borrowed(self.foreground(&styles));
-        let background = Cow::Borrowed(self.background(&styles));
+        let fill = self.fill(styles);
+        let foreground = Cow::Borrowed(self.foreground(styles));
+        let background = Cow::Borrowed(self.background(styles));
         let header_ascent = self.header_ascent(styles);
         let footer_descent = self.footer_descent(styles);
-        let numbering = self.numbering(&styles);
+        let numbering = self.numbering(styles);
         let numbering_meta = Meta::PageNumbering(numbering.clone().into_value());
         let number_align = self.number_align(styles);
-        let mut header = Cow::Borrowed(self.header(&styles));
-        let mut footer = Cow::Borrowed(self.footer(&styles));
+        let mut header = Cow::Borrowed(self.header(styles));
+        let mut footer = Cow::Borrowed(self.footer(styles));
 
         // Construct the numbering (for header or footer).
         let numbering_marginal = Cow::Owned(numbering.as_ref().map(|numbering| {

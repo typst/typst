@@ -8,7 +8,7 @@ use ecow::EcoString;
 use once_cell::sync::Lazy;
 use smallvec::SmallVec;
 
-use super::{Content, Selector, StyleChain, Styles};
+use super::{Content, Selector, Styles};
 use crate::diag::{SourceResult, StrResult};
 use crate::doc::{Lang, Region};
 use crate::eval::{cast, Args, Dict, Func, ParamInfo, Repr, Scope, Value, Vm};
@@ -110,8 +110,8 @@ impl Element {
     }
 
     /// The element's local name, if any.
-    pub fn local_name(&self, styles: StyleChain) -> Option<&'static str> {
-        (self.0).0.local_name.map(|f| f(styles))
+    pub fn local_name(&self, lang: Lang, region: Option<Region>) -> Option<&'static str> {
+        (self.0).0.local_name.map(|f| f(lang, region))
     }
 }
 
@@ -148,11 +148,11 @@ cast! {
 /// Fields of an element.
 pub trait ElementFields {
     /// The fields of the element.
-    type Fields: TryFrom<u8, Error = ()> + Into<u8>;
+    type Fields;
 }
 
 /// A Typst element that is defined by a native Rust type.
-pub trait NativeElement: Construct + Set + Send + Sync + Debug + Repr + 'static {
+pub trait NativeElement: Debug + Repr + Construct + Set + Send + Sync + 'static {
     /// Get the element for the native Rust element.
     fn elem() -> Element
     where
@@ -161,39 +161,39 @@ pub trait NativeElement: Construct + Set + Send + Sync + Debug + Repr + 'static 
         Element::from(Self::data())
     }
 
+    /// Pack the element into type-erased content.
+    fn pack(self) -> Content
+    where
+        Self: Sized,
+    {
+        Content::new(self)
+    }
+
     /// Get the element data for the native Rust element.
     fn data() -> &'static NativeElementData
     where
         Self: Sized;
 
     /// Get the element data for the native Rust element.
-    fn dyn_data(&self) -> Element;
+    fn dyn_elem(&self) -> Element;
 
-    /// Pack the element into type-erased content.
-    fn pack(self) -> Content;
+    /// Dynamically hash the element.
+    fn dyn_hash(&self, hasher: &mut dyn Hasher);
 
-    /// Set the element's span.
-    fn spanned(self, span: ::typst::syntax::Span) -> Self
-    where
-        Self: Sized;
+    /// Dynamically compare the element.
+    fn dyn_eq(&self, other: &Content) -> bool;
 
-    /// Set the element's location.
-    fn located(self, location: ::typst::model::Location) -> Self
-    where
-        Self: Sized;
+    /// Dynamically clone the element.
+    fn dyn_clone(&self) -> Arc<dyn NativeElement>;
 
-    /// Set the element's label.
-    fn labelled(self, label: ::typst::model::Label) -> Self
-    where
-        Self: Sized;
+    /// Get the element as a dynamic value.
+    fn as_any(&self) -> &dyn Any;
 
-    /// Packs this element from a shared reference.
-    fn pack_shared(self: Arc<Self>) -> Content
-    where
-        Self: Sized,
-    {
-        Content::from_shared(self)
-    }
+    /// Get the element as a mutable dynamic value.
+    fn as_any_mut(&mut self) -> &mut dyn Any;
+
+    /// Get the element as a dynamic value.
+    fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
 
     /// Get the element's span.
     ///
@@ -203,17 +203,35 @@ pub trait NativeElement: Construct + Set + Send + Sync + Debug + Repr + 'static 
     /// Sets the span of this element.
     fn set_span(&mut self, span: Span);
 
-    /// Get the element's location.
-    fn location(&self) -> Option<Location>;
-
-    /// Sets the location of this element.
-    fn set_location(&mut self, location: Location);
+    /// Set the element's span.
+    fn spanned(mut self, span: Span) -> Self
+    where
+        Self: Sized,
+    {
+        self.set_span(span);
+        self
+    }
 
     /// Get the element's label.
     fn label(&self) -> Option<Label>;
 
     /// Sets the label of this element.
     fn set_label(&mut self, label: Label);
+
+    /// Set the element's label.
+    fn labelled(mut self, label: ::typst::model::Label) -> Self
+    where
+        Self: Sized,
+    {
+        self.set_label(label);
+        self
+    }
+
+    /// Get the element's location.
+    fn location(&self) -> Option<Location>;
+
+    /// Sets the location of this element.
+    fn set_location(&mut self, location: Location);
 
     /// Checks whether the element is guarded by the given guard.
     fn is_guarded(&self, guard: Guard) -> bool;
@@ -233,32 +251,14 @@ pub trait NativeElement: Construct + Set + Send + Sync + Debug + Repr + 'static 
     /// Whether this element has been prepared.
     fn is_prepared(&self) -> bool;
 
-    /// Dynamically hash the element.
-    fn dyn_hash(&self, hasher: &mut dyn Hasher);
-
-    /// Dynamically compare the element.
-    fn dyn_eq(&self, other: &Content) -> bool;
-
     /// Get the field with the given field ID.
     fn field(&self, id: u8) -> Option<Value>;
 
     /// Set the field with the given ID.
     fn set_field(&mut self, id: u8, value: Value) -> StrResult<()>;
 
-    /// Dynamically clone the element.
-    fn dyn_clone(&self) -> Arc<dyn NativeElement>;
-
     /// Get the fields of the element.
     fn fields(&self) -> Dict;
-
-    /// Get the element as a dynamic value.
-    fn to_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
-
-    /// Get the element as a dynamic value.
-    fn as_any(&self) -> &dyn Any;
-
-    /// Get the element as a mutable dynamic value.
-    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 /// An element's constructor function.
@@ -292,7 +292,7 @@ pub struct NativeElementData {
     pub vtable: fn(of: TypeId) -> Option<*const ()>,
     pub field_id: fn(name: &str) -> Option<u8>,
     pub field_name: fn(u8) -> Option<&'static str>,
-    pub local_name: Option<fn(StyleChain) -> &'static str>,
+    pub local_name: Option<fn(Lang, Option<Region>) -> &'static str>,
     pub scope: Lazy<Scope>,
     pub params: Lazy<Vec<ParamInfo>>,
 }
@@ -311,7 +311,5 @@ cast! {
 /// The named with which an element is referenced.
 pub trait LocalName {
     /// Get the name in the given language and (optionally) region.
-    fn local_name(lang: Lang, region: Option<Region>) -> &'static str
-    where
-        Self: Sized;
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str;
 }

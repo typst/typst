@@ -1,3 +1,5 @@
+use std::fmt::{self, Debug, Formatter};
+
 use ecow::EcoString;
 use lasso::{Spur, ThreadedRodeo};
 use once_cell::sync::Lazy;
@@ -12,7 +14,7 @@ static INTERNER: Lazy<ThreadedRodeo> = Lazy::new(ThreadedRodeo::new);
 /// slow to look up a string in the interner, so we want to avoid doing it
 /// unnecessarily. For this reason, the user should use the [`PicoStr::resolve`]
 /// method to get the underlying string, such that the lookup is done only once.
-#[derive(Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct PicoStr(Spur);
 
 impl PicoStr {
@@ -38,26 +40,26 @@ cast! {
     v: EcoString => Self::new(&v),
 }
 
-impl<'a> From<&'a str> for PicoStr {
-    fn from(value: &'a str) -> Self {
-        Self::new(value)
-    }
-}
-
-impl<'a> From<&'a EcoString> for PicoStr {
-    fn from(value: &'a EcoString) -> Self {
-        Self::new(value)
-    }
-}
-
-impl std::fmt::Debug for PicoStr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(self.resolve(), f)
+impl Debug for PicoStr {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.resolve().fmt(f)
     }
 }
 
 impl AsRef<str> for PicoStr {
     fn as_ref(&self) -> &str {
         self.resolve()
+    }
+}
+
+impl From<&str> for PicoStr {
+    fn from(value: &str) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<&EcoString> for PicoStr {
+    fn from(value: &EcoString) -> Self {
+        Self::new(value)
     }
 }

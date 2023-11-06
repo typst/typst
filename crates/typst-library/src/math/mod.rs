@@ -238,7 +238,7 @@ impl Layout for EquationElem {
         let variant = variant(styles);
         let world = vt.world;
         let Some(font) = families(styles).find_map(|family| {
-            let id = world.book().select(family.as_str(), variant)?;
+            let id = world.book().select(family, variant)?;
             let font = world.font(id)?;
             let _ = font.ttf().tables().math?.constants?;
             Some(font)
@@ -431,8 +431,8 @@ impl LayoutMath for Content {
         }
 
         if let Some((elem, styles)) = self.to_styled() {
-            if TextElem::font_in(&ctx.styles().chain(styles))
-                != TextElem::font_in(&ctx.styles())
+            if TextElem::font_in(ctx.styles().chain(styles))
+                != TextElem::font_in(ctx.styles())
             {
                 let frame = ctx.layout_content(self)?;
                 ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));

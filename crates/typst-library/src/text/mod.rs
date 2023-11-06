@@ -651,15 +651,6 @@ cast! {
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct FontList(pub Vec<FontFamily>);
 
-impl IntoIterator for FontList {
-    type IntoIter = std::vec::IntoIter<FontFamily>;
-    type Item = FontFamily;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
-}
-
 impl<'a> IntoIterator for &'a FontList {
     type IntoIter = std::slice::Iter<'a, FontFamily>;
     type Item = &'a FontFamily;

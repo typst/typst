@@ -1,16 +1,16 @@
-use comemo::Prehashed;
-use smallvec::SmallVec;
 pub use typst_macros::{cast, Cast};
-use unicode_math_class::MathClass;
 
 use std::borrow::Cow;
 use std::fmt::Write;
 use std::hash::Hash;
 use std::ops::Add;
 
+use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
+use smallvec::SmallVec;
+use unicode_math_class::MathClass;
 
-use super::{Array, Repr, Type, Value};
+use super::{Repr, Type, Value};
 use crate::diag::{At, SourceResult, StrResult};
 use crate::syntax::{Span, Spanned};
 use crate::util::separated_list;
@@ -154,24 +154,6 @@ impl<T: Reflect> Reflect for &mut T {
     }
 }
 
-impl<T: Reflect, const N: usize> Reflect for SmallVec<[T; N]> {
-    fn input() -> CastInfo {
-        Array::input()
-    }
-
-    fn output() -> CastInfo {
-        Array::output()
-    }
-
-    fn castable(value: &Value) -> bool {
-        let Value::Array(array) = value else {
-            return false;
-        };
-
-        array.iter().all(T::castable)
-    }
-}
-
 /// Cast a Rust type into a Typst [`Value`].
 ///
 /// See also: [`Reflect`].
@@ -186,7 +168,7 @@ impl IntoValue for Value {
     }
 }
 
-impl<'a, T: IntoValue + Clone + 'a> IntoValue for Cow<'a, T> {
+impl<T: IntoValue + Clone> IntoValue for Cow<'_, T> {
     fn into_value(self) -> Value {
         self.into_owned().into_value()
     }
@@ -201,12 +183,6 @@ impl<T: IntoValue> IntoValue for Spanned<T> {
 impl<T: IntoValue + Hash + 'static> IntoValue for Prehashed<T> {
     fn into_value(self) -> Value {
         self.into_inner().into_value()
-    }
-}
-
-impl<T: IntoValue, const N: usize> IntoValue for SmallVec<[T; N]> {
-    fn into_value(self) -> Value {
-        Value::Array(self.into_iter().map(IntoValue::into_value).collect())
     }
 }
 
@@ -276,19 +252,8 @@ impl<T: FromValue> FromValue<Spanned<Value>> for Spanned<T> {
     }
 }
 
-impl<T: FromValue, const N: usize> FromValue for SmallVec<[T; N]> {
-    fn from_value(value: Value) -> StrResult<Self> {
-        let array = match value {
-            Value::Array(array) => array,
-            _ => return Err(Self::error(&value)),
-        };
-
-        array.into_iter().map(T::from_value).collect()
-    }
-}
-
 /// Describes a possible value for a cast.
-#[derive(Debug, Clone, Hash, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Hash, PartialOrd)]
 pub enum CastInfo {
     /// Any value is okay.
     Any,
@@ -411,7 +376,7 @@ impl<T, const N: usize> Container for SmallVec<[T; N]> {
 }
 
 /// An uninhabitable type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum Never {}
 
 impl Reflect for Never {

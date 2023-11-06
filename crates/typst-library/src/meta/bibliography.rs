@@ -19,8 +19,7 @@ use typed_arena::Arena;
 use typst::diag::FileError;
 use typst::eval::{eval_string, Bytes, CastInfo, EvalMode, Reflect};
 use typst::font::FontStyle;
-use typst::util::option_eq;
-use typst::util::str::PicoStr;
+use typst::util::{option_eq, PicoStr};
 
 use super::{CitationForm, CiteGroup, LocalName};
 use crate::layout::{
@@ -131,7 +130,7 @@ pub struct BibliographyElem {
 }
 
 /// A list of bibliography file paths.
-#[derive(Debug, Default, Clone, Hash, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct BibPaths(Vec<EcoString>);
 
 cast! {

@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use ecow::{eco_format, EcoString};
 
 use crate::eval::{func, scope, ty, Repr};
-use crate::util::str::PicoStr;
+use crate::util::PicoStr;
 
 /// A label for an element.
 ///

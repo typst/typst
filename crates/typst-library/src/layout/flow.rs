@@ -705,9 +705,7 @@ fn find_footnotes(notes: &mut Vec<FootnoteElem>, frame: &Frame) {
             FrameItem::Meta(Meta::Elem(content), _)
                 if !notes.iter().any(|note| note.location() == content.location()) =>
             {
-                let Some(footnote) = content.to::<FootnoteElem>() else {
-                    continue;
-                };
+                let Some(footnote) = content.to::<FootnoteElem>() else { continue };
                 notes.push(footnote.clone());
             }
             _ => {}

@@ -1,13 +1,13 @@
 use std::any::Any;
-use std::fmt::{self, Debug};
+use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
-/// A block storage for storing stylechain values
-/// either on the stack (if they fit) or on the heap.
+/// A block storage for storing stylechain values either on the stack (if they
+/// fit) or on the heap.
 ///
-/// We're using a `Box` since values will either be contained
-/// in an `Arc` and therefore already on the heap or they will
-/// be small enough that we can just clone them.
+/// We're using a `Box` since values will either be contained in an `Arc` and
+/// therefore already on the heap or they will be small enough that we can just
+/// clone them.
 pub struct Block(Box<dyn Blockable>);
 
 impl Block {
@@ -40,8 +40,8 @@ impl Clone for Block {
 }
 
 impl Debug for Block {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.dyn_debug(f)
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
@@ -49,41 +49,34 @@ impl Debug for Block {
 ///
 /// Auto derived for all types that implement [`Any`], [`Clone`], [`Hash`],
 /// [`Debug`], [`Send`] and [`Sync`].
-pub trait Blockable: Send + Sync + 'static {
-    /// Equivalent to [`Hash`] for the block.
-    fn dyn_hash(&self, state: &mut dyn Hasher);
-
-    /// Equivalent to [`Clone`] for the block.
-    fn dyn_clone(&self) -> Block;
-
-    /// Equivalent to [`Debug`] for the block.
-    fn dyn_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
-
+pub trait Blockable: Debug + Send + Sync + 'static {
     /// Equivalent to `downcast_ref` for the block.
     fn as_any(&self) -> &dyn Any;
 
     /// Equivalent to `downcast_mut` for the block.
     fn as_any_mut(&mut self) -> &mut dyn Any;
+
+    /// Equivalent to [`Hash`] for the block.
+    fn dyn_hash(&self, state: &mut dyn Hasher);
+
+    /// Equivalent to [`Clone`] for the block.
+    fn dyn_clone(&self) -> Block;
 }
 
 impl<T: Clone + Hash + Debug + Send + Sync + 'static> Blockable for T {
-    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
-        self.hash(&mut state);
-    }
-
-    fn dyn_clone(&self) -> Block {
-        Block(Box::new(self.clone()))
-    }
-
-    fn dyn_debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Debug::fmt(self, f)
-    }
-
     fn as_any(&self) -> &dyn Any {
         self
     }
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
+        self.hash(&mut state);
+    }
+
+    fn dyn_clone(&self) -> Block {
+        Block(Box::new(self.clone()))
     }
 }

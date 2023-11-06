@@ -2,9 +2,7 @@ use std::borrow::Cow;
 use std::str::FromStr;
 use typst::util::option_eq;
 
-use super::{
-    Count, Counter, CounterKey, CounterUpdate, LocalName, Numbering, NumberingPattern,
-};
+use super::{Count, Counter, CounterKey, CounterUpdate, Numbering, NumberingPattern};
 use crate::layout::{BlockElem, PlaceElem, VElem};
 use crate::meta::{Outlinable, Refable, Supplement};
 use crate::prelude::*;
@@ -219,13 +217,16 @@ impl Synthesize for FigureElem {
         });
 
         // Resolve the supplement.
-        let supplement = match self.supplement(&styles).as_ref() {
+        let supplement = match self.supplement(styles).as_ref() {
             Smart::Auto => {
                 // Default to the local name for the kind, if available.
                 let name = match &kind {
-                    FigureKind::Elem(func) => {
-                        func.local_name(styles).map(TextElem::packed)
-                    }
+                    FigureKind::Elem(func) => func
+                        .local_name(
+                            TextElem::lang_in(styles),
+                            TextElem::region_in(styles),
+                        )
+                        .map(TextElem::packed),
                     FigureKind::Name(_) => None,
                 };
 
@@ -253,12 +254,8 @@ impl Synthesize for FigureElem {
         };
 
         // Construct the figure's counter.
-        let counter = Counter::new(CounterKey::Selector(Selector::Elem(
-            Self::elem(),
-            Some(fields! {
-                <FigureElem as ElementFields>::Fields::Kind => kind.clone(),
-            }),
-        )));
+        let counter =
+            Counter::new(CounterKey::Selector(select_where!(Self, Kind => kind.clone())));
 
         // Fill the figure's caption.
         let mut caption = self.caption(styles);
@@ -336,7 +333,7 @@ impl Refable for FigureElem {
     fn supplement(&self) -> Content {
         // After synthesis, this should always be custom content.
         let default = StyleChain::default();
-        match self.supplement(&default).as_ref() {
+        match self.supplement(default).as_ref() {
             Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
             _ => Content::empty(),
         }
@@ -367,7 +364,7 @@ impl Outlinable for FigureElem {
             Some(counter),
             Some(numbering),
         ) = (
-            self.supplement(&StyleChain::default()).clone(),
+            self.supplement(StyleChain::default()).clone(),
             self.counter(),
             self.numbering(StyleChain::default()),
         ) {
@@ -565,7 +562,7 @@ cast! {
 }
 
 /// The `kind` parameter of a [`FigureElem`].
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum FigureKind {
     /// The kind is an element function.
     Elem(Element),
@@ -586,17 +583,4 @@ cast! {
 /// An element that can be auto-detected in a figure.
 ///
 /// This trait is used to determine the type of a figure.
-pub trait Figurable: LocalName {}
-
-/// An element that has a local name.
-pub trait LocalNameIn: LocalName {
-    /// Gets the local name from the style chain.
-    fn local_name_in(styles: StyleChain) -> &'static str
-    where
-        Self: Sized,
-    {
-        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
-    }
-}
-
-impl<T: LocalName> LocalNameIn for T {}
+pub trait Figurable {}

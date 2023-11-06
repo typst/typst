@@ -116,7 +116,7 @@ fn attachment(ctx: &MathContext, id: GlyphId, italics_correction: Abs) -> Abs {
 }
 
 /// An accent character.
-#[derive(Default, Debug, PartialEq, Hash, Clone, Copy)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Accent(char);
 
 impl Accent {

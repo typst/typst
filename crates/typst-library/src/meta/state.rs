@@ -244,12 +244,7 @@ impl State {
 
     /// The selector for this state's updates.
     fn selector(&self) -> Selector {
-        Selector::Elem(
-            UpdateElem::elem(),
-            Some(
-                fields! { <UpdateElem as ElementFields>::Fields::Key => self.key.clone() },
-            ),
-        )
+        select_where!(UpdateElem, Key => self.key.clone())
     }
 }
 

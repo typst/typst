@@ -205,7 +205,7 @@ impl Show for RefElem {
                 .at(vt, elem.location().unwrap())?
                 .display(vt, &numbering.trimmed())?;
 
-            let supplement = match self.supplement(&styles).as_ref() {
+            let supplement = match self.supplement(styles).as_ref() {
                 Smart::Auto => refable.supplement(),
                 Smart::Custom(None) => Content::empty(),
                 Smart::Custom(Some(supplement)) => {
@@ -229,7 +229,7 @@ impl RefElem {
         let mut elem = CiteElem::new(*self.target());
         elem.set_location(self.location().unwrap());
         elem.synthesize(vt, styles)?;
-        elem.push_supplement(match self.supplement(&styles).clone() {
+        elem.push_supplement(match self.supplement(styles).clone() {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),
             _ => None,
         });
@@ -239,7 +239,7 @@ impl RefElem {
 }
 
 /// Additional content for a reference.
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Supplement {
     Content(Content),
     Func(Func),

@@ -162,7 +162,7 @@ impl Layout for ImageElem {
             format,
             self.alt(styles),
             vt.world,
-            &families(styles).map(|s| s.as_str().into()).collect::<Vec<_>>(),
+            &families(styles).map(|s| s.into()).collect::<Vec<_>>(),
         )
         .at(self.span())?;
 

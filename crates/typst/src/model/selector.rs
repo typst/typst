@@ -13,6 +13,33 @@ use crate::eval::{
 };
 use crate::util::pretty_array_like;
 
+/// A helper macro to create a field selector used in [`Selector::Elem`]
+///
+/// ```ignore
+/// select_where!(SequenceElem, Children => vec![]);
+/// ```
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __select_where {
+    ($ty:ty $(, $field:ident => $value:expr)* $(,)?) => {{
+        #[allow(unused_mut)]
+        let mut fields = ::smallvec::SmallVec::new();
+        $(
+            fields.push((
+                <$ty as ::typst::model::ElementFields>::Fields::$field as u8,
+                $crate::eval::IntoValue::into_value($value),
+            ));
+        )*
+        ::typst::model::Selector::Elem(
+            <$ty as ::typst::model::NativeElement>::elem(),
+            Some(fields),
+        )
+    }};
+}
+
+#[doc(inline)]
+pub use crate::__select_where as select_where;
+
 /// A filter for selecting elements within the document.
 ///
 /// You can construct a selector in the following ways:
@@ -109,7 +136,7 @@ impl Selector {
                     && dict
                         .iter()
                         .flat_map(|dict| dict.iter())
-                        .all(|(id, value)| target.field(*id).as_ref() == Some(value))
+                        .all(|(id, value)| target.get(*id).as_ref() == Some(value))
             }
             Self::Label(label) => target.label() == Some(*label),
             Self::Regex(regex) => {

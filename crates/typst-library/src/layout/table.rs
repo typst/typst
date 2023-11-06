@@ -156,14 +156,14 @@ impl Layout for TableElem {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         let inset = self.inset(styles);
-        let align = self.align(&styles);
-        let columns = self.columns(&styles);
-        let rows = self.rows(&styles);
-        let column_gutter = self.column_gutter(&styles);
-        let row_gutter = self.row_gutter(&styles);
+        let align = self.align(styles);
+        let columns = self.columns(styles);
+        let rows = self.rows(styles);
+        let column_gutter = self.column_gutter(styles);
+        let row_gutter = self.row_gutter(styles);
 
-        let tracks = Axes::new(&columns.0[..], &rows.0[..]);
-        let gutter = Axes::new(&column_gutter.0[..], &row_gutter.0[..]);
+        let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
+        let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
         let cols = tracks.x.len().max(1);
         let cells: Vec<_> = self
             .children()
@@ -182,7 +182,7 @@ impl Layout for TableElem {
             })
             .collect::<SourceResult<_>>()?;
 
-        let fill = self.fill(&styles);
+        let fill = self.fill(styles);
         let stroke = self.stroke(styles).map(Stroke::unwrap_or_default);
 
         // Prepare grid layout by unifying content and gutter tracks.

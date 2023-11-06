@@ -109,7 +109,7 @@ pub struct QuoteElem {
     body: Content,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Attribution {
     Content(Content),
     Label(Label),
@@ -141,7 +141,7 @@ impl Show for QuoteElem {
         if block {
             realized = BlockElem::new().with_body(Some(realized)).pack();
 
-            if let Some(attribution) = self.attribution(&styles).as_ref() {
+            if let Some(attribution) = self.attribution(styles).as_ref() {
                 let mut seq = vec![TextElem::packed('—'), SpaceElem::new().pack()];
 
                 match attribution {
@@ -164,7 +164,7 @@ impl Show for QuoteElem {
             }
 
             realized = PadElem::new(realized).pack();
-        } else if let Some(Attribution::Label(label)) = self.attribution(&styles) {
+        } else if let Some(Attribution::Label(label)) = self.attribution(styles) {
             realized += SpaceElem::new().pack() + CiteElem::new(*label).pack();
         }
 

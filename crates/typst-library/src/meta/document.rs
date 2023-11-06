@@ -99,7 +99,7 @@ impl LayoutRoot for DocumentElem {
 }
 
 /// A list of authors.
-#[derive(Debug, Default, Clone, Hash, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct Author(Vec<EcoString>);
 
 cast! {
@@ -110,7 +110,7 @@ cast! {
 }
 
 /// A list of keywords.
-#[derive(Debug, Default, Clone, Hash, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct Keywords(Vec<EcoString>);
 
 cast! {

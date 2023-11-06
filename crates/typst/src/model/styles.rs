@@ -317,13 +317,13 @@ impl<'a> StyleChain<'a> {
 
     /// Cast the first value for the given property in the chain,
     /// returning a borrowed value if possible.
-    pub fn get_borrowed<'b, T: Blockable + Clone>(
-        &'b self,
+    pub fn get_borrowed<T: Blockable + Clone>(
+        self,
         func: Element,
         id: u8,
-        inherent: Option<&'b T>,
+        inherent: Option<&'a T>,
         default: &'static Lazy<T>,
-    ) -> &'b T {
+    ) -> &'a T {
         self.properties::<T>(func, id, inherent)
             .next()
             .unwrap_or_else(|| default)
@@ -407,12 +407,12 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Iterate over all values for the given property in the chain.
-    pub fn properties<'b, T: Blockable>(
-        &'b self,
+    pub fn properties<T: Blockable>(
+        self,
         func: Element,
         id: u8,
-        inherent: Option<&'b T>,
-    ) -> impl Iterator<Item = &'b T> + 'b {
+        inherent: Option<&'a T>,
+    ) -> impl Iterator<Item = &'a T> {
         inherent.into_iter().chain(
             self.entries()
                 .filter_map(Style::property)

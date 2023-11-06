@@ -89,10 +89,7 @@ pub struct OutlineElem {
     ///   caption: [Experiment results],
     /// )
     /// ```
-    #[default(LocatableSelector(Selector::Elem(
-        HeadingElem::elem(),
-        Some(fields! { <HeadingElem as ElementFields>::Fields::Outlined => true })
-    )))]
+    #[default(LocatableSelector(select_where!(HeadingElem, Outlined => true)))]
     #[borrowed]
     pub target: LocatableSelector,
 
@@ -197,11 +194,11 @@ impl Show for OutlineElem {
             seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
         }
 
-        let indent = self.indent(&styles);
+        let indent = self.indent(styles);
         let depth = self.depth(styles).unwrap_or(NonZeroUsize::new(usize::MAX).unwrap());
 
         let mut ancestors: Vec<&Content> = vec![];
-        let elems = vt.introspector.query(&self.target(&styles).0);
+        let elems = vt.introspector.query(&self.target(styles).0);
 
         for elem in &elems {
             let Some(entry) = OutlineEntry::from_outlinable(
@@ -299,7 +296,7 @@ pub trait Outlinable: Refable {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum OutlineIndent {
     Bool(bool),
     Rel(Rel<Length>),

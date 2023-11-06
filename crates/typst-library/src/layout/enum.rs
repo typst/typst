@@ -209,7 +209,7 @@ impl Layout for EnumElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let numbering = self.numbering(&styles);
+        let numbering = self.numbering(styles);
         let indent = self.indent(styles);
         let body_indent = self.body_indent(styles);
         let gutter = if self.tight(styles) {
@@ -302,7 +302,7 @@ cast! {
     v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Hash)]
 struct Parent(usize);
 
 cast! {

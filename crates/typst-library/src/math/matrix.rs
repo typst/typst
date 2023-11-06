@@ -562,7 +562,7 @@ fn layout_delimiters(
 
 /// Parameters specifying how augmentation lines
 /// should be drawn on a matrix.
-#[derive(Debug, Default, Clone, Hash, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct Augment<T: Numeric = Length> {
     pub hline: Offsets,
     pub vline: Offsets,
@@ -623,7 +623,7 @@ cast! {
     },
     v: isize => Augment {
         hline: Offsets::default(),
-        vline: Offsets(vec![v]),
+        vline: Offsets(smallvec![v]),
         stroke: Smart::Auto,
     },
     mut dict: Dict => {
@@ -645,14 +645,13 @@ cast! {
     self => self.into_value(),
 }
 
-/// The offsets at which augmentation lines
-/// should be drawn on a matrix.
-#[derive(Debug, Default, Clone, Hash, PartialEq)]
-pub struct Offsets(Vec<isize>);
+/// The offsets at which augmentation lines should be drawn on a matrix.
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
+pub struct Offsets(SmallVec<[isize; 1]>);
 
 cast! {
     Offsets,
     self => self.0.into_value(),
-    v: isize => Self(vec![v]),
+    v: isize => Self(smallvec![v]),
     v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
 }

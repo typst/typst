@@ -88,8 +88,7 @@ pub fn analyze_labels(
         let Some(label) = elem.label() else { continue };
         let details = elem
             .get_by_name("caption")
-            .ok()
-            .or_else(|| elem.get_by_name("body").ok())
+            .or_else(|| elem.get_by_name("body"))
             .and_then(|field| match field {
                 Value::Content(content) => Some(content),
                 _ => None,

@@ -139,7 +139,7 @@ impl Layout for ListElem {
 
         let depth = self.depth(styles);
         let marker = self
-            .marker(&styles)
+            .marker(styles)
             .resolve(vt, depth)?
             // avoid '#set align' interference with the list
             .aligned(HAlign::Start + VAlign::Top);
@@ -184,7 +184,7 @@ cast! {
 }
 
 /// A list's marker.
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum ListMarker {
     Content(Vec<Content>),
     Func(Func),

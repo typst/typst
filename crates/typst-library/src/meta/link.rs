@@ -110,7 +110,7 @@ fn body_from_url(url: &EcoString) -> Content {
 }
 
 /// A target where a link can go.
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum LinkTarget {
     Dest(Destination),
     Label(Label),
