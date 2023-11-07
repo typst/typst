@@ -167,7 +167,10 @@ impl csv {
         let mut reader = builder.from_reader(data.as_slice());
         let mut headers: Option<::csv::StringRecord> = None;
 
+        let mut line_offset: usize = 1; // Counting lines from 1
+
         if has_headers {
+            line_offset = 2; // Counting lines from 2 (1 is header)
             let headers_result = reader.headers();
             headers = Some(headers_result.map_err(|err| format_csv_error(err, 1)).at(span)?.clone());
         }
@@ -177,8 +180,8 @@ impl csv {
         for (line, result) in reader.records().enumerate() {
             // Original solution use line from error, but that is incorrect with
             // `has_headers` set to `false`. See issue:
-            // https://github.com/BurntSushi/rust-csv/issues/184
-            let line = line + 1; // Counting lines from 1
+            // https://github.com/BurntSushi/rust-csv/issues/184            
+            let line = line + line_offset; 
             let row = result.map_err(|err| format_csv_error(err, line)).at(span)?;
             if let Some(headers) = headers.clone() {
                 let mut dict = Dict::new();
