@@ -21,6 +21,6 @@ debug = 1
 
 [[bin]]
 name = "parse"
-path = "fuzz_targets/parse.rs"
+path = "targets/parse.rs"
 test = false
 doc = false

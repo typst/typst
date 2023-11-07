@@ -205,6 +205,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "typst-fuzz"
+version = "0.0.0"
+dependencies = [
+ "arbitrary",
+ "libfuzzer-sys",
+ "typst-syntax",
+]
+
+[[package]]
 name = "typst-syntax"
 version = "0.9.0"
 dependencies = [
@@ -217,15 +226,6 @@ dependencies = [
  "unicode-math-class",
  "unicode-segmentation",
  "unscanny",
-]
-
-[[package]]
-name = "typst-syntax-fuzz"
-version = "0.0.0"
-dependencies = [
- "arbitrary",
- "libfuzzer-sys",
- "typst-syntax",
 ]
 
 [[package]]
