@@ -225,7 +225,7 @@ impl GlyphFragment {
             c,
             font: ctx.font.clone(),
             lang: TextElem::lang_in(ctx.styles()),
-            fill: TextElem::fill_in(ctx.styles()),
+            fill: TextElem::fill_in(ctx.styles()).as_decoration(),
             shift: TextElem::baseline_in(ctx.styles()),
             style: ctx.style,
             font_size: ctx.size,
