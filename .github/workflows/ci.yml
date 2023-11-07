@@ -17,7 +17,7 @@ jobs:
       - run: cargo test --workspace --no-fail-fasto
 
   fuzz:
-    name: Ensure fuzz harnesses build
+    name: Build fuzzers
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -25,7 +25,7 @@ jobs:
         with:
           toolchain: nightly-2023-11-03
       - uses: Swatinem/rust-cache@v2
-      - run: cd test/fuzz && cargo fuzz build
+      - run: cd tests/fuzz && cargo fuzz build
 
 
   checks:
