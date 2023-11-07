@@ -34,9 +34,12 @@ use super::Sizing;
 /// instead of an array. For example, `columns:` `{3}` is equivalent to
 /// `columns:` `{(auto, auto, auto)}`.
 ///
-/// # Example
+/// # Examples
+/// The example below demonstrates the different track sizing options.
+///
 /// ```example
-/// // We use `rect` to emphasize the area of cells
+/// // We use `rect` to emphasize the
+/// // area of cells.
 /// #set rect(
 ///   inset: 8pt,
 ///   fill: rgb("e4e5ea"),
@@ -54,8 +57,12 @@ use super::Sizing;
 ///   image("tiger.jpg", height: 100%),
 ///   image("tiger.jpg", height: 100%),
 /// )
+/// ```
 ///
-/// // We can also "spread" an array of content or strings
+/// You can also [spread]($arguments/#spreading) an array of strings or content
+/// into a grid to populate its cells.
+///
+/// ```example
 /// #grid(
 ///   columns: 5,
 ///   gutter: 5pt,
