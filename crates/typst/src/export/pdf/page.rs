@@ -361,7 +361,13 @@ impl PageContext<'_, '_> {
         self.state.size = size;
     }
 
-    fn set_fill(&mut self, fill: &Paint, on_text: bool, on_math: bool, transforms: Transforms) {
+    fn set_fill(
+        &mut self,
+        fill: &Paint,
+        on_text: bool,
+        on_math: bool,
+        transforms: Transforms,
+    ) {
         if self.state.fill.as_ref() != Some(fill)
             || matches!(self.state.fill, Some(Paint::Gradient(_)))
         {
@@ -563,7 +569,12 @@ fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
     }
 
     if let Some(fill) = &shape.fill {
-        ctx.set_fill(fill, false, false, ctx.state.transforms(shape.geometry.bbox_size(), pos));
+        ctx.set_fill(
+            fill,
+            false,
+            false,
+            ctx.state.transforms(shape.geometry.bbox_size(), pos),
+        );
     }
 
     if let Some(stroke) = stroke {

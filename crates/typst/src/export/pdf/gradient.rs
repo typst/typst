@@ -38,8 +38,14 @@ pub struct PdfGradient {
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
 pub fn write_gradients(ctx: &mut PdfContext) {
-    for PdfGradient { transform, aspect_ratio, gradient, on_text, on_math, angle } in
-        ctx.gradient_map.items().cloned().collect::<Vec<_>>()
+    for PdfGradient {
+        transform,
+        aspect_ratio,
+        gradient,
+        on_text,
+        on_math,
+        angle,
+    } in ctx.gradient_map.items().cloned().collect::<Vec<_>>()
     {
         let shading = ctx.alloc.bump();
         ctx.gradient_refs.push(shading);
@@ -109,7 +115,8 @@ pub fn write_gradients(ctx: &mut PdfContext) {
                 shading_pattern
             }
             Gradient::Conic(conic) => {
-                let vertices = compute_vertex_stream(conic, aspect_ratio, on_text, on_math);
+                let vertices =
+                    compute_vertex_stream(conic, aspect_ratio, on_text, on_math);
 
                 let stream_shading_id = ctx.alloc.bump();
                 let mut stream_shading =
@@ -274,7 +281,13 @@ fn single_gradient(
 }
 
 impl PaintEncode for Gradient {
-    fn set_as_fill(&self, ctx: &mut PageContext, on_text: bool, on_math: bool, transforms: Transforms) {
+    fn set_as_fill(
+        &self,
+        ctx: &mut PageContext,
+        on_text: bool,
+        on_math: bool,
+        transforms: Transforms,
+    ) {
         ctx.reset_fill_color_space();
 
         let id = register_gradient(ctx, self, on_text, on_math, transforms);
@@ -284,11 +297,7 @@ impl PaintEncode for Gradient {
         ctx.content.set_fill_pattern(None, name);
     }
 
-    fn set_as_stroke(
-        &self,
-        ctx: &mut PageContext,
-        transforms: Transforms,
-    ) {
+    fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms) {
         ctx.reset_stroke_color_space();
 
         let id = register_gradient(ctx, self, false, false, transforms);

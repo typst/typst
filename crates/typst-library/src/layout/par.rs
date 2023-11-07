@@ -166,7 +166,8 @@ impl ParElem {
             // Perform BiDi analysis and then prepare paragraph layout by building a
             // representation on which we can do line breaking without layouting
             // each and every line from scratch.
-            let p = prepare(&mut vt, children, &text, segments, spans, styles, region, math)?;
+            let p =
+                prepare(&mut vt, children, &text, segments, spans, styles, region, math)?;
 
             // Break the paragraph into lines.
             let lines = linebreak(&vt, &p, region.x - p.hang);
