@@ -14,7 +14,19 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --workspace
-      - run: cargo test --workspace --no-fail-fast
+      - run: cargo test --workspace --no-fail-fasto
+
+  fuzz:
+    name: Ensure fuzz harnesses build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2023-11-03
+      - uses: Swatinem/rust-cache@v2
+      - run: cd test/fuzz && cargo fuzz build
+
 
   checks:
     name: Check clippy, formatting, and documentation
