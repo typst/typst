@@ -441,12 +441,7 @@ impl Frame {
 
 impl Debug for Frame {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("Frame(")?;
-        match self.kind {
-            FrameKind::Soft => f.write_str("soft) ")?,
-            FrameKind::Hard => f.write_str("hard) ")?,
-        }
-
+        f.write_str("Frame")?;
         f.debug_list()
             .entries(self.items.iter().map(|(_, item)| item))
             .finish()
