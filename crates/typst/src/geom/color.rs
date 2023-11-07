@@ -1648,13 +1648,13 @@ cast! {
     v: Ratio => Self(v.get()),
 }
 
-/// A color space for mixing.
+/// A color space for color manipulation.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ColorSpace {
-    /// A perceptual color space.
+    /// The perceptual Oklab color space.
     Oklab,
 
-    /// A perceptual color space.
+    /// The perceptual Oklch color space.
     Oklch,
 
     /// The standard RGB color space.
@@ -1689,7 +1689,7 @@ cast! {
         Self::Cmyk => Color::cmyk_data(),
     }.into_value(),
     v: Value => {
-        let expected = "expected `rgb`, `luma`, `cmyk`, `oklab`, `color.linear-rgb`, `color.hsl`, or `color.hsv`";
+        let expected = "expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`";
         let Value::Func(func) = v else {
             bail!("{expected}, found {}", v.ty());
         };
