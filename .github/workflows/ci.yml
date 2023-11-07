@@ -19,6 +19,10 @@ jobs:
   fuzz:
     name: Build fuzzers
     runs-on: ubuntu-latest
+    env:
+      # TODO: Remove this override once nightly doesn't have
+      # false positives on dead_code.
+      RUSTFLAGS: ""
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@master
@@ -26,7 +30,7 @@ jobs:
           toolchain: nightly-2023-11-03
       - uses: Swatinem/rust-cache@v2
       - run: cargo install cargo-fuzz
-      - run: RUSTFLAGS="$RUSTFLAGS -A dead_code" cd tests/fuzz && cargo fuzz build
+      - run: cd tests/fuzz && cargo fuzz build
 
 
   checks:
