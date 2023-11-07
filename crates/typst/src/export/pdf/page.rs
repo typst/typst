@@ -270,7 +270,7 @@ impl State {
 }
 
 /// Subset of the state used to calculate the transform of gradients and patterns.
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub(super) struct Transforms {
     /// The transform of the current item.
     pub transform: Transform,
@@ -333,6 +333,9 @@ impl PageContext<'_, '_> {
     fn transform(&mut self, transform: Transform) {
         let Transform { sx, ky, kx, sy, tx, ty } = transform;
         self.state.transform = self.state.transform.pre_concat(transform);
+        if self.state.container_transform.is_identity() {
+            self.state.container_transform = self.state.transform;
+        }
         self.content.transform([
             sx.get() as _,
             ky.get() as _,

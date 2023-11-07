@@ -27,8 +27,6 @@ pub struct PdfGradient {
     pub aspect_ratio: Ratio,
     /// The gradient.
     pub gradient: Gradient,
-    /// Whether the gradient is applied to text.
-    pub on_text: bool,
     /// The corrected angle of the gradient.
     pub angle: Angle,
 }
@@ -36,7 +34,7 @@ pub struct PdfGradient {
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
 pub fn write_gradients(ctx: &mut PdfContext) {
-    for PdfGradient { transform, aspect_ratio, gradient, on_text, angle } in
+    for PdfGradient { transform, aspect_ratio, gradient, angle } in
         ctx.gradient_map.items().cloned().collect::<Vec<_>>()
     {
         let shading = ctx.alloc.bump();
@@ -62,13 +60,9 @@ pub fn write_gradients(ctx: &mut PdfContext) {
 
                 let clamp = |i: f64| if i < 1e-4 { 0.0 } else { i.clamp(0.0, 1.0) };
                 let x1 = clamp(x1);
-                let mut y1 = clamp(y1);
+                let y1 = clamp(y1);
                 let x2 = clamp(x2);
-                let mut y2 = clamp(y2);
-
-                if on_text {
-                    std::mem::swap(&mut y1, &mut y2);
-                }
+                let y2 = clamp(y2);
 
                 shading
                     .anti_alias(gradient.anti_alias())
@@ -107,7 +101,7 @@ pub fn write_gradients(ctx: &mut PdfContext) {
                 shading_pattern
             }
             Gradient::Conic(conic) => {
-                let vertices = compute_vertex_stream(conic, aspect_ratio, on_text);
+                let vertices = compute_vertex_stream(conic, aspect_ratio);
 
                 let stream_shading_id = ctx.alloc.bump();
                 let mut stream_shading =
@@ -346,7 +340,6 @@ fn register_gradient(
             )),
         gradient: gradient.clone(),
         angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
-        on_text,
     };
 
     let index = ctx.parent.gradient_map.insert(pdf_gradient);
@@ -379,16 +372,9 @@ fn write_patch(
     c0: [u16; 3],
     c1: [u16; 3],
     angle: Angle,
-    y_flipped: bool,
 ) {
-    let mut theta = -TAU * t + angle.to_rad() as f32 + PI;
-    let mut theta1 = -TAU * t1 + angle.to_rad() as f32 + PI;
-
-    // Correction for y-axis flipping on text.
-    if y_flipped {
-        theta = (TAU - theta).rem_euclid(TAU);
-        theta1 = (TAU - theta1).rem_euclid(TAU);
-    }
+    let theta = -TAU * t + angle.to_rad() as f32 + PI;
+    let theta1 = -TAU * t1 + angle.to_rad() as f32 + PI;
 
     let (cp1, cp2) =
         control_point(Point::new(Abs::pt(0.5), Abs::pt(0.5)), 0.5, theta, theta1);
@@ -449,11 +435,7 @@ fn control_point(c: Point, r: f32, angle_start: f32, angle_end: f32) -> (Point, 
 }
 
 #[comemo::memoize]
-fn compute_vertex_stream(
-    conic: &ConicGradient,
-    aspect_ratio: Ratio,
-    on_text: bool,
-) -> Arc<Vec<u8>> {
+fn compute_vertex_stream(conic: &ConicGradient, aspect_ratio: Ratio) -> Arc<Vec<u8>> {
     // Generated vertices for the Coons patches
     let mut vertices = Vec::new();
 
@@ -530,18 +512,9 @@ fn compute_vertex_stream(
                             conic.space.convert(c),
                             c0,
                             angle,
-                            on_text,
                         );
 
-                        write_patch(
-                            &mut vertices,
-                            t_prime,
-                            t_prime,
-                            c0,
-                            c1,
-                            angle,
-                            on_text,
-                        );
+                        write_patch(&mut vertices, t_prime, t_prime, c0, c1, angle);
 
                         write_patch(
                             &mut vertices,
@@ -550,7 +523,6 @@ fn compute_vertex_stream(
                             c1,
                             conic.space.convert(c_next),
                             angle,
-                            on_text,
                         );
 
                         t_x = t_next;
@@ -566,7 +538,6 @@ fn compute_vertex_stream(
                 conic.space.convert(c),
                 conic.space.convert(c_next),
                 angle,
-                on_text,
             );
 
             t_x = t_next;
