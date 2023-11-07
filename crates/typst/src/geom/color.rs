@@ -1048,19 +1048,35 @@ impl Color {
         span: Span,
         /// The angle to rotate the hue by.
         angle: Angle,
+        /// The color space used to rotate. By default, this happens in a perceptual
+        /// color space ([`oklch`]($color.oklch)).
+        #[named]
+        #[default(ColorSpace::Oklch)]
+        space: ColorSpace,
     ) -> SourceResult<Color> {
-        Ok(match self {
-            Self::Luma(_) => {
-                bail!(error!(span, "cannot rotate grayscale color")
-                    .with_hint("try converting your color to RGB first"));
+        Ok(match space {
+            ColorSpace::Oklch => {
+                let Self::Oklch(oklch) = self.to_oklch() else {
+                    unreachable!();
+                };
+                let rotated = oklch.shift_hue(angle.to_deg() as f32);
+                Self::Oklch(rotated).to_space(self.space())
             }
-            Self::Oklab(_) => self.to_hsv().rotate(span, angle)?.to_oklab(),
-            Self::Oklch(_) => self.to_hsv().rotate(span, angle)?.to_oklch(),
-            Self::LinearRgb(_) => self.to_hsv().rotate(span, angle)?.to_linear_rgb(),
-            Self::Rgba(_) => self.to_hsv().rotate(span, angle)?.to_rgba(),
-            Self::Cmyk(_) => self.to_hsv().rotate(span, angle)?.to_cmyk(),
-            Self::Hsl(c) => Self::Hsl(c.shift_hue(angle.to_deg() as f32)),
-            Self::Hsv(c) => Self::Hsv(c.shift_hue(angle.to_deg() as f32)),
+            ColorSpace::Hsl => {
+                let Self::Hsl(hsl) = self.to_hsl() else {
+                    unreachable!();
+                };
+                let rotated = hsl.shift_hue(angle.to_deg() as f32);
+                Self::Hsl(rotated).to_space(self.space())
+            }
+            ColorSpace::Hsv => {
+                let Self::Hsv(hsv) = self.to_hsv() else {
+                    unreachable!();
+                };
+                let rotated = hsv.shift_hue(angle.to_deg() as f32);
+                Self::Hsv(rotated).to_space(self.space())
+            }
+            _ => bail!(error!(span, "this colorspace does not support hue rotation")),
         })
     }
 
