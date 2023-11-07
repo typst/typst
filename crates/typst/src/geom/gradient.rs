@@ -1,5 +1,6 @@
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 use std::f64::{EPSILON, NEG_INFINITY};
+use std::fmt;
 use std::hash::Hash;
 use std::sync::Arc;
 
@@ -157,11 +158,21 @@ use crate::syntax::{Span, Spanned};
 /// Typst predefines color maps that you can use with your gradients. See the
 /// [`color`]($color/#predefined-color-maps) documentation for more details.
 #[ty(scope)]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Gradient {
     Linear(Arc<LinearGradient>),
     Radial(Arc<RadialGradient>),
     Conic(Arc<ConicGradient>),
+}
+
+impl fmt::Debug for Gradient {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Linear(_) => f.write_str("gradient.linear(..)"),
+            Self::Radial(_) => f.write_str("gradient.radial(..)"),
+            Self::Conic(_) => f.write_str("gradient.conic(..)"),
+        }
+    }
 }
 
 #[scope]

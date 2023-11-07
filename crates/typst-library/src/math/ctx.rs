@@ -259,6 +259,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 false,
                 Size::splat(Abs::inf()),
                 false,
+                true,
             )?
             .into_frame();
 

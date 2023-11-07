@@ -29,19 +29,23 @@ pub struct PdfGradient {
     pub gradient: Gradient,
     /// Whether the gradient is applied to text.
     pub on_text: bool,
+    /// Whether the gradient is applied to math.
+    pub on_math: bool,
+    /// The corrected angle of the gradient.
+    pub angle: Angle,
 }
 
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
 pub fn write_gradients(ctx: &mut PdfContext) {
-    for PdfGradient { transform, aspect_ratio, gradient, on_text } in
+    for PdfGradient { transform, aspect_ratio, gradient, on_text, on_math, angle } in
         ctx.gradient_map.items().cloned().collect::<Vec<_>>()
     {
         let shading = ctx.alloc.bump();
         ctx.gradient_refs.push(shading);
 
         let mut shading_pattern = match &gradient {
-            Gradient::Linear(linear) => {
+            Gradient::Linear(_) => {
                 let shading_function = shading_function(ctx, &gradient);
                 let mut shading_pattern = ctx.pdf.shading_pattern(shading);
                 let mut shading = shading_pattern.function_shading();
@@ -50,14 +54,28 @@ pub fn write_gradients(ctx: &mut PdfContext) {
                 ctx.colors
                     .write(gradient.space(), shading.color_space(), &mut ctx.alloc);
 
-                let angle = Gradient::correct_aspect_ratio(linear.angle, aspect_ratio);
                 let (sin, cos) = (angle.sin(), angle.cos());
-                let length = sin.abs() + cos.abs();
+                let (x1, y1, x2, y2): (f64, f64, f64, f64) = match angle.quadrant() {
+                    Quadrant::First => (0.0, 0.0, cos, sin),
+                    Quadrant::Second => (1.0, 0.0, cos + 1.0, sin),
+                    Quadrant::Third => (1.0, 1.0, cos + 1.0, sin + 1.0),
+                    Quadrant::Fourth => (0.0, 1.0, cos, sin + 1.0),
+                };
+
+                let clamp = |i: f64| if i < 1e-4 { 0.0 } else { i.clamp(0.0, 1.0) };
+                let x1 = clamp(x1);
+                let mut y1 = clamp(y1);
+                let x2 = clamp(x2);
+                let mut y2 = clamp(y2);
+
+                if on_text && !on_math {
+                    std::mem::swap(&mut y1, &mut y2);
+                }
 
                 shading
                     .anti_alias(gradient.anti_alias())
                     .function(shading_function)
-                    .coords([0.0, 0.0, length as f32, 0.0])
+                    .coords([x1 as f32, y1 as f32, x2 as f32, y2 as f32])
                     .extend([true; 2]);
 
                 shading.finish();
@@ -91,7 +109,7 @@ pub fn write_gradients(ctx: &mut PdfContext) {
                 shading_pattern
             }
             Gradient::Conic(conic) => {
-                let vertices = compute_vertex_stream(conic, aspect_ratio, on_text);
+                let vertices = compute_vertex_stream(conic, aspect_ratio, on_text, on_math);
 
                 let stream_shading_id = ctx.alloc.bump();
                 let mut stream_shading =
@@ -256,10 +274,10 @@ fn single_gradient(
 }
 
 impl PaintEncode for Gradient {
-    fn set_as_fill(&self, ctx: &mut PageContext, on_text: bool, transforms: Transforms) {
+    fn set_as_fill(&self, ctx: &mut PageContext, on_text: bool, on_math: bool, transforms: Transforms) {
         ctx.reset_fill_color_space();
 
-        let id = register_gradient(ctx, self, on_text, transforms);
+        let id = register_gradient(ctx, self, on_text, on_math, transforms);
         let name = Name(id.as_bytes());
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
@@ -269,12 +287,11 @@ impl PaintEncode for Gradient {
     fn set_as_stroke(
         &self,
         ctx: &mut PageContext,
-        on_text: bool,
         transforms: Transforms,
     ) {
         ctx.reset_stroke_color_space();
 
-        let id = register_gradient(ctx, self, on_text, transforms);
+        let id = register_gradient(ctx, self, false, false, transforms);
         let name = Name(id.as_bytes());
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
@@ -287,6 +304,7 @@ fn register_gradient(
     ctx: &mut PageContext,
     gradient: &Gradient,
     on_text: bool,
+    on_math: bool,
     mut transforms: Transforms,
 ) -> EcoString {
     // Edge cases for strokes.
@@ -297,33 +315,20 @@ fn register_gradient(
     if transforms.size.y.is_zero() {
         transforms.size.y = Abs::pt(1.0);
     }
-
     let size = match gradient.unwrap_relative(on_text) {
         Relative::Self_ => transforms.size,
         Relative::Parent => transforms.container_size,
     };
-
-    // Correction for y-axis flipping on text.
-    let angle = gradient.angle().unwrap_or_else(Angle::zero);
-    let angle = if on_text { Angle::rad(TAU as f64) - angle } else { angle };
 
     let (offset_x, offset_y) = match gradient {
         Gradient::Conic(conic) => (
             -size.x * (1.0 - conic.center.x.get() / 2.0) / 2.0,
             -size.y * (1.0 - conic.center.y.get() / 2.0) / 2.0,
         ),
-        _ => match angle.quadrant() {
-            Quadrant::First => (Abs::zero(), Abs::zero()),
-            Quadrant::Second => (size.x, Abs::zero()),
-            Quadrant::Third => (size.x, size.y),
-            Quadrant::Fourth => (Abs::zero(), size.y),
-        },
+        _ => (Abs::zero(), Abs::zero()),
     };
 
-    let rotation = match gradient {
-        Gradient::Conic(_) => Angle::zero(),
-        _ => angle,
-    };
+    let rotation = gradient.angle().unwrap_or_else(Angle::zero);
 
     let transform = match gradient.unwrap_relative(on_text) {
         Relative::Self_ => transforms.transform,
@@ -345,13 +350,11 @@ fn register_gradient(
             .pre_concat(Transform::scale(
                 Ratio::new(size.x.to_pt() * scale_offset),
                 Ratio::new(size.y.to_pt() * scale_offset),
-            ))
-            .pre_concat(Transform::rotate(Gradient::correct_aspect_ratio(
-                rotation,
-                size.aspect_ratio(),
-            ))),
+            )),
         gradient: gradient.clone(),
+        angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
         on_text,
+        on_math,
     };
 
     let index = ctx.parent.gradient_map.insert(pdf_gradient);
@@ -384,13 +387,13 @@ fn write_patch(
     c0: [u16; 3],
     c1: [u16; 3],
     angle: Angle,
-    on_text: bool,
+    y_flipped: bool,
 ) {
     let mut theta = -TAU * t + angle.to_rad() as f32 + PI;
     let mut theta1 = -TAU * t1 + angle.to_rad() as f32 + PI;
 
     // Correction for y-axis flipping on text.
-    if on_text {
+    if y_flipped {
         theta = (TAU - theta).rem_euclid(TAU);
         theta1 = (TAU - theta1).rem_euclid(TAU);
     }
@@ -458,6 +461,7 @@ fn compute_vertex_stream(
     conic: &ConicGradient,
     aspect_ratio: Ratio,
     on_text: bool,
+    on_math: bool,
 ) -> Arc<Vec<u8>> {
     // Generated vertices for the Coons patches
     let mut vertices = Vec::new();
@@ -535,7 +539,7 @@ fn compute_vertex_stream(
                             conic.space.convert(c),
                             c0,
                             angle,
-                            on_text,
+                            on_text && !on_math,
                         );
 
                         write_patch(
@@ -545,7 +549,7 @@ fn compute_vertex_stream(
                             c0,
                             c1,
                             angle,
-                            on_text,
+                            on_text && !on_math,
                         );
 
                         write_patch(
@@ -555,7 +559,7 @@ fn compute_vertex_stream(
                             c1,
                             conic.space.convert(c_next),
                             angle,
-                            on_text,
+                            on_text && !on_math,
                         );
 
                         t_x = t_next;
@@ -571,7 +575,7 @@ fn compute_vertex_stream(
                 conic.space.convert(c),
                 conic.space.convert(c_next),
                 angle,
-                on_text,
+                on_text && !on_math,
             );
 
             t_x = t_next;

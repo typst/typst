@@ -441,7 +441,12 @@ impl Frame {
 
 impl Debug for Frame {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("Frame ")?;
+        f.write_str("Frame(")?;
+        match self.kind {
+            FrameKind::Soft => f.write_str("soft) ")?,
+            FrameKind::Hard => f.write_str("hard) ")?,
+        }
+
         f.debug_list()
             .entries(self.items.iter().map(|(_, item)| item))
             .finish()
@@ -548,6 +553,8 @@ pub struct TextItem {
     pub text: EcoString,
     /// The glyphs.
     pub glyphs: Vec<Glyph>,
+    /// Whether the item is in math mode.
+    pub math: bool,
 }
 
 impl TextItem {

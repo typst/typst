@@ -218,7 +218,7 @@ impl<'a> FlowLayouter<'a> {
         let leading = ParElem::leading_in(styles);
         let consecutive = self.last_was_par;
         let lines = par
-            .layout(vt, styles, consecutive, self.regions.base(), self.regions.expand.x)?
+            .layout(vt, styles, consecutive, self.regions.base(), self.regions.expand.x, false)?
             .into_frames();
 
         let mut sticky = self.items.len();

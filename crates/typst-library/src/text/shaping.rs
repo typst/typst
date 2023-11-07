@@ -38,6 +38,8 @@ pub struct ShapedText<'a> {
     pub width: Abs,
     /// The shaped glyphs.
     pub glyphs: Cow<'a, [ShapedGlyph]>,
+    /// Whether the text is a math expression.
+    pub math: bool,
 }
 
 /// A single glyph resulting from shaping.
@@ -277,6 +279,7 @@ impl<'a> ShapedText<'a> {
                 fill: fill.clone(),
                 text: self.text[range.start - self.base..range.end - self.base].into(),
                 glyphs,
+                math: self.math,
             };
 
             let width = item.width();
@@ -399,6 +402,7 @@ impl<'a> ShapedText<'a> {
                 variant: self.variant,
                 width: glyphs.iter().map(|g| g.x_advance).sum::<Em>().at(self.size),
                 glyphs: Cow::Borrowed(glyphs),
+                math: self.math,
             }
         } else {
             shape(
@@ -410,6 +414,7 @@ impl<'a> ShapedText<'a> {
                 self.dir,
                 self.lang,
                 self.region,
+                self.math,
             )
         }
     }
@@ -569,6 +574,7 @@ pub fn shape<'a>(
     dir: Dir,
     lang: Lang,
     region: Option<Region>,
+    math: bool,
 ) -> ShapedText<'a> {
     let size = TextElem::size_in(styles);
     let mut ctx = ShapingContext {
@@ -607,6 +613,7 @@ pub fn shape<'a>(
         size,
         width: ctx.glyphs.iter().map(|g| g.x_advance).sum::<Em>().at(size),
         glyphs: Cow::Owned(ctx.glyphs),
+        math,
     }
 }
 

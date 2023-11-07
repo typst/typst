@@ -133,6 +133,7 @@ impl ParElem {
         consecutive: bool,
         region: Size,
         expand: bool,
+        math: bool,
     ) -> SourceResult<Fragment> {
         #[comemo::memoize]
         #[allow(clippy::too_many_arguments)]
@@ -147,6 +148,7 @@ impl ParElem {
             consecutive: bool,
             region: Size,
             expand: bool,
+            math: bool,
         ) -> SourceResult<Fragment> {
             let mut locator = Locator::chained(locator);
             let mut vt = Vt {
@@ -164,7 +166,7 @@ impl ParElem {
             // Perform BiDi analysis and then prepare paragraph layout by building a
             // representation on which we can do line breaking without layouting
             // each and every line from scratch.
-            let p = prepare(&mut vt, children, &text, segments, spans, styles, region)?;
+            let p = prepare(&mut vt, children, &text, segments, spans, styles, region, math)?;
 
             // Break the paragraph into lines.
             let lines = linebreak(&vt, &p, region.x - p.hang);
@@ -184,6 +186,7 @@ impl ParElem {
             consecutive,
             region,
             expand,
+            math,
         )?;
 
         vt.locator.visit_frames(&fragment);
@@ -669,6 +672,7 @@ fn prepare<'a>(
     spans: SpanMapper,
     styles: StyleChain<'a>,
     region: Size,
+    math: bool,
 ) -> SourceResult<Preparation<'a>> {
     let dir = TextElem::dir_in(styles);
     let bidi = BidiInfo::new(
@@ -688,7 +692,7 @@ fn prepare<'a>(
         let end = cursor + segment.len();
         match segment {
             Segment::Text(_) => {
-                shape_range(&mut items, vt, &bidi, cursor..end, &spans, styles);
+                shape_range(&mut items, vt, &bidi, cursor..end, &spans, styles, math);
             }
             Segment::Spacing(spacing) => match spacing {
                 Spacing::Rel(v) => {
@@ -802,14 +806,24 @@ fn shape_range<'a>(
     range: Range,
     spans: &SpanMapper,
     styles: StyleChain<'a>,
+    math: bool,
 ) {
     let script = TextElem::script_in(styles);
     let lang = TextElem::lang_in(styles);
     let region = TextElem::region_in(styles);
     let mut process = |range: Range, level: BidiLevel| {
         let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
-        let shaped =
-            shape(vt, range.start, &bidi.text[range], spans, styles, dir, lang, region);
+        let shaped = shape(
+            vt,
+            range.start,
+            &bidi.text[range],
+            spans,
+            styles,
+            dir,
+            lang,
+            region,
+            math,
+        );
         items.push(Item::Text(shaped));
     };
 
