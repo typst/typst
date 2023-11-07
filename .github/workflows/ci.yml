@@ -14,7 +14,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --workspace
-      - run: cargo test --workspace --no-fail-fasto
+      - run: cargo test --workspace --no-fail-fast
 
   fuzz:
     name: Build fuzzers
