@@ -9,7 +9,7 @@ use super::{
     cast, scope, ty, Args, CastInfo, Eval, FlowEvent, IntoValue, Route, Scope, Scopes,
     Tracer, Type, Value, Vm,
 };
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{bail, HintedStrResult, SourceResult, StrResult};
 use crate::model::{
     Content, DelayedErrors, Element, Introspector, Locator, Selector, Vt,
 };
@@ -779,7 +779,7 @@ impl<'a> CapturesVisitor<'a> {
     fn capture(
         &mut self,
         ident: &str,
-        getter: impl FnOnce(&'a Scopes<'a>, &str) -> StrResult<&'a Value>,
+        getter: impl FnOnce(&'a Scopes<'a>, &str) -> HintedStrResult<&'a Value>,
     ) {
         if self.internal.get(ident).is_err() {
             let Some(value) = self
