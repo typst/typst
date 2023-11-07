@@ -46,6 +46,7 @@ pub use self::table::*;
 pub use self::terms::*;
 pub use self::transform::*;
 
+use std::borrow::Cow;
 use std::mem;
 
 use typed_arena::Arena;
@@ -242,16 +243,16 @@ fn realize_root<'a>(
     scratch: &'a Scratch<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
-) -> SourceResult<(Content, StyleChain<'a>)> {
+) -> SourceResult<(Cow<'a, Content>, StyleChain<'a>)> {
     if content.can::<dyn LayoutRoot>() && !applicable(content, styles) {
-        return Ok((content.clone(), styles));
+        return Ok((Cow::Borrowed(content), styles));
     }
 
     let mut builder = Builder::new(vt, scratch, true);
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles), true)?;
     let (pages, shared) = builder.doc.unwrap().pages.finish();
-    Ok((DocumentElem::new(pages.to_vec()).pack(), shared))
+    Ok((Cow::Owned(DocumentElem::new(pages.to_vec()).pack()), shared))
 }
 
 /// Realize into an element that is capable of block-level layout.
@@ -261,7 +262,7 @@ fn realize_block<'a>(
     scratch: &'a Scratch<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
-) -> SourceResult<(Content, StyleChain<'a>)> {
+) -> SourceResult<(Cow<'a, Content>, StyleChain<'a>)> {
     // These elements implement `Layout` but still require a flow for
     // proper layout.
     if content.can::<dyn Layout>()
@@ -277,14 +278,14 @@ fn realize_block<'a>(
         && !content.is::<PlaceElem>()
         && !applicable(content, styles)
     {
-        return Ok((content.clone(), styles));
+        return Ok((Cow::Borrowed(content), styles));
     }
 
     let mut builder = Builder::new(vt, scratch, false);
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
     let (children, shared) = builder.flow.0.finish();
-    Ok((FlowElem::new(children.to_vec()).pack(), shared))
+    Ok((Cow::Owned(FlowElem::new(children.to_vec()).pack()), shared))
 }
 
 /// Builds a document or a flow element from content.
@@ -509,7 +510,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
 /// Accepts pagebreaks and pages.
 struct DocBuilder<'a> {
     /// The page runs built so far.
-    pages: StyleVecBuilder<'a, Content>,
+    pages: StyleVecBuilder<'a, Cow<'a, Content>>,
     /// Whether to keep a following page even if it is empty.
     keep_next: bool,
     /// Whether the next page should be cleared to an even or odd number.
@@ -517,7 +518,7 @@ struct DocBuilder<'a> {
 }
 
 impl<'a> DocBuilder<'a> {
-    fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
+    fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
         if let Some(pagebreak) = content.to::<PagebreakElem>() {
             self.keep_next = !pagebreak.weak(styles);
             self.clear_next = pagebreak.to(styles);
@@ -528,9 +529,9 @@ impl<'a> DocBuilder<'a> {
             let elem = if let Some(clear_to) = self.clear_next.take() {
                 let mut page = page.clone();
                 page.push_clear_to(Some(clear_to));
-                page.pack()
+                Cow::Owned(page.pack())
             } else {
-                content.clone()
+                Cow::Borrowed(content)
             };
 
             self.pages.push(elem, styles);
@@ -571,7 +572,7 @@ impl<'a> FlowBuilder<'a> {
             || content.is::<MetaElem>()
             || content.is::<PlaceElem>()
         {
-            self.0.push(content.clone(), styles);
+            self.0.push(Cow::Borrowed(content), styles);
             return true;
         }
 
@@ -589,7 +590,7 @@ impl<'a> FlowBuilder<'a> {
             if !last_was_parbreak && is_tight_list {
                 let leading = ParElem::leading_in(styles);
                 let spacing = VElem::list_attach(leading.into());
-                self.0.push(spacing.pack(), styles);
+                self.0.push(Cow::Owned(spacing.pack()), styles);
             }
 
             let (above, below) = if let Some(block) = content.to::<BlockElem>() {
@@ -598,9 +599,9 @@ impl<'a> FlowBuilder<'a> {
                 (BlockElem::above_in(styles), BlockElem::below_in(styles))
             };
 
-            self.0.push(above.pack(), styles);
-            self.0.push(content.clone(), styles);
-            self.0.push(below.pack(), styles);
+            self.0.push(Cow::Owned(above.pack()), styles);
+            self.0.push(Cow::Borrowed(content), styles);
+            self.0.push(Cow::Owned(below.pack()), styles);
             return true;
         }
 
@@ -616,7 +617,7 @@ impl<'a> ParBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
         if content.is::<MetaElem>() {
             if self.0.has_strong_elements(false) {
-                self.0.push(content.clone(), styles);
+                self.0.push(Cow::Borrowed(content), styles);
                 return true;
             }
         } else if content.is::<SpaceElem>()
@@ -627,7 +628,7 @@ impl<'a> ParBuilder<'a> {
             || content.to::<EquationElem>().map_or(false, |elem| !elem.block(styles))
             || content.is::<BoxElem>()
         {
-            self.0.push(content.clone(), styles);
+            self.0.push(Cow::Borrowed(content), styles);
             return true;
         }
 
@@ -643,7 +644,7 @@ impl<'a> ParBuilder<'a> {
 /// Accepts list / enum items, spaces, paragraph breaks.
 struct ListBuilder<'a> {
     /// The list items collected so far.
-    items: StyleVecBuilder<'a, Content>,
+    items: StyleVecBuilder<'a, Cow<'a, Content>>,
     /// Whether the list contains no paragraph breaks.
     tight: bool,
     /// Trailing content for which it is unclear whether it is part of the list.
@@ -668,7 +669,7 @@ impl<'a> ListBuilder<'a> {
                 .next()
                 .map_or(true, |first| first.func() == content.func())
         {
-            self.items.push(content.clone(), styles);
+            self.items.push(Cow::Borrowed(content), styles);
             self.tight &= self.staged.drain(..).all(|(t, _)| !t.is::<ParbreakElem>());
             return true;
         }
@@ -685,7 +686,8 @@ impl<'a> ListBuilder<'a> {
                     .iter()
                     .map(|(item, local)| {
                         let item = item.to::<ListItem>().unwrap();
-                        item.clone().with_body(item.body().styled_with_map(local.clone()))
+                        item.clone()
+                            .with_body(item.body().clone().styled_with_map(local.clone()))
                     })
                     .collect::<Vec<_>>(),
             )
@@ -697,7 +699,8 @@ impl<'a> ListBuilder<'a> {
                     .iter()
                     .map(|(item, local)| {
                         let item = item.to::<EnumItem>().unwrap();
-                        item.clone().with_body(item.body().styled_with_map(local.clone()))
+                        item.clone()
+                            .with_body(item.body().clone().styled_with_map(local.clone()))
                     })
                     .collect::<Vec<_>>(),
             )
@@ -710,9 +713,9 @@ impl<'a> ListBuilder<'a> {
                     .map(|(item, local)| {
                         let item = item.to::<TermItem>().unwrap();
                         item.clone()
-                            .with_term(item.term().styled_with_map(local.clone()))
+                            .with_term(item.term().clone().styled_with_map(local.clone()))
                             .with_description(
-                                item.description().styled_with_map(local.clone()),
+                                item.description().clone().styled_with_map(local.clone()),
                             )
                     })
                     .collect::<Vec<_>>(),

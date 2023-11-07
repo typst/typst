@@ -1,13 +1,19 @@
-use ecow::EcoString;
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::cmp::Ordering;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug};
+use std::hash::Hasher;
+use std::sync::Arc;
 
+use ecow::EcoString;
 use once_cell::sync::Lazy;
+use smallvec::SmallVec;
 
 use super::{Content, Selector, Styles};
-use crate::diag::SourceResult;
+use crate::diag::{SourceResult, StrResult};
+use crate::doc::{Lang, Region};
 use crate::eval::{cast, Args, Dict, Func, ParamInfo, Repr, Scope, Value, Vm};
+use crate::model::{Guard, Label, Location};
+use crate::syntax::Span;
 use crate::util::Static;
 
 /// A document element.
@@ -18,6 +24,16 @@ impl Element {
     /// Get the element for `T`.
     pub fn of<T: NativeElement>() -> Self {
         T::elem()
+    }
+
+    /// Extract the field ID for the given field name.
+    pub fn field_id(&self, name: &str) -> Option<u8> {
+        (self.0.field_id)(name)
+    }
+
+    /// Extract the field name for the given field ID.
+    pub fn field_name(&self, id: u8) -> Option<&'static str> {
+        (self.0.field_name)(id)
     }
 
     /// The element's normal name (e.g. `enum`).
@@ -79,7 +95,7 @@ impl Element {
 
     /// Create a selector for this element, filtering for those
     /// that [fields](super::Content::field) match the given argument.
-    pub fn where_(self, fields: Dict) -> Selector {
+    pub fn where_(self, fields: SmallVec<[(u8, Value); 1]>) -> Selector {
         Selector::Elem(self, Some(fields))
     }
 
@@ -92,10 +108,15 @@ impl Element {
     pub fn params(&self) -> &'static [ParamInfo] {
         &(self.0).0.params
     }
+
+    /// The element's local name, if any.
+    pub fn local_name(&self, lang: Lang, region: Option<Region>) -> Option<&'static str> {
+        (self.0).0.local_name.map(|f| f(lang, region))
+    }
 }
 
 impl Debug for Element {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.pad(self.name())
     }
 }
@@ -124,21 +145,120 @@ cast! {
     v: Func => v.element().ok_or("expected element")?,
 }
 
+/// Fields of an element.
+pub trait ElementFields {
+    /// The fields of the element.
+    type Fields;
+}
+
 /// A Typst element that is defined by a native Rust type.
-pub trait NativeElement: Construct + Set + Sized + 'static {
+pub trait NativeElement: Debug + Repr + Construct + Set + Send + Sync + 'static {
     /// Get the element for the native Rust element.
-    fn elem() -> Element {
+    fn elem() -> Element
+    where
+        Self: Sized,
+    {
         Element::from(Self::data())
     }
 
-    /// Get the element data for the native Rust element.
-    fn data() -> &'static NativeElementData;
-
     /// Pack the element into type-erased content.
-    fn pack(self) -> Content;
+    fn pack(self) -> Content
+    where
+        Self: Sized,
+    {
+        Content::new(self)
+    }
 
-    /// Extract this element from type-erased content.
-    fn unpack(content: &Content) -> Option<&Self>;
+    /// Get the element data for the native Rust element.
+    fn data() -> &'static NativeElementData
+    where
+        Self: Sized;
+
+    /// Get the element data for the native Rust element.
+    fn dyn_elem(&self) -> Element;
+
+    /// Dynamically hash the element.
+    fn dyn_hash(&self, hasher: &mut dyn Hasher);
+
+    /// Dynamically compare the element.
+    fn dyn_eq(&self, other: &Content) -> bool;
+
+    /// Dynamically clone the element.
+    fn dyn_clone(&self) -> Arc<dyn NativeElement>;
+
+    /// Get the element as a dynamic value.
+    fn as_any(&self) -> &dyn Any;
+
+    /// Get the element as a mutable dynamic value.
+    fn as_any_mut(&mut self) -> &mut dyn Any;
+
+    /// Get the element as a dynamic value.
+    fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
+
+    /// Get the element's span.
+    ///
+    /// May be detached if it has not been set.
+    fn span(&self) -> Span;
+
+    /// Sets the span of this element.
+    fn set_span(&mut self, span: Span);
+
+    /// Set the element's span.
+    fn spanned(mut self, span: Span) -> Self
+    where
+        Self: Sized,
+    {
+        self.set_span(span);
+        self
+    }
+
+    /// Get the element's label.
+    fn label(&self) -> Option<Label>;
+
+    /// Sets the label of this element.
+    fn set_label(&mut self, label: Label);
+
+    /// Set the element's label.
+    fn labelled(mut self, label: ::typst::model::Label) -> Self
+    where
+        Self: Sized,
+    {
+        self.set_label(label);
+        self
+    }
+
+    /// Get the element's location.
+    fn location(&self) -> Option<Location>;
+
+    /// Sets the location of this element.
+    fn set_location(&mut self, location: Location);
+
+    /// Checks whether the element is guarded by the given guard.
+    fn is_guarded(&self, guard: Guard) -> bool;
+
+    /// Pushes a guard onto the element.
+    fn push_guard(&mut self, guard: Guard);
+
+    /// Whether the element is pristine.
+    fn is_pristine(&self) -> bool;
+
+    /// Mark the element as having been prepared.
+    fn mark_prepared(&mut self);
+
+    /// Whether this element needs preparations.
+    fn needs_preparation(&self) -> bool;
+
+    /// Whether this element has been prepared.
+    fn is_prepared(&self) -> bool;
+
+    /// Get the field with the given field ID.
+    fn field(&self, id: u8) -> Option<Value>;
+
+    /// Set the field with the given ID.
+    fn set_field(&mut self, id: u8, value: Value) -> StrResult<()>;
+
+    /// Get the fields of the element.
+    fn fields(&self) -> Dict;
 }
 
 /// An element's constructor function.
@@ -147,13 +267,17 @@ pub trait Construct {
     ///
     /// This is passed only the arguments that remain after execution of the
     /// element's set rule.
-    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content>;
+    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content>
+    where
+        Self: Sized;
 }
 
 /// An element's set rule.
 pub trait Set {
     /// Parse relevant arguments into style properties for this element.
-    fn set(vm: &mut Vm, args: &mut Args) -> SourceResult<Styles>;
+    fn set(vm: &mut Vm, args: &mut Args) -> SourceResult<Styles>
+    where
+        Self: Sized;
 }
 
 /// Defines a native element.
@@ -166,6 +290,9 @@ pub struct NativeElementData {
     pub construct: fn(&mut Vm, &mut Args) -> SourceResult<Content>,
     pub set: fn(&mut Vm, &mut Args) -> SourceResult<Styles>,
     pub vtable: fn(of: TypeId) -> Option<*const ()>,
+    pub field_id: fn(name: &str) -> Option<u8>,
+    pub field_name: fn(u8) -> Option<&'static str>,
+    pub local_name: Option<fn(Lang, Option<Region>) -> &'static str>,
     pub scope: Lazy<Scope>,
     pub params: Lazy<Vec<ParamInfo>>,
 }
@@ -179,4 +306,10 @@ impl From<&'static NativeElementData> for Element {
 cast! {
     &'static NativeElementData,
     self => Element::from(self).into_value(),
+}
+
+/// The named with which an element is referenced.
+pub trait LocalName {
+    /// Get the name in the given language and (optionally) region.
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str;
 }

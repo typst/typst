@@ -101,6 +101,7 @@ pub struct QuoteElem {
     ///
     /// #bibliography("works.bib")
     /// ```
+    #[borrowed]
     attribution: Option<Attribution>,
 
     /// The quote.
@@ -108,7 +109,7 @@ pub struct QuoteElem {
     body: Content,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Attribution {
     Content(Content),
     Label(Label),
@@ -126,7 +127,7 @@ cast! {
 
 impl Show for QuoteElem {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.body();
+        let mut realized = self.body().clone();
         let block = self.block(styles);
 
         if self.quotes(styles) == Smart::Custom(true) || !block {
@@ -140,16 +141,16 @@ impl Show for QuoteElem {
         if block {
             realized = BlockElem::new().with_body(Some(realized)).pack();
 
-            if let Some(attribution) = self.attribution(styles) {
+            if let Some(attribution) = self.attribution(styles).as_ref() {
                 let mut seq = vec![TextElem::packed('—'), SpaceElem::new().pack()];
 
                 match attribution {
                     Attribution::Content(content) => {
-                        seq.push(content);
+                        seq.push(content.clone());
                     }
                     Attribution::Label(label) => {
                         seq.push(
-                            CiteElem::new(label)
+                            CiteElem::new(*label)
                                 .with_form(Some(CitationForm::Prose))
                                 .pack(),
                         );
@@ -164,7 +165,7 @@ impl Show for QuoteElem {
 
             realized = PadElem::new(realized).pack();
         } else if let Some(Attribution::Label(label)) = self.attribution(styles) {
-            realized += SpaceElem::new().pack() + CiteElem::new(label).pack();
+            realized += SpaceElem::new().pack() + CiteElem::new(*label).pack();
         }
 
         Ok(realized)

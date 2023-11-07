@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::prelude::*;
 
 /// Inserts horizontal spacing into a paragraph.
@@ -71,7 +73,7 @@ impl Behave for HElem {
 
     fn larger(
         &self,
-        prev: &(Content, Behaviour, StyleChain),
+        prev: &(Cow<Content>, Behaviour, StyleChain),
         styles: StyleChain,
     ) -> bool {
         let Some(other) = prev.0.to::<Self>() else { return false };
@@ -173,7 +175,7 @@ impl Behave for VElem {
 
     fn larger(
         &self,
-        prev: &(Content, Behaviour, StyleChain),
+        prev: &(Cow<Content>, Behaviour, StyleChain),
         styles: StyleChain,
     ) -> bool {
         let Some(other) = prev.0.to::<Self>() else { return false };

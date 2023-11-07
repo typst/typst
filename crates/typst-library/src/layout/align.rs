@@ -38,6 +38,9 @@ pub struct AlignElem {
 impl Show for AlignElem {
     #[tracing::instrument(name = "AlignElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(Self::set_alignment(self.alignment(styles))))
+        Ok(self
+            .body()
+            .clone()
+            .styled(Self::set_alignment(self.alignment(styles))))
     }
 }

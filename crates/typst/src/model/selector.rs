@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString, EcoVec};
+use smallvec::SmallVec;
 
 use super::{Content, Element, Label, Locatable, Location};
 use crate::diag::{bail, StrResult};
@@ -11,6 +12,33 @@ use crate::eval::{
     Symbol, Type, Value,
 };
 use crate::util::pretty_array_like;
+
+/// A helper macro to create a field selector used in [`Selector::Elem`]
+///
+/// ```ignore
+/// select_where!(SequenceElem, Children => vec![]);
+/// ```
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __select_where {
+    ($ty:ty $(, $field:ident => $value:expr)* $(,)?) => {{
+        #[allow(unused_mut)]
+        let mut fields = ::smallvec::SmallVec::new();
+        $(
+            fields.push((
+                <$ty as ::typst::model::ElementFields>::Fields::$field as u8,
+                $crate::eval::IntoValue::into_value($value),
+            ));
+        )*
+        ::typst::model::Selector::Elem(
+            <$ty as ::typst::model::NativeElement>::elem(),
+            Some(fields),
+        )
+    }};
+}
+
+#[doc(inline)]
+pub use crate::__select_where as select_where;
 
 /// A filter for selecting elements within the document.
 ///
@@ -55,7 +83,7 @@ pub enum Selector {
     ///
     /// If there is a dictionary, only elements with the fields from the
     /// dictionary match.
-    Elem(Element, Option<Dict>),
+    Elem(Element, Option<SmallVec<[(u8, Value); 1]>>),
     /// Matches the element at the specified location.
     Location(Location),
     /// Matches elements with a specific label.
@@ -101,20 +129,21 @@ impl Selector {
 
     /// Whether the selector matches for the target.
     pub fn matches(&self, target: &Content) -> bool {
+        // TODO: optimize field access to not clone.
         match self {
             Self::Elem(element, dict) => {
                 target.func() == *element
                     && dict
                         .iter()
                         .flat_map(|dict| dict.iter())
-                        .all(|(name, value)| target.field_ref(name) == Some(value))
+                        .all(|(id, value)| target.get(*id).as_ref() == Some(value))
             }
-            Self::Label(label) => target.label() == Some(label),
+            Self::Label(label) => target.label() == Some(*label),
             Self::Regex(regex) => {
                 target.func() == item!(text_elem)
-                    && item!(text_str)(target).map_or(false, |text| regex.is_match(&text))
+                    && item!(text_str)(target).map_or(false, |text| regex.is_match(text))
             }
-            Self::Can(cap) => target.can_type_id(*cap),
+            Self::Can(cap) => target.func().can_type_id(*cap),
             Self::Or(selectors) => selectors.iter().any(move |sel| sel.matches(target)),
             Self::And(selectors) => selectors.iter().all(move |sel| sel.matches(target)),
             Self::Location(location) => target.location() == Some(*location),
@@ -214,6 +243,11 @@ impl Repr for Selector {
         match self {
             Self::Elem(elem, dict) => {
                 if let Some(dict) = dict {
+                    let dict = dict
+                        .iter()
+                        .map(|(id, value)| (elem.field_name(*id).unwrap(), value.clone()))
+                        .map(|(name, value)| (EcoString::from(name).into(), value))
+                        .collect::<Dict>();
                     eco_format!("{}.where{}", elem.name(), dict.repr())
                 } else {
                     elem.name().into()
@@ -261,7 +295,7 @@ cast! {
 ///
 /// Hopefully, this is made obsolete by a more powerful query mechanism in the
 /// future.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct LocatableSelector(pub Selector);
 
 impl Reflect for LocatableSelector {

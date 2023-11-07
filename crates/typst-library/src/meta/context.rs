@@ -37,7 +37,7 @@ impl Show for LocateElem {
     #[tracing::instrument(name = "LocateElem::show", skip(self, vt))]
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(vt.delayed(|vt| {
-            let location = self.0.location().unwrap();
+            let location = self.location().unwrap();
             Ok(self.func().call_vt(vt, [location])?.display())
         }))
     }

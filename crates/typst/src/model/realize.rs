@@ -1,3 +1,7 @@
+use std::borrow::Cow;
+
+use smallvec::smallvec;
+
 use super::{
     Content, Element, MetaElem, NativeElement, Recipe, Selector, StyleChain, Vt,
 };
@@ -54,7 +58,7 @@ pub fn realize(
             let meta = Meta::Elem(elem.clone());
             return Ok(Some(
                 (elem + MetaElem::new().pack().spanned(span))
-                    .styled(MetaElem::set_data(vec![meta])),
+                    .styled(MetaElem::set_data(smallvec![meta])),
             ));
         }
 
@@ -114,7 +118,7 @@ fn try_apply(
         }
 
         Some(Selector::Label(label)) => {
-            if target.label() != Some(label) {
+            if target.label() != Some(*label) {
                 return Ok(None);
             }
 
@@ -126,11 +130,12 @@ fn try_apply(
                 return Ok(None);
             };
 
-            let make = |s: &str| target.clone().with_field("text", s);
+            // We know we are on a `TextElem` and the `text` is always at ID = 0.
+            let make = |s: &str| target.clone().with_field(0, s);
             let mut result = vec![];
             let mut cursor = 0;
 
-            for m in regex.find_iter(&text) {
+            for m in regex.find_iter(text) {
                 let start = m.start();
                 if cursor < start {
                     result.push(make(&text[cursor..start]));
@@ -200,7 +205,7 @@ pub trait Behave {
     #[allow(unused_variables)]
     fn larger(
         &self,
-        prev: &(Content, Behaviour, StyleChain),
+        prev: &(Cow<Content>, Behaviour, StyleChain),
         styles: StyleChain,
     ) -> bool {
         false

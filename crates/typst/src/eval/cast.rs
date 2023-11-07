@@ -1,10 +1,14 @@
 pub use typst_macros::{cast, Cast};
-use unicode_math_class::MathClass;
 
+use std::borrow::Cow;
 use std::fmt::Write;
+use std::hash::Hash;
 use std::ops::Add;
 
+use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
+use smallvec::SmallVec;
+use unicode_math_class::MathClass;
 
 use super::{Repr, Type, Value};
 use crate::diag::{At, SourceResult, StrResult};
@@ -67,6 +71,20 @@ impl Reflect for Value {
 }
 
 impl<T: Reflect> Reflect for Spanned<T> {
+    fn input() -> CastInfo {
+        T::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        T::castable(value)
+    }
+}
+
+impl<T: Reflect> Reflect for Prehashed<T> {
     fn input() -> CastInfo {
         T::input()
     }
@@ -150,9 +168,21 @@ impl IntoValue for Value {
     }
 }
 
+impl<T: IntoValue + Clone> IntoValue for Cow<'_, T> {
+    fn into_value(self) -> Value {
+        self.into_owned().into_value()
+    }
+}
+
 impl<T: IntoValue> IntoValue for Spanned<T> {
     fn into_value(self) -> Value {
         self.v.into_value()
+    }
+}
+
+impl<T: IntoValue + Hash + 'static> IntoValue for Prehashed<T> {
+    fn into_value(self) -> Value {
+        self.into_inner().into_value()
     }
 }
 
@@ -203,6 +233,12 @@ impl FromValue for Value {
     }
 }
 
+impl<T: FromValue + Hash + 'static> FromValue for Prehashed<T> {
+    fn from_value(value: Value) -> StrResult<Self> {
+        Ok(Self::new(T::from_value(value)?))
+    }
+}
+
 impl<T: FromValue> FromValue<Spanned<Value>> for T {
     fn from_value(value: Spanned<Value>) -> StrResult<Self> {
         T::from_value(value.v)
@@ -217,7 +253,7 @@ impl<T: FromValue> FromValue<Spanned<Value>> for Spanned<T> {
 }
 
 /// Describes a possible value for a cast.
-#[derive(Debug, Clone, Hash, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Hash, PartialOrd)]
 pub enum CastInfo {
     /// Any value is okay.
     Any,
@@ -335,7 +371,12 @@ impl<T> Container for Vec<T> {
     type Inner = T;
 }
 
+impl<T, const N: usize> Container for SmallVec<[T; N]> {
+    type Inner = T;
+}
+
 /// An uninhabitable type.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum Never {}
 
 impl Reflect for Never {

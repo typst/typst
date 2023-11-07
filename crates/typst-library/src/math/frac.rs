@@ -29,7 +29,7 @@ pub struct FracElem {
 impl LayoutMath for FracElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.num(), &[self.denom()], false, self.span())
+        layout(ctx, self.num(), std::slice::from_ref(self.denom()), false, self.span())
     }
 }
 
@@ -62,7 +62,7 @@ pub struct BinomElem {
 
 impl LayoutMath for BinomElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.upper(), &self.lower(), true, self.span())
+        layout(ctx, self.upper(), self.lower(), true, self.span())
     }
 }
 

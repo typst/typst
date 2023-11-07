@@ -5,6 +5,7 @@ use std::ops::{Add, AddAssign};
 
 use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 
 use super::{
     cast, func, ops, scope, ty, Args, Bytes, CastInfo, FromValue, Func, IntoValue,
@@ -907,13 +908,39 @@ impl<T> Reflect for Vec<T> {
     }
 }
 
+impl<T: Reflect, const N: usize> Reflect for SmallVec<[T; N]> {
+    fn input() -> CastInfo {
+        Array::input()
+    }
+
+    fn output() -> CastInfo {
+        Array::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        Array::castable(value)
+    }
+}
+
 impl<T: IntoValue> IntoValue for Vec<T> {
     fn into_value(self) -> Value {
         Value::Array(self.into_iter().map(IntoValue::into_value).collect())
     }
 }
 
+impl<T: IntoValue, const N: usize> IntoValue for SmallVec<[T; N]> {
+    fn into_value(self) -> Value {
+        Value::Array(self.into_iter().map(IntoValue::into_value).collect())
+    }
+}
+
 impl<T: FromValue> FromValue for Vec<T> {
+    fn from_value(value: Value) -> StrResult<Self> {
+        value.cast::<Array>()?.into_iter().map(Value::cast).collect()
+    }
+}
+
+impl<T: FromValue, const N: usize> FromValue for SmallVec<[T; N]> {
     fn from_value(value: Value) -> StrResult<Self> {
         value.cast::<Array>()?.into_iter().map(Value::cast).collect()
     }

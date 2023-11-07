@@ -1,3 +1,4 @@
+use comemo::Prehashed;
 use typst::eval::Tracer;
 use typst::model::DelayedErrors;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
@@ -104,7 +105,7 @@ pub struct ParElem {
     /// The paragraph's children.
     #[internal]
     #[variadic]
-    pub children: Vec<Content>,
+    pub children: Vec<Prehashed<Content>>,
 }
 
 impl Construct for ParElem {
@@ -158,12 +159,12 @@ impl ParElem {
             let children = par.children();
 
             // Collect all text into one string for BiDi analysis.
-            let (text, segments, spans) = collect(&children, &styles, consecutive)?;
+            let (text, segments, spans) = collect(children, &styles, consecutive)?;
 
             // Perform BiDi analysis and then prepare paragraph layout by building a
             // representation on which we can do line breaking without layouting
             // each and every line from scratch.
-            let p = prepare(&mut vt, &children, &text, segments, spans, styles, region)?;
+            let p = prepare(&mut vt, children, &text, segments, spans, styles, region)?;
 
             // Break the paragraph into lines.
             let lines = linebreak(&vt, &p, region.x - p.hang);
@@ -246,8 +247,6 @@ pub(crate) struct Preparation<'a> {
     pub items: Vec<Item<'a>>,
     /// The span mapper.
     pub spans: SpanMapper,
-    /// The styles shared by all children.
-    pub styles: StyleChain<'a>,
     /// Whether to hyphenate if it's the same for all children.
     pub hyphenate: Option<bool>,
     /// The text language if it's the same for all children.
@@ -258,8 +257,16 @@ pub(crate) struct Preparation<'a> {
     pub justify: bool,
     /// The paragraph's hanging indent.
     pub hang: Abs,
-    /// The CJK-latin spacing.
+    /// Whether to add spacing between CJK and Latin characters.
     pub cjk_latin_spacing: bool,
+    /// Whether font fallback is enabled for this paragraph.
+    pub fallback: bool,
+    /// The leading of the paragraph.
+    pub leading: Abs,
+    /// How to determine line breaks.
+    pub linebreaks: Smart<Linebreaks>,
+    /// The text size.
+    pub size: Abs,
 }
 
 impl<'a> Preparation<'a> {
@@ -525,15 +532,15 @@ impl<'a> Line<'a> {
 /// string-level preprocessing like case transformations.
 #[allow(clippy::type_complexity)]
 fn collect<'a>(
-    children: &'a [Content],
+    children: &'a [Prehashed<Content>],
     styles: &'a StyleChain<'a>,
     consecutive: bool,
 ) -> SourceResult<(String, Vec<(Segment<'a>, StyleChain<'a>)>, SpanMapper)> {
     let mut full = String::new();
     let mut quoter = Quoter::new();
-    let mut segments = vec![];
+    let mut segments = Vec::with_capacity(2 + children.len());
     let mut spans = SpanMapper::new();
-    let mut iter = children.iter().peekable();
+    let mut iter = children.iter().map(|c| &**c).peekable();
 
     let first_line_indent = ParElem::first_line_indent_in(*styles);
     if !first_line_indent.is_zero()
@@ -565,9 +572,9 @@ fn collect<'a>(
         } else if let Some(elem) = child.to::<TextElem>() {
             let prev = full.len();
             if let Some(case) = TextElem::case_in(styles) {
-                full.push_str(&case.apply(&elem.text()));
+                full.push_str(&case.apply(elem.text()));
             } else {
-                full.push_str(&elem.text());
+                full.push_str(elem.text());
             }
             Segment::Text(full.len() - prev)
         } else if let Some(elem) = child.to::<HElem>() {
@@ -576,7 +583,7 @@ fn collect<'a>(
             }
 
             full.push(SPACING_REPLACE);
-            Segment::Spacing(elem.amount())
+            Segment::Spacing(*elem.amount())
         } else if let Some(elem) = child.to::<LinebreakElem>() {
             let c = if elem.justify(styles) { '\u{2028}' } else { '\n' };
             full.push(c);
@@ -588,7 +595,7 @@ fn collect<'a>(
                 let lang = TextElem::lang_in(styles);
                 let region = TextElem::region_in(styles);
                 let quotes = Quotes::new(
-                    &quotes,
+                    quotes,
                     lang,
                     region,
                     SmartquoteElem::alternative_in(styles),
@@ -656,7 +663,7 @@ fn collect<'a>(
 /// contained inline-level content.
 fn prepare<'a>(
     vt: &mut Vt,
-    children: &'a [Content],
+    children: &'a [Prehashed<Content>],
     text: &'a str,
     segments: Vec<(Segment<'a>, StyleChain<'a>)>,
     spans: SpanMapper,
@@ -674,7 +681,7 @@ fn prepare<'a>(
     );
 
     let mut cursor = 0;
-    let mut items = vec![];
+    let mut items = Vec::with_capacity(segments.len());
 
     // Shape / layout the children and collect them into items.
     for (segment, styles) in segments {
@@ -727,13 +734,16 @@ fn prepare<'a>(
         bidi,
         items,
         spans,
-        styles,
         hyphenate: shared_get(styles, children, TextElem::hyphenate_in),
         lang: shared_get(styles, children, TextElem::lang_in),
         align: AlignElem::alignment_in(styles).resolve(styles).x,
         justify: ParElem::justify_in(styles),
         hang: ParElem::hanging_indent_in(styles),
         cjk_latin_spacing,
+        fallback: TextElem::fallback_in(styles),
+        leading: ParElem::leading_in(styles),
+        linebreaks: ParElem::linebreaks_in(styles),
+        size: TextElem::size_in(styles),
     })
 }
 
@@ -852,7 +862,7 @@ fn is_compatible(a: Script, b: Script) -> bool {
 /// paragraph.
 fn shared_get<T: PartialEq>(
     styles: StyleChain<'_>,
-    children: &[Content],
+    children: &[Prehashed<Content>],
     getter: fn(StyleChain) -> T,
 ) -> Option<T> {
     let value = getter(styles);
@@ -865,8 +875,8 @@ fn shared_get<T: PartialEq>(
 
 /// Find suitable linebreaks.
 fn linebreak<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
-    let linebreaks = ParElem::linebreaks_in(p.styles).unwrap_or_else(|| {
-        if ParElem::justify_in(p.styles) {
+    let linebreaks = p.linebreaks.unwrap_or_else(|| {
+        if p.justify {
             Linebreaks::Optimized
         } else {
             Linebreaks::Simple
@@ -883,7 +893,7 @@ fn linebreak<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
 /// lines greedily, always taking the longest possible line. This may lead to
 /// very unbalanced line, but is fast and simple.
 fn linebreak_simple<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
-    let mut lines = vec![];
+    let mut lines = Vec::with_capacity(16);
     let mut start = 0;
     let mut last = None;
 
@@ -964,8 +974,8 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
         line: line(vt, p, 0..0, Breakpoint::Mandatory),
     }];
 
-    let em = TextElem::size_in(p.styles);
-
+    let em = p.size;
+    let mut lines = Vec::with_capacity(16);
     breakpoints(p, |end, breakpoint| {
         let k = table.len();
         let eof = end == p.bidi.text.len();
@@ -1071,7 +1081,6 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
     });
 
     // Retrace the best path.
-    let mut lines = vec![];
     let mut idx = table.len() - 1;
     while idx != 0 {
         table.truncate(idx + 1);
@@ -1151,7 +1160,7 @@ fn line<'a>(
             if hyphen || start < range.end || before.is_empty() {
                 let mut reshaped = shaped.reshape(vt, &p.spans, start..range.end);
                 if hyphen || shy {
-                    reshaped.push_hyphen(vt, TextElem::fallback_in(p.styles));
+                    reshaped.push_hyphen(vt, p.fallback);
                 }
 
                 if let Some(last_glyph) = reshaped.glyphs.last() {
@@ -1287,11 +1296,10 @@ fn finalize(
         .collect::<SourceResult<_>>()?;
 
     // Prevent orphans.
-    let leading = ParElem::leading_in(p.styles);
     if frames.len() >= 2 && !frames[1].is_empty() {
         let second = frames.remove(1);
         let first = &mut frames[0];
-        merge(first, second, leading);
+        merge(first, second, p.leading);
     }
 
     // Prevent widows.
@@ -1299,7 +1307,7 @@ fn finalize(
     if len >= 2 && !frames[len - 2].is_empty() {
         let second = frames.pop().unwrap();
         let first = frames.last_mut().unwrap();
-        merge(first, second, leading);
+        merge(first, second, p.leading);
     }
 
     Ok(Fragment::frames(frames))

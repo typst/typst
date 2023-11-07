@@ -27,11 +27,11 @@ pub struct ClassElem {
 
 impl LayoutMath for ClassElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        ctx.style(ctx.style.with_class(self.class()));
-        let mut fragment = ctx.layout_fragment(&self.body())?;
+        ctx.style(ctx.style.with_class(*self.class()));
+        let mut fragment = ctx.layout_fragment(self.body())?;
         ctx.unstyle();
 
-        fragment.set_class(self.class());
+        fragment.set_class(*self.class());
         ctx.push(fragment);
         Ok(())
     }

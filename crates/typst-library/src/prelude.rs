@@ -10,6 +10,8 @@ pub use comemo::{Track, Tracked, TrackedMut};
 #[doc(no_inline)]
 pub use ecow::{eco_format, EcoString};
 #[doc(no_inline)]
+pub use smallvec::{smallvec, SmallVec};
+#[doc(no_inline)]
 pub use typst::diag::{bail, error, At, Hint, SourceResult, StrResult};
 #[doc(no_inline)]
 pub use typst::doc::*;
@@ -22,10 +24,10 @@ pub use typst::eval::{
 pub use typst::geom::*;
 #[doc(no_inline)]
 pub use typst::model::{
-    elem, Behave, Behaviour, Construct, Content, Element, Finalize, Fold, Introspector,
-    Label, Locatable, LocatableSelector, Location, Locator, MetaElem, NativeElement,
-    PlainText, Resolve, Selector, Set, Show, StyleChain, StyleVec, Styles, Synthesize,
-    Unlabellable, Vt,
+    elem, select_where, Behave, Behaviour, Construct, Content, Element, ElementFields,
+    Finalize, Fold, Introspector, Label, LocalName, Locatable, LocatableSelector,
+    Location, Locator, MetaElem, NativeElement, PlainText, Resolve, Selector, Set, Show,
+    StyleChain, StyleVec, Styles, Synthesize, Unlabellable, Vt,
 };
 #[doc(no_inline)]
 pub use typst::syntax::{FileId, Span, Spanned};
