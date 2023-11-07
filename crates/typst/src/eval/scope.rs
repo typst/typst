@@ -79,7 +79,7 @@ fn unknown_variable(var: &str) -> HintedString {
         hints: vec![],
     };
 
-    if matches!(var, "none" | "true" | "false" | "auto") {
+    if matches!(var, "none" | "auto" | "false" | "true") {
         res.hints.push(eco_format!(
             "if you meant to use a literal, try adding a hash before it"
         ));

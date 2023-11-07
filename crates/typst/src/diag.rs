@@ -225,7 +225,7 @@ impl<T> Trace<T> for SourceResult<T> {
 /// A result type with a string error message.
 pub type StrResult<T> = Result<T, EcoString>;
 
-/// Convert a [`StrResult`] and [`HintedStrResult`] to a [`SourceResult`] by
+/// Convert a [`StrResult`] or [`HintedStrResult`] to a [`SourceResult`] by
 /// adding span information.
 pub trait At<T> {
     /// Add the span information.
