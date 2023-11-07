@@ -3,13 +3,15 @@ use crate::layout::{BlockElem, HElem, PadElem, Spacing, VElem};
 use crate::meta::{CitationForm, CiteElem};
 use crate::prelude::*;
 
-/// Displays a quote alongside it's author.
+/// Displays a quote alongside an optional attribution.
 ///
 /// # Example
 /// ```example
 /// Plato is often misquoted as the author of #quote[I know that I know
 /// nothing], however, this is a derivation form his original quote:
+///
 /// #set quote(block: true)
+///
 /// #quote(attribution: [Plato])[
 ///   ... ἔοικα γοῦν τούτου γε σμικρῷ τινι αὐτῷ τούτῳ σοφώτερος εἶναι, ὅτι
 ///   ἃ μὴ οἶδα οὐδὲ οἴομαι εἰδέναι.
@@ -33,15 +35,23 @@ use crate::prelude::*;
 ///   flame of Udûn. Go back to the Shadow! You cannot pass.
 /// ]
 /// ```
-#[elem(Finalize, Show)]
+#[elem(Finalize, Show, Synthesize)]
 pub struct QuoteElem {
     /// Whether this is a block quote.
     ///
     /// ```example
-    /// #quote(attribution: [René Descartes])[cogito, ergo sum]
-    ///
-    /// #set quote(block: true)
-    /// #quote(attribution: [JFK])[Ich bin ein Berliner.]
+    /// An inline citation would look like
+    /// this: #quote(
+    ///   attribution: [René Descartes]
+    /// )[
+    ///   cogito, ergo sum
+    /// ], and a block equation like this:
+    /// #quote(
+    ///   block: true,
+    ///   attribution: [JFK]
+    /// )[
+    ///   Ich bin ein Berliner.
+    /// ]
     /// ```
     block: bool,
 
@@ -59,11 +69,16 @@ pub struct QuoteElem {
     ///
     /// ```example
     /// #set text(lang: "de")
+    ///
+    /// Ein deutsch-sprechender Author
+    /// zitiert unter umständen JFK:
     /// #quote[Ich bin ein Berliner.]
     ///
     /// #set text(lang: "en")
-    /// #set quote(quotes: true)
-    /// #quote(block: true)[I am a Berliner.]
+    ///
+    /// And an english speaking one may
+    /// translate the quote:
+    /// #quote[I am a Berliner.]
     /// ```
     quotes: Smart<bool>,
 
@@ -72,34 +87,33 @@ pub struct QuoteElem {
     /// displayed for block quotes, but can be changed using a `{show}` rule.
     ///
     /// ```example
-    /// #quote(attribution: [René Descartes])[cogito, ergo sum] \
-    ///
-    /// #show quote.where(block: false): it => [
-    ///   "#it.body"
-    ///   #if it.attribution != none [(#it.attribution)]
+    /// #quote(attribution: [René Descartes])[
+    ///   cogito, ergo sum
     /// ]
-    /// #quote(attribution: link("https://typst.app/home")[typst.com])[
+    ///
+    /// #show quote.where(block: false): it => {
+    ///   ["] + h(0pt, weak: true) + it.body + h(0pt, weak: true) + ["]
+    ///   if it.attribution != none [ (#it.attribution)]
+    /// }
+    ///
+    /// #quote(
+    ///   attribution: link("https://typst.app/home")[typst.com]
+    /// )[
     ///   Compose papers faster
     /// ]
     ///
     /// #set quote(block: true)
+    ///
     /// #quote(attribution: <tolkien54>)[
-    ///   You cannot pass... I am a servant of the Secret Fire, wielder of the
-    ///   flame of Anor. You cannot pass. The dark fire will not avail you,
-    ///   flame of Udûn. Go back to the Shadow! You cannot pass.
+    ///   You cannot pass... I am a servant
+    ///   of the Secret Fire, wielder of the
+    ///   flame of Anor. You cannot pass. The
+    ///   dark fire will not avail you, flame
+    ///   of Udûn. Go back to the Shadow! You
+    ///   cannot pass.
     /// ]
+    ///
     /// #bibliography("works.bib", style: "apa")
-    /// ```
-    ///
-    /// Note that bilbiography styles which do not include the author in the
-    /// citation (label, numeric and notes) currently produce attributions such
-    /// as `[---#super[1]]` or `[--- [1]]`, this will be fixed soon with CSL
-    /// support. In the mean time you can simply cite yourself:
-    /// ```example
-    /// #set quote(block: true)
-    /// #quote(attribution: [J. R. R. Tolkien, @tolkien54])[In a hole there lived a hobbit.]
-    ///
-    /// #bibliography("works.bib")
     /// ```
     #[borrowed]
     attribution: Option<Attribution>,
@@ -123,6 +137,14 @@ cast! {
     },
     content: Content => Self::Content(content),
     label: Label => Self::Label(label),
+}
+
+impl Synthesize for QuoteElem {
+    fn synthesize(&mut self, _: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+        self.push_block(self.block(styles));
+        self.push_quotes(self.quotes(styles));
+        Ok(())
+    }
 }
 
 impl Show for QuoteElem {
