@@ -26,7 +26,7 @@ jobs:
           toolchain: nightly-2023-11-03
       - uses: Swatinem/rust-cache@v2
       - run: cargo install cargo-fuzz
-      - run: cd tests/fuzz && cargo fuzz build
+      - run: RUSTFLAGS="$RUSTFLAGS -A dead_code" cd tests/fuzz && cargo fuzz build
 
 
   checks:
