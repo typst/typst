@@ -300,7 +300,6 @@ impl GlyphFragment {
             fill: self.fill,
             lang: self.lang,
             text: self.c.into(),
-            math: true,
             glyphs: vec![Glyph {
                 id: self.id.0,
                 x_advance: Em::from_length(self.width, self.font_size),

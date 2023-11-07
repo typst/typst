@@ -553,8 +553,6 @@ pub struct TextItem {
     pub text: EcoString,
     /// The glyphs.
     pub glyphs: Vec<Glyph>,
-    /// Whether the item is in math mode.
-    pub math: bool,
 }
 
 impl TextItem {

@@ -361,17 +361,11 @@ impl PageContext<'_, '_> {
         self.state.size = size;
     }
 
-    fn set_fill(
-        &mut self,
-        fill: &Paint,
-        on_text: bool,
-        on_math: bool,
-        transforms: Transforms,
-    ) {
+    fn set_fill(&mut self, fill: &Paint, on_text: bool, transforms: Transforms) {
         if self.state.fill.as_ref() != Some(fill)
             || matches!(self.state.fill, Some(Paint::Gradient(_)))
         {
-            fill.set_as_fill(self, on_text, on_math, transforms);
+            fill.set_as_fill(self, on_text, transforms);
             self.state.fill = Some(fill.clone());
         }
     }
@@ -504,7 +498,7 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
         glyph_set.entry(g.id).or_insert_with(|| segment.into());
     }
 
-    ctx.set_fill(&text.fill, true, text.math, ctx.state.transforms(Size::zero(), pos));
+    ctx.set_fill(&text.fill, true, ctx.state.transforms(Size::zero(), pos));
     ctx.set_font(&text.font, text.size);
     ctx.set_opacities(None, Some(&text.fill));
     ctx.content.begin_text();
@@ -569,12 +563,7 @@ fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
     }
 
     if let Some(fill) = &shape.fill {
-        ctx.set_fill(
-            fill,
-            false,
-            false,
-            ctx.state.transforms(shape.geometry.bbox_size(), pos),
-        );
+        ctx.set_fill(fill, false, ctx.state.transforms(shape.geometry.bbox_size(), pos));
     }
 
     if let Some(stroke) = stroke {

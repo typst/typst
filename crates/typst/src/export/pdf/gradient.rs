@@ -29,8 +29,6 @@ pub struct PdfGradient {
     pub gradient: Gradient,
     /// Whether the gradient is applied to text.
     pub on_text: bool,
-    /// Whether the gradient is applied to math.
-    pub on_math: bool,
     /// The corrected angle of the gradient.
     pub angle: Angle,
 }
@@ -38,14 +36,8 @@ pub struct PdfGradient {
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
 pub fn write_gradients(ctx: &mut PdfContext) {
-    for PdfGradient {
-        transform,
-        aspect_ratio,
-        gradient,
-        on_text,
-        on_math,
-        angle,
-    } in ctx.gradient_map.items().cloned().collect::<Vec<_>>()
+    for PdfGradient { transform, aspect_ratio, gradient, on_text, angle } in
+        ctx.gradient_map.items().cloned().collect::<Vec<_>>()
     {
         let shading = ctx.alloc.bump();
         ctx.gradient_refs.push(shading);
@@ -74,7 +66,7 @@ pub fn write_gradients(ctx: &mut PdfContext) {
                 let x2 = clamp(x2);
                 let mut y2 = clamp(y2);
 
-                if on_text && !on_math {
+                if on_text {
                     std::mem::swap(&mut y1, &mut y2);
                 }
 
@@ -115,8 +107,7 @@ pub fn write_gradients(ctx: &mut PdfContext) {
                 shading_pattern
             }
             Gradient::Conic(conic) => {
-                let vertices =
-                    compute_vertex_stream(conic, aspect_ratio, on_text, on_math);
+                let vertices = compute_vertex_stream(conic, aspect_ratio, on_text);
 
                 let stream_shading_id = ctx.alloc.bump();
                 let mut stream_shading =
@@ -281,16 +272,10 @@ fn single_gradient(
 }
 
 impl PaintEncode for Gradient {
-    fn set_as_fill(
-        &self,
-        ctx: &mut PageContext,
-        on_text: bool,
-        on_math: bool,
-        transforms: Transforms,
-    ) {
+    fn set_as_fill(&self, ctx: &mut PageContext, on_text: bool, transforms: Transforms) {
         ctx.reset_fill_color_space();
 
-        let id = register_gradient(ctx, self, on_text, on_math, transforms);
+        let id = register_gradient(ctx, self, on_text, transforms);
         let name = Name(id.as_bytes());
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
@@ -300,7 +285,7 @@ impl PaintEncode for Gradient {
     fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms) {
         ctx.reset_stroke_color_space();
 
-        let id = register_gradient(ctx, self, false, false, transforms);
+        let id = register_gradient(ctx, self, false, transforms);
         let name = Name(id.as_bytes());
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
@@ -313,7 +298,6 @@ fn register_gradient(
     ctx: &mut PageContext,
     gradient: &Gradient,
     on_text: bool,
-    on_math: bool,
     mut transforms: Transforms,
 ) -> EcoString {
     // Edge cases for strokes.
@@ -363,7 +347,6 @@ fn register_gradient(
         gradient: gradient.clone(),
         angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
         on_text,
-        on_math,
     };
 
     let index = ctx.parent.gradient_map.insert(pdf_gradient);
@@ -470,7 +453,6 @@ fn compute_vertex_stream(
     conic: &ConicGradient,
     aspect_ratio: Ratio,
     on_text: bool,
-    on_math: bool,
 ) -> Arc<Vec<u8>> {
     // Generated vertices for the Coons patches
     let mut vertices = Vec::new();
@@ -548,7 +530,7 @@ fn compute_vertex_stream(
                             conic.space.convert(c),
                             c0,
                             angle,
-                            on_text && !on_math,
+                            on_text,
                         );
 
                         write_patch(
@@ -558,7 +540,7 @@ fn compute_vertex_stream(
                             c0,
                             c1,
                             angle,
-                            on_text && !on_math,
+                            on_text,
                         );
 
                         write_patch(
@@ -568,7 +550,7 @@ fn compute_vertex_stream(
                             c1,
                             conic.space.convert(c_next),
                             angle,
-                            on_text && !on_math,
+                            on_text,
                         );
 
                         t_x = t_next;
@@ -584,7 +566,7 @@ fn compute_vertex_stream(
                 conic.space.convert(c),
                 conic.space.convert(c_next),
                 angle,
-                on_text && !on_math,
+                on_text,
             );
 
             t_x = t_next;
