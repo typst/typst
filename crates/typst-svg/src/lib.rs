@@ -1278,18 +1278,18 @@ impl ColorEncode for Color {
             Color::Oklch(oklch) => {
                 if oklch.alpha != 1.0 {
                     eco_format!(
-                        "oklch({:?} {:.3} {:?} / {:.3})",
-                        Ratio::new(oklch.l as f64),
+                        "oklch({:.3}% {:.5} {:.3}deg / {:.3})",
+                        oklch.l * 100.0,
                         oklch.chroma,
-                        Angle::deg(oklch.hue.into_degrees() as f64),
+                        oklch.hue.into_degrees(),
                         oklch.alpha
                     )
                 } else {
                     eco_format!(
-                        "oklch({:?} {:.3} {:?})",
-                        Ratio::new(oklch.l as f64),
+                        "oklch({:.3}% {:.5} {:.3}deg)",
+                        oklch.l * 100.0,
                         oklch.chroma,
-                        Angle::deg(oklch.hue.into_degrees() as f64),
+                        oklch.hue.into_degrees(),
                     )
                 }
             }
