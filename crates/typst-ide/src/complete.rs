@@ -1224,6 +1224,11 @@ impl<'a> CompletionContext<'a> {
                         "A custom Oklab color.",
                     );
                     self.snippet_completion(
+                        "oklch()",
+                        "oklch(${l}, ${chroma}, ${hue}, ${alpha})",
+                        "A custom Oklch color.",
+                    );
+                    self.snippet_completion(
                         "color.linear-rgb()",
                         "color.linear-rgb(${r}, ${g}, ${b}, ${a})",
                         "A custom linear RGBA color.",

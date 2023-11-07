@@ -1275,6 +1275,24 @@ impl ColorEncode for Color {
                     )
                 }
             }
+            Color::Oklch(oklch) => {
+                if oklch.alpha != 1.0 {
+                    eco_format!(
+                        "oklch({:?} {:.3} {:?} / {:.3})",
+                        Ratio::new(oklch.l as f64),
+                        oklch.chroma,
+                        Angle::deg(oklch.hue.into_degrees() as f64),
+                        oklch.alpha
+                    )
+                } else {
+                    eco_format!(
+                        "oklch({:?} {:.3} {:?})",
+                        Ratio::new(oklch.l as f64),
+                        oklch.chroma,
+                        Angle::deg(oklch.hue.into_degrees() as f64),
+                    )
+                }
+            }
             Color::Hsl(hsl) => {
                 if hsl.alpha != 1.0 {
                     eco_format!(
