@@ -130,11 +130,16 @@ pub fn csv(
     #[named]
     #[default]
     delimiter: Delimiter,
+    /// Whether the CSV file has a header row.
+    /// Defaults to `{true}`.
+    #[named]
+    #[default(false)]
+    has_headers: bool,
 ) -> SourceResult<Array> {
     let Spanned { v: path, span } = path;
     let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
-    self::csv::decode(Spanned::new(Readable::Bytes(data), span), delimiter)
+    self::csv::decode(Spanned::new(Readable::Bytes(data), span), delimiter, has_headers)
 }
 
 #[scope]
@@ -149,12 +154,24 @@ impl csv {
         #[named]
         #[default]
         delimiter: Delimiter,
+        /// Whether the CSV file has a header row.
+        /// Defaults to `{true}`.
+        #[named]
+        #[default(false)]
+        has_headers: bool,
     ) -> SourceResult<Array> {
         let Spanned { v: data, span } = data;
         let mut builder = ::csv::ReaderBuilder::new();
-        builder.has_headers(false);
+        builder.has_headers(has_headers);
         builder.delimiter(delimiter.0 as u8);
         let mut reader = builder.from_reader(data.as_slice());
+        let mut headers: Option<::csv::StringRecord> = None;
+
+        if has_headers {
+            let headers_result = reader.headers();
+            headers = Some(headers_result.map_err(|err| format_csv_error(err, 1)).at(span)?.clone());
+        }
+
         let mut array = Array::new();
 
         for (line, result) in reader.records().enumerate() {
@@ -163,11 +180,20 @@ impl csv {
             // https://github.com/BurntSushi/rust-csv/issues/184
             let line = line + 1; // Counting lines from 1
             let row = result.map_err(|err| format_csv_error(err, line)).at(span)?;
-            let sub = row.into_iter().map(|field| field.into_value()).collect();
-            array.push(Value::Array(sub))
+            if let Some(headers) = headers.clone() {
+                let mut dict = Dict::new();
+                for (header_field, field) in headers.into_iter().zip(row.into_iter()) { 
+                    let value = field.into_value();
+                    dict.insert(header_field.into(), value)
+                }
+                array.push(dict.into_value())
+            } else {
+                let sub = row.into_iter().map(|field| field.into_value()).collect();
+                array.push(Value::Array(sub))
+            }
         }
 
-        Ok(array)
+        Ok(array)       
     }
 }
 
