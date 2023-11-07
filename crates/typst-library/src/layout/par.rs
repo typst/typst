@@ -665,6 +665,7 @@ fn collect<'a>(
 
 /// Prepare paragraph layout by shaping the whole paragraph and layouting all
 /// contained inline-level content.
+#[allow(clippy::too_many_arguments)]
 fn prepare<'a>(
     vt: &mut Vt,
     children: &'a [Prehashed<Content>],
