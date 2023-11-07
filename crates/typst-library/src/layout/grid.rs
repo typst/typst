@@ -42,7 +42,7 @@ use super::Sizing;
 ///   fill: rgb("e4e5ea"),
 ///   width: 100%,
 /// )
-/// 
+///
 /// #grid(
 ///   columns: (60pt, 1fr, 2fr),
 ///   rows: (auto, 60pt),
@@ -54,7 +54,7 @@ use super::Sizing;
 ///   image("tiger.jpg", height: 100%),
 ///   image("tiger.jpg", height: 100%),
 /// )
-/// 
+///
 /// // We can also "spread" an array of content or strings
 /// #grid(
 ///   columns: 5,
