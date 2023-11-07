@@ -158,7 +158,7 @@ fn label_tooltip(
     };
 
     for (label, detail) in analyze_labels(world, frames).0 {
-        if label.0 == target {
+        if label.as_str() == target {
             return Some(Tooltip::Text(detail?));
         }
     }

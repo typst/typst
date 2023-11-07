@@ -57,7 +57,7 @@ pub struct CancelElem {
     ///   diagonal line of the content box.
     /// - If given an angle, the line is rotated by that angle clockwise w.r.t
     ///   the y-axis.
-    /// - It given a function `angle => angle`, the line is rotated by the angle
+    /// - If given a function `angle => angle`, the line is rotated by the angle
     ///   returned by that function. The function receives the default angle as
     ///   its input.
     ///
@@ -97,7 +97,7 @@ pub struct CancelElem {
 
 impl LayoutMath for CancelElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let body = ctx.layout_fragment(&self.body())?;
+        let body = ctx.layout_fragment(self.body())?;
         // Use the same math class as the body, in order to preserve automatic spacing around it.
         let body_class = body.class().unwrap_or(MathClass::Special);
         let mut body = body.into_frame();
@@ -146,6 +146,7 @@ impl LayoutMath for CancelElem {
 }
 
 /// Defines the cancel line.
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CancelAngle {
     Angle(Angle),
     Func(Func),

@@ -80,3 +80,10 @@
 ]
 
 #test(f(), "nope")
+
+---
+// Test rejection of extra value
+#let f() = [
+  // Error: 16-16 expected semicolon or line break
+  #return a + b Hello World
+]

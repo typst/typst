@@ -66,6 +66,7 @@ pub enum Encoding {
 }
 
 /// A value that can be read from a file.
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Readable {
     /// A decoded string.
     Str(Str),

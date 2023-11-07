@@ -45,7 +45,7 @@ pub struct LangItems {
     /// The text element.
     pub text_elem: Element,
     /// Get the string if this is a text element.
-    pub text_str: fn(&Content) -> Option<EcoString>,
+    pub text_str: fn(&Content) -> Option<&EcoString>,
     /// A smart quote: `'` or `"`.
     pub smart_quote: fn(double: bool) -> Content,
     /// A paragraph break.

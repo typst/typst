@@ -190,13 +190,13 @@ impl Frame {
     ///
     /// This panics if the layer is greater than the number of layers present.
     #[track_caller]
-    pub fn insert(&mut self, layer: usize, pos: Point, items: FrameItem) {
-        Arc::make_mut(&mut self.items).insert(layer, (pos, items));
+    pub fn insert(&mut self, layer: usize, pos: Point, item: FrameItem) {
+        Arc::make_mut(&mut self.items).insert(layer, (pos, item));
     }
 
     /// Add an item at a position in the background.
     pub fn prepend(&mut self, pos: Point, item: FrameItem) {
-        Arc::make_mut(&mut self.items).insert(0, (pos, item));
+        self.insert(0, pos, item);
     }
 
     /// Add multiple items at a position in the background.

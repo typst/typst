@@ -117,8 +117,8 @@ const ANGLE_EPSILON: f32 = 1e-5;
 /// Some popular presets are not included because they are not available under a
 /// free licence. Others, like
 /// [Jet](https://jakevdp.github.io/blog/2014/10/16/how-bad-is-your-colormap/),
-/// are not included because they are not not color blind friendly. Feel free to
-/// use or create a package with other presets that are useful to you!
+/// are not included because they are not color blind friendly. Feel free to use
+/// or create a package with other presets that are useful to you!
 ///
 /// ```preview
 /// #set page(width: auto, height: auto)

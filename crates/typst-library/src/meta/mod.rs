@@ -62,13 +62,15 @@ pub(super) fn define(global: &mut Scope) {
     global.define_func::<query>();
 }
 
-/// The named with which an element is referenced.
-pub trait LocalName {
-    /// Get the name in the given language and (optionally) region.
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str;
-
-    /// Resolve the local name with a style chain.
-    fn local_name_in(&self, styles: StyleChain) -> &'static str {
-        self.local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
+/// An element that has a local name.
+pub trait LocalNameIn: LocalName {
+    /// Gets the local name from the style chain.
+    fn local_name_in(styles: StyleChain) -> &'static str
+    where
+        Self: Sized,
+    {
+        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
     }
 }
+
+impl<T: LocalName> LocalNameIn for T {}

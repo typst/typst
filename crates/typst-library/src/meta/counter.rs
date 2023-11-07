@@ -284,9 +284,9 @@ impl Counter {
             }
 
             if let Some(update) = match elem.to::<UpdateElem>() {
-                Some(elem) => Some(elem.update()),
+                Some(elem) => Some(elem.update().clone()),
                 None => match elem.with::<dyn Count>() {
-                    Some(countable) => countable.update(),
+                    Some(countable) => countable.update().clone(),
                     None => Some(CounterUpdate::Step(NonZeroUsize::ONE)),
                 },
             } {
@@ -301,8 +301,7 @@ impl Counter {
 
     /// The selector relevant for this counter's updates.
     fn selector(&self) -> Selector {
-        let mut selector =
-            Selector::Elem(UpdateElem::elem(), Some(dict! { "key" => self.0.clone() }));
+        let mut selector = select_where!(UpdateElem, Key => self.0.clone());
 
         if let CounterKey::Selector(key) = &self.0 {
             selector = Selector::Or(eco_vec![selector, key.clone()]);
@@ -613,17 +612,18 @@ impl Show for DisplayElem {
     #[tracing::instrument(name = "DisplayElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(vt.delayed(|vt| {
-            let location = self.0.location().unwrap();
+            let location = self.location().unwrap();
             let counter = self.counter();
             let numbering = self
                 .numbering()
+                .clone()
                 .or_else(|| {
                     let CounterKey::Selector(Selector::Elem(func, _)) = counter.0 else {
                         return None;
                     };
 
                     if func == HeadingElem::elem() {
-                        HeadingElem::numbering_in(styles)
+                        HeadingElem::numbering_in(styles).clone()
                     } else if func == FigureElem::elem() {
                         FigureElem::numbering_in(styles)
                     } else if func == EquationElem::elem() {
@@ -634,7 +634,7 @@ impl Show for DisplayElem {
                 })
                 .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
 
-            let state = if self.both() {
+            let state = if *self.both() {
                 counter.both(vt, location)?
             } else {
                 counter.at(vt, location)?
@@ -695,9 +695,9 @@ impl ManualPageCounter {
                 FrameItem::Group(group) => self.visit(vt, &group.frame)?,
                 FrameItem::Meta(Meta::Elem(elem), _) => {
                     let Some(elem) = elem.to::<UpdateElem>() else { continue };
-                    if elem.key() == CounterKey::Page {
+                    if *elem.key() == CounterKey::Page {
                         let mut state = CounterState(smallvec![self.logical]);
-                        state.update(vt, elem.update())?;
+                        state.update(vt, elem.update().clone())?;
                         self.logical = state.first();
                     }
                 }

@@ -1,3 +1,5 @@
+use smallvec::smallvec;
+
 use crate::prelude::*;
 
 /// Hides content without affecting layout.
@@ -22,6 +24,6 @@ pub struct HideElem {
 impl Show for HideElem {
     #[tracing::instrument(name = "HideElem::show", skip(self))]
     fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(MetaElem::set_data(vec![Meta::Hide])))
+        Ok(self.body().clone().styled(MetaElem::set_data(smallvec![Meta::Hide])))
     }
 }

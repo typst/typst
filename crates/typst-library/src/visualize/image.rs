@@ -6,7 +6,7 @@ use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use typst::util::option_eq;
 
 use crate::compute::Readable;
-use crate::meta::{Figurable, LocalName};
+use crate::meta::Figurable;
 use crate::prelude::*;
 use crate::text::families;
 
@@ -41,6 +41,7 @@ pub struct ImageElem {
         let data = vm.world().file(id).at(span)?;
         path
     )]
+    #[borrowed]
     pub path: EcoString,
 
     /// The raw file data.
@@ -157,11 +158,11 @@ impl Layout for ImageElem {
         };
 
         let image = Image::with_fonts(
-            data.into(),
+            data.clone().into(),
             format,
             self.alt(styles),
             vt.world,
-            &families(styles).map(|s| s.as_str().into()).collect::<Vec<_>>(),
+            &families(styles).map(|s| s.into()).collect::<Vec<_>>(),
         )
         .at(self.span())?;
 
@@ -223,7 +224,7 @@ impl Layout for ImageElem {
 }
 
 impl LocalName for ImageElem {
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Figurë",
             Lang::ARABIC => "شكل",

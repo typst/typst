@@ -6,6 +6,7 @@ use super::{
     Counter, CounterKey, HeadingElem, LocalName, Numbering, NumberingPattern, Refable,
 };
 use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem, Spacing};
+use crate::meta::LocalNameIn;
 use crate::prelude::*;
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
 
@@ -88,10 +89,8 @@ pub struct OutlineElem {
     ///   caption: [Experiment results],
     /// )
     /// ```
-    #[default(LocatableSelector(Selector::Elem(
-        HeadingElem::elem(),
-        Some(dict! { "outlined" => true })
-    )))]
+    #[default(LocatableSelector(select_where!(HeadingElem, Outlined => true)))]
+    #[borrowed]
     pub target: LocatableSelector,
 
     /// The maximum level up to which elements are included in the outline. When
@@ -161,6 +160,7 @@ pub struct OutlineElem {
     /// #lorem(10)
     /// ```
     #[default(None)]
+    #[borrowed]
     pub indent: Option<Smart<OutlineIndent>>,
 
     /// Content to fill the space between the title and the page number. Can be
@@ -187,14 +187,9 @@ impl Show for OutlineElem {
         let mut seq = vec![ParbreakElem::new().pack()];
         // Build the outline title.
         if let Some(title) = self.title(styles) {
-            let title =
-                title.unwrap_or_else(|| {
-                    TextElem::packed(self.local_name(
-                        TextElem::lang_in(styles),
-                        TextElem::region_in(styles),
-                    ))
-                    .spanned(self.span())
-                });
+            let title = title.unwrap_or_else(|| {
+                TextElem::packed(Self::local_name_in(styles)).spanned(self.span())
+            });
 
             seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
         }
@@ -217,7 +212,7 @@ impl Show for OutlineElem {
             };
 
             let level = entry.level();
-            if depth < level {
+            if depth < *level {
                 continue;
             }
 
@@ -226,12 +221,12 @@ impl Show for OutlineElem {
             while ancestors
                 .last()
                 .and_then(|ancestor| ancestor.with::<dyn Outlinable>())
-                .map_or(false, |last| last.level() >= level)
+                .map_or(false, |last| last.level() >= *level)
             {
                 ancestors.pop();
             }
 
-            OutlineIndent::apply(&indent, vt, &ancestors, &mut seq, self.span())?;
+            OutlineIndent::apply(indent, vt, &ancestors, &mut seq, self.span())?;
 
             // Add the overridable outline entry, followed by a line break.
             seq.push(entry.pack());
@@ -255,7 +250,7 @@ impl Finalize for OutlineElem {
 }
 
 impl LocalName for OutlineElem {
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Përmbajtja",
             Lang::ARABIC => "المحتويات",
@@ -301,7 +296,7 @@ pub trait Outlinable: Refable {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum OutlineIndent {
     Bool(bool),
     Rel(Rel<Length>),
@@ -497,14 +492,14 @@ impl Show for OutlineEntry {
         };
 
         // The body text remains overridable.
-        seq.push(self.body().linked(Destination::Location(location)));
+        seq.push(self.body().clone().linked(Destination::Location(location)));
 
         // Add filler symbols between the section name and page number.
         if let Some(filler) = self.fill() {
             seq.push(SpaceElem::new().pack());
             seq.push(
                 BoxElem::new()
-                    .with_body(Some(filler))
+                    .with_body(Some(filler.clone()))
                     .with_width(Fr::one().into())
                     .pack(),
             );
@@ -514,7 +509,7 @@ impl Show for OutlineEntry {
         }
 
         // Add the page number.
-        let page = self.page().linked(Destination::Location(location));
+        let page = self.page().clone().linked(Destination::Location(location));
         seq.push(page);
 
         Ok(Content::sequence(seq))

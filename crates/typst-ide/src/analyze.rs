@@ -85,10 +85,10 @@ pub fn analyze_labels(
 
     // Labels in the document.
     for elem in introspector.all() {
-        let Some(label) = elem.label().cloned() else { continue };
+        let Some(label) = elem.label() else { continue };
         let details = elem
-            .field("caption")
-            .or_else(|| elem.field("body"))
+            .get_by_name("caption")
+            .or_else(|| elem.get_by_name("body"))
             .and_then(|field| match field {
                 Value::Content(content) => Some(content),
                 _ => None,
@@ -103,7 +103,7 @@ pub fn analyze_labels(
 
     // Bibliography keys.
     for (key, detail) in (items.bibliography_keys)(introspector.track()) {
-        output.push((Label(key), detail));
+        output.push((Label::new(&key), detail));
     }
 
     (output, split)

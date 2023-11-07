@@ -55,6 +55,7 @@ pub struct TermsElem {
     /// / Colon: A nice separator symbol.
     /// ```
     #[default(HElem::new(Em::new(0.6).into()).with_weak(true).pack())]
+    #[borrowed]
     pub separator: Content,
 
     /// The indentation of each item.
@@ -114,20 +115,20 @@ impl Layout for TermsElem {
             ParElem::leading_in(styles).into()
         } else {
             self.spacing(styles)
-                .unwrap_or_else(|| BlockElem::below_in(styles).amount())
+                .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
         };
 
         let mut seq = vec![];
-        for (i, child) in self.children().into_iter().enumerate() {
+        for (i, child) in self.children().iter().enumerate() {
             if i > 0 {
                 seq.push(VElem::new(gutter).with_weakness(1).pack());
             }
             if !indent.is_zero() {
                 seq.push(HElem::new(indent.into()).pack());
             }
-            seq.push(child.term().strong());
-            seq.push(separator.clone());
-            seq.push(child.description());
+            seq.push(child.term().clone().strong());
+            seq.push((*separator).clone());
+            seq.push(child.description().clone());
         }
 
         Content::sequence(seq)

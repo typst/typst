@@ -49,7 +49,7 @@ impl LayoutMath for VecElem {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(
             ctx,
-            &self.children(),
+            self.children(),
             FixedAlign::Center,
             self.gap(ctx.styles()),
         )?;
@@ -233,7 +233,7 @@ impl LayoutMath for MatElem {
         let delim = self.delim(ctx.styles());
         let frame = layout_mat_body(
             ctx,
-            &rows,
+            rows,
             augment,
             Axes::new(self.column_gap(ctx.styles()), self.row_gap(ctx.styles())),
             self.span(),
@@ -303,7 +303,7 @@ impl LayoutMath for CasesElem {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(
             ctx,
-            &self.children(),
+            self.children(),
             FixedAlign::Start,
             self.gap(ctx.styles()),
         )?;
@@ -562,7 +562,7 @@ fn layout_delimiters(
 
 /// Parameters specifying how augmentation lines
 /// should be drawn on a matrix.
-#[derive(Default, Clone, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct Augment<T: Numeric = Length> {
     pub hline: Offsets,
     pub vline: Offsets,
@@ -573,7 +573,7 @@ impl Augment<Abs> {
     fn stroke_or(&self, fallback: FixedStroke) -> FixedStroke {
         match &self.stroke {
             Smart::Custom(v) => v.clone().unwrap_or(fallback),
-            _ => fallback,
+            Smart::Auto => fallback,
         }
     }
 }
@@ -594,7 +594,13 @@ impl Fold for Augment<Abs> {
     type Output = Augment<Abs>;
 
     fn fold(mut self, outer: Self::Output) -> Self::Output {
-        self.stroke = self.stroke.fold(outer.stroke);
+        // Special case for handling `auto` strokes in subsequent `Augment`.
+        if self.stroke.is_auto() && outer.stroke.is_custom() {
+            self.stroke = outer.stroke;
+        } else {
+            self.stroke = self.stroke.fold(outer.stroke);
+        }
+
         self
     }
 }
@@ -602,19 +608,22 @@ impl Fold for Augment<Abs> {
 cast! {
     Augment,
     self => {
-        let stroke = self.stroke.unwrap_or_default();
+        // if the stroke is auto and there is only one vertical line,
+        if self.stroke.is_auto() && self.hline.0.is_empty() && self.vline.0.len() == 1 {
+            return self.vline.0[0].into_value();
+        }
 
         let d = dict! {
             "hline" => self.hline.into_value(),
             "vline" => self.vline.into_value(),
-            "stroke" => stroke.into_value()
+            "stroke" => self.stroke.into_value()
         };
 
         d.into_value()
     },
     v: isize => Augment {
         hline: Offsets::default(),
-        vline: Offsets(vec![v]),
+        vline: Offsets(smallvec![v]),
         stroke: Smart::Auto,
     },
     mut dict: Dict => {
@@ -636,14 +645,13 @@ cast! {
     self => self.into_value(),
 }
 
-/// The offsets at which augmentation lines
-/// should be drawn on a matrix.
-#[derive(Debug, Default, Clone, Hash)]
-pub struct Offsets(Vec<isize>);
+/// The offsets at which augmentation lines should be drawn on a matrix.
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
+pub struct Offsets(SmallVec<[isize; 1]>);
 
 cast! {
     Offsets,
     self => self.0.into_value(),
-    v: isize => Self(vec![v]),
+    v: isize => Self(smallvec![v]),
     v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
 }

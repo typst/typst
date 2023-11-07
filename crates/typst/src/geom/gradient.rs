@@ -71,10 +71,10 @@ use crate::syntax::{Span, Spanned};
 /// # Relativeness
 /// The location of the `{0%}` and `{100%}` stops is dependant on the dimensions
 /// of a container. This container can either be the shape they are painted on,
-/// or to the closest surrounding container. This is controlled by the
-/// `relative` argument of a gradient constructor. By default, gradients are
-/// relative to the shape they are painted on, unless the gradient is applied on
-/// text, in which case they are relative to the closest ancestor container.
+/// or the closest surrounding container. This is controlled by the `relative`
+/// argument of a gradient constructor. By default, gradients are relative to
+/// the shape they are painted on, unless the gradient is applied on text, in
+/// which case they are relative to the closest ancestor container.
 ///
 /// Typst determines the ancestor container as follows:
 /// - For shapes that are placed at the root/top level of the document, the
@@ -137,9 +137,9 @@ use crate::syntax::{Span, Spanned};
 ///
 /// # Direction
 /// Some gradients are sensitive to direction. For example, a linear gradient
-/// has an angle that determines the its direction. Typst uses a clockwise
-/// angle, with 0° being from left-to-right, 90° from top-to-bottom, 180° from
-/// right-to-left, and 270° from bottom-to-top.
+/// has an angle that determines its direction. Typst uses a clockwise angle,
+/// with 0° being from left to right, 90° from top to bottom, 180° from right to
+/// left, and 270° from bottom to top.
 ///
 /// ```example
 /// >>> #set square(size: 50pt)
@@ -252,7 +252,7 @@ impl Gradient {
     ///
     /// Using these four values, also called the focal point for the starting
     /// circle and the center and radius for the end circle, we can define a
-    /// gradient with more interesting properties than a basic radial gradient:
+    /// gradient with more interesting properties than a basic radial gradient.
     ///
     /// ```example
     /// >>> #set circle(radius: 30pt)

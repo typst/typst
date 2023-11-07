@@ -8,7 +8,7 @@ use typst::font::{Font, FontStyle, FontVariant};
 use typst::util::SliceExt;
 use unicode_script::{Script, UnicodeScript};
 
-use super::{decorate, FontFamily, NumberType, NumberWidth, TextElem};
+use super::{decorate, NumberType, NumberWidth, TextElem};
 use crate::layout::SpanMapper;
 use crate::prelude::*;
 
@@ -320,7 +320,7 @@ impl<'a> ShapedText<'a> {
             for family in families(self.styles) {
                 if let Some(font) = world
                     .book()
-                    .select(family.as_str(), self.variant)
+                    .select(family, self.variant)
                     .and_then(|id| world.font(id))
                 {
                     expand(&font, None);
@@ -424,7 +424,7 @@ impl<'a> ShapedText<'a> {
             None
         };
         let mut chain = families(self.styles)
-            .map(|family| book.select(family.as_str(), self.variant))
+            .map(|family| book.select(family, self.variant))
             .chain(fallback_func.iter().map(|f| f()))
             .flatten();
 
@@ -488,17 +488,35 @@ impl<'a> ShapedText<'a> {
         }
 
         // Find any glyph with the text index.
-        let mut idx = self
-            .glyphs
-            .binary_search_by(|g| {
-                let ordering = g.range.start.cmp(&text_index);
-                if ltr {
-                    ordering
-                } else {
-                    ordering.reverse()
-                }
-            })
-            .ok()?;
+        let found = self.glyphs.binary_search_by(|g: &ShapedGlyph| {
+            let ordering = g.range.start.cmp(&text_index);
+            if ltr {
+                ordering
+            } else {
+                ordering.reverse()
+            }
+        });
+        let mut idx = match found {
+            Ok(idx) => idx,
+            Err(idx) => {
+                // Handle the special case where we break before a '\n'
+                //
+                // For example: (assume `a` is a CJK character with three bytes)
+                // text:  " a     \n b  "
+                // index:   0 1 2 3  4 5
+                // text_index:    ^
+                // glyphs:  0     .  1
+                //
+                // We will get found = Err(1), because '\n' does not have a glyph.
+                // But it's safe to break here. Thus the following condition:
+                // - glyphs[0].end == text_index == 3
+                // - text[3] == '\n'
+                return (idx > 0
+                    && self.glyphs[idx - 1].range.end == text_index
+                    && self.text[text_index - self.base..].starts_with('\n'))
+                .then_some(idx);
+            }
+        };
 
         let next = match towards {
             Side::Left => usize::checked_sub,
@@ -593,11 +611,11 @@ pub fn shape<'a>(
 }
 
 /// Shape text with font fallback using the `families` iterator.
-fn shape_segment(
+fn shape_segment<'a>(
     ctx: &mut ShapingContext,
     base: usize,
     text: &str,
-    mut families: impl Iterator<Item = FontFamily> + Clone,
+    mut families: impl Iterator<Item = &'a str> + Clone,
 ) {
     // Fonts dont have newlines and tabs.
     if text.chars().all(|c| c == '\n' || c == '\t') {
@@ -608,7 +626,7 @@ fn shape_segment(
     let world = ctx.vt.world;
     let book = world.book();
     let mut selection = families.find_map(|family| {
-        book.select(family.as_str(), ctx.variant)
+        book.select(family, ctx.variant)
             .and_then(|id| world.font(id))
             .filter(|font| !ctx.used.contains(font))
     });
@@ -871,7 +889,7 @@ pub fn variant(styles: StyleChain) -> FontVariant {
 }
 
 /// Resolve a prioritized iterator over the font families.
-pub fn families(styles: StyleChain) -> impl Iterator<Item = FontFamily> + Clone {
+pub fn families(styles: StyleChain) -> impl Iterator<Item = &str> + Clone {
     const FALLBACKS: &[&str] = &[
         "linux libertine",
         "twitter color emoji",
@@ -883,7 +901,8 @@ pub fn families(styles: StyleChain) -> impl Iterator<Item = FontFamily> + Clone 
     let tail = if TextElem::fallback_in(styles) { FALLBACKS } else { &[] };
     TextElem::font_in(styles)
         .into_iter()
-        .chain(tail.iter().copied().map(FontFamily::new))
+        .map(|family| family.as_str())
+        .chain(tail.iter().copied())
 }
 
 /// Collect the tags of the OpenType features to apply.

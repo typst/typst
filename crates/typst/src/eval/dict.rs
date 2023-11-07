@@ -171,6 +171,7 @@ impl Dict {
     #[func]
     pub fn remove(
         &mut self,
+        /// The key of the pair to remove.
         key: Str,
         /// A default value to return if the key does not exist.
         #[named]

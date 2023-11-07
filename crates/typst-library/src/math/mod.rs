@@ -32,6 +32,8 @@ pub use self::root::*;
 pub use self::style::*;
 pub use self::underover::*;
 
+use std::borrow::Cow;
+
 use ttf_parser::{GlyphId, Rect};
 use typst::eval::{Module, Scope};
 use typst::font::{Font, FontWeight};
@@ -46,7 +48,7 @@ use self::spacing::*;
 use crate::layout::{AlignElem, BoxElem, HElem, ParElem, Spacing};
 use crate::meta::Supplement;
 use crate::meta::{
-    Count, Counter, CounterUpdate, LocalName, Numbering, Outlinable, Refable,
+    Count, Counter, CounterUpdate, LocalNameIn, Numbering, Outlinable, Refable,
 };
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
@@ -182,7 +184,7 @@ impl Synthesize for EquationElem {
     fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         // Resolve the supplement.
         let supplement = match self.supplement(styles) {
-            Smart::Auto => TextElem::packed(self.local_name_in(styles)),
+            Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => supplement.resolve(vt, [self.clone()])?,
         };
@@ -236,7 +238,7 @@ impl Layout for EquationElem {
         let variant = variant(styles);
         let world = vt.world;
         let Some(font) = families(styles).find_map(|family| {
-            let id = world.book().select(family.as_str(), variant)?;
+            let id = world.book().select(family, variant)?;
             let font = world.font(id)?;
             let _ = font.ttf().tables().math?.constants?;
             Some(font)
@@ -312,7 +314,7 @@ impl Count for EquationElem {
 }
 
 impl LocalName for EquationElem {
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Ekuacion",
             Lang::ARABIC => "معادلة",
@@ -381,7 +383,7 @@ impl Outlinable for EquationElem {
 
         let numbers = self
             .counter()
-            .at(vt, self.0.location().unwrap())?
+            .at(vt, self.location().unwrap())?
             .display(vt, &numbering)?;
 
         Ok(Some(supplement + numbers))
@@ -419,7 +421,7 @@ impl LayoutMath for Content {
         if self.is_sequence() {
             let mut bb = BehavedBuilder::new();
             self.sequence_recursive_for_each(&mut |child: &Content| {
-                bb.push(child.clone(), StyleChain::default())
+                bb.push(Cow::Owned(child.clone()), StyleChain::default())
             });
 
             for (child, _) in bb.finish().0.iter() {

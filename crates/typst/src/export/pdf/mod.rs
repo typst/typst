@@ -207,8 +207,7 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
 
     // A unique ID for this instance of the document. Changes if anything
     // changes in the frames.
-    let instance_id =
-        hash_base64(&(&ctx.document, ctx.document.date.unwrap_or(timestamp)));
+    let instance_id = hash_base64(&ctx.pdf.as_bytes());
 
     if let Some(ident) = ident {
         // A unique ID for the document that stays stable across compilations.
