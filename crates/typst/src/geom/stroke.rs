@@ -2,6 +2,40 @@ use super::*;
 use crate::diag::SourceResult;
 use crate::eval::{dict, Args, Cast, FromValue, NoneValue};
 
+/// Defines how to draw a line.
+///
+/// A stroke has a _paint_ (a solid color or gradient), a _thickness,_ a line
+/// _cap,_ a line _join,_ a _miter limit,_ and a _dash_ pattern. All of these
+/// values are optional and have sensible defaults.
+///
+/// # Example
+/// ```example
+/// #set line(length: 100%)
+/// #stack(
+///   spacing: 1em,
+///   line(stroke: 2pt + red),
+///   line(stroke: (paint: blue, thickness: 4pt, cap: "round")),
+///   line(stroke: (paint: blue, thickness: 1pt, dash: "dashed")),
+///   line(stroke: 2pt + gradient.linear(..color.map.rainbow)),
+/// )
+/// ```
+///
+/// # Simple strokes
+/// You can create a simple solid stroke from a color, a thickness, or a
+/// combination of the two. Specifically, wherever a stroke is expected you can
+/// pass any of the following values:
+///
+/// - A length specifying the stroke's thickness. The color is inherited,
+///   defaulting to black.
+/// - A color to use for the stroke. The thickness is inherited, defaulting to
+///   `{1pt}`.
+/// - A stroke combined from color and thickness using the `+` operator as in
+///   `{2pt + red}`.
+///
+/// For full control, you can also provide a [dictionary]($dictionary) or a
+/// `{stroke}` object to any function that expects a stroke. The dictionary's
+/// keys may include any of the parameters for the constructor function, shown
+/// below.
 #[ty(scope)]
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Stroke<T: Numeric = Length> {
@@ -21,39 +55,23 @@ pub struct Stroke<T: Numeric = Length> {
 
 #[scope]
 impl Stroke {
-    /// Defines how to draw a line.
+    /// Converts a value to a stroke or constructs a stroke with the given
+    /// parameters.
     ///
-    /// A stroke has a _paint_ (a solid color or gradient), a _thickness,_ a
-    /// line _cap,_ a line _join,_ a _miter limit,_ and a _dash_ pattern. All of
-    /// these values are optional and have sensible defaults.
+    /// Note that in most cases you do not need to convert values to strokes in
+    /// order to use them, as they will be converted automatically. However,
+    /// this constructor can be useful to ensure a value has all the fields of a
+    /// stroke.
     ///
-    /// # Example
     /// ```example
-    /// #set line(length: 100%)
-    /// #stack(
-    ///   spacing: 1em,
-    ///   line(stroke: 2pt + red),
-    ///   line(stroke: (paint: blue, thickness: 4pt, cap: "round")),
-    ///   line(stroke: (paint: blue, thickness: 1pt, dash: "dashed")),
-    ///   line(stroke: 2pt + gradient.linear(..color.map.rainbow)),
-    /// )
+    /// #let my-func(x) = {
+    ///     x = stroke(x) // Convert to a stroke
+    ///     [Stroke has thickness #x.thickness.]
+    /// }
+    /// #my-func(3pt) \
+    /// #my-func(red) \
+    /// #my-func(stroke(cap: "round", thickness: 1pt))
     /// ```
-    ///
-    /// # Simple strokes
-    /// You can create a simple solid stroke from a color, a thickness, or a
-    /// combination of the two. Specifically, wherever a stroke is expected you can
-    /// pass any of the following values:
-    ///
-    /// - A length specifying the stroke's thickness. The color is inherited,
-    ///   defaulting to black.
-    /// - A color to use for the stroke. The thickness is inherited, defaulting to
-    ///   `{1pt}`.
-    /// - A stroke combined from color and thickness using the `+` operator as in
-    ///   `{2pt + red}`.
-    ///
-    /// For full control, you can also provide a [dictionary]($dictionary) or a
-    /// `{stroke}` object to any function that expects a stroke. The
-    /// dictionary's keys may include any of the parameters shown below.
     #[func(constructor)]
     pub fn construct(
         /// The real arguments (the other arguments are just for the docs, this
