@@ -11,6 +11,10 @@ cargo-fuzz = true
 arbitrary = { version = "1.3.1", features = ["derive"] }
 libfuzzer-sys = "0.4"
 typst-syntax = { path = "../../crates/typst-syntax" }
+typst-library = { path = "../../crates/typst-library" }
+typst = { path = "../../crates/typst" }
+comemo = "0.3"
+unscanny = "0.1"
 
 # Prevent this from interfering with workspaces
 [workspace]
@@ -22,5 +26,11 @@ debug = 1
 [[bin]]
 name = "parse"
 path = "targets/parse.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "compile"
+path = "targets/compile.rs"
 test = false
 doc = false
