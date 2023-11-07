@@ -225,7 +225,8 @@ impl<T> Trace<T> for SourceResult<T> {
 /// A result type with a string error message.
 pub type StrResult<T> = Result<T, EcoString>;
 
-/// Convert a [`StrResult`] to a [`SourceResult`] by adding span information.
+/// Convert a [`StrResult`] or [`HintedStrResult`] to a [`SourceResult`] by
+/// adding span information.
 pub trait At<T> {
     /// Add the span information.
     fn at(self, span: Span) -> SourceResult<T>;
@@ -259,6 +260,12 @@ pub struct HintedString {
     /// Additional hints to the user, indicating how this error could be avoided
     /// or worked around.
     pub hints: Vec<EcoString>,
+}
+
+impl From<EcoString> for HintedString {
+    fn from(value: EcoString) -> Self {
+        Self { message: value, hints: vec![] }
+    }
 }
 
 impl<T> At<T> for Result<T, HintedString> {

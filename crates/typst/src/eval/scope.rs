@@ -7,7 +7,7 @@ use indexmap::IndexMap;
 use super::{
     Func, IntoValue, Library, Module, NativeFunc, NativeFuncData, NativeType, Type, Value,
 };
-use crate::diag::{bail, StrResult};
+use crate::diag::{bail, HintedStrResult, HintedString, StrResult};
 use crate::model::{Element, NativeElement};
 
 /// A stack of scopes.
@@ -40,7 +40,7 @@ impl<'a> Scopes<'a> {
     }
 
     /// Try to access a variable immutably.
-    pub fn get(&self, var: &str) -> StrResult<&Value> {
+    pub fn get(&self, var: &str) -> HintedStrResult<&Value> {
         std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
             .chain(self.base.map(|base| base.global.scope()))
@@ -49,22 +49,22 @@ impl<'a> Scopes<'a> {
     }
 
     /// Try to access a variable immutably in math.
-    pub fn get_in_math(&self, var: &str) -> StrResult<&Value> {
+    pub fn get_in_math(&self, var: &str) -> HintedStrResult<&Value> {
         std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
             .chain(self.base.map(|base| base.math.scope()))
             .find_map(|scope| scope.get(var))
-            .ok_or_else(|| eco_format!("unknown variable: {}", var))
+            .ok_or_else(|| unknown_variable(var))
     }
 
     /// Try to access a variable mutably.
-    pub fn get_mut(&mut self, var: &str) -> StrResult<&mut Value> {
+    pub fn get_mut(&mut self, var: &str) -> HintedStrResult<&mut Value> {
         std::iter::once(&mut self.top)
             .chain(&mut self.scopes.iter_mut().rev())
             .find_map(|scope| scope.get_mut(var))
             .ok_or_else(|| {
                 match self.base.and_then(|base| base.global.scope().get(var)) {
-                    Some(_) => eco_format!("cannot mutate a constant: {}", var),
+                    Some(_) => eco_format!("cannot mutate a constant: {}", var).into(),
                     _ => unknown_variable(var),
                 }
             })?
@@ -73,16 +73,23 @@ impl<'a> Scopes<'a> {
 
 /// The error message when a variable is not found.
 #[cold]
-fn unknown_variable(var: &str) -> EcoString {
-    if var.contains('-') {
-        eco_format!(
-            "unknown variable: {} - if you meant to use subtraction, \
-             try adding spaces around the minus sign.",
-            var
-        )
-    } else {
-        eco_format!("unknown variable: {}", var)
+fn unknown_variable(var: &str) -> HintedString {
+    let mut res = HintedString {
+        message: eco_format!("unknown variable: {}", var),
+        hints: vec![],
+    };
+
+    if matches!(var, "none" | "auto" | "false" | "true") {
+        res.hints.push(eco_format!(
+            "if you meant to use a literal, try adding a hash before it"
+        ));
+    } else if var.contains('-') {
+        res.hints.push(eco_format!(
+            "if you meant to use subtraction, try adding spaces around the minus sign",
+        ));
     }
+
+    res
 }
 
 /// A map from binding names to values.
@@ -170,8 +177,11 @@ impl Scope {
     }
 
     /// Try to access a variable mutably.
-    pub fn get_mut(&mut self, var: &str) -> Option<StrResult<&mut Value>> {
-        self.map.get_mut(var).map(Slot::write)
+    pub fn get_mut(&mut self, var: &str) -> Option<HintedStrResult<&mut Value>> {
+        self.map
+            .get_mut(var)
+            .map(Slot::write)
+            .map(|res| res.map_err(HintedString::from))
     }
 
     /// Get the category of a definition.
