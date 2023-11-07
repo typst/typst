@@ -36,28 +36,39 @@ use super::Sizing;
 /// instead of an array. For example, `columns:` `{3}` is equivalent to
 /// `columns:` `{(auto, auto, auto)}`.
 ///
-/// # Example
+/// # Examples
+/// The example below demonstrates the different track sizing options.
+///
 /// ```example
-/// #set text(10pt, style: "italic")
-/// #let cell = rect.with(
+/// // We use `rect` to emphasize the
+/// // area of cells.
+/// #set rect(
 ///   inset: 8pt,
 ///   fill: rgb("e4e5ea"),
 ///   width: 100%,
-///   radius: 6pt
 /// )
+///
 /// #grid(
-///   columns: (60pt, 1fr, 60pt),
-///   rows: (60pt, auto),
+///   columns: (60pt, 1fr, 2fr),
+///   rows: (auto, 60pt),
 ///   gutter: 3pt,
-///   cell(height: 100%)[Easy to learn],
-///   cell(height: 100%)[Great output],
-///   cell(height: 100%)[Intuitive],
-///   cell[Our best Typst yet],
-///   cell[
-///     Responsive design in print
-///     for everyone
-///   ],
-///   cell[One more thing...],
+///   rect[Fixed width, auto height],
+///   rect[1/3 of the remains],
+///   rect[2/3 of the remains],
+///   rect(height: 100%)[Fixed height],
+///   image("tiger.jpg", height: 100%),
+///   image("tiger.jpg", height: 100%),
+/// )
+/// ```
+///
+/// You can also [spread]($arguments/#spreading) an array of strings or content
+/// into a grid to populate its cells.
+///
+/// ```example
+/// #grid(
+///   columns: 5,
+///   gutter: 5pt,
+///   ..range(25).map(str)
 /// )
 /// ```
 #[elem(Layout)]
