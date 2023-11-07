@@ -906,7 +906,7 @@ impl Color {
     pub fn negate(self) -> Color {
         match self {
             Self::Luma(c) => Self::Luma(Luma::new(1.0 - c.luma)),
-            Self::Oklab(c) => Self::Oklab(Oklab::new(c.l, 1.0 - c.a, 1.0 - c.b, c.alpha)),
+            Self::Oklab(c) => Self::Oklab(Oklab::new(c.l, -c.a, -c.b, c.alpha)),
             Self::LinearRgb(c) => Self::LinearRgb(LinearRgba::new(
                 1.0 - c.red,
                 1.0 - c.green,
