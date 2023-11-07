@@ -441,7 +441,7 @@ impl Frame {
 
 impl Debug for Frame {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("Frame")?;
+        f.write_str("Frame ")?;
         f.debug_list()
             .entries(self.items.iter().map(|(_, item)| item))
             .finish()
