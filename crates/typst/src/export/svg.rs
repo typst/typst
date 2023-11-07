@@ -1262,7 +1262,7 @@ impl ColorEncode for Color {
                 if oklab.alpha != 1.0 {
                     eco_format!(
                         "oklab({:.3}% {:.5} {:.5} / {:.5})",
-                        oklab.l as f64 * 100.0,
+                        oklab.l * 100.0,
                         oklab.a,
                         oklab.b,
                         oklab.alpha
@@ -1270,7 +1270,7 @@ impl ColorEncode for Color {
                 } else {
                     eco_format!(
                         "oklab({:.3}% {:.5} {:.5})",
-                        oklab.l as f64 * 100.0,
+                        oklab.l * 100.0,
                         oklab.a,
                         oklab.b,
                     )
@@ -1280,17 +1280,17 @@ impl ColorEncode for Color {
                 if hsl.alpha != 1.0 {
                     eco_format!(
                         "hsla({:.3}deg {:.3}% {:.3}% / {:.5})",
-                        hsl.hue.into_degrees() as f64,
-                        hsl.saturation as f64 * 100.0,
-                        hsl.lightness as f64 * 100.0,
+                        hsl.hue.into_degrees(),
+                        hsl.saturation * 100.0,
+                        hsl.lightness * 100.0,
                         hsl.alpha,
                     )
                 } else {
                     eco_format!(
                         "hsl({:.3}deg {:.3}% {:.3}%)",
-                        hsl.hue.into_degrees() as f64,
-                        hsl.saturation as f64 * 100.0,
-                        hsl.lightness as f64 * 100.0,
+                        hsl.hue.into_degrees(),
+                        hsl.saturation * 100.0,
+                        hsl.lightness * 100.0,
                     )
                 }
             }
