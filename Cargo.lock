@@ -2908,9 +2908,7 @@ dependencies = [
  "once_cell",
  "palette",
  "pdf-writer",
- "pixglyph",
  "regex",
- "resvg",
  "roxmltree",
  "rustybuzz",
  "serde",
@@ -2920,7 +2918,6 @@ dependencies = [
  "subsetter",
  "svg2pdf",
  "time",
- "tiny-skia",
  "toml",
  "tracing",
  "ttf-parser",
@@ -2976,6 +2973,7 @@ dependencies = [
  "tracing-subscriber",
  "typst",
  "typst-library",
+ "typst-render",
  "ureq",
  "xz2",
  "zip",
@@ -3066,6 +3064,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "typst-render"
+version = "0.9.0"
+dependencies = [
+ "bytemuck",
+ "comemo",
+ "flate2",
+ "image",
+ "pixglyph",
+ "resvg",
+ "roxmltree",
+ "tiny-skia",
+ "ttf-parser",
+ "typst",
+ "usvg",
+]
+
+[[package]]
 name = "typst-syntax"
 version = "0.9.0"
 dependencies = [
@@ -3095,6 +3110,7 @@ dependencies = [
  "ttf-parser",
  "typst",
  "typst-library",
+ "typst-render",
  "unscanny",
  "walkdir",
 ]

@@ -220,7 +220,7 @@ fn export_image(
         match fmt {
             ImageExportFormat::Png => {
                 let pixmap =
-                    typst::export::render(frame, command.ppi / 72.0, Color::WHITE);
+                    typst_render::render(frame, command.ppi / 72.0, Color::WHITE);
                 pixmap
                     .save_png(path)
                     .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;

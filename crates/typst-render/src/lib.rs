@@ -9,15 +9,14 @@ use pixglyph::Bitmap;
 use resvg::tiny_skia::IntRect;
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
-use usvg::{NodeExt, TreeParsing};
-
-use crate::doc::{Frame, FrameItem, FrameKind, GroupItem, Meta, TextItem};
-use crate::font::Font;
-use crate::geom::{
+use typst::doc::{Frame, FrameItem, FrameKind, GroupItem, Meta, TextItem};
+use typst::font::Font;
+use typst::geom::{
     self, Abs, Axes, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin, Paint,
     PathItem, Point, Ratio, Relative, Shape, Size, Transform,
 };
-use crate::image::{Image, ImageKind, RasterFormat};
+use typst::image::{Image, ImageKind, RasterFormat};
+use usvg::{NodeExt, TreeParsing};
 
 /// Export a frame into a raster image.
 ///
@@ -29,7 +28,7 @@ pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
     let pxh = (pixel_per_pt * size.y.to_f32()).round().max(1.0) as u32;
 
     let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
-    canvas.fill(fill.into());
+    canvas.fill(to_sk_color(fill));
 
     let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
     render_frame(&mut canvas, State::new(size, ts, pixel_per_pt), frame);
@@ -49,7 +48,7 @@ pub fn render_merged(
 ) -> sk::Pixmap {
     let pixmaps: Vec<_> = frames
         .iter()
-        .map(|frame| typst::export::render(frame, pixel_per_pt, frame_fill))
+        .map(|frame| render(frame, pixel_per_pt, frame_fill))
         .collect();
 
     let padding = (pixel_per_pt * padding.to_f32()).round() as u32;
@@ -59,7 +58,7 @@ pub fn render_merged(
         padding + pixmaps.iter().map(|pixmap| pixmap.height() + padding).sum::<u32>();
 
     let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
-    canvas.fill(padding_fill.into());
+    canvas.fill(to_sk_color(padding_fill));
 
     let [x, mut y] = [padding; 2];
     for pixmap in pixmaps {
@@ -173,18 +172,19 @@ fn render_frame(canvas: &mut sk::Pixmap, state: State, frame: &Frame) {
 
 /// Render a group frame with optional transform and clipping into the canvas.
 fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &GroupItem) {
+    let sk_transform = to_sk_transform(&group.transform);
     let state = match group.frame.kind() {
-        FrameKind::Soft => state.pre_translate(pos).pre_concat(group.transform.into()),
+        FrameKind::Soft => state.pre_translate(pos).pre_concat(sk_transform),
         FrameKind::Hard => state
             .pre_translate(pos)
-            .pre_concat(group.transform.into())
+            .pre_concat(sk_transform)
             .pre_concat_container(
                 state
                     .transform
                     .post_concat(state.container_transform.invert().unwrap()),
             )
-            .pre_concat_container(Transform::translate(pos.x, pos.y).into())
-            .pre_concat_container(group.transform.into())
+            .pre_concat_container(to_sk_transform(&Transform::translate(pos.x, pos.y)))
+            .pre_concat_container(sk_transform)
             .with_size(group.frame.size()),
     };
 
@@ -456,8 +456,7 @@ fn write_bitmap<S: PaintSampler>(
         for x in 0..mw {
             for y in 0..mh {
                 let alpha = bitmap.coverage[(y * mw + x) as usize];
-                let color: sk::ColorU8 = sampler.sample((x, y)).into();
-
+                let color = to_sk_color_u8_without_alpha(sampler.sample((x, y)));
                 pixmap.pixels_mut()[((y + 1) * (mw + 2) + (x + 1)) as usize] =
                     sk::ColorU8::from_rgba(
                         color.red(),
@@ -502,8 +501,9 @@ fn write_bitmap<S: PaintSampler>(
                     continue;
                 }
 
-                let color: sk::ColorU8 = sampler.sample((x as _, y as _)).into();
-                let color = bytemuck::cast(color.premultiply());
+                let color = sampler.sample((x as _, y as _));
+                let color =
+                    bytemuck::cast(to_sk_color_u8_without_alpha(color).premultiply());
                 let pi = (y * cw + x) as usize;
                 if cov == 255 {
                     pixels[pi] = color;
@@ -621,8 +621,8 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
             );
             let stroke = sk::Stroke {
                 width,
-                line_cap: line_cap.into(),
-                line_join: line_join.into(),
+                line_cap: to_sk_line_cap(*line_cap),
+                line_join: to_sk_line_join(*line_join),
                 dash,
                 miter_limit: miter_limit.get() as f32,
             };
@@ -740,34 +740,6 @@ fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
     Some(Arc::new(pixmap))
 }
 
-impl From<Transform> for sk::Transform {
-    fn from(transform: Transform) -> Self {
-        let Transform { sx, ky, kx, sy, tx, ty } = transform;
-        sk::Transform::from_row(
-            sx.get() as _,
-            ky.get() as _,
-            kx.get() as _,
-            sy.get() as _,
-            tx.to_f32(),
-            ty.to_f32(),
-        )
-    }
-}
-
-impl From<sk::Transform> for Transform {
-    fn from(value: sk::Transform) -> Self {
-        let sk::Transform { sx, ky, kx, sy, tx, ty } = value;
-        Self {
-            sx: Ratio::new(sx as _),
-            ky: Ratio::new(ky as _),
-            kx: Ratio::new(kx as _),
-            sy: Ratio::new(sy as _),
-            tx: Abs::raw(tx as _),
-            ty: Abs::raw(ty as _),
-        }
-    }
-}
-
 /// Trait for sampling of a paint, used as a generic
 /// abstraction over solid colors and gradients.
 trait PaintSampler: Copy {
@@ -860,18 +832,16 @@ fn to_sk_paint<'a>(
         let mut pixmap = sk::Pixmap::new(width.max(1), height.max(1)).unwrap();
         for x in 0..width {
             for y in 0..height {
-                let color: sk::Color = gradient
-                    .sample_at(
-                        (
-                            (x as f32 + offset.x.to_f32()) * scale.x.get() as f32,
-                            (y as f32 + offset.y.to_f32()) * scale.y.get() as f32,
-                        ),
-                        (width as f32, height as f32),
-                    )
-                    .into();
+                let color = gradient.sample_at(
+                    (
+                        (x as f32 + offset.x.to_f32()) * scale.x.get() as f32,
+                        (y as f32 + offset.y.to_f32()) * scale.y.get() as f32,
+                    ),
+                    (width as f32, height as f32),
+                );
 
                 pixmap.pixels_mut()[(y * width + x) as usize] =
-                    color.premultiply().to_color_u8();
+                    to_sk_color(color).premultiply().to_color_u8();
             }
         }
 
@@ -881,7 +851,7 @@ fn to_sk_paint<'a>(
     let mut sk_paint: sk::Paint<'_> = sk::Paint::default();
     match paint {
         Paint::Solid(color) => {
-            sk_paint.set_color((*color).into());
+            sk_paint.set_color(to_sk_color(*color));
             sk_paint.anti_alias = true;
         }
         Paint::Gradient(gradient) => {
@@ -925,31 +895,42 @@ fn to_sk_paint<'a>(
     sk_paint
 }
 
-impl From<Color> for sk::Color {
-    fn from(color: Color) -> Self {
-        let [r, g, b, a] = color.to_rgba().to_vec4_u8();
-        sk::Color::from_rgba8(r, g, b, a)
+fn to_sk_color(color: Color) -> sk::Color {
+    let [r, g, b, a] = color.to_rgba().to_vec4_u8();
+    sk::Color::from_rgba8(r, g, b, a)
+}
+
+fn to_sk_color_u8_without_alpha(color: Color) -> sk::ColorU8 {
+    let [r, g, b, _] = color.to_rgba().to_vec4_u8();
+    sk::ColorU8::from_rgba(r, g, b, 255)
+}
+
+fn to_sk_line_cap(cap: LineCap) -> sk::LineCap {
+    match cap {
+        LineCap::Butt => sk::LineCap::Butt,
+        LineCap::Round => sk::LineCap::Round,
+        LineCap::Square => sk::LineCap::Square,
     }
 }
 
-impl From<&LineCap> for sk::LineCap {
-    fn from(line_cap: &LineCap) -> Self {
-        match line_cap {
-            LineCap::Butt => sk::LineCap::Butt,
-            LineCap::Round => sk::LineCap::Round,
-            LineCap::Square => sk::LineCap::Square,
-        }
+fn to_sk_line_join(join: LineJoin) -> sk::LineJoin {
+    match join {
+        LineJoin::Miter => sk::LineJoin::Miter,
+        LineJoin::Round => sk::LineJoin::Round,
+        LineJoin::Bevel => sk::LineJoin::Bevel,
     }
 }
 
-impl From<&LineJoin> for sk::LineJoin {
-    fn from(line_join: &LineJoin) -> Self {
-        match line_join {
-            LineJoin::Miter => sk::LineJoin::Miter,
-            LineJoin::Round => sk::LineJoin::Round,
-            LineJoin::Bevel => sk::LineJoin::Bevel,
-        }
-    }
+fn to_sk_transform(transform: &Transform) -> sk::Transform {
+    let Transform { sx, ky, kx, sy, tx, ty } = *transform;
+    sk::Transform::from_row(
+        sx.get() as _,
+        ky.get() as _,
+        kx.get() as _,
+        sy.get() as _,
+        tx.to_f32(),
+        ty.to_f32(),
+    )
 }
 
 /// Allows to build tiny-skia paths from glyph outlines.
@@ -986,13 +967,6 @@ trait AbsExt {
 impl AbsExt for Abs {
     fn to_f32(self) -> f32 {
         self.to_pt() as f32
-    }
-}
-
-impl From<Color> for sk::ColorU8 {
-    fn from(value: Color) -> Self {
-        let [r, g, b, _] = value.to_rgba().to_vec4_u8();
-        sk::ColorU8::from_rgba(r, g, b, 255)
     }
 }
 

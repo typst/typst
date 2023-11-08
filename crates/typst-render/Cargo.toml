@@ -1,0 +1,29 @@
+[package]
+name = "typst-render"
+description = "Raster image exporter for Typst."
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+keywords.workspace = true
+
+[lib]
+doctest = false
+bench = false
+
+[dependencies]
+typst = { workspace = true }
+bytemuck = { workspace = true }
+comemo = { workspace = true }
+flate2 = { workspace = true }
+image = { workspace = true }
+pixglyph = { workspace = true }
+resvg = { workspace = true }
+roxmltree = { workspace = true }
+tiny-skia = { workspace = true }
+ttf-parser = { workspace = true }
+usvg = { workspace = true }

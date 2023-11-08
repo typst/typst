@@ -19,6 +19,7 @@ keywords = ["typst"]
 typst = { path = "crates/typst" }
 typst-library = { path = "crates/typst-library" }
 typst-macros = { path = "crates/typst-macros" }
+typst-render = { path = "crates/typst-render" }
 typst-syntax = { path = "crates/typst-syntax" }
 az = "1.2"
 base64 = "0.21.2"

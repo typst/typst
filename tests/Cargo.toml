@@ -9,6 +9,7 @@ publish = false
 [dev-dependencies]
 typst = { workspace = true }
 typst-library = { workspace = true }
+typst-render = { workspace = true }
 clap = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }

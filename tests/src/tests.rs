@@ -26,7 +26,7 @@ use typst::eval::{
     eco_format, func, Bytes, Datetime, Library, NoneValue, Repr, Tracer, Value,
 };
 use typst::font::{Font, FontBook};
-use typst::geom::{Abs, Color, Smart};
+use typst::geom::{Abs, Color, Smart, Transform};
 use typst::syntax::{FileId, PackageVersion, Source, SyntaxNode, VirtualPath};
 use typst::{World, WorldExt};
 use typst_library::layout::{Margin, PageElem};
@@ -906,7 +906,7 @@ fn render(frames: &[Frame]) -> sk::Pixmap {
         }
     }
 
-    let mut pixmap = typst::export::render_merged(
+    let mut pixmap = typst_render::render_merged(
         frames,
         pixel_per_pt,
         Color::WHITE,
@@ -932,7 +932,7 @@ fn render_links(canvas: &mut sk::Pixmap, ts: sk::Transform, frame: &Frame) {
         let ts = ts.pre_translate(pos.x.to_pt() as f32, pos.y.to_pt() as f32);
         match *item {
             FrameItem::Group(ref group) => {
-                let ts = ts.pre_concat(group.transform.into());
+                let ts = ts.pre_concat(to_sk_transform(&group.transform));
                 render_links(canvas, ts, &group.frame);
             }
             FrameItem::Meta(Meta::Link(_), size) => {
@@ -946,6 +946,18 @@ fn render_links(canvas: &mut sk::Pixmap, ts: sk::Transform, frame: &Frame) {
             _ => {}
         }
     }
+}
+
+fn to_sk_transform(transform: &Transform) -> sk::Transform {
+    let Transform { sx, ky, kx, sy, tx, ty } = *transform;
+    sk::Transform::from_row(
+        sx.get() as _,
+        ky.get() as _,
+        kx.get() as _,
+        sy.get() as _,
+        tx.to_pt() as f32,
+        ty.to_pt() as f32,
+    )
 }
 
 /// A Linear-feedback shift register using XOR as its shifting function.

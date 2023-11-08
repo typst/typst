@@ -34,9 +34,7 @@ miniz_oxide = { workspace = true }
 once_cell = { workspace = true }
 palette = { workspace = true }
 pdf-writer = { workspace = true }
-pixglyph = { workspace = true }
 regex = { workspace = true }
-resvg = { workspace = true }
 roxmltree = { workspace = true }
 rustybuzz = { workspace = true }
 serde = { workspace = true }
@@ -45,7 +43,6 @@ smallvec = { workspace = true }
 subsetter = { workspace = true }
 svg2pdf = { workspace = true }
 time = { workspace = true }
-tiny-skia = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
 ttf-parser = { workspace = true }
