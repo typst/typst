@@ -36,6 +36,12 @@ use crate::eval::{dict, Args, Cast, FromValue, NoneValue};
 /// `{stroke}` object to any function that expects a stroke. The dictionary's
 /// keys may include any of the parameters for the constructor function, shown
 /// below.
+///
+/// # Fields
+/// On a stroke object, you can access any of the fields listed in the
+/// constructor function. For example, `{(2pt + blue).thickness}` is `{2pt}`.
+/// Meanwhile, `{stroke(red).cap}` is `{auto}` because it's unspecified. Fields
+/// set to `{auto}` are inherited.
 #[ty(scope)]
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Stroke<T: Numeric = Length> {
@@ -79,29 +85,37 @@ impl Stroke {
         args: &mut Args,
 
         /// The color or gradient to use for the stroke.
+        ///
+        /// If set to `{auto}`, the value is inherited, defaulting to `{black}`.
         #[external]
-        #[default(Paint::Solid(Color::BLACK))]
-        paint: Paint,
+        #[default(Smart::Auto)]
+        paint: Smart<Paint>,
 
         /// The stroke's thickness.
+        ///
+        /// If set to `{auto}`, the value is inherited, defaulting to `{1pt}`.
         #[external]
-        #[default(Abs::pt(1.0).into())]
-        thickness: Length,
+        #[default(Smart::Auto)]
+        thickness: Smart<Length>,
 
         /// How the ends of the stroke are rendered.
+        ///
+        /// If set to `{auto}`, the value is inherited, defaulting to `{"butt"}`.
         #[external]
-        #[default(LineCap::Butt)]
-        cap: LineCap,
+        #[default(Smart::Auto)]
+        cap: Smart<LineCap>,
 
         /// How sharp turns are rendered.
+        ///
+        /// If set to `{auto}`, the value is inherited, defaulting to `{"miter"}`.
         #[external]
-        #[default(LineJoin::Miter)]
-        join: LineJoin,
+        #[default(Smart::Auto)]
+        join: Smart<LineJoin>,
 
         /// The dash pattern to use. This can be:
         ///
         /// - One of the predefined patterns:
-        ///   - `{"solid"}`
+        ///   - `{"solid"}` or `{none}`
         ///   - `{"dotted"}`
         ///   - `{"densely-dotted"}`
         ///   - `{"loosely-dotted"}`
@@ -117,6 +131,8 @@ impl Stroke {
         ///   above), and `phase` (of type [length]($length)), which defines where in
         ///   the pattern to start drawing.
         ///
+        /// If set to `{auto}`, the value is inherited, defaulting to `{none}`.
+        ///
         /// ```example
         /// #set line(length: 100%, stroke: 2pt)
         /// #stack(
@@ -127,8 +143,8 @@ impl Stroke {
         /// )
         /// ```
         #[external]
-        #[default(None)]
-        dash: Option<DashPattern>,
+        #[default(Smart::Auto)]
+        dash: Smart<Option<DashPattern>>,
 
         /// Number at which protruding sharp bends are rendered with a bevel
         /// instead or a miter join. The higher the number, the sharper an angle
@@ -137,6 +153,8 @@ impl Stroke {
         ///
         /// Specifically, the miter limit is the maximum ratio between the
         /// corner's protrusion length and the stroke's thickness.
+        ///
+        /// If set to `{auto}`, the value is inherited, defaulting to `{4.0}`.
         ///
         /// ```example
         /// #let points = ((15pt, 0pt), (0pt, 30pt), (30pt, 30pt), (10pt, 20pt))
@@ -150,8 +168,8 @@ impl Stroke {
         /// )
         /// ```
         #[external]
-        #[default(4.0)]
-        miter_limit: f64,
+        #[default(Smart::Auto)]
+        miter_limit: Smart<f64>,
     ) -> SourceResult<Stroke> {
         if let Some(stroke) = args.eat::<Stroke>()? {
             return Ok(stroke);
