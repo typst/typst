@@ -88,28 +88,24 @@ impl Stroke {
         ///
         /// If set to `{auto}`, the value is inherited, defaulting to `{black}`.
         #[external]
-        #[default(Smart::Auto)]
         paint: Smart<Paint>,
 
         /// The stroke's thickness.
         ///
         /// If set to `{auto}`, the value is inherited, defaulting to `{1pt}`.
         #[external]
-        #[default(Smart::Auto)]
         thickness: Smart<Length>,
 
         /// How the ends of the stroke are rendered.
         ///
         /// If set to `{auto}`, the value is inherited, defaulting to `{"butt"}`.
         #[external]
-        #[default(Smart::Auto)]
         cap: Smart<LineCap>,
 
         /// How sharp turns are rendered.
         ///
         /// If set to `{auto}`, the value is inherited, defaulting to `{"miter"}`.
         #[external]
-        #[default(Smart::Auto)]
         join: Smart<LineJoin>,
 
         /// The dash pattern to use. This can be:
@@ -143,7 +139,6 @@ impl Stroke {
         /// )
         /// ```
         #[external]
-        #[default(Smart::Auto)]
         dash: Smart<Option<DashPattern>>,
 
         /// Number at which protruding sharp bends are rendered with a bevel
@@ -168,7 +163,6 @@ impl Stroke {
         /// )
         /// ```
         #[external]
-        #[default(Smart::Auto)]
         miter_limit: Smart<f64>,
     ) -> SourceResult<Stroke> {
         if let Some(stroke) = args.eat::<Stroke>()? {
