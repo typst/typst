@@ -6,8 +6,8 @@ use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 
 use super::{
-    cast, scope, ty, Args, CastInfo, Eval, FlowEvent, IntoValue, Route, Scope, Scopes,
-    Tracer, Type, Value, Vm,
+    cast, dict, scope, ty, Args, CastInfo, Eval, FlowEvent, IntoValue, Route, Scope,
+    Scopes, Tracer, Type, Value, Vm,
 };
 use crate::diag::{bail, HintedStrResult, SourceResult, StrResult};
 use crate::model::{
@@ -127,6 +127,21 @@ pub use typst_macros::func;
 /// The only exception are built-in methods like
 /// [`array.push(value)`]($array.push). These can modify the values they are
 /// called on.
+///
+/// # Reflection
+/// You can also get basic reflection information about a function using the
+/// [`arguments`]($function.arguments) function. It lets you query basic
+/// information about the arguments of a function such as its name, its default
+/// value, or whether it is a sink argument.
+///
+/// ```example
+/// repr(function.arguments(eval).map((x) => if "default" in x {
+///   x.default = (x.default)()
+///   x
+/// } else {
+///   x
+/// }))
+/// ```
 #[ty(scope, name = "function")]
 #[derive(Debug, Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
@@ -148,6 +163,8 @@ enum Repr {
     Closure(Arc<Prehashed<Closure>>),
     /// A nested function with pre-applied arguments.
     With(Arc<(Func, Args)>),
+    /// A virtual function with no arguments.
+    Virtual(Arc<VirtualFunc>),
 }
 
 impl Func {
@@ -160,6 +177,7 @@ impl Func {
             Repr::Element(elem) => Some(elem.name()),
             Repr::Closure(closure) => closure.name(),
             Repr::With(with) => with.0.name(),
+            Repr::Virtual(_) => None,
         }
     }
 
@@ -172,6 +190,7 @@ impl Func {
             Repr::Element(elem) => Some(elem.title()),
             Repr::Closure(_) => None,
             Repr::With(with) => with.0.title(),
+            Repr::Virtual(_) => None,
         }
     }
 
@@ -182,6 +201,7 @@ impl Func {
             Repr::Element(elem) => Some(elem.docs()),
             Repr::Closure(_) => None,
             Repr::With(with) => with.0.docs(),
+            Repr::Virtual(_) => None,
         }
     }
 
@@ -192,6 +212,7 @@ impl Func {
             Repr::Element(elem) => Some(elem.params()),
             Repr::Closure(_) => None,
             Repr::With(with) => with.0.params(),
+            Repr::Virtual(_) => None,
         }
     }
 
@@ -209,6 +230,7 @@ impl Func {
             Repr::Element(_) => Some(&CONTENT),
             Repr::Closure(_) => None,
             Repr::With(with) => with.0.returns(),
+            Repr::Virtual(_) => None,
         }
     }
 
@@ -219,6 +241,7 @@ impl Func {
             Repr::Element(elem) => elem.keywords(),
             Repr::Closure(_) => &[],
             Repr::With(with) => with.0.keywords(),
+            Repr::Virtual(_) => &[],
         }
     }
 
@@ -229,6 +252,7 @@ impl Func {
             Repr::Element(elem) => Some(elem.scope()),
             Repr::Closure(_) => None,
             Repr::With(with) => with.0.scope(),
+            Repr::Virtual(_) => None,
         }
     }
 
@@ -278,6 +302,23 @@ impl Func {
                 let route = if vm.file.is_none() { fresh.track() } else { vm.route };
 
                 Closure::call(
+                    self,
+                    vm.world(),
+                    route,
+                    vm.vt.introspector,
+                    vm.vt.locator.track(),
+                    TrackedMut::reborrow_mut(&mut vm.vt.delayed),
+                    TrackedMut::reborrow_mut(&mut vm.vt.tracer),
+                    vm.depth + 1,
+                    args,
+                )
+            }
+            Repr::Virtual(virtual_) => {
+                // Determine the route inside the closure.
+                let fresh = Route::new(virtual_.file);
+                let route = if vm.file.is_none() { fresh.track() } else { vm.route };
+
+                VirtualFunc::call(
                     self,
                     vm.world(),
                     route,
@@ -388,6 +429,29 @@ impl Func {
 
         Ok(element.where_(fields))
     }
+
+    /// Returns the arguments of the function as an [array]($array)
+    /// of [dictionaries]($dictionary).
+    ///
+    /// Each dictionary can contain the following:
+    /// - `name` ([string]($str) or [int]($int)): The name of the argument or
+    ///   its index
+    /// - `default` ([func]($function)): The default value of the argument (if any),
+    ///   can be called with no arguments to obtain the default value.
+    /// - `sink` ([bool]($bool)): Whether the argument is a sink argument.
+    ///
+    /// The `default` and `sink` entries are only present if the argument has a
+    /// default value or is a sink argument, respectively.
+    #[func]
+    pub fn arguments(&self) -> Vec<Argument> {
+        match &self.repr {
+            Repr::Native(native) => native.arguments(),
+            Repr::Element(elem) => arguments_of(elem.params().iter()),
+            Repr::Closure(closure) => closure.arguments(),
+            Repr::With(with) => with.0.arguments(),
+            Repr::Virtual(_) => vec![],
+        }
+    }
 }
 
 impl super::Repr for Func {
@@ -426,6 +490,91 @@ impl From<Element> for Func {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub(super) struct VirtualFunc {
+    /// The function's body's span.
+    pub span: Span,
+    /// The source file where the closure was defined.
+    pub file: Option<FileId>,
+    /// The function's body.
+    pub body: NodeOrNative,
+}
+
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub(super) enum NodeOrNative {
+    /// A syntax node, must be castable to `ast::Expr`.
+    Node(SyntaxNode),
+    /// A native Rust function.
+    Native(fn() -> Value),
+}
+
+impl VirtualFunc {
+    pub fn native(function: fn() -> Value) -> Self {
+        Self {
+            span: Span::detached(),
+            file: None,
+            body: NodeOrNative::Native(function),
+        }
+    }
+    /// Call the virtual function in the context with the arguments.
+    #[comemo::memoize]
+    #[tracing::instrument(skip_all)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn call(
+        func: &Func,
+        world: Tracked<dyn World + '_>,
+        route: Tracked<Route>,
+        introspector: Tracked<Introspector>,
+        locator: Tracked<Locator>,
+        delayed: TrackedMut<DelayedErrors>,
+        tracer: TrackedMut<Tracer>,
+        depth: usize,
+        args: Args,
+    ) -> SourceResult<Value> {
+        let Repr::Virtual(this) = &func.repr else {
+            panic!("`this` must be a virtual function");
+        };
+
+        // Don't leak the scopes from the call site. Instead, we use the scope
+        // of captured variables we collected earlier.
+        let scopes = Scopes::new(None);
+
+        // Prepare VT.
+        let mut locator = Locator::chained(locator);
+        let vt = Vt {
+            world,
+            introspector,
+            locator: &mut locator,
+            delayed,
+            tracer,
+        };
+
+        // Prepare VM.
+        let mut vm = Vm::new(vt, route, this.file, scopes);
+        vm.depth = depth;
+
+        // Ensure all arguments have been used (there shouldn't be any).
+        args.finish()?;
+
+        // Handle control flow.
+        let output = match &this.body {
+            NodeOrNative::Native(nat) => nat(),
+            NodeOrNative::Node(node) => {
+                let expr = node.cast::<ast::Expr>().unwrap();
+                expr.eval(&mut vm)?
+            }
+        };
+        match vm.flow {
+            Some(FlowEvent::Return(_, Some(explicit))) => return Ok(explicit),
+            Some(FlowEvent::Return(_, None)) => {}
+            Some(flow) => bail!(flow.forbidden()),
+            None => {}
+        }
+
+        Ok(output)
+    }
+}
+
 /// A Typst function that is defined by a native Rust type that shadows a
 /// native Rust function.
 pub trait NativeFunc {
@@ -449,6 +598,12 @@ pub struct NativeFuncData {
     pub scope: Lazy<Scope>,
     pub params: Lazy<Vec<ParamInfo>>,
     pub returns: Lazy<CastInfo>,
+}
+
+impl NativeFuncData {
+    pub fn arguments(&self) -> Vec<Argument> {
+        arguments_of(self.params.iter())
+    }
 }
 
 impl From<&'static NativeFuncData> for Func {
@@ -509,6 +664,26 @@ impl Closure {
             .unwrap()
             .name()
             .map(|ident| ident.as_str())
+    }
+
+    /// The arguments of the closure.
+    pub fn arguments(&self) -> Vec<Argument> {
+        let params = self.node.cast::<ast::Closure>().unwrap().params();
+
+        let mut arguments = Vec::new();
+        let mut pos = 0;
+        for p in params.children() {
+            match p {
+                ast::Param::Pos(_) => {
+                    arguments.push(Argument::pos(pos));
+                    pos += 1;
+                }
+                ast::Param::Named(named) => arguments.push(Argument::named(named)),
+                ast::Param::Sink(sink) => arguments.push(Argument::sink(sink)),
+            }
+        }
+
+        arguments
     }
 
     /// Call the function in the context with the arguments.
@@ -793,6 +968,130 @@ impl<'a> CapturesVisitor<'a> {
             self.captures.define_captured(ident, value.clone());
         }
     }
+}
+
+#[derive(PartialEq, Debug, Clone, Hash)]
+pub struct Argument {
+    /// The name or index of the argument.
+    pub name: ArgumentName,
+    /// The default value of the argument.
+    pub default: Option<Func>,
+    /// Is the argument a sink/variadic argument?
+    pub sink: bool,
+}
+
+impl Argument {
+    /// Creates a new position argument information.
+    fn pos(pos: usize) -> Self {
+        Self {
+            name: ArgumentName::Index(pos),
+            default: None,
+            sink: false,
+        }
+    }
+
+    /// Creates a new named argument information.
+    fn named(named: ast::Named) -> Self {
+        Self {
+            name: ArgumentName::Name(named.name().get().clone()),
+            default: Some(Func {
+                repr: Repr::Virtual(Arc::new(VirtualFunc {
+                    span: named.expr().span(),
+                    file: named.expr().span().id(),
+                    body: NodeOrNative::Node(named.expr().to_untyped().clone()),
+                })),
+                span: named.expr().span(),
+            }),
+            sink: false,
+        }
+    }
+
+    /// Creates a new sink argument information.
+    fn sink(sink: ast::Spread) -> Self {
+        Self {
+            name: ArgumentName::Name(sink.name().unwrap().get().clone()),
+            default: None,
+            sink: true,
+        }
+    }
+}
+
+cast! {
+    Argument,
+    self => if self.sink && self.default.is_some() {
+        dict!(
+            "name" => self.name.into_value(),
+            "sink" => self.sink.into_value(),
+            "default" => self.default.clone().into_value(),
+        ).into_value()
+    } else if self.sink {
+        dict!(
+            "name" => self.name.into_value(),
+            "sink" => self.sink.into_value(),
+        ).into_value()
+    } else if self.default.is_some() {
+        dict!(
+            "name" => self.name.into_value(),
+            "default" => self.default.clone().into_value(),
+        ).into_value()
+    } else {
+        dict!(
+            "name" => self.name.into_value(),
+        ).into_value()
+    },
+}
+
+/// The name or index of an argument.
+#[derive(PartialEq, Debug, Clone, Hash)]
+pub enum ArgumentName {
+    /// A named argument.
+    Name(EcoString),
+    /// A positional argument.
+    Index(usize),
+}
+
+cast! {
+    ArgumentName,
+    self => match self {
+        ArgumentName::Name(name) => name.into_value(),
+        ArgumentName::Index(index) => index.into_value(),
+    },
+}
+
+fn arguments_of<'a>(iter: impl ExactSizeIterator<Item = &'a ParamInfo>) -> Vec<Argument> {
+    let mut arguments = Vec::with_capacity(iter.len());
+    let mut pos = 0;
+    for arg in iter {
+        let default = arg.default.map(|fn_| Func {
+            repr: Repr::Virtual(Arc::new(VirtualFunc::native(fn_))),
+            span: Span::detached(),
+        });
+        arguments.push(if arg.variadic {
+            Argument {
+                name: ArgumentName::Name(arg.name.into()),
+                default,
+                sink: true,
+            }
+        } else if arg.named {
+            Argument {
+                name: ArgumentName::Name(arg.name.into()),
+                default,
+                sink: false,
+            }
+        } else {
+            Argument {
+                name: ArgumentName::Index({
+                    let tmp = pos;
+                    pos += 1;
+                    tmp
+                }),
+                default,
+                sink: false,
+            }
+        });
+    }
+
+    arguments
 }
 
 #[cfg(test)]
