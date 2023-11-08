@@ -43,16 +43,41 @@ impl PathExtension for Path {
 }
 
 /// Creates a new rectangle as a path.
-pub fn path_rect(
+pub fn clip_rect(
     size: Size,
     radius: Corners<Rel<Abs>>,
     stroke: &Sides<Option<FixedStroke>>,
 ) -> Path {
-    if stroke.is_uniform() && radius.iter().cloned().all(Rel::is_zero) {
-        Path::rect(size)
+    let stroke_widths = stroke
+        .as_ref()
+        .map(|s| s.as_ref().map_or(Abs::zero(), |s| s.thickness / 2.0));
+
+    let max_radius = (size.x.min(size.y)) / 2.0
+        + stroke_widths.iter().cloned().min().unwrap_or(Abs::zero());
+
+    let radius = radius.map(|side| side.relative_to(max_radius * 2.0).min(max_radius));
+
+    let corners = corners_control_points(size, radius, stroke, stroke_widths);
+
+    let mut path = Path::new();
+    if corners.top_left.arc_inner() {
+        path.arc_move(
+            corners.top_left.start_inner(),
+            corners.top_left.center_inner(),
+            corners.top_left.end_inner(),
+        );
     } else {
-        segmented_path_rect(size, radius, stroke)
+        path.move_to(corners.top_left.center_inner());
     }
+    for corner in [&corners.top_right, &corners.bottom_right, &corners.bottom_left] {
+        if corner.arc_inner() {
+            path.arc_line(corner.start_inner(), corner.center_inner(), corner.end_inner())
+        } else {
+            path.line_to(corner.center_inner());
+        }
+    }
+    path.close_path();
+    path
 }
 
 /// Create a styled rectangle with shapes.
@@ -108,46 +133,6 @@ fn corners_control_points(
             _ => false,
         },
     })
-}
-
-fn segmented_path_rect(
-    size: Size,
-    radius: Corners<Rel<Abs>>,
-    strokes: &Sides<Option<FixedStroke>>,
-) -> Path {
-    let stroke_widths = strokes
-        .as_ref()
-        .map(|s| s.as_ref().map_or(Abs::zero(), |s| s.thickness / 2.0));
-
-    let max_radius = (size.x.min(size.y)) / 2.0
-        + stroke_widths.iter().cloned().min().unwrap_or(Abs::zero());
-
-    let radius = radius.map(|side| side.relative_to(max_radius * 2.0).min(max_radius));
-
-    // insert stroked sides below filled sides
-    let mut path = Path::new();
-    let corners = corners_control_points(size, radius, strokes, stroke_widths);
-    let current = corners.iter().find(|c| !c.same).map(|c| c.corner);
-    if let Some(mut current) = current {
-        // multiple segments
-        // start at a corner with a change between sides and iterate clockwise all other corners
-        let mut last = current;
-        for _ in 0..4 {
-            current = current.next_cw();
-            if corners.get_ref(current).same {
-                continue;
-            }
-            // create segment
-            let start = last;
-            let end = current;
-            last = current;
-            path_segment(start, end, &corners, &mut path);
-        }
-    } else if strokes.top.is_some() {
-        // single segment
-        path_segment(Corner::TopLeft, Corner::TopLeft, &corners, &mut path);
-    }
-    path
 }
 
 /// Use stroke and fill for the rectangle
