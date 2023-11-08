@@ -23,12 +23,25 @@
 #table(columns: data.at(0).len(), ..cells)
 
 ---
+// Test reading CSV data with headers enabled.
+#let data = csv("/files/zoo.csv", has-headers: true)
+#test(data.len(), 3)
+#test(data.at(0).Name, "Debby")
+#test(data.at(2).Weight, "150kg")
+#test(data.at(1).Species, "Tiger")
+
+---
 // Error: 6-16 file not found (searched at typ/compute/nope.csv)
 #csv("nope.csv")
 
 ---
 // Error: 6-22 failed to parse CSV (found 3 instead of 2 fields in line 3)
 #csv("/files/bad.csv")
+
+---
+// Test error numbering with headers enabled.
+// Error: 6-22 failed to parse CSV (found 3 instead of 2 fields in line 3)
+#csv("/files/bad.csv", has-headers: true)
 
 ---
 // Test reading JSON data.
