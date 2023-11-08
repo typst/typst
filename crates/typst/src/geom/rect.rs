@@ -43,12 +43,11 @@ impl PathExtension for Path {
 }
 
 /// Creates a new rectangle as a path.
-pub fn path_rect(
+pub fn clip_rect(
     size: Size,
     radius: Corners<Rel<Abs>>,
     stroke: &Sides<Option<FixedStroke>>,
 ) -> Path {
-    // Rect primitive can't be moved to the inner top left corner trivially
     let stroke_widths = stroke
         .as_ref()
         .map(|s| s.as_ref().map_or(Abs::zero(), |s| s.thickness / 2.0));
