@@ -130,18 +130,19 @@ pub fn csv(
     #[named]
     #[default]
     delimiter: Delimiter,
-    /// Whether the CSV file has a header row.
-    /// When using this option, each row in the CSV file will be represented as an dictionary, where the header field is the key and the row field is the value.
+    /// Whether to use the header row in the CSV file to generate labels the fields in the columns.
+    /// When using this option, each row in the CSV file will be represented as an dictionary, where the header field is the key and the column field is the value.
     /// All rows will be collected into a single array. Header rows will be stripped.
+    /// This option only makes sense when a header row is present in the CSV file.
     /// Defaults to `{false}`.
     #[named]
     #[default(false)]
-    has_headers: bool,
+    use_headers: bool,
 ) -> SourceResult<Array> {
     let Spanned { v: path, span } = path;
     let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
-    self::csv::decode(Spanned::new(Readable::Bytes(data), span), delimiter, has_headers)
+    self::csv::decode(Spanned::new(Readable::Bytes(data), span), delimiter, use_headers)
 }
 
 #[scope]
@@ -156,22 +157,22 @@ impl csv {
         #[named]
         #[default]
         delimiter: Delimiter,
-        /// Whether the CSV file has a header row.
+        /// Whether to use the header row in the CSV file to generate labels the fields in the columns.
         /// Defaults to `{false}`.
         #[named]
         #[default(false)]
-        has_headers: bool,
+        use_headers: bool,
     ) -> SourceResult<Array> {
         let Spanned { v: data, span } = data;
         let mut builder = ::csv::ReaderBuilder::new();
-        builder.has_headers(has_headers);
+        builder.has_headers(use_headers);
         builder.delimiter(delimiter.0 as u8);
         let mut reader = builder.from_reader(data.as_slice());
         let mut headers: Option<::csv::StringRecord> = None;
 
         let mut line_offset: usize = 1; // Counting lines from 1
 
-        if has_headers {
+        if use_headers {
             line_offset = 2; // Counting lines from 2 (1 is header)
             let headers_result = reader.headers();
             headers = Some(
