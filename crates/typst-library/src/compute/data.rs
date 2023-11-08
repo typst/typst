@@ -174,7 +174,12 @@ impl csv {
         if has_headers {
             line_offset = 2; // Counting lines from 2 (1 is header)
             let headers_result = reader.headers();
-            headers = Some(headers_result.map_err(|err| format_csv_error(err, 1)).at(span)?.clone());
+            headers = Some(
+                headers_result
+                    .map_err(|err| format_csv_error(err, 1))
+                    .at(span)?
+                    .clone(),
+            );
         }
 
         let mut array = Array::new();
