@@ -67,7 +67,6 @@ $ attach(
 ) $
 
 ---
-
 // Test radial gradient
 #show math.equation: set text(fill: gradient.radial(..color.map.rainbow, center: (30%, 30%)))
 #show math.equation: box
@@ -79,7 +78,6 @@ $ A = mat(
 ) $
 
 ---
-
 // Test conic gradient
 #show math.equation: set text(fill: gradient.conic(red, blue, angle: 45deg))
 #show math.equation: box
