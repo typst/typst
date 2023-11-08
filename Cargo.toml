@@ -17,8 +17,12 @@ keywords = ["typst"]
 
 [workspace.dependencies]
 typst = { path = "crates/typst" }
+typst-cli = { path = "crates/typst-cli" }
+typst-docs = { path = "crates/typst-docs" }
+typst-ide = { path = "crates/typst-ide" }
 typst-library = { path = "crates/typst-library" }
 typst-macros = { path = "crates/typst-macros" }
+typst-pdf = { path = "crates/typst-pdf" }
 typst-render = { path = "crates/typst-render" }
 typst-svg = { path = "crates/typst-svg" }
 typst-syntax = { path = "crates/typst-syntax" }
@@ -86,6 +90,7 @@ serde_json = "1"
 serde_yaml = "0.9"
 siphasher = "0.3"
 smallvec = { version = "1.11.1", features = ["union", "const_generics", "const_new"] }
+stacker = "0.1.15"
 subsetter = "0.1.1"
 svg2pdf = "0.9"
 syn = { version = "2", features = ["full", "extra-traits"] }

@@ -4,10 +4,10 @@ use std::sync::Arc;
 
 use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Chunk, Filter, Finish, Ref};
+use typst::geom::ColorSpace;
+use typst::image::{ImageKind, RasterFormat, RasterImage, SvgImage};
 
-use super::{deflate, PdfContext};
-use crate::geom::ColorSpace;
-use crate::image::{ImageKind, RasterFormat, RasterImage, SvgImage};
+use crate::{deflate, PdfContext};
 
 /// Embed all used images into the PDF.
 #[tracing::instrument(skip_all)]

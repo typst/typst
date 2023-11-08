@@ -1,24 +1,27 @@
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 use pdf_writer::types::{
     ActionType, AnnotationType, ColorSpaceOperand, LineCapStyle, LineJoinStyle,
     NumberingStyle,
 };
-use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
-
-use super::color::PaintEncode;
-use super::extg::ExtGState;
-use super::{deflate, AbsExt, EmExt, PdfContext};
-use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
-use crate::eval::Repr;
-use crate::font::Font;
-use crate::geom::{
+use pdf_writer::writers::PageLabel;
+use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
+use typst::doc::{
+    Destination, Frame, FrameItem, GroupItem, Meta, PdfPageLabel, PdfPageLabelStyle,
+    TextItem,
+};
+use typst::font::Font;
+use typst::geom::{
     self, Abs, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint, Point,
     Ratio, Shape, Size, Transform,
 };
-use crate::image::Image;
+use typst::image::Image;
+
+use crate::color::PaintEncode;
+use crate::extg::ExtGState;
+use crate::{deflate, AbsExt, EmExt, PdfContext};
 
 /// Construct page objects.
 #[tracing::instrument(skip_all)]
@@ -187,6 +190,55 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
 
     let data = deflate_content(&page.content);
     ctx.pdf.stream(content_id, &data).filter(Filter::FlateDecode);
+}
+
+/// Write the page labels.
+#[tracing::instrument(skip_all)]
+pub fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
+    let mut result = vec![];
+    let mut prev: Option<&PdfPageLabel> = None;
+
+    for (i, page) in ctx.pages.iter().enumerate() {
+        let nr = NonZeroUsize::new(1 + i).unwrap();
+        let Some(label) = &page.label else { continue };
+
+        // Don't create a label if neither style nor prefix are specified.
+        if label.prefix.is_none() && label.style.is_none() {
+            continue;
+        }
+
+        if let Some(pre) = prev {
+            if label.prefix == pre.prefix
+                && label.style == pre.style
+                && label.offset == pre.offset.map(|n| n.saturating_add(1))
+            {
+                prev = Some(label);
+                continue;
+            }
+        }
+
+        let id = ctx.alloc.bump();
+        let mut entry = ctx.pdf.indirect(id).start::<PageLabel>();
+
+        // Only add what is actually provided. Don't add empty prefix string if
+        // it wasn't given for example.
+        if let Some(prefix) = &label.prefix {
+            entry.prefix(TextStr(prefix));
+        }
+
+        if let Some(style) = label.style {
+            entry.style(to_pdf_numbering_style(style));
+        }
+
+        if let Some(offset) = label.offset {
+            entry.offset(offset.get() as i32);
+        }
+
+        result.push((nr, id));
+        prev = Some(label);
+    }
+
+    result
 }
 
 /// Memoized version of [`deflate`] specialized for a page's content stream.
@@ -401,10 +453,10 @@ impl PageContext<'_, '_> {
 
             self.content.set_line_width(thickness.to_f32());
             if self.state.stroke.as_ref().map(|s| &s.line_cap) != Some(line_cap) {
-                self.content.set_line_cap(line_cap.into());
+                self.content.set_line_cap(to_pdf_line_cap(*line_cap));
             }
             if self.state.stroke.as_ref().map(|s| &s.line_join) != Some(line_join) {
-                self.content.set_line_join(line_join.into());
+                self.content.set_line_join(to_pdf_line_join(*line_join));
             }
             if self.state.stroke.as_ref().map(|s| &s.dash_pattern) != Some(dash_pattern) {
                 if let Some(pattern) = dash_pattern {
@@ -680,73 +732,28 @@ fn write_link(ctx: &mut PageContext, pos: Point, dest: &Destination, size: Size)
     ctx.links.push((dest.clone(), rect));
 }
 
-impl From<&LineCap> for LineCapStyle {
-    fn from(line_cap: &LineCap) -> Self {
-        match line_cap {
-            LineCap::Butt => LineCapStyle::ButtCap,
-            LineCap::Round => LineCapStyle::RoundCap,
-            LineCap::Square => LineCapStyle::ProjectingSquareCap,
-        }
+fn to_pdf_line_cap(cap: LineCap) -> LineCapStyle {
+    match cap {
+        LineCap::Butt => LineCapStyle::ButtCap,
+        LineCap::Round => LineCapStyle::RoundCap,
+        LineCap::Square => LineCapStyle::ProjectingSquareCap,
     }
 }
 
-impl From<&LineJoin> for LineJoinStyle {
-    fn from(line_join: &LineJoin) -> Self {
-        match line_join {
-            LineJoin::Miter => LineJoinStyle::MiterJoin,
-            LineJoin::Round => LineJoinStyle::RoundJoin,
-            LineJoin::Bevel => LineJoinStyle::BevelJoin,
-        }
+fn to_pdf_line_join(join: LineJoin) -> LineJoinStyle {
+    match join {
+        LineJoin::Miter => LineJoinStyle::MiterJoin,
+        LineJoin::Round => LineJoinStyle::RoundJoin,
+        LineJoin::Bevel => LineJoinStyle::BevelJoin,
     }
 }
 
-/// Specification for a PDF page label.
-#[derive(Debug, Clone, PartialEq, Hash, Default)]
-pub struct PdfPageLabel {
-    /// Can be any string or none. Will always be prepended to the numbering style.
-    pub prefix: Option<EcoString>,
-    /// Based on the numbering pattern.
-    ///
-    /// If `None` or numbering is a function, the field will be empty.
-    pub style: Option<PdfPageLabelStyle>,
-    /// Offset for the page label start.
-    ///
-    /// Describes where to start counting from when setting a style.
-    /// (Has to be greater or equal than 1)
-    pub offset: Option<NonZeroUsize>,
-}
-
-impl Repr for PdfPageLabel {
-    fn repr(&self) -> EcoString {
-        eco_format!("{self:?}")
-    }
-}
-
-/// A PDF page label number style.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum PdfPageLabelStyle {
-    /// Decimal arabic numerals (1, 2, 3).
-    Arabic,
-    /// Lowercase roman numerals (i, ii, iii).
-    LowerRoman,
-    /// Uppercase roman numerals (I, II, III).
-    UpperRoman,
-    /// Lowercase letters (`a` to `z` for the first 26 pages,
-    /// `aa` to `zz` and so on for the next).
-    LowerAlpha,
-    /// Uppercase letters (`A` to `Z` for the first 26 pages,
-    /// `AA` to `ZZ` and so on for the next).
-    UpperAlpha,
-}
-
-impl From<PdfPageLabelStyle> for NumberingStyle {
-    fn from(value: PdfPageLabelStyle) -> Self {
-        match value {
-            PdfPageLabelStyle::Arabic => Self::Arabic,
-            PdfPageLabelStyle::LowerRoman => Self::LowerRoman,
-            PdfPageLabelStyle::UpperRoman => Self::UpperRoman,
-            PdfPageLabelStyle::LowerAlpha => Self::LowerAlpha,
-            PdfPageLabelStyle::UpperAlpha => Self::UpperAlpha,
-        }
+fn to_pdf_numbering_style(style: PdfPageLabelStyle) -> NumberingStyle {
+    match style {
+        PdfPageLabelStyle::Arabic => NumberingStyle::Arabic,
+        PdfPageLabelStyle::LowerRoman => NumberingStyle::LowerRoman,
+        PdfPageLabelStyle::UpperRoman => NumberingStyle::UpperRoman,
+        PdfPageLabelStyle::LowerAlpha => NumberingStyle::LowerAlpha,
+        PdfPageLabelStyle::UpperAlpha => NumberingStyle::UpperAlpha,
     }
 }

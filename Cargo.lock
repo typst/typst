@@ -2892,22 +2892,17 @@ checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
 name = "typst"
 version = "0.9.0"
 dependencies = [
- "base64",
  "bitflags 2.4.1",
- "bytemuck",
  "comemo",
  "ecow",
- "flate2",
  "fontdb",
  "image",
  "indexmap 2.0.2",
  "kurbo",
  "lasso",
  "log",
- "miniz_oxide",
  "once_cell",
  "palette",
- "pdf-writer",
  "regex",
  "roxmltree",
  "rustybuzz",
@@ -2915,22 +2910,16 @@ dependencies = [
  "siphasher",
  "smallvec",
  "stacker",
- "subsetter",
- "svg2pdf",
  "time",
  "toml",
  "tracing",
  "ttf-parser",
  "typst-macros",
  "typst-syntax",
- "unicode-ident",
  "unicode-math-class",
- "unicode-properties",
  "unicode-segmentation",
- "unscanny",
  "usvg",
  "wasmi",
- "xmp-writer",
 ]
 
 [[package]]
@@ -2971,6 +2960,7 @@ dependencies = [
  "tracing-subscriber",
  "typst",
  "typst-library",
+ "typst-pdf",
  "typst-render",
  "typst-svg",
  "ureq",
@@ -3063,6 +3053,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "typst-pdf"
+version = "0.9.0"
+dependencies = [
+ "base64",
+ "bytemuck",
+ "comemo",
+ "ecow",
+ "image",
+ "miniz_oxide",
+ "once_cell",
+ "pdf-writer",
+ "subsetter",
+ "svg2pdf",
+ "tracing",
+ "ttf-parser",
+ "typst",
+ "unicode-properties",
+ "unscanny",
+ "xmp-writer",
+]
+
+[[package]]
 name = "typst-render"
 version = "0.9.0"
 dependencies = [
@@ -3124,6 +3136,7 @@ dependencies = [
  "ttf-parser",
  "typst",
  "typst-library",
+ "typst-pdf",
  "typst-render",
  "typst-svg",
  "unscanny",

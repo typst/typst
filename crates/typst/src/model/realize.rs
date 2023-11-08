@@ -7,6 +7,7 @@ use super::{
 };
 use crate::diag::SourceResult;
 use crate::doc::Meta;
+use crate::eval::item;
 use crate::util::hash128;
 
 /// Whether the target is affected by show rules in the given style chain.

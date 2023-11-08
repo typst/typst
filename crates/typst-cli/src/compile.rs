@@ -153,7 +153,7 @@ fn export_pdf(
     world: &SystemWorld,
 ) -> StrResult<()> {
     let ident = world.input().to_string_lossy();
-    let buffer = typst::export::pdf(document, Some(&ident), now());
+    let buffer = typst_pdf::pdf(document, Some(&ident), now());
     let output = command.output();
     fs::write(output, buffer)
         .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;

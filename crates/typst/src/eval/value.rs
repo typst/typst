@@ -17,7 +17,7 @@ use super::{
     Version,
 };
 use crate::diag::StrResult;
-use crate::eval::Datetime;
+use crate::eval::{item, Datetime};
 use crate::geom::{Abs, Angle, Color, Em, Fr, Gradient, Length, Ratio, Rel};
 use crate::model::{Label, Styles};
 use crate::syntax::{ast, Span};

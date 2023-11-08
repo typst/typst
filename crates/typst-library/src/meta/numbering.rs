@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use chinese_number::{ChineseCase, ChineseCountMethod, ChineseVariant, NumberToChinese};
 use ecow::EcoVec;
-use typst::export::{PdfPageLabel, PdfPageLabelStyle};
+use typst::doc::{PdfPageLabel, PdfPageLabelStyle};
 
 use crate::prelude::*;
 use crate::text::Case;

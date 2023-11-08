@@ -9,7 +9,6 @@ use std::sync::Arc;
 use ecow::{eco_format, EcoString};
 
 use crate::eval::{cast, dict, ty, Datetime, Dict, Repr, Value};
-use crate::export::PdfPageLabel;
 use crate::font::Font;
 use crate::geom::{
     self, styled_rect, Abs, Axes, Color, Corners, Dir, Em, FixedAlign, FixedStroke,
@@ -833,6 +832,45 @@ impl From<Position> for Dict {
             "y" => pos.point.y,
         }
     }
+}
+
+/// Specification for a PDF page label.
+#[derive(Debug, Clone, PartialEq, Hash, Default)]
+pub struct PdfPageLabel {
+    /// Can be any string or none. Will always be prepended to the numbering style.
+    pub prefix: Option<EcoString>,
+    /// Based on the numbering pattern.
+    ///
+    /// If `None` or numbering is a function, the field will be empty.
+    pub style: Option<PdfPageLabelStyle>,
+    /// Offset for the page label start.
+    ///
+    /// Describes where to start counting from when setting a style.
+    /// (Has to be greater or equal than 1)
+    pub offset: Option<NonZeroUsize>,
+}
+
+impl Repr for PdfPageLabel {
+    fn repr(&self) -> EcoString {
+        eco_format!("{self:?}")
+    }
+}
+
+/// A PDF page label number style.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum PdfPageLabelStyle {
+    /// Decimal arabic numerals (1, 2, 3).
+    Arabic,
+    /// Lowercase roman numerals (i, ii, iii).
+    LowerRoman,
+    /// Uppercase roman numerals (I, II, III).
+    UpperRoman,
+    /// Lowercase letters (`a` to `z` for the first 26 pages,
+    /// `aa` to `zz` and so on for the next).
+    LowerAlpha,
+    /// Uppercase letters (`A` to `Z` for the first 26 pages,
+    /// `AA` to `ZZ` and so on for the next).
+    UpperAlpha,
 }
 
 #[cfg(test)]

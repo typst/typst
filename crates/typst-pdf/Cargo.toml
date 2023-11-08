@@ -1,0 +1,34 @@
+[package]
+name = "typst-pdf"
+description = "PDF exporter for Typst."
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+keywords.workspace = true
+
+[lib]
+doctest = false
+bench = false
+
+[dependencies]
+typst = { workspace = true }
+base64 = { workspace = true }
+bytemuck = { workspace = true }
+comemo = { workspace = true }
+ecow = { workspace = true}
+image = { workspace = true }
+miniz_oxide = { workspace = true }
+once_cell = { workspace = true }
+pdf-writer = { workspace = true }
+subsetter = { workspace = true }
+svg2pdf = { workspace = true }
+tracing = { workspace = true }
+ttf-parser = { workspace = true }
+unicode-properties = { workspace = true }
+unscanny = { workspace = true }
+xmp-writer = { workspace = true }

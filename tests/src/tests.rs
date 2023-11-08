@@ -420,7 +420,7 @@ fn test(
     let document = Document { pages: frames, ..Default::default() };
     if compare_ever {
         if let Some(pdf_path) = pdf_path {
-            let pdf_data = typst::export::pdf(
+            let pdf_data = typst_pdf::pdf(
                 &document,
                 Some(&format!("typst-test: {}", name.display())),
                 world.today(Some(0)),

@@ -1,10 +1,10 @@
 use once_cell::sync::Lazy;
 use pdf_writer::types::DeviceNSubtype;
 use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
+use typst::geom::{Color, ColorSpace, Paint};
 
-use super::page::{PageContext, Transforms};
-use crate::export::pdf::deflate;
-use crate::geom::{Color, ColorSpace, Paint};
+use crate::deflate;
+use crate::page::{PageContext, Transforms};
 
 // The names of the color spaces.
 pub const SRGB: Name<'static> = Name(b"srgb");
