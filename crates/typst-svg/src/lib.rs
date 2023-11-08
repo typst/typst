@@ -6,18 +6,17 @@ use std::io::Read;
 use base64::Engine;
 use ecow::{eco_format, EcoString};
 use ttf_parser::{GlyphId, OutlineBuilder};
-use xmlwriter::XmlWriter;
-
-use crate::doc::{Frame, FrameItem, FrameKind, GroupItem, TextItem};
-use crate::eval::Repr;
-use crate::font::Font;
-use crate::geom::{
+use typst::doc::{Frame, FrameItem, FrameKind, GroupItem, TextItem};
+use typst::eval::Repr;
+use typst::font::Font;
+use typst::geom::{
     self, Abs, Angle, Axes, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin,
     Paint, PathItem, Point, Quadrant, Ratio, RatioOrAngle, Relative, Shape, Size,
     Transform,
 };
-use crate::image::{Image, ImageFormat, RasterFormat, VectorFormat};
-use crate::util::hash128;
+use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
+use typst::util::hash128;
+use xmlwriter::XmlWriter;
 
 /// The number of segments in a conic gradient.
 /// This is a heuristic value that seems to work well.

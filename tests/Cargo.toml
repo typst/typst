@@ -10,6 +10,7 @@ publish = false
 typst = { workspace = true }
 typst-library = { workspace = true }
 typst-render = { workspace = true }
+typst-svg = { workspace = true }
 clap = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }

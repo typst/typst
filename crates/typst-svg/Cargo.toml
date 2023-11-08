@@ -1,0 +1,27 @@
+[package]
+name = "typst-svg"
+description = "SVG exporter for Typst."
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+keywords.workspace = true
+
+[lib]
+doctest = false
+bench = false
+
+[dependencies]
+typst = { workspace = true }
+base64 = { workspace = true }
+comemo = { workspace = true }
+ecow = { workspace = true}
+flate2 = { workspace = true }
+tracing = { workspace = true }
+ttf-parser = { workspace = true }
+xmlparser = { workspace = true }
+xmlwriter = { workspace = true }

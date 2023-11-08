@@ -53,8 +53,6 @@ unicode-segmentation = { workspace = true }
 unscanny = { workspace = true }
 usvg = { workspace = true }
 wasmi = { workspace = true }
-xmlparser = { workspace = true }
-xmlwriter = { workspace = true }
 xmp-writer = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

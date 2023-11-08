@@ -2930,8 +2930,6 @@ dependencies = [
  "unscanny",
  "usvg",
  "wasmi",
- "xmlparser",
- "xmlwriter",
  "xmp-writer",
 ]
 
@@ -2974,6 +2972,7 @@ dependencies = [
  "typst",
  "typst-library",
  "typst-render",
+ "typst-svg",
  "ureq",
  "xz2",
  "zip",
@@ -3081,6 +3080,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "typst-svg"
+version = "0.9.0"
+dependencies = [
+ "base64",
+ "comemo",
+ "ecow",
+ "flate2",
+ "tracing",
+ "ttf-parser",
+ "typst",
+ "xmlparser",
+ "xmlwriter",
+]
+
+[[package]]
 name = "typst-syntax"
 version = "0.9.0"
 dependencies = [
@@ -3111,6 +3125,7 @@ dependencies = [
  "typst",
  "typst-library",
  "typst-render",
+ "typst-svg",
  "unscanny",
  "walkdir",
 ]
