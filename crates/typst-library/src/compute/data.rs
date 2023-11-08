@@ -180,12 +180,12 @@ impl csv {
         for (line, result) in reader.records().enumerate() {
             // Original solution use line from error, but that is incorrect with
             // `has_headers` set to `false`. See issue:
-            // https://github.com/BurntSushi/rust-csv/issues/184            
-            let line = line + line_offset; 
+            // https://github.com/BurntSushi/rust-csv/issues/184
+            let line = line + line_offset;
             let row = result.map_err(|err| format_csv_error(err, line)).at(span)?;
             if let Some(headers) = headers.clone() {
                 let mut dict = Dict::new();
-                for (header_field, field) in headers.into_iter().zip(row.into_iter()) { 
+                for (header_field, field) in headers.into_iter().zip(row.into_iter()) {
                     let value = field.into_value();
                     dict.insert(header_field.into(), value)
                 }
@@ -196,7 +196,7 @@ impl csv {
             }
         }
 
-        Ok(array)       
+        Ok(array)
     }
 }
 
