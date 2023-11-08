@@ -1076,7 +1076,7 @@ impl Color {
                 let rotated = hsv.shift_hue(angle.to_deg() as f32);
                 Self::Hsv(rotated).to_space(self.space())
             }
-            _ => bail!(error!(span, "this colorspace does not support hue rotation")),
+            _ => bail!(span, "this colorspace does not support hue rotation"),
         })
     }
 
