@@ -1,10 +1,11 @@
 use super::*;
-use crate::eval::{dict, Cast, FromValue, NoneValue};
+use crate::diag::SourceResult;
+use crate::eval::{dict, Args, Cast, FromValue, NoneValue};
 
 /// Defines how to draw a line.
 ///
-/// A stroke has a _paint_ (typically a solid color), a _thickness,_ a line
-/// _cap,_ a line _join,_ a _miter-limit,_ and a _dash_ pattern. All of these
+/// A stroke has a _paint_ (a solid color or gradient), a _thickness,_ a line
+/// _cap,_ a line _join,_ a _miter limit,_ and a _dash_ pattern. All of these
 /// values are optional and have sensible defaults.
 ///
 /// # Example
@@ -31,42 +32,17 @@ use crate::eval::{dict, Cast, FromValue, NoneValue};
 /// - A stroke combined from color and thickness using the `+` operator as in
 ///   `{2pt + red}`.
 ///
-/// # Complex strokes
-/// For full control, you can also pass a [dictionary]($dictionary) to any
-/// function that expects a stroke. This dictionary has the following keys:
-///
-/// - `paint`: The [color]($color) to use for the stroke.
-///
-/// - `thickness`: The stroke's thickness as a [length]($length).
-///
-/// - `cap`: How the line terminates. One of `{"butt"}`, `{"round"}`, or
-///   `{"square"}`.
-///
-/// - `join`: How sharp turns of a contour are rendered. One of `{"miter"}`,
-///   `{"round"}`, or `{"bevel"}`. Not applicable to lines but to
-///   [polygons]($polygon) or [paths]($path).
-///
-/// - `miter-limit`: Number at which protruding sharp angles are rendered with a
-///   bevel instead. The higher the number, the sharper an angle can be before
-///   it is bevelled. Only applicable if `join` is `{"miter"}`. Defaults to
-///   `{4.0}`.
-///
-/// - `dash`: The dash pattern to use. Can be any of the following:
-///   - One of the predefined patterns `{"solid"}`, `{"dotted"}`,
-///     `{"densely-dotted"}`, `{"loosely-dotted"}`, `{"dashed"}`,
-///     `{"densely-dashed"}`, `{"loosely-dashed"}`, `{"dash-dotted"}`,
-///     `{"densely-dash-dotted"}` or `{"loosely-dash-dotted"}`
-///   - An [array]($array) with alternating lengths for dashes and gaps. You can
-///     also use the string `{"dot"}` for a length equal to the line thickness.
-///   - A [dictionary]($dictionary) with the keys `array` (same as the array
-///     above), and `phase` (of type [length]($length)), which defines where in
-///     the pattern to start drawing.
+/// For full control, you can also provide a [dictionary]($dictionary) or a
+/// `{stroke}` object to any function that expects a stroke. The dictionary's
+/// keys may include any of the parameters for the constructor function, shown
+/// below.
 ///
 /// # Fields
-/// On a `stroke` object, you can access any of the fields mentioned in the
-/// dictionary format above. For example, `{(2pt + blue).thickness}` is `{2pt}`.
-/// Meanwhile, `{(2pt + blue).cap}` is `{auto}` because it's unspecified.
-#[ty]
+/// On a stroke object, you can access any of the fields listed in the
+/// constructor function. For example, `{(2pt + blue).thickness}` is `{2pt}`.
+/// Meanwhile, `{stroke(red).cap}` is `{auto}` because it's unspecified. Fields
+/// set to `{auto}` are inherited.
+#[ty(scope)]
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Stroke<T: Numeric = Length> {
     /// The stroke's paint.
@@ -81,6 +57,138 @@ pub struct Stroke<T: Numeric = Length> {
     pub dash_pattern: Smart<Option<DashPattern<T>>>,
     /// The miter limit.
     pub miter_limit: Smart<Scalar>,
+}
+
+#[scope]
+impl Stroke {
+    /// Converts a value to a stroke or constructs a stroke with the given
+    /// parameters.
+    ///
+    /// Note that in most cases you do not need to convert values to strokes in
+    /// order to use them, as they will be converted automatically. However,
+    /// this constructor can be useful to ensure a value has all the fields of a
+    /// stroke.
+    ///
+    /// ```example
+    /// #let my-func(x) = {
+    ///     x = stroke(x) // Convert to a stroke
+    ///     [Stroke has thickness #x.thickness.]
+    /// }
+    /// #my-func(3pt) \
+    /// #my-func(red) \
+    /// #my-func(stroke(cap: "round", thickness: 1pt))
+    /// ```
+    #[func(constructor)]
+    pub fn construct(
+        /// The real arguments (the other arguments are just for the docs, this
+        /// function is a bit involved, so we parse the arguments manually).
+        args: &mut Args,
+
+        /// The color or gradient to use for the stroke.
+        ///
+        /// If set to `{auto}`, the value is inherited, defaulting to `{black}`.
+        #[external]
+        paint: Smart<Paint>,
+
+        /// The stroke's thickness.
+        ///
+        /// If set to `{auto}`, the value is inherited, defaulting to `{1pt}`.
+        #[external]
+        thickness: Smart<Length>,
+
+        /// How the ends of the stroke are rendered.
+        ///
+        /// If set to `{auto}`, the value is inherited, defaulting to `{"butt"}`.
+        #[external]
+        cap: Smart<LineCap>,
+
+        /// How sharp turns are rendered.
+        ///
+        /// If set to `{auto}`, the value is inherited, defaulting to `{"miter"}`.
+        #[external]
+        join: Smart<LineJoin>,
+
+        /// The dash pattern to use. This can be:
+        ///
+        /// - One of the predefined patterns:
+        ///   - `{"solid"}` or `{none}`
+        ///   - `{"dotted"}`
+        ///   - `{"densely-dotted"}`
+        ///   - `{"loosely-dotted"}`
+        ///   - `{"dashed"}`
+        ///   - `{"densely-dashed"}`
+        ///   - `{"loosely-dashed"}`
+        ///   - `{"dash-dotted"}`
+        ///   - `{"densely-dash-dotted"}`
+        ///   - `{"loosely-dash-dotted"}`
+        /// - An [array]($array) with alternating lengths for dashes and gaps. You can
+        ///   also use the string `{"dot"}` for a length equal to the line thickness.
+        /// - A [dictionary]($dictionary) with the keys `array` (same as the array
+        ///   above), and `phase` (of type [length]($length)), which defines where in
+        ///   the pattern to start drawing.
+        ///
+        /// If set to `{auto}`, the value is inherited, defaulting to `{none}`.
+        ///
+        /// ```example
+        /// #set line(length: 100%, stroke: 2pt)
+        /// #stack(
+        ///   spacing: 1em,
+        ///   line(stroke: (dash: "dashed")),
+        ///   line(stroke: (dash: (10pt, 5pt, "dot", 5pt))),
+        ///   line(stroke: (dash: (array: (10pt, 5pt, "dot", 5pt), phase: 10pt))),
+        /// )
+        /// ```
+        #[external]
+        dash: Smart<Option<DashPattern>>,
+
+        /// Number at which protruding sharp bends are rendered with a bevel
+        /// instead or a miter join. The higher the number, the sharper an angle
+        /// can be before it is bevelled. Only applicable if `join` is
+        /// `{"miter"}`.
+        ///
+        /// Specifically, the miter limit is the maximum ratio between the
+        /// corner's protrusion length and the stroke's thickness.
+        ///
+        /// If set to `{auto}`, the value is inherited, defaulting to `{4.0}`.
+        ///
+        /// ```example
+        /// #let points = ((15pt, 0pt), (0pt, 30pt), (30pt, 30pt), (10pt, 20pt))
+        /// #set path(stroke: 6pt + blue)
+        /// #stack(
+        ///     dir: ltr,
+        ///     spacing: 1cm,
+        ///     path(stroke: (miter-limit: 1), ..points),
+        ///     path(stroke: (miter-limit: 4), ..points),
+        ///     path(stroke: (miter-limit: 5), ..points),
+        /// )
+        /// ```
+        #[external]
+        miter_limit: Smart<f64>,
+    ) -> SourceResult<Stroke> {
+        if let Some(stroke) = args.eat::<Stroke>()? {
+            return Ok(stroke);
+        }
+
+        fn take<T: FromValue>(args: &mut Args, arg: &str) -> SourceResult<Smart<T>> {
+            Ok(args.named::<Smart<T>>(arg)?.unwrap_or(Smart::Auto))
+        }
+
+        let paint = take::<Paint>(args, "paint")?;
+        let thickness = take::<Length>(args, "thickness")?;
+        let line_cap = take::<LineCap>(args, "cap")?;
+        let line_join = take::<LineJoin>(args, "join")?;
+        let dash_pattern = take::<Option<DashPattern>>(args, "dash")?;
+        let miter_limit = take::<f64>(args, "miter-limit")?.map(Scalar::new);
+
+        Ok(Self {
+            paint,
+            thickness,
+            line_cap,
+            line_join,
+            dash_pattern,
+            miter_limit,
+        })
+    }
 }
 
 impl<T: Numeric> Stroke<T> {
@@ -267,9 +375,10 @@ cast! {
         ..Default::default()
     },
     mut dict: Dict => {
+        // Get a value by key, accepting either Auto or something convertible to type T.
         fn take<T: FromValue>(dict: &mut Dict, key: &str) -> StrResult<Smart<T>> {
-            Ok(dict.take(key).ok().map(T::from_value)
-                .transpose()?.map(Smart::Custom).unwrap_or(Smart::Auto))
+            Ok(dict.take(key).ok().map(Smart::<T>::from_value)
+                .transpose()?.unwrap_or(Smart::Auto))
         }
 
         let paint = take::<Paint>(&mut dict, "paint")?;
@@ -299,8 +408,11 @@ cast! {
 /// The line cap of a stroke
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum LineCap {
+    /// Square stroke cap with the edge at the stroke's end point.
     Butt,
+    /// Circular stroke cap centered at the stroke's end point.
     Round,
+    /// Square stroke cap centered at the stroke's end point.
     Square,
 }
 
@@ -317,8 +429,13 @@ impl Repr for LineCap {
 /// The line join of a stroke
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum LineJoin {
+    /// Segments are joined with sharp edges. Sharp bends exceeding the miter
+    /// limit are bevelled instead.
     Miter,
+    /// Segments are joined with circular corners.
     Round,
+    /// Segments are joined with a bevel (a straight edge connecting the butts
+    /// of the joined segments).
     Bevel,
 }
 

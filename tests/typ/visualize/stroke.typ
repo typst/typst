@@ -60,7 +60,7 @@
 #line(length: 60pt, stroke: (paint: red, thicknes: 1pt))
 
 ---
-// Error: 29-55 expected "solid", "dotted", "densely-dotted", "loosely-dotted", "dashed", "densely-dashed", "loosely-dashed", "dash-dotted", "densely-dash-dotted", "loosely-dash-dotted", array, dictionary, or none
+// Error: 29-55 expected "solid", "dotted", "densely-dotted", "loosely-dotted", "dashed", "densely-dashed", "loosely-dashed", "dash-dotted", "densely-dash-dotted", "loosely-dash-dotted", array, dictionary, none, or auto
 #line(length: 60pt, stroke: (paint: red, dash: "dash"))
 
 ---
@@ -95,3 +95,21 @@
   ((0%, 50%), (4%, 4%)),
   ((50%, 0%), (4%, 4%)),
 )
+
+---
+// Converting to stroke
+#assert.eq(stroke(red).paint, red)
+#assert.eq(stroke(red).thickness, auto)
+#assert.eq(stroke(2pt).paint, auto)
+#assert.eq(stroke((cap: "round", paint: blue)).cap, "round")
+#assert.eq(stroke((cap: auto, paint: blue)).cap, auto)
+#assert.eq(stroke((cap: auto, paint: blue)).thickness, auto)
+
+// Error: 9-21 unexpected key "foo", valid keys are "paint", "thickness", "cap", "join", "dash", and "miter-limit"
+#stroke((foo: "bar"))
+
+// Constructing with named arguments
+#assert.eq(stroke(paint: blue, thickness: 8pt), 8pt + blue)
+#assert.eq(stroke(thickness: 2pt), stroke(2pt))
+#assert.eq(stroke(cap: "round").thickness, auto)
+#assert.eq(stroke(cap: "round", thickness: auto).thickness, auto)
