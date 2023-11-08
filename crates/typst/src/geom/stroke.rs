@@ -157,16 +157,16 @@ impl Stroke {
             return Ok(stroke);
         }
 
-        fn as_smart<T>(x: Option<T>) -> Smart<T> {
-            x.map(Smart::Custom).unwrap_or(Smart::Auto)
+        fn take<T: FromValue>(args: &mut Args, arg: &str) -> SourceResult<Smart<T>> {
+            Ok(args.named::<Smart<T>>(arg)?.unwrap_or(Smart::Auto))
         }
 
-        let paint = as_smart(args.named::<Paint>("paint")?);
-        let thickness = as_smart(args.named::<Length>("thickness")?);
-        let line_cap = as_smart(args.named::<LineCap>("cap")?);
-        let line_join = as_smart(args.named::<LineJoin>("join")?);
-        let dash_pattern = as_smart(args.named::<Option<DashPattern>>("dash")?);
-        let miter_limit = as_smart(args.named::<f64>("miter-limit")?.map(Scalar::new));
+        let paint = take::<Paint>(args, "paint")?;
+        let thickness = take::<Length>(args, "thickness")?;
+        let line_cap = take::<LineCap>(args, "cap")?;
+        let line_join = take::<LineJoin>(args, "join")?;
+        let dash_pattern = take::<Option<DashPattern>>(args, "dash")?;
+        let miter_limit = take::<f64>(args, "miter-limit")?.map(Scalar::new);
 
         Ok(Self {
             paint,
@@ -363,9 +363,10 @@ cast! {
         ..Default::default()
     },
     mut dict: Dict => {
+        // Get a value by key, accepting either Auto or something convertible to type T.
         fn take<T: FromValue>(dict: &mut Dict, key: &str) -> StrResult<Smart<T>> {
-            Ok(dict.take(key).ok().map(T::from_value)
-                .transpose()?.map(Smart::Custom).unwrap_or(Smart::Auto))
+            Ok(dict.take(key).ok().map(Smart::<T>::from_value)
+                .transpose()?.unwrap_or(Smart::Auto))
         }
 
         let paint = take::<Paint>(&mut dict, "paint")?;
