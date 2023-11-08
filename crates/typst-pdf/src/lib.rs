@@ -61,7 +61,7 @@ pub fn pdf(
 }
 
 /// Context for exporting a whole PDF document.
-pub struct PdfContext<'a> {
+struct PdfContext<'a> {
     /// The document that we're currently exporting.
     document: &'a Document,
     /// An introspector for the document, used to resolve locations links and

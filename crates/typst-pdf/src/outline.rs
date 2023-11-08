@@ -9,7 +9,7 @@ use crate::{AbsExt, PdfContext};
 
 /// Construct the outline for the document.
 #[tracing::instrument(skip_all)]
-pub fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
+pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
     let mut tree: Vec<HeadingNode> = vec![];
 
     // Stores the level of the topmost skipped ancestor of the next bookmarked

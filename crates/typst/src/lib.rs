@@ -16,8 +16,8 @@
 //!   Next, the content is [typeset] into a [document] containing one [frame]
 //!   per page with items at fixed positions.
 //! - **Exporting:**
-//!   These frames can finally be exported into an output format (currently
-//!   supported are [PDF] and [raster images]).
+//!   These frames can finally be exported into an output format (currently PDF,
+//!   PNG, or SVG).
 //!
 //! [tokens]: syntax::SyntaxKind
 //! [parsed]: syntax::parse
@@ -29,8 +29,6 @@
 //! [typeset]: model::typeset
 //! [document]: doc::Document
 //! [frame]: doc::Frame
-//! [PDF]: export::pdf
-//! [raster images]: export::render
 
 #![recursion_limit = "1000"]
 #![allow(clippy::comparison_chain)]
