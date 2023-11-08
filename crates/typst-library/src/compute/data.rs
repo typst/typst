@@ -131,7 +131,9 @@ pub fn csv(
     #[default]
     delimiter: Delimiter,
     /// Whether the CSV file has a header row.
-    /// Defaults to `{true}`.
+    /// When using this option, each row in the CSV file will be represented as an dictionary, where the header field is the key and the row field is the value.
+    /// All rows will be collected into a single array. Header rows will be stripped.
+    /// Defaults to `{false}`.
     #[named]
     #[default(false)]
     has_headers: bool,
@@ -155,7 +157,7 @@ impl csv {
         #[default]
         delimiter: Delimiter,
         /// Whether the CSV file has a header row.
-        /// Defaults to `{true}`.
+        /// Defaults to `{false}`.
         #[named]
         #[default(false)]
         has_headers: bool,
