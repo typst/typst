@@ -25,7 +25,7 @@ use crate::{deflate, AbsExt, EmExt, PdfContext};
 
 /// Construct page objects.
 #[tracing::instrument(skip_all)]
-pub fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
+pub(crate) fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
     for frame in frames {
         construct_page(ctx, frame);
     }
@@ -33,7 +33,7 @@ pub fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
 
 /// Construct a page object.
 #[tracing::instrument(skip_all)]
-pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
+pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
     let page_ref = ctx.alloc.bump();
     ctx.page_refs.push(page_ref);
 
@@ -79,7 +79,7 @@ pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
 
 /// Write the page tree.
 #[tracing::instrument(skip_all)]
-pub fn write_page_tree(ctx: &mut PdfContext) {
+pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
     for i in 0..ctx.pages.len() {
         write_page(ctx, i);
     }
@@ -194,7 +194,7 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
 
 /// Write the page labels.
 #[tracing::instrument(skip_all)]
-pub fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
+pub(crate) fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
     let mut result = vec![];
     let mut prev: Option<&PdfPageLabel> = None;
 
@@ -265,7 +265,7 @@ pub struct Page {
 
 /// An exporter for the contents of a single PDF page.
 pub struct PageContext<'a, 'b> {
-    pub parent: &'a mut PdfContext<'b>,
+    pub(crate) parent: &'a mut PdfContext<'b>,
     page_ref: Ref,
     label: Option<PdfPageLabel>,
     pub content: Content,

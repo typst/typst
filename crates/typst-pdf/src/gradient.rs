@@ -32,7 +32,7 @@ pub struct PdfGradient {
 
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
-pub fn write_gradients(ctx: &mut PdfContext) {
+pub(crate) fn write_gradients(ctx: &mut PdfContext) {
     for PdfGradient { transform, aspect_ratio, gradient, on_text } in
         ctx.gradient_map.items().cloned().collect::<Vec<_>>()
     {

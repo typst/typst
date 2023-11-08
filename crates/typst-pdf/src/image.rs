@@ -11,7 +11,7 @@ use crate::{deflate, PdfContext};
 
 /// Embed all used images into the PDF.
 #[tracing::instrument(skip_all)]
-pub fn write_images(ctx: &mut PdfContext) {
+pub(crate) fn write_images(ctx: &mut PdfContext) {
     for image in ctx.image_map.items() {
         // Add the primary image.
         match image.kind() {
