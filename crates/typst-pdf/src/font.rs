@@ -5,11 +5,11 @@ use ecow::{eco_format, EcoString};
 use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
 use pdf_writer::{Filter, Finish, Name, Rect, Str};
 use ttf_parser::{name_id, GlyphId, Tag};
+use typst::font::Font;
+use typst::util::SliceExt;
 use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 
-use super::{deflate, EmExt, PdfContext};
-use crate::font::Font;
-use crate::util::SliceExt;
+use crate::{deflate, EmExt, PdfContext};
 
 const CFF: Tag = Tag::from_bytes(b"CFF ");
 const CFF2: Tag = Tag::from_bytes(b"CFF2");
@@ -187,7 +187,7 @@ fn subset_font(font: &Font, glyphs: &[u16]) -> Arc<Vec<u8>> {
 fn subset_tag(glyphs: &BTreeMap<u16, EcoString>) -> EcoString {
     const LEN: usize = 6;
     const BASE: u128 = 26;
-    let mut hash = crate::util::hash128(&glyphs);
+    let mut hash = typst::util::hash128(&glyphs);
     let mut letter = [b'A'; LEN];
     for l in letter.iter_mut() {
         *l = b'A' + (hash % BASE) as u8;

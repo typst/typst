@@ -6,18 +6,17 @@ use std::io::Read;
 use base64::Engine;
 use ecow::{eco_format, EcoString};
 use ttf_parser::{GlyphId, OutlineBuilder};
-use xmlwriter::XmlWriter;
-
-use crate::doc::{Frame, FrameItem, FrameKind, GroupItem, TextItem};
-use crate::eval::Repr;
-use crate::font::Font;
-use crate::geom::{
+use typst::doc::{Frame, FrameItem, FrameKind, GroupItem, TextItem};
+use typst::eval::Repr;
+use typst::font::Font;
+use typst::geom::{
     self, Abs, Angle, Axes, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin,
     Paint, PathItem, Point, Quadrant, Ratio, RatioOrAngle, Relative, Shape, Size,
     Transform,
 };
-use crate::image::{Image, ImageFormat, RasterFormat, VectorFormat};
-use crate::util::hash128;
+use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
+use typst::util::hash128;
+use xmlwriter::XmlWriter;
 
 /// The number of segments in a conic gradient.
 /// This is a heuristic value that seems to work well.
@@ -1243,7 +1242,7 @@ impl ColorEncode for Color {
             Color::LinearRgb(rgb) => {
                 if rgb.alpha != 1.0 {
                     eco_format!(
-                        "color(srgb-linear {:.3} {:.3} {:.3} / {:.3})",
+                        "color(srgb-linear {:.5} {:.5} {:.5} / {:.5})",
                         rgb.red,
                         rgb.green,
                         rgb.blue,
@@ -1251,7 +1250,7 @@ impl ColorEncode for Color {
                     )
                 } else {
                     eco_format!(
-                        "color(srgb-linear {:.3} {:.3} {:.3})",
+                        "color(srgb-linear {:.5} {:.5} {:.5})",
                         rgb.red,
                         rgb.green,
                         rgb.blue,
@@ -1261,16 +1260,16 @@ impl ColorEncode for Color {
             Color::Oklab(oklab) => {
                 if oklab.alpha != 1.0 {
                     eco_format!(
-                        "oklab({:?} {:.3} {:.3} / {:.3})",
-                        Ratio::new(oklab.l as f64),
+                        "oklab({:.3}% {:.5} {:.5} / {:.5})",
+                        oklab.l * 100.0,
                         oklab.a,
                         oklab.b,
                         oklab.alpha
                     )
                 } else {
                     eco_format!(
-                        "oklab({:?} {:.3} {:.3})",
-                        Ratio::new(oklab.l as f64),
+                        "oklab({:.3}% {:.5} {:.5})",
+                        oklab.l * 100.0,
                         oklab.a,
                         oklab.b,
                     )
@@ -1279,18 +1278,18 @@ impl ColorEncode for Color {
             Color::Hsl(hsl) => {
                 if hsl.alpha != 1.0 {
                     eco_format!(
-                        "hsla({:?} {:?} {:?} / {:.3})",
-                        Angle::deg(hsl.hue.into_degrees() as f64),
-                        Ratio::new(hsl.saturation as f64),
-                        Ratio::new(hsl.lightness as f64),
+                        "hsla({:.3}deg {:.3}% {:.3}% / {:.5})",
+                        hsl.hue.into_degrees(),
+                        hsl.saturation * 100.0,
+                        hsl.lightness * 100.0,
                         hsl.alpha,
                     )
                 } else {
                     eco_format!(
-                        "hsl({:?} {:?} {:?})",
-                        Angle::deg(hsl.hue.into_degrees() as f64),
-                        Ratio::new(hsl.saturation as f64),
-                        Ratio::new(hsl.lightness as f64),
+                        "hsl({:.3}deg {:.3}% {:.3}%)",
+                        hsl.hue.into_degrees(),
+                        hsl.saturation * 100.0,
+                        hsl.lightness * 100.0,
                     )
                 }
             }

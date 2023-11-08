@@ -8,31 +8,26 @@ mod image;
 mod outline;
 mod page;
 
-pub use self::color::{ColorEncode, ColorSpaces};
-pub use self::page::{PdfPageLabel, PdfPageLabelStyle};
-
 use std::cmp::Eq;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
-use std::num::NonZeroUsize;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
-use pdf_writer::writers::PageLabel;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
+use typst::doc::{Document, Lang};
+use typst::eval::Datetime;
+use typst::font::Font;
+use typst::geom::{Abs, Dir, Em};
+use typst::image::Image;
+use typst::model::Introspector;
 use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 
-use self::gradient::PdfGradient;
-use self::page::Page;
-use crate::doc::{Document, Lang};
-use crate::eval::Datetime;
-use crate::font::Font;
-use crate::geom::{Abs, Dir, Em};
-use crate::image::Image;
-use crate::model::Introspector;
-
-use extg::ExtGState;
+use crate::color::ColorSpaces;
+use crate::extg::ExtGState;
+use crate::gradient::PdfGradient;
+use crate::page::Page;
 
 /// Export a document into a PDF file.
 ///
@@ -161,7 +156,7 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     let outline_root_id = outline::write_outline(ctx);
 
     // Write the page labels.
-    let page_labels = write_page_labels(ctx);
+    let page_labels = page::write_page_labels(ctx);
 
     // Write the document information.
     let mut info = ctx.pdf.document_info(ctx.alloc.bump());
@@ -256,55 +251,6 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     }
 }
 
-/// Write the page labels.
-#[tracing::instrument(skip_all)]
-fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
-    let mut result = vec![];
-    let mut prev: Option<&PdfPageLabel> = None;
-
-    for (i, page) in ctx.pages.iter().enumerate() {
-        let nr = NonZeroUsize::new(1 + i).unwrap();
-        let Some(label) = &page.label else { continue };
-
-        // Don't create a label if neither style nor prefix are specified.
-        if label.prefix.is_none() && label.style.is_none() {
-            continue;
-        }
-
-        if let Some(pre) = prev {
-            if label.prefix == pre.prefix
-                && label.style == pre.style
-                && label.offset == pre.offset.map(|n| n.saturating_add(1))
-            {
-                prev = Some(label);
-                continue;
-            }
-        }
-
-        let id = ctx.alloc.bump();
-        let mut entry = ctx.pdf.indirect(id).start::<PageLabel>();
-
-        // Only add what is actually provided. Don't add empty prefix string if
-        // it wasn't given for example.
-        if let Some(prefix) = &label.prefix {
-            entry.prefix(TextStr(prefix));
-        }
-
-        if let Some(style) = label.style {
-            entry.style(style.into());
-        }
-
-        if let Some(offset) = label.offset {
-            entry.offset(offset.get() as i32);
-        }
-
-        result.push((nr, id));
-        prev = Some(label);
-    }
-
-    result
-}
-
 /// Compress data with the DEFLATE algorithm.
 #[tracing::instrument(skip_all)]
 fn deflate(data: &[u8]) -> Vec<u8> {
@@ -315,7 +261,7 @@ fn deflate(data: &[u8]) -> Vec<u8> {
 /// Create a base64-encoded hash of the value.
 fn hash_base64<T: Hash>(value: &T) -> String {
     base64::engine::general_purpose::STANDARD
-        .encode(crate::util::hash128(value).to_be_bytes())
+        .encode(typst::util::hash128(value).to_be_bytes())
 }
 
 /// Converts a datetime to a pdf-writer date.

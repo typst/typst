@@ -6,15 +6,14 @@ use pdf_writer::types::FunctionShadingType;
 use pdf_writer::writers::StreamShadingType;
 use pdf_writer::{types::ColorSpaceOperand, Name};
 use pdf_writer::{Filter, Finish, Ref};
-
-use super::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
-use super::page::{PageContext, Transforms};
-use super::{AbsExt, PdfContext};
-use crate::export::pdf::deflate;
-use crate::geom::{
+use typst::geom::{
     Abs, Angle, Color, ColorSpace, ConicGradient, Gradient, Numeric, Point, Quadrant,
     Ratio, Relative, Transform, WeightedColor,
 };
+
+use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
+use crate::page::{PageContext, Transforms};
+use crate::{deflate, AbsExt, PdfContext};
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
 /// PDF.

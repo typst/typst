@@ -55,7 +55,7 @@ pub use self::fields::fields_on;
 pub use self::func::{
     func, CapturesVisitor, Func, NativeFunc, NativeFuncData, ParamInfo,
 };
-pub use self::library::{set_lang_items, LangItems, Library};
+pub use self::library::{item, set_lang_items, LangItems, Library};
 pub use self::methods::mutable_methods_on;
 pub use self::module::Module;
 pub use self::none::NoneValue;

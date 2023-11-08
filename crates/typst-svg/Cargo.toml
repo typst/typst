@@ -1,6 +1,6 @@
 [package]
-name = "typst-syntax"
-description = "Parser and syntax tree for Typst."
+name = "typst-svg"
+description = "SVG exporter for Typst."
 version.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -16,12 +16,12 @@ doctest = false
 bench = false
 
 [dependencies]
+typst = { workspace = true }
+base64 = { workspace = true }
 comemo = { workspace = true }
-ecow = { workspace = true }
-once_cell = { workspace = true }
-serde = { workspace = true }
+ecow = { workspace = true}
+flate2 = { workspace = true }
 tracing = { workspace = true }
-unicode-ident = { workspace = true }
-unicode-math-class = { workspace = true }
-unicode-segmentation = { workspace = true }
-unscanny = { workspace = true }
+ttf-parser = { workspace = true }
+xmlparser = { workspace = true }
+xmlwriter = { workspace = true }

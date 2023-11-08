@@ -1,10 +1,11 @@
 use std::num::NonZeroUsize;
 
 use pdf_writer::{Finish, Ref, TextStr};
+use typst::eval::item;
+use typst::geom::{Abs, Smart};
+use typst::model::Content;
 
-use super::{AbsExt, PdfContext};
-use crate::geom::{Abs, Smart};
-use crate::model::Content;
+use crate::{AbsExt, PdfContext};
 
 /// Construct the outline for the document.
 #[tracing::instrument(skip_all)]

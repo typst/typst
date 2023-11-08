@@ -167,8 +167,13 @@ pub fn set_lang_items(items: LangItems) {
 }
 
 /// Access a lang item.
-macro_rules! item {
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __item {
     ($name:ident) => {
         $crate::eval::LANG_ITEMS.get().unwrap().$name
     };
 }
+
+#[doc(inline)]
+pub use crate::__item as item;

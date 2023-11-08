@@ -153,7 +153,7 @@ fn export_pdf(
     world: &SystemWorld,
 ) -> StrResult<()> {
     let ident = world.input().to_string_lossy();
-    let buffer = typst::export::pdf(document, Some(&ident), now());
+    let buffer = typst_pdf::pdf(document, Some(&ident), now());
     let output = command.output();
     fs::write(output, buffer)
         .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;
@@ -220,13 +220,13 @@ fn export_image(
         match fmt {
             ImageExportFormat::Png => {
                 let pixmap =
-                    typst::export::render(frame, command.ppi / 72.0, Color::WHITE);
+                    typst_render::render(frame, command.ppi / 72.0, Color::WHITE);
                 pixmap
                     .save_png(path)
                     .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;
             }
             ImageExportFormat::Svg => {
-                let svg = typst::export::svg(frame);
+                let svg = typst_svg::svg(frame);
                 fs::write(path, svg.as_bytes())
                     .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;
             }

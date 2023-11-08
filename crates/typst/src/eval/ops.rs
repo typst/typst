@@ -6,6 +6,7 @@ use ecow::eco_format;
 
 use super::{format_str, IntoValue, Regex, Repr, Value};
 use crate::diag::{bail, StrResult};
+use crate::eval::item;
 use crate::geom::{Align, Length, Numeric, Rel, Smart, Stroke};
 use Value::*;
 

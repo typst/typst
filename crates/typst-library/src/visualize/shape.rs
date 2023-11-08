@@ -368,7 +368,7 @@ pub struct CircleElem {
     )]
     pub width: Smart<Rel<Length>>,
 
-    /// The circle's height.This is mutually exclusive with `radius` and
+    /// The circle's height. This is mutually exclusive with `radius` and
     /// `width`.
     ///
     /// In contrast to `radius`, this can be relative to the parent container's
