@@ -1,7 +1,5 @@
 use std::ffi::OsStr;
-use std::path::Path;
 
-use typst::geom::{self, Smart};
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use typst::util::option_eq;
 
@@ -135,7 +133,7 @@ impl Layout for ImageElem {
         let format = match self.format(styles) {
             Smart::Custom(v) => v,
             Smart::Auto => {
-                let ext = Path::new(self.path().as_str())
+                let ext = std::path::Path::new(self.path().as_str())
                     .extension()
                     .and_then(OsStr::to_str)
                     .unwrap_or_default()
@@ -213,7 +211,7 @@ impl Layout for ImageElem {
 
         // Create a clipping group if only part of the image should be visible.
         if fit == ImageFit::Cover && !target.fits(fitted) {
-            frame.clip(geom::Path::rect(frame.size()));
+            frame.clip(Path::rect(frame.size()));
         }
 
         // Apply metadata.

@@ -1,8 +1,8 @@
 use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError};
 
-use crate::util::fmt::{format_int_with_base, MINUS_SIGN};
 use ecow::{eco_format, EcoString};
 
+use super::repr::{format_int_with_base, MINUS_SIGN};
 use super::{cast, func, scope, ty, Repr, Str, Value};
 
 /// A whole number.

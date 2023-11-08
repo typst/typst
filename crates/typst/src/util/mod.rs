@@ -1,11 +1,8 @@
 //! Utilities.
 
-pub mod fat;
-pub mod fmt;
-mod str;
+mod pico;
 
-pub use self::fmt::{pretty_array_like, pretty_comma_list, separated_list};
-pub use self::str::PicoStr;
+pub use self::pico::PicoStr;
 
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;

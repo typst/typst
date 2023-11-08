@@ -7,6 +7,7 @@ use ecow::EcoString;
 use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 
+use super::repr::{format_float, format_int_with_base};
 use super::{
     cast, dict, func, scope, ty, Args, Array, Bytes, Dict, Func, IntoValue, Repr, Type,
     Value, Version, Vm,
@@ -15,7 +16,6 @@ use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::geom::Align;
 use crate::model::Label;
 use crate::syntax::{Span, Spanned};
-use crate::util::fmt::{format_float, format_int_with_base};
 
 /// Create a new [`Str`] from a format string.
 #[macro_export]

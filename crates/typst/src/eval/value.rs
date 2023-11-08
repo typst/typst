@@ -11,17 +11,17 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use siphasher::sip128::{Hasher128, SipHasher13};
 use typst::eval::Duration;
 
+use super::repr::{format_float, format_int_with_base};
 use super::{
     fields, ops, Args, Array, AutoValue, Bytes, CastInfo, Content, Dict, FromValue, Func,
-    IntoValue, Module, NativeType, NoneValue, Plugin, Reflect, Scope, Str, Symbol, Type,
-    Version,
+    IntoValue, Module, NativeType, NoneValue, Plugin, Reflect, Repr, Scope, Str, Symbol,
+    Type, Version,
 };
 use crate::diag::StrResult;
 use crate::eval::{item, Datetime};
 use crate::geom::{Abs, Angle, Color, Em, Fr, Gradient, Length, Ratio, Rel};
 use crate::model::{Label, Styles};
 use crate::syntax::{ast, Span};
-use crate::util::fmt::{format_float, format_int_with_base};
 
 /// A computational value.
 #[derive(Debug, Default, Clone)]
@@ -487,12 +487,6 @@ impl PartialEq for Dynamic {
     fn eq(&self, other: &Self) -> bool {
         self.0.dyn_eq(other)
     }
-}
-
-/// A trait that defines the `repr` of a Typst value.
-pub trait Repr {
-    /// Return the debug representation of the value.
-    fn repr(&self) -> EcoString;
 }
 
 trait Bounds: Debug + Repr + Sync + Send + 'static {

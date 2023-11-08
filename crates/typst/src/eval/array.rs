@@ -7,6 +7,7 @@ use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
+use super::repr::pretty_array_like;
 use super::{
     cast, func, ops, scope, ty, Args, Bytes, CastInfo, FromValue, Func, IntoValue,
     Reflect, Repr, Value, Version, Vm,
@@ -14,7 +15,6 @@ use super::{
 use crate::diag::{At, SourceResult, StrResult};
 use crate::eval::ops::{add, mul};
 use crate::syntax::Span;
-use crate::util::pretty_array_like;
 
 /// Create a new [`Array`] from values.
 #[macro_export]

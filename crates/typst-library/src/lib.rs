@@ -14,8 +14,8 @@ pub mod symbols;
 pub mod text;
 pub mod visualize;
 
-use typst::eval::{Array, LangItems, Library, Module, Scope};
-use typst::geom::{Align, Color, Dir, Smart};
+use typst::eval::{Array, LangItems, Library, Module, Scope, Smart};
+use typst::geom::{Align, Color, Dir};
 use typst::model::{NativeElement, Styles};
 
 use self::layout::LayoutRoot;

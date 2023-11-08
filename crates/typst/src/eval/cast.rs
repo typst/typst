@@ -10,10 +10,10 @@ use ecow::{eco_format, EcoString};
 use smallvec::SmallVec;
 use unicode_math_class::MathClass;
 
+use super::repr::separated_list;
 use super::{Repr, Type, Value};
 use crate::diag::{At, SourceResult, StrResult};
 use crate::syntax::{Span, Spanned};
-use crate::util::separated_list;
 
 /// Determine details of a type.
 ///

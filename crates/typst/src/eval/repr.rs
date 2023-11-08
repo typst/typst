@@ -2,6 +2,12 @@ use ecow::{eco_format, EcoString};
 
 pub const MINUS_SIGN: &str = "\u{2212}";
 
+/// A trait that defines the `repr` of a Typst value.
+pub trait Repr {
+    /// Return the debug representation of the value.
+    fn repr(&self) -> EcoString;
+}
+
 /// Format an integer in a base.
 pub fn format_int_with_base(mut n: i64, base: i64) -> EcoString {
     if n == 0 {

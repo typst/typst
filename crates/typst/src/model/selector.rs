@@ -7,11 +7,11 @@ use smallvec::SmallVec;
 
 use super::{Content, Element, Label, Locatable, Location};
 use crate::diag::{bail, StrResult};
+use crate::eval::repr::pretty_array_like;
 use crate::eval::{
     cast, func, item, scope, ty, CastInfo, Dict, FromValue, Func, Reflect, Regex, Repr,
     Str, Symbol, Type, Value,
 };
-use crate::util::pretty_array_like;
 
 /// A helper macro to create a field selector used in [`Selector::Elem`]
 ///

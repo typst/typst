@@ -7,10 +7,11 @@ use ecow::{eco_format, EcoString};
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use super::repr::{pretty_array_like, separated_list};
 use super::{array, func, scope, ty, Array, Repr, Str, Value};
 use crate::diag::StrResult;
 use crate::syntax::is_ident;
-use crate::util::{pretty_array_like, separated_list, ArcExt};
+use crate::util::ArcExt;
 
 /// Create a new [`Dict`] from key-value pairs.
 #[macro_export]

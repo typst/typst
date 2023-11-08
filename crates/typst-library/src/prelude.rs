@@ -18,7 +18,7 @@ pub use typst::doc::*;
 #[doc(no_inline)]
 pub use typst::eval::{
     array, cast, dict, format_str, func, scope, ty, Args, Array, Bytes, Cast, Dict,
-    FromValue, Func, IntoValue, Repr, Scope, Str, Symbol, Type, Value, Vm,
+    FromValue, Func, IntoValue, Repr, Scope, Smart, Str, Symbol, Type, Value, Vm,
 };
 #[doc(no_inline)]
 pub use typst::geom::*;

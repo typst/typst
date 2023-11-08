@@ -16,9 +16,9 @@ use super::{
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::doc::Meta;
+use crate::eval::repr::pretty_array_like;
 use crate::eval::{func, scope, ty, Dict, FromValue, IntoValue, Repr, Str, Value, Vm};
 use crate::syntax::Span;
-use crate::util::pretty_array_like;
 
 /// A piece of document content.
 ///
@@ -256,7 +256,7 @@ impl Content {
     {
         let vtable = self.elem().vtable()(TypeId::of::<C>())?;
         let data = Arc::as_ptr(&self.0) as *const ();
-        Some(unsafe { &*crate::util::fat::from_raw_parts(data, vtable) })
+        Some(unsafe { &*fat::from_raw_parts(data, vtable) })
     }
 
     /// Cast to a mutable trait object if the contained element has the given
@@ -268,7 +268,7 @@ impl Content {
         // Safety: We ensure the element is not shared.
         let vtable = self.elem().vtable()(TypeId::of::<C>())?;
         let data = self.make_mut() as *mut dyn NativeElement as *mut ();
-        Some(unsafe { &mut *crate::util::fat::from_raw_parts_mut(data, vtable) })
+        Some(unsafe { &mut *fat::from_raw_parts_mut(data, vtable) })
     }
 
     /// Whether the content is a sequence.
@@ -748,4 +748,67 @@ fn missing_field_no_default(field: &str) -> EcoString {
          no default value was specified",
         field.repr()
     )
+}
+
+/// Fat pointer handling.
+///
+/// This assumes the memory representation of fat pointers. Although it is not
+/// guaranteed by Rust, it's improbable that it will change. Still, when the
+/// pointer metadata APIs are stable, we should definitely move to them:
+/// <https://github.com/rust-lang/rust/issues/81513>
+pub mod fat {
+    use std::alloc::Layout;
+    use std::mem;
+
+    /// Create a fat pointer from a data address and a vtable address.
+    ///
+    /// # Safety
+    /// Must only be called when `T` is a `dyn Trait`. The data address must point
+    /// to a value whose type implements the trait of `T` and the `vtable` must have
+    /// been extracted with [`vtable`].
+    #[track_caller]
+    pub unsafe fn from_raw_parts<T: ?Sized>(
+        data: *const (),
+        vtable: *const (),
+    ) -> *const T {
+        let fat = FatPointer { data, vtable };
+        debug_assert_eq!(Layout::new::<*const T>(), Layout::new::<FatPointer>());
+        mem::transmute_copy::<FatPointer, *const T>(&fat)
+    }
+
+    /// Create a mutable fat pointer from a data address and a vtable address.
+    ///
+    /// # Safety
+    /// Must only be called when `T` is a `dyn Trait`. The data address must point
+    /// to a value whose type implements the trait of `T` and the `vtable` must have
+    /// been extracted with [`vtable`].
+    #[track_caller]
+    pub unsafe fn from_raw_parts_mut<T: ?Sized>(
+        data: *mut (),
+        vtable: *const (),
+    ) -> *mut T {
+        let fat = FatPointer { data, vtable };
+        debug_assert_eq!(Layout::new::<*mut T>(), Layout::new::<FatPointer>());
+        mem::transmute_copy::<FatPointer, *mut T>(&fat)
+    }
+
+    /// Extract the address to a trait object's vtable.
+    ///
+    /// # Safety
+    /// Must only be called when `T` is a `dyn Trait`.
+    #[track_caller]
+    pub unsafe fn vtable<T: ?Sized>(ptr: *const T) -> *const () {
+        debug_assert_eq!(Layout::new::<*const T>(), Layout::new::<FatPointer>());
+        mem::transmute_copy::<*const T, FatPointer>(&ptr).vtable
+    }
+
+    /// The memory representation of a trait object pointer.
+    ///
+    /// Although this is not guaranteed by Rust, it's improbable that it will
+    /// change.
+    #[repr(C)]
+    struct FatPointer {
+        data: *const (),
+        vtable: *const (),
+    }
 }

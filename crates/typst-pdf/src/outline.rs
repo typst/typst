@@ -1,8 +1,8 @@
 use std::num::NonZeroUsize;
 
 use pdf_writer::{Finish, Ref, TextStr};
-use typst::eval::item;
-use typst::geom::{Abs, Smart};
+use typst::eval::{item, Smart};
+use typst::geom::Abs;
 use typst::model::Content;
 
 use crate::{AbsExt, PdfContext};

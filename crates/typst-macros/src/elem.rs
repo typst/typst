@@ -1087,7 +1087,7 @@ fn create_repr_impl(element: &Elem) -> TokenStream {
                 let fields = self.fields().into_iter()
                     .map(|(name, value)| eco_format!("{}: {}", name, value.repr()))
                     .collect::<Vec<_>>();
-                ::ecow::eco_format!(#repr_format, ::typst::util::pretty_array_like(&fields, false))
+                ::ecow::eco_format!(#repr_format, ::typst::eval::repr::pretty_array_like(&fields, false))
             }
         }
     }
@@ -1108,7 +1108,7 @@ fn create_vtable_func(element: &Elem) -> TokenStream {
             if id == ::std::any::TypeId::of::<dyn #capability>() {
                 let vtable = unsafe {
                     let dangling = ::std::ptr::NonNull::<#ident>::dangling().as_ptr() as *const dyn #capability;
-                    ::typst::util::fat::vtable(dangling)
+                    ::typst::model::fat::vtable(dangling)
                 };
                 return Some(vtable);
             }
