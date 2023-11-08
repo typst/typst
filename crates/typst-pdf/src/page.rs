@@ -322,7 +322,7 @@ impl State {
 }
 
 /// Subset of the state used to calculate the transform of gradients and patterns.
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub(super) struct Transforms {
     /// The transform of the current item.
     pub transform: Transform,
@@ -385,6 +385,9 @@ impl PageContext<'_, '_> {
     fn transform(&mut self, transform: Transform) {
         let Transform { sx, ky, kx, sy, tx, ty } = transform;
         self.state.transform = self.state.transform.pre_concat(transform);
+        if self.state.container_transform.is_identity() {
+            self.state.container_transform = self.state.transform;
+        }
         self.content.transform([
             sx.get() as _,
             ky.get() as _,
@@ -449,7 +452,7 @@ impl PageContext<'_, '_> {
                 miter_limit,
             } = stroke;
 
-            paint.set_as_stroke(self, false, transforms);
+            paint.set_as_stroke(self, transforms);
 
             self.content.set_line_width(thickness.to_f32());
             if self.state.stroke.as_ref().map(|s| &s.line_cap) != Some(line_cap) {
@@ -517,12 +520,10 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
 
     if group.frame.kind().is_hard() {
         ctx.group_transform(
-            translation
-                .pre_concat(
-                    ctx.state
-                        .transform
-                        .post_concat(ctx.state.container_transform.invert().unwrap()),
-                )
+            ctx.state
+                .transform
+                .post_concat(ctx.state.container_transform.invert().unwrap())
+                .pre_concat(translation)
                 .pre_concat(group.transform),
         );
         ctx.size(group.frame.size());
