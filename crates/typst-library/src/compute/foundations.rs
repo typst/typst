@@ -1,4 +1,3 @@
-use ecow::eco_vec;
 use typst::eval::{
     Datetime, Duration, EvalMode, Module, Never, NoneValue, Plugin, Regex, Repr, Version,
 };

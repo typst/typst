@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use ecow::{eco_format, EcoVec};
-use typst::eval::{Func, Module};
+use ecow::EcoVec;
+use typst::eval::Module;
 
 use super::Value;
 use crate::diag::SourceDiagnostic;
@@ -15,7 +15,7 @@ pub struct Tracer {
     values: EcoVec<Value>,
     warnings: EcoVec<SourceDiagnostic>,
     warnings_set: HashSet<u128>,
-    nowarn: EcoVec<Module>,
+    nowarn: EcoVec<Module>, // TODO: can this be removed?
     nowarn_set: HashSet<u128>,
 }
 
@@ -63,7 +63,7 @@ impl Tracer {
         }
     }
 
-    /// Add a warning.
+    /// Add a warning. If the warning was emitted by a package that has its warnings suppressed, no warning is added.
     pub fn warn(&mut self, warning: SourceDiagnostic) {
         if let Some(package) = warning.span.id().and_then(|id| id.package().map(|p|&p.name)) {
             if self.nowarn_set.contains(&hash128(package)) {
@@ -79,14 +79,11 @@ impl Tracer {
     }
 
     /// Stores that warnings from the given module must not be stored.
+    /// TODO: Should this be allowed to be invoked by packages? This could be an anti-pattern.
     pub fn suppress_warnings_for(&mut self, module: Module) {
         let hash = hash128(module.name());
         if self.nowarn_set.insert(hash) {
             self.nowarn.push(module);
         }
-    }
-
-    pub fn is_suppressed(&self, span: Span) -> bool {
-        false
     }
 }
