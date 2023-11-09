@@ -163,6 +163,13 @@ impl Func {
         }
     }
 
+    pub fn bikeshed_my_name(&self) -> Option<FileId> {
+        match &self.repr {
+            Repr::Closure(closure) => closure.file,
+            _ => None,
+        }
+    }
+
     /// The function's title case name, for use in documentation (e.g. `Minimum`).
     ///
     /// Returns `None` if this is a closure.

@@ -31,6 +31,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_func::<assert>();
     global.define_func::<eval>();
     global.define_func::<warn>();
+    global.define_func::<nowarn>();
 }
 
 /// Returns the string representation of a value.
@@ -90,15 +91,32 @@ pub fn panic(
 /// Category: foundations
 #[func]
 pub fn warn(
+    /// The virtual machine.
+    vm: &mut Vm,
+    /// The warning message.
     message: Spanned<EcoString>,
     /// An optional hint to display for the warning
     #[named]
     hint: Option<EcoString>,
-) -> SourceResult<Never> {
+) {
     let Spanned { v: message, span } = message;
-    Err(eco_vec![
-        SourceDiagnostic::warning(span, message).with_hints(hint.into_iter())
-    ])
+
+    vm.vt.tracer.warn(SourceDiagnostic::warning(span, message)
+        .with_hints(hint.into_iter())
+        .with_emitter(span.id()));
+}
+
+/// Display: Suppress warning
+/// Category: foundations
+/// TODO: example with #import and #nowarn
+#[func]
+pub fn nowarn(
+    /// The virtual machine.
+    vm: &mut Vm,
+    /// The module who's warnings are to be ignored.
+    target: Module,
+) {
+    vm.vt.tracer.suppress_warnings_for(target);
 }
 
 /// Ensures that a condition is fulfilled.

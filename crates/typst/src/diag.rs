@@ -46,6 +46,7 @@ pub use crate::{__bail as bail, __error as error, __warning as warning};
 
 #[doc(hidden)]
 pub use ecow::{eco_format, EcoString};
+use typst_syntax::FileId;
 
 /// Construct an [`EcoString`] or [`SourceDiagnostic`] with severity `Error`.
 #[macro_export]
@@ -95,6 +96,9 @@ pub struct SourceDiagnostic {
     /// Additional hints to the user, indicating how this problem could be avoided
     /// or worked around.
     pub hints: EcoVec<EcoString>,
+    /// If present, the file that emitted this diagnostic through a manual script function call (#warn).
+    /// This will only be set if the diagnostic is a warning.
+    pub emitter: Option<FileId>,
 }
 
 /// The severity of a [`SourceDiagnostic`].
@@ -115,6 +119,7 @@ impl SourceDiagnostic {
             trace: eco_vec![],
             message: message.into(),
             hints: eco_vec![],
+            emitter: None,
         }
     }
 
@@ -126,6 +131,7 @@ impl SourceDiagnostic {
             trace: eco_vec![],
             message: message.into(),
             hints: eco_vec![],
+            emitter: None,
         }
     }
 
@@ -145,6 +151,13 @@ impl SourceDiagnostic {
         self.hints.extend(hints);
         self
     }
+
+    /// Sets the emitter of this diagnostic.
+    /// Meant for scripted warnings to allow suppression.
+    pub fn with_emitter(mut self, emitter: Option<FileId>) -> Self {
+        self.emitter = emitter;
+        self
+    }
 }
 
 impl From<SyntaxError> for SourceDiagnostic {
@@ -155,6 +168,7 @@ impl From<SyntaxError> for SourceDiagnostic {
             message: error.message,
             trace: eco_vec![],
             hints: error.hints,
+            emitter: None,
         }
     }
 }
