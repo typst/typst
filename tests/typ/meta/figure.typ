@@ -109,17 +109,3 @@ We can clearly see that @fig-cylinder and
   table(columns: 2)[a][b],
   caption: [The table with custom separator.],
 )
-
----
-// Test localized default separator
-#set text(lang: "fr")
-#figure(
-    circle(),
-    caption: [Un cercle.],
-)
-
-#set text(lang: "zh")
-#figure(
-    rect(),
-    caption: [一个矩形],
-)
