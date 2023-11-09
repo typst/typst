@@ -131,3 +131,13 @@ We can clearly see that @fig-cylinder and
     square(),
     caption: [Un carré.],
 )
+
+#set figure.caption(separator: auto)
+
+// Russian
+#set text(lang: "ru")
+
+#figure(
+  polygon.regular(size: 1cm, vertices: 5),
+  caption: [Пятиугольник],
+)
