@@ -595,11 +595,11 @@ impl Fold for Augment<Abs> {
 
     fn fold(mut self, outer: Self::Output) -> Self::Output {
         // Special case for handling `auto` strokes in subsequent `Augment`.
-        if self.stroke.is_auto() && outer.stroke.is_custom() {
-            self.stroke = outer.stroke;
+        self.stroke = if self.stroke.is_auto() && outer.stroke.is_custom() {
+            outer.stroke
         } else {
-            self.stroke = self.stroke.fold(outer.stroke);
-        }
+            self.stroke.fold(outer.stroke)
+        };
 
         self
     }

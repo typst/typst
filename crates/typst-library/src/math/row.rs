@@ -252,10 +252,10 @@ impl Iterator for LeftRightAlternator {
 
     fn next(&mut self) -> Option<Self::Item> {
         let r = Some(*self);
-        match self {
-            Self::Left => *self = Self::Right,
-            Self::Right => *self = Self::Left,
-        }
+        *self = match self {
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
+        };
         r
     }
 }

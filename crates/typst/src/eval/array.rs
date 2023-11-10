@@ -668,11 +668,14 @@ impl Array {
         let mut result = Value::None;
         for (i, value) in self.into_iter().enumerate() {
             if i > 0 {
-                if i + 1 == len && last.is_some() {
-                    result = ops::join(result, last.take().unwrap())?;
-                } else {
-                    result = ops::join(result, separator.clone())?;
-                }
+                result = ops::join(
+                    result,
+                    if i + 1 == len && last.is_some() {
+                        last.take().unwrap()
+                    } else {
+                        separator.clone()
+                    },
+                )?;
             }
 
             result = ops::join(result, value)?;

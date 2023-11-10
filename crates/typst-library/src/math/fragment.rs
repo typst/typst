@@ -27,8 +27,7 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.width,
             Self::Variant(variant) => variant.frame.width(),
             Self::Frame(fragment) => fragment.frame.width(),
-            Self::Spacing(amount) => *amount,
-            Self::Space(amount) => *amount,
+            Self::Spacing(amount) | Self::Space(amount) => *amount,
             _ => Abs::zero(),
         }
     }
@@ -126,8 +125,7 @@ impl MathFragment {
         match self {
             MathFragment::Frame(frame) => {
                 match self.style().and_then(|style| style.class.as_custom()) {
-                    Some(MathClass::Fence) => true,
-                    Some(_) => false,
+                    Some(class) => class == MathClass::Fence,
                     None => frame.spaced,
                 }
             }
