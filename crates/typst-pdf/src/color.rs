@@ -357,7 +357,7 @@ impl PaintEncode for Color {
 
     fn set_as_stroke(&self, ctx: &mut PageContext, _: Transforms) {
         match self {
-            Color::Luma(_) => {
+            Self::Luma(_) => {
                 ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(D65_GRAY);
 
@@ -365,41 +365,41 @@ impl PaintEncode for Color {
                 ctx.content.set_stroke_color([l]);
             }
             // Oklch is converted to Oklab.
-            Color::Oklab(_) | Color::Oklch(_) => {
+            Self::Oklab(_) | Self::Oklch(_) => {
                 ctx.parent.colors.oklab(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(OKLAB);
 
                 let [l, a, b, _] = ColorSpace::Oklab.encode(*self);
                 ctx.content.set_stroke_color([l, a, b]);
             }
-            Color::LinearRgb(_) => {
+            Self::LinearRgb(_) => {
                 ctx.parent.colors.linear_rgb();
                 ctx.set_stroke_color_space(LINEAR_SRGB);
 
                 let [r, g, b, _] = ColorSpace::LinearRgb.encode(*self);
                 ctx.content.set_stroke_color([r, g, b]);
             }
-            Color::Rgba(_) => {
+            Self::Rgba(_) => {
                 ctx.parent.colors.srgb(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(SRGB);
 
                 let [r, g, b, _] = ColorSpace::Srgb.encode(*self);
                 ctx.content.set_stroke_color([r, g, b]);
             }
-            Color::Cmyk(_) => {
+            Self::Cmyk(_) => {
                 ctx.reset_stroke_color_space();
 
                 let [c, m, y, k] = ColorSpace::Cmyk.encode(*self);
                 ctx.content.set_stroke_cmyk(c, m, y, k);
             }
-            Color::Hsl(_) => {
+            Self::Hsl(_) => {
                 ctx.parent.colors.hsl(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(HSL);
 
                 let [h, s, l, _] = ColorSpace::Hsl.encode(*self);
                 ctx.content.set_stroke_color([h, s, l]);
             }
-            Color::Hsv(_) => {
+            Self::Hsv(_) => {
                 ctx.parent.colors.hsv(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(HSV);
 
