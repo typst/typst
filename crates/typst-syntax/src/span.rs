@@ -27,7 +27,7 @@ use super::FileId;
 pub struct Span(NonZeroU64);
 
 const fn contains(r: std::ops::Range<u64>, v: u64) -> bool {
-    v < r.start || v >= r.end
+    r.start <= v && v < r.end
 }
 
 impl Span {
