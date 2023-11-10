@@ -840,10 +840,10 @@ impl Num {
         other: Self,
         int: impl FnOnce(i64, i64) -> i64,
         float: impl FnOnce(f64, f64) -> f64,
-    ) -> Num {
+    ) -> Self {
         match (self, other) {
-            (Self::Int(a), Self::Int(b)) => Num::Int(int(a, b)),
-            (a, b) => Num::Float(float(a.float(), b.float())),
+            (Self::Int(a), Self::Int(b)) => Self::Int(int(a, b)),
+            (a, b) => Self::Float(float(a.float(), b.float())),
         }
     }
 
@@ -853,10 +853,10 @@ impl Num {
         third: Self,
         int: impl FnOnce(i64, i64, i64) -> i64,
         float: impl FnOnce(f64, f64, f64) -> f64,
-    ) -> Num {
+    ) -> Self {
         match (self, other, third) {
-            (Self::Int(a), Self::Int(b), Self::Int(c)) => Num::Int(int(a, b, c)),
-            (a, b, c) => Num::Float(float(a.float(), b.float(), c.float())),
+            (Self::Int(a), Self::Int(b), Self::Int(c)) => Self::Int(int(a, b, c)),
+            (a, b, c) => Self::Float(float(a.float(), b.float(), c.float())),
         }
     }
 

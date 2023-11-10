@@ -212,11 +212,12 @@ impl Value {
     /// Attach a span to the value, if possible.
     pub fn spanned(self, span: Span) -> Self {
         match self {
-            Value::Content(v) => Value::Content(v.spanned(span)),
-            Value::Func(v) => Value::Func(v.spanned(span)),
+            Self::Content(v) => Self::Content(v.spanned(span)),
+            Self::Func(v) => Self::Func(v.spanned(span)),
             v => v,
         }
     }
+
 }
 
 impl Repr for Value {
