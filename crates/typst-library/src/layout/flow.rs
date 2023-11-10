@@ -306,7 +306,7 @@ impl<'a> FlowLayouter<'a> {
             self.regions.root = true;
         }
 
-        let mut notes = Vec::new();
+        let mut notes = vec![];
 
         if self.regions.is_full() {
             // Skip directly if region is already full.
@@ -374,7 +374,7 @@ impl<'a> FlowLayouter<'a> {
 
                 self.regions.size.y -= height;
                 if self.root && movable {
-                    let mut notes = Vec::new();
+                    let mut notes = vec![];
                     find_footnotes(&mut notes, frame);
                     self.items.push(item);
                     if !self.handle_footnotes(vt, &mut notes, true, false)? {

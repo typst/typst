@@ -183,7 +183,7 @@ impl MathRow {
         frame.set_baseline(ascent);
 
         let mut next_x = {
-            let mut widths = Vec::new();
+            let mut widths = vec![];
             if !points.is_empty() && align != FixedAlign::Start {
                 let mut width = Abs::zero();
                 for fragment in self.iter() {

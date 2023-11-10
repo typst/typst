@@ -497,7 +497,7 @@ cast! {
     DashPattern,
     self => dict! { "array" => self.array, "phase" => self.phase }.into_value(),
 
-    "solid" => Vec::new().into(),
+    "solid" => vec![].into(),
     "dotted" => vec![DashLength::LineWidth, Abs::pt(2.0).into()].into(),
     "densely-dotted" => vec![DashLength::LineWidth, Abs::pt(1.0).into()].into(),
     "loosely-dotted" => vec![DashLength::LineWidth, Abs::pt(4.0).into()].into(),

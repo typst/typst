@@ -1348,7 +1348,7 @@ impl Eval for ast::Closure<'_> {
     #[tracing::instrument(name = "Closure::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         // Evaluate default values of named parameters.
-        let mut defaults = Vec::new();
+        let mut defaults = vec![];
         for param in self.params().children() {
             if let ast::Param::Named(named) = param {
                 defaults.push(named.expr().eval(vm)?);

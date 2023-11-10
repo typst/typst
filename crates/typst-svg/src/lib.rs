@@ -1105,7 +1105,7 @@ struct Deduplicator<T> {
 
 impl<T> Deduplicator<T> {
     fn new(kind: char) -> Self {
-        Self { kind, vec: Vec::new(), present: HashMap::new() }
+        Self { kind, vec: vec![], present: HashMap::new() }
     }
 
     /// Inserts a value into the vector. If the hash is already present, returns

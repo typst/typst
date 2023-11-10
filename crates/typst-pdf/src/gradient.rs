@@ -436,7 +436,7 @@ fn control_point(c: Point, r: f32, angle_start: f32, angle_end: f32) -> (Point, 
 #[comemo::memoize]
 fn compute_vertex_stream(conic: &ConicGradient, aspect_ratio: Ratio) -> Arc<Vec<u8>> {
     // Generated vertices for the Coons patches
-    let mut vertices = Vec::new();
+    let mut vertices = vec![];
 
     // Correct the gradient's angle
     let angle = Gradient::correct_aspect_ratio(conic.angle, aspect_ratio);

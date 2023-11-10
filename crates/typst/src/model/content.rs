@@ -346,7 +346,7 @@ impl Content {
     /// Elements produced in `show` rules will not be included in the results.
     #[tracing::instrument(skip_all)]
     pub fn query(&self, selector: Selector) -> Vec<Content> {
-        let mut results = Vec::new();
+        let mut results = vec![];
         self.traverse(&mut |element| {
             if selector.matches(&element) {
                 results.push(element);

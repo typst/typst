@@ -14,7 +14,7 @@ use super::is_ident;
 
 /// The global package-path interner.
 static INTERNER: Lazy<RwLock<Interner>> =
-    Lazy::new(|| RwLock::new(Interner { to_id: HashMap::new(), from_id: Vec::new() }));
+    Lazy::new(|| RwLock::new(Interner { to_id: HashMap::new(), from_id: vec![] }));
 
 /// A package-path interner.
 struct Interner {

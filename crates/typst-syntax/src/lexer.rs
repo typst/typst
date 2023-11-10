@@ -639,7 +639,7 @@ pub fn is_newline(character: char) -> bool {
 /// parentheses and brackets in the link were balanced.
 pub fn link_prefix(text: &str) -> (&str, bool) {
     let mut s = unscanny::Scanner::new(text);
-    let mut brackets = Vec::new();
+    let mut brackets = vec![];
 
     #[rustfmt::skip]
     s.eat_while(|c: char| {
@@ -675,7 +675,7 @@ pub fn link_prefix(text: &str) -> (&str, bool) {
 /// Split text at newlines.
 pub(super) fn split_newlines(text: &str) -> Vec<&str> {
     let mut s = Scanner::new(text);
-    let mut lines = Vec::new();
+    let mut lines = vec![];
     let mut start = 0;
     let mut end = 0;
 

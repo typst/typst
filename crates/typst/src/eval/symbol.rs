@@ -194,7 +194,7 @@ impl Symbol {
         #[variadic]
         variants: Vec<Spanned<Variant>>,
     ) -> SourceResult<Symbol> {
-        let mut list = Vec::new();
+        let mut list = vec![];
         if variants.is_empty() {
             bail!(span, "expected at least one variant");
         }
@@ -233,8 +233,8 @@ impl List {
     /// The characters that are covered by this list.
     fn variants(&self) -> Variants<'_> {
         match self {
-            List::Static(list) => Variants::Static(list.iter()),
-            List::Runtime(list) => Variants::Runtime(list.iter()),
+            Self::Static(list) => Variants::Static(list.iter()),
+            Self::Runtime(list) => Variants::Runtime(list.iter()),
         }
     }
 }

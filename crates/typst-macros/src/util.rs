@@ -187,7 +187,7 @@ impl<T: Parse> Parse for Array<T> {
         let content;
         syn::bracketed!(content in input);
 
-        let mut elems = Vec::new();
+        let mut elems = vec![];
         while !content.is_empty() {
             let first: T = content.parse()?;
             elems.push(first);

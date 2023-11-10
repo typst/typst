@@ -492,7 +492,7 @@ impl cbor {
         value: Spanned<Value>,
     ) -> SourceResult<Bytes> {
         let Spanned { v: value, span } = value;
-        let mut res = Vec::new();
+        let mut res = vec![];
         ciborium::into_writer(&value, &mut res)
             .map(|_| res.into())
             .map_err(|err| eco_format!("failed to encode value as CBOR ({err})"))

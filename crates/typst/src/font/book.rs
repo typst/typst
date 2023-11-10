@@ -452,7 +452,7 @@ impl Coverage {
         codepoints.sort();
         codepoints.dedup();
 
-        let mut runs = Vec::new();
+        let mut runs = vec![];
         let mut next = 0;
 
         for c in codepoints {
