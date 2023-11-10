@@ -582,6 +582,7 @@ fn test_part(
                 Severity::Warning => AnnotationKind::Warning,
             },
             range: world.range(diagnostic.span),
+            source: diagnostic.emitter.unwrap_or(source.id()),
             message: diagnostic.message.replace("\\", "/"),
         };
 
@@ -591,6 +592,7 @@ fn test_part(
                     kind: AnnotationKind::Hint,
                     message: hint.clone(),
                     range: annotation.range.clone(),
+                    source: diagnostic.emitter.unwrap_or(source.id()),
                 });
             }
         }
@@ -617,12 +619,12 @@ fn test_part(
 
         for unexpected in unexpected_outputs {
             write!(output, "    Not annotated | ").unwrap();
-            print_annotation(output, &source, line, unexpected)
+            print_annotation(output, &world, line, unexpected)
         }
 
         for missing in missing_outputs {
             write!(output, "    Not emitted   | ").unwrap();
-            print_annotation(output, &source, line, missing)
+            print_annotation(output, &world, line, missing)
         }
     }
 
@@ -631,11 +633,12 @@ fn test_part(
 
 fn print_annotation(
     output: &mut String,
-    source: &Source,
+    world: &TestWorld,
     line: usize,
     annotation: &Annotation,
 ) {
-    let Annotation { range, message, kind } = annotation;
+    let Annotation { range, message, kind, source } = annotation;
+    let source = world.source(source.clone()).unwrap();
     write!(output, "{kind}: ").unwrap();
     if let Some(range) = range {
         let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
@@ -662,6 +665,7 @@ struct Annotation {
     range: Option<Range<usize>>,
     message: EcoString,
     kind: AnnotationKind,
+    source: FileId,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -737,7 +741,7 @@ fn parse_part_metadata(source: &Source) -> TestPartMetadata {
                 .trim()
                 .replace("VERSION", &PackageVersion::compiler().to_string())
                 .into();
-            annotations.insert(Annotation { kind, range, message });
+            annotations.insert(Annotation { kind, range, message, source: source.id() });
         }
     }
 

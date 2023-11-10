@@ -1,43 +1,5 @@
 #let cause_warn(message) = {
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  //
-  // This is here by design, as the test utility only supports annotating lines, not files. It matches the test case.
+  // The newlines before this is by design, as the test utility only supports annotating lines, not files.
+  // It must match the offset inside the test case starting after ---.
   warn(message)
 }

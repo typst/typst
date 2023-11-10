@@ -2,13 +2,12 @@
 // Ref: false
 // ValidateTransientDiagnostics: true
 ---
-// Warning: 6-13 I am emitted
-#let test_helper = 1
 // ValidateTransientDiagnostics should make it possible to test this behaviour, so let's make sure that actually works.
-// Due to ValidateTransientDiagnostics, the location is not matching the location of the method call that causes the diagnostic,
-// instead it matches the location in the (package) file that causes the diagnostic.
 #import "@test/warner:0.1.0": cause_warn
 
+// Due to ValidateTransientDiagnostics, the location is not matching the location of the method call that causes the diagnostic,
+// instead it matches the location in the (package) file that causes the diagnostic.
+// Warning: 8-15 I am emitted
 #cause_warn("I am emitted")
 
 ---
