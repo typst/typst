@@ -4,7 +4,7 @@ use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::ffi::OsStr;
-use std::fmt::{self, Display, Formatter, Write as _};
+use std::fmt::{self, Debug, Display, Formatter, Write as _};
 use std::fs;
 use std::io::{self, Write};
 use std::ops::Range;
@@ -16,6 +16,8 @@ use ecow::EcoString;
 use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::cell::OnceCell;
+use std::cmp::Ordering;
+use std::str::FromStr;
 use tiny_skia as sk;
 use unscanny::Scanner;
 use walkdir::WalkDir;
@@ -27,10 +29,11 @@ use typst::eval::{
 };
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, Transform};
-use typst::syntax::{FileId, PackageVersion, Source, SyntaxNode, VirtualPath};
+use typst::syntax::{FileId, PackageSpec, PackageVersion, Source, SyntaxNode, VirtualPath};
 use typst::{World, WorldExt};
 use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
+use crate::AnnotationTarget::{LocalRange, Transient};
 
 const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";
@@ -366,7 +369,6 @@ fn test(
     let mut line = 0;
     let mut compare_ref = None;
     let mut validate_hints = None;
-    let mut validate_transient_diagnostics = None;
     let mut compare_ever = false;
     let mut rng = LinearShift::new();
 
@@ -396,7 +398,6 @@ fn test(
             for line in part.lines() {
                 compare_ref = get_flag_metadata(line, "Ref").or(compare_ref);
                 validate_hints = get_flag_metadata(line, "Hints").or(validate_hints);
-                validate_transient_diagnostics = get_flag_metadata(line, "ValidateTransientDiagnostics").or(validate_transient_diagnostics);
             }
         } else {
             let (part_ok, compare_here, part_frames) = test_part(
@@ -407,7 +408,6 @@ fn test(
                 i,
                 compare_ref.unwrap_or(true),
                 validate_hints.unwrap_or(true),
-                validate_transient_diagnostics.unwrap_or(false),
                 line,
                 &mut rng,
             );
@@ -519,7 +519,6 @@ fn test_part(
     i: usize,
     compare_ref: bool,
     validate_hints: bool,
-    validate_transient_warnings: bool,
     line: usize,
     rng: &mut LinearShift,
 ) -> (bool, bool, Vec<Frame>) {
@@ -571,18 +570,15 @@ fn test_part(
     // however, as the line of the hint is still verified.
     let mut actual_diagnostics = HashSet::new();
     for diagnostic in &diagnostics {
-        // Ignore diagnostics from other files, unless explicitly enabled.
-        if diagnostic.span.id().map_or(false, |id| !validate_transient_warnings && id != source.id()) {
-            continue;
-        }
-
         let annotation = Annotation {
             kind: match diagnostic.severity {
                 Severity::Error => AnnotationKind::Error,
                 Severity::Warning => AnnotationKind::Warning,
             },
-            range: world.range(diagnostic.span),
-            source: diagnostic.emitter.unwrap_or(source.id()),
+            target: diagnostic.emitter
+                .filter(|_| diagnostic.span.id().is_some_and(|d| source.id() != d))
+                .map(Transient)
+                .unwrap_or_else(|| LocalRange(world.range(diagnostic.span))),
             message: diagnostic.message.replace("\\", "/"),
         };
 
@@ -591,8 +587,7 @@ fn test_part(
                 actual_diagnostics.insert(Annotation {
                     kind: AnnotationKind::Hint,
                     message: hint.clone(),
-                    range: annotation.range.clone(),
-                    source: diagnostic.emitter.unwrap_or(source.id()),
+                    target: annotation.target.clone(),
                 });
             }
         }
@@ -609,8 +604,8 @@ fn test_part(
         .difference(&actual_diagnostics)
         .collect::<Vec<_>>();
 
-    unexpected_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));
-    missing_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));
+    unexpected_outputs.sort_by_key(|&v| &v.target);
+    missing_outputs.sort_by_key(|&v| &v.target);
 
     // This prints all unexpected emits first, then all missing emits.
     if !(unexpected_outputs.is_empty() && missing_outputs.is_empty()) {
@@ -619,12 +614,12 @@ fn test_part(
 
         for unexpected in unexpected_outputs {
             write!(output, "    Not annotated | ").unwrap();
-            print_annotation(output, &world, line, unexpected)
+            print_annotation(output, &source, line, unexpected)
         }
 
         for missing in missing_outputs {
             write!(output, "    Not emitted   | ").unwrap();
-            print_annotation(output, &world, line, missing)
+            print_annotation(output, &source, line, missing)
         }
     }
 
@@ -633,20 +628,32 @@ fn test_part(
 
 fn print_annotation(
     output: &mut String,
-    world: &TestWorld,
+    source: &Source,
     line: usize,
     annotation: &Annotation,
 ) {
-    let Annotation { range, message, kind, source } = annotation;
-    let source = world.source(source.clone()).unwrap();
-    write!(output, "{kind}: ").unwrap();
-    if let Some(range) = range {
-        let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
-        let start_col = 1 + source.byte_to_column(range.start).unwrap();
-        let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
-        let end_col = 1 + source.byte_to_column(range.end).unwrap();
-        write!(output, "{start_line}:{start_col}-{end_line}:{end_col}: ").unwrap();
+    let Annotation { target, message, kind } = annotation;
+
+    let target_kind = match target {
+        LocalRange(_) => "",
+        Transient(_) => "Transient ",
+    };
+    write!(output, "{target_kind}{kind}: ").unwrap();
+    match target {
+        LocalRange(range) => {
+            if let Some(range) = range {
+                let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
+                let start_col = 1 + source.byte_to_column(range.start).unwrap();
+                let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
+                let end_col = 1 + source.byte_to_column(range.end).unwrap();
+                write!(output, "{start_line}:{start_col}-{end_line}:{end_col}: ").unwrap();
+            }
+        }
+        Transient(file_id) => {
+            write!(output, "{:?}: ", file_id).unwrap();
+        }
     }
+
     writeln!(output, "{message}").unwrap();
 }
 
@@ -662,10 +669,35 @@ struct TestPartMetadata {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 struct Annotation {
-    range: Option<Range<usize>>,
+    target: AnnotationTarget,
     message: EcoString,
     kind: AnnotationKind,
-    source: FileId,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+enum AnnotationTarget {
+    LocalRange(Option<Range<usize>>),
+    Transient(FileId),
+}
+
+impl Ord for AnnotationTarget {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (LocalRange(Some(lhs)), LocalRange(Some(rhs))) => lhs.start.cmp(&rhs.start),
+            (LocalRange(Some(_)), LocalRange(None)) => Ordering::Greater,
+            (LocalRange(None), LocalRange(Some(_))) => Ordering::Less,
+            (LocalRange(None), LocalRange(None)) => Ordering::Equal,
+            (LocalRange(_), Transient(_)) => Ordering::Greater,
+            (Transient(_), LocalRange(_)) => Ordering::Less,
+            (Transient(lhs), Transient(rhs)) => lhs.cmp(rhs), // TODO: could be improved to be file/package name for developer convenience.
+        }
+    }
+}
+
+impl PartialOrd for AnnotationTarget {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -732,16 +764,40 @@ fn parse_part_metadata(source: &Source) -> TestPartMetadata {
             Some(start..end)
         };
 
+        // Parses something in the form of @test/warner:0.1.0\lib.typ:
+        let package_and_file = |s: &mut Scanner| -> (PackageSpec, String) {
+            // Assumption: package names and namespaces never contain backslashes.
+            let package_part = s.eat_until(|c| c == '\\' || c == ' ');
+            let package = PackageSpec::from_str(package_part).unwrap();
+            let filename = s.eat_until(":");
+            (package, filename.to_owned())
+        };
+
         for kind in AnnotationKind::iter() {
-            let Some(expectation) = get_metadata(line, kind.as_str()) else { continue };
-            let mut s = Scanner::new(expectation);
-            let range = range(&mut s);
-            let rest = if range.is_some() { s.after() } else { s.string() };
-            let message = rest
-                .trim()
-                .replace("VERSION", &PackageVersion::compiler().to_string())
-                .into();
-            annotations.insert(Annotation { kind, range, message, source: source.id() });
+            let (target, message)
+                = if let Some(expectation) = get_metadata(line, kind.as_str()) {
+                    let mut s = Scanner::new(expectation);
+                    let range = range(&mut s);
+                    let rest = if range.is_some() { s.after() } else { s.string() };
+                    let message = rest
+                        .trim()
+                        .replace("VERSION", &PackageVersion::compiler().to_string())
+                        .into();
+                (LocalRange(range), message)
+            } else if let Some(expectation) = get_metadata(line, &format!("Transient {}", kind.as_str())) {
+                let mut s = Scanner::new(expectation);
+                let (package, filename) = package_and_file(&mut s);
+                let rest = s.after();
+                let message = rest
+                    .trim()
+                    .replace("VERSION", &PackageVersion::compiler().to_string())
+                    .into();
+                (Transient(FileId::new(Some(package), VirtualPath::new(filename))), message)
+            } else {
+                continue
+            };
+
+            annotations.insert(Annotation { kind, target, message });
         }
     }
 

@@ -204,6 +204,7 @@
 
 ---
 // Cyclic import in other file.
+// Transient Error: 23-3: cyclic import
 #import "./modules/cycle1.typ": *
 
 This is never reached.
