@@ -195,8 +195,8 @@ impl<T: Reflect> Reflect for Smart<T> {
 impl<T: IntoValue> IntoValue for Smart<T> {
     fn into_value(self) -> Value {
         match self {
-            Smart::Custom(v) => v.into_value(),
-            Smart::Auto => Value::Auto,
+            Self::Custom(v) => v.into_value(),
+            Self::Auto => Value::Auto,
         }
     }
 }

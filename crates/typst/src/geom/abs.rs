@@ -236,10 +236,10 @@ impl AbsUnit {
     /// How many raw units correspond to a value of `1.0` in this unit.
     fn raw_scale(self) -> f64 {
         match self {
-            AbsUnit::Pt => 1.0,
-            AbsUnit::Mm => 2.83465,
-            AbsUnit::Cm => 28.3465,
-            AbsUnit::In => 72.0,
+            Self::Pt => 1.0,
+            Self::Mm => 2.83465,
+            Self::Cm => 28.3465,
+            Self::In => 72.0,
         }
     }
 }

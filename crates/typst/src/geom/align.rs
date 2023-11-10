@@ -78,14 +78,14 @@ impl Align {
 
 #[scope]
 impl Align {
-    pub const START: Self = Align::H(HAlign::Start);
-    pub const LEFT: Self = Align::H(HAlign::Left);
-    pub const CENTER: Self = Align::H(HAlign::Center);
-    pub const RIGHT: Self = Align::H(HAlign::Right);
-    pub const END: Self = Align::H(HAlign::End);
-    pub const TOP: Self = Align::V(VAlign::Top);
-    pub const HORIZON: Self = Align::V(VAlign::Horizon);
-    pub const BOTTOM: Self = Align::V(VAlign::Bottom);
+    pub const START: Self = Self::H(HAlign::Start);
+    pub const LEFT: Self = Self::H(HAlign::Left);
+    pub const CENTER: Self = Self::H(HAlign::Center);
+    pub const RIGHT: Self = Self::H(HAlign::Right);
+    pub const END: Self = Self::H(HAlign::End);
+    pub const TOP: Self = Self::V(VAlign::Top);
+    pub const HORIZON: Self = Self::V(VAlign::Horizon);
+    pub const BOTTOM: Self = Self::V(VAlign::Bottom);
 
     /// The axis this alignment belongs to.
     /// - `{"horizontal"}` for `start`, `left`, `center`, `right`, and `end`

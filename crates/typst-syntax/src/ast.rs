@@ -1445,25 +1445,23 @@ impl BinOp {
     /// The precedence of this operator.
     pub fn precedence(self) -> usize {
         match self {
-            Self::Mul => 6,
-            Self::Div => 6,
-            Self::Add => 5,
-            Self::Sub => 5,
-            Self::Eq => 4,
-            Self::Neq => 4,
-            Self::Lt => 4,
-            Self::Leq => 4,
-            Self::Gt => 4,
-            Self::Geq => 4,
-            Self::In => 4,
-            Self::NotIn => 4,
+            Self::Mul | Self::Div => 6,
+            Self::Add | Self::Sub => 5,
+            Self::Eq
+            | Self::Neq
+            | Self::Lt
+            | Self::Leq
+            | Self::Gt
+            | Self::Geq
+            | Self::In
+            | Self::NotIn => 4,
             Self::And => 3,
             Self::Or => 2,
-            Self::Assign => 1,
-            Self::AddAssign => 1,
-            Self::SubAssign => 1,
-            Self::MulAssign => 1,
-            Self::DivAssign => 1,
+            Self::Assign
+            | Self::AddAssign
+            | Self::SubAssign
+            | Self::MulAssign
+            | Self::DivAssign => 1,
         }
     }
 
@@ -1777,8 +1775,8 @@ impl<'a> Pattern<'a> {
     /// Returns a list of all identifiers in the pattern.
     pub fn idents(self) -> Vec<Ident<'a>> {
         match self {
-            Pattern::Normal(Expr::Ident(ident)) => vec![ident],
-            Pattern::Destructuring(destruct) => destruct.idents().collect(),
+            Self::Normal(Expr::Ident(ident)) => vec![ident],
+            Self::Destructuring(destruct) => destruct.idents().collect(),
             _ => vec![],
         }
     }
@@ -1808,10 +1806,8 @@ impl<'a> LetBindingKind<'a> {
     /// Returns a list of all identifiers in the pattern.
     pub fn idents(self) -> Vec<Ident<'a>> {
         match self {
-            LetBindingKind::Normal(pattern) => pattern.idents(),
-            LetBindingKind::Closure(ident) => {
-                vec![ident]
-            }
+            Self::Normal(pattern) => pattern.idents(),
+            Self::Closure(ident) => vec![ident],
         }
     }
 }
@@ -1833,8 +1829,9 @@ impl<'a> LetBinding<'a> {
             LetBindingKind::Normal(Pattern::Normal(_)) => {
                 self.0.children().filter_map(SyntaxNode::cast).nth(1)
             }
-            LetBindingKind::Normal(_) => self.0.cast_first_match(),
-            LetBindingKind::Closure(_) => self.0.cast_first_match(),
+            LetBindingKind::Normal(_) | LetBindingKind::Closure(_) => {
+                self.0.cast_first_match()
+            }
         }
     }
 }

@@ -173,16 +173,16 @@ pub enum Tracepoint {
 impl Display for Tracepoint {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Tracepoint::Call(Some(name)) => {
+            Self::Call(Some(name)) => {
                 write!(f, "error occurred in this call of function `{}`", name)
             }
-            Tracepoint::Call(None) => {
+            Self::Call(None) => {
                 write!(f, "error occurred in this function call")
             }
-            Tracepoint::Show(name) => {
+            Self::Show(name) => {
                 write!(f, "error occurred while applying show rule to this {name}")
             }
-            Tracepoint::Import => {
+            Self::Import => {
                 write!(f, "error occurred while importing this module")
             }
         }
@@ -295,7 +295,7 @@ where
 }
 
 impl<T> Hint<T> for HintedStrResult<T> {
-    fn hint(self, hint: impl Into<EcoString>) -> HintedStrResult<T> {
+    fn hint(self, hint: impl Into<EcoString>) -> Self {
         self.map_err(|mut error| {
             error.hints.push(hint.into());
             error

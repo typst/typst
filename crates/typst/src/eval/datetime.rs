@@ -125,7 +125,7 @@ pub enum Datetime {
 impl Datetime {
     /// Create a datetime from year, month, and day.
     pub fn from_ymd(year: i32, month: u8, day: u8) -> Option<Self> {
-        Some(Datetime::Date(
+        Some(Self::Date(
             time::Date::from_calendar_date(year, time::Month::try_from(month).ok()?, day)
                 .ok()?,
         ))
@@ -133,7 +133,7 @@ impl Datetime {
 
     /// Create a datetime from hour, minute, and second.
     pub fn from_hms(hour: u8, minute: u8, second: u8) -> Option<Self> {
-        Some(Datetime::Time(time::Time::from_hms(hour, minute, second).ok()?))
+        Some(Self::Time(time::Time::from_hms(hour, minute, second).ok()?))
     }
 
     /// Create a datetime from day and time.
@@ -149,7 +149,7 @@ impl Datetime {
             time::Date::from_calendar_date(year, time::Month::try_from(month).ok()?, day)
                 .ok()?;
         let time = time::Time::from_hms(hour, minute, second).ok()?;
-        Some(Datetime::Datetime(PrimitiveDateTime::new(date, time)))
+        Some(Self::Datetime(PrimitiveDateTime::new(date, time)))
     }
 
     /// Try to parse a dictionary as a TOML date.
@@ -202,9 +202,9 @@ impl Datetime {
     /// Which kind of variant this datetime stores.
     pub fn kind(&self) -> &'static str {
         match self {
-            Datetime::Datetime(_) => "datetime",
-            Datetime::Date(_) => "date",
-            Datetime::Time(_) => "time",
+            Self::Datetime(_) => "datetime",
+            Self::Date(_) => "date",
+            Self::Time(_) => "time",
         }
     }
 }
@@ -278,10 +278,10 @@ impl Datetime {
 
         Ok(match (date, time) {
             (Some(date), Some(time)) => {
-                Datetime::Datetime(PrimitiveDateTime::new(date, time))
+                Self::Datetime(PrimitiveDateTime::new(date, time))
             }
-            (Some(date), None) => Datetime::Date(date),
-            (None, Some(time)) => Datetime::Time(time),
+            (Some(date), None) => Self::Date(date),
+            (None, Some(time)) => Self::Time(time),
             (None, None) => {
                 bail!("at least one of date or time must be fully specified")
             }

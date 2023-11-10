@@ -285,7 +285,7 @@ impl FontInfo {
             }
         }
 
-        Some(FontInfo {
+        Some(Self {
             family,
             variant,
             flags,

@@ -77,14 +77,12 @@ impl Version {
         #[variadic]
         components: Vec<VersionComponents>,
     ) -> Version {
-        let mut version = Version::new();
+        let mut version = Self::new();
         for c in components {
             match c {
                 VersionComponents::Single(v) => version.push(v),
                 VersionComponents::Multiple(values) => {
-                    for v in values {
-                        version.push(v);
-                    }
+                    version.extend(values.iter().cloned());
                 }
             }
         }
@@ -116,6 +114,12 @@ impl Version {
             .ok()
             .and_then(|i| self.0.get(i).copied())
             .unwrap_or_default() as i64)
+    }
+}
+
+impl Extend<u32> for Version {
+    fn extend<T: IntoIterator<Item = u32>>(&mut self, iter: T) {
+        self.0.extend(iter)
     }
 }
 

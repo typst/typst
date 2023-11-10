@@ -317,7 +317,7 @@ impl<'a> IntoIterator for &'a Dict {
 
 impl From<IndexMap<Str, Value>> for Dict {
     fn from(map: IndexMap<Str, Value>) -> Self {
-        Self(Arc::new(map))
+        Self(map.into())
     }
 }
 

@@ -254,15 +254,15 @@ pub trait ColorEncode {
 impl ColorEncode for ColorSpace {
     fn encode(&self, color: Color) -> [f32; 4] {
         match self {
-            ColorSpace::Oklab => {
+            Self::Oklab => {
                 let [l, a, b, alpha] = color.to_oklab().to_vec4();
                 [l, (a + 0.4).clamp(0.0, 1.0), (b + 0.4).clamp(0.0, 1.0), alpha]
             }
-            ColorSpace::Hsl => {
+            Self::Hsl => {
                 let [h, s, l, _] = color.to_hsl().to_vec4();
                 [h / 360.0, s, l, 0.0]
             }
-            ColorSpace::Hsv => {
+            Self::Hsv => {
                 let [h, s, v, _] = color.to_hsv().to_vec4();
                 [h / 360.0, s, v, 0.0]
             }
@@ -299,48 +299,48 @@ impl PaintEncode for Paint {
 impl PaintEncode for Color {
     fn set_as_fill(&self, ctx: &mut PageContext, _: bool, _: Transforms) {
         match self {
-            Color::Luma(_) => {
+            Self::Luma(_) => {
                 ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(D65_GRAY);
 
                 let [l, _, _, _] = ColorSpace::D65Gray.encode(*self);
                 ctx.content.set_fill_color([l]);
             }
-            Color::Oklab(_) => {
+            Self::Oklab(_) => {
                 ctx.parent.colors.oklab(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(OKLAB);
 
                 let [l, a, b, _] = ColorSpace::Oklab.encode(*self);
                 ctx.content.set_fill_color([l, a, b]);
             }
-            Color::LinearRgb(_) => {
+            Self::LinearRgb(_) => {
                 ctx.parent.colors.linear_rgb();
                 ctx.set_fill_color_space(LINEAR_SRGB);
 
                 let [r, g, b, _] = ColorSpace::LinearRgb.encode(*self);
                 ctx.content.set_fill_color([r, g, b]);
             }
-            Color::Rgba(_) => {
+            Self::Rgba(_) => {
                 ctx.parent.colors.srgb(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(SRGB);
 
                 let [r, g, b, _] = ColorSpace::Srgb.encode(*self);
                 ctx.content.set_fill_color([r, g, b]);
             }
-            Color::Cmyk(_) => {
+            Self::Cmyk(_) => {
                 ctx.reset_fill_color_space();
 
                 let [c, m, y, k] = ColorSpace::Cmyk.encode(*self);
                 ctx.content.set_fill_cmyk(c, m, y, k);
             }
-            Color::Hsl(_) => {
+            Self::Hsl(_) => {
                 ctx.parent.colors.hsl(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(HSL);
 
                 let [h, s, l, _] = ColorSpace::Hsl.encode(*self);
                 ctx.content.set_fill_color([h, s, l]);
             }
-            Color::Hsv(_) => {
+            Self::Hsv(_) => {
                 ctx.parent.colors.hsv(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(HSV);
 

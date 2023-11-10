@@ -707,7 +707,7 @@ impl TopEdge {
     /// Resolve the value of the text edge given a font's metrics.
     pub fn resolve(self, font_size: Abs, font: &Font, bbox: Option<Rect>) -> Abs {
         match self {
-            TopEdge::Metric(metric) => {
+            Self::Metric(metric) => {
                 if let Ok(metric) = metric.try_into() {
                     font.metrics().vertical(metric).at(font_size)
                 } else {
@@ -715,7 +715,7 @@ impl TopEdge {
                         .unwrap_or_default()
                 }
             }
-            TopEdge::Length(length) => length.at(font_size),
+            Self::Length(length) => length.at(font_size),
         }
     }
 }
@@ -749,13 +749,13 @@ impl TryInto<VerticalFontMetric> for TopEdgeMetric {
     type Error = ();
 
     fn try_into(self) -> Result<VerticalFontMetric, Self::Error> {
-        match self {
-            Self::Ascender => Ok(VerticalFontMetric::Ascender),
-            Self::CapHeight => Ok(VerticalFontMetric::CapHeight),
-            Self::XHeight => Ok(VerticalFontMetric::XHeight),
-            Self::Baseline => Ok(VerticalFontMetric::Baseline),
-            _ => Err(()),
-        }
+        Ok(match self {
+            Self::Ascender => VerticalFontMetric::Ascender,
+            Self::CapHeight => VerticalFontMetric::CapHeight,
+            Self::XHeight => VerticalFontMetric::XHeight,
+            Self::Baseline => VerticalFontMetric::Baseline,
+            _ => return Err(()),
+        })
     }
 }
 
@@ -777,7 +777,7 @@ impl BottomEdge {
     /// Resolve the value of the text edge given a font's metrics.
     pub fn resolve(self, font_size: Abs, font: &Font, bbox: Option<Rect>) -> Abs {
         match self {
-            BottomEdge::Metric(metric) => {
+            Self::Metric(metric) => {
                 if let Ok(metric) = metric.try_into() {
                     font.metrics().vertical(metric).at(font_size)
                 } else {
@@ -785,7 +785,7 @@ impl BottomEdge {
                         .unwrap_or_default()
                 }
             }
-            BottomEdge::Length(length) => length.at(font_size),
+            Self::Length(length) => length.at(font_size),
         }
     }
 }
@@ -815,11 +815,11 @@ impl TryInto<VerticalFontMetric> for BottomEdgeMetric {
     type Error = ();
 
     fn try_into(self) -> Result<VerticalFontMetric, Self::Error> {
-        match self {
-            Self::Baseline => Ok(VerticalFontMetric::Baseline),
-            Self::Descender => Ok(VerticalFontMetric::Descender),
-            _ => Err(()),
-        }
+        Ok(match self {
+            Self::Baseline => VerticalFontMetric::Baseline,
+            Self::Descender => VerticalFontMetric::Descender,
+            _ => return Err(()),
+        })
     }
 }
 

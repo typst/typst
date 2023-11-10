@@ -273,15 +273,15 @@ impl CastInfo {
         let mut parts = vec![];
 
         self.walk(|info| match info {
-            CastInfo::Any => parts.push("anything".into()),
-            CastInfo::Value(value, _) => {
+            Self::Any => parts.push("anything".into()),
+            Self::Value(value, _) => {
                 parts.push(value.repr());
                 if value.ty() == found.ty() {
                     matching_type = true;
                 }
             }
-            CastInfo::Type(ty) => parts.push(eco_format!("{ty}")),
-            CastInfo::Union(_) => {}
+            Self::Type(ty) => parts.push(eco_format!("{ty}")),
+            Self::Union(_) => {}
         });
 
         let mut msg = String::from("expected ");
