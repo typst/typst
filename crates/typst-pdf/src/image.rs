@@ -142,7 +142,7 @@ fn encode_alpha(raster: &RasterImage) -> (Arc<Vec<u8>>, Filter) {
         .pixels()
         .map(|(_, _, Rgba([_, _, _, a]))| a)
         .collect();
-    (Arc::new(deflate(&pixels)), Filter::FlateDecode)
+    (deflate(&pixels).into(), Filter::FlateDecode)
 }
 
 /// Encode an SVG into a chunk of PDF objects.

@@ -726,7 +726,7 @@ fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
             });
         },
     }
-    Some(Arc::new(pixmap))
+    Some(pixmap.into())
 }
 
 /// Trait for sampling of a paint, used as a generic
@@ -834,7 +834,7 @@ fn to_sk_paint<'a>(
             }
         }
 
-        Arc::new(pixmap)
+        pixmap.into()
     }
 
     let mut sk_paint: sk::Paint<'_> = sk::Paint::default();

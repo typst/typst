@@ -29,7 +29,7 @@ static TLS_CONFIG: Lazy<Option<Arc<rustls::ClientConfig>>> = Lazy::new(|| {
                 .with_safe_defaults()
                 .with_root_certificates(store)
                 .with_no_client_auth();
-            Ok::<_, std::io::Error>(Arc::new(config))
+            Ok::<_, std::io::Error>(config.into())
         })
         .and_then(|x| x.ok())
 });
