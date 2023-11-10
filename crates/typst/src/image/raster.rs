@@ -110,9 +110,9 @@ impl RasterFormat {
 impl From<RasterFormat> for image::ImageFormat {
     fn from(format: RasterFormat) -> Self {
         match format {
-            RasterFormat::Png => image::ImageFormat::Png,
-            RasterFormat::Jpg => image::ImageFormat::Jpeg,
-            RasterFormat::Gif => image::ImageFormat::Gif,
+            RasterFormat::Png => Self::Png,
+            RasterFormat::Jpg => Self::Jpeg,
+            RasterFormat::Gif => Self::Gif,
         }
     }
 }
@@ -122,9 +122,9 @@ impl TryFrom<image::ImageFormat> for RasterFormat {
 
     fn try_from(format: image::ImageFormat) -> StrResult<Self> {
         Ok(match format {
-            image::ImageFormat::Png => RasterFormat::Png,
-            image::ImageFormat::Jpeg => RasterFormat::Jpg,
-            image::ImageFormat::Gif => RasterFormat::Gif,
+            image::ImageFormat::Png => Self::Png,
+            image::ImageFormat::Jpeg => Self::Jpg,
+            image::ImageFormat::Gif => Self::Gif,
             _ => bail!("Format not yet supported."),
         })
     }

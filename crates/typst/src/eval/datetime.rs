@@ -483,12 +483,12 @@ impl Sub for Datetime {
     type Output = StrResult<Duration>;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (Self::Datetime(a), Self::Datetime(b)) => Ok((a - b).into()),
-            (Self::Date(a), Self::Date(b)) => Ok((a - b).into()),
-            (Self::Time(a), Self::Time(b)) => Ok((a - b).into()),
+        Ok(match (self, rhs) {
+            (Self::Datetime(a), Self::Datetime(b)) => (a - b).into(),
+            (Self::Date(a), Self::Date(b)) => (a - b).into(),
+            (Self::Time(a), Self::Time(b)) => (a - b).into(),
             (a, b) => bail!("cannot subtract {} from {}", b.kind(), a.kind()),
-        }
+        })
     }
 }
 

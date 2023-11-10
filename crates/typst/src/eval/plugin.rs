@@ -210,7 +210,7 @@ impl Plugin {
             })
             .collect();
 
-        Ok(Plugin(Arc::new(Repr { bytes, functions, store: Mutex::new(store) })))
+        Ok(Self(Arc::new(Repr { bytes, functions, store: Mutex::new(store) })))
     }
 
     /// Call the plugin function with the given `name`.
