@@ -3,7 +3,7 @@
 ---
 #import "@test/warner:0.1.0": cause_warn
 
-// Transient Warning: @test/warner:0.1.0 I am emitted
+// Transient Warning: @test/warner:0.1.0\lib.typ I am emitted
 #cause_warn("I am emitted")
 
 ---
@@ -27,5 +27,5 @@
 
 #suppressed.cause_warn("I am not emitted")
 
-// Warning: 27-34 I am emitted
+// Transient Warning: @test/second-warner:0.1.0\lib.typ I am emitted
 #unsuppressed.cause_warn("I am emitted")

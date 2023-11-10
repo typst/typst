@@ -578,7 +578,7 @@ fn test_part(
             target: diagnostic.emitter
                 .filter(|_| diagnostic.span.id().is_some_and(|d| source.id() != d))
                 .map(Transient)
-                .unwrap_or_else(|| LocalRange(world.range(diagnostic.span))),
+                .or_else(|| world.range(diagnostic.span).map(LocalRange)),
             message: diagnostic.message.replace("\\", "/"),
         };
 
@@ -635,23 +635,22 @@ fn print_annotation(
     let Annotation { target, message, kind } = annotation;
 
     let target_kind = match target {
-        LocalRange(_) => "",
-        Transient(_) => "Transient ",
+        Some(Transient(_)) => "Transient ",
+        _ => "",
     };
     write!(output, "{target_kind}{kind}: ").unwrap();
     match target {
-        LocalRange(range) => {
-            if let Some(range) = range {
-                let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
-                let start_col = 1 + source.byte_to_column(range.start).unwrap();
-                let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
-                let end_col = 1 + source.byte_to_column(range.end).unwrap();
-                write!(output, "{start_line}:{start_col}-{end_line}:{end_col}: ").unwrap();
-            }
+        Some(LocalRange(range)) => {
+            let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
+            let start_col = 1 + source.byte_to_column(range.start).unwrap();
+            let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
+            let end_col = 1 + source.byte_to_column(range.end).unwrap();
+            write!(output, "{start_line}:{start_col}-{end_line}:{end_col}: ").unwrap();
         }
-        Transient(file_id) => {
+        Some(Transient(file_id)) => {
             write!(output, "{:?}: ", file_id).unwrap();
         }
+        _ => {}
     }
 
     writeln!(output, "{message}").unwrap();
@@ -669,24 +668,21 @@ struct TestPartMetadata {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 struct Annotation {
-    target: AnnotationTarget,
     message: EcoString,
     kind: AnnotationKind,
+    target: Option<AnnotationTarget>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AnnotationTarget {
-    LocalRange(Option<Range<usize>>),
+    LocalRange(Range<usize>),
     Transient(FileId),
 }
 
 impl Ord for AnnotationTarget {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (LocalRange(Some(lhs)), LocalRange(Some(rhs))) => lhs.start.cmp(&rhs.start),
-            (LocalRange(Some(_)), LocalRange(None)) => Ordering::Greater,
-            (LocalRange(None), LocalRange(Some(_))) => Ordering::Less,
-            (LocalRange(None), LocalRange(None)) => Ordering::Equal,
+            (LocalRange(lhs), LocalRange(rhs)) => lhs.start.cmp(&rhs.start),
             (LocalRange(_), Transient(_)) => Ordering::Greater,
             (Transient(_), LocalRange(_)) => Ordering::Less,
             (Transient(lhs), Transient(rhs)) => lhs.cmp(rhs), // TODO: could be improved to be file/package name for developer convenience.
@@ -764,39 +760,35 @@ fn parse_part_metadata(source: &Source) -> TestPartMetadata {
             Some(start..end)
         };
 
-        // Parses something in the form of @test/warner:0.1.0\lib.typ:
-        let package_and_file = |s: &mut Scanner| -> (PackageSpec, String) {
+        // Parses something in the form of @test/warner:0.1.0\lib.typ
+        let package_and_file = |s: &mut Scanner| -> Option<(PackageSpec, String)> {
             // Assumption: package names and namespaces never contain backslashes.
             let package_part = s.eat_until(|c| c == '\\' || c == ' ');
-            let package = PackageSpec::from_str(package_part).unwrap();
-            let filename = s.eat_until(":");
-            (package, filename.to_owned())
+            let package = PackageSpec::from_str(package_part).ok();
+            let filename = if s.eat_if('\\') { Some(s.eat_until(' ').to_owned()) } else { None };
+            package.and_then(|p| filename.map(|f| (p, f)))
         };
 
         for kind in AnnotationKind::iter() {
-            let (target, message)
+            let (target, rest)
                 = if let Some(expectation) = get_metadata(line, kind.as_str()) {
                     let mut s = Scanner::new(expectation);
                     let range = range(&mut s);
                     let rest = if range.is_some() { s.after() } else { s.string() };
-                    let message = rest
-                        .trim()
-                        .replace("VERSION", &PackageVersion::compiler().to_string())
-                        .into();
-                (LocalRange(range), message)
+                    (range.map(|r| LocalRange(r)), rest)
             } else if let Some(expectation) = get_metadata(line, &format!("Transient {}", kind.as_str())) {
                 let mut s = Scanner::new(expectation);
-                let (package, filename) = package_and_file(&mut s);
-                let rest = s.after();
-                let message = rest
-                    .trim()
-                    .replace("VERSION", &PackageVersion::compiler().to_string())
-                    .into();
-                (Transient(FileId::new(Some(package), VirtualPath::new(filename))), message)
+                let package_and_file = package_and_file(&mut s);
+                let rest = if package_and_file.is_some() { s.after() } else { s.string() };
+                (package_and_file.map(|(p, f)| Transient(FileId::new(Some(p), VirtualPath::new(f)))), rest)
             } else {
                 continue
             };
 
+            let message = rest
+                .trim()
+                .replace("VERSION", &PackageVersion::compiler().to_string())
+                .into();
             annotations.insert(Annotation { kind, target, message });
         }
     }
