@@ -107,6 +107,7 @@ impl ColorSpaces {
                 oklab.tint_ref(self.oklab(alloc));
                 oklab.attrs().subtype(DeviceNSubtype::DeviceN);
             }
+            ColorSpace::Oklch => self.write(ColorSpace::Oklab, writer, alloc),
             ColorSpace::Srgb => writer.icc_based(self.srgb(alloc)),
             ColorSpace::D65Gray => writer.icc_based(self.d65_gray(alloc)),
             ColorSpace::LinearRgb => {
@@ -266,6 +267,9 @@ impl ColorEncode for ColorSpace {
                 let [h, s, v, _] = color.to_hsv().to_vec4();
                 [h / 360.0, s, v, 0.0]
             }
+            ColorSpace::Oklch => {
+                unimplemented!("Oklch is always converted to Oklab first")
+            }
             _ => color.to_vec4(),
         }
     }
@@ -306,7 +310,8 @@ impl PaintEncode for Color {
                 let [l, _, _, _] = ColorSpace::D65Gray.encode(*self);
                 ctx.content.set_fill_color([l]);
             }
-            Color::Oklab(_) => {
+            // Oklch is converted to Oklab.
+            Color::Oklab(_) | Color::Oklch(_) => {
                 ctx.parent.colors.oklab(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(OKLAB);
 
@@ -359,7 +364,8 @@ impl PaintEncode for Color {
                 let [l, _, _, _] = ColorSpace::D65Gray.encode(*self);
                 ctx.content.set_stroke_color([l]);
             }
-            Color::Oklab(_) => {
+            // Oklch is converted to Oklab.
+            Color::Oklab(_) | Color::Oklch(_) => {
                 ctx.parent.colors.oklab(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(OKLAB);
 

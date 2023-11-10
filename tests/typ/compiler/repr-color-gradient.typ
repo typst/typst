@@ -7,6 +7,7 @@
 #blue \
 #color.linear-rgb(blue) \
 #oklab(blue) \
+#oklch(blue) \
 #cmyk(blue) \
 #color.hsl(blue) \
 #color.hsv(blue) \
