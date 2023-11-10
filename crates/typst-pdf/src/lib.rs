@@ -128,7 +128,7 @@ impl<'a> PdfContext<'a> {
             image_refs: vec![],
             gradient_refs: vec![],
             ext_gs_refs: vec![],
-            colors: ColorSpaces::default(),
+            colors: <_>::default(),
             font_map: Remapper::new(),
             image_map: Remapper::new(),
             gradient_map: Remapper::new(),

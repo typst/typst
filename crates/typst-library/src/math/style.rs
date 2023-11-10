@@ -238,19 +238,19 @@ impl LayoutMath for MathStyleElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut style = ctx.style;
-        if let Some(variant) = self.variant(StyleChain::default()) {
+        if let Some(variant) = self.variant(<_>::default()) {
             style = style.with_variant(variant);
         }
-        if let Some(bold) = self.bold(StyleChain::default()) {
+        if let Some(bold) = self.bold(<_>::default()) {
             style = style.with_bold(bold);
         }
-        if let Some(italic) = self.italic(StyleChain::default()) {
+        if let Some(italic) = self.italic(<_>::default()) {
             style = style.with_italic(italic);
         }
-        if let Some(size) = self.size(StyleChain::default()) {
+        if let Some(size) = self.size(<_>::default()) {
             style = style.with_size(size);
         }
-        if let Some(cramped) = self.cramped(StyleChain::default()) {
+        if let Some(cramped) = self.cramped(<_>::default()) {
             style = style.with_cramped(cramped);
         }
         ctx.style(style);

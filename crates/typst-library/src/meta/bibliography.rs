@@ -924,7 +924,7 @@ impl ElemRenderer<'_> {
                 content = PadElem::new(content).pack();
             }
             Some(Display::LeftMargin) => {
-                *prefix.get_or_insert_with(Default::default) += content;
+                *prefix.get_or_insert_with(<_>::default) += content;
                 return Content::empty();
             }
             _ => {}

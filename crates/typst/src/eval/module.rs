@@ -47,7 +47,7 @@ impl Module {
     pub fn new(name: impl Into<EcoString>, scope: Scope) -> Self {
         Self {
             name: name.into(),
-            inner: Arc::new(Repr { scope, content: Content::empty() }),
+            inner: Repr { scope, content: Content::empty() }.into(),
         }
     }
 

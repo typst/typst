@@ -124,7 +124,7 @@ fn layout(
             Geometry::Line(Point::with_x(radicand.width())).stroked(FixedStroke {
                 paint: TextElem::fill_in(ctx.styles()).as_decoration(),
                 thickness,
-                ..FixedStroke::default()
+                ..<_>::default()
             }),
             span,
         ),

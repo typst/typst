@@ -417,7 +417,7 @@ fn test(
         line += part.lines().count() + 1;
     }
 
-    let document = Document { pages: frames, ..Default::default() };
+    let document = Document { pages: frames, ..<_>::default() };
     if compare_ever {
         if let Some(pdf_path) = pdf_path {
             let pdf_data = typst_pdf::pdf(
