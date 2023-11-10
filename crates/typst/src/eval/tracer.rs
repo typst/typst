@@ -15,7 +15,7 @@ pub struct Tracer {
     values: EcoVec<Value>,
     warnings: EcoVec<SourceDiagnostic>,
     warnings_set: HashSet<u128>,
-    nowarn: EcoVec<Module>, // TODO: can this be removed?
+    nowarn: EcoVec<Module>,
     nowarn_set: HashSet<u128>,
 }
 
@@ -65,9 +65,11 @@ impl Tracer {
 
     /// Add a warning. If the warning was emitted by a package that has its warnings suppressed, no warning is added.
     pub fn warn(&mut self, warning: SourceDiagnostic) {
-        if let Some(package) = warning.span.id().and_then(|id| id.package().map(|p|&p.name)) {
-            if self.nowarn_set.contains(&hash128(package)) {
-                return;
+        if let Some(package) = warning.emitter.map(|e| e.package()) {
+            if let Some(package_name) = package.map(|p| &p.name) {
+                if self.nowarn_set.contains(&hash128(package_name)) {
+                    return; // TODO: can this be wrong?
+                }
             }
         }
 
