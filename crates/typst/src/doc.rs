@@ -397,7 +397,7 @@ impl Frame {
                 Geometry::Line(Point::with_x(self.size.x)).stroked(FixedStroke {
                     paint: Color::RED.into(),
                     thickness: Abs::pt(1.0),
-                    ..FixedStroke::default()
+                    ..<_>::default()
                 }),
                 Span::detached(),
             ),
@@ -424,7 +424,7 @@ impl Frame {
                 Geometry::Line(Point::with_x(self.size.x)).stroked(FixedStroke {
                     paint: Color::GREEN.into(),
                     thickness: Abs::pt(1.0),
-                    ..FixedStroke::default()
+                    ..<_>::default()
                 }),
                 Span::detached(),
             ),

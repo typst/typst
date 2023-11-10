@@ -402,7 +402,7 @@ pub(super) fn decorate(
     let stroke = stroke.clone().unwrap_or(FixedStroke {
         paint: text.fill.as_decoration(),
         thickness: metrics.thickness.at(text.size),
-        ..FixedStroke::default()
+        ..<_>::default()
     });
 
     let gap_padding = 0.08 * text.size;
@@ -416,12 +416,15 @@ pub(super) fn decorate(
         let target = Point::new(to - from, Abs::zero());
 
         if target.x >= min_width || !evade {
-            let shape = Geometry::Line(target).stroked(stroke.clone());
+            let item = FrameItem::Shape(
+                Geometry::Line(target).stroked(stroke.clone()),
+                Span::detached(),
+            );
 
             if prepend {
-                frame.prepend(origin, FrameItem::Shape(shape, Span::detached()));
+                frame.prepend(origin, item);
             } else {
-                frame.push(origin, FrameItem::Shape(shape, Span::detached()));
+                frame.push(origin, item);
             }
         }
     };

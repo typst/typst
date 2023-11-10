@@ -697,7 +697,7 @@ fn shape_segment<'a>(
                 x_advance,
                 x_offset: font.to_em(pos[i].x_offset),
                 y_offset: font.to_em(pos[i].y_offset),
-                adjustability: Adjustability::default(),
+                adjustability: <_>::default(),
                 range: start..end,
                 safe_to_break: !info.unsafe_to_break(),
                 c,

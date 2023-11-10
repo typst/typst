@@ -749,7 +749,7 @@ pub static SYNTAXES: Lazy<syntect::parsing::SyntaxSet> =
 pub static THEME: Lazy<synt::Theme> = Lazy::new(|| synt::Theme {
     name: Some("Typst Light".into()),
     author: Some("The Typst Project Developers".into()),
-    settings: synt::ThemeSettings::default(),
+    settings: <_>::default(),
     scopes: vec![
         item("comment", Some("#8a8a8a"), None),
         item("constant.character.escape", Some("#1d6c76"), None),

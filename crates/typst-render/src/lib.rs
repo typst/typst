@@ -66,7 +66,7 @@ pub fn render_merged(
             x as i32,
             y as i32,
             pixmap.as_ref(),
-            &sk::PixmapPaint::default(),
+            &<_>::default(),
             sk::Transform::identity(),
             None,
         );
@@ -99,7 +99,7 @@ impl<'a> State<'a> {
             transform,
             container_transform: transform,
             pixel_per_pt,
-            ..Default::default()
+            ..<_>::default()
         }
     }
 
@@ -196,12 +196,7 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &Group
         {
             if let Some(mask) = mask {
                 let mut mask = mask.clone();
-                mask.intersect_path(
-                    &path,
-                    sk::FillRule::default(),
-                    false,
-                    sk::Transform::default(),
-                );
+                mask.intersect_path(&path, <_>::default(), false, <_>::default());
                 storage = mask;
             } else {
                 let pxw = canvas.width();
@@ -212,12 +207,7 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &Group
                     return;
                 };
 
-                mask.fill_path(
-                    &path,
-                    sk::FillRule::default(),
-                    false,
-                    sk::Transform::default(),
-                );
+                mask.fill_path(&path, <_>::default(), false, <_>::default());
                 storage = mask;
             };
 
@@ -268,8 +258,7 @@ fn render_svg_glyph(
     let root = document.root_element();
 
     // Parse SVG.
-    let opts = usvg::Options::default();
-    let usvg_tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
+    let usvg_tree = usvg::Tree::from_xmltree(&document, &<_>::default()).ok()?;
     let tree = resvg::Tree::from_usvg(&usvg_tree);
     let view_box = tree.view_box.rect;
 
@@ -475,7 +464,7 @@ fn write_bitmap<S: PaintSampler>(
             left - 1,
             top - 1,
             pixmap.as_ref(),
-            &sk::PixmapPaint::default(),
+            &<_>::default(),
             sk::Transform::identity(),
             state.mask,
         );
@@ -700,7 +689,7 @@ fn render_image(
             1.0,
             sk::Transform::from_scale(paint_scale_x, paint_scale_y),
         ),
-        ..Default::default()
+        ..<_>::default()
     };
 
     let rect = sk::Rect::from_xywh(0.0, 0.0, view_width, view_height)?;

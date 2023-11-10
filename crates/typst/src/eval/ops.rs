@@ -126,7 +126,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Color(color), Length(thickness)) | (Length(thickness), Color(color)) => Stroke {
             paint: Smart::Custom(color.into()),
             thickness: Smart::Custom(thickness),
-            ..Stroke::default()
+            ..<_>::default()
         }
         .into_value(),
 
@@ -134,7 +134,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         | (Length(thickness), Gradient(gradient)) => Stroke {
             paint: Smart::Custom(gradient.into()),
             thickness: Smart::Custom(thickness),
-            ..Stroke::default()
+            ..<_>::default()
         }
         .into_value(),
 

@@ -252,7 +252,7 @@ impl Stroke<Abs> {
     pub fn unwrap_or_default(self) -> FixedStroke {
         // we want to do this; the Clippy lint is not type-aware
         #[allow(clippy::unwrap_or_default)]
-        self.unwrap_or(FixedStroke::default())
+        self.unwrap_or(<_>::default())
     }
 }
 
@@ -364,15 +364,15 @@ cast! {
     type Stroke,
     thickness: Length => Self {
         thickness: Smart::Custom(thickness),
-        ..Default::default()
+        ..<_>::default()
     },
     color: Color => Self {
         paint: Smart::Custom(color.into()),
-        ..Default::default()
+        ..<_>::default()
     },
     gradient: Gradient => Self {
         paint: Smart::Custom(gradient.into()),
-        ..Default::default()
+        ..<_>::default()
     },
     mut dict: Dict => {
         // Get a value by key, accepting either Auto or something convertible to type T.

@@ -157,12 +157,7 @@ fn encode_svg(svg: &SvgImage) -> Arc<Chunk> {
     // scope of `with`.
     unsafe {
         svg.with(|tree| {
-            svg2pdf::convert_tree_into(
-                tree,
-                svg2pdf::Options::default(),
-                &mut chunk,
-                Ref::new(1),
-            );
+            svg2pdf::convert_tree_into(tree, <_>::default(), &mut chunk, Ref::new(1));
         });
     }
 

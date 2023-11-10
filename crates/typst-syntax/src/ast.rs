@@ -389,7 +389,7 @@ impl Expr<'_> {
 
 impl Default for Expr<'_> {
     fn default() -> Self {
-        Expr::Space(Space::default())
+        Expr::Space(<_>::default())
     }
 }
 
@@ -1784,7 +1784,7 @@ impl<'a> Pattern<'a> {
 
 impl Default for Pattern<'_> {
     fn default() -> Self {
-        Self::Normal(Expr::default())
+        Self::Normal(<_>::default())
     }
 }
 

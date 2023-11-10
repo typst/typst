@@ -497,7 +497,7 @@ fn layout(
 
     // Prepare stroke.
     let stroke = match stroke {
-        Smart::Auto if fill.is_none() => Sides::splat(Some(FixedStroke::default())),
+        Smart::Auto if fill.is_none() => Sides::splat(Some(<_>::default())),
         Smart::Auto => Sides::splat(None),
         Smart::Custom(strokes) => strokes.map(|s| s.map(Stroke::unwrap_or_default)),
     };

@@ -231,7 +231,7 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
         parse: parse_attr(&mut attrs, "parse")?.flatten(),
         default: parse_attr::<syn::Expr>(&mut attrs, "default")?
             .flatten()
-            .unwrap_or_else(|| parse_quote! { ::std::default::Default::default() }),
+            .unwrap_or_else(|| parse_quote! { <_>::default() }),
         vis: field.vis.clone(),
         ident: ident.clone(),
         ident_in: Ident::new(&format!("{}_in", ident), ident.span()),

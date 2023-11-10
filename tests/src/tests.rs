@@ -248,7 +248,7 @@ impl TestWorld {
             library: Prehashed::new(library()),
             book: Prehashed::new(FontBook::from_fonts(&fonts)),
             fonts,
-            paths: RefCell::default(),
+            paths: <_>::default(),
         }
     }
 }
