@@ -1,16 +1,17 @@
-// Test scripted warnings (Inspired by https://github.com/typst/typst/issues/1276#issuecomment-1560091418).
+// Test script-emitted warnings.
 // Ref: false
 
 ---
+// Example inspired by https://github.com/typst/typst/issues/1276#issuecomment-1560091418
 #set heading(numbering: "1.")
 
 #let myref(label) = locate(loc => {
-    if query(label,loc).len() != 0 {
-        ref(label)
-    } else {
-// Warning: 14-61 could not find reference <test>
-        warn("could not find reference <" + str(label) + ">")
-    }
+  if query(label,loc).len() != 0 {
+    ref(label)
+  } else {
+    // Warning: 10-57 could not find reference <test>
+    warn("could not find reference <" + str(label) + ">")
+  }
 })
 
 = Second <test2>
@@ -19,50 +20,30 @@
 
 ---
 // This test verifies warn calls are not invoked if the user defined function calling it is not invoked 
-#set heading(numbering: "1.")
-
-#let myref(label) = locate(loc => {
-    if query(label,loc).len() != 0 {
-        ref(label)
-    } else {
-        warn("could not find reference <" + str(label) + ">")
-    }
-})
-
-= Second <test>
+#let someFunc() = {
+  warn("this should not push a warning into the diagnostics")
+}
 
 ---
 // This test verifies warn calls are not invoked if the user defined function is called, but the branch of the warn is not hit
-#set heading(numbering: "1.")
+#let someFunc() = {
+  if false {
+    warn("this branch should not be hit, so no diagnostic should be emitted")
+  } else {
+    [this is fine]
+  }
+}
 
-#let myref(label) = locate(loc => {
-    if query(label,loc).len() != 0 {
-        ref(label)
-    } else {
-        warn("could not find reference <" + str(label) + ">")
-    }
-})
-
-= Header <test>
-
-#myref(<test>)
+#someFunc()
 
 --- 
-#set heading(numbering: "1.")
+#let warningWithHint() = {
+  // Warning: 8-29 this is the warning
+  // Hint: 8-29 this is the hint
+  warn("this is the warning", hint: "this is the hint")
+}
 
-#let myref(label) = locate(loc => {
-    if query(label,loc).len() != 0 {
-        ref(label)
-    } else {
-// Warning: 14-61 could not find reference <test>
-// Hint: 14-61 did you mean to add a heading, along the lines of "= Title <test>"?
-        warn("could not find reference <" + str(label) + ">", hint: "did you mean to add a heading, along the lines of \"= Title <" + str(label) + ">\"?")
-    }
-})
-
-= Second <test2>
-
-#myref(<test>)
+#warningWithHint()
 
 ---
 // Warning: 7-40 did you misconfigure something?
