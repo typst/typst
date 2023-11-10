@@ -700,7 +700,7 @@ impl Ord for AnnotationTarget {
             (Detached, Local(_)) => Ordering::Less,
             (Detached, Transient(..)) => Ordering::Less,
             (Transient(lhs_p, lhs_f), Transient(rhs_p, rhs_f))
-                => lhs_p.name.to_owned().cmp(&rhs_p.name.to_owned()).then_with(||option_cmp_helper(&lhs_f, &rhs_f)),
+                => lhs_p.name.to_owned().cmp(&rhs_p.name.to_owned()).then_with(|| option_cmp_helper(lhs_f, rhs_f)),
             (Detached, Detached) => Ordering::Equal,
         }
     }
@@ -708,7 +708,7 @@ impl Ord for AnnotationTarget {
 
 fn option_cmp_helper<T: Ord>(lhs: &Option<T>, rhs: &Option<T>) -> Ordering {
     match (lhs, rhs) {
-        (Some(lhs), Some(rhs)) => lhs.cmp(&rhs),
+        (Some(lhs), Some(rhs)) => lhs.cmp(rhs),
         (Some(_), None) => Ordering::Greater,
         (None, Some(_)) => Ordering::Less,
         (None, None) => Ordering::Equal,

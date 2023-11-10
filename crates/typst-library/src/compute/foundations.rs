@@ -112,7 +112,7 @@ pub fn warn(
     let Spanned { v: message, span } = message;
 
     vm.vt.tracer.warn(SourceDiagnostic::warning(span, message)
-        .with_hints(hint.into_iter())
+        .with_hints(hint)
         .with_emitter(span.id()));
 }
 
