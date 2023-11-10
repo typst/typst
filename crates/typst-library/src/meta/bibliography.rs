@@ -302,7 +302,7 @@ pub struct Bibliography {
 
 impl Bibliography {
     /// Parse the bibliography argument.
-    fn parse(vm: &mut Vm, args: &mut Args) -> SourceResult<(BibPaths, Bibliography)> {
+    fn parse(vm: &mut Vm, args: &mut Args) -> SourceResult<(BibPaths, Self)> {
         let Spanned { v: paths, span } =
             args.expect::<Spanned<BibPaths>>("path to bibliography file")?;
 
@@ -324,7 +324,7 @@ impl Bibliography {
 
     /// Load bibliography entries from paths.
     #[comemo::memoize]
-    fn load(paths: &BibPaths, data: &[Bytes]) -> StrResult<Bibliography> {
+    fn load(paths: &BibPaths, data: &[Bytes]) -> StrResult<Self> {
         let mut map = IndexMap::new();
         let mut duplicates = Vec::<EcoString>::new();
 
@@ -361,7 +361,7 @@ impl Bibliography {
             bail!("duplicate bibliography keys: {}", duplicates.join(", "));
         }
 
-        Ok(Bibliography {
+        Ok(Self {
             map: Arc::new(map),
             hash: typst::util::hash128(data),
         })

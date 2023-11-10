@@ -26,6 +26,10 @@ use super::FileId;
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Span(NonZeroU64);
 
+const fn contains(r: std::ops::Range<u64>, v: u64) -> bool {
+    v < r.start || v >= r.end
+}
+
 impl Span {
     /// The full range of numbers available for span numbering.
     pub(super) const FULL: Range<u64> = 2..(1 << Self::BITS);
@@ -41,7 +45,7 @@ impl Span {
     ///
     /// Returns `None` if `number` is not contained in `FULL`.
     pub(super) const fn new(id: FileId, number: u64) -> Option<Self> {
-        if number < Self::FULL.start || number >= Self::FULL.end {
+        if !contains(Self::FULL, number) {
             return None;
         }
 

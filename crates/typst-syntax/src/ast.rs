@@ -1468,25 +1468,25 @@ impl BinOp {
     /// The associativity of this operator.
     pub fn assoc(self) -> Assoc {
         match self {
-            Self::Add => Assoc::Left,
-            Self::Sub => Assoc::Left,
-            Self::Mul => Assoc::Left,
-            Self::Div => Assoc::Left,
-            Self::And => Assoc::Left,
-            Self::Or => Assoc::Left,
-            Self::Eq => Assoc::Left,
-            Self::Neq => Assoc::Left,
-            Self::Lt => Assoc::Left,
-            Self::Leq => Assoc::Left,
-            Self::Gt => Assoc::Left,
-            Self::Geq => Assoc::Left,
-            Self::In => Assoc::Left,
-            Self::NotIn => Assoc::Left,
-            Self::Assign => Assoc::Right,
-            Self::AddAssign => Assoc::Right,
-            Self::SubAssign => Assoc::Right,
-            Self::MulAssign => Assoc::Right,
-            Self::DivAssign => Assoc::Right,
+            Self::Add
+            | Self::Sub
+            | Self::Mul
+            | Self::Div
+            | Self::And
+            | Self::Or
+            | Self::Eq
+            | Self::Neq
+            | Self::Lt
+            | Self::Leq
+            | Self::Gt
+            | Self::Geq
+            | Self::In
+            | Self::NotIn => Assoc::Left,
+            Self::Assign
+            | Self::AddAssign
+            | Self::SubAssign
+            | Self::MulAssign
+            | Self::DivAssign => Assoc::Right,
         }
     }
 

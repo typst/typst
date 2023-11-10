@@ -51,7 +51,7 @@ impl Tag {
     /// The list of all tags, in the same order as thy are defined.
     ///
     /// Can be used as the counter-part to `tag as usize`.
-    pub const LIST: &'static [Tag] = &[
+    pub const LIST: &'static [Self] = &[
         Self::Comment,
         Self::Punctuation,
         Self::Escape,
@@ -170,22 +170,22 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Math => None,
         SyntaxKind::MathIdent => highlight_ident(node),
         SyntaxKind::MathAlignPoint => Some(Tag::MathOperator),
-        SyntaxKind::MathDelimited => None,
-        SyntaxKind::MathAttach => None,
-        SyntaxKind::MathFrac => None,
-        SyntaxKind::MathRoot => None,
-        SyntaxKind::MathPrimes => None,
+        SyntaxKind::MathDelimited
+        | SyntaxKind::MathAttach
+        | SyntaxKind::MathFrac
+        | SyntaxKind::MathRoot
+        | SyntaxKind::MathPrimes => None,
 
         SyntaxKind::Hash => highlight_hash(node),
-        SyntaxKind::LeftBrace => Some(Tag::Punctuation),
-        SyntaxKind::RightBrace => Some(Tag::Punctuation),
-        SyntaxKind::LeftBracket => Some(Tag::Punctuation),
-        SyntaxKind::RightBracket => Some(Tag::Punctuation),
-        SyntaxKind::LeftParen => Some(Tag::Punctuation),
-        SyntaxKind::RightParen => Some(Tag::Punctuation),
-        SyntaxKind::Comma => Some(Tag::Punctuation),
-        SyntaxKind::Semicolon => Some(Tag::Punctuation),
-        SyntaxKind::Colon => Some(Tag::Punctuation),
+        SyntaxKind::LeftBrace
+        | SyntaxKind::RightBrace
+        | SyntaxKind::LeftBracket
+        | SyntaxKind::RightBracket
+        | SyntaxKind::LeftParen
+        | SyntaxKind::RightParen
+        | SyntaxKind::Comma
+        | SyntaxKind::Semicolon
+        | SyntaxKind::Colon => Some(Tag::Punctuation),
         SyntaxKind::Star => match node.parent_kind() {
             Some(SyntaxKind::Strong) => None,
             _ => Some(Tag::Operator),
@@ -208,80 +208,77 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
             Some(SyntaxKind::Heading) => None,
             _ => Some(Tag::Operator),
         },
-        SyntaxKind::EqEq => Some(Tag::Operator),
-        SyntaxKind::ExclEq => Some(Tag::Operator),
-        SyntaxKind::Lt => Some(Tag::Operator),
-        SyntaxKind::LtEq => Some(Tag::Operator),
-        SyntaxKind::Gt => Some(Tag::Operator),
-        SyntaxKind::GtEq => Some(Tag::Operator),
-        SyntaxKind::PlusEq => Some(Tag::Operator),
-        SyntaxKind::HyphEq => Some(Tag::Operator),
-        SyntaxKind::StarEq => Some(Tag::Operator),
-        SyntaxKind::SlashEq => Some(Tag::Operator),
-        SyntaxKind::Dots => Some(Tag::Operator),
-        SyntaxKind::Arrow => Some(Tag::Operator),
+        SyntaxKind::EqEq
+        | SyntaxKind::ExclEq
+        | SyntaxKind::Lt
+        | SyntaxKind::LtEq
+        | SyntaxKind::Gt
+        | SyntaxKind::GtEq
+        | SyntaxKind::PlusEq
+        | SyntaxKind::HyphEq
+        | SyntaxKind::StarEq
+        | SyntaxKind::SlashEq
+        | SyntaxKind::Dots
+        | SyntaxKind::Arrow => Some(Tag::Operator),
         SyntaxKind::Root => Some(Tag::MathOperator),
 
-        SyntaxKind::Not => Some(Tag::Keyword),
-        SyntaxKind::And => Some(Tag::Keyword),
-        SyntaxKind::Or => Some(Tag::Keyword),
-        SyntaxKind::None => Some(Tag::Keyword),
-        SyntaxKind::Auto => Some(Tag::Keyword),
-        SyntaxKind::Let => Some(Tag::Keyword),
-        SyntaxKind::Set => Some(Tag::Keyword),
-        SyntaxKind::Show => Some(Tag::Keyword),
-        SyntaxKind::If => Some(Tag::Keyword),
-        SyntaxKind::Else => Some(Tag::Keyword),
-        SyntaxKind::For => Some(Tag::Keyword),
-        SyntaxKind::In => Some(Tag::Keyword),
-        SyntaxKind::While => Some(Tag::Keyword),
-        SyntaxKind::Break => Some(Tag::Keyword),
-        SyntaxKind::Continue => Some(Tag::Keyword),
-        SyntaxKind::Return => Some(Tag::Keyword),
-        SyntaxKind::Import => Some(Tag::Keyword),
-        SyntaxKind::Include => Some(Tag::Keyword),
-        SyntaxKind::As => Some(Tag::Keyword),
+        SyntaxKind::Not
+        | SyntaxKind::And
+        | SyntaxKind::Or
+        | SyntaxKind::None
+        | SyntaxKind::Auto
+        | SyntaxKind::Let
+        | SyntaxKind::Set
+        | SyntaxKind::Show
+        | SyntaxKind::If
+        | SyntaxKind::Else
+        | SyntaxKind::For
+        | SyntaxKind::In
+        | SyntaxKind::While
+        | SyntaxKind::Break
+        | SyntaxKind::Continue
+        | SyntaxKind::Return
+        | SyntaxKind::Import
+        | SyntaxKind::Include
+        | SyntaxKind::As => Some(Tag::Keyword),
 
         SyntaxKind::Code => None,
         SyntaxKind::Ident => highlight_ident(node),
         SyntaxKind::Bool => Some(Tag::Keyword),
-        SyntaxKind::Int => Some(Tag::Number),
-        SyntaxKind::Float => Some(Tag::Number),
-        SyntaxKind::Numeric => Some(Tag::Number),
+        SyntaxKind::Int | SyntaxKind::Float | SyntaxKind::Numeric => Some(Tag::Number),
         SyntaxKind::Str => Some(Tag::String),
-        SyntaxKind::CodeBlock => None,
-        SyntaxKind::ContentBlock => None,
-        SyntaxKind::Parenthesized => None,
-        SyntaxKind::Array => None,
-        SyntaxKind::Dict => None,
-        SyntaxKind::Named => None,
-        SyntaxKind::Keyed => None,
-        SyntaxKind::Unary => None,
-        SyntaxKind::Binary => None,
-        SyntaxKind::FieldAccess => None,
-        SyntaxKind::FuncCall => None,
-        SyntaxKind::Args => None,
-        SyntaxKind::Spread => None,
-        SyntaxKind::Closure => None,
-        SyntaxKind::Params => None,
-        SyntaxKind::LetBinding => None,
-        SyntaxKind::SetRule => None,
-        SyntaxKind::ShowRule => None,
-        SyntaxKind::Conditional => None,
-        SyntaxKind::WhileLoop => None,
-        SyntaxKind::ForLoop => None,
-        SyntaxKind::ModuleImport => None,
-        SyntaxKind::ImportItems => None,
-        SyntaxKind::RenamedImportItem => None,
-        SyntaxKind::ModuleInclude => None,
-        SyntaxKind::LoopBreak => None,
-        SyntaxKind::LoopContinue => None,
-        SyntaxKind::FuncReturn => None,
-        SyntaxKind::Destructuring => None,
-        SyntaxKind::DestructAssignment => None,
+        SyntaxKind::CodeBlock
+        | SyntaxKind::ContentBlock
+        | SyntaxKind::Parenthesized
+        | SyntaxKind::Array
+        | SyntaxKind::Dict
+        | SyntaxKind::Named
+        | SyntaxKind::Keyed
+        | SyntaxKind::Unary
+        | SyntaxKind::Binary
+        | SyntaxKind::FieldAccess
+        | SyntaxKind::FuncCall
+        | SyntaxKind::Args
+        | SyntaxKind::Spread
+        | SyntaxKind::Closure
+        | SyntaxKind::Params
+        | SyntaxKind::LetBinding
+        | SyntaxKind::SetRule
+        | SyntaxKind::ShowRule
+        | SyntaxKind::Conditional
+        | SyntaxKind::WhileLoop
+        | SyntaxKind::ForLoop
+        | SyntaxKind::ModuleImport
+        | SyntaxKind::ImportItems
+        | SyntaxKind::RenamedImportItem
+        | SyntaxKind::ModuleInclude
+        | SyntaxKind::LoopBreak
+        | SyntaxKind::LoopContinue
+        | SyntaxKind::FuncReturn
+        | SyntaxKind::Destructuring
+        | SyntaxKind::DestructAssignment => None,
 
-        SyntaxKind::LineComment => Some(Tag::Comment),
-        SyntaxKind::BlockComment => Some(Tag::Comment),
+        SyntaxKind::LineComment | SyntaxKind::BlockComment => Some(Tag::Comment),
         SyntaxKind::Error => Some(Tag::Error),
         SyntaxKind::Eof => None,
     }
