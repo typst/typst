@@ -271,8 +271,7 @@ impl Hash for Value {
     fn hash<H: Hasher>(&self, state: &mut H) {
         std::mem::discriminant(self).hash(state);
         match self {
-            Self::None => {}
-            Self::Auto => {}
+            Self::None | Self::Auto => {}
             Self::Bool(v) => v.hash(state),
             Self::Int(v) => v.hash(state),
             Self::Float(v) => v.to_bits().hash(state),

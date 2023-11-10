@@ -221,11 +221,13 @@ impl HAlign {
     /// Resolve the axis alignment based on the horizontal direction.
     pub const fn fix(self, dir: Dir) -> FixedAlign {
         match (self, dir.is_positive()) {
-            (Self::Start, true) | (Self::End, false) => FixedAlign::Start,
-            (Self::Left, _) => FixedAlign::Start,
+            (Self::Start, true) | (Self::End, false) | (Self::Left, _) => {
+                FixedAlign::Start
+            }
             (Self::Center, _) => FixedAlign::Center,
-            (Self::Right, _) => FixedAlign::End,
-            (Self::End, true) | (Self::Start, false) => FixedAlign::End,
+            (Self::Right, _) | (Self::End, true) | (Self::Start, false) => {
+                FixedAlign::End
+            }
         }
     }
 }
