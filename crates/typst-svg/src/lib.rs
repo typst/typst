@@ -190,13 +190,13 @@ enum RenderedGlyph {
 impl SVGRenderer {
     /// Create a new SVG renderer with empty glyph and clip path.
     fn new() -> Self {
-        SVGRenderer {
-            xml: XmlWriter::new(xmlwriter::Options::default()),
-            glyphs: Deduplicator::new('g'),
-            clip_paths: Deduplicator::new('c'),
-            gradient_refs: Deduplicator::new('g'),
-            gradients: Deduplicator::new('f'),
-            conic_subgradients: Deduplicator::new('s'),
+        Self {
+            xml: XmlWriter::new(<_>::default()),
+            glyphs: 'g'.into(),
+            clip_paths: 'c'.into(),
+            gradient_refs: 'g'.into(),
+            gradients: 'f'.into(),
+            conic_subgradients: 's'.into(),
         }
     }
 
@@ -1101,6 +1101,12 @@ struct Deduplicator<T> {
     kind: char,
     vec: Vec<(u128, T)>,
     present: HashMap<u128, Id>,
+}
+
+impl<T> From<char> for Deduplicator<T> {
+    fn from(value: char) -> Self {
+        Self::new(value)
+    }
 }
 
 impl<T> Deduplicator<T> {
