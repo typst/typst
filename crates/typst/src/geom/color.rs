@@ -295,8 +295,10 @@ impl Color {
     /// A linear Oklab color is represented internally by an array of four
     /// components:
     /// - lightness ([`ratio`]($ratio))
-    /// - a ([`float`]($float) in the range `[-0.4..0.4]`)
-    /// - b ([`float`]($float) in the range `[-0.4..0.4]`)
+    /// - a ([`float`]($float) in the range `[-0.4..0.4]`
+    ///   or [`ratio`]($ratio) in the range `[-100%..100%]`)
+    /// - b ([`float`]($float) in the range `[-0.4..0.4]`
+    ///   or [`ratio`]($ratio) in the range `[-100%..100%]`)
     /// - alpha ([`ratio`]($ratio))
     ///
     /// These components are also available using the
@@ -317,10 +319,10 @@ impl Color {
         lightness: RatioComponent,
         /// The a ("green/red") component.
         #[external]
-        a: ABComponent,
+        a: ChromaComponent,
         /// The b ("blue/yellow") component.
         #[external]
-        b: ABComponent,
+        b: ChromaComponent,
         /// The alpha component.
         #[external]
         alpha: RatioComponent,
@@ -334,8 +336,8 @@ impl Color {
             color.to_oklab()
         } else {
             let RatioComponent(l) = args.expect("lightness component")?;
-            let ABComponent(a) = args.expect("A component")?;
-            let ABComponent(b) = args.expect("B component")?;
+            let ChromaComponent(a) = args.expect("A component")?;
+            let ChromaComponent(b) = args.expect("B component")?;
             let RatioComponent(alpha) =
                 args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
             Self::Oklab(Oklab::new(
@@ -357,7 +359,8 @@ impl Color {
     /// A linear Oklch color is represented internally by an array of four
     /// components:
     /// - lightness ([`ratio`]($ratio))
-    /// - chroma ([`float`]($float) in the range `[-0.4..0.4]`)
+    /// - chroma ([`float`]($float) in the range `[0.0..0.4]`
+    ///   or [`ratio`]($ratio) in the range `[0%..100%]`)
     /// - hue ([`angle`]($angle))
     /// - alpha ([`ratio`]($ratio))
     ///
@@ -379,7 +382,7 @@ impl Color {
         lightness: RatioComponent,
         /// The chroma component.
         #[external]
-        chroma: ABComponent,
+        chroma: ChromaComponent,
         /// The hue component.
         #[external]
         hue: Angle,
@@ -396,7 +399,7 @@ impl Color {
             color.to_oklch()
         } else {
             let RatioComponent(l) = args.expect("lightness component")?;
-            let ABComponent(c) = args.expect("chroma component")?;
+            let ChromaComponent(c) = args.expect("chroma component")?;
             let h: Angle = args.expect("hue component")?;
             let RatioComponent(alpha) =
                 args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
@@ -1730,15 +1733,17 @@ cast! {
     },
 }
 
-/// A component that must be a ratio between -40% and 40%.
-pub struct ABComponent(Ratio);
+/// A component that must either be a value between:
+/// - -100% and 100%, in which case it is relative to 0.4.
+/// - -0.4 and 0.4, in which case it is taken literally.
+pub struct ChromaComponent(Ratio);
 
 cast! {
-    ABComponent,
-    v: Ratio => if (-0.4 ..= 0.4).contains(&v.get()) {
-        Self(v)
+    ChromaComponent,
+    v: Ratio => if (-1.0 ..= 1.0).contains(&v.get()) {
+        Self(v * 0.4)
     } else {
-        bail!("ratio must be between -40% and 40%");
+        bail!("ratio must be between -100% and 100%");
     },
     v: f64 => if (-0.4 ..= 0.4).contains(&v) {
         Self(Ratio::new(v))
