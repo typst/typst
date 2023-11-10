@@ -144,7 +144,7 @@ pub struct DelayedErrors(EcoVec<SourceDiagnostic>);
 impl DelayedErrors {
     /// Create an empty list of delayed errors.
     pub fn new() -> Self {
-        Self::default()
+        <_>::default()
     }
 }
 

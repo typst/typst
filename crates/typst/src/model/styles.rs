@@ -22,7 +22,7 @@ pub struct Styles(EcoVec<Prehashed<Style>>);
 impl Styles {
     /// Create a new, empty style list.
     pub fn new() -> Self {
-        Self::default()
+        <_>::default()
     }
 
     /// Whether this contains no styles.
@@ -678,7 +678,7 @@ impl<'a, T> StyleVecBuilder<'a, T> {
         let mut iter = self.chains.iter();
         let mut trunk = match iter.next() {
             Some(&(chain, _)) => chain,
-            None => return Default::default(),
+            None => return <_>::default(),
         };
 
         let mut shared = trunk.links().count();

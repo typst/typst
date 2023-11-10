@@ -61,7 +61,7 @@ fn retrieve(
         &command.selector,
         Span::detached(),
         EvalMode::Code,
-        Scope::default(),
+        <_>::default(),
     )
     .map_err(|errors| {
         let mut message = EcoString::from("failed to evaluate selector");
