@@ -204,7 +204,7 @@
 
 ---
 // Cyclic import in other file.
-// Unlocated Error: cyclic import
+// Error: cyclic import
 #import "./modules/cycle1.typ": *
 
 This is never reached.

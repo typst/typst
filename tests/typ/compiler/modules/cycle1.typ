@@ -1,6 +1,6 @@
 // Ref: false
 
-// Unlocated Error: cyclic import
+// Error: cyclic import
 #import "cycle2.typ": *
 #let inaccessible = "wow"
 

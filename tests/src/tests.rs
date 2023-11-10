@@ -33,7 +33,7 @@ use typst::syntax::{FileId, PackageSpec, PackageVersion, Source, SyntaxNode, Vir
 use typst::{World, WorldExt};
 use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
-use crate::AnnotationTarget::{LocalRange, Transient};
+use crate::AnnotationTarget::{Detached, Local, Transient};
 
 const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";
@@ -575,10 +575,17 @@ fn test_part(
                 Severity::Error => AnnotationKind::Error,
                 Severity::Warning => AnnotationKind::Warning,
             },
-            target: diagnostic.emitter
-                .filter(|_| diagnostic.span.id().is_some_and(|d| source.id() != d))
-                .map(Transient)
-                .or_else(|| diagnostic.span.id().filter(|&d| source.id() == d).and_then(|_| world.range(diagnostic.span).map(LocalRange))),
+            target: if let Some(diagnostic_source) = diagnostic.span.id() {
+                if source.id() == diagnostic_source {
+                    Local(world.range(diagnostic.span))
+                } else if let Some(emitter) = diagnostic.emitter {
+                    emitter.package().map(|p| Transient(p.to_owned(), Some(emitter.vpath().to_owned()))).unwrap_or(Detached)
+                } else {
+                    diagnostic_source.package().map(|p| Transient(p.to_owned(), None)).unwrap_or(Detached)
+                }
+            } else {
+                Detached
+            },
             message: diagnostic.message.replace("\\", "/"),
         };
 
@@ -634,24 +641,25 @@ fn print_annotation(
 ) {
     let Annotation { target, message, kind } = annotation;
 
-    let target_kind = match target {
-        Some(Transient(_)) => "Transient ",
-        Some(LocalRange(_)) => "",
-        None => "Unlocated",
-    };
-    write!(output, "{target_kind}{kind}: ").unwrap();
+    write!(output, "{kind}: ").unwrap();
     match target {
-        Some(LocalRange(range)) => {
+        Local(Some(range)) => {
             let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
             let start_col = 1 + source.byte_to_column(range.start).unwrap();
             let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
             let end_col = 1 + source.byte_to_column(range.end).unwrap();
             write!(output, "{start_line}:{start_col}-{end_line}:{end_col}: ").unwrap();
         }
-        Some(Transient(file_id)) => {
-            write!(output, "{:?}: ", file_id).unwrap();
+        Local(None) => {}
+        Transient(package, None) => {
+            write!(output, "{:?}: ", package).unwrap();
         }
-        _ => {}
+        Transient(package, Some(file)) => {
+            write!(output, "{:?}: ", FileId::new(Some(package.to_owned()), file.to_owned())).unwrap();
+        }
+        Detached => {
+            write!(output, "<detached>:").unwrap();
+        }
     }
 
     writeln!(output, "{message}").unwrap();
@@ -671,23 +679,39 @@ struct TestPartMetadata {
 struct Annotation {
     message: EcoString,
     kind: AnnotationKind,
-    target: Option<AnnotationTarget>,
+    target: AnnotationTarget,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AnnotationTarget {
-    LocalRange(Range<usize>),
-    Transient(FileId),
+    Local(Option<Range<usize>>),
+    Transient(PackageSpec, Option<VirtualPath>),
+    Detached,
 }
 
 impl Ord for AnnotationTarget {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (LocalRange(lhs), LocalRange(rhs)) => lhs.start.cmp(&rhs.start),
-            (LocalRange(_), Transient(_)) => Ordering::Greater,
-            (Transient(_), LocalRange(_)) => Ordering::Less,
-            (Transient(lhs), Transient(rhs)) => lhs.cmp(rhs), // TODO: could be improved to be file/package name for developer convenience.
+            (Local(lhs), Local(rhs)) => option_cmp_helper(&lhs.as_ref().map(|r| r.start), &rhs.as_ref().map(|r| r.start)),
+            (Local(_), Transient(..)) => Ordering::Greater,
+            (Local(_), Detached) => Ordering::Greater,
+            (Transient(..), Detached) => Ordering::Greater,
+            (Transient(..), Local(_)) => Ordering::Less,
+            (Detached, Local(_)) => Ordering::Less,
+            (Detached, Transient(..)) => Ordering::Less,
+            (Transient(lhs_p, lhs_f), Transient(rhs_p, rhs_f))
+                => lhs_p.name.to_owned().cmp(&rhs_p.name.to_owned()).then_with(||option_cmp_helper(&lhs_f, &rhs_f)),
+            (Detached, Detached) => Ordering::Equal,
         }
+    }
+}
+
+fn option_cmp_helper<T: Ord>(lhs: &Option<T>, rhs: &Option<T>) -> Ordering {
+    match (lhs, rhs) {
+        (Some(lhs), Some(rhs)) => lhs.cmp(&rhs),
+        (Some(_), None) => Ordering::Greater,
+        (None, Some(_)) => Ordering::Less,
+        (None, None) => Ordering::Equal,
     }
 }
 
@@ -771,28 +795,22 @@ fn parse_part_metadata(source: &Source) -> TestPartMetadata {
         };
 
         for kind in AnnotationKind::iter() {
-            let (target, rest)
-                = if let Some(expectation) = get_metadata(line, kind.as_str()) {
-                    let mut s = Scanner::new(expectation);
-                    let range = range(&mut s);
-                    let rest = if range.is_some() { s.after() } else { s.string() };
-                    (range.map(|r| LocalRange(r)), rest)
-            } else if let Some(expectation) = get_metadata(line, &format!("Transient {}", kind.as_str())) {
-                let mut s = Scanner::new(expectation);
-                let package_and_file = package_and_file(&mut s);
-                let rest = if package_and_file.is_some() { s.after() } else { s.string() };
-                (package_and_file.map(|(p, f)| Transient(FileId::new(Some(p), VirtualPath::new(f)))), rest)
-            } else if let Some(expectation) = get_metadata(line, &format!("Unlocated {}", kind.as_str())) {
-                (None, expectation)
+            let Some(expectation) = get_metadata(line, kind.as_str()) else { continue };
+            let mut s = Scanner::new(expectation);
+
+            let target = if s.peek().is_some_and(|c| c == '@') {
+                package_and_file(&mut s).map(|(p, f)| Transient(p, Some(VirtualPath::new(f))))
             } else {
-                continue
+                range(&mut s).map(|r| Local(Some(r)))
             };
+
+            let rest = if target.is_some() { s.after() } else { s.string() };
 
             let message = rest
                 .trim()
                 .replace("VERSION", &PackageVersion::compiler().to_string())
                 .into();
-            annotations.insert(Annotation { kind, target, message });
+            annotations.insert(Annotation { kind, target: target.unwrap_or(Detached), message });
         }
     }
 
