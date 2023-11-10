@@ -217,7 +217,7 @@ pub struct FootnoteEntry {
             .with_length(Ratio::new(0.3).into())
             .with_stroke(Stroke {
                 thickness: Smart::Custom(Abs::pt(0.5).into()),
-                ..Default::default()
+                ..<_>::default()
             })
             .pack()
     )]
@@ -267,8 +267,7 @@ impl Show for FootnoteEntry {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let note = self.note();
         let number_gap = Em::new(0.05);
-        let default = StyleChain::default();
-        let numbering = note.numbering(default);
+        let numbering = note.numbering(<_>::default());
         let counter = Counter::of(FootnoteElem::elem());
         let loc = note.location().unwrap();
         let num = counter.at(vt, loc)?.display(vt, numbering)?;

@@ -389,7 +389,7 @@ impl Expr<'_> {
 
 impl Default for Expr<'_> {
     fn default() -> Self {
-        Expr::Space(<_>::default())
+        Self::Space(<_>::default())
     }
 }
 

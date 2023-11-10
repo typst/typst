@@ -399,7 +399,7 @@ fn layout_mat_body(
         thickness: default_stroke_thickness,
         paint: TextElem::fill_in(ctx.styles()).as_decoration(),
         line_cap: LineCap::Square,
-        ..Default::default()
+        ..<_>::default()
     };
 
     let (hline, vline, stroke) = match augment {
@@ -409,7 +409,7 @@ fn layout_mat_body(
 
             (v.hline, v.vline, stroke)
         }
-        _ => (Offsets::default(), Offsets::default(), default_stroke),
+        _ => (<_>::default(), <_>::default(), default_stroke),
     };
 
     let ncols = rows.first().map_or(0, |row| row.len());
@@ -622,7 +622,7 @@ cast! {
         d.into_value()
     },
     v: isize => Augment {
-        hline: Offsets::default(),
+        hline: <_>::default(),
         vline: Offsets(smallvec![v]),
         stroke: Smart::Auto,
     },

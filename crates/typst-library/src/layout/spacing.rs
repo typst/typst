@@ -64,7 +64,7 @@ impl Behave for HElem {
     fn behaviour(&self) -> Behaviour {
         if self.amount().is_fractional() {
             Behaviour::Destructive
-        } else if self.weak(StyleChain::default()) {
+        } else if self.weak(<_>::default()) {
             Behaviour::Weak(1)
         } else {
             Behaviour::Invisible
@@ -166,8 +166,8 @@ impl Behave for VElem {
     fn behaviour(&self) -> Behaviour {
         if self.amount().is_fractional() {
             Behaviour::Destructive
-        } else if self.weakness(StyleChain::default()) > 0 {
-            Behaviour::Weak(self.weakness(StyleChain::default()))
+        } else if self.weakness(<_>::default()) > 0 {
+            Behaviour::Weak(self.weakness(<_>::default()))
         } else {
             Behaviour::Invisible
         }

@@ -261,7 +261,7 @@ pub fn print_diagnostics(
         DiagnosticFormat::Short => StandardStream::stderr(ColorChoice::Never),
     };
 
-    let mut config = term::Config { tab_width: 2, ..Default::default() };
+    let mut config = term::Config { tab_width: 2, ..<_>::default() };
     if diagnostic_format == DiagnosticFormat::Short {
         config.display_style = term::DisplayStyle::Short;
     }

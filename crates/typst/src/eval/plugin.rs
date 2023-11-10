@@ -187,7 +187,7 @@ impl Plugin {
             )
             .unwrap();
 
-        let mut store = Store::new(&engine, StoreData::default());
+        let mut store = Store::new(&engine, <_>::default());
         let instance = linker
             .instantiate(&mut store, &module)
             .and_then(|pre_instance| pre_instance.start(&mut store))

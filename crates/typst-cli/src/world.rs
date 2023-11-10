@@ -86,8 +86,8 @@ impl SystemWorld {
             library: Prehashed::new(typst_library::build()),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
-            hashes: RefCell::default(),
-            slots: RefCell::default(),
+            hashes: <_>::default(),
+            slots: <_>::default(),
             now: OnceCell::new(),
             export_cache: ExportCache::new(),
         })

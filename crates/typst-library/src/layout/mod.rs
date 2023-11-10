@@ -321,10 +321,10 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             vt,
             scratch,
             doc: top.then(DocBuilder::default),
-            flow: FlowBuilder::default(),
-            par: ParBuilder::default(),
-            list: ListBuilder::default(),
-            cites: CiteGroupBuilder::default(),
+            flow: <_>::default(),
+            par: <_>::default(),
+            list: <_>::default(),
+            cites: <_>::default(),
         }
     }
 
@@ -494,7 +494,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         let Some(doc) = &mut self.doc else { return Ok(()) };
         if (doc.keep_next && styles.is_some()) || self.flow.0.has_strong_elements(last) {
             let (flow, shared) = mem::take(&mut self.flow).0.finish();
-            let styles = if shared == StyleChain::default() {
+            let styles = if shared == <_>::default() {
                 styles.unwrap_or_default()
             } else {
                 shared
@@ -731,11 +731,7 @@ impl<'a> ListBuilder<'a> {
 
 impl Default for ListBuilder<'_> {
     fn default() -> Self {
-        Self {
-            items: StyleVecBuilder::default(),
-            tight: true,
-            staged: vec![],
-        }
+        Self { items: <_>::default(), tight: true, staged: vec![] }
     }
 }
 

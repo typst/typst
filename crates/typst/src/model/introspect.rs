@@ -133,7 +133,7 @@ impl<'a> Locator<'a> {
 
     /// Create a new chained locator.
     pub fn chained(outer: Tracked<'a, Self>) -> Self {
-        Self { outer: Some(outer), ..Default::default() }
+        Self { outer: Some(outer), ..<_>::default() }
     }
 
     /// Start tracking this locator.
@@ -226,7 +226,7 @@ impl Introspector {
             pages: frames.len(),
             elems: IndexMap::new(),
             page_numberings: vec![],
-            queries: RefCell::default(),
+            queries: <_>::default(),
         };
         for (i, frame) in frames.iter().enumerate() {
             let page = NonZeroUsize::new(1 + i).unwrap();

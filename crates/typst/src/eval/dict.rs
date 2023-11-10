@@ -70,7 +70,7 @@ pub struct Dict(Arc<IndexMap<Str, Value>>);
 impl Dict {
     /// Create a new, empty dictionary.
     pub fn new() -> Self {
-        Self::default()
+        <_>::default()
     }
 
     /// Whether the dictionary is empty.

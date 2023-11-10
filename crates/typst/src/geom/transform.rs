@@ -43,7 +43,7 @@ impl Transform {
             ky: sin,
             kx: -sin,
             sy: cos,
-            ..Self::default()
+            ..<_>::default()
         }
     }
 

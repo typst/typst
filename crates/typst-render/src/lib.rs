@@ -312,7 +312,7 @@ fn render_svg_glyph(
         bbox.left(),
         bbox.top(),
         pixmap.as_ref(),
-        &sk::PixmapPaint::default(),
+        &<_>::default(),
         sk::Transform::identity(),
         state.mask,
     );
@@ -384,12 +384,10 @@ fn render_outline_glyph(
             None,
         );
 
-        let rule = sk::FillRule::default();
-
         // Flip vertically because font design coordinate
         // system is Y-up.
         let ts = ts.pre_scale(scale, -scale);
-        canvas.fill_path(&path, &paint, rule, ts, state.mask);
+        canvas.fill_path(&path, &paint, <_>::default(), ts, state.mask);
         return Some(());
     }
 
@@ -542,8 +540,7 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
             paint.anti_alias = false;
         }
 
-        let rule = sk::FillRule::default();
-        canvas.fill_path(&path, &paint, rule, ts, state.mask);
+        canvas.fill_path(&path, &paint, <_>::default(), ts, state.mask);
     }
 
     if let Some(FixedStroke {

@@ -180,9 +180,9 @@ impl Finalize for HeadingElem {
 
 impl Count for HeadingElem {
     fn update(&self) -> Option<CounterUpdate> {
-        self.numbering(StyleChain::default())
+        self.numbering(<_>::default())
             .is_some()
-            .then(|| CounterUpdate::Step(self.level(StyleChain::default())))
+            .then(|| CounterUpdate::Step(self.level(<_>::default())))
     }
 }
 
@@ -194,7 +194,7 @@ cast! {
 impl Refable for HeadingElem {
     fn supplement(&self) -> Content {
         // After synthesis, this should always be custom content.
-        match self.supplement(StyleChain::default()) {
+        match self.supplement(<_>::default()) {
             Smart::Custom(Some(Supplement::Content(content))) => content,
             _ => Content::empty(),
         }
@@ -205,19 +205,18 @@ impl Refable for HeadingElem {
     }
 
     fn numbering(&self) -> Option<Numbering> {
-        self.numbering(StyleChain::default()).clone()
+        self.numbering(<_>::default()).clone()
     }
 }
 
 impl Outlinable for HeadingElem {
     fn outline(&self, vt: &mut Vt) -> SourceResult<Option<Content>> {
-        if !self.outlined(StyleChain::default()) {
+        if !self.outlined(<_>::default()) {
             return Ok(None);
         }
 
         let mut content = self.body().clone();
-        let default = StyleChain::default();
-        if let Some(numbering) = self.numbering(default).as_ref() {
+        if let Some(numbering) = self.numbering(<_>::default()).as_ref() {
             let numbers = Counter::of(Self::elem())
                 .at(vt, self.location().unwrap())?
                 .display(vt, numbering)?;

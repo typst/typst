@@ -55,7 +55,7 @@ impl SvgImage {
         // empty and non-existing family names and replace them with the true
         // fallback family. This way, we can memoize SVG decoding with and without
         // fonts if the SVG does not contain text.
-        let opts = usvg::Options { font_family: String::new(), ..Default::default() };
+        let opts = usvg::Options { font_family: String::new(), ..<_>::default() };
         let mut tree = usvg::Tree::from_data(&data, &opts).map_err(format_usvg_error)?;
         let mut font_hash = 0;
         if tree.has_text_nodes() {

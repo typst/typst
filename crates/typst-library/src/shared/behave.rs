@@ -21,7 +21,7 @@ impl<'a> BehavedBuilder<'a> {
     /// Create a new style-vec builder.
     pub fn new() -> Self {
         Self {
-            builder: StyleVecBuilder::new(),
+            builder: <_>::default(),
             staged: vec![],
             last: Behaviour::Destructive,
         }

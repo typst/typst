@@ -160,7 +160,7 @@ pub struct ColbreakElem {
 
 impl Behave for ColbreakElem {
     fn behaviour(&self) -> Behaviour {
-        if self.weak(StyleChain::default()) {
+        if self.weak(<_>::default()) {
             Behaviour::Weak(1)
         } else {
             Behaviour::Destructive

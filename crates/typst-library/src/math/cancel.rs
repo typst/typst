@@ -90,7 +90,7 @@ pub struct CancelElem {
     #[default(Stroke {
         // Default stroke has 0.5pt for better visuals.
         thickness: Smart::Custom(Abs::pt(0.5)),
-        ..Default::default()
+        ..<_>::default()
     })]
     pub stroke: Stroke,
 }
@@ -109,7 +109,7 @@ impl LayoutMath for CancelElem {
 
         let stroke = self.stroke(styles).unwrap_or(FixedStroke {
             paint: TextElem::fill_in(styles).as_decoration(),
-            ..Default::default()
+            ..<_>::default()
         });
 
         let invert = self.inverted(styles);

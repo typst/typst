@@ -32,7 +32,7 @@ impl Version {
 
     /// Create a new (empty) version.
     pub fn new() -> Self {
-        Self::default()
+        <_>::default()
     }
 
     /// Get a named component of a version.

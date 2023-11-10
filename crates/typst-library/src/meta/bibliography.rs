@@ -631,7 +631,7 @@ impl<'a> Generator<'a> {
             Lazy::new(hayagriva::archive::locales);
 
         let database = self.bibliography.bibliography();
-        let bibliography_style = self.bibliography.style(StyleChain::default());
+        let bibliography_style = self.bibliography.style(<_>::default());
         let styles = Arena::new();
 
         // Process all citation groups.
@@ -661,7 +661,7 @@ impl<'a> Generator<'a> {
                     continue;
                 };
 
-                let supplement = child.supplement(StyleChain::default());
+                let supplement = child.supplement(<_>::default());
                 let locator = supplement.as_ref().map(|_| {
                     SpecificLocator(
                         citationberg::taxonomy::Locator::Custom,
@@ -670,7 +670,7 @@ impl<'a> Generator<'a> {
                 });
 
                 let mut hidden = false;
-                let special_form = match child.form(StyleChain::default()) {
+                let special_form = match child.form(<_>::default()) {
                     None => {
                         hidden = true;
                         None
@@ -692,7 +692,7 @@ impl<'a> Generator<'a> {
                 continue;
             }
 
-            let style = match first.style(StyleChain::default()) {
+            let style = match first.style(<_>::default()) {
                 Smart::Auto => &bibliography_style.style,
                 Smart::Custom(style) => styles.alloc(style.style),
             };
@@ -718,7 +718,7 @@ impl<'a> Generator<'a> {
 
         // Add hidden items for everything if we should print the whole
         // bibliography.
-        if self.bibliography.full(StyleChain::default()) {
+        if self.bibliography.full(<_>::default()) {
             for entry in database.map.values() {
                 driver.citation(CitationRequest::new(
                     vec![CitationItem::new(entry, None, None, true, None)],

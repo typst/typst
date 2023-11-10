@@ -323,7 +323,7 @@ impl Count for FigureElem {
     fn update(&self) -> Option<CounterUpdate> {
         // If the figure is numbered, step the counter by one.
         // This steps the `counter(figure)` which is global to all numbered figures.
-        self.numbering(StyleChain::default())
+        self.numbering(<_>::default())
             .is_some()
             .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
     }
@@ -332,8 +332,7 @@ impl Count for FigureElem {
 impl Refable for FigureElem {
     fn supplement(&self) -> Content {
         // After synthesis, this should always be custom content.
-        let default = StyleChain::default();
-        match self.supplement(default).as_ref() {
+        match self.supplement(<_>::default()).as_ref() {
             Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
             _ => Content::empty(),
         }
@@ -344,17 +343,17 @@ impl Refable for FigureElem {
     }
 
     fn numbering(&self) -> Option<Numbering> {
-        self.numbering(StyleChain::default())
+        self.numbering(<_>::default())
     }
 }
 
 impl Outlinable for FigureElem {
     fn outline(&self, vt: &mut Vt) -> SourceResult<Option<Content>> {
-        if !self.outlined(StyleChain::default()) {
+        if !self.outlined(<_>::default()) {
             return Ok(None);
         }
 
-        let Some(caption) = self.caption(StyleChain::default()) else {
+        let Some(caption) = self.caption(<_>::default()) else {
             return Ok(None);
         };
 
@@ -364,9 +363,9 @@ impl Outlinable for FigureElem {
             Some(counter),
             Some(numbering),
         ) = (
-            self.supplement(StyleChain::default()).clone(),
+            self.supplement(<_>::default()).clone(),
             self.counter(),
-            self.numbering(StyleChain::default()),
+            self.numbering(<_>::default()),
         ) {
             let location = self.location().unwrap();
             let numbers = counter.at(vt, location)?.display(vt, &numbering)?;
@@ -375,7 +374,7 @@ impl Outlinable for FigureElem {
                 supplement += TextElem::packed('\u{a0}');
             }
 
-            let separator = caption.get_separator(StyleChain::default());
+            let separator = caption.get_separator(<_>::default());
 
             realized = supplement + numbers + separator + caption.body();
         }

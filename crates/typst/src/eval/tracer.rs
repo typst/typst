@@ -22,7 +22,7 @@ impl Tracer {
 
     /// Create a new tracer.
     pub fn new() -> Self {
-        Self::default()
+        <_>::default()
     }
 
     /// Mark a span as inspected. All values observed for this span can be

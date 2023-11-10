@@ -307,9 +307,8 @@ impl Layout for EquationElem {
 
 impl Count for EquationElem {
     fn update(&self) -> Option<CounterUpdate> {
-        (self.block(StyleChain::default())
-            && self.numbering(StyleChain::default()).is_some())
-        .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
+        (self.block(<_>::default()) && self.numbering(<_>::default()).is_some())
+            .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
     }
 }
 
@@ -350,7 +349,7 @@ impl LocalName for EquationElem {
 impl Refable for EquationElem {
     fn supplement(&self) -> Content {
         // After synthesis, this should always be custom content.
-        match self.supplement(StyleChain::default()) {
+        match self.supplement(<_>::default()) {
             Smart::Custom(Some(Supplement::Content(content))) => content,
             _ => Content::empty(),
         }
@@ -361,18 +360,18 @@ impl Refable for EquationElem {
     }
 
     fn numbering(&self) -> Option<Numbering> {
-        self.numbering(StyleChain::default())
+        self.numbering(<_>::default())
     }
 }
 
 impl Outlinable for EquationElem {
     fn outline(&self, vt: &mut Vt) -> SourceResult<Option<Content>> {
-        let Some(numbering) = self.numbering(StyleChain::default()) else {
+        let Some(numbering) = self.numbering(<_>::default()) else {
             return Ok(None);
         };
 
         // After synthesis, this should always be custom content.
-        let mut supplement = match self.supplement(StyleChain::default()) {
+        let mut supplement = match self.supplement(<_>::default()) {
             Smart::Custom(Some(Supplement::Content(content))) => content,
             _ => Content::empty(),
         };
@@ -421,7 +420,7 @@ impl LayoutMath for Content {
         if self.is_sequence() {
             let mut bb = BehavedBuilder::new();
             self.sequence_recursive_for_each(&mut |child: &Content| {
-                bb.push(Cow::Owned(child.clone()), StyleChain::default())
+                bb.push(Cow::Owned(child.clone()), <_>::default())
             });
 
             for (child, _) in bb.finish().0.iter() {

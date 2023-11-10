@@ -6,7 +6,6 @@ use ecow::{eco_format, EcoString};
 use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
-use image::io::Limits;
 use image::{guess_format, ImageDecoder, ImageResult};
 use typst_macros::Cast;
 
@@ -34,7 +33,7 @@ impl RasterImage {
         ) -> ImageResult<(image::DynamicImage, Option<Vec<u8>>)> {
             let mut decoder = decoder?;
             let icc = decoder.icc_profile().filter(|icc| !icc.is_empty());
-            decoder.set_limits(Limits::default())?;
+            decoder.set_limits(<_>::default())?;
             let dynamic = image::DynamicImage::from_decoder(decoder)?;
             Ok((dynamic, icc))
         }

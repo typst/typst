@@ -98,7 +98,7 @@ fn layout_underoverline(
             Geometry::Line(Point::with_x(width)).stroked(FixedStroke {
                 paint: TextElem::fill_in(ctx.styles()).as_decoration(),
                 thickness: bar_height,
-                ..FixedStroke::default()
+                ..<_>::default()
             }),
             span,
         ),

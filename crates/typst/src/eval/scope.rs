@@ -103,12 +103,12 @@ pub struct Scope {
 impl Scope {
     /// Create a new empty scope.
     pub fn new() -> Self {
-        Default::default()
+        <_>::default()
     }
 
     /// Create a new scope with duplication prevention.
     pub fn deduplicating() -> Self {
-        Self { deduplicate: true, ..Default::default() }
+        Self { deduplicate: true, ..<_>::default() }
     }
 
     /// Enter a new category.

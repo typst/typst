@@ -658,11 +658,11 @@ impl Default for SequenceElem {
     fn default() -> Self {
         Self {
             span: Span::detached(),
-            location: Default::default(),
-            label: Default::default(),
-            prepared: Default::default(),
-            guards: Default::default(),
-            children: Default::default(),
+            location: <_>::default(),
+            label: <_>::default(),
+            prepared: <_>::default(),
+            guards: <_>::default(),
+            children: <_>::default(),
         }
     }
 }
