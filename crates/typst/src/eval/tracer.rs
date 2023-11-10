@@ -68,7 +68,8 @@ impl Tracer {
         if let Some(package) = warning.emitter.map(|e| e.package()) {
             if let Some(package_name) = package.map(|p| &p.name) {
                 if self.nowarn_set.contains(&hash128(package_name)) {
-                    return; // TODO: can this be wrong?
+                    // TODO: how do we avoid conflicts of packages with the same name? currently, namespace is ignored, so is version.
+                    return;
                 }
             }
         }

@@ -86,15 +86,26 @@ pub fn panic(
     Err(msg)
 }
 
-/// Display: Warning
-/// Category: foundations
+
+/// Adds a warning to the output.
+///
+/// Message and hint are shown to the user (not rendered in the document).
+///
+/// Code executed after this statement is still run.
+/// If you wish to stop the compilation instead, see [`panic`]($panic).
+///
+/// # Example
+/// The code below produces a warning without aborting the compilation.
+/// ```typ
+/// #warn("something is not as expected")
+/// ```
 #[func]
 pub fn warn(
     /// The virtual machine.
     vm: &mut Vm,
     /// The warning message.
     message: Spanned<EcoString>,
-    /// An optional hint to display for the warning
+    /// An optional hint to display for the warning.
     #[named]
     hint: Option<EcoString>,
 ) {
@@ -105,9 +116,16 @@ pub fn warn(
         .with_emitter(span.id()));
 }
 
-/// Display: Suppress warning
-/// Category: foundations
-/// TODO: example with #import and #nowarn
+/// Suppresses script-emitted warnings from the given module.
+///
+/// This can be useful if a package emits warnings that you do not care about.
+///
+/// # Example
+/// The code below suppresses warnings from the (purely fictional) package `"@preview/warnings:0.1.0"`.
+/// ```typ
+/// #import "@preview/warnings:0.1.0" as pick-your-name
+/// #nowarn(pick-your-name)
+/// ```
 #[func]
 pub fn nowarn(
     /// The virtual machine.
