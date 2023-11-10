@@ -194,13 +194,13 @@ impl Limits {
         match unicode_math_class::class(c) {
             Some(MathClass::Large) => {
                 if is_integral_char(c) {
-                    Limits::Never
+                    Self::Never
                 } else {
-                    Limits::Display
+                    Self::Display
                 }
             }
-            Some(MathClass::Relation) => Limits::Always,
-            _ => Limits::Never,
+            Some(MathClass::Relation) => Self::Always,
+            _ => Self::Never,
         }
     }
 

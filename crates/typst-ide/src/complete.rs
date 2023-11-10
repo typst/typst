@@ -778,11 +778,13 @@ fn resolve_global_callee<'a>(
 fn complete_code(ctx: &mut CompletionContext) -> bool {
     if matches!(
         ctx.leaf.parent_kind(),
-        None | Some(SyntaxKind::Markup)
-            | Some(SyntaxKind::Math)
-            | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathAttach)
-            | Some(SyntaxKind::MathRoot)
+        None | Some(
+            SyntaxKind::Markup
+                | SyntaxKind::Math
+                | SyntaxKind::MathFrac
+                | SyntaxKind::MathAttach
+                | SyntaxKind::MathRoot
+        )
     ) {
         return false;
     }
@@ -1152,14 +1154,15 @@ impl<'a> CompletionContext<'a> {
         let mut apply = None;
         if parens && matches!(value, Value::Func(_)) {
             if let Value::Func(func) = value {
-                if func
-                    .params()
-                    .is_some_and(|params| params.iter().all(|param| param.name == "self"))
-                {
-                    apply = Some(eco_format!("{label}()${{}}"));
-                } else {
-                    apply = Some(eco_format!("{label}(${{}})"));
-                }
+                apply = Some(
+                    if func.params().is_some_and(|params| {
+                        params.iter().all(|param| param.name == "self")
+                    }) {
+                        eco_format!("{label}()${{}}")
+                    } else {
+                        eco_format!("{label}(${{}})")
+                    },
+                );
             }
         } else if at {
             apply = Some(eco_format!("at(\"{label}\")"));
