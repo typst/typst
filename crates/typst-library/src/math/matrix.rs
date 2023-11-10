@@ -511,11 +511,11 @@ fn layout_mat_body(
 }
 
 fn line_item(length: Abs, vertical: bool, stroke: FixedStroke, span: Span) -> FrameItem {
-    let line_geom = if vertical {
-        Geometry::Line(Point::with_y(length))
+    let line_geom = Geometry::Line(if vertical {
+        Point::with_y(length)
     } else {
-        Geometry::Line(Point::with_x(length))
-    };
+        Point::with_x(length)
+    });
 
     FrameItem::Shape(
         Shape {

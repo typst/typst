@@ -35,12 +35,15 @@ impl Source {
     pub fn new(id: FileId, text: String) -> Self {
         let mut root = parse(&text);
         root.numberize(id, Span::FULL).unwrap();
-        Self(Arc::new(Repr {
-            id,
-            lines: lines(&text),
-            text: Prehashed::new(text),
-            root: Prehashed::new(root),
-        }))
+        Self(
+            Repr {
+                id,
+                lines: lines(&text),
+                text: text.into(),
+                root: root.into(),
+            }
+            .into(),
+        )
     }
 
     /// Create a source file without a real id and path, usually for testing.

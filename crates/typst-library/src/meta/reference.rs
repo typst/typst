@@ -253,8 +253,8 @@ impl Supplement {
         args: impl IntoIterator<Item = T>,
     ) -> SourceResult<Content> {
         Ok(match self {
-            Supplement::Content(content) => content.clone(),
-            Supplement::Func(func) => func.call_vt(vt, args)?.display(),
+            Self::Content(content) => content.clone(),
+            Self::Func(func) => func.call_vt(vt, args)?.display(),
         })
     }
 }

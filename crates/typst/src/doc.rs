@@ -55,12 +55,7 @@ impl Frame {
     #[track_caller]
     pub fn new(size: Size, kind: FrameKind) -> Self {
         assert!(size.is_finite());
-        Self {
-            size,
-            baseline: None,
-            items: <_>::default(),
-            kind,
-        }
+        Self { size, baseline: None, items: <_>::default(), kind }
     }
 
     /// Create a new, empty soft frame.

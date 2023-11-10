@@ -311,16 +311,16 @@ impl NumberingKind {
     /// Create a numbering kind from a lowercase character.
     pub fn from_char(c: char) -> Option<Self> {
         Some(match c {
-            '1' => NumberingKind::Arabic,
-            'a' => NumberingKind::Letter,
-            'i' => NumberingKind::Roman,
-            '*' => NumberingKind::Symbol,
-            'א' => NumberingKind::Hebrew,
-            '一' | '壹' => NumberingKind::SimplifiedChinese,
-            'い' => NumberingKind::HiraganaIroha,
-            'イ' => NumberingKind::KatakanaIroha,
-            'ㄱ' => NumberingKind::KoreanJamo,
-            '가' => NumberingKind::KoreanSyllable,
+            '1' => Self::Arabic,
+            'a' => Self::Letter,
+            'i' => Self::Roman,
+            '*' => Self::Symbol,
+            'א' => Self::Hebrew,
+            '一' | '壹' => Self::SimplifiedChinese,
+            'い' => Self::HiraganaIroha,
+            'イ' => Self::KatakanaIroha,
+            'ㄱ' => Self::KoreanJamo,
+            '가' => Self::KoreanSyllable,
             _ => return None,
         })
     }
