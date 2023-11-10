@@ -578,7 +578,7 @@ fn test_part(
             target: diagnostic.emitter
                 .filter(|_| diagnostic.span.id().is_some_and(|d| source.id() != d))
                 .map(Transient)
-                .or_else(|| world.range(diagnostic.span).map(LocalRange)),
+                .or_else(|| diagnostic.span.id().filter(|&d| source.id() == d).and_then(|_| world.range(diagnostic.span).map(LocalRange))),
             message: diagnostic.message.replace("\\", "/"),
         };
 
@@ -636,7 +636,8 @@ fn print_annotation(
 
     let target_kind = match target {
         Some(Transient(_)) => "Transient ",
-        _ => "",
+        Some(LocalRange(_)) => "",
+        None => "Unlocated",
     };
     write!(output, "{target_kind}{kind}: ").unwrap();
     match target {
@@ -781,6 +782,8 @@ fn parse_part_metadata(source: &Source) -> TestPartMetadata {
                 let package_and_file = package_and_file(&mut s);
                 let rest = if package_and_file.is_some() { s.after() } else { s.string() };
                 (package_and_file.map(|(p, f)| Transient(FileId::new(Some(p), VirtualPath::new(f)))), rest)
+            } else if let Some(expectation) = get_metadata(line, &format!("Unlocated {}", kind.as_str())) {
+                (None, expectation)
             } else {
                 continue
             };

@@ -1,6 +1,6 @@
 // Ref: false
 
-// Error: 9-21: cyclic import
+// Unlocated Error: cyclic import
 #import "cycle1.typ": *
 #let val = "much cycle"
 
