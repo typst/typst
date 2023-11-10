@@ -117,8 +117,7 @@ impl VirtualPath {
         let mut out = Path::new(&Component::RootDir).to_path_buf();
         for component in path.components() {
             match component {
-                Component::Prefix(_) | Component::RootDir => {}
-                Component::CurDir => {}
+                Component::Prefix(_) | Component::RootDir | Component::CurDir => {}
                 Component::ParentDir => match out.components().next_back() {
                     Some(Component::Normal(_)) => {
                         out.pop();
@@ -160,9 +159,7 @@ impl VirtualPath {
         let mut out = root.to_path_buf();
         for component in self.0.components() {
             match component {
-                Component::Prefix(_) => {}
-                Component::RootDir => {}
-                Component::CurDir => {}
+                Component::Prefix(_) | Component::RootDir | Component::CurDir => {}
                 Component::ParentDir => {
                     out.pop();
                     if out.as_os_str().len() < root_len {

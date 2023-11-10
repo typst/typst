@@ -98,8 +98,7 @@ impl<'a> BehavedBuilder<'a> {
     fn flush(&mut self, supportive: bool) {
         for (item, interaction, styles) in self.staged.drain(..) {
             if supportive
-                || interaction == Behaviour::Ignorant
-                || interaction == Behaviour::Invisible
+                || matches!(interaction, Behaviour::Ignorant | Behaviour::Invisible)
             {
                 self.builder.push(item, styles);
             }
