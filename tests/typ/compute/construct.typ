@@ -37,6 +37,7 @@
 #test(rgb(rgb(10, 20, 30)).space(), rgb)
 #test(color.linear-rgb(rgb(10, 20, 30)).space(), color.linear-rgb)
 #test(oklab(rgb(10, 20, 30)).space(), oklab)
+#test(oklch(rgb(10, 20, 30)).space(), oklch)
 #test(color.hsl(rgb(10, 20, 30)).space(), color.hsl)
 #test(color.hsv(rgb(10, 20, 30)).space(), color.hsv)
 #test(cmyk(rgb(10, 20, 30)).space(), cmyk)
@@ -45,6 +46,7 @@
 #test(rgb(color.linear-rgb(10, 20, 30)).space(), rgb)
 #test(color.linear-rgb(color.linear-rgb(10, 20, 30)).space(), color.linear-rgb)
 #test(oklab(color.linear-rgb(10, 20, 30)).space(), oklab)
+#test(oklch(color.linear-rgb(10, 20, 30)).space(), oklch)
 #test(color.hsl(color.linear-rgb(10, 20, 30)).space(), color.hsl)
 #test(color.hsv(color.linear-rgb(10, 20, 30)).space(), color.hsv)
 #test(cmyk(color.linear-rgb(10, 20, 30)).space(), cmyk)
@@ -53,14 +55,25 @@
 #test(rgb(oklab(10%, 20%, 30%)).space(), rgb)
 #test(color.linear-rgb(oklab(10%, 20%, 30%)).space(), color.linear-rgb)
 #test(oklab(oklab(10%, 20%, 30%)).space(), oklab)
+#test(oklch(oklab(10%, 20%, 30%)).space(), oklch)
 #test(color.hsl(oklab(10%, 20%, 30%)).space(), color.hsl)
 #test(color.hsv(oklab(10%, 20%, 30%)).space(), color.hsv)
 #test(cmyk(oklab(10%, 20%, 30%)).space(), cmyk)
 #test(luma(oklab(10%, 20%, 30%)).space(), luma)
 
+#test(rgb(oklch(60%, 40%, 0deg)).space(), rgb)
+#test(color.linear-rgb(oklch(60%, 40%, 0deg)).space(), color.linear-rgb)
+#test(oklab(oklch(60%, 40%, 0deg)).space(), oklab)
+#test(oklch(oklch(60%, 40%, 0deg)).space(), oklch)
+#test(color.hsl(oklch(60%, 40%, 0deg)).space(), color.hsl)
+#test(color.hsv(oklch(60%, 40%, 0deg)).space(), color.hsv)
+#test(cmyk(oklch(60%, 40%, 0deg)).space(), cmyk)
+#test(luma(oklch(60%, 40%, 0deg)).space(), luma)
+
 #test(rgb(color.hsl(10deg, 20%, 30%)).space(), rgb)
 #test(color.linear-rgb(color.hsl(10deg, 20%, 30%)).space(), color.linear-rgb)
 #test(oklab(color.hsl(10deg, 20%, 30%)).space(), oklab)
+#test(oklch(color.hsl(10deg, 20%, 30%)).space(), oklch)
 #test(color.hsl(color.hsl(10deg, 20%, 30%)).space(), color.hsl)
 #test(color.hsv(color.hsl(10deg, 20%, 30%)).space(), color.hsv)
 #test(cmyk(color.hsl(10deg, 20%, 30%)).space(), cmyk)
@@ -69,6 +82,7 @@
 #test(rgb(color.hsv(10deg, 20%, 30%)).space(), rgb)
 #test(color.linear-rgb(color.hsv(10deg, 20%, 30%)).space(), color.linear-rgb)
 #test(oklab(color.hsv(10deg, 20%, 30%)).space(), oklab)
+#test(oklch(color.hsv(10deg, 20%, 30%)).space(), oklch)
 #test(color.hsl(color.hsv(10deg, 20%, 30%)).space(), color.hsl)
 #test(color.hsv(color.hsv(10deg, 20%, 30%)).space(), color.hsv)
 #test(cmyk(color.hsv(10deg, 20%, 30%)).space(), cmyk)
@@ -77,6 +91,7 @@
 #test(rgb(cmyk(10%, 20%, 30%, 40%)).space(), rgb)
 #test(color.linear-rgb(cmyk(10%, 20%, 30%, 40%)).space(), color.linear-rgb)
 #test(oklab(cmyk(10%, 20%, 30%, 40%)).space(), oklab)
+#test(oklch(cmyk(10%, 20%, 30%, 40%)).space(), oklch)
 #test(color.hsl(cmyk(10%, 20%, 30%, 40%)).space(), color.hsl)
 #test(color.hsv(cmyk(10%, 20%, 30%, 40%)).space(), color.hsv)
 #test(cmyk(cmyk(10%, 20%, 30%, 40%)).space(), cmyk)
@@ -85,6 +100,7 @@
 #test(rgb(luma(10%)).space(), rgb)
 #test(color.linear-rgb(luma(10%)).space(), color.linear-rgb)
 #test(oklab(luma(10%)).space(), oklab)
+#test(oklch(luma(10%)).space(), oklch)
 #test(color.hsl(luma(10%)).space(), color.hsl)
 #test(color.hsv(luma(10%)).space(), color.hsv)
 #test(cmyk(luma(10%)).space(), cmyk)
@@ -130,15 +146,15 @@
 #color.mix((red, 1, 2))
 
 ---
-// Error: 31-38 expected `rgb`, `luma`, `cmyk`, `oklab`, `color.linear-rgb`, `color.hsl`, or `color.hsv`, found string
+// Error: 31-38 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`, found string
 #color.mix(red, green, space: "cyber")
 
 ---
-// Error: 31-36 expected `rgb`, `luma`, `cmyk`, `oklab`, `color.linear-rgb`, `color.hsl`, or `color.hsv`
+// Error: 31-36 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`
 #color.mix(red, green, space: image)
 
 ---
-// Error: 31-41 expected `rgb`, `luma`, `cmyk`, `oklab`, `color.linear-rgb`, `color.hsl`, or `color.hsv`
+// Error: 31-41 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`
 #color.mix(red, green, space: calc.round)
 
 ---

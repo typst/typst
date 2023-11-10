@@ -26,12 +26,12 @@ macro_rules! __select_where {
         let mut fields = ::smallvec::SmallVec::new();
         $(
             fields.push((
-                <$ty as ::typst::model::ElementFields>::Fields::$field as u8,
+                <$ty as $crate::model::ElementFields>::Fields::$field as u8,
                 $crate::eval::IntoValue::into_value($value),
             ));
         )*
-        ::typst::model::Selector::Elem(
-            <$ty as ::typst::model::NativeElement>::elem(),
+        $crate::model::Selector::Elem(
+            <$ty as $crate::model::NativeElement>::elem(),
             Some(fields),
         )
     }};

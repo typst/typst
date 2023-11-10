@@ -219,7 +219,7 @@ pub trait NativeElement: Debug + Repr + Construct + Set + Send + Sync + 'static 
     fn set_label(&mut self, label: Label);
 
     /// Set the element's label.
-    fn labelled(mut self, label: ::typst::model::Label) -> Self
+    fn labelled(mut self, label: Label) -> Self
     where
         Self: Sized,
     {

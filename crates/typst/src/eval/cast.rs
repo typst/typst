@@ -45,7 +45,6 @@ pub trait Reflect {
     /// Produce an error message for an inacceptable value.
     ///
     /// ```
-    /// # use typst::eval::{Int, Reflect, Value};
     /// assert_eq!(
     ///   <Int as Reflect>::error(Value::None),
     ///   "expected integer, found none",

@@ -9,13 +9,12 @@ use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use siphasher::sip128::{Hasher128, SipHasher13};
-use typst::eval::Duration;
 
 use super::repr::{format_float, format_int_with_base};
 use super::{
-    fields, ops, Args, Array, AutoValue, Bytes, CastInfo, Content, Dict, FromValue, Func,
-    IntoValue, Module, NativeType, NoneValue, Plugin, Reflect, Repr, Scope, Str, Symbol,
-    Type, Version,
+    fields, ops, Args, Array, AutoValue, Bytes, CastInfo, Content, Dict, Duration,
+    FromValue, Func, IntoValue, Module, NativeType, NoneValue, Plugin, Reflect, Repr,
+    Scope, Str, Symbol, Type, Version,
 };
 use crate::diag::StrResult;
 use crate::eval::{item, Datetime};
