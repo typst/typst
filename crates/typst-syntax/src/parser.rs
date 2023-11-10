@@ -1646,12 +1646,12 @@ impl<'s> Parser<'s> {
 
     fn save(&mut self) {
         let text = self.current_text();
-        if self.at(SyntaxKind::Error) {
+        self.nodes.push(if self.at(SyntaxKind::Error) {
             let message = self.lexer.take_error().unwrap();
-            self.nodes.push(SyntaxNode::error(message, text));
+            SyntaxNode::error(message, text)
         } else {
-            self.nodes.push(SyntaxNode::leaf(self.current, text));
-        }
+            SyntaxNode::leaf(self.current, text)
+        });
 
         if self.lexer.mode() == LexMode::Markup || !self.current.is_trivia() {
             self.prev_end = self.current_end();

@@ -58,7 +58,7 @@ impl Frame {
         Self {
             size,
             baseline: None,
-            items: Arc::new(vec![]),
+            items: <_>::default(),
             kind,
         }
     }
@@ -268,7 +268,7 @@ impl Frame {
         if Arc::strong_count(&self.items) == 1 {
             Arc::make_mut(&mut self.items).clear();
         } else {
-            self.items = Arc::new(vec![]);
+            self.items = <_>::default();
         }
     }
 

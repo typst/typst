@@ -29,15 +29,14 @@ impl SvgImage {
     /// Decode an SVG image without fonts.
     #[comemo::memoize]
     pub fn new(data: Bytes) -> StrResult<Self> {
-        let opts = usvg::Options::default();
-        let tree = usvg::Tree::from_data(&data, &opts).map_err(format_usvg_error)?;
-        Ok(Self(Arc::new(Repr {
+        let tree = usvg::Tree::from_data(&data, &<_>::default()).map_err(format_usvg_error)?;
+        Ok(Self(Repr {
             data,
             size: tree_size(&tree),
             font_hash: 0,
             // Safety: We just created the tree and hold the only reference.
             tree: unsafe { sync::SyncTree::new(tree) },
-        })))
+        }.into()))
     }
 
     /// Decode an SVG image with access to fonts.
@@ -60,13 +59,13 @@ impl SvgImage {
             tree.convert_text(&fontdb);
             font_hash = hash;
         }
-        Ok(Self(Arc::new(Repr {
+        Ok(Self(Repr {
             data,
             size: tree_size(&tree),
             font_hash,
             // Safety: We just created the tree and hold the only reference.
             tree: unsafe { sync::SyncTree::new(tree) },
-        })))
+        }.into()))
     }
 
     /// The raw image data.
