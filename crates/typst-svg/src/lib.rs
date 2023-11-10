@@ -168,9 +168,9 @@ enum GradientKind {
 impl From<&Gradient> for GradientKind {
     fn from(value: &Gradient) -> Self {
         match value {
-            Gradient::Linear { .. } => GradientKind::Linear,
-            Gradient::Radial { .. } => GradientKind::Radial,
-            Gradient::Conic { .. } => GradientKind::Conic,
+            Gradient::Linear { .. } => Self::Linear,
+            Gradient::Radial { .. } => Self::Radial,
+            Gradient::Conic { .. } => Self::Conic,
         }
     }
 }
