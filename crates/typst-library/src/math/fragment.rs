@@ -123,7 +123,7 @@ impl MathFragment {
 
     pub fn is_spaced(&self) -> bool {
         match self {
-            MathFragment::Frame(frame) => {
+            Self::Frame(frame) => {
                 match self.style().and_then(|style| style.class.as_custom()) {
                     Some(class) => class == MathClass::Fence,
                     None => frame.spaced,
@@ -152,9 +152,9 @@ impl MathFragment {
 
     pub fn limits(&self) -> Limits {
         match self {
-            MathFragment::Glyph(glyph) => glyph.limits,
-            MathFragment::Variant(variant) => variant.limits,
-            MathFragment::Frame(fragment) => fragment.limits,
+            Self::Glyph(glyph) => glyph.limits,
+            Self::Variant(variant) => variant.limits,
+            Self::Frame(fragment) => fragment.limits,
             _ => Limits::Never,
         }
     }

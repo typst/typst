@@ -75,8 +75,8 @@ impl<T> Smart<T> {
     /// Returns a `Smart<&T>` borrowing the inner `T`.
     pub fn as_ref(&self) -> Smart<&T> {
         match self {
-            Smart::Auto => Smart::Auto,
-            Smart::Custom(v) => Smart::Custom(v),
+            Self::Auto => Smart::Auto,
+            Self::Custom(v) => Smart::Custom(v),
         }
     }
 
@@ -127,8 +127,8 @@ impl<T> Smart<T> {
         F: FnOnce(T) -> Smart<U>,
     {
         match self {
-            Smart::Auto => Smart::Auto,
-            Smart::Custom(x) => f(x),
+            Self::Auto => Smart::Auto,
+            Self::Custom(x) => f(x),
         }
     }
 
@@ -166,8 +166,8 @@ impl<T> Smart<Smart<T>> {
     /// Removes a single level of nesting, returns `Auto` if the inner or outer value is `Auto`.
     pub fn flatten(self) -> Smart<T> {
         match self {
-            Smart::Custom(Smart::Auto) | Smart::Auto => Smart::Auto,
-            Smart::Custom(Smart::Custom(v)) => Smart::Custom(v),
+            Self::Custom(Smart::Auto) | Smart::Auto => Smart::Auto,
+            Self::Custom(Smart::Custom(v)) => Smart::Custom(v),
         }
     }
 }

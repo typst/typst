@@ -1132,20 +1132,20 @@ impl Color {
 
         let m = acc.map(|v| v / total);
         Ok(match space {
-            ColorSpace::Oklab => Color::Oklab(Oklab::new(m[0], m[1], m[2], m[3])),
-            ColorSpace::Oklch => Color::Oklch(Oklch::new(m[0], m[1], m[2], m[3])),
-            ColorSpace::Srgb => Color::Rgba(Rgba::new(m[0], m[1], m[2], m[3])),
+            ColorSpace::Oklab => Self::Oklab(Oklab::new(m[0], m[1], m[2], m[3])),
+            ColorSpace::Oklch => Self::Oklch(Oklch::new(m[0], m[1], m[2], m[3])),
+            ColorSpace::Srgb => Self::Rgba(Rgba::new(m[0], m[1], m[2], m[3])),
             ColorSpace::LinearRgb => {
-                Color::LinearRgb(LinearRgba::new(m[0], m[1], m[2], m[3]))
+                Self::LinearRgb(LinearRgba::new(m[0], m[1], m[2], m[3]))
             }
             ColorSpace::Hsl => {
-                Color::Hsl(Hsl::new(RgbHue::from_degrees(m[0]), m[1], m[2], m[3]))
+                Self::Hsl(Hsl::new(RgbHue::from_degrees(m[0]), m[1], m[2], m[3]))
             }
             ColorSpace::Hsv => {
-                Color::Hsv(Hsv::new(RgbHue::from_degrees(m[0]), m[1], m[2], m[3]))
+                Self::Hsv(Hsv::new(RgbHue::from_degrees(m[0]), m[1], m[2], m[3]))
             }
-            ColorSpace::Cmyk => Color::Cmyk(Cmyk::new(m[0], m[1], m[2], m[3])),
-            ColorSpace::D65Gray => Color::Luma(Luma::new(m[0])),
+            ColorSpace::Cmyk => Self::Cmyk(Cmyk::new(m[0], m[1], m[2], m[3])),
+            ColorSpace::D65Gray => Self::Luma(Luma::new(m[0])),
         })
     }
 
@@ -1173,26 +1173,26 @@ impl Color {
     /// Returns the alpha channel of the color, if it has one.
     pub fn alpha(&self) -> Option<f32> {
         match self {
-            Color::Luma(_) | Color::Cmyk(_) => None,
-            Color::Oklab(c) => Some(c.alpha),
-            Color::Oklch(c) => Some(c.alpha),
-            Color::Rgba(c) => Some(c.alpha),
-            Color::LinearRgb(c) => Some(c.alpha),
-            Color::Hsl(c) => Some(c.alpha),
-            Color::Hsv(c) => Some(c.alpha),
+            Self::Luma(_) | Self::Cmyk(_) => None,
+            Self::Oklab(c) => Some(c.alpha),
+            Self::Oklch(c) => Some(c.alpha),
+            Self::Rgba(c) => Some(c.alpha),
+            Self::LinearRgb(c) => Some(c.alpha),
+            Self::Hsl(c) => Some(c.alpha),
+            Self::Hsv(c) => Some(c.alpha),
         }
     }
 
     /// Sets the alpha channel of the color, if it has one.
     pub fn with_alpha(mut self, alpha: f32) -> Self {
         match &mut self {
-            Color::Luma(_) | Color::Cmyk(_) => {}
-            Color::Oklab(c) => c.alpha = alpha,
-            Color::Oklch(c) => c.alpha = alpha,
-            Color::Rgba(c) => c.alpha = alpha,
-            Color::LinearRgb(c) => c.alpha = alpha,
-            Color::Hsl(c) => c.alpha = alpha,
-            Color::Hsv(c) => c.alpha = alpha,
+            Self::Luma(_) | Self::Cmyk(_) => {}
+            Self::Oklab(c) => c.alpha = alpha,
+            Self::Oklch(c) => c.alpha = alpha,
+            Self::Rgba(c) => c.alpha = alpha,
+            Self::LinearRgb(c) => c.alpha = alpha,
+            Self::Hsl(c) => c.alpha = alpha,
+            Self::Hsv(c) => c.alpha = alpha,
         }
 
         self
@@ -1201,24 +1201,24 @@ impl Color {
     /// Converts the color to a vec of four floats.
     pub fn to_vec4(&self) -> [f32; 4] {
         match self {
-            Color::Luma(c) => [c.luma; 4],
-            Color::Oklab(c) => [c.l, c.a, c.b, c.alpha],
-            Color::Oklch(c) => [
+            Self::Luma(c) => [c.luma; 4],
+            Self::Oklab(c) => [c.l, c.a, c.b, c.alpha],
+            Self::Oklch(c) => [
                 c.l,
                 c.chroma,
                 c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON),
                 c.alpha,
             ],
-            Color::Rgba(c) => [c.red, c.green, c.blue, c.alpha],
-            Color::LinearRgb(c) => [c.red, c.green, c.blue, c.alpha],
-            Color::Cmyk(c) => [c.c, c.m, c.y, c.k],
-            Color::Hsl(c) => [
+            Self::Rgba(c) => [c.red, c.green, c.blue, c.alpha],
+            Self::LinearRgb(c) => [c.red, c.green, c.blue, c.alpha],
+            Self::Cmyk(c) => [c.c, c.m, c.y, c.k],
+            Self::Hsl(c) => [
                 c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON),
                 c.saturation,
                 c.lightness,
                 c.alpha,
             ],
-            Color::Hsv(c) => [
+            Self::Hsv(c) => [
                 c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON),
                 c.saturation,
                 c.value,

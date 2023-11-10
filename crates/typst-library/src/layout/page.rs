@@ -629,14 +629,15 @@ pub enum Binding {
 impl Binding {
     /// Whether to swap left and right margin for the page with this number.
     fn swap(self, number: NonZeroUsize) -> bool {
-        match self {
-            // Left-bound must swap on even pages
-            // (because it is correct on the first page).
-            Self::Left => number.get() % 2 == 0,
-            // Right-bound must swap on odd pages
-            // (because it is wrong on the first page).
-            Self::Right => number.get() % 2 == 1,
-        }
+        number.get() % 2
+            == match self {
+                // Left-bound must swap on even pages
+                // (because it is correct on the first page).
+                Self::Left => 0,
+                // Right-bound must swap on odd pages
+                // (because it is wrong on the first page).
+                Self::Right => 1,
+            }
     }
 }
 
@@ -727,10 +728,11 @@ pub enum Parity {
 impl Parity {
     /// Whether the given number matches the parity.
     fn matches(self, number: usize) -> bool {
-        match self {
-            Self::Even => number % 2 == 0,
-            Self::Odd => number % 2 == 1,
-        }
+        number % 2
+            == match self {
+                Self::Even => 0,
+                Self::Odd => 1,
+            }
     }
 }
 

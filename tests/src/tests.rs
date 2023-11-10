@@ -667,14 +667,14 @@ enum AnnotationKind {
 
 impl AnnotationKind {
     fn iter() -> impl Iterator<Item = Self> {
-        [AnnotationKind::Error, AnnotationKind::Warning, AnnotationKind::Hint].into_iter()
+        [Self::Error, Self::Warning, Self::Hint].into_iter()
     }
 
     fn as_str(self) -> &'static str {
         match self {
-            AnnotationKind::Error => "Error",
-            AnnotationKind::Warning => "Warning",
-            AnnotationKind::Hint => "Hint",
+            Self::Error => "Error",
+            Self::Warning => "Warning",
+            Self::Hint => "Hint",
         }
     }
 }

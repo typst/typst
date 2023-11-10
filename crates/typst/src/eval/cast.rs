@@ -407,40 +407,40 @@ impl FromValue for Never {
 cast! {
     MathClass,
     self => IntoValue::into_value(match self {
-        MathClass::Normal => "normal",
-        MathClass::Alphabetic => "alphabetic",
-        MathClass::Binary => "binary",
-        MathClass::Closing => "closing",
-        MathClass::Diacritic => "diacritic",
-        MathClass::Fence => "fence",
-        MathClass::GlyphPart => "glyph-part",
-        MathClass::Large => "large",
-        MathClass::Opening => "opening",
-        MathClass::Punctuation => "punctuation",
-        MathClass::Relation => "relation",
-        MathClass::Space => "space",
-        MathClass::Unary => "unary",
-        MathClass::Vary => "vary",
-        MathClass::Special => "special",
+        Self::Normal => "normal",
+        Self::Alphabetic => "alphabetic",
+        Self::Binary => "binary",
+        Self::Closing => "closing",
+        Self::Diacritic => "diacritic",
+        Self::Fence => "fence",
+        Self::GlyphPart => "glyph-part",
+        Self::Large => "large",
+        Self::Opening => "opening",
+        Self::Punctuation => "punctuation",
+        Self::Relation => "relation",
+        Self::Space => "space",
+        Self::Unary => "unary",
+        Self::Vary => "vary",
+        Self::Special => "special",
     }),
     /// The default class for non-special things.
-    "normal" => MathClass::Normal,
+    "normal" => Self::Normal,
     /// Punctuation, e.g. a comma.
-    "punctuation" => MathClass::Punctuation,
+    "punctuation" => Self::Punctuation,
     /// An opening delimiter, e.g. `(`.
-    "opening" => MathClass::Opening,
+    "opening" => Self::Opening,
     /// A closing delimiter, e.g. `)`.
-    "closing" => MathClass::Closing,
+    "closing" => Self::Closing,
     /// A delimiter that is the same on both sides, e.g. `|`.
-    "fence" => MathClass::Fence,
+    "fence" => Self::Fence,
     /// A large operator like `sum`.
-    "large" => MathClass::Large,
+    "large" => Self::Large,
     /// A relation like `=` or `prec`.
-    "relation" => MathClass::Relation,
+    "relation" => Self::Relation,
     /// A unary operator like `not`.
-    "unary" => MathClass::Unary,
+    "unary" => Self::Unary,
     /// A binary operator like `times`.
-    "binary" => MathClass::Binary,
+    "binary" => Self::Binary,
     /// An operator that can be both unary or binary like `+`.
-    "vary" => MathClass::Vary,
+    "vary" => Self::Vary,
 }

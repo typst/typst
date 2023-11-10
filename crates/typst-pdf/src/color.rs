@@ -267,7 +267,7 @@ impl ColorEncode for ColorSpace {
                 let [h, s, v, _] = color.to_hsv().to_vec4();
                 [h / 360.0, s, v, 0.0]
             }
-            ColorSpace::Oklch => {
+            Self::Oklch => {
                 unimplemented!("Oklch is always converted to Oklab first")
             }
             _ => color.to_vec4(),

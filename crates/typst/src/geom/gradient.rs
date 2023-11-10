@@ -751,9 +751,9 @@ impl Gradient {
     /// Returns a reference to the stops of this gradient.
     pub fn stops_ref(&self) -> &[(Color, Ratio)] {
         match self {
-            Gradient::Linear(linear) => &linear.stops,
-            Gradient::Radial(radial) => &radial.stops,
-            Gradient::Conic(conic) => &conic.stops,
+            Self::Linear(linear) => &linear.stops,
+            Self::Radial(radial) => &radial.stops,
+            Self::Conic(conic) => &conic.stops,
         }
     }
 
