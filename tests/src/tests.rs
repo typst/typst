@@ -132,7 +132,7 @@ fn main() {
                 &args,
             ) as usize
         })
-        .collect();
+        .collect::<Vec<_>>();
 
     let len = results.len();
     let ok = results.iter().sum::<usize>();
