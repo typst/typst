@@ -1,7 +1,7 @@
+use typst::diag::SourceDiagnostic;
 use typst::eval::{
     Datetime, Duration, EvalMode, Module, Never, NoneValue, Plugin, Regex, Repr, Version,
 };
-use typst::diag::SourceDiagnostic;
 
 use crate::prelude::*;
 
@@ -86,7 +86,6 @@ pub fn panic(
     Err(msg)
 }
 
-
 /// Adds a warning to the output.
 ///
 /// Message and hint are shown to the user (not rendered in the document).
@@ -111,9 +110,11 @@ pub fn warn(
 ) {
     let Spanned { v: message, span } = message;
 
-    vm.vt.tracer.warn(SourceDiagnostic::warning(span, message)
-        .with_hints(hint)
-        .with_emitter(span.id()));
+    vm.vt.tracer.warn(
+        SourceDiagnostic::warning(span, message)
+            .with_hints(hint)
+            .with_emitter(span.id()),
+    );
 }
 
 /// Suppresses script-emitted warnings from the given module.

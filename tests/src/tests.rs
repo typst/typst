@@ -22,6 +22,7 @@ use tiny_skia as sk;
 use unscanny::Scanner;
 use walkdir::WalkDir;
 
+use crate::AnnotationTarget::{Detached, Local, Transient};
 use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{
@@ -29,11 +30,12 @@ use typst::eval::{
 };
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, Transform};
-use typst::syntax::{FileId, PackageSpec, PackageVersion, Source, SyntaxNode, VirtualPath};
+use typst::syntax::{
+    FileId, PackageSpec, PackageVersion, Source, SyntaxNode, VirtualPath,
+};
 use typst::{World, WorldExt};
 use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
-use crate::AnnotationTarget::{Detached, Local, Transient};
 
 const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";
@@ -579,9 +581,17 @@ fn test_part(
                 if source.id() == diagnostic_source {
                     Local(world.range(diagnostic.span))
                 } else if let Some(emitter) = diagnostic.emitter {
-                    emitter.package().map(|p| Transient(p.to_owned(), Some(emitter.vpath().to_owned()))).unwrap_or(Detached)
+                    emitter
+                        .package()
+                        .map(|p| {
+                            Transient(p.to_owned(), Some(emitter.vpath().to_owned()))
+                        })
+                        .unwrap_or(Detached)
                 } else {
-                    diagnostic_source.package().map(|p| Transient(p.to_owned(), None)).unwrap_or(Detached)
+                    diagnostic_source
+                        .package()
+                        .map(|p| Transient(p.to_owned(), None))
+                        .unwrap_or(Detached)
                 }
             } else {
                 Detached
@@ -655,7 +665,12 @@ fn print_annotation(
             write!(output, "{:?}: ", package).unwrap();
         }
         Transient(package, Some(file)) => {
-            write!(output, "{:?}: ", FileId::new(Some(package.to_owned()), file.to_owned())).unwrap();
+            write!(
+                output,
+                "{:?}: ",
+                FileId::new(Some(package.to_owned()), file.to_owned())
+            )
+            .unwrap();
         }
         Detached => {
             write!(output, "<detached>:").unwrap();
@@ -692,15 +707,21 @@ enum AnnotationTarget {
 impl Ord for AnnotationTarget {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (Local(lhs), Local(rhs)) => option_cmp_helper(&lhs.as_ref().map(|r| r.start), &rhs.as_ref().map(|r| r.start)),
+            (Local(lhs), Local(rhs)) => option_cmp_helper(
+                &lhs.as_ref().map(|r| r.start),
+                &rhs.as_ref().map(|r| r.start),
+            ),
             (Local(_), Transient(..)) => Ordering::Greater,
             (Local(_), Detached) => Ordering::Greater,
             (Transient(..), Detached) => Ordering::Greater,
             (Transient(..), Local(_)) => Ordering::Less,
             (Detached, Local(_)) => Ordering::Less,
             (Detached, Transient(..)) => Ordering::Less,
-            (Transient(lhs_p, lhs_f), Transient(rhs_p, rhs_f))
-                => lhs_p.name.to_owned().cmp(&rhs_p.name.to_owned()).then_with(|| option_cmp_helper(lhs_f, rhs_f)),
+            (Transient(lhs_p, lhs_f), Transient(rhs_p, rhs_f)) => lhs_p
+                .name
+                .to_owned()
+                .cmp(&rhs_p.name.to_owned())
+                .then_with(|| option_cmp_helper(lhs_f, rhs_f)),
             (Detached, Detached) => Ordering::Equal,
         }
     }
@@ -790,7 +811,8 @@ fn parse_part_metadata(source: &Source) -> TestPartMetadata {
             // Assumption: package names and namespaces never contain backslashes.
             let package_part = s.eat_until(|c| c == '\\' || c == ' ');
             let package = PackageSpec::from_str(package_part).ok();
-            let filename = if s.eat_if('\\') { Some(s.eat_until(' ').to_owned()) } else { None };
+            let filename =
+                if s.eat_if('\\') { Some(s.eat_until(' ').to_owned()) } else { None };
             package.and_then(|p| filename.map(|f| (p, f)))
         };
 
@@ -799,7 +821,8 @@ fn parse_part_metadata(source: &Source) -> TestPartMetadata {
             let mut s = Scanner::new(expectation);
 
             let target = if s.peek().is_some_and(|c| c == '@') {
-                package_and_file(&mut s).map(|(p, f)| Transient(p, Some(VirtualPath::new(f))))
+                package_and_file(&mut s)
+                    .map(|(p, f)| Transient(p, Some(VirtualPath::new(f))))
             } else {
                 range(&mut s).map(|r| Local(Some(r)))
             };
@@ -810,7 +833,11 @@ fn parse_part_metadata(source: &Source) -> TestPartMetadata {
                 .trim()
                 .replace("VERSION", &PackageVersion::compiler().to_string())
                 .into();
-            annotations.insert(Annotation { kind, target: target.unwrap_or(Detached), message });
+            annotations.insert(Annotation {
+                kind,
+                target: target.unwrap_or(Detached),
+                message,
+            });
         }
     }
 
