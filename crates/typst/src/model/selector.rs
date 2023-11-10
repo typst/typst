@@ -204,8 +204,8 @@ impl Selector {
         inclusive: bool,
     ) -> Selector {
         Self::Before {
-            selector: Arc::new(self),
-            end: Arc::new(end.0),
+            selector: self.into(),
+            end: end.0.into(),
             inclusive,
         }
     }
@@ -225,8 +225,8 @@ impl Selector {
         inclusive: bool,
     ) -> Selector {
         Self::After {
-            selector: Arc::new(self),
-            start: Arc::new(start.0),
+            selector: self.into(),
+            start: start.0.into(),
             inclusive,
         }
     }
@@ -330,8 +330,7 @@ impl FromValue for LocatableSelector {
                         Err(eco_format!("{} is not locatable", elem.name()))?
                     }
                 }
-                Selector::Location(_) => {}
-                Selector::Label(_) => {}
+                Selector::Location(_) | Selector::Label(_) => {}
                 Selector::Regex(_) => bail!("text is not locatable"),
                 Selector::Can(_) => bail!("capability is not locatable"),
                 Selector::Or(list) | Selector::And(list) => {
@@ -407,9 +406,7 @@ impl FromValue for ShowableSelector {
     fn from_value(value: Value) -> StrResult<Self> {
         fn validate(selector: &Selector) -> StrResult<()> {
             match selector {
-                Selector::Elem(_, _) => {}
-                Selector::Label(_) => {}
-                Selector::Regex(_) => {}
+                Selector::Elem(_, _) | Selector::Label(_) | Selector::Regex(_) => {}
                 Selector::Or(_)
                 | Selector::And(_)
                 | Selector::Location(_)

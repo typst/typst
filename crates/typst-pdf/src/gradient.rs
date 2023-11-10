@@ -543,5 +543,5 @@ fn compute_vertex_stream(conic: &ConicGradient, aspect_ratio: Ratio) -> Arc<Vec<
         }
     }
 
-    Arc::new(deflate(&vertices))
+    deflate(&vertices).into()
 }

@@ -78,7 +78,7 @@ impl Symbol {
     #[track_caller]
     pub fn runtime(list: Box<[(EcoString, char)]>) -> Self {
         debug_assert!(!list.is_empty());
-        Self(Repr::Multi(Arc::new((List::Runtime(list), EcoString::new()))))
+        Self(Repr::Multi((List::Runtime(list), EcoString::new()).into()))
     }
 
     /// Get the symbol's text.
@@ -93,7 +93,7 @@ impl Symbol {
     /// Apply a modifier to the symbol.
     pub fn modified(mut self, modifier: &str) -> StrResult<Self> {
         if let Repr::Const(list) = self.0 {
-            self.0 = Repr::Multi(Arc::new((List::Static(list), EcoString::new())));
+            self.0 = Repr::Multi((List::Static(list), EcoString::new()).into());
         }
 
         if let Repr::Multi(arc) = &mut self.0 {

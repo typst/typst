@@ -44,7 +44,7 @@ pub struct Bytes(Arc<Prehashed<Cow<'static, [u8]>>>);
 impl Bytes {
     /// Create a buffer from a static byte slice.
     pub fn from_static(slice: &'static [u8]) -> Self {
-        Self(Arc::new(Prehashed::new(Cow::Borrowed(slice))))
+        Self(Prehashed::new(Cow::Borrowed(slice)).into())
     }
 
     /// Return `true` if the length is 0.

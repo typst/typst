@@ -58,7 +58,7 @@ impl Image {
             }
         };
 
-        Ok(Self(Arc::new(Prehashed::new(Repr { kind, alt }))))
+        Ok(Self(Prehashed::new(Repr { kind, alt }).into()))
     }
 
     /// Create a possibly font-dependant image from a buffer and a format.
@@ -79,7 +79,7 @@ impl Image {
             }
         };
 
-        Ok(Self(Arc::new(Prehashed::new(Repr { kind, alt }))))
+        Ok(Self(Prehashed::new(Repr { kind, alt }).into()))
     }
 
     /// The raw image data.

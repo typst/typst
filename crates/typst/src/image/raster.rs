@@ -47,7 +47,7 @@ impl RasterImage {
         }
         .map_err(format_image_error)?;
 
-        Ok(Self(Arc::new(Repr { data, format, dynamic, icc })))
+        Ok(Self(Repr { data, format, dynamic, icc }.into()))
     }
 
     /// The raw image data.

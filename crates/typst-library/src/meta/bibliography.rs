@@ -361,10 +361,7 @@ impl Bibliography {
             bail!("duplicate bibliography keys: {}", duplicates.join(", "));
         }
 
-        Ok(Self {
-            map: Arc::new(map),
-            hash: typst::util::hash128(data),
-        })
+        Ok(Self { map: map.into(), hash: typst::util::hash128(data) })
     }
 
     fn has(&self, key: impl Into<PicoStr>) -> bool {
@@ -468,7 +465,7 @@ impl CslStyle {
         match hayagriva::archive::style_by_name(name) {
             Some(citationberg::Style::Independent(style)) => Ok(Self {
                 name: Some(name.into()),
-                style: Arc::new(Prehashed::new(style)),
+                style: Prehashed::new(style).into(),
             }),
             _ => bail!("unknown style: `{name}`"),
         }
@@ -479,7 +476,7 @@ impl CslStyle {
     pub fn from_data(data: &Bytes) -> StrResult<Self> {
         let text = std::str::from_utf8(data.as_slice()).map_err(FileError::from)?;
         citationberg::IndependentStyle::from_xml(text)
-            .map(|style| Self { name: None, style: Arc::new(Prehashed::new(style)) })
+            .map(|style| Self { name: None, style: Prehashed::new(style).into() })
             .map_err(|err| eco_format!("failed to load CSL style ({err})"))
     }
 
@@ -567,7 +564,7 @@ impl Works {
         let mut generator = Generator::new(world, introspector)?;
         let rendered = generator.drive();
         let works = generator.display(&rendered)?;
-        Ok(Arc::new(works))
+        Ok(works.into())
     }
 }
 

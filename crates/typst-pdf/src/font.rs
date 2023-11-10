@@ -180,7 +180,7 @@ fn subset_font(font: &Font, glyphs: &[u16]) -> Arc<Vec<u8>> {
         data = cff;
     }
 
-    Arc::new(deflate(data))
+    deflate(data).into()
 }
 
 /// Produce a unique 6 letter tag for a glyph set.

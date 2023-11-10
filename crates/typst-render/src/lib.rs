@@ -403,11 +403,11 @@ fn render_outline_glyph(
         size: u32,
     ) -> Option<Arc<Bitmap>> {
         let glyph = pixglyph::Glyph::load(font.ttf(), id)?;
-        Some(Arc::new(glyph.rasterize(
-            f32::from_bits(x),
-            f32::from_bits(y),
-            f32::from_bits(size),
-        )))
+        Some(
+            glyph
+                .rasterize(f32::from_bits(x), f32::from_bits(y), f32::from_bits(size))
+                .into(),
+        )
     }
 
     // Try to retrieve a prepared glyph or prepare it from scratch if it

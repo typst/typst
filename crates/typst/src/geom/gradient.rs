@@ -230,13 +230,16 @@ impl Gradient {
                 .with_hint("try filling the shape with a single color instead"));
         }
 
-        Ok(Self::Linear(Arc::new(LinearGradient {
-            stops: process_stops(&stops)?,
-            angle,
-            space,
-            relative,
-            anti_alias: true,
-        })))
+        Ok(Self::Linear(
+            LinearGradient {
+                stops: process_stops(&stops)?,
+                angle,
+                space,
+                relative,
+                anti_alias: true,
+            }
+            .into(),
+        ))
     }
 
     /// Creates a new radial gradient, in which colors radiate away from an
@@ -347,16 +350,19 @@ impl Gradient {
                 .with_hint("try using a focal center of `auto` instead"));
         }
 
-        Ok(Gradient::Radial(Arc::new(RadialGradient {
-            stops: process_stops(&stops)?,
-            center: center.map(From::from),
-            radius: radius.v,
-            focal_center,
-            focal_radius: focal_radius.v,
-            space,
-            relative,
-            anti_alias: true,
-        })))
+        Ok(Gradient::Radial(
+            RadialGradient {
+                stops: process_stops(&stops)?,
+                center: center.map(From::from),
+                radius: radius.v,
+                focal_center,
+                focal_radius: focal_radius.v,
+                space,
+                relative,
+                anti_alias: true,
+            }
+            .into(),
+        ))
     }
 
     /// Creates a new conic gradient, in which colors change radially around a
@@ -418,14 +424,17 @@ impl Gradient {
                 .with_hint("try filling the shape with a single color instead"));
         }
 
-        Ok(Gradient::Conic(Arc::new(ConicGradient {
-            stops: process_stops(&stops)?,
-            angle,
-            center: center.map(From::from),
-            space,
-            relative,
-            anti_alias: true,
-        })))
+        Ok(Gradient::Conic(
+            ConicGradient {
+                stops: process_stops(&stops)?,
+                angle,
+                center: center.map(From::from),
+                space,
+                relative,
+                anti_alias: true,
+            }
+            .into(),
+        ))
     }
 
     /// Creates a sharp version of this gradient.
@@ -497,31 +506,40 @@ impl Gradient {
         stops.dedup();
 
         Ok(match self {
-            Self::Linear(linear) => Self::Linear(Arc::new(LinearGradient {
-                stops,
-                angle: linear.angle,
-                space: linear.space,
-                relative: linear.relative,
-                anti_alias: false,
-            })),
-            Self::Radial(radial) => Self::Radial(Arc::new(RadialGradient {
-                stops,
-                center: radial.center,
-                radius: radial.radius,
-                focal_center: radial.focal_center,
-                focal_radius: radial.focal_radius,
-                space: radial.space,
-                relative: radial.relative,
-                anti_alias: false,
-            })),
-            Self::Conic(conic) => Self::Conic(Arc::new(ConicGradient {
-                stops,
-                angle: conic.angle,
-                center: conic.center,
-                space: conic.space,
-                relative: conic.relative,
-                anti_alias: false,
-            })),
+            Self::Linear(linear) => Self::Linear(
+                LinearGradient {
+                    stops,
+                    angle: linear.angle,
+                    space: linear.space,
+                    relative: linear.relative,
+                    anti_alias: false,
+                }
+                .into(),
+            ),
+            Self::Radial(radial) => Self::Radial(
+                RadialGradient {
+                    stops,
+                    center: radial.center,
+                    radius: radial.radius,
+                    focal_center: radial.focal_center,
+                    focal_radius: radial.focal_radius,
+                    space: radial.space,
+                    relative: radial.relative,
+                    anti_alias: false,
+                }
+                .into(),
+            ),
+            Self::Conic(conic) => Self::Conic(
+                ConicGradient {
+                    stops,
+                    angle: conic.angle,
+                    center: conic.center,
+                    space: conic.space,
+                    relative: conic.relative,
+                    anti_alias: false,
+                }
+                .into(),
+            ),
         })
     }
 
@@ -579,31 +597,40 @@ impl Gradient {
         stops.dedup();
 
         Ok(match self {
-            Self::Linear(linear) => Self::Linear(Arc::new(LinearGradient {
-                stops,
-                angle: linear.angle,
-                space: linear.space,
-                relative: linear.relative,
-                anti_alias: linear.anti_alias,
-            })),
-            Self::Radial(radial) => Self::Radial(Arc::new(RadialGradient {
-                stops,
-                center: radial.center,
-                radius: radial.radius,
-                focal_center: radial.focal_center,
-                focal_radius: radial.focal_radius,
-                space: radial.space,
-                relative: radial.relative,
-                anti_alias: radial.anti_alias,
-            })),
-            Self::Conic(conic) => Self::Conic(Arc::new(ConicGradient {
-                stops,
-                angle: conic.angle,
-                center: conic.center,
-                space: conic.space,
-                relative: conic.relative,
-                anti_alias: conic.anti_alias,
-            })),
+            Self::Linear(linear) => Self::Linear(
+                LinearGradient {
+                    stops,
+                    angle: linear.angle,
+                    space: linear.space,
+                    relative: linear.relative,
+                    anti_alias: linear.anti_alias,
+                }
+                .into(),
+            ),
+            Self::Radial(radial) => Self::Radial(
+                RadialGradient {
+                    stops,
+                    center: radial.center,
+                    radius: radial.radius,
+                    focal_center: radial.focal_center,
+                    focal_radius: radial.focal_radius,
+                    space: radial.space,
+                    relative: radial.relative,
+                    anti_alias: radial.anti_alias,
+                }
+                .into(),
+            ),
+            Self::Conic(conic) => Self::Conic(
+                ConicGradient {
+                    stops,
+                    angle: conic.angle,
+                    center: conic.center,
+                    space: conic.space,
+                    relative: conic.relative,
+                    anti_alias: conic.anti_alias,
+                }
+                .into(),
+            ),
         })
     }
 

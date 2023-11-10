@@ -30,13 +30,13 @@ impl SyntaxNode {
     }
 
     /// Create a new inner node with children.
-    pub fn inner(kind: SyntaxKind, children: Vec<SyntaxNode>) -> Self {
-        Self(Repr::Inner(Arc::new(InnerNode::new(kind, children))))
+    pub fn inner(kind: SyntaxKind, children: Vec<Self>) -> Self {
+        Self(Repr::Inner(InnerNode::new(kind, children).into()))
     }
 
     /// Create a new error node.
     pub fn error(message: impl Into<EcoString>, text: impl Into<EcoString>) -> Self {
-        Self(Repr::Error(Arc::new(ErrorNode::new(message, text))))
+        Self(Repr::Error(ErrorNode::new(message, text).into()))
     }
 
     /// The type of the node.

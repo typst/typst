@@ -161,5 +161,5 @@ fn encode_svg(svg: &SvgImage) -> Arc<Chunk> {
         });
     }
 
-    Arc::new(chunk)
+    chunk.into()
 }

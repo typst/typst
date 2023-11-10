@@ -656,7 +656,7 @@ fn load_syntaxes(paths: &SyntaxPaths, bytes: &[Bytes]) -> StrResult<Arc<SyntaxSe
         })?);
     }
 
-    Ok(Arc::new(out.build()))
+    Ok(out.build().into())
 }
 
 /// Function to parse the syntaxes argument.

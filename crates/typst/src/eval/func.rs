@@ -347,10 +347,7 @@ impl Func {
         arguments: Vec<Args>,
     ) -> Func {
         let span = self.span;
-        Self {
-            repr: Repr::With(Arc::new((self, args.take()))),
-            span,
-        }
+        Self { repr: Repr::With((self, args.take()).into()), span }
     }
 
     /// Returns a selector that filters for elements belonging to this function
@@ -624,7 +621,7 @@ impl Closure {
 
 impl From<Closure> for Func {
     fn from(closure: Closure) -> Self {
-        Repr::Closure(Arc::new(Prehashed::new(closure))).into()
+        Repr::Closure(Prehashed::new(closure).into()).into()
     }
 }
 

@@ -167,9 +167,8 @@ fn try_apply(
             | Selector::Can(_)
             | Selector::Before { .. }
             | Selector::After { .. },
-        ) => Ok(None),
-
-        None => Ok(None),
+        )
+        | None => Ok(None),
     }
 }
 
