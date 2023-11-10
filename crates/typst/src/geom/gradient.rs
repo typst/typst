@@ -101,6 +101,7 @@ use crate::syntax::{Span, Spanned};
 /// |           Color space           | Perceptually uniform? |
 /// | ------------------------------- |-----------------------|
 /// | [Oklab]($color.oklab)           | *Yes*                 |
+/// | [Oklch]($color.oklch)           | *Yes*                 |
 /// | [sRGB]($color.rgb)              | *No*                  |
 /// | [linear-RGB]($color.linear-rgb) | *Yes*                 |
 /// | [CMYK]($color.cmyk)             | *No*                  |
@@ -113,6 +114,7 @@ use crate::syntax::{Span, Spanned};
 /// >>> #set block(spacing: 0pt)
 /// #let spaces = (
 ///   ("Oklab", color.oklab),
+///   ("Oklch", color.oklch),
 ///   ("linear-RGB", color.linear-rgb),
 ///   ("sRGB", color.rgb),
 ///   ("CMYK", color.cmyk),

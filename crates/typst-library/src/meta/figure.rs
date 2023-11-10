@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::str::FromStr;
-use typst::util::option_eq;
 
 use super::{Count, Counter, CounterKey, CounterUpdate, Numbering, NumberingPattern};
 use crate::layout::{BlockElem, PlaceElem, VElem};
@@ -499,20 +498,12 @@ pub struct FigureCaption {
 impl FigureCaption {
     /// Gets the default separator in the given language and (optionally)
     /// region.
-    fn local_separator(lang: Lang, region: Option<Region>) -> &'static str {
+    fn local_separator(lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
-            Lang::CHINESE => "：",
-            Lang::FRENCH if option_eq(region, "CH") => "\u{202f}: ",
-            Lang::FRENCH => "\u{a0}: ",
+            Lang::CHINESE => "\u{2003}",
+            Lang::FRENCH => ".\u{a0}– ",
             Lang::RUSSIAN => ". ",
-            Lang::DANISH
-            | Lang::DUTCH
-            | Lang::ENGLISH
-            | Lang::GERMAN
-            | Lang::ITALIAN
-            | Lang::SPANISH
-            | Lang::SWEDISH
-            | _ => ": ",
+            Lang::ENGLISH | _ => ": ",
         }
     }
 
