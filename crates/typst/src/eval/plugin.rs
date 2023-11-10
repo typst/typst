@@ -252,10 +252,8 @@ impl Plugin {
         }
 
         // Collect the lengths of the argument buffers.
-        let lengths = args
-            .iter()
-            .map(|a| wasmi::Value::I32(a.len() as i32))
-            .collect::<Vec<_>>();
+        let lengths: Vec<_> =
+            args.iter().map(|a| wasmi::Value::I32(a.len() as i32)).collect();
 
         // Store the input data.
         store.data_mut().args = args;

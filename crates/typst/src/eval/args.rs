@@ -258,7 +258,7 @@ impl Debug for Args {
 
 impl Repr for Args {
     fn repr(&self) -> EcoString {
-        let pieces = self.items.iter().map(Arg::repr).collect::<Vec<_>>();
+        let pieces: Vec<_> = self.items.iter().map(Arg::repr).collect();
         pretty_array_like(&pieces, false).into()
     }
 }

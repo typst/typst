@@ -470,14 +470,14 @@ impl Gradient {
 
         let n = steps.v;
         let smoothness = smoothness.v.get();
-        let colors = (0..n)
+        let colors: Vec<_> = (0..n)
             .flat_map(|i| {
                 let c = self
                     .sample(RatioOrAngle::Ratio(Ratio::new(i as f64 / (n - 1) as f64)));
 
                 [c, c]
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         let mut positions = Vec::with_capacity(n * 2);
         let index_to_progress = |i| i as f64 * 1.0 / n as f64;
@@ -497,11 +497,11 @@ impl Gradient {
             }
         }
 
-        let mut stops = colors
+        let mut stops: Vec<_> = colors
             .into_iter()
             .zip(positions)
             .map(|(c, p)| (c, Ratio::new(p)))
-            .collect::<Vec<_>>();
+            .collect();
 
         stops.dedup();
 
@@ -569,11 +569,11 @@ impl Gradient {
         }
 
         let n = repetitions.v;
-        let mut stops = std::iter::repeat(self.stops_ref())
+        let mut stops: Vec<_> = std::iter::repeat(self.stops_ref())
             .take(n)
             .enumerate()
             .flat_map(|(i, stops)| {
-                let mut stops = stops
+                let mut stops: Vec<_> = stops
                     .iter()
                     .map(move |&(color, offset)| {
                         let t = i as f64 / n as f64;
@@ -584,7 +584,7 @@ impl Gradient {
                             (color, Ratio::new(t + r / n as f64))
                         }
                     })
-                    .collect::<Vec<_>>();
+                    .collect();
 
                 if i % 2 == 1 && mirror {
                     stops.reverse();
@@ -592,7 +592,7 @@ impl Gradient {
 
                 stops
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         stops.dedup();
 

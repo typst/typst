@@ -494,11 +494,8 @@ impl Array {
 
         // If there is more than one array, we use the manual method.
         let mut out = Self::with_capacity(self.len());
-        let mut iterators = args
-            .all::<Array>()?
-            .into_iter()
-            .map(|i| i.into_iter())
-            .collect::<Vec<_>>();
+        let mut iterators: Vec<_> =
+            args.all::<Array>()?.into_iter().map(|i| i.into_iter()).collect();
 
         for this in self {
             let mut row = Self::with_capacity(1 + iterators.len());

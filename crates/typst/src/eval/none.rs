@@ -88,10 +88,7 @@ impl<T: Reflect> Reflect for Option<T> {
 
 impl<T: IntoValue> IntoValue for Option<T> {
     fn into_value(self) -> Value {
-        match self {
-            Some(v) => v.into_value(),
-            None => Value::None,
-        }
+        self.map_or(Value::None, |x| x.into_value())
     }
 }
 

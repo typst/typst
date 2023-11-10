@@ -132,7 +132,7 @@ fn main() {
                 &args,
             ) as usize
         })
-        .collect::<Vec<_>>();
+        .collect();
 
     let len = results.len();
     let ok = results.iter().sum::<usize>();
@@ -595,13 +595,10 @@ fn test_part(
     }
 
     // Basically symmetric_difference, but we need to know where an item is coming from.
-    let mut unexpected_outputs = actual_diagnostics
-        .difference(&metadata.annotations)
-        .collect::<Vec<_>>();
-    let mut missing_outputs = metadata
-        .annotations
-        .difference(&actual_diagnostics)
-        .collect::<Vec<_>>();
+    let mut unexpected_outputs: Vec<_> =
+        actual_diagnostics.difference(&metadata.annotations).collect();
+    let mut missing_outputs: Vec<_> =
+        metadata.annotations.difference(&actual_diagnostics).collect();
 
     unexpected_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));
     missing_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));

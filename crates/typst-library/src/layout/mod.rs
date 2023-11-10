@@ -689,7 +689,7 @@ impl<'a> ListBuilder<'a> {
                         item.clone()
                             .with_body(item.body().clone().styled_with_map(local.clone()))
                     })
-                    .collect::<Vec<_>>(),
+                    .collect(),
             )
             .with_tight(self.tight)
             .pack()
@@ -702,7 +702,7 @@ impl<'a> ListBuilder<'a> {
                         item.clone()
                             .with_body(item.body().clone().styled_with_map(local.clone()))
                     })
-                    .collect::<Vec<_>>(),
+                    .collect(),
             )
             .with_tight(self.tight)
             .pack()
@@ -718,7 +718,7 @@ impl<'a> ListBuilder<'a> {
                                 item.description().clone().styled_with_map(local.clone()),
                             )
                     })
-                    .collect::<Vec<_>>(),
+                    .collect(),
             )
             .with_tight(self.tight)
             .pack()

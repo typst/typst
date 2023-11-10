@@ -258,12 +258,12 @@ impl PathSlot {
     fn source(&self) -> FileResult<Source> {
         self.source.get_or_init(&self.path, |data, prev| {
             let text = decode_utf8(&data)?;
-            if let Some(mut prev) = prev {
+            Ok(if let Some(mut prev) = prev {
                 prev.replace(text);
-                Ok(prev)
+                prev
             } else {
-                Ok(Source::new(self.id, text.into()))
-            }
+                Source::new(self.id, text.into())
+            })
         })
     }
 
@@ -284,7 +284,7 @@ impl<T: Clone> SlotCell<T> {
     /// Creates a new, empty cell.
     fn new() -> Self {
         Self {
-            data: RefCell::new(None),
+            data: <_>::default(),
             refreshed: Cell::new(FileTime::zero()),
             accessed: Cell::new(false),
         }

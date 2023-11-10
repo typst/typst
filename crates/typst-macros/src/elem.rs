@@ -360,19 +360,15 @@ fn create_fields_enum(element: &Elem) -> TokenStream {
     let model = quote! { ::typst::model };
     let Elem { ident, enum_ident, .. } = element;
 
-    let mut fields = element.real_fields().collect::<Vec<_>>();
+    let mut fields: Vec<_> = element.real_fields().collect();
     fields.sort_by_key(|field| field.forced_variant.unwrap_or(usize::MAX));
 
-    let field_names = fields.iter().map(|Field { name, .. }| name).collect::<Vec<_>>();
-    let field_consts = fields
-        .iter()
-        .map(|Field { const_ident, .. }| const_ident)
-        .collect::<Vec<_>>();
+    let field_names: Vec<_> = fields.iter().map(|Field { name, .. }| name).collect();
+    let field_consts: Vec<_> =
+        fields.iter().map(|Field { const_ident, .. }| const_ident).collect();
 
-    let field_variants = fields
-        .iter()
-        .map(|Field { enum_ident, .. }| enum_ident)
-        .collect::<Vec<_>>();
+    let field_variants: Vec<_> =
+        fields.iter().map(|Field { enum_ident, .. }| enum_ident).collect();
 
     let definitions =
         fields.iter().map(|Field { forced_variant, enum_ident, .. }| {
@@ -1064,7 +1060,7 @@ fn create_locatable_impl(element: &Elem) -> TokenStream {
 /// Creates the element's `PartialEq` implementation.
 fn create_partial_eq_impl(element: &Elem) -> TokenStream {
     let ident = &element.ident;
-    let all = element.eq_fields().map(|field| &field.ident).collect::<Vec<_>>();
+    let all: Vec<_> = element.eq_fields().map(|field| &field.ident).collect();
 
     let empty = all.is_empty().then(|| quote! { true });
     quote! {
@@ -1084,9 +1080,9 @@ fn create_repr_impl(element: &Elem) -> TokenStream {
     quote! {
         impl ::typst::eval::Repr for #ident {
             fn repr(&self) -> ::ecow::EcoString {
-                let fields = self.fields().into_iter()
+                let fields : Vec<_>= self.fields().into_iter()
                     .map(|(name, value)| eco_format!("{}: {}", name, value.repr()))
-                    .collect::<Vec<_>>();
+                    .collect();
                 ::ecow::eco_format!(#repr_format, ::typst::eval::repr::pretty_array_like(&fields, false))
             }
         }

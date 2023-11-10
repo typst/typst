@@ -77,7 +77,7 @@ fn retrieve(
         .query(&selector.0)
         .into_iter()
         .map(|x| x.into_inner())
-        .collect::<Vec<_>>())
+        .collect())
 }
 
 /// Format the query result in the output format.
