@@ -19,11 +19,12 @@
 #cause_warn("I am not emitted")
 
 ---
-#import "@test/second-warner:0.1.0" as suppressed
-#import "@test/warner:0.1.0" as unsuppressed
+#import "@test/second-warner:0.1.0" as unsuppressed
+#import "@test/warner:0.1.0" as suppressed
 
 #nowarn(suppressed)
 
 suppressed.cause_warn("I am not emitted")
+// The line in the package is matching the line of the statement here by design, to help with the test setup (see first test case)
 // Warning: 7-40 I am emitted
 unsuppressed.cause_warn("I am emitted")
