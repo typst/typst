@@ -1375,7 +1375,7 @@ impl Repr for Color {
             }
             Self::Cmyk(c) => {
                 eco_format!(
-                    "rgb({}, {}, {}, {})",
+                    "cmyk({}, {}, {}, {})",
                     Ratio::new(c.c as _).repr(),
                     Ratio::new(c.m as _).repr(),
                     Ratio::new(c.y as _).repr(),
@@ -1569,8 +1569,7 @@ impl Cmyk {
     }
 
     fn from_luma(luma: Luma) -> Self {
-        let l = luma.luma;
-        Cmyk::new(l * 0.75, l * 0.68, l * 0.67, l * 0.90)
+        Cmyk::new(0.0, 0.0, 0.0, 1.0 - luma.luma)
     }
 
     fn from_rgba(rgba: Rgba) -> Self {

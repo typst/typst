@@ -121,7 +121,7 @@
 #test-repr(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e4e1df")
 #test-repr(rgb(cmyk(4%, 5%, 6%, 7%)).components(), (89.28%, 88.35%, 87.42%, 100%))
 #test-repr(rgb(luma(40%)).components(false), (40%, 40%, 40%))
-#test-repr(cmyk(luma(40)).components(), (11.76%, 10.67%, 10.51%, 14.12%))
+#test-repr(cmyk(luma(40%)).components(), (0%, 0%, 0%, 60%))
 #test-repr(cmyk(rgb(1, 2, 3)), cmyk(66.67%, 33.33%, 0%, 98.82%))
 #test-repr(luma(rgb(1, 2, 3)), luma(0.73%))
 #test-repr(color.hsl(luma(40)), color.hsl(0deg, 0%, 15.69%))
