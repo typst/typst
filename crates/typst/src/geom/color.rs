@@ -5,8 +5,7 @@ use once_cell::sync::Lazy;
 use palette::convert::FromColorUnclamped;
 use palette::encoding::{self, Linear};
 use palette::{
-    Clamp, Darken, Desaturate, FromColor, Lighten, Okhsva, OklabHue, RgbHue, Saturate,
-    ShiftHue,
+    Darken, Desaturate, FromColor, Lighten, Okhsva, OklabHue, RgbHue, Saturate, ShiftHue,
 };
 
 use super::*;
