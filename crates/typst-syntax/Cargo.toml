@@ -23,5 +23,6 @@ serde = { workspace = true }
 tracing = { workspace = true }
 unicode-ident = { workspace = true }
 unicode-math-class = { workspace = true }
+unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
 unscanny = { workspace = true }

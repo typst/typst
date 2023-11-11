@@ -1,5 +1,6 @@
 use ecow::{eco_format, EcoString};
 use unicode_ident::{is_xid_continue, is_xid_start};
+use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
@@ -343,7 +344,15 @@ impl Lexer<'_> {
     }
 
     fn in_word(&self) -> bool {
-        let alphanum = |c: Option<char>| c.map_or(false, |c| c.is_alphanumeric());
+        let alphanum = |c: Option<char>| {
+            c.map_or(false, |c| {
+                c.is_alphanumeric()
+                    && !matches!(
+                        c.script(),
+                        Script::Han | Script::Hiragana | Script::Katakana
+                    )
+            })
+        };
         let prev = self.s.scout(-2);
         let next = self.s.peek();
         alphanum(prev) && alphanum(next)
