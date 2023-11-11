@@ -15,3 +15,12 @@
   rect(),
   caption: [一个矩形],
 )
+
+---
+// Test Russian
+#set text(lang: "ru")
+
+#figure(
+    polygon.regular(size: 1cm, vertices: 8),
+    caption: [Пятиугольник],
+)
