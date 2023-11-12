@@ -10,7 +10,7 @@ use typst::syntax::PackageSpec;
 
 use crate::color_stream;
 use crate::download::download_with_progress;
-use crate::TermOut;
+use crate::terminal::TermOut;
 
 /// Make a package available in the on-disk cache.
 pub fn prepare_package(

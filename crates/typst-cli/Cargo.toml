@@ -54,6 +54,7 @@ tempfile = { workspace = true }
 ureq = { workspace = true }
 xz2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
+ctrlc = "3.4.1"
 
 [build-dependencies]
 clap = { workspace = true, features = ["string"] }

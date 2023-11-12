@@ -11,7 +11,7 @@ use native_tls::{Certificate, TlsConnector};
 use once_cell::sync::Lazy;
 use ureq::Response;
 
-use crate::TermOut;
+use crate::terminal::TermOut;
 
 /// Keep track of this many download speed samples.
 const SPEED_SAMPLES: usize = 5;

@@ -18,7 +18,7 @@ use crate::args::SharedArgs;
 use crate::compile::ExportCache;
 use crate::fonts::{FontSearcher, FontSlot};
 use crate::package::prepare_package;
-use crate::TermOut;
+use crate::terminal::TermOut;
 
 /// A world that provides access to the operating system.
 pub struct SystemWorld {

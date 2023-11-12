@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
@@ -11,9 +11,9 @@ use typst::diag::StrResult;
 
 use crate::args::CompileCommand;
 use crate::compile::compile_once;
+use crate::terminal::TermOut;
 use crate::timings::Timer;
 use crate::world::SystemWorld;
-use crate::TermOut;
 
 /// Execute a watching compilation command.
 pub fn watch(
@@ -21,6 +21,10 @@ pub fn watch(
     mut timer: Timer,
     mut command: CompileCommand,
 ) -> StrResult<()> {
+    term_out
+        .enter_alternate_screen()
+        .map_err(|err| eco_format!("failed to enter alternate screen ({err})"))?;
+
     // Create the world that serves sources, files, and fonts.
     let mut world = SystemWorld::new(term_out.clone(), &command.common)?;
 
@@ -41,13 +45,9 @@ pub fn watch(
     // Handle events.
     let timeout = std::time::Duration::from_millis(100);
     let output = command.output();
-    loop {
+    while term_out.active() {
         let mut recompile = false;
-        for event in rx
-            .recv()
-            .into_iter()
-            .chain(std::iter::from_fn(|| rx.recv_timeout(timeout).ok()))
-        {
+        if let Ok(event) = rx.recv_timeout(timeout) {
             let event =
                 event.map_err(|err| eco_format!("failed to watch directory ({err})"))?;
 
@@ -84,6 +84,7 @@ pub fn watch(
             watch_dependencies(&mut world, &mut watcher, &mut watched)?;
         }
     }
+    Ok(())
 }
 
 /// Adjust the file watching. Watches all new dependencies and unwatches
