@@ -18,6 +18,7 @@ use crate::args::SharedArgs;
 use crate::compile::ExportCache;
 use crate::fonts::{FontSearcher, FontSlot};
 use crate::package::prepare_package;
+use crate::TermOut;
 
 /// A world that provides access to the operating system.
 pub struct SystemWorld {
@@ -43,11 +44,13 @@ pub struct SystemWorld {
     /// The export cache, used for caching output files in `typst watch`
     /// sessions.
     export_cache: ExportCache,
+    /// Terminal output used for package download notifications.
+    term_out: TermOut,
 }
 
 impl SystemWorld {
     /// Create a new system world.
-    pub fn new(command: &SharedArgs) -> StrResult<Self> {
+    pub fn new(term_out: TermOut, command: &SharedArgs) -> StrResult<Self> {
         let mut searcher = FontSearcher::new();
         searcher.search(&command.font_paths);
 
@@ -94,6 +97,7 @@ impl SystemWorld {
             slots: Mutex::new(HashMap::new()),
             now: OnceLock::new(),
             export_cache: ExportCache::new(),
+            term_out,
         })
     }
 

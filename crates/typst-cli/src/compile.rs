@@ -3,16 +3,11 @@ use std::path::{Path, PathBuf};
 
 use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::term::{self, termcolor};
-use ecow::{eco_format, EcoString};
-use parking_lot::RwLock;
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use termcolor::{ColorChoice, StandardStream};
-use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
-use typst::eval::Tracer;
-use typst::foundations::Datetime;
-use typst::layout::Frame;
-use typst::model::Document;
+use codespan_reporting::term;
+use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
+use typst::doc::Document;
+use typst::eval::{eco_format, Datetime, Tracer};
+use typst::geom::Color;
 use typst::syntax::{FileId, Source, Span};
 use typst::visualize::Color;
 use typst::{World, WorldExt};
@@ -21,7 +16,7 @@ use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
 use crate::timings::Timer;
 use crate::watch::Status;
 use crate::world::SystemWorld;
-use crate::{color_stream, set_failed};
+use crate::{set_failed, TermOut};
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
@@ -60,9 +55,15 @@ impl CompileCommand {
 }
 
 /// Execute a compilation command.
-pub fn compile(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
+pub fn compile(
+    term_out: &mut TermOut,
+    mut timer: Timer,
+    mut command: CompileCommand,
+) -> StrResult<()> {
     let mut world = SystemWorld::new(&command.common)?;
-    timer.record(&mut world, |world| compile_once(world, &mut command, false))??;
+    timer.record(&mut world, |world| {
+        compile_once(term_out, world, &mut command, false)
+    })??;
     Ok(())
 }
 
@@ -71,13 +72,14 @@ pub fn compile(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
 /// Returns whether it compiled without errors.
 #[typst_macros::time(name = "compile once")]
 pub fn compile_once(
+    term_out: &mut TermOut,
     world: &mut SystemWorld,
     command: &mut CompileCommand,
     watching: bool,
 ) -> StrResult<()> {
     let start = std::time::Instant::now();
     if watching {
-        Status::Compiling.print(command).unwrap();
+        Status::Compiling.print(term_out, command).unwrap();
     }
 
     // Check if main file can be read and opened.
@@ -105,14 +107,20 @@ pub fn compile_once(
 
             if watching {
                 if warnings.is_empty() {
-                    Status::Success(duration).print(command).unwrap();
+                    Status::Success(duration).print(term_out, command).unwrap();
                 } else {
-                    Status::PartialSuccess(duration).print(command).unwrap();
+                    Status::PartialSuccess(duration).print(term_out, command).unwrap();
                 }
             }
 
-            print_diagnostics(world, &[], &warnings, command.common.diagnostic_format)
-                .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+            print_diagnostics(
+                term_out,
+                world,
+                &[],
+                &warnings,
+                command.common.diagnostic_format,
+            )
+            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
             if let Some(open) = command.open.take() {
                 open_file(open.as_deref(), &command.output())?;
@@ -124,10 +132,11 @@ pub fn compile_once(
             set_failed();
 
             if watching {
-                Status::Error.print(command).unwrap();
+                Status::Error.print(term_out, command).unwrap();
             }
 
             print_diagnostics(
+                term_out,
                 world,
                 &errors,
                 &warnings,
@@ -308,16 +317,12 @@ fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
 
 /// Print diagnostic messages to the terminal.
 pub fn print_diagnostics(
-    world: &SystemWorld,
+    term_out: &mut TermOut,
+    world: &mut SystemWorld,
     errors: &[SourceDiagnostic],
     warnings: &[SourceDiagnostic],
     diagnostic_format: DiagnosticFormat,
 ) -> Result<(), codespan_reporting::files::Error> {
-    let mut w = match diagnostic_format {
-        DiagnosticFormat::Human => color_stream(),
-        DiagnosticFormat::Short => StandardStream::stderr(ColorChoice::Never),
-    };
-
     let mut config = term::Config { tab_width: 2, ..Default::default() };
     if diagnostic_format == DiagnosticFormat::Short {
         config.display_style = term::DisplayStyle::Short;
@@ -338,7 +343,7 @@ pub fn print_diagnostics(
         )
         .with_labels(label(world, diagnostic.span).into_iter().collect());
 
-        term::emit(&mut w, &config, world, &diag)?;
+        term::emit(term_out, &config, world, &diag)?;
 
         // Stacktrace-like helper diagnostics.
         for point in &diagnostic.trace {
@@ -347,7 +352,7 @@ pub fn print_diagnostics(
                 .with_message(message)
                 .with_labels(label(world, point.span).into_iter().collect());
 
-            term::emit(&mut w, &config, world, &help)?;
+            term::emit(term_out, &config, world, &help)?;
         }
     }
 

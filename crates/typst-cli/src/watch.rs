@@ -1,5 +1,5 @@
-use std::collections::HashMap;
-use std::io::{self, IsTerminal, Write};
+use std::collections::HashSet;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use codespan_reporting::term::{self, termcolor};
@@ -10,18 +10,24 @@ use termcolor::WriteColor;
 use typst::diag::StrResult;
 
 use crate::args::CompileCommand;
-use crate::color_stream;
 use crate::compile::compile_once;
 use crate::timings::Timer;
 use crate::world::SystemWorld;
+use crate::TermOut;
 
 /// Execute a watching compilation command.
-pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
+pub fn watch(
+    term_out: &mut TermOut,
+    mut timer: Timer,
+    mut command: CompileCommand,
+) -> StrResult<()> {
     // Create the world that serves sources, files, and fonts.
-    let mut world = SystemWorld::new(&command.common)?;
+    let mut world = SystemWorld::new(term_out.clone(), &command.common)?;
 
     // Perform initial compilation.
-    timer.record(&mut world, |world| compile_once(world, &mut command, true))??;
+    timer.record(&mut world, |world| {
+        compile_once(term_out, world, &mut command, true)
+    })??;
 
     // Setup file watching.
     let (tx, rx) = std::sync::mpsc::channel();
@@ -68,8 +74,9 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
             world.reset();
 
             // Recompile.
-            timer
-                .record(&mut world, |world| compile_once(world, &mut command, true))??;
+            timer.record(&mut world, |world| {
+                compile_once(term_out, world, &mut command, true)
+            })??;
 
             comemo::evict(10);
 
@@ -154,33 +161,32 @@ pub enum Status {
 
 impl Status {
     /// Clear the terminal and render the status message.
-    pub fn print(&self, command: &CompileCommand) -> io::Result<()> {
+    pub fn print(
+        &self,
+        term_out: &mut TermOut,
+        command: &CompileCommand,
+    ) -> io::Result<()> {
         let output = command.output();
         let timestamp = chrono::offset::Local::now().format("%H:%M:%S");
         let color = self.color();
 
-        let mut w = color_stream();
-        if std::io::stderr().is_terminal() {
-            // Clear the terminal.
-            let esc = 27 as char;
-            write!(w, "{esc}[2J{esc}[1;1H")?;
-        }
+        term_out.clear()?;
 
-        w.set_color(&color)?;
-        write!(w, "watching")?;
-        w.reset()?;
-        writeln!(w, " {}", command.common.input.display())?;
+        term_out.set_color(&color)?;
+        write!(term_out, "watching")?;
+        term_out.reset()?;
+        writeln!(term_out, " {}", command.common.input.display())?;
 
-        w.set_color(&color)?;
-        write!(w, "writing to")?;
-        w.reset()?;
-        writeln!(w, " {}", output.display())?;
+        term_out.set_color(&color)?;
+        write!(term_out, "writing to")?;
+        term_out.reset()?;
+        writeln!(term_out, " {}", output.display())?;
 
-        writeln!(w)?;
-        writeln!(w, "[{timestamp}] {}", self.message())?;
-        writeln!(w)?;
+        writeln!(term_out)?;
+        writeln!(term_out, "[{timestamp}] {}", self.message())?;
+        writeln!(term_out)?;
 
-        w.flush()
+        term_out.flush()
     }
 
     fn message(&self) -> String {
