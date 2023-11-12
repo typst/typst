@@ -7,9 +7,9 @@
     text(0.8em)[_Chapter 1_]
   },
   footer: align(center)[\~ #counter(page).display() \~],
-  background: counter(page).display(n => if n <= 2 {
+  background: counter(page, n => if n <= 2 {
     place(center + horizon, circle(radius: 1cm, fill: luma(90%)))
-  })
+  }).display()
 )
 
 But, soft! what light through yonder window breaks? It is the east, and Juliet

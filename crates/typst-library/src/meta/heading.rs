@@ -145,8 +145,8 @@ impl Show for HeadingElem {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
         if let Some(numbering) = self.numbering(styles).as_ref() {
-            realized = Counter::of(Self::elem())
-                .display(Some(numbering.clone()), false)
+            realized = Counter::of(Self::elem(), Some(numbering.clone()), false)
+                .display()
                 .spanned(self.span())
                 + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;
@@ -201,7 +201,7 @@ impl Refable for HeadingElem {
     }
 
     fn counter(&self) -> Counter {
-        Counter::of(Self::elem())
+        Counter::of(Self::elem(), None, false)
     }
 
     fn numbering(&self) -> Option<Numbering> {
@@ -218,7 +218,7 @@ impl Outlinable for HeadingElem {
         let mut content = self.body().clone();
         let default = StyleChain::default();
         if let Some(numbering) = self.numbering(default).as_ref() {
-            let numbers = Counter::of(Self::elem())
+            let numbers = Counter::of(Self::elem(), Some(numbering.clone()), false)
                 .at(vt, self.location().unwrap())?
                 .display(vt, numbering)?;
             content = numbers + SpaceElem::new().pack() + content;

@@ -473,7 +473,7 @@ impl OutlineEntry {
                 Numbering::Pattern(NumberingPattern::from_str("1").unwrap())
             });
 
-        let page = Counter::new(CounterKey::Page)
+        let page = Counter::new(CounterKey::Page, Some(page_numbering.clone()), false)
             .at(vt, location)?
             .display(vt, &page_numbering)?;
 

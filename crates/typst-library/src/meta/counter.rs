@@ -36,7 +36,7 @@ use crate::prelude::*;
 /// #counter(heading).display()
 ///
 /// Or in roman numerals:
-/// #counter(heading).display("I")
+/// #counter(heading, "I").display()
 /// ```
 ///
 /// # Modifying a counter { #modifying }
@@ -199,17 +199,21 @@ use crate::prelude::*;
 /// doesn't just use normal variables for counters.
 #[ty(scope)]
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub struct Counter(CounterKey);
+pub struct Counter {
+    key: CounterKey,
+    numbering: Option<Numbering>,
+    both: bool,
+}
 
 impl Counter {
     /// Create a new counter identified by a key.
-    pub fn new(key: CounterKey) -> Counter {
-        Self(key)
+    pub fn new(key: CounterKey, numbering: Option<Numbering>, both: bool) -> Counter {
+        Self { key, numbering, both }
     }
 
     /// The counter for the given element.
-    pub fn of(func: Element) -> Self {
-        Self::construct(CounterKey::Selector(Selector::Elem(func, None)))
+    pub fn of(func: Element, numbering: Option<Numbering>, both: bool) -> Self {
+        Self::construct(CounterKey::Selector(Selector::Elem(func, None)), numbering, both)
     }
 
     /// Gets the current and final value of the state combined in one state.
@@ -268,7 +272,7 @@ impl Counter {
             tracer,
         };
 
-        let mut state = CounterState::init(&self.0);
+        let mut state = CounterState::init(&self.key);
         let mut page = NonZeroUsize::ONE;
         let mut stops = eco_vec![(state.clone(), page)];
 
@@ -301,9 +305,9 @@ impl Counter {
 
     /// The selector relevant for this counter's updates.
     fn selector(&self) -> Selector {
-        let mut selector = select_where!(UpdateElem, Key => self.0.clone());
+        let mut selector = select_where!(UpdateElem, Key => self.key.clone());
 
-        if let CounterKey::Selector(key) = &self.0 {
+        if let CounterKey::Selector(key) = &self.key {
             selector = Selector::Or(eco_vec![selector, key.clone()]);
         }
 
@@ -312,7 +316,7 @@ impl Counter {
 
     /// Whether this is the page counter.
     fn is_page(&self) -> bool {
-        self.0 == CounterKey::Page
+        self.key == CounterKey::Page
     }
 }
 
@@ -331,14 +335,7 @@ impl Counter {
         ///   elements,
         /// - If this is the [`page`]($page) function, counts through pages.
         key: CounterKey,
-    ) -> Counter {
-        Self(key)
-    }
 
-    /// Displays the current value of the counter.
-    #[func]
-    pub fn display(
-        self,
         /// A [numbering pattern or a function]($numbering), which specifies how
         /// to display the counter. If given a function, that function receives
         /// each number of the counter as a separate argument. If the amount of
@@ -350,6 +347,7 @@ impl Counter {
         /// style exists.
         #[default]
         numbering: Option<Numbering>,
+
         /// If enabled, displays the current and final top-level count together.
         /// Both can be styled through a single numbering pattern. This is used
         /// by the page numbering property to display the current and total
@@ -357,8 +355,14 @@ impl Counter {
         #[named]
         #[default(false)]
         both: bool,
-    ) -> Content {
-        DisplayElem::new(self, numbering, both).pack()
+    ) -> Counter {
+        Self { key, numbering, both }
+    }
+
+    /// Displays the current value of the counter.
+    #[func]
+    pub fn display(self) -> Content {
+        DisplayElem::new(self).pack()
     }
 
     /// Increases the value of the counter by one.
@@ -393,7 +397,7 @@ impl Counter {
         /// return the new value (integer or array).
         update: CounterUpdate,
     ) -> Content {
-        UpdateElem::new(self.0, update).pack()
+        UpdateElem::new(self.key, update).pack()
     }
 
     /// Gets the value of the counter at the given location. Always returns an
@@ -452,7 +456,7 @@ impl Counter {
 
 impl Repr for Counter {
     fn repr(&self) -> EcoString {
-        eco_format!("counter({})", self.0.repr())
+        eco_format!("counter({})", self.key.repr()) // TODO: adapt
     }
 }
 
@@ -598,14 +602,6 @@ struct DisplayElem {
     /// The counter.
     #[required]
     counter: Counter,
-
-    /// The numbering to display the counter with.
-    #[required]
-    numbering: Option<Numbering>,
-
-    /// Whether to display both the current and final value.
-    #[required]
-    both: bool,
 }
 
 impl Show for DisplayElem {
@@ -615,10 +611,12 @@ impl Show for DisplayElem {
             let location = self.location().unwrap();
             let counter = self.counter();
             let numbering = self
-                .numbering()
+                .counter
+                .numbering
                 .clone()
                 .or_else(|| {
-                    let CounterKey::Selector(Selector::Elem(func, _)) = counter.0 else {
+                    let CounterKey::Selector(Selector::Elem(func, _)) = counter.key
+                    else {
                         return None;
                     };
 
@@ -634,7 +632,7 @@ impl Show for DisplayElem {
                 })
                 .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
 
-            let state = if *self.both() {
+            let state = if self.counter.both {
                 counter.both(vt, location)?
             } else {
                 counter.at(vt, location)?

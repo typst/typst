@@ -294,10 +294,10 @@ a custom footer with page numbers and more.
 #set page(footer: [
   *American Society of Proceedings*
   #h(1fr)
-  #counter(page).display(
-    "1/1",
-    both: true,
-  )
+  #counter(
+    page, "1/1",
+    both: true
+  ).display()
 ])
 
 This page has a custom footer.
@@ -317,7 +317,7 @@ circle for each page.
 #set page(footer: [
   *Fun Typography Club*
   #h(1fr)
-  #counter(page).display(num => {
+  #counter(page, num => {
     let circles = num * (
       box(circle(
         radius: 2pt,
@@ -328,7 +328,7 @@ circle for each page.
       inset: (bottom: 1pt),
       circles.join(h(1pt))
     )
-  })
+  }).display()
 ])
 
 This page has a custom footer.

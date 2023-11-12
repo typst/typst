@@ -253,15 +253,18 @@ impl Synthesize for FigureElem {
         };
 
         // Construct the figure's counter.
-        let counter =
-            Counter::new(CounterKey::Selector(select_where!(Self, Kind => kind.clone())));
+        let counter = Counter::new(
+            CounterKey::Selector(select_where!(Self, Kind => kind.clone())),
+            numbering.clone(),
+            false,
+        );
 
         // Fill the figure's caption.
         let mut caption = self.caption(styles);
         if let Some(caption) = &mut caption {
             caption.push_kind(kind.clone());
             caption.push_supplement(supplement.clone());
-            caption.push_numbering(numbering.clone());
+            caption.push_numbering(numbering.clone()); // TODO: remove
             caption.push_counter(Some(counter.clone()));
             caption.push_figure_location(self.location());
         }
@@ -339,7 +342,9 @@ impl Refable for FigureElem {
     }
 
     fn counter(&self) -> Counter {
-        self.counter().clone().unwrap_or_else(|| Counter::of(Self::elem()))
+        self.counter()
+            .clone()
+            .unwrap_or_else(|| Counter::of(Self::elem(), None, false))
     }
 
     fn numbering(&self) -> Option<Numbering> {
@@ -462,7 +467,7 @@ pub struct FigureCaption {
     /// ```example
     /// #show figure.caption: it => [
     ///   #underline(it.body) |
-    ///   #it.supplement #it.counter.display(it.numbering)
+    ///   #it.supplement #it.counter.display()
     /// ]
     ///
     /// #figure(

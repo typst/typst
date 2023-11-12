@@ -252,8 +252,8 @@ impl Layout for EquationElem {
         if block {
             if let Some(numbering) = self.numbering(styles) {
                 let pod = Regions::one(regions.base(), Axes::splat(false));
-                let counter = Counter::of(Self::elem())
-                    .display(Some(numbering), false)
+                let counter = Counter::of(Self::elem(), Some(numbering), false)
+                    .display()
                     .layout(vt, styles, pod)?
                     .into_frame();
 
@@ -357,7 +357,7 @@ impl Refable for EquationElem {
     }
 
     fn counter(&self) -> Counter {
-        Counter::of(Self::elem())
+        Counter::of(Self::elem(), None, false)
     }
 
     fn numbering(&self) -> Option<Numbering> {

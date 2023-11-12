@@ -258,10 +258,11 @@ pub struct PageElem {
     ///   footer: [
     ///     #set align(right)
     ///     #set text(8pt)
-    ///     #counter(page).display(
-    ///       "1 of I",
-    ///       both: true,
-    ///     )
+    ///     #counter(
+    ///        page,
+    ///        "1 of I",
+    ///        both: true
+    ///     ).display()
     ///   ]
     /// )
     ///
@@ -413,7 +414,7 @@ impl PageElem {
             };
 
             let mut counter =
-                Counter::new(CounterKey::Page).display(Some(numbering.clone()), both);
+                Counter::new(CounterKey::Page, Some(numbering.clone()), both).display();
 
             // We interpret the Y alignment as selecting header or footer
             // and then ignore it for aligning the actual number.

@@ -8,10 +8,10 @@ Final: #locate(loc => mine.final(loc).at(0)) \
 #mine.step()
 First: #mine.display() \
 #mine.update(7)
-#mine.display("1 of 1", both: true) \
+#counter("mine!", "1 of 1", both: true).display() \
 #mine.step()
 #mine.step()
-Second: #mine.display("I")
+Second: #counter("mine!", "I").display()
 #mine.update(n => n * 2)
 #mine.step()
 

@@ -127,7 +127,7 @@ impl Show for FootnoteElem {
         Ok(vt.delayed(|vt| {
             let loc = self.declaration_location(vt).at(self.span())?;
             let numbering = self.numbering(styles);
-            let counter = Counter::of(Self::elem());
+            let counter = Counter::of(Self::elem(), Some(numbering.clone()), false);
             let num = counter.at(vt, loc)?.display(vt, numbering)?;
             let sup = SuperElem::new(num).pack();
             let loc = loc.variant(1);
@@ -269,7 +269,7 @@ impl Show for FootnoteEntry {
         let number_gap = Em::new(0.05);
         let default = StyleChain::default();
         let numbering = note.numbering(default);
-        let counter = Counter::of(FootnoteElem::elem());
+        let counter = Counter::of(FootnoteElem::elem(), Some(numbering.clone()), false);
         let loc = note.location().unwrap();
         let num = counter.at(vt, loc)?.display(vt, numbering)?;
         let sup = SuperElem::new(num)

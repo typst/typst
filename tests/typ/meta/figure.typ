@@ -50,7 +50,7 @@ We can clearly see that @fig-cylinder and
   if not it.numbering == none {
     title = it.supplement
     if not it.numbering == none {
-      title += " " +  it.counter.display(it.numbering)
+      title += " " +  it.counter.display()
     }
   }
   title = strong(title)
