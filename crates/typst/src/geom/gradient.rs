@@ -432,8 +432,8 @@ impl Gradient {
 
     /// Creates a sharp version of this gradient.
     ///
-    /// Sharp gradients have discreet jumps between colors, instead of a
-    /// smooth transition. They are  particularly useful for creating color
+    /// Sharp gradients have discrete jumps between colors, instead of a
+    /// smooth transition. They are particularly useful for creating color
     /// lists for a preset gradient.
     ///
     /// ```example
