@@ -325,12 +325,15 @@ impl Synthesize for RawElem {
                 synt::Highlighter::new(theme),
                 &mut |_, range, style| styled(&text[range], foreground, style),
                 &mut |i, range, line| {
-                    seq.push(RawLine::new(
-                        i + 1,
-                        count,
-                        EcoString::from(&text[range]),
-                        Content::sequence(line.drain(..)),
-                    ));
+                    seq.push(
+                        RawLine::new(
+                            i + 1,
+                            count,
+                            EcoString::from(&text[range]),
+                            Content::sequence(line.drain(..)),
+                        )
+                        .spanned(self.span()),
+                    );
                 },
             )
             .highlight();
@@ -353,12 +356,15 @@ impl Synthesize for RawElem {
                     line_content.push(styled(piece, foreground, style));
                 }
 
-                seq.push(RawLine::new(
-                    i as i64 + 1,
-                    count,
-                    EcoString::from(line),
-                    Content::sequence(line_content),
-                ));
+                seq.push(
+                    RawLine::new(
+                        i as i64 + 1,
+                        count,
+                        EcoString::from(line),
+                        Content::sequence(line_content),
+                    )
+                    .spanned(self.span()),
+                );
             }
         } else {
             let lines = text.lines();
@@ -369,6 +375,7 @@ impl Synthesize for RawElem {
                     EcoString::from(line),
                     TextElem::packed(line),
                 )
+                .spanned(self.span())
             }));
         };
 
