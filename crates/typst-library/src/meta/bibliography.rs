@@ -21,7 +21,7 @@ use typst::eval::{eval_string, Bytes, CastInfo, EvalMode, Reflect};
 use typst::font::FontStyle;
 use typst::util::{option_eq, PicoStr};
 
-use super::{CitationForm, CiteGroup, LocalName};
+use super::{CitationForm, CiteGroup, LinkElem, LocalName};
 use crate::layout::{
     BlockElem, GridElem, HElem, PadElem, ParElem, Sizing, TrackSizings, VElem,
 };
@@ -953,7 +953,7 @@ impl ElemRenderer<'_> {
     /// Display a link.
     fn display_link(&self, text: &hayagriva::Formatted, url: &str) -> Content {
         let dest = Destination::Url(url.into());
-        self.display_formatted(text).linked(dest)
+        LinkElem::new(dest.into(), self.display_formatted(text)).pack()
     }
 
     /// Display transparent pass-through content.
