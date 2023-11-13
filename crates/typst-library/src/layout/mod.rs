@@ -643,7 +643,6 @@ impl<'a> ParBuilder<'a> {
             .iter()
             .map(|(cnt, _)| cnt.span())
             .find(|span| !span.is_detached())
-            .clone()
             .unwrap_or_else(Span::detached);
 
         (ParElem::new(children.to_vec()).spanned(span).pack(), shared)
