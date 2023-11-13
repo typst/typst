@@ -31,7 +31,7 @@ pub struct OpElem {
 impl LayoutMath for OpElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let fragment = ctx.layout_fragment(&self.text)?;
+        let fragment = ctx.layout_fragment(self.text())?;
         ctx.push(
             FrameFragment::new(ctx, fragment.into_frame())
                 .with_class(MathClass::Large)
