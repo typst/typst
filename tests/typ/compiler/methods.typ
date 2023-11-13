@@ -109,6 +109,8 @@
 #test-repr(cmyk(4%, 5%, 6%, 7%).components(), (4%, 5%, 6%, 7%))
 #test-repr(oklab(10%, 0.2, 0.3).components(), (10%, 0.2, 0.3, 100%))
 #test-repr(oklch(10%, 0.2, 90deg).components(), (10%, 0.2, 90deg, 100%))
+#test-repr(oklab(10%, 50%, 75%).components(), (10%, 0.2, 0.3, 100%))
+#test-repr(oklch(10%, 50%, 90deg).components(), (10%, 0.2, 90deg, 100%))
 #test-repr(color.linear-rgb(10%, 20%, 30%).components(), (10%, 20%, 30%, 100%))
 #test-repr(color.hsv(10deg, 20%, 30%).components(), (10deg, 20%, 30%, 100%))
 #test-repr(color.hsl(10deg, 20%, 30%).components(), (10deg, 20%, 30%, 100%))
