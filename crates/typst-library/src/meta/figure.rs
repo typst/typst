@@ -10,7 +10,7 @@ use crate::visualize::ImageElem;
 
 /// A figure with an optional caption.
 ///
-/// Automatically detects its contents to select the correct counting track. For
+/// Automatically detects its kind to select the correct counting track. For
 /// example, figures containing images will be numbered separately from figures
 /// containing tables.
 ///
@@ -124,8 +124,12 @@ pub struct FigureElem {
 
     /// The kind of figure this is.
     ///
+    /// All figures of the same kind share a common counter.
+    ///
     /// If set to `{auto}`, the figure will try to automatically determine its
-    /// kind. All figures of the same kind share a common counter.
+    /// kind based on the type of its body. Automatically detected kinds are
+    /// [tables]($table) and [code]($raw). In other cases, the inferred kind is
+    /// that of an [image]($image).
     ///
     /// Setting this to something other than `{auto}` will override the
     /// automatic detection. This can be useful if
@@ -135,8 +139,9 @@ pub struct FigureElem {
     ///   its content.
     ///
     /// You can set the kind to be an element function or a string. If you set
-    /// it to an element function that is not supported by the figure, you will
-    /// need to manually specify the figure's supplement.
+    /// it to an element function other than [`{table}`]($table), [`{raw}`](raw)
+    /// or [`{image}`](image), you will need to manually specify the figure's
+    /// supplement.
     ///
     /// ```example
     /// #figure(
