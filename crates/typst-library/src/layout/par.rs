@@ -751,7 +751,7 @@ fn prepare<'a>(
 /// See Requirements for Chinese Text Layout, Section 3.2.2 Mixed Text Composition in Horizontal
 /// Written Mode
 fn add_cjk_latin_spacing(items: &mut [Item]) {
-    let mut items = items.iter_mut().peekable();
+    let mut items = items.iter_mut().filter(|x| !matches!(x, Item::Meta(_))).peekable();
     let mut prev: Option<&ShapedGlyph> = None;
     while let Some(item) = items.next() {
         let Some(text) = item.text_mut() else {
