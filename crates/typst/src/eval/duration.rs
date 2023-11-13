@@ -4,8 +4,8 @@ use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use time::ext::NumericalDuration;
 
+use super::repr::pretty_array_like;
 use super::{func, scope, ty, Repr};
-use crate::util::pretty_array_like;
 
 /// Represents a positive or negative span of time.
 #[ty(scope)]

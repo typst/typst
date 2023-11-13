@@ -3,11 +3,11 @@ use std::fmt::Write;
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use typst::doc::Frame;
+use typst::eval::repr::{pretty_comma_list, separated_list};
 use typst::eval::{CapturesVisitor, CastInfo, Repr, Tracer, Value};
 use typst::geom::{round_2, Length, Numeric};
 use typst::syntax::ast;
 use typst::syntax::{LinkedNode, Source, SyntaxKind};
-use typst::util::{pretty_comma_list, separated_list};
 use typst::World;
 
 use super::analyze::analyze_labels;

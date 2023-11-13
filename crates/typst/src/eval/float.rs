@@ -2,9 +2,9 @@ use std::num::ParseFloatError;
 
 use ecow::{eco_format, EcoString};
 
+use super::repr::{format_float, MINUS_SIGN};
 use super::{cast, func, scope, ty, Repr, Str};
 use crate::geom::Ratio;
-use crate::util::fmt::{format_float, MINUS_SIGN};
 
 /// A floating-point number.
 ///

@@ -5,6 +5,7 @@ use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use typst::doc::Frame;
+use typst::eval::repr::separated_list;
 use typst::eval::{
     format_str, AutoValue, CastInfo, Func, Library, NoneValue, Repr, Scope, Type, Value,
 };
@@ -13,7 +14,6 @@ use typst::model::Label;
 use typst::syntax::{
     ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
 };
-use typst::util::separated_list;
 use typst::World;
 use unscanny::Scanner;
 
@@ -1222,6 +1222,11 @@ impl<'a> CompletionContext<'a> {
                         "oklab()",
                         "oklab(${l}, ${a}, ${b}, ${alpha})",
                         "A custom Oklab color.",
+                    );
+                    self.snippet_completion(
+                        "oklch()",
+                        "oklch(${l}, ${chroma}, ${hue}, ${alpha})",
+                        "A custom Oklch color.",
                     );
                     self.snippet_completion(
                         "color.linear-rgb()",

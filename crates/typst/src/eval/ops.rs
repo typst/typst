@@ -4,10 +4,9 @@ use std::cmp::Ordering;
 
 use ecow::eco_format;
 
-use super::{format_str, IntoValue, Regex, Repr, Value};
+use super::{format_str, item, IntoValue, Regex, Repr, Smart, Value};
 use crate::diag::{bail, StrResult};
-use crate::eval::item;
-use crate::geom::{Align, Length, Numeric, Rel, Smart, Stroke};
+use crate::geom::{Align, Length, Numeric, Rel, Stroke};
 use Value::*;
 
 /// Bail with a type mismatch error.

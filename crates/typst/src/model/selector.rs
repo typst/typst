@@ -7,11 +7,11 @@ use smallvec::SmallVec;
 
 use super::{Content, Element, Label, Locatable, Location};
 use crate::diag::{bail, StrResult};
+use crate::eval::repr::pretty_array_like;
 use crate::eval::{
     cast, func, item, scope, ty, CastInfo, Dict, FromValue, Func, Reflect, Regex, Repr,
     Str, Symbol, Type, Value,
 };
-use crate::util::pretty_array_like;
 
 /// A helper macro to create a field selector used in [`Selector::Elem`]
 ///
@@ -26,12 +26,12 @@ macro_rules! __select_where {
         let mut fields = ::smallvec::SmallVec::new();
         $(
             fields.push((
-                <$ty as ::typst::model::ElementFields>::Fields::$field as u8,
+                <$ty as $crate::model::ElementFields>::Fields::$field as u8,
                 $crate::eval::IntoValue::into_value($value),
             ));
         )*
-        ::typst::model::Selector::Elem(
-            <$ty as ::typst::model::NativeElement>::elem(),
+        $crate::model::Selector::Elem(
+            <$ty as $crate::model::NativeElement>::elem(),
             Some(fields),
         )
     }};

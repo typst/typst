@@ -8,12 +8,11 @@ use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
 
-use crate::eval::{cast, dict, ty, Datetime, Dict, Repr, Value};
+use crate::eval::{cast, dict, ty, Datetime, Dict, Repr, Smart, Value};
 use crate::font::Font;
 use crate::geom::{
     self, styled_rect, Abs, Axes, Color, Corners, Dir, Em, FixedAlign, FixedStroke,
-    Geometry, Length, Numeric, Paint, Path, Point, Rel, Shape, Sides, Size, Smart,
-    Transform,
+    Geometry, Length, Numeric, Paint, Path, Point, Rel, Shape, Sides, Size, Transform,
 };
 use crate::image::Image;
 use crate::model::{Content, Location, MetaElem, StyleChain};

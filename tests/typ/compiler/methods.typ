@@ -108,6 +108,7 @@
 #test-repr(luma(40).components(), (15.69%, ))
 #test-repr(cmyk(4%, 5%, 6%, 7%).components(), (4%, 5%, 6%, 7%))
 #test-repr(oklab(10%, 0.2, 0.3).components(), (10%, 0.2, 0.3, 100%))
+#test-repr(oklch(10%, 0.2, 90deg).components(), (10%, 0.2, 90deg, 100%))
 #test-repr(color.linear-rgb(10%, 20%, 30%).components(), (10%, 20%, 30%, 100%))
 #test-repr(color.hsv(10deg, 20%, 30%).components(), (10deg, 20%, 30%, 100%))
 #test-repr(color.hsl(10deg, 20%, 30%).components(), (10deg, 20%, 30%, 100%))
@@ -131,6 +132,9 @@
 #test-repr(color.hsv(rgb(1, 2, 3)), color.hsv(-150deg, 66.67%, 1.18%))
 #test-repr(oklab(luma(40)).components(), (27.68%, 0.0, 0.0, 100%))
 #test-repr(oklab(rgb(1, 2, 3)).components(), (8.23%, -0.004, -0.007, 100%))
+#test-repr(oklch(oklab(40%, 0.2, 0.2)).components(), (40%, 0.283, 45deg, 100%))
+#test-repr(oklch(luma(40)).components(), (27.68%, 0.0, 72.49deg, 100%))
+#test-repr(oklch(rgb(1, 2, 3)).components(), (8.23%, 0.008, 240.75deg, 100%))
 
 ---
 // Test gradient functions.
@@ -143,6 +147,7 @@
 #test(gradient.linear(red, green, blue, space: rgb).sample(100%), blue)
 #test(gradient.linear(red, green, space: rgb).space(), rgb)
 #test(gradient.linear(red, green, space: oklab).space(), oklab)
+#test(gradient.linear(red, green, space: oklch).space(), oklch)
 #test(gradient.linear(red, green, space: cmyk).space(), cmyk)
 #test(gradient.linear(red, green, space: luma).space(), luma)
 #test(gradient.linear(red, green, space: color.linear-rgb).space(), color.linear-rgb)

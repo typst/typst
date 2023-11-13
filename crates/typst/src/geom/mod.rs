@@ -24,7 +24,6 @@ mod scalar;
 mod shape;
 mod sides;
 mod size;
-mod smart;
 mod stroke;
 mod transform;
 
@@ -52,7 +51,6 @@ pub use self::scalar::Scalar;
 pub use self::shape::{Geometry, Shape};
 pub use self::sides::{Side, Sides};
 pub use self::size::Size;
-pub use self::smart::Smart;
 pub use self::stroke::{DashLength, DashPattern, FixedStroke, LineCap, LineJoin, Stroke};
 pub use self::transform::Transform;
 
@@ -66,9 +64,9 @@ use std::ops::*;
 use ecow::{eco_format, EcoString};
 
 use crate::diag::{bail, StrResult};
-use crate::eval::{array, cast, func, scope, ty, Array, Dict, Repr, Value};
+use crate::eval::repr::format_float;
+use crate::eval::{array, cast, func, scope, ty, Array, Dict, Repr, Smart, Value};
 use crate::model::{Fold, Resolve, StyleChain};
-use crate::util::fmt::format_float;
 
 /// Generic access to a structure's components.
 pub trait Get<Index> {

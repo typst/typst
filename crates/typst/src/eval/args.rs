@@ -2,10 +2,10 @@ use std::fmt::{self, Debug, Formatter};
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
+use super::repr::pretty_array_like;
 use super::{func, scope, ty, Array, Dict, FromValue, IntoValue, Repr, Str, Value};
 use crate::diag::{bail, At, SourceDiagnostic, SourceResult};
 use crate::syntax::{Span, Spanned};
-use crate::util::pretty_array_like;
 
 /// Captured arguments to a function.
 ///

@@ -7,6 +7,7 @@ use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
+use super::repr::pretty_array_like;
 use super::{
     cast, func, ops, scope, ty, Args, Bytes, CastInfo, FromValue, Func, IntoValue,
     Reflect, Repr, Value, Version, Vm,
@@ -14,7 +15,6 @@ use super::{
 use crate::diag::{At, SourceResult, StrResult};
 use crate::eval::ops::{add, mul};
 use crate::syntax::Span;
-use crate::util::pretty_array_like;
 
 /// Create a new [`Array`] from values.
 #[macro_export]
@@ -738,14 +738,12 @@ impl Array {
         vec.make_mut().sort_by(|a, b| {
             // Until we get `try` blocks :)
             match (key_of(a.clone()), key_of(b.clone())) {
-                (Ok(a), Ok(b)) => {
-                    typst::eval::ops::compare(&a, &b).unwrap_or_else(|err| {
-                        if result.is_ok() {
-                            result = Err(err).at(span);
-                        }
-                        Ordering::Equal
-                    })
-                }
+                (Ok(a), Ok(b)) => super::ops::compare(&a, &b).unwrap_or_else(|err| {
+                    if result.is_ok() {
+                        result = Err(err).at(span);
+                    }
+                    Ordering::Equal
+                }),
                 (Err(e), _) | (_, Err(e)) => {
                     if result.is_ok() {
                         result = Err(e);
@@ -794,7 +792,7 @@ impl Array {
             }
 
             for second in out.iter() {
-                if typst::eval::ops::equal(&key, &key_of(second.clone())?) {
+                if super::ops::equal(&key, &key_of(second.clone())?) {
                     continue 'outer;
                 }
             }

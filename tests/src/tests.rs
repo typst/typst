@@ -23,10 +23,10 @@ use walkdir::WalkDir;
 use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{
-    eco_format, func, Bytes, Datetime, Library, NoneValue, Repr, Tracer, Value,
+    eco_format, func, Bytes, Datetime, Library, NoneValue, Repr, Smart, Tracer, Value,
 };
 use typst::font::{Font, FontBook};
-use typst::geom::{Abs, Color, Smart, Transform};
+use typst::geom::{Abs, Color, Transform};
 use typst::syntax::{FileId, PackageVersion, Source, SyntaxNode, VirtualPath};
 use typst::{World, WorldExt};
 use typst_library::layout::{Margin, PageElem};

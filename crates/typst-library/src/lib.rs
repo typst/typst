@@ -14,8 +14,8 @@ pub mod symbols;
 pub mod text;
 pub mod visualize;
 
-use typst::eval::{Array, LangItems, Library, Module, Scope};
-use typst::geom::{Align, Color, Dir, Smart};
+use typst::eval::{Array, LangItems, Library, Module, Scope, Smart};
+use typst::geom::{Align, Color, Dir};
 use typst::model::{NativeElement, Styles};
 
 use self::layout::LayoutRoot;
@@ -65,6 +65,7 @@ fn prelude(global: &mut Scope) {
     global.define("lime", Color::LIME);
     global.define("luma", Color::luma_data());
     global.define("oklab", Color::oklab_data());
+    global.define("oklch", Color::oklch_data());
     global.define("rgb", Color::rgb_data());
     global.define("cmyk", Color::cmyk_data());
     global.define("range", Array::range_data());

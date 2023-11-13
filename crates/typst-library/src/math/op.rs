@@ -21,7 +21,7 @@ use super::*;
 pub struct OpElem {
     /// The operator's text.
     #[required]
-    pub text: EcoString,
+    pub text: Content,
 
     /// Whether the operator should show attachments as limits in display mode.
     #[default(false)]
@@ -31,8 +31,7 @@ pub struct OpElem {
 impl LayoutMath for OpElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let fragment =
-            ctx.layout_text(&TextElem::new(self.text().clone()).spanned(self.span()))?;
+        let fragment = ctx.layout_fragment(self.text())?;
         ctx.push(
             FrameFragment::new(ctx, fragment.into_frame())
                 .with_class(MathClass::Large)
@@ -49,12 +48,15 @@ impl LayoutMath for OpElem {
 macro_rules! ops {
     ($($name:ident $(: $value:literal)? $(($tts:tt))?),* $(,)?) => {
         pub(super) fn define(math: &mut Scope) {
-            $(math.define(
-                stringify!($name),
-                OpElem::new(ops!(@name $name $(: $value)?).into())
-                    .with_limits(ops!(@limit $($tts)*))
-                    .pack()
-            );)*
+            $({
+                let operator = EcoString::from(ops!(@name $name $(: $value)?));
+                math.define(
+                    stringify!($name),
+                    OpElem::new(TextElem::new(operator).into())
+                        .with_limits(ops!(@limit $($tts)*))
+                        .pack()
+                );
+            })*
 
             let dif = |d| {
                 HElem::new(THIN.into()).with_weak(true).pack()

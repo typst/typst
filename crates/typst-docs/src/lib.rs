@@ -21,9 +21,11 @@ use serde::Deserialize;
 use serde_yaml as yaml;
 use typst::diag::{bail, StrResult};
 use typst::doc::Frame;
-use typst::eval::{CastInfo, Func, Library, Module, ParamInfo, Repr, Scope, Type, Value};
+use typst::eval::{
+    CastInfo, Func, Library, Module, ParamInfo, Repr, Scope, Smart, Type, Value,
+};
 use typst::font::{Font, FontBook};
-use typst::geom::{Abs, Smart};
+use typst::geom::Abs;
 use typst_library::layout::{Margin, PageElem};
 
 static DOCS_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../docs");

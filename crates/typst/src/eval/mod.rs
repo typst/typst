@@ -27,6 +27,7 @@ mod module;
 mod none;
 pub mod ops;
 mod plugin;
+pub mod repr;
 mod scope;
 mod symbol;
 mod tracer;
@@ -43,7 +44,7 @@ pub use {
 
 pub use self::args::{Arg, Args};
 pub use self::array::{array, Array};
-pub use self::auto::AutoValue;
+pub use self::auto::{AutoValue, Smart};
 pub use self::bytes::Bytes;
 pub use self::cast::{
     cast, Cast, CastInfo, Container, FromValue, IntoResult, IntoValue, Never, Reflect,
@@ -60,12 +61,13 @@ pub use self::methods::mutable_methods_on;
 pub use self::module::Module;
 pub use self::none::NoneValue;
 pub use self::plugin::Plugin;
+pub use self::repr::Repr;
 pub use self::scope::{NativeScope, Scope, Scopes};
 pub use self::str::{format_str, Regex, Str};
 pub use self::symbol::{symbols, Symbol};
 pub use self::tracer::Tracer;
 pub use self::ty::{scope, ty, NativeType, NativeTypeData, Type};
-pub use self::value::{Dynamic, Repr, Value};
+pub use self::value::{Dynamic, Value};
 pub use self::version::Version;
 
 use std::collections::HashSet;

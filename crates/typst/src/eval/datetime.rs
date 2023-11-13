@@ -9,10 +9,9 @@ use time::error::{Format, InvalidFormatDescription};
 use time::macros::format_description;
 use time::{format_description, Month, PrimitiveDateTime};
 
-use super::{cast, func, scope, ty, Dict, Duration, Repr, Str, Value, Vm};
+use super::repr::pretty_array_like;
+use super::{cast, func, scope, ty, Dict, Duration, Repr, Smart, Str, Value, Vm};
 use crate::diag::{bail, StrResult};
-use crate::geom::Smart;
-use crate::util::pretty_array_like;
 use crate::World;
 
 /// Represents a date, a time, or a combination of both.
