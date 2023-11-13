@@ -67,6 +67,6 @@ fuzz_target!(|text: &str| {
     let world = FuzzWorld::new(&text);
     let mut tracer = Tracer::new();
     if let Ok(document) = typst::compile(&world, &mut tracer) {
-        typst::export::render(&document.pages[0], 1.0, Color::WHITE);
+        typst_render::render(&document.pages[0], 1.0, Color::WHITE);
     }
 });
