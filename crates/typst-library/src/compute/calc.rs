@@ -50,6 +50,8 @@ fn module() -> Module {
     scope.define_func::<even>();
     scope.define_func::<odd>();
     scope.define_func::<rem>();
+    scope.define_func::<div_euclid>();
+    scope.define_func::<rem_euclid>();
     scope.define_func::<quo>();
     scope.define("inf", f64::INFINITY);
     scope.define("nan", f64::NAN);
@@ -790,7 +792,10 @@ pub fn odd(
 /// in magnitude than `y`.
 ///
 /// ```example
-/// #calc.rem(20, 6) \
+/// #calc.rem(7, 3) \
+/// #calc.rem(7, -3) \
+/// #calc.rem(-7, 3) \
+/// #calc.rem(-7, -3) \
 /// #calc.rem(1.75, 0.5)
 /// ```
 #[func(title = "Remainder")]
@@ -804,6 +809,57 @@ pub fn rem(
         bail!(divisor.span, "divisor must not be zero");
     }
     Ok(dividend.apply2(divisor.v, Rem::rem, Rem::rem))
+}
+
+/// Performs euclidean division of two numbers.
+///
+/// The result of this computation is that of a division rounded to the integer
+/// `{n}` such that the dividend is greater than or equal to `{n}` times the divisor.
+///
+/// ```example
+/// #calc.div-euclid(7, 3) \
+/// #calc.div-euclid(7, -3) \
+/// #calc.div-euclid(-7, 3) \
+/// #calc.div-euclid(-7, -3) \
+/// #calc.div-euclid(1.75, 0.5)
+/// ```
+#[func(title = "Euclidean Division")]
+pub fn div_euclid(
+    /// The dividend of the division.
+    dividend: Num,
+    /// The divisor of the division.
+    divisor: Spanned<Num>,
+) -> SourceResult<Num> {
+    if divisor.v.float() == 0.0 {
+        bail!(divisor.span, "divisor must not be zero");
+    }
+    Ok(dividend.apply2(divisor.v, i64::div_euclid, f64::div_euclid))
+}
+
+/// This calculates the least nonnegative remainder of a division.
+///
+/// Warning: Due to a floating point round-off error, the remainder may equal the absolute
+/// value of the divisor if the dividend is much smaller in magnitude than the divisor
+/// and the dividend is negative. This only applies for floating point inputs.
+///
+/// ```example
+/// #calc.rem-euclid(7, 3) \
+/// #calc.rem-euclid(7, -3) \
+/// #calc.rem-euclid(-7, 3) \
+/// #calc.rem-euclid(-7, -3) \
+/// #calc.rem(1.75, 0.5)
+/// ```
+#[func(title = "Euclidean Remainder")]
+pub fn rem_euclid(
+    /// The dividend of the remainder.
+    dividend: Num,
+    /// The divisor of the remainder.
+    divisor: Spanned<Num>,
+) -> SourceResult<Num> {
+    if divisor.v.float() == 0.0 {
+        bail!(divisor.span, "divisor must not be zero");
+    }
+    Ok(dividend.apply2(divisor.v, i64::rem_euclid, f64::rem_euclid))
 }
 
 /// Calculates the quotient (floored division) of two numbers.
