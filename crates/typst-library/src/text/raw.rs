@@ -291,7 +291,7 @@ impl Synthesize for RawElem {
             text = align_tabs(&text, tab_size);
         }
 
-        let count = text.lines().count() as i64;
+        let count = text.split(is_newline).count() as i64;
 
         let lang = self
             .lang(styles)
@@ -348,7 +348,7 @@ impl Synthesize for RawElem {
                 })
         }) {
             let mut highlighter = syntect::easy::HighlightLines::new(syntax, theme);
-            for (i, line) in text.lines().enumerate() {
+            for (i, line) in text.split(is_newline).enumerate() {
                 let mut line_content = vec![];
                 for (style, piece) in
                     highlighter.highlight_line(line, syntax_set).into_iter().flatten()
@@ -367,7 +367,7 @@ impl Synthesize for RawElem {
                 );
             }
         } else {
-            let lines = text.lines();
+            let lines = text.split(is_newline);
             seq.extend(lines.enumerate().map(|(i, line)| {
                 RawLine::new(
                     i as i64 + 1,
