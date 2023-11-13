@@ -673,7 +673,7 @@ pub fn link_prefix(text: &str) -> (&str, bool) {
 }
 
 /// Split text at newlines.
-pub(super) fn split_newlines(text: &str) -> Vec<&str> {
+pub fn split_newlines(text: &str) -> Vec<&str> {
     let mut s = Scanner::new(text);
     let mut lines = Vec::new();
     let mut start = 0;

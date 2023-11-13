@@ -9,7 +9,7 @@ use syntect::highlighting as synt;
 use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst::diag::FileError;
 use typst::eval::Bytes;
-use typst::syntax::{self, is_newline, LinkedNode};
+use typst::syntax::{self, split_newlines, LinkedNode};
 use typst::util::option_eq;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -291,7 +291,8 @@ impl Synthesize for RawElem {
             text = align_tabs(&text, tab_size);
         }
 
-        let count = text.lines().count() as i64;
+        let lines = split_newlines(&text);
+        let count = lines.len() as i64;
 
         let lang = self
             .lang(styles)
@@ -348,7 +349,7 @@ impl Synthesize for RawElem {
                 })
         }) {
             let mut highlighter = syntect::easy::HighlightLines::new(syntax, theme);
-            for (i, line) in text.lines().enumerate() {
+            for (i, line) in lines.into_iter().enumerate() {
                 let mut line_content = vec![];
                 for (style, piece) in
                     highlighter.highlight_line(line, syntax_set).into_iter().flatten()
@@ -367,8 +368,7 @@ impl Synthesize for RawElem {
                 );
             }
         } else {
-            let lines = text.lines();
-            seq.extend(lines.enumerate().map(|(i, line)| {
+            seq.extend(lines.into_iter().enumerate().map(|(i, line)| {
                 RawLine::new(
                     i as i64 + 1,
                     count,
@@ -562,7 +562,7 @@ impl<'a> ThemedHighlighter<'a> {
             let segment = &self.code[self.node.range()];
 
             let mut len = 0;
-            for (i, line) in segment.split(is_newline).enumerate() {
+            for (i, line) in split_newlines(segment).into_iter().enumerate() {
                 if i != 0 {
                     (self.line_fn)(
                         self.line,
