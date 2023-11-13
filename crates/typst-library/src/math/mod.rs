@@ -367,6 +367,9 @@ impl Refable for EquationElem {
 
 impl Outlinable for EquationElem {
     fn outline(&self, vt: &mut Vt) -> SourceResult<Option<Content>> {
+        if !self.block(StyleChain::default()) {
+            return Ok(None);
+        }
         let Some(numbering) = self.numbering(StyleChain::default()) else {
             return Ok(None);
         };
