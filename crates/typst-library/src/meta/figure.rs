@@ -484,19 +484,23 @@ pub struct FigureCaption {
 
     /// The figure's supplement.
     #[synthesized]
+    #[default(None)]
     pub supplement: Option<Content>,
 
     /// How to number the figure.
     #[synthesized]
+    #[default(None)]
     pub numbering: Option<Numbering>,
 
     /// The counter for the figure.
     #[synthesized]
+    #[default(None)]
     pub counter: Option<Counter>,
 
     /// The figure's location.
     #[internal]
     #[synthesized]
+    #[default(None)]
     pub figure_location: Option<Location>,
 }
 
