@@ -230,6 +230,27 @@ impl Args {
 
 #[scope]
 impl Args {
+    /// Construct an argument sink in place.
+    ///
+    /// This function behaves like `{#let args(..sink) = sink}`.
+    ///
+    /// ```example
+    /// #let args = arguments(stroke: red, inset: 1em, [Body])
+    /// #box(..args)
+    /// ```
+    #[func(constructor)]
+    pub fn construct(
+        /// The real arguments (the other argument is just for the docs).
+        /// The docs argument cannot be called `args`.
+        args: &mut Args,
+        /// The arguments to construct.
+        #[external]
+        #[variadic]
+        arguments: Vec<Args>,
+    ) -> Args {
+        args.take()
+    }
+
     /// Returns the captured positional arguments as an array.
     #[func(name = "pos", title = "Positional")]
     pub fn to_pos(&self) -> Array {
