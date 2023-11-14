@@ -1235,7 +1235,7 @@ trait ColorEncode {
 impl ColorEncode for Color {
     fn encode(&self) -> EcoString {
         match *self {
-            c @ Color::Rgba(_)
+            c @ Color::Rgb(_)
             | c @ Color::Luma(_)
             | c @ Color::Cmyk(_)
             | c @ Color::Hsv(_) => c.to_hex(),
