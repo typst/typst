@@ -344,7 +344,7 @@ impl Lexer<'_> {
     }
 
     fn in_word(&self) -> bool {
-        let alphanum = |c: Option<char>| {
+        let wordy = |c: Option<char>| {
             c.map_or(false, |c| {
                 c.is_alphanumeric()
                     && !matches!(
@@ -355,7 +355,7 @@ impl Lexer<'_> {
         };
         let prev = self.s.scout(-2);
         let next = self.s.peek();
-        alphanum(prev) && alphanum(next)
+        wordy(prev) && wordy(next)
     }
 
     fn space_or_end(&self) -> bool {
