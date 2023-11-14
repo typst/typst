@@ -240,10 +240,10 @@ fn minify(source: &str) -> String {
 /// Ensures that the values are in the range [0.0, 1.0].
 ///
 /// # Why?
-/// - Oklab: The a and b components are in the range [-0.4, 0.4] and the PDF
+/// - Oklab: The a and b components are in the range [-0.5, 0.5] and the PDF
 ///   specifies (and some readers enforce) that all color values be in the range
 ///   [0.0, 1.0]. This means that the PostScript function and the encoded color
-///   must be offset by 0.4.
+///   must be offset by 0.5.
 /// - HSV/HSL: The hue component is in the range [0.0, 360.0] and the PDF format
 ///   specifies that it must be in the range [0.0, 1.0]. This means that the
 ///   PostScript function and the encoded color must be divided by 360.0.
@@ -256,8 +256,13 @@ impl ColorEncode for ColorSpace {
     fn encode(&self, color: Color) -> [f32; 4] {
         match self {
             ColorSpace::Oklab => {
-                let [l, a, b, alpha] = color.to_oklab().to_vec4();
-                [l, (a + 0.4).clamp(0.0, 1.0), (b + 0.4).clamp(0.0, 1.0), alpha]
+                let [l, c, h, alpha] = color.to_oklch().to_vec4();
+                // Clamp on Oklch's chroma, not Oklab's a\* and b\* as to not distort hue.
+                let c = c.clamp(0.0, 0.5);
+                // Convert cylindrical coordinates back to rectangular ones.
+                let a = c * h.to_radians().cos();
+                let b = c * h.to_radians().sin();
+                [l, a + 0.5, b + 0.5, alpha]
             }
             ColorSpace::Hsl => {
                 let [h, s, l, _] = color.to_hsl().to_vec4();
