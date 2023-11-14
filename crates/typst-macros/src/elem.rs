@@ -512,9 +512,7 @@ fn create_with_field_method(field: &Field) -> TokenStream {
     } = field;
     let doc = format!("Set the [`{}`](Self::{}) field.", name, ident);
 
-    let set = if field.inherent() {
-        quote! { self.#ident = #ident; }
-    } else if *synthesized && default.is_some() {
+    let set = if field.inherent() || (*synthesized && default.is_some()) {
         quote! { self.#ident = #ident; }
     } else {
         quote! { self.#ident = Some(#ident); }
@@ -541,9 +539,8 @@ fn create_push_field_method(field: &Field) -> TokenStream {
         ..
     } = field;
     let doc = format!("Push the [`{}`](Self::{}) field.", name, ident);
-    let set = if field.inherent() && !synthesized {
-        quote! { self.#ident = #ident; }
-    } else if *synthesized && default.is_some() {
+    let set = if (field.inherent() && !synthesized) || (*synthesized && default.is_some())
+    {
         quote! { self.#ident = #ident; }
     } else {
         quote! { self.#ident = Some(#ident); }
@@ -598,7 +595,7 @@ fn create_field_in_method(element: &Elem, field: &Field) -> TokenStream {
 fn create_field_method(element: &Elem, field: &Field) -> TokenStream {
     let Field { vis, docs, ident, output, .. } = field;
     if (field.inherent() && !field.synthesized)
-        || field.synthesized && field.default.is_some()
+        || (field.synthesized && field.default.is_some())
     {
         quote! {
             #[doc = #docs]
