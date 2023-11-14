@@ -38,7 +38,8 @@ use crate::util::pretty_array_like;
 /// #text(..dict)[Hello]
 /// ```
 #[ty(scope, name = "arguments")]
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Clone, Hash)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Args {
     /// The span of the whole argument list.
     pub span: Span,
@@ -47,7 +48,8 @@ pub struct Args {
 }
 
 /// An argument to a function call: `12` or `draw: false`.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Hash)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Arg {
     /// The span of the whole argument.
     pub span: Span,
@@ -271,6 +273,12 @@ impl Args {
     }
 }
 
+impl PartialEq for Args {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_pos() == other.to_pos() && self.to_named() == other.to_named()
+    }
+}
+
 impl Debug for Args {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_list().entries(&self.items).finish()
@@ -281,6 +289,12 @@ impl Repr for Args {
     fn repr(&self) -> EcoString {
         let pieces = self.items.iter().map(Arg::repr).collect::<Vec<_>>();
         pretty_array_like(&pieces, false).into()
+    }
+}
+
+impl PartialEq for Arg {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.value.v == other.value.v
     }
 }
 
