@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Chunk, Filter, Finish, Ref};
+use typst::eval::Bytes;
 use typst::geom::ColorSpace;
 use typst::image::{ImageKind, RasterFormat, RasterImage, SvgImage};
 
@@ -92,7 +93,7 @@ pub(crate) fn write_images(ctx: &mut PdfContext) {
 /// Skips the alpha channel as that's encoded separately.
 #[comemo::memoize]
 #[tracing::instrument(skip_all)]
-fn encode_raster_image(image: &RasterImage) -> (Arc<Vec<u8>>, Filter, bool) {
+fn encode_raster_image(image: &RasterImage) -> (Bytes, Filter, bool) {
     let dynamic = image.dynamic();
     match (image.format(), dynamic) {
         // 8-bit gray JPEG.
@@ -112,23 +113,15 @@ fn encode_raster_image(image: &RasterImage) -> (Arc<Vec<u8>>, Filter, bool) {
         // TODO: Encode flate streams with PNG-predictor?
 
         // 8-bit gray PNG.
-        (RasterFormat::Png, DynamicImage::ImageLuma8(luma)) => {
-            let data = deflate(luma.as_raw());
-            (data.into(), Filter::FlateDecode, false)
+        (RasterFormat::Png, _) => {
+            let data = image.encoded().unwrap();
+            return (data.clone(), Filter::FlateDecode, true);
         }
 
         // Anything else (including Rgb(a) PNGs).
-        (_, buf) => {
-            let (width, height) = buf.dimensions();
-            let mut pixels = Vec::with_capacity(3 * width as usize * height as usize);
-            for (_, _, Rgba([r, g, b, _])) in buf.pixels() {
-                pixels.push(r);
-                pixels.push(g);
-                pixels.push(b);
-            }
-
-            let data = deflate(&pixels);
-            (data.into(), Filter::FlateDecode, true)
+        _ => {
+            let data = image.encoded().unwrap();
+            return (data.clone(), Filter::FlateDecode, true);
         }
     }
 }
