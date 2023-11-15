@@ -896,12 +896,12 @@ fn to_sk_paint<'a>(
 }
 
 fn to_sk_color(color: Color) -> sk::Color {
-    let [r, g, b, a] = color.to_rgba().to_vec4_u8();
+    let [r, g, b, a] = color.to_rgb().to_vec4_u8();
     sk::Color::from_rgba8(r, g, b, a)
 }
 
 fn to_sk_color_u8_without_alpha(color: Color) -> sk::ColorU8 {
-    let [r, g, b, _] = color.to_rgba().to_vec4_u8();
+    let [r, g, b, _] = color.to_rgb().to_vec4_u8();
     sk::ColorU8::from_rgba(r, g, b, 255)
 }
 
