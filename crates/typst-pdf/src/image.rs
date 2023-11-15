@@ -20,7 +20,7 @@ pub(crate) fn write_images(ctx: &mut PdfContext) {
             let image_ref = ctx.alloc.bump();
             ctx.image_refs.push(image_ref);
 
-            let mut image = ctx.pdf.image_xobject(image_ref, &data);
+            let mut image = ctx.pdf.image_xobject(image_ref, data);
             image.filter(*filter);
             image.width(*width as i32);
             image.height(*height as i32);
@@ -45,7 +45,7 @@ pub(crate) fn write_images(ctx: &mut PdfContext) {
                 image.s_mask(mask_ref);
                 image.finish();
 
-                let mut mask = ctx.pdf.image_xobject(mask_ref, &alpha_data);
+                let mut mask = ctx.pdf.image_xobject(mask_ref, alpha_data);
                 mask.filter(*alpha_filter);
                 mask.width(*width as i32);
                 mask.height(*height as i32);
