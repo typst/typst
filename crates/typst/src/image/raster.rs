@@ -19,7 +19,6 @@ use crate::eval::Bytes;
 static THREAD_POOL: Lazy<rayon::ThreadPool> = Lazy::new(|| {
     rayon::ThreadPoolBuilder::new()
         .thread_name(|i| format!("typst-image-encode-{i}"))
-        .num_threads(8)
         .build()
         .unwrap()
 });
