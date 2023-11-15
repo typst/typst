@@ -21,6 +21,8 @@ pub fn watch(
     mut timer: Timer,
     mut command: CompileCommand,
 ) -> StrResult<()> {
+    // Enter the alternate screen and handle Ctrl-C ourselves.
+    term_out.init_exit_handler();
     term_out
         .enter_alternate_screen()
         .map_err(|err| eco_format!("failed to enter alternate screen ({err})"))?;
@@ -171,7 +173,7 @@ impl Status {
         let timestamp = chrono::offset::Local::now().format("%H:%M:%S");
         let color = self.color();
 
-        term_out.clear()?;
+        term_out.clear_screen()?;
 
         term_out.set_color(&color)?;
         write!(term_out, "watching")?;

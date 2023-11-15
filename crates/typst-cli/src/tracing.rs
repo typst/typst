@@ -16,7 +16,7 @@ use crate::args::{CliArguments, Command};
 pub fn setup_tracing(args: &CliArguments) -> io::Result<Option<impl Drop>> {
     let flamegraph = match &args.command {
         Command::Compile(command) => command.flamegraph.as_ref(),
-        Command::Watch(command) if command.compile.flamegraph.is_some() => {
+        Command::Watch(command) if command.flamegraph.is_some() => {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "cannot use --flamegraph with watch command",

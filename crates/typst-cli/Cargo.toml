@@ -28,6 +28,7 @@ typst-svg = { workspace = true }
 typst-timing = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
+ctrlc = { workspace = true }
 codespan-reporting = { workspace = true }
 comemo = { workspace = true }
 dirs = { workspace = true }
@@ -54,7 +55,6 @@ tempfile = { workspace = true }
 ureq = { workspace = true }
 xz2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
-ctrlc = "3.4.1"
 
 [build-dependencies]
 clap = { workspace = true, features = ["string"] }

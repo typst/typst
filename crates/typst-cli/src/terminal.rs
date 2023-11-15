@@ -1,5 +1,5 @@
 use std::io::{self, IsTerminal, Write};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use codespan_reporting::term::{self, termcolor};
@@ -19,7 +19,6 @@ pub struct TermOut {
 struct TermOutInner {
     active: AtomicBool,
     stream: termcolor::StandardStream,
-    lines_written: AtomicUsize,
     in_alternate_screen: AtomicBool,
 }
 
@@ -36,7 +35,6 @@ impl TermOut {
             inner: Arc::new(TermOutInner {
                 active: AtomicBool::new(true),
                 stream,
-                lines_written: AtomicUsize::new(0),
                 in_alternate_screen: AtomicBool::new(false),
             }),
         }
@@ -62,23 +60,27 @@ impl TermOut {
         self.inner.active.load(Ordering::Acquire)
     }
 
-    /// Clears everything printed so far.
-    pub fn clear(&mut self) -> io::Result<()> {
-        let lines = self.inner.lines_written.load(Ordering::Acquire);
-        self.clear_lines(lines)?;
+    /// Clears the entire screen.
+    pub fn clear_screen(&mut self) -> io::Result<()> {
+        // We don't want to clear anything that is not a TTY.
+        if self.inner.stream.supports_color() {
+            let mut stream = self.inner.stream.lock();
+            // Clear the screen and then move the cursor to the top left corner.
+            write!(stream, "\x1B[2J\x1B[1;1H")?;
+            stream.flush()?;
+        }
         Ok(())
     }
 
-    /// Clears a given number of lines.
-    pub fn clear_lines(&mut self, lines: usize) -> io::Result<()> {
+    /// Clears the previously written line.
+    pub fn clear_last_line(&mut self) -> io::Result<()> {
         // We don't want to clear anything that is not a TTY.
-        if lines != 0 && self.inner.stream.supports_color() {
+        if self.inner.stream.supports_color() {
             // First, move the cursor up `lines` lines.
             // Then, clear everything between between the cursor to end of screen.
             let mut stream = self.inner.stream.lock();
-            write!(stream, "\x1B[{lines}F\x1B[0J")?;
+            write!(stream, "\x1B[1F\x1B[0J")?;
             stream.flush()?;
-            self.inner.lines_written.fetch_sub(lines, Ordering::Release);
         }
         Ok(())
     }
@@ -107,11 +109,7 @@ impl TermOut {
 
 impl Write for TermOut {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let n = self.inner.stream.lock().write(buf)?;
-        // Determine the number of lines just written.
-        let lines = buf[..n].iter().filter(|&&b| b == b'\n').count();
-        self.inner.lines_written.fetch_add(lines, Ordering::Release);
-        Ok(n)
+        self.inner.stream.lock().write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {

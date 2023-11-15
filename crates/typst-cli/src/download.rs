@@ -149,7 +149,7 @@ impl RemoteReader {
                 self.downloaded_last_few_secs.push_front(self.downloaded_this_sec);
                 self.downloaded_this_sec = 0;
 
-                self.term_out.clear_lines(1)?;
+                self.term_out.clear_last_line()?;
                 self.display()?;
                 self.last_print = Some(Instant::now());
             }
