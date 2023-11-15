@@ -7,21 +7,11 @@ use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
 use image::io::Limits;
-use image::{
-    guess_format, DynamicImage, GenericImageView, ImageDecoder, ImageResult, Rgba,
-};
-use once_cell::sync::{Lazy, OnceCell};
+use image::{guess_format, ImageDecoder, ImageResult};
 use typst_macros::Cast;
 
 use crate::diag::{bail, StrResult};
 use crate::eval::Bytes;
-
-static THREAD_POOL: Lazy<rayon::ThreadPool> = Lazy::new(|| {
-    rayon::ThreadPoolBuilder::new()
-        .thread_name(|i| format!("typst-image-encode-{i}"))
-        .build()
-        .unwrap()
-});
 
 /// A decoded raster image.
 #[derive(Clone, Hash)]
@@ -31,15 +21,14 @@ pub struct RasterImage(Arc<Repr>);
 struct Repr {
     data: Bytes,
     format: RasterFormat,
-    dynamic: Arc<image::DynamicImage>,
+    dynamic: image::DynamicImage,
     icc: Option<Vec<u8>>,
-    encoded: Option<Arc<OnceCell<Bytes>>>,
 }
 
 impl RasterImage {
     /// Decode a raster image.
     #[comemo::memoize]
-    pub fn new(data: Bytes, is_pdf: bool, format: RasterFormat) -> StrResult<Self> {
+    pub fn new(data: Bytes, format: RasterFormat) -> StrResult<Self> {
         fn decode_with<'a, T: ImageDecoder<'a>>(
             decoder: ImageResult<T>,
         ) -> ImageResult<(image::DynamicImage, Option<Vec<u8>>)> {
@@ -58,9 +47,7 @@ impl RasterImage {
         }
         .map_err(format_image_error)?;
 
-        let dynamic = Arc::new(dynamic);
-        let encoded = encode_image(&dynamic, is_pdf, format);
-        Ok(Self(Arc::new(Repr { data, format, dynamic, icc, encoded })))
+        Ok(Self(Arc::new(Repr { data, format, dynamic, icc })))
     }
 
     /// The raw image data.
@@ -91,11 +78,6 @@ impl RasterImage {
     /// Access the ICC profile, if any.
     pub fn icc(&self) -> Option<&[u8]> {
         self.0.icc.as_deref()
-    }
-
-    /// Access the encoded image, if any.
-    pub fn encoded(&self) -> Option<&Bytes> {
-        self.0.encoded.as_ref().map(|cell| cell.wait())
     }
 }
 
@@ -154,66 +136,4 @@ fn format_image_error(error: image::ImageError) -> EcoString {
         image::ImageError::Limits(_) => "file is too large".into(),
         err => eco_format!("failed to decode image ({err})"),
     }
-}
-
-/// Encodes an image using a thread pool.
-fn encode_image(
-    dynamic: &Arc<image::DynamicImage>,
-    is_pdf: bool,
-    format: RasterFormat,
-) -> Option<Arc<OnceCell<Bytes>>> {
-    // If we're not rendering to a PDF we never run.
-    // This also means we're never instantiating the thread pool.
-    if !is_pdf {
-        return None;
-    }
-
-    if format == RasterFormat::Jpg && matches!(&**dynamic, DynamicImage::ImageLuma8(_)) {
-        return None;
-    }
-
-    if format == RasterFormat::Jpg && matches!(&**dynamic, DynamicImage::ImageRgb8(_)) {
-        return None;
-    }
-
-    // Special case for encoding luma images.
-    let out = Arc::new(OnceCell::new());
-    if format == RasterFormat::Png && matches!(&**dynamic, DynamicImage::ImageLuma8(_)) {
-        let dynamic = Arc::clone(dynamic);
-        let thread_cell = Arc::clone(&out);
-        THREAD_POOL.spawn(move || {
-            let DynamicImage::ImageLuma8(luma) = &*dynamic else {
-                // We ensured that the dynamic image is a luma image.
-                unreachable!();
-            };
-
-            let data = deflate(luma.as_raw());
-            thread_cell.set(data.into()).expect("failed to set once cell");
-        });
-
-        return Some(out);
-    }
-
-    let dynamic = Arc::clone(dynamic);
-    let thread_cell = Arc::clone(&out);
-    THREAD_POOL.spawn(move || {
-        let (width, height) = dynamic.dimensions();
-        let mut pixels = Vec::with_capacity(3 * width as usize * height as usize);
-        for (_, _, Rgba([r, g, b, _])) in dynamic.pixels() {
-            pixels.push(r);
-            pixels.push(g);
-            pixels.push(b);
-        }
-
-        let data = deflate(&pixels);
-        thread_cell.set(data.into()).expect("failed to set once cell");
-    });
-
-    Some(out)
-}
-
-/// Compress data with the DEFLATE algorithm.
-fn deflate(data: &[u8]) -> Vec<u8> {
-    const COMPRESSION_LEVEL: u8 = 6;
-    miniz_oxide::deflate::compress_to_vec_zlib(data, COMPRESSION_LEVEL)
 }

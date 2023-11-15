@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Chunk, Filter, Finish, Ref};
+use rayon::prelude::*;
 use typst::eval::Bytes;
 use typst::geom::ColorSpace;
 use typst::image::{ImageKind, RasterFormat, RasterImage, SvgImage};
@@ -13,78 +14,111 @@ use crate::{deflate, PdfContext};
 /// Embed all used images into the PDF.
 #[tracing::instrument(skip_all)]
 pub(crate) fn write_images(ctx: &mut PdfContext) {
-    for image in ctx.image_map.items() {
-        // Add the primary image.
-        match image.kind() {
-            ImageKind::Raster(raster) => {
-                // TODO: Error if image could not be encoded.
-                let (data, filter, has_color) = encode_raster_image(raster);
-                let width = image.width();
-                let height = image.height();
+    enum PreEncoded {
+        Raster {
+            data: Bytes,
+            filter: Filter,
+            has_color: bool,
+            width: u32,
+            height: u32,
+            icc: Option<Vec<u8>>,
+            alpha: Option<(Arc<Vec<u8>>, Filter)>,
+        },
+        Svg(Arc<Chunk>),
+    }
 
-                let image_ref = ctx.alloc.bump();
-                ctx.image_refs.push(image_ref);
+    let mut prepared = Vec::with_capacity(ctx.image_map.len());
+    ctx.image_map
+        .par_items()
+        .map(|image| {
+            // Add the primary image.
+            match image.kind() {
+                ImageKind::Raster(raster) => {
+                    let (data, filter, has_color) = encode_raster_image(raster);
+                    let icc = raster.icc().map(deflate);
 
-                let mut image = ctx.pdf.image_xobject(image_ref, &data);
-                image.filter(filter);
-                image.width(width as i32);
-                image.height(height as i32);
-                image.bits_per_component(8);
+                    let alpha = raster
+                        .dynamic()
+                        .color()
+                        .has_alpha()
+                        .then(|| encode_alpha(raster));
 
-                let mut icc_ref = None;
-                let space = image.color_space();
-                if raster.icc().is_some() {
-                    let id = ctx.alloc.bump();
-                    space.icc_based(id);
-                    icc_ref = Some(id);
-                } else if has_color {
-                    ctx.colors.write(ColorSpace::Srgb, space, &mut ctx.alloc);
-                } else {
-                    ctx.colors.write(ColorSpace::D65Gray, space, &mut ctx.alloc);
-                }
-
-                // Add a second gray-scale image containing the alpha values if
-                // this image has an alpha channel.
-                if raster.dynamic().color().has_alpha() {
-                    let (alpha_data, alpha_filter) = encode_alpha(raster);
-                    let mask_ref = ctx.alloc.bump();
-                    image.s_mask(mask_ref);
-                    image.finish();
-
-                    let mut mask = ctx.pdf.image_xobject(mask_ref, &alpha_data);
-                    mask.filter(alpha_filter);
-                    mask.width(width as i32);
-                    mask.height(height as i32);
-                    mask.color_space().device_gray();
-                    mask.bits_per_component(8);
-                } else {
-                    image.finish();
-                }
-
-                if let (Some(icc), Some(icc_ref)) = (raster.icc(), icc_ref) {
-                    let compressed = deflate(icc);
-                    let mut stream = ctx.pdf.icc_profile(icc_ref, &compressed);
-                    stream.filter(Filter::FlateDecode);
-                    if has_color {
-                        stream.n(3);
-                        stream.alternate().srgb();
-                    } else {
-                        stream.n(1);
-                        stream.alternate().d65_gray();
+                    PreEncoded::Raster {
+                        data,
+                        filter,
+                        has_color,
+                        width: image.width(),
+                        height: image.height(),
+                        icc,
+                        alpha,
                     }
                 }
+
+                ImageKind::Svg(svg) => PreEncoded::Svg(encode_svg(svg)),
+            }
+        })
+        .collect_into_vec(&mut prepared);
+
+    prepared.into_iter().for_each(|image| match image {
+        PreEncoded::Raster { data, filter, has_color, width, height, icc, alpha } => {
+            let image_ref = ctx.alloc.bump();
+            ctx.image_refs.push(image_ref);
+
+            let mut image = ctx.pdf.image_xobject(image_ref, &data);
+            image.filter(filter);
+            image.width(width as i32);
+            image.height(height as i32);
+            image.bits_per_component(8);
+
+            let mut icc_ref = None;
+            let space = image.color_space();
+            if icc.is_some() {
+                let id = ctx.alloc.bump();
+                space.icc_based(id);
+                icc_ref = Some(id);
+            } else if has_color {
+                ctx.colors.write(ColorSpace::Srgb, space, &mut ctx.alloc);
+            } else {
+                ctx.colors.write(ColorSpace::D65Gray, space, &mut ctx.alloc);
             }
 
-            ImageKind::Svg(svg) => {
-                let chunk = encode_svg(svg);
-                let mut map = HashMap::new();
-                chunk.renumber_into(&mut ctx.pdf, |old| {
-                    *map.entry(old).or_insert_with(|| ctx.alloc.bump())
-                });
-                ctx.image_refs.push(map[&Ref::new(1)]);
+            // Add a second gray-scale image containing the alpha values if
+            // this image has an alpha channel.
+            if let Some((alpha_data, alpha_filter)) = alpha {
+                let mask_ref = ctx.alloc.bump();
+                image.s_mask(mask_ref);
+                image.finish();
+
+                let mut mask = ctx.pdf.image_xobject(mask_ref, &alpha_data);
+                mask.filter(alpha_filter);
+                mask.width(width as i32);
+                mask.height(height as i32);
+                mask.color_space().device_gray();
+                mask.bits_per_component(8);
+            } else {
+                image.finish();
+            }
+
+            if let (Some(icc), Some(icc_ref)) = (icc, icc_ref) {
+                let mut stream = ctx.pdf.icc_profile(icc_ref, &icc);
+                stream.filter(Filter::FlateDecode);
+                if has_color {
+                    stream.n(3);
+                    stream.alternate().srgb();
+                } else {
+                    stream.n(1);
+                    stream.alternate().d65_gray();
+                }
             }
         }
-    }
+        PreEncoded::Svg(chunk) => {
+            let mut map = HashMap::new();
+            chunk.renumber_into(&mut ctx.pdf, |old| {
+                *map.entry(old).or_insert_with(|| ctx.alloc.bump())
+            });
+            ctx.image_refs.push(map[&Ref::new(1)]);
+        }
+    });
 }
 
 /// Encode an image with a suitable filter and return the data, filter and
@@ -113,15 +147,23 @@ fn encode_raster_image(image: &RasterImage) -> (Bytes, Filter, bool) {
         // TODO: Encode flate streams with PNG-predictor?
 
         // 8-bit gray PNG.
-        (RasterFormat::Png, _) => {
-            let data = image.encoded().unwrap();
-            return (data.clone(), Filter::FlateDecode, true);
+        (RasterFormat::Png, DynamicImage::ImageLuma8(luma)) => {
+            let data = deflate(luma.as_raw());
+            (data.into(), Filter::FlateDecode, false)
         }
 
         // Anything else (including Rgb(a) PNGs).
-        _ => {
-            let data = image.encoded().unwrap();
-            return (data.clone(), Filter::FlateDecode, true);
+        (_, buf) => {
+            let (width, height) = buf.dimensions();
+            let mut pixels = Vec::with_capacity(3 * width as usize * height as usize);
+            for (_, _, Rgba([r, g, b, _])) in buf.pixels() {
+                pixels.push(r);
+                pixels.push(g);
+                pixels.push(b);
+            }
+
+            let data = deflate(&pixels);
+            (data.into(), Filter::FlateDecode, true)
         }
     }
 }

@@ -6,14 +6,14 @@ use typst::model::Introspector;
 use typst::World;
 use typst_library::prelude::*;
 
-use crate::args::{OutputFormat, QueryCommand, SerializationFormat};
+use crate::args::{QueryCommand, SerializationFormat};
 use crate::compile::print_diagnostics;
 use crate::set_failed;
 use crate::world::SystemWorld;
 
 /// Execute a query command.
 pub fn query(command: &QueryCommand) -> StrResult<()> {
-    let mut world = SystemWorld::new(&command.common, OutputFormat::Png)?;
+    let mut world = SystemWorld::new(&command.common)?;
     tracing::info!("Starting querying");
 
     // Reset everything and ensure that the main file is present.

@@ -436,10 +436,6 @@ impl World for DocWorld {
         &LIBRARY
     }
 
-    fn is_pdf(&self) -> bool {
-        false
-    }
-
     fn book(&self) -> &Prehashed<FontBook> {
         &FONTS.0
     }

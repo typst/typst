@@ -258,12 +258,6 @@ impl World for TestWorld {
         &self.library
     }
 
-    fn is_pdf(&self) -> bool {
-        // Set to true as if `--pdf` is provided we will build the PDFs
-        // which **requires** that the cache be built.
-        true
-    }
-
     fn book(&self) -> &Prehashed<FontBook> {
         &self.book
     }

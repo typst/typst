@@ -125,9 +125,6 @@ pub trait World {
     /// Access the main source file.
     fn main(&self) -> Source;
 
-    /// Whether the output should be a PDF.
-    fn is_pdf(&self) -> bool;
-
     /// Try to access the specified source file.
     ///
     /// The returned `Source` file's [id](Source::id) does not have to match the

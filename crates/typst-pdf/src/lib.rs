@@ -16,6 +16,7 @@ use base64::Engine;
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
+use rayon::prelude::*;
 use typst::doc::{Document, Lang};
 use typst::eval::Datetime;
 use typst::font::Font;
@@ -347,8 +348,19 @@ where
         refs.iter().copied().zip(0..self.to_pdf.len())
     }
 
+    fn len(&self) -> usize {
+        self.to_items.len()
+    }
+
     fn items(&self) -> impl Iterator<Item = &T> + '_ {
         self.to_items.iter()
+    }
+
+    fn par_items(&self) -> impl IndexedParallelIterator<Item = &T> + '_
+    where
+        T: Send + Sync,
+    {
+        self.to_items.par_iter()
     }
 }
 

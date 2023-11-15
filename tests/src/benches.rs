@@ -123,10 +123,6 @@ impl World for BenchWorld {
         &self.library
     }
 
-    fn is_pdf(&self) -> bool {
-        false
-    }
-
     fn book(&self) -> &Prehashed<FontBook> {
         &self.book
     }

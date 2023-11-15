@@ -17,7 +17,7 @@ use crate::world::SystemWorld;
 /// Execute a watching compilation command.
 pub fn watch(mut command: CompileCommand) -> StrResult<()> {
     // Create the world that serves sources, files, and fonts.
-    let mut world = SystemWorld::new(&command.common, command.output_format()?)?;
+    let mut world = SystemWorld::new(&command.common)?;
 
     // Perform initial compilation.
     compile_once(&mut world, &mut command, true)?;

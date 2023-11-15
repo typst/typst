@@ -17,7 +17,7 @@ use typst::syntax::{FileId, Source, VirtualPath};
 use typst::util::hash128;
 use typst::World;
 
-use crate::args::{OutputFormat, SharedArgs};
+use crate::args::SharedArgs;
 use crate::fonts::{FontSearcher, FontSlot};
 use crate::package::prepare_package;
 
@@ -46,8 +46,6 @@ pub struct SystemWorld {
     /// The current datetime if requested. This is stored here to ensure it is
     /// always the same within one compilation. Reset between compilations.
     now: OnceCell<DateTime<Local>>,
-    /// The output format.
-    output_format: OutputFormat,
     /// The export cache, used for caching output files in `typst watch`
     /// sessions.
     export_cache: ExportCache,
@@ -55,7 +53,7 @@ pub struct SystemWorld {
 
 impl SystemWorld {
     /// Create a new system world.
-    pub fn new(command: &SharedArgs, output_format: OutputFormat) -> StrResult<Self> {
+    pub fn new(command: &SharedArgs) -> StrResult<Self> {
         let mut searcher = FontSearcher::new();
         searcher.search(&command.font_paths);
 
@@ -92,7 +90,6 @@ impl SystemWorld {
             slots: RefCell::default(),
             now: OnceCell::new(),
             export_cache: ExportCache::new(),
-            output_format,
         })
     }
 
@@ -149,10 +146,6 @@ impl SystemWorld {
 impl World for SystemWorld {
     fn library(&self) -> &Prehashed<Library> {
         &self.library
-    }
-
-    fn is_pdf(&self) -> bool {
-        self.output_format == OutputFormat::Pdf
     }
 
     fn book(&self) -> &Prehashed<FontBook> {
