@@ -1409,7 +1409,7 @@ impl Repr for Color {
             }
             Self::Cmyk(c) => {
                 eco_format!(
-                    "rgb({}, {}, {}, {})",
+                    "cmyk({}, {}, {}, {})",
                     Ratio::new(c.c as _).repr(),
                     Ratio::new(c.m as _).repr(),
                     Ratio::new(c.y as _).repr(),
