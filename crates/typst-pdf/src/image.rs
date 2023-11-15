@@ -91,64 +91,68 @@ impl PdfImage {
 /// Embed all used images into the PDF.
 #[tracing::instrument(skip_all)]
 pub(crate) fn write_images(ctx: &mut PdfContext) {
-    ctx.image_map.items().for_each(|image| match image.storage.wait() {
-        PreEncoded::Raster { data, filter, has_color, width, height, icc, alpha } => {
-            let image_ref = ctx.alloc.bump();
-            ctx.image_refs.push(image_ref);
+    ctx.image_map.items().for_each(|image| {
+        // Ensure that we yield until the image is encoded.
+        while let Some(rayon::Yield::Executed) = rayon::yield_now() {}
+        match image.storage.wait() {
+            PreEncoded::Raster { data, filter, has_color, width, height, icc, alpha } => {
+                let image_ref = ctx.alloc.bump();
+                ctx.image_refs.push(image_ref);
 
-            let mut image = ctx.pdf.image_xobject(image_ref, data);
-            image.filter(*filter);
-            image.width(*width as i32);
-            image.height(*height as i32);
-            image.bits_per_component(8);
+                let mut image = ctx.pdf.image_xobject(image_ref, data);
+                image.filter(*filter);
+                image.width(*width as i32);
+                image.height(*height as i32);
+                image.bits_per_component(8);
 
-            let mut icc_ref = None;
-            let space = image.color_space();
-            if icc.is_some() {
-                let id = ctx.alloc.bump();
-                space.icc_based(id);
-                icc_ref = Some(id);
-            } else if *has_color {
-                ctx.colors.write(ColorSpace::Srgb, space, &mut ctx.alloc);
-            } else {
-                ctx.colors.write(ColorSpace::D65Gray, space, &mut ctx.alloc);
-            }
-
-            // Add a second gray-scale image containing the alpha values if
-            // this image has an alpha channel.
-            if let Some((alpha_data, alpha_filter)) = alpha {
-                let mask_ref = ctx.alloc.bump();
-                image.s_mask(mask_ref);
-                image.finish();
-
-                let mut mask = ctx.pdf.image_xobject(mask_ref, alpha_data);
-                mask.filter(*alpha_filter);
-                mask.width(*width as i32);
-                mask.height(*height as i32);
-                mask.color_space().device_gray();
-                mask.bits_per_component(8);
-            } else {
-                image.finish();
-            }
-
-            if let (Some(icc), Some(icc_ref)) = (icc, icc_ref) {
-                let mut stream = ctx.pdf.icc_profile(icc_ref, icc);
-                stream.filter(Filter::FlateDecode);
-                if *has_color {
-                    stream.n(3);
-                    stream.alternate().srgb();
+                let mut icc_ref = None;
+                let space = image.color_space();
+                if icc.is_some() {
+                    let id = ctx.alloc.bump();
+                    space.icc_based(id);
+                    icc_ref = Some(id);
+                } else if *has_color {
+                    ctx.colors.write(ColorSpace::Srgb, space, &mut ctx.alloc);
                 } else {
-                    stream.n(1);
-                    stream.alternate().d65_gray();
+                    ctx.colors.write(ColorSpace::D65Gray, space, &mut ctx.alloc);
+                }
+
+                // Add a second gray-scale image containing the alpha values if
+                // this image has an alpha channel.
+                if let Some((alpha_data, alpha_filter)) = alpha {
+                    let mask_ref = ctx.alloc.bump();
+                    image.s_mask(mask_ref);
+                    image.finish();
+
+                    let mut mask = ctx.pdf.image_xobject(mask_ref, alpha_data);
+                    mask.filter(*alpha_filter);
+                    mask.width(*width as i32);
+                    mask.height(*height as i32);
+                    mask.color_space().device_gray();
+                    mask.bits_per_component(8);
+                } else {
+                    image.finish();
+                }
+
+                if let (Some(icc), Some(icc_ref)) = (icc, icc_ref) {
+                    let mut stream = ctx.pdf.icc_profile(icc_ref, icc);
+                    stream.filter(Filter::FlateDecode);
+                    if *has_color {
+                        stream.n(3);
+                        stream.alternate().srgb();
+                    } else {
+                        stream.n(1);
+                        stream.alternate().d65_gray();
+                    }
                 }
             }
-        }
-        PreEncoded::Svg(chunk) => {
-            let mut map = HashMap::new();
-            chunk.renumber_into(&mut ctx.pdf, |old| {
-                *map.entry(old).or_insert_with(|| ctx.alloc.bump())
-            });
-            ctx.image_refs.push(map[&Ref::new(1)]);
+            PreEncoded::Svg(chunk) => {
+                let mut map = HashMap::new();
+                chunk.renumber_into(&mut ctx.pdf, |old| {
+                    *map.entry(old).or_insert_with(|| ctx.alloc.bump())
+                });
+                ctx.image_refs.push(map[&Ref::new(1)]);
+            }
         }
     });
 }
