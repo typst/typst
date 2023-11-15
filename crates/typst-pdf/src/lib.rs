@@ -14,7 +14,6 @@ use std::hash::Hash;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
-use image::PdfImage;
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
 use typst::doc::{Document, Lang};
@@ -27,6 +26,7 @@ use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 use crate::color::ColorSpaces;
 use crate::extg::ExtGState;
 use crate::gradient::PdfGradient;
+use crate::image::PdfImage;
 use crate::page::Page;
 
 /// Export a document into a PDF file.
