@@ -25,19 +25,12 @@ use crate::World;
 pub struct Image(Arc<Prehashed<Repr>>);
 
 /// The internal representation.
+#[derive(Hash)]
 struct Repr {
     /// The raw, undecoded image data.
     kind: ImageKind,
     /// A text describing the image.
     alt: Option<EcoString>,
-}
-
-impl Hash for Repr {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // We do not hash the encoded value because it is irrelevant.
-        self.kind.hash(state);
-        self.alt.hash(state);
-    }
 }
 
 /// A kind of image.
