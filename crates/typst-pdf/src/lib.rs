@@ -364,6 +364,15 @@ where
     }
 }
 
+impl<T> Hash for Remapper<T>
+where
+    T: Eq + Hash + Clone,
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.to_items.hash(state);
+    }
+}
+
 /// Additional methods for [`Abs`].
 trait AbsExt {
     /// Convert an to a number of points.
