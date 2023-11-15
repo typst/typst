@@ -490,10 +490,9 @@ impl Show for OutlineEntry {
         let Some(location) = elem.location() else {
             if elem.can::<dyn Locatable>() && elem.can::<dyn Outlinable>() {
                 bail!(error!(self.span(), "{} must have a location", elem.func().name())
-                    .with_hint(eco_format!(
-                        "try using a query or a show rule to customize the {} instead",
-                        elem.func().name()
-                    )))
+                    .with_hint(
+                        "try using a query or a show rule to customize the outline.entry instead",
+                    ))
             } else {
                 bail!(self.span(), "cannot outline {}", elem.func().name())
             }
