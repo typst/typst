@@ -178,7 +178,7 @@ cast! {
 /// #footnote[It's down here]
 /// has red text!
 /// ```
-#[elem(name = "entry", title = "Footnote Entry", Show, Finalize, Construct)]
+#[elem(name = "entry", title = "Footnote Entry", Show, Finalize)]
 pub struct FootnoteEntry {
     /// The footnote for this entry. It's location can be used to determine
     /// the footnote counter state.
@@ -263,15 +263,6 @@ pub struct FootnoteEntry {
     pub indent: Length,
 }
 
-impl Construct for FootnoteEntry {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content>
-    where
-        Self: Sized,
-    {
-        bail!(args.span, "footnote.entry cannot be constructed")
-    }
-}
-
 impl Show for FootnoteEntry {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let note = self.note();
@@ -279,7 +270,12 @@ impl Show for FootnoteEntry {
         let default = StyleChain::default();
         let numbering = note.numbering(default);
         let counter = Counter::of(FootnoteElem::elem());
-        let loc = note.location().unwrap();
+        let Some(loc) = note.location() else {
+            bail!(error!(self.span(), "footnote entry must have a location").with_hint(
+                "try using a query or a show rule to customize the footnote instead"
+            ))
+        };
+
         let num = counter.at(vt, loc)?.display(vt, numbering)?;
         let sup = SuperElem::new(num)
             .pack()

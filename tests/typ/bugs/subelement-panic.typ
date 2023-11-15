@@ -11,7 +11,8 @@
 
 ---
 // #2328
-// Error: 18-43 footnote.entry cannot be constructed
+// Error: 4-43 footnote entry must have a location
+// Hint: 4-43 try using a query or a show rule to customize the footnote instead
 HI#footnote.entry(clearance: 2.5em)[There]
 
 ---
@@ -31,4 +32,9 @@ HI#footnote.entry(clearance: 2.5em)[There]
 // Outline entry (pre-emptive)
 // Error: 2-48 cannot outline text
 #outline.entry(1, [Hello], [World!], none, [1])
+
+---
+// Outline entry (pre-emptive, improved error)
+// Error: 2-55 heading must have a location
+// Hint: 2-55 try using a query or a show rule to customize the heading instead
 #outline.entry(1, heading[Hello], [World!], none, [1])
