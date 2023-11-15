@@ -55,7 +55,7 @@ impl CompileCommand {
 
 /// Execute a compilation command.
 pub fn compile(mut command: CompileCommand) -> StrResult<()> {
-    let mut world = SystemWorld::new(&command.common)?;
+    let mut world = SystemWorld::new(&command.common, command.output_format()?)?;
     compile_once(&mut world, &mut command, false)?;
     Ok(())
 }

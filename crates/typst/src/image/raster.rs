@@ -40,7 +40,7 @@ struct Repr {
 impl RasterImage {
     /// Decode a raster image.
     #[comemo::memoize]
-    pub fn new(data: Bytes, format: RasterFormat) -> StrResult<Self> {
+    pub fn new(data: Bytes, is_pdf: bool, format: RasterFormat) -> StrResult<Self> {
         fn decode_with<'a, T: ImageDecoder<'a>>(
             decoder: ImageResult<T>,
         ) -> ImageResult<(image::DynamicImage, Option<Vec<u8>>)> {
@@ -60,7 +60,7 @@ impl RasterImage {
         .map_err(format_image_error)?;
 
         let dynamic = Arc::new(dynamic);
-        let encoded = encode_image(&dynamic, format);
+        let encoded = encode_image(&dynamic, is_pdf, format);
         Ok(Self(Arc::new(Repr { data, format, dynamic, icc, encoded })))
     }
 
@@ -160,8 +160,15 @@ fn format_image_error(error: image::ImageError) -> EcoString {
 /// Encodes an image using a thread pool.
 fn encode_image(
     dynamic: &Arc<image::DynamicImage>,
+    is_pdf: bool,
     format: RasterFormat,
 ) -> Option<Arc<OnceCell<Bytes>>> {
+    // If we're not rendering to a PDF we never run.
+    // This also means we're never instantiating the thread pool.
+    if !is_pdf {
+        return None;
+    }
+
     if format == RasterFormat::Jpg && matches!(&**dynamic, DynamicImage::ImageLuma8(_)) {
         return None;
     }

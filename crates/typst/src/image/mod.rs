@@ -59,7 +59,7 @@ impl Image {
     ) -> StrResult<Self> {
         let kind = match format {
             ImageFormat::Raster(format) => {
-                ImageKind::Raster(RasterImage::new(data, format)?)
+                ImageKind::Raster(RasterImage::new(data, false, format)?)
             }
             ImageFormat::Vector(VectorFormat::Svg) => {
                 ImageKind::Svg(SvgImage::new(data)?)
@@ -80,7 +80,7 @@ impl Image {
     ) -> StrResult<Self> {
         let kind = match format {
             ImageFormat::Raster(format) => {
-                ImageKind::Raster(RasterImage::new(data, format)?)
+                ImageKind::Raster(RasterImage::new(data, world.is_pdf(), format)?)
             }
             ImageFormat::Vector(VectorFormat::Svg) => {
                 ImageKind::Svg(SvgImage::with_fonts(data, world, families)?)
