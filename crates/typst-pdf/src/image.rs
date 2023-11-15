@@ -94,6 +94,7 @@ pub(crate) fn write_images(ctx: &mut PdfContext) {
     ctx.image_map.items().for_each(|image| {
         // Ensure that we yield until the image is encoded.
         while let Some(rayon::Yield::Executed) = rayon::yield_now() {}
+
         match image.storage.wait() {
             PreEncoded::Raster { data, filter, has_color, width, height, icc, alpha } => {
                 let image_ref = ctx.alloc.bump();
