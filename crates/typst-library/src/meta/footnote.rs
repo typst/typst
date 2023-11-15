@@ -178,7 +178,7 @@ cast! {
 /// #footnote[It's down here]
 /// has red text!
 /// ```
-#[elem(name = "entry", title = "Footnote Entry", Show, Finalize)]
+#[elem(name = "entry", title = "Footnote Entry", Show, Finalize, Construct)]
 pub struct FootnoteEntry {
     /// The footnote for this entry. It's location can be used to determine
     /// the footnote counter state.
@@ -261,6 +261,15 @@ pub struct FootnoteEntry {
     /// ```
     #[default(Em::new(1.0).into())]
     pub indent: Length,
+}
+
+impl Construct for FootnoteEntry {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content>
+    where
+        Self: Sized,
+    {
+        bail!(args.span, "footnote.entry cannot be constructed")
+    }
 }
 
 impl Show for FootnoteEntry {
