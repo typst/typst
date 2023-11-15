@@ -14,14 +14,13 @@ use std::hash::Hash;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
+use image::PdfImage;
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
-use rayon::prelude::*;
 use typst::doc::{Document, Lang};
 use typst::eval::Datetime;
 use typst::font::Font;
 use typst::geom::{Abs, Dir, Em};
-use typst::image::Image;
 use typst::model::Introspector;
 use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 
@@ -104,7 +103,7 @@ struct PdfContext<'a> {
     /// Deduplicates fonts used across the document.
     font_map: Remapper<Font>,
     /// Deduplicates images used across the document.
-    image_map: Remapper<Image>,
+    image_map: Remapper<PdfImage>,
     /// Deduplicates gradients used across the document.
     gradient_map: Remapper<PdfGradient>,
     /// Deduplicates external graphics states used across the document.
@@ -348,19 +347,8 @@ where
         refs.iter().copied().zip(0..self.to_pdf.len())
     }
 
-    fn len(&self) -> usize {
-        self.to_items.len()
-    }
-
     fn items(&self) -> impl Iterator<Item = &T> + '_ {
         self.to_items.iter()
-    }
-
-    fn par_items(&self) -> impl IndexedParallelIterator<Item = &T> + '_
-    where
-        T: Send + Sync,
-    {
-        self.to_items.par_iter()
     }
 }
 

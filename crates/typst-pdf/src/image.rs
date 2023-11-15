@@ -1,21 +1,97 @@
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::io::Cursor;
 use std::sync::Arc;
 
 use image::{DynamicImage, GenericImageView, Rgba};
+use once_cell::sync::OnceCell;
 use pdf_writer::{Chunk, Filter, Finish, Ref};
-use rayon::prelude::*;
-use typst::eval::Bytes;
 use typst::geom::ColorSpace;
 use typst::image::{Image, ImageKind, RasterFormat, RasterImage, SvgImage};
 
-use crate::{deflate, PdfContext, Remapper};
+use crate::{deflate, PdfContext};
+
+/// A PDF image with its deferred storage.
+#[derive(Clone)]
+pub struct PdfImage {
+    /// The image itself.
+    image: Image,
+    /// The encoded image data.
+    storage: Arc<OnceCell<PreEncoded>>,
+}
+
+impl Hash for PdfImage {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.image.hash(state);
+    }
+}
+
+impl PartialEq for PdfImage {
+    fn eq(&self, other: &Self) -> bool {
+        self.image == other.image
+    }
+}
+
+impl Eq for PdfImage {}
+
+impl PdfImage {
+    /// Creates a new PDF image from the given image.
+    ///
+    /// Also starts the deferred encoding of the image.
+    #[comemo::memoize]
+    pub fn new(image: Image) -> Self {
+        // Where we will store the resulting image.
+        let storage = Arc::new(OnceCell::new());
+
+        match image.kind() {
+            ImageKind::Raster(raster) => {
+                let raster = raster.clone();
+                let storage = storage.clone();
+                let (width, height) = (image.width(), image.height());
+                rayon::spawn(move || {
+                    let (data, filter, has_color) = encode_raster_image(&raster);
+                    let icc = raster.icc().map(deflate);
+
+                    let alpha = raster
+                        .dynamic()
+                        .color()
+                        .has_alpha()
+                        .then(|| encode_alpha(&raster));
+
+                    storage
+                        .set(PreEncoded::Raster {
+                            data,
+                            filter,
+                            has_color,
+                            width,
+                            height,
+                            icc,
+                            alpha,
+                        })
+                        .map_err(|_| "image was already encoded")
+                        .unwrap();
+                })
+            }
+            ImageKind::Svg(svg) => {
+                let svg = svg.clone();
+                let storage = storage.clone();
+                rayon::spawn(move || {
+                    storage
+                        .set(PreEncoded::Svg(encode_svg(&svg)))
+                        .map_err(|_| "image was already encoded")
+                        .unwrap();
+                })
+            }
+        };
+
+        Self { image, storage }
+    }
+}
 
 /// Embed all used images into the PDF.
 #[tracing::instrument(skip_all)]
 pub(crate) fn write_images(ctx: &mut PdfContext) {
-    let prepared = prepare(&ctx.image_map);
-    prepared.iter().for_each(|image| match image {
+    ctx.image_map.items().for_each(|image| match image.storage.wait() {
         PreEncoded::Raster { data, filter, has_color, width, height, icc, alpha } => {
             let image_ref = ctx.alloc.bump();
             ctx.image_refs.push(image_ref);
@@ -82,21 +158,21 @@ pub(crate) fn write_images(ctx: &mut PdfContext) {
 ///
 /// Skips the alpha channel as that's encoded separately.
 #[tracing::instrument(skip_all)]
-fn encode_raster_image(image: &RasterImage) -> (Bytes, Filter, bool) {
+fn encode_raster_image(image: &RasterImage) -> (Vec<u8>, Filter, bool) {
     let dynamic = image.dynamic();
     match (image.format(), dynamic) {
         // 8-bit gray JPEG.
         (RasterFormat::Jpg, DynamicImage::ImageLuma8(_)) => {
             let mut data = Cursor::new(vec![]);
             dynamic.write_to(&mut data, image::ImageFormat::Jpeg).unwrap();
-            (data.into_inner().into(), Filter::DctDecode, false)
+            (data.into_inner(), Filter::DctDecode, false)
         }
 
         // 8-bit RGB JPEG (CMYK JPEGs get converted to RGB earlier).
         (RasterFormat::Jpg, DynamicImage::ImageRgb8(_)) => {
             let mut data = Cursor::new(vec![]);
             dynamic.write_to(&mut data, image::ImageFormat::Jpeg).unwrap();
-            (data.into_inner().into(), Filter::DctDecode, true)
+            (data.into_inner(), Filter::DctDecode, true)
         }
 
         // TODO: Encode flate streams with PNG-predictor?
@@ -104,7 +180,7 @@ fn encode_raster_image(image: &RasterImage) -> (Bytes, Filter, bool) {
         // 8-bit gray PNG.
         (RasterFormat::Png, DynamicImage::ImageLuma8(luma)) => {
             let data = deflate(luma.as_raw());
-            (data.into(), Filter::FlateDecode, false)
+            (data, Filter::FlateDecode, false)
         }
 
         // Anything else (including Rgb(a) PNGs).
@@ -118,20 +194,20 @@ fn encode_raster_image(image: &RasterImage) -> (Bytes, Filter, bool) {
             }
 
             let data = deflate(&pixels);
-            (data.into(), Filter::FlateDecode, true)
+            (data, Filter::FlateDecode, true)
         }
     }
 }
 
 /// Encode an image's alpha channel if present.
 #[tracing::instrument(skip_all)]
-fn encode_alpha(raster: &RasterImage) -> (Arc<Vec<u8>>, Filter) {
+fn encode_alpha(raster: &RasterImage) -> (Vec<u8>, Filter) {
     let pixels: Vec<_> = raster
         .dynamic()
         .pixels()
         .map(|(_, _, Rgba([_, _, _, a]))| a)
         .collect();
-    (Arc::new(deflate(&pixels)), Filter::FlateDecode)
+    (deflate(&pixels), Filter::FlateDecode)
 }
 
 /// Encode an SVG into a chunk of PDF objects.
@@ -157,52 +233,27 @@ fn encode_svg(svg: &SvgImage) -> Arc<Chunk> {
     Arc::new(chunk)
 }
 
+/// A pre-encoded image.
 enum PreEncoded {
+    /// A pre-encoded rasterized image.
     Raster {
-        data: Bytes,
+        /// The raw, pre-deflated image data.
+        data: Vec<u8>,
+        /// The filter to use for the image.
         filter: Filter,
+        /// Whether the image has color.
         has_color: bool,
+        /// The image's width.
         width: u32,
+        /// The image's height.
         height: u32,
+        /// The image's ICC profile, pre-deflated, if any.
         icc: Option<Vec<u8>>,
-        alpha: Option<(Arc<Vec<u8>>, Filter)>,
+        /// The alpha channel of the image, pre-deflated, if any.
+        alpha: Option<(Vec<u8>, Filter)>,
     },
+    /// A vector graphic.
+    ///
+    /// The chunk is the SVG converted to PDF objects.
     Svg(Arc<Chunk>),
-}
-
-#[comemo::memoize]
-fn prepare(remapper: &Remapper<Image>) -> Arc<Vec<PreEncoded>> {
-    let mut prepared = Vec::with_capacity(remapper.len());
-    remapper
-        .par_items()
-        .map(|image| {
-            // Add the primary image.
-            match image.kind() {
-                ImageKind::Raster(raster) => {
-                    let (data, filter, has_color) = encode_raster_image(raster);
-                    let icc = raster.icc().map(deflate);
-
-                    let alpha = raster
-                        .dynamic()
-                        .color()
-                        .has_alpha()
-                        .then(|| encode_alpha(raster));
-
-                    PreEncoded::Raster {
-                        data,
-                        filter,
-                        has_color,
-                        width: image.width(),
-                        height: image.height(),
-                        icc,
-                        alpha,
-                    }
-                }
-
-                ImageKind::Svg(svg) => PreEncoded::Svg(encode_svg(svg)),
-            }
-        })
-        .collect_into_vec(&mut prepared);
-
-    Arc::new(prepared)
 }
