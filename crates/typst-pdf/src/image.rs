@@ -30,7 +30,7 @@ pub fn deferred_image(image: Image) -> PdfImage {
 
             PreEncoded::Raster { data, filter, has_color, width, height, icc, alpha }
         }
-        ImageKind::Svg(svg) => PreEncoded::Svg(encode_svg(&svg)),
+        ImageKind::Svg(svg) => PreEncoded::Svg(encode_svg(svg)),
     })
 }
 
