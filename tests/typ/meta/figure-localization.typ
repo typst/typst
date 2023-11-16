@@ -24,3 +24,11 @@
     polygon.regular(size: 1cm, vertices: 8),
     caption: [Пятиугольник],
 )
+
+---
+// Test Greek
+#set text(lang: "gr")
+#figure(
+  circle(),
+  caption: [Ένας κύκλος.],
+)

@@ -252,7 +252,9 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         // because it will be placed somewhere probably not at the left margin
         // it will overflow.  So emulate an `hbox` instead and allow the paragraph
         // to extend as far as needed.
+        let span = elem.span();
         let frame = ParElem::new(vec![Prehashed::new(elem)])
+            .spanned(span)
             .layout(
                 self.vt,
                 self.outer.chain(&self.local),

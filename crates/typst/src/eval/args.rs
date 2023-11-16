@@ -38,7 +38,8 @@ use crate::syntax::{Span, Spanned};
 /// #text(..dict)[Hello]
 /// ```
 #[ty(scope, name = "arguments")]
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Clone, Hash)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Args {
     /// The span of the whole argument list.
     pub span: Span,
@@ -47,7 +48,8 @@ pub struct Args {
 }
 
 /// An argument to a function call: `12` or `draw: false`.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Hash)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Arg {
     /// The span of the whole argument.
     pub span: Span,
@@ -230,6 +232,27 @@ impl Args {
 
 #[scope]
 impl Args {
+    /// Construct an argument sink in place.
+    ///
+    /// This function behaves like `{#let args(..sink) = sink}`.
+    ///
+    /// ```example
+    /// #let args = arguments(stroke: red, inset: 1em, [Body])
+    /// #box(..args)
+    /// ```
+    #[func(constructor)]
+    pub fn construct(
+        /// The real arguments (the other argument is just for the docs).
+        /// The docs argument cannot be called `args`.
+        args: &mut Args,
+        /// The arguments to construct.
+        #[external]
+        #[variadic]
+        arguments: Vec<Args>,
+    ) -> Args {
+        args.take()
+    }
+
     /// Returns the captured positional arguments as an array.
     #[func(name = "pos", title = "Positional")]
     pub fn to_pos(&self) -> Array {
@@ -250,6 +273,12 @@ impl Args {
     }
 }
 
+impl PartialEq for Args {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_pos() == other.to_pos() && self.to_named() == other.to_named()
+    }
+}
+
 impl Debug for Args {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_list().entries(&self.items).finish()
@@ -260,6 +289,12 @@ impl Repr for Args {
     fn repr(&self) -> EcoString {
         let pieces = self.items.iter().map(Arg::repr).collect::<Vec<_>>();
         pretty_array_like(&pieces, false).into()
+    }
+}
+
+impl PartialEq for Arg {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.value.v == other.value.v
     }
 }
 

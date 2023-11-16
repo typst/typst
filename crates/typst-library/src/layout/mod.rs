@@ -637,7 +637,15 @@ impl<'a> ParBuilder<'a> {
 
     fn finish(self) -> (Content, StyleChain<'a>) {
         let (children, shared) = self.0.finish();
-        (ParElem::new(children.to_vec()).pack(), shared)
+
+        // Find the first span that isn't detached.
+        let span = children
+            .iter()
+            .map(|(cnt, _)| cnt.span())
+            .find(|span| !span.is_detached())
+            .unwrap_or_else(Span::detached);
+
+        (ParElem::new(children.to_vec()).spanned(span).pack(), shared)
     }
 }
 

@@ -325,7 +325,7 @@ impl PaintEncode for Color {
                 let [r, g, b, _] = ColorSpace::LinearRgb.encode(*self);
                 ctx.content.set_fill_color([r, g, b]);
             }
-            Color::Rgba(_) => {
+            Color::Rgb(_) => {
                 ctx.parent.colors.srgb(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(SRGB);
 
@@ -379,7 +379,7 @@ impl PaintEncode for Color {
                 let [r, g, b, _] = ColorSpace::LinearRgb.encode(*self);
                 ctx.content.set_stroke_color([r, g, b]);
             }
-            Color::Rgba(_) => {
+            Color::Rgb(_) => {
                 ctx.parent.colors.srgb(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(SRGB);
 
