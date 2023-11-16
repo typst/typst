@@ -142,6 +142,7 @@ impl Layout for ImageElem {
                 match ext.as_str() {
                     "png" => ImageFormat::Raster(RasterFormat::Png),
                     "jpg" | "jpeg" => ImageFormat::Raster(RasterFormat::Jpg),
+                    "jxl" => ImageFormat::Raster(RasterFormat::Jxl),
                     "gif" => ImageFormat::Raster(RasterFormat::Gif),
                     "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
                     _ => match &data {

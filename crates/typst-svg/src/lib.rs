@@ -1079,6 +1079,7 @@ fn convert_image_to_base64_url(image: &Image) -> EcoString {
         ImageFormat::Raster(f) => match f {
             RasterFormat::Png => "png",
             RasterFormat::Jpg => "jpeg",
+            RasterFormat::Jxl => "jxl",
             RasterFormat::Gif => "gif",
         },
         ImageFormat::Vector(f) => match f {

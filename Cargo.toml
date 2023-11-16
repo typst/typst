@@ -59,6 +59,7 @@ image = { version = "0.24", default-features = false, features = ["png", "jpeg",
 include_dir = "0.7"
 indexmap = { version = "2", features = ["serde"] }
 inferno = "0.11.15"
+jxl-oxide = "0.4.0"
 kurbo = "0.9"
 lasso = { version = "0.7.2", features = ["ahasher", "multi-threaded"] }
 lipsum = "0.9"

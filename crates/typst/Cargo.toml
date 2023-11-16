@@ -24,6 +24,7 @@ ecow = { workspace = true}
 fontdb = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }
+jxl-oxide = { workspace = true }
 kurbo = { workspace = true }
 lasso = { workspace = true }
 log = { workspace = true }
