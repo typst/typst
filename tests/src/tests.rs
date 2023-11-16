@@ -579,7 +579,7 @@ fn test_part(
             },
             target: if let Some(diagnostic_source) = diagnostic.span.id() {
                 if source.id() == diagnostic_source {
-                    Local(world.range(diagnostic.span))
+                    Local(world.range(diagnostic.span).unwrap())
                 } else if let Some(emitter) = diagnostic.emitter {
                     emitter
                         .package()
@@ -653,14 +653,13 @@ fn print_annotation(
 
     write!(output, "{kind}: ").unwrap();
     match target {
-        Local(Some(range)) => {
+        Local(range) => {
             let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
             let start_col = 1 + source.byte_to_column(range.start).unwrap();
             let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
             let end_col = 1 + source.byte_to_column(range.end).unwrap();
             write!(output, "{start_line}:{start_col}-{end_line}:{end_col}: ").unwrap();
         }
-        Local(None) => {}
         Transient(package, None) => {
             write!(output, "{:?}: ", package).unwrap();
         }
@@ -699,7 +698,7 @@ struct Annotation {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AnnotationTarget {
-    Local(Option<Range<usize>>),
+    Local(Range<usize>),
     Transient(PackageSpec, Option<VirtualPath>),
     Detached,
 }
@@ -707,10 +706,7 @@ enum AnnotationTarget {
 impl Ord for AnnotationTarget {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (Local(lhs), Local(rhs)) => option_cmp_helper(
-                &lhs.as_ref().map(|r| r.start),
-                &rhs.as_ref().map(|r| r.start),
-            ),
+            (Local(lhs), Local(rhs)) => lhs.start.cmp(&rhs.start),
             (Local(_), Transient(..)) => Ordering::Greater,
             (Local(_), Detached) => Ordering::Greater,
             (Transient(..), Detached) => Ordering::Greater,
@@ -824,7 +820,7 @@ fn parse_part_metadata(source: &Source) -> TestPartMetadata {
                 package_and_file(&mut s)
                     .map(|(p, f)| Transient(p, Some(VirtualPath::new(f))))
             } else {
-                range(&mut s).map(|r| Local(Some(r)))
+                range(&mut s).map(Local)
             };
 
             let rest = if target.is_some() { s.after() } else { s.string() };
