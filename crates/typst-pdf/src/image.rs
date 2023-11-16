@@ -1,101 +1,44 @@
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 use std::io::Cursor;
 use std::sync::Arc;
 
 use image::{DynamicImage, GenericImageView, Rgba};
-use once_cell::sync::OnceCell;
 use pdf_writer::{Chunk, Filter, Finish, Ref};
 use typst::geom::ColorSpace;
 use typst::image::{Image, ImageKind, RasterFormat, RasterImage, SvgImage};
+use typst::util::Deferred;
 
 use crate::{deflate, PdfContext};
 
 /// A PDF image with its deferred storage.
-#[derive(Clone)]
-pub struct PdfImage {
-    /// The image itself.
-    image: Image,
-    /// The encoded image data.
-    storage: Arc<OnceCell<PreEncoded>>,
-}
+pub type PdfImage = Deferred<Image, PreEncoded>;
 
-impl Hash for PdfImage {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.image.hash(state);
-    }
-}
+/// Creates a new PDF image from the given image.
+///
+/// Also starts the deferred encoding of the image.
+#[comemo::memoize]
+pub fn deferred_image(image: Image) -> PdfImage {
+    PdfImage::new(image, |image| match image.kind() {
+        ImageKind::Raster(raster) => {
+            let raster = raster.clone();
+            let (width, height) = (image.width(), image.height());
+            let (data, filter, has_color) = encode_raster_image(&raster);
+            let icc = raster.icc().map(deflate);
 
-impl PartialEq for PdfImage {
-    fn eq(&self, other: &Self) -> bool {
-        self.image == other.image
-    }
-}
+            let alpha =
+                raster.dynamic().color().has_alpha().then(|| encode_alpha(&raster));
 
-impl Eq for PdfImage {}
-
-impl PdfImage {
-    /// Creates a new PDF image from the given image.
-    ///
-    /// Also starts the deferred encoding of the image.
-    #[comemo::memoize]
-    pub fn new(image: Image) -> Self {
-        // Where we will store the resulting image.
-        let storage = Arc::new(OnceCell::new());
-
-        match image.kind() {
-            ImageKind::Raster(raster) => {
-                let raster = raster.clone();
-                let storage = storage.clone();
-                let (width, height) = (image.width(), image.height());
-                rayon::spawn(move || {
-                    let (data, filter, has_color) = encode_raster_image(&raster);
-                    let icc = raster.icc().map(deflate);
-
-                    let alpha = raster
-                        .dynamic()
-                        .color()
-                        .has_alpha()
-                        .then(|| encode_alpha(&raster));
-
-                    storage
-                        .set(PreEncoded::Raster {
-                            data,
-                            filter,
-                            has_color,
-                            width,
-                            height,
-                            icc,
-                            alpha,
-                        })
-                        .map_err(|_| "image was already encoded")
-                        .unwrap();
-                })
-            }
-            ImageKind::Svg(svg) => {
-                let svg = svg.clone();
-                let storage = storage.clone();
-                rayon::spawn(move || {
-                    storage
-                        .set(PreEncoded::Svg(encode_svg(&svg)))
-                        .map_err(|_| "image was already encoded")
-                        .unwrap();
-                })
-            }
-        };
-
-        Self { image, storage }
-    }
+            PreEncoded::Raster { data, filter, has_color, width, height, icc, alpha }
+        }
+        ImageKind::Svg(svg) => PreEncoded::Svg(encode_svg(&svg)),
+    })
 }
 
 /// Embed all used images into the PDF.
 #[tracing::instrument(skip_all)]
 pub(crate) fn write_images(ctx: &mut PdfContext) {
     ctx.image_map.items().for_each(|image| {
-        // Ensure that we yield until the image is encoded.
-        while let Some(rayon::Yield::Executed) = rayon::yield_now() {}
-
-        match image.storage.wait() {
+        match image.wait() {
             PreEncoded::Raster { data, filter, has_color, width, height, icc, alpha } => {
                 let image_ref = ctx.alloc.bump();
                 ctx.image_refs.push(image_ref);
@@ -239,7 +182,7 @@ fn encode_svg(svg: &SvgImage) -> Arc<Chunk> {
 }
 
 /// A pre-encoded image.
-enum PreEncoded {
+pub enum PreEncoded {
     /// A pre-encoded rasterized image.
     Raster {
         /// The raw, pre-deflated image data.

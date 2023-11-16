@@ -21,7 +21,7 @@ use typst::image::Image;
 
 use crate::color::PaintEncode;
 use crate::extg::ExtGState;
-use crate::image::PdfImage;
+use crate::image::deferred_image;
 use crate::{deflate, AbsExt, EmExt, PdfContext};
 
 /// Construct page objects.
@@ -680,7 +680,7 @@ fn write_path(ctx: &mut PageContext, x: f32, y: f32, path: &geom::Path) {
 
 /// Encode a vector or raster image into the content stream.
 fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size) {
-    let idx = ctx.parent.image_map.insert(PdfImage::new(image.clone()));
+    let idx = ctx.parent.image_map.insert(deferred_image(image.clone()));
     let name = eco_format!("Im{idx}");
     let w = size.x.to_f32();
     let h = size.y.to_f32();
