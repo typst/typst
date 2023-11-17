@@ -42,7 +42,6 @@ csv = "1"
 dirs = "5"
 ecow = { version = "0.2", features = ["serde"] }
 env_proxy = "0.4"
-filetime = "0.2"
 flate2 = "1"
 fontdb = { version = "0.15", default-features = false }
 hayagriva = "0.4"

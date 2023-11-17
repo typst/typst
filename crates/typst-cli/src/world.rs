@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
-use filetime::FileTime;
 use same_file::Handle;
 use siphasher::sip128::{Hasher128, SipHasher13};
 use typst::diag::{FileError, FileResult, StrResult};
@@ -276,7 +275,7 @@ impl PathSlot {
 /// Lazily processes data for a file.
 struct SlotCell<T> {
     data: RefCell<Option<FileResult<T>>>,
-    refreshed: Cell<FileTime>,
+    fingerprint: Cell<u128>,
     accessed: Cell<bool>,
 }
 
@@ -285,7 +284,7 @@ impl<T: Clone> SlotCell<T> {
     fn new() -> Self {
         Self {
             data: RefCell::new(None),
-            refreshed: Cell::new(FileTime::zero()),
+            fingerprint: Cell::new(0),
             accessed: Cell::new(false),
         }
     }
@@ -308,26 +307,30 @@ impl<T: Clone> SlotCell<T> {
         f: impl FnOnce(Vec<u8>, Option<T>) -> FileResult<T>,
     ) -> FileResult<T> {
         let mut borrow = self.data.borrow_mut();
-        if let Some(data) = &*borrow {
-            if self.accessed.replace(true) || self.current(path) {
+
+        // If we retrieved the file already in this compilation, retrieve it.
+        if self.accessed.replace(true) {
+            if let Some(data) = &*borrow {
                 return data.clone();
             }
         }
 
-        self.accessed.set(true);
-        self.refreshed.set(FileTime::now());
-        let prev = borrow.take().and_then(Result::ok);
-        let value = read(path).and_then(|data| f(data, prev));
-        *borrow = Some(value.clone());
-        value
-    }
+        // Read and hash the file.
+        let result = read(path);
+        let fingerprint = typst::util::hash128(&result);
 
-    /// Whether the cell contents are still up to date with the file system.
-    fn current(&self, path: &Path) -> bool {
-        fs::metadata(path).map_or(false, |meta| {
-            let modified = FileTime::from_last_modification_time(&meta);
-            modified < self.refreshed.get()
-        })
+        // If the file contents didn't change, yield the old data.
+        if self.fingerprint.replace(fingerprint) == fingerprint {
+            if let Some(data) = &*borrow {
+                return data.clone();
+            }
+        }
+
+        let prev = borrow.take().and_then(Result::ok);
+        let value = result.and_then(|data| f(data, prev));
+        *borrow = Some(value.clone());
+
+        value
     }
 }
 

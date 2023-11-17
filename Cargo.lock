@@ -2935,7 +2935,6 @@ dependencies = [
  "dirs",
  "ecow",
  "env_proxy",
- "filetime",
  "flate2",
  "fontdb",
  "inferno",
