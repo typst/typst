@@ -296,10 +296,10 @@ impl Color {
     /// A linear Oklab color is represented internally by an array of four
     /// components:
     /// - lightness ([`ratio`]($ratio))
-    /// - a ([`float`]($float) in the range `[-0.4..0.4]`
-    ///   or [`ratio`]($ratio) in the range `[-100%..100%]`)
-    /// - b ([`float`]($float) in the range `[-0.4..0.4]`
-    ///   or [`ratio`]($ratio) in the range `[-100%..100%]`)
+    /// - a ([`float`]($float) or [`ratio`]($ratio).
+    ///   Ratios are relative to `{0.4}`; meaning `{50%}` is equal to `{0.2}`)
+    /// - b ([`float`]($float) or [`ratio`]($ratio).
+    ///   Ratios are relative to `{0.4}`; meaning `{50%}` is equal to `{0.2}`)
     /// - alpha ([`ratio`]($ratio))
     ///
     /// These components are also available using the
@@ -341,12 +341,7 @@ impl Color {
             let ChromaComponent(b) = args.expect("B component")?;
             let RatioComponent(alpha) =
                 args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
-            Self::Oklab(Oklab::new(
-                l.get() as f32,
-                a.get() as f32,
-                b.get() as f32,
-                alpha.get() as f32,
-            ))
+            Self::Oklab(Oklab::new(l.get() as f32, a, b, alpha.get() as f32))
         })
     }
 
@@ -360,8 +355,8 @@ impl Color {
     /// A linear Oklch color is represented internally by an array of four
     /// components:
     /// - lightness ([`ratio`]($ratio))
-    /// - chroma ([`float`]($float) in the range `[0.0..0.4]`
-    ///   or [`ratio`]($ratio) in the range `[0%..100%]`)
+    /// - chroma ([`float`]($float) or [`ratio`]($ratio).
+    ///   Ratios are relative to `{0.4}`; meaning `{50%}` is equal to `{0.2}`)
     /// - hue ([`angle`]($angle))
     /// - alpha ([`ratio`]($ratio))
     ///
@@ -406,7 +401,7 @@ impl Color {
                 args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
             Self::Oklch(Oklch::new(
                 l.get() as f32,
-                c.get() as f32,
+                c,
                 OklabHue::from_degrees(h.to_deg() as f32),
                 alpha.get() as f32,
             ))
@@ -1764,23 +1759,15 @@ cast! {
     },
 }
 
-/// A component that must either be a value between:
-/// - -100% and 100%, in which case it is relative to 0.4.
-/// - -0.4 and 0.4, in which case it is taken literally.
-pub struct ChromaComponent(Ratio);
+/// A component that must either be:
+/// - a ratio, in which case it is relative to 0.4.
+/// - a float, in which case it is taken literally.
+pub struct ChromaComponent(f32);
 
 cast! {
     ChromaComponent,
-    v: Ratio => if (-1.0 ..= 1.0).contains(&v.get()) {
-        Self(v * 0.4)
-    } else {
-        bail!("ratio must be between -100% and 100%");
-    },
-    v: f64 => if (-0.4 ..= 0.4).contains(&v) {
-        Self(Ratio::new(v))
-    } else {
-        bail!("ratio must be between -0.4 and 0.4");
-    },
+    v: Ratio => Self((v.get() * 0.4) as f32),
+    v: f64 => Self(v as f32),
 }
 
 /// An integer or ratio component.
