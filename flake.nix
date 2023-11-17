@@ -10,7 +10,7 @@
     systems.url = "github:nix-systems/default";
   };
 
-  outputs = inputs@{ flake-parts, crane, nixpkgs, ... }: flake-parts.lib.mkFlake { inherit inputs; } {
+  outputs = inputs@{ flake-parts, crane, nixpkgs, self, ... }: flake-parts.lib.mkFlake { inherit inputs; } {
     systems = import inputs.systems;
 
     imports = [
@@ -72,6 +72,12 @@
             '';
 
             GEN_ARTIFACTS = "artifacts";
+            TYPST_VERSION =
+              let
+                rev = self.shortRev or "dirty";
+                version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).workspace.package.version;
+              in
+              "${version} (${rev})";
 
             meta.mainProgram = "typst";
           });
