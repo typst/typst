@@ -9,15 +9,12 @@ use typst::util::Deferred;
 
 use crate::{deflate, PdfContext};
 
-/// A PDF image with its deferred storage.
-pub type PdfImage = Deferred<Image, PreEncoded>;
-
 /// Creates a new PDF image from the given image.
 ///
 /// Also starts the deferred encoding of the image.
 #[comemo::memoize]
-pub fn deferred_image(image: Image) -> PdfImage {
-    PdfImage::new(image, |image| match image.kind() {
+pub fn deferred_image(image: Image) -> Deferred<EncodedImage> {
+    Deferred::new(image, |image| match image.kind() {
         ImageKind::Raster(raster) => {
             let raster = raster.clone();
             let (width, height) = (image.width(), image.height());
@@ -27,18 +24,27 @@ pub fn deferred_image(image: Image) -> PdfImage {
             let alpha =
                 raster.dynamic().color().has_alpha().then(|| encode_alpha(&raster));
 
-            PreEncoded::Raster { data, filter, has_color, width, height, icc, alpha }
+            EncodedImage::Raster { data, filter, has_color, width, height, icc, alpha }
         }
-        ImageKind::Svg(svg) => PreEncoded::Svg(encode_svg(svg)),
+        ImageKind::Svg(svg) => EncodedImage::Svg(encode_svg(svg)),
     })
 }
 
 /// Embed all used images into the PDF.
 #[tracing::instrument(skip_all)]
 pub(crate) fn write_images(ctx: &mut PdfContext) {
-    for image in ctx.image_map.items() {
-        match image.wait() {
-            PreEncoded::Raster { data, filter, has_color, width, height, icc, alpha } => {
+    for (i, _) in ctx.image_map.items().enumerate() {
+        let handle = ctx.image_deferred_map.get(&i).unwrap();
+        match handle.wait() {
+            EncodedImage::Raster {
+                data,
+                filter,
+                has_color,
+                width,
+                height,
+                icc,
+                alpha,
+            } => {
                 let image_ref = ctx.alloc.bump();
                 ctx.image_refs.push(image_ref);
 
@@ -89,7 +95,7 @@ pub(crate) fn write_images(ctx: &mut PdfContext) {
                     }
                 }
             }
-            PreEncoded::Svg(chunk) => {
+            EncodedImage::Svg(chunk) => {
                 let mut map = HashMap::new();
                 chunk.renumber_into(&mut ctx.pdf, |old| {
                     *map.entry(old).or_insert_with(|| ctx.alloc.bump())
@@ -181,7 +187,7 @@ fn encode_svg(svg: &SvgImage) -> Chunk {
 }
 
 /// A pre-encoded image.
-pub enum PreEncoded {
+pub enum EncodedImage {
     /// A pre-encoded rasterized image.
     Raster {
         /// The raw, pre-deflated image data.
