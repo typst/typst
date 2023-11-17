@@ -77,6 +77,38 @@
 #calc.rem(3.0, 0.0)
 
 ---
+// Test the `div-euclid` function.
+#test(calc.div-euclid(7, 3), 2)
+#test(calc.div-euclid(7, -3), -2)
+#test(calc.div-euclid(-7, 3), -3)
+#test(calc.div-euclid(-7, -3), 3)
+#test(calc.div-euclid(2.5, 2), 1)
+
+---
+// Error: 21-22 divisor must not be zero
+#calc.div-euclid(5, 0)
+
+---
+// Error: 23-26 divisor must not be zero
+#calc.div-euclid(3.0, 0.0)
+
+---
+// Test the `rem-euclid` function.
+#test(calc.rem-euclid(7, 3), 1)
+#test(calc.rem-euclid(7, -3), 1)
+#test(calc.rem-euclid(-7, 3), 2)
+#test(calc.rem-euclid(-7, -3), 2)
+#test(calc.rem-euclid(2.5, 2), 0.5)
+
+---
+// Error: 21-22 divisor must not be zero
+#calc.rem-euclid(5, 0)
+
+---
+// Error: 23-26 divisor must not be zero
+#calc.rem-euclid(3.0, 0.0)
+
+---
 // Test the `quo` function.
 #test(calc.quo(1, 1), 1)
 #test(calc.quo(5, 3), 1)
