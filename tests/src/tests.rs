@@ -218,12 +218,11 @@ struct TestWorld {
     library: Prehashed<Library>,
     book: Prehashed<FontBook>,
     fonts: Vec<Font>,
-    paths: RefCell<HashMap<PathBuf, PathSlot>>,
+    paths: RefCell<HashMap<FileId, PathSlot>>,
 }
 
 #[derive(Clone)]
 struct PathSlot {
-    system_path: PathBuf,
     source: OnceCell<FileResult<Source>>,
     buffer: OnceCell<FileResult<Bytes>>,
 }
@@ -270,7 +269,7 @@ impl World for TestWorld {
         let slot = self.slot(id)?;
         slot.source
             .get_or_init(|| {
-                let buf = read(&slot.system_path)?;
+                let buf = read(&system_path(id)?)?;
                 let text = String::from_utf8(buf)?;
                 Ok(Source::new(id, text))
             })
@@ -280,7 +279,7 @@ impl World for TestWorld {
     fn file(&self, id: FileId) -> FileResult<Bytes> {
         let slot = self.slot(id)?;
         slot.buffer
-            .get_or_init(|| read(&slot.system_path).map(Bytes::from))
+            .get_or_init(|| read(&system_path(id)?).map(Bytes::from))
             .clone()
     }
 
@@ -303,16 +302,8 @@ impl TestWorld {
     }
 
     fn slot(&self, id: FileId) -> FileResult<RefMut<PathSlot>> {
-        let root: PathBuf = match id.package() {
-            Some(spec) => format!("packages/{}-{}", spec.name, spec.version).into(),
-            None => PathBuf::new(),
-        };
-
-        let system_path = id.vpath().resolve(&root).ok_or(FileError::AccessDenied)?;
-
         Ok(RefMut::map(self.paths.borrow_mut(), |paths| {
-            paths.entry(system_path.clone()).or_insert_with(|| PathSlot {
-                system_path,
+            paths.entry(id).or_insert_with(|| PathSlot {
                 source: OnceCell::new(),
                 buffer: OnceCell::new(),
             })
@@ -320,7 +311,17 @@ impl TestWorld {
     }
 }
 
-/// Read as file.
+/// The file system path for a file ID.
+fn system_path(id: FileId) -> FileResult<PathBuf> {
+    let root: PathBuf = match id.package() {
+        Some(spec) => format!("packages/{}-{}", spec.name, spec.version).into(),
+        None => PathBuf::new(),
+    };
+
+    id.vpath().resolve(&root).ok_or(FileError::AccessDenied)
+}
+
+/// Read a file.
 fn read(path: &Path) -> FileResult<Vec<u8>> {
     // Basically symlinks `assets/files` to `tests/files` so that the assets
     // are within the test project root.

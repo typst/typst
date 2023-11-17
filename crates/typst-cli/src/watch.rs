@@ -64,11 +64,8 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
 
         if recompile {
             // Retrieve the dependencies of the last compilation.
-            let previous: HashSet<PathBuf> = world
-                .dependencies()
-                .filter(|path| !removed.contains(*path))
-                .map(ToOwned::to_owned)
-                .collect();
+            let previous: HashSet<PathBuf> =
+                world.dependencies().filter(|path| !removed.contains(path)).collect();
 
             // Reset all dependencies.
             world.reset();
@@ -93,11 +90,11 @@ fn watch_dependencies(
 ) -> StrResult<()> {
     // Watch new paths that weren't watched yet.
     for path in world.dependencies() {
-        let watched = previous.remove(path);
+        let watched = previous.remove(&path);
         if path.exists() && !watched {
             tracing::info!("Watching {}", path.display());
             watcher
-                .watch(path, RecursiveMode::NonRecursive)
+                .watch(&path, RecursiveMode::NonRecursive)
                 .map_err(|err| eco_format!("failed to watch {path:?} ({err})"))?;
         }
     }
