@@ -10,7 +10,7 @@ pub struct Deferred<T>(Arc<OnceCell<T>>);
 
 impl<T: Send + Sync + 'static> Deferred<T> {
     /// Creates a new deferred value.
-    /// 
+    ///
     /// The closure will be called on a secondary thread such that the value
     /// can be initialized in parallel.
     pub fn new<A>(
@@ -32,7 +32,7 @@ impl<T: Send + Sync + 'static> Deferred<T> {
     }
 
     /// Waits on the value to be initialized.
-    /// 
+    ///
     /// If the value has already been initialized, this will return
     /// immediately. Otherwise, this will block until the value is
     /// initialized in another thread.
