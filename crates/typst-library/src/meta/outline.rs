@@ -489,7 +489,14 @@ impl Show for OutlineEntry {
 
         // In case a user constructs an outline entry with an arbitrary element.
         let Some(location) = elem.location() else {
-            bail!(self.span(), "cannot outline {}", elem.func().name())
+            if elem.can::<dyn Locatable>() && elem.can::<dyn Outlinable>() {
+                bail!(error!(self.span(), "{} must have a location", elem.func().name())
+                    .with_hint(
+                        "try using a query or a show rule to customize the outline.entry instead",
+                    ))
+            } else {
+                bail!(self.span(), "cannot outline {}", elem.func().name())
+            }
         };
 
         // The body text remains overridable.

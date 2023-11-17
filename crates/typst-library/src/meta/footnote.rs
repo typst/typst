@@ -270,7 +270,12 @@ impl Show for FootnoteEntry {
         let default = StyleChain::default();
         let numbering = note.numbering(default);
         let counter = Counter::of(FootnoteElem::elem());
-        let loc = note.location().unwrap();
+        let Some(loc) = note.location() else {
+            bail!(error!(self.span(), "footnote entry must have a location").with_hint(
+                "try using a query or a show rule to customize the footnote instead"
+            ))
+        };
+
         let num = counter.at(vt, loc)?.display(vt, numbering)?;
         let sup = SuperElem::new(num)
             .pack()

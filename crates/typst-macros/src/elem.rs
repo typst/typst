@@ -129,7 +129,7 @@ struct Field {
     borrowed: bool,
     forced_variant: Option<usize>,
     parse: Option<BlockWithReturn>,
-    default: syn::Expr,
+    default: Option<syn::Expr>,
 }
 
 impl Field {
@@ -229,9 +229,7 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
         fold: has_attr(&mut attrs, "fold"),
         resolve: has_attr(&mut attrs, "resolve"),
         parse: parse_attr(&mut attrs, "parse")?.flatten(),
-        default: parse_attr::<syn::Expr>(&mut attrs, "default")?
-            .flatten()
-            .unwrap_or_else(|| parse_quote! { ::std::default::Default::default() }),
+        default: parse_attr::<syn::Expr>(&mut attrs, "default")?.flatten(),
         vis: field.vis.clone(),
         ident: ident.clone(),
         ident_in: Ident::new(&format!("{}_in", ident), ident.span()),
@@ -344,11 +342,17 @@ fn create(element: &Elem) -> TokenStream {
 
 /// Create a field declaration.
 fn create_field(field: &Field) -> TokenStream {
-    let Field { ident, ty, docs, required, .. } = field;
+    let Field {
+        ident, ty, docs, required, synthesized, default, ..
+    } = field;
 
-    let ty = required
-        .then(|| quote! { #ty })
-        .unwrap_or_else(|| quote! { Option<#ty> });
+    let ty = required.then(|| quote! { #ty }).unwrap_or_else(|| {
+        if *synthesized && default.is_some() {
+            quote! { #ty }
+        } else {
+            quote! { ::std::option::Option<#ty> }
+        }
+    });
     quote! {
         #[doc = #docs]
         #ident: #ty
@@ -457,9 +461,18 @@ fn create_new_func(element: &Elem) -> TokenStream {
     let defaults = element
         .fields
         .iter()
-        .filter(|field| !field.external && (field.synthesized || !field.inherent()))
-        .map(|Field { ident, .. }| {
-            quote! { #ident: None }
+        .filter(|field| !field.external && !field.inherent() && !field.synthesized)
+        .map(|Field { ident, .. }| quote! { #ident: None });
+    let default_synthesized = element
+        .fields
+        .iter()
+        .filter(|field| !field.external && field.synthesized)
+        .map(|Field { ident, default, .. }| {
+            if let Some(expr) = default {
+                quote! { #ident: #expr }
+            } else {
+                quote! { #ident: None }
+            }
         });
 
     let label_and_location = element.unless_capability("Unlabellable", || {
@@ -479,6 +492,7 @@ fn create_new_func(element: &Elem) -> TokenStream {
                 guards: ::std::vec::Vec::with_capacity(0),
                 #(#required,)*
                 #(#defaults,)*
+                #(#default_synthesized,)*
             }
         }
     }
@@ -486,10 +500,19 @@ fn create_new_func(element: &Elem) -> TokenStream {
 
 /// Create a builder pattern method for a field.
 fn create_with_field_method(field: &Field) -> TokenStream {
-    let Field { vis, ident, with_ident, name, ty, .. } = field;
+    let Field {
+        vis,
+        ident,
+        with_ident,
+        name,
+        ty,
+        synthesized,
+        default,
+        ..
+    } = field;
     let doc = format!("Set the [`{}`](Self::{}) field.", name, ident);
 
-    let set = if field.inherent() {
+    let set = if field.inherent() || (*synthesized && default.is_some()) {
         quote! { self.#ident = #ident; }
     } else {
         quote! { self.#ident = Some(#ident); }
@@ -505,9 +528,19 @@ fn create_with_field_method(field: &Field) -> TokenStream {
 
 /// Create a set-style method for a field.
 fn create_push_field_method(field: &Field) -> TokenStream {
-    let Field { vis, ident, push_ident, name, ty, .. } = field;
+    let Field {
+        vis,
+        ident,
+        push_ident,
+        name,
+        ty,
+        synthesized,
+        default,
+        ..
+    } = field;
     let doc = format!("Push the [`{}`](Self::{}) field.", name, ident);
-    let set = if field.inherent() && !field.synthesized {
+    let set = if (field.inherent() && !synthesized) || (*synthesized && default.is_some())
+    {
         quote! { self.#ident = #ident; }
     } else {
         quote! { self.#ident = Some(#ident); }
@@ -561,10 +594,11 @@ fn create_field_in_method(element: &Elem, field: &Field) -> TokenStream {
 /// Create an accessor methods for a field.
 fn create_field_method(element: &Elem, field: &Field) -> TokenStream {
     let Field { vis, docs, ident, output, .. } = field;
-    if field.inherent() && !field.synthesized {
+    if (field.inherent() && !field.synthesized)
+        || (field.synthesized && field.default.is_some())
+    {
         quote! {
             #[doc = #docs]
-            #[track_caller]
             #vis fn #ident(&self) -> &#output {
                 &self.#ident
             }
@@ -618,6 +652,9 @@ fn create_style_chain_access(
         (true, true, _) => quote! { get_resolve_fold },
     };
 
+    let default = default
+        .clone()
+        .unwrap_or_else(|| parse_quote! { ::std::default::Default::default() });
     let (init, default) = field.fold.then(|| (None, quote! { || #default })).unwrap_or_else(|| (
         Some(quote! {
             static DEFAULT: ::once_cell::sync::Lazy<#ty> = ::once_cell::sync::Lazy::new(|| #default);
@@ -1141,6 +1178,9 @@ fn create_param_info(field: &Field) -> TokenStream {
     let settable = field.settable();
     let default_ty = if *fold { &output } else { &ty };
     let default = quote_option(&settable.then(|| {
+        let default = default
+            .clone()
+            .unwrap_or_else(|| parse_quote! { ::std::default::Default::default() });
         quote! {
             || {
                 let typed: #default_ty = #default;
