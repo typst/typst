@@ -52,8 +52,8 @@ use crate::syntax::Span;
 /// element function to configure them for a single element. However, these can
 /// also be configured with [set rules]($styling/#set-rules) to apply them to
 /// all elements within a scope. Optional fields are only available with field
-/// access syntax when they are were explicitly passed to the element function,
-/// not when they result from a set rule.
+/// access syntax when they were explicitly passed to the element function, not
+/// when they result from a set rule.
 ///
 /// Each element has a default appearance. However, you can also completely
 /// customize its appearance with a [show rule]($styling/#show-rules). The show
