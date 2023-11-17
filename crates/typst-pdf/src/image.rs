@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::io::Cursor;
-use std::sync::Arc;
 
 use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Chunk, Filter, Finish, Ref};
@@ -37,7 +36,7 @@ pub fn deferred_image(image: Image) -> PdfImage {
 /// Embed all used images into the PDF.
 #[tracing::instrument(skip_all)]
 pub(crate) fn write_images(ctx: &mut PdfContext) {
-    ctx.image_map.items().for_each(|image| {
+    for image in ctx.image_map.items() {
         match image.wait() {
             PreEncoded::Raster { data, filter, has_color, width, height, icc, alpha } => {
                 let image_ref = ctx.alloc.bump();
@@ -98,7 +97,7 @@ pub(crate) fn write_images(ctx: &mut PdfContext) {
                 ctx.image_refs.push(map[&Ref::new(1)]);
             }
         }
-    });
+    }
 }
 
 /// Encode an image with a suitable filter and return the data, filter and
@@ -162,7 +161,7 @@ fn encode_alpha(raster: &RasterImage) -> (Vec<u8>, Filter) {
 ///
 /// The main XObject will have ID 1.
 #[tracing::instrument(skip_all)]
-fn encode_svg(svg: &SvgImage) -> Arc<Chunk> {
+fn encode_svg(svg: &SvgImage) -> Chunk {
     let mut chunk = Chunk::new();
 
     // Safety: We do not keep any references to tree nodes beyond the
@@ -178,7 +177,7 @@ fn encode_svg(svg: &SvgImage) -> Arc<Chunk> {
         });
     }
 
-    Arc::new(chunk)
+    chunk
 }
 
 /// A pre-encoded image.
@@ -203,5 +202,5 @@ pub enum PreEncoded {
     /// A vector graphic.
     ///
     /// The chunk is the SVG converted to PDF objects.
-    Svg(Arc<Chunk>),
+    Svg(Chunk),
 }
