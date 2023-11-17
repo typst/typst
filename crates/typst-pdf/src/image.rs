@@ -14,7 +14,7 @@ use crate::{deflate, PdfContext};
 /// Also starts the deferred encoding of the image.
 #[comemo::memoize]
 pub fn deferred_image(image: Image) -> Deferred<EncodedImage> {
-    Deferred::new(image, |image| match image.kind() {
+    Deferred::new(move || match image.kind() {
         ImageKind::Raster(raster) => {
             let raster = raster.clone();
             let (width, height) = (image.width(), image.height());

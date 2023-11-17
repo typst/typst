@@ -13,21 +13,17 @@ impl<T: Send + Sync + 'static> Deferred<T> {
     ///
     /// The closure will be called on a secondary thread such that the value
     /// can be initialized in parallel.
-    pub fn new<A>(
-        initial: A,
-        handler: impl FnOnce(A) -> T + Send + Sync + 'static,
-    ) -> Self
+    pub fn new<F>(f: F) -> Self
     where
-        A: Send + 'static,
+        F: FnOnce() -> T + Send + Sync + 'static,
     {
         let inner = Arc::new(OnceCell::new());
-        let inner2 = Arc::clone(&inner);
+        let cloned = Arc::clone(&inner);
         rayon::spawn(move || {
             // Initialize the value if it hasn't been initialized yet.
             // We do this to avoid panicking in case it was set externally.
-            inner2.get_or_init(|| handler(initial));
+            cloned.get_or_init(f);
         });
-
         Self(inner)
     }
 
@@ -37,7 +33,8 @@ impl<T: Send + Sync + 'static> Deferred<T> {
     /// immediately. Otherwise, this will block until the value is
     /// initialized in another thread.
     pub fn wait(&self) -> &T {
-        // Ensure that we yield until the deferred is done for WASM compatibility.
+        // Ensure that we yield to give the deferred value a chance to compute
+        // single-threaded platforms (for WASM compatibility).
         while let Some(rayon::Yield::Executed) = rayon::yield_now() {}
 
         self.0.wait()
