@@ -1,7 +1,9 @@
 //! Utilities.
 
+mod deferred;
 mod pico;
 
+pub use self::deferred::Deferred;
 pub use self::pico::PicoStr;
 
 use std::fmt::{Debug, Formatter};

@@ -22,11 +22,13 @@ use typst::font::Font;
 use typst::geom::{Abs, Dir, Em};
 use typst::image::Image;
 use typst::model::Introspector;
+use typst::util::Deferred;
 use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 
 use crate::color::ColorSpaces;
 use crate::extg::ExtGState;
 use crate::gradient::PdfGradient;
+use crate::image::EncodedImage;
 use crate::page::Page;
 
 /// Export a document into a PDF file.
@@ -104,6 +106,8 @@ struct PdfContext<'a> {
     font_map: Remapper<Font>,
     /// Deduplicates images used across the document.
     image_map: Remapper<Image>,
+    /// Handles to deferred image conversions.
+    image_deferred_map: HashMap<usize, Deferred<EncodedImage>>,
     /// Deduplicates gradients used across the document.
     gradient_map: Remapper<PdfGradient>,
     /// Deduplicates external graphics states used across the document.
@@ -131,6 +135,7 @@ impl<'a> PdfContext<'a> {
             colors: ColorSpaces::default(),
             font_map: Remapper::new(),
             image_map: Remapper::new(),
+            image_deferred_map: HashMap::default(),
             gradient_map: Remapper::new(),
             extg_map: Remapper::new(),
         }

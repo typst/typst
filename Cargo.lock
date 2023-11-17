@@ -2903,6 +2903,7 @@ dependencies = [
  "log",
  "once_cell",
  "palette",
+ "rayon",
  "regex",
  "roxmltree",
  "rustybuzz",
