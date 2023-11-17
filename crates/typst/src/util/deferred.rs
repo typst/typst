@@ -5,7 +5,6 @@ use once_cell::sync::OnceCell;
 /// A deferred value.
 ///
 /// This is a value that is being executed in parallel and can be waited on.
-#[repr(transparent)]
 pub struct Deferred<T>(Arc<OnceCell<T>>);
 
 impl<T: Send + Sync + 'static> Deferred<T> {
