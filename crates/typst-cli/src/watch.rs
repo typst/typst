@@ -91,9 +91,10 @@ fn watch_dependencies(
     }
 
     // Retrieve the dependencies of the last compilation and watch new paths
-    // that weren't watched yet.
-    for path in world.dependencies() {
-        if path.exists() && !watched.contains_key(&path) {
+    // that weren't watched yet. We can't watch paths that don't exist yet
+    // unfortunately, so we filter those out.
+    for path in world.dependencies().filter(|path| path.exists()) {
+        if !watched.contains_key(&path) {
             tracing::info!("Watching {}", path.display());
             watcher
                 .watch(&path, RecursiveMode::NonRecursive)
