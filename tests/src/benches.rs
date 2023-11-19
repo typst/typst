@@ -17,7 +17,7 @@ main!(
     bench_parse,
     bench_edit,
     bench_eval,
-    bench_typeset,
+    bench_layout,
     bench_compile,
     bench_render,
 );
@@ -65,7 +65,7 @@ fn bench_eval(iai: &mut Iai) {
     });
 }
 
-fn bench_typeset(iai: &mut Iai) {
+fn bench_layout(iai: &mut Iai) {
     let world = BenchWorld::new();
     let route = typst::eval::Route::default();
     let mut tracer = typst::eval::Tracer::new();
@@ -77,7 +77,7 @@ fn bench_typeset(iai: &mut Iai) {
     )
     .unwrap();
     let content = module.content();
-    iai.run(|| typst::model::typeset(world.track(), tracer.track_mut(), &content));
+    iai.run(|| typst::model::layout(world.track(), tracer.track_mut(), &content));
 }
 
 fn bench_compile(iai: &mut Iai) {

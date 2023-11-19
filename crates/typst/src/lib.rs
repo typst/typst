@@ -86,7 +86,7 @@ pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document>
     );
 
     // Try to typeset it.
-    let res = module.and_then(|module| model::typeset(world, tracer, &module.content()));
+    let res = module.and_then(|module| model::layout(world, tracer, &module.content()));
 
     // Deduplicate errors.
     res.map_err(|err| {
