@@ -1,5 +1,5 @@
 #![no_main]
-use comemo::{Prehashed};
+use comemo::Prehashed;
 
 use typst::diag::FileResult;
 use typst::eval::{Bytes, Datetime, Library, Tracer};
@@ -64,7 +64,7 @@ impl World for FuzzWorld {
 }
 
 fuzz_target!(|text: &str| {
-    let world = FuzzWorld::new(&text);
+    let world = FuzzWorld::new(text);
     let mut tracer = Tracer::new();
     if let Ok(document) = typst::compile(&world, &mut tracer) {
         typst_render::render(&document.pages[0], 1.0, Color::WHITE);
