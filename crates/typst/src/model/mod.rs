@@ -102,7 +102,7 @@ pub fn layout(
 
 /// A virtual typesetter.
 ///
-/// Holds the state needed to [typeset] content.
+/// Holds the state needed to [layout] content.
 pub struct Vt<'a> {
     /// The compilation environment.
     pub world: Tracked<'a, dyn World + 'a>,
