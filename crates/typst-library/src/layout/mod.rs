@@ -750,8 +750,10 @@ impl Default for ListBuilder<'_> {
 /// Accepts citations.
 #[derive(Default)]
 struct CiteGroupBuilder<'a> {
+    /// The styles.
+    styles: StyleChain<'a>,
     /// The citations.
-    items: StyleVecBuilder<'a, CiteElem>,
+    items: Vec<CiteElem>,
     /// Trailing content for which it is unclear whether it is part of the list.
     staged: Vec<(&'a Content, StyleChain<'a>)>,
 }
@@ -766,8 +768,11 @@ impl<'a> CiteGroupBuilder<'a> {
         }
 
         if let Some(citation) = content.to::<CiteElem>() {
+            if self.items.is_empty() {
+                self.styles = styles;
+            }
             self.staged.retain(|(elem, _)| !elem.is::<SpaceElem>());
-            self.items.push(citation.clone(), styles);
+            self.items.push(citation.clone());
             return true;
         }
 
@@ -775,9 +780,7 @@ impl<'a> CiteGroupBuilder<'a> {
     }
 
     fn finish(self) -> (Content, StyleChain<'a>) {
-        let (items, styles) = self.items.finish();
-        let items = items.into_items();
-        let span = items.first().map(|cite| cite.span()).unwrap_or(Span::detached());
-        (CiteGroup::new(items).pack().spanned(span), styles)
+        let span = self.items.first().map(|cite| cite.span()).unwrap_or(Span::detached());
+        (CiteGroup::new(self.items).pack().spanned(span), self.styles)
     }
 }

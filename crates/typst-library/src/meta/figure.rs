@@ -1,9 +1,11 @@
 use std::borrow::Cow;
 use std::str::FromStr;
 
-use super::{Count, Counter, CounterKey, CounterUpdate, Numbering, NumberingPattern};
 use crate::layout::{BlockElem, PlaceElem, VElem};
-use crate::meta::{Outlinable, Refable, Supplement};
+use crate::meta::{
+    Count, Counter, CounterKey, CounterUpdate, Numbering, NumberingPattern, Outlinable,
+    Refable, Supplement,
+};
 use crate::prelude::*;
 use crate::text::TextElem;
 use crate::visualize::ImageElem;

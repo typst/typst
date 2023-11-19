@@ -6,9 +6,9 @@ use comemo::Tracked;
 use ecow::EcoString;
 use std::sync::OnceLock;
 
-use super::Module;
 use crate::diag::SourceResult;
 use crate::doc::Document;
+use crate::eval::Module;
 use crate::geom::{Abs, Dir};
 use crate::model::{Content, Element, Introspector, Label, StyleChain, Styles, Vt};
 use crate::util::hash128;

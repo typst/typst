@@ -2,11 +2,11 @@ use std::str::FromStr;
 
 use typst::util::option_eq;
 
-use super::{
-    Counter, CounterKey, HeadingElem, LocalName, Numbering, NumberingPattern, Refable,
-};
 use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem, Spacing};
-use crate::meta::LocalNameIn;
+use crate::meta::{
+    Counter, CounterKey, HeadingElem, LocalName, LocalNameIn, Numbering,
+    NumberingPattern, Refable,
+};
 use crate::prelude::*;
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
 

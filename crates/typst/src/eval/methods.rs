@@ -1,7 +1,7 @@
 //! Handles special built-in methods on values.
 
-use super::{Args, Array, Dict, Str, Type, Value};
 use crate::diag::{At, SourceResult};
+use crate::eval::{Args, Array, Dict, Str, Type, Value};
 use crate::syntax::Span;
 
 /// Whether a specific method is mutating.

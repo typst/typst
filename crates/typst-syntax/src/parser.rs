@@ -4,7 +4,7 @@ use std::ops::Range;
 use ecow::{eco_format, EcoString};
 use unicode_math_class::MathClass;
 
-use super::{ast, is_newline, LexMode, Lexer, SyntaxKind, SyntaxNode};
+use crate::{ast, is_newline, LexMode, Lexer, SyntaxKind, SyntaxNode};
 
 /// Parse a source file.
 #[tracing::instrument(skip_all)]

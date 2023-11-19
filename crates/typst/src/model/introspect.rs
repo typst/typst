@@ -8,12 +8,11 @@ use comemo::{Prehashed, Track, Tracked, Validate};
 use ecow::{eco_format, EcoString, EcoVec};
 use indexmap::IndexMap;
 
-use super::{Content, Selector};
 use crate::diag::{bail, StrResult};
 use crate::doc::{Frame, FrameItem, Meta, Position};
 use crate::eval::{cast, func, scope, ty, Dict, Repr, Value, Vm};
 use crate::geom::{Point, Transform};
-use crate::model::Label;
+use crate::model::{Content, Label, Selector};
 use crate::util::NonZeroExt;
 
 /// Identifies an element in the document.

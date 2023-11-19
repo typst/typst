@@ -1,7 +1,5 @@
 use super::*;
 
-use heck::ToKebabCase;
-
 /// Expand the `#[func]` macro.
 pub fn func(stream: TokenStream, item: &syn::ItemFn) -> Result<TokenStream> {
     let func = parse(stream, item)?;

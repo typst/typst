@@ -13,12 +13,12 @@ use typst::syntax::{self, split_newlines, LinkedNode};
 use typst::util::option_eq;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{
-    FontFamily, FontList, Hyphenate, LinebreakElem, SmartquoteElem, TextElem, TextSize,
-};
 use crate::layout::BlockElem;
 use crate::meta::Figurable;
 use crate::prelude::*;
+use crate::text::{
+    FontFamily, FontList, Hyphenate, LinebreakElem, SmartquoteElem, TextElem, TextSize,
+};
 
 // Shorthand for highlighter closures.
 type StyleFn<'a> = &'a mut dyn FnMut(&LinkedNode, Range<usize>, synt::Style) -> Content;

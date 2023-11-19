@@ -8,9 +8,9 @@ use typst::font::{Font, FontStyle, FontVariant};
 use typst::util::SliceExt;
 use unicode_script::{Script, UnicodeScript};
 
-use super::{decorate, NumberType, NumberWidth, TextElem};
 use crate::layout::SpanMapper;
 use crate::prelude::*;
+use crate::text::{decorate, NumberType, NumberWidth, TextElem};
 
 /// The result of shaping text.
 ///

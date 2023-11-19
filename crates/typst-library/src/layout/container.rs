@@ -1,7 +1,6 @@
 use typst::eval::AutoValue;
 
-use super::VElem;
-use crate::layout::Spacing;
+use crate::layout::{Spacing, VElem};
 use crate::prelude::*;
 
 /// An inline-level container that sizes content.

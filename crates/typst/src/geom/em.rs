@@ -1,10 +1,9 @@
 use super::*;
-use crate::eval::item;
 
 /// A length that is relative to the font size.
 ///
 /// `1em` is the same as the font size.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Em(Scalar);
 
 impl Em {
@@ -66,6 +65,12 @@ impl Numeric for Em {
 
     fn is_finite(self) -> bool {
         self.0.is_finite()
+    }
+}
+
+impl Debug for Em {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{:?}em", self.get())
     }
 }
 

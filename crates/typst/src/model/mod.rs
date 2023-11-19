@@ -37,10 +37,10 @@ use crate::eval::Tracer;
 use crate::syntax::Span;
 use crate::World;
 
-/// Typeset content into a fully layouted document.
+/// Layout content.
 #[comemo::memoize]
 #[tracing::instrument(skip(world, tracer, content))]
-pub fn typeset(
+pub fn layout(
     world: Tracked<dyn World + '_>,
     mut tracer: TrackedMut<Tracer>,
     content: &Content,
@@ -102,7 +102,7 @@ pub fn typeset(
 
 /// A virtual typesetter.
 ///
-/// Holds the state needed to [typeset] content.
+/// Holds the state needed to [layout] content.
 pub struct Vt<'a> {
     /// The compilation environment.
     pub world: Tracked<'a, dyn World + 'a>,

@@ -10,9 +10,8 @@ use ecow::{eco_format, EcoString};
 use smallvec::SmallVec;
 use unicode_math_class::MathClass;
 
-use super::repr::separated_list;
-use super::{Repr, Type, Value};
 use crate::diag::{At, SourceResult, StrResult};
+use crate::eval::{repr, Repr, Type, Value};
 use crate::syntax::{Span, Spanned};
 
 /// Determine details of a type.
@@ -288,7 +287,7 @@ impl CastInfo {
             msg.push_str(" nothing");
         }
 
-        msg.push_str(&separated_list(&parts, "or"));
+        msg.push_str(&repr::separated_list(&parts, "or"));
 
         if !matching_type {
             msg.push_str(", found ");

@@ -5,9 +5,9 @@ use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use typst::doc::Frame;
-use typst::eval::repr::separated_list;
 use typst::eval::{
-    format_str, AutoValue, CastInfo, Func, Library, NoneValue, Repr, Scope, Type, Value,
+    format_str, repr, AutoValue, CastInfo, Func, Library, NoneValue, Repr, Scope, Type,
+    Value,
 };
 use typst::geom::Color;
 use typst::model::Label;
@@ -17,8 +17,8 @@ use typst::syntax::{
 use typst::World;
 use unscanny::Scanner;
 
-use super::analyze::analyze_labels;
-use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
+use crate::analyze::analyze_labels;
+use crate::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
 
 /// Autocomplete a cursor position in a source file.
 ///
@@ -1089,7 +1089,7 @@ impl<'a> CompletionContext<'a> {
                 kind: CompletionKind::Constant,
                 label: name.into(),
                 apply: Some(tags[0].into()),
-                detail: Some(separated_list(&tags, " or ").into()),
+                detail: Some(repr::separated_list(&tags, " or ").into()),
             });
         }
     }

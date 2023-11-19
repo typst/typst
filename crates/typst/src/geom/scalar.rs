@@ -3,7 +3,7 @@ use super::*;
 /// A 64-bit float that implements `Eq`, `Ord` and `Hash`.
 ///
 /// Panics if it's `NaN` during any of those operations.
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Default, Copy, Clone)]
 pub struct Scalar(f64);
 
 // We have to detect NaNs this way since `f64::is_nan` isn’t const
@@ -49,15 +49,9 @@ impl Numeric for Scalar {
     }
 }
 
-impl From<f64> for Scalar {
-    fn from(float: f64) -> Self {
-        Self::new(float)
-    }
-}
-
-impl From<Scalar> for f64 {
-    fn from(scalar: Scalar) -> Self {
-        scalar.0
+impl Debug for Scalar {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
@@ -98,6 +92,18 @@ impl Hash for Scalar {
     fn hash<H: Hasher>(&self, state: &mut H) {
         debug_assert!(!self.0.is_nan(), "float is NaN");
         self.0.to_bits().hash(state);
+    }
+}
+
+impl From<f64> for Scalar {
+    fn from(float: f64) -> Self {
+        Self::new(float)
+    }
+}
+
+impl From<Scalar> for f64 {
+    fn from(scalar: Scalar) -> Self {
+        scalar.0
     }
 }
 

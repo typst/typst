@@ -35,7 +35,6 @@ impl<T: Send + Sync + 'static> Deferred<T> {
         // Ensure that we yield to give the deferred value a chance to compute
         // single-threaded platforms (for WASM compatibility).
         while let Some(rayon::Yield::Executed) = rayon::yield_now() {}
-
         self.0.wait()
     }
 }

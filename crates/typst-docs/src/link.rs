@@ -1,7 +1,7 @@
 use typst::diag::{bail, StrResult};
 use typst::eval::Func;
 
-use super::{get_module, GROUPS, LIBRARY};
+use crate::{get_module, GROUPS, LIBRARY};
 
 /// Resolve an intra-doc link.
 pub fn resolve(link: &str) -> StrResult<String> {

@@ -1,10 +1,10 @@
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
 
-use super::{ty, Content, Scope, Value};
 use crate::diag::StrResult;
+use crate::eval::{ty, Content, Scope, Value};
 
 /// An evaluated module, either built-in or resulting from a file.
 ///
@@ -24,7 +24,7 @@ use crate::diag::StrResult;
 /// >>> #(-3)
 /// ```
 #[ty]
-#[derive(Debug, Clone, Hash)]
+#[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Module {
     /// The module's name.
@@ -97,6 +97,16 @@ impl Module {
             Ok(repr) => repr.content,
             Err(arc) => arc.content.clone(),
         }
+    }
+}
+
+impl Debug for Module {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_struct("Module")
+            .field("name", &self.name)
+            .field("scope", &self.inner.scope)
+            .field("content", &self.inner.content)
+            .finish()
     }
 }
 

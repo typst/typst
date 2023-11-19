@@ -3,15 +3,14 @@ use std::fmt::Write;
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use typst::doc::Frame;
-use typst::eval::repr::{pretty_comma_list, separated_list};
-use typst::eval::{CapturesVisitor, CastInfo, Repr, Tracer, Value};
+use typst::eval::{repr, CapturesVisitor, CastInfo, Repr, Tracer, Value};
 use typst::geom::{round_2, Length, Numeric};
 use typst::syntax::ast;
 use typst::syntax::{LinkedNode, Source, SyntaxKind};
 use typst::World;
 
-use super::analyze::analyze_labels;
-use super::{analyze_expr, plain_docs_sentence, summarize_font_family};
+use crate::analyze::analyze_labels;
+use crate::{analyze_expr, plain_docs_sentence, summarize_font_family};
 
 /// Describe the item under the cursor.
 pub fn tooltip(
@@ -97,7 +96,7 @@ fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
         pieces.push("...".into());
     }
 
-    let tooltip = pretty_comma_list(&pieces, false);
+    let tooltip = repr::pretty_comma_list(&pieces, false);
     (!tooltip.is_empty()).then(|| Tooltip::Code(tooltip.into()))
 }
 
@@ -128,7 +127,7 @@ fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
 
     names.sort();
 
-    let tooltip = separated_list(&names, "and");
+    let tooltip = repr::separated_list(&names, "and");
     Some(Tooltip::Text(eco_format!("This closure captures {tooltip}.")))
 }
 

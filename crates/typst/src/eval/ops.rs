@@ -4,8 +4,8 @@ use std::cmp::Ordering;
 
 use ecow::eco_format;
 
-use super::{format_str, item, IntoValue, Regex, Repr, Smart, Value};
 use crate::diag::{bail, StrResult};
+use crate::eval::{format_str, item, IntoValue, Regex, Repr, Smart, Value};
 use crate::geom::{Align, Length, Numeric, Rel, Stroke};
 use Value::*;
 

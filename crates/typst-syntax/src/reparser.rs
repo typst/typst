@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use super::{
+use crate::{
     is_newline, parse, reparse_block, reparse_markup, Span, SyntaxKind, SyntaxNode,
 };
 
@@ -246,7 +246,7 @@ fn next_nesting(node: &SyntaxNode, nesting: &mut usize) {
 mod tests {
     use std::ops::Range;
 
-    use super::super::{parse, Source, Span};
+    use crate::{parse, Source, Span};
 
     #[track_caller]
     fn test(prev: &str, range: Range<usize>, with: &str, incremental: bool) {

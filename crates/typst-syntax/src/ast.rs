@@ -8,7 +8,7 @@ use std::ops::Deref;
 use ecow::EcoString;
 use unscanny::Scanner;
 
-use super::{
+use crate::{
     is_id_continue, is_id_start, is_newline, split_newlines, Span, SyntaxKind, SyntaxNode,
 };
 

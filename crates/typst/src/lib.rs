@@ -13,7 +13,7 @@
 //!   order-independent and thus much better suited for further processing than
 //!   the raw markup.
 //! - **Typesetting:**
-//!   Next, the content is [typeset] into a [document] containing one [frame]
+//!   Next, the content is [layouted] into a [document] containing one [frame]
 //!   per page with items at fixed positions.
 //! - **Exporting:**
 //!   These frames can finally be exported into an output format (currently PDF,
@@ -26,7 +26,7 @@
 //! [evaluate]: eval::eval
 //! [module]: eval::Module
 //! [content]: model::Content
-//! [typeset]: model::typeset
+//! [layouted]: model::layout
 //! [document]: doc::Document
 //! [frame]: doc::Frame
 
@@ -86,7 +86,7 @@ pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document>
     );
 
     // Try to typeset it.
-    let res = module.and_then(|module| model::typeset(world, tracer, &module.content()));
+    let res = module.and_then(|module| model::layout(world, tracer, &module.content()));
 
     // Deduplicate errors.
     res.map_err(|err| {

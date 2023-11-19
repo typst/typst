@@ -1,47 +1,5 @@
 use super::*;
 
-/// Helper to draw arcs with bezier curves.
-trait PathExtension {
-    fn arc(&mut self, start: Point, center: Point, end: Point);
-    fn arc_move(&mut self, start: Point, center: Point, end: Point);
-    fn arc_line(&mut self, start: Point, center: Point, end: Point);
-}
-
-/// Get the control points for a bezier curve that approximates a circular arc for
-/// a start point, an end point and a center of the circle whose arc connects
-/// the two.
-fn bezier_arc_control(start: Point, center: Point, end: Point) -> [Point; 2] {
-    // https://stackoverflow.com/a/44829356/1567835
-    let a = start - center;
-    let b = end - center;
-
-    let q1 = a.x.to_raw() * a.x.to_raw() + a.y.to_raw() * a.y.to_raw();
-    let q2 = q1 + a.x.to_raw() * b.x.to_raw() + a.y.to_raw() * b.y.to_raw();
-    let k2 = (4.0 / 3.0) * ((2.0 * q1 * q2).sqrt() - q2)
-        / (a.x.to_raw() * b.y.to_raw() - a.y.to_raw() * b.x.to_raw());
-
-    let control_1 = Point::new(center.x + a.x - k2 * a.y, center.y + a.y + k2 * a.x);
-    let control_2 = Point::new(center.x + b.x + k2 * b.y, center.y + b.y - k2 * b.x);
-
-    [control_1, control_2]
-}
-
-impl PathExtension for Path {
-    fn arc(&mut self, start: Point, center: Point, end: Point) {
-        let arc = bezier_arc_control(start, center, end);
-        self.cubic_to(arc[0], arc[1], end);
-    }
-
-    fn arc_move(&mut self, start: Point, center: Point, end: Point) {
-        self.move_to(start);
-        self.arc(start, center, end);
-    }
-    fn arc_line(&mut self, start: Point, center: Point, end: Point) {
-        self.line_to(start);
-        self.arc(start, center, end);
-    }
-}
-
 /// Creates a new rectangle as a path.
 pub fn clip_rect(
     size: Size,
@@ -595,4 +553,47 @@ impl ControlPoints {
             y: self.stroke_after,
         })
     }
+}
+
+/// Helper to draw arcs with bezier curves.
+trait PathExt {
+    fn arc(&mut self, start: Point, center: Point, end: Point);
+    fn arc_move(&mut self, start: Point, center: Point, end: Point);
+    fn arc_line(&mut self, start: Point, center: Point, end: Point);
+}
+
+impl PathExt for Path {
+    fn arc(&mut self, start: Point, center: Point, end: Point) {
+        let arc = bezier_arc_control(start, center, end);
+        self.cubic_to(arc[0], arc[1], end);
+    }
+
+    fn arc_move(&mut self, start: Point, center: Point, end: Point) {
+        self.move_to(start);
+        self.arc(start, center, end);
+    }
+
+    fn arc_line(&mut self, start: Point, center: Point, end: Point) {
+        self.line_to(start);
+        self.arc(start, center, end);
+    }
+}
+
+/// Get the control points for a bezier curve that approximates a circular arc for
+/// a start point, an end point and a center of the circle whose arc connects
+/// the two.
+fn bezier_arc_control(start: Point, center: Point, end: Point) -> [Point; 2] {
+    // https://stackoverflow.com/a/44829356/1567835
+    let a = start - center;
+    let b = end - center;
+
+    let q1 = a.x.to_raw() * a.x.to_raw() + a.y.to_raw() * a.y.to_raw();
+    let q2 = q1 + a.x.to_raw() * b.x.to_raw() + a.y.to_raw() * b.y.to_raw();
+    let k2 = (4.0 / 3.0) * ((2.0 * q1 * q2).sqrt() - q2)
+        / (a.x.to_raw() * b.y.to_raw() - a.y.to_raw() * b.x.to_raw());
+
+    let control_1 = Point::new(center.x + a.x - k2 * a.y, center.y + a.y + k2 * a.x);
+    let control_2 = Point::new(center.x + b.x + k2 * b.y, center.y + b.y - k2 * b.x);
+
+    [control_1, control_2]
 }

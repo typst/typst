@@ -1,5 +1,5 @@
-use super::bibliography::Works;
-use super::CslStyle;
+use crate::meta::bibliography::Works;
+use crate::meta::CslStyle;
 use crate::prelude::*;
 use crate::text::TextElem;
 

@@ -27,6 +27,12 @@ impl Block {
     }
 }
 
+impl Debug for Block {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 impl Hash for Block {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.dyn_hash(state);
@@ -36,12 +42,6 @@ impl Hash for Block {
 impl Clone for Block {
     fn clone(&self) -> Self {
         self.0.dyn_clone()
-    }
-}
-
-impl Debug for Block {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
     }
 }
 

@@ -5,9 +5,9 @@ use smallvec::{smallvec, SmallVec};
 use typst::eval::{Repr, Tracer};
 use typst::model::DelayedErrors;
 
-use super::{FigureElem, HeadingElem, Numbering, NumberingPattern};
 use crate::layout::PageElem;
 use crate::math::EquationElem;
+use crate::meta::{FigureElem, HeadingElem, Numbering, NumberingPattern};
 use crate::prelude::*;
 
 /// Counts through pages, elements, and more.

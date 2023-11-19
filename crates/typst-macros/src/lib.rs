@@ -11,6 +11,7 @@ mod scope;
 mod symbols;
 mod ty;
 
+use heck::*;
 use proc_macro::TokenStream as BoundaryStream;
 use proc_macro2::TokenStream;
 use quote::quote;

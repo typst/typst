@@ -1,5 +1,3 @@
-use heck::ToKebabCase;
-
 use super::*;
 
 /// Expand the `#[derive(Cast)]` macro.

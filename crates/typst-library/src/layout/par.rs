@@ -4,8 +4,7 @@ use typst::model::DelayedErrors;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
-use super::{BoxElem, HElem, Sizing, Spacing};
-use crate::layout::AlignElem;
+use crate::layout::{AlignElem, BoxElem, HElem, Sizing, Spacing};
 use crate::math::EquationElem;
 use crate::prelude::*;
 use crate::text::{

@@ -117,7 +117,7 @@ impl Element {
 
 impl Debug for Element {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.pad(self.name())
+        write!(f, "Element({})", self.name())
     }
 }
 

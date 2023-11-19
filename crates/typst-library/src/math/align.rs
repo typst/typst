@@ -1,4 +1,4 @@
-use super::*;
+use crate::math::*;
 
 /// A math alignment point: `&`, `&&`.
 #[elem(title = "Alignment Point", LayoutMath)]

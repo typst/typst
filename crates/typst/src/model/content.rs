@@ -1,5 +1,5 @@
 use std::any::TypeId;
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Formatter};
 use std::iter::{self, Sum};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
@@ -10,14 +10,15 @@ use serde::{Serialize, Serializer};
 use smallvec::SmallVec;
 use typst_macros::elem;
 
-use super::{
+use crate::diag::{SourceResult, StrResult};
+use crate::doc::Meta;
+use crate::eval::{
+    func, repr, scope, ty, Dict, FromValue, IntoValue, Repr, Str, Value, Vm,
+};
+use crate::model::{
     Behave, Behaviour, Element, Guard, Label, Location, NativeElement, Recipe, Selector,
     Style, Styles,
 };
-use crate::diag::{SourceResult, StrResult};
-use crate::doc::Meta;
-use crate::eval::repr::pretty_array_like;
-use crate::eval::{func, scope, ty, Dict, FromValue, IntoValue, Repr, Str, Value, Vm};
 use crate::syntax::Span;
 
 /// A piece of document content.
@@ -64,7 +65,7 @@ use crate::syntax::Span;
 /// elements the content is composed of and what fields they have.
 /// Alternatively, you can inspect the output of the [`repr`]($repr) function.
 #[ty(scope)]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Content(Arc<dyn NativeElement>);
 
 impl Content {
@@ -533,6 +534,12 @@ impl Default for Content {
     }
 }
 
+impl Debug for Content {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 impl<T: NativeElement> From<T> for Content {
     fn from(value: T) -> Self {
         Self::new(value)
@@ -683,7 +690,7 @@ impl Repr for SequenceElem {
         } else {
             eco_format!(
                 "[{}]",
-                pretty_array_like(
+                repr::pretty_array_like(
                     &self.children.iter().map(|c| c.0.repr()).collect::<Vec<_>>(),
                     false
                 )

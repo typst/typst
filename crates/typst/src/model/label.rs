@@ -66,7 +66,7 @@ impl Label {
 
 impl Repr for Label {
     fn repr(&self) -> EcoString {
-        eco_format!("<{}>", self.0.resolve())
+        eco_format!("<{}>", self.as_str())
     }
 }
 
