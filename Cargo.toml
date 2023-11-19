@@ -122,7 +122,7 @@ xmlwriter = "0.1.0"
 xmp-writer = "0.2"
 xz2 = "0.1"
 yaml-front-matter = "0.1"
-zip = "0.6"
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
 
 [profile.dev.package."*"]
 opt-level = 2
