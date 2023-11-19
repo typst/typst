@@ -309,10 +309,6 @@ impl PageResource {
         matches!(self, Self::Font(_))
     }
 
-    pub fn is_color_space(&self) -> bool {
-        matches!(self, Self::ColorSpace(_))
-    }
-
     pub fn is_pattern(&self) -> bool {
         matches!(self, Self::Pattern(_))
     }
