@@ -101,7 +101,7 @@ pub(crate) fn breakpoints<'a>(
             let (link, _) = link_prefix(tail);
             let end = last + link.len();
             linebreak_link(link, |i| f(last + i, Breakpoint::Normal));
-            while iter.peek().map_or(false, |&p| p <= end) {
+            while iter.peek().map_or(false, |&p| p < end) {
                 iter.next();
             }
         }
@@ -206,23 +206,8 @@ fn linebreak_link(link: &str, mut f: impl FnMut(usize)) {
     }
 
     let mut offset = 0;
-    let mut emit = |end: usize| {
-        let piece = &link[offset..end];
-        if piece.len() < 16 {
-            // For bearably long segments, emit them as one.
-            offset = end;
-            f(offset);
-        } else {
-            // If it gets very long (e.g. a hash in the URL), just allow a
-            // break at every char.
-            for c in piece.chars() {
-                offset += c.len_utf8();
-                f(offset);
-            }
-        }
-    };
-
     let mut prev = Class::Other;
+
     for (end, c) in link.char_indices() {
         let class = Class::of(c);
 
@@ -235,13 +220,23 @@ fn linebreak_link(link: &str, mut f: impl FnMut(usize)) {
             && prev != Class::Open
             && if class == Class::Other { prev == Class::Other } else { class != prev }
         {
-            emit(end);
+            let piece = &link[offset..end];
+            if piece.len() < 16 {
+                // For bearably long segments, emit them as one.
+                offset = end;
+                f(offset);
+            } else {
+                // If it gets very long (e.g. a hash in the URL), just allow a
+                // break at every char.
+                for c in piece.chars() {
+                    offset += c.len_utf8();
+                    f(offset);
+                }
+            }
         }
 
         prev = class;
     }
-
-    emit(link.len());
 }
 
 /// Whether hyphenation is enabled at the given offset.
