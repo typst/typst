@@ -17,10 +17,6 @@ typst = { path = "../../crates/typst" }
 comemo = "0.3"
 unscanny = "0.1"
 
-# Prevent this from interfering with workspaces
-[workspace]
-members = ["."]
-
 [profile.release]
 debug = 1
 
