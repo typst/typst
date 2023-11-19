@@ -3,7 +3,7 @@ use super::*;
 /// Expand the `#[elem]` macro.
 pub fn elem(stream: TokenStream, body: syn::ItemStruct) -> Result<TokenStream> {
     let element = parse(stream, &body)?;
-    Ok(create(&element))
+    create(&element)
 }
 
 /// Details about an element.
@@ -51,8 +51,18 @@ impl Elem {
     ///
     /// This includes:
     /// - Fields that are not external and therefore present in the struct.
+    /// - Fields that are ghost fields.
     fn real_fields(&self) -> impl Iterator<Item = &Field> + Clone {
         self.fields.iter().filter(|field| !field.external)
+    }
+
+    /// Fields that are present in the struct.
+    ///
+    /// This includes:
+    /// - Fields that are not external and therefore present in the struct.
+    /// - Fields that are not ghost fields.
+    fn present_fields(&self) -> impl Iterator<Item = &Field> + Clone {
+        self.real_fields().filter(|field| !field.ghost)
     }
 
     /// Fields that are inherent to the element.
@@ -91,7 +101,7 @@ impl Elem {
     /// This includes:
     /// - Fields that are not synthesized (guarantees equality before and after synthesis).
     fn eq_fields(&self) -> impl Iterator<Item = &Field> + Clone {
-        self.real_fields().filter(|field| !field.synthesized)
+        self.present_fields().filter(|field| !field.synthesized)
     }
 
     /// Fields that are relevant for `Construct` impl.
@@ -125,6 +135,7 @@ struct Field {
     external: bool,
     synthesized: bool,
     borrowed: bool,
+    ghost: bool,
     forced_variant: Option<usize>,
     parse: Option<BlockWithReturn>,
     default: Option<syn::Expr>,
@@ -133,7 +144,7 @@ struct Field {
 impl Field {
     /// Whether the field is present on every instance of the element.
     fn inherent(&self) -> bool {
-        self.required || self.variadic
+        (self.required || self.variadic) && !self.ghost
     }
 
     /// Whether the field can be used with set rules.
@@ -226,6 +237,7 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
         synthesized: has_attr(&mut attrs, "synthesized"),
         fold: has_attr(&mut attrs, "fold"),
         resolve: has_attr(&mut attrs, "resolve"),
+        ghost: has_attr(&mut attrs, "ghost"),
         parse: parse_attr(&mut attrs, "parse")?.flatten(),
         default: parse_attr::<syn::Expr>(&mut attrs, "default")?.flatten(),
         vis: field.vis.clone(),
@@ -264,20 +276,31 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
 }
 
 /// Produce the element's definition.
-fn create(element: &Elem) -> TokenStream {
+fn create(element: &Elem) -> Result<TokenStream> {
     let Elem { vis, ident, docs, .. } = element;
+
+    if element.fields.iter().any(|field| field.ghost)
+        && element
+            .capabilities
+            .iter()
+            .all(|capability| capability != "Construct")
+    {
+        bail!(ident, "cannot have ghost fields and have `Construct` auto generated");
+    }
+
     let all = element.real_fields();
+    let present = element.present_fields();
     let settable = all.clone().filter(|field| !field.synthesized && field.settable());
 
-    let fields = all.clone().map(create_field);
+    let fields = present.clone().map(create_field);
     let fields_enum = create_fields_enum(element);
 
     let new = create_new_func(element);
     let field_methods = all.clone().map(|field| create_field_method(element, field));
     let field_in_methods =
         settable.clone().map(|field| create_field_in_method(element, field));
-    let with_field_methods = all.clone().map(create_with_field_method);
-    let push_field_methods = all.clone().map(create_push_field_method);
+    let with_field_methods = present.clone().map(create_with_field_method);
+    let push_field_methods = present.clone().map(create_push_field_method);
     let field_style_methods =
         settable.clone().map(|field| create_set_field_method(element, field));
 
@@ -300,7 +323,7 @@ fn create(element: &Elem) -> TokenStream {
         }
     });
 
-    quote! {
+    Ok(quote! {
         #[doc = #docs]
         #[derive(Debug, Clone, Hash)]
         #[allow(clippy::derived_hash_with_manual_eq)]
@@ -335,7 +358,7 @@ fn create(element: &Elem) -> TokenStream {
                 ::typst::eval::Value::Content(::typst::model::Content::new(self))
             }
         }
-    }
+    })
 }
 
 /// Create a field declaration.
@@ -459,12 +482,14 @@ fn create_new_func(element: &Elem) -> TokenStream {
     let defaults = element
         .fields
         .iter()
-        .filter(|field| !field.external && !field.inherent() && !field.synthesized)
+        .filter(|field| {
+            !field.external && !field.inherent() && !field.synthesized && !field.ghost
+        })
         .map(|Field { ident, .. }| quote! { #ident: None });
     let default_synthesized = element
         .fields
         .iter()
-        .filter(|field| !field.external && field.synthesized)
+        .filter(|field| !field.external && field.synthesized && !field.ghost)
         .map(|Field { ident, default, .. }| {
             if let Some(expr) = default {
                 quote! { #ident: #expr }
@@ -591,7 +616,14 @@ fn create_field_in_method(element: &Elem, field: &Field) -> TokenStream {
 
 /// Create an accessor methods for a field.
 fn create_field_method(element: &Elem, field: &Field) -> TokenStream {
-    let Field { vis, docs, ident, output, .. } = field;
+    let Field { vis, docs, ident, output, ghost, .. } = field;
+
+    let inherent = if *ghost {
+        quote! { None }
+    } else {
+        quote! { self.#ident.as_ref() }
+    };
+
     if (field.inherent() && !field.synthesized)
         || (field.synthesized && field.default.is_some())
     {
@@ -610,8 +642,7 @@ fn create_field_method(element: &Elem, field: &Field) -> TokenStream {
             }
         }
     } else if field.borrowed {
-        let access =
-            create_style_chain_access(element, field, quote! { self.#ident.as_ref() });
+        let access = create_style_chain_access(element, field, inherent);
 
         quote! {
             #[doc = #docs]
@@ -620,8 +651,7 @@ fn create_field_method(element: &Elem, field: &Field) -> TokenStream {
             }
         }
     } else {
-        let access =
-            create_style_chain_access(element, field, quote! { self.#ident.as_ref() });
+        let access = create_style_chain_access(element, field, inherent);
 
         quote! {
             #[doc = #docs]
@@ -697,16 +727,22 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         let name = &field.enum_ident;
         let field_ident = &field.ident;
 
-        quote! {
-            <#elem as #model::ElementFields>::Fields::#name => Some(
-                ::typst::eval::IntoValue::into_value(self.#field_ident.clone())
-            ),
+        if field.ghost {
+            quote! {
+                <#elem as #model::ElementFields>::Fields::#name => None,
+            }
+        } else {
+            quote! {
+                <#elem as #model::ElementFields>::Fields::#name => Some(
+                    ::typst::eval::IntoValue::into_value(self.#field_ident.clone())
+                ),
+            }
         }
     });
 
     // Fields that can be set using the `set_field` method.
     let field_set_matches = element.visible_fields()
-        .filter(|field| field.settable() && !field.synthesized).map(|field| {
+        .filter(|field| field.settable() && !field.synthesized && !field.ghost).map(|field| {
         let elem = &element.ident;
         let name = &field.enum_ident;
         let field_ident = &field.ident;
@@ -722,7 +758,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
     // Fields that are inherent.
     let field_inherent_matches = element
         .visible_fields()
-        .filter(|field| field.inherent())
+        .filter(|field| field.inherent() && !field.ghost)
         .map(|field| {
             let elem = &element.ident;
             let name = &field.enum_ident;
@@ -739,7 +775,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
     // Fields that cannot be set or are internal create an error.
     let field_not_set_matches = element
         .real_fields()
-        .filter(|field| field.internal || field.synthesized)
+        .filter(|field| field.internal || field.synthesized || field.ghost)
         .map(|field| {
             let elem = &element.ident;
             let ident = &field.enum_ident;
@@ -798,7 +834,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
     // Creation of the fields dictionary for optional fields.
     let field_opt_dict = element
         .visible_fields()
-        .filter(|field| !field.inherent())
+        .filter(|field| !field.inherent() && !field.ghost)
         .clone()
         .map(|field| {
             let name = &field.name;
