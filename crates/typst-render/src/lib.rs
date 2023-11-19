@@ -433,6 +433,7 @@ fn render_outline_glyph(
         Paint::Solid(color) => {
             write_bitmap(canvas, &bitmap, &state, *color)?;
         }
+        Paint::Pattern(_) => todo!(),
     }
 
     Some(())
@@ -890,6 +891,7 @@ fn to_sk_paint<'a>(
 
             sk_paint.anti_alias = gradient.anti_alias();
         }
+        Paint::Pattern(_) => todo!(),
     }
 
     sk_paint

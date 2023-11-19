@@ -12,8 +12,8 @@ use typst::geom::{
 };
 
 use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
-use crate::page::{PageContext, Transforms};
-use crate::{deflate, AbsExt, PdfContext};
+use crate::page::{PageContext, Transforms, PageResource};
+use crate::{deflate, transform_to_array, AbsExt, PdfContext};
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
 /// PDF.
@@ -33,10 +33,9 @@ pub struct PdfGradient {
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
 pub(crate) fn write_gradients(ctx: &mut PdfContext) {
-    for PdfGradient { transform, aspect_ratio, gradient, angle } in
-        ctx.gradient_map.items().cloned().collect::<Vec<_>>()
+    for (shading, PdfGradient { transform, aspect_ratio, gradient, angle }) in
+        ctx.gradient_map.items().map(|(r, g)| (r, g.clone())).collect::<Vec<_>>()
     {
-        let shading = ctx.alloc.bump();
         ctx.gradient_refs.push(shading);
 
         let mut shading_pattern = match &gradient {
@@ -341,20 +340,13 @@ fn register_gradient(
         angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
     };
 
-    let index = ctx.parent.gradient_map.insert(pdf_gradient);
-    eco_format!("Gr{}", index)
-}
-
-/// Convert to an array of floats.
-fn transform_to_array(ts: Transform) -> [f32; 6] {
-    [
-        ts.sx.get() as f32,
-        ts.ky.get() as f32,
-        ts.kx.get() as f32,
-        ts.sy.get() as f32,
-        ts.tx.to_f32(),
-        ts.ty.to_f32(),
-    ]
+    let (ref_, index) = ctx.parent.gradient_map.insert(&mut ctx.parent.alloc, pdf_gradient);
+    let name = eco_format!("Gr{}", index);
+    ctx.resources.insert(
+        PageResource::Pattern(name.clone()),
+        ref_,
+    );
+    name
 }
 
 /// Writes a single Coons Patch as defined in the PDF specification

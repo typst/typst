@@ -1,7 +1,8 @@
+use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use ecow::eco_format;
+use ecow::{eco_format, EcoString};
 use pdf_writer::types::{
     ActionType, AnnotationType, ColorSpaceOperand, LineCapStyle, LineJoinStyle,
     NumberingStyle,
@@ -28,15 +29,14 @@ use crate::{deflate, AbsExt, EmExt, PdfContext};
 #[tracing::instrument(skip_all)]
 pub(crate) fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
     for frame in frames {
-        construct_page(ctx, frame);
+        construct_and_write_page(ctx, frame);
     }
 }
 
 /// Construct a page object.
 #[tracing::instrument(skip_all)]
-pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
+pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Page) {
     let page_ref = ctx.alloc.bump();
-    ctx.page_refs.push(page_ref);
 
     let mut ctx = PageContext {
         parent: ctx,
@@ -48,6 +48,7 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
         saves: vec![],
         bottom: 0.0,
         links: vec![],
+        resources: HashMap::default(),
     };
 
     let size = frame.size();
@@ -73,9 +74,18 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
         uses_opacities: ctx.uses_opacities,
         links: ctx.links,
         label: ctx.label,
+        resources: ctx.resources,
     };
 
-    ctx.parent.pages.push(page);
+    (page_ref, page)
+}
+
+/// writes a page object.
+#[tracing::instrument(skip_all)]
+fn construct_and_write_page(ctx: &mut PdfContext, frame: &Frame) {
+    let (page_ref, page) = construct_page(ctx, frame);
+    ctx.page_refs.push(page_ref);
+    ctx.pages.push(page);
 }
 
 /// Write the page tree.
@@ -114,6 +124,11 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
     for (gradient_ref, gr) in ctx.gradient_map.pdf_indices(&ctx.gradient_refs) {
         let name = eco_format!("Gr{}", gr);
         patterns.pair(Name(name.as_bytes()), gradient_ref);
+    }
+
+    for (pattern_ref, p) in ctx.pattern_map.pdf_indices(&ctx.pattern_refs) {
+        let name = eco_format!("P{}", p);
+        patterns.pair(Name(name.as_bytes()), pattern_ref);
     }
 
     patterns.finish();
@@ -262,6 +277,49 @@ pub struct Page {
     pub links: Vec<(Destination, Rect)>,
     /// The page's PDF label.
     pub label: Option<PdfPageLabel>,
+    /// The page's used resources
+    pub resources: HashMap<PageResource, Ref>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PageResource {
+    XObject(EcoString),
+    Font(EcoString),
+    ColorSpace(EcoString),
+    Pattern(EcoString),
+    ExtGState(EcoString),
+}
+
+impl PageResource {
+    pub fn name(&self) -> Name<'_> {
+        match self {
+            Self::XObject(name) => Name(name.as_bytes()),
+            Self::Font(name) => Name(name.as_bytes()),
+            Self::ColorSpace(name) => Name(name.as_bytes()),
+            Self::Pattern(name) => Name(name.as_bytes()),
+            Self::ExtGState(name) => Name(name.as_bytes()),
+        }
+    }
+
+    pub fn is_x_object(&self) -> bool {
+        matches!(self, Self::XObject(_))
+    }
+
+    pub fn is_font(&self) -> bool {
+        matches!(self, Self::Font(_))
+    }
+
+    pub fn is_color_space(&self) -> bool {
+        matches!(self, Self::ColorSpace(_))
+    }
+
+    pub fn is_pattern(&self) -> bool {
+        matches!(self, Self::Pattern(_))
+    }
+
+    pub fn is_ext_g_state(&self) -> bool {
+        matches!(self, Self::ExtGState(_))
+    }
 }
 
 /// An exporter for the contents of a single PDF page.
@@ -275,6 +333,7 @@ pub struct PageContext<'a, 'b> {
     bottom: f32,
     uses_opacities: bool,
     links: Vec<(Destination, Rect)>,
+    pub resources: HashMap<PageResource, Ref>,
 }
 
 /// A simulated graphics state used to deduplicate graphics state changes and
@@ -349,9 +408,10 @@ impl PageContext<'_, '_> {
     fn set_external_graphics_state(&mut self, graphics_state: &ExtGState) {
         let current_state = self.state.external_graphics_state.as_ref();
         if current_state != Some(graphics_state) {
-            self.parent.extg_map.insert(*graphics_state);
-            let name = eco_format!("Gs{}", self.parent.extg_map.map(graphics_state));
+            let (ref_, index) = self.parent.extg_map.insert(&mut self.parent.alloc, *graphics_state);
+            let name = eco_format!("Gs{index}");
             self.content.set_parameters(Name(name.as_bytes()));
+            self.resources.insert(PageResource::ExtGState(name), ref_);
 
             if graphics_state.uses_opacities() {
                 self.uses_opacities = true;
@@ -364,7 +424,7 @@ impl PageContext<'_, '_> {
             .map(|stroke| {
                 let color = match &stroke.paint {
                     Paint::Solid(color) => *color,
-                    Paint::Gradient(_) => return 255,
+                    Paint::Gradient(_) | Paint::Pattern(_) => return 255,
                 };
 
                 color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
@@ -374,7 +434,7 @@ impl PageContext<'_, '_> {
             .map(|paint| {
                 let color = match paint {
                     Paint::Solid(color) => *color,
-                    Paint::Gradient(_) => return 255,
+                    Paint::Gradient(_) | Paint::Pattern(_) => return 255,
                 };
 
                 color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
@@ -406,9 +466,10 @@ impl PageContext<'_, '_> {
 
     fn set_font(&mut self, font: &Font, size: Abs) {
         if self.state.font.as_ref().map(|(f, s)| (f, *s)) != Some((font, size)) {
-            self.parent.font_map.insert(font.clone());
-            let name = eco_format!("F{}", self.parent.font_map.map(font));
+            let (ref_, index) = self.parent.font_map.insert(&mut self.parent.alloc, font.clone());
+            let name = eco_format!("F{index}");
             self.content.set_font(Name(name.as_bytes()), size.to_f32());
+            self.resources.insert(PageResource::Font(name), ref_);
             self.state.font = Some((font.clone(), size));
         }
     }
@@ -680,7 +741,7 @@ fn write_path(ctx: &mut PageContext, x: f32, y: f32, path: &geom::Path) {
 
 /// Encode a vector or raster image into the content stream.
 fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size) {
-    let idx = ctx.parent.image_map.insert(image.clone());
+    let (ref_, idx) = ctx.parent.image_map.insert(&mut ctx.parent.alloc, image.clone());
     ctx.parent
         .image_deferred_map
         .entry(idx)
@@ -706,6 +767,7 @@ fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size)
         ctx.content.x_object(Name(name.as_bytes()));
     }
 
+    ctx.resources.insert(PageResource::XObject(name.clone()), ref_);
     ctx.content.restore_state();
 }
 

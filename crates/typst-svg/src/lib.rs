@@ -533,6 +533,7 @@ impl SVGRenderer {
                 let id = self.push_gradient(gradient, size, ts);
                 self.xml.write_attribute_fmt("fill", format_args!("url(#{id})"));
             }
+            Paint::Pattern(_) => todo!(),
         }
     }
 
@@ -575,6 +576,7 @@ impl SVGRenderer {
                 let id = self.push_gradient(gradient, size, fill_transform);
                 self.xml.write_attribute_fmt("stroke", format_args!("url(#{id})"));
             }
+            Paint::Pattern(_) => todo!(),
         }
 
         self.xml.write_attribute("stroke-width", &stroke.thickness.to_pt());

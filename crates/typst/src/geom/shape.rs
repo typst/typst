@@ -1,7 +1,7 @@
 use super::*;
 
 /// A geometric shape with optional fill and stroke.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Shape {
     /// The shape's geometry.
     pub geometry: Geometry,

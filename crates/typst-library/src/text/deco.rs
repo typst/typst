@@ -331,7 +331,7 @@ impl Show for HighlightElem {
 /// Defines a line-based decoration that is positioned over, under or on top of text,
 /// or highlights the text with a background.
 #[ty]
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Decoration {
     line: DecoLine,
     extent: Abs,
@@ -357,7 +357,7 @@ cast! {
 }
 
 /// A kind of decorative line.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 enum DecoLine {
     Underline { stroke: Stroke<Abs>, offset: Smart<Abs>, evade: bool, background: bool },
     Strikethrough { stroke: Stroke<Abs>, offset: Smart<Abs>, background: bool },

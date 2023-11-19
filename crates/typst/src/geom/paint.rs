@@ -1,12 +1,14 @@
 use super::*;
 
 /// How a fill or stroke should be painted.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Paint {
     /// A solid color.
     Solid(Color),
     /// A gradient.
     Gradient(Gradient),
+    /// A pattern.
+    Pattern(Pattern),
 }
 
 impl Paint {
@@ -14,7 +16,7 @@ impl Paint {
     pub fn unwrap_solid(&self) -> Color {
         match self {
             Self::Solid(color) => *color,
-            Self::Gradient(_) => panic!("expected solid color"),
+            Self::Gradient(_) | Self::Pattern(_) => panic!("expected solid color"),
         }
     }
 
@@ -27,6 +29,9 @@ impl Paint {
             Self::Solid(color) => Self::Solid(*color),
             Self::Gradient(gradient) => {
                 Self::Gradient(gradient.clone().with_relative(Relative::Parent))
+            }
+            Self::Pattern(pattern) => {
+                Self::Pattern(pattern.clone().with_relative(Relative::Parent))
             }
         }
     }
@@ -49,6 +54,7 @@ impl Repr for Paint {
         match self {
             Self::Solid(color) => color.repr(),
             Self::Gradient(gradient) => gradient.repr(),
+            Self::Pattern(pattern) => pattern.repr(),
         }
     }
 }
@@ -58,7 +64,9 @@ cast! {
     self => match self {
         Self::Solid(color) => Value::Color(color),
         Self::Gradient(gradient) => Value::Gradient(gradient),
+        Self::Pattern(pattern) => Value::Pattern(pattern),
     },
     color: Color => Self::Solid(color),
     gradient: Gradient => Self::Gradient(gradient),
+    pattern: Pattern => Self::Pattern(pattern),
 }

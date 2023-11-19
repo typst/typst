@@ -14,8 +14,9 @@ pub mod symbols;
 pub mod text;
 pub mod visualize;
 
+use layout::{Layout, Regions};
 use typst::eval::{Array, LangItems, Library, Module, Scope, Smart};
-use typst::geom::{Align, Color, Dir};
+use typst::geom::{Align, Axes, Color, Dir};
 use typst::model::{NativeElement, Styles};
 
 use self::layout::LayoutRoot;
@@ -92,6 +93,10 @@ fn styles() -> Styles {
 fn items() -> LangItems {
     LangItems {
         layout: |world, content, styles| content.layout_root(world, styles),
+        layout_one: |world, content, styles, size| {
+            let regions = Regions::one(size, Axes::splat(false));
+            Ok(content.layout(world, styles, regions)?.into_frame())
+        },
         em: text::TextElem::size_in,
         dir: text::TextElem::dir_in,
         space: || text::SpaceElem::new().pack(),

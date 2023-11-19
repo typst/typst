@@ -43,7 +43,7 @@ use crate::eval::{dict, Args, Cast, FromValue, NoneValue};
 /// Meanwhile, `{stroke(red).cap}` is `{auto}` because it's unspecified. Fields
 /// set to `{auto}` are inherited.
 #[ty(scope)]
-#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Hash)]
 pub struct Stroke<T: Numeric = Length> {
     /// The stroke's paint.
     pub paint: Smart<Paint>,
@@ -574,7 +574,7 @@ cast! {
 }
 
 /// A fully specified stroke of a geometric shape.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct FixedStroke {
     /// The stroke's paint.
     pub paint: Paint,

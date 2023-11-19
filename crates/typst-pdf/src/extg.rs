@@ -24,8 +24,7 @@ impl ExtGState {
 /// Embed all used external graphics states into the PDF.
 #[tracing::instrument(skip_all)]
 pub(crate) fn write_external_graphics_states(ctx: &mut PdfContext) {
-    for external_gs in ctx.extg_map.items() {
-        let id = ctx.alloc.bump();
+    for (id, external_gs) in ctx.extg_map.items() {
         ctx.ext_gs_refs.push(id);
         ctx.pdf
             .ext_graphics(id)

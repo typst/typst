@@ -16,6 +16,7 @@ mod gradient;
 mod length;
 mod paint;
 mod path;
+mod pattern;
 mod point;
 mod ratio;
 mod rect;
@@ -43,6 +44,7 @@ pub use self::gradient::{
 pub use self::length::Length;
 pub use self::paint::Paint;
 pub use self::path::{Path, PathItem};
+pub use self::pattern::Pattern;
 pub use self::point::Point;
 pub use self::ratio::Ratio;
 pub use self::rect::{clip_rect, styled_rect};

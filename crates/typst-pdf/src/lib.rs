@@ -7,6 +7,7 @@ mod gradient;
 mod image;
 mod outline;
 mod page;
+mod pattern;
 
 use std::cmp::Eq;
 use std::collections::{BTreeMap, HashMap};
@@ -14,12 +15,13 @@ use std::hash::Hash;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
+use pattern::PdfPattern;
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
 use typst::doc::{Document, Lang};
 use typst::eval::Datetime;
 use typst::font::Font;
-use typst::geom::{Abs, Dir, Em};
+use typst::geom::{Abs, Dir, Em, Transform};
 use typst::image::Image;
 use typst::model::Introspector;
 use typst::util::Deferred;
@@ -56,6 +58,7 @@ pub fn pdf(
     font::write_fonts(&mut ctx);
     image::write_images(&mut ctx);
     gradient::write_gradients(&mut ctx);
+    pattern::write_patterns(&mut ctx);
     extg::write_external_graphics_states(&mut ctx);
     page::write_page_tree(&mut ctx);
     write_catalog(&mut ctx, ident, timestamp);
@@ -97,6 +100,8 @@ struct PdfContext<'a> {
     image_refs: Vec<Ref>,
     /// The IDs of written gradients.
     gradient_refs: Vec<Ref>,
+    /// The IDs of written patterns.
+    pattern_refs: Vec<Ref>,
     /// The IDs of written external graphics states.
     ext_gs_refs: Vec<Ref>,
     /// Handles color space writing.
@@ -110,6 +115,8 @@ struct PdfContext<'a> {
     image_deferred_map: HashMap<usize, Deferred<EncodedImage>>,
     /// Deduplicates gradients used across the document.
     gradient_map: Remapper<PdfGradient>,
+    /// Deduplicates patterns used across the document.
+    pattern_map: Remapper<PdfPattern>,
     /// Deduplicates external graphics states used across the document.
     extg_map: Remapper<ExtGState>,
 }
@@ -131,12 +138,14 @@ impl<'a> PdfContext<'a> {
             font_refs: vec![],
             image_refs: vec![],
             gradient_refs: vec![],
+            pattern_refs: vec![],
             ext_gs_refs: vec![],
             colors: ColorSpaces::default(),
             font_map: Remapper::new(),
             image_map: Remapper::new(),
             image_deferred_map: HashMap::default(),
             gradient_map: Remapper::new(),
+            pattern_map: Remapper::new(),
             extg_map: Remapper::new(),
         }
     }
@@ -319,9 +328,9 @@ fn xmp_date(datetime: Datetime, tz: bool) -> Option<xmp_writer::DateTime> {
 /// Assigns new, consecutive PDF-internal indices to items.
 struct Remapper<T> {
     /// Forwards from the items to the pdf indices.
-    to_pdf: HashMap<T, usize>,
+    to_pdf: HashMap<T, (Ref, usize)>,
     /// Backwards from the pdf indices to the items.
-    to_items: Vec<T>,
+    to_items: Vec<(Ref, T)>,
 }
 
 impl<T> Remapper<T>
@@ -332,16 +341,17 @@ where
         Self { to_pdf: HashMap::new(), to_items: vec![] }
     }
 
-    fn insert(&mut self, item: T) -> usize {
+    fn insert(&mut self, alloc: &mut Ref, item: T) -> (Ref, usize) {
         let to_layout = &mut self.to_items;
         *self.to_pdf.entry(item.clone()).or_insert_with(|| {
             let pdf_index = to_layout.len();
-            to_layout.push(item);
-            pdf_index
+            let idx = alloc.bump();
+            to_layout.push((idx, item));
+            (idx, pdf_index)
         })
     }
 
-    fn map(&self, item: &T) -> usize {
+    fn map(&self, item: &T) -> (Ref, usize) {
         self.to_pdf[item]
     }
 
@@ -352,8 +362,8 @@ where
         refs.iter().copied().zip(0..self.to_pdf.len())
     }
 
-    fn items(&self) -> impl Iterator<Item = &T> + '_ {
-        self.to_items.iter()
+    fn items(&self) -> impl Iterator<Item = (Ref, &T)> + '_ {
+        self.to_items.iter().map(|(r, t)| (*r, t))
     }
 }
 
@@ -379,4 +389,16 @@ impl EmExt for Em {
     fn to_font_units(self) -> f32 {
         1000.0 * self.get() as f32
     }
+}
+
+/// Convert to an array of floats.
+pub(crate) fn transform_to_array(ts: Transform) -> [f32; 6] {
+    [
+        ts.sx.get() as f32,
+        ts.ky.get() as f32,
+        ts.kx.get() as f32,
+        ts.sy.get() as f32,
+        ts.tx.to_f32(),
+        ts.ty.to_f32(),
+    ]
 }

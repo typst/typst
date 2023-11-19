@@ -8,8 +8,8 @@ use std::sync::OnceLock;
 
 use super::Module;
 use crate::diag::SourceResult;
-use crate::doc::Document;
-use crate::geom::{Abs, Dir};
+use crate::doc::{Document, Frame};
+use crate::geom::{Abs, Dir, Size};
 use crate::model::{Content, Element, Introspector, Label, StyleChain, Styles, Vt};
 use crate::util::hash128;
 
@@ -32,6 +32,12 @@ pub struct LangItems {
     /// The root layout function.
     pub layout:
         fn(vt: &mut Vt, content: &Content, styles: StyleChain) -> SourceResult<Document>,
+    pub layout_one: fn(
+        vt: &mut Vt,
+        content: &Content,
+        styles: StyleChain,
+        size: Size,
+    ) -> SourceResult<Frame>,
     /// Access the em size.
     pub em: fn(StyleChain) -> Abs,
     /// Access the text direction.

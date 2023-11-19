@@ -149,6 +149,19 @@ impl LayoutRoot for Content {
     }
 }
 
+pub trait LayoutOnce {
+    /// Layout into one frame.
+    fn layout_once(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Frame>;
+}
+
+impl LayoutOnce for Content {
+    fn layout_once(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Frame> {
+        let scratch = Scratch::default();
+        let (realized, styles) = realize_root(vt, &scratch, self, styles)?;
+        realized.with::<dyn LayoutOnce>().unwrap().layout_once(vt, styles)
+    }
+}
+
 /// Layout into regions.
 pub trait Layout {
     /// Layout into one frame per region.
