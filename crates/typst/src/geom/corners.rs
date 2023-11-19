@@ -2,7 +2,7 @@ use super::*;
 use crate::eval::{CastInfo, FromValue, IntoValue, Reflect};
 
 /// A container with components for the four corners of a rectangle.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Corners<T> {
     /// The value for the top left corner.
     pub top_left: T,
@@ -96,57 +96,19 @@ impl<T> Get<Corner> for Corners<T> {
     }
 }
 
-/// The four corners of a rectangle.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Corner {
-    /// The top left corner.
-    TopLeft,
-    /// The top right corner.
-    TopRight,
-    /// The bottom right corner.
-    BottomRight,
-    /// The bottom left corner.
-    BottomLeft,
-}
-
-impl Corner {
-    /// The next corner, clockwise.
-    pub fn next_cw(self) -> Self {
-        match self {
-            Self::TopLeft => Self::TopRight,
-            Self::TopRight => Self::BottomRight,
-            Self::BottomRight => Self::BottomLeft,
-            Self::BottomLeft => Self::TopLeft,
-        }
-    }
-
-    /// The next corner, counter-clockwise.
-    pub fn next_ccw(self) -> Self {
-        match self {
-            Self::TopLeft => Self::BottomLeft,
-            Self::TopRight => Self::TopLeft,
-            Self::BottomRight => Self::TopRight,
-            Self::BottomLeft => Self::BottomRight,
-        }
-    }
-
-    /// The next side, clockwise.
-    pub fn side_cw(self) -> Side {
-        match self {
-            Self::TopLeft => Side::Top,
-            Self::TopRight => Side::Right,
-            Self::BottomRight => Side::Bottom,
-            Self::BottomLeft => Side::Left,
-        }
-    }
-
-    /// The next side, counter-clockwise.
-    pub fn side_ccw(self) -> Side {
-        match self {
-            Self::TopLeft => Side::Left,
-            Self::TopRight => Side::Top,
-            Self::BottomRight => Side::Right,
-            Self::BottomLeft => Side::Bottom,
+impl<T: Debug + PartialEq> Debug for Corners<T> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if self.is_uniform() {
+            f.write_str("Corners::splat(")?;
+            self.top_left.fmt(f)?;
+            f.write_str(")")
+        } else {
+            f.debug_struct("Corners")
+                .field("top_left", &self.top_left)
+                .field("top_right", &self.top_right)
+                .field("bottom_right", &self.bottom_right)
+                .field("bottom_left", &self.bottom_left)
+                .finish()
         }
     }
 }
@@ -260,5 +222,60 @@ impl<T: Fold> Fold for Corners<Option<T>> {
             Some(value) => value.fold(outer),
             None => outer,
         })
+    }
+}
+
+/// The four corners of a rectangle.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Corner {
+    /// The top left corner.
+    TopLeft,
+    /// The top right corner.
+    TopRight,
+    /// The bottom right corner.
+    BottomRight,
+    /// The bottom left corner.
+    BottomLeft,
+}
+
+impl Corner {
+    /// The next corner, clockwise.
+    pub fn next_cw(self) -> Self {
+        match self {
+            Self::TopLeft => Self::TopRight,
+            Self::TopRight => Self::BottomRight,
+            Self::BottomRight => Self::BottomLeft,
+            Self::BottomLeft => Self::TopLeft,
+        }
+    }
+
+    /// The next corner, counter-clockwise.
+    pub fn next_ccw(self) -> Self {
+        match self {
+            Self::TopLeft => Self::BottomLeft,
+            Self::TopRight => Self::TopLeft,
+            Self::BottomRight => Self::TopRight,
+            Self::BottomLeft => Self::BottomRight,
+        }
+    }
+
+    /// The next side, clockwise.
+    pub fn side_cw(self) -> Side {
+        match self {
+            Self::TopLeft => Side::Top,
+            Self::TopRight => Side::Right,
+            Self::BottomRight => Side::Bottom,
+            Self::BottomLeft => Side::Left,
+        }
+    }
+
+    /// The next side, counter-clockwise.
+    pub fn side_ccw(self) -> Side {
+        match self {
+            Self::TopLeft => Side::Left,
+            Self::TopRight => Side::Top,
+            Self::BottomRight => Side::Right,
+            Self::BottomLeft => Side::Bottom,
+        }
     }
 }

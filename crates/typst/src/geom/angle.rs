@@ -12,7 +12,7 @@ use super::*;
 /// #rotate(10deg)[Hello there!]
 /// ```
 #[ty(scope)]
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Angle(Scalar);
 
 impl Angle {
@@ -116,6 +116,12 @@ impl Numeric for Angle {
 
     fn is_finite(self) -> bool {
         self.0.is_finite()
+    }
+}
+
+impl Debug for Angle {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{:?}deg", self.to_deg())
     }
 }
 

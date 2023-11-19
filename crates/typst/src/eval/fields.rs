@@ -1,10 +1,8 @@
 use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
-use crate::eval::Version;
+use crate::eval::{IntoValue, Type, Value, Version};
 use crate::geom::{Align, Length, Rel, Stroke};
-
-use crate::eval::{IntoValue, Type, Value};
 
 /// Try to access a field on a value.
 ///

@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked, TrackedMut};
@@ -128,7 +128,7 @@ pub use typst_macros::func;
 /// [`array.push(value)`]($array.push). These can modify the values they are
 /// called on.
 #[ty(scope, name = "function")]
-#[derive(Debug, Clone, Hash)]
+#[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Func {
     /// The internal representation.
@@ -138,7 +138,7 @@ pub struct Func {
 }
 
 /// The different kinds of function representations.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 enum Repr {
     /// A native Rust function.
     Native(Static<NativeFuncData>),
@@ -387,6 +387,12 @@ impl Func {
             .collect::<StrResult<smallvec::SmallVec<_>>>()?;
 
         Ok(element.where_(fields))
+    }
+}
+
+impl Debug for Func {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Func({})", self.name().unwrap_or(".."))
     }
 }
 

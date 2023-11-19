@@ -47,7 +47,7 @@ pub use typst_macros::symbols;
 pub struct Symbol(Repr);
 
 /// The internal representation.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 enum Repr {
     Single(char),
     Const(&'static [(&'static str, char)]),
@@ -55,7 +55,7 @@ enum Repr {
 }
 
 /// A collection of symbols.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 enum List {
     Static(&'static [(&'static str, char)]),
     Runtime(Box<[(EcoString, char)]>),
@@ -211,6 +211,25 @@ impl Symbol {
 impl Display for Symbol {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_char(self.get())
+    }
+}
+
+impl Debug for Repr {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Single(c) => Debug::fmt(c, f),
+            Self::Const(list) => list.fmt(f),
+            Self::Multi(lists) => lists.fmt(f),
+        }
+    }
+}
+
+impl Debug for List {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Static(list) => list.fmt(f),
+            Self::Runtime(list) => list.fmt(f),
+        }
     }
 }
 

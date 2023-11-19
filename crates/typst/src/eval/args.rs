@@ -48,18 +48,6 @@ pub struct Args {
     pub items: EcoVec<Arg>,
 }
 
-/// An argument to a function call: `12` or `draw: false`.
-#[derive(Debug, Clone, Hash)]
-#[allow(clippy::derived_hash_with_manual_eq)]
-pub struct Arg {
-    /// The span of the whole argument.
-    pub span: Span,
-    /// The name of the argument (`None` for positional arguments).
-    pub name: Option<Str>,
-    /// The value of the argument.
-    pub value: Spanned<Value>,
-}
-
 impl Args {
     /// Create positional arguments from a span and values.
     pub fn new<T: IntoValue>(span: Span, values: impl IntoIterator<Item = T>) -> Self {
@@ -274,12 +262,6 @@ impl Args {
     }
 }
 
-impl PartialEq for Args {
-    fn eq(&self, other: &Self) -> bool {
-        self.to_pos() == other.to_pos() && self.to_named() == other.to_named()
-    }
-}
-
 impl Debug for Args {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_list().entries(&self.items).finish()
@@ -293,9 +275,33 @@ impl Repr for Args {
     }
 }
 
-impl PartialEq for Arg {
+impl PartialEq for Args {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && self.value.v == other.value.v
+        self.to_pos() == other.to_pos() && self.to_named() == other.to_named()
+    }
+}
+
+/// An argument to a function call: `12` or `draw: false`.
+#[derive(Clone, Hash)]
+#[allow(clippy::derived_hash_with_manual_eq)]
+pub struct Arg {
+    /// The span of the whole argument.
+    pub span: Span,
+    /// The name of the argument (`None` for positional arguments).
+    pub name: Option<Str>,
+    /// The value of the argument.
+    pub value: Spanned<Value>,
+}
+
+impl Debug for Arg {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if let Some(name) = &self.name {
+            name.fmt(f)?;
+            f.write_str(": ")?;
+            self.value.v.fmt(f)
+        } else {
+            self.value.v.fmt(f)
+        }
     }
 }
 
@@ -306,5 +312,11 @@ impl Repr for Arg {
         } else {
             self.value.v.repr()
         }
+    }
+}
+
+impl PartialEq for Arg {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.value.v == other.value.v
     }
 }

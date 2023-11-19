@@ -1,5 +1,5 @@
 use ecow::EcoString;
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Formatter};
 
 use crate::diag::StrResult;
 use crate::eval::{ty, CastInfo, FromValue, IntoValue, Reflect, Repr, Type, Value};
@@ -14,7 +14,7 @@ use crate::model::{Fold, Resolve, StyleChain};
 /// parameter. Setting it to `{auto}` lets Typst automatically determine the
 /// direction from the [text language]($text.lang).
 #[ty(name = "auto")]
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct AutoValue;
 
 impl IntoValue for AutoValue {
@@ -43,6 +43,12 @@ impl Reflect for AutoValue {
 
     fn castable(value: &Value) -> bool {
         matches!(value, Value::Auto)
+    }
+}
+
+impl Debug for AutoValue {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("Auto")
     }
 }
 

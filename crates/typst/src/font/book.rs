@@ -1,5 +1,6 @@
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
+use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
 use ttf_parser::{name_id, PlatformId, Tag};
@@ -442,7 +443,7 @@ fn shared_prefix_words(left: &str, right: &str) -> usize {
 /// - 2 codepoints inside (18, 19)
 ///
 /// So the resulting encoding is `[2, 3, 4, 3, 3, 1, 2, 2]`.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Coverage(Vec<u32>);
 
@@ -495,6 +496,12 @@ impl Coverage {
             cursor += run;
             range
         })
+    }
+}
+
+impl Debug for Coverage {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad("Coverage(..)")
     }
 }
 

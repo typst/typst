@@ -1,8 +1,10 @@
+use std::fmt::{self, Debug, Formatter};
+
 use super::*;
 use crate::eval::{CastInfo, FromValue, IntoValue, Reflect};
 
 /// A container with left, top, right and bottom components.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Sides<T> {
     /// The value for the left side.
     pub left: T,
@@ -121,84 +123,21 @@ impl<T> Get<Side> for Sides<T> {
     }
 }
 
-/// The four sides of objects.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Side {
-    /// The left side.
-    Left,
-    /// The top side.
-    Top,
-    /// The right side.
-    Right,
-    /// The bottom side.
-    Bottom,
-}
-
-impl Side {
-    /// The opposite side.
-    pub fn inv(self) -> Self {
-        match self {
-            Self::Left => Self::Right,
-            Self::Top => Self::Bottom,
-            Self::Right => Self::Left,
-            Self::Bottom => Self::Top,
+impl<T: Debug + PartialEq> Debug for Sides<T> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if self.is_uniform() {
+            f.write_str("Sides::splat(")?;
+            self.left.fmt(f)?;
+            f.write_str(")")
+        } else {
+            f.debug_struct("Sides")
+                .field("left", &self.left)
+                .field("top", &self.top)
+                .field("right", &self.right)
+                .field("bottom", &self.bottom)
+                .finish()
         }
     }
-
-    /// The next side, clockwise.
-    pub fn next_cw(self) -> Self {
-        match self {
-            Self::Left => Self::Top,
-            Self::Top => Self::Right,
-            Self::Right => Self::Bottom,
-            Self::Bottom => Self::Left,
-        }
-    }
-
-    /// The next side, counter-clockwise.
-    pub fn next_ccw(self) -> Self {
-        match self {
-            Self::Left => Self::Bottom,
-            Self::Top => Self::Left,
-            Self::Right => Self::Top,
-            Self::Bottom => Self::Right,
-        }
-    }
-
-    /// The first corner of the side in clockwise order.
-    pub fn start_corner(self) -> Corner {
-        match self {
-            Self::Left => Corner::BottomLeft,
-            Self::Top => Corner::TopLeft,
-            Self::Right => Corner::TopRight,
-            Self::Bottom => Corner::BottomRight,
-        }
-    }
-
-    /// The second corner of the side in clockwise order.
-    pub fn end_corner(self) -> Corner {
-        self.next_cw().start_corner()
-    }
-
-    /// Return the corresponding axis.
-    pub fn axis(self) -> Axis {
-        match self {
-            Self::Left | Self::Right => Axis::Y,
-            Self::Top | Self::Bottom => Axis::X,
-        }
-    }
-}
-
-cast! {
-    Side,
-    self => Align::from(self).into_value(),
-    align: Align => match align {
-        Align::LEFT => Self::Left,
-        Align::RIGHT => Self::Right,
-        Align::TOP => Self::Top,
-        Align::BOTTOM => Self::Bottom,
-        _ => bail!("cannot convert this alignment to a side"),
-    },
 }
 
 impl<T: Reflect> Reflect for Sides<Option<T>> {
@@ -290,4 +229,84 @@ impl<T: Fold> Fold for Sides<Option<T>> {
             None => outer,
         })
     }
+}
+
+/// The four sides of objects.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Side {
+    /// The left side.
+    Left,
+    /// The top side.
+    Top,
+    /// The right side.
+    Right,
+    /// The bottom side.
+    Bottom,
+}
+
+impl Side {
+    /// The opposite side.
+    pub fn inv(self) -> Self {
+        match self {
+            Self::Left => Self::Right,
+            Self::Top => Self::Bottom,
+            Self::Right => Self::Left,
+            Self::Bottom => Self::Top,
+        }
+    }
+
+    /// The next side, clockwise.
+    pub fn next_cw(self) -> Self {
+        match self {
+            Self::Left => Self::Top,
+            Self::Top => Self::Right,
+            Self::Right => Self::Bottom,
+            Self::Bottom => Self::Left,
+        }
+    }
+
+    /// The next side, counter-clockwise.
+    pub fn next_ccw(self) -> Self {
+        match self {
+            Self::Left => Self::Bottom,
+            Self::Top => Self::Left,
+            Self::Right => Self::Top,
+            Self::Bottom => Self::Right,
+        }
+    }
+
+    /// The first corner of the side in clockwise order.
+    pub fn start_corner(self) -> Corner {
+        match self {
+            Self::Left => Corner::BottomLeft,
+            Self::Top => Corner::TopLeft,
+            Self::Right => Corner::TopRight,
+            Self::Bottom => Corner::BottomRight,
+        }
+    }
+
+    /// The second corner of the side in clockwise order.
+    pub fn end_corner(self) -> Corner {
+        self.next_cw().start_corner()
+    }
+
+    /// Return the corresponding axis.
+    pub fn axis(self) -> Axis {
+        match self {
+            Self::Left | Self::Right => Axis::Y,
+            Self::Top | Self::Bottom => Axis::X,
+        }
+    }
+}
+
+cast! {
+    Side,
+    self => Align::from(self).into_value(),
+    align: Align => match align {
+        Align::LEFT => Self::Left,
+        Align::RIGHT => Self::Right,
+        Align::TOP => Self::Top,
+        Align::BOTTOM => Self::Bottom,
+        _ => bail!("cannot convert this alignment to a side"),
+    },
 }

@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::fmt::{self, Debug, Formatter, Write};
+use std::fmt::{self, Debug, Formatter};
 use std::iter;
 use std::mem;
 use std::ptr;
@@ -16,7 +16,7 @@ use crate::syntax::Span;
 
 /// A list of style properties.
 #[ty]
-#[derive(Debug, Default, PartialEq, Clone, Hash)]
+#[derive(Default, PartialEq, Clone, Hash)]
 pub struct Styles(EcoVec<Prehashed<Style>>);
 
 impl Styles {
@@ -86,6 +86,13 @@ impl Styles {
 impl From<Style> for Styles {
     fn from(entry: Style) -> Self {
         Self(eco_vec![Prehashed::new(entry)])
+    }
+}
+
+impl Debug for Styles {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("Styles ")?;
+        f.debug_list().entries(&self.0).finish()
     }
 }
 
@@ -175,8 +182,14 @@ impl Property {
 
 impl Debug for Property {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "set {}({}: {:?})", self.elem.name(), self.id, self.value)?;
-        Ok(())
+        write!(
+            f,
+            "Set({}.{}: ",
+            self.elem.name(),
+            self.elem.field_name(self.id).unwrap()
+        )?;
+        self.value.fmt(f)?;
+        write!(f, ")")
     }
 }
 
@@ -244,12 +257,11 @@ impl Recipe {
 
 impl Debug for Recipe {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("show")?;
+        f.write_str("Show(")?;
         if let Some(selector) = &self.selector {
-            f.write_char(' ')?;
             selector.fmt(f)?;
+            f.write_str(", ")?;
         }
-        f.write_str(": ")?;
         self.transform.fmt(f)
     }
 }
@@ -469,10 +481,10 @@ impl<'a> StyleChain<'a> {
 
 impl Debug for StyleChain<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        for entry in self.entries().collect::<Vec<_>>().into_iter().rev() {
-            writeln!(f, "{:?}", entry)?;
-        }
-        Ok(())
+        f.write_str("StyleChain ")?;
+        f.debug_list()
+            .entries(self.entries().collect::<Vec<_>>().into_iter().rev())
+            .finish()
     }
 }
 

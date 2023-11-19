@@ -1,5 +1,5 @@
 use ecow::EcoString;
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Formatter};
 
 use serde::{Serialize, Serializer};
 
@@ -19,7 +19,7 @@ use crate::eval::{cast, ty, CastInfo, FromValue, IntoValue, Reflect, Repr, Type,
 /// Not visible: #none
 /// ```
 #[ty(name = "none")]
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct NoneValue;
 
 impl Reflect for NoneValue {
@@ -48,6 +48,12 @@ impl FromValue for NoneValue {
             Value::None => Ok(Self),
             _ => Err(Self::error(&value)),
         }
+    }
+}
+
+impl Debug for NoneValue {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad("None")
     }
 }
 

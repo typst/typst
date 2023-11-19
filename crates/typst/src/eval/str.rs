@@ -68,7 +68,7 @@ pub use ecow::eco_format;
 /// - `[\t]` for a tab
 /// - `[\u{1f600}]` for a hexadecimal Unicode escape sequence
 #[ty(scope, title = "String")]
-#[derive(Debug, Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Str(EcoString);
@@ -598,77 +598,6 @@ impl Str {
     }
 }
 
-/// A value that can be cast to a string.
-pub enum ToStr {
-    /// A string value ready to be used as-is.
-    Str(Str),
-    /// An integer about to be formatted in a given base.
-    Int(i64),
-}
-
-cast! {
-    ToStr,
-    v: i64 => Self::Int(v),
-    v: f64 => Self::Str(repr::format_float(v, None, "").into()),
-    v: Version => Self::Str(format_str!("{}", v)),
-    v: Bytes => Self::Str(
-        std::str::from_utf8(&v)
-            .map_err(|_| "bytes are not valid utf-8")?
-            .into()
-    ),
-    v: Label => Self::Str(v.as_str().into()),
-    v: Type => Self::Str(v.long_name().into()),
-    v: Str => Self::Str(v),
-}
-
-/// The out of bounds access error message.
-#[cold]
-fn out_of_bounds(index: i64, len: usize) -> EcoString {
-    eco_format!("string index out of bounds (index: {}, len: {})", index, len)
-}
-
-/// The out of bounds access error message when no default value was given.
-#[cold]
-fn no_default_and_out_of_bounds(index: i64, len: usize) -> EcoString {
-    eco_format!("no default value was specified and string index out of bounds (index: {}, len: {})", index, len)
-}
-
-/// The char boundary access error message.
-#[cold]
-fn not_a_char_boundary(index: i64) -> EcoString {
-    eco_format!("string index {} is not a character boundary", index)
-}
-
-/// The error message when the string is empty.
-#[cold]
-fn string_is_empty() -> EcoString {
-    "string is empty".into()
-}
-
-/// Convert an item of std's `match_indices` to a dictionary.
-fn match_to_dict((start, text): (usize, &str)) -> Dict {
-    dict! {
-        "start" => start,
-        "end" => start + text.len(),
-        "text" => text,
-        "captures" => Array::new(),
-    }
-}
-
-/// Convert regex captures to a dictionary.
-fn captures_to_dict(cap: regex::Captures) -> Dict {
-    let m = cap.get(0).expect("missing first match");
-    dict! {
-        "start" => m.start(),
-        "end" => m.end(),
-        "text" => m.as_str(),
-        "captures" =>  cap.iter()
-            .skip(1)
-            .map(|opt| opt.map_or(Value::None, |m| m.as_str().into_value()))
-            .collect::<Array>(),
-    }
-}
-
 impl Deref for Str {
     type Target = str;
 
@@ -677,15 +606,44 @@ impl Deref for Str {
     }
 }
 
+impl Debug for Str {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Debug::fmt(self.as_str(), f)
+    }
+}
+
 impl Display for Str {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(self)
+        Display::fmt(self.as_str(), f)
     }
 }
 
 impl Repr for Str {
     fn repr(&self) -> EcoString {
         self.as_ref().repr()
+    }
+}
+
+impl Repr for EcoString {
+    fn repr(&self) -> EcoString {
+        self.as_ref().repr()
+    }
+}
+
+impl Repr for &str {
+    fn repr(&self) -> EcoString {
+        let mut r = EcoString::with_capacity(self.len() + 2);
+        r.push('"');
+        for c in self.chars() {
+            match c {
+                '\0' => r.push_str(r"\u{0}"),
+                '\'' => r.push('\''),
+                '"' => r.push_str(r#"\""#),
+                _ => c.escape_debug().for_each(|c| r.push(c)),
+            }
+        }
+        r.push('"');
+        r
     }
 }
 
@@ -793,27 +751,75 @@ cast! {
     v: Str => v.into(),
 }
 
-impl Repr for &str {
-    fn repr(&self) -> EcoString {
-        let mut r = EcoString::with_capacity(self.len() + 2);
-        r.push('"');
-        for c in self.chars() {
-            match c {
-                '\0' => r.push_str(r"\u{0}"),
-                '\'' => r.push('\''),
-                '"' => r.push_str(r#"\""#),
-                _ => c.escape_debug().for_each(|c| r.push(c)),
-            }
-        }
-        r.push('"');
-        r
+/// A value that can be cast to a string.
+pub enum ToStr {
+    /// A string value ready to be used as-is.
+    Str(Str),
+    /// An integer about to be formatted in a given base.
+    Int(i64),
+}
+
+cast! {
+    ToStr,
+    v: i64 => Self::Int(v),
+    v: f64 => Self::Str(repr::format_float(v, None, "").into()),
+    v: Version => Self::Str(format_str!("{}", v)),
+    v: Bytes => Self::Str(
+        std::str::from_utf8(&v)
+            .map_err(|_| "bytes are not valid utf-8")?
+            .into()
+    ),
+    v: Label => Self::Str(v.as_str().into()),
+    v: Type => Self::Str(v.long_name().into()),
+    v: Str => Self::Str(v),
+}
+
+/// Convert an item of std's `match_indices` to a dictionary.
+fn match_to_dict((start, text): (usize, &str)) -> Dict {
+    dict! {
+        "start" => start,
+        "end" => start + text.len(),
+        "text" => text,
+        "captures" => Array::new(),
     }
 }
 
-impl Repr for EcoString {
-    fn repr(&self) -> EcoString {
-        self.as_ref().repr()
+/// Convert regex captures to a dictionary.
+fn captures_to_dict(cap: regex::Captures) -> Dict {
+    let m = cap.get(0).expect("missing first match");
+    dict! {
+        "start" => m.start(),
+        "end" => m.end(),
+        "text" => m.as_str(),
+        "captures" =>  cap.iter()
+            .skip(1)
+            .map(|opt| opt.map_or(Value::None, |m| m.as_str().into_value()))
+            .collect::<Array>(),
     }
+}
+
+/// The out of bounds access error message.
+#[cold]
+fn out_of_bounds(index: i64, len: usize) -> EcoString {
+    eco_format!("string index out of bounds (index: {}, len: {})", index, len)
+}
+
+/// The out of bounds access error message when no default value was given.
+#[cold]
+fn no_default_and_out_of_bounds(index: i64, len: usize) -> EcoString {
+    eco_format!("no default value was specified and string index out of bounds (index: {}, len: {})", index, len)
+}
+
+/// The char boundary access error message.
+#[cold]
+fn not_a_char_boundary(index: i64) -> EcoString {
+    eco_format!("string index {} is not a character boundary", index)
+}
+
+/// The error message when the string is empty.
+#[cold]
+fn string_is_empty() -> EcoString {
+    "string is empty".into()
 }
 
 /// A regular expression.

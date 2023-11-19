@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::path::Path;
 use std::sync::Arc;
@@ -296,7 +297,7 @@ impl LocalName for BibliographyElem {
 
 /// A loaded bibliography.
 #[ty]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Bibliography {
     map: Arc<IndexMap<PicoStr, hayagriva::Entry>>,
     hash: u128,
@@ -375,6 +376,12 @@ impl Bibliography {
 
     fn entries(&self) -> impl Iterator<Item = &hayagriva::Entry> {
         self.map.values()
+    }
+}
+
+impl Debug for Bibliography {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_set().entries(self.map.keys()).finish()
     }
 }
 

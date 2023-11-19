@@ -1,7 +1,7 @@
 use super::*;
 
 /// How a fill or stroke should be painted.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Paint {
     /// A solid color.
     Solid(Color),
@@ -32,15 +32,12 @@ impl Paint {
     }
 }
 
-impl<T: Into<Color>> From<T> for Paint {
-    fn from(t: T) -> Self {
-        Self::Solid(t.into())
-    }
-}
-
-impl From<Gradient> for Paint {
-    fn from(gradient: Gradient) -> Self {
-        Self::Gradient(gradient)
+impl Debug for Paint {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Solid(v) => v.fmt(f),
+            Self::Gradient(v) => v.fmt(f),
+        }
     }
 }
 
@@ -50,6 +47,18 @@ impl Repr for Paint {
             Self::Solid(color) => color.repr(),
             Self::Gradient(gradient) => gradient.repr(),
         }
+    }
+}
+
+impl<T: Into<Color>> From<T> for Paint {
+    fn from(t: T) -> Self {
+        Self::Solid(t.into())
+    }
+}
+
+impl From<Gradient> for Paint {
+    fn from(gradient: Gradient) -> Self {
+        Self::Gradient(gradient)
     }
 }
 

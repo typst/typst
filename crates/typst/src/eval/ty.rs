@@ -53,7 +53,7 @@ pub use typst_macros::{scope, ty};
 /// - The `{in}` operator on a type and a dictionary will evaluate to `{true}`
 ///   if the dictionary has a string key matching the type's name
 #[ty(scope)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Type(Static<NativeTypeData>);
 
 impl Type {
@@ -136,6 +136,12 @@ impl Type {
         value: Value,
     ) -> Type {
         value.ty()
+    }
+}
+
+impl Debug for Type {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Type({})", self.long_name())
     }
 }
 

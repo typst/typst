@@ -1,6 +1,6 @@
 use ecow::{eco_format, EcoString};
 
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use time::ext::NumericalDuration;
 
@@ -8,7 +8,7 @@ use crate::eval::{func, repr, scope, ty, Repr};
 
 /// Represents a positive or negative span of time.
 #[ty(scope)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Duration(time::Duration);
 
 impl Duration {
@@ -107,6 +107,12 @@ impl Duration {
     #[func]
     pub fn weeks(&self) -> f64 {
         self.seconds() / 604_800.0
+    }
+}
+
+impl Debug for Duration {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 

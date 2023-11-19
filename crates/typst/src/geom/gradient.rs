@@ -159,7 +159,7 @@ use crate::syntax::{Span, Spanned};
 /// Typst predefines color maps that you can use with your gradients. See the
 /// [`color`]($color/#predefined-color-maps) documentation for more details.
 #[ty(scope)]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Gradient {
     Linear(Arc<LinearGradient>),
     Radial(Arc<RadialGradient>),
@@ -825,6 +825,16 @@ impl Gradient {
             Quadrant::Fourth => rad + TAU,
         };
         Angle::rad(rad.rem_euclid(TAU))
+    }
+}
+
+impl Debug for Gradient {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Linear(v) => v.fmt(f),
+            Self::Radial(v) => v.fmt(f),
+            Self::Conic(v) => v.fmt(f),
+        }
     }
 }
 

@@ -1,5 +1,5 @@
 use std::any::TypeId;
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Formatter};
 use std::iter::{self, Sum};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
@@ -65,7 +65,7 @@ use crate::syntax::Span;
 /// elements the content is composed of and what fields they have.
 /// Alternatively, you can inspect the output of the [`repr`]($repr) function.
 #[ty(scope)]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Content(Arc<dyn NativeElement>);
 
 impl Content {
@@ -531,6 +531,12 @@ impl Content {
 impl Default for Content {
     fn default() -> Self {
         Self::empty()
+    }
+}
+
+impl Debug for Content {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 

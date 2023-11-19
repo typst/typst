@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, AddAssign, Deref};
 use std::sync::Arc;
 
@@ -38,7 +38,7 @@ use crate::eval::{cast, func, scope, ty, Array, Reflect, Repr, Str, Value};
 /// #str(data.slice(1, 4))
 /// ```
 #[ty(scope)]
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Clone, Hash, Eq, PartialEq)]
 pub struct Bytes(Arc<Prehashed<Cow<'static, [u8]>>>);
 
 impl Bytes {
@@ -153,15 +153,15 @@ impl Bytes {
     }
 }
 
-impl From<&[u8]> for Bytes {
-    fn from(slice: &[u8]) -> Self {
-        Self(Arc::new(Prehashed::new(slice.to_vec().into())))
+impl Debug for Bytes {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Bytes({})", self.len())
     }
 }
 
-impl From<Vec<u8>> for Bytes {
-    fn from(vec: Vec<u8>) -> Self {
-        Self(Arc::new(Prehashed::new(vec.into())))
+impl Repr for Bytes {
+    fn repr(&self) -> EcoString {
+        eco_format!("bytes({})", self.len())
     }
 }
 
@@ -179,9 +179,15 @@ impl AsRef<[u8]> for Bytes {
     }
 }
 
-impl Repr for Bytes {
-    fn repr(&self) -> EcoString {
-        eco_format!("bytes({})", self.len())
+impl From<&[u8]> for Bytes {
+    fn from(slice: &[u8]) -> Self {
+        Self(Arc::new(Prehashed::new(slice.to_vec().into())))
+    }
+}
+
+impl From<Vec<u8>> for Bytes {
+    fn from(vec: Vec<u8>) -> Self {
+        Self(Arc::new(Prehashed::new(vec.into())))
     }
 }
 
