@@ -11,7 +11,7 @@ use xz2::bufread::XzDecoder;
 use zip::ZipArchive;
 
 use crate::args::UpdateCommand;
-use crate::download::download_with_progress;
+use crate::download::{download, download_with_progress};
 
 const TYPST_GITHUB_ORG: &str = "typst";
 const TYPST_REPO: &str = "typst";
@@ -111,7 +111,7 @@ impl Release {
             ),
         };
 
-        match ureq::get(&url).call() {
+        match download(&url) {
             Ok(response) => response
                 .into_json()
                 .map_err(|err| eco_format!("unable to parse JSON response: {err}")),
