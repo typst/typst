@@ -5,13 +5,12 @@ use std::sync::Arc;
 use ecow::{eco_format, EcoString, EcoVec};
 use smallvec::SmallVec;
 
-use super::{Content, Element, Label, Locatable, Location};
 use crate::diag::{bail, StrResult};
-use crate::eval::repr::pretty_array_like;
 use crate::eval::{
-    cast, func, item, scope, ty, CastInfo, Dict, FromValue, Func, Reflect, Regex, Repr,
-    Str, Symbol, Type, Value,
+    cast, func, item, repr, scope, ty, CastInfo, Dict, FromValue, Func, Reflect, Regex,
+    Repr, Str, Symbol, Type, Value,
 };
+use crate::model::{Content, Element, Label, Locatable, Location};
 
 /// A helper macro to create a field selector used in [`Selector::Elem`]
 ///
@@ -259,7 +258,7 @@ impl Repr for Selector {
             Self::Or(selectors) | Self::And(selectors) => {
                 let function = if matches!(self, Self::Or(_)) { "or" } else { "and" };
                 let pieces: Vec<_> = selectors.iter().map(Selector::repr).collect();
-                eco_format!("{}{}", function, pretty_array_like(&pieces, false))
+                eco_format!("{}{}", function, repr::pretty_array_like(&pieces, false))
             }
             Self::Location(loc) => loc.repr(),
             Self::Before { selector, end: split, inclusive }

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use ttf_parser::{name_id, PlatformId, Tag};
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{Font, FontStretch, FontStyle, FontVariant, FontWeight};
+use crate::font::{Font, FontStretch, FontStyle, FontVariant, FontWeight};
 
 /// Metadata about a collection of fonts.
 #[derive(Debug, Default, Clone, Hash)]

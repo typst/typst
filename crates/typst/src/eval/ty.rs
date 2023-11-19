@@ -4,8 +4,8 @@ use std::fmt::{self, Debug, Display, Formatter};
 use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 
-use super::{cast, func, Func, NativeFuncData, Repr, Scope, Value};
 use crate::diag::StrResult;
+use crate::eval::{cast, func, Func, NativeFuncData, Repr, Scope, Value};
 use crate::util::Static;
 
 #[doc(inline)]

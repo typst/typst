@@ -1,5 +1,3 @@
-use heck::{ToKebabCase, ToShoutySnakeCase, ToUpperCamelCase};
-
 use super::*;
 
 /// Expand the `#[elem]` macro.

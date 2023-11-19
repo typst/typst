@@ -4,10 +4,10 @@ use std::hash::{Hash, Hasher};
 use ecow::{eco_format, EcoString};
 use indexmap::IndexMap;
 
-use super::{
+use crate::diag::{bail, HintedStrResult, HintedString, StrResult};
+use crate::eval::{
     Func, IntoValue, Library, Module, NativeFunc, NativeFuncData, NativeType, Type, Value,
 };
-use crate::diag::{bail, HintedStrResult, HintedString, StrResult};
 use crate::model::{Element, NativeElement};
 
 /// A stack of scopes.

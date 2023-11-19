@@ -7,9 +7,8 @@ use ecow::{eco_format, EcoString};
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::repr::{pretty_array_like, separated_list};
-use super::{array, func, scope, ty, Array, Repr, Str, Value};
 use crate::diag::StrResult;
+use crate::eval::{array, func, repr, scope, ty, Array, Repr, Str, Value};
 use crate::syntax::is_ident;
 use crate::util::ArcExt;
 
@@ -119,7 +118,7 @@ impl Dict {
         if let Some((key, _)) = self.iter().next() {
             let parts: Vec<_> = expected.iter().map(|s| eco_format!("\"{s}\"")).collect();
             let mut msg = format!("unexpected key {}, valid keys are ", key.repr());
-            msg.push_str(&separated_list(&parts, "and"));
+            msg.push_str(&repr::separated_list(&parts, "and"));
             return Err(msg.into());
         }
         Ok(())
@@ -236,7 +235,7 @@ impl Repr for Dict {
             pieces.push(eco_format!(".. ({} pairs omitted)", self.len() - max));
         }
 
-        pretty_array_like(&pieces, false).into()
+        repr::pretty_array_like(&pieces, false).into()
     }
 }
 

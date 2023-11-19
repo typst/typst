@@ -1,5 +1,4 @@
-use super::{HElem, VElem};
-use crate::layout::{BlockElem, ParElem, Spacing};
+use crate::layout::{BlockElem, HElem, ParElem, Spacing, VElem};
 use crate::prelude::*;
 
 /// A list of terms and their descriptions.

@@ -2,9 +2,10 @@ use std::fmt::{self, Debug, Formatter};
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
-use super::repr::pretty_array_like;
-use super::{func, scope, ty, Array, Dict, FromValue, IntoValue, Repr, Str, Value};
 use crate::diag::{bail, At, SourceDiagnostic, SourceResult};
+use crate::eval::{
+    func, repr, scope, ty, Array, Dict, FromValue, IntoValue, Repr, Str, Value,
+};
 use crate::syntax::{Span, Spanned};
 
 /// Captured arguments to a function.
@@ -288,7 +289,7 @@ impl Debug for Args {
 impl Repr for Args {
     fn repr(&self) -> EcoString {
         let pieces = self.items.iter().map(Arg::repr).collect::<Vec<_>>();
-        pretty_array_like(&pieces, false).into()
+        repr::pretty_array_like(&pieces, false).into()
     }
 }
 

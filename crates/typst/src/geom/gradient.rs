@@ -5,10 +5,10 @@ use std::sync::Arc;
 
 use kurbo::Vec2;
 
-use super::color::{Hsl, Hsv};
 use super::*;
 use crate::diag::{bail, error, SourceResult};
 use crate::eval::{array, cast, func, scope, ty, Args, Array, Cast, Func, IntoValue};
+use crate::geom::color::{Hsl, Hsv};
 use crate::geom::{ColorSpace, Smart};
 use crate::syntax::{Span, Spanned};
 

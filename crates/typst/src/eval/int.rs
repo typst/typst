@@ -2,8 +2,7 @@ use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError
 
 use ecow::{eco_format, EcoString};
 
-use super::repr::{format_int_with_base, MINUS_SIGN};
-use super::{cast, func, scope, ty, Repr, Str, Value};
+use crate::eval::{cast, func, repr, scope, ty, Repr, Str, Value};
 
 /// A whole number.
 ///
@@ -54,7 +53,7 @@ impl i64 {
 
 impl Repr for i64 {
     fn repr(&self) -> EcoString {
-        format_int_with_base(*self, 10)
+        repr::format_int_with_base(*self, 10)
     }
 }
 
@@ -71,7 +70,7 @@ cast! {
 
 fn parse_int(mut s: &str) -> Result<i64, ParseIntError> {
     let mut sign = 1;
-    if let Some(rest) = s.strip_prefix('-').or_else(|| s.strip_prefix(MINUS_SIGN)) {
+    if let Some(rest) = s.strip_prefix('-').or_else(|| s.strip_prefix(repr::MINUS_SIGN)) {
         sign = -1;
         s = rest;
     }

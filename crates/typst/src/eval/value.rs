@@ -10,13 +10,12 @@ use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use siphasher::sip128::{Hasher128, SipHasher13};
 
-use super::repr::{format_float, format_int_with_base};
-use super::{
-    fields, ops, Args, Array, AutoValue, Bytes, CastInfo, Content, Dict, Duration,
+use crate::diag::StrResult;
+use crate::eval::{
+    fields, ops, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Dict, Duration,
     FromValue, Func, IntoValue, Module, NativeType, NoneValue, Plugin, Reflect, Repr,
     Scope, Str, Symbol, Type, Version,
 };
-use crate::diag::StrResult;
 use crate::eval::{item, Datetime};
 use crate::geom::{Abs, Angle, Color, Em, Fr, Gradient, Length, Ratio, Rel};
 use crate::model::{Label, Styles};
@@ -198,8 +197,8 @@ impl Value {
     pub fn display(self) -> Content {
         match self {
             Self::None => Content::empty(),
-            Self::Int(v) => item!(text)(format_int_with_base(v, 10)),
-            Self::Float(v) => item!(text)(format_float(v, None, "")),
+            Self::Int(v) => item!(text)(repr::format_int_with_base(v, 10)),
+            Self::Float(v) => item!(text)(repr::format_float(v, None, "")),
             Self::Str(v) => item!(text)(v.into()),
             Self::Version(v) => item!(text)(eco_format!("{v}")),
             Self::Symbol(v) => item!(text)(v.get().into()),

@@ -1,11 +1,9 @@
 use std::str::FromStr;
 
-use crate::layout::{BlockElem, ParElem, Sizing, Spacing};
+use crate::layout::{BlockElem, GridLayouter, ParElem, Sizing, Spacing};
 use crate::meta::{Numbering, NumberingPattern};
 use crate::prelude::*;
 use crate::text::TextElem;
-
-use super::GridLayouter;
 
 /// A numbered list.
 ///

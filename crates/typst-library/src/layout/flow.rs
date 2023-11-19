@@ -2,7 +2,7 @@ use std::mem;
 
 use comemo::Prehashed;
 
-use super::{
+use crate::layout::{
     AlignElem, BlockElem, ColbreakElem, ColumnsElem, ParElem, PlaceElem, Spacing, VElem,
 };
 use crate::meta::{FootnoteElem, FootnoteEntry};

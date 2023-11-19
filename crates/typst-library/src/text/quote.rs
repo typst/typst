@@ -1,7 +1,7 @@
-use super::{SmartquoteElem, SpaceElem, TextElem};
 use crate::layout::{BlockElem, HElem, PadElem, Spacing, VElem};
 use crate::meta::{CitationForm, CiteElem};
 use crate::prelude::*;
+use crate::text::{SmartquoteElem, SpaceElem, TextElem};
 
 /// Displays a quote alongside an optional attribution.
 ///

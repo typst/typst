@@ -4,7 +4,7 @@ use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use super::SyntaxKind;
+use crate::SyntaxKind;
 
 /// Splits up a string of source code into tokens.
 #[derive(Clone)]

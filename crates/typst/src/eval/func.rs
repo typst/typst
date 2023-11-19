@@ -5,11 +5,11 @@ use comemo::{Prehashed, Tracked, TrackedMut};
 use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 
-use super::{
+use crate::diag::{bail, HintedStrResult, SourceResult, StrResult};
+use crate::eval::{
     cast, scope, ty, Args, CastInfo, Eval, FlowEvent, IntoValue, Route, Scope, Scopes,
     Tracer, Type, Value, Vm,
 };
-use crate::diag::{bail, HintedStrResult, SourceResult, StrResult};
 use crate::model::{
     Content, DelayedErrors, Element, Introspector, Locator, Selector, Vt,
 };

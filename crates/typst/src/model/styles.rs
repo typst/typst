@@ -9,9 +9,9 @@ use ecow::{eco_vec, EcoString, EcoVec};
 use once_cell::sync::Lazy;
 use smallvec::SmallVec;
 
-use super::{Block, Blockable, Content, Element, NativeElement, Selector, Vt};
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::eval::{cast, ty, Args, Func, Repr, Value, Vm};
+use crate::model::{Block, Blockable, Content, Element, NativeElement, Selector, Vt};
 use crate::syntax::Span;
 
 /// A list of style properties.

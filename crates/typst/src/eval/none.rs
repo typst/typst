@@ -3,8 +3,8 @@ use std::fmt::Debug;
 
 use serde::{Serialize, Serializer};
 
-use super::{cast, ty, CastInfo, FromValue, IntoValue, Reflect, Repr, Type, Value};
 use crate::diag::StrResult;
+use crate::eval::{cast, ty, CastInfo, FromValue, IntoValue, Reflect, Repr, Type, Value};
 
 /// A value that indicates the absence of any other value.
 ///

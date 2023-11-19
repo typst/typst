@@ -6,8 +6,8 @@ use std::sync::Arc;
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
 
-use super::{cast, func, scope, ty, Array};
 use crate::diag::{bail, SourceResult, StrResult};
+use crate::eval::{cast, func, scope, ty, Array};
 use crate::syntax::{Span, Spanned};
 
 #[doc(inline)]

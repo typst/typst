@@ -7,12 +7,11 @@ use ecow::EcoString;
 use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::repr::{format_float, format_int_with_base};
-use super::{
-    cast, dict, func, scope, ty, Args, Array, Bytes, Dict, Func, IntoValue, Repr, Type,
-    Value, Version, Vm,
-};
 use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::eval::{
+    cast, dict, func, repr, scope, ty, Args, Array, Bytes, Dict, Func, IntoValue, Repr,
+    Type, Value, Version, Vm,
+};
 use crate::geom::Align;
 use crate::model::Label;
 use crate::syntax::{Span, Spanned};
@@ -164,7 +163,7 @@ impl Str {
                 if base.v < 2 || base.v > 36 {
                     bail!(base.span, "base must be between 2 and 36");
                 }
-                format_int_with_base(n, base.v).into()
+                repr::format_int_with_base(n, base.v).into()
             }
         })
     }
@@ -610,7 +609,7 @@ pub enum ToStr {
 cast! {
     ToStr,
     v: i64 => Self::Int(v),
-    v: f64 => Self::Str(format_float(v, None, "").into()),
+    v: f64 => Self::Str(repr::format_float(v, None, "").into()),
     v: Version => Self::Str(format_str!("{}", v)),
     v: Bytes => Self::Str(
         std::str::from_utf8(&v)
@@ -952,30 +951,4 @@ cast! {
     },
     v: Str => Self::Str(v),
     v: Func => Self::Func(v)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_to_base() {
-        assert_eq!(&format_int_with_base(0, 10), "0");
-        assert_eq!(&format_int_with_base(0, 16), "0");
-        assert_eq!(&format_int_with_base(0, 36), "0");
-        assert_eq!(
-            &format_int_with_base(i64::MAX, 2),
-            "111111111111111111111111111111111111111111111111111111111111111"
-        );
-        assert_eq!(
-            &format_int_with_base(i64::MIN, 2),
-            "\u{2212}1000000000000000000000000000000000000000000000000000000000000000"
-        );
-        assert_eq!(&format_int_with_base(i64::MAX, 10), "9223372036854775807");
-        assert_eq!(&format_int_with_base(i64::MIN, 10), "\u{2212}9223372036854775808");
-        assert_eq!(&format_int_with_base(i64::MAX, 16), "7fffffffffffffff");
-        assert_eq!(&format_int_with_base(i64::MIN, 16), "\u{2212}8000000000000000");
-        assert_eq!(&format_int_with_base(i64::MAX, 36), "1y2p0ij32e8e7");
-        assert_eq!(&format_int_with_base(i64::MIN, 36), "\u{2212}1y2p0ij32e8e8");
-    }
 }

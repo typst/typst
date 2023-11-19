@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
 
-use super::{ty, Content, Scope, Value};
 use crate::diag::StrResult;
+use crate::eval::{ty, Content, Scope, Value};
 
 /// An evaluated module, either built-in or resulting from a file.
 ///

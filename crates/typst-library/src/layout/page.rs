@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use typst::eval::AutoValue;
 
-use super::{AlignElem, ColumnsElem};
+use crate::layout::{AlignElem, ColumnsElem};
 use crate::meta::{Counter, CounterKey, ManualPageCounter, Numbering};
 use crate::prelude::*;
 use crate::text::TextElem;

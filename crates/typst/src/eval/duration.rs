@@ -4,8 +4,7 @@ use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use time::ext::NumericalDuration;
 
-use super::repr::pretty_array_like;
-use super::{func, scope, ty, Repr};
+use crate::eval::{func, repr, scope, ty, Repr};
 
 /// Represents a positive or negative span of time.
 #[ty(scope)]
@@ -145,7 +144,7 @@ impl Repr for Duration {
             vec.push(eco_format!("seconds: {}", seconds.repr()));
         }
 
-        eco_format!("duration{}", &pretty_array_like(&vec, false))
+        eco_format!("duration{}", &repr::pretty_array_like(&vec, false))
     }
 }
 

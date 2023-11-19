@@ -10,14 +10,15 @@ use serde::{Serialize, Serializer};
 use smallvec::SmallVec;
 use typst_macros::elem;
 
-use super::{
+use crate::diag::{SourceResult, StrResult};
+use crate::doc::Meta;
+use crate::eval::{
+    func, repr, scope, ty, Dict, FromValue, IntoValue, Repr, Str, Value, Vm,
+};
+use crate::model::{
     Behave, Behaviour, Element, Guard, Label, Location, NativeElement, Recipe, Selector,
     Style, Styles,
 };
-use crate::diag::{SourceResult, StrResult};
-use crate::doc::Meta;
-use crate::eval::repr::pretty_array_like;
-use crate::eval::{func, scope, ty, Dict, FromValue, IntoValue, Repr, Str, Value, Vm};
 use crate::syntax::Span;
 
 /// A piece of document content.
@@ -683,7 +684,7 @@ impl Repr for SequenceElem {
         } else {
             eco_format!(
                 "[{}]",
-                pretty_array_like(
+                repr::pretty_array_like(
                     &self.children.iter().map(|c| c.0.repr()).collect::<Vec<_>>(),
                     false
                 )

@@ -4,7 +4,7 @@ use crate::diag::StrResult;
 use crate::eval::Version;
 use crate::geom::{Align, Length, Rel, Stroke};
 
-use super::{IntoValue, Type, Value};
+use crate::eval::{IntoValue, Type, Value};
 
 /// Try to access a field on a value.
 ///

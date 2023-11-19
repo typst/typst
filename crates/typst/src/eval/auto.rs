@@ -1,8 +1,8 @@
 use ecow::EcoString;
 use std::fmt::Debug;
 
-use super::{ty, CastInfo, FromValue, IntoValue, Reflect, Repr, Type, Value};
 use crate::diag::StrResult;
+use crate::eval::{ty, CastInfo, FromValue, IntoValue, Reflect, Repr, Type, Value};
 use crate::model::{Fold, Resolve, StyleChain};
 
 /// A value that indicates a smart default.

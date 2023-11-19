@@ -1,9 +1,8 @@
 use smallvec::{smallvec, SmallVec};
 
+use crate::layout::Sizing;
 use crate::prelude::*;
 use crate::text::TextElem;
-
-use super::Sizing;
 
 /// Arranges content in a grid.
 ///

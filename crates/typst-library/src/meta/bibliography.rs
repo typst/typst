@@ -21,11 +21,12 @@ use typst::eval::{eval_string, Bytes, CastInfo, EvalMode, Reflect};
 use typst::font::FontStyle;
 use typst::util::{option_eq, PicoStr};
 
-use super::{CitationForm, CiteGroup, LinkElem, LocalName};
 use crate::layout::{
     BlockElem, GridElem, HElem, PadElem, ParElem, Sizing, TrackSizings, VElem,
 };
-use crate::meta::{FootnoteElem, HeadingElem, LocalNameIn};
+use crate::meta::{
+    CitationForm, CiteGroup, FootnoteElem, HeadingElem, LinkElem, LocalName, LocalNameIn,
+};
 use crate::prelude::*;
 use crate::text::{Delta, SubElem, SuperElem, TextElem};
 

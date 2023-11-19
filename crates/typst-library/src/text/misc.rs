@@ -1,5 +1,5 @@
-use super::TextElem;
 use crate::prelude::*;
+use crate::text::TextElem;
 
 /// A text space.
 #[elem(Behave, Unlabellable, PlainText, Repr)]
