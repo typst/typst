@@ -43,6 +43,7 @@ use crate::text::{
 pub struct ParElem {
     /// The spacing between lines.
     #[resolve]
+    #[ghost]
     #[default(Em::new(0.65).into())]
     pub leading: Length,
 
@@ -55,6 +56,7 @@ pub struct ParElem {
     /// Note that the current [alignment]($align) still has an effect on the
     /// placement of the last line except if it ends with a
     /// [justified line break]($linebreak.justify).
+    #[ghost]
     #[default(false)]
     pub justify: bool,
 
@@ -79,6 +81,7 @@ pub struct ParElem {
     /// challenging to break in a visually
     /// pleasing way.
     /// ```
+    #[ghost]
     pub linebreaks: Smart<Linebreaks>,
 
     /// The indent the first line of a paragraph should have.
@@ -91,9 +94,11 @@ pub struct ParElem {
     /// the [paragraph spacing]($block.spacing) to the [`leading`] when
     /// using this property (e.g. using
     /// `[#show par: set block(spacing: 0.65em)]`).
+    #[ghost]
     pub first_line_indent: Length,
 
     /// The indent all but the first line of a paragraph should have.
+    #[ghost]
     #[resolve]
     pub hanging_indent: Length,
 
