@@ -374,6 +374,10 @@ cast! {
         paint: Smart::Custom(gradient.into()),
         ..Default::default()
     },
+    pattern: Pattern => Self {
+        paint: Smart::Custom(pattern.into()),
+        ..Default::default()
+    },
     mut dict: Dict => {
         // Get a value by key, accepting either Auto or something convertible to type T.
         fn take<T: FromValue>(dict: &mut Dict, key: &str) -> StrResult<Smart<T>> {

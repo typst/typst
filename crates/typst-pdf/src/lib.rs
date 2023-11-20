@@ -351,10 +351,6 @@ where
         })
     }
 
-    fn map(&self, item: &T) -> (Ref, usize) {
-        self.to_pdf[item]
-    }
-
     fn pdf_indices<'a>(
         &'a self,
         refs: &'a [Ref],

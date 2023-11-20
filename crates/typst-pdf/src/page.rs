@@ -259,7 +259,7 @@ pub(crate) fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)
 
 /// Memoized version of [`deflate`] specialized for a page's content stream.
 #[comemo::memoize]
-fn deflate_content(content: &[u8]) -> Arc<Vec<u8>> {
+pub(crate) fn deflate_content(content: &[u8]) -> Arc<Vec<u8>> {
     Arc::new(deflate(content))
 }
 

@@ -3,7 +3,5 @@
 #rect(
   width: 100%,
   height: 100%,
-  fill: pattern((5pt, 5pt))[
-    #align(center + horizon, circle(stroke: 0.1pt, radius: 4pt))
-  ]
+  fill: gradient.conic(..color.map.rainbow)
 )

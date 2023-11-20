@@ -3,12 +3,11 @@ use pdf_writer::{
     types::{ColorSpaceOperand, PaintType, TilingType},
     Filter, Finish, Name, Rect, Ref,
 };
-use typst::geom::{Abs, Numeric, Pattern, Ratio, Relative, Transform};
+use typst::geom::{Abs, Numeric, Pattern, Relative, Transform};
 
 use crate::{
     color::PaintEncode,
-    deflate,
-    page::{construct_page, PageContext, PageResource, Transforms},
+    page::{construct_page, PageContext, PageResource, Transforms, deflate_content},
     transform_to_array, PdfContext,
 };
 
@@ -20,7 +19,7 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
     {
         ctx.pattern_refs.push(tiling);
 
-        let content = deflate(&content);
+        let content = deflate_content(&content);
         let mut tiling_pattern = ctx.pdf.tiling_pattern(tiling, &content);
         tiling_pattern
             .paint_type(PaintType::Colored)
@@ -31,8 +30,8 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
                 pattern.bbox.x.to_pt() as _,
                 pattern.bbox.y.to_pt() as _,
             ))
-            .x_step(pattern.bbox.x.to_pt() as _)
-            .y_step(pattern.bbox.y.to_pt() as _);
+            .x_step(pattern.spacing.x.to_pt() as _)
+            .y_step(pattern.spacing.y.to_pt() as _);
 
         let mut resources_map = tiling_pattern.resources();
 
@@ -102,15 +101,14 @@ fn register_pattern(
     }
 
     let transform = match pattern.unwrap_relative(on_text) {
-        Relative::Self_ => Transform::identity(),
-        Relative::Parent => transforms
-            .container_transform
-            .post_concat(transforms.transform.invert().unwrap())
-            .pre_concat(Transform::scale(
-                Ratio::new(transforms.size.x / transforms.container_size.x),
-                Ratio::new(transforms.size.y / transforms.container_size.y),
-            )),
+        Relative::Self_ => transforms
+        .transform,
+        Relative::Parent => transforms.container_transform,
     };
+
+    eprintln!("{:?}", transforms
+    .transform
+    .post_concat(transforms.container_transform.invert().unwrap()));
 
     /*let transform = relative_transform
     .pre_concat(Transform::scale(sx, sy));*/
@@ -142,6 +140,12 @@ impl PaintEncode for Pattern {
     }
 
     fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms) {
-        todo!()
+        ctx.reset_stroke_color_space();
+
+        let (_, id) = register_pattern(ctx, self, false, transforms);
+        let name = Name(id.as_bytes());
+
+        ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
+        ctx.content.set_stroke_pattern(None, name);
     }
 }

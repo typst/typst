@@ -49,6 +49,12 @@ impl From<Gradient> for Paint {
     }
 }
 
+impl From<Pattern> for Paint {
+    fn from(pattern: Pattern) -> Self {
+        Self::Pattern(pattern)
+    }
+}
+
 impl Repr for Paint {
     fn repr(&self) -> EcoString {
         match self {
