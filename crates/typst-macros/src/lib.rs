@@ -193,6 +193,13 @@ pub fn ty(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 /// - `#[variant]`: Allows setting the ID of a field's variant. This is used
 ///   for fields that are accessed in `typst` and not `typst-library`. It gives
 ///   the field a stable ID that can be used to access it.
+/// - `#[ghost]`: Allows creating fields that are only present in the style chain,
+///   this means that they *cannot* be accessed by the user, they cannot be set
+///   on an individual instantiated element, and must be set via the style chain.
+///   This is useful for fields that are only used internally by the style chain,
+///   such as the fields from `ParElem` and `TextElem`. If your element contains
+///   any ghost fields, then you cannot auto-generate `Construct` for it, and
+///   you must implement `Construct` manually.
 #[proc_macro_attribute]
 pub fn elem(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
     let item = syn::parse_macro_input!(item as syn::ItemStruct);
