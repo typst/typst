@@ -439,7 +439,15 @@ impl ColorSpaceExt for ColorSpace {
         // The oklab color space is in the range -0.4..0.4
         // Also map the angle range of HSV/HSL to 0..1 instead of 0..360
         let [x, y, z] = match self {
-            Self::Oklab => [x, y + 0.4, z + 0.4],
+            Self::Oklab => {
+                let [l, c, h, _] = color.to_oklch().to_vec4();
+                // Clamp on Oklch's chroma, not Oklab's a\* and b\* as to not distort hue.
+                let c = c.clamp(0.0, 0.5);
+                // Convert cylindrical coordinates back to rectangular ones.
+                let a = c * h.to_radians().cos();
+                let b = c * h.to_radians().sin();
+                [l, a + 0.5, b + 0.5]
+            }
             Self::Hsv | Self::Hsl => [x / 360.0, y, z],
             _ => [x, y, z],
         };
