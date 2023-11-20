@@ -1,7 +1,7 @@
-#set page(width: 120pt, height: 120pt)
+#set page(width: 140pt, height: 140pt)
 
 #rect(
-  width: 100%,
-  height: 100%,
-  fill: gradient.conic(..color.map.rainbow)
+  width: 99.99999pt,
+  height: 99.99999pt,
+  fill: pattern((33.33333pt, 33.33333pt), square(size: 33.33333pt, fill: gradient.conic(..color.map.rainbow)))
 )
