@@ -1,11 +1,5 @@
-#set page(width: 140pt, height: 140pt)
+#set page(width: 140pt, height: 140pt, fill: pattern((33.33333pt, 33.33333pt), relative: "self", square(size: 33.33333pt, fill: gradient.conic(..color.map.rainbow, space: rgb))))
 
-#rect(
-  width: 100pt,
-  height: 100pt,
-  fill: pattern((5pt, 5pt))[
-    #square(size: 5pt, fill: pattern((1pt, 1pt))[
-      #square(size: 1pt, fill: gradient.linear(..color.map.viridis, space: rgb))
-    ])
-  ]
-)
+#set text(fill: pattern((33.33333pt, 33.33333pt), relative: "parent", square(size: 33.33333pt, fill: gradient.conic(..color.map.rainbow, space: rgb))))
+
+#lorem(20)

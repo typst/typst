@@ -36,8 +36,8 @@ impl Pattern {
         body: Content,
         /// The spacing between cells of the pattern.
         #[named]
-        #[default(Spanned::new(Smart::Auto, Span::detached()))]
-        spacing: Spanned<Smart<Axes<Length>>>,
+        #[default(Spanned::new(Axes::splat(Length::zero()), Span::detached()))]
+        spacing: Spanned<Axes<Length>>,
         /// The [relative placement](#relativeness) of the pattern.
         ///
         /// For an element placed at the root/top level of the document, the
@@ -53,13 +53,6 @@ impl Pattern {
             bail!(bbox.span, "pattern tile size must be absolute");
         }
 
-        // Ensure that spacing is absolute.
-        if let Smart::Custom(space) = &spacing.v {
-            if !space.x.em.is_zero() || !space.y.em.is_zero() {
-                bail!(spacing.span, "pattern tile spacing must be absolute");
-            }
-        }
-
         // Ensure that sizes are non-zero and finite.
         if bbox.v.x.is_zero()
             || bbox.v.y.is_zero()
@@ -67,6 +60,16 @@ impl Pattern {
             || !bbox.v.y.is_finite()
         {
             bail!(bbox.span, "pattern tile size must be non-zero and non-infinite");
+        }
+
+        // Ensure that spacing is absolute.
+        if !spacing.v.x.em.is_zero() || !spacing.v.y.em.is_zero() {
+            bail!(spacing.span, "pattern tile spacing must be absolute");
+        }
+
+        // Ensure that spacing is finite.
+        if !spacing.v.x.is_finite() || !spacing.v.y.is_finite() {
+            bail!(spacing.span, "pattern tile spacing must be finite");
         }
 
         // The size of the pattern.
@@ -84,10 +87,7 @@ impl Pattern {
         Ok(Self {
             body: Prehashed::new(body),
             bbox: size,
-            spacing: spacing
-                .v
-                .map(|spacing| Size::new(spacing.x.abs, spacing.y.abs))
-                .unwrap_or_else(|| size),
+            spacing: spacing.v.map(|l| l.abs),
             relative,
         })
     }

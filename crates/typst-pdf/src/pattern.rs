@@ -29,8 +29,8 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
                 pattern.bbox.x.to_pt() as _,
                 pattern.bbox.y.to_pt() as _,
             ))
-            .x_step(pattern.spacing.x.to_pt() as _)
-            .y_step(pattern.spacing.y.to_pt() as _);
+            .x_step((pattern.bbox.x + pattern.spacing.x).to_pt() as _)
+            .y_step((pattern.bbox.y + pattern.spacing.y).to_pt() as _);
 
         let mut resources_map = tiling_pattern.resources();
 
@@ -112,6 +112,8 @@ fn register_pattern(
         Relative::Self_ => transforms.transform,
         Relative::Parent => transforms.container_transform,
     };
+
+    eprintln!("{:?} => {transform:?}", pattern.unwrap_relative(on_text));
 
     // Render the body.
     let (_, content) = construct_page(ctx.parent, &pattern.body);

@@ -20,6 +20,15 @@ impl Paint {
         }
     }
 
+    /// Gets the relative coordinate system for this paint.
+    pub fn relative(&self) -> Smart<Relative> {
+        match self {
+            Self::Solid(_) => Smart::Auto,
+            Self::Gradient(gradient) => gradient.relative(),
+            Self::Pattern(pattern) => pattern.relative,
+        }
+    }
+
     /// Turns this paint into a paint for a text decoration.
     ///
     /// If this paint is a gradient, it will be converted to a gradient with
