@@ -1,22 +1,16 @@
-use ecow::EcoString;
 use once_cell::sync::Lazy;
 use pdf_writer::types::DeviceNSubtype;
 use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
 use typst::geom::{Color, ColorSpace, Paint};
 
 use crate::deflate;
-use crate::page::{PageContext, Transforms, PageResource};
+use crate::page::{PageContext, Transforms};
 
 // The names of the color spaces.
-pub const SRGB_NAME: EcoString = EcoString::inline("srgb");
 pub const SRGB: Name<'static> = Name(b"srgb");
-pub const D65_GRAY_NAME: EcoString = EcoString::inline("d65gray");
 pub const D65_GRAY: Name<'static> = Name(b"d65gray");
-pub const OKLAB_NAME: EcoString = EcoString::inline("oklab");
 pub const OKLAB: Name<'static> = Name(b"oklab");
-pub const HSV_NAME: EcoString = EcoString::inline("hsv");
 pub const HSV: Name<'static> = Name(b"hsv");
-pub const HSL_NAME: EcoString = EcoString::inline("hsl");
 pub const HSL: Name<'static> = Name(b"hsl");
 pub const LINEAR_SRGB: Name<'static> = Name(b"linearrgb");
 
@@ -317,8 +311,7 @@ impl PaintEncode for Color {
     fn set_as_fill(&self, ctx: &mut PageContext, _: bool, _: Transforms) {
         match self {
             Color::Luma(_) => {
-                let ref_ = ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);
-                ctx.resources.insert(PageResource::ColorSpace(D65_GRAY_NAME.clone()), ref_);
+                ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(D65_GRAY);
 
                 let [l, _, _, _] = ColorSpace::D65Gray.encode(*self);
@@ -326,8 +319,7 @@ impl PaintEncode for Color {
             }
             // Oklch is converted to Oklab.
             Color::Oklab(_) | Color::Oklch(_) => {
-                let ref_ = ctx.parent.colors.oklab(&mut ctx.parent.alloc);
-                ctx.resources.insert(PageResource::ColorSpace(OKLAB_NAME.clone()), ref_);
+                ctx.parent.colors.oklab(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(OKLAB);
 
                 let [l, a, b, _] = ColorSpace::Oklab.encode(*self);
@@ -341,8 +333,7 @@ impl PaintEncode for Color {
                 ctx.content.set_fill_color([r, g, b]);
             }
             Color::Rgb(_) => {
-                let ref_ = ctx.parent.colors.srgb(&mut ctx.parent.alloc);
-                ctx.resources.insert(PageResource::ColorSpace(SRGB_NAME.clone()), ref_);
+                ctx.parent.colors.srgb(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(SRGB);
 
                 let [r, g, b, _] = ColorSpace::Srgb.encode(*self);
@@ -355,16 +346,14 @@ impl PaintEncode for Color {
                 ctx.content.set_fill_cmyk(c, m, y, k);
             }
             Color::Hsl(_) => {
-                let ref_ = ctx.parent.colors.hsl(&mut ctx.parent.alloc);
-                ctx.resources.insert(PageResource::ColorSpace(HSL_NAME.clone()), ref_);
+                ctx.parent.colors.hsl(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(HSL);
 
                 let [h, s, l, _] = ColorSpace::Hsl.encode(*self);
                 ctx.content.set_fill_color([h, s, l]);
             }
             Color::Hsv(_) => {
-                let ref_ = ctx.parent.colors.hsv(&mut ctx.parent.alloc);
-                ctx.resources.insert(PageResource::ColorSpace(HSV_NAME.clone()), ref_);
+                ctx.parent.colors.hsv(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(HSV);
 
                 let [h, s, v, _] = ColorSpace::Hsv.encode(*self);
@@ -376,8 +365,7 @@ impl PaintEncode for Color {
     fn set_as_stroke(&self, ctx: &mut PageContext, _: Transforms) {
         match self {
             Color::Luma(_) => {
-                let ref_ = ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);
-                ctx.resources.insert(PageResource::ColorSpace(D65_GRAY_NAME.clone()), ref_);
+                ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(D65_GRAY);
 
                 let [l, _, _, _] = ColorSpace::D65Gray.encode(*self);
@@ -385,8 +373,7 @@ impl PaintEncode for Color {
             }
             // Oklch is converted to Oklab.
             Color::Oklab(_) | Color::Oklch(_) => {
-                let ref_ = ctx.parent.colors.oklab(&mut ctx.parent.alloc);
-                ctx.resources.insert(PageResource::ColorSpace(OKLAB_NAME.clone()), ref_);
+                ctx.parent.colors.oklab(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(OKLAB);
 
                 let [l, a, b, _] = ColorSpace::Oklab.encode(*self);
@@ -400,8 +387,7 @@ impl PaintEncode for Color {
                 ctx.content.set_stroke_color([r, g, b]);
             }
             Color::Rgb(_) => {
-                let ref_ = ctx.parent.colors.srgb(&mut ctx.parent.alloc);
-                ctx.resources.insert(PageResource::ColorSpace(SRGB_NAME.clone()), ref_);
+                ctx.parent.colors.srgb(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(SRGB);
 
                 let [r, g, b, _] = ColorSpace::Srgb.encode(*self);
@@ -414,16 +400,14 @@ impl PaintEncode for Color {
                 ctx.content.set_stroke_cmyk(c, m, y, k);
             }
             Color::Hsl(_) => {
-                let ref_ = ctx.parent.colors.hsl(&mut ctx.parent.alloc);
-                ctx.resources.insert(PageResource::ColorSpace(HSL_NAME.clone()), ref_);
+                ctx.parent.colors.hsl(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(HSL);
 
                 let [h, s, l, _] = ColorSpace::Hsl.encode(*self);
                 ctx.content.set_stroke_color([h, s, l]);
             }
             Color::Hsv(_) => {
-                let ref_ = ctx.parent.colors.hsv(&mut ctx.parent.alloc);
-                ctx.resources.insert(PageResource::ColorSpace(HSV_NAME.clone()), ref_);
+                ctx.parent.colors.hsv(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(HSV);
 
                 let [h, s, v, _] = ColorSpace::Hsv.encode(*self);

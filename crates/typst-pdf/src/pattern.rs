@@ -1,25 +1,24 @@
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 use pdf_writer::{
     types::{ColorSpaceOperand, PaintType, TilingType},
-    Filter, Finish, Name, Rect, Ref,
+    Filter, Finish, Name, Rect,
 };
 use typst::geom::{Abs, Numeric, Pattern, Relative, Transform};
 
 use crate::{
     color::PaintEncode,
-    page::{construct_page, PageContext, PageResource, Transforms, deflate_content},
+    page::{construct_page, deflate_content, PageContext, PageResource, Transforms},
     transform_to_array, PdfContext,
 };
 
 /// Writes the actual patterns (tiling patterns) to the PDF.
 /// This is performed once after writing all pages.
 pub(crate) fn write_patterns(ctx: &mut PdfContext) {
-    for (tiling, PdfPattern { transform, pattern, content, resources }) in
-        ctx.pattern_map.items()
-    {
+    for PdfPattern { transform, pattern, content, resources } in ctx.pattern_map.items() {
+        let tiling = ctx.alloc.bump();
         ctx.pattern_refs.push(tiling);
 
-        let content = deflate_content(&content);
+        let content = deflate_content(content);
         let mut tiling_pattern = ctx.pdf.tiling_pattern(tiling, &content);
         tiling_pattern
             .paint_type(PaintType::Colored)
@@ -39,30 +38,39 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
             resources
                 .iter()
                 .filter(|(res, _)| res.is_x_object())
-                .map(|(res, ref_)| (res.name(), *ref_)),
+                .map(|(res, ref_)| (res.name(), ctx.image_refs[*ref_])),
         );
 
         resources_map.fonts().pairs(
             resources
                 .iter()
                 .filter(|(res, _)| res.is_font())
-                .map(|(res, ref_)| (res.name(), *ref_)),
+                .map(|(res, ref_)| (res.name(), ctx.font_refs[*ref_])),
         );
 
-        ctx.colors.write_color_spaces(resources_map.color_spaces(), &mut ctx.alloc);
+        ctx.colors
+            .write_color_spaces(resources_map.color_spaces(), &mut ctx.alloc);
 
-        resources_map.patterns().pairs(
-            resources
-                .iter()
-                .filter(|(res, _)| res.is_pattern())
-                .map(|(res, ref_)| (res.name(), *ref_)),
-        );
+        resources_map
+            .patterns()
+            .pairs(
+                resources
+                    .iter()
+                    .filter(|(res, _)| res.is_pattern())
+                    .map(|(res, ref_)| (res.name(), ctx.pattern_refs[*ref_])),
+            )
+            .pairs(
+                resources
+                    .iter()
+                    .filter(|(res, _)| res.is_gradient())
+                    .map(|(res, ref_)| (res.name(), ctx.gradient_refs[*ref_])),
+            );
 
         resources_map.ext_g_states().pairs(
             resources
                 .iter()
                 .filter(|(res, _)| res.is_ext_g_state())
-                .map(|(res, ref_)| (res.name(), *ref_)),
+                .map(|(res, ref_)| (res.name(), ctx.ext_gs_refs[*ref_])),
         );
 
         resources_map.finish();
@@ -82,7 +90,7 @@ pub struct PdfPattern {
     /// The rendered pattern.
     pub content: Vec<u8>,
     /// The resources used by the pattern.
-    pub resources: Vec<(PageResource, Ref)>,
+    pub resources: Vec<(PageResource, usize)>,
 }
 
 fn register_pattern(
@@ -90,7 +98,7 @@ fn register_pattern(
     pattern: &Pattern,
     on_text: bool,
     mut transforms: Transforms,
-) -> (Ref, EcoString) {
+) -> usize {
     // Edge cases for strokes.
     if transforms.size.x.is_zero() {
         transforms.size.x = Abs::pt(1.0);
@@ -101,17 +109,9 @@ fn register_pattern(
     }
 
     let transform = match pattern.unwrap_relative(on_text) {
-        Relative::Self_ => transforms
-        .transform,
+        Relative::Self_ => transforms.transform,
         Relative::Parent => transforms.container_transform,
     };
-
-    eprintln!("{:?}", transforms
-    .transform
-    .post_concat(transforms.container_transform.invert().unwrap()));
-
-    /*let transform = relative_transform
-    .pre_concat(Transform::scale(sx, sy));*/
 
     // Render the body.
     let (_, content) = construct_page(ctx.parent, &pattern.body);
@@ -123,29 +123,31 @@ fn register_pattern(
         resources: content.resources.into_iter().collect(),
     };
 
-    let (ref_, index) = ctx.parent.pattern_map.insert(&mut ctx.parent.alloc, pdf_pattern);
-    (ref_, eco_format!("P{}", index))
+    ctx.parent.pattern_map.insert(pdf_pattern)
 }
 
 impl PaintEncode for Pattern {
     fn set_as_fill(&self, ctx: &mut PageContext, on_text: bool, transforms: Transforms) {
         ctx.reset_fill_color_space();
 
-        let (ref_, id) = register_pattern(ctx, self, on_text, transforms);
+        let index = register_pattern(ctx, self, on_text, transforms);
+        let id = eco_format!("P{index}");
         let name = Name(id.as_bytes());
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_fill_pattern(None, name);
-        ctx.resources.insert(PageResource::Pattern(id), ref_);
+        ctx.resources.insert(PageResource::Pattern(id), index);
     }
 
     fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms) {
         ctx.reset_stroke_color_space();
 
-        let (_, id) = register_pattern(ctx, self, false, transforms);
+        let index = register_pattern(ctx, self, false, transforms);
+        let id = eco_format!("P{index}");
         let name = Name(id.as_bytes());
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_stroke_pattern(None, name);
+        ctx.resources.insert(PageResource::Pattern(id), index);
     }
 }

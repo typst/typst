@@ -58,8 +58,8 @@ pub fn pdf(
     font::write_fonts(&mut ctx);
     image::write_images(&mut ctx);
     gradient::write_gradients(&mut ctx);
-    pattern::write_patterns(&mut ctx);
     extg::write_external_graphics_states(&mut ctx);
+    pattern::write_patterns(&mut ctx);
     page::write_page_tree(&mut ctx);
     write_catalog(&mut ctx, ident, timestamp);
     ctx.pdf.finish()
@@ -328,9 +328,9 @@ fn xmp_date(datetime: Datetime, tz: bool) -> Option<xmp_writer::DateTime> {
 /// Assigns new, consecutive PDF-internal indices to items.
 struct Remapper<T> {
     /// Forwards from the items to the pdf indices.
-    to_pdf: HashMap<T, (Ref, usize)>,
+    to_pdf: HashMap<T, usize>,
     /// Backwards from the pdf indices to the items.
-    to_items: Vec<(Ref, T)>,
+    to_items: Vec<T>,
 }
 
 impl<T> Remapper<T>
@@ -341,13 +341,12 @@ where
         Self { to_pdf: HashMap::new(), to_items: vec![] }
     }
 
-    fn insert(&mut self, alloc: &mut Ref, item: T) -> (Ref, usize) {
+    fn insert(&mut self, item: T) -> usize {
         let to_layout = &mut self.to_items;
         *self.to_pdf.entry(item.clone()).or_insert_with(|| {
             let pdf_index = to_layout.len();
-            let idx = alloc.bump();
-            to_layout.push((idx, item));
-            (idx, pdf_index)
+            to_layout.push(item);
+            pdf_index
         })
     }
 
@@ -358,8 +357,8 @@ where
         refs.iter().copied().zip(0..self.to_pdf.len())
     }
 
-    fn items(&self) -> impl Iterator<Item = (Ref, &T)> + '_ {
-        self.to_items.iter().map(|(r, t)| (*r, t))
+    fn items(&self) -> impl Iterator<Item = &T> + '_ {
+        self.to_items.iter()
     }
 }
 

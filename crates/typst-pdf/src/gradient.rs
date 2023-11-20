@@ -1,7 +1,7 @@
 use std::f32::consts::{PI, TAU};
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 use pdf_writer::types::FunctionShadingType;
 use pdf_writer::writers::StreamShadingType;
 use pdf_writer::{types::ColorSpaceOperand, Name};
@@ -12,7 +12,7 @@ use typst::geom::{
 };
 
 use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
-use crate::page::{PageContext, Transforms, PageResource};
+use crate::page::{PageContext, PageResource, Transforms};
 use crate::{deflate, transform_to_array, AbsExt, PdfContext};
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
@@ -33,9 +33,10 @@ pub struct PdfGradient {
 /// Writes the actual gradients (shading patterns) to the PDF.
 /// This is performed once after writing all pages.
 pub(crate) fn write_gradients(ctx: &mut PdfContext) {
-    for (shading, PdfGradient { transform, aspect_ratio, gradient, angle }) in
-        ctx.gradient_map.items().map(|(r, g)| (r, g.clone())).collect::<Vec<_>>()
+    for PdfGradient { transform, aspect_ratio, gradient, angle } in
+        ctx.gradient_map.items().cloned().collect::<Vec<_>>()
     {
+        let shading = ctx.alloc.bump();
         ctx.gradient_refs.push(shading);
 
         let mut shading_pattern = match &gradient {
@@ -267,21 +268,25 @@ impl PaintEncode for Gradient {
     fn set_as_fill(&self, ctx: &mut PageContext, on_text: bool, transforms: Transforms) {
         ctx.reset_fill_color_space();
 
-        let id = register_gradient(ctx, self, on_text, transforms);
+        let index = register_gradient(ctx, self, on_text, transforms);
+        let id = eco_format!("Gr{index}");
         let name = Name(id.as_bytes());
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_fill_pattern(None, name);
+        ctx.resources.insert(PageResource::Gradient(id.clone()), index);
     }
 
     fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms) {
         ctx.reset_stroke_color_space();
 
-        let id = register_gradient(ctx, self, false, transforms);
+        let index = register_gradient(ctx, self, false, transforms);
+        let id = eco_format!("Gr{index}");
         let name = Name(id.as_bytes());
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_stroke_pattern(None, name);
+        ctx.resources.insert(PageResource::Gradient(id.clone()), index);
     }
 }
 
@@ -291,7 +296,7 @@ fn register_gradient(
     gradient: &Gradient,
     on_text: bool,
     mut transforms: Transforms,
-) -> EcoString {
+) -> usize {
     // Edge cases for strokes.
     if transforms.size.x.is_zero() {
         transforms.size.x = Abs::pt(1.0);
@@ -340,13 +345,7 @@ fn register_gradient(
         angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
     };
 
-    let (ref_, index) = ctx.parent.gradient_map.insert(&mut ctx.parent.alloc, pdf_gradient);
-    let name = eco_format!("Gr{}", index);
-    ctx.resources.insert(
-        PageResource::Pattern(name.clone()),
-        ref_,
-    );
-    name
+    ctx.parent.gradient_map.insert(pdf_gradient)
 }
 
 /// Writes a single Coons Patch as defined in the PDF specification

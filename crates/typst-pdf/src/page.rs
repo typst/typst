@@ -278,14 +278,14 @@ pub struct Page {
     /// The page's PDF label.
     pub label: Option<PdfPageLabel>,
     /// The page's used resources
-    pub resources: HashMap<PageResource, Ref>,
+    pub resources: HashMap<PageResource, usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PageResource {
     XObject(EcoString),
     Font(EcoString),
-    ColorSpace(EcoString),
+    Gradient(EcoString),
     Pattern(EcoString),
     ExtGState(EcoString),
 }
@@ -295,7 +295,7 @@ impl PageResource {
         match self {
             Self::XObject(name) => Name(name.as_bytes()),
             Self::Font(name) => Name(name.as_bytes()),
-            Self::ColorSpace(name) => Name(name.as_bytes()),
+            Self::Gradient(name) => Name(name.as_bytes()),
             Self::Pattern(name) => Name(name.as_bytes()),
             Self::ExtGState(name) => Name(name.as_bytes()),
         }
@@ -307,6 +307,10 @@ impl PageResource {
 
     pub fn is_font(&self) -> bool {
         matches!(self, Self::Font(_))
+    }
+
+    pub fn is_gradient(&self) -> bool {
+        matches!(self, Self::Gradient(_))
     }
 
     pub fn is_pattern(&self) -> bool {
@@ -329,7 +333,7 @@ pub struct PageContext<'a, 'b> {
     bottom: f32,
     uses_opacities: bool,
     links: Vec<(Destination, Rect)>,
-    pub resources: HashMap<PageResource, Ref>,
+    pub resources: HashMap<PageResource, usize>,
 }
 
 /// A simulated graphics state used to deduplicate graphics state changes and
@@ -404,10 +408,10 @@ impl PageContext<'_, '_> {
     fn set_external_graphics_state(&mut self, graphics_state: &ExtGState) {
         let current_state = self.state.external_graphics_state.as_ref();
         if current_state != Some(graphics_state) {
-            let (ref_, index) = self.parent.extg_map.insert(&mut self.parent.alloc, *graphics_state);
+            let index = self.parent.extg_map.insert(*graphics_state);
             let name = eco_format!("Gs{index}");
             self.content.set_parameters(Name(name.as_bytes()));
-            self.resources.insert(PageResource::ExtGState(name), ref_);
+            self.resources.insert(PageResource::ExtGState(name), index);
 
             if graphics_state.uses_opacities() {
                 self.uses_opacities = true;
@@ -462,10 +466,10 @@ impl PageContext<'_, '_> {
 
     fn set_font(&mut self, font: &Font, size: Abs) {
         if self.state.font.as_ref().map(|(f, s)| (f, *s)) != Some((font, size)) {
-            let (ref_, index) = self.parent.font_map.insert(&mut self.parent.alloc, font.clone());
+            let index = self.parent.font_map.insert(font.clone());
             let name = eco_format!("F{index}");
             self.content.set_font(Name(name.as_bytes()), size.to_f32());
-            self.resources.insert(PageResource::Font(name), ref_);
+            self.resources.insert(PageResource::Font(name), index);
             self.state.font = Some((font.clone(), size));
         }
     }
@@ -737,13 +741,13 @@ fn write_path(ctx: &mut PageContext, x: f32, y: f32, path: &geom::Path) {
 
 /// Encode a vector or raster image into the content stream.
 fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size) {
-    let (ref_, idx) = ctx.parent.image_map.insert(&mut ctx.parent.alloc, image.clone());
+    let index = ctx.parent.image_map.insert(image.clone());
     ctx.parent
         .image_deferred_map
-        .entry(idx)
+        .entry(index)
         .or_insert_with(|| deferred_image(image.clone()));
 
-    let name = eco_format!("Im{idx}");
+    let name = eco_format!("Im{index}");
     let w = size.x.to_f32();
     let h = size.y.to_f32();
     ctx.content.save_state();
@@ -763,7 +767,7 @@ fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size)
         ctx.content.x_object(Name(name.as_bytes()));
     }
 
-    ctx.resources.insert(PageResource::XObject(name.clone()), ref_);
+    ctx.resources.insert(PageResource::XObject(name.clone()), index);
     ctx.content.restore_state();
 }
 

@@ -23,7 +23,8 @@ const SYSTEM_INFO: SystemInfo = SystemInfo {
 /// Embed all used fonts into the PDF.
 #[tracing::instrument(skip_all)]
 pub(crate) fn write_fonts(ctx: &mut PdfContext) {
-    for (type0_ref, font) in ctx.font_map.items() {
+    for font in ctx.font_map.items() {
+        let type0_ref = ctx.alloc.bump();
         let cid_ref = ctx.alloc.bump();
         let descriptor_ref = ctx.alloc.bump();
         let cmap_ref = ctx.alloc.bump();
