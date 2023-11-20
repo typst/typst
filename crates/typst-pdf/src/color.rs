@@ -431,26 +431,7 @@ impl ColorSpaceExt for ColorSpace {
 
     fn convert<U: QuantizedColor>(self, color: Color) -> [U; 3] {
         let range = self.range();
-        let [x, y, z, _] = color.to_space(self).to_vec4();
-
-        // We need to add 0.4 to y and z for Oklab
-        // This is because DeviceN color spaces in PDF can **only** be in
-        // the range 0..1 and some readers enforce that.
-        // The oklab color space is in the range -0.4..0.4
-        // Also map the angle range of HSV/HSL to 0..1 instead of 0..360
-        let [x, y, z] = match self {
-            Self::Oklab => {
-                let [l, c, h, _] = color.to_oklch().to_vec4();
-                // Clamp on Oklch's chroma, not Oklab's a\* and b\* as to not distort hue.
-                let c = c.clamp(0.0, 0.5);
-                // Convert cylindrical coordinates back to rectangular ones.
-                let a = c * h.to_radians().cos();
-                let b = c * h.to_radians().sin();
-                [l, a + 0.5, b + 0.5]
-            }
-            Self::Hsv | Self::Hsl => [x / 360.0, y, z],
-            _ => [x, y, z],
-        };
+        let [x, y, z, _] = self.encode(color);
 
         [
             U::quantize(x, [range[0], range[1]]),
@@ -466,12 +447,9 @@ pub(super) trait QuantizedColor {
 }
 
 impl QuantizedColor for u16 {
-    fn quantize(color: f32, range: [f32; 2]) -> Self {
-        let value = (color - range[0]) / (range[1] - range[0]);
-        (value.max(0.0).min(1.0) * Self::MAX as f32)
-            .round()
-            .max(0.0)
-            .min(Self::MAX as f32) as Self
+    fn quantize(color: f32, [min, max]: [f32; 2]) -> Self {
+        let value = (color - min) / (max - min);
+        (value * Self::MAX as f32).round().clamp(0.0, Self::MAX as f32) as Self
     }
 }
 
