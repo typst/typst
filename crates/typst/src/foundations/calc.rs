@@ -17,6 +17,7 @@ pub fn module() -> Module {
     scope.define_func::<pow>();
     scope.define_func::<exp>();
     scope.define_func::<sqrt>();
+    scope.define_func::<root>();
     scope.define_func::<sin>();
     scope.define_func::<cos>();
     scope.define_func::<tan>();
@@ -181,6 +182,37 @@ pub fn sqrt(
         bail!(value.span, "cannot take square root of negative number");
     }
     Ok(value.v.float().sqrt())
+}
+
+/// Calculates the real nth root of a number.
+///
+/// If the number is negative, then n must be odd.
+///
+/// ```example
+/// #calc.root(16.0, 4) \
+/// #calc.root(27.0, 3)
+/// ```
+#[func]
+pub fn root(
+    /// The expression to take the root of
+    radicand: f64,
+    /// Which root of the radicand to take
+    index: Spanned<i64>,
+) -> SourceResult<f64> {
+    if index.v == 0 {
+        bail!(index.span, "cannot take the 0th root of a number");
+    } else if radicand < 0.0 {
+        if index.v % 2 == 0 {
+            bail!(
+                index.span,
+                "negative numbers do not have a real nth root when n is even"
+            );
+        } else {
+            Ok(-(-radicand).powf(1.0 / index.v as f64))
+        }
+    } else {
+        Ok(radicand.powf(1.0 / index.v as f64))
+    }
 }
 
 /// Calculates the sine of an angle.
