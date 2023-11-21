@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly
+          toolchain: nightly-2023-11-03
       - uses: Swatinem/rust-cache@v2
       - run: cargo install cargo-fuzz
       - run: cd tests/fuzz && cargo fuzz build
