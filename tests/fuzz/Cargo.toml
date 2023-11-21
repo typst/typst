@@ -1,8 +1,8 @@
 [package]
 name = "typst-fuzz"
-version = "0.0.0"
+version.workspace = true
+edition.workspace = true
 publish = false
-edition = "2021"
 
 [package.metadata]
 cargo-fuzz = true
@@ -10,12 +10,12 @@ cargo-fuzz = true
 [dependencies]
 arbitrary = { version = "1.3.1", features = ["derive"] }
 libfuzzer-sys = "0.4"
-typst-syntax = { path = "../../crates/typst-syntax" }
-typst-library = { path = "../../crates/typst-library" }
-typst-render = { path = "../../crates/typst-render" }
-typst = { path = "../../crates/typst" }
 comemo = "0.3"
-unscanny = "0.1"
+
+typst-syntax = { workspace = true }
+typst-library = { workspace = true }
+typst-render = { workspace = true }
+typst = { workspace = true }
 
 [profile.release]
 debug = 1
