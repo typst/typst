@@ -1,7 +1,7 @@
 #![no_main]
 use comemo::Prehashed;
-
-use typst::diag::FileResult;
+use libfuzzer_sys::fuzz_target;
+use typst::diag::{FileError, FileResult};
 use typst::eval::{Bytes, Datetime, Library, Tracer};
 use typst::font::{Font, FontBook};
 use typst::geom::Color;
@@ -9,8 +9,6 @@ use typst::syntax::{FileId, Source};
 use typst::World;
 
 const FONT: &[u8] = include_bytes!("../../../assets/fonts/LinLibertine_R.ttf");
-
-use libfuzzer_sys::fuzz_target;
 
 struct FuzzWorld {
     library: Prehashed<Library>,
@@ -46,12 +44,12 @@ impl World for FuzzWorld {
         self.source.clone()
     }
 
-    fn source(&self, _: FileId) -> FileResult<Source> {
-        unimplemented!()
+    fn source(&self, src: FileId) -> FileResult<Source> {
+        Err(FileError::NotFound(src.vpath().as_rootless_path().into()))
     }
 
-    fn file(&self, _: FileId) -> FileResult<Bytes> {
-        unimplemented!()
+    fn file(&self, src: FileId) -> FileResult<Bytes> {
+        Err(FileError::NotFound(src.vpath().as_rootless_path().into()))
     }
 
     fn font(&self, _: usize) -> Option<Font> {
@@ -59,7 +57,7 @@ impl World for FuzzWorld {
     }
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
-        unimplemented!()
+        None
     }
 }
 
@@ -67,6 +65,8 @@ fuzz_target!(|text: &str| {
     let world = FuzzWorld::new(text);
     let mut tracer = Tracer::new();
     if let Ok(document) = typst::compile(&world, &mut tracer) {
-        typst_render::render(&document.pages[0], 1.0, Color::WHITE);
+        if let Some(page) = document.pages.first() {
+            std::hint::black_box(typst_render::render(&page, 1.0, Color::WHITE));
+        }
     }
 });
