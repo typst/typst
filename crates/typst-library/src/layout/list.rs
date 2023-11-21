@@ -1,5 +1,4 @@
-use crate::layout::GridLayouter;
-use crate::layout::{BlockElem, ParElem, Sizing, Spacing};
+use crate::layout::{BlockElem, GridLayouter, ParElem, Sizing, Spacing};
 use crate::prelude::*;
 use crate::text::TextElem;
 

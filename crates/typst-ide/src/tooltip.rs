@@ -5,8 +5,7 @@ use if_chain::if_chain;
 use typst::doc::Frame;
 use typst::eval::{repr, CapturesVisitor, CastInfo, Repr, Tracer, Value};
 use typst::geom::{round_2, Length, Numeric};
-use typst::syntax::ast;
-use typst::syntax::{LinkedNode, Source, SyntaxKind};
+use typst::syntax::{ast, LinkedNode, Source, SyntaxKind};
 use typst::World;
 
 use crate::analyze::analyze_labels;

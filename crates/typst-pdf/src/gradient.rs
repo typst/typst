@@ -2,10 +2,9 @@ use std::f32::consts::{PI, TAU};
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
-use pdf_writer::types::FunctionShadingType;
+use pdf_writer::types::{ColorSpaceOperand, FunctionShadingType};
 use pdf_writer::writers::StreamShadingType;
-use pdf_writer::{types::ColorSpaceOperand, Name};
-use pdf_writer::{Filter, Finish, Ref};
+use pdf_writer::{Filter, Finish, Name, Ref};
 use typst::geom::{
     Abs, Angle, Color, ColorSpace, ConicGradient, Gradient, Numeric, Point, Quadrant,
     Ratio, Relative, Transform, WeightedColor,

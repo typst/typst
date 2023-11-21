@@ -12,11 +12,10 @@ use siphasher::sip128::{Hasher128, SipHasher13};
 
 use crate::diag::StrResult;
 use crate::eval::{
-    fields, ops, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Dict, Duration,
-    FromValue, Func, IntoValue, Module, NativeType, NoneValue, Plugin, Reflect, Repr,
-    Scope, Str, Symbol, Type, Version,
+    fields, item, ops, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime,
+    Dict, Duration, FromValue, Func, IntoValue, Module, NativeType, NoneValue, Plugin,
+    Reflect, Repr, Scope, Str, Symbol, Type, Version,
 };
-use crate::eval::{item, Datetime};
 use crate::geom::{Abs, Angle, Color, Em, Fr, Gradient, Length, Ratio, Rel};
 use crate::model::{Label, Styles};
 use crate::syntax::{ast, Span};

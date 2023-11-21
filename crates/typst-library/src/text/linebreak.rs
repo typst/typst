@@ -1,4 +1,5 @@
-use icu_properties::{maps::CodePointMapData, LineBreak};
+use icu_properties::maps::CodePointMapData;
+use icu_properties::LineBreak;
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
