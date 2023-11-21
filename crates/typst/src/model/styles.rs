@@ -1,5 +1,7 @@
+use std::any::Any;
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::iter;
 use std::mem;
 use std::ptr;
@@ -11,7 +13,7 @@ use smallvec::SmallVec;
 
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::eval::{cast, ty, Args, Func, Repr, Value, Vm};
-use crate::model::{Block, Blockable, Content, Element, NativeElement, Selector, Vt};
+use crate::model::{Content, Element, NativeElement, Selector, Vt};
 use crate::syntax::Span;
 
 /// A list of style properties.
@@ -165,7 +167,10 @@ pub struct Property {
 
 impl Property {
     /// Create a new property from a key-value pair.
-    pub fn new<T: Blockable>(elem: Element, id: u8, value: T) -> Self {
+    pub fn new<T>(elem: Element, id: u8, value: T) -> Self
+    where
+        T: Debug + Clone + Hash + Send + Sync + 'static,
+    {
         Self { elem, id, value: Block::new(value), span: None }
     }
 
@@ -190,6 +195,79 @@ impl Debug for Property {
         )?;
         self.value.fmt(f)?;
         write!(f, ")")
+    }
+}
+
+/// A block storage for storing style values.
+///
+/// We're using a `Box` since values will either be contained in an `Arc` and
+/// therefore already on the heap or they will be small enough that we can just
+/// clone them.
+struct Block(Box<dyn Blockable>);
+
+impl Block {
+    /// Creates a new block.
+    fn new<T: Blockable>(value: T) -> Self {
+        Self(Box::new(value))
+    }
+
+    /// Downcasts the block to the specified type.
+    fn downcast<T: 'static>(&self) -> Option<&T> {
+        self.0.as_any().downcast_ref()
+    }
+}
+
+impl Debug for Block {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl Hash for Block {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.dyn_hash(state);
+    }
+}
+
+impl Clone for Block {
+    fn clone(&self) -> Self {
+        self.0.dyn_clone()
+    }
+}
+
+/// A value that can be stored in a block.
+///
+/// Auto derived for all types that implement [`Any`], [`Clone`], [`Hash`],
+/// [`Debug`], [`Send`] and [`Sync`].
+trait Blockable: Debug + Send + Sync + 'static {
+    /// Equivalent to `downcast_ref` for the block.
+    fn as_any(&self) -> &dyn Any;
+
+    /// Equivalent to `downcast_mut` for the block.
+    fn as_any_mut(&mut self) -> &mut dyn Any;
+
+    /// Equivalent to [`Hash`] for the block.
+    fn dyn_hash(&self, state: &mut dyn Hasher);
+
+    /// Equivalent to [`Clone`] for the block.
+    fn dyn_clone(&self) -> Block;
+}
+
+impl<T: Debug + Clone + Hash + Send + Sync + 'static> Blockable for T {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
+        self.hash(&mut state);
+    }
+
+    fn dyn_clone(&self) -> Block {
+        Block(Box::new(self.clone()))
     }
 }
 
@@ -329,7 +407,7 @@ impl<'a> StyleChain<'a> {
 
     /// Cast the first value for the given property in the chain,
     /// returning a borrowed value if possible.
-    pub fn get_borrowed<T: Blockable + Clone>(
+    pub fn get_borrowed<T: Clone>(
         self,
         func: Element,
         id: u8,
@@ -342,7 +420,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
-    pub fn get<T: Blockable + Clone>(
+    pub fn get<T: Clone>(
         self,
         func: Element,
         id: u8,
@@ -353,7 +431,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
-    pub fn get_resolve<T: Blockable + Clone + Resolve>(
+    pub fn get_resolve<T: Clone + Resolve>(
         self,
         func: Element,
         id: u8,
@@ -364,7 +442,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
-    pub fn get_fold<T: Blockable + Clone + Fold>(
+    pub fn get_fold<T: Clone + Fold + 'static>(
         self,
         func: Element,
         id: u8,
@@ -392,7 +470,7 @@ impl<'a> StyleChain<'a> {
         default: impl Fn() -> <T::Output as Fold>::Output,
     ) -> <T::Output as Fold>::Output
     where
-        T: Blockable + Clone + Resolve,
+        T: Resolve + Clone + 'static,
         T::Output: Fold,
     {
         fn next<T>(
@@ -401,7 +479,7 @@ impl<'a> StyleChain<'a> {
             default: &impl Fn() -> <T::Output as Fold>::Output,
         ) -> <T::Output as Fold>::Output
         where
-            T: Blockable + Resolve,
+            T: Resolve + 'static,
             T::Output: Fold,
         {
             values
@@ -419,7 +497,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Iterate over all values for the given property in the chain.
-    pub fn properties<T: Blockable>(
+    pub fn properties<T: 'static>(
         self,
         func: Element,
         id: u8,
