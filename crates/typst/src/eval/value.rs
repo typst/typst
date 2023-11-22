@@ -16,7 +16,7 @@ use crate::eval::{
     Dict, Duration, FromValue, Func, IntoValue, Module, NativeType, NoneValue, Plugin,
     Reflect, Repr, Scope, Str, Symbol, Type, Version,
 };
-use crate::geom::{Abs, Angle, Color, Em, Fr, Gradient, Length, Ratio, Rel, Pattern};
+use crate::geom::{Abs, Angle, Color, Em, Fr, Gradient, Length, Pattern, Ratio, Rel};
 use crate::model::{Label, Styles};
 use crate::syntax::{ast, Span};
 

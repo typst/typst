@@ -341,8 +341,8 @@ impl SVGRenderer {
                 .or_else(|| {
                     self.render_outline_glyph(
                         state
-                            .pre_translate(Point::new(Abs::pt(offset), Abs::zero()))
-                            .pre_concat(Transform::scale(Ratio::one(), -Ratio::one())),
+                            .pre_concat(Transform::scale(Ratio::one(), -Ratio::one()))
+                            .pre_translate(Point::new(Abs::pt(offset), Abs::zero())),
                         text,
                         id,
                         offset,
@@ -1066,7 +1066,7 @@ impl SVGRenderer {
                 .write_attribute("patternTransform", &SvgMatrix(pattern_ref.transform));
 
             self.xml.write_attribute("id", &id);
-            
+
             // Writing the href attribute to the "reference" pattern.
             self.xml
                 .write_attribute_fmt("href", format_args!("#{}", pattern_ref.id));
