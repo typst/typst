@@ -5,7 +5,7 @@ use semver::Version;
 
 use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
 
-/// The character used by the operating system to separate path components
+/// The character typically used to separate path components
 /// in environment variables.
 const ENV_PATH_SEP: char = if cfg!(windows) { ';' } else { ':' };
 
