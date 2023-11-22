@@ -1,15 +1,13 @@
 use ecow::eco_format;
-use pdf_writer::{
-    types::{ColorSpaceOperand, PaintType, TilingType},
-    Filter, Finish, Name, Rect,
-};
+use pdf_writer::types::{ColorSpaceOperand, PaintType, TilingType};
+use pdf_writer::{Filter, Finish, Name, Rect};
 use typst::geom::{Abs, Numeric, Pattern, Relative, Transform};
 
-use crate::{
-    color::PaintEncode,
-    page::{construct_page, deflate_content, PageContext, PageResource, Transforms},
-    transform_to_array, PdfContext,
+use crate::color::PaintEncode;
+use crate::page::{
+    construct_page, deflate_content, PageContext, PageResource, Transforms,
 };
+use crate::{transform_to_array, PdfContext};
 
 /// Writes the actual patterns (tiling patterns) to the PDF.
 /// This is performed once after writing all pages.
