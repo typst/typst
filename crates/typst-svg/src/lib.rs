@@ -1052,6 +1052,7 @@ impl SVGRenderer {
         self.xml.end_element()
     }
 
+    /// Writes the references to the deduplicated patterns for each usage site.
     fn write_pattern_refs(&mut self) {
         if self.pattern_refs.is_empty() {
             return;
@@ -1065,7 +1066,8 @@ impl SVGRenderer {
                 .write_attribute("patternTransform", &SvgMatrix(pattern_ref.transform));
 
             self.xml.write_attribute("id", &id);
-            // Writing the href attribute to the "reference" gradient.
+            
+            // Writing the href attribute to the "reference" pattern.
             self.xml
                 .write_attribute_fmt("href", format_args!("#{}", pattern_ref.id));
 
