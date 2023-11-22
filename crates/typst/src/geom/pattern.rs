@@ -106,7 +106,7 @@ impl Pattern {
     /// #let pat = pattern(
     ///   (20pt, 20pt),
     ///   relative: "parent",
-    ///   align(center + horizon, rotate(45deg, square(size: 10pt)))
+    ///   place(dx: 5pt, dy: 5pt, rotate(45deg, square(size: 5pt, fill: black)))
     /// );
     ///  #rect(width: 100%, height: 100%, fill: pat)
     /// ```
