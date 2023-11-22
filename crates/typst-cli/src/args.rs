@@ -118,7 +118,7 @@ pub struct SharedArgs {
         long = "font-path",
         env = "TYPST_FONT_PATHS",
         value_name = "DIR",
-        action = ArgAction::Append,
+        value_delimiter = ','
     )]
     pub font_paths: Vec<PathBuf>,
 
@@ -139,7 +139,7 @@ pub struct FontsCommand {
         long = "font-path",
         env = "TYPST_FONT_PATHS",
         value_name = "DIR",
-        action = ArgAction::Append,
+        value_delimiter = ','
     )]
     pub font_paths: Vec<PathBuf>,
 
