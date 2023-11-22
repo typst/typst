@@ -21,7 +21,7 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
         let content = deflate_content(content);
         let mut tiling_pattern = ctx.pdf.tiling_pattern(tiling, &content);
         tiling_pattern
-            .tiling_type(TilingType::FastConstantSpacing)
+            .tiling_type(TilingType::ConstantSpacing)
             .paint_type(PaintType::Colored)
             .bbox(Rect::new(
                 0.0,

@@ -79,7 +79,7 @@ impl Pattern {
         let library = vm.vt.world.library();
         let body = (library.items.layout_one)(
             &mut vm.vt,
-            &Content::from(body),
+            &body,
             StyleChain::default(),
             size,
         )?;
