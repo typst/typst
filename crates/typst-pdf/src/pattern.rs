@@ -21,8 +21,8 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
         let content = deflate_content(content);
         let mut tiling_pattern = ctx.pdf.tiling_pattern(tiling, &content);
         tiling_pattern
-            .paint_type(PaintType::Colored)
             .tiling_type(TilingType::FastConstantSpacing)
+            .paint_type(PaintType::Colored)
             .bbox(Rect::new(
                 0.0,
                 0.0,
@@ -112,8 +112,6 @@ fn register_pattern(
         Relative::Self_ => transforms.transform,
         Relative::Parent => transforms.container_transform,
     };
-
-    eprintln!("{:?} => {transform:?}", pattern.unwrap_relative(on_text));
 
     // Render the body.
     let (_, content) = construct_page(ctx.parent, &pattern.body);
