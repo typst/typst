@@ -93,6 +93,7 @@ pub struct PdfPattern {
     pub resources: Vec<(PageResource, usize)>,
 }
 
+/// Registers a pattern with the PDF.
 fn register_pattern(
     ctx: &mut PageContext,
     pattern: &Pattern,

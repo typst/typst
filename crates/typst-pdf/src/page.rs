@@ -340,6 +340,7 @@ pub struct PageContext<'a, 'b> {
     bottom: f32,
     uses_opacities: bool,
     links: Vec<(Destination, Rect)>,
+    /// Keep track of the resources being used in the page.
     pub resources: HashMap<PageResource, usize>,
 }
 
