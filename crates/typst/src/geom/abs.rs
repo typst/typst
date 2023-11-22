@@ -1,7 +1,7 @@
 use super::*;
 
 /// An absolute length.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Abs(Scalar);
 
 impl Abs {
@@ -130,6 +130,12 @@ impl Numeric for Abs {
 
     fn is_finite(self) -> bool {
         self.0.is_finite()
+    }
+}
+
+impl Debug for Abs {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{:?}pt", self.to_pt())
     }
 }
 

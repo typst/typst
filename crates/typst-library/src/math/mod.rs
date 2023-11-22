@@ -46,9 +46,9 @@ use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
 use crate::layout::{AlignElem, BoxElem, HElem, ParElem, Spacing};
-use crate::meta::Supplement;
 use crate::meta::{
     Count, Counter, CounterUpdate, LocalNameIn, Numbering, Outlinable, Refable,
+    Supplement,
 };
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;

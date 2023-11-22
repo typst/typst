@@ -16,7 +16,7 @@ use typst::World;
 use unscanny::Scanner;
 use yaml_front_matter::YamlFrontMatter;
 
-use super::{contributors, OutlineItem, Resolver, FILE_DIR, FONTS, LIBRARY};
+use crate::{contributors, OutlineItem, Resolver, FILE_DIR, FONTS, LIBRARY};
 
 /// HTML documentation.
 #[derive(Serialize)]

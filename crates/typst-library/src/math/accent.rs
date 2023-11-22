@@ -1,4 +1,4 @@
-use super::*;
+use crate::math::*;
 
 /// How much the accent can be shorter than the base.
 const ACCENT_SHORT_FALL: Em = Em::new(0.5);

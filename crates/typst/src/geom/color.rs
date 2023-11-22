@@ -9,18 +9,18 @@ use palette::{
 };
 
 use super::*;
-use crate::diag::{bail, error, At, SourceResult};
-use crate::eval::{cast, Args, Array, IntoValue, Module, Scope, Str};
+use crate::diag::{error, At, SourceResult};
+use crate::eval::{Args, IntoValue, Module, Scope, Str};
 use crate::syntax::{Span, Spanned};
 
 // Type aliases for `palette` internal types in f32.
-pub type Oklab = palette::oklab::Oklaba<f32>;
-pub type Oklch = palette::oklch::Oklcha<f32>;
-pub type LinearRgb = palette::rgb::Rgba<Linear<encoding::Srgb>, f32>;
-pub type Rgb = palette::rgb::Rgba<encoding::Srgb, f32>;
-pub type Hsl = palette::hsl::Hsla<encoding::Srgb, f32>;
-pub type Hsv = palette::hsv::Hsva<encoding::Srgb, f32>;
-pub type Luma = palette::luma::Luma<encoding::Srgb, f32>;
+pub(crate) type Oklab = palette::oklab::Oklaba<f32>;
+pub(crate) type Oklch = palette::oklch::Oklcha<f32>;
+pub(crate) type LinearRgb = palette::rgb::Rgba<Linear<encoding::Srgb>, f32>;
+pub(crate) type Rgb = palette::rgb::Rgba<encoding::Srgb, f32>;
+pub(crate) type Hsl = palette::hsl::Hsla<encoding::Srgb, f32>;
+pub(crate) type Hsv = palette::hsv::Hsva<encoding::Srgb, f32>;
+pub(crate) type Luma = palette::luma::Luma<encoding::Srgb, f32>;
 
 /// Equivalent of [`std::f32::EPSILON`] but for hue angles.
 const ANGLE_EPSILON: f32 = 1e-5;
@@ -154,7 +154,7 @@ const ANGLE_EPSILON: f32 = 1e-5;
 /// }))
 /// ```
 #[ty(scope)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub enum Color {
     /// A 32-bit luma color.
     Luma(Luma),
@@ -172,54 +172,6 @@ pub enum Color {
     Hsl(Hsl),
     /// A 32-bit HSV color.
     Hsv(Hsv),
-}
-
-impl From<Luma> for Color {
-    fn from(c: Luma) -> Self {
-        Self::Luma(c)
-    }
-}
-
-impl From<Oklab> for Color {
-    fn from(c: Oklab) -> Self {
-        Self::Oklab(c)
-    }
-}
-
-impl From<Oklch> for Color {
-    fn from(c: Oklch) -> Self {
-        Self::Oklch(c)
-    }
-}
-
-impl From<Rgb> for Color {
-    fn from(c: Rgb) -> Self {
-        Self::Rgb(c)
-    }
-}
-
-impl From<LinearRgb> for Color {
-    fn from(c: LinearRgb) -> Self {
-        Self::LinearRgb(c)
-    }
-}
-
-impl From<Cmyk> for Color {
-    fn from(c: Cmyk) -> Self {
-        Self::Cmyk(c)
-    }
-}
-
-impl From<Hsl> for Color {
-    fn from(c: Hsl) -> Self {
-        Self::Hsl(c)
-    }
-}
-
-impl From<Hsv> for Color {
-    fn from(c: Hsv) -> Self {
-        Self::Hsv(c)
-    }
 }
 
 #[scope]
@@ -750,6 +702,7 @@ impl Color {
     pub fn components(
         self,
         /// Whether to include the alpha component.
+        #[named]
         #[default(true)]
         alpha: bool,
     ) -> Array {
@@ -1379,6 +1332,48 @@ impl Color {
     }
 }
 
+impl Debug for Color {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Luma(v) => write!(f, "Luma({})", v.luma),
+            Self::Oklab(v) => write!(f, "Oklab({}, {}, {}, {})", v.l, v.a, v.b, v.alpha),
+            Self::Oklch(v) => {
+                write!(
+                    f,
+                    "Oklch({}, {}, {:?}, {})",
+                    v.l,
+                    v.chroma,
+                    hue_angle(v.hue.into_degrees()),
+                    v.alpha
+                )
+            }
+            Self::Rgb(v) => {
+                write!(f, "Rgb({}, {}, {}, {})", v.red, v.green, v.blue, v.alpha)
+            }
+            Self::LinearRgb(v) => {
+                write!(f, "LinearRgb({}, {}, {}, {})", v.red, v.green, v.blue, v.alpha)
+            }
+            Self::Cmyk(v) => write!(f, "Cmyk({}, {}, {}, {})", v.c, v.m, v.y, v.k),
+            Self::Hsl(v) => write!(
+                f,
+                "Hsl({:?}, {}, {}, {})",
+                hue_angle(v.hue.into_degrees()),
+                v.saturation,
+                v.lightness,
+                v.alpha
+            ),
+            Self::Hsv(v) => write!(
+                f,
+                "Hsv({:?}, {}, {}, {})",
+                hue_angle(v.hue.into_degrees()),
+                v.saturation,
+                v.value,
+                v.alpha
+            ),
+        }
+    }
+}
+
 impl Repr for Color {
     fn repr(&self) -> EcoString {
         match self {
@@ -1435,20 +1430,14 @@ impl Repr for Color {
                         "oklch({}, {}, {})",
                         Ratio::new(c.l as _).repr(),
                         format_float(c.chroma as _, Some(3), ""),
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        )
-                        .repr()
+                        hue_angle(c.hue.into_degrees()).repr(),
                     )
                 } else {
                     eco_format!(
                         "oklch({}, {}, {}, {})",
                         Ratio::new(c.l as _).repr(),
                         format_float(c.chroma as _, Some(3), ""),
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        )
-                        .repr(),
+                        hue_angle(c.hue.into_degrees()).repr(),
                         Ratio::new(c.alpha as _).repr(),
                     )
                 }
@@ -1457,20 +1446,14 @@ impl Repr for Color {
                 if c.alpha == 1.0 {
                     eco_format!(
                         "color.hsl({}, {}, {})",
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        )
-                        .repr(),
+                        hue_angle(c.hue.into_degrees()).repr(),
                         Ratio::new(c.saturation as _).repr(),
                         Ratio::new(c.lightness as _).repr(),
                     )
                 } else {
                     eco_format!(
                         "color.hsl({}, {}, {}, {})",
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        )
-                        .repr(),
+                        hue_angle(c.hue.into_degrees()).repr(),
                         Ratio::new(c.saturation as _).repr(),
                         Ratio::new(c.lightness as _).repr(),
                         Ratio::new(c.alpha as _).repr(),
@@ -1481,20 +1464,14 @@ impl Repr for Color {
                 if c.alpha == 1.0 {
                     eco_format!(
                         "color.hsv({}, {}, {})",
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        )
-                        .repr(),
+                        hue_angle(c.hue.into_degrees()).repr(),
                         Ratio::new(c.saturation as _).repr(),
                         Ratio::new(c.value as _).repr(),
                     )
                 } else {
                     eco_format!(
                         "color.hsv({}, {}, {}, {})",
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        )
-                        .repr(),
+                        hue_angle(c.hue.into_degrees()).repr(),
                         Ratio::new(c.saturation as _).repr(),
                         Ratio::new(c.value as _).repr(),
                         Ratio::new(c.alpha as _).repr(),
@@ -1503,6 +1480,10 @@ impl Repr for Color {
             }
         }
     }
+}
+
+fn hue_angle(degrees: f32) -> Angle {
+    Angle::deg(degrees.rem_euclid(360.0 + ANGLE_EPSILON) as _)
 }
 
 impl PartialEq for Color {
@@ -1576,6 +1557,54 @@ impl FromStr for Color {
         }
 
         Ok(Self::from_u8(values[0], values[1], values[2], values[3]))
+    }
+}
+
+impl From<Luma> for Color {
+    fn from(c: Luma) -> Self {
+        Self::Luma(c)
+    }
+}
+
+impl From<Oklab> for Color {
+    fn from(c: Oklab) -> Self {
+        Self::Oklab(c)
+    }
+}
+
+impl From<Oklch> for Color {
+    fn from(c: Oklch) -> Self {
+        Self::Oklch(c)
+    }
+}
+
+impl From<Rgb> for Color {
+    fn from(c: Rgb) -> Self {
+        Self::Rgb(c)
+    }
+}
+
+impl From<LinearRgb> for Color {
+    fn from(c: LinearRgb) -> Self {
+        Self::LinearRgb(c)
+    }
+}
+
+impl From<Cmyk> for Color {
+    fn from(c: Cmyk) -> Self {
+        Self::Cmyk(c)
+    }
+}
+
+impl From<Hsl> for Color {
+    fn from(c: Hsl) -> Self {
+        Self::Hsl(c)
+    }
+}
+
+impl From<Hsv> for Color {
+    fn from(c: Hsv) -> Self {
+        Self::Hsv(c)
     }
 }
 
@@ -1681,25 +1710,18 @@ cast! {
 pub enum ColorSpace {
     /// The perceptual Oklab color space.
     Oklab,
-
     /// The perceptual Oklch color space.
     Oklch,
-
     /// The standard RGB color space.
     Srgb,
-
     /// The D65-gray color space.
     D65Gray,
-
     /// The linear RGB color space.
     LinearRgb,
-
     /// The HSL color space.
     Hsl,
-
     /// The HSV color space.
     Hsv,
-
     /// The CMYK color space.
     Cmyk,
 }

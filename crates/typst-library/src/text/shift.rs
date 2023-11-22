@@ -1,5 +1,5 @@
-use super::{variant, SpaceElem, TextElem, TextSize};
 use crate::prelude::*;
+use crate::text::{variant, SpaceElem, TextElem, TextSize};
 
 /// Renders text in subscript.
 ///

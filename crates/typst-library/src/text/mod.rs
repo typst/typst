@@ -98,6 +98,7 @@ pub struct TextElem {
     /// ```
     #[default(FontList(vec![FontFamily::new("Linux Libertine")]))]
     #[borrowed]
+    #[ghost]
     pub font: FontList,
 
     /// Whether to allow last resort font fallback when the primary font list
@@ -118,6 +119,7 @@ pub struct TextElem {
     /// هذا عربي
     /// ```
     #[default(true)]
+    #[ghost]
     pub fallback: bool,
 
     /// The desired font style.
@@ -137,6 +139,7 @@ pub struct TextElem {
     /// #text(font: "Linux Libertine", style: "italic")[Italic]
     /// #text(font: "DejaVu Sans", style: "oblique")[Oblique]
     /// ```
+    #[ghost]
     pub style: FontStyle,
 
     /// The desired thickness of the font's glyphs. Accepts an integer between
@@ -158,6 +161,7 @@ pub struct TextElem {
     /// #text(weight: 500)[Medium] \
     /// #text(weight: "bold")[Bold]
     /// ```
+    #[ghost]
     pub weight: FontWeight,
 
     /// The desired width of the glyphs. Accepts a ratio between `{50%}` and
@@ -173,6 +177,7 @@ pub struct TextElem {
     /// #text(stretch: 75%)[Condensed] \
     /// #text(stretch: 100%)[Normal]
     /// ```
+    #[ghost]
     pub stretch: FontStretch,
 
     /// The size of the glyphs. This value forms the basis of the `em` unit:
@@ -188,6 +193,7 @@ pub struct TextElem {
     #[parse(args.named_or_find("size")?)]
     #[fold]
     #[default(Abs::pt(11.0))]
+    #[ghost]
     pub size: TextSize,
 
     /// The glyph fill paint.
@@ -212,6 +218,7 @@ pub struct TextElem {
         paint.map(|paint| paint.v)
     })]
     #[default(Color::BLACK.into())]
+    #[ghost]
     pub fill: Paint,
 
     /// The amount of space that should be added between characters.
@@ -221,6 +228,7 @@ pub struct TextElem {
     /// Distant text.
     /// ```
     #[resolve]
+    #[ghost]
     pub tracking: Length,
 
     /// The amount of space between words.
@@ -237,6 +245,7 @@ pub struct TextElem {
     /// ```
     #[resolve]
     #[default(Rel::one())]
+    #[ghost]
     pub spacing: Rel<Length>,
 
     /// Whether to automatically insert spacing between CJK and Latin characters.
@@ -248,6 +257,7 @@ pub struct TextElem {
     /// #set text(cjk-latin-spacing: none)
     /// 第4章介绍了基本的API。
     /// ```
+    #[ghost]
     pub cjk_latin_spacing: Smart<Option<Never>>,
 
     /// An amount to shift the text baseline by.
@@ -257,6 +267,7 @@ pub struct TextElem {
     /// word.
     /// ```
     #[resolve]
+    #[ghost]
     pub baseline: Length,
 
     /// Whether certain glyphs can hang over into the margin in justified text.
@@ -276,6 +287,7 @@ pub struct TextElem {
     /// results in a clearer paragraph edge.
     /// ```
     #[default(true)]
+    #[ghost]
     pub overhang: bool,
 
     /// The top end of the conceptual frame around the text used for layout and
@@ -292,6 +304,7 @@ pub struct TextElem {
     /// #rect(fill: aqua)[Typst]
     /// ```
     #[default(TopEdge::Metric(TopEdgeMetric::CapHeight))]
+    #[ghost]
     pub top_edge: TopEdge,
 
     /// The bottom end of the conceptual frame around the text used for layout
@@ -308,6 +321,7 @@ pub struct TextElem {
     /// #rect(fill: aqua)[Typst]
     /// ```
     #[default(BottomEdge::Metric(BottomEdgeMetric::Baseline))]
+    #[ghost]
     pub bottom_edge: BottomEdge,
 
     /// An [ISO 639-1/2/3 language code.](https://en.wikipedia.org/wiki/ISO_639)
@@ -328,11 +342,13 @@ pub struct TextElem {
     /// In diesem Dokument, ...
     /// ```
     #[default(Lang::ENGLISH)]
+    #[ghost]
     pub lang: Lang,
 
     /// An [ISO 3166-1 alpha-2 region code.](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
     ///
     /// This lets the text processing pipeline make more informed choices.
+    #[ghost]
     pub region: Option<Region>,
 
     /// The OpenType writing script.
@@ -362,6 +378,7 @@ pub struct TextElem {
     /// #set text(lang: "ro", script: "grek")
     /// #scedilla // S with a cedilla
     /// ```
+    #[ghost]
     pub script: Smart<WritingScript>,
 
     /// The dominant direction for text and inline objects. Possible values are:
@@ -389,6 +406,7 @@ pub struct TextElem {
     /// هذا عربي.
     /// ```
     #[resolve]
+    #[ghost]
     pub dir: TextDir,
 
     /// Whether to hyphenate text to improve line breaking. When `{auto}`, text
@@ -411,6 +429,7 @@ pub struct TextElem {
     /// improve justification.
     /// ```
     #[resolve]
+    #[ghost]
     pub hyphenate: Hyphenate,
 
     /// Whether to apply kerning.
@@ -429,6 +448,7 @@ pub struct TextElem {
     /// Totally
     /// ```
     #[default(true)]
+    #[ghost]
     pub kerning: bool,
 
     /// Whether to apply stylistic alternates.
@@ -449,6 +469,7 @@ pub struct TextElem {
     /// 0, a, g, ß
     /// ```
     #[default(false)]
+    #[ghost]
     pub alternates: bool,
 
     /// Which stylistic set to apply. Font designers can categorize alternative
@@ -456,6 +477,7 @@ pub struct TextElem {
     /// you need to consult your font to know which sets are available. When set
     /// to an integer between `{1}` and `{20}`, enables the corresponding
     /// OpenType font feature from `ss01`, ..., `ss20`.
+    #[ghost]
     pub stylistic_set: Option<StylisticSet>,
 
     /// Whether standard ligatures are active.
@@ -473,16 +495,19 @@ pub struct TextElem {
     /// A fine ligature.
     /// ```
     #[default(true)]
+    #[ghost]
     pub ligatures: bool,
 
     /// Whether ligatures that should be used sparingly are active. Setting this
     /// to `{true}` enables the OpenType `dlig` font feature.
     #[default(false)]
+    #[ghost]
     pub discretionary_ligatures: bool,
 
     /// Whether historical ligatures are active. Setting this to `{true}`
     /// enables the OpenType `hlig` font feature.
     #[default(false)]
+    #[ghost]
     pub historical_ligatures: bool,
 
     /// Which kind of numbers / figures to select. When set to `{auto}`, the
@@ -496,6 +521,7 @@ pub struct TextElem {
     /// #set text(number-type: "old-style")
     /// Number 9.
     /// ```
+    #[ghost]
     pub number_type: Smart<NumberType>,
 
     /// The width of numbers / figures. When set to `{auto}`, the default
@@ -511,6 +537,7 @@ pub struct TextElem {
     /// A 12 B 34. \
     /// A 56 B 78.
     /// ```
+    #[ghost]
     pub number_width: Smart<NumberWidth>,
 
     /// Whether to have a slash through the zero glyph. Setting this to `{true}`
@@ -520,6 +547,7 @@ pub struct TextElem {
     /// 0, #text(slashed-zero: true)[0]
     /// ```
     #[default(false)]
+    #[ghost]
     pub slashed_zero: bool,
 
     /// Whether to turn numbers into fractions. Setting this to `{true}`
@@ -534,6 +562,7 @@ pub struct TextElem {
     /// #text(fractions: true)[1/2]
     /// ```
     #[default(false)]
+    #[ghost]
     pub fractions: bool,
 
     /// Raw OpenType features to apply.
@@ -549,6 +578,7 @@ pub struct TextElem {
     /// 1/2
     /// ```
     #[fold]
+    #[ghost]
     pub features: FontFeatures,
 
     /// Content in which all text is styled according to the other arguments.
@@ -564,26 +594,31 @@ pub struct TextElem {
     /// A delta to apply on the font weight.
     #[internal]
     #[fold]
+    #[ghost]
     pub delta: Delta,
 
     /// Whether the font style should be inverted.
     #[internal]
     #[fold]
     #[default(false)]
+    #[ghost]
     pub emph: Toggle,
 
     /// Decorative lines.
     #[internal]
     #[fold]
+    #[ghost]
     pub deco: Decoration,
 
     /// A case transformation that should be applied to the text.
     #[internal]
+    #[ghost]
     pub case: Option<Case>,
 
     /// Whether small capital glyphs should be used. ("smcp")
     #[internal]
     #[default(false)]
+    #[ghost]
     pub smallcaps: bool,
 }
 

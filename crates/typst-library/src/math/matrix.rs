@@ -1,5 +1,3 @@
-use typst::model::Resolve;
-
 use super::*;
 
 const DEFAULT_ROW_GAP: Em = Em::new(0.5);

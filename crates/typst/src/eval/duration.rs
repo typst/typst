@@ -1,15 +1,14 @@
 use ecow::{eco_format, EcoString};
 
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use time::ext::NumericalDuration;
 
-use super::repr::pretty_array_like;
-use super::{func, scope, ty, Repr};
+use crate::eval::{func, repr, scope, ty, Repr};
 
 /// Represents a positive or negative span of time.
 #[ty(scope)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Duration(time::Duration);
 
 impl Duration {
@@ -111,6 +110,12 @@ impl Duration {
     }
 }
 
+impl Debug for Duration {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 impl Repr for Duration {
     fn repr(&self) -> EcoString {
         let mut tmp = self.0;
@@ -145,7 +150,7 @@ impl Repr for Duration {
             vec.push(eco_format!("seconds: {}", seconds.repr()));
         }
 
-        eco_format!("duration{}", &pretty_array_like(&vec, false))
+        eco_format!("duration{}", &repr::pretty_array_like(&vec, false))
     }
 }
 

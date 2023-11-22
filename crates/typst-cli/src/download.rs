@@ -37,6 +37,13 @@ static TLS_CONFIG: Lazy<Option<Arc<rustls::ClientConfig>>> = Lazy::new(|| {
 /// Download binary data and display its progress.
 #[allow(clippy::result_large_err)]
 pub fn download_with_progress(url: &str) -> Result<Vec<u8>, ureq::Error> {
+    let response = download(url)?;
+    Ok(RemoteReader::from_response(response).download()?)
+}
+
+/// Download from a URL.
+#[allow(clippy::result_large_err)]
+pub fn download(url: &str) -> Result<ureq::Response, ureq::Error> {
     let mut builder = ureq::AgentBuilder::new()
         .user_agent(concat!("typst/{}", env!("CARGO_PKG_VERSION")));
 
@@ -54,8 +61,7 @@ pub fn download_with_progress(url: &str) -> Result<Vec<u8>, ureq::Error> {
     }
 
     let agent = builder.build();
-    let response = agent.get(url).call()?;
-    Ok(RemoteReader::from_response(response).download()?)
+    agent.get(url).call()
 }
 
 /// A wrapper around [`ureq::Response`] that reads the response body in chunks

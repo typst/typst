@@ -2,8 +2,7 @@ use std::num::ParseFloatError;
 
 use ecow::{eco_format, EcoString};
 
-use super::repr::{format_float, MINUS_SIGN};
-use super::{cast, func, scope, ty, Repr, Str};
+use crate::eval::{cast, func, repr, scope, ty, Repr, Str};
 use crate::geom::Ratio;
 
 /// A floating-point number.
@@ -52,7 +51,7 @@ impl f64 {
 
 impl Repr for f64 {
     fn repr(&self) -> EcoString {
-        format_float(*self, None, "")
+        repr::format_float(*self, None, "")
     }
 }
 
@@ -72,5 +71,5 @@ cast! {
 }
 
 fn parse_float(s: EcoString) -> Result<f64, ParseFloatError> {
-    s.replace(MINUS_SIGN, "-").parse()
+    s.replace(repr::MINUS_SIGN, "-").parse()
 }

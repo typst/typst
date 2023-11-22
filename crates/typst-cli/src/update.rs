@@ -6,12 +6,13 @@ use std::path::PathBuf;
 use semver::Version;
 use serde::Deserialize;
 use tempfile::NamedTempFile;
-use typst::{diag::bail, diag::StrResult, eval::eco_format};
+use typst::diag::{bail, StrResult};
+use typst::eval::eco_format;
 use xz2::bufread::XzDecoder;
 use zip::ZipArchive;
 
 use crate::args::UpdateCommand;
-use crate::download::download_with_progress;
+use crate::download::{download, download_with_progress};
 
 const TYPST_GITHUB_ORG: &str = "typst";
 const TYPST_REPO: &str = "typst";
@@ -111,7 +112,7 @@ impl Release {
             ),
         };
 
-        match ureq::get(&url).call() {
+        match download(&url) {
             Ok(response) => response
                 .into_json()
                 .map_err(|err| eco_format!("unable to parse JSON response: {err}")),
@@ -154,9 +155,10 @@ fn extract_binary_from_zip(data: &[u8], asset_name: &str) -> StrResult<Vec<u8>> 
     let mut archive = ZipArchive::new(Cursor::new(data))
         .map_err(|err| eco_format!("failed to extract ZIP archive ({err})"))?;
 
-    let mut file = archive
-        .by_name(&format!("{asset_name}/typst.exe"))
-        .map_err(|_| "ZIP archive did not contain Typst binary")?;
+    let mut file =
+        archive.by_name(&format!("{asset_name}/typst.exe")).map_err(|err| {
+            eco_format!("failed to extract Typst binary from ZIP archive ({err})")
+        })?;
 
     let mut buffer = vec![];
     file.read_to_end(&mut buffer).map_err(|err| {

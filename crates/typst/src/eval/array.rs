@@ -7,13 +7,11 @@ use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use super::repr::pretty_array_like;
-use super::{
-    cast, func, ops, scope, ty, Args, Bytes, CastInfo, FromValue, Func, IntoValue,
+use crate::diag::{At, SourceResult, StrResult};
+use crate::eval::{
+    cast, func, ops, repr, scope, ty, Args, Bytes, CastInfo, FromValue, Func, IntoValue,
     Reflect, Repr, Value, Version, Vm,
 };
-use crate::diag::{At, SourceResult, StrResult};
-use crate::eval::ops::{add, mul};
 use crate::syntax::Span;
 
 /// Create a new [`Array`] from values.
@@ -553,7 +551,7 @@ impl Array {
             .or(default)
             .ok_or("cannot calculate sum of empty array with no default")?;
         for item in iter {
-            acc = add(acc, item)?;
+            acc = ops::add(acc, item)?;
         }
         Ok(acc)
     }
@@ -574,7 +572,7 @@ impl Array {
             .or(default)
             .ok_or("cannot calculate product of empty array with no default")?;
         for item in iter {
-            acc = mul(acc, item)?;
+            acc = ops::mul(acc, item)?;
         }
         Ok(acc)
     }
@@ -831,7 +829,7 @@ impl Repr for Array {
         if self.len() > max {
             pieces.push(eco_format!(".. ({} items omitted)", self.len() - max));
         }
-        pretty_array_like(&pieces, self.len() == 1).into()
+        repr::pretty_array_like(&pieces, self.len() == 1).into()
     }
 }
 

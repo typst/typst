@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroU64;
 use std::ops::Range;
 
-use super::FileId;
+use crate::FileId;
 
 /// A unique identifier for a syntax node.
 ///
@@ -119,7 +119,7 @@ impl<T: Debug> Debug for Spanned<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::{FileId, Span};
+    use crate::{FileId, Span};
 
     #[test]
     fn test_span_encoding() {

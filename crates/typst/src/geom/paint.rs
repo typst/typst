@@ -46,18 +46,6 @@ impl Paint {
     }
 }
 
-impl<T: Into<Color>> From<T> for Paint {
-    fn from(t: T) -> Self {
-        Self::Solid(t.into())
-    }
-}
-
-impl From<Gradient> for Paint {
-    fn from(gradient: Gradient) -> Self {
-        Self::Gradient(gradient)
-    }
-}
-
 impl From<Pattern> for Paint {
     fn from(pattern: Pattern) -> Self {
         Self::Pattern(pattern)
@@ -71,6 +59,18 @@ impl Repr for Paint {
             Self::Gradient(gradient) => gradient.repr(),
             Self::Pattern(pattern) => pattern.repr(),
         }
+    }
+}
+
+impl<T: Into<Color>> From<T> for Paint {
+    fn from(t: T) -> Self {
+        Self::Solid(t.into())
+    }
+}
+
+impl From<Gradient> for Paint {
+    fn from(gradient: Gradient) -> Self {
+        Self::Gradient(gradient)
     }
 }
 

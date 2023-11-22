@@ -10,7 +10,7 @@ use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::is_ident;
+use crate::is_ident;
 
 /// The global package-path interner.
 static INTERNER: Lazy<RwLock<Interner>> =

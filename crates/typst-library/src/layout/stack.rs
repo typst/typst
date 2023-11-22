@@ -1,4 +1,4 @@
-use super::{AlignElem, Spacing};
+use crate::layout::{AlignElem, Spacing};
 use crate::prelude::*;
 
 /// Arranges content and spacing horizontally or vertically.

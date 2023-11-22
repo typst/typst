@@ -9,9 +9,10 @@ use time::error::{Format, InvalidFormatDescription};
 use time::macros::format_description;
 use time::{format_description, Month, PrimitiveDateTime};
 
-use super::repr::pretty_array_like;
-use super::{cast, func, scope, ty, Dict, Duration, Repr, Smart, Str, Value, Vm};
 use crate::diag::{bail, StrResult};
+use crate::eval::{
+    cast, func, repr, scope, ty, Dict, Duration, Repr, Smart, Str, Value, Vm,
+};
 use crate::World;
 
 /// Represents a date, a time, or a combination of both.
@@ -438,7 +439,7 @@ impl Repr for Datetime {
             .flatten()
             .collect::<EcoVec<_>>();
 
-        eco_format!("datetime{}", &pretty_array_like(&filtered, false))
+        eco_format!("datetime{}", &repr::pretty_array_like(&filtered, false))
     }
 }
 

@@ -1,9 +1,8 @@
 use comemo::Prehashed;
 use std::str::FromStr;
 
-use super::{Counter, Numbering, NumberingPattern};
 use crate::layout::{HElem, ParElem};
-use crate::meta::{Count, CounterUpdate};
+use crate::meta::{Count, Counter, CounterUpdate, Numbering, NumberingPattern};
 use crate::prelude::*;
 use crate::text::{SuperElem, TextElem, TextSize};
 use crate::visualize::LineElem;

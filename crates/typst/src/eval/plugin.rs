@@ -5,8 +5,8 @@ use ecow::{eco_format, EcoString};
 use std::sync::{Arc, Mutex};
 use wasmi::{AsContext, AsContextMut, Caller, Engine, Linker, Module};
 
-use super::{func, scope, ty, Bytes, Vm};
 use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::eval::{func, scope, ty, Bytes, Vm};
 use crate::syntax::Spanned;
 use crate::World;
 

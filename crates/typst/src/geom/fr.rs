@@ -13,7 +13,7 @@ use super::*;
 /// Left #h(1fr) Left-ish #h(2fr) Right
 /// ```
 #[ty(name = "fraction")]
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Fr(Scalar);
 
 impl Fr {
@@ -60,6 +60,12 @@ impl Numeric for Fr {
 
     fn is_finite(self) -> bool {
         self.0.is_finite()
+    }
+}
+
+impl Debug for Fr {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{:?}fr", self.get())
     }
 }
 

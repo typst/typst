@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use ecow::{eco_vec, EcoString, EcoVec};
 
-use super::ast::AstNode;
-use super::{FileId, Span, SyntaxKind};
+use crate::ast::AstNode;
+use crate::{FileId, Span, SyntaxKind};
 
 /// A node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]

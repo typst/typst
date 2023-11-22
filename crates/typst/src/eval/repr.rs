@@ -137,3 +137,29 @@ pub fn pretty_array_like(parts: &[impl AsRef<str>], trailing_comma: bool) -> Str
     buf.push(')');
     buf
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_to_base() {
+        assert_eq!(&format_int_with_base(0, 10), "0");
+        assert_eq!(&format_int_with_base(0, 16), "0");
+        assert_eq!(&format_int_with_base(0, 36), "0");
+        assert_eq!(
+            &format_int_with_base(i64::MAX, 2),
+            "111111111111111111111111111111111111111111111111111111111111111"
+        );
+        assert_eq!(
+            &format_int_with_base(i64::MIN, 2),
+            "\u{2212}1000000000000000000000000000000000000000000000000000000000000000"
+        );
+        assert_eq!(&format_int_with_base(i64::MAX, 10), "9223372036854775807");
+        assert_eq!(&format_int_with_base(i64::MIN, 10), "\u{2212}9223372036854775808");
+        assert_eq!(&format_int_with_base(i64::MAX, 16), "7fffffffffffffff");
+        assert_eq!(&format_int_with_base(i64::MIN, 16), "\u{2212}8000000000000000");
+        assert_eq!(&format_int_with_base(i64::MAX, 36), "1y2p0ij32e8e7");
+        assert_eq!(&format_int_with_base(i64::MIN, 36), "\u{2212}1y2p0ij32e8e8");
+    }
+}
