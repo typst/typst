@@ -77,8 +77,11 @@ impl Pattern {
 
         // Layout the pattern.
         let library = vm.vt.world.library();
-        let body =
+        let mut body =
             (library.items.layout_one)(&mut vm.vt, &body, StyleChain::default(), size)?;
+
+        // Ensure that the frame has the correct size.
+        body.set_size(size);
 
         Ok(Self {
             body: Prehashed::new(body),
