@@ -281,6 +281,7 @@ pub struct Page {
     pub resources: HashMap<PageResource, usize>,
 }
 
+/// Represents a resource being used in a PDF page by its name.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PageResource {
     XObject(EcoString),
@@ -291,6 +292,7 @@ pub enum PageResource {
 }
 
 impl PageResource {
+    /// Returns the name of the resource.
     pub fn name(&self) -> Name<'_> {
         match self {
             Self::XObject(name) => Name(name.as_bytes()),
@@ -301,22 +303,27 @@ impl PageResource {
         }
     }
 
+    /// Returns whether the resource is an XObject.
     pub fn is_x_object(&self) -> bool {
         matches!(self, Self::XObject(_))
     }
 
+    /// Returns whether the resource is a font.
     pub fn is_font(&self) -> bool {
         matches!(self, Self::Font(_))
     }
 
+    /// Returns whether the resource is a gradient.
     pub fn is_gradient(&self) -> bool {
         matches!(self, Self::Gradient(_))
     }
 
+    /// Returns whether the resource is a pattern.
     pub fn is_pattern(&self) -> bool {
         matches!(self, Self::Pattern(_))
     }
 
+    /// Returns whether the resource is an external graphics state.
     pub fn is_ext_g_state(&self) -> bool {
         matches!(self, Self::ExtGState(_))
     }
