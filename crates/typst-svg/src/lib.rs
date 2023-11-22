@@ -434,14 +434,14 @@ impl SVGRenderer {
         x_offset: f64,
         scale: f64,
     ) -> Option<()> {
-        let path =
-            convert_outline_glyph_to_path(&text.font, glyph_id, Ratio::new(scale))?;
-        let hash = hash128(&(&text.font, glyph_id));
+        let scale = Ratio::new(scale);
+        let path = convert_outline_glyph_to_path(&text.font, glyph_id, scale)?;
+        let hash = hash128(&(&text.font, glyph_id, scale));
         let id = self.glyphs.insert_with(hash, || RenderedGlyph::Path(path));
 
         let glyph_size = text.font.ttf().glyph_bounding_box(glyph_id)?;
-        let width = glyph_size.width() as f64 * scale;
-        let height = glyph_size.height() as f64 * scale;
+        let width = glyph_size.width() as f64 * scale.get();
+        let height = glyph_size.height() as f64 * scale.get();
 
         self.xml.start_element("use");
         self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
