@@ -992,7 +992,7 @@ fn render_pattern_frame(state: &State, pattern: &Pattern) -> sk::Pixmap {
     // Render the pattern into a new canvas.
     let ts = sk::Transform::from_scale(state.pixel_per_pt, state.pixel_per_pt);
     let temp_state = State::new(pattern.bbox, ts, state.pixel_per_pt);
-    render_frame(&mut canvas, temp_state, &pattern.body);
+    render_frame(&mut canvas, temp_state, &pattern.frame);
     canvas
 }
 

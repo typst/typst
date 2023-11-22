@@ -115,7 +115,7 @@ fn register_pattern(
     };
 
     // Render the body.
-    let (_, content) = construct_page(ctx.parent, &pattern.body);
+    let (_, content) = construct_page(ctx.parent, &pattern.frame);
 
     let pdf_pattern = PdfPattern {
         transform,

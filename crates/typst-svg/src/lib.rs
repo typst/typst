@@ -612,7 +612,7 @@ impl SVGRenderer {
         self.render_pattern_frame(
             State::new(pattern_size, Transform::identity()),
             Transform::identity(),
-            &pattern.body,
+            &pattern.frame,
         );
 
         let pattern_id = self.patterns.insert_with(hash128(pattern), || pattern.clone());
@@ -1044,7 +1044,7 @@ impl SVGRenderer {
             // Render the frame.
             let state = State::new(size, Transform::identity());
             let ts = Transform::identity();
-            self.render_frame(state, ts, &pattern.body);
+            self.render_frame(state, ts, &pattern.frame);
 
             self.xml.end_element();
         }
