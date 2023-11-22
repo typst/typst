@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
@@ -28,13 +28,13 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
         .map_err(|err| eco_format!("failed to setup file watching ({err})"))?;
 
     // Watch all the files that are used by the input file and its dependencies.
-    watch_dependencies(&mut world, &mut watcher, HashSet::new())?;
+    let mut watched = HashMap::new();
+    watch_dependencies(&mut world, &mut watcher, &mut watched)?;
 
     // Handle events.
     let timeout = std::time::Duration::from_millis(100);
     let output = command.output();
     loop {
-        let mut removed = HashSet::new();
         let mut recompile = false;
         for event in rx
             .recv()
@@ -46,16 +46,16 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
 
             // Workaround for notify-rs' implicit unwatch on remove/rename
             // (triggered by some editors when saving files) with the inotify
-            // backend. By keeping track of the removed files, we can allow
-            // those we still depend on to be watched again later on.
+            // backend. By keeping track of the potentially unwatched files, we
+            // can allow those we still depend on to be watched again later on.
             if matches!(
                 event.kind,
                 notify::EventKind::Remove(notify::event::RemoveKind::File)
             ) {
+                // Mark the file as unwatched and remove the watch in case it
+                // still exists.
                 let path = &event.paths[0];
-                removed.insert(path.clone());
-
-                // Remove the watch in case it still exists.
+                watched.remove(path);
                 watcher.unwatch(path).ok();
             }
 
@@ -63,13 +63,6 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
         }
 
         if recompile {
-            // Retrieve the dependencies of the last compilation.
-            let previous: HashSet<PathBuf> = world
-                .dependencies()
-                .filter(|path| !removed.contains(*path))
-                .map(ToOwned::to_owned)
-                .collect();
-
             // Reset all dependencies.
             world.reset();
 
@@ -77,36 +70,49 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
             compile_once(&mut world, &mut command, true)?;
             comemo::evict(10);
 
-            // Adjust the watching.
-            watch_dependencies(&mut world, &mut watcher, previous)?;
+            // Adjust the file watching.
+            watch_dependencies(&mut world, &mut watcher, &mut watched)?;
         }
     }
 }
 
 /// Adjust the file watching. Watches all new dependencies and unwatches
-/// all `previous` dependencies that are not relevant anymore.
+/// all previously `watched` files that are no relevant anymore.
 #[tracing::instrument(skip_all)]
 fn watch_dependencies(
     world: &mut SystemWorld,
     watcher: &mut dyn Watcher,
-    mut previous: HashSet<PathBuf>,
+    watched: &mut HashMap<PathBuf, bool>,
 ) -> StrResult<()> {
-    // Watch new paths that weren't watched yet.
-    for path in world.dependencies() {
-        let watched = previous.remove(path);
-        if path.exists() && !watched {
+    // Mark all files as not "seen" so that we may unwatch them if they aren't
+    // in the dependency list.
+    for seen in watched.values_mut() {
+        *seen = false;
+    }
+
+    // Retrieve the dependencies of the last compilation and watch new paths
+    // that weren't watched yet. We can't watch paths that don't exist yet
+    // unfortunately, so we filter those out.
+    for path in world.dependencies().filter(|path| path.exists()) {
+        if !watched.contains_key(&path) {
             tracing::info!("Watching {}", path.display());
             watcher
-                .watch(path, RecursiveMode::NonRecursive)
+                .watch(&path, RecursiveMode::NonRecursive)
                 .map_err(|err| eco_format!("failed to watch {path:?} ({err})"))?;
         }
+
+        // Mark the file as "seen" so that we don't unwatch it.
+        watched.insert(path, true);
     }
 
     // Unwatch old paths that don't need to be watched anymore.
-    for path in previous {
-        tracing::info!("Unwatching {}", path.display());
-        watcher.unwatch(&path).ok();
-    }
+    watched.retain(|path, &mut seen| {
+        if !seen {
+            tracing::info!("Unwatching {}", path.display());
+            watcher.unwatch(path).ok();
+        }
+        seen
+    });
 
     Ok(())
 }

@@ -1,4 +1,4 @@
-use super::PdfContext;
+use crate::PdfContext;
 
 /// A PDF external graphics state.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]

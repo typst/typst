@@ -13,7 +13,7 @@ use crate::prelude::*;
 /// rule must appear before any of the document's contents.
 ///
 /// ```example
-/// #set document(title: "Hello")
+/// #set document(title: [Hello])
 ///
 /// This has no visible output, but
 /// embeds metadata into the PDF!
@@ -25,7 +25,10 @@ use crate::prelude::*;
 pub struct DocumentElem {
     /// The document's title. This is often rendered as the title of the
     /// PDF viewer window.
-    pub title: Option<EcoString>,
+    ///
+    /// While this can be arbitrary content, PDF viewers only support plain text
+    /// titles, so the conversion might be lossy.
+    pub title: Option<Content>,
 
     /// The document's authors.
     pub author: Author,
@@ -90,7 +93,7 @@ impl LayoutRoot for DocumentElem {
 
         Ok(Document {
             pages,
-            title: self.title(styles),
+            title: self.title(styles).map(|content| content.plain_text()),
             author: self.author(styles).0,
             keywords: self.keywords(styles).0,
             date: self.date(styles),

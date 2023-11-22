@@ -1,6 +1,5 @@
+use crate::layout::AlignElem;
 use crate::prelude::*;
-
-use super::AlignElem;
 
 /// Repeats content to the available space.
 ///

@@ -1,6 +1,6 @@
 use std::any::Any;
 use std::cmp::Ordering;
-use std::fmt::{self, Debug};
+use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -10,20 +10,18 @@ use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use siphasher::sip128::{Hasher128, SipHasher13};
 
-use super::repr::{format_float, format_int_with_base};
-use super::{
-    fields, ops, Args, Array, AutoValue, Bytes, CastInfo, Content, Dict, Duration,
-    FromValue, Func, IntoValue, Module, NativeType, NoneValue, Plugin, Reflect, Repr,
-    Scope, Str, Symbol, Type, Version,
-};
 use crate::diag::StrResult;
-use crate::eval::{item, Datetime};
-use crate::geom::{Abs, Angle, Color, Em, Fr, Gradient, Length, Pattern, Ratio, Rel};
+use crate::eval::{
+    fields, item, ops, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime,
+    Dict, Duration, FromValue, Func, IntoValue, Module, NativeType, NoneValue, Plugin,
+    Reflect, Repr, Scope, Str, Symbol, Type, Version,
+};
+use crate::geom::{Abs, Angle, Color, Em, Fr, Gradient, Length, Ratio, Rel, Pattern};
 use crate::model::{Label, Styles};
 use crate::syntax::{ast, Span};
 
 /// A computational value.
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 pub enum Value {
     /// The value that indicates the absence of a meaningful value.
     #[default]
@@ -201,8 +199,8 @@ impl Value {
     pub fn display(self) -> Content {
         match self {
             Self::None => Content::empty(),
-            Self::Int(v) => item!(text)(format_int_with_base(v, 10)),
-            Self::Float(v) => item!(text)(format_float(v, None, "")),
+            Self::Int(v) => item!(text)(repr::format_int_with_base(v, 10)),
+            Self::Float(v) => item!(text)(repr::format_float(v, None, "")),
             Self::Str(v) => item!(text)(v.into()),
             Self::Version(v) => item!(text)(eco_format!("{v}")),
             Self::Symbol(v) => item!(text)(v.get().into()),
@@ -218,6 +216,43 @@ impl Value {
             Value::Content(v) => Value::Content(v.spanned(span)),
             Value::Func(v) => Value::Func(v.spanned(span)),
             v => v,
+        }
+    }
+}
+
+impl Debug for Value {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::None => Debug::fmt(&NoneValue, f),
+            Self::Auto => Debug::fmt(&AutoValue, f),
+            Self::Bool(v) => Debug::fmt(v, f),
+            Self::Int(v) => Debug::fmt(v, f),
+            Self::Float(v) => Debug::fmt(v, f),
+            Self::Length(v) => Debug::fmt(v, f),
+            Self::Angle(v) => Debug::fmt(v, f),
+            Self::Ratio(v) => Debug::fmt(v, f),
+            Self::Relative(v) => Debug::fmt(v, f),
+            Self::Fraction(v) => Debug::fmt(v, f),
+            Self::Color(v) => Debug::fmt(v, f),
+            Self::Gradient(v) => Debug::fmt(v, f),
+            Self::Pattern(v) => Debug::fmt(v, f),
+            Self::Symbol(v) => Debug::fmt(v, f),
+            Self::Version(v) => Debug::fmt(v, f),
+            Self::Str(v) => Debug::fmt(v, f),
+            Self::Bytes(v) => Debug::fmt(v, f),
+            Self::Label(v) => Debug::fmt(v, f),
+            Self::Datetime(v) => Debug::fmt(v, f),
+            Self::Duration(v) => Debug::fmt(v, f),
+            Self::Content(v) => Debug::fmt(v, f),
+            Self::Styles(v) => Debug::fmt(v, f),
+            Self::Array(v) => Debug::fmt(v, f),
+            Self::Dict(v) => Debug::fmt(v, f),
+            Self::Func(v) => Debug::fmt(v, f),
+            Self::Args(v) => Debug::fmt(v, f),
+            Self::Type(v) => Debug::fmt(v, f),
+            Self::Module(v) => Debug::fmt(v, f),
+            Self::Plugin(v) => Debug::fmt(v, f),
+            Self::Dyn(v) => Debug::fmt(v, f),
         }
     }
 }
@@ -452,7 +487,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
 }
 
 /// A value that is not part of the built-in enum.
-#[derive(Debug, Clone, Hash)]
+#[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Dynamic(Arc<dyn Bounds>);
 
@@ -478,6 +513,12 @@ impl Dynamic {
     /// The name of the stored value's type.
     pub fn ty(&self) -> Type {
         self.0.dyn_ty()
+    }
+}
+
+impl Debug for Dynamic {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 

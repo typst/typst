@@ -1,10 +1,10 @@
 //! The document model.
 
-mod block;
 mod content;
 mod element;
 mod introspect;
 mod label;
+mod location;
 mod realize;
 mod selector;
 mod styles;
@@ -13,13 +13,13 @@ use ecow::EcoVec;
 #[doc(inline)]
 pub use typst_macros::elem;
 
-pub use self::block::{Block, Blockable};
 pub use self::content::{fat, Content, MetaElem, PlainText};
 pub use self::element::{
     Construct, Element, ElementFields, LocalName, NativeElement, NativeElementData, Set,
 };
-pub use self::introspect::{Introspector, Location, Locator};
+pub use self::introspect::{Introspector, Locator};
 pub use self::label::{Label, Unlabellable};
+pub use self::location::Location;
 pub use self::realize::{
     applicable, realize, Behave, Behaviour, Finalize, Guard, Locatable, Show, Synthesize,
 };
@@ -37,10 +37,10 @@ use crate::eval::Tracer;
 use crate::syntax::Span;
 use crate::World;
 
-/// Typeset content into a fully layouted document.
+/// Layout content.
 #[comemo::memoize]
 #[tracing::instrument(skip(world, tracer, content))]
-pub fn typeset(
+pub fn layout(
     world: Tracked<dyn World + '_>,
     mut tracer: TrackedMut<Tracer>,
     content: &Content,
@@ -102,7 +102,7 @@ pub fn typeset(
 
 /// A virtual typesetter.
 ///
-/// Holds the state needed to [typeset] content.
+/// Holds the state needed to [layout] content.
 pub struct Vt<'a> {
     /// The compilation environment.
     pub world: Tracked<'a, dyn World + 'a>,

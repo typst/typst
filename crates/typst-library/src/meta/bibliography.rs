@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::path::Path;
 use std::sync::Arc;
@@ -21,11 +22,12 @@ use typst::eval::{eval_string, Bytes, CastInfo, EvalMode, Reflect};
 use typst::font::FontStyle;
 use typst::util::{option_eq, PicoStr};
 
-use super::{CitationForm, CiteGroup, LinkElem, LocalName};
 use crate::layout::{
     BlockElem, GridElem, HElem, PadElem, ParElem, Sizing, TrackSizings, VElem,
 };
-use crate::meta::{FootnoteElem, HeadingElem, LocalNameIn};
+use crate::meta::{
+    CitationForm, CiteGroup, FootnoteElem, HeadingElem, LinkElem, LocalName, LocalNameIn,
+};
 use crate::prelude::*;
 use crate::text::{Delta, SubElem, SuperElem, TextElem};
 
@@ -295,7 +297,7 @@ impl LocalName for BibliographyElem {
 
 /// A loaded bibliography.
 #[ty]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Bibliography {
     map: Arc<IndexMap<PicoStr, hayagriva::Entry>>,
     hash: u128,
@@ -374,6 +376,12 @@ impl Bibliography {
 
     fn entries(&self) -> impl Iterator<Item = &hayagriva::Entry> {
         self.map.values()
+    }
+}
+
+impl Debug for Bibliography {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_set().entries(self.map.keys()).finish()
     }
 }
 

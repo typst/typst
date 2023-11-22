@@ -2,8 +2,8 @@ use std::collections::HashSet;
 
 use ecow::EcoVec;
 
-use super::Value;
 use crate::diag::SourceDiagnostic;
+use crate::eval::Value;
 use crate::syntax::{FileId, Span};
 use crate::util::hash128;
 
