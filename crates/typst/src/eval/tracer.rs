@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use ecow::EcoVec;
 
 use crate::diag::SourceDiagnostic;
-use crate::eval::Value;
+use crate::foundations::Value;
 use crate::syntax::{FileId, Span};
 use crate::util::hash128;
 
@@ -44,7 +44,7 @@ impl Tracer {
 
 #[comemo::track]
 impl Tracer {
-    /// The inspeted span if it is part of the given source file.
+    /// The inspected span if it is part of the given source file.
     pub fn inspected(&self, id: FileId) -> Option<Span> {
         if self.inspected.and_then(Span::id) == Some(id) {
             self.inspected

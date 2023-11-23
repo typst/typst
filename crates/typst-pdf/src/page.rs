@@ -8,16 +8,17 @@ use pdf_writer::types::{
 };
 use pdf_writer::writers::PageLabel;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
-use typst::doc::{
-    Destination, Frame, FrameItem, GroupItem, Meta, PdfPageLabel, PdfPageLabelStyle,
-    TextItem,
+use typst::introspection::Meta;
+use typst::layout::{
+    Abs, Em, Frame, FrameItem, GroupItem, PdfPageLabel, PdfPageLabelStyle, Point, Ratio,
+    Size, Transform,
 };
-use typst::font::Font;
-use typst::geom::{
-    self, Abs, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint, Point,
-    Ratio, Shape, Size, Transform,
+use typst::model::Destination;
+use typst::text::{Font, TextItem};
+use typst::util::Numeric;
+use typst::visualize::{
+    FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
 };
-use typst::image::Image;
 
 use crate::color::PaintEncode;
 use crate::extg::ExtGState;
@@ -581,7 +582,7 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
             adjustment = Em::zero();
         }
 
-        let cid = super::font::glyph_cid(&text.font, glyph.id);
+        let cid = crate::font::glyph_cid(&text.font, glyph.id);
         encoded.push((cid >> 8) as u8);
         encoded.push((cid & 0xff) as u8);
 
@@ -656,16 +657,16 @@ fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
 }
 
 /// Encode a bezier path into the content stream.
-fn write_path(ctx: &mut PageContext, x: f32, y: f32, path: &geom::Path) {
+fn write_path(ctx: &mut PageContext, x: f32, y: f32, path: &Path) {
     for elem in &path.0 {
         match elem {
-            geom::PathItem::MoveTo(p) => {
+            PathItem::MoveTo(p) => {
                 ctx.content.move_to(x + p.x.to_f32(), y + p.y.to_f32())
             }
-            geom::PathItem::LineTo(p) => {
+            PathItem::LineTo(p) => {
                 ctx.content.line_to(x + p.x.to_f32(), y + p.y.to_f32())
             }
-            geom::PathItem::CubicTo(p1, p2, p3) => ctx.content.cubic_to(
+            PathItem::CubicTo(p1, p2, p3) => ctx.content.cubic_to(
                 x + p1.x.to_f32(),
                 y + p1.y.to_f32(),
                 x + p2.x.to_f32(),
@@ -673,7 +674,7 @@ fn write_path(ctx: &mut PageContext, x: f32, y: f32, path: &geom::Path) {
                 x + p3.x.to_f32(),
                 y + p3.y.to_f32(),
             ),
-            geom::PathItem::ClosePath => ctx.content.close_path(),
+            PathItem::ClosePath => ctx.content.close_path(),
         };
     }
 }

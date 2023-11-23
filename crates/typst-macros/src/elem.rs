@@ -1,4 +1,15 @@
-use super::*;
+use heck::{ToKebabCase, ToShoutySnakeCase, ToUpperCamelCase};
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::parse::{Parse, ParseStream};
+use syn::punctuated::Punctuated;
+use syn::{parse_quote, Ident, Result, Token};
+
+use crate::util::{
+    determine_name_and_title, documentation, foundations, has_attr, kw, parse_attr,
+    parse_flag, parse_string, parse_string_array, quote_option, validate_attrs,
+    BlockWithReturn,
+};
 
 /// Expand the `#[elem]` macro.
 pub fn elem(stream: TokenStream, body: syn::ItemStruct) -> Result<TokenStream> {
@@ -136,7 +147,6 @@ struct Field {
     synthesized: bool,
     borrowed: bool,
     ghost: bool,
-    forced_variant: Option<usize>,
     parse: Option<BlockWithReturn>,
     default: Option<syn::Expr>,
 }
@@ -226,10 +236,6 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
         docs: documentation(&attrs),
         internal: has_attr(&mut attrs, "internal"),
         external: has_attr(&mut attrs, "external"),
-        forced_variant: parse_attr::<syn::LitInt>(&mut attrs, "variant")?
-            .flatten()
-            .map(|lit| lit.base10_parse())
-            .transpose()?,
         positional,
         required,
         variadic,
@@ -262,12 +268,12 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
 
     if field.resolve {
         let output = &field.output;
-        field.output = parse_quote! { <#output as ::typst::model::Resolve>::Output };
+        field.output = parse_quote! { <#output as #foundations::Resolve>::Output };
     }
 
     if field.fold {
         let output = &field.output;
-        field.output = parse_quote! { <#output as ::typst::model::Fold>::Output };
+        field.output = parse_quote! { <#output as #foundations::Fold>::Output };
     }
 
     validate_attrs(&attrs)?;
@@ -317,8 +323,8 @@ fn create(element: &Elem) -> Result<TokenStream> {
 
     let label_and_location = element.unless_capability("Unlabellable", || {
         quote! {
-            location: Option<::typst::model::Location>,
-            label: Option<::typst::model::Label>,
+            location: Option<::typst::introspection::Location>,
+            label: Option<#foundations::Label>,
             prepared: bool,
         }
     });
@@ -330,7 +336,7 @@ fn create(element: &Elem) -> Result<TokenStream> {
         #vis struct #ident {
             span: ::typst::syntax::Span,
             #label_and_location
-            guards: ::std::vec::Vec<::typst::model::Guard>,
+            guards: ::std::vec::Vec<#foundations::Guard>,
 
             #(#fields,)*
         }
@@ -353,9 +359,9 @@ fn create(element: &Elem) -> Result<TokenStream> {
         #partial_eq_impl
         #repr_impl
 
-        impl ::typst::eval::IntoValue for #ident {
-            fn into_value(self) -> ::typst::eval::Value {
-                ::typst::eval::Value::Content(::typst::model::Content::new(self))
+        impl #foundations::IntoValue for #ident {
+            fn into_value(self) -> #foundations::Value {
+                #foundations::Value::Content(#foundations::Content::new(self))
             }
         }
     })
@@ -382,12 +388,9 @@ fn create_field(field: &Field) -> TokenStream {
 
 /// Creates the element's enum for field identifiers.
 fn create_fields_enum(element: &Elem) -> TokenStream {
-    let model = quote! { ::typst::model };
     let Elem { ident, enum_ident, .. } = element;
 
-    let mut fields = element.real_fields().collect::<Vec<_>>();
-    fields.sort_by_key(|field| field.forced_variant.unwrap_or(usize::MAX));
-
+    let fields = element.real_fields().collect::<Vec<_>>();
     let field_names = fields.iter().map(|Field { name, .. }| name).collect::<Vec<_>>();
     let field_consts = fields
         .iter()
@@ -399,20 +402,14 @@ fn create_fields_enum(element: &Elem) -> TokenStream {
         .map(|Field { enum_ident, .. }| enum_ident)
         .collect::<Vec<_>>();
 
-    let definitions =
-        fields.iter().map(|Field { forced_variant, enum_ident, .. }| {
-            if let Some(variant) = forced_variant {
-                let variant = proc_macro2::Literal::u8_unsuffixed(*variant as _);
-                quote! { #enum_ident = #variant }
-            } else {
-                quote! { #enum_ident }
-            }
-        });
+    let definitions = fields.iter().map(|Field { enum_ident, .. }| {
+        quote! { #enum_ident }
+    });
 
     quote! {
         // To hide the private type
         const _: () = {
-            impl #model::ElementFields for #ident {
+            impl #foundations::ElementFields for #ident {
                 type Fields = #enum_ident;
             }
 
@@ -578,16 +575,15 @@ fn create_push_field_method(field: &Field) -> TokenStream {
 
 /// Create a setter method for a field.
 fn create_set_field_method(element: &Elem, field: &Field) -> TokenStream {
-    let model = quote! { ::typst::model };
     let elem = &element.ident;
     let Field { vis, ident, set_ident, enum_ident, ty, name, .. } = field;
     let doc = format!("Create a style property for the `{}` field.", name);
     quote! {
         #[doc = #doc]
-        #vis fn #set_ident(#ident: #ty) -> ::typst::model::Style {
-            ::typst::model::Style::Property(::typst::model::Property::new(
-                <Self as ::typst::model::NativeElement>::elem(),
-                <#elem as #model::ElementFields>::Fields::#enum_ident as u8,
+        #vis fn #set_ident(#ident: #ty) -> #foundations::Style {
+            #foundations::Style::Property(#foundations::Property::new(
+                <Self as #foundations::NativeElement>::elem(),
+                <#elem as #foundations::ElementFields>::Fields::#enum_ident as u8,
                 #ident,
             ))
         }
@@ -608,7 +604,7 @@ fn create_field_in_method(element: &Elem, field: &Field) -> TokenStream {
 
     quote! {
         #[doc = #doc]
-        #vis fn #ident_in(styles: ::typst::model::StyleChain) -> #output {
+        #vis fn #ident_in(styles: #foundations::StyleChain) -> #output {
             #access
         }
     }
@@ -646,7 +642,7 @@ fn create_field_method(element: &Elem, field: &Field) -> TokenStream {
 
         quote! {
             #[doc = #docs]
-            #vis fn #ident<'a>(&'a self, styles: ::typst::model::StyleChain<'a>) -> &'a #output {
+            #vis fn #ident<'a>(&'a self, styles: #foundations::StyleChain<'a>) -> &'a #output {
                 #access
             }
         }
@@ -655,7 +651,7 @@ fn create_field_method(element: &Elem, field: &Field) -> TokenStream {
 
         quote! {
             #[doc = #docs]
-            #vis fn #ident(&self, styles: ::typst::model::StyleChain) -> #output {
+            #vis fn #ident(&self, styles: #foundations::StyleChain) -> #output {
                 #access
             }
         }
@@ -668,7 +664,6 @@ fn create_style_chain_access(
     field: &Field,
     inherent: TokenStream,
 ) -> TokenStream {
-    let model = quote! { ::typst::model };
     let elem = &element.ident;
 
     let Field { ty, default, enum_ident, .. } = field;
@@ -693,8 +688,8 @@ fn create_style_chain_access(
     quote! {
         #init
         styles.#getter::<#ty>(
-            <Self as ::typst::model::NativeElement>::elem(),
-            <#elem as #model::ElementFields>::Fields::#enum_ident as u8,
+            <Self as #foundations::NativeElement>::elem(),
+            <#elem as #foundations::ElementFields>::Fields::#enum_ident as u8,
             #inherent,
             #default,
         )
@@ -703,9 +698,6 @@ fn create_style_chain_access(
 
 /// Creates the element's `Pack` implementation.
 fn create_native_elem_impl(element: &Elem) -> TokenStream {
-    let eval = quote! { ::typst::eval };
-    let model = quote! { ::typst::model };
-
     let Elem { name, ident, title, scope, keywords, docs, .. } = element;
 
     let vtable_func = create_vtable_func(element);
@@ -716,9 +708,9 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         .map(create_param_info);
 
     let scope = if *scope {
-        quote! { <#ident as #eval::NativeScope>::scope() }
+        quote! { <#ident as #foundations::NativeScope>::scope() }
     } else {
-        quote! { #eval::Scope::new() }
+        quote! { #foundations::Scope::new() }
     };
 
     // Fields that can be accessed using the `field` method.
@@ -729,37 +721,39 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
 
         if field.ghost {
             quote! {
-                <#elem as #model::ElementFields>::Fields::#name => None,
+                <#elem as #foundations::ElementFields>::Fields::#name => None,
             }
         } else if field.inherent() {
             quote! {
-                <#elem as #model::ElementFields>::Fields::#name => Some(
-                    ::typst::eval::IntoValue::into_value(self.#field_ident.clone())
+                <#elem as #foundations::ElementFields>::Fields::#name => Some(
+                    #foundations::IntoValue::into_value(self.#field_ident.clone())
                 ),
             }
         } else {
             quote! {
-                <#elem as #model::ElementFields>::Fields::#name => {
-                    self.#field_ident.clone().map(::typst::eval::IntoValue::into_value)
+                <#elem as #foundations::ElementFields>::Fields::#name => {
+                    self.#field_ident.clone().map(#foundations::IntoValue::into_value)
                 }
             }
         }
     });
 
     // Fields that can be set using the `set_field` method.
-    let field_set_matches = element.visible_fields()
-        .filter(|field| field.settable() && !field.synthesized && !field.ghost).map(|field| {
-        let elem = &element.ident;
-        let name = &field.enum_ident;
-        let field_ident = &field.ident;
+    let field_set_matches = element
+        .visible_fields()
+        .filter(|field| field.settable() && !field.synthesized && !field.ghost)
+        .map(|field| {
+            let elem = &element.ident;
+            let name = &field.enum_ident;
+            let field_ident = &field.ident;
 
-        quote! {
-            <#elem as #model::ElementFields>::Fields::#name => {
-                self.#field_ident = Some(::typst::eval::FromValue::from_value(value)?);
-                return Ok(());
+            quote! {
+                <#elem as #foundations::ElementFields>::Fields::#name => {
+                    self.#field_ident = Some(#foundations::FromValue::from_value(value)?);
+                    return Ok(());
+                }
             }
-        }
-    });
+        });
 
     // Fields that are inherent.
     let field_inherent_matches = element
@@ -771,8 +765,8 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             let field_ident = &field.ident;
 
             quote! {
-                <#elem as #model::ElementFields>::Fields::#name => {
-                    self.#field_ident = ::typst::eval::FromValue::from_value(value)?;
+                <#elem as #foundations::ElementFields>::Fields::#name => {
+                    self.#field_ident = #foundations::FromValue::from_value(value)?;
                     return Ok(());
                 }
             }
@@ -790,13 +784,13 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                 // Internal fields create an error that they are unknown.
                 let unknown_field = format!("unknown field `{field_name}` on `{name}`");
                 quote! {
-                    <#elem as #model::ElementFields>::Fields::#ident => ::typst::diag::bail!(#unknown_field),
+                    <#elem as #foundations::ElementFields>::Fields::#ident => ::typst::diag::bail!(#unknown_field),
                 }
             } else {
                 // Fields that cannot be set create an error that they are not settable.
                 let not_settable = format!("cannot set `{field_name}` on `{name}`");
                 quote! {
-                    <#elem as #model::ElementFields>::Fields::#ident => ::typst::diag::bail!(#not_settable),
+                    <#elem as #foundations::ElementFields>::Fields::#ident => ::typst::diag::bail!(#not_settable),
                 }
             }
         });
@@ -824,15 +818,15 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         let field_ident = &field.ident;
 
         let field_call = if name.len() > 15 {
-            quote! { EcoString::from(#name).into() }
+            quote! { ::ecow::EcoString::from(#name).into() }
         } else {
-            quote! { EcoString::inline(#name).into() }
+            quote! { ::ecow::EcoString::inline(#name).into() }
         };
 
         quote! {
             fields.insert(
                 #field_call,
-                ::typst::eval::IntoValue::into_value(self.#field_ident.clone())
+                #foundations::IntoValue::into_value(self.#field_ident.clone())
             );
         }
     });
@@ -847,16 +841,16 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             let field_ident = &field.ident;
 
             let field_call = if name.len() > 15 {
-                quote! { EcoString::from(#name).into() }
+                quote! { ::ecow::EcoString::from(#name).into() }
             } else {
-                quote! { EcoString::inline(#name).into() }
+                quote! { ::ecow::EcoString::inline(#name).into() }
             };
 
             quote! {
                 if let Some(value) = &self.#field_ident {
                     fields.insert(
                         #field_call,
-                        ::typst::eval::IntoValue::into_value(value.clone())
+                        #foundations::IntoValue::into_value(value.clone())
                     );
                 }
             }
@@ -889,7 +883,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
     let label_field = element
         .unless_capability("Unlabellable", || {
             quote! {
-                self.label().map(::typst::eval::Value::Label)
+                self.label().map(#foundations::Value::Label)
             }
         })
         .unwrap_or_else(|| quote! { None });
@@ -905,51 +899,51 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
     let local_name = element
         .if_capability(
             "LocalName",
-            || quote! { Some(<#ident as ::typst::model::LocalName>::local_name) },
+            || quote! { Some(<#ident as ::typst::text::LocalName>::local_name) },
         )
         .unwrap_or_else(|| quote! { None });
 
     let unknown_field = format!("unknown field {{}} on {}", name);
     let label_error = format!("cannot set label on {}", name);
     let data = quote! {
-        #model::NativeElementData {
+        #foundations::NativeElementData {
             name: #name,
             title: #title,
             docs: #docs,
             keywords: &[#(#keywords),*],
-            construct: <#ident as #model::Construct>::construct,
-            set: <#ident as #model::Set>::set,
+            construct: <#ident as #foundations::Construct>::construct,
+            set: <#ident as #foundations::Set>::set,
             vtable: #vtable_func,
             field_id: |name|
                 <
-                    <#ident as #model::ElementFields>::Fields as ::std::str::FromStr
+                    <#ident as #foundations::ElementFields>::Fields as ::std::str::FromStr
                 >::from_str(name).ok().map(|id| id as u8),
             field_name: |id|
                 <
-                    <#ident as #model::ElementFields>::Fields as ::std::convert::TryFrom<u8>
-                >::try_from(id).ok().map(<#ident as #model::ElementFields>::Fields::to_str),
+                    <#ident as #foundations::ElementFields>::Fields as ::std::convert::TryFrom<u8>
+                >::try_from(id).ok().map(<#ident as #foundations::ElementFields>::Fields::to_str),
             local_name: #local_name,
-            scope: #eval::Lazy::new(|| #scope),
-            params: #eval::Lazy::new(|| ::std::vec![#(#params),*])
+            scope: #foundations::Lazy::new(|| #scope),
+            params: #foundations::Lazy::new(|| ::std::vec![#(#params),*])
         }
     };
 
     quote! {
-        impl #model::NativeElement for #ident {
-            fn data() -> &'static #model::NativeElementData {
-                static DATA: #model::NativeElementData = #data;
+        impl #foundations::NativeElement for #ident {
+            fn data() -> &'static #foundations::NativeElementData {
+                static DATA: #foundations::NativeElementData = #data;
                 &DATA
             }
 
-            fn dyn_elem(&self) -> #model::Element {
-                #model::Element::of::<Self>()
+            fn dyn_elem(&self) -> #foundations::Element {
+                #foundations::Element::of::<Self>()
             }
 
             fn dyn_hash(&self, mut hasher: &mut dyn ::std::hash::Hasher) {
                 <Self as ::std::hash::Hash>::hash(self, &mut hasher);
             }
 
-            fn dyn_eq(&self, other: &#model::Content) -> bool {
+            fn dyn_eq(&self, other: &#foundations::Content) -> bool {
                 if let Some(other) = other.to::<Self>() {
                     <Self as ::std::cmp::PartialEq>::eq(self, other)
                 } else {
@@ -957,7 +951,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                 }
             }
 
-            fn dyn_clone(&self) -> ::std::sync::Arc<dyn #model::NativeElement> {
+            fn dyn_clone(&self) -> ::std::sync::Arc<dyn #foundations::NativeElement> {
                 ::std::sync::Arc::new(Clone::clone(self))
             }
 
@@ -983,27 +977,27 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                 }
             }
 
-            fn label(&self) -> Option<#model::Label> {
+            fn label(&self) -> Option<#foundations::Label> {
                 #label
             }
 
-            fn set_label(&mut self, label: #model::Label) {
+            fn set_label(&mut self, label: #foundations::Label) {
                 #set_label
             }
 
-            fn location(&self) -> Option<#model::Location> {
+            fn location(&self) -> Option<::typst::introspection::Location> {
                 #location
             }
 
-            fn set_location(&mut self, location: #model::Location) {
+            fn set_location(&mut self, location: ::typst::introspection::Location) {
                 #set_location
             }
 
-            fn push_guard(&mut self, guard: #model::Guard) {
+            fn push_guard(&mut self, guard: #foundations::Guard) {
                 self.guards.push(guard);
             }
 
-            fn is_guarded(&self, guard: #model::Guard) -> bool {
+            fn is_guarded(&self, guard: #foundations::Guard) -> bool {
                 self.guards.contains(&guard)
             }
 
@@ -1023,30 +1017,30 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                 #prepared
             }
 
-            fn field(&self, id: u8) -> Option<::typst::eval::Value> {
-                let id = <#ident as #model::ElementFields>::Fields::try_from(id).ok()?;
+            fn field(&self, id: u8) -> Option<#foundations::Value> {
+                let id = <#ident as #foundations::ElementFields>::Fields::try_from(id).ok()?;
                 match id {
-                    <#ident as #model::ElementFields>::Fields::Label => #label_field,
+                    <#ident as #foundations::ElementFields>::Fields::Label => #label_field,
                     #(#field_matches)*
                     _ => None,
                 }
             }
 
-            fn fields(&self) -> Dict {
-                let mut fields = Dict::new();
+            fn fields(&self) -> #foundations::Dict {
+                let mut fields = #foundations::Dict::new();
                 #(#field_dict)*
                 #(#field_opt_dict)*
                 fields
             }
 
-            fn set_field(&mut self, id: u8, value: Value) -> ::typst::diag::StrResult<()> {
-                let id = <#ident as #model::ElementFields>::Fields::try_from(id)
+            fn set_field(&mut self, id: u8, value: #foundations::Value) -> ::typst::diag::StrResult<()> {
+                let id = <#ident as #foundations::ElementFields>::Fields::try_from(id)
                     .map_err(|_| ::ecow::eco_format!(#unknown_field, id))?;
                 match id {
                     #(#field_set_matches)*
                     #(#field_inherent_matches)*
                     #(#field_not_set_matches)*
-                    <#ident as #model::ElementFields>::Fields::Label => {
+                    <#ident as #foundations::ElementFields>::Fields::Label => {
                         ::typst::diag::bail!(#label_error);
                     }
                 }
@@ -1087,18 +1081,18 @@ fn create_construct_impl(element: &Elem) -> TokenStream {
         .map(|field| &field.ident);
 
     quote! {
-        impl ::typst::model::Construct for #ident {
+        impl #foundations::Construct for #ident {
             fn construct(
                 vm: &mut ::typst::eval::Vm,
-                args: &mut ::typst::eval::Args,
-            ) -> ::typst::diag::SourceResult<::typst::model::Content> {
+                args: &mut #foundations::Args,
+            ) -> ::typst::diag::SourceResult<#foundations::Content> {
                 #(#pre)*
 
                 let mut element = Self::new(#(#defaults),*);
 
                 #(#handlers)*
 
-                Ok(::typst::model::Content::new(element))
+                Ok(#foundations::Content::new(element))
             }
         }
     }
@@ -1119,12 +1113,12 @@ fn create_set_impl(element: &Elem) -> TokenStream {
     });
 
     quote! {
-        impl ::typst::model::Set for #ident {
+        impl #foundations::Set for #ident {
             fn set(
-                vm: &mut Vm,
-                args: &mut ::typst::eval::Args,
-            ) -> ::typst::diag::SourceResult<::typst::model::Styles> {
-                let mut styles = ::typst::model::Styles::new();
+                vm: &mut ::typst::eval::Vm,
+                args: &mut #foundations::Args,
+            ) -> ::typst::diag::SourceResult<#foundations::Styles> {
+                let mut styles = #foundations::Styles::new();
                 #(#handlers)*
                 Ok(styles)
             }
@@ -1135,7 +1129,7 @@ fn create_set_impl(element: &Elem) -> TokenStream {
 /// Creates the element's `Locatable` implementation.
 fn create_locatable_impl(element: &Elem) -> TokenStream {
     let ident = &element.ident;
-    quote! { impl ::typst::model::Locatable for #ident {} }
+    quote! { impl ::typst::introspection::Locatable for #ident {} }
 }
 
 /// Creates the element's `PartialEq` implementation.
@@ -1159,12 +1153,12 @@ fn create_repr_impl(element: &Elem) -> TokenStream {
     let ident = &element.ident;
     let repr_format = format!("{}{{}}", element.name);
     quote! {
-        impl ::typst::eval::Repr for #ident {
+        impl #foundations::Repr for #ident {
             fn repr(&self) -> ::ecow::EcoString {
-                let fields = self.fields().into_iter()
-                    .map(|(name, value)| eco_format!("{}: {}", name, value.repr()))
+                let fields = #foundations::NativeElement::fields(self).into_iter()
+                    .map(|(name, value)| ::ecow::eco_format!("{}: {}", name, value.repr()))
                     .collect::<Vec<_>>();
-                ::ecow::eco_format!(#repr_format, ::typst::eval::repr::pretty_array_like(&fields, false))
+                ::ecow::eco_format!(#repr_format, #foundations::repr::pretty_array_like(&fields, false))
             }
         }
     }
@@ -1185,7 +1179,7 @@ fn create_vtable_func(element: &Elem) -> TokenStream {
             if id == ::std::any::TypeId::of::<dyn #capability>() {
                 let vtable = unsafe {
                     let dangling = ::std::ptr::NonNull::<#ident>::dangling().as_ptr() as *const dyn #capability;
-                    ::typst::model::fat::vtable(dangling)
+                    ::typst::util::fat::vtable(dangling)
                 };
                 return Some(vtable);
             }
@@ -1224,20 +1218,20 @@ fn create_param_info(field: &Field) -> TokenStream {
         quote! {
             || {
                 let typed: #default_ty = #default;
-                ::typst::eval::IntoValue::into_value(typed)
+                #foundations::IntoValue::into_value(typed)
             }
         }
     }));
     let ty = if *variadic {
-        quote! { <#ty as ::typst::eval::Container>::Inner }
+        quote! { <#ty as #foundations::Container>::Inner }
     } else {
         quote! { #ty }
     };
     quote! {
-        ::typst::eval::ParamInfo {
+        #foundations::ParamInfo {
             name: #name,
             docs: #docs,
-            input: <#ty as ::typst::eval::Reflect>::input(),
+            input: <#ty as #foundations::Reflect>::input(),
             default: #default,
             positional: #positional,
             named: #named,

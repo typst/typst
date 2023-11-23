@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
 use pdf_writer::types::DeviceNSubtype;
 use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
-use typst::geom::{Color, ColorSpace, Paint};
+use typst::visualize::{Color, ColorSpace, Paint};
 
 use crate::deflate;
 use crate::page::{PageContext, Transforms};

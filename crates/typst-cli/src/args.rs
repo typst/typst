@@ -1,9 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 
-use semver::Version;
-
 use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
+use semver::Version;
 
 /// The character typically used to separate path components
 /// in environment variables.

@@ -4,21 +4,21 @@ use std::collections::{BTreeSet, HashSet};
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
-use typst::doc::Frame;
-use typst::eval::{
-    format_str, repr, AutoValue, CastInfo, Func, Library, NoneValue, Repr, Scope, Type,
-    Value,
+use typst::foundations::{
+    fields_on, format_str, mutable_methods_on, repr, AutoValue, CastInfo, Func, Label,
+    NoneValue, Repr, Scope, Type, Value,
 };
-use typst::geom::Color;
-use typst::model::Label;
+use typst::layout::Frame;
 use typst::syntax::{
     ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
 };
+use typst::text::RawElem;
+use typst::visualize::Color;
 use typst::World;
 use unscanny::Scanner;
 
-use crate::analyze::analyze_labels;
-use crate::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
+use crate::analyze::{analyze_expr, analyze_import, analyze_labels};
+use crate::{plain_docs_sentence, summarize_font_family};
 
 /// Autocomplete a cursor position in a source file.
 ///
@@ -367,7 +367,7 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         }
     }
 
-    for &(method, args) in typst::eval::mutable_methods_on(value.ty()) {
+    for &(method, args) in mutable_methods_on(value.ty()) {
         ctx.completions.push(Completion {
             kind: CompletionKind::Func,
             label: method.into(),
@@ -380,7 +380,7 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         })
     }
 
-    for &field in typst::eval::fields_on(value.ty()) {
+    for &field in fields_on(value.ty()) {
         // Complete the field name along with its value. Notes:
         // 1. No parentheses since function fields cannot currently be called
         // with method syntax;
@@ -967,7 +967,6 @@ fn code_completions(ctx: &mut CompletionContext, hash: bool) {
 struct CompletionContext<'a> {
     world: &'a (dyn World + 'a),
     frames: &'a [Frame],
-    library: &'a Library,
     global: &'a Scope,
     math: &'a Scope,
     text: &'a str,
@@ -996,7 +995,6 @@ impl<'a> CompletionContext<'a> {
         Some(Self {
             world,
             frames,
-            library,
             global: library.global.scope(),
             math: library.math.scope(),
             text,
@@ -1074,7 +1072,7 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for raw block tags.
     fn raw_completions(&mut self) {
-        for (name, mut tags) in (self.library.items.raw_languages)() {
+        for (name, mut tags) in RawElem::languages() {
             let lower = name.to_lowercase();
             if !tags.contains(&lower.as_str()) {
                 tags.push(lower.as_str());
@@ -1096,7 +1094,7 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for labels and references.
     fn label_completions(&mut self) {
-        let (labels, split) = analyze_labels(self.world, self.frames);
+        let (labels, split) = analyze_labels(self.frames);
 
         let head = &self.text[..self.from];
         let at = head.ends_with('@');

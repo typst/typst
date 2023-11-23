@@ -4,12 +4,14 @@ use std::path::{Path, PathBuf};
 use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
+use ecow::eco_format;
 use termcolor::{ColorChoice, StandardStream};
 use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
-use typst::doc::Document;
-use typst::eval::{eco_format, Datetime, Tracer};
-use typst::geom::Color;
+use typst::eval::Tracer;
+use typst::foundations::Datetime;
+use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
+use typst::visualize::Color;
 use typst::{World, WorldExt};
 
 use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};

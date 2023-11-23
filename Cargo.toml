@@ -20,7 +20,6 @@ typst = { path = "crates/typst" }
 typst-cli = { path = "crates/typst-cli" }
 typst-docs = { path = "crates/typst-docs" }
 typst-ide = { path = "crates/typst-ide" }
-typst-library = { path = "crates/typst-library" }
 typst-macros = { path = "crates/typst-macros" }
 typst-pdf = { path = "crates/typst-pdf" }
 typst-render = { path = "crates/typst-render" }
@@ -98,7 +97,7 @@ tar = "0.4"
 tempfile = "3.7.0"
 time = { version = "0.3.20", features = ["formatting", "macros", "parsing"] }
 tiny-skia = "0.11"
-toml = { version = "0.8", default-features = false, features = ["parse"] }
+toml = { version = "0.8", default-features = false, features = ["parse", "display"] }
 tracing = "0.1.37"
 tracing-error = "0.2"
 tracing-flame = "0.2.0"

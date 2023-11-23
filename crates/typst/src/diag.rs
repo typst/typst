@@ -42,10 +42,16 @@ macro_rules! __bail {
 }
 
 #[doc(inline)]
-pub use crate::{__bail as bail, __error as error, __warning as warning};
+pub use crate::__bail as bail;
+#[doc(inline)]
+pub use crate::__error as error;
+#[doc(inline)]
+pub use crate::__warning as warning;
 
 #[doc(hidden)]
-pub use ecow::{eco_format, EcoString};
+pub use ecow::eco_format;
+#[doc(hidden)]
+pub use ecow::EcoString;
 
 /// Construct an [`EcoString`] or [`SourceDiagnostic`] with severity `Error`.
 #[macro_export]
@@ -156,6 +162,25 @@ impl From<SyntaxError> for SourceDiagnostic {
             trace: eco_vec![],
             hints: error.hints,
         }
+    }
+}
+
+/// Holds delayed errors.
+#[derive(Default, Clone)]
+pub struct DelayedErrors(pub EcoVec<SourceDiagnostic>);
+
+impl DelayedErrors {
+    /// Create an empty list of delayed errors.
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[comemo::track]
+impl DelayedErrors {
+    /// Push a delayed error.
+    pub fn push(&mut self, error: SourceDiagnostic) {
+        self.0.push(error);
     }
 }
 

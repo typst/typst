@@ -6,16 +6,18 @@ use std::io::Read;
 use base64::Engine;
 use ecow::{eco_format, EcoString};
 use ttf_parser::{GlyphId, OutlineBuilder};
-use typst::doc::{Frame, FrameItem, FrameKind, GroupItem, TextItem};
-use typst::eval::Repr;
-use typst::font::Font;
-use typst::geom::{
-    self, Abs, Angle, Axes, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin,
-    Paint, PathItem, Point, Quadrant, Ratio, RatioOrAngle, Relative, Shape, Size,
-    Transform,
+use typst::foundations::Repr;
+use typst::layout::{
+    Abs, Angle, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Quadrant, Ratio,
+    Size, Transform,
 };
-use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
+use typst::text::{Font, TextItem};
 use typst::util::hash128;
+use typst::visualize::{
+    Color, FixedStroke, Geometry, Gradient, GradientRelative, Image, ImageFormat,
+    LineCap, LineJoin, Paint, Path, PathItem, RasterFormat, RatioOrAngle, Shape,
+    VectorFormat,
+};
 use xmlwriter::XmlWriter;
 
 /// The number of segments in a conic gradient.
@@ -432,8 +434,8 @@ impl SVGRenderer {
         };
 
         match gradient.unwrap_relative(true) {
-            Relative::Self_ => Transform::scale(Ratio::one(), Ratio::one()),
-            Relative::Parent => Transform::scale(
+            GradientRelative::Self_ => Transform::scale(Ratio::one(), Ratio::one()),
+            GradientRelative::Parent => Transform::scale(
                 Ratio::new(state.size.x.to_pt()),
                 Ratio::new(state.size.y.to_pt()),
             )
@@ -488,11 +490,11 @@ impl SVGRenderer {
 
         if let Paint::Gradient(gradient) = paint {
             match gradient.unwrap_relative(false) {
-                Relative::Self_ => Transform::scale(
+                GradientRelative::Self_ => Transform::scale(
                     Ratio::new(shape_size.x.to_pt()),
                     Ratio::new(shape_size.y.to_pt()),
                 ),
-                Relative::Parent => Transform::scale(
+                GradientRelative::Parent => Transform::scale(
                     Ratio::new(state.size.x.to_pt()),
                     Ratio::new(state.size.y.to_pt()),
                 )
@@ -517,8 +519,8 @@ impl SVGRenderer {
 
         if let Paint::Gradient(gradient) = paint {
             match gradient.unwrap_relative(false) {
-                Relative::Self_ => shape_size,
-                Relative::Parent => state.size,
+                GradientRelative::Self_ => shape_size,
+                GradientRelative::Parent => state.size,
             }
         } else {
             shape_size
@@ -1047,7 +1049,7 @@ fn convert_geometry_to_path(geometry: &Geometry) -> EcoString {
     builder.0
 }
 
-fn convert_path(path: &geom::Path) -> EcoString {
+fn convert_path(path: &Path) -> EcoString {
     let mut builder = SvgPathBuilder::default();
     for item in &path.0 {
         match item {

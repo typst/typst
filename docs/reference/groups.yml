@@ -2,30 +2,33 @@
 # together into one documentation page although they are not part of any scope.
 
 - name: variants
-  display: Variants
+  title: Variants
   category: math
-  functions: ["serif", "sans", "frak", "mono", "bb", "cal"]
-  description: |
+  path: ["math"]
+  filter: ["serif", "sans", "frak", "mono", "bb", "cal"]
+  details: |
     Alternate typefaces within formulas.
 
     These functions are distinct from the [`text`]($text) function because math
     fonts contain multiple variants of each letter.
 
 - name: styles
-  display: Styles
+  title: Styles
   category: math
-  functions: ["upright", "italic", "bold"]
-  description: |
+  path: ["math"]
+  filter: ["upright", "italic", "bold"]
+  details: |
     Alternate letterforms within formulas.
 
     These functions are distinct from the [`text`]($text) function because math
     fonts contain multiple variants of each letter.
 
 - name: sizes
-  display: Sizes
+  title: Sizes
   category: math
-  functions: ["display", "inline", "script", "sscript"]
-  description: |
+  path: ["math"]
+  filter: ["display", "inline", "script", "sscript"]
+  details: |
     Forced size styles for expressions within formulas.
 
     These functions allow manual configuration of the size of equation elements
@@ -33,9 +36,10 @@
     sub/superscripts.
 
 - name: underover
-  display: Under/Over
+  title: Under/Over
   category: math
-  functions: [
+  path: ["math"]
+  filter: [
     "underline",
     "overline",
     "underbrace",
@@ -43,17 +47,18 @@
     "underbracket",
     "overbracket",
   ]
-  description: |
+  details: |
     Delimiters above or below parts of an equation.
 
     The braces and brackets further allow you to add an optional annotation
     below or above themselves.
 
 - name: roots
-  display: Roots
+  title: Roots
   category: math
-  functions: ["root", "sqrt"]
-  description: |
+  path: ["math"]
+  filter: ["root", "sqrt"]
+  details: |
     Square and non-square roots.
 
     # Example
@@ -63,10 +68,11 @@
     ```
 
 - name: attach
-  display: Attach
+  title: Attach
   category: math
-  functions: ["attach", "scripts", "limits"]
-  description: |
+  path: ["math"]
+  filter: ["attach", "scripts", "limits"]
+  details: |
     Subscript, superscripts, and limits.
 
     Attachments can be displayed either as sub/superscripts, or limits. Typst
@@ -84,10 +90,11 @@
     hat (`^`) to indicate a superscript i.e. top attachment.
 
 - name: lr
-  display: Left/Right
+  title: Left/Right
   category: math
-  functions: ["lr", "abs", "norm", "floor", "ceil", "round"]
-  description: |
+  path: ["math"]
+  filter: ["lr", "abs", "norm", "floor", "ceil", "round"]
+  details: |
     Delimiter matching.
 
     The `lr` function allows you to match two delimiters and scale them with the
@@ -105,10 +112,10 @@
     ```
 
 - name: calc
-  display: Calculation
+  title: Calculation
   category: foundations
   path: ["calc"]
-  description: |
+  details: |
     Module for calculations and processing of numeric values.
 
     These definitions are part of the `calc` module and not imported by default.
@@ -116,12 +123,37 @@
     the constants `pi`, `tau`, `e`, `inf`, and `nan`.
 
 - name: sys
-  display: System
+  title: System
   category: foundations
   path: ["sys"]
-  description: |
+  details: |
     Module for system interactions.
 
     Currently, this module defines a single item: The `sys.version` constant
     (of type [`version`]($version)), that specifies the currently active
     Typst compiler version.
+
+- name: sym
+  title: General
+  category: symbols
+  path: ["sym"]
+  details: |
+    Named general symbols.
+
+    For example, `#sym.arrow` produces the → symbol. Within
+    [formulas]($category/math), these symbols can be used without the `#sym.`
+    prefix.
+
+    The `d` in an integral's `dx` can be written as `[$dif x$]`.
+    Outside math formulas, `dif` can be accessed as `math.dif`.
+
+- name: emoji
+  title: Emoji
+  category: symbols
+  path: ["emoji"]
+  details: |
+    Named emoji.
+
+    For example, `#emoji.face` produces the 😀 emoji. If you frequently use
+    certain emojis, you can also import them from the `emoji` module (`[#import
+    emoji: face]`) to use them without the `#emoji.` prefix.
