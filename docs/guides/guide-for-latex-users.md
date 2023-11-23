@@ -562,6 +562,19 @@ The example below
 This should be a good starting point! If you want to go further, why not create
 a reusable template?
 
+## Bibliographies { #bibliographies}
+The bibliography system has many benefits. Those include the following:
+- **Inbuilt citation styles**. Typst has over 80 included citation styles
+- **Compability with CSL styles**. Typst is compatibly with
+  [CSL](https://github.com/citation-style-language/styles) bibliography styles.
+- **Support for BibTex**. Typst also supports using BibTex files which previous
+  latex users might have.
+
+## Local Installation { #installation }
+Typst is installed with a single, small binary which can be run by any user (no
+adming/root access needed). Unlike latex it doesn't include any packages.
+The packages are installed when needed and cached locally.
+
 ## What limitations does Typst currently have compared to LaTeX? { #limitations }
 Although Typst can be a LaTeX replacement for many today, there are still
 features that Typst does not (yet) support. Here is a list of them which, where
