@@ -982,8 +982,8 @@ fn to_sk_paint<'a>(
 fn render_pattern_frame(state: &State, pattern: &Pattern) -> sk::Pixmap {
     let size = pattern.bbox + pattern.spacing;
     let mut canvas = sk::Pixmap::new(
-        (size.x.to_f32() * state.pixel_per_pt).ceil() as u32,
-        (size.y.to_f32() * state.pixel_per_pt).ceil() as u32,
+        (size.x.to_f32() * state.pixel_per_pt).round() as u32,
+        (size.y.to_f32() * state.pixel_per_pt).round() as u32,
     )
     .unwrap();
 
