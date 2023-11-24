@@ -1,15 +1,21 @@
 //! Utilities.
 
+pub mod fat;
+
+#[macro_use]
+mod macros;
 mod deferred;
 mod pico;
+mod scalar;
 
 pub use self::deferred::Deferred;
 pub use self::pico::PicoStr;
+pub use self::scalar::Scalar;
 
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
-use std::ops::Deref;
+use std::ops::{Add, Deref, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
 use siphasher::sip128::{Hasher128, SipHasher13};
@@ -148,4 +154,59 @@ impl<T> Hash for Static<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         state.write_usize(self.0 as *const _ as _);
     }
+}
+
+/// Generic access to a structure's components.
+pub trait Get<Index> {
+    /// The structure's component type.
+    type Component;
+
+    /// Borrow the component for the specified index.
+    fn get_ref(&self, index: Index) -> &Self::Component;
+
+    /// Borrow the component for the specified index mutably.
+    fn get_mut(&mut self, index: Index) -> &mut Self::Component;
+
+    /// Convenience method for getting a copy of a component.
+    fn get(self, index: Index) -> Self::Component
+    where
+        Self: Sized,
+        Self::Component: Copy,
+    {
+        *self.get_ref(index)
+    }
+
+    /// Convenience method for setting a component.
+    fn set(&mut self, index: Index, component: Self::Component) {
+        *self.get_mut(index) = component;
+    }
+}
+
+/// A numeric type.
+pub trait Numeric:
+    Sized
+    + Debug
+    + Copy
+    + PartialEq
+    + Neg<Output = Self>
+    + Add<Output = Self>
+    + Sub<Output = Self>
+    + Mul<f64, Output = Self>
+    + Div<f64, Output = Self>
+{
+    /// The identity element for addition.
+    fn zero() -> Self;
+
+    /// Whether `self` is zero.
+    fn is_zero(self) -> bool {
+        self == Self::zero()
+    }
+
+    /// Whether `self` consists only of finite parts.
+    fn is_finite(self) -> bool;
+}
+
+/// Round a float to two decimal places.
+pub fn round_2(value: f64) -> f64 {
+    (value * 100.0).round() / 100.0
 }

@@ -1,6 +1,9 @@
 use heck::ToKebabCase;
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::{parse_quote, Result};
 
-use super::*;
+use crate::util::{foundations, BareType};
 
 /// Expand the `#[scope]` macro.
 pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
@@ -8,7 +11,6 @@ pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
         bail!(item, "expected module or impl item");
     };
 
-    let eval = quote! { ::typst::eval };
     let self_ty = &item.self_ty;
 
     let mut definitions = vec![];
@@ -43,13 +45,13 @@ pub fn scope(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
     Ok(quote! {
         #base
 
-        impl #eval::NativeScope for #self_ty {
-            fn constructor() -> ::std::option::Option<&'static #eval::NativeFuncData> {
+        impl #foundations::NativeScope for #self_ty {
+            fn constructor() -> ::std::option::Option<&'static #foundations::NativeFuncData> {
                 #constructor
             }
 
-            fn scope() -> #eval::Scope {
-                let mut scope = #eval::Scope::deduplicating();
+            fn scope() -> #foundations::Scope {
+                let mut scope = #foundations::Scope::deduplicating();
                 #(#definitions;)*
                 scope
             }
@@ -92,7 +94,7 @@ fn handle_fn(self_ty: &syn::Type, item: &mut syn::ImplItemFn) -> Result<FnKind> 
         }
         syn::Meta::List(list) => {
             let tokens = &list.tokens;
-            let meta: super::func::Meta = syn::parse2(tokens.clone())?;
+            let meta: crate::func::Meta = syn::parse2(tokens.clone())?;
             list.tokens = quote! { #tokens, parent = #self_ty };
             if meta.constructor {
                 return Ok(FnKind::Constructor(quote! { Some(#self_ty::#ident_data()) }));
@@ -135,7 +137,7 @@ fn rewrite_primitive_base(item: &syn::ItemImpl, ident: &syn::Ident) -> TokenStre
         let ident_data = quote::format_ident!("{}_data", sig.ident);
         sigs.push(quote! { #sig; });
         sigs.push(quote! {
-            fn #ident_data() -> &'static ::typst::eval::NativeFuncData;
+            fn #ident_data() -> &'static #foundations::NativeFuncData;
         });
     }
 

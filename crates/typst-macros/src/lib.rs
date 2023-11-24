@@ -5,22 +5,15 @@ extern crate proc_macro;
 #[macro_use]
 mod util;
 mod cast;
+mod category;
 mod elem;
 mod func;
 mod scope;
 mod symbols;
 mod ty;
 
-use heck::*;
 use proc_macro::TokenStream as BoundaryStream;
-use proc_macro2::TokenStream;
-use quote::quote;
-use syn::ext::IdentExt;
-use syn::parse::{Parse, ParseStream, Parser};
-use syn::punctuated::Punctuated;
-use syn::{parse_quote, DeriveInput, Ident, Result, Token};
-
-use self::util::*;
+use syn::DeriveInput;
 
 /// Makes a native Rust function usable as a Typst function.
 ///
@@ -190,9 +183,6 @@ pub fn ty(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 /// - `#[synthesized]`: The field cannot be specified in a constructor or set
 ///   rule. Instead, it is added to an element before its show rule runs
 ///   through the `Synthesize` trait.
-/// - `#[variant]`: Allows setting the ID of a field's variant. This is used
-///   for fields that are accessed in `typst` and not `typst-library`. It gives
-///   the field a stable ID that can be used to access it.
 /// - `#[ghost]`: Allows creating fields that are only present in the style chain,
 ///   this means that they *cannot* be accessed by the user, they cannot be set
 ///   on an individual instantiated element, and must be set via the style chain.
@@ -252,6 +242,15 @@ pub fn elem(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 pub fn scope(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
     let item = syn::parse_macro_input!(item as syn::Item);
     scope::scope(stream.into(), item)
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
+}
+
+/// Defines a category of definitions.
+#[proc_macro_attribute]
+pub fn category(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
+    let item = syn::parse_macro_input!(item as syn::Item);
+    category::category(stream.into(), item)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }

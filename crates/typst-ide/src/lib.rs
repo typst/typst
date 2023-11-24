@@ -13,9 +13,7 @@ pub use self::tooltip::{tooltip, Tooltip};
 use std::fmt::Write;
 
 use ecow::{eco_format, EcoString};
-use typst::font::{FontInfo, FontStyle};
-
-use self::analyze::*;
+use typst::text::{FontInfo, FontStyle};
 
 /// Extract the first sentence of plain text of a piece of documentation.
 ///

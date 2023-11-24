@@ -1,11 +1,12 @@
 use comemo::{Prehashed, Track, Tracked};
 use iai::{black_box, main, Iai};
 use typst::diag::FileResult;
-use typst::eval::{Bytes, Datetime, Library, Tracer};
-use typst::font::{Font, FontBook};
-use typst::geom::Color;
+use typst::eval::Tracer;
+use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source};
-use typst::World;
+use typst::text::{Font, FontBook};
+use typst::visualize::Color;
+use typst::{Library, World};
 use unscanny::Scanner;
 
 const TEXT: &str = include_str!("../typ/compiler/bench.typ");
@@ -17,7 +18,6 @@ main!(
     bench_parse,
     bench_edit,
     bench_eval,
-    bench_layout,
     bench_compile,
     bench_render,
 );
@@ -65,21 +65,6 @@ fn bench_eval(iai: &mut Iai) {
     });
 }
 
-fn bench_layout(iai: &mut Iai) {
-    let world = BenchWorld::new();
-    let route = typst::eval::Route::default();
-    let mut tracer = typst::eval::Tracer::new();
-    let module = typst::eval::eval(
-        world.track(),
-        route.track(),
-        tracer.track_mut(),
-        &world.source,
-    )
-    .unwrap();
-    let content = module.content();
-    iai.run(|| typst::model::layout(world.track(), tracer.track_mut(), &content));
-}
-
 fn bench_compile(iai: &mut Iai) {
     let world = BenchWorld::new();
     let mut tracer = Tracer::new();
@@ -106,7 +91,7 @@ impl BenchWorld {
         let book = FontBook::from_fonts([&font]);
 
         Self {
-            library: Prehashed::new(typst_library::build()),
+            library: Prehashed::new(Library::build()),
             book: Prehashed::new(book),
             font,
             source: Source::detached(TEXT),

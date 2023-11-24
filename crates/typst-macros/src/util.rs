@@ -1,8 +1,9 @@
-use quote::ToTokens;
+use heck::{ToKebabCase, ToTitleCase};
+use proc_macro2::TokenStream;
+use quote::{quote, ToTokens};
+use syn::parse::{Parse, ParseStream};
 use syn::token::Token;
-use syn::Attribute;
-
-use super::*;
+use syn::{Attribute, Ident, Result, Token};
 
 /// Return an error at the given item.
 macro_rules! bail {
@@ -199,6 +200,16 @@ impl<T: Parse> Parse for Array<T> {
     }
 }
 
+/// Shorthand for `::typst::foundations`.
+#[allow(non_camel_case_types)]
+pub struct foundations;
+
+impl quote::ToTokens for foundations {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        quote! { ::typst::foundations }.to_tokens(tokens);
+    }
+}
+
 /// For parsing attributes of the form:
 /// #[attr(
 ///   statement;
@@ -220,15 +231,6 @@ impl Parse for BlockWithReturn {
     }
 }
 
-pub mod kw {
-    syn::custom_keyword!(name);
-    syn::custom_keyword!(title);
-    syn::custom_keyword!(scope);
-    syn::custom_keyword!(constructor);
-    syn::custom_keyword!(keywords);
-    syn::custom_keyword!(parent);
-}
-
 /// Parse a bare `type Name;` item.
 pub struct BareType {
     pub attrs: Vec<Attribute>,
@@ -239,11 +241,20 @@ pub struct BareType {
 
 impl Parse for BareType {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(BareType {
+        Ok(Self {
             attrs: input.call(Attribute::parse_outer)?,
             type_token: input.parse()?,
             ident: input.parse()?,
             semi_token: input.parse()?,
         })
     }
+}
+
+pub mod kw {
+    syn::custom_keyword!(name);
+    syn::custom_keyword!(title);
+    syn::custom_keyword!(scope);
+    syn::custom_keyword!(constructor);
+    syn::custom_keyword!(keywords);
+    syn::custom_keyword!(parent);
 }

@@ -11,7 +11,7 @@ use crate::{
 /// ultimately reparsed.
 ///
 /// The high-level API for this function is
-/// [`Source::edit`](super::Source::edit).
+/// [`Source::edit`](crate::Source::edit).
 pub fn reparse(
     root: &mut SyntaxNode,
     text: &str,
