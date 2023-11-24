@@ -48,7 +48,7 @@ use crate::World;
 ///   relative: "parent",
 ///   square(size: 30pt, fill: gradient.conic(..color.map.rainbow))
 /// )
-/// 
+///
 /// #set text(fill: pat)
 /// #lorem(10)
 /// ```
