@@ -70,8 +70,8 @@ impl LayoutMath for LrElem {
         // Handle MathFragment::Variant fragments that should be scaled up.
         for fragment in fragments.as_mut_slice() {
             if let MathFragment::Variant(ref mut variant) = fragment {
-                if variant.mid_stretched == Some(true) {
-                    variant.mid_stretched = Some(false);
+                if variant.mid_stretched == Some(false) {
+                    variant.mid_stretched = Some(true);
                     scale(ctx, fragment, height, Some(MathClass::Large));
                 }
             }
@@ -98,18 +98,24 @@ pub struct MidElem {
 impl LayoutMath for MidElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let mut fragments = ctx.layout_fragments(self.body())?;
-        for i in 0..fragments.len() {
-            let maybe_new = match &fragments[i] {
-                MathFragment::Glyph(glyph) => Some(glyph.clone().into_variant()),
-                MathFragment::Variant(variant) => Some(variant.clone()),
-                _ => None,
-            };
-            if let Some(mut new) = maybe_new {
-                new.mid_stretched = Some(true);
-                fragments[i] = MathFragment::Variant(new);
-            }
-        }
+        let fragments = ctx
+            .layout_fragments(self.body())?
+            .into_iter()
+            .enumerate()
+            .map(|(_, elem)| match elem {
+                MathFragment::Glyph(glyph) => {
+                    let mut new = glyph.clone().into_variant();
+                    new.mid_stretched = Some(false);
+                    MathFragment::Variant(new)
+                }
+                MathFragment::Variant(variant) => {
+                    let mut new = variant.clone();
+                    new.mid_stretched = Some(false);
+                    MathFragment::Variant(new)
+                }
+                _ => elem,
+            })
+            .collect();
         ctx.extend(fragments);
         Ok(())
     }
