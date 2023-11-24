@@ -8,6 +8,7 @@
 ]
 
 #set page(fill: pat(), width: 100pt, height: 100pt)
+
 #rect(fill: pat(relative: "self"), width: 100%, height: 100%, stroke: 1pt)
 
 ---
@@ -18,4 +19,5 @@
 ]
 
 #set page(fill: pat(), width: 100pt, height: 100pt)
+
 #rect(fill: pat(relative: "parent"), width: 100%, height: 100%, stroke: 1pt)

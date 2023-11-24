@@ -606,14 +606,14 @@ impl SVGRenderer {
     }
 
     fn push_pattern(&mut self, pattern: &Pattern, size: Size, ts: Transform) -> Id {
-        let pattern_size = pattern.bbox + pattern.spacing;
+        let pattern_size = pattern.size_abs() + pattern.spacing_abs();
         // Unfortunately due to a limitation of `xmlwriter`, we need to
         // render the frame twice: once to allocate all of the resources
         // that it needs and once to actually render it.
         self.render_pattern_frame(
             State::new(pattern_size, Transform::identity()),
             Transform::identity(),
-            &pattern.frame,
+            pattern.frame(),
         );
 
         let pattern_id = self.patterns.insert_with(hash128(pattern), || pattern.clone());
@@ -1031,7 +1031,7 @@ impl SVGRenderer {
         for (id, pattern) in
             self.patterns.iter().map(|(i, p)| (i, p.clone())).collect::<Vec<_>>()
         {
-            let size = pattern.bbox + pattern.spacing;
+            let size = pattern.size_abs() + pattern.spacing_abs();
             self.xml.start_element("pattern");
             self.xml.write_attribute("id", &id);
             self.xml.write_attribute("width", &size.x.to_pt());
@@ -1045,7 +1045,7 @@ impl SVGRenderer {
             // Render the frame.
             let state = State::new(size, Transform::identity());
             let ts = Transform::identity();
-            self.render_frame(state, ts, &pattern.frame);
+            self.render_frame(state, ts, pattern.frame());
 
             self.xml.end_element();
         }
@@ -1336,16 +1336,14 @@ impl SvgPathBuilder {
         sweep_flag: u32,
         pos: (f32, f32),
     ) {
-        let radius = (radius.0 * self.scale(), radius.1 * self.scale());
-        let pos = (pos.0 * self.scale(), pos.1 * self.scale());
-
+        let scale = self.scale();
         write!(
             &mut self.0,
             "A {rx} {ry} {x_axis_rot} {large_arc_flag} {sweep_flag} {x} {y} ",
-            rx = radius.0,
-            ry = radius.1,
-            x = pos.0,
-            y = pos.1,
+            rx = radius.0 * scale,
+            ry = radius.1 * scale,
+            x = pos.0 * scale,
+            y = pos.1 * scale,
         )
         .unwrap();
     }
@@ -1360,33 +1358,41 @@ impl Default for SvgPathBuilder {
 /// A builder for SVG path. This is used to build the path for a glyph.
 impl ttf_parser::OutlineBuilder for SvgPathBuilder {
     fn move_to(&mut self, x: f32, y: f32) {
-        let x = x * self.scale();
-        let y = y * self.scale();
-        write!(&mut self.0, "M {} {} ", x, y).unwrap();
+        let scale = self.scale();
+        write!(&mut self.0, "M {} {} ", x * scale, y * scale).unwrap();
     }
 
     fn line_to(&mut self, x: f32, y: f32) {
-        let x = x * self.scale();
-        let y = y * self.scale();
-        write!(&mut self.0, "L {} {} ", x, y).unwrap();
+        let scale = self.scale();
+        write!(&mut self.0, "L {} {} ", x * scale, y * scale).unwrap();
     }
 
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        let x1 = x1 * self.scale();
-        let y1 = y1 * self.scale();
-        let x = x * self.scale();
-        let y = y * self.scale();
-        write!(&mut self.0, "Q {} {} {} {} ", x1, y1, x, y).unwrap();
+        let scale = self.scale();
+        write!(
+            &mut self.0,
+            "Q {} {} {} {} ",
+            x1 * scale,
+            y1 * scale,
+            x * scale,
+            y * scale
+        )
+        .unwrap();
     }
 
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
-        let x1 = x1 * self.scale();
-        let y1 = y1 * self.scale();
-        let x2 = x2 * self.scale();
-        let y2 = y2 * self.scale();
-        let x = x * self.scale();
-        let y = y * self.scale();
-        write!(&mut self.0, "C {} {} {} {} {} {} ", x1, y1, x2, y2, x, y).unwrap();
+        let scale = self.scale();
+        write!(
+            &mut self.0,
+            "C {} {} {} {} {} {} ",
+            x1 * scale,
+            y1 * scale,
+            x2 * scale,
+            y2 * scale,
+            x * scale,
+            y * scale
+        )
+        .unwrap();
     }
 
     fn close(&mut self) {

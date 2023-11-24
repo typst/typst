@@ -756,6 +756,17 @@ fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
 trait PaintSampler: Copy {
     /// Sample the color at the `pos` in the pixmap.
     fn sample(self, pos: (u32, u32)) -> sk::PremultipliedColorU8;
+
+    /// Write the sampler to a pixmap.
+    fn write_to_pixmap(self, canvas: &mut sk::Pixmap) {
+        let width = canvas.width();
+        for x in 0..canvas.width() {
+            for y in 0..canvas.height() {
+                let color = self.sample((x, y));
+                canvas.pixels_mut()[(y * width + x) as usize] = color;
+            }
+        }
+    }
 }
 
 impl PaintSampler for sk::PremultipliedColorU8 {
@@ -844,7 +855,8 @@ impl<'a> PatternSampler<'a> {
 
         Self {
             pixmap,
-            size: (pattern.bbox + pattern.spacing) * state.pixel_per_pt as f64,
+            size: (pattern.size_abs() + pattern.spacing_abs())
+                * state.pixel_per_pt as f64,
             transform_to_parent: fill_transform,
             pixel_per_pt: state.pixel_per_pt,
         }
@@ -982,19 +994,19 @@ fn to_sk_paint<'a>(
 }
 
 fn render_pattern_frame(state: &State, pattern: &Pattern) -> sk::Pixmap {
-    let size = pattern.bbox + pattern.spacing;
+    let size = pattern.size_abs() + pattern.spacing_abs();
     let mut canvas = sk::Pixmap::new(
         (size.x.to_f32() * state.pixel_per_pt).round() as u32,
         (size.y.to_f32() * state.pixel_per_pt).round() as u32,
     )
     .unwrap();
 
-    canvas.fill(sk::Color::WHITE);
+    canvas.fill(sk::Color::TRANSPARENT);
 
     // Render the pattern into a new canvas.
     let ts = sk::Transform::from_scale(state.pixel_per_pt, state.pixel_per_pt);
-    let temp_state = State::new(pattern.bbox, ts, state.pixel_per_pt);
-    render_frame(&mut canvas, temp_state, &pattern.frame);
+    let temp_state = State::new(pattern.size_abs(), ts, state.pixel_per_pt);
+    render_frame(&mut canvas, temp_state, pattern.frame());
     canvas
 }
 

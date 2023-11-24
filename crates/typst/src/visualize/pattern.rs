@@ -1,17 +1,17 @@
 use std::hash::Hash;
+use std::sync::Arc;
 
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
-use typst_macros::{func, scope, ty};
-use typst_syntax::{Span, Spanned};
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{bail, error, SourceResult};
 use crate::eval::Vm;
-use crate::foundations::{Content, Repr, Smart, StyleChain};
-use crate::layout::{Axes, Em, Frame, Layout, Length, Regions, Size};
+use crate::foundations::{func, scope, ty, Content, Repr, Smart, StyleChain};
+use crate::layout::{Abs, Axes, Em, Frame, Layout, Length, Regions, Size};
+use crate::syntax::{Span, Spanned};
 use crate::util::Numeric;
-
-use super::RelativeTo;
+use crate::visualize::RelativeTo;
+use crate::World;
 
 /// A repeating pattern fill.
 ///
@@ -64,11 +64,12 @@ use super::RelativeTo;
 ///   spacing: (10pt, 10pt),
 ///   relative: "parent",
 ///   square(size: 30pt, fill: gradient.conic(..color.map.rainbow))
-/// );
+/// )
+///
 ///  #rect(width: 100%, height: 100%, fill: pat)
 /// ```
 ///
-/// # RelativeToness
+/// # Relativeness
 /// The location of the starting point of the pattern is dependant on the
 /// dimensions of a container. This container can either be the shape they
 /// are painted on, or the closest surrounding container. This is controlled by
@@ -86,20 +87,26 @@ use super::RelativeTo;
 ///   [`grid`]($grid) will.
 #[ty(scope)]
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub struct Pattern {
-    /// The body of the pattern
-    pub body: Prehashed<Content>,
-    /// The pattern's rendered content.
-    pub frame: Prehashed<Frame>,
-    /// The pattern's tile size.
-    pub bbox: Size,
-    /// The pattern's tile spacing.
-    pub spacing: Size,
-    /// The pattern's relative transform.
-    pub relative: Smart<RelativeTo>,
-}
+pub struct Pattern(Arc<PatternRepr>);
 
 impl Eq for Pattern {}
+
+/// Internal representation of [`Pattern`].
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct PatternRepr {
+    /// The body of the pattern
+    body: Prehashed<Content>,
+    /// The pattern's rendered content.
+    frame: Prehashed<Frame>,
+    /// The pattern's tile size.
+    size: Size,
+    /// The pattern's tile spacing.
+    spacing: Size,
+    /// The pattern's relative transform.
+    relative: Smart<RelativeTo>,
+}
+
+impl Eq for PatternRepr {}
 
 #[scope]
 impl Pattern {
@@ -110,16 +117,15 @@ impl Pattern {
     ///   (20pt, 20pt),
     ///   relative: "parent",
     ///   place(dx: 5pt, dy: 5pt, rotate(45deg, square(size: 5pt, fill: black)))
-    /// );
-    ///  #rect(width: 100%, height: 100%, fill: pat)
+    /// )
+    ///
+    /// #rect(width: 100%, height: 100%, fill: pat)
     /// ```
     #[func(constructor)]
     pub fn construct(
         vm: &mut Vm,
         /// The bounding box of each cell of the pattern.
-        bbox: Spanned<Axes<Length>>,
-        /// The content of each cell of the pattern.
-        body: Content,
+        size: Spanned<Smart<Axes<Length>>>,
         /// The spacing between cells of the pattern.
         #[named]
         #[default(Spanned::new(Axes::splat(Length::zero()), Span::detached()))]
@@ -133,19 +139,24 @@ impl Pattern {
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<RelativeTo>,
+        /// The content of each cell of the pattern.
+        body: Content,
     ) -> SourceResult<Pattern> {
-        // Ensure that sizes are absolute.
-        if !bbox.v.x.em.is_zero() || !bbox.v.y.em.is_zero() {
-            bail!(bbox.span, "pattern tile size must be absolute");
-        }
+        let span = size.span;
+        if let Smart::Custom(size) = size.v {
+            // Ensure that sizes are absolute.
+            if !size.x.em.is_zero() || !size.y.em.is_zero() {
+                bail!(span, "pattern tile size must be absolute");
+            }
 
-        // Ensure that sizes are non-zero and finite.
-        if bbox.v.x.is_zero()
-            || bbox.v.y.is_zero()
-            || !bbox.v.x.is_finite()
-            || !bbox.v.y.is_finite()
-        {
-            bail!(bbox.span, "pattern tile size must be non-zero and non-infinite");
+            // Ensure that sizes are non-zero and finite.
+            if size.x.is_zero()
+                || size.y.is_zero()
+                || !size.x.is_finite()
+                || !size.y.is_finite()
+            {
+                bail!(span, "pattern tile size must be non-zero and non-infinite");
+            }
         }
 
         // Ensure that spacing is absolute.
@@ -158,58 +169,80 @@ impl Pattern {
             bail!(spacing.span, "pattern tile spacing must be finite");
         }
 
-        // The size of the pattern.
-        let size = Size::new(bbox.v.x.abs, bbox.v.y.abs);
+        // The size of the frame
+        let size = size.v.map(|l| l.map(|a| a.abs));
+        let region = size.unwrap_or_else(|| Axes::splat(Abs::inf()));
 
         // Layout the pattern.
-        let regions = Regions::one(size, Axes::splat(false));
-        let mut frame =
-            body.layout(&mut vm.vt, StyleChain::default(), regions)?.into_frame();
+        let world = vm.vt.world;
+        let library = world.library();
+        let styles = StyleChain::new(&library.styles);
+        let pod = Regions::one(region, Axes::splat(false));
+        let mut frame = body.layout(&mut vm.vt, styles, pod)?.into_frame();
 
-        // Ensure that the frame has the correct size.
-        frame.set_size(size);
+        // Check that the frame is non-zero.
+        if size.is_auto() && frame.size().is_zero() {
+            bail!(error!(span, "pattern tile size must be non-zero")
+                .with_hint("try setting the size manually"));
+        }
 
-        Ok(Self {
+        // Set the size of the frame if the size is enforced.
+        if let Smart::Custom(size) = size {
+            frame.set_size(size);
+        }
+
+        Ok(Self(Arc::new(PatternRepr {
+            size: frame.size(),
             body: Prehashed::new(body),
             frame: Prehashed::new(frame),
-            bbox: size,
             spacing: spacing.v.map(|l| l.abs),
             relative,
-        })
+        })))
     }
 
     /// Returns the content of an individual tile of the pattern.
     #[func]
     pub fn body(&self) -> Content {
-        self.body.clone().into_inner()
+        self.0.body.clone().into_inner()
     }
 
     /// Returns the size of an individual tile of the pattern.
     #[func]
     pub fn size(&self) -> Axes<Length> {
-        self.bbox.map(|l| Length { abs: l, em: Em::zero() })
+        self.0.size.map(|l| Length { abs: l, em: Em::zero() })
     }
 
     /// Returns the spacing between tiles of the pattern.
     #[func]
     pub fn spacing(&self) -> Axes<Length> {
-        self.spacing.map(|l| Length { abs: l, em: Em::zero() })
+        self.0.spacing.map(|l| Length { abs: l, em: Em::zero() })
     }
 
     /// Returns the relative placement of the pattern.
     #[func]
     pub fn relative(&self) -> Smart<RelativeTo> {
-        self.relative
+        self.0.relative
     }
 }
 
 impl Pattern {
-    pub fn with_relative(self, relative: RelativeTo) -> Self {
-        Self { relative: Smart::Custom(relative), ..self }
+    /// Set the relative placement of the pattern.
+    pub fn with_relative(mut self, relative: RelativeTo) -> Self {
+        if let Some(this) = Arc::get_mut(&mut self.0) {
+            this.relative = Smart::Custom(relative);
+        } else {
+            self.0 = Arc::new(PatternRepr {
+                relative: Smart::Custom(relative),
+                ..self.0.as_ref().clone()
+            });
+        }
+
+        self
     }
 
+    /// Returns the relative placement of the pattern.
     pub fn unwrap_relative(&self, on_text: bool) -> RelativeTo {
-        self.relative.unwrap_or_else(|| {
+        self.0.relative.unwrap_or_else(|| {
             if on_text {
                 RelativeTo::Parent
             } else {
@@ -217,23 +250,38 @@ impl Pattern {
             }
         })
     }
+
+    /// Return the size of the pattern in absolute units.
+    pub fn size_abs(&self) -> Size {
+        self.0.size
+    }
+
+    /// Return the spacing of the pattern in absolute units.
+    pub fn spacing_abs(&self) -> Size {
+        self.0.spacing
+    }
+
+    /// Return the frame of the pattern.
+    pub fn frame(&self) -> &Frame {
+        &self.0.frame
+    }
 }
 
 impl Repr for Pattern {
     fn repr(&self) -> EcoString {
         let mut out =
-            eco_format!("pattern(({}, {})", self.bbox.x.repr(), self.bbox.y.repr());
+            eco_format!("pattern(({}, {})", self.0.size.x.repr(), self.0.size.y.repr());
 
         if self.spacing() != Axes::splat(Length::zero()) {
             out.push_str(", spacing: (");
-            out.push_str(&self.spacing.x.repr());
+            out.push_str(&self.0.spacing.x.repr());
             out.push_str(", ");
-            out.push_str(&self.spacing.y.repr());
+            out.push_str(&self.0.spacing.y.repr());
             out.push(')');
         }
 
         out.push_str(", ");
-        out.push_str(&self.body.repr());
+        out.push_str(&self.0.body.repr());
         out.push(')');
 
         out

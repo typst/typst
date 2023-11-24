@@ -1,12 +1,12 @@
+use std::fmt::{self, Debug, Formatter};
+
 use ecow::EcoString;
 
 use crate::foundations::{cast, Repr, Smart};
-use crate::visualize::{Color, Gradient, RelativeTo};
-
-use super::Pattern;
+use crate::visualize::{Color, Gradient, Pattern, RelativeTo};
 
 /// How a fill or stroke should be painted.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub enum Paint {
     /// A solid color.
     Solid(Color),
@@ -30,7 +30,7 @@ impl Paint {
         match self {
             Self::Solid(_) => Smart::Auto,
             Self::Gradient(gradient) => gradient.relative(),
-            Self::Pattern(pattern) => pattern.relative,
+            Self::Pattern(pattern) => pattern.relative(),
         }
     }
 
@@ -47,6 +47,16 @@ impl Paint {
             Self::Pattern(pattern) => {
                 Self::Pattern(pattern.clone().with_relative(RelativeTo::Parent))
             }
+        }
+    }
+}
+
+impl Debug for Paint {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Solid(v) => v.fmt(f),
+            Self::Gradient(v) => v.fmt(f),
+            Self::Pattern(v) => v.fmt(f),
         }
     }
 }

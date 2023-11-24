@@ -7,6 +7,7 @@
 ]
 
 #set page(width: 100pt, height: 100pt)
+
 #rect(fill: pat(spacing: (-10pt, -10pt,)), width: 100%, height: 100%, stroke: 1pt)
 
 ---
@@ -16,6 +17,7 @@
 ]
 
 #set page(width: 100pt, height: 100pt)
+
 #rect(fill: pat(spacing: (0pt, 0pt,)), width: 100%, height: 100%, stroke: 1pt)
 
 ---
@@ -25,4 +27,5 @@
 ]
 
 #set page(width: 100pt, height: 100pt)
+
 #rect(fill: pat(spacing: (10pt, 10pt,)), width: 100%, height: 100%, stroke: 1pt)

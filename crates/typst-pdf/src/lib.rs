@@ -12,10 +12,10 @@ mod pattern;
 use std::cmp::Eq;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
+use std::sync::Arc;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
-use pattern::PdfPattern;
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
 use typst::foundations::Datetime;
@@ -32,6 +32,7 @@ use crate::extg::ExtGState;
 use crate::gradient::PdfGradient;
 use crate::image::EncodedImage;
 use crate::page::Page;
+use crate::pattern::PdfPattern;
 
 /// Export a document into a PDF file.
 ///
@@ -272,6 +273,12 @@ fn deflate(data: &[u8]) -> Vec<u8> {
     miniz_oxide::deflate::compress_to_vec_zlib(data, COMPRESSION_LEVEL)
 }
 
+/// Memoized version of [`deflate`] specialized for a page's content stream.
+#[comemo::memoize]
+fn deflate_memoized(content: &[u8]) -> Arc<Vec<u8>> {
+    Arc::new(deflate(content))
+}
+
 /// Create a base64-encoded hash of the value.
 fn hash_base64<T: Hash>(value: &T) -> String {
     base64::engine::general_purpose::STANDARD
@@ -387,7 +394,7 @@ impl EmExt for Em {
 }
 
 /// Convert to an array of floats.
-pub(crate) fn transform_to_array(ts: Transform) -> [f32; 6] {
+fn transform_to_array(ts: Transform) -> [f32; 6] {
     [
         ts.sx.get() as f32,
         ts.ky.get() as f32,

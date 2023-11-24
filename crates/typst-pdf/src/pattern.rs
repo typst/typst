@@ -6,10 +6,8 @@ use typst::util::Numeric;
 use typst::visualize::{Pattern, RelativeTo};
 
 use crate::color::PaintEncode;
-use crate::page::{
-    construct_page, deflate_content, PageContext, PageResource, Transforms,
-};
-use crate::{transform_to_array, PdfContext};
+use crate::page::{construct_page, PageContext, PageResource, ResourceKind, Transforms};
+use crate::{deflate_memoized, transform_to_array, PdfContext};
 
 /// Writes the actual patterns (tiling patterns) to the PDF.
 /// This is performed once after writing all pages.
@@ -18,7 +16,7 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
         let tiling = ctx.alloc.bump();
         ctx.pattern_refs.push(tiling);
 
-        let content = deflate_content(content);
+        let content = deflate_memoized(content);
         let mut tiling_pattern = ctx.pdf.tiling_pattern(tiling, &content);
         tiling_pattern
             .tiling_type(TilingType::ConstantSpacing)
@@ -26,11 +24,11 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
             .bbox(Rect::new(
                 0.0,
                 0.0,
-                pattern.bbox.x.to_pt() as _,
-                pattern.bbox.y.to_pt() as _,
+                pattern.size_abs().x.to_pt() as _,
+                pattern.size_abs().y.to_pt() as _,
             ))
-            .x_step((pattern.bbox.x + pattern.spacing.x).to_pt() as _)
-            .y_step((pattern.bbox.y + pattern.spacing.y).to_pt() as _);
+            .x_step((pattern.size_abs().x + pattern.spacing_abs().x).to_pt() as _)
+            .y_step((pattern.size_abs().y + pattern.spacing_abs().y).to_pt() as _);
 
         let mut resources_map = tiling_pattern.resources();
 
@@ -115,7 +113,7 @@ fn register_pattern(
     };
 
     // Render the body.
-    let (_, content) = construct_page(ctx.parent, &pattern.frame);
+    let (_, content) = construct_page(ctx.parent, pattern.frame());
 
     let pdf_pattern = PdfPattern {
         transform,
@@ -137,7 +135,8 @@ impl PaintEncode for Pattern {
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_fill_pattern(None, name);
-        ctx.resources.insert(PageResource::Pattern(id), index);
+        ctx.resources
+            .insert(PageResource::new(ResourceKind::Pattern, id), index);
     }
 
     fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms) {
@@ -149,6 +148,7 @@ impl PaintEncode for Pattern {
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_stroke_pattern(None, name);
-        ctx.resources.insert(PageResource::Pattern(id), index);
+        ctx.resources
+            .insert(PageResource::new(ResourceKind::Pattern, id), index);
     }
 }

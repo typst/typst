@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
-use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::{
@@ -24,13 +23,15 @@ use typst::visualize::{
 use crate::color::PaintEncode;
 use crate::extg::ExtGState;
 use crate::image::deferred_image;
-use crate::{deflate, AbsExt, EmExt, PdfContext};
+use crate::{deflate_memoized, AbsExt, EmExt, PdfContext};
 
 /// Construct page objects.
 #[tracing::instrument(skip_all)]
 pub(crate) fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
     for frame in frames {
-        construct_and_write_page(ctx, frame);
+        let (page_ref, page) = construct_page(ctx, frame);
+        ctx.page_refs.push(page_ref);
+        ctx.pages.push(page);
     }
 }
 
@@ -79,14 +80,6 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Page)
     };
 
     (page_ref, page)
-}
-
-/// writes a page object.
-#[tracing::instrument(skip_all)]
-fn construct_and_write_page(ctx: &mut PdfContext, frame: &Frame) {
-    let (page_ref, page) = construct_page(ctx, frame);
-    ctx.page_refs.push(page_ref);
-    ctx.pages.push(page);
 }
 
 /// Write the page tree.
@@ -205,7 +198,7 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
     annotations.finish();
     page_writer.finish();
 
-    let data = deflate_content(&page.content);
+    let data = deflate_memoized(&page.content);
     ctx.pdf.stream(content_id, &data).filter(Filter::FlateDecode);
 }
 
@@ -258,12 +251,6 @@ pub(crate) fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)
     result
 }
 
-/// Memoized version of [`deflate`] specialized for a page's content stream.
-#[comemo::memoize]
-pub(crate) fn deflate_content(content: &[u8]) -> Arc<Vec<u8>> {
-    Arc::new(deflate(content))
-}
-
 /// Data for an exported page.
 pub struct Page {
     /// The indirect object id of the page.
@@ -284,49 +271,56 @@ pub struct Page {
 
 /// Represents a resource being used in a PDF page by its name.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum PageResource {
-    XObject(EcoString),
-    Font(EcoString),
-    Gradient(EcoString),
-    Pattern(EcoString),
-    ExtGState(EcoString),
+pub struct PageResource {
+    kind: ResourceKind,
+    name: EcoString,
+}
+
+impl PageResource {
+    pub fn new(kind: ResourceKind, name: EcoString) -> Self {
+        Self { kind, name }
+    }
+}
+
+/// A kind of resource being used in a PDF page.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ResourceKind {
+    XObject,
+    Font,
+    Gradient,
+    Pattern,
+    ExtGState,
 }
 
 impl PageResource {
     /// Returns the name of the resource.
     pub fn name(&self) -> Name<'_> {
-        match self {
-            Self::XObject(name) => Name(name.as_bytes()),
-            Self::Font(name) => Name(name.as_bytes()),
-            Self::Gradient(name) => Name(name.as_bytes()),
-            Self::Pattern(name) => Name(name.as_bytes()),
-            Self::ExtGState(name) => Name(name.as_bytes()),
-        }
+        Name(self.name.as_bytes())
     }
 
     /// Returns whether the resource is an XObject.
     pub fn is_x_object(&self) -> bool {
-        matches!(self, Self::XObject(_))
+        matches!(self.kind, ResourceKind::XObject)
     }
 
     /// Returns whether the resource is a font.
     pub fn is_font(&self) -> bool {
-        matches!(self, Self::Font(_))
+        matches!(self.kind, ResourceKind::Font)
     }
 
     /// Returns whether the resource is a gradient.
     pub fn is_gradient(&self) -> bool {
-        matches!(self, Self::Gradient(_))
+        matches!(self.kind, ResourceKind::Gradient)
     }
 
     /// Returns whether the resource is a pattern.
     pub fn is_pattern(&self) -> bool {
-        matches!(self, Self::Pattern(_))
+        matches!(self.kind, ResourceKind::Pattern)
     }
 
     /// Returns whether the resource is an external graphics state.
     pub fn is_ext_g_state(&self) -> bool {
-        matches!(self, Self::ExtGState(_))
+        matches!(self.kind, ResourceKind::ExtGState)
     }
 }
 
@@ -420,7 +414,8 @@ impl PageContext<'_, '_> {
             let index = self.parent.extg_map.insert(*graphics_state);
             let name = eco_format!("Gs{index}");
             self.content.set_parameters(Name(name.as_bytes()));
-            self.resources.insert(PageResource::ExtGState(name), index);
+            self.resources
+                .insert(PageResource::new(ResourceKind::ExtGState, name), index);
 
             if graphics_state.uses_opacities() {
                 self.uses_opacities = true;
@@ -478,7 +473,8 @@ impl PageContext<'_, '_> {
             let index = self.parent.font_map.insert(font.clone());
             let name = eco_format!("F{index}");
             self.content.set_font(Name(name.as_bytes()), size.to_f32());
-            self.resources.insert(PageResource::Font(name), index);
+            self.resources
+                .insert(PageResource::new(ResourceKind::Font, name), index);
             self.state.font = Some((font.clone(), size));
         }
     }
@@ -776,7 +772,8 @@ fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size)
         ctx.content.x_object(Name(name.as_bytes()));
     }
 
-    ctx.resources.insert(PageResource::XObject(name.clone()), index);
+    ctx.resources
+        .insert(PageResource::new(ResourceKind::XObject, name.clone()), index);
     ctx.content.restore_state();
 }
 
