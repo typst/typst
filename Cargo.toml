@@ -65,7 +65,7 @@ log = "0.4"
 miniz_oxide = "0.7"
 notify = "6"
 once_cell = "1"
-open = "5"
+open = "5.0.1"
 oxipng = { git = "https://github.com/typst/oxipng", rev = "b8ec65b", default-features = false, features = ["filetime", "parallel", "zopfli"] }
 palette = { version = "0.7.3", default-features = false, features = ["approx", "libm"] }
 pathdiff = "0.2"
