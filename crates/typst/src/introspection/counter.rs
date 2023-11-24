@@ -284,12 +284,9 @@ impl Counter {
                 }
             }
 
-            if let Some(update) = match elem.to::<UpdateElem>() {
-                Some(elem) => Some(elem.update().clone()),
-                None => match elem.with::<dyn Count>() {
-                    Some(countable) => countable.update().clone(),
-                    None => Some(CounterUpdate::Step(NonZeroUsize::ONE)),
-                },
+            if let Some(update) = match elem.with::<dyn Count>() {
+                Some(countable) => countable.update(),
+                None => Some(CounterUpdate::Step(NonZeroUsize::ONE)),
             } {
                 state.update(&mut vt, update)?;
             }
@@ -647,7 +644,7 @@ impl Show for DisplayElem {
 }
 
 /// Executes an update of a counter.
-#[elem(Locatable, Show)]
+#[elem(Locatable, Show, Count)]
 struct UpdateElem {
     /// The key that identifies the counter.
     #[required]
@@ -662,6 +659,12 @@ impl Show for UpdateElem {
     #[tracing::instrument(name = "UpdateElem::show", skip(self))]
     fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
+    }
+}
+
+impl Count for UpdateElem {
+    fn update(&self) -> Option<CounterUpdate> {
+        Some(self.update.clone())
     }
 }
 
