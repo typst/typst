@@ -25,7 +25,7 @@ pub(crate) use self::flow::*;
 
 use comemo::{Track, Tracked, TrackedMut};
 
-use crate::diag::{bail, DelayedErrors, SourceResult};
+use crate::diag::{bail, SourceResult};
 use crate::foundations::{Cast, Module, NativeElement, Scope, Scopes, Value};
 use crate::introspection::{Introspector, Locator};
 use crate::layout::Vt;
@@ -51,12 +51,10 @@ pub fn eval(
     // Prepare VT.
     let mut locator = Locator::new();
     let introspector = Introspector::default();
-    let mut delayed = DelayedErrors::new();
     let vt = Vt {
         world,
         introspector: introspector.track(),
         locator: &mut locator,
-        delayed: delayed.track_mut(),
         tracer,
     };
 
@@ -118,13 +116,11 @@ pub fn eval_string(
     // Prepare VT.
     let mut tracer = Tracer::new();
     let mut locator = Locator::new();
-    let mut delayed = DelayedErrors::new();
     let introspector = Introspector::default();
     let vt = Vt {
         world,
         introspector: introspector.track(),
         locator: &mut locator,
-        delayed: delayed.track_mut(),
         tracer: tracer.track_mut(),
     };
 

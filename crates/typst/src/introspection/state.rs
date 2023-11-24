@@ -1,7 +1,7 @@
 use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
-use crate::diag::{DelayedErrors, SourceResult};
+use crate::diag::SourceResult;
 use crate::eval::Tracer;
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Content, Func, NativeElement, Repr,
@@ -209,7 +209,6 @@ impl State {
             vt.world,
             vt.introspector,
             vt.locator.track(),
-            TrackedMut::reborrow_mut(&mut vt.delayed),
             TrackedMut::reborrow_mut(&mut vt.tracer),
         )
     }
@@ -221,17 +220,10 @@ impl State {
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
         locator: Tracked<Locator>,
-        delayed: TrackedMut<DelayedErrors>,
         tracer: TrackedMut<Tracer>,
     ) -> SourceResult<EcoVec<Value>> {
         let mut locator = Locator::chained(locator);
-        let mut vt = Vt {
-            world,
-            introspector,
-            locator: &mut locator,
-            delayed,
-            tracer,
-        };
+        let mut vt = Vt { world, introspector, locator: &mut locator, tracer };
         let mut state = self.init.clone();
         let mut stops = eco_vec![state.clone()];
 

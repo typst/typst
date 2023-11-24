@@ -61,7 +61,7 @@ use std::ops::Range;
 use comemo::{Prehashed, Track, Tracked, Validate};
 use ecow::{EcoString, EcoVec};
 
-use crate::diag::{warning, DelayedErrors, FileResult, SourceDiagnostic, SourceResult};
+use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
 use crate::eval::{Route, Tracer};
 use crate::foundations::{
     Array, Bytes, Content, Datetime, Module, Scope, StyleChain, Styles,
@@ -110,7 +110,6 @@ fn typeset(
 
     let mut iter = 0;
     let mut document;
-    let mut delayed;
     let mut introspector = Introspector::new(&[]);
 
     // Relayout until all introspections stabilize.
@@ -119,7 +118,7 @@ fn typeset(
         tracing::info!("Layout iteration {iter}");
 
         // Clear delayed errors.
-        delayed = DelayedErrors::new();
+        tracer.delayed();
 
         let constraint = <Introspector as Validate>::Constraint::new();
         let mut locator = Locator::new();
@@ -127,7 +126,6 @@ fn typeset(
             world,
             tracer: tracer.track_mut(),
             locator: &mut locator,
-            delayed: delayed.track_mut(),
             introspector: introspector.track_with(&constraint),
         };
 
@@ -150,8 +148,9 @@ fn typeset(
     }
 
     // Promote delayed errors.
-    if !delayed.0.is_empty() {
-        return Err(delayed.0);
+    let delayed = tracer.delayed();
+    if !delayed.is_empty() {
+        return Err(delayed);
     }
 
     Ok(document)

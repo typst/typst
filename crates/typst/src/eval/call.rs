@@ -1,9 +1,7 @@
 use comemo::{Prehashed, Tracked, TrackedMut};
 use ecow::EcoVec;
 
-use crate::diag::{
-    bail, error, At, DelayedErrors, HintedStrResult, SourceResult, Trace, Tracepoint,
-};
+use crate::diag::{bail, error, At, HintedStrResult, SourceResult, Trace, Tracepoint};
 use crate::eval::{Access, Eval, FlowEvent, Route, Tracer, Vm};
 use crate::foundations::{
     call_method_mut, is_mutating_method, Arg, Args, Bytes, Closure, Content, Func,
@@ -251,7 +249,6 @@ pub(crate) fn call_closure(
     route: Tracked<Route>,
     introspector: Tracked<Introspector>,
     locator: Tracked<Locator>,
-    delayed: TrackedMut<DelayedErrors>,
     tracer: TrackedMut<Tracer>,
     depth: usize,
     mut args: Args,
@@ -265,13 +262,7 @@ pub(crate) fn call_closure(
 
     // Prepare VT.
     let mut locator = Locator::chained(locator);
-    let vt = Vt {
-        world,
-        introspector,
-        locator: &mut locator,
-        delayed,
-        tracer,
-    };
+    let vt = Vt { world, introspector, locator: &mut locator, tracer };
 
     // Prepare VM.
     let mut vm = Vm::new(vt, route, closure.file, scopes);

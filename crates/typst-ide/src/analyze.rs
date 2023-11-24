@@ -1,6 +1,5 @@
 use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
-use typst::diag::DelayedErrors;
 use typst::eval::{Route, Tracer, Vm};
 use typst::foundations::{Label, Scopes, Value};
 use typst::introspection::{Introspector, Locator};
@@ -55,13 +54,11 @@ pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
 
     let mut locator = Locator::default();
     let introspector = Introspector::default();
-    let mut delayed = DelayedErrors::new();
     let mut tracer = Tracer::new();
     let vt = Vt {
         world: world.track(),
         introspector: introspector.track(),
         locator: &mut locator,
-        delayed: delayed.track_mut(),
         tracer: tracer.track_mut(),
     };
 

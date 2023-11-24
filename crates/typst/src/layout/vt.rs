@@ -1,6 +1,6 @@
 use comemo::{Tracked, TrackedMut};
 
-use crate::diag::{DelayedErrors, SourceResult};
+use crate::diag::SourceResult;
 use crate::eval::Tracer;
 use crate::introspection::{Introspector, Locator};
 use crate::World;
@@ -15,8 +15,6 @@ pub struct Vt<'a> {
     pub introspector: Tracked<'a, Introspector>,
     /// Provides stable identities to elements.
     pub locator: &'a mut Locator<'a>,
-    /// Delayed errors that do not immediately terminate execution.
-    pub delayed: TrackedMut<'a, DelayedErrors>,
     /// The tracer for inspection of the values an expression produces.
     pub tracer: TrackedMut<'a, Tracer>,
 }
@@ -33,9 +31,7 @@ impl Vt<'_> {
         match f(self) {
             Ok(value) => value,
             Err(errors) => {
-                for error in errors {
-                    self.delayed.push(error);
-                }
+                self.tracer.delay(errors);
                 T::default()
             }
         }

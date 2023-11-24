@@ -5,7 +5,7 @@ use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use smallvec::{smallvec, SmallVec};
 
-use crate::diag::{At, DelayedErrors, SourceResult, StrResult};
+use crate::diag::{At, SourceResult, StrResult};
 use crate::eval::Tracer;
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Array, Content, Element, Func, IntoValue,
@@ -253,7 +253,6 @@ impl Counter {
             vt.world,
             vt.introspector,
             vt.locator.track(),
-            TrackedMut::reborrow_mut(&mut vt.delayed),
             TrackedMut::reborrow_mut(&mut vt.tracer),
         )
     }
@@ -265,17 +264,10 @@ impl Counter {
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
         locator: Tracked<Locator>,
-        delayed: TrackedMut<DelayedErrors>,
         tracer: TrackedMut<Tracer>,
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
         let mut locator = Locator::chained(locator);
-        let mut vt = Vt {
-            world,
-            introspector,
-            locator: &mut locator,
-            delayed,
-            tracer,
-        };
+        let mut vt = Vt { world, introspector, locator: &mut locator, tracer };
 
         let mut state = CounterState::init(&self.0);
         let mut page = NonZeroUsize::ONE;

@@ -165,25 +165,6 @@ impl From<SyntaxError> for SourceDiagnostic {
     }
 }
 
-/// Holds delayed errors.
-#[derive(Default, Clone)]
-pub struct DelayedErrors(pub EcoVec<SourceDiagnostic>);
-
-impl DelayedErrors {
-    /// Create an empty list of delayed errors.
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
-#[comemo::track]
-impl DelayedErrors {
-    /// Push a delayed error.
-    pub fn push(&mut self, error: SourceDiagnostic) {
-        self.0.push(error);
-    }
-}
-
 /// A part of a diagnostic's [trace](SourceDiagnostic::trace).
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Tracepoint {

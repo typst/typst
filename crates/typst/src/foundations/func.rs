@@ -281,7 +281,6 @@ impl Func {
                     route,
                     vm.vt.introspector,
                     vm.vt.locator.track(),
-                    TrackedMut::reborrow_mut(&mut vm.vt.delayed),
                     TrackedMut::reborrow_mut(&mut vm.vt.tracer),
                     vm.depth + 1,
                     args,
@@ -308,7 +307,6 @@ impl Func {
             world: vt.world,
             introspector: vt.introspector,
             locator: &mut locator,
-            delayed: TrackedMut::reborrow_mut(&mut vt.delayed),
             tracer: TrackedMut::reborrow_mut(&mut vt.tracer),
         };
         let mut vm = Vm::new(vt, route.track(), None, scopes);

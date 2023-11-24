@@ -10,7 +10,7 @@ use self::shaping::{
     is_gb_style, is_of_cjk_script, shape, ShapedGlyph, ShapedText, BEGIN_PUNCT_PAT,
     END_PUNCT_PAT,
 };
-use crate::diag::{bail, DelayedErrors, SourceResult};
+use crate::diag::{bail, SourceResult};
 use crate::eval::Tracer;
 use crate::foundations::{Content, Resolve, Smart, StyleChain};
 use crate::introspection::{Introspector, Locator, MetaElem};
@@ -43,7 +43,6 @@ pub(crate) fn layout_inline(
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
         locator: Tracked<Locator>,
-        delayed: TrackedMut<DelayedErrors>,
         tracer: TrackedMut<Tracer>,
         styles: StyleChain,
         consecutive: bool,
@@ -51,13 +50,7 @@ pub(crate) fn layout_inline(
         expand: bool,
     ) -> SourceResult<Fragment> {
         let mut locator = Locator::chained(locator);
-        let mut vt = Vt {
-            world,
-            introspector,
-            locator: &mut locator,
-            delayed,
-            tracer,
-        };
+        let mut vt = Vt { world, introspector, locator: &mut locator, tracer };
 
         // Collect all text into one string for BiDi analysis.
         let (text, segments, spans) = collect(children, &styles, consecutive)?;
@@ -79,7 +72,6 @@ pub(crate) fn layout_inline(
         vt.world,
         vt.introspector,
         vt.locator.track(),
-        TrackedMut::reborrow_mut(&mut vt.delayed),
         TrackedMut::reborrow_mut(&mut vt.tracer),
         styles,
         consecutive,
