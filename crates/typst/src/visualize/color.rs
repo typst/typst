@@ -10,7 +10,7 @@ use palette::{
     Darken, Desaturate, FromColor, Lighten, Okhsva, OklabHue, RgbHue, Saturate, ShiftHue,
 };
 
-use crate::diag::{bail, error, At, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
     array, cast, func, repr, scope, ty, Args, Array, IntoValue, Module, Repr, Scope, Str,
     Value,

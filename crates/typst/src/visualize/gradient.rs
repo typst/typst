@@ -6,7 +6,7 @@ use std::sync::Arc;
 use ecow::EcoString;
 use kurbo::Vec2;
 
-use crate::diag::{bail, error, SourceResult};
+use crate::diag::{bail, SourceResult};
 use crate::foundations::{
     array, cast, func, scope, ty, Args, Array, Cast, Func, IntoValue, Repr, Smart,
 };

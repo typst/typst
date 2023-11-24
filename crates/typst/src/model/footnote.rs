@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use comemo::Prehashed;
 
-use crate::diag::{bail, error, At, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
     cast, elem, scope, Content, Finalize, Label, NativeElement, Show, Smart, StyleChain,
     Synthesize,

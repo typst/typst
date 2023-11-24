@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
-use crate::diag::{bail, error, At, SourceResult};
+use crate::diag::{bail, At, SourceResult};
 use crate::foundations::{
     cast, elem, scope, select_where, Content, Finalize, Func, LocatableSelector,
     NativeElement, Show, Smart, StyleChain,
