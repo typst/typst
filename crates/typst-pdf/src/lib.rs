@@ -20,7 +20,7 @@ use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
 use typst::foundations::Datetime;
 use typst::introspection::Introspector;
-use typst::layout::{Abs, Dir, Em};
+use typst::layout::{Abs, Dir, Em, Transform};
 use typst::model::Document;
 use typst::text::{Font, Lang};
 use typst::util::Deferred;

@@ -1,7 +1,9 @@
 use ecow::eco_format;
 use pdf_writer::types::{ColorSpaceOperand, PaintType, TilingType};
 use pdf_writer::{Filter, Finish, Name, Rect};
-use typst::geom::{Abs, Numeric, Pattern, Relative, Transform};
+use typst::layout::{Transform, Abs};
+use typst::util::Numeric;
+use typst::visualize::{Pattern, RelativeTo};
 
 use crate::color::PaintEncode;
 use crate::page::{
@@ -108,8 +110,8 @@ fn register_pattern(
     }
 
     let transform = match pattern.unwrap_relative(on_text) {
-        Relative::Self_ => transforms.transform,
-        Relative::Parent => transforms.container_transform,
+        RelativeTo::Self_ => transforms.transform,
+        RelativeTo::Parent => transforms.container_transform,
     };
 
     // Render the body.

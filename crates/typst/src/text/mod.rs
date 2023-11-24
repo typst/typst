@@ -43,7 +43,7 @@ use crate::foundations::{
 use crate::layout::{Abs, Axis, Dir, Length, Rel};
 use crate::model::ParElem;
 use crate::syntax::Spanned;
-use crate::visualize::{Color, GradientRelative, Paint};
+use crate::visualize::{Color, Paint, RelativeTo};
 
 /// Text styling.
 ///
@@ -226,7 +226,7 @@ pub struct TextElem {
     #[parse({
         let paint: Option<Spanned<Paint>> = args.named_or_find("fill")?;
         if let Some(paint) = &paint {
-            if paint.v.relative() == Smart::Custom(Relative::Self_) {
+            if paint.v.relative() == Smart::Custom(RelativeTo::Self_) {
                 bail!(
                     error!(
                         paint.span,

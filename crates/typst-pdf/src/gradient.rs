@@ -8,7 +8,7 @@ use pdf_writer::{Filter, Finish, Name, Ref};
 use typst::layout::{Abs, Angle, Point, Quadrant, Ratio, Transform};
 use typst::util::Numeric;
 use typst::visualize::{
-    Color, ColorSpace, ConicGradient, Gradient, GradientRelative, WeightedColor,
+    Color, ColorSpace, ConicGradient, Gradient, RelativeTo, WeightedColor,
 };
 
 use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
@@ -306,8 +306,8 @@ fn register_gradient(
         transforms.size.y = Abs::pt(1.0);
     }
     let size = match gradient.unwrap_relative(on_text) {
-        GradientRelative::Self_ => transforms.size,
-        GradientRelative::Parent => transforms.container_size,
+        RelativeTo::Self_ => transforms.size,
+        RelativeTo::Parent => transforms.container_size,
     };
 
     let (offset_x, offset_y) = match gradient {
@@ -321,8 +321,8 @@ fn register_gradient(
     let rotation = gradient.angle().unwrap_or_else(Angle::zero);
 
     let transform = match gradient.unwrap_relative(on_text) {
-        GradientRelative::Self_ => transforms.transform,
-        GradientRelative::Parent => transforms.container_transform,
+        RelativeTo::Self_ => transforms.transform,
+        RelativeTo::Parent => transforms.container_transform,
     };
 
     let scale_offset = match gradient {

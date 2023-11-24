@@ -1,14 +1,17 @@
 use std::hash::Hash;
 
 use comemo::Prehashed;
+use ecow::{eco_format, EcoString};
+use typst_macros::{func, scope, ty};
 use typst_syntax::{Span, Spanned};
 
-use super::*;
-use crate::diag::SourceResult;
-use crate::doc::Frame;
-use crate::eval::{scope, ty, Vm};
-use crate::model::Content;
-use crate::World;
+use crate::diag::{bail, SourceResult};
+use crate::eval::Vm;
+use crate::foundations::{Content, Repr, Smart, StyleChain};
+use crate::layout::{Axes, Em, Frame, Layout, Length, Regions, Size};
+use crate::util::Numeric;
+
+use super::RelativeTo;
 
 /// A repeating pattern fill.
 ///
@@ -65,7 +68,7 @@ use crate::World;
 ///  #rect(width: 100%, height: 100%, fill: pat)
 /// ```
 ///
-/// # Relativeness
+/// # RelativeToness
 /// The location of the starting point of the pattern is dependant on the
 /// dimensions of a container. This container can either be the shape they
 /// are painted on, or the closest surrounding container. This is controlled by
@@ -93,7 +96,7 @@ pub struct Pattern {
     /// The pattern's tile spacing.
     pub spacing: Size,
     /// The pattern's relative transform.
-    pub relative: Smart<Relative>,
+    pub relative: Smart<RelativeTo>,
 }
 
 impl Eq for Pattern {}
@@ -129,7 +132,7 @@ impl Pattern {
         /// element.
         #[named]
         #[default(Smart::Auto)]
-        relative: Smart<Relative>,
+        relative: Smart<RelativeTo>,
     ) -> SourceResult<Pattern> {
         // Ensure that sizes are absolute.
         if !bbox.v.x.em.is_zero() || !bbox.v.y.em.is_zero() {
@@ -159,9 +162,9 @@ impl Pattern {
         let size = Size::new(bbox.v.x.abs, bbox.v.y.abs);
 
         // Layout the pattern.
-        let library = vm.vt.world.library();
+        let regions = Regions::one(size, Axes::splat(false));
         let mut frame =
-            (library.items.layout_one)(&mut vm.vt, &body, StyleChain::default(), size)?;
+            body.layout(&mut vm.vt, StyleChain::default(), regions)?.into_frame();
 
         // Ensure that the frame has the correct size.
         frame.set_size(size);
@@ -195,22 +198,22 @@ impl Pattern {
 
     /// Returns the relative placement of the pattern.
     #[func]
-    pub fn relative(&self) -> Smart<Relative> {
+    pub fn relative(&self) -> Smart<RelativeTo> {
         self.relative
     }
 }
 
 impl Pattern {
-    pub fn with_relative(self, relative: Relative) -> Self {
+    pub fn with_relative(self, relative: RelativeTo) -> Self {
         Self { relative: Smart::Custom(relative), ..self }
     }
 
-    pub fn unwrap_relative(&self, on_text: bool) -> Relative {
+    pub fn unwrap_relative(&self, on_text: bool) -> RelativeTo {
         self.relative.unwrap_or_else(|| {
             if on_text {
-                Relative::Parent
+                RelativeTo::Parent
             } else {
-                Relative::Self_
+                RelativeTo::Self_
             }
         })
     }
@@ -218,6 +221,21 @@ impl Pattern {
 
 impl Repr for Pattern {
     fn repr(&self) -> EcoString {
-        todo!()
+        let mut out =
+            eco_format!("pattern(({}, {})", self.bbox.x.repr(), self.bbox.y.repr());
+
+        if self.spacing() != Axes::splat(Length::zero()) {
+            out.push_str(", spacing: (");
+            out.push_str(&self.spacing.x.repr());
+            out.push_str(", ");
+            out.push_str(&self.spacing.y.repr());
+            out.push(')');
+        }
+
+        out.push_str(", ");
+        out.push_str(&self.body.repr());
+        out.push(')');
+
+        out
     }
 }

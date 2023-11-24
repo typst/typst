@@ -9,7 +9,7 @@ use crate::text::{Font, Lang};
 use crate::visualize::Paint;
 
 /// A run of shaped text.
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct TextItem {
     /// The font the glyphs are contained in.
     pub font: Font,

@@ -14,9 +14,8 @@ use typst::layout::{
 use typst::text::{Font, TextItem};
 use typst::util::hash128;
 use typst::visualize::{
-    Color, FixedStroke, Geometry, Gradient, GradientRelative, Image, ImageFormat,
-    LineCap, LineJoin, Paint, Path, PathItem, RasterFormat, RatioOrAngle, Shape,
-    VectorFormat,
+    Color, FixedStroke, Geometry, Gradient, Image, ImageFormat, LineCap, LineJoin, Paint,
+    Path, PathItem, RasterFormat, RatioOrAngle, RelativeTo, Shape, VectorFormat, Pattern,
 };
 use xmlwriter::XmlWriter;
 
@@ -462,16 +461,16 @@ impl SVGRenderer {
         match paint {
             Paint::Solid(_) => Transform::identity(),
             Paint::Gradient(gradient) => match gradient.unwrap_relative(true) {
-                Relative::Self_ => Transform::identity(),
-                Relative::Parent => Transform::scale(
+                RelativeTo::Self_ => Transform::identity(),
+                RelativeTo::Parent => Transform::scale(
                     Ratio::new(state.size.x.to_pt()),
                     Ratio::new(state.size.y.to_pt()),
                 )
                 .post_concat(state.transform.invert().unwrap()),
             },
             Paint::Pattern(pattern) => match pattern.unwrap_relative(true) {
-                Relative::Self_ => Transform::identity(),
-                Relative::Parent => state.transform.invert().unwrap(),
+                RelativeTo::Self_ => Transform::identity(),
+                RelativeTo::Parent => state.transform.invert().unwrap(),
             },
         }
     }
@@ -523,11 +522,11 @@ impl SVGRenderer {
 
         if let Paint::Gradient(gradient) = paint {
             match gradient.unwrap_relative(false) {
-                GradientRelative::Self_ => Transform::scale(
+                RelativeTo::Self_ => Transform::scale(
                     Ratio::new(shape_size.x.to_pt()),
                     Ratio::new(shape_size.y.to_pt()),
                 ),
-                GradientRelative::Parent => Transform::scale(
+                RelativeTo::Parent => Transform::scale(
                     Ratio::new(state.size.x.to_pt()),
                     Ratio::new(state.size.y.to_pt()),
                 )
@@ -535,8 +534,8 @@ impl SVGRenderer {
             }
         } else if let Paint::Pattern(pattern) = paint {
             match pattern.unwrap_relative(false) {
-                Relative::Self_ => Transform::identity(),
-                Relative::Parent => state.transform.invert().unwrap(),
+                RelativeTo::Self_ => Transform::identity(),
+                RelativeTo::Parent => state.transform.invert().unwrap(),
             }
         } else {
             Transform::identity()
@@ -557,8 +556,8 @@ impl SVGRenderer {
 
         if let Paint::Gradient(gradient) = paint {
             match gradient.unwrap_relative(false) {
-                GradientRelative::Self_ => shape_size,
-                GradientRelative::Parent => state.size,
+                RelativeTo::Self_ => shape_size,
+                RelativeTo::Parent => state.size,
             }
         } else {
             shape_size

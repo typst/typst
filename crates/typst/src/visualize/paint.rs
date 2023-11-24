@@ -1,9 +1,9 @@
-use std::fmt::{self, Debug, Formatter};
-
 use ecow::EcoString;
 
-use crate::foundations::{cast, Repr};
-use crate::visualize::{Color, Gradient, GradientRelative};
+use crate::foundations::{cast, Repr, Smart};
+use crate::visualize::{Color, Gradient, RelativeTo};
+
+use super::Pattern;
 
 /// How a fill or stroke should be painted.
 #[derive(Debug, Clone, PartialEq, Hash)]
@@ -26,7 +26,7 @@ impl Paint {
     }
 
     /// Gets the relative coordinate system for this paint.
-    pub fn relative(&self) -> Smart<Relative> {
+    pub fn relative(&self) -> Smart<RelativeTo> {
         match self {
             Self::Solid(_) => Smart::Auto,
             Self::Gradient(gradient) => gradient.relative(),
@@ -42,10 +42,10 @@ impl Paint {
         match self {
             Self::Solid(color) => Self::Solid(*color),
             Self::Gradient(gradient) => {
-                Self::Gradient(gradient.clone().with_relative(GradientRelative::Parent))
+                Self::Gradient(gradient.clone().with_relative(RelativeTo::Parent))
             }
             Self::Pattern(pattern) => {
-                Self::Pattern(pattern.clone().with_relative(Relative::Parent))
+                Self::Pattern(pattern.clone().with_relative(RelativeTo::Parent))
             }
         }
     }

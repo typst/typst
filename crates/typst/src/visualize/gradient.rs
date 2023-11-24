@@ -208,7 +208,7 @@ impl Gradient {
         /// element.
         #[named]
         #[default(Smart::Auto)]
-        relative: Smart<GradientRelative>,
+        relative: Smart<RelativeTo>,
         /// The direction of the gradient.
         #[external]
         #[default(Dir::LTR)]
@@ -295,7 +295,7 @@ impl Gradient {
         /// box, column, grid, or stack that contains the element.
         #[named]
         #[default(Smart::Auto)]
-        relative: Smart<GradientRelative>,
+        relative: Smart<RelativeTo>,
         /// The center of the end circle of the gradient.
         ///
         /// A value of `{(50%, 50%)}` means that the end circle is
@@ -409,7 +409,7 @@ impl Gradient {
         /// box, column, grid, or stack that contains the element.
         #[named]
         #[default(Smart::Auto)]
-        relative: Smart<GradientRelative>,
+        relative: Smart<RelativeTo>,
         /// The center of the last circle of the gradient.
         ///
         /// A value of `{(50%, 50%)}` means that the end circle is
@@ -665,7 +665,7 @@ impl Gradient {
 
     /// Returns the relative placement of this gradient.
     #[func]
-    pub fn relative(&self) -> Smart<GradientRelative> {
+    pub fn relative(&self) -> Smart<RelativeTo> {
         match self {
             Self::Linear(linear) => linear.relative,
             Self::Radial(radial) => radial.relative,
@@ -718,7 +718,7 @@ impl Gradient {
 
 impl Gradient {
     /// Clones this gradient, but with a different relative placement.
-    pub fn with_relative(mut self, relative: GradientRelative) -> Self {
+    pub fn with_relative(mut self, relative: RelativeTo) -> Self {
         match &mut self {
             Self::Linear(linear) => {
                 Arc::make_mut(linear).relative = Smart::Custom(relative);
@@ -815,12 +815,12 @@ impl Gradient {
 
     /// Returns the relative placement of this gradient, handling
     /// the special case of `auto`.
-    pub fn unwrap_relative(&self, on_text: bool) -> GradientRelative {
+    pub fn unwrap_relative(&self, on_text: bool) -> RelativeTo {
         self.relative().unwrap_or_else(|| {
             if on_text {
-                GradientRelative::Parent
+                RelativeTo::Parent
             } else {
-                GradientRelative::Self_
+                RelativeTo::Self_
             }
         })
     }
@@ -870,7 +870,7 @@ pub struct LinearGradient {
     /// The color space in which to interpolate the gradient.
     pub space: ColorSpace,
     /// The relative placement of the gradient.
-    pub relative: Smart<GradientRelative>,
+    pub relative: Smart<RelativeTo>,
     /// Whether to anti-alias the gradient (used for sharp gradients).
     pub anti_alias: bool,
 }
@@ -938,7 +938,7 @@ pub struct RadialGradient {
     /// The color space in which to interpolate the gradient.
     pub space: ColorSpace,
     /// The relative placement of the gradient.
-    pub relative: Smart<GradientRelative>,
+    pub relative: Smart<RelativeTo>,
     /// Whether to anti-alias the gradient (used for sharp gradients).
     pub anti_alias: bool,
 }
@@ -1016,7 +1016,7 @@ pub struct ConicGradient {
     /// The color space in which to interpolate the gradient.
     pub space: ColorSpace,
     /// The relative placement of the gradient.
-    pub relative: Smart<GradientRelative>,
+    pub relative: Smart<RelativeTo>,
     /// Whether to anti-alias the gradient (used for sharp gradients).
     pub anti_alias: bool,
 }
@@ -1070,7 +1070,7 @@ impl Repr for ConicGradient {
 
 /// What is the gradient relative to.
 #[derive(Cast, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum GradientRelative {
+pub enum RelativeTo {
     /// The gradient is relative to itself (its own bounding box).
     Self_,
     /// The gradient is relative to its parent (the parent's bounding box).

@@ -7,7 +7,7 @@ use crate::foundations::{
 };
 use crate::layout::{Abs, Length};
 use crate::util::{Numeric, Scalar};
-use crate::visualize::{Color, Gradient, Paint};
+use crate::visualize::{Color, Gradient, Paint, Pattern};
 
 /// Defines how to draw a line.
 ///

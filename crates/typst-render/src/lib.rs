@@ -15,8 +15,8 @@ use typst::layout::{
 };
 use typst::text::{Font, TextItem};
 use typst::visualize::{
-    Color, FixedStroke, Geometry, Gradient, GradientRelative, Image, ImageKind, LineCap,
-    LineJoin, Paint, Path, PathItem, RasterFormat, Shape,
+    Color, FixedStroke, Geometry, Gradient, Image, ImageKind, LineCap, LineJoin, Paint,
+    Path, PathItem, RasterFormat, RelativeTo, Shape, Pattern,
 };
 use usvg::{NodeExt, TreeParsing};
 
@@ -784,13 +784,13 @@ impl<'a> GradientSampler<'a> {
     ) -> Self {
         let relative = gradient.unwrap_relative(on_text);
         let container_size = match relative {
-            GradientRelative::Self_ => item_size,
-            GradientRelative::Parent => state.size,
+            RelativeTo::Self_ => item_size,
+            RelativeTo::Parent => state.size,
         };
 
         let fill_transform = match relative {
-            GradientRelative::Self_ => sk::Transform::identity(),
-            GradientRelative::Parent => state.container_transform.invert().unwrap(),
+            RelativeTo::Self_ => sk::Transform::identity(),
+            RelativeTo::Parent => state.container_transform.invert().unwrap(),
         };
 
         Self {
@@ -838,8 +838,8 @@ impl<'a> PatternSampler<'a> {
     ) -> Self {
         let relative = pattern.unwrap_relative(on_text);
         let fill_transform = match relative {
-            Relative::Self_ => sk::Transform::identity(),
-            Relative::Parent => state.container_transform.invert().unwrap(),
+            RelativeTo::Self_ => sk::Transform::identity(),
+            RelativeTo::Parent => state.container_transform.invert().unwrap(),
         };
 
         Self {
@@ -920,13 +920,13 @@ fn to_sk_paint<'a>(
         Paint::Gradient(gradient) => {
             let relative = gradient.unwrap_relative(on_text);
             let container_size = match relative {
-                GradientRelative::Self_ => item_size,
-                GradientRelative::Parent => state.size,
+                RelativeTo::Self_ => item_size,
+                RelativeTo::Parent => state.size,
             };
 
             let fill_transform = match relative {
-                GradientRelative::Self_ => fill_transform.unwrap_or_default(),
-                GradientRelative::Parent => state
+                RelativeTo::Self_ => fill_transform.unwrap_or_default(),
+                RelativeTo::Parent => state
                     .container_transform
                     .post_concat(state.transform.invert().unwrap()),
             };
@@ -957,8 +957,8 @@ fn to_sk_paint<'a>(
             let relative = pattern.unwrap_relative(on_text);
 
             let fill_transform = match relative {
-                Relative::Self_ => fill_transform.unwrap_or_default(),
-                Relative::Parent => state
+                RelativeTo::Self_ => fill_transform.unwrap_or_default(),
+                RelativeTo::Parent => state
                     .container_transform
                     .post_concat(state.transform.invert().unwrap()),
             };
