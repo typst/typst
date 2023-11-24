@@ -12,7 +12,6 @@ bench = false
 
 [dependencies]
 typst = { workspace = true }
-typst-library = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 heck = { workspace = true }

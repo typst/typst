@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use once_cell::sync::OnceCell;
 
-/// A deferred value.
+/// A value that is lazily executed on another thread.
 ///
-/// This is a value that is being executed in parallel and can be waited on.
+/// Execution will be started in the background and can be waited on.
 pub struct Deferred<T>(Arc<OnceCell<T>>);
 
 impl<T: Send + Sync + 'static> Deferred<T> {
@@ -32,9 +32,16 @@ impl<T: Send + Sync + 'static> Deferred<T> {
     /// immediately. Otherwise, this will block until the value is
     /// initialized in another thread.
     pub fn wait(&self) -> &T {
+        // Fast path if the value is already available. We don't want to yield
+        // to rayon in that case.
+        if let Some(value) = self.0.get() {
+            return value;
+        }
+
         // Ensure that we yield to give the deferred value a chance to compute
         // single-threaded platforms (for WASM compatibility).
         while let Some(rayon::Yield::Executed) = rayon::yield_now() {}
+
         self.0.wait()
     }
 }

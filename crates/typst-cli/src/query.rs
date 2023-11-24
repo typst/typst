@@ -1,10 +1,13 @@
 use comemo::Track;
+use ecow::{eco_format, EcoString};
 use serde::Serialize;
 use typst::diag::{bail, StrResult};
 use typst::eval::{eval_string, EvalMode, Tracer};
-use typst::model::Introspector;
+use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
+use typst::introspection::Introspector;
+use typst::model::Document;
+use typst::syntax::Span;
 use typst::World;
-use typst_library::prelude::*;
 
 use crate::args::{QueryCommand, SerializationFormat};
 use crate::compile::print_diagnostics;
@@ -95,7 +98,7 @@ fn format(elements: Vec<Content>, command: &QueryCommand) -> StrResult<String> {
         .collect();
 
     if command.one {
-        let Some(value) = mapped.get(0) else {
+        let Some(value) = mapped.first() else {
             bail!("no such field found for element");
         };
         serialize(value, command.format)

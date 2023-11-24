@@ -3,11 +3,11 @@ use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
 use codespan_reporting::term::{self, termcolor};
+use ecow::eco_format;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use same_file::is_same_file;
 use termcolor::WriteColor;
 use typst::diag::StrResult;
-use typst::eval::eco_format;
 
 use crate::args::CompileCommand;
 use crate::color_stream;

@@ -8,11 +8,12 @@ use pulldown_cmark as md;
 use serde::{Deserialize, Serialize};
 use typed_arena::Arena;
 use typst::diag::{FileResult, StrResult};
-use typst::eval::{Bytes, Datetime, Library, Tracer};
-use typst::font::{Font, FontBook};
-use typst::geom::{Abs, Point, Size};
+use typst::eval::Tracer;
+use typst::foundations::{Bytes, Datetime};
+use typst::layout::{Abs, Point, Size};
 use typst::syntax::{FileId, Source, VirtualPath};
-use typst::World;
+use typst::text::{Font, FontBook};
+use typst::{Library, World};
 use unscanny::Scanner;
 use yaml_front_matter::YamlFrontMatter;
 
@@ -360,13 +361,13 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
         buf.push_str("</pre>");
         return Html::new(buf);
     } else if !matches!(lang, "example" | "typ" | "preview") {
-        let set = &*typst_library::text::SYNTAXES;
+        let set = &*typst::text::RAW_SYNTAXES;
         let buf = syntect::html::highlighted_html_for_string(
             &display,
             set,
             set.find_syntax_by_token(lang)
                 .unwrap_or_else(|| panic!("unsupported highlighting language: {lang}")),
-            &typst_library::text::THEME,
+            &typst::text::RAW_THEME,
         )
         .expect("failed to highlight code");
         return Html::new(buf);

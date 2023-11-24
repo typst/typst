@@ -7,7 +7,7 @@ use crate::FileId;
 /// A unique identifier for a syntax node.
 ///
 /// This is used throughout the compiler to track which source section an error
-/// or element stems from. Can be [mapped back](super::Source::range) to a byte
+/// or element stems from. Can be [mapped back](crate::Source::range) to a byte
 /// range for user facing display.
 ///
 /// During editing, the span values stay mostly stable, even for nodes behind an
@@ -76,7 +76,7 @@ impl Span {
         Some(FileId::from_raw(bits))
     }
 
-    /// The unique number of the span within its [`Source`](super::Source).
+    /// The unique number of the span within its [`Source`](crate::Source).
     pub const fn number(self) -> u64 {
         self.0.get() & ((1 << Self::BITS) - 1)
     }

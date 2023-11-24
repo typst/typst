@@ -1,12 +1,12 @@
-use std::env;
-use std::fs;
 use std::io::{Cursor, Read, Write};
 use std::path::PathBuf;
+use std::{env, fs};
 
+use ecow::eco_format;
 use semver::Version;
 use serde::Deserialize;
 use tempfile::NamedTempFile;
-use typst::{diag::bail, diag::StrResult, eval::eco_format};
+use typst::diag::{bail, StrResult};
 use xz2::bufread::XzDecoder;
 use zip::ZipArchive;
 
