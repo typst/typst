@@ -228,7 +228,7 @@ impl Layout for EnumElem {
         // Vertically align to the top to avoid inheriting `horizon` or `bottom`
         // alignment from the context and having the number be displaced in
         // relation to the item it refers to.
-        let number_align = self.number_align(styles); // removed `vertically: VAlign::Top` since it's the default now
+        let number_align = self.number_align(styles);
 
         for item in self.children() {
             number = item.number(styles).unwrap_or(number);
