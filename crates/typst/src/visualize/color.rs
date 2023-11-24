@@ -912,7 +912,14 @@ impl Color {
         }
     }
 
-    /// Sets the alpha component of a color, if it has one.
+    /// Returns a new color with the specified alpha value.
+    ///
+    /// This function fails when the color space does not support transparency.
+    ///
+    /// ```example
+    /// #square(fill: teal)
+    /// #square(fill: teal.with-alpha(50%))
+    /// ```
     #[func]
     pub fn with_alpha(
         self,
