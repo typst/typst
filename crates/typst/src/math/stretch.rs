@@ -187,6 +187,7 @@ fn assemble(
         class: base.class,
         span: base.span,
         limits: base.limits,
+        mid_stretched: None,
     }
 }
 

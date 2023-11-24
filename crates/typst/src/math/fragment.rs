@@ -297,6 +297,7 @@ impl GlyphFragment {
             span: self.span,
             limits: self.limits,
             frame: self.into_frame(),
+            mid_stretched: None,
         }
     }
 
@@ -360,6 +361,7 @@ pub struct VariantFragment {
     pub class: Option<MathClass>,
     pub span: Span,
     pub limits: Limits,
+    pub mid_stretched: Option<bool>,
 }
 
 impl VariantFragment {
