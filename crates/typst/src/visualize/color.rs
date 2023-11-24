@@ -8,6 +8,7 @@ use palette::convert::FromColorUnclamped;
 use palette::encoding::{self, Linear};
 use palette::{
     Darken, Desaturate, FromColor, Lighten, Okhsva, OklabHue, RgbHue, Saturate, ShiftHue,
+    WithAlpha,
 };
 
 use crate::diag::{bail, error, At, SourceResult, StrResult};
@@ -911,6 +912,30 @@ impl Color {
         }
     }
 
+    /// Sets the alpha component of a color, if it has one.
+    #[func]
+    pub fn with_alpha(
+        self,
+        /// The call span
+        span: Span,
+        /// The new alpha value.
+        alpha: Component,
+    ) -> SourceResult<Color> {
+        let alpha = alpha.0.get() as f32;
+        Ok(match self {
+            Self::Oklab(c) => Self::Oklab(c.with_alpha(alpha)),
+            Self::Oklch(c) => Self::Oklch(c.with_alpha(alpha)),
+            Self::LinearRgb(c) => Self::LinearRgb(c.with_alpha(alpha)),
+            Self::Rgb(c) => Self::Rgb(c.with_alpha(alpha)),
+            Self::Hsl(c) => Self::Hsl(c.with_alpha(alpha)),
+            Self::Hsv(c) => Self::Hsv(c.with_alpha(alpha)),
+            Self::Luma(_) | Self::Cmyk(_) => {
+                bail!(error!(span, "cannot set alpha component of this color space")
+                    .with_hint("try converting your color to RGB first"))
+            }
+        })
+    }
+
     /// Increases the saturation of a color by a given factor.
     #[func]
     pub fn saturate(
@@ -1138,21 +1163,6 @@ impl Color {
             Color::Hsl(c) => Some(c.alpha),
             Color::Hsv(c) => Some(c.alpha),
         }
-    }
-
-    /// Sets the alpha channel of the color, if it has one.
-    pub fn with_alpha(mut self, alpha: f32) -> Self {
-        match &mut self {
-            Color::Luma(_) | Color::Cmyk(_) => {}
-            Color::Oklab(c) => c.alpha = alpha,
-            Color::Oklch(c) => c.alpha = alpha,
-            Color::Rgb(c) => c.alpha = alpha,
-            Color::LinearRgb(c) => c.alpha = alpha,
-            Color::Hsl(c) => c.alpha = alpha,
-            Color::Hsv(c) => c.alpha = alpha,
-        }
-
-        self
     }
 
     /// Converts the color to a vec of four floats.

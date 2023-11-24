@@ -372,11 +372,16 @@ impl Frame {
 
     /// Debug in place.
     pub fn debug_in_place(&mut self) {
+        let Color::Rgb(mut transparent_teal) = Color::TEAL.to_rgb() else {
+            unreachable!();
+        };
+        transparent_teal.alpha = 0.5;
+
         self.insert(
             0,
             Point::zero(),
             FrameItem::Shape(
-                Geometry::Rect(self.size).filled(Color::TEAL.with_alpha(0.5).into()),
+                Geometry::Rect(self.size).filled(transparent_teal.into()),
                 Span::detached(),
             ),
         );

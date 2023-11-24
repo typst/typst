@@ -78,6 +78,24 @@
 }
 
 ---
+/// Test alpha modification.
+// Ref: false
+#let orig = rgb(80%, 50%, 0%, 75%)
+#let target = rgb(80%, 50%, 0%, 50%)
+#test-repr(orig.with-alpha(50%), target)
+#test-repr(orig.with-alpha(128), target)
+#test-repr(oklab(orig).with-alpha(50%), oklab(target))
+#test-repr(oklch(orig).with-alpha(50%), oklch(target))
+#test-repr(color.linear-rgb(orig).with-alpha(50%), color.linear-rgb(target))
+#test-repr(color.hsl(orig).with-alpha(50%), color.hsl(target))
+#test-repr(color.hsv(orig).with-alpha(50%), color.hsv(target))
+
+---
+// Error: 2-26 cannot set alpha component of this color space
+// Hint: 2-26 try converting your color to RGB first
+#luma(50%).with-alpha(50)
+
+---
 // Test gray color modification.
 // Ref: false
 #test-repr(luma(20%).lighten(50%), luma(60%))
