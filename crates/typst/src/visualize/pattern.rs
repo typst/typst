@@ -47,9 +47,10 @@ use crate::World;
 ///   size: (30pt, 30pt),
 ///   relative: "parent",
 ///   square(size: 30pt, fill: gradient.conic(..color.map.rainbow))
-/// );
-///  #set text(fill: pat)
-///  #lorem(10)
+/// )
+/// 
+/// #set text(fill: pat)
+/// #lorem(10)
 /// ```
 ///
 /// You can also space the elements further or closer apart using the
