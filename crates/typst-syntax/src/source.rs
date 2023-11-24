@@ -8,8 +8,7 @@ use std::sync::Arc;
 use comemo::Prehashed;
 
 use crate::reparser::reparse;
-use crate::VirtualPath;
-use crate::{is_newline, parse, FileId, LinkedNode, Span, SyntaxNode};
+use crate::{is_newline, parse, FileId, LinkedNode, Span, SyntaxNode, VirtualPath};
 
 /// A source file.
 ///

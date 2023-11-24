@@ -702,6 +702,7 @@ impl Color {
     pub fn components(
         self,
         /// Whether to include the alpha component.
+        #[named]
         #[default(true)]
         alpha: bool,
     ) -> Array {
