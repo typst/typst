@@ -6,7 +6,7 @@
   square(
     size: 50pt,
     stroke: 5pt + pattern(
-      (5pt, 5pt),
+      size: (5pt, 5pt),
       align(horizon + center, circle(fill: blue, radius: 2.5pt))
     )
   )

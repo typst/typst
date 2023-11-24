@@ -5,7 +5,7 @@
 // that means that the transform matrices are not being
 // applied to the text correctly.
 #let pat = pattern(
-  (30pt, 30pt),
+  size: (30pt, 30pt),
   relative: "parent",
   square(size: 30pt, fill: gradient.conic(..color.map.rainbow))
 );

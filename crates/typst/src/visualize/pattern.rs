@@ -28,7 +28,7 @@ use crate::World;
 /// # Examples
 ///
 /// ```example
-/// #let pat = pattern((30pt, 30pt))[
+/// #let pat = pattern(size: (30pt, 30pt))[
 ///   #place(top + left, line(start: (0%, 0%), end: (100%, 100%), stroke: 1pt))
 ///   #place(top + left, line(start: (0%, 100%), end: (100%, 0%), stroke: 1pt))
 /// ]
@@ -44,7 +44,7 @@ use crate::World;
 ///
 /// ```example
 /// #let pat = pattern(
-///   (30pt, 30pt),
+///   size: (30pt, 30pt),
 ///   relative: "parent",
 ///   square(size: 30pt, fill: gradient.conic(..color.map.rainbow))
 /// );
@@ -60,7 +60,7 @@ use crate::World;
 ///
 /// ```example
 /// #let pat = pattern(
-///   (30pt, 30pt),
+///   size: (30pt, 30pt),
 ///   spacing: (10pt, 10pt),
 ///   relative: "parent",
 ///   square(size: 30pt, fill: gradient.conic(..color.map.rainbow))
@@ -114,7 +114,7 @@ impl Pattern {
     ///
     /// ```example
     /// #let pat = pattern(
-    ///   (20pt, 20pt),
+    ///   size: (20pt, 20pt),
     ///   relative: "parent",
     ///   place(dx: 5pt, dy: 5pt, rotate(45deg, square(size: 5pt, fill: black)))
     /// )
@@ -125,6 +125,8 @@ impl Pattern {
     pub fn construct(
         vm: &mut Vm,
         /// The bounding box of each cell of the pattern.
+        #[named]
+        #[default(Spanned::new(Smart::Auto, Span::detached()))]
         size: Spanned<Smart<Axes<Length>>>,
         /// The spacing between cells of the pattern.
         #[named]
