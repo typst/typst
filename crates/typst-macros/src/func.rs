@@ -1,4 +1,14 @@
-use super::*;
+use heck::ToKebabCase;
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::parse::{Parse, ParseStream};
+use syn::{parse_quote, Ident, Result};
+
+use crate::util::{
+    determine_name_and_title, documentation, foundations, has_attr, kw, parse_attr,
+    parse_flag, parse_key_value, parse_string, parse_string_array, quote_option,
+    validate_attrs,
+};
 
 /// Expand the `#[func]` macro.
 pub fn func(stream: TokenStream, item: &syn::ItemFn) -> Result<TokenStream> {
@@ -191,8 +201,6 @@ fn parse_param(
 
 /// Produce the function's definition.
 fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
-    let eval = quote! { ::typst::eval };
-
     let Func { docs, vis, ident, .. } = func;
     let item = rewrite_fn_item(item);
     let ty = create_func_ty(func);
@@ -200,9 +208,9 @@ fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
 
     let creator = if ty.is_some() {
         quote! {
-            impl #eval::NativeFunc for #ident {
-                fn data() -> &'static #eval::NativeFuncData {
-                    static DATA: #eval::NativeFuncData = #data;
+            impl #foundations::NativeFunc for #ident {
+                fn data() -> &'static #foundations::NativeFuncData {
+                    static DATA: #foundations::NativeFuncData = #data;
                     &DATA
                 }
             }
@@ -211,8 +219,8 @@ fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
         let ident_data = quote::format_ident!("{ident}_data");
         quote! {
             #[doc(hidden)]
-            #vis fn #ident_data() -> &'static #eval::NativeFuncData {
-                static DATA: #eval::NativeFuncData = #data;
+            #vis fn #ident_data() -> &'static #foundations::NativeFuncData {
+                static DATA: #foundations::NativeFuncData = #data;
                 &DATA
             }
         }
@@ -231,8 +239,6 @@ fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
 
 /// Create native function data for the function.
 fn create_func_data(func: &Func) -> TokenStream {
-    let eval = quote! { ::typst::eval };
-
     let Func {
         ident,
         name,
@@ -247,30 +253,30 @@ fn create_func_data(func: &Func) -> TokenStream {
     } = func;
 
     let scope = if *scope {
-        quote! { <#ident as #eval::NativeScope>::scope() }
+        quote! { <#ident as #foundations::NativeScope>::scope() }
     } else {
-        quote! { #eval::Scope::new() }
+        quote! { #foundations::Scope::new() }
     };
 
     let closure = create_wrapper_closure(func);
     let params = func.special.self_.iter().chain(&func.params).map(create_param_info);
 
     let name = if *constructor {
-        quote! { <#parent as #eval::NativeType>::NAME }
+        quote! { <#parent as #foundations::NativeType>::NAME }
     } else {
         quote! { #name }
     };
 
     quote! {
-        #eval::NativeFuncData {
+        #foundations::NativeFuncData {
             function: #closure,
             name: #name,
             title: #title,
             docs: #docs,
             keywords: &[#(#keywords),*],
-            scope: #eval::Lazy::new(|| #scope),
-            params: #eval::Lazy::new(|| ::std::vec![#(#params),*]),
-            returns:  #eval::Lazy::new(|| <#returns as #eval::Reflect>::output()),
+            scope: #foundations::Lazy::new(|| #scope),
+            params: #foundations::Lazy::new(|| ::std::vec![#(#params),*]),
+            returns:  #foundations::Lazy::new(|| <#returns as #foundations::Reflect>::output()),
         }
     }
 }
@@ -335,7 +341,7 @@ fn create_wrapper_closure(func: &Func) -> TokenStream {
             #handlers
             #finish
             let output = #call;
-            ::typst::eval::IntoResult::into_result(output, args.span)
+            #foundations::IntoResult::into_result(output, args.span)
         }
     }
 }
@@ -346,7 +352,7 @@ fn create_param_info(param: &Param) -> TokenStream {
     let positional = !named;
     let required = !named && default.is_none();
     let ty = if *variadic || (*named && default.is_none()) {
-        quote! { <#ty as ::typst::eval::Container>::Inner }
+        quote! { <#ty as #foundations::Container>::Inner }
     } else {
         quote! { #ty }
     };
@@ -354,15 +360,15 @@ fn create_param_info(param: &Param) -> TokenStream {
         quote! {
             || {
                 let typed: #ty = #default;
-                ::typst::eval::IntoValue::into_value(typed)
+                #foundations::IntoValue::into_value(typed)
             }
         }
     }));
     quote! {
-        ::typst::eval::ParamInfo {
+        #foundations::ParamInfo {
             name: #name,
             docs: #docs,
-            input: <#ty as ::typst::eval::Reflect>::input(),
+            input: <#ty as #foundations::Reflect>::input(),
             default: #default,
             positional: #positional,
             named: #named,

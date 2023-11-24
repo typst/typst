@@ -9,13 +9,15 @@ use pixglyph::Bitmap;
 use resvg::tiny_skia::IntRect;
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
-use typst::doc::{Frame, FrameItem, FrameKind, GroupItem, Meta, TextItem};
-use typst::font::Font;
-use typst::geom::{
-    self, Abs, Axes, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin, Paint,
-    PathItem, Pattern, Point, Ratio, Relative, Shape, Size, Transform,
+use typst::introspection::Meta;
+use typst::layout::{
+    Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Size, Transform,
 };
-use typst::image::{Image, ImageKind, RasterFormat};
+use typst::text::{Font, TextItem};
+use typst::visualize::{
+    Color, FixedStroke, Geometry, Gradient, GradientRelative, Image, ImageKind, LineCap,
+    LineJoin, Paint, Path, PathItem, RasterFormat, Shape,
+};
 use usvg::{NodeExt, TreeParsing};
 
 /// Export a frame into a raster image.
@@ -643,7 +645,7 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
 }
 
 /// Convert a Typst path into a tiny-skia path.
-fn convert_path(path: &geom::Path) -> Option<sk::Path> {
+fn convert_path(path: &Path) -> Option<sk::Path> {
     let mut builder = sk::PathBuilder::new();
     for elem in &path.0 {
         match elem {
@@ -782,13 +784,13 @@ impl<'a> GradientSampler<'a> {
     ) -> Self {
         let relative = gradient.unwrap_relative(on_text);
         let container_size = match relative {
-            Relative::Self_ => item_size,
-            Relative::Parent => state.size,
+            GradientRelative::Self_ => item_size,
+            GradientRelative::Parent => state.size,
         };
 
         let fill_transform = match relative {
-            Relative::Self_ => sk::Transform::identity(),
-            Relative::Parent => state.container_transform.invert().unwrap(),
+            GradientRelative::Self_ => sk::Transform::identity(),
+            GradientRelative::Parent => state.container_transform.invert().unwrap(),
         };
 
         Self {
@@ -918,13 +920,13 @@ fn to_sk_paint<'a>(
         Paint::Gradient(gradient) => {
             let relative = gradient.unwrap_relative(on_text);
             let container_size = match relative {
-                Relative::Self_ => item_size,
-                Relative::Parent => state.size,
+                GradientRelative::Self_ => item_size,
+                GradientRelative::Parent => state.size,
             };
 
             let fill_transform = match relative {
-                Relative::Self_ => fill_transform.unwrap_or_default(),
-                Relative::Parent => state
+                GradientRelative::Self_ => fill_transform.unwrap_or_default(),
+                GradientRelative::Parent => state
                     .container_transform
                     .post_concat(state.transform.invert().unwrap()),
             };

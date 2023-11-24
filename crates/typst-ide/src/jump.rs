@@ -1,10 +1,11 @@
 use std::num::NonZeroUsize;
 
 use ecow::EcoString;
-use typst::doc::{Destination, Frame, FrameItem, Meta, Position};
-use typst::geom::{Geometry, Point, Size};
-use typst::model::Introspector;
+use typst::introspection::{Introspector, Meta};
+use typst::layout::{Frame, FrameItem, Point, Position, Size};
+use typst::model::Destination;
 use typst::syntax::{FileId, LinkedNode, Source, Span, SyntaxKind};
+use typst::visualize::Geometry;
 use typst::World;
 
 /// Where to [jump](jump_from_click) to.

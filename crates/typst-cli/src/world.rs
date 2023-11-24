@@ -5,13 +5,14 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
+use ecow::eco_format;
 use typst::diag::{FileError, FileResult, StrResult};
-use typst::doc::Frame;
-use typst::eval::{eco_format, Bytes, Datetime, Library};
-use typst::font::{Font, FontBook};
+use typst::foundations::{Bytes, Datetime};
+use typst::layout::Frame;
 use typst::syntax::{FileId, Source, VirtualPath};
+use typst::text::{Font, FontBook};
 use typst::util::hash128;
-use typst::World;
+use typst::{Library, World};
 
 use crate::args::SharedArgs;
 use crate::fonts::{FontSearcher, FontSlot};
@@ -75,7 +76,7 @@ impl SystemWorld {
             input,
             root,
             main: FileId::new(None, main_path),
-            library: Prehashed::new(typst_library::build()),
+            library: Prehashed::new(Library::build()),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
             slots: RefCell::default(),

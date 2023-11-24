@@ -1,6 +1,12 @@
-use syn::Attribute;
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::parse::{Parse, ParseStream};
+use syn::{Attribute, Ident, Result};
 
-use super::*;
+use crate::util::{
+    determine_name_and_title, documentation, foundations, kw, parse_flag, parse_string,
+    parse_string_array, BareType,
+};
 
 /// Expand the `#[ty]` macro.
 pub fn ty(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
@@ -68,44 +74,42 @@ fn parse(meta: Meta, ident: Ident, attrs: &[Attribute]) -> Result<Type> {
 
 /// Produce the output of the macro.
 fn create(ty: &Type, item: Option<&syn::Item>) -> TokenStream {
-    let eval = quote! { ::typst::eval };
-
     let Type {
         ident, name, long, title, docs, keywords, scope, ..
     } = ty;
 
     let constructor = if *scope {
-        quote! { <#ident as #eval::NativeScope>::constructor() }
+        quote! { <#ident as #foundations::NativeScope>::constructor() }
     } else {
         quote! { None }
     };
 
     let scope = if *scope {
-        quote! { <#ident as #eval::NativeScope>::scope() }
+        quote! { <#ident as #foundations::NativeScope>::scope() }
     } else {
-        quote! { #eval::Scope::new() }
+        quote! { #foundations::Scope::new() }
     };
 
     let data = quote! {
-        #eval::NativeTypeData {
+        #foundations::NativeTypeData {
             name: #name,
             long_name: #long,
             title: #title,
             docs: #docs,
             keywords: &[#(#keywords),*],
-            constructor: #eval::Lazy::new(|| #constructor),
-            scope: #eval::Lazy::new(|| #scope),
+            constructor: #foundations::Lazy::new(|| #constructor),
+            scope: #foundations::Lazy::new(|| #scope),
         }
     };
 
     quote! {
         #item
 
-        impl #eval::NativeType for #ident {
+        impl #foundations::NativeType for #ident {
             const NAME: &'static str = #name;
 
-            fn data() -> &'static #eval::NativeTypeData {
-                static DATA: #eval::NativeTypeData = #data;
+            fn data() -> &'static #foundations::NativeTypeData {
+                static DATA: #foundations::NativeTypeData = #data;
                 &DATA
             }
         }

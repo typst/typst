@@ -1,157 +1,75 @@
-//! The document model.
+//! Structuring elements that define the document model.
 
-mod content;
-mod element;
-mod introspect;
-mod label;
-mod location;
-mod realize;
-mod selector;
-mod styles;
+mod bibliography;
+mod cite;
+mod document;
+mod emph;
+#[path = "enum.rs"]
+mod enum_;
+mod figure;
+mod footnote;
+mod heading;
+mod link;
+mod list;
+#[path = "numbering.rs"]
+mod numbering_;
+mod outline;
+mod par;
+mod quote;
+mod reference;
+mod strong;
+mod table;
+mod terms;
 
-use ecow::EcoVec;
-#[doc(inline)]
-pub use typst_macros::elem;
+pub use self::bibliography::*;
+pub use self::cite::*;
+pub use self::document::*;
+pub use self::emph::*;
+pub use self::enum_::*;
+pub use self::figure::*;
+pub use self::footnote::*;
+pub use self::heading::*;
+pub use self::link::*;
+pub use self::list::*;
+pub use self::numbering_::*;
+pub use self::outline::*;
+pub use self::par::*;
+pub use self::quote::*;
+pub use self::reference::*;
+pub use self::strong::*;
+pub use self::table::*;
+pub use self::terms::*;
 
-pub use self::content::{fat, Content, MetaElem, PlainText};
-pub use self::element::{
-    Construct, Element, ElementFields, LocalName, NativeElement, NativeElementData, Set,
-};
-pub use self::introspect::{Introspector, Locator};
-pub use self::label::{Label, Unlabellable};
-pub use self::location::Location;
-pub use self::realize::{
-    applicable, realize, Behave, Behaviour, Finalize, Guard, Locatable, Show, Synthesize,
-};
-pub use self::selector::{select_where, LocatableSelector, Selector, ShowableSelector};
-pub use self::styles::{
-    Fold, Property, Recipe, Resolve, Style, StyleChain, StyleVec, StyleVecBuilder,
-    Styles, Transform,
-};
+use crate::foundations::{category, Category, Scope};
 
-use comemo::{Track, Tracked, TrackedMut, Validate};
-
-use crate::diag::{warning, SourceDiagnostic, SourceResult};
-use crate::doc::Document;
-use crate::eval::Tracer;
-use crate::syntax::Span;
-use crate::World;
-
-/// Layout content.
-#[comemo::memoize]
-#[tracing::instrument(skip(world, tracer, content))]
-pub fn layout(
-    world: Tracked<dyn World + '_>,
-    mut tracer: TrackedMut<Tracer>,
-    content: &Content,
-) -> SourceResult<Document> {
-    tracing::info!("Starting typesetting");
-
-    let library = world.library();
-    let styles = StyleChain::new(&library.styles);
-
-    let mut iter = 0;
-    let mut document;
-    let mut delayed;
-
-    let mut introspector = Introspector::new(&[]);
-
-    // Relayout until all introspections stabilize.
-    // If that doesn't happen within five attempts, we give up.
-    loop {
-        tracing::info!("Layout iteration {iter}");
-
-        delayed = DelayedErrors::new();
-
-        let constraint = <Introspector as Validate>::Constraint::new();
-        let mut locator = Locator::new();
-        let mut vt = Vt {
-            world,
-            tracer: TrackedMut::reborrow_mut(&mut tracer),
-            locator: &mut locator,
-            introspector: introspector.track_with(&constraint),
-            delayed: delayed.track_mut(),
-        };
-
-        // Layout!
-        document = (library.items.layout)(&mut vt, content, styles)?;
-
-        introspector = Introspector::new(&document.pages);
-        iter += 1;
-
-        if introspector.validate(&constraint) {
-            break;
-        }
-
-        if iter >= 5 {
-            tracer.warn(
-                warning!(Span::detached(), "layout did not converge within 5 attempts",)
-                    .with_hint("check if any states or queries are updating themselves"),
-            );
-            break;
-        }
-    }
-
-    // Promote delayed errors.
-    if !delayed.0.is_empty() {
-        return Err(delayed.0);
-    }
-
-    Ok(document)
-}
-
-/// A virtual typesetter.
+/// Document structuring.
 ///
-/// Holds the state needed to [layout] content.
-pub struct Vt<'a> {
-    /// The compilation environment.
-    pub world: Tracked<'a, dyn World + 'a>,
-    /// Provides access to information about the document.
-    pub introspector: Tracked<'a, Introspector>,
-    /// Provides stable identities to elements.
-    pub locator: &'a mut Locator<'a>,
-    /// Delayed errors that do not immediately terminate execution.
-    pub delayed: TrackedMut<'a, DelayedErrors>,
-    /// The tracer for inspection of the values an expression produces.
-    pub tracer: TrackedMut<'a, Tracer>,
-}
+/// Here, you can find functions to structure your document and interact with
+/// that structure. This includes section headings, figures, bibliography
+/// management, cross-referencing and more.
+#[category]
+pub static MODEL: Category;
 
-impl Vt<'_> {
-    /// Perform a fallible operation that does not immediately terminate further
-    /// execution. Instead it produces a delayed error that is only promoted to
-    /// a fatal one if it remains at the end of the introspection loop.
-    pub fn delayed<F, T>(&mut self, f: F) -> T
-    where
-        F: FnOnce(&mut Self) -> SourceResult<T>,
-        T: Default,
-    {
-        match f(self) {
-            Ok(value) => value,
-            Err(errors) => {
-                for error in errors {
-                    self.delayed.push(error);
-                }
-                T::default()
-            }
-        }
-    }
-}
-
-/// Holds delayed errors.
-#[derive(Default, Clone)]
-pub struct DelayedErrors(EcoVec<SourceDiagnostic>);
-
-impl DelayedErrors {
-    /// Create an empty list of delayed errors.
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
-#[comemo::track]
-impl DelayedErrors {
-    /// Push a delayed error.
-    fn push(&mut self, error: SourceDiagnostic) {
-        self.0.push(error);
-    }
+/// Hook up all `model` definitions.
+pub fn define(global: &mut Scope) {
+    global.category(MODEL);
+    global.define_elem::<DocumentElem>();
+    global.define_elem::<RefElem>();
+    global.define_elem::<LinkElem>();
+    global.define_elem::<OutlineElem>();
+    global.define_elem::<HeadingElem>();
+    global.define_elem::<FigureElem>();
+    global.define_elem::<FootnoteElem>();
+    global.define_elem::<QuoteElem>();
+    global.define_elem::<CiteElem>();
+    global.define_elem::<BibliographyElem>();
+    global.define_elem::<EnumElem>();
+    global.define_elem::<ListElem>();
+    global.define_elem::<ParbreakElem>();
+    global.define_elem::<ParElem>();
+    global.define_elem::<TableElem>();
+    global.define_elem::<TermsElem>();
+    global.define_elem::<EmphElem>();
+    global.define_elem::<StrongElem>();
+    global.define_func::<numbering>();
 }

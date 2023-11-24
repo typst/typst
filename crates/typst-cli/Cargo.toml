@@ -21,7 +21,6 @@ doc = false
 
 [dependencies]
 typst = { workspace = true }
-typst-library = { workspace = true }
 typst-pdf = { workspace = true }
 typst-render = { workspace = true }
 typst-svg = { workspace = true }

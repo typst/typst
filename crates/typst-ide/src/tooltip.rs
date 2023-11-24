@@ -2,14 +2,15 @@ use std::fmt::Write;
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
-use typst::doc::Frame;
-use typst::eval::{repr, CapturesVisitor, CastInfo, Repr, Tracer, Value};
-use typst::geom::{round_2, Length, Numeric};
+use typst::eval::{CapturesVisitor, Tracer};
+use typst::foundations::{repr, CastInfo, Repr, Value};
+use typst::layout::{Frame, Length};
 use typst::syntax::{ast, LinkedNode, Source, SyntaxKind};
+use typst::util::{round_2, Numeric};
 use typst::World;
 
-use crate::analyze::analyze_labels;
-use crate::{analyze_expr, plain_docs_sentence, summarize_font_family};
+use crate::analyze::{analyze_expr, analyze_labels};
+use crate::{plain_docs_sentence, summarize_font_family};
 
 /// Describe the item under the cursor.
 pub fn tooltip(
@@ -25,7 +26,7 @@ pub fn tooltip(
 
     named_param_tooltip(world, &leaf)
         .or_else(|| font_tooltip(world, &leaf))
-        .or_else(|| label_tooltip(world, frames, &leaf))
+        .or_else(|| label_tooltip(frames, &leaf))
         .or_else(|| expr_tooltip(world, &leaf))
         .or_else(|| closure_tooltip(&leaf))
 }
@@ -144,18 +145,14 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
 }
 
 /// Tooltip for a hovered reference or label.
-fn label_tooltip(
-    world: &dyn World,
-    frames: &[Frame],
-    leaf: &LinkedNode,
-) -> Option<Tooltip> {
+fn label_tooltip(frames: &[Frame], leaf: &LinkedNode) -> Option<Tooltip> {
     let target = match leaf.kind() {
         SyntaxKind::RefMarker => leaf.text().trim_start_matches('@'),
         SyntaxKind::Label => leaf.text().trim_start_matches('<').trim_end_matches('>'),
         _ => return None,
     };
 
-    for (label, detail) in analyze_labels(world, frames).0 {
+    for (label, detail) in analyze_labels(frames).0 {
         if label.as_str() == target {
             return Some(Tooltip::Text(detail?));
         }

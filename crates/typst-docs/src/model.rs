@@ -62,7 +62,8 @@ pub enum BodyModel {
 /// Details about a category.
 #[derive(Debug, Serialize)]
 pub struct CategoryModel {
-    pub name: EcoString,
+    pub name: &'static str,
+    pub title: &'static str,
     pub details: Html,
     pub items: Vec<CategoryItem>,
     pub shorthands: Option<ShorthandsModel>,
@@ -144,7 +145,8 @@ pub struct TypeModel {
 /// A collection of symbols.
 #[derive(Debug, Serialize)]
 pub struct SymbolsModel {
-    pub name: &'static str,
+    pub name: EcoString,
+    pub title: EcoString,
     pub details: Html,
     pub list: Vec<SymbolModel>,
 }

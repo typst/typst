@@ -1,4 +1,11 @@
-use super::*;
+use heck::ToKebabCase;
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::parse::{Parse, ParseStream};
+use syn::punctuated::Punctuated;
+use syn::{DeriveInput, Ident, Result, Token};
+
+use crate::util::{documentation, foundations};
 
 /// Expand the `#[derive(Cast)]` macro.
 pub fn derive_cast(item: DeriveInput) -> Result<TokenStream> {
@@ -43,9 +50,9 @@ pub fn derive_cast(item: DeriveInput) -> Result<TokenStream> {
     });
 
     Ok(quote! {
-        ::typst::eval::cast! {
+        #foundations::cast! {
             #ty,
-            self => ::typst::eval::IntoValue::into_value(match self {
+            self => #foundations::IntoValue::into_value(match self {
                 #(#variants_to_strs),*
             }),
             #(#strs_to_variants),*
@@ -62,8 +69,6 @@ struct Variant {
 
 /// Expand the `cast!` macro.
 pub fn cast(stream: TokenStream) -> Result<TokenStream> {
-    let eval = quote! { ::typst::eval };
-
     let input: CastInput = syn::parse2(stream)?;
     let ty = &input.ty;
     let castable_body = create_castable_body(&input);
@@ -74,16 +79,16 @@ pub fn cast(stream: TokenStream) -> Result<TokenStream> {
 
     let reflect = (!input.from_value.is_empty() || input.dynamic).then(|| {
         quote! {
-            impl #eval::Reflect for #ty {
-                fn input() -> #eval::CastInfo {
+            impl #foundations::Reflect for #ty {
+                fn input() -> #foundations::CastInfo {
                     #input_body
                 }
 
-                fn output() -> #eval::CastInfo {
+                fn output() -> #foundations::CastInfo {
                     #output_body
                 }
 
-                fn castable(value: &#eval::Value) -> bool {
+                fn castable(value: &#foundations::Value) -> bool {
                     #castable_body
                 }
             }
@@ -92,8 +97,8 @@ pub fn cast(stream: TokenStream) -> Result<TokenStream> {
 
     let into_value = (input.into_value.is_some() || input.dynamic).then(|| {
         quote! {
-            impl #eval::IntoValue for #ty {
-                fn into_value(self) -> #eval::Value {
+            impl #foundations::IntoValue for #ty {
+                fn into_value(self) -> #foundations::Value {
                     #into_value_body
                 }
             }
@@ -102,8 +107,8 @@ pub fn cast(stream: TokenStream) -> Result<TokenStream> {
 
     let from_value = (!input.from_value.is_empty() || input.dynamic).then(|| {
         quote! {
-            impl #eval::FromValue for #ty {
-                fn from_value(value: #eval::Value) -> ::typst::diag::StrResult<Self> {
+            impl #foundations::FromValue for #ty {
+                fn from_value(value: #foundations::Value) -> ::typst::diag::StrResult<Self> {
                     #from_value_body
                 }
             }
@@ -196,7 +201,7 @@ fn create_castable_body(input: &CastInput) -> TokenStream {
             }
             Pattern::Ty(_, ty) => {
                 casts.push(quote! {
-                    if <#ty as ::typst::eval::Reflect>::castable(value) {
+                    if <#ty as #foundations::Reflect>::castable(value) {
                         return true;
                     }
                 });
@@ -206,7 +211,7 @@ fn create_castable_body(input: &CastInput) -> TokenStream {
 
     let dynamic_check = input.dynamic.then(|| {
         quote! {
-            if let ::typst::eval::Value::Dyn(dynamic) = &value {
+            if let #foundations::Value::Dyn(dynamic) = &value {
                 if dynamic.is::<Self>() {
                     return true;
                 }
@@ -216,7 +221,7 @@ fn create_castable_body(input: &CastInput) -> TokenStream {
 
     let str_check = (!strings.is_empty()).then(|| {
         quote! {
-            if let ::typst::eval::Value::Str(string) = &value {
+            if let #foundations::Value::Str(string) = &value {
                 match string.as_str() {
                     #(#strings,)*
                     _ => {}
@@ -241,21 +246,21 @@ fn create_input_body(input: &CastInput) -> TokenStream {
         infos.push(match &cast.pattern {
             Pattern::Str(lit) => {
                 quote! {
-                    ::typst::eval::CastInfo::Value(
-                        ::typst::eval::IntoValue::into_value(#lit),
+                    #foundations::CastInfo::Value(
+                        #foundations::IntoValue::into_value(#lit),
                         #docs,
                     )
                 }
             }
             Pattern::Ty(_, ty) => {
-                quote! { <#ty as ::typst::eval::Reflect>::input() }
+                quote! { <#ty as #foundations::Reflect>::input() }
             }
         });
     }
 
     if input.dynamic {
         infos.push(quote! {
-            ::typst::eval::CastInfo::Type(::typst::eval::Type::of::<Self>())
+            #foundations::CastInfo::Type(#foundations::Type::of::<Self>())
         });
     }
 
@@ -266,7 +271,7 @@ fn create_input_body(input: &CastInput) -> TokenStream {
 
 fn create_output_body(input: &CastInput) -> TokenStream {
     if input.dynamic {
-        quote! { ::typst::eval::CastInfo::Type(::typst::eval::Type::of::<Self>()) }
+        quote! { #foundations::CastInfo::Type(#foundations::Type::of::<Self>()) }
     } else {
         quote! { Self::input() }
     }
@@ -276,7 +281,7 @@ fn create_into_value_body(input: &CastInput) -> TokenStream {
     if let Some(expr) = &input.into_value {
         quote! { #expr }
     } else {
-        quote! { ::typst::eval::Value::dynamic(self) }
+        quote! { #foundations::Value::dynamic(self) }
     }
 }
 
@@ -292,8 +297,8 @@ fn create_from_value_body(input: &CastInput) -> TokenStream {
             }
             Pattern::Ty(binding, ty) => {
                 cast_checks.push(quote! {
-                    if <#ty as ::typst::eval::Reflect>::castable(&value) {
-                        let #binding = <#ty as ::typst::eval::FromValue>::from_value(value)?;
+                    if <#ty as #foundations::Reflect>::castable(&value) {
+                        let #binding = <#ty as #foundations::FromValue>::from_value(value)?;
                         return Ok(#expr);
                     }
                 });
@@ -303,7 +308,7 @@ fn create_from_value_body(input: &CastInput) -> TokenStream {
 
     let dynamic_check = input.dynamic.then(|| {
         quote! {
-            if let ::typst::eval::Value::Dyn(dynamic) = &value {
+            if let #foundations::Value::Dyn(dynamic) = &value {
                 if let Some(concrete) = dynamic.downcast::<Self>() {
                     return Ok(concrete.clone());
                 }
@@ -313,7 +318,7 @@ fn create_from_value_body(input: &CastInput) -> TokenStream {
 
     let str_check = (!string_arms.is_empty()).then(|| {
         quote! {
-            if let ::typst::eval::Value::Str(string) = &value {
+            if let #foundations::Value::Str(string) = &value {
                 match string.as_str() {
                     #(#string_arms,)*
                     _ => {}
@@ -326,6 +331,6 @@ fn create_from_value_body(input: &CastInput) -> TokenStream {
         #dynamic_check
         #str_check
         #(#cast_checks)*
-        Err(<Self as ::typst::eval::Reflect>::error(&value))
+        Err(<Self as #foundations::Reflect>::error(&value))
     }
 }

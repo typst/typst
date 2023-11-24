@@ -4,7 +4,7 @@ use std::fmt::Write;
 
 use serde::{Deserialize, Serialize};
 
-use super::{Html, Resolver};
+use crate::{Html, Resolver};
 
 /// Build HTML detailing the contributors between two tags.
 pub fn contributors(resolver: &dyn Resolver, from: &str, to: &str) -> Option<Html> {
