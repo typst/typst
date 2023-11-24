@@ -9,7 +9,7 @@ use palette::{
 };
 
 use super::*;
-use crate::diag::{error, At, SourceResult};
+use crate::diag::{At, SourceResult};
 use crate::eval::{Args, IntoValue, Module, Scope, Str};
 use crate::syntax::{Span, Spanned};
 
@@ -916,8 +916,10 @@ impl Color {
     ) -> SourceResult<Color> {
         Ok(match self {
             Self::Luma(_) => {
-                bail!(error!(span, "cannot saturate grayscale color")
-                    .with_hint("try converting your color to RGB first"));
+                bail!(
+                    span, "cannot saturate grayscale color";
+                    hint: "try converting your color to RGB first"
+                );
             }
             Self::Oklab(_) => self.to_hsv().saturate(span, factor)?.to_oklab(),
             Self::Oklch(_) => self.to_hsv().saturate(span, factor)?.to_oklch(),
@@ -940,8 +942,10 @@ impl Color {
     ) -> SourceResult<Color> {
         Ok(match self {
             Self::Luma(_) => {
-                bail!(error!(span, "cannot desaturate grayscale color")
-                    .with_hint("try converting your color to RGB first"));
+                bail!(
+                    span, "cannot desaturate grayscale color";
+                    hint: "try converting your color to RGB first"
+                );
             }
             Self::Oklab(_) => self.to_hsv().desaturate(span, factor)?.to_oklab(),
             Self::Oklch(_) => self.to_hsv().desaturate(span, factor)?.to_oklch(),

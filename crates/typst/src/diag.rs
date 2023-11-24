@@ -18,9 +18,20 @@ use crate::{World, WorldExt};
 /// `StrResult`. If called with a span, a string and format args, returns
 /// a `SourceResult`.
 ///
+/// You can also emit hints with the `; hint: "..."` syntax.
+///
 /// ```
 /// bail!("bailing with a {}", "string result");
 /// bail!(span, "bailing with a {}", "source result");
+/// bail!(
+///     span, "bailing with a {}", "source result";
+///     hint: "hint 1"
+/// );
+/// bail!(
+///     span, "bailing with a {}", "source result";
+///     hint: "hint 1";
+///     hint: "hint 2";
+/// );
 /// ```
 #[macro_export]
 #[doc(hidden)]
@@ -33,11 +44,16 @@ macro_rules! __bail {
         return Err(::ecow::eco_vec![$error])
     };
 
-    ($span:expr, $fmt:literal $(, $arg:expr)* $(,)?) => {
+    (
+        $span:expr,
+        $fmt:literal $(, $arg:expr)*
+        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
+        $(,)?
+    ) => {
         return Err(::ecow::eco_vec![$crate::diag::SourceDiagnostic::error(
             $span,
             $crate::diag::eco_format!($fmt, $($arg),*),
-        )])
+        ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*])
     };
 }
 
@@ -64,14 +80,34 @@ macro_rules! __error {
 }
 
 /// Construct a [`SourceDiagnostic`] with severity `Warning`.
+///
+/// You can also emit hints with the `; hint: "..."` syntax.
+///
+/// ```
+/// warning!(span, "warning with a {}", "source result");
+/// warning!(
+///     span, "warning with a {}", "source result";
+///     hint: "hint 1"
+/// );
+/// warning!(
+///     span, "warning with a {}", "source result";
+///     hint: "hint 1";
+///     hint: "hint 2";
+/// );
+/// ```
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __warning {
-    ($span:expr, $fmt:literal $(, $arg:expr)* $(,)?) => {
+    (
+        $span:expr,
+        $fmt:literal $(, $arg:expr)*
+        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
+        $(,)?
+    ) => {
         $crate::diag::SourceDiagnostic::warning(
             $span,
             $crate::diag::eco_format!($fmt, $($arg),*),
-        )
+        ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
     };
 }
 

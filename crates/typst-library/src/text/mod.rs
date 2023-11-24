@@ -20,7 +20,7 @@ pub use self::shift::*;
 
 use rustybuzz::Tag;
 use ttf_parser::Rect;
-use typst::diag::{bail, error, SourceResult};
+use typst::diag::{bail, SourceResult};
 use typst::eval::Never;
 use typst::font::{Font, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 
@@ -208,12 +208,9 @@ pub struct TextElem {
             if let Paint::Gradient(gradient) = &paint.v {
                 if gradient.relative() == Smart::Custom(Relative::Self_) {
                     bail!(
-                        error!(
-                            paint.span,
-                            "gradients on text must be relative to the parent"
-                        )
-                        .with_hint("make sure to set `relative: auto` on your text fill")
-                    );
+                        paint.span, "gradients on text must be relative to the parent";
+                        hint: "make sure to set `relative: auto` on your text fill"
+                    )
                 }
             }
         }

@@ -131,7 +131,7 @@ impl Layout for PolygonElem {
 
         let size = points.iter().fold(Point::zero(), |max, c| c.max(max)).to_size();
         if !size.is_finite() {
-            bail!(error!(self.span(), "cannot create polygon with infinite size"));
+            bail!(self.span(), "cannot create polygon with infinite size");
         }
         let mut frame = Frame::hard(size);
 

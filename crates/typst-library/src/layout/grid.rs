@@ -589,7 +589,7 @@ impl<'a> GridLayouter<'a> {
         y: usize,
     ) -> SourceResult<Frame> {
         if !height.is_finite() {
-            bail!(error!(self.span, "cannot create grid with infinite height"));
+            bail!(self.span, "cannot create grid with infinite height");
         }
 
         let mut output = Frame::soft(Size::new(self.width, height));
