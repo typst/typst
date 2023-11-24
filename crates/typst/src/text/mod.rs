@@ -43,7 +43,7 @@ use crate::foundations::{
 use crate::layout::{Abs, Axis, Dir, Length, Rel};
 use crate::model::ParElem;
 use crate::syntax::Spanned;
-use crate::visualize::{Color, GradientRelative, Paint};
+use crate::visualize::{Color, Paint, RelativeTo};
 
 /// Text styling.
 ///
@@ -226,16 +226,14 @@ pub struct TextElem {
     #[parse({
         let paint: Option<Spanned<Paint>> = args.named_or_find("fill")?;
         if let Some(paint) = &paint {
-            if let Paint::Gradient(gradient) = &paint.v {
-                if gradient.relative() == Smart::Custom(GradientRelative::Self_) {
-                    bail!(
-                        error!(
-                            paint.span,
-                            "gradients on text must be relative to the parent"
-                        )
-                        .with_hint("make sure to set `relative: auto` on your text fill")
-                    );
-                }
+            if paint.v.relative() == Smart::Custom(RelativeTo::Self_) {
+                bail!(
+                    error!(
+                        paint.span,
+                        "gradients and patterns on text must be relative to the parent"
+                    )
+                    .with_hint("make sure to set `relative: auto` on your text fill")
+                );
             }
         }
         paint.map(|paint| paint.v)

@@ -1,19 +1,19 @@
 use std::f32::consts::{PI, TAU};
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 use pdf_writer::types::{ColorSpaceOperand, FunctionShadingType};
 use pdf_writer::writers::StreamShadingType;
 use pdf_writer::{Filter, Finish, Name, Ref};
 use typst::layout::{Abs, Angle, Point, Quadrant, Ratio, Transform};
 use typst::util::Numeric;
 use typst::visualize::{
-    Color, ColorSpace, ConicGradient, Gradient, GradientRelative, WeightedColor,
+    Color, ColorSpace, ConicGradient, Gradient, RelativeTo, WeightedColor,
 };
 
 use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
-use crate::page::{PageContext, Transforms};
-use crate::{deflate, AbsExt, PdfContext};
+use crate::page::{PageContext, PageResource, ResourceKind, Transforms};
+use crate::{deflate, transform_to_array, AbsExt, PdfContext};
 
 /// A unique-transform-aspect-ratio combination that will be encoded into the
 /// PDF.
@@ -268,21 +268,27 @@ impl PaintEncode for Gradient {
     fn set_as_fill(&self, ctx: &mut PageContext, on_text: bool, transforms: Transforms) {
         ctx.reset_fill_color_space();
 
-        let id = register_gradient(ctx, self, on_text, transforms);
+        let index = register_gradient(ctx, self, on_text, transforms);
+        let id = eco_format!("Gr{index}");
         let name = Name(id.as_bytes());
 
         ctx.content.set_fill_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_fill_pattern(None, name);
+        ctx.resources
+            .insert(PageResource::new(ResourceKind::Gradient, id), index);
     }
 
     fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms) {
         ctx.reset_stroke_color_space();
 
-        let id = register_gradient(ctx, self, false, transforms);
+        let index = register_gradient(ctx, self, false, transforms);
+        let id = eco_format!("Gr{index}");
         let name = Name(id.as_bytes());
 
         ctx.content.set_stroke_color_space(ColorSpaceOperand::Pattern);
         ctx.content.set_stroke_pattern(None, name);
+        ctx.resources
+            .insert(PageResource::new(ResourceKind::Gradient, id), index);
     }
 }
 
@@ -292,7 +298,7 @@ fn register_gradient(
     gradient: &Gradient,
     on_text: bool,
     mut transforms: Transforms,
-) -> EcoString {
+) -> usize {
     // Edge cases for strokes.
     if transforms.size.x.is_zero() {
         transforms.size.x = Abs::pt(1.0);
@@ -302,8 +308,8 @@ fn register_gradient(
         transforms.size.y = Abs::pt(1.0);
     }
     let size = match gradient.unwrap_relative(on_text) {
-        GradientRelative::Self_ => transforms.size,
-        GradientRelative::Parent => transforms.container_size,
+        RelativeTo::Self_ => transforms.size,
+        RelativeTo::Parent => transforms.container_size,
     };
 
     let (offset_x, offset_y) = match gradient {
@@ -317,8 +323,8 @@ fn register_gradient(
     let rotation = gradient.angle().unwrap_or_else(Angle::zero);
 
     let transform = match gradient.unwrap_relative(on_text) {
-        GradientRelative::Self_ => transforms.transform,
-        GradientRelative::Parent => transforms.container_transform,
+        RelativeTo::Self_ => transforms.transform,
+        RelativeTo::Parent => transforms.container_transform,
     };
 
     let scale_offset = match gradient {
@@ -341,20 +347,7 @@ fn register_gradient(
         angle: Gradient::correct_aspect_ratio(rotation, size.aspect_ratio()),
     };
 
-    let index = ctx.parent.gradient_map.insert(pdf_gradient);
-    eco_format!("Gr{}", index)
-}
-
-/// Convert to an array of floats.
-fn transform_to_array(ts: Transform) -> [f32; 6] {
-    [
-        ts.sx.get() as f32,
-        ts.ky.get() as f32,
-        ts.kx.get() as f32,
-        ts.sy.get() as f32,
-        ts.tx.to_f32(),
-        ts.ty.to_f32(),
-    ]
+    ctx.parent.gradient_map.insert(pdf_gradient)
 }
 
 /// Writes a single Coons Patch as defined in the PDF specification

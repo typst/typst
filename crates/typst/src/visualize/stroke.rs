@@ -7,7 +7,7 @@ use crate::foundations::{
 };
 use crate::layout::{Abs, Length};
 use crate::util::{Numeric, Scalar};
-use crate::visualize::{Color, Gradient, Paint};
+use crate::visualize::{Color, Gradient, Paint, Pattern};
 
 /// Defines how to draw a line.
 ///
@@ -379,6 +379,10 @@ cast! {
     },
     gradient: Gradient => Self {
         paint: Smart::Custom(gradient.into()),
+        ..Default::default()
+    },
+    pattern: Pattern => Self {
+        paint: Smart::Custom(pattern.into()),
         ..Default::default()
     },
     mut dict: Dict => {

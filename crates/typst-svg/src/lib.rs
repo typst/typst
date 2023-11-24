@@ -14,9 +14,8 @@ use typst::layout::{
 use typst::text::{Font, TextItem};
 use typst::util::hash128;
 use typst::visualize::{
-    Color, FixedStroke, Geometry, Gradient, GradientRelative, Image, ImageFormat,
-    LineCap, LineJoin, Paint, Path, PathItem, RasterFormat, RatioOrAngle, Shape,
-    VectorFormat,
+    Color, FixedStroke, Geometry, Gradient, Image, ImageFormat, LineCap, LineJoin, Paint,
+    Path, PathItem, Pattern, RasterFormat, RatioOrAngle, RelativeTo, Shape, VectorFormat,
 };
 use xmlwriter::XmlWriter;
 
@@ -77,6 +76,12 @@ struct SVGRenderer {
     /// different transforms. Therefore this allows us to reuse the same gradient
     /// multiple times.
     gradient_refs: Deduplicator<GradientRef>,
+    /// Deduplicated patterns with transform matrices. They use a reference
+    /// (`href`) to a "source" pattern instead of being defined inline.
+    /// This saves a lot of space since patterns are often reused but with
+    /// different transforms. Therefore this allows us to reuse the same gradient
+    /// multiple times.
+    pattern_refs: Deduplicator<PatternRef>,
     /// These are the actual gradients being written in the SVG file.
     /// These gradients are deduplicated because they do not contain the transform
     /// matrix, allowing them to be reused across multiple invocations.
@@ -84,6 +89,12 @@ struct SVGRenderer {
     /// The `Ratio` is the aspect ratio of the gradient, this is used to correct
     /// the angle of the gradient.
     gradients: Deduplicator<(Gradient, Ratio)>,
+    /// These are the actual patterns being written in the SVG file.
+    /// These patterns are deduplicated because they do not contain the transform
+    /// matrix, allowing them to be reused across multiple invocations.
+    ///
+    /// The `String` is the rendered pattern frame.
+    patterns: Deduplicator<Pattern>,
     /// These are the gradients that compose a conic gradient.
     conic_subgradients: Deduplicator<SVGSubGradient>,
 }
@@ -139,6 +150,20 @@ struct GradientRef {
     kind: GradientKind,
     /// The transform matrix to apply to the gradient.
     transform: Transform,
+}
+
+/// A reference to a deduplicated pattern, with a transform matrix.
+///
+/// Allows patterns to be reused across multiple invocations,
+/// simply by changing the transform matrix.
+#[derive(Hash)]
+struct PatternRef {
+    /// The ID of the deduplicated gradient
+    id: Id,
+    /// The transform matrix to apply to the pattern.
+    transform: Transform,
+    /// The ratio of the size of the cell to the size of the filled area.
+    ratio: Axes<Ratio>,
 }
 
 /// A subgradient for conic gradients.
@@ -199,6 +224,8 @@ impl SVGRenderer {
             gradient_refs: Deduplicator::new('g'),
             gradients: Deduplicator::new('f'),
             conic_subgradients: Deduplicator::new('s'),
+            pattern_refs: Deduplicator::new('p'),
+            patterns: Deduplicator::new('t'),
         }
     }
 
@@ -217,6 +244,20 @@ impl SVGRenderer {
         self.xml
             .write_attribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
         self.xml.write_attribute("xmlns:h5", "http://www.w3.org/1999/xhtml");
+    }
+
+    /// Render a frame to a string.
+    fn render_pattern_frame(
+        &mut self,
+        state: State,
+        ts: Transform,
+        frame: &Frame,
+    ) -> String {
+        let mut xml = XmlWriter::new(xmlwriter::Options::default());
+        std::mem::swap(&mut self.xml, &mut xml);
+        self.render_frame(state, ts, frame);
+        std::mem::swap(&mut self.xml, &mut xml);
+        xml.end_document()
     }
 
     /// Render a frame with the given transform.
@@ -286,37 +327,27 @@ impl SVGRenderer {
     /// of them works, we will skip the text.
     fn render_text(&mut self, state: State, text: &TextItem) {
         let scale: f64 = text.size.to_pt() / text.font.units_per_em();
-        let inv_scale: f64 = text.font.units_per_em() / text.size.to_pt();
 
         self.xml.start_element("g");
         self.xml.write_attribute("class", "typst-text");
-        self.xml.write_attribute_fmt(
-            "transform",
-            format_args!("scale({} {})", scale, -scale),
-        );
+        self.xml.write_attribute("transform", "scale(1, -1)");
 
         let mut x: f64 = 0.0;
         for glyph in &text.glyphs {
             let id = GlyphId(glyph.id);
             let offset = x + glyph.x_offset.at(text.size).to_pt();
 
-            self.render_svg_glyph(text, id, offset, inv_scale)
-                .or_else(|| self.render_bitmap_glyph(text, id, offset, inv_scale))
+            self.render_svg_glyph(text, id, offset, scale)
+                .or_else(|| self.render_bitmap_glyph(text, id, offset))
                 .or_else(|| {
                     self.render_outline_glyph(
                         state
-                            .pre_concat(Transform::scale(
-                                Ratio::new(scale),
-                                Ratio::new(-scale),
-                            ))
-                            .pre_translate(Point::new(
-                                Abs::pt(offset / scale),
-                                Abs::zero(),
-                            )),
+                            .pre_concat(Transform::scale(Ratio::one(), -Ratio::one()))
+                            .pre_translate(Point::new(Abs::pt(offset), Abs::zero())),
                         text,
                         id,
                         offset,
-                        inv_scale,
+                        scale,
                     )
                 });
 
@@ -332,7 +363,7 @@ impl SVGRenderer {
         text: &TextItem,
         id: GlyphId,
         x_offset: f64,
-        inv_scale: f64,
+        scale: f64,
     ) -> Option<()> {
         let data_url = convert_svg_glyph_to_base64_url(&text.font, id)?;
         let upem = Abs::raw(text.font.units_per_em());
@@ -344,13 +375,12 @@ impl SVGRenderer {
             width: upem.to_pt(),
             height: upem.to_pt(),
             ts: Transform::translate(Abs::zero(), Abs::pt(-origin_ascender))
-                .post_concat(Transform::scale(Ratio::new(1.0), Ratio::new(-1.0))),
+                .post_concat(Transform::scale(Ratio::new(scale), Ratio::new(-scale))),
         });
 
         self.xml.start_element("use");
         self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
-        self.xml
-            .write_attribute_fmt("x", format_args!("{}", x_offset * inv_scale));
+        self.xml.write_attribute("x", &x_offset);
         self.xml.end_element();
 
         Some(())
@@ -362,7 +392,6 @@ impl SVGRenderer {
         text: &TextItem,
         id: GlyphId,
         x_offset: f64,
-        inv_scale: f64,
     ) -> Option<()> {
         let (image, bitmap_x_offset, bitmap_y_offset) =
             convert_bitmap_glyph_to_image(&text.font, id)?;
@@ -390,11 +419,7 @@ impl SVGRenderer {
         self.xml.write_attribute("x", &(x_offset / scale_factor));
         self.xml.write_attribute_fmt(
             "transform",
-            format_args!(
-                "scale({} -{})",
-                inv_scale * scale_factor,
-                inv_scale * scale_factor,
-            ),
+            format_args!("scale({scale_factor} -{scale_factor})",),
         );
         self.xml.end_element();
 
@@ -408,19 +433,23 @@ impl SVGRenderer {
         text: &TextItem,
         glyph_id: GlyphId,
         x_offset: f64,
-        inv_scale: f64,
+        scale: f64,
     ) -> Option<()> {
-        let path = convert_outline_glyph_to_path(&text.font, glyph_id)?;
-        let hash = hash128(&(&text.font, glyph_id));
+        let scale = Ratio::new(scale);
+        let path = convert_outline_glyph_to_path(&text.font, glyph_id, scale)?;
+        let hash = hash128(&(&text.font, glyph_id, scale));
         let id = self.glyphs.insert_with(hash, || RenderedGlyph::Path(path));
+
+        let glyph_size = text.font.ttf().glyph_bounding_box(glyph_id)?;
+        let width = glyph_size.width() as f64 * scale.get();
+        let height = glyph_size.height() as f64 * scale.get();
 
         self.xml.start_element("use");
         self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
-        self.xml
-            .write_attribute_fmt("x", format_args!("{}", x_offset * inv_scale));
+        self.xml.write_attribute_fmt("x", format_args!("{}", x_offset));
         self.write_fill(
             &text.fill,
-            state.size,
+            Size::new(Abs::pt(width), Abs::pt(height)),
             self.text_paint_transform(state, &text.fill),
         );
         self.xml.end_element();
@@ -429,17 +458,20 @@ impl SVGRenderer {
     }
 
     fn text_paint_transform(&self, state: State, paint: &Paint) -> Transform {
-        let Paint::Gradient(gradient) = paint else {
-            return Transform::identity();
-        };
-
-        match gradient.unwrap_relative(true) {
-            GradientRelative::Self_ => Transform::scale(Ratio::one(), Ratio::one()),
-            GradientRelative::Parent => Transform::scale(
-                Ratio::new(state.size.x.to_pt()),
-                Ratio::new(state.size.y.to_pt()),
-            )
-            .post_concat(state.transform.invert().unwrap()),
+        match paint {
+            Paint::Solid(_) => Transform::identity(),
+            Paint::Gradient(gradient) => match gradient.unwrap_relative(true) {
+                RelativeTo::Self_ => Transform::identity(),
+                RelativeTo::Parent => Transform::scale(
+                    Ratio::new(state.size.x.to_pt()),
+                    Ratio::new(state.size.y.to_pt()),
+                )
+                .post_concat(state.transform.invert().unwrap()),
+            },
+            Paint::Pattern(pattern) => match pattern.unwrap_relative(true) {
+                RelativeTo::Self_ => Transform::identity(),
+                RelativeTo::Parent => state.transform.invert().unwrap(),
+            },
         }
     }
 
@@ -490,15 +522,20 @@ impl SVGRenderer {
 
         if let Paint::Gradient(gradient) = paint {
             match gradient.unwrap_relative(false) {
-                GradientRelative::Self_ => Transform::scale(
+                RelativeTo::Self_ => Transform::scale(
                     Ratio::new(shape_size.x.to_pt()),
                     Ratio::new(shape_size.y.to_pt()),
                 ),
-                GradientRelative::Parent => Transform::scale(
+                RelativeTo::Parent => Transform::scale(
                     Ratio::new(state.size.x.to_pt()),
                     Ratio::new(state.size.y.to_pt()),
                 )
                 .post_concat(state.transform.invert().unwrap()),
+            }
+        } else if let Paint::Pattern(pattern) = paint {
+            match pattern.unwrap_relative(false) {
+                RelativeTo::Self_ => Transform::identity(),
+                RelativeTo::Parent => state.transform.invert().unwrap(),
             }
         } else {
             Transform::identity()
@@ -519,8 +556,8 @@ impl SVGRenderer {
 
         if let Paint::Gradient(gradient) = paint {
             match gradient.unwrap_relative(false) {
-                GradientRelative::Self_ => shape_size,
-                GradientRelative::Parent => state.size,
+                RelativeTo::Self_ => shape_size,
+                RelativeTo::Parent => state.size,
             }
         } else {
             shape_size
@@ -533,6 +570,10 @@ impl SVGRenderer {
             Paint::Solid(color) => self.xml.write_attribute("fill", &color.encode()),
             Paint::Gradient(gradient) => {
                 let id = self.push_gradient(gradient, size, ts);
+                self.xml.write_attribute_fmt("fill", format_args!("url(#{id})"));
+            }
+            Paint::Pattern(pattern) => {
+                let id = self.push_pattern(pattern, size, ts);
                 self.xml.write_attribute_fmt("fill", format_args!("url(#{id})"));
             }
         }
@@ -564,6 +605,29 @@ impl SVGRenderer {
             })
     }
 
+    fn push_pattern(&mut self, pattern: &Pattern, size: Size, ts: Transform) -> Id {
+        let pattern_size = pattern.size_abs() + pattern.spacing_abs();
+        // Unfortunately due to a limitation of `xmlwriter`, we need to
+        // render the frame twice: once to allocate all of the resources
+        // that it needs and once to actually render it.
+        self.render_pattern_frame(
+            State::new(pattern_size, Transform::identity()),
+            Transform::identity(),
+            pattern.frame(),
+        );
+
+        let pattern_id = self.patterns.insert_with(hash128(pattern), || pattern.clone());
+        self.pattern_refs
+            .insert_with(hash128(&(pattern_id, ts)), || PatternRef {
+                id: pattern_id,
+                transform: ts,
+                ratio: Axes::new(
+                    Ratio::new(pattern_size.x.to_pt() / size.x.to_pt()),
+                    Ratio::new(pattern_size.y.to_pt() / size.y.to_pt()),
+                ),
+            })
+    }
+
     /// Write a stroke attribute.
     fn write_stroke(
         &mut self,
@@ -575,6 +639,10 @@ impl SVGRenderer {
             Paint::Solid(color) => self.xml.write_attribute("stroke", &color.encode()),
             Paint::Gradient(gradient) => {
                 let id = self.push_gradient(gradient, size, fill_transform);
+                self.xml.write_attribute_fmt("stroke", format_args!("url(#{id})"));
+            }
+            Paint::Pattern(pattern) => {
+                let id = self.push_pattern(pattern, size, fill_transform);
                 self.xml.write_attribute_fmt("stroke", format_args!("url(#{id})"));
             }
         }
@@ -630,6 +698,8 @@ impl SVGRenderer {
         self.write_gradients();
         self.write_gradient_refs();
         self.write_subgradients();
+        self.write_patterns();
+        self.write_pattern_refs();
         self.xml.end_document()
     }
 
@@ -948,12 +1018,78 @@ impl SVGRenderer {
 
         self.xml.end_element();
     }
+
+    /// Write the raw gradients (without transform) to the SVG file.
+    fn write_patterns(&mut self) {
+        if self.patterns.is_empty() {
+            return;
+        }
+
+        self.xml.start_element("defs");
+        self.xml.write_attribute("id", "patterns");
+
+        for (id, pattern) in
+            self.patterns.iter().map(|(i, p)| (i, p.clone())).collect::<Vec<_>>()
+        {
+            let size = pattern.size_abs() + pattern.spacing_abs();
+            self.xml.start_element("pattern");
+            self.xml.write_attribute("id", &id);
+            self.xml.write_attribute("width", &size.x.to_pt());
+            self.xml.write_attribute("height", &size.y.to_pt());
+            self.xml.write_attribute("patternUnits", "userSpaceOnUse");
+            self.xml.write_attribute_fmt(
+                "viewBox",
+                format_args!("0 0 {:.3} {:.3}", size.x.to_pt(), size.y.to_pt()),
+            );
+
+            // Render the frame.
+            let state = State::new(size, Transform::identity());
+            let ts = Transform::identity();
+            self.render_frame(state, ts, pattern.frame());
+
+            self.xml.end_element();
+        }
+
+        self.xml.end_element()
+    }
+
+    /// Writes the references to the deduplicated patterns for each usage site.
+    fn write_pattern_refs(&mut self) {
+        if self.pattern_refs.is_empty() {
+            return;
+        }
+
+        self.xml.start_element("defs");
+        self.xml.write_attribute("id", "pattern-refs");
+        for (id, pattern_ref) in self.pattern_refs.iter() {
+            self.xml.start_element("pattern");
+            self.xml
+                .write_attribute("patternTransform", &SvgMatrix(pattern_ref.transform));
+
+            self.xml.write_attribute("id", &id);
+
+            // Writing the href attribute to the "reference" pattern.
+            self.xml
+                .write_attribute_fmt("href", format_args!("#{}", pattern_ref.id));
+
+            // Also writing the xlink:href attribute for compatibility.
+            self.xml
+                .write_attribute_fmt("xlink:href", format_args!("#{}", pattern_ref.id));
+            self.xml.end_element();
+        }
+
+        self.xml.end_element();
+    }
 }
 
 /// Convert an outline glyph to an SVG path.
 #[comemo::memoize]
-fn convert_outline_glyph_to_path(font: &Font, id: GlyphId) -> Option<EcoString> {
-    let mut builder = SvgPathBuilder::default();
+fn convert_outline_glyph_to_path(
+    font: &Font,
+    id: GlyphId,
+    scale: Ratio,
+) -> Option<EcoString> {
+    let mut builder = SvgPathBuilder::with_scale(scale);
     font.ttf().outline_glyph(id, &mut builder)?;
     Some(builder.0)
 }
@@ -1170,10 +1306,17 @@ impl Display for SvgMatrix {
 }
 
 /// A builder for SVG path.
-#[derive(Default)]
-struct SvgPathBuilder(pub EcoString);
+struct SvgPathBuilder(pub EcoString, pub Ratio);
 
 impl SvgPathBuilder {
+    fn with_scale(scale: Ratio) -> Self {
+        Self(EcoString::new(), scale)
+    }
+
+    fn scale(&self) -> f32 {
+        self.1.get() as f32
+    }
+
     /// Create a rectangle path. The rectangle is created with the top-left
     /// corner at (0, 0). The width and height are the size of the rectangle.
     fn rect(&mut self, width: f32, height: f32) {
@@ -1193,34 +1336,63 @@ impl SvgPathBuilder {
         sweep_flag: u32,
         pos: (f32, f32),
     ) {
+        let scale = self.scale();
         write!(
             &mut self.0,
             "A {rx} {ry} {x_axis_rot} {large_arc_flag} {sweep_flag} {x} {y} ",
-            rx = radius.0,
-            ry = radius.1,
-            x = pos.0,
-            y = pos.1,
+            rx = radius.0 * scale,
+            ry = radius.1 * scale,
+            x = pos.0 * scale,
+            y = pos.1 * scale,
         )
         .unwrap();
+    }
+}
+
+impl Default for SvgPathBuilder {
+    fn default() -> Self {
+        Self(Default::default(), Ratio::one())
     }
 }
 
 /// A builder for SVG path. This is used to build the path for a glyph.
 impl ttf_parser::OutlineBuilder for SvgPathBuilder {
     fn move_to(&mut self, x: f32, y: f32) {
-        write!(&mut self.0, "M {} {} ", x, y).unwrap();
+        let scale = self.scale();
+        write!(&mut self.0, "M {} {} ", x * scale, y * scale).unwrap();
     }
 
     fn line_to(&mut self, x: f32, y: f32) {
-        write!(&mut self.0, "L {} {} ", x, y).unwrap();
+        let scale = self.scale();
+        write!(&mut self.0, "L {} {} ", x * scale, y * scale).unwrap();
     }
 
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        write!(&mut self.0, "Q {} {} {} {} ", x1, y1, x, y).unwrap();
+        let scale = self.scale();
+        write!(
+            &mut self.0,
+            "Q {} {} {} {} ",
+            x1 * scale,
+            y1 * scale,
+            x * scale,
+            y * scale
+        )
+        .unwrap();
     }
 
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
-        write!(&mut self.0, "C {} {} {} {} {} {} ", x1, y1, x2, y2, x, y).unwrap();
+        let scale = self.scale();
+        write!(
+            &mut self.0,
+            "C {} {} {} {} {} {} ",
+            x1 * scale,
+            y1 * scale,
+            x2 * scale,
+            y2 * scale,
+            x * scale,
+            y * scale
+        )
+        .unwrap();
     }
 
     fn close(&mut self) {

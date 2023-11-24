@@ -7,10 +7,12 @@ mod gradient;
 mod image;
 mod outline;
 mod page;
+mod pattern;
 
 use std::cmp::Eq;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
+use std::sync::Arc;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
@@ -18,7 +20,7 @@ use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
 use typst::foundations::Datetime;
 use typst::introspection::Introspector;
-use typst::layout::{Abs, Dir, Em};
+use typst::layout::{Abs, Dir, Em, Transform};
 use typst::model::Document;
 use typst::text::{Font, Lang};
 use typst::util::Deferred;
@@ -30,6 +32,7 @@ use crate::extg::ExtGState;
 use crate::gradient::PdfGradient;
 use crate::image::EncodedImage;
 use crate::page::Page;
+use crate::pattern::PdfPattern;
 
 /// Export a document into a PDF file.
 ///
@@ -57,6 +60,7 @@ pub fn pdf(
     image::write_images(&mut ctx);
     gradient::write_gradients(&mut ctx);
     extg::write_external_graphics_states(&mut ctx);
+    pattern::write_patterns(&mut ctx);
     page::write_page_tree(&mut ctx);
     write_catalog(&mut ctx, ident, timestamp);
     ctx.pdf.finish()
@@ -97,6 +101,8 @@ struct PdfContext<'a> {
     image_refs: Vec<Ref>,
     /// The IDs of written gradients.
     gradient_refs: Vec<Ref>,
+    /// The IDs of written patterns.
+    pattern_refs: Vec<Ref>,
     /// The IDs of written external graphics states.
     ext_gs_refs: Vec<Ref>,
     /// Handles color space writing.
@@ -110,6 +116,8 @@ struct PdfContext<'a> {
     image_deferred_map: HashMap<usize, Deferred<EncodedImage>>,
     /// Deduplicates gradients used across the document.
     gradient_map: Remapper<PdfGradient>,
+    /// Deduplicates patterns used across the document.
+    pattern_map: Remapper<PdfPattern>,
     /// Deduplicates external graphics states used across the document.
     extg_map: Remapper<ExtGState>,
 }
@@ -131,12 +139,14 @@ impl<'a> PdfContext<'a> {
             font_refs: vec![],
             image_refs: vec![],
             gradient_refs: vec![],
+            pattern_refs: vec![],
             ext_gs_refs: vec![],
             colors: ColorSpaces::default(),
             font_map: Remapper::new(),
             image_map: Remapper::new(),
             image_deferred_map: HashMap::default(),
             gradient_map: Remapper::new(),
+            pattern_map: Remapper::new(),
             extg_map: Remapper::new(),
         }
     }
@@ -263,6 +273,12 @@ fn deflate(data: &[u8]) -> Vec<u8> {
     miniz_oxide::deflate::compress_to_vec_zlib(data, COMPRESSION_LEVEL)
 }
 
+/// Memoized version of [`deflate`] specialized for a page's content stream.
+#[comemo::memoize]
+fn deflate_memoized(content: &[u8]) -> Arc<Vec<u8>> {
+    Arc::new(deflate(content))
+}
+
 /// Create a base64-encoded hash of the value.
 fn hash_base64<T: Hash>(value: &T) -> String {
     base64::engine::general_purpose::STANDARD
@@ -341,10 +357,6 @@ where
         })
     }
 
-    fn map(&self, item: &T) -> usize {
-        self.to_pdf[item]
-    }
-
     fn pdf_indices<'a>(
         &'a self,
         refs: &'a [Ref],
@@ -379,4 +391,16 @@ impl EmExt for Em {
     fn to_font_units(self) -> f32 {
         1000.0 * self.get() as f32
     }
+}
+
+/// Convert to an array of floats.
+fn transform_to_array(ts: Transform) -> [f32; 6] {
+    [
+        ts.sx.get() as f32,
+        ts.ky.get() as f32,
+        ts.kx.get() as f32,
+        ts.sy.get() as f32,
+        ts.tx.to_f32(),
+        ts.ty.to_f32(),
+    ]
 }
