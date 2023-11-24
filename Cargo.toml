@@ -43,7 +43,7 @@ ecow = { version = "0.2", features = ["serde"] }
 env_proxy = "0.4"
 flate2 = "1"
 fontdb = { version = "0.15", default-features = false }
-hayagriva = "0.4"
+hayagriva = "0.5"
 heck = "0.4"
 hypher = "0.1.4"
 iai = { git = "https://github.com/typst/iai", rev = "3f0f927" }
