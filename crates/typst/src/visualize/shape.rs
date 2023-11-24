@@ -555,7 +555,7 @@ impl ShapeKind {
 }
 
 /// A geometric shape with optional fill and stroke.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Shape {
     /// The shape's geometry.
     pub geometry: Geometry,

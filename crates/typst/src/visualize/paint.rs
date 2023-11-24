@@ -6,7 +6,7 @@ use crate::foundations::{cast, Repr, Smart};
 use crate::visualize::{Color, Gradient, Pattern, RelativeTo};
 
 /// How a fill or stroke should be painted.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Paint {
     /// A solid color.
     Solid(Color),

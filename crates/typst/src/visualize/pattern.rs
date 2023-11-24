@@ -91,7 +91,7 @@ use crate::World;
 pub struct Pattern(Arc<PatternRepr>);
 
 /// Internal representation of [`Pattern`].
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct PatternRepr {
     /// The body of the pattern
     body: Prehashed<Content>,
@@ -104,8 +104,6 @@ struct PatternRepr {
     /// The pattern's relative transform.
     relative: Smart<RelativeTo>,
 }
-
-impl Eq for PatternRepr {}
 
 #[scope]
 impl Pattern {

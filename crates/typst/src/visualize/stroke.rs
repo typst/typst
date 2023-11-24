@@ -50,7 +50,7 @@ use crate::visualize::{Color, Gradient, Paint, Pattern};
 /// Meanwhile, `{stroke(red).cap}` is `{auto}` because it's unspecified. Fields
 /// set to `{auto}` are inherited.
 #[ty(scope)]
-#[derive(Debug, Default, Clone, PartialEq, Hash)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Stroke<T: Numeric = Length> {
     /// The stroke's paint.
     pub paint: Smart<Paint>,
@@ -585,7 +585,7 @@ cast! {
 }
 
 /// A fully specified stroke of a geometric shape.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FixedStroke {
     /// The stroke's paint.
     pub paint: Paint,
