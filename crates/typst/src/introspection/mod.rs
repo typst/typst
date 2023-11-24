@@ -62,7 +62,7 @@ pub struct MetaElem {
     pub data: SmallVec<[Meta; 1]>,
 }
 
-impl Unlabellable for MetaElem { }
+impl Unlabellable for MetaElem {}
 
 impl Behave for MetaElem {
     fn behaviour(&self) -> Behaviour {
