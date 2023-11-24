@@ -731,11 +731,17 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             quote! {
                 <#elem as #model::ElementFields>::Fields::#name => None,
             }
-        } else {
+        } else if field.inherent() {
             quote! {
                 <#elem as #model::ElementFields>::Fields::#name => Some(
                     ::typst::eval::IntoValue::into_value(self.#field_ident.clone())
                 ),
+            }
+        } else {
+            quote! {
+                <#elem as #model::ElementFields>::Fields::#name => {
+                    self.#field_ident.clone().map(::typst::eval::IntoValue::into_value)
+                }
             }
         }
     });
