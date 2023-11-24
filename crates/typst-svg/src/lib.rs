@@ -15,7 +15,7 @@ use typst::text::{Font, TextItem};
 use typst::util::hash128;
 use typst::visualize::{
     Color, FixedStroke, Geometry, Gradient, Image, ImageFormat, LineCap, LineJoin, Paint,
-    Path, PathItem, RasterFormat, RatioOrAngle, RelativeTo, Shape, VectorFormat, Pattern,
+    Path, PathItem, Pattern, RasterFormat, RatioOrAngle, RelativeTo, Shape, VectorFormat,
 };
 use xmlwriter::XmlWriter;
 

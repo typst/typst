@@ -16,7 +16,7 @@ use typst::layout::{
 use typst::text::{Font, TextItem};
 use typst::visualize::{
     Color, FixedStroke, Geometry, Gradient, Image, ImageKind, LineCap, LineJoin, Paint,
-    Path, PathItem, RasterFormat, RelativeTo, Shape, Pattern,
+    Path, PathItem, Pattern, RasterFormat, RelativeTo, Shape,
 };
 use usvg::{NodeExt, TreeParsing};
 
