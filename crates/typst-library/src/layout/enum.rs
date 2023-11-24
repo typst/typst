@@ -171,7 +171,7 @@ pub struct EnumElem {
     /// 16. Sixteen
     /// 32. Thirty two
     /// ````
-    #[default(Align::Both(HAlign::End, VAlign::Top))]
+    #[default(HAlign::End + VAlign::Top)]
     pub number_align: Align,
 
     /// The numbered list's items.
