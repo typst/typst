@@ -37,7 +37,7 @@ impl Paint {
     /// Turns this paint into a paint for a text decoration.
     ///
     /// If this paint is a gradient, it will be converted to a gradient with
-    /// relative set to [`GradientRelative::Parent`].
+    /// relative set to [`RelativeTo::Parent`].
     pub fn as_decoration(&self) -> Self {
         match self {
             Self::Solid(color) => Self::Solid(*color),
