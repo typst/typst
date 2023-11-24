@@ -37,7 +37,9 @@ use crate::{World, WorldExt};
 #[doc(hidden)]
 macro_rules! __bail {
     ($fmt:literal $(, $arg:expr)* $(,)?) => {
-        return Err($crate::diag::eco_format!($fmt, $($arg),*))
+        return Err($crate::diag::error!(
+            $fmt, $($arg),*
+        ))
     };
 
     ($error:expr) => {
@@ -50,10 +52,10 @@ macro_rules! __bail {
         $(; hint: $hint:literal $(, $hint_arg:expr)*)*
         $(,)?
     ) => {
-        return Err(::ecow::eco_vec![$crate::diag::SourceDiagnostic::error(
-            $span,
-            $crate::diag::eco_format!($fmt, $($arg),*),
-        ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*])
+        return Err(::ecow::eco_vec![$crate::diag::error!(
+            $span, $fmt $(, $arg)*
+            $(; hint: $hint $(, $hint_arg)*)*
+        )])
     };
 }
 
@@ -77,11 +79,15 @@ macro_rules! __error {
         $crate::diag::eco_format!($fmt, $($arg),*)
     };
 
-    ($span:expr, $fmt:literal $(, $arg:expr)* $(,)?) => {
+    (
+        $span:expr, $fmt:literal $(, $arg:expr)*
+        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
+        $(,)?
+    ) => {
         $crate::diag::SourceDiagnostic::error(
             $span,
             $crate::diag::eco_format!($fmt, $($arg),*),
-        )
+        )  $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
     };
 }
 
