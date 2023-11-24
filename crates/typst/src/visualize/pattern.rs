@@ -87,10 +87,8 @@ use crate::World;
 ///   [`rotate`]($rotate) will not affect the parent of a gradient, but a
 ///   [`grid`]($grid) will.
 #[ty(scope)]
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Pattern(Arc<PatternRepr>);
-
-impl Eq for Pattern {}
 
 /// Internal representation of [`Pattern`].
 #[derive(Debug, Clone, PartialEq, Hash)]
