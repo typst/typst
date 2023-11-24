@@ -1001,8 +1001,6 @@ fn render_pattern_frame(state: &State, pattern: &Pattern) -> sk::Pixmap {
     )
     .unwrap();
 
-    canvas.fill(sk::Color::TRANSPARENT);
-
     // Render the pattern into a new canvas.
     let ts = sk::Transform::from_scale(state.pixel_per_pt, state.pixel_per_pt);
     let temp_state = State::new(pattern.size_abs(), ts, state.pixel_per_pt);
