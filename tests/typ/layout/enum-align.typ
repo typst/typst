@@ -26,9 +26,7 @@
 16.  #box(fill: teal,inset: 10pt )[c]
 
 ---
-
-
-// Number align option should not be affected by the context
+// Number align option should not be affected by the context.
 #set align(center)
 #set enum(number-align: start)
 
