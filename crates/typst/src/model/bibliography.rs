@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked};
 use ecow::{eco_format, EcoString, EcoVec};
+use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
 use hayagriva::{
     citationberg, BibliographyDriver, BibliographyRequest, CitationItem, CitationRequest,
@@ -486,7 +487,7 @@ impl CslStyle {
     /// Load a built-in CSL style.
     #[comemo::memoize]
     pub fn from_name(name: &str) -> StrResult<Self> {
-        match hayagriva::archive::style_by_name(name) {
+        match hayagriva::archive::ArchivedStyle::by_name(name).map(ArchivedStyle::get) {
             Some(citationberg::Style::Independent(style)) => Ok(Self {
                 name: Some(name.into()),
                 style: Arc::new(Prehashed::new(style)),
@@ -517,8 +518,9 @@ impl Reflect for CslStyle {
     #[comemo::memoize]
     fn input() -> CastInfo {
         let ty = std::iter::once(CastInfo::Type(Type::of::<Str>()));
-        let options = hayagriva::archive::styles()
-            .map(|style| CastInfo::Value(style.name.into_value(), style.full_name));
+        let options = hayagriva::archive::ArchivedStyle::all().iter().map(|name| {
+            CastInfo::Value(name.names()[0].into_value(), name.display_name())
+        });
         CastInfo::Union(ty.chain(options).collect())
     }
 
