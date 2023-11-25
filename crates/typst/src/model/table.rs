@@ -1,11 +1,12 @@
 use crate::diag::{At, SourceResult, StrResult};
+use crate::engine::Engine;
 use crate::foundations::{
     elem, Array, CastInfo, Content, FromValue, Func, IntoValue, NativeElement, Reflect,
     Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, Align, AlignElem, Axes, Fragment, FrameItem, GridLayouter, Layout, Length,
-    Point, Regions, Rel, Sides, Size, TrackSizings, Vt,
+    Point, Regions, Rel, Sides, Size, TrackSizings,
 };
 use crate::model::Figurable;
 use crate::text::{Lang, LocalName, Region};
@@ -158,7 +159,7 @@ impl Layout for TableElem {
     #[tracing::instrument(name = "TableElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -181,7 +182,7 @@ impl Layout for TableElem {
 
                 let x = i % cols;
                 let y = i / cols;
-                if let Smart::Custom(alignment) = align.resolve(vt, x, y)? {
+                if let Smart::Custom(alignment) = align.resolve(engine, x, y)? {
                     child = child.styled(AlignElem::set_alignment(alignment));
                 }
 
@@ -197,7 +198,7 @@ impl Layout for TableElem {
             GridLayouter::new(tracks, gutter, &cells, regions, styles, self.span());
 
         // Measure the columns and layout the grid row-by-row.
-        let mut layout = layouter.layout(vt)?;
+        let mut layout = layouter.layout(engine)?;
 
         // Add lines and backgrounds.
         for (frame, rows) in layout.fragment.iter_mut().zip(&layout.rows) {
@@ -236,7 +237,7 @@ impl Layout for TableElem {
             for (x, &col) in layout.cols.iter().enumerate() {
                 let mut dy = Abs::zero();
                 for row in rows {
-                    if let Some(fill) = fill.resolve(vt, x, row.y)? {
+                    if let Some(fill) = fill.resolve(engine, x, row.y)? {
                         let pos = Point::new(dx, dy);
                         let size = Size::new(col, row.height);
                         let rect = Geometry::Rect(size).filled(fill);
@@ -275,10 +276,10 @@ pub enum Celled<T> {
 
 impl<T: Default + Clone + FromValue> Celled<T> {
     /// Resolve the value based on the cell position.
-    pub fn resolve(&self, vt: &mut Vt, x: usize, y: usize) -> SourceResult<T> {
+    pub fn resolve(&self, engine: &mut Engine, x: usize, y: usize) -> SourceResult<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
-            Self::Func(func) => func.call_vt(vt, [x, y])?.cast().at(func.span())?,
+            Self::Func(func) => func.call(engine, [x, y])?.cast().at(func.span())?,
             Self::Array(array) => x
                 .checked_rem(array.len())
                 .and_then(|i| array.get(i))

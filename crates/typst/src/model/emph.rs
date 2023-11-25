@@ -1,6 +1,6 @@
 use crate::diag::SourceResult;
+use crate::engine::Engine;
 use crate::foundations::{elem, Content, Show, StyleChain};
-use crate::layout::Vt;
 use crate::text::{ItalicToggle, TextElem};
 
 /// Emphasizes content by setting it in italics.
@@ -35,7 +35,7 @@ pub struct EmphElem {
 
 impl Show for EmphElem {
     #[tracing::instrument(name = "EmphElem::show", skip(self))]
-    fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone().styled(TextElem::set_emph(ItalicToggle)))
     }
 }

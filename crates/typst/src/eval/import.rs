@@ -38,7 +38,7 @@ impl Eval for ast::ModuleImport<'_> {
             if let ast::Expr::Ident(ident) = self.source() {
                 if ident.as_str() == new_name.as_str() {
                     // Warn on `import x as x`
-                    vm.vt.tracer.warn(warning!(
+                    vm.engine.tracer.warn(warning!(
                         new_name.span(),
                         "unnecessary import rename to same name",
                     ));
@@ -73,7 +73,7 @@ impl Eval for ast::ModuleImport<'_> {
                             if renamed_item.original_name().as_str()
                                 == renamed_item.new_name().as_str()
                             {
-                                vm.vt.tracer.warn(warning!(
+                                vm.engine.tracer.warn(warning!(
                                     renamed_item.new_name().span(),
                                     "unnecessary import rename to same name",
                                 ));
@@ -145,27 +145,37 @@ fn import_package(vm: &mut Vm, spec: PackageSpec, span: Span) -> SourceResult<Mo
     let entrypoint_id = manifest_id.join(&manifest.package.entrypoint);
     let source = vm.world().source(entrypoint_id).at(span)?;
     let point = || Tracepoint::Import;
-    Ok(eval(vm.world(), vm.route, TrackedMut::reborrow_mut(&mut vm.vt.tracer), &source)
-        .trace(vm.world(), point, span)?
-        .with_name(manifest.package.name))
+    Ok(eval(
+        vm.world(),
+        vm.engine.route.track(),
+        TrackedMut::reborrow_mut(&mut vm.engine.tracer),
+        &source,
+    )
+    .trace(vm.world(), point, span)?
+    .with_name(manifest.package.name))
 }
 
 /// Import a file from a path.
 fn import_file(vm: &mut Vm, path: &str, span: Span) -> SourceResult<Module> {
     // Load the source file.
     let world = vm.world();
-    let id = vm.resolve_path(path).at(span)?;
+    let id = span.resolve_path(path).at(span)?;
     let source = world.source(id).at(span)?;
 
     // Prevent cyclic importing.
-    if vm.route.contains(source.id()) {
+    if vm.engine.route.contains(source.id()) {
         bail!(span, "cyclic import");
     }
 
     // Evaluate the file.
     let point = || Tracepoint::Import;
-    eval(world, vm.route, TrackedMut::reborrow_mut(&mut vm.vt.tracer), &source)
-        .trace(world, point, span)
+    eval(
+        world,
+        vm.engine.route.track(),
+        TrackedMut::reborrow_mut(&mut vm.engine.tracer),
+        &source,
+    )
+    .trace(world, point, span)
 }
 
 /// A parsed package manifest.

@@ -5,7 +5,7 @@ use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 
 use crate::diag::{bail, error, SourceResult};
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{func, scope, ty, Content, Repr, Smart, StyleChain};
 use crate::layout::{Abs, Axes, Em, Frame, Layout, Length, Regions, Size};
 use crate::syntax::{Span, Spanned};
@@ -120,7 +120,7 @@ impl Pattern {
     /// ```
     #[func(constructor)]
     pub fn construct(
-        vm: &mut Vm,
+        engine: &mut Engine,
         /// The bounding box of each cell of the pattern.
         #[named]
         #[default(Spanned::new(Smart::Auto, Span::detached()))]
@@ -173,11 +173,11 @@ impl Pattern {
         let region = size.unwrap_or_else(|| Axes::splat(Abs::inf()));
 
         // Layout the pattern.
-        let world = vm.vt.world;
+        let world = engine.world;
         let library = world.library();
         let styles = StyleChain::new(&library.styles);
         let pod = Regions::one(region, Axes::splat(false));
-        let mut frame = body.layout(&mut vm.vt, styles, pod)?.into_frame();
+        let mut frame = body.layout(engine, styles, pod)?.into_frame();
 
         // Check that the frame is non-zero.
         if size.is_auto() && frame.size().is_zero() {

@@ -1,12 +1,12 @@
 use ecow::eco_format;
 
 use crate::diag::{bail, At, Hint, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Content, Func, IntoValue, Label, NativeElement, Show, Smart, StyleChain,
     Synthesize,
 };
 use crate::introspection::{Counter, Locatable};
-use crate::layout::Vt;
 use crate::math::EquationElem;
 use crate::model::{
     BibliographyElem, CiteElem, Destination, Figurable, FootnoteElem, Numbering,
@@ -137,14 +137,18 @@ pub struct RefElem {
 }
 
 impl Synthesize for RefElem {
-    fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
-        let citation = self.to_citation(vt, styles)?;
+    fn synthesize(
+        &mut self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        let citation = self.to_citation(engine, styles)?;
         self.push_citation(Some(citation));
         self.push_element(None);
 
         let target = *self.target();
-        if !BibliographyElem::has(vt, target) {
-            if let Ok(elem) = vt.introspector.query_label(target) {
+        if !BibliographyElem::has(engine, target) {
+            if let Ok(elem) = engine.introspector.query_label(target) {
                 self.push_element(Some(elem.into_inner()));
                 return Ok(());
             }
@@ -156,18 +160,18 @@ impl Synthesize for RefElem {
 
 impl Show for RefElem {
     #[tracing::instrument(name = "RefElem::show", skip_all)]
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(vt.delayed(|vt| {
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        Ok(engine.delayed(|engine| {
             let target = *self.target();
-            let elem = vt.introspector.query_label(target);
+            let elem = engine.introspector.query_label(target);
             let span = self.span();
 
-            if BibliographyElem::has(vt, target) {
+            if BibliographyElem::has(engine, target) {
                 if elem.is_ok() {
                     bail!(span, "label occurs in the document and its bibliography");
                 }
 
-                return Ok(self.to_citation(vt, styles)?.spanned(span).pack());
+                return Ok(self.to_citation(engine, styles)?.spanned(span).pack());
             }
 
             let elem = elem.at(span)?;
@@ -211,14 +215,14 @@ impl Show for RefElem {
 
             let numbers = refable
                 .counter()
-                .at(vt, elem.location().unwrap())?
-                .display(vt, &numbering.trimmed())?;
+                .at(engine, elem.location().unwrap())?
+                .display(engine, &numbering.trimmed())?;
 
             let supplement = match self.supplement(styles).as_ref() {
                 Smart::Auto => refable.supplement(),
                 Smart::Custom(None) => Content::empty(),
                 Smart::Custom(Some(supplement)) => {
-                    supplement.resolve(vt, [(*elem).clone()])?
+                    supplement.resolve(engine, [(*elem).clone()])?
                 }
             };
 
@@ -234,10 +238,14 @@ impl Show for RefElem {
 
 impl RefElem {
     /// Turn the reference into a citation.
-    pub fn to_citation(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<CiteElem> {
+    pub fn to_citation(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<CiteElem> {
         let mut elem = CiteElem::new(*self.target());
         elem.set_location(self.location().unwrap());
-        elem.synthesize(vt, styles)?;
+        elem.synthesize(engine, styles)?;
         elem.push_supplement(match self.supplement(styles).clone() {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),
             _ => None,
@@ -258,12 +266,12 @@ impl Supplement {
     /// Tries to resolve the supplement into its content.
     pub fn resolve<T: IntoValue>(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         args: impl IntoIterator<Item = T>,
     ) -> SourceResult<Content> {
         Ok(match self {
             Supplement::Content(content) => content.clone(),
-            Supplement::Func(func) => func.call_vt(vt, args)?.display(),
+            Supplement::Func(func) => func.call(engine, args)?.display(),
         })
     }
 }

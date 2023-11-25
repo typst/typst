@@ -1,9 +1,10 @@
 use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
-use typst::eval::{Route, Tracer, Vm};
+use typst::engine::{Engine, Route};
+use typst::eval::{Tracer, Vm};
 use typst::foundations::{Label, Scopes, Value};
 use typst::introspection::{Introspector, Locator};
-use typst::layout::{Frame, Vt};
+use typst::layout::Frame;
 use typst::model::BibliographyElem;
 use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
 use typst::World;
@@ -46,7 +47,6 @@ pub fn analyze_expr(world: &dyn World, node: &LinkedNode) -> EcoVec<Value> {
 
 /// Try to load a module from the current source file.
 pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
-    let id = source.span().id()?;
     let source = analyze_expr(world, source).into_iter().next()?;
     if source.scope().is_some() {
         return Some(source);
@@ -55,15 +55,15 @@ pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
     let mut locator = Locator::default();
     let introspector = Introspector::default();
     let mut tracer = Tracer::new();
-    let vt = Vt {
+    let engine = Engine {
         world: world.track(),
+        route: Route::default(),
         introspector: introspector.track(),
         locator: &mut locator,
         tracer: tracer.track_mut(),
     };
 
-    let route = Route::default();
-    let mut vm = Vm::new(vt, route.track(), Some(id), Scopes::new(Some(world.library())));
+    let mut vm = Vm::new(engine, Scopes::new(Some(world.library())), Span::detached());
     typst::eval::import(&mut vm, source, Span::detached(), true)
         .ok()
         .map(Value::Module)

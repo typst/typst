@@ -1,11 +1,12 @@
 use crate::diag::{bail, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Array, Content, Fold, Func, NativeElement, Smart, StyleChain,
     Value,
 };
 use crate::layout::{
     Axes, BlockElem, Em, Fragment, GridLayouter, HAlign, Layout, Length, Regions, Sizing,
-    Spacing, VAlign, Vt,
+    Spacing, VAlign,
 };
 use crate::model::ParElem;
 use crate::text::TextElem;
@@ -130,7 +131,7 @@ impl Layout for ListElem {
     #[tracing::instrument(name = "ListElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -146,7 +147,7 @@ impl Layout for ListElem {
         let depth = self.depth(styles);
         let marker = self
             .marker(styles)
-            .resolve(vt, depth)?
+            .resolve(engine, depth)?
             // avoid '#set align' interference with the list
             .aligned(HAlign::Start + VAlign::Top);
 
@@ -172,7 +173,7 @@ impl Layout for ListElem {
             self.span(),
         );
 
-        Ok(layouter.layout(vt)?.fragment)
+        Ok(layouter.layout(engine)?.fragment)
     }
 }
 
@@ -198,12 +199,12 @@ pub enum ListMarker {
 
 impl ListMarker {
     /// Resolve the marker for the given depth.
-    fn resolve(&self, vt: &mut Vt, depth: usize) -> SourceResult<Content> {
+    fn resolve(&self, engine: &mut Engine, depth: usize) -> SourceResult<Content> {
         Ok(match self {
             Self::Content(list) => {
                 list.get(depth).or(list.last()).cloned().unwrap_or_default()
             }
-            Self::Func(func) => func.call_vt(vt, [depth])?.display(),
+            Self::Func(func) => func.call(engine, [depth])?.display(),
         })
     }
 }

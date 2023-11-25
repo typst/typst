@@ -2,12 +2,13 @@ use std::num::NonZeroUsize;
 use std::str::FromStr;
 
 use crate::diag::{bail, error, At, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, select_where, Content, Finalize, Func, LocatableSelector,
     NativeElement, Show, Smart, StyleChain,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
-use crate::layout::{BoxElem, Fr, HElem, HideElem, Length, Rel, RepeatElem, Spacing, Vt};
+use crate::layout::{BoxElem, Fr, HElem, HideElem, Length, Rel, RepeatElem, Spacing};
 use crate::model::{Destination, HeadingElem, NumberingPattern, ParbreakElem, Refable};
 use crate::syntax::Span;
 use crate::text::{Lang, LinebreakElem, LocalName, Region, SpaceElem, TextElem};
@@ -186,7 +187,7 @@ impl OutlineElem {
 
 impl Show for OutlineElem {
     #[tracing::instrument(name = "OutlineElem::show", skip_all)]
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![ParbreakElem::new().pack()];
         // Build the outline title.
         if let Some(title) = self.title(styles) {
@@ -201,11 +202,11 @@ impl Show for OutlineElem {
         let depth = self.depth(styles).unwrap_or(NonZeroUsize::new(usize::MAX).unwrap());
 
         let mut ancestors: Vec<&Content> = vec![];
-        let elems = vt.introspector.query(&self.target(styles).0);
+        let elems = engine.introspector.query(&self.target(styles).0);
 
         for elem in &elems {
             let Some(entry) = OutlineEntry::from_outlinable(
-                vt,
+                engine,
                 self.span(),
                 elem.clone().into_inner(),
                 self.fill(styles),
@@ -229,7 +230,7 @@ impl Show for OutlineElem {
                 ancestors.pop();
             }
 
-            OutlineIndent::apply(indent, vt, &ancestors, &mut seq, self.span())?;
+            OutlineIndent::apply(indent, engine, &ancestors, &mut seq, self.span())?;
 
             // Add the overridable outline entry, followed by a line break.
             seq.push(entry.pack());
@@ -292,7 +293,7 @@ impl LocalName for OutlineElem {
 /// `#outline()` element.
 pub trait Outlinable: Refable {
     /// Produce an outline item for this element.
-    fn outline(&self, vt: &mut Vt) -> SourceResult<Option<Content>>;
+    fn outline(&self, engine: &mut Engine) -> SourceResult<Option<Content>>;
 
     /// Returns the nesting level of this element.
     fn level(&self) -> NonZeroUsize {
@@ -311,7 +312,7 @@ pub enum OutlineIndent {
 impl OutlineIndent {
     fn apply(
         indent: &Option<Smart<Self>>,
-        vt: &mut Vt,
+        engine: &mut Engine,
         ancestors: &Vec<&Content>,
         seq: &mut Vec<Content>,
         span: Span,
@@ -330,8 +331,8 @@ impl OutlineIndent {
                     if let Some(numbering) = ancestor_outlinable.numbering() {
                         let numbers = ancestor_outlinable
                             .counter()
-                            .at(vt, ancestor.location().unwrap())?
-                            .display(vt, &numbering)?;
+                            .at(engine, ancestor.location().unwrap())?
+                            .display(engine, &numbering)?;
 
                         hidden += numbers + SpaceElem::new().pack();
                     };
@@ -355,7 +356,7 @@ impl OutlineIndent {
             Some(Smart::Custom(OutlineIndent::Func(func))) => {
                 let depth = ancestors.len();
                 let LengthOrContent(content) =
-                    func.call_vt(vt, [depth])?.cast().at(span)?;
+                    func.call(engine, [depth])?.cast().at(span)?;
                 if !content.is_empty() {
                     seq.push(content);
                 }
@@ -455,7 +456,7 @@ impl OutlineEntry {
     /// be outlined (e.g. heading with 'outlined: false'), does not generate an
     /// entry instance (returns `Ok(None)`).
     fn from_outlinable(
-        vt: &mut Vt,
+        engine: &mut Engine,
         span: Span,
         elem: Content,
         fill: Option<Content>,
@@ -464,27 +465,27 @@ impl OutlineEntry {
             bail!(span, "cannot outline {}", elem.func().name());
         };
 
-        let Some(body) = outlinable.outline(vt)? else {
+        let Some(body) = outlinable.outline(engine)? else {
             return Ok(None);
         };
 
         let location = elem.location().unwrap();
-        let page_numbering = vt
+        let page_numbering = engine
             .introspector
             .page_numbering(location)
             .cloned()
             .unwrap_or_else(|| NumberingPattern::from_str("1").unwrap().into());
 
         let page = Counter::new(CounterKey::Page)
-            .at(vt, location)?
-            .display(vt, &page_numbering)?;
+            .at(engine, location)?
+            .display(engine, &page_numbering)?;
 
         Ok(Some(Self::new(outlinable.level(), elem, body, fill, page)))
     }
 }
 
 impl Show for OutlineEntry {
-    fn show(&self, _vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![];
         let elem = self.element();
 

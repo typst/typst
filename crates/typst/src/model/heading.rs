@@ -1,12 +1,13 @@
 use std::num::NonZeroUsize;
 
 use crate::diag::SourceResult;
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Content, Finalize, NativeElement, Show, Smart, StyleChain, Styles,
     Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
-use crate::layout::{BlockElem, Em, HElem, VElem, Vt};
+use crate::layout::{BlockElem, Em, HElem, VElem};
 use crate::model::{Numbering, Outlinable, Refable, Supplement};
 use crate::text::{FontWeight, Lang, LocalName, Region, SpaceElem, TextElem, TextSize};
 use crate::util::{option_eq, NonZeroExt};
@@ -126,12 +127,18 @@ pub struct HeadingElem {
 }
 
 impl Synthesize for HeadingElem {
-    fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+    fn synthesize(
+        &mut self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
         // Resolve the supplement.
         let supplement = match self.supplement(styles) {
             Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
-            Smart::Custom(Some(supplement)) => supplement.resolve(vt, [self.clone()])?,
+            Smart::Custom(Some(supplement)) => {
+                supplement.resolve(engine, [self.clone()])?
+            }
         };
 
         self.push_level(self.level(styles));
@@ -146,7 +153,7 @@ impl Synthesize for HeadingElem {
 
 impl Show for HeadingElem {
     #[tracing::instrument(name = "HeadingElem::show", skip_all)]
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
         if let Some(numbering) = self.numbering(styles).as_ref() {
             realized = Counter::of(Self::elem())
@@ -214,7 +221,7 @@ impl Refable for HeadingElem {
 }
 
 impl Outlinable for HeadingElem {
-    fn outline(&self, vt: &mut Vt) -> SourceResult<Option<Content>> {
+    fn outline(&self, engine: &mut Engine) -> SourceResult<Option<Content>> {
         if !self.outlined(StyleChain::default()) {
             return Ok(None);
         }
@@ -223,8 +230,8 @@ impl Outlinable for HeadingElem {
         let default = StyleChain::default();
         if let Some(numbering) = self.numbering(default).as_ref() {
             let numbers = Counter::of(Self::elem())
-                .at(vt, self.location().unwrap())?
-                .display(vt, numbering)?;
+                .at(engine, self.location().unwrap())?
+                .display(engine, numbering)?;
             content = numbers + SpaceElem::new().pack() + content;
         };
 

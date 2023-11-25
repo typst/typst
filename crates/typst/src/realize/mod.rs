@@ -10,7 +10,8 @@ use std::mem;
 use smallvec::smallvec;
 use typed_arena::Arena;
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::{bail, error, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{
     Content, Finalize, Guard, NativeElement, Recipe, Selector, Show, StyleChain,
     StyleVecBuilder, Styles, Synthesize,
@@ -18,7 +19,7 @@ use crate::foundations::{
 use crate::introspection::{Locatable, Meta, MetaElem};
 use crate::layout::{
     AlignElem, BlockElem, BoxElem, ColbreakElem, FlowElem, HElem, Layout, LayoutRoot,
-    PageElem, PagebreakElem, Parity, PlaceElem, VElem, Vt,
+    PageElem, PagebreakElem, Parity, PlaceElem, VElem,
 };
 use crate::math::{EquationElem, LayoutMath};
 use crate::model::{
@@ -32,6 +33,58 @@ use crate::visualize::{
     CircleElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem, RectElem,
     SquareElem,
 };
+
+/// Realize into an element that is capable of root-level layout.
+#[tracing::instrument(skip_all)]
+pub fn realize_root<'a>(
+    engine: &mut Engine,
+    scratch: &'a Scratch<'a>,
+    content: &'a Content,
+    styles: StyleChain<'a>,
+) -> SourceResult<(Cow<'a, Content>, StyleChain<'a>)> {
+    if content.can::<dyn LayoutRoot>() && !applicable(content, styles) {
+        return Ok((Cow::Borrowed(content), styles));
+    }
+
+    let mut builder = Builder::new(engine, scratch, true);
+    builder.accept(content, styles)?;
+    builder.interrupt_page(Some(styles), true)?;
+    let (pages, shared) = builder.doc.unwrap().pages.finish();
+    Ok((Cow::Owned(DocumentElem::new(pages.to_vec()).pack()), shared))
+}
+
+/// Realize into an element that is capable of block-level layout.
+#[tracing::instrument(skip_all)]
+pub fn realize_block<'a>(
+    engine: &mut Engine,
+    scratch: &'a Scratch<'a>,
+    content: &'a Content,
+    styles: StyleChain<'a>,
+) -> SourceResult<(Cow<'a, Content>, StyleChain<'a>)> {
+    // These elements implement `Layout` but still require a flow for
+    // proper layout.
+    if content.can::<dyn Layout>()
+        && !content.is::<BoxElem>()
+        && !content.is::<LineElem>()
+        && !content.is::<RectElem>()
+        && !content.is::<SquareElem>()
+        && !content.is::<EllipseElem>()
+        && !content.is::<CircleElem>()
+        && !content.is::<ImageElem>()
+        && !content.is::<PolygonElem>()
+        && !content.is::<PathElem>()
+        && !content.is::<PlaceElem>()
+        && !applicable(content, styles)
+    {
+        return Ok((Cow::Borrowed(content), styles));
+    }
+
+    let mut builder = Builder::new(engine, scratch, false);
+    builder.accept(content, styles)?;
+    builder.interrupt_par()?;
+    let (children, shared) = builder.flow.0.finish();
+    Ok((Cow::Owned(FlowElem::new(children.to_vec()).pack()), shared))
+}
 
 /// Whether the target is affected by show rules in the given style chain.
 pub fn applicable(target: &Content, styles: StyleChain) -> bool {
@@ -59,7 +112,7 @@ pub fn applicable(target: &Content, styles: StyleChain) -> bool {
 
 /// Apply the show rules in the given style chain to a target.
 pub fn realize(
-    vt: &mut Vt,
+    engine: &mut Engine,
     target: &Content,
     styles: StyleChain,
 ) -> SourceResult<Option<Content>> {
@@ -67,12 +120,12 @@ pub fn realize(
     if target.needs_preparation() {
         let mut elem = target.clone();
         if target.can::<dyn Locatable>() || target.label().is_some() {
-            let location = vt.locator.locate(hash128(target));
+            let location = engine.locator.locate(hash128(target));
             elem.set_location(location);
         }
 
         if let Some(elem) = elem.with_mut::<dyn Synthesize>() {
-            elem.synthesize(vt, styles)?;
+            elem.synthesize(engine, styles)?;
         }
 
         elem.mark_prepared();
@@ -97,7 +150,7 @@ pub fn realize(
     for recipe in styles.recipes() {
         let guard = Guard::Nth(n);
         if recipe.applicable(target) && !target.is_guarded(guard) {
-            if let Some(content) = try_apply(vt, target, recipe, guard)? {
+            if let Some(content) = try_apply(engine, target, recipe, guard)? {
                 realized = Some(content);
                 break;
             }
@@ -109,7 +162,7 @@ pub fn realize(
     if let Some(showable) = target.with::<dyn Show>() {
         let guard = Guard::Base(target.func());
         if realized.is_none() && !target.is_guarded(guard) {
-            realized = Some(showable.show(vt, styles)?);
+            realized = Some(showable.show(engine, styles)?);
         }
     }
 
@@ -127,7 +180,7 @@ pub fn realize(
 
 /// Try to apply a recipe to the target.
 fn try_apply(
-    vt: &mut Vt,
+    engine: &mut Engine,
     target: &Content,
     recipe: &Recipe,
     guard: Guard,
@@ -138,7 +191,7 @@ fn try_apply(
                 return Ok(None);
             }
 
-            recipe.apply_vt(vt, target.clone().guarded(guard)).map(Some)
+            recipe.apply(engine, target.clone().guarded(guard)).map(Some)
         }
 
         Some(Selector::Label(label)) => {
@@ -146,7 +199,7 @@ fn try_apply(
                 return Ok(None);
             }
 
-            recipe.apply_vt(vt, target.clone().guarded(guard)).map(Some)
+            recipe.apply(engine, target.clone().guarded(guard)).map(Some)
         }
 
         Some(Selector::Regex(regex)) => {
@@ -172,7 +225,7 @@ fn try_apply(
                 }
 
                 let piece = make(m.as_str()).guarded(guard);
-                let transformed = recipe.apply_vt(vt, piece)?;
+                let transformed = recipe.apply(engine, piece)?;
                 result.push(transformed);
                 cursor = m.end();
             }
@@ -202,62 +255,10 @@ fn try_apply(
     }
 }
 
-/// Realize into an element that is capable of root-level layout.
-#[tracing::instrument(skip_all)]
-pub fn realize_root<'a>(
-    vt: &mut Vt,
-    scratch: &'a Scratch<'a>,
-    content: &'a Content,
-    styles: StyleChain<'a>,
-) -> SourceResult<(Cow<'a, Content>, StyleChain<'a>)> {
-    if content.can::<dyn LayoutRoot>() && !applicable(content, styles) {
-        return Ok((Cow::Borrowed(content), styles));
-    }
-
-    let mut builder = Builder::new(vt, scratch, true);
-    builder.accept(content, styles)?;
-    builder.interrupt_page(Some(styles), true)?;
-    let (pages, shared) = builder.doc.unwrap().pages.finish();
-    Ok((Cow::Owned(DocumentElem::new(pages.to_vec()).pack()), shared))
-}
-
-/// Realize into an element that is capable of block-level layout.
-#[tracing::instrument(skip_all)]
-pub fn realize_block<'a>(
-    vt: &mut Vt,
-    scratch: &'a Scratch<'a>,
-    content: &'a Content,
-    styles: StyleChain<'a>,
-) -> SourceResult<(Cow<'a, Content>, StyleChain<'a>)> {
-    // These elements implement `Layout` but still require a flow for
-    // proper layout.
-    if content.can::<dyn Layout>()
-        && !content.is::<BoxElem>()
-        && !content.is::<LineElem>()
-        && !content.is::<RectElem>()
-        && !content.is::<SquareElem>()
-        && !content.is::<EllipseElem>()
-        && !content.is::<CircleElem>()
-        && !content.is::<ImageElem>()
-        && !content.is::<PolygonElem>()
-        && !content.is::<PathElem>()
-        && !content.is::<PlaceElem>()
-        && !applicable(content, styles)
-    {
-        return Ok((Cow::Borrowed(content), styles));
-    }
-
-    let mut builder = Builder::new(vt, scratch, false);
-    builder.accept(content, styles)?;
-    builder.interrupt_par()?;
-    let (children, shared) = builder.flow.0.finish();
-    Ok((Cow::Owned(FlowElem::new(children.to_vec()).pack()), shared))
-}
-
 /// Builds a document or a flow element from content.
 struct Builder<'a, 'v, 't> {
-    /// The virtual typesetter.
-    vt: &'v mut Vt<'t>,
+    /// The engine.
+    engine: &'v mut Engine<'t>,
     /// Scratch arenas for building.
     scratch: &'a Scratch<'a>,
     /// The current document building state.
@@ -282,9 +283,9 @@ pub struct Scratch<'a> {
 }
 
 impl<'a, 'v, 't> Builder<'a, 'v, 't> {
-    fn new(vt: &'v mut Vt<'t>, scratch: &'a Scratch<'a>, top: bool) -> Self {
+    fn new(engine: &'v mut Engine<'t>, scratch: &'a Scratch<'a>, top: bool) -> Self {
         Self {
-            vt,
+            engine,
             scratch,
             doc: top.then(DocBuilder::default),
             flow: FlowBuilder::default(),
@@ -304,9 +305,19 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
                 self.scratch.content.alloc(EquationElem::new(content.clone()).pack());
         }
 
-        if let Some(realized) = realize(self.vt, content, styles)? {
+        if let Some(realized) = realize(self.engine, content, styles)? {
+            self.engine.route.increase();
+            if self.engine.route.exceeding() {
+                bail!(error!(content.span(), "maximum show rule depth exceeded")
+                    .with_hint("check whether the show rule matches its own output")
+                    .with_hint(
+                        "this is a current compiler limitation that will be resolved in the future"
+                    ));
+            }
             let stored = self.scratch.content.alloc(realized);
-            return self.accept(stored, styles);
+            let v = self.accept(stored, styles);
+            self.engine.route.decrease();
+            return v;
         }
 
         if let Some((elem, local)) = content.to_styled() {

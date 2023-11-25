@@ -5,6 +5,7 @@ use std::str::FromStr;
 use ecow::EcoString;
 
 use crate::diag::{bail, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, select_where, Content, Element, Finalize, NativeElement, Selector,
     Show, Smart, StyleChain, Synthesize,
@@ -12,7 +13,7 @@ use crate::foundations::{
 use crate::introspection::{
     Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
 };
-use crate::layout::{Align, BlockElem, Em, HAlign, Length, PlaceElem, VAlign, VElem, Vt};
+use crate::layout::{Align, BlockElem, Em, HAlign, Length, PlaceElem, VAlign, VElem};
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
 use crate::syntax::Spanned;
 use crate::text::{Lang, Region, TextElem};
@@ -220,7 +221,11 @@ impl FigureElem {
 }
 
 impl Synthesize for FigureElem {
-    fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+    fn synthesize(
+        &mut self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
         let numbering = self.numbering(styles);
 
         // Determine the figure's kind.
@@ -264,7 +269,7 @@ impl Synthesize for FigureElem {
                 };
 
                 let target = descendant.unwrap_or_else(|| Cow::Borrowed(self.body()));
-                Some(supplement.resolve(vt, [target])?)
+                Some(supplement.resolve(engine, [target])?)
             }
         };
 
@@ -296,7 +301,7 @@ impl Synthesize for FigureElem {
 
 impl Show for FigureElem {
     #[tracing::instrument(name = "FigureElem::show", skip_all)]
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
 
         // Build the caption, if any.
@@ -364,7 +369,7 @@ impl Refable for FigureElem {
 }
 
 impl Outlinable for FigureElem {
-    fn outline(&self, vt: &mut Vt) -> SourceResult<Option<Content>> {
+    fn outline(&self, engine: &mut Engine) -> SourceResult<Option<Content>> {
         if !self.outlined(StyleChain::default()) {
             return Ok(None);
         }
@@ -384,7 +389,7 @@ impl Outlinable for FigureElem {
             self.numbering(StyleChain::default()),
         ) {
             let location = self.location().unwrap();
-            let numbers = counter.at(vt, location)?.display(vt, &numbering)?;
+            let numbers = counter.at(engine, location)?.display(engine, &numbering)?;
 
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');
@@ -538,7 +543,7 @@ impl FigureCaption {
 }
 
 impl Synthesize for FigureCaption {
-    fn synthesize(&mut self, _: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         self.push_position(self.position(styles));
         self.push_separator(Smart::Custom(self.get_separator(styles)));
         Ok(())
@@ -547,7 +552,7 @@ impl Synthesize for FigureCaption {
 
 impl Show for FigureCaption {
     #[tracing::instrument(name = "FigureCaption::show", skip_all)]
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
 
         if let (Some(mut supplement), Some(numbering), Some(counter), Some(location)) = (
@@ -556,7 +561,7 @@ impl Show for FigureCaption {
             self.counter(),
             self.figure_location(),
         ) {
-            let numbers = counter.at(vt, *location)?.display(vt, numbering)?;
+            let numbers = counter.at(engine, *location)?.display(engine, numbering)?;
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');
             }

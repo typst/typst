@@ -3,10 +3,11 @@ use std::ops::Add;
 use ecow::{eco_format, EcoString};
 
 use crate::diag::{bail, SourceResult, StrResult};
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, func, scope, ty, Content, Fold, Repr, Resolve, Show, StyleChain,
 };
-use crate::layout::{Abs, Axes, Axis, Dir, Side, Vt};
+use crate::layout::{Abs, Axes, Axis, Dir, Side};
 use crate::text::TextElem;
 
 /// Aligns content horizontally and vertically.
@@ -46,7 +47,7 @@ pub struct AlignElem {
 
 impl Show for AlignElem {
     #[tracing::instrument(name = "AlignElem::show", skip_all)]
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self
             .body()
             .clone()

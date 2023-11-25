@@ -1,6 +1,6 @@
 use crate::diag::SourceResult;
+use crate::engine::Engine;
 use crate::foundations::{elem, Content, Show, StyleChain};
-use crate::layout::Vt;
 use crate::text::{TextElem, WeightDelta};
 
 /// Strongly emphasizes content by increasing the font weight.
@@ -39,7 +39,7 @@ pub struct StrongElem {
 
 impl Show for StrongElem {
     #[tracing::instrument(name = "StrongElem::show", skip_all)]
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self
             .body()
             .clone()

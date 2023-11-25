@@ -1,12 +1,13 @@
 use std::str::FromStr;
 
 use crate::diag::{bail, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Array, Content, Fold, NativeElement, Smart, StyleChain,
 };
 use crate::layout::{
     Axes, BlockElem, Em, Fragment, GridLayouter, HAlign, Layout, Length, Regions, Sizing,
-    Spacing, VAlign, Vt,
+    Spacing, VAlign,
 };
 use crate::model::{Numbering, NumberingPattern, ParElem};
 use crate::text::TextElem;
@@ -209,7 +210,7 @@ impl Layout for EnumElem {
     #[tracing::instrument(name = "EnumElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -239,7 +240,7 @@ impl Layout for EnumElem {
 
             let resolved = if full {
                 parents.push(number);
-                let content = numbering.apply_vt(vt, &parents)?.display();
+                let content = numbering.apply(engine, &parents)?.display();
                 parents.pop();
                 content
             } else {
@@ -247,7 +248,7 @@ impl Layout for EnumElem {
                     Numbering::Pattern(pattern) => {
                         TextElem::packed(pattern.apply_kth(parents.len(), number))
                     }
-                    other => other.apply_vt(vt, &[number])?.display(),
+                    other => other.apply(engine, &[number])?.display(),
                 }
             };
 
@@ -277,7 +278,7 @@ impl Layout for EnumElem {
             self.span(),
         );
 
-        Ok(layouter.layout(vt)?.fragment)
+        Ok(layouter.layout(engine)?.fragment)
     }
 }
 

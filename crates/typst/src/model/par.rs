@@ -1,12 +1,12 @@
 use comemo::Prehashed;
 
 use crate::diag::SourceResult;
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{
     elem, Args, Cast, Construct, Content, NativeElement, Set, Smart, StyleChain,
     Unlabellable,
 };
-use crate::layout::{Em, Fragment, Length, Size, Vt};
+use crate::layout::{Em, Fragment, Length, Size};
 
 /// Arranges text, spacing and inline-level elements into a paragraph.
 ///
@@ -108,11 +108,11 @@ pub struct ParElem {
 }
 
 impl Construct for ParElem {
-    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(engine: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
         // element. Instead, it just ensures that the passed content lives in a
         // separate paragraph and styles it.
-        let styles = Self::set(vm, args)?;
+        let styles = Self::set(engine, args)?;
         let body = args.expect::<Content>("body")?;
         Ok(Content::sequence([
             ParbreakElem::new().pack(),
@@ -127,7 +127,7 @@ impl ParElem {
     #[tracing::instrument(name = "ParElement::layout", skip_all)]
     pub fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         consecutive: bool,
         region: Size,
@@ -135,7 +135,7 @@ impl ParElem {
     ) -> SourceResult<Fragment> {
         crate::layout::layout_inline(
             self.children(),
-            vt,
+            engine,
             styles,
             consecutive,
             region,

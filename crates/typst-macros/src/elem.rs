@@ -1083,7 +1083,7 @@ fn create_construct_impl(element: &Elem) -> TokenStream {
     quote! {
         impl #foundations::Construct for #ident {
             fn construct(
-                vm: &mut ::typst::eval::Vm,
+                engine: &mut ::typst::engine::Engine,
                 args: &mut #foundations::Args,
             ) -> ::typst::diag::SourceResult<#foundations::Content> {
                 #(#pre)*
@@ -1115,7 +1115,7 @@ fn create_set_impl(element: &Elem) -> TokenStream {
     quote! {
         impl #foundations::Set for #ident {
             fn set(
-                vm: &mut ::typst::eval::Vm,
+                engine: &mut ::typst::engine::Engine,
                 args: &mut #foundations::Args,
             ) -> ::typst::diag::SourceResult<#foundations::Styles> {
                 let mut styles = #foundations::Styles::new();

@@ -1,9 +1,10 @@
 use crate::diag::{bail, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Array, Content, NativeElement, Smart, StyleChain,
 };
 use crate::layout::{
-    BlockElem, Em, Fragment, HElem, Layout, Length, Regions, Spacing, VElem, Vt,
+    BlockElem, Em, Fragment, HElem, Layout, Length, Regions, Spacing, VElem,
 };
 use crate::model::ParElem;
 use crate::util::Numeric;
@@ -110,7 +111,7 @@ impl Layout for TermsElem {
     #[tracing::instrument(name = "TermsElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -139,7 +140,7 @@ impl Layout for TermsElem {
 
         Content::sequence(seq)
             .styled(ParElem::set_hanging_indent(hanging_indent + indent))
-            .layout(vt, styles, regions)
+            .layout(engine, styles, regions)
     }
 }
 

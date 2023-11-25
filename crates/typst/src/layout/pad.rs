@@ -1,8 +1,7 @@
 use crate::diag::SourceResult;
+use crate::engine::Engine;
 use crate::foundations::{elem, Content, Resolve, StyleChain};
-use crate::layout::{
-    Abs, Fragment, Layout, Length, Point, Regions, Rel, Sides, Size, Vt,
-};
+use crate::layout::{Abs, Fragment, Layout, Length, Point, Regions, Rel, Sides, Size};
 
 /// Adds spacing around content.
 ///
@@ -63,7 +62,7 @@ impl Layout for PadElem {
     #[tracing::instrument(name = "PadElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -78,7 +77,7 @@ impl Layout for PadElem {
         let mut backlog = vec![];
         let padding = sides.resolve(styles);
         let pod = regions.map(&mut backlog, |size| shrink(size, padding));
-        let mut fragment = self.body().layout(vt, styles, pod)?;
+        let mut fragment = self.body().layout(engine, styles, pod)?;
 
         for frame in &mut fragment {
             // Apply the padding inversely such that the grown size padded
