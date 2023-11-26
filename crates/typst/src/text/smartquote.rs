@@ -308,15 +308,14 @@ cast! {
 
 fn str_to_set(value: &str) -> StrResult<[EcoString; 2]> {
     let mut iter = value.graphemes(true);
-    match (iter.next(), iter.next(), iter.next()) {
-        (Some(open), Some(close), None) => Ok([open.into(), close.into()]),
-        _ => {
-            let count = value.graphemes(true).count();
-            bail!(
-                "expected 2 characters, found {count} character{}",
-                if count > 1 { "s" } else { "" }
-            );
-        }
+    if let (Some(open), Some(close), None) = (iter.next(), iter.next(), iter.next()) {
+        Ok([open.into(), close.into()])
+    } else {
+        let count = value.graphemes(true).count();
+        bail!(
+            "expected 2 characters, found {count} character{}",
+            if count > 1 { "s" } else { "" }
+        );
     }
 }
 

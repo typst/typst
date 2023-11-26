@@ -132,3 +132,6 @@ codegen-units = 1
 
 [profile.release.package."typst-cli"]
 strip = true
+
+[workspace.lints.clippy]
+single_match_else = "warn"

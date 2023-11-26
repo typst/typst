@@ -130,14 +130,11 @@ impl RemoteReader {
 
             data.extend(&buffer[..read]);
 
-            let last_printed = match self.last_print {
-                Some(prev) => prev,
-                None => {
-                    let current_time = Instant::now();
-                    self.last_print = Some(current_time);
-                    current_time
-                }
-            };
+            let last_printed = self.last_print.unwrap_or_else(|| {
+                let current_time = Instant::now();
+                self.last_print = Some(current_time);
+                current_time
+            });
             let elapsed = Instant::now().saturating_duration_since(last_printed);
 
             self.total_downloaded += read;
@@ -179,26 +176,25 @@ impl RemoteReader {
         let elapsed =
             time_suffix(Instant::now().saturating_duration_since(self.start_time));
 
-        let output = match self.content_len {
-            Some(content_len) => {
-                let percent = (self.total_downloaded as f64 / content_len as f64) * 100.;
-                let remaining = content_len - self.total_downloaded;
+        let output = if let Some(content_len) = self.content_len {
+            let percent = (self.total_downloaded as f64 / content_len as f64) * 100.;
+            let remaining = content_len - self.total_downloaded;
 
-                format!(
-                    "{} / {} ({:3.0} %) {} in {} ETA: {}",
-                    total,
-                    as_time_unit(content_len, false),
-                    percent,
-                    speed_h,
-                    elapsed,
-                    time_suffix(Duration::from_secs(if speed == 0 {
-                        0
-                    } else {
-                        (remaining / speed) as u64
-                    }))
-                )
-            }
-            None => format!("Total: {} Speed: {} Elapsed: {}", total, speed_h, elapsed,),
+            format!(
+                "{} / {} ({:3.0} %) {} in {} ETA: {}",
+                total,
+                as_time_unit(content_len, false),
+                percent,
+                speed_h,
+                elapsed,
+                time_suffix(Duration::from_secs(if speed == 0 {
+                    0
+                } else {
+                    (remaining / speed) as u64
+                }))
+            )
+        } else {
+            format!("Total: {} Speed: {} Elapsed: {}", total, speed_h, elapsed,)
         };
 
         let _ = write!(self.stderr, "{output}");

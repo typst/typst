@@ -35,13 +35,10 @@ impl Engine<'_> {
         F: FnOnce(&mut Self) -> SourceResult<T>,
         T: Default,
     {
-        match f(self) {
-            Ok(value) => value,
-            Err(errors) => {
-                self.tracer.delay(errors);
-                T::default()
-            }
-        }
+        f(self).unwrap_or_else(|errors| {
+            self.tracer.delay(errors);
+            T::default()
+        })
     }
 }
 

@@ -478,13 +478,13 @@ impl<'a> GridLayouter<'a> {
     fn layout_auto_row(&mut self, engine: &mut Engine, y: usize) -> SourceResult<()> {
         // Determine the size for each region of the row. If the first region
         // ends up empty for some column, skip the region and remeasure.
-        let mut resolved = match self.measure_auto_row(engine, y, true)? {
-            Some(resolved) => resolved,
-            None => {
+        let mut resolved =
+            if let Some(resolved) = self.measure_auto_row(engine, y, true)? {
+                resolved
+            } else {
                 self.finish_region(engine)?;
                 self.measure_auto_row(engine, y, false)?.unwrap()
-            }
-        };
+            };
 
         // Nothing to layout.
         if resolved.is_empty() {

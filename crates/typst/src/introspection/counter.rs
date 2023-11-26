@@ -550,10 +550,11 @@ pub struct CounterState(pub SmallVec<[usize; 3]>);
 impl CounterState {
     /// Get the initial counter state for the key.
     pub fn init(key: &CounterKey) -> Self {
-        Self(match key {
+        Self(if key == &CounterKey::Page {
             // special case, because pages always start at one.
-            CounterKey::Page => smallvec![1],
-            _ => smallvec![0],
+            smallvec![1]
+        } else {
+            smallvec![0]
         })
     }
 

@@ -26,3 +26,6 @@ unicode-math-class = { workspace = true }
 unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
 unscanny = { workspace = true }
+
+[lints]
+workspace = true

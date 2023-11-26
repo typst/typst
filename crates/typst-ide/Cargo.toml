@@ -24,3 +24,6 @@ if_chain = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 unscanny = { workspace = true }
+
+[lints]
+workspace = true
