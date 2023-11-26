@@ -226,7 +226,7 @@ fn update_needed(release: &Release) -> StrResult<bool> {
 fn backup_path() -> StrResult<PathBuf> {
     #[cfg(target_os = "linux")]
     let root_backup_dir = dirs::state_dir()
-        .or_else(|| dirs::data_dir())
+        .or_else(dirs::data_dir)
         .ok_or("unable to locate local data or state directory")?;
 
     #[cfg(not(target_os = "linux"))]
