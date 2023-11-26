@@ -1571,6 +1571,22 @@ impl<'a> Args<'a> {
     pub fn items(self) -> impl DoubleEndedIterator<Item = Arg<'a>> {
         self.0.children().filter_map(SyntaxNode::cast)
     }
+
+    /// The trailing punctuation, if any.
+    pub fn trailing_punct(self) -> Option<TrailingPunct> {
+        // note to reviewer: is the last element of this iterator ALWAYS a closed paren?
+        // I'm assuming it to be so for now.
+        self.0
+            .children()
+            .rev()
+            .skip(1)
+            .find(|n| !n.kind().is_trivia())
+            .and_then(|n| match n.kind() {
+                SyntaxKind::Comma => Some(TrailingPunct::Comma),
+                SyntaxKind::Semicolon => Some(TrailingPunct::Semicolon),
+                _ => Option::None,
+            })
+    }
 }
 
 /// An argument to a function call.
@@ -1600,6 +1616,13 @@ impl<'a> AstNode<'a> for Arg<'a> {
             Self::Spread(v) => v.to_untyped(),
         }
     }
+}
+
+/// A piece of trailing punctuation in an argument list.
+#[derive(Debug, Copy, Clone, Hash)]
+pub enum TrailingPunct {
+    Comma,
+    Semicolon,
 }
 
 node! {

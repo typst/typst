@@ -11,6 +11,7 @@ use crate::foundations::{
 use crate::introspection::{Introspector, Locator};
 use crate::math::{Accent, AccentElem, LrElem};
 use crate::symbols::Symbol;
+use crate::syntax::ast::TrailingPunct;
 use crate::syntax::ast::{self, AstNode};
 use crate::syntax::{Spanned, SyntaxNode};
 use crate::text::TextElem;
@@ -127,11 +128,18 @@ impl Eval for ast::FuncCall<'_> {
                 }
             }
             let mut body = Content::empty();
+            // TODO: also make this work at all with array args (`pi(a, b; c, d; )`)
             for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
                 if i > 0 {
                     body += TextElem::packed(',');
                 }
                 body += arg;
+            }
+            if let Some(p) = args.trailing_punct {
+                body += TextElem::packed(match p {
+                    TrailingPunct::Comma => ',',
+                    TrailingPunct::Semicolon => ';',
+                });
             }
             return Ok(Value::Content(
                 callee.display().spanned(callee_span)
@@ -198,7 +206,11 @@ impl Eval for ast::Args<'_> {
             }
         }
 
-        Ok(Args { span: self.span(), items })
+        Ok(Args {
+            span: self.span(),
+            items,
+            trailing_punct: self.trailing_punct(),
+        })
     }
 }
 
