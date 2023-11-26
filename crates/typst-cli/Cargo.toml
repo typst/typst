@@ -74,3 +74,6 @@ embed-fonts = []
 
 # Permits the CLI to update itself without a package manager
 self-update = ["dep:self-replace", "dep:xz2", "dep:zip", "ureq/json"]
+
+[lints]
+workspace = true

@@ -198,7 +198,7 @@ impl RemoteReader {
                     }))
                 )
             }
-            None => format!("Total: {} Speed: {} Elapsed: {}", total, speed_h, elapsed,),
+            None => format!("Total: {total} Speed: {speed_h} Elapsed: {elapsed}"),
         };
 
         let _ = write!(self.stderr, "{output}");
@@ -252,6 +252,6 @@ fn as_time_unit(size: usize, include_suffix: bool) -> String {
     } else if size >= KI {
         format!("{:5.1} KiB{}", size / KI, suffix)
     } else {
-        format!("{size:3.0} B{}", suffix)
+        format!("{size:3.0} B{suffix}")
     }
 }

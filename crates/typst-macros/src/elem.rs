@@ -248,10 +248,10 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
         default: parse_attr::<syn::Expr>(&mut attrs, "default")?.flatten(),
         vis: field.vis.clone(),
         ident: ident.clone(),
-        ident_in: Ident::new(&format!("{}_in", ident), ident.span()),
-        with_ident: Ident::new(&format!("with_{}", ident), ident.span()),
-        push_ident: Ident::new(&format!("push_{}", ident), ident.span()),
-        set_ident: Ident::new(&format!("set_{}", ident), ident.span()),
+        ident_in: Ident::new(&format!("{ident}_in"), ident.span()),
+        with_ident: Ident::new(&format!("with_{ident}"), ident.span()),
+        push_ident: Ident::new(&format!("push_{ident}"), ident.span()),
+        set_ident: Ident::new(&format!("set_{ident}"), ident.span()),
         enum_ident: Ident::new(&ident.to_string().to_upper_camel_case(), ident.span()),
         const_ident: Ident::new(&ident.to_string().to_shouty_snake_case(), ident.span()),
         ty: field.ty.clone(),
@@ -530,7 +530,7 @@ fn create_with_field_method(field: &Field) -> TokenStream {
         default,
         ..
     } = field;
-    let doc = format!("Set the [`{}`](Self::{}) field.", name, ident);
+    let doc = format!("Set the [`{name}`](Self::{ident}) field.");
 
     let set = if field.inherent() || (*synthesized && default.is_some()) {
         quote! { self.#ident = #ident; }
@@ -558,7 +558,7 @@ fn create_push_field_method(field: &Field) -> TokenStream {
         default,
         ..
     } = field;
-    let doc = format!("Push the [`{}`](Self::{}) field.", name, ident);
+    let doc = format!("Push the [`{name}`](Self::{ident}) field.");
     let set = if (field.inherent() && !synthesized) || (*synthesized && default.is_some())
     {
         quote! { self.#ident = #ident; }
@@ -577,7 +577,7 @@ fn create_push_field_method(field: &Field) -> TokenStream {
 fn create_set_field_method(element: &Elem, field: &Field) -> TokenStream {
     let elem = &element.ident;
     let Field { vis, ident, set_ident, enum_ident, ty, name, .. } = field;
-    let doc = format!("Create a style property for the `{}` field.", name);
+    let doc = format!("Create a style property for the `{name}` field.");
     quote! {
         #[doc = #doc]
         #vis fn #set_ident(#ident: #ty) -> #foundations::Style {
@@ -593,7 +593,7 @@ fn create_set_field_method(element: &Elem, field: &Field) -> TokenStream {
 /// Create a style chain access method for a field.
 fn create_field_in_method(element: &Elem, field: &Field) -> TokenStream {
     let Field { vis, ident_in, name, output, .. } = field;
-    let doc = format!("Access the `{}` field in the given style chain.", name);
+    let doc = format!("Access the `{name}` field in the given style chain.");
     let access = create_style_chain_access(element, field, quote! { None });
 
     let output = if field.borrowed {
@@ -903,8 +903,8 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         )
         .unwrap_or_else(|| quote! { None });
 
-    let unknown_field = format!("unknown field {{}} on {}", name);
-    let label_error = format!("cannot set label on {}", name);
+    let unknown_field = format!("unknown field {{}} on {name}");
+    let label_error = format!("cannot set label on {name}");
     let data = quote! {
         #foundations::NativeElementData {
             name: #name,
