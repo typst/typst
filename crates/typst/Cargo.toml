@@ -3,13 +3,13 @@ name = "typst"
 description = "A new markup-based typesetting system that is powerful and easy to learn."
 categories = ["compilers", "science"]
 keywords = ["markup", "typesetting", "typst"]
-version.workspace = true
-rust-version.workspace = true
-authors.workspace = true
-edition.workspace = true
-homepage.workspace = true
-repository.workspace = true
-license.workspace = true
+version = { workspace = true }
+rust-version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
 
 [lib]
 doctest = false

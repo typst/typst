@@ -1,9 +1,9 @@
 [package]
 name = "typst-docs"
-version.workspace = true
-rust-version.workspace = true
-authors.workspace = true
-edition.workspace = true
+version = { workspace = true }
+rust-version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
 publish = false
 
 [lib]
