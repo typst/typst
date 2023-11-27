@@ -36,7 +36,6 @@ use ttf_parser::Rect;
 
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::eval::Vm;
 use crate::foundations::{
     cast, category, elem, Args, Array, Cast, Category, Construct, Content, Dict, Fold,
     NativeElement, Never, PlainText, Repr, Resolve, Scope, Set, Smart, StyleChain, Value,

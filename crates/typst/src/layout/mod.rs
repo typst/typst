@@ -71,7 +71,7 @@ pub(crate) use self::inline::*;
 
 use comemo::{Tracked, TrackedMut};
 
-use crate::diag::{bail, error, SourceResult};
+use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{category, Category, Content, Scope, StyleChain};

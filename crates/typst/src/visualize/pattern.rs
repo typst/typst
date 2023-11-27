@@ -6,7 +6,6 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::eval::Vm;
 use crate::foundations::{func, scope, ty, Content, Repr, Smart, StyleChain};
 use crate::layout::{Abs, Axes, Em, Frame, Layout, Length, Regions, Size};
 use crate::syntax::{Span, Spanned};
