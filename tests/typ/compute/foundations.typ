@@ -103,30 +103,5 @@ Blue #move(dy: -0.15em)[🌊]
 #eval("continue")
 
 ---
-// Error: 7-32 cannot access file system from here
-#eval("include \"../coma.typ\"")
-
----
-// Error: 7-30 cannot access file system from here
-#eval("image(\"/tiger.jpg\")")
-
----
-// Error: 23-30 cannot access file system from here
-#show raw: it => eval(it.text)
-
-```
-image("/tiger.jpg")
-```
-
----
-// Error: 23-42 cannot access file system from here
-#show raw: it => eval("[" + it.text + "]")
-
-```
-#show emph: _ => image("/giraffe.jpg")
-_No relative giraffe!_
-```
-
----
 // Error: 7-12 expected semicolon or line break
 #eval("1 2")

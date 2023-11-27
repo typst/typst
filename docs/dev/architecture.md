@@ -3,20 +3,24 @@ Wondering how to contribute or just curious how Typst works? This document
 covers the general structure and architecture of Typst's compiler, so you get an
 understanding of what's where and how everything fits together.
 
+
 ## Directories
 Let's start with a broad overview of the directories in this repository:
 
-- `crates/typst`: The main compiler crate which is home to the parser,
-  interpreter, exporters, IDE tooling, and more.
-- `crates/typst-library`: Typst's standard library with all global definitions
-  available in Typst. Also contains the layout and text handling pipeline.
+- `crates/typst`: The main compiler crate which defines the complete language
+  and library.
 - `crates/typst-cli`: Typst's command line interface. This is a relatively small
-  layer on top of `typst` and `typst-library`.
+  layer on top of the compiler and the exporters.
 - `crates/typst-docs`: Generates the content of the official
   [documentation][docs] from the content of the `docs` folder and the inline
   Rust documentation. Only generates the content and structure, not the concrete
   HTML (that part is currently closed source).
-- `crates/typst-macros`: Procedural macros for the compiler and library.
+- `crates/typst-ide`: Exposes IDE functionality.
+- `crates/typst-macros`: Procedural macros for the compiler.
+- `crates/typst-pdf`: The PDF exporter.
+- `crates/typst-render`: A renderer for Typst frames.
+- `crates/typst-svg`: The SVG exporter.
+- `crates/typst-syntax`: Home to the parser and syntax tree definition.
 - `docs`: Source files for longer-form parts of the documentation. Individual
   elements and functions are documented inline with the Rust source code.
 - `assets`: Fonts and files used for tests and the documentation.
@@ -137,10 +141,11 @@ reuse as much as possible.
 
 
 ## Export
-Exporters live in `crates/typst/src/export`. They turn layouted frames into an
-output file format.
+Exporters live in separate crates. They turn layouted frames into an output file
+format.
 
 - The PDF exporter takes layouted frames and turns them into a PDF file.
+- The SVG exporter takes a frame and turns it into an SVG.
 - The built-in renderer takes a frame and turns it into a pixel buffer.
 - HTML export does not exist yet, but will in the future. However, this requires
   some complex compiler work because the export will start with `Content`
@@ -148,7 +153,7 @@ output file format.
 
 
 ## IDE
-The `crates/typst/src/ide` module implements IDE functionality for Typst. It
+The `crates/typst-ide` crate implements IDE functionality for Typst. It
 builds heavily on the other modules (most importantly, `syntax` and `eval`).
 
 **Syntactic:**

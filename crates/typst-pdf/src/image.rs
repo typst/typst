@@ -3,9 +3,10 @@ use std::io::Cursor;
 
 use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Chunk, Filter, Finish, Ref};
-use typst::geom::ColorSpace;
-use typst::image::{Image, ImageKind, RasterFormat, RasterImage, SvgImage};
 use typst::util::Deferred;
+use typst::visualize::{
+    ColorSpace, Image, ImageKind, RasterFormat, RasterImage, SvgImage,
+};
 
 use crate::{deflate, PdfContext};
 

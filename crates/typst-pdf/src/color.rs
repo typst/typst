@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
 use pdf_writer::types::DeviceNSubtype;
 use pdf_writer::{writers, Chunk, Dict, Filter, Name, Ref};
-use typst::geom::{Color, ColorSpace, Paint};
+use typst::visualize::{Color, ColorSpace, Paint};
 
 use crate::deflate;
 use crate::page::{PageContext, Transforms};
@@ -294,6 +294,7 @@ impl PaintEncode for Paint {
         match self {
             Self::Solid(c) => c.set_as_fill(ctx, on_text, transforms),
             Self::Gradient(gradient) => gradient.set_as_fill(ctx, on_text, transforms),
+            Self::Pattern(pattern) => pattern.set_as_fill(ctx, on_text, transforms),
         }
     }
 
@@ -301,6 +302,7 @@ impl PaintEncode for Paint {
         match self {
             Self::Solid(c) => c.set_as_stroke(ctx, transforms),
             Self::Gradient(gradient) => gradient.set_as_stroke(ctx, transforms),
+            Self::Pattern(pattern) => pattern.set_as_stroke(ctx, transforms),
         }
     }
 }

@@ -3,7 +3,8 @@ use std::fmt::{self, Debug, Formatter};
 use ecow::EcoString;
 use lasso::{Spur, ThreadedRodeo};
 use once_cell::sync::Lazy;
-use typst_macros::cast;
+
+use crate::foundations::cast;
 
 /// The global string interner.
 static INTERNER: Lazy<ThreadedRodeo> = Lazy::new(ThreadedRodeo::new);
