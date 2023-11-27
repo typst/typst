@@ -195,13 +195,13 @@ impl Introspector {
     }
 
     /// Query for a unique element with the label.
-    pub fn query_label(&self, label: Label) -> StrResult<Prehashed<Content>> {
+    pub fn query_label(&self, label: Label) -> StrResult<&Prehashed<Content>> {
         let mut found = None;
         for elem in self.all().filter(|elem| elem.label() == Some(label)) {
             if found.is_some() {
                 bail!("label `{}` occurs multiple times in the document", label.repr());
             }
-            found = Some(elem.clone());
+            found = Some(elem);
         }
         found.ok_or_else(|| {
             eco_format!("label `{}` does not exist in the document", label.repr())

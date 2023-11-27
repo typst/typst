@@ -1,8 +1,6 @@
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
-use comemo::Prehashed;
-
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -111,8 +109,7 @@ impl FootnoteElem {
     pub fn declaration_location(&self, engine: &Engine) -> StrResult<Location> {
         match self.body() {
             FootnoteBody::Reference(label) => {
-                let element: Prehashed<Content> =
-                    engine.introspector.query_label(*label)?;
+                let element = engine.introspector.query_label(*label)?;
                 let footnote = element
                     .to::<FootnoteElem>()
                     .ok_or("referenced element should be a footnote")?;

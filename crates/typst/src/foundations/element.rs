@@ -265,6 +265,9 @@ pub trait NativeElement: Debug + Repr + Construct + Set + Send + Sync + 'static 
     /// Get the field with the given field ID.
     fn field(&self, id: u8) -> Option<Value>;
 
+    /// Whether the element has the given field set.
+    fn has(&self, id: u8) -> bool;
+
     /// Set the field with the given ID.
     fn set_field(&mut self, id: u8, value: Value) -> StrResult<()>;
 

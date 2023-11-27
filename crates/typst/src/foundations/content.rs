@@ -535,7 +535,7 @@ impl Content {
             return false;
         };
 
-        self.get(id).is_some()
+        self.0.has(id)
     }
 
     /// Access the specified field on the content. Returns the default value if

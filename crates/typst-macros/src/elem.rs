@@ -738,6 +738,27 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         }
     });
 
+    // Fields that can be checked using the `has` method.
+    let field_has_matches = element.visible_fields().map(|field| {
+        let elem = &element.ident;
+        let name = &field.enum_ident;
+        let field_ident = &field.ident;
+
+        if field.ghost {
+            quote! {
+                <#elem as #foundations::ElementFields>::Fields::#name => false,
+            }
+        } else if field.inherent() {
+            quote! {
+                <#elem as #foundations::ElementFields>::Fields::#name => true,
+            }
+        } else {
+            quote! {
+                <#elem as #foundations::ElementFields>::Fields::#name => self.#field_ident.is_some(),
+            }
+        }
+    });
+
     // Fields that can be set using the `set_field` method.
     let field_set_matches = element
         .visible_fields()
@@ -888,6 +909,10 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         })
         .unwrap_or_else(|| quote! { None });
 
+    let label_has_field = element
+        .unless_capability("Unlabellable", || quote! { self.label().is_some() })
+        .unwrap_or_else(|| quote! { false });
+
     let mark_prepared = element
         .unless_capability("Unlabellable", || quote! { self.prepared = true; })
         .unwrap_or_else(|| quote! {});
@@ -1023,6 +1048,18 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                     <#ident as #foundations::ElementFields>::Fields::Label => #label_field,
                     #(#field_matches)*
                     _ => None,
+                }
+            }
+
+            fn has(&self, id: u8) -> bool {
+                let Ok(id) = <#ident as #foundations::ElementFields>::Fields::try_from(id) else {
+                    return false;
+                };
+
+                match id {
+                    <#ident as #foundations::ElementFields>::Fields::Label => #label_has_field,
+                    #(#field_has_matches)*
+                    _ => false,
                 }
             }
 

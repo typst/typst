@@ -134,7 +134,7 @@ pub fn realize(
             let span = elem.span();
             let meta = Meta::Elem(elem.clone());
             return Ok(Some(
-                (elem + MetaElem::new().pack().spanned(span))
+                (elem + MetaElem::new().spanned(span).pack())
                     .styled(MetaElem::set_data(smallvec![meta])),
             ));
         }
@@ -758,6 +758,6 @@ impl<'a> CiteGroupBuilder<'a> {
 
     fn finish(self) -> (Content, StyleChain<'a>) {
         let span = self.items.first().map(|cite| cite.span()).unwrap_or(Span::detached());
-        (CiteGroup::new(self.items).pack().spanned(span), self.styles)
+        (CiteGroup::new(self.items).spanned(span).pack(), self.styles)
     }
 }

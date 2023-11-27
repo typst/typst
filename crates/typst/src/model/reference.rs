@@ -148,7 +148,7 @@ impl Synthesize for RefElem {
 
         let target = *self.target();
         if !BibliographyElem::has(engine, target) {
-            if let Ok(elem) = engine.introspector.query_label(target) {
+            if let Ok(elem) = engine.introspector.query_label(target).cloned() {
                 self.push_element(Some(elem.into_inner()));
                 return Ok(());
             }
@@ -180,6 +180,7 @@ impl Show for RefElem {
                 return Ok(FootnoteElem::with_label(target).spanned(span).pack());
             }
 
+            let elem = elem.clone();
             let refable = elem
                 .with::<dyn Refable>()
                 .ok_or_else(|| {
@@ -213,17 +214,16 @@ impl Show for RefElem {
                 ))
                 .at(span)?;
 
+            let loc = elem.location().unwrap();
             let numbers = refable
                 .counter()
-                .at(engine, elem.location().unwrap())?
+                .at(engine, loc)?
                 .display(engine, &numbering.trimmed())?;
 
             let supplement = match self.supplement(styles).as_ref() {
                 Smart::Auto => refable.supplement(),
                 Smart::Custom(None) => Content::empty(),
-                Smart::Custom(Some(supplement)) => {
-                    supplement.resolve(engine, [(*elem).clone()])?
-                }
+                Smart::Custom(Some(supplement)) => supplement.resolve(engine, [elem])?,
             };
 
             let mut content = numbers;
@@ -231,7 +231,7 @@ impl Show for RefElem {
                 content = supplement + TextElem::packed("\u{a0}") + content;
             }
 
-            Ok(content.linked(Destination::Location(elem.location().unwrap())))
+            Ok(content.linked(Destination::Location(loc)))
         }))
     }
 }
