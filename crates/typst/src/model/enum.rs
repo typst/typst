@@ -6,8 +6,8 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, Fold, NativeElement, Smart, StyleChain,
 };
 use crate::layout::{
-    Axes, BlockElem, Em, Fragment, GridLayouter, HAlign, Layout, Length, Regions, Sizing,
-    Spacing, VAlign,
+    Align, Axes, BlockElem, Em, Fragment, GridLayouter, HAlign, Layout, Length, Regions,
+    Sizing, Spacing, VAlign,
 };
 use crate::model::{Numbering, NumberingPattern, ParElem};
 use crate::text::TextElem;
