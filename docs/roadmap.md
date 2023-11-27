@@ -42,21 +42,18 @@ request with the [community]($community).
   - PDF/A and PDF/X support
 - **Text and Fonts**
   - Font fallback warnings
-  - Fix SVG font fallback
   - Proper foundations for i18n
   - Bold, italic, and smallcaps synthesis
   - Variable fonts support
   - Ruby and Warichu
   - Kashida justification
 - **Scripting**
-  - Allow expressions as dictionary keys
   - Function hoisting if possible
   - Get values of set rules
   - Doc comments
   - Type hints
 - **Visualization**
   - Arrows
-  - Gradients
   - Better path drawing
   - Color management
 - **Tooling**
@@ -69,9 +66,7 @@ request with the [community]($community).
 
 ## Library
 - **Customization**
-  - Integrate CSL (Citation Style Language)
-  - Bibliography and citation customization
-  - Outline customization
+  - Richer built-in outline customization
   - Table stroke customization
 - **Numbering**
   - Relative counters, e.g. for figure numbering per section
@@ -87,7 +82,6 @@ request with the [community]($community).
   - Fix syntactic quirks
   - Fix font handling
   - Provide more primitives
-  - Smarter automatic delimiter sizing
   - Big fractions
 - **Other**
   - Plotting
