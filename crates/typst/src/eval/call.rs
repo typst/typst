@@ -26,6 +26,8 @@ impl Eval for ast::FuncCall<'_> {
         let in_math = in_math(callee);
         let callee_span = callee.span();
         let args = self.args();
+        let trailing_comma = args.trailing_comma();
+
         if vm.engine.route.exceeding() {
             bail!(span, "maximum function call depth exceeded");
         }
@@ -132,6 +134,9 @@ impl Eval for ast::FuncCall<'_> {
                     body += TextElem::packed(',');
                 }
                 body += arg;
+            }
+            if trailing_comma {
+                body += TextElem::packed(',');
             }
             return Ok(Value::Content(
                 callee.display().spanned(callee_span)
