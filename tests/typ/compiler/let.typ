@@ -9,20 +9,6 @@
 #let z = 1
 #test(z, 1)
 
-// Whether a string is a valid Typst identifier.
-#let name = 1
-#test(name, 1)
-#let name_ = 1
-#test(name_, 1)
-#let name-2 = 1
-#test(name-2, 1)
-#let name_2 = 1
-#test(name_2, 1)
-#let __name = 1
-#test(__name, 1)
-#let ůñıćóðė = 1
-#test(ůñıćóðė, 1)
-
 // Syntax sugar for function definitions.
 #let fill = conifer
 #let f(body) = rect(width: 2cm, fill: fill, inset: 5pt, body)
@@ -45,6 +31,22 @@ Three
 #test(v1, 1)
 #test(v2, 2)
 #test(v3, 3)
+
+---
+// Test what constitutes a valid Typst identifier.
+// Ref: false
+#let name = 1
+#test(name, 1)
+#let name_ = 1
+#test(name_, 1)
+#let name-2 = 1
+#test(name-2, 1)
+#let name_2 = 1
+#test(name_2, 1)
+#let __name = 1
+#test(__name, 1)
+#let ůñıćóðė = 1
+#test(ůñıćóðė, 1)
 
 ---
 // Test parenthesised assignments.
