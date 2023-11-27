@@ -6,7 +6,7 @@ use crate::diag::{bail, At, SourceDiagnostic, SourceResult};
 use crate::foundations::{
     func, repr, scope, ty, Array, Dict, FromValue, IntoValue, Repr, Str, Value,
 };
-use crate::syntax::{ast::TrailingPunct, Span, Spanned};
+use crate::syntax::{Span, Spanned};
 
 /// Captured arguments to a function.
 ///
@@ -46,7 +46,6 @@ pub struct Args {
     pub span: Span,
     /// The positional and named arguments.
     pub items: EcoVec<Arg>,
-    pub trailing_punct: Option<TrailingPunct>,
 }
 
 impl Args {
@@ -60,7 +59,7 @@ impl Args {
                 value: Spanned::new(value.into_value(), span),
             })
             .collect();
-        Self { span, items, trailing_punct: None }
+        Self { span, items }
     }
 
     /// Returns the number of remaining positional arguments.
@@ -204,7 +203,6 @@ impl Args {
         Self {
             span: self.span,
             items: std::mem::take(&mut self.items),
-            trailing_punct: self.trailing_punct,
         }
     }
 

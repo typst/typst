@@ -11,7 +11,6 @@ use crate::foundations::{
 use crate::introspection::{Introspector, Locator};
 use crate::math::{Accent, AccentElem, LrElem};
 use crate::symbols::Symbol;
-use crate::syntax::ast::TrailingPunct;
 use crate::syntax::ast::{self, AstNode};
 use crate::syntax::{Spanned, SyntaxNode};
 use crate::text::TextElem;
@@ -27,6 +26,8 @@ impl Eval for ast::FuncCall<'_> {
         let in_math = in_math(callee);
         let callee_span = callee.span();
         let args = self.args();
+        let trailing_comma = args.trailing_comma();
+
         if vm.engine.route.exceeding() {
             bail!(span, "maximum function call depth exceeded");
         }
@@ -128,18 +129,14 @@ impl Eval for ast::FuncCall<'_> {
                 }
             }
             let mut body = Content::empty();
-            // TODO: also make this work at all with array args (`pi(a, b; c, d; )`)
             for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
                 if i > 0 {
                     body += TextElem::packed(',');
                 }
                 body += arg;
             }
-            if let Some(p) = args.trailing_punct {
-                body += TextElem::packed(match p {
-                    TrailingPunct::Comma => ',',
-                    TrailingPunct::Semicolon => ';',
-                });
+            if trailing_comma {
+                body += TextElem::packed(',');
             }
             return Ok(Value::Content(
                 callee.display().spanned(callee_span)
@@ -206,11 +203,7 @@ impl Eval for ast::Args<'_> {
             }
         }
 
-        Ok(Args {
-            span: self.span(),
-            items,
-            trailing_punct: self.trailing_punct(),
-        })
+        Ok(Args { span: self.span(), items })
     }
 }
 
