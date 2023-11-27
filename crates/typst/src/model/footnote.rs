@@ -1,8 +1,6 @@
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
-use comemo::Prehashed;
-
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
