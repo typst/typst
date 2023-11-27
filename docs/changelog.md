@@ -77,7 +77,7 @@ description: |
     way (e.g. `pi(a,b,)`)
 
 - Tooling and Diagnostics
-  - Sshow rules that match on their own output now produce an appropriate error
+  - Show rules that match on their own output now produce an appropriate error
     message instead of a crash (this is a first step, in the future they will
     just work)
   - Too highly or infinitely nested layouts now produce error messages instead
@@ -110,7 +110,7 @@ description: |
   - Fixed selectors on [quote]($quote) elements
   - Fixed parsing of `[#return]` expression in markup
   - Fixed bug where inline equations were displayed in equation outlines
-  - Fixed potential CLRF issue in [`raw`]($raw) blocks
+  - Fixed potential CRLF issue in [`raw`]($raw) blocks
 
 - Development
   - Merged `typst` and `typst-library` and extracted `typst-pdf`, `typst-svg`,
