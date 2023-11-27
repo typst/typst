@@ -320,3 +320,26 @@ impl PartialEq for Arg {
         self.name == other.name && self.value.v == other.value.v
     }
 }
+
+/// Things that can be used as arguments.
+pub trait IntoArgs {
+    /// Convert into arguments, attaching the `fallback` span in case `Self`
+    /// doesn't have a span.
+    fn into_args(self, fallback: Span) -> Args;
+}
+
+impl IntoArgs for Args {
+    fn into_args(self, _: Span) -> Args {
+        self
+    }
+}
+
+impl<I, T> IntoArgs for I
+where
+    I: IntoIterator<Item = T>,
+    T: IntoValue,
+{
+    fn into_args(self, fallback: Span) -> Args {
+        Args::new(fallback, self)
+    }
+}

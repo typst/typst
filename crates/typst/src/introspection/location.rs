@@ -2,7 +2,7 @@ use std::num::NonZeroUsize;
 
 use ecow::EcoString;
 
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{cast, func, scope, ty, Dict, Repr};
 use crate::model::Numbering;
 
@@ -45,8 +45,8 @@ impl Location {
     /// If you want to know the value of the page counter, use
     /// `{counter(page).at(loc)}` instead.
     #[func]
-    pub fn page(self, vm: &mut Vm) -> NonZeroUsize {
-        vm.vt.introspector.page(self)
+    pub fn page(self, engine: &mut Engine) -> NonZeroUsize {
+        engine.introspector.page(self)
     }
 
     /// Return a dictionary with the page number and the x, y position for this
@@ -56,8 +56,8 @@ impl Location {
     /// If you only need the page number, use `page()` instead as it allows
     /// Typst to skip unnecessary work.
     #[func]
-    pub fn position(self, vm: &mut Vm) -> Dict {
-        vm.vt.introspector.position(self).into()
+    pub fn position(self, engine: &mut Engine) -> Dict {
+        engine.introspector.position(self).into()
     }
 
     /// Returns the page numbering pattern of the page at this location. This
@@ -68,8 +68,8 @@ impl Location {
     /// If the page numbering is set to `none` at that location, this function
     /// returns `none`.
     #[func]
-    pub fn page_numbering(self, vm: &mut Vm) -> Option<Numbering> {
-        vm.vt.introspector.page_numbering(self).cloned()
+    pub fn page_numbering(self, engine: &mut Engine) -> Option<Numbering> {
+        engine.introspector.page_numbering(self).cloned()
     }
 }
 
@@ -83,5 +83,5 @@ cast! {
     type Location,
 }
 
-/// Makes this element locatable through `vt.locate`.
+/// Makes this element locatable through `engine.locate`.
 pub trait Locatable {}

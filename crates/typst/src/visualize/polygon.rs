@@ -1,11 +1,12 @@
 use std::f64::consts::PI;
 
 use crate::diag::{bail, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{
     elem, func, scope, Content, NativeElement, Resolve, Smart, StyleChain,
 };
 use crate::layout::{
-    Axes, Em, Fragment, Frame, FrameItem, Layout, Length, Point, Regions, Rel, Vt,
+    Axes, Em, Fragment, Frame, FrameItem, Layout, Length, Point, Regions, Rel,
 };
 use crate::util::Numeric;
 use crate::visualize::{FixedStroke, Geometry, Paint, Path, Shape, Stroke};
@@ -125,7 +126,7 @@ impl Layout for PolygonElem {
     #[tracing::instrument(name = "PolygonElem::layout", skip_all)]
     fn layout(
         &self,
-        _: &mut Vt,
+        _: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {

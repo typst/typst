@@ -2,13 +2,13 @@ use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
 use crate::diag::SourceResult;
+use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Content, Func, NativeElement, Repr,
     Selector, Show, Str, StyleChain, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location, Locator};
-use crate::layout::Vt;
 use crate::World;
 
 /// Manages stateful parts of your document.
@@ -204,12 +204,13 @@ impl State {
     ///
     /// This has to happen just once for all states, cutting down the number
     /// of state updates from quadratic to linear.
-    fn sequence(&self, vt: &mut Vt) -> SourceResult<EcoVec<Value>> {
+    fn sequence(&self, engine: &mut Engine) -> SourceResult<EcoVec<Value>> {
         self.sequence_impl(
-            vt.world,
-            vt.introspector,
-            vt.locator.track(),
-            TrackedMut::reborrow_mut(&mut vt.tracer),
+            engine.world,
+            engine.introspector,
+            engine.route.track(),
+            engine.locator.track(),
+            TrackedMut::reborrow_mut(&mut engine.tracer),
         )
     }
 
@@ -219,11 +220,18 @@ impl State {
         &self,
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
+        route: Tracked<Route>,
         locator: Tracked<Locator>,
         tracer: TrackedMut<Tracer>,
     ) -> SourceResult<EcoVec<Value>> {
         let mut locator = Locator::chained(locator);
-        let mut vt = Vt { world, introspector, locator: &mut locator, tracer };
+        let mut engine = Engine {
+            world,
+            introspector,
+            route: Route::extend(route),
+            locator: &mut locator,
+            tracer,
+        };
         let mut state = self.init.clone();
         let mut stops = eco_vec![state.clone()];
 
@@ -231,7 +239,7 @@ impl State {
             let elem = elem.to::<UpdateElem>().unwrap();
             match elem.update() {
                 StateUpdate::Set(value) => state = value.clone(),
-                StateUpdate::Func(func) => state = func.call_vt(&mut vt, [state])?,
+                StateUpdate::Func(func) => state = func.call(&mut engine, [state])?,
             }
             stops.push(state.clone());
         }
@@ -295,15 +303,15 @@ impl State {
     #[func]
     pub fn at(
         &self,
-        /// The virtual typesetter.
-        vt: &mut Vt,
+        /// The engine.
+        engine: &mut Engine,
         /// The location at which the state's value should be retrieved. A
         /// suitable location can be retrieved from [`locate`]($locate) or
         /// [`query`]($query).
         location: Location,
     ) -> SourceResult<Value> {
-        let sequence = self.sequence(vt)?;
-        let offset = vt
+        let sequence = self.sequence(engine)?;
+        let offset = engine
             .introspector
             .query(&self.selector().before(location.into(), true))
             .len();
@@ -314,8 +322,8 @@ impl State {
     #[func]
     pub fn final_(
         &self,
-        /// The virtual typesetter.
-        vt: &mut Vt,
+        /// The engine.
+        engine: &mut Engine,
         /// Can be an arbitrary location, as its value is irrelevant for the
         /// method's return value. Why is it required then? As noted before,
         /// Typst has to evaluate parts of your code multiple times to determine
@@ -327,7 +335,7 @@ impl State {
         location: Location,
     ) -> SourceResult<Value> {
         let _ = location;
-        let sequence = self.sequence(vt)?;
+        let sequence = self.sequence(engine)?;
         Ok(sequence.last().unwrap().clone())
     }
 }
@@ -377,13 +385,13 @@ struct DisplayElem {
 }
 
 impl Show for DisplayElem {
-    #[tracing::instrument(name = "DisplayElem::show", skip(self, vt))]
-    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
-        Ok(vt.delayed(|vt| {
+    #[tracing::instrument(name = "DisplayElem::show", skip(self, engine))]
+    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(engine.delayed(|engine| {
             let location = self.location().unwrap();
-            let value = self.state().at(vt, location)?;
+            let value = self.state().at(engine, location)?;
             Ok(match self.func() {
-                Some(func) => func.call_vt(vt, [value])?.display(),
+                Some(func) => func.call(engine, [value])?.display(),
                 None => value.display(),
             })
         }))
@@ -404,7 +412,7 @@ struct UpdateElem {
 
 impl Show for UpdateElem {
     #[tracing::instrument(name = "UpdateElem::show")]
-    fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }
 }

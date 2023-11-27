@@ -2,12 +2,12 @@ use comemo::Prehashed;
 use ecow::EcoString;
 
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Args, Array, Construct, Content, Datetime, Smart, StyleChain, Value,
 };
 use crate::introspection::ManualPageCounter;
-use crate::layout::{Frame, LayoutRoot, PageElem, Vt};
+use crate::layout::{Frame, LayoutRoot, PageElem};
 
 /// The root element of a document and its metadata.
 ///
@@ -56,7 +56,7 @@ pub struct DocumentElem {
 }
 
 impl Construct for DocumentElem {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "can only be used in set rules")
     }
 }
@@ -64,7 +64,11 @@ impl Construct for DocumentElem {
 impl LayoutRoot for DocumentElem {
     /// Layout the document into a sequence of frames, one per page.
     #[tracing::instrument(name = "DocumentElem::layout_root", skip_all)]
-    fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document> {
+    fn layout_root(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Document> {
         tracing::info!("Document layout");
 
         let mut pages = vec![];
@@ -88,7 +92,8 @@ impl LayoutRoot for DocumentElem {
                         .to::<PageElem>()?
                         .clear_to(styles)
                 });
-                let fragment = page.layout(vt, styles, &mut page_counter, extend_to)?;
+                let fragment =
+                    page.layout(engine, styles, &mut page_counter, extend_to)?;
                 pages.extend(fragment);
             } else {
                 bail!(child.span(), "unexpected document child");

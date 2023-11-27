@@ -2,13 +2,13 @@ use comemo::{Prehashed, Tracked, TrackedMut};
 use ecow::EcoVec;
 
 use crate::diag::{bail, error, At, HintedStrResult, SourceResult, Trace, Tracepoint};
+use crate::engine::Engine;
 use crate::eval::{Access, Eval, FlowEvent, Route, Tracer, Vm};
 use crate::foundations::{
     call_method_mut, is_mutating_method, Arg, Args, Bytes, Closure, Content, Func,
     IntoValue, NativeElement, Scope, Scopes, Value,
 };
 use crate::introspection::{Introspector, Locator};
-use crate::layout::Vt;
 use crate::math::{Accent, AccentElem, LrElem};
 use crate::symbols::Symbol;
 use crate::syntax::ast::{self, AstNode};
@@ -16,23 +16,19 @@ use crate::syntax::{Spanned, SyntaxNode};
 use crate::text::TextElem;
 use crate::World;
 
-/// The maxmium function call depth.
-const MAX_CALL_DEPTH: usize = 64;
-
 impl Eval for ast::FuncCall<'_> {
     type Output = Value;
 
     #[tracing::instrument(name = "FuncCall::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
-        if vm.depth >= MAX_CALL_DEPTH {
-            bail!(span, "maximum function call depth exceeded");
-        }
-
         let callee = self.callee();
         let in_math = in_math(callee);
         let callee_span = callee.span();
         let args = self.args();
+        if vm.engine.route.exceeding() {
+            bail!(span, "maximum function call depth exceeded");
+        }
 
         // Try to evaluate as a call to an associated function or field.
         let (callee, mut args) = if let ast::Expr::FieldAccess(access) = callee {
@@ -146,7 +142,7 @@ impl Eval for ast::FuncCall<'_> {
 
         let callee = callee.cast::<Func>().at(callee_span)?;
         let point = || Tracepoint::Call(callee.name().map(Into::into));
-        let f = || callee.call_vm(vm, args).trace(vm.world(), point, span);
+        let f = || callee.call(&mut vm.engine, args).trace(vm.world(), point, span);
 
         // Stacker is broken on WASM.
         #[cfg(target_arch = "wasm32")]
@@ -229,7 +225,6 @@ impl Eval for ast::Closure<'_> {
         // Define the closure.
         let closure = Closure {
             node: self.to_untyped().clone(),
-            file: vm.file,
             defaults,
             captured,
         };
@@ -246,11 +241,10 @@ pub(crate) fn call_closure(
     func: &Func,
     closure: &Prehashed<Closure>,
     world: Tracked<dyn World + '_>,
-    route: Tracked<Route>,
     introspector: Tracked<Introspector>,
+    route: Tracked<Route>,
     locator: Tracked<Locator>,
     tracer: TrackedMut<Tracer>,
-    depth: usize,
     mut args: Args,
 ) -> SourceResult<Value> {
     let node = closure.node.cast::<ast::Closure>().unwrap();
@@ -260,13 +254,18 @@ pub(crate) fn call_closure(
     let mut scopes = Scopes::new(None);
     scopes.top = closure.captured.clone();
 
-    // Prepare VT.
+    // Prepare the engine.
     let mut locator = Locator::chained(locator);
-    let vt = Vt { world, introspector, locator: &mut locator, tracer };
+    let engine = Engine {
+        world,
+        introspector,
+        route: Route::extend(route),
+        locator: &mut locator,
+        tracer,
+    };
 
     // Prepare VM.
-    let mut vm = Vm::new(vt, route, closure.file, scopes);
-    vm.depth = depth;
+    let mut vm = Vm::new(engine, scopes, node.span());
 
     // Provide the closure itself for recursive calls.
     if let Some(name) = node.name() {
@@ -279,6 +278,7 @@ pub(crate) fn call_closure(
         .children()
         .filter(|p| matches!(p, ast::Param::Pos(_)))
         .count();
+
     let num_pos_args = args.to_pos().len();
     let sink_size = num_pos_args.checked_sub(num_pos_params);
 

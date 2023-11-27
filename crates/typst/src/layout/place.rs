@@ -1,10 +1,9 @@
 use crate::diag::{bail, At, Hint, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{
     elem, Behave, Behaviour, Content, NativeElement, Smart, StyleChain,
 };
-use crate::layout::{
-    Align, Axes, Em, Fragment, Layout, Length, Regions, Rel, VAlign, Vt,
-};
+use crate::layout::{Align, Axes, Em, Fragment, Layout, Length, Regions, Rel, VAlign};
 
 /// Places content at an absolute position.
 ///
@@ -91,7 +90,7 @@ impl Layout for PlaceElem {
     #[tracing::instrument(name = "PlaceElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -118,7 +117,7 @@ impl Layout for PlaceElem {
             .aligned(alignment.unwrap_or_else(|| Align::CENTER));
 
         let pod = Regions::one(base, Axes::splat(false));
-        let frame = child.layout(vt, styles, pod)?.into_frame();
+        let frame = child.layout(engine, styles, pod)?.into_frame();
         Ok(Fragment::frame(frame))
     }
 }

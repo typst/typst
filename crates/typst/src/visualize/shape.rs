@@ -1,10 +1,11 @@
 use std::f64::consts::SQRT_2;
 
 use crate::diag::SourceResult;
+use crate::engine::Engine;
 use crate::foundations::{elem, Content, NativeElement, Resolve, Smart, StyleChain};
 use crate::layout::{
     Abs, Axes, Corner, Corners, Fragment, Frame, FrameItem, Layout, Length, Point, Ratio,
-    Regions, Rel, Sides, Size, Vt,
+    Regions, Rel, Sides, Size,
 };
 use crate::syntax::Span;
 use crate::util::Get;
@@ -134,12 +135,12 @@ impl Layout for RectElem {
     #[tracing::instrument(name = "RectElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
         layout(
-            vt,
+            engine,
             styles,
             regions,
             ShapeKind::Rect,
@@ -240,12 +241,12 @@ impl Layout for SquareElem {
     #[tracing::instrument(name = "SquareElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
         layout(
-            vt,
+            engine,
             styles,
             regions,
             ShapeKind::Square,
@@ -318,12 +319,12 @@ impl Layout for EllipseElem {
     #[tracing::instrument(name = "EllipseElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
         layout(
-            vt,
+            engine,
             styles,
             regions,
             ShapeKind::Ellipse,
@@ -421,12 +422,12 @@ impl Layout for CircleElem {
     #[tracing::instrument(name = "CircleElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
         layout(
-            vt,
+            engine,
             styles,
             regions,
             ShapeKind::Circle,
@@ -446,7 +447,7 @@ impl Layout for CircleElem {
 #[tracing::instrument(name = "shape::layout", skip_all)]
 #[allow(clippy::too_many_arguments)]
 fn layout(
-    vt: &mut Vt,
+    engine: &mut Engine,
     styles: StyleChain,
     regions: Regions,
     kind: ShapeKind,
@@ -473,7 +474,7 @@ fn layout(
         let child = child.clone().padded(inset.map(|side| side.map(Length::from)));
         let expand = sizing.as_ref().map(Smart::is_custom);
         let pod = Regions::one(region, expand);
-        frame = child.layout(vt, styles, pod)?.into_frame();
+        frame = child.layout(engine, styles, pod)?.into_frame();
 
         // Enforce correct size.
         *frame.size_mut() = expand.select(region, frame.size());
@@ -484,7 +485,7 @@ fn layout(
             frame.set_size(Size::splat(frame.size().max_by_side()));
             let length = frame.size().max_by_side().min(region.min_by_side());
             let pod = Regions::one(Size::splat(length), Axes::splat(true));
-            frame = child.layout(vt, styles, pod)?.into_frame();
+            frame = child.layout(engine, styles, pod)?.into_frame();
         }
 
         // Enforce correct size again.

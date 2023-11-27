@@ -1,9 +1,9 @@
 use crate::diag::{bail, At, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Cast, Content, Label, NativeElement, Show, Smart, StyleChain, Synthesize,
 };
 use crate::introspection::Locatable;
-use crate::layout::Vt;
 use crate::model::bibliography::Works;
 use crate::model::CslStyle;
 use crate::text::{Lang, Region, TextElem};
@@ -85,7 +85,7 @@ pub struct CiteElem {
     ///
     /// When set to `{auto}`, automatically use the
     /// [bibliography's style]($bibliography.style) for the citations.
-    #[parse(CslStyle::parse_smart(vm, args)?)]
+    #[parse(CslStyle::parse_smart(engine, args)?)]
     pub style: Smart<CslStyle>,
 
     /// The text language setting where the citation is.
@@ -100,7 +100,7 @@ pub struct CiteElem {
 }
 
 impl Synthesize for CiteElem {
-    fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         self.push_supplement(self.supplement(styles));
         self.push_form(self.form(styles));
         self.push_style(self.style(styles));
@@ -143,12 +143,12 @@ pub struct CiteGroup {
 }
 
 impl Show for CiteGroup {
-    #[tracing::instrument(name = "CiteGroup::show", skip(self, vt))]
-    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
-        Ok(vt.delayed(|vt| {
+    #[tracing::instrument(name = "CiteGroup::show", skip(self, engine))]
+    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(engine.delayed(|engine| {
             let location = self.location().unwrap();
             let span = self.span();
-            Works::generate(vt.world, vt.introspector)
+            Works::generate(engine.world, engine.introspector)
                 .at(span)?
                 .citations
                 .get(&location)

@@ -1,7 +1,7 @@
 use ecow::EcoString;
 
 use crate::diag::{At, SourceResult};
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{func, Cast};
 use crate::loading::Readable;
 use crate::syntax::Spanned;
@@ -24,8 +24,8 @@ use crate::World;
 /// ```
 #[func]
 pub fn read(
-    /// The virtual machine.
-    vm: &mut Vm,
+    /// The engine.
+    engine: &mut Engine,
     /// Path to a file.
     path: Spanned<EcoString>,
     /// The encoding to read the file with.
@@ -36,8 +36,8 @@ pub fn read(
     encoding: Option<Encoding>,
 ) -> SourceResult<Readable> {
     let Spanned { v: path, span } = path;
-    let id = vm.resolve_path(&path).at(span)?;
-    let data = vm.world().file(id).at(span)?;
+    let id = span.resolve_path(&path).at(span)?;
+    let data = engine.world.file(id).at(span)?;
     Ok(match encoding {
         None => Readable::Bytes(data),
         Some(Encoding::Utf8) => Readable::Str(

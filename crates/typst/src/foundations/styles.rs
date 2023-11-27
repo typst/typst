@@ -10,12 +10,10 @@ use once_cell::sync::Lazy;
 use smallvec::SmallVec;
 
 use crate::diag::{SourceResult, Trace, Tracepoint};
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, ty, Args, Content, Element, Func, NativeElement, Repr, Selector,
-    Show, Value,
+    cast, elem, func, ty, Content, Element, Func, NativeElement, Repr, Selector, Show,
 };
-use crate::layout::Vt;
 use crate::syntax::Span;
 use crate::text::{FontFamily, FontList, TextElem};
 
@@ -58,8 +56,8 @@ struct StyleElem {
 
 impl Show for StyleElem {
     #[tracing::instrument(name = "StyleElem::show", skip_all)]
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.func().call_vt(vt, [styles.to_map()])?.display())
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        Ok(self.func().call(engine, [styles.to_map()])?.display())
     }
 }
 
@@ -356,37 +354,23 @@ impl Recipe {
     }
 
     /// Apply the recipe to the given content.
-    pub fn apply_vm(&self, vm: &mut Vm, content: Content) -> SourceResult<Content> {
-        match &self.transform {
-            Transformation::Content(content) => Ok(content.clone()),
+    pub fn apply(&self, engine: &mut Engine, content: Content) -> SourceResult<Content> {
+        let mut content = match &self.transform {
+            Transformation::Content(content) => content.clone(),
             Transformation::Func(func) => {
-                let args = Args::new(self.span, [Value::Content(content.clone())]);
-                let mut result = func.call_vm(vm, args);
-                // For selector-less show rules, a tracepoint makes no sense.
+                let mut result = func.call(engine, [content.clone()]);
                 if self.selector.is_some() {
                     let point = || Tracepoint::Show(content.func().name().into());
-                    result = result.trace(vm.world(), point, content.span());
+                    result = result.trace(engine.world, point, content.span());
                 }
-                Ok(result?.display())
+                result?.display()
             }
-            Transformation::Style(styles) => Ok(content.styled_with_map(styles.clone())),
+            Transformation::Style(styles) => content.styled_with_map(styles.clone()),
+        };
+        if content.span().is_detached() {
+            content = content.spanned(self.span);
         }
-    }
-
-    /// Apply the recipe to the given content.
-    pub fn apply_vt(&self, vt: &mut Vt, content: Content) -> SourceResult<Content> {
-        match &self.transform {
-            Transformation::Content(content) => Ok(content.clone()),
-            Transformation::Func(func) => {
-                let mut result = func.call_vt(vt, [Value::Content(content.clone())]);
-                if self.selector.is_some() {
-                    let point = || Tracepoint::Show(content.func().name().into());
-                    result = result.trace(vt.world, point, content.span());
-                }
-                Ok(result?.display())
-            }
-            Transformation::Style(styles) => Ok(content.styled_with_map(styles.clone())),
-        }
+        Ok(content)
     }
 }
 

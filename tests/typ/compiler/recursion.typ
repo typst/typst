@@ -32,11 +32,40 @@
 #test(type(f()), int)
 
 ---
+// Test redefinition.
+#let f(x) = "hello"
+#let f(x) = if x != none { f(none) } else { "world" }
+#test(f(1), "world")
+
+---
 // Error: 15-21 maximum function call depth exceeded
 #let rec(n) = rec(n) + 1
 #rec(1)
 
 ---
-#let f(x) = "hello"
-#let f(x) = if x != none { f(none) } else { "world" }
-#test(f(1), "world")
+// Test cyclic imports during layout.
+// Error: 2-38 maximum layout depth exceeded
+// Hint: 2-38 try to reduce the amount of nesting in your layout
+#layout(_ => include "recursion.typ")
+
+---
+// Test recursive show rules.
+// Error: 22-25 maximum show rule depth exceeded
+// Hint: 22-25 check whether the show rule matches its own output
+// Hint: 22-25 this is a current compiler limitation that will be resolved in the future
+#show math.equation: $x$
+$ x $
+
+---
+// Error: 18-21 maximum show rule depth exceeded
+// Hint: 18-21 check whether the show rule matches its own output
+// Hint: 18-21 this is a current compiler limitation that will be resolved in the future
+#show "hey": box[hey]
+hey
+
+---
+// Error: 14-19 maximum show rule depth exceeded
+// Hint: 14-19 check whether the show rule matches its own output
+// Hint: 14-19 this is a current compiler limitation that will be resolved in the future
+#show "hey": "hey"
+hey

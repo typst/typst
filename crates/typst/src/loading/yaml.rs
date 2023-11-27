@@ -1,7 +1,7 @@
 use ecow::{eco_format, EcoString};
 
 use crate::diag::{At, SourceResult};
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{func, scope, Str, Value};
 use crate::loading::Readable;
 use crate::syntax::Spanned;
@@ -38,14 +38,14 @@ use crate::World;
 /// ```
 #[func(scope, title = "YAML")]
 pub fn yaml(
-    /// The virtual machine.
-    vm: &mut Vm,
+    /// The engine.
+    engine: &mut Engine,
     /// Path to a YAML file.
     path: Spanned<EcoString>,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let id = vm.resolve_path(&path).at(span)?;
-    let data = vm.world().file(id).at(span)?;
+    let id = span.resolve_path(&path).at(span)?;
+    let data = engine.world.file(id).at(span)?;
     yaml::decode(Spanned::new(Readable::Bytes(data), span))
 }
 

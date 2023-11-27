@@ -40,7 +40,7 @@ fn eval_code<'a>(
                 }
 
                 let tail = eval_code(vm, exprs)?.display();
-                Value::Content(tail.styled_with_recipe(vm, recipe)?)
+                Value::Content(tail.styled_with_recipe(&mut vm.engine, recipe)?)
             }
             _ => expr.eval(vm)?,
         };
@@ -130,7 +130,7 @@ impl Eval for ast::Expr<'_> {
         .spanned(span);
 
         if vm.inspected == Some(span) {
-            vm.vt.tracer.value(v.clone());
+            vm.engine.tracer.value(v.clone());
         }
 
         Ok(v)

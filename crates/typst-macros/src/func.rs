@@ -36,8 +36,7 @@ struct Func {
 #[derive(Default)]
 struct SpecialParams {
     self_: Option<Param>,
-    vm: bool,
-    vt: bool,
+    engine: bool,
     args: bool,
     span: bool,
 }
@@ -171,8 +170,7 @@ fn parse_param(
     };
 
     match ident.to_string().as_str() {
-        "vm" => special.vm = true,
-        "vt" => special.vt = true,
+        "engine" => special.engine = true,
         "args" => special.args = true,
         "span" => special.span = true,
         _ => {
@@ -322,13 +320,12 @@ fn create_wrapper_closure(func: &Func) -> TokenStream {
             .as_ref()
             .map(bind)
             .map(|tokens| quote! { #tokens, });
-        let vm_ = func.special.vm.then(|| quote! { vm, });
-        let vt_ = func.special.vt.then(|| quote! { &mut vm.vt, });
+        let vt_ = func.special.engine.then(|| quote! { engine, });
         let args_ = func.special.args.then(|| quote! { args, });
         let span_ = func.special.span.then(|| quote! { args.span, });
         let forwarded = func.params.iter().filter(|param| !param.external).map(bind);
         quote! {
-            __typst_func(#self_ #vm_ #vt_ #args_ #span_ #(#forwarded,)*)
+            __typst_func(#self_ #vt_ #args_ #span_ #(#forwarded,)*)
         }
     };
 
@@ -336,7 +333,7 @@ fn create_wrapper_closure(func: &Func) -> TokenStream {
     let ident = &func.ident;
     let parent = func.parent.as_ref().map(|ty| quote! { #ty:: });
     quote! {
-        |vm, args| {
+        |engine, args| {
             let __typst_func = #parent #ident;
             #handlers
             #finish

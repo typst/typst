@@ -31,7 +31,7 @@ impl Access for ast::Ident<'_> {
         let span = self.span();
         let value = vm.scopes.get_mut(&self).at(span)?;
         if vm.inspected == Some(span) {
-            vm.vt.tracer.value(value.clone());
+            vm.engine.tracer.value(value.clone());
         }
         Ok(value)
     }

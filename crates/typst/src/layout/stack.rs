@@ -1,10 +1,11 @@
 use std::fmt::{self, Debug, Formatter};
 
 use crate::diag::SourceResult;
+use crate::engine::Engine;
 use crate::foundations::{cast, elem, Content, Resolve, StyleChain};
 use crate::layout::{
     Abs, AlignElem, Axes, Axis, Dir, FixedAlign, Fr, Fragment, Frame, Layout, Point,
-    Regions, Size, Spacing, Vt,
+    Regions, Size, Spacing,
 };
 use crate::util::{Get, Numeric};
 
@@ -54,7 +55,7 @@ impl Layout for StackElem {
     #[tracing::instrument(name = "StackElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -75,7 +76,7 @@ impl Layout for StackElem {
                         layouter.layout_spacing(kind);
                     }
 
-                    layouter.layout_block(vt, block, styles)?;
+                    layouter.layout_block(engine, block, styles)?;
                     deferred = spacing;
                 }
             }
@@ -199,7 +200,7 @@ impl<'a> StackLayouter<'a> {
     #[tracing::instrument(name = "StackLayouter::layout_block", skip_all)]
     fn layout_block(
         &mut self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         block: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
@@ -217,7 +218,7 @@ impl<'a> StackLayouter<'a> {
         }
         .resolve(styles);
 
-        let fragment = block.layout(vt, styles, self.regions)?;
+        let fragment = block.layout(engine, styles, self.regions)?;
         let len = fragment.len();
         for (i, frame) in fragment.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.

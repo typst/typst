@@ -1,7 +1,7 @@
 use ecow::{eco_format, EcoString};
 
 use crate::diag::{bail, At, SourceResult};
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{cast, func, scope, Array, IntoValue, Value};
 use crate::loading::Readable;
 use crate::syntax::Spanned;
@@ -26,8 +26,8 @@ use crate::World;
 /// ```
 #[func(scope, title = "CSV")]
 pub fn csv(
-    /// The virtual machine.
-    vm: &mut Vm,
+    /// The engine.
+    engine: &mut Engine,
     /// Path to a CSV file.
     path: Spanned<EcoString>,
     /// The delimiter that separates columns in the CSV file.
@@ -37,8 +37,8 @@ pub fn csv(
     delimiter: Delimiter,
 ) -> SourceResult<Array> {
     let Spanned { v: path, span } = path;
-    let id = vm.resolve_path(&path).at(span)?;
-    let data = vm.world().file(id).at(span)?;
+    let id = span.resolve_path(&path).at(span)?;
+    let data = engine.world.file(id).at(span)?;
     self::csv::decode(Spanned::new(Readable::Bytes(data), span), delimiter)
 }
 

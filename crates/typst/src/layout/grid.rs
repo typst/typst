@@ -3,12 +3,13 @@ use std::num::NonZeroUsize;
 use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, SourceResult, StrResult};
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Array, Content, NativeElement, Resolve, StyleChain, Value,
 };
 use crate::layout::{
     Abs, Axes, Dir, Fr, Fragment, Frame, Layout, Length, Point, Regions, Rel, Size,
-    Sizing, Vt,
+    Sizing,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
@@ -128,7 +129,7 @@ impl Layout for GridElem {
     #[tracing::instrument(name = "GridElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -148,7 +149,7 @@ impl Layout for GridElem {
         );
 
         // Measure the columns and layout the grid row-by-row.
-        Ok(layouter.layout(vt)?.fragment)
+        Ok(layouter.layout(engine)?.fragment)
     }
 }
 
@@ -311,24 +312,24 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
-    pub fn layout(mut self, vt: &mut Vt) -> SourceResult<GridLayout> {
-        self.measure_columns(vt)?;
+    pub fn layout(mut self, engine: &mut Engine) -> SourceResult<GridLayout> {
+        self.measure_columns(engine)?;
 
         for y in 0..self.rows.len() {
             // Skip to next region if current one is full, but only for content
             // rows, not for gutter rows.
             if self.regions.is_full() && (!self.has_gutter || y % 2 == 0) {
-                self.finish_region(vt)?;
+                self.finish_region(engine)?;
             }
 
             match self.rows[y] {
-                Sizing::Auto => self.layout_auto_row(vt, y)?,
-                Sizing::Rel(v) => self.layout_relative_row(vt, v, y)?,
+                Sizing::Auto => self.layout_auto_row(engine, y)?,
+                Sizing::Rel(v) => self.layout_relative_row(engine, v, y)?,
                 Sizing::Fr(v) => self.lrows.push(Row::Fr(v, y)),
             }
         }
 
-        self.finish_region(vt)?;
+        self.finish_region(engine)?;
 
         Ok(GridLayout {
             fragment: Fragment::frames(self.finished),
@@ -339,7 +340,7 @@ impl<'a> GridLayouter<'a> {
 
     /// Determine all column sizes.
     #[tracing::instrument(name = "GridLayouter::measure_columns", skip_all)]
-    fn measure_columns(&mut self, vt: &mut Vt) -> SourceResult<()> {
+    fn measure_columns(&mut self, engine: &mut Engine) -> SourceResult<()> {
         // Sum of sizes of resolved relative tracks.
         let mut rel = Abs::zero();
 
@@ -365,7 +366,7 @@ impl<'a> GridLayouter<'a> {
         let available = self.regions.size.x - rel;
         if available >= Abs::zero() {
             // Determine size of auto columns.
-            let (auto, count) = self.measure_auto_columns(vt, available)?;
+            let (auto, count) = self.measure_auto_columns(engine, available)?;
 
             // If there is remaining space, distribute it to fractional columns,
             // otherwise shrink auto columns.
@@ -386,7 +387,7 @@ impl<'a> GridLayouter<'a> {
     /// Measure the size that is available to auto columns.
     fn measure_auto_columns(
         &mut self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         available: Abs,
     ) -> SourceResult<(Abs, usize)> {
         let mut auto = Abs::zero();
@@ -413,7 +414,7 @@ impl<'a> GridLayouter<'a> {
 
                     let size = Size::new(available, height);
                     let pod = Regions::one(size, Axes::splat(false));
-                    let frame = cell.measure(vt, self.styles, pod)?.into_frame();
+                    let frame = cell.measure(engine, self.styles, pod)?.into_frame();
                     resolved.set_max(frame.width());
                 }
             }
@@ -474,14 +475,14 @@ impl<'a> GridLayouter<'a> {
 
     /// Layout a row with automatic height. Such a row may break across multiple
     /// regions.
-    fn layout_auto_row(&mut self, vt: &mut Vt, y: usize) -> SourceResult<()> {
+    fn layout_auto_row(&mut self, engine: &mut Engine, y: usize) -> SourceResult<()> {
         // Determine the size for each region of the row. If the first region
         // ends up empty for some column, skip the region and remeasure.
-        let mut resolved = match self.measure_auto_row(vt, y, true)? {
+        let mut resolved = match self.measure_auto_row(engine, y, true)? {
             Some(resolved) => resolved,
             None => {
-                self.finish_region(vt)?;
-                self.measure_auto_row(vt, y, false)?.unwrap()
+                self.finish_region(engine)?;
+                self.measure_auto_row(engine, y, false)?.unwrap()
             }
         };
 
@@ -492,7 +493,7 @@ impl<'a> GridLayouter<'a> {
 
         // Layout into a single region.
         if let &[first] = resolved.as_slice() {
-            let frame = self.layout_single_row(vt, first, y)?;
+            let frame = self.layout_single_row(engine, first, y)?;
             self.push_row(frame, y);
             return Ok(());
         }
@@ -510,12 +511,12 @@ impl<'a> GridLayouter<'a> {
         }
 
         // Layout into multiple regions.
-        let fragment = self.layout_multi_row(vt, &resolved, y)?;
+        let fragment = self.layout_multi_row(engine, &resolved, y)?;
         let len = fragment.len();
         for (i, frame) in fragment.into_iter().enumerate() {
             self.push_row(frame, y);
             if i + 1 < len {
-                self.finish_region(vt)?;
+                self.finish_region(engine)?;
             }
         }
 
@@ -526,7 +527,7 @@ impl<'a> GridLayouter<'a> {
     /// if `can_skip` is false.
     fn measure_auto_row(
         &mut self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         y: usize,
         can_skip: bool,
     ) -> SourceResult<Option<Vec<Abs>>> {
@@ -537,7 +538,7 @@ impl<'a> GridLayouter<'a> {
                 let mut pod = self.regions;
                 pod.size.x = rcol;
 
-                let frames = cell.measure(vt, self.styles, pod)?.into_frames();
+                let frames = cell.measure(engine, self.styles, pod)?.into_frames();
 
                 // Skip the first region if one cell in it is empty. Then,
                 // remeasure.
@@ -568,17 +569,17 @@ impl<'a> GridLayouter<'a> {
     /// multiple regions, but it may force a region break.
     fn layout_relative_row(
         &mut self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         v: Rel<Length>,
         y: usize,
     ) -> SourceResult<()> {
         let resolved = v.resolve(self.styles).relative_to(self.regions.base().y);
-        let frame = self.layout_single_row(vt, resolved, y)?;
+        let frame = self.layout_single_row(engine, resolved, y)?;
 
         // Skip to fitting region.
         let height = frame.height();
         while !self.regions.size.y.fits(height) && !self.regions.in_last() {
-            self.finish_region(vt)?;
+            self.finish_region(engine)?;
 
             // Don't skip multiple regions for gutter and don't push a row.
             if self.has_gutter && y % 2 == 1 {
@@ -594,7 +595,7 @@ impl<'a> GridLayouter<'a> {
     /// Layout a row with fixed height and return its frame.
     fn layout_single_row(
         &mut self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         height: Abs,
         y: usize,
     ) -> SourceResult<Frame> {
@@ -612,7 +613,7 @@ impl<'a> GridLayouter<'a> {
                 if self.rows[y] == Sizing::Auto {
                     pod.full = self.regions.full;
                 }
-                let frame = cell.layout(vt, self.styles, pod)?.into_frame();
+                let frame = cell.layout(engine, self.styles, pod)?.into_frame();
                 output.push_frame(pos, frame);
             }
 
@@ -625,7 +626,7 @@ impl<'a> GridLayouter<'a> {
     /// Layout a row spanning multiple regions.
     fn layout_multi_row(
         &mut self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         heights: &[Abs],
         y: usize,
     ) -> SourceResult<Fragment> {
@@ -648,7 +649,7 @@ impl<'a> GridLayouter<'a> {
                 pod.size.x = rcol;
 
                 // Push the layouted frames into the individual output frames.
-                let fragment = cell.layout(vt, self.styles, pod)?;
+                let fragment = cell.layout(engine, self.styles, pod)?;
                 for (output, frame) in outputs.iter_mut().zip(fragment) {
                     output.push_frame(pos, frame);
                 }
@@ -667,7 +668,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Finish rows for one region.
-    fn finish_region(&mut self, vt: &mut Vt) -> SourceResult<()> {
+    fn finish_region(&mut self, engine: &mut Engine) -> SourceResult<()> {
         // Determine the height of existing rows in the region.
         let mut used = Abs::zero();
         let mut fr = Fr::zero();
@@ -697,7 +698,7 @@ impl<'a> GridLayouter<'a> {
                 Row::Fr(v, y) => {
                     let remaining = self.regions.full - used;
                     let height = v.share(fr, remaining);
-                    (self.layout_single_row(vt, height, y)?, y)
+                    (self.layout_single_row(engine, height, y)?, y)
                 }
             };
 
