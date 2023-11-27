@@ -101,8 +101,7 @@ impl LayoutMath for MidElem {
         let fragments = ctx
             .layout_fragments(self.body())?
             .into_iter()
-            .enumerate()
-            .map(|(_, elem)| match elem {
+            .map(|elem| match elem {
                 MathFragment::Glyph(glyph) => {
                     let mut new = glyph.clone().into_variant();
                     new.mid_stretched = Some(false);
