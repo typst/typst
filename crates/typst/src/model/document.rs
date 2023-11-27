@@ -1,4 +1,3 @@
-use comemo::Prehashed;
 use ecow::EcoString;
 
 use crate::diag::{bail, SourceResult, StrResult};
@@ -32,12 +31,15 @@ pub struct DocumentElem {
     ///
     /// While this can be arbitrary content, PDF viewers only support plain text
     /// titles, so the conversion might be lossy.
+    #[ghost]
     pub title: Option<Content>,
 
     /// The document's authors.
+    #[ghost]
     pub author: Author,
 
     /// The document's keywords.
+    #[ghost]
     pub keywords: Keywords,
 
     /// The document's creation date.
@@ -48,11 +50,12 @@ pub struct DocumentElem {
     ///
     /// The year component must be at least zero in order to be embedded into a
     /// PDF.
+    #[ghost]
     pub date: Smart<Option<Datetime>>,
 
     /// The page runs.
     #[variadic]
-    pub children: Vec<Prehashed<Content>>,
+    pub children: Vec<Content>,
 }
 
 impl Construct for DocumentElem {
@@ -71,11 +74,11 @@ impl LayoutRoot for DocumentElem {
     ) -> SourceResult<Document> {
         tracing::info!("Document layout");
 
-        let mut pages = vec![];
+        let mut pages = Vec::with_capacity(self.children().len());
         let mut page_counter = ManualPageCounter::new();
 
         let children = self.children();
-        let mut iter = children.iter().map(|c| &**c).peekable();
+        let mut iter = children.iter().peekable();
 
         while let Some(mut child) = iter.next() {
             let outer = styles;
