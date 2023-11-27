@@ -1,5 +1,5 @@
 use crate::diag::SourceResult;
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{dict, func, Content, Dict, StyleChain, Styles};
 use crate::layout::{Abs, Axes, Layout, Regions, Size};
 
@@ -41,8 +41,8 @@ use crate::layout::{Abs, Axes, Layout, Regions, Size};
 /// `height`, both of type [`length`]($length).
 #[func]
 pub fn measure(
-    /// The virtual machine.
-    vm: &mut Vm,
+    /// The engine.
+    engine: &mut Engine,
     /// The content whose size to measure.
     content: Content,
     /// The styles with which to layout the content.
@@ -50,7 +50,7 @@ pub fn measure(
 ) -> SourceResult<Dict> {
     let pod = Regions::one(Axes::splat(Abs::inf()), Axes::splat(false));
     let styles = StyleChain::new(&styles);
-    let frame = content.measure(&mut vm.vt, styles, pod)?.into_frame();
+    let frame = content.measure(engine, styles, pod)?.into_frame();
     let Size { x, y } = frame.size();
     Ok(dict! { "width" => x, "height" => y })
 }

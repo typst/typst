@@ -6,14 +6,12 @@ use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::eval::{Route, Vm};
+use crate::engine::Engine;
 use crate::foundations::{
-    cast, repr, scope, ty, Args, CastInfo, Content, Element, IntoValue, Scope, Scopes,
-    Selector, Type, Value,
+    cast, repr, scope, ty, Args, CastInfo, Content, Element, IntoArgs, Scope, Selector,
+    Type, Value,
 };
-use crate::introspection::Locator;
-use crate::layout::Vt;
-use crate::syntax::{ast, FileId, Span, SyntaxNode};
+use crate::syntax::{ast, Span, SyntaxNode};
 use crate::util::Static;
 
 #[doc(inline)]
@@ -252,7 +250,13 @@ impl Func {
     }
 
     /// Call the function with the given arguments.
-    pub fn call_vm(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
+    #[tracing::instrument(skip_all)]
+    pub fn call(&self, engine: &mut Engine, args: impl IntoArgs) -> SourceResult<Value> {
+        self.call_impl(engine, args.into_args(self.span))
+    }
+
+    /// Non-generic implementation of `call`.
+    fn call_impl(&self, engine: &mut Engine, mut args: Args) -> SourceResult<Value> {
         let _span = tracing::info_span!(
             "call",
             name = self.name().unwrap_or("<anon>"),
@@ -261,57 +265,30 @@ impl Func {
 
         match &self.repr {
             Repr::Native(native) => {
-                let value = (native.function)(vm, &mut args)?;
+                let value = (native.function)(engine, &mut args)?;
                 args.finish()?;
                 Ok(value)
             }
             Repr::Element(func) => {
-                let value = func.construct(vm, &mut args)?;
+                let value = func.construct(engine, &mut args)?;
                 args.finish()?;
                 Ok(Value::Content(value))
             }
-            Repr::Closure(closure) => {
-                // Determine the route inside the closure.
-                let fresh = Route::new(closure.file);
-                let route = if vm.file.is_none() { fresh.track() } else { vm.route };
-                crate::eval::call_closure(
-                    self,
-                    closure,
-                    vm.world(),
-                    route,
-                    vm.vt.introspector,
-                    vm.vt.locator.track(),
-                    TrackedMut::reborrow_mut(&mut vm.vt.tracer),
-                    vm.depth + 1,
-                    args,
-                )
-            }
+            Repr::Closure(closure) => crate::eval::call_closure(
+                self,
+                closure,
+                engine.world,
+                engine.introspector,
+                engine.route.track(),
+                engine.locator.track(),
+                TrackedMut::reborrow_mut(&mut engine.tracer),
+                args,
+            ),
             Repr::With(with) => {
                 args.items = with.1.items.iter().cloned().chain(args.items).collect();
-                with.0.call_vm(vm, args)
+                with.0.call(engine, args)
             }
         }
-    }
-
-    /// Call the function with a Vt.
-    #[tracing::instrument(skip_all)]
-    pub fn call_vt<T: IntoValue>(
-        &self,
-        vt: &mut Vt,
-        args: impl IntoIterator<Item = T>,
-    ) -> SourceResult<Value> {
-        let route = Route::default();
-        let scopes = Scopes::new(None);
-        let mut locator = Locator::chained(vt.locator.track());
-        let vt = Vt {
-            world: vt.world,
-            introspector: vt.introspector,
-            locator: &mut locator,
-            tracer: TrackedMut::reborrow_mut(&mut vt.tracer),
-        };
-        let mut vm = Vm::new(vt, route.track(), None, scopes);
-        let args = Args::new(self.span(), args);
-        self.call_vm(&mut vm, args)
     }
 
     /// The function's span.
@@ -443,7 +420,7 @@ pub trait NativeFunc {
 /// Defines a native function.
 #[derive(Debug)]
 pub struct NativeFuncData {
-    pub function: fn(&mut Vm, &mut Args) -> SourceResult<Value>,
+    pub function: fn(&mut Engine, &mut Args) -> SourceResult<Value>,
     pub name: &'static str,
     pub title: &'static str,
     pub docs: &'static str,
@@ -495,8 +472,6 @@ pub struct ParamInfo {
 pub struct Closure {
     /// The closure's syntax node. Must be castable to `ast::Closure`.
     pub node: SyntaxNode,
-    /// The source file where the closure was defined.
-    pub file: Option<FileId>,
     /// Default values of named parameters.
     pub defaults: Vec<Value>,
     /// Captured values from outer scopes.

@@ -10,13 +10,12 @@ use once_cell::sync::Lazy;
 use smallvec::SmallVec;
 
 use crate::diag::{SourceResult, StrResult};
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{
     cast, Args, Content, Dict, Func, Label, ParamInfo, Repr, Scope, Selector, StyleChain,
     Styles, Value,
 };
 use crate::introspection::Location;
-use crate::layout::Vt;
 use crate::syntax::Span;
 use crate::text::{Lang, Region};
 use crate::util::Static;
@@ -66,13 +65,17 @@ impl Element {
     }
 
     /// Construct an instance of this element.
-    pub fn construct(self, vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        (self.0.construct)(vm, args)
+    pub fn construct(
+        self,
+        engine: &mut Engine,
+        args: &mut Args,
+    ) -> SourceResult<Content> {
+        (self.0.construct)(engine, args)
     }
 
     /// Execute the set rule for the element and return the resulting style map.
-    pub fn set(self, vm: &mut Vm, mut args: Args) -> SourceResult<Styles> {
-        let styles = (self.0.set)(vm, &mut args)?;
+    pub fn set(self, engine: &mut Engine, mut args: Args) -> SourceResult<Styles> {
+        let styles = (self.0.set)(engine, &mut args)?;
         args.finish()?;
         Ok(styles)
     }
@@ -275,7 +278,7 @@ pub trait Construct {
     ///
     /// This is passed only the arguments that remain after execution of the
     /// element's set rule.
-    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content>
+    fn construct(engine: &mut Engine, args: &mut Args) -> SourceResult<Content>
     where
         Self: Sized;
 }
@@ -283,7 +286,7 @@ pub trait Construct {
 /// An element's set rule.
 pub trait Set {
     /// Parse relevant arguments into style properties for this element.
-    fn set(vm: &mut Vm, args: &mut Args) -> SourceResult<Styles>
+    fn set(engine: &mut Engine, args: &mut Args) -> SourceResult<Styles>
     where
         Self: Sized;
 }
@@ -295,8 +298,8 @@ pub struct NativeElementData {
     pub title: &'static str,
     pub docs: &'static str,
     pub keywords: &'static [&'static str],
-    pub construct: fn(&mut Vm, &mut Args) -> SourceResult<Content>,
-    pub set: fn(&mut Vm, &mut Args) -> SourceResult<Styles>,
+    pub construct: fn(&mut Engine, &mut Args) -> SourceResult<Content>,
+    pub set: fn(&mut Engine, &mut Args) -> SourceResult<Styles>,
     pub vtable: fn(of: TypeId) -> Option<*const ()>,
     pub field_id: fn(name: &str) -> Option<u8>,
     pub field_name: fn(u8) -> Option<&'static str>,
@@ -320,13 +323,14 @@ cast! {
 /// rule.
 pub trait Synthesize {
     /// Prepare the element for show rule application.
-    fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()>;
+    fn synthesize(&mut self, engine: &mut Engine, styles: StyleChain)
+        -> SourceResult<()>;
 }
 
 /// The base recipe for an element.
 pub trait Show {
     /// Execute the base recipe for this element.
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content>;
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content>;
 }
 
 /// Post-process an element after it was realized.

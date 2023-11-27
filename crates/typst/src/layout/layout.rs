@@ -1,6 +1,7 @@
 use crate::diag::SourceResult;
+use crate::engine::Engine;
 use crate::foundations::{dict, elem, func, Content, Func, NativeElement, StyleChain};
-use crate::layout::{Fragment, Layout, Regions, Size, Vt};
+use crate::layout::{Fragment, Layout, Regions, Size};
 
 /// Provides access to the current outer container's (or page's, if none) size
 /// (width and height).
@@ -68,7 +69,7 @@ impl Layout for LayoutElem {
     #[tracing::instrument(name = "LayoutElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -77,8 +78,8 @@ impl Layout for LayoutElem {
         let Size { x, y } = regions.base();
         let result = self
             .func()
-            .call_vt(vt, [dict! { "width" => x, "height" => y }])?
+            .call(engine, [dict! { "width" => x, "height" => y }])?
             .display();
-        result.layout(vt, styles, regions)
+        result.layout(engine, styles, regions)
     }
 }

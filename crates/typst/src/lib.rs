@@ -40,6 +40,7 @@ extern crate self as typst;
 #[macro_use]
 pub mod util;
 pub mod diag;
+pub mod engine;
 pub mod eval;
 pub mod foundations;
 pub mod introspection;
@@ -62,12 +63,13 @@ use comemo::{Prehashed, Track, Tracked, Validate};
 use ecow::{EcoString, EcoVec};
 
 use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
-use crate::eval::{Route, Tracer};
+use crate::engine::{Engine, Route};
+use crate::eval::Tracer;
 use crate::foundations::{
     Array, Bytes, Content, Datetime, Module, Scope, StyleChain, Styles,
 };
 use crate::introspection::{Introspector, Locator};
-use crate::layout::{Align, Dir, LayoutRoot, Vt};
+use crate::layout::{Align, Dir, LayoutRoot};
 use crate::model::Document;
 use crate::syntax::{FileId, PackageSpec, Source, Span};
 use crate::text::{Font, FontBook};
@@ -122,15 +124,17 @@ fn typeset(
 
         let constraint = <Introspector as Validate>::Constraint::new();
         let mut locator = Locator::new();
-        let mut vt = Vt {
+        let mut engine = Engine {
             world,
+            route: Route::default(),
             tracer: tracer.track_mut(),
             locator: &mut locator,
             introspector: introspector.track_with(&constraint),
         };
 
         // Layout!
-        document = content.layout_root(&mut vt, styles)?;
+        document = content.layout_root(&mut engine, styles)?;
+
         introspector = Introspector::new(&document.pages);
         iter += 1;
 

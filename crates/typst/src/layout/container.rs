@@ -1,10 +1,11 @@
 use crate::diag::SourceResult;
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, AutoValue, Content, NativeElement, Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, Axes, Corners, Em, Fr, Fragment, FrameKind, Layout, Length, Ratio, Regions, Rel,
-    Sides, Size, Spacing, VElem, Vt,
+    Sides, Size, Spacing, VElem,
 };
 use crate::util::Numeric;
 use crate::visualize::{clip_rect, Paint, Stroke};
@@ -112,7 +113,7 @@ impl Layout for BoxElem {
     #[tracing::instrument(name = "BoxElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -140,7 +141,7 @@ impl Layout for BoxElem {
         // Select the appropriate base and expansion for the child depending
         // on whether it is automatically or relatively sized.
         let pod = Regions::one(size, expand);
-        let mut frame = body.layout(vt, styles, pod)?.into_frame();
+        let mut frame = body.layout(engine, styles, pod)?.into_frame();
 
         // Enforce correct size.
         *frame.size_mut() = expand.select(size, frame.size());
@@ -344,7 +345,7 @@ impl Layout for BlockElem {
     #[tracing::instrument(name = "BlockElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -368,7 +369,7 @@ impl Layout for BlockElem {
             // Measure to ensure frames for all regions have the same width.
             if sizing.x == Smart::Auto {
                 let pod = Regions::one(size, Axes::splat(false));
-                let frame = body.measure(vt, styles, pod)?.into_frame();
+                let frame = body.measure(engine, styles, pod)?.into_frame();
                 size.x = frame.width();
                 expand.x = true;
             }
@@ -403,7 +404,7 @@ impl Layout for BlockElem {
                 pod.last = None;
             }
 
-            let mut frames = body.layout(vt, styles, pod)?.into_frames();
+            let mut frames = body.layout(engine, styles, pod)?.into_frames();
             for (frame, &height) in frames.iter_mut().zip(&heights) {
                 *frame.size_mut() =
                     expand.select(Size::new(size.x, height), frame.size());
@@ -411,7 +412,7 @@ impl Layout for BlockElem {
             frames
         } else {
             let pod = Regions::one(size, expand);
-            let mut frames = body.layout(vt, styles, pod)?.into_frames();
+            let mut frames = body.layout(engine, styles, pod)?.into_frames();
             *frames[0].size_mut() = expand.select(size, frames[0].size());
             frames
         };

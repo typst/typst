@@ -3,10 +3,10 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
 use ecow::{eco_format, EcoString};
-use wasmi::{AsContext, AsContextMut, Caller, Engine, Linker, Module};
+use wasmi::{AsContext, AsContextMut};
 
 use crate::diag::{bail, At, SourceResult, StrResult};
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{func, repr, scope, ty, Bytes};
 use crate::syntax::Spanned;
 use crate::World;
@@ -152,14 +152,14 @@ impl Plugin {
     /// Creates a new plugin from a WebAssembly file.
     #[func(constructor)]
     pub fn construct(
-        /// The virtual machine.
-        vm: &mut Vm,
+        /// The engine.
+        engine: &mut Engine,
         /// Path to a WebAssembly file.
         path: Spanned<EcoString>,
     ) -> SourceResult<Plugin> {
         let Spanned { v: path, span } = path;
-        let id = vm.resolve_path(&path).at(span)?;
-        let data = vm.world().file(id).at(span)?;
+        let id = span.resolve_path(&path).at(span)?;
+        let data = engine.world.file(id).at(span)?;
         Plugin::new(data).at(span)
     }
 }
@@ -168,11 +168,11 @@ impl Plugin {
     /// Create a new plugin from raw WebAssembly bytes.
     #[comemo::memoize]
     pub fn new(bytes: Bytes) -> StrResult<Self> {
-        let engine = Engine::default();
-        let module = Module::new(&engine, bytes.as_slice())
+        let engine = wasmi::Engine::default();
+        let module = wasmi::Module::new(&engine, bytes.as_slice())
             .map_err(|err| format!("failed to load WebAssembly module ({err})"))?;
 
-        let mut linker = Linker::new(&engine);
+        let mut linker = wasmi::Linker::new(&engine);
         linker
             .func_wrap(
                 "typst_env",
@@ -323,7 +323,10 @@ impl Hash for Plugin {
 }
 
 /// Write the arguments to the plugin function into the plugin's memory.
-fn wasm_minimal_protocol_write_args_to_buffer(mut caller: Caller<StoreData>, ptr: u32) {
+fn wasm_minimal_protocol_write_args_to_buffer(
+    mut caller: wasmi::Caller<StoreData>,
+    ptr: u32,
+) {
     let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
     let arguments = std::mem::take(&mut caller.data_mut().args);
     let mut offset = ptr as usize;
@@ -342,7 +345,7 @@ fn wasm_minimal_protocol_write_args_to_buffer(mut caller: Caller<StoreData>, ptr
 
 /// Extracts the output of the plugin function from the plugin's memory.
 fn wasm_minimal_protocol_send_result_to_host(
-    mut caller: Caller<StoreData>,
+    mut caller: wasmi::Caller<StoreData>,
     ptr: u32,
     len: u32,
 ) {

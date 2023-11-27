@@ -9,8 +9,9 @@ use rustybuzz::{Tag, UnicodeBuffer};
 use unicode_script::{Script, UnicodeScript};
 
 use super::SpanMapper;
+use crate::engine::Engine;
 use crate::foundations::StyleChain;
-use crate::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size, Vt};
+use crate::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Size};
 use crate::syntax::Span;
 use crate::text::{
     decorate, families, features, variant, Font, FontVariant, Glyph, Lang, Region,
@@ -213,11 +214,11 @@ impl<'a> ShapedText<'a> {
     /// [justifiable glyph](ShapedGlyph::is_justifiable) will get.
     pub fn build(
         &self,
-        vt: &Vt,
+        engine: &Engine,
         justification_ratio: f64,
         extra_justification: Abs,
     ) -> Frame {
-        let (top, bottom) = self.measure(vt);
+        let (top, bottom) = self.measure(engine);
         let size = Size::new(self.width, top + bottom);
 
         let mut offset = Abs::zero();
@@ -307,7 +308,7 @@ impl<'a> ShapedText<'a> {
     }
 
     /// Measure the top and bottom extent of this text.
-    fn measure(&self, vt: &Vt) -> (Abs, Abs) {
+    fn measure(&self, engine: &Engine) -> (Abs, Abs) {
         let mut top = Abs::zero();
         let mut bottom = Abs::zero();
 
@@ -323,7 +324,7 @@ impl<'a> ShapedText<'a> {
         if self.glyphs.is_empty() {
             // When there are no glyphs, we just use the vertical metrics of the
             // first available font.
-            let world = vt.world;
+            let world = engine.world;
             for family in families(self.styles) {
                 if let Some(font) = world
                     .book()
@@ -387,7 +388,7 @@ impl<'a> ShapedText<'a> {
     /// The text `range` is relative to the whole paragraph.
     pub fn reshape(
         &'a self,
-        vt: &Vt,
+        engine: &Engine,
         spans: &SpanMapper,
         text_range: Range<usize>,
     ) -> ShapedText<'a> {
@@ -409,7 +410,7 @@ impl<'a> ShapedText<'a> {
             }
         } else {
             shape(
-                vt,
+                engine,
                 text_range.start,
                 text,
                 spans,
@@ -422,8 +423,8 @@ impl<'a> ShapedText<'a> {
     }
 
     /// Push a hyphen to end of the text.
-    pub fn push_hyphen(&mut self, vt: &Vt, fallback: bool) {
-        let world = vt.world;
+    pub fn push_hyphen(&mut self, engine: &Engine, fallback: bool) {
+        let world = engine.world;
         let book = world.book();
         let fallback_func = if fallback {
             Some(|| book.select_fallback(None, self.variant, "-"))
@@ -553,7 +554,7 @@ impl Debug for ShapedText<'_> {
 
 /// Holds shaping results and metadata common to all shaped segments.
 struct ShapingContext<'a, 'v> {
-    vt: &'a Vt<'v>,
+    engine: &'a Engine<'v>,
     spans: &'a SpanMapper,
     glyphs: Vec<ShapedGlyph>,
     used: Vec<Font>,
@@ -568,7 +569,7 @@ struct ShapingContext<'a, 'v> {
 /// Shape text into [`ShapedText`].
 #[allow(clippy::too_many_arguments)]
 pub(super) fn shape<'a>(
-    vt: &Vt,
+    engine: &Engine,
     base: usize,
     text: &'a str,
     spans: &SpanMapper,
@@ -579,7 +580,7 @@ pub(super) fn shape<'a>(
 ) -> ShapedText<'a> {
     let size = TextElem::size_in(styles);
     let mut ctx = ShapingContext {
-        vt,
+        engine,
         spans,
         size,
         glyphs: vec![],
@@ -630,7 +631,7 @@ fn shape_segment<'a>(
     }
 
     // Find the next available family.
-    let world = ctx.vt.world;
+    let world = ctx.engine.world;
     let book = world.book();
     let mut selection = families.find_map(|family| {
         book.select(family, ctx.variant)

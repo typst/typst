@@ -1,12 +1,13 @@
 use comemo::Prehashed;
 
 use crate::diag::{bail, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{elem, Content, NativeElement, Resolve, Smart, StyleChain};
 use crate::introspection::{Meta, MetaElem};
 use crate::layout::{
     Abs, AlignElem, Axes, BlockElem, ColbreakElem, ColumnsElem, FixedAlign, Fr, Fragment,
     Frame, FrameItem, Layout, PlaceElem, Point, Regions, Rel, Size, Spacing, VAlign,
-    VElem, Vt,
+    VElem,
 };
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
 use crate::util::Numeric;
@@ -30,7 +31,7 @@ impl Layout for FlowElem {
     #[tracing::instrument(name = "FlowElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -51,9 +52,9 @@ impl Layout for FlowElem {
             }
 
             if let Some(elem) = child.to::<VElem>() {
-                layouter.layout_spacing(vt, elem, styles)?;
+                layouter.layout_spacing(engine, elem, styles)?;
             } else if let Some(elem) = child.to::<ParElem>() {
-                layouter.layout_par(vt, elem, styles)?;
+                layouter.layout_par(engine, elem, styles)?;
             } else if child.is::<LineElem>()
                 || child.is::<RectElem>()
                 || child.is::<SquareElem>()
@@ -64,7 +65,7 @@ impl Layout for FlowElem {
                 || child.is::<PathElem>()
             {
                 let layoutable = child.with::<dyn Layout>().unwrap();
-                layouter.layout_single(vt, layoutable, styles)?;
+                layouter.layout_single(engine, layoutable, styles)?;
             } else if child.is::<MetaElem>() {
                 let mut frame = Frame::soft(Size::zero());
                 frame.meta(styles, true);
@@ -75,20 +76,20 @@ impl Layout for FlowElem {
                     movable: false,
                 });
             } else if let Some(placed) = child.to::<PlaceElem>() {
-                layouter.layout_placed(vt, placed, styles)?;
+                layouter.layout_placed(engine, placed, styles)?;
             } else if child.can::<dyn Layout>() {
-                layouter.layout_multiple(vt, child, styles)?;
+                layouter.layout_multiple(engine, child, styles)?;
             } else if child.is::<ColbreakElem>() {
                 if !layouter.regions.backlog.is_empty() || layouter.regions.last.is_some()
                 {
-                    layouter.finish_region(vt)?;
+                    layouter.finish_region(engine)?;
                 }
             } else {
                 bail!(child.span(), "unexpected flow child");
             }
         }
 
-        layouter.finish(vt)
+        layouter.finish(engine)
     }
 }
 
@@ -193,12 +194,12 @@ impl<'a> FlowLayouter<'a> {
     #[tracing::instrument(name = "FlowLayouter::layout_spacing", skip_all)]
     fn layout_spacing(
         &mut self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         v: &VElem,
         styles: StyleChain,
     ) -> SourceResult<()> {
         self.layout_item(
-            vt,
+            engine,
             match v.amount() {
                 Spacing::Rel(rel) => FlowItem::Absolute(
                     rel.resolve(styles).relative_to(self.initial.y),
@@ -213,7 +214,7 @@ impl<'a> FlowLayouter<'a> {
     #[tracing::instrument(name = "FlowLayouter::layout_par", skip_all)]
     fn layout_par(
         &mut self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         par: &ParElem,
         styles: StyleChain,
     ) -> SourceResult<()> {
@@ -221,7 +222,13 @@ impl<'a> FlowLayouter<'a> {
         let leading = ParElem::leading_in(styles);
         let consecutive = self.last_was_par;
         let lines = par
-            .layout(vt, styles, consecutive, self.regions.base(), self.regions.expand.x)?
+            .layout(
+                engine,
+                styles,
+                consecutive,
+                self.regions.base(),
+                self.regions.expand.x,
+            )?
             .into_frames();
 
         let mut sticky = self.items.len();
@@ -236,20 +243,20 @@ impl<'a> FlowLayouter<'a> {
         if let Some(first) = lines.first() {
             if !self.regions.size.y.fits(first.height()) && !self.regions.in_last() {
                 let carry: Vec<_> = self.items.drain(sticky..).collect();
-                self.finish_region(vt)?;
+                self.finish_region(engine)?;
                 for item in carry {
-                    self.layout_item(vt, item)?;
+                    self.layout_item(engine, item)?;
                 }
             }
         }
 
         for (i, frame) in lines.into_iter().enumerate() {
             if i > 0 {
-                self.layout_item(vt, FlowItem::Absolute(leading, true))?;
+                self.layout_item(engine, FlowItem::Absolute(leading, true))?;
             }
 
             self.layout_item(
-                vt,
+                engine,
                 FlowItem::Frame { frame, align, sticky: false, movable: true },
             )?;
         }
@@ -262,15 +269,18 @@ impl<'a> FlowLayouter<'a> {
     #[tracing::instrument(name = "FlowLayouter::layout_single", skip_all)]
     fn layout_single(
         &mut self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         content: &dyn Layout,
         styles: StyleChain,
     ) -> SourceResult<()> {
         let align = AlignElem::alignment_in(styles).resolve(styles);
         let sticky = BlockElem::sticky_in(styles);
         let pod = Regions::one(self.regions.base(), Axes::splat(false));
-        let frame = content.layout(vt, styles, pod)?.into_frame();
-        self.layout_item(vt, FlowItem::Frame { frame, align, sticky, movable: true })?;
+        let frame = content.layout(engine, styles, pod)?.into_frame();
+        self.layout_item(
+            engine,
+            FlowItem::Frame { frame, align, sticky, movable: true },
+        )?;
         self.last_was_par = false;
         Ok(())
     }
@@ -278,7 +288,7 @@ impl<'a> FlowLayouter<'a> {
     /// Layout a placed element.
     fn layout_placed(
         &mut self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         placed: &PlaceElem,
         styles: StyleChain,
     ) -> SourceResult<()> {
@@ -290,15 +300,15 @@ impl<'a> FlowLayouter<'a> {
             align.x().unwrap_or_default().resolve(styles)
         });
         let y_align = alignment.map(|align| align.y().map(VAlign::fix));
-        let frame = placed.layout(vt, styles, self.regions)?.into_frame();
+        let frame = placed.layout(engine, styles, self.regions)?.into_frame();
         let item = FlowItem::Placed { frame, x_align, y_align, delta, float, clearance };
-        self.layout_item(vt, item)
+        self.layout_item(engine, item)
     }
 
     /// Layout into multiple regions.
     fn layout_multiple(
         &mut self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         block: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
@@ -313,7 +323,7 @@ impl<'a> FlowLayouter<'a> {
 
         if self.regions.is_full() {
             // Skip directly if region is already full.
-            self.finish_region(vt)?;
+            self.finish_region(engine)?;
         }
 
         // How to align the block.
@@ -328,7 +338,7 @@ impl<'a> FlowLayouter<'a> {
 
         // Layout the block itself.
         let sticky = BlockElem::sticky_in(styles);
-        let fragment = block.layout(vt, styles, self.regions)?;
+        let fragment = block.layout(engine, styles, self.regions)?;
 
         for (i, frame) in fragment.into_iter().enumerate() {
             // Find footnotes in the frame.
@@ -337,14 +347,14 @@ impl<'a> FlowLayouter<'a> {
             }
 
             if i > 0 {
-                self.finish_region(vt)?;
+                self.finish_region(engine)?;
             }
 
             let item = FlowItem::Frame { frame, align, sticky, movable: false };
-            self.layout_item(vt, item)?;
+            self.layout_item(engine, item)?;
         }
 
-        self.try_handle_footnotes(vt, notes)?;
+        self.try_handle_footnotes(engine, notes)?;
 
         self.root = is_root;
         self.regions.root = false;
@@ -355,7 +365,11 @@ impl<'a> FlowLayouter<'a> {
 
     /// Layout a finished frame.
     #[tracing::instrument(name = "FlowLayouter::layout_item", skip_all)]
-    fn layout_item(&mut self, vt: &mut Vt, mut item: FlowItem) -> SourceResult<()> {
+    fn layout_item(
+        &mut self,
+        engine: &mut Engine,
+        mut item: FlowItem,
+    ) -> SourceResult<()> {
         match item {
             FlowItem::Absolute(v, weak) => {
                 if weak
@@ -372,7 +386,7 @@ impl<'a> FlowLayouter<'a> {
             FlowItem::Frame { ref frame, movable, .. } => {
                 let height = frame.height();
                 if !self.regions.size.y.fits(height) && !self.regions.in_last() {
-                    self.finish_region(vt)?;
+                    self.finish_region(engine)?;
                 }
 
                 self.regions.size.y -= height;
@@ -380,12 +394,12 @@ impl<'a> FlowLayouter<'a> {
                     let mut notes = Vec::new();
                     find_footnotes(&mut notes, frame);
                     self.items.push(item);
-                    if !self.handle_footnotes(vt, &mut notes, true, false)? {
+                    if !self.handle_footnotes(engine, &mut notes, true, false)? {
                         let item = self.items.pop();
-                        self.finish_region(vt)?;
+                        self.finish_region(engine)?;
                         self.items.extend(item);
                         self.regions.size.y -= height;
-                        self.handle_footnotes(vt, &mut notes, true, true)?;
+                        self.handle_footnotes(engine, &mut notes, true, true)?;
                     }
                     return Ok(());
                 }
@@ -429,7 +443,7 @@ impl<'a> FlowLayouter<'a> {
                 if self.root {
                     let mut notes = vec![];
                     find_footnotes(&mut notes, frame);
-                    self.try_handle_footnotes(vt, notes)?;
+                    self.try_handle_footnotes(engine, notes)?;
                 }
             }
             FlowItem::Footnote(_) => {}
@@ -440,7 +454,7 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Finish the frame for one region.
-    fn finish_region(&mut self, vt: &mut Vt) -> SourceResult<()> {
+    fn finish_region(&mut self, engine: &mut Engine) -> SourceResult<()> {
         // Trim weak spacing.
         while self
             .items
@@ -567,23 +581,23 @@ impl<'a> FlowLayouter<'a> {
 
         // Try to place floats.
         for item in std::mem::take(&mut self.pending_floats) {
-            self.layout_item(vt, item)?;
+            self.layout_item(engine, item)?;
         }
 
         Ok(())
     }
 
     /// Finish layouting and return the resulting fragment.
-    fn finish(mut self, vt: &mut Vt) -> SourceResult<Fragment> {
+    fn finish(mut self, engine: &mut Engine) -> SourceResult<Fragment> {
         if self.expand.y {
             while !self.regions.backlog.is_empty() {
-                self.finish_region(vt)?;
+                self.finish_region(engine)?;
             }
         }
 
-        self.finish_region(vt)?;
+        self.finish_region(engine)?;
         while !self.items.is_empty() {
-            self.finish_region(vt)?;
+            self.finish_region(engine)?;
         }
 
         Ok(Fragment::frames(self.finished))
@@ -593,12 +607,12 @@ impl<'a> FlowLayouter<'a> {
 impl FlowLayouter<'_> {
     fn try_handle_footnotes(
         &mut self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         mut notes: Vec<FootnoteElem>,
     ) -> SourceResult<()> {
-        if self.root && !self.handle_footnotes(vt, &mut notes, false, false)? {
-            self.finish_region(vt)?;
-            self.handle_footnotes(vt, &mut notes, false, true)?;
+        if self.root && !self.handle_footnotes(engine, &mut notes, false, false)? {
+            self.finish_region(engine)?;
+            self.handle_footnotes(engine, &mut notes, false, true)?;
         }
         Ok(())
     }
@@ -607,7 +621,7 @@ impl FlowLayouter<'_> {
     #[tracing::instrument(skip_all)]
     fn handle_footnotes(
         &mut self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         notes: &mut Vec<FootnoteElem>,
         movable: bool,
         force: bool,
@@ -624,14 +638,14 @@ impl FlowLayouter<'_> {
             }
 
             if !self.has_footnotes {
-                self.layout_footnote_separator(vt)?;
+                self.layout_footnote_separator(engine)?;
             }
 
             self.regions.size.y -= self.footnote_config.gap;
-            let checkpoint = vt.locator.clone();
+            let checkpoint = engine.locator.clone();
             let frames = FootnoteEntry::new(notes[k].clone())
                 .pack()
-                .layout(vt, self.styles, self.regions.with_root(false))?
+                .layout(engine, self.styles, self.regions.with_root(false))?
                 .into_frames();
 
             // If the entries didn't fit, abort (to keep footnote and entry
@@ -649,8 +663,8 @@ impl FlowLayouter<'_> {
                     self.regions.size.y -= item.height();
                 }
 
-                // Undo Vt modifications.
-                *vt.locator = checkpoint;
+                // Undo locator modifications.
+                *engine.locator = checkpoint;
 
                 return Ok(false);
             }
@@ -659,8 +673,8 @@ impl FlowLayouter<'_> {
             for (i, frame) in frames.into_iter().enumerate() {
                 find_footnotes(notes, &frame);
                 if i > 0 {
-                    self.finish_region(vt)?;
-                    self.layout_footnote_separator(vt)?;
+                    self.finish_region(engine)?;
+                    self.layout_footnote_separator(engine)?;
                     self.regions.size.y -= self.footnote_config.gap;
                 }
                 self.regions.size.y -= frame.height();
@@ -682,12 +696,12 @@ impl FlowLayouter<'_> {
 
     /// Layout and save the footnote separator, typically a line.
     #[tracing::instrument(skip_all)]
-    fn layout_footnote_separator(&mut self, vt: &mut Vt) -> SourceResult<()> {
+    fn layout_footnote_separator(&mut self, engine: &mut Engine) -> SourceResult<()> {
         let expand = Axes::new(self.regions.expand.x, false);
         let pod = Regions::one(self.regions.base(), expand);
         let separator = &self.footnote_config.separator;
 
-        let mut frame = separator.layout(vt, self.styles, pod)?.into_frame();
+        let mut frame = separator.layout(engine, self.styles, pod)?.into_frame();
         frame.size_mut().y += self.footnote_config.clearance;
         frame.translate(Point::with_y(self.footnote_config.clearance));
 

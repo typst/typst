@@ -1,11 +1,12 @@
 use ecow::{eco_format, EcoString};
 
 use crate::diag::{At, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Content, Label, NativeElement, Repr, Show, Smart, StyleChain,
 };
 use crate::introspection::Location;
-use crate::layout::{Position, Vt};
+use crate::layout::Position;
 use crate::text::{Hyphenate, TextElem};
 
 /// Links to a URL or a location in the document.
@@ -89,14 +90,14 @@ impl LinkElem {
 }
 
 impl Show for LinkElem {
-    #[tracing::instrument(name = "LinkElem::show", skip(self, vt))]
-    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    #[tracing::instrument(name = "LinkElem::show", skip(self, engine))]
+    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         let body = self.body().clone();
         let linked = match self.dest() {
             LinkTarget::Dest(dest) => body.linked(dest.clone()),
-            LinkTarget::Label(label) => vt
-                .delayed(|vt| {
-                    let elem = vt.introspector.query_label(*label).at(self.span())?;
+            LinkTarget::Label(label) => engine
+                .delayed(|engine| {
+                    let elem = engine.introspector.query_label(*label).at(self.span())?;
                     let dest = Destination::Location(elem.location().unwrap());
                     Ok(Some(body.clone().linked(dest)))
                 })

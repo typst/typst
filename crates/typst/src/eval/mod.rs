@@ -26,9 +26,9 @@ pub(crate) use self::flow::*;
 use comemo::{Track, Tracked, TrackedMut};
 
 use crate::diag::{bail, SourceResult};
+use crate::engine::{Engine, Route};
 use crate::foundations::{Cast, Module, NativeElement, Scope, Scopes, Value};
 use crate::introspection::{Introspector, Locator};
-use crate::layout::Vt;
 use crate::math::EquationElem;
 use crate::syntax::{ast, parse, parse_code, parse_math, Source, Span};
 use crate::World;
@@ -48,22 +48,23 @@ pub fn eval(
         panic!("Tried to cyclicly evaluate {:?}", id.vpath());
     }
 
-    // Prepare VT.
+    // Prepare the engine.
     let mut locator = Locator::new();
     let introspector = Introspector::default();
-    let vt = Vt {
+    let engine = Engine {
         world,
+        route: Route::insert(route, id),
         introspector: introspector.track(),
         locator: &mut locator,
         tracer,
     };
 
     // Prepare VM.
-    let route = Route::insert(route, id);
-    let scopes = Scopes::new(Some(world.library()));
-    let mut vm = Vm::new(vt, route.track(), Some(id), scopes);
-
     let root = source.root();
+    let scopes = Scopes::new(Some(world.library()));
+    let mut vm = Vm::new(engine, scopes, root.span());
+
+    // Check for well-formedness unless we are in trace mode.
     let errors = root.errors();
     if !errors.is_empty() && vm.inspected.is_none() {
         return Err(errors.into_iter().map(Into::into).collect());
@@ -108,26 +109,27 @@ pub fn eval_string(
 
     root.synthesize(span);
 
+    // Check for well-formedness.
     let errors = root.errors();
     if !errors.is_empty() {
         return Err(errors.into_iter().map(Into::into).collect());
     }
 
-    // Prepare VT.
+    // Prepare the engine.
     let mut tracer = Tracer::new();
     let mut locator = Locator::new();
     let introspector = Introspector::default();
-    let vt = Vt {
+    let engine = Engine {
         world,
         introspector: introspector.track(),
+        route: Route::default(),
         locator: &mut locator,
         tracer: tracer.track_mut(),
     };
 
     // Prepare VM.
-    let route = Route::default();
     let scopes = Scopes::new(Some(world.library()));
-    let mut vm = Vm::new(vt, route.track(), None, scopes);
+    let mut vm = Vm::new(engine, scopes, root.span());
     vm.scopes.scopes.push(scope);
 
     // Evaluate the code.

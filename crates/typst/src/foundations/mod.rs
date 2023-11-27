@@ -60,6 +60,7 @@ pub use self::ty::*;
 pub use self::value::*;
 pub use self::version::*;
 
+#[rustfmt::skip]
 #[doc(hidden)]
 pub use {
     ecow::{eco_format, eco_vec},
@@ -70,7 +71,8 @@ pub use {
 use ecow::EcoString;
 
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::eval::{EvalMode, Vm};
+use crate::engine::Engine;
+use crate::eval::EvalMode;
 use crate::syntax::Spanned;
 
 /// Foundational types and functions.
@@ -251,8 +253,8 @@ impl assert {
 /// ```
 #[func(title = "Evaluate")]
 pub fn eval(
-    /// The virtual machine.
-    vm: &mut Vm,
+    /// The engine.
+    engine: &mut Engine,
     /// A string of Typst code to evaluate.
     ///
     /// The code in the string cannot interact with the file system.
@@ -289,5 +291,5 @@ pub fn eval(
     for (key, value) in dict {
         scope.define(key, value);
     }
-    crate::eval::eval_string(vm.world(), &text, span, mode, scope)
+    crate::eval::eval_string(engine.world, &text, span, mode, scope)
 }

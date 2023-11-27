@@ -14,13 +14,14 @@ use comemo::{Prehashed, Tracked};
 use ecow::EcoString;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, func, scope, Bytes, Cast, Content, NativeElement, Resolve, Smart,
     StyleChain,
 };
 use crate::layout::{
     Abs, Axes, FixedAlign, Fragment, Frame, FrameItem, Layout, Length, Point, Regions,
-    Rel, Size, Vt,
+    Rel, Size,
 };
 use crate::loading::Readable;
 use crate::model::Figurable;
@@ -57,8 +58,8 @@ pub struct ImageElem {
     #[parse(
         let Spanned { v: path, span } =
             args.expect::<Spanned<EcoString>>("path to image file")?;
-        let id = vm.resolve_path(&path).at(span)?;
-        let data = vm.world().file(id).at(span)?;
+        let id = span.resolve_path(&path).at(span)?;
+        let data = engine.world.file(id).at(span)?;
         path
     )]
     #[borrowed]
@@ -145,7 +146,7 @@ impl Layout for ImageElem {
     #[tracing::instrument(name = "ImageElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -181,7 +182,7 @@ impl Layout for ImageElem {
             data.clone().into(),
             format,
             self.alt(styles),
-            vt.world,
+            engine.world,
             &families(styles).map(|s| s.into()).collect::<Vec<_>>(),
         )
         .at(self.span())?;

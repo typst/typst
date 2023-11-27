@@ -10,7 +10,7 @@ use serde::{Serialize, Serializer};
 use smallvec::smallvec;
 
 use crate::diag::{SourceResult, StrResult};
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{
     elem, func, scope, ty, Dict, Element, FromValue, Guard, IntoValue, Label,
     NativeElement, Recipe, Repr, Selector, Str, Style, Styles, Value,
@@ -299,16 +299,19 @@ impl Content {
     /// Access the child and styles.
     pub fn to_styled(&self) -> Option<(&Content, &Styles)> {
         let styled = self.to::<StyledElem>()?;
-
         let child = styled.child();
         let styles = styled.styles();
         Some((child, styles))
     }
 
     /// Style this content with a recipe, eagerly applying it if possible.
-    pub fn styled_with_recipe(self, vm: &mut Vm, recipe: Recipe) -> SourceResult<Self> {
+    pub fn styled_with_recipe(
+        self,
+        engine: &mut Engine,
+        recipe: Recipe,
+    ) -> SourceResult<Self> {
         if recipe.selector.is_none() {
-            recipe.apply_vm(vm, self)
+            recipe.apply(engine, self)
         } else {
             Ok(self.styled(recipe))
         }

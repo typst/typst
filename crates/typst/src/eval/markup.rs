@@ -43,7 +43,7 @@ fn eval_markup<'a>(
                 }
 
                 let tail = eval_markup(vm, exprs)?;
-                seq.push(tail.styled_with_recipe(vm, recipe)?)
+                seq.push(tail.styled_with_recipe(&mut vm.engine, recipe)?)
             }
             expr => match expr.eval(vm)? {
                 Value::Label(label) => {
@@ -139,7 +139,7 @@ impl Eval for ast::Strong<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let body = self.body();
         if body.exprs().next().is_none() {
-            vm.vt
+            vm.engine
                 .tracer
                 .warn(warning!(
                     self.span(), "no text within stars";
@@ -158,7 +158,7 @@ impl Eval for ast::Emph<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let body = self.body();
         if body.exprs().next().is_none() {
-            vm.vt
+            vm.engine
                 .tracer
                 .warn(warning!(
                     self.span(), "no text within underscores";

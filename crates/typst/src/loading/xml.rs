@@ -1,7 +1,7 @@
 use ecow::EcoString;
 
 use crate::diag::{format_xml_like_error, At, FileError, SourceResult};
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{dict, func, scope, Array, Dict, IntoValue, Str, Value};
 use crate::loading::Readable;
 use crate::syntax::Spanned;
@@ -57,14 +57,14 @@ use crate::World;
 /// ```
 #[func(scope, title = "XML")]
 pub fn xml(
-    /// The virtual machine.
-    vm: &mut Vm,
+    /// The engine.
+    engine: &mut Engine,
     /// Path to an XML file.
     path: Spanned<EcoString>,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let id = vm.resolve_path(&path).at(span)?;
-    let data = vm.world().file(id).at(span)?;
+    let id = span.resolve_path(&path).at(span)?;
+    let data = engine.world.file(id).at(span)?;
     xml::decode(Spanned::new(Readable::Bytes(data), span))
 }
 

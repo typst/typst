@@ -57,7 +57,7 @@ fn bench_edit(iai: &mut Iai) {
 
 fn bench_eval(iai: &mut Iai) {
     let world = BenchWorld::new();
-    let route = typst::eval::Route::default();
+    let route = typst::engine::Route::default();
     let mut tracer = typst::eval::Tracer::new();
     iai.run(|| {
         typst::eval::eval(world.track(), route.track(), tracer.track_mut(), &world.source)

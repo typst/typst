@@ -35,6 +35,7 @@ use rustybuzz::{Feature, Tag};
 use ttf_parser::Rect;
 
 use crate::diag::{bail, SourceResult, StrResult};
+use crate::engine::Engine;
 use crate::eval::Vm;
 use crate::foundations::{
     cast, category, elem, Args, Array, Cast, Category, Construct, Content, Dict, Fold,
@@ -654,11 +655,11 @@ impl Repr for TextElem {
 }
 
 impl Construct for TextElem {
-    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(engine: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         // The text constructor is special: It doesn't create a text element.
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
-        let styles = Self::set(vm, args)?;
+        let styles = Self::set(engine, args)?;
         let body = args.expect::<Content>("body")?;
         Ok(body.styled_with_map(styles))
     }

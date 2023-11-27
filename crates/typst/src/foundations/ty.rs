@@ -8,6 +8,7 @@ use crate::diag::StrResult;
 use crate::foundations::{cast, func, Func, NativeFuncData, Repr, Scope, Value};
 use crate::util::Static;
 
+#[rustfmt::skip]
 #[doc(inline)]
 pub use typst_macros::{scope, ty};
 

@@ -1,6 +1,7 @@
 use std::num::NonZeroUsize;
 
 use crate::diag::{bail, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{
     elem, Content, Finalize, Guard, NativeElement, Resolve, Show, Smart, StyleChain,
     Synthesize,
@@ -8,7 +9,7 @@ use crate::foundations::{
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
     Abs, Align, AlignElem, Axes, Dir, Em, FixedAlign, Fragment, Layout, Point, Regions,
-    Size, Vt,
+    Size,
 };
 use crate::math::{LayoutMath, MathContext};
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
@@ -88,12 +89,18 @@ pub struct EquationElem {
 }
 
 impl Synthesize for EquationElem {
-    fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+    fn synthesize(
+        &mut self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
         // Resolve the supplement.
         let supplement = match self.supplement(styles) {
             Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
-            Smart::Custom(Some(supplement)) => supplement.resolve(vt, [self.clone()])?,
+            Smart::Custom(Some(supplement)) => {
+                supplement.resolve(engine, [self.clone()])?
+            }
         };
 
         self.push_block(self.block(styles));
@@ -106,7 +113,7 @@ impl Synthesize for EquationElem {
 
 impl Show for EquationElem {
     #[tracing::instrument(name = "EquationElem::show", skip_all)]
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.clone().pack().guarded(Guard::Base(Self::elem()));
         if self.block(styles) {
             realized = AlignElem::new(realized).pack();
@@ -133,7 +140,7 @@ impl Layout for EquationElem {
     #[tracing::instrument(name = "EquationElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
@@ -143,7 +150,7 @@ impl Layout for EquationElem {
 
         // Find a math font.
         let variant = variant(styles);
-        let world = vt.world;
+        let world = engine.world;
         let Some(font) = families(styles).find_map(|family| {
             let id = world.book().select(family, variant)?;
             let font = world.font(id)?;
@@ -153,7 +160,7 @@ impl Layout for EquationElem {
             bail!(self.span(), "current font does not support math");
         };
 
-        let mut ctx = MathContext::new(vt, styles, regions, &font, block);
+        let mut ctx = MathContext::new(engine, styles, regions, &font, block);
         let mut frame = ctx.layout_frame(self)?;
 
         if block {
@@ -161,7 +168,7 @@ impl Layout for EquationElem {
                 let pod = Regions::one(regions.base(), Axes::splat(false));
                 let counter = Counter::of(Self::elem())
                     .display(Some(numbering), false)
-                    .layout(vt, styles, pod)?
+                    .layout(engine, styles, pod)?
                     .into_frame();
 
                 let full_counter_width = counter.width() + NUMBER_GUTTER.resolve(styles);
@@ -274,7 +281,7 @@ impl Refable for EquationElem {
 }
 
 impl Outlinable for EquationElem {
-    fn outline(&self, vt: &mut Vt) -> SourceResult<Option<Content>> {
+    fn outline(&self, engine: &mut Engine) -> SourceResult<Option<Content>> {
         if !self.block(StyleChain::default()) {
             return Ok(None);
         }
@@ -294,8 +301,8 @@ impl Outlinable for EquationElem {
 
         let numbers = self
             .counter()
-            .at(vt, self.location().unwrap())?
-            .display(vt, &numbering)?;
+            .at(engine, self.location().unwrap())?
+            .display(engine, &numbering)?;
 
         Ok(Some(supplement + numbers))
     }

@@ -1,4 +1,4 @@
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{func, Array, LocatableSelector, Value};
 use crate::introspection::Location;
 
@@ -129,8 +129,8 @@ use crate::introspection::Location;
 /// ```
 #[func]
 pub fn query(
-    /// The virtual machine.
-    vm: &mut Vm,
+    /// The engine.
+    engine: &mut Engine,
     /// Can be an element function like a `heading` or `figure`, a `{<label>}`
     /// or a more complex selector like `{heading.where(level: 1)}`.
     ///
@@ -152,7 +152,7 @@ pub fn query(
     location: Location,
 ) -> Array {
     let _ = location;
-    let vec = vm.vt.introspector.query(&target.0);
+    let vec = engine.introspector.query(&target.0);
     vec.into_iter()
         .map(|elem| Value::Content(elem.into_inner()))
         .collect()

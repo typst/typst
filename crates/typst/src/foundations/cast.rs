@@ -12,6 +12,7 @@ use crate::diag::{At, SourceResult, StrResult};
 use crate::foundations::{repr, Repr, Type, Value};
 use crate::syntax::{Span, Spanned};
 
+#[rustfmt::skip]
 #[doc(inline)]
 pub use typst_macros::{cast, Cast};
 

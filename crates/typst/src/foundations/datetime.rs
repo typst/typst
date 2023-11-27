@@ -8,7 +8,7 @@ use time::macros::format_description;
 use time::{format_description, Month, PrimitiveDateTime};
 
 use crate::diag::{bail, StrResult};
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{
     cast, func, repr, scope, ty, Dict, Duration, Repr, Smart, Str, Value,
 };
@@ -296,16 +296,15 @@ impl Datetime {
     /// ```
     #[func]
     pub fn today(
-        /// The virtual machine.
-        vm: &mut Vm,
+        /// The engine.
+        engine: &mut Engine,
         /// An offset to apply to the current UTC date. If set to `{auto}`, the
         /// offset will be the local offset.
         #[named]
         #[default]
         offset: Smart<i64>,
     ) -> StrResult<Datetime> {
-        Ok(vm
-            .vt
+        Ok(engine
             .world
             .today(offset.as_custom())
             .ok_or("unable to get the current date")?)

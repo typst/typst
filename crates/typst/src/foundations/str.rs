@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{
-    cast, dict, func, repr, scope, ty, Args, Array, Bytes, Dict, Func, IntoValue, Label,
-    Repr, Type, Value, Version,
+    cast, dict, func, repr, scope, ty, Array, Bytes, Dict, Func, IntoValue, Label, Repr,
+    Type, Value, Version,
 };
 use crate::layout::Align;
 use crate::syntax::{Span, Spanned};
@@ -422,8 +422,8 @@ impl Str {
     #[func]
     pub fn replace(
         &self,
-        /// The virtual machine.
-        vm: &mut Vm,
+        /// The engine.
+        engine: &mut Engine,
         /// The pattern to search for.
         pattern: StrPattern,
         /// The string to replace the matches with or a function that gets a
@@ -449,8 +449,8 @@ impl Str {
             match &replacement {
                 Replacement::Str(s) => output.push_str(s),
                 Replacement::Func(func) => {
-                    let args = Args::new(func.span(), [dict.into_value()]);
-                    let piece = func.call_vm(vm, args)?.cast::<Str>().at(func.span())?;
+                    let piece =
+                        func.call(engine, [dict])?.cast::<Str>().at(func.span())?;
                     output.push_str(&piece);
                 }
             }
