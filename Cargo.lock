@@ -385,23 +385,23 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
 name = "comemo"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28a097f142aeb5b03af73595536cd55f5d649fca4d656379aac86b3af133cf92"
+checksum = "bf5705468fa80602ee6a5f9318306e6c428bffd53e43209a78bc05e6e667c6f4"
 dependencies = [
  "comemo-macros",
- "siphasher",
+ "siphasher 1.0.0",
 ]
 
 [[package]]
 name = "comemo-macros"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "168cc09917f6a014a4cf6ed166d1b541a20a768c60f9cc348f25203ee8312940"
+checksum = "54af6ac68ada2d161fa9cc1ab52676228e340866d094d6542107e74b82acc095"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.38",
 ]
 
 [[package]]
@@ -2155,6 +2155,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 
 [[package]]
+name = "siphasher"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54ac45299ccbd390721be55b412d41931911f654fa99e2cb8bfb57184b2061fe"
+
+[[package]]
 name = "slotmap"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2262,7 +2268,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d71499ff2d42f59d26edb21369a308ede691421f79ebc0f001e2b1fd3a7c9e52"
 dependencies = [
  "kurbo",
- "siphasher",
+ "siphasher 0.3.11",
 ]
 
 [[package]]
@@ -2628,7 +2634,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml 0.9.27",
- "siphasher",
+ "siphasher 1.0.0",
  "smallvec",
  "stacker",
  "syntect",
@@ -2675,7 +2681,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml 0.9.27",
- "siphasher",
+ "siphasher 1.0.0",
  "tar",
  "tempfile",
  "tracing",
@@ -3010,7 +3016,7 @@ dependencies = [
  "log",
  "roxmltree",
  "simplecss",
- "siphasher",
+ "siphasher 0.3.11",
  "svgtypes",
  "usvg-tree",
 ]
