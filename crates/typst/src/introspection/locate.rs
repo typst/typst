@@ -1,7 +1,7 @@
 use crate::diag::SourceResult;
+use crate::engine::Engine;
 use crate::foundations::{elem, func, Content, Func, NativeElement, Show, StyleChain};
 use crate::introspection::Locatable;
-use crate::layout::Vt;
 
 /// Provides access to the location of content.
 ///
@@ -37,11 +37,11 @@ struct LocateElem {
 }
 
 impl Show for LocateElem {
-    #[tracing::instrument(name = "LocateElem::show", skip(self, vt))]
-    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
-        Ok(vt.delayed(|vt| {
+    #[tracing::instrument(name = "LocateElem::show", skip(self, engine))]
+    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+        Ok(engine.delayed(|engine| {
             let location = self.location().unwrap();
-            Ok(self.func().call_vt(vt, [location])?.display())
+            Ok(self.func().call(engine, [location])?.display())
         }))
     }
 }

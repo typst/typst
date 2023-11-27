@@ -1,9 +1,10 @@
 use crate::diag::SourceResult;
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Content, Finalize, Label, NativeElement, Show, Smart, StyleChain,
     Synthesize,
 };
-use crate::layout::{Align, BlockElem, Em, HElem, PadElem, Spacing, VElem, Vt};
+use crate::layout::{Align, BlockElem, Em, HElem, PadElem, Spacing, VElem};
 use crate::model::{CitationForm, CiteElem};
 use crate::text::{SmartQuoteElem, SpaceElem, TextElem};
 
@@ -145,7 +146,7 @@ cast! {
 }
 
 impl Synthesize for QuoteElem {
-    fn synthesize(&mut self, _: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         self.push_block(self.block(styles));
         self.push_quotes(self.quotes(styles));
         Ok(())
@@ -153,7 +154,7 @@ impl Synthesize for QuoteElem {
 }
 
 impl Show for QuoteElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
         let block = self.block(styles);
 

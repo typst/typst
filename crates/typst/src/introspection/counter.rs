@@ -6,6 +6,7 @@ use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{At, SourceResult, StrResult};
+use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Array, Content, Element, Func, IntoValue,
@@ -13,7 +14,7 @@ use crate::foundations::{
     Value,
 };
 use crate::introspection::{Introspector, Locatable, Location, Locator, Meta};
-use crate::layout::{Frame, FrameItem, PageElem, Vt};
+use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
 use crate::model::{FigureElem, HeadingElem, Numbering, NumberingPattern};
 use crate::util::NonZeroExt;
@@ -222,9 +223,13 @@ impl Counter {
     }
 
     /// Gets the current and final value of the state combined in one state.
-    pub fn both(&self, vt: &mut Vt, location: Location) -> SourceResult<CounterState> {
-        let sequence = self.sequence(vt)?;
-        let offset = vt
+    pub fn both(
+        &self,
+        engine: &mut Engine,
+        location: Location,
+    ) -> SourceResult<CounterState> {
+        let sequence = self.sequence(engine)?;
+        let offset = engine
             .introspector
             .query(&self.selector().before(location.into(), true))
             .len();
@@ -232,10 +237,10 @@ impl Counter {
         let (mut final_state, final_page) = sequence.last().unwrap().clone();
         if self.is_page() {
             let at_delta =
-                vt.introspector.page(location).get().saturating_sub(at_page.get());
+                engine.introspector.page(location).get().saturating_sub(at_page.get());
             at_state.step(NonZeroUsize::ONE, at_delta);
             let final_delta =
-                vt.introspector.pages().get().saturating_sub(final_page.get());
+                engine.introspector.pages().get().saturating_sub(final_page.get());
             final_state.step(NonZeroUsize::ONE, final_delta);
         }
         Ok(CounterState(smallvec![at_state.first(), final_state.first()]))
@@ -247,13 +252,14 @@ impl Counter {
     /// of counter updates from quadratic to linear.
     fn sequence(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
         self.sequence_impl(
-            vt.world,
-            vt.introspector,
-            vt.locator.track(),
-            TrackedMut::reborrow_mut(&mut vt.tracer),
+            engine.world,
+            engine.introspector,
+            engine.route.track(),
+            engine.locator.track(),
+            TrackedMut::reborrow_mut(&mut engine.tracer),
         )
     }
 
@@ -263,11 +269,18 @@ impl Counter {
         &self,
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
+        route: Tracked<Route>,
         locator: Tracked<Locator>,
         tracer: TrackedMut<Tracer>,
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
         let mut locator = Locator::chained(locator);
-        let mut vt = Vt { world, introspector, locator: &mut locator, tracer };
+        let mut engine = Engine {
+            world,
+            introspector,
+            route: Route::extend(route),
+            locator: &mut locator,
+            tracer,
+        };
 
         let mut state = CounterState::init(&self.0);
         let mut page = NonZeroUsize::ONE;
@@ -288,7 +301,7 @@ impl Counter {
                 Some(countable) => countable.update(),
                 None => Some(CounterUpdate::Step(NonZeroUsize::ONE)),
             } {
-                state.update(&mut vt, update)?;
+                state.update(&mut engine, update)?;
             }
 
             stops.push((state.clone(), page));
@@ -399,21 +412,22 @@ impl Counter {
     #[func]
     pub fn at(
         &self,
-        /// The virtual typesetter.
-        vt: &mut Vt,
+        /// The engine.
+        engine: &mut Engine,
         /// The location at which the counter value should be retrieved. A
         /// suitable location can be retrieved from [`locate`]($locate) or
         /// [`query`]($query).
         location: Location,
     ) -> SourceResult<CounterState> {
-        let sequence = self.sequence(vt)?;
-        let offset = vt
+        let sequence = self.sequence(engine)?;
+        let offset = engine
             .introspector
             .query(&self.selector().before(location.into(), true))
             .len();
         let (mut state, page) = sequence[offset].clone();
         if self.is_page() {
-            let delta = vt.introspector.page(location).get().saturating_sub(page.get());
+            let delta =
+                engine.introspector.page(location).get().saturating_sub(page.get());
             state.step(NonZeroUsize::ONE, delta);
         }
 
@@ -425,8 +439,8 @@ impl Counter {
     #[func]
     pub fn final_(
         &self,
-        /// The virtual typesetter.
-        vt: &mut Vt,
+        /// The engine.
+        engine: &mut Engine,
         /// Can be an arbitrary location, as its value is irrelevant for the
         /// method's return value. Why is it required then? Typst has to
         /// evaluate parts of your code multiple times to determine all counter
@@ -438,10 +452,10 @@ impl Counter {
         location: Location,
     ) -> SourceResult<CounterState> {
         let _ = location;
-        let sequence = self.sequence(vt)?;
+        let sequence = self.sequence(engine)?;
         let (mut state, page) = sequence.last().unwrap().clone();
         if self.is_page() {
-            let delta = vt.introspector.pages().get().saturating_sub(page.get());
+            let delta = engine.introspector.pages().get().saturating_sub(page.get());
             state.step(NonZeroUsize::ONE, delta);
         }
         Ok(state)
@@ -544,12 +558,17 @@ impl CounterState {
     }
 
     /// Advance the counter and return the numbers for the given heading.
-    pub fn update(&mut self, vt: &mut Vt, update: CounterUpdate) -> SourceResult<()> {
+    pub fn update(
+        &mut self,
+        engine: &mut Engine,
+        update: CounterUpdate,
+    ) -> SourceResult<()> {
         match update {
             CounterUpdate::Set(state) => *self = state,
             CounterUpdate::Step(level) => self.step(level, 1),
             CounterUpdate::Func(func) => {
-                *self = func.call_vt(vt, self.0.iter().copied())?.cast().at(func.span())?
+                *self =
+                    func.call(engine, self.0.iter().copied())?.cast().at(func.span())?
             }
         }
         Ok(())
@@ -575,8 +594,12 @@ impl CounterState {
     }
 
     /// Display the counter state with a numbering.
-    pub fn display(&self, vt: &mut Vt, numbering: &Numbering) -> SourceResult<Content> {
-        Ok(numbering.apply_vt(vt, &self.0)?.display())
+    pub fn display(
+        &self,
+        engine: &mut Engine,
+        numbering: &Numbering,
+    ) -> SourceResult<Content> {
+        Ok(numbering.apply(engine, &self.0)?.display())
     }
 }
 
@@ -608,8 +631,8 @@ struct DisplayElem {
 
 impl Show for DisplayElem {
     #[tracing::instrument(name = "DisplayElem::show", skip_all)]
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(vt.delayed(|vt| {
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        Ok(engine.delayed(|engine| {
             let location = self.location().unwrap();
             let counter = self.counter();
             let numbering = self
@@ -633,12 +656,12 @@ impl Show for DisplayElem {
                 .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
 
             let state = if *self.both() {
-                counter.both(vt, location)?
+                counter.both(engine, location)?
             } else {
-                counter.at(vt, location)?
+                counter.at(engine, location)?
             };
 
-            state.display(vt, &numbering)
+            state.display(engine, &numbering)
         }))
     }
 }
@@ -657,7 +680,7 @@ struct UpdateElem {
 
 impl Show for UpdateElem {
     #[tracing::instrument(name = "UpdateElem::show", skip(self))]
-    fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }
 }
@@ -693,15 +716,15 @@ impl ManualPageCounter {
     }
 
     /// Advance past a page.
-    pub fn visit(&mut self, vt: &mut Vt, page: &Frame) -> SourceResult<()> {
+    pub fn visit(&mut self, engine: &mut Engine, page: &Frame) -> SourceResult<()> {
         for (_, item) in page.items() {
             match item {
-                FrameItem::Group(group) => self.visit(vt, &group.frame)?,
+                FrameItem::Group(group) => self.visit(engine, &group.frame)?,
                 FrameItem::Meta(Meta::Elem(elem), _) => {
                     let Some(elem) = elem.to::<UpdateElem>() else { continue };
                     if *elem.key() == CounterKey::Page {
                         let mut state = CounterState(smallvec![self.logical]);
-                        state.update(vt, elem.update().clone())?;
+                        state.update(engine, elem.update().clone())?;
                         self.logical = state.first();
                     }
                 }

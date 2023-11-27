@@ -10,7 +10,7 @@ use palette::{
     Darken, Desaturate, FromColor, Lighten, Okhsva, OklabHue, RgbHue, Saturate, ShiftHue,
 };
 
-use crate::diag::{bail, error, At, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
     array, cast, func, repr, scope, ty, Args, Array, IntoValue, Module, Repr, Scope, Str,
     Value,
@@ -922,8 +922,10 @@ impl Color {
     ) -> SourceResult<Color> {
         Ok(match self {
             Self::Luma(_) => {
-                bail!(error!(span, "cannot saturate grayscale color")
-                    .with_hint("try converting your color to RGB first"));
+                bail!(
+                    span, "cannot saturate grayscale color";
+                    hint: "try converting your color to RGB first"
+                );
             }
             Self::Oklab(_) => self.to_hsv().saturate(span, factor)?.to_oklab(),
             Self::Oklch(_) => self.to_hsv().saturate(span, factor)?.to_oklch(),
@@ -946,8 +948,10 @@ impl Color {
     ) -> SourceResult<Color> {
         Ok(match self {
             Self::Luma(_) => {
-                bail!(error!(span, "cannot desaturate grayscale color")
-                    .with_hint("try converting your color to RGB first"));
+                bail!(
+                    span, "cannot desaturate grayscale color";
+                    hint: "try converting your color to RGB first"
+                );
             }
             Self::Oklab(_) => self.to_hsv().desaturate(span, factor)?.to_oklab(),
             Self::Oklch(_) => self.to_hsv().desaturate(span, factor)?.to_oklch(),

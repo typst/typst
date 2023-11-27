@@ -55,19 +55,18 @@ fn resolve_known(head: &str) -> Option<&'static str> {
 fn resolve_definition(head: &str) -> StrResult<String> {
     let mut parts = head.trim_start_matches('$').split('.').peekable();
     let mut focus = &LIBRARY.global;
+    let mut category = None;
 
-    let Some(name) = parts.peek() else {
-        bail!("missing first link component");
-    };
-
-    let Some(category) = focus.scope().get_category(name) else {
-        bail!("{name} has no category");
-    };
-
-    while let Some(m) = parts.peek().and_then(|&name| get_module(focus, name).ok()) {
-        focus = m;
+    while let Some(name) = parts.peek() {
+        if category.is_none() {
+            category = focus.scope().get_category(name);
+        }
+        let Ok(module) = get_module(focus, name) else { break };
+        focus = module;
         parts.next();
     }
+
+    let Some(category) = category else { bail!("{head} has no category") };
 
     let name = parts.next().ok_or("link is missing first part")?;
     let value = focus.field(name)?;

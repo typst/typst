@@ -65,3 +65,6 @@ wasmi = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 stacker = { workspace = true }
+
+[lints]
+workspace = true

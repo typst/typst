@@ -40,6 +40,7 @@ extern crate self as typst;
 #[macro_use]
 pub mod util;
 pub mod diag;
+pub mod engine;
 pub mod eval;
 pub mod foundations;
 pub mod introspection;
@@ -62,12 +63,13 @@ use comemo::{Prehashed, Track, Tracked, Validate};
 use ecow::{EcoString, EcoVec};
 
 use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
-use crate::eval::{Route, Tracer};
+use crate::engine::{Engine, Route};
+use crate::eval::Tracer;
 use crate::foundations::{
     Array, Bytes, Content, Datetime, Module, Scope, StyleChain, Styles,
 };
 use crate::introspection::{Introspector, Locator};
-use crate::layout::{Align, Dir, LayoutRoot, Vt};
+use crate::layout::{Align, Dir, LayoutRoot};
 use crate::model::Document;
 use crate::syntax::{FileId, PackageSpec, Source, Span};
 use crate::text::{Font, FontBook};
@@ -122,15 +124,17 @@ fn typeset(
 
         let constraint = <Introspector as Validate>::Constraint::new();
         let mut locator = Locator::new();
-        let mut vt = Vt {
+        let mut engine = Engine {
             world,
+            route: Route::default(),
             tracer: tracer.track_mut(),
             locator: &mut locator,
             introspector: introspector.track_with(&constraint),
         };
 
         // Layout!
-        document = content.layout_root(&mut vt, styles)?;
+        document = content.layout_root(&mut engine, styles)?;
+
         introspector = Introspector::new(&document.pages);
         iter += 1;
 
@@ -139,10 +143,10 @@ fn typeset(
         }
 
         if iter >= 5 {
-            tracer.warn(
-                warning!(Span::detached(), "layout did not converge within 5 attempts",)
-                    .with_hint("check if any states or queries are updating themselves"),
-            );
+            tracer.warn(warning!(
+                Span::detached(), "layout did not converge within 5 attempts";
+                hint: "check if any states or queries are updating themselves"
+            ));
             break;
         }
     }
@@ -271,6 +275,7 @@ fn global(math: Module) -> Module {
     self::foundations::define(&mut global);
     self::model::define(&mut global);
     self::text::define(&mut global);
+    global.reset_category();
     global.define_module(math);
     self::layout::define(&mut global);
     self::visualize::define(&mut global);

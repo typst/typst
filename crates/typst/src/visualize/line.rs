@@ -1,7 +1,8 @@
 use crate::diag::{bail, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{elem, NativeElement, StyleChain};
 use crate::layout::{
-    Abs, Angle, Axes, Fragment, Frame, FrameItem, Layout, Length, Regions, Rel, Size, Vt,
+    Abs, Angle, Axes, Fragment, Frame, FrameItem, Layout, Length, Regions, Rel, Size,
 };
 use crate::util::Numeric;
 use crate::visualize::{Geometry, Stroke};
@@ -61,7 +62,7 @@ impl Layout for LineElem {
     #[tracing::instrument(name = "LineElem::layout", skip_all)]
     fn layout(
         &self,
-        _: &mut Vt,
+        _: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {

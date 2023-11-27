@@ -1,8 +1,9 @@
 use crate::diag::SourceResult;
+use crate::engine::Engine;
 use crate::foundations::{elem, Content, Resolve, StyleChain};
 use crate::layout::{
     Abs, Align, Angle, Axes, FixedAlign, Fragment, HAlign, Layout, Length, Ratio,
-    Regions, Rel, VAlign, Vt,
+    Regions, Rel, VAlign,
 };
 
 /// Moves content without affecting layout.
@@ -40,12 +41,12 @@ impl Layout for MoveElem {
     #[tracing::instrument(name = "MoveElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.base(), Axes::splat(false));
-        let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
+        let mut frame = self.body().layout(engine, styles, pod)?.into_frame();
         let delta = Axes::new(self.dx(styles), self.dy(styles)).resolve(styles);
         let delta = delta.zip_map(regions.base(), Rel::relative_to);
         frame.translate(delta.to_point());
@@ -106,12 +107,12 @@ impl Layout for RotateElem {
     #[tracing::instrument(name = "RotateElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.base(), Axes::splat(false));
-        let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
+        let mut frame = self.body().layout(engine, styles, pod)?.into_frame();
         let Axes { x, y } = self
             .origin(styles)
             .resolve(styles)
@@ -171,12 +172,12 @@ impl Layout for ScaleElem {
     #[tracing::instrument(name = "ScaleElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.base(), Axes::splat(false));
-        let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
+        let mut frame = self.body().layout(engine, styles, pod)?.into_frame();
         let Axes { x, y } = self
             .origin(styles)
             .resolve(styles)

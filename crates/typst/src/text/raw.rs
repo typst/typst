@@ -10,12 +10,12 @@ use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{At, FileError, SourceResult, StrResult};
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Args, Array, Bytes, Content, Finalize, Fold, NativeElement,
     PlainText, Show, Smart, StyleChain, Styles, Synthesize, Value,
 };
-use crate::layout::{BlockElem, Em, HAlign, Vt};
+use crate::layout::{BlockElem, Em, HAlign};
 use crate::model::Figurable;
 use crate::syntax::{split_newlines, LinkedNode, Spanned};
 use crate::text::{
@@ -191,7 +191,7 @@ pub struct RawElem {
     /// ```
     /// ````
     #[parse(
-        let (syntaxes, syntaxes_data) = parse_syntaxes(vm, args)?;
+        let (syntaxes, syntaxes_data) = parse_syntaxes(engine, args)?;
         syntaxes
     )]
     #[fold]
@@ -229,7 +229,7 @@ pub struct RawElem {
     /// ```
     /// ````
     #[parse(
-        let (theme_path, theme_data) = parse_theme(vm, args)?;
+        let (theme_path, theme_data) = parse_theme(engine, args)?;
         theme_path.map(Some)
     )]
     #[borrowed]
@@ -288,7 +288,7 @@ impl RawElem {
 }
 
 impl Synthesize for RawElem {
-    fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         self.push_lang(self.lang(styles).clone());
 
         let mut text = self.text().clone();
@@ -393,7 +393,7 @@ impl Synthesize for RawElem {
 
 impl Show for RawElem {
     #[tracing::instrument(name = "RawElem::show", skip_all)]
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut lines = EcoVec::with_capacity((2 * self.lines().len()).saturating_sub(1));
         for (i, line) in self.lines().iter().enumerate() {
             if i != 0 {
@@ -495,7 +495,7 @@ pub struct RawLine {
 }
 
 impl Show for RawLine {
-    fn show(&self, _vt: &mut Vt, _styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Engine, _styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone())
     }
 }
@@ -676,7 +676,7 @@ fn load_syntaxes(paths: &SyntaxPaths, bytes: &[Bytes]) -> StrResult<Arc<SyntaxSe
 /// Function to parse the syntaxes argument.
 /// Much nicer than having it be part of the `element` macro.
 fn parse_syntaxes(
-    vm: &mut Vm,
+    engine: &mut Engine,
     args: &mut Args,
 ) -> SourceResult<(Option<SyntaxPaths>, Option<Vec<Bytes>>)> {
     let Some(Spanned { v: paths, span }) =
@@ -690,8 +690,8 @@ fn parse_syntaxes(
         .0
         .iter()
         .map(|path| {
-            let id = vm.resolve_path(path).at(span)?;
-            vm.world().file(id).at(span)
+            let id = span.resolve_path(path).at(span)?;
+            engine.world.file(id).at(span)
         })
         .collect::<SourceResult<Vec<Bytes>>>()?;
 
@@ -713,7 +713,7 @@ fn load_theme(path: &str, bytes: &Bytes) -> StrResult<Arc<synt::Theme>> {
 /// Function to parse the theme argument.
 /// Much nicer than having it be part of the `element` macro.
 fn parse_theme(
-    vm: &mut Vm,
+    engine: &mut Engine,
     args: &mut Args,
 ) -> SourceResult<(Option<EcoString>, Option<Bytes>)> {
     let Some(Spanned { v: path, span }) = args.named::<Spanned<EcoString>>("theme")?
@@ -722,8 +722,8 @@ fn parse_theme(
     };
 
     // Load theme file.
-    let id = vm.resolve_path(&path).at(span)?;
-    let data = vm.world().file(id).at(span)?;
+    let id = span.resolve_path(&path).at(span)?;
+    let data = engine.world.file(id).at(span)?;
 
     // Check that parsing works.
     let _ = load_theme(&path, &data).at(span)?;

@@ -1,13 +1,12 @@
-use comemo::Prehashed;
 use ecow::EcoString;
 
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::eval::Vm;
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Args, Array, Construct, Content, Datetime, Smart, StyleChain, Value,
 };
 use crate::introspection::ManualPageCounter;
-use crate::layout::{Frame, LayoutRoot, PageElem, Vt};
+use crate::layout::{Frame, LayoutRoot, PageElem};
 
 /// The root element of a document and its metadata.
 ///
@@ -32,12 +31,15 @@ pub struct DocumentElem {
     ///
     /// While this can be arbitrary content, PDF viewers only support plain text
     /// titles, so the conversion might be lossy.
+    #[ghost]
     pub title: Option<Content>,
 
     /// The document's authors.
+    #[ghost]
     pub author: Author,
 
     /// The document's keywords.
+    #[ghost]
     pub keywords: Keywords,
 
     /// The document's creation date.
@@ -48,15 +50,16 @@ pub struct DocumentElem {
     ///
     /// The year component must be at least zero in order to be embedded into a
     /// PDF.
+    #[ghost]
     pub date: Smart<Option<Datetime>>,
 
     /// The page runs.
     #[variadic]
-    pub children: Vec<Prehashed<Content>>,
+    pub children: Vec<Content>,
 }
 
 impl Construct for DocumentElem {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "can only be used in set rules")
     }
 }
@@ -64,14 +67,18 @@ impl Construct for DocumentElem {
 impl LayoutRoot for DocumentElem {
     /// Layout the document into a sequence of frames, one per page.
     #[tracing::instrument(name = "DocumentElem::layout_root", skip_all)]
-    fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document> {
+    fn layout_root(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Document> {
         tracing::info!("Document layout");
 
-        let mut pages = vec![];
+        let mut pages = Vec::with_capacity(self.children().len());
         let mut page_counter = ManualPageCounter::new();
 
         let children = self.children();
-        let mut iter = children.iter().map(|c| &**c).peekable();
+        let mut iter = children.iter().peekable();
 
         while let Some(mut child) = iter.next() {
             let outer = styles;
@@ -88,7 +95,8 @@ impl LayoutRoot for DocumentElem {
                         .to::<PageElem>()?
                         .clear_to(styles)
                 });
-                let fragment = page.layout(vt, styles, &mut page_counter, extend_to)?;
+                let fragment =
+                    page.layout(engine, styles, &mut page_counter, extend_to)?;
                 pages.extend(fragment);
             } else {
                 bail!(child.span(), "unexpected document child");

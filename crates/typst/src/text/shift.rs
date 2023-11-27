@@ -1,8 +1,9 @@
 use ecow::EcoString;
 
 use crate::diag::SourceResult;
+use crate::engine::Engine;
 use crate::foundations::{elem, Content, Show, StyleChain};
-use crate::layout::{Em, Length, Vt};
+use crate::layout::{Em, Length};
 use crate::text::{variant, SpaceElem, TextElem, TextSize};
 use crate::World;
 
@@ -48,12 +49,12 @@ pub struct SubElem {
 
 impl Show for SubElem {
     #[tracing::instrument(name = "SubElem::show", skip_all)]
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body().clone();
         let mut transformed = None;
         if self.typographic(styles) {
             if let Some(text) = search_text(&body, true) {
-                if is_shapable(vt, &text, styles) {
+                if is_shapable(engine, &text, styles) {
                     transformed = Some(TextElem::packed(text));
                 }
             }
@@ -108,12 +109,12 @@ pub struct SuperElem {
 
 impl Show for SuperElem {
     #[tracing::instrument(name = "SuperElem::show", skip_all)]
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body().clone();
         let mut transformed = None;
         if self.typographic(styles) {
             if let Some(text) = search_text(&body, false) {
-                if is_shapable(vt, &text, styles) {
+                if is_shapable(engine, &text, styles) {
                     transformed = Some(TextElem::packed(text));
                 }
             }
@@ -149,8 +150,8 @@ fn search_text(content: &Content, sub: bool) -> Option<EcoString> {
 
 /// Checks whether the first retrievable family contains all code points of the
 /// given string.
-fn is_shapable(vt: &Vt, text: &str, styles: StyleChain) -> bool {
-    let world = vt.world;
+fn is_shapable(engine: &Engine, text: &str, styles: StyleChain) -> bool {
+    let world = engine.world;
     for family in TextElem::font_in(styles) {
         if let Some(font) = world
             .book()

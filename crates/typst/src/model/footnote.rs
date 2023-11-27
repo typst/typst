@@ -1,15 +1,14 @@
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
-use comemo::Prehashed;
-
-use crate::diag::{bail, error, At, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Content, Finalize, Label, NativeElement, Show, Smart, StyleChain,
     Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Location};
-use crate::layout::{Abs, Em, HElem, Length, Ratio, Vt};
+use crate::layout::{Abs, Em, HElem, Length, Ratio};
 use crate::model::{Destination, Numbering, NumberingPattern, ParElem};
 use crate::text::{SuperElem, TextElem, TextSize};
 use crate::util::NonZeroExt;
@@ -107,14 +106,14 @@ impl FootnoteElem {
     }
 
     /// Returns the location of the definition of this footnote.
-    pub fn declaration_location(&self, vt: &Vt) -> StrResult<Location> {
+    pub fn declaration_location(&self, engine: &Engine) -> StrResult<Location> {
         match self.body() {
             FootnoteBody::Reference(label) => {
-                let element: Prehashed<Content> = vt.introspector.query_label(*label)?;
+                let element = engine.introspector.query_label(*label)?;
                 let footnote = element
                     .to::<FootnoteElem>()
                     .ok_or("referenced element should be a footnote")?;
-                footnote.declaration_location(vt)
+                footnote.declaration_location(engine)
             }
             _ => Ok(self.location().unwrap()),
         }
@@ -122,7 +121,7 @@ impl FootnoteElem {
 }
 
 impl Synthesize for FootnoteElem {
-    fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         self.push_numbering(self.numbering(styles).clone());
         Ok(())
     }
@@ -130,12 +129,12 @@ impl Synthesize for FootnoteElem {
 
 impl Show for FootnoteElem {
     #[tracing::instrument(name = "FootnoteElem::show", skip_all)]
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(vt.delayed(|vt| {
-            let loc = self.declaration_location(vt).at(self.span())?;
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        Ok(engine.delayed(|engine| {
+            let loc = self.declaration_location(engine).at(self.span())?;
             let numbering = self.numbering(styles);
             let counter = Counter::of(Self::elem());
-            let num = counter.at(vt, loc)?.display(vt, numbering)?;
+            let num = counter.at(engine, loc)?.display(engine, numbering)?;
             let sup = SuperElem::new(num).pack();
             let loc = loc.variant(1);
             // Add zero-width weak spacing to make the footnote "sticky".
@@ -271,19 +270,20 @@ pub struct FootnoteEntry {
 }
 
 impl Show for FootnoteEntry {
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let note = self.note();
         let number_gap = Em::new(0.05);
         let default = StyleChain::default();
         let numbering = note.numbering(default);
         let counter = Counter::of(FootnoteElem::elem());
         let Some(loc) = note.location() else {
-            bail!(error!(self.span(), "footnote entry must have a location").with_hint(
-                "try using a query or a show rule to customize the footnote instead"
-            ))
+            bail!(
+                self.span(), "footnote entry must have a location";
+                hint: "try using a query or a show rule to customize the footnote instead"
+            );
         };
 
-        let num = counter.at(vt, loc)?.display(vt, numbering)?;
+        let num = counter.at(engine, loc)?.display(engine, numbering)?;
         let sup = SuperElem::new(num)
             .pack()
             .linked(Destination::Location(loc))

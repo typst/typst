@@ -27,6 +27,7 @@ use smallvec::SmallVec;
 
 use crate::foundations::{
     cast, category, elem, ty, Behave, Behaviour, Category, Content, Repr, Scope,
+    Unlabellable,
 };
 use crate::layout::PdfPageLabel;
 use crate::model::{Destination, Numbering};
@@ -53,13 +54,15 @@ pub fn define(global: &mut Scope) {
 }
 
 /// Hosts metadata and ensures metadata is produced even for empty elements.
-#[elem(Behave)]
+#[elem(Behave, Unlabellable)]
 pub struct MetaElem {
     /// Metadata that should be attached to all elements affected by this style
     /// property.
     #[fold]
     pub data: SmallVec<[Meta; 1]>,
 }
+
+impl Unlabellable for MetaElem {}
 
 impl Behave for MetaElem {
     fn behaviour(&self) -> Behaviour {

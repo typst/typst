@@ -1,7 +1,8 @@
 use crate::diag::{bail, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{elem, Content, NativeElement, Resolve, StyleChain};
 use crate::layout::{
-    Abs, AlignElem, Axes, Fragment, Frame, Layout, Point, Regions, Size, Vt,
+    Abs, AlignElem, Axes, Fragment, Frame, Layout, Point, Regions, Size,
 };
 use crate::util::Numeric;
 
@@ -37,12 +38,12 @@ impl Layout for RepeatElem {
     #[tracing::instrument(name = "RepeatElem::layout", skip_all)]
     fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.size, Axes::new(false, false));
-        let piece = self.body().layout(vt, styles, pod)?.into_frame();
+        let piece = self.body().layout(engine, styles, pod)?.into_frame();
         let align = AlignElem::alignment_in(styles).resolve(styles);
 
         let fill = regions.size.x;

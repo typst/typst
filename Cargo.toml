@@ -132,3 +132,6 @@ codegen-units = 1
 
 [profile.release.package."typst-cli"]
 strip = true
+
+[workspace.lints.clippy]
+uninlined_format_args = "warn"

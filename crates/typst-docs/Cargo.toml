@@ -25,3 +25,6 @@ typed-arena = { workspace = true }
 unicode_names2 = { workspace = true }
 unscanny = { workspace = true }
 yaml-front-matter = { workspace = true }
+
+[lints]
+workspace = true

@@ -2,6 +2,8 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroU64;
 use std::ops::Range;
 
+use ecow::EcoString;
+
 use crate::FileId;
 
 /// A unique identifier for a syntax node.
@@ -79,6 +81,14 @@ impl Span {
     /// The unique number of the span within its [`Source`](crate::Source).
     pub const fn number(self) -> u64 {
         self.0.get() & ((1 << Self::BITS) - 1)
+    }
+
+    /// Resolve a file location relative to this span's source.
+    pub fn resolve_path(self, path: &str) -> Result<FileId, EcoString> {
+        let Some(file) = self.id() else {
+            return Err("cannot access file system from here".into());
+        };
+        Ok(file.join(path))
     }
 }
 

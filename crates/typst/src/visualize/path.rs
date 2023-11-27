@@ -1,11 +1,12 @@
 use kurbo::{CubicBez, ParamCurveExtrema};
 
 use crate::diag::{bail, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{
     array, cast, elem, Array, NativeElement, Reflect, Resolve, Smart, StyleChain,
 };
 use crate::layout::{
-    Abs, Axes, Fragment, Frame, FrameItem, Layout, Length, Point, Regions, Rel, Size, Vt,
+    Abs, Axes, Fragment, Frame, FrameItem, Layout, Length, Point, Regions, Rel, Size,
 };
 use crate::visualize::{FixedStroke, Geometry, Paint, Shape, Stroke};
 
@@ -73,7 +74,7 @@ impl Layout for PathElem {
     #[tracing::instrument(name = "PathElem::layout", skip_all)]
     fn layout(
         &self,
-        _: &mut Vt,
+        _: &mut Engine,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {

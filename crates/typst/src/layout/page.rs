@@ -4,6 +4,7 @@ use std::ptr;
 use std::str::FromStr;
 
 use crate::diag::{bail, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, AutoValue, Cast, Content, Dict, Fold, Func, NativeElement, Resolve,
     Smart, StyleChain, Value,
@@ -11,7 +12,7 @@ use crate::foundations::{
 use crate::introspection::{Counter, CounterKey, ManualPageCounter, Meta};
 use crate::layout::{
     Abs, Align, AlignElem, Axes, ColumnsElem, Dir, Fragment, Frame, HAlign, Layout,
-    Length, Point, Ratio, Regions, Rel, Sides, Size, VAlign, Vt,
+    Length, Point, Ratio, Regions, Rel, Sides, Size, VAlign,
 };
 
 use crate::model::Numbering;
@@ -342,7 +343,7 @@ impl PageElem {
     #[tracing::instrument(skip_all)]
     pub fn layout(
         &self,
-        vt: &mut Vt,
+        engine: &mut Engine,
         styles: StyleChain,
         page_counter: &mut ManualPageCounter,
         extend_to: Option<Parity>,
@@ -393,7 +394,7 @@ impl PageElem {
         regions.root = true;
 
         // Layout the child.
-        let mut frames = child.layout(vt, styles, regions)?.into_frames();
+        let mut frames = child.layout(engine, styles, regions)?.into_frames();
 
         // Align the child to the pagebreak's parity.
         // Check for page count after adding the pending frames
@@ -496,7 +497,7 @@ impl PageElem {
                 let sub = content
                     .clone()
                     .styled(AlignElem::set_alignment(align))
-                    .layout(vt, styles, pod)?
+                    .layout(engine, styles, pod)?
                     .into_frame();
 
                 if ptr::eq(marginal, &header) || ptr::eq(marginal, &background) {
@@ -510,7 +511,7 @@ impl PageElem {
                 frame.fill(fill.clone());
             }
 
-            page_counter.visit(vt, frame)?;
+            page_counter.visit(engine, frame)?;
 
             // Add a PDF page label if there is a numbering.
             if let Some(num) = numbering {
@@ -675,10 +676,14 @@ pub enum Marginal {
 
 impl Marginal {
     /// Resolve the marginal based on the page number.
-    pub fn resolve(&self, vt: &mut Vt, page: usize) -> SourceResult<Cow<'_, Content>> {
+    pub fn resolve(
+        &self,
+        engine: &mut Engine,
+        page: usize,
+    ) -> SourceResult<Cow<'_, Content>> {
         Ok(match self {
             Self::Content(content) => Cow::Borrowed(content),
-            Self::Func(func) => Cow::Owned(func.call_vt(vt, [page])?.display()),
+            Self::Func(func) => Cow::Owned(func.call(engine, [page])?.display()),
         })
     }
 }

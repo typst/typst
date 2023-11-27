@@ -221,9 +221,9 @@ impl Args {
 
 #[scope]
 impl Args {
-    /// Construct an argument sink in place.
+    /// Construct spreadable arguments in place.
     ///
-    /// This function behaves like `{#let args(..sink) = sink}`.
+    /// This function behaves like `{let args(..sink) = sink}`.
     ///
     /// ```example
     /// #let args = arguments(stroke: red, inset: 1em, [Body])
@@ -318,5 +318,28 @@ impl Repr for Arg {
 impl PartialEq for Arg {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name && self.value.v == other.value.v
+    }
+}
+
+/// Things that can be used as arguments.
+pub trait IntoArgs {
+    /// Convert into arguments, attaching the `fallback` span in case `Self`
+    /// doesn't have a span.
+    fn into_args(self, fallback: Span) -> Args;
+}
+
+impl IntoArgs for Args {
+    fn into_args(self, _: Span) -> Args {
+        self
+    }
+}
+
+impl<I, T> IntoArgs for I
+where
+    I: IntoIterator<Item = T>,
+    T: IntoValue,
+{
+    fn into_args(self, fallback: Span) -> Args {
+        Args::new(fallback, self)
     }
 }

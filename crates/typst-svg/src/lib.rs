@@ -446,7 +446,7 @@ impl SVGRenderer {
 
         self.xml.start_element("use");
         self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
-        self.xml.write_attribute_fmt("x", format_args!("{}", x_offset));
+        self.xml.write_attribute_fmt("x", format_args!("{x_offset}"));
         self.write_fill(
             &text.fill,
             Size::new(Abs::pt(width), Abs::pt(height)),

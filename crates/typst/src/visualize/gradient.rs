@@ -6,7 +6,7 @@ use std::sync::Arc;
 use ecow::EcoString;
 use kurbo::Vec2;
 
-use crate::diag::{bail, error, SourceResult};
+use crate::diag::{bail, SourceResult};
 use crate::foundations::{
     array, cast, func, scope, ty, Args, Array, Cast, Func, IntoValue, Repr, Smart,
 };
@@ -231,8 +231,10 @@ impl Gradient {
         };
 
         if stops.len() < 2 {
-            bail!(error!(span, "a gradient must have at least two stops")
-                .with_hint("try filling the shape with a single color instead"));
+            bail!(
+                span, "a gradient must have at least two stops";
+                hint: "try filling the shape with a single color instead"
+            );
         }
 
         Ok(Self::Linear(Arc::new(LinearGradient {
@@ -332,24 +334,29 @@ impl Gradient {
         focal_radius: Spanned<Ratio>,
     ) -> SourceResult<Gradient> {
         if stops.len() < 2 {
-            bail!(error!(span, "a gradient must have at least two stops")
-                .with_hint("try filling the shape with a single color instead"));
+            bail!(
+                span, "a gradient must have at least two stops";
+                hint: "try filling the shape with a single color instead"
+            );
         }
 
         if focal_radius.v > radius.v {
-            bail!(error!(
+            bail!(
                 focal_radius.span,
-                "the focal radius must be smaller than the end radius"
-            )
-            .with_hint("try using a focal radius of `0%` instead"));
+                "the focal radius must be smaller than the end radius";
+                hint: "try using a focal radius of `0%` instead"
+            );
         }
 
         let focal_center = focal_center.unwrap_or(center);
         let d_center_sqr = (focal_center.x - center.x).get().powi(2)
             + (focal_center.y - center.y).get().powi(2);
         if d_center_sqr.sqrt() >= (radius.v - focal_radius.v).get() {
-            bail!(error!(span, "the focal circle must be inside of the end circle")
-                .with_hint("try using a focal center of `auto` instead"));
+            bail!(
+                span,
+                "the focal circle must be inside of the end circle";
+                hint: "try using a focal center of `auto` instead"
+            );
         }
 
         Ok(Gradient::Radial(Arc::new(RadialGradient {
@@ -419,8 +426,10 @@ impl Gradient {
         center: Axes<Ratio>,
     ) -> SourceResult<Gradient> {
         if stops.len() < 2 {
-            bail!(error!(span, "a gradient must have at least two stops")
-                .with_hint("try filling the shape with a single color instead"));
+            bail!(
+                span, "a gradient must have at least two stops";
+                hint: "try filling the shape with a single color instead"
+            );
         }
 
         Ok(Gradient::Conic(Arc::new(ConicGradient {
@@ -1154,11 +1163,10 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
         let mut last_stop = f64::NEG_INFINITY;
         for Spanned { v: stop, span } in stops.iter() {
             let Some(stop) = stop.offset else {
-                bail!(error!(
-                    *span,
-                    "either all stops must have an offset or none of them can"
-                )
-                .with_hint("try adding an offset to all stops"));
+                bail!(
+                    *span, "either all stops must have an offset or none of them can";
+                    hint: "try adding an offset to all stops"
+                );
             };
 
             if stop.get() < last_stop {
@@ -1179,13 +1187,19 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
             .collect::<SourceResult<Vec<_>>>()?;
 
         if out[0].1 != Ratio::zero() {
-            bail!(error!(stops[0].span, "first stop must have an offset of 0%")
-                .with_hint("try setting this stop to `0%`"));
+            bail!(
+                stops[0].span,
+                "first stop must have an offset of 0";
+                hint: "try setting this stop to `0%`"
+            );
         }
 
         if out[out.len() - 1].1 != Ratio::one() {
-            bail!(error!(stops[0].span, "last stop must have an offset of 100%")
-                .with_hint("try setting this stop to `100%`"));
+            bail!(
+                stops[out.len() - 1].span,
+                "last stop must have an offset of 100%";
+                hint: "try setting this stop to `100%`"
+            );
         }
 
         return Ok(out);

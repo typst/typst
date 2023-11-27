@@ -20,7 +20,8 @@ use smallvec::{smallvec, SmallVec};
 use typed_arena::Arena;
 
 use crate::diag::{bail, error, At, FileError, SourceResult, StrResult};
-use crate::eval::{eval_string, EvalMode, Vm};
+use crate::engine::Engine;
+use crate::eval::{eval_string, EvalMode};
 use crate::foundations::{
     cast, elem, ty, Args, Array, Bytes, CastInfo, Content, Finalize, FromValue,
     IntoValue, Label, NativeElement, Reflect, Repr, Scope, Show, Smart, Str, StyleChain,
@@ -28,7 +29,7 @@ use crate::foundations::{
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{
-    BlockElem, Em, GridElem, HElem, PadElem, Sizing, TrackSizings, VElem, Vt,
+    BlockElem, Em, GridElem, HElem, PadElem, Sizing, TrackSizings, VElem,
 };
 use crate::model::{
     CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
@@ -88,7 +89,7 @@ pub struct BibliographyElem {
     /// Path(s) to Hayagriva `.yml` and/or BibLaTeX `.bib` files.
     #[required]
     #[parse(
-        let (paths, bibliography) = Bibliography::parse(vm, args)?;
+        let (paths, bibliography) = Bibliography::parse(engine, args)?;
         paths
     )]
     pub path: BibliographyPaths,
@@ -120,7 +121,7 @@ pub struct BibliographyElem {
     /// a [CSL file](https://citationstyles.org/). Some of the styles listed
     /// below appear twice, once with their full name and once with a short
     /// alias.
-    #[parse(CslStyle::parse(vm, args)?)]
+    #[parse(CslStyle::parse(engine, args)?)]
     #[default(CslStyle::from_name("ieee").unwrap())]
     pub style: CslStyle,
 
@@ -169,9 +170,10 @@ impl BibliographyElem {
     }
 
     /// Whether the bibliography contains the given key.
-    pub fn has(vt: &Vt, key: impl Into<PicoStr>) -> bool {
+    pub fn has(engine: &Engine, key: impl Into<PicoStr>) -> bool {
         let key = key.into();
-        vt.introspector
+        engine
+            .introspector
             .query(&Self::elem().select())
             .iter()
             .any(|elem| elem.to::<Self>().unwrap().bibliography().has(key))
@@ -195,7 +197,7 @@ impl BibliographyElem {
 }
 
 impl Synthesize for BibliographyElem {
-    fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         self.push_full(self.full(styles));
         self.push_style(self.style(styles));
         self.push_lang(TextElem::lang_in(styles));
@@ -206,7 +208,7 @@ impl Synthesize for BibliographyElem {
 
 impl Show for BibliographyElem {
     #[tracing::instrument(name = "BibliographyElem::show", skip_all)]
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         const COLUMN_GUTTER: Em = Em::new(0.65);
         const INDENT: Em = Em::new(1.5);
 
@@ -219,9 +221,9 @@ impl Show for BibliographyElem {
             seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
         }
 
-        Ok(vt.delayed(|vt| {
+        Ok(engine.delayed(|engine| {
             let span = self.span();
-            let works = Works::generate(vt.world, vt.introspector).at(span)?;
+            let works = Works::generate(engine.world, engine.introspector).at(span)?;
             let references = works
                 .references
                 .as_ref()
@@ -316,7 +318,7 @@ pub struct Bibliography {
 impl Bibliography {
     /// Parse the bibliography argument.
     fn parse(
-        vm: &mut Vm,
+        engine: &mut Engine,
         args: &mut Args,
     ) -> SourceResult<(BibliographyPaths, Bibliography)> {
         let Spanned { v: paths, span } =
@@ -327,8 +329,8 @@ impl Bibliography {
             .0
             .iter()
             .map(|path| {
-                let id = vm.resolve_path(path).at(span)?;
-                vm.world().file(id).at(span)
+                let id = span.resolve_path(path).at(span)?;
+                engine.world.file(id).at(span)
             })
             .collect::<SourceResult<Vec<Bytes>>>()?;
 
@@ -438,19 +440,19 @@ pub struct CslStyle {
 
 impl CslStyle {
     /// Parse the style argument.
-    pub fn parse(vm: &mut Vm, args: &mut Args) -> SourceResult<Option<CslStyle>> {
+    pub fn parse(engine: &mut Engine, args: &mut Args) -> SourceResult<Option<CslStyle>> {
         let Some(Spanned { v: string, span }) =
             args.named::<Spanned<EcoString>>("style")?
         else {
             return Ok(None);
         };
 
-        Ok(Some(Self::parse_impl(vm, &string).at(span)?))
+        Ok(Some(Self::parse_impl(engine, &string, span).at(span)?))
     }
 
     /// Parse the style argument with `Smart`.
     pub fn parse_smart(
-        vm: &mut Vm,
+        engine: &mut Engine,
         args: &mut Args,
     ) -> SourceResult<Option<Smart<CslStyle>>> {
         let Some(Spanned { v: smart, span }) =
@@ -462,13 +464,13 @@ impl CslStyle {
         Ok(Some(match smart {
             Smart::Auto => Smart::Auto,
             Smart::Custom(string) => {
-                Smart::Custom(Self::parse_impl(vm, &string).at(span)?)
+                Smart::Custom(Self::parse_impl(engine, &string, span).at(span)?)
             }
         }))
     }
 
     /// Parse internally.
-    fn parse_impl(vm: &mut Vm, string: &str) -> StrResult<CslStyle> {
+    fn parse_impl(engine: &mut Engine, string: &str, span: Span) -> StrResult<CslStyle> {
         let ext = Path::new(string)
             .extension()
             .and_then(OsStr::to_str)
@@ -476,8 +478,8 @@ impl CslStyle {
             .to_lowercase();
 
         if ext == "csl" {
-            let id = vm.resolve_path(string)?;
-            let data = vm.world().file(id)?;
+            let id = span.resolve_path(string)?;
+            let data = engine.world.file(id)?;
             CslStyle::from_data(&data)
         } else {
             CslStyle::from_name(string)
