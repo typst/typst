@@ -57,6 +57,7 @@ impl LayoutMath for LrElem {
             .resolve(ctx.styles())
             .relative_to(2.0 * max_extent);
 
+        // Scale up fragments at both ends.
         match fragments.as_mut_slice() {
             [one] => scale(ctx, one, height, None),
             [first, .., last] => {
@@ -66,8 +67,54 @@ impl LayoutMath for LrElem {
             _ => {}
         }
 
+        // Handle MathFragment::Variant fragments that should be scaled up.
+        for fragment in &mut fragments {
+            if let MathFragment::Variant(ref mut variant) = fragment {
+                if variant.mid_stretched == Some(false) {
+                    variant.mid_stretched = Some(true);
+                    scale(ctx, fragment, height, Some(MathClass::Large));
+                }
+            }
+        }
+
         ctx.extend(fragments);
 
+        Ok(())
+    }
+}
+
+/// Scales contents vertically to the nearest surrounding lr() group.
+///
+/// ```example
+/// $ { x mid(|) sum_(i=1)^oo phi_i (x) < 1 } $
+/// ```
+#[elem(LayoutMath)]
+pub struct MidElem {
+    /// The content to be scaled.
+    #[required]
+    pub body: Content,
+}
+
+impl LayoutMath for MidElem {
+    #[tracing::instrument(skip(ctx))]
+    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        let mut fragments = ctx.layout_fragments(self.body())?;
+
+        for fragment in &mut fragments {
+            match fragment {
+                MathFragment::Glyph(glyph) => {
+                    let mut new = glyph.clone().into_variant();
+                    new.mid_stretched = Some(false);
+                    *fragment = MathFragment::Variant(new);
+                }
+                MathFragment::Variant(variant) => {
+                    variant.mid_stretched = Some(false);
+                }
+                _ => {}
+            }
+        }
+
+        ctx.extend(fragments);
         Ok(())
     }
 }
