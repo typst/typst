@@ -102,12 +102,10 @@ impl Release {
     pub fn from_tag(tag: Option<&Version>) -> StrResult<Release> {
         let url = match tag {
             Some(tag) => format!(
-                "https://api.github.com/repos/{}/{}/releases/tags/v{}",
-                TYPST_GITHUB_ORG, TYPST_REPO, tag
+                "https://api.github.com/repos/{TYPST_GITHUB_ORG}/{TYPST_REPO}/releases/tags/v{tag}"
             ),
             None => format!(
-                "https://api.github.com/repos/{}/{}/releases/latest",
-                TYPST_GITHUB_ORG, TYPST_REPO
+                "https://api.github.com/repos/{TYPST_GITHUB_ORG}/{TYPST_REPO}/releases/latest",
             ),
         };
 
