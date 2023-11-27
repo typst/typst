@@ -36,49 +36,34 @@ use crate::{World, WorldExt};
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __bail {
+    // For bail!("just a {}", "string")
     ($fmt:literal $(, $arg:expr)* $(,)?) => {
         return Err($crate::diag::error!(
             $fmt, $($arg),*
         ))
     };
 
+    // For bail!(error!(..))
     ($error:expr) => {
         return Err(::ecow::eco_vec![$error])
     };
 
-    (
-        $span:expr,
-        $fmt:literal $(, $arg:expr)*
-        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
-        $(,)?
-    ) => {
-        return Err(::ecow::eco_vec![$crate::diag::error!(
-            $span, $fmt $(, $arg)*
-            $(; hint: $hint $(, $hint_arg)*)*
-        )])
+    // For bail(span, ...)
+    ($($tts:tt)*) => {
+        return Err(::ecow::eco_vec![$crate::diag::error!($($tts)*)])
     };
 }
-
-#[doc(inline)]
-pub use crate::__bail as bail;
-#[doc(inline)]
-pub use crate::__error as error;
-#[doc(inline)]
-pub use crate::__warning as warning;
-
-#[doc(hidden)]
-pub use ecow::eco_format;
-#[doc(hidden)]
-pub use ecow::EcoString;
 
 /// Construct an [`EcoString`] or [`SourceDiagnostic`] with severity `Error`.
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __error {
+    // For bail!("just a {}", "string").
     ($fmt:literal $(, $arg:expr)* $(,)?) => {
         $crate::diag::eco_format!($fmt, $($arg),*)
     };
 
+    // For bail!(span, ...)
     (
         $span:expr, $fmt:literal $(, $arg:expr)*
         $(; hint: $hint:literal $(, $hint_arg:expr)*)*
@@ -122,6 +107,15 @@ macro_rules! __warning {
         ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
     };
 }
+
+#[rustfmt::skip]
+#[doc(inline)]
+pub use {
+    crate::__bail as bail,
+    crate::__error as error,
+    crate::__warning as warning,
+    ecow::{eco_format, EcoString},
+};
 
 /// A result that can carry multiple source errors.
 pub type SourceResult<T> = Result<T, EcoVec<SourceDiagnostic>>;

@@ -5,7 +5,7 @@ use std::iter::repeat;
 
 use ecow::{eco_format, EcoString, EcoVec};
 
-use crate::diag::{bail, error, StrResult};
+use crate::diag::{bail, StrResult};
 use crate::foundations::{cast, func, repr, scope, ty, Repr};
 
 /// A version with an arbitrary number of components.
@@ -43,7 +43,7 @@ impl Version {
             .iter()
             .zip(Self::COMPONENTS)
             .find_map(|(&i, s)| (s == name).then_some(i as i64))
-            .ok_or_else(|| error!("unknown version component"))
+            .ok_or_else(|| "unknown version component".into())
     }
 
     /// Push a component to the end of this version.
