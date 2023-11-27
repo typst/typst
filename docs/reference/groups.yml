@@ -93,7 +93,7 @@
   title: Left/Right
   category: math
   path: ["math"]
-  filter: ["lr", "abs", "norm", "floor", "ceil", "round"]
+  filter: ["lr", "mid", "abs", "norm", "floor", "ceil", "round"]
   details: |
     Delimiter matching.
 

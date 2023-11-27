@@ -221,9 +221,9 @@ impl Args {
 
 #[scope]
 impl Args {
-    /// Construct an argument sink in place.
+    /// Construct spreadable arguments in place.
     ///
-    /// This function behaves like `{#let args(..sink) = sink}`.
+    /// This function behaves like `{let args(..sink) = sink}`.
     ///
     /// ```example
     /// #let args = arguments(stroke: red, inset: 1em, [Body])

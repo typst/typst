@@ -5,6 +5,118 @@ description: |
 ---
 
 # Changelog
+## Unreleased
+- Text and Layout
+  - CJK text can now be emphasized with the `*` and `_` syntax even when there
+    are no spaces
+  - Added basic i18n for Greek
+  - Improved default [figure caption separator]($figure.caption.separator) for
+    Chinese, French, and Russian
+  - Changed default [figure supplement]($figure.supplement) for Russian to
+    short form
+  - Fixed [CJK-Latin-spacing]($text.cjk-latin-spacing) before line breaks
+    and in [`locate`]($locate) calls
+  - Fixed line breaking at the end of links
+
+- Bibliography management
+  - Added support for citation collapsing (e.g. `[[1]-[3]]` instead of
+    `[[1], [2], [3]]`) if requested by a CSL style
+  - Fixed bug where an additional space would appear after a group of citations
+  - Fixed link show rules for links in the bibliography
+  - Fixed show-set rules on citations
+  - Fixed bibliography-related crashes that happened on some systems
+  - Corrected name of the GB/T 7714 family of styles from 7114 to 7714
+  - Fixed missing title in some bibliography styles
+  - Fixed printing of volumes in some styles
+  - Fixed delimiter order for contributors in some styles (e.g. APA)
+  - Fixed behavior of alphanumeric style
+  - Fixed multiple bugs with GB/T 7714 style
+  - Fixed escaping in Hayagriva values
+  - Fixed crashes with empty dates in Hayagriva files
+  - Page ranges in `.bib` files can now be arbitrary strings
+  - Multi-line values in `.bib` files are now parsed correctly
+  - Entry keys in `.bib` files now allow more characters
+  - Fixed error message for empty dates in `.bib` files
+  - Added support for years of lengths other than 4 without leading zeros in
+    `.bib` files
+  - More LaTeX commands (e.g. for quotes) are now respected in `.bib` files
+
+- Visualization
+  - Added support for [patterns]($pattern) as fills and strokes
+  - The `alpha` parameter of the [`components`]($color.components) function on
+    colors is now a named parameter (**Breaking change**)
+  - Added support for the [Oklch]($color.oklch) color space
+  - Improved conversions between colors in different color spaces
+  - Removed restrictions on [Oklab]($color.oklab) chroma component
+  - Fixed [clipping]($block.clip) on blocks and boxes without a stroke
+  - Fixed bug with [gradients]($gradient) on math
+  - Fixed bug with gradient rotation on text
+  - Fixed bug with gradient colors in PDF
+  - Fixed relative base of Oklab chroma ratios
+  - Fixed Oklab color negation
+
+- Scripting
+  - Any non-identifier dictionary key is now be interpreted as expressions: For
+    instance, `{((key): value)}` will create a dictionary with a dynamic key
+  - The [`stroke`]($stroke) type now has a constructor that converts a value to
+    a stroke or creates one from its parts
+  - Added constructor for [`arguments`]($arguments) type
+  - Added [`calc.div-euclid`]($calc.div-euclid) and
+    [`calc.rem-euclid`]($calc.rem-euclid) functions
+  - Fixed equality of [`arguments`]($arguments)
+  - Fixed [`repr`]($repr) of [`cmyk`]($color.cmyk) colors
+  - Fixed crashes with provided elements like figure captions, outline entries,
+    and footnote entries
+
+- Math
+  - Added [`mid`]($math.mid) function for scaling a character up to the height
+    of the surrounding [`lr`]($math.lr) group
+  - The [`op`]($math.op) function can now take any content, not just strings
+  - Improved documentation for [math alignment]($category/math/#alignment)
+  - Fixed swallowing of trailing comma when a symbol is used in a function-like
+    way (e.g. `pi(a,b,)`)
+
+- Tooling and Diagnostics
+  - Sshow rules that match on their own output now produce an appropriate error
+    message instead of a crash (this is a first step, in the future they will
+    just work)
+  - Too highly or infinitely nested layouts now produce error messages instead
+    of crashes
+  - Added hints for invalid identifiers
+  - Added hint when trying to use a manually constructed footnote or outline
+    entry
+  - Jump from click now works on raw blocks
+
+- Command line interface
+  - Fixed a major bug where `typst watch` would confuse files and fail to pick
+    up updates
+  - Fetching of the release metadata in `typst update` now respects proxies
+  - Fixed bug with `--open` flag on Windows when the path contains a space
+  - The `TYPST_FONT_PATHS` environment variable can now contain multiple paths
+    (separated by `;` on Windows and `:` elsewhere)
+
+- Export
+  - PDF compilation output is now again fully byte-by-byte reproducible if the
+    document's [`date`]($document.date) is set manually
+  - Fixed color export in SVG
+
+- Miscellaneous Improvements
+  - Parallelized image encoding in PDF export
+  - Improved the internal representation of content for improved performance
+  - The [document title]($document.title) can now be arbitrary content instead
+    of just a string
+  - The [`number-align`]($enum.number-align) parameter on numbered lists now
+    also accepts vertical alignments
+  - Fixed selectors on [quote]($quote) elements
+  - Fixed parsing of `[#return]` expression in markup
+  - Fixed bug where inline equations were displayed in equation outlines
+  - Fixed potential CLRF issue in [`raw`]($raw) blocks
+
+- Development
+  - Merged `typst` and `typst-library` and extracted `typst-pdf`, `typst-svg`,
+    and `typst-render` into separate crates
+  - The Nix flake now includes the git revision when running `typst --version`
+
 ## Version 0.9.0 (October 31, 2023) { #v0.9.0 }
 - Bibliography management
   - New bibliography engine based on [CSL](https://citationstyles.org/)

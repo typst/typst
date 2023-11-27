@@ -83,7 +83,7 @@ impl LayoutMath for LrElem {
     }
 }
 
-/// Scales contents vertically to the nearest surrounding lr() group.
+/// Scales contents vertically to the nearest surrounding `{lr()}` group.
 ///
 /// ```example
 /// $ { x mid(|) sum_(i=1)^oo phi_i (x) < 1 } $

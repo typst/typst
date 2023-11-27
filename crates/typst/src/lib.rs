@@ -275,6 +275,7 @@ fn global(math: Module) -> Module {
     self::foundations::define(&mut global);
     self::model::define(&mut global);
     self::text::define(&mut global);
+    global.reset_category();
     global.define_module(math);
     self::layout::define(&mut global);
     self::visualize::define(&mut global);
