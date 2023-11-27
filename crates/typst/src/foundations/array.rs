@@ -139,7 +139,7 @@ impl Array {
         let count = self
             .len()
             .checked_mul(n)
-            .ok_or_else(|| format!("cannot repeat this array {} times", n))?;
+            .ok_or_else(|| format!("cannot repeat this array {n} times"))?;
 
         Ok(self.iter().cloned().cycle().take(count).collect())
     }
