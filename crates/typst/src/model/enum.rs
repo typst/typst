@@ -6,8 +6,8 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, Fold, NativeElement, Smart, StyleChain,
 };
 use crate::layout::{
-    Axes, BlockElem, Em, Fragment, GridLayouter, HAlign, Layout, Length, Regions, Sizing,
-    Spacing, VAlign,
+    Align, Axes, BlockElem, Em, Fragment, GridLayouter, HAlign, Layout, Length, Regions,
+    Sizing, Spacing, VAlign,
 };
 use crate::model::{Numbering, NumberingPattern, ParElem};
 use crate::text::TextElem;
@@ -155,18 +155,20 @@ pub struct EnumElem {
     /// If set to `{auto}`, uses the spacing [below blocks]($block.below).
     pub spacing: Smart<Spacing>,
 
-    /// The horizontal alignment that enum numbers should have.
+    /// The alignment that enum numbers should have.
     ///
-    /// By default, this is set to `{end}`, which aligns enum numbers
+    /// By default, this is set to `{end + top}`, which aligns enum numbers
     /// towards end of the current text direction (in left-to-right script,
-    /// for example, this is the same as `{right}`). The choice of `{end}`
-    /// for horizontal alignment of enum numbers is usually preferred over
-    /// `{start}`, as numbers then grow away from the text instead of towards
-    /// it, avoiding certain visual issues. This option lets you override this
-    /// behavior, however.
+    /// for example, this is the same as `{right}`) and at the top of the line.
+    /// The choice of `{end}` for horizontal alignment of enum numbers is
+    /// usually preferred over `{start}`, as numbers then grow away from the
+    /// text instead of towards it, avoiding certain visual issues. This option
+    /// lets you override this behavior, however. (Also to note is that the
+    /// [unordered list]($list) uses a different method for this, by giving the
+    /// `marker` content an alignment directly.).
     ///
     /// ````example
-    /// #set enum(number-align: start)
+    /// #set enum(number-align: start + bottom)
     ///
     /// Here are some powers of two:
     /// 1. One
@@ -176,8 +178,8 @@ pub struct EnumElem {
     /// 16. Sixteen
     /// 32. Thirty two
     /// ````
-    #[default(HAlign::End)]
-    pub number_align: HAlign,
+    #[default(HAlign::End + VAlign::Top)]
+    pub number_align: Align,
 
     /// The numbered list's items.
     ///
@@ -233,7 +235,7 @@ impl Layout for EnumElem {
         // Vertically align to the top to avoid inheriting `horizon` or `bottom`
         // alignment from the context and having the number be displaced in
         // relation to the item it refers to.
-        let number_align = self.number_align(styles) + VAlign::Top;
+        let number_align = self.number_align(styles);
 
         for item in self.children() {
             number = item.number(styles).unwrap_or(number);
