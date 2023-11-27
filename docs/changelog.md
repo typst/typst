@@ -130,14 +130,14 @@ description: |
   - Improved autocompletion for variables that are in-scope
   - Added autocompletion for package imports
   - Added autocompletion for [labels]($label)
-  - Added tooltip that show which variables a function captures (when hovering
+  - Added tooltip that shows which variables a function captures (when hovering
     over the equals sign or arrow of the function)
   - Diagnostics are now deduplicated
   - Improved diagnostics when trying to apply unary `+` or `-` to types that
     only support binary `+` and `-`
   - Error messages now state which label or citation key isn't present in the
     document or its bibliography
-  - Fixed a bug where function argument parsing errors where shadowed by
+  - Fixed a bug where function argument parsing errors were shadowed by
     function execution errors (e.g. when trying to call
     [`array.sorted`]($array.sorted) and passing the key function as a positional
     argument instead of a named one).
