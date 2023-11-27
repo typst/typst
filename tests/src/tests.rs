@@ -500,7 +500,7 @@ fn get_flag_metadata(line: &str, key: &str) -> Option<bool> {
 fn update_image(png_path: &Path, ref_path: &Path) {
     oxipng::optimize(
         &InFile::Path(png_path.to_owned()),
-        &OutFile::Path(Some(ref_path.to_owned())),
+        &OutFile::from_path(ref_path.to_owned()),
         &Options::max_compression(),
     )
     .unwrap();
