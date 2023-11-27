@@ -910,11 +910,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         .unwrap_or_else(|| quote! { None });
 
     let label_has_field = element
-        .unless_capability("Unlabellable", || {
-            quote! {
-                self.label().is_some()
-            }
-        })
+        .unless_capability("Unlabellable", || quote! { self.label().is_some() })
         .unwrap_or_else(|| quote! { false });
 
     let mark_prepared = element

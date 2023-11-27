@@ -25,9 +25,9 @@ use std::fmt::{self, Debug, Formatter};
 use ecow::{eco_format, EcoString};
 use smallvec::SmallVec;
 
-use crate::foundations::Unlabellable;
 use crate::foundations::{
     cast, category, elem, ty, Behave, Behaviour, Category, Content, Repr, Scope,
+    Unlabellable,
 };
 use crate::layout::PdfPageLabel;
 use crate::model::{Destination, Numbering};
