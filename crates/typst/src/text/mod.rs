@@ -34,7 +34,7 @@ use ecow::{eco_format, EcoString};
 use rustybuzz::{Feature, Tag};
 use ttf_parser::Rect;
 
-use crate::diag::{bail, error, SourceResult, StrResult};
+use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, category, elem, Args, Array, Cast, Category, Construct, Content, Dict, Fold,
@@ -228,11 +228,9 @@ pub struct TextElem {
         if let Some(paint) = &paint {
             if paint.v.relative() == Smart::Custom(RelativeTo::Self_) {
                 bail!(
-                    error!(
-                        paint.span,
-                        "gradients and patterns on text must be relative to the parent"
-                    )
-                    .with_hint("make sure to set `relative: auto` on your text fill")
+                    paint.span,
+                    "gradients and patterns on text must be relative to the parent";
+                    hint: "make sure to set `relative: auto` on your text fill"
                 );
             }
         }

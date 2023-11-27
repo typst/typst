@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
-use crate::diag::{bail, error, At, SourceResult};
+use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, select_where, Content, Finalize, Func, LocatableSelector,
@@ -492,10 +492,10 @@ impl Show for OutlineEntry {
         // In case a user constructs an outline entry with an arbitrary element.
         let Some(location) = elem.location() else {
             if elem.can::<dyn Locatable>() && elem.can::<dyn Outlinable>() {
-                bail!(error!(self.span(), "{} must have a location", elem.func().name())
-                    .with_hint(
-                        "try using a query or a show rule to customize the outline.entry instead",
-                    ))
+                bail!(
+                    self.span(), "{} must have a location", elem.func().name();
+                    hint: "try using a query or a show rule to customize the outline.entry instead",
+                )
             } else {
                 bail!(self.span(), "cannot outline {}", elem.func().name())
             }

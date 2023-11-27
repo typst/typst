@@ -10,7 +10,7 @@ use std::mem;
 use smallvec::smallvec;
 use typed_arena::Arena;
 
-use crate::diag::{bail, error, SourceResult};
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     Content, Finalize, Guard, NativeElement, Recipe, Selector, Show, StyleChain,
@@ -308,11 +308,11 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         if let Some(realized) = realize(self.engine, content, styles)? {
             self.engine.route.increase();
             if self.engine.route.exceeding() {
-                bail!(error!(content.span(), "maximum show rule depth exceeded")
-                    .with_hint("check whether the show rule matches its own output")
-                    .with_hint(
-                        "this is a current compiler limitation that will be resolved in the future"
-                    ));
+                bail!(
+                    content.span(), "maximum show rule depth exceeded";
+                    hint: "check whether the show rule matches its own output";
+                    hint: "this is a current compiler limitation that will be resolved in the future",
+                );
             }
             let stored = self.scratch.content.alloc(realized);
             let v = self.accept(stored, styles);

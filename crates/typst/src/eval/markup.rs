@@ -139,11 +139,12 @@ impl Eval for ast::Strong<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let body = self.body();
         if body.exprs().next().is_none() {
-            vm.engine.tracer.warn(
-                warning!(self.span(), "no text within stars").with_hint(
-                    "using multiple consecutive stars (e.g. **) has no additional effect",
-                ),
-            );
+            vm.engine
+                .tracer
+                .warn(warning!(
+                    self.span(), "no text within stars";
+                    hint: "using multiple consecutive stars (e.g. **) has no additional effect",
+                ));
         }
 
         Ok(StrongElem::new(body.eval(vm)?).pack())
@@ -159,9 +160,10 @@ impl Eval for ast::Emph<'_> {
         if body.exprs().next().is_none() {
             vm.engine
                 .tracer
-                .warn(warning!(self.span(), "no text within underscores").with_hint(
-                    "using multiple consecutive underscores (e.g. __) has no additional effect"
-            ));
+                .warn(warning!(
+                    self.span(), "no text within underscores";
+                    hint: "using multiple consecutive underscores (e.g. __) has no additional effect"
+                ));
         }
 
         Ok(EmphElem::new(body.eval(vm)?).pack())

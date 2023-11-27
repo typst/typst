@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use comemo::Prehashed;
 
-use crate::diag::{bail, error, At, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Content, Finalize, Label, NativeElement, Show, Smart, StyleChain,
@@ -280,9 +280,10 @@ impl Show for FootnoteEntry {
         let numbering = note.numbering(default);
         let counter = Counter::of(FootnoteElem::elem());
         let Some(loc) = note.location() else {
-            bail!(error!(self.span(), "footnote entry must have a location").with_hint(
-                "try using a query or a show rule to customize the footnote instead"
-            ))
+            bail!(
+                self.span(), "footnote entry must have a location";
+                hint: "try using a query or a show rule to customize the footnote instead"
+            );
         };
 
         let num = counter.at(engine, loc)?.display(engine, numbering)?;

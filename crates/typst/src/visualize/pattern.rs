@@ -4,7 +4,7 @@ use std::sync::Arc;
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 
-use crate::diag::{bail, error, SourceResult};
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, scope, ty, Content, Repr, Smart, StyleChain};
 use crate::layout::{Abs, Axes, Em, Frame, Layout, Length, Regions, Size};
@@ -181,8 +181,10 @@ impl Pattern {
 
         // Check that the frame is non-zero.
         if size.is_auto() && frame.size().is_zero() {
-            bail!(error!(span, "pattern tile size must be non-zero")
-                .with_hint("try setting the size manually"));
+            bail!(
+                span, "pattern tile size must be non-zero";
+                hint: "try setting the size manually"
+            );
         }
 
         // Set the size of the frame if the size is enforced.

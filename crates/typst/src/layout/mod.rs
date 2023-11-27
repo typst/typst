@@ -71,7 +71,7 @@ pub(crate) use self::inline::*;
 
 use comemo::{Tracked, TrackedMut};
 
-use crate::diag::{bail, error, SourceResult};
+use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{category, Category, Content, Scope, StyleChain};
@@ -238,8 +238,10 @@ impl Layout for Content {
             };
 
             if engine.route.exceeding() {
-                bail!(error!(content.span(), "maximum layout depth exceeded")
-                    .with_hint("try to reduce the amount of nesting in your layout"));
+                bail!(
+                    content.span(), "maximum layout depth exceeded";
+                    hint: "try to reduce the amount of nesting in your layout",
+                );
             }
 
             let scratch = Scratch::default();

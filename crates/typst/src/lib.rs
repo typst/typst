@@ -143,10 +143,10 @@ fn typeset(
         }
 
         if iter >= 5 {
-            tracer.warn(
-                warning!(Span::detached(), "layout did not converge within 5 attempts",)
-                    .with_hint("check if any states or queries are updating themselves"),
-            );
+            tracer.warn(warning!(
+                Span::detached(), "layout did not converge within 5 attempts";
+                hint: "check if any states or queries are updating themselves"
+            ));
             break;
         }
     }
