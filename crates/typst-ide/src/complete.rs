@@ -1141,6 +1141,7 @@ impl<'a> CompletionContext<'a> {
         let detail = docs.map(Into::into).or_else(|| match value {
             Value::Symbol(_) => None,
             Value::Func(func) => func.docs().map(plain_docs_sentence),
+            Value::Type(ty) => Some(plain_docs_sentence(ty.docs())),
             v => {
                 let repr = v.repr();
                 (repr.as_str() != label).then_some(repr)
