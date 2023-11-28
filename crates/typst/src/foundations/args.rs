@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
-use crate::diag::{bail, At, SourceDiagnostic, SourceResult};
+use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult};
 use crate::foundations::{
     func, repr, scope, ty, Array, Dict, FromValue, IntoValue, Repr, Str, Value,
 };
@@ -121,8 +121,24 @@ impl Args {
     {
         match self.eat()? {
             Some(v) => Ok(v),
-            None => bail!(self.span, "missing argument: {what}"),
+            None => bail!(self.missing_argument(what)),
         }
+    }
+
+    /// The error message for missing arguments.
+    fn missing_argument(&self, what: &str) -> SourceDiagnostic {
+        for item in &self.items {
+            let Some(name) = item.name.as_deref() else { continue };
+            if name == what {
+                return error!(
+                    item.span,
+                    "the argument `{what}` is positional";
+                    hint: "try removing `{}:`", name,
+                );
+            }
+        }
+
+        error!(self.span, "missing argument: {what}")
     }
 
     /// Find and consume the first castable positional argument.
