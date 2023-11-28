@@ -69,7 +69,7 @@ description: |
     and footnote entries
 
 - Math
-  - Added [`mid`]($math.mid) function for scaling a character up to the height
+  - Added [`mid`]($math.mid) function for scaling a delimiter up to the height
     of the surrounding [`lr`]($math.lr) group
   - The [`op`]($math.op) function can now take any content, not just strings
   - Improved documentation for [math alignment]($category/math/#alignment)
