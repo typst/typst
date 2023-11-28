@@ -86,7 +86,7 @@ impl LayoutMath for LrElem {
 /// Scales delimiters vertically to the nearest surrounding `{lr()}` group.
 ///
 /// ```example
-/// $ { x mid(|) sum_(i=1)^oo phi_i (x,y)|_(y=0) < 1 } $
+/// $ { x mid(|) sum_(i=1)^n w_i|f_i (x)| < 1 } $
 /// ```
 #[elem(LayoutMath)]
 pub struct MidElem {
