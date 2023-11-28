@@ -85,7 +85,13 @@ pub struct ListElem {
     /// - Items
     /// ```
     #[borrowed]
-    #[default(ListMarker::Content(vec![TextElem::packed('•')]))]
+    #[default(ListMarker::Content(
+        vec![
+        TextElem::packed('\u{2022}'),
+        TextElem::packed('\u{25E6}'),
+        TextElem::packed('\u{2023}'),
+        ]
+    ))]
     pub marker: ListMarker,
 
     /// The indent of each item.
