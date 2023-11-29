@@ -90,7 +90,7 @@ impl Introspector {
                     if let Some(label) = content.label() {
                         self.label_cache
                             .entry(label)
-                            .or_insert_with(SmallVec::new)
+                            .or_default()
                             .push(self.elems.len() - 1);
                     }
                 }
@@ -110,11 +110,6 @@ impl Introspector {
     /// Get an element by its location.
     fn get(&self, location: &Location) -> Option<&Prehashed<Content>> {
         self.elems.get(location).map(|(elem, _)| elem)
-    }
-
-    /// Get the number of elements.
-    pub fn len(&self) -> usize {
-        self.elems.len()
     }
 
     /// Get the index of this element among all.
