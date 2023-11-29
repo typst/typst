@@ -798,9 +798,9 @@ checksum = "290f1a1d9242c78d09ce40a5e87e7554ee637af1351968159f4952f028f75604"
 
 [[package]]
 name = "hayagriva"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce91abe74c9f37ac2997dd4a09680d1e5ce1fe3bf5bd1b10ea47f8c893e46656"
+checksum = "f9f97c07366b7f686741521ca63cc14baf18cea53c39b0c09873cd1d4a1b2b8c"
 dependencies = [
  "biblatex",
  "ciborium",
