@@ -438,6 +438,7 @@ impl LocalName for RawElem {
             Lang::CZECH => "Seznam",
             Lang::DANISH => "Liste",
             Lang::DUTCH => "Listing",
+            Lang::ESTONIAN => "List",
             Lang::FILIPINO => "Listahan",
             Lang::FINNISH => "Esimerkki",
             Lang::FRENCH => "Liste",
