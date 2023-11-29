@@ -19,6 +19,7 @@ impl Lang {
     pub const DANISH: Self = Self(*b"da ", 2);
     pub const DUTCH: Self = Self(*b"nl ", 2);
     pub const ENGLISH: Self = Self(*b"en ", 2);
+    pub const ESTONIAN: Self = Self(*b"et ", 2);
     pub const FILIPINO: Self = Self(*b"tl ", 2);
     pub const FINNISH: Self = Self(*b"fi ", 2);
     pub const FRENCH: Self = Self(*b"fr ", 2);
