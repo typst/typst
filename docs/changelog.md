@@ -66,7 +66,7 @@ description: |
     way (e.g. `pi(a,b,)`)
 
 - Scripting
-  - Any non-identifier dictionary key is now be interpreted as expressions: For
+  - Any non-identifier dictionary key is now interpreted as an expression: For
     instance, `{((key): value)}` will create a dictionary with a dynamic key
   - The [`stroke`]($stroke) type now has a constructor that converts a value to
     a stroke or creates one from its parts
