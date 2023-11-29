@@ -41,7 +41,7 @@ impl Introspector {
         Self::with_parent(frames, None)
     }
 
-    /// Create a new introspector with a given capacity.
+    /// Create a new introspector with a parent from which capacities are inferred.
     #[tracing::instrument(skip_all)]
     pub fn with_parent(frames: &[Frame], parent: Option<&Introspector>) -> Self {
         let mut introspector = Self {
