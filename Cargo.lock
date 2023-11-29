@@ -2286,12 +2286,13 @@ checksum = "09eab8a83bff89ba2200bd4c59be45c7c787f988431b936099a5a266c957f2f9"
 
 [[package]]
 name = "svg2pdf"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "363c5346967da04bf3ebb3d8bafa7f52c53c810167047904df1960eac3fc08b7"
+checksum = "a81da66842e426278f20062cd249779565e13f9ab4bfe0ac9e94eb476bc3a0f3"
 dependencies = [
  "image",
  "miniz_oxide",
+ "once_cell",
  "pdf-writer",
  "usvg",
 ]
