@@ -183,8 +183,25 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
 
     let authors = &ctx.document.author;
     if !authors.is_empty() {
-        info.author(TextStr(&authors.join(", ")));
-        xmp.creator(authors.iter().map(|s| s.as_str()));
+        // Turns out that if the authors are given in both the document
+        // information dictionary and the XMP metadata, Acrobat takes a little
+        // bit of both: The first author from the document information
+        // dictionary and the remaining authors from the XMP metadata.
+        //
+        // To fix this for Acrobat, we could omit the remaining authors or all
+        // metadata from the document information catalog (it is optional) and
+        // only write XMP. However, not all other tools (including Apple
+        // Preview) read the XMP data. This means we do want to include all
+        // authors in the document information dictionary.
+        //
+        // Thus, the only alternative is to fold all authors into a single
+        // `<rdf:li>` in the XMP metadata. This is, in fact, exactly what the
+        // PDF/A spec Part 1 section 6.7.3 has to say about the matter. It's a
+        // bit weird to not use the array (and it makes Acrobat show the author
+        // list in quotes), but there's not much we can do about that.
+        let joined = authors.join(", ");
+        info.author(TextStr(&joined));
+        xmp.creator([joined.as_str()]);
     }
 
     let creator = eco_format!("Typst {}", env!("CARGO_PKG_VERSION"));
