@@ -228,7 +228,7 @@ impl State {
         let mut engine = Engine {
             world,
             introspector,
-            route: Route::extend(route),
+            route: Route::extend(route).unnested(),
             locator: &mut locator,
             tracer,
         };

@@ -8,9 +8,6 @@ use crate::introspection::{Introspector, Locator};
 use crate::syntax::FileId;
 use crate::World;
 
-/// The maxmium stack nesting depth.
-const MAX_DEPTH: usize = 64;
-
 /// Holds all data needed during compilation.
 pub struct Engine<'a> {
     /// The compilation environment.
@@ -69,26 +66,28 @@ pub struct Route<'a> {
     upper: Cell<usize>,
 }
 
+/// The maximum nesting depths. They are different so that even if show rule and
+/// call checks are interleaved, show rule problems we always get the show rule.
+/// The lower the max depth for a kind of error, the higher its precedence
+/// compared to the others.
+impl Route<'_> {
+    /// The maximum stack nesting depth.
+    pub const MAX_SHOW_RULE_DEPTH: usize = 64;
+
+    /// The maxmium layout nesting depth.
+    pub const MAX_LAYOUT_DEPTH: usize = 72;
+
+    /// The maxmium function call nesting depth.
+    pub const MAX_CALL_DEPTH: usize = 80;
+}
+
 impl<'a> Route<'a> {
     /// Create a new, empty route.
     pub fn root() -> Self {
         Self { id: None, outer: None, len: 0, upper: Cell::new(0) }
     }
 
-    /// Insert a new id into the route.
-    ///
-    /// You must guarantee that `outer` lives longer than the resulting
-    /// route is ever used.
-    pub fn insert(outer: Tracked<'a, Self>, id: FileId) -> Self {
-        Route {
-            outer: Some(outer),
-            id: Some(id),
-            len: 0,
-            upper: Cell::new(usize::MAX),
-        }
-    }
-
-    /// Extend the route without another id.
+    /// Extend the route with another segment with a default length of 1.
     pub fn extend(outer: Tracked<'a, Self>) -> Self {
         Route {
             outer: Some(outer),
@@ -96,6 +95,16 @@ impl<'a> Route<'a> {
             len: 1,
             upper: Cell::new(usize::MAX),
         }
+    }
+
+    /// Attach a file id to the route segment.
+    pub fn with_id(self, id: FileId) -> Self {
+        Self { id: Some(id), ..self }
+    }
+
+    /// Set the length of the route segment to zero.
+    pub fn unnested(self) -> Self {
+        Self { len: 0, ..self }
     }
 
     /// Start tracking this route.
@@ -117,11 +126,6 @@ impl<'a> Route<'a> {
     /// Decrease the nesting depth for this route segment.
     pub fn decrease(&mut self) {
         self.len -= 1;
-    }
-
-    /// Check whether the nesting depth exceeds the limit.
-    pub fn exceeding(&self) -> bool {
-        !self.within(MAX_DEPTH)
     }
 }
 

@@ -44,8 +44,8 @@
 
 ---
 // Test cyclic imports during layout.
-// Error: 2-38 maximum layout depth exceeded
-// Hint: 2-38 try to reduce the amount of nesting in your layout
+// Error: 14-37 maximum layout depth exceeded
+// Hint: 14-37 try to reduce the amount of nesting in your layout
 #layout(_ => include "recursion.typ")
 
 ---

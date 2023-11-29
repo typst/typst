@@ -28,7 +28,7 @@ use crate::text::{
 use crate::util::Numeric;
 use crate::World;
 
-/// Layout's content inline.
+/// Layouts content inline.
 pub(crate) fn layout_inline(
     children: &[Prehashed<Content>],
     engine: &mut Engine,

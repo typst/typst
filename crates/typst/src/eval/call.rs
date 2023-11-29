@@ -28,7 +28,7 @@ impl Eval for ast::FuncCall<'_> {
         let args = self.args();
         let trailing_comma = args.trailing_comma();
 
-        if vm.engine.route.exceeding() {
+        if !vm.engine.route.within(Route::MAX_CALL_DEPTH) {
             bail!(span, "maximum function call depth exceeded");
         }
 
