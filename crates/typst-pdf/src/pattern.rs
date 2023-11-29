@@ -24,11 +24,11 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
             .bbox(Rect::new(
                 0.0,
                 0.0,
-                pattern.size_abs().x.to_pt() as _,
-                pattern.size_abs().y.to_pt() as _,
+                pattern.size().x.to_pt() as _,
+                pattern.size().y.to_pt() as _,
             ))
-            .x_step((pattern.size_abs().x + pattern.spacing_abs().x).to_pt() as _)
-            .y_step((pattern.size_abs().y + pattern.spacing_abs().y).to_pt() as _);
+            .x_step((pattern.size().x + pattern.spacing().x).to_pt() as _)
+            .y_step((pattern.size().y + pattern.spacing().y).to_pt() as _);
 
         let mut resources_map = tiling_pattern.resources();
 

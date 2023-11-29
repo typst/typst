@@ -6,8 +6,8 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{func, scope, ty, Content, Repr, Smart, StyleChain};
-use crate::layout::{Abs, Axes, Em, Frame, Layout, Length, Regions, Size};
+use crate::foundations::{func, repr, scope, ty, Content, Smart, StyleChain};
+use crate::layout::{Abs, Axes, Frame, Layout, Length, Regions, Size};
 use crate::syntax::{Span, Spanned};
 use crate::util::Numeric;
 use crate::visualize::RelativeTo;
@@ -16,24 +16,20 @@ use crate::World;
 /// A repeating pattern fill.
 ///
 /// Typst supports the most common pattern type of tiled patterns, where a
-/// pattern is repeated in a grid-like fashion. The pattern is defined by a
-/// body and a tile size. The tile size is the size of each cell of the pattern.
-/// The body is the content of each cell of the pattern. The pattern is
-/// repeated in a grid-like fashion covering the entire area of the element
-/// being filled. You can also specify a spacing between the cells of the
-/// pattern, which is defined by a horizontal and vertical spacing. The spacing
-/// is the distance between the edges of adjacent cells of the pattern. The default
-/// spacing is zero.
+/// pattern is repeated in a grid-like fashion, covering the entire area of an
+/// element that is filled or stroked. The pattern is defined by a tile size and
+/// a body defining the content of each cell. You can also add horizontal or
+/// vertical spacing between the cells of the patterng.
 ///
 /// # Examples
 ///
 /// ```example
 /// #let pat = pattern(size: (30pt, 30pt))[
-///   #place(top + left, line(start: (0%, 0%), end: (100%, 100%), stroke: 1pt))
-///   #place(top + left, line(start: (0%, 100%), end: (100%, 0%), stroke: 1pt))
+///   #place(line(start: (0%, 0%), end: (100%, 100%)))
+///   #place(line(start: (0%, 100%), end: (100%, 0%)))
 /// ]
 ///
-/// #rect(fill: pat, width: 100%, height: 100%, stroke: 1pt)
+/// #rect(fill: pat, width: 100%, height: 60pt, stroke: 1pt)
 /// ```
 ///
 /// Patterns are also supported on text, but only when setting the
@@ -46,7 +42,11 @@ use crate::World;
 /// #let pat = pattern(
 ///   size: (30pt, 30pt),
 ///   relative: "parent",
-///   square(size: 30pt, fill: gradient.conic(..color.map.rainbow))
+///   square(
+///     size: 30pt,
+///     fill: gradient
+///       .conic(..color.map.rainbow),
+///   )
 /// )
 ///
 /// #set text(fill: pat)
@@ -64,14 +64,22 @@ use crate::World;
 ///   size: (30pt, 30pt),
 ///   spacing: (10pt, 10pt),
 ///   relative: "parent",
-///   square(size: 30pt, fill: gradient.conic(..color.map.rainbow))
+///   square(
+///     size: 30pt,
+///     fill: gradient
+///      .conic(..color.map.rainbow),
+///   ),
 /// )
 ///
-///  #rect(width: 100%, height: 100%, fill: pat)
+/// #rect(
+///   width: 100%,
+///   height: 60pt,
+///   fill: pat,
+/// )
 /// ```
 ///
 /// # Relativeness
-/// The location of the starting point of the pattern is dependant on the
+/// The location of the starting point of the pattern is dependent on the
 /// dimensions of a container. This container can either be the shape they
 /// are painted on, or the closest surrounding container. This is controlled by
 /// the `relative` argument of a pattern constructor. By default, patterns are
@@ -87,14 +95,12 @@ use crate::World;
 ///   [`rotate`]($rotate) will not affect the parent of a gradient, but a
 ///   [`grid`]($grid) will.
 #[ty(scope)]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Pattern(Arc<PatternRepr>);
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Pattern(Arc<Repr>);
 
 /// Internal representation of [`Pattern`].
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct PatternRepr {
-    /// The body of the pattern
-    body: Prehashed<Content>,
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+struct Repr {
     /// The pattern's rendered content.
     frame: Prehashed<Frame>,
     /// The pattern's tile size.
@@ -113,10 +119,17 @@ impl Pattern {
     /// #let pat = pattern(
     ///   size: (20pt, 20pt),
     ///   relative: "parent",
-    ///   place(dx: 5pt, dy: 5pt, rotate(45deg, square(size: 5pt, fill: black)))
+    ///   place(
+    ///     dx: 5pt,
+    ///     dy: 5pt,
+    ///     rotate(45deg, square(
+    ///       size: 5pt,
+    ///       fill: black,
+    ///     )),
+    ///   ),
     /// )
     ///
-    /// #rect(width: 100%, height: 100%, fill: pat)
+    /// #rect(width: 100%, height: 60pt, fill: pat)
     /// ```
     #[func(constructor)]
     pub fn construct(
@@ -192,37 +205,12 @@ impl Pattern {
             frame.set_size(size);
         }
 
-        Ok(Self(Arc::new(PatternRepr {
+        Ok(Self(Arc::new(Repr {
             size: frame.size(),
-            body: Prehashed::new(body),
             frame: Prehashed::new(frame),
             spacing: spacing.v.map(|l| l.abs),
             relative,
         })))
-    }
-
-    /// Returns the content of an individual tile of the pattern.
-    #[func]
-    pub fn body(&self) -> Content {
-        self.0.body.clone().into_inner()
-    }
-
-    /// Returns the size of an individual tile of the pattern.
-    #[func]
-    pub fn size(&self) -> Axes<Length> {
-        self.0.size.map(|l| Length { abs: l, em: Em::zero() })
-    }
-
-    /// Returns the spacing between tiles of the pattern.
-    #[func]
-    pub fn spacing(&self) -> Axes<Length> {
-        self.0.spacing.map(|l| Length { abs: l, em: Em::zero() })
-    }
-
-    /// Returns the relative placement of the pattern.
-    #[func]
-    pub fn relative(&self) -> Smart<RelativeTo> {
-        self.0.relative
     }
 }
 
@@ -232,13 +220,33 @@ impl Pattern {
         if let Some(this) = Arc::get_mut(&mut self.0) {
             this.relative = Smart::Custom(relative);
         } else {
-            self.0 = Arc::new(PatternRepr {
+            self.0 = Arc::new(Repr {
                 relative: Smart::Custom(relative),
                 ..self.0.as_ref().clone()
             });
         }
 
         self
+    }
+
+    /// Return the frame of the pattern.
+    pub fn frame(&self) -> &Frame {
+        &self.0.frame
+    }
+
+    /// Return the size of the pattern in absolute units.
+    pub fn size(&self) -> Size {
+        self.0.size
+    }
+
+    /// Return the spacing of the pattern in absolute units.
+    pub fn spacing(&self) -> Size {
+        self.0.spacing
+    }
+
+    /// Returns the relative placement of the pattern.
+    pub fn relative(&self) -> Smart<RelativeTo> {
+        self.0.relative
     }
 
     /// Returns the relative placement of the pattern.
@@ -251,29 +259,14 @@ impl Pattern {
             }
         })
     }
-
-    /// Return the size of the pattern in absolute units.
-    pub fn size_abs(&self) -> Size {
-        self.0.size
-    }
-
-    /// Return the spacing of the pattern in absolute units.
-    pub fn spacing_abs(&self) -> Size {
-        self.0.spacing
-    }
-
-    /// Return the frame of the pattern.
-    pub fn frame(&self) -> &Frame {
-        &self.0.frame
-    }
 }
 
-impl Repr for Pattern {
+impl repr::Repr for Pattern {
     fn repr(&self) -> EcoString {
         let mut out =
             eco_format!("pattern(({}, {})", self.0.size.x.repr(), self.0.size.y.repr());
 
-        if self.spacing() != Axes::splat(Length::zero()) {
+        if self.0.spacing.is_zero() {
             out.push_str(", spacing: (");
             out.push_str(&self.0.spacing.x.repr());
             out.push_str(", ");
@@ -281,9 +274,7 @@ impl Repr for Pattern {
             out.push(')');
         }
 
-        out.push_str(", ");
-        out.push_str(&self.0.body.repr());
-        out.push(')');
+        out.push_str(", ..)");
 
         out
     }
