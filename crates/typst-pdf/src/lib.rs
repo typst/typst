@@ -70,10 +70,6 @@ pub fn pdf(
 struct PdfContext<'a> {
     /// The document that we're currently exporting.
     document: &'a Document,
-    /// An introspector for the document, used to resolve locations links and
-    /// the document outline.
-    introspector: Introspector,
-
     /// The writer we are writing the PDF into.
     pdf: Pdf,
     /// Content of exported pages.
@@ -128,7 +124,6 @@ impl<'a> PdfContext<'a> {
         let page_tree_ref = alloc.bump();
         Self {
             document,
-            introspector: Introspector::new(&document.pages),
             pdf: Pdf::new(),
             pages: vec![],
             glyph_sets: HashMap::new(),
@@ -149,6 +144,14 @@ impl<'a> PdfContext<'a> {
             pattern_map: Remapper::new(),
             extg_map: Remapper::new(),
         }
+    }
+
+    /// Gets a reference to the document's introspector.
+    ///
+    /// # Panics
+    /// Panics if the document has no introspector.
+    pub fn introspector(&self) -> &'a Introspector {
+        self.document.introspector.as_ref().unwrap()
     }
 }
 

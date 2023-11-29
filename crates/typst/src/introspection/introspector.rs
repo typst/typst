@@ -6,6 +6,7 @@ use std::num::NonZeroUsize;
 use comemo::Prehashed;
 use ecow::{eco_format, EcoVec};
 use indexmap::IndexMap;
+use smallvec::SmallVec;
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{Content, Label, Repr, Selector};
@@ -15,6 +16,7 @@ use crate::model::Numbering;
 use crate::util::NonZeroExt;
 
 /// Can be queried for elements and their positions.
+#[derive(Clone)]
 pub struct Introspector {
     /// The number of pages in the document.
     pages: usize,
@@ -27,17 +29,27 @@ pub struct Introspector {
     /// subqueries. Example: Individual counter queries with `before` that
     /// all depend on a global counter query.
     queries: RefCell<HashMap<u128, EcoVec<Prehashed<Content>>>>,
+    /// The label cache, maps labels to their indices in the element list.
+    /// We use a smallvec such that if the label is unique, we don't need
+    /// to allocate.
+    label_cache: HashMap<Label, SmallVec<[usize; 1]>>,
 }
 
 impl Introspector {
     /// Create a new introspector.
-    #[tracing::instrument(skip(frames))]
     pub fn new(frames: &[Frame]) -> Self {
+        Self::with_capacity(frames, 0)
+    }
+
+    /// Create a new introspector with a given capacity.
+    #[tracing::instrument(skip(frames))]
+    pub fn with_capacity(frames: &[Frame], capacity: usize) -> Self {
         let mut introspector = Self {
             pages: frames.len(),
-            elems: IndexMap::new(),
-            page_numberings: vec![],
+            elems: IndexMap::with_capacity(capacity),
+            page_numberings: Vec::with_capacity(capacity),
             queries: RefCell::default(),
+            label_cache: HashMap::with_capacity(capacity),
         };
         for (i, frame) in frames.iter().enumerate() {
             let page = NonZeroUsize::new(1 + i).unwrap();
@@ -61,11 +73,20 @@ impl Introspector {
                     if !self.elems.contains_key(&content.location().unwrap()) =>
                 {
                     let pos = pos.transform(ts);
+                    let content = Prehashed::new(content.clone());
                     let ret = self.elems.insert(
                         content.location().unwrap(),
-                        (Prehashed::new(content.clone()), Position { page, point: pos }),
+                        (content.clone(), Position { page, point: pos }),
                     );
                     assert!(ret.is_none(), "duplicate locations");
+
+                    // Build the label cache.
+                    if let Some(label) = content.label() {
+                        self.label_cache
+                            .entry(label)
+                            .or_insert_with(SmallVec::new)
+                            .push(self.elems.len() - 1);
+                    }
                 }
                 FrameItem::Meta(Meta::PageNumbering(numbering), _) => {
                     self.page_numberings.push(numbering.clone());
@@ -83,6 +104,11 @@ impl Introspector {
     /// Get an element by its location.
     fn get(&self, location: &Location) -> Option<&Prehashed<Content>> {
         self.elems.get(location).map(|(elem, _)| elem)
+    }
+
+    /// Get the number of elements.
+    pub fn len(&self) -> usize {
+        self.elems.len()
     }
 
     /// Get the index of this element among all.
@@ -112,10 +138,14 @@ impl Introspector {
         }
 
         let output = match selector {
-            Selector::Elem(..)
-            | Selector::Label(_)
-            | Selector::Regex(_)
-            | Selector::Can(_) => {
+            Selector::Label(label) => self
+                .label_cache
+                .get(label)
+                .map(|indices| {
+                    indices.iter().map(|&index| self.elems[index].0.clone()).collect()
+                })
+                .unwrap_or_default(),
+            Selector::Elem(..) | Selector::Regex(_) | Selector::Can(_) => {
                 self.all().filter(|elem| selector.matches(elem)).cloned().collect()
             }
             Selector::Location(location) => {
@@ -196,16 +226,15 @@ impl Introspector {
 
     /// Query for a unique element with the label.
     pub fn query_label(&self, label: Label) -> StrResult<&Prehashed<Content>> {
-        let mut found = None;
-        for elem in self.all().filter(|elem| elem.label() == Some(label)) {
-            if found.is_some() {
-                bail!("label `{}` occurs multiple times in the document", label.repr());
-            }
-            found = Some(elem);
-        }
-        found.ok_or_else(|| {
+        let indices = self.label_cache.get(&label).ok_or_else(|| {
             eco_format!("label `{}` does not exist in the document", label.repr())
-        })
+        })?;
+
+        if indices.len() > 1 {
+            bail!("label `{}` occurs multiple times in the document", label.repr());
+        }
+
+        Ok(&self.elems[indices[0]].0)
     }
 
     /// The total number pages.

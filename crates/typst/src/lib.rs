@@ -135,7 +135,7 @@ fn typeset(
         // Layout!
         document = content.layout_root(&mut engine, styles)?;
 
-        introspector = Introspector::new(&document.pages);
+        introspector = Introspector::with_capacity(&document.pages, introspector.len());
         iter += 1;
 
         if introspector.validate(&constraint) {
@@ -157,6 +157,8 @@ fn typeset(
         return Err(delayed);
     }
 
+    // Set the introspector.
+    document.introspector = Some(introspector);
     Ok(document)
 }
 
