@@ -6,7 +6,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
 use termcolor::{ColorChoice, StandardStream};
-use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
+use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
 use typst::eval::Tracer;
 use typst::foundations::Datetime;
 use typst::model::Document;
@@ -79,24 +79,16 @@ pub fn compile_once(
     }
 
     // Check the encoding of main file.
-    if let Err(typst::diag::FileError::InvalidUtf8) = world.source(world.main()) {
-        tracing::info!("Main file is not valid utf-8");
+    if let Err(errors) = world.source(world.main()).at(Span::detached()) {
+        tracing::info!("Failed to open and decode main file");
 
         if watching {
             Status::Error.print(command).unwrap();
         }
 
         // Create diagnostics for invalid utf-8 instead of an error.
-        print_diagnostics(
-            world,
-            &[SourceDiagnostic::error(
-                Span::detached(),
-                eco_format!("file is not valid utf-8"),
-            )],
-            &[],
-            command.common.diagnostic_format,
-        )
-        .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+        print_diagnostics(world, &errors, &[], command.common.diagnostic_format)
+            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
         return Ok(());
     }
