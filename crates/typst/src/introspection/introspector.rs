@@ -38,18 +38,24 @@ pub struct Introspector {
 impl Introspector {
     /// Create a new introspector.
     pub fn new(frames: &[Frame]) -> Self {
-        Self::with_capacity(frames, 0)
+        Self::with_parent(frames, None)
     }
 
     /// Create a new introspector with a given capacity.
-    #[tracing::instrument(skip(frames))]
-    pub fn with_capacity(frames: &[Frame], capacity: usize) -> Self {
+    #[tracing::instrument(skip_all)]
+    pub fn with_parent(frames: &[Frame], parent: Option<&Introspector>) -> Self {
         let mut introspector = Self {
             pages: frames.len(),
-            elems: IndexMap::with_capacity(capacity),
-            page_numberings: Vec::with_capacity(capacity),
-            queries: RefCell::default(),
-            label_cache: HashMap::with_capacity(capacity),
+            elems: IndexMap::with_capacity(parent.map(|p| p.elems.len()).unwrap_or(0)),
+            page_numberings: Vec::with_capacity(
+                parent.map(|p| p.page_numberings.len()).unwrap_or(0),
+            ),
+            queries: RefCell::new(HashMap::with_capacity(
+                parent.map(|p| p.queries.borrow().len()).unwrap_or(0),
+            )),
+            label_cache: HashMap::with_capacity(
+                parent.map(|p| p.label_cache.len()).unwrap_or(0),
+            ),
         };
         for (i, frame) in frames.iter().enumerate() {
             let page = NonZeroUsize::new(1 + i).unwrap();

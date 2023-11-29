@@ -135,7 +135,7 @@ fn typeset(
         // Layout!
         document = content.layout_root(&mut engine, styles)?;
 
-        introspector = Introspector::with_capacity(&document.pages, introspector.len());
+        introspector = Introspector::with_parent(&document.pages, Some(&introspector));
         iter += 1;
 
         if introspector.validate(&constraint) {
