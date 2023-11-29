@@ -80,13 +80,13 @@ pub fn compile_once(
 
     // Check if main file can be read and opened.
     if let Err(errors) = world.source(world.main()).at(Span::detached()) {
+        set_failed();
         tracing::info!("Failed to open and decode main file");
 
         if watching {
             Status::Error.print(command).unwrap();
         }
 
-        // Create diagnostics instead of return Err.
         print_diagnostics(world, &errors, &[], command.common.diagnostic_format)
             .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
