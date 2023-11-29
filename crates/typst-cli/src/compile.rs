@@ -78,8 +78,28 @@ pub fn compile_once(
         Status::Compiling.print(command).unwrap();
     }
 
-    // Ensure that the main file is present.
-    world.source(world.main()).map_err(|err| err.to_string())?;
+    // Check the encoding of main file.
+    if let Err(typst::diag::FileError::InvalidUtf8) = world.source(world.main()) {
+        tracing::info!("Main file is not valid utf-8");
+
+        if watching {
+            Status::Error.print(command).unwrap();
+        }
+
+        // Create diagnostics for invalid utf-8 instead of an error.
+        print_diagnostics(
+            world,
+            &[SourceDiagnostic::error(
+                Span::detached(),
+                eco_format!("file is not valid utf-8"),
+            )],
+            &[],
+            command.common.diagnostic_format,
+        )
+        .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+
+        return Ok(());
+    }
 
     let mut tracer = Tracer::new();
     let result = typst::compile(world, &mut tracer);
