@@ -78,7 +78,7 @@ pub fn compile_once(
         Status::Compiling.print(command).unwrap();
     }
 
-    // Check the encoding of main file.
+    // Check if main file can be read and opened.
     if let Err(errors) = world.source(world.main()).at(Span::detached()) {
         tracing::info!("Failed to open and decode main file");
 
@@ -86,7 +86,7 @@ pub fn compile_once(
             Status::Error.print(command).unwrap();
         }
 
-        // Create diagnostics for invalid utf-8 instead of an error.
+        // Create diagnostics instead of return Err.
         print_diagnostics(world, &errors, &[], command.common.diagnostic_format)
             .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
