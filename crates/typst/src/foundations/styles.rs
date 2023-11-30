@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
@@ -258,6 +258,7 @@ impl Debug for Property {
 /// We're using a `Box` since values will either be contained in an `Arc` and
 /// therefore already on the heap or they will be small enough that we can just
 /// clone them.
+#[derive(Hash)]
 struct Block(Box<dyn Blockable>);
 
 impl Block {
@@ -275,12 +276,6 @@ impl Block {
 impl Debug for Block {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.0.fmt(f)
-    }
-}
-
-impl Hash for Block {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.dyn_hash(state);
     }
 }
 
@@ -318,11 +313,20 @@ impl<T: Debug + Clone + Hash + Send + Sync + 'static> Blockable for T {
     }
 
     fn dyn_hash(&self, mut state: &mut dyn Hasher) {
+        // Also hash the TypeId since values with different types but
+        // equal data should be different.
+        TypeId::of::<Self>().hash(&mut state);
         self.hash(&mut state);
     }
 
     fn dyn_clone(&self) -> Block {
         Block(Box::new(self.clone()))
+    }
+}
+
+impl Hash for dyn Blockable {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.dyn_hash(state);
     }
 }
 

@@ -2,7 +2,7 @@ use std::any::{Any, TypeId};
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug};
-use std::hash::Hasher;
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ecow::EcoString;
@@ -273,6 +273,12 @@ pub trait NativeElement: Debug + Repr + Construct + Set + Send + Sync + 'static 
 
     /// Get the fields of the element.
     fn fields(&self) -> Dict;
+}
+
+impl Hash for dyn NativeElement {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.dyn_hash(state);
+    }
 }
 
 /// An element's constructor function.

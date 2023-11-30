@@ -66,7 +66,8 @@ use crate::util::fat;
 /// elements the content is composed of and what fields they have.
 /// Alternatively, you can inspect the output of the [`repr`]($repr) function.
 #[ty(scope)]
-#[derive(Clone)]
+#[derive(Clone, Hash)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Content(Arc<dyn NativeElement>);
 
 impl Content {
@@ -604,12 +605,6 @@ impl<T: NativeElement> From<T> for Content {
 impl From<Arc<dyn NativeElement>> for Content {
     fn from(value: Arc<dyn NativeElement>) -> Self {
         Self(value)
-    }
-}
-
-impl std::hash::Hash for Content {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.dyn_hash(state);
     }
 }
 

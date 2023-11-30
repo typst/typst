@@ -964,8 +964,11 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                 #foundations::Element::of::<Self>()
             }
 
-            fn dyn_hash(&self, mut hasher: &mut dyn ::std::hash::Hasher) {
-                <Self as ::std::hash::Hash>::hash(self, &mut hasher);
+            fn dyn_hash(&self, mut state: &mut dyn ::std::hash::Hasher) {
+                // Also hash the TypeId since values with different types but
+                // equal data should be different.
+                ::std::hash::Hash::hash(&::std::any::TypeId::of::<Self>(), &mut state);
+                ::std::hash::Hash::hash(self, &mut state);
             }
 
             fn dyn_eq(&self, other: &#foundations::Content) -> bool {
