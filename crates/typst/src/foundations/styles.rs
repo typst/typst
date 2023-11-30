@@ -260,6 +260,7 @@ impl Debug for Property {
 /// therefore already on the heap or they will be small enough that we can just
 /// clone them.
 #[derive(Hash)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Block(Box<dyn Blockable>);
 
 impl Block {
