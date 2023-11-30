@@ -1,8 +1,0 @@
-version: 2
-updates:
-- package-ecosystem: github-actions
-  directory: "/"
-  schedule:
-    interval: daily
-  ignore:
-    - dependency-name: dtolnay/rust-toolchain
