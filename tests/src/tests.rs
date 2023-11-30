@@ -72,13 +72,26 @@ struct PrintConfig {
 
 impl Args {
     fn matches(&self, path: &Path) -> bool {
-        if self.exact {
-            let name = path.file_name().unwrap().to_string_lossy();
-            self.filter.iter().any(|v| v == &name)
-        } else {
+        if !self.exact {
             let path = path.to_string_lossy();
-            self.filter.is_empty() || self.filter.iter().any(|v| path.contains(v))
+            return self.filter.is_empty()
+                || self.filter.iter().any(|v| path.contains(v));
         }
+
+        let components: Vec<String> = path
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy().into_owned())
+            .collect();
+        let components_len = components.len();
+        let mut path_endings: HashSet<String> = HashSet::new();
+        for i in 0..components_len {
+            path_endings.insert(
+                components[(components_len - i - 1)..]
+                    .join(&std::path::MAIN_SEPARATOR.to_string()),
+            );
+        }
+
+        self.filter.iter().any(|v| path_endings.contains(v))
     }
 }
 
@@ -107,7 +120,9 @@ fn main() {
                 return None;
             }
 
-            if args.matches(&src_path) {
+            let src_whole_path =
+                Path::new(&std::env::current_dir().unwrap()).join(src_path.clone());
+            if args.matches(&src_whole_path) {
                 Some(src_path)
             } else {
                 None
@@ -137,6 +152,8 @@ fn main() {
     let ok = results.iter().sum::<usize>();
     if len > 1 {
         println!("{ok} / {len} tests passed.");
+    } else if len == 0 {
+        println!("No test ran. Did you spell paths correctly?");
     }
 
     if ok != len {
