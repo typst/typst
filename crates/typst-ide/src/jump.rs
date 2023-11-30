@@ -111,7 +111,7 @@ pub fn jump_from_click(
 
 /// Find the output location in the document for a cursor position.
 pub fn jump_from_cursor(
-    frames: &[Frame],
+    document: &Document,
     source: &Source,
     cursor: usize,
 ) -> Option<Position> {
@@ -121,7 +121,7 @@ pub fn jump_from_cursor(
     }
 
     let span = node.span();
-    for (i, frame) in frames.iter().enumerate() {
+    for (i, frame) in document.pages.iter().enumerate() {
         if let Some(pos) = find_in_frame(frame, span) {
             return Some(Position {
                 page: NonZeroUsize::new(i + 1).unwrap(),
