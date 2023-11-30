@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
@@ -8,7 +8,6 @@ use ecow::{eco_format, EcoString};
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use siphasher::sip128::{Hasher128, SipHasher13};
 
 use crate::diag::StrResult;
 use crate::eval::ops;
@@ -544,7 +543,7 @@ trait Bounds: Debug + Repr + Sync + Send + 'static {
     fn as_any(&self) -> &dyn Any;
     fn dyn_eq(&self, other: &Dynamic) -> bool;
     fn dyn_ty(&self) -> Type;
-    fn hash128(&self) -> u128;
+    fn dyn_hash(&self, state: &mut dyn Hasher);
 }
 
 impl<T> Bounds for T
@@ -564,20 +563,17 @@ where
         Type::of::<T>()
     }
 
-    #[tracing::instrument(skip_all)]
-    fn hash128(&self) -> u128 {
+    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
         // Also hash the TypeId since values with different types but
         // equal data should be different.
-        let mut state = SipHasher13::new();
-        self.type_id().hash(&mut state);
+        TypeId::of::<Self>().hash(&mut state);
         self.hash(&mut state);
-        state.finish128().as_u128()
     }
 }
 
 impl Hash for dyn Bounds {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u128(self.hash128());
+        self.dyn_hash(state);
     }
 }
 
