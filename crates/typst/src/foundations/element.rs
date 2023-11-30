@@ -12,8 +12,8 @@ use smallvec::SmallVec;
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, Args, Content, Dict, Func, Label, ParamInfo, Repr, Scope, Selector, StyleChain,
-    Styles, Value,
+    cast, Args, Block, Content, Dict, Func, Label, ParamInfo, Repr, Scope, Selector,
+    StyleChain, Styles, Value,
 };
 use crate::introspection::Location;
 use crate::syntax::Span;
@@ -106,7 +106,7 @@ impl Element {
 
     /// Create a selector for this element, filtering for those that
     /// [fields](crate::foundations::Content::field) match the given argument.
-    pub fn where_(self, fields: SmallVec<[(u8, Value); 1]>) -> Selector {
+    pub fn where_(self, fields: SmallVec<[(u8, Block); 1]>) -> Selector {
         Selector::Elem(self, Some(fields))
     }
 
@@ -123,6 +123,11 @@ impl Element {
     /// The element's local name, if any.
     pub fn local_name(&self, lang: Lang, region: Option<Region>) -> Option<&'static str> {
         (self.0).0.local_name.map(|f| f(lang, region))
+    }
+
+    /// Parses a field from the given value into a block.
+    pub fn parse_field(&self, id: u8, value: Value) -> StrResult<Block> {
+        ((self.0).0.parse_field)(id, value)
     }
 }
 
@@ -265,7 +270,16 @@ pub trait NativeElement: Debug + Repr + Construct + Set + Send + Sync + 'static 
     /// Get the field with the given field ID.
     fn field(&self, id: u8) -> Option<Value>;
 
-    /// Whether the element has the given field set.
+    /// Parses a field from the given value into a block.
+    fn parse_field(id: u8, value: Value) -> StrResult<Block>
+    where
+        Self: Sized;
+
+    /// Whether the element's field with the given ID is equal to the given
+    /// value.
+    fn field_eq(&self, id: u8, value: &Block) -> bool;
+
+    /// Whether the element has the given field set.c
     fn has(&self, id: u8) -> bool;
 
     /// Set the field with the given ID.
@@ -306,6 +320,7 @@ pub struct NativeElementData {
     pub vtable: fn(of: TypeId) -> Option<*const ()>,
     pub field_id: fn(name: &str) -> Option<u8>,
     pub field_name: fn(u8) -> Option<&'static str>,
+    pub parse_field: fn(u8, Value) -> StrResult<Block>,
     pub local_name: Option<fn(Lang, Option<Region>) -> &'static str>,
     pub scope: Lazy<Scope>,
     pub params: Lazy<Vec<ParamInfo>>,

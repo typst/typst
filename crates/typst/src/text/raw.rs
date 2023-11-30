@@ -507,6 +507,14 @@ impl PlainText for RawLine {
     }
 }
 
+cast! {
+    RawLine,
+    v: Content => (*v
+        .unpack::<RawLine>()
+        .ok_or_else(|| eco_format!("expected a raw.line"))?
+    ).clone(),
+}
+
 /// Wrapper struct for the state required to highlight typst code.
 struct ThemedHighlighter<'a> {
     /// The code being highlighted.

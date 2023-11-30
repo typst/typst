@@ -12,7 +12,7 @@ use smallvec::smallvec;
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, func, scope, ty, Dict, Element, FromValue, Guard, IntoValue, Label,
+    elem, func, scope, ty, Block, Dict, Element, FromValue, Guard, IntoValue, Label,
     NativeElement, Recipe, Repr, Selector, Str, Style, Styles, Value,
 };
 use crate::introspection::{Location, Meta, MetaElem};
@@ -177,6 +177,12 @@ impl Content {
     pub fn field(&self, id: u8) -> StrResult<Value> {
         self.get(id)
             .ok_or_else(|| missing_field(self.elem().field_name(id).unwrap()))
+    }
+
+    /// Checks whether the field with the given ID is equal to the given value.
+    #[inline]
+    pub fn field_eq(&self, id: u8, value: &Block) -> bool {
+        self.0.field_eq(id, value)
     }
 
     /// Get a field by name, returning a missing field error if it does not

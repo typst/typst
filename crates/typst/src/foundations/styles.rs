@@ -12,7 +12,8 @@ use smallvec::SmallVec;
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, ty, Content, Element, Func, NativeElement, Repr, Selector, Show,
+    cast, elem, func, ty, Content, Element, Func, IntoValue, NativeElement, Repr,
+    Selector, Show, Value,
 };
 use crate::syntax::Span;
 use crate::text::{FontFamily, FontList, TextElem};
@@ -224,7 +225,7 @@ impl Property {
     /// Create a new property from a key-value pair.
     pub fn new<T>(elem: Element, id: u8, value: T) -> Self
     where
-        T: Debug + Clone + Hash + Send + Sync + 'static,
+        T: Debug + Clone + Hash + Send + Sync + PartialEq + IntoValue + 'static,
     {
         Self { elem, id, value: Block::new(value), span: None }
     }
@@ -258,16 +259,16 @@ impl Debug for Property {
 /// We're using a `Box` since values will either be contained in an `Arc` and
 /// therefore already on the heap or they will be small enough that we can just
 /// clone them.
-struct Block(Box<dyn Blockable>);
+pub struct Block(Box<dyn Blockable>);
 
 impl Block {
     /// Creates a new block.
-    fn new<T: Blockable>(value: T) -> Self {
+    pub fn new<T: Blockable>(value: T) -> Self {
         Self(Box::new(value))
     }
 
     /// Downcasts the block to the specified type.
-    fn downcast<T: 'static>(&self) -> Option<&T> {
+    pub fn downcast<T: 'static>(&self) -> Option<&T> {
         self.0.as_any().downcast_ref()
     }
 }
@@ -290,11 +291,23 @@ impl Clone for Block {
     }
 }
 
+impl PartialEq for Block {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.dyn_eq(other)
+    }
+}
+
+impl IntoValue for Block {
+    fn into_value(self) -> super::Value {
+        self.0.dyn_into_value()
+    }
+}
+
 /// A value that can be stored in a block.
 ///
 /// Auto derived for all types that implement [`Any`], [`Clone`], [`Hash`],
 /// [`Debug`], [`Send`] and [`Sync`].
-trait Blockable: Debug + Send + Sync + 'static {
+pub trait Blockable: Debug + Send + Sync + 'static {
     /// Equivalent to `downcast_ref` for the block.
     fn as_any(&self) -> &dyn Any;
 
@@ -306,9 +319,17 @@ trait Blockable: Debug + Send + Sync + 'static {
 
     /// Equivalent to [`Clone`] for the block.
     fn dyn_clone(&self) -> Block;
+
+    /// Equivalent to [`PartialEq`] for the block.
+    fn dyn_eq(&self, other: &Block) -> bool;
+
+    /// Equivalent to [`IntoValue`] for the block.
+    fn dyn_into_value(&self) -> Value;
 }
 
-impl<T: Debug + Clone + Hash + Send + Sync + 'static> Blockable for T {
+impl<T: Debug + Clone + Hash + Send + Sync + PartialEq + IntoValue + 'static> Blockable
+    for T
+{
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -323,6 +344,18 @@ impl<T: Debug + Clone + Hash + Send + Sync + 'static> Blockable for T {
 
     fn dyn_clone(&self) -> Block {
         Block(Box::new(self.clone()))
+    }
+
+    fn dyn_eq(&self, other: &Block) -> bool {
+        if let Some(other) = other.downcast::<Self>() {
+            self == other
+        } else {
+            false
+        }
+    }
+
+    fn dyn_into_value(&self) -> Value {
+        self.clone().into_value()
     }
 }
 

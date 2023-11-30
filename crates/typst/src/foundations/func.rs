@@ -349,13 +349,19 @@ impl Func {
         let fields = fields
             .into_iter()
             .map(|(key, value)| {
-                element.field_id(&key).map(|id| (id, value)).ok_or_else(|| {
+                let id = element.field_id(&key).ok_or_else(|| {
                     eco_format!(
                         "element `{}` does not have field `{}`",
                         element.name(),
                         key
                     )
-                })
+                })?;
+
+                let block = element.parse_field(id, value).map_err(|e| {
+                    eco_format!("cannot parse value for field `{}`: {}", key, e)
+                })?;
+
+                Ok((id, block))
             })
             .collect::<StrResult<smallvec::SmallVec<_>>>()?;
 

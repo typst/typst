@@ -6,8 +6,8 @@ use smallvec::SmallVec;
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{
-    cast, func, repr, scope, ty, CastInfo, Content, Dict, Element, FromValue, Func,
-    Label, Reflect, Regex, Repr, Str, Type, Value,
+    cast, func, repr, scope, ty, Block, Blockable, CastInfo, Content, Dict, Element,
+    FromValue, Func, Label, Reflect, Regex, Repr, Str, Type, Value,
 };
 use crate::introspection::{Locatable, Location};
 use crate::symbols::Symbol;
@@ -24,12 +24,16 @@ macro_rules! __select_where {
     ($ty:ty $(, $field:ident => $value:expr)* $(,)?) => {{
         #[allow(unused_mut)]
         let mut fields = ::smallvec::SmallVec::new();
-        $(
+        $({
+            let id = <$ty as $crate::foundations::ElementFields>::Fields::$field as u8;
             fields.push((
-                <$ty as $crate::foundations::ElementFields>::Fields::$field as u8,
-                $crate::foundations::IntoValue::into_value($value),
+                id,
+                <$ty as $crate::foundations::NativeElement>::elem().parse_field(
+                    id,
+                    $crate::foundations::IntoValue::into_value($value),
+                ).unwrap()
             ));
-        )*
+        })*
         $crate::foundations::Selector::Elem(
             <$ty as $crate::foundations::NativeElement>::elem(),
             Some(fields),
@@ -83,7 +87,7 @@ pub enum Selector {
     ///
     /// If there is a dictionary, only elements with the fields from the
     /// dictionary match.
-    Elem(Element, Option<SmallVec<[(u8, Value); 1]>>),
+    Elem(Element, Option<SmallVec<[(u8, Block); 1]>>),
     /// Matches the element at the specified location.
     Location(Location),
     /// Matches elements with a specific label.
@@ -136,7 +140,7 @@ impl Selector {
                     && dict
                         .iter()
                         .flat_map(|dict| dict.iter())
-                        .all(|(id, value)| target.get(*id).as_ref() == Some(value))
+                        .all(|(id, value)| target.field_eq(*id, value))
             }
             Self::Label(label) => target.label() == Some(*label),
             Self::Regex(regex) => target
@@ -244,7 +248,9 @@ impl Repr for Selector {
                 if let Some(dict) = dict {
                     let dict = dict
                         .iter()
-                        .map(|(id, value)| (elem.field_name(*id).unwrap(), value.clone()))
+                        .map(|(id, value)| {
+                            (elem.field_name(*id).unwrap(), value.dyn_into_value())
+                        })
                         .map(|(name, value)| (EcoString::from(name).into(), value))
                         .collect::<Dict>();
                     eco_format!("{}.where{}", elem.name(), dict.repr())

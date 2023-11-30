@@ -738,6 +738,61 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         }
     });
 
+    let field_parse_matches = element.visible_fields().map(|field| {
+        let elem = &element.ident;
+        let name = &field.enum_ident;
+        let ty = &field.ty;
+        let field_name = &field.name;
+
+        if field.internal || field.ghost {
+            let unknown_field = format!("unknown field `{field_name}` on `{name}`");
+            quote! {
+                <#elem as #foundations::ElementFields>::Fields::#name => ::typst::diag::bail!(#unknown_field),
+            }
+        } else if field.inherent() || (field.synthesized && field.default.is_some()) {
+            quote! {
+                <#elem as #foundations::ElementFields>::Fields::#name => Ok(#foundations::Block::new(<#ty as FromValue>::from_value(value)?)),
+            }
+        } else {
+            quote! {
+                <#elem as #foundations::ElementFields>::Fields::#name => Ok(#foundations::Block::new(<Option<#ty> as FromValue>::from_value(value)?)),
+            }
+        }
+    });
+
+    let field_eq_matches = element.visible_fields().map(|field| {
+        let elem = &element.ident;
+        let name = &field.enum_ident;
+        let ty = &field.ty;
+        let field_ident = &field.ident;
+
+        if field.internal || field.ghost {
+            quote! {
+                <#elem as #foundations::ElementFields>::Fields::#name => false,
+            }
+        } else if field.inherent() || (field.synthesized && field.default.is_some()) {
+            quote! {
+                <#elem as #foundations::ElementFields>::Fields::#name => {
+                    if let Some(value) = value.downcast::<#ty>() {
+                        &self.#field_ident == value
+                    } else {
+                        false
+                    }
+                },
+            }
+        } else {
+            quote! {
+                <#elem as #foundations::ElementFields>::Fields::#name => {
+                    if let Some(value) = value.downcast::<Option<#ty>>() {
+                        &self.#field_ident == value
+                    } else {
+                        false
+                    }
+                },
+            }
+        }
+    });
+
     // Fields that can be checked using the `has` method.
     let field_has_matches = element.visible_fields().map(|field| {
         let elem = &element.ident;
@@ -855,7 +910,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
     // Creation of the fields dictionary for optional fields.
     let field_opt_dict = element
         .visible_fields()
-        .filter(|field| !field.inherent() && !field.ghost)
+        .filter(|field: &&Field| !field.inherent() && !field.ghost)
         .clone()
         .map(|field| {
             let name = &field.name;
@@ -909,6 +964,29 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         })
         .unwrap_or_else(|| quote! { None });
 
+    let label_parse = element
+        .unless_capability("Unlabellable", || {
+            quote! {
+                Ok(#foundations::Block::new(Option::<#foundations::Label>::from_value(value)?))
+            }
+        })
+        .unwrap_or_else(|| {
+            let unknown_field = format!("unknown field `label` on `{name}`");
+            quote! { ::typst::diag::bail!(#unknown_field) }
+        });
+
+    let label_eq = element
+        .unless_capability("Unlabellable", || {
+            quote! {
+                if let Some(label) = value.downcast::<Option<#foundations::Label>>() {
+                    &self.label == label
+                } else {
+                    false
+                }
+            }
+        })
+        .unwrap_or_else(|| quote! { false });
+
     let label_has_field = element
         .unless_capability("Unlabellable", || quote! { self.label().is_some() })
         .unwrap_or_else(|| quote! { false });
@@ -928,7 +1006,6 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         )
         .unwrap_or_else(|| quote! { None });
 
-    let unknown_field = format!("unknown field {{}} on {name}");
     let label_error = format!("cannot set label on {name}");
     let data = quote! {
         #foundations::NativeElementData {
@@ -947,12 +1024,15 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                 <
                     <#ident as #foundations::ElementFields>::Fields as ::std::convert::TryFrom<u8>
                 >::try_from(id).ok().map(<#ident as #foundations::ElementFields>::Fields::to_str),
+            parse_field: <#ident as #foundations::NativeElement>::parse_field,
             local_name: #local_name,
             scope: #foundations::Lazy::new(|| #scope),
             params: #foundations::Lazy::new(|| ::std::vec![#(#params),*])
         }
     };
 
+    let unknown_field = format!("unknown field {{}} on {name}");
+    let unknown_field_id = format!("unknown field ID `{{}}` on `{name}`");
     quote! {
         impl #foundations::NativeElement for #ident {
             fn data() -> &'static #foundations::NativeElementData {
@@ -1048,6 +1128,41 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                     <#ident as #foundations::ElementFields>::Fields::Label => #label_field,
                     #(#field_matches)*
                     _ => None,
+                }
+            }
+
+            fn parse_field(
+                id: u8,
+                value: #foundations::Value
+            ) -> ::typst::diag::StrResult<#foundations::Block>
+            where
+                Self: Sized
+            {
+                use #foundations::FromValue;
+                let field = <#ident as #foundations::ElementFields>::Fields::try_from(id)
+                    .map_err(|_| ::ecow::eco_format!(#unknown_field_id, id))?;
+
+                match field {
+                    <#ident as #foundations::ElementFields>::Fields::Label => #label_parse,
+                    #(#field_parse_matches)*
+                    _ => ::typst::diag::bail!(#unknown_field, field.to_str()),
+                }
+
+            }
+
+            fn field_eq(
+                &self,
+                id: u8,
+                value: &#foundations::Block
+            ) -> bool {
+                let Ok(field) = <#ident as #foundations::ElementFields>::Fields::try_from(id) else {
+                    return false;
+                };
+
+                match field {
+                    <#ident as #foundations::ElementFields>::Fields::Label => #label_eq,
+                    #(#field_eq_matches)*
+                    _ => false,
                 }
             }
 
