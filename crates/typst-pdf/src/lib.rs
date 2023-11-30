@@ -19,7 +19,6 @@ use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
 use typst::foundations::Datetime;
-use typst::introspection::Introspector;
 use typst::layout::{Abs, Dir, Em, Transform};
 use typst::model::Document;
 use typst::text::{Font, Lang};
@@ -70,10 +69,6 @@ pub fn pdf(
 struct PdfContext<'a> {
     /// The document that we're currently exporting.
     document: &'a Document,
-    /// An introspector for the document, used to resolve locations links and
-    /// the document outline.
-    introspector: Introspector,
-
     /// The writer we are writing the PDF into.
     pdf: Pdf,
     /// Content of exported pages.
@@ -128,7 +123,6 @@ impl<'a> PdfContext<'a> {
         let page_tree_ref = alloc.bump();
         Self {
             document,
-            introspector: Introspector::new(&document.pages),
             pdf: Pdf::new(),
             pages: vec![],
             glyph_sets: HashMap::new(),

@@ -24,6 +24,7 @@ chinese-number = { workspace = true }
 ciborium = { workspace = true }
 comemo = { workspace = true }
 csv = { workspace = true }
+dashmap = { workspace = true }
 ecow = { workspace = true}
 fontdb = { workspace = true }
 hayagriva = { workspace = true }

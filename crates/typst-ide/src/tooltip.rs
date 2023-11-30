@@ -4,7 +4,8 @@ use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use typst::eval::{CapturesVisitor, Tracer};
 use typst::foundations::{repr, CastInfo, Repr, Value};
-use typst::layout::{Frame, Length};
+use typst::layout::Length;
+use typst::model::Document;
 use typst::syntax::{ast, LinkedNode, Source, SyntaxKind};
 use typst::util::{round_2, Numeric};
 use typst::World;
@@ -13,9 +14,13 @@ use crate::analyze::{analyze_expr, analyze_labels};
 use crate::{plain_docs_sentence, summarize_font_family};
 
 /// Describe the item under the cursor.
+///
+/// Passing a `document` (from a previous compilation) is optional, but enhances
+/// the autocompletions. Label completions, for instance, are only generated
+/// when the document is available.
 pub fn tooltip(
     world: &dyn World,
-    frames: &[Frame],
+    document: Option<&Document>,
     source: &Source,
     cursor: usize,
 ) -> Option<Tooltip> {
@@ -26,7 +31,7 @@ pub fn tooltip(
 
     named_param_tooltip(world, &leaf)
         .or_else(|| font_tooltip(world, &leaf))
-        .or_else(|| label_tooltip(frames, &leaf))
+        .or_else(|| document.and_then(|doc| label_tooltip(doc, &leaf)))
         .or_else(|| expr_tooltip(world, &leaf))
         .or_else(|| closure_tooltip(&leaf))
 }
@@ -145,14 +150,14 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
 }
 
 /// Tooltip for a hovered reference or label.
-fn label_tooltip(frames: &[Frame], leaf: &LinkedNode) -> Option<Tooltip> {
+fn label_tooltip(document: &Document, leaf: &LinkedNode) -> Option<Tooltip> {
     let target = match leaf.kind() {
         SyntaxKind::RefMarker => leaf.text().trim_start_matches('@'),
         SyntaxKind::Label => leaf.text().trim_start_matches('<').trim_end_matches('>'),
         _ => return None,
     };
 
-    for (label, detail) in analyze_labels(frames).0 {
+    for (label, detail) in analyze_labels(document).0 {
         if label.as_str() == target {
             return Some(Tooltip::Text(detail?));
         }

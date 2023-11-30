@@ -180,7 +180,7 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
                 continue;
             }
             Destination::Position(pos) => *pos,
-            Destination::Location(loc) => ctx.introspector.position(*loc),
+            Destination::Location(loc) => ctx.document.introspector.position(*loc),
         };
 
         let index = pos.page.get() - 1;

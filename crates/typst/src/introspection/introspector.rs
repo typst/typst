@@ -1,11 +1,13 @@
-use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
+use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 
 use comemo::Prehashed;
+use dashmap::DashMap;
 use ecow::{eco_format, EcoVec};
 use indexmap::IndexMap;
+use smallvec::SmallVec;
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{Content, Label, Repr, Selector};
@@ -15,35 +17,38 @@ use crate::model::Numbering;
 use crate::util::NonZeroExt;
 
 /// Can be queried for elements and their positions.
+#[derive(Clone)]
 pub struct Introspector {
     /// The number of pages in the document.
     pages: usize,
     /// All introspectable elements.
     elems: IndexMap<Location, (Prehashed<Content>, Position)>,
+    /// Maps labels to their indices in the element list. We use a smallvec such
+    /// that if the label is unique, we don't need to allocate.
+    labels: HashMap<Label, SmallVec<[usize; 1]>>,
     /// The page numberings, indexed by page number minus 1.
     page_numberings: Vec<Option<Numbering>>,
     /// Caches queries done on the introspector. This is important because
     /// even if all top-level queries are distinct, they often have shared
     /// subqueries. Example: Individual counter queries with `before` that
     /// all depend on a global counter query.
-    queries: RefCell<HashMap<u128, EcoVec<Prehashed<Content>>>>,
+    queries: DashMap<u128, EcoVec<Prehashed<Content>>>,
 }
 
 impl Introspector {
-    /// Create a new introspector.
-    #[tracing::instrument(skip(frames))]
-    pub fn new(frames: &[Frame]) -> Self {
-        let mut introspector = Self {
-            pages: frames.len(),
-            elems: IndexMap::new(),
-            page_numberings: vec![],
-            queries: RefCell::default(),
-        };
+    /// Applies new frames in-place, reusing the existing allocations.
+    #[tracing::instrument(skip_all)]
+    pub fn rebuild(&mut self, frames: &[Frame]) {
+        self.pages = frames.len();
+        self.elems.clear();
+        self.labels.clear();
+        self.page_numberings.clear();
+        self.queries.clear();
+
         for (i, frame) in frames.iter().enumerate() {
             let page = NonZeroUsize::new(1 + i).unwrap();
-            introspector.extract(frame, page, Transform::identity());
+            self.extract(frame, page, Transform::identity());
         }
-        introspector
     }
 
     /// Extract metadata from a frame.
@@ -61,11 +66,17 @@ impl Introspector {
                     if !self.elems.contains_key(&content.location().unwrap()) =>
                 {
                     let pos = pos.transform(ts);
+                    let content = Prehashed::new(content.clone());
                     let ret = self.elems.insert(
                         content.location().unwrap(),
-                        (Prehashed::new(content.clone()), Position { page, point: pos }),
+                        (content.clone(), Position { page, point: pos }),
                     );
                     assert!(ret.is_none(), "duplicate locations");
+
+                    // Build the label cache.
+                    if let Some(label) = content.label() {
+                        self.labels.entry(label).or_default().push(self.elems.len() - 1);
+                    }
                 }
                 FrameItem::Meta(Meta::PageNumbering(numbering), _) => {
                     self.page_numberings.push(numbering.clone());
@@ -107,15 +118,19 @@ impl Introspector {
     /// Query for all matching elements.
     pub fn query(&self, selector: &Selector) -> EcoVec<Prehashed<Content>> {
         let hash = crate::util::hash128(selector);
-        if let Some(output) = self.queries.borrow().get(&hash) {
+        if let Some(output) = self.queries.get(&hash) {
             return output.clone();
         }
 
         let output = match selector {
-            Selector::Elem(..)
-            | Selector::Label(_)
-            | Selector::Regex(_)
-            | Selector::Can(_) => {
+            Selector::Label(label) => self
+                .labels
+                .get(label)
+                .map(|indices| {
+                    indices.iter().map(|&index| self.elems[index].0.clone()).collect()
+                })
+                .unwrap_or_default(),
+            Selector::Elem(..) | Selector::Regex(_) | Selector::Can(_) => {
                 self.all().filter(|elem| selector.matches(elem)).cloned().collect()
             }
             Selector::Location(location) => {
@@ -182,7 +197,7 @@ impl Introspector {
                 .collect(),
         };
 
-        self.queries.borrow_mut().insert(hash, output.clone());
+        self.queries.insert(hash, output.clone());
         output
     }
 
@@ -196,16 +211,15 @@ impl Introspector {
 
     /// Query for a unique element with the label.
     pub fn query_label(&self, label: Label) -> StrResult<&Prehashed<Content>> {
-        let mut found = None;
-        for elem in self.all().filter(|elem| elem.label() == Some(label)) {
-            if found.is_some() {
-                bail!("label `{}` occurs multiple times in the document", label.repr());
-            }
-            found = Some(elem);
-        }
-        found.ok_or_else(|| {
+        let indices = self.labels.get(&label).ok_or_else(|| {
             eco_format!("label `{}` does not exist in the document", label.repr())
-        })
+        })?;
+
+        if indices.len() > 1 {
+            bail!("label `{}` occurs multiple times in the document", label.repr());
+        }
+
+        Ok(&self.elems[indices[0]].0)
     }
 
     /// The total number pages.
@@ -237,6 +251,18 @@ impl Introspector {
 
 impl Default for Introspector {
     fn default() -> Self {
-        Self::new(&[])
+        Self {
+            pages: 0,
+            elems: IndexMap::new(),
+            labels: HashMap::new(),
+            page_numberings: vec![],
+            queries: DashMap::new(),
+        }
+    }
+}
+
+impl Debug for Introspector {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad("Introspector(..)")
     }
 }

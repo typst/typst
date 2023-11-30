@@ -111,8 +111,7 @@ fn typeset(
     let styles = StyleChain::new(&library.styles);
 
     let mut iter = 0;
-    let mut document;
-    let mut introspector = Introspector::new(&[]);
+    let mut document = Document::default();
 
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
@@ -129,16 +128,15 @@ fn typeset(
             route: Route::default(),
             tracer: tracer.track_mut(),
             locator: &mut locator,
-            introspector: introspector.track_with(&constraint),
+            introspector: document.introspector.track_with(&constraint),
         };
 
         // Layout!
         document = content.layout_root(&mut engine, styles)?;
-
-        introspector = Introspector::new(&document.pages);
+        document.introspector.rebuild(&document.pages);
         iter += 1;
 
-        if introspector.validate(&constraint) {
+        if document.introspector.validate(&constraint) {
             break;
         }
 

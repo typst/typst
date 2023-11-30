@@ -2644,6 +2644,7 @@ dependencies = [
  "ciborium",
  "comemo",
  "csv",
+ "dashmap",
  "ecow",
  "fontdb",
  "hayagriva",
