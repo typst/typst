@@ -111,7 +111,7 @@ impl SystemWorld {
 
     /// Reset the compilation state in preparation of a new compilation.
     pub fn reset(&mut self) {
-        for slot in self.slots.borrow_mut().values_mut() {
+        for slot in self.slots.get_mut().values_mut() {
             slot.reset();
         }
         self.now.take();

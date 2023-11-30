@@ -783,15 +783,6 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 
 [[package]]
 name = "hashbrown"
-version = "0.13.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
-dependencies = [
- "ahash",
-]
-
-[[package]]
-name = "hashbrown"
 version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290f1a1d9242c78d09ce40a5e87e7554ee637af1351968159f4952f028f75604"
@@ -1229,17 +1220,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd85a5776cd9500c2e2059c8c76c3b01528566b7fcbaf8098b55a33fc298849b"
 dependencies = [
  "arrayvec",
-]
-
-[[package]]
-name = "lasso"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4644821e1c3d7a560fe13d842d13f587c07348a1a05d3a797152d41c90c56df2"
-dependencies = [
- "ahash",
- "dashmap",
- "hashbrown 0.13.2",
 ]
 
 [[package]]
@@ -2644,7 +2624,6 @@ dependencies = [
  "ciborium",
  "comemo",
  "csv",
- "dashmap",
  "ecow",
  "fontdb",
  "hayagriva",
@@ -2657,7 +2636,6 @@ dependencies = [
  "image",
  "indexmap 2.1.0",
  "kurbo",
- "lasso",
  "lipsum",
  "log",
  "once_cell",

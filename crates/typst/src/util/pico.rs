@@ -1,13 +1,21 @@
+use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
+use std::sync::RwLock;
 
 use ecow::EcoString;
-use lasso::{Spur, ThreadedRodeo};
 use once_cell::sync::Lazy;
 
 use crate::foundations::cast;
 
 /// The global string interner.
-static INTERNER: Lazy<ThreadedRodeo> = Lazy::new(ThreadedRodeo::new);
+static INTERNER: Lazy<RwLock<Interner>> =
+    Lazy::new(|| RwLock::new(Interner { to_id: HashMap::new(), from_id: Vec::new() }));
+
+/// A string interner.
+struct Interner {
+    to_id: HashMap<&'static str, PicoStr>,
+    from_id: Vec<&'static str>,
+}
 
 /// An interned string.
 ///
@@ -16,22 +24,30 @@ static INTERNER: Lazy<ThreadedRodeo> = Lazy::new(ThreadedRodeo::new);
 /// unnecessarily. For this reason, the user should use the [`PicoStr::resolve`]
 /// method to get the underlying string, such that the lookup is done only once.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct PicoStr(Spur);
+pub struct PicoStr(u32);
 
 impl PicoStr {
     /// Creates a new interned string.
-    pub fn new(s: impl AsRef<str>) -> Self {
-        Self(INTERNER.get_or_intern(s.as_ref()))
-    }
+    pub fn new(string: &str) -> Self {
+        if let Some(&id) = INTERNER.read().unwrap().to_id.get(string) {
+            return id;
+        }
 
-    /// Creates a new interned string from a static string.
-    pub fn static_(s: &'static str) -> Self {
-        Self(INTERNER.get_or_intern_static(s))
+        let mut interner = INTERNER.write().unwrap();
+        let num = interner.from_id.len().try_into().expect("out of string ids");
+
+        // Create a new entry forever by leaking the string. PicoStr is only
+        // used for strings that aren't created en masse, so it is okay.
+        let id = Self(num);
+        let string = Box::leak(string.to_string().into_boxed_str());
+        interner.to_id.insert(string, id);
+        interner.from_id.push(string);
+        id
     }
 
     /// Resolves the interned string.
     pub fn resolve(&self) -> &'static str {
-        INTERNER.resolve(&self.0)
+        INTERNER.read().unwrap().from_id[self.0 as usize]
     }
 }
 

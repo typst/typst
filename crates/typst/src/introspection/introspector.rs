@@ -2,9 +2,9 @@ use std::collections::{BTreeSet, HashMap};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
+use std::sync::RwLock;
 
 use comemo::Prehashed;
-use dashmap::DashMap;
 use ecow::{eco_format, EcoVec};
 use indexmap::IndexMap;
 use smallvec::SmallVec;
@@ -32,7 +32,7 @@ pub struct Introspector {
     /// even if all top-level queries are distinct, they often have shared
     /// subqueries. Example: Individual counter queries with `before` that
     /// all depend on a global counter query.
-    queries: DashMap<u128, EcoVec<Prehashed<Content>>>,
+    queries: QueryCache,
 }
 
 impl Introspector {
@@ -118,8 +118,8 @@ impl Introspector {
     /// Query for all matching elements.
     pub fn query(&self, selector: &Selector) -> EcoVec<Prehashed<Content>> {
         let hash = crate::util::hash128(selector);
-        if let Some(output) = self.queries.get(&hash) {
-            return output.clone();
+        if let Some(output) = self.queries.get(hash) {
+            return output;
         }
 
         let output = match selector {
@@ -256,7 +256,7 @@ impl Default for Introspector {
             elems: IndexMap::new(),
             labels: HashMap::new(),
             page_numberings: vec![],
-            queries: DashMap::new(),
+            queries: QueryCache::default(),
         }
     }
 }
@@ -264,5 +264,29 @@ impl Default for Introspector {
 impl Debug for Introspector {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("Introspector(..)")
+    }
+}
+
+/// Caches queries.
+#[derive(Default)]
+struct QueryCache(RwLock<HashMap<u128, EcoVec<Prehashed<Content>>>>);
+
+impl QueryCache {
+    fn get(&self, hash: u128) -> Option<EcoVec<Prehashed<Content>>> {
+        self.0.read().unwrap().get(&hash).cloned()
+    }
+
+    fn insert(&self, hash: u128, output: EcoVec<Prehashed<Content>>) {
+        self.0.write().unwrap().insert(hash, output);
+    }
+
+    fn clear(&mut self) {
+        self.0.get_mut().unwrap().clear();
+    }
+}
+
+impl Clone for QueryCache {
+    fn clone(&self) -> Self {
+        Self(RwLock::new(self.0.read().unwrap().clone()))
     }
 }

@@ -24,7 +24,6 @@ chinese-number = { workspace = true }
 ciborium = { workspace = true }
 comemo = { workspace = true }
 csv = { workspace = true }
-dashmap = { workspace = true }
 ecow = { workspace = true}
 fontdb = { workspace = true }
 hayagriva = { workspace = true }
@@ -37,7 +36,6 @@ icu_segmenter = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }
 kurbo = { workspace = true }
-lasso = { workspace = true }
 lipsum = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }

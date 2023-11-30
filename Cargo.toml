@@ -38,7 +38,6 @@ clap_mangen = "0.2.10"
 codespan-reporting = "0.11"
 comemo = "0.3.1"
 csv = "1"
-dashmap = "5.5"
 dirs = "5"
 ecow = { version = "0.2", features = ["serde"] }
 env_proxy = "0.4"
@@ -59,7 +58,6 @@ include_dir = "0.7"
 indexmap = { version = "2", features = ["serde"] }
 inferno = "0.11.15"
 kurbo = "0.9"
-lasso = { version = "0.7.2", features = ["ahasher", "multi-threaded"] }
 lipsum = "0.9"
 log = "0.4"
 miniz_oxide = "0.7"
