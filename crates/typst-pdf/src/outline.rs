@@ -18,7 +18,7 @@ pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
     // Therefore, its next descendant must be added at its level, which is
     // enforced in the manner shown below.
     let mut last_skipped_level = None;
-    for heading in ctx.introspector().query(&HeadingElem::elem().select()).iter() {
+    for heading in ctx.document.introspector.query(&HeadingElem::elem().select()).iter() {
         let leaf = HeadingNode::leaf((**heading).clone());
 
         if leaf.bookmarked {
@@ -140,7 +140,6 @@ fn write_outline_item(
 ) -> Ref {
     let id = ctx.alloc.bump();
     let next_ref = Ref::new(id.get() + node.len() as i32);
-    let introspector = ctx.introspector();
 
     let mut outline = ctx.pdf.outline_item(id);
     outline.parent(parent_ref);
@@ -164,7 +163,7 @@ fn write_outline_item(
     outline.title(TextStr(body.plain_text().trim()));
 
     let loc = node.element.location().unwrap();
-    let pos = introspector.position(loc);
+    let pos = ctx.document.introspector.position(loc);
     let index = pos.page.get() - 1;
     if let Some(page) = ctx.pages.get(index) {
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());

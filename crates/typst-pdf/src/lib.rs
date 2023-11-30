@@ -19,7 +19,6 @@ use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
 use typst::foundations::Datetime;
-use typst::introspection::Introspector;
 use typst::layout::{Abs, Dir, Em, Transform};
 use typst::model::Document;
 use typst::text::{Font, Lang};
@@ -144,14 +143,6 @@ impl<'a> PdfContext<'a> {
             pattern_map: Remapper::new(),
             extg_map: Remapper::new(),
         }
-    }
-
-    /// Gets a reference to the document's introspector.
-    ///
-    /// # Panics
-    /// Panics if the document has no introspector.
-    pub fn introspector(&self) -> &'a Introspector {
-        self.document.introspector.as_ref().unwrap()
     }
 }
 

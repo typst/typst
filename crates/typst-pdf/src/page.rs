@@ -145,7 +145,6 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
 #[tracing::instrument(skip_all)]
 fn write_page(ctx: &mut PdfContext, i: usize) {
     let page = &ctx.pages[i];
-    let introspector = ctx.introspector();
     let content_id = ctx.alloc.bump();
 
     let mut page_writer = ctx.pdf.page(page.id);
@@ -181,7 +180,7 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
                 continue;
             }
             Destination::Position(pos) => *pos,
-            Destination::Location(loc) => introspector.position(*loc),
+            Destination::Location(loc) => ctx.document.introspector.position(*loc),
         };
 
         let index = pos.page.get() - 1;

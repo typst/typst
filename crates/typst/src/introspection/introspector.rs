@@ -1,9 +1,10 @@
-use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
+use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 
 use comemo::Prehashed;
+use dashmap::DashMap;
 use ecow::{eco_format, EcoVec};
 use indexmap::IndexMap;
 use smallvec::SmallVec;
@@ -22,46 +23,32 @@ pub struct Introspector {
     pages: usize,
     /// All introspectable elements.
     elems: IndexMap<Location, (Prehashed<Content>, Position)>,
+    /// Maps labels to their indices in the element list. We use a smallvec such
+    /// that if the label is unique, we don't need to allocate.
+    labels: HashMap<Label, SmallVec<[usize; 1]>>,
     /// The page numberings, indexed by page number minus 1.
     page_numberings: Vec<Option<Numbering>>,
     /// Caches queries done on the introspector. This is important because
     /// even if all top-level queries are distinct, they often have shared
     /// subqueries. Example: Individual counter queries with `before` that
     /// all depend on a global counter query.
-    queries: RefCell<HashMap<u128, EcoVec<Prehashed<Content>>>>,
-    /// The label cache, maps labels to their indices in the element list.
-    /// We use a smallvec such that if the label is unique, we don't need
-    /// to allocate.
-    label_cache: HashMap<Label, SmallVec<[usize; 1]>>,
+    queries: DashMap<u128, EcoVec<Prehashed<Content>>>,
 }
 
 impl Introspector {
-    /// Create a new introspector.
-    pub fn new(frames: &[Frame]) -> Self {
-        Self::with_parent(frames, None)
-    }
-
-    /// Create a new introspector with a parent from which capacities are inferred.
+    /// Applies new frames in-place, reusing the existing allocations.
     #[tracing::instrument(skip_all)]
-    pub fn with_parent(frames: &[Frame], parent: Option<&Introspector>) -> Self {
-        let mut introspector = Self {
-            pages: frames.len(),
-            elems: IndexMap::with_capacity(parent.map(|p| p.elems.len()).unwrap_or(0)),
-            page_numberings: Vec::with_capacity(
-                parent.map(|p| p.page_numberings.len()).unwrap_or(0),
-            ),
-            queries: RefCell::new(HashMap::with_capacity(
-                parent.map(|p| p.queries.borrow().len()).unwrap_or(0),
-            )),
-            label_cache: HashMap::with_capacity(
-                parent.map(|p| p.label_cache.len()).unwrap_or(0),
-            ),
-        };
+    pub fn rebuild(&mut self, frames: &[Frame]) {
+        self.pages = frames.len();
+        self.elems.clear();
+        self.labels.clear();
+        self.page_numberings.clear();
+        self.queries.clear();
+
         for (i, frame) in frames.iter().enumerate() {
             let page = NonZeroUsize::new(1 + i).unwrap();
-            introspector.extract(frame, page, Transform::identity());
+            self.extract(frame, page, Transform::identity());
         }
-        introspector
     }
 
     /// Extract metadata from a frame.
@@ -88,10 +75,7 @@ impl Introspector {
 
                     // Build the label cache.
                     if let Some(label) = content.label() {
-                        self.label_cache
-                            .entry(label)
-                            .or_default()
-                            .push(self.elems.len() - 1);
+                        self.labels.entry(label).or_default().push(self.elems.len() - 1);
                     }
                 }
                 FrameItem::Meta(Meta::PageNumbering(numbering), _) => {
@@ -134,13 +118,13 @@ impl Introspector {
     /// Query for all matching elements.
     pub fn query(&self, selector: &Selector) -> EcoVec<Prehashed<Content>> {
         let hash = crate::util::hash128(selector);
-        if let Some(output) = self.queries.borrow().get(&hash) {
+        if let Some(output) = self.queries.get(&hash) {
             return output.clone();
         }
 
         let output = match selector {
             Selector::Label(label) => self
-                .label_cache
+                .labels
                 .get(label)
                 .map(|indices| {
                     indices.iter().map(|&index| self.elems[index].0.clone()).collect()
@@ -213,7 +197,7 @@ impl Introspector {
                 .collect(),
         };
 
-        self.queries.borrow_mut().insert(hash, output.clone());
+        self.queries.insert(hash, output.clone());
         output
     }
 
@@ -227,7 +211,7 @@ impl Introspector {
 
     /// Query for a unique element with the label.
     pub fn query_label(&self, label: Label) -> StrResult<&Prehashed<Content>> {
-        let indices = self.label_cache.get(&label).ok_or_else(|| {
+        let indices = self.labels.get(&label).ok_or_else(|| {
             eco_format!("label `{}` does not exist in the document", label.repr())
         })?;
 
@@ -267,6 +251,18 @@ impl Introspector {
 
 impl Default for Introspector {
     fn default() -> Self {
-        Self::new(&[])
+        Self {
+            pages: 0,
+            elems: IndexMap::new(),
+            labels: HashMap::new(),
+            page_numberings: vec![],
+            queries: DashMap::new(),
+        }
+    }
+}
+
+impl Debug for Introspector {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad("Introspector(..)")
     }
 }

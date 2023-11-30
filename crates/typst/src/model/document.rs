@@ -110,7 +110,7 @@ impl LayoutRoot for DocumentElem {
             author: self.author(styles).0,
             keywords: self.keywords(styles).0,
             date: self.date(styles),
-            introspector: None,
+            introspector: Introspector::default(),
         })
     }
 }
@@ -138,7 +138,7 @@ cast! {
 }
 
 /// A finished document with metadata and page frames.
-#[derive(Clone, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Document {
     /// The page frames.
     pub pages: Vec<Frame>,
@@ -150,8 +150,8 @@ pub struct Document {
     pub keywords: Vec<EcoString>,
     /// The document's creation date.
     pub date: Smart<Option<Datetime>>,
-    /// The document's introspector.
-    pub introspector: Option<Introspector>,
+    /// Provides the ability to execute queries on the document.
+    pub introspector: Introspector,
 }
 
 #[cfg(test)]
@@ -159,8 +159,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_document_is_send() {
-        fn ensure_send<T: Send>() {}
-        ensure_send::<Document>();
+    fn test_document_is_send_and_sync() {
+        fn ensure_send_and_sync<T: Send + Sync>() {}
+        ensure_send_and_sync::<Document>();
     }
 }
