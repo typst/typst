@@ -53,14 +53,17 @@ function activate(context) {
 
     const updateCmd = vscode.commands.registerCommand("ShortcutMenuBar.testUpdate", () => {
         const uri = vscode.window.activeTextEditor.document.uri
-        const { pngPath, refPath } = getPaths(uri)
+        const components = uri.fsPath.split(/tests[\/\\]/)
+        const dir = components[0]
+        const subPath = components[1]
 
-        vscode.workspace.fs.copy(pngPath, refPath, { overwrite: true }).then(() => {
-            console.log('Copied to reference file')
-            cp.exec(`oxipng -o max -a ${refPath.fsPath}`, (err, stdout, stderr) => {
+        cp.exec(
+            `cargo test --manifest-path ${dir}/Cargo.toml --all --test tests -- ${subPath} --update`,
+            (err, stdout, stderr) => {
+                console.log('Update tests')
                 refreshPanel(stdout, stderr)
-            })
-        })
+            }
+        )
     })
 
     context.subscriptions.push(openCmd)
