@@ -732,7 +732,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         } else {
             quote! {
                 <#elem as #foundations::ElementFields>::Fields::#name => {
-                    Some(self.#field_ident.clone()?.into_value())
+                    self.#field_ident.clone().map(#foundations::IntoValue::into_value)
                 }
             }
         }
@@ -1052,7 +1052,6 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             }
 
             fn field(&self, id: u8) -> Option<#foundations::Value> {
-                use #foundations::IntoValue;
                 let id = <#ident as #foundations::ElementFields>::Fields::try_from(id).ok()?;
                 match id {
                     <#ident as #foundations::ElementFields>::Fields::Label => #label_field,
