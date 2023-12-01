@@ -214,6 +214,10 @@
 #test((0, 1.1, 3) >= (0, 1.1, 3), true)
 #test((0, 1, datetime(day: 1, month: 12, year: 2023)) <= (0, 1, datetime(day: 1, month: 12, year: 2023), 3), true)
 #test(("a", 23, 40, "b") > ("a", 23, 40), true)
+#test(() <= (), true)
+#test(() >= (), true)
+#test(() <= (1,), true)
+#test((1,) <= (), false)
 
 ---
 // Test assignment operators.
