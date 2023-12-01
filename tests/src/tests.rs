@@ -31,6 +31,7 @@ use typst::{Library, World, WorldExt};
 use unscanny::Scanner;
 use walkdir::WalkDir;
 
+// These directories are all relative to the tests/ directory.
 const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";
 const PNG_DIR: &str = "png";
@@ -102,7 +103,7 @@ fn main() {
     let world = TestWorld::new(args.print);
 
     println!("Running tests...");
-    let results = WalkDir::new("typ")
+    let results = WalkDir::new(TYP_DIR)
         .into_iter()
         .par_bridge()
         .filter_map(|entry| {
@@ -115,7 +116,7 @@ fn main() {
                 return None;
             }
 
-            let src_path = entry.into_path();
+            let src_path = entry.into_path(); // Relative to TYP_DIR.
             if src_path.extension() != Some(OsStr::new("typ")) {
                 return None;
             }
@@ -148,10 +149,10 @@ fn main() {
 
     let len = results.len();
     let ok = results.iter().sum::<usize>();
-    if len > 1 {
+    if len >= 2 {
         println!("{ok} / {len} tests passed.");
     } else if len == 0 {
-        println!("No test ran. Did you spell paths correctly?");
+        println!("No test ran.");
     }
 
     if ok != len {
