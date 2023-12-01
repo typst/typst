@@ -1,11 +1,24 @@
 const vscode = require('vscode')
 const cp = require('child_process')
 
+function getActiveDocumentUri() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        throw new Error('vscode.window.activeTextEditor is undefined.');
+    }
+    return editor.document.uri;
+}
+
+/** @param {vscode.Uri} uri */
+function getTestOutputTabTitle(uri) {
+    return uri.path.split('/').pop()?.replace('.typ', '.png') ?? 'Test output'
+}
+
 function activate(context) {
     let panel = null
 
     function refreshPanel(stdout, stderr) {
-        const uri = vscode.window.activeTextEditor.document.uri
+        const uri = getActiveDocumentUri()
         const { pngPath, refPath } = getPaths(uri)
 
         if (panel && panel.visible) {
@@ -16,6 +29,7 @@ function activate(context) {
 
             // Make refresh notable.
             setTimeout(() => {
+                panel.title = getTestOutputTabTitle(uri)
                 panel.webview.html = getWebviewContent(pngSrc, refSrc, stdout, stderr)
             }, 50)
         }
@@ -24,7 +38,7 @@ function activate(context) {
     const openCmd = vscode.commands.registerCommand("ShortcutMenuBar.testOpen", () => {
         panel = vscode.window.createWebviewPanel(
             'testOutput',
-            'Test output',
+            getTestOutputTabTitle(getActiveDocumentUri()),
             vscode.ViewColumn.Beside,
             {}
         )
@@ -37,7 +51,7 @@ function activate(context) {
     })
 
     const rerunCmd = vscode.commands.registerCommand("ShortcutMenuBar.testRerun", () => {
-        const uri = vscode.window.activeTextEditor.document.uri
+        const uri = getActiveDocumentUri()
         const components = uri.fsPath.split(/tests[\/\\]/)
         const dir = components[0]
         const subPath = components[1]
@@ -52,15 +66,25 @@ function activate(context) {
     })
 
     const updateCmd = vscode.commands.registerCommand("ShortcutMenuBar.testUpdate", () => {
-        const uri = vscode.window.activeTextEditor.document.uri
+        const uri = getActiveDocumentUri()
         const { pngPath, refPath } = getPaths(uri)
 
-        vscode.workspace.fs.copy(pngPath, refPath, { overwrite: true }).then(() => {
-            console.log('Copied to reference file')
-            cp.exec(`oxipng -o max -a ${refPath.fsPath}`, (err, stdout, stderr) => {
-                refreshPanel(stdout, stderr)
+        vscode.window
+            .showInformationMessage(
+                "Are you sure you want to update the reference image for "
+                + `${uri.path.split('/').pop()}?`,
+                'Yes', 'Cancel')
+            .then(answer => {
+                if (answer !== 'Yes') {
+                    vscode.workspace.fs.copy(pngPath, refPath, { overwrite: true })
+                    .then(() => {
+                        console.log('Copied to reference file')
+                        cp.exec(`oxipng -o max -a ${refPath.fsPath}`, (err, stdout, stderr) => {
+                            refreshPanel(stdout, stderr)
+                        })
+                    })
+                }
             })
-        })
     })
 
     context.subscriptions.push(openCmd)
