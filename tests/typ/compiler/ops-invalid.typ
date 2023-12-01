@@ -38,6 +38,14 @@
 #(2.2 <= float("nan"))
 
 ---
+// Error: 3-26 cannot compare integer and string
+#((0, 1, 3) > (0, 1, "a"))
+
+---
+// Error: 3-42 cannot compare 3.5 with NaN
+#((0, "a", 3.5) <= (0, "a", float("nan")))
+
+---
 // Error: 3-12 cannot divide by zero
 #(1.2 / 0.0)
 
