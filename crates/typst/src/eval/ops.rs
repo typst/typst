@@ -571,24 +571,22 @@ fn try_cmp_datetimes(a: &Datetime, b: &Datetime) -> StrResult<Ordering> {
 
 /// Try to compare arrays of values lexicographically.
 fn try_cmp_arrays(a: &[Value], b: &[Value]) -> StrResult<Ordering> {
-    let cmp_result =
-        a.iter()
-            .zip(b.iter())
-            .try_fold(Ordering::Equal, |accum, (first, second)| {
-                if accum != Ordering::Equal {
-                    Ok(accum)
-                } else {
-                    compare(first, second)
-                }
-            });
-
-    if cmp_result == Ok(Ordering::Equal) {
-        // The two arrays are equal up to the shortest array's extent,
-        // so compare their lengths instead.
-        Ok(a.len().cmp(&b.len()))
-    } else {
-        cmp_result
-    }
+    a.iter()
+        .zip(b.iter())
+        .find_map(|(first, second)| {
+            match compare(first, second) {
+                // Keep searching for a pair of elements that isn't equal.
+                Ok(Ordering::Equal) => None,
+                // Found a pair which either is not equal or not comparable, so
+                // we stop searching.
+                result => Some(result),
+            }
+        })
+        .unwrap_or_else(|| {
+            // The two arrays are equal up to the shortest array's extent,
+            // so compare their lengths instead.
+            Ok(a.len().cmp(&b.len()))
+        })
 }
 
 /// Test whether one value is "in" another one.
