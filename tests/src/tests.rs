@@ -120,9 +120,7 @@ fn main() {
                 return None;
             }
 
-            let src_whole_path =
-                Path::new(&std::env::current_dir().unwrap()).join(src_path.clone());
-            if args.matches(&src_whole_path) {
+            if args.matches(&src_path.canonicalize().unwrap()) {
                 Some(src_path)
             } else {
                 None
