@@ -14,8 +14,11 @@ function getTestOutputTabTitle(uri) {
     return uri.path.split('/').pop()?.replace('.typ', '.png') ?? 'Test output'
 }
 
+/**
+ * @param {vscode.ExtensionContext} context
+ */
 function activate(context) {
-    let panel = null
+    let /** @type {vscode.WebviewPanel?} */ panel = null
 
     function refreshPanel(stdout, stderr) {
         const uri = getActiveDocumentUri()
@@ -29,6 +32,9 @@ function activate(context) {
 
             // Make refresh notable.
             setTimeout(() => {
+                if (!panel) {
+                    throw new Error('state.panel is falsy');
+                }
                 panel.title = getTestOutputTabTitle(uri)
                 panel.webview.html = getWebviewContent(pngSrc, refSrc, stdout, stderr)
             }, 50)
@@ -75,7 +81,7 @@ function activate(context) {
                 + `${uri.path.split('/').pop()}?`,
                 'Yes', 'Cancel')
             .then(answer => {
-                if (answer !== 'Yes') {
+                if (answer === 'Yes') {
                     vscode.workspace.fs.copy(pngPath, refPath, { overwrite: true })
                     .then(() => {
                         console.log('Copied to reference file')
