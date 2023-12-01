@@ -87,7 +87,7 @@ impl Args {
         for i in 0..components_len {
             path_endings.insert(
                 components[(components_len - i - 1)..]
-                    .join(&std::path::MAIN_SEPARATOR.to_string()),
+                    .join(std::path::MAIN_SEPARATOR_STR),
             );
         }
 
