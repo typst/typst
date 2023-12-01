@@ -723,7 +723,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             quote! {
                 <#elem as #foundations::ElementFields>::Fields::#name => None,
             }
-        } else if field.inherent() {
+        } else if field.inherent() || (field.synthesized && field.default.is_some()) {
             quote! {
                 <#elem as #foundations::ElementFields>::Fields::#name => Some(
                     #foundations::IntoValue::into_value(self.#field_ident.clone())
@@ -732,7 +732,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         } else {
             quote! {
                 <#elem as #foundations::ElementFields>::Fields::#name => {
-                    self.#field_ident.clone().map(#foundations::IntoValue::into_value)
+                    Some(self.#field_ident.clone()?.into_value())
                 }
             }
         }
@@ -748,7 +748,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             quote! {
                 <#elem as #foundations::ElementFields>::Fields::#name => false,
             }
-        } else if field.inherent() {
+        } else if field.inherent() || (field.synthesized && field.default.is_some()) {
             quote! {
                 <#elem as #foundations::ElementFields>::Fields::#name => true,
             }
@@ -867,12 +867,21 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                 quote! { ::ecow::EcoString::inline(#name).into() }
             };
 
-            quote! {
-                if let Some(value) = &self.#field_ident {
+            if field.synthesized && field.default.is_some() {
+                quote! {
                     fields.insert(
                         #field_call,
-                        #foundations::IntoValue::into_value(value.clone())
+                        #foundations::IntoValue::into_value(self.#field_ident.clone())
                     );
+                }
+            } else {
+                quote! {
+                    if let Some(value) = &self.#field_ident {
+                        fields.insert(
+                            #field_call,
+                            #foundations::IntoValue::into_value(value.clone())
+                        );
+                    }
                 }
             }
         });
@@ -1043,6 +1052,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             }
 
             fn field(&self, id: u8) -> Option<#foundations::Value> {
+                use #foundations::IntoValue;
                 let id = <#ident as #foundations::ElementFields>::Fields::try_from(id).ok()?;
                 match id {
                     <#ident as #foundations::ElementFields>::Fields::Label => #label_field,
