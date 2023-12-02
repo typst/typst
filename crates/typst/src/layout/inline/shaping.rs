@@ -940,12 +940,13 @@ pub(super) fn is_of_cjk_script(c: char) -> bool {
     is_cjk_script(c, c.script())
 }
 
-/// Whether the glyph is part of a CJK script.
+/// Whether the glyph is part of a CJK script. Note that CJK Unified Ideographs
+/// is just a subset thereof.
 #[inline]
 fn is_cjk_script(c: char, script: Script) -> bool {
     use Script::*;
     // U+30FC: Katakana-Hiragana Prolonged Sound Mark
-    matches!(script, Hiragana | Katakana | Han) || c == '\u{30FC}'
+    matches!(script, Han | Hangul | Hiragana | Katakana) || c == '\u{30FC}'
 }
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
