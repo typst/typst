@@ -7,7 +7,7 @@ use unicode_script::{Script, UnicodeScript};
 
 use self::linebreak::{breakpoints, Breakpoint};
 use self::shaping::{
-    is_gb_style, is_of_cjk_script, shape, ShapedGlyph, ShapedText, BEGIN_PUNCT_PAT,
+    is_gb_style, is_of_cj_script, shape, ShapedGlyph, ShapedText, BEGIN_PUNCT_PAT,
     END_PUNCT_PAT,
 };
 use crate::diag::{bail, SourceResult};
@@ -639,16 +639,16 @@ fn add_cjk_latin_spacing(items: &mut [Item]) {
                     .and_then(|shaped| shaped.glyphs.first())
             });
 
-            // Case 1: CJK followed by a Latin character
-            if glyph.is_cjk_script() && next.map_or(false, |g| g.is_letter_or_number()) {
+            // Case 1: CJ followed by a Latin character
+            if glyph.is_cj_script() && next.map_or(false, |g| g.is_letter_or_number()) {
                 // The spacing is default to 1/4 em, and can be shrunk to 1/8 em.
                 glyph.x_advance += Em::new(0.25);
                 glyph.adjustability.shrinkability.1 += Em::new(0.125);
                 text.width += Em::new(0.25).at(text.size);
             }
 
-            // Case 2: Latin followed by a CJK character
-            if glyph.is_cjk_script() && prev.map_or(false, |g| g.is_letter_or_number()) {
+            // Case 2: Latin followed by a CJ character
+            if glyph.is_cj_script() && prev.map_or(false, |g| g.is_letter_or_number()) {
                 glyph.x_advance += Em::new(0.25);
                 glyph.x_offset += Em::new(0.25);
                 glyph.adjustability.shrinkability.0 += Em::new(0.125);
@@ -1028,7 +1028,7 @@ fn line<'a>(
         // Deal with CJK punctuation at line ends.
         let gb_style = is_gb_style(shaped.lang, shaped.region);
         let maybe_adjust_last_glyph = trimmed.ends_with(END_PUNCT_PAT)
-            || (p.cjk_latin_spacing && trimmed.ends_with(is_of_cjk_script));
+            || (p.cjk_latin_spacing && trimmed.ends_with(is_of_cj_script));
 
         // Usually, we don't want to shape an empty string because:
         // - We don't want the height of trimmed whitespace in a different
@@ -1056,7 +1056,7 @@ fn line<'a>(
                         punct.shrink_right(shrink_amount);
                         reshaped.width -= shrink_amount.at(reshaped.size);
                     } else if p.cjk_latin_spacing
-                        && last_glyph.is_cjk_script()
+                        && last_glyph.is_cj_script()
                         && (last_glyph.x_advance - last_glyph.x_offset) > Em::one()
                     {
                         // If the last glyph is a CJK character adjusted by [`add_cjk_latin_spacing`],
@@ -1078,10 +1078,10 @@ fn line<'a>(
         }
     }
 
-    // Deal with CJK characters at line starts.
+    // Deal with CJ characters at line starts.
     let text = &p.bidi.text[range.start..end];
     let maybe_adjust_first_glyph = text.starts_with(BEGIN_PUNCT_PAT)
-        || (p.cjk_latin_spacing && text.starts_with(is_of_cjk_script));
+        || (p.cjk_latin_spacing && text.starts_with(is_of_cj_script));
 
     // Reshape the start item if it's split in half.
     let mut first = None;
@@ -1116,7 +1116,7 @@ fn line<'a>(
                     reshaped.width -= amount_abs;
                     width -= amount_abs;
                 } else if p.cjk_latin_spacing
-                    && first_glyph.is_cjk_script()
+                    && first_glyph.is_cj_script()
                     && first_glyph.x_offset > Em::zero()
                 {
                     // If the first glyph is a CJK character adjusted by [`add_cjk_latin_spacing`],
