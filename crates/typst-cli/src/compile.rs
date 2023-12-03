@@ -117,6 +117,9 @@ pub fn compile_once(
 
             if let Some(open) = command.open.take() {
                 open_file(open.as_deref(), &command.output())?;
+
+                // keeps the process alive long enough for the editor command to fire
+                std::thread::sleep(std::time::Duration::from_millis(10));
             }
         }
 
