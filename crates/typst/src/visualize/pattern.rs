@@ -80,11 +80,12 @@ use crate::World;
 ///
 /// # Relativeness
 /// The location of the starting point of the pattern is dependent on the
-/// dimensions of a container. This container can either be the shape they
-/// are painted on, or the closest surrounding container. This is controlled by
-/// the `relative` argument of a pattern constructor. By default, patterns are
-/// relative to the shape they are painted on, unless the pattern is applied on
-/// text, in which case they are relative to the closest ancestor container.
+/// dimensions of a container. This container can either be the shape that it is
+/// being painted on, or the closest surrounding container. This is controlled
+/// by the `relative` argument of a pattern constructor. By default, patterns
+/// are relative to the shape they are being painted on, unless the pattern is
+/// applied on text, in which case they are relative to the closest ancestor
+/// container.
 ///
 /// Typst determines the ancestor container as follows:
 /// - For shapes that are placed at the root/top level of the document, the
