@@ -134,6 +134,8 @@ impl Pattern {
     #[func(constructor)]
     pub fn construct(
         engine: &mut Engine,
+        /// The callsite span.
+        span: Span,
         /// The bounding box of each cell of the pattern.
         #[named]
         #[default(Spanned::new(Smart::Auto, Span::detached()))]
@@ -154,11 +156,11 @@ impl Pattern {
         /// The content of each cell of the pattern.
         body: Content,
     ) -> SourceResult<Pattern> {
-        let span = size.span;
+        let size_span = size.span;
         if let Smart::Custom(size) = size.v {
             // Ensure that sizes are absolute.
             if !size.x.em.is_zero() || !size.y.em.is_zero() {
-                bail!(span, "pattern tile size must be absolute");
+                bail!(size_span, "pattern tile size must be absolute");
             }
 
             // Ensure that sizes are non-zero and finite.
@@ -167,7 +169,7 @@ impl Pattern {
                 || !size.x.is_finite()
                 || !size.y.is_finite()
             {
-                bail!(span, "pattern tile size must be non-zero and non-infinite");
+                bail!(size_span, "pattern tile size must be non-zero and non-infinite");
             }
         }
 
@@ -192,17 +194,17 @@ impl Pattern {
         let pod = Regions::one(region, Axes::splat(false));
         let mut frame = body.layout(engine, styles, pod)?.into_frame();
 
+        // Set the size of the frame if the size is enforced.
+        if let Smart::Custom(size) = size {
+            frame.set_size(size);
+        }
+
         // Check that the frame is non-zero.
-        if size.is_auto() && frame.size().is_zero() {
+        if frame.width().is_zero() || frame.height().is_zero() {
             bail!(
                 span, "pattern tile size must be non-zero";
                 hint: "try setting the size manually"
             );
-        }
-
-        // Set the size of the frame if the size is enforced.
-        if let Smart::Custom(size) = size {
-            frame.set_size(size);
         }
 
         Ok(Self(Arc::new(Repr {
