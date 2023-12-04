@@ -76,7 +76,7 @@ impl Layout for FlowElem {
             } else if child.is::<ColbreakElem>() {
                 if !layouter.regions.backlog.is_empty() || layouter.regions.last.is_some()
                 {
-                    layouter.finish_region(vt)?;
+                    layouter.finish_region(vt, false)?;
                 }
             } else {
                 bail!(child.span(), "unexpected flow child");
@@ -112,9 +112,6 @@ struct FlowLayouter<'a> {
     footnote_config: FootnoteConfig,
     /// Finished frames for previous regions.
     finished: Vec<Frame>,
-    /// If the last finished frame contains only out-of-flow items (like placed
-    /// elements or counter updates), this contains a copy of those items.
-    last_frame_only_out_of_flow: Option<Vec<FlowItem>>,
 }
 
 /// Cached footnote configuration.
@@ -125,7 +122,7 @@ struct FootnoteConfig {
 }
 
 /// A prepared item in a flow layout.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 enum FlowItem {
     /// Spacing between other items and whether it is weak.
     Absolute(Abs, bool),
@@ -157,6 +154,17 @@ impl FlowItem {
             Self::Frame { frame, .. } | Self::Footnote(frame) => frame.height(),
         }
     }
+
+    /// Whether this item is out-of-flow.
+    ///
+    /// Out-of-flow items are guaranteed to have a [`Size::zero()`].
+    fn is_out_of_flow(&self) -> bool {
+        match self {
+            Self::Placed { float: false, .. } => true,
+            Self::Frame { frame, .. } => frame.size().is_zero(),
+            _ => false,
+        }
+    }
 }
 
 impl<'a> FlowLayouter<'a> {
@@ -184,7 +192,6 @@ impl<'a> FlowLayouter<'a> {
                 gap: FootnoteEntry::gap_in(styles),
             },
             finished: vec![],
-            last_frame_only_out_of_flow: None,
         }
     }
 
@@ -235,7 +242,7 @@ impl<'a> FlowLayouter<'a> {
         if let Some(first) = lines.first() {
             if !self.regions.size.y.fits(first.height()) && !self.regions.in_last() {
                 let carry: Vec<_> = self.items.drain(sticky..).collect();
-                self.finish_region(vt)?;
+                self.finish_region(vt, false)?;
                 for item in carry {
                     self.layout_item(vt, item)?;
                 }
@@ -312,7 +319,7 @@ impl<'a> FlowLayouter<'a> {
 
         if self.regions.is_full() {
             // Skip directly if region is already full.
-            self.finish_region(vt)?;
+            self.finish_region(vt, false)?;
         }
 
         // How to align the block.
@@ -336,7 +343,7 @@ impl<'a> FlowLayouter<'a> {
             }
 
             if i > 0 {
-                self.finish_region(vt)?;
+                self.finish_region(vt, false)?;
             }
 
             let item = FlowItem::Frame { frame, align, sticky, movable: false };
@@ -371,7 +378,7 @@ impl<'a> FlowLayouter<'a> {
             FlowItem::Frame { ref frame, movable, .. } => {
                 let height = frame.height();
                 if !self.regions.size.y.fits(height) && !self.regions.in_last() {
-                    self.finish_region(vt)?;
+                    self.finish_region(vt, false)?;
                 }
 
                 self.regions.size.y -= height;
@@ -381,7 +388,7 @@ impl<'a> FlowLayouter<'a> {
                     self.items.push(item);
                     if !self.handle_footnotes(vt, &mut notes, true, false)? {
                         let item = self.items.pop();
-                        self.finish_region(vt)?;
+                        self.finish_region(vt, false)?;
                         self.items.extend(item);
                         self.regions.size.y -= height;
                         self.handle_footnotes(vt, &mut notes, true, true)?;
@@ -439,23 +446,19 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Finish the frame for one region.
-    fn finish_region(&mut self, vt: &mut Vt) -> SourceResult<()> {
-        if let Some(items) = self.last_frame_only_out_of_flow.take() {
-            self.items.splice(0..0, items);
-            self.finished.pop();
+    ///
+    /// Set `force` to `true` to allow creating a frame for out-of-flow elements
+    /// only (this is used to force the creation of a frame in case the
+    /// remaining elements are all out-of-flow).
+    fn finish_region(&mut self, vt: &mut Vt, force: bool) -> SourceResult<()> {
+        if !force
+            && !self.items.is_empty()
+            && self.items.iter().all(FlowItem::is_out_of_flow)
+        {
+            self.finished.push(Frame::soft(self.initial));
             self.regions.next();
             self.initial = self.regions.size;
-            self.has_footnotes = false;
-        }
-
-        if !self.items.is_empty()
-            && self.items.iter().all(|item| match item {
-                FlowItem::Placed { float: false, .. } => true,
-                FlowItem::Frame { frame, .. } => frame.size().is_zero(),
-                _ => false,
-            })
-        {
-            self.last_frame_only_out_of_flow = Some(self.items.clone());
+            return Ok(());
         }
 
         // Trim weak spacing.
@@ -594,13 +597,13 @@ impl<'a> FlowLayouter<'a> {
     fn finish(mut self, vt: &mut Vt) -> SourceResult<Fragment> {
         if self.expand.y {
             while !self.regions.backlog.is_empty() {
-                self.finish_region(vt)?;
+                self.finish_region(vt, true)?;
             }
         }
 
-        self.finish_region(vt)?;
+        self.finish_region(vt, true)?;
         while !self.items.is_empty() {
-            self.finish_region(vt)?;
+            self.finish_region(vt, true)?;
         }
 
         Ok(Fragment::frames(self.finished))
@@ -614,7 +617,7 @@ impl FlowLayouter<'_> {
         mut notes: Vec<FootnoteElem>,
     ) -> SourceResult<()> {
         if self.root && !self.handle_footnotes(vt, &mut notes, false, false)? {
-            self.finish_region(vt)?;
+            self.finish_region(vt, false)?;
             self.handle_footnotes(vt, &mut notes, false, true)?;
         }
         Ok(())
@@ -676,7 +679,7 @@ impl FlowLayouter<'_> {
             for (i, frame) in frames.into_iter().enumerate() {
                 find_footnotes(notes, &frame);
                 if i > 0 {
-                    self.finish_region(vt)?;
+                    self.finish_region(vt, false)?;
                     self.layout_footnote_separator(vt)?;
                     self.regions.size.y -= self.footnote_config.gap;
                 }
