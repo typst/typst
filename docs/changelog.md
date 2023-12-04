@@ -5,7 +5,7 @@ description: |
 ---
 
 # Changelog
-## Unreleased
+## Version 0.10.0 (December 4, 2023) { #v0.10.0 }
 - Bibliography management
   - Added support for citation collapsing (e.g. `[[1]-[3]]` instead of
     `[[1], [2], [3]]`) if requested by a CSL style
@@ -106,10 +106,13 @@ description: |
   - The `TYPST_FONT_PATHS` environment variable can now contain multiple paths
     (separated by `;` on Windows and `:` elsewhere)
   - Updated embedded New Computer Modern fonts to version 4.7
+  - The watching process doesn't stop anymore when the main file contains
+    invalid UTF-8
 
 - Miscellaneous Improvements
   - Parallelized image encoding in PDF export
   - Improved the internal representation of content for improved performance
+  - Optimized introspection (query, counter, etc.) performance
   - The [document title]($document.title) can now be arbitrary content instead
     of just a string
   - The [`number-align`]($enum.number-align) parameter on numbered lists now
@@ -118,11 +121,14 @@ description: |
   - Fixed parsing of `[#return]` expression in markup
   - Fixed bug where inline equations were displayed in equation outlines
   - Fixed potential CRLF issue in [`raw`]($raw) blocks
+  - Fixed a bug where Chinese numbering couldn't exceed the number 255
 
 - Development
   - Merged `typst` and `typst-library` and extracted `typst-pdf`, `typst-svg`,
     and `typst-render` into separate crates
   - The Nix flake now includes the git revision when running `typst --version`
+
+<contributors from="v0.9.0" to="v0.10.0" />
 
 ## Version 0.9.0 (October 31, 2023) { #v0.9.0 }
 - Bibliography management

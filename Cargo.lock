@@ -2616,7 +2616,7 @@ checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
 
 [[package]]
 name = "typst"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "az",
  "bitflags 2.4.1",
@@ -2668,7 +2668,7 @@ dependencies = [
 
 [[package]]
 name = "typst-cli"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "chrono",
  "clap",
@@ -2712,7 +2712,7 @@ dependencies = [
 
 [[package]]
 name = "typst-docs"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "comemo",
  "ecow",
@@ -2732,7 +2732,7 @@ dependencies = [
 
 [[package]]
 name = "typst-ide"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "comemo",
  "ecow",
@@ -2745,7 +2745,7 @@ dependencies = [
 
 [[package]]
 name = "typst-macros"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -2755,7 +2755,7 @@ dependencies = [
 
 [[package]]
 name = "typst-pdf"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "base64",
  "bytemuck",
@@ -2777,7 +2777,7 @@ dependencies = [
 
 [[package]]
 name = "typst-render"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "bytemuck",
  "comemo",
@@ -2794,7 +2794,7 @@ dependencies = [
 
 [[package]]
 name = "typst-svg"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "base64",
  "comemo",
@@ -2809,7 +2809,7 @@ dependencies = [
 
 [[package]]
 name = "typst-syntax"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "comemo",
  "ecow",
@@ -2825,7 +2825,7 @@ dependencies = [
 
 [[package]]
 name = "typst-tests"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "clap",
  "comemo",
