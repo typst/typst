@@ -32,3 +32,6 @@ harness = false
 name = "benches"
 path = "src/benches.rs"
 harness = false
+
+[lints]
+workspace = true

@@ -430,7 +430,7 @@ fn test(
 
         if world.print.frames {
             for frame in &document.pages {
-                writeln!(output, "{:#?}\n", frame).unwrap();
+                writeln!(output, "{frame:#?}\n").unwrap();
             }
         }
 
