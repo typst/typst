@@ -551,6 +551,7 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
 
         (Duration(a), Duration(b)) => a.cmp(b),
         (Datetime(a), Datetime(b)) => try_cmp_datetimes(a, b)?,
+        (Array(a), Array(b)) => try_cmp_arrays(a.as_slice(), b.as_slice())?,
 
         _ => mismatch!("cannot compare {} and {}", lhs, rhs),
     })
@@ -566,6 +567,26 @@ fn try_cmp_values<T: PartialOrd + Repr>(a: &T, b: &T) -> StrResult<Ordering> {
 fn try_cmp_datetimes(a: &Datetime, b: &Datetime) -> StrResult<Ordering> {
     a.partial_cmp(b)
         .ok_or_else(|| eco_format!("cannot compare {} and {}", a.kind(), b.kind()))
+}
+
+/// Try to compare arrays of values lexicographically.
+fn try_cmp_arrays(a: &[Value], b: &[Value]) -> StrResult<Ordering> {
+    a.iter()
+        .zip(b.iter())
+        .find_map(|(first, second)| {
+            match compare(first, second) {
+                // Keep searching for a pair of elements that isn't equal.
+                Ok(Ordering::Equal) => None,
+                // Found a pair which either is not equal or not comparable, so
+                // we stop searching.
+                result => Some(result),
+            }
+        })
+        .unwrap_or_else(|| {
+            // The two arrays are equal up to the shortest array's extent,
+            // so compare their lengths instead.
+            Ok(a.len().cmp(&b.len()))
+        })
 }
 
 /// Test whether one value is "in" another one.
