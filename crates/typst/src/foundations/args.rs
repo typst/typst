@@ -242,8 +242,8 @@ impl Args {
     /// This function behaves like `{let args(..sink) = sink}`.
     ///
     /// ```example
-    /// #let args = arguments(stroke: red, inset: 1em, [Body])
-    /// #box(..args)
+    /// #let args = (stroke: red, inset: 1em)
+    /// #box(..args)[Body]
     /// ```
     #[func(constructor)]
     pub fn construct(
