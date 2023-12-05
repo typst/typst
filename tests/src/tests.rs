@@ -6,7 +6,7 @@ use std::ffi::OsStr;
 use std::fmt::{self, Display, Formatter, Write as _};
 use std::io::{self, Write};
 use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::{Path, PathBuf, MAIN_SEPARATOR_STR};
 use std::{env, fs};
 
 use clap::Parser;
@@ -72,27 +72,19 @@ struct PrintConfig {
 }
 
 impl Args {
-    fn matches(&self, path: &Path) -> bool {
+    fn matches(&self, canonicalized_path: &Path) -> bool {
+        let path = canonicalized_path.to_string_lossy();
         if !self.exact {
-            let path = path.to_string_lossy();
             return self.filter.is_empty()
                 || self.filter.iter().any(|v| path.contains(v));
         }
 
-        let components: Vec<String> = path
-            .components()
-            .map(|c| c.as_os_str().to_string_lossy().into_owned())
-            .collect();
-        let components_len = components.len();
-        let mut path_endings: HashSet<String> = HashSet::new();
-        for i in 0..components_len {
-            path_endings.insert(
-                components[(components_len - i - 1)..]
-                    .join(std::path::MAIN_SEPARATOR_STR),
-            );
-        }
-
-        self.filter.iter().any(|v| path_endings.contains(v))
+        self.filter.iter().any(|v| match path.strip_suffix(v) {
+            None => false,
+            Some(residual) => {
+                residual.is_empty() || residual.ends_with(MAIN_SEPARATOR_STR)
+            }
+        })
     }
 }
 
@@ -149,10 +141,8 @@ fn main() {
 
     let len = results.len();
     let ok = results.iter().sum::<usize>();
-    if len >= 2 {
+    if len > 1 {
         println!("{ok} / {len} tests passed.");
-    } else if len == 0 {
-        println!("No test ran.");
     }
 
     if ok != len {
