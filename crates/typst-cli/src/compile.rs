@@ -1,5 +1,5 @@
-use std::fs;
 use std::path::{Path, PathBuf};
+use std::{fs, io, thread};
 
 use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -116,7 +116,12 @@ pub fn compile_once(
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
             if let Some(open) = command.open.take() {
-                open_file(open.as_deref(), &command.output())?;
+                if watching {
+                    open_file(open.as_deref(), &command.output());
+                } else {
+                    // Waits for the editor open command to finish
+                    let _ = open_file(open.as_deref(), &command.output()).join();
+                }
             }
         }
 
@@ -253,14 +258,12 @@ fn export_image(
 /// Opens the given file using:
 /// - The default file viewer if `open` is `None`.
 /// - The given viewer provided by `open` if it is `Some`.
-fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
+fn open_file(open: Option<&str>, path: &Path) -> thread::JoinHandle<io::Result<()>> {
     if let Some(app) = open {
-        open::with_in_background(path, app);
+        open::with_in_background(path, app)
     } else {
-        open::that_in_background(path);
+        open::that_in_background(path)
     }
-
-    Ok(())
 }
 
 /// Print diagnostic messages to the terminal.
