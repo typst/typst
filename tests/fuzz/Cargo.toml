@@ -16,12 +16,12 @@ libfuzzer-sys = { workspace = true }
 
 [[bin]]
 name = "parse"
-path = "targets/parse.rs"
+path = "src/parse.rs"
 test = false
 doc = false
 
 [[bin]]
 name = "compile"
-path = "targets/compile.rs"
+path = "src/compile.rs"
 test = false
 doc = false
