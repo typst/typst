@@ -16,23 +16,6 @@ jobs:
       - run: cargo build --workspace
       - run: cargo test --workspace --no-fail-fast
 
-  fuzz:
-    name: Build fuzzers
-    runs-on: ubuntu-latest
-    env:
-      # TODO: Remove this override once nightly doesn't have
-      # false positives on dead_code.
-      RUSTFLAGS: ""
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly-2023-11-03
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo install cargo-fuzz
-      - run: cd tests/fuzz && cargo fuzz build
-
-
   checks:
     name: Check clippy, formatting, and documentation
     runs-on: ubuntu-latest
@@ -52,3 +35,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.70.0
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace
+
+  fuzz:
+    name: Check fuzzers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2023-09-13
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo install cargo-fuzz
+      - run: cd tests/fuzz && cargo fuzz build

@@ -1,12 +1,14 @@
 #![no_main]
+
 use comemo::Prehashed;
 use libfuzzer_sys::fuzz_target;
 use typst::diag::{FileError, FileResult};
-use typst::eval::{Bytes, Datetime, Library, Tracer};
-use typst::font::{Font, FontBook};
-use typst::geom::Color;
+use typst::eval::Tracer;
+use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source};
-use typst::World;
+use typst::text::{Font, FontBook};
+use typst::visualize::Color;
+use typst::{Library, World};
 
 const FONT: &[u8] = include_bytes!("../../../assets/fonts/LinLibertine_R.ttf");
 
@@ -21,9 +23,8 @@ impl FuzzWorld {
     fn new(text: &str) -> Self {
         let font = Font::new(FONT.into(), 0).unwrap();
         let book = FontBook::from_fonts([&font]);
-
         Self {
-            library: Prehashed::new(typst_library::build()),
+            library: Prehashed::new(Library::build()),
             book: Prehashed::new(book),
             font,
             source: Source::detached(text),
