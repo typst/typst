@@ -70,4 +70,5 @@ fuzz_target!(|text: &str| {
             std::hint::black_box(typst_render::render(page, 1.0, Color::WHITE));
         }
     }
+    comemo::evict(10);
 });
