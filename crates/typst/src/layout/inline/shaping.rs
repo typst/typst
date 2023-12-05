@@ -107,9 +107,9 @@ impl ShapedGlyph {
         self.is_justifiable
     }
 
-    /// Whether the glyph is part of a CJK script.
-    pub fn is_cjk_script(&self) -> bool {
-        is_cjk_script(self.c, self.script)
+    /// Whether the glyph is part of Chinese or Japanese script (i.e. CJ, not CJK).
+    pub fn is_cj_script(&self) -> bool {
+        is_cj_script(self.c, self.script)
     }
 
     pub fn is_cjk_punctuation(&self) -> bool {
@@ -360,7 +360,7 @@ impl<'a> ShapedText<'a> {
     pub fn cjk_justifiable_at_last(&self) -> bool {
         self.glyphs
             .last()
-            .map(|g| g.is_cjk_script() || g.is_cjk_punctuation())
+            .map(|g| g.is_cj_script() || g.is_cjk_punctuation())
             .unwrap_or(false)
     }
 
@@ -934,15 +934,17 @@ fn is_space(c: char) -> bool {
     matches!(c, ' ' | '\u{00A0}' | '　')
 }
 
-/// Whether the glyph is part of a CJK script.
+/// Whether the glyph is part of Chinese or Japanese script (i.e. CJ, not CJK).
 #[inline]
-pub(super) fn is_of_cjk_script(c: char) -> bool {
-    is_cjk_script(c, c.script())
+pub(super) fn is_of_cj_script(c: char) -> bool {
+    is_cj_script(c, c.script())
 }
 
-/// Whether the glyph is part of a CJK script.
+/// Whether the glyph is part of Chinese or Japanese script (i.e. CJ, not CJK).
+/// The function is dedicated to typesetting Chinese or Japanese, which do not
+/// have spaces between words, so K is not checked here.
 #[inline]
-fn is_cjk_script(c: char, script: Script) -> bool {
+fn is_cj_script(c: char, script: Script) -> bool {
     use Script::*;
     // U+30FC: Katakana-Hiragana Prolonged Sound Mark
     matches!(script, Hiragana | Katakana | Han) || c == '\u{30FC}'
@@ -1016,7 +1018,7 @@ fn is_justifiable(
 ) -> bool {
     // GB style is not relevant here.
     is_space(c)
-        || is_cjk_script(c, script)
+        || is_cj_script(c, script)
         || is_cjk_left_aligned_punctuation(c, x_advance, stretchability, true)
         || is_cjk_right_aligned_punctuation(c, x_advance, stretchability)
         || is_cjk_center_aligned_punctuation(c, true)
