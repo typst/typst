@@ -9,13 +9,15 @@ use pixglyph::Bitmap;
 use resvg::tiny_skia::IntRect;
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
-use typst::doc::{Frame, FrameItem, FrameKind, GroupItem, Meta, TextItem};
-use typst::font::Font;
-use typst::geom::{
-    self, Abs, Axes, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin, Paint,
-    PathItem, Point, Ratio, Relative, Shape, Size, Transform,
+use typst::introspection::Meta;
+use typst::layout::{
+    Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Size, Transform,
 };
-use typst::image::{Image, ImageKind, RasterFormat};
+use typst::text::{Font, TextItem};
+use typst::visualize::{
+    Color, FixedStroke, Geometry, Gradient, Image, ImageKind, LineCap, LineJoin, Paint,
+    Path, PathItem, Pattern, RasterFormat, RelativeTo, Shape,
+};
 use usvg::{NodeExt, TreeParsing};
 
 /// Export a frame into a raster image.
@@ -431,7 +433,17 @@ fn render_outline_glyph(
             write_bitmap(canvas, &bitmap, &state, sampler)?;
         }
         Paint::Solid(color) => {
-            write_bitmap(canvas, &bitmap, &state, *color)?;
+            write_bitmap(
+                canvas,
+                &bitmap,
+                &state,
+                to_sk_color_u8_without_alpha(*color).premultiply(),
+            )?;
+        }
+        Paint::Pattern(pattern) => {
+            let pixmap = render_pattern_frame(&state, pattern);
+            let sampler = PatternSampler::new(pattern, &pixmap, &state, true);
+            write_bitmap(canvas, &bitmap, &state, sampler)?;
         }
     }
 
@@ -456,7 +468,7 @@ fn write_bitmap<S: PaintSampler>(
         for x in 0..mw {
             for y in 0..mh {
                 let alpha = bitmap.coverage[(y * mw + x) as usize];
-                let color = to_sk_color_u8_without_alpha(sampler.sample((x, y)));
+                let color = sampler.sample((x, y));
                 pixmap.pixels_mut()[((y + 1) * (mw + 2) + (x + 1)) as usize] =
                     sk::ColorU8::from_rgba(
                         color.red(),
@@ -502,8 +514,7 @@ fn write_bitmap<S: PaintSampler>(
                 }
 
                 let color = sampler.sample((x as _, y as _));
-                let color =
-                    bytemuck::cast(to_sk_color_u8_without_alpha(color).premultiply());
+                let color = bytemuck::cast(color);
                 let pi = (y * cw + x) as usize;
                 if cov == 255 {
                     pixels[pi] = color;
@@ -634,7 +645,7 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
 }
 
 /// Convert a Typst path into a tiny-skia path.
-fn convert_path(path: &geom::Path) -> Option<sk::Path> {
+fn convert_path(path: &Path) -> Option<sk::Path> {
     let mut builder = sk::PathBuilder::new();
     for elem in &path.0 {
         match elem {
@@ -744,11 +755,22 @@ fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
 /// abstraction over solid colors and gradients.
 trait PaintSampler: Copy {
     /// Sample the color at the `pos` in the pixmap.
-    fn sample(self, pos: (u32, u32)) -> Color;
+    fn sample(self, pos: (u32, u32)) -> sk::PremultipliedColorU8;
+
+    /// Write the sampler to a pixmap.
+    fn write_to_pixmap(self, canvas: &mut sk::Pixmap) {
+        let width = canvas.width();
+        for x in 0..canvas.width() {
+            for y in 0..canvas.height() {
+                let color = self.sample((x, y));
+                canvas.pixels_mut()[(y * width + x) as usize] = color;
+            }
+        }
+    }
 }
 
-impl PaintSampler for Color {
-    fn sample(self, _: (u32, u32)) -> Color {
+impl PaintSampler for sk::PremultipliedColorU8 {
+    fn sample(self, _: (u32, u32)) -> sk::PremultipliedColorU8 {
         self
     }
 }
@@ -773,13 +795,13 @@ impl<'a> GradientSampler<'a> {
     ) -> Self {
         let relative = gradient.unwrap_relative(on_text);
         let container_size = match relative {
-            Relative::Self_ => item_size,
-            Relative::Parent => state.size,
+            RelativeTo::Self_ => item_size,
+            RelativeTo::Parent => state.size,
         };
 
         let fill_transform = match relative {
-            Relative::Self_ => sk::Transform::identity(),
-            Relative::Parent => state.container_transform.invert().unwrap(),
+            RelativeTo::Self_ => sk::Transform::identity(),
+            RelativeTo::Parent => state.container_transform.invert().unwrap(),
         };
 
         Self {
@@ -792,16 +814,68 @@ impl<'a> GradientSampler<'a> {
 
 impl PaintSampler for GradientSampler<'_> {
     /// Samples a single point in a glyph.
-    fn sample(self, (x, y): (u32, u32)) -> Color {
+    fn sample(self, (x, y): (u32, u32)) -> sk::PremultipliedColorU8 {
         // Compute the point in the gradient's coordinate space.
         let mut point = sk::Point { x: x as f32, y: y as f32 };
         self.transform_to_parent.map_point(&mut point);
 
         // Sample the gradient
-        self.gradient.sample_at(
+        to_sk_color_u8_without_alpha(self.gradient.sample_at(
             (point.x, point.y),
             (self.container_size.x.to_f32(), self.container_size.y.to_f32()),
-        )
+        ))
+        .premultiply()
+    }
+}
+
+/// State used when sampling patterns for text.
+///
+/// It caches the inverse transform to the parent, so that we can
+/// reuse it instead of recomputing it for each pixel.
+#[derive(Clone, Copy)]
+struct PatternSampler<'a> {
+    size: Size,
+    transform_to_parent: sk::Transform,
+    pixmap: &'a sk::Pixmap,
+    pixel_per_pt: f32,
+}
+
+impl<'a> PatternSampler<'a> {
+    fn new(
+        pattern: &'a Pattern,
+        pixmap: &'a sk::Pixmap,
+        state: &State,
+        on_text: bool,
+    ) -> Self {
+        let relative = pattern.unwrap_relative(on_text);
+        let fill_transform = match relative {
+            RelativeTo::Self_ => sk::Transform::identity(),
+            RelativeTo::Parent => state.container_transform.invert().unwrap(),
+        };
+
+        Self {
+            pixmap,
+            size: (pattern.size() + pattern.spacing()) * state.pixel_per_pt as f64,
+            transform_to_parent: fill_transform,
+            pixel_per_pt: state.pixel_per_pt,
+        }
+    }
+}
+
+impl PaintSampler for PatternSampler<'_> {
+    /// Samples a single point in a glyph.
+    fn sample(self, (x, y): (u32, u32)) -> sk::PremultipliedColorU8 {
+        // Compute the point in the pattern's coordinate space.
+        let mut point = sk::Point { x: x as f32, y: y as f32 };
+        self.transform_to_parent.map_point(&mut point);
+
+        let x =
+            (point.x * self.pixel_per_pt).rem_euclid(self.size.x.to_f32()).floor() as u32;
+        let y =
+            (point.y * self.pixel_per_pt).rem_euclid(self.size.y.to_f32()).floor() as u32;
+
+        // Sample the pattern
+        self.pixmap.pixel(x, y).unwrap()
     }
 }
 
@@ -857,13 +931,13 @@ fn to_sk_paint<'a>(
         Paint::Gradient(gradient) => {
             let relative = gradient.unwrap_relative(on_text);
             let container_size = match relative {
-                Relative::Self_ => item_size,
-                Relative::Parent => state.size,
+                RelativeTo::Self_ => item_size,
+                RelativeTo::Parent => state.size,
             };
 
             let fill_transform = match relative {
-                Relative::Self_ => fill_transform.unwrap_or_default(),
-                Relative::Parent => state
+                RelativeTo::Self_ => fill_transform.unwrap_or_default(),
+                RelativeTo::Parent => state
                     .container_transform
                     .post_concat(state.transform.invert().unwrap()),
             };
@@ -890,9 +964,47 @@ fn to_sk_paint<'a>(
 
             sk_paint.anti_alias = gradient.anti_alias();
         }
+        Paint::Pattern(pattern) => {
+            let relative = pattern.unwrap_relative(on_text);
+
+            let fill_transform = match relative {
+                RelativeTo::Self_ => fill_transform.unwrap_or_default(),
+                RelativeTo::Parent => state
+                    .container_transform
+                    .post_concat(state.transform.invert().unwrap()),
+            };
+
+            let canvas = render_pattern_frame(&state, pattern);
+            *pixmap = Some(Arc::new(canvas));
+
+            // Create the shader
+            sk_paint.shader = sk::Pattern::new(
+                pixmap.as_ref().unwrap().as_ref().as_ref(),
+                sk::SpreadMode::Repeat,
+                sk::FilterQuality::Nearest,
+                1.0,
+                fill_transform
+                    .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt),
+            );
+        }
     }
 
     sk_paint
+}
+
+fn render_pattern_frame(state: &State, pattern: &Pattern) -> sk::Pixmap {
+    let size = pattern.size() + pattern.spacing();
+    let mut canvas = sk::Pixmap::new(
+        (size.x.to_f32() * state.pixel_per_pt).round() as u32,
+        (size.y.to_f32() * state.pixel_per_pt).round() as u32,
+    )
+    .unwrap();
+
+    // Render the pattern into a new canvas.
+    let ts = sk::Transform::from_scale(state.pixel_per_pt, state.pixel_per_pt);
+    let temp_state = State::new(pattern.size(), ts, state.pixel_per_pt);
+    render_frame(&mut canvas, temp_state, pattern.frame());
+    canvas
 }
 
 fn to_sk_color(color: Color) -> sk::Color {

@@ -4,21 +4,21 @@ use std::collections::{BTreeSet, HashSet};
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
-use typst::doc::Frame;
-use typst::eval::{
-    format_str, repr, AutoValue, CastInfo, Func, Library, NoneValue, Repr, Scope, Type,
-    Value,
+use typst::foundations::{
+    fields_on, format_str, mutable_methods_on, repr, AutoValue, CastInfo, Func, Label,
+    NoneValue, Repr, Scope, Type, Value,
 };
-use typst::geom::Color;
-use typst::model::Label;
+use typst::model::Document;
 use typst::syntax::{
     ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
 };
+use typst::text::RawElem;
+use typst::visualize::Color;
 use typst::World;
 use unscanny::Scanner;
 
-use crate::analyze::analyze_labels;
-use crate::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
+use crate::analyze::{analyze_expr, analyze_import, analyze_labels};
+use crate::{plain_docs_sentence, summarize_font_family};
 
 /// Autocomplete a cursor position in a source file.
 ///
@@ -27,14 +27,18 @@ use crate::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_fa
 ///
 /// When `explicit` is `true`, the user requested the completion by pressing
 /// control and space or something similar.
+///
+/// Passing a `document` (from a previous compilation) is optional, but enhances
+/// the autocompletions. Label completions, for instance, are only generated
+/// when the document is available.
 pub fn autocomplete(
     world: &dyn World,
-    frames: &[Frame],
+    document: Option<&Document>,
     source: &Source,
     cursor: usize,
     explicit: bool,
 ) -> Option<(usize, Vec<Completion>)> {
-    let mut ctx = CompletionContext::new(world, frames, source, cursor, explicit)?;
+    let mut ctx = CompletionContext::new(world, document, source, cursor, explicit)?;
 
     let _ = complete_comments(&mut ctx)
         || complete_field_accesses(&mut ctx)
@@ -367,7 +371,7 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         }
     }
 
-    for &(method, args) in typst::eval::mutable_methods_on(value.ty()) {
+    for &(method, args) in mutable_methods_on(value.ty()) {
         ctx.completions.push(Completion {
             kind: CompletionKind::Func,
             label: method.into(),
@@ -380,7 +384,7 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         })
     }
 
-    for &field in typst::eval::fields_on(value.ty()) {
+    for &field in fields_on(value.ty()) {
         // Complete the field name along with its value. Notes:
         // 1. No parentheses since function fields cannot currently be called
         // with method syntax;
@@ -966,8 +970,7 @@ fn code_completions(ctx: &mut CompletionContext, hash: bool) {
 /// Context for autocompletion.
 struct CompletionContext<'a> {
     world: &'a (dyn World + 'a),
-    frames: &'a [Frame],
-    library: &'a Library,
+    document: Option<&'a Document>,
     global: &'a Scope,
     math: &'a Scope,
     text: &'a str,
@@ -985,7 +988,7 @@ impl<'a> CompletionContext<'a> {
     /// Create a new autocompletion context.
     fn new(
         world: &'a (dyn World + 'a),
-        frames: &'a [Frame],
+        document: Option<&'a Document>,
         source: &'a Source,
         cursor: usize,
         explicit: bool,
@@ -995,8 +998,7 @@ impl<'a> CompletionContext<'a> {
         let leaf = LinkedNode::new(source.root()).leaf_at(cursor)?;
         Some(Self {
             world,
-            frames,
-            library,
+            document,
             global: library.global.scope(),
             math: library.math.scope(),
             text,
@@ -1074,7 +1076,7 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for raw block tags.
     fn raw_completions(&mut self) {
-        for (name, mut tags) in (self.library.items.raw_languages)() {
+        for (name, mut tags) in RawElem::languages() {
             let lower = name.to_lowercase();
             if !tags.contains(&lower.as_str()) {
                 tags.push(lower.as_str());
@@ -1096,7 +1098,8 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for labels and references.
     fn label_completions(&mut self) {
-        let (labels, split) = analyze_labels(self.world, self.frames);
+        let Some(document) = self.document else { return };
+        let (labels, split) = analyze_labels(document);
 
         let head = &self.text[..self.from];
         let at = head.ends_with('@');
@@ -1143,6 +1146,7 @@ impl<'a> CompletionContext<'a> {
         let detail = docs.map(Into::into).or_else(|| match value {
             Value::Symbol(_) => None,
             Value::Func(func) => func.docs().map(plain_docs_sentence),
+            Value::Type(ty) => Some(plain_docs_sentence(ty.docs())),
             v => {
                 let repr = v.repr();
                 (repr.as_str() != label).then_some(repr)

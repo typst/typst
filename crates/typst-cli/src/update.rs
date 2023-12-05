@@ -1,13 +1,12 @@
-use std::env;
-use std::fs;
 use std::io::{Cursor, Read, Write};
 use std::path::PathBuf;
+use std::{env, fs};
 
+use ecow::eco_format;
 use semver::Version;
 use serde::Deserialize;
 use tempfile::NamedTempFile;
 use typst::diag::{bail, StrResult};
-use typst::eval::eco_format;
 use xz2::bufread::XzDecoder;
 use zip::ZipArchive;
 
@@ -103,12 +102,10 @@ impl Release {
     pub fn from_tag(tag: Option<&Version>) -> StrResult<Release> {
         let url = match tag {
             Some(tag) => format!(
-                "https://api.github.com/repos/{}/{}/releases/tags/v{}",
-                TYPST_GITHUB_ORG, TYPST_REPO, tag
+                "https://api.github.com/repos/{TYPST_GITHUB_ORG}/{TYPST_REPO}/releases/tags/v{tag}"
             ),
             None => format!(
-                "https://api.github.com/repos/{}/{}/releases/latest",
-                TYPST_GITHUB_ORG, TYPST_REPO
+                "https://api.github.com/repos/{TYPST_GITHUB_ORG}/{TYPST_REPO}/releases/latest",
             ),
         };
 
@@ -227,7 +224,7 @@ fn update_needed(release: &Release) -> StrResult<bool> {
 fn backup_path() -> StrResult<PathBuf> {
     #[cfg(target_os = "linux")]
     let root_backup_dir = dirs::state_dir()
-        .or_else(|| dirs::data_dir())
+        .or_else(dirs::data_dir)
         .ok_or("unable to locate local data or state directory")?;
 
     #[cfg(not(target_os = "linux"))]

@@ -2,13 +2,12 @@
 
 use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
-use std::env;
 use std::ffi::OsStr;
 use std::fmt::{self, Display, Formatter, Write as _};
-use std::fs;
 use std::io::{self, Write};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+use std::{env, fs};
 
 use clap::Parser;
 use comemo::{Prehashed, Track};
@@ -17,20 +16,20 @@ use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::cell::OnceCell;
 use tiny_skia as sk;
+use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
+use typst::eval::Tracer;
+use typst::foundations::{
+    eco_format, func, Bytes, Datetime, NoneValue, Repr, Smart, Value,
+};
+use typst::introspection::Meta;
+use typst::layout::{Abs, Frame, FrameItem, Margin, PageElem, Transform};
+use typst::model::Document;
+use typst::syntax::{FileId, PackageVersion, Source, SyntaxNode, VirtualPath};
+use typst::text::{Font, FontBook, TextElem, TextSize};
+use typst::visualize::Color;
+use typst::{Library, World, WorldExt};
 use unscanny::Scanner;
 use walkdir::WalkDir;
-
-use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
-use typst::doc::{Document, Frame, FrameItem, Meta};
-use typst::eval::{
-    eco_format, func, Bytes, Datetime, Library, NoneValue, Repr, Smart, Tracer, Value,
-};
-use typst::font::{Font, FontBook};
-use typst::geom::{Abs, Color, Transform};
-use typst::syntax::{FileId, PackageVersion, Source, SyntaxNode, VirtualPath};
-use typst::{World, WorldExt};
-use typst_library::layout::{Margin, PageElem};
-use typst_library::text::{TextElem, TextSize};
 
 const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";
@@ -183,11 +182,10 @@ fn library() -> Library {
         NoneValue
     }
 
-    let mut lib = typst_library::build();
-
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
+    let mut lib = Library::build();
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(120.0).into())));
     lib.styles.set(PageElem::set_height(Smart::Auto));
@@ -432,7 +430,7 @@ fn test(
 
         if world.print.frames {
             for frame in &document.pages {
-                writeln!(output, "{:#?}\n", frame).unwrap();
+                writeln!(output, "{frame:#?}\n").unwrap();
             }
         }
 
@@ -502,7 +500,7 @@ fn get_flag_metadata(line: &str, key: &str) -> Option<bool> {
 fn update_image(png_path: &Path, ref_path: &Path) {
     oxipng::optimize(
         &InFile::Path(png_path.to_owned()),
-        &OutFile::Path(Some(ref_path.to_owned())),
+        &OutFile::from_path(ref_path.to_owned()),
         &Options::max_compression(),
     )
     .unwrap();
@@ -537,7 +535,7 @@ fn test_part(
 
     if world.print.model {
         let world = (world as &dyn World).track();
-        let route = typst::eval::Route::default();
+        let route = typst::engine::Route::default();
         let mut tracer = typst::eval::Tracer::new();
 
         let module =

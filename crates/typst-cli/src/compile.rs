@@ -4,12 +4,14 @@ use std::path::{Path, PathBuf};
 use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
+use ecow::eco_format;
 use termcolor::{ColorChoice, StandardStream};
-use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
-use typst::doc::Document;
-use typst::eval::{eco_format, Datetime, Tracer};
-use typst::geom::Color;
+use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
+use typst::eval::Tracer;
+use typst::foundations::Datetime;
+use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
+use typst::visualize::Color;
 use typst::{World, WorldExt};
 
 use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
@@ -76,8 +78,20 @@ pub fn compile_once(
         Status::Compiling.print(command).unwrap();
     }
 
-    // Ensure that the main file is present.
-    world.source(world.main()).map_err(|err| err.to_string())?;
+    // Check if main file can be read and opened.
+    if let Err(errors) = world.source(world.main()).at(Span::detached()) {
+        set_failed();
+        tracing::info!("Failed to open and decode main file");
+
+        if watching {
+            Status::Error.print(command).unwrap();
+        }
+
+        print_diagnostics(world, &errors, &[], command.common.diagnostic_format)
+            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+
+        return Ok(());
+    }
 
     let mut tracer = Tracer::new();
     let result = typst::compile(world, &mut tracer);

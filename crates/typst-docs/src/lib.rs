@@ -5,9 +5,9 @@ mod html;
 mod link;
 mod model;
 
-pub use contribs::{contributors, Author, Commit};
-pub use html::Html;
-pub use model::*;
+pub use self::contribs::*;
+pub use self::html::*;
+pub use self::model::*;
 
 use std::path::Path;
 
@@ -20,30 +20,48 @@ use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_yaml as yaml;
 use typst::diag::{bail, StrResult};
-use typst::doc::Frame;
-use typst::eval::{
-    CastInfo, Func, Library, Module, ParamInfo, Repr, Scope, Smart, Type, Value,
+use typst::foundations::{
+    CastInfo, Category, Func, Module, ParamInfo, Repr, Scope, Smart, Type, Value,
+    FOUNDATIONS,
 };
-use typst::font::{Font, FontBook};
-use typst::geom::Abs;
-use typst_library::layout::{Margin, PageElem};
+use typst::introspection::INTROSPECTION;
+use typst::layout::{Abs, Frame, Margin, PageElem, LAYOUT};
+use typst::loading::DATA_LOADING;
+use typst::math::MATH;
+use typst::model::MODEL;
+use typst::symbols::SYMBOLS;
+use typst::text::{Font, FontBook, TEXT};
+use typst::visualize::VISUALIZE;
+use typst::Library;
 
 static DOCS_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../docs");
 static FILE_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../assets/files");
 static FONT_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../assets/fonts");
 
-static CATEGORIES: Lazy<yaml::Mapping> = Lazy::new(|| yaml("reference/categories.yml"));
-static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| yaml("reference/groups.yml"));
+static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| {
+    let mut groups: Vec<GroupData> = yaml("reference/groups.yml");
+    for group in &mut groups {
+        if group.filter.is_empty() {
+            group.filter = group
+                .module()
+                .scope()
+                .iter()
+                .filter(|(_, v)| matches!(v, Value::Func(_)))
+                .map(|(k, _)| k.clone())
+                .collect();
+        }
+    }
+    groups
+});
 
 static LIBRARY: Lazy<Prehashed<Library>> = Lazy::new(|| {
-    let mut lib = typst_library::build();
+    let mut lib = Library::build();
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(240.0).into())));
     lib.styles.set(PageElem::set_height(Smart::Auto));
     lib.styles.set(PageElem::set_margin(Margin::splat(Some(Smart::Custom(
         Abs::pt(15.0).into(),
     )))));
-    typst::eval::set_lang_items(lib.items.clone());
     Prehashed::new(lib)
 });
 
@@ -128,14 +146,15 @@ fn reference_pages(resolver: &dyn Resolver) -> PageModel {
             .with_part("Language"),
         markdown_page(resolver, "/docs/reference/", "reference/styling.md"),
         markdown_page(resolver, "/docs/reference/", "reference/scripting.md"),
-        category_page(resolver, "foundations").with_part("Library"),
-        category_page(resolver, "text"),
-        category_page(resolver, "math"),
-        category_page(resolver, "layout"),
-        category_page(resolver, "visualize"),
-        category_page(resolver, "meta"),
-        category_page(resolver, "symbols"),
-        category_page(resolver, "data-loading"),
+        category_page(resolver, FOUNDATIONS).with_part("Library"),
+        category_page(resolver, MODEL),
+        category_page(resolver, TEXT),
+        category_page(resolver, MATH),
+        category_page(resolver, SYMBOLS),
+        category_page(resolver, LAYOUT),
+        category_page(resolver, VISUALIZE),
+        category_page(resolver, INTROSPECTION),
+        category_page(resolver, DATA_LOADING),
     ];
     page
 }
@@ -152,48 +171,71 @@ fn guide_pages(resolver: &dyn Resolver) -> PageModel {
 
 /// Build the packages section.
 fn packages_page(resolver: &dyn Resolver) -> PageModel {
+    let md = DOCS_DIR
+        .get_file("reference/packages.md")
+        .unwrap()
+        .contents_utf8()
+        .unwrap();
     PageModel {
         route: "/docs/packages/".into(),
         title: "Packages".into(),
         description: "Packages for Typst.".into(),
         part: None,
         outline: vec![],
-        body: BodyModel::Packages(Html::markdown(
-            resolver,
-            category_details("packages"),
-            Some(1),
-        )),
+        body: BodyModel::Packages(Html::markdown(resolver, md, Some(1))),
         children: vec![],
     }
 }
 
 /// Create a page for a category.
 #[track_caller]
-fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
-    let route = eco_format!("/docs/reference/{category}/");
+fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
+    let route = eco_format!("/docs/reference/{}/", category.name());
     let mut children = vec![];
     let mut items = vec![];
+    let mut shorthands = None;
+    let mut markup = vec![];
+    let mut math = vec![];
 
-    let (module, path): (&Module, &[&str]) = match category {
-        "math" => (&LIBRARY.math, &["math"]),
-        _ => (&LIBRARY.global, &[]),
+    let (module, path): (&Module, &[&str]) = if category == MATH {
+        (&LIBRARY.math, &["math"])
+    } else {
+        (&LIBRARY.global, &[])
     };
 
     // Add groups.
-    for mut group in GROUPS.iter().filter(|g| g.category == category).cloned() {
-        let mut focus = module;
-        if matches!(group.name.as_str(), "calc" | "sys") {
-            focus = get_module(focus, &group.name).unwrap();
-            group.functions = focus
-                .scope()
-                .iter()
-                .filter(|(_, v)| matches!(v, Value::Func(_)))
-                .map(|(k, _)| k.clone())
-                .collect();
+    for group in GROUPS.iter().filter(|g| g.category == category.name()).cloned() {
+        if matches!(group.name.as_str(), "sym" | "emoji") {
+            let subpage = symbols_page(resolver, &route, &group);
+            let BodyModel::Symbols(model) = &subpage.body else { continue };
+            let list = &model.list;
+            markup.extend(
+                list.iter()
+                    .filter(|symbol| symbol.markup_shorthand.is_some())
+                    .cloned(),
+            );
+            math.extend(
+                list.iter().filter(|symbol| symbol.math_shorthand.is_some()).cloned(),
+            );
+
+            items.push(CategoryItem {
+                name: group.name.clone(),
+                route: subpage.route.clone(),
+                oneliner: oneliner(category.docs()).into(),
+                code: true,
+            });
+            children.push(subpage);
+            continue;
         }
-        let (child, item) = group_page(resolver, &route, &group, focus.scope());
+
+        let (child, item) = group_page(resolver, &route, &group);
         children.push(child);
         items.push(item);
+    }
+
+    // Add symbol pages. These are ordered manually.
+    if category == SYMBOLS {
+        shorthands = Some(ShorthandsModel { markup, math });
     }
 
     // Add functions.
@@ -203,9 +245,9 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
             continue;
         }
 
-        if category == "math" {
+        if category == MATH {
             // Skip grouped functions.
-            if GROUPS.iter().flat_map(|group| &group.functions).any(|f| f == name) {
+            if GROUPS.iter().flat_map(|group| &group.filter).any(|f| f == name) {
                 continue;
             }
 
@@ -242,54 +284,35 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
         }
     }
 
-    children.sort_by_cached_key(|child| child.title.clone());
-    items.sort_by_cached_key(|item| item.name.clone());
-
-    // Add symbol pages. These are ordered manually.
-    let mut shorthands = None;
-    if category == "symbols" {
-        let mut markup = vec![];
-        let mut math = vec![];
-        for module in ["sym", "emoji"] {
-            let subpage = symbols_page(resolver, &route, module);
-            let BodyModel::Symbols(model) = &subpage.body else { continue };
-            let list = &model.list;
-            markup.extend(
-                list.iter()
-                    .filter(|symbol| symbol.markup_shorthand.is_some())
-                    .cloned(),
-            );
-            math.extend(
-                list.iter().filter(|symbol| symbol.math_shorthand.is_some()).cloned(),
-            );
-
-            items.push(CategoryItem {
-                name: module.into(),
-                route: subpage.route.clone(),
-                oneliner: oneliner(category_details(module)).into(),
-                code: true,
-            });
-            children.push(subpage);
-        }
-        shorthands = Some(ShorthandsModel { markup, math });
+    if category != SYMBOLS {
+        children.sort_by_cached_key(|child| child.title.clone());
+        items.sort_by_cached_key(|item| item.name.clone());
     }
 
-    let name: EcoString = category.to_title_case().into();
-
-    let details = Html::markdown(resolver, category_details(category), Some(1));
+    let name = category.title();
+    let details = Html::markdown(resolver, category.docs(), Some(1));
     let mut outline = vec![OutlineItem::from_name("Summary")];
     outline.extend(details.outline());
     outline.push(OutlineItem::from_name("Definitions"));
+    if shorthands.is_some() {
+        outline.push(OutlineItem::from_name("Shorthands"));
+    }
 
     PageModel {
         route,
-        title: name.clone(),
+        title: name.into(),
         description: eco_format!(
             "Documentation for functions related to {name} in Typst."
         ),
         part: None,
         outline,
-        body: BodyModel::Category(CategoryModel { name, details, items, shorthands }),
+        body: BodyModel::Category(CategoryModel {
+            name: category.name(),
+            title: category.title(),
+            details,
+            items,
+            shorthands,
+        }),
         children,
     }
 }
@@ -498,18 +521,17 @@ fn group_page(
     resolver: &dyn Resolver,
     parent: &str,
     group: &GroupData,
-    scope: &Scope,
 ) -> (PageModel, CategoryItem) {
     let mut functions = vec![];
     let mut outline = vec![OutlineItem::from_name("Summary")];
 
     let path: Vec<_> = group.path.iter().map(|s| s.as_str()).collect();
-    let details = Html::markdown(resolver, &group.description, Some(1));
+    let details = Html::markdown(resolver, &group.details, Some(1));
     outline.extend(details.outline());
 
     let mut outline_items = vec![];
-    for name in &group.functions {
-        let value = scope.get(name).unwrap();
+    for name in &group.filter {
+        let value = group.module().scope().get(name).unwrap();
         let Value::Func(func) = value else { panic!("not a function") };
         let func = func_model(resolver, func, &path, true);
         let id_base = urlify(&eco_format!("functions-{}", func.name));
@@ -530,13 +552,13 @@ fn group_page(
 
     let model = PageModel {
         route: eco_format!("{parent}{}", group.name),
-        title: group.display.clone(),
+        title: group.title.clone(),
         description: eco_format!("Documentation for the {} functions.", group.name),
         part: None,
         outline,
         body: BodyModel::Group(GroupModel {
             name: group.name.clone(),
-            title: group.display.clone(),
+            title: group.title.clone(),
             details,
             functions,
         }),
@@ -546,7 +568,7 @@ fn group_page(
     let item = CategoryItem {
         name: group.name.clone(),
         route: model.route.clone(),
-        oneliner: oneliner(&group.description).into(),
+        oneliner: oneliner(&group.details).into(),
         code: false,
     };
 
@@ -601,19 +623,12 @@ fn type_outline(model: &TypeModel) -> Vec<OutlineItem> {
 }
 
 /// Create a page for symbols.
-fn symbols_page(resolver: &dyn Resolver, parent: &str, name: &str) -> PageModel {
-    let module = get_module(&LIBRARY.global, name).unwrap();
-    let title = match name {
-        "sym" => "General",
-        "emoji" => "Emoji",
-        _ => unreachable!(),
-    };
-
-    let model = symbols_model(resolver, name, title, module.scope());
+fn symbols_page(resolver: &dyn Resolver, parent: &str, group: &GroupData) -> PageModel {
+    let model = symbols_model(resolver, group);
     PageModel {
-        route: eco_format!("{parent}{name}/"),
-        title: title.into(),
-        description: eco_format!("Documentation for the `{name}` module."),
+        route: eco_format!("{parent}{}/", group.name),
+        title: group.title.clone(),
+        description: eco_format!("Documentation for the `{}` module.", group.name),
         part: None,
         outline: vec![],
         body: BodyModel::Symbols(model),
@@ -622,14 +637,9 @@ fn symbols_page(resolver: &dyn Resolver, parent: &str, name: &str) -> PageModel 
 }
 
 /// Produce a symbol list's model.
-fn symbols_model(
-    resolver: &dyn Resolver,
-    name: &str,
-    title: &'static str,
-    scope: &Scope,
-) -> SymbolsModel {
+fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
     let mut list = vec![];
-    for (name, value) in scope.iter() {
+    for (name, value) in group.module().scope().iter() {
         let Value::Symbol(symbol) = value else { continue };
         let complete = |variant: &str| {
             if variant.is_empty() {
@@ -649,7 +659,7 @@ fn symbols_model(
                 markup_shorthand: shorthand(typst::syntax::ast::Shorthand::MARKUP_LIST),
                 math_shorthand: shorthand(typst::syntax::ast::Shorthand::MATH_LIST),
                 codepoint: c as u32,
-                accent: typst::eval::Symbol::combining_accent(c).is_some(),
+                accent: typst::symbols::Symbol::combining_accent(c).is_some(),
                 unicode_name: unicode_names2::name(c)
                     .map(|s| s.to_string().to_title_case().into()),
                 alternates: symbol
@@ -662,8 +672,9 @@ fn symbols_model(
     }
 
     SymbolsModel {
-        name: title,
-        details: Html::markdown(resolver, category_details(name), Some(1)),
+        name: group.name.clone(),
+        title: group.title.clone(),
+        details: Html::markdown(resolver, &group.details, Some(1)),
         list,
     }
 }
@@ -682,15 +693,6 @@ fn get_module<'a>(parent: &'a Module, name: &str) -> StrResult<&'a Module> {
 fn yaml<T: DeserializeOwned>(path: &str) -> T {
     let file = DOCS_DIR.get_file(path).unwrap();
     yaml::from_slice(file.contents()).unwrap()
-}
-
-/// Load details for an identifying key.
-#[track_caller]
-fn category_details(key: &str) -> &str {
-    CATEGORIES
-        .get(&yaml::Value::String(key.into()))
-        .and_then(|value| value.as_str())
-        .unwrap_or_else(|| panic!("missing details for {key}"))
 }
 
 /// Turn a title into an URL fragment.
@@ -752,13 +754,23 @@ const TYPE_ORDER: &[&str] = &[
 #[derive(Debug, Clone, Deserialize)]
 struct GroupData {
     name: EcoString,
+    title: EcoString,
     category: EcoString,
-    display: EcoString,
     #[serde(default)]
     path: Vec<EcoString>,
     #[serde(default)]
-    functions: Vec<EcoString>,
-    description: EcoString,
+    filter: Vec<EcoString>,
+    details: EcoString,
+}
+
+impl GroupData {
+    fn module(&self) -> &'static Module {
+        let mut focus = &LIBRARY.global;
+        for path in &self.path {
+            focus = get_module(focus, path).unwrap();
+        }
+        focus
+    }
 }
 
 #[cfg(test)]

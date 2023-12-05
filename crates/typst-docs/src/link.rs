@@ -1,5 +1,5 @@
 use typst::diag::{bail, StrResult};
-use typst::eval::Func;
+use typst::foundations::Func;
 
 use crate::{get_module, GROUPS, LIBRARY};
 
@@ -55,25 +55,30 @@ fn resolve_known(head: &str) -> Option<&'static str> {
 fn resolve_definition(head: &str) -> StrResult<String> {
     let mut parts = head.trim_start_matches('$').split('.').peekable();
     let mut focus = &LIBRARY.global;
-    while let Some(m) = parts.peek().and_then(|&name| get_module(focus, name).ok()) {
-        focus = m;
+    let mut category = None;
+
+    while let Some(name) = parts.peek() {
+        if category.is_none() {
+            category = focus.scope().get_category(name);
+        }
+        let Ok(module) = get_module(focus, name) else { break };
+        focus = module;
         parts.next();
     }
 
+    let Some(category) = category else { bail!("{head} has no category") };
+
     let name = parts.next().ok_or("link is missing first part")?;
     let value = focus.field(name)?;
-    let Some(category) = focus.scope().get_category(name) else {
-        bail!("{name} has no category");
-    };
 
     // Handle grouped functions.
-    if let Some(group) = GROUPS
-        .iter()
-        .filter(|_| category == "math")
-        .find(|group| group.functions.iter().any(|func| func == name))
-    {
-        let mut route =
-            format!("/docs/reference/math/{}/#functions-{}", group.name, name);
+    if let Some(group) = GROUPS.iter().find(|group| {
+        group.category == category.name() && group.filter.iter().any(|func| func == name)
+    }) {
+        let mut route = format!(
+            "/docs/reference/{}/{}/#functions-{}",
+            group.category, group.name, name
+        );
         if let Some(param) = parts.next() {
             route.push('-');
             route.push_str(param);
@@ -81,7 +86,7 @@ fn resolve_definition(head: &str) -> StrResult<String> {
         return Ok(route);
     }
 
-    let mut route = format!("/docs/reference/{category}/{name}/");
+    let mut route = format!("/docs/reference/{}/{name}/", category.name());
     if let Some(next) = parts.next() {
         if value.field(next).is_ok() {
             route.push_str("#definitions-");

@@ -7,22 +7,23 @@ mod gradient;
 mod image;
 mod outline;
 mod page;
+mod pattern;
 
 use std::cmp::Eq;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
+use std::sync::Arc;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
-use typst::doc::{Document, Lang};
-use typst::eval::Datetime;
-use typst::font::Font;
-use typst::geom::{Abs, Dir, Em};
-use typst::image::Image;
-use typst::model::Introspector;
+use typst::foundations::Datetime;
+use typst::layout::{Abs, Dir, Em, Transform};
+use typst::model::Document;
+use typst::text::{Font, Lang};
 use typst::util::Deferred;
+use typst::visualize::Image;
 use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 
 use crate::color::ColorSpaces;
@@ -30,6 +31,7 @@ use crate::extg::ExtGState;
 use crate::gradient::PdfGradient;
 use crate::image::EncodedImage;
 use crate::page::Page;
+use crate::pattern::PdfPattern;
 
 /// Export a document into a PDF file.
 ///
@@ -57,6 +59,7 @@ pub fn pdf(
     image::write_images(&mut ctx);
     gradient::write_gradients(&mut ctx);
     extg::write_external_graphics_states(&mut ctx);
+    pattern::write_patterns(&mut ctx);
     page::write_page_tree(&mut ctx);
     write_catalog(&mut ctx, ident, timestamp);
     ctx.pdf.finish()
@@ -66,10 +69,6 @@ pub fn pdf(
 struct PdfContext<'a> {
     /// The document that we're currently exporting.
     document: &'a Document,
-    /// An introspector for the document, used to resolve locations links and
-    /// the document outline.
-    introspector: Introspector,
-
     /// The writer we are writing the PDF into.
     pdf: Pdf,
     /// Content of exported pages.
@@ -97,6 +96,8 @@ struct PdfContext<'a> {
     image_refs: Vec<Ref>,
     /// The IDs of written gradients.
     gradient_refs: Vec<Ref>,
+    /// The IDs of written patterns.
+    pattern_refs: Vec<Ref>,
     /// The IDs of written external graphics states.
     ext_gs_refs: Vec<Ref>,
     /// Handles color space writing.
@@ -110,6 +111,8 @@ struct PdfContext<'a> {
     image_deferred_map: HashMap<usize, Deferred<EncodedImage>>,
     /// Deduplicates gradients used across the document.
     gradient_map: Remapper<PdfGradient>,
+    /// Deduplicates patterns used across the document.
+    pattern_map: Remapper<PdfPattern>,
     /// Deduplicates external graphics states used across the document.
     extg_map: Remapper<ExtGState>,
 }
@@ -120,7 +123,6 @@ impl<'a> PdfContext<'a> {
         let page_tree_ref = alloc.bump();
         Self {
             document,
-            introspector: Introspector::new(&document.pages),
             pdf: Pdf::new(),
             pages: vec![],
             glyph_sets: HashMap::new(),
@@ -131,12 +133,14 @@ impl<'a> PdfContext<'a> {
             font_refs: vec![],
             image_refs: vec![],
             gradient_refs: vec![],
+            pattern_refs: vec![],
             ext_gs_refs: vec![],
             colors: ColorSpaces::default(),
             font_map: Remapper::new(),
             image_map: Remapper::new(),
             image_deferred_map: HashMap::default(),
             gradient_map: Remapper::new(),
+            pattern_map: Remapper::new(),
             extg_map: Remapper::new(),
         }
     }
@@ -173,8 +177,25 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
 
     let authors = &ctx.document.author;
     if !authors.is_empty() {
-        info.author(TextStr(&authors.join(", ")));
-        xmp.creator(authors.iter().map(|s| s.as_str()));
+        // Turns out that if the authors are given in both the document
+        // information dictionary and the XMP metadata, Acrobat takes a little
+        // bit of both: The first author from the document information
+        // dictionary and the remaining authors from the XMP metadata.
+        //
+        // To fix this for Acrobat, we could omit the remaining authors or all
+        // metadata from the document information catalog (it is optional) and
+        // only write XMP. However, not all other tools (including Apple
+        // Preview) read the XMP data. This means we do want to include all
+        // authors in the document information dictionary.
+        //
+        // Thus, the only alternative is to fold all authors into a single
+        // `<rdf:li>` in the XMP metadata. This is, in fact, exactly what the
+        // PDF/A spec Part 1 section 6.7.3 has to say about the matter. It's a
+        // bit weird to not use the array (and it makes Acrobat show the author
+        // list in quotes), but there's not much we can do about that.
+        let joined = authors.join(", ");
+        info.author(TextStr(&joined));
+        xmp.creator([joined.as_str()]);
     }
 
     let creator = eco_format!("Typst {}", env!("CARGO_PKG_VERSION"));
@@ -263,6 +284,12 @@ fn deflate(data: &[u8]) -> Vec<u8> {
     miniz_oxide::deflate::compress_to_vec_zlib(data, COMPRESSION_LEVEL)
 }
 
+/// Memoized version of [`deflate`] specialized for a page's content stream.
+#[comemo::memoize]
+fn deflate_memoized(content: &[u8]) -> Arc<Vec<u8>> {
+    Arc::new(deflate(content))
+}
+
 /// Create a base64-encoded hash of the value.
 fn hash_base64<T: Hash>(value: &T) -> String {
     base64::engine::general_purpose::STANDARD
@@ -341,10 +368,6 @@ where
         })
     }
 
-    fn map(&self, item: &T) -> usize {
-        self.to_pdf[item]
-    }
-
     fn pdf_indices<'a>(
         &'a self,
         refs: &'a [Ref],
@@ -379,4 +402,16 @@ impl EmExt for Em {
     fn to_font_units(self) -> f32 {
         1000.0 * self.get() as f32
     }
+}
+
+/// Convert to an array of floats.
+fn transform_to_array(ts: Transform) -> [f32; 6] {
+    [
+        ts.sx.get() as f32,
+        ts.ky.get() as f32,
+        ts.kx.get() as f32,
+        ts.sy.get() as f32,
+        ts.tx.to_f32(),
+        ts.ty.to_f32(),
+    ]
 }

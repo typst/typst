@@ -1571,6 +1571,16 @@ impl<'a> Args<'a> {
     pub fn items(self) -> impl DoubleEndedIterator<Item = Arg<'a>> {
         self.0.children().filter_map(SyntaxNode::cast)
     }
+
+    /// Whether there is a comma at the end.
+    pub fn trailing_comma(self) -> bool {
+        self.0
+            .children()
+            .rev()
+            .skip(1)
+            .find(|n| !n.kind().is_trivia())
+            .is_some_and(|n| n.kind() == SyntaxKind::Comma)
+    }
 }
 
 /// An argument to a function call.
