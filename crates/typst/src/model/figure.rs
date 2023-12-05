@@ -462,6 +462,9 @@ pub struct FigureCaption {
 
     /// The separator which will appear between the number and body.
     ///
+    /// If set to `{auto}`, the separator will be adapted to the current
+    /// [language]($text.lang) and [region]($text.region).
+    ///
     /// ```example
     /// #set figure.caption(separator: [ --- ])
     ///
@@ -470,9 +473,6 @@ pub struct FigureCaption {
     ///   caption: [A rectangle],
     /// )
     /// ```
-    ///
-    /// If set to `{auto}`, the separator will be adapted to the current
-    /// [language]($text.lang) and [region]($text.region).
     pub separator: Smart<Content>,
 
     /// The caption's body.
