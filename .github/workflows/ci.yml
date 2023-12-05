@@ -46,4 +46,4 @@ jobs:
           toolchain: nightly-2023-09-13
       - uses: Swatinem/rust-cache@v2
       - run: cargo install cargo-fuzz
-      - run: cd tests/fuzz && cargo fuzz build
+      - run: cd tests/fuzz && cargo fuzz build --dev
