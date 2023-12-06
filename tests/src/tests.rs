@@ -136,7 +136,7 @@ fn main() {
     let len = results.len();
     let ok = results.iter().sum::<usize>();
     if len > 0 {
-        println!("{ok} / {len} tests passed.");
+        println!("{ok} / {len} test{} passed.", if len > 1 { "s" } else { "" });
     } else {
         println!("No test ran.");
     }
