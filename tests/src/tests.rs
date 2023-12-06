@@ -6,7 +6,7 @@ use std::ffi::OsStr;
 use std::fmt::{self, Display, Formatter, Write as _};
 use std::io::{self, IsTerminal, Write};
 use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::{Path, PathBuf, MAIN_SEPARATOR_STR};
 use std::{env, fs};
 
 use clap::Parser;
@@ -31,6 +31,7 @@ use typst::{Library, World, WorldExt};
 use unscanny::Scanner;
 use walkdir::WalkDir;
 
+// These directories are all relative to the tests/ directory.
 const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";
 const PNG_DIR: &str = "png";
@@ -71,14 +72,19 @@ struct PrintConfig {
 }
 
 impl Args {
-    fn matches(&self, path: &Path) -> bool {
-        if self.exact {
-            let name = path.file_name().unwrap().to_string_lossy();
-            self.filter.iter().any(|v| v == &name)
-        } else {
-            let path = path.to_string_lossy();
-            self.filter.is_empty() || self.filter.iter().any(|v| path.contains(v))
+    fn matches(&self, canonicalized_path: &Path) -> bool {
+        let path = canonicalized_path.to_string_lossy();
+        if !self.exact {
+            return self.filter.is_empty()
+                || self.filter.iter().any(|v| path.contains(v));
         }
+
+        self.filter.iter().any(|v| match path.strip_suffix(v) {
+            None => false,
+            Some(residual) => {
+                residual.is_empty() || residual.ends_with(MAIN_SEPARATOR_STR)
+            }
+        })
     }
 }
 
@@ -89,7 +95,7 @@ fn main() {
     let world = TestWorld::new(args.print);
 
     println!("Running tests...");
-    let results = WalkDir::new("typ")
+    let results = WalkDir::new(TYP_DIR)
         .into_iter()
         .par_bridge()
         .filter_map(|entry| {
@@ -102,12 +108,12 @@ fn main() {
                 return None;
             }
 
-            let src_path = entry.into_path();
+            let src_path = entry.into_path(); // Relative to TYP_DIR.
             if src_path.extension() != Some(OsStr::new("typ")) {
                 return None;
             }
 
-            if args.matches(&src_path) {
+            if args.matches(&src_path.canonicalize().unwrap()) {
                 Some(src_path)
             } else {
                 None
