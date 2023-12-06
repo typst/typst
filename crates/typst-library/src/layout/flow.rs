@@ -76,7 +76,7 @@ impl Layout for FlowElem {
             } else if child.is::<ColbreakElem>() {
                 if !layouter.regions.backlog.is_empty() || layouter.regions.last.is_some()
                 {
-                    layouter.finish_region(vt, false)?;
+                    layouter.finish_region(vt, true)?;
                 }
             } else {
                 bail!(child.span(), "unexpected flow child");
