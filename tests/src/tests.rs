@@ -4,7 +4,7 @@ use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fmt::{self, Display, Formatter, Write as _};
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
@@ -135,8 +135,10 @@ fn main() {
 
     let len = results.len();
     let ok = results.iter().sum::<usize>();
-    if len > 1 {
-        println!("{ok} / {len} tests passed.");
+    if len > 0 {
+        println!("{ok} / {len} test{} passed.", if len > 1 { "s" } else { "" });
+    } else {
+        println!("No test ran.");
     }
 
     if ok != len {
@@ -475,6 +477,10 @@ fn test(
         stdout.write_all(name.to_string_lossy().as_bytes()).unwrap();
         if ok {
             writeln!(stdout, " ✔").unwrap();
+            if stdout.is_terminal() {
+                // ANSI escape codes: cursor moves up and clears the line.
+                write!(stdout, "\x1b[1A\x1b[2K").unwrap();
+            }
         } else {
             writeln!(stdout, " ❌").unwrap();
         }
