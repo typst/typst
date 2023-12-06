@@ -8,7 +8,7 @@ use termcolor::WriteColor;
 use typst::diag::{PackageError, PackageResult};
 use typst::syntax::PackageSpec;
 
-use super::color_stream;
+use crate::color_stream;
 use crate::download::download_with_progress;
 
 /// Make a package available in the on-disk cache.

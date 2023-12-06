@@ -67,11 +67,11 @@ Text <hey>
 #link(<hey>)[Go to text.]
 
 ---
-// Error: 2-20 label does not exist in the document
+// Error: 2-20 label `<hey>` does not exist in the document
 #link(<hey>)[Nope.]
 
 ---
 Text <hey>
 Text <hey>
-// Error: 2-20 label occurs multiple times in the document
+// Error: 2-20 label `<hey>` occurs multiple times in the document
 #link(<hey>)[Nope.]

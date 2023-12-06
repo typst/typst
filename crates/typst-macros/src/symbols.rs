@@ -1,4 +1,9 @@
-use super::*;
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::ext::IdentExt;
+use syn::parse::{Parse, ParseStream, Parser};
+use syn::punctuated::Punctuated;
+use syn::{Ident, Result, Token};
 
 /// Expand the `symbols!` macro.
 pub fn symbols(stream: TokenStream) -> Result<TokenStream> {
@@ -7,7 +12,7 @@ pub fn symbols(stream: TokenStream) -> Result<TokenStream> {
     let pairs = list.iter().map(|symbol| {
         let name = symbol.name.to_string();
         let kind = match &symbol.kind {
-            Kind::Single(c) => quote! { typst::eval::Symbol::single(#c), },
+            Kind::Single(c) => quote! { ::typst::symbols::Symbol::single(#c), },
             Kind::Multiple(variants) => {
                 let variants = variants.iter().map(|variant| {
                     let name = &variant.name;
@@ -15,7 +20,7 @@ pub fn symbols(stream: TokenStream) -> Result<TokenStream> {
                     quote! { (#name, #c) }
                 });
                 quote! {
-                    typst::eval::Symbol::list(&[#(#variants),*])
+                    ::typst::symbols::Symbol::list(&[#(#variants),*])
                 }
             }
         };

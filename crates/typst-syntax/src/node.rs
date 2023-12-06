@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use ecow::{eco_vec, EcoString, EcoVec};
 
-use super::ast::AstNode;
-use super::{FileId, Span, SyntaxKind};
+use crate::ast::AstNode;
+use crate::{FileId, Span, SyntaxKind};
 
 /// A node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -650,7 +650,7 @@ pub struct SyntaxError {
     pub span: Span,
     /// The error message.
     pub message: EcoString,
-    /// Additonal hints to the user, indicating how this error could be avoided
+    /// Additional hints to the user, indicating how this error could be avoided
     /// or worked around.
     pub hints: EcoVec<EcoString>,
 }

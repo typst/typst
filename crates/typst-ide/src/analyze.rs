@@ -1,8 +1,10 @@
 use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
-use typst::doc::Frame;
-use typst::eval::{Route, Scopes, Tracer, Value, Vm};
-use typst::model::{DelayedErrors, Introspector, Label, Locator, Vt};
+use typst::engine::{Engine, Route};
+use typst::eval::{Tracer, Vm};
+use typst::foundations::{Label, Scopes, Value};
+use typst::introspection::{Introspector, Locator};
+use typst::model::{BibliographyElem, Document};
 use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
 use typst::World;
 
@@ -44,7 +46,6 @@ pub fn analyze_expr(world: &dyn World, node: &LinkedNode) -> EcoVec<Value> {
 
 /// Try to load a module from the current source file.
 pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
-    let id = source.span().id()?;
     let source = analyze_expr(world, source).into_iter().next()?;
     if source.scope().is_some() {
         return Some(source);
@@ -52,18 +53,16 @@ pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
 
     let mut locator = Locator::default();
     let introspector = Introspector::default();
-    let mut delayed = DelayedErrors::new();
     let mut tracer = Tracer::new();
-    let vt = Vt {
+    let engine = Engine {
         world: world.track(),
+        route: Route::default(),
         introspector: introspector.track(),
         locator: &mut locator,
-        delayed: delayed.track_mut(),
         tracer: tracer.track_mut(),
     };
 
-    let route = Route::default();
-    let mut vm = Vm::new(vt, route.track(), Some(id), Scopes::new(Some(world.library())));
+    let mut vm = Vm::new(engine, Scopes::new(Some(world.library())), Span::detached());
     typst::eval::import(&mut vm, source, Span::detached(), true)
         .ok()
         .map(Value::Module)
@@ -75,20 +74,15 @@ pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
 /// - All labels and descriptions for them, if available
 /// - A split offset: All labels before this offset belong to nodes, all after
 ///   belong to a bibliography.
-pub fn analyze_labels(
-    world: &dyn World,
-    frames: &[Frame],
-) -> (Vec<(Label, Option<EcoString>)>, usize) {
+pub fn analyze_labels(document: &Document) -> (Vec<(Label, Option<EcoString>)>, usize) {
     let mut output = vec![];
-    let introspector = Introspector::new(frames);
-    let items = &world.library().items;
 
     // Labels in the document.
-    for elem in introspector.all() {
-        let Some(label) = elem.label().cloned() else { continue };
+    for elem in document.introspector.all() {
+        let Some(label) = elem.label() else { continue };
         let details = elem
-            .field("caption")
-            .or_else(|| elem.field("body"))
+            .get_by_name("caption")
+            .or_else(|| elem.get_by_name("body"))
             .and_then(|field| match field {
                 Value::Content(content) => Some(content),
                 _ => None,
@@ -102,8 +96,8 @@ pub fn analyze_labels(
     let split = output.len();
 
     // Bibliography keys.
-    for (key, detail) in (items.bibliography_keys)(introspector.track()) {
-        output.push((Label(key), detail));
+    for (key, detail) in BibliographyElem::keys(document.introspector.track()) {
+        output.push((Label::new(&key), detail));
     }
 
     (output, split)

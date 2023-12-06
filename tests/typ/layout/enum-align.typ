@@ -20,7 +20,13 @@
 16. c
 
 ---
-// Number align option should not be affected by the context
+#set enum(number-align: center + horizon)
+1.  #box(fill: teal, inset: 10pt )[a]
+8.  #box(fill: teal, inset: 10pt )[b]
+16. #box(fill: teal,inset: 10pt )[c]
+
+---
+// Number align option should not be affected by the context.
 #set align(center)
 #set enum(number-align: start)
 
@@ -32,13 +38,14 @@
    64. h
 
 ---
-// Test valid number align values (horizontal)
+// Test valid number align values (horizontal and vertical)
 // Ref: false
 #set enum(number-align: start)
 #set enum(number-align: end)
 #set enum(number-align: left)
+#set enum(number-align: center)
 #set enum(number-align: right)
-
----
-// Error: 25-28 expected `start`, `left`, `center`, `right`, or `end`, found top
 #set enum(number-align: top)
+#set enum(number-align: horizon)
+#set enum(number-align: bottom)
+

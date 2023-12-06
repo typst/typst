@@ -4,20 +4,21 @@ use std::collections::{BTreeSet, HashSet};
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
-use typst::doc::Frame;
-use typst::eval::{
-    format_str, AutoValue, CastInfo, Func, Library, NoneValue, Repr, Scope, Type, Value,
+use typst::foundations::{
+    fields_on, format_str, mutable_methods_on, repr, AutoValue, CastInfo, Func, Label,
+    NoneValue, Repr, Scope, Type, Value,
 };
-use typst::geom::Color;
+use typst::model::Document;
 use typst::syntax::{
     ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
 };
-use typst::util::separated_list;
+use typst::text::RawElem;
+use typst::visualize::Color;
 use typst::World;
 use unscanny::Scanner;
 
-use super::analyze::analyze_labels;
-use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
+use crate::analyze::{analyze_expr, analyze_import, analyze_labels};
+use crate::{plain_docs_sentence, summarize_font_family};
 
 /// Autocomplete a cursor position in a source file.
 ///
@@ -26,17 +27,22 @@ use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_fa
 ///
 /// When `explicit` is `true`, the user requested the completion by pressing
 /// control and space or something similar.
+///
+/// Passing a `document` (from a previous compilation) is optional, but enhances
+/// the autocompletions. Label completions, for instance, are only generated
+/// when the document is available.
 pub fn autocomplete(
     world: &dyn World,
-    frames: &[Frame],
+    document: Option<&Document>,
     source: &Source,
     cursor: usize,
     explicit: bool,
 ) -> Option<(usize, Vec<Completion>)> {
-    let mut ctx = CompletionContext::new(world, frames, source, cursor, explicit)?;
+    let mut ctx = CompletionContext::new(world, document, source, cursor, explicit)?;
 
     let _ = complete_comments(&mut ctx)
         || complete_field_accesses(&mut ctx)
+        || complete_open_labels(&mut ctx)
         || complete_imports(&mut ctx)
         || complete_rules(&mut ctx)
         || complete_params(&mut ctx)
@@ -110,7 +116,7 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
         return true;
     }
 
-    // Start of an reference: "@|" or "@he|".
+    // Start of a reference: "@|" or "@he|".
     if ctx.leaf.kind() == SyntaxKind::RefMarker {
         ctx.from = ctx.leaf.offset() + 1;
         ctx.label_completions();
@@ -365,7 +371,7 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         }
     }
 
-    for &(method, args) in typst::eval::mutable_methods_on(value.ty()) {
+    for &(method, args) in mutable_methods_on(value.ty()) {
         ctx.completions.push(Completion {
             kind: CompletionKind::Func,
             label: method.into(),
@@ -378,7 +384,7 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         })
     }
 
-    for &field in typst::eval::fields_on(value.ty()) {
+    for &field in fields_on(value.ty()) {
         // Complete the field name along with its value. Notes:
         // 1. No parentheses since function fields cannot currently be called
         // with method syntax;
@@ -427,6 +433,18 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         }
         _ => {}
     }
+}
+
+/// Complete half-finished labels.
+fn complete_open_labels(ctx: &mut CompletionContext) -> bool {
+    // A label anywhere in code: "(<la|".
+    if ctx.leaf.kind().is_error() && ctx.leaf.text().starts_with('<') {
+        ctx.from = ctx.leaf.offset() + 1;
+        ctx.label_completions();
+        return true;
+    }
+
+    false
 }
 
 /// Complete imports.
@@ -659,16 +677,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
                 ctx.from = ctx.cursor.min(next.offset());
             }
 
-            // Exclude arguments which are already present.
-            let exclude: Vec<_> = args
-                .items()
-                .filter_map(|arg| match arg {
-                    ast::Arg::Named(named) => Some(named.name()),
-                    _ => None,
-                })
-                .collect();
-
-            param_completions(ctx, callee, set, &exclude);
+            param_completions(ctx, callee, set, args);
             return true;
         }
     }
@@ -681,10 +690,19 @@ fn param_completions<'a>(
     ctx: &mut CompletionContext<'a>,
     callee: ast::Expr<'a>,
     set: bool,
-    exclude: &[ast::Ident<'a>],
+    args: ast::Args<'a>,
 ) {
     let Some(func) = resolve_global_callee(ctx, callee) else { return };
     let Some(params) = func.params() else { return };
+
+    // Exclude named arguments which are already present.
+    let exclude: Vec<_> = args
+        .items()
+        .filter_map(|arg| match arg {
+            ast::Arg::Named(named) => Some(named.name()),
+            _ => None,
+        })
+        .collect();
 
     for param in params {
         if exclude.iter().any(|ident| ident.as_str() == param.name) {
@@ -777,6 +795,13 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
     if ctx.leaf.kind() == SyntaxKind::Ident {
         ctx.from = ctx.leaf.offset();
         code_completions(ctx, false);
+        return true;
+    }
+
+    // A potential label (only at the start of an argument list): "(<|".
+    if ctx.before.ends_with("(<") {
+        ctx.from = ctx.cursor;
+        ctx.label_completions();
         return true;
     }
 
@@ -945,8 +970,7 @@ fn code_completions(ctx: &mut CompletionContext, hash: bool) {
 /// Context for autocompletion.
 struct CompletionContext<'a> {
     world: &'a (dyn World + 'a),
-    frames: &'a [Frame],
-    library: &'a Library,
+    document: Option<&'a Document>,
     global: &'a Scope,
     math: &'a Scope,
     text: &'a str,
@@ -964,7 +988,7 @@ impl<'a> CompletionContext<'a> {
     /// Create a new autocompletion context.
     fn new(
         world: &'a (dyn World + 'a),
-        frames: &'a [Frame],
+        document: Option<&'a Document>,
         source: &'a Source,
         cursor: usize,
         explicit: bool,
@@ -974,8 +998,7 @@ impl<'a> CompletionContext<'a> {
         let leaf = LinkedNode::new(source.root()).leaf_at(cursor)?;
         Some(Self {
             world,
-            frames,
-            library,
+            document,
             global: library.global.scope(),
             math: library.math.scope(),
             text,
@@ -988,6 +1011,11 @@ impl<'a> CompletionContext<'a> {
             completions: vec![],
             seen_casts: HashSet::new(),
         })
+    }
+
+    /// A small window of context before the cursor.
+    fn before_window(&self, size: usize) -> &str {
+        &self.before[self.cursor.saturating_sub(size)..]
     }
 
     /// Add a prefix and suffix to all applications.
@@ -1015,7 +1043,7 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for all font families.
     fn font_completions(&mut self) {
-        let equation = self.before[self.cursor.saturating_sub(25)..].contains("equation");
+        let equation = self.before_window(25).contains("equation");
         for (family, iter) in self.world.book().families() {
             let detail = summarize_font_family(iter);
             if !equation || family.contains("Math") {
@@ -1048,7 +1076,7 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for raw block tags.
     fn raw_completions(&mut self) {
-        for (name, mut tags) in (self.library.items.raw_languages)() {
+        for (name, mut tags) in RawElem::languages() {
             let lower = name.to_lowercase();
             if !tags.contains(&lower.as_str()) {
                 tags.push(lower.as_str());
@@ -1063,18 +1091,42 @@ impl<'a> CompletionContext<'a> {
                 kind: CompletionKind::Constant,
                 label: name.into(),
                 apply: Some(tags[0].into()),
-                detail: Some(separated_list(&tags, " or ").into()),
+                detail: Some(repr::separated_list(&tags, " or ").into()),
             });
         }
     }
 
-    /// Add completions for all labels.
+    /// Add completions for labels and references.
     fn label_completions(&mut self) {
-        for (label, detail) in analyze_labels(self.world, self.frames).0 {
+        let Some(document) = self.document else { return };
+        let (labels, split) = analyze_labels(document);
+
+        let head = &self.text[..self.from];
+        let at = head.ends_with('@');
+        let open = !at && !head.ends_with('<');
+        let close = !at && !self.after.starts_with('>');
+        let citation = !at && self.before_window(15).contains("cite");
+
+        let (skip, take) = if at {
+            (0, usize::MAX)
+        } else if citation {
+            (split, usize::MAX)
+        } else {
+            (0, split)
+        };
+
+        for (label, detail) in labels.into_iter().skip(skip).take(take) {
             self.completions.push(Completion {
                 kind: CompletionKind::Constant,
-                label: label.0,
-                apply: None,
+                apply: (open || close).then(|| {
+                    eco_format!(
+                        "{}{}{}",
+                        if open { "<" } else { "" },
+                        label.as_str(),
+                        if close { ">" } else { "" }
+                    )
+                }),
+                label: label.as_str().into(),
                 detail,
             });
         }
@@ -1094,6 +1146,7 @@ impl<'a> CompletionContext<'a> {
         let detail = docs.map(Into::into).or_else(|| match value {
             Value::Symbol(_) => None,
             Value::Func(func) => func.docs().map(plain_docs_sentence),
+            Value::Type(ty) => Some(plain_docs_sentence(ty.docs())),
             v => {
                 let repr = v.repr();
                 (repr.as_str() != label).then_some(repr)
@@ -1175,6 +1228,11 @@ impl<'a> CompletionContext<'a> {
                         "A custom Oklab color.",
                     );
                     self.snippet_completion(
+                        "oklch()",
+                        "oklch(${l}, ${chroma}, ${hue}, ${alpha})",
+                        "A custom Oklch color.",
+                    );
+                    self.snippet_completion(
                         "color.linear-rgb()",
                         "color.linear-rgb(${r}, ${g}, ${b}, ${a})",
                         "A custom linear RGBA color.",
@@ -1190,6 +1248,8 @@ impl<'a> CompletionContext<'a> {
                         "A custom HSLA color.",
                     );
                     self.scope_completions(false, |value| value.ty() == *ty);
+                } else if *ty == Type::of::<Label>() {
+                    self.label_completions()
                 } else if *ty == Type::of::<Func>() {
                     self.snippet_completion(
                         "function",
