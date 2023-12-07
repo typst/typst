@@ -1,5 +1,4 @@
 use std::num::NonZeroUsize;
-use std::str::FromStr;
 
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
@@ -9,7 +8,7 @@ use crate::foundations::{
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
 use crate::layout::{BoxElem, Fr, HElem, HideElem, Length, Rel, RepeatElem, Spacing};
-use crate::model::{Destination, HeadingElem, NumberingPattern, ParbreakElem, Refable};
+use crate::model::{Destination, HeadingElem, ParbreakElem, Refable};
 use crate::syntax::Span;
 use crate::text::{Lang, LinebreakElem, LocalName, Region, SpaceElem, TextElem};
 use crate::util::{option_eq, NonZeroExt};
@@ -471,15 +470,7 @@ impl OutlineEntry {
         };
 
         let location = elem.location().unwrap();
-        let page_numbering = engine
-            .introspector
-            .page_numbering(location)
-            .cloned()
-            .unwrap_or_else(|| NumberingPattern::from_str("1").unwrap().into());
-
-        let page = Counter::new(CounterKey::Page)
-            .at(engine, location)?
-            .display(engine, &page_numbering)?;
+        let page = Counter::new(CounterKey::Page).display(None, Some(location), false);
 
         Ok(Some(Self::new(outlinable.level(), elem, body, fill, page)))
     }
