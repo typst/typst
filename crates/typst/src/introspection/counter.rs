@@ -360,6 +360,12 @@ impl Counter {
         /// style exists.
         #[default]
         numbering: Option<Numbering>,
+        /// The location at which to display the counter. If omitted, displays
+        /// the counter at the location where the returned content is inserted
+        /// into the document. A suitable location can be retrieved from
+        /// [`locate`]($locate) or [`query`]($query).
+        #[default]
+        location: Option<Location>,
         /// If enabled, displays the current and final top-level count together.
         /// Both can be styled through a single numbering pattern. This is used
         /// by the page numbering property to display the current and total
@@ -368,7 +374,7 @@ impl Counter {
         #[default(false)]
         both: bool,
     ) -> Content {
-        DisplayElem::new(self, numbering, both).pack()
+        DisplayElem::new(self, numbering, location, both).pack()
     }
 
     /// Increases the value of the counter by one.
@@ -623,6 +629,10 @@ struct DisplayElem {
     #[required]
     numbering: Option<Numbering>,
 
+    /// The location at which to display the counter.
+    #[required]
+    elem_location: Option<Location>,
+
     /// Whether to display both the current and final value.
     #[required]
     both: bool,
@@ -632,7 +642,8 @@ impl Show for DisplayElem {
     #[tracing::instrument(name = "DisplayElem::show", skip_all)]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
-            let location = self.location().unwrap();
+            let location =
+                self.elem_location().unwrap_or_else(|| self.location().unwrap());
             let counter = self.counter();
             let numbering = self
                 .numbering()

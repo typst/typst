@@ -425,8 +425,11 @@ impl PageElem {
                 Numbering::Func(_) => true,
             };
 
-            let mut counter =
-                Counter::new(CounterKey::Page).display(Some(numbering.clone()), both);
+            let mut counter = Counter::new(CounterKey::Page).display(
+                Some(numbering.clone()),
+                None,
+                both,
+            );
 
             // We interpret the Y alignment as selecting header or footer
             // and then ignore it for aligning the actual number.

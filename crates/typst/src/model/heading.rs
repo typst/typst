@@ -158,7 +158,7 @@ impl Show for HeadingElem {
         let mut realized = self.body().clone();
         if let Some(numbering) = self.numbering(styles).as_ref() {
             realized = Counter::of(Self::elem())
-                .display(Some(numbering.clone()), false)
+                .display(Some(numbering.clone()), None, false)
                 .spanned(self.span())
                 + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;

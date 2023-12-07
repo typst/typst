@@ -168,7 +168,7 @@ impl Layout for EquationElem {
             if let Some(numbering) = self.numbering(styles) {
                 let pod = Regions::one(regions.base(), Axes::splat(false));
                 let counter = Counter::of(Self::elem())
-                    .display(Some(numbering), false)
+                    .display(Some(numbering), None, false)
                     .layout(engine, styles, pod)?
                     .into_frame();
 
