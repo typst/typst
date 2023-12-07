@@ -660,7 +660,11 @@ impl Show for DisplayElem {
                         return None;
                     };
 
-                    PageElem::numbering_in(styles).clone()
+                    engine
+                        .introspector
+                        .page_numbering(location)
+                        .cloned()
+                        .or_else(|| PageElem::numbering_in(styles).clone())
                 })
                 .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
 
