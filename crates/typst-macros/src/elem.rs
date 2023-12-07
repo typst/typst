@@ -146,6 +146,7 @@ struct Field {
     external: bool,
     synthesized: bool,
     borrowed: bool,
+    numbering: bool,
     ghost: bool,
     parse: Option<BlockWithReturn>,
     default: Option<syn::Expr>,
@@ -245,6 +246,7 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
         resolve: has_attr(&mut attrs, "resolve"),
         ghost: has_attr(&mut attrs, "ghost"),
         parse: parse_attr(&mut attrs, "parse")?.flatten(),
+        numbering: has_attr(&mut attrs, "numbering"),
         default: parse_attr::<syn::Expr>(&mut attrs, "default")?.flatten(),
         vis: field.vis.clone(),
         ident: ident.clone(),
@@ -292,6 +294,19 @@ fn create(element: &Elem) -> Result<TokenStream> {
             .all(|capability| capability != "Construct")
     {
         bail!(ident, "cannot have ghost fields and have `Construct` auto generated");
+    }
+
+    if element.fields.iter().filter(|field| field.numbering).count() > 1 {
+        bail!(ident, "cannot have more than one field with `numbering` attribute");
+    }
+
+    if let Some(numbered) = element.fields.iter().find(|field| field.numbering) {
+        if numbered.positional || numbered.variadic || numbered.internal {
+            bail!(
+                numbered.ident,
+                "cannot have `numbering` on a positional or internal field"
+            );
+        }
     }
 
     let all = element.real_fields();
@@ -928,6 +943,22 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         )
         .unwrap_or_else(|| quote! { None });
 
+    let numbering_fn =
+        if let Some(field) = element.fields.iter().find(|field| field.numbering) {
+            let in_ident = &field.ident_in;
+            if is_option(&field.ty) {
+                quote! {
+                    Some(|styles| #ident::#in_ident(styles).to_owned())
+                }
+            } else {
+                quote! {
+                    Some(|styles| Some(#ident::#in_ident(styles).to_owned()))
+                }
+            }
+        } else {
+            quote! { None }
+        };
+
     let unknown_field = format!("unknown field {{}} on {name}");
     let label_error = format!("cannot set label on {name}");
     let data = quote! {
@@ -948,6 +979,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                     <#ident as #foundations::ElementFields>::Fields as ::std::convert::TryFrom<u8>
                 >::try_from(id).ok().map(<#ident as #foundations::ElementFields>::Fields::to_str),
             local_name: #local_name,
+            numbering: #numbering_fn,
             scope: #foundations::Lazy::new(|| #scope),
             params: #foundations::Lazy::new(|| ::std::vec![#(#params),*])
         }
@@ -1300,4 +1332,31 @@ fn create_field_parser(field: &Field) -> (TokenStream, TokenStream) {
     };
 
     (quote! {}, value)
+}
+
+pub fn is_option(path: &syn::Type) -> bool {
+    let opt = match path {
+        syn::Type::Path(typepath) if typepath.qself.is_none() => {
+            Some(typepath.path.clone())
+        }
+        _ => None,
+    };
+
+    if let Some(o) = opt {
+        check_for_option(&o).is_some()
+    } else {
+        false
+    }
+}
+
+fn check_for_option(path: &syn::Path) -> Option<&syn::PathSegment> {
+    let idents_of_path = path.segments.iter().fold(String::new(), |mut acc, v| {
+        acc.push_str(&v.ident.to_string());
+        acc.push(':');
+        acc
+    });
+    ["Option:", "std:option:Option:", "core:option:Option:"]
+        .into_iter()
+        .find(|s| idents_of_path == *s)
+        .and_then(|_| path.segments.last())
 }

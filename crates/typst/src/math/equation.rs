@@ -63,6 +63,7 @@ pub struct EquationElem {
     /// With @ratio, we get:
     /// $ F_n = floor(1 / sqrt(5) phi.alt^n) $
     /// ```
+    #[numbering]
     pub numbering: Option<Numbering>,
 
     /// A supplement for the equation.

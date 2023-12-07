@@ -113,6 +113,7 @@ pub struct EnumElem {
     /// ```
     #[default(Numbering::Pattern(NumberingPattern::from_str("1.").unwrap()))]
     #[borrowed]
+    #[numbering]
     pub numbering: Numbering,
 
     /// Which number to start the enumeration with.

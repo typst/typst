@@ -67,6 +67,7 @@ pub struct FootnoteElem {
     /// ```
     #[borrowed]
     #[default(Numbering::Pattern(NumberingPattern::from_str("1").unwrap()))]
+    #[numbering]
     pub numbering: Numbering,
 
     /// The content to put into the footnote. Can also be the label of another

@@ -203,6 +203,7 @@ pub struct PageElem {
     /// #lorem(48)
     /// ```
     #[borrowed]
+    #[numbering]
     pub numbering: Option<Numbering>,
 
     /// The alignment of the page numbering.

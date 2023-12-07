@@ -191,6 +191,7 @@ pub struct FigureElem {
     /// How to number the figure. Accepts a
     /// [numbering pattern or function]($numbering).
     #[default(Some(NumberingPattern::from_str("1").unwrap().into()))]
+    #[numbering]
     pub numbering: Option<Numbering>,
 
     /// The vertical gap between the body and caption.

@@ -16,6 +16,7 @@ use crate::foundations::{
     Styles, Value,
 };
 use crate::introspection::Location;
+use crate::model::Numbering;
 use crate::syntax::Span;
 use crate::text::{Lang, Region};
 use crate::util::Static;
@@ -123,6 +124,11 @@ impl Element {
     /// The element's local name, if any.
     pub fn local_name(&self, lang: Lang, region: Option<Region>) -> Option<&'static str> {
         (self.0).0.local_name.map(|f| f(lang, region))
+    }
+
+    /// The element's numbering function, if any.
+    pub fn numbering(&self, styles: StyleChain) -> Option<Numbering> {
+        ((self.0).0.numbering?)(styles)
     }
 }
 
@@ -313,6 +319,7 @@ pub struct NativeElementData {
     pub field_id: fn(name: &str) -> Option<u8>,
     pub field_name: fn(u8) -> Option<&'static str>,
     pub local_name: Option<fn(Lang, Option<Region>) -> &'static str>,
+    pub numbering: Option<fn(StyleChain) -> Option<Numbering>>,
     pub scope: Lazy<Scope>,
     pub params: Lazy<Vec<ParamInfo>>,
 }

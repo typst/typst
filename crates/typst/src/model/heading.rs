@@ -60,6 +60,7 @@ pub struct HeadingElem {
     /// === A sub-subsection
     /// ```
     #[borrowed]
+    #[numbering]
     pub numbering: Option<Numbering>,
 
     /// A supplement for the heading.

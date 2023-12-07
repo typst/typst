@@ -83,5 +83,15 @@
 }
 
 ---
+// Test that page numberings are shown correctly using `.display()`.
+#set page(width: 50pt, height: 50pt, numbering: "1")
+#counter(page).display()
+#pagebreak()
+#set page(width: 50pt, height: 50pt, numbering: "I")
+#counter(page).display()
+#pagebreak()
+#counter(page).display()
+
+---
 // Error: 17-19 number must be at least zero
 #numbering("1", -1)

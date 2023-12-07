@@ -15,8 +15,7 @@ use crate::foundations::{
 };
 use crate::introspection::{Introspector, Locatable, Location, Locator, Meta};
 use crate::layout::{Frame, FrameItem, PageElem};
-use crate::math::EquationElem;
-use crate::model::{FigureElem, HeadingElem, Numbering, NumberingPattern};
+use crate::model::{Numbering, NumberingPattern};
 use crate::util::NonZeroExt;
 use crate::World;
 
@@ -643,15 +642,14 @@ impl Show for DisplayElem {
                         return None;
                     };
 
-                    if func == HeadingElem::elem() {
-                        HeadingElem::numbering_in(styles).clone()
-                    } else if func == FigureElem::elem() {
-                        FigureElem::numbering_in(styles)
-                    } else if func == EquationElem::elem() {
-                        EquationElem::numbering_in(styles)
-                    } else {
-                        None
-                    }
+                    func.numbering(styles)
+                })
+                .or_else(|| {
+                    let CounterKey::Page = counter.0 else {
+                        return None;
+                    };
+
+                    PageElem::numbering_in(styles).clone()
                 })
                 .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
 
