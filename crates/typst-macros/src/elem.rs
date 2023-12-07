@@ -922,6 +922,17 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         .unless_capability("Unlabellable", || quote! { self.label().is_some() })
         .unwrap_or_else(|| quote! { false });
 
+    let label_field_dict = element.unless_capability("Unlabellable", || {
+        quote! {
+            if let Some(label) = self.label() {
+                fields.insert(
+                    ::ecow::EcoString::inline("label").into(),
+                    #foundations::IntoValue::into_value(label)
+                );
+            }
+        }
+    });
+
     let mark_prepared = element
         .unless_capability("Unlabellable", || quote! { self.prepared = true; })
         .unwrap_or_else(|| quote! {});
@@ -1077,6 +1088,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
 
             fn fields(&self) -> #foundations::Dict {
                 let mut fields = #foundations::Dict::new();
+                #label_field_dict
                 #(#field_dict)*
                 #(#field_opt_dict)*
                 fields
