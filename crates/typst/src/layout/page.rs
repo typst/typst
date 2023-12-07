@@ -396,6 +396,7 @@ impl PageElem {
         // Layout the child.
         let mut frames = child.layout(engine, styles, regions)?.into_frames();
 
+        let original_frames_count = frames.len();
         // Align the child to the pagebreak's parity.
         // Check for page count after adding the pending frames
         if extend_to
@@ -443,7 +444,7 @@ impl PageElem {
         }
 
         // Post-process pages.
-        for frame in frames.iter_mut() {
+        for (i, frame) in frames.iter_mut().enumerate() {
             tracing::info!("Layouting page #{}", page_counter.physical());
 
             // The padded width of the page's content without margins.
@@ -473,6 +474,9 @@ impl PageElem {
                 ("foreground", &foreground),
             ] {
                 tracing::info!("Layouting {name}");
+                if i >= original_frames_count && (name == "header" || name == "footer") {
+                    continue;
+                }
 
                 let Some(content) = &**marginal else { continue };
 
