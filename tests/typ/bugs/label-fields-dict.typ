@@ -5,7 +5,7 @@
 ---
 // Test whether the label is accessible through the has method
 #show heading: it => {
-  assert(it.has("label"));
+  assert(it.has("label"))
   it
 }
 
@@ -14,7 +14,7 @@
 ---
 // Test whether the label is accessible through the field method
 #show heading: it => {
-  assert(str(it.label) == "my_label");
+  assert(str(it.label) == "my_label")
   it
 }
 
@@ -23,8 +23,8 @@
 ---
 // Test whether the label is accessible through the fields method
 #show heading: it => {
-  assert("label" in it.fields());
-  assert(str(it.fields().label) == "my_label");
+  assert("label" in it.fields())
+  assert(str(it.fields().label) == "my_label")
   it
 }
 
