@@ -653,6 +653,16 @@ impl Show for DisplayElem {
                         return None;
                     };
 
+                    // Special case for page numbering if user sets the counter to:
+                    // `counter(page.before(loc))` or similar cases.
+                    if func == PageElem::elem() {
+                        return engine
+                            .introspector
+                            .page_numbering(location)
+                            .cloned()
+                            .or_else(|| PageElem::numbering_in(styles).clone());
+                    }
+
                     func.numbering(styles)
                 })
                 .or_else(|| {
