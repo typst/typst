@@ -1,11 +1,12 @@
 use std::cell::{Cell, OnceCell, RefCell, RefMut};
 use std::collections::HashMap;
 use std::fs;
+use std::ops::AddAssign;
 use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 use typst::diag::{FileError, FileResult, StrResult};
 use typst::foundations::{Bytes, Datetime, Value, Dict};
 use typst::layout::Frame;
@@ -75,27 +76,21 @@ impl SystemWorld {
         let main_path = VirtualPath::within_root(&input, &root)
             .ok_or("input file must be contained in project root")?;
 
-        let mut inputs = HashMap::with_capacity(command.plain_inputs.len());
-        for (k, v) in &command.plain_inputs {
-            inputs.insert(k.to_owned().into(), Value::Str(v.to_owned().into()));
-        }
-        // TODO: cleanup, alternative, but does not prealloc capacity
-        // let mut inputs: HashMap<_, _> = command.plain_inputs.iter()
-        //     .map(|(k, v)| (k.clone().into(), Value::Str(v.clone().into())))
-        //     .collect();
+        let inputs = command.plain_inputs.iter()
+            .map(|(k, v)| (k.clone().into(), Value::Str(v.clone().into())));
+        let mut inputs = Dict::from_iter(inputs);
 
         // TODO: Reconsider the whole `--input-json` thing
         for raw in &command.json_inputs {
-            let root: HashMap<EcoString, Value> =
-                serde_json::from_str(raw).map_err(|e| eco_format!("{e}"))?;
-            inputs.reserve(root.len());
-            for (key, val) in root {
-                inputs.insert(key, val);
+            let parsed = serde_json::from_str(raw).map_err(|e| eco_format!("{e}"));
+            match parsed {
+                Ok(c) => inputs.add_assign(c),
+                // TODO: This is insufficient
+                Err(_) => {},
             }
         }
 
-        // TODO: Improve the upper
-        let inputs = Dict::from_iter(inputs.into_iter().map(|(k, v)| (k.into(), v)));
+        let inputs = Dict::from_iter(inputs.into_iter().map(|(k, v)| (k, v)));
         let sys_args = SysArguments { inputs };
 
         Ok(Self {
