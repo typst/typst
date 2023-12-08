@@ -94,6 +94,8 @@ impl SystemWorld {
             }
         }
 
+        // TODO: Improve the upper
+        let inputs = Dict::from_iter(inputs.into_iter().map(|(k, v)| (k.into(), v)));
         let sys_args = SysArguments { inputs };
 
         Ok(Self {

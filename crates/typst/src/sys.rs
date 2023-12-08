@@ -1,17 +1,13 @@
 //! System-related things.
 
-use std::collections::HashMap;
-
-use ecow::EcoString;
-
-use crate::foundations::{Dict, Module, Scope, Value, Version};
+use crate::foundations::{Dict, Module, Scope, Version};
 
 /// Arguments for the `sys` module that handle implementation-specific behaviour.
 #[derive(Clone, Default)]
 pub struct SysArguments {
     /// A number of keyed inputs that can be provided by the platform and will appear
     /// as `sys.inputs`. The main expected usecase is scripting.
-    pub inputs: HashMap<EcoString, Value>,
+    pub inputs: Dict,
 }
 
 /// A module with system-related things.
@@ -25,8 +21,7 @@ pub fn module(args: SysArguments) -> Module {
             env!("CARGO_PKG_VERSION_PATCH").parse::<u32>().unwrap(),
         ]),
     );
-    let inputs = Dict::from_iter(args.inputs.into_iter().map(|(k, v)| (k.into(), v)));
-    scope.define("inputs", inputs);
+    scope.define("inputs", args.inputs);
 
     Module::new("sys", scope)
 }

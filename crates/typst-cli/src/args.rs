@@ -160,9 +160,6 @@ fn parse_input_pair(raw: &str) -> Result<(String, String), InputPairError> {
         return Err(InputPairError::MissingKey);
     }
     let val = val.trim().to_owned();
-    if val.is_empty() {
-        return Err(InputPairError::MissingValue);
-    }
     Ok((key, val))
 }
 
@@ -173,8 +170,6 @@ enum InputPairError {
     NoEqual,
     // The key was missing or entirely blank
     MissingKey,
-    // The value was missing or entirely blank
-    MissingValue,
 }
 
 impl Display for InputPairError {
@@ -185,7 +180,6 @@ impl Display for InputPairError {
                 "input arguments must be a key and a value separated by an equal sign"
             ),
             Self::MissingKey => write!(f, "the key was missing or empty"),
-            Self::MissingValue => write!(f, "the value was missing or empty"),
         }
     }
 }
