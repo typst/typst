@@ -331,8 +331,8 @@ pub struct PageElem {
     /// Whether the page should be aligned to an even or odd page.
     #[internal]
     #[synthesized]
-    #[default(ClearToPageConfig { parity: None, keep_marginals: false })]
-    pub clear_to: ClearToPageConfig,
+    #[default(None)]
+    pub clear_to: Option<ClearTo>,
 }
 
 impl PageElem {
@@ -348,7 +348,7 @@ impl PageElem {
         engine: &mut Engine,
         styles: StyleChain,
         page_counter: &mut ManualPageCounter,
-        extend_to: Option<ClearToPageConfig>,
+        extend_to: Option<ClearTo>,
     ) -> SourceResult<Fragment> {
         tracing::info!("Page layout");
 
@@ -402,8 +402,8 @@ impl PageElem {
         // Align the child to the pagebreak's parity.
         // Check for page count after adding the pending frames
         if match extend_to {
-            Some(ClearToPageConfig { parity: Some(p), .. }) => {
-                !p.matches(page_counter.physical().get() + frames.len())
+            Some(ClearTo { parity, .. }) => {
+                !parity.matches(page_counter.physical().get() + frames.len())
             }
             _ => false,
         } {
@@ -481,13 +481,7 @@ impl PageElem {
                 tracing::info!("Layouting {name}");
                 if i >= original_frames_count
                     && (name == "header" || name == "footer")
-                    && (matches!(
-                        extend_to,
-                        Some(ClearToPageConfig {
-                            parity: Some(_),
-                            keep_marginals: false,
-                        })
-                    ))
+                    && (matches!(extend_to, Some(ClearTo { keep_marginals: false, .. })))
                 {
                     continue;
                 }
@@ -774,8 +768,8 @@ impl Parity {
 }
 
 #[derive(Clone, Debug, PartialEq, Hash)]
-pub struct ClearToPageConfig {
-    pub parity: Option<Parity>,
+pub struct ClearTo {
+    pub parity: Parity,
     pub keep_marginals: bool,
 }
 

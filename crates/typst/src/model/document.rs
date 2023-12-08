@@ -93,8 +93,9 @@ impl LayoutRoot for DocumentElem {
                 let extend_to = iter.peek().and_then(|&next| {
                     next.to_styled()
                         .map_or(next, |(content, _)| content)
-                        .to::<PageElem>()
-                        .map(|page| page.clear_to().clone())
+                        .to::<PageElem>()?
+                        .clear_to()
+                        .clone()
                 });
                 let fragment =
                     page.layout(engine, styles, &mut page_counter, extend_to)?;

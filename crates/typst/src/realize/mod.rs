@@ -18,8 +18,8 @@ use crate::foundations::{
 };
 use crate::introspection::{Locatable, Meta, MetaElem};
 use crate::layout::{
-    AlignElem, BlockElem, BoxElem, ClearToPageConfig, ColbreakElem, FlowElem, HElem,
-    Layout, LayoutRoot, PageElem, PagebreakElem, PlaceElem, VElem,
+    AlignElem, BlockElem, BoxElem, ClearTo, ColbreakElem, FlowElem, HElem, Layout,
+    LayoutRoot, PageElem, PagebreakElem, PlaceElem, VElem,
 };
 use crate::math::{EquationElem, LayoutMath};
 use crate::model::{
@@ -491,15 +491,15 @@ struct DocBuilder<'a> {
     /// Whether to keep a following page even if it is empty.
     keep_next: bool,
     /// Whether the next page should be cleared to an even or odd number.
-    clear_next: Option<ClearToPageConfig>,
+    clear_next: Option<ClearTo>,
 }
 
 impl<'a> DocBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
         if let Some(pagebreak) = content.to::<PagebreakElem>() {
             self.keep_next = !pagebreak.weak(styles);
-            self.clear_next = Some(ClearToPageConfig {
-                parity: pagebreak.to(styles),
+            self.clear_next = pagebreak.to(styles).map(|parity| ClearTo {
+                parity,
                 keep_marginals: pagebreak.keep_marginals(styles),
             });
             return true;
@@ -508,7 +508,7 @@ impl<'a> DocBuilder<'a> {
         if let Some(page) = content.to::<PageElem>() {
             let elem = if let Some(clear_to) = self.clear_next.take() {
                 let mut page = page.clone();
-                page.push_clear_to(clear_to);
+                page.push_clear_to(Some(clear_to));
                 Cow::Owned(page.pack())
             } else {
                 Cow::Borrowed(content)
