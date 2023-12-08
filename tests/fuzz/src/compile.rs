@@ -6,6 +6,7 @@ use typst::diag::{FileError, FileResult};
 use typst::eval::Tracer;
 use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source};
+use typst::sys::SysArguments;
 use typst::text::{Font, FontBook};
 use typst::visualize::Color;
 use typst::{Library, World};
@@ -24,7 +25,7 @@ impl FuzzWorld {
         let font = Font::new(FONT.into(), 0).unwrap();
         let book = FontBook::from_fonts([&font]);
         Self {
-            library: Prehashed::new(Library::build()),
+            library: Prehashed::new(Library::build(SysArguments::default())),
             book: Prehashed::new(book),
             font,
             source: Source::detached(text),

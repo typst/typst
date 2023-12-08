@@ -30,6 +30,7 @@ use typst::loading::DATA_LOADING;
 use typst::math::MATH;
 use typst::model::MODEL;
 use typst::symbols::SYMBOLS;
+use typst::sys::SysArguments;
 use typst::text::{Font, FontBook, TEXT};
 use typst::visualize::VISUALIZE;
 use typst::Library;
@@ -55,7 +56,7 @@ static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| {
 });
 
 static LIBRARY: Lazy<Prehashed<Library>> = Lazy::new(|| {
-    let mut lib = Library::build(Default::default());
+    let mut lib = Library::build(SysArguments::default());
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(240.0).into())));
     lib.styles.set(PageElem::set_height(Smart::Auto));

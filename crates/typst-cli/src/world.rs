@@ -7,7 +7,7 @@ use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use typst::diag::{FileError, FileResult, StrResult};
-use typst::foundations::{Bytes, Datetime, Value};
+use typst::foundations::{Bytes, Datetime, Value, Dict};
 use typst::layout::Frame;
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::sys::SysArguments;
@@ -55,7 +55,7 @@ impl SystemWorld {
         let input = command.input_file.canonicalize().map_err(|_| {
             eco_format!(
                 "input file not found (searched at {})",
-                command.input_file.display()
+                command.input_file.display(),
             )
         })?;
 
@@ -77,8 +77,14 @@ impl SystemWorld {
 
         let mut inputs = HashMap::with_capacity(command.plain_inputs.len());
         for (k, v) in &command.plain_inputs {
-            inputs.insert(k.clone().into(), Value::Str(v.clone().into()));
+            inputs.insert(k.to_owned().into(), Value::Str(v.to_owned().into()));
         }
+        // TODO: cleanup, alternative, but does not prealloc capacity
+        // let mut inputs: HashMap<_, _> = command.plain_inputs.iter()
+        //     .map(|(k, v)| (k.clone().into(), Value::Str(v.clone().into())))
+        //     .collect();
+
+        // TODO: Reconsider the whole `--input-json` thing
         for raw in &command.json_inputs {
             let root: HashMap<EcoString, Value> =
                 serde_json::from_str(raw).map_err(|e| eco_format!("{e}"))?;

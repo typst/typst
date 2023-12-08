@@ -25,10 +25,8 @@ pub fn module(args: SysArguments) -> Module {
             env!("CARGO_PKG_VERSION_PATCH").parse::<u32>().unwrap(),
         ]),
     );
-    scope.define(
-        "inputs",
-        Dict::from_iter(args.inputs.into_iter().map(|(k, v)| (k.into(), v))),
-    );
+    let inputs = Dict::from_iter(args.inputs.into_iter().map(|(k, v)| (k.into(), v)));
+    scope.define("inputs", inputs);
 
     Module::new("sys", scope)
 }

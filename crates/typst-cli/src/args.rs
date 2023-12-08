@@ -140,7 +140,7 @@ pub struct SharedArgs {
         short = 'i',
         value_name = "KEY=VALUE",
         action = ArgAction::Append,
-        value_parser = ValueParser::new(parse_input_pair)
+        value_parser = ValueParser::new(parse_input_pair),
     )]
     pub plain_inputs: Vec<(String, String)>,
 

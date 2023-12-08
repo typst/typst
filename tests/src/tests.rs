@@ -14,6 +14,7 @@ use comemo::{Prehashed, Track};
 use ecow::EcoString;
 use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
+use typst::sys::SysArguments;
 use std::cell::OnceCell;
 use tiny_skia as sk;
 use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
@@ -193,7 +194,7 @@ fn library() -> Library {
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
-    let mut lib = Library::build();
+    let mut lib = Library::build(SysArguments::default());
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(120.0).into())));
     lib.styles.set(PageElem::set_height(Smart::Auto));
