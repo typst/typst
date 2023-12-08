@@ -45,3 +45,16 @@ Third
 First
 #pagebreak(to: "odd")
 Third
+
+---
+// Test headers and footers are skipped on pagebreak-ed empty pages,
+// but with keep-marginals = true
+#set page(
+  width: 80pt, height: 30pt, header: [header], footer: [
+    #counter(page).display("1 of 1", both: true)
+  ]
+)
+
+First
+#pagebreak(to: "odd", keep-marginals: true)
+Third

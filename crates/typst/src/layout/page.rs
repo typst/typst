@@ -330,7 +330,9 @@ pub struct PageElem {
 
     /// Whether the page should be aligned to an even or odd page.
     #[internal]
-    pub clear_to: Option<Parity>,
+    #[synthesized]
+    #[default(ClearToPageConfig { parity: None, keep_marginals: false })]
+    pub clear_to: ClearToPageConfig,
 }
 
 impl PageElem {
@@ -346,7 +348,7 @@ impl PageElem {
         engine: &mut Engine,
         styles: StyleChain,
         page_counter: &mut ManualPageCounter,
-        extend_to: Option<Parity>,
+        extend_to: Option<ClearToPageConfig>,
     ) -> SourceResult<Fragment> {
         tracing::info!("Page layout");
 
@@ -399,9 +401,12 @@ impl PageElem {
         let original_frames_count = frames.len();
         // Align the child to the pagebreak's parity.
         // Check for page count after adding the pending frames
-        if extend_to
-            .is_some_and(|p| !p.matches(page_counter.physical().get() + frames.len()))
-        {
+        if match extend_to {
+            Some(ClearToPageConfig { parity: Some(p), .. }) => {
+                !p.matches(page_counter.physical().get() + frames.len())
+            }
+            _ => false,
+        } {
             // Insert empty page after the current pages.
             let size = area.map(Abs::is_finite).select(area, Size::zero());
             frames.push(Frame::hard(size));
@@ -474,7 +479,16 @@ impl PageElem {
                 ("foreground", &foreground),
             ] {
                 tracing::info!("Layouting {name}");
-                if i >= original_frames_count && (name == "header" || name == "footer") {
+                if i >= original_frames_count
+                    && (name == "header" || name == "footer")
+                    && (matches!(
+                        extend_to,
+                        Some(ClearToPageConfig {
+                            parity: Some(_),
+                            keep_marginals: false,
+                        })
+                    ))
+                {
                     continue;
                 }
 
@@ -733,6 +747,11 @@ pub struct PagebreakElem {
     /// Third.
     /// ```
     pub to: Option<Parity>,
+
+    /// If true, will keep the marginals (header and footer) if the page is
+    /// empty due to the above `to` parity setting.
+    #[default(false)]
+    pub keep_marginals: bool,
 }
 
 /// Whether something should be even or odd.
@@ -752,6 +771,12 @@ impl Parity {
             Self::Odd => number % 2 == 1,
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Hash)]
+pub struct ClearToPageConfig {
+    pub parity: Option<Parity>,
+    pub keep_marginals: bool,
 }
 
 /// Specification of a paper.
