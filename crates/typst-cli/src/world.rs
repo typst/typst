@@ -1,7 +1,7 @@
-use std::cell::{Cell, OnceCell, RefCell, RefMut};
+use std::cell::{OnceCell, RefCell, RefMut};
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
+use std::{fs, mem};
 
 use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
@@ -105,7 +105,7 @@ impl SystemWorld {
             .get_mut()
             .values()
             .filter(|slot| slot.accessed())
-            .filter_map(|slot| slot.system_path(&self.root).ok())
+            .filter_map(|slot| system_path(&self.root, slot.id).ok())
     }
 
     /// Reset the compilation state in preparation of a new compilation.
@@ -209,15 +209,15 @@ impl FileSlot {
 
     /// Marks the file as not yet accessed in preparation of the next
     /// compilation.
-    fn reset(&self) {
+    fn reset(&mut self) {
         self.source.reset();
         self.file.reset();
     }
 
     /// Retrieve the source for this file.
-    fn source(&self, root: &Path) -> FileResult<Source> {
+    fn source(&mut self, project_root: &Path) -> FileResult<Source> {
         self.source.get_or_init(
-            || self.system_path(root),
+            || system_path(project_root, self.id),
             |data, prev| {
                 let text = decode_utf8(&data)?;
                 if let Some(mut prev) = prev {
@@ -231,70 +231,48 @@ impl FileSlot {
     }
 
     /// Retrieve the file's bytes.
-    fn file(&self, root: &Path) -> FileResult<Bytes> {
+    fn file(&mut self, project_root: &Path) -> FileResult<Bytes> {
         self.file
-            .get_or_init(|| self.system_path(root), |data, _| Ok(data.into()))
-    }
-
-    /// The path of the slot on the system.
-    fn system_path(&self, root: &Path) -> FileResult<PathBuf> {
-        // Determine the root path relative to which the file path
-        // will be resolved.
-        let buf;
-        let mut root = root;
-        if let Some(spec) = self.id.package() {
-            buf = prepare_package(spec)?;
-            root = &buf;
-        }
-
-        // Join the path to the root. If it tries to escape, deny
-        // access. Note: It can still escape via symlinks.
-        self.id.vpath().resolve(root).ok_or(FileError::AccessDenied)
+            .get_or_init(|| system_path(project_root, self.id), |data, _| Ok(data.into()))
     }
 }
 
 /// Lazily processes data for a file.
 struct SlotCell<T> {
     /// The processed data.
-    data: RefCell<Option<FileResult<T>>>,
+    data: Option<FileResult<T>>,
     /// A hash of the raw file contents / access error.
-    fingerprint: Cell<u128>,
+    fingerprint: u128,
     /// Whether the slot has been accessed in the current compilation.
-    accessed: Cell<bool>,
+    accessed: bool,
 }
 
 impl<T: Clone> SlotCell<T> {
     /// Creates a new, empty cell.
     fn new() -> Self {
-        Self {
-            data: RefCell::new(None),
-            fingerprint: Cell::new(0),
-            accessed: Cell::new(false),
-        }
+        Self { data: None, fingerprint: 0, accessed: false }
     }
 
     /// Whether the cell was accessed in the ongoing compilation.
     fn accessed(&self) -> bool {
-        self.accessed.get()
+        self.accessed
     }
 
     /// Marks the cell as not yet accessed in preparation of the next
     /// compilation.
-    fn reset(&self) {
-        self.accessed.set(false);
+    fn reset(&mut self) {
+        self.accessed = false;
     }
 
     /// Gets the contents of the cell or initialize them.
     fn get_or_init(
-        &self,
+        &mut self,
         path: impl FnOnce() -> FileResult<PathBuf>,
         f: impl FnOnce(Vec<u8>, Option<T>) -> FileResult<T>,
     ) -> FileResult<T> {
-        let mut borrow = self.data.borrow_mut();
-
         // If we accessed the file already in this compilation, retrieve it.
-        if self.accessed.replace(true) {
-            if let Some(data) = &*borrow {
+        if mem::replace(&mut self.accessed, true) {
+            if let Some(data) = &self.data {
                 return data.clone();
             }
         }
@@ -304,18 +282,35 @@ impl<T: Clone> SlotCell<T> {
         let fingerprint = typst::util::hash128(&result);
 
         // If the file contents didn't change, yield the old processed data.
-        if self.fingerprint.replace(fingerprint) == fingerprint {
-            if let Some(data) = &*borrow {
+        if mem::replace(&mut self.fingerprint, fingerprint) == fingerprint {
+            if let Some(data) = &self.data {
                 return data.clone();
             }
         }
 
-        let prev = borrow.take().and_then(Result::ok);
+        let prev = self.data.take().and_then(Result::ok);
         let value = result.and_then(|data| f(data, prev));
-        *borrow = Some(value.clone());
+        self.data = Some(value.clone());
 
         value
     }
+}
+
+/// Resolves the path of a file id on the system, downloading a package if
+/// necessary.
+fn system_path(project_root: &Path, id: FileId) -> FileResult<PathBuf> {
+    // Determine the root path relative to which the file path
+    // will be resolved.
+    let buf;
+    let mut root = project_root;
+    if let Some(spec) = id.package() {
+        buf = prepare_package(spec)?;
+        root = &buf;
+    }
+
+    // Join the path to the root. If it tries to escape, deny
+    // access. Note: It can still escape via symlinks.
+    id.vpath().resolve(root).ok_or(FileError::AccessDenied)
 }
 
 /// Read a file.
