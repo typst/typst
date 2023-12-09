@@ -9,6 +9,7 @@ use termcolor::{ColorChoice, StandardStream};
 use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
 use typst::eval::Tracer;
 use typst::foundations::Datetime;
+use typst::layout::Frame;
 use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
 use typst::visualize::Color;
@@ -248,6 +249,38 @@ fn export_image(
     }
 
     Ok(())
+}
+
+/// Caches exported files so that we can avoid re-exporting them if they haven't
+/// changed.
+///
+/// This is done by having a list of size `files.len()` that contains the hashes
+/// of the last rendered frame in each file. If a new frame is inserted, this
+/// will invalidate the rest of the cache, this is deliberate as to decrease the
+/// complexity and memory usage of such a cache.
+pub struct ExportCache {
+    /// The hashes of last compilation's frames.
+    pub cache: Vec<u128>,
+}
+
+impl ExportCache {
+    /// Creates a new export cache.
+    pub fn new() -> Self {
+        Self { cache: Vec::with_capacity(32) }
+    }
+
+    /// Returns true if the entry is cached and appends the new hash to the
+    /// cache (for the next compilation).
+    pub fn is_cached(&mut self, i: usize, frame: &Frame) -> bool {
+        let hash = typst::util::hash128(frame);
+
+        if i >= self.cache.len() {
+            self.cache.push(hash);
+            return false;
+        }
+
+        std::mem::replace(&mut self.cache[i], hash) == hash
+    }
 }
 
 /// Opens the given file using:
