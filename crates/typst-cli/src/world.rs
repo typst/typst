@@ -80,7 +80,6 @@ impl SystemWorld {
             .map(|(k, v)| (k.clone().into(), Value::Str(v.clone().into())));
         let inputs = Dict::from_iter(inputs);
 
-        let inputs = Dict::from_iter(inputs.into_iter().map(|(k, v)| (k, v)));
         let sys_args = SysArguments { inputs };
 
         Ok(Self {
