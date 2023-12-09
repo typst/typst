@@ -7,7 +7,7 @@ use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
 use ecow::eco_format;
 use typst::diag::{FileError, FileResult, StrResult};
-use typst::foundations::{Bytes, Datetime, Value, Dict};
+use typst::foundations::{Bytes, Datetime, Dict, Value};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::sys::SysArguments;
 use typst::text::{Font, FontBook};
@@ -74,7 +74,9 @@ impl SystemWorld {
         let main_path = VirtualPath::within_root(&input, &root)
             .ok_or("input file must be contained in project root")?;
 
-        let inputs = command.plain_inputs.iter()
+        let inputs = command
+            .plain_inputs
+            .iter()
             .map(|(k, v)| (k.clone().into(), Value::Str(v.clone().into())));
         let inputs = Dict::from_iter(inputs);
 

@@ -50,9 +50,9 @@ pub mod math;
 pub mod model;
 pub mod realize;
 pub mod symbols;
+pub mod sys;
 pub mod text;
 pub mod visualize;
-pub mod sys;
 
 #[doc(inline)]
 pub use typst_syntax as syntax;
@@ -73,9 +73,9 @@ use crate::introspection::{Introspector, Locator};
 use crate::layout::{Align, Dir, LayoutRoot};
 use crate::model::Document;
 use crate::syntax::{FileId, PackageSpec, Source, Span};
+use crate::sys::SysArguments;
 use crate::text::{Font, FontBook};
 use crate::visualize::Color;
-use crate::sys::SysArguments;
 
 /// Compile a source file into a fully layouted document.
 ///
