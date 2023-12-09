@@ -143,14 +143,6 @@ pub struct SharedArgs {
         value_parser = ValueParser::new(parse_input_pair),
     )]
     pub plain_inputs: Vec<(String, String)>,
-
-    /// Add input values visible through sys.inputs as a json dictionary
-    #[clap(
-        long = "input-json",
-        value_name = "JSON",
-        action = ArgAction::Append,
-    )]
-    pub json_inputs: Vec<String>,
 }
 
 fn parse_input_pair(raw: &str) -> Result<(String, String), InputPairError> {

@@ -1,7 +1,6 @@
 use std::cell::{Cell, OnceCell, RefCell, RefMut};
 use std::collections::HashMap;
 use std::fs;
-use std::ops::AddAssign;
 use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Datelike, Local};
@@ -78,17 +77,7 @@ impl SystemWorld {
 
         let inputs = command.plain_inputs.iter()
             .map(|(k, v)| (k.clone().into(), Value::Str(v.clone().into())));
-        let mut inputs = Dict::from_iter(inputs);
-
-        // TODO: Reconsider the whole `--input-json` thing
-        for raw in &command.json_inputs {
-            let parsed = serde_json::from_str(raw).map_err(|e| eco_format!("{e}"));
-            match parsed {
-                Ok(c) => inputs.add_assign(c),
-                // TODO: This is insufficient
-                Err(_) => {},
-            }
-        }
+        let inputs = Dict::from_iter(inputs);
 
         let inputs = Dict::from_iter(inputs.into_iter().map(|(k, v)| (k, v)));
         let sys_args = SysArguments { inputs };
