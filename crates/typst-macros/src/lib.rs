@@ -279,7 +279,7 @@ pub fn category(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream 
 ///     v: i64 => if matches!(v, 0..=13) {
 ///         Self(v as u8)
 ///     } else {
-///         bail!("integer is not nice :/")
+///         bail!("integer is not cool 😎.")
 ///     },
 /// }
 /// ```
