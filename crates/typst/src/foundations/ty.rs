@@ -148,7 +148,7 @@ impl Debug for Type {
 
 impl Repr for Type {
     fn repr(&self) -> EcoString {
-        self.long_name().into()
+        self.short_name().into()
     }
 }
 

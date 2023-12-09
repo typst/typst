@@ -1213,12 +1213,47 @@ fn create_partial_eq_impl(element: &Elem) -> TokenStream {
 fn create_repr_impl(element: &Elem) -> TokenStream {
     let ident = &element.ident;
     let repr_format = format!("{}{{}}", element.name);
+    let positional_fields = element
+        .fields
+        .iter()
+        .filter(|field| {
+            field.positional && !field.ghost && !field.internal && !field.variadic
+        })
+        .map(|f| &f.name);
+
+    let named_fields = element
+        .fields
+        .iter()
+        .filter(|field| {
+            !field.positional && !field.variadic && !field.ghost && !field.internal
+        })
+        .map(|f| &f.name);
+
+    let variadic_fields = element
+        .fields
+        .iter()
+        .filter(|field| field.variadic && !field.ghost && !field.internal)
+        .map(|f| &f.name);
+
     quote! {
         impl #foundations::Repr for #ident {
             fn repr(&self) -> ::ecow::EcoString {
-                let fields = #foundations::NativeElement::fields(self).into_iter()
-                    .map(|(name, value)| ::ecow::eco_format!("{}: {}", name, value.repr()))
-                    .collect::<Vec<_>>();
+                let fields = #foundations::NativeElement::fields(self);
+
+                let positional_fields = fields.iter()
+                    .filter(|(name, _)| [ #(#positional_fields),* ].contains(&name.as_str()))
+                    .map(|(_, value)| ::ecow::eco_format!("{}", value.repr()));
+
+                let named_fields = fields.iter()
+                    .filter(|(name, _)| [ #(#named_fields),* ].contains(&name.as_str()))
+                    .map(|(name, value)| ::ecow::eco_format!("{}: {}", name, value.repr()));
+
+                let variadic_fields = fields.iter()
+                    .filter(|(name, _)| [ #(#variadic_fields),* ].contains(&name.as_str()))
+                    .map(|(_, value)| ::ecow::eco_format!("..{}", value.repr()));
+
+                let fields = positional_fields.chain(named_fields).chain(variadic_fields).collect::<Vec<_>>();
+
                 ::ecow::eco_format!(#repr_format, #foundations::repr::pretty_array_like(&fields, false))
             }
         }
