@@ -47,3 +47,15 @@
 #int \
 #type("hi") \
 #type((a: 1))
+
+---
+// Repr functions
+
+// just for readability
+#set page(width: 135pt)
+
+#repr(repeat[])
+
+#repr(heading(numbering: "a", []))
+
+#repr(list([1],[2],[3], tight: true))
