@@ -1,6 +1,6 @@
 use ecow::{eco_format, EcoString};
 
-use crate::foundations::{func, scope, ty, Repr, Str};
+use crate::foundations::{func, scope, ty, Repr};
 use crate::util::PicoStr;
 
 /// A label for an element.
@@ -11,6 +11,9 @@ use crate::util::PicoStr;
 ///
 /// A labelled element can be [referenced]($ref), [queried]($query) for, and
 /// [styled]($styling) through its label.
+///
+/// Once constructed, you can get the name of a label using
+/// [`str`]($str/#constructor).
 ///
 /// # Example
 /// ```example
@@ -59,12 +62,6 @@ impl Label {
         name: PicoStr,
     ) -> Label {
         Self(name)
-    }
-
-    /// The name with which this label was constructed.
-    #[func]
-    pub fn name(&self) -> Str {
-        self.0.resolve().into()
     }
 }
 

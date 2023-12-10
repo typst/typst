@@ -67,5 +67,6 @@ _Visible_
 ---
 // Test getting the name of a label.
 // Ref: false
-#test(label("hey").name(), "hey")
-#test([Hmm<hey>].label.name(), "hey")
+#test(str(<hey>), "hey")
+#test(str(label("hey")), "hey")
+#test(str([Hmm<hey>].label), "hey")
