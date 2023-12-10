@@ -63,3 +63,9 @@ _Visible_
 #test([Hello<hi>].label, <hi>)
 #test([#[A *B* C]<hi>].label, <hi>)
 #test([#text(red)[Hello]<hi>].label, <hi>)
+
+---
+// Test getting the name of a label.
+// Ref: false
+#test(label("hey").name(), "hey")
+#test([Hmm<hey>].label.name(), "hey")

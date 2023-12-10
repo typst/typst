@@ -1,6 +1,6 @@
 use ecow::{eco_format, EcoString};
 
-use crate::foundations::{func, scope, ty, Repr};
+use crate::foundations::{func, scope, ty, Repr, Str};
 use crate::util::PicoStr;
 
 /// A label for an element.
@@ -59,6 +59,12 @@ impl Label {
         name: PicoStr,
     ) -> Label {
         Self(name)
+    }
+
+    /// The name with which this label was constructed.
+    #[func]
+    pub fn name(&self) -> Str {
+        self.0.resolve().into()
     }
 }
 
