@@ -1,5 +1,18 @@
 #![allow(clippy::comparison_chain)]
 
+//! This is Typst's test runner.
+//!
+//! Tests are typst files composed of a header part followed by
+//! tests parts.
+//!
+//! The header may contain:
+//! - a small description `// tests that features X works well`
+//! - metadata (see [Metadata])
+//!
+//! The tests parts may use functions defined in [library], most importantly,
+//! `test(x, y)` which will fail the test `if x != y`
+
+use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fmt::{self, Display, Formatter, Write as _};
@@ -39,24 +52,34 @@ const SVG_DIR: &str = "svg";
 const FONT_DIR: &str = "../assets/fonts";
 const ASSET_DIR: &str = "../assets";
 
+/// Arguments that modifies test behaviour
+///
+/// Specify them like this when developing:
+/// `cargo test --workspace --test tests -- --help`
 #[derive(Debug, Clone, Parser)]
 #[clap(name = "typst-test", author)]
 struct Args {
+    /// All the test that contains a filter string will be
+    /// run except if `--exact` is specified
     filter: Vec<String>,
-    /// runs only the specified subtest
+    /// run only the specified test part
     #[arg(short, long)]
     #[arg(allow_hyphen_values = true)]
     subtest: Option<isize>,
+    /// run only the test with the exact same specified in your command
+    /// ex: `cargo test --workspace --test tests compiler/bytes.typ -- --exact`
     #[arg(long)]
     exact: bool,
+    /// Update the reference images in `tests/ref`
     #[arg(long, default_value_t = env::var_os("UPDATE_EXPECT").is_some())]
     update: bool,
     #[arg(long)]
+    /// export the tests as pdf using Typst capabilities.
     pdf: bool,
     #[command(flatten)]
     print: PrintConfig,
     #[arg(long)]
-    nocapture: bool, // simply ignores the argument
+    nocapture: bool, // simply ignores the argument for backward compatibility
 }
 
 /// Which things to print out for debugging.
