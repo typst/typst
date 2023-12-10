@@ -49,7 +49,13 @@ pub(crate) fn write_gradients(ctx: &mut PdfContext) {
                 ctx.colors
                     .write(gradient.space(), shading.color_space(), &mut ctx.alloc);
 
-                let (sin, cos) = (angle.sin(), angle.cos());
+                let (mut sin, mut cos) = (angle.sin(), angle.cos());
+
+                // Scale to edges of unit square.
+                let factor = 1.0 / (sin.abs().max(cos.abs()));
+                sin *= factor;
+                cos *= factor;
+
                 let (x1, y1, x2, y2): (f64, f64, f64, f64) = match angle.quadrant() {
                     Quadrant::First => (0.0, 0.0, cos, sin),
                     Quadrant::Second => (1.0, 0.0, cos + 1.0, sin),
