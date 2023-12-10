@@ -12,7 +12,7 @@ use crate::foundations::{
 };
 use crate::layout::{Angle, Axes, Dir, Quadrant, Ratio};
 use crate::syntax::{Span, Spanned};
-use crate::visualize::color::{Hsl, Hsv};
+use crate::visualize::color::{Hsl, Hsv, Oklch};
 use crate::visualize::{Color, ColorSpace, WeightedColor};
 
 /// A color gradient.
@@ -1245,16 +1245,20 @@ fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> C
     .unwrap();
 
     // Special case for handling multi-turn hue interpolation.
-    if mixing_space == ColorSpace::Hsl || mixing_space == ColorSpace::Hsv {
-        let hue_0 = col_0.to_space(mixing_space).to_vec4()[0];
-        let hue_1 = col_1.to_space(mixing_space).to_vec4()[0];
+    let hue_component_index = match mixing_space {
+        ColorSpace::Hsl | ColorSpace::Hsv => Some(0),
+        ColorSpace::Oklch => Some(2),
+        _ => None,
+    };
+
+    if let Some(index) = hue_component_index {
+        let h0 = col_0.to_space(mixing_space).to_vec4()[index];
+        let h1 = col_1.to_space(mixing_space).to_vec4()[index];
 
         // Check if we need to interpolate over the 360° boundary.
-        if (hue_0 - hue_1).abs() > 180.0 {
-            let hue_0 = if hue_0 < hue_1 { hue_0 + 360.0 } else { hue_0 };
-            let hue_1 = if hue_1 < hue_0 { hue_1 + 360.0 } else { hue_1 };
-
-            let hue = hue_0 * (1.0 - t as f32) + hue_1 * t as f32;
+        if (h0 - h1).abs() > 180.0 {
+            let (h0, h1) = if h0 < h1 { (h0 + 360.0, h1) } else { (h0, h1 + 360.0) };
+            let hue = h0 * (1.0 - t as f32) + h1 * t as f32;
 
             if mixing_space == ColorSpace::Hsl {
                 let [_, saturation, lightness, alpha] = out.to_hsl().to_vec4();
@@ -1262,6 +1266,9 @@ fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> C
             } else if mixing_space == ColorSpace::Hsv {
                 let [_, saturation, value, alpha] = out.to_hsv().to_vec4();
                 return Color::Hsv(Hsv::new(hue, saturation, value, alpha));
+            } else if mixing_space == ColorSpace::Oklch {
+                let [lightness, chroma, _, alpha] = out.to_oklch().to_vec4();
+                return Color::Oklch(Oklch::new(lightness, chroma, hue, alpha));
             }
         }
     }

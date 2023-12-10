@@ -163,8 +163,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
 
             // Compute the intermediary stop at 360°.
             if (h1 - h2).abs() > 180.0 {
-                let h1 = if h1 < h2 { h1 + 360.0 } else { h1 };
-                let h2 = if h2 < h1 { h2 + 360.0 } else { h2 };
+                let (h1, h2) = if h1 < h2 { (h1 + 360.0, h2) } else { (h1, h2 + 360.0) };
 
                 // We compute where the crossing happens between zero and one
                 let t = (360.0 - h1) / (h2 - h1);
