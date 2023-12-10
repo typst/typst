@@ -80,6 +80,8 @@ struct Args {
     print: PrintConfig,
     #[arg(long)]
     nocapture: bool, // simply ignores the argument for backward compatibility
+    #[arg(short, long)]
+    verbose: bool, // prevents the terminal from being cleared of tests names
 }
 
 /// Which things to print out for debugging.
@@ -521,9 +523,9 @@ fn test(
         stdout.write_all(name.to_string_lossy().as_bytes()).unwrap();
         if ok {
             writeln!(stdout, " ✔").unwrap();
-            // Don't clear the line when the reference image was updated, to
-            // show in the output which test had its image updated.
-            if !updated && stdout.is_terminal() {
+            // Don't clear the line when in verbose mode or when the reference image 
+            // was updated, to show in the output which test had its image updated.
+            if !updated && !args.verbose && stdout.is_terminal() {
                 // ANSI escape codes: cursor moves up and clears the line.
                 write!(stdout, "\x1b[1A\x1b[2K").unwrap();
             }
