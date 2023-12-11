@@ -7,36 +7,35 @@ use std::{
 use typst::syntax::{PackageVersion, Source};
 use unscanny::Scanner;
 
-struct TestConfiguration {
-    compare_ref: Option<bool>,
-    validate_hints: Option<bool>,
+#[derive(Debug)]
+pub struct TestPartMetadata {
+    pub part_configuration: TestConfiguration,
+    pub annotations: HashSet<Annotation>,
 }
-
-struct TestPartMetadata {
-    part_configuration: TestConfiguration,
-    annotations: HashSet<Annotation>,
+pub struct TestConfiguration {
+    pub compare_ref: Option<bool>,
+    pub validate_hints: Option<bool>,
+    pub validate_autocomplete: Option<bool>,
 }
-
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct Annotation {
-    range: Option<Range<usize>>,
-    message: EcoString,
-    kind: AnnotationKind,
+pub struct Annotation {
+    pub range: Option<Range<usize>>,
+    pub message: EcoString,
+    pub kind: AnnotationKind,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-enum AnnotationKind {
+pub enum AnnotationKind {
     Error,
     Warning,
     Hint,
 }
 
 impl AnnotationKind {
-    fn iter() -> impl Iterator<Item = Self> {
-        [AnnotationKind::Error, AnnotationKind::Warning, AnnotationKind::Hint].into_iter()
+    pub fn iter() -> impl Iterator<Item = Self> {
     }
 
-    fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             AnnotationKind::Error => "Error",
             AnnotationKind::Warning => "Warning",
@@ -51,7 +50,8 @@ impl Display for AnnotationKind {
     }
 }
 
-fn parse_part_metadata(source: &Source) -> TestPartMetadata {
+/// Metadata always start with `// {key}`
+pub fn parse_part_metadata(source: &Source) -> TestPartMetadata {
     let mut compare_ref = None;
     let mut validate_hints = None;
     let mut annotations = HashSet::default();
@@ -107,10 +107,9 @@ fn parse_part_metadata(source: &Source) -> TestPartMetadata {
     }
 }
 
-fn get_metadata<'a>(line: &'a str, key: &str) -> Option<&'a str> {
+pub fn get_metadata<'a>(line: &'a str, key: &str) -> Option<&'a str> {
     line.strip_prefix(eco_format!("// {key}: ").as_str())
 }
 
-fn get_flag_metadata(line: &str, key: &str) -> Option<bool> {
-    get_metadata(line, key).map(|value| value == "true")
+pub fn get_flag_metadata(line: &str, key: &str) -> Option<bool> {
 }
