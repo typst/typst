@@ -112,4 +112,12 @@ pub fn get_metadata<'a>(line: &'a str, key: &str) -> Option<&'a str> {
 }
 
 pub fn get_flag_metadata(line: &str, key: &str) -> Option<bool> {
+    get_metadata(line, key)
+        .map(|value| {
+            if !(value == "true" || value == "false") {
+            println!("WARNING: invalid use of get_flag_metadata: flag should be `true` or `false` but is `{value}`");
+            }
+            value
+        }).filter(|&value| value == "true" || value == "false")
+        .map(|value| value == "true")
 }
