@@ -206,8 +206,8 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
                     ctx.pdf
                         .exponential_function(func2)
                         .range(gradient.space().range())
-                        .c0(components(1.0))
-                        .c1(components(0.0))
+                        .c0(components(if h1 < h2 { 1.0 } else { 0.0 }))
+                        .c1(components(if h1 < h2 { 0.0 } else { 1.0 }))
                         .domain([0.0, 1.0])
                         .n(1.0);
 
