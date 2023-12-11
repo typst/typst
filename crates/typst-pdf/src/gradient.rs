@@ -52,7 +52,7 @@ pub(crate) fn write_gradients(ctx: &mut PdfContext) {
                 let (mut sin, mut cos) = (angle.sin(), angle.cos());
 
                 // Scale to edges of unit square.
-                let factor = 1.0 / (sin.abs().max(cos.abs()));
+                let factor = cos.abs() + sin.abs();
                 sin *= factor;
                 cos *= factor;
 
@@ -62,12 +62,6 @@ pub(crate) fn write_gradients(ctx: &mut PdfContext) {
                     Quadrant::Third => (1.0, 1.0, cos + 1.0, sin + 1.0),
                     Quadrant::Fourth => (0.0, 1.0, cos, sin + 1.0),
                 };
-
-                let clamp = |i: f64| if i < 1e-4 { 0.0 } else { i.clamp(0.0, 1.0) };
-                let x1 = clamp(x1);
-                let y1 = clamp(y1);
-                let x2 = clamp(x2);
-                let y2 = clamp(y2);
 
                 shading
                     .anti_alias(gradient.anti_alias())
