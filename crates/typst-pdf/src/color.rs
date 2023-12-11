@@ -255,7 +255,7 @@ pub trait ColorEncode {
 impl ColorEncode for ColorSpace {
     fn encode(&self, color: Color) -> [f32; 4] {
         match self {
-            ColorSpace::Oklab => {
+            ColorSpace::Oklab | ColorSpace::Oklch => {
                 let [l, c, h, alpha] = color.to_oklch().to_vec4();
                 // Clamp on Oklch's chroma, not Oklab's a\* and b\* as to not distort hue.
                 let c = c.clamp(0.0, 0.5);
@@ -271,9 +271,6 @@ impl ColorEncode for ColorSpace {
             ColorSpace::Hsv => {
                 let [h, s, v, _] = color.to_hsv().to_vec4();
                 [h / 360.0, s, v, 0.0]
-            }
-            ColorSpace::Oklch => {
-                unimplemented!("Oklch is always converted to Oklab first")
             }
             _ => color.to_vec4(),
         }
