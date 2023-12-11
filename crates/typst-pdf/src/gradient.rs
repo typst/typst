@@ -161,20 +161,40 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
 
         // If the color space is HSL or HSV, and we cross the 0°/360° boundary,
         // we need to create two separate stops.
-        if gradient.space() == ColorSpace::Hsl || gradient.space() == ColorSpace::Hsv {
+        let hue_component_index = match gradient.space() {
+            ColorSpace::Hsl | ColorSpace::Hsv => Some(0),
+            ColorSpace::Oklch => Some(2),
+            _ => None,
+        };
+
+        if let Some(index) = hue_component_index {
             let t1 = first.1.get() as f32;
             let t2 = second.1.get() as f32;
-            let [h1, s1, x1, _] = first.0.to_space(gradient.space()).to_vec4();
-            let [h2, s2, x2, _] = second.0.to_space(gradient.space()).to_vec4();
+            let c1 = first.0.to_space(gradient.space()).to_vec4();
+            let c2 = second.0.to_space(gradient.space()).to_vec4();
+            let h1 = c1[index];
+            let h2 = c2[index];
 
             // Compute the intermediary stop at 360°.
-            if (h1 - h2).abs() > 180.0 {
+            if (c1[index] - c2[index]).abs() > 180.0 {
                 let (h1, h2) = if h1 < h2 { (h1 + 360.0, h2) } else { (h1, h2 + 360.0) };
 
                 // We compute where the crossing happens between zero and one
                 let t = (360.0 - h1) / (h2 - h1);
                 // We then map it back to the original range.
                 let t_prime = t * (t2 - t1) + t1;
+
+                println!("{} - {} - {}", t, h1, h2);
+
+                // Interpolated components with fixed hue.
+                let components = |hue: f32| {
+                    let mut c = [0.0; 3];
+                    c[0] = c1[0] * (1.0 - t) + c2[0] * t;
+                    c[1] = c1[1] * (1.0 - t) + c2[1] * t;
+                    c[2] = c1[2] * (1.0 - t) + c2[2] * t;
+                    c[index] = hue;
+                    c
+                };
 
                 // If the crossing happens between the two stops,
                 // we need to create an extra stop.
@@ -192,7 +212,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
                         .exponential_function(func1)
                         .range(gradient.space().range())
                         .c0(gradient.space().convert(first.0))
-                        .c1([1.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t])
+                        .c1(components(1.0))
                         .domain([0.0, 1.0])
                         .n(1.0);
 
@@ -200,8 +220,8 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
                     ctx.pdf
                         .exponential_function(func2)
                         .range(gradient.space().range())
-                        .c0([1.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t])
-                        .c1([0.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t])
+                        .c0(components(1.0))
+                        .c1(components(0.0))
                         .domain([0.0, 1.0])
                         .n(1.0);
 
@@ -209,7 +229,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
                     ctx.pdf
                         .exponential_function(func3)
                         .range(gradient.space().range())
-                        .c0([0.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t])
+                        .c0(components(0.0))
                         .c1(gradient.space().convert(second.0))
                         .domain([0.0, 1.0])
                         .n(1.0);
