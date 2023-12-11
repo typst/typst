@@ -184,8 +184,6 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
                 // We then map it back to the original range.
                 let t_prime = t * (t2 - t1) + t1;
 
-                println!("{} - {} - {}", t, h1, h2);
-
                 // Interpolated components with fixed hue.
                 let components = |hue: f32| {
                     let mut c = [0.0; 3];
@@ -212,7 +210,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
                         .exponential_function(func1)
                         .range(gradient.space().range())
                         .c0(gradient.space().convert(first.0))
-                        .c1(components(1.0))
+                        .c1(components(if h1 < h2 { 1.0 } else { 0.0 }))
                         .domain([0.0, 1.0])
                         .n(1.0);
 
@@ -229,7 +227,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
                     ctx.pdf
                         .exponential_function(func3)
                         .range(gradient.space().range())
-                        .c0(components(0.0))
+                        .c0(components(if h1 < h2 { 0.0 } else { 1.0 }))
                         .c1(gradient.space().convert(second.0))
                         .domain([0.0, 1.0])
                         .n(1.0);
