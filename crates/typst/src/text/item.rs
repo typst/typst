@@ -51,7 +51,7 @@ pub struct Glyph {
     /// The horizontal offset of the glyph.
     pub x_offset: Em,
     /// The range of the glyph in its item's text. The range's length may
-    /// be more than one due to e.g. ligature, big Unicode codepoint value.
+    /// be more than one due to multi-byte UTF-8 encoding or ligatures.
     pub range: Range<u16>,
     /// The source code location of the text.
     pub span: (Span, u16),

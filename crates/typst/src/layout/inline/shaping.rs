@@ -275,6 +275,7 @@ impl<'a> ShapedText<'a> {
                     // |   |  *********|   |
                     // +---+--+--------+---+
                     //   A   B     C     D
+                    // Note A, B, D could be positive, zero, or negative.
                     // A: justification_left
                     // B: ShapedGlyph's x_offset
                     //    (though a small part of the glyph may go inside B)
