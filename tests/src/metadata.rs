@@ -71,6 +71,8 @@ impl Display for AnnotationKind {
 ///         example : `0:4-0:6`
 ///     - `{col}-{col}`: in which case the line is assumed to be the line after the annotation.
 ///         example: `4-6`
+///     - `-1` in which case, it is the range cursor..cursor where cursor is at the end of the next line,
+///         skipping comments line. (Mostly useful for autocompletion with requires an index).
 pub fn parse_part_metadata(source: &Source) -> TestPartMetadata {
     let mut compare_ref = None;
     let mut validate_hints = None;
@@ -103,6 +105,20 @@ pub fn parse_part_metadata(source: &Source) -> TestPartMetadata {
         };
 
         let range = |s: &mut Scanner| -> Option<Range<usize>> {
+            if s.eat_if("-1") {
+                let mut add = 1;
+                while let Some(line) = lines.get(i + add) {
+                    if !line.starts_with("//") {
+                        break;
+                    }
+                    add += 1;
+                }
+                let next_line = lines.get(i + add)?;
+                let col = next_line.chars().count();
+
+                let index = source.line_column_to_byte(i + add, col)?;
+                return Some(index..index);
+            }
             let start = pos(s)?;
             let end = if s.eat_if('-') { pos(s)? } else { start };
             Some(start..end)
