@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
-use std::num::NonZeroI64;
 use std::ops::{Add, AddAssign};
 
 use ecow::{eco_format, EcoString, EcoVec};
@@ -362,27 +361,29 @@ impl Array {
         /// The start of the range (inclusive).
         #[external]
         #[default]
-        start: i64,
+        start: f64,
         /// The end of the range (exclusive).
         #[external]
-        end: i64,
+        end: f64,
         /// The distance between the generated numbers.
         #[named]
-        #[default(NonZeroI64::new(1).unwrap())]
-        step: NonZeroI64,
+        #[default(1.0_f64)]
+        step: f64,
     ) -> SourceResult<Array> {
-        let first = args.expect::<i64>("end")?;
-        let (start, end) = match args.eat::<i64>()? {
+        let first = args.expect::<f64>("end")?;
+        let (start, end) = match args.eat::<f64>()? {
             Some(second) => (first, second),
-            None => (0, first),
+            None => (0.0, first),
         };
 
-        let step = step.get();
+        if step == 0.0 {
+            return Err(step_is_zero()).at(args.span);
+        }
 
         let mut x = start;
         let mut array = Self::new();
 
-        while x.cmp(&end) == 0.cmp(&step) {
+        while ((end - x) / step).abs() > f64::EPSILON {
             array.push(x.into_value());
             x += step;
         }
@@ -942,6 +943,12 @@ impl<T: FromValue, const N: usize> FromValue for SmallVec<[T; N]> {
 #[cold]
 fn array_is_empty() -> EcoString {
     "array is empty".into()
+}
+
+// The error message when the step is zero.
+#[cold]
+fn step_is_zero() -> EcoString {
+    "Step cannot be 0".into()
 }
 
 /// The out of bounds access error message.
