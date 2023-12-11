@@ -1245,13 +1245,7 @@ fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> C
     .unwrap();
 
     // Special case for handling multi-turn hue interpolation.
-    let hue_component_index = match mixing_space {
-        ColorSpace::Hsl | ColorSpace::Hsv => Some(0),
-        ColorSpace::Oklch => Some(2),
-        _ => None,
-    };
-
-    if let Some(index) = hue_component_index {
+    if let Some(index) = mixing_space.hue_index() {
         let h0 = col_0.to_space(mixing_space).to_vec4()[index];
         let h1 = col_1.to_space(mixing_space).to_vec4()[index];
 

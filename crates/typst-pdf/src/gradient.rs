@@ -159,15 +159,9 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
             continue;
         }
 
-        // If the color space is HSL or HSV, and we cross the 0°/360° boundary,
-        // we need to create two separate stops.
-        let hue_component_index = match gradient.space() {
-            ColorSpace::Hsl | ColorSpace::Hsv => Some(0),
-            ColorSpace::Oklch => Some(2),
-            _ => None,
-        };
-
-        if let Some(index) = hue_component_index {
+        // If we need to interpolate hue, and we cross the 0°/360° boundary, we
+        // need to create two separate stops.
+        if let Some(index) = gradient.space().hue_index() {
             let t1 = first.1.get() as f32;
             let t2 = second.1.get() as f32;
             let c1 = first.0.to_space(gradient.space()).to_vec4();
