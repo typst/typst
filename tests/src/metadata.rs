@@ -12,11 +12,22 @@ pub struct TestPartMetadata {
     pub part_configuration: TestConfiguration,
     pub annotations: HashSet<Annotation>,
 }
+
+/// Valid metadata keys are `Hint`, `Ref`, `Autocomplete`.
+/// Example : `// Ref: true`
+///
+/// any value not equal to `true` or `false` will be ignored and throw a warning in stdout.
+///
+/// Changing these values modify the behavior of the test:
+/// - compare_ref: reference images will be generated and compared.
+/// - validate_hints: compiler hints will be recorded and compared to test hints annotations.
 pub struct TestConfiguration {
     pub compare_ref: Option<bool>,
     pub validate_hints: Option<bool>,
     pub validate_autocomplete: Option<bool>,
 }
+
+/// Valid metadata keys are `Hint`, `Error`, `Warning`, `Autocomplete contains`
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Annotation {
     pub range: Option<Range<usize>>,
@@ -51,6 +62,15 @@ impl Display for AnnotationKind {
 }
 
 /// Metadata always start with `// {key}`
+///
+/// Valid keys may be any of [TestConfiguration] valid keys and [AnnotationKind] valid keys.
+///
+/// Parsing:
+/// - Range may be written as:
+///     - `{line}:{col}-{line}:{col}`
+///         example : `0:4-0:6`
+///     - `{col}-{col}`: in which case the line is assumed to be the line after the annotation.
+///         example: `4-6`
 pub fn parse_part_metadata(source: &Source) -> TestPartMetadata {
     let mut compare_ref = None;
     let mut validate_hints = None;

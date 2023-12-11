@@ -7,7 +7,7 @@
 //!
 //! The header may contain:
 //! - a small description `// tests that features X works well`
-//! - metadata (see [Metadata])
+//! - metadata (see [metadata::TestConfiguration])
 //!
 //! The tests parts may use functions defined in [library], most importantly,
 //! `test(x, y)` which will fail the test `if x != y`
@@ -62,11 +62,11 @@ struct Args {
     /// All the test that contains a filter string will be
     /// run except if `--exact` is specified
     filter: Vec<String>,
-    /// run only the specified test part
+    /// runs only the specified test part
     #[arg(short, long)]
     #[arg(allow_hyphen_values = true)]
     subtest: Option<isize>,
-    /// run only the test with the exact same specified in your command
+    /// runs only the test with the exact same specified in your command
     /// ex: `cargo test --workspace --test tests compiler/bytes.typ -- --exact`
     #[arg(long)]
     exact: bool,
