@@ -470,7 +470,7 @@ $ delta "if" x <= 5 $
 
 In Typst, delimiters will scale automatically for their expressions, just as if
 `\left` and `\right` commands were implicitly inserted in LaTeX. You can
-customize delimiter behavior using the [`lr` function]($math.lr). To
+customize delimiter behaviour using the [`lr` function]($math.lr). To
 prevent a pair of delimiters from scaling, you can escape them with backslashes.
 
 Typst will automatically set terms around a slash `/` as a fraction while

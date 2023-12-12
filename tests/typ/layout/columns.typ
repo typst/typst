@@ -37,7 +37,7 @@ Sure, it is not the most creative way of filling up
 a page for a test but it does get the job done.
 
 ---
-// Test the expansion behavior.
+// Test the expansion behaviour.
 #set page(height: 2.5cm, width: 7.05cm)
 
 #rect(inset: 6pt, columns(2, [
