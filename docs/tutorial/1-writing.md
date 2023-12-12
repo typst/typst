@@ -121,7 +121,7 @@ default. It's also lacking a caption. Let's fix that by using the
 positional argument and an optional caption as a named argument.
 
 Within the argument list of the `figure` function, Typst is already in code
-mode. This means, you can now remove the hash before the image function call.
+mode. This means, you now have to remove the hash before the image function call.
 The hash is only needed directly in markup (to disambiguate text from function
 calls).
 
