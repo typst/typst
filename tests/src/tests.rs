@@ -67,7 +67,7 @@ struct Args {
     #[arg(short, long)]
     #[arg(allow_hyphen_values = true)]
     subtest: Option<isize>,
-    /// runs only the test with the exact same specified in your command
+    /// runs only the test with the exact name specified in your command
     /// ex: `cargo test --workspace --test tests compiler/bytes.typ -- --exact`
     #[arg(long)]
     exact: bool,
