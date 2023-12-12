@@ -17,7 +17,7 @@ description: |
   - Fixed missing title in some bibliography styles
   - Fixed printing of volumes in some styles
   - Fixed delimiter order for contributors in some styles (e.g. APA)
-  - Fixed behavior of alphanumeric style
+  - Fixed behaviour of alphanumeric style
   - Fixed multiple bugs with GB/T 7714 style
   - Fixed escaping in Hayagriva values
   - Fixed crashes with empty dates in Hayagriva files

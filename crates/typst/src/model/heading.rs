@@ -84,7 +84,7 @@ pub struct HeadingElem {
     ///
     /// Note that this property, if set to `{true}`, ensures the heading is also
     /// shown as a bookmark in the exported PDF's outline (when exporting to
-    /// PDF). To change that behavior, use the `bookmarked` property.
+    /// PDF). To change that behaviour, use the `bookmarked` property.
     ///
     /// ```example
     /// #outline()
@@ -106,7 +106,7 @@ pub struct HeadingElem {
     /// appear in the exported PDF's outline if its `outlined` property is set
     /// to `{true}`, that is, if it would also be listed in Typst's
     /// [outline]($outline). Setting this property to either `{true}` (bookmark)
-    /// or `{false}` (don't bookmark) bypasses that behavior.
+    /// or `{false}` (don't bookmark) bypasses that behaviour.
     ///
     /// ```example
     /// #heading[Normal heading]
