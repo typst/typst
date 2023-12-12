@@ -21,13 +21,23 @@ pub struct TestPartMetadata {
 /// Changing these values modify the behavior of the test:
 /// - compare_ref: reference images will be generated and compared.
 /// - validate_hints: compiler hints will be recorded and compared to test hints annotations.
+/// - validate_autocomplete autocomplete will be recorded and compared to test autocomplete annotations.
+///     this is mutually exclusive with Errors and Hints, autocomplete test shall not contain Error metadata
+///     as they would be ignored.
+#[derive(Debug)]
 pub struct TestConfiguration {
     pub compare_ref: Option<bool>,
     pub validate_hints: Option<bool>,
     pub validate_autocomplete: Option<bool>,
 }
 
-/// Valid metadata keys are `Hint`, `Error`, `Warning`, `Autocomplete contains`
+/// Annotation may be written in the form:
+///
+/// `// {key}: {range} msg`
+///
+/// where:
+/// - valid keys are `Hint`, `Error`, `Warning`, `Autocomplete contains`, `Autocomplete excludes`
+/// - range is parsed in [parse_part_metadata]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Annotation {
     pub range: Option<Range<usize>>,
@@ -40,10 +50,20 @@ pub enum AnnotationKind {
     Error,
     Warning,
     Hint,
+    AutocompleteContains,
+    AutocompleteExcludes,
 }
 
 impl AnnotationKind {
     pub fn iter() -> impl Iterator<Item = Self> {
+        [
+            AnnotationKind::Error,
+            AnnotationKind::Warning,
+            AnnotationKind::Hint,
+            AnnotationKind::AutocompleteContains,
+            AnnotationKind::AutocompleteExcludes,
+        ]
+        .into_iter()
     }
 
     pub fn as_str(self) -> &'static str {
@@ -51,6 +71,8 @@ impl AnnotationKind {
             AnnotationKind::Error => "Error",
             AnnotationKind::Warning => "Warning",
             AnnotationKind::Hint => "Hint",
+            AnnotationKind::AutocompleteContains => "Autocomplete contains",
+            AnnotationKind::AutocompleteExcludes => "Autocomplete excludes",
         }
     }
 }
@@ -76,12 +98,15 @@ impl Display for AnnotationKind {
 pub fn parse_part_metadata(source: &Source) -> TestPartMetadata {
     let mut compare_ref = None;
     let mut validate_hints = None;
+    let mut validate_autocomplete = None;
     let mut annotations = HashSet::default();
 
     let lines: Vec<_> = source.text().lines().map(str::trim).collect();
     for (i, line) in lines.iter().enumerate() {
         compare_ref = get_flag_metadata(line, "Ref").or(compare_ref);
         validate_hints = get_flag_metadata(line, "Hints").or(validate_hints);
+        validate_autocomplete =
+            get_flag_metadata(line, "Autocomplete").or(validate_autocomplete);
 
         fn num(s: &mut Scanner) -> Option<isize> {
             let mut first = true;
@@ -138,7 +163,11 @@ pub fn parse_part_metadata(source: &Source) -> TestPartMetadata {
     }
 
     TestPartMetadata {
-        part_configuration: TestConfiguration { compare_ref, validate_hints },
+        part_configuration: TestConfiguration {
+            compare_ref,
+            validate_hints,
+            validate_autocomplete,
+        },
         annotations,
     }
 }

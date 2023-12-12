@@ -38,6 +38,7 @@ use typst::syntax::{FileId, Source, SyntaxNode, VirtualPath};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::visualize::Color;
 use typst::{Library, World, WorldExt};
+use unscanny::Scanner;
 use walkdir::WalkDir;
 
 mod metadata;
@@ -413,6 +414,7 @@ fn test(
     let mut line = 0;
     let mut compare_ref = None;
     let mut validate_hints = None;
+    let mut validate_autocomplete = None;
     let mut compare_ever = false;
     let mut rng = LinearShift::new();
 
@@ -442,6 +444,8 @@ fn test(
             for line in part.lines() {
                 compare_ref = get_flag_metadata(line, "Ref").or(compare_ref);
                 validate_hints = get_flag_metadata(line, "Hints").or(validate_hints);
+                validate_autocomplete =
+                    get_flag_metadata(line, "Autocomplete").or(validate_autocomplete);
             }
         } else {
             let (part_ok, compare_here, part_frames) = test_part(
@@ -452,6 +456,7 @@ fn test(
                 i,
                 compare_ref.unwrap_or(true),
                 validate_hints.unwrap_or(true),
+                validate_autocomplete.unwrap_or(false),
                 line,
                 &mut rng,
             );
@@ -561,6 +566,7 @@ fn test_part(
     i: usize,
     compare_ref: bool,
     validate_hints: bool,
+    validate_autocomplete: bool,
     line: usize,
     rng: &mut LinearShift,
 ) -> (bool, bool, Vec<Frame>) {
@@ -575,6 +581,11 @@ fn test_part(
     let compare_ref = metadata.part_configuration.compare_ref.unwrap_or(compare_ref);
     let validate_hints =
         metadata.part_configuration.validate_hints.unwrap_or(validate_hints);
+
+    let validate_autocomplete = metadata
+        .part_configuration
+        .validate_autocomplete
+        .unwrap_or(validate_autocomplete);
 
     ok &= test_spans(output, source.root());
     ok &= test_reparse(output, source.text(), i, rng);
@@ -604,71 +615,214 @@ fn test_part(
         frames.clear();
     }
 
-    // Map diagnostics to range and message format, discard traces and errors from
-    // other files, collect hints.
-    //
-    // This has one caveat: due to the format of the expected hints, we can not
-    // verify if a hint belongs to a diagnostic or not. That should be irrelevant
-    // however, as the line of the hint is still verified.
-    let mut actual_diagnostics = HashSet::new();
-    for diagnostic in &diagnostics {
-        // Ignore diagnostics from other files.
-        if diagnostic.span.id().map_or(false, |id| id != source.id()) {
-            continue;
+    // we never check autocomplete and error at the same time
+
+    let diagnostic_annotations = metadata
+        .annotations
+        .clone()
+        .into_iter()
+        .filter(|a| {
+            !matches!(
+                a.kind,
+                AnnotationKind::AutocompleteContains
+                    | AnnotationKind::AutocompleteExcludes
+            )
+        })
+        .collect::<HashSet<_>>();
+
+    if !validate_autocomplete {
+        // Map diagnostics to range and message format, discard traces and errors from
+        // other files, collect hints.
+        //
+        // This has one caveat: due to the format of the expected hints, we can not
+        // verify if a hint belongs to a diagnostic or not. That should be irrelevant
+        // however, as the line of the hint is still verified.
+        let mut actual_diagnostics = HashSet::new();
+        for diagnostic in &diagnostics {
+            // Ignore diagnostics from other files.
+            if diagnostic.span.id().map_or(false, |id| id != source.id()) {
+                continue;
+            }
+
+            let annotation = Annotation {
+                kind: match diagnostic.severity {
+                    Severity::Error => AnnotationKind::Error,
+                    Severity::Warning => AnnotationKind::Warning,
+                },
+                range: world.range(diagnostic.span),
+                message: diagnostic.message.replace("\\", "/"),
+            };
+
+            if validate_hints {
+                for hint in &diagnostic.hints {
+                    actual_diagnostics.insert(Annotation {
+                        kind: AnnotationKind::Hint,
+                        message: hint.clone(),
+                        range: annotation.range.clone(),
+                    });
+                }
+            }
+
+            actual_diagnostics.insert(annotation);
         }
 
-        let annotation = Annotation {
-            kind: match diagnostic.severity {
-                Severity::Error => AnnotationKind::Error,
-                Severity::Warning => AnnotationKind::Warning,
-            },
-            range: world.range(diagnostic.span),
-            message: diagnostic.message.replace("\\", "/"),
-        };
+        // Basically symmetric_difference, but we need to know where an item is coming from.
+        let mut unexpected_outputs = actual_diagnostics
+            .difference(&diagnostic_annotations)
+            .collect::<Vec<_>>();
+        let mut missing_outputs = diagnostic_annotations
+            .difference(&actual_diagnostics)
+            .collect::<Vec<_>>();
 
-        if validate_hints {
-            for hint in &diagnostic.hints {
-                actual_diagnostics.insert(Annotation {
-                    kind: AnnotationKind::Hint,
-                    message: hint.clone(),
-                    range: annotation.range.clone(),
-                });
+        unexpected_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));
+        missing_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));
+
+        // This prints all unexpected emits first, then all missing emits.
+        // Is this reasonable or subject to change?
+        if !(unexpected_outputs.is_empty() && missing_outputs.is_empty()) {
+            writeln!(output, "  Subtest {i} does not match expected errors.").unwrap();
+            ok = false;
+
+            for unexpected in unexpected_outputs {
+                write!(output, "    Not annotated | ").unwrap();
+                print_annotation(output, &source, line, unexpected)
+            }
+
+            for missing in missing_outputs {
+                write!(output, "    Not emitted   | ").unwrap();
+                print_annotation(output, &source, line, missing)
+            }
+        }
+    } else {
+        // warns and ignores diagnostics
+        if !diagnostic_annotations.is_empty() {
+            writeln!(
+                output,
+                "  Subtest {i} contains diagnostics but is in autocomplete mode."
+            )
+            .unwrap();
+            for a in diagnostic_annotations {
+                write!(output, "    Ignored | ").unwrap();
+                print_annotation(output, &source, line, &a);
             }
         }
 
-        actual_diagnostics.insert(annotation);
-    }
+        for annotation in metadata.annotations.iter().filter(|a| {
+            matches!(
+                a.kind,
+                AnnotationKind::AutocompleteContains
+                    | AnnotationKind::AutocompleteExcludes
+            )
+        }) {
+            let cursor = if let Some(range) = &annotation.range {
+                if range.start != range.end {
+                    writeln!(
+                        output,
+                        "  Subtest {i} has this annotation using a range where `range.len() != 0`."
+                    )
+                    .unwrap();
+                    writeln!(
+                        output,
+                        "  `range.start` will be used and `range.end` will be ignored."
+                    )
+                    .unwrap();
+                    write!(output, "    Ignored r.end | ").unwrap();
+                    print_annotation(output, &source, line, annotation);
+                }
+                range.start
+            } else {
+                writeln!(
+                    output,
+                    "  Subtest {i} has an autocomplete annotation but no range specified"
+                )
+                .unwrap();
+                write!(output, "Annotation ignored| ").unwrap();
+                print_annotation(output, &source, line, annotation);
+                ok = false;
+                continue;
+            };
+            // todo, use document if is_some to test labels autocomplete
+            let completions = typst_ide::autocomplete(world, None, &source, cursor, true)
+                .map(|(_, c)| c)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|c| c.label.to_string())
+                .collect::<HashSet<_>>();
+            let completions =
+                completions.iter().map(|s| s.as_str()).collect::<HashSet<&str>>();
 
-    // Basically symmetric_difference, but we need to know where an item is coming from.
-    let mut unexpected_outputs = actual_diagnostics
-        .difference(&metadata.annotations)
-        .collect::<Vec<_>>();
-    let mut missing_outputs = metadata
-        .annotations
-        .difference(&actual_diagnostics)
-        .collect::<Vec<_>>();
+            let must_contain_or_exclude = parse_autocomplete_message(&annotation.message);
+            let missing =
+                must_contain_or_exclude.difference(&completions).collect::<Vec<_>>();
 
-    unexpected_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));
-    missing_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));
+            if !missing.is_empty()
+                && matches!(annotation.kind, AnnotationKind::AutocompleteContains)
+            {
+                writeln!(output, "  Subtest {i} does not match expected completions.")
+                    .unwrap();
+                write!(output, "   for annotation | ").unwrap();
+                print_annotation(output, &source, line, annotation);
 
-    // This prints all unexpected emits first, then all missing emits.
-    // Is this reasonable or subject to change?
-    if !(unexpected_outputs.is_empty() && missing_outputs.is_empty()) {
-        writeln!(output, "  Subtest {i} does not match expected errors.").unwrap();
-        ok = false;
+                write!(output, "        Missing       | ").unwrap();
+                for item in missing {
+                    write!(output, "{:?}, ", item).unwrap()
+                }
+                write!(output, "\n").unwrap();
+                ok = false;
+            }
 
-        for unexpected in unexpected_outputs {
-            write!(output, "    Not annotated | ").unwrap();
-            print_annotation(output, &source, line, unexpected)
-        }
+            let undesired =
+                must_contain_or_exclude.intersection(&completions).collect::<Vec<_>>();
 
-        for missing in missing_outputs {
-            write!(output, "    Not emitted   | ").unwrap();
-            print_annotation(output, &source, line, missing)
+            if !undesired.is_empty()
+                && matches!(annotation.kind, AnnotationKind::AutocompleteExcludes)
+            {
+                writeln!(output, "  Subtest {i} does not match expected completions.")
+                    .unwrap();
+                write!(output, "   for annotation | ").unwrap();
+                print_annotation(output, &source, line, annotation);
+
+                write!(output, "        Undesired       | ").unwrap();
+                for item in undesired {
+                    write!(output, "{:?}, ", item).unwrap()
+                }
+                write!(output, "\n").unwrap();
+                ok = false;
+            }
         }
     }
 
     (ok, compare_ref, frames)
+}
+
+fn parse_autocomplete_message<'a>(message: &'a str) -> HashSet<&'a str> {
+    let string = |s: &mut Scanner<'a>| -> Option<&'a str> {
+        if s.eat_if('"') {
+            let sub = s.eat_until('"');
+            if !s.eat_if('"') {
+                return None;
+            }
+            Some(sub)
+        } else {
+            None
+        }
+    };
+    let list = |s: &mut Scanner<'a>| -> HashSet<&'a str> {
+        let mut result = HashSet::new();
+        loop {
+            let Some(sub) = string(s) else { break };
+            result.insert(sub);
+            s.eat_while(|c: char| c.is_whitespace());
+            if !s.eat_if(",") {
+                break;
+            }
+            s.eat_while(|c: char| c.is_whitespace());
+        }
+        result
+    };
+    let mut s = Scanner::new(message);
+
+    list(&mut s)
 }
 
 fn print_annotation(
