@@ -308,7 +308,6 @@ impl ColorEncode for ColorSpace {
             }
             ColorSpace::Oklch => {
                 let [l, c, h, alpha] = color.to_oklch().to_vec4();
-                // Clamp on Oklch's chroma, not Oklab's a\* and b\* as to not distort hue.
                 let c = c.clamp(0.0, 0.5);
                 [l, c, h / 360.0, alpha]
             }

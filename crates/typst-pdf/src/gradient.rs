@@ -51,7 +51,7 @@ pub(crate) fn write_gradients(ctx: &mut PdfContext) {
 
                 let (mut sin, mut cos) = (angle.sin(), angle.cos());
 
-                // Scale to edges of unit square.
+                // Scale to cover full unit square.
                 let factor = cos.abs() + sin.abs();
                 sin *= factor;
                 cos *= factor;
@@ -153,8 +153,8 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
             continue;
         }
 
-        // If we need to interpolate hue, and we cross the 0°/360° boundary, we
-        // need to create two separate stops.
+        // If we need to interpolate hue across the 0°/360° boundary, we need
+        // to create two separate stops.
         if let Some(index) = gradient.space().hue_index() {
             let t1 = first.1.get() as f32;
             let t2 = second.1.get() as f32;
@@ -486,8 +486,8 @@ fn compute_vertex_stream(conic: &ConicGradient, aspect_ratio: Ratio) -> Arc<Vec<
             )
             .unwrap();
 
-            // If the color space is HSL or HSV, and we cross the 0°/360° boundary,
-            // we need to create two separate stops.
+            // If we need to interpolate hue across the 0°/360° boundary, we
+            // need to create two separate stops.
             if let Some(index) = conic.space.hue_index() {
                 let c2 = c.to_space(conic.space).to_vec4();
                 let c1 = c_next.to_space(conic.space).to_vec4();
