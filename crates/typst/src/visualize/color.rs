@@ -1782,6 +1782,18 @@ pub enum ColorSpace {
     Cmyk,
 }
 
+impl ColorSpace {
+    /// Returns the index of the hue component in this color space, if it has
+    /// one.
+    pub fn hue_index(&self) -> Option<usize> {
+        match self {
+            Self::Hsl | Self::Hsv => Some(0),
+            Self::Oklch => Some(2),
+            _ => None,
+        }
+    }
+}
+
 cast! {
     ColorSpace,
     self => match self {
