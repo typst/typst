@@ -10,6 +10,7 @@ tests/png
 tests/pdf
 tests/svg
 tests/target
+tests/typ/**/*.pdf
 tests/fuzz/target
 tests/fuzz/corpus
 tests/fuzz/artifacts

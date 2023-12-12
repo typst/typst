@@ -12,6 +12,9 @@ use crate::util::PicoStr;
 /// A labelled element can be [referenced]($ref), [queried]($query) for, and
 /// [styled]($styling) through its label.
 ///
+/// Once constructed, you can get the name of a label using
+/// [`str`]($str/#constructor).
+///
 /// # Example
 /// ```example
 /// #show <a>: set text(blue)

@@ -56,7 +56,7 @@ No matter how you contribute, thank you for your support!
 We want to make our community a safe and inclusive space for everyone.
 Therefore, we will not tolerate any sexual harassment, sexism, political
 attacks, derogatory language or personal insults, racism, doxing, and other
-inappropriate behavior. We pledge to remove members that are in violation of
+inappropriate behaviour. We pledge to remove members that are in violation of
 these rules. [Contact us](https://typst.app/contact/) if you think another
 community member acted inappropriately towards you. All complaints will be
 reviewed and investigated promptly and fairly.
