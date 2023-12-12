@@ -10,6 +10,7 @@ use crate::page::{PageContext, Transforms};
 pub const SRGB: Name<'static> = Name(b"srgb");
 pub const D65_GRAY: Name<'static> = Name(b"d65gray");
 pub const OKLAB: Name<'static> = Name(b"oklab");
+pub const OKLCH: Name<'static> = Name(b"oklch");
 pub const HSV: Name<'static> = Name(b"hsv");
 pub const HSL: Name<'static> = Name(b"hsl");
 pub const LINEAR_SRGB: Name<'static> = Name(b"linearrgb");
@@ -18,6 +19,9 @@ pub const LINEAR_SRGB: Name<'static> = Name(b"linearrgb");
 const OKLAB_L: Name<'static> = Name(b"L");
 const OKLAB_A: Name<'static> = Name(b"A");
 const OKLAB_B: Name<'static> = Name(b"B");
+const OKLCH_L: Name<'static> = Name(b"L");
+const OKLCH_C: Name<'static> = Name(b"C");
+const OKLCH_H: Name<'static> = Name(b"H");
 const HSV_H: Name<'static> = Name(b"H");
 const HSV_S: Name<'static> = Name(b"S");
 const HSV_V: Name<'static> = Name(b"V");
@@ -34,6 +38,8 @@ static GRAY_ICC_DEFLATED: Lazy<Vec<u8>> =
 // The PostScript functions for color spaces.
 static OKLAB_DEFLATED: Lazy<Vec<u8>> =
     Lazy::new(|| deflate(minify(include_str!("postscript/oklab.ps")).as_bytes()));
+static OKLCH_DEFLATED: Lazy<Vec<u8>> =
+    Lazy::new(|| deflate(minify(include_str!("postscript/oklch.ps")).as_bytes()));
 static HSV_DEFLATED: Lazy<Vec<u8>> =
     Lazy::new(|| deflate(minify(include_str!("postscript/hsv.ps")).as_bytes()));
 static HSL_DEFLATED: Lazy<Vec<u8>> =
@@ -43,6 +49,7 @@ static HSL_DEFLATED: Lazy<Vec<u8>> =
 #[derive(Default)]
 pub struct ColorSpaces {
     oklab: Option<Ref>,
+    oklch: Option<Ref>,
     srgb: Option<Ref>,
     d65_gray: Option<Ref>,
     hsv: Option<Ref>,
@@ -58,6 +65,15 @@ impl ColorSpaces {
     /// encoded into the PDF file.
     pub fn oklab(&mut self, alloc: &mut Ref) -> Ref {
         *self.oklab.get_or_insert_with(|| alloc.bump())
+    }
+
+    /// Get a reference to the oklch color space.
+    ///
+    /// # Warning
+    /// The Hue component of the color must be in degrees and must be divided
+    /// by 360.0 before being encoded into the PDF file.
+    pub fn oklch(&mut self, alloc: &mut Ref) -> Ref {
+        *self.oklch.get_or_insert_with(|| alloc.bump())
     }
 
     /// Get a reference to the srgb color space.
@@ -107,7 +123,12 @@ impl ColorSpaces {
                 oklab.tint_ref(self.oklab(alloc));
                 oklab.attrs().subtype(DeviceNSubtype::DeviceN);
             }
-            ColorSpace::Oklch => self.write(ColorSpace::Oklab, writer, alloc),
+            ColorSpace::Oklch => {
+                let mut oklch = writer.device_n([OKLCH_L, OKLCH_C, OKLCH_H]);
+                self.write(ColorSpace::LinearRgb, oklch.alternate_color_space(), alloc);
+                oklch.tint_ref(self.oklch(alloc));
+                oklch.attrs().subtype(DeviceNSubtype::DeviceN);
+            }
             ColorSpace::Srgb => writer.icc_based(self.srgb(alloc)),
             ColorSpace::D65Gray => writer.icc_based(self.d65_gray(alloc)),
             ColorSpace::LinearRgb => {
@@ -143,6 +164,10 @@ impl ColorSpaces {
             self.write(ColorSpace::Oklab, spaces.insert(OKLAB).start(), alloc);
         }
 
+        if self.oklch.is_some() {
+            self.write(ColorSpace::Oklch, spaces.insert(OKLCH).start(), alloc);
+        }
+
         if self.srgb.is_some() {
             self.write(ColorSpace::Srgb, spaces.insert(SRGB).start(), alloc);
         }
@@ -171,6 +196,15 @@ impl ColorSpaces {
         if let Some(oklab) = self.oklab {
             chunk
                 .post_script_function(oklab, &OKLAB_DEFLATED)
+                .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
+                .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
+                .filter(Filter::FlateDecode);
+        }
+
+        // Write the Oklch function & color space.
+        if let Some(oklch) = self.oklch {
+            chunk
+                .post_script_function(oklch, &OKLCH_DEFLATED)
                 .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .filter(Filter::FlateDecode);
@@ -255,7 +289,7 @@ pub trait ColorEncode {
 impl ColorEncode for ColorSpace {
     fn encode(&self, color: Color) -> [f32; 4] {
         match self {
-            ColorSpace::Oklab | ColorSpace::Oklch => {
+            ColorSpace::Oklab => {
                 let [l, c, h, alpha] = color.to_oklch().to_vec4();
                 // Clamp on Oklch's chroma, not Oklab's a\* and b\* as to not distort hue.
                 let c = c.clamp(0.0, 0.5);
@@ -272,7 +306,13 @@ impl ColorEncode for ColorSpace {
                 let [h, s, v, _] = color.to_hsv().to_vec4();
                 [h / 360.0, s, v, 0.0]
             }
-            _ => color.to_vec4(),
+            ColorSpace::Oklch => {
+                let [l, c, h, alpha] = color.to_oklch().to_vec4();
+                // Clamp on Oklch's chroma, not Oklab's a\* and b\* as to not distort hue.
+                let c = c.clamp(0.0, 0.5);
+                [l, c, h / 360.0, alpha]
+            }
+            _ => color.to_space(*self).to_vec4(),
         }
     }
 }
@@ -315,12 +355,19 @@ impl PaintEncode for Color {
                 ctx.content.set_fill_color([l]);
             }
             // Oklch is converted to Oklab.
-            Color::Oklab(_) | Color::Oklch(_) => {
+            Color::Oklab(_) => {
                 ctx.parent.colors.oklab(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(OKLAB);
 
                 let [l, a, b, _] = ColorSpace::Oklab.encode(*self);
                 ctx.content.set_fill_color([l, a, b]);
+            }
+            Color::Oklch(_) => {
+                ctx.parent.colors.oklch(&mut ctx.parent.alloc);
+                ctx.set_fill_color_space(OKLCH);
+
+                let [l, c, h, _] = ColorSpace::Oklch.encode(*self);
+                ctx.content.set_fill_color([l, c, h]);
             }
             Color::LinearRgb(_) => {
                 ctx.parent.colors.linear_rgb();
@@ -369,12 +416,19 @@ impl PaintEncode for Color {
                 ctx.content.set_stroke_color([l]);
             }
             // Oklch is converted to Oklab.
-            Color::Oklab(_) | Color::Oklch(_) => {
+            Color::Oklab(_) => {
                 ctx.parent.colors.oklab(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(OKLAB);
 
                 let [l, a, b, _] = ColorSpace::Oklab.encode(*self);
                 ctx.content.set_stroke_color([l, a, b]);
+            }
+            Color::Oklch(_) => {
+                ctx.parent.colors.oklch(&mut ctx.parent.alloc);
+                ctx.set_stroke_color_space(OKLCH);
+
+                let [l, c, h, _] = ColorSpace::Oklch.encode(*self);
+                ctx.content.set_stroke_color([l, c, h]);
             }
             Color::LinearRgb(_) => {
                 ctx.parent.colors.linear_rgb();

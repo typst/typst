@@ -164,7 +164,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
             let h2 = c2[index];
 
             // Compute the intermediary stop at 360°.
-            if (c1[index] - c2[index]).abs() > 180.0 {
+            if (h1 - h2).abs() > 180.0 {
                 let (h1, h2) = if h1 < h2 { (h1 + 360.0, h2) } else { (h1, h2 + 360.0) };
 
                 // We compute where the crossing happens between zero and one
@@ -173,6 +173,8 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
                 let t_prime = t * (t2 - t1) + t1;
 
                 // Interpolated components with fixed hue.
+                let c1: [f32; 3] = gradient.space().convert(first.0);
+                let c2: [f32; 3] = gradient.space().convert(second.0);
                 let components = |hue: f32| {
                     let mut c = [0.0; 3];
                     c[0] = c1[0] * (1.0 - t) + c2[0] * t;
@@ -197,7 +199,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
                     ctx.pdf
                         .exponential_function(func1)
                         .range(gradient.space().range())
-                        .c0(gradient.space().convert(first.0))
+                        .c0(c1)
                         .c1(components(if h1 < h2 { 1.0 } else { 0.0 }))
                         .domain([0.0, 1.0])
                         .n(1.0);
@@ -216,7 +218,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
                         .exponential_function(func3)
                         .range(gradient.space().range())
                         .c0(components(if h1 < h2 { 0.0 } else { 1.0 }))
-                        .c1(gradient.space().convert(second.0))
+                        .c1(c2)
                         .domain([0.0, 1.0])
                         .n(1.0);
 
@@ -464,7 +466,7 @@ fn compute_vertex_stream(conic: &ConicGradient, aspect_ratio: Ratio) -> Arc<Vec<
         // If the colors are the same, we do it every quadrant only.
         let slope = 1.0 / (t1.get() - t0.get());
         let mut t_x = t0.get();
-        let dt = (t1.get() - t0.get()).min(0.25);
+        let dt = (t1.get() - t0.get()).min(0.005);
         while t_x < t1.get() {
             let t_next = (t_x + dt).min(t1.get());
 
@@ -486,25 +488,39 @@ fn compute_vertex_stream(conic: &ConicGradient, aspect_ratio: Ratio) -> Arc<Vec<
 
             // If the color space is HSL or HSV, and we cross the 0°/360° boundary,
             // we need to create two separate stops.
-            if conic.space == ColorSpace::Hsl || conic.space == ColorSpace::Hsv {
-                let [h1, s1, x1, _] = c.to_space(conic.space).to_vec4();
-                let [h2, s2, x2, _] = c_next.to_space(conic.space).to_vec4();
+            if let Some(index) = conic.space.hue_index() {
+                let c2 = c.to_space(conic.space).to_vec4();
+                let c1 = c_next.to_space(conic.space).to_vec4();
+                let h1 = c1[index];
+                let h2 = c2[index];
 
                 // Compute the intermediary stop at 360°.
                 if (h1 - h2).abs() > 180.0 {
-                    let h1 = if h1 < h2 { h1 + 360.0 } else { h1 };
-                    let h2 = if h2 < h1 { h2 + 360.0 } else { h2 };
+                    let (h1, h2) =
+                        if h1 < h2 { (h1 + 360.0, h2) } else { (h1, h2 + 360.0) };
 
                     // We compute where the crossing happens between zero and one
                     let t = (360.0 - h1) / (h2 - h1);
                     // We then map it back to the original range.
                     let t_prime = t * (t_next as f32 - t_x as f32) + t_x as f32;
 
+                    // Interpolated components with fixed hue.
+                    let c1: [f32; 3] = conic.space.convert(c);
+                    let c2: [f32; 3] = conic.space.convert(c_next);
+                    let components = |hue: f32| {
+                        let mut c = [0.0; 3];
+                        c[0] = c1[0] * (1.0 - t) + c2[0] * t;
+                        c[1] = c1[1] * (1.0 - t) + c2[1] * t;
+                        c[2] = c1[2] * (1.0 - t) + c2[2] * t;
+                        c[index] = hue;
+                        c
+                    };
+
                     // If the crossing happens between the two stops,
                     // we need to create an extra stop.
                     if t_prime <= t_next as f32 && t_prime >= t_x as f32 {
-                        let c0 = [1.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t];
-                        let c1 = [0.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t];
+                        let c0 = components(if h1 < h2 { 1.0 } else { 0.0 });
+                        let c1 = components(if h1 < h2 { 0.0 } else { 1.0 });
                         let c0 = c0.map(|c| u16::quantize(c, [0.0, 1.0]));
                         let c1 = c1.map(|c| u16::quantize(c, [0.0, 1.0]));
 
