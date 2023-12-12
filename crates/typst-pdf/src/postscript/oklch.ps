@@ -1,7 +1,14 @@
 {
     % Starting stack: L, C, H
-    % First we do H = H * 360.0
-    360 mul 3 2 roll
+
+    % Some PDF viewers interpret the angle as radians, even though
+    % the spec say it should be degrees. We check if cos(3) is
+    % negative to detect whether we are in radians or not, and
+    % multiply H either by 360 or 2*pi accordingly.
+    3 cos 0 gt { 360 } { 6.2831853072 } ifelse mul
+
+    % Convert L C H to L a b
+    3 2 roll
     1 index cos 3 index mul
     2 index sin 4 index mul
     5 3 roll pop pop
