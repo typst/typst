@@ -765,9 +765,9 @@ fn test_part(
 
                 write!(output, "        Missing       | ").unwrap();
                 for item in missing {
-                    write!(output, "{:?}, ", item).unwrap()
+                    write!(output, "{item:?}, ").unwrap()
                 }
-                write!(output, "\n").unwrap();
+                writeln!(output).unwrap();
                 ok = false;
             }
 
@@ -784,9 +784,9 @@ fn test_part(
 
                 write!(output, "        Undesired       | ").unwrap();
                 for item in undesired {
-                    write!(output, "{:?}, ", item).unwrap()
+                    write!(output, "{item:?}, ").unwrap()
                 }
-                write!(output, "\n").unwrap();
+                writeln!(output).unwrap();
                 ok = false;
             }
         }
