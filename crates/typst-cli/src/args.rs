@@ -135,6 +135,8 @@ pub struct SharedArgs {
     pub diagnostic_format: DiagnosticFormat,
 
     /// Add an input value visible through sys.inputs
+    /// whose type is always treated as a string
+    /// which you may enclose with single or double quotes
     #[clap(
         long = "input",
         short = 'i',

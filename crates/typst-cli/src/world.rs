@@ -74,6 +74,7 @@ impl SystemWorld {
         let main_path = VirtualPath::within_root(&input, &root)
             .ok_or("input file must be contained in project root")?;
 
+        // Convert the Vec<(String, String)> to a Typst Dictionary
         let inputs = command
             .plain_inputs
             .iter()
