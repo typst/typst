@@ -167,6 +167,7 @@ impl Layout for ImageElem {
                     "jpg" | "jpeg" => ImageFormat::Raster(RasterFormat::Jpg),
                     "gif" => ImageFormat::Raster(RasterFormat::Gif),
                     "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
+                    "webp" => ImageFormat::Raster(RasterFormat::WebP),
                     _ => match &data {
                         Readable::Str(_) => ImageFormat::Vector(VectorFormat::Svg),
                         Readable::Bytes(bytes) => match RasterFormat::detect(bytes) {

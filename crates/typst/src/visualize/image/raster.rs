@@ -6,6 +6,7 @@ use ecow::{eco_format, EcoString};
 use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
+use image::codecs::webp::WebPDecoder;
 use image::io::Limits;
 use image::{guess_format, ImageDecoder, ImageResult};
 
@@ -43,6 +44,7 @@ impl RasterImage {
             RasterFormat::Jpg => decode_with(JpegDecoder::new(cursor)),
             RasterFormat::Png => decode_with(PngDecoder::new(cursor)),
             RasterFormat::Gif => decode_with(GifDecoder::new(cursor)),
+            RasterFormat::WebP => decode_with(WebPDecoder::new(cursor)),
         }
         .map_err(format_image_error)?;
 
@@ -97,6 +99,8 @@ pub enum RasterFormat {
     Jpg,
     /// Raster format that is typically used for short animated clips.
     Gif,
+    /// Popular Raster format on the Web
+    WebP,
 }
 
 impl RasterFormat {
@@ -112,6 +116,7 @@ impl From<RasterFormat> for image::ImageFormat {
             RasterFormat::Png => image::ImageFormat::Png,
             RasterFormat::Jpg => image::ImageFormat::Jpeg,
             RasterFormat::Gif => image::ImageFormat::Gif,
+            RasterFormat::WebP => image::ImageFormat::WebP,
         }
     }
 }
@@ -124,6 +129,7 @@ impl TryFrom<image::ImageFormat> for RasterFormat {
             image::ImageFormat::Png => RasterFormat::Png,
             image::ImageFormat::Jpeg => RasterFormat::Jpg,
             image::ImageFormat::Gif => RasterFormat::Gif,
+            image::ImageFormat::WebP => RasterFormat::WebP,
             _ => bail!("Format not yet supported."),
         })
     }
