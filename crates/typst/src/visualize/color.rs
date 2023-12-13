@@ -105,7 +105,12 @@ const ANGLE_EPSILON: f32 = 1e-5;
 ///
 /// # Predefined color maps
 /// Typst also includes a number of preset color maps that can be used for
-/// gradients. Most of these color maps are chosen to be color blind friendly.
+/// [gradients]($gradient.linear). These are simply arrays of colors defined in
+/// the module `color.map`.
+///
+/// ```example
+/// #circle(fill: gradient.linear(..color.map.crest))
+/// ```
 ///
 /// | Map        | Details                                                     |
 /// |------------|:------------------------------------------------------------|
