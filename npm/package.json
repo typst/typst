@@ -1,0 +1,18 @@
+{
+    "type": "module",
+    "name": "typst",
+    "version": "0.10.0-1",
+    "scripts": {
+        "postinstall": "node postinstall.js"
+    },
+    "bin": "main.js",
+    "files": [
+        "main.js",
+        "postinstall.js",
+        "utils.js"
+    ],
+    "exports": null,
+    "dependencies": {
+        "execa": "^8.0.1"
+    }
+}
