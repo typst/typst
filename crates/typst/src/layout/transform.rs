@@ -57,7 +57,7 @@ impl Layout for MoveElem {
 /// Rotates content without affecting layout.
 ///
 /// Rotates an element by a given angle. The layout will act as if the element
-/// was not rotated unless you specify `{layreflowout: true}`.
+/// was not rotated unless you specify `{reflow: true}`.
 ///
 /// # Example
 /// ```example
@@ -100,19 +100,16 @@ pub struct RotateElem {
 
     /// Whether the rotation impacts the layout.
     ///
-    /// If set to `{false}`, the rotated content will be allowed to overlap
-    /// other content. However, when set to `{true}`, it will compute the
-    /// new size of the rotated content and adjust the layout accordingly.
+    /// If set to `{false}`, the rotated content will retain the bounding box of
+    /// the original content. If set to `{true}`, the bounding box will take the
+    /// rotation of the content into account and adjust the layout accordingly.
     ///
     /// ```example
     /// #let rotated(body) = rotate(90deg, reflow: true, body)
     ///
     /// Hello #rotated[World]!
+    /// Hello #rotate(90deg, reflow: true)[World]!
     /// ```
-    ///
-    /// Using this is equivalent to using the [`measure`]($measure) function
-    /// to measure the size of the content and then wrapping this element in
-    /// a box with the computed size rotated by `angle`.
     #[default(false)]
     pub reflow: bool,
 
@@ -186,6 +183,7 @@ impl Layout for RotateElem {
 /// ```example
 /// #set align(center)
 /// #scale(x: -100%)[This is mirrored.]
+/// #scale(x: -100%, reflow: true)[This is mirrored.]
 /// ```
 #[elem(Layout)]
 pub struct ScaleElem {
@@ -219,18 +217,14 @@ pub struct ScaleElem {
     /// Whether the scaling impacts the layout.
     ///
     /// If set to `{false}`, the scaled content will be allowed to overlap
-    /// other content. However, when set to `{true}`, it will be compute the
-    /// new size of the scaled content and adjust the layout accordingly.
+    /// other content. If set to `{true}`, it will compute the new size of
+    /// the scaled content and adjust the layout accordingly.
     ///
     /// ```example
     /// #let scaled(body) = scale(x: 20%, y: 40%, reflow: true, body)
     ///
     /// Hello #scaled[World]!
     /// ```
-    ///
-    /// Using this is equivalent to using the [`measure`]($measure) function
-    /// to measure the size of the content and then wrapping this element in
-    /// a box with the computed size scaled by `x` and `y`.
     #[default(false)]
     pub reflow: bool,
 
