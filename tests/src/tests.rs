@@ -14,6 +14,9 @@ The tests parts may use functions defined in [library], most importantly,
 
 !*/
 
+mod metadata;
+use self::metadata::*;
+
 use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
@@ -41,9 +44,6 @@ use typst::visualize::Color;
 use typst::{Library, World, WorldExt};
 use unscanny::Scanner;
 use walkdir::WalkDir;
-
-mod metadata;
-use metadata::*;
 
 // These directories are all relative to the tests/ directory.
 const TYP_DIR: &str = "typ";
