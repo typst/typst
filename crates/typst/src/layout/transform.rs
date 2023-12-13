@@ -2,8 +2,8 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Resolve, StyleChain};
 use crate::layout::{
-    Abs, Align, Angle, Axes, FixedAlign, Fragment, Frame, FrameItem, GroupItem, HAlign,
-    Layout, Length, Point, Ratio, Regions, Rel, Size, VAlign,
+    Abs, Align, Angle, Axes, FixedAlign, Fragment, Frame, HAlign, Layout, Length, Point,
+    Ratio, Regions, Rel, Size, VAlign,
 };
 
 /// Moves content without affecting layout.
@@ -165,13 +165,13 @@ impl Layout for RotateElem {
         let ts = Transform::translate(x, y)
             .pre_concat(Transform::rotate(angle))
             .pre_concat(Transform::translate(-x, -y));
-        frame.transform(ts);
 
         // Compute the bounding box and offset and wrap in a new frame.
         let (offset, size) = compute_bounding_box(&frame, ts);
-        let mut out = Frame::soft(size);
-        out.push(offset, FrameItem::Group(GroupItem::new(frame)));
-        Ok(Fragment::frame(out))
+        frame.transform(ts);
+        frame.translate(offset);
+        frame.set_size(size);
+        Ok(Fragment::frame(frame))
     }
 }
 
@@ -283,13 +283,14 @@ impl Layout for ScaleElem {
         let ts = Transform::translate(x, y)
             .pre_concat(Transform::scale(sx, sy))
             .pre_concat(Transform::translate(-x, -y));
-        frame.transform(ts);
 
         // Compute the bounding box and wrap in a new frame.
         let (offset, size) = compute_bounding_box(&frame, ts);
-        let mut out = Frame::soft(size);
-        out.push(offset, FrameItem::Group(GroupItem::new(frame)));
-        Ok(Fragment::frame(out))
+        frame.transform(ts);
+        frame.translate(offset);
+        frame.set_size(size);
+
+        Ok(Fragment::frame(frame))
     }
 }
 
