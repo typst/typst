@@ -74,17 +74,34 @@ pub fn format_int_with_base(mut n: i64, base: i64) -> EcoString {
 
 /// Converts a float to a string representation with a specific precision and a
 /// suffix, all with a single allocation.
-pub fn format_float(mut value: f64, precision: Option<u8>, suffix: &str) -> EcoString {
+pub fn format_float(
+    mut value: f64,
+    precision: Option<u8>,
+    force_separator: bool,
+    suffix: &str,
+) -> EcoString {
     if let Some(p) = precision {
         let offset = 10_f64.powi(p as i32);
         value = (value * offset).round() / offset;
     }
+    let float_suffix = if force_separator && value % 1.0 == 0.0 { ".0" } else { "" };
     if value.is_nan() {
         "NaN".into()
     } else if value.is_sign_negative() {
-        eco_format!("{}{}{}", MINUS_SIGN, value.abs(), suffix)
+        eco_format!("{}{}{}{}", MINUS_SIGN, value.abs(), float_suffix, suffix)
     } else {
-        eco_format!("{}{}", value, suffix)
+        eco_format!("{}{}{}", value, float_suffix, suffix)
+    }
+}
+
+/// Converts a float to a string that can be used to display the float as text.
+pub fn display_float(value: f64) -> EcoString {
+    if value.is_nan() {
+        "NaN".into()
+    } else if value < 0.0 {
+        eco_format!("{}{}", MINUS_SIGN, value.abs())
+    } else {
+        eco_format!("{}", value.abs())
     }
 }
 

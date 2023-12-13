@@ -1420,15 +1420,15 @@ impl Repr for Color {
                     eco_format!(
                         "oklab({}, {}, {})",
                         Ratio::new(c.l as _).repr(),
-                        repr::format_float(c.a as _, Some(3), ""),
-                        repr::format_float(c.b as _, Some(3), ""),
+                        repr::format_float(c.a as _, Some(3), true, ""),
+                        repr::format_float(c.b as _, Some(3), true, ""),
                     )
                 } else {
                     eco_format!(
                         "oklab({}, {}, {}, {})",
                         Ratio::new(c.l as _).repr(),
-                        repr::format_float(c.a as _, Some(3), ""),
-                        repr::format_float(c.b as _, Some(3), ""),
+                        repr::format_float(c.a as _, Some(3), true, ""),
+                        repr::format_float(c.b as _, Some(3), true, ""),
                         Ratio::new(c.alpha as _).repr(),
                     )
                 }
@@ -1438,14 +1438,14 @@ impl Repr for Color {
                     eco_format!(
                         "oklch({}, {}, {})",
                         Ratio::new(c.l as _).repr(),
-                        repr::format_float(c.chroma as _, Some(3), ""),
+                        repr::format_float(c.chroma as _, Some(3), true, ""),
                         hue_angle(c.hue.into_degrees()).repr(),
                     )
                 } else {
                     eco_format!(
                         "oklch({}, {}, {}, {})",
                         Ratio::new(c.l as _).repr(),
-                        repr::format_float(c.chroma as _, Some(3), ""),
+                        repr::format_float(c.chroma as _, Some(3), true, ""),
                         hue_angle(c.hue.into_degrees()).repr(),
                         Ratio::new(c.alpha as _).repr(),
                     )
