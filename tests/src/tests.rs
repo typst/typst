@@ -2,13 +2,12 @@
 
 use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
-use std::env;
 use std::ffi::OsStr;
 use std::fmt::{self, Display, Formatter, Write as _};
-use std::fs;
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::{Path, PathBuf, MAIN_SEPARATOR_STR};
+use std::{env, fs};
 
 use clap::Parser;
 use comemo::{Prehashed, Track};
@@ -17,21 +16,22 @@ use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::cell::OnceCell;
 use tiny_skia as sk;
+use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
+use typst::eval::Tracer;
+use typst::foundations::{
+    eco_format, func, Bytes, Datetime, NoneValue, Repr, Smart, Value,
+};
+use typst::introspection::Meta;
+use typst::layout::{Abs, Frame, FrameItem, Margin, PageElem, Transform};
+use typst::model::Document;
+use typst::syntax::{FileId, PackageVersion, Source, SyntaxNode, VirtualPath};
+use typst::text::{Font, FontBook, TextElem, TextSize};
+use typst::visualize::Color;
+use typst::{Library, World, WorldExt};
 use unscanny::Scanner;
 use walkdir::WalkDir;
 
-use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
-use typst::doc::{Document, Frame, FrameItem, Meta};
-use typst::eval::{
-    eco_format, func, Bytes, Datetime, Library, NoneValue, Repr, Tracer, Value,
-};
-use typst::font::{Font, FontBook};
-use typst::geom::{Abs, Color, Smart};
-use typst::syntax::{FileId, PackageVersion, Source, SyntaxNode, VirtualPath};
-use typst::{World, WorldExt};
-use typst_library::layout::{Margin, PageElem};
-use typst_library::text::{TextElem, TextSize};
-
+// These directories are all relative to the tests/ directory.
 const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";
 const PNG_DIR: &str = "png";
@@ -72,14 +72,19 @@ struct PrintConfig {
 }
 
 impl Args {
-    fn matches(&self, path: &Path) -> bool {
-        if self.exact {
-            let name = path.file_name().unwrap().to_string_lossy();
-            self.filter.iter().any(|v| v == &name)
-        } else {
-            let path = path.to_string_lossy();
-            self.filter.is_empty() || self.filter.iter().any(|v| path.contains(v))
+    fn matches(&self, canonicalized_path: &Path) -> bool {
+        let path = canonicalized_path.to_string_lossy();
+        if !self.exact {
+            return self.filter.is_empty()
+                || self.filter.iter().any(|v| path.contains(v));
         }
+
+        self.filter.iter().any(|v| match path.strip_suffix(v) {
+            None => false,
+            Some(residual) => {
+                residual.is_empty() || residual.ends_with(MAIN_SEPARATOR_STR)
+            }
+        })
     }
 }
 
@@ -90,7 +95,7 @@ fn main() {
     let world = TestWorld::new(args.print);
 
     println!("Running tests...");
-    let results = WalkDir::new("typ")
+    let results = WalkDir::new(TYP_DIR)
         .into_iter()
         .par_bridge()
         .filter_map(|entry| {
@@ -103,12 +108,12 @@ fn main() {
                 return None;
             }
 
-            let src_path = entry.into_path();
+            let src_path = entry.into_path(); // Relative to TYP_DIR.
             if src_path.extension() != Some(OsStr::new("typ")) {
                 return None;
             }
 
-            if args.matches(&src_path) {
+            if args.matches(&src_path.canonicalize().unwrap()) {
                 Some(src_path)
             } else {
                 None
@@ -136,8 +141,10 @@ fn main() {
 
     let len = results.len();
     let ok = results.iter().sum::<usize>();
-    if len > 1 {
-        println!("{ok} / {len} tests passed.");
+    if len > 0 {
+        println!("{ok} / {len} test{} passed.", if len > 1 { "s" } else { "" });
+    } else {
+        println!("No test ran.");
     }
 
     if ok != len {
@@ -183,11 +190,10 @@ fn library() -> Library {
         NoneValue
     }
 
-    let mut lib = typst_library::build();
-
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
+    let mut lib = Library::build();
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(120.0).into())));
     lib.styles.set(PageElem::set_height(Smart::Auto));
@@ -218,12 +224,11 @@ struct TestWorld {
     library: Prehashed<Library>,
     book: Prehashed<FontBook>,
     fonts: Vec<Font>,
-    paths: RefCell<HashMap<PathBuf, PathSlot>>,
+    paths: RefCell<HashMap<FileId, PathSlot>>,
 }
 
 #[derive(Clone)]
 struct PathSlot {
-    system_path: PathBuf,
     source: OnceCell<FileResult<Source>>,
     buffer: OnceCell<FileResult<Bytes>>,
 }
@@ -270,7 +275,7 @@ impl World for TestWorld {
         let slot = self.slot(id)?;
         slot.source
             .get_or_init(|| {
-                let buf = read(&slot.system_path)?;
+                let buf = read(&system_path(id)?)?;
                 let text = String::from_utf8(buf)?;
                 Ok(Source::new(id, text))
             })
@@ -280,7 +285,7 @@ impl World for TestWorld {
     fn file(&self, id: FileId) -> FileResult<Bytes> {
         let slot = self.slot(id)?;
         slot.buffer
-            .get_or_init(|| read(&slot.system_path).map(Bytes::from))
+            .get_or_init(|| read(&system_path(id)?).map(Bytes::from))
             .clone()
     }
 
@@ -303,16 +308,8 @@ impl TestWorld {
     }
 
     fn slot(&self, id: FileId) -> FileResult<RefMut<PathSlot>> {
-        let root: PathBuf = match id.package() {
-            Some(spec) => format!("packages/{}-{}", spec.name, spec.version).into(),
-            None => PathBuf::new(),
-        };
-
-        let system_path = id.vpath().resolve(&root).ok_or(FileError::AccessDenied)?;
-
         Ok(RefMut::map(self.paths.borrow_mut(), |paths| {
-            paths.entry(system_path.clone()).or_insert_with(|| PathSlot {
-                system_path,
+            paths.entry(id).or_insert_with(|| PathSlot {
                 source: OnceCell::new(),
                 buffer: OnceCell::new(),
             })
@@ -320,7 +317,17 @@ impl TestWorld {
     }
 }
 
-/// Read as file.
+/// The file system path for a file ID.
+fn system_path(id: FileId) -> FileResult<PathBuf> {
+    let root: PathBuf = match id.package() {
+        Some(spec) => format!("packages/{}-{}", spec.name, spec.version).into(),
+        None => PathBuf::new(),
+    };
+
+    id.vpath().resolve(&root).ok_or(FileError::AccessDenied)
+}
+
+/// Read a file.
 fn read(path: &Path) -> FileResult<Vec<u8>> {
     // Basically symlinks `assets/files` to `tests/files` so that the assets
     // are within the test project root.
@@ -420,7 +427,7 @@ fn test(
     let document = Document { pages: frames, ..Default::default() };
     if compare_ever {
         if let Some(pdf_path) = pdf_path {
-            let pdf_data = typst::export::pdf(
+            let pdf_data = typst_pdf::pdf(
                 &document,
                 Some(&format!("typst-test: {}", name.display())),
                 world.today(Some(0)),
@@ -431,7 +438,7 @@ fn test(
 
         if world.print.frames {
             for frame in &document.pages {
-                writeln!(output, "{:#?}\n", frame).unwrap();
+                writeln!(output, "{frame:#?}\n").unwrap();
             }
         }
 
@@ -439,7 +446,7 @@ fn test(
         fs::create_dir_all(png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
-        let svg = typst::export::svg_merged(&document.pages, Abs::pt(5.0));
+        let svg = typst_svg::svg_merged(&document.pages, Abs::pt(5.0));
         fs::create_dir_all(svg_path.parent().unwrap()).unwrap();
         std::fs::write(svg_path, svg.as_bytes()).unwrap();
 
@@ -476,6 +483,10 @@ fn test(
         stdout.write_all(name.to_string_lossy().as_bytes()).unwrap();
         if ok {
             writeln!(stdout, " ✔").unwrap();
+            if stdout.is_terminal() {
+                // ANSI escape codes: cursor moves up and clears the line.
+                write!(stdout, "\x1b[1A\x1b[2K").unwrap();
+            }
         } else {
             writeln!(stdout, " ❌").unwrap();
         }
@@ -501,7 +512,7 @@ fn get_flag_metadata(line: &str, key: &str) -> Option<bool> {
 fn update_image(png_path: &Path, ref_path: &Path) {
     oxipng::optimize(
         &InFile::Path(png_path.to_owned()),
-        &OutFile::Path(Some(ref_path.to_owned())),
+        &OutFile::from_path(ref_path.to_owned()),
         &Options::max_compression(),
     )
     .unwrap();
@@ -536,7 +547,7 @@ fn test_part(
 
     if world.print.model {
         let world = (world as &dyn World).track();
-        let route = typst::eval::Route::default();
+        let route = typst::engine::Route::default();
         let mut tracer = typst::eval::Tracer::new();
 
         let module =
@@ -906,7 +917,7 @@ fn render(frames: &[Frame]) -> sk::Pixmap {
         }
     }
 
-    let mut pixmap = typst::export::render_merged(
+    let mut pixmap = typst_render::render_merged(
         frames,
         pixel_per_pt,
         Color::WHITE,
@@ -932,7 +943,7 @@ fn render_links(canvas: &mut sk::Pixmap, ts: sk::Transform, frame: &Frame) {
         let ts = ts.pre_translate(pos.x.to_pt() as f32, pos.y.to_pt() as f32);
         match *item {
             FrameItem::Group(ref group) => {
-                let ts = ts.pre_concat(group.transform.into());
+                let ts = ts.pre_concat(to_sk_transform(&group.transform));
                 render_links(canvas, ts, &group.frame);
             }
             FrameItem::Meta(Meta::Link(_), size) => {
@@ -946,6 +957,18 @@ fn render_links(canvas: &mut sk::Pixmap, ts: sk::Transform, frame: &Frame) {
             _ => {}
         }
     }
+}
+
+fn to_sk_transform(transform: &Transform) -> sk::Transform {
+    let Transform { sx, ky, kx, sy, tx, ty } = *transform;
+    sk::Transform::from_row(
+        sx.get() as _,
+        ky.get() as _,
+        kx.get() as _,
+        sy.get() as _,
+        tx.to_pt() as f32,
+        ty.to_pt() as f32,
+    )
 }
 
 /// A Linear-feedback shift register using XOR as its shifting function.

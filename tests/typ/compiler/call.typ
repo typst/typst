@@ -48,6 +48,11 @@
 #set text(font: "Arial", font: "Helvetica")
 
 ---
+// Error: 4-15 the argument `amount` is positional
+// Hint: 4-15 try removing `amount:`
+#h(amount: 0.5)
+
+---
 // Error: 2-6 expected function, found boolean
 #true()
 

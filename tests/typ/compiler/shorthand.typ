@@ -1,7 +1,7 @@
 // Test shorthands for unicode codepoints.
 
 ---
-The non-breaking~space does work.
+The non-breaking space~does work, soft-?hypen also does.
 
 ---
 // Make sure non-breaking and normal space always
@@ -18,3 +18,44 @@ a~b
 ---
 #set text(font: "Roboto")
 A... vs #"A..."
+
+---
+// Check all math shorthands
+$...$\
+$-$\
+$'$\
+$*$\
+$!=$\
+$:=$\
+$::=$\
+$=:$\
+$<<$\
+$<<<$\
+$>>$\
+$>>>$\
+$<=$\
+$>=$\
+$->$\
+$-->$\
+$|->$\
+$>->$\
+$->>$\
+$<-$\
+$<--$\
+$<-<$\
+$<<-$\
+$<->$\
+$<-->$\
+$~>$\
+$~~>$\
+$<~$\
+$<~~$\
+$=>$\
+$|=>$\
+$==>$\
+$<==$\
+$<=>$\
+$<==>$\
+$[|$\
+$|]$\
+$||$

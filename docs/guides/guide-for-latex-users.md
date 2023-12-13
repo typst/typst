@@ -470,7 +470,7 @@ $ delta "if" x <= 5 $
 
 In Typst, delimiters will scale automatically for their expressions, just as if
 `\left` and `\right` commands were implicitly inserted in LaTeX. You can
-customize delimiter behavior using the [`lr` function]($math.lr). To
+customize delimiter behaviour using the [`lr` function]($math.lr). To
 prevent a pair of delimiters from scaling, you can escape them with backslashes.
 
 Typst will automatically set terms around a slash `/` as a fraction while
@@ -594,11 +594,3 @@ applicable, contains possible workarounds.
   break will be created if this spot would be a natural page break anyways. You
   can also use `[#v(1fr)]` to distribute space on your page. It works quite
   similar to LaTeX's `\vfill`.
-
-- **Bibliographies are not customizable.** In LaTeX, the packages `bibtex`,
-  `biblatex`, and `natbib` provide a wide range of reference and bibliography
-  formats. These packages also allow you to write `.bbx` files to define your
-  own styles. Typst only supports a small set of citation styles at the moment,
-  but we want to build upon this by supporting [Citation Style Language
-  (CSL)](https://citationstyles.org), an XML-based format backed by Zotero that
-  allows you to describe your own bibliography styles.

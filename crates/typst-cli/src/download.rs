@@ -37,6 +37,13 @@ static TLS_CONFIG: Lazy<Option<Arc<rustls::ClientConfig>>> = Lazy::new(|| {
 /// Download binary data and display its progress.
 #[allow(clippy::result_large_err)]
 pub fn download_with_progress(url: &str) -> Result<Vec<u8>, ureq::Error> {
+    let response = download(url)?;
+    Ok(RemoteReader::from_response(response).download()?)
+}
+
+/// Download from a URL.
+#[allow(clippy::result_large_err)]
+pub fn download(url: &str) -> Result<ureq::Response, ureq::Error> {
     let mut builder = ureq::AgentBuilder::new()
         .user_agent(concat!("typst/{}", env!("CARGO_PKG_VERSION")));
 
@@ -54,8 +61,7 @@ pub fn download_with_progress(url: &str) -> Result<Vec<u8>, ureq::Error> {
     }
 
     let agent = builder.build();
-    let response = agent.get(url).call()?;
-    Ok(RemoteReader::from_response(response).download()?)
+    agent.get(url).call()
 }
 
 /// A wrapper around [`ureq::Response`] that reads the response body in chunks
@@ -192,7 +198,7 @@ impl RemoteReader {
                     }))
                 )
             }
-            None => format!("Total: {} Speed: {} Elapsed: {}", total, speed_h, elapsed,),
+            None => format!("Total: {total} Speed: {speed_h} Elapsed: {elapsed}"),
         };
 
         let _ = write!(self.stderr, "{output}");
@@ -246,6 +252,6 @@ fn as_time_unit(size: usize, include_suffix: bool) -> String {
     } else if size >= KI {
         format!("{:5.1} KiB{}", size / KI, suffix)
     } else {
-        format!("{size:3.0} B{}", suffix)
+        format!("{size:3.0} B{suffix}")
     }
 }

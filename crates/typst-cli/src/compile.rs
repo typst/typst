@@ -4,12 +4,15 @@ use std::path::{Path, PathBuf};
 use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
+use ecow::eco_format;
 use termcolor::{ColorChoice, StandardStream};
-use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
-use typst::doc::Document;
-use typst::eval::{eco_format, Datetime, Tracer};
-use typst::geom::Color;
+use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
+use typst::eval::Tracer;
+use typst::foundations::Datetime;
+use typst::layout::Frame;
+use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
+use typst::visualize::Color;
 use typst::{World, WorldExt};
 
 use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
@@ -76,8 +79,20 @@ pub fn compile_once(
         Status::Compiling.print(command).unwrap();
     }
 
-    // Ensure that the main file is present.
-    world.source(world.main()).map_err(|err| err.to_string())?;
+    // Check if main file can be read and opened.
+    if let Err(errors) = world.source(world.main()).at(Span::detached()) {
+        set_failed();
+        tracing::info!("Failed to open and decode main file");
+
+        if watching {
+            Status::Error.print(command).unwrap();
+        }
+
+        print_diagnostics(world, &errors, &[], command.common.diagnostic_format)
+            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+
+        return Ok(());
+    }
 
     let mut tracer = Tracer::new();
     let result = typst::compile(world, &mut tracer);
@@ -153,7 +168,7 @@ fn export_pdf(
     world: &SystemWorld,
 ) -> StrResult<()> {
     let ident = world.input().to_string_lossy();
-    let buffer = typst::export::pdf(document, Some(&ident), now());
+    let buffer = typst_pdf::pdf(document, Some(&ident), now());
     let output = command.output();
     fs::write(output, buffer)
         .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;
@@ -220,13 +235,13 @@ fn export_image(
         match fmt {
             ImageExportFormat::Png => {
                 let pixmap =
-                    typst::export::render(frame, command.ppi / 72.0, Color::WHITE);
+                    typst_render::render(frame, command.ppi / 72.0, Color::WHITE);
                 pixmap
                     .save_png(path)
                     .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;
             }
             ImageExportFormat::Svg => {
-                let svg = typst::export::svg(frame);
+                let svg = typst_svg::svg(frame);
                 fs::write(path, svg.as_bytes())
                     .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;
             }
@@ -234,6 +249,38 @@ fn export_image(
     }
 
     Ok(())
+}
+
+/// Caches exported files so that we can avoid re-exporting them if they haven't
+/// changed.
+///
+/// This is done by having a list of size `files.len()` that contains the hashes
+/// of the last rendered frame in each file. If a new frame is inserted, this
+/// will invalidate the rest of the cache, this is deliberate as to decrease the
+/// complexity and memory usage of such a cache.
+pub struct ExportCache {
+    /// The hashes of last compilation's frames.
+    pub cache: Vec<u128>,
+}
+
+impl ExportCache {
+    /// Creates a new export cache.
+    pub fn new() -> Self {
+        Self { cache: Vec::with_capacity(32) }
+    }
+
+    /// Returns true if the entry is cached and appends the new hash to the
+    /// cache (for the next compilation).
+    pub fn is_cached(&mut self, i: usize, frame: &Frame) -> bool {
+        let hash = typst::util::hash128(frame);
+
+        if i >= self.cache.len() {
+            self.cache.push(hash);
+            return false;
+        }
+
+        std::mem::replace(&mut self.cache[i], hash) == hash
+    }
 }
 
 /// Opens the given file using:

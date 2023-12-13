@@ -77,6 +77,38 @@
 #calc.rem(3.0, 0.0)
 
 ---
+// Test the `div-euclid` function.
+#test(calc.div-euclid(7, 3), 2)
+#test(calc.div-euclid(7, -3), -2)
+#test(calc.div-euclid(-7, 3), -3)
+#test(calc.div-euclid(-7, -3), 3)
+#test(calc.div-euclid(2.5, 2), 1)
+
+---
+// Error: 21-22 divisor must not be zero
+#calc.div-euclid(5, 0)
+
+---
+// Error: 23-26 divisor must not be zero
+#calc.div-euclid(3.0, 0.0)
+
+---
+// Test the `rem-euclid` function.
+#test(calc.rem-euclid(7, 3), 1)
+#test(calc.rem-euclid(7, -3), 1)
+#test(calc.rem-euclid(-7, 3), 2)
+#test(calc.rem-euclid(-7, -3), 2)
+#test(calc.rem-euclid(2.5, 2), 0.5)
+
+---
+// Error: 21-22 divisor must not be zero
+#calc.rem-euclid(5, 0)
+
+---
+// Error: 23-26 divisor must not be zero
+#calc.rem-euclid(3.0, 0.0)
+
+---
 // Test the `quo` function.
 #test(calc.quo(1, 1), 1)
 #test(calc.quo(5, 3), 1)
@@ -129,6 +161,22 @@
 ---
 // Error: 12-14 cannot take square root of negative number
 #calc.sqrt(-1)
+
+---
+#test(calc.root(12.0, 1), 12.0)
+#test(calc.root(9.0, 2), 3.0)
+#test(calc.root(27.0, 3), 3.0)
+#test(calc.root(-27.0, 3), -3.0)
+// 100^(-1/2) = (100^(1/2))^-1 = 1/sqrt(100)
+#test(calc.root(100.0, -2), 0.1)
+
+---
+// Error: 17-18 cannot take the 0th root of a number
+#calc.root(1.0, 0)
+
+---
+// Error: 24-25 negative numbers do not have a real nth root when n is even
+#test(calc.root(-27.0, 4), -3.0)
 
 ---
 // Error: 11-13 value must be strictly positive

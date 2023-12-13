@@ -1,3 +1,17 @@
+// Tests for field introspection.
+
+---
+// Verify that non-inherent fields are hidden if not set.
+#show figure: it => [
+  `repr(it)`: #repr(it) \
+  `it.has("gap"): `#repr(it.has("gap")) \
+]
+
+#figure[]
+
+#figure([], gap: 1pt)
+
+---
 // Integrated test for content fields.
 
 #let compute(equation, ..vars) = {

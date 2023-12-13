@@ -1,17 +1,17 @@
-use std::env;
-use std::fs;
 use std::io::{Cursor, Read, Write};
 use std::path::PathBuf;
+use std::{env, fs};
 
+use ecow::eco_format;
 use semver::Version;
 use serde::Deserialize;
 use tempfile::NamedTempFile;
-use typst::{diag::bail, diag::StrResult, eval::eco_format};
+use typst::diag::{bail, StrResult};
 use xz2::bufread::XzDecoder;
 use zip::ZipArchive;
 
 use crate::args::UpdateCommand;
-use crate::download::download_with_progress;
+use crate::download::{download, download_with_progress};
 
 const TYPST_GITHUB_ORG: &str = "typst";
 const TYPST_REPO: &str = "typst";
@@ -102,16 +102,14 @@ impl Release {
     pub fn from_tag(tag: Option<&Version>) -> StrResult<Release> {
         let url = match tag {
             Some(tag) => format!(
-                "https://api.github.com/repos/{}/{}/releases/tags/v{}",
-                TYPST_GITHUB_ORG, TYPST_REPO, tag
+                "https://api.github.com/repos/{TYPST_GITHUB_ORG}/{TYPST_REPO}/releases/tags/v{tag}"
             ),
             None => format!(
-                "https://api.github.com/repos/{}/{}/releases/latest",
-                TYPST_GITHUB_ORG, TYPST_REPO
+                "https://api.github.com/repos/{TYPST_GITHUB_ORG}/{TYPST_REPO}/releases/latest",
             ),
         };
 
-        match ureq::get(&url).call() {
+        match download(&url) {
             Ok(response) => response
                 .into_json()
                 .map_err(|err| eco_format!("unable to parse JSON response: {err}")),
@@ -154,9 +152,10 @@ fn extract_binary_from_zip(data: &[u8], asset_name: &str) -> StrResult<Vec<u8>> 
     let mut archive = ZipArchive::new(Cursor::new(data))
         .map_err(|err| eco_format!("failed to extract ZIP archive ({err})"))?;
 
-    let mut file = archive
-        .by_name(&format!("{asset_name}/typst.exe"))
-        .map_err(|_| "ZIP archive did not contain Typst binary")?;
+    let mut file =
+        archive.by_name(&format!("{asset_name}/typst.exe")).map_err(|err| {
+            eco_format!("failed to extract Typst binary from ZIP archive ({err})")
+        })?;
 
     let mut buffer = vec![];
     file.read_to_end(&mut buffer).map_err(|err| {
@@ -225,7 +224,7 @@ fn update_needed(release: &Release) -> StrResult<bool> {
 fn backup_path() -> StrResult<PathBuf> {
     #[cfg(target_os = "linux")]
     let root_backup_dir = dirs::state_dir()
-        .or_else(|| dirs::data_dir())
+        .or_else(dirs::data_dir)
         .ok_or("unable to locate local data or state directory")?;
 
     #[cfg(not(target_os = "linux"))]
