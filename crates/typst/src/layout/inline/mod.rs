@@ -206,17 +206,14 @@ impl Segment<'_> {
             Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
             Self::FracBox(_, _) => SPACING_REPLACE.len_utf8(),
             Self::Box(_, _) => OBJ_REPLACE.len_utf8(),
-            Self::Equation(_, ref par_items) => {
-                let mut len = 0;
-                for item in par_items {
-                    let c = match item {
-                        MathParItem::Space(_) => SPACING_REPLACE,
-                        MathParItem::Frame(_) => OBJ_REPLACE,
-                    };
-                    len += c.len_utf8();
-                }
-                len
-            }
+            Self::Equation(_, ref par_items) => par_items
+                .iter()
+                .map(|c| match c {
+                    MathParItem::Space(_) => SPACING_REPLACE,
+                    MathParItem::Frame(_) => OBJ_REPLACE,
+                })
+                .map(char::len_utf8)
+                .sum(),
             Self::Meta => 0,
         }
     }
