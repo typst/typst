@@ -127,51 +127,26 @@ impl Layout for RotateElem {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         let angle = self.angle(styles);
-        let layout = self.reflow(styles);
         let align = self.origin(styles).resolve(styles);
-
-        if !layout {
-            // Layout the region.
-            let pod = Regions::one(regions.base(), Axes::splat(false));
-            let mut frame = self.body().layout(engine, styles, pod)?.into_frame();
-            let Axes { x, y } = align.zip_map(frame.size(), FixedAlign::position);
-            let ts = Transform::translate(x, y)
-                .pre_concat(Transform::rotate(angle))
-                .pre_concat(Transform::translate(-x, -y));
-
-            // Apply the rotation.
-            frame.transform(ts);
-
-            return Ok(Fragment::frame(frame));
-        }
 
         // Compute the new region's approximate size.
         let size = regions
             .base()
             .to_point()
             .transform_inf(Transform::rotate(angle))
-            .map(Abs::abs);
+            .map(Abs::abs)
+            .to_size();
 
-        // Measure the size of the body.
-        let pod = Regions::one(size.to_size(), Axes::splat(false));
-        let frame = self.body().measure(engine, styles, pod)?.into_frame();
-
-        // Actually perform the layout.
-        let pod = Regions::one(frame.size(), Axes::splat(true));
-        let mut frame = self.body().layout(engine, styles, pod)?.into_frame();
-        let Axes { x, y } = align.zip_map(frame.size(), FixedAlign::position);
-
-        // Apply the transform.
-        let ts = Transform::translate(x, y)
-            .pre_concat(Transform::rotate(angle))
-            .pre_concat(Transform::translate(-x, -y));
-
-        // Compute the bounding box and offset and wrap in a new frame.
-        let (offset, size) = compute_bounding_box(&frame, ts);
-        frame.transform(ts);
-        frame.translate(offset);
-        frame.set_size(size);
-        Ok(Fragment::frame(frame))
+        measure_and_layout(
+            engine,
+            regions.base(),
+            size,
+            styles,
+            self.body(),
+            Transform::rotate(angle),
+            align,
+            self.reflow(styles),
+        )
     }
 }
 
@@ -243,26 +218,7 @@ impl Layout for ScaleElem {
     ) -> SourceResult<Fragment> {
         let sx = self.x(styles);
         let sy = self.y(styles);
-        let layout = self.reflow(styles);
         let align = self.origin(styles).resolve(styles);
-
-        if !layout {
-            // Layout the body.
-            let pod = Regions::one(regions.base(), Axes::splat(false));
-            let mut frame = self.body().layout(engine, styles, pod)?.into_frame();
-            let Axes { x, y } = self
-                .origin(styles)
-                .resolve(styles)
-                .zip_map(frame.size(), FixedAlign::position);
-
-            // Apply the transform.
-            let ts = Transform::translate(x, y)
-                .pre_concat(Transform::scale(sx, sy))
-                .pre_concat(Transform::translate(-x, -y));
-            frame.transform(ts);
-
-            return Ok(Fragment::frame(frame));
-        }
 
         // Compute the new region's approximate size.
         let size = regions
@@ -270,27 +226,16 @@ impl Layout for ScaleElem {
             .zip_map(Axes::new(sx, sy), |r, s| s.of(r))
             .map(Abs::abs);
 
-        // Measure the size of the body.
-        let pod = Regions::one(size, Axes::splat(false));
-        let frame = self.body().measure(engine, styles, pod)?.into_frame();
-
-        // Actually perform the layout.
-        let pod = Regions::one(frame.size(), Axes::splat(true));
-        let mut frame = self.body().layout(engine, styles, pod)?.into_frame();
-        let Axes { x, y } = align.zip_map(frame.size(), FixedAlign::position);
-
-        // Apply the transform.
-        let ts = Transform::translate(x, y)
-            .pre_concat(Transform::scale(sx, sy))
-            .pre_concat(Transform::translate(-x, -y));
-
-        // Compute the bounding box and wrap in a new frame.
-        let (offset, size) = compute_bounding_box(&frame, ts);
-        frame.transform(ts);
-        frame.translate(offset);
-        frame.set_size(size);
-
-        Ok(Fragment::frame(frame))
+        measure_and_layout(
+            engine,
+            regions.base(),
+            size,
+            styles,
+            self.body(),
+            Transform::scale(sx, sy),
+            align,
+            self.reflow(styles),
+        )
     }
 }
 
@@ -417,6 +362,55 @@ impl Default for Transform {
     fn default() -> Self {
         Self::identity()
     }
+}
+
+/// Applies a transformation to a frame, reflowing the layout if necessary.
+#[allow(clippy::too_many_arguments)]
+fn measure_and_layout(
+    engine: &mut Engine,
+    base_size: Size,
+    size: Size,
+    styles: StyleChain,
+    body: &Content,
+    transform: Transform,
+    align: Axes<FixedAlign>,
+    reflow: bool,
+) -> SourceResult<Fragment> {
+    if !reflow {
+        // Layout the body.
+        let pod = Regions::one(base_size, Axes::splat(false));
+        let mut frame = body.layout(engine, styles, pod)?.into_frame();
+        let Axes { x, y } = align.zip_map(frame.size(), FixedAlign::position);
+
+        // Apply the transform.
+        let ts = Transform::translate(x, y)
+            .pre_concat(transform)
+            .pre_concat(Transform::translate(-x, -y));
+        frame.transform(ts);
+
+        return Ok(Fragment::frame(frame));
+    }
+
+    // Measure the size of the body.
+    let pod = Regions::one(size, Axes::splat(false));
+    let frame = body.measure(engine, styles, pod)?.into_frame();
+
+    // Actually perform the layout.
+    let pod = Regions::one(frame.size(), Axes::splat(true));
+    let mut frame = body.layout(engine, styles, pod)?.into_frame();
+    let Axes { x, y } = align.zip_map(frame.size(), FixedAlign::position);
+
+    // Apply the transform.
+    let ts = Transform::translate(x, y)
+        .pre_concat(transform)
+        .pre_concat(Transform::translate(-x, -y));
+
+    // Compute the bounding box and offset and wrap in a new frame.
+    let (offset, size) = compute_bounding_box(&frame, ts);
+    frame.transform(ts);
+    frame.translate(offset);
+    frame.set_size(size);
+    Ok(Fragment::frame(frame))
 }
 
 /// Computes the bounding box and offset of a transformed frame.
