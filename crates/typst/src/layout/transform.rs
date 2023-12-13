@@ -105,9 +105,6 @@ pub struct RotateElem {
     /// rotation of the content into account and adjust the layout accordingly.
     ///
     /// ```example
-    /// #let rotated(body) = rotate(90deg, reflow: true, body)
-    ///
-    /// Hello #rotated[World]!
     /// Hello #rotate(90deg, reflow: true)[World]!
     /// ```
     #[default(false)]
@@ -196,9 +193,7 @@ pub struct ScaleElem {
     /// the scaled content and adjust the layout accordingly.
     ///
     /// ```example
-    /// #let scaled(body) = scale(x: 20%, y: 40%, reflow: true, body)
-    ///
-    /// Hello #scaled[World]!
+    /// Hello #scale(x: 20%, y: 40%, reflow: true)[World]!
     /// ```
     #[default(false)]
     pub reflow: bool,
