@@ -49,6 +49,11 @@ impl Point {
         Self { x: self.x.max(other.x), y: self.y.max(other.y) }
     }
 
+    /// Maps the point with the given function.
+    pub fn map(self, f: impl Fn(Abs) -> Abs) -> Self {
+        Self { x: f(self.x), y: f(self.y) }
+    }
+
     /// The distance between this point and the origin.
     pub fn hypot(self) -> Abs {
         Abs::raw(self.x.to_raw().hypot(self.y.to_raw()))

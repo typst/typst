@@ -149,10 +149,14 @@ impl Layout for RotateElem {
         }
 
         // Compute the new region's approximate size.
-        let size = regions.base().to_point().transform(Transform::rotate(angle));
+        let size = regions
+            .base()
+            .to_point()
+            .transform_inf(Transform::rotate(angle))
+            .map(Abs::abs);
 
         // Measure the size of the body.
-        let pod = Regions::one(size.to_size().map(Abs::abs), Axes::splat(false));
+        let pod = Regions::one(size.to_size(), Axes::splat(false));
         let frame = self.body().measure(engine, styles, pod)?.into_frame();
 
         // Actually perform the layout.
@@ -267,10 +271,13 @@ impl Layout for ScaleElem {
         }
 
         // Compute the new region's approximate size.
-        let size = regions.base().zip_map(Axes::new(sx, sy), |r, s| s.of(r));
+        let size = regions
+            .base()
+            .zip_map(Axes::new(sx, sy), |r, s| s.of(r))
+            .map(Abs::abs);
 
         // Measure the size of the body.
-        let pod = Regions::one(size.map(Abs::abs), Axes::splat(false));
+        let pod = Regions::one(size, Axes::splat(false));
         let frame = self.body().measure(engine, styles, pod)?.into_frame();
 
         // Actually perform the layout.
