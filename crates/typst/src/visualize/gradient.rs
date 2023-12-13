@@ -12,7 +12,6 @@ use crate::foundations::{
 };
 use crate::layout::{Angle, Axes, Dir, Quadrant, Ratio};
 use crate::syntax::{Span, Spanned};
-use crate::visualize::color::{Hsl, Hsv, Oklch};
 use crate::visualize::{Color, ColorSpace, WeightedColor};
 
 /// A color gradient.
@@ -1248,38 +1247,14 @@ fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> C
     if low == 0 {
         low = 1;
     }
+
     let (col_0, pos_0) = stops[low - 1];
     let (col_1, pos_1) = stops[low];
     let t = (t - pos_0.get()) / (pos_1.get() - pos_0.get());
 
-    let out = Color::mix_iter(
+    Color::mix_iter(
         [WeightedColor::new(col_0, 1.0 - t), WeightedColor::new(col_1, t)],
         mixing_space,
     )
-    .unwrap();
-
-    // Special case for handling multi-turn hue interpolation.
-    if let Some(index) = mixing_space.hue_index() {
-        let h0 = col_0.to_space(mixing_space).to_vec4()[index];
-        let h1 = col_1.to_space(mixing_space).to_vec4()[index];
-
-        // Check if we need to interpolate over the 360° boundary.
-        if (h0 - h1).abs() > 180.0 {
-            let (h0, h1) = if h0 < h1 { (h0 + 360.0, h1) } else { (h0, h1 + 360.0) };
-            let hue = h0 * (1.0 - t as f32) + h1 * t as f32;
-
-            if mixing_space == ColorSpace::Hsl {
-                let [_, saturation, lightness, alpha] = out.to_hsl().to_vec4();
-                return Color::Hsl(Hsl::new(hue, saturation, lightness, alpha));
-            } else if mixing_space == ColorSpace::Hsv {
-                let [_, saturation, value, alpha] = out.to_hsv().to_vec4();
-                return Color::Hsv(Hsv::new(hue, saturation, value, alpha));
-            } else if mixing_space == ColorSpace::Oklch {
-                let [lightness, chroma, _, alpha] = out.to_oklch().to_vec4();
-                return Color::Oklch(Oklch::new(lightness, chroma, hue, alpha));
-            }
-        }
-    }
-
-    out
+    .unwrap()
 }

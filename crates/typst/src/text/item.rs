@@ -21,7 +21,8 @@ pub struct TextItem {
     pub lang: Lang,
     /// The item's plain text.
     pub text: EcoString,
-    /// The glyphs.
+    /// The glyphs. The number of glyphs may be different from the number of
+    /// characters in the plain text due to e.g. ligatures.
     pub glyphs: Vec<Glyph>,
 }
 
@@ -49,7 +50,8 @@ pub struct Glyph {
     pub x_advance: Em,
     /// The horizontal offset of the glyph.
     pub x_offset: Em,
-    /// The range of the glyph in its item's text.
+    /// The range of the glyph in its item's text. The range's length may
+    /// be more than one due to multi-byte UTF-8 encoding or ligatures.
     pub range: Range<u16>,
     /// The source code location of the text.
     pub span: (Span, u16),
