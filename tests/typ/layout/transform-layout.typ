@@ -1,6 +1,6 @@
 // Test layout transformations
----
 
+---
 // Test that rotation impact layout.
 #set page(width: 200pt)
 #set rotate(reflow: true)
@@ -11,7 +11,6 @@
 }
 
 ---
-
 // Test relative sizing in rotated boxes.
 #set page(width: 200pt, height: 200pt)
 #set text(size: 32pt)
@@ -24,7 +23,6 @@ Hello #rotated[World]!\
 Hello #rotated[World]!
 
 ---
-
 // Test that scaling impact layout.
 #set page(width: 200pt)
 #set text(size: 32pt)
@@ -37,7 +35,6 @@ Hello #scaled[World]!
 Hello #scaled[World]!
 
 ---
-
 // Test relative sizing in scaled boxes.
 #set page(width: 200pt, height: 200pt)
 #set text(size: 32pt)
