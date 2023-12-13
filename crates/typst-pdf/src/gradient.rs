@@ -1,5 +1,4 @@
 use std::f32::consts::{PI, TAU};
-use std::f64::EPSILON;
 use std::sync::Arc;
 
 use ecow::eco_format;
@@ -8,7 +7,9 @@ use pdf_writer::writers::StreamShadingType;
 use pdf_writer::{Filter, Finish, Name, Ref};
 use typst::layout::{Abs, Angle, Point, Quadrant, Ratio, Transform};
 use typst::util::Numeric;
-use typst::visualize::{Color, ColorSpace, Gradient, RatioOrAngle, RelativeTo};
+use typst::visualize::{
+    Color, ColorSpace, Gradient, RatioOrAngle, RelativeTo, WeightedColor,
+};
 
 use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
 use crate::page::{PageContext, PageResource, ResourceKind, Transforms};
@@ -382,13 +383,13 @@ fn compute_vertex_stream(gradient: &Gradient, aspect_ratio: Ratio) -> Arc<Vec<u8
     // Correct the gradient's angle
     let angle = Gradient::correct_aspect_ratio(conic.angle, aspect_ratio);
 
-    // We want to generate a vertex based on some conditions, either:
-    // - At the boundary of a stop
-    // - At the boundary of a quadrant
-    // - When we cross the boundary of a hue turn (for HSV and HSL only)
     for window in conic.stops.windows(2) {
         let ((c0, t0), (c1, t1)) = (window[0], window[1]);
 
+        // Precision:
+        // - On an even color, insert a stop every 90deg
+        // - For a hue-based color space, insert 200 stops minimum
+        // - On any other, insert 20 stops minimum
         let max_dt = if c0 == c1 {
             0.25
         } else if conic.space.hue_index().is_some() {
@@ -419,9 +420,23 @@ fn compute_vertex_stream(gradient: &Gradient, aspect_ratio: Ratio) -> Arc<Vec<u8
 
         while t_x < t1.get() {
             let t_next = (t_x + dt).min(t1.get());
-            let c = gradient.sample(RatioOrAngle::Ratio(Ratio::new(t_x + EPSILON)));
-            let c_next =
-                gradient.sample(RatioOrAngle::Ratio(Ratio::new(t_next - EPSILON)));
+
+            // The current progress in the current window.
+            let t = |t| (t - t0.get()) / (t1.get() - t0.get());
+            let c = Color::mix_iter(
+                [WeightedColor::new(c0, 1.0 - t(t_x)), WeightedColor::new(c1, t(t_x))],
+                conic.space,
+            )
+            .unwrap();
+
+            let c_next = Color::mix_iter(
+                [
+                    WeightedColor::new(c0, 1.0 - t(t_next)),
+                    WeightedColor::new(c1, t(t_next)),
+                ],
+                conic.space,
+            )
+            .unwrap();
 
             write_patch(
                 &mut vertices,
