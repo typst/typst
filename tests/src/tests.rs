@@ -54,7 +54,7 @@ const SVG_DIR: &str = "svg";
 const FONT_DIR: &str = "../assets/fonts";
 const ASSET_DIR: &str = "../assets";
 
-/// Arguments that modifies test behaviour
+/// Arguments that modify test behaviour
 ///
 /// Specify them like this when developing:
 /// `cargo test --workspace --test tests -- --help`
