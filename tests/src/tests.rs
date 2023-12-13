@@ -1,16 +1,18 @@
 #![allow(clippy::comparison_chain)]
 
-//! This is Typst's test runner.
-//!
-//! Tests are typst files composed of a header part followed by
-//! tests parts.
-//!
-//! The header may contain:
-//! - a small description `// tests that features X works well`
-//! - metadata (see [metadata::TestConfiguration])
-//!
-//! The tests parts may use functions defined in [library], most importantly,
-//! `test(x, y)` which will fail the test `if x != y`
+/*! This is Typst's test runner.
+
+Tests are typst files composed of a header part followed by
+tests parts.
+
+The header may contain:
+- a small description `// tests that features X works well`
+- metadata (see [metadata::TestConfiguration])
+
+The tests parts may use functions defined in [library], most importantly,
+`test(x, y)` which will fail the test `if x != y`
+
+!*/
 
 use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
