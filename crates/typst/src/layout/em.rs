@@ -85,7 +85,7 @@ impl Debug for Em {
 
 impl Repr for Em {
     fn repr(&self) -> EcoString {
-        repr::format_float(self.get(), None, false, "em")
+        repr::format_float_with_unit(self.get(), "em")
     }
 }
 
