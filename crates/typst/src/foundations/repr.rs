@@ -84,13 +84,18 @@ pub fn format_float(
         let offset = 10_f64.powi(p as i32);
         value = (value * offset).round() / offset;
     }
-    let float_suffix = if force_separator && value.fract() == 0.0 { ".0" } else { "" };
+    // Debug for f64 always prints a decimal separator, while Display only does
+    // when necessary.
     if value.is_nan() {
         "NaN".into()
+    } else if value.is_sign_negative() && force_separator {
+        eco_format!("{}{:?}{}", MINUS_SIGN, value.abs(), suffix)
     } else if value.is_sign_negative() {
-        eco_format!("{}{}{}{}", MINUS_SIGN, value.abs(), float_suffix, suffix)
+        eco_format!("{}{}{}", MINUS_SIGN, value.abs(), suffix)
+    } else if force_separator {
+        eco_format!("{:?}{}", value, suffix)
     } else {
-        eco_format!("{}{}{}", value, float_suffix, suffix)
+        eco_format!("{}{}", value, suffix)
     }
 }
 
