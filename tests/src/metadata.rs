@@ -5,6 +5,14 @@ use std::ops::Range;
 use typst::syntax::{PackageVersion, Source};
 use unscanny::Scanner;
 
+/// Each typst test and test header may contain metadata.
+/// Metadata either:
+/// - influences the test behavior: [TestConfiguration]
+/// - declares a propriety that your test must hold: [Annotation].
+///     e.g. `// Warning: 1-3 no text within underscores`
+///     will fail the test if the warning isn't generated
+///     by your test.
+/// [parse_part_metadata]
 #[derive(Debug)]
 pub struct TestPartMetadata {
     pub part_configuration: TestConfiguration,
