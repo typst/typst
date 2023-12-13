@@ -2,13 +2,13 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Resolve, StyleChain};
 use crate::layout::{
-    Abs, Align, Angle, Axes, FixedAlign, Fragment, HAlign, Layout, Length, Ratio,
-    Regions, Rel, VAlign,
+    Abs, Align, Angle, Axes, FixedAlign, Fragment, Frame, HAlign, Layout, Length, Point,
+    Ratio, Regions, Rel, Size, VAlign,
 };
 
 /// Moves content without affecting layout.
 ///
-/// The `move` function allows you to move content while the layout still 'sees'
+/// The `move` function allows you to move content while th layout still 'sees'
 /// it at the original positions. Containers will still be sized as if the
 /// content was not moved.
 ///
@@ -57,7 +57,7 @@ impl Layout for MoveElem {
 /// Rotates content without affecting layout.
 ///
 /// Rotates an element by a given angle. The layout will act as if the element
-/// was not rotated.
+/// was not rotated unless you specify `{reflow: true}`.
 ///
 /// # Example
 /// ```example
@@ -98,6 +98,18 @@ pub struct RotateElem {
     #[default(HAlign::Center + VAlign::Horizon)]
     pub origin: Align,
 
+    /// Whether the rotation impacts the layout.
+    ///
+    /// If set to `{false}`, the rotated content will retain the bounding box of
+    /// the original content. If set to `{true}`, the bounding box will take the
+    /// rotation of the content into account and adjust the layout accordingly.
+    ///
+    /// ```example
+    /// Hello #rotate(90deg, reflow: true)[World]!
+    /// ```
+    #[default(false)]
+    pub reflow: bool,
+
     /// The content to rotate.
     #[required]
     pub body: Content,
@@ -111,17 +123,27 @@ impl Layout for RotateElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let pod = Regions::one(regions.base(), Axes::splat(false));
-        let mut frame = self.body().layout(engine, styles, pod)?.into_frame();
-        let Axes { x, y } = self
-            .origin(styles)
-            .resolve(styles)
-            .zip_map(frame.size(), FixedAlign::position);
-        let ts = Transform::translate(x, y)
-            .pre_concat(Transform::rotate(self.angle(styles)))
-            .pre_concat(Transform::translate(-x, -y));
-        frame.transform(ts);
-        Ok(Fragment::frame(frame))
+        let angle = self.angle(styles);
+        let align = self.origin(styles).resolve(styles);
+
+        // Compute the new region's approximate size.
+        let size = regions
+            .base()
+            .to_point()
+            .transform_inf(Transform::rotate(angle))
+            .map(Abs::abs)
+            .to_size();
+
+        measure_and_layout(
+            engine,
+            regions.base(),
+            size,
+            styles,
+            self.body(),
+            Transform::rotate(angle),
+            align,
+            self.reflow(styles),
+        )
     }
 }
 
@@ -133,6 +155,7 @@ impl Layout for RotateElem {
 /// ```example
 /// #set align(center)
 /// #scale(x: -100%)[This is mirrored.]
+/// #scale(x: -100%, reflow: true)[This is mirrored.]
 /// ```
 #[elem(Layout)]
 pub struct ScaleElem {
@@ -163,6 +186,18 @@ pub struct ScaleElem {
     #[default(HAlign::Center + VAlign::Horizon)]
     pub origin: Align,
 
+    /// Whether the scaling impacts the layout.
+    ///
+    /// If set to `{false}`, the scaled content will be allowed to overlap
+    /// other content. If set to `{true}`, it will compute the new size of
+    /// the scaled content and adjust the layout accordingly.
+    ///
+    /// ```example
+    /// Hello #scale(x: 20%, y: 40%, reflow: true)[World]!
+    /// ```
+    #[default(false)]
+    pub reflow: bool,
+
     /// The content to scale.
     #[required]
     pub body: Content,
@@ -176,17 +211,26 @@ impl Layout for ScaleElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let pod = Regions::one(regions.base(), Axes::splat(false));
-        let mut frame = self.body().layout(engine, styles, pod)?.into_frame();
-        let Axes { x, y } = self
-            .origin(styles)
-            .resolve(styles)
-            .zip_map(frame.size(), FixedAlign::position);
-        let transform = Transform::translate(x, y)
-            .pre_concat(Transform::scale(self.x(styles), self.y(styles)))
-            .pre_concat(Transform::translate(-x, -y));
-        frame.transform(transform);
-        Ok(Fragment::frame(frame))
+        let sx = self.x(styles);
+        let sy = self.y(styles);
+        let align = self.origin(styles).resolve(styles);
+
+        // Compute the new region's approximate size.
+        let size = regions
+            .base()
+            .zip_map(Axes::new(sx, sy), |r, s| s.of(r))
+            .map(Abs::abs);
+
+        measure_and_layout(
+            engine,
+            regions.base(),
+            size,
+            styles,
+            self.body(),
+            Transform::scale(sx, sy),
+            align,
+            self.reflow(styles),
+        )
     }
 }
 
@@ -313,4 +357,73 @@ impl Default for Transform {
     fn default() -> Self {
         Self::identity()
     }
+}
+
+/// Applies a transformation to a frame, reflowing the layout if necessary.
+#[allow(clippy::too_many_arguments)]
+fn measure_and_layout(
+    engine: &mut Engine,
+    base_size: Size,
+    size: Size,
+    styles: StyleChain,
+    body: &Content,
+    transform: Transform,
+    align: Axes<FixedAlign>,
+    reflow: bool,
+) -> SourceResult<Fragment> {
+    if !reflow {
+        // Layout the body.
+        let pod = Regions::one(base_size, Axes::splat(false));
+        let mut frame = body.layout(engine, styles, pod)?.into_frame();
+        let Axes { x, y } = align.zip_map(frame.size(), FixedAlign::position);
+
+        // Apply the transform.
+        let ts = Transform::translate(x, y)
+            .pre_concat(transform)
+            .pre_concat(Transform::translate(-x, -y));
+        frame.transform(ts);
+
+        return Ok(Fragment::frame(frame));
+    }
+
+    // Measure the size of the body.
+    let pod = Regions::one(size, Axes::splat(false));
+    let frame = body.measure(engine, styles, pod)?.into_frame();
+
+    // Actually perform the layout.
+    let pod = Regions::one(frame.size(), Axes::splat(true));
+    let mut frame = body.layout(engine, styles, pod)?.into_frame();
+    let Axes { x, y } = align.zip_map(frame.size(), FixedAlign::position);
+
+    // Apply the transform.
+    let ts = Transform::translate(x, y)
+        .pre_concat(transform)
+        .pre_concat(Transform::translate(-x, -y));
+
+    // Compute the bounding box and offset and wrap in a new frame.
+    let (offset, size) = compute_bounding_box(&frame, ts);
+    frame.transform(ts);
+    frame.translate(offset);
+    frame.set_size(size);
+    Ok(Fragment::frame(frame))
+}
+
+/// Computes the bounding box and offset of a transformed frame.
+fn compute_bounding_box(frame: &Frame, ts: Transform) -> (Point, Size) {
+    let top_left = Point::zero().transform_inf(ts);
+    let top_right = Point::new(frame.width(), Abs::zero()).transform_inf(ts);
+    let bottom_left = Point::new(Abs::zero(), frame.height()).transform_inf(ts);
+    let bottom_right = Point::new(frame.width(), frame.height()).transform_inf(ts);
+
+    // We first compute the new bounding box of the rotated frame.
+    let min_x = top_left.x.min(top_right.x).min(bottom_left.x).min(bottom_right.x);
+    let min_y = top_left.y.min(top_right.y).min(bottom_left.y).min(bottom_right.y);
+    let max_x = top_left.x.max(top_right.x).max(bottom_left.x).max(bottom_right.x);
+    let max_y = top_left.y.max(top_right.y).max(bottom_left.y).max(bottom_right.y);
+
+    // Then we compute the new size of the frame.
+    let width = max_x - min_x;
+    let height = max_y - min_y;
+
+    (Point::new(-min_x, -min_y), Size::new(width.abs(), height.abs()))
 }
