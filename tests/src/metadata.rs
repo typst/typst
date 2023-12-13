@@ -1,9 +1,7 @@
 use ecow::{eco_format, EcoString};
-use std::{
-    collections::HashSet,
-    fmt::{self, Display, Formatter},
-    ops::Range,
-};
+use std::collections::HashSet;
+use std::fmt::{self, Display, Formatter};
+use std::ops::Range;
 use typst::syntax::{PackageVersion, Source};
 use unscanny::Scanner;
 
