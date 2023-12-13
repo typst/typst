@@ -1083,7 +1083,7 @@ impl Color {
     ) -> StrResult<Color> {
         let mut colors = colors.into_iter();
         if space.hue_index().is_some() && colors.len() > 2 {
-            bail!("cannot mix more than two colors in a hue-preserving space");
+            bail!("cannot mix more than two colors in a hue-based space");
         }
 
         let m = if space.hue_index().is_some() && colors.len() == 2 {
