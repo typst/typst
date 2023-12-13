@@ -88,10 +88,6 @@ pub fn format_float(
     // when necessary.
     if value.is_nan() {
         "NaN".into()
-    } else if value.is_sign_negative() && force_separator {
-        eco_format!("{}{:?}{}", MINUS_SIGN, value.abs(), suffix)
-    } else if value.is_sign_negative() {
-        eco_format!("{}{}{}", MINUS_SIGN, value.abs(), suffix)
     } else if force_separator {
         eco_format!("{:?}{}", value, suffix)
     } else {
