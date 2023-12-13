@@ -84,7 +84,7 @@ pub fn format_float(
         let offset = 10_f64.powi(p as i32);
         value = (value * offset).round() / offset;
     }
-    let float_suffix = if force_separator && value % 1.0 == 0.0 { ".0" } else { "" };
+    let float_suffix = if force_separator && value.fract() == 0.0 { ".0" } else { "" };
     if value.is_nan() {
         "NaN".into()
     } else if value.is_sign_negative() {
