@@ -22,7 +22,7 @@ pub struct TestPartMetadata {
 /// Valid metadata keys are `Hint`, `Ref`, `Autocomplete`.
 /// Example : `// Ref: true`
 ///
-/// any value not equal to `true` or `false` will be ignored and throw a warning in stdout.
+/// Any value not equal to `true` or `false` will be ignored and throw a warning in stdout.
 ///
 /// Changing these values modify the behavior of the test:
 /// - compare_ref: reference images will be generated and compared.
@@ -100,7 +100,7 @@ impl Display for AnnotationKind {
 ///     - `{col}-{col}`: in which case the line is assumed to be the line after the annotation.
 ///         example: `4-6`
 ///     - `-1` in which case, it is the range cursor..cursor where cursor is at the end of the next line,
-///         skipping comments line. (Mostly useful for autocompletion with requires an index).
+///         skipping comments line. (Mostly useful for autocompletion which requires an index).
 pub fn parse_part_metadata(source: &Source) -> TestPartMetadata {
     let mut compare_ref = None;
     let mut validate_hints = None;
