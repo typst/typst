@@ -175,6 +175,7 @@ impl<'a> Preparation<'a> {
 
             cursor += len;
         }
+
         (expanded, &self.items[start..end])
     }
 }
