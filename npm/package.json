@@ -1,17 +1,33 @@
 {
-    "type": "module",
     "name": "typst",
-    "version": "0.10.0-1",
-    "scripts": {
-        "postinstall": "node postinstall.js"
-    },
+    "version": "0.10.0-2",
+    "description": "A new markup-based typesetting system that is powerful and easy to learn.",
+    "keywords": [
+        "typesetting",
+        "markup",
+        "typesetter",
+        "typeset",
+        "typst",
+        "latex",
+        "markdown",
+        "pdf"
+    ],
+    "homepage": "https://typst.app/",
+    "bugs": "https://github.com/typst/typst/issues",
+    "repository": "github:typst/typst",
+    "license": "Apache-2.0",
+    "contributors": [],
+    "type": "module",
+    "exports": null,
     "bin": "main.js",
     "files": [
         "main.js",
         "postinstall.js",
         "utils.js"
     ],
-    "exports": null,
+    "scripts": {
+        "postinstall": "node postinstall.js"
+    },
     "dependencies": {
         "execa": "^8.0.1"
     }
