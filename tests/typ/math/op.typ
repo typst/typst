@@ -24,3 +24,7 @@ $ op("myop", limits: #false)_(x:=1) x \
 ---
 // Test styled operator.
 $ bold(op("bold", limits: #true))_x y $
+
+---
+// With non-text content
+$ op(#underline[ul]) a $

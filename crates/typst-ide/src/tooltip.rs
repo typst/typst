@@ -2,21 +2,25 @@ use std::fmt::Write;
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
-use typst::doc::Frame;
-use typst::eval::{CapturesVisitor, CastInfo, Repr, Tracer, Value};
-use typst::geom::{round_2, Length, Numeric};
-use typst::syntax::ast::{self, AstNode};
-use typst::syntax::{LinkedNode, Source, SyntaxKind};
-use typst::util::{pretty_comma_list, separated_list};
+use typst::eval::{CapturesVisitor, Tracer};
+use typst::foundations::{repr, CastInfo, Repr, Value};
+use typst::layout::Length;
+use typst::model::Document;
+use typst::syntax::{ast, LinkedNode, Source, SyntaxKind};
+use typst::util::{round_2, Numeric};
 use typst::World;
 
-use super::analyze::analyze_labels;
-use super::{analyze_expr, plain_docs_sentence, summarize_font_family};
+use crate::analyze::{analyze_expr, analyze_labels};
+use crate::{plain_docs_sentence, summarize_font_family};
 
 /// Describe the item under the cursor.
+///
+/// Passing a `document` (from a previous compilation) is optional, but enhances
+/// the autocompletions. Label completions, for instance, are only generated
+/// when the document is available.
 pub fn tooltip(
     world: &dyn World,
-    frames: &[Frame],
+    document: Option<&Document>,
     source: &Source,
     cursor: usize,
 ) -> Option<Tooltip> {
@@ -27,7 +31,7 @@ pub fn tooltip(
 
     named_param_tooltip(world, &leaf)
         .or_else(|| font_tooltip(world, &leaf))
-        .or_else(|| ref_tooltip(world, frames, &leaf))
+        .or_else(|| document.and_then(|doc| label_tooltip(doc, &leaf)))
         .or_else(|| expr_tooltip(world, &leaf))
         .or_else(|| closure_tooltip(&leaf))
 }
@@ -97,22 +101,27 @@ fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
         pieces.push("...".into());
     }
 
-    let tooltip = pretty_comma_list(&pieces, false);
+    let tooltip = repr::pretty_comma_list(&pieces, false);
     (!tooltip.is_empty()).then(|| Tooltip::Code(tooltip.into()))
 }
 
 /// Tooltip for a hovered closure.
 fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
-    // Find the closure to analyze.
-    let mut ancestor = leaf;
-    while !ancestor.is::<ast::Closure>() {
-        ancestor = ancestor.parent()?;
+    // Only show this tooltip when hovering over the equals sign or arrow of
+    // the closure. Showing it across the whole subtree is too noisy.
+    if !matches!(leaf.kind(), SyntaxKind::Eq | SyntaxKind::Arrow) {
+        return None;
     }
-    let closure = ancestor.cast::<ast::Closure>()?.to_untyped();
+
+    // Find the closure to analyze.
+    let parent = leaf.parent()?;
+    if parent.kind() != SyntaxKind::Closure {
+        return None;
+    }
 
     // Analyze the closure's captures.
     let mut visitor = CapturesVisitor::new(None);
-    visitor.visit(closure);
+    visitor.visit(parent);
 
     let captures = visitor.finish();
     let mut names: Vec<_> =
@@ -123,7 +132,7 @@ fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
 
     names.sort();
 
-    let tooltip = separated_list(&names, "and");
+    let tooltip = repr::separated_list(&names, "and");
     Some(Tooltip::Text(eco_format!("This closure captures {tooltip}.")))
 }
 
@@ -140,19 +149,16 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
     })
 }
 
-/// Tooltip for a hovered reference.
-fn ref_tooltip(
-    world: &dyn World,
-    frames: &[Frame],
-    leaf: &LinkedNode,
-) -> Option<Tooltip> {
-    if leaf.kind() != SyntaxKind::RefMarker {
-        return None;
-    }
+/// Tooltip for a hovered reference or label.
+fn label_tooltip(document: &Document, leaf: &LinkedNode) -> Option<Tooltip> {
+    let target = match leaf.kind() {
+        SyntaxKind::RefMarker => leaf.text().trim_start_matches('@'),
+        SyntaxKind::Label => leaf.text().trim_start_matches('<').trim_end_matches('>'),
+        _ => return None,
+    };
 
-    let target = leaf.text().trim_start_matches('@');
-    for (label, detail) in analyze_labels(world, frames).0 {
-        if label.0 == target {
+    for (label, detail) in analyze_labels(document).0 {
+        if label.as_str() == target {
             return Some(Tooltip::Text(detail?));
         }
     }

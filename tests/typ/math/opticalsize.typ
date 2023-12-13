@@ -7,7 +7,7 @@
 #set text(size:20pt)
 $  e^(e^(e^(e))) $
 ]
-A large number: $e^(e^(e^(e)))$. 
+A large number: $e^(e^(e^(e)))$.
 
 ---
 //  Test prime/double prime via scriptsize
@@ -19,7 +19,7 @@ $y^dprime-2y^prime + y = 0$
 $ y^tprime_3 + g^(prime 2) $
 
 ---
-// Test prime superscript on large symbol 
+// Test prime superscript on large symbol
 $ scripts(sum_(k in NN))^prime 1/k^2 $
 $sum_(k in NN)^prime 1/k^2$
 

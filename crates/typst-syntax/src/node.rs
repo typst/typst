@@ -3,10 +3,10 @@ use std::ops::{Deref, Range};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use ecow::EcoString;
+use ecow::{eco_vec, EcoString, EcoVec};
 
-use super::ast::AstNode;
-use super::{FileId, Span, SyntaxKind};
+use crate::ast::AstNode;
+use crate::{FileId, Span, SyntaxKind};
 
 /// A node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -616,7 +616,7 @@ impl ErrorNode {
             error: SyntaxError {
                 span: Span::detached(),
                 message: message.into(),
-                hints: vec![],
+                hints: eco_vec![],
             },
         }
     }
@@ -650,9 +650,9 @@ pub struct SyntaxError {
     pub span: Span,
     /// The error message.
     pub message: EcoString,
-    /// Additonal hints to the user, indicating how this error could be avoided
+    /// Additional hints to the user, indicating how this error could be avoided
     /// or worked around.
-    pub hints: Vec<EcoString>,
+    pub hints: EcoVec<EcoString>,
 }
 
 impl SyntaxError {

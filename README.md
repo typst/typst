@@ -4,20 +4,20 @@
 
 <p align="center">
   <a href="https://typst.app/docs/">
-    <img alt="Documentation" src="https://img.shields.io/website?down_message=offline&label=docs&up_color=007aff&up_message=online&url=https%3A%2F%2Ftypst.app%2Fdocs"/>
-  </a>
+    <img alt="Documentation" src="https://img.shields.io/website?down_message=offline&label=docs&up_color=007aff&up_message=online&url=https%3A%2F%2Ftypst.app%2Fdocs"
+  /></a>
   <a href="https://typst.app/">
-    <img alt="Typst App" src="https://img.shields.io/website?down_message=offline&label=typst.app&up_color=239dad&up_message=online&url=https%3A%2F%2Ftypst.app"/>
-  </a>
+    <img alt="Typst App" src="https://img.shields.io/website?down_message=offline&label=typst.app&up_color=239dad&up_message=online&url=https%3A%2F%2Ftypst.app"
+  /></a>
   <a href="https://discord.gg/2uDybryKPe">
-    <img alt="Discord Server" src="https://img.shields.io/discord/1054443721975922748?color=5865F2&label=discord&labelColor=555"/>
-  </a>
+    <img alt="Discord Server" src="https://img.shields.io/discord/1054443721975922748?color=5865F2&label=discord&labelColor=555"
+  /></a>
   <a href="https://github.com/typst/typst/blob/main/LICENSE">
-    <img alt="Apache-2 License" src="https://img.shields.io/badge/license-Apache%202-brightgreen"/>
-  </a>
+    <img alt="Apache-2 License" src="https://img.shields.io/badge/license-Apache%202-brightgreen"
+  /></a>
   <a href="https://typst.app/jobs/">
-    <img alt="Jobs at Typst" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Ftypst.app%2Fassets%2Fdata%2Fshields.json&query=%24.jobs.text&label=jobs&color=%23A561FF&cacheSeconds=1800">
-  </a>
+    <img alt="Jobs at Typst" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Ftypst.app%2Fassets%2Fdata%2Fshields.json&query=%24.jobs.text&label=jobs&color=%23A561FF&cacheSeconds=1800"
+  /></a>
 </p>
 
 Typst is a new markup-based typesetting system that is designed to be as powerful
@@ -120,8 +120,8 @@ Typst's CLI is available from different sources:
 
 - If you have a [Rust][rust] toolchain installed, you can also install the
   latest development version with
-  `cargo install --git https://github.com/typst/typst`. Note that this will
-  be a "nightly" version that may be broken or not yet properly documented.
+  `cargo install --git https://github.com/typst/typst typst-cli`. Note that this
+  will be a "nightly" version that may be broken or not yet properly documented.
 
 - Nix users can use the `typst` package with `nix-shell -p typst` or build and
   run the bleeding edge version with `nix run github:typst/typst -- --version`.
@@ -151,13 +151,22 @@ Typst further allows you to add custom font paths for your project and list all
 of the fonts it discovered:
 ```sh
 # Adds additional directories to search for fonts.
-typst --font-path path/to/fonts compile file.typ
+typst compile --font-path path/to/fonts file.typ
 
 # Lists all of the discovered fonts in the system and the given directory.
-typst --font-path path/to/fonts fonts
+typst fonts --font-path path/to/fonts
 
 # Or via environment variable (Linux syntax).
 TYPST_FONT_PATHS=path/to/fonts typst fonts
+```
+
+For other CLI subcommands and options, see below:
+```sh
+# Prints available subcommands and options.
+typst help
+
+# Prints detailed usage of a subcommand.
+typst help watch
 ```
 
 If you prefer an integrated IDE-like experience with autocompletion and instant

@@ -6,8 +6,9 @@ use inferno::flamegraph::Options;
 use tracing::metadata::LevelFilter;
 use tracing_error::ErrorLayer;
 use tracing_flame::{FlameLayer, FlushGuard};
-use tracing_subscriber::fmt;
-use tracing_subscriber::prelude::*;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{fmt, Layer};
 
 use crate::args::{CliArguments, Command};
 

@@ -206,6 +206,18 @@
 #test(50% < 40% + 0pt, false)
 #test(40% + 0pt < 50% + 0pt, true)
 #test(1em < 2em, true)
+#test((0, 1, 2, 4) < (0, 1, 2, 5), true)
+#test((0, 1, 2, 4) < (0, 1, 2, 3), false)
+#test((0, 1, 2, 3.3) > (0, 1, 2, 4), false)
+#test((0, 1, 2) < (0, 1, 2, 3), true)
+#test((0, 1, "b") > (0, 1, "a", 3), true)
+#test((0, 1.1, 3) >= (0, 1.1, 3), true)
+#test((0, 1, datetime(day: 1, month: 12, year: 2023)) <= (0, 1, datetime(day: 1, month: 12, year: 2023), 3), true)
+#test(("a", 23, 40, "b") > ("a", 23, 40), true)
+#test(() <= (), true)
+#test(() >= (), true)
+#test(() <= (1,), true)
+#test((1,) <= (), false)
 
 ---
 // Test assignment operators.

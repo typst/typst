@@ -1,9 +1,10 @@
 use ecow::{eco_format, EcoString};
 use unicode_ident::{is_xid_continue, is_xid_start};
+use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use super::SyntaxKind;
+use crate::SyntaxKind;
 
 /// Splits up a string of source code into tokens.
 #[derive(Clone)]
@@ -253,41 +254,14 @@ impl Lexer<'_> {
     }
 
     fn link(&mut self) -> SyntaxKind {
-        let mut brackets = Vec::new();
+        let (link, balanced) = link_prefix(self.s.after());
+        self.s.jump(self.s.cursor() + link.len());
 
-        #[rustfmt::skip]
-        self.s.eat_while(|c: char| {
-            match c {
-                | '0' ..= '9'
-                | 'a' ..= 'z'
-                | 'A' ..= 'Z'
-                | '!' | '#' | '$' | '%' | '&' | '*' | '+'
-                | ',' | '-' | '.' | '/' | ':' | ';' | '='
-                | '?' | '@' | '_' | '~' | '\'' => true,
-                '[' => {
-                    brackets.push(SyntaxKind::LeftBracket);
-                    true
-                }
-                '(' => {
-                    brackets.push(SyntaxKind::LeftParen);
-                    true
-                }
-                ']' => brackets.pop() == Some(SyntaxKind::LeftBracket),
-                ')' => brackets.pop() == Some(SyntaxKind::LeftParen),
-                _ => false,
-            }
-        });
-
-        if !brackets.is_empty() {
+        if !balanced {
             return self.error(
                 "automatic links cannot contain unbalanced brackets, \
                  use the `link` function instead",
             );
-        }
-
-        // Don't include the trailing characters likely to be part of text.
-        while matches!(self.s.scout(-1), Some('!' | ',' | '.' | ':' | ';' | '?' | '\'')) {
-            self.s.uneat();
         }
 
         SyntaxKind::Link
@@ -370,10 +344,18 @@ impl Lexer<'_> {
     }
 
     fn in_word(&self) -> bool {
-        let alphanum = |c: Option<char>| c.map_or(false, |c| c.is_alphanumeric());
+        let wordy = |c: Option<char>| {
+            c.map_or(false, |c| {
+                c.is_alphanumeric()
+                    && !matches!(
+                        c.script(),
+                        Script::Han | Script::Hiragana | Script::Katakana
+                    )
+            })
+        };
         let prev = self.s.scout(-2);
         let next = self.s.peek();
-        alphanum(prev) && alphanum(next)
+        wordy(prev) && wordy(next)
     }
 
     fn space_or_end(&self) -> bool {
@@ -662,8 +644,45 @@ pub fn is_newline(character: char) -> bool {
     )
 }
 
+/// Extracts a prefix of the text that is a link and also returns whether the
+/// parentheses and brackets in the link were balanced.
+pub fn link_prefix(text: &str) -> (&str, bool) {
+    let mut s = unscanny::Scanner::new(text);
+    let mut brackets = Vec::new();
+
+    #[rustfmt::skip]
+    s.eat_while(|c: char| {
+        match c {
+            | '0' ..= '9'
+            | 'a' ..= 'z'
+            | 'A' ..= 'Z'
+            | '!' | '#' | '$' | '%' | '&' | '*' | '+'
+            | ',' | '-' | '.' | '/' | ':' | ';' | '='
+            | '?' | '@' | '_' | '~' | '\'' => true,
+            '[' => {
+                brackets.push(b'[');
+                true
+            }
+            '(' => {
+                brackets.push(b'(');
+                true
+            }
+            ']' => brackets.pop() == Some(b'['),
+            ')' => brackets.pop() == Some(b'('),
+            _ => false,
+        }
+    });
+
+    // Don't include the trailing characters likely to be part of text.
+    while matches!(s.scout(-1), Some('!' | ',' | '.' | ':' | ';' | '?' | '\'')) {
+        s.uneat();
+    }
+
+    (s.before(), brackets.is_empty())
+}
+
 /// Split text at newlines.
-pub(super) fn split_newlines(text: &str) -> Vec<&str> {
+pub fn split_newlines(text: &str) -> Vec<&str> {
     let mut s = Scanner::new(text);
     let mut lines = Vec::new();
     let mut start = 0;

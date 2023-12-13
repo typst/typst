@@ -8,7 +8,7 @@ use std::ops::Deref;
 use ecow::EcoString;
 use unscanny::Scanner;
 
-use super::{
+use crate::{
     is_id_continue, is_id_start, is_newline, split_newlines, Span, SyntaxKind, SyntaxNode,
 };
 
@@ -867,7 +867,11 @@ impl<'a> MathAttach<'a> {
 
     /// Extract attached primes if present.
     pub fn primes(self) -> Option<MathPrimes<'a>> {
-        self.0.children().nth(1).and_then(|n| n.cast())
+        self.0
+            .children()
+            .skip_while(|node| node.cast::<Expr<'_>>().is_none())
+            .nth(1)
+            .and_then(|n| n.cast())
     }
 }
 
@@ -1270,11 +1274,8 @@ node! {
 
 impl<'a> Keyed<'a> {
     /// The key: `"spacy key"`.
-    pub fn key(self) -> Str<'a> {
-        self.0
-            .children()
-            .find_map(|node| node.cast::<Str>())
-            .unwrap_or_default()
+    pub fn key(self) -> Expr<'a> {
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The right-hand side of the pair: `true`.
@@ -1652,6 +1653,16 @@ impl<'a> Args<'a> {
     /// The positional and named arguments.
     pub fn items(self) -> impl DoubleEndedIterator<Item = Arg<'a>> {
         self.0.children().filter_map(SyntaxNode::cast)
+    }
+
+    /// Whether there is a comma at the end.
+    pub fn trailing_comma(self) -> bool {
+        self.0
+            .children()
+            .rev()
+            .skip(1)
+            .find(|n| !n.kind().is_trivia())
+            .is_some_and(|n| n.kind() == SyntaxKind::Comma)
     }
 }
 

@@ -23,7 +23,7 @@ document in it.
   In the case of glaciers, fluid
   dynamics principles can be used
   to understand how the movement
-  and behavior of the ice is
+  and behaviour of the ice is
   influenced by factors such as
   temperature, pressure, and the
   presence of other fluids (such as
@@ -54,7 +54,7 @@ properties you want to set, and a list of arguments in parentheses.
 In the case of glaciers, fluid
 dynamics principles can be used
 to understand how the movement
-and behavior of the ice is
+and behaviour of the ice is
 influenced by factors such as
 temperature, pressure, and the
 presence of other fluids (such as
@@ -123,7 +123,7 @@ In this report, we will explore the
 various factors that influence fluid
 dynamics in glaciers and how they
 contribute to the formation and
-behavior of these natural structures.
+behaviour of these natural structures.
 
 >>> Glacier displacement is influenced
 >>> by a number of factors, including

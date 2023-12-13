@@ -7,6 +7,7 @@ use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 
 use comemo::Tracked;
+use ecow::{eco_vec, EcoVec};
 
 use crate::syntax::{PackageSpec, Span, Spanned, SyntaxError};
 use crate::{World, WorldExt};
@@ -17,65 +18,107 @@ use crate::{World, WorldExt};
 /// `StrResult`. If called with a span, a string and format args, returns
 /// a `SourceResult`.
 ///
+/// You can also emit hints with the `; hint: "..."` syntax.
+///
 /// ```
 /// bail!("bailing with a {}", "string result");
 /// bail!(span, "bailing with a {}", "source result");
+/// bail!(
+///     span, "bailing with a {}", "source result";
+///     hint: "hint 1"
+/// );
+/// bail!(
+///     span, "bailing with a {}", "source result";
+///     hint: "hint 1";
+///     hint: "hint 2";
+/// );
 /// ```
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __bail {
+    // For bail!("just a {}", "string")
     ($fmt:literal $(, $arg:expr)* $(,)?) => {
-        return Err($crate::diag::eco_format!($fmt, $($arg),*))
+        return Err($crate::diag::error!(
+            $fmt, $($arg),*
+        ))
     };
 
+    // For bail!(error!(..))
     ($error:expr) => {
-        return Err(Box::new(vec![$error]))
+        return Err(::ecow::eco_vec![$error])
     };
 
-    ($span:expr, $fmt:literal $(, $arg:expr)* $(,)?) => {
-        return Err(Box::new(vec![$crate::diag::SourceDiagnostic::error(
-            $span,
-            $crate::diag::eco_format!($fmt, $($arg),*),
-        )]))
+    // For bail(span, ...)
+    ($($tts:tt)*) => {
+        return Err(::ecow::eco_vec![$crate::diag::error!($($tts)*)])
     };
 }
-
-#[doc(inline)]
-pub use crate::{__bail as bail, __error as error, __warning as warning};
-
-#[doc(hidden)]
-pub use ecow::{eco_format, EcoString};
 
 /// Construct an [`EcoString`] or [`SourceDiagnostic`] with severity `Error`.
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __error {
+    // For bail!("just a {}", "string").
     ($fmt:literal $(, $arg:expr)* $(,)?) => {
         $crate::diag::eco_format!($fmt, $($arg),*)
     };
 
-    ($span:expr, $fmt:literal $(, $arg:expr)* $(,)?) => {
+    // For bail!(span, ...)
+    (
+        $span:expr, $fmt:literal $(, $arg:expr)*
+        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
+        $(,)?
+    ) => {
         $crate::diag::SourceDiagnostic::error(
             $span,
             $crate::diag::eco_format!($fmt, $($arg),*),
-        )
+        )  $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
     };
 }
 
 /// Construct a [`SourceDiagnostic`] with severity `Warning`.
+///
+/// You can also emit hints with the `; hint: "..."` syntax.
+///
+/// ```
+/// warning!(span, "warning with a {}", "source result");
+/// warning!(
+///     span, "warning with a {}", "source result";
+///     hint: "hint 1"
+/// );
+/// warning!(
+///     span, "warning with a {}", "source result";
+///     hint: "hint 1";
+///     hint: "hint 2";
+/// );
+/// ```
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __warning {
-    ($span:expr, $fmt:literal $(, $arg:expr)* $(,)?) => {
+    (
+        $span:expr,
+        $fmt:literal $(, $arg:expr)*
+        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
+        $(,)?
+    ) => {
         $crate::diag::SourceDiagnostic::warning(
             $span,
             $crate::diag::eco_format!($fmt, $($arg),*),
-        )
+        ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
     };
 }
 
+#[rustfmt::skip]
+#[doc(inline)]
+pub use {
+    crate::__bail as bail,
+    crate::__error as error,
+    crate::__warning as warning,
+    ecow::{eco_format, EcoString},
+};
+
 /// A result that can carry multiple source errors.
-pub type SourceResult<T> = Result<T, Box<Vec<SourceDiagnostic>>>;
+pub type SourceResult<T> = Result<T, EcoVec<SourceDiagnostic>>;
 
 /// An error or warning in a source file.
 ///
@@ -90,10 +133,10 @@ pub struct SourceDiagnostic {
     /// A diagnostic message describing the problem.
     pub message: EcoString,
     /// The trace of function calls leading to the problem.
-    pub trace: Vec<Spanned<Tracepoint>>,
-    /// Additonal hints to the user, indicating how this problem could be avoided
+    pub trace: EcoVec<Spanned<Tracepoint>>,
+    /// Additional hints to the user, indicating how this problem could be avoided
     /// or worked around.
-    pub hints: Vec<EcoString>,
+    pub hints: EcoVec<EcoString>,
 }
 
 /// The severity of a [`SourceDiagnostic`].
@@ -111,9 +154,9 @@ impl SourceDiagnostic {
         Self {
             severity: Severity::Error,
             span,
-            trace: vec![],
+            trace: eco_vec![],
             message: message.into(),
-            hints: vec![],
+            hints: eco_vec![],
         }
     }
 
@@ -122,9 +165,9 @@ impl SourceDiagnostic {
         Self {
             severity: Severity::Warning,
             span,
-            trace: vec![],
+            trace: eco_vec![],
             message: message.into(),
-            hints: vec![],
+            hints: eco_vec![],
         }
     }
 
@@ -152,7 +195,7 @@ impl From<SyntaxError> for SourceDiagnostic {
             severity: Severity::Error,
             span: error.span,
             message: error.message,
-            trace: vec![],
+            trace: eco_vec![],
             hints: error.hints,
         }
     }
@@ -173,7 +216,7 @@ impl Display for Tracepoint {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Tracepoint::Call(Some(name)) => {
-                write!(f, "error occurred in this call of function `{}`", name)
+                write!(f, "error occurred in this call of function `{name}`")
             }
             Tracepoint::Call(None) => {
                 write!(f, "error occurred in this function call")
@@ -203,7 +246,7 @@ impl<T> Trace<T> for SourceResult<T> {
     {
         self.map_err(|mut errors| {
             let Some(trace_range) = world.range(span) else { return errors };
-            for error in errors.iter_mut() {
+            for error in errors.make_mut().iter_mut() {
                 // Skip traces that surround the error.
                 if let Some(error_range) = world.range(error.span) {
                     if error.span.id() == span.id()
@@ -224,7 +267,8 @@ impl<T> Trace<T> for SourceResult<T> {
 /// A result type with a string error message.
 pub type StrResult<T> = Result<T, EcoString>;
 
-/// Convert a [`StrResult`] to a [`SourceResult`] by adding span information.
+/// Convert a [`StrResult`] or [`HintedStrResult`] to a [`SourceResult`] by
+/// adding span information.
 pub trait At<T> {
     /// Add the span information.
     fn at(self, span: Span) -> SourceResult<T>;
@@ -242,7 +286,7 @@ where
                 diagnostic
                     .hint("you can adjust the project root with the --root argument");
             }
-            Box::new(vec![diagnostic])
+            eco_vec![diagnostic]
         })
     }
 }
@@ -255,17 +299,21 @@ pub type HintedStrResult<T> = Result<T, HintedString>;
 pub struct HintedString {
     /// A diagnostic message describing the problem.
     pub message: EcoString,
-    /// Additonal hints to the user, indicating how this error could be avoided
+    /// Additional hints to the user, indicating how this error could be avoided
     /// or worked around.
     pub hints: Vec<EcoString>,
+}
+
+impl From<EcoString> for HintedString {
+    fn from(value: EcoString) -> Self {
+        Self { message: value, hints: vec![] }
+    }
 }
 
 impl<T> At<T> for Result<T, HintedString> {
     fn at(self, span: Span) -> SourceResult<T> {
         self.map_err(|diags| {
-            Box::new(vec![
-                SourceDiagnostic::error(span, diags.message).with_hints(diags.hints)
-            ])
+            eco_vec![SourceDiagnostic::error(span, diags.message).with_hints(diags.hints)]
         })
     }
 }
@@ -383,7 +431,7 @@ impl From<FileError> for EcoString {
 /// A result type with a package-related error.
 pub type PackageResult<T> = Result<T, PackageError>;
 
-/// An error that occured while trying to load a package.
+/// An error that occurred while trying to load a package.
 ///
 /// Some variants have an optional string can give more details, if available.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
