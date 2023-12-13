@@ -170,6 +170,36 @@ pub fn parse_part_metadata(source: &Source) -> TestPartMetadata {
     }
 }
 
+pub fn parse_autocomplete_message<'a>(message: &'a str) -> HashSet<&'a str> {
+    let string = |s: &mut Scanner<'a>| -> Option<&'a str> {
+        if s.eat_if('"') {
+            let sub = s.eat_until('"');
+            if !s.eat_if('"') {
+                return None;
+            }
+            Some(sub)
+        } else {
+            None
+        }
+    };
+    let list = |s: &mut Scanner<'a>| -> HashSet<&'a str> {
+        let mut result = HashSet::new();
+        loop {
+            let Some(sub) = string(s) else { break };
+            result.insert(sub);
+            s.eat_while(|c: char| c.is_whitespace());
+            if !s.eat_if(",") {
+                break;
+            }
+            s.eat_while(|c: char| c.is_whitespace());
+        }
+        result
+    };
+    let mut s = Scanner::new(message);
+
+    list(&mut s)
+}
+
 pub fn get_metadata<'a>(line: &'a str, key: &str) -> Option<&'a str> {
     line.strip_prefix(eco_format!("// {key}: ").as_str())
 }

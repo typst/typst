@@ -42,7 +42,6 @@ use typst::syntax::{FileId, Source, SyntaxNode, VirtualPath};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::visualize::Color;
 use typst::{Library, World, WorldExt};
-use unscanny::Scanner;
 use walkdir::WalkDir;
 
 // These directories are all relative to the tests/ directory.
@@ -794,36 +793,6 @@ fn test_part(
     }
 
     (ok, compare_ref, frames)
-}
-
-fn parse_autocomplete_message<'a>(message: &'a str) -> HashSet<&'a str> {
-    let string = |s: &mut Scanner<'a>| -> Option<&'a str> {
-        if s.eat_if('"') {
-            let sub = s.eat_until('"');
-            if !s.eat_if('"') {
-                return None;
-            }
-            Some(sub)
-        } else {
-            None
-        }
-    };
-    let list = |s: &mut Scanner<'a>| -> HashSet<&'a str> {
-        let mut result = HashSet::new();
-        loop {
-            let Some(sub) = string(s) else { break };
-            result.insert(sub);
-            s.eat_while(|c: char| c.is_whitespace());
-            if !s.eat_if(",") {
-                break;
-            }
-            s.eat_while(|c: char| c.is_whitespace());
-        }
-        result
-    };
-    let mut s = Scanner::new(message);
-
-    list(&mut s)
 }
 
 fn print_annotation(
