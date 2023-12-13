@@ -690,48 +690,8 @@ fn code_expr_prec(
             code_expr_prec(p, false, prec, false);
 
             // Special case for chained comparison operations.
-            if op.is_comparison() {
-                if let Some(second_op) = ast::BinOp::from_comparison_kind(p.current()) {
-                    let op_marker = p.marker();
-
-                    let mut prec = second_op.precedence();
-                    if prec < min_prec {
-                        break;
-                    }
-
-                    match second_op.assoc() {
-                        ast::Assoc::Left => prec += 1,
-                        ast::Assoc::Right => {}
-                    }
-
-                    p.eat();
-                    code_expr_prec(p, false, prec, false);
-
-                    // Check that there is no third comparison.
-                    if ast::BinOp::from_comparison_kind(p.current()).is_some() {
-                        let second_op_marker = p.marker();
-                        p.eat();
-                        if let Some(node) = p.node_mut(second_op_marker) {
-                            node.convert_to_error(
-                                "can only chain at most two comparisons",
-                            );
-                            continue;
-                        }
-                    }
-
-                    // Check whether it is a transitive comparison.
-                    if !op.is_transitive(second_op) {
-                        if let Some(node) = p.node_mut(op_marker) {
-                            node.convert_to_error(
-                                "only transitive comparisons are allowed",
-                            );
-                            continue;
-                        }
-                    }
-
-                    p.wrap(m, SyntaxKind::ChainedComparison);
-                    continue;
-                }
+            if op.is_comparison() && chained_comp_expr(p, m, op, min_prec) {
+                continue;
             }
 
             p.wrap(m, SyntaxKind::Binary);
@@ -740,6 +700,52 @@ fn code_expr_prec(
 
         break;
     }
+}
+
+/// Checks whether the next comparison operation is valid and a transitive
+/// comparison. If it is, wraps the comparison operations in a `ChainedComparison`
+/// node. Returns `true` if the next comparison operation is valid and a
+/// transitive comparison or if there is an error.
+fn chained_comp_expr(p: &mut Parser, m: Marker, op: ast::BinOp, min_prec: usize) -> bool {
+    if let Some(second_op) = ast::BinOp::from_comparison_kind(p.current()) {
+        let op_marker = p.marker();
+
+        let mut prec = second_op.precedence();
+        if prec < min_prec {
+            return false;
+        }
+
+        match second_op.assoc() {
+            ast::Assoc::Left => prec += 1,
+            ast::Assoc::Right => {}
+        }
+
+        p.eat();
+        code_expr_prec(p, false, prec, false);
+
+        // Check that there is no third comparison.
+        if ast::BinOp::from_comparison_kind(p.current()).is_some() {
+            let second_op_marker = p.marker();
+            p.eat();
+            if let Some(node) = p.node_mut(second_op_marker) {
+                node.convert_to_error("can only chain at most two comparisons");
+                return true;
+            }
+        }
+
+        // Check whether it is a transitive comparison.
+        if !op.is_transitive(second_op) {
+            if let Some(node) = p.node_mut(op_marker) {
+                node.convert_to_error("only transitive comparisons are allowed");
+                return true;
+            }
+        }
+
+        p.wrap(m, SyntaxKind::ChainedComparison);
+        return true;
+    }
+
+    false
 }
 
 fn code_primary(p: &mut Parser, atomic: bool, allow_destructuring: bool) {
