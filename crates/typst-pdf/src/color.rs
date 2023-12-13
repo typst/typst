@@ -10,20 +10,12 @@ use crate::page::{PageContext, Transforms};
 pub const SRGB: Name<'static> = Name(b"srgb");
 pub const D65_GRAY: Name<'static> = Name(b"d65gray");
 pub const OKLAB: Name<'static> = Name(b"oklab");
-pub const HSV: Name<'static> = Name(b"hsv");
-pub const HSL: Name<'static> = Name(b"hsl");
 pub const LINEAR_SRGB: Name<'static> = Name(b"linearrgb");
 
 // The names of the color components.
 const OKLAB_L: Name<'static> = Name(b"L");
 const OKLAB_A: Name<'static> = Name(b"A");
 const OKLAB_B: Name<'static> = Name(b"B");
-const HSV_H: Name<'static> = Name(b"H");
-const HSV_S: Name<'static> = Name(b"S");
-const HSV_V: Name<'static> = Name(b"V");
-const HSL_H: Name<'static> = Name(b"H");
-const HSL_S: Name<'static> = Name(b"S");
-const HSL_L: Name<'static> = Name(b"L");
 
 // The ICC profiles.
 static SRGB_ICC_DEFLATED: Lazy<Vec<u8>> =
@@ -34,10 +26,6 @@ static GRAY_ICC_DEFLATED: Lazy<Vec<u8>> =
 // The PostScript functions for color spaces.
 static OKLAB_DEFLATED: Lazy<Vec<u8>> =
     Lazy::new(|| deflate(minify(include_str!("postscript/oklab.ps")).as_bytes()));
-static HSV_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(minify(include_str!("postscript/hsv.ps")).as_bytes()));
-static HSL_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(minify(include_str!("postscript/hsl.ps")).as_bytes()));
 
 /// The color spaces present in the PDF document
 #[derive(Default)]
@@ -45,8 +33,6 @@ pub struct ColorSpaces {
     oklab: Option<Ref>,
     srgb: Option<Ref>,
     d65_gray: Option<Ref>,
-    hsv: Option<Ref>,
-    hsl: Option<Ref>,
     use_linear_rgb: bool,
 }
 
@@ -70,24 +56,6 @@ impl ColorSpaces {
         *self.d65_gray.get_or_insert_with(|| alloc.bump())
     }
 
-    /// Get a reference to the hsv color space.
-    ///
-    /// # Warning
-    /// The Hue component of the color must be in degrees and must be divided
-    /// by 360.0 before being encoded into the PDF file.
-    pub fn hsv(&mut self, alloc: &mut Ref) -> Ref {
-        *self.hsv.get_or_insert_with(|| alloc.bump())
-    }
-
-    /// Get a reference to the hsl color space.
-    ///
-    /// # Warning
-    /// The Hue component of the color must be in degrees and must be divided
-    /// by 360.0 before being encoded into the PDF file.
-    pub fn hsl(&mut self, alloc: &mut Ref) -> Ref {
-        *self.hsl.get_or_insert_with(|| alloc.bump())
-    }
-
     /// Mark linear RGB as used.
     pub fn linear_rgb(&mut self) {
         self.use_linear_rgb = true;
@@ -101,7 +69,7 @@ impl ColorSpaces {
         alloc: &mut Ref,
     ) {
         match color_space {
-            ColorSpace::Oklab => {
+            ColorSpace::Oklab | ColorSpace::Hsl | ColorSpace::Hsv => {
                 let mut oklab = writer.device_n([OKLAB_L, OKLAB_A, OKLAB_B]);
                 self.write(ColorSpace::LinearRgb, oklab.alternate_color_space(), alloc);
                 oklab.tint_ref(self.oklab(alloc));
@@ -121,18 +89,6 @@ impl ColorSpaces {
                     ]),
                 );
             }
-            ColorSpace::Hsl => {
-                let mut hsl = writer.device_n([HSL_H, HSL_S, HSL_L]);
-                self.write(ColorSpace::Srgb, hsl.alternate_color_space(), alloc);
-                hsl.tint_ref(self.hsl(alloc));
-                hsl.attrs().subtype(DeviceNSubtype::DeviceN);
-            }
-            ColorSpace::Hsv => {
-                let mut hsv = writer.device_n([HSV_H, HSV_S, HSV_V]);
-                self.write(ColorSpace::Srgb, hsv.alternate_color_space(), alloc);
-                hsv.tint_ref(self.hsv(alloc));
-                hsv.attrs().subtype(DeviceNSubtype::DeviceN);
-            }
             ColorSpace::Cmyk => writer.device_cmyk(),
         }
     }
@@ -151,14 +107,6 @@ impl ColorSpaces {
             self.write(ColorSpace::D65Gray, spaces.insert(D65_GRAY).start(), alloc);
         }
 
-        if self.hsv.is_some() {
-            self.write(ColorSpace::Hsv, spaces.insert(HSV).start(), alloc);
-        }
-
-        if self.hsl.is_some() {
-            self.write(ColorSpace::Hsl, spaces.insert(HSL).start(), alloc);
-        }
-
         if self.use_linear_rgb {
             self.write(ColorSpace::LinearRgb, spaces.insert(LINEAR_SRGB).start(), alloc);
         }
@@ -171,24 +119,6 @@ impl ColorSpaces {
         if let Some(oklab) = self.oklab {
             chunk
                 .post_script_function(oklab, &OKLAB_DEFLATED)
-                .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
-                .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
-                .filter(Filter::FlateDecode);
-        }
-
-        // Write the HSV function & color space.
-        if let Some(hsv) = self.hsv {
-            chunk
-                .post_script_function(hsv, &HSV_DEFLATED)
-                .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
-                .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
-                .filter(Filter::FlateDecode);
-        }
-
-        // Write the HSL function & color space.
-        if let Some(hsl) = self.hsl {
-            chunk
-                .post_script_function(hsl, &HSL_DEFLATED)
                 .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
                 .filter(Filter::FlateDecode);
@@ -255,7 +185,7 @@ pub trait ColorEncode {
 impl ColorEncode for ColorSpace {
     fn encode(&self, color: Color) -> [f32; 4] {
         match self {
-            ColorSpace::Oklab | ColorSpace::Oklch => {
+            ColorSpace::Oklab | ColorSpace::Oklch | ColorSpace::Hsl | ColorSpace::Hsv => {
                 let [l, c, h, alpha] = color.to_oklch().to_vec4();
                 // Clamp on Oklch's chroma, not Oklab's a\* and b\* as to not distort hue.
                 let c = c.clamp(0.0, 0.5);
@@ -264,15 +194,7 @@ impl ColorEncode for ColorSpace {
                 let b = c * h.to_radians().sin();
                 [l, a + 0.5, b + 0.5, alpha]
             }
-            ColorSpace::Hsl => {
-                let [h, s, l, _] = color.to_hsl().to_vec4();
-                [h / 360.0, s, l, 0.0]
-            }
-            ColorSpace::Hsv => {
-                let [h, s, v, _] = color.to_hsv().to_vec4();
-                [h / 360.0, s, v, 0.0]
-            }
-            _ => color.to_vec4(),
+            _ => color.to_space(*self).to_vec4(),
         }
     }
 }
@@ -315,7 +237,7 @@ impl PaintEncode for Color {
                 ctx.content.set_fill_color([l]);
             }
             // Oklch is converted to Oklab.
-            Color::Oklab(_) | Color::Oklch(_) => {
+            Color::Oklab(_) | Color::Oklch(_) | Color::Hsl(_) | Color::Hsv(_) => {
                 ctx.parent.colors.oklab(&mut ctx.parent.alloc);
                 ctx.set_fill_color_space(OKLAB);
 
@@ -342,20 +264,6 @@ impl PaintEncode for Color {
                 let [c, m, y, k] = ColorSpace::Cmyk.encode(*self);
                 ctx.content.set_fill_cmyk(c, m, y, k);
             }
-            Color::Hsl(_) => {
-                ctx.parent.colors.hsl(&mut ctx.parent.alloc);
-                ctx.set_fill_color_space(HSL);
-
-                let [h, s, l, _] = ColorSpace::Hsl.encode(*self);
-                ctx.content.set_fill_color([h, s, l]);
-            }
-            Color::Hsv(_) => {
-                ctx.parent.colors.hsv(&mut ctx.parent.alloc);
-                ctx.set_fill_color_space(HSV);
-
-                let [h, s, v, _] = ColorSpace::Hsv.encode(*self);
-                ctx.content.set_fill_color([h, s, v]);
-            }
         }
     }
 
@@ -369,7 +277,7 @@ impl PaintEncode for Color {
                 ctx.content.set_stroke_color([l]);
             }
             // Oklch is converted to Oklab.
-            Color::Oklab(_) | Color::Oklch(_) => {
+            Color::Oklab(_) | Color::Oklch(_) | Color::Hsl(_) | Color::Hsv(_) => {
                 ctx.parent.colors.oklab(&mut ctx.parent.alloc);
                 ctx.set_stroke_color_space(OKLAB);
 
@@ -395,20 +303,6 @@ impl PaintEncode for Color {
 
                 let [c, m, y, k] = ColorSpace::Cmyk.encode(*self);
                 ctx.content.set_stroke_cmyk(c, m, y, k);
-            }
-            Color::Hsl(_) => {
-                ctx.parent.colors.hsl(&mut ctx.parent.alloc);
-                ctx.set_stroke_color_space(HSL);
-
-                let [h, s, l, _] = ColorSpace::Hsl.encode(*self);
-                ctx.content.set_stroke_color([h, s, l]);
-            }
-            Color::Hsv(_) => {
-                ctx.parent.colors.hsv(&mut ctx.parent.alloc);
-                ctx.set_stroke_color_space(HSV);
-
-                let [h, s, v, _] = ColorSpace::Hsv.encode(*self);
-                ctx.content.set_stroke_color([h, s, v]);
             }
         }
     }

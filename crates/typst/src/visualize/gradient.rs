@@ -161,6 +161,20 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// # Presets
 /// Typst predefines color maps that you can use with your gradients. See the
 /// [`color`]($color/#predefined-color-maps) documentation for more details.
+///
+/// # Note on file sizes
+///
+/// Gradients can be quite large, especially if they have many stops. This is
+/// because gradients are stored as a list of colors and offsets, which can
+/// take up a lot of space. If you are concerned about file sizes, you should
+/// consider the following:
+/// - SVG gradients are currently inefficiently encoded. This will be improved
+///   in the future.
+/// - PDF gradients in the [`color.hsv`]($color.hsv), [`color.hsl`]($color.hsl),
+///   and [`color.oklch`]($color.oklch) color spaces are stored as a list of
+///   [`color.oklab`]($color.oklab) colors with extra stops in between. This
+///   avoids needing to encode these color spaces in your PDF file, but it does
+///   add extra stops to your gradient, which can increase the file size.
 #[ty(scope)]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Gradient {
