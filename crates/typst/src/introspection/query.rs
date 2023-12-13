@@ -72,8 +72,8 @@ use crate::introspection::Location;
 /// titled `Real`. Thus, `count` is `1` and one `Fake` heading is generated.
 /// Typst sees that the query's result has changed and processes it again. This
 /// time, `count` is `2` and two `Fake` headings are generated. This goes on and
-/// on. As we can see, the output has five headings. This is because Typst
-/// simply gives up after five attempts.
+/// on. As we can see, the output has a finite amount of headings. This is
+/// because Typst simply gives up after a few attempts.
 ///
 /// In general, you should try not to write queries that affect themselves. The
 /// same words of caution also apply to other introspection features like
