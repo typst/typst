@@ -1047,6 +1047,10 @@ impl Color {
 
     /// Create a color by mixing two or more colors.
     ///
+    /// In color spaces with a hue component (hsl, hsv, oklch), only two colors
+    /// can be mixed at once. Mixing more than two colors in such a space will
+    /// result in an error!
+    ///
     /// ```example
     /// #set block(height: 20pt, width: 100%)
     /// #block(fill: red.mix(blue))
@@ -1076,27 +1080,70 @@ impl Color {
 impl Color {
     /// Same as [`Color::mix`], but takes an iterator instead of a vector.
     pub fn mix_iter(
-        colors: impl IntoIterator<Item = WeightedColor>,
+        colors: impl IntoIterator<
+            Item = WeightedColor,
+            IntoIter = impl ExactSizeIterator<Item = WeightedColor>,
+        >,
         space: ColorSpace,
     ) -> StrResult<Color> {
-        let mut total = 0.0;
-        let mut acc = [0.0; 4];
-
-        for WeightedColor { color, weight } in colors {
-            let weight = weight as f32;
-            let v = color.to_space(space).to_vec4();
-            acc[0] += weight * v[0];
-            acc[1] += weight * v[1];
-            acc[2] += weight * v[2];
-            acc[3] += weight * v[3];
-            total += weight;
+        let mut colors = colors.into_iter();
+        if space.hue_index().is_some() && colors.len() > 2 {
+            bail!("cannot mix more than two colors in a hue-based space");
         }
 
-        if total <= 0.0 {
-            bail!("sum of weights must be positive");
-        }
+        let m = if space.hue_index().is_some() && colors.len() == 2 {
+            let mut m = [0.0; 4];
 
-        let m = acc.map(|v| v / total);
+            let WeightedColor { color: c0, weight: w0 } = colors.next().unwrap();
+            let WeightedColor { color: c1, weight: w1 } = colors.next().unwrap();
+
+            let c0 = c0.to_space(space).to_vec4();
+            let c1 = c1.to_space(space).to_vec4();
+            let w0 = w0 as f32;
+            let w1 = w1 as f32;
+
+            if w0 + w1 <= 0.0 {
+                bail!("sum of weights must be positive");
+            }
+
+            for i in 0..4 {
+                m[i] = (w0 * c0[i] + w1 * c1[i]) / (w0 + w1);
+            }
+
+            // Ensure that the hue circle is traversed in the short direction.
+            if let Some(index) = space.hue_index() {
+                if (c0[index] - c1[index]).abs() > 180.0 {
+                    let (h0, h1) = if c0[index] < c1[index] {
+                        (c0[index] + 360.0, c1[index])
+                    } else {
+                        (c0[index], c1[index] + 360.0)
+                    };
+                    m[index] = (w0 * h0 + w1 * h1) / (w0 + w1);
+                }
+            }
+
+            m
+        } else {
+            let mut total = 0.0;
+            let mut acc = [0.0; 4];
+
+            for WeightedColor { color, weight } in colors {
+                let weight = weight as f32;
+                let v = color.to_space(space).to_vec4();
+                acc[0] += weight * v[0];
+                acc[1] += weight * v[1];
+                acc[2] += weight * v[2];
+                acc[3] += weight * v[3];
+                total += weight;
+            }
+
+            if total <= 0.0 {
+                bail!("sum of weights must be positive");
+            }
+
+            acc.map(|v| v / total)
+        };
+
         Ok(match space {
             ColorSpace::Oklab => Color::Oklab(Oklab::new(m[0], m[1], m[2], m[3])),
             ColorSpace::Oklch => Color::Oklch(Oklch::new(m[0], m[1], m[2], m[3])),
@@ -1738,6 +1785,18 @@ pub enum ColorSpace {
     Hsv,
     /// The CMYK color space.
     Cmyk,
+}
+
+impl ColorSpace {
+    /// Returns the index of the hue component in this color space, if it has
+    /// one.
+    pub fn hue_index(&self) -> Option<usize> {
+        match self {
+            Self::Hsl | Self::Hsv => Some(0),
+            Self::Oklch => Some(2),
+            _ => None,
+        }
+    }
 }
 
 cast! {
