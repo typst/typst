@@ -2,7 +2,7 @@ use comemo::{Prehashed, Track, Tracked};
 use iai::{black_box, main, Iai};
 use typst::diag::FileResult;
 use typst::eval::Tracer;
-use typst::foundations::{Bytes, Datetime, SysArguments};
+use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook};
 use typst::visualize::Color;
@@ -91,7 +91,7 @@ impl BenchWorld {
         let book = FontBook::from_fonts([&font]);
 
         Self {
-            library: Prehashed::new(Library::build(SysArguments::default())),
+            library: Prehashed::new(Library::default()),
             book: Prehashed::new(book),
             font,
             source: Source::detached(TEXT),

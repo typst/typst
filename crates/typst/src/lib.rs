@@ -66,7 +66,7 @@ use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{
-    Array, Bytes, Content, Datetime, Module, Scope, StyleChain, Styles, SysArguments,
+    Array, Bytes, Content, Datetime, Dict, Module, Scope, StyleChain, Styles,
 };
 use crate::introspection::{Introspector, Locator};
 use crate::layout::{Align, Dir, LayoutRoot};
@@ -252,18 +252,39 @@ pub struct Library {
 }
 
 impl Library {
-    /// Construct the standard library.
-    pub fn build(sys_args: SysArguments) -> Self {
-        let math = math::module();
-        let sys = foundations::module(sys_args);
-        let global = global(math.clone(), sys);
-        Self { global, math, styles: Styles::new() }
+    pub fn builder() -> LibraryBuilder {
+        LibraryBuilder::default()
     }
 }
 
 impl Default for Library {
+    /// Constructs the standard library with no inputs.
     fn default() -> Self {
-        Self::build(SysArguments::default())
+        LibraryBuilder::default().build()
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct LibraryBuilder {
+    pub inputs: Option<Dict>,
+}
+
+impl LibraryBuilder {
+    /// Returns itself either with the inputs set if none existed or added.
+    pub fn with_inputs(mut self, inputs: Dict) -> Self {
+        match self.inputs {
+            Some(ref mut s) => s.extend(inputs),
+            None => self.inputs = Some(inputs),
+        }
+        self
+    }
+
+    /// Consumes the builder and returns a `Library`.
+    pub fn build(self) -> Library {
+        let math = math::module();
+        let sys = foundations::module(self.inputs.unwrap_or_default());
+        let global = global(math.clone(), sys);
+        Library { global, math, styles: Styles::new() }
     }
 }
 

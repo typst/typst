@@ -4,7 +4,7 @@ use comemo::Prehashed;
 use libfuzzer_sys::fuzz_target;
 use typst::diag::{FileError, FileResult};
 use typst::eval::Tracer;
-use typst::foundations::{Bytes, Datetime, SysArguments};
+use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook};
 use typst::visualize::Color;
@@ -24,7 +24,7 @@ impl FuzzWorld {
         let font = Font::new(FONT.into(), 0).unwrap();
         let book = FontBook::from_fonts([&font]);
         Self {
-            library: Prehashed::new(Library::build(SysArguments::default())),
+            library: Prehashed::new(Library::default()),
             book: Prehashed::new(book),
             font,
             source: Source::detached(text),

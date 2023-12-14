@@ -7,7 +7,6 @@ use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
 use ecow::eco_format;
 use typst::diag::{FileError, FileResult, StrResult};
-use typst::foundations::SysArguments;
 use typst::foundations::{Bytes, Datetime, Dict, Value};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
@@ -22,8 +21,8 @@ use crate::package::prepare_package;
 pub struct SystemWorld {
     /// The working directory.
     workdir: Option<PathBuf>,
-    /// The canonical path to the input file.
-    input: PathBuf,
+    /// The canonical path to the source file.
+    source: PathBuf,
     /// The root relative to which absolute paths are resolved.
     root: PathBuf,
     /// The input path.
@@ -51,7 +50,7 @@ impl SystemWorld {
         searcher.search(&command.font_paths);
 
         // Resolve the system-global input path.
-        let input = command.source.canonicalize().map_err(|_| {
+        let source = command.source.canonicalize().map_err(|_| {
             eco_format!(
                 "source file not found (searched at {})",
                 command.source.display(),
@@ -63,7 +62,7 @@ impl SystemWorld {
             let path = command
                 .root
                 .as_deref()
-                .or_else(|| input.parent())
+                .or_else(|| source.parent())
                 .unwrap_or(Path::new("."));
             path.canonicalize().map_err(|_| {
                 eco_format!("root directory not found (searched at {})", path.display())
@@ -71,8 +70,8 @@ impl SystemWorld {
         };
 
         // Resolve the virtual path of the main file within the project root.
-        let main_path = VirtualPath::within_root(&input, &root)
-            .ok_or("input file must be contained in project root")?;
+        let main_path = VirtualPath::within_root(&source, &root)
+            .ok_or("source file must be contained in project root")?;
 
         // Convert the Vec<(String, String)> to a Typst Dictionary.
         let inputs = command
@@ -80,15 +79,14 @@ impl SystemWorld {
             .iter()
             .map(|(k, v)| (k.clone().into(), Value::Str(v.clone().into())));
         let inputs = Dict::from_iter(inputs);
-
-        let sys_args = SysArguments { inputs };
+        let library = Library::builder().with_inputs(inputs).build();
 
         Ok(Self {
             workdir: std::env::current_dir().ok(),
-            input,
+            source,
             root,
             main: FileId::new(None, main_path),
-            library: Prehashed::new(Library::build(sys_args)),
+            library: Prehashed::new(library),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
             slots: RefCell::default(),
@@ -129,9 +127,9 @@ impl SystemWorld {
         self.now.take();
     }
 
-    /// Return the canonical path to the input file.
+    /// Return the canonical path to the source file.
     pub fn input(&self) -> &PathBuf {
-        &self.input
+        &self.source
     }
 
     /// Lookup a source file by id.

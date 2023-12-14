@@ -21,8 +21,8 @@ use serde::Deserialize;
 use serde_yaml as yaml;
 use typst::diag::{bail, StrResult};
 use typst::foundations::{
-    CastInfo, Category, Func, Module, ParamInfo, Repr, Scope, Smart, SysArguments, Type,
-    Value, FOUNDATIONS,
+    CastInfo, Category, Func, Module, ParamInfo, Repr, Scope, Smart, Type, Value,
+    FOUNDATIONS,
 };
 use typst::introspection::INTROSPECTION;
 use typst::layout::{Abs, Frame, Margin, PageElem, LAYOUT};
@@ -55,7 +55,7 @@ static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| {
 });
 
 static LIBRARY: Lazy<Prehashed<Library>> = Lazy::new(|| {
-    let mut lib = Library::build(SysArguments::default());
+    let mut lib = Library::default();
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(240.0).into())));
     lib.styles.set(PageElem::set_height(Smart::Auto));

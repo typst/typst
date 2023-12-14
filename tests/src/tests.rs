@@ -19,7 +19,7 @@ use tiny_skia as sk;
 use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
 use typst::eval::Tracer;
 use typst::foundations::{
-    eco_format, func, Bytes, Datetime, NoneValue, Repr, Smart, SysArguments, Value,
+    eco_format, func, Bytes, Datetime, NoneValue, Repr, Smart, Value,
 };
 use typst::introspection::Meta;
 use typst::layout::{Abs, Frame, FrameItem, Margin, PageElem, Transform};
@@ -193,7 +193,7 @@ fn library() -> Library {
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
-    let mut lib = Library::build(SysArguments::default());
+    let mut lib = Library::default();
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(120.0).into())));
     lib.styles.set(PageElem::set_height(Smart::Auto));
