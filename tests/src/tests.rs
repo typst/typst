@@ -113,6 +113,7 @@ impl Args {
     }
 }
 
+/// Tests all test files and prints a summary.
 fn main() {
     let args = Args::parse();
 
@@ -385,6 +386,14 @@ fn read(path: &Path) -> FileResult<Vec<u8>> {
     }
 }
 
+// TODO DOC FIX: currently misleading
+// because we don't error on invalid metadata keys yet.
+// We only error on malformed annotations.
+
+/// Tests a test file and prints the result.
+///
+/// Also tests that the header of each test is correctly written. 
+/// See [parse_part_metadata] for more details.
 fn test(
     world: &mut TestWorld,
     src_path: &Path,
@@ -412,9 +421,7 @@ fn test(
     let mut updated = false;
     let mut frames = vec![];
     let mut line = 0;
-    let mut compare_ref = None;
-    let mut validate_hints = None;
-    let mut validate_autocomplete = None;
+    let mut header_configuration = None;
     let mut compare_ever = false;
     let mut rng = LinearShift::new();
 
@@ -441,11 +448,40 @@ fn test(
                 .all(|s| s.starts_with("//") || s.chars().all(|c| c.is_whitespace()));
 
         if is_header {
-            for line in part.lines() {
-                compare_ref = get_flag_metadata(line, "Ref").or(compare_ref);
-                validate_hints = get_flag_metadata(line, "Hints").or(validate_hints);
-                validate_autocomplete =
-                    get_flag_metadata(line, "Autocomplete").or(validate_autocomplete);
+            // todo, is this a hack?
+            let source = world.set(&src_path.join("./header"), part.to_string());
+            let metadata = parse_part_metadata(&source);
+            header_configuration = Some(metadata.part_configuration);
+            if !metadata.invalid_data.is_empty() {
+                ok = false;
+                writeln!(
+                    output,
+                    " Test {}: invalid metadata in header, failing the test:",
+                    name.display()
+                )
+                .unwrap();
+                for (annotation, error) in metadata.invalid_data {
+                    write!(output, "{error}",).unwrap();
+                    if let Some(annotation) = annotation {
+                        print_annotation(&mut output, &source, line, &annotation)
+                    } else {
+                        writeln!(output).unwrap();
+                    }
+                }
+            }
+            if !metadata.annotations.is_empty() {
+                ok = false;
+                writeln!(
+                    output,
+                    " Test {}: header may not contain annotations.",
+                    name.display()
+                )
+                .unwrap();
+
+                for found in metadata.annotations {
+                    write!(output, "  invalid in header |").unwrap();
+                    print_annotation(&mut output, &source, line, &found)
+                }
             }
         } else {
             let (part_ok, compare_here, part_frames) = test_part(
@@ -454,11 +490,10 @@ fn test(
                 src_path,
                 part.into(),
                 i,
-                compare_ref.unwrap_or(true),
-                validate_hints.unwrap_or(true),
-                validate_autocomplete.unwrap_or(false),
+                header_configuration.as_ref().unwrap_or(&Default::default()),
                 line,
                 &mut rng,
+                args.verbose,
             );
 
             ok &= part_ok;
@@ -564,11 +599,10 @@ fn test_part(
     src_path: &Path,
     text: String,
     i: usize,
-    compare_ref: bool,
-    validate_hints: bool,
-    validate_autocomplete: bool,
+    header_configuration: &TestConfiguration,
     line: usize,
     rng: &mut LinearShift,
+    verbose: bool,
 ) -> (bool, bool, Vec<Frame>) {
     let mut ok = true;
 
@@ -578,14 +612,22 @@ fn test_part(
     }
 
     let metadata = parse_part_metadata(&source);
-    let compare_ref = metadata.part_configuration.compare_ref.unwrap_or(compare_ref);
-    let validate_hints =
-        metadata.part_configuration.validate_hints.unwrap_or(validate_hints);
-
+    let compare_ref = metadata
+        .part_configuration
+        .compare_ref
+        .unwrap_or(header_configuration.compare_ref.unwrap_or(true));
+    let validate_hints = metadata
+        .part_configuration
+        .validate_hints
+        .unwrap_or(header_configuration.validate_hints.unwrap_or(true));
     let validate_autocomplete = metadata
         .part_configuration
         .validate_autocomplete
-        .unwrap_or(validate_autocomplete);
+        .unwrap_or(header_configuration.validate_autocomplete.unwrap_or(false));
+
+    if verbose {
+        writeln!(output, "Subtest {i} runs with compare_ref={compare_ref} validate_hints={validate_hints} validate_autocomplete={validate_autocomplete}").unwrap();
+    }
 
     ok &= test_spans(output, source.root());
     ok &= test_reparse(output, source.text(), i, rng);
@@ -613,6 +655,22 @@ fn test_part(
     // Don't retain frames if we don't want to compare with reference images.
     if !compare_ref {
         frames.clear();
+    }
+
+    if !metadata.invalid_data.is_empty() {
+        ok = false;
+        writeln!(output, "  Subtest {i} has invalid metadata, failing the test:")
+            .unwrap();
+        for (annotation, error) in &metadata.invalid_data {
+            if let Some(annotation) = annotation {
+                write!(output, "    {error}|").unwrap();
+
+                // line is a logic error here, what should I do with it?
+                print_annotation(output, &source, line, annotation)
+            } else {
+                writeln!(output, "    {error}").unwrap();
+            }
+        }
     }
 
     // we never check autocomplete and error at the same time
@@ -714,33 +772,9 @@ fn test_part(
                     | AnnotationKind::AutocompleteExcludes
             )
         }) {
-            let cursor = if let Some(range) = &annotation.range {
-                if range.start != range.end {
-                    writeln!(
-                        output,
-                        "  Subtest {i} has this annotation using a range where `range.len() != 0`."
-                    )
-                    .unwrap();
-                    writeln!(
-                        output,
-                        "  `range.start` will be used and `range.end` will be ignored."
-                    )
-                    .unwrap();
-                    write!(output, "    Ignored r.end | ").unwrap();
-                    print_annotation(output, &source, line, annotation);
-                }
-                range.start
-            } else {
-                writeln!(
-                    output,
-                    "  Subtest {i} has an autocomplete annotation but no range specified"
-                )
-                .unwrap();
-                write!(output, "Annotation ignored| ").unwrap();
-                print_annotation(output, &source, line, annotation);
-                ok = false;
-                continue;
-            };
+            // Ok cause we checked in parsing that range was Some for this annotation
+            let cursor = annotation.range.as_ref().unwrap().start;
+
             // todo, use document if is_some to test labels autocomplete
             let completions = typst_ide::autocomplete(world, None, &source, cursor, true)
                 .map(|(_, c)| c)
@@ -760,10 +794,10 @@ fn test_part(
             {
                 writeln!(output, "  Subtest {i} does not match expected completions.")
                     .unwrap();
-                write!(output, "   for annotation | ").unwrap();
+                write!(output, "  for annotation | ").unwrap();
                 print_annotation(output, &source, line, annotation);
 
-                write!(output, "        Missing       | ").unwrap();
+                write!(output, "    Not contained  | ").unwrap();
                 for item in missing {
                     write!(output, "{item:?}, ").unwrap()
                 }
@@ -779,10 +813,10 @@ fn test_part(
             {
                 writeln!(output, "  Subtest {i} does not match expected completions.")
                     .unwrap();
-                write!(output, "   for annotation | ").unwrap();
+                write!(output, "  for annotation | ").unwrap();
                 print_annotation(output, &source, line, annotation);
 
-                write!(output, "        Undesired       | ").unwrap();
+                write!(output, "    Not excluded| ").unwrap();
                 for item in undesired {
                     write!(output, "{item:?}, ").unwrap()
                 }
