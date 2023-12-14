@@ -21,8 +21,8 @@ use serde::Deserialize;
 use serde_yaml as yaml;
 use typst::diag::{bail, StrResult};
 use typst::foundations::{
-    CastInfo, Category, Func, Module, ParamInfo, Repr, Scope, Smart, Type, Value,
-    FOUNDATIONS,
+    CastInfo, Category, Func, Module, ParamInfo, Repr, Scope, Smart, SysArguments, Type,
+    Value, FOUNDATIONS,
 };
 use typst::introspection::INTROSPECTION;
 use typst::layout::{Abs, Frame, Margin, PageElem, LAYOUT};
@@ -30,7 +30,6 @@ use typst::loading::DATA_LOADING;
 use typst::math::MATH;
 use typst::model::MODEL;
 use typst::symbols::SYMBOLS;
-use typst::sys::SysArguments;
 use typst::text::{Font, FontBook, TEXT};
 use typst::visualize::VISUALIZE;
 use typst::Library;

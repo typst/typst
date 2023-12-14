@@ -19,13 +19,12 @@ use tiny_skia as sk;
 use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
 use typst::eval::Tracer;
 use typst::foundations::{
-    eco_format, func, Bytes, Datetime, NoneValue, Repr, Smart, Value,
+    eco_format, func, Bytes, Datetime, NoneValue, Repr, Smart, SysArguments, Value,
 };
 use typst::introspection::Meta;
 use typst::layout::{Abs, Frame, FrameItem, Margin, PageElem, Transform};
 use typst::model::Document;
 use typst::syntax::{FileId, PackageVersion, Source, SyntaxNode, VirtualPath};
-use typst::sys::SysArguments;
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::visualize::Color;
 use typst::{Library, World, WorldExt};

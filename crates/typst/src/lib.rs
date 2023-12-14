@@ -50,7 +50,6 @@ pub mod math;
 pub mod model;
 pub mod realize;
 pub mod symbols;
-pub mod sys;
 pub mod text;
 pub mod visualize;
 
@@ -67,13 +66,12 @@ use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{
-    Array, Bytes, Content, Datetime, Module, Scope, StyleChain, Styles,
+    Array, Bytes, Content, Datetime, Module, Scope, StyleChain, Styles, SysArguments,
 };
 use crate::introspection::{Introspector, Locator};
 use crate::layout::{Align, Dir, LayoutRoot};
 use crate::model::Document;
 use crate::syntax::{FileId, PackageSpec, Source, Span};
-use crate::sys::SysArguments;
 use crate::text::{Font, FontBook};
 use crate::visualize::Color;
 
@@ -257,7 +255,7 @@ impl Library {
     /// Construct the standard library.
     pub fn build(sys_args: SysArguments) -> Self {
         let math = math::module();
-        let sys = sys::module(sys_args);
+        let sys = foundations::module(sys_args);
         let global = global(math.clone(), sys);
         Self { global, math, styles: Styles::new() }
     }

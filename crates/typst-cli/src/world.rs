@@ -7,9 +7,9 @@ use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
 use ecow::eco_format;
 use typst::diag::{FileError, FileResult, StrResult};
+use typst::foundations::SysArguments;
 use typst::foundations::{Bytes, Datetime, Dict, Value};
 use typst::syntax::{FileId, Source, VirtualPath};
-use typst::sys::SysArguments;
 use typst::text::{Font, FontBook};
 use typst::{Library, World};
 
@@ -51,10 +51,10 @@ impl SystemWorld {
         searcher.search(&command.font_paths);
 
         // Resolve the system-global input path.
-        let input = command.input_file.canonicalize().map_err(|_| {
+        let input = command.source.canonicalize().map_err(|_| {
             eco_format!(
-                "input file not found (searched at {})",
-                command.input_file.display(),
+                "source file not found (searched at {})",
+                command.source.display(),
             )
         })?;
 
@@ -74,7 +74,7 @@ impl SystemWorld {
         let main_path = VirtualPath::within_root(&input, &root)
             .ok_or("input file must be contained in project root")?;
 
-        // Convert the Vec<(String, String)> to a Typst Dictionary
+        // Convert the Vec<(String, String)> to a Typst Dictionary.
         let inputs = command
             .plain_inputs
             .iter()
