@@ -1,12 +1,12 @@
 #![allow(clippy::comparison_chain)]
 
-use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fmt::{self, Display, Formatter, Write as _};
 use std::io::{self, IsTerminal, Write};
 use std::ops::Range;
 use std::path::{Path, PathBuf, MAIN_SEPARATOR_STR};
+use std::sync::{OnceLock, RwLock};
 use std::{env, fs};
 
 use clap::Parser;
@@ -14,7 +14,6 @@ use comemo::{Prehashed, Track};
 use ecow::EcoString;
 use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use std::cell::OnceCell;
 use tiny_skia as sk;
 use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
 use typst::eval::Tracer;
@@ -217,20 +216,19 @@ fn library() -> Library {
 }
 
 /// A world that provides access to the tests environment.
-#[derive(Clone)]
 struct TestWorld {
     print: PrintConfig,
     main: FileId,
     library: Prehashed<Library>,
     book: Prehashed<FontBook>,
     fonts: Vec<Font>,
-    paths: RefCell<HashMap<FileId, PathSlot>>,
+    slots: RwLock<HashMap<FileId, FileSlot>>,
 }
 
 #[derive(Clone)]
-struct PathSlot {
-    source: OnceCell<FileResult<Source>>,
-    buffer: OnceCell<FileResult<Bytes>>,
+struct FileSlot {
+    source: OnceLock<FileResult<Source>>,
+    buffer: OnceLock<FileResult<Bytes>>,
 }
 
 impl TestWorld {
@@ -253,7 +251,7 @@ impl TestWorld {
             library: Prehashed::new(library()),
             book: Prehashed::new(FontBook::from_fonts(&fonts)),
             fonts,
-            paths: RefCell::default(),
+            slots: RwLock::new(HashMap::new()),
         }
     }
 }
@@ -272,21 +270,23 @@ impl World for TestWorld {
     }
 
     fn source(&self, id: FileId) -> FileResult<Source> {
-        let slot = self.slot(id)?;
-        slot.source
-            .get_or_init(|| {
-                let buf = read(&system_path(id)?)?;
-                let text = String::from_utf8(buf)?;
-                Ok(Source::new(id, text))
-            })
-            .clone()
+        self.slot(id, |slot| {
+            slot.source
+                .get_or_init(|| {
+                    let buf = read(&system_path(id)?)?;
+                    let text = String::from_utf8(buf)?;
+                    Ok(Source::new(id, text))
+                })
+                .clone()
+        })
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        let slot = self.slot(id)?;
-        slot.buffer
-            .get_or_init(|| read(&system_path(id)?).map(Bytes::from))
-            .clone()
+        self.slot(id, |slot| {
+            slot.buffer
+                .get_or_init(|| read(&system_path(id)?).map(Bytes::from))
+                .clone()
+        })
     }
 
     fn font(&self, id: usize) -> Option<Font> {
@@ -301,19 +301,34 @@ impl World for TestWorld {
 impl TestWorld {
     fn set(&mut self, path: &Path, text: String) -> Source {
         self.main = FileId::new(None, VirtualPath::new(path));
-        let mut slot = self.slot(self.main).unwrap();
         let source = Source::new(self.main, text);
-        slot.source = OnceCell::from(Ok(source.clone()));
-        source
+        self.slot(self.main, |slot| {
+            slot.source = OnceLock::from(Ok(source.clone()));
+            source
+        })
     }
 
-    fn slot(&self, id: FileId) -> FileResult<RefMut<PathSlot>> {
-        Ok(RefMut::map(self.paths.borrow_mut(), |paths| {
-            paths.entry(id).or_insert_with(|| PathSlot {
-                source: OnceCell::new(),
-                buffer: OnceCell::new(),
-            })
+    fn slot<F, T>(&self, id: FileId, f: F) -> T
+    where
+        F: FnOnce(&mut FileSlot) -> T,
+    {
+        f(self.slots.write().unwrap().entry(id).or_insert_with(|| FileSlot {
+            source: OnceLock::new(),
+            buffer: OnceLock::new(),
         }))
+    }
+}
+
+impl Clone for TestWorld {
+    fn clone(&self) -> Self {
+        Self {
+            print: self.print,
+            main: self.main,
+            library: self.library.clone(),
+            book: self.book.clone(),
+            fonts: self.fonts.clone(),
+            slots: RwLock::new(self.slots.read().unwrap().clone()),
+        }
     }
 }
 

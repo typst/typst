@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
 
@@ -24,7 +24,7 @@ pub struct Engine<'a> {
 }
 
 impl Engine<'_> {
-    /// Perform a fallible operation that does not immediately terminate further
+    /// Performs a fallible operation that does not immediately terminate further
     /// execution. Instead it produces a delayed error that is only promoted to
     /// a fatal one if it remains at the end of the introspection loop.
     pub fn delayed<F, T>(&mut self, f: F) -> T
@@ -44,7 +44,6 @@ impl Engine<'_> {
 
 /// The route the engine took during compilation. This is used to detect
 /// cyclic imports and too much nesting.
-#[derive(Clone)]
 pub struct Route<'a> {
     // We need to override the constraint's lifetime here so that `Tracked` is
     // covariant over the constraint. If it becomes invariant, we're in for a
@@ -63,7 +62,7 @@ pub struct Route<'a> {
     /// know the exact length (that would defeat the whole purpose because it
     /// would prevent cache reuse of some computation at different,
     /// non-exceeding depths).
-    upper: Cell<usize>,
+    upper: AtomicUsize,
 }
 
 /// The maximum nesting depths. They are different so that even if show rule and
@@ -84,7 +83,12 @@ impl Route<'_> {
 impl<'a> Route<'a> {
     /// Create a new, empty route.
     pub fn root() -> Self {
-        Self { id: None, outer: None, len: 0, upper: Cell::new(0) }
+        Self {
+            id: None,
+            outer: None,
+            len: 0,
+            upper: AtomicUsize::new(0),
+        }
     }
 
     /// Extend the route with another segment with a default length of 1.
@@ -93,7 +97,7 @@ impl<'a> Route<'a> {
             outer: Some(outer),
             id: None,
             len: 1,
-            upper: Cell::new(usize::MAX),
+            upper: AtomicUsize::new(usize::MAX),
         }
     }
 
@@ -138,7 +142,10 @@ impl<'a> Route<'a> {
 
     /// Whether the route's depth is less than or equal to the given depth.
     pub fn within(&self, depth: usize) -> bool {
-        if self.upper.get().saturating_add(self.len) <= depth {
+        use Ordering::Relaxed;
+
+        let upper = self.upper.load(Relaxed);
+        if upper.saturating_add(self.len) <= depth {
             return true;
         }
 
@@ -146,8 +153,10 @@ impl<'a> Route<'a> {
             Some(_) if depth < self.len => false,
             Some(outer) => {
                 let within = outer.within(depth - self.len);
-                if within && depth < self.upper.get() {
-                    self.upper.set(depth);
+                if within && depth < upper {
+                    // We don't want to accidentally increase the upper bound,
+                    // hence the compare-exchange.
+                    self.upper.compare_exchange(upper, depth, Relaxed, Relaxed).ok();
                 }
                 within
             }
@@ -159,5 +168,18 @@ impl<'a> Route<'a> {
 impl Default for Route<'_> {
     fn default() -> Self {
         Self::root()
+    }
+}
+
+impl Clone for Route<'_> {
+    fn clone(&self) -> Self {
+        Self {
+            outer: self.outer,
+            id: self.id,
+            len: self.len,
+            // The ordering doesn't really matter since it's the upper bound
+            // is only an optimization.
+            upper: AtomicUsize::new(self.upper.load(Ordering::Relaxed)),
+        }
     }
 }
