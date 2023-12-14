@@ -4,7 +4,7 @@ use std::ops::Range;
 use ecow::{eco_format, EcoString};
 use unicode_math_class::MathClass;
 
-use crate::{ast, is_newline, LexMode, Lexer, SyntaxKind, SyntaxNode};
+use crate::{ast, is_ident, is_newline, LexMode, Lexer, SyntaxKind, SyntaxNode};
 
 /// Parse a source file.
 #[tracing::instrument(skip_all)]
@@ -265,9 +265,14 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
                     SyntaxKind::MathIdent | SyntaxKind::Text
                 )
             {
+                let m2 = p.marker();
                 p.convert(SyntaxKind::Dot);
-                p.convert(SyntaxKind::Ident);
-                p.wrap(m, SyntaxKind::FieldAccess);
+                if is_ident(p.current_text()) {
+                    p.convert(SyntaxKind::Ident);
+                    p.wrap(m, SyntaxKind::FieldAccess);
+                } else {
+                    p.node_mut(m2).unwrap().convert_to_kind(SyntaxKind::Text);
+                }
             }
             if min_prec < 3 && p.directly_at(SyntaxKind::Text) && p.current_text() == "("
             {
