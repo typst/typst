@@ -5,24 +5,24 @@ use unicode_math_class::MathClass;
 use crate::foundations::Resolve;
 use crate::layout::{Abs, AlignElem, Em, FixedAlign, Frame, Point, Size};
 use crate::math::{
-    alignments, ctx::GroupRole, spacing, AlignmentResult, FrameFragment, MathContext,
-    MathFragment, MathParItem, MathSize, Scaled,
+    alignments, spacing, AlignmentResult, FrameFragment, MathContext, MathFragment,
+    MathParItem, MathSize, Scaled,
 };
 use crate::model::ParElem;
 
 pub const TIGHT_LEADING: Em = Em::new(0.25);
 
 #[derive(Debug, Default, Clone)]
-pub struct MathRow(Vec<(MathFragment, GroupRole)>);
+pub struct MathRow(Vec<MathFragment>);
 
 impl MathRow {
-    pub fn new(fragments: Vec<(MathFragment, GroupRole)>) -> Self {
+    pub fn new(fragments: Vec<MathFragment>) -> Self {
         let iter = fragments.into_iter().peekable();
         let mut last: Option<usize> = None;
         let mut space: Option<MathFragment> = None;
-        let mut resolved: Vec<(MathFragment, GroupRole)> = vec![];
+        let mut resolved: Vec<MathFragment> = vec![];
 
-        for (mut fragment, role) in iter {
+        for mut fragment in iter {
             match fragment {
                 // Keep space only if supported by spaced fragments.
                 MathFragment::Space(_) => {
@@ -36,19 +36,19 @@ impl MathRow {
                 MathFragment::Spacing(_) => {
                     last = None;
                     space = None;
-                    resolved.push((fragment, role));
+                    resolved.push(fragment);
                     continue;
                 }
 
                 // Alignment points are resolved later.
                 MathFragment::Align => {
-                    resolved.push((fragment, role));
+                    resolved.push(fragment);
                     continue;
                 }
 
                 // New line, new things.
                 MathFragment::Linebreak => {
-                    resolved.push((fragment, role));
+                    resolved.push(fragment);
                     space = None;
                     last = None;
                     continue;
@@ -61,7 +61,7 @@ impl MathRow {
             // precedes them and they are not preceded by a operator or comparator.
             if fragment.class() == Some(MathClass::Vary)
                 && matches!(
-                    last.and_then(|i| resolved[i].0.class()),
+                    last.and_then(|i| resolved[i].class()),
                     Some(
                         MathClass::Normal
                             | MathClass::Alphabetic
@@ -75,19 +75,19 @@ impl MathRow {
 
             // Insert spacing between the last and this item.
             if let Some(i) = last {
-                if let Some(s) = spacing(&resolved[i].0, space.take(), &fragment) {
-                    resolved.insert(i + 1, (s, GroupRole::Inner));
+                if let Some(s) = spacing(&resolved[i], space.take(), &fragment) {
+                    resolved.insert(i + 1, s);
                 }
             }
 
             last = Some(resolved.len());
-            resolved.push((fragment, role));
+            resolved.push(fragment);
         }
 
         Self(resolved)
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, (MathFragment, GroupRole)> {
+    pub fn iter(&self) -> std::slice::Iter<'_, MathFragment> {
         self.0.iter()
     }
 
@@ -98,21 +98,18 @@ impl MathRow {
     /// rows. Hopefully this is only a temporary hack.
     pub fn rows(&self) -> Vec<Self> {
         self.0
-            .split(|frag| matches!(frag.0, MathFragment::Linebreak))
+            .split(|frag| matches!(frag, MathFragment::Linebreak))
             .map(|slice| Self(slice.to_vec()))
             .collect()
     }
 
     pub fn row_count(&self) -> usize {
-        let mut count = 1 + self
-            .0
-            .iter()
-            .filter(|f| matches!(f.0, MathFragment::Linebreak))
-            .count();
+        let mut count =
+            1 + self.0.iter().filter(|f| matches!(f, MathFragment::Linebreak)).count();
 
         // A linebreak at the very end does not introduce an extra row.
         if let Some(f) = self.0.last() {
-            if matches!(f.0, MathFragment::Linebreak) {
+            if matches!(f, MathFragment::Linebreak) {
                 count -= 1
             }
         }
@@ -120,19 +117,11 @@ impl MathRow {
     }
 
     pub fn ascent(&self) -> Abs {
-        self.iter()
-            .map(|item| &item.0)
-            .map(MathFragment::ascent)
-            .max()
-            .unwrap_or_default()
+        self.iter().map(MathFragment::ascent).max().unwrap_or_default()
     }
 
     pub fn descent(&self) -> Abs {
-        self.iter()
-            .map(|item| &item.0)
-            .map(MathFragment::descent)
-            .max()
-            .unwrap_or_default()
+        self.iter().map(MathFragment::descent).max().unwrap_or_default()
     }
 
     pub fn class(&self) -> MathClass {
@@ -140,7 +129,7 @@ impl MathRow {
         if self.0.len() == 1 {
             self.0
                 .first()
-                .and_then(|fragment| fragment.0.class())
+                .and_then(|fragment| fragment.class())
                 .unwrap_or(MathClass::Special)
         } else {
             // FrameFragment::new() (inside 'into_fragment' in this branch) defaults
@@ -157,7 +146,7 @@ impl MathRow {
 
     pub fn into_fragment(self, ctx: &MathContext) -> MathFragment {
         if self.0.len() == 1 {
-            self.0.into_iter().next().unwrap().0
+            self.0.into_iter().next().unwrap()
         } else {
             FrameFragment::new(ctx, self.into_frame(ctx)).into()
         }
@@ -169,7 +158,7 @@ impl MathRow {
         points: &[Abs],
         align: FixedAlign,
     ) -> Frame {
-        if !self.iter().any(|frag| matches!(frag.0, MathFragment::Linebreak)) {
+        if !self.iter().any(|frag| matches!(frag, MathFragment::Linebreak)) {
             return self.into_line_frame(points, align);
         }
 
@@ -217,11 +206,11 @@ impl MathRow {
             if !points.is_empty() && align != FixedAlign::Start {
                 let mut width = Abs::zero();
                 for fragment in self.iter() {
-                    if matches!(fragment.0, MathFragment::Align) {
+                    if matches!(fragment, MathFragment::Align) {
                         widths.push(width);
                         width = Abs::zero();
                     } else {
-                        width += fragment.0.width();
+                        width += fragment.width();
                     }
                 }
                 widths.push(width);
@@ -248,7 +237,7 @@ impl MathRow {
         };
         let mut x = next_x().unwrap_or_default();
 
-        for fragment in self.0.into_iter().map(|f| f.0) {
+        for fragment in self.0.into_iter() {
             if matches!(fragment, MathFragment::Align) {
                 x = next_x().unwrap_or(x);
                 continue;
@@ -278,7 +267,6 @@ impl MathRow {
             frame.translate(Point::with_y(ascent));
         };
 
-        let mut level = 0;
         let mut space_is_visible = false;
 
         let is_relation =
@@ -288,7 +276,7 @@ impl MathRow {
         };
 
         let mut iter = self.0.into_iter().peekable();
-        while let Some((fragment, role)) = iter.next() {
+        while let Some(fragment) = iter.next() {
             if space_is_visible {
                 match fragment {
                     MathFragment::Space(s) | MathFragment::Spacing(s) => {
@@ -300,20 +288,6 @@ impl MathRow {
             }
 
             let class = fragment.class();
-            let mut terminates = false;
-            if level == 0
-                && (class == Some(MathClass::Binary)
-                    || (class == Some(MathClass::Relation)
-                        && !iter.peek().map(|f| is_relation(&f.0)).unwrap_or(false)))
-            {
-                terminates = true;
-            }
-
-            match role {
-                GroupRole::Begin => level += 1,
-                GroupRole::End => level -= 1,
-                _ => {}
-            }
 
             let y = fragment.ascent();
             ascent.set_max(y);
@@ -322,7 +296,10 @@ impl MathRow {
             x += fragment.width();
             frame.push_frame(pos, fragment.into_frame());
 
-            if terminates {
+            if class == Some(MathClass::Binary)
+                || (class == Some(MathClass::Relation)
+                    && !iter.peek().map(is_relation).unwrap_or_default())
+            {
                 let mut frame_prev = std::mem::replace(
                     &mut frame,
                     Frame::new(Size::zero(), crate::layout::FrameKind::Soft),
@@ -335,7 +312,7 @@ impl MathRow {
 
                 space_is_visible = true;
                 if let Some(f_next) = iter.peek() {
-                    if !is_space(&f_next.0) {
+                    if !is_space(f_next) {
                         items.push(MathParItem::Space(Abs::zero()));
                     }
                 };
@@ -354,7 +331,7 @@ impl MathRow {
 
 impl<T: Into<MathFragment>> From<T> for MathRow {
     fn from(fragment: T) -> Self {
-        Self(vec![(fragment.into(), GroupRole::Inner)])
+        Self(vec![fragment.into()])
     }
 }
 

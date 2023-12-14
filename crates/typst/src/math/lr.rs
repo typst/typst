@@ -3,9 +3,7 @@ use unicode_math_class::MathClass;
 use crate::diag::SourceResult;
 use crate::foundations::{elem, func, Content, NativeElement, Resolve, Smart};
 use crate::layout::{Abs, Em, Length, Rel};
-use crate::math::{
-    ctx::GroupRole, GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled,
-};
+use crate::math::{GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled};
 use crate::text::TextElem;
 
 /// How much less high scaled delimiters can be than what they wrap.
@@ -49,7 +47,7 @@ impl LayoutMath for LrElem {
         let axis = scaled!(ctx, axis_height);
         let max_extent = fragments
             .iter()
-            .map(|fragment| (fragment.0.ascent() - axis).max(fragment.0.descent() + axis))
+            .map(|fragment| (fragment.ascent() - axis).max(fragment.descent() + axis))
             .max()
             .unwrap_or_default();
 
@@ -61,18 +59,16 @@ impl LayoutMath for LrElem {
 
         // Scale up fragments at both ends.
         match fragments.as_mut_slice() {
-            [one] => scale(ctx, &mut one.0, height, None),
+            [one] => scale(ctx, one, height, None),
             [first, .., last] => {
-                scale(ctx, &mut first.0, height, Some(MathClass::Opening));
-                first.1 = GroupRole::Begin;
-                scale(ctx, &mut last.0, height, Some(MathClass::Closing));
-                last.1 = GroupRole::End;
+                scale(ctx, first, height, Some(MathClass::Opening));
+                scale(ctx, last, height, Some(MathClass::Closing));
             }
             _ => {}
         }
 
         // Handle MathFragment::Variant fragments that should be scaled up.
-        for (fragment, _) in &mut fragments {
+        for fragment in &mut fragments {
             if let MathFragment::Variant(ref mut variant) = fragment {
                 if variant.mid_stretched == Some(false) {
                     variant.mid_stretched = Some(true);
@@ -104,7 +100,7 @@ impl LayoutMath for MidElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut fragments = ctx.layout_fragments(self.body())?;
 
-        for (fragment, _) in &mut fragments {
+        for fragment in &mut fragments {
             match fragment {
                 MathFragment::Glyph(glyph) => {
                     let mut new = glyph.clone().into_variant();

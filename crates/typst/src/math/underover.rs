@@ -4,8 +4,8 @@ use crate::diag::SourceResult;
 use crate::foundations::{elem, Content, NativeElement};
 use crate::layout::{Abs, Em, FixedAlign, Frame, FrameItem, Point, Size};
 use crate::math::{
-    alignments, ctx::GroupRole, AlignmentResult, FrameFragment, GlyphFragment,
-    LayoutMath, MathContext, MathRow, Scaled,
+    alignments, AlignmentResult, FrameFragment, GlyphFragment, LayoutMath, MathContext,
+    MathRow, Scaled,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
@@ -261,7 +261,7 @@ fn layout_underoverspreader(
     let glyph = GlyphFragment::new(ctx, c, span);
     let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
 
-    let mut rows = vec![MathRow::new(vec![(body, GroupRole::Inner)]), stretched.into()];
+    let mut rows = vec![MathRow::new(vec![body]), stretched.into()];
     ctx.style(if reverse {
         ctx.style.for_subscript()
     } else {
