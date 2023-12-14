@@ -16,10 +16,11 @@ use std::sync::Arc;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
+use if_chain::if_chain;
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
 use typst::foundations::Datetime;
-use typst::layout::{Abs, Dir, Em, Position, Transform};
+use typst::layout::{Abs, Dir, Em, Transform};
 use typst::model::Document;
 use typst::text::{Font, Lang};
 use typst::util::Deferred;
@@ -117,8 +118,6 @@ struct PdfContext<'a> {
     pattern_map: Remapper<PdfPattern>,
     /// Deduplicates external graphics states used across the document.
     extg_map: Remapper<ExtGState>,
-    /// Ordered set of named destinations
-    named_dests: Vec<(Name<'a>, Position)>,
 }
 
 impl<'a> PdfContext<'a> {
@@ -148,7 +147,6 @@ impl<'a> PdfContext<'a> {
             gradient_map: Remapper::new(),
             pattern_map: Remapper::new(),
             extg_map: Remapper::new(),
-            named_dests: Vec::new(),
         }
     }
 }
@@ -291,22 +289,33 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     // PDF 1.1
     catalog.destinations(ctx.named_dests_ref);
     catalog.finish();
-    let nds = &ctx.named_dests;
-    if !nds.is_empty() {
-        let mut destinations = ctx.pdf.destinations(ctx.named_dests_ref);
-        for (name, pos) in nds {
+    write_named_destinations(ctx);
+}
+
+#[tracing::instrument(skip_all)]
+fn write_named_destinations(ctx: &mut PdfContext) {
+    // PDF 1.1
+    let mut destinations = ctx.pdf.destinations(ctx.named_dests_ref);
+    for elem in ctx.document.introspector.all() {
+        if_chain!(
+            if let Some(label) = elem.label();
+            if let Ok(_) = ctx.document.introspector.query_label(label);
+            if let Some(loc) = elem.location();
+            let name = Name(label.as_str().as_bytes());
+            let pos = ctx.document.introspector.position(loc);
             let index = pos.page.get() - 1;
             let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-            if let Some(page) = ctx.pages.get(index) {
-                destinations.insert(*name).page(ctx.page_refs[index]).xyz(
+            if let Some(page) = ctx.pages.get(index);
+            then {
+                destinations.insert(name).page(ctx.page_refs[index]).xyz(
                     pos.point.x.to_f32(),
                     (page.size.y - y).to_f32(),
                     None,
                 );
             }
-        }
-        destinations.finish();
+        );
     }
+    destinations.finish();
 }
 
 /// Compress data with the DEFLATE algorithm.

@@ -158,7 +158,6 @@ fn name_from_loc<'a>(doc: &Document, loc: &Location) -> Name<'a> {
 fn write_page(ctx: &mut PdfContext, i: usize) {
     let page = &ctx.pages[i];
     let content_id = ctx.alloc.bump();
-    let mut destinations = vec![];
 
     let mut page_writer = ctx.pdf.page(page.id);
     page_writer.parent(ctx.page_tree_ref);
@@ -214,8 +213,6 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
 
     annotations.finish();
     page_writer.finish();
-
-    ctx.named_dests.append(&mut destinations);
 
     let data = deflate_memoized(&page.content);
     ctx.pdf.stream(content_id, &data).filter(Filter::FlateDecode);

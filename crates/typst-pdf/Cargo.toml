@@ -21,6 +21,7 @@ base64 = { workspace = true }
 bytemuck = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true}
+if_chain = { workspace = true }
 image = { workspace = true }
 miniz_oxide = { workspace = true }
 once_cell = { workspace = true }
