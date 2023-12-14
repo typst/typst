@@ -190,10 +190,8 @@ enum Segment<'a> {
     Spacing(Spacing),
     /// A mathematical equation.
     Equation(&'a EquationElem, Vec<MathParItem>),
-    /// A box with arbitrary content and fixed width.
-    Box(&'a BoxElem, Frame),
-    /// A box with fractional width.
-    FracBox(&'a BoxElem, Fr),
+    /// A box with arbitrary content.
+    Box(&'a BoxElem, bool),
     /// Metadata.
     Meta,
 }
@@ -204,8 +202,9 @@ impl Segment<'_> {
         match *self {
             Self::Text(len) => len,
             Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
-            Self::FracBox(_, _) => SPACING_REPLACE.len_utf8(),
-            Self::Box(_, _) => OBJ_REPLACE.len_utf8(),
+            Self::Box(_, frac) => {
+                (if frac { SPACING_REPLACE } else { OBJ_REPLACE }).len_utf8()
+            }
             Self::Equation(_, ref par_items) => {
                 par_items.iter().map(MathParItem::text).map(char::len_utf8).sum()
             }
@@ -507,18 +506,9 @@ fn collect<'a>(
             full.extend(par_items.iter().map(MathParItem::text));
             Segment::Equation(elem, par_items)
         } else if let Some(elem) = child.to::<BoxElem>() {
-            match elem.width(styles) {
-                Sizing::Fr(v) => {
-                    full.push(SPACING_REPLACE);
-                    Segment::FracBox(elem, v)
-                }
-                _ => {
-                    full.push(OBJ_REPLACE);
-                    let pod = Regions::one(region, Axes::splat(false));
-                    let frame = elem.layout(engine, styles, pod)?.into_frame();
-                    Segment::Box(elem, frame)
-                }
-            }
+            let frac = elem.width(styles).is_fractional();
+            full.push(if frac { SPACING_REPLACE } else { OBJ_REPLACE });
+            Segment::Box(elem, frac)
         } else if child.is::<MetaElem>() {
             Segment::Meta
         } else {
@@ -596,12 +586,15 @@ fn prepare<'a>(
                     }
                 }
             }
-            Segment::Box(_, mut frame) => {
-                frame.translate(Point::with_y(TextElem::baseline_in(styles)));
-                items.push(Item::Frame(frame));
-            }
-            Segment::FracBox(elem, v) => {
-                items.push(Item::Fractional(v, Some((elem, styles))));
+            Segment::Box(elem, _) => {
+                if let Sizing::Fr(v) = elem.width(styles) {
+                    items.push(Item::Fractional(v, Some((elem, styles))));
+                } else {
+                    let pod = Regions::one(region, Axes::splat(false));
+                    let mut frame = elem.layout(engine, styles, pod)?.into_frame();
+                    frame.translate(Point::with_y(TextElem::baseline_in(styles)));
+                    items.push(Item::Frame(frame));
+                }
             }
             Segment::Meta => {
                 let mut frame = Frame::soft(Size::zero());
