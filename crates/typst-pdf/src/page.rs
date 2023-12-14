@@ -8,12 +8,12 @@ use pdf_writer::types::{
 };
 use pdf_writer::writers::PageLabel;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
-use typst::introspection::Meta;
+use typst::foundations::Selector;
+use typst::introspection::{Location, Meta};
 use typst::layout::{
-    Abs, Em, Frame, FrameItem, GroupItem, PdfPageLabel, PdfPageLabelStyle, Point, Ratio,
-    Size, Transform,
+    Abs, Em, Frame, FrameItem, GroupItem, PdfPageLabel, PdfPageLabelStyle, Point, Ratio, Size, Transform,
 };
-use typst::model::Destination;
+use typst::model::{Destination, Document};
 use typst::text::{Font, TextItem};
 use typst::util::Numeric;
 use typst::visualize::{
@@ -141,11 +141,24 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
     ctx.colors.write_functions(&mut ctx.pdf);
 }
 
+fn name_from_loc<'a>(doc: &Document, loc: &Location) -> Name<'a> {
+    let mut query_res = doc.introspector.query(&Selector::Location(*loc));
+    let elem = query_res.pop().unwrap();
+    assert!(query_res.is_empty());
+    let destination_name = elem.label().map(|label| {
+        // Ensures that the label is unique.
+        let _ = doc.introspector.query_label(label).unwrap();
+        label.as_str()
+    });
+    Name(destination_name.unwrap().as_bytes())
+}
+
 /// Write a page tree node.
 #[tracing::instrument(skip_all)]
 fn write_page(ctx: &mut PdfContext, i: usize) {
     let page = &ctx.pages[i];
     let content_id = ctx.alloc.bump();
+    let mut destinations = vec![];
 
     let mut page_writer = ctx.pdf.page(page.id);
     page_writer.parent(ctx.page_tree_ref);
@@ -171,32 +184,38 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
         annotation.subtype(AnnotationType::Link).rect(*rect);
         annotation.border(0.0, 0.0, 0.0, None);
 
-        let pos = match dest {
+        match dest {
             Destination::Url(uri) => {
                 annotation
                     .action()
                     .action_type(ActionType::Uri)
                     .uri(Str(uri.as_bytes()));
-                continue;
             }
-            Destination::Position(pos) => *pos,
-            Destination::Location(loc) => ctx.document.introspector.position(*loc),
+            Destination::Position(pos) => {
+                let index = pos.page.get() - 1;
+                let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
+                if let Some(page) = ctx.pages.get(index) {
+                    annotation
+                        .action()
+                        .action_type(ActionType::GoTo)
+                        .destination()
+                        .page(ctx.page_refs[index])
+                        .xyz(pos.point.x.to_f32(), (page.size.y - y).to_f32(), None);
+                }
+            }
+            Destination::Location(loc) => {
+                annotation
+                    .action()
+                    .action_type(ActionType::GoTo)
+                    .destination_named(name_from_loc(ctx.document, loc));
+            }
         };
-
-        let index = pos.page.get() - 1;
-        let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-        if let Some(page) = ctx.pages.get(index) {
-            annotation
-                .action()
-                .action_type(ActionType::GoTo)
-                .destination()
-                .page(ctx.page_refs[index])
-                .xyz(pos.point.x.to_f32(), (page.size.y - y).to_f32(), None);
-        }
     }
 
     annotations.finish();
     page_writer.finish();
+
+    ctx.named_dests.append(&mut destinations);
 
     let data = deflate_memoized(&page.content);
     ctx.pdf.stream(content_id, &data).filter(Filter::FlateDecode);
