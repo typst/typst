@@ -3,7 +3,9 @@ use unicode_math_class::MathClass;
 use crate::diag::SourceResult;
 use crate::foundations::{elem, func, Content, NativeElement, Resolve, Smart};
 use crate::layout::{Abs, Em, Length, Rel};
-use crate::math::{GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled};
+use crate::math::{
+    GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled, SpacingFragment,
+};
 use crate::text::TextElem;
 
 /// How much less high scaled delimiters can be than what they wrap.
@@ -76,6 +78,21 @@ impl LayoutMath for LrElem {
                 }
             }
         }
+
+        // Remove weak SpacingFragment immediately after the opening or immediately
+        // before the closing.
+        let (mut count, original_len) = (0, fragments.len());
+        fragments.retain(|fragment| {
+            count += 1;
+            if count == 2 || count == original_len - 1 {
+                !matches!(
+                    fragment,
+                    MathFragment::Spacing(SpacingFragment { weak: true, .. })
+                )
+            } else {
+                true
+            }
+        });
 
         ctx.extend(fragments);
 

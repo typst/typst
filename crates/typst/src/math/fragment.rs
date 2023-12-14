@@ -18,7 +18,7 @@ pub enum MathFragment {
     Glyph(GlyphFragment),
     Variant(VariantFragment),
     Frame(FrameFragment),
-    Spacing(Abs),
+    Spacing(SpacingFragment),
     Space(Abs),
     Linebreak,
     Align,
@@ -34,7 +34,7 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.width,
             Self::Variant(variant) => variant.frame.width(),
             Self::Frame(fragment) => fragment.frame.width(),
-            Self::Spacing(amount) => *amount,
+            Self::Spacing(spacing) => spacing.width,
             Self::Space(amount) => *amount,
             _ => Abs::zero(),
         }
@@ -184,6 +184,12 @@ impl From<VariantFragment> for MathFragment {
 impl From<FrameFragment> for MathFragment {
     fn from(fragment: FrameFragment) -> Self {
         Self::Frame(fragment)
+    }
+}
+
+impl From<SpacingFragment> for MathFragment {
+    fn from(fragment: SpacingFragment) -> Self {
+        Self::Spacing(fragment)
     }
 }
 
@@ -420,6 +426,12 @@ impl FrameFragment {
     pub fn with_base_ascent(self, base_ascent: Abs) -> Self {
         Self { base_ascent, ..self }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct SpacingFragment {
+    pub width: Abs,
+    pub weak: bool,
 }
 
 /// Look up the italics correction for a glyph.
