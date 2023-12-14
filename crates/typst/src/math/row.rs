@@ -169,40 +169,6 @@ impl MathRow {
         points: &[Abs],
         align: FixedAlign,
     ) -> Frame {
-        // if self.iter().any(|frag| matches!(frag.0, MathFragment::Linebreak)) {
-        //     let leading = if ctx.style.size >= MathSize::Text {
-        //         ParElem::leading_in(ctx.styles())
-        //     } else {
-        //         TIGHT_LEADING.scaled(ctx)
-        //     };
-
-        //     let mut rows: Vec<_> = self.rows();
-
-        //     if matches!(rows.last(), Some(row) if row.0.is_empty()) {
-        //         rows.pop();
-        //     }
-
-        //     let AlignmentResult { points, width } = alignments(&rows);
-        //     let mut frame = Frame::new(Size::zero());
-
-        //     for (i, row) in rows.into_iter().enumerate() {
-        //         let sub = row.into_line_frame(&points, align);
-        //         let size = frame.size_mut();
-        //         if i > 0 {
-        //             size.y += leading;
-        //         }
-
-        //         let mut pos = Point::with_y(size.y);
-        //         if points.is_empty() {
-        //             pos.x = align.position(width - sub.width());
-        //         }
-        //         size.y += sub.height();
-        //         size.x.set_max(sub.width());
-        //         frame.push_frame(pos, sub);
-        //     }
-        //     frame
-        // } else {
-        //     self.into_line_frame(points, align)
         if !self.iter().any(|frag| matches!(frag.0, MathFragment::Linebreak)) {
             return self.into_line_frame(points, align);
         }
