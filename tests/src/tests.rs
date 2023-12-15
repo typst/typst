@@ -70,7 +70,7 @@ struct Args {
     /// Example: `cargo test --workspace --test tests  -- compiler/bytes.typ --exact`
     #[arg(long)]
     exact: bool,
-    /// Update the reference images in `tests/ref`
+    /// Updates the reference images in `tests/ref`
     #[arg(long, default_value_t = env::var_os("UPDATE_EXPECT").is_some())]
     update: bool,
     #[arg(long)]
