@@ -452,6 +452,14 @@ impl SVGRenderer {
             Size::new(Abs::pt(width), Abs::pt(height)),
             self.text_paint_transform(state, &text.fill),
         );
+        if let Some(stroke) = &text.stroke {
+            self.write_stroke(
+                stroke,
+                Size::new(Abs::pt(width), Abs::pt(height)),
+                self.text_paint_transform(state, &text.fill),
+            );
+            self.xml.write_attribute("paint-order", "stroke"); // make sure the stroke is rendered on top of the fill
+        }
         self.xml.end_element();
 
         Some(())
