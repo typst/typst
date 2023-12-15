@@ -24,8 +24,8 @@
 #pagebreak()
 #filler
 
-/// Pre: ほ, Pre: ろ, Pre: は, Pre: に. No style opt. Uses prefix field entirely.
-/// Counter update without numbering change.
+// Pre: ほ, Pre: ろ, Pre: は, Pre: に. No style opt. Uses prefix field entirely.
+// Counter update without numbering change.
 #set page(numbering: "Pre: い")
 #filler
 #pagebreak()

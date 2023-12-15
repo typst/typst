@@ -1,4 +1,4 @@
-/// Issue #2821: Setting a figure's supplement to none removes the field
+// Issue #2821: Setting a figure's supplement to none removes the field
 // Ref: false
 
 ---

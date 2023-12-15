@@ -45,7 +45,7 @@ Treeworld, the World of worlds, is a world.
 #lorem(5)
 
 ---
-/// See also: https://github.com/mTvare6/hello-world.rs
+// See also: https://github.com/mTvare6/hello-world.rs
 #show regex("(?i)rust"): it => [#it (🚀)]
 Rust is memory-safe and blazingly fast. Let's rewrite everything in rust.
 

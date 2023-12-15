@@ -33,7 +33,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #bibliography("/files/works.bib")
 
 ---
-/// Citation-format: label or numeric
+// Citation-format: label or numeric
 #set text(8pt)
 #set quote(block: true)
 #quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
@@ -42,7 +42,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #bibliography("/files/works.bib", style: "ieee")
 
 ---
-/// Citation-format: note
+// Citation-format: note
 #set text(8pt)
 #set quote(block: true)
 #quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
@@ -51,7 +51,7 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #bibliography("/files/works.bib", style: "chicago-notes")
 
 ---
-/// Citation-format: author-date or author
+// Citation-format: author-date or author
 #set text(8pt)
 #set quote(block: true)
 #quote(attribution: <tolkien54>)[In a hole in the ground there lived a hobbit.]
