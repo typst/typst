@@ -13,11 +13,9 @@ The tests parts may use functions defined in [library], most importantly,
 `test(x, y)` which will fail the test `if x != y`
 
 !*/
-
 mod metadata;
 use self::metadata::*;
 
-use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fmt::Write as _;
