@@ -390,10 +390,6 @@ fn read(path: &Path) -> FileResult<Vec<u8>> {
     }
 }
 
-// TODO DOC FIX: currently misleading
-// because we don't error on invalid metadata keys yet.
-// We only error on malformed annotations.
-
 /// Tests a test file and prints the result.
 ///
 /// Also tests that the header of each test is correctly written.

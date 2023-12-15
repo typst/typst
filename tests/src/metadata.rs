@@ -17,7 +17,6 @@ use unscanny::Scanner;
 pub struct TestPartMetadata {
     pub part_configuration: TestConfiguration,
     pub annotations: HashSet<Annotation>,
-    // either invalid because the key isn't valid or because
     // the annotation has an invalid message, range etc.
     pub invalid_data: Vec<(Option<Annotation>, String)>,
 }
@@ -106,9 +105,6 @@ impl Display for AnnotationKind {
 /// Metadata always start with `// {key}`
 ///
 /// Valid keys may be any of [TestConfiguration] valid keys and [AnnotationKind] valid keys.
-///
-/// Invalid keys are not valid and will fail the test, you should start your comment with `///`
-/// if it is interpreted as metadata.
 ///
 /// Parsing:
 /// - Range may be written as:
@@ -220,9 +216,7 @@ pub fn parse_part_metadata(source: &Source) -> TestPartMetadata {
                     }
                     annotations.insert(annotation);
                 }
-                // _ => {}
-                invalid_key => invalid_data
-                    .push((None, format!("Error: incorrect key: {invalid_key:?}"))),
+                _ => {}
             }
         }
     }
