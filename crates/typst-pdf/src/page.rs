@@ -621,11 +621,16 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
     }
 
     ctx.set_fill(&text.fill, true, ctx.state.transforms(Size::zero(), pos));
+    if let Some(stroke) = &text.stroke {
+        ctx.set_stroke(stroke, ctx.state.transforms(Size::zero(), pos));
+        ctx.content
+            .set_text_rendering_mode(pdf_writer::types::TextRenderingMode::FillStroke);
+    }
     ctx.set_font(&text.font, text.size);
-    ctx.set_opacities(None, Some(&text.fill));
+    ctx.set_opacities(text.stroke.as_ref(), Some(&text.fill));
     ctx.content.begin_text();
 
-    // Positiosn the text.
+    // Position the text.
     ctx.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
 
     let mut positioned = ctx.content.show_positioned();
@@ -664,6 +669,10 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
 
     items.finish();
     positioned.finish();
+    if text.stroke.is_some() {
+        ctx.content
+            .set_text_rendering_mode(pdf_writer::types::TextRenderingMode::Fill);
+    }
     ctx.content.end_text();
 }
 
