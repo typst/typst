@@ -66,22 +66,27 @@ struct Args {
     #[arg(allow_hyphen_values = true)]
     subtest: Option<isize>,
     /// Runs only the test with the exact name specified in your command
-    /// 
+    ///
     /// Example: `cargo test --workspace --test tests  -- compiler/bytes.typ --exact`
     #[arg(long)]
     exact: bool,
     /// Updates the reference images in `tests/ref`
     #[arg(long, default_value_t = env::var_os("UPDATE_EXPECT").is_some())]
     update: bool,
-    #[arg(long)]
     /// Exports the tests as PDF into `tests/pdf`
+    #[arg(long)]
     pdf: bool,
     #[command(flatten)]
     print: PrintConfig,
+    /// Running `cargo test --workspace -- --nocapture` for the unit tests would
+    /// fail the test runner without argument.
+    // TODO: would it really still happen.
     #[arg(long)]
-    nocapture: bool, // simply ignores the argument for backward compatibility
+    nocapture: bool,
+    /// prevents the terminal from being cleared of tests names
+    /// and includes non essential test messages.
     #[arg(short, long)]
-    verbose: bool, // prevents the terminal from being cleared of tests names
+    verbose: bool,
 }
 
 /// Which things to print out for debugging.
