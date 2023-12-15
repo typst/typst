@@ -261,8 +261,6 @@ fn layout_attachments(
         (sup_delta + measure!(tr, width)).max(sub_delta + measure!(br, width));
 
     let (center_frame, base_offset) = attach_top_and_bottom(ctx, base, t, b);
-    let base_pos =
-        Point::new(sup_delta + pre_width_max, ascent - base_ascent - base_offset);
     if [&tl, &bl, &tr, &br].iter().all(|&e| e.is_none()) {
         ctx.push(FrameFragment::new(ctx, center_frame).with_class(base_class));
         return Ok(());
@@ -270,27 +268,34 @@ fn layout_attachments(
 
     let mut frame = Frame::soft(Size::new(
         pre_width_max + base_width + post_max_width + scaled!(ctx, space_after_script),
-        ascent + descent,
+        center_frame.ascent().max(ascent) + center_frame.descent().max(descent),
     ));
-    frame.set_baseline(ascent);
-    frame.push_frame(base_pos, center_frame);
+    frame.set_baseline(center_frame.ascent().max(ascent));
+    frame.push_frame(
+        Point::new(sup_delta + pre_width_max, frame.ascent() - base_ascent - base_offset),
+        center_frame,
+    );
 
     if let Some(tl) = tl {
-        let pos =
-            Point::new(-pre_width_dif.min(Abs::zero()), ascent - shift_up - tl.ascent());
+        let pos = Point::new(
+            -pre_width_dif.min(Abs::zero()),
+            frame.ascent() - shift_up - tl.ascent(),
+        );
         frame.push_frame(pos, tl.into_frame());
     }
 
     if let Some(bl) = bl {
-        let pos =
-            Point::new(pre_width_dif.max(Abs::zero()), ascent + shift_down - bl.ascent());
+        let pos = Point::new(
+            pre_width_dif.max(Abs::zero()),
+            frame.ascent() + shift_down - bl.ascent(),
+        );
         frame.push_frame(pos, bl.into_frame());
     }
 
     if let Some(tr) = tr {
         let pos = Point::new(
             sup_delta + pre_width_max + base_width,
-            ascent - shift_up - tr.ascent(),
+            frame.ascent() - shift_up - tr.ascent(),
         );
         frame.push_frame(pos, tr.into_frame());
     }
@@ -298,7 +303,7 @@ fn layout_attachments(
     if let Some(br) = br {
         let pos = Point::new(
             sub_delta + pre_width_max + base_width,
-            ascent + shift_down - br.ascent(),
+            frame.ascent() + shift_down - br.ascent(),
         );
         frame.push_frame(pos, br.into_frame());
     }
