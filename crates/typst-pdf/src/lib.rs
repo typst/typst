@@ -21,7 +21,7 @@ use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
 use typst::foundations::Datetime;
 use typst::layout::{Abs, Dir, Em, Transform};
-use typst::model::Document;
+use typst::model::{Document, Refable};
 use typst::text::{Font, Lang};
 use typst::util::Deferred;
 use typst::visualize::Image;
@@ -296,7 +296,7 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
 fn write_named_destinations(ctx: &mut PdfContext) {
     // PDF 1.1
     let mut destinations = ctx.pdf.destinations(ctx.named_dests_ref);
-    for elem in ctx.document.introspector.all() {
+    for elem in ctx.document.introspector.all().filter(|c| c.can::<dyn Refable>()) {
         if_chain!(
             if let Some(label) = elem.label();
             if let Ok(_) = ctx.document.introspector.query_label(label);
