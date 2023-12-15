@@ -393,18 +393,18 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 [[package]]
 name = "comemo"
 version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf5705468fa80602ee6a5f9318306e6c428bffd53e43209a78bc05e6e667c6f4"
+source = "git+https://github.com/typst/comemo?rev=ddb3773#ddb3773d062369e120d09c9a0a7909faf29d8fe1"
 dependencies = [
  "comemo-macros",
+ "once_cell",
+ "parking_lot",
  "siphasher 1.0.0",
 ]
 
 [[package]]
 name = "comemo-macros"
 version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54af6ac68ada2d161fa9cc1ab52676228e340866d094d6542107e74b82acc095"
+source = "git+https://github.com/typst/comemo?rev=ddb3773#ddb3773d062369e120d09c9a0a7909faf29d8fe1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1564,6 +1564,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.39",
+]
+
+[[package]]
+name = "parking_lot"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3742b2c103b9f06bc9fff0a37ff4912935851bee6d36f3c02bcc755bcfec228f"
+dependencies = [
+ "lock_api",
+ "parking_lot_core",
 ]
 
 [[package]]

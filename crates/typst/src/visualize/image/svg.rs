@@ -28,7 +28,7 @@ struct Repr {
 impl SvgImage {
     /// Decode an SVG image without fonts.
     #[comemo::memoize]
-    pub fn new(data: Bytes) -> StrResult<Self> {
+    pub fn new(data: Bytes) -> StrResult<SvgImage> {
         let opts = usvg::Options::default();
         let tree = usvg::Tree::from_data(&data, &opts).map_err(format_usvg_error)?;
         Ok(Self(Arc::new(Repr {
@@ -46,7 +46,7 @@ impl SvgImage {
         data: Bytes,
         world: Tracked<dyn World + '_>,
         families: &[String],
-    ) -> StrResult<Self> {
+    ) -> StrResult<SvgImage> {
         // Disable usvg's default to "Times New Roman". Instead, we default to
         // the empty family and later, when we traverse the SVG, we check for
         // empty and non-existing family names and replace them with the true

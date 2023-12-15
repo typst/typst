@@ -135,3 +135,6 @@ strip = true
 
 [workspace.lints.clippy]
 uninlined_format_args = "warn"
+
+[patch.crates-io]
+comemo = { git = "https://github.com/typst/comemo", rev = "ddb3773" }
