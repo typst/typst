@@ -11,7 +11,8 @@ use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
 use typst::foundations::Selector;
 use typst::introspection::{Location, Meta};
 use typst::layout::{
-    Abs, Em, Frame, FrameItem, GroupItem, PdfPageLabel, PdfPageLabelStyle, Point, Ratio, Size, Transform,
+    Abs, Em, Frame, FrameItem, GroupItem, PdfPageLabel, PdfPageLabelStyle, Point, Ratio,
+    Size, Transform,
 };
 use typst::model::{Destination, Document};
 use typst::text::{Font, TextItem};
@@ -141,16 +142,13 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
     ctx.colors.write_functions(&mut ctx.pdf);
 }
 
-fn name_from_loc<'a>(doc: &Document, loc: &Location) -> Name<'a> {
+fn name_from_loc<'a>(doc: &Document, loc: &Location) -> Option<Name<'a>> {
     let mut query_res = doc.introspector.query(&Selector::Location(*loc));
-    let elem = query_res.pop().unwrap();
+    let elem = query_res.pop()?;
+    let label = elem.label()?;
     assert!(query_res.is_empty());
-    let destination_name = elem.label().map(|label| {
-        // Ensures that the label is unique.
-        let _ = doc.introspector.query_label(label).unwrap();
-        label.as_str()
-    });
-    Name(destination_name.unwrap().as_bytes())
+    assert!(doc.introspector.query_label(label).is_ok());
+    Some(Name(label.as_str().as_bytes()))
 }
 
 /// Write a page tree node.
@@ -183,32 +181,39 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
         annotation.subtype(AnnotationType::Link).rect(*rect);
         annotation.border(0.0, 0.0, 0.0, None);
 
-        match dest {
+        let pos = match dest {
             Destination::Url(uri) => {
                 annotation
                     .action()
                     .action_type(ActionType::Uri)
                     .uri(Str(uri.as_bytes()));
+                continue;
             }
-            Destination::Position(pos) => {
-                let index = pos.page.get() - 1;
-                let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-                if let Some(page) = ctx.pages.get(index) {
+            Destination::Position(pos) => *pos,
+            Destination::Location(loc) => {
+                if let Some(name) = name_from_loc(ctx.document, loc) {
+                    // TODO ensure that name is actually written to name dict
                     annotation
                         .action()
                         .action_type(ActionType::GoTo)
-                        .destination()
-                        .page(ctx.page_refs[index])
-                        .xyz(pos.point.x.to_f32(), (page.size.y - y).to_f32(), None);
+                        .destination_named(name);
+                    continue;
+                } else {
+                    ctx.document.introspector.position(*loc)
                 }
             }
-            Destination::Location(loc) => {
-                annotation
-                    .action()
-                    .action_type(ActionType::GoTo)
-                    .destination_named(name_from_loc(ctx.document, loc));
-            }
         };
+
+        let index = pos.page.get() - 1;
+        let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
+        if let Some(page) = ctx.pages.get(index) {
+            annotation
+                .action()
+                .action_type(ActionType::GoTo)
+                .destination()
+                .page(ctx.page_refs[index])
+                .xyz(pos.point.x.to_f32(), (page.size.y - y).to_f32(), None);
+        }
     }
 
     annotations.finish();
