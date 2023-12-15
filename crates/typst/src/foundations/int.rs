@@ -53,7 +53,7 @@ impl i64 {
 
 impl Repr for i64 {
     fn repr(&self) -> EcoString {
-        repr::format_int_with_base(*self, 10)
+        eco_format!("{:?}", self)
     }
 }
 

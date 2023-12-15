@@ -202,7 +202,7 @@ impl Value {
         match self {
             Self::None => Content::empty(),
             Self::Int(v) => TextElem::packed(repr::format_int_with_base(v, 10)),
-            Self::Float(v) => TextElem::packed(repr::format_float(v, None, "")),
+            Self::Float(v) => TextElem::packed(repr::display_float(v)),
             Self::Str(v) => TextElem::packed(v),
             Self::Version(v) => TextElem::packed(eco_format!("{v}")),
             Self::Symbol(v) => TextElem::packed(v.get()),

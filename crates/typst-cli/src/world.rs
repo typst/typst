@@ -1,6 +1,6 @@
-use std::cell::{OnceCell, RefCell, RefMut};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{OnceLock, RwLock};
 use std::{fs, mem};
 
 use chrono::{DateTime, Datelike, Local};
@@ -34,10 +34,10 @@ pub struct SystemWorld {
     /// Locations of and storage for lazily loaded fonts.
     fonts: Vec<FontSlot>,
     /// Maps file ids to source files and buffers.
-    slots: RefCell<HashMap<FileId, FileSlot>>,
+    slots: RwLock<HashMap<FileId, FileSlot>>,
     /// The current datetime if requested. This is stored here to ensure it is
     /// always the same within one compilation. Reset between compilations.
-    now: OnceCell<DateTime<Local>>,
+    now: OnceLock<DateTime<Local>>,
     /// The export cache, used for caching output files in `typst watch`
     /// sessions.
     export_cache: ExportCache,
@@ -78,8 +78,8 @@ impl SystemWorld {
             library: Prehashed::new(Library::build()),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
-            slots: RefCell::default(),
-            now: OnceCell::new(),
+            slots: RwLock::new(HashMap::new()),
+            now: OnceLock::new(),
             export_cache: ExportCache::new(),
         })
     }
@@ -103,6 +103,7 @@ impl SystemWorld {
     pub fn dependencies(&mut self) -> impl Iterator<Item = PathBuf> + '_ {
         self.slots
             .get_mut()
+            .unwrap()
             .values()
             .filter(|slot| slot.accessed())
             .filter_map(|slot| system_path(&self.root, slot.id).ok())
@@ -110,7 +111,7 @@ impl SystemWorld {
 
     /// Reset the compilation state in preparation of a new compilation.
     pub fn reset(&mut self) {
-        for slot in self.slots.get_mut().values_mut() {
+        for slot in self.slots.get_mut().unwrap().values_mut() {
             slot.reset();
         }
         self.now.take();
@@ -147,11 +148,11 @@ impl World for SystemWorld {
     }
 
     fn source(&self, id: FileId) -> FileResult<Source> {
-        self.slot(id)?.source(&self.root)
+        self.slot(id, |slot| slot.source(&self.root))
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        self.slot(id)?.file(&self.root)
+        self.slot(id, |slot| slot.file(&self.root))
     }
 
     fn font(&self, index: usize) -> Option<Font> {
@@ -176,11 +177,12 @@ impl World for SystemWorld {
 
 impl SystemWorld {
     /// Access the canonical slot for the given file id.
-    #[tracing::instrument(skip_all)]
-    fn slot(&self, id: FileId) -> FileResult<RefMut<FileSlot>> {
-        Ok(RefMut::map(self.slots.borrow_mut(), |slots| {
-            slots.entry(id).or_insert_with(|| FileSlot::new(id))
-        }))
+    fn slot<F, T>(&self, id: FileId, f: F) -> T
+    where
+        F: FnOnce(&mut FileSlot) -> T,
+    {
+        let mut map = self.slots.write().unwrap();
+        f(map.entry(id).or_insert_with(|| FileSlot::new(id)))
     }
 }
 
