@@ -243,12 +243,12 @@ fn layout_attachments(
         (base.width(), base.ascent(), base.descent());
     let base_class = base.class().unwrap_or(MathClass::Normal);
 
-    let ascent = base_ascent
+    let mut ascent = base_ascent
         .max(shift_up + measure!(tr, ascent))
         .max(shift_up + measure!(tl, ascent))
         .max(shift_up + measure!(t, height));
 
-    let descent = base_descent
+    let mut descent = base_descent
         .max(shift_down + measure!(br, descent))
         .max(shift_down + measure!(bl, descent))
         .max(shift_down + measure!(b, height));
@@ -257,7 +257,7 @@ fn layout_attachments(
     let pre_sub_width = measure!(bl, width);
     let pre_width_dif = pre_sup_width - pre_sub_width; // Could be negative.
     let pre_width_max = pre_sup_width.max(pre_sub_width);
-    let post_max_width =
+    let post_width_max =
         (sup_delta + measure!(tr, width)).max(sub_delta + measure!(br, width));
 
     let (center_frame, base_offset) = attach_top_and_bottom(ctx, base, t, b);
@@ -266,36 +266,35 @@ fn layout_attachments(
         return Ok(());
     }
 
+    ascent.set_max(center_frame.ascent());
+    descent.set_max(center_frame.descent());
+
     let mut frame = Frame::soft(Size::new(
-        pre_width_max + base_width + post_max_width + scaled!(ctx, space_after_script),
-        center_frame.ascent().max(ascent) + center_frame.descent().max(descent),
+        pre_width_max + base_width + post_width_max + scaled!(ctx, space_after_script),
+        ascent + descent,
     ));
-    frame.set_baseline(center_frame.ascent().max(ascent));
+    frame.set_baseline(ascent);
     frame.push_frame(
         Point::new(sup_delta + pre_width_max, frame.ascent() - base_ascent - base_offset),
         center_frame,
     );
 
     if let Some(tl) = tl {
-        let pos = Point::new(
-            -pre_width_dif.min(Abs::zero()),
-            frame.ascent() - shift_up - tl.ascent(),
-        );
+        let pos =
+            Point::new(-pre_width_dif.min(Abs::zero()), ascent - shift_up - tl.ascent());
         frame.push_frame(pos, tl.into_frame());
     }
 
     if let Some(bl) = bl {
-        let pos = Point::new(
-            pre_width_dif.max(Abs::zero()),
-            frame.ascent() + shift_down - bl.ascent(),
-        );
+        let pos =
+            Point::new(pre_width_dif.max(Abs::zero()), ascent + shift_down - bl.ascent());
         frame.push_frame(pos, bl.into_frame());
     }
 
     if let Some(tr) = tr {
         let pos = Point::new(
             sup_delta + pre_width_max + base_width,
-            frame.ascent() - shift_up - tr.ascent(),
+            ascent - shift_up - tr.ascent(),
         );
         frame.push_frame(pos, tr.into_frame());
     }
@@ -303,7 +302,7 @@ fn layout_attachments(
     if let Some(br) = br {
         let pos = Point::new(
             sub_delta + pre_width_max + base_width,
-            frame.ascent() + shift_down - br.ascent(),
+            ascent + shift_down - br.ascent(),
         );
         frame.push_frame(pos, br.into_frame());
     }

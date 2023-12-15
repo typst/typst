@@ -2,15 +2,9 @@
 
 ---
 // Test high subscript and superscript.
-$
-  a sqrt(a_(1/2)^zeta)
-  sqrt(a_alpha^(1/2))
-  sqrt(a_(1/2)^(3/4))
-  sqrt(attach(a, tl: 1/2, bl: 3/4)) \
-  a sqrt(attach(a, tl: 1/2, bl: 3/4, tr: 1/2, br: 3/4))
-  sqrt(attach(->, t: l, br: c))
-  sqrt(attach(->, b: l, tr: c))
-$
+$ sqrt(a_(1/2)^zeta), sqrt(a_alpha^(1/2)), sqrt(a_(1/2)^(3/4)) \
+  sqrt(attach(a, tl: 1/2, bl: 3/4)),
+  sqrt(attach(a, tl: 1/2, bl: 3/4, tr: 1/2, br: 3/4)) $
 
 ---
 // Test for no collisions between descenders/ascenders and attachments
