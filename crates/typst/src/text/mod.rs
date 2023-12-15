@@ -43,7 +43,7 @@ use crate::foundations::{
 use crate::layout::{Abs, Axis, Dir, Length, Rel};
 use crate::model::ParElem;
 use crate::syntax::Spanned;
-use crate::visualize::{Color, Paint, RelativeTo};
+use crate::visualize::{Color, Paint, RelativeTo, Stroke};
 
 /// Text styling.
 ///
@@ -638,6 +638,11 @@ pub struct TextElem {
     #[default(false)]
     #[ghost]
     pub smallcaps: bool,
+
+    #[default(Smart::Auto)]
+    #[ghost]
+    #[resolve]
+    pub stroke: Smart<Stroke>,
 }
 
 impl TextElem {
