@@ -61,7 +61,7 @@ struct Args {
     /// All the tests that contains a filter string will be
     /// run except if `--exact` is specified
     filter: Vec<String>,
-    /// runs only the specified test part
+    /// Runs only the specified subtest
     #[arg(short, long)]
     #[arg(allow_hyphen_values = true)]
     subtest: Option<isize>,
