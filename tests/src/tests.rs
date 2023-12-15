@@ -74,7 +74,7 @@ struct Args {
     #[arg(long, default_value_t = env::var_os("UPDATE_EXPECT").is_some())]
     update: bool,
     #[arg(long)]
-    /// export the tests as pdf using Typst capabilities.
+    /// Exports the tests as PDF into `tests/pdf`
     pdf: bool,
     #[command(flatten)]
     print: PrintConfig,
