@@ -58,7 +58,7 @@ const ASSET_DIR: &str = "../assets";
 #[derive(Debug, Clone, Parser)]
 #[clap(name = "typst-test", author)]
 struct Args {
-    /// All the test that contains a filter string will be
+    /// All the tests that contains a filter string will be
     /// run except if `--exact` is specified
     filter: Vec<String>,
     /// runs only the specified test part
