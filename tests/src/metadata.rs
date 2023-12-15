@@ -109,7 +109,7 @@ impl Display for AnnotationKind {
 ///
 /// Invalid keys are not valid and will fail the test, you should start your comment with `///`
 /// if it is interpreted as metadata.
-/// 
+///
 /// Parsing:
 /// - Range may be written as:
 ///     - `{line}:{col}-{line}:{col}`
@@ -221,10 +221,8 @@ pub fn parse_part_metadata(source: &Source) -> TestPartMetadata {
                     annotations.insert(annotation);
                 }
                 // _ => {}
-                invalid_key => invalid_data.push((
-                    None,
-                    format!("Error: incorrect key: {invalid_key:?}"),
-                )),
+                invalid_key => invalid_data
+                    .push((None, format!("Error: incorrect key: {invalid_key:?}"))),
             }
         }
     }

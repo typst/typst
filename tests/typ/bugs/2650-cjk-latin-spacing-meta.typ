@@ -1,4 +1,4 @@
-// https://github.com/typst/typst/issues/2650
+/// https://github.com/typst/typst/issues/2650
 #let with-locate(body) = locate(loc => body)
 
 测a试

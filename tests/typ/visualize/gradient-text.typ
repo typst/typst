@@ -1,7 +1,7 @@
-// Test that gradient fills on text.
-// The solid bar gradients are used to make sure that all transforms are
-// correct: if you can see the text through the bar, then the gradient is
-// misaligned to its reference container.
+/// Test that gradient fills on text.
+/// The solid bar gradients are used to make sure that all transforms are
+/// correct: if you can see the text through the bar, then the gradient is
+/// misaligned to its reference container.
 // Ref: true
 
 ---

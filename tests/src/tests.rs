@@ -392,7 +392,7 @@ fn read(path: &Path) -> FileResult<Vec<u8>> {
 
 /// Tests a test file and prints the result.
 ///
-/// Also tests that the header of each test is correctly written. 
+/// Also tests that the header of each test is correctly written.
 /// See [parse_part_metadata] for more details.
 fn test(
     world: &mut TestWorld,

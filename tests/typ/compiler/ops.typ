@@ -139,7 +139,7 @@
 #let infpt = float("inf") * 1pt
 #test(infpt - infpt, 0pt)
 #test(infpt + (-infpt), 0pt)
-// TODO: this result is surprising
+/// TODO: this result is surprising
 #test(infpt / float("inf"), 0pt)
 
 ---
