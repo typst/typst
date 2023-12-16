@@ -48,7 +48,7 @@ function activate(context) {
     })
 
     const cmdStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right)
-    cmdStatusBar.tooltip = "Typst test-helper is running test..."
+    cmdStatusBar.tooltip = "Typst test-helper"
     cmdStatusBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground')
     const rerunCmd = vscode.commands.registerCommand("ShortcutMenuBar.testRerun", () => {
         const uri = getActiveDocumentUri()
@@ -56,7 +56,7 @@ function activate(context) {
         const dir = components[0]
         const subPath = components[1]
 
-        cmdStatusBar.text = "$(loading~spin) Running test"
+        cmdStatusBar.text = "$(loading~spin) Running"
         cmdStatusBar.show();
         cp.exec(
             `cargo test --manifest-path ${dir}/Cargo.toml --all --test tests -- ${subPath}`,
