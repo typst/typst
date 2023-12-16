@@ -1,10 +1,10 @@
 [workspace]
-members = ["crates/*", "tests"]
+members = ["crates/*", "tests", "tests/fuzz"]
 default-members = ["crates/typst-cli"]
 resolver = "2"
 
 [workspace.package]
-version = "0.9.0"
+version = "0.10.0"
 rust-version = "1.70" # also change in ci.yml
 authors = ["The Typst Project Developers"]
 edition = "2021"
@@ -58,6 +58,7 @@ include_dir = "0.7"
 indexmap = { version = "2", features = ["serde"] }
 inferno = "0.11.15"
 kurbo = "0.9"
+libfuzzer-sys = "0.4"
 lipsum = "0.9"
 log = "0.4"
 miniz_oxide = "0.7"

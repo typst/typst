@@ -107,9 +107,9 @@ impl ShapedGlyph {
         self.is_justifiable
     }
 
-    /// Whether the glyph is part of a CJK script.
-    pub fn is_cjk_script(&self) -> bool {
-        is_cjk_script(self.c, self.script)
+    /// Whether the glyph is part of Chinese or Japanese script (i.e. CJ, not CJK).
+    pub fn is_cj_script(&self) -> bool {
+        is_cj_script(self.c, self.script)
     }
 
     pub fn is_cjk_punctuation(&self) -> bool {
@@ -240,24 +240,24 @@ impl<'a> ShapedText<'a> {
             }
 
             let pos = Point::new(offset, top + shift - y_offset.at(self.size));
-            let glyphs = group
+            let glyphs: Vec<Glyph> = group
                 .iter()
-                .map(|glyph| {
+                .map(|shaped: &ShapedGlyph| {
                     let adjustability_left = if justification_ratio < 0.0 {
-                        glyph.shrinkability().0
+                        shaped.shrinkability().0
                     } else {
-                        glyph.stretchability().0
+                        shaped.stretchability().0
                     };
                     let adjustability_right = if justification_ratio < 0.0 {
-                        glyph.shrinkability().1
+                        shaped.shrinkability().1
                     } else {
-                        glyph.stretchability().1
+                        shaped.stretchability().1
                     };
 
                     let justification_left = adjustability_left * justification_ratio;
                     let mut justification_right =
                         adjustability_right * justification_ratio;
-                    if glyph.is_justifiable() {
+                    if shaped.is_justifiable() {
                         justification_right +=
                             Em::from_length(extra_justification, self.size)
                     }
@@ -265,15 +265,33 @@ impl<'a> ShapedText<'a> {
                     frame.size_mut().x += justification_left.at(self.size)
                         + justification_right.at(self.size);
 
+                    // |<---- a Glyph ---->|
+                    //  -->|ShapedGlyph|<--
+                    // +---+-----------+---+
+                    // |   |  *********|   |
+                    // |   |  *        |   |
+                    // |   |  *    ****|   |
+                    // |   |  *       *|   |
+                    // |   |  *********|   |
+                    // +---+--+--------+---+
+                    //   A   B     C     D
+                    // Note A, B, D could be positive, zero, or negative.
+                    // A: justification_left
+                    // B: ShapedGlyph's x_offset
+                    //    (though a small part of the glyph may go inside B)
+                    // B+C: ShapedGlyph's x_advance
+                    // D: justification_right
+                    // A+B: Glyph's x_offset
+                    // A+B+C+D: Glyph's x_advance
                     Glyph {
-                        id: glyph.glyph_id,
-                        x_advance: glyph.x_advance
+                        id: shaped.glyph_id,
+                        x_advance: shaped.x_advance
                             + justification_left
                             + justification_right,
-                        x_offset: glyph.x_offset + justification_left,
-                        range: (glyph.range.start - range.start).saturating_as()
-                            ..(glyph.range.end - range.start).saturating_as(),
-                        span: glyph.span,
+                        x_offset: shaped.x_offset + justification_left,
+                        range: (shaped.range.start - range.start).saturating_as()
+                            ..(shaped.range.end - range.start).saturating_as(),
+                        span: shaped.span,
                     }
                 })
                 .collect();
@@ -360,7 +378,7 @@ impl<'a> ShapedText<'a> {
     pub fn cjk_justifiable_at_last(&self) -> bool {
         self.glyphs
             .last()
-            .map(|g| g.is_cjk_script() || g.is_cjk_punctuation())
+            .map(|g| g.is_cj_script() || g.is_cjk_punctuation())
             .unwrap_or(false)
     }
 
@@ -934,15 +952,17 @@ fn is_space(c: char) -> bool {
     matches!(c, ' ' | '\u{00A0}' | '　')
 }
 
-/// Whether the glyph is part of a CJK script.
+/// Whether the glyph is part of Chinese or Japanese script (i.e. CJ, not CJK).
 #[inline]
-pub(super) fn is_of_cjk_script(c: char) -> bool {
-    is_cjk_script(c, c.script())
+pub(super) fn is_of_cj_script(c: char) -> bool {
+    is_cj_script(c, c.script())
 }
 
-/// Whether the glyph is part of a CJK script.
+/// Whether the glyph is part of Chinese or Japanese script (i.e. CJ, not CJK).
+/// The function is dedicated to typesetting Chinese or Japanese, which do not
+/// have spaces between words, so K is not checked here.
 #[inline]
-fn is_cjk_script(c: char, script: Script) -> bool {
+fn is_cj_script(c: char, script: Script) -> bool {
     use Script::*;
     // U+30FC: Katakana-Hiragana Prolonged Sound Mark
     matches!(script, Hiragana | Katakana | Han) || c == '\u{30FC}'
@@ -1016,7 +1036,7 @@ fn is_justifiable(
 ) -> bool {
     // GB style is not relevant here.
     is_space(c)
-        || is_cjk_script(c, script)
+        || is_cj_script(c, script)
         || is_cjk_left_aligned_punctuation(c, x_advance, stretchability, true)
         || is_cjk_right_aligned_punctuation(c, x_advance, stretchability)
         || is_cjk_center_aligned_punctuation(c, true)

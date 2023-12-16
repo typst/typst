@@ -163,6 +163,22 @@
 #calc.sqrt(-1)
 
 ---
+#test(calc.root(12.0, 1), 12.0)
+#test(calc.root(9.0, 2), 3.0)
+#test(calc.root(27.0, 3), 3.0)
+#test(calc.root(-27.0, 3), -3.0)
+// 100^(-1/2) = (100^(1/2))^-1 = 1/sqrt(100)
+#test(calc.root(100.0, -2), 0.1)
+
+---
+// Error: 17-18 cannot take the 0th root of a number
+#calc.root(1.0, 0)
+
+---
+// Error: 24-25 negative numbers do not have a real nth root when n is even
+#test(calc.root(-27.0, 4), -3.0)
+
+---
 // Error: 11-13 value must be strictly positive
 #calc.log(-1)
 

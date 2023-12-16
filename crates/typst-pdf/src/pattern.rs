@@ -1,7 +1,7 @@
 use ecow::eco_format;
 use pdf_writer::types::{ColorSpaceOperand, PaintType, TilingType};
 use pdf_writer::{Filter, Finish, Name, Rect};
-use typst::layout::{Abs, Transform};
+use typst::layout::{Abs, Ratio, Transform};
 use typst::util::Numeric;
 use typst::visualize::{Pattern, RelativeTo};
 
@@ -73,7 +73,9 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
 
         resources_map.finish();
         tiling_pattern
-            .matrix(transform_to_array(*transform))
+            .matrix(transform_to_array(
+                transform.post_concat(Transform::scale(Ratio::one(), -Ratio::one())),
+            ))
             .filter(Filter::FlateDecode);
     }
 }

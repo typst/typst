@@ -11,7 +11,9 @@ the `tests` folder.
   it with `oxipng`.
 
 For the test helper to work correctly, you also need to install `oxipng`, for
-example with `cargo install oxipng`.
+example with `cargo install oxipng`. Make sure that the version of oxipng you
+install is the same as the one in the root `Cargo.toml` so that the results are
+the same as when using the test CLI.
 
 ## Installation
 The simplest way to install this extension (and keep it up-to-date) is to use VSCode's UI:

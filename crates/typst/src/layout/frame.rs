@@ -50,7 +50,7 @@ impl Frame {
 
     /// Create a new, empty soft frame.
     ///
-    /// Panics the size is not finite.
+    /// Panics if the size is not finite.
     #[track_caller]
     pub fn soft(size: Size) -> Self {
         Self::new(size, FrameKind::Soft)

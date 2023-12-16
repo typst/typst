@@ -32,6 +32,12 @@
 #test(color.mix((rgb("#aaff00"), 50%), (rgb("#aa00ff"), 50%), space: rgb), rgb("#aa8080"))
 #test(color.mix((rgb("#aaff00"), 75%), (rgb("#aa00ff"), 25%), space: rgb), rgb("#aabf40"))
 
+// Mix in hue-based space.
+#test(rgb(color.mix(red, blue, space: color.hsl)), rgb("#c408ff"))
+#test(rgb(color.mix((red, 50%), (blue, 100%), space: color.hsl)), rgb("#5100f8"))
+// Error: 15-51 cannot mix more than two colors in a hue-based space
+#rgb(color.mix(red, blue, white, space: color.hsl))
+
 ---
 // Test color conversion method kinds
 #test(rgb(rgb(10, 20, 30)).space(), rgb)

@@ -723,7 +723,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             quote! {
                 <#elem as #foundations::ElementFields>::Fields::#name => None,
             }
-        } else if field.inherent() {
+        } else if field.inherent() || (field.synthesized && field.default.is_some()) {
             quote! {
                 <#elem as #foundations::ElementFields>::Fields::#name => Some(
                     #foundations::IntoValue::into_value(self.#field_ident.clone())
@@ -748,7 +748,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             quote! {
                 <#elem as #foundations::ElementFields>::Fields::#name => false,
             }
-        } else if field.inherent() {
+        } else if field.inherent() || (field.synthesized && field.default.is_some()) {
             quote! {
                 <#elem as #foundations::ElementFields>::Fields::#name => true,
             }
@@ -867,12 +867,21 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                 quote! { ::ecow::EcoString::inline(#name).into() }
             };
 
-            quote! {
-                if let Some(value) = &self.#field_ident {
+            if field.synthesized && field.default.is_some() {
+                quote! {
                     fields.insert(
                         #field_call,
-                        #foundations::IntoValue::into_value(value.clone())
+                        #foundations::IntoValue::into_value(self.#field_ident.clone())
                     );
+                }
+            } else {
+                quote! {
+                    if let Some(value) = &self.#field_ident {
+                        fields.insert(
+                            #field_call,
+                            #foundations::IntoValue::into_value(value.clone())
+                        );
+                    }
                 }
             }
         });
@@ -912,6 +921,17 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
     let label_has_field = element
         .unless_capability("Unlabellable", || quote! { self.label().is_some() })
         .unwrap_or_else(|| quote! { false });
+
+    let label_field_dict = element.unless_capability("Unlabellable", || {
+        quote! {
+            if let Some(label) = self.label() {
+                fields.insert(
+                    ::ecow::EcoString::inline("label").into(),
+                    #foundations::IntoValue::into_value(label)
+                );
+            }
+        }
+    });
 
     let mark_prepared = element
         .unless_capability("Unlabellable", || quote! { self.prepared = true; })
@@ -1068,6 +1088,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
 
             fn fields(&self) -> #foundations::Dict {
                 let mut fields = #foundations::Dict::new();
+                #label_field_dict
                 #(#field_dict)*
                 #(#field_opt_dict)*
                 fields

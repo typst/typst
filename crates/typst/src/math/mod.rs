@@ -126,7 +126,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// below, the expression `(3x + y) / 7` is right-aligned and `= 9` is
 /// left-aligned. The word "given" is also left-aligned because `&&` creates two
 /// alignment points in a row, alternating the alignment twice. `& &` and `&&`
-/// behave exactly the same way. Meanwhile, "multiply by 7" is left-aligned
+/// behave exactly the same way. Meanwhile, "multiply by 7" is right-aligned
 /// because just one `&` precedes it. Each alignment point simply alternates
 /// between right-aligned/left-aligned.
 ///

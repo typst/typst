@@ -792,6 +792,9 @@ pub static RAW_THEME: Lazy<synt::Theme> = Lazy::new(|| synt::Theme {
         item("support.macro", Some("#16718d"), None),
         item("meta.annotation", Some("#301414"), None),
         item("entity.other, meta.interpolation", Some("#8b41b1"), None),
+        item("meta.diff.range", Some("#8b41b1"), None),
+        item("markup.inserted, meta.diff.header.to-file", Some("#298e0d"), None),
+        item("markup.deleted, meta.diff.header.from-file", Some("#d73a49"), None),
     ],
 });
 
