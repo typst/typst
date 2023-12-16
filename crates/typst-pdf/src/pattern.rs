@@ -74,7 +74,7 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
         resources_map.finish();
         tiling_pattern
             .matrix(transform_to_array(
-                transform.post_concat(Transform::scale(Ratio::one(), -Ratio::one())),
+                transform.pre_concat(Transform::scale(Ratio::one(), -Ratio::one())),
             ))
             .filter(Filter::FlateDecode);
     }
