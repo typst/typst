@@ -1,19 +1,6 @@
 const vscode = require('vscode')
 const cp = require('child_process')
 
-function getActiveDocumentUri() {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-        throw new Error('vscode.window.activeTextEditor is undefined.');
-    }
-    return editor.document.uri;
-}
-
-/** @param {vscode.Uri} uri */
-function getTestOutputTabTitle(uri) {
-    return uri.path.split('/').pop()?.replace('.typ', '.png') ?? 'Test output'
-}
-
 /**
  * @param {vscode.ExtensionContext} context
  */
@@ -33,7 +20,7 @@ function activate(context) {
             // Make refresh notable.
             setTimeout(() => {
                 if (!panel) {
-                    throw new Error('state.panel is falsy');
+                    throw new Error('state.panel is falsy')
                 }
                 panel.title = getTestOutputTabTitle(uri)
                 panel.webview.html = getWebviewContent(pngSrc, refSrc, stdout, stderr)
@@ -105,6 +92,19 @@ function activate(context) {
     context.subscriptions.push(updateCmd)
 
     context.subscriptions.push(cmdStatusBar)
+}
+
+function getActiveDocumentUri() {
+    const editor = vscode.window.activeTextEditor
+    if (!editor) {
+        throw new Error('vscode.window.activeTextEditor is undefined.')
+    }
+    return editor.document.uri
+}
+
+/** @param {vscode.Uri} uri */
+function getTestOutputTabTitle(uri) {
+    return uri.path.split('/').pop()?.replace('.typ', '.png') ?? 'Test output'
 }
 
 function getPaths(uri) {
