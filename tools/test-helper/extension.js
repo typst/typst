@@ -56,15 +56,21 @@ function activate(context) {
         refreshPanel("", "")
     })
 
+    const cmdStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right)
+    cmdStatusBar.tooltip = "Typst test-helper is running test..."
+    cmdStatusBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground')
     const rerunCmd = vscode.commands.registerCommand("ShortcutMenuBar.testRerun", () => {
         const uri = getActiveDocumentUri()
         const components = uri.fsPath.split(/tests[\/\\]/)
         const dir = components[0]
         const subPath = components[1]
 
+        cmdStatusBar.text = "$(loading~spin) Running test"
+        cmdStatusBar.show();
         cp.exec(
             `cargo test --manifest-path ${dir}/Cargo.toml --all --test tests -- ${subPath}`,
             (err, stdout, stderr) => {
+                cmdStatusBar.hide()
                 console.log('Ran tests')
                 refreshPanel(stdout, stderr)
             }
@@ -83,12 +89,12 @@ function activate(context) {
             .then(answer => {
                 if (answer === 'Yes') {
                     vscode.workspace.fs.copy(pngPath, refPath, { overwrite: true })
-                    .then(() => {
-                        console.log('Copied to reference file')
-                        cp.exec(`oxipng -o max -a ${refPath.fsPath}`, (err, stdout, stderr) => {
-                            refreshPanel(stdout, stderr)
+                        .then(() => {
+                            console.log('Copied to reference file')
+                            cp.exec(`oxipng -o max -a ${refPath.fsPath}`, (err, stdout, stderr) => {
+                                refreshPanel(stdout, stderr)
+                            })
                         })
-                    })
                 }
             })
     })
@@ -97,6 +103,8 @@ function activate(context) {
     context.subscriptions.push(refreshCmd)
     context.subscriptions.push(rerunCmd)
     context.subscriptions.push(updateCmd)
+
+    context.subscriptions.push(cmdStatusBar)
 }
 
 function getPaths(uri) {
@@ -174,6 +182,6 @@ function escape(text) {
     return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function deactivate() {}
+function deactivate() { }
 
 module.exports = { activate, deactivate }
