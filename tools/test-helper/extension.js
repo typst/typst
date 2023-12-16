@@ -7,14 +7,25 @@ const cp = require('child_process')
 function activate(context) {
     let /** @type {vscode.WebviewPanel?} */ panel = null
 
-    function refreshPanel(stdout, stderr) {
-        const uri = getActiveDocumentUri()
-        const { pngPath, refPath } = getPaths(uri)
+    const cmdStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right)
+    cmdStatusBar.tooltip = "Typst test-helper"
+    cmdStatusBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground')
+
+    /**
+     * @param {vscode.Uri} uri
+     * @param {string} stdout
+     * @param {string} stderr
+     */
+    function refreshPanel(uri, stdout, stderr) {
+        const { pngPath, refPath, rerunSvgPath } = getPaths(uri)
 
         if (panel && panel.visible) {
             console.log('Refreshing WebView')
-            const pngSrc = panel.webview.asWebviewUri(pngPath)
-            const refSrc = panel.webview.asWebviewUri(refPath)
+            const webViewSrcs = {
+                png: panel.webview.asWebviewUri(pngPath),
+                ref: panel.webview.asWebviewUri(refPath),
+                rerunSvg: panel.webview.asWebviewUri(rerunSvgPath),
+            }
             panel.webview.html = ''
 
             // Make refresh notable.
@@ -23,35 +34,14 @@ function activate(context) {
                     throw new Error('state.panel is falsy')
                 }
                 panel.title = getTestOutputTabTitle(uri)
-                panel.webview.html = getWebviewContent(pngSrc, refSrc, stdout, stderr)
+                panel.webview.html = getWebviewContent(
+                    uri, webViewSrcs, stdout, stderr)
             }, 50)
         }
     }
 
-    const openCmd = vscode.commands.registerCommand("ShortcutMenuBar.testOpen", () => {
-        panel = vscode.window.createWebviewPanel(
-            'testOutput',
-            getTestOutputTabTitle(getActiveDocumentUri()),
-            vscode.ViewColumn.Beside,
-            {}
-        )
-        panel.iconPath = {
-            light: vscode.Uri.joinPath(context.extensionUri, "images", "rerun-light.svg"),
-            dark: vscode.Uri.joinPath(context.extensionUri, "images", "rerun-dark.svg"),
-        }
-
-        refreshPanel("", "")
-    })
-
-    const refreshCmd = vscode.commands.registerCommand("ShortcutMenuBar.testRefresh", () => {
-        refreshPanel("", "")
-    })
-
-    const cmdStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right)
-    cmdStatusBar.tooltip = "Typst test-helper"
-    cmdStatusBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground')
-    const rerunCmd = vscode.commands.registerCommand("ShortcutMenuBar.testRerun", () => {
-        const uri = getActiveDocumentUri()
+    /** @param {vscode.Uri} uri */
+    function rerunCmdImpl(uri) {
         const components = uri.fsPath.split(/tests[\/\\]/)
         const dir = components[0]
         const subPath = components[1]
@@ -63,9 +53,48 @@ function activate(context) {
             (err, stdout, stderr) => {
                 cmdStatusBar.hide()
                 console.log('Ran tests')
-                refreshPanel(stdout, stderr)
+                refreshPanel(uri, stdout, stderr)
             }
         )
+    }
+
+    const openCmd = vscode.commands.registerCommand("ShortcutMenuBar.testOpen", () => {
+        const uri = getActiveDocumentUri()
+        panel = vscode.window.createWebviewPanel(
+            'testOutput',
+            getTestOutputTabTitle(getActiveDocumentUri()),
+            vscode.ViewColumn.Beside,
+            { enableScripts: true },
+        )
+        panel.webview.onDidReceiveMessage(
+            /** @param {{command: string, testUriString: string}} message */
+            message => {
+                console.log(JSON.stringify(message))
+                switch (message.command) {
+                    case 'rerunCmd':
+                        rerunCmdImpl(vscode.Uri.parse(message.testUriString));
+                        return;
+                }
+            });
+        panel.onDidDispose(() => {
+            console.log('Webview panel closed.')
+            panel = null
+        })
+
+        refreshPanel(uri, "", "")
+    })
+
+    const refreshCmd = vscode.commands.registerCommand("ShortcutMenuBar.testRefresh", () => {
+        if (panel) {
+            if (!panel.visible) {
+                panel.reveal()
+            }
+            refreshPanel(getActiveDocumentUri(), "", "")
+        }
+    })
+
+    const rerunCmd = vscode.commands.registerCommand("ShortcutMenuBar.testRerun", () => {
+        rerunCmdImpl(getActiveDocumentUri())
     })
 
     const updateCmd = vscode.commands.registerCommand("ShortcutMenuBar.testUpdate", () => {
@@ -83,7 +112,7 @@ function activate(context) {
                         .then(() => {
                             console.log('Copied to reference file')
                             cp.exec(`oxipng -o max -a ${refPath.fsPath}`, (err, stdout, stderr) => {
-                                refreshPanel(stdout, stderr)
+                                refreshPanel(uri, stdout, stderr)
                             })
                         })
                 }
@@ -120,10 +149,13 @@ function getPaths(uri) {
         .replace("tests/typ", "tests/ref")
         .replace(".typ", ".png"))
 
-    return { pngPath, refPath }
+    const rerunSvgPath = vscode.Uri.file(
+        uri.path.replace(/tests\/typ.+/, "tools/test-helper/images/rerun-light.svg"))
+
+    return { pngPath, refPath, rerunSvgPath }
 }
 
-function getWebviewContent(pngSrc, refSrc, stdout, stderr) {
+function getWebviewContent(testUri, webViewSrcs, stdout, stderr) {
     return `
     <!DOCTYPE html>
     <html lang="en">
@@ -157,18 +189,26 @@ function getWebviewContent(pngSrc, refSrc, stdout, stderr) {
             flex-shrink: 0;
             max-width: 100%;
         }
+        .button {
+            display: flex;
+            justify-content: center;
+            cursor: pointer;
+        }
         </style>
     </head>
     <body>
+        <button class="button" id="reRun" title="Rerun test">
+            <img src="${webViewSrcs.rerunSvg}"/>
+        </button>
         <div class="flex">
             <div>
                 <h1>Output</h1>
-                <img src="${pngSrc}"/>
+                <img src="${webViewSrcs.png}"/>
             </div>
 
             <div>
                 <h1>Reference</h1>
-                <img src="${refSrc}"/>
+                <img src="${webViewSrcs.ref}"/>
             </div>
         </div>
 
@@ -177,6 +217,17 @@ function getWebviewContent(pngSrc, refSrc, stdout, stderr) {
 
         <h1>Standard error</h1>
         <pre>${escape(stderr)}</pre>
+
+        <script>
+            const vscode = acquireVsCodeApi();
+            const reRunButton = document.querySelector("div#reRun")
+            document.querySelector("#reRun").addEventListener("click", () => {
+                vscode.postMessage({
+                    command: 'rerunCmd',
+                    testUriString: '${testUri.toString()}',
+                })
+            });
+        </script>
     </body>
     </html>
     `
