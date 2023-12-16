@@ -110,8 +110,8 @@ function activate(context) {
                 if (answer === 'Yes') {
                     vscode.workspace.fs.copy(pngPath, refPath, { overwrite: true })
                         .then(() => {
-                            console.log('Copied to reference file')
                             cp.exec(`oxipng -o max -a ${refPath.fsPath}`, (err, stdout, stderr) => {
+                                console.log('Copied to reference file')
                                 refreshPanel(uri, stdout, stderr)
                             })
                         })
@@ -219,14 +219,13 @@ function getWebviewContent(testUri, webViewSrcs, stdout, stderr) {
         <pre>${escape(stderr)}</pre>
 
         <script>
-            const vscode = acquireVsCodeApi();
-            const reRunButton = document.querySelector("div#reRun")
+            const vscode = acquireVsCodeApi()
             document.querySelector("#reRun").addEventListener("click", () => {
                 vscode.postMessage({
-                    command: 'rerunCmd',
-                    testUriString: '${testUri.toString()}',
+                    command: "rerunCmd",
+                    testUriString: "${testUri.toString()}",
                 })
-            });
+            })
         </script>
     </body>
     </html>
@@ -237,6 +236,6 @@ function escape(text) {
     return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function deactivate() { }
+function deactivate() {}
 
 module.exports = { activate, deactivate }
