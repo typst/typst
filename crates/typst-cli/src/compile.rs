@@ -1,5 +1,5 @@
+use std::fs;
 use std::path::{Path, PathBuf};
-use std::{fs};
 
 use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -115,8 +115,10 @@ pub fn compile_once(
             print_diagnostics(world, &[], &warnings, command.common.diagnostic_format)
                 .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
+            // Since .take() removes from the command, this can only be true
+            // once when watching
             if let Some(open) = command.open.take() {
-                open_file(open.as_deref(), &command.output(), watching)?;
+                open_file(open.as_deref(), &command.output())?;
             }
         }
 
@@ -253,15 +255,10 @@ fn export_image(
 /// Opens the given file using:
 /// - The default file viewer if `open` is `None`.
 /// - The given viewer provided by `open` if it is `Some`.
-fn open_file(open: Option<&str>, path: &Path, watching: bool) -> StrResult<()> {
+fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
+    // Waits for the editor open command to finish
     if let Some(app) = open {
-        if watching {
-            open::with_in_background(path, app);
-        } else {
-            let _ = open::with(path, app);
-        }
-    } else if watching {
-        open::that_in_background(path);
+        let _ = open::with(path, app);
     } else {
         let _ = open::that(path);
     }
