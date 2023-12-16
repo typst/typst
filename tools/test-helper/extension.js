@@ -35,6 +35,10 @@ function activate(context) {
             vscode.ViewColumn.Beside,
             {}
         )
+        panel.iconPath = {
+            light: vscode.Uri.joinPath(context.extensionUri, "images", "rerun-light.svg"),
+            dark: vscode.Uri.joinPath(context.extensionUri, "images", "rerun-dark.svg"),
+        }
 
         refreshPanel("", "")
     })
