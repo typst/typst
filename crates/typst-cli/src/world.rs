@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::{fs, mem};
 
 use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
 use ecow::eco_format;
-use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
 use typst::diag::{FileError, FileResult, StrResult};
 use typst::foundations::{Bytes, Datetime};
@@ -38,7 +38,7 @@ pub struct SystemWorld {
     slots: Mutex<HashMap<FileId, FileSlot>>,
     /// The current datetime if requested. This is stored here to ensure it is
     /// always the same within one compilation. Reset between compilations.
-    now: OnceCell<DateTime<Local>>,
+    now: OnceLock<DateTime<Local>>,
     /// The export cache, used for caching output files in `typst watch`
     /// sessions.
     export_cache: ExportCache,
@@ -80,7 +80,7 @@ impl SystemWorld {
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
             slots: Mutex::new(HashMap::new()),
-            now: OnceCell::new(),
+            now: OnceLock::new(),
             export_cache: ExportCache::new(),
         })
     }
