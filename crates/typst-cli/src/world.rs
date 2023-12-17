@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{OnceLock, RwLock};
 use std::{fs, mem};
 
 use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
 use ecow::eco_format;
+use once_cell::sync::OnceCell;
+use parking_lot::Mutex;
 use typst::diag::{FileError, FileResult, StrResult};
 use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source, VirtualPath};
@@ -34,10 +35,10 @@ pub struct SystemWorld {
     /// Locations of and storage for lazily loaded fonts.
     fonts: Vec<FontSlot>,
     /// Maps file ids to source files and buffers.
-    slots: RwLock<HashMap<FileId, FileSlot>>,
+    slots: Mutex<HashMap<FileId, FileSlot>>,
     /// The current datetime if requested. This is stored here to ensure it is
     /// always the same within one compilation. Reset between compilations.
-    now: OnceLock<DateTime<Local>>,
+    now: OnceCell<DateTime<Local>>,
     /// The export cache, used for caching output files in `typst watch`
     /// sessions.
     export_cache: ExportCache,
@@ -78,8 +79,8 @@ impl SystemWorld {
             library: Prehashed::new(Library::build()),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
-            slots: RwLock::new(HashMap::new()),
-            now: OnceLock::new(),
+            slots: Mutex::new(HashMap::new()),
+            now: OnceCell::new(),
             export_cache: ExportCache::new(),
         })
     }
@@ -103,7 +104,6 @@ impl SystemWorld {
     pub fn dependencies(&mut self) -> impl Iterator<Item = PathBuf> + '_ {
         self.slots
             .get_mut()
-            .unwrap()
             .values()
             .filter(|slot| slot.accessed())
             .filter_map(|slot| system_path(&self.root, slot.id).ok())
@@ -111,7 +111,7 @@ impl SystemWorld {
 
     /// Reset the compilation state in preparation of a new compilation.
     pub fn reset(&mut self) {
-        for slot in self.slots.get_mut().unwrap().values_mut() {
+        for slot in self.slots.get_mut().values_mut() {
             slot.reset();
         }
         self.now.take();
@@ -129,8 +129,8 @@ impl SystemWorld {
     }
 
     /// Gets access to the export cache.
-    pub fn export_cache(&mut self) -> &mut ExportCache {
-        &mut self.export_cache
+    pub fn export_cache(&self) -> &ExportCache {
+        &self.export_cache
     }
 }
 
@@ -181,7 +181,7 @@ impl SystemWorld {
     where
         F: FnOnce(&mut FileSlot) -> T,
     {
-        let mut map = self.slots.write().unwrap();
+        let mut map = self.slots.lock();
         f(map.entry(id).or_insert_with(|| FileSlot::new(id)))
     }
 }

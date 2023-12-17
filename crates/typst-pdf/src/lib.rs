@@ -290,6 +290,13 @@ fn deflate_memoized(content: &[u8]) -> Arc<Vec<u8>> {
     Arc::new(deflate(content))
 }
 
+/// Memoized and deferred version of [`deflate`] specialized for a page's content
+/// stream.
+#[comemo::memoize]
+fn deflate_deferred(content: Vec<u8>) -> Deferred<Vec<u8>> {
+    Deferred::new(move || deflate(&content))
+}
+
 /// Create a base64-encoded hash of the value.
 fn hash_base64<T: Hash>(value: &T) -> String {
     base64::engine::general_purpose::STANDARD

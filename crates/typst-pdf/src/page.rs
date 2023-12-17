@@ -15,7 +15,7 @@ use typst::layout::{
 };
 use typst::model::Destination;
 use typst::text::{Font, TextItem};
-use typst::util::Numeric;
+use typst::util::{Deferred, Numeric};
 use typst::visualize::{
     FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
 };
@@ -23,7 +23,7 @@ use typst::visualize::{
 use crate::color::PaintEncode;
 use crate::extg::ExtGState;
 use crate::image::deferred_image;
-use crate::{deflate_memoized, AbsExt, EmExt, PdfContext};
+use crate::{deflate_deferred, AbsExt, EmExt, PdfContext};
 
 /// Construct page objects.
 #[tracing::instrument(skip_all)]
@@ -71,7 +71,7 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Page)
 
     let page = Page {
         size,
-        content: ctx.content.finish(),
+        content: deflate_deferred(ctx.content.finish()),
         id: ctx.page_ref,
         uses_opacities: ctx.uses_opacities,
         links: ctx.links,
@@ -198,8 +198,9 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
     annotations.finish();
     page_writer.finish();
 
-    let data = deflate_memoized(&page.content);
-    ctx.pdf.stream(content_id, &data).filter(Filter::FlateDecode);
+    ctx.pdf
+        .stream(content_id, page.content.wait())
+        .filter(Filter::FlateDecode);
 }
 
 /// Write the page labels.
@@ -258,7 +259,7 @@ pub struct Page {
     /// The page's dimensions.
     pub size: Size,
     /// The page's content stream.
-    pub content: Vec<u8>,
+    pub content: Deferred<Vec<u8>>,
     /// Whether the page uses opacities.
     pub uses_opacities: bool,
     /// Links in the PDF coordinate system.
