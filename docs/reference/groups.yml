@@ -133,6 +133,15 @@
     (of type [`version`]($version)), that specifies the currently active
     Typst compiler version.
 
+    This module also enables loading data external from the project into the document.
+    The data is available from the `sys.inputs` [Dictionary]($dictionary).
+    For example, you can specify `--input some_key=any_value`
+    and obtain the value using `sys.inputs.some_key`.
+    The value is split by the first `=` character and is always treated
+    as a string and may be parsed manually using e.g. using `json.decode`.
+    For more complex input values, the value may be
+    enclosed with single or double brackets.
+
 - name: sym
   title: General
   category: symbols
