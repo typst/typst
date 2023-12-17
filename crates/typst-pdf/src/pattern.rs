@@ -2,7 +2,7 @@ use ecow::eco_format;
 use pdf_writer::types::{ColorSpaceOperand, PaintType, TilingType};
 use pdf_writer::{Filter, Finish, Name, Rect};
 use typst::layout::{Abs, Ratio, Transform};
-use typst::util::{Deferred, Numeric};
+use typst::util::Numeric;
 use typst::visualize::{Pattern, RelativeTo};
 
 use crate::color::PaintEncode;
@@ -16,7 +16,7 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
         let tiling = ctx.alloc.bump();
         ctx.pattern_refs.push(tiling);
 
-        let mut tiling_pattern = ctx.pdf.tiling_pattern(tiling, content.wait());
+        let mut tiling_pattern = ctx.pdf.tiling_pattern(tiling, content);
         tiling_pattern
             .tiling_type(TilingType::ConstantSpacing)
             .paint_type(PaintType::Colored)
@@ -80,39 +80,17 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
 }
 
 /// A pattern and its transform.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct PdfPattern {
     /// The transform to apply to the gradient.
     pub transform: Transform,
     /// The pattern to paint.
     pub pattern: Pattern,
     /// The rendered pattern.
-    pub content: Deferred<Vec<u8>>,
+    pub content: Vec<u8>,
     /// The resources used by the pattern.
     pub resources: Vec<(PageResource, usize)>,
 }
-
-impl std::hash::Hash for PdfPattern {
-    // Manual impl because we need to wait for the content.
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.transform.hash(state);
-        self.pattern.hash(state);
-        self.content.wait().hash(state);
-        self.resources.hash(state);
-    }
-}
-
-impl PartialEq for PdfPattern {
-    // Manual impl because we need to wait for the content.
-    fn eq(&self, other: &Self) -> bool {
-        self.transform == other.transform
-            && self.pattern == other.pattern
-            && self.content.wait() == other.content.wait()
-            && self.resources == other.resources
-    }
-}
-
-impl Eq for PdfPattern {}
 
 /// Registers a pattern with the PDF.
 fn register_pattern(
@@ -141,7 +119,7 @@ fn register_pattern(
     let pdf_pattern = PdfPattern {
         transform,
         pattern: pattern.clone(),
-        content: content.content,
+        content: content.content.wait().clone(),
         resources: content.resources.into_iter().collect(),
     };
 
