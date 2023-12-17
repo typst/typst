@@ -14,7 +14,7 @@ use typst::layout::{
     Abs, Em, Frame, FrameItem, GroupItem, PdfPageLabel, PdfPageLabelStyle, Point, Ratio,
     Size, Transform,
 };
-use typst::model::{Destination, Document};
+use typst::model::{Destination, Document, Refable};
 use typst::text::{Font, TextItem};
 use typst::util::Numeric;
 use typst::visualize::{
@@ -148,6 +148,7 @@ fn name_from_loc<'a>(doc: &Document, loc: &Location) -> Option<Name<'a>> {
     let label = elem.label()?;
     assert!(query_res.is_empty());
     assert!(doc.introspector.query_label(label).is_ok());
+    assert!(elem.can::<dyn Refable>());
     Some(Name(label.as_str().as_bytes()))
 }
 

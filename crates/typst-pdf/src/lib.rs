@@ -18,7 +18,7 @@ use base64::Engine;
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use pdf_writer::types::Direction;
-use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
+use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
 use typst::foundations::Datetime;
 use typst::layout::{Abs, Dir, Em, Transform};
 use typst::model::{Document, Refable};
@@ -89,8 +89,6 @@ struct PdfContext<'a> {
     alloc: Ref,
     /// The ID of the page tree.
     page_tree_ref: Ref,
-    /// The ID of the Dests dictionary.
-    named_dests_ref: Ref,
     /// The IDs of written pages.
     page_refs: Vec<Ref>,
     /// The IDs of written fonts.
@@ -124,7 +122,6 @@ impl<'a> PdfContext<'a> {
     fn new(document: &'a Document) -> Self {
         let mut alloc = Ref::new(1);
         let page_tree_ref = alloc.bump();
-        let named_dests_ref = alloc.bump();
         Self {
             document,
             pdf: Pdf::new(),
@@ -133,7 +130,6 @@ impl<'a> PdfContext<'a> {
             languages: HashMap::new(),
             alloc,
             page_tree_ref,
-            named_dests_ref,
             page_refs: vec![],
             font_refs: vec![],
             image_refs: vec![],
@@ -258,11 +254,24 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
         .pair(Name(b"Type"), Name(b"Metadata"))
         .pair(Name(b"Subtype"), Name(b"XML"));
 
+    let destinations = write_and_collect_destinations(ctx);
+
     // Write the document catalog.
     let mut catalog = ctx.pdf.catalog(ctx.alloc.bump());
     catalog.pages(ctx.page_tree_ref);
     catalog.viewer_preferences().direction(dir);
     catalog.metadata(meta_ref);
+
+    // Write the named destinations.
+    let mut name_tree = catalog.names();
+    let mut dests = name_tree.destinations();
+    let mut name_entries = dests.names();
+    for (name, dest_ref, _page_ref, _x, _y) in destinations {
+        name_entries.insert(name, dest_ref);
+    }
+    name_entries.finish();
+    dests.finish();
+    name_tree.finish();
 
     // Insert the page labels.
     if !page_labels.is_empty() {
@@ -281,41 +290,38 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
         catalog.lang(TextStr(lang.as_str()));
     }
 
-    // PDF 1.2
-    // catalog.names().destinations()
-    //     .names()
-    //     .insert(b"location", Ref);
-
-    // PDF 1.1
-    catalog.destinations(ctx.named_dests_ref);
     catalog.finish();
-    write_named_destinations(ctx);
 }
 
 #[tracing::instrument(skip_all)]
-fn write_named_destinations(ctx: &mut PdfContext) {
-    // PDF 1.1
-    let mut destinations = ctx.pdf.destinations(ctx.named_dests_ref);
+fn write_and_collect_destinations<'a>(
+    ctx: &mut PdfContext,
+) -> Vec<(Str<'a>, Ref, Ref, f32, f32)> {
+    let mut destinations = vec![];
     for elem in ctx.document.introspector.all().filter(|c| c.can::<dyn Refable>()) {
         if_chain!(
             if let Some(label) = elem.label();
             if let Ok(_) = ctx.document.introspector.query_label(label);
             if let Some(loc) = elem.location();
-            let name = Name(label.as_str().as_bytes());
+            let name = Str(label.as_str().as_bytes());
             let pos = ctx.document.introspector.position(loc);
             let index = pos.page.get() - 1;
             let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
             if let Some(page) = ctx.pages.get(index);
             then {
-                destinations.insert(name).page(ctx.page_refs[index]).xyz(
-                    pos.point.x.to_f32(),
-                    (page.size.y - y).to_f32(),
-                    None,
-                );
+                let page_ref = ctx.page_refs[index];
+                let x = pos.point.x.to_f32();
+                let y = (page.size.y - y).to_f32();
+                let dest_ref = ctx.alloc.bump();
+                destinations.push((name, dest_ref, page_ref, x, y))
             }
         );
     }
-    destinations.finish();
+    destinations.sort_by_key(|i| i.0);
+    for (_name, dest_ref, page_ref, x, y) in destinations.iter().copied() {
+        ctx.pdf.destination(dest_ref).page(page_ref).xyz(x, y, None);
+    }
+    destinations
 }
 
 /// Compress data with the DEFLATE algorithm.
