@@ -2,7 +2,7 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{cast, func, scope, Array, Dict, IntoValue, Value};
+use crate::foundations::{cast, func, scope, Array, Dict, IntoValue, Type, Value};
 use crate::loading::Readable;
 use crate::syntax::Spanned;
 use crate::World;
@@ -35,19 +35,21 @@ pub fn csv(
     #[named]
     #[default]
     delimiter: Delimiter,
-    /// Whether to use the header row in the CSV file to generate labels the fields in the columns.
-    /// When using this option, each row in the CSV file will be represented as an dictionary, where the header field is the key and the column field is the value.
-    /// All rows will be collected into a single array. Header rows will be stripped.
-    /// This option only makes sense when a header row is present in the CSV file.
-    /// Defaults to `{false}`.
+    /// How to represent the file's rows.
+    ///
+    /// - If set to `array`, each row is represented as a plain array of
+    ///   strings.
+    /// - If set to `dictionary`, each row is represented as a dictionary
+    ///   mapping from header keys to strings. This option only makes sense when
+    ///   a header row is present in the CSV file.
     #[named]
-    #[default(false)]
-    use_headers: bool,
+    #[default(RowType::Array)]
+    row_type: RowType,
 ) -> SourceResult<Array> {
     let Spanned { v: path, span } = path;
     let id = span.resolve_path(&path).at(span)?;
     let data = engine.world.file(id).at(span)?;
-    self::csv::decode(Spanned::new(Readable::Bytes(data), span), delimiter, use_headers)
+    self::csv::decode(Spanned::new(Readable::Bytes(data), span), delimiter, row_type)
 }
 
 #[scope]
@@ -62,26 +64,35 @@ impl csv {
         #[named]
         #[default]
         delimiter: Delimiter,
-        /// Whether to use the header row in the CSV file to generate labels the fields in the columns.
-        /// Defaults to `{false}`.
+        /// How to represent the file's rows.
+        ///
+        /// - If set to `array`, each row is represented as a plain array of
+        ///   strings.
+        /// - If set to `dictionary`, each row is represented as a dictionary
+        ///   mapping from header keys to strings. This option only makes sense
+        ///   when a header row is present in the CSV file.
         #[named]
-        #[default(false)]
-        use_headers: bool,
+        #[default(RowType::Array)]
+        row_type: RowType,
     ) -> SourceResult<Array> {
         let Spanned { v: data, span } = data;
+        let has_headers = row_type == RowType::Dict;
+
         let mut builder = ::csv::ReaderBuilder::new();
-        builder.has_headers(use_headers);
+        builder.has_headers(has_headers);
         builder.delimiter(delimiter.0 as u8);
+
+        // Counting lines from 1 by default.
+        let mut line_offset: usize = 1;
         let mut reader = builder.from_reader(data.as_slice());
         let mut headers: Option<::csv::StringRecord> = None;
 
-        let mut line_offset: usize = 1; // Counting lines from 1
-
-        if use_headers {
-            line_offset = 2; // Counting lines from 2 (1 is header)
-            let headers_result = reader.headers();
+        if has_headers {
+            // Counting lines from 2 because we have a header.
+            line_offset += 1;
             headers = Some(
-                headers_result
+                reader
+                    .headers()
                     .map_err(|err| format_csv_error(err, 1))
                     .at(span)?
                     .clone(),
@@ -89,24 +100,23 @@ impl csv {
         }
 
         let mut array = Array::new();
-
         for (line, result) in reader.records().enumerate() {
-            // Original solution use line from error, but that is incorrect with
-            // `has_headers` set to `false`. See issue:
+            // Original solution was to use line from error, but that is
+            // incorrect with `has_headers` set to `false`. See issue:
             // https://github.com/BurntSushi/rust-csv/issues/184
             let line = line + line_offset;
             let row = result.map_err(|err| format_csv_error(err, line)).at(span)?;
-            if let Some(headers) = headers.clone() {
+            let item = if let Some(headers) = &headers {
                 let mut dict = Dict::new();
-                for (header_field, field) in headers.into_iter().zip(row.into_iter()) {
-                    let value = field.into_value();
-                    dict.insert(header_field.into(), value)
+                for (field, value) in headers.iter().zip(&row) {
+                    dict.insert(field.into(), value.into_value());
                 }
-                array.push(dict.into_value())
+                dict.into_value()
             } else {
                 let sub = row.into_iter().map(|field| field.into_value()).collect();
-                array.push(Value::Array(sub))
-            }
+                Value::Array(sub)
+            };
+            array.push(item);
         }
 
         Ok(array)
@@ -137,6 +147,30 @@ cast! {
         }
 
         Self(first)
+    },
+}
+
+/// The type of parsed rows.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum RowType {
+    Array,
+    Dict,
+}
+
+cast! {
+    RowType,
+    self => match self {
+        Self::Array => Type::of::<Array>(),
+        Self::Dict => Type::of::<Dict>(),
+    }.into_value(),
+    ty: Type => {
+        if ty == Type::of::<Array>() {
+            Self::Array
+        } else if ty == Type::of::<Dict>() {
+            Self::Dict
+        } else {
+            bail!("expected `array` or `dictionary`");
+        }
     },
 }
 

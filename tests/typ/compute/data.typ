@@ -23,8 +23,8 @@
 #table(columns: data.at(0).len(), ..cells)
 
 ---
-// Test reading CSV data with headers enabled.
-#let data = csv("/files/zoo.csv", use-headers: true)
+// Test reading CSV data with dictionary rows enabled.
+#let data = csv("/files/zoo.csv", row-type: dictionary)
 #test(data.len(), 3)
 #test(data.at(0).Name, "Debby")
 #test(data.at(2).Weight, "150kg")
@@ -39,9 +39,9 @@
 #csv("/files/bad.csv")
 
 ---
-// Test error numbering with headers enabled.
+// Test error numbering with dictionary rows.
 // Error: 6-22 failed to parse CSV (found 3 instead of 2 fields in line 3)
-#csv("/files/bad.csv", use-headers: true)
+#csv("/files/bad.csv", row-type: dictionary)
 
 ---
 // Test reading JSON data.
