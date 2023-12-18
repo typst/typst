@@ -2,10 +2,11 @@ use std::num::NonZeroUsize;
 
 use smallvec::{smallvec, SmallVec};
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Array, Content, NativeElement, Resolve, StyleChain, Value,
+    cast, elem, Array, CastInfo, Content, FromValue, Func, IntoValue, NativeElement,
+    Reflect, Resolve, StyleChain, Value,
 };
 use crate::layout::{
     Abs, Axes, Dir, Fr, Fragment, Frame, Layout, Length, Point, Regions, Rel, Size,
@@ -163,6 +164,75 @@ cast! {
     sizing: Sizing => Self(smallvec![sizing]),
     count: NonZeroUsize => Self(smallvec![Sizing::Auto; count.get()]),
     values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+}
+
+/// A value that can be configured per cell.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum Celled<T> {
+    /// A bare value, the same for all cells.
+    Value(T),
+    /// A closure mapping from cell coordinates to a value.
+    Func(Func),
+    /// An array of alignment values corresponding to each column.
+    Array(Vec<T>),
+}
+
+impl<T: Default + Clone + FromValue> Celled<T> {
+    /// Resolve the value based on the cell position.
+    pub fn resolve(&self, engine: &mut Engine, x: usize, y: usize) -> SourceResult<T> {
+        Ok(match self {
+            Self::Value(value) => value.clone(),
+            Self::Func(func) => func.call(engine, [x, y])?.cast().at(func.span())?,
+            Self::Array(array) => x
+                .checked_rem(array.len())
+                .and_then(|i| array.get(i))
+                .cloned()
+                .unwrap_or_default(),
+        })
+    }
+}
+
+impl<T: Default> Default for Celled<T> {
+    fn default() -> Self {
+        Self::Value(T::default())
+    }
+}
+
+impl<T: Reflect> Reflect for Celled<T> {
+    fn input() -> CastInfo {
+        T::input() + Array::input() + Func::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output() + Array::output() + Func::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        Array::castable(value) || Func::castable(value) || T::castable(value)
+    }
+}
+
+impl<T: IntoValue> IntoValue for Celled<T> {
+    fn into_value(self) -> Value {
+        match self {
+            Self::Value(value) => value.into_value(),
+            Self::Func(func) => func.into_value(),
+            Self::Array(arr) => arr.into_value(),
+        }
+    }
+}
+
+impl<T: FromValue> FromValue for Celled<T> {
+    fn from_value(value: Value) -> StrResult<Self> {
+        match value {
+            Value::Func(v) => Ok(Self::Func(v)),
+            Value::Array(array) => Ok(Self::Array(
+                array.into_iter().map(T::from_value).collect::<StrResult<_>>()?,
+            )),
+            v if T::castable(&v) => Ok(Self::Value(T::from_value(v)?)),
+            v => Err(Self::error(&v)),
+        }
+    }
 }
 
 /// Performs grid layout.
