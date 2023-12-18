@@ -9,13 +9,13 @@ use crate::foundations::{
     Reflect, Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Align, Axes, Dir, Fr, Fragment, Frame, Layout, Length, Point, Regions, Rel,
-    Sides, Size, Sizing,
+    Abs, Align, AlignElem, Axes, Dir, Fr, Fragment, Frame, Layout, Length, Point,
+    Regions, Rel, Sides, Size, Sizing,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::util::Numeric;
-use crate::visualize::{Paint, Stroke};
+use crate::visualize::{FixedStroke, Paint, Stroke};
 
 /// Arranges content in a grid.
 ///
@@ -210,16 +210,27 @@ impl Layout for GridElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
+        let inset = self.inset(styles);
+        let align = self.align(styles);
         let columns = self.columns(styles);
         let rows = self.rows(styles);
         let column_gutter = self.column_gutter(styles);
         let row_gutter = self.row_gutter(styles);
+        let fill = self.fill(styles);
+        let stroke = self.stroke(styles).map(Stroke::unwrap_or_default);
+
+        let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
+        let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
+        let cells =
+            apply_align_inset_to_cells(engine, &tracks, &self.children, align, inset)?;
 
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(
-            Axes::new(&columns.0, &rows.0),
-            Axes::new(&column_gutter.0, &row_gutter.0),
-            &self.children,
+            tracks,
+            gutter,
+            &cells,
+            fill,
+            &stroke,
             regions,
             styles,
             self.span(),
@@ -228,6 +239,31 @@ impl Layout for GridElem {
         // Measure the columns and layout the grid row-by-row.
         Ok(layouter.layout(engine)?.fragment)
     }
+}
+
+pub fn apply_align_inset_to_cells(
+    engine: &mut Engine,
+    tracks: &Axes<&[Sizing]>,
+    cells: &[Content],
+    align: &Celled<Smart<Align>>,
+    inset: Sides<Rel<Length>>,
+) -> SourceResult<Vec<Content>> {
+    let cols = tracks.x.len().max(1);
+    cells
+        .iter()
+        .enumerate()
+        .map(|(i, child)| {
+            let mut child = child.clone().padded(inset);
+
+            let x = i % cols;
+            let y = i / cols;
+            if let Smart::Custom(alignment) = align.resolve(engine, x, y)? {
+                child = child.styled(AlignElem::set_alignment(alignment));
+            }
+
+            Ok(child)
+        })
+        .collect()
 }
 
 /// Track sizing definitions.
@@ -323,6 +359,12 @@ pub struct GridLayouter<'a> {
     cols: Vec<Sizing>,
     /// The row tracks including gutter tracks.
     rows: Vec<Sizing>,
+    // How to fill the cells.
+    #[allow(dead_code)]
+    fill: &'a Celled<Option<Paint>>,
+    // How to stroke the cells.
+    #[allow(dead_code)]
+    stroke: &'a Option<FixedStroke>,
     /// The regions to layout children into.
     regions: Regions<'a>,
     /// The inherited styles.
@@ -376,10 +418,13 @@ impl<'a> GridLayouter<'a> {
     /// Create a new grid layouter.
     ///
     /// This prepares grid layout by unifying content and gutter tracks.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
         cells: &'a [Content],
+        fill: &'a Celled<Option<Paint>>,
+        stroke: &'a Option<FixedStroke>,
         regions: Regions<'a>,
         styles: StyleChain<'a>,
         span: Span,
@@ -444,6 +489,8 @@ impl<'a> GridLayouter<'a> {
             is_rtl,
             has_gutter,
             rows,
+            fill,
+            stroke,
             regions,
             styles,
             rcols: vec![Abs::zero(); cols.len()],

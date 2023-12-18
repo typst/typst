@@ -6,8 +6,8 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, Fold, NativeElement, Smart, StyleChain,
 };
 use crate::layout::{
-    Align, Axes, BlockElem, Em, Fragment, GridLayouter, HAlign, Layout, Length, Regions,
-    Sizing, Spacing, VAlign,
+    Align, Axes, BlockElem, Celled, Em, Fragment, GridLayouter, HAlign, Layout, Length,
+    Regions, Sizing, Spacing, VAlign,
 };
 use crate::model::{Numbering, NumberingPattern, ParElem};
 use crate::text::TextElem;
@@ -266,6 +266,8 @@ impl Layout for EnumElem {
             number = number.saturating_add(1);
         }
 
+        let fill = Celled::Value(None);
+        let stroke = None;
         let layouter = GridLayouter::new(
             Axes::with_x(&[
                 Sizing::Rel(indent.into()),
@@ -275,6 +277,8 @@ impl Layout for EnumElem {
             ]),
             Axes::with_y(&[gutter.into()]),
             &cells,
+            &fill,
+            &stroke,
             regions,
             styles,
             self.span(),

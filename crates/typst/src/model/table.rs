@@ -2,8 +2,8 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, NativeElement, Smart, StyleChain};
 use crate::layout::{
-    Abs, Align, AlignElem, Axes, Celled, Fragment, FrameItem, GridLayouter, Layout,
-    Length, Point, Regions, Rel, Sides, Size, TrackSizings,
+    apply_align_inset_to_cells, Abs, Align, Axes, Celled, Fragment, FrameItem,
+    GridLayouter, Layout, Length, Point, Regions, Rel, Sides, Size, TrackSizings,
 };
 use crate::model::Figurable;
 use crate::text::{Lang, LocalName, Region};
@@ -169,30 +169,23 @@ impl Layout for TableElem {
 
         let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
-        let cols = tracks.x.len().max(1);
-        let cells: Vec<_> = self
-            .children()
-            .iter()
-            .enumerate()
-            .map(|(i, child)| {
-                let mut child = child.clone().padded(inset);
-
-                let x = i % cols;
-                let y = i / cols;
-                if let Smart::Custom(alignment) = align.resolve(engine, x, y)? {
-                    child = child.styled(AlignElem::set_alignment(alignment));
-                }
-
-                Ok(child)
-            })
-            .collect::<SourceResult<_>>()?;
+        let cells =
+            apply_align_inset_to_cells(engine, &tracks, self.children(), align, inset)?;
 
         let fill = self.fill(styles);
         let stroke = self.stroke(styles).map(Stroke::unwrap_or_default);
 
         // Prepare grid layout by unifying content and gutter tracks.
-        let layouter =
-            GridLayouter::new(tracks, gutter, &cells, regions, styles, self.span());
+        let layouter = GridLayouter::new(
+            tracks,
+            gutter,
+            &cells,
+            fill,
+            &stroke,
+            regions,
+            styles,
+            self.span(),
+        );
 
         // Measure the columns and layout the grid row-by-row.
         let mut layout = layouter.layout(engine)?;
