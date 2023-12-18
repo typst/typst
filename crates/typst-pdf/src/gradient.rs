@@ -8,7 +8,7 @@ use pdf_writer::{Filter, Finish, Name, Ref};
 use typst::layout::{Abs, Angle, Point, Quadrant, Ratio, Transform};
 use typst::util::Numeric;
 use typst::visualize::{
-    Color, ColorSpace, ConicGradient, Gradient, RelativeTo, WeightedColor,
+    Color, ColorSpace, Gradient, RatioOrAngle, RelativeTo, WeightedColor,
 };
 
 use crate::color::{ColorSpaceExt, PaintEncode, QuantizedColor};
@@ -49,19 +49,19 @@ pub(crate) fn write_gradients(ctx: &mut PdfContext) {
                 ctx.colors
                     .write(gradient.space(), shading.color_space(), &mut ctx.alloc);
 
-                let (sin, cos) = (angle.sin(), angle.cos());
+                let (mut sin, mut cos) = (angle.sin(), angle.cos());
+
+                // Scale to edges of unit square.
+                let factor = cos.abs() + sin.abs();
+                sin *= factor;
+                cos *= factor;
+
                 let (x1, y1, x2, y2): (f64, f64, f64, f64) = match angle.quadrant() {
                     Quadrant::First => (0.0, 0.0, cos, sin),
                     Quadrant::Second => (1.0, 0.0, cos + 1.0, sin),
                     Quadrant::Third => (1.0, 1.0, cos + 1.0, sin + 1.0),
                     Quadrant::Fourth => (0.0, 1.0, cos, sin + 1.0),
                 };
-
-                let clamp = |i: f64| if i < 1e-4 { 0.0 } else { i.clamp(0.0, 1.0) };
-                let x1 = clamp(x1);
-                let y1 = clamp(y1);
-                let x2 = clamp(x2);
-                let y2 = clamp(y2);
 
                 shading
                     .anti_alias(gradient.anti_alias())
@@ -100,7 +100,7 @@ pub(crate) fn write_gradients(ctx: &mut PdfContext) {
                 shading_pattern
             }
             Gradient::Conic(conic) => {
-                let vertices = compute_vertex_stream(conic, aspect_ratio);
+                let vertices = compute_vertex_stream(&gradient, aspect_ratio);
 
                 let stream_shading_id = ctx.alloc.bump();
                 let mut stream_shading =
@@ -148,73 +148,20 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
     for window in gradient.stops_ref().windows(2) {
         let (first, second) = (window[0], window[1]);
 
-        // Skip stops with the same position.
-        if first.1.get() == second.1.get() {
-            continue;
-        }
+        // If we have a hue index, we will create several stops in-between
+        // to make the gradient smoother without interpolation issues with
+        // native color spaces.
+        let mut last_c = first.0;
+        if gradient.space().hue_index().is_some() {
+            for i in 0..=32 {
+                let t = i as f64 / 32.0;
+                let real_t = first.1.get() * (1.0 - t) + second.1.get() * t;
 
-        // If the color space is HSL or HSV, and we cross the 0°/360° boundary,
-        // we need to create two separate stops.
-        if gradient.space() == ColorSpace::Hsl || gradient.space() == ColorSpace::Hsv {
-            let t1 = first.1.get() as f32;
-            let t2 = second.1.get() as f32;
-            let [h1, s1, x1, _] = first.0.to_space(gradient.space()).to_vec4();
-            let [h2, s2, x2, _] = second.0.to_space(gradient.space()).to_vec4();
-
-            // Compute the intermediary stop at 360°.
-            if (h1 - h2).abs() > 180.0 {
-                let h1 = if h1 < h2 { h1 + 360.0 } else { h1 };
-                let h2 = if h2 < h1 { h2 + 360.0 } else { h2 };
-
-                // We compute where the crossing happens between zero and one
-                let t = (360.0 - h1) / (h2 - h1);
-                // We then map it back to the original range.
-                let t_prime = t * (t2 - t1) + t1;
-
-                // If the crossing happens between the two stops,
-                // we need to create an extra stop.
-                if t_prime <= t2 && t_prime >= t1 {
-                    bounds.push(t_prime);
-                    bounds.push(t_prime);
-                    bounds.push(t2);
-                    encode.extend([0.0, 1.0]);
-                    encode.extend([0.0, 1.0]);
-                    encode.extend([0.0, 1.0]);
-
-                    // These need to be individual function to encode 360.0 correctly.
-                    let func1 = ctx.alloc.bump();
-                    ctx.pdf
-                        .exponential_function(func1)
-                        .range(gradient.space().range())
-                        .c0(gradient.space().convert(first.0))
-                        .c1([1.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t])
-                        .domain([0.0, 1.0])
-                        .n(1.0);
-
-                    let func2 = ctx.alloc.bump();
-                    ctx.pdf
-                        .exponential_function(func2)
-                        .range(gradient.space().range())
-                        .c0([1.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t])
-                        .c1([0.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t])
-                        .domain([0.0, 1.0])
-                        .n(1.0);
-
-                    let func3 = ctx.alloc.bump();
-                    ctx.pdf
-                        .exponential_function(func3)
-                        .range(gradient.space().range())
-                        .c0([0.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t])
-                        .c1(gradient.space().convert(second.0))
-                        .domain([0.0, 1.0])
-                        .n(1.0);
-
-                    functions.push(func1);
-                    functions.push(func2);
-                    functions.push(func3);
-
-                    continue;
-                }
+                let c = gradient.sample(RatioOrAngle::Ratio(Ratio::new(real_t)));
+                functions.push(single_gradient(ctx, last_c, c, ColorSpace::Oklab));
+                bounds.push(real_t as f32);
+                encode.extend([0.0, 1.0]);
+                last_c = c;
             }
         }
 
@@ -427,108 +374,76 @@ fn control_point(c: Point, r: f32, angle_start: f32, angle_end: f32) -> (Point, 
 }
 
 #[comemo::memoize]
-fn compute_vertex_stream(conic: &ConicGradient, aspect_ratio: Ratio) -> Arc<Vec<u8>> {
+fn compute_vertex_stream(gradient: &Gradient, aspect_ratio: Ratio) -> Arc<Vec<u8>> {
+    let Gradient::Conic(conic) = gradient else { unreachable!() };
+
     // Generated vertices for the Coons patches
     let mut vertices = Vec::new();
 
     // Correct the gradient's angle
     let angle = Gradient::correct_aspect_ratio(conic.angle, aspect_ratio);
 
-    // We want to generate a vertex based on some conditions, either:
-    // - At the boundary of a stop
-    // - At the boundary of a quadrant
-    // - When we cross the boundary of a hue turn (for HSV and HSL only)
     for window in conic.stops.windows(2) {
         let ((c0, t0), (c1, t1)) = (window[0], window[1]);
 
-        // Skip stops with the same position
+        // Precision:
+        // - On an even color, insert a stop every 90deg
+        // - For a hue-based color space, insert 200 stops minimum
+        // - On any other, insert 20 stops minimum
+        let max_dt = if c0 == c1 {
+            0.25
+        } else if conic.space.hue_index().is_some() {
+            0.005
+        } else {
+            0.05
+        };
+        let encode_space = conic
+            .space
+            .hue_index()
+            .map(|_| ColorSpace::Oklab)
+            .unwrap_or(conic.space);
+        let mut t_x = t0.get();
+        let dt = (t1.get() - t0.get()).min(max_dt);
+
+        // Special casing for sharp gradients.
         if t0 == t1 {
+            write_patch(
+                &mut vertices,
+                t0.get() as f32,
+                t1.get() as f32,
+                encode_space.convert(c0),
+                encode_space.convert(c1),
+                angle,
+            );
             continue;
         }
 
-        // If the angle between the two stops is greater than 90 degrees, we need to
-        // generate a vertex at the boundary of the quadrant.
-        // However, we add more stops in-between to make the gradient smoother, so we
-        // need to generate a vertex at least every 5 degrees.
-        // If the colors are the same, we do it every quadrant only.
-        let slope = 1.0 / (t1.get() - t0.get());
-        let mut t_x = t0.get();
-        let dt = (t1.get() - t0.get()).min(0.25);
         while t_x < t1.get() {
             let t_next = (t_x + dt).min(t1.get());
 
-            let t1 = slope * (t_x - t0.get());
-            let t2 = slope * (t_next - t0.get());
-
-            // We don't use `Gradient::sample` to avoid issues with sharp gradients.
+            // The current progress in the current window.
+            let t = |t| (t - t0.get()) / (t1.get() - t0.get());
             let c = Color::mix_iter(
-                [WeightedColor::new(c0, 1.0 - t1), WeightedColor::new(c1, t1)],
+                [WeightedColor::new(c0, 1.0 - t(t_x)), WeightedColor::new(c1, t(t_x))],
                 conic.space,
             )
             .unwrap();
 
             let c_next = Color::mix_iter(
-                [WeightedColor::new(c0, 1.0 - t2), WeightedColor::new(c1, t2)],
+                [
+                    WeightedColor::new(c0, 1.0 - t(t_next)),
+                    WeightedColor::new(c1, t(t_next)),
+                ],
                 conic.space,
             )
             .unwrap();
-
-            // If the color space is HSL or HSV, and we cross the 0°/360° boundary,
-            // we need to create two separate stops.
-            if conic.space == ColorSpace::Hsl || conic.space == ColorSpace::Hsv {
-                let [h1, s1, x1, _] = c.to_space(conic.space).to_vec4();
-                let [h2, s2, x2, _] = c_next.to_space(conic.space).to_vec4();
-
-                // Compute the intermediary stop at 360°.
-                if (h1 - h2).abs() > 180.0 {
-                    let h1 = if h1 < h2 { h1 + 360.0 } else { h1 };
-                    let h2 = if h2 < h1 { h2 + 360.0 } else { h2 };
-
-                    // We compute where the crossing happens between zero and one
-                    let t = (360.0 - h1) / (h2 - h1);
-                    // We then map it back to the original range.
-                    let t_prime = t * (t_next as f32 - t_x as f32) + t_x as f32;
-
-                    // If the crossing happens between the two stops,
-                    // we need to create an extra stop.
-                    if t_prime <= t_next as f32 && t_prime >= t_x as f32 {
-                        let c0 = [1.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t];
-                        let c1 = [0.0, s1 * (1.0 - t) + s2 * t, x1 * (1.0 - t) + x2 * t];
-                        let c0 = c0.map(|c| u16::quantize(c, [0.0, 1.0]));
-                        let c1 = c1.map(|c| u16::quantize(c, [0.0, 1.0]));
-
-                        write_patch(
-                            &mut vertices,
-                            t_x as f32,
-                            t_prime,
-                            conic.space.convert(c),
-                            c0,
-                            angle,
-                        );
-
-                        write_patch(&mut vertices, t_prime, t_prime, c0, c1, angle);
-
-                        write_patch(
-                            &mut vertices,
-                            t_prime,
-                            t_next as f32,
-                            c1,
-                            conic.space.convert(c_next),
-                            angle,
-                        );
-
-                        t_x = t_next;
-                        continue;
-                    }
-                }
-            }
 
             write_patch(
                 &mut vertices,
                 t_x as f32,
                 t_next as f32,
-                conic.space.convert(c),
-                conic.space.convert(c_next),
+                encode_space.convert(c),
+                encode_space.convert(c_next),
                 angle,
             );
 

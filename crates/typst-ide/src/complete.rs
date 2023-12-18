@@ -8,7 +8,7 @@ use typst::foundations::{
     fields_on, format_str, mutable_methods_on, repr, AutoValue, CastInfo, Func, Label,
     NoneValue, Repr, Scope, Type, Value,
 };
-use typst::layout::Frame;
+use typst::model::Document;
 use typst::syntax::{
     ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
 };
@@ -27,14 +27,18 @@ use crate::{plain_docs_sentence, summarize_font_family};
 ///
 /// When `explicit` is `true`, the user requested the completion by pressing
 /// control and space or something similar.
+///
+/// Passing a `document` (from a previous compilation) is optional, but enhances
+/// the autocompletions. Label completions, for instance, are only generated
+/// when the document is available.
 pub fn autocomplete(
     world: &dyn World,
-    frames: &[Frame],
+    document: Option<&Document>,
     source: &Source,
     cursor: usize,
     explicit: bool,
 ) -> Option<(usize, Vec<Completion>)> {
-    let mut ctx = CompletionContext::new(world, frames, source, cursor, explicit)?;
+    let mut ctx = CompletionContext::new(world, document, source, cursor, explicit)?;
 
     let _ = complete_comments(&mut ctx)
         || complete_field_accesses(&mut ctx)
@@ -966,7 +970,7 @@ fn code_completions(ctx: &mut CompletionContext, hash: bool) {
 /// Context for autocompletion.
 struct CompletionContext<'a> {
     world: &'a (dyn World + 'a),
-    frames: &'a [Frame],
+    document: Option<&'a Document>,
     global: &'a Scope,
     math: &'a Scope,
     text: &'a str,
@@ -984,7 +988,7 @@ impl<'a> CompletionContext<'a> {
     /// Create a new autocompletion context.
     fn new(
         world: &'a (dyn World + 'a),
-        frames: &'a [Frame],
+        document: Option<&'a Document>,
         source: &'a Source,
         cursor: usize,
         explicit: bool,
@@ -994,7 +998,7 @@ impl<'a> CompletionContext<'a> {
         let leaf = LinkedNode::new(source.root()).leaf_at(cursor)?;
         Some(Self {
             world,
-            frames,
+            document,
             global: library.global.scope(),
             math: library.math.scope(),
             text,
@@ -1094,7 +1098,8 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for labels and references.
     fn label_completions(&mut self) {
-        let (labels, split) = analyze_labels(self.frames);
+        let Some(document) = self.document else { return };
+        let (labels, split) = analyze_labels(document);
 
         let head = &self.text[..self.from];
         let at = head.ends_with('@');

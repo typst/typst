@@ -5,7 +5,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Args, Array, Construct, Content, Datetime, Smart, StyleChain, Value,
 };
-use crate::introspection::ManualPageCounter;
+use crate::introspection::{Introspector, ManualPageCounter};
 use crate::layout::{Frame, LayoutRoot, PageElem};
 
 /// The root element of a document and its metadata.
@@ -110,6 +110,7 @@ impl LayoutRoot for DocumentElem {
             author: self.author(styles).0,
             keywords: self.keywords(styles).0,
             date: self.date(styles),
+            introspector: Introspector::default(),
         })
     }
 }
@@ -137,7 +138,7 @@ cast! {
 }
 
 /// A finished document with metadata and page frames.
-#[derive(Debug, Default, Clone, Hash)]
+#[derive(Debug, Default, Clone)]
 pub struct Document {
     /// The page frames.
     pub pages: Vec<Frame>,
@@ -149,6 +150,8 @@ pub struct Document {
     pub keywords: Vec<EcoString>,
     /// The document's creation date.
     pub date: Smart<Option<Datetime>>,
+    /// Provides the ability to execute queries on the document.
+    pub introspector: Introspector,
 }
 
 #[cfg(test)]
@@ -156,8 +159,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_document_is_send() {
-        fn ensure_send<T: Send>() {}
-        ensure_send::<Document>();
+    fn test_document_is_send_and_sync() {
+        fn ensure_send_and_sync<T: Send + Sync>() {}
+        ensure_send_and_sync::<Document>();
     }
 }

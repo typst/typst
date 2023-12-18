@@ -4,7 +4,6 @@ use serde::Serialize;
 use typst::diag::{bail, StrResult};
 use typst::eval::{eval_string, EvalMode, Tracer};
 use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
-use typst::introspection::Introspector;
 use typst::model::Document;
 use typst::syntax::Span;
 use typst::World;
@@ -76,7 +75,8 @@ fn retrieve(
     })?
     .cast::<LocatableSelector>()?;
 
-    Ok(Introspector::new(&document.pages)
+    Ok(document
+        .introspector
         .query(&selector.0)
         .into_iter()
         .map(|x| x.into_inner())

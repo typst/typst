@@ -19,7 +19,6 @@ use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
 use typst::foundations::Datetime;
-use typst::introspection::Introspector;
 use typst::layout::{Abs, Dir, Em, Transform};
 use typst::model::Document;
 use typst::text::{Font, Lang};
@@ -70,10 +69,6 @@ pub fn pdf(
 struct PdfContext<'a> {
     /// The document that we're currently exporting.
     document: &'a Document,
-    /// An introspector for the document, used to resolve locations links and
-    /// the document outline.
-    introspector: Introspector,
-
     /// The writer we are writing the PDF into.
     pdf: Pdf,
     /// Content of exported pages.
@@ -128,7 +123,6 @@ impl<'a> PdfContext<'a> {
         let page_tree_ref = alloc.bump();
         Self {
             document,
-            introspector: Introspector::new(&document.pages),
             pdf: Pdf::new(),
             pages: vec![],
             glyph_sets: HashMap::new(),
@@ -183,8 +177,25 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
 
     let authors = &ctx.document.author;
     if !authors.is_empty() {
-        info.author(TextStr(&authors.join(", ")));
-        xmp.creator(authors.iter().map(|s| s.as_str()));
+        // Turns out that if the authors are given in both the document
+        // information dictionary and the XMP metadata, Acrobat takes a little
+        // bit of both: The first author from the document information
+        // dictionary and the remaining authors from the XMP metadata.
+        //
+        // To fix this for Acrobat, we could omit the remaining authors or all
+        // metadata from the document information catalog (it is optional) and
+        // only write XMP. However, not all other tools (including Apple
+        // Preview) read the XMP data. This means we do want to include all
+        // authors in the document information dictionary.
+        //
+        // Thus, the only alternative is to fold all authors into a single
+        // `<rdf:li>` in the XMP metadata. This is, in fact, exactly what the
+        // PDF/A spec Part 1 section 6.7.3 has to say about the matter. It's a
+        // bit weird to not use the array (and it makes Acrobat show the author
+        // list in quotes), but there's not much we can do about that.
+        let joined = authors.join(", ");
+        info.author(TextStr(&joined));
+        xmp.creator([joined.as_str()]);
     }
 
     let creator = eco_format!("Typst {}", env!("CARGO_PKG_VERSION"));
@@ -277,6 +288,13 @@ fn deflate(data: &[u8]) -> Vec<u8> {
 #[comemo::memoize]
 fn deflate_memoized(content: &[u8]) -> Arc<Vec<u8>> {
     Arc::new(deflate(content))
+}
+
+/// Memoized and deferred version of [`deflate`] specialized for a page's content
+/// stream.
+#[comemo::memoize]
+fn deflate_deferred(content: Vec<u8>) -> Deferred<Vec<u8>> {
+    Deferred::new(move || deflate(&content))
 }
 
 /// Create a base64-encoded hash of the value.

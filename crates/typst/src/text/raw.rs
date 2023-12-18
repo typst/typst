@@ -438,6 +438,7 @@ impl LocalName for RawElem {
             Lang::CZECH => "Seznam",
             Lang::DANISH => "Liste",
             Lang::DUTCH => "Listing",
+            Lang::ESTONIAN => "List",
             Lang::FILIPINO => "Listahan",
             Lang::FINNISH => "Esimerkki",
             Lang::FRENCH => "Liste",
@@ -733,31 +734,10 @@ fn parse_theme(
 
 /// The syntect syntax definitions.
 ///
-/// Code for syntax set generation is below. The `syntaxes` directory is from
+/// Syntax set is generated from the syntaxes from the `bat` project
 /// <https://github.com/sharkdp/bat/tree/master/assets/syntaxes>
-///
-/// ```ignore
-/// fn main() {
-///     let mut builder = syntect::parsing::SyntaxSet::load_defaults_nonewlines().into_builder();
-///     builder.add_from_folder("syntaxes/02_Extra", false).unwrap();
-///     syntect::dumps::dump_to_file(&builder.build(), "syntect.bin").unwrap();
-/// }
-/// ```
-///
-/// The following syntaxes are disabled due to compatibility issues:
-/// ```text
-/// syntaxes/02_Extra/Assembly (ARM).sublime-syntax
-/// syntaxes/02_Extra/Elixir/Regular Expressions (Elixir).sublime-syntax
-/// syntaxes/02_Extra/JavaScript (Babel).sublime-syntax
-/// syntaxes/02_Extra/LiveScript.sublime-syntax
-/// syntaxes/02_Extra/PowerShell.sublime-syntax
-/// syntaxes/02_Extra/SCSS_Sass/Syntaxes/Sass.sublime-syntax
-/// syntaxes/02_Extra/SLS/SLS.sublime-syntax
-/// syntaxes/02_Extra/VimHelp.sublime-syntax
-/// syntaxes/02_Extra/cmd-help/syntaxes/cmd-help.sublime-syntax
-/// ```
 pub static RAW_SYNTAXES: Lazy<syntect::parsing::SyntaxSet> =
-    Lazy::new(|| syntect::dumps::from_binary(include_bytes!("../../assets/syntect.bin")));
+    Lazy::new(two_face::syntax::extra_no_newlines);
 
 /// The default theme used for syntax highlighting.
 pub static RAW_THEME: Lazy<synt::Theme> = Lazy::new(|| synt::Theme {
@@ -791,6 +771,9 @@ pub static RAW_THEME: Lazy<synt::Theme> = Lazy::new(|| synt::Theme {
         item("support.macro", Some("#16718d"), None),
         item("meta.annotation", Some("#301414"), None),
         item("entity.other, meta.interpolation", Some("#8b41b1"), None),
+        item("meta.diff.range", Some("#8b41b1"), None),
+        item("markup.inserted, meta.diff.header.to-file", Some("#298e0d"), None),
+        item("markup.deleted, meta.diff.header.from-file", Some("#d73a49"), None),
     ],
 });
 

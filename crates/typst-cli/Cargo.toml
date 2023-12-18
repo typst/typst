@@ -37,7 +37,9 @@ inferno = { workspace = true }
 notify = { workspace = true }
 once_cell = { workspace = true }
 open = { workspace = true }
+parking_lot = { workspace = true }
 pathdiff = { workspace = true }
+rayon = { workspace = true }
 rustls = { workspace = true }
 rustls-pemfile = { workspace = true }
 same-file = { workspace = true }

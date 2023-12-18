@@ -4,8 +4,7 @@ use typst::engine::{Engine, Route};
 use typst::eval::{Tracer, Vm};
 use typst::foundations::{Label, Scopes, Value};
 use typst::introspection::{Introspector, Locator};
-use typst::layout::Frame;
-use typst::model::BibliographyElem;
+use typst::model::{BibliographyElem, Document};
 use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
 use typst::World;
 
@@ -75,12 +74,11 @@ pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
 /// - All labels and descriptions for them, if available
 /// - A split offset: All labels before this offset belong to nodes, all after
 ///   belong to a bibliography.
-pub fn analyze_labels(frames: &[Frame]) -> (Vec<(Label, Option<EcoString>)>, usize) {
+pub fn analyze_labels(document: &Document) -> (Vec<(Label, Option<EcoString>)>, usize) {
     let mut output = vec![];
-    let introspector = Introspector::new(frames);
 
     // Labels in the document.
-    for elem in introspector.all() {
+    for elem in document.introspector.all() {
         let Some(label) = elem.label() else { continue };
         let details = elem
             .get_by_name("caption")
@@ -98,7 +96,7 @@ pub fn analyze_labels(frames: &[Frame]) -> (Vec<(Label, Option<EcoString>)>, usi
     let split = output.len();
 
     // Bibliography keys.
-    for (key, detail) in BibliographyElem::keys(introspector.track()) {
+    for (key, detail) in BibliographyElem::keys(document.introspector.track()) {
         output.push((Label::new(&key), detail));
     }
 

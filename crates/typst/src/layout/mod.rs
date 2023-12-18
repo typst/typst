@@ -182,7 +182,7 @@ impl LayoutRoot for Content {
             let mut engine = Engine {
                 world,
                 introspector,
-                route: Route::extend(route),
+                route: Route::extend(route).unnested(),
                 locator: &mut locator,
                 tracer,
             };
@@ -237,7 +237,7 @@ impl Layout for Content {
                 tracer,
             };
 
-            if engine.route.exceeding() {
+            if !engine.route.within(Route::MAX_LAYOUT_DEPTH) {
                 bail!(
                     content.span(), "maximum layout depth exceeded";
                     hint: "try to reduce the amount of nesting in your layout",

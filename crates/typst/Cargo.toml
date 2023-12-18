@@ -36,7 +36,6 @@ icu_segmenter = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }
 kurbo = { workspace = true }
-lasso = { workspace = true }
 lipsum = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
@@ -55,6 +54,7 @@ time = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
 ttf-parser = { workspace = true }
+two-face = { workspace = true }
 typed-arena = { workspace = true }
 unicode-bidi = { workspace = true }
 unicode-math-class = { workspace = true }

@@ -27,7 +27,7 @@ struct Repr {
 impl RasterImage {
     /// Decode a raster image.
     #[comemo::memoize]
-    pub fn new(data: Bytes, format: RasterFormat) -> StrResult<Self> {
+    pub fn new(data: Bytes, format: RasterFormat) -> StrResult<RasterImage> {
         fn decode_with<'a, T: ImageDecoder<'a>>(
             decoder: ImageResult<T>,
         ) -> ImageResult<(image::DynamicImage, Option<Vec<u8>>)> {

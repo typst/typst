@@ -51,7 +51,7 @@ impl f64 {
 
 impl Repr for f64 {
     fn repr(&self) -> EcoString {
-        repr::format_float(*self, None, "")
+        repr::format_float(*self, None, true, "")
     }
 }
 

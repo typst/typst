@@ -482,7 +482,7 @@ impl NumberingKind {
                     Case::Upper => ChineseCase::Upper,
                 };
 
-                match (n as u8).to_chinese(
+                match (n as u64).to_chinese(
                     match l {
                         Self::SimplifiedChinese => ChineseVariant::Simple,
                         Self::TraditionalChinese => ChineseVariant::Traditional,

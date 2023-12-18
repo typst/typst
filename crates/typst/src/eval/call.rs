@@ -28,7 +28,7 @@ impl Eval for ast::FuncCall<'_> {
         let args = self.args();
         let trailing_comma = args.trailing_comma();
 
-        if vm.engine.route.exceeding() {
+        if !vm.engine.route.within(Route::MAX_CALL_DEPTH) {
             bail!(span, "maximum function call depth exceeded");
         }
 
@@ -306,7 +306,7 @@ pub(crate) fn call_closure(
                 }
             },
             ast::Param::Sink(ident) => {
-                sink = ident.name();
+                sink = Some(ident.name());
                 if let Some(sink_size) = sink_size {
                     sink_pos_values = Some(args.consume(sink_size)?);
                 }
@@ -321,12 +321,15 @@ pub(crate) fn call_closure(
         }
     }
 
-    if let Some(sink) = sink {
+    if let Some(sink_name) = sink {
+        // Remaining args are captured regardless of whether the sink is named.
         let mut remaining_args = args.take();
-        if let Some(sink_pos_values) = sink_pos_values {
-            remaining_args.items.extend(sink_pos_values);
+        if let Some(sink_name) = sink_name {
+            if let Some(sink_pos_values) = sink_pos_values {
+                remaining_args.items.extend(sink_pos_values);
+            }
+            vm.define(sink_name, remaining_args);
         }
-        vm.define(sink, remaining_args);
     }
 
     // Ensure all arguments have been used.

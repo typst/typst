@@ -50,7 +50,7 @@ impl Frame {
 
     /// Create a new, empty soft frame.
     ///
-    /// Panics the size is not finite.
+    /// Panics if the size is not finite.
     #[track_caller]
     pub fn soft(size: Size) -> Self {
         Self::new(size, FrameKind::Soft)
@@ -365,13 +365,13 @@ impl Frame {
 /// Tools for debugging.
 impl Frame {
     /// Add a full size aqua background and a red baseline for debugging.
-    pub fn debug(mut self) -> Self {
-        self.debug_in_place();
+    pub fn mark_box(mut self) -> Self {
+        self.mark_box_in_place();
         self
     }
 
-    /// Debug in place.
-    pub fn debug_in_place(&mut self) {
+    /// Debug in place. Add a full size aqua background and a red baseline for debugging.
+    pub fn mark_box_in_place(&mut self) {
         self.insert(
             0,
             Point::zero(),

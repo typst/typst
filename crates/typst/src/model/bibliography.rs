@@ -283,6 +283,7 @@ impl LocalName for BibliographyElem {
             Lang::CZECH => "Bibliografie",
             Lang::DANISH => "Bibliografi",
             Lang::DUTCH => "Bibliografie",
+            Lang::ESTONIAN => "Viited",
             Lang::FILIPINO => "Bibliograpiya",
             Lang::FINNISH => "Viitteet",
             Lang::FRENCH => "Bibliographie",
@@ -488,7 +489,7 @@ impl CslStyle {
 
     /// Load a built-in CSL style.
     #[comemo::memoize]
-    pub fn from_name(name: &str) -> StrResult<Self> {
+    pub fn from_name(name: &str) -> StrResult<CslStyle> {
         match hayagriva::archive::ArchivedStyle::by_name(name).map(ArchivedStyle::get) {
             Some(citationberg::Style::Independent(style)) => Ok(Self {
                 name: Some(name.into()),
@@ -500,7 +501,7 @@ impl CslStyle {
 
     /// Load a CSL style from file contents.
     #[comemo::memoize]
-    pub fn from_data(data: &Bytes) -> StrResult<Self> {
+    pub fn from_data(data: &Bytes) -> StrResult<CslStyle> {
         let text = std::str::from_utf8(data.as_slice()).map_err(FileError::from)?;
         citationberg::IndependentStyle::from_xml(text)
             .map(|style| Self { name: None, style: Arc::new(Prehashed::new(style)) })
@@ -588,7 +589,7 @@ impl Works {
     pub fn generate(
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
-    ) -> StrResult<Arc<Self>> {
+    ) -> StrResult<Arc<Works>> {
         let mut generator = Generator::new(world, introspector)?;
         let rendered = generator.drive();
         let works = generator.display(&rendered)?;

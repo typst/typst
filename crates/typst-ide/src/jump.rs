@@ -1,9 +1,9 @@
 use std::num::NonZeroUsize;
 
 use ecow::EcoString;
-use typst::introspection::{Introspector, Meta};
+use typst::introspection::Meta;
 use typst::layout::{Frame, FrameItem, Point, Position, Size};
-use typst::model::Destination;
+use typst::model::{Destination, Document};
 use typst::syntax::{FileId, LinkedNode, Source, Span, SyntaxKind};
 use typst::visualize::Geometry;
 use typst::World;
@@ -31,12 +31,10 @@ impl Jump {
 /// Determine where to jump to based on a click in a frame.
 pub fn jump_from_click(
     world: &dyn World,
-    frames: &[Frame],
+    document: &Document,
     frame: &Frame,
     click: Point,
 ) -> Option<Jump> {
-    let mut introspector = None;
-
     // Try to find a link first.
     for (pos, item) in frame.items() {
         if let FrameItem::Meta(Meta::Link(dest), size) = item {
@@ -44,11 +42,9 @@ pub fn jump_from_click(
                 return Some(match dest {
                     Destination::Url(url) => Jump::Url(url.clone()),
                     Destination::Position(pos) => Jump::Position(*pos),
-                    Destination::Location(loc) => Jump::Position(
-                        introspector
-                            .get_or_insert_with(|| Introspector::new(frames))
-                            .position(*loc),
-                    ),
+                    Destination::Location(loc) => {
+                        Jump::Position(document.introspector.position(*loc))
+                    }
                 });
             }
         }
@@ -60,7 +56,7 @@ pub fn jump_from_click(
             FrameItem::Group(group) => {
                 // TODO: Handle transformation.
                 if let Some(span) =
-                    jump_from_click(world, frames, &group.frame, click - pos)
+                    jump_from_click(world, document, &group.frame, click - pos)
                 {
                     return Some(span);
                 }
@@ -115,7 +111,7 @@ pub fn jump_from_click(
 
 /// Find the output location in the document for a cursor position.
 pub fn jump_from_cursor(
-    frames: &[Frame],
+    document: &Document,
     source: &Source,
     cursor: usize,
 ) -> Option<Position> {
@@ -125,7 +121,7 @@ pub fn jump_from_cursor(
     }
 
     let span = node.span();
-    for (i, frame) in frames.iter().enumerate() {
+    for (i, frame) in document.pages.iter().enumerate() {
         if let Some(pos) = find_in_frame(frame, span) {
             return Some(Position {
                 page: NonZeroUsize::new(i + 1).unwrap(),

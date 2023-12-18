@@ -5,19 +5,7 @@ description: |
 ---
 
 # Changelog
-## Unreleased
-- Text and Layout
-  - CJK text can now be emphasized with the `*` and `_` syntax even when there
-    are no spaces
-  - Added basic i18n for Greek
-  - Improved default [figure caption separator]($figure.caption.separator) for
-    Chinese, French, and Russian
-  - Changed default [figure supplement]($figure.supplement) for Russian to
-    short form
-  - Fixed [CJK-Latin-spacing]($text.cjk-latin-spacing) before line breaks
-    and in [`locate`]($locate) calls
-  - Fixed line breaking at the end of links
-
+## Version 0.10.0 (December 4, 2023) { #v0.10.0 }
 - Bibliography management
   - Added support for citation collapsing (e.g. `[[1]-[3]]` instead of
     `[[1], [2], [3]]`) if requested by a CSL style
@@ -29,10 +17,12 @@ description: |
   - Fixed missing title in some bibliography styles
   - Fixed printing of volumes in some styles
   - Fixed delimiter order for contributors in some styles (e.g. APA)
-  - Fixed behavior of alphanumeric style
+  - Fixed behaviour of alphanumeric style
   - Fixed multiple bugs with GB/T 7714 style
   - Fixed escaping in Hayagriva values
   - Fixed crashes with empty dates in Hayagriva files
+  - Fixed bug with spacing around math blocks
+  - Fixed title case formatting after verbatim text and apostrophes
   - Page ranges in `.bib` files can now be arbitrary strings
   - Multi-line values in `.bib` files are now parsed correctly
   - Entry keys in `.bib` files now allow more characters
@@ -55,8 +45,28 @@ description: |
   - Fixed relative base of Oklab chroma ratios
   - Fixed Oklab color negation
 
+- Text and Layout
+  - CJK text can now be emphasized with the `*` and `_` syntax even when there
+    are no spaces
+  - Added basic i18n for Greek and Estonian
+  - Improved default [figure caption separator]($figure.caption.separator) for
+    Chinese, French, and Russian
+  - Changed default [figure supplement]($figure.supplement) for Russian to
+    short form
+  - Fixed [CJK-Latin-spacing]($text.cjk-latin-spacing) before line breaks
+    and in [`locate`]($locate) calls
+  - Fixed line breaking at the end of links
+
+- Math
+  - Added [`mid`]($math.mid) function for scaling a delimiter up to the height
+    of the surrounding [`lr`]($math.lr) group
+  - The [`op`]($math.op) function can now take any content, not just strings
+  - Improved documentation for [math alignment]($category/math/#alignment)
+  - Fixed swallowing of trailing comma when a symbol is used in a function-like
+    way (e.g. `pi(a,b,)`)
+
 - Scripting
-  - Any non-identifier dictionary key is now be interpreted as expressions: For
+  - Any non-identifier dictionary key is now interpreted as an expression: For
     instance, `{((key): value)}` will create a dictionary with a dynamic key
   - The [`stroke`]($stroke) type now has a constructor that converts a value to
     a stroke or creates one from its parts
@@ -68,14 +78,6 @@ description: |
   - Fixed crashes with provided elements like figure captions, outline entries,
     and footnote entries
 
-- Math
-  - Added [`mid`]($math.mid) function for scaling a character up to the height
-    of the surrounding [`lr`]($math.lr) group
-  - The [`op`]($math.op) function can now take any content, not just strings
-  - Improved documentation for [math alignment]($category/math/#alignment)
-  - Fixed swallowing of trailing comma when a symbol is used in a function-like
-    way (e.g. `pi(a,b,)`)
-
 - Tooling and Diagnostics
   - Show rules that match on their own output now produce an appropriate error
     message instead of a crash (this is a first step, in the future they will
@@ -85,7 +87,16 @@ description: |
   - Added hints for invalid identifiers
   - Added hint when trying to use a manually constructed footnote or outline
     entry
+  - Added missing details to autocompletions for types
+  - Improved error message when passing a named argument where a positional one
+    is expected
   - Jump from click now works on raw blocks
+
+- Export
+  - PDF compilation output is now again fully byte-by-byte reproducible if the
+    document's [`date`]($document.date) is set manually
+  - Fixed color export in SVG
+  - Fixed PDF metadata encoding of multiple [authors]($document.author)
 
 - Command line interface
   - Fixed a major bug where `typst watch` would confuse files and fail to pick
@@ -94,15 +105,14 @@ description: |
   - Fixed bug with `--open` flag on Windows when the path contains a space
   - The `TYPST_FONT_PATHS` environment variable can now contain multiple paths
     (separated by `;` on Windows and `:` elsewhere)
-
-- Export
-  - PDF compilation output is now again fully byte-by-byte reproducible if the
-    document's [`date`]($document.date) is set manually
-  - Fixed color export in SVG
+  - Updated embedded New Computer Modern fonts to version 4.7
+  - The watching process doesn't stop anymore when the main file contains
+    invalid UTF-8
 
 - Miscellaneous Improvements
   - Parallelized image encoding in PDF export
   - Improved the internal representation of content for improved performance
+  - Optimized introspection (query, counter, etc.) performance
   - The [document title]($document.title) can now be arbitrary content instead
     of just a string
   - The [`number-align`]($enum.number-align) parameter on numbered lists now
@@ -111,11 +121,14 @@ description: |
   - Fixed parsing of `[#return]` expression in markup
   - Fixed bug where inline equations were displayed in equation outlines
   - Fixed potential CRLF issue in [`raw`]($raw) blocks
+  - Fixed a bug where Chinese numbering couldn't exceed the number 255
 
 - Development
   - Merged `typst` and `typst-library` and extracted `typst-pdf`, `typst-svg`,
     and `typst-render` into separate crates
   - The Nix flake now includes the git revision when running `typst --version`
+
+<contributors from="v0.9.0" to="v0.10.0" />
 
 ## Version 0.9.0 (October 31, 2023) { #v0.9.0 }
 - Bibliography management

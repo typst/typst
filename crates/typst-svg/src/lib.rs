@@ -606,7 +606,7 @@ impl SVGRenderer {
     }
 
     fn push_pattern(&mut self, pattern: &Pattern, size: Size, ts: Transform) -> Id {
-        let pattern_size = pattern.size_abs() + pattern.spacing_abs();
+        let pattern_size = pattern.size() + pattern.spacing();
         // Unfortunately due to a limitation of `xmlwriter`, we need to
         // render the frame twice: once to allocate all of the resources
         // that it needs and once to actually render it.
@@ -1031,7 +1031,7 @@ impl SVGRenderer {
         for (id, pattern) in
             self.patterns.iter().map(|(i, p)| (i, p.clone())).collect::<Vec<_>>()
         {
-            let size = pattern.size_abs() + pattern.spacing_abs();
+            let size = pattern.size() + pattern.spacing();
             self.xml.start_element("pattern");
             self.xml.write_attribute("id", &id);
             self.xml.write_attribute("width", &size.x.to_pt());
@@ -1108,7 +1108,7 @@ fn convert_bitmap_glyph_to_image(font: &Font, id: GlyphId) -> Option<(Image, f64
 /// Convert an SVG glyph to an encoded image URL.
 #[comemo::memoize]
 fn convert_svg_glyph_to_base64_url(font: &Font, id: GlyphId) -> Option<EcoString> {
-    let mut data = font.ttf().glyph_svg_image(id)?;
+    let mut data = font.ttf().glyph_svg_image(id)?.data;
 
     // Decompress SVGZ.
     let mut decoded = vec![];

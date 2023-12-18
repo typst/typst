@@ -1,9 +1,9 @@
 //! System-related things.
 
-use crate::foundations::{Module, Scope, Version};
+use crate::foundations::{Dict, Module, Scope, Version};
 
 /// A module with system-related things.
-pub fn module() -> Module {
+pub fn module(inputs: Dict) -> Module {
     let mut scope = Scope::deduplicating();
     scope.define(
         "version",
@@ -13,5 +13,6 @@ pub fn module() -> Module {
             env!("CARGO_PKG_VERSION_PATCH").parse::<u32>().unwrap(),
         ]),
     );
+    scope.define("inputs", inputs);
     Module::new("sys", scope)
 }

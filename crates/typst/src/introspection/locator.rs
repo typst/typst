@@ -66,7 +66,7 @@ impl<'a> Locator<'a> {
         let disambiguator = self.disambiguator_impl(hash);
 
         // Bump the next disambiguator up by one.
-        self.hashes.borrow_mut().insert(hash, disambiguator + 1);
+        self.hashes.get_mut().insert(hash, disambiguator + 1);
 
         // Create the location in its default variant.
         Location { hash, disambiguator, variant: 0 }
@@ -78,7 +78,7 @@ impl<'a> Locator<'a> {
             match item {
                 FrameItem::Group(group) => self.visit_frame(&group.frame),
                 FrameItem::Meta(Meta::Elem(elem), _) => {
-                    let mut hashes = self.hashes.borrow_mut();
+                    let hashes = self.hashes.get_mut();
                     let loc = elem.location().unwrap();
                     let entry = hashes.entry(loc.hash).or_default();
 
