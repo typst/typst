@@ -400,8 +400,8 @@ impl<'a> Line<'a> {
     }
 }
 
-/// Collect all text of the paragraph into one string and layout any boxes
-/// or equations. This also performs string-level preprocessing like case transformations.
+/// Collect all text of the paragraph into one string and layout equations. This
+/// also performs string-level preprocessing like case transformations.
 #[allow(clippy::type_complexity)]
 fn collect<'a>(
     children: &'a [Prehashed<Content>],
@@ -501,10 +501,9 @@ fn collect<'a>(
             Segment::Text(full.len() - prev)
         } else if let Some(elem) = child.to::<EquationElem>() {
             let pod = Regions::one(region, Axes::splat(false));
-            let par_items = elem.layout_inline(engine, styles, pod)?;
-
-            full.extend(par_items.iter().map(MathParItem::text));
-            Segment::Equation(elem, par_items)
+            let items = elem.layout_inline(engine, styles, pod)?;
+            full.extend(items.iter().map(MathParItem::text));
+            Segment::Equation(elem, items)
         } else if let Some(elem) = child.to::<BoxElem>() {
             let frac = elem.width(styles).is_fractional();
             full.push(if frac { SPACING_REPLACE } else { OBJ_REPLACE });

@@ -163,24 +163,37 @@ impl EquationElem {
     ) -> SourceResult<Vec<MathParItem>> {
         assert!(!self.block(styles));
 
+        // Find a math font.
         let font = find_math_font(engine, styles, self.span())?;
 
         let mut ctx = MathContext::new(engine, styles, regions, &font, false);
         let rows = ctx.layout_root(self)?;
 
-        let mut par_items = if rows.row_count() == 1 {
+        let mut items = if rows.row_count() == 1 {
             rows.into_par_items()
         } else {
             vec![MathParItem::Frame(rows.into_fragment(&ctx).into_frame())]
         };
 
-        for item in &mut par_items {
-            if let MathParItem::Frame(frame) = item {
-                adjust_for_leading(frame, &font, styles);
-                frame.meta(styles, false);
-            }
+        for item in &mut items {
+            let MathParItem::Frame(frame) = item else { continue };
+
+            let font_size = TextElem::size_in(styles);
+            let slack = ParElem::leading_in(styles) * 0.7;
+            let top_edge = TextElem::top_edge_in(styles).resolve(font_size, &font, None);
+            let bottom_edge =
+                -TextElem::bottom_edge_in(styles).resolve(font_size, &font, None);
+
+            let ascent = top_edge.max(frame.ascent() - slack);
+            let descent = bottom_edge.max(frame.descent() - slack);
+            frame.translate(Point::with_y(ascent - frame.baseline()));
+            frame.size_mut().y = ascent + descent;
+
+            // Apply metadata.
+            frame.meta(styles, false);
         }
-        Ok(par_items)
+
+        Ok(items)
     }
 }
 
@@ -194,52 +207,48 @@ impl Layout for EquationElem {
     ) -> SourceResult<Fragment> {
         const NUMBER_GUTTER: Em = Em::new(0.5);
 
-        let block = self.block(styles);
+        assert!(self.block(styles));
 
         // Find a math font.
         let font = find_math_font(engine, styles, self.span())?;
 
-        let mut ctx = MathContext::new(engine, styles, regions, &font, block);
+        let mut ctx = MathContext::new(engine, styles, regions, &font, true);
         let mut frame = ctx.layout_frame(self)?;
 
-        if block {
-            if let Some(numbering) = self.numbering(styles) {
-                let pod = Regions::one(regions.base(), Axes::splat(false));
-                let counter = Counter::of(Self::elem())
-                    .display(Some(numbering), false)
-                    .layout(engine, styles, pod)?
-                    .into_frame();
+        if let Some(numbering) = self.numbering(styles) {
+            let pod = Regions::one(regions.base(), Axes::splat(false));
+            let counter = Counter::of(Self::elem())
+                .display(Some(numbering), false)
+                .layout(engine, styles, pod)?
+                .into_frame();
 
-                let full_counter_width = counter.width() + NUMBER_GUTTER.resolve(styles);
-                let width = if regions.size.x.is_finite() {
-                    regions.size.x
-                } else {
-                    frame.width() + 2.0 * full_counter_width
-                };
+            let full_counter_width = counter.width() + NUMBER_GUTTER.resolve(styles);
+            let width = if regions.size.x.is_finite() {
+                regions.size.x
+            } else {
+                frame.width() + 2.0 * full_counter_width
+            };
 
-                let height = frame.height().max(counter.height());
-                let align = AlignElem::alignment_in(styles).resolve(styles).x;
-                frame.resize(Size::new(width, height), Axes::splat(align));
+            let height = frame.height().max(counter.height());
+            let align = AlignElem::alignment_in(styles).resolve(styles).x;
+            frame.resize(Size::new(width, height), Axes::splat(align));
 
-                let dir = TextElem::dir_in(styles);
-                let offset = match (align, dir) {
-                    (FixedAlign::Start, Dir::RTL) => full_counter_width,
-                    (FixedAlign::End, Dir::LTR) => -full_counter_width,
-                    _ => Abs::zero(),
-                };
-                frame.translate(Point::with_x(offset));
+            let dir = TextElem::dir_in(styles);
+            let offset = match (align, dir) {
+                (FixedAlign::Start, Dir::RTL) => full_counter_width,
+                (FixedAlign::End, Dir::LTR) => -full_counter_width,
+                _ => Abs::zero(),
+            };
+            frame.translate(Point::with_x(offset));
 
-                let x = if dir.is_positive() {
-                    frame.width() - counter.width()
-                } else {
-                    Abs::zero()
-                };
-                let y = (frame.height() - counter.height()) / 2.0;
+            let x = if dir.is_positive() {
+                frame.width() - counter.width()
+            } else {
+                Abs::zero()
+            };
+            let y = (frame.height() - counter.height()) / 2.0;
 
-                frame.push_frame(Point::new(x, y), counter)
-            }
-        } else {
-            adjust_for_leading(&mut frame, &font, styles);
+            frame.push_frame(Point::new(x, y), counter)
         }
 
         // Apply metadata.
@@ -362,16 +371,4 @@ fn find_math_font(
         bail!(span, "current font does not support math");
     };
     Ok(font)
-}
-
-fn adjust_for_leading(frame: &mut Frame, font: &Font, styles: StyleChain) {
-    let font_size = TextElem::size_in(styles);
-    let slack = ParElem::leading_in(styles) * 0.7;
-    let top_edge = TextElem::top_edge_in(styles).resolve(font_size, font, None);
-    let bottom_edge = -TextElem::bottom_edge_in(styles).resolve(font_size, font, None);
-
-    let ascent = top_edge.max(frame.ascent() - slack);
-    let descent = bottom_edge.max(frame.descent() - slack);
-    frame.translate(Point::with_y(ascent - frame.baseline()));
-    frame.size_mut().y = ascent + descent;
 }

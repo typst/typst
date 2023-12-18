@@ -3,7 +3,7 @@ use std::iter::once;
 use unicode_math_class::MathClass;
 
 use crate::foundations::Resolve;
-use crate::layout::{Abs, AlignElem, Em, FixedAlign, Frame, Point, Size};
+use crate::layout::{Abs, AlignElem, Em, FixedAlign, Frame, FrameKind, Point, Size};
 use crate::math::{
     alignments, spacing, AlignmentResult, FrameFragment, MathContext, MathFragment,
     MathParItem, MathSize, Scaled,
@@ -256,10 +256,10 @@ impl MathRow {
     pub fn into_par_items(self) -> Vec<MathParItem> {
         let mut items = vec![];
 
-        let mut frame = Frame::new(Size::zero(), crate::layout::FrameKind::Soft);
         let mut x = Abs::zero();
         let mut ascent = Abs::zero();
         let mut descent = Abs::zero();
+        let mut frame = Frame::new(Size::zero(), FrameKind::Soft);
 
         let finalize_frame = |frame: &mut Frame, x, ascent, descent| {
             frame.set_size(Size::new(x, ascent + descent));
@@ -288,10 +288,11 @@ impl MathRow {
             }
 
             let class = fragment.class();
-
             let y = fragment.ascent();
+
             ascent.set_max(y);
             descent.set_max(fragment.descent());
+
             let pos = Point::new(x, -y);
             x += fragment.width();
             frame.push_frame(pos, fragment.into_frame());
@@ -302,10 +303,12 @@ impl MathRow {
             {
                 let mut frame_prev = std::mem::replace(
                     &mut frame,
-                    Frame::new(Size::zero(), crate::layout::FrameKind::Soft),
+                    Frame::new(Size::zero(), FrameKind::Soft),
                 );
+
                 finalize_frame(&mut frame_prev, x, ascent, descent);
                 items.push(MathParItem::Frame(frame_prev));
+
                 x = Abs::zero();
                 ascent = Abs::zero();
                 descent = Abs::zero();
@@ -315,7 +318,7 @@ impl MathRow {
                     if !is_space(f_next) {
                         items.push(MathParItem::Space(Abs::zero()));
                     }
-                };
+                }
             } else {
                 space_is_visible = false;
             }
@@ -325,6 +328,7 @@ impl MathRow {
             finalize_frame(&mut frame, x, ascent, descent);
             items.push(MathParItem::Frame(frame));
         }
+
         items
     }
 }
