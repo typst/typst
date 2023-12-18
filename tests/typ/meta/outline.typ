@@ -43,3 +43,15 @@ Ok ...
 
 = #text(blue)[Sum]mary
 #lorem(10)
+
+#let h = heading(summary: [Part four: The end])[Part four \ #emph[The end]]
+#h
+Current part: "#h.summary".
+
+#let f = figure(
+  [Hey!],
+  caption: [Some text.],
+  summary: [A summary.],
+)
+#f
+Figure above: "#f.summary"

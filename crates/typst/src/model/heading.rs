@@ -99,6 +99,25 @@ pub struct HeadingElem {
     #[default(true)]
     pub outlined: bool,
 
+    /// Defines how this heading is represented in an outline. By default,
+    /// falls back to the heading's body.
+    ///
+    /// ```example
+    /// #outline()
+    ///
+    /// #heading[Part one \ The beginning]
+    /// The heading above is displayed
+    /// with a line break in the outline.
+    ///
+    /// #heading(
+    ///   summary: [Part two: The end]
+    /// )[Part two \ The end]
+    /// This heading is displayed without
+    /// a line break in the outline.
+    /// ```
+    #[default(Smart::Auto)]
+    pub summary: Smart<Content>,
+
     /// Whether the heading should appear as a bookmark in the exported PDF's
     /// outline. Doesn't affect other export formats, such as PNG.
     ///
@@ -226,14 +245,16 @@ impl Outlinable for HeadingElem {
             return Ok(None);
         }
 
-        let mut content = self.body().clone();
+        let mut content = self
+            .summary(StyleChain::default())
+            .unwrap_or_else(|| self.body().clone());
         let default = StyleChain::default();
         if let Some(numbering) = self.numbering(default).as_ref() {
             let numbers = Counter::of(Self::elem())
                 .at(engine, self.location().unwrap())?
                 .display(engine, numbering)?;
             content = numbers + SpaceElem::new().pack() + content;
-        };
+        }
 
         Ok(Some(content))
     }

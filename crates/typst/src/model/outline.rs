@@ -69,7 +69,6 @@ pub struct OutlineElem {
     /// The outline's heading will not be numbered by default, but you can
     /// force it to be with a show-set rule:
     /// `{show outline: set heading(numbering: "1.")}`
-    /// ```
     #[default(Some(Smart::Auto))]
     pub title: Option<Smart<Content>>,
 
@@ -430,7 +429,7 @@ pub struct OutlineEntry {
 
     /// The content which is displayed in place of the referred element at its
     /// entry in the outline. For a heading, this would be its number followed
-    /// by the heading's title, for example.
+    /// by the heading's [summary]($heading.summary), for example.
     #[required]
     pub body: Content,
 
@@ -453,9 +452,9 @@ pub struct OutlineEntry {
 
 impl OutlineEntry {
     /// Generates an OutlineEntry from the given element, if possible (errors if
-    /// the element does not implement `Outlinable`). If the element should not
-    /// be outlined (e.g. heading with 'outlined: false'), does not generate an
-    /// entry instance (returns `Ok(None)`).
+    /// the element does not implement [`Outlinable`]). If the element should
+    /// not be outlined (e.g. heading with 'outlined: false'), does not generate
+    /// an entry instance (returns `Ok(None)`).
     fn from_outlinable(
         engine: &mut Engine,
         span: Span,

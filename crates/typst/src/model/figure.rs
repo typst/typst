@@ -201,6 +201,21 @@ pub struct FigureElem {
     #[default(true)]
     pub outlined: bool,
 
+    /// Defines how this figure is represented in an outline. By default,
+    /// falls back to the figure's caption.
+    ///
+    /// ```example
+    /// #outline(target: figure)
+    ///
+    /// #figure(
+    ///   circle(radius: 8pt),
+    ///   caption: [A 8 points wide circle.],
+    ///   summary: [A 8pt wide circle.],
+    /// )
+    /// ```
+    #[default(Smart::Auto)]
+    pub summary: Smart<Content>,
+
     /// Convenience field to get access to the counter for this figure.
     ///
     /// The counter only depends on the `kind`:
@@ -378,7 +393,9 @@ impl Outlinable for FigureElem {
             return Ok(None);
         };
 
-        let mut realized = caption.body().clone();
+        let mut realized = self
+            .summary(StyleChain::default())
+            .unwrap_or_else(|| caption.body().clone());
         if let (
             Smart::Custom(Some(Supplement::Content(mut supplement))),
             Some(counter),
@@ -397,7 +414,7 @@ impl Outlinable for FigureElem {
 
             let separator = caption.get_separator(StyleChain::default());
 
-            realized = supplement + numbers + separator + caption.body();
+            realized = supplement + numbers + separator + realized;
         }
 
         Ok(Some(realized))
