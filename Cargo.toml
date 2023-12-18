@@ -57,7 +57,7 @@ image = { version = "0.24", default-features = false, features = ["png", "jpeg",
 include_dir = "0.7"
 indexmap = { version = "2", features = ["serde"] }
 inferno = "0.11.15"
-kurbo = "0.9"
+kurbo = "0.9" # in sync with usvg
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
 log = "0.4"
@@ -78,8 +78,8 @@ rayon = "1.7.0"
 regex = "1"
 resvg = { version = "0.37.0", default-features = false, features = ["raster-images"] }
 roxmltree = "0.19"
-rustls = "0.21"
-rustls-pemfile = "1"
+rustls = "0.21" # in sync with ureq
+rustls-pemfile = "1" # in sync with rustls
 rustybuzz = "0.12.1"
 same-file = "1"
 self-replace = "1.3.7"
