@@ -258,21 +258,17 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         SyntaxKind::MathIdent => {
             continuable = true;
             p.eat();
-            while p.directly_at(SyntaxKind::Text)
-                && p.current_text() == "."
-                && matches!(
-                    p.lexer.clone().next(),
-                    SyntaxKind::MathIdent | SyntaxKind::Text
-                )
-            {
-                let m2 = p.marker();
+            while p.directly_at(SyntaxKind::Text) && p.current_text() == "." && {
+                let mut copy = p.lexer.clone();
+                let start = copy.cursor();
+                let next = copy.next();
+                let end = copy.cursor();
+                matches!(next, SyntaxKind::MathIdent | SyntaxKind::Text)
+                    && is_ident(&p.text[start..end])
+            } {
                 p.convert(SyntaxKind::Dot);
-                if is_ident(p.current_text()) {
-                    p.convert(SyntaxKind::Ident);
-                    p.wrap(m, SyntaxKind::FieldAccess);
-                } else {
-                    p.node_mut(m2).unwrap().convert_to_kind(SyntaxKind::Text);
-                }
+                p.convert(SyntaxKind::Ident);
+                p.wrap(m, SyntaxKind::FieldAccess);
             }
             if min_prec < 3 && p.directly_at(SyntaxKind::Text) && p.current_text() == "("
             {
