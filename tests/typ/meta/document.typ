@@ -2,7 +2,7 @@
 
 ---
 // This is okay.
-#set document(title: "Hello")
+#set document(title: [Hello])
 What's up?
 
 ---
@@ -24,7 +24,7 @@ What's up?
 Hello
 
 // Error: 2-30 document set rules must appear before any content
-#set document(title: "Hello")
+#set document(title: [Hello])
 
 ---
 // Error: 10-12 can only be used in set rules
@@ -33,7 +33,7 @@ Hello
 ---
 #box[
   // Error: 4-32 document set rules are not allowed inside of containers
-  #set document(title: "Hello")
+  #set document(title: [Hello])
 ]
 
 ---

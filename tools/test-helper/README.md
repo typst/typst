@@ -11,9 +11,13 @@ the `tests` folder.
   it with `oxipng`.
 
 For the test helper to work correctly, you also need to install `oxipng`, for
-example with `cargo install oxipng`.
+example with `cargo install oxipng`. Make sure that the version of oxipng you
+install is the same as the one in the root `Cargo.toml` so that the results are
+the same as when using the test CLI.
 
 ## Installation
-The simplest way to install this extension (and keep it up-to-date) is to add a
-symlink from `~/.vscode/extensions/typst-test-helper` to
-`path/to/typst/tools/test-helper`.
+The simplest way to install this extension (and keep it up-to-date) is to use VSCode's UI:
+* Go to View > Command Palette,
+* In the drop down list, pick command "Developer: Install extension from location",
+* Select this `test-helper` directory in the file explorer dialogue box. VSCode will add
+the extension's path to `~/.vscode/extensions/extensions.json`.

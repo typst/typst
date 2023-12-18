@@ -1,10 +1,10 @@
-use std::cell::OnceCell;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use fontdb::{Database, Source};
 use typst::diag::StrResult;
-use typst::font::{Font, FontBook, FontInfo, FontVariant};
+use typst::text::{Font, FontBook, FontInfo, FontVariant};
 
 use crate::args::FontsCommand;
 
@@ -42,7 +42,7 @@ pub struct FontSlot {
     /// to a collection.
     index: u32,
     /// The lazily loaded font.
-    font: OnceCell<Option<Font>>,
+    font: OnceLock<Option<Font>>,
 }
 
 impl FontSlot {
@@ -92,7 +92,7 @@ impl FontSearcher {
                 self.fonts.push(FontSlot {
                     path: path.clone(),
                     index: face.index,
-                    font: OnceCell::new(),
+                    font: OnceLock::new(),
                 });
             }
         }
@@ -106,13 +106,13 @@ impl FontSearcher {
     #[cfg(feature = "embed-fonts")]
     fn add_embedded(&mut self) {
         let mut process = |bytes: &'static [u8]| {
-            let buffer = typst::eval::Bytes::from_static(bytes);
+            let buffer = typst::foundations::Bytes::from_static(bytes);
             for (i, font) in Font::iter(buffer).enumerate() {
                 self.book.push(font.info().clone());
                 self.fonts.push(FontSlot {
                     path: PathBuf::new(),
                     index: i as u32,
-                    font: OnceCell::from(Some(font)),
+                    font: OnceLock::from(Some(font)),
                 });
             }
         };

@@ -24,6 +24,7 @@
 #box(square(size: 9pt, fill: col))
 #box(square(size: 9pt, fill: rgb(col)))
 #box(square(size: 9pt, fill: oklab(col)))
+#box(square(size: 9pt, fill: oklch(col)))
 #box(square(size: 9pt, fill: luma(col)))
 #box(square(size: 9pt, fill: cmyk(col)))
 #box(square(size: 9pt, fill: color.linear-rgb(col)))
@@ -31,19 +32,27 @@
 #box(square(size: 9pt, fill: color.hsv(col)))
 
 ---
+// Colors outside the sRGB gamut.
+#box(square(size: 9pt, fill: oklab(90%, -0.2, -0.1)))
+#box(square(size: 9pt, fill: oklch(50%, 0.5, 0deg)))
+
+---
 // Test hue rotation
 #let col = rgb(50%, 64%, 16%)
 
+// Oklch
 #for x in range(0, 11) {
   box(square(size: 9pt, fill: rgb(col).rotate(x * 36deg)))
 }
 
+// HSL
 #for x in range(0, 11) {
-  box(square(size: 9pt, fill: color.hsv(col).rotate(x * 36deg)))
+  box(square(size: 9pt, fill: rgb(col).rotate(x * 36deg, space: color.hsl)))
 }
 
+// HSV
 #for x in range(0, 11) {
-  box(square(size: 9pt, fill: color.hsl(col).rotate(x * 36deg)))
+  box(square(size: 9pt, fill: rgb(col).rotate(x * 36deg, space: color.hsv)))
 }
 
 ---

@@ -154,8 +154,8 @@ The MIT License applies to:
   adapted from the colors.css project
   (https://clrs.cc/)
 
-* The `RemoteReader` defined in `crates/typst-cli/src/download.rs` which is 
-   closely modelled after the `DownloadTracker` from rustup 
+* The `RemoteReader` defined in `crates/typst-cli/src/download.rs` which is
+   closely modelled after the `DownloadTracker` from rustup
    (https://github.com/rust-lang/rustup/blob/master/src/cli/download_tracker.rs)
 
 The MIT License (MIT)
@@ -215,7 +215,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ================================================================================
 
 ================================================================================
-Syntaxes in `crates/typst-library/assets/syntect.bin` are generated from syntax
+Syntaxes embedded within the `two-face` crate are generated from syntax
 definitions which can be found here:
 https://github.com/sharkdp/bat/tree/master/assets/syntaxes
 

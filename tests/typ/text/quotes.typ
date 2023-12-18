@@ -25,6 +25,9 @@
 #set text(lang: "fi")
 "Hevonen ei syö kurkkusalaattia" oli ensimmäinen koskaan 'puhelimessa' lausuttu lause.
 
+#set text(lang: "gr")
+"Το άλογο δεν τρώει αγγουροσαλάτα" ήταν η πρώτη πρόταση που ειπώθηκε στο 'τηλέφωνο'.
+
 #set text(lang: "he")
 "הסוס לא אוכל סלט מלפפונים" היה המשפט ההראשון שנאמר ב 'טלפון'.
 
