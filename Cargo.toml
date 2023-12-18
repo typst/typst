@@ -104,6 +104,7 @@ tracing-error = "0.2"
 tracing-flame = "0.2.0"
 tracing-subscriber = "0.3.17"
 ttf-parser = "0.19.2"
+two-face = { version = "0.3.0", default-features = false, features = ["syntect-fancy"] }
 typed-arena = "2"
 unicode_names2 = "1.2"
 unicode-bidi = "0.3.13"
