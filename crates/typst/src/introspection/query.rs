@@ -9,6 +9,9 @@ use crate::introspection::Location;
 /// retrieve the current document location with the [`locate`]($locate)
 /// function.
 ///
+/// You can get the location of the elements returned by `query` with
+/// [`location`]($content.location).
+///
 /// # Finding elements
 /// In the example below, we create a custom page header that displays the text
 /// "Typst Academy" in small capitals and the current section title. On the
