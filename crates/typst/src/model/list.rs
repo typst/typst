@@ -86,6 +86,9 @@ pub struct ListElem {
     /// ```
     #[borrowed]
     #[default(ListMarker::Content(vec![
+        // These are all available in the default font, vertically centered, and
+        // roughly of the same size (with the last one having slightly lower
+        // weight because it is not filled).
         TextElem::packed('\u{2022}'), // Bullet
         TextElem::packed('\u{2023}'), // Triangular Bullet
         TextElem::packed('\u{2013}'), // En-dash
