@@ -4,7 +4,9 @@ use std::path::{Path, PathBuf};
 use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
-use ecow::eco_format;
+use ecow::{eco_format, EcoString};
+use parking_lot::RwLock;
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use termcolor::{ColorChoice, StandardStream};
 use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
 use typst::eval::Tracer;
@@ -214,39 +216,48 @@ fn export_image(
     // first page should be numbered "001" if there are between 100 and
     // 999 pages.
     let width = 1 + document.pages.len().checked_ilog10().unwrap_or(0) as usize;
-    let mut storage;
 
     let cache = world.export_cache();
-    for (i, frame) in document.pages.iter().enumerate() {
-        let path = if numbered {
-            storage = string.replace("{n}", &format!("{:0width$}", i + 1));
-            Path::new(&storage)
-        } else {
-            output.as_path()
-        };
 
-        // If we are not watching, don't use the cache.
-        // If the frame is in the cache, skip it.
-        // If the file does not exist, always create it.
-        if watching && cache.is_cached(i, frame) && path.exists() {
-            continue;
-        }
+    // The results are collected in a `Vec<()>` which does not allocate.
+    document
+        .pages
+        .par_iter()
+        .enumerate()
+        .map(|(i, frame)| {
+            let storage;
+            let path = if numbered {
+                storage = string.replace("{n}", &format!("{:0width$}", i + 1));
+                Path::new(&storage)
+            } else {
+                output.as_path()
+            };
 
-        match fmt {
-            ImageExportFormat::Png => {
-                let pixmap =
-                    typst_render::render(frame, command.ppi / 72.0, Color::WHITE);
-                pixmap
-                    .save_png(path)
-                    .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;
+            // If we are not watching, don't use the cache.
+            // If the frame is in the cache, skip it.
+            // If the file does not exist, always create it.
+            if watching && cache.is_cached(i, frame) && path.exists() {
+                return Ok(());
             }
-            ImageExportFormat::Svg => {
-                let svg = typst_svg::svg(frame);
-                fs::write(path, svg.as_bytes())
-                    .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;
+
+            match fmt {
+                ImageExportFormat::Png => {
+                    let pixmap =
+                        typst_render::render(frame, command.ppi / 72.0, Color::WHITE);
+                    pixmap
+                        .save_png(path)
+                        .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;
+                }
+                ImageExportFormat::Svg => {
+                    let svg = typst_svg::svg(frame);
+                    fs::write(path, svg.as_bytes())
+                        .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;
+                }
             }
-        }
-    }
+
+            Ok(())
+        })
+        .collect::<Result<Vec<()>, EcoString>>()?;
 
     Ok(())
 }
@@ -260,26 +271,27 @@ fn export_image(
 /// complexity and memory usage of such a cache.
 pub struct ExportCache {
     /// The hashes of last compilation's frames.
-    pub cache: Vec<u128>,
+    pub cache: RwLock<Vec<u128>>,
 }
 
 impl ExportCache {
     /// Creates a new export cache.
     pub fn new() -> Self {
-        Self { cache: Vec::with_capacity(32) }
+        Self { cache: RwLock::new(Vec::with_capacity(32)) }
     }
 
     /// Returns true if the entry is cached and appends the new hash to the
     /// cache (for the next compilation).
-    pub fn is_cached(&mut self, i: usize, frame: &Frame) -> bool {
+    pub fn is_cached(&self, i: usize, frame: &Frame) -> bool {
         let hash = typst::util::hash128(frame);
 
-        if i >= self.cache.len() {
-            self.cache.push(hash);
+        let mut cache = self.cache.upgradable_read();
+        if i >= cache.len() {
+            cache.with_upgraded(|cache| cache.push(hash));
             return false;
         }
 
-        std::mem::replace(&mut self.cache[i], hash) == hash
+        cache.with_upgraded(|cache| std::mem::replace(&mut cache[i], hash) == hash)
     }
 }
 

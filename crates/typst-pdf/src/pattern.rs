@@ -7,7 +7,7 @@ use typst::visualize::{Pattern, RelativeTo};
 
 use crate::color::PaintEncode;
 use crate::page::{construct_page, PageContext, PageResource, ResourceKind, Transforms};
-use crate::{deflate_memoized, transform_to_array, PdfContext};
+use crate::{transform_to_array, PdfContext};
 
 /// Writes the actual patterns (tiling patterns) to the PDF.
 /// This is performed once after writing all pages.
@@ -16,8 +16,7 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
         let tiling = ctx.alloc.bump();
         ctx.pattern_refs.push(tiling);
 
-        let content = deflate_memoized(content);
-        let mut tiling_pattern = ctx.pdf.tiling_pattern(tiling, &content);
+        let mut tiling_pattern = ctx.pdf.tiling_pattern(tiling, content);
         tiling_pattern
             .tiling_type(TilingType::ConstantSpacing)
             .paint_type(PaintType::Colored)
@@ -81,7 +80,7 @@ pub(crate) fn write_patterns(ctx: &mut PdfContext) {
 }
 
 /// A pattern and its transform.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct PdfPattern {
     /// The transform to apply to the gradient.
     pub transform: Transform,
@@ -120,7 +119,7 @@ fn register_pattern(
     let pdf_pattern = PdfPattern {
         transform,
         pattern: pattern.clone(),
-        content: content.content,
+        content: content.content.wait().clone(),
         resources: content.resources.into_iter().collect(),
     };
 
