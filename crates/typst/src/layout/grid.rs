@@ -6,15 +6,16 @@ use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Array, CastInfo, Content, FromValue, Func, IntoValue, NativeElement,
-    Reflect, Resolve, StyleChain, Value,
+    Reflect, Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Axes, Dir, Fr, Fragment, Frame, Layout, Length, Point, Regions, Rel, Size,
-    Sizing,
+    Abs, Align, Axes, Dir, Fr, Fragment, Frame, Layout, Length, Point, Regions, Rel,
+    Sides, Size, Sizing,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::util::Numeric;
+use crate::visualize::{Paint, Stroke};
 
 /// Arranges content in a grid.
 ///
@@ -118,6 +119,81 @@ pub struct GridElem {
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
     #[borrowed]
     pub row_gutter: TrackSizings,
+
+    /// How to fill the cells.
+    ///
+    /// This can be a color or a function that returns a color. The function is
+    /// passed the cells' column and row index, starting at zero. This can be
+    /// used to implement striped grids.
+    ///
+    /// ```example
+    /// #grid(
+    ///   fill: (col, row) => if calc.even(col + row) { luma(240) } else { white },
+    ///   align: center + horizon,
+    ///   columns: 4,
+    ///   [X], [O], [X], [O],
+    ///   [O], [X], [O], [X],
+    ///   [X], [O], [X], [O],
+    ///   [O], [X], [O], [X]
+    /// )
+    /// ```
+    #[borrowed]
+    pub fill: Celled<Option<Paint>>,
+
+    /// How to align the cells' content.
+    ///
+    /// This can either be a single alignment, an array of alignments
+    /// (corresponding to each column) or a function that returns an alignment.
+    /// The function is passed the cells' column and row index, starting at zero.
+    /// If set to `{auto}`, the outer alignment is used.
+    ///
+    /// ```example
+    /// #grid(
+    ///   columns: 3,
+    ///   align: (x, y) => (left, center, right).at(x),
+    ///   [Hello], [Hello], [Hello],
+    ///   [A], [B], [C],
+    /// )
+    /// ```
+    #[borrowed]
+    pub align: Celled<Smart<Align>>,
+
+    /// How to [stroke]($stroke) the cells.
+    ///
+    /// Grids have no strokes by default, which can be changed by setting this
+    /// option to the desired stroke.
+    ///
+    /// _Note:_ Richer stroke customization for individual cells is not yet
+    /// implemented, but will be in the future. In the meantime, you can use the
+    /// third-party [tablex library](https://github.com/PgBiel/typst-tablex/).
+    #[resolve]
+    #[fold]
+    pub stroke: Option<Stroke>,
+
+    /// How much to pad the cells' content.
+    ///
+    /// ```example
+    /// #grid(
+    ///   inset: 10pt,
+    ///   fill: (_, row) => (red, blue).at(row),
+    ///   [Hello],
+    ///   [World],
+    /// )
+    ///
+    /// #grid(
+    ///   columns: 2,
+    ///   inset: (
+    ///     x: 20pt,
+    ///     y: 10pt,
+    ///   ),
+    ///   fill: (col, _) => (red, blue).at(col),
+    ///   [Hello],
+    ///   [World],
+    /// )
+    /// ```
+    #[fold]
+    #[default(Sides::splat(Abs::pt(0.0).into()))]
+    pub inset: Sides<Option<Rel<Length>>>,
 
     /// The contents of the grid cells.
     ///
