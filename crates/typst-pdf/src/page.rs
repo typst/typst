@@ -503,7 +503,12 @@ impl PageContext<'_, '_> {
         self.state.fill_space = None;
     }
 
-    fn set_stroke(&mut self, stroke: &FixedStroke, transforms: Transforms) {
+    fn set_stroke(
+        &mut self,
+        stroke: &FixedStroke,
+        on_text: bool,
+        transforms: Transforms,
+    ) {
         if self.state.stroke.as_ref() != Some(stroke)
             || matches!(
                 self.state.stroke.as_ref().map(|s| &s.paint),
@@ -519,7 +524,7 @@ impl PageContext<'_, '_> {
                 miter_limit,
             } = stroke;
 
-            paint.set_as_stroke(self, transforms);
+            paint.set_as_stroke(self, on_text, transforms);
 
             self.content.set_line_width(thickness.to_f32());
             if self.state.stroke.as_ref().map(|s| &s.line_cap) != Some(line_cap) {
@@ -622,7 +627,7 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
 
     ctx.set_fill(&text.fill, true, ctx.state.transforms(Size::zero(), pos));
     if let Some(stroke) = &text.stroke {
-        ctx.set_stroke(stroke, ctx.state.transforms(Size::zero(), pos));
+        ctx.set_stroke(stroke, true, ctx.state.transforms(Size::zero(), pos));
         ctx.content
             .set_text_rendering_mode(pdf_writer::types::TextRenderingMode::FillStroke);
     }
@@ -698,7 +703,11 @@ fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
     }
 
     if let Some(stroke) = stroke {
-        ctx.set_stroke(stroke, ctx.state.transforms(shape.geometry.bbox_size(), pos));
+        ctx.set_stroke(
+            stroke,
+            false,
+            ctx.state.transforms(shape.geometry.bbox_size(), pos),
+        );
     }
 
     ctx.set_opacities(stroke, shape.fill.as_ref());

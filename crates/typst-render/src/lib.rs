@@ -414,7 +414,7 @@ fn render_outline_glyph(
                     paint,
                     state.pre_concat(sk::Transform::from_scale(scale, -scale)),
                     Size::zero(),
-                    false,
+                    true,
                     None,
                     &mut pixmap,
                     None,
