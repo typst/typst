@@ -426,7 +426,7 @@ fn render_outline_glyph(
                     paint,
                     state_ts,
                     Size::zero(),
-                    false,
+                    true,
                     None,
                     &mut pixmap,
                     None,
