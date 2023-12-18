@@ -129,18 +129,19 @@
   details: |
     Module for system interactions.
 
-    Currently, this module defines a single item: The `sys.version` constant
-    (of type [`version`]($version)), that specifies the currently active
-    Typst compiler version.
+    This module defines the following items:
 
-    This module also enables loading data external from the project into the document.
-    The data is available from the `sys.inputs` [Dictionary]($dictionary).
-    For example, you can specify `--input some_key=any_value`
-    and obtain the value using `sys.inputs.some_key`.
-    The value is split by the first `=` character and is always treated
-    as a string and may be parsed manually using e.g. using `json.decode`.
-    For more complex input values, the value may be
-    enclosed with single or double brackets.
+    - The `sys.version` constant (of type [`version`]($version)) that specifies
+      the currently active Typst compiler version.
+
+    - The `sys.inputs` [dictionary]($dictionary), which makes external inputs
+      available to the project. An input specified in the command line as
+      `--input key=value` becomes available under `sys.inputs.key` as
+      `{"value"}`. To include spaces in the value, it may be enclosed with
+      single or double quotes.
+
+      The value is always of type [string]($str). More complex data
+      may be parsed manually using functions like [`json.decode`]($json.decode).
 
 - name: sym
   title: General

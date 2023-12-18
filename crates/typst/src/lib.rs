@@ -252,52 +252,52 @@ pub struct Library {
 }
 
 impl Library {
+    /// Create a new builder for a library.
     pub fn builder() -> LibraryBuilder {
         LibraryBuilder::default()
     }
 }
 
 impl Default for Library {
-    /// Constructs the standard library with no inputs.
+    /// Constructs the standard library with the default configuration.
     fn default() -> Self {
-        LibraryBuilder::default().build()
+        Self::builder().build()
     }
 }
 
+/// Configurable builder for the standard library.
+///
+/// This struct is created by [`Library::builder`].
 #[derive(Debug, Clone, Default)]
 pub struct LibraryBuilder {
-    pub inputs: Option<Dict>,
+    inputs: Option<Dict>,
 }
 
 impl LibraryBuilder {
-    /// Returns itself either with the inputs set if none existed or added.
+    /// Configure the inputs visible through `sys.inputs`.
     pub fn with_inputs(mut self, inputs: Dict) -> Self {
-        match self.inputs {
-            Some(ref mut s) => s.extend(inputs),
-            None => self.inputs = Some(inputs),
-        }
+        self.inputs = Some(inputs);
         self
     }
 
     /// Consumes the builder and returns a `Library`.
     pub fn build(self) -> Library {
         let math = math::module();
-        let sys = foundations::module(self.inputs.unwrap_or_default());
-        let global = global(math.clone(), sys);
+        let inputs = self.inputs.unwrap_or_default();
+        let global = global(math.clone(), inputs);
         Library { global, math, styles: Styles::new() }
     }
 }
 
 /// Construct the module with global definitions.
 #[tracing::instrument(skip_all)]
-fn global(math: Module, sys_args: Module) -> Module {
+fn global(math: Module, inputs: Dict) -> Module {
     let mut global = Scope::deduplicating();
-    self::foundations::define(&mut global);
+    self::foundations::define(&mut global, inputs);
     self::model::define(&mut global);
     self::text::define(&mut global);
     global.reset_category();
     global.define_module(math);
-    global.define_module(sys_args);
     self::layout::define(&mut global);
     self::visualize::define(&mut global);
     self::introspection::define(&mut global);

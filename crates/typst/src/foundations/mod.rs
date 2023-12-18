@@ -2,6 +2,7 @@
 
 pub mod calc;
 pub mod repr;
+pub mod sys;
 
 mod args;
 mod array;
@@ -27,7 +28,6 @@ mod scope;
 mod selector;
 mod str;
 mod styles;
-mod sys;
 mod ty;
 mod value;
 mod version;
@@ -56,7 +56,6 @@ pub use self::scope::*;
 pub use self::selector::*;
 pub use self::str::*;
 pub use self::styles::*;
-pub use self::sys::*;
 pub use self::ty::*;
 pub use self::value::*;
 pub use self::version::*;
@@ -84,7 +83,7 @@ use crate::syntax::Spanned;
 pub static FOUNDATIONS: Category;
 
 /// Hook up all `foundations` definitions.
-pub(super) fn define(global: &mut Scope) {
+pub(super) fn define(global: &mut Scope, inputs: Dict) {
     global.category(FOUNDATIONS);
     global.define_type::<bool>();
     global.define_type::<i64>();
@@ -111,6 +110,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_func::<eval>();
     global.define_func::<style>();
     global.define_module(calc::module());
+    global.define_module(sys::module(inputs));
 }
 
 /// Fails with an error.

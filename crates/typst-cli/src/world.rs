@@ -7,7 +7,7 @@ use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
 use ecow::eco_format;
 use typst::diag::{FileError, FileResult, StrResult};
-use typst::foundations::{Bytes, Datetime, Dict, Value};
+use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::{Library, World};
@@ -21,8 +21,8 @@ use crate::package::prepare_package;
 pub struct SystemWorld {
     /// The working directory.
     workdir: Option<PathBuf>,
-    /// The canonical path to the source file.
-    source: PathBuf,
+    /// The canonical path to the input file.
+    input: PathBuf,
     /// The root relative to which absolute paths are resolved.
     root: PathBuf,
     /// The input path.
@@ -50,11 +50,8 @@ impl SystemWorld {
         searcher.search(&command.font_paths);
 
         // Resolve the system-global input path.
-        let source = command.source.canonicalize().map_err(|_| {
-            eco_format!(
-                "source file not found (searched at {})",
-                command.source.display(),
-            )
+        let input = command.input.canonicalize().map_err(|_| {
+            eco_format!("input file not found (searched at {})", command.input.display())
         })?;
 
         // Resolve the system-global root directory.
@@ -62,7 +59,7 @@ impl SystemWorld {
             let path = command
                 .root
                 .as_deref()
-                .or_else(|| source.parent())
+                .or_else(|| input.parent())
                 .unwrap_or(Path::new("."));
             path.canonicalize().map_err(|_| {
                 eco_format!("root directory not found (searched at {})", path.display())
@@ -70,20 +67,23 @@ impl SystemWorld {
         };
 
         // Resolve the virtual path of the main file within the project root.
-        let main_path = VirtualPath::within_root(&source, &root)
+        let main_path = VirtualPath::within_root(&input, &root)
             .ok_or("source file must be contained in project root")?;
 
-        // Convert the Vec<(String, String)> to a Typst Dictionary.
-        let inputs = command
-            .plain_inputs
-            .iter()
-            .map(|(k, v)| (k.clone().into(), Value::Str(v.clone().into())));
-        let inputs = Dict::from_iter(inputs);
-        let library = Library::builder().with_inputs(inputs).build();
+        let library = {
+            // Convert the input pairs to a dictionary.
+            let inputs: Dict = command
+                .inputs
+                .iter()
+                .map(|(k, v)| (k.as_str().into(), v.as_str().into_value()))
+                .collect();
+
+            Library::builder().with_inputs(inputs).build()
+        };
 
         Ok(Self {
             workdir: std::env::current_dir().ok(),
-            source,
+            input,
             root,
             main: FileId::new(None, main_path),
             library: Prehashed::new(library),
@@ -127,9 +127,9 @@ impl SystemWorld {
         self.now.take();
     }
 
-    /// Return the canonical path to the source file.
+    /// Return the canonical path to the input file.
     pub fn input(&self) -> &PathBuf {
-        &self.source
+        &self.input
     }
 
     /// Lookup a source file by id.
