@@ -66,7 +66,7 @@ use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{
-    Array, Bytes, Content, Datetime, Module, Scope, StyleChain, Styles,
+    Array, Bytes, Content, Datetime, Dict, Module, Scope, StyleChain, Styles,
 };
 use crate::introspection::{Introspector, Locator};
 use crate::layout::{Align, Dir, LayoutRoot};
@@ -252,25 +252,48 @@ pub struct Library {
 }
 
 impl Library {
-    /// Construct the standard library.
-    pub fn build() -> Self {
-        let math = math::module();
-        let global = global(math.clone());
-        Self { global, math, styles: Styles::new() }
+    /// Create a new builder for a library.
+    pub fn builder() -> LibraryBuilder {
+        LibraryBuilder::default()
     }
 }
 
 impl Default for Library {
+    /// Constructs the standard library with the default configuration.
     fn default() -> Self {
-        Self::build()
+        Self::builder().build()
+    }
+}
+
+/// Configurable builder for the standard library.
+///
+/// This struct is created by [`Library::builder`].
+#[derive(Debug, Clone, Default)]
+pub struct LibraryBuilder {
+    inputs: Option<Dict>,
+}
+
+impl LibraryBuilder {
+    /// Configure the inputs visible through `sys.inputs`.
+    pub fn with_inputs(mut self, inputs: Dict) -> Self {
+        self.inputs = Some(inputs);
+        self
+    }
+
+    /// Consumes the builder and returns a `Library`.
+    pub fn build(self) -> Library {
+        let math = math::module();
+        let inputs = self.inputs.unwrap_or_default();
+        let global = global(math.clone(), inputs);
+        Library { global, math, styles: Styles::new() }
     }
 }
 
 /// Construct the module with global definitions.
 #[tracing::instrument(skip_all)]
-fn global(math: Module) -> Module {
+fn global(math: Module, inputs: Dict) -> Module {
     let mut global = Scope::deduplicating();
-    self::foundations::define(&mut global);
+    self::foundations::define(&mut global, inputs);
     self::model::define(&mut global);
     self::text::define(&mut global);
     global.reset_category();

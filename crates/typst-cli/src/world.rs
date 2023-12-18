@@ -7,7 +7,7 @@ use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
 use ecow::eco_format;
 use typst::diag::{FileError, FileResult, StrResult};
-use typst::foundations::{Bytes, Datetime};
+use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::{Library, World};
@@ -68,14 +68,25 @@ impl SystemWorld {
 
         // Resolve the virtual path of the main file within the project root.
         let main_path = VirtualPath::within_root(&input, &root)
-            .ok_or("input file must be contained in project root")?;
+            .ok_or("source file must be contained in project root")?;
+
+        let library = {
+            // Convert the input pairs to a dictionary.
+            let inputs: Dict = command
+                .inputs
+                .iter()
+                .map(|(k, v)| (k.as_str().into(), v.as_str().into_value()))
+                .collect();
+
+            Library::builder().with_inputs(inputs).build()
+        };
 
         Ok(Self {
             workdir: std::env::current_dir().ok(),
             input,
             root,
             main: FileId::new(None, main_path),
-            library: Prehashed::new(Library::build()),
+            library: Prehashed::new(library),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
             slots: RwLock::new(HashMap::new()),
