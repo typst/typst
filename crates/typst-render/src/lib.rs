@@ -254,7 +254,7 @@ fn render_svg_glyph(
     id: GlyphId,
 ) -> Option<()> {
     let ts = &state.transform;
-    let mut data = text.font.ttf().glyph_svg_image(id)?;
+    let mut data = text.font.ttf().glyph_svg_image(id)?.data;
 
     // Decompress SVGZ.
     let mut decoded = vec![];

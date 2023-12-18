@@ -1108,7 +1108,7 @@ fn convert_bitmap_glyph_to_image(font: &Font, id: GlyphId) -> Option<(Image, f64
 /// Convert an SVG glyph to an encoded image URL.
 #[comemo::memoize]
 fn convert_svg_glyph_to_base64_url(font: &Font, id: GlyphId) -> Option<EcoString> {
-    let mut data = font.ttf().glyph_svg_image(id)?;
+    let mut data = font.ttf().glyph_svg_image(id)?.data;
 
     // Decompress SVGZ.
     let mut decoded = vec![];
