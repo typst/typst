@@ -63,6 +63,10 @@
           "light": "images/update-light.svg",
           "dark": "images/update-dark.svg"
         }
+      },
+      {
+        "command": "WebViewContextMenu.copyImageFilePath",
+        "title": "Copy image file path"
       }
     ],
     "menus": {
@@ -83,7 +87,7 @@
           "group": "navigation@2"
         },
         {
-          "when": "activeWebviewPanelId == 'typst.TestHelperOutputPreview'",
+          "when": "activeWebviewPanelId == typst.TestHelperOutputPreview",
           "command": "ShortcutMenuBar.testRerunFromPreview",
           "group": "navigation@2"
         },
@@ -91,6 +95,12 @@
           "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
           "command": "ShortcutMenuBar.testUpdate",
           "group": "navigation@3"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "WebViewContextMenu.copyImageFilePath",
+          "when": "webviewId == typst.TestHelperOutputPreview && (webviewSection == png || webviewSection == ref)"
         }
       ]
     }

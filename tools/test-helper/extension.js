@@ -18,7 +18,7 @@ function activate(context) {
      * @param {string} stderr
      */
     function refreshPanel(uri, stdout, stderr) {
-        const { pngPath, refPath } = getPaths(uri)
+        const { pngPath, refPath } = getImageUris(uri)
 
         const panel = panels.get(uri.toString())
         if (panel && panel.visible) {
@@ -127,7 +127,7 @@ function activate(context) {
 
     const updateCmd = vscode.commands.registerCommand("ShortcutMenuBar.testUpdate", () => {
         const uri = getActiveDocumentUri()
-        const { pngPath, refPath } = getPaths(uri)
+        const { pngPath, refPath } = getImageUris(uri)
 
         vscode.workspace.fs.copy(pngPath, refPath, { overwrite: true })
             .then(() => {
@@ -138,11 +138,33 @@ function activate(context) {
             })
     })
 
+    const copyImageFilePathCmd = vscode.commands.registerCommand(
+        "WebViewContextMenu.copyImageFilePath", (e) => {
+            // The command is invoked when user clicks the button from within a WebView
+            // panel, so the active panel is this panel, and sourceUriOfActivePanel will
+            // be updated by that panel's onDidChangeViewState listener.
+            if (!sourceUriOfActivePanel) {
+                throw new Error('sourceUriOfActivePanel is falsy')
+            }
+            const { pngPath, refPath } = getImageUris(sourceUriOfActivePanel)
+            switch (e.webviewSection) {
+                case 'png':
+                    vscode.env.clipboard.writeText(pngPath.fsPath);
+                    break;
+                case 'ref':
+                    vscode.env.clipboard.writeText(refPath.fsPath);
+                    break;
+                default:
+                    break;
+            }
+        })
+
     context.subscriptions.push(openCmd)
     context.subscriptions.push(refreshCmd)
     context.subscriptions.push(rerunFromSourceCmd)
     context.subscriptions.push(rerunFromPreviewCmd)
     context.subscriptions.push(updateCmd)
+    context.subscriptions.push(copyImageFilePathCmd)
 
     context.subscriptions.push(cmdStatusBar)
 }
@@ -160,7 +182,7 @@ function getWebviewPanelTabTitle(uri) {
     return uri.path.split('/').pop()?.replace('.typ', '.png') ?? 'Test output'
 }
 
-function getPaths(uri) {
+function getImageUris(uri) {
     const pngPath = vscode.Uri.file(uri.path
         .replace("tests/typ", "tests/png")
         .replace(".typ", ".png"))
@@ -209,15 +231,15 @@ function getWebviewContent(testUri, webViewSrcs, stdout, stderr) {
         </style>
     </head>
     <body>
-        <div class="flex">
+        <div class="flex" data-vscode-context='{"preventDefaultContextMenuItems": true}'>
             <div>
                 <h1>Output</h1>
-                <img src="${webViewSrcs.png}"/>
+                <img data-vscode-context='{"webviewSection":"png"}' src="${webViewSrcs.png}"/>
             </div>
 
             <div>
                 <h1>Reference</h1>
-                <img src="${webViewSrcs.ref}"/>
+                <img data-vscode-context='{"webviewSection":"ref"}' src="${webViewSrcs.ref}"/>
             </div>
         </div>
 
