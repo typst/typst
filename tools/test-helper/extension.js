@@ -101,21 +101,12 @@ function activate(context) {
         const uri = getActiveDocumentUri()
         const { pngPath, refPath } = getPaths(uri)
 
-        vscode.window
-            .showInformationMessage(
-                "Are you sure you want to update the reference image for "
-                + `${uri.path.split('/').pop()}?`,
-                'Yes', 'Cancel')
-            .then(answer => {
-                if (answer === 'Yes') {
-                    vscode.workspace.fs.copy(pngPath, refPath, { overwrite: true })
-                        .then(() => {
-                            cp.exec(`oxipng -o max -a ${refPath.fsPath}`, (err, stdout, stderr) => {
-                                console.log('Copied to reference file')
-                                refreshPanel(uri, stdout, stderr)
-                            })
-                        })
-                }
+        vscode.workspace.fs.copy(pngPath, refPath, { overwrite: true })
+            .then(() => {
+                cp.exec(`oxipng -o max -a ${refPath.fsPath}`, (err, stdout, stderr) => {
+                    console.log('Copied to reference file')
+                    refreshPanel(uri, stdout, stderr)
+                })
             })
     })
 
@@ -236,6 +227,6 @@ function escape(text) {
     return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function deactivate() {}
+function deactivate() { }
 
 module.exports = { activate, deactivate }
