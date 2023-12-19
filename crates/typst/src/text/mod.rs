@@ -240,14 +240,13 @@ pub struct TextElem {
     #[ghost]
     pub fill: Paint,
 
-    /// How to [stroke]($stroke) the text.
+    /// How to stroke the text.
     ///
     /// ```example
     /// #text(stroke: 0.5pt + red)[Stroked]
     /// ```
-    #[default(Option::None)]
-    #[ghost]
     #[resolve]
+    #[ghost]
     pub stroke: Option<Stroke>,
 
     /// The amount of space that should be added between characters.
