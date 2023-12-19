@@ -166,14 +166,13 @@ impl Layout for TableElem {
         let rows = self.rows(styles);
         let column_gutter = self.column_gutter(styles);
         let row_gutter = self.row_gutter(styles);
+        let fill = self.fill(styles);
+        let stroke = self.stroke(styles).map(Stroke::unwrap_or_default);
 
         let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
         let cells =
             apply_align_inset_to_cells(engine, &tracks, self.children(), align, inset)?;
-
-        let fill = self.fill(styles);
-        let stroke = self.stroke(styles).map(Stroke::unwrap_or_default);
 
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(
