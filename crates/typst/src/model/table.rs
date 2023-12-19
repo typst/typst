@@ -1,16 +1,13 @@
-use crate::diag::{At, SourceResult, StrResult};
+use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{
-    elem, Array, CastInfo, Content, FromValue, Func, IntoValue, NativeElement, Reflect,
-    Smart, StyleChain, Value,
-};
+use crate::foundations::{elem, Content, NativeElement, Smart, StyleChain};
 use crate::layout::{
-    Abs, Align, AlignElem, Axes, Fragment, FrameItem, GridLayouter, Layout, Length,
-    Point, Regions, Rel, Sides, Size, TrackSizings,
+    apply_align_inset_to_cells, Abs, Align, Axes, Celled, Fragment, GridLayouter, Layout,
+    Length, Regions, Rel, Sides, TrackSizings,
 };
 use crate::model::Figurable;
 use crate::text::{Lang, LocalName, Region};
-use crate::visualize::{Geometry, Paint, Stroke};
+use crate::visualize::{Paint, Stroke};
 
 /// A table of items.
 ///
@@ -169,166 +166,27 @@ impl Layout for TableElem {
         let rows = self.rows(styles);
         let column_gutter = self.column_gutter(styles);
         let row_gutter = self.row_gutter(styles);
-
-        let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
-        let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
-        let cols = tracks.x.len().max(1);
-        let cells: Vec<_> = self
-            .children()
-            .iter()
-            .enumerate()
-            .map(|(i, child)| {
-                let mut child = child.clone().padded(inset);
-
-                let x = i % cols;
-                let y = i / cols;
-                if let Smart::Custom(alignment) = align.resolve(engine, x, y)? {
-                    child = child.styled(AlignElem::set_alignment(alignment));
-                }
-
-                Ok(child)
-            })
-            .collect::<SourceResult<_>>()?;
-
         let fill = self.fill(styles);
         let stroke = self.stroke(styles).map(Stroke::unwrap_or_default);
 
+        let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
+        let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
+        let cells =
+            apply_align_inset_to_cells(engine, &tracks, self.children(), align, inset)?;
+
         // Prepare grid layout by unifying content and gutter tracks.
-        let layouter =
-            GridLayouter::new(tracks, gutter, &cells, regions, styles, self.span());
+        let layouter = GridLayouter::new(
+            tracks,
+            gutter,
+            &cells,
+            fill,
+            &stroke,
+            regions,
+            styles,
+            self.span(),
+        );
 
-        // Measure the columns and layout the grid row-by-row.
-        let mut layout = layouter.layout(engine)?;
-
-        // Add lines and backgrounds.
-        for (frame, rows) in layout.fragment.iter_mut().zip(&layout.rows) {
-            if layout.cols.is_empty() || rows.is_empty() {
-                continue;
-            }
-
-            // Render table lines.
-            if let Some(stroke) = &stroke {
-                let thickness = stroke.thickness;
-                let half = thickness / 2.0;
-
-                // Render horizontal lines.
-                for offset in points(rows.iter().map(|piece| piece.height)) {
-                    let target = Point::with_x(frame.width() + thickness);
-                    let hline = Geometry::Line(target).stroked(stroke.clone());
-                    frame.prepend(
-                        Point::new(-half, offset),
-                        FrameItem::Shape(hline, self.span()),
-                    );
-                }
-
-                // Render vertical lines.
-                for offset in points(layout.cols.iter().copied()) {
-                    let target = Point::with_y(frame.height() + thickness);
-                    let vline = Geometry::Line(target).stroked(stroke.clone());
-                    frame.prepend(
-                        Point::new(offset, -half),
-                        FrameItem::Shape(vline, self.span()),
-                    );
-                }
-            }
-
-            // Render cell backgrounds.
-            let mut dx = Abs::zero();
-            for (x, &col) in layout.cols.iter().enumerate() {
-                let mut dy = Abs::zero();
-                for row in rows {
-                    if let Some(fill) = fill.resolve(engine, x, row.y)? {
-                        let pos = Point::new(dx, dy);
-                        let size = Size::new(col, row.height);
-                        let rect = Geometry::Rect(size).filled(fill);
-                        frame.prepend(pos, FrameItem::Shape(rect, self.span()));
-                    }
-                    dy += row.height;
-                }
-                dx += col;
-            }
-        }
-
-        Ok(layout.fragment)
-    }
-}
-
-/// Turn an iterator of extents into an iterator of offsets before, in between,
-/// and after the extents, e.g. [10mm, 5mm] -> [0mm, 10mm, 15mm].
-fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
-    let mut offset = Abs::zero();
-    std::iter::once(Abs::zero()).chain(extents).map(move |extent| {
-        offset += extent;
-        offset
-    })
-}
-
-/// A value that can be configured per cell.
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub enum Celled<T> {
-    /// A bare value, the same for all cells.
-    Value(T),
-    /// A closure mapping from cell coordinates to a value.
-    Func(Func),
-    /// An array of alignment values corresponding to each column.
-    Array(Vec<T>),
-}
-
-impl<T: Default + Clone + FromValue> Celled<T> {
-    /// Resolve the value based on the cell position.
-    pub fn resolve(&self, engine: &mut Engine, x: usize, y: usize) -> SourceResult<T> {
-        Ok(match self {
-            Self::Value(value) => value.clone(),
-            Self::Func(func) => func.call(engine, [x, y])?.cast().at(func.span())?,
-            Self::Array(array) => x
-                .checked_rem(array.len())
-                .and_then(|i| array.get(i))
-                .cloned()
-                .unwrap_or_default(),
-        })
-    }
-}
-
-impl<T: Default> Default for Celled<T> {
-    fn default() -> Self {
-        Self::Value(T::default())
-    }
-}
-
-impl<T: Reflect> Reflect for Celled<T> {
-    fn input() -> CastInfo {
-        T::input() + Array::input() + Func::input()
-    }
-
-    fn output() -> CastInfo {
-        T::output() + Array::output() + Func::output()
-    }
-
-    fn castable(value: &Value) -> bool {
-        Array::castable(value) || Func::castable(value) || T::castable(value)
-    }
-}
-
-impl<T: IntoValue> IntoValue for Celled<T> {
-    fn into_value(self) -> Value {
-        match self {
-            Self::Value(value) => value.into_value(),
-            Self::Func(func) => func.into_value(),
-            Self::Array(arr) => arr.into_value(),
-        }
-    }
-}
-
-impl<T: FromValue> FromValue for Celled<T> {
-    fn from_value(value: Value) -> StrResult<Self> {
-        match value {
-            Value::Func(v) => Ok(Self::Func(v)),
-            Value::Array(array) => Ok(Self::Array(
-                array.into_iter().map(T::from_value).collect::<StrResult<_>>()?,
-            )),
-            v if T::castable(&v) => Ok(Self::Value(T::from_value(v)?)),
-            v => Err(Self::error(&v)),
-        }
+        Ok(layouter.layout(engine)?.fragment)
     }
 }
 
