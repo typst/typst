@@ -9,13 +9,13 @@ use crate::foundations::{
     Reflect, Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Align, AlignElem, Axes, Dir, Fr, Fragment, Frame, Layout, Length, Point,
-    Regions, Rel, Sides, Size, Sizing,
+    Abs, Align, AlignElem, Axes, Dir, Fr, Fragment, Frame, FrameItem, Layout, Length,
+    Point, Regions, Rel, Sides, Size, Sizing,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::util::Numeric;
-use crate::visualize::{FixedStroke, Paint, Stroke};
+use crate::visualize::{FixedStroke, Geometry, Paint, Stroke};
 
 /// Arranges content in a grid.
 ///
@@ -524,11 +524,68 @@ impl<'a> GridLayouter<'a> {
 
         self.finish_region(engine)?;
 
+        if self.stroke.is_some() || !matches!(self.fill, Celled::Value(None)) {
+            self.render_fills_strokes(engine)?;
+        }
+
         Ok(GridLayout {
             fragment: Fragment::frames(self.finished),
             cols: self.rcols,
             rows: self.rrows,
         })
+    }
+
+    /// Add lines and backgrounds.
+    fn render_fills_strokes(&mut self, engine: &mut Engine) -> SourceResult<()> {
+        for (frame, rows) in self.finished.iter_mut().zip(&self.rrows) {
+            if self.rcols.is_empty() || rows.is_empty() {
+                continue;
+            }
+
+            // Render table lines.
+            if let Some(stroke) = self.stroke {
+                let thickness = stroke.thickness;
+                let half = thickness / 2.0;
+
+                // Render horizontal lines.
+                for offset in points(rows.iter().map(|piece| piece.height)) {
+                    let target = Point::with_x(frame.width() + thickness);
+                    let hline = Geometry::Line(target).stroked(stroke.clone());
+                    frame.prepend(
+                        Point::new(-half, offset),
+                        FrameItem::Shape(hline, self.span),
+                    );
+                }
+
+                // Render vertical lines.
+                for offset in points(self.rcols.iter().copied()) {
+                    let target = Point::with_y(frame.height() + thickness);
+                    let vline = Geometry::Line(target).stroked(stroke.clone());
+                    frame.prepend(
+                        Point::new(offset, -half),
+                        FrameItem::Shape(vline, self.span),
+                    );
+                }
+            }
+
+            // Render cell backgrounds.
+            let mut dx = Abs::zero();
+            for (x, &col) in self.rcols.iter().enumerate() {
+                let mut dy = Abs::zero();
+                for row in rows {
+                    if let Some(fill) = self.fill.resolve(engine, x, row.y)? {
+                        let pos = Point::new(dx, dy);
+                        let size = Size::new(col, row.height);
+                        let rect = Geometry::Rect(size).filled(fill);
+                        frame.prepend(pos, FrameItem::Shape(rect, self.span));
+                    }
+                    dy += row.height;
+                }
+                dx += col;
+            }
+        }
+
+        Ok(())
     }
 
     /// Determine all column sizes.
@@ -935,4 +992,14 @@ impl<'a> GridLayouter<'a> {
             self.cells.get(y * c + x)
         }
     }
+}
+
+/// Turn an iterator of extents into an iterator of offsets before, in between,
+/// and after the extents, e.g. [10mm, 5mm] -> [0mm, 10mm, 15mm].
+fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
+    let mut offset = Abs::zero();
+    std::iter::once(Abs::zero()).chain(extents).map(move |extent| {
+        offset += extent;
+        offset
+    })
 }

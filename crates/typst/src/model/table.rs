@@ -2,12 +2,12 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, NativeElement, Smart, StyleChain};
 use crate::layout::{
-    apply_align_inset_to_cells, Abs, Align, Axes, Celled, Fragment, FrameItem,
-    GridLayouter, Layout, Length, Point, Regions, Rel, Sides, Size, TrackSizings,
+    apply_align_inset_to_cells, Abs, Align, Axes, Celled, Fragment, GridLayouter, Layout,
+    Length, Regions, Rel, Sides, TrackSizings,
 };
 use crate::model::Figurable;
 use crate::text::{Lang, LocalName, Region};
-use crate::visualize::{Geometry, Paint, Stroke};
+use crate::visualize::{Paint, Stroke};
 
 /// A table of items.
 ///
@@ -187,70 +187,8 @@ impl Layout for TableElem {
             self.span(),
         );
 
-        // Measure the columns and layout the grid row-by-row.
-        let mut layout = layouter.layout(engine)?;
-
-        // Add lines and backgrounds.
-        for (frame, rows) in layout.fragment.iter_mut().zip(&layout.rows) {
-            if layout.cols.is_empty() || rows.is_empty() {
-                continue;
-            }
-
-            // Render table lines.
-            if let Some(stroke) = &stroke {
-                let thickness = stroke.thickness;
-                let half = thickness / 2.0;
-
-                // Render horizontal lines.
-                for offset in points(rows.iter().map(|piece| piece.height)) {
-                    let target = Point::with_x(frame.width() + thickness);
-                    let hline = Geometry::Line(target).stroked(stroke.clone());
-                    frame.prepend(
-                        Point::new(-half, offset),
-                        FrameItem::Shape(hline, self.span()),
-                    );
-                }
-
-                // Render vertical lines.
-                for offset in points(layout.cols.iter().copied()) {
-                    let target = Point::with_y(frame.height() + thickness);
-                    let vline = Geometry::Line(target).stroked(stroke.clone());
-                    frame.prepend(
-                        Point::new(offset, -half),
-                        FrameItem::Shape(vline, self.span()),
-                    );
-                }
-            }
-
-            // Render cell backgrounds.
-            let mut dx = Abs::zero();
-            for (x, &col) in layout.cols.iter().enumerate() {
-                let mut dy = Abs::zero();
-                for row in rows {
-                    if let Some(fill) = fill.resolve(engine, x, row.y)? {
-                        let pos = Point::new(dx, dy);
-                        let size = Size::new(col, row.height);
-                        let rect = Geometry::Rect(size).filled(fill);
-                        frame.prepend(pos, FrameItem::Shape(rect, self.span()));
-                    }
-                    dy += row.height;
-                }
-                dx += col;
-            }
-        }
-
-        Ok(layout.fragment)
+        Ok(layouter.layout(engine)?.fragment)
     }
-}
-
-/// Turn an iterator of extents into an iterator of offsets before, in between,
-/// and after the extents, e.g. [10mm, 5mm] -> [0mm, 10mm, 15mm].
-fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
-    let mut offset = Abs::zero();
-    std::iter::once(Abs::zero()).chain(extents).map(move |extent| {
-        offset += extent;
-        offset
-    })
 }
 
 impl LocalName for TableElem {
