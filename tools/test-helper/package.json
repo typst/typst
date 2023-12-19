@@ -4,7 +4,7 @@
   "description": "Helps to run, compare and update Typst tests.",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.53.0"
+    "vscode": "^1.71.0"
   },
   "categories": [
     "Other"
@@ -12,7 +12,8 @@
   "activationEvents": [
     "onCommand:ShortcutMenuBar.testOpen",
     "onCommand:ShortcutMenuBar.testRefresh",
-    "onCommand:ShortcutMenuBar.testRerun",
+    "onCommand:ShortcutMenuBar.testRerunFromSource",
+    "onCommand:ShortcutMenuBar.testRerunFromPreview",
     "onCommand:ShortcutMenuBar.testUpdate"
   ],
   "main": "./extension.js",
@@ -37,7 +38,16 @@
         }
       },
       {
-        "command": "ShortcutMenuBar.testRerun",
+        "command": "ShortcutMenuBar.testRerunFromSource",
+        "title": "Rerun test",
+        "category": "ShortcutMenuBar",
+        "icon": {
+          "light": "images/rerun-light.svg",
+          "dark": "images/rerun-dark.svg"
+        }
+      },
+      {
+        "command": "ShortcutMenuBar.testRerunFromPreview",
         "title": "Rerun test",
         "category": "ShortcutMenuBar",
         "icon": {
@@ -69,7 +79,12 @@
         },
         {
           "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
-          "command": "ShortcutMenuBar.testRerun",
+          "command": "ShortcutMenuBar.testRerunFromSource",
+          "group": "navigation@2"
+        },
+        {
+          "when": "activeWebviewPanelId == 'typst.TestHelperOutputPreview'",
+          "command": "ShortcutMenuBar.testRerunFromPreview",
           "group": "navigation@2"
         },
         {
