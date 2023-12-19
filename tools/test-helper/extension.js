@@ -6,7 +6,7 @@ const cp = require('child_process')
  */
 function activate(context) {
     let /** @type {vscode.Uri?} */ sourceUriOfActivePanel = null
-    let /** @type {Map<string, vscode.WebviewPanel>} */ panels = new Map();
+    let /** @type {Map<string, vscode.WebviewPanel>} */ panels = new Map()
 
     const cmdStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right)
     cmdStatusBar.tooltip = "Typst test-helper"
@@ -48,7 +48,7 @@ function activate(context) {
         const subPath = components[1]
 
         cmdStatusBar.text = "$(loading~spin) Running"
-        cmdStatusBar.show();
+        cmdStatusBar.show()
         cp.exec(
             `cargo test --manifest-path ${dir}/Cargo.toml --all --test tests -- ${subPath}`,
             (err, stdout, stderr) => {
@@ -73,10 +73,10 @@ function activate(context) {
                 console.log(JSON.stringify(message))
                 switch (message.command) {
                     case 'rerunCmd':
-                        rerunCmdImpl(vscode.Uri.parse(message.testUriString));
-                        return;
+                        rerunCmdImpl(vscode.Uri.parse(message.testUriString))
+                        return
                 }
-            });
+            })
         newPanel.onDidChangeViewState(() => {
             if (newPanel && newPanel.active && newPanel.visible) {
                 console.log(`Set sourceUriOfActivePanel to ${uri}`)
@@ -149,13 +149,13 @@ function activate(context) {
             const { pngPath, refPath } = getImageUris(sourceUriOfActivePanel)
             switch (e.webviewSection) {
                 case 'png':
-                    vscode.env.clipboard.writeText(pngPath.fsPath);
-                    break;
+                    vscode.env.clipboard.writeText(pngPath.fsPath)
+                    break
                 case 'ref':
-                    vscode.env.clipboard.writeText(refPath.fsPath);
-                    break;
+                    vscode.env.clipboard.writeText(refPath.fsPath)
+                    break
                 default:
-                    break;
+                    break
             }
         })
 
@@ -254,7 +254,7 @@ function getWebviewContent(testUri, webViewSrcs, stdout, stderr) {
 }
 
 function escape(text) {
-    return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return text.replace(/</g, "&lt;").replace(/>/g, "&gt;")
 }
 
 function deactivate() { }
