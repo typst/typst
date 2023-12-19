@@ -1,8 +1,8 @@
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    Array, CastInfo, Content, FromValue, Func, IntoValue, Reflect, Resolve, StyleChain,
-    Value,
+    Array, CastInfo, Content, FromValue, Func, IntoValue, Reflect, Resolve, Smart,
+    StyleChain, Value,
 };
 use crate::layout::{
     Abs, Axes, Dir, Fr, Fragment, Frame, FrameItem, Layout, Length, Point, Regions, Rel,
@@ -82,10 +82,23 @@ impl<T: FromValue> FromValue for Celled<T> {
     }
 }
 
+/// For any elements which can be used as cells in the GridLayouter.
+pub trait Cell: Layout {
+    /// The cell's fill override, or 'auto' to use the table's default.
+    fn fill(&self, styles: &StyleChain) -> Smart<Option<Paint>>;
+}
+
+// Content can work as a simple grid cell, without any overrides.
+impl Cell for Content {
+    fn fill(&self, _styles: &StyleChain) -> Smart<Option<Paint>> {
+        Smart::Auto
+    }
+}
+
 /// Performs grid layout.
-pub struct GridLayouter<'a> {
+pub struct GridLayouter<'a, T: Cell = Content> {
     /// The grid cells.
-    cells: &'a [Content],
+    cells: &'a [T],
     /// Whether this is an RTL grid.
     is_rtl: bool,
     /// Whether this grid has gutters.
@@ -149,7 +162,7 @@ enum Row {
     Fr(Fr, usize),
 }
 
-impl<'a> GridLayouter<'a> {
+impl<'a, T: Cell> GridLayouter<'a, T> {
     /// Create a new grid layouter.
     ///
     /// This prepares grid layout by unifying content and gutter tracks.
@@ -157,7 +170,7 @@ impl<'a> GridLayouter<'a> {
     pub fn new(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
-        cells: &'a [Content],
+        cells: &'a [T],
         fill: &'a Celled<Option<Paint>>,
         stroke: &'a Option<FixedStroke>,
         regions: Regions<'a>,
@@ -704,7 +717,7 @@ impl<'a> GridLayouter<'a> {
     ///
     /// Returns `None` if it's a gutter cell.
     #[track_caller]
-    fn cell(&self, mut x: usize, y: usize) -> Option<&'a Content> {
+    fn cell(&self, mut x: usize, y: usize) -> Option<&'a T> {
         assert!(x < self.cols.len());
         assert!(y < self.rows.len());
 
