@@ -19,9 +19,9 @@ use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
-use typst::foundations::Datetime;
+use typst::foundations::{Datetime, NativeElement};
 use typst::layout::{Abs, Dir, Em, Transform};
-use typst::model::{Document, Refable};
+use typst::model::{Document, HeadingElem};
 use typst::text::{Font, Lang};
 use typst::util::Deferred;
 use typst::visualize::Image;
@@ -298,7 +298,12 @@ fn write_and_collect_destinations<'a>(
     ctx: &mut PdfContext,
 ) -> Vec<(Str<'a>, Ref, Ref, f32, f32)> {
     let mut destinations = vec![];
-    for elem in ctx.document.introspector.all().filter(|c| c.can::<dyn Refable>()) {
+    for elem in ctx
+        .document
+        .introspector
+        .all()
+        .filter(|c| c.elem() == HeadingElem::elem())
+    {
         if_chain!(
             if let Some(label) = elem.label();
             if let Ok(_) = ctx.document.introspector.query_label(label);

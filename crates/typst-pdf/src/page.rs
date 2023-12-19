@@ -8,13 +8,13 @@ use pdf_writer::types::{
 };
 use pdf_writer::writers::PageLabel;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
-use typst::foundations::Selector;
+use typst::foundations::{NativeElement, Selector};
 use typst::introspection::{Location, Meta};
 use typst::layout::{
     Abs, Em, Frame, FrameItem, GroupItem, PdfPageLabel, PdfPageLabelStyle, Point, Ratio,
     Size, Transform,
 };
-use typst::model::{Destination, Document, Refable};
+use typst::model::{Destination, Document, HeadingElem};
 use typst::text::{Font, TextItem};
 use typst::util::Numeric;
 use typst::visualize::{
@@ -148,7 +148,9 @@ fn name_from_loc<'a>(doc: &Document, loc: &Location) -> Option<Name<'a>> {
     let label = elem.label()?;
     assert!(query_res.is_empty());
     assert!(doc.introspector.query_label(label).is_ok());
-    assert!(elem.can::<dyn Refable>());
+    if elem.elem() != HeadingElem::elem() {
+        return None;
+    }
     Some(Name(label.as_str().as_bytes()))
 }
 
@@ -193,7 +195,6 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
             Destination::Position(pos) => *pos,
             Destination::Location(loc) => {
                 if let Some(name) = name_from_loc(ctx.document, loc) {
-                    // TODO ensure that name is actually written to name dict
                     annotation
                         .action()
                         .action_type(ActionType::GoTo)
