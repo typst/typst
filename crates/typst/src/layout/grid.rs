@@ -2,18 +2,20 @@ use std::num::NonZeroUsize;
 
 use smallvec::{smallvec, SmallVec};
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Array, Content, NativeElement, Resolve, StyleChain, Value,
+    cast, elem, Array, CastInfo, Content, FromValue, Func, IntoValue, NativeElement,
+    Reflect, Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Axes, Dir, Fr, Fragment, Frame, Layout, Length, Point, Regions, Rel, Size,
-    Sizing,
+    Abs, Align, AlignElem, Axes, Dir, Fr, Fragment, Frame, FrameItem, Layout, Length,
+    Point, Regions, Rel, Sides, Size, Sizing,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::util::Numeric;
+use crate::visualize::{FixedStroke, Geometry, Paint, Stroke};
 
 /// Arranges content in a grid.
 ///
@@ -118,6 +120,81 @@ pub struct GridElem {
     #[borrowed]
     pub row_gutter: TrackSizings,
 
+    /// How to fill the cells.
+    ///
+    /// This can be a color or a function that returns a color. The function is
+    /// passed the cells' column and row index, starting at zero. This can be
+    /// used to implement striped grids.
+    ///
+    /// ```example
+    /// #grid(
+    ///   fill: (col, row) => if calc.even(col + row) { luma(240) } else { white },
+    ///   align: center + horizon,
+    ///   columns: 4,
+    ///   [X], [O], [X], [O],
+    ///   [O], [X], [O], [X],
+    ///   [X], [O], [X], [O],
+    ///   [O], [X], [O], [X]
+    /// )
+    /// ```
+    #[borrowed]
+    pub fill: Celled<Option<Paint>>,
+
+    /// How to align the cells' content.
+    ///
+    /// This can either be a single alignment, an array of alignments
+    /// (corresponding to each column) or a function that returns an alignment.
+    /// The function is passed the cells' column and row index, starting at zero.
+    /// If set to `{auto}`, the outer alignment is used.
+    ///
+    /// ```example
+    /// #grid(
+    ///   columns: 3,
+    ///   align: (x, y) => (left, center, right).at(x),
+    ///   [Hello], [Hello], [Hello],
+    ///   [A], [B], [C],
+    /// )
+    /// ```
+    #[borrowed]
+    pub align: Celled<Smart<Align>>,
+
+    /// How to [stroke]($stroke) the cells.
+    ///
+    /// Grids have no strokes by default, which can be changed by setting this
+    /// option to the desired stroke.
+    ///
+    /// _Note:_ Richer stroke customization for individual cells is not yet
+    /// implemented, but will be in the future. In the meantime, you can use the
+    /// third-party [tablex library](https://github.com/PgBiel/typst-tablex/).
+    #[resolve]
+    #[fold]
+    pub stroke: Option<Stroke>,
+
+    /// How much to pad the cells' content.
+    ///
+    /// ```example
+    /// #grid(
+    ///   inset: 10pt,
+    ///   fill: (_, row) => (red, blue).at(row),
+    ///   [Hello],
+    ///   [World],
+    /// )
+    ///
+    /// #grid(
+    ///   columns: 2,
+    ///   inset: (
+    ///     x: 20pt,
+    ///     y: 10pt,
+    ///   ),
+    ///   fill: (col, _) => (red, blue).at(col),
+    ///   [Hello],
+    ///   [World],
+    /// )
+    /// ```
+    #[fold]
+    #[default(Sides::splat(Abs::pt(0.0).into()))]
+    pub inset: Sides<Option<Rel<Length>>>,
+
     /// The contents of the grid cells.
     ///
     /// The cells are populated in row-major order.
@@ -133,16 +210,27 @@ impl Layout for GridElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
+        let inset = self.inset(styles);
+        let align = self.align(styles);
         let columns = self.columns(styles);
         let rows = self.rows(styles);
         let column_gutter = self.column_gutter(styles);
         let row_gutter = self.row_gutter(styles);
+        let fill = self.fill(styles);
+        let stroke = self.stroke(styles).map(Stroke::unwrap_or_default);
+
+        let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
+        let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
+        let cells =
+            apply_align_inset_to_cells(engine, &tracks, &self.children, align, inset)?;
 
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(
-            Axes::new(&columns.0, &rows.0),
-            Axes::new(&column_gutter.0, &row_gutter.0),
-            &self.children,
+            tracks,
+            gutter,
+            &cells,
+            fill,
+            &stroke,
             regions,
             styles,
             self.span(),
@@ -151,6 +239,31 @@ impl Layout for GridElem {
         // Measure the columns and layout the grid row-by-row.
         Ok(layouter.layout(engine)?.fragment)
     }
+}
+
+pub fn apply_align_inset_to_cells(
+    engine: &mut Engine,
+    tracks: &Axes<&[Sizing]>,
+    cells: &[Content],
+    align: &Celled<Smart<Align>>,
+    inset: Sides<Rel<Length>>,
+) -> SourceResult<Vec<Content>> {
+    let cols = tracks.x.len().max(1);
+    cells
+        .iter()
+        .enumerate()
+        .map(|(i, child)| {
+            let mut child = child.clone().padded(inset);
+
+            let x = i % cols;
+            let y = i / cols;
+            if let Smart::Custom(alignment) = align.resolve(engine, x, y)? {
+                child = child.styled(AlignElem::set_alignment(alignment));
+            }
+
+            Ok(child)
+        })
+        .collect()
 }
 
 /// Track sizing definitions.
@@ -165,6 +278,75 @@ cast! {
     values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
 }
 
+/// A value that can be configured per cell.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum Celled<T> {
+    /// A bare value, the same for all cells.
+    Value(T),
+    /// A closure mapping from cell coordinates to a value.
+    Func(Func),
+    /// An array of alignment values corresponding to each column.
+    Array(Vec<T>),
+}
+
+impl<T: Default + Clone + FromValue> Celled<T> {
+    /// Resolve the value based on the cell position.
+    pub fn resolve(&self, engine: &mut Engine, x: usize, y: usize) -> SourceResult<T> {
+        Ok(match self {
+            Self::Value(value) => value.clone(),
+            Self::Func(func) => func.call(engine, [x, y])?.cast().at(func.span())?,
+            Self::Array(array) => x
+                .checked_rem(array.len())
+                .and_then(|i| array.get(i))
+                .cloned()
+                .unwrap_or_default(),
+        })
+    }
+}
+
+impl<T: Default> Default for Celled<T> {
+    fn default() -> Self {
+        Self::Value(T::default())
+    }
+}
+
+impl<T: Reflect> Reflect for Celled<T> {
+    fn input() -> CastInfo {
+        T::input() + Array::input() + Func::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output() + Array::output() + Func::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        Array::castable(value) || Func::castable(value) || T::castable(value)
+    }
+}
+
+impl<T: IntoValue> IntoValue for Celled<T> {
+    fn into_value(self) -> Value {
+        match self {
+            Self::Value(value) => value.into_value(),
+            Self::Func(func) => func.into_value(),
+            Self::Array(arr) => arr.into_value(),
+        }
+    }
+}
+
+impl<T: FromValue> FromValue for Celled<T> {
+    fn from_value(value: Value) -> StrResult<Self> {
+        match value {
+            Value::Func(v) => Ok(Self::Func(v)),
+            Value::Array(array) => Ok(Self::Array(
+                array.into_iter().map(T::from_value).collect::<StrResult<_>>()?,
+            )),
+            v if T::castable(&v) => Ok(Self::Value(T::from_value(v)?)),
+            v => Err(Self::error(&v)),
+        }
+    }
+}
+
 /// Performs grid layout.
 pub struct GridLayouter<'a> {
     /// The grid cells.
@@ -177,6 +359,12 @@ pub struct GridLayouter<'a> {
     cols: Vec<Sizing>,
     /// The row tracks including gutter tracks.
     rows: Vec<Sizing>,
+    // How to fill the cells.
+    #[allow(dead_code)]
+    fill: &'a Celled<Option<Paint>>,
+    // How to stroke the cells.
+    #[allow(dead_code)]
+    stroke: &'a Option<FixedStroke>,
     /// The regions to layout children into.
     regions: Regions<'a>,
     /// The inherited styles.
@@ -230,10 +418,13 @@ impl<'a> GridLayouter<'a> {
     /// Create a new grid layouter.
     ///
     /// This prepares grid layout by unifying content and gutter tracks.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
         cells: &'a [Content],
+        fill: &'a Celled<Option<Paint>>,
+        stroke: &'a Option<FixedStroke>,
         regions: Regions<'a>,
         styles: StyleChain<'a>,
         span: Span,
@@ -298,6 +489,8 @@ impl<'a> GridLayouter<'a> {
             is_rtl,
             has_gutter,
             rows,
+            fill,
+            stroke,
             regions,
             styles,
             rcols: vec![Abs::zero(); cols.len()],
@@ -331,11 +524,68 @@ impl<'a> GridLayouter<'a> {
 
         self.finish_region(engine)?;
 
+        if self.stroke.is_some() || !matches!(self.fill, Celled::Value(None)) {
+            self.render_fills_strokes(engine)?;
+        }
+
         Ok(GridLayout {
             fragment: Fragment::frames(self.finished),
             cols: self.rcols,
             rows: self.rrows,
         })
+    }
+
+    /// Add lines and backgrounds.
+    fn render_fills_strokes(&mut self, engine: &mut Engine) -> SourceResult<()> {
+        for (frame, rows) in self.finished.iter_mut().zip(&self.rrows) {
+            if self.rcols.is_empty() || rows.is_empty() {
+                continue;
+            }
+
+            // Render table lines.
+            if let Some(stroke) = self.stroke {
+                let thickness = stroke.thickness;
+                let half = thickness / 2.0;
+
+                // Render horizontal lines.
+                for offset in points(rows.iter().map(|piece| piece.height)) {
+                    let target = Point::with_x(frame.width() + thickness);
+                    let hline = Geometry::Line(target).stroked(stroke.clone());
+                    frame.prepend(
+                        Point::new(-half, offset),
+                        FrameItem::Shape(hline, self.span),
+                    );
+                }
+
+                // Render vertical lines.
+                for offset in points(self.rcols.iter().copied()) {
+                    let target = Point::with_y(frame.height() + thickness);
+                    let vline = Geometry::Line(target).stroked(stroke.clone());
+                    frame.prepend(
+                        Point::new(offset, -half),
+                        FrameItem::Shape(vline, self.span),
+                    );
+                }
+            }
+
+            // Render cell backgrounds.
+            let mut dx = Abs::zero();
+            for (x, &col) in self.rcols.iter().enumerate() {
+                let mut dy = Abs::zero();
+                for row in rows {
+                    if let Some(fill) = self.fill.resolve(engine, x, row.y)? {
+                        let pos = Point::new(dx, dy);
+                        let size = Size::new(col, row.height);
+                        let rect = Geometry::Rect(size).filled(fill);
+                        frame.prepend(pos, FrameItem::Shape(rect, self.span));
+                    }
+                    dy += row.height;
+                }
+                dx += col;
+            }
+        }
+
+        Ok(())
     }
 
     /// Determine all column sizes.
@@ -742,4 +992,14 @@ impl<'a> GridLayouter<'a> {
             self.cells.get(y * c + x)
         }
     }
+}
+
+/// Turn an iterator of extents into an iterator of offsets before, in between,
+/// and after the extents, e.g. [10mm, 5mm] -> [0mm, 10mm, 15mm].
+fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
+    let mut offset = Abs::zero();
+    std::iter::once(Abs::zero()).chain(extents).map(move |extent| {
+        offset += extent;
+        offset
+    })
 }

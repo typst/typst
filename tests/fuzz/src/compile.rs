@@ -24,7 +24,7 @@ impl FuzzWorld {
         let font = Font::new(FONT.into(), 0).unwrap();
         let book = FontBook::from_fonts([&font]);
         Self {
-            library: Prehashed::new(Library::build()),
+            library: Prehashed::new(Library::default()),
             book: Prehashed::new(book),
             font,
             source: Source::detached(text),

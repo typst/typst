@@ -1,6 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 
+use clap::builder::ValueParser;
 use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
 use semver::Version;
 
@@ -116,6 +117,15 @@ pub struct SharedArgs {
     #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
     pub root: Option<PathBuf>,
 
+    /// Add a string key-value pair visible through `sys.inputs`
+    #[clap(
+        long = "input",
+        value_name = "key=value",
+        action = ArgAction::Append,
+        value_parser = ValueParser::new(parse_input_pair),
+    )]
+    pub inputs: Vec<(String, String)>,
+
     /// Adds additional directories to search for fonts
     #[clap(
         long = "font-path",
@@ -132,6 +142,22 @@ pub struct SharedArgs {
         value_parser = clap::value_parser!(DiagnosticFormat)
     )]
     pub diagnostic_format: DiagnosticFormat,
+}
+
+/// Parses key/value pairs split by the first equal sign.
+///
+/// This function will return an error if the argument contains no equals sign
+/// or contains the key (before the equals sign) is empty.
+fn parse_input_pair(raw: &str) -> Result<(String, String), String> {
+    let (key, val) = raw
+        .split_once('=')
+        .ok_or("input must be a key and a value separated by an equal sign")?;
+    let key = key.trim().to_owned();
+    if key.is_empty() {
+        return Err("the key was missing or empty".to_owned());
+    }
+    let val = val.trim().to_owned();
+    Ok((key, val))
 }
 
 /// Lists all discovered fonts in system and custom font paths

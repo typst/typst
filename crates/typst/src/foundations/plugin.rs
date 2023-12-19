@@ -167,7 +167,7 @@ impl Plugin {
 impl Plugin {
     /// Create a new plugin from raw WebAssembly bytes.
     #[comemo::memoize]
-    pub fn new(bytes: Bytes) -> StrResult<Self> {
+    pub fn new(bytes: Bytes) -> StrResult<Plugin> {
         let engine = wasmi::Engine::default();
         let module = wasmi::Module::new(&engine, bytes.as_slice())
             .map_err(|err| format!("failed to load WebAssembly module ({err})"))?;

@@ -16,7 +16,7 @@ use typst::layout::{
 };
 use typst::model::{Destination, Document, HeadingElem};
 use typst::text::{Font, TextItem};
-use typst::util::Numeric;
+use typst::util::{Deferred, Numeric};
 use typst::visualize::{
     FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
 };
@@ -24,7 +24,7 @@ use typst::visualize::{
 use crate::color::PaintEncode;
 use crate::extg::ExtGState;
 use crate::image::deferred_image;
-use crate::{deflate_memoized, AbsExt, EmExt, PdfContext};
+use crate::{deflate_deferred, AbsExt, EmExt, PdfContext};
 
 /// Construct page objects.
 #[tracing::instrument(skip_all)]
@@ -72,7 +72,7 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Page)
 
     let page = Page {
         size,
-        content: ctx.content.finish(),
+        content: deflate_deferred(ctx.content.finish()),
         id: ctx.page_ref,
         uses_opacities: ctx.uses_opacities,
         links: ctx.links,
@@ -221,8 +221,9 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
     annotations.finish();
     page_writer.finish();
 
-    let data = deflate_memoized(&page.content);
-    ctx.pdf.stream(content_id, &data).filter(Filter::FlateDecode);
+    ctx.pdf
+        .stream(content_id, page.content.wait())
+        .filter(Filter::FlateDecode);
 }
 
 /// Write the page labels.
@@ -281,7 +282,7 @@ pub struct Page {
     /// The page's dimensions.
     pub size: Size,
     /// The page's content stream.
-    pub content: Vec<u8>,
+    pub content: Deferred<Vec<u8>>,
     /// Whether the page uses opacities.
     pub uses_opacities: bool,
     /// Links in the PDF coordinate system.
@@ -526,7 +527,12 @@ impl PageContext<'_, '_> {
         self.state.fill_space = None;
     }
 
-    fn set_stroke(&mut self, stroke: &FixedStroke, transforms: Transforms) {
+    fn set_stroke(
+        &mut self,
+        stroke: &FixedStroke,
+        on_text: bool,
+        transforms: Transforms,
+    ) {
         if self.state.stroke.as_ref() != Some(stroke)
             || matches!(
                 self.state.stroke.as_ref().map(|s| &s.paint),
@@ -542,7 +548,7 @@ impl PageContext<'_, '_> {
                 miter_limit,
             } = stroke;
 
-            paint.set_as_stroke(self, transforms);
+            paint.set_as_stroke(self, on_text, transforms);
 
             self.content.set_line_width(thickness.to_f32());
             if self.state.stroke.as_ref().map(|s| &s.line_cap) != Some(line_cap) {
@@ -642,13 +648,18 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
         let segment = &text.text[g.range()];
         glyph_set.entry(g.id).or_insert_with(|| segment.into());
     }
-
-    ctx.set_fill(&text.fill, true, ctx.state.transforms(Size::zero(), pos));
+    let fill_transform = ctx.state.transforms(Size::zero(), pos);
+    ctx.set_fill(&text.fill, true, fill_transform);
+    if let Some(stroke) = &text.stroke {
+        ctx.set_stroke(stroke, true, fill_transform);
+        ctx.content
+            .set_text_rendering_mode(pdf_writer::types::TextRenderingMode::FillStroke);
+    }
     ctx.set_font(&text.font, text.size);
-    ctx.set_opacities(None, Some(&text.fill));
+    ctx.set_opacities(text.stroke.as_ref(), Some(&text.fill));
     ctx.content.begin_text();
 
-    // Positiosn the text.
+    // Position the text.
     ctx.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
 
     let mut positioned = ctx.content.show_positioned();
@@ -712,7 +723,11 @@ fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
     }
 
     if let Some(stroke) = stroke {
-        ctx.set_stroke(stroke, ctx.state.transforms(shape.geometry.bbox_size(), pos));
+        ctx.set_stroke(
+            stroke,
+            false,
+            ctx.state.transforms(shape.geometry.bbox_size(), pos),
+        );
     }
 
     ctx.set_opacities(stroke, shape.fill.as_ref());

@@ -225,10 +225,15 @@ impl PaintEncode for Gradient {
             .insert(PageResource::new(ResourceKind::Gradient, id), index);
     }
 
-    fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms) {
+    fn set_as_stroke(
+        &self,
+        ctx: &mut PageContext,
+        on_text: bool,
+        transforms: Transforms,
+    ) {
         ctx.reset_stroke_color_space();
 
-        let index = register_gradient(ctx, self, false, transforms);
+        let index = register_gradient(ctx, self, on_text, transforms);
         let id = eco_format!("Gr{index}");
         let name = Name(id.as_bytes());
 

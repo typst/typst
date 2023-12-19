@@ -170,8 +170,8 @@ use crate::World;
 /// a state, the results might never converge. The example below illustrates
 /// this. We initialize our state with `1` and then update it to its own final
 /// value plus 1. So it should be `2`, but then its final value is `2`, so it
-/// should be `3`, and so on. This example display `4` because Typst simply
-/// gives up after a few attempts.
+/// should be `3`, and so on. This example displays a finite value because
+/// Typst simply gives up after a few attempts.
 ///
 /// ```example
 /// #let s = state("x", 1)

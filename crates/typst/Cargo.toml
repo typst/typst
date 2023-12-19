@@ -54,6 +54,7 @@ time = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
 ttf-parser = { workspace = true }
+two-face = { workspace = true }
 typed-arena = { workspace = true }
 unicode-bidi = { workspace = true }
 unicode-math-class = { workspace = true }
