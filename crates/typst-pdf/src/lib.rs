@@ -263,15 +263,15 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     catalog.metadata(meta_ref);
 
     // Write the named destinations.
-    let mut name_tree = catalog.names();
-    let mut dests = name_tree.destinations();
-    let mut name_entries = dests.names();
+    let mut name_dict = catalog.names();
+    let mut dests_name_tree = name_dict.destinations();
+    let mut names = dests_name_tree.names();
     for (name, dest_ref, _page_ref, _x, _y) in destinations {
-        name_entries.insert(name, dest_ref);
+        names.insert(name, dest_ref);
     }
-    name_entries.finish();
-    dests.finish();
-    name_tree.finish();
+    names.finish();
+    dests_name_tree.finish();
+    name_dict.finish();
 
     // Insert the page labels.
     if !page_labels.is_empty() {
