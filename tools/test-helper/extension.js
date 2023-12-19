@@ -61,6 +61,10 @@ function activate(context) {
 
     const openCmd = vscode.commands.registerCommand("ShortcutMenuBar.testOpen", () => {
         const uri = getActiveDocumentUri()
+        if (panels.has(uri)) {
+            panels.get(uri)?.reveal()
+            return
+        }
         const newPanel = vscode.window.createWebviewPanel(
             'typst.TestHelperOutputPreview',
             getWebviewPanelTabTitle(uri),
@@ -92,9 +96,7 @@ function activate(context) {
         const uri = getActiveDocumentUri()
         const panel = panels.get(uri)
         if (panel) {
-            if (!panel.visible) {
-                panel.reveal()
-            }
+            panel.reveal()
             refreshPanel(uri, "", "")
         }
     })
@@ -107,8 +109,8 @@ function activate(context) {
     const rerunFromPreviewCmd = vscode.commands.registerCommand(
         "ShortcutMenuBar.testRerunFromPreview", () => {
             // The command is invoked when user clicks the button from within a WebView
-            // panel, so the active panel is this panel, and sourceUriOfActivePanel will
-            // be updated by that panel's onDidChangeViewState listener.
+            // panel, so the active panel is this panel, and sourceUriOfActivePanel was
+            // updated by that panel's onDidChangeViewState listener.
             if (!sourceUriOfActivePanel) {
                 throw new Error('sourceUriOfActivePanel is falsy')
             }
@@ -131,8 +133,8 @@ function activate(context) {
     const copyImageFilePathCmd = vscode.commands.registerCommand(
         "WebViewContextMenu.copyImageFilePath", (e) => {
             // The command is invoked when user clicks the button from within a WebView
-            // panel, so the active panel is this panel, and sourceUriOfActivePanel will
-            // be updated by that panel's onDidChangeViewState listener.
+            // panel, so the active panel is this panel, and sourceUriOfActivePanel was
+            // updated by that panel's onDidChangeViewState listener.
             if (!sourceUriOfActivePanel) {
                 throw new Error('sourceUriOfActivePanel is falsy')
             }

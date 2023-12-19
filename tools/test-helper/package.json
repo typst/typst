@@ -87,14 +87,14 @@
           "group": "navigation@2"
         },
         {
-          "when": "activeWebviewPanelId == typst.TestHelperOutputPreview",
-          "command": "ShortcutMenuBar.testRerunFromPreview",
-          "group": "navigation@2"
-        },
-        {
           "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
           "command": "ShortcutMenuBar.testUpdate",
           "group": "navigation@3"
+        },
+        {
+          "when": "activeWebviewPanelId == typst.TestHelperOutputPreview",
+          "command": "ShortcutMenuBar.testRerunFromPreview",
+          "group": "navigation@0"
         }
       ],
       "webview/context": [
