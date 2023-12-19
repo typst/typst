@@ -3,8 +3,8 @@ use std::num::NonZeroUsize;
 
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::{
-    ActionType, AnnotationType, ColorSpaceOperand, LineCapStyle, LineJoinStyle,
-    NumberingStyle,
+    ActionType, AnnotationFlags, AnnotationType, ColorSpaceOperand, LineCapStyle,
+    LineJoinStyle, NumberingStyle,
 };
 use pdf_writer::writers::PageLabel;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
@@ -169,7 +169,7 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
     for (dest, rect) in &page.links {
         let mut annotation = annotations.push();
         annotation.subtype(AnnotationType::Link).rect(*rect);
-        annotation.border(0.0, 0.0, 0.0, None);
+        annotation.border(0.0, 0.0, 0.0, None).flags(AnnotationFlags::PRINT);
 
         let pos = match dest {
             Destination::Url(uri) => {
