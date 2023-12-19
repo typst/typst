@@ -43,7 +43,7 @@ use crate::foundations::{
 use crate::layout::{Abs, Axis, Dir, Length, Rel};
 use crate::model::ParElem;
 use crate::syntax::Spanned;
-use crate::visualize::{Color, Paint, RelativeTo};
+use crate::visualize::{Color, Paint, RelativeTo, Stroke};
 
 /// Text styling.
 ///
@@ -239,6 +239,15 @@ pub struct TextElem {
     #[default(Color::BLACK.into())]
     #[ghost]
     pub fill: Paint,
+
+    /// How to stroke the text.
+    ///
+    /// ```example
+    /// #text(stroke: 0.5pt + red)[Stroked]
+    /// ```
+    #[resolve]
+    #[ghost]
+    pub stroke: Option<Stroke>,
 
     /// The amount of space that should be added between characters.
     ///

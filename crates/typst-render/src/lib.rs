@@ -15,8 +15,8 @@ use typst::layout::{
 };
 use typst::text::{Font, TextItem};
 use typst::visualize::{
-    Color, FixedStroke, Geometry, Gradient, Image, ImageKind, LineCap, LineJoin, Paint,
-    Path, PathItem, Pattern, RasterFormat, RelativeTo, Shape,
+    Color, DashPattern, FixedStroke, Geometry, Gradient, Image, ImageKind, LineCap,
+    LineJoin, Paint, Path, PathItem, Pattern, RasterFormat, RelativeTo, Shape,
 };
 use usvg::{NodeExt, TreeParsing};
 
@@ -377,7 +377,12 @@ fn render_outline_glyph(
     // Render a glyph directly as a path. This only happens when the fast glyph
     // rasterization can't be used due to very large text size or weird
     // scale/skewing transforms.
-    if ppem > 100.0 || ts.kx != 0.0 || ts.ky != 0.0 || ts.sx != ts.sy {
+    if ppem > 100.0
+        || ts.kx != 0.0
+        || ts.ky != 0.0
+        || ts.sx != ts.sy
+        || text.stroke.is_some()
+    {
         let path = {
             let mut builder = WrappedPathBuilder(sk::PathBuilder::new());
             text.font.ttf().outline_glyph(id, &mut builder)?;
@@ -387,22 +392,56 @@ fn render_outline_glyph(
         let scale = text.size.to_f32() / text.font.units_per_em() as f32;
 
         let mut pixmap = None;
-        let paint = to_sk_paint(
-            &text.fill,
-            state.pre_concat(sk::Transform::from_scale(scale, -scale)),
-            Size::zero(),
-            true,
-            None,
-            &mut pixmap,
-            None,
-        );
 
         let rule = sk::FillRule::default();
 
         // Flip vertically because font design coordinate
         // system is Y-up.
         let ts = ts.pre_scale(scale, -scale);
+        let state_ts = state.pre_concat(sk::Transform::from_scale(scale, -scale));
+        let paint = to_sk_paint(
+            &text.fill,
+            state_ts,
+            Size::zero(),
+            true,
+            None,
+            &mut pixmap,
+            None,
+        );
         canvas.fill_path(&path, &paint, rule, ts, state.mask);
+
+        if let Some(FixedStroke {
+            paint,
+            thickness,
+            line_cap,
+            line_join,
+            dash_pattern,
+            miter_limit,
+        }) = &text.stroke
+        {
+            if thickness.to_f32() > 0.0 {
+                let dash = dash_pattern.as_ref().and_then(to_sk_dash_pattern);
+
+                let paint = to_sk_paint(
+                    paint,
+                    state_ts,
+                    Size::zero(),
+                    true,
+                    None,
+                    &mut pixmap,
+                    None,
+                );
+                let stroke = sk::Stroke {
+                    width: thickness.to_f32() / scale, // When we scale the path, we need to scale the stroke width, too.
+                    line_cap: to_sk_line_cap(*line_cap),
+                    line_join: to_sk_line_join(*line_join),
+                    dash,
+                    miter_limit: miter_limit.get() as f32,
+                };
+
+                canvas.stroke_path(&path, &paint, &stroke, ts, state.mask);
+            }
+        }
         return Some(());
     }
 
@@ -581,17 +620,7 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
 
         // Don't draw zero-pt stroke.
         if width > 0.0 {
-            let dash = dash_pattern.as_ref().and_then(|pattern| {
-                // tiny-skia only allows dash patterns with an even number of elements,
-                // while pdf allows any number.
-                let pattern_len = pattern.array.len();
-                let len =
-                    if pattern_len % 2 == 1 { 2 * pattern_len } else { pattern_len };
-                let dash_array =
-                    pattern.array.iter().map(|l| l.to_f32()).cycle().take(len).collect();
-
-                sk::StrokeDash::new(dash_array, pattern.phase.to_f32())
-            });
+            let dash = dash_pattern.as_ref().and_then(to_sk_dash_pattern);
 
             let bbox = shape.geometry.bbox_size();
             let offset_bbox = (!matches!(shape.geometry, Geometry::Line(..)))
@@ -1043,6 +1072,15 @@ fn to_sk_transform(transform: &Transform) -> sk::Transform {
         tx.to_f32(),
         ty.to_f32(),
     )
+}
+
+fn to_sk_dash_pattern(pattern: &DashPattern<Abs, Abs>) -> Option<sk::StrokeDash> {
+    // tiny-skia only allows dash patterns with an even number of elements,
+    // while pdf allows any number.
+    let pattern_len = pattern.array.len();
+    let len = if pattern_len % 2 == 1 { 2 * pattern_len } else { pattern_len };
+    let dash_array = pattern.array.iter().map(|l| l.to_f32()).cycle().take(len).collect();
+    sk::StrokeDash::new(dash_array, pattern.phase.to_f32())
 }
 
 /// Allows to build tiny-skia paths from glyph outlines.

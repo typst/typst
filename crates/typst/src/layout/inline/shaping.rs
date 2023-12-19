@@ -230,6 +230,7 @@ impl<'a> ShapedText<'a> {
         let lang = TextElem::lang_in(self.styles);
         let decos = TextElem::deco_in(self.styles);
         let fill = TextElem::fill_in(self.styles);
+        let stroke = TextElem::stroke_in(self.styles);
 
         for ((font, y_offset), group) in
             self.glyphs.as_ref().group_by_key(|g| (g.font.clone(), g.y_offset))
@@ -302,6 +303,7 @@ impl<'a> ShapedText<'a> {
                 size: self.size,
                 lang,
                 fill: fill.clone(),
+                stroke: stroke.clone().map(|s| s.unwrap_or_default()),
                 text: self.text[range.start - self.base..range.end - self.base].into(),
                 glyphs,
             };
