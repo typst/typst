@@ -399,16 +399,6 @@ fn render_outline_glyph(
         // system is Y-up.
         let ts = ts.pre_scale(scale, -scale);
         let state_ts = state.pre_concat(sk::Transform::from_scale(scale, -scale));
-        let paint = to_sk_paint(
-            &text.fill,
-            state_ts,
-            Size::zero(),
-            true,
-            None,
-            &mut pixmap,
-            None,
-        );
-        canvas.fill_path(&path, &paint, rule, ts, state.mask);
 
         if let Some(FixedStroke {
             paint,
@@ -442,6 +432,16 @@ fn render_outline_glyph(
                 canvas.stroke_path(&path, &paint, &stroke, ts, state.mask);
             }
         }
+        let paint = to_sk_paint(
+            &text.fill,
+            state_ts,
+            Size::zero(),
+            true,
+            None,
+            &mut pixmap,
+            None,
+        );
+        canvas.fill_path(&path, &paint, rule, ts, state.mask);
         return Some(());
     }
 

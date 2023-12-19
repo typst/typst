@@ -626,18 +626,64 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
         glyph_set.entry(g.id).or_insert_with(|| segment.into());
     }
     let fill_transform = ctx.state.transforms(Size::zero(), pos);
-    ctx.set_fill(&text.fill, true, fill_transform);
     if let Some(stroke) = &text.stroke {
+        ctx.content.begin_text();
         ctx.set_stroke(stroke, true, fill_transform);
         ctx.content
-            .set_text_rendering_mode(pdf_writer::types::TextRenderingMode::FillStroke);
+            .set_text_rendering_mode(pdf_writer::types::TextRenderingMode::Stroke);
+        ctx.set_font(&text.font, text.size);
+        ctx.set_opacities(text.stroke.as_ref(), None);
+
+        // Position the text.
+        ctx.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
+
+        let mut positioned = ctx.content.show_positioned();
+        let mut items = positioned.items();
+        let mut adjustment = Em::zero();
+        let mut encoded = vec![];
+
+        // Write the glyphs with kerning adjustments.
+        for glyph in &text.glyphs {
+            adjustment += glyph.x_offset;
+
+            if !adjustment.is_zero() {
+                if !encoded.is_empty() {
+                    items.show(Str(&encoded));
+                    encoded.clear();
+                }
+
+                items.adjust(-adjustment.to_font_units());
+                adjustment = Em::zero();
+            }
+
+            let cid = crate::font::glyph_cid(&text.font, glyph.id);
+            encoded.push((cid >> 8) as u8);
+            encoded.push((cid & 0xff) as u8);
+
+            if let Some(advance) = text.font.advance(glyph.id) {
+                adjustment += glyph.x_advance - advance;
+            }
+
+            adjustment -= glyph.x_offset;
+        }
+
+        if !encoded.is_empty() {
+            items.show(Str(&encoded));
+        }
+
+        items.finish();
+        positioned.finish();
+        ctx.content.end_text();
     }
+    ctx.set_fill(&text.fill, true, fill_transform);
     ctx.set_font(&text.font, text.size);
-    ctx.set_opacities(text.stroke.as_ref(), Some(&text.fill));
+    ctx.set_opacities(None, Some(&text.fill));
     ctx.content.begin_text();
 
     // Position the text.
     ctx.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
+    ctx.content
+        .set_text_rendering_mode(pdf_writer::types::TextRenderingMode::Fill);
 
     let mut positioned = ctx.content.show_positioned();
     let mut items = positioned.items();

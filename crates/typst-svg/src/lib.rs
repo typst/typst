@@ -458,6 +458,7 @@ impl SVGRenderer {
                 Size::new(Abs::pt(width), Abs::pt(height)),
                 self.text_paint_transform(state, &stroke.paint),
             );
+            self.xml.write_attribute("paint-order", "stroke");
         }
         self.xml.end_element();
 
