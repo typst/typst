@@ -6,7 +6,7 @@ const cp = require('child_process')
  */
 function activate(context) {
     let /** @type {vscode.Uri?} */ sourceUriOfActivePanel = null
-    let /** @type {Map<string, vscode.WebviewPanel>} */ panels = new Map()
+    let /** @type {Map<vscode.Uri, vscode.WebviewPanel>} */ panels = new Map()
 
     const cmdStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right)
     cmdStatusBar.tooltip = "Typst test-helper"
@@ -20,7 +20,7 @@ function activate(context) {
     function refreshPanel(uri, stdout, stderr) {
         const { pngPath, refPath } = getImageUris(uri)
 
-        const panel = panels.get(uri.toString())
+        const panel = panels.get(uri)
         if (panel && panel.visible) {
             console.log(`Refreshing WebView for ${uri.fsPath}`)
             const webViewSrcs = {
@@ -67,16 +67,6 @@ function activate(context) {
             vscode.ViewColumn.Beside,
             { enableScripts: true },
         )
-        newPanel.webview.onDidReceiveMessage(
-            /** @param {{command: string, testUriString: string}} message */
-            message => {
-                console.log(JSON.stringify(message))
-                switch (message.command) {
-                    case 'rerunCmd':
-                        rerunCmdImpl(vscode.Uri.parse(message.testUriString))
-                        return
-                }
-            })
         newPanel.onDidChangeViewState(() => {
             if (newPanel && newPanel.active && newPanel.visible) {
                 console.log(`Set sourceUriOfActivePanel to ${uri}`)
@@ -88,24 +78,24 @@ function activate(context) {
         })
         newPanel.onDidDispose(() => {
             console.log(`Delete panel ${uri}`)
-            panels.delete(uri.toString())
+            panels.delete(uri)
             if (sourceUriOfActivePanel === uri) {
                 sourceUriOfActivePanel = null
             }
         })
-        panels.set(uri.toString(), newPanel)
+        panels.set(uri, newPanel)
 
         refreshPanel(uri, "", "")
     })
 
     const refreshCmd = vscode.commands.registerCommand("ShortcutMenuBar.testRefresh", () => {
         const uri = getActiveDocumentUri()
-        const panel = panels.get(uri.toString())
+        const panel = panels.get(uri)
         if (panel) {
             if (!panel.visible) {
                 panel.reveal()
             }
-            refreshPanel(getActiveDocumentUri(), "", "")
+            refreshPanel(uri, "", "")
         }
     })
 
