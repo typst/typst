@@ -6,6 +6,16 @@ const cp = require('child_process')
  */
 function activate(context) {
     let /** @type {vscode.Uri?} */ sourceUriOfActivePanel = null
+    function getSourceUriOfActivePanel() {
+        // If this function is invoked when user clicks the button from within a WebView
+        // panel, then the active panel is this panel, and sourceUriOfActivePanel is
+        // guaranteed to have been updated by that panel's onDidChangeViewState listener.
+        if (!sourceUriOfActivePanel) {
+            throw new Error('sourceUriOfActivePanel is falsy; is there a focused panel?')
+        }
+        return sourceUriOfActivePanel
+    }
+
     let /** @type {Map<vscode.Uri, vscode.WebviewPanel>} */ panels = new Map()
 
     const cmdStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right)
@@ -32,7 +42,7 @@ function activate(context) {
             // Make refresh notable.
             setTimeout(() => {
                 if (!panel) {
-                    throw new Error('state.panel is falsy')
+                    throw new Error('panel to refresh is falsy after waiting')
                 }
                 panel.title = getWebviewPanelTabTitle(uri)
                 panel.webview.html = getWebviewContent(
@@ -42,7 +52,7 @@ function activate(context) {
     }
 
     /** @param {vscode.Uri} uri */
-    function rerunCmdImpl(uri) {
+    function runCmdImpl(uri) {
         const components = uri.fsPath.split(/tests[\/\\]/)
         const dir = components[0]
         const subPath = components[1]
@@ -59,17 +69,38 @@ function activate(context) {
         )
     }
 
-    const openCmd = vscode.commands.registerCommand("ShortcutMenuBar.testOpen", () => {
+    /** @param {vscode.Uri} uri */
+    function refreshCmdImpl(uri) {
+        const panel = panels.get(uri)
+        if (panel) {
+            panel.reveal()
+            refreshPanel(uri, "", "")
+        }
+    }
+
+    /** @param {vscode.Uri} uri */
+    function updateCmdImpl(uri) {
+        const { pngPath, refPath } = getImageUris(uri)
+
+        vscode.workspace.fs.copy(pngPath, refPath, { overwrite: true })
+            .then(() => {
+                cp.exec(`oxipng -o max -a ${refPath.fsPath}`, (err, stdout, stderr) => {
+                    console.log(`Copied to reference file for ${uri.fsPath}`)
+                    refreshPanel(uri, stdout, stderr)
+                })
+            })
+    }
+
+    const openCmd = vscode.commands.registerCommand("Typst.test-helper.open", () => {
         const uri = getActiveDocumentUri()
         if (panels.has(uri)) {
             panels.get(uri)?.reveal()
             return
         }
         const newPanel = vscode.window.createWebviewPanel(
-            'typst.TestHelperOutputPreview',
+            'Typst.test-helper.preview',
             getWebviewPanelTabTitle(uri),
             vscode.ViewColumn.Beside,
-            { enableScripts: true },
         )
         newPanel.onDidChangeViewState(() => {
             if (newPanel && newPanel.active && newPanel.visible) {
@@ -92,53 +123,39 @@ function activate(context) {
         refreshPanel(uri, "", "")
     })
 
-    const refreshCmd = vscode.commands.registerCommand("ShortcutMenuBar.testRefresh", () => {
-        const uri = getActiveDocumentUri()
-        const panel = panels.get(uri)
-        if (panel) {
-            panel.reveal()
-            refreshPanel(uri, "", "")
-        }
-    })
-
-    const rerunFromSourceCmd = vscode.commands.registerCommand(
-        "ShortcutMenuBar.testRerunFromSource", () => {
-            rerunCmdImpl(getActiveDocumentUri())
+    const refreshFromSourceCmd = vscode.commands.registerCommand(
+        "Typst.test-helper.refreshFromSource", () => {
+            refreshCmdImpl(getActiveDocumentUri())
         })
 
-    const rerunFromPreviewCmd = vscode.commands.registerCommand(
-        "ShortcutMenuBar.testRerunFromPreview", () => {
-            // The command is invoked when user clicks the button from within a WebView
-            // panel, so the active panel is this panel, and sourceUriOfActivePanel was
-            // updated by that panel's onDidChangeViewState listener.
-            if (!sourceUriOfActivePanel) {
-                throw new Error('sourceUriOfActivePanel is falsy')
-            }
-            rerunCmdImpl(sourceUriOfActivePanel)
+    const refreshFromPreviewCmd = vscode.commands.registerCommand(
+        "Typst.test-helper.refreshFromPreview", () => {
+            refreshCmdImpl(getSourceUriOfActivePanel())
         })
 
-    const updateCmd = vscode.commands.registerCommand("ShortcutMenuBar.testUpdate", () => {
-        const uri = getActiveDocumentUri()
-        const { pngPath, refPath } = getImageUris(uri)
+    const runFromSourceCmd = vscode.commands.registerCommand(
+        "Typst.test-helper.runFromSource", () => {
+            runCmdImpl(getActiveDocumentUri())
+        })
 
-        vscode.workspace.fs.copy(pngPath, refPath, { overwrite: true })
-            .then(() => {
-                cp.exec(`oxipng -o max -a ${refPath.fsPath}`, (err, stdout, stderr) => {
-                    console.log(`Copied to reference file for ${uri.fsPath}`)
-                    refreshPanel(uri, stdout, stderr)
-                })
-            })
-    })
+    const runFromPreviewCmd = vscode.commands.registerCommand(
+        "Typst.test-helper.runFromPreview", () => {
+            runCmdImpl(getSourceUriOfActivePanel())
+        })
+
+    const updateFromSourceCmd = vscode.commands.registerCommand(
+        "Typst.test-helper.updateFromSource", () => {
+            updateCmdImpl(getActiveDocumentUri())
+        })
+
+    const updateFromPreviewCmd = vscode.commands.registerCommand(
+        "Typst.test-helper.updateFromPreview", () => {
+            updateCmdImpl(getSourceUriOfActivePanel())
+        })
 
     const copyImageFilePathCmd = vscode.commands.registerCommand(
-        "WebViewContextMenu.copyImageFilePath", (e) => {
-            // The command is invoked when user clicks the button from within a WebView
-            // panel, so the active panel is this panel, and sourceUriOfActivePanel was
-            // updated by that panel's onDidChangeViewState listener.
-            if (!sourceUriOfActivePanel) {
-                throw new Error('sourceUriOfActivePanel is falsy')
-            }
-            const { pngPath, refPath } = getImageUris(sourceUriOfActivePanel)
+        "Typst.test-helper.copyImageFilePathFromPreviewContext", (e) => {
+            const { pngPath, refPath } = getImageUris(getSourceUriOfActivePanel())
             switch (e.webviewSection) {
                 case 'png':
                     vscode.env.clipboard.writeText(pngPath.fsPath)
@@ -152,10 +169,12 @@ function activate(context) {
         })
 
     context.subscriptions.push(openCmd)
-    context.subscriptions.push(refreshCmd)
-    context.subscriptions.push(rerunFromSourceCmd)
-    context.subscriptions.push(rerunFromPreviewCmd)
-    context.subscriptions.push(updateCmd)
+    context.subscriptions.push(refreshFromSourceCmd)
+    context.subscriptions.push(refreshFromPreviewCmd)
+    context.subscriptions.push(runFromSourceCmd)
+    context.subscriptions.push(runFromPreviewCmd)
+    context.subscriptions.push(updateFromSourceCmd)
+    context.subscriptions.push(updateFromPreviewCmd)
     context.subscriptions.push(copyImageFilePathCmd)
 
     context.subscriptions.push(cmdStatusBar)
