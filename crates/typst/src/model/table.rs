@@ -1,6 +1,6 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, NativeElement, Smart, StyleChain};
+use crate::foundations::{cast, elem, scope, Content, NativeElement, Smart, StyleChain};
 use crate::layout::{
     apply_align_inset_to_cells, Abs, Align, Axes, Celled, Fragment, GridLayouter, Layout,
     Length, Regions, Rel, Sides, TrackSizings,
@@ -39,7 +39,7 @@ use crate::visualize::{Paint, Stroke};
 ///   [$a$: edge length]
 /// )
 /// ```
-#[elem(Layout, LocalName, Figurable)]
+#[elem(scope, Layout, LocalName, Figurable)]
 pub struct TableElem {
     /// The column sizes. See the [grid documentation]($grid) for more
     /// information on track sizing.
@@ -152,6 +152,12 @@ pub struct TableElem {
     pub children: Vec<Content>,
 }
 
+#[scope]
+impl TableElem {
+    #[elem]
+    type TableCell;
+}
+
 impl Layout for TableElem {
     #[typst_macros::time(name = "table", span = self.span())]
     fn layout(
@@ -227,3 +233,34 @@ impl LocalName for TableElem {
 }
 
 impl Figurable for TableElem {}
+
+/// A cell in the table.
+#[elem(name = "cell", title = "Table Cell")]
+pub struct TableCell {
+    /// The cell's body.
+    #[required]
+    body: Content,
+
+    /// The cell's fill override.
+    fill: Smart<Option<Paint>>,
+
+    /// The cell's alignment override.
+    align: Smart<Align>,
+
+    /// The cell's inset override.
+    inset: Smart<Sides<Option<Rel<Length>>>>,
+}
+
+cast! {
+    TableCell,
+    v: Content => v.into(),
+}
+
+impl From<Content> for TableCell {
+    fn from(value: Content) -> Self {
+        value
+            .to::<Self>()
+            .cloned()
+            .unwrap_or_else(|| Self::new(value.clone()))
+    }
+}

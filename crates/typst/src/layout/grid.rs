@@ -5,7 +5,7 @@ use smallvec::{smallvec, SmallVec};
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Array, Content, NativeElement, Smart, StyleChain, Value,
+    cast, elem, scope, Array, Content, NativeElement, Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, Align, AlignElem, Axes, Celled, Fragment, GridLayouter, Layout, Length, Regions,
@@ -79,7 +79,7 @@ use crate::visualize::{Paint, Stroke};
 ///   ..range(25).map(str)
 /// )
 /// ```
-#[elem(Layout)]
+#[elem(scope, Layout)]
 pub struct GridElem {
     /// The column sizes.
     ///
@@ -198,6 +198,12 @@ pub struct GridElem {
     pub children: Vec<Content>,
 }
 
+#[scope]
+impl GridElem {
+    #[elem]
+    type GridCell;
+}
+
 impl Layout for GridElem {
     #[typst_macros::time(name = "grid", span = self.span())]
     fn layout(
@@ -272,4 +278,35 @@ cast! {
     sizing: Sizing => Self(smallvec![sizing]),
     count: NonZeroUsize => Self(smallvec![Sizing::Auto; count.get()]),
     values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+}
+
+/// A cell in the grid.
+#[elem(name = "cell", title = "Grid Cell")]
+pub struct GridCell {
+    /// The cell's body.
+    #[required]
+    body: Content,
+
+    /// The cell's fill override.
+    fill: Smart<Option<Paint>>,
+
+    /// The cell's alignment override.
+    align: Smart<Align>,
+
+    /// The cell's inset override.
+    inset: Smart<Sides<Option<Rel<Length>>>>,
+}
+
+cast! {
+    GridCell,
+    v: Content => v.into(),
+}
+
+impl From<Content> for GridCell {
+    fn from(value: Content) -> Self {
+        value
+            .to::<Self>()
+            .cloned()
+            .unwrap_or_else(|| Self::new(value.clone()))
+    }
 }
