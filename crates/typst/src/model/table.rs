@@ -1,6 +1,6 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{cast, elem, scope, Content, NativeElement, Smart, StyleChain};
+use crate::foundations::{cast, elem, scope, Content, NativeElement, Smart, StyleChain, Show};
 use crate::layout::{
     Abs, Align, AlignElem, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter, Layout,
     Length, Regions, Rel, ResolvableCell, Sides, TrackSizings,
@@ -227,7 +227,7 @@ impl LocalName for TableElem {
 impl Figurable for TableElem {}
 
 /// A cell in the table.
-#[elem(name = "cell", title = "Table Cell", Layout)]
+#[elem(name = "cell", title = "Table Cell", Show)]
 pub struct TableCell {
     /// The cell's body.
     #[required]
@@ -264,17 +264,30 @@ impl ResolvableCell for TableCell {
         inset: Sides<Rel<Length>>,
         styles: StyleChain,
     ) {
-        if self.fill(styles).is_auto() {
-            self.push_fill(Smart::Custom(fill.clone()));
+        self.push_fill(Smart::Custom(self.fill(styles).unwrap_or_else(|| fill.clone())));
+        self.push_align(self.align(styles).or(align));
+        self.push_inset(Smart::Custom(self.inset(styles).unwrap_or_else(|| inset.map(Some))));
+    }
+}
+
+impl Show for TableCell {
+    fn show(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let inset = self.inset(styles).unwrap_or_default().map(Option::unwrap_or_default);
+
+        let mut body = self.body().clone();
+
+        if inset != Sides::default() {
+            // Only pad if some inset is not 0pt.
+            // Avoids a bug where using .padded() in any way inside Show causes
+            // alignment in align(...) to break.
+            body = body.padded(inset);
         }
 
-        if self.align(styles).is_auto() {
-            self.push_align(align);
+        if let Smart::Custom(alignment) = self.align(styles) {
+            body = body.styled(AlignElem::set_alignment(alignment));
         }
 
-        if self.inset(styles).is_auto() {
-            self.push_inset(Smart::Custom(inset.map(Some)));
-        }
+        Ok(body)
     }
 }
 
@@ -285,15 +298,7 @@ impl Layout for TableCell {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let resolved_inset =
-            self.inset(styles).unwrap_or_default().map(Option::unwrap_or_default);
-        let mut body = self.body().clone().padded(resolved_inset);
-
-        if let Smart::Custom(alignment) = self.align(styles) {
-            body = body.styled(AlignElem::set_alignment(alignment));
-        }
-
-        body.layout(engine, styles, regions)
+        self.clone().pack().layout(engine, styles, regions)
     }
 }
 
