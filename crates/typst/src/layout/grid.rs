@@ -8,8 +8,8 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, NativeElement, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Align, AlignElem, Axes, Cell, Celled, Fragment, GridLayouter, Layout, Length,
-    Regions, Rel, ResolvableCell, Sides, Sizing,
+    Abs, Align, AlignElem, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter, Layout,
+    Length, Regions, Rel, ResolvableCell, Sides, Sizing,
 };
 use crate::visualize::{Paint, Stroke};
 
@@ -195,7 +195,7 @@ pub struct GridElem {
     ///
     /// The cells are populated in row-major order.
     #[variadic]
-    pub children: Vec<Content>,
+    pub children: Vec<GridCell>,
 }
 
 #[scope]
@@ -223,49 +223,16 @@ impl Layout for GridElem {
 
         let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
-        let cells =
-            apply_align_inset_to_cells(engine, &tracks, &self.children, align, inset)?;
+        let grid = CellGrid::new(tracks, gutter, self.children().clone(), styles)
+            .resolve_cells(engine, fill, align, inset, styles)?;
 
         // Prepare grid layout by unifying content and gutter tracks.
-        let layouter = GridLayouter::new(
-            tracks,
-            gutter,
-            &cells,
-            fill,
-            &stroke,
-            regions,
-            styles,
-            self.span(),
-        );
+        let layouter =
+            GridLayouter::new(&grid, fill, &stroke, regions, styles, self.span());
 
         // Measure the columns and layout the grid row-by-row.
         Ok(layouter.layout(engine)?.fragment)
     }
-}
-
-pub fn apply_align_inset_to_cells(
-    engine: &mut Engine,
-    tracks: &Axes<&[Sizing]>,
-    cells: &[Content],
-    align: &Celled<Smart<Align>>,
-    inset: Sides<Rel<Length>>,
-) -> SourceResult<Vec<Content>> {
-    let cols = tracks.x.len().max(1);
-    cells
-        .iter()
-        .enumerate()
-        .map(|(i, child)| {
-            let mut child = child.clone().padded(inset);
-
-            let x = i % cols;
-            let y = i / cols;
-            if let Smart::Custom(alignment) = align.resolve(engine, x, y)? {
-                child = child.styled(AlignElem::set_alignment(alignment));
-            }
-
-            Ok(child)
-        })
-        .collect()
 }
 
 /// Track sizing definitions.

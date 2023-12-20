@@ -2,8 +2,8 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{cast, elem, scope, Content, NativeElement, Smart, StyleChain};
 use crate::layout::{
-    apply_align_inset_to_cells, Abs, Align, AlignElem, Axes, Cell, Celled, Fragment,
-    GridLayouter, Layout, Length, Regions, Rel, ResolvableCell, Sides, TrackSizings,
+    Abs, Align, AlignElem, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter, Layout,
+    Length, Regions, Rel, ResolvableCell, Sides, TrackSizings,
 };
 use crate::model::Figurable;
 use crate::text::{Lang, LocalName, Region};
@@ -149,7 +149,7 @@ pub struct TableElem {
 
     /// The contents of the table cells.
     #[variadic]
-    pub children: Vec<Content>,
+    pub children: Vec<TableCell>,
 }
 
 #[scope]
@@ -177,20 +177,12 @@ impl Layout for TableElem {
 
         let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
-        let cells =
-            apply_align_inset_to_cells(engine, &tracks, self.children(), align, inset)?;
+        let grid = CellGrid::new(tracks, gutter, self.children().clone(), styles)
+            .resolve_cells(engine, fill, align, inset, styles)?;
 
         // Prepare grid layout by unifying content and gutter tracks.
-        let layouter = GridLayouter::new(
-            tracks,
-            gutter,
-            &cells,
-            fill,
-            &stroke,
-            regions,
-            styles,
-            self.span(),
-        );
+        let layouter =
+            GridLayouter::new(&grid, fill, &stroke, regions, styles, self.span());
 
         Ok(layouter.layout(engine)?.fragment)
     }

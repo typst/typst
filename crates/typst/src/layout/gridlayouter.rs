@@ -287,64 +287,14 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
     /// This prepares grid layout by unifying content and gutter tracks.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        tracks: Axes<&[Sizing]>,
-        gutter: Axes<&[Sizing]>,
-        cells: &'a [T],
+        grid: &'a CellGrid<T>,
         fill: &'a Celled<Option<Paint>>,
         stroke: &'a Option<FixedStroke>,
         regions: Regions<'a>,
         styles: StyleChain<'a>,
         span: Span,
     ) -> Self {
-        let mut cols = vec![];
-        let mut rows = vec![];
-
-        // Number of content columns: Always at least one.
-        let c = tracks.x.len().max(1);
-
-        // Number of content rows: At least as many as given, but also at least
-        // as many as needed to place each item.
-        let r = {
-            let len = cells.len();
-            let given = tracks.y.len();
-            let needed = len / c + (len % c).clamp(0, 1);
-            given.max(needed)
-        };
-
-        let has_gutter = gutter.any(|tracks| !tracks.is_empty());
-        let auto = Sizing::Auto;
-        let zero = Sizing::Rel(Rel::zero());
-        let get_or = |tracks: &[_], idx, default| {
-            tracks.get(idx).or(tracks.last()).copied().unwrap_or(default)
-        };
-
-        // Collect content and gutter columns.
-        for x in 0..c {
-            cols.push(get_or(tracks.x, x, auto));
-            if has_gutter {
-                cols.push(get_or(gutter.x, x, zero));
-            }
-        }
-
-        // Collect content and gutter rows.
-        for y in 0..r {
-            rows.push(get_or(tracks.y, y, auto));
-            if has_gutter {
-                rows.push(get_or(gutter.y, y, zero));
-            }
-        }
-
-        // Remove superfluous gutter tracks.
-        if has_gutter {
-            cols.pop();
-            rows.pop();
-        }
-
-        // Reverse for RTL.
-        let is_rtl = TextElem::dir_in(styles) == Dir::RTL;
-        if is_rtl {
-            cols.reverse();
-        }
+        let CellGrid { cols, rows, cells, has_gutter, is_rtl } = grid;
 
         // We use these regions for auto row measurement. Since at that moment,
         // columns are already sized, we can enable horizontal expansion.
@@ -353,15 +303,15 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
 
         Self {
             cells,
-            is_rtl,
-            has_gutter,
-            rows,
+            is_rtl: *is_rtl,
+            has_gutter: *has_gutter,
+            rows: rows.clone(),
             fill,
             stroke,
             regions,
             styles,
             rcols: vec![Abs::zero(); cols.len()],
-            cols,
+            cols: cols.clone(),
             width: Abs::zero(),
             rrows: vec![],
             lrows: vec![],
