@@ -2,8 +2,8 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{cast, elem, scope, Content, NativeElement, Smart, StyleChain};
 use crate::layout::{
-    apply_align_inset_to_cells, Abs, Align, Axes, Celled, Fragment, GridLayouter, Layout,
-    Length, Regions, Rel, Sides, TrackSizings,
+    apply_align_inset_to_cells, Abs, Align, AlignElem, Axes, Cell, Celled, Fragment,
+    GridLayouter, Layout, Length, Regions, Rel, ResolvableCell, Sides, TrackSizings,
 };
 use crate::model::Figurable;
 use crate::text::{Lang, LocalName, Region};
@@ -235,7 +235,7 @@ impl LocalName for TableElem {
 impl Figurable for TableElem {}
 
 /// A cell in the table.
-#[elem(name = "cell", title = "Table Cell")]
+#[elem(name = "cell", title = "Table Cell", Layout)]
 pub struct TableCell {
     /// The cell's body.
     #[required]
@@ -254,6 +254,55 @@ pub struct TableCell {
 cast! {
     TableCell,
     v: Content => v.into(),
+}
+
+impl Cell for TableCell {
+    fn fill(&self, styles: StyleChain) -> Smart<Option<Paint>> {
+        self.fill(styles)
+    }
+}
+
+impl ResolvableCell for TableCell {
+    fn resolve_cell(
+        &mut self,
+        _x: usize,
+        _y: usize,
+        fill: &Option<Paint>,
+        align: Smart<Align>,
+        inset: Sides<Rel<Length>>,
+        styles: StyleChain,
+    ) {
+        if self.fill(styles).is_auto() {
+            self.push_fill(Smart::Custom(fill.clone()));
+        }
+
+        if self.align(styles).is_auto() {
+            self.push_align(align);
+        }
+
+        if self.inset(styles).is_auto() {
+            self.push_inset(Smart::Custom(inset.map(Some)));
+        }
+    }
+}
+
+impl Layout for TableCell {
+    fn layout(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<Fragment> {
+        let resolved_inset =
+            self.inset(styles).unwrap_or_default().map(Option::unwrap_or_default);
+        let mut body = self.body().clone().padded(resolved_inset);
+
+        if let Smart::Custom(alignment) = self.align(styles) {
+            body = body.styled(AlignElem::set_alignment(alignment));
+        }
+
+        body.layout(engine, styles, regions)
+    }
 }
 
 impl From<Content> for TableCell {

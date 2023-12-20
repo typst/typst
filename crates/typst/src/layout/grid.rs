@@ -8,8 +8,8 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, NativeElement, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Align, AlignElem, Axes, Celled, Fragment, GridLayouter, Layout, Length, Regions,
-    Rel, Sides, Sizing,
+    Abs, Align, AlignElem, Axes, Cell, Celled, Fragment, GridLayouter, Layout, Length,
+    Regions, Rel, ResolvableCell, Sides, Sizing,
 };
 use crate::visualize::{Paint, Stroke};
 
@@ -281,7 +281,7 @@ cast! {
 }
 
 /// A cell in the grid.
-#[elem(name = "cell", title = "Grid Cell")]
+#[elem(name = "cell", title = "Grid Cell", Layout)]
 pub struct GridCell {
     /// The cell's body.
     #[required]
@@ -300,6 +300,55 @@ pub struct GridCell {
 cast! {
     GridCell,
     v: Content => v.into(),
+}
+
+impl Cell for GridCell {
+    fn fill(&self, styles: StyleChain) -> Smart<Option<Paint>> {
+        self.fill(styles)
+    }
+}
+
+impl ResolvableCell for GridCell {
+    fn resolve_cell(
+        &mut self,
+        _x: usize,
+        _y: usize,
+        fill: &Option<Paint>,
+        align: Smart<Align>,
+        inset: Sides<Rel<Length>>,
+        styles: StyleChain,
+    ) {
+        if self.fill(styles).is_auto() {
+            self.push_fill(Smart::Custom(fill.clone()));
+        }
+
+        if self.align(styles).is_auto() {
+            self.push_align(align);
+        }
+
+        if self.inset(styles).is_auto() {
+            self.push_inset(Smart::Custom(inset.map(Some)));
+        }
+    }
+}
+
+impl Layout for GridCell {
+    fn layout(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<Fragment> {
+        let resolved_inset =
+            self.inset(styles).unwrap_or_default().map(Option::unwrap_or_default);
+        let mut body = self.body().clone().padded(resolved_inset);
+
+        if let Smart::Custom(alignment) = self.align(styles) {
+            body = body.styled(AlignElem::set_alignment(alignment));
+        }
+
+        body.layout(engine, styles, regions)
+    }
 }
 
 impl From<Content> for GridCell {
