@@ -11,19 +11,20 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:Typst.test-helper.testOpen",
-    "onCommand:Typst.test-helper.testRefreshFromSource",
-    "onCommand:Typst.test-helper.testRefreshFromPreview",
-    "onCommand:Typst.test-helper.testRunFromSource",
-    "onCommand:Typst.test-helper.testRunFromPreview",
-    "onCommand:Typst.test-helper.testUpdateFromSource",
-    "onCommand:Typst.test-helper.testUpdateFromPreview"
+    "onCommand:Typst.test-helper.openFromSource",
+    "onCommand:Typst.test-helper.refreshFromSource",
+    "onCommand:Typst.test-helper.refreshFromPreview",
+    "onCommand:Typst.test-helper.runFromSource",
+    "onCommand:Typst.test-helper.runFromPreview",
+    "onCommand:Typst.test-helper.updateFromSource",
+    "onCommand:Typst.test-helper.updateFromPreview",
+    "onCommand:Typst.test-helper.copyImageFilePathFromPreviewContext"
   ],
   "main": "./extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "Typst.test-helper.open",
+        "command": "Typst.test-helper.openFromSource",
         "title": "Open test output",
         "category": "Typst.test-helper",
         "icon": "$(plus)"
@@ -73,7 +74,7 @@
       "editor/title": [
         {
           "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
-          "command": "Typst.test-helper.open",
+          "command": "Typst.test-helper.openFromSource",
           "group": "navigation@1"
         },
         {
