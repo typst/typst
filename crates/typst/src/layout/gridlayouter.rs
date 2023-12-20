@@ -108,10 +108,8 @@ pub struct GridLayouter<'a, T: Cell = Content> {
     /// The row tracks including gutter tracks.
     rows: Vec<Sizing>,
     // How to fill the cells.
-    #[allow(dead_code)]
     fill: &'a Celled<Option<Paint>>,
     // How to stroke the cells.
-    #[allow(dead_code)]
     stroke: &'a Option<FixedStroke>,
     /// The regions to layout children into.
     regions: Regions<'a>,
