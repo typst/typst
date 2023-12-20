@@ -692,8 +692,10 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
     }
 
     // Render stroke first if it exists, the paint order matters because we want fill to be on top
-    if text.stroke.is_some() {
-        render_text(ctx, text, x, y, fill_transform, &text.stroke, &text.fill);
+    if let Some(stroke) = &text.stroke {
+        if stroke.thickness.to_f32() > 0.0 {
+            render_text(ctx, text, x, y, fill_transform, &text.stroke, &text.fill);
+        }
     }
 
     // Always render fill
