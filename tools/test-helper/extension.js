@@ -11,6 +11,12 @@ class TestHelper {
         this.testRunningStatusBarItem.text = "$(loading~spin) Running"
         this.testRunningStatusBarItem.backgroundColor =
             new vscode.ThemeColor('statusBarItem.warningBackground')
+        const tooltip = new vscode.MarkdownString()
+        tooltip.supportHtml = true
+        tooltip.value = "Typst test-helper is running.<br>It rebuilds crates if necessary, so may take some time."
+        this.testRunningStatusBarItem.tooltip = tooltip
+
+        TestHelper.enableRunTestButton_(true)
     }
 
     /**
@@ -51,6 +57,21 @@ class TestHelper {
             .replace(".typ", ".png"))
 
         return {png, ref}
+    }
+
+    /** @param {boolean} enable */
+    static enableRunTestButton_(enable) {
+        // Need to flip the value here, i.e. "disableRunTestButton" rather than
+        // "enableRunTestButton", because default values of custom context keys
+        // before extension activation are falsy.
+        //
+        // Note: one may attempt to activate the extension using the activation
+        // event "onLanguage:typst", but it in fact doesn't work perperly as we
+        // would like, since (a) we do not want this extension to be enabled on
+        // every Typst source file, e.g. the thesis you are working on, and (b)
+        // VSCode does not know the language ID "typst" out of box.
+        vscode.commands.executeCommand(
+            "setContext", "Typst.test-helper.disableRunTestButton", !enable)
     }
 
     /**
@@ -119,10 +140,13 @@ class TestHelper {
         const dir = components[0]
         const subPath = components[1]
 
+        TestHelper.enableRunTestButton_(false)
         this.testRunningStatusBarItem.show()
+
         cp.exec(
-            `cargo test --manifest-path ${dir}/Cargo.toml --all --test tests -- ${subPath}`,
+            `cargo test --manifest-path ${dir}/Cargo.toml --workspace --test tests -- ${subPath}`,
             (err, stdout, stderr) => {
+                TestHelper.enableRunTestButton_(true)
                 this.testRunningStatusBarItem.hide()
                 console.log(`Ran tests ${uri.fsPath}`)
                 this.refreshTestPreviewImpl_(uri, stdout, stderr)
@@ -173,42 +197,42 @@ class TestHelper {
 
 /** @param {vscode.ExtensionContext} context */
 function activate(context) {
-    const manager = new TestHelper();
-    context.subscriptions.push(manager.testRunningStatusBarItem)
+    const helper = new TestHelper()
+    context.subscriptions.push(helper.testRunningStatusBarItem)
 
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.openFromSource", () => {
-            manager.openTestPreview(TestHelper.getActiveDocumentUri())
+            helper.openTestPreview(TestHelper.getActiveDocumentUri())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.refreshFromSource", () => {
-            manager.refreshTestPreview(TestHelper.getActiveDocumentUri())
+            helper.refreshTestPreview(TestHelper.getActiveDocumentUri())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.refreshFromPreview", () => {
-            manager.refreshTestPreview(manager.getSourceUriOfActivePanel())
+            helper.refreshTestPreview(helper.getSourceUriOfActivePanel())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.runFromSource", () => {
-            manager.runTest(TestHelper.getActiveDocumentUri())
+            helper.runTest(TestHelper.getActiveDocumentUri())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.runFromPreview", () => {
-            manager.runTest(manager.getSourceUriOfActivePanel())
+            helper.runTest(helper.getSourceUriOfActivePanel())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.updateFromSource", () => {
-            manager.updateTestReference(TestHelper.getActiveDocumentUri())
+            helper.updateTestReference(TestHelper.getActiveDocumentUri())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.updateFromPreview", () => {
-            manager.updateTestReference(manager.getSourceUriOfActivePanel())
+            helper.updateTestReference(helper.getSourceUriOfActivePanel())
         }))
     // Context menu: the drop-down menu after right-click.
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.copyImageFilePathFromPreviewContext", (e) => {
-            manager.copyFilePathToClipboard(
-                manager.getSourceUriOfActivePanel(), e.webviewSection)
+            helper.copyFilePathToClipboard(
+                helper.getSourceUriOfActivePanel(), e.webviewSection)
         }))
 }
 
