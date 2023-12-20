@@ -1,6 +1,8 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{cast, elem, scope, Content, NativeElement, Smart, StyleChain, Show};
+use crate::foundations::{
+    cast, elem, scope, Content, NativeElement, Show, Smart, StyleChain,
+};
 use crate::layout::{
     Abs, Align, AlignElem, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter, Layout,
     Length, Regions, Rel, ResolvableCell, Sides, TrackSizings,
@@ -266,7 +268,9 @@ impl ResolvableCell for TableCell {
     ) {
         self.push_fill(Smart::Custom(self.fill(styles).unwrap_or_else(|| fill.clone())));
         self.push_align(self.align(styles).or(align));
-        self.push_inset(Smart::Custom(self.inset(styles).unwrap_or_else(|| inset.map(Some))));
+        self.push_inset(Smart::Custom(
+            self.inset(styles).unwrap_or_else(|| inset.map(Some)),
+        ));
     }
 }
 

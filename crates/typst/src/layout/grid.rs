@@ -5,7 +5,7 @@ use smallvec::{smallvec, SmallVec};
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, NativeElement, Smart, StyleChain, Value, Show,
+    cast, elem, scope, Array, Content, NativeElement, Show, Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, Align, AlignElem, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter, Layout,
@@ -287,7 +287,9 @@ impl ResolvableCell for GridCell {
     ) {
         self.push_fill(Smart::Custom(self.fill(styles).unwrap_or_else(|| fill.clone())));
         self.push_align(self.align(styles).or(align));
-        self.push_inset(Smart::Custom(self.inset(styles).unwrap_or_else(|| inset.map(Some))));
+        self.push_inset(Smart::Custom(
+            self.inset(styles).unwrap_or_else(|| inset.map(Some)),
+        ));
     }
 }
 

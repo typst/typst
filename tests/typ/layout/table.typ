@@ -62,6 +62,62 @@
 )
 
 ---
+// Cell override
+#table(
+  align: left,
+  fill: red,
+  stroke: blue,
+  columns: 2,
+  [AAAAA], [BBBBB],
+  [A], [B],
+  table.cell(align: right)[C], [D],
+  align(right)[E], [F],
+  align(horizon)[G], [A\ A\ A],
+  table.cell(align: horizon)[G2], [A\ A\ A],
+  table.cell(inset: 0pt)[I], [F],
+  [H], table.cell(fill: blue)[J]
+)
+
+---
+// Cell show rule
+#show table.cell: it => [Zz]
+
+#table(
+  align: left,
+  fill: red,
+  stroke: blue,
+  columns: 2,
+  [AAAAA], [BBBBB],
+  [A], [B],
+  table.cell(align: right)[C], [D],
+  align(right)[E], [F],
+  align(horizon)[G], [A\ A\ A]
+)
+
+---
+#show table.cell: it => (it.align, it.fill)
+#table(
+  align: left,
+  row-gutter: 5pt,
+  [A],
+  table.cell(align: right)[B],
+  table.cell(fill: blue)[B],
+)
+
+---
+// Cell set rules
+#set table.cell(align: center)
+#show table.cell: it => (it.align, it.fill, it.inset)
+#set table.cell(inset: 20pt)
+#table(
+  align: left,
+  row-gutter: 5pt,
+  [A],
+  table.cell(align: right)[B],
+  table.cell(fill: blue)[B],
+)
+
+---
 // Ref: false
 #table()
 

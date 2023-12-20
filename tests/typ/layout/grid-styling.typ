@@ -87,3 +87,61 @@ a
   [A],
   [B],
 )
+
+---
+// Cell override
+#grid(
+  align: left,
+  fill: red,
+  stroke: blue,
+  inset: 5pt,
+  columns: 2,
+  [AAAAA], [BBBBB],
+  [A], [B],
+  grid.cell(align: right)[C], [D],
+  align(right)[E], [F],
+  align(horizon)[G], [A\ A\ A],
+  grid.cell(align: horizon)[G2], [A\ A\ A],
+  grid.cell(inset: 0pt)[I], [F],
+  [H], grid.cell(fill: blue)[J]
+)
+
+---
+// Cell show rule
+#show grid.cell: it => [Zz]
+
+#grid(
+  align: left,
+  fill: red,
+  stroke: blue,
+  inset: 5pt,
+  columns: 2,
+  [AAAAA], [BBBBB],
+  [A], [B],
+  grid.cell(align: right)[C], [D],
+  align(right)[E], [F],
+  align(horizon)[G], [A\ A\ A]
+)
+
+---
+#show grid.cell: it => (it.align, it.fill)
+#grid(
+  align: left,
+  row-gutter: 5pt,
+  [A],
+  grid.cell(align: right)[B],
+  grid.cell(fill: blue)[B],
+)
+
+---
+// Cell set rules
+#set grid.cell(align: center)
+#show grid.cell: it => (it.align, it.fill, it.inset)
+#set grid.cell(inset: 20pt)
+#grid(
+  align: left,
+  row-gutter: 5pt,
+  [A],
+  grid.cell(align: right)[B],
+  grid.cell(fill: blue)[B],
+)
