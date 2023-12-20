@@ -1,87 +1,225 @@
 const vscode = require('vscode')
 const cp = require('child_process')
 
-function activate(context) {
-    let panel = null
+class TestHelper {
+    constructor() {
+        /** @type {vscode.Uri?} */ this.sourceUriOfActivePanel = null
+        /** @type {Map<vscode.Uri, vscode.WebviewPanel>} */ this.panels = new Map()
 
-    function refreshPanel(stdout, stderr) {
-        const uri = vscode.window.activeTextEditor.document.uri
-        const { pngPath, refPath } = getPaths(uri)
+        /** @type {vscode.StatusBarItem} */ this.testRunningStatusBarItem =
+            vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right)
+        this.testRunningStatusBarItem.text = "$(loading~spin) Running"
+        this.testRunningStatusBarItem.backgroundColor =
+            new vscode.ThemeColor('statusBarItem.warningBackground')
+    }
 
+    /**
+     * The caller should ensure when this function is called, a text editor is active.
+     * Note the fake "editor" for the extension's WebView panel is not one.
+     * @returns {vscode.Uri}
+     */
+    static getActiveDocumentUri() {
+        const editor = vscode.window.activeTextEditor
+        if (!editor) {
+            throw new Error('vscode.window.activeTextEditor is undefined.')
+        }
+        return editor.document.uri
+    }
+
+    /**
+     * The caller should ensure when this function is called, a WebView panel is active.
+     * @returns {vscode.Uri}
+     */
+    getSourceUriOfActivePanel() {
+        // If this function is invoked when user clicks the button from within a WebView
+        // panel, then the active panel is this panel, and sourceUriOfActivePanel is
+        // guaranteed to have been updated by that panel's onDidChangeViewState listener.
+        if (!this.sourceUriOfActivePanel) {
+            throw new Error('sourceUriOfActivePanel is falsy; is there a focused panel?')
+        }
+        return this.sourceUriOfActivePanel
+    }
+
+    /** @param {vscode.Uri} uri */
+    static getImageUris(uri) {
+        const png = vscode.Uri.file(uri.path
+            .replace("tests/typ", "tests/png")
+            .replace(".typ", ".png"))
+
+        const ref = vscode.Uri.file(uri.path
+            .replace("tests/typ", "tests/ref")
+            .replace(".typ", ".png"))
+
+        return {png, ref}
+    }
+
+    /**
+     * @param {vscode.Uri} uri
+     * @param {string} stdout
+     * @param {string} stderr
+     */
+    refreshTestPreviewImpl_(uri, stdout, stderr) {
+        const {png, ref} = TestHelper.getImageUris(uri)
+
+        const panel = this.panels.get(uri)
         if (panel && panel.visible) {
-            console.log('Refreshing WebView')
-            const pngSrc = panel.webview.asWebviewUri(pngPath)
-            const refSrc = panel.webview.asWebviewUri(refPath)
+            console.log(`Refreshing WebView for ${uri.fsPath}`)
+            const webViewSrcs = {
+                png: panel.webview.asWebviewUri(png),
+                ref: panel.webview.asWebviewUri(ref),
+            }
             panel.webview.html = ''
 
             // Make refresh notable.
             setTimeout(() => {
-                panel.webview.html = getWebviewContent(pngSrc, refSrc, stdout, stderr)
+                if (!panel) {
+                    throw new Error('panel to refresh is falsy after waiting')
+                }
+                panel.webview.html = getWebviewContent(webViewSrcs, stdout, stderr)
             }, 50)
         }
     }
 
-    const openCmd = vscode.commands.registerCommand("ShortcutMenuBar.testOpen", () => {
-        panel = vscode.window.createWebviewPanel(
-            'testOutput',
-            'Test output',
+    /** @param {vscode.Uri} uri */
+    openTestPreview(uri) {
+        if (this.panels.has(uri)) {
+            this.panels.get(uri)?.reveal()
+            return
+        }
+
+        const newPanel = vscode.window.createWebviewPanel(
+            'Typst.test-helper.preview',
+            uri.path.split('/').pop()?.replace('.typ', '.png') ?? 'Test output',
             vscode.ViewColumn.Beside,
-            {}
         )
+        newPanel.onDidChangeViewState(() => {
+            if (newPanel && newPanel.active && newPanel.visible) {
+                console.log(`Set sourceUriOfActivePanel to ${uri}`)
+                this.sourceUriOfActivePanel = uri
+            } else {
+                console.log(`Set sourceUriOfActivePanel to null`)
+                this.sourceUriOfActivePanel = null
+            }
+        })
+        newPanel.onDidDispose(() => {
+            console.log(`Delete panel ${uri}`)
+            this.panels.delete(uri)
+            if (this.sourceUriOfActivePanel === uri) {
+                this.sourceUriOfActivePanel = null
+            }
+        })
+        this.panels.set(uri, newPanel)
 
-        refreshPanel("", "")
-    })
+        this.refreshTestPreviewImpl_(uri, "", "")
+    }
 
-    const refreshCmd = vscode.commands.registerCommand("ShortcutMenuBar.testRefresh", () => {
-        refreshPanel("", "")
-    })
-
-    const rerunCmd = vscode.commands.registerCommand("ShortcutMenuBar.testRerun", () => {
-        const uri = vscode.window.activeTextEditor.document.uri
+    /** @param {vscode.Uri} uri */
+    runTest(uri) {
         const components = uri.fsPath.split(/tests[\/\\]/)
         const dir = components[0]
         const subPath = components[1]
 
+        this.testRunningStatusBarItem.show()
         cp.exec(
             `cargo test --manifest-path ${dir}/Cargo.toml --all --test tests -- ${subPath}`,
             (err, stdout, stderr) => {
-                console.log('Ran tests')
-                refreshPanel(stdout, stderr)
+                this.testRunningStatusBarItem.hide()
+                console.log(`Ran tests ${uri.fsPath}`)
+                this.refreshTestPreviewImpl_(uri, stdout, stderr)
             }
         )
-    })
+    }
 
-    const updateCmd = vscode.commands.registerCommand("ShortcutMenuBar.testUpdate", () => {
-        const uri = vscode.window.activeTextEditor.document.uri
-        const { pngPath, refPath } = getPaths(uri)
+    /** @param {vscode.Uri} uri */
+    refreshTestPreview(uri) {
+        const panel = this.panels.get(uri)
+        if (panel) {
+            panel.reveal()
+            this.refreshTestPreviewImpl_(uri, "", "")
+        }
+    }
 
-        vscode.workspace.fs.copy(pngPath, refPath, { overwrite: true }).then(() => {
-            console.log('Copied to reference file')
-            cp.exec(`oxipng -o max -a ${refPath.fsPath}`, (err, stdout, stderr) => {
-                refreshPanel(stdout, stderr)
+    /** @param {vscode.Uri} uri */
+    updateTestReference(uri) {
+        const {png, ref} = TestHelper.getImageUris(uri)
+
+        vscode.workspace.fs.copy(png, ref, {overwrite: true})
+            .then(() => {
+                cp.exec(`oxipng -o max -a ${ref.fsPath}`, (err, stdout, stderr) => {
+                    console.log(`Copied to reference file for ${uri.fsPath}`)
+                    this.refreshTestPreviewImpl_(uri, stdout, stderr)
+                })
             })
-        })
-    })
+    }
 
-    context.subscriptions.push(openCmd)
-    context.subscriptions.push(refreshCmd)
-    context.subscriptions.push(rerunCmd)
-    context.subscriptions.push(updateCmd)
+    /**
+     * @param {vscode.Uri} uri
+     * @param {string} webviewSection
+     */
+    copyFilePathToClipboard(uri, webviewSection) {
+        const {png, ref} = TestHelper.getImageUris(uri)
+        switch (webviewSection) {
+            case 'png':
+                vscode.env.clipboard.writeText(png.fsPath)
+                break
+            case 'ref':
+                vscode.env.clipboard.writeText(ref.fsPath)
+                break
+            default:
+                break
+        }
+    }
 }
 
-function getPaths(uri) {
-    const pngPath = vscode.Uri.file(uri.path
-        .replace("tests/typ", "tests/png")
-        .replace(".typ", ".png"))
+/** @param {vscode.ExtensionContext} context */
+function activate(context) {
+    const manager = new TestHelper();
+    context.subscriptions.push(manager.testRunningStatusBarItem)
 
-    const refPath = vscode.Uri.file(uri.path
-        .replace("tests/typ", "tests/ref")
-        .replace(".typ", ".png"))
-
-    return { pngPath, refPath }
+    context.subscriptions.push(vscode.commands.registerCommand(
+        "Typst.test-helper.openFromSource", () => {
+            manager.openTestPreview(TestHelper.getActiveDocumentUri())
+        }))
+    context.subscriptions.push(vscode.commands.registerCommand(
+        "Typst.test-helper.refreshFromSource", () => {
+            manager.refreshTestPreview(TestHelper.getActiveDocumentUri())
+        }))
+    context.subscriptions.push(vscode.commands.registerCommand(
+        "Typst.test-helper.refreshFromPreview", () => {
+            manager.refreshTestPreview(manager.getSourceUriOfActivePanel())
+        }))
+    context.subscriptions.push(vscode.commands.registerCommand(
+        "Typst.test-helper.runFromSource", () => {
+            manager.runTest(TestHelper.getActiveDocumentUri())
+        }))
+    context.subscriptions.push(vscode.commands.registerCommand(
+        "Typst.test-helper.runFromPreview", () => {
+            manager.runTest(manager.getSourceUriOfActivePanel())
+        }))
+    context.subscriptions.push(vscode.commands.registerCommand(
+        "Typst.test-helper.updateFromSource", () => {
+            manager.updateTestReference(TestHelper.getActiveDocumentUri())
+        }))
+    context.subscriptions.push(vscode.commands.registerCommand(
+        "Typst.test-helper.updateFromPreview", () => {
+            manager.updateTestReference(manager.getSourceUriOfActivePanel())
+        }))
+    // Context menu: the drop-down menu after right-click.
+    context.subscriptions.push(vscode.commands.registerCommand(
+        "Typst.test-helper.copyImageFilePathFromPreviewContext", (e) => {
+            manager.copyFilePathToClipboard(
+                manager.getSourceUriOfActivePanel(), e.webviewSection)
+        }))
 }
 
-function getWebviewContent(pngSrc, refSrc, stdout, stderr) {
+/**
+ * @param {{png: vscode.Uri, ref: vscode.Uri}} webViewSrcs
+ * @param {string} stdout
+ * @param {string} stderr
+ * @returns {string}
+ */
+function getWebviewContent(webViewSrcs, stdout, stderr) {
+    const escape = (text) => text.replace(/</g, "&lt;").replace(/>/g, "&gt;")
     return `
     <!DOCTYPE html>
     <html lang="en">
@@ -118,15 +256,15 @@ function getWebviewContent(pngSrc, refSrc, stdout, stderr) {
         </style>
     </head>
     <body>
-        <div class="flex">
+        <div class="flex" data-vscode-context='{"preventDefaultContextMenuItems": true}'>
             <div>
                 <h1>Output</h1>
-                <img src="${pngSrc}"/>
+                <img data-vscode-context='{"webviewSection":"png"}' src="${webViewSrcs.png}"/>
             </div>
 
             <div>
                 <h1>Reference</h1>
-                <img src="${refSrc}"/>
+                <img data-vscode-context='{"webviewSection":"ref"}' src="${webViewSrcs.ref}"/>
             </div>
         </div>
 
@@ -140,10 +278,6 @@ function getWebviewContent(pngSrc, refSrc, stdout, stderr) {
     `
 }
 
-function escape(text) {
-    return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
 function deactivate() {}
 
-module.exports = { activate, deactivate }
+module.exports = {activate, deactivate}
