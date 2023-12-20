@@ -95,6 +95,79 @@ impl Cell for Content {
     }
 }
 
+/// A grid of cells, including the columns, rows,
+/// and cell data.
+#[allow(dead_code)]
+pub struct CellGrid<T: Cell = Content> {
+    cols: Vec<Sizing>,
+    rows: Vec<Sizing>,
+    cells: Vec<T>,
+    has_gutter: bool,
+    is_rtl: bool,
+}
+
+impl<T: Cell> CellGrid<T> {
+    /// Generates the cell grid, given the tracks and resolved cells.
+    pub fn new(
+        tracks: Axes<&[Sizing]>,
+        gutter: Axes<&[Sizing]>,
+        cells: Vec<T>,
+        styles: StyleChain,
+    ) -> Self {
+        let mut cols = vec![];
+        let mut rows = vec![];
+
+        // Number of content columns: Always at least one.
+        let c = tracks.x.len().max(1);
+
+        // Number of content rows: At least as many as given, but also at least
+        // as many as needed to place each item.
+        let r = {
+            let len = cells.len();
+            let given = tracks.y.len();
+            let needed = len / c + (len % c).clamp(0, 1);
+            given.max(needed)
+        };
+
+        let has_gutter = gutter.any(|tracks| !tracks.is_empty());
+        let auto = Sizing::Auto;
+        let zero = Sizing::Rel(Rel::zero());
+        let get_or = |tracks: &[_], idx, default| {
+            tracks.get(idx).or(tracks.last()).copied().unwrap_or(default)
+        };
+
+        // Collect content and gutter columns.
+        for x in 0..c {
+            cols.push(get_or(tracks.x, x, auto));
+            if has_gutter {
+                cols.push(get_or(gutter.x, x, zero));
+            }
+        }
+
+        // Collect content and gutter rows.
+        for y in 0..r {
+            rows.push(get_or(tracks.y, y, auto));
+            if has_gutter {
+                rows.push(get_or(gutter.y, y, zero));
+            }
+        }
+
+        // Remove superfluous gutter tracks.
+        if has_gutter {
+            cols.pop();
+            rows.pop();
+        }
+
+        // Reverse for RTL.
+        let is_rtl = TextElem::dir_in(styles) == Dir::RTL;
+        if is_rtl {
+            cols.reverse();
+        }
+
+        Self { cols, rows, cells, has_gutter, is_rtl }
+    }
+}
+
 /// Performs grid layout.
 pub struct GridLayouter<'a, T: Cell = Content> {
     /// The grid cells.
