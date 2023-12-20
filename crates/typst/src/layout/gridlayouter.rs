@@ -5,8 +5,8 @@ use crate::foundations::{
     StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Axes, Dir, Fr, Fragment, Frame, FrameItem, Layout, Length, Point, Regions, Rel,
-    Size, Sizing,
+    Abs, Align, Axes, Dir, Fr, Fragment, Frame, FrameItem, Layout, Length, Point,
+    Regions, Rel, Sides, Size, Sizing,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
@@ -85,12 +85,26 @@ impl<T: FromValue> FromValue for Celled<T> {
 /// For any elements which can be used as cells in the GridLayouter.
 pub trait Cell: Layout {
     /// The cell's fill override, or 'auto' to use the table's default.
-    fn fill(&self, styles: &StyleChain) -> Smart<Option<Paint>>;
+    fn fill(&self, styles: StyleChain) -> Smart<Option<Paint>>;
+}
+
+/// For any cells which are aware of their final properties in the table.
+pub trait ResolvableCell {
+    /// Resolves the cell's fields, given its coordinates and default grid-wide fill, align and inset properties.
+    fn resolve_cell(
+        &mut self,
+        x: usize,
+        y: usize,
+        fill: &Option<Paint>,
+        align: Smart<Align>,
+        inset: Sides<Rel<Length>>,
+        styles: StyleChain,
+    );
 }
 
 // Content can work as a simple grid cell, without any overrides.
 impl Cell for Content {
-    fn fill(&self, _styles: &StyleChain) -> Smart<Option<Paint>> {
+    fn fill(&self, _styles: StyleChain) -> Smart<Option<Paint>> {
         Smart::Auto
     }
 }
@@ -165,6 +179,40 @@ impl<T: Cell> CellGrid<T> {
         }
 
         Self { cols, rows, cells, has_gutter, is_rtl }
+    }
+}
+
+impl<T: Cell + ResolvableCell> CellGrid<T> {
+    /// Resolves all cells in the grid. Allows them to keep track of their final properties.
+    pub fn resolve_cells(
+        mut self,
+        engine: &mut Engine,
+        fill: &Celled<Option<Paint>>,
+        align: &Celled<Smart<Align>>,
+        inset: Sides<Rel<Length>>,
+        styles: StyleChain,
+    ) -> SourceResult<Self> {
+        let c = self.cols.len();
+        self.cells
+            .iter_mut()
+            .enumerate()
+            .map(|(i, cell)| {
+                let x = i % c;
+                let y = i / c;
+                cell.resolve_cell(
+                    x,
+                    y,
+                    &fill.resolve(engine, x, y)?,
+                    align.resolve(engine, x, y)?,
+                    inset,
+                    styles,
+                );
+
+                Ok(())
+            })
+            .collect::<SourceResult<Vec<_>>>()?;
+
+        Ok(self)
     }
 }
 
