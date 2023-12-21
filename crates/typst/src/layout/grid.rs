@@ -270,8 +270,9 @@ cast! {
 }
 
 impl Cell for GridCell {
-    fn fill(&self, styles: StyleChain) -> Smart<Option<Paint>> {
-        self.fill(styles)
+    fn fill(&self, styles: StyleChain) -> Option<Paint> {
+        // The fill must have been resolved by the point it's requested.
+        self.fill(styles).unwrap_or(None)
     }
 }
 

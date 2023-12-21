@@ -84,8 +84,8 @@ impl<T: FromValue> FromValue for Celled<T> {
 
 /// For any elements which can be used as cells in the GridLayouter.
 pub trait Cell: Layout {
-    /// The cell's fill override, or 'auto' to use the table's default.
-    fn fill(&self, styles: StyleChain) -> Smart<Option<Paint>>;
+    /// The cell's fill override, or None for no fill.
+    fn fill(&self, styles: StyleChain) -> Option<Paint>;
 }
 
 /// For any cells which are aware of their final properties in the table.
@@ -104,14 +104,13 @@ pub trait ResolvableCell {
 
 // Content can work as a simple grid cell, without any overrides.
 impl Cell for Content {
-    fn fill(&self, _styles: StyleChain) -> Smart<Option<Paint>> {
-        Smart::Auto
+    fn fill(&self, _styles: StyleChain) -> Option<Paint> {
+        None
     }
 }
 
 /// A grid of cells, including the columns, rows,
 /// and cell data.
-#[allow(dead_code)]
 pub struct CellGrid<T: Cell = Content> {
     /// The grid cells.
     cells: Vec<T>,
