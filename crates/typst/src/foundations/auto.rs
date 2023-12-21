@@ -128,8 +128,8 @@ impl<T> Smart<T> {
         }
     }
 
-    /// Keeps `self` if it contains a custom value, otherwise returns the output
-    /// of the given function.
+    /// Keeps `self` if it contains a custom value, otherwise returns the
+    /// output of the given function.
     pub fn or_else<F>(self, f: F) -> Self
     where
         F: FnOnce() -> Self,
@@ -140,8 +140,8 @@ impl<T> Smart<T> {
         }
     }
 
-    /// Returns `Auto` if `self` is `Auto`, otherwise calls the provided function onthe contained
-    /// value and returns the result.
+    /// Returns `Auto` if `self` is `Auto`, otherwise calls the provided
+    /// function on the contained value and returns the result.
     pub fn and_then<F, U>(self, f: F) -> Smart<U>
     where
         F: FnOnce(T) -> Smart<U>,
