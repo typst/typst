@@ -46,6 +46,22 @@ multiline.
 #heading(level: 5)[Heading]
 
 ---
+// Set the starting offset.
+#set heading(numbering: "1.1")
+= I'm still level one.
+
+#heading(depth: 1)[We're like twins]
+#heading(level: 1)[We're like twins]
+
+#set heading(offset: 1)
+= I'm actually level two!
+
+---
+// passing level directly still overrides all other set values
+#set heading(numbering: "1.1", offset: 1)
+#heading(level: 1)[I'm still level one.]
+
+---
 // Edge cases.
 #set heading(numbering: "1.")
 =

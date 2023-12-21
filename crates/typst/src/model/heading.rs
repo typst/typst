@@ -45,9 +45,16 @@ use crate::util::{option_eq, NonZeroExt};
 /// signs determines the heading's logical nesting depth.
 #[elem(Locatable, Synthesize, Count, Show, Finalize, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
-    /// The logical nesting depth of the heading, starting from one.
+    /// The logical nesting depth of the heading, starting from *one*.
     #[default(NonZeroUsize::ONE)]
-    pub level: NonZeroUsize,
+    pub depth: NonZeroUsize,
+
+    /// The starting offset each the heading's level.
+    #[default(0)]
+    pub offset: usize,
+
+    /// The logical nesting depth of the heading, starting from its *offset*.
+    pub level: Smart<NonZeroUsize>,
 
     /// How to number the heading. Accepts a
     /// [numbering pattern or function]($numbering).
@@ -126,6 +133,15 @@ pub struct HeadingElem {
     pub body: Content,
 }
 
+impl HeadingElem {
+    pub fn resolve_level(&self, styles: StyleChain) -> NonZeroUsize {
+        self.level(styles).unwrap_or_else(|| {
+            NonZeroUsize::new(self.offset(styles) + self.depth(styles).get())
+                .expect("overflow to 0 on NoneZeroUsize + usize")
+        })
+    }
+}
+
 impl Synthesize for Packed<HeadingElem> {
     fn synthesize(
         &mut self,
@@ -141,7 +157,7 @@ impl Synthesize for Packed<HeadingElem> {
         };
 
         let elem = self.as_mut();
-        elem.push_level(elem.level(styles));
+        elem.push_level(Smart::Custom(elem.resolve_level(styles)));
         elem.push_numbering(elem.numbering(styles).clone());
         elem.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
         elem.push_outlined(elem.outlined(styles));
@@ -168,7 +184,7 @@ impl Show for Packed<HeadingElem> {
 
 impl Finalize for Packed<HeadingElem> {
     fn finalize(&self, realized: Content, styles: StyleChain) -> Content {
-        let level = (**self).level(styles).get();
+        let level = (**self).resolve_level(styles).get();
         let scale = match level {
             1 => 1.4,
             2 => 1.2,
@@ -194,7 +210,7 @@ impl Count for Packed<HeadingElem> {
         (**self)
             .numbering(StyleChain::default())
             .is_some()
-            .then(|| CounterUpdate::Step((**self).level(StyleChain::default())))
+            .then(|| CounterUpdate::Step((**self).resolve_level(StyleChain::default())))
     }
 }
 
@@ -234,7 +250,7 @@ impl Outlinable for Packed<HeadingElem> {
     }
 
     fn level(&self) -> NonZeroUsize {
-        (**self).level(StyleChain::default())
+        (**self).resolve_level(StyleChain::default())
     }
 }
 
