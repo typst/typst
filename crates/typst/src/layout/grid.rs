@@ -285,11 +285,9 @@ impl ResolvableCell for GridCell {
         inset: Sides<Rel<Length>>,
         styles: StyleChain,
     ) {
-        self.push_fill(Smart::Custom(self.fill(styles).unwrap_or_else(|| fill.clone())));
+        self.push_fill(self.fill(styles).or_else(|| Smart::Custom(fill.clone())));
         self.push_align(self.align(styles).or(align));
-        self.push_inset(Smart::Custom(
-            self.inset(styles).unwrap_or_else(|| inset.map(Some)),
-        ));
+        self.push_inset(self.inset(styles).or_else(|| Smart::Custom(inset.map(Some))));
     }
 }
 
