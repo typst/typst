@@ -113,10 +113,15 @@ impl Cell for Content {
 /// and cell data.
 #[allow(dead_code)]
 pub struct CellGrid<T: Cell = Content> {
-    cols: Vec<Sizing>,
-    rows: Vec<Sizing>,
+    /// The grid cells.
     cells: Vec<T>,
+    /// The column tracks including gutter tracks.
+    cols: Vec<Sizing>,
+    /// The row tracks including gutter tracks.
+    rows: Vec<Sizing>,
+    /// Whether this grid has gutters.
     has_gutter: bool,
+    /// Whether this is an RTL grid.
     is_rtl: bool,
 }
 
@@ -218,16 +223,12 @@ impl<T: Cell + ResolvableCell> CellGrid<T> {
 
 /// Performs grid layout.
 pub struct GridLayouter<'a, T: Cell = Content> {
-    /// The grid cells.
-    cells: &'a [T],
+    /// The grid of cells.
+    grid: &'a CellGrid<T>,
     /// Whether this is an RTL grid.
     is_rtl: bool,
     /// Whether this grid has gutters.
     has_gutter: bool,
-    /// The column tracks including gutter tracks.
-    cols: Vec<Sizing>,
-    /// The row tracks including gutter tracks.
-    rows: Vec<Sizing>,
     // How to fill the cells.
     fill: &'a Celled<Option<Paint>>,
     // How to stroke the cells.
@@ -294,24 +295,20 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
         styles: StyleChain<'a>,
         span: Span,
     ) -> Self {
-        let CellGrid { cols, rows, cells, has_gutter, is_rtl } = grid;
-
         // We use these regions for auto row measurement. Since at that moment,
         // columns are already sized, we can enable horizontal expansion.
         let mut regions = regions;
         regions.expand = Axes::new(true, false);
 
         Self {
-            cells,
-            is_rtl: *is_rtl,
-            has_gutter: *has_gutter,
-            rows: rows.clone(),
+            grid,
+            is_rtl: grid.is_rtl,
+            has_gutter: grid.has_gutter,
             fill,
             stroke,
             regions,
             styles,
-            rcols: vec![Abs::zero(); cols.len()],
-            cols: cols.clone(),
+            rcols: vec![Abs::zero(); grid.cols.len()],
             width: Abs::zero(),
             rrows: vec![],
             lrows: vec![],
@@ -325,14 +322,14 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
     pub fn layout(mut self, engine: &mut Engine) -> SourceResult<GridLayout> {
         self.measure_columns(engine)?;
 
-        for y in 0..self.rows.len() {
+        for y in 0..self.grid.rows.len() {
             // Skip to next region if current one is full, but only for content
             // rows, not for gutter rows.
             if self.regions.is_full() && (!self.has_gutter || y % 2 == 0) {
                 self.finish_region(engine)?;
             }
 
-            match self.rows[y] {
+            match self.grid.rows[y] {
                 Sizing::Auto => self.layout_auto_row(engine, y)?,
                 Sizing::Rel(v) => self.layout_relative_row(engine, v, y)?,
                 Sizing::Fr(v) => self.lrows.push(Row::Fr(v, y)),
@@ -415,7 +412,7 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
 
         // Resolve the size of all relative columns and compute the sum of all
         // fractional tracks.
-        for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
+        for (&col, rcol) in self.grid.cols.iter().zip(&mut self.rcols) {
             match col {
                 Sizing::Auto => {}
                 Sizing::Rel(v) => {
@@ -461,17 +458,17 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
 
         // Determine size of auto columns by laying out all cells in those
         // columns, measuring them and finding the largest one.
-        for (x, &col) in self.cols.iter().enumerate() {
+        for (x, &col) in self.grid.cols.iter().enumerate() {
             if col != Sizing::Auto {
                 continue;
             }
 
             let mut resolved = Abs::zero();
-            for y in 0..self.rows.len() {
+            for y in 0..self.grid.rows.len() {
                 if let Some(cell) = self.cell(x, y) {
                     // For relative rows, we can already resolve the correct
                     // base and for auto and fr we could only guess anyway.
-                    let height = match self.rows[y] {
+                    let height = match self.grid.rows[y] {
                         Sizing::Rel(v) => {
                             v.resolve(self.styles).relative_to(self.regions.base().y)
                         }
@@ -499,7 +496,7 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
             return;
         }
 
-        for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
+        for (&col, rcol) in self.grid.cols.iter().zip(&mut self.rcols) {
             if let Sizing::Fr(v) = col {
                 *rcol = v.share(fr, remaining);
             }
@@ -520,7 +517,7 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
             last = fair;
             fair = redistribute / (overlarge as f64);
 
-            for (&col, &rcol) in self.cols.iter().zip(&self.rcols) {
+            for (&col, &rcol) in self.grid.cols.iter().zip(&self.rcols) {
                 // Remove an auto column if it is not overlarge (rcol <= fair),
                 // but also hasn't already been removed (rcol > last).
                 if col == Sizing::Auto && rcol <= fair && rcol > last {
@@ -532,7 +529,7 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
         }
 
         // Redistribute space fairly among overlarge columns.
-        for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
+        for (&col, rcol) in self.grid.cols.iter().zip(&mut self.rcols) {
             if col == Sizing::Auto && *rcol > fair {
                 *rcol = fair;
             }
@@ -676,7 +673,7 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
             if let Some(cell) = self.cell(x, y) {
                 let size = Size::new(rcol, height);
                 let mut pod = Regions::one(size, Axes::splat(true));
-                if self.rows[y] == Sizing::Auto {
+                if self.grid.rows[y] == Sizing::Auto {
                     pod.full = self.regions.full;
                 }
                 let frame = cell.layout(engine, self.styles, pod)?.into_frame();
@@ -787,25 +784,25 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
     /// Returns `None` if it's a gutter cell.
     #[track_caller]
     fn cell(&self, mut x: usize, y: usize) -> Option<&'a T> {
-        assert!(x < self.cols.len());
-        assert!(y < self.rows.len());
+        assert!(x < self.grid.cols.len());
+        assert!(y < self.grid.rows.len());
 
         // Columns are reorder, but the cell slice is not.
         if self.is_rtl {
-            x = self.cols.len() - 1 - x;
+            x = self.grid.cols.len() - 1 - x;
         }
 
         if self.has_gutter {
             // Even columns and rows are children, odd ones are gutter.
             if x % 2 == 0 && y % 2 == 0 {
-                let c = 1 + self.cols.len() / 2;
-                self.cells.get((y / 2) * c + x / 2)
+                let c = 1 + self.grid.cols.len() / 2;
+                self.grid.cells.get((y / 2) * c + x / 2)
             } else {
                 None
             }
         } else {
-            let c = self.cols.len();
-            self.cells.get(y * c + x)
+            let c = self.grid.cols.len();
+            self.grid.cells.get(y * c + x)
         }
     }
 }
