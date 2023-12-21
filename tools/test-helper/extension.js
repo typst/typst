@@ -63,13 +63,16 @@ class TestHelper {
     static enableRunTestButton_(enable) {
         // Need to flip the value here, i.e. "disableRunTestButton" rather than
         // "enableRunTestButton", because default values of custom context keys
-        // before extension activation are falsy.
+        // before extension activation are falsy. The extension isn't activated
+        // until a button is clicked.
         //
-        // Note: one may attempt to activate the extension using the activation
-        // event "onLanguage:typst", but it in fact doesn't work perperly as we
-        // would like, since (a) we do not want this extension to be enabled on
-        // every Typst source file, e.g. the thesis you are working on, and (b)
-        // VSCode does not know the language ID "typst" out of box.
+        // Note: at the time of this writing, VSCode doesn't support activating
+        // on path patterns. Alternatively one may try activating the extension
+        // using the activation event "onLanguage:typst", but this idea in fact
+        // doesn't work perperly as we would like, since (a) we do not want the
+        // extension to be enabled on every Typst file, e.g. the thesis you are
+        // working on, and (b) VSCode does not know the language ID "typst" out
+        // of box.
         vscode.commands.executeCommand(
             "setContext", "Typst.test-helper.disableRunTestButton", !enable)
     }
