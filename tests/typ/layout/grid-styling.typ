@@ -145,3 +145,28 @@ a
   grid.cell(align: right)[B],
   grid.cell(fill: blue)[B],
 )
+
+---
+// First doc example
+#grid(
+  columns: 2,
+  fill: red,
+  align: left,
+  inset: 5pt,
+  [ABC], [ABC],
+  grid.cell(fill: blue)[C], [D],
+  grid.cell(align: center)[E], [F],
+  [G], grid.cell(inset: 0pt)[H]
+)
+
+---
+// Second doc example
+#{
+  show grid.cell: emph
+  grid(
+    columns: 2,
+    gutter: 3pt,
+    [Hello], [World],
+    [Sweet], [Italics]
+  )
+}

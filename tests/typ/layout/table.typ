@@ -118,6 +118,29 @@
 )
 
 ---
+// First doc example
+#table(
+  columns: 2,
+  fill: green,
+  align: right,
+  [*Name*], [*Data*],
+  table.cell(fill: blue)[J.], [Organizer],
+  table.cell(align: center)[K.], [Leader],
+  [M.], table.cell(inset: 0pt)[Player]
+)
+
+---
+// Second doc example
+#{
+  show table.cell: emph
+  table(
+    columns: 2,
+    [Person], [Animal],
+    [John], [Dog]
+  )
+}
+
+---
 // Ref: false
 #table()
 
