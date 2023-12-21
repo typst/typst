@@ -44,6 +44,19 @@ use crate::visualize::{Paint, Stroke};
 /// instead of an array. For example, `columns:` `{3}` is equivalent to
 /// `columns:` `{(auto, auto, auto)}`.
 ///
+/// # Styling the grid
+/// The grid's appearance can be customized through different parameters, such
+/// as `fill` to give all cells a background; `align` to change how cells are
+/// aligned; `inset` to optionally add internal padding to each cell; and
+/// `stroke` to optionally enable grid lines with a certain stroke.
+///
+/// If you need to override one of the above options for a single cell, you can
+/// use the [`grid.cell`]($grid.cell) element. Alternatively, if you need the
+/// appearance options to depend on a cell's position (column and row), you may
+/// specify a function to `fill` or `align` of the form
+/// `(column, row) => value`. You may also use a show rule on
+/// [`grid.cell`]($grid.cell) - see that element's examples for more information.
+///
 /// # Examples
 /// The example below demonstrates the different track sizing options.
 ///
@@ -246,7 +259,41 @@ cast! {
     values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
 }
 
-/// A cell in the grid.
+/// A cell in the grid. Use this to either override grid properties for a
+/// particular cell, or in show rules to apply certain styles to multiple cells
+/// at once.
+///
+/// For example, you can override the fill, alignment or inset for a single cell:
+///
+/// ```example
+/// #grid(
+///   columns: 2,
+///   fill: red,
+///   align: left,
+///   inset: 5pt,
+///   [ABC], [ABC],
+///   grid.cell(fill: blue)[C], [D],
+///   grid.cell(align: center)[E], [F],
+///   [G], grid.cell(inset: 0pt)[H]
+/// )
+/// ```
+///
+/// You can also use show rules to style all cells at once:
+///
+/// ```example
+/// #{
+///   // Creating a temporary #{ ... } scope to avoid affecting other grids
+///   // with this show rule.
+///   // Here, we will italicize all cells.
+///   show grid.cell: emph
+///   grid(
+///     columns: 2,
+///     gutter: 3pt,
+///     [Hello], [World],
+///     [Sweet], [Italics]
+///   )
+/// }
+/// ```
 #[elem(name = "cell", title = "Grid Cell", Show)]
 pub struct GridCell {
     /// The cell's body.

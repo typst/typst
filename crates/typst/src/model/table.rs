@@ -15,9 +15,15 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// Tables are used to arrange content in cells. Cells can contain arbitrary
 /// content, including multiple paragraphs and are specified in row-major order.
-/// Because tables are just grids with configurable cell properties, refer to
-/// the [grid documentation]($grid) for more information on how to size the
-/// table tracks.
+/// Because tables are just grids with different defaults for some cell
+/// properties (notably `stroke` and `inset`), refer to the
+/// [grid documentation]($grid) for more information on how to size the table
+/// tracks and specify the cell appearance properties.
+///
+/// Note that, to override a particular cell's properties or apply show rules
+/// on table cells, you can use the [`table.cell`]($table.cell) element (but
+/// not `grid.cell`, which is exclusive to grids). See its documentation for
+/// more information.
 ///
 /// To give a table a caption and make it [referenceable]($ref), put it into a
 /// [figure]($figure).
@@ -227,7 +233,39 @@ impl LocalName for TableElem {
 
 impl Figurable for TableElem {}
 
-/// A cell in the table.
+/// A cell in the table. Use this to either override table properties for a
+/// particular cell, or in show rules to apply certain styles to multiple cells
+/// at once.
+///
+/// For example, you can override the fill, alignment or inset for a single cell:
+///
+/// ```example
+/// #table(
+///   columns: 2,
+///   fill: green,
+///   align: right,
+///   [*Name*], [*Data*],
+///   table.cell(fill: blue)[J.], [Organizer],
+///   table.cell(align: center)[K.], [Leader],
+///   [M.], table.cell(inset: 0pt)[Player]
+/// )
+/// ```
+///
+/// You can also use show rules to style all cells at once:
+///
+/// ```example
+/// #{
+///   // Creating a temporary #{ ... } scope to avoid affecting other tables
+///   // with this show rule.
+///   // Here, we will italicize all cells.
+///   show table.cell: emph
+///   table(
+///     columns: 2,
+///     [Person], [Animal],
+///     [John], [Dog]
+///   )
+/// }
+/// ```
 #[elem(name = "cell", title = "Table Cell", Show)]
 pub struct TableCell {
     /// The cell's body.
