@@ -252,8 +252,6 @@ impl<T: Cell + ResolvableCell> CellGrid<T> {
 pub struct GridLayouter<'a, T: Cell = Content> {
     /// The grid of cells.
     grid: &'a CellGrid<T>,
-    /// Whether this is an RTL grid.
-    is_rtl: bool,
     /// Whether this grid has gutters.
     has_gutter: bool,
     // How to fill the cells.
@@ -329,7 +327,6 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
 
         Self {
             grid,
-            is_rtl: grid.is_rtl,
             has_gutter: grid.has_gutter,
             fill,
             stroke,
