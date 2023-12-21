@@ -295,22 +295,7 @@ impl ResolvableCell for GridCell {
 
 impl Show for GridCell {
     fn show(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let inset = self.inset(styles).unwrap_or_default().map(Option::unwrap_or_default);
-
-        let mut body = self.body().clone();
-
-        if inset != Sides::default() {
-            // Only pad if some inset is not 0pt.
-            // Avoids a bug where using .padded() in any way inside Show causes
-            // alignment in align(...) to break.
-            body = body.padded(inset);
-        }
-
-        if let Smart::Custom(alignment) = self.align(styles) {
-            body = body.styled(AlignElem::set_alignment(alignment));
-        }
-
-        Ok(body)
+        show_grid_cell(self.body().clone(), self.inset(styles), self.align(styles))
     }
 }
 
@@ -332,4 +317,26 @@ impl From<Content> for GridCell {
             .cloned()
             .unwrap_or_else(|| Self::new(value.clone()))
     }
+}
+
+/// Function with common code to display a grid cell or table cell.
+pub fn show_grid_cell(
+    mut body: Content,
+    inset: Smart<Sides<Option<Rel<Length>>>>,
+    align: Smart<Align>,
+) -> SourceResult<Content> {
+    let inset = inset.unwrap_or_default().map(Option::unwrap_or_default);
+
+    if inset != Sides::default() {
+        // Only pad if some inset is not 0pt.
+        // Avoids a bug where using .padded() in any way inside Show causes
+        // alignment in align(...) to break.
+        body = body.padded(inset);
+    }
+
+    if let Smart::Custom(alignment) = align {
+        body = body.styled(AlignElem::set_alignment(alignment));
+    }
+
+    Ok(body)
 }

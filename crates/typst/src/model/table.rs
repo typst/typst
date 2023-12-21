@@ -4,8 +4,8 @@ use crate::foundations::{
     cast, elem, scope, Content, NativeElement, Show, Smart, StyleChain,
 };
 use crate::layout::{
-    Abs, Align, AlignElem, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter, Layout,
-    Length, Regions, Rel, ResolvableCell, Sides, TrackSizings,
+    show_grid_cell, Abs, Align, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter,
+    Layout, Length, Regions, Rel, ResolvableCell, Sides, TrackSizings,
 };
 use crate::model::Figurable;
 use crate::text::{Lang, LocalName, Region};
@@ -276,22 +276,7 @@ impl ResolvableCell for TableCell {
 
 impl Show for TableCell {
     fn show(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let inset = self.inset(styles).unwrap_or_default().map(Option::unwrap_or_default);
-
-        let mut body = self.body().clone();
-
-        if inset != Sides::default() {
-            // Only pad if some inset is not 0pt.
-            // Avoids a bug where using .padded() in any way inside Show causes
-            // alignment in align(...) to break.
-            body = body.padded(inset);
-        }
-
-        if let Smart::Custom(alignment) = self.align(styles) {
-            body = body.styled(AlignElem::set_alignment(alignment));
-        }
-
-        Ok(body)
+        show_grid_cell(self.body().clone(), self.inset(styles), self.align(styles))
     }
 }
 
