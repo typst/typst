@@ -185,6 +185,33 @@ impl<T: Cell> CellGrid<T> {
 
         Self { cols, rows, cells, has_gutter, is_rtl }
     }
+
+    /// Get the content of the cell in column `x` and row `y`.
+    ///
+    /// Returns `None` if it's a gutter cell.
+    #[track_caller]
+    fn cell(&self, mut x: usize, y: usize) -> Option<&T> {
+        assert!(x < self.cols.len());
+        assert!(y < self.rows.len());
+
+        // Columns are reorder, but the cell slice is not.
+        if self.is_rtl {
+            x = self.cols.len() - 1 - x;
+        }
+
+        if self.has_gutter {
+            // Even columns and rows are children, odd ones are gutter.
+            if x % 2 == 0 && y % 2 == 0 {
+                let c = 1 + self.cols.len() / 2;
+                self.cells.get((y / 2) * c + x / 2)
+            } else {
+                None
+            }
+        } else {
+            let c = self.cols.len();
+            self.cells.get(y * c + x)
+        }
+    }
 }
 
 impl<T: Cell + ResolvableCell> CellGrid<T> {
@@ -465,7 +492,7 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
 
             let mut resolved = Abs::zero();
             for y in 0..self.grid.rows.len() {
-                if let Some(cell) = self.cell(x, y) {
+                if let Some(cell) = self.grid.cell(x, y) {
                     // For relative rows, we can already resolve the correct
                     // base and for auto and fr we could only guess anyway.
                     let height = match self.grid.rows[y] {
@@ -597,7 +624,7 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
         let mut resolved: Vec<Abs> = vec![];
 
         for (x, &rcol) in self.rcols.iter().enumerate() {
-            if let Some(cell) = self.cell(x, y) {
+            if let Some(cell) = self.grid.cell(x, y) {
                 let mut pod = self.regions;
                 pod.size.x = rcol;
 
@@ -670,7 +697,7 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
         let mut pos = Point::zero();
 
         for (x, &rcol) in self.rcols.iter().enumerate() {
-            if let Some(cell) = self.cell(x, y) {
+            if let Some(cell) = self.grid.cell(x, y) {
                 let size = Size::new(rcol, height);
                 let mut pod = Regions::one(size, Axes::splat(true));
                 if self.grid.rows[y] == Sizing::Auto {
@@ -708,7 +735,7 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
         // Layout the row.
         let mut pos = Point::zero();
         for (x, &rcol) in self.rcols.iter().enumerate() {
-            if let Some(cell) = self.cell(x, y) {
+            if let Some(cell) = self.grid.cell(x, y) {
                 pod.size.x = rcol;
 
                 // Push the layouted frames into the individual output frames.
@@ -777,33 +804,6 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
         self.initial = self.regions.size;
 
         Ok(())
-    }
-
-    /// Get the content of the cell in column `x` and row `y`.
-    ///
-    /// Returns `None` if it's a gutter cell.
-    #[track_caller]
-    fn cell(&self, mut x: usize, y: usize) -> Option<&'a T> {
-        assert!(x < self.grid.cols.len());
-        assert!(y < self.grid.rows.len());
-
-        // Columns are reorder, but the cell slice is not.
-        if self.is_rtl {
-            x = self.grid.cols.len() - 1 - x;
-        }
-
-        if self.has_gutter {
-            // Even columns and rows are children, odd ones are gutter.
-            if x % 2 == 0 && y % 2 == 0 {
-                let c = 1 + self.grid.cols.len() / 2;
-                self.grid.cells.get((y / 2) * c + x / 2)
-            } else {
-                None
-            }
-        } else {
-            let c = self.grid.cols.len();
-            self.grid.cells.get(y * c + x)
-        }
     }
 }
 
