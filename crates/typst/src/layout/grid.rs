@@ -263,7 +263,8 @@ cast! {
 /// particular cell, or in show rules to apply certain styles to multiple cells
 /// at once.
 ///
-/// For example, you can override the fill, alignment or inset for a single cell:
+/// For example, you can override the fill, alignment or inset for a single
+/// cell:
 ///
 /// ```example
 /// #grid(

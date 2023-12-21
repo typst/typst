@@ -90,7 +90,8 @@ pub trait Cell: Layout {
 
 /// For any cells which are aware of their final properties in the table.
 pub trait ResolvableCell {
-    /// Resolves the cell's fields, given its coordinates and default grid-wide fill, align and inset properties.
+    /// Resolves the cell's fields, given its coordinates and default grid-wide
+    /// fill, align and inset properties.
     fn resolve_cell(
         &mut self,
         x: usize,
@@ -109,8 +110,7 @@ impl Cell for Content {
     }
 }
 
-/// A grid of cells, including the columns, rows,
-/// and cell data.
+/// A grid of cells, including the columns, rows, and cell data.
 pub struct CellGrid<T: Cell = Content> {
     /// The grid cells.
     cells: Vec<T>,
@@ -214,7 +214,8 @@ impl<T: Cell> CellGrid<T> {
 }
 
 impl<T: Cell + ResolvableCell> CellGrid<T> {
-    /// Resolves all cells in the grid. Allows them to keep track of their final properties.
+    /// Resolves all cells in the grid. Allows them to keep track of their
+    /// final properties and adjust their fields accordingly.
     pub fn resolve_cells(
         mut self,
         engine: &mut Engine,
