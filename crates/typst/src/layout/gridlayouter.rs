@@ -253,8 +253,6 @@ pub struct GridLayouter<'a, T: Cell = Content> {
     grid: &'a CellGrid<T>,
     /// Whether this grid has gutters.
     has_gutter: bool,
-    // How to fill the cells.
-    fill: &'a Celled<Option<Paint>>,
     // How to stroke the cells.
     stroke: &'a Option<FixedStroke>,
     /// The regions to layout children into.
@@ -313,7 +311,6 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         grid: &'a CellGrid<T>,
-        fill: &'a Celled<Option<Paint>>,
         stroke: &'a Option<FixedStroke>,
         regions: Regions<'a>,
         styles: StyleChain<'a>,
@@ -327,7 +324,6 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
         Self {
             grid,
             has_gutter: grid.has_gutter,
-            fill,
             stroke,
             regions,
             styles,
@@ -361,9 +357,7 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
 
         self.finish_region(engine)?;
 
-        if self.stroke.is_some() || !matches!(self.fill, Celled::Value(None)) {
-            self.render_fills_strokes(engine)?;
-        }
+        self.render_fills_strokes()?;
 
         Ok(GridLayout {
             fragment: Fragment::frames(self.finished),
@@ -373,7 +367,7 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
     }
 
     /// Add lines and backgrounds.
-    fn render_fills_strokes(&mut self, engine: &mut Engine) -> SourceResult<()> {
+    fn render_fills_strokes(&mut self) -> SourceResult<()> {
         for (frame, rows) in self.finished.iter_mut().zip(&self.rrows) {
             if self.rcols.is_empty() || rows.is_empty() {
                 continue;
@@ -410,7 +404,9 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
             for (x, &col) in self.rcols.iter().enumerate() {
                 let mut dy = Abs::zero();
                 for row in rows {
-                    if let Some(fill) = self.fill.resolve(engine, x, row.y)? {
+                    let fill =
+                        self.grid.cell(x, row.y).and_then(|cell| cell.fill(self.styles));
+                    if let Some(fill) = fill {
                         let pos = Point::new(dx, dy);
                         let size = Size::new(col, row.height);
                         let rect = Geometry::Rect(size).filled(fill);

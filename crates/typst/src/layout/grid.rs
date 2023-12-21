@@ -227,8 +227,7 @@ impl Layout for GridElem {
             .resolve_cells(engine, fill, align, inset, styles)?;
 
         // Prepare grid layout by unifying content and gutter tracks.
-        let layouter =
-            GridLayouter::new(&grid, fill, &stroke, regions, styles, self.span());
+        let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
 
         // Measure the columns and layout the grid row-by-row.
         Ok(layouter.layout(engine)?.fragment)

@@ -5,8 +5,8 @@ use crate::foundations::{
     Value,
 };
 use crate::layout::{
-    Axes, BlockElem, CellGrid, Celled, Em, Fragment, GridLayouter, HAlign, Layout,
-    Length, Regions, Sizing, Spacing, VAlign,
+    Axes, BlockElem, CellGrid, Em, Fragment, GridLayouter, HAlign, Layout, Length,
+    Regions, Sizing, Spacing, VAlign,
 };
 use crate::model::ParElem;
 use crate::text::TextElem;
@@ -166,7 +166,6 @@ impl Layout for ListElem {
             cells.push(item.body().clone().styled(Self::set_depth(Depth)));
         }
 
-        let fill = Celled::Value(None);
         let stroke = None;
         let grid = CellGrid::new(
             Axes::with_x(&[
@@ -179,8 +178,7 @@ impl Layout for ListElem {
             cells,
             styles,
         );
-        let layouter =
-            GridLayouter::new(&grid, &fill, &stroke, regions, styles, self.span());
+        let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
 
         Ok(layouter.layout(engine)?.fragment)
     }

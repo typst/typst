@@ -183,8 +183,7 @@ impl Layout for TableElem {
             .resolve_cells(engine, fill, align, inset, styles)?;
 
         // Prepare grid layout by unifying content and gutter tracks.
-        let layouter =
-            GridLayouter::new(&grid, fill, &stroke, regions, styles, self.span());
+        let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
 
         Ok(layouter.layout(engine)?.fragment)
     }
