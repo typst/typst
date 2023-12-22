@@ -238,6 +238,10 @@ impl CellGrid {
         // determine its automatic position, since cells could have arbitrary
         // positions, so the cell immediately after such a cell would still be
         // automatically placed after the one before it (for example).
+        // Therefore, we use two counters, 'auto_x' and 'auto_y', to determine
+        // the position of the next cell with (x: auto, y: auto). They are only
+        // stepped when a cell of that kind (the vast majority, usually) is
+        // found.
         let mut auto_x = 0;
         let mut auto_y = 0;
         for cell in cells.iter().cloned() {
@@ -313,7 +317,7 @@ impl CellGrid {
                     }
                 }
             };
-            let new_i = new_y * c + new_x;
+            let new_i = cell_index(new_x, new_y);
 
             // Let's resolve the cell so it can determine its own fields
             // based on its final position.
