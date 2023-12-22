@@ -224,7 +224,7 @@ impl<T: Cell + ResolvableCell> CellGrid<T> {
         inset: Sides<Rel<Length>>,
         styles: StyleChain,
     ) -> SourceResult<Self> {
-        let c = self.cols.len();
+        let c = if self.has_gutter { 1 + self.cols.len() / 2 } else { self.cols.len() };
         self.cells
             .iter_mut()
             .enumerate()
