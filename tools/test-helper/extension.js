@@ -1,7 +1,7 @@
 const vscode = require('vscode')
 const cp = require('child_process')
 
-class TestHelper {
+class Handler {
     constructor() {
         /** @type {vscode.Uri?} */ this.sourceUriOfActivePanel = null
         /** @type {Map<vscode.Uri, vscode.WebviewPanel>} */ this.panels = new Map()
@@ -11,12 +11,10 @@ class TestHelper {
         this.testRunningStatusBarItem.text = "$(loading~spin) Running"
         this.testRunningStatusBarItem.backgroundColor =
             new vscode.ThemeColor('statusBarItem.warningBackground')
-        const tooltip = new vscode.MarkdownString()
-        tooltip.supportHtml = true
-        tooltip.value = "Typst test-helper is running.<br>It rebuilds crates if necessary, so may take some time."
-        this.testRunningStatusBarItem.tooltip = tooltip
+        this.testRunningStatusBarItem.tooltip =
+            "The test-helper rebuilds crates if necessary, so may take some time."
 
-        TestHelper.enableRunTestButton_(true)
+        Handler.enableRunTestButton_(true)
     }
 
     /**
@@ -83,7 +81,7 @@ class TestHelper {
      * @param {string} stderr
      */
     refreshTestPreviewImpl_(uri, stdout, stderr) {
-        const {png, ref} = TestHelper.getImageUris(uri)
+        const {png, ref} = Handler.getImageUris(uri)
 
         const panel = this.panels.get(uri)
         if (panel && panel.visible) {
@@ -143,13 +141,13 @@ class TestHelper {
         const dir = components[0]
         const subPath = components[1]
 
-        TestHelper.enableRunTestButton_(false)
+        Handler.enableRunTestButton_(false)
         this.testRunningStatusBarItem.show()
 
         cp.exec(
             `cargo test --manifest-path ${dir}/Cargo.toml --workspace --test tests -- ${subPath}`,
             (err, stdout, stderr) => {
-                TestHelper.enableRunTestButton_(true)
+                Handler.enableRunTestButton_(true)
                 this.testRunningStatusBarItem.hide()
                 console.log(`Ran tests ${uri.fsPath}`)
                 this.refreshTestPreviewImpl_(uri, stdout, stderr)
@@ -168,7 +166,7 @@ class TestHelper {
 
     /** @param {vscode.Uri} uri */
     updateTestReference(uri) {
-        const {png, ref} = TestHelper.getImageUris(uri)
+        const {png, ref} = Handler.getImageUris(uri)
 
         vscode.workspace.fs.copy(png, ref, {overwrite: true})
             .then(() => {
@@ -184,7 +182,7 @@ class TestHelper {
      * @param {string} webviewSection
      */
     copyFilePathToClipboard(uri, webviewSection) {
-        const {png, ref} = TestHelper.getImageUris(uri)
+        const {png, ref} = Handler.getImageUris(uri)
         switch (webviewSection) {
             case 'png':
                 vscode.env.clipboard.writeText(png.fsPath)
@@ -200,42 +198,42 @@ class TestHelper {
 
 /** @param {vscode.ExtensionContext} context */
 function activate(context) {
-    const helper = new TestHelper()
-    context.subscriptions.push(helper.testRunningStatusBarItem)
+    const handler = new Handler()
+    context.subscriptions.push(handler.testRunningStatusBarItem)
 
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.openFromSource", () => {
-            helper.openTestPreview(TestHelper.getActiveDocumentUri())
+            handler.openTestPreview(Handler.getActiveDocumentUri())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.refreshFromSource", () => {
-            helper.refreshTestPreview(TestHelper.getActiveDocumentUri())
+            handler.refreshTestPreview(Handler.getActiveDocumentUri())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.refreshFromPreview", () => {
-            helper.refreshTestPreview(helper.getSourceUriOfActivePanel())
+            handler.refreshTestPreview(handler.getSourceUriOfActivePanel())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.runFromSource", () => {
-            helper.runTest(TestHelper.getActiveDocumentUri())
+            handler.runTest(Handler.getActiveDocumentUri())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.runFromPreview", () => {
-            helper.runTest(helper.getSourceUriOfActivePanel())
+            handler.runTest(handler.getSourceUriOfActivePanel())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.updateFromSource", () => {
-            helper.updateTestReference(TestHelper.getActiveDocumentUri())
+            handler.updateTestReference(Handler.getActiveDocumentUri())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.updateFromPreview", () => {
-            helper.updateTestReference(helper.getSourceUriOfActivePanel())
+            handler.updateTestReference(handler.getSourceUriOfActivePanel())
         }))
-    // Context menu: the drop-down menu after right-click.
     context.subscriptions.push(vscode.commands.registerCommand(
+        // The context menu (the "right-click menu") in the preview tab.
         "Typst.test-helper.copyImageFilePathFromPreviewContext", (e) => {
-            helper.copyFilePathToClipboard(
-                helper.getSourceUriOfActivePanel(), e.webviewSection)
+            handler.copyFilePathToClipboard(
+                handler.getSourceUriOfActivePanel(), e.webviewSection)
         }))
 }
 
@@ -246,7 +244,7 @@ function activate(context) {
  * @returns {string}
  */
 function getWebviewContent(webViewSrcs, stdout, stderr) {
-    const escape = (text) => text.replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    const escape = (/**@type{string}*/text) => text.replace(/</g, "&lt;").replace(/>/g, "&gt;")
     return `
     <!DOCTYPE html>
     <html lang="en">
