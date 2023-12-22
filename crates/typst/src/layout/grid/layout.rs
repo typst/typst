@@ -123,6 +123,12 @@ pub trait ResolvableCell {
         inset: Sides<Rel<Length>>,
         styles: StyleChain,
     ) -> Cell;
+
+    /// Returns this cell's column override.
+    fn x(&self, styles: StyleChain) -> Smart<usize>;
+
+    /// Returns this cell's row override.
+    fn y(&self, styles: StyleChain) -> Smart<usize>;
 }
 
 /// A grid of cells, including the columns, rows, and cell data.

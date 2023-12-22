@@ -320,6 +320,14 @@ impl ResolvableCell for TableCell {
 
         Cell { body: self.pack(), fill }
     }
+
+    fn x(&self, styles: StyleChain) -> Smart<usize> {
+        self.x(styles)
+    }
+
+    fn y(&self, styles: StyleChain) -> Smart<usize> {
+        self.y(styles)
+    }
 }
 
 impl Show for TableCell {
