@@ -225,24 +225,19 @@ impl<T: Cell + ResolvableCell> CellGrid<T> {
         styles: StyleChain,
     ) -> SourceResult<Self> {
         let c = if self.has_gutter { 1 + self.cols.len() / 2 } else { self.cols.len() };
-        self.cells
-            .iter_mut()
-            .enumerate()
-            .map(|(i, cell)| {
-                let x = i % c;
-                let y = i / c;
-                cell.resolve_cell(
-                    x,
-                    y,
-                    &fill.resolve(engine, x, y)?,
-                    align.resolve(engine, x, y)?,
-                    inset,
-                    styles,
-                );
 
-                Ok(())
-            })
-            .collect::<SourceResult<Vec<_>>>()?;
+        for (i, cell) in self.cells.iter_mut().enumerate() {
+            let x = i % c;
+            let y = i / c;
+            cell.resolve_cell(
+                x,
+                y,
+                &fill.resolve(engine, x, y)?,
+                align.resolve(engine, x, y)?,
+                inset,
+                styles,
+            );
+        }
 
         Ok(self)
     }
