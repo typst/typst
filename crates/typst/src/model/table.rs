@@ -185,8 +185,16 @@ impl Layout for TableElem {
 
         let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
-        let grid = CellGrid::new(tracks, gutter, self.children().clone(), styles)
-            .resolve_cells(engine, fill, align, inset, styles)?;
+        let grid = CellGrid::new_resolve(
+            tracks,
+            gutter,
+            self.children().clone(),
+            fill,
+            align,
+            inset,
+            engine,
+            styles,
+        )?;
 
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
