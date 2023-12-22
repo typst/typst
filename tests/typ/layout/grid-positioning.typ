@@ -52,3 +52,24 @@
   [A],
   grid.cell(x: 0, y: 0)[This shall error]
 )
+
+---
+#grid(
+  columns: 3,
+  rows: 1.5em,
+  inset: 5pt,
+  fill: (x, y) => if (x, y) == (0, 0) { blue } else if (x, y) == (2, 3) { red } else { green },
+  [A], grid.cell(y: 1)[B], [C], grid.cell(x: auto, y: 1)[D], [E],
+  grid.cell(y: 2)[F], grid.cell(x: 0)[G], grid.cell(x: 0, y: auto)[H],
+  grid.cell(x: 1)[I]
+)
+
+#table(
+  columns: 3,
+  rows: 1.5em,
+  inset: 5pt,
+  fill: (x, y) => if (x, y) == (0, 0) { blue } else if (x, y) == (2, 3) { red } else { green },
+  [A], table.cell(y: 1)[B], [C], table.cell(x: auto, y: 1)[D], [E],
+  table.cell(y: 2)[F], table.cell(x: 0)[G], table.cell(x: 0, y: auto)[H],
+  table.cell(x: 1)[I]
+)
