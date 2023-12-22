@@ -194,6 +194,7 @@ impl Layout for TableElem {
             inset,
             engine,
             styles,
+            self.span(),
         )?;
 
         let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
