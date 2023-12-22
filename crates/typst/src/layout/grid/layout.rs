@@ -233,14 +233,86 @@ impl CellGrid {
         // We have to rebuild the grid to account for arbitrary positions.
         let cell_count = cells.len();
         let mut new_cells: Vec<Option<Cell>> = Vec::with_capacity(cell_count);
-        for (i, cell) in cells.iter().cloned().enumerate() {
-            let x = i % c;
-            let y = i / c;
+        let cell_index = |x, y| y * c + x;
+        // We can't just use the cell's index in the 'cells' vector to
+        // determine its automatic position, since cells could have arbitrary
+        // positions, so the cell immediately after such a cell would still be
+        // automatically placed after the one before it (for example).
+        let mut auto_x = 0;
+        let mut auto_y = 0;
+        for cell in cells.iter().cloned() {
+            // Let's calculate the cell's final position based on its
+            // requested position.
+            let (new_x, new_y) = {
+                let cell_x = cell.x(styles);
+                let cell_y = cell.y(styles);
+                match (cell_x, cell_y) {
+                    // Fully automatic cell positioning
+                    (Smart::Auto, Smart::Auto) => {
+                        let coords = (auto_x, auto_y);
+                        // Advance the automatic positioning counters
+                        // TODO: Should we skip occupied cells automatically?
+                        auto_x += 1;
+                        if auto_x == c {
+                            // Past the last column => next row
+                            auto_x = 0;
+                            auto_y += 1;
+                        }
 
-            // Let's get the cell's desired position.
-            // TODO: Consider the case where one is auto and one isn't.
-            let new_x = cell.x(styles).unwrap_or(x);
-            let new_y = cell.y(styles).unwrap_or(y);
+                        coords
+                    }
+                    // Cell has chosen its exact position
+                    (Smart::Custom(cell_x), Smart::Custom(cell_y)) => (cell_x, cell_y),
+                    // Cell has only chosen its column, not its row
+                    (Smart::Custom(cell_x), Smart::Auto) => {
+                        // Let's find the first row which has that column
+                        // available.
+                        let mut new_y = 0;
+                        while let Some(entry) = new_cells.get(cell_index(cell_x, new_y)) {
+                            if entry.is_none() {
+                                // This is a valid position
+                                break;
+                            }
+                            new_y += 1;
+                        }
+                        // If the loop stopped without a break, this means we
+                        // can't place a cell in an existing position, so we
+                        // will have to create a new row, which is fine.
+                        (cell_x, new_y)
+                    }
+                    // Cell has only chosen its row, not its column
+                    (Smart::Auto, Smart::Custom(cell_y)) => {
+                        // Let's find the first column which has that row
+                        // available.
+                        let mut new_x = None;
+                        for possible_x in 0..c {
+                            if let Some(entry) =
+                                new_cells.get(cell_index(possible_x, cell_y))
+                            {
+                                if entry.is_none() {
+                                    // Valid position found!
+                                    new_x = Some(possible_x);
+                                    break;
+                                }
+                                // Nope, keep searching.
+                            } else {
+                                // The position is available, we just have to
+                                // expand the grid a bit, so that's ok.
+                                new_x = Some(possible_x);
+                                break;
+                            }
+                        }
+                        if let Some(new_x) = new_x {
+                            (new_x, cell_y)
+                        } else {
+                            bail!(
+                                span,
+                                "Could not fit a cell at the requested row {cell_y}."
+                            );
+                        }
+                    }
+                }
+            };
             let new_i = new_y * c + new_x;
 
             // Let's resolve the cell so it can determine its own fields
