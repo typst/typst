@@ -37,9 +37,14 @@ impl LayoutMath for OpElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let fragment = ctx.layout_fragment(self.text())?;
+        let italics = fragment.italics_correction();
+        let accent_attach = fragment.accent_attach();
+
         ctx.push(
             FrameFragment::new(ctx, fragment.into_frame())
                 .with_class(MathClass::Large)
+                .with_italics_correction(italics)
+                .with_accent_attach(accent_attach)
                 .with_limits(if self.limits(ctx.styles()) {
                     Limits::Display
                 } else {
