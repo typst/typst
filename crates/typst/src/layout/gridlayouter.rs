@@ -101,6 +101,10 @@ pub trait ResolvableCell {
         inset: Sides<Rel<Length>>,
         styles: StyleChain,
     );
+
+    /// Creates a cell with empty content.
+    /// Needed to fill incomplete rows.
+    fn new_empty_cell() -> Self;
 }
 
 // Content can work as a simple grid cell, without any overrides.
@@ -237,6 +241,31 @@ impl<T: Cell + ResolvableCell> CellGrid<T> {
                 inset,
                 styles,
             );
+        }
+
+        // If not all columns in the last row have cells, we will add empty
+        // cells and complete the row so that those positions are susceptible
+        // to show rules and receive grid styling.
+        let cell_count = self.cells.len();
+        if cell_count % c != 0 {
+            let cells_remaining = c - (cell_count % c);
+            self.cells.reserve_exact(cells_remaining);
+            for offset in 0..cells_remaining {
+                let i = cell_count + offset;
+                let x = i % c;
+                let y = i / c;
+                let mut new_cell = T::new_empty_cell();
+                new_cell.resolve_cell(
+                    x,
+                    y,
+                    &fill.resolve(engine, x, y)?,
+                    align.resolve(engine, x, y)?,
+                    inset,
+                    styles,
+                );
+
+                self.cells.push(new_cell);
+            }
         }
 
         Ok(self)
