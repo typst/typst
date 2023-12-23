@@ -142,6 +142,14 @@ impl MathFragment {
         }
     }
 
+    pub fn is_text_like(&self) -> bool {
+        match self {
+            Self::Glyph(_) | Self::Variant(_) => self.class() != Some(MathClass::Large),
+            MathFragment::Frame(frame) => frame.text_like,
+            _ => false,
+        }
+    }
+
     pub fn italics_correction(&self) -> Abs {
         match self {
             Self::Glyph(glyph) => glyph.italics_correction,
@@ -408,6 +416,7 @@ pub struct FrameFragment {
     pub base_ascent: Abs,
     pub italics_correction: Abs,
     pub accent_attach: Abs,
+    pub text_like: bool,
 }
 
 impl FrameFragment {
@@ -425,6 +434,7 @@ impl FrameFragment {
             base_ascent,
             italics_correction: Abs::zero(),
             accent_attach,
+            text_like: false,
         }
     }
 
@@ -450,6 +460,10 @@ impl FrameFragment {
 
     pub fn with_accent_attach(self, accent_attach: Abs) -> Self {
         Self { accent_attach, ..self }
+    }
+
+    pub fn with_text_like(self, text_like: bool) -> Self {
+        Self { text_like, ..self }
     }
 }
 

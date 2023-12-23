@@ -221,7 +221,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 fragments.push(GlyphFragment::new(self, c, span).into());
             }
             let frame = MathRow::new(fragments).into_frame(self);
-            FrameFragment::new(self, frame).into()
+            FrameFragment::new(self, frame).with_text_like(true).into()
         } else {
             // Anything else is handled by Typst's standard text layout.
             let mut style = self.style;
@@ -242,7 +242,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 let mut frame = MathRow::new(fragments).into_frame(self);
                 let axis = scaled!(self, axis_height);
                 frame.set_baseline(frame.height() / 2.0 + axis);
-                FrameFragment::new(self, frame).into()
+                FrameFragment::new(self, frame).with_text_like(true).into()
             } else {
                 self.layout_complex_text(&text, span)?.into()
             }
@@ -281,6 +281,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
 
         Ok(FrameFragment::new(self, frame)
             .with_class(MathClass::Alphabetic)
+            .with_text_like(true)
             .with_spaced(spaced))
     }
 

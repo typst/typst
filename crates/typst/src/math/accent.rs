@@ -88,6 +88,7 @@ impl LayoutMath for AccentElem {
         let base_pos = Point::with_y(accent.height() + gap);
         let baseline = base_pos.y + base.ascent();
         let base_italics_correction = base.italics_correction();
+        let base_text_like = base.is_text_like();
 
         let base_ascent = match &base {
             MathFragment::Frame(frame) => frame.base_ascent,
@@ -103,7 +104,8 @@ impl LayoutMath for AccentElem {
                 .with_class(base_class)
                 .with_base_ascent(base_ascent)
                 .with_italics_correction(base_italics_correction)
-                .with_accent_attach(base_attach),
+                .with_accent_attach(base_attach)
+                .with_text_like(base_text_like),
         );
 
         Ok(())
