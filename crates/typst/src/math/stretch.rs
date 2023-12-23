@@ -177,11 +177,7 @@ fn assemble(
         offset += advance;
     }
 
-    let accent_attach = if horizontal {
-        frame.width() / 2.0
-    } else {
-        base.accent_attach
-    };
+    let accent_attach = if horizontal { frame.width() / 2.0 } else { base.accent_attach };
 
     VariantFragment {
         c: base.c,
