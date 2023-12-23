@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 
 use clap::builder::ValueParser;
-use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum};
 use semver::Version;
 
 /// The character typically used to separate path components
@@ -16,6 +16,11 @@ pub struct CliArguments {
     /// The command to run
     #[command(subcommand)]
     pub command: Command,
+
+    /// Set when to use color.
+    /// auto = use color if a capable terminal is detected
+    #[clap(long, short, default_value = "auto")]
+    pub color: ColorChoice,
 
     /// Sets the level of logging verbosity:
     /// -v = warning & error, -vv = info, -vvv = debug, -vvvv = trace
