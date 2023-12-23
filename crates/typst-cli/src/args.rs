@@ -19,7 +19,15 @@ pub struct CliArguments {
 
     /// Set when to use color.
     /// auto = use color if a capable terminal is detected
-    #[clap(long, short, default_value = "auto")]
+    #[clap(
+        long,
+        short,
+        value_name = "WHEN",
+        require_equals = true,
+        num_args = 0..=1,
+        default_value = "auto",
+        default_missing_value = "always",
+    )]
     pub color: ColorChoice,
 
     /// Sets the level of logging verbosity:
