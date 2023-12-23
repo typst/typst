@@ -275,3 +275,10 @@ Three
 
 // Error: 15 expected expression
 #let func(x) =
+
+// Error: 6-7 expected identifier, found opening paren
+#let (func)(x) = 3
+
+// Error: 6-7 expected identifier, found opening paren
+// Error: 15 expected equals sign
+#let (func)(x)
