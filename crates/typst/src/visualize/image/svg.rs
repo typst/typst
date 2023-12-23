@@ -61,6 +61,7 @@ impl SvgImage {
             tree.convert_text(&fontdb);
             font_hash = hash;
         }
+        tree.calculate_bounding_boxes();
         Ok(Self(Arc::new(Repr {
             data,
             size: tree_size(&tree),
