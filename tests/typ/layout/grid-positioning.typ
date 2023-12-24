@@ -55,6 +55,12 @@
 
 ---
 #grid(
+  grid.cell(x: 0, y: 0)[This shall not error],
+  [A]
+)
+
+---
+#grid(
   columns: 3,
   rows: 1.5em,
   inset: 5pt,
