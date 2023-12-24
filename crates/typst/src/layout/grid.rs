@@ -353,17 +353,6 @@ impl Show for GridCell {
     }
 }
 
-impl Layout for GridCell {
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        self.clone().pack().layout(engine, styles, regions)
-    }
-}
-
 impl From<Content> for GridCell {
     fn from(value: Content) -> Self {
         value

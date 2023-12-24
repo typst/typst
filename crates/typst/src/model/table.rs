@@ -325,17 +325,6 @@ impl Show for TableCell {
     }
 }
 
-impl Layout for TableCell {
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        self.clone().pack().layout(engine, styles, regions)
-    }
-}
-
 impl From<Content> for TableCell {
     fn from(value: Content) -> Self {
         value
