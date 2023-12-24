@@ -236,14 +236,12 @@ impl CellGrid {
         let cell_index = |x, y| y * c + x;
         // We can't just use the cell's index in the 'cells' vector to
         // determine its automatic position, since cells could have arbitrary
-        // positions, so the cell immediately after such a cell would still be
-        // automatically placed after the one before it (for example).
-        // Therefore, we use two counters, 'auto_x' and 'auto_y', to determine
-        // the position of the next cell with (x: auto, y: auto). They are only
-        // stepped when a cell of that kind (the vast majority, usually) is
-        // found.
-        let mut auto_x = 0;
-        let mut auto_y = 0;
+        // positions, so the position of a cell in 'cells' can differ from its
+        // final position in 'new_cells'.
+        // Therefore, we use a counter, 'auto_index', to determine the position
+        // of the next cell with (x: auto, y: auto). It is only stepped when
+        // a cell with (x: auto, y: auto), usually the vast majority, is found.
+        let mut auto_index = 0;
         for cell in cells.iter().cloned() {
             // Let's calculate the cell's final position based on its
             // requested position.
@@ -251,30 +249,32 @@ impl CellGrid {
                 let cell_x = cell.x(styles);
                 let cell_y = cell.y(styles);
                 match (cell_x, cell_y) {
-                    // Fully automatic cell positioning
+                    // Fully automatic cell positioning. The cell did not
+                    // request a coordinate.
                     (Smart::Auto, Smart::Auto) => {
-                        let coords = (auto_x, auto_y);
-                        // Advance the automatic positioning counters
-                        // TODO: Should we skip occupied cells automatically?
-                        auto_x += 1;
-                        if auto_x == c {
-                            // Past the last column => next row
-                            auto_x = 0;
-                            auto_y += 1;
-                        }
+                        // Skip any non-absent cell positions to determine
+                        // where this cell will be placed.
+                        let new_i =
+                            find_next_available_cell_index(&new_cells, auto_index);
+                        let new_x = new_i % c;
+                        let new_y = new_i / c;
 
-                        coords
+                        // Ensure the next cell with automatic position will be
+                        // placed after this one (maybe not immediately after).
+                        auto_index = new_i + 1;
+
+                        (new_x, new_y)
                     }
-                    // Cell has chosen its exact position
+                    // Cell has chosen its exact position.
                     (Smart::Custom(cell_x), Smart::Custom(cell_y)) => (cell_x, cell_y),
-                    // Cell has only chosen its column, not its row
+                    // Cell has only chosen its column, not its row.
                     (Smart::Custom(cell_x), Smart::Auto) => {
                         // Let's find the first row which has that column
                         // available.
                         let mut new_y = 0;
                         while let Some(entry) = new_cells.get(cell_index(cell_x, new_y)) {
                             if entry.is_none() {
-                                // This is a valid position
+                                // This is already a valid position.
                                 break;
                             }
                             new_y += 1;
@@ -284,7 +284,7 @@ impl CellGrid {
                         // will have to create a new row, which is fine.
                         (cell_x, new_y)
                     }
-                    // Cell has only chosen its row, not its column
+                    // Cell has only chosen its row, not its column.
                     (Smart::Auto, Smart::Custom(cell_y)) => {
                         // Let's find the first column which has that row
                         // available.
@@ -429,6 +429,16 @@ impl CellGrid {
             self.cells.get(y * c + x)
         }
     }
+}
+
+/// Given a vector of possibly absent cell positions, and an initial index,
+/// returns the next available index (absent or at the end of the vector),
+/// or the initial index itself if it is available.
+fn find_next_available_cell_index(new_cells: &[Option<Cell>], mut index: usize) -> usize {
+    while let Some(Some(_)) = new_cells.get(index) {
+        index += 1;
+    }
+    index
 }
 
 /// Performs grid layout.
