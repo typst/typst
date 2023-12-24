@@ -82,42 +82,58 @@ impl<T: FromValue> FromValue for Celled<T> {
     }
 }
 
-/// For any elements which can be used as cells in the GridLayouter.
-pub trait Cell: Layout {
-    /// The cell's fill override, or None for no fill.
-    fn fill(&self, styles: StyleChain) -> Option<Paint>;
+/// Represents a cell in CellGrid, to be laid out by GridLayouter.
+pub struct Cell {
+    /// The cell's body.
+    pub body: Content,
+
+    /// The cell's fill.
+    pub fill: Option<Paint>,
 }
 
-/// For any cells which are aware of their final properties in the table.
+impl From<Content> for Cell {
+    /// Create a simple cell given its body.
+    fn from(body: Content) -> Self {
+        Self { body, fill: None }
+    }
+}
+
+impl Layout for Cell {
+    fn layout(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<Fragment> {
+        self.body.layout(engine, styles, regions)
+    }
+}
+
+/// Used for cell-like elements which are aware of their final properties in
+/// the table, and may have property overrides.
 pub trait ResolvableCell {
     /// Resolves the cell's fields, given its coordinates and default grid-wide
     /// fill, align and inset properties.
+    /// Returns a final Cell.
     fn resolve_cell(
-        &mut self,
+        self,
         x: usize,
         y: usize,
         fill: &Option<Paint>,
         align: Smart<Align>,
         inset: Sides<Rel<Length>>,
         styles: StyleChain,
-    );
+    ) -> Cell;
 
     /// Creates a cell with empty content.
     /// Needed to fill incomplete rows.
     fn new_empty_cell() -> Self;
 }
 
-// Content can work as a simple grid cell, without any overrides.
-impl Cell for Content {
-    fn fill(&self, _styles: StyleChain) -> Option<Paint> {
-        None
-    }
-}
-
 /// A grid of cells, including the columns, rows, and cell data.
-pub struct CellGrid<T: Cell = Content> {
+pub struct CellGrid {
     /// The grid cells.
-    cells: Vec<T>,
+    cells: Vec<Cell>,
     /// The column tracks including gutter tracks.
     cols: Vec<Sizing>,
     /// The row tracks including gutter tracks.
@@ -128,12 +144,12 @@ pub struct CellGrid<T: Cell = Content> {
     is_rtl: bool,
 }
 
-impl<T: Cell> CellGrid<T> {
+impl CellGrid {
     /// Generates the cell grid, given the tracks and resolved cells.
     pub fn new(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
-        cells: Vec<T>,
+        cells: Vec<Cell>,
         styles: StyleChain,
     ) -> Self {
         let mut cols = vec![];
@@ -193,7 +209,7 @@ impl<T: Cell> CellGrid<T> {
     ///
     /// Returns `None` if it's a gutter cell.
     #[track_caller]
-    fn cell(&self, mut x: usize, y: usize) -> Option<&T> {
+    fn cell(&self, mut x: usize, y: usize) -> Option<&Cell> {
         assert!(x < self.cols.len());
         assert!(y < self.rows.len());
 
@@ -215,36 +231,40 @@ impl<T: Cell> CellGrid<T> {
             self.cells.get(y * c + x)
         }
     }
-}
 
-impl<T: Cell + ResolvableCell> CellGrid<T> {
     /// Resolves all cells in the grid before creating it.
     /// Allows them to keep track of their final properties and adjust their fields accordingly.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_resolve(
+    pub fn new_resolve<T: ResolvableCell>(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
-        mut cells: Vec<T>,
+        cells: Vec<T>,
         fill: &Celled<Option<Paint>>,
         align: &Celled<Smart<Align>>,
         inset: Sides<Rel<Length>>,
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<Self> {
+        // Number of content columns: Always at least one.
         let c = tracks.x.len().max(1);
 
-        for (i, cell) in cells.iter_mut().enumerate() {
-            let x = i % c;
-            let y = i / c;
-            cell.resolve_cell(
-                x,
-                y,
-                &fill.resolve(engine, x, y)?,
-                align.resolve(engine, x, y)?,
-                inset,
-                styles,
-            );
-        }
+        let mut cells = cells
+            .into_iter()
+            .enumerate()
+            .map(|(i, cell)| {
+                let x = i % c;
+                let y = i / c;
+
+                Ok(cell.resolve_cell(
+                    x,
+                    y,
+                    &fill.resolve(engine, x, y)?,
+                    align.resolve(engine, x, y)?,
+                    inset,
+                    styles,
+                ))
+            })
+            .collect::<SourceResult<Vec<_>>>()?;
 
         // If not all columns in the last row have cells, we will add empty
         // cells and complete the row so that those positions are susceptible
@@ -257,8 +277,7 @@ impl<T: Cell + ResolvableCell> CellGrid<T> {
                 let i = cell_count + offset;
                 let x = i % c;
                 let y = i / c;
-                let mut new_cell = T::new_empty_cell();
-                new_cell.resolve_cell(
+                let new_cell = T::new_empty_cell().resolve_cell(
                     x,
                     y,
                     &fill.resolve(engine, x, y)?,
@@ -276,9 +295,9 @@ impl<T: Cell + ResolvableCell> CellGrid<T> {
 }
 
 /// Performs grid layout.
-pub struct GridLayouter<'a, T: Cell = Content> {
+pub struct GridLayouter<'a> {
     /// The grid of cells.
-    grid: &'a CellGrid<T>,
+    grid: &'a CellGrid,
     /// Whether this grid has gutters.
     has_gutter: bool,
     // How to stroke the cells.
@@ -332,13 +351,13 @@ enum Row {
     Fr(Fr, usize),
 }
 
-impl<'a, T: Cell> GridLayouter<'a, T> {
+impl<'a> GridLayouter<'a> {
     /// Create a new grid layouter.
     ///
     /// This prepares grid layout by unifying content and gutter tracks.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        grid: &'a CellGrid<T>,
+        grid: &'a CellGrid,
         stroke: &'a Option<FixedStroke>,
         regions: Regions<'a>,
         styles: StyleChain<'a>,
@@ -433,7 +452,7 @@ impl<'a, T: Cell> GridLayouter<'a, T> {
                 let mut dy = Abs::zero();
                 for row in rows {
                     let fill =
-                        self.grid.cell(x, row.y).and_then(|cell| cell.fill(self.styles));
+                        self.grid.cell(x, row.y).and_then(|cell| cell.fill.clone());
                     if let Some(fill) = fill {
                         let pos = Point::new(dx, dy);
                         let size = Size::new(col, row.height);

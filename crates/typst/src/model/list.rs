@@ -5,7 +5,7 @@ use crate::foundations::{
     Value,
 };
 use crate::layout::{
-    Axes, BlockElem, CellGrid, Em, Fragment, GridLayouter, HAlign, Layout, Length,
+    Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlign, Layout, Length,
     Regions, Sizing, Spacing, VAlign,
 };
 use crate::model::ParElem;
@@ -160,10 +160,10 @@ impl Layout for ListElem {
 
         let mut cells = vec![];
         for item in self.children() {
-            cells.push(Content::empty());
-            cells.push(marker.clone());
-            cells.push(Content::empty());
-            cells.push(item.body().clone().styled(Self::set_depth(Depth)));
+            cells.push(Cell::from(Content::empty()));
+            cells.push(Cell::from(marker.clone()));
+            cells.push(Cell::from(Content::empty()));
+            cells.push(Cell::from(item.body().clone().styled(Self::set_depth(Depth))));
         }
 
         let stroke = None;

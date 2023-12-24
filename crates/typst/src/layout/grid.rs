@@ -324,26 +324,22 @@ cast! {
     v: Content => v.into(),
 }
 
-impl Cell for GridCell {
-    fn fill(&self, styles: StyleChain) -> Option<Paint> {
-        // The fill must have been resolved by the point it's requested.
-        self.fill(styles).unwrap_or(None)
-    }
-}
-
 impl ResolvableCell for GridCell {
     fn resolve_cell(
-        &mut self,
+        mut self,
         _x: usize,
         _y: usize,
         fill: &Option<Paint>,
         align: Smart<Align>,
         inset: Sides<Rel<Length>>,
         styles: StyleChain,
-    ) {
-        self.push_fill(self.fill(styles).or_else(|| Smart::Custom(fill.clone())));
+    ) -> Cell {
+        let fill = self.fill(styles).unwrap_or_else(|| fill.clone());
+        self.push_fill(Smart::Custom(fill.clone()));
         self.push_align(self.align(styles).or(align));
         self.push_inset(self.inset(styles).or_else(|| Smart::Custom(inset.map(Some))));
+
+        Cell { body: self.pack(), fill }
     }
 
     fn new_empty_cell() -> Self {
