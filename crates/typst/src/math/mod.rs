@@ -200,14 +200,18 @@ pub fn module() -> Module {
     // from crate::text
     math.define_elem::<TextElem>();
 
-    math.define_func::<abs>();
-    math.define_func::<norm>();
+    // Functions.
+    // lr.rs
     math.define_func::<floor>();
     math.define_func::<ceil>();
     math.define_func::<round>();
+    math.define_func::<norm>();
+    math.define_func::<abs>();
+    // root.rs
     math.define_func::<sqrt>();
-    math.define_func::<upright>();
+    // style.rs
     math.define_func::<bold>();
+    math.define_func::<upright>();
     math.define_func::<italic>();
     math.define_func::<serif>();
     math.define_func::<sans>();
