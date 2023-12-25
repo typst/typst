@@ -45,15 +45,17 @@ pub struct AccentElem {
     /// | Macron        | `macron`        | `¯`       |
     /// | Breve         | `breve`         | `˘`       |
     /// | Dot           | `dot`           | `.`       |
-    /// | Double dot    | `dot.double`    | `¨`       |
+    /// | Double dot, Diaeresis | `dot.double`, `diaer` | `¨` |
     /// | Triple dot    | `dot.triple`    | <code>&tdot;</code> |
     /// | Quadruple dot | `dot.quad`      | <code>&DotDot;</code> |
-    /// | Diaeresis     | `diaer`         | `¨`       |
     /// | Circle        | `circle`        | `∘`       |
     /// | Double acute  | `acute.double`  | `˝`       |
     /// | Caron         | `caron`         | `ˇ`       |
     /// | Right arrow   | `arrow`, `->`   | `→`       |
     /// | Left arrow    | `arrow.l`, `<-` | `←`       |
+    /// | Right harpoon | `harpoon`       | `⇀`       |
+    /// | Left harpoon  | `harpoon.lt`    | `⇀`       |
+    /// | Bidi arrow    | `arrow.l.r`     | `↔`       |
     #[required]
     pub accent: Accent,
 }
