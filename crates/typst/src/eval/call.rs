@@ -102,8 +102,8 @@ impl Eval for ast::FuncCall<'_> {
                 if let Value::Dict(dict) = target {
                     if matches!(dict.get(&field), Ok(Value::Func(_))) {
                         error.hint(
-                            "to call the function stored in the dictionary, \
-                             surround the field access with parentheses",
+                            "to call the function stored in the dictionary, surround \
+                             the field access with parentheses, e.g. #(dict.fun)(...)",
                         );
                     }
                 }

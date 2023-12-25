@@ -108,7 +108,7 @@
     func: () => 1,
   )
   // Error: 8-12 type dictionary has no method `func`
-  // Hint: 8-12 to call the function stored in the dictionary, surround the field access with parentheses
+  // Hint: 8-12 to call the function stored in the dictionary, surround the field access with parentheses, e.g. #(dict.fun)(...)
   dict.func()
 }
 
