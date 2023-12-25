@@ -83,5 +83,21 @@
 }
 
 ---
+#set text(lang: "jp", font: ("Linux Libertine", "Noto Serif CJK JP"))
+#for i in range(0, 9) {
+  numbering("あ", i)
+  [ and ]
+  numbering("I.あ", i, i)
+  [ for #i \ ]
+}
+
+#for i in range(0, 9) {
+  numbering("ア", i)
+  [ and ]
+  numbering("I.ア", i, i)
+  [ for #i \ ]
+}
+---
 // Error: 17-19 number must be at least zero
-#numbering("1", -1)
+#numbering("1", -1) 
+
