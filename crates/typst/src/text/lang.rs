@@ -1,8 +1,6 @@
 use std::str::FromStr;
 
 use ecow::EcoString;
-use fluent::{FluentBundle, FluentResource};
-use unic_langid::LanguageIdentifier;
 
 use crate::engine::Engine;
 use crate::foundations::{cast, StyleChain};
@@ -170,10 +168,7 @@ pub trait LocalName<'a> {
         region: Option<Region>,
         key: &str,
     ) -> String {
-        let lang_name = lang.as_str();
-        // let lang = TextElem::lang_in(styles).as_str();
-        let res = engine.localized_string(lang_name, key);
-        res
+        engine.localized_string(&Self::lang_str(lang, region), key)
     }
 
     /// Gets the local name from the style chain.
@@ -181,13 +176,11 @@ pub trait LocalName<'a> {
     where
         Self: Sized,
     {
-        let lang_name =
-            Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles));
-        let lang = TextElem::lang_in(styles).as_str();
-        let res = engine.localized_string(TextElem::lang_in(styles).as_str(), key);
-        res
-        // (&mut engine).delete_me_lang.push(res.to_string());
-        // engine.delete_me_lang.last().unwrap()
+        engine.localized_string(&Self::lang_str(TextElem::lang_in(styles), TextElem::region_in(styles)), key)
+    }
+
+    fn lang_str(lang: Lang, region: Option<Region>) -> String {
+        lang.as_str().to_string() + &region.map_or_else(String::new, |r| String::from("_") + r.as_str())
     }
 }
 
