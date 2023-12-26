@@ -120,13 +120,8 @@ to:
   function call.
 
   ```example
-  #show selector(<center>): it => {
-    align(center, it)
-  }
-  
-  #show selector(<first_use>): it => {
-    text(style: "italic", it)
-  }
+  #show <center>: set align(center)
+  #show <first_use>: emph
 
   = Counter <center>
   Counter <first_use>
