@@ -119,20 +119,77 @@ to:
   complex layout to your whole document without wrapping everything in a giant
   function call.
 
+  ```example
+  #show selector(<center>): it => {
+    align(center, it)
+  }
+  
+  #show selector(<first_use>): it => {
+    text(style: "italic", it)
+  }
+
+  = Counter <center>
+  Counter <first_use>
+  counts through pages, elements and more.
+  ```
+
 - **Text:** `{show "Text": ..}` \
   Style, transform or replace text.
+
+  ```example
+  #show "C++": box // To ensure C++ are in the same line
+
+  Rust is designed to be fast, both in terms of runtime performance and in terms of compile times. It is often used for systems programming tasks where performance is critical. The compiled code is about the same performance as C/C++, and is excellent in memory and energy efficiencies.
+  ```
 
 - **Regex:** `{show regex("\w+"): ..}` \
   Select and transform text with a regular expression for even more flexibility.
   See the documentation of the [`regex` type]($regex) for details.
 
+  ```example
+  #show regex("\d+"): set text(red)
+  
+  The numbers 1 to 10.  
+  ```
+
 - **Function with fields:** `{show heading.where(level: 1): ..}` \
   Transform only elements that have the specified fields. For example, you might
   want to only change the style of level-1 headings.
 
+  ```example
+  #show figure.where(
+    kind: table
+  ): set figure.caption(position: top)
+  
+  #figure(
+    table(
+      columns: (auto, auto),
+      align: auto,
+      
+      /* Header*/
+      [*\#*], [*Name*],
+      
+      /* Body */
+      [1], [Python],
+      [2], [Rust],
+    ),
+    kind: table,
+    caption: "Programming languages"
+  )
+  ```
+
 - **Label:** `{show <intro>: ..}` \
   Select and transform elements that have the specified label. See the
   documentation of the [`label` type]($label) for more details.
+
+  ```example
+  #show <b>: set text(weight: "bold")
+  
+  Hello,
+  World! <b>
+  
+  Hello, World! <b>  
+  ```
 
 ```example
 #show "Project": smallcaps
