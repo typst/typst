@@ -121,8 +121,14 @@ impl Element {
     }
 
     /// The element's local name, if any.
-    pub fn local_name(&self, lang: Lang, region: Option<Region>) -> Option<&'static str> {
-        (self.0).0.local_name.map(|f| f(lang, region))
+    pub fn local_name(
+        &self,
+        engine: &mut Engine,
+        lang: Lang,
+        region: Option<Region>,
+        key: &str,
+    ) -> Option<String> {
+        (self.0).0.local_name.map(|f| f(engine, lang, region, key))
     }
 }
 
@@ -312,7 +318,7 @@ pub struct NativeElementData {
     pub vtable: fn(of: TypeId) -> Option<*const ()>,
     pub field_id: fn(name: &str) -> Option<u8>,
     pub field_name: fn(u8) -> Option<&'static str>,
-    pub local_name: Option<fn(Lang, Option<Region>) -> &'static str>,
+    pub local_name: Option<fn(&mut Engine, Lang, Option<Region>, &str) -> String>,
     pub scope: Lazy<Scope>,
     pub params: Lazy<Vec<ParamInfo>>,
 }

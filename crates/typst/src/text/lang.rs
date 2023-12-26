@@ -1,7 +1,10 @@
 use std::str::FromStr;
 
 use ecow::EcoString;
+use fluent::{FluentBundle, FluentResource};
+use unic_langid::LanguageIdentifier;
 
+use crate::engine::Engine;
 use crate::foundations::{cast, StyleChain};
 use crate::layout::Dir;
 use crate::text::TextElem;
@@ -157,16 +160,34 @@ cast! {
 }
 
 /// The name with which an element is referenced.
-pub trait LocalName {
+pub trait LocalName<'a> {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'a str;
+
     /// Get the name in the given language and (optionally) region.
-    fn local_name(lang: Lang, region: Option<Region>) -> &'static str;
+    fn local_name2(
+        engine: &mut Engine,
+        lang: Lang,
+        region: Option<Region>,
+        key: &str,
+    ) -> String {
+        let lang_name = lang.as_str();
+        // let lang = TextElem::lang_in(styles).as_str();
+        let res = engine.localized_string(lang_name, key);
+        res
+    }
 
     /// Gets the local name from the style chain.
-    fn local_name_in(styles: StyleChain) -> &'static str
+    fn local_name_in(engine: &mut Engine, styles: StyleChain, key: &str) -> String
     where
         Self: Sized,
     {
-        Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
+        let lang_name =
+            Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles));
+        let lang = TextElem::lang_in(styles).as_str();
+        let res = engine.localized_string(TextElem::lang_in(styles).as_str(), key);
+        res
+        // (&mut engine).delete_me_lang.push(res.to_string());
+        // engine.delete_me_lang.last().unwrap()
     }
 }
 

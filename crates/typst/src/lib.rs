@@ -56,7 +56,7 @@ pub mod visualize;
 #[doc(inline)]
 pub use typst_syntax as syntax;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 
 use comemo::{Prehashed, Track, Tracked, Validate};
@@ -129,6 +129,7 @@ fn typeset(
             tracer: tracer.track_mut(),
             locator: &mut locator,
             introspector: document.introspector.track_with(&constraint),
+            langs: HashMap::new(),
         };
 
         // Layout!

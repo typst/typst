@@ -215,7 +215,12 @@ impl Show for BibliographyElem {
         let mut seq = vec![];
         if let Some(title) = self.title(styles) {
             let title = title.unwrap_or_else(|| {
-                TextElem::packed(Self::local_name_in(styles)).spanned(self.span())
+                TextElem::packed(Self::local_name_in(
+                    engine,
+                    styles,
+                    self.dyn_elem().name(),
+                ))
+                .spanned(self.span())
             });
 
             seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
@@ -272,8 +277,8 @@ impl Finalize for BibliographyElem {
     }
 }
 
-impl LocalName for BibliographyElem {
-    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
+impl<'a> LocalName<'a> for BibliographyElem {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'a str {
         match lang {
             Lang::ALBANIAN => "Bibliografi",
             Lang::ARABIC => "المراجع",

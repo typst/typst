@@ -244,8 +244,9 @@ impl Layout for ImageElem {
     }
 }
 
-impl LocalName for ImageElem {
-    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
+impl<'a> LocalName<'a> for ImageElem {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'a str {
+        // Self::elem()
         match lang {
             Lang::ALBANIAN => "Figurë",
             Lang::ARABIC => "شكل",

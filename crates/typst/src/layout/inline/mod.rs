@@ -1,6 +1,8 @@
 mod linebreak;
 mod shaping;
 
+use std::collections::HashMap;
+
 use comemo::{Prehashed, Tracked, TrackedMut};
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
@@ -58,6 +60,7 @@ pub(crate) fn layout_inline(
             route: Route::extend(route),
             locator: &mut locator,
             tracer,
+            langs: HashMap::new(),
         };
 
         // Collect all text into one string for BiDi analysis.

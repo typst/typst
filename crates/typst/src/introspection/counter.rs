@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
@@ -280,6 +281,7 @@ impl Counter {
             route: Route::extend(route).unnested(),
             locator: &mut locator,
             tracer,
+            langs: HashMap::new(),
         };
 
         let mut state = CounterState::init(&self.0);

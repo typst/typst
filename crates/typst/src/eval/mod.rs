@@ -14,6 +14,8 @@ mod rules;
 mod tracer;
 mod vm;
 
+use std::collections::HashMap;
+
 pub use self::call::*;
 pub use self::import::*;
 pub use self::tracer::*;
@@ -57,6 +59,7 @@ pub fn eval(
         introspector: introspector.track(),
         locator: &mut locator,
         tracer,
+        langs: HashMap::new(),
     };
 
     // Prepare VM.
@@ -125,6 +128,7 @@ pub fn eval_string(
         route: Route::default(),
         locator: &mut locator,
         tracer: tracer.track_mut(),
+        langs: HashMap::new(),
     };
 
     // Prepare VM.

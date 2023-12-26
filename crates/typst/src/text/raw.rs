@@ -427,8 +427,8 @@ impl Finalize for RawElem {
     }
 }
 
-impl LocalName for RawElem {
-    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
+impl<'a> LocalName<'a> for RawElem {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'a str {
         match lang {
             Lang::ALBANIAN => "List",
             Lang::ARABIC => "قائمة",

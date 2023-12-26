@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
@@ -231,6 +233,7 @@ impl State {
             route: Route::extend(route).unnested(),
             locator: &mut locator,
             tracer,
+            langs: HashMap::new(),
         };
         let mut state = self.init.clone();
         let mut stops = eco_vec![state.clone()];

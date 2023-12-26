@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
 use typst::engine::{Engine, Route};
@@ -60,6 +62,7 @@ pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
         introspector: introspector.track(),
         locator: &mut locator,
         tracer: tracer.track_mut(),
+        langs: HashMap::new(),
     };
 
     let mut vm = Vm::new(engine, Scopes::new(Some(world.library())), Span::detached());

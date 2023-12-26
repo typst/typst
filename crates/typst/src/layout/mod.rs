@@ -35,6 +35,8 @@ mod spacing;
 mod stack;
 mod transform;
 
+use std::collections::HashMap;
+
 pub use self::abs::*;
 pub use self::align::*;
 pub use self::angle::*;
@@ -156,6 +158,7 @@ pub trait Layout {
             introspector: engine.introspector,
             locator: &mut locator,
             tracer: TrackedMut::reborrow_mut(&mut engine.tracer),
+            langs: HashMap::new(),
         };
         self.layout(&mut engine, styles, regions)
     }
@@ -185,6 +188,7 @@ impl LayoutRoot for Content {
                 route: Route::extend(route).unnested(),
                 locator: &mut locator,
                 tracer,
+                langs: HashMap::new(),
             };
             let scratch = Scratch::default();
             let (realized, styles) =
@@ -235,6 +239,7 @@ impl Layout for Content {
                 route: Route::extend(route),
                 locator: &mut locator,
                 tracer,
+                langs: HashMap::new(),
             };
 
             if !engine.route.within(Route::MAX_LAYOUT_DEPTH) {

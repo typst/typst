@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use comemo::{Prehashed, Tracked, TrackedMut};
 use ecow::EcoVec;
 
@@ -267,6 +269,7 @@ pub(crate) fn call_closure(
         route: Route::extend(route),
         locator: &mut locator,
         tracer,
+        langs: HashMap::new(),
     };
 
     // Prepare VM.

@@ -190,8 +190,8 @@ impl Layout for TableElem {
     }
 }
 
-impl LocalName for TableElem {
-    fn local_name(lang: Lang, _: Option<Region>) -> &'static str {
+impl<'a> LocalName<'a> for TableElem {
+    fn local_name(lang: Lang, _: Option<Region>) -> &'a str {
         match lang {
             Lang::ALBANIAN => "Tabel",
             Lang::ARABIC => "جدول",

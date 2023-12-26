@@ -192,7 +192,12 @@ impl Show for OutlineElem {
         // Build the outline title.
         if let Some(title) = self.title(styles) {
             let title = title.unwrap_or_else(|| {
-                TextElem::packed(Self::local_name_in(styles)).spanned(self.span())
+                TextElem::packed(Self::local_name_in(
+                    engine,
+                    styles,
+                    self.dyn_elem().name(),
+                ))
+                .spanned(self.span())
             });
 
             seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
@@ -253,8 +258,8 @@ impl Finalize for OutlineElem {
     }
 }
 
-impl LocalName for OutlineElem {
-    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
+impl<'a> LocalName<'a> for OutlineElem {
+    fn local_name(lang: Lang, region: Option<Region>) -> &'a str {
         match lang {
             Lang::ALBANIAN => "Përmbajtja",
             Lang::ARABIC => "المحتويات",

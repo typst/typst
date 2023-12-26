@@ -243,8 +243,10 @@ impl Synthesize for FigureElem {
                 let name = match &kind {
                     FigureKind::Elem(func) => func
                         .local_name(
+                            engine,
                             TextElem::lang_in(styles),
                             TextElem::region_in(styles),
+                            self.dyn_elem().name(),
                         )
                         .map(TextElem::packed),
                     FigureKind::Name(_) => None,
