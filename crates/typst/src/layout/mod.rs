@@ -161,6 +161,7 @@ pub trait Layout {
 }
 
 impl LayoutRoot for Content {
+    #[typst_macros::trace(name = "root:content", span = self.span())]
     fn layout_root(
         &self,
         engine: &mut Engine,
@@ -206,6 +207,7 @@ impl LayoutRoot for Content {
 }
 
 impl Layout for Content {
+    #[typst_macros::trace(name = "content", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

@@ -1,9 +1,9 @@
 use std::io;
 use std::path::PathBuf;
 
-use typst::World;
-use typst::diag::{StrResult, bail};
+use typst::diag::{bail, StrResult};
 use typst::syntax::Span;
+use typst::World;
 
 use crate::args::{CliArguments, Command};
 
@@ -13,11 +13,7 @@ pub fn setup_tracing(args: &CliArguments) -> io::Result<TracingHandle> {
     let cmd = match &args.command {
         Command::Compile(command) => command,
         Command::Watch(command) => command,
-        _ => return Ok(TracingHandle {
-            incremental: false,
-            record: None,
-            index: 0,
-        }),
+        _ => return Ok(TracingHandle { incremental: false, record: None, index: 0 }),
     };
 
     // Enable tracing
@@ -48,8 +44,11 @@ impl TracingHandle {
         &mut self,
         world: &mut W,
         fun: impl FnOnce(&mut W) -> O,
-        mut source: impl FnMut(&mut W, Span) -> (String, u32)
-    ) -> StrResult<O> where W: World {
+        mut source: impl FnMut(&mut W, Span) -> (String, u32),
+    ) -> StrResult<O>
+    where
+        W: World,
+    {
         if self.record.is_some() {
             let handle = RecordHandle::new(self)?;
             let output = fun(world);

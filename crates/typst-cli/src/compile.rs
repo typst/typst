@@ -65,7 +65,7 @@ pub fn compile(mut handle: TracingHandle, mut command: CompileCommand) -> StrRes
     handle.record(
         &mut world,
         |world| compile_once(world, &mut command, false),
-        |world, span| span_to_source(span, world)
+        |world, span| span_to_source(span, world),
     )??;
     Ok(())
 }
@@ -84,9 +84,7 @@ pub fn span_to_source(span: Span, world: &SystemWorld) -> (String, u32) {
     };
 
     let line = source.byte_to_line(token.range().start).unwrap();
-    let name = world.slot(id, |slot| {
-        slot.name(world.root())
-    }).unwrap();
+    let name = world.slot(id, |slot| slot.name(world.root())).unwrap();
 
     (name, line as u32)
 }

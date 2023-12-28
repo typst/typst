@@ -1,7 +1,7 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::{At, SourceResult};
-use crate::foundations::{cast, elem, Content, Func, NativeElement, Resolve, Smart};
+use crate::foundations::{cast, elem, Content, Func, Resolve, Smart};
 use crate::layout::{
     Abs, Angle, Frame, FrameItem, Length, Point, Ratio, Rel, Size, Transform,
 };
@@ -106,6 +106,7 @@ pub struct CancelElem {
 }
 
 impl LayoutMath for CancelElem {
+    #[typst_macros::trace(name = "math.cancel", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let body = ctx.layout_fragment(self.body())?;
         // Use the same math class as the body, in order to preserve automatic spacing around it.

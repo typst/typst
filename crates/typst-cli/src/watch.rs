@@ -24,7 +24,7 @@ pub fn watch(mut handle: TracingHandle, mut command: CompileCommand) -> StrResul
     handle.record(
         &mut world,
         |world| compile_once(world, &mut command, true),
-        |world, span| span_to_source(span, world)
+        |world, span| span_to_source(span, world),
     )??;
 
     // Setup file watching.
@@ -75,7 +75,7 @@ pub fn watch(mut handle: TracingHandle, mut command: CompileCommand) -> StrResul
             handle.record(
                 &mut world,
                 |world| compile_once(world, &mut command, true),
-                |world, span| span_to_source(span, world)
+                |world, span| span_to_source(span, world),
             )??;
             comemo::evict(10);
 

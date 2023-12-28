@@ -109,13 +109,13 @@ pub fn export_json(
     path: PathBuf,
     mut source: impl FnMut(Span) -> (String, u32),
 ) -> Result<(), String> {
-    let file = File::create(path).map_err(|e| format!("failed to create file: {}", e))?;
+    let file = File::create(path).map_err(|e| format!("failed to create file: {e}"))?;
     let mut writer = BufWriter::with_capacity(1 << 20, file);
 
     if !is_enabled() {
         writer
             .write_all(b"[]")
-            .map_err(|e| format!("failed to write to file: {}", e))?;
+            .map_err(|e| format!("failed to write to file: {e}"))?;
         return Ok(());
     }
 
@@ -137,10 +137,10 @@ pub fn export_json(
     }
 
     let recorder = RECORDER.lock();
-    let Some(first) = recorder.events.iter().next() else {
+    let Some(first) = recorder.events.first() else {
         writer
             .write_all(b"[]")
-            .map_err(|e| format!("failed to write to file: {}", e))?;
+            .map_err(|e| format!("failed to write to file: {e}"))?;
         return Ok(());
     };
 
@@ -151,7 +151,7 @@ pub fn export_json(
     let mut serializer = serde_json::Serializer::new(writer);
     let mut seq = serializer
         .serialize_seq(Some(recorder.events.len()))
-        .map_err(|e| format!("failed to serialize events: {}", e))?;
+        .map_err(|e| format!("failed to serialize events: {e}"))?;
     for entry in recorder.events.iter() {
         match entry {
             Event::Start { start, name, span, thread_id, .. } => {
@@ -168,7 +168,7 @@ pub fn export_json(
                     },
                     args: args.clone(),
                 })
-                .map_err(|e| format!("failed to serialize event: {}", e))?;
+                .map_err(|e| format!("failed to serialize event: {e}"))?;
             }
             Event::End { end, name, span, thread_id, .. } => {
                 let args = span.map(&mut source).map(|(file, line)| Args { file, line });
@@ -184,12 +184,12 @@ pub fn export_json(
                     },
                     args,
                 })
-                .map_err(|e| format!("failed to serialize event: {}", e))?;
+                .map_err(|e| format!("failed to serialize event: {e}"))?;
             }
         }
     }
 
-    seq.end().map_err(|e| format!("failed to serialize events: {}", e))?;
+    seq.end().map_err(|e| format!("failed to serialize events: {e}"))?;
 
     Ok(())
 }

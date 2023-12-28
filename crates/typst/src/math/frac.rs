@@ -1,5 +1,5 @@
 use crate::diag::{bail, SourceResult};
-use crate::foundations::{elem, Content, NativeElement, Value};
+use crate::foundations::{elem, Content, Value};
 use crate::layout::{Em, Frame, FrameItem, Point, Size};
 use crate::math::{
     FrameFragment, GlyphFragment, LayoutMath, MathContext, MathSize, Scaled,
@@ -70,6 +70,7 @@ pub struct BinomElem {
 }
 
 impl LayoutMath for BinomElem {
+    #[typst_macros::trace(name = "math.binom", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, self.upper(), self.lower(), true, self.span())
     }

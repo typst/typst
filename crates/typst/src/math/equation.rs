@@ -311,6 +311,7 @@ impl Outlinable for EquationElem {
 }
 
 impl LayoutMath for EquationElem {
+    #[typst_macros::trace(name = "math.equation", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         self.body().layout_math(ctx)
     }

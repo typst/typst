@@ -242,7 +242,6 @@ impl Eval for ast::Closure<'_> {
 
 /// Call the function in the context with the arguments.
 #[comemo::memoize]
-#[typst_macros::trace(name = "closure call", span = func.span())]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn call_closure(
     func: &Func,
