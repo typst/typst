@@ -709,7 +709,7 @@ fn corners_control_points(
             strokes.get_ref(corner.side_ccw()),
             strokes.get_ref(corner.side_cw()),
         ) {
-            (Some(a), Some(b)) => a.paint == b.paint && a.dash_pattern == b.dash_pattern,
+            (Some(a), Some(b)) => a.paint == b.paint && a.dash == b.dash,
             (None, None) => true,
             _ => false,
         },
@@ -870,7 +870,7 @@ fn segment(
     }
 
     let solid = stroke
-        .dash_pattern
+        .dash
         .as_ref()
         .map(|pattern| pattern.array.is_empty())
         .unwrap_or(true);

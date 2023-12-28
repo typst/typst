@@ -1,5 +1,5 @@
 use comemo::{Prehashed, Tracked, TrackedMut};
-use ecow::EcoVec;
+use ecow::{eco_format, EcoVec};
 
 use crate::diag::{bail, error, At, HintedStrResult, SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
@@ -99,13 +99,27 @@ impl Eval for ast::FuncCall<'_> {
                     field.as_str()
                 );
 
-                if let Value::Dict(dict) = target {
-                    if matches!(dict.get(&field), Ok(Value::Func(_))) {
-                        error.hint(
-                            "to call the function stored in the dictionary, \
-                             surround the field access with parentheses",
-                        );
+                let mut field_hint = || {
+                    if target.field(&field).is_ok() {
+                        error.hint(eco_format!(
+                            "did you mean to access the field `{}`?",
+                            field.as_str()
+                        ));
                     }
+                };
+
+                match target {
+                    Value::Dict(ref dict) => {
+                        if matches!(dict.get(&field), Ok(Value::Func(_))) {
+                            error.hint(
+                                "to call the function stored in the dictionary, \
+                             surround the field access with parentheses",
+                            );
+                        } else {
+                            field_hint();
+                        }
+                    }
+                    _ => field_hint(),
                 }
 
                 bail!(error);
@@ -122,10 +136,13 @@ impl Eval for ast::FuncCall<'_> {
                 let c = sym.get();
                 if let Some(accent) = Symbol::combining_accent(c) {
                     let base = args.expect("base")?;
+                    let size = args.named("size")?;
                     args.finish()?;
-                    return Ok(Value::Content(
-                        AccentElem::new(base, Accent::new(accent)).pack(),
-                    ));
+                    let mut accent = AccentElem::new(base, Accent::new(accent));
+                    if let Some(size) = size {
+                        accent = accent.with_size(size);
+                    }
+                    return Ok(Value::Content(accent.pack()));
                 }
             }
             let mut body = Content::empty();

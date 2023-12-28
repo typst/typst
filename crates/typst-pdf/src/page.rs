@@ -516,26 +516,18 @@ impl PageContext<'_, '_> {
                 Some(Paint::Gradient(_))
             )
         {
-            let FixedStroke {
-                paint,
-                thickness,
-                line_cap,
-                line_join,
-                dash_pattern,
-                miter_limit,
-            } = stroke;
-
+            let FixedStroke { paint, thickness, cap, join, dash, miter_limit } = stroke;
             paint.set_as_stroke(self, on_text, transforms);
 
             self.content.set_line_width(thickness.to_f32());
-            if self.state.stroke.as_ref().map(|s| &s.line_cap) != Some(line_cap) {
-                self.content.set_line_cap(to_pdf_line_cap(*line_cap));
+            if self.state.stroke.as_ref().map(|s| &s.cap) != Some(cap) {
+                self.content.set_line_cap(to_pdf_line_cap(*cap));
             }
-            if self.state.stroke.as_ref().map(|s| &s.line_join) != Some(line_join) {
-                self.content.set_line_join(to_pdf_line_join(*line_join));
+            if self.state.stroke.as_ref().map(|s| &s.join) != Some(join) {
+                self.content.set_line_join(to_pdf_line_join(*join));
             }
-            if self.state.stroke.as_ref().map(|s| &s.dash_pattern) != Some(dash_pattern) {
-                if let Some(pattern) = dash_pattern {
+            if self.state.stroke.as_ref().map(|s| &s.dash) != Some(dash) {
+                if let Some(pattern) = dash {
                     self.content.set_dash_pattern(
                         pattern.array.iter().map(|l| l.to_f32()),
                         pattern.phase.to_f32(),

@@ -6,7 +6,7 @@ description: Typst's tutorial.
 Welcome to Typst's tutorial! In this tutorial, you will learn how to write and
 format documents in Typst. We will start with everyday tasks and gradually
 introduce more advanced features. This tutorial does not assume prior knowledge
-of Typst, other Markup languages, or programming. We do assume that you know how
+of Typst, other markup languages, or programming. We do assume that you know how
 to edit a text file.
 
 The best way to start is to sign up to the Typst app for free and follow along

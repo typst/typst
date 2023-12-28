@@ -412,7 +412,7 @@ fn layout_mat_body(
     let default_stroke = FixedStroke {
         thickness: default_stroke_thickness,
         paint: TextElem::fill_in(ctx.styles()).as_decoration(),
-        line_cap: LineCap::Square,
+        cap: LineCap::Square,
         ..Default::default()
     };
 
