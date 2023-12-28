@@ -122,10 +122,13 @@ impl Eval for ast::FuncCall<'_> {
                 let c = sym.get();
                 if let Some(accent) = Symbol::combining_accent(c) {
                     let base = args.expect("base")?;
+                    let size = args.named("size")?;
                     args.finish()?;
-                    return Ok(Value::Content(
-                        AccentElem::new(base, Accent::new(accent)).pack(),
-                    ));
+                    let mut accent = AccentElem::new(base, Accent::new(accent));
+                    if let Some(size) = size {
+                        accent = accent.with_size(size);
+                    }
+                    return Ok(Value::Content(accent.pack()));
                 }
             }
             let mut body = Content::empty();
