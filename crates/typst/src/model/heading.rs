@@ -162,7 +162,7 @@ impl Show for HeadingElem {
                 + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;
         }
-        Ok(BlockElem::new().with_body(Some(realized)).pack())
+        Ok(BlockElem::new().spanned(self.span()).with_body(Some(realized)).pack())
     }
 }
 

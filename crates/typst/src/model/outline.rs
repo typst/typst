@@ -512,6 +512,7 @@ impl Show for OutlineEntry {
             seq.push(SpaceElem::new().pack());
             seq.push(
                 BoxElem::new()
+                    .spanned(self.span())
                     .with_body(Some(filler.clone()))
                     .with_width(Fr::one().into())
                     .pack(),

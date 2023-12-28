@@ -407,7 +407,8 @@ impl Show for RawElem {
         if self.block(styles) {
             // Align the text before inserting it into the block.
             realized = realized.aligned(self.align(styles).into());
-            realized = BlockElem::new().with_body(Some(realized)).pack();
+            realized =
+                BlockElem::new().spanned(self.span()).with_body(Some(realized)).pack();
         }
 
         Ok(realized)

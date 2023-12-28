@@ -168,7 +168,8 @@ impl Show for QuoteElem {
         }
 
         if block {
-            realized = BlockElem::new().with_body(Some(realized)).pack();
+            realized =
+                BlockElem::new().spanned(self.span()).with_body(Some(realized)).pack();
 
             if let Some(attribution) = self.attribution(styles).as_ref() {
                 let mut seq = vec![TextElem::packed('—'), SpaceElem::new().pack()];

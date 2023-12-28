@@ -949,7 +949,8 @@ impl ElemRenderer<'_> {
 
         match elem.display {
             Some(Display::Block) => {
-                content = BlockElem::new().with_body(Some(content)).pack();
+                content =
+                    BlockElem::new().spanned(self.span).with_body(Some(content)).pack();
             }
             Some(Display::Indent) => {
                 content = PadElem::new(content).pack();

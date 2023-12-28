@@ -317,6 +317,7 @@ impl Show for FigureElem {
         // Wrap the contents in a block.
         realized = BlockElem::new()
             .with_body(Some(realized))
+            .spanned(self.span())
             .pack()
             .aligned(Align::CENTER);
 
