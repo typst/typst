@@ -21,7 +21,6 @@ pub struct CliArguments {
     /// auto = use color if a capable terminal is detected
     #[clap(
         long,
-        short,
         value_name = "WHEN",
         require_equals = true,
         num_args = 0..=1,
