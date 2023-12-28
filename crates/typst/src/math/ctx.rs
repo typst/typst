@@ -242,7 +242,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 let mut frame = MathRow::new(fragments).into_frame(self);
                 let axis = scaled!(self, axis_height);
                 frame.set_baseline(frame.height() / 2.0 + axis);
-                FrameFragment::new(self, frame).with_text_like(true).into()
+                FrameFragment::new(self, frame).into()
             } else {
                 self.layout_complex_text(&text, span)?.into()
             }
