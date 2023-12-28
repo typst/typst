@@ -1,5 +1,5 @@
 use comemo::{Prehashed, Tracked, TrackedMut};
-use ecow::EcoVec;
+use ecow::{eco_format, EcoVec};
 
 use crate::diag::{bail, error, At, HintedStrResult, SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
@@ -101,10 +101,11 @@ impl Eval for ast::FuncCall<'_> {
 
                 if let Value::Dict(dict) = target {
                     if matches!(dict.get(&field), Ok(Value::Func(_))) {
-                        error.hint(
+                        error.hint(eco_format!(
                             "to call the function stored in the dictionary, surround \
-                             the field access with parentheses, e.g. #(dict.fun)(...)",
-                        );
+                             the field access with parentheses, e.g. #(dict.{})(...)",
+                            field.as_str(),
+                        ));
                     }
                 }
 
