@@ -107,6 +107,7 @@ fn typeset(
     tracer: &mut Tracer,
     content: &Content,
 ) -> SourceResult<Document> {
+    // The name of the iterations for tracing scopes.
     const ITER_NAMES: &[&str] =
         &["typeset (1)", "typeset (2)", "typeset (3)", "typeset (4)", "typeset (5)"];
 
