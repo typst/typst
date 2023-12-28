@@ -1,6 +1,6 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Smart, StyleChain};
+use crate::foundations::{elem, Content, NativeElement, Smart, StyleChain};
 use crate::layout::{
     apply_align_inset_to_cells, Abs, Align, Axes, Celled, Fragment, GridLayouter, Layout,
     Length, Regions, Rel, Sides, TrackSizings,

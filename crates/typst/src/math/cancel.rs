@@ -1,7 +1,7 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::{At, SourceResult};
-use crate::foundations::{cast, elem, Content, Func, Resolve, Smart};
+use crate::foundations::{cast, elem, Content, Func, NativeElement, Resolve, Smart};
 use crate::layout::{
     Abs, Angle, Frame, FrameItem, Length, Point, Ratio, Rel, Size, Transform,
 };

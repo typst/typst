@@ -2,7 +2,9 @@ use std::str::FromStr;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{cast, elem, scope, Array, Content, Fold, Smart, StyleChain};
+use crate::foundations::{
+    cast, elem, scope, Array, Content, Fold, NativeElement, Smart, StyleChain,
+};
 use crate::layout::{
     Align, Axes, BlockElem, Celled, Em, Fragment, GridLayouter, HAlign, Layout, Length,
     Regions, Sizing, Spacing, VAlign,

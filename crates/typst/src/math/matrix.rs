@@ -2,7 +2,8 @@ use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
-    cast, dict, elem, Array, Cast, Content, Dict, Fold, Resolve, Smart, StyleChain, Value,
+    cast, dict, elem, Array, Cast, Content, Dict, Fold, NativeElement, Resolve, Smart,
+    StyleChain, Value,
 };
 use crate::layout::{
     Abs, Axes, Em, FixedAlign, Frame, FrameItem, Length, Point, Ratio, Rel, Size,

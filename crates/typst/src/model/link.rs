@@ -2,7 +2,9 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{cast, elem, Content, Label, Repr, Show, Smart, StyleChain};
+use crate::foundations::{
+    cast, elem, Content, Label, NativeElement, Repr, Show, Smart, StyleChain,
+};
 use crate::introspection::Location;
 use crate::layout::Position;
 use crate::text::{Hyphenate, TextElem};

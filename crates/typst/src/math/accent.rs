@@ -2,7 +2,7 @@ use ttf_parser::GlyphId;
 use unicode_math_class::MathClass;
 
 use crate::diag::{bail, SourceResult};
-use crate::foundations::{cast, elem, Content, Resolve, Smart, Value};
+use crate::foundations::{cast, elem, Content, NativeElement, Resolve, Smart, Value};
 use crate::layout::{Abs, Em, Frame, Length, Point, Rel, Size};
 use crate::math::{
     FrameFragment, GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled,

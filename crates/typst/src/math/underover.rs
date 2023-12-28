@@ -1,7 +1,7 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
-use crate::foundations::{elem, Content};
+use crate::foundations::{elem, Content, NativeElement};
 use crate::layout::{Abs, Em, FixedAlign, Frame, FrameItem, Point, Size};
 use crate::math::{
     alignments, AlignmentResult, FrameFragment, GlyphFragment, LayoutMath, MathContext,

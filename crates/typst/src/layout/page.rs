@@ -6,8 +6,8 @@ use std::str::FromStr;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, AutoValue, Cast, Content, Dict, Fold, Func, Resolve, Smart, StyleChain,
-    Value,
+    cast, elem, AutoValue, Cast, Content, Dict, Fold, Func, NativeElement, Resolve,
+    Smart, StyleChain, Value,
 };
 use crate::introspection::{Counter, CounterKey, ManualPageCounter, Meta};
 use crate::layout::{

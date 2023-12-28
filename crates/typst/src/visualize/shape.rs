@@ -2,7 +2,7 @@ use std::f64::consts::SQRT_2;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Resolve, Smart, StyleChain};
+use crate::foundations::{elem, Content, NativeElement, Resolve, Smart, StyleChain};
 use crate::layout::{
     Abs, Axes, Corner, Corners, Fragment, Frame, FrameItem, Layout, Length, Point, Ratio,
     Regions, Rel, Sides, Size,

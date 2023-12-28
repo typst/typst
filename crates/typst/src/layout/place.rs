@@ -1,6 +1,8 @@
 use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{elem, Behave, Behaviour, Content, Smart, StyleChain};
+use crate::foundations::{
+    elem, Behave, Behaviour, Content, NativeElement, Smart, StyleChain,
+};
 use crate::layout::{Align, Axes, Em, Fragment, Layout, Length, Regions, Rel, VAlign};
 
 /// Places content at an absolute position.

@@ -1,7 +1,7 @@
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Cast, Content, Label, Show, Smart, StyleChain, Synthesize,
+    cast, elem, Cast, Content, Label, NativeElement, Show, Smart, StyleChain, Synthesize,
 };
 use crate::introspection::Locatable;
 use crate::model::bibliography::Works;

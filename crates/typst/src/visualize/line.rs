@@ -1,6 +1,6 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{elem, StyleChain};
+use crate::foundations::{elem, NativeElement, StyleChain};
 use crate::layout::{
     Abs, Angle, Axes, Fragment, Frame, FrameItem, Layout, Length, Regions, Rel, Size,
 };
