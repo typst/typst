@@ -27,3 +27,7 @@ $A^x != hat(A)^x != hat(hat(A))^x$
 ---
 // Test high base.
 $ tilde(integral), tilde(integral)_a^b, tilde(integral_a^b) $
+
+---
+// Test accent size.
+$tilde(sum), tilde(sum, size: #50%), accent(H, hat, size: #200%)$

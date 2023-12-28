@@ -1,8 +1,8 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::{bail, SourceResult};
-use crate::foundations::{cast, elem, Content, NativeElement, Value};
-use crate::layout::{Em, Frame, Point, Size};
+use crate::foundations::{cast, elem, Content, NativeElement, Resolve, Smart, Value};
+use crate::layout::{Em, Frame, Length, Point, Rel, Size};
 use crate::math::{
     FrameFragment, GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled,
 };
@@ -55,6 +55,9 @@ pub struct AccentElem {
     /// | Left arrow    | `arrow.l`, `<-` | `←`       |
     #[required]
     pub accent: Accent,
+
+    /// The size of the accent, relative to the width of the base.
+    pub size: Smart<Rel<Length>>,
 }
 
 impl LayoutMath for AccentElem {
@@ -68,12 +71,18 @@ impl LayoutMath for AccentElem {
         let base_class = base.class().unwrap_or(MathClass::Normal);
         let base_attach = base.accent_attach();
 
+        let width = self
+            .size(ctx.styles())
+            .unwrap_or(Rel::one())
+            .resolve(ctx.styles())
+            .relative_to(base.width());
+
         // Forcing the accent to be at least as large as the base makes it too
         // wide in many case.
         let Accent(c) = self.accent();
         let glyph = GlyphFragment::new(ctx, *c, self.span());
         let short_fall = ACCENT_SHORT_FALL.scaled(ctx);
-        let variant = glyph.stretch_horizontal(ctx, base.width(), short_fall);
+        let variant = glyph.stretch_horizontal(ctx, width, short_fall);
         let accent = variant.frame;
         let accent_attach = variant.accent_attach;
 

@@ -410,17 +410,11 @@ fn render_outline_glyph(
         );
         canvas.fill_path(&path, &paint, rule, ts, state.mask);
 
-        if let Some(FixedStroke {
-            paint,
-            thickness,
-            line_cap,
-            line_join,
-            dash_pattern,
-            miter_limit,
-        }) = &text.stroke
+        if let Some(FixedStroke { paint, thickness, cap, join, dash, miter_limit }) =
+            &text.stroke
         {
             if thickness.to_f32() > 0.0 {
-                let dash = dash_pattern.as_ref().and_then(to_sk_dash_pattern);
+                let dash = dash.as_ref().and_then(to_sk_dash_pattern);
 
                 let paint = to_sk_paint(
                     paint,
@@ -433,8 +427,8 @@ fn render_outline_glyph(
                 );
                 let stroke = sk::Stroke {
                     width: thickness.to_f32() / scale, // When we scale the path, we need to scale the stroke width, too.
-                    line_cap: to_sk_line_cap(*line_cap),
-                    line_join: to_sk_line_join(*line_join),
+                    line_cap: to_sk_line_cap(*cap),
+                    line_join: to_sk_line_join(*join),
                     dash,
                     miter_limit: miter_limit.get() as f32,
                 };
@@ -607,20 +601,14 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
         canvas.fill_path(&path, &paint, rule, ts, state.mask);
     }
 
-    if let Some(FixedStroke {
-        paint,
-        thickness,
-        line_cap,
-        line_join,
-        dash_pattern,
-        miter_limit,
-    }) = &shape.stroke
+    if let Some(FixedStroke { paint, thickness, cap, join, dash, miter_limit }) =
+        &shape.stroke
     {
         let width = thickness.to_f32();
 
         // Don't draw zero-pt stroke.
         if width > 0.0 {
-            let dash = dash_pattern.as_ref().and_then(to_sk_dash_pattern);
+            let dash = dash.as_ref().and_then(to_sk_dash_pattern);
 
             let bbox = shape.geometry.bbox_size();
             let offset_bbox = (!matches!(shape.geometry, Geometry::Line(..)))
@@ -661,8 +649,8 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
             );
             let stroke = sk::Stroke {
                 width,
-                line_cap: to_sk_line_cap(*line_cap),
-                line_join: to_sk_line_join(*line_join),
+                line_cap: to_sk_line_cap(*cap),
+                line_join: to_sk_line_join(*join),
                 dash,
                 miter_limit: miter_limit.get() as f32,
             };

@@ -36,6 +36,12 @@
 #numbers.fun()
 
 ---
+// Error: 2:4-2:10 type content has no method `stroke`
+// Hint: 2:4-2:10 did you mean to access the field `stroke`?
+#let l = line(stroke: red)
+#l.stroke()
+
+---
 // Error: 2:2-2:43 cannot mutate a temporary value
 #let numbers = (1, 2, 3)
 #numbers.map(v => v / 2).sorted().map(str).remove(4)
