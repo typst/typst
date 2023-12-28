@@ -116,7 +116,7 @@ impl Show for EquationElem {
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.clone().pack().guarded(Guard::Base(Self::elem()));
         if self.block(styles) {
-            realized = AlignElem::new(realized).pack();
+            realized = AlignElem::new(realized).spanned(self.span()).pack();
         }
         Ok(realized)
     }

@@ -135,7 +135,7 @@ impl Show for FootnoteElem {
             let numbering = self.numbering(styles);
             let counter = Counter::of(Self::elem());
             let num = counter.at(engine, loc)?.display(engine, numbering)?;
-            let sup = SuperElem::new(num).pack();
+            let sup = SuperElem::new(num).spanned(self.span()).pack();
             let loc = loc.variant(1);
             // Add zero-width weak spacing to make the footnote "sticky".
             Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc)))
@@ -286,13 +286,17 @@ impl Show for FootnoteEntry {
 
         let num = counter.at(engine, loc)?.display(engine, numbering)?;
         let sup = SuperElem::new(num)
+            .spanned(self.span())
             .pack()
             .linked(Destination::Location(loc))
             .backlinked(loc.variant(1));
         Ok(Content::sequence([
-            HElem::new(self.indent(styles).into()).pack(),
+            HElem::new(self.indent(styles).into()).spanned(self.span()).pack(),
             sup,
-            HElem::new(number_gap.into()).with_weak(true).pack(),
+            HElem::new(number_gap.into())
+                .spanned(self.span())
+                .with_weak(true)
+                .pack(),
             note.body_content().unwrap().clone(),
         ]))
     }

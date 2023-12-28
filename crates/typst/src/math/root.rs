@@ -15,10 +15,12 @@ use crate::visualize::{FixedStroke, Geometry};
 /// ```
 #[func(title = "Square Root")]
 pub fn sqrt(
+    /// The call span of this function.
+    span: Span,
     /// The expression to take the square root of.
     radicand: Content,
 ) -> Content {
-    RootElem::new(radicand).pack()
+    RootElem::new(radicand).spanned(span).pack()
 }
 
 /// A general root.

@@ -324,6 +324,7 @@ impl Show for FigureElem {
         // Wrap in a float.
         if let Some(align) = self.placement(styles) {
             realized = PlaceElem::new(realized)
+                .spanned(self.span())
                 .with_float(true)
                 .with_alignment(align.map(|align| HAlign::Center + align))
                 .pack();

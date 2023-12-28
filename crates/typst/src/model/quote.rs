@@ -181,6 +181,7 @@ impl Show for QuoteElem {
                     Attribution::Label(label) => {
                         seq.push(
                             CiteElem::new(*label)
+                                .spanned(self.span())
                                 .with_form(Some(CitationForm::Prose))
                                 .pack(),
                         );
@@ -195,7 +196,8 @@ impl Show for QuoteElem {
 
             realized = PadElem::new(realized).pack();
         } else if let Some(Attribution::Label(label)) = self.attribution(styles) {
-            realized += SpaceElem::new().pack() + CiteElem::new(*label).pack();
+            realized += SpaceElem::new().pack()
+                + CiteElem::new(*label).spanned(self.span()).pack();
         }
 
         Ok(realized)

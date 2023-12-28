@@ -384,7 +384,10 @@ impl PageElem {
         let mut child = self.body().clone();
         let columns = self.columns(styles);
         if columns.get() > 1 {
-            child = ColumnsElem::new(child).with_count(columns).pack();
+            child = ColumnsElem::new(child)
+                .spanned(self.span())
+                .with_count(columns)
+                .pack();
         }
 
         let area = size - margin.sum_by_axis();

@@ -195,7 +195,12 @@ impl Show for OutlineElem {
                 TextElem::packed(Self::local_name_in(styles)).spanned(self.span())
             });
 
-            seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
+            seq.push(
+                HeadingElem::new(title)
+                    .spanned(self.span())
+                    .with_level(NonZeroUsize::ONE)
+                    .pack(),
+            );
         }
 
         let indent = self.indent(styles);
@@ -349,7 +354,10 @@ impl OutlineIndent {
             // Length => indent with some fixed spacing per level
             Some(Smart::Custom(OutlineIndent::Rel(length))) => {
                 seq.push(
-                    HElem::new(Spacing::Rel(*length)).pack().repeat(ancestors.len()),
+                    HElem::new(Spacing::Rel(*length))
+                        .spanned(span)
+                        .pack()
+                        .repeat(ancestors.len()),
                 );
             }
 

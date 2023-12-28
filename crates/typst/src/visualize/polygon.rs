@@ -1,5 +1,7 @@
 use std::f64::consts::PI;
 
+use typst_syntax::Span;
+
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -65,6 +67,8 @@ impl PolygonElem {
     /// ```
     #[func(title = "Regular Polygon")]
     pub fn regular(
+        /// The call span of this function.
+        span: Span,
         /// How to fill the polygon. See the general
         /// [polygon's documentation]($polygon.fill) for more details.
         #[named]
@@ -111,7 +115,7 @@ impl PolygonElem {
             })
             .collect();
 
-        let mut elem = PolygonElem::new(vertices);
+        let mut elem = PolygonElem::new(vertices).spanned(span);
         if let Some(fill) = fill {
             elem.push_fill(fill);
         }

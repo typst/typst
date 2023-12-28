@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked};
 use ecow::EcoString;
+use typst_syntax::Span;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
@@ -104,6 +105,8 @@ impl ImageElem {
     /// ```
     #[func(title = "Decode Image")]
     pub fn decode(
+        /// The call span of this function.
+        span: Span,
         /// The data to decode as an image. Can be a string for SVGs.
         data: Readable,
         /// The image's format. Detected automatically by default.
@@ -122,7 +125,7 @@ impl ImageElem {
         #[named]
         fit: Option<ImageFit>,
     ) -> StrResult<Content> {
-        let mut elem = ImageElem::new(EcoString::new(), data);
+        let mut elem = ImageElem::new(EcoString::new(), data).spanned(span);
         if let Some(format) = format {
             elem.push_format(format);
         }

@@ -235,11 +235,13 @@ fn delimited(
     right: char,
     size: Option<Smart<Rel<Length>>>,
 ) -> Content {
+    let span = body.span();
     let mut elem = LrElem::new(Content::sequence([
         TextElem::packed(left),
         body,
         TextElem::packed(right),
-    ]));
+    ]))
+    .spanned(span);
     // Push size only if size is provided
     if let Some(size) = size {
         elem.push_size(size);

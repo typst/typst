@@ -1,3 +1,5 @@
+use typst_syntax::Span;
+
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{dict, elem, func, Content, Func, NativeElement, StyleChain};
@@ -43,6 +45,8 @@ use crate::layout::{Fragment, Layout, Regions, Size};
 /// the page width or height is `auto`, respectively.
 #[func]
 pub fn layout(
+    /// The call span of this function.
+    span: Span,
     /// A function to call with the outer container's size. Its return value is
     /// displayed in the document.
     ///
@@ -54,7 +58,7 @@ pub fn layout(
     /// content that depends on the size of the container it is inside of.
     func: Func,
 ) -> Content {
-    LayoutElem::new(func).pack()
+    LayoutElem::new(func).spanned(span).pack()
 }
 
 /// Executes a `layout` call.
