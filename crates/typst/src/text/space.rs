@@ -7,7 +7,7 @@ pub struct SpaceElem {}
 
 impl Repr for SpaceElem {
     fn repr(&self) -> EcoString {
-        EcoString::inline("[ ]")
+        "[ ]".into()
     }
 }
 
