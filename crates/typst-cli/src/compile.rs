@@ -86,7 +86,7 @@ pub fn span_to_source(span: Span, world: &SystemWorld) -> (String, u32) {
     let line = source.byte_to_line(token.range().start).unwrap();
     let name = world.slot(id, |slot| slot.name(world.root())).unwrap();
 
-    (name, line as u32)
+    (name, line as u32 + 1)
 }
 
 /// Compile a single time.

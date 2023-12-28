@@ -130,7 +130,7 @@ pub fn export_json(
         name: &'static str,
         cat: &'static str,
         ph: &'static str,
-        ts: u64,
+        ts: f64,
         pid: u64,
         tid: u64,
         args: Option<Args>,
@@ -160,7 +160,7 @@ pub fn export_json(
                     name,
                     cat: "typst",
                     ph: "B",
-                    ts: (*start - *run_start).as_nanos() as u64,
+                    ts: (*start - *run_start).as_nanos() as f64 / 1_000.0,
                     pid: 1,
                     tid: unsafe {
                         // Safety: `thread_id` is a `ThreadId` which is a `u64`.
@@ -176,7 +176,7 @@ pub fn export_json(
                     name,
                     cat: "typst",
                     ph: "E",
-                    ts: (*end - *run_start).as_nanos() as u64,
+                    ts: (*end - *run_start).as_nanos() as f64 / 1_000.0,
                     pid: 1,
                     tid: unsafe {
                         // Safety: `thread_id` is a `ThreadId` which is a `u64`.
