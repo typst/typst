@@ -19,7 +19,6 @@ use crate::World;
 impl Eval for ast::FuncCall<'_> {
     type Output = Value;
 
-    #[typst_macros::trace(name = "function call", span = self.span())]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
         let callee = self.callee();

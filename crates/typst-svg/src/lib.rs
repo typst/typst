@@ -25,7 +25,7 @@ use xmlwriter::XmlWriter;
 const CONIC_SEGMENT: usize = 360;
 
 /// Export a frame into a SVG file.
-#[typst_macros::trace(name = "export:svg")]
+#[typst_macros::trace(name = "svg")]
 pub fn svg(frame: &Frame) -> String {
     let mut renderer = SVGRenderer::new();
     renderer.write_header(frame.size());

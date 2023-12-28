@@ -26,6 +26,7 @@ use crate::image::deferred_image;
 use crate::{deflate_deferred, AbsExt, EmExt, PdfContext};
 
 /// Construct page objects.
+#[typst_macros::trace(name = "construct pages")]
 pub(crate) fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
     for frame in frames {
         let (page_ref, page) = construct_page(ctx, frame);
@@ -35,6 +36,7 @@ pub(crate) fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
 }
 
 /// Construct a page object.
+#[typst_macros::trace(name = "construct page")]
 pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Page) {
     let page_ref = ctx.alloc.bump();
 

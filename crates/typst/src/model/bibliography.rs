@@ -344,6 +344,7 @@ impl Bibliography {
 
     /// Load bibliography entries from paths.
     #[comemo::memoize]
+    #[typst_macros::trace(name = "load bibliography")]
     fn load(paths: &BibliographyPaths, data: &[Bytes]) -> StrResult<Bibliography> {
         let mut map = IndexMap::new();
         let mut duplicates = Vec::<EcoString>::new();
