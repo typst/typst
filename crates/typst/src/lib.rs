@@ -55,6 +55,7 @@ pub mod visualize;
 
 #[doc(inline)]
 pub use typst_syntax as syntax;
+use typst_trace::scoped;
 
 use std::collections::HashSet;
 use std::ops::Range;
@@ -140,7 +141,7 @@ fn typeset(
         document.introspector.rebuild(&document.pages);
         iter += 1;
 
-        if document.introspector.validate(&constraint) {
+        if scoped!("check stabilized", document.introspector.validate(&constraint)) {
             break;
         }
 

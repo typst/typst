@@ -234,3 +234,42 @@ impl Drop for Scope {
         RECORDER.lock().events.push(event);
     }
 }
+
+/// Creates a scope around an expression.
+///
+/// The output of the expression is returned.
+///
+/// The scope will be named `name` and will have the span `span`. The span is
+/// optional.
+///
+/// ## Example
+///
+/// ```rs
+/// // With a scope name and span.
+/// scoped!(
+///     "my scope",
+///     span = Span::detached(),
+///     std::thread::sleep(std::time::Duration::from_secs(1))
+/// );
+///
+/// // With a scope name and no span.
+/// scoped!(
+///     "my scope",
+///     std::thread::sleep(std::time::Duration::from_secs(1))
+/// );
+/// ```
+#[macro_export]
+macro_rules! scoped {
+    ($name:literal, span = $span:expr, $eval:expr) => {{
+        let __inner_scope = $crate::Scope::new($name, Some($span));
+        let out = { $eval };
+        drop(__inner_scope);
+        out
+    }};
+    ($name:literal, $eval:expr) => {{
+        let __inner_scope = $crate::Scope::new($name, None);
+        let out = { $eval };
+        drop(__inner_scope);
+        out
+    }};
+}
