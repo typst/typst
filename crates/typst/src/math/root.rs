@@ -38,7 +38,7 @@ pub struct RootElem {
 }
 
 impl LayoutMath for RootElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::trace(name = "math.root", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, self.index(ctx.styles()).as_ref(), self.radicand(), self.span())
     }

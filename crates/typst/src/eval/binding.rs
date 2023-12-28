@@ -8,7 +8,6 @@ use crate::syntax::ast::{self, AstNode};
 impl Eval for ast::LetBinding<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "LetBinding::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = match self.init() {
             Some(expr) => expr.eval(vm)?,
@@ -57,7 +56,6 @@ pub(crate) fn destructure(
 }
 
 /// Destruct the given value into the pattern and apply the function to each binding.
-#[tracing::instrument(skip_all)]
 fn destructure_impl<T>(
     vm: &mut Vm,
     pattern: ast::Pattern,

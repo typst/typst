@@ -66,7 +66,7 @@ struct LayoutElem {
 }
 
 impl Layout for LayoutElem {
-    #[tracing::instrument(name = "LayoutElem::layout", skip_all)]
+    #[typst_macros::trace(name = "layout", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

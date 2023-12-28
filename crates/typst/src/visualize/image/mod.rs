@@ -143,7 +143,7 @@ impl ImageElem {
 }
 
 impl Layout for ImageElem {
-    #[tracing::instrument(name = "ImageElem::layout", skip_all)]
+    #[typst_macros::trace(name = "image", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

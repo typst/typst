@@ -2,8 +2,7 @@ use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
-    cast, dict, elem, Array, Cast, Content, Dict, Fold, NativeElement, Resolve, Smart,
-    StyleChain, Value,
+    cast, dict, elem, Array, Cast, Content, Dict, Fold, Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, Axes, Em, FixedAlign, Frame, FrameItem, Length, Point, Ratio, Rel, Size,
@@ -58,7 +57,7 @@ pub struct VecElem {
 }
 
 impl LayoutMath for VecElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::trace(name = "math.vec", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(
@@ -211,7 +210,7 @@ pub struct MatElem {
 }
 
 impl LayoutMath for MatElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::trace(name = "math.mat", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         // validate inputs
 
@@ -312,7 +311,7 @@ pub struct CasesElem {
 }
 
 impl LayoutMath for CasesElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::trace(name = "math.cases", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(

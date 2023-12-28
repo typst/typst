@@ -392,7 +392,7 @@ impl Synthesize for RawElem {
 }
 
 impl Show for RawElem {
-    #[tracing::instrument(name = "RawElem::show", skip_all)]
+    #[typst_macros::trace(name = "raw", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut lines = EcoVec::with_capacity((2 * self.lines().len()).saturating_sub(1));
         for (i, line) in self.lines().iter().enumerate() {
@@ -497,6 +497,7 @@ pub struct RawLine {
 }
 
 impl Show for RawLine {
+    #[typst_macros::trace(name = "raw.line", span = self.span())]
     fn show(&self, _: &mut Engine, _styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone())
     }

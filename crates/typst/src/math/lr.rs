@@ -34,7 +34,7 @@ pub struct LrElem {
 }
 
 impl LayoutMath for LrElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::trace(name = "math.lr", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut body = self.body();
         if let Some(elem) = body.to::<LrElem>() {
@@ -96,7 +96,7 @@ pub struct MidElem {
 }
 
 impl LayoutMath for MidElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::trace(name = "math.mid", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut fragments = ctx.layout_fragments(self.body())?;
 

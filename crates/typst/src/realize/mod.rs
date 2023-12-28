@@ -35,7 +35,7 @@ use crate::visualize::{
 };
 
 /// Realize into an element that is capable of root-level layout.
-#[tracing::instrument(skip_all)]
+#[typst_macros::trace(name = "realize")]
 pub fn realize_root<'a>(
     engine: &mut Engine,
     scratch: &'a Scratch<'a>,
@@ -54,7 +54,6 @@ pub fn realize_root<'a>(
 }
 
 /// Realize into an element that is capable of block-level layout.
-#[tracing::instrument(skip_all)]
 pub fn realize_block<'a>(
     engine: &mut Engine,
     scratch: &'a Scratch<'a>,

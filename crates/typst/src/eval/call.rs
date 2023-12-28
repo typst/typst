@@ -6,7 +6,7 @@ use crate::engine::Engine;
 use crate::eval::{Access, Eval, FlowEvent, Route, Tracer, Vm};
 use crate::foundations::{
     call_method_mut, is_mutating_method, Arg, Args, Bytes, Closure, Content, Func,
-    IntoValue, NativeElement, Scope, Scopes, Value,
+    IntoValue, Scope, Scopes, Value,
 };
 use crate::introspection::{Introspector, Locator};
 use crate::math::{Accent, AccentElem, LrElem};
@@ -19,7 +19,7 @@ use crate::World;
 impl Eval for ast::FuncCall<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "FuncCall::eval", skip_all)]
+    #[typst_macros::trace(name = "function call", span = self.span())]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
         let callee = self.callee();
@@ -213,7 +213,6 @@ impl Eval for ast::Args<'_> {
 impl Eval for ast::Closure<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Closure::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         // Evaluate default values of named parameters.
         let mut defaults = Vec::new();
@@ -243,7 +242,7 @@ impl Eval for ast::Closure<'_> {
 
 /// Call the function in the context with the arguments.
 #[comemo::memoize]
-#[tracing::instrument(skip_all)]
+#[typst_macros::trace(name = "closure call", span = func.span())]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn call_closure(
     func: &Func,
@@ -381,7 +380,6 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Visit any node and collect all captured variables.
-    #[tracing::instrument(skip_all)]
     pub fn visit(&mut self, node: &SyntaxNode) {
         match node.cast() {
             // Every identifier is a potential variable that we need to capture.

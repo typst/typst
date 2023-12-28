@@ -207,7 +207,7 @@ impl Synthesize for BibliographyElem {
 }
 
 impl Show for BibliographyElem {
-    #[tracing::instrument(name = "BibliographyElem::show", skip_all)]
+    #[typst_macros::trace(name = "bibliography", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         const COLUMN_GUTTER: Em = Em::new(0.65);
         const INDENT: Em = Em::new(1.5);

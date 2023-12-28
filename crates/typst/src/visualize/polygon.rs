@@ -123,7 +123,7 @@ impl PolygonElem {
 }
 
 impl Layout for PolygonElem {
-    #[tracing::instrument(name = "PolygonElem::layout", skip_all)]
+    #[typst_macros::trace(name = "polygon", span = self.span())]
     fn layout(
         &self,
         _: &mut Engine,

@@ -188,7 +188,7 @@ impl World for SystemWorld {
 
 impl SystemWorld {
     /// Access the canonical slot for the given file id.
-    fn slot<F, T>(&self, id: FileId, f: F) -> T
+    pub fn slot<F, T>(&self, id: FileId, f: F) -> T
     where
         F: FnOnce(&mut FileSlot) -> T,
     {
@@ -200,7 +200,7 @@ impl SystemWorld {
 /// Holds the processed data for a file ID.
 ///
 /// Both fields can be populated if the file is both imported and read().
-struct FileSlot {
+pub struct FileSlot {
     /// The slot's file id.
     id: FileId,
     /// The lazily loaded and incrementally updated source file.
@@ -218,6 +218,11 @@ impl FileSlot {
     /// Whether the file was accessed in the ongoing compilation.
     fn accessed(&self) -> bool {
         self.source.accessed() || self.file.accessed()
+    }
+
+    /// The name of the file.
+    pub fn name(&self, root: &Path) -> FileResult<String> {
+        system_path(root, self.id).map(|path| path.display().to_string())
     }
 
     /// Marks the file as not yet accessed in preparation of the next

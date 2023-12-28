@@ -55,7 +55,7 @@ struct StyleElem {
 }
 
 impl Show for StyleElem {
-    #[tracing::instrument(name = "StyleElem::show", skip_all)]
+    #[typst_macros::trace(name = "style", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.func().call(engine, [styles.to_map()])?.display())
     }

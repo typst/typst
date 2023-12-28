@@ -239,7 +239,7 @@ pub struct MathStyleElem {
 }
 
 impl LayoutMath for MathStyleElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::trace(name = "math.style", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut style = ctx.style;
         if let Some(variant) = self.variant(StyleChain::default()) {

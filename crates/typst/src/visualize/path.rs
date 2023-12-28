@@ -2,9 +2,7 @@ use kurbo::{CubicBez, ParamCurveExtrema};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{
-    array, cast, elem, Array, NativeElement, Reflect, Resolve, Smart, StyleChain,
-};
+use crate::foundations::{array, cast, elem, Array, Reflect, Resolve, Smart, StyleChain};
 use crate::layout::{
     Abs, Axes, Fragment, Frame, FrameItem, Layout, Length, Point, Regions, Rel, Size,
 };
@@ -71,7 +69,7 @@ pub struct PathElem {
 }
 
 impl Layout for PathElem {
-    #[tracing::instrument(name = "PathElem::layout", skip_all)]
+    #[typst_macros::trace(name = "path", span = self.span())]
     fn layout(
         &self,
         _: &mut Engine,

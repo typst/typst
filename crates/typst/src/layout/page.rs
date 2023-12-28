@@ -6,8 +6,8 @@ use std::str::FromStr;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, AutoValue, Cast, Content, Dict, Fold, Func, NativeElement, Resolve,
-    Smart, StyleChain, Value,
+    cast, elem, AutoValue, Cast, Content, Dict, Fold, Func, Resolve, Smart, StyleChain,
+    Value,
 };
 use crate::introspection::{Counter, CounterKey, ManualPageCounter, Meta};
 use crate::layout::{
@@ -340,7 +340,7 @@ impl PageElem {
     /// while we post-process the pages in this function. This function returns
     /// a fragment consisting of multiple frames, one per output page of this
     /// page run.
-    #[tracing::instrument(skip_all)]
+    #[typst_macros::trace(name = "page", span = self.span())]
     pub fn layout(
         &self,
         engine: &mut Engine,
@@ -348,8 +348,6 @@ impl PageElem {
         page_counter: &mut ManualPageCounter,
         extend_to: Option<Parity>,
     ) -> SourceResult<Fragment> {
-        tracing::info!("Page layout");
-
         // When one of the lengths is infinite the page fits its content along
         // that axis.
         let width = self.width(styles).unwrap_or(Abs::inf());
@@ -424,8 +422,11 @@ impl PageElem {
                 Numbering::Func(_) => true,
             };
 
-            let mut counter =
-                Counter::new(CounterKey::Page).display(Some(numbering.clone()), both);
+            let mut counter = Counter::new(CounterKey::Page).display(
+                self.span(),
+                Some(numbering.clone()),
+                both,
+            );
 
             // We interpret the Y alignment as selecting header or footer
             // and then ignore it for aligning the actual number.
@@ -444,8 +445,6 @@ impl PageElem {
 
         // Post-process pages.
         for frame in frames.iter_mut() {
-            tracing::info!("Layouting page #{}", page_counter.physical());
-
             // The padded width of the page's content without margins.
             let pw = frame.width();
 
@@ -466,14 +465,7 @@ impl PageElem {
             let size = frame.size();
 
             // Realize overlays.
-            for (name, marginal) in [
-                ("header", &header),
-                ("footer", &footer),
-                ("background", &background),
-                ("foreground", &foreground),
-            ] {
-                tracing::info!("Layouting {name}");
-
+            for marginal in [&header, &footer, &background, &foreground] {
                 let Some(content) = &**marginal else { continue };
 
                 let (pos, area, align);

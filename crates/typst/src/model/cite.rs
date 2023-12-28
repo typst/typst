@@ -1,7 +1,7 @@
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Cast, Content, Label, NativeElement, Show, Smart, StyleChain, Synthesize,
+    cast, elem, Cast, Content, Label, Show, Smart, StyleChain, Synthesize,
 };
 use crate::introspection::Locatable;
 use crate::model::bibliography::Works;
@@ -143,7 +143,7 @@ pub struct CiteGroup {
 }
 
 impl Show for CiteGroup {
-    #[tracing::instrument(name = "CiteGroup::show", skip(self, engine))]
+    #[typst_macros::trace(name = "cite", span = self.span())]
     fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
             let location = self.location().unwrap();

@@ -36,7 +36,7 @@ pub struct FracElem {
 }
 
 impl LayoutMath for FracElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::trace(name = "math.frac", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, self.num(), std::slice::from_ref(self.denom()), false, self.span())
     }

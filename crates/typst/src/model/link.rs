@@ -2,9 +2,7 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{
-    cast, elem, Content, Label, NativeElement, Repr, Show, Smart, StyleChain,
-};
+use crate::foundations::{cast, elem, Content, Label, Repr, Show, Smart, StyleChain};
 use crate::introspection::Location;
 use crate::layout::Position;
 use crate::text::{Hyphenate, TextElem};
@@ -90,7 +88,7 @@ impl LinkElem {
 }
 
 impl Show for LinkElem {
-    #[tracing::instrument(name = "LinkElem::show", skip(self, engine))]
+    #[typst_macros::trace(name = "link", span = self.span())]
     fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         let body = self.body().clone();
         let linked = match self.dest() {

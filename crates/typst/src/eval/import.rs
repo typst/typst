@@ -14,7 +14,6 @@ use crate::World;
 impl Eval for ast::ModuleImport<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "ModuleImport::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let source = self.source();
         let source_span = source.span();
@@ -98,7 +97,6 @@ impl Eval for ast::ModuleImport<'_> {
 impl Eval for ast::ModuleInclude<'_> {
     type Output = Content;
 
-    #[tracing::instrument(name = "ModuleInclude::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.source().span();
         let source = self.source().eval(vm)?;

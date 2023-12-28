@@ -1,7 +1,7 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, AutoValue, Content, NativeElement, Resolve, Smart, StyleChain, Value,
+    cast, elem, AutoValue, Content, Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, Axes, Corners, Em, Fr, Fragment, FrameKind, Layout, Length, Ratio, Regions, Rel,
@@ -110,7 +110,7 @@ pub struct BoxElem {
 }
 
 impl Layout for BoxElem {
-    #[tracing::instrument(name = "BoxElem::layout", skip_all)]
+    #[typst_macros::trace(name = "box", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -342,7 +342,7 @@ pub struct BlockElem {
 }
 
 impl Layout for BlockElem {
-    #[tracing::instrument(name = "BlockElem::layout", skip_all)]
+    #[typst_macros::trace(name = "block", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

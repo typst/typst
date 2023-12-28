@@ -1,8 +1,6 @@
 use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{
-    elem, Behave, Behaviour, Content, NativeElement, Smart, StyleChain,
-};
+use crate::foundations::{elem, Behave, Behaviour, Content, Smart, StyleChain};
 use crate::layout::{Align, Axes, Em, Fragment, Layout, Length, Regions, Rel, VAlign};
 
 /// Places content at an absolute position.
@@ -87,7 +85,7 @@ pub struct PlaceElem {
 }
 
 impl Layout for PlaceElem {
-    #[tracing::instrument(name = "PlaceElem::layout", skip_all)]
+    #[typst_macros::trace(name = "place", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

@@ -300,7 +300,7 @@ impl Synthesize for FigureElem {
 }
 
 impl Show for FigureElem {
-    #[tracing::instrument(name = "FigureElem::show", skip_all)]
+    #[typst_macros::trace(name = "figure", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
 
@@ -551,7 +551,7 @@ impl Synthesize for FigureCaption {
 }
 
 impl Show for FigureCaption {
-    #[tracing::instrument(name = "FigureCaption::show", skip_all)]
+    #[typst_macros::trace(name = "figure.caption", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
 

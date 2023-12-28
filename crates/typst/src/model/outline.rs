@@ -186,7 +186,7 @@ impl OutlineElem {
 }
 
 impl Show for OutlineElem {
-    #[tracing::instrument(name = "OutlineElem::show", skip_all)]
+    #[typst_macros::trace(name = "outline", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![ParbreakElem::new().pack()];
         // Build the outline title.
@@ -487,6 +487,7 @@ impl OutlineEntry {
 }
 
 impl Show for OutlineEntry {
+    #[typst_macros::trace(name = "outline.entry", span = self.span())]
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![];
         let elem = self.element();

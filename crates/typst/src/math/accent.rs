@@ -2,7 +2,7 @@ use ttf_parser::GlyphId;
 use unicode_math_class::MathClass;
 
 use crate::diag::{bail, SourceResult};
-use crate::foundations::{cast, elem, Content, NativeElement, Resolve, Smart, Value};
+use crate::foundations::{cast, elem, Content, Resolve, Smart, Value};
 use crate::layout::{Abs, Em, Frame, Length, Point, Rel, Size};
 use crate::math::{
     FrameFragment, GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled,
@@ -62,7 +62,7 @@ pub struct AccentElem {
 }
 
 impl LayoutMath for AccentElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::trace(name = "math.accent", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_cramped(true));
         let base = ctx.layout_fragment(self.base())?;

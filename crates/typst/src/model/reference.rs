@@ -159,7 +159,7 @@ impl Synthesize for RefElem {
 }
 
 impl Show for RefElem {
-    #[tracing::instrument(name = "RefElem::show", skip_all)]
+    #[typst_macros::trace(name = "ref", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
             let target = *self.target();

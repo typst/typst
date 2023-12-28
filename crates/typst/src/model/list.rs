@@ -1,8 +1,7 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, Func, NativeElement, Smart, StyleChain,
-    Value,
+    cast, elem, scope, Array, Content, Fold, Func, Smart, StyleChain, Value,
 };
 use crate::layout::{
     Axes, BlockElem, Celled, Em, Fragment, GridLayouter, HAlign, Layout, Length, Regions,
@@ -135,7 +134,7 @@ impl ListElem {
 }
 
 impl Layout for ListElem {
-    #[tracing::instrument(name = "ListElem::layout", skip_all)]
+    #[typst_macros::trace(name = "list", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

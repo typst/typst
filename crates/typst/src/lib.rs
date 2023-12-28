@@ -83,7 +83,7 @@ use crate::visualize::Color;
 /// Requires a mutable reference to a tracer. Such a tracer can be created with
 /// `Tracer::new()`. Independently of whether compilation succeeded, calling
 /// `tracer.warnings()` after compilation will return all compiler warnings.
-#[tracing::instrument(skip_all)]
+#[typst_macros::trace(name = "compile")]
 pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document> {
     // Call `track` on the world just once to keep comemo's ID stable.
     let world = world.track();
@@ -116,8 +116,6 @@ fn typeset(
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
     loop {
-        tracing::info!("Layout iteration {iter}");
-
         // Clear delayed errors.
         tracer.delayed();
 
@@ -290,7 +288,6 @@ impl LibraryBuilder {
 }
 
 /// Construct the module with global definitions.
-#[tracing::instrument(skip_all)]
 fn global(math: Module, inputs: Dict) -> Module {
     let mut global = Scope::deduplicating();
     self::foundations::define(&mut global, inputs);
