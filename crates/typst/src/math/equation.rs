@@ -14,10 +14,9 @@ use crate::layout::{
 use crate::math::{LayoutMath, MathContext};
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::text::{
-    families, variant, FontFamily, FontList, FontWeight, Lang, LocalName, Region,
-    TextElem,
+    families, variant, FontFamily, FontList, FontWeight, LocalName, TextElem,
 };
-use crate::util::{option_eq, NonZeroExt, Numeric};
+use crate::util::{NonZeroExt, Numeric};
 use crate::World;
 
 /// A mathematical equation.
@@ -231,42 +230,7 @@ impl Count for EquationElem {
     }
 }
 
-impl<'a> LocalName<'a> for EquationElem {
-    fn local_name(lang: Lang, region: Option<Region>) -> &'a str {
-        match lang {
-            Lang::ALBANIAN => "Ekuacion",
-            Lang::ARABIC => "معادلة",
-            Lang::BOKMÅL => "Ligning",
-            Lang::CHINESE if option_eq(region, "TW") => "方程式",
-            Lang::CHINESE => "公式",
-            Lang::CZECH => "Rovnice",
-            Lang::DANISH => "Ligning",
-            Lang::DUTCH => "Vergelijking",
-            Lang::ESTONIAN => "Valem",
-            Lang::FILIPINO => "Ekwasyon",
-            Lang::FINNISH => "Yhtälö",
-            Lang::FRENCH => "Équation",
-            Lang::GERMAN => "Gleichung",
-            Lang::GREEK => "Εξίσωση",
-            Lang::HUNGARIAN => "Egyenlet",
-            Lang::ITALIAN => "Equazione",
-            Lang::NYNORSK => "Likning",
-            Lang::POLISH => "Równanie",
-            Lang::PORTUGUESE => "Equação",
-            Lang::ROMANIAN => "Ecuația",
-            Lang::RUSSIAN => "Уравнение",
-            Lang::SERBIAN => "Једначина",
-            Lang::SLOVENIAN => "Enačba",
-            Lang::SPANISH => "Ecuación",
-            Lang::SWEDISH => "Ekvation",
-            Lang::TURKISH => "Denklem",
-            Lang::UKRAINIAN => "Рівняння",
-            Lang::VIETNAMESE => "Phương trình",
-            Lang::JAPANESE => "式",
-            Lang::ENGLISH | _ => "Equation",
-        }
-    }
-}
+impl LocalName for EquationElem {}
 
 impl Refable for EquationElem {
     fn supplement(&self) -> Content {

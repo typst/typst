@@ -6,7 +6,7 @@ use crate::layout::{
     Length, Regions, Rel, Sides, TrackSizings,
 };
 use crate::model::Figurable;
-use crate::text::{Lang, LocalName, Region};
+use crate::text::LocalName;
 use crate::visualize::{Paint, Stroke};
 
 /// A table of items.
@@ -190,40 +190,6 @@ impl Layout for TableElem {
     }
 }
 
-impl<'a> LocalName<'a> for TableElem {
-    fn local_name(lang: Lang, _: Option<Region>) -> &'a str {
-        match lang {
-            Lang::ALBANIAN => "Tabel",
-            Lang::ARABIC => "جدول",
-            Lang::BOKMÅL => "Tabell",
-            Lang::CHINESE => "表",
-            Lang::CZECH => "Tabulka",
-            Lang::DANISH => "Tabel",
-            Lang::DUTCH => "Tabel",
-            Lang::ESTONIAN => "Tabel",
-            Lang::FILIPINO => "Talaan",
-            Lang::FINNISH => "Taulukko",
-            Lang::FRENCH => "Tableau",
-            Lang::GERMAN => "Tabelle",
-            Lang::GREEK => "Πίνακας",
-            Lang::HUNGARIAN => "Táblázat",
-            Lang::ITALIAN => "Tabella",
-            Lang::NYNORSK => "Tabell",
-            Lang::POLISH => "Tabela",
-            Lang::PORTUGUESE => "Tabela",
-            Lang::ROMANIAN => "Tabelul",
-            Lang::RUSSIAN => "Таблица",
-            Lang::SERBIAN => "Табела",
-            Lang::SLOVENIAN => "Tabela",
-            Lang::SPANISH => "Tabla",
-            Lang::SWEDISH => "Tabell",
-            Lang::TURKISH => "Tablo",
-            Lang::UKRAINIAN => "Таблиця",
-            Lang::VIETNAMESE => "Bảng",
-            Lang::JAPANESE => "表",
-            Lang::ENGLISH | _ => "Table",
-        }
-    }
-}
+impl LocalName for TableElem {}
 
 impl Figurable for TableElem {}

@@ -62,8 +62,8 @@ unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
 usvg = { workspace = true }
 wasmi = { workspace = true }
-fluent = "0.16.0"
-unic-langid = "0.9.4"
+fluent = { workspace = true }
+unic-langid = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 stacker = { workspace = true }

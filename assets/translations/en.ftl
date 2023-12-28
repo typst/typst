@@ -1,4 +1,4 @@
-figure = FigureFluent
+figure = Figure
 table = Table
 equation = Equation
 bibliography = Bibliography

@@ -944,7 +944,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
     let local_name = element
         .if_capability(
             "LocalName",
-            || quote! { Some(<#ident as ::typst::text::LocalName>::local_name2) },
+            || quote! { Some(<#ident as ::typst::text::LocalName>::local_name) },
         )
         .unwrap_or_else(|| quote! { None });
 

@@ -158,17 +158,15 @@ cast! {
 }
 
 /// The name with which an element is referenced.
-pub trait LocalName<'a> {
-    fn local_name(lang: Lang, region: Option<Region>) -> &'a str;
-
+pub trait LocalName {
     /// Get the name in the given language and (optionally) region.
-    fn local_name2(
+    fn local_name(
         engine: &mut Engine,
         lang: Lang,
         region: Option<Region>,
         key: &str,
     ) -> String {
-        engine.localized_string(&Self::lang_str(lang, region), key)
+        engine.localized_string(lang, region, key)
     }
 
     /// Gets the local name from the style chain.
@@ -176,11 +174,11 @@ pub trait LocalName<'a> {
     where
         Self: Sized,
     {
-        engine.localized_string(&Self::lang_str(TextElem::lang_in(styles), TextElem::region_in(styles)), key)
-    }
-
-    fn lang_str(lang: Lang, region: Option<Region>) -> String {
-        lang.as_str().to_string() + &region.map_or_else(String::new, |r| String::from("_") + r.as_str())
+        engine.localized_string(
+            TextElem::lang_in(styles),
+            TextElem::region_in(styles),
+            key,
+        )
     }
 }
 

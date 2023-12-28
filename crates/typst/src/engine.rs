@@ -10,6 +10,7 @@ use crate::diag::SourceResult;
 use crate::eval::Tracer;
 use crate::introspection::{Introspector, Locator};
 use crate::syntax::FileId;
+use crate::text::{Lang, Region};
 use crate::World;
 
 /// Holds all data needed during compilation.
@@ -50,35 +51,42 @@ impl Engine<'_> {
         &'a mut self,
         lang_id: &str,
     ) -> &'a FluentBundle<FluentResource> {
-        // let b = self.langs.get(lang_id);
-        // if let Some(bundle) = b {
-        //     return bundle;
-        // }
+        if !self.langs.contains_key(lang_id) {
+            let id = FileId::new(None, VirtualPath::new(lang_id.to_string() + ".ftl"));
+            let fluent_file =
+                self.world.file(id).expect("no valid fluent file in project root");
+            let ftl_string =
+                String::from_utf8(fluent_file.to_vec()).expect("no valid utf8");
 
-        let id = FileId::new(None, VirtualPath::new(lang_id.to_string() + ".ftl"));
-        let fluent_file =
-            self.world.file(id).expect("no valid fluent file in project root");
-        let ftl_string = String::from_utf8(fluent_file.to_vec()).expect("no valid utf8");
-
-        let res =
-            FluentResource::try_new(ftl_string).expect("Failed to parse an FTL string.");
-        let langid_en: LanguageIdentifier = "en-US".parse().expect("Parsing failed");
-        let mut bundle = FluentBundle::new(vec![langid_en]);
-        bundle
-            .add_resource(res)
-            .expect("Failed to add FTL resources to the bundle.");
-        self.langs.insert(lang_id.to_string(), bundle);
+            let res = FluentResource::try_new(ftl_string)
+                .expect("Failed to parse an FTL string.");
+            let langid_en: LanguageIdentifier = "en-US".parse().expect("Parsing failed");
+            let mut bundle = FluentBundle::new(vec![langid_en]);
+            bundle
+                .add_resource(res)
+                .expect("Failed to add FTL resources to the bundle.");
+            self.langs.insert(lang_id.to_string(), bundle);
+        }
         self.langs.get(lang_id).unwrap()
     }
 
-    pub fn localized_string(&mut self, lang_id: &str, key: &str) -> String {
-        let bundle = self.get_lang_bundle(lang_id);
+    pub fn localized_string(
+        &mut self,
+        lang: Lang,
+        region: Option<Region>,
+        key: &str,
+    ) -> String {
+        let bundle = self.get_lang_bundle(&Self::lang_str(lang, region));
         let msg = bundle.get_message(key).expect("Message doesn't exist.");
         let mut errors = vec![];
         let pattern = msg.value().expect("Message has no value.");
         let value = bundle.format_pattern(&pattern, None, &mut errors);
-        // assert_eq!(&value, "Figure");
         value.to_string()
+    }
+
+    fn lang_str(lang: Lang, region: Option<Region>) -> String {
+        lang.as_str().to_string()
+            + &region.map_or_else(String::new, |r| String::from("_") + r.as_str())
     }
 }
 

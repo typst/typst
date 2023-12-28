@@ -26,8 +26,8 @@ use crate::layout::{
 use crate::loading::Readable;
 use crate::model::Figurable;
 use crate::syntax::Spanned;
-use crate::text::{families, Lang, LocalName, Region};
-use crate::util::{option_eq, Numeric};
+use crate::text::{families, LocalName};
+use crate::util::Numeric;
 use crate::visualize::Path;
 use crate::World;
 
@@ -244,43 +244,7 @@ impl Layout for ImageElem {
     }
 }
 
-impl<'a> LocalName<'a> for ImageElem {
-    fn local_name(lang: Lang, region: Option<Region>) -> &'a str {
-        // Self::elem()
-        match lang {
-            Lang::ALBANIAN => "Figurë",
-            Lang::ARABIC => "شكل",
-            Lang::BOKMÅL => "Figur",
-            Lang::CHINESE if option_eq(region, "TW") => "圖",
-            Lang::CHINESE => "图",
-            Lang::CZECH => "Obrázek",
-            Lang::DANISH => "Figur",
-            Lang::DUTCH => "Figuur",
-            Lang::ESTONIAN => "Joonis",
-            Lang::FILIPINO => "Pigura",
-            Lang::FINNISH => "Kuva",
-            Lang::FRENCH => "Fig.",
-            Lang::GERMAN => "Abbildung",
-            Lang::GREEK => "Σχήμα",
-            Lang::HUNGARIAN => "Ábra",
-            Lang::ITALIAN => "Figura",
-            Lang::NYNORSK => "Figur",
-            Lang::POLISH => "Rysunek",
-            Lang::PORTUGUESE => "Figura",
-            Lang::ROMANIAN => "Figura",
-            Lang::RUSSIAN => "Рис.",
-            Lang::SERBIAN => "Слика",
-            Lang::SLOVENIAN => "Slika",
-            Lang::SPANISH => "Figura",
-            Lang::SWEDISH => "Figur",
-            Lang::TURKISH => "Şekil",
-            Lang::UKRAINIAN => "Рисунок",
-            Lang::VIETNAMESE => "Hình",
-            Lang::JAPANESE => "図",
-            Lang::ENGLISH | _ => "Figure",
-        }
-    }
-}
+impl LocalName for ImageElem {}
 
 impl Figurable for ImageElem {}
 

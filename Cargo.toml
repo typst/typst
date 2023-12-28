@@ -42,6 +42,7 @@ dirs = "5"
 ecow = { version = "0.2", features = ["serde"] }
 env_proxy = "0.4"
 flate2 = "1"
+fluent = "0.16.0"
 fontdb = { version = "0.16", default-features = false }
 hayagriva = "0.5.1"
 heck = "0.4"
@@ -106,6 +107,7 @@ tracing-subscriber = "0.3.17"
 ttf-parser = "0.20.0"
 two-face = { version = "0.3.0", default-features = false, features = ["syntect-fancy"] }
 typed-arena = "2"
+unic-langid = "0.9.4"
 unicode_names2 = "1.2"
 unicode-bidi = "0.3.13"
 unicode-ident = "1.0"

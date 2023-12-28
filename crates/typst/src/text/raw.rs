@@ -19,10 +19,9 @@ use crate::layout::{BlockElem, Em, HAlign};
 use crate::model::Figurable;
 use crate::syntax::{split_newlines, LinkedNode, Spanned};
 use crate::text::{
-    FontFamily, FontList, Hyphenate, Lang, LinebreakElem, LocalName, Region,
-    SmartQuoteElem, TextElem, TextSize,
+    FontFamily, FontList, Hyphenate, LinebreakElem, LocalName, SmartQuoteElem, TextElem,
+    TextSize,
 };
-use crate::util::option_eq;
 use crate::visualize::Color;
 use crate::{syntax, World};
 
@@ -427,40 +426,7 @@ impl Finalize for RawElem {
     }
 }
 
-impl<'a> LocalName<'a> for RawElem {
-    fn local_name(lang: Lang, region: Option<Region>) -> &'a str {
-        match lang {
-            Lang::ALBANIAN => "List",
-            Lang::ARABIC => "قائمة",
-            Lang::BOKMÅL => "Utskrift",
-            Lang::CHINESE if option_eq(region, "TW") => "程式",
-            Lang::CHINESE => "代码",
-            Lang::CZECH => "Seznam",
-            Lang::DANISH => "Liste",
-            Lang::DUTCH => "Listing",
-            Lang::ESTONIAN => "List",
-            Lang::FILIPINO => "Listahan",
-            Lang::FINNISH => "Esimerkki",
-            Lang::FRENCH => "Liste",
-            Lang::GERMAN => "Listing",
-            Lang::GREEK => "Παράθεση",
-            Lang::ITALIAN => "Codice",
-            Lang::NYNORSK => "Utskrift",
-            Lang::POLISH => "Program",
-            Lang::ROMANIAN => "Listă", // TODO: I dunno
-            Lang::RUSSIAN => "Листинг",
-            Lang::SERBIAN => "Програм",
-            Lang::SLOVENIAN => "Program",
-            Lang::SPANISH => "Listado",
-            Lang::SWEDISH => "Listing",
-            Lang::TURKISH => "Liste",
-            Lang::UKRAINIAN => "Лістинг",
-            Lang::VIETNAMESE => "Chương trình", // TODO: This may be wrong.
-            Lang::JAPANESE => "リスト",
-            Lang::ENGLISH | _ => "Listing",
-        }
-    }
-}
+impl LocalName for RawElem {}
 
 impl Figurable for RawElem {}
 
