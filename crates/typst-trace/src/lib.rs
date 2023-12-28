@@ -195,7 +195,7 @@ pub fn export_json(
 }
 
 /// A scope that records an event when it is dropped.
-struct Scope {
+pub struct Scope {
     name: &'static str,
     span: Option<Span>,
     id: u64,
@@ -204,7 +204,7 @@ struct Scope {
 
 impl Scope {
     /// Create a new scope.
-    fn new(name: &'static str, span: Option<Span>) -> Self {
+    pub fn new(name: &'static str, span: Option<Span>) -> Self {
         let start = Instant::now();
         let thread_id = std::thread::current().id();
         let id = {

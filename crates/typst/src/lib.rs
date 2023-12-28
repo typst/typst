@@ -107,6 +107,9 @@ fn typeset(
     tracer: &mut Tracer,
     content: &Content,
 ) -> SourceResult<Document> {
+    const ITER_NAMES: &[&str] =
+        &["typeset (1)", "typeset (2)", "typeset (3)", "typeset (4)", "typeset (5)"];
+
     let library = world.library();
     let styles = StyleChain::new(&library.styles);
 
@@ -116,6 +119,8 @@ fn typeset(
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
     loop {
+        let _scope = typst_trace::Scope::new(ITER_NAMES[iter], None);
+
         // Clear delayed errors.
         tracer.delayed();
 
