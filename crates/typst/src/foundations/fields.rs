@@ -37,9 +37,9 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
                 match field {
                     "paint" => stroke.paint.clone().into_value(),
                     "thickness" => stroke.thickness.into_value(),
-                    "cap" => stroke.line_cap.into_value(),
-                    "join" => stroke.line_join.into_value(),
-                    "dash" => stroke.dash_pattern.clone().into_value(),
+                    "cap" => stroke.cap.into_value(),
+                    "join" => stroke.join.into_value(),
+                    "dash" => stroke.dash.clone().into_value(),
                     "miter-limit" => {
                         stroke.miter_limit.map(|limit| limit.get()).into_value()
                     }

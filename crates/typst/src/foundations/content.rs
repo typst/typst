@@ -695,11 +695,8 @@ impl Serialize for Content {
         S: Serializer,
     {
         serializer.collect_map(
-            iter::once((
-                Str::from(EcoString::inline("func")),
-                self.func().name().into_value(),
-            ))
-            .chain(self.fields()),
+            iter::once(("func".into(), self.func().name().into_value()))
+                .chain(self.fields()),
         )
     }
 }
@@ -736,7 +733,7 @@ impl PartialEq for SequenceElem {
 impl Repr for SequenceElem {
     fn repr(&self) -> EcoString {
         if self.children.is_empty() {
-            EcoString::inline("[]")
+            "[]".into()
         } else {
             eco_format!(
                 "[{}]",
