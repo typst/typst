@@ -26,11 +26,13 @@ impl Lang {
     pub const FRENCH: Self = Self(*b"fr ", 2);
     pub const GERMAN: Self = Self(*b"de ", 2);
     pub const GREEK: Self = Self(*b"gr ", 2);
+    pub const HUNGARIAN: Self = Self(*b"hu ", 2);
     pub const ITALIAN: Self = Self(*b"it ", 2);
     pub const JAPANESE: Self = Self(*b"ja ", 2);
     pub const NYNORSK: Self = Self(*b"nn ", 2);
     pub const POLISH: Self = Self(*b"pl ", 2);
     pub const PORTUGUESE: Self = Self(*b"pt ", 2);
+    pub const ROMANIAN: Self = Self(*b"ro ", 2);
     pub const RUSSIAN: Self = Self(*b"ru ", 2);
     pub const SERBIAN: Self = Self(*b"sr ", 2);
     pub const SLOVENIAN: Self = Self(*b"sl ", 2);
@@ -39,8 +41,6 @@ impl Lang {
     pub const TURKISH: Self = Self(*b"tr ", 2);
     pub const UKRAINIAN: Self = Self(*b"ua ", 2);
     pub const VIETNAMESE: Self = Self(*b"vi ", 2);
-    pub const HUNGARIAN: Self = Self(*b"hu ", 2);
-    pub const ROMANIAN: Self = Self(*b"ro ", 2);
 
     /// Return the language code as an all lowercase string slice.
     pub fn as_str(&self) -> &str {
