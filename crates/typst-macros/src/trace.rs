@@ -39,17 +39,13 @@ fn create(meta: Meta, item: &syn::ItemFn) -> TokenStream {
     let block = &item.block;
     quote! {
         #vis #sig {
-            let inner = move || #block;
-            let span = {
+            #[cfg(not(target_arch = "wasm32"))]
+            let __scope = ::typst_trace::Scope::new(#name, {
                 use ::typst::foundations::NativeElement;
                 #span
-            };
+            });
 
-            #[cfg(not(target_arch = "wasm32"))]
-            return ::typst_trace::record(#name, span, inner);
-
-            #[cfg(target_arch = "wasm32")]
-            inner()
+            #block
         }
     }
 }

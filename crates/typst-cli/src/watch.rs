@@ -11,7 +11,7 @@ use typst::diag::StrResult;
 
 use crate::args::CompileCommand;
 use crate::color_stream;
-use crate::compile::{compile_once, span_to_source};
+use crate::compile::compile_once;
 use crate::tracing::TracingHandle;
 use crate::world::SystemWorld;
 
@@ -21,11 +21,7 @@ pub fn watch(mut handle: TracingHandle, mut command: CompileCommand) -> StrResul
     let mut world = SystemWorld::new(&command.common)?;
 
     // Perform initial compilation.
-    handle.record(
-        &mut world,
-        |world| compile_once(world, &mut command, true),
-        |world, span| span_to_source(span, world),
-    )??;
+    handle.record(&mut world, |world| compile_once(world, &mut command, true))??;
 
     // Setup file watching.
     let (tx, rx) = std::sync::mpsc::channel();
@@ -72,11 +68,9 @@ pub fn watch(mut handle: TracingHandle, mut command: CompileCommand) -> StrResul
             world.reset();
 
             // Recompile.
-            handle.record(
-                &mut world,
-                |world| compile_once(world, &mut command, true),
-                |world, span| span_to_source(span, world),
-            )??;
+            handle
+                .record(&mut world, |world| compile_once(world, &mut command, true))??;
+
             comemo::evict(10);
 
             // Adjust the file watching.

@@ -1,20 +1,17 @@
 use std::hash::Hash;
 use std::io::Write;
-use std::path::PathBuf;
 use std::thread::ThreadId;
 use std::time::Instant;
-use std::{fs::File, io::BufWriter};
 
 use parking_lot::Mutex;
 use serde::ser::SerializeSeq;
 use serde::{Serialize, Serializer};
 use typst_syntax::Span;
 
-/// Whether the tracer is enabled.
-/// This is `false` by default.
+/// Whether the tracer is enabled. Defaults to `false`.
 ///
 /// # Safety
-/// This is `unsafe` because it is a global variable that is not thread-safe.
+/// This is unsafe because it is a global variable that is not thread-safe.
 /// But at worst, if we have a race condition, we will just be missing some
 /// events. So it's not a big deal. And it avoids needing to do an atomic
 /// operation every time we want to check if the tracer is enabled.
@@ -55,7 +52,7 @@ struct Event {
     thread_id: ThreadId,
 }
 
-/// Whether an event marks the start or end of a span.
+/// Whether an event marks the start or end of a scope.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum EventKind {
     Start,
@@ -82,44 +79,15 @@ pub fn clear() {
     RECORDER.lock().events.clear();
 }
 
-/// Record an event.
-#[inline]
-pub fn record<O>(name: &'static str, span: Option<Span>, call: impl FnOnce() -> O) -> O {
-    if !is_enabled() {
-        return call();
-    }
-
-    let scope = Scope::new(name, span);
-    let out = call();
-    drop(scope);
-    out
-}
-
 /// Export data as JSON for Chrome's tracing tool.
 ///
 /// The `source` function is called for each span to get the source code
 /// location of the span. The first element of the tuple is the file path and
 /// the second element is the line number.
-pub fn export_json(
-    path: PathBuf,
+pub fn export_json<W: Write>(
+    writer: W,
     mut source: impl FnMut(Span) -> (String, u32),
 ) -> Result<(), String> {
-    let file = File::create(path).map_err(|e| format!("failed to create file: {e}"))?;
-    let mut writer = BufWriter::with_capacity(1 << 20, file);
-
-    if !is_enabled() {
-        writer
-            .write_all(b"[]")
-            .map_err(|e| format!("failed to write to file: {e}"))?;
-        return Ok(());
-    }
-
-    #[derive(Serialize)]
-    struct Args {
-        file: String,
-        line: u32,
-    }
-
     #[derive(Serialize)]
     struct Entry {
         name: &'static str,
@@ -131,18 +99,18 @@ pub fn export_json(
         args: Option<Args>,
     }
 
-    let recorder = RECORDER.lock();
-    let Some(first) = recorder.events.first() else {
-        writer
-            .write_all(b"[]")
-            .map_err(|e| format!("failed to write to file: {e}"))?;
-        return Ok(());
-    };
-
-    let run_start = first.timestamp;
-    if first.kind != EventKind::Start {
-        unreachable!("first event is not a start event")
+    #[derive(Serialize)]
+    struct Args {
+        file: String,
+        line: u32,
     }
+
+    let recorder = RECORDER.lock();
+    let run_start = recorder
+        .events
+        .first()
+        .map(|event| event.timestamp)
+        .unwrap_or_else(Instant::now);
 
     let mut serializer = serde_json::Serializer::new(writer);
     let mut seq = serializer
@@ -182,8 +150,12 @@ pub struct Scope {
 }
 
 impl Scope {
-    /// Create a new scope.
-    pub fn new(name: &'static str, span: Option<Span>) -> Self {
+    /// Create a new scope if tracing is enabled.
+    pub fn new(name: &'static str, span: Option<Span>) -> Option<Self> {
+        if !is_enabled() {
+            return None;
+        }
+
         let timestamp = Instant::now();
         let thread_id = std::thread::current().id();
 
@@ -199,7 +171,7 @@ impl Scope {
             thread_id,
         });
 
-        Scope { name, span, id, thread_id }
+        Some(Scope { name, span, id, thread_id })
     }
 }
 
@@ -232,27 +204,23 @@ impl Drop for Scope {
 /// scoped!(
 ///     "my scope",
 ///     span = Span::detached(),
-///     std::thread::sleep(std::time::Duration::from_secs(1))
+///     std::thread::sleep(std::time::Duration::from_secs(1)),
 /// );
 ///
 /// // With a scope name and no span.
 /// scoped!(
 ///     "my scope",
-///     std::thread::sleep(std::time::Duration::from_secs(1))
+///     std::thread::sleep(std::time::Duration::from_secs(1)),
 /// );
 /// ```
 #[macro_export]
 macro_rules! scoped {
-    ($name:literal, span = $span:expr, $eval:expr) => {{
-        let __inner_scope = $crate::Scope::new($name, Some($span));
-        let out = { $eval };
-        drop(__inner_scope);
-        out
+    ($name:literal, span = $span:expr, $body:expr $(,)?) => {{
+        let __scope = $crate::Scope::new($name, Some($span));
+        $body
     }};
-    ($name:literal, $eval:expr) => {{
-        let __inner_scope = $crate::Scope::new($name, None);
-        let out = { $eval };
-        drop(__inner_scope);
-        out
+    ($name:literal, $body:expr $(,)?) => {{
+        let __scope = $crate::Scope::new($name, None);
+        $body
     }};
 }

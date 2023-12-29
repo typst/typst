@@ -62,31 +62,8 @@ impl CompileCommand {
 /// Execute a compilation command.
 pub fn compile(mut handle: TracingHandle, mut command: CompileCommand) -> StrResult<()> {
     let mut world = SystemWorld::new(&command.common)?;
-    handle.record(
-        &mut world,
-        |world| compile_once(world, &mut command, false),
-        |world, span| span_to_source(span, world),
-    )??;
+    handle.record(&mut world, |world| compile_once(world, &mut command, false))??;
     Ok(())
-}
-
-pub fn span_to_source(span: Span, world: &SystemWorld) -> (String, u32) {
-    let Some(id) = span.id() else {
-        return ("unknown".to_string(), 0);
-    };
-
-    let Ok(source) = world.source(id) else {
-        return ("unknown".to_string(), 0);
-    };
-
-    let Some(token) = source.find(span) else {
-        return ("unknown".to_string(), 0);
-    };
-
-    let line = source.byte_to_line(token.range().start).unwrap();
-    let name = world.slot(id, |slot| slot.name(world.root())).unwrap();
-
-    (name, line as u32 + 1)
 }
 
 /// Compile a single time.

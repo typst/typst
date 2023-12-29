@@ -31,13 +31,7 @@ static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
 
 /// Entry point.
 fn main() -> ExitCode {
-    let handle = match crate::tracing::setup_tracing(&ARGS) {
-        Ok(handle) => handle,
-        Err(err) => {
-            eprintln!("failed to initialize tracing ({err})");
-            return ExitCode::FAILURE;
-        }
-    };
+    let handle = crate::tracing::setup(&ARGS);
 
     let res = match &ARGS.command {
         Command::Compile(command) => crate::compile::compile(handle, command.clone()),
