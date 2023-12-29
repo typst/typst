@@ -149,8 +149,7 @@ class Handler {
         vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
             title: "test-helper",
-            cancellable: false,
-        }, (progress, _) => {
+        }, (progress) => {
             /** @type {!Promise<void>} */
             const closeWhenResolved = new Promise((resolve) => {
                 // This progress bar intends to relieve the developer's doubt
@@ -164,7 +163,7 @@ class Handler {
                         resolve()
                     }
                     progress.report({message: this.testRunningLatestMessage})
-                }, 200)
+                }, 100)
             })
 
             return closeWhenResolved
