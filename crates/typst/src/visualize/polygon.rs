@@ -1,7 +1,5 @@
 use std::f64::consts::PI;
 
-use typst_syntax::Span;
-
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -10,6 +8,7 @@ use crate::foundations::{
 use crate::layout::{
     Axes, Em, Fragment, Frame, FrameItem, Layout, Length, Point, Regions, Rel,
 };
+use crate::syntax::Span;
 use crate::util::Numeric;
 use crate::visualize::{FixedStroke, Geometry, Paint, Path, Shape, Stroke};
 

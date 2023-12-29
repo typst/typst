@@ -1,9 +1,9 @@
-use typst_syntax::Span;
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
 use crate::foundations::{elem, func, Cast, Content, NativeElement, Smart, StyleChain};
 use crate::math::{LayoutMath, MathContext};
+use crate::syntax::Span;
 
 /// Bold font style in math.
 ///

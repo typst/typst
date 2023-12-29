@@ -4,7 +4,6 @@ use std::str::FromStr;
 use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use smallvec::{smallvec, SmallVec};
-use typst_syntax::Span;
 
 use crate::diag::{At, SourceResult, StrResult};
 use crate::engine::{Engine, Route};
@@ -18,6 +17,7 @@ use crate::introspection::{Introspector, Locatable, Location, Locator, Meta};
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
 use crate::model::{FigureElem, HeadingElem, Numbering, NumberingPattern};
+use crate::syntax::Span;
 use crate::util::NonZeroExt;
 use crate::World;
 

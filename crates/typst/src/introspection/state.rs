@@ -1,6 +1,5 @@
 use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
-use typst_syntax::Span;
 
 use crate::diag::SourceResult;
 use crate::engine::{Engine, Route};
@@ -10,6 +9,7 @@ use crate::foundations::{
     Selector, Show, Str, StyleChain, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location, Locator};
+use crate::syntax::Span;
 use crate::World;
 
 /// Manages stateful parts of your document.

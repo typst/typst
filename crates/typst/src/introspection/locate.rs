@@ -1,9 +1,8 @@
-use typst_syntax::Span;
-
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, func, Content, Func, NativeElement, Show, StyleChain};
 use crate::introspection::Locatable;
+use crate::syntax::Span;
 
 /// Provides access to the location of content.
 ///

@@ -1,9 +1,8 @@
-use typst_syntax::Span;
-
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{dict, elem, func, Content, Func, NativeElement, StyleChain};
 use crate::layout::{Fragment, Layout, Regions, Size};
+use crate::syntax::Span;
 
 /// Provides access to the current outer container's (or page's, if none) size
 /// (width and height).

@@ -12,7 +12,6 @@ use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked};
 use ecow::EcoString;
-use typst_syntax::Span;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
@@ -26,7 +25,7 @@ use crate::layout::{
 };
 use crate::loading::Readable;
 use crate::model::Figurable;
-use crate::syntax::Spanned;
+use crate::syntax::{Span, Spanned};
 use crate::text::{families, Lang, LocalName, Region};
 use crate::util::{option_eq, Numeric};
 use crate::visualize::Path;
