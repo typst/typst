@@ -13,8 +13,8 @@ use typed_arena::Arena;
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::foundations::{
-    Content, Finalize, Guard, NativeElement, Recipe, Selector, Show, StyleChain,
-    StyleVec, StyleVecBuilder, Styles, Synthesize,
+    Behave, Behaviour, Content, Finalize, Guard, NativeElement, Recipe, Selector, Show,
+    StyleChain, StyleVec, StyleVecBuilder, Styles, Synthesize,
 };
 use crate::introspection::{Locatable, Meta, MetaElem};
 use crate::layout::{
@@ -770,7 +770,11 @@ impl<'a> CiteGroupBuilder<'a> {
 fn first_span(children: &StyleVec<Cow<Content>>) -> Span {
     children
         .iter()
-        .map(|(cnt, _)| cnt.span())
+        .filter(|(elem, _)| {
+            elem.with::<dyn Behave>()
+                .map_or(true, |b| b.behaviour() != Behaviour::Invisible)
+        })
+        .map(|(elem, _)| elem.span())
         .find(|span| !span.is_detached())
         .unwrap_or_else(Span::detached)
 }
