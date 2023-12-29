@@ -133,3 +133,4 @@ strip = true
 
 [workspace.lints.clippy]
 uninlined_format_args = "warn"
+blocks_in_if_conditions = "allow"

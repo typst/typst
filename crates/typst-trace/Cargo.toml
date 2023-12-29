@@ -1,15 +1,15 @@
 [package]
 name = "typst-trace"
-version.workspace = true
-rust-version.workspace = true
-authors.workspace = true
-edition.workspace = true
-homepage.workspace = true
-repository.workspace = true
-readme.workspace = true
-license.workspace = true
-categories.workspace = true
-keywords.workspace = true
+description = "Performance tracing for Typst."
+version = { workspace = true }
+rust-version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+categories = { workspace = true }
+keywords = { workspace = true }
 
 [dependencies]
 typst-syntax = { workspace = true }

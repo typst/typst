@@ -358,23 +358,23 @@ pub fn symbols(stream: BoundaryStream) -> BoundaryStream {
 /// This is done to avoid bloating the web app which doesn't need tracing.
 ///
 /// ```ignore
-///  #[trace]
-///  fn fibonacci(n: u64) -> u64 {
+/// #[trace]
+/// fn fibonacci(n: u64) -> u64 {
 ///     if n <= 1 {
 ///         1
 ///     } else {
 ///         fibonacci(n - 1) + fibonacci(n - 2)
 ///     }
-///  }
+/// }
 ///
-///  #[trace(span = span)]
-///  fn fibonacci_spanned(n: u64, span: Span) -> u64 {
+/// #[trace(span = span)]
+/// fn fibonacci_spanned(n: u64, span: Span) -> u64 {
 ///     if n <= 1 {
 ///         1
 ///     } else {
 ///         fibonacci(n - 1) + fibonacci(n - 2)
 ///     }
-///  }
+/// }
 /// ```
 #[proc_macro_attribute]
 pub fn trace(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
