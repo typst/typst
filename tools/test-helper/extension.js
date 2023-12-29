@@ -1,5 +1,6 @@
 const vscode = require('vscode')
 const cp = require('child_process')
+const {clearInterval} = require('timers')
 
 class Handler {
     constructor() {
@@ -156,9 +157,10 @@ class Handler {
                 // during the possibly long waiting because of the rebuilding
                 // phase before actually running the test. Therefore, a naive
                 // polling (updates every few millisec) should be sufficient.
-                setInterval(() => {
+                const timerId = setInterval(() => {
                     if (this.testRunningLatestMessage === undefined) {
                         this.testRunningProgressShown = false
+                        clearInterval(timerId)
                         resolve()
                     }
                     progress.report({message: this.testRunningLatestMessage})
