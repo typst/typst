@@ -159,7 +159,9 @@ fn load_svg_fonts(
             let usvg::Node::Text(ref mut text) = node else { return };
             for chunk in &mut text.chunks {
                 'spans: for span in &mut chunk.spans {
-                    let Some(text) = chunk.text.get(span.start..span.end) else { continue };
+                    let Some(text) = chunk.text.get(span.start..span.end) else {
+                        continue;
+                    };
                     let variant = FontVariant {
                         style: span.font.style.into(),
                         weight: FontWeight::from_number(span.font.weight),
@@ -170,7 +172,8 @@ fn load_svg_fonts(
                     // and the current document font families.
                     let mut like = None;
                     for family in span.font.families.iter().chain(families) {
-                        let Some(id) = book.select(&family.to_lowercase(), variant) else {
+                        let Some(id) = book.select(&family.to_lowercase(), variant)
+                        else {
                             continue;
                         };
                         let Some(info) = book.info(id) else { continue };
@@ -195,7 +198,6 @@ fn load_svg_fonts(
         });
     }
 
-
     (fontdb, hasher.finish128().as_u128())
 }
 
@@ -205,6 +207,12 @@ where
     F: FnMut(&mut usvg::Node),
 {
     f(node);
+
+    node.subroots_mut(|subroot| {
+        for child in &mut subroot.children {
+            traverse_svg(child, f);
+        }
+    });
 
     if let Node::Group(ref mut group) = node {
         for child in &mut group.children {
