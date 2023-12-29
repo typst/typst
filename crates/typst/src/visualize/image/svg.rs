@@ -55,8 +55,7 @@ impl SvgImage {
         let opts = usvg::Options { font_family: String::new(), ..Default::default() };
         let mut tree = usvg::Tree::from_data(&data, &opts).map_err(format_usvg_error)?;
         let mut font_hash = 0;
-        let has_text_nodes = tree.has_text_nodes();
-        if has_text_nodes {
+        if tree.has_text_nodes() {
             let (fontdb, hash) = load_svg_fonts(world, &mut tree, families);
             tree.convert_text(&fontdb);
             font_hash = hash;
