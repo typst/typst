@@ -12,7 +12,11 @@ class Handler {
         this.testRunningStatusBarItem.backgroundColor =
             new vscode.ThemeColor('statusBarItem.warningBackground')
         this.testRunningStatusBarItem.tooltip =
-            "The test-helper rebuilds crates if necessary, so may take some time."
+            "test-helper rebuilds crates if necessary, so it may take some time."
+        this.testRunningStatusBarItem.command =
+            "Typst.test-helper.showTestProgress"
+        /** @type {string|undefined} */ this.testRunningLatestMessage = undefined
+        this.testRunningProgressShown = false
 
         Handler.enableRunTestButton_(true)
     }
@@ -135,24 +139,69 @@ class Handler {
         this.refreshTestPreviewImpl_(uri, "", "")
     }
 
+    showTestProgress() {
+        if (this.testRunningLatestMessage === undefined
+            || this.testRunningProgressShown) {
+            return
+        }
+        this.testRunningProgressShown = true
+        vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "test-helper",
+            cancellable: false,
+        }, (progress, _) => {
+            /** @type {!Promise<void>} */
+            const closeWhenResolved = new Promise((resolve) => {
+                // This progress bar intends to relieve the developer's doubt
+                // during the possibly long waiting because of the rebuilding
+                // phase before actually running the test. Therefore, a naive
+                // polling (updates every few millisec) should be sufficient.
+                setInterval(() => {
+                    if (this.testRunningLatestMessage === undefined) {
+                        this.testRunningProgressShown = false
+                        resolve()
+                    }
+                    progress.report({message: this.testRunningLatestMessage})
+                }, 200)
+            })
+
+            return closeWhenResolved
+        })
+    }
+
     /** @param {vscode.Uri} uri */
     runTest(uri) {
         const components = uri.fsPath.split(/tests[\/\\]/)
-        const dir = components[0]
-        const subPath = components[1]
+        const [dir, subPath] = components
 
         Handler.enableRunTestButton_(false)
         this.testRunningStatusBarItem.show()
 
-        cp.exec(
-            `cargo test --manifest-path ${dir}/Cargo.toml --workspace --test tests -- ${subPath}`,
-            (err, stdout, stderr) => {
-                Handler.enableRunTestButton_(true)
-                this.testRunningStatusBarItem.hide()
-                console.log(`Ran tests ${uri.fsPath}`)
-                this.refreshTestPreviewImpl_(uri, stdout, stderr)
-            }
-        )
+        const proc = cp.spawn(
+            "cargo",
+            ["test", "--manifest-path", `${dir}/Cargo.toml`, "--workspace", "--test", "tests", "--", `${subPath}`])
+        let outs = {stdout: "", stderr: ""}
+        if (!proc.stdout || !proc.stderr) {
+            throw new Error('Child process was not spawned successfully.')
+        }
+        proc.stdout.setEncoding('utf8')
+        proc.stdout.on("data", (data) => {
+            outs.stdout += data.toString()
+        })
+        proc.stderr.setEncoding('utf8')
+        proc.stderr.on("data", (data) => {
+            let s = data.toString()
+            outs.stderr += s
+            s = s.replace(/\(.+?\)/, "")
+            this.testRunningLatestMessage = s.length > 50 ? (s.slice(0, 50) + "...") : s
+        })
+        proc.on("close", (exitCode) => {
+            Handler.enableRunTestButton_(true)
+            this.testRunningStatusBarItem.hide()
+            this.testRunningLatestMessage = undefined
+            console.log(`Ran tests ${uri.fsPath}, exit = ${exitCode}`)
+            this.refreshTestPreviewImpl_(uri, outs.stdout, outs.stderr)
+        })
     }
 
     /** @param {vscode.Uri} uri */
@@ -201,6 +250,10 @@ function activate(context) {
     const handler = new Handler()
     context.subscriptions.push(handler.testRunningStatusBarItem)
 
+    context.subscriptions.push(vscode.commands.registerCommand(
+        "Typst.test-helper.showTestProgress", () => {
+            handler.showTestProgress()
+        }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.openFromSource", () => {
             handler.openTestPreview(Handler.getActiveDocumentUri())
