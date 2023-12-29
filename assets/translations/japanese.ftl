@@ -1,0 +1,7 @@
+figure = 図
+table = 表
+equation = 式
+bibliography = 参考文献
+heading = 節
+outline = 目次
+raw = リスト

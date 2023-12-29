@@ -1,0 +1,7 @@
+figure = Figurë
+table = Tabel
+equation = Ekuacion
+bibliography = Bibliografi
+heading = Kapitull
+outline = Përmbajtja
+raw = List

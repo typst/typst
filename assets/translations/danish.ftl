@@ -1,0 +1,7 @@
+figure = Figur
+table = Tabel
+equation = Ligning
+bibliography = Bibliografi
+heading = Afsnit
+outline = Indhold
+raw = Liste
