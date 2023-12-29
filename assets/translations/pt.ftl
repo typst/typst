@@ -4,4 +4,4 @@ equation = Equação
 bibliography = Bibliografia
 heading = Seção
 outline = Sumário
-raw = 
+raw = Listagem
