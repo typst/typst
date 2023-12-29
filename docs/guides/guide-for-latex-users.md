@@ -564,15 +564,15 @@ a reusable template?
 
 ## Bibliographies { #bibliographies}
 The bibliography system has many benefits. Those include the following:
-- **Inbuilt citation styles**. Typst has over 80 included citation styles
+- **Built-in citation styles**. Typst has over 80 included citation styles
 - **Compability with CSL styles**. Typst is compatibly with
   [CSL](https://github.com/citation-style-language/styles) bibliography styles.
-- **Support for BibTex**. Typst also supports using BibTex files which previous
-  latex users might have.
+- **Support for BibTeX**. Typst also supports using BibTeX files which previous
+  LaTeX users might have.
 
 ## Local Installation { #installation }
 Typst is installed with a single, small binary which can be run by any user (no
-adming/root access needed). Unlike latex it doesn't include any packages.
+adming/root access needed). Unlike LaTeX it doesn't include any packages.
 The packages are installed when needed and cached locally.
 
 ## What limitations does Typst currently have compared to LaTeX? { #limitations }
