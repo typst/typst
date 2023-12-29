@@ -20,6 +20,9 @@ use typst_syntax::Span;
 /// operation every time we want to check if the tracer is enabled.
 static mut ENABLED: bool = false;
 
+/// The global event recorder.
+static RECORDER: Mutex<Recorder> = Mutex::new(Recorder::new());
+
 /// The recorder of events.
 struct Recorder {
     /// The events that have been recorded.
@@ -30,41 +33,33 @@ struct Recorder {
 
 impl Recorder {
     /// Create a new recorder.
-    pub const fn new() -> Self {
+    const fn new() -> Self {
         Self { events: Vec::new(), discriminator: 0 }
     }
 }
 
-/// The global event recorder.
-pub(crate) static RECORDER: Mutex<Recorder> = Mutex::new(Recorder::new());
-
 /// An event that has been recorded.
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub enum Event {
-    Start {
-        /// The start time of this event.
-        start: Instant,
-        /// The discriminator of this event.
-        id: u64,
-        /// The name of this event.
-        name: &'static str,
-        /// The span of code that this event was recorded in.
-        span: Option<Span>,
-        /// The thread ID of this event.
-        thread_id: ThreadId,
-    },
-    End {
-        /// The end time of this event.
-        end: Instant,
-        /// The discriminator of this event.
-        id: u64,
-        /// The name of this event.
-        name: &'static str,
-        /// The span of code that this event was recorded in.
-        span: Option<Span>,
-        /// The thread ID of this event.
-        thread_id: ThreadId,
-    },
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
+struct Event {
+    /// Whether this is a start or end event.
+    kind: EventKind,
+    /// The start time of this event.
+    timestamp: Instant,
+    /// The discriminator of this event.
+    id: u64,
+    /// The name of this event.
+    name: &'static str,
+    /// The span of code that this event was recorded in.
+    span: Option<Span>,
+    /// The thread ID of this event.
+    thread_id: ThreadId,
+}
+
+/// Whether an event marks the start or end of a span.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+enum EventKind {
+    Start,
+    End,
 }
 
 /// Enable the tracer.
@@ -119,7 +114,7 @@ pub fn export_json(
         return Ok(());
     }
 
-    #[derive(Clone, Serialize)]
+    #[derive(Serialize)]
     struct Args {
         file: String,
         line: u32,
@@ -144,49 +139,33 @@ pub fn export_json(
         return Ok(());
     };
 
-    let Event::Start { start: run_start, .. } = first else {
+    let run_start = first.timestamp;
+    if first.kind != EventKind::Start {
         unreachable!("first event is not a start event")
-    };
+    }
 
     let mut serializer = serde_json::Serializer::new(writer);
     let mut seq = serializer
         .serialize_seq(Some(recorder.events.len()))
         .map_err(|e| format!("failed to serialize events: {e}"))?;
-    for entry in recorder.events.iter() {
-        match entry {
-            Event::Start { start, name, span, thread_id, .. } => {
-                let args = span.map(&mut source).map(|(file, line)| Args { file, line });
-                seq.serialize_element(&Entry {
-                    name,
-                    cat: "typst",
-                    ph: "B",
-                    ts: (*start - *run_start).as_nanos() as f64 / 1_000.0,
-                    pid: 1,
-                    tid: unsafe {
-                        // Safety: `thread_id` is a `ThreadId` which is a `u64`.
-                        std::mem::transmute_copy(&thread_id)
-                    },
-                    args: args.clone(),
-                })
-                .map_err(|e| format!("failed to serialize event: {e}"))?;
-            }
-            Event::End { end, name, span, thread_id, .. } => {
-                let args = span.map(&mut source).map(|(file, line)| Args { file, line });
-                seq.serialize_element(&Entry {
-                    name,
-                    cat: "typst",
-                    ph: "E",
-                    ts: (*end - *run_start).as_nanos() as f64 / 1_000.0,
-                    pid: 1,
-                    tid: unsafe {
-                        // Safety: `thread_id` is a `ThreadId` which is a `u64`.
-                        std::mem::transmute_copy(&thread_id)
-                    },
-                    args,
-                })
-                .map_err(|e| format!("failed to serialize event: {e}"))?;
-            }
-        }
+
+    for event in recorder.events.iter() {
+        seq.serialize_element(&Entry {
+            name: event.name,
+            cat: "typst",
+            ph: match event.kind {
+                EventKind::Start => "B",
+                EventKind::End => "E",
+            },
+            ts: (event.timestamp - run_start).as_nanos() as f64 / 1_000.0,
+            pid: 1,
+            tid: unsafe {
+                // Safety: `thread_id` is a `ThreadId` which is a `u64`.
+                std::mem::transmute_copy(&event.thread_id)
+            },
+            args: event.span.map(&mut source).map(|(file, line)| Args { file, line }),
+        })
+        .map_err(|e| format!("failed to serialize event: {e}"))?;
     }
 
     seq.end().map_err(|e| format!("failed to serialize events: {e}"))?;
@@ -205,17 +184,20 @@ pub struct Scope {
 impl Scope {
     /// Create a new scope.
     pub fn new(name: &'static str, span: Option<Span>) -> Self {
-        let start = Instant::now();
+        let timestamp = Instant::now();
         let thread_id = std::thread::current().id();
-        let id = {
-            let mut recorder = RECORDER.lock();
-            let id = recorder.discriminator;
-            recorder.discriminator += 1;
-            recorder
-                .events
-                .push(Event::Start { start, id, name, span, thread_id });
-            id
-        };
+
+        let mut recorder = RECORDER.lock();
+        let id = recorder.discriminator;
+        recorder.discriminator += 1;
+        recorder.events.push(Event {
+            kind: EventKind::Start,
+            timestamp,
+            id,
+            name,
+            span,
+            thread_id,
+        });
 
         Scope { name, span, id, thread_id }
     }
@@ -223,8 +205,9 @@ impl Scope {
 
 impl Drop for Scope {
     fn drop(&mut self) {
-        let event = Event::End {
-            end: Instant::now(),
+        let event = Event {
+            kind: EventKind::End,
+            timestamp: Instant::now(),
             id: self.id,
             name: self.name,
             span: self.span,
