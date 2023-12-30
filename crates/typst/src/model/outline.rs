@@ -192,12 +192,7 @@ impl Show for OutlineElem {
         // Build the outline title.
         if let Some(title) = self.title(styles) {
             let title = title.unwrap_or_else(|| {
-                TextElem::packed(Self::local_name_in(
-                    engine,
-                    styles,
-                    self.dyn_elem().name(),
-                ))
-                .spanned(self.span())
+                TextElem::packed(Self::local_name_in(engine, styles)).spanned(self.span())
             });
 
             seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
@@ -258,7 +253,11 @@ impl Finalize for OutlineElem {
     }
 }
 
-impl LocalName for OutlineElem {}
+impl LocalName for OutlineElem {
+    fn key() -> &'static str {
+        "outline"
+    }
+}
 
 /// Marks an element as being able to be outlined. This is used to implement the
 /// `#outline()` element.

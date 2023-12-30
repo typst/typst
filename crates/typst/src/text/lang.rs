@@ -160,26 +160,23 @@ cast! {
 /// The name with which an element is referenced.
 pub trait LocalName {
     /// Get the name in the given language and (optionally) region.
-    fn local_name(
-        engine: &mut Engine,
-        lang: Lang,
-        region: Option<Region>,
-        key: &str,
-    ) -> String {
-        engine.localized_string(lang, region, key)
+    fn local_name(engine: &mut Engine, lang: Lang, region: Option<Region>) -> String {
+        engine.localized_string(lang, region, Self::key())
     }
 
     /// Gets the local name from the style chain.
-    fn local_name_in(engine: &mut Engine, styles: StyleChain, key: &str) -> String
+    fn local_name_in(engine: &mut Engine, styles: StyleChain) -> String
     where
         Self: Sized,
     {
         engine.localized_string(
             TextElem::lang_in(styles),
             TextElem::region_in(styles),
-            key,
+            Self::key(),
         )
     }
+
+    fn key() -> &'static str;
 }
 
 #[cfg(test)]

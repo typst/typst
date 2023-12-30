@@ -95,11 +95,7 @@ impl Synthesize for EquationElem {
     ) -> SourceResult<()> {
         // Resolve the supplement.
         let supplement = match self.supplement(styles) {
-            Smart::Auto => TextElem::packed(Self::local_name_in(
-                engine,
-                styles,
-                self.dyn_elem().name(),
-            )),
+            Smart::Auto => TextElem::packed(Self::local_name_in(engine, styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => {
                 supplement.resolve(engine, [self.clone()])?
@@ -230,7 +226,11 @@ impl Count for EquationElem {
     }
 }
 
-impl LocalName for EquationElem {}
+impl LocalName for EquationElem {
+    fn key() -> &'static str {
+        "equation"
+    }
+}
 
 impl Refable for EquationElem {
     fn supplement(&self) -> Content {

@@ -190,6 +190,10 @@ impl Layout for TableElem {
     }
 }
 
-impl LocalName for TableElem {}
+impl LocalName for TableElem {
+    fn key() -> &'static str {
+        "table"
+    }
+}
 
 impl Figurable for TableElem {}

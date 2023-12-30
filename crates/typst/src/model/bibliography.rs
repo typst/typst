@@ -215,12 +215,7 @@ impl Show for BibliographyElem {
         let mut seq = vec![];
         if let Some(title) = self.title(styles) {
             let title = title.unwrap_or_else(|| {
-                TextElem::packed(Self::local_name_in(
-                    engine,
-                    styles,
-                    self.dyn_elem().name(),
-                ))
-                .spanned(self.span())
+                TextElem::packed(Self::local_name_in(engine, styles)).spanned(self.span())
             });
 
             seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
@@ -277,7 +272,11 @@ impl Finalize for BibliographyElem {
     }
 }
 
-impl LocalName for BibliographyElem {}
+impl LocalName for BibliographyElem {
+    fn key() -> &'static str {
+        "bibliography"
+    }
+}
 
 /// A loaded bibliography.
 #[ty]

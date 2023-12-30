@@ -134,11 +134,7 @@ impl Synthesize for HeadingElem {
     ) -> SourceResult<()> {
         // Resolve the supplement.
         let supplement = match self.supplement(styles) {
-            Smart::Auto => TextElem::packed(Self::local_name_in(
-                engine,
-                styles,
-                self.dyn_elem().name(),
-            )),
+            Smart::Auto => TextElem::packed(Self::local_name_in(engine, styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => {
                 supplement.resolve(engine, [self.clone()])?
@@ -247,4 +243,8 @@ impl Outlinable for HeadingElem {
     }
 }
 
-impl LocalName for HeadingElem {}
+impl LocalName for HeadingElem {
+    fn key() -> &'static str {
+        "heading"
+    }
+}

@@ -426,7 +426,11 @@ impl Finalize for RawElem {
     }
 }
 
-impl LocalName for RawElem {}
+impl LocalName for RawElem {
+    fn key() -> &'static str {
+        "raw"
+    }
+}
 
 impl Figurable for RawElem {}
 

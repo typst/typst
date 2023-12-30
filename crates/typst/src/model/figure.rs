@@ -246,7 +246,6 @@ impl Synthesize for FigureElem {
                             engine,
                             TextElem::lang_in(styles),
                             TextElem::region_in(styles),
-                            self.dyn_elem().name(),
                         )
                         .map(TextElem::packed),
                     FigureKind::Name(_) => None,

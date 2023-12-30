@@ -244,7 +244,11 @@ impl Layout for ImageElem {
     }
 }
 
-impl LocalName for ImageElem {}
+impl LocalName for ImageElem {
+    fn key() -> &'static str {
+        "figure"
+    }
+}
 
 impl Figurable for ImageElem {}
 
