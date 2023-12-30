@@ -17,12 +17,13 @@ C/*
 // End of block comment in line comment.
 // Hello */
 
-// Nested line comment.
-/*//*/
-Still comment.
-*/
-
+// Nested "//" doesn't count as line comment.
+/* // */
 E
+
+/*//*/
+This is a comment.
+*/*/
 
 ---
 // End should not appear without start.

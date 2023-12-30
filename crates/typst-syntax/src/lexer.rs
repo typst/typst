@@ -145,10 +145,6 @@ impl Lexer<'_> {
                     depth += 1;
                     '_'
                 }
-                ('/', '/') => {
-                    self.line_comment();
-                    '_'
-                }
                 _ => c,
             }
         }
