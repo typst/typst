@@ -1,7 +1,7 @@
 use std::hash::Hash;
 use std::io::Write;
 use std::thread::ThreadId;
-use std::time::Instant;
+use std::time::{Duration, SystemTime};
 
 use parking_lot::Mutex;
 use serde::ser::SerializeSeq;
@@ -41,7 +41,7 @@ struct Event {
     /// Whether this is a start or end event.
     kind: EventKind,
     /// The start time of this event.
-    timestamp: Instant,
+    timestamp: SystemTime,
     /// The discriminator of this event.
     id: u64,
     /// The name of this event.
@@ -94,7 +94,7 @@ impl Scope {
             return None;
         }
 
-        let timestamp = Instant::now();
+        let timestamp = SystemTime::now();
         let thread_id = std::thread::current().id();
 
         let mut recorder = RECORDER.lock();
@@ -117,7 +117,7 @@ impl Drop for Scope {
     fn drop(&mut self) {
         let event = Event {
             kind: EventKind::End,
-            timestamp: Instant::now(),
+            timestamp: SystemTime::now(),
             id: self.id,
             name: self.name,
             span: self.span,
@@ -194,7 +194,7 @@ pub fn export_json<W: Write>(
         .events
         .first()
         .map(|event| event.timestamp)
-        .unwrap_or_else(Instant::now);
+        .unwrap_or_else(SystemTime::now);
 
     let mut serializer = serde_json::Serializer::new(writer);
     let mut seq = serializer
@@ -209,7 +209,12 @@ pub fn export_json<W: Write>(
                 EventKind::Start => "B",
                 EventKind::End => "E",
             },
-            ts: (event.timestamp - run_start).as_nanos() as f64 / 1_000.0,
+            ts: event
+                .timestamp
+                .duration_since(run_start)
+                .unwrap_or(Duration::ZERO)
+                .as_nanos() as f64
+                / 1_000.0,
             pid: 1,
             tid: unsafe {
                 // Safety: `thread_id` is a `ThreadId` which is a `u64`.
