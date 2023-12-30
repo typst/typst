@@ -243,9 +243,7 @@ impl Show for BibliographyElem {
                     cells.push(reference.clone());
                 }
 
-                seq.push(
-                    VElem::new(row_gutter).spanned(self.span()).with_weakness(3).pack(),
-                );
+                seq.push(VElem::new(row_gutter).with_weakness(3).pack());
                 seq.push(
                     GridElem::new(cells)
                         .spanned(self.span())
@@ -256,12 +254,7 @@ impl Show for BibliographyElem {
                 );
             } else {
                 for (_, reference) in references {
-                    seq.push(
-                        VElem::new(row_gutter)
-                            .spanned(self.span())
-                            .with_weakness(3)
-                            .pack(),
-                    );
+                    seq.push(VElem::new(row_gutter).with_weakness(3).pack());
                     seq.push(reference.clone());
                 }
             }

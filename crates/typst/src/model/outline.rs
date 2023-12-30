@@ -354,10 +354,7 @@ impl OutlineIndent {
             // Length => indent with some fixed spacing per level
             Some(Smart::Custom(OutlineIndent::Rel(length))) => {
                 seq.push(
-                    HElem::new(Spacing::Rel(*length))
-                        .spanned(span)
-                        .pack()
-                        .repeat(ancestors.len()),
+                    HElem::new(Spacing::Rel(*length)).pack().repeat(ancestors.len()),
                 );
             }
 

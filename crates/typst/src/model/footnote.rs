@@ -291,12 +291,9 @@ impl Show for FootnoteEntry {
             .linked(Destination::Location(loc))
             .backlinked(loc.variant(1));
         Ok(Content::sequence([
-            HElem::new(self.indent(styles).into()).spanned(self.span()).pack(),
+            HElem::new(self.indent(styles).into()).pack(),
             sup,
-            HElem::new(number_gap.into())
-                .spanned(self.span())
-                .with_weak(true)
-                .pack(),
+            HElem::new(number_gap.into()).with_weak(true).pack(),
             note.body_content().unwrap().clone(),
         ]))
     }
