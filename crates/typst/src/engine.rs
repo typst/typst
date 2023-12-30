@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
 use fluent::{FluentBundle, FluentResource};
-use typst_syntax::VirtualPath;
+use include_dir::{include_dir, Dir};
 use unic_langid::LanguageIdentifier;
 
 use crate::diag::SourceResult;
@@ -12,6 +12,9 @@ use crate::introspection::{Introspector, Locator};
 use crate::syntax::FileId;
 use crate::text::{Lang, Region};
 use crate::World;
+
+static TRANSLATIONS: Dir<'_> =
+    include_dir!("$CARGO_MANIFEST_DIR/../../assets/translations");
 
 /// Holds all data needed during compilation.
 pub struct Engine<'a> {
@@ -50,24 +53,37 @@ impl Engine<'_> {
     fn get_lang_bundle<'a>(
         &'a mut self,
         lang_id: &str,
-    ) -> &'a FluentBundle<FluentResource> {
+    ) -> Option<&'a FluentBundle<FluentResource>> {
         if !self.langs.contains_key(lang_id) {
-            let id = FileId::new(None, VirtualPath::new(lang_id.to_string() + ".ftl"));
-            let fluent_file =
-                self.world.file(id).expect("no valid fluent file in project root");
-            let ftl_string =
-                String::from_utf8(fluent_file.to_vec()).expect("no valid utf8");
+            let fluent_file = TRANSLATIONS.get_file(lang_id.to_string() + ".ftl")?;
+            let ftl_string = String::from_utf8(fluent_file.contents().into())
+                .expect("FTL needs to be valid UTF-8");
 
             let res = FluentResource::try_new(ftl_string)
-                .expect("Failed to parse an FTL string.");
-            let langid_en: LanguageIdentifier = "en-US".parse().expect("Parsing failed");
+                .expect("FTL string needs to be valid");
+            let langid_en: LanguageIdentifier =
+                lang_id.parse().expect("parsing of language id failed");
             let mut bundle = FluentBundle::new(vec![langid_en]);
             bundle
                 .add_resource(res)
-                .expect("Failed to add FTL resources to the bundle.");
+                .expect("failed to add FTL resources to the bundle.");
             self.langs.insert(lang_id.to_string(), bundle);
         }
-        self.langs.get(lang_id).unwrap()
+        self.langs.get(lang_id)
+    }
+
+    fn string_for_lang(
+        &mut self,
+        lang: Lang,
+        region: Option<Region>,
+        key: &str,
+    ) -> Option<String> {
+        let bundle = self.get_lang_bundle(&Self::lang_str(lang, region))?;
+        let msg = bundle.get_message(key)?;
+        let mut errors = vec![];
+        let pattern = msg.value()?;
+        let value = bundle.format_pattern(pattern, None, &mut errors);
+        Some(value.to_string())
     }
 
     pub fn localized_string(
@@ -76,17 +92,18 @@ impl Engine<'_> {
         region: Option<Region>,
         key: &str,
     ) -> String {
-        let bundle = self.get_lang_bundle(&Self::lang_str(lang, region));
-        let msg = bundle.get_message(key).expect("Message doesn't exist.");
-        let mut errors = vec![];
-        let pattern = msg.value().expect("Message has no value.");
-        let value = bundle.format_pattern(&pattern, None, &mut errors);
-        value.to_string()
+        if let Some(str) = self.string_for_lang(lang, region, key) {
+            return str;
+        }
+        if let Some(str) = self.string_for_lang(lang, None, key) {
+            return str;
+        }
+        self.string_for_lang(Lang::ENGLISH, None, key).unwrap()
     }
 
     fn lang_str(lang: Lang, region: Option<Region>) -> String {
         lang.as_str().to_string()
-            + &region.map_or_else(String::new, |r| String::from("_") + r.as_str())
+            + &region.map_or_else(String::new, |r| String::from("-") + r.as_str())
     }
 }
 

@@ -2761,6 +2761,7 @@ dependencies = [
  "icu_provider_blob",
  "icu_segmenter",
  "image",
+ "include_dir",
  "indexmap 2.1.0",
  "kurbo",
  "lipsum",

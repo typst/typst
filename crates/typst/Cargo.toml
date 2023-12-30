@@ -25,6 +25,7 @@ ciborium = { workspace = true }
 comemo = { workspace = true }
 csv = { workspace = true }
 ecow = { workspace = true}
+fluent = { workspace = true }
 fontdb = { workspace = true }
 hayagriva = { workspace = true }
 hypher = { workspace = true }
@@ -34,6 +35,7 @@ icu_provider_adapters = { workspace = true }
 icu_provider_blob = { workspace = true }
 icu_segmenter = { workspace = true }
 image = { workspace = true }
+include_dir = { workspace = true }
 indexmap = { workspace = true }
 kurbo = { workspace = true }
 lipsum = { workspace = true }
@@ -56,14 +58,13 @@ tracing = { workspace = true }
 ttf-parser = { workspace = true }
 two-face = { workspace = true }
 typed-arena = { workspace = true }
+unic-langid = { workspace = true }
 unicode-bidi = { workspace = true }
 unicode-math-class = { workspace = true }
 unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
 usvg = { workspace = true }
 wasmi = { workspace = true }
-fluent = { workspace = true }
-unic-langid = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 stacker = { workspace = true }

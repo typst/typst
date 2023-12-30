@@ -1,5 +1,5 @@
 figure = 圖
-table = 
+# table = 
 equation = 方程式
 bibliography = 書目
 heading = 小節

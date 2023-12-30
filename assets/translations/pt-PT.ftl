@@ -1,7 +1,7 @@
-figure = 
-table = 
-equation = 
-bibliography = 
+# figure = 
+# table = 
+# equation = 
+# bibliography = 
 heading = Secção
 outline = Índice
-raw = 
+# raw = 

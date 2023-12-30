@@ -4,4 +4,4 @@ equation = Egyenlet
 bibliography = Irodalomjegyzék
 heading = Fejezet
 outline = Tartalomjegyzék
-raw = 
+# raw = 
