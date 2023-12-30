@@ -4,7 +4,7 @@ mod download;
 mod fonts;
 mod package;
 mod query;
-mod tracing;
+mod timings;
 #[cfg(feature = "self-update")]
 mod update;
 mod watch;
@@ -31,7 +31,7 @@ static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
 
 /// Entry point.
 fn main() -> ExitCode {
-    let handle = crate::tracing::setup(&ARGS);
+    let handle = crate::timings::setup(&ARGS);
 
     let res = match &ARGS.command {
         Command::Compile(command) => crate::compile::compile(handle, command.clone()),

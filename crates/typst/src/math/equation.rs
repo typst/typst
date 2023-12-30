@@ -112,7 +112,7 @@ impl Synthesize for EquationElem {
 }
 
 impl Show for EquationElem {
-    #[typst_macros::trace(name = "math.equation", span = self.span())]
+    #[typst_macros::time(name = "math.equation", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.clone().pack().guarded(Guard::Base(Self::elem()));
         if self.block(styles) {
@@ -137,7 +137,7 @@ impl Finalize for EquationElem {
 }
 
 impl Layout for EquationElem {
-    #[typst_macros::trace(name = "math.equation", span = self.span())]
+    #[typst_macros::time(name = "math.equation", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -311,7 +311,7 @@ impl Outlinable for EquationElem {
 }
 
 impl LayoutMath for EquationElem {
-    #[typst_macros::trace(name = "math.equation", span = self.span())]
+    #[typst_macros::time(name = "math.equation", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         self.body().layout_math(ctx)
     }

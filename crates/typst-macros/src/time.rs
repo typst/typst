@@ -5,13 +5,13 @@ use syn::Result;
 
 use crate::util::{kw, parse_key_value, parse_string};
 
-/// Expand the `#[trace(..)]` macro.
-pub fn trace(stream: TokenStream, item: &syn::ItemFn) -> Result<TokenStream> {
+/// Expand the `#[time(..)]` macro.
+pub fn time(stream: TokenStream, item: &syn::ItemFn) -> Result<TokenStream> {
     let meta: Meta = syn::parse2(stream)?;
     Ok(create(meta, item))
 }
 
-/// The `..` in `#[trace(..)]`.
+/// The `..` in `#[time(..)]`.
 pub struct Meta {
     pub span: Option<syn::Expr>,
     pub name: Option<String>,
@@ -40,7 +40,7 @@ fn create(meta: Meta, item: &syn::ItemFn) -> TokenStream {
     quote! {
         #vis #sig {
             #[cfg(not(target_arch = "wasm32"))]
-            let __scope = ::typst_trace::Scope::new(#name, {
+            let __scope = ::typst_timing::Scope::new(#name, {
                 use ::typst::foundations::NativeElement;
                 #span
             });

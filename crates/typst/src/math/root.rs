@@ -40,7 +40,7 @@ pub struct RootElem {
 }
 
 impl LayoutMath for RootElem {
-    #[typst_macros::trace(name = "math.root", span = self.span())]
+    #[typst_macros::time(name = "math.root", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, self.index(ctx.styles()).as_ref(), self.radicand(), self.span())
     }

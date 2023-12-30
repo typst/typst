@@ -10,7 +10,7 @@ mod elem;
 mod func;
 mod scope;
 mod symbols;
-mod trace;
+mod time;
 mod ty;
 
 use proc_macro::TokenStream as BoundaryStream;
@@ -344,21 +344,21 @@ pub fn symbols(stream: BoundaryStream) -> BoundaryStream {
         .into()
 }
 
-/// Traces the function invokations.
+/// Times the function invokations.
 ///
 /// When tracing is enabled in the typst-cli, this macro will record the
 /// invokations of the function and store them in a global map. The map can be
 /// accessed through the `typst_trace::RECORDER` static.
 ///
 /// You can also specify the span of the function invokation:
-/// - `#[trace(span = ..)]` to record the span, which will be used for the
+/// - `#[time(span = ..)]` to record the span, which will be used for the
 ///   `EventKey`.
 ///
 /// By default, all tracing is ommited using the `wasm32` target flag.
 /// This is done to avoid bloating the web app which doesn't need tracing.
 ///
 /// ```ignore
-/// #[trace]
+/// #[time]
 /// fn fibonacci(n: u64) -> u64 {
 ///     if n <= 1 {
 ///         1
@@ -367,7 +367,7 @@ pub fn symbols(stream: BoundaryStream) -> BoundaryStream {
 ///     }
 /// }
 ///
-/// #[trace(span = span)]
+/// #[time(span = span)]
 /// fn fibonacci_spanned(n: u64, span: Span) -> u64 {
 ///     if n <= 1 {
 ///         1
@@ -377,9 +377,9 @@ pub fn symbols(stream: BoundaryStream) -> BoundaryStream {
 /// }
 /// ```
 #[proc_macro_attribute]
-pub fn trace(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
+pub fn time(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
     let item = syn::parse_macro_input!(item as syn::ItemFn);
-    trace::trace(stream.into(), &item)
+    time::time(stream.into(), &item)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }

@@ -106,7 +106,7 @@ pub struct CancelElem {
 }
 
 impl LayoutMath for CancelElem {
-    #[typst_macros::trace(name = "math.cancel", span = self.span())]
+    #[typst_macros::time(name = "math.cancel", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let body = ctx.layout_fragment(self.body())?;
         // Use the same math class as the body, in order to preserve automatic spacing around it.

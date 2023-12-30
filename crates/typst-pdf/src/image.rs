@@ -32,7 +32,7 @@ pub fn deferred_image(image: Image) -> Deferred<EncodedImage> {
 }
 
 /// Embed all used images into the PDF.
-#[typst_macros::trace(name = "write images")]
+#[typst_macros::time(name = "write images")]
 pub(crate) fn write_images(ctx: &mut PdfContext) {
     for (i, _) in ctx.image_map.items().enumerate() {
         let handle = ctx.image_deferred_map.get(&i).unwrap();

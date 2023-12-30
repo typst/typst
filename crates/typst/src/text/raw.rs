@@ -392,7 +392,7 @@ impl Synthesize for RawElem {
 }
 
 impl Show for RawElem {
-    #[typst_macros::trace(name = "raw", span = self.span())]
+    #[typst_macros::time(name = "raw", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut lines = EcoVec::with_capacity((2 * self.lines().len()).saturating_sub(1));
         for (i, line) in self.lines().iter().enumerate() {
@@ -498,7 +498,7 @@ pub struct RawLine {
 }
 
 impl Show for RawLine {
-    #[typst_macros::trace(name = "raw.line", span = self.span())]
+    #[typst_macros::time(name = "raw.line", span = self.span())]
     fn show(&self, _: &mut Engine, _styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone())
     }
@@ -663,7 +663,7 @@ impl Fold for SyntaxPaths {
 
 /// Load a syntax set from a list of syntax file paths.
 #[comemo::memoize]
-#[typst_macros::trace(name = "load syntaxes")]
+#[typst_macros::time(name = "load syntaxes")]
 fn load_syntaxes(paths: &SyntaxPaths, bytes: &[Bytes]) -> StrResult<Arc<SyntaxSet>> {
     let mut out = SyntaxSetBuilder::new();
 
@@ -707,7 +707,7 @@ fn parse_syntaxes(
 }
 
 #[comemo::memoize]
-#[typst_macros::trace(name = "load theme")]
+#[typst_macros::time(name = "load theme")]
 fn load_theme(path: &str, bytes: &Bytes) -> StrResult<Arc<synt::Theme>> {
     let mut cursor = std::io::Cursor::new(bytes.as_slice());
 

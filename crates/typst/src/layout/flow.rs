@@ -28,7 +28,7 @@ pub struct FlowElem {
 }
 
 impl Layout for FlowElem {
-    #[typst_macros::trace(name = "flow", span = self.span())]
+    #[typst_macros::time(name = "flow", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

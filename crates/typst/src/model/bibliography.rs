@@ -207,7 +207,7 @@ impl Synthesize for BibliographyElem {
 }
 
 impl Show for BibliographyElem {
-    #[typst_macros::trace(name = "bibliography", span = self.span())]
+    #[typst_macros::time(name = "bibliography", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         const COLUMN_GUTTER: Em = Em::new(0.65);
         const INDENT: Em = Em::new(1.5);
@@ -357,7 +357,7 @@ impl Bibliography {
 
     /// Load bibliography entries from paths.
     #[comemo::memoize]
-    #[typst_macros::trace(name = "load bibliography")]
+    #[typst_macros::time(name = "load bibliography")]
     fn load(paths: &BibliographyPaths, data: &[Bytes]) -> StrResult<Bibliography> {
         let mut map = IndexMap::new();
         let mut duplicates = Vec::<EcoString>::new();

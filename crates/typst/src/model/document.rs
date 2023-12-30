@@ -67,7 +67,7 @@ impl Construct for DocumentElem {
 
 impl LayoutRoot for DocumentElem {
     /// Layout the document into a sequence of frames, one per page.
-    #[typst_macros::trace(name = "document", span = self.span())]
+    #[typst_macros::time(name = "document", span = self.span())]
     fn layout_root(
         &self,
         engine: &mut Engine,

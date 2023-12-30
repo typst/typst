@@ -38,7 +38,7 @@ pub struct StrongElem {
 }
 
 impl Show for StrongElem {
-    #[typst_macros::trace(name = "strong", span = self.span())]
+    #[typst_macros::time(name = "strong", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self
             .body()

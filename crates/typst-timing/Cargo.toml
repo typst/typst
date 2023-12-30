@@ -1,6 +1,6 @@
 [package]
-name = "typst-trace"
-description = "Performance tracing for Typst."
+name = "typst-timing"
+description = "Timing recording for Typst."
 version = { workspace = true }
 rust-version = { workspace = true }
 authors = { workspace = true }

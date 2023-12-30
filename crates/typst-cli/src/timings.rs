@@ -11,19 +11,19 @@ use crate::world::SystemWorld;
 
 /// Initializes the tracing system and returns a guard that will flush the
 /// recorder to disk when dropped.
-pub fn setup(args: &CliArguments) -> TracingHandle {
+pub fn setup(args: &CliArguments) -> TimignHandle {
     let record = match &args.command {
-        Command::Compile(command) => command.record.clone(),
-        Command::Watch(command) => command.record.clone(),
+        Command::Compile(command) => command.timings.clone(),
+        Command::Watch(command) => command.timings.clone(),
         _ => None,
     };
 
     // Enable event collection.
     if record.is_some() {
-        typst_trace::enable();
+        typst_timing::enable();
     }
 
-    TracingHandle {
+    TimignHandle {
         record: record
             .map(|path| path.unwrap_or_else(|| PathBuf::from("record-{n}.json"))),
         index: 0,
@@ -31,14 +31,14 @@ pub fn setup(args: &CliArguments) -> TracingHandle {
 }
 
 /// Will flush the flamegraph to disk when dropped.
-pub struct TracingHandle {
+pub struct TimignHandle {
     /// Where to save the recorded trace of each compilation step.
     record: Option<PathBuf>,
     /// The current trace iteration.
     index: usize,
 }
 
-impl TracingHandle {
+impl TimignHandle {
     /// Record all traces in `f`.
     pub fn record<O>(
         &mut self,
@@ -49,7 +49,7 @@ impl TracingHandle {
             return Ok(f(world));
         };
 
-        typst_trace::clear();
+        typst_timing::clear();
 
         let string = record.to_str().unwrap_or_default();
         let numbered = string.contains("{n}");
@@ -72,7 +72,7 @@ impl TracingHandle {
             File::create(path).map_err(|e| format!("failed to create file: {e}"))?;
         let writer = BufWriter::with_capacity(1 << 20, file);
 
-        typst_trace::export_json(writer, |span| {
+        typst_timing::export_json(writer, |span| {
             resolve_span(world, span).unwrap_or_else(|| ("unknown".to_string(), 0))
         })?;
 

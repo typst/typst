@@ -132,7 +132,7 @@ pub struct RectElem {
 }
 
 impl Layout for RectElem {
-    #[typst_macros::trace(name = "rect", span = self.span())]
+    #[typst_macros::time(name = "rect", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -238,7 +238,7 @@ pub struct SquareElem {
 }
 
 impl Layout for SquareElem {
-    #[typst_macros::trace(name = "square", span = self.span())]
+    #[typst_macros::time(name = "square", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -316,7 +316,7 @@ pub struct EllipseElem {
 }
 
 impl Layout for EllipseElem {
-    #[typst_macros::trace(name = "ellipse", span = self.span())]
+    #[typst_macros::time(name = "ellipse", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -419,7 +419,7 @@ pub struct CircleElem {
 }
 
 impl Layout for CircleElem {
-    #[typst_macros::trace(name = "circle", span = self.span())]
+    #[typst_macros::time(name = "circle", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

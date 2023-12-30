@@ -2472,7 +2472,7 @@ dependencies = [
  "typed-arena",
  "typst-macros",
  "typst-syntax",
- "typst-trace",
+ "typst-timing",
  "unicode-bidi",
  "unicode-math-class",
  "unicode-script",
@@ -2518,7 +2518,7 @@ dependencies = [
  "typst-pdf",
  "typst-render",
  "typst-svg",
- "typst-trace",
+ "typst-timing",
  "ureq",
  "xz2",
  "zip",
@@ -2595,7 +2595,7 @@ dependencies = [
  "ttf-parser",
  "typst",
  "typst-macros",
- "typst-trace",
+ "typst-timing",
  "unicode-properties",
  "unscanny",
  "xmp-writer",
@@ -2616,7 +2616,7 @@ dependencies = [
  "ttf-parser",
  "typst",
  "typst-macros",
- "typst-trace",
+ "typst-timing",
  "usvg",
 ]
 
@@ -2631,7 +2631,7 @@ dependencies = [
  "ttf-parser",
  "typst",
  "typst-macros",
- "typst-trace",
+ "typst-timing",
  "xmlparser",
  "xmlwriter",
 ]
@@ -2673,7 +2673,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "typst-trace"
+name = "typst-timing"
 version = "0.10.0"
 dependencies = [
  "parking_lot",

@@ -110,7 +110,7 @@ pub struct BoxElem {
 }
 
 impl Layout for BoxElem {
-    #[typst_macros::trace(name = "box", span = self.span())]
+    #[typst_macros::time(name = "box", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -342,7 +342,7 @@ pub struct BlockElem {
 }
 
 impl Layout for BlockElem {
-    #[typst_macros::trace(name = "block", span = self.span())]
+    #[typst_macros::time(name = "block", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

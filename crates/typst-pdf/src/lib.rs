@@ -47,7 +47,7 @@ use crate::pattern::PdfPattern;
 /// The `timestamp`, if given, is expected to be the creation date of the
 /// document as a UTC datetime. It will only be used if `set document(date: ..)`
 /// is `auto`.
-#[typst_macros::trace(name = "pdf")]
+#[typst_macros::time(name = "pdf")]
 pub fn pdf(
     document: &Document,
     ident: Option<&str>,

@@ -124,7 +124,7 @@ impl Construct for ParElem {
 
 impl ParElem {
     /// Layout the paragraph into a collection of lines.
-    #[typst_macros::trace(name = "par", span = self.span())]
+    #[typst_macros::time(name = "par", span = self.span())]
     pub fn layout(
         &self,
         engine: &mut Engine,

@@ -145,7 +145,7 @@ impl ImageElem {
 }
 
 impl Layout for ImageElem {
-    #[typst_macros::trace(name = "image", span = self.span())]
+    #[typst_macros::time(name = "image", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -324,7 +324,7 @@ pub enum ImageKind {
 impl Image {
     /// Create an image from a buffer and a format.
     #[comemo::memoize]
-    #[typst_macros::trace(name = "load image")]
+    #[typst_macros::time(name = "load image")]
     pub fn new(
         data: Bytes,
         format: ImageFormat,
@@ -344,7 +344,7 @@ impl Image {
 
     /// Create a possibly font-dependant image from a buffer and a format.
     #[comemo::memoize]
-    #[typst_macros::trace(name = "load image")]
+    #[typst_macros::time(name = "load image")]
     pub fn with_fonts(
         data: Bytes,
         format: ImageFormat,

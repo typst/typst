@@ -58,7 +58,7 @@ pub struct ColumnsElem {
 }
 
 impl Layout for ColumnsElem {
-    #[typst_macros::trace(name = "columns", span = self.span())]
+    #[typst_macros::time(name = "columns", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

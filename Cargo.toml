@@ -25,7 +25,7 @@ typst-pdf = { path = "crates/typst-pdf" }
 typst-render = { path = "crates/typst-render" }
 typst-svg = { path = "crates/typst-svg" }
 typst-syntax = { path = "crates/typst-syntax" }
-typst-trace = { path = "crates/typst-trace" }
+typst-timing = { path = "crates/typst-timing" }
 az = "1.2"
 base64 = "0.21.2"
 bitflags = { version = "2", features = ["serde"] }

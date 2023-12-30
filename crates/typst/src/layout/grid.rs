@@ -203,7 +203,7 @@ pub struct GridElem {
 }
 
 impl Layout for GridElem {
-    #[typst_macros::trace(name = "grid", span = self.span())]
+    #[typst_macros::time(name = "grid", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

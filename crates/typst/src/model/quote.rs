@@ -154,7 +154,7 @@ impl Synthesize for QuoteElem {
 }
 
 impl Show for QuoteElem {
-    #[typst_macros::trace(name = "quote", span = self.span())]
+    #[typst_macros::time(name = "quote", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
         let block = self.block(styles);

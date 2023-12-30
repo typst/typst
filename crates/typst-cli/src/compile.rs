@@ -18,7 +18,7 @@ use typst::visualize::Color;
 use typst::{World, WorldExt};
 
 use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
-use crate::tracing::TracingHandle;
+use crate::timings::TimignHandle;
 use crate::watch::Status;
 use crate::world::SystemWorld;
 use crate::{color_stream, set_failed};
@@ -60,7 +60,7 @@ impl CompileCommand {
 }
 
 /// Execute a compilation command.
-pub fn compile(mut handle: TracingHandle, mut command: CompileCommand) -> StrResult<()> {
+pub fn compile(mut handle: TimignHandle, mut command: CompileCommand) -> StrResult<()> {
     let mut world = SystemWorld::new(&command.common)?;
     handle.record(&mut world, |world| compile_once(world, &mut command, false))??;
     Ok(())
@@ -69,7 +69,7 @@ pub fn compile(mut handle: TracingHandle, mut command: CompileCommand) -> StrRes
 /// Compile a single time.
 ///
 /// Returns whether it compiled without errors.
-#[typst_macros::trace(name = "compile once")]
+#[typst_macros::time(name = "compile once")]
 pub fn compile_once(
     world: &mut SystemWorld,
     command: &mut CompileCommand,

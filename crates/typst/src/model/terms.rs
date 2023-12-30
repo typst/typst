@@ -108,7 +108,7 @@ impl TermsElem {
 }
 
 impl Layout for TermsElem {
-    #[typst_macros::trace(name = "terms", span = self.span())]
+    #[typst_macros::time(name = "terms", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

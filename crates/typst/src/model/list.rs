@@ -135,7 +135,7 @@ impl ListElem {
 }
 
 impl Layout for ListElem {
-    #[typst_macros::trace(name = "list", span = self.span())]
+    #[typst_macros::time(name = "list", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

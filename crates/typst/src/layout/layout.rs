@@ -69,7 +69,7 @@ struct LayoutElem {
 }
 
 impl Layout for LayoutElem {
-    #[typst_macros::trace(name = "layout", span = self.span())]
+    #[typst_macros::time(name = "layout", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

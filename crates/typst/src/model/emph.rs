@@ -34,7 +34,7 @@ pub struct EmphElem {
 }
 
 impl Show for EmphElem {
-    #[typst_macros::trace(name = "emph", span = self.span())]
+    #[typst_macros::time(name = "emph", span = self.span())]
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone().styled(TextElem::set_emph(ItalicToggle)))
     }

@@ -8,13 +8,13 @@ use serde::ser::SerializeSeq;
 use serde::{Serialize, Serializer};
 use typst_syntax::Span;
 
-/// Whether the tracer is enabled. Defaults to `false`.
+/// Whether the timer is enabled. Defaults to `false`.
 ///
 /// # Safety
 /// This is unsafe because it is a global variable that is not thread-safe.
 /// But at worst, if we have a race condition, we will just be missing some
 /// events. So it's not a big deal. And it avoids needing to do an atomic
-/// operation every time we want to check if the tracer is enabled.
+/// operation every time we want to check if the timer is enabled.
 static mut ENABLED: bool = false;
 
 /// The global event recorder.
@@ -59,7 +59,7 @@ enum EventKind {
     End,
 }
 
-/// Enable the tracer.
+/// Enable the timer.
 #[inline]
 pub fn enable() {
     unsafe {
@@ -67,7 +67,7 @@ pub fn enable() {
     }
 }
 
-/// Whether the tracer is enabled.
+/// Whether the timer is enabled.
 #[inline]
 pub fn is_enabled() -> bool {
     unsafe { ENABLED }

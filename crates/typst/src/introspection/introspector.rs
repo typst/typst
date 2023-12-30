@@ -37,7 +37,7 @@ pub struct Introspector {
 
 impl Introspector {
     /// Applies new frames in-place, reusing the existing allocations.
-    #[typst_macros::trace(name = "introspect")]
+    #[typst_macros::time(name = "introspect")]
     pub fn rebuild(&mut self, frames: &[Frame]) {
         self.pages = frames.len();
         self.elems.clear();

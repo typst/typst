@@ -87,7 +87,7 @@ pub struct PlaceElem {
 }
 
 impl Layout for PlaceElem {
-    #[typst_macros::trace(name = "place", span = self.span())]
+    #[typst_macros::time(name = "place", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

@@ -35,7 +35,7 @@ pub struct RepeatElem {
 }
 
 impl Layout for RepeatElem {
-    #[typst_macros::trace(name = "repeat", span = self.span())]
+    #[typst_macros::time(name = "repeat", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

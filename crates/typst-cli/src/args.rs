@@ -70,8 +70,8 @@ pub struct CompileCommand {
     /// Produces a JSON record of the compilation process, it does not contain
     /// any sensitive information, only the file name and the line numbers of
     /// the spans that were compiled.
-    #[arg(long = "record", value_name = "OUTPUT_JSON")]
-    pub record: Option<Option<PathBuf>>,
+    #[arg(long = "timings", value_name = "OUTPUT_JSON")]
+    pub timings: Option<Option<PathBuf>>,
 }
 
 /// Processes an input file to extract provided metadata

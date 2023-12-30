@@ -59,7 +59,7 @@ pub struct LineElem {
 }
 
 impl Layout for LineElem {
-    #[typst_macros::trace(name = "line", span = self.span())]
+    #[typst_macros::time(name = "line", span = self.span())]
     fn layout(
         &self,
         _: &mut Engine,

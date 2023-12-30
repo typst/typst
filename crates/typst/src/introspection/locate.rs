@@ -40,7 +40,7 @@ struct LocateElem {
 }
 
 impl Show for LocateElem {
-    #[typst_macros::trace(name = "locate", span = self.span())]
+    #[typst_macros::time(name = "locate", span = self.span())]
     fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
             let location = self.location().unwrap();

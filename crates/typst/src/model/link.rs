@@ -90,7 +90,7 @@ impl LinkElem {
 }
 
 impl Show for LinkElem {
-    #[typst_macros::trace(name = "link", span = self.span())]
+    #[typst_macros::time(name = "link", span = self.span())]
     fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         let body = self.body().clone();
         let linked = match self.dest() {

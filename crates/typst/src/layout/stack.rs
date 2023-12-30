@@ -52,7 +52,7 @@ pub struct StackElem {
 }
 
 impl Layout for StackElem {
-    #[typst_macros::trace(name = "stack", span = self.span())]
+    #[typst_macros::time(name = "stack", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

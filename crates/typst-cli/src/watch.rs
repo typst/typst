@@ -12,11 +12,11 @@ use typst::diag::StrResult;
 use crate::args::CompileCommand;
 use crate::color_stream;
 use crate::compile::compile_once;
-use crate::tracing::TracingHandle;
+use crate::timings::TimignHandle;
 use crate::world::SystemWorld;
 
 /// Execute a watching compilation command.
-pub fn watch(mut handle: TracingHandle, mut command: CompileCommand) -> StrResult<()> {
+pub fn watch(mut handle: TimignHandle, mut command: CompileCommand) -> StrResult<()> {
     // Create the world that serves sources, files, and fonts.
     let mut world = SystemWorld::new(&command.common)?;
 

@@ -126,7 +126,7 @@ impl PolygonElem {
 }
 
 impl Layout for PolygonElem {
-    #[typst_macros::trace(name = "polygon", span = self.span())]
+    #[typst_macros::time(name = "polygon", span = self.span())]
     fn layout(
         &self,
         _: &mut Engine,

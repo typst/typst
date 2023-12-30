@@ -25,7 +25,7 @@ typst-macros = { workspace = true }
 typst-pdf = { workspace = true }
 typst-render = { workspace = true }
 typst-svg = { workspace = true }
-typst-trace = { workspace = true }
+typst-timing = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 codespan-reporting = { workspace = true }

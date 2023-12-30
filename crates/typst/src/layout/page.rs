@@ -340,7 +340,7 @@ impl PageElem {
     /// while we post-process the pages in this function. This function returns
     /// a fragment consisting of multiple frames, one per output page of this
     /// page run.
-    #[typst_macros::trace(name = "page", span = self.span())]
+    #[typst_macros::time(name = "page", span = self.span())]
     pub fn layout(
         &self,
         engine: &mut Engine,

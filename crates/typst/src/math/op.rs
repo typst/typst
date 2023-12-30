@@ -34,7 +34,7 @@ pub struct OpElem {
 }
 
 impl LayoutMath for OpElem {
-    #[typst_macros::trace(name = "math.op", span = self.span())]
+    #[typst_macros::time(name = "math.op", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let fragment = ctx.layout_fragment(self.text())?;
         ctx.push(

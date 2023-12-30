@@ -128,7 +128,7 @@ impl Synthesize for FootnoteElem {
 }
 
 impl Show for FootnoteElem {
-    #[typst_macros::trace(name = "footnote", span = self.span())]
+    #[typst_macros::time(name = "footnote", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
             let loc = self.declaration_location(engine).at(self.span())?;
@@ -270,7 +270,7 @@ pub struct FootnoteEntry {
 }
 
 impl Show for FootnoteEntry {
-    #[typst_macros::trace(name = "footnote.entry", span = self.span())]
+    #[typst_macros::time(name = "footnote.entry", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let note = self.note();
         let number_gap = Em::new(0.05);

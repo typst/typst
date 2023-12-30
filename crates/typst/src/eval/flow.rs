@@ -56,7 +56,7 @@ impl Eval for ast::Conditional<'_> {
 impl Eval for ast::WhileLoop<'_> {
     type Output = Value;
 
-    #[typst_macros::trace(name = "while loop", span = self.span())]
+    #[typst_macros::time(name = "while loop", span = self.span())]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let flow = vm.flow.take();
         let mut output = Value::None;
@@ -102,7 +102,7 @@ impl Eval for ast::WhileLoop<'_> {
 impl Eval for ast::ForLoop<'_> {
     type Output = Value;
 
-    #[typst_macros::trace(name = "for loop", span = self.span())]
+    #[typst_macros::time(name = "for loop", span = self.span())]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let flow = vm.flow.take();
         let mut output = Value::None;

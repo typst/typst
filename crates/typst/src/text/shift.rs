@@ -48,7 +48,7 @@ pub struct SubElem {
 }
 
 impl Show for SubElem {
-    #[typst_macros::trace(name = "sub", span = self.span())]
+    #[typst_macros::time(name = "sub", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body().clone();
         let mut transformed = None;
@@ -108,7 +108,7 @@ pub struct SuperElem {
 }
 
 impl Show for SuperElem {
-    #[typst_macros::trace(name = "super", span = self.span())]
+    #[typst_macros::time(name = "super", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body().clone();
         let mut transformed = None;

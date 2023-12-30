@@ -255,7 +255,7 @@ impl Func {
     }
 
     /// Non-generic implementation of `call`.
-    #[typst_macros::trace(name = "func call", span = self.span())]
+    #[typst_macros::time(name = "func call", span = self.span())]
     fn call_impl(&self, engine: &mut Engine, mut args: Args) -> SourceResult<Value> {
         match &self.repr {
             Repr::Native(native) => {

@@ -209,7 +209,7 @@ impl EnumElem {
 }
 
 impl Layout for EnumElem {
-    #[typst_macros::trace(name = "enum", span = self.span())]
+    #[typst_macros::time(name = "enum", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

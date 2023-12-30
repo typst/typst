@@ -637,7 +637,7 @@ struct DisplayElem {
 }
 
 impl Show for DisplayElem {
-    #[typst_macros::trace(name = "counter.display", span = self.span())]
+    #[typst_macros::time(name = "counter.display", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
             let location = self.location().unwrap();
