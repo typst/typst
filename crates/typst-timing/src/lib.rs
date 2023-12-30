@@ -155,11 +155,11 @@ impl Drop for TimingScope {
 /// ```
 #[macro_export]
 macro_rules! timed {
-    ($name:literal, span = $span:expr, $body:expr $(,)?) => {{
+    ($name:expr, span = $span:expr, $body:expr $(,)?) => {{
         let __scope = $crate::TimingScope::new($name, Some($span));
         $body
     }};
-    ($name:literal, $body:expr $(,)?) => {{
+    ($name:expr, $body:expr $(,)?) => {{
         let __scope = $crate::TimingScope::new($name, None);
         $body
     }};
