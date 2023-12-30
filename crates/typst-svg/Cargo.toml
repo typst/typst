@@ -17,11 +17,12 @@ bench = false
 
 [dependencies]
 typst = { workspace = true }
+typst-macros = { workspace = true }
+typst-timing = { workspace = true }
 base64 = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true}
 flate2 = { workspace = true }
-tracing = { workspace = true }
 ttf-parser = { workspace = true }
 xmlparser = { workspace = true }
 xmlwriter = { workspace = true }

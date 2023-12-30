@@ -16,7 +16,6 @@ use crate::visualize::Stroke;
 impl Eval for ast::Unary<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Unary::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = self.expr().eval(vm)?;
         let result = match self.op() {
@@ -31,7 +30,6 @@ impl Eval for ast::Unary<'_> {
 impl Eval for ast::Binary<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Binary::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         match self.op() {
             ast::BinOp::Add => apply_binary(self, vm, add),

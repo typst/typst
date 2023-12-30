@@ -25,6 +25,7 @@ typst-pdf = { path = "crates/typst-pdf" }
 typst-render = { path = "crates/typst-render" }
 typst-svg = { path = "crates/typst-svg" }
 typst-syntax = { path = "crates/typst-syntax" }
+typst-timing = { path = "crates/typst-timing" }
 az = "1.2"
 base64 = "0.21.2"
 bitflags = { version = "2", features = ["serde"] }
@@ -56,7 +57,6 @@ if_chain = "1"
 image = { version = "0.24", default-features = false, features = ["png", "jpeg", "gif"] }
 include_dir = "0.7"
 indexmap = { version = "2", features = ["serde"] }
-inferno = "0.11.15"
 kurbo = "0.9" # in sync with usvg
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
@@ -99,10 +99,6 @@ tempfile = "3.7.0"
 time = { version = "0.3.20", features = ["formatting", "macros", "parsing"] }
 tiny-skia = "0.11"
 toml = { version = "0.8", default-features = false, features = ["parse", "display"] }
-tracing = "0.1.37"
-tracing-error = "0.2"
-tracing-flame = "0.2.0"
-tracing-subscriber = "0.3.17"
 ttf-parser = "0.20.0"
 two-face = { version = "0.3.0", default-features = false, features = ["syntect-fancy"] }
 typed-arena = "2"
@@ -137,3 +133,4 @@ strip = true
 
 [workspace.lints.clippy]
 uninlined_format_args = "warn"
+blocks_in_if_conditions = "allow"

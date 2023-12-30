@@ -24,6 +24,7 @@ use usvg::{NodeExt, TreeParsing};
 ///
 /// This renders the frame at the given number of pixels per point and returns
 /// the resulting `tiny-skia` pixel buffer.
+#[typst_macros::time(name = "render")]
 pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
     let size = frame.size();
     let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;

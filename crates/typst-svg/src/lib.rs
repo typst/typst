@@ -25,7 +25,7 @@ use xmlwriter::XmlWriter;
 const CONIC_SEGMENT: usize = 360;
 
 /// Export a frame into a SVG file.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "svg")]
 pub fn svg(frame: &Frame) -> String {
     let mut renderer = SVGRenderer::new();
     renderer.write_header(frame.size());
@@ -38,7 +38,6 @@ pub fn svg(frame: &Frame) -> String {
 /// Export multiple frames into a single SVG file.
 ///
 /// The padding will be added around and between the individual frames.
-#[tracing::instrument(skip_all)]
 pub fn svg_merged(frames: &[Frame], padding: Abs) -> String {
     let width = 2.0 * padding
         + frames.iter().map(|frame| frame.width()).max().unwrap_or_default();

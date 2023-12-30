@@ -26,7 +26,7 @@ use crate::image::deferred_image;
 use crate::{deflate_deferred, AbsExt, EmExt, PdfContext};
 
 /// Construct page objects.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "construct pages")]
 pub(crate) fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
     for frame in frames {
         let (page_ref, page) = construct_page(ctx, frame);
@@ -36,7 +36,7 @@ pub(crate) fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
 }
 
 /// Construct a page object.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "construct page")]
 pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Page) {
     let page_ref = ctx.alloc.bump();
 
@@ -83,7 +83,6 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Page)
 }
 
 /// Write the page tree.
-#[tracing::instrument(skip_all)]
 pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
     for i in 0..ctx.pages.len() {
         write_page(ctx, i);
@@ -142,7 +141,6 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
 }
 
 /// Write a page tree node.
-#[tracing::instrument(skip_all)]
 fn write_page(ctx: &mut PdfContext, i: usize) {
     let page = &ctx.pages[i];
     let content_id = ctx.alloc.bump();
@@ -204,7 +202,6 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
 }
 
 /// Write the page labels.
-#[tracing::instrument(skip_all)]
 pub(crate) fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
     let mut result = vec![];
     let mut prev: Option<&PdfPageLabel> = None;

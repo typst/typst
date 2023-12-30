@@ -108,7 +108,7 @@ impl TermsElem {
 }
 
 impl Layout for TermsElem {
-    #[tracing::instrument(name = "TermsElem::layout", skip_all)]
+    #[typst_macros::time(name = "terms", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

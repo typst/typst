@@ -5,6 +5,7 @@ use std::sync::OnceLock;
 use fontdb::{Database, Source};
 use typst::diag::StrResult;
 use typst::text::{Font, FontBook, FontInfo, FontVariant};
+use typst_timing::TimingScope;
 
 use crate::args::FontsCommand;
 
@@ -50,6 +51,7 @@ impl FontSlot {
     pub fn get(&self) -> Option<Font> {
         self.font
             .get_or_init(|| {
+                let _scope = TimingScope::new("load font", None);
                 let data = fs::read(&self.path).ok()?.into();
                 Font::new(data, self.index)
             })

@@ -62,7 +62,7 @@ pub struct AccentElem {
 }
 
 impl LayoutMath for AccentElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.accent", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_cramped(true));
         let base = ctx.layout_fragment(self.base())?;

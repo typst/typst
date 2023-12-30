@@ -2,6 +2,7 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, func, Content, Func, NativeElement, Show, StyleChain};
 use crate::introspection::Locatable;
+use crate::syntax::Span;
 
 /// Provides access to the location of content.
 ///
@@ -17,6 +18,8 @@ use crate::introspection::Locatable;
 /// ```
 #[func]
 pub fn locate(
+    /// The span of the `locate` call.
+    span: Span,
     /// A function that receives a [`location`]($location). Its return value is
     /// displayed in the document.
     ///
@@ -25,7 +28,7 @@ pub fn locate(
     /// content that depends on its own location in the document.
     func: Func,
 ) -> Content {
-    LocateElem::new(func).pack()
+    LocateElem::new(func).spanned(span).pack()
 }
 
 /// Executes a `locate` call.
@@ -37,7 +40,7 @@ struct LocateElem {
 }
 
 impl Show for LocateElem {
-    #[tracing::instrument(name = "LocateElem::show", skip(self, engine))]
+    #[typst_macros::time(name = "locate", span = self.span())]
     fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
             let location = self.location().unwrap();

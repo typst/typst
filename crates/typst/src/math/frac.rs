@@ -36,7 +36,7 @@ pub struct FracElem {
 }
 
 impl LayoutMath for FracElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.frac", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, self.num(), std::slice::from_ref(self.denom()), false, self.span())
     }
@@ -70,6 +70,7 @@ pub struct BinomElem {
 }
 
 impl LayoutMath for BinomElem {
+    #[typst_macros::time(name = "math.binom", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, self.upper(), self.lower(), true, self.span())
     }

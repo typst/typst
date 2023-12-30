@@ -47,7 +47,7 @@ use crate::pattern::PdfPattern;
 /// The `timestamp`, if given, is expected to be the creation date of the
 /// document as a UTC datetime. It will only be used if `set document(date: ..)`
 /// is `auto`.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "pdf")]
 pub fn pdf(
     document: &Document,
     ident: Option<&str>,
@@ -147,7 +147,6 @@ impl<'a> PdfContext<'a> {
 }
 
 /// Write the document catalog.
-#[tracing::instrument(skip_all)]
 fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Datetime>) {
     let lang = ctx
         .languages
@@ -278,7 +277,6 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
 }
 
 /// Compress data with the DEFLATE algorithm.
-#[tracing::instrument(skip_all)]
 fn deflate(data: &[u8]) -> Vec<u8> {
     const COMPRESSION_LEVEL: u8 = 6;
     miniz_oxide::deflate::compress_to_vec_zlib(data, COMPRESSION_LEVEL)

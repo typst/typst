@@ -8,7 +8,6 @@ use crate::math::{LayoutMath, MathContext, MathFragment, MathRow};
 pub struct AlignPointElem {}
 
 impl LayoutMath for AlignPointElem {
-    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.push(MathFragment::Align);
         Ok(())

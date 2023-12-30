@@ -21,7 +21,7 @@ const SYSTEM_INFO: SystemInfo = SystemInfo {
 };
 
 /// Embed all used fonts into the PDF.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "write fonts")]
 pub(crate) fn write_fonts(ctx: &mut PdfContext) {
     for font in ctx.font_map.items() {
         let type0_ref = ctx.alloc.bump();
@@ -168,6 +168,7 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
 /// - For a font with TrueType outlines, this returns the whole OpenType font.
 /// - For a font with CFF outlines, this returns just the CFF font program.
 #[comemo::memoize]
+#[typst_macros::time(name = "subset font")]
 fn subset_font(font: &Font, glyphs: &[u16]) -> Arc<Vec<u8>> {
     let data = font.data();
     let profile = subsetter::Profile::pdf(glyphs);

@@ -153,7 +153,7 @@ pub struct TableElem {
 }
 
 impl Layout for TableElem {
-    #[tracing::instrument(name = "TableElem::layout", skip_all)]
+    #[typst_macros::time(name = "table", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
