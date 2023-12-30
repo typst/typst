@@ -4,6 +4,8 @@ use std::thread::ThreadId;
 use std::time::{Duration, SystemTime};
 
 use parking_lot::Mutex;
+use serde::ser::SerializeSeq;
+use serde::{Serialize, Serializer};
 use typst_syntax::Span;
 
 /// Whether the timer is enabled. Defaults to `false`.
@@ -167,12 +169,25 @@ macro_rules! scoped {
 /// location of the span. The first element of the tuple is the file path and
 /// the second element is the line number.
 pub fn export_json<W: Write>(
-    mut writer: W,
+    writer: W,
     mut source: impl FnMut(Span) -> (String, u32),
 ) -> Result<(), String> {
-    writer
-        .write_all(b"[")
-        .map_err(|e| format!("failed to write events: {e}"))?;
+    #[derive(Serialize)]
+    struct Entry {
+        name: &'static str,
+        cat: &'static str,
+        ph: &'static str,
+        ts: f64,
+        pid: u64,
+        tid: u64,
+        args: Option<Args>,
+    }
+
+    #[derive(Serialize)]
+    struct Args {
+        file: String,
+        line: u32,
+    }
 
     let recorder = RECORDER.lock();
     let run_start = recorder
@@ -181,54 +196,36 @@ pub fn export_json<W: Write>(
         .map(|event| event.timestamp)
         .unwrap_or_else(SystemTime::now);
 
+    let mut serializer = serde_json::Serializer::new(writer);
+    let mut seq = serializer
+        .serialize_seq(Some(recorder.events.len()))
+        .map_err(|e| format!("failed to serialize events: {e}"))?;
+
     for event in recorder.events.iter() {
-        // Using manual serialization because `serde_json` is too slow.
-        if let Some((file, line)) = event.span.map(&mut source) {
-            write!(
-                &mut writer,
-                "{{\"name\":\"{}\",\"cat\":\"typst\",\"ph\":\"{}\",\"ts\":{},\"pid\":1,\"tid\":{},\"args\":{{\"file\":\"{file}\",\"line\":{line}}}}}",
-                event.name,
-                match event.kind {
-                    EventKind::Start => 'B',
-                    EventKind::End => 'E',
-                },
-                event
-                    .timestamp
-                    .duration_since(run_start)
-                    .unwrap_or(Duration::ZERO)
-                    .as_nanos() as f64
-                    / 1_000.0,
-                unsafe {
-                    // Safety: `thread_id` is a `ThreadId` which is a `u64`.
-                    std::mem::transmute_copy::<_, u64>(&event.thread_id)
-                }
-            ).map_err(|e| format!("failed to write events: {e}"))?;
-        } else {
-            write!(
-                &mut writer,
-                "{{\"name\":\"{}\",\"cat\":\"typst\",\"ph\":\"{}\",\"ts\":{},\"pid\":1,\"tid\":{}}}",
-                event.name,
-                match event.kind {
-                    EventKind::Start => 'B',
-                    EventKind::End => 'E',
-                },
-                event
-                    .timestamp
-                    .duration_since(run_start)
-                    .unwrap_or(Duration::ZERO)
-                    .as_nanos() as f64
-                    / 1_000.0,
-                unsafe {
-                    // Safety: `thread_id` is a `ThreadId` which is a `u64`.
-                    std::mem::transmute_copy::<_, u64>(&event.thread_id)
-                }
-            ).map_err(|e| format!("failed to write events: {e}"))?;
-        }
+        seq.serialize_element(&Entry {
+            name: event.name,
+            cat: "typst",
+            ph: match event.kind {
+                EventKind::Start => "B",
+                EventKind::End => "E",
+            },
+            ts: event
+                .timestamp
+                .duration_since(run_start)
+                .unwrap_or(Duration::ZERO)
+                .as_nanos() as f64
+                / 1_000.0,
+            pid: 1,
+            tid: unsafe {
+                // Safety: `thread_id` is a `ThreadId` which is a `u64`.
+                std::mem::transmute_copy(&event.thread_id)
+            },
+            args: event.span.map(&mut source).map(|(file, line)| Args { file, line }),
+        })
+        .map_err(|e| format!("failed to serialize event: {e}"))?;
     }
 
-    writer
-        .write_all(b"]")
-        .map_err(|e| format!("failed to write events: {e}"))?;
+    seq.end().map_err(|e| format!("failed to serialize events: {e}"))?;
 
     Ok(())
 }
