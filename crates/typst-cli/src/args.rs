@@ -67,9 +67,11 @@ pub struct CompileCommand {
     #[arg(long = "ppi", default_value_t = 144.0)]
     pub ppi: f32,
 
-    /// Produces a JSON record of the compilation process, it does not contain
-    /// any sensitive information, only the file name and the line numbers of
-    /// the spans that were compiled.
+    /// Produces performance timings of the compilation process (experimental)
+    ///
+    /// The resulting JSON file can be loaded into a tracing tool such as
+    /// https://ui.perfetto.dev. It does not contain any sensitive information
+    /// apart from file names and line numbers.
     #[arg(long = "timings", value_name = "OUTPUT_JSON")]
     pub timings: Option<Option<PathBuf>>,
 }

@@ -9,49 +9,48 @@ use typst::World;
 use crate::args::{CliArguments, Command};
 use crate::world::SystemWorld;
 
-/// Initializes the tracing system and returns a guard that will flush the
-/// recorder to disk when dropped.
-pub fn setup(args: &CliArguments) -> TimignHandle {
-    let record = match &args.command {
-        Command::Compile(command) => command.timings.clone(),
-        Command::Watch(command) => command.timings.clone(),
-        _ => None,
-    };
-
-    // Enable event collection.
-    if record.is_some() {
-        typst_timing::enable();
-    }
-
-    TimignHandle {
-        record: record
-            .map(|path| path.unwrap_or_else(|| PathBuf::from("record-{n}.json"))),
-        index: 0,
-    }
-}
-
-/// Will flush the flamegraph to disk when dropped.
-pub struct TimignHandle {
-    /// Where to save the recorded trace of each compilation step.
-    record: Option<PathBuf>,
-    /// The current trace iteration.
+/// Allows to record timings of function executions.
+pub struct Timer {
+    /// Where to save the recorded timings of each compilation step.
+    path: Option<PathBuf>,
+    /// The current watch iteration.
     index: usize,
 }
 
-impl TimignHandle {
-    /// Record all traces in `f`.
-    pub fn record<O>(
+impl Timer {
+    /// Initializes the timing system and returns a timer that can be used to
+    /// record timings for a specific function invocation.
+    pub fn new(args: &CliArguments) -> Timer {
+        let record = match &args.command {
+            Command::Compile(command) => command.timings.clone(),
+            Command::Watch(command) => command.timings.clone(),
+            _ => None,
+        };
+
+        // Enable event collection.
+        if record.is_some() {
+            typst_timing::enable();
+        }
+
+        let path =
+            record.map(|path| path.unwrap_or_else(|| PathBuf::from("record-{n}.json")));
+
+        Timer { path, index: 0 }
+    }
+
+    /// Records all timings in `f` and writes them to disk.
+    pub fn record<T>(
         &mut self,
         world: &mut SystemWorld,
-        f: impl FnOnce(&mut SystemWorld) -> O,
-    ) -> StrResult<O> {
-        let Some(record) = &self.record else {
+        f: impl FnOnce(&mut SystemWorld) -> T,
+    ) -> StrResult<T> {
+        let Some(path) = &self.path else {
             return Ok(f(world));
         };
 
         typst_timing::clear();
 
-        let string = record.to_str().unwrap_or_default();
+        let string = path.to_str().unwrap_or_default();
         let numbered = string.contains("{n}");
         if !numbered && self.index > 0 {
             bail!("cannot export multiple recordings without `{{n}}` in path");
@@ -62,7 +61,7 @@ impl TimignHandle {
             storage = string.replace("{n}", &self.index.to_string());
             Path::new(&storage)
         } else {
-            record.as_path()
+            path.as_path()
         };
 
         let output = f(world);

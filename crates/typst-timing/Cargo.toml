@@ -1,6 +1,6 @@
 [package]
 name = "typst-timing"
-description = "Timing recording for Typst."
+description = "Performance timing for Typst."
 version = { workspace = true }
 rust-version = { workspace = true }
 authors = { workspace = true }

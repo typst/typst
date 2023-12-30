@@ -20,6 +20,7 @@ use once_cell::sync::Lazy;
 use termcolor::{ColorChoice, WriteColor};
 
 use crate::args::{CliArguments, Command};
+use crate::timings::Timer;
 
 thread_local! {
     /// The CLI's exit code.
@@ -31,11 +32,10 @@ static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
 
 /// Entry point.
 fn main() -> ExitCode {
-    let handle = crate::timings::setup(&ARGS);
-
+    let timer = Timer::new(&ARGS);
     let res = match &ARGS.command {
-        Command::Compile(command) => crate::compile::compile(handle, command.clone()),
-        Command::Watch(command) => crate::watch::watch(handle, command.clone()),
+        Command::Compile(command) => crate::compile::compile(timer, command.clone()),
+        Command::Watch(command) => crate::watch::watch(timer, command.clone()),
         Command::Query(command) => crate::query::query(command),
         Command::Fonts(command) => crate::fonts::fonts(command),
         Command::Update(command) => crate::update::update(command),

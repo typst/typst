@@ -40,7 +40,7 @@ fn create(meta: Meta, item: &syn::ItemFn) -> TokenStream {
     quote! {
         #vis #sig {
             #[cfg(not(target_arch = "wasm32"))]
-            let __scope = ::typst_timing::Scope::new(#name, {
+            let __scope = ::typst_timing::TimingScope::new(#name, {
                 use ::typst::foundations::NativeElement;
                 #span
             });

@@ -55,13 +55,13 @@ pub mod visualize;
 
 #[doc(inline)]
 pub use typst_syntax as syntax;
-use typst_timing::scoped;
 
 use std::collections::HashSet;
 use std::ops::Range;
 
 use comemo::{Prehashed, Track, Tracked, Validate};
 use ecow::{EcoString, EcoVec};
+use typst_timing::{timed, TimingScope};
 
 use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
 use crate::engine::{Engine, Route};
@@ -108,7 +108,7 @@ fn typeset(
     tracer: &mut Tracer,
     content: &Content,
 ) -> SourceResult<Document> {
-    // The name of the iterations for tracing scopes.
+    // The name of the iterations for timing scopes.
     const ITER_NAMES: &[&str] =
         &["typeset (1)", "typeset (2)", "typeset (3)", "typeset (4)", "typeset (5)"];
 
@@ -121,7 +121,7 @@ fn typeset(
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
     loop {
-        let _scope = typst_timing::Scope::new(ITER_NAMES[iter], None);
+        let _scope = TimingScope::new(ITER_NAMES[iter], None);
 
         // Clear delayed errors.
         tracer.delayed();
@@ -141,7 +141,7 @@ fn typeset(
         document.introspector.rebuild(&document.pages);
         iter += 1;
 
-        if scoped!("check stabilized", document.introspector.validate(&constraint)) {
+        if timed!("check stabilized", document.introspector.validate(&constraint)) {
             break;
         }
 

@@ -18,7 +18,7 @@ use typst::visualize::Color;
 use typst::{World, WorldExt};
 
 use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
-use crate::timings::TimignHandle;
+use crate::timings::Timer;
 use crate::watch::Status;
 use crate::world::SystemWorld;
 use crate::{color_stream, set_failed};
@@ -60,9 +60,9 @@ impl CompileCommand {
 }
 
 /// Execute a compilation command.
-pub fn compile(mut handle: TimignHandle, mut command: CompileCommand) -> StrResult<()> {
+pub fn compile(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
     let mut world = SystemWorld::new(&command.common)?;
-    handle.record(&mut world, |world| compile_once(world, &mut command, false))??;
+    timer.record(&mut world, |world| compile_once(world, &mut command, false))??;
     Ok(())
 }
 

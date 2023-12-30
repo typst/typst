@@ -1,3 +1,5 @@
+//! Performance timing for Typst.
+
 use std::hash::Hash;
 use std::io::Write;
 use std::thread::ThreadId;
@@ -80,15 +82,15 @@ pub fn clear() {
 }
 
 /// A scope that records an event when it is dropped.
-pub struct Scope {
+pub struct TimingScope {
     name: &'static str,
     span: Option<Span>,
     id: u64,
     thread_id: ThreadId,
 }
 
-impl Scope {
-    /// Create a new scope if tracing is enabled.
+impl TimingScope {
+    /// Create a new scope if timing is enabled.
     pub fn new(name: &'static str, span: Option<Span>) -> Option<Self> {
         if !is_enabled() {
             return None;
@@ -109,11 +111,11 @@ impl Scope {
             thread_id,
         });
 
-        Some(Scope { name, span, id, thread_id })
+        Some(TimingScope { name, span, id, thread_id })
     }
 }
 
-impl Drop for Scope {
+impl Drop for TimingScope {
     fn drop(&mut self) {
         let event = Event {
             kind: EventKind::End,
@@ -128,7 +130,7 @@ impl Drop for Scope {
     }
 }
 
-/// Creates a scope around an expression.
+/// Creates a timing scope around an expression.
 ///
 /// The output of the expression is returned.
 ///
@@ -139,26 +141,26 @@ impl Drop for Scope {
 ///
 /// ```rs
 /// // With a scope name and span.
-/// scoped!(
+/// timed!(
 ///     "my scope",
 ///     span = Span::detached(),
 ///     std::thread::sleep(std::time::Duration::from_secs(1)),
 /// );
 ///
 /// // With a scope name and no span.
-/// scoped!(
+/// timed!(
 ///     "my scope",
 ///     std::thread::sleep(std::time::Duration::from_secs(1)),
 /// );
 /// ```
 #[macro_export]
-macro_rules! scoped {
+macro_rules! timed {
     ($name:literal, span = $span:expr, $body:expr $(,)?) => {{
-        let __scope = $crate::Scope::new($name, Some($span));
+        let __scope = $crate::TimingScope::new($name, Some($span));
         $body
     }};
     ($name:literal, $body:expr $(,)?) => {{
-        let __scope = $crate::Scope::new($name, None);
+        let __scope = $crate::TimingScope::new($name, None);
         $body
     }};
 }
