@@ -2677,8 +2677,6 @@ name = "typst-timing"
 version = "0.10.0"
 dependencies = [
  "parking_lot",
- "serde",
- "serde_json",
  "typst-syntax",
 ]
 
