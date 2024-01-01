@@ -4,8 +4,8 @@ use std::ops::{Add, Div, Mul, Neg};
 
 use ecow::{eco_format, EcoString};
 
-use crate::diag::{At, Hint, SourceResult};
-use crate::foundations::{func, scope, ty, Repr, Resolve, StyleChain};
+use crate::diag::{At, Hint, SourceResult, StrResult};
+use crate::foundations::{func, scope, ty, Repr, Resolve, StyleChain, Styles};
 use crate::layout::{Abs, Em};
 use crate::syntax::Span;
 use crate::util::Numeric;
@@ -131,6 +131,29 @@ impl Length {
     pub fn to_inches(&self, span: Span) -> SourceResult<f64> {
         self.ensure_that_em_is_zero(span, "inches")?;
         Ok(self.abs.to_inches())
+    }
+
+    /// Resolve this length to an absolute length.
+    #[func]
+    pub fn resolve(
+        &self,
+        /// The styles with which to measure the length.
+        styles: Styles,
+    ) -> StrResult<Length> {
+        // Shortcircuit to avoid doing a stylechain lookup if we're already
+        // absolute.
+        if self.is_absolute() {
+            return Ok(*self);
+        }
+
+        let styles = StyleChain::new(&styles);
+        Ok(Length { abs: self.abs + self.em.resolve(styles), em: Em::zero() })
+    }
+
+    /// Returns whether this length is absolute (that is, has no `em` units).
+    #[func]
+    pub fn is_absolute(&self) -> bool {
+        self.em.is_zero()
     }
 }
 
