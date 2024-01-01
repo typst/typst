@@ -281,3 +281,19 @@
 ---
 // Error: 18-19 number must not be zero
 #range(10, step: 0)
+
+---
+// Test `calc.sign`.
+
+#test(calc.sign(0), 0)
+#test(calc.sign(1), 1)
+#test(calc.sign(10), 1)
+#test(calc.sign(-1), -1)
+#test(calc.sign(-10), -1)
+#test(calc.sign(0.0), 1)
+#test(calc.sign(1.0), 1)
+#test(calc.sign(-1.0), -1)
+#test(calc.sign(0.1), 1)
+#test(calc.sign(1.1), 1)
+#test(calc.sign(-1.1), -1)
+#test(calc.sign(calc.nan), 0)

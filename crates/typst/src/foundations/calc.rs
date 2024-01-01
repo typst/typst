@@ -49,6 +49,7 @@ pub fn module() -> Module {
     scope.define_func::<div_euclid>();
     scope.define_func::<rem_euclid>();
     scope.define_func::<quo>();
+    scope.define_func::<sign>();
     scope.define("inf", f64::INFINITY);
     scope.define("nan", f64::NAN);
     scope.define("pi", std::f64::consts::PI);
@@ -908,6 +909,43 @@ pub fn quo(
     }
 
     Ok(floor(dividend.apply2(divisor.v, Div::div, Div::div)))
+}
+
+/// Calculates the sign of a number.
+///
+/// If the number is an [`int`]($int):
+/// - If the number is positive, returns `{1}`.
+/// - If the number is negative, returns `{-1}`.
+/// - If the number is zero, returns `{0}`.
+///
+/// If the number is a [`float`]($float):
+/// - If the number is positive (including `{+0.0}`), returns `{1}`.
+/// - If the number is negative (including `{-0.0}`), returns `{-1}`.
+/// - If the number is `{calc.nan}`, returns `{0}`.
+///
+/// ```example
+/// #calc.sign(5) \
+/// #calc.sign(-5) \
+/// #calc.sign(0) \
+/// #calc.sign(5.0) \
+/// #calc.sign(-5.0) \
+/// #calc.sign(calc.nan)
+/// ```
+#[func]
+pub fn sign(
+    /// The number whose sign to calculate.
+    value: Num,
+) -> i64 {
+    match value {
+        Num::Int(n) => n.signum(),
+        Num::Float(n) => {
+            if n.is_nan() {
+                0
+            } else {
+                n.signum() as i64
+            }
+        }
+    }
 }
 
 /// A value which can be passed to functions that work with integers and floats.
