@@ -147,7 +147,10 @@ impl Length {
         }
 
         let styles = StyleChain::new(&styles);
-        Ok(Length { abs: self.abs + self.em.resolve(styles), em: Em::zero() })
+        Ok(Length {
+            abs: self.abs + self.em.resolve(styles),
+            em: Em::zero(),
+        })
     }
 
     /// Returns whether this length is absolute (that is, has no `em` units).
