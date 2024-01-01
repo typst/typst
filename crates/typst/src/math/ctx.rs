@@ -207,7 +207,16 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             let class = self.style.class.as_custom().or(glyph.class);
             if class == Some(MathClass::Large) {
                 let mut variant = if self.style.size == MathSize::Display {
-                    let height = scaled!(self, display_operator_min_height);
+                    let display_operator_min_height =
+                        if self.constants.display_operator_min_height() < 2800
+                            && self.font.info().family == "Cambria Math"
+                        {
+                            // https://github.com/latex3/luaotfload/blob/1583a2f87d31d4fdd1909074d9b82e2f39a94bc0/src/luaotfload-auxiliary.lua#L142
+                            2800
+                        } else {
+                            self.constants.display_operator_min_height()
+                        };
+                    let height = display_operator_min_height.scaled(self);
                     glyph.stretch_vertical(self, height, Abs::zero())
                 } else {
                     glyph.into_variant()
