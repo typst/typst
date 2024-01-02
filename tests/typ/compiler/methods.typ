@@ -82,20 +82,20 @@
 #test((5em + 6in).abs.inches(), 6.0)
 
 ---
-// Test length resolve method.
+// Test length `to-absolute` method.
 
 #set text(size: 12pt)
 #style(styles => {
-  test((6pt).resolve(styles), 6pt)
-  test((6pt + 10em).resolve(styles), 126pt)
-  test((10em).resolve(styles), 120pt)
+  test((6pt).to-absolute(styles), 6pt)
+  test((6pt + 10em).to-absolute(styles), 126pt)
+  test((10em).to-absolute(styles), 120pt)
 });
 
 #set text(size: 64pt)
 #style(styles => {
-  test((6pt).resolve(styles), 6pt)
-  test((6pt + 10em).resolve(styles), 646pt)
-  test((10em).resolve(styles), 640pt)
+  test((6pt).to-absolute(styles), 6pt)
+  test((6pt + 10em).to-absolute(styles), 646pt)
+  test((10em).to-absolute(styles), 640pt)
 });
 
 ---

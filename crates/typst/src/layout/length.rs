@@ -135,14 +135,14 @@ impl Length {
 
     /// Resolve this length to an absolute length.
     #[func]
-    pub fn resolve(
+    pub fn to_absolute(
         &self,
         /// The styles with which to measure the length.
         styles: Styles,
     ) -> StrResult<Length> {
         // Shortcircuit to avoid doing a stylechain lookup if we're already
         // absolute.
-        if self.is_absolute() {
+        if self.em.is_zero() {
             return Ok(*self);
         }
 
@@ -151,12 +151,6 @@ impl Length {
             abs: self.abs + self.em.resolve(styles),
             em: Em::zero(),
         })
-    }
-
-    /// Returns whether this length is absolute (that is, has no `em` units).
-    #[func]
-    pub fn is_absolute(&self) -> bool {
-        self.em.is_zero()
     }
 }
 
