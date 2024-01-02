@@ -4,7 +4,7 @@ use std::ops::{Add, Div, Mul, Neg};
 
 use ecow::{eco_format, EcoString};
 
-use crate::diag::{At, Hint, SourceResult, StrResult};
+use crate::diag::{At, Hint, SourceResult};
 use crate::foundations::{func, scope, ty, Repr, Resolve, StyleChain, Styles};
 use crate::layout::{Abs, Em};
 use crate::syntax::Span;
@@ -139,9 +139,9 @@ impl Length {
         &self,
         /// The styles with which to measure the length.
         styles: Styles,
-    ) -> StrResult<Length> {
+    ) -> Length {
         let styles = StyleChain::new(&styles);
-        Ok(self.resolve(styles).into())
+        self.resolve(styles).into()
     }
 }
 
