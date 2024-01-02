@@ -45,13 +45,15 @@
         "command": "Typst.test-helper.runFromSource",
         "title": "Run test",
         "category": "Typst.test-helper",
-        "icon": "$(debug-start)"
+        "icon": "$(debug-start)",
+        "enablement": "!Typst.test-helper.disableRunTestButton"
       },
       {
         "command": "Typst.test-helper.runFromPreview",
         "title": "Run test",
         "category": "Typst.test-helper",
-        "icon": "$(debug-start)"
+        "icon": "$(debug-start)",
+        "enablement": "!Typst.test-helper.disableRunTestButton"
       },
       {
         "command": "Typst.test-helper.updateFromSource",

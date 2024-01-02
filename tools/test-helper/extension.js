@@ -1,7 +1,8 @@
 const vscode = require('vscode')
 const cp = require('child_process')
+const {clearInterval} = require('timers')
 
-class TestHelper {
+class Handler {
     constructor() {
         /** @type {vscode.Uri?} */ this.sourceUriOfActivePanel = null
         /** @type {Map<vscode.Uri, vscode.WebviewPanel>} */ this.panels = new Map()
@@ -11,6 +12,14 @@ class TestHelper {
         this.testRunningStatusBarItem.text = "$(loading~spin) Running"
         this.testRunningStatusBarItem.backgroundColor =
             new vscode.ThemeColor('statusBarItem.warningBackground')
+        this.testRunningStatusBarItem.tooltip =
+            "test-helper rebuilds crates if necessary, so it may take some time."
+        this.testRunningStatusBarItem.command =
+            "Typst.test-helper.showTestProgress"
+        /** @type {string|undefined} */ this.testRunningLatestMessage = undefined
+        this.testRunningProgressShown = false
+
+        Handler.enableRunTestButton_(true)
     }
 
     /**
@@ -53,13 +62,31 @@ class TestHelper {
         return {png, ref}
     }
 
+    /** @param {boolean} enable */
+    static enableRunTestButton_(enable) {
+        // Need to flip the value here, i.e. "disableRunTestButton" rather than
+        // "enableRunTestButton", because default values of custom context keys
+        // before extension activation are falsy. The extension isn't activated
+        // until a button is clicked.
+        //
+        // Note: at the time of this writing, VSCode doesn't support activating
+        // on path patterns. Alternatively one may try activating the extension
+        // using the activation event "onLanguage:typst", but this idea in fact
+        // doesn't work perperly as we would like, since (a) we do not want the
+        // extension to be enabled on every Typst file, e.g. the thesis you are
+        // working on, and (b) VSCode does not know the language ID "typst" out
+        // of box.
+        vscode.commands.executeCommand(
+            "setContext", "Typst.test-helper.disableRunTestButton", !enable)
+    }
+
     /**
      * @param {vscode.Uri} uri
      * @param {string} stdout
      * @param {string} stderr
      */
     refreshTestPreviewImpl_(uri, stdout, stderr) {
-        const {png, ref} = TestHelper.getImageUris(uri)
+        const {png, ref} = Handler.getImageUris(uri)
 
         const panel = this.panels.get(uri)
         if (panel && panel.visible) {
@@ -113,21 +140,69 @@ class TestHelper {
         this.refreshTestPreviewImpl_(uri, "", "")
     }
 
+    showTestProgress() {
+        if (this.testRunningLatestMessage === undefined
+            || this.testRunningProgressShown) {
+            return
+        }
+        this.testRunningProgressShown = true
+        vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "test-helper",
+        }, (progress) => {
+            /** @type {!Promise<void>} */
+            const closeWhenResolved = new Promise((resolve) => {
+                // This progress bar intends to relieve the developer's doubt
+                // during the possibly long waiting because of the rebuilding
+                // phase before actually running the test. Therefore, a naive
+                // polling (updates every few millisec) should be sufficient.
+                const timerId = setInterval(() => {
+                    if (this.testRunningLatestMessage === undefined) {
+                        this.testRunningProgressShown = false
+                        clearInterval(timerId)
+                        resolve()
+                    }
+                    progress.report({message: this.testRunningLatestMessage})
+                }, 100)
+            })
+
+            return closeWhenResolved
+        })
+    }
+
     /** @param {vscode.Uri} uri */
     runTest(uri) {
         const components = uri.fsPath.split(/tests[\/\\]/)
-        const dir = components[0]
-        const subPath = components[1]
+        const [dir, subPath] = components
 
+        Handler.enableRunTestButton_(false)
         this.testRunningStatusBarItem.show()
-        cp.exec(
-            `cargo test --manifest-path ${dir}/Cargo.toml --all --test tests -- ${subPath}`,
-            (err, stdout, stderr) => {
-                this.testRunningStatusBarItem.hide()
-                console.log(`Ran tests ${uri.fsPath}`)
-                this.refreshTestPreviewImpl_(uri, stdout, stderr)
-            }
-        )
+
+        const proc = cp.spawn(
+            "cargo",
+            ["test", "--manifest-path", `${dir}/Cargo.toml`, "--workspace", "--test", "tests", "--", `${subPath}`])
+        let outs = {stdout: "", stderr: ""}
+        if (!proc.stdout || !proc.stderr) {
+            throw new Error('Child process was not spawned successfully.')
+        }
+        proc.stdout.setEncoding('utf8')
+        proc.stdout.on("data", (data) => {
+            outs.stdout += data.toString()
+        })
+        proc.stderr.setEncoding('utf8')
+        proc.stderr.on("data", (data) => {
+            let s = data.toString()
+            outs.stderr += s
+            s = s.replace(/\(.+?\)/, "")
+            this.testRunningLatestMessage = s.length > 50 ? (s.slice(0, 50) + "...") : s
+        })
+        proc.on("close", (exitCode) => {
+            Handler.enableRunTestButton_(true)
+            this.testRunningStatusBarItem.hide()
+            this.testRunningLatestMessage = undefined
+            console.log(`Ran tests ${uri.fsPath}, exit = ${exitCode}`)
+            this.refreshTestPreviewImpl_(uri, outs.stdout, outs.stderr)
+        })
     }
 
     /** @param {vscode.Uri} uri */
@@ -141,7 +216,7 @@ class TestHelper {
 
     /** @param {vscode.Uri} uri */
     updateTestReference(uri) {
-        const {png, ref} = TestHelper.getImageUris(uri)
+        const {png, ref} = Handler.getImageUris(uri)
 
         vscode.workspace.fs.copy(png, ref, {overwrite: true})
             .then(() => {
@@ -157,7 +232,7 @@ class TestHelper {
      * @param {string} webviewSection
      */
     copyFilePathToClipboard(uri, webviewSection) {
-        const {png, ref} = TestHelper.getImageUris(uri)
+        const {png, ref} = Handler.getImageUris(uri)
         switch (webviewSection) {
             case 'png':
                 vscode.env.clipboard.writeText(png.fsPath)
@@ -173,42 +248,46 @@ class TestHelper {
 
 /** @param {vscode.ExtensionContext} context */
 function activate(context) {
-    const manager = new TestHelper();
-    context.subscriptions.push(manager.testRunningStatusBarItem)
+    const handler = new Handler()
+    context.subscriptions.push(handler.testRunningStatusBarItem)
 
     context.subscriptions.push(vscode.commands.registerCommand(
+        "Typst.test-helper.showTestProgress", () => {
+            handler.showTestProgress()
+        }))
+    context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.openFromSource", () => {
-            manager.openTestPreview(TestHelper.getActiveDocumentUri())
+            handler.openTestPreview(Handler.getActiveDocumentUri())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.refreshFromSource", () => {
-            manager.refreshTestPreview(TestHelper.getActiveDocumentUri())
+            handler.refreshTestPreview(Handler.getActiveDocumentUri())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.refreshFromPreview", () => {
-            manager.refreshTestPreview(manager.getSourceUriOfActivePanel())
+            handler.refreshTestPreview(handler.getSourceUriOfActivePanel())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.runFromSource", () => {
-            manager.runTest(TestHelper.getActiveDocumentUri())
+            handler.runTest(Handler.getActiveDocumentUri())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.runFromPreview", () => {
-            manager.runTest(manager.getSourceUriOfActivePanel())
+            handler.runTest(handler.getSourceUriOfActivePanel())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.updateFromSource", () => {
-            manager.updateTestReference(TestHelper.getActiveDocumentUri())
+            handler.updateTestReference(Handler.getActiveDocumentUri())
         }))
     context.subscriptions.push(vscode.commands.registerCommand(
         "Typst.test-helper.updateFromPreview", () => {
-            manager.updateTestReference(manager.getSourceUriOfActivePanel())
+            handler.updateTestReference(handler.getSourceUriOfActivePanel())
         }))
-    // Context menu: the drop-down menu after right-click.
     context.subscriptions.push(vscode.commands.registerCommand(
+        // The context menu (the "right-click menu") in the preview tab.
         "Typst.test-helper.copyImageFilePathFromPreviewContext", (e) => {
-            manager.copyFilePathToClipboard(
-                manager.getSourceUriOfActivePanel(), e.webviewSection)
+            handler.copyFilePathToClipboard(
+                handler.getSourceUriOfActivePanel(), e.webviewSection)
         }))
 }
 
@@ -219,7 +298,7 @@ function activate(context) {
  * @returns {string}
  */
 function getWebviewContent(webViewSrcs, stdout, stderr) {
-    const escape = (text) => text.replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    const escape = (/**@type{string}*/text) => text.replace(/</g, "&lt;").replace(/>/g, "&gt;")
     return `
     <!DOCTYPE html>
     <html lang="en">

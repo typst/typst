@@ -301,6 +301,8 @@ mod tests {
         test("a\n#let \nb", 7..7, "i", true);
         test(r"#{{let x = z}; a = 1} b", 7..7, "//", false);
         test(r#"a ```typst hello```"#, 16..17, "", false);
+        test("a{b}c", 1..1, "#", false);
+        test("a#{b}c", 1..2, "", false);
     }
 
     #[test]
