@@ -141,10 +141,7 @@ impl Length {
         styles: Styles,
     ) -> StrResult<Length> {
         let styles = StyleChain::new(&styles);
-        Ok(Length {
-            abs: self.abs + self.em.resolve(styles),
-            em: Em::zero(),
-        })
+        Ok(self.resolve(styles).into())
     }
 }
 
