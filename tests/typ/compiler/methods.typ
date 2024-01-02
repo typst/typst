@@ -89,14 +89,14 @@
   test((6pt).to-absolute(styles), 6pt)
   test((6pt + 10em).to-absolute(styles), 126pt)
   test((10em).to-absolute(styles), 120pt)
-});
+})
 
 #set text(size: 64pt)
 #style(styles => {
   test((6pt).to-absolute(styles), 6pt)
   test((6pt + 10em).to-absolute(styles), 646pt)
   test((10em).to-absolute(styles), 640pt)
-});
+})
 
 ---
 // Error: 2-21 cannot convert a length with non-zero em units (`-6pt + 10.5em`) to pt
