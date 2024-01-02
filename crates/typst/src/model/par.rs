@@ -80,9 +80,6 @@ pub struct ParElem {
 
     /// The indent the first line of a paragraph should have.
     ///
-    /// Only the first line of a consecutive paragraph will be indented (not
-    /// the first one in a block or on the page).
-    ///
     /// By typographic convention, paragraph breaks are indicated either by some
     /// space between paragraphs or by indented first lines. Consider reducing
     /// the [paragraph spacing]($block.spacing) to the [`leading`] when
@@ -90,6 +87,16 @@ pub struct ParElem {
     /// `[#show par: set block(spacing: 0.65em)]`).
     #[ghost]
     pub first_line_indent: Length,
+
+    /// Whether to apply `first-line-indent` to all paragraphs.
+    ///
+    /// If it sets to `true`, `first-line-indent` will be applied to all
+    /// paragraphs. If it sets to `false`, only the first line of a consecutive
+    /// paragraph will be indented (not the first one in a block or on the
+    /// page). `false` is the only behavior prior to version `0.10.0`.
+    #[ghost]
+    #[default(false)]
+    pub indent_all: bool,
 
     /// The indent all but the first line of a paragraph should have.
     #[ghost]
