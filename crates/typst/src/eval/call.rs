@@ -110,10 +110,11 @@ impl Eval for ast::FuncCall<'_> {
                 match target {
                     Value::Dict(ref dict) => {
                         if matches!(dict.get(&field), Ok(Value::Func(_))) {
-                            error.hint(
-                                "to call the function stored in the dictionary, \
-                             surround the field access with parentheses",
-                            );
+                            error.hint(eco_format!(
+                                "to call the function stored in the dictionary, surround \
+                                 the field access with parentheses, e.g. `(dict.{})(..)`",
+                               field.as_str(),
+                            ));
                         } else {
                             field_hint();
                         }
