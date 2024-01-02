@@ -103,7 +103,7 @@ impl Eval for ast::FuncCall<'_> {
                     if matches!(dict.get(&field), Ok(Value::Func(_))) {
                         error.hint(eco_format!(
                             "to call the function stored in the dictionary, surround \
-                             the field access with parentheses, e.g. #(dict.{})(...)",
+                             the field access with parentheses, e.g. `(dict.{})(..)`",
                             field.as_str(),
                         ));
                     }

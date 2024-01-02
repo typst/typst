@@ -108,7 +108,7 @@
     call-me: () => 1,
   )
   // Error: 8-15 type dictionary has no method `call-me`
-  // Hint: 8-15 to call the function stored in the dictionary, surround the field access with parentheses, e.g. #(dict.call-me)(...)
+  // Hint: 8-15 to call the function stored in the dictionary, surround the field access with parentheses, e.g. `(dict.call-me)(..)`
   dict.call-me()
 }
 
