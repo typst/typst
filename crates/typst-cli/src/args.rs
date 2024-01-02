@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 
 use clap::builder::ValueParser;
-use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum};
 use semver::Version;
 
 /// The character typically used to separate path components
@@ -16,6 +16,18 @@ pub struct CliArguments {
     /// The command to run
     #[command(subcommand)]
     pub command: Command,
+
+    /// Set when to use color.
+    /// auto = use color if a capable terminal is detected
+    #[clap(
+        long,
+        value_name = "WHEN",
+        require_equals = true,
+        num_args = 0..=1,
+        default_value = "auto",
+        default_missing_value = "always",
+    )]
+    pub color: ColorChoice,
 
     /// Path to a custom CA certificate to use when making network requests.
     #[clap(long = "cert", env = "TYPST_CERT")]

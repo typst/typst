@@ -68,10 +68,16 @@ fn print_error(msg: &str) -> io::Result<()> {
 
 /// Get stderr with color support if desirable.
 fn color_stream() -> termcolor::StandardStream {
-    termcolor::StandardStream::stderr(if std::io::stderr().is_terminal() {
-        ColorChoice::Auto
-    } else {
-        ColorChoice::Never
+    termcolor::StandardStream::stderr(match ARGS.color {
+        clap::ColorChoice::Auto => {
+            if std::io::stderr().is_terminal() {
+                ColorChoice::Auto
+            } else {
+                ColorChoice::Never
+            }
+        }
+        clap::ColorChoice::Always => ColorChoice::Always,
+        clap::ColorChoice::Never => ColorChoice::Never,
     })
 }
 
