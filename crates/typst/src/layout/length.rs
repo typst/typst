@@ -134,10 +134,32 @@ impl Length {
     }
 
     /// Resolve this length to an absolute length.
+    ///
+    /// ```example
+    /// #set text(size: 12pt)
+    /// #style(styles => {
+    ///   (6pt).to-absolute(styles)
+    ///   (6pt + 10em).to-absolute(styles)
+    ///   (10em).to-absolute(styles)
+    /// })
+    ///
+    /// #set text(size: 6pt)
+    /// #style(styles => {
+    ///   (6pt).to-absolute(styles)
+    ///   (6pt + 10em).to-absolute(styles)
+    ///   (10em).to-absolute(styles)
+    /// })
+    ///
+    /// ```
     #[func]
     pub fn to_absolute(
         &self,
-        /// The styles with which to measure the length.
+        /// The styles to resolve the length with.
+        ///
+        /// Since a length can use font-relative em units, resolving it to an
+        /// absolute length requires knowledge of the font size. This size is
+        /// provided through these styles. You can obtain the style using
+        /// the [`style`]($style) function.
         styles: Styles,
     ) -> Length {
         let styles = StyleChain::new(&styles);
