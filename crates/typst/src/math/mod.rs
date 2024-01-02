@@ -218,7 +218,7 @@ pub trait LayoutMath {
 }
 
 impl LayoutMath for Content {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         // Directly layout the body of nested equations instead of handling it
         // like a normal equation so that things like this work:

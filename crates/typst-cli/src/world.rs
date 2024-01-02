@@ -12,6 +12,7 @@ use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::{Library, World};
+use typst_timing::{timed, TimingScope};
 
 use crate::args::SharedArgs;
 use crate::compile::ExportCache;
@@ -232,6 +233,8 @@ impl FileSlot {
         self.source.get_or_init(
             || system_path(project_root, self.id),
             |data, prev| {
+                let name = if prev.is_some() { "reparsing file" } else { "parsing file" };
+                let _scope = TimingScope::new(name, None);
                 let text = decode_utf8(&data)?;
                 if let Some(mut prev) = prev {
                     prev.replace(text);
@@ -291,8 +294,8 @@ impl<T: Clone> SlotCell<T> {
         }
 
         // Read and hash the file.
-        let result = path().and_then(|p| read(&p));
-        let fingerprint = typst::util::hash128(&result);
+        let result = timed!("loading file", path().and_then(|p| read(&p)));
+        let fingerprint = timed!("hashing file", typst::util::hash128(&result));
 
         // If the file contents didn't change, yield the old processed data.
         if mem::replace(&mut self.fingerprint, fingerprint) == fingerprint {

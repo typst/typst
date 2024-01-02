@@ -15,10 +15,12 @@ use crate::visualize::{FixedStroke, Geometry};
 /// ```
 #[func(title = "Square Root")]
 pub fn sqrt(
+    /// The call span of this function.
+    span: Span,
     /// The expression to take the square root of.
     radicand: Content,
 ) -> Content {
-    RootElem::new(radicand).pack()
+    RootElem::new(radicand).spanned(span).pack()
 }
 
 /// A general root.
@@ -38,7 +40,7 @@ pub struct RootElem {
 }
 
 impl LayoutMath for RootElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.root", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, self.index(ctx.styles()).as_ref(), self.radicand(), self.span())
     }

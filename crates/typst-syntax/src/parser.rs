@@ -7,7 +7,6 @@ use unicode_math_class::MathClass;
 use crate::{ast, is_ident, is_newline, LexMode, Lexer, SyntaxKind, SyntaxNode};
 
 /// Parse a source file.
-#[tracing::instrument(skip_all)]
 pub fn parse(text: &str) -> SyntaxNode {
     let mut p = Parser::new(text, 0, LexMode::Markup);
     markup(&mut p, true, 0, |_| false);
@@ -15,7 +14,6 @@ pub fn parse(text: &str) -> SyntaxNode {
 }
 
 /// Parse top-level code.
-#[tracing::instrument(skip_all)]
 pub fn parse_code(text: &str) -> SyntaxNode {
     let mut p = Parser::new(text, 0, LexMode::Code);
     let m = p.marker();
@@ -26,7 +24,6 @@ pub fn parse_code(text: &str) -> SyntaxNode {
 }
 
 /// Parse top-level math.
-#[tracing::instrument(skip_all)]
 pub fn parse_math(text: &str) -> SyntaxNode {
     let mut p = Parser::new(text, 0, LexMode::Math);
     math(&mut p, |_| false);

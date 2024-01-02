@@ -132,7 +132,7 @@ pub struct RectElem {
 }
 
 impl Layout for RectElem {
-    #[tracing::instrument(name = "RectElem::layout", skip_all)]
+    #[typst_macros::time(name = "rect", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -238,7 +238,7 @@ pub struct SquareElem {
 }
 
 impl Layout for SquareElem {
-    #[tracing::instrument(name = "SquareElem::layout", skip_all)]
+    #[typst_macros::time(name = "square", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -316,7 +316,7 @@ pub struct EllipseElem {
 }
 
 impl Layout for EllipseElem {
-    #[tracing::instrument(name = "EllipseElem::layout", skip_all)]
+    #[typst_macros::time(name = "ellipse", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -419,7 +419,7 @@ pub struct CircleElem {
 }
 
 impl Layout for CircleElem {
-    #[tracing::instrument(name = "CircleElem::layout", skip_all)]
+    #[typst_macros::time(name = "circle", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -444,7 +444,6 @@ impl Layout for CircleElem {
 }
 
 /// Layout a shape.
-#[tracing::instrument(name = "shape::layout", skip_all)]
 #[allow(clippy::too_many_arguments)]
 fn layout(
     engine: &mut Engine,
@@ -709,7 +708,7 @@ fn corners_control_points(
             strokes.get_ref(corner.side_ccw()),
             strokes.get_ref(corner.side_cw()),
         ) {
-            (Some(a), Some(b)) => a.paint == b.paint && a.dash_pattern == b.dash_pattern,
+            (Some(a), Some(b)) => a.paint == b.paint && a.dash == b.dash,
             (None, None) => true,
             _ => false,
         },
@@ -870,7 +869,7 @@ fn segment(
     }
 
     let solid = stroke
-        .dash_pattern
+        .dash
         .as_ref()
         .map(|pattern| pattern.array.is_empty())
         .unwrap_or(true);

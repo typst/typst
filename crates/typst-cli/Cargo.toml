@@ -21,9 +21,11 @@ doc = false
 
 [dependencies]
 typst = { workspace = true }
+typst-macros = { workspace = true }
 typst-pdf = { workspace = true }
 typst-render = { workspace = true }
 typst-svg = { workspace = true }
+typst-timing = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 codespan-reporting = { workspace = true }
@@ -33,7 +35,6 @@ ecow = { workspace = true }
 env_proxy = { workspace = true }
 flate2 = { workspace = true }
 fontdb = { workspace = true, features = ["memmap", "fontconfig"] }
-inferno = { workspace = true }
 notify = { workspace = true }
 once_cell = { workspace = true }
 open = { workspace = true }
@@ -51,10 +52,6 @@ serde_yaml = { workspace = true }
 siphasher = { workspace = true }
 tar = { workspace = true }
 tempfile = { workspace = true }
-tracing = { workspace = true }
-tracing-error = { workspace = true }
-tracing-flame = { workspace = true }
-tracing-subscriber = { workspace = true }
 ureq = { workspace = true }
 xz2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }

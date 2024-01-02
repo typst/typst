@@ -207,7 +207,7 @@ impl Synthesize for BibliographyElem {
 }
 
 impl Show for BibliographyElem {
-    #[tracing::instrument(name = "BibliographyElem::show", skip_all)]
+    #[typst_macros::time(name = "bibliography", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         const COLUMN_GUTTER: Em = Em::new(0.65);
         const INDENT: Em = Em::new(1.5);
@@ -218,7 +218,12 @@ impl Show for BibliographyElem {
                 TextElem::packed(Self::local_name_in(styles)).spanned(self.span())
             });
 
-            seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
+            seq.push(
+                HeadingElem::new(title)
+                    .spanned(self.span())
+                    .with_level(NonZeroUsize::ONE)
+                    .pack(),
+            );
         }
 
         Ok(engine.delayed(|engine| {
@@ -241,6 +246,7 @@ impl Show for BibliographyElem {
                 seq.push(VElem::new(row_gutter).with_weakness(3).pack());
                 seq.push(
                     GridElem::new(cells)
+                        .spanned(self.span())
                         .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
                         .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
                         .with_row_gutter(TrackSizings(smallvec![(row_gutter).into()]))
@@ -344,6 +350,7 @@ impl Bibliography {
 
     /// Load bibliography entries from paths.
     #[comemo::memoize]
+    #[typst_macros::time(name = "load bibliography")]
     fn load(paths: &BibliographyPaths, data: &[Bytes]) -> StrResult<Bibliography> {
         let mut map = IndexMap::new();
         let mut duplicates = Vec::<EcoString>::new();
@@ -941,6 +948,7 @@ impl ElemRenderer<'_> {
         if let Some(prefix) = suf_prefix {
             const COLUMN_GUTTER: Em = Em::new(0.65);
             content = GridElem::new(vec![prefix, content])
+                .spanned(self.span)
                 .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
                 .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
                 .pack();
@@ -948,10 +956,11 @@ impl ElemRenderer<'_> {
 
         match elem.display {
             Some(Display::Block) => {
-                content = BlockElem::new().with_body(Some(content)).pack();
+                content =
+                    BlockElem::new().spanned(self.span).with_body(Some(content)).pack();
             }
             Some(Display::Indent) => {
-                content = PadElem::new(content).pack();
+                content = PadElem::new(content).spanned(self.span).pack();
             }
             Some(Display::LeftMargin) => {
                 *prefix.get_or_insert_with(Default::default) += content;
@@ -980,7 +989,9 @@ impl ElemRenderer<'_> {
     /// Display a link.
     fn display_link(&self, text: &hayagriva::Formatted, url: &str) -> Content {
         let dest = Destination::Url(url.into());
-        LinkElem::new(dest.into(), self.display_formatted(text)).pack()
+        LinkElem::new(dest.into(), self.display_formatted(text))
+            .spanned(self.span)
+            .pack()
     }
 
     /// Display transparent pass-through content.
@@ -1029,15 +1040,16 @@ fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Con
         }
     }
 
+    let span = content.span();
     match format.vertical_align {
         citationberg::VerticalAlign::None => {}
         citationberg::VerticalAlign::Baseline => {}
         citationberg::VerticalAlign::Sup => {
             // Add zero-width weak spacing to make the superscript "sticky".
-            content = HElem::hole().pack() + SuperElem::new(content).pack();
+            content = HElem::hole().pack() + SuperElem::new(content).spanned(span).pack();
         }
         citationberg::VerticalAlign::Sub => {
-            content = HElem::hole().pack() + SubElem::new(content).pack();
+            content = HElem::hole().pack() + SubElem::new(content).spanned(span).pack();
         }
     }
 

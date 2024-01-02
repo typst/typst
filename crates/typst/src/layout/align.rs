@@ -46,7 +46,7 @@ pub struct AlignElem {
 }
 
 impl Show for AlignElem {
-    #[tracing::instrument(name = "AlignElem::show", skip_all)]
+    #[typst_macros::time(name = "align", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self
             .body()

@@ -38,7 +38,7 @@ pub struct MoveElem {
 }
 
 impl Layout for MoveElem {
-    #[tracing::instrument(name = "MoveElem::layout", skip_all)]
+    #[typst_macros::time(name = "move", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -116,7 +116,7 @@ pub struct RotateElem {
 }
 
 impl Layout for RotateElem {
-    #[tracing::instrument(name = "RotateElem::layout", skip_all)]
+    #[typst_macros::time(name = "rotate", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -204,7 +204,7 @@ pub struct ScaleElem {
 }
 
 impl Layout for ScaleElem {
-    #[tracing::instrument(name = "ScaleElem::layout", skip_all)]
+    #[typst_macros::time(name = "scale", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

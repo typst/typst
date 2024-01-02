@@ -203,7 +203,7 @@ pub struct GridElem {
 }
 
 impl Layout for GridElem {
-    #[tracing::instrument(name = "GridElem::layout", skip_all)]
+    #[typst_macros::time(name = "grid", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -589,7 +589,6 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Determine all column sizes.
-    #[tracing::instrument(name = "GridLayouter::measure_columns", skip_all)]
     fn measure_columns(&mut self, engine: &mut Engine) -> SourceResult<()> {
         // Sum of sizes of resolved relative tracks.
         let mut rel = Abs::zero();

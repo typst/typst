@@ -32,7 +32,7 @@ pub fn deferred_image(image: Image) -> Deferred<EncodedImage> {
 }
 
 /// Embed all used images into the PDF.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "write images")]
 pub(crate) fn write_images(ctx: &mut PdfContext) {
     for (i, _) in ctx.image_map.items().enumerate() {
         let handle = ctx.image_deferred_map.get(&i).unwrap();
@@ -111,7 +111,6 @@ pub(crate) fn write_images(ctx: &mut PdfContext) {
 /// whether the image has color.
 ///
 /// Skips the alpha channel as that's encoded separately.
-#[tracing::instrument(skip_all)]
 fn encode_raster_image(image: &RasterImage) -> (Vec<u8>, Filter, bool) {
     let dynamic = image.dynamic();
     match (image.format(), dynamic) {
@@ -154,7 +153,6 @@ fn encode_raster_image(image: &RasterImage) -> (Vec<u8>, Filter, bool) {
 }
 
 /// Encode an image's alpha channel if present.
-#[tracing::instrument(skip_all)]
 fn encode_alpha(raster: &RasterImage) -> (Vec<u8>, Filter) {
     let pixels: Vec<_> = raster
         .dynamic()
@@ -167,7 +165,6 @@ fn encode_alpha(raster: &RasterImage) -> (Vec<u8>, Filter) {
 /// Encode an SVG into a chunk of PDF objects.
 ///
 /// The main XObject will have ID 1.
-#[tracing::instrument(skip_all)]
 fn encode_svg(svg: &SvgImage) -> Chunk {
     let mut chunk = Chunk::new();
 

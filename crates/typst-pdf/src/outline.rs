@@ -8,7 +8,6 @@ use typst::model::HeadingElem;
 use crate::{AbsExt, PdfContext};
 
 /// Construct the outline for the document.
-#[tracing::instrument(skip_all)]
 pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
     let mut tree: Vec<HeadingNode> = vec![];
 
@@ -130,7 +129,6 @@ impl HeadingNode {
 }
 
 /// Write an outline item and all its children.
-#[tracing::instrument(skip_all)]
 fn write_outline_item(
     ctx: &mut PdfContext,
     node: &HeadingNode,

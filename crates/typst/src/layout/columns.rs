@@ -58,7 +58,7 @@ pub struct ColumnsElem {
 }
 
 impl Layout for ColumnsElem {
-    #[tracing::instrument(name = "ColumnsElem::layout", skip_all)]
+    #[typst_macros::time(name = "columns", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

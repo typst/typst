@@ -30,6 +30,7 @@ pub struct ClassElem {
 }
 
 impl LayoutMath for ClassElem {
+    #[typst_macros::time(name = "math.class", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_class(*self.class()));
         let mut fragment = ctx.layout_fragment(self.body())?;

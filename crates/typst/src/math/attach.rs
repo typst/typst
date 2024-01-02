@@ -49,7 +49,7 @@ pub struct AttachElem {
 }
 
 impl LayoutMath for AttachElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.attach", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         type GetAttachment = fn(&AttachElem, styles: StyleChain) -> Option<Content>;
         let layout_attachment = |ctx: &mut MathContext, getter: GetAttachment| {
@@ -97,7 +97,7 @@ pub struct PrimesElem {
 }
 
 impl LayoutMath for PrimesElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.primes", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         match *self.count() {
             count @ 1..=4 => {
@@ -143,7 +143,7 @@ pub struct ScriptsElem {
 }
 
 impl LayoutMath for ScriptsElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.scripts", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut fragment = ctx.layout_fragment(self.body())?;
         fragment.set_limits(Limits::Never);
@@ -172,7 +172,7 @@ pub struct LimitsElem {
 }
 
 impl LayoutMath for LimitsElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.limits", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut fragment = ctx.layout_fragment(self.body())?;
         fragment.set_limits(if self.inline(ctx.styles()) {

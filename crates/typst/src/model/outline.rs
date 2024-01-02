@@ -186,7 +186,7 @@ impl OutlineElem {
 }
 
 impl Show for OutlineElem {
-    #[tracing::instrument(name = "OutlineElem::show", skip_all)]
+    #[typst_macros::time(name = "outline", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![ParbreakElem::new().pack()];
         // Build the outline title.
@@ -195,7 +195,12 @@ impl Show for OutlineElem {
                 TextElem::packed(Self::local_name_in(styles)).spanned(self.span())
             });
 
-            seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
+            seq.push(
+                HeadingElem::new(title)
+                    .spanned(self.span())
+                    .with_level(NonZeroUsize::ONE)
+                    .pack(),
+            );
         }
 
         let indent = self.indent(styles);
@@ -487,6 +492,7 @@ impl OutlineEntry {
 }
 
 impl Show for OutlineEntry {
+    #[typst_macros::time(name = "outline.entry", span = self.span())]
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![];
         let elem = self.element();
@@ -511,6 +517,7 @@ impl Show for OutlineEntry {
             seq.push(SpaceElem::new().pack());
             seq.push(
                 BoxElem::new()
+                    .spanned(self.span())
                     .with_body(Some(filler.clone()))
                     .with_width(Fr::one().into())
                     .pack(),

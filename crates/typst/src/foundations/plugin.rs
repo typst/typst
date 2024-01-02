@@ -167,6 +167,7 @@ impl Plugin {
 impl Plugin {
     /// Create a new plugin from raw WebAssembly bytes.
     #[comemo::memoize]
+    #[typst_macros::time(name = "load plugin")]
     pub fn new(bytes: Bytes) -> StrResult<Plugin> {
         let engine = wasmi::Engine::default();
         let module = wasmi::Module::new(&engine, bytes.as_slice())
@@ -216,6 +217,7 @@ impl Plugin {
 
     /// Call the plugin function with the given `name`.
     #[comemo::memoize]
+    #[typst_macros::time(name = "call plugin")]
     pub fn call(&self, name: &str, args: Vec<Bytes>) -> StrResult<Bytes> {
         // Find the function with the given name.
         let func = self

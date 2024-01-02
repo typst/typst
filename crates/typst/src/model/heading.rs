@@ -152,17 +152,21 @@ impl Synthesize for HeadingElem {
 }
 
 impl Show for HeadingElem {
-    #[tracing::instrument(name = "HeadingElem::show", skip_all)]
+    #[typst_macros::time(name = "heading", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
         if let Some(numbering) = self.numbering(styles).as_ref() {
             realized = Counter::of(Self::elem())
-                .display(Some(numbering.clone()), false)
+                .display(self.span(), Some(numbering.clone()), false)
                 .spanned(self.span())
                 + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;
         }
-        Ok(BlockElem::new().with_body(Some(realized)).pack())
+        Ok(BlockElem::new()
+            .spanned(self.span())
+            .spanned(self.span())
+            .with_body(Some(realized))
+            .pack())
     }
 }
 
