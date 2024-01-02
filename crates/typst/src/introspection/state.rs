@@ -9,6 +9,7 @@ use crate::foundations::{
     Selector, Show, Str, StyleChain, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location, Locator};
+use crate::syntax::Span;
 use crate::World;
 
 /// Manages stateful parts of your document.
@@ -271,13 +272,15 @@ impl State {
     #[func]
     pub fn display(
         self,
+        /// The span of the `display` call.
+        span: Span,
         /// A function which receives the value of the state and can return
         /// arbitrary content which is then displayed. If this is omitted, the
         /// value is directly displayed.
         #[default]
         func: Option<Func>,
     ) -> Content {
-        DisplayElem::new(self, func).pack()
+        DisplayElem::new(self, func).spanned(span).pack()
     }
 
     /// Update the value of the state.
@@ -291,12 +294,14 @@ impl State {
     #[func]
     pub fn update(
         self,
+        /// The span of the `update` call.
+        span: Span,
         /// If given a non function-value, sets the state to that value. If
         /// given a function, that function receives the previous state and has
         /// to return the new state.
         update: StateUpdate,
     ) -> Content {
-        UpdateElem::new(self.key, update).pack()
+        UpdateElem::new(self.key, update).spanned(span).pack()
     }
 
     /// Get the value of the state at the given location.
@@ -385,7 +390,7 @@ struct DisplayElem {
 }
 
 impl Show for DisplayElem {
-    #[tracing::instrument(name = "DisplayElem::show", skip(self, engine))]
+    #[typst_macros::time(name = "state.display", span = self.span())]
     fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
             let location = self.location().unwrap();
@@ -411,7 +416,6 @@ struct UpdateElem {
 }
 
 impl Show for UpdateElem {
-    #[tracing::instrument(name = "UpdateElem::show")]
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }

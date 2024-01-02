@@ -17,11 +17,6 @@ pub struct CliArguments {
     #[command(subcommand)]
     pub command: Command,
 
-    /// Sets the level of logging verbosity:
-    /// -v = warning & error, -vv = info, -vvv = debug, -vvvv = trace
-    #[clap(short, long, action = ArgAction::Count)]
-    pub verbosity: u8,
-
     /// Path to a custom CA certificate to use when making network requests.
     #[clap(long = "cert", env = "TYPST_CERT")]
     pub cert: Option<PathBuf>,
@@ -72,9 +67,13 @@ pub struct CompileCommand {
     #[arg(long = "ppi", default_value_t = 144.0)]
     pub ppi: f32,
 
-    /// Produces a flamegraph of the compilation process
-    #[arg(long = "flamegraph", value_name = "OUTPUT_SVG")]
-    pub flamegraph: Option<Option<PathBuf>>,
+    /// Produces performance timings of the compilation process (experimental)
+    ///
+    /// The resulting JSON file can be loaded into a tracing tool such as
+    /// https://ui.perfetto.dev. It does not contain any sensitive information
+    /// apart from file names and line numbers.
+    #[arg(long = "timings", value_name = "OUTPUT_JSON")]
+    pub timings: Option<Option<PathBuf>>,
 }
 
 /// Processes an input file to extract provided metadata

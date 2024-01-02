@@ -119,6 +119,7 @@
   )
 
   // Error: 8-15 type dictionary has no method `nonfunc`
+  // Hint: 8-15 did you mean to access the field `nonfunc`?
   dict.nonfunc()
 }
 

@@ -142,7 +142,6 @@ pub trait Layout {
     ///
     /// This element must be layouted again in the same order for the results to
     /// be valid.
-    #[tracing::instrument(name = "Layout::measure", skip_all)]
     fn measure(
         &self,
         engine: &mut Engine,
@@ -162,7 +161,7 @@ pub trait Layout {
 }
 
 impl LayoutRoot for Content {
-    #[tracing::instrument(name = "Content::layout_root", skip_all)]
+    #[typst_macros::time(name = "layout root", span = self.span())]
     fn layout_root(
         &self,
         engine: &mut Engine,
@@ -195,7 +194,6 @@ impl LayoutRoot for Content {
                 .layout_root(&mut engine, styles)
         }
 
-        tracing::info!("Starting layout");
         cached(
             self,
             engine.world,
@@ -209,7 +207,6 @@ impl LayoutRoot for Content {
 }
 
 impl Layout for Content {
-    #[tracing::instrument(name = "Content::layout", skip_all)]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -252,8 +249,6 @@ impl Layout for Content {
                 .unwrap()
                 .layout(&mut engine, styles, regions)
         }
-
-        tracing::info!("Layouting `Content`");
 
         let fragment = cached(
             self,

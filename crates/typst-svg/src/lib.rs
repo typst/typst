@@ -25,7 +25,7 @@ use xmlwriter::XmlWriter;
 const CONIC_SEGMENT: usize = 360;
 
 /// Export a frame into a SVG file.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "svg")]
 pub fn svg(frame: &Frame) -> String {
     let mut renderer = SVGRenderer::new();
     renderer.write_header(frame.size());
@@ -38,7 +38,6 @@ pub fn svg(frame: &Frame) -> String {
 /// Export multiple frames into a single SVG file.
 ///
 /// The padding will be added around and between the individual frames.
-#[tracing::instrument(skip_all)]
 pub fn svg_merged(frames: &[Frame], padding: Abs) -> String {
     let width = 2.0 * padding
         + frames.iter().map(|frame| frame.width()).max().unwrap_or_default();
@@ -657,7 +656,7 @@ impl SVGRenderer {
         self.xml.write_attribute("stroke-width", &stroke.thickness.to_pt());
         self.xml.write_attribute(
             "stroke-linecap",
-            match stroke.line_cap {
+            match stroke.cap {
                 LineCap::Butt => "butt",
                 LineCap::Round => "round",
                 LineCap::Square => "square",
@@ -665,7 +664,7 @@ impl SVGRenderer {
         );
         self.xml.write_attribute(
             "stroke-linejoin",
-            match stroke.line_join {
+            match stroke.join {
                 LineJoin::Miter => "miter",
                 LineJoin::Round => "round",
                 LineJoin::Bevel => "bevel",
@@ -673,7 +672,7 @@ impl SVGRenderer {
         );
         self.xml
             .write_attribute("stroke-miterlimit", &stroke.miter_limit.get());
-        if let Some(pattern) = &stroke.dash_pattern {
+        if let Some(pattern) = &stroke.dash {
             self.xml.write_attribute("stroke-dashoffset", &pattern.phase.to_pt());
             self.xml.write_attribute(
                 "stroke-dasharray",

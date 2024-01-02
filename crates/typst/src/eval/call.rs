@@ -19,7 +19,6 @@ use crate::World;
 impl Eval for ast::FuncCall<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "FuncCall::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
         let callee = self.callee();
@@ -99,14 +98,28 @@ impl Eval for ast::FuncCall<'_> {
                     field.as_str()
                 );
 
-                if let Value::Dict(dict) = target {
-                    if matches!(dict.get(&field), Ok(Value::Func(_))) {
+                let mut field_hint = || {
+                    if target.field(&field).is_ok() {
                         error.hint(eco_format!(
-                            "to call the function stored in the dictionary, surround \
-                             the field access with parentheses, e.g. `(dict.{})(..)`",
-                            field.as_str(),
+                            "did you mean to access the field `{}`?",
+                            field.as_str()
                         ));
                     }
+                };
+
+                match target {
+                    Value::Dict(ref dict) => {
+                        if matches!(dict.get(&field), Ok(Value::Func(_))) {
+                            error.hint(eco_format!(
+                                "to call the function stored in the dictionary, surround \
+                                 the field access with parentheses, e.g. `(dict.{})(..)`",
+                               field.as_str(),
+                            ));
+                        } else {
+                            field_hint();
+                        }
+                    }
+                    _ => field_hint(),
                 }
 
                 bail!(error);
@@ -123,10 +136,13 @@ impl Eval for ast::FuncCall<'_> {
                 let c = sym.get();
                 if let Some(accent) = Symbol::combining_accent(c) {
                     let base = args.expect("base")?;
+                    let size = args.named("size")?;
                     args.finish()?;
-                    return Ok(Value::Content(
-                        AccentElem::new(base, Accent::new(accent)).pack(),
-                    ));
+                    let mut accent = AccentElem::new(base, Accent::new(accent));
+                    if let Some(size) = size {
+                        accent = accent.with_size(size);
+                    }
+                    return Ok(Value::Content(accent.pack()));
                 }
             }
             let mut body = Content::empty();
@@ -211,7 +227,6 @@ impl Eval for ast::Args<'_> {
 impl Eval for ast::Closure<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Closure::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         // Evaluate default values of named parameters.
         let mut defaults = Vec::new();
@@ -241,7 +256,6 @@ impl Eval for ast::Closure<'_> {
 
 /// Call the function in the context with the arguments.
 #[comemo::memoize]
-#[tracing::instrument(skip_all)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn call_closure(
     func: &Func,
@@ -379,7 +393,6 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Visit any node and collect all captured variables.
-    #[tracing::instrument(skip_all)]
     pub fn visit(&mut self, node: &SyntaxNode) {
         match node.cast() {
             // Every identifier is a potential variable that we need to capture.

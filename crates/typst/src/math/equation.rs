@@ -112,11 +112,11 @@ impl Synthesize for EquationElem {
 }
 
 impl Show for EquationElem {
-    #[tracing::instrument(name = "EquationElem::show", skip_all)]
+    #[typst_macros::time(name = "math.equation", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.clone().pack().guarded(Guard::Base(Self::elem()));
         if self.block(styles) {
-            realized = AlignElem::new(realized).pack();
+            realized = AlignElem::new(realized).spanned(self.span()).pack();
         }
         Ok(realized)
     }
@@ -137,7 +137,7 @@ impl Finalize for EquationElem {
 }
 
 impl Layout for EquationElem {
-    #[tracing::instrument(name = "EquationElem::layout", skip_all)]
+    #[typst_macros::time(name = "math.equation", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -167,7 +167,7 @@ impl Layout for EquationElem {
             if let Some(numbering) = self.numbering(styles) {
                 let pod = Regions::one(regions.base(), Axes::splat(false));
                 let counter = Counter::of(Self::elem())
-                    .display(Some(numbering), false)
+                    .display(self.span(), Some(numbering), false)
                     .layout(engine, styles, pod)?
                     .into_frame();
 
@@ -311,7 +311,7 @@ impl Outlinable for EquationElem {
 }
 
 impl LayoutMath for EquationElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.equation", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         self.body().layout_math(ctx)
     }

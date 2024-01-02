@@ -61,6 +61,7 @@ use std::ops::Range;
 
 use comemo::{Prehashed, Track, Tracked, Validate};
 use ecow::{EcoString, EcoVec};
+use typst_timing::{timed, TimingScope};
 
 use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
 use crate::engine::{Engine, Route};
@@ -83,7 +84,7 @@ use crate::visualize::Color;
 /// Requires a mutable reference to a tracer. Such a tracer can be created with
 /// `Tracer::new()`. Independently of whether compilation succeeded, calling
 /// `tracer.warnings()` after compilation will return all compiler warnings.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "compile")]
 pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document> {
     // Call `track` on the world just once to keep comemo's ID stable.
     let world = world.track();
@@ -107,6 +108,10 @@ fn typeset(
     tracer: &mut Tracer,
     content: &Content,
 ) -> SourceResult<Document> {
+    // The name of the iterations for timing scopes.
+    const ITER_NAMES: &[&str] =
+        &["typeset (1)", "typeset (2)", "typeset (3)", "typeset (4)", "typeset (5)"];
+
     let library = world.library();
     let styles = StyleChain::new(&library.styles);
 
@@ -116,7 +121,7 @@ fn typeset(
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
     loop {
-        tracing::info!("Layout iteration {iter}");
+        let _scope = TimingScope::new(ITER_NAMES[iter], None);
 
         // Clear delayed errors.
         tracer.delayed();
@@ -136,7 +141,7 @@ fn typeset(
         document.introspector.rebuild(&document.pages);
         iter += 1;
 
-        if document.introspector.validate(&constraint) {
+        if timed!("check stabilized", document.introspector.validate(&constraint)) {
             break;
         }
 
@@ -290,7 +295,6 @@ impl LibraryBuilder {
 }
 
 /// Construct the module with global definitions.
-#[tracing::instrument(skip_all)]
 fn global(math: Module, inputs: Dict) -> Module {
     let mut global = Scope::deduplicating();
     self::foundations::define(&mut global, inputs);
