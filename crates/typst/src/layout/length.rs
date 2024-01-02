@@ -140,12 +140,6 @@ impl Length {
         /// The styles with which to measure the length.
         styles: Styles,
     ) -> StrResult<Length> {
-        // Shortcircuit to avoid doing a stylechain lookup if we're already
-        // absolute.
-        if self.em.is_zero() {
-            return Ok(*self);
-        }
-
         let styles = StyleChain::new(&styles);
         Ok(Length {
             abs: self.abs + self.em.resolve(styles),
