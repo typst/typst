@@ -158,60 +158,38 @@ pub static MATH: Category;
 pub fn module() -> Module {
     let mut math = Scope::deduplicating();
     math.category(MATH);
-    // Elements. A FooBarElem will be available as #math.foo-bar
-    // accent.rs
-    math.define_elem::<AccentElem>();
-    // align.rs
-    math.define_elem::<AlignPointElem>();
-    // attach.rs
-    math.define_elem::<AttachElem>();
-    math.define_elem::<PrimesElem>();
-    math.define_elem::<ScriptsElem>();
-    math.define_elem::<LimitsElem>();
-    // cancel.rs
-    math.define_elem::<CancelElem>();
-    // class.rs
-    math.define_elem::<ClassElem>();
-    // equation.rs
     math.define_elem::<EquationElem>();
-    // frac.rs
-    math.define_elem::<FracElem>();
-    math.define_elem::<BinomElem>();
-    // lr.rs
+    math.define_elem::<TextElem>();
     math.define_elem::<LrElem>();
     math.define_elem::<MidElem>();
-    // matrix.rs
-    math.define_elem::<VecElem>();
-    math.define_elem::<MatElem>();
-    math.define_elem::<CasesElem>();
-    // op.rs
-    math.define_elem::<OpElem>();
-    // root.rs
-    math.define_elem::<RootElem>();
-    // style.rs
-    math.define_elem::<MathStyleElem>();
-    // underover.rs
+    math.define_elem::<AttachElem>();
+    math.define_elem::<ScriptsElem>();
+    math.define_elem::<LimitsElem>();
+    math.define_elem::<AccentElem>();
     math.define_elem::<UnderlineElem>();
     math.define_elem::<OverlineElem>();
     math.define_elem::<UnderbraceElem>();
     math.define_elem::<OverbraceElem>();
     math.define_elem::<UnderbracketElem>();
     math.define_elem::<OverbracketElem>();
-    // from crate::text
-    math.define_elem::<TextElem>();
-
-    // Functions.
-    // lr.rs
+    math.define_elem::<CancelElem>();
+    math.define_elem::<FracElem>();
+    math.define_elem::<BinomElem>();
+    math.define_elem::<VecElem>();
+    math.define_elem::<MatElem>();
+    math.define_elem::<CasesElem>();
+    math.define_elem::<RootElem>();
+    math.define_elem::<ClassElem>();
+    math.define_elem::<OpElem>();
+    math.define_elem::<PrimesElem>();
+    math.define_func::<abs>();
+    math.define_func::<norm>();
     math.define_func::<floor>();
     math.define_func::<ceil>();
     math.define_func::<round>();
-    math.define_func::<norm>();
-    math.define_func::<abs>();
-    // root.rs
     math.define_func::<sqrt>();
-    // style.rs
-    math.define_func::<bold>();
     math.define_func::<upright>();
+    math.define_func::<bold>();
     math.define_func::<italic>();
     math.define_func::<serif>();
     math.define_func::<sans>();
