@@ -208,7 +208,7 @@ impl CellGrid {
     /// Resolves all cells in the grid before creating it.
     /// Allows them to keep track of their final properties and adjust their fields accordingly.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_resolve<T: ResolvableCell>(
+    pub fn resolve<T: ResolvableCell>(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
         cells: Vec<T>,
