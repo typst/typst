@@ -53,9 +53,9 @@ pub struct AccentElem {
     /// | Caron         | `caron`         | `ˇ`       |
     /// | Right arrow   | `arrow`, `->`   | `→`       |
     /// | Left arrow    | `arrow.l`, `<-` | `←`       |
+    /// | Left/Right arrow | `arrow.l.r`  | `↔`       |
     /// | Right harpoon | `harpoon`       | `⇀`       |
-    /// | Left harpoon  | `harpoon.lt`    | `⇀`       |
-    /// | Bidi arrow    | `arrow.l.r`     | `↔`       |
+    /// | Left harpoon  | `harpoon.lt`    | `↼`       |
     #[required]
     pub accent: Accent,
 }
