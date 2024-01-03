@@ -34,7 +34,7 @@ pub struct LrElem {
 }
 
 impl LayoutMath for LrElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.lr", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut body = self.body();
         if let Some(elem) = body.to::<LrElem>() {
@@ -96,7 +96,7 @@ pub struct MidElem {
 }
 
 impl LayoutMath for MidElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.mid", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut fragments = ctx.layout_fragments(self.body())?;
 
@@ -235,11 +235,13 @@ fn delimited(
     right: char,
     size: Option<Smart<Rel<Length>>>,
 ) -> Content {
+    let span = body.span();
     let mut elem = LrElem::new(Content::sequence([
         TextElem::packed(left),
         body,
         TextElem::packed(right),
-    ]));
+    ]))
+    .spanned(span);
     // Push size only if size is provided
     if let Some(size) = size {
         elem.push_size(size);

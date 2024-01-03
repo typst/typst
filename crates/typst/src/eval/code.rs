@@ -62,7 +62,6 @@ fn eval_code<'a>(
 impl Eval for ast::Expr<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Expr::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
         let forbidden = |name| {
@@ -140,7 +139,6 @@ impl Eval for ast::Expr<'_> {
 impl Eval for ast::Ident<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Ident::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         vm.scopes.get(&self).cloned().at(self.span())
     }
@@ -149,7 +147,6 @@ impl Eval for ast::Ident<'_> {
 impl Eval for ast::None<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "None::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Value::None)
     }
@@ -158,7 +155,6 @@ impl Eval for ast::None<'_> {
 impl Eval for ast::Auto<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Auto::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Value::Auto)
     }
@@ -167,7 +163,6 @@ impl Eval for ast::Auto<'_> {
 impl Eval for ast::Bool<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Bool::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Value::Bool(self.get()))
     }
@@ -176,7 +171,6 @@ impl Eval for ast::Bool<'_> {
 impl Eval for ast::Int<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Int::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Value::Int(self.get()))
     }
@@ -185,7 +179,6 @@ impl Eval for ast::Int<'_> {
 impl Eval for ast::Float<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Float::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Value::Float(self.get()))
     }
@@ -194,7 +187,6 @@ impl Eval for ast::Float<'_> {
 impl Eval for ast::Numeric<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Numeric::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Value::numeric(self.get()))
     }
@@ -203,7 +195,6 @@ impl Eval for ast::Numeric<'_> {
 impl Eval for ast::Str<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Str::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Value::Str(self.get().into()))
     }
@@ -212,7 +203,6 @@ impl Eval for ast::Str<'_> {
 impl Eval for ast::Array<'_> {
     type Output = Array;
 
-    #[tracing::instrument(skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let items = self.items();
 
@@ -235,7 +225,6 @@ impl Eval for ast::Array<'_> {
 impl Eval for ast::Dict<'_> {
     type Output = Dict;
 
-    #[tracing::instrument(skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let mut map = indexmap::IndexMap::new();
 
@@ -275,7 +264,6 @@ impl Eval for ast::Dict<'_> {
 impl Eval for ast::CodeBlock<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "CodeBlock::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         vm.scopes.enter();
         let output = self.body().eval(vm)?;
@@ -287,7 +275,6 @@ impl Eval for ast::CodeBlock<'_> {
 impl Eval for ast::ContentBlock<'_> {
     type Output = Content;
 
-    #[tracing::instrument(name = "ContentBlock::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         vm.scopes.enter();
         let content = self.body().eval(vm)?;
@@ -299,7 +286,6 @@ impl Eval for ast::ContentBlock<'_> {
 impl Eval for ast::Parenthesized<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Parenthesized::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         self.expr().eval(vm)
     }
@@ -308,7 +294,6 @@ impl Eval for ast::Parenthesized<'_> {
 impl Eval for ast::FieldAccess<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "FieldAccess::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = self.target().eval(vm)?;
         let field = self.field();

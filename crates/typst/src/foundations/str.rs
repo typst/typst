@@ -762,7 +762,7 @@ pub enum ToStr {
 cast! {
     ToStr,
     v: i64 => Self::Int(v),
-    v: f64 => Self::Str(repr::format_float(v, None, "").into()),
+    v: f64 => Self::Str(repr::display_float(v).into()),
     v: Version => Self::Str(format_str!("{}", v)),
     v: Bytes => Self::Str(
         std::str::from_utf8(&v)

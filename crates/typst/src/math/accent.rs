@@ -2,8 +2,8 @@ use ttf_parser::GlyphId;
 use unicode_math_class::MathClass;
 
 use crate::diag::{bail, SourceResult};
-use crate::foundations::{cast, elem, Content, NativeElement, Value};
-use crate::layout::{Abs, Em, Frame, Point, Size};
+use crate::foundations::{cast, elem, Content, NativeElement, Resolve, Smart, Value};
+use crate::layout::{Abs, Em, Frame, Length, Point, Rel, Size};
 use crate::math::{
     FrameFragment, GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled,
 };
@@ -45,21 +45,26 @@ pub struct AccentElem {
     /// | Macron        | `macron`        | `¯`       |
     /// | Breve         | `breve`         | `˘`       |
     /// | Dot           | `dot`           | `.`       |
-    /// | Double dot    | `dot.double`    | `¨`       |
+    /// | Double dot, Diaeresis | `dot.double`, `diaer` | `¨` |
     /// | Triple dot    | `dot.triple`    | <code>&tdot;</code> |
     /// | Quadruple dot | `dot.quad`      | <code>&DotDot;</code> |
-    /// | Diaeresis     | `diaer`         | `¨`       |
     /// | Circle        | `circle`        | `∘`       |
     /// | Double acute  | `acute.double`  | `˝`       |
     /// | Caron         | `caron`         | `ˇ`       |
     /// | Right arrow   | `arrow`, `->`   | `→`       |
     /// | Left arrow    | `arrow.l`, `<-` | `←`       |
+    /// | Left/Right arrow | `arrow.l.r`  | `↔`       |
+    /// | Right harpoon | `harpoon`       | `⇀`       |
+    /// | Left harpoon  | `harpoon.lt`    | `↼`       |
     #[required]
     pub accent: Accent,
+
+    /// The size of the accent, relative to the width of the base.
+    pub size: Smart<Rel<Length>>,
 }
 
 impl LayoutMath for AccentElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.accent", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_cramped(true));
         let base = ctx.layout_fragment(self.base())?;
@@ -74,12 +79,18 @@ impl LayoutMath for AccentElem {
             _ => (base.width() + base.italics_correction()) / 2.0,
         };
 
+        let width = self
+            .size(ctx.styles())
+            .unwrap_or(Rel::one())
+            .resolve(ctx.styles())
+            .relative_to(base.width());
+
         // Forcing the accent to be at least as large as the base makes it too
         // wide in many case.
         let Accent(c) = self.accent();
         let glyph = GlyphFragment::new(ctx, *c, self.span());
         let short_fall = ACCENT_SHORT_FALL.scaled(ctx);
-        let variant = glyph.stretch_horizontal(ctx, base.width(), short_fall);
+        let variant = glyph.stretch_horizontal(ctx, width, short_fall);
         let accent = variant.frame;
         let accent_attach = match variant.id {
             Some(id) => attachment(ctx, id, variant.italics_correction),

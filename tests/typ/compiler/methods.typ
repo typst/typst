@@ -36,6 +36,12 @@
 #numbers.fun()
 
 ---
+// Error: 2:4-2:10 type content has no method `stroke`
+// Hint: 2:4-2:10 did you mean to access the field `stroke`?
+#let l = line(stroke: red)
+#l.stroke()
+
+---
 // Error: 2:2-2:43 cannot mutate a temporary value
 #let numbers = (1, 2, 3)
 #numbers.map(v => v / 2).sorted().map(str).remove(4)
@@ -76,7 +82,24 @@
 #test((5em + 6in).abs.inches(), 6.0)
 
 ---
-// Error: 2-21 cannot convert a length with non-zero em units (`−6pt + 10.5em`) to pt
+// Test length `to-absolute` method.
+
+#set text(size: 12pt)
+#style(styles => {
+  test((6pt).to-absolute(styles), 6pt)
+  test((6pt + 10em).to-absolute(styles), 126pt)
+  test((10em).to-absolute(styles), 120pt)
+})
+
+#set text(size: 64pt)
+#style(styles => {
+  test((6pt).to-absolute(styles), 6pt)
+  test((6pt + 10em).to-absolute(styles), 646pt)
+  test((10em).to-absolute(styles), 640pt)
+})
+
+---
+// Error: 2-21 cannot convert a length with non-zero em units (`-6pt + 10.5em`) to pt
 // Hint: 2-21 use `length.abs.pt()` instead to ignore its em component
 #(10.5em - 6pt).pt()
 
@@ -86,7 +109,7 @@
 #(3em).cm()
 
 ---
-// Error: 2-20 cannot convert a length with non-zero em units (`−226.77pt + 93em`) to mm
+// Error: 2-20 cannot convert a length with non-zero em units (`-226.77pt + 93em`) to mm
 // Hint: 2-20 use `length.abs.mm()` instead to ignore its em component
 #(93em - 80mm).mm()
 

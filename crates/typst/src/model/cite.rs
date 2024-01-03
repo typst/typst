@@ -143,7 +143,7 @@ pub struct CiteGroup {
 }
 
 impl Show for CiteGroup {
-    #[tracing::instrument(name = "CiteGroup::show", skip(self, engine))]
+    #[typst_macros::time(name = "cite", span = self.span())]
     fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
             let location = self.location().unwrap();

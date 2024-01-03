@@ -215,7 +215,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ================================================================================
 
 ================================================================================
-Syntaxes in `crates/typst-library/assets/syntect.bin` are generated from syntax
+Syntaxes embedded within the `two-face` crate are generated from syntax
 definitions which can be found here:
 https://github.com/sharkdp/bat/tree/master/assets/syntaxes
 
@@ -672,11 +672,6 @@ The Creative Commons Attribution 4.0 International License applies to:
   Copyright 2016 Brad Erickson
   Copyright 2016 Twitter, Inc.
   (https://github.com/eosrei/twemoji-color-font)
-
-* SVG icons in tools/test-helper/images
-  These are slightly modified versions of emojis from the Twemoji emoji set.
-  Copyright 2020 Twitter, Inc and other contributors
-  (https://github.com/twitter/twemoji)
 
 * Monkey emoji in assets/files/monkey.svg
   Copyright 2018 Vincent Le Moign, Streamline Emoji Project

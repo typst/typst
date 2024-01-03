@@ -35,6 +35,8 @@ use crate::text::{FontFamily, FontList, TextElem};
 /// ```
 #[func]
 pub fn style(
+    /// The call site span.
+    span: Span,
     /// A function to call with the styles. Its return value is displayed
     /// in the document.
     ///
@@ -43,7 +45,7 @@ pub fn style(
     /// content that depends on the style context it appears in.
     func: Func,
 ) -> Content {
-    StyleElem::new(func).pack()
+    StyleElem::new(func).spanned(span).pack()
 }
 
 /// Executes a style access.
@@ -55,7 +57,7 @@ struct StyleElem {
 }
 
 impl Show for StyleElem {
-    #[tracing::instrument(name = "StyleElem::show", skip_all)]
+    #[typst_macros::time(name = "style", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.func().call(engine, [styles.to_map()])?.display())
     }

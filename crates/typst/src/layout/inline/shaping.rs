@@ -2,10 +2,11 @@ use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Range;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use az::SaturatingAs;
 use ecow::EcoString;
-use rustybuzz::{Tag, UnicodeBuffer};
+use rustybuzz::{ShapePlan, Tag, UnicodeBuffer};
 use unicode_script::{Script, UnicodeScript};
 
 use super::SpanMapper;
@@ -229,6 +230,7 @@ impl<'a> ShapedText<'a> {
         let lang = TextElem::lang_in(self.styles);
         let decos = TextElem::deco_in(self.styles);
         let fill = TextElem::fill_in(self.styles);
+        let stroke = TextElem::stroke_in(self.styles);
 
         for ((font, y_offset), group) in
             self.glyphs.as_ref().group_by_key(|g| (g.font.clone(), g.y_offset))
@@ -301,6 +303,7 @@ impl<'a> ShapedText<'a> {
                 size: self.size,
                 lang,
                 fill: fill.clone(),
+                stroke: stroke.clone().map(|s| s.unwrap_or_default()),
                 text: self.text[range.start - self.base..range.end - self.base].into(),
                 glyphs,
             };
@@ -690,9 +693,21 @@ fn shape_segment<'a>(
         Dir::RTL => rustybuzz::Direction::RightToLeft,
         _ => unimplemented!("vertical text layout"),
     });
+    buffer.guess_segment_properties();
+
+    // Prepare the shape plan. This plan depends on direction, script, language,
+    // and features, but is independent from the text and can thus be
+    // memoized.
+    let plan = create_shape_plan(
+        &font,
+        buffer.direction(),
+        buffer.script(),
+        buffer.language().as_ref(),
+        &ctx.features,
+    );
 
     // Shape!
-    let buffer = rustybuzz::shape(font.rusty(), &ctx.features, buffer);
+    let buffer = rustybuzz::shape_with_plan(font.rusty(), &plan, buffer);
     let infos = buffer.glyph_infos();
     let pos = buffer.glyph_positions();
     let ltr = ctx.dir.is_positive();
@@ -781,6 +796,24 @@ fn shape_segment<'a>(
     }
 
     ctx.used.pop();
+}
+
+/// Create a shape plan.
+#[comemo::memoize]
+fn create_shape_plan(
+    font: &Font,
+    direction: rustybuzz::Direction,
+    script: rustybuzz::Script,
+    language: Option<&rustybuzz::Language>,
+    features: &[rustybuzz::Feature],
+) -> Arc<ShapePlan> {
+    Arc::new(rustybuzz::ShapePlan::new(
+        font.rusty(),
+        direction,
+        Some(script),
+        language,
+        features,
+    ))
 }
 
 /// Shape the text with tofus from the given font.

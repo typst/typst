@@ -8,6 +8,7 @@ use crate::foundations::{
 use crate::layout::{
     Axes, Em, Fragment, Frame, FrameItem, Layout, Length, Point, Regions, Rel,
 };
+use crate::syntax::Span;
 use crate::util::Numeric;
 use crate::visualize::{FixedStroke, Geometry, Paint, Path, Shape, Stroke};
 
@@ -65,6 +66,8 @@ impl PolygonElem {
     /// ```
     #[func(title = "Regular Polygon")]
     pub fn regular(
+        /// The call span of this function.
+        span: Span,
         /// How to fill the polygon. See the general
         /// [polygon's documentation]($polygon.fill) for more details.
         #[named]
@@ -111,7 +114,7 @@ impl PolygonElem {
             })
             .collect();
 
-        let mut elem = PolygonElem::new(vertices);
+        let mut elem = PolygonElem::new(vertices).spanned(span);
         if let Some(fill) = fill {
             elem.push_fill(fill);
         }
@@ -123,7 +126,7 @@ impl PolygonElem {
 }
 
 impl Layout for PolygonElem {
-    #[tracing::instrument(name = "PolygonElem::layout", skip_all)]
+    #[typst_macros::time(name = "polygon", span = self.span())]
     fn layout(
         &self,
         _: &mut Engine,

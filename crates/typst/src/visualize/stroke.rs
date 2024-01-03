@@ -57,11 +57,11 @@ pub struct Stroke<T: Numeric = Length> {
     /// The stroke's thickness.
     pub thickness: Smart<T>,
     /// The stroke's line cap.
-    pub line_cap: Smart<LineCap>,
+    pub cap: Smart<LineCap>,
     /// The stroke's line join.
-    pub line_join: Smart<LineJoin>,
+    pub join: Smart<LineJoin>,
     /// The stroke's line dash pattern.
-    pub dash_pattern: Smart<Option<DashPattern<T>>>,
+    pub dash: Smart<Option<DashPattern<T>>>,
     /// The miter limit.
     pub miter_limit: Smart<Scalar>,
 }
@@ -182,19 +182,12 @@ impl Stroke {
 
         let paint = take::<Paint>(args, "paint")?;
         let thickness = take::<Length>(args, "thickness")?;
-        let line_cap = take::<LineCap>(args, "cap")?;
-        let line_join = take::<LineJoin>(args, "join")?;
-        let dash_pattern = take::<Option<DashPattern>>(args, "dash")?;
+        let cap = take::<LineCap>(args, "cap")?;
+        let join = take::<LineJoin>(args, "join")?;
+        let dash = take::<Option<DashPattern>>(args, "dash")?;
         let miter_limit = take::<f64>(args, "miter-limit")?.map(Scalar::new);
 
-        Ok(Self {
-            paint,
-            thickness,
-            line_cap,
-            line_join,
-            dash_pattern,
-            miter_limit,
-        })
+        Ok(Self { paint, thickness, cap, join, dash, miter_limit })
     }
 }
 
@@ -207,9 +200,9 @@ impl<T: Numeric> Stroke<T> {
         Stroke {
             paint: self.paint,
             thickness: self.thickness.map(&f),
-            line_cap: self.line_cap,
-            line_join: self.line_join,
-            dash_pattern: self.dash_pattern.map(|pattern| {
+            cap: self.cap,
+            join: self.join,
+            dash: self.dash.map(|pattern| {
                 pattern.map(|pattern| DashPattern {
                     array: pattern
                         .array
@@ -231,8 +224,8 @@ impl Stroke<Abs> {
     /// Unpack the stroke, filling missing fields from the `default`.
     pub fn unwrap_or(self, default: FixedStroke) -> FixedStroke {
         let thickness = self.thickness.unwrap_or(default.thickness);
-        let dash_pattern = self
-            .dash_pattern
+        let dash = self
+            .dash
             .map(|pattern| {
                 pattern.map(|pattern| DashPattern {
                     array: pattern
@@ -243,14 +236,14 @@ impl Stroke<Abs> {
                     phase: pattern.phase,
                 })
             })
-            .unwrap_or(default.dash_pattern);
+            .unwrap_or(default.dash);
 
         FixedStroke {
             paint: self.paint.unwrap_or(default.paint),
             thickness,
-            line_cap: self.line_cap.unwrap_or(default.line_cap),
-            line_join: self.line_join.unwrap_or(default.line_join),
-            dash_pattern,
+            cap: self.cap.unwrap_or(default.cap),
+            join: self.join.unwrap_or(default.join),
+            dash,
             miter_limit: self.miter_limit.unwrap_or(default.miter_limit),
         }
     }
@@ -266,19 +259,8 @@ impl Stroke<Abs> {
 impl<T: Numeric + Repr> Repr for Stroke<T> {
     fn repr(&self) -> EcoString {
         let mut r = EcoString::new();
-        let Self {
-            paint,
-            thickness,
-            line_cap,
-            line_join,
-            dash_pattern,
-            miter_limit,
-        } = &self;
-        if line_cap.is_auto()
-            && line_join.is_auto()
-            && dash_pattern.is_auto()
-            && miter_limit.is_auto()
-        {
+        let Self { paint, thickness, cap, join, dash, miter_limit } = &self;
+        if cap.is_auto() && join.is_auto() && dash.is_auto() && miter_limit.is_auto() {
             match (&self.paint, &self.thickness) {
                 (Smart::Custom(paint), Smart::Custom(thickness)) => {
                     r.push_str(&thickness.repr());
@@ -304,19 +286,19 @@ impl<T: Numeric + Repr> Repr for Stroke<T> {
                 r.push_str(&thickness.repr());
                 sep = ", ";
             }
-            if let Smart::Custom(cap) = &line_cap {
+            if let Smart::Custom(cap) = &cap {
                 r.push_str(sep);
                 r.push_str("cap: ");
                 r.push_str(&cap.repr());
                 sep = ", ";
             }
-            if let Smart::Custom(join) = &line_join {
+            if let Smart::Custom(join) = &join {
                 r.push_str(sep);
                 r.push_str("join: ");
                 r.push_str(&join.repr());
                 sep = ", ";
             }
-            if let Smart::Custom(dash) = &dash_pattern {
+            if let Smart::Custom(dash) = &dash {
                 r.push_str(sep);
                 r.push_str("cap: ");
                 if let Some(dash) = dash {
@@ -344,9 +326,9 @@ impl Resolve for Stroke {
         Stroke {
             paint: self.paint,
             thickness: self.thickness.resolve(styles),
-            line_cap: self.line_cap,
-            line_join: self.line_join,
-            dash_pattern: self.dash_pattern.resolve(styles),
+            cap: self.cap,
+            join: self.join,
+            dash: self.dash.resolve(styles),
             miter_limit: self.miter_limit,
         }
     }
@@ -359,9 +341,9 @@ impl Fold for Stroke<Abs> {
         Self {
             paint: self.paint.or(outer.paint),
             thickness: self.thickness.or(outer.thickness),
-            line_cap: self.line_cap.or(outer.line_cap),
-            line_join: self.line_join.or(outer.line_join),
-            dash_pattern: self.dash_pattern.or(outer.dash_pattern),
+            cap: self.cap.or(outer.cap),
+            join: self.join.or(outer.join),
+            dash: self.dash.or(outer.dash),
             miter_limit: self.miter_limit.or(outer.miter_limit),
         }
     }
@@ -394,18 +376,18 @@ cast! {
 
         let paint = take::<Paint>(&mut dict, "paint")?;
         let thickness = take::<Length>(&mut dict, "thickness")?;
-        let line_cap = take::<LineCap>(&mut dict, "cap")?;
-        let line_join = take::<LineJoin>(&mut dict, "join")?;
-        let dash_pattern = take::<Option<DashPattern>>(&mut dict, "dash")?;
+        let cap = take::<LineCap>(&mut dict, "cap")?;
+        let join = take::<LineJoin>(&mut dict, "join")?;
+        let dash = take::<Option<DashPattern>>(&mut dict, "dash")?;
         let miter_limit = take::<f64>(&mut dict, "miter-limit")?;
         dict.finish(&["paint", "thickness", "cap", "join", "dash", "miter-limit"])?;
 
         Self {
             paint,
             thickness,
-            line_cap,
-            line_join,
-            dash_pattern,
+            cap,
+            join,
+            dash,
             miter_limit: miter_limit.map(Scalar::new),
         }
     },
@@ -592,11 +574,11 @@ pub struct FixedStroke {
     /// The stroke's thickness.
     pub thickness: Abs,
     /// The stroke's line cap.
-    pub line_cap: LineCap,
+    pub cap: LineCap,
     /// The stroke's line join.
-    pub line_join: LineJoin,
+    pub join: LineJoin,
     /// The stroke's line dash pattern.
-    pub dash_pattern: Option<DashPattern<Abs, Abs>>,
+    pub dash: Option<DashPattern<Abs, Abs>>,
     /// The miter limit. Defaults to 4.0, same as `tiny-skia`.
     pub miter_limit: Scalar,
 }
@@ -606,9 +588,9 @@ impl Default for FixedStroke {
         Self {
             paint: Paint::Solid(Color::BLACK),
             thickness: Abs::pt(1.0),
-            line_cap: LineCap::Butt,
-            line_join: LineJoin::Miter,
-            dash_pattern: None,
+            cap: LineCap::Butt,
+            join: LineJoin::Miter,
+            dash: None,
             miter_limit: Scalar::new(4.0),
         }
     }

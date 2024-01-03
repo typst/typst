@@ -74,17 +74,48 @@ pub fn format_int_with_base(mut n: i64, base: i64) -> EcoString {
 
 /// Converts a float to a string representation with a specific precision and a
 /// suffix, all with a single allocation.
-pub fn format_float(mut value: f64, precision: Option<u8>, suffix: &str) -> EcoString {
+pub fn format_float(
+    mut value: f64,
+    precision: Option<u8>,
+    force_separator: bool,
+    suffix: &str,
+) -> EcoString {
     if let Some(p) = precision {
         let offset = 10_f64.powi(p as i32);
         value = (value * offset).round() / offset;
     }
+    // Debug for f64 always prints a decimal separator, while Display only does
+    // when necessary.
     if value.is_nan() {
         "NaN".into()
-    } else if value.is_sign_negative() {
-        eco_format!("{}{}{}", MINUS_SIGN, value.abs(), suffix)
+    } else if force_separator {
+        eco_format!("{:?}{}", value, suffix)
     } else {
         eco_format!("{}{}", value, suffix)
+    }
+}
+
+/// Converts a float to a string representation with a precision of three
+/// decimal places. This is intended to be used as part of a larger structure
+/// containing multiple float components, such as colors.
+pub fn format_float_component(value: f64) -> EcoString {
+    format_float(value, Some(3), false, "")
+}
+
+/// Converts a float to a string representation with a precision of two decimal
+/// places, followed by a unit.
+pub fn format_float_with_unit(value: f64, unit: &str) -> EcoString {
+    format_float(value, Some(2), false, unit)
+}
+
+/// Converts a float to a string that can be used to display the float as text.
+pub fn display_float(value: f64) -> EcoString {
+    if value.is_nan() {
+        "NaN".into()
+    } else if value < 0.0 {
+        eco_format!("{}{}", MINUS_SIGN, value.abs())
+    } else {
+        eco_format!("{}", value.abs())
     }
 }
 

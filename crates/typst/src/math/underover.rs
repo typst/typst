@@ -33,7 +33,7 @@ pub struct UnderlineElem {
 }
 
 impl LayoutMath for UnderlineElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.underline", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout_underoverline(ctx, self.body(), self.span(), LineKind::Under)
     }
@@ -52,7 +52,7 @@ pub struct OverlineElem {
 }
 
 impl LayoutMath for OverlineElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.overline", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout_underoverline(ctx, self.body(), self.span(), LineKind::Over)
     }
@@ -137,7 +137,7 @@ pub struct UnderbraceElem {
 }
 
 impl LayoutMath for UnderbraceElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.underbrace", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout_underoverspreader(
             ctx,
@@ -168,7 +168,7 @@ pub struct OverbraceElem {
 }
 
 impl LayoutMath for OverbraceElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.overbrace", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout_underoverspreader(
             ctx,
@@ -199,7 +199,7 @@ pub struct UnderbracketElem {
 }
 
 impl LayoutMath for UnderbracketElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.underbrace", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout_underoverspreader(
             ctx,
@@ -230,7 +230,7 @@ pub struct OverbracketElem {
 }
 
 impl LayoutMath for OverbracketElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.overbracket", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout_underoverspreader(
             ctx,

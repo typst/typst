@@ -479,7 +479,7 @@ impl From<PackageError> for EcoString {
 /// Format a user-facing error message for an XML-like file format.
 pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> EcoString {
     match error {
-        roxmltree::Error::UnexpectedCloseTag { expected, actual, pos } => {
+        roxmltree::Error::UnexpectedCloseTag(expected, actual, pos) => {
             eco_format!(
                 "failed to parse {format} (found closing tag '{actual}' \
                  instead of '{expected}' in line {})",

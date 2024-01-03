@@ -6,7 +6,7 @@ use ecow::EcoString;
 use crate::layout::{Abs, Em};
 use crate::syntax::Span;
 use crate::text::{Font, Lang};
-use crate::visualize::Paint;
+use crate::visualize::{FixedStroke, Paint};
 
 /// A run of shaped text.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -17,6 +17,8 @@ pub struct TextItem {
     pub size: Abs,
     /// Glyph color.
     pub fill: Paint,
+    /// Glyph stroke.
+    pub stroke: Option<FixedStroke>,
     /// The natural language of the text.
     pub lang: Lang,
     /// The item's plain text.

@@ -61,12 +61,13 @@ use std::ops::Range;
 
 use comemo::{Prehashed, Track, Tracked, Validate};
 use ecow::{EcoString, EcoVec};
+use typst_timing::{timed, TimingScope};
 
 use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{
-    Array, Bytes, Content, Datetime, Module, Scope, StyleChain, Styles,
+    Array, Bytes, Content, Datetime, Dict, Module, Scope, StyleChain, Styles,
 };
 use crate::introspection::{Introspector, Locator};
 use crate::layout::{Align, Dir, LayoutRoot};
@@ -83,7 +84,7 @@ use crate::visualize::Color;
 /// Requires a mutable reference to a tracer. Such a tracer can be created with
 /// `Tracer::new()`. Independently of whether compilation succeeded, calling
 /// `tracer.warnings()` after compilation will return all compiler warnings.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "compile")]
 pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document> {
     // Call `track` on the world just once to keep comemo's ID stable.
     let world = world.track();
@@ -107,6 +108,10 @@ fn typeset(
     tracer: &mut Tracer,
     content: &Content,
 ) -> SourceResult<Document> {
+    // The name of the iterations for timing scopes.
+    const ITER_NAMES: &[&str] =
+        &["typeset (1)", "typeset (2)", "typeset (3)", "typeset (4)", "typeset (5)"];
+
     let library = world.library();
     let styles = StyleChain::new(&library.styles);
 
@@ -116,7 +121,7 @@ fn typeset(
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
     loop {
-        tracing::info!("Layout iteration {iter}");
+        let _scope = TimingScope::new(ITER_NAMES[iter], None);
 
         // Clear delayed errors.
         tracer.delayed();
@@ -136,7 +141,7 @@ fn typeset(
         document.introspector.rebuild(&document.pages);
         iter += 1;
 
-        if document.introspector.validate(&constraint) {
+        if timed!("check stabilized", document.introspector.validate(&constraint)) {
             break;
         }
 
@@ -252,25 +257,47 @@ pub struct Library {
 }
 
 impl Library {
-    /// Construct the standard library.
-    pub fn build() -> Self {
-        let math = math::module();
-        let global = global(math.clone());
-        Self { global, math, styles: Styles::new() }
+    /// Create a new builder for a library.
+    pub fn builder() -> LibraryBuilder {
+        LibraryBuilder::default()
     }
 }
 
 impl Default for Library {
+    /// Constructs the standard library with the default configuration.
     fn default() -> Self {
-        Self::build()
+        Self::builder().build()
+    }
+}
+
+/// Configurable builder for the standard library.
+///
+/// This struct is created by [`Library::builder`].
+#[derive(Debug, Clone, Default)]
+pub struct LibraryBuilder {
+    inputs: Option<Dict>,
+}
+
+impl LibraryBuilder {
+    /// Configure the inputs visible through `sys.inputs`.
+    pub fn with_inputs(mut self, inputs: Dict) -> Self {
+        self.inputs = Some(inputs);
+        self
+    }
+
+    /// Consumes the builder and returns a `Library`.
+    pub fn build(self) -> Library {
+        let math = math::module();
+        let inputs = self.inputs.unwrap_or_default();
+        let global = global(math.clone(), inputs);
+        Library { global, math, styles: Styles::new() }
     }
 }
 
 /// Construct the module with global definitions.
-#[tracing::instrument(skip_all)]
-fn global(math: Module) -> Module {
+fn global(math: Module, inputs: Dict) -> Module {
     let mut global = Scope::deduplicating();
-    self::foundations::define(&mut global);
+    self::foundations::define(&mut global, inputs);
     self::model::define(&mut global);
     self::text::define(&mut global);
     global.reset_category();

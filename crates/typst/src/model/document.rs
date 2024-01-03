@@ -67,14 +67,12 @@ impl Construct for DocumentElem {
 
 impl LayoutRoot for DocumentElem {
     /// Layout the document into a sequence of frames, one per page.
-    #[tracing::instrument(name = "DocumentElem::layout_root", skip_all)]
+    #[typst_macros::time(name = "document", span = self.span())]
     fn layout_root(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<Document> {
-        tracing::info!("Document layout");
-
         let mut pages = Vec::with_capacity(self.children().len());
         let mut page_counter = ManualPageCounter::new();
 

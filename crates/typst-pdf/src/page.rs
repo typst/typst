@@ -3,8 +3,8 @@ use std::num::NonZeroUsize;
 
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::{
-    ActionType, AnnotationType, ColorSpaceOperand, LineCapStyle, LineJoinStyle,
-    NumberingStyle,
+    ActionType, AnnotationFlags, AnnotationType, ColorSpaceOperand, LineCapStyle,
+    LineJoinStyle, NumberingStyle,
 };
 use pdf_writer::writers::PageLabel;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
@@ -15,7 +15,7 @@ use typst::layout::{
 };
 use typst::model::Destination;
 use typst::text::{Font, TextItem};
-use typst::util::Numeric;
+use typst::util::{Deferred, Numeric};
 use typst::visualize::{
     FixedStroke, Geometry, Image, LineCap, LineJoin, Paint, Path, PathItem, Shape,
 };
@@ -23,10 +23,10 @@ use typst::visualize::{
 use crate::color::PaintEncode;
 use crate::extg::ExtGState;
 use crate::image::deferred_image;
-use crate::{deflate_memoized, AbsExt, EmExt, PdfContext};
+use crate::{deflate_deferred, AbsExt, EmExt, PdfContext};
 
 /// Construct page objects.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "construct pages")]
 pub(crate) fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
     for frame in frames {
         let (page_ref, page) = construct_page(ctx, frame);
@@ -36,7 +36,7 @@ pub(crate) fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
 }
 
 /// Construct a page object.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "construct page")]
 pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Page) {
     let page_ref = ctx.alloc.bump();
 
@@ -71,7 +71,7 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Page)
 
     let page = Page {
         size,
-        content: ctx.content.finish(),
+        content: deflate_deferred(ctx.content.finish()),
         id: ctx.page_ref,
         uses_opacities: ctx.uses_opacities,
         links: ctx.links,
@@ -83,7 +83,6 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Page)
 }
 
 /// Write the page tree.
-#[tracing::instrument(skip_all)]
 pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
     for i in 0..ctx.pages.len() {
         write_page(ctx, i);
@@ -142,7 +141,6 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
 }
 
 /// Write a page tree node.
-#[tracing::instrument(skip_all)]
 fn write_page(ctx: &mut PdfContext, i: usize) {
     let page = &ctx.pages[i];
     let content_id = ctx.alloc.bump();
@@ -169,7 +167,7 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
     for (dest, rect) in &page.links {
         let mut annotation = annotations.push();
         annotation.subtype(AnnotationType::Link).rect(*rect);
-        annotation.border(0.0, 0.0, 0.0, None);
+        annotation.border(0.0, 0.0, 0.0, None).flags(AnnotationFlags::PRINT);
 
         let pos = match dest {
             Destination::Url(uri) => {
@@ -198,12 +196,12 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
     annotations.finish();
     page_writer.finish();
 
-    let data = deflate_memoized(&page.content);
-    ctx.pdf.stream(content_id, &data).filter(Filter::FlateDecode);
+    ctx.pdf
+        .stream(content_id, page.content.wait())
+        .filter(Filter::FlateDecode);
 }
 
 /// Write the page labels.
-#[tracing::instrument(skip_all)]
 pub(crate) fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
     let mut result = vec![];
     let mut prev: Option<&PdfPageLabel> = None;
@@ -258,7 +256,7 @@ pub struct Page {
     /// The page's dimensions.
     pub size: Size,
     /// The page's content stream.
-    pub content: Vec<u8>,
+    pub content: Deferred<Vec<u8>>,
     /// Whether the page uses opacities.
     pub uses_opacities: bool,
     /// Links in the PDF coordinate system.
@@ -503,33 +501,30 @@ impl PageContext<'_, '_> {
         self.state.fill_space = None;
     }
 
-    fn set_stroke(&mut self, stroke: &FixedStroke, transforms: Transforms) {
+    fn set_stroke(
+        &mut self,
+        stroke: &FixedStroke,
+        on_text: bool,
+        transforms: Transforms,
+    ) {
         if self.state.stroke.as_ref() != Some(stroke)
             || matches!(
                 self.state.stroke.as_ref().map(|s| &s.paint),
                 Some(Paint::Gradient(_))
             )
         {
-            let FixedStroke {
-                paint,
-                thickness,
-                line_cap,
-                line_join,
-                dash_pattern,
-                miter_limit,
-            } = stroke;
-
-            paint.set_as_stroke(self, transforms);
+            let FixedStroke { paint, thickness, cap, join, dash, miter_limit } = stroke;
+            paint.set_as_stroke(self, on_text, transforms);
 
             self.content.set_line_width(thickness.to_f32());
-            if self.state.stroke.as_ref().map(|s| &s.line_cap) != Some(line_cap) {
-                self.content.set_line_cap(to_pdf_line_cap(*line_cap));
+            if self.state.stroke.as_ref().map(|s| &s.cap) != Some(cap) {
+                self.content.set_line_cap(to_pdf_line_cap(*cap));
             }
-            if self.state.stroke.as_ref().map(|s| &s.line_join) != Some(line_join) {
-                self.content.set_line_join(to_pdf_line_join(*line_join));
+            if self.state.stroke.as_ref().map(|s| &s.join) != Some(join) {
+                self.content.set_line_join(to_pdf_line_join(*join));
             }
-            if self.state.stroke.as_ref().map(|s| &s.dash_pattern) != Some(dash_pattern) {
-                if let Some(pattern) = dash_pattern {
+            if self.state.stroke.as_ref().map(|s| &s.dash) != Some(dash) {
+                if let Some(pattern) = dash {
                     self.content.set_dash_pattern(
                         pattern.array.iter().map(|l| l.to_f32()),
                         pattern.phase.to_f32(),
@@ -619,13 +614,18 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
         let segment = &text.text[g.range()];
         glyph_set.entry(g.id).or_insert_with(|| segment.into());
     }
-
-    ctx.set_fill(&text.fill, true, ctx.state.transforms(Size::zero(), pos));
+    let fill_transform = ctx.state.transforms(Size::zero(), pos);
+    ctx.set_fill(&text.fill, true, fill_transform);
+    if let Some(stroke) = &text.stroke {
+        ctx.set_stroke(stroke, true, fill_transform);
+        ctx.content
+            .set_text_rendering_mode(pdf_writer::types::TextRenderingMode::FillStroke);
+    }
     ctx.set_font(&text.font, text.size);
-    ctx.set_opacities(None, Some(&text.fill));
+    ctx.set_opacities(text.stroke.as_ref(), Some(&text.fill));
     ctx.content.begin_text();
 
-    // Positiosn the text.
+    // Position the text.
     ctx.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
 
     let mut positioned = ctx.content.show_positioned();
@@ -689,7 +689,11 @@ fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
     }
 
     if let Some(stroke) = stroke {
-        ctx.set_stroke(stroke, ctx.state.transforms(shape.geometry.bbox_size(), pos));
+        ctx.set_stroke(
+            stroke,
+            false,
+            ctx.state.transforms(shape.geometry.bbox_size(), pos),
+        );
     }
 
     ctx.set_opacities(stroke, shape.fill.as_ref());

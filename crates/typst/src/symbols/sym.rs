@@ -565,7 +565,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         filled.small: '⬪',
         filled.medium: '⬧',
     ],
-    star: [op: '⋆', stroked: '★', filled: '★'],
+    star: [op: '⋆', stroked: '☆', filled: '★'],
 
     // Arrows, harpoons, and tacks.
     arrow: [

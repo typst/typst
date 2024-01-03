@@ -103,3 +103,10 @@ This is a normal page. Very normal.
 // Test a page with zero columns.
 // Error: 49-50 number must be positive
 #set page(height: auto, width: 7.05cm, columns: 0)
+
+---
+// Test colbreak after only out-of-flow elements.
+#set page(width: 7.05cm, columns: 2)
+#place[OOF]
+#colbreak()
+In flow.

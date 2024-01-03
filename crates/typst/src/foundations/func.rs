@@ -250,19 +250,13 @@ impl Func {
     }
 
     /// Call the function with the given arguments.
-    #[tracing::instrument(skip_all)]
     pub fn call(&self, engine: &mut Engine, args: impl IntoArgs) -> SourceResult<Value> {
         self.call_impl(engine, args.into_args(self.span))
     }
 
     /// Non-generic implementation of `call`.
+    #[typst_macros::time(name = "func call", span = self.span())]
     fn call_impl(&self, engine: &mut Engine, mut args: Args) -> SourceResult<Value> {
-        let _span = tracing::info_span!(
-            "call",
-            name = self.name().unwrap_or("<anon>"),
-            file = 0,
-        );
-
         match &self.repr {
             Repr::Native(native) => {
                 let value = (native.function)(engine, &mut args)?;

@@ -148,7 +148,7 @@ impl Debug for Abs {
 
 impl Repr for Abs {
     fn repr(&self) -> EcoString {
-        repr::format_float(self.to_pt(), Some(2), "pt")
+        repr::format_float_with_unit(self.to_pt(), "pt")
     }
 }
 

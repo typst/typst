@@ -85,7 +85,7 @@ pub struct UnderlineElem {
 }
 
 impl Show for UnderlineElem {
-    #[tracing::instrument(name = "UnderlineElem::show", skip_all)]
+    #[typst_macros::time(name = "underline", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Underline {
@@ -177,7 +177,7 @@ pub struct OverlineElem {
 }
 
 impl Show for OverlineElem {
-    #[tracing::instrument(name = "OverlineElem::show", skip_all)]
+    #[typst_macros::time(name = "overline", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Overline {
@@ -254,7 +254,7 @@ pub struct StrikeElem {
 }
 
 impl Show for StrikeElem {
-    #[tracing::instrument(name = "StrikeElem::show", skip_all)]
+    #[typst_macros::time(name = "strike", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
             // Note that we do not support evade option for strikethrough.
@@ -324,7 +324,7 @@ pub struct HighlightElem {
 }
 
 impl Show for HighlightElem {
-    #[tracing::instrument(name = "HighlightElem::show", skip_all)]
+    #[typst_macros::time(name = "highlight", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Highlight {

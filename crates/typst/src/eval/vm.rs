@@ -35,7 +35,6 @@ impl<'a> Vm<'a> {
     }
 
     /// Define a variable in the current scope.
-    #[tracing::instrument(skip_all)]
     pub fn define(&mut self, var: ast::Ident, value: impl IntoValue) {
         let value = value.into_value();
         if self.inspected == Some(var.span()) {

@@ -79,7 +79,7 @@ impl Debug for Fr {
 
 impl Repr for Fr {
     fn repr(&self) -> EcoString {
-        repr::format_float(self.get(), Some(2), "fr")
+        repr::format_float_with_unit(self.get(), "fr")
     }
 }
 

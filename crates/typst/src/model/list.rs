@@ -5,8 +5,8 @@ use crate::foundations::{
     Value,
 };
 use crate::layout::{
-    Axes, BlockElem, Em, Fragment, GridLayouter, HAlign, Layout, Length, Regions, Sizing,
-    Spacing, VAlign,
+    Axes, BlockElem, Celled, Em, Fragment, GridLayouter, HAlign, Layout, Length, Regions,
+    Sizing, Spacing, VAlign,
 };
 use crate::model::ParElem;
 use crate::text::TextElem;
@@ -69,7 +69,7 @@ pub struct ListElem {
     ///
     /// Instead of plain content, you can also pass an array with multiple
     /// markers that should be used for nested lists. If the list nesting depth
-    /// exceeds the number of markers, the last one is repeated. For total
+    /// exceeds the number of markers, the markers are cycled. For total
     /// control, you may pass a function that maps the list's nesting depth
     /// (starting from `{0}`) to a desired marker.
     ///
@@ -85,7 +85,14 @@ pub struct ListElem {
     /// - Items
     /// ```
     #[borrowed]
-    #[default(ListMarker::Content(vec![TextElem::packed('•')]))]
+    #[default(ListMarker::Content(vec![
+        // These are all available in the default font, vertically centered, and
+        // roughly of the same size (with the last one having slightly lower
+        // weight because it is not filled).
+        TextElem::packed('\u{2022}'), // Bullet
+        TextElem::packed('\u{2023}'), // Triangular Bullet
+        TextElem::packed('\u{2013}'), // En-dash
+    ]))]
     pub marker: ListMarker,
 
     /// The indent of each item.
@@ -128,7 +135,7 @@ impl ListElem {
 }
 
 impl Layout for ListElem {
-    #[tracing::instrument(name = "ListElem::layout", skip_all)]
+    #[typst_macros::time(name = "list", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -159,6 +166,8 @@ impl Layout for ListElem {
             cells.push(item.body().clone().styled(Self::set_depth(Depth)));
         }
 
+        let fill = Celled::Value(None);
+        let stroke = None;
         let layouter = GridLayouter::new(
             Axes::with_x(&[
                 Sizing::Rel(indent.into()),
@@ -168,6 +177,8 @@ impl Layout for ListElem {
             ]),
             Axes::with_y(&[gutter.into()]),
             &cells,
+            &fill,
+            &stroke,
             regions,
             styles,
             self.span(),
@@ -202,7 +213,7 @@ impl ListMarker {
     fn resolve(&self, engine: &mut Engine, depth: usize) -> SourceResult<Content> {
         Ok(match self {
             Self::Content(list) => {
-                list.get(depth).or(list.last()).cloned().unwrap_or_default()
+                list.get(depth % list.len()).cloned().unwrap_or_default()
             }
             Self::Func(func) => func.call(engine, [depth])?.display(),
         })
