@@ -205,33 +205,6 @@ impl CellGrid {
         Self { cols, rows, cells, has_gutter, is_rtl }
     }
 
-    /// Get the content of the cell in column `x` and row `y`.
-    ///
-    /// Returns `None` if it's a gutter cell.
-    #[track_caller]
-    fn cell(&self, mut x: usize, y: usize) -> Option<&Cell> {
-        assert!(x < self.cols.len());
-        assert!(y < self.rows.len());
-
-        // Columns are reorder, but the cell slice is not.
-        if self.is_rtl {
-            x = self.cols.len() - 1 - x;
-        }
-
-        if self.has_gutter {
-            // Even columns and rows are children, odd ones are gutter.
-            if x % 2 == 0 && y % 2 == 0 {
-                let c = 1 + self.cols.len() / 2;
-                self.cells.get((y / 2) * c + x / 2)
-            } else {
-                None
-            }
-        } else {
-            let c = self.cols.len();
-            self.cells.get(y * c + x)
-        }
-    }
-
     /// Resolves all cells in the grid before creating it.
     /// Allows them to keep track of their final properties and adjust their fields accordingly.
     #[allow(clippy::too_many_arguments)]
@@ -291,6 +264,33 @@ impl CellGrid {
         }
 
         Ok(Self::new(tracks, gutter, cells, styles))
+    }
+
+    /// Get the content of the cell in column `x` and row `y`.
+    ///
+    /// Returns `None` if it's a gutter cell.
+    #[track_caller]
+    fn cell(&self, mut x: usize, y: usize) -> Option<&Cell> {
+        assert!(x < self.cols.len());
+        assert!(y < self.rows.len());
+
+        // Columns are reorder, but the cell slice is not.
+        if self.is_rtl {
+            x = self.cols.len() - 1 - x;
+        }
+
+        if self.has_gutter {
+            // Even columns and rows are children, odd ones are gutter.
+            if x % 2 == 0 && y % 2 == 0 {
+                let c = 1 + self.cols.len() / 2;
+                self.cells.get((y / 2) * c + x / 2)
+            } else {
+                None
+            }
+        } else {
+            let c = self.cols.len();
+            self.cells.get(y * c + x)
+        }
     }
 }
 
