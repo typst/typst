@@ -510,7 +510,7 @@ impl Color {
     /// to RGB for display preview might differ from how your printer reproduces
     /// the color.
     ///
-    /// An HSL color is represented internally by an array of four components:
+    /// A CMYK color is represented internally by an array of four components:
     /// - cyan ([`ratio`]($ratio))
     /// - magenta ([`ratio`]($ratio))
     /// - yellow ([`ratio`]($ratio))
