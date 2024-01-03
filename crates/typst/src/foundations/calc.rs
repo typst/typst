@@ -30,6 +30,12 @@ pub fn module() -> Module {
     scope.define_func::<tanh>();
     scope.define_func::<log>();
     scope.define_func::<ln>();
+    scope.define_func::<bit_not>();
+    scope.define_func::<bit_and>();
+    scope.define_func::<bit_or>();
+    scope.define_func::<bit_xor>();
+    scope.define_func::<bit_lshift>();
+    scope.define_func::<bit_rshift>();
     scope.define_func::<fact>();
     scope.define_func::<perm>();
     scope.define_func::<binom>();
@@ -457,6 +463,149 @@ pub fn ln(
     }
 
     Ok(result)
+}
+
+/// Calculates the bitwise NOT of an integer.
+///
+/// For the purposes of this function, the parameter is treated as a signed
+/// integer of 64 bits.
+///
+/// ```example
+/// #calc.bit-not(4)
+/// #calc.bit-not(-1)
+/// ```
+#[func(title = "Bitwise NOT")]
+pub fn bit_not(
+    /// The integer operand of the bitwise NOT.
+    value: i64,
+) -> i64 {
+    !value
+}
+
+/// Calculates the bitwise AND between two integers.
+///
+/// For the purposes of this function, the parameters are treated as signed
+/// integers of 64 bits.
+///
+/// ```example
+/// #calc.bit-and(128, 192)
+/// ```
+#[func(title = "Bitwise AND")]
+pub fn bit_and(
+    /// The left-hand operand of the bitwise AND.
+    lhs: i64,
+    /// The right-hand operand of the bitwise AND.
+    rhs: i64,
+) -> i64 {
+    lhs & rhs
+}
+
+#[func(title = "Bitwise OR")]
+/// Calculates the bitwise OR between two integers.
+///
+/// For the purposes of this function, the parameters are treated as signed
+/// integers of 64 bits.
+///
+/// ```example
+/// #calc.bit-or(64, 32)
+/// ```
+pub fn bit_or(
+    /// The left-hand operand of the bitwise OR.
+    lhs: i64,
+    /// The right-hand operand of the bitwise OR.
+    rhs: i64,
+) -> i64 {
+    lhs | rhs
+}
+
+#[func(title = "Bitwise XOR")]
+/// Calculates the bitwise XOR between two integers.
+///
+/// For the purposes of this function, the parameters are treated as signed
+/// integers of 64 bits.
+///
+/// ```example
+/// #calc.bit-xor(64, 96)
+/// ```
+pub fn bit_xor(
+    /// The left-hand operand of the bitwise XOR.
+    lhs: i64,
+    /// The right-hand operand of the bitwise XOR.
+    rhs: i64,
+) -> i64 {
+    lhs ^ rhs
+}
+
+#[func(title = "Bitwise Left Shift")]
+/// Shifts the operand's bits to the left by the specified amount.
+///
+/// For the purposes of this function, the operand is treated as a signed
+/// integer of 64 bits. An error will occur if the result is too large to
+/// fit in a 64-bit integer.
+///
+/// ```example
+/// #calc.bit-lshift(33, 2)
+/// #calc.bit-lshift(-1, 3)
+/// ```
+pub fn bit_lshift(
+    /// The operand whose bits will be shifted.
+    operand: i64,
+
+    /// The amount of bits to shift. Must not be negative.
+    shift: u32,
+) -> StrResult<i64> {
+    Ok(operand.checked_shl(shift).ok_or("the result is too large")?)
+}
+
+#[func(title = "Bitwise Right Shift")]
+/// Shifts the operand's bits to the right by the specified amount.
+/// Performs an arithmetic shift by default (extends the sign bit to the left,
+/// such that negative numbers stay negative), but that can be changed by the
+/// `logical` parameter.
+///
+/// For the purposes of this function, the operand is treated as a signed
+/// integer of 64 bits.
+///
+/// ```example
+/// #calc.bit-rshift(64, 2)
+/// #calc.bit-rshift(-8, 2)
+/// #calc.bit-rshift(-8, 2, logical: true)
+/// ```
+pub fn bit_rshift(
+    /// The operand whose bits will be shifted.
+    operand: i64,
+
+    /// The amount of bits to shift. Must not be negative.
+    /// This is capped at the operand's bits minus 1 (63).
+    /// Therefore, the shift will always succeed.
+    shift: u32,
+
+    /// Toggles whether a logical (unsigned) right shift should be performed
+    /// instead of arithmetic right shift (the default).
+    /// If this is `true`, negative operands will not preserve their sign bit,
+    /// and bits which appear to the left after the shift will be 0.
+    /// This parameter has no effect on non-negative operands.
+    #[named]
+    #[default(false)]
+    logical: bool,
+) -> i64 {
+    // Don't panic on excessive shift.
+    let shift = shift.min(i64::BITS - 1);
+
+    if !logical || operand >= 0 {
+        // For non-negative operands, arithmetic and logical shifts produce the
+        // same results.
+        operand >> shift
+    } else {
+        // For negative operands, we reinterpret their bits as unsigned to
+        // perform logical right shift, and then reinterpret back as signed.
+        // This is valid as, according to the Rust reference, casting between
+        // two integers of same size (i64 <-> u64) is a no-op (two's complement
+        // is used).
+        // Reference:
+        // https://doc.rust-lang.org/stable/reference/expressions/operator-expr.html#numeric-cast
+        ((operand as u64) >> shift) as i64
+    }
 }
 
 /// Calculates the factorial of a number.
