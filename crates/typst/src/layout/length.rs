@@ -157,7 +157,7 @@ impl Length {
         ///
         /// Since a length can use font-relative em units, resolving it to an
         /// absolute length requires knowledge of the font size. This size is
-        /// provided through these styles. You can obtain the style using
+        /// provided through these styles. You can obtain the styles using
         /// the [`style`]($style) function.
         styles: Styles,
     ) -> Length {
