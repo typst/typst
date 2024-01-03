@@ -181,6 +181,7 @@ pub fn module() -> Module {
     math.define_elem::<RootElem>();
     math.define_elem::<ClassElem>();
     math.define_elem::<OpElem>();
+    math.define_elem::<PrimesElem>();
     math.define_func::<abs>();
     math.define_func::<norm>();
     math.define_func::<floor>();
