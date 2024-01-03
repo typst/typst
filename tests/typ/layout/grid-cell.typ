@@ -42,7 +42,7 @@
   row-gutter: 5pt,
   [A],
   grid.cell(align: right)[B],
-  grid.cell(fill: blue)[B],
+  grid.cell(fill: aqua)[B],
 )
 
 ---
@@ -55,7 +55,7 @@
   row-gutter: 5pt,
   [A],
   grid.cell(align: right)[B],
-  grid.cell(fill: blue)[B],
+  grid.cell(fill: aqua)[B],
 )
 
 ---

@@ -40,7 +40,7 @@
   row-gutter: 5pt,
   [A],
   table.cell(align: right)[B],
-  table.cell(fill: blue)[B],
+  table.cell(fill: aqua)[B],
 )
 
 ---
@@ -53,7 +53,7 @@
   row-gutter: 5pt,
   [A],
   table.cell(align: right)[B],
-  table.cell(fill: blue)[B],
+  table.cell(fill: aqua)[B],
 )
 
 ---
