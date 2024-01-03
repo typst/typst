@@ -140,6 +140,11 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         self.fragments.extend(fragments);
     }
 
+    pub fn layout_root(&mut self, elem: &dyn LayoutMath) -> SourceResult<MathRow> {
+        let row = self.layout_fragments(elem)?;
+        Ok(MathRow::new(row))
+    }
+
     pub fn layout_fragment(
         &mut self,
         elem: &dyn LayoutMath,

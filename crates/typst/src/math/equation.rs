@@ -8,13 +8,14 @@ use crate::foundations::{
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
-    Abs, Align, AlignElem, Axes, Dir, Em, FixedAlign, Fragment, Layout, Point, Regions,
-    Size,
+    Abs, Align, AlignElem, Axes, Dir, Em, FixedAlign, Fragment, Frame, Layout, Point,
+    Regions, Size,
 };
 use crate::math::{LayoutMath, MathContext};
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
+use crate::syntax::Span;
 use crate::text::{
-    families, variant, FontFamily, FontList, FontWeight, Lang, LocalName, Region,
+    families, variant, Font, FontFamily, FontList, FontWeight, Lang, LocalName, Region,
     TextElem,
 };
 use crate::util::{option_eq, NonZeroExt, Numeric};
@@ -136,70 +137,47 @@ impl Finalize for EquationElem {
     }
 }
 
-impl Layout for EquationElem {
-    #[typst_macros::time(name = "math.equation", span = self.span())]
-    fn layout(
+/// Layouted items suitable for placing in a paragraph.
+#[derive(Debug, Clone)]
+pub enum MathParItem {
+    Space(Abs),
+    Frame(Frame),
+}
+
+impl MathParItem {
+    /// The text representation of this item.
+    pub fn text(&self) -> char {
+        match self {
+            MathParItem::Space(_) => ' ',        // Space
+            MathParItem::Frame(_) => '\u{FFFC}', // Object Replacement Character
+        }
+    }
+}
+
+impl EquationElem {
+    pub fn layout_inline(
         &self,
-        engine: &mut Engine,
+        engine: &mut Engine<'_>,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
-        const NUMBER_GUTTER: Em = Em::new(0.5);
-
-        let block = self.block(styles);
+    ) -> SourceResult<Vec<MathParItem>> {
+        assert!(!self.block(styles));
 
         // Find a math font.
-        let variant = variant(styles);
-        let world = engine.world;
-        let Some(font) = families(styles).find_map(|family| {
-            let id = world.book().select(family, variant)?;
-            let font = world.font(id)?;
-            let _ = font.ttf().tables().math?.constants?;
-            Some(font)
-        }) else {
-            bail!(self.span(), "current font does not support math");
+        let font = find_math_font(engine, styles, self.span())?;
+
+        let mut ctx = MathContext::new(engine, styles, regions, &font, false);
+        let rows = ctx.layout_root(self)?;
+
+        let mut items = if rows.row_count() == 1 {
+            rows.into_par_items()
+        } else {
+            vec![MathParItem::Frame(rows.into_fragment(&ctx).into_frame())]
         };
 
-        let mut ctx = MathContext::new(engine, styles, regions, &font, block);
-        let mut frame = ctx.layout_frame(self)?;
+        for item in &mut items {
+            let MathParItem::Frame(frame) = item else { continue };
 
-        if block {
-            if let Some(numbering) = self.numbering(styles) {
-                let pod = Regions::one(regions.base(), Axes::splat(false));
-                let counter = Counter::of(Self::elem())
-                    .display(self.span(), Some(numbering), false)
-                    .layout(engine, styles, pod)?
-                    .into_frame();
-
-                let full_counter_width = counter.width() + NUMBER_GUTTER.resolve(styles);
-                let width = if regions.size.x.is_finite() {
-                    regions.size.x
-                } else {
-                    frame.width() + 2.0 * full_counter_width
-                };
-
-                let height = frame.height().max(counter.height());
-                let align = AlignElem::alignment_in(styles).resolve(styles).x;
-                frame.resize(Size::new(width, height), Axes::splat(align));
-
-                let dir = TextElem::dir_in(styles);
-                let offset = match (align, dir) {
-                    (FixedAlign::Start, Dir::RTL) => full_counter_width,
-                    (FixedAlign::End, Dir::LTR) => -full_counter_width,
-                    _ => Abs::zero(),
-                };
-                frame.translate(Point::with_x(offset));
-
-                let x = if dir.is_positive() {
-                    frame.width() - counter.width()
-                } else {
-                    Abs::zero()
-                };
-                let y = (frame.height() - counter.height()) / 2.0;
-
-                frame.push_frame(Point::new(x, y), counter)
-            }
-        } else {
             let font_size = TextElem::size_in(styles);
             let slack = ParElem::leading_in(styles) * 0.7;
             let top_edge = TextElem::top_edge_in(styles).resolve(font_size, &font, None);
@@ -210,6 +188,67 @@ impl Layout for EquationElem {
             let descent = bottom_edge.max(frame.descent() - slack);
             frame.translate(Point::with_y(ascent - frame.baseline()));
             frame.size_mut().y = ascent + descent;
+
+            // Apply metadata.
+            frame.meta(styles, false);
+        }
+
+        Ok(items)
+    }
+}
+
+impl Layout for EquationElem {
+    #[typst_macros::time(name = "math.equation", span = self.span())]
+    fn layout(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<Fragment> {
+        const NUMBER_GUTTER: Em = Em::new(0.5);
+
+        assert!(self.block(styles));
+
+        // Find a math font.
+        let font = find_math_font(engine, styles, self.span())?;
+
+        let mut ctx = MathContext::new(engine, styles, regions, &font, true);
+        let mut frame = ctx.layout_frame(self)?;
+
+        if let Some(numbering) = self.numbering(styles) {
+            let pod = Regions::one(regions.base(), Axes::splat(false));
+            let counter = Counter::of(Self::elem())
+                .display(self.span(), Some(numbering), false)
+                .layout(engine, styles, pod)?
+                .into_frame();
+
+            let full_counter_width = counter.width() + NUMBER_GUTTER.resolve(styles);
+            let width = if regions.size.x.is_finite() {
+                regions.size.x
+            } else {
+                frame.width() + 2.0 * full_counter_width
+            };
+
+            let height = frame.height().max(counter.height());
+            let align = AlignElem::alignment_in(styles).resolve(styles).x;
+            frame.resize(Size::new(width, height), Axes::splat(align));
+
+            let dir = TextElem::dir_in(styles);
+            let offset = match (align, dir) {
+                (FixedAlign::Start, Dir::RTL) => full_counter_width,
+                (FixedAlign::End, Dir::LTR) => -full_counter_width,
+                _ => Abs::zero(),
+            };
+            frame.translate(Point::with_x(offset));
+
+            let x = if dir.is_positive() {
+                frame.width() - counter.width()
+            } else {
+                Abs::zero()
+            };
+            let y = (frame.height() - counter.height()) / 2.0;
+
+            frame.push_frame(Point::new(x, y), counter)
         }
 
         // Apply metadata.
@@ -315,4 +354,22 @@ impl LayoutMath for EquationElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         self.body().layout_math(ctx)
     }
+}
+
+fn find_math_font(
+    engine: &mut Engine<'_>,
+    styles: StyleChain,
+    span: Span,
+) -> SourceResult<Font> {
+    let variant = variant(styles);
+    let world = engine.world;
+    let Some(font) = families(styles).find_map(|family| {
+        let id = world.book().select(family, variant)?;
+        let font = world.font(id)?;
+        let _ = font.ttf().tables().math?.constants?;
+        Some(font)
+    }) else {
+        bail!(span, "current font does not support math");
+    };
+    Ok(font)
 }
