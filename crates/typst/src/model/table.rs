@@ -196,7 +196,6 @@ impl Layout for TableElem {
             styles,
         )?;
 
-        // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
 
         Ok(layouter.layout(engine)?.fragment)

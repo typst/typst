@@ -247,7 +247,6 @@ impl Layout for GridElem {
             styles,
         )?;
 
-        // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
 
         // Measure the columns and layout the grid row-by-row.
