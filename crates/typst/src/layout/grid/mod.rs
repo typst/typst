@@ -1,3 +1,7 @@
+mod layout;
+
+pub use self::layout::{Cell, CellGrid, Celled, GridLayouter, ResolvableCell};
+
 use std::num::NonZeroUsize;
 
 use smallvec::{smallvec, SmallVec};
@@ -8,8 +12,7 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, NativeElement, Show, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Align, AlignElem, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter, Layout,
-    Length, Regions, Rel, ResolvableCell, Sides, Sizing,
+    Abs, Align, AlignElem, Axes, Fragment, Layout, Length, Regions, Rel, Sides, Sizing,
 };
 use crate::visualize::{Paint, Stroke};
 

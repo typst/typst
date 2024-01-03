@@ -14,7 +14,6 @@ mod fr;
 mod fragment;
 mod frame;
 mod grid;
-mod gridlayouter;
 mod hide;
 mod inline;
 #[path = "layout.rs"]
@@ -50,7 +49,6 @@ pub use self::fr::*;
 pub use self::fragment::*;
 pub use self::frame::*;
 pub use self::grid::*;
-pub use self::gridlayouter::*;
 pub use self::hide::*;
 pub use self::layout_::*;
 pub use self::length::*;
