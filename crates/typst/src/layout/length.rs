@@ -137,19 +137,18 @@ impl Length {
     ///
     /// ```example
     /// #set text(size: 12pt)
-    /// #style(styles => {
-    ///   repr((6pt).to-absolute(styles))
-    ///   repr((6pt + 10em).to-absolute(styles))
-    ///   repr((10em).to-absolute(styles))
-    /// })
+    /// #style(styles => [
+    ///   #(6pt).to-absolute(styles) \
+    ///   #(6pt + 10em).to-absolute(styles) \
+    ///   #(10em).to-absolute(styles)
+    /// ])
     ///
     /// #set text(size: 6pt)
-    /// #style(styles => {
-    ///   repr((6pt).to-absolute(styles))
-    ///   repr((6pt + 10em).to-absolute(styles))
-    ///   repr((10em).to-absolute(styles))
-    /// })
-    ///
+    /// #style(styles => [
+    ///   #(6pt).to-absolute(styles) \
+    ///   #(6pt + 10em).to-absolute(styles) \
+    ///   #(10em).to-absolute(styles)
+    /// ])
     /// ```
     #[func]
     pub fn to_absolute(
