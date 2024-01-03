@@ -327,8 +327,8 @@ cast! {
 impl ResolvableCell for GridCell {
     fn resolve_cell(
         mut self,
-        _x: usize,
-        _y: usize,
+        _: usize,
+        _: usize,
         fill: &Option<Paint>,
         align: Smart<Align>,
         inset: Sides<Rel<Length>>,
