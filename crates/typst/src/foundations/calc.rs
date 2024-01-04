@@ -580,14 +580,15 @@ pub fn bit_rshift(
     /// Shifts larger than 63 are allowed and will cause the return value to
     /// saturate. For non-negative numbers, the return value saturates at `0`,
     /// while, for negative numbers, it saturates at `-1` if `logical` is set
-    /// to `false`, or `0` if it is `true`.
-    /// Therefore, the shift will always succeed.
+    /// to `false`, or `0` if it is `true`. This behavior is consistent with
+    /// just applying this operation multiple times. Therefore, the shift will
+    /// always succeed.
     shift: u32,
 
     /// Toggles whether a logical (unsigned) right shift should be performed
-    /// instead of arithmetic right shift (the default).
+    /// instead of arithmetic right shift.
     /// If this is `true`, negative operands will not preserve their sign bit,
-    /// and bits which appear to the left after the shift will be 0.
+    /// and bits which appear to the left after the shift will be `0`.
     /// This parameter has no effect on non-negative operands.
     #[named]
     #[default(false)]
