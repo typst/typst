@@ -1,9 +1,8 @@
-use ttf_parser::GlyphId;
 use unicode_math_class::MathClass;
 
 use crate::diag::{bail, SourceResult};
 use crate::foundations::{cast, elem, Content, NativeElement, Resolve, Smart, Value};
-use crate::layout::{Abs, Em, Frame, Length, Point, Rel, Size};
+use crate::layout::{Em, Frame, Length, Point, Rel, Size};
 use crate::math::{
     FrameFragment, GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled,
 };
@@ -72,12 +71,7 @@ impl LayoutMath for AccentElem {
 
         // Preserve class to preserve automatic spacing.
         let base_class = base.class().unwrap_or(MathClass::Normal);
-        let base_attach = match &base {
-            MathFragment::Glyph(base) => {
-                attachment(ctx, base.id, base.italics_correction)
-            }
-            _ => (base.width() + base.italics_correction()) / 2.0,
-        };
+        let base_attach = base.accent_attach();
 
         let width = self
             .size(ctx.styles())
@@ -92,10 +86,7 @@ impl LayoutMath for AccentElem {
         let short_fall = ACCENT_SHORT_FALL.scaled(ctx);
         let variant = glyph.stretch_horizontal(ctx, width, short_fall);
         let accent = variant.frame;
-        let accent_attach = match variant.id {
-            Some(id) => attachment(ctx, id, variant.italics_correction),
-            None => accent.width() / 2.0,
-        };
+        let accent_attach = variant.accent_attach;
 
         // Descent is negative because the accent's ink bottom is above the
         // baseline. Therefore, the default gap is the accent's negated descent
@@ -106,8 +97,14 @@ impl LayoutMath for AccentElem {
         let size = Size::new(base.width(), accent.height() + gap + base.height());
         let accent_pos = Point::with_x(base_attach - accent_attach);
         let base_pos = Point::with_y(accent.height() + gap);
-        let base_ascent = base.ascent();
         let baseline = base_pos.y + base.ascent();
+        let base_italics_correction = base.italics_correction();
+        let base_text_like = base.is_text_like();
+
+        let base_ascent = match &base {
+            MathFragment::Frame(frame) => frame.base_ascent,
+            _ => base.ascent(),
+        };
 
         let mut frame = Frame::soft(size);
         frame.set_baseline(baseline);
@@ -116,24 +113,14 @@ impl LayoutMath for AccentElem {
         ctx.push(
             FrameFragment::new(ctx, frame)
                 .with_class(base_class)
-                .with_base_ascent(base_ascent),
+                .with_base_ascent(base_ascent)
+                .with_italics_correction(base_italics_correction)
+                .with_accent_attach(base_attach)
+                .with_text_like(base_text_like),
         );
 
         Ok(())
     }
-}
-
-/// The horizontal attachment position for the given glyph.
-fn attachment(ctx: &MathContext, id: GlyphId, italics_correction: Abs) -> Abs {
-    ctx.table
-        .glyph_info
-        .and_then(|info| info.top_accent_attachments)
-        .and_then(|attachments| attachments.get(id))
-        .map(|record| record.value.scaled(ctx))
-        .unwrap_or_else(|| {
-            let advance = ctx.ttf.glyph_hor_advance(id).unwrap_or_default();
-            (advance.scaled(ctx) + italics_correction) / 2.0
-        })
 }
 
 /// An accent character.

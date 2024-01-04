@@ -142,11 +142,29 @@ impl MathFragment {
         }
     }
 
+    pub fn is_text_like(&self) -> bool {
+        match self {
+            Self::Glyph(_) | Self::Variant(_) => self.class() != Some(MathClass::Large),
+            MathFragment::Frame(frame) => frame.text_like,
+            _ => false,
+        }
+    }
+
     pub fn italics_correction(&self) -> Abs {
         match self {
             Self::Glyph(glyph) => glyph.italics_correction,
             Self::Variant(variant) => variant.italics_correction,
+            Self::Frame(fragment) => fragment.italics_correction,
             _ => Abs::zero(),
+        }
+    }
+
+    pub fn accent_attach(&self) -> Abs {
+        match self {
+            Self::Glyph(glyph) => glyph.accent_attach,
+            Self::Variant(variant) => variant.accent_attach,
+            Self::Frame(fragment) => fragment.accent_attach,
+            _ => self.width() / 2.0,
         }
     }
 
@@ -199,6 +217,7 @@ pub struct GlyphFragment {
     pub ascent: Abs,
     pub descent: Abs,
     pub italics_correction: Abs,
+    pub accent_attach: Abs,
     pub style: MathStyle,
     pub font_size: Abs,
     pub class: Option<MathClass>,
@@ -241,6 +260,7 @@ impl GlyphFragment {
             descent: Abs::zero(),
             limits: Limits::for_char(c),
             italics_correction: Abs::zero(),
+            accent_attach: Abs::zero(),
             class,
             span,
             meta: MetaElem::data_in(ctx.styles()),
@@ -271,6 +291,8 @@ impl GlyphFragment {
         });
 
         let mut width = advance.scaled(ctx);
+        let accent_attach = accent_attach(ctx, id).unwrap_or((width + italics) / 2.0);
+
         if !is_extended_shape(ctx, id) {
             width += italics;
         }
@@ -280,6 +302,7 @@ impl GlyphFragment {
         self.ascent = bbox.y_max.scaled(ctx);
         self.descent = -bbox.y_min.scaled(ctx);
         self.italics_correction = italics;
+        self.accent_attach = accent_attach;
     }
 
     pub fn height(&self) -> Abs {
@@ -293,6 +316,7 @@ impl GlyphFragment {
             style: self.style,
             font_size: self.font_size,
             italics_correction: self.italics_correction,
+            accent_attach: self.accent_attach,
             class: self.class,
             span: self.span,
             limits: self.limits,
@@ -356,6 +380,7 @@ pub struct VariantFragment {
     pub c: char,
     pub id: Option<GlyphId>,
     pub italics_correction: Abs,
+    pub accent_attach: Abs,
     pub frame: Frame,
     pub style: MathStyle,
     pub font_size: Abs,
@@ -389,11 +414,15 @@ pub struct FrameFragment {
     pub limits: Limits,
     pub spaced: bool,
     pub base_ascent: Abs,
+    pub italics_correction: Abs,
+    pub accent_attach: Abs,
+    pub text_like: bool,
 }
 
 impl FrameFragment {
     pub fn new(ctx: &MathContext, mut frame: Frame) -> Self {
         let base_ascent = frame.ascent();
+        let accent_attach = frame.width() / 2.0;
         frame.meta(ctx.styles(), false);
         Self {
             frame,
@@ -403,6 +432,9 @@ impl FrameFragment {
             limits: Limits::Never,
             spaced: false,
             base_ascent,
+            italics_correction: Abs::zero(),
+            accent_attach,
+            text_like: false,
         }
     }
 
@@ -421,11 +453,28 @@ impl FrameFragment {
     pub fn with_base_ascent(self, base_ascent: Abs) -> Self {
         Self { base_ascent, ..self }
     }
+
+    pub fn with_italics_correction(self, italics_correction: Abs) -> Self {
+        Self { italics_correction, ..self }
+    }
+
+    pub fn with_accent_attach(self, accent_attach: Abs) -> Self {
+        Self { accent_attach, ..self }
+    }
+
+    pub fn with_text_like(self, text_like: bool) -> Self {
+        Self { text_like, ..self }
+    }
 }
 
 /// Look up the italics correction for a glyph.
 fn italics_correction(ctx: &MathContext, id: GlyphId) -> Option<Abs> {
     Some(ctx.table.glyph_info?.italic_corrections?.get(id)?.scaled(ctx))
+}
+
+/// Loop up the top accent attachment position for a glyph.
+fn accent_attach(ctx: &MathContext, id: GlyphId) -> Option<Abs> {
+    Some(ctx.table.glyph_info?.top_accent_attachments?.get(id)?.scaled(ctx))
 }
 
 /// Look up the script/scriptscript alternates for a glyph
@@ -438,7 +487,7 @@ fn script_alternatives<'a>(
     })
 }
 
-/// Look up the italics correction for a glyph.
+/// Look up whether a glyph is an extended shape.
 fn is_extended_shape(ctx: &MathContext, id: GlyphId) -> bool {
     ctx.table
         .glyph_info

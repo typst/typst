@@ -177,6 +177,8 @@ fn assemble(
         offset += advance;
     }
 
+    let accent_attach = if horizontal { frame.width() / 2.0 } else { base.accent_attach };
+
     VariantFragment {
         c: base.c,
         id: None,
@@ -184,6 +186,7 @@ fn assemble(
         style: base.style,
         font_size: base.font_size,
         italics_correction: Abs::zero(),
+        accent_attach,
         class: base.class,
         span: base.span,
         limits: base.limits,
