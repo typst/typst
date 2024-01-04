@@ -69,7 +69,6 @@
 )
 
 ---
-// Second doc example
 #{
   show table.cell: emph
   table(

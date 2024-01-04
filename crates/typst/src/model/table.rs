@@ -258,22 +258,6 @@ impl Figurable for TableElem {}
 ///   [M.], table.cell(inset: 0pt)[Player]
 /// )
 /// ```
-///
-/// You can also use show rules to style all cells at once:
-///
-/// ```example
-/// #{
-///   // Creating a temporary #{ ... } scope to avoid affecting other tables
-///   // with this show rule.
-///   // Here, we will italicize all cells.
-///   show table.cell: emph
-///   table(
-///     columns: 2,
-///     [Person], [Animal],
-///     [John], [Dog]
-///   )
-/// }
-/// ```
 #[elem(name = "cell", title = "Table Cell", Show)]
 pub struct TableCell {
     /// The cell's body.

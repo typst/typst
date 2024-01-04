@@ -288,23 +288,6 @@ cast! {
 ///   [G], grid.cell(inset: 0pt)[H]
 /// )
 /// ```
-///
-/// You can also use show rules to style all cells at once:
-///
-/// ```example
-/// #{
-///   // Creating a temporary #{ ... } scope to avoid affecting other grids
-///   // with this show rule.
-///   // Here, we will italicize all cells.
-///   show grid.cell: emph
-///   grid(
-///     columns: 2,
-///     gutter: 3pt,
-///     [Hello], [World],
-///     [Sweet], [Italics]
-///   )
-/// }
-/// ```
 #[elem(name = "cell", title = "Grid Cell", Show)]
 pub struct GridCell {
     /// The cell's body.

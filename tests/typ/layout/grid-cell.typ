@@ -72,7 +72,6 @@
 )
 
 ---
-// Second doc example
 #{
   show grid.cell: emph
   grid(
