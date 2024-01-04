@@ -592,12 +592,8 @@ pub fn bit_rshift(
     // Don't panic on excessive shift.
     let shift = shift.min(i64::BITS - 1);
 
-    if !logical || operand >= 0 {
-        // For non-negative operands, arithmetic and logical shifts produce the
-        // same results.
-        operand >> shift
-    } else {
-        // For negative operands, we reinterpret their bits as unsigned to
+    if logical {
+        // Here we reinterpret the signed integer's bits as unsigned to
         // perform logical right shift, and then reinterpret back as signed.
         // This is valid as, according to the Rust reference, casting between
         // two integers of same size (i64 <-> u64) is a no-op (two's complement
@@ -605,6 +601,8 @@ pub fn bit_rshift(
         // Reference:
         // https://doc.rust-lang.org/stable/reference/expressions/operator-expr.html#numeric-cast
         ((operand as u64) >> shift) as i64
+    } else {
+        operand >> shift
     }
 }
 
