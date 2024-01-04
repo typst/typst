@@ -18,6 +18,7 @@ use typst::visualize::Color;
 use typst::{World, WorldExt};
 
 use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
+use crate::timings::Timer;
 use crate::watch::Status;
 use crate::world::SystemWorld;
 use crate::{color_stream, set_failed};
@@ -59,23 +60,21 @@ impl CompileCommand {
 }
 
 /// Execute a compilation command.
-pub fn compile(mut command: CompileCommand) -> StrResult<()> {
+pub fn compile(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
     let mut world = SystemWorld::new(&command.common)?;
-    compile_once(&mut world, &mut command, false)?;
+    timer.record(&mut world, |world| compile_once(world, &mut command, false))??;
     Ok(())
 }
 
 /// Compile a single time.
 ///
 /// Returns whether it compiled without errors.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "compile once")]
 pub fn compile_once(
     world: &mut SystemWorld,
     command: &mut CompileCommand,
     watching: bool,
 ) -> StrResult<()> {
-    tracing::info!("Starting compilation");
-
     let start = std::time::Instant::now();
     if watching {
         Status::Compiling.print(command).unwrap();
@@ -84,8 +83,6 @@ pub fn compile_once(
     // Check if main file can be read and opened.
     if let Err(errors) = world.source(world.main()).at(Span::detached()) {
         set_failed();
-        tracing::info!("Failed to open and decode main file");
-
         if watching {
             Status::Error.print(command).unwrap();
         }
@@ -106,7 +103,6 @@ pub fn compile_once(
             export(world, &document, command, watching)?;
             let duration = start.elapsed();
 
-            tracing::info!("Compilation succeeded in {duration:?}");
             if watching {
                 if warnings.is_empty() {
                     Status::Success(duration).print(command).unwrap();
@@ -126,7 +122,6 @@ pub fn compile_once(
         // Print diagnostics.
         Err(errors) => {
             set_failed();
-            tracing::info!("Compilation failed");
 
             if watching {
                 Status::Error.print(command).unwrap();

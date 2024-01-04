@@ -154,6 +154,7 @@ impl Synthesize for QuoteElem {
 }
 
 impl Show for QuoteElem {
+    #[typst_macros::time(name = "quote", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
         let block = self.block(styles);
@@ -167,7 +168,8 @@ impl Show for QuoteElem {
         }
 
         if block {
-            realized = BlockElem::new().with_body(Some(realized)).pack();
+            realized =
+                BlockElem::new().spanned(self.span()).with_body(Some(realized)).pack();
 
             if let Some(attribution) = self.attribution(styles).as_ref() {
                 let mut seq = vec![TextElem::packed('—'), SpaceElem::new().pack()];
@@ -179,6 +181,7 @@ impl Show for QuoteElem {
                     Attribution::Label(label) => {
                         seq.push(
                             CiteElem::new(*label)
+                                .spanned(self.span())
                                 .with_form(Some(CitationForm::Prose))
                                 .pack(),
                         );
@@ -193,7 +196,8 @@ impl Show for QuoteElem {
 
             realized = PadElem::new(realized).pack();
         } else if let Some(Attribution::Label(label)) = self.attribution(styles) {
-            realized += SpaceElem::new().pack() + CiteElem::new(*label).pack();
+            realized += SpaceElem::new().pack()
+                + CiteElem::new(*label).spanned(self.span()).pack();
         }
 
         Ok(realized)

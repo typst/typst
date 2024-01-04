@@ -37,7 +37,7 @@ pub struct Introspector {
 
 impl Introspector {
     /// Applies new frames in-place, reusing the existing allocations.
-    #[tracing::instrument(skip_all)]
+    #[typst_macros::time(name = "introspect")]
     pub fn rebuild(&mut self, frames: &[Frame]) {
         self.pages = frames.len();
         self.elems.clear();
@@ -52,7 +52,6 @@ impl Introspector {
     }
 
     /// Extract metadata from a frame.
-    #[tracing::instrument(skip_all)]
     fn extract(&mut self, frame: &Frame, page: NonZeroUsize, ts: Transform) {
         for (pos, item) in frame.items() {
             match item {

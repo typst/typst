@@ -16,8 +16,6 @@ use crate::world::SystemWorld;
 /// Execute a query command.
 pub fn query(command: &QueryCommand) -> StrResult<()> {
     let mut world = SystemWorld::new(&command.common)?;
-    tracing::info!("Starting querying");
-
     // Reset everything and ensure that the main file is present.
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;

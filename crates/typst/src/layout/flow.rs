@@ -28,7 +28,7 @@ pub struct FlowElem {
 }
 
 impl Layout for FlowElem {
-    #[tracing::instrument(name = "FlowElem::layout", skip_all)]
+    #[typst_macros::time(name = "flow", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -204,7 +204,6 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout vertical spacing.
-    #[tracing::instrument(name = "FlowLayouter::layout_spacing", skip_all)]
     fn layout_spacing(
         &mut self,
         engine: &mut Engine,
@@ -224,7 +223,6 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout a paragraph.
-    #[tracing::instrument(name = "FlowLayouter::layout_par", skip_all)]
     fn layout_par(
         &mut self,
         engine: &mut Engine,
@@ -279,7 +277,6 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout into a single region.
-    #[tracing::instrument(name = "FlowLayouter::layout_single", skip_all)]
     fn layout_single(
         &mut self,
         engine: &mut Engine,
@@ -377,7 +374,6 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout a finished frame.
-    #[tracing::instrument(name = "FlowLayouter::layout_item", skip_all)]
     fn layout_item(
         &mut self,
         engine: &mut Engine,
@@ -645,7 +641,6 @@ impl FlowLayouter<'_> {
     }
 
     /// Processes all footnotes in the frame.
-    #[tracing::instrument(skip_all)]
     fn handle_footnotes(
         &mut self,
         engine: &mut Engine,
@@ -722,7 +717,6 @@ impl FlowLayouter<'_> {
     }
 
     /// Layout and save the footnote separator, typically a line.
-    #[tracing::instrument(skip_all)]
     fn layout_footnote_separator(&mut self, engine: &mut Engine) -> SourceResult<()> {
         let expand = Axes::new(self.regions.expand.x, false);
         let pod = Regions::one(self.regions.base(), expand);
@@ -741,7 +735,6 @@ impl FlowLayouter<'_> {
 }
 
 /// Finds all footnotes in the frame.
-#[tracing::instrument(skip_all)]
 fn find_footnotes(notes: &mut Vec<FootnoteElem>, frame: &Frame) {
     for (_, item) in frame.items() {
         match item {

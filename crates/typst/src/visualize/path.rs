@@ -71,7 +71,7 @@ pub struct PathElem {
 }
 
 impl Layout for PathElem {
-    #[tracing::instrument(name = "PathElem::layout", skip_all)]
+    #[typst_macros::time(name = "path", span = self.span())]
     fn layout(
         &self,
         _: &mut Engine,

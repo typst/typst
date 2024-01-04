@@ -128,14 +128,14 @@ impl Synthesize for FootnoteElem {
 }
 
 impl Show for FootnoteElem {
-    #[tracing::instrument(name = "FootnoteElem::show", skip_all)]
+    #[typst_macros::time(name = "footnote", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
             let loc = self.declaration_location(engine).at(self.span())?;
             let numbering = self.numbering(styles);
             let counter = Counter::of(Self::elem());
             let num = counter.at(engine, loc)?.display(engine, numbering)?;
-            let sup = SuperElem::new(num).pack();
+            let sup = SuperElem::new(num).spanned(self.span()).pack();
             let loc = loc.variant(1);
             // Add zero-width weak spacing to make the footnote "sticky".
             Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc)))
@@ -270,6 +270,7 @@ pub struct FootnoteEntry {
 }
 
 impl Show for FootnoteEntry {
+    #[typst_macros::time(name = "footnote.entry", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let note = self.note();
         let number_gap = Em::new(0.05);
@@ -285,6 +286,7 @@ impl Show for FootnoteEntry {
 
         let num = counter.at(engine, loc)?.display(engine, numbering)?;
         let sup = SuperElem::new(num)
+            .spanned(self.span())
             .pack()
             .linked(Destination::Location(loc))
             .backlinked(loc.variant(1));

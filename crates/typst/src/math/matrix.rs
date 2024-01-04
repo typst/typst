@@ -58,7 +58,7 @@ pub struct VecElem {
 }
 
 impl LayoutMath for VecElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.vec", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(
@@ -211,7 +211,7 @@ pub struct MatElem {
 }
 
 impl LayoutMath for MatElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.mat", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         // validate inputs
 
@@ -312,7 +312,7 @@ pub struct CasesElem {
 }
 
 impl LayoutMath for CasesElem {
-    #[tracing::instrument(skip(ctx))]
+    #[typst_macros::time(name = "math.cases", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(

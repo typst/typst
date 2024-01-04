@@ -350,7 +350,6 @@ impl Content {
     /// Queries the content tree for all elements that match the given selector.
     ///
     /// Elements produced in `show` rules will not be included in the results.
-    #[tracing::instrument(skip_all)]
     pub fn query(&self, selector: Selector) -> Vec<Content> {
         let mut results = Vec::new();
         self.traverse(&mut |element| {
@@ -365,7 +364,6 @@ impl Content {
     /// selector.
     ///
     /// Elements produced in `show` rules will not be included in the results.
-    #[tracing::instrument(skip_all)]
     pub fn query_first(&self, selector: Selector) -> Option<Content> {
         let mut result = None;
         self.traverse(&mut |element| {

@@ -13,8 +13,8 @@ use typed_arena::Arena;
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::foundations::{
-    Content, Finalize, Guard, NativeElement, Recipe, Selector, Show, StyleChain,
-    StyleVecBuilder, Styles, Synthesize,
+    Behave, Behaviour, Content, Finalize, Guard, NativeElement, Recipe, Selector, Show,
+    StyleChain, StyleVec, StyleVecBuilder, Styles, Synthesize,
 };
 use crate::introspection::{Locatable, Meta, MetaElem};
 use crate::layout::{
@@ -35,7 +35,7 @@ use crate::visualize::{
 };
 
 /// Realize into an element that is capable of root-level layout.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "realize root")]
 pub fn realize_root<'a>(
     engine: &mut Engine,
     scratch: &'a Scratch<'a>,
@@ -50,11 +50,12 @@ pub fn realize_root<'a>(
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles), true)?;
     let (pages, shared) = builder.doc.unwrap().pages.finish();
-    Ok((Cow::Owned(DocumentElem::new(pages.to_vec()).pack()), shared))
+    let span = first_span(&pages);
+    Ok((Cow::Owned(DocumentElem::new(pages.to_vec()).spanned(span).pack()), shared))
 }
 
 /// Realize into an element that is capable of block-level layout.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "realize block")]
 pub fn realize_block<'a>(
     engine: &mut Engine,
     scratch: &'a Scratch<'a>,
@@ -82,8 +83,10 @@ pub fn realize_block<'a>(
     let mut builder = Builder::new(engine, scratch, false);
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
+
     let (children, shared) = builder.flow.0.finish();
-    Ok((Cow::Owned(FlowElem::new(children.to_vec()).pack()), shared))
+    let span = first_span(&children);
+    Ok((Cow::Owned(FlowElem::new(children.to_vec()).spanned(span).pack()), shared))
 }
 
 /// Whether the target is affected by show rules in the given style chain.
@@ -301,8 +304,10 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
         if content.can::<dyn LayoutMath>() && !content.is::<EquationElem>() {
-            content =
-                self.scratch.content.alloc(EquationElem::new(content.clone()).pack());
+            content = self
+                .scratch
+                .content
+                .alloc(EquationElem::new(content.clone()).spanned(content.span()).pack());
         }
 
         if let Some(realized) = realize(self.engine, content, styles)? {
@@ -470,13 +475,15 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         self.interrupt_par()?;
         let Some(doc) = &mut self.doc else { return Ok(()) };
         if (doc.keep_next && styles.is_some()) || self.flow.0.has_strong_elements(last) {
-            let (flow, shared) = mem::take(&mut self.flow).0.finish();
+            let (children, shared) = mem::take(&mut self.flow).0.finish();
             let styles = if shared == StyleChain::default() {
                 styles.unwrap_or_default()
             } else {
                 shared
             };
-            let page = PageElem::new(FlowElem::new(flow.to_vec()).pack());
+            let span = first_span(&children);
+            let flow = FlowElem::new(children.to_vec()).spanned(span);
+            let page = PageElem::new(flow.pack()).spanned(span);
             let stored = self.scratch.content.alloc(page.pack());
             self.accept(stored, styles)?;
         }
@@ -614,14 +621,7 @@ impl<'a> ParBuilder<'a> {
 
     fn finish(self) -> (Content, StyleChain<'a>) {
         let (children, shared) = self.0.finish();
-
-        // Find the first span that isn't detached.
-        let span = children
-            .iter()
-            .map(|(cnt, _)| cnt.span())
-            .find(|span| !span.is_detached())
-            .unwrap_or_else(Span::detached);
-
+        let span = first_span(&children);
         (ParElem::new(children.to_vec()).spanned(span).pack(), shared)
     }
 }
@@ -664,6 +664,7 @@ impl<'a> ListBuilder<'a> {
 
     fn finish(self) -> (Content, StyleChain<'a>) {
         let (items, shared) = self.items.finish();
+        let span = first_span(&items);
         let item = items.items().next().unwrap();
         let output = if item.is::<ListItem>() {
             ListElem::new(
@@ -677,6 +678,7 @@ impl<'a> ListBuilder<'a> {
                     .collect::<Vec<_>>(),
             )
             .with_tight(self.tight)
+            .spanned(span)
             .pack()
         } else if item.is::<EnumItem>() {
             EnumElem::new(
@@ -690,6 +692,7 @@ impl<'a> ListBuilder<'a> {
                     .collect::<Vec<_>>(),
             )
             .with_tight(self.tight)
+            .spanned(span)
             .pack()
         } else if item.is::<TermItem>() {
             TermsElem::new(
@@ -706,6 +709,7 @@ impl<'a> ListBuilder<'a> {
                     .collect::<Vec<_>>(),
             )
             .with_tight(self.tight)
+            .spanned(span)
             .pack()
         } else {
             unreachable!()
@@ -760,4 +764,17 @@ impl<'a> CiteGroupBuilder<'a> {
         let span = self.items.first().map(|cite| cite.span()).unwrap_or(Span::detached());
         (CiteGroup::new(self.items).spanned(span).pack(), self.styles)
     }
+}
+
+/// Find the first span that isn't detached.
+fn first_span(children: &StyleVec<Cow<Content>>) -> Span {
+    children
+        .iter()
+        .filter(|(elem, _)| {
+            elem.with::<dyn Behave>()
+                .map_or(true, |b| b.behaviour() != Behaviour::Invisible)
+        })
+        .map(|(elem, _)| elem.span())
+        .find(|span| !span.is_detached())
+        .unwrap_or_else(Span::detached)
 }
