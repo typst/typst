@@ -110,7 +110,7 @@ pub struct BoxElem {
 }
 
 impl Layout for BoxElem {
-    #[tracing::instrument(name = "BoxElem::layout", skip_all)]
+    #[typst_macros::time(name = "box", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -342,7 +342,7 @@ pub struct BlockElem {
 }
 
 impl Layout for BlockElem {
-    #[tracing::instrument(name = "BlockElem::layout", skip_all)]
+    #[typst_macros::time(name = "block", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

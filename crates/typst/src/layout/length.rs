@@ -5,7 +5,7 @@ use std::ops::{Add, Div, Mul, Neg};
 use ecow::{eco_format, EcoString};
 
 use crate::diag::{At, Hint, SourceResult};
-use crate::foundations::{func, scope, ty, Repr, Resolve, StyleChain};
+use crate::foundations::{func, scope, ty, Repr, Resolve, StyleChain, Styles};
 use crate::layout::{Abs, Em};
 use crate::syntax::Span;
 use crate::util::Numeric;
@@ -131,6 +131,38 @@ impl Length {
     pub fn to_inches(&self, span: Span) -> SourceResult<f64> {
         self.ensure_that_em_is_zero(span, "inches")?;
         Ok(self.abs.to_inches())
+    }
+
+    /// Resolve this length to an absolute length.
+    ///
+    /// ```example
+    /// #set text(size: 12pt)
+    /// #style(styles => [
+    ///   #(6pt).to-absolute(styles) \
+    ///   #(6pt + 10em).to-absolute(styles) \
+    ///   #(10em).to-absolute(styles)
+    /// ])
+    ///
+    /// #set text(size: 6pt)
+    /// #style(styles => [
+    ///   #(6pt).to-absolute(styles) \
+    ///   #(6pt + 10em).to-absolute(styles) \
+    ///   #(10em).to-absolute(styles)
+    /// ])
+    /// ```
+    #[func]
+    pub fn to_absolute(
+        &self,
+        /// The styles to resolve the length with.
+        ///
+        /// Since a length can use font-relative em units, resolving it to an
+        /// absolute length requires knowledge of the font size. This size is
+        /// provided through these styles. You can obtain the styles using
+        /// the [`style`]($style) function.
+        styles: Styles,
+    ) -> Length {
+        let styles = StyleChain::new(&styles);
+        self.resolve(styles).into()
     }
 }
 

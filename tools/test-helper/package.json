@@ -1,81 +1,119 @@
 {
-  "name": "typst-test-helper",
+  "name": "test-helper",
+  "publisher": "typst",
   "displayName": "Typst Test Helper",
   "description": "Helps to run, compare and update Typst tests.",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.53.0"
+    "vscode": "^1.71.0"
   },
   "categories": [
     "Other"
   ],
   "activationEvents": [
-    "onCommand:ShortcutMenuBar.testOpen",
-    "onCommand:ShortcutMenuBar.testRefresh",
-    "onCommand:ShortcutMenuBar.testRerun",
-    "onCommand:ShortcutMenuBar.testUpdate"
+    "onCommand:Typst.test-helper.openFromSource",
+    "onCommand:Typst.test-helper.refreshFromSource",
+    "onCommand:Typst.test-helper.refreshFromPreview",
+    "onCommand:Typst.test-helper.runFromSource",
+    "onCommand:Typst.test-helper.runFromPreview",
+    "onCommand:Typst.test-helper.updateFromSource",
+    "onCommand:Typst.test-helper.updateFromPreview",
+    "onCommand:Typst.test-helper.copyImageFilePathFromPreviewContext"
   ],
   "main": "./extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "ShortcutMenuBar.testOpen",
+        "command": "Typst.test-helper.openFromSource",
         "title": "Open test output",
-        "category": "ShortcutMenuBar",
-        "icon": {
-          "light": "images/open-light.svg",
-          "dark": "images/open-dark.svg"
-        }
+        "category": "Typst.test-helper",
+        "icon": "$(plus)"
       },
       {
-        "command": "ShortcutMenuBar.testRefresh",
+        "command": "Typst.test-helper.refreshFromSource",
         "title": "Refresh preview",
-        "category": "ShortcutMenuBar",
-        "icon": {
-          "light": "images/refresh-light.svg",
-          "dark": "images/refresh-dark.svg"
-        }
+        "category": "Typst.test-helper",
+        "icon": "$(refresh)"
       },
       {
-        "command": "ShortcutMenuBar.testRerun",
-        "title": "Rerun test",
-        "category": "ShortcutMenuBar",
-        "icon": {
-          "light": "images/rerun-light.svg",
-          "dark": "images/rerun-dark.svg"
-        }
+        "command": "Typst.test-helper.refreshFromPreview",
+        "title": "Refresh preview",
+        "category": "Typst.test-helper",
+        "icon": "$(refresh)"
       },
       {
-        "command": "ShortcutMenuBar.testUpdate",
+        "command": "Typst.test-helper.runFromSource",
+        "title": "Run test",
+        "category": "Typst.test-helper",
+        "icon": "$(debug-start)",
+        "enablement": "!Typst.test-helper.disableRunTestButton"
+      },
+      {
+        "command": "Typst.test-helper.runFromPreview",
+        "title": "Run test",
+        "category": "Typst.test-helper",
+        "icon": "$(debug-start)",
+        "enablement": "!Typst.test-helper.disableRunTestButton"
+      },
+      {
+        "command": "Typst.test-helper.updateFromSource",
         "title": "Update reference image",
-        "category": "ShortcutMenuBar",
-        "icon": {
-          "light": "images/update-light.svg",
-          "dark": "images/update-dark.svg"
-        }
+        "category": "Typst.test-helper",
+        "icon": "$(save)"
+      },
+      {
+        "command": "Typst.test-helper.updateFromPreview",
+        "title": "Update reference image",
+        "category": "Typst.test-helper",
+        "icon": "$(save)"
+      },
+      {
+        "command": "Typst.test-helper.copyImageFilePathFromPreviewContext",
+        "title": "Copy image file path"
       }
     ],
     "menus": {
       "editor/title": [
         {
           "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
-          "command": "ShortcutMenuBar.testOpen",
-          "group": "navigation@0"
-        },
-        {
-          "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
-          "command": "ShortcutMenuBar.testRefresh",
+          "command": "Typst.test-helper.openFromSource",
           "group": "navigation@1"
         },
         {
           "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
-          "command": "ShortcutMenuBar.testRerun",
+          "command": "Typst.test-helper.refreshFromSource",
           "group": "navigation@2"
         },
         {
           "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
-          "command": "ShortcutMenuBar.testUpdate",
+          "command": "Typst.test-helper.runFromSource",
           "group": "navigation@3"
+        },
+        {
+          "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
+          "command": "Typst.test-helper.updateFromSource",
+          "group": "navigation@4"
+        },
+        {
+          "when": "activeWebviewPanelId == Typst.test-helper.preview",
+          "command": "Typst.test-helper.refreshFromPreview",
+          "group": "navigation@1"
+        },
+        {
+          "when": "activeWebviewPanelId == Typst.test-helper.preview",
+          "command": "Typst.test-helper.runFromPreview",
+          "group": "navigation@2"
+        },
+        {
+          "when": "activeWebviewPanelId == Typst.test-helper.preview",
+          "command": "Typst.test-helper.updateFromPreview",
+          "group": "navigation@3"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "Typst.test-helper.copyImageFilePathFromPreviewContext",
+          "when": "webviewId == Typst.test-helper.preview && (webviewSection == png || webviewSection == ref)"
         }
       ]
     }

@@ -83,7 +83,7 @@ use crate::syntax::Spanned;
 pub static FOUNDATIONS: Category;
 
 /// Hook up all `foundations` definitions.
-pub(super) fn define(global: &mut Scope) {
+pub(super) fn define(global: &mut Scope, inputs: Dict) {
     global.category(FOUNDATIONS);
     global.define_type::<bool>();
     global.define_type::<i64>();
@@ -110,7 +110,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_func::<eval>();
     global.define_func::<style>();
     global.define_module(calc::module());
-    global.define_module(sys::module());
+    global.define_module(sys::module(inputs));
 }
 
 /// Fails with an error.

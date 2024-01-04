@@ -1,16 +1,18 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{OnceLock, RwLock};
+use std::sync::OnceLock;
 use std::{fs, mem};
 
 use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
 use ecow::eco_format;
+use parking_lot::Mutex;
 use typst::diag::{FileError, FileResult, StrResult};
-use typst::foundations::{Bytes, Datetime};
+use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::{Library, World};
+use typst_timing::{timed, TimingScope};
 
 use crate::args::SharedArgs;
 use crate::compile::ExportCache;
@@ -34,7 +36,7 @@ pub struct SystemWorld {
     /// Locations of and storage for lazily loaded fonts.
     fonts: Vec<FontSlot>,
     /// Maps file ids to source files and buffers.
-    slots: RwLock<HashMap<FileId, FileSlot>>,
+    slots: Mutex<HashMap<FileId, FileSlot>>,
     /// The current datetime if requested. This is stored here to ensure it is
     /// always the same within one compilation. Reset between compilations.
     now: OnceLock<DateTime<Local>>,
@@ -68,17 +70,28 @@ impl SystemWorld {
 
         // Resolve the virtual path of the main file within the project root.
         let main_path = VirtualPath::within_root(&input, &root)
-            .ok_or("input file must be contained in project root")?;
+            .ok_or("source file must be contained in project root")?;
+
+        let library = {
+            // Convert the input pairs to a dictionary.
+            let inputs: Dict = command
+                .inputs
+                .iter()
+                .map(|(k, v)| (k.as_str().into(), v.as_str().into_value()))
+                .collect();
+
+            Library::builder().with_inputs(inputs).build()
+        };
 
         Ok(Self {
             workdir: std::env::current_dir().ok(),
             input,
             root,
             main: FileId::new(None, main_path),
-            library: Prehashed::new(Library::build()),
+            library: Prehashed::new(library),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
-            slots: RwLock::new(HashMap::new()),
+            slots: Mutex::new(HashMap::new()),
             now: OnceLock::new(),
             export_cache: ExportCache::new(),
         })
@@ -103,7 +116,6 @@ impl SystemWorld {
     pub fn dependencies(&mut self) -> impl Iterator<Item = PathBuf> + '_ {
         self.slots
             .get_mut()
-            .unwrap()
             .values()
             .filter(|slot| slot.accessed())
             .filter_map(|slot| system_path(&self.root, slot.id).ok())
@@ -111,7 +123,7 @@ impl SystemWorld {
 
     /// Reset the compilation state in preparation of a new compilation.
     pub fn reset(&mut self) {
-        for slot in self.slots.get_mut().unwrap().values_mut() {
+        for slot in self.slots.get_mut().values_mut() {
             slot.reset();
         }
         self.now.take();
@@ -129,8 +141,8 @@ impl SystemWorld {
     }
 
     /// Gets access to the export cache.
-    pub fn export_cache(&mut self) -> &mut ExportCache {
-        &mut self.export_cache
+    pub fn export_cache(&self) -> &ExportCache {
+        &self.export_cache
     }
 }
 
@@ -181,7 +193,7 @@ impl SystemWorld {
     where
         F: FnOnce(&mut FileSlot) -> T,
     {
-        let mut map = self.slots.write().unwrap();
+        let mut map = self.slots.lock();
         f(map.entry(id).or_insert_with(|| FileSlot::new(id)))
     }
 }
@@ -221,6 +233,8 @@ impl FileSlot {
         self.source.get_or_init(
             || system_path(project_root, self.id),
             |data, prev| {
+                let name = if prev.is_some() { "reparsing file" } else { "parsing file" };
+                let _scope = TimingScope::new(name, None);
                 let text = decode_utf8(&data)?;
                 if let Some(mut prev) = prev {
                     prev.replace(text);
@@ -280,8 +294,8 @@ impl<T: Clone> SlotCell<T> {
         }
 
         // Read and hash the file.
-        let result = path().and_then(|p| read(&p));
-        let fingerprint = typst::util::hash128(&result);
+        let result = timed!("loading file", path().and_then(|p| read(&p)));
+        let fingerprint = timed!("hashing file", typst::util::hash128(&result));
 
         // If the file contents didn't change, yield the old processed data.
         if mem::replace(&mut self.fingerprint, fingerprint) == fingerprint {

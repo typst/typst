@@ -35,7 +35,7 @@ use crate::World;
 
 /// Evaluate a source file and return the resulting module.
 #[comemo::memoize]
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "eval", span = source.root().span())]
 pub fn eval(
     world: Tracked<dyn World + '_>,
     route: Tracked<Route>,

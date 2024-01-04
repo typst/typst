@@ -1,7 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 
-use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
+use clap::builder::ValueParser;
+use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum};
 use semver::Version;
 
 /// The character typically used to separate path components
@@ -16,10 +17,17 @@ pub struct CliArguments {
     #[command(subcommand)]
     pub command: Command,
 
-    /// Sets the level of logging verbosity:
-    /// -v = warning & error, -vv = info, -vvv = debug, -vvvv = trace
-    #[clap(short, long, action = ArgAction::Count)]
-    pub verbosity: u8,
+    /// Set when to use color.
+    /// auto = use color if a capable terminal is detected
+    #[clap(
+        long,
+        value_name = "WHEN",
+        require_equals = true,
+        num_args = 0..=1,
+        default_value = "auto",
+        default_missing_value = "always",
+    )]
+    pub color: ColorChoice,
 
     /// Path to a custom CA certificate to use when making network requests.
     #[clap(long = "cert", env = "TYPST_CERT")]
@@ -71,9 +79,13 @@ pub struct CompileCommand {
     #[arg(long = "ppi", default_value_t = 144.0)]
     pub ppi: f32,
 
-    /// Produces a flamegraph of the compilation process
-    #[arg(long = "flamegraph", value_name = "OUTPUT_SVG")]
-    pub flamegraph: Option<Option<PathBuf>>,
+    /// Produces performance timings of the compilation process (experimental)
+    ///
+    /// The resulting JSON file can be loaded into a tracing tool such as
+    /// https://ui.perfetto.dev. It does not contain any sensitive information
+    /// apart from file names and line numbers.
+    #[arg(long = "timings", value_name = "OUTPUT_JSON")]
+    pub timings: Option<Option<PathBuf>>,
 }
 
 /// Processes an input file to extract provided metadata
@@ -116,6 +128,15 @@ pub struct SharedArgs {
     #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
     pub root: Option<PathBuf>,
 
+    /// Add a string key-value pair visible through `sys.inputs`
+    #[clap(
+        long = "input",
+        value_name = "key=value",
+        action = ArgAction::Append,
+        value_parser = ValueParser::new(parse_input_pair),
+    )]
+    pub inputs: Vec<(String, String)>,
+
     /// Adds additional directories to search for fonts
     #[clap(
         long = "font-path",
@@ -132,6 +153,22 @@ pub struct SharedArgs {
         value_parser = clap::value_parser!(DiagnosticFormat)
     )]
     pub diagnostic_format: DiagnosticFormat,
+}
+
+/// Parses key/value pairs split by the first equal sign.
+///
+/// This function will return an error if the argument contains no equals sign
+/// or contains the key (before the equals sign) is empty.
+fn parse_input_pair(raw: &str) -> Result<(String, String), String> {
+    let (key, val) = raw
+        .split_once('=')
+        .ok_or("input must be a key and a value separated by an equal sign")?;
+    let key = key.trim().to_owned();
+    if key.is_empty() {
+        return Err("the key was missing or empty".to_owned());
+    }
+    let val = val.trim().to_owned();
+    Ok((key, val))
 }
 
 /// Lists all discovered fonts in system and custom font paths

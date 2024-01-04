@@ -834,23 +834,21 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         });
 
     // Creation of the fields dictionary for inherent fields.
-    let field_dict = element.inherent_fields().clone().map(|field| {
-        let name = &field.name;
-        let field_ident = &field.ident;
-
-        let field_call = if name.len() > 15 {
-            quote! { ::ecow::EcoString::from(#name).into() }
-        } else {
-            quote! { ::ecow::EcoString::inline(#name).into() }
-        };
-
-        quote! {
-            fields.insert(
-                #field_call,
-                #foundations::IntoValue::into_value(self.#field_ident.clone())
-            );
-        }
-    });
+    let field_dict = element
+        .inherent_fields()
+        .filter(|field| !field.internal)
+        .clone()
+        .map(|field| {
+            let name = &field.name;
+            let field_ident = &field.ident;
+            let field_call = quote! { ::ecow::EcoString::from(#name).into() };
+            quote! {
+                fields.insert(
+                    #field_call,
+                    #foundations::IntoValue::into_value(self.#field_ident.clone())
+                );
+            }
+        });
 
     // Creation of the fields dictionary for optional fields.
     let field_opt_dict = element
@@ -860,13 +858,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         .map(|field| {
             let name = &field.name;
             let field_ident = &field.ident;
-
-            let field_call = if name.len() > 15 {
-                quote! { ::ecow::EcoString::from(#name).into() }
-            } else {
-                quote! { ::ecow::EcoString::inline(#name).into() }
-            };
-
+            let field_call = quote! { ::ecow::EcoString::from(#name).into() };
             if field.synthesized && field.default.is_some() {
                 quote! {
                     fields.insert(
@@ -926,7 +918,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         quote! {
             if let Some(label) = self.label() {
                 fields.insert(
-                    ::ecow::EcoString::inline("label").into(),
+                    "label".into(),
                     #foundations::IntoValue::into_value(label)
                 );
             }

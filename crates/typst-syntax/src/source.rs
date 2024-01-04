@@ -30,7 +30,6 @@ struct Repr {
 
 impl Source {
     /// Create a new source file.
-    #[tracing::instrument(skip_all)]
     pub fn new(id: FileId, text: String) -> Self {
         let mut root = parse(&text);
         root.numberize(id, Span::FULL).unwrap();

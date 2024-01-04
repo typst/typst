@@ -25,7 +25,7 @@ pub struct HideElem {
 }
 
 impl Show for HideElem {
-    #[tracing::instrument(name = "HideElem::show", skip(self))]
+    #[typst_macros::time(name = "hide", span = self.span())]
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone().styled(MetaElem::set_data(smallvec![Meta::Hide])))
     }

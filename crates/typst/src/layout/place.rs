@@ -87,7 +87,7 @@ pub struct PlaceElem {
 }
 
 impl Layout for PlaceElem {
-    #[tracing::instrument(name = "PlaceElem::layout", skip_all)]
+    #[typst_macros::time(name = "place", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

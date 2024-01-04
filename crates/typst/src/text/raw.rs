@@ -392,7 +392,7 @@ impl Synthesize for RawElem {
 }
 
 impl Show for RawElem {
-    #[tracing::instrument(name = "RawElem::show", skip_all)]
+    #[typst_macros::time(name = "raw", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut lines = EcoVec::with_capacity((2 * self.lines().len()).saturating_sub(1));
         for (i, line) in self.lines().iter().enumerate() {
@@ -407,7 +407,8 @@ impl Show for RawElem {
         if self.block(styles) {
             // Align the text before inserting it into the block.
             realized = realized.aligned(self.align(styles).into());
-            realized = BlockElem::new().with_body(Some(realized)).pack();
+            realized =
+                BlockElem::new().spanned(self.span()).with_body(Some(realized)).pack();
         }
 
         Ok(realized)
@@ -449,6 +450,7 @@ impl LocalName for RawElem {
             Lang::POLISH => "Program",
             Lang::ROMANIAN => "Listă", // TODO: I dunno
             Lang::RUSSIAN => "Листинг",
+            Lang::SERBIAN => "Програм",
             Lang::SLOVENIAN => "Program",
             Lang::SPANISH => "Listado",
             Lang::SWEDISH => "Listing",
@@ -496,6 +498,7 @@ pub struct RawLine {
 }
 
 impl Show for RawLine {
+    #[typst_macros::time(name = "raw.line", span = self.span())]
     fn show(&self, _: &mut Engine, _styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone())
     }
@@ -660,6 +663,7 @@ impl Fold for SyntaxPaths {
 
 /// Load a syntax set from a list of syntax file paths.
 #[comemo::memoize]
+#[typst_macros::time(name = "load syntaxes")]
 fn load_syntaxes(paths: &SyntaxPaths, bytes: &[Bytes]) -> StrResult<Arc<SyntaxSet>> {
     let mut out = SyntaxSetBuilder::new();
 
@@ -703,6 +707,7 @@ fn parse_syntaxes(
 }
 
 #[comemo::memoize]
+#[typst_macros::time(name = "load theme")]
 fn load_theme(path: &str, bytes: &Bytes) -> StrResult<Arc<synt::Theme>> {
     let mut cursor = std::io::Cursor::new(bytes.as_slice());
 
@@ -734,31 +739,10 @@ fn parse_theme(
 
 /// The syntect syntax definitions.
 ///
-/// Code for syntax set generation is below. The `syntaxes` directory is from
+/// Syntax set is generated from the syntaxes from the `bat` project
 /// <https://github.com/sharkdp/bat/tree/master/assets/syntaxes>
-///
-/// ```ignore
-/// fn main() {
-///     let mut builder = syntect::parsing::SyntaxSet::load_defaults_nonewlines().into_builder();
-///     builder.add_from_folder("syntaxes/02_Extra", false).unwrap();
-///     syntect::dumps::dump_to_file(&builder.build(), "syntect.bin").unwrap();
-/// }
-/// ```
-///
-/// The following syntaxes are disabled due to compatibility issues:
-/// ```text
-/// syntaxes/02_Extra/Assembly (ARM).sublime-syntax
-/// syntaxes/02_Extra/Elixir/Regular Expressions (Elixir).sublime-syntax
-/// syntaxes/02_Extra/JavaScript (Babel).sublime-syntax
-/// syntaxes/02_Extra/LiveScript.sublime-syntax
-/// syntaxes/02_Extra/PowerShell.sublime-syntax
-/// syntaxes/02_Extra/SCSS_Sass/Syntaxes/Sass.sublime-syntax
-/// syntaxes/02_Extra/SLS/SLS.sublime-syntax
-/// syntaxes/02_Extra/VimHelp.sublime-syntax
-/// syntaxes/02_Extra/cmd-help/syntaxes/cmd-help.sublime-syntax
-/// ```
 pub static RAW_SYNTAXES: Lazy<syntect::parsing::SyntaxSet> =
-    Lazy::new(|| syntect::dumps::from_binary(include_bytes!("../../assets/syntect.bin")));
+    Lazy::new(two_face::syntax::extra_no_newlines);
 
 /// The default theme used for syntax highlighting.
 pub static RAW_THEME: Lazy<synt::Theme> = Lazy::new(|| synt::Theme {

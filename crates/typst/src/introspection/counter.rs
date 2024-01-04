@@ -17,6 +17,7 @@ use crate::introspection::{Introspector, Locatable, Location, Locator, Meta};
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
 use crate::model::{FigureElem, HeadingElem, Numbering, NumberingPattern};
+use crate::syntax::Span;
 use crate::util::NonZeroExt;
 use crate::World;
 
@@ -350,6 +351,8 @@ impl Counter {
     #[func]
     pub fn display(
         self,
+        /// The call span of the display.
+        span: Span,
         /// A [numbering pattern or a function]($numbering), which specifies how
         /// to display the counter. If given a function, that function receives
         /// each number of the counter as a separate argument. If the amount of
@@ -369,7 +372,7 @@ impl Counter {
         #[default(false)]
         both: bool,
     ) -> Content {
-        DisplayElem::new(self, numbering, both).pack()
+        DisplayElem::new(self, numbering, both).spanned(span).pack()
     }
 
     /// Increases the value of the counter by one.
@@ -383,12 +386,14 @@ impl Counter {
     #[func]
     pub fn step(
         self,
+        /// The call span of the update.
+        span: Span,
         /// The depth at which to step the counter. Defaults to `{1}`.
         #[named]
         #[default(NonZeroUsize::ONE)]
         level: NonZeroUsize,
     ) -> Content {
-        self.update(CounterUpdate::Step(level))
+        self.update(span, CounterUpdate::Step(level))
     }
 
     /// Updates the value of the counter.
@@ -398,13 +403,15 @@ impl Counter {
     #[func]
     pub fn update(
         self,
+        /// The call span of the update.
+        span: Span,
         /// If given an integer or array of integers, sets the counter to that
         /// value. If given a function, that function receives the previous
         /// counter value (with each number as a separate argument) and has to
         /// return the new value (integer or array).
         update: CounterUpdate,
     ) -> Content {
-        UpdateElem::new(self.0, update).pack()
+        UpdateElem::new(self.0, update).spanned(span).pack()
     }
 
     /// Gets the value of the counter at the given location. Always returns an
@@ -630,7 +637,7 @@ struct DisplayElem {
 }
 
 impl Show for DisplayElem {
-    #[tracing::instrument(name = "DisplayElem::show", skip_all)]
+    #[typst_macros::time(name = "counter.display", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
             let location = self.location().unwrap();
@@ -679,7 +686,6 @@ struct UpdateElem {
 }
 
 impl Show for UpdateElem {
-    #[tracing::instrument(name = "UpdateElem::show", skip(self))]
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }

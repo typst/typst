@@ -350,7 +350,6 @@ impl Content {
     /// Queries the content tree for all elements that match the given selector.
     ///
     /// Elements produced in `show` rules will not be included in the results.
-    #[tracing::instrument(skip_all)]
     pub fn query(&self, selector: Selector) -> Vec<Content> {
         let mut results = Vec::new();
         self.traverse(&mut |element| {
@@ -365,7 +364,6 @@ impl Content {
     /// selector.
     ///
     /// Elements produced in `show` rules will not be included in the results.
-    #[tracing::instrument(skip_all)]
     pub fn query_first(&self, selector: Selector) -> Option<Content> {
         let mut result = None;
         self.traverse(&mut |element| {
@@ -695,11 +693,8 @@ impl Serialize for Content {
         S: Serializer,
     {
         serializer.collect_map(
-            iter::once((
-                Str::from(EcoString::inline("func")),
-                self.func().name().into_value(),
-            ))
-            .chain(self.fields()),
+            iter::once(("func".into(), self.func().name().into_value()))
+                .chain(self.fields()),
         )
     }
 }
@@ -736,7 +731,7 @@ impl PartialEq for SequenceElem {
 impl Repr for SequenceElem {
     fn repr(&self) -> EcoString {
         if self.children.is_empty() {
-            EcoString::inline("[]")
+            "[]".into()
         } else {
             eco_format!(
                 "[{}]",

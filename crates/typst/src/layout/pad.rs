@@ -59,7 +59,7 @@ pub struct PadElem {
 }
 
 impl Layout for PadElem {
-    #[tracing::instrument(name = "PadElem::layout", skip_all)]
+    #[typst_macros::time(name = "pad", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,

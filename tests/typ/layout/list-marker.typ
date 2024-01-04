@@ -7,7 +7,7 @@
 - B
 
 ---
-// Test that last item is repeated.
+// Test that items are cycled.
 #set list(marker: ([--], [•]))
 - A
   - B

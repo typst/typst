@@ -205,7 +205,7 @@ pub(super) trait PaintEncode {
     fn set_as_fill(&self, ctx: &mut PageContext, on_text: bool, transforms: Transforms);
 
     /// Set the paint as the stroke color.
-    fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms);
+    fn set_as_stroke(&self, ctx: &mut PageContext, on_text: bool, transforms: Transforms);
 }
 
 impl PaintEncode for Paint {
@@ -217,11 +217,16 @@ impl PaintEncode for Paint {
         }
     }
 
-    fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms) {
+    fn set_as_stroke(
+        &self,
+        ctx: &mut PageContext,
+        on_text: bool,
+        transforms: Transforms,
+    ) {
         match self {
-            Self::Solid(c) => c.set_as_stroke(ctx, transforms),
-            Self::Gradient(gradient) => gradient.set_as_stroke(ctx, transforms),
-            Self::Pattern(pattern) => pattern.set_as_stroke(ctx, transforms),
+            Self::Solid(c) => c.set_as_stroke(ctx, on_text, transforms),
+            Self::Gradient(gradient) => gradient.set_as_stroke(ctx, on_text, transforms),
+            Self::Pattern(pattern) => pattern.set_as_stroke(ctx, on_text, transforms),
         }
     }
 }
@@ -267,7 +272,7 @@ impl PaintEncode for Color {
         }
     }
 
-    fn set_as_stroke(&self, ctx: &mut PageContext, _: Transforms) {
+    fn set_as_stroke(&self, ctx: &mut PageContext, _: bool, _: Transforms) {
         match self {
             Color::Luma(_) => {
                 ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);

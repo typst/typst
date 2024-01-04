@@ -192,7 +192,7 @@ fn library() -> Library {
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
-    let mut lib = Library::build();
+    let mut lib = Library::default();
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(120.0).into())));
     lib.styles.set(PageElem::set_height(Smart::Auto));
@@ -498,7 +498,9 @@ fn test(
         stdout.write_all(name.to_string_lossy().as_bytes()).unwrap();
         if ok {
             writeln!(stdout, " ✔").unwrap();
-            if stdout.is_terminal() {
+            // Don't clear the line when the reference image was updated, to
+            // show in the output which test had its image updated.
+            if !updated && stdout.is_terminal() {
                 // ANSI escape codes: cursor moves up and clears the line.
                 write!(stdout, "\x1b[1A\x1b[2K").unwrap();
             }

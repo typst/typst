@@ -159,7 +159,7 @@ impl Synthesize for RefElem {
 }
 
 impl Show for RefElem {
-    #[tracing::instrument(name = "RefElem::show", skip_all)]
+    #[typst_macros::time(name = "ref", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
             let target = *self.target();
@@ -243,7 +243,7 @@ impl RefElem {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<CiteElem> {
-        let mut elem = CiteElem::new(*self.target());
+        let mut elem = CiteElem::new(*self.target()).spanned(self.span());
         elem.set_location(self.location().unwrap());
         elem.synthesize(engine, styles)?;
         elem.push_supplement(match self.supplement(styles).clone() {
