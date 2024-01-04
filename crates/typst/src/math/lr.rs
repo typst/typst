@@ -81,17 +81,15 @@ impl LayoutMath for LrElem {
 
         // Remove weak SpacingFragment immediately after the opening or immediately
         // before the closing.
-        let (mut count, original_len) = (0, fragments.len());
+        let original_len = fragments.len();
+        let mut index = 0;
         fragments.retain(|fragment| {
-            count += 1;
-            if count == 2 || count == original_len - 1 {
-                !matches!(
+            index += 1;
+            (index != 2 && index + 1 != original_len)
+                || !matches!(
                     fragment,
                     MathFragment::Spacing(SpacingFragment { weak: true, .. })
                 )
-            } else {
-                true
-            }
         });
 
         ctx.extend(fragments);

@@ -56,4 +56,4 @@ $ { x mid(|) sum_(i=1)^oo phi_i (x) < 1 } \
 // Test ignoring weak spacing immediately after the opening
 // and immediately before the closing.
 
-$ [#h(1em, weak: true)A(dif x, f(x) dif x)B#h(1em, weak: true)] $
+$ [#h(1em, weak: true)A(dif x, f(x) dif x)sum#h(1em, weak: true)] $

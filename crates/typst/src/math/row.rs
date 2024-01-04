@@ -10,6 +10,8 @@ use crate::math::{
 };
 use crate::model::ParElem;
 
+use super::fragment::SpacingFragment;
+
 pub const TIGHT_LEADING: Em = Em::new(0.25);
 
 #[derive(Debug, Default, Clone)]
@@ -279,8 +281,9 @@ impl MathRow {
         while let Some(fragment) = iter.next() {
             if space_is_visible {
                 match fragment {
-                    MathFragment::Space(s) | MathFragment::Spacing(s) => {
-                        items.push(MathParItem::Space(s));
+                    MathFragment::Space(width)
+                    | MathFragment::Spacing(SpacingFragment { width, .. }) => {
+                        items.push(MathParItem::Space(width));
                         continue;
                     }
                     _ => {}
