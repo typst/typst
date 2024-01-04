@@ -576,7 +576,11 @@ pub fn bit_rshift(
     operand: i64,
 
     /// The amount of bits to shift. Must not be negative.
-    /// This is capped at the operand's bits minus 1 (63).
+    ///
+    /// Shifts larger than 63 are allowed and will cause the return value to
+    /// saturate. For non-negative numbers, the return value saturates at `0`,
+    /// while, for negative numbers, it saturates at `-1` if `logical` is set
+    /// to `false`, or `0` if it is `true`.
     /// Therefore, the shift will always succeed.
     shift: u32,
 
@@ -589,19 +593,29 @@ pub fn bit_rshift(
     #[default(false)]
     logical: bool,
 ) -> i64 {
-    // Don't panic on excessive shift.
-    let shift = shift.min(i64::BITS - 1);
-
     if logical {
-        // Here we reinterpret the signed integer's bits as unsigned to
-        // perform logical right shift, and then reinterpret back as signed.
-        // This is valid as, according to the Rust reference, casting between
-        // two integers of same size (i64 <-> u64) is a no-op (two's complement
-        // is used).
-        // Reference:
-        // https://doc.rust-lang.org/stable/reference/expressions/operator-expr.html#numeric-cast
-        ((operand as u64) >> shift) as i64
+        if shift >= u64::BITS {
+            // Excessive logical right shift would be equivalent to setting
+            // all bits to zero. Using `.min(63)` is not enough for logical
+            // right shift, since `-1 >> 63` returns 1, whereas
+            // `calc.bit-rshift(-1, 64)` should return the same as
+            // `(-1 >> 63) >> 1`, which is zero.
+            0
+        } else {
+            // Here we reinterpret the signed integer's bits as unsigned to
+            // perform logical right shift, and then reinterpret back as signed.
+            // This is valid as, according to the Rust reference, casting between
+            // two integers of same size (i64 <-> u64) is a no-op (two's complement
+            // is used).
+            // Reference:
+            // https://doc.rust-lang.org/stable/reference/expressions/operator-expr.html#numeric-cast
+            ((operand as u64) >> shift) as i64
+        }
     } else {
+        // Saturate at -1 (negative) or 0 (otherwise) on excessive arithmetic
+        // right shift. Shifting those numbers any further does not change
+        // them, so it is consistent.
+        let shift = shift.min(i64::BITS - 1);
         operand >> shift
     }
 }

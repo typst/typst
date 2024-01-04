@@ -195,6 +195,8 @@
 #test(calc.bit-rshift(-7, 12345), -1)
 #test(calc.bit-rshift(128, 2, logical: true), 32)
 #test(calc.bit-rshift(-7, 61, logical: true), 7)
+#test(calc.bit-rshift(128, 12345, logical: true), 0)
+#test(calc.bit-rshift(-7, 12345, logical: true), 0)
 
 ---
 // Error: 17-24 the result is too large
