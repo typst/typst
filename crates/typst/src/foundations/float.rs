@@ -47,6 +47,19 @@ impl f64 {
     ) -> f64 {
         value.0
     }
+
+    /// Converts the bit pattern to a signed 64-bit integer.
+    ///
+    /// ```example
+    /// #float.to-bits(0.0)
+    /// #float.to-bits(-0.0)
+    /// ```
+    #[func]
+    pub fn to_bits(value: f64) -> i64 {
+        // Typst doesn't have unsigned 64-bit integers, so we represent
+        // the bit pattern as a signed 64-bit integer.
+        value.to_bits() as i64
+    }
 }
 
 impl Repr for f64 {

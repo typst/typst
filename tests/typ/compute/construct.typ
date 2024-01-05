@@ -185,6 +185,12 @@
 #symbol()
 
 ---
+// Test conversion of floats to bits (held by a signed integer).
+#test(float.to-bits(0.0), 0)
+#test(float.to-bits(-0.0), -9223372036854775808)
+#test(float.to-bits(12306.233), 4667991037467273724)
+
+---
 // Test conversion to string.
 #test(str(123), "123")
 #test(str(123, base: 3), "11120")
