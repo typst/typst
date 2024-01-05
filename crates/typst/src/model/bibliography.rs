@@ -836,13 +836,13 @@ impl<'a> Generator<'a> {
     ) -> Option<Vec<(Option<Content>, Content)>> {
         let rendered = rendered.bibliography.as_ref()?;
 
-        // Determine for each citation key where it first occured, so that we
+        // Determine for each citation key where it first occurred, so that we
         // can link there.
-        let mut first_occurances = HashMap::new();
+        let mut first_occurrences = HashMap::new();
         for info in &self.infos {
             for subinfo in &info.subinfos {
                 let key = subinfo.key.as_str();
-                first_occurances.entry(key).or_insert(info.location);
+                first_occurrences.entry(key).or_insert(info.location);
             }
         }
 
@@ -866,7 +866,7 @@ impl<'a> Generator<'a> {
             // Render the first field.
             let mut prefix = item.first_field.as_ref().map(|elem| {
                 let mut content = renderer.display_elem_child(elem, &mut None);
-                if let Some(location) = first_occurances.get(item.key.as_str()) {
+                if let Some(location) = first_occurrences.get(item.key.as_str()) {
                     let dest = Destination::Location(*location);
                     content = content.linked(dest);
                 }
