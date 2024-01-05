@@ -123,10 +123,6 @@ pub trait ResolvableCell {
         inset: Sides<Rel<Length>>,
         styles: StyleChain,
     ) -> Cell;
-
-    /// Creates a cell with empty content.
-    /// Needed to fill incomplete rows.
-    fn new_empty_cell() -> Self;
 }
 
 /// A grid of cells, including the columns, rows, and cell data.
@@ -205,12 +201,16 @@ impl CellGrid {
     }
 
     /// Resolves all cells in the grid before creating it.
-    /// Allows them to keep track of their final properties and adjust their fields accordingly.
+    /// Allows them to keep track of their final properties and adjust their
+    /// fields accordingly.
+    /// Cells must implement Clone as they will be owned. Additionally, they
+    /// must implement Default in order to fill the last row of the grid with
+    /// empty cells, if it is not completely filled.
     #[allow(clippy::too_many_arguments)]
-    pub fn resolve<T: ResolvableCell>(
+    pub fn resolve<T: ResolvableCell + Clone + Default>(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
-        cells: Vec<T>,
+        cells: &[T],
         fill: &Celled<Option<Paint>>,
         align: &Celled<Smart<Align>>,
         inset: Sides<Rel<Length>>,
@@ -220,8 +220,15 @@ impl CellGrid {
         // Number of content columns: Always at least one.
         let c = tracks.x.len().max(1);
 
-        let mut cells = cells
-            .into_iter()
+        // If not all columns in the last row have cells, we will add empty
+        // cells and complete the row so that those positions are susceptible
+        // to show rules and receive grid styling.
+        let cell_count = cells.len();
+        let cells_remaining = if cell_count % c != 0 { c - cell_count % c } else { 0 };
+        let cells = cells
+            .iter()
+            .cloned()
+            .chain(std::iter::repeat_with(T::default).take(cells_remaining))
             .enumerate()
             .map(|(i, cell)| {
                 let x = i % c;
@@ -237,30 +244,6 @@ impl CellGrid {
                 ))
             })
             .collect::<SourceResult<Vec<_>>>()?;
-
-        // If not all columns in the last row have cells, we will add empty
-        // cells and complete the row so that those positions are susceptible
-        // to show rules and receive grid styling.
-        let cell_count = cells.len();
-        if cell_count % c != 0 {
-            let cells_remaining = c - (cell_count % c);
-            cells.reserve_exact(cells_remaining);
-            for offset in 0..cells_remaining {
-                let i = cell_count + offset;
-                let x = i % c;
-                let y = i / c;
-                let new_cell = T::new_empty_cell().resolve_cell(
-                    x,
-                    y,
-                    &fill.resolve(engine, x, y)?,
-                    align.resolve(engine, x, y)?,
-                    inset,
-                    styles,
-                );
-
-                cells.push(new_cell);
-            }
-        }
 
         Ok(Self::new(tracks, gutter, cells, styles))
     }

@@ -242,7 +242,7 @@ impl Layout for GridElem {
         let grid = CellGrid::resolve(
             tracks,
             gutter,
-            self.children().clone(),
+            self.children(),
             fill,
             align,
             inset,
@@ -309,6 +309,12 @@ cast! {
     v: Content => v.into(),
 }
 
+impl Default for GridCell {
+    fn default() -> Self {
+        Self::new(Content::default())
+    }
+}
+
 impl ResolvableCell for GridCell {
     fn resolve_cell(
         mut self,
@@ -325,10 +331,6 @@ impl ResolvableCell for GridCell {
         self.push_inset(self.inset(styles).or_else(|| Smart::Custom(inset.map(Some))));
 
         Cell { body: self.pack(), fill }
-    }
-
-    fn new_empty_cell() -> Self {
-        Self::new(Content::default())
     }
 }
 
