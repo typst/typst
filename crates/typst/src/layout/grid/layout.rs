@@ -86,7 +86,6 @@ impl<T: FromValue> FromValue for Celled<T> {
 pub struct Cell {
     /// The cell's body.
     pub body: Content,
-
     /// The cell's fill.
     pub fill: Option<Paint>,
 }
