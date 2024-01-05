@@ -298,8 +298,6 @@ impl CellGrid {
 pub struct GridLayouter<'a> {
     /// The grid of cells.
     grid: &'a CellGrid,
-    /// Whether this grid has gutters.
-    has_gutter: bool,
     // How to stroke the cells.
     stroke: &'a Option<FixedStroke>,
     /// The regions to layout children into.
@@ -370,7 +368,6 @@ impl<'a> GridLayouter<'a> {
 
         Self {
             grid,
-            has_gutter: grid.has_gutter,
             stroke,
             regions,
             styles,
@@ -391,7 +388,7 @@ impl<'a> GridLayouter<'a> {
         for y in 0..self.grid.rows.len() {
             // Skip to next region if current one is full, but only for content
             // rows, not for gutter rows.
-            if self.regions.is_full() && (!self.has_gutter || y % 2 == 0) {
+            if self.regions.is_full() && (!self.grid.has_gutter || y % 2 == 0) {
                 self.finish_region(engine)?;
             }
 
@@ -711,7 +708,7 @@ impl<'a> GridLayouter<'a> {
             self.finish_region(engine)?;
 
             // Don't skip multiple regions for gutter and don't push a row.
-            if self.has_gutter && y % 2 == 1 {
+            if self.grid.has_gutter && y % 2 == 1 {
                 return Ok(());
             }
         }
