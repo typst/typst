@@ -45,7 +45,7 @@ pub fn download_with_progress(url: &str) -> Result<Vec<u8>, ureq::Error> {
 #[allow(clippy::result_large_err)]
 pub fn download(url: &str) -> Result<ureq::Response, ureq::Error> {
     let mut builder = ureq::AgentBuilder::new()
-        .user_agent(concat!("typst/{}", env!("CARGO_PKG_VERSION")));
+        .user_agent(concat!("typst/", env!("CARGO_PKG_VERSION")));
 
     // Get the network proxy config from the environment.
     if let Some(proxy) = env_proxy::for_url_str(url)
