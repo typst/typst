@@ -209,16 +209,8 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             let class = self.style.class.as_custom().or(glyph.class);
             if class == Some(MathClass::Large) {
                 let mut variant = if self.style.size == MathSize::Display {
-                    let display_operator_min_height = {
-                        // https://github.com/w3c/mathml-core/issues/126#issuecomment-1425804878
-                        let mut height = self.constants.display_operator_min_height();
-                        let min_height = (SQRT_2 * self.ttf.height() as f64) as u16;
-                        if height < min_height {
-                            height = min_height;
-                        }
-                        height
-                    };
-                    let height = display_operator_min_height.scaled(self);
+                    let height = scaled!(self, display_operator_min_height)
+                        .max(SQRT_2 * glyph.height());
                     glyph.stretch_vertical(self, height, Abs::zero())
                 } else {
                     glyph.into_variant()
