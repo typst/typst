@@ -94,25 +94,27 @@ impl Type {
             .constructor
             .as_ref()
             .map(|lazy| Func::from(*lazy))
-            .ok_or_else(|| eco_format!("type self does not have a constructor"))
+            .ok_or_else(|| {
+                eco_format!("type `{}` does not have a constructor", self.short_name())
+            })
     }
 
-    /// The type's associated scope of sub-definition.
+    /// The type's associated scope that holds sub-definitions.
     pub fn scope(&self) -> &'static Scope {
         &(self.0).0.scope
     }
 
     /// Get a field from this type's scope, if possible.
     pub fn field(&self, field: &str) -> StrResult<&'static Value> {
-        self.scope()
-            .get(field)
-            .ok_or_else(|| eco_format!("type self does not contain field `{}`", field))
+        self.scope().get(field).ok_or_else(|| {
+            eco_format!("type `{}` does not contain field `{}`", self.short_name(), field)
+        })
     }
 }
 
 // Type compatibility.
 impl Type {
-    /// The type's backwards-compatible name.
+    /// The type's backward-compatible name.
     pub fn compat_name(&self) -> &str {
         self.long_name()
     }
