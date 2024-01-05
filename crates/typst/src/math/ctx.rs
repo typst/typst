@@ -1,3 +1,5 @@
+use std::f64::consts::SQRT_2;
+
 use comemo::Prehashed;
 use ecow::EcoString;
 use rustybuzz::Feature;
@@ -207,7 +209,8 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             let class = self.style.class.as_custom().or(glyph.class);
             if class == Some(MathClass::Large) {
                 let mut variant = if self.style.size == MathSize::Display {
-                    let height = scaled!(self, display_operator_min_height);
+                    let height = scaled!(self, display_operator_min_height)
+                        .max(SQRT_2 * glyph.height());
                     glyph.stretch_vertical(self, height, Abs::zero())
                 } else {
                     glyph.into_variant()
