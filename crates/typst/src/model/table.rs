@@ -1,7 +1,7 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Content, NativeElement, Show, Smart, StyleChain,
+    cast, elem, scope, Content, Fold, NativeElement, Show, Smart, StyleChain,
 };
 use crate::layout::{
     show_grid_cell, Abs, Align, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter,
@@ -297,8 +297,13 @@ impl ResolvableCell for TableCell {
     ) -> Cell {
         let fill = self.fill(styles).unwrap_or_else(|| fill.clone());
         self.push_fill(Smart::Custom(fill.clone()));
-        self.push_align(self.align(styles).or(align));
-        self.push_inset(self.inset(styles).or_else(|| Smart::Custom(inset.map(Some))));
+        self.push_align(self.align(styles).fold(align).or(align));
+        self.push_inset(
+            self.inset(styles)
+                .fold(Smart::Custom(inset))
+                .or_else(|| Smart::Custom(inset))
+                .map(|inset| inset.map(Some)),
+        );
 
         Cell { body: self.pack(), fill }
     }

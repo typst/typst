@@ -9,7 +9,8 @@ use smallvec::{smallvec, SmallVec};
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, NativeElement, Show, Smart, StyleChain, Value,
+    cast, elem, scope, Array, Content, Fold, NativeElement, Show, Smart, StyleChain,
+    Value,
 };
 use crate::layout::{
     Abs, Align, AlignElem, Axes, Fragment, Layout, Length, Regions, Rel, Sides, Sizing,
@@ -327,8 +328,13 @@ impl ResolvableCell for GridCell {
     ) -> Cell {
         let fill = self.fill(styles).unwrap_or_else(|| fill.clone());
         self.push_fill(Smart::Custom(fill.clone()));
-        self.push_align(self.align(styles).or(align));
-        self.push_inset(self.inset(styles).or_else(|| Smart::Custom(inset.map(Some))));
+        self.push_align(self.align(styles).fold(align).or(align));
+        self.push_inset(
+            self.inset(styles)
+                .fold(Smart::Custom(inset))
+                .or_else(|| Smart::Custom(inset))
+                .map(|inset| inset.map(Some)),
+        );
 
         Cell { body: self.pack(), fill }
     }
