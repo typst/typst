@@ -253,7 +253,7 @@ impl Layout for GridElem {
         let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
 
         // Measure the columns and layout the grid row-by-row.
-        Ok(layouter.layout(engine)?.fragment)
+        layouter.layout(engine)
     }
 }
 

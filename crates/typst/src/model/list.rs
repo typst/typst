@@ -180,7 +180,7 @@ impl Layout for ListElem {
         );
         let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
 
-        Ok(layouter.layout(engine)?.fragment)
+        layouter.layout(engine)
     }
 }
 

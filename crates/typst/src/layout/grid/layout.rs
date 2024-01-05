@@ -319,17 +319,6 @@ pub struct GridLayouter<'a> {
     span: Span,
 }
 
-/// The resulting sizes of columns and rows in a grid.
-#[derive(Debug)]
-pub struct GridLayout {
-    /// The fragment.
-    pub fragment: Fragment,
-    /// The column widths.
-    pub cols: Vec<Abs>,
-    /// The heights of the resulting rows segments, by region.
-    pub rows: Vec<Vec<RowPiece>>,
-}
-
 /// Details about a resulting row piece.
 #[derive(Debug)]
 pub struct RowPiece {
@@ -381,7 +370,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
-    pub fn layout(mut self, engine: &mut Engine) -> SourceResult<GridLayout> {
+    pub fn layout(mut self, engine: &mut Engine) -> SourceResult<Fragment> {
         self.measure_columns(engine)?;
 
         for y in 0..self.grid.rows.len() {
@@ -402,11 +391,7 @@ impl<'a> GridLayouter<'a> {
 
         self.render_fills_strokes()?;
 
-        Ok(GridLayout {
-            fragment: Fragment::frames(self.finished),
-            cols: self.rcols,
-            rows: self.rrows,
-        })
+        Ok(Fragment::frames(self.finished))
     }
 
     /// Add lines and backgrounds.
