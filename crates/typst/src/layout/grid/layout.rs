@@ -1,282 +1,17 @@
-use std::num::NonZeroUsize;
-
-use smallvec::{smallvec, SmallVec};
-
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Array, CastInfo, Content, FromValue, Func, IntoValue, NativeElement,
-    Reflect, Resolve, Smart, StyleChain, Value,
+    Array, CastInfo, Content, FromValue, Func, IntoValue, Reflect, Resolve, Smart,
+    StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Align, AlignElem, Axes, Dir, Fr, Fragment, Frame, FrameItem, Layout, Length,
-    Point, Regions, Rel, Sides, Size, Sizing,
+    Abs, Align, Axes, Dir, Fr, Fragment, Frame, FrameItem, Layout, Length, Point,
+    Regions, Rel, Sides, Size, Sizing,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::util::Numeric;
-use crate::visualize::{FixedStroke, Geometry, Paint, Stroke};
-
-/// Arranges content in a grid.
-///
-/// The grid element allows you to arrange content in a grid. You can define the
-/// number of rows and columns, as well as the size of the gutters between them.
-/// There are multiple sizing modes for columns and rows that can be used to
-/// create complex layouts.
-///
-/// The sizing of the grid is determined by the track sizes specified in the
-/// arguments. Because each of the sizing parameters accepts the same values, we
-/// will explain them just once, here. Each sizing argument accepts an array of
-/// individual track sizes. A track size is either:
-///
-/// - `{auto}`: The track will be sized to fit its contents. It will be at most
-///   as large as the remaining space. If there is more than one `{auto}` track
-///   which, and together they claim more than the available space, the `{auto}`
-///   tracks will fairly distribute the available space among themselves.
-///
-/// - A fixed or relative length (e.g. `{10pt}` or `{20% - 1cm}`): The track
-///   will be exactly of this size.
-///
-/// - A fractional length (e.g. `{1fr}`): Once all other tracks have been sized,
-///   the remaining space will be divided among the fractional tracks according
-///   to their fractions. For example, if there are two fractional tracks, each
-///   with a fraction of `{1fr}`, they will each take up half of the remaining
-///   space.
-///
-/// To specify a single track, the array can be omitted in favor of a single
-/// value. To specify multiple `{auto}` tracks, enter the number of tracks
-/// instead of an array. For example, `columns:` `{3}` is equivalent to
-/// `columns:` `{(auto, auto, auto)}`.
-///
-/// # Examples
-/// The example below demonstrates the different track sizing options.
-///
-/// ```example
-/// // We use `rect` to emphasize the
-/// // area of cells.
-/// #set rect(
-///   inset: 8pt,
-///   fill: rgb("e4e5ea"),
-///   width: 100%,
-/// )
-///
-/// #grid(
-///   columns: (60pt, 1fr, 2fr),
-///   rows: (auto, 60pt),
-///   gutter: 3pt,
-///   rect[Fixed width, auto height],
-///   rect[1/3 of the remains],
-///   rect[2/3 of the remains],
-///   rect(height: 100%)[Fixed height],
-///   image("tiger.jpg", height: 100%),
-///   image("tiger.jpg", height: 100%),
-/// )
-/// ```
-///
-/// You can also [spread]($arguments/#spreading) an array of strings or content
-/// into a grid to populate its cells.
-///
-/// ```example
-/// #grid(
-///   columns: 5,
-///   gutter: 5pt,
-///   ..range(25).map(str)
-/// )
-/// ```
-#[elem(Layout)]
-pub struct GridElem {
-    /// The column sizes.
-    ///
-    /// Either specify a track size array or provide an integer to create a grid
-    /// with that many `{auto}`-sized columns. Note that opposed to rows and
-    /// gutters, providing a single track size will only ever create a single
-    /// column.
-    #[borrowed]
-    pub columns: TrackSizings,
-
-    /// The row sizes.
-    ///
-    /// If there are more cells than fit the defined rows, the last row is
-    /// repeated until there are no more cells.
-    #[borrowed]
-    pub rows: TrackSizings,
-
-    /// The gaps between rows & columns.
-    ///
-    /// If there are more gutters than defined sizes, the last gutter is repeated.
-    #[external]
-    pub gutter: TrackSizings,
-
-    /// The gaps between columns. Takes precedence over `gutter`.
-    #[parse(
-        let gutter = args.named("gutter")?;
-        args.named("column-gutter")?.or_else(|| gutter.clone())
-    )]
-    #[borrowed]
-    pub column_gutter: TrackSizings,
-
-    /// The gaps between rows. Takes precedence over `gutter`.
-    #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
-    #[borrowed]
-    pub row_gutter: TrackSizings,
-
-    /// How to fill the cells.
-    ///
-    /// This can be a color or a function that returns a color. The function is
-    /// passed the cells' column and row index, starting at zero. This can be
-    /// used to implement striped grids.
-    ///
-    /// ```example
-    /// #grid(
-    ///   fill: (col, row) => if calc.even(col + row) { luma(240) } else { white },
-    ///   align: center + horizon,
-    ///   columns: 4,
-    ///   [X], [O], [X], [O],
-    ///   [O], [X], [O], [X],
-    ///   [X], [O], [X], [O],
-    ///   [O], [X], [O], [X]
-    /// )
-    /// ```
-    #[borrowed]
-    pub fill: Celled<Option<Paint>>,
-
-    /// How to align the cells' content.
-    ///
-    /// This can either be a single alignment, an array of alignments
-    /// (corresponding to each column) or a function that returns an alignment.
-    /// The function is passed the cells' column and row index, starting at zero.
-    /// If set to `{auto}`, the outer alignment is used.
-    ///
-    /// ```example
-    /// #grid(
-    ///   columns: 3,
-    ///   align: (x, y) => (left, center, right).at(x),
-    ///   [Hello], [Hello], [Hello],
-    ///   [A], [B], [C],
-    /// )
-    /// ```
-    #[borrowed]
-    pub align: Celled<Smart<Align>>,
-
-    /// How to [stroke]($stroke) the cells.
-    ///
-    /// Grids have no strokes by default, which can be changed by setting this
-    /// option to the desired stroke.
-    ///
-    /// _Note:_ Richer stroke customization for individual cells is not yet
-    /// implemented, but will be in the future. In the meantime, you can use the
-    /// third-party [tablex library](https://github.com/PgBiel/typst-tablex/).
-    #[resolve]
-    #[fold]
-    pub stroke: Option<Stroke>,
-
-    /// How much to pad the cells' content.
-    ///
-    /// ```example
-    /// #grid(
-    ///   inset: 10pt,
-    ///   fill: (_, row) => (red, blue).at(row),
-    ///   [Hello],
-    ///   [World],
-    /// )
-    ///
-    /// #grid(
-    ///   columns: 2,
-    ///   inset: (
-    ///     x: 20pt,
-    ///     y: 10pt,
-    ///   ),
-    ///   fill: (col, _) => (red, blue).at(col),
-    ///   [Hello],
-    ///   [World],
-    /// )
-    /// ```
-    #[fold]
-    #[default(Sides::splat(Abs::pt(0.0).into()))]
-    pub inset: Sides<Option<Rel<Length>>>,
-
-    /// The contents of the grid cells.
-    ///
-    /// The cells are populated in row-major order.
-    #[variadic]
-    pub children: Vec<Content>,
-}
-
-impl Layout for GridElem {
-    #[typst_macros::time(name = "grid", span = self.span())]
-    fn layout(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        let inset = self.inset(styles);
-        let align = self.align(styles);
-        let columns = self.columns(styles);
-        let rows = self.rows(styles);
-        let column_gutter = self.column_gutter(styles);
-        let row_gutter = self.row_gutter(styles);
-        let fill = self.fill(styles);
-        let stroke = self.stroke(styles).map(Stroke::unwrap_or_default);
-
-        let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
-        let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
-        let cells =
-            apply_align_inset_to_cells(engine, &tracks, &self.children, align, inset)?;
-
-        // Prepare grid layout by unifying content and gutter tracks.
-        let layouter = GridLayouter::new(
-            tracks,
-            gutter,
-            &cells,
-            fill,
-            &stroke,
-            regions,
-            styles,
-            self.span(),
-        );
-
-        // Measure the columns and layout the grid row-by-row.
-        Ok(layouter.layout(engine)?.fragment)
-    }
-}
-
-pub fn apply_align_inset_to_cells(
-    engine: &mut Engine,
-    tracks: &Axes<&[Sizing]>,
-    cells: &[Content],
-    align: &Celled<Smart<Align>>,
-    inset: Sides<Rel<Length>>,
-) -> SourceResult<Vec<Content>> {
-    let cols = tracks.x.len().max(1);
-    cells
-        .iter()
-        .enumerate()
-        .map(|(i, child)| {
-            let mut child = child.clone().padded(inset);
-
-            let x = i % cols;
-            let y = i / cols;
-            if let Smart::Custom(alignment) = align.resolve(engine, x, y)? {
-                child = child.styled(AlignElem::set_alignment(alignment));
-            }
-
-            Ok(child)
-        })
-        .collect()
-}
-
-/// Track sizing definitions.
-#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
-pub struct TrackSizings(pub SmallVec<[Sizing; 4]>);
-
-cast! {
-    TrackSizings,
-    self => self.0.into_value(),
-    sizing: Sizing => Self(smallvec![sizing]),
-    count: NonZeroUsize => Self(smallvec![Sizing::Auto; count.get()]),
-    values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
-}
+use crate::visualize::{FixedStroke, Geometry, Paint};
 
 /// A value that can be configured per cell.
 #[derive(Debug, Clone, PartialEq, Hash)]
@@ -347,87 +82,70 @@ impl<T: FromValue> FromValue for Celled<T> {
     }
 }
 
-/// Performs grid layout.
-pub struct GridLayouter<'a> {
+/// Represents a cell in CellGrid, to be laid out by GridLayouter.
+pub struct Cell {
+    /// The cell's body.
+    pub body: Content,
+    /// The cell's fill.
+    pub fill: Option<Paint>,
+}
+
+impl From<Content> for Cell {
+    /// Create a simple cell given its body.
+    fn from(body: Content) -> Self {
+        Self { body, fill: None }
+    }
+}
+
+impl Layout for Cell {
+    fn layout(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<Fragment> {
+        self.body.layout(engine, styles, regions)
+    }
+}
+
+/// Used for cell-like elements which are aware of their final properties in
+/// the table, and may have property overrides.
+pub trait ResolvableCell {
+    /// Resolves the cell's fields, given its coordinates and default grid-wide
+    /// fill, align and inset properties.
+    /// Returns a final Cell.
+    fn resolve_cell(
+        self,
+        x: usize,
+        y: usize,
+        fill: &Option<Paint>,
+        align: Smart<Align>,
+        inset: Sides<Rel<Length>>,
+        styles: StyleChain,
+    ) -> Cell;
+}
+
+/// A grid of cells, including the columns, rows, and cell data.
+pub struct CellGrid {
     /// The grid cells.
-    cells: &'a [Content],
-    /// Whether this is an RTL grid.
-    is_rtl: bool,
-    /// Whether this grid has gutters.
-    has_gutter: bool,
+    cells: Vec<Cell>,
     /// The column tracks including gutter tracks.
     cols: Vec<Sizing>,
     /// The row tracks including gutter tracks.
     rows: Vec<Sizing>,
-    // How to fill the cells.
-    #[allow(dead_code)]
-    fill: &'a Celled<Option<Paint>>,
-    // How to stroke the cells.
-    #[allow(dead_code)]
-    stroke: &'a Option<FixedStroke>,
-    /// The regions to layout children into.
-    regions: Regions<'a>,
-    /// The inherited styles.
-    styles: StyleChain<'a>,
-    /// Resolved column sizes.
-    rcols: Vec<Abs>,
-    /// The sum of `rcols`.
-    width: Abs,
-    /// Resolve row sizes, by region.
-    rrows: Vec<Vec<RowPiece>>,
-    /// Rows in the current region.
-    lrows: Vec<Row>,
-    /// The initial size of the current region before we started subtracting.
-    initial: Size,
-    /// Frames for finished regions.
-    finished: Vec<Frame>,
-    /// The span of the grid element.
-    span: Span,
+    /// Whether this grid has gutters.
+    has_gutter: bool,
+    /// Whether this is an RTL grid.
+    is_rtl: bool,
 }
 
-/// The resulting sizes of columns and rows in a grid.
-#[derive(Debug)]
-pub struct GridLayout {
-    /// The fragment.
-    pub fragment: Fragment,
-    /// The column widths.
-    pub cols: Vec<Abs>,
-    /// The heights of the resulting rows segments, by region.
-    pub rows: Vec<Vec<RowPiece>>,
-}
-
-/// Details about a resulting row piece.
-#[derive(Debug)]
-pub struct RowPiece {
-    /// The height of the segment.
-    pub height: Abs,
-    /// The index of the row.
-    pub y: usize,
-}
-
-/// Produced by initial row layout, auto and relative rows are already finished,
-/// fractional rows not yet.
-enum Row {
-    /// Finished row frame of auto or relative row with y index.
-    Frame(Frame, usize),
-    /// Fractional row with y index.
-    Fr(Fr, usize),
-}
-
-impl<'a> GridLayouter<'a> {
-    /// Create a new grid layouter.
-    ///
-    /// This prepares grid layout by unifying content and gutter tracks.
-    #[allow(clippy::too_many_arguments)]
+impl CellGrid {
+    /// Generates the cell grid, given the tracks and resolved cells.
     pub fn new(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
-        cells: &'a [Content],
-        fill: &'a Celled<Option<Paint>>,
-        stroke: &'a Option<FixedStroke>,
-        regions: Regions<'a>,
-        styles: StyleChain<'a>,
-        span: Span,
+        cells: Vec<Cell>,
+        styles: StyleChain,
     ) -> Self {
         let mut cols = vec![];
         let mut rows = vec![];
@@ -479,22 +197,154 @@ impl<'a> GridLayouter<'a> {
             cols.reverse();
         }
 
+        Self { cols, rows, cells, has_gutter, is_rtl }
+    }
+
+    /// Resolves all cells in the grid before creating it.
+    /// Allows them to keep track of their final properties and adjust their
+    /// fields accordingly.
+    /// Cells must implement Clone as they will be owned. Additionally, they
+    /// must implement Default in order to fill the last row of the grid with
+    /// empty cells, if it is not completely filled.
+    #[allow(clippy::too_many_arguments)]
+    pub fn resolve<T: ResolvableCell + Clone + Default>(
+        tracks: Axes<&[Sizing]>,
+        gutter: Axes<&[Sizing]>,
+        cells: &[T],
+        fill: &Celled<Option<Paint>>,
+        align: &Celled<Smart<Align>>,
+        inset: Sides<Rel<Length>>,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Self> {
+        // Number of content columns: Always at least one.
+        let c = tracks.x.len().max(1);
+
+        // If not all columns in the last row have cells, we will add empty
+        // cells and complete the row so that those positions are susceptible
+        // to show rules and receive grid styling.
+        // We apply '% c' twice so that 'cells_remaining' is zero when
+        // the last row is already filled (then 'cell_count % c' would be zero).
+        let cell_count = cells.len();
+        let cells_remaining = (c - cell_count % c) % c;
+        let cells = cells
+            .iter()
+            .cloned()
+            .chain(std::iter::repeat_with(T::default).take(cells_remaining))
+            .enumerate()
+            .map(|(i, cell)| {
+                let x = i % c;
+                let y = i / c;
+
+                Ok(cell.resolve_cell(
+                    x,
+                    y,
+                    &fill.resolve(engine, x, y)?,
+                    align.resolve(engine, x, y)?,
+                    inset,
+                    styles,
+                ))
+            })
+            .collect::<SourceResult<Vec<_>>>()?;
+
+        Ok(Self::new(tracks, gutter, cells, styles))
+    }
+
+    /// Get the content of the cell in column `x` and row `y`.
+    ///
+    /// Returns `None` if it's a gutter cell.
+    #[track_caller]
+    fn cell(&self, mut x: usize, y: usize) -> Option<&Cell> {
+        assert!(x < self.cols.len());
+        assert!(y < self.rows.len());
+
+        // Columns are reorder, but the cell slice is not.
+        if self.is_rtl {
+            x = self.cols.len() - 1 - x;
+        }
+
+        if self.has_gutter {
+            // Even columns and rows are children, odd ones are gutter.
+            if x % 2 == 0 && y % 2 == 0 {
+                let c = 1 + self.cols.len() / 2;
+                self.cells.get((y / 2) * c + x / 2)
+            } else {
+                None
+            }
+        } else {
+            let c = self.cols.len();
+            self.cells.get(y * c + x)
+        }
+    }
+}
+
+/// Performs grid layout.
+pub struct GridLayouter<'a> {
+    /// The grid of cells.
+    grid: &'a CellGrid,
+    // How to stroke the cells.
+    stroke: &'a Option<FixedStroke>,
+    /// The regions to layout children into.
+    regions: Regions<'a>,
+    /// The inherited styles.
+    styles: StyleChain<'a>,
+    /// Resolved column sizes.
+    rcols: Vec<Abs>,
+    /// The sum of `rcols`.
+    width: Abs,
+    /// Resolve row sizes, by region.
+    rrows: Vec<Vec<RowPiece>>,
+    /// Rows in the current region.
+    lrows: Vec<Row>,
+    /// The initial size of the current region before we started subtracting.
+    initial: Size,
+    /// Frames for finished regions.
+    finished: Vec<Frame>,
+    /// The span of the grid element.
+    span: Span,
+}
+
+/// Details about a resulting row piece.
+#[derive(Debug)]
+pub struct RowPiece {
+    /// The height of the segment.
+    pub height: Abs,
+    /// The index of the row.
+    pub y: usize,
+}
+
+/// Produced by initial row layout, auto and relative rows are already finished,
+/// fractional rows not yet.
+enum Row {
+    /// Finished row frame of auto or relative row with y index.
+    Frame(Frame, usize),
+    /// Fractional row with y index.
+    Fr(Fr, usize),
+}
+
+impl<'a> GridLayouter<'a> {
+    /// Create a new grid layouter.
+    ///
+    /// This prepares grid layout by unifying content and gutter tracks.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        grid: &'a CellGrid,
+        stroke: &'a Option<FixedStroke>,
+        regions: Regions<'a>,
+        styles: StyleChain<'a>,
+        span: Span,
+    ) -> Self {
         // We use these regions for auto row measurement. Since at that moment,
         // columns are already sized, we can enable horizontal expansion.
         let mut regions = regions;
         regions.expand = Axes::new(true, false);
 
         Self {
-            cells,
-            is_rtl,
-            has_gutter,
-            rows,
-            fill,
+            grid,
             stroke,
             regions,
             styles,
-            rcols: vec![Abs::zero(); cols.len()],
-            cols,
+            rcols: vec![Abs::zero(); grid.cols.len()],
             width: Abs::zero(),
             rrows: vec![],
             lrows: vec![],
@@ -505,17 +355,17 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
-    pub fn layout(mut self, engine: &mut Engine) -> SourceResult<GridLayout> {
+    pub fn layout(mut self, engine: &mut Engine) -> SourceResult<Fragment> {
         self.measure_columns(engine)?;
 
-        for y in 0..self.rows.len() {
+        for y in 0..self.grid.rows.len() {
             // Skip to next region if current one is full, but only for content
             // rows, not for gutter rows.
-            if self.regions.is_full() && (!self.has_gutter || y % 2 == 0) {
+            if self.regions.is_full() && (!self.grid.has_gutter || y % 2 == 0) {
                 self.finish_region(engine)?;
             }
 
-            match self.rows[y] {
+            match self.grid.rows[y] {
                 Sizing::Auto => self.layout_auto_row(engine, y)?,
                 Sizing::Rel(v) => self.layout_relative_row(engine, v, y)?,
                 Sizing::Fr(v) => self.lrows.push(Row::Fr(v, y)),
@@ -524,19 +374,13 @@ impl<'a> GridLayouter<'a> {
 
         self.finish_region(engine)?;
 
-        if self.stroke.is_some() || !matches!(self.fill, Celled::Value(None)) {
-            self.render_fills_strokes(engine)?;
-        }
+        self.render_fills_strokes()?;
 
-        Ok(GridLayout {
-            fragment: Fragment::frames(self.finished),
-            cols: self.rcols,
-            rows: self.rrows,
-        })
+        Ok(Fragment::frames(self.finished))
     }
 
     /// Add lines and backgrounds.
-    fn render_fills_strokes(&mut self, engine: &mut Engine) -> SourceResult<()> {
+    fn render_fills_strokes(&mut self) -> SourceResult<()> {
         for (frame, rows) in self.finished.iter_mut().zip(&self.rrows) {
             if self.rcols.is_empty() || rows.is_empty() {
                 continue;
@@ -573,7 +417,9 @@ impl<'a> GridLayouter<'a> {
             for (x, &col) in self.rcols.iter().enumerate() {
                 let mut dy = Abs::zero();
                 for row in rows {
-                    if let Some(fill) = self.fill.resolve(engine, x, row.y)? {
+                    let fill =
+                        self.grid.cell(x, row.y).and_then(|cell| cell.fill.clone());
+                    if let Some(fill) = fill {
                         let pos = Point::new(dx, dy);
                         let size = Size::new(col, row.height);
                         let rect = Geometry::Rect(size).filled(fill);
@@ -598,7 +444,7 @@ impl<'a> GridLayouter<'a> {
 
         // Resolve the size of all relative columns and compute the sum of all
         // fractional tracks.
-        for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
+        for (&col, rcol) in self.grid.cols.iter().zip(&mut self.rcols) {
             match col {
                 Sizing::Auto => {}
                 Sizing::Rel(v) => {
@@ -644,17 +490,17 @@ impl<'a> GridLayouter<'a> {
 
         // Determine size of auto columns by laying out all cells in those
         // columns, measuring them and finding the largest one.
-        for (x, &col) in self.cols.iter().enumerate() {
+        for (x, &col) in self.grid.cols.iter().enumerate() {
             if col != Sizing::Auto {
                 continue;
             }
 
             let mut resolved = Abs::zero();
-            for y in 0..self.rows.len() {
-                if let Some(cell) = self.cell(x, y) {
+            for y in 0..self.grid.rows.len() {
+                if let Some(cell) = self.grid.cell(x, y) {
                     // For relative rows, we can already resolve the correct
                     // base and for auto and fr we could only guess anyway.
-                    let height = match self.rows[y] {
+                    let height = match self.grid.rows[y] {
                         Sizing::Rel(v) => {
                             v.resolve(self.styles).relative_to(self.regions.base().y)
                         }
@@ -682,7 +528,7 @@ impl<'a> GridLayouter<'a> {
             return;
         }
 
-        for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
+        for (&col, rcol) in self.grid.cols.iter().zip(&mut self.rcols) {
             if let Sizing::Fr(v) = col {
                 *rcol = v.share(fr, remaining);
             }
@@ -703,7 +549,7 @@ impl<'a> GridLayouter<'a> {
             last = fair;
             fair = redistribute / (overlarge as f64);
 
-            for (&col, &rcol) in self.cols.iter().zip(&self.rcols) {
+            for (&col, &rcol) in self.grid.cols.iter().zip(&self.rcols) {
                 // Remove an auto column if it is not overlarge (rcol <= fair),
                 // but also hasn't already been removed (rcol > last).
                 if col == Sizing::Auto && rcol <= fair && rcol > last {
@@ -715,7 +561,7 @@ impl<'a> GridLayouter<'a> {
         }
 
         // Redistribute space fairly among overlarge columns.
-        for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
+        for (&col, rcol) in self.grid.cols.iter().zip(&mut self.rcols) {
             if col == Sizing::Auto && *rcol > fair {
                 *rcol = fair;
             }
@@ -783,7 +629,7 @@ impl<'a> GridLayouter<'a> {
         let mut resolved: Vec<Abs> = vec![];
 
         for (x, &rcol) in self.rcols.iter().enumerate() {
-            if let Some(cell) = self.cell(x, y) {
+            if let Some(cell) = self.grid.cell(x, y) {
                 let mut pod = self.regions;
                 pod.size.x = rcol;
 
@@ -831,7 +677,7 @@ impl<'a> GridLayouter<'a> {
             self.finish_region(engine)?;
 
             // Don't skip multiple regions for gutter and don't push a row.
-            if self.has_gutter && y % 2 == 1 {
+            if self.grid.has_gutter && y % 2 == 1 {
                 return Ok(());
             }
         }
@@ -856,10 +702,10 @@ impl<'a> GridLayouter<'a> {
         let mut pos = Point::zero();
 
         for (x, &rcol) in self.rcols.iter().enumerate() {
-            if let Some(cell) = self.cell(x, y) {
+            if let Some(cell) = self.grid.cell(x, y) {
                 let size = Size::new(rcol, height);
                 let mut pod = Regions::one(size, Axes::splat(true));
-                if self.rows[y] == Sizing::Auto {
+                if self.grid.rows[y] == Sizing::Auto {
                     pod.full = self.regions.full;
                 }
                 let frame = cell.layout(engine, self.styles, pod)?.into_frame();
@@ -894,7 +740,7 @@ impl<'a> GridLayouter<'a> {
         // Layout the row.
         let mut pos = Point::zero();
         for (x, &rcol) in self.rcols.iter().enumerate() {
-            if let Some(cell) = self.cell(x, y) {
+            if let Some(cell) = self.grid.cell(x, y) {
                 pod.size.x = rcol;
 
                 // Push the layouted frames into the individual output frames.
@@ -963,33 +809,6 @@ impl<'a> GridLayouter<'a> {
         self.initial = self.regions.size;
 
         Ok(())
-    }
-
-    /// Get the content of the cell in column `x` and row `y`.
-    ///
-    /// Returns `None` if it's a gutter cell.
-    #[track_caller]
-    fn cell(&self, mut x: usize, y: usize) -> Option<&'a Content> {
-        assert!(x < self.cols.len());
-        assert!(y < self.rows.len());
-
-        // Columns are reorder, but the cell slice is not.
-        if self.is_rtl {
-            x = self.cols.len() - 1 - x;
-        }
-
-        if self.has_gutter {
-            // Even columns and rows are children, odd ones are gutter.
-            if x % 2 == 0 && y % 2 == 0 {
-                let c = 1 + self.cols.len() / 2;
-                self.cells.get((y / 2) * c + x / 2)
-            } else {
-                None
-            }
-        } else {
-            let c = self.cols.len();
-            self.cells.get(y * c + x)
-        }
     }
 }
 
