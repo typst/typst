@@ -297,13 +297,18 @@ impl ResolvableCell for TableCell {
     ) -> Cell {
         let fill = self.fill(styles).unwrap_or_else(|| fill.clone());
         self.push_fill(Smart::Custom(fill.clone()));
-        self.push_align(self.align(styles).fold(align).or(align));
-        self.push_inset(
-            self.inset(styles)
-                .fold(Smart::Custom(inset))
-                .or_else(|| Smart::Custom(inset))
-                .map(|inset| inset.map(Some)),
-        );
+        self.push_align(match align {
+            Smart::Custom(align) => {
+                Smart::Custom(self.align(styles).map_or(align, |inner| inner.fold(align)))
+            }
+            // Don't fold if the table is using outer alignment. Use the
+            // cell's alignment instead (which, in the end, will fold with
+            // the outer alignment when it is effectively displayed).
+            Smart::Auto => self.align(styles),
+        });
+        self.push_inset(Smart::Custom(
+            self.inset(styles).map_or(inset, |inner| inner.fold(inset)).map(Some),
+        ));
 
         Cell { body: self.pack(), fill }
     }
