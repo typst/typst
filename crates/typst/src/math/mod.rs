@@ -279,7 +279,10 @@ impl LayoutMath for Content {
         if let Some(elem) = self.to::<HElem>() {
             if let Spacing::Rel(rel) = elem.amount() {
                 if rel.rel.is_zero() {
-                    ctx.push(MathFragment::Spacing(rel.abs.resolve(ctx.styles())));
+                    ctx.push(SpacingFragment {
+                        width: rel.abs.resolve(ctx.styles()),
+                        weak: elem.weak(ctx.styles()),
+                    });
                 }
             }
             return Ok(());
