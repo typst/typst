@@ -44,6 +44,19 @@
 )
 
 ---
+// Cell set rules
+#set table.cell(align: center)
+#show table.cell: it => (it.align, it.fill, it.inset)
+#set table.cell(inset: 20pt)
+#table(
+  align: left,
+  row-gutter: 5pt,
+  [A],
+  table.cell(align: right)[B],
+  table.cell(fill: aqua)[B],
+)
+
+---
 // Test folding per-cell properties (align and inset)
 #table(
   columns: (1fr, 1fr),
@@ -64,19 +77,6 @@
   fill: green,
   [BR], [BR],
   table.cell(align: left, fill: aqua)[BL], table.cell(align: top, fill: red.lighten(50%))[TR]
-)
-
----
-// Cell set rules
-#set table.cell(align: center)
-#show table.cell: it => (it.align, it.fill, it.inset)
-#set table.cell(inset: 20pt)
-#table(
-  align: left,
-  row-gutter: 5pt,
-  [A],
-  table.cell(align: right)[B],
-  table.cell(fill: aqua)[B],
 )
 
 ---
