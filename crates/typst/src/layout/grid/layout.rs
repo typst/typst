@@ -223,8 +223,10 @@ impl CellGrid {
         // If not all columns in the last row have cells, we will add empty
         // cells and complete the row so that those positions are susceptible
         // to show rules and receive grid styling.
+        // We apply '% c' twice so that 'cells_remaining' is zero when
+        // the last row is already filled (then 'cell_count % c' would be zero).
         let cell_count = cells.len();
-        let cells_remaining = if cell_count % c != 0 { c - cell_count % c } else { 0 };
+        let cells_remaining = (c - cell_count % c) % c;
         let cells = cells
             .iter()
             .cloned()
