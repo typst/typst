@@ -39,15 +39,20 @@ pub(crate) fn write_gradients(ctx: &mut PdfContext) {
         let shading = ctx.alloc.bump();
         ctx.gradient_refs.push(shading);
 
+        let color_space = if gradient.space().hue_index().is_some() {
+            ColorSpace::Oklab
+        } else {
+            gradient.space()
+        };
+
         let mut shading_pattern = match &gradient {
             Gradient::Linear(_) => {
-                let shading_function = shading_function(ctx, &gradient);
+                let shading_function = shading_function(ctx, &gradient, color_space);
                 let mut shading_pattern = ctx.pdf.shading_pattern(shading);
                 let mut shading = shading_pattern.function_shading();
                 shading.shading_type(FunctionShadingType::Axial);
 
-                ctx.colors
-                    .write(gradient.space(), shading.color_space(), &mut ctx.alloc);
+                ctx.colors.write(color_space, shading.color_space(), &mut ctx.alloc);
 
                 let (mut sin, mut cos) = (angle.sin(), angle.cos());
 
@@ -74,13 +79,12 @@ pub(crate) fn write_gradients(ctx: &mut PdfContext) {
                 shading_pattern
             }
             Gradient::Radial(radial) => {
-                let shading_function = shading_function(ctx, &gradient);
+                let shading_function = shading_function(ctx, &gradient, color_space);
                 let mut shading_pattern = ctx.pdf.shading_pattern(shading);
                 let mut shading = shading_pattern.function_shading();
                 shading.shading_type(FunctionShadingType::Radial);
 
-                ctx.colors
-                    .write(gradient.space(), shading.color_space(), &mut ctx.alloc);
+                ctx.colors.write(color_space, shading.color_space(), &mut ctx.alloc);
 
                 shading
                     .anti_alias(gradient.anti_alias())
@@ -99,7 +103,7 @@ pub(crate) fn write_gradients(ctx: &mut PdfContext) {
 
                 shading_pattern
             }
-            Gradient::Conic(conic) => {
+            Gradient::Conic(_) => {
                 let vertices = compute_vertex_stream(&gradient, aspect_ratio);
 
                 let stream_shading_id = ctx.alloc.bump();
@@ -107,12 +111,12 @@ pub(crate) fn write_gradients(ctx: &mut PdfContext) {
                     ctx.pdf.stream_shading(stream_shading_id, &vertices);
 
                 ctx.colors.write(
-                    conic.space,
+                    color_space,
                     stream_shading.color_space(),
                     &mut ctx.alloc,
                 );
 
-                let range = conic.space.range();
+                let range = color_space.range();
                 stream_shading
                     .bits_per_coordinate(16)
                     .bits_per_component(16)
@@ -138,7 +142,11 @@ pub(crate) fn write_gradients(ctx: &mut PdfContext) {
 }
 
 /// Writes an expotential or stitched function that expresses the gradient.
-fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
+fn shading_function(
+    ctx: &mut PdfContext,
+    gradient: &Gradient,
+    color_space: ColorSpace,
+) -> Ref {
     let function = ctx.alloc.bump();
     let mut functions = vec![];
     let mut bounds = vec![];
@@ -158,7 +166,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
                 let real_t = first.1.get() * (1.0 - t) + second.1.get() * t;
 
                 let c = gradient.sample(RatioOrAngle::Ratio(Ratio::new(real_t)));
-                functions.push(single_gradient(ctx, last_c, c, ColorSpace::Oklab));
+                functions.push(single_gradient(ctx, last_c, c, color_space));
                 bounds.push(real_t as f32);
                 encode.extend([0.0, 1.0]);
                 last_c = c;
@@ -166,7 +174,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
         }
 
         bounds.push(second.1.get() as f32);
-        functions.push(single_gradient(ctx, first.0, second.0, gradient.space()));
+        functions.push(single_gradient(ctx, first.0, second.0, color_space));
         encode.extend([0.0, 1.0]);
     }
 
@@ -182,7 +190,7 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
     ctx.pdf
         .stitching_function(function)
         .domain([0.0, 1.0])
-        .range(gradient.space().range())
+        .range(color_space.range())
         .functions(functions)
         .bounds(bounds)
         .encode(encode);
