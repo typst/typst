@@ -222,8 +222,10 @@ pub fn parse_part_metadata(
                     &mut validate_autocomplete,
                     &mut invalid_data,
                 ),
-                annotation_key if AnnotationKind::from_str(annotation_key).is_some() => {
-                    let kind = AnnotationKind::from_str(annotation_key).unwrap();
+                annotation_key => {
+                    let Some(kind) = AnnotationKind::from_str(annotation_key) else {
+                        continue;
+                    };
                     let mut s = Scanner::new(value);
                     let range = range(&mut s, i, source);
                     let rest = if range.is_some() { s.after() } else { s.string() };
@@ -269,7 +271,6 @@ pub fn parse_part_metadata(
                     }
                     annotations.insert(annotation);
                 }
-                _ => (),
             }
         }
     }
