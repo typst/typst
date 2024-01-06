@@ -448,11 +448,13 @@ fn test(
                 .all(|s| s.starts_with("//") || s.chars().all(|c| c.is_whitespace()));
 
         if is_header {
-            // todo, is this a hack?
-            let source = world.set(&src_path.join("./header"), part.to_string());
-            let metadata = parse_part_metadata(&source);
+            let source = Source::detached(part.to_string());
+            let metadata = parse_part_metadata(&source, true);
+            match metadata {
+                Ok(metadata) => {
             header_configuration = Some(metadata.part_configuration);
-            if !metadata.invalid_data.is_empty() {
+                }
+                Err(invalid_data) => {
                 ok = false;
                 writeln!(
                     output,
@@ -460,27 +462,13 @@ fn test(
                     name.display()
                 )
                 .unwrap();
-                for (annotation, error) in metadata.invalid_data {
-                    write!(output, "{error}",).unwrap();
-                    if let Some(annotation) = annotation {
-                        print_annotation(&mut output, &source, line, &annotation)
-                    } else {
-                        writeln!(output).unwrap();
-                    }
-                }
-            }
-            if !metadata.annotations.is_empty() {
-                ok = false;
-                writeln!(
-                    output,
-                    " Test {}: header may not contain annotations.",
-                    name.display()
-                )
-                .unwrap();
-
-                for found in metadata.annotations {
-                    write!(output, "  invalid in header |").unwrap();
-                    print_annotation(&mut output, &source, line, &found)
+                    InvalidMetadata::write(
+                        invalid_data,
+                        &mut output,
+                        &mut |annotation, output| {
+                            print_annotation(output, &source, line, annotation)
+                        },
+                    );
                 }
             }
         } else {
@@ -604,14 +592,15 @@ fn test_part(
     rng: &mut LinearShift,
     verbose: bool,
 ) -> (bool, bool, Vec<Frame>) {
-    let mut ok = true;
-
     let source = world.set(src_path, text);
     if world.print.syntax {
         writeln!(output, "Syntax Tree:\n{:#?}\n", source.root()).unwrap();
     }
 
-    let metadata = parse_part_metadata(&source);
+    let metadata = parse_part_metadata(&source, false);
+    match metadata {
+        Ok(metadata) => {
+            let mut ok = true;
     let compare_ref = metadata
         .part_configuration
         .compare_ref
@@ -626,9 +615,8 @@ fn test_part(
         .unwrap_or(header_configuration.validate_autocomplete.unwrap_or(false));
 
     if verbose {
-        writeln!(output, "Subtest {i} runs with compare_ref={compare_ref} validate_hints={validate_hints} validate_autocomplete={validate_autocomplete}").unwrap();
+                writeln!(output, "Subtest {i} runs with compare_ref={compare_ref}; validate_hints={validate_hints}; validate_autocomplete={validate_autocomplete};").unwrap();
     }
-
     ok &= test_spans(output, source.root());
     ok &= test_reparse(output, source.text(), i, rng);
 
@@ -638,7 +626,8 @@ fn test_part(
         let mut tracer = typst::eval::Tracer::new();
 
         let module =
-            typst::eval::eval(world, route.track(), tracer.track_mut(), &source).unwrap();
+                    typst::eval::eval(world, route.track(), tracer.track_mut(), &source)
+                        .unwrap();
         writeln!(output, "Model:\n{:#?}\n", module.content()).unwrap();
     }
 
@@ -655,22 +644,6 @@ fn test_part(
     // Don't retain frames if we don't want to compare with reference images.
     if !compare_ref {
         frames.clear();
-    }
-
-    if !metadata.invalid_data.is_empty() {
-        ok = false;
-        writeln!(output, "  Subtest {i} has invalid metadata, failing the test:")
-            .unwrap();
-        for (annotation, error) in &metadata.invalid_data {
-            if let Some(annotation) = annotation {
-                write!(output, "    {error}|").unwrap();
-
-                // line is a logic error here, what should I do with it?
-                print_annotation(output, &source, line, annotation)
-            } else {
-                writeln!(output, "    {error}").unwrap();
-            }
-        }
     }
 
     // we never check autocomplete and error at the same time
@@ -738,7 +711,8 @@ fn test_part(
         // This prints all unexpected emits first, then all missing emits.
         // Is this reasonable or subject to change?
         if !(unexpected_outputs.is_empty() && missing_outputs.is_empty()) {
-            writeln!(output, "  Subtest {i} does not match expected errors.").unwrap();
+                    writeln!(output, "  Subtest {i} does not match expected errors.")
+                        .unwrap();
             ok = false;
 
             for unexpected in unexpected_outputs {
@@ -776,7 +750,8 @@ fn test_part(
             let cursor = annotation.range.as_ref().unwrap().start;
 
             // todo, use document if is_some to test labels autocomplete
-            let completions = typst_ide::autocomplete(world, None, &source, cursor, true)
+                    let completions =
+                        typst_ide::autocomplete(world, None, &source, cursor, true)
                 .map(|(_, c)| c)
                 .unwrap_or_default()
                 .into_iter()
@@ -785,14 +760,19 @@ fn test_part(
             let completions =
                 completions.iter().map(|s| s.as_str()).collect::<HashSet<&str>>();
 
-            let must_contain_or_exclude = parse_autocomplete_message(&annotation.message);
-            let missing =
-                must_contain_or_exclude.difference(&completions).collect::<Vec<_>>();
+                    let must_contain_or_exclude =
+                        parse_autocomplete_message(&annotation.message);
+                    let missing = must_contain_or_exclude
+                        .difference(&completions)
+                        .collect::<Vec<_>>();
 
             if !missing.is_empty()
                 && matches!(annotation.kind, AnnotationKind::AutocompleteContains)
             {
-                writeln!(output, "  Subtest {i} does not match expected completions.")
+                        writeln!(
+                            output,
+                            "  Subtest {i} does not match expected completions."
+                        )
                     .unwrap();
                 write!(output, "  for annotation | ").unwrap();
                 print_annotation(output, &source, line, annotation);
@@ -805,13 +785,17 @@ fn test_part(
                 ok = false;
             }
 
-            let undesired =
-                must_contain_or_exclude.intersection(&completions).collect::<Vec<_>>();
+                    let undesired = must_contain_or_exclude
+                        .intersection(&completions)
+                        .collect::<Vec<_>>();
 
             if !undesired.is_empty()
                 && matches!(annotation.kind, AnnotationKind::AutocompleteExcludes)
             {
-                writeln!(output, "  Subtest {i} does not match expected completions.")
+                        writeln!(
+                            output,
+                            "  Subtest {i} does not match expected completions."
+                        )
                     .unwrap();
                 write!(output, "  for annotation | ").unwrap();
                 print_annotation(output, &source, line, annotation);
@@ -827,6 +811,21 @@ fn test_part(
     }
 
     (ok, compare_ref, frames)
+        }
+        Err(invalid_data) => {
+            writeln!(output, "  Subtest {i} has invalid metadata, failing the test:")
+                .unwrap();
+            InvalidMetadata::write(
+                invalid_data,
+                output,
+                &mut |annotation: &Annotation, output: &mut String| {
+                    print_annotation(output, &source, line, annotation)
+                },
+            );
+
+            (false, false, vec![])
+        }
+    }
 }
 
 fn print_annotation(
