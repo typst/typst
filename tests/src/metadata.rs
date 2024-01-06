@@ -276,12 +276,12 @@ pub fn parse_part_metadata(
     }
     if invalid_data.is_empty() {
         Ok(TestPartMetadata {
-        part_configuration: TestConfiguration {
-            compare_ref,
-            validate_hints,
-            validate_autocomplete,
-        },
-        annotations,
+            part_configuration: TestConfiguration {
+                compare_ref,
+                validate_hints,
+                validate_autocomplete,
+            },
+            annotations,
         })
     } else {
         Err(invalid_data)

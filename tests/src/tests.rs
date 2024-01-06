@@ -452,16 +452,16 @@ fn test(
             let metadata = parse_part_metadata(&source, true);
             match metadata {
                 Ok(metadata) => {
-            header_configuration = Some(metadata.part_configuration);
+                    header_configuration = Some(metadata.part_configuration);
                 }
                 Err(invalid_data) => {
-                ok = false;
-                writeln!(
-                    output,
-                    " Test {}: invalid metadata in header, failing the test:",
-                    name.display()
-                )
-                .unwrap();
+                    ok = false;
+                    writeln!(
+                        output,
+                        " Test {}: invalid metadata in header, failing the test:",
+                        name.display()
+                    )
+                    .unwrap();
                     InvalidMetadata::write(
                         invalid_data,
                         &mut output,
@@ -551,7 +551,7 @@ fn test(
         stdout.write_all(name.to_string_lossy().as_bytes()).unwrap();
         if ok {
             writeln!(stdout, " ✔").unwrap();
-            // Don't clear the line when in verbose mode or when the reference image 
+            // Don't clear the line when in verbose mode or when the reference image
             // was updated, to show in the output which test had its image updated.
             if !updated && !args.verbose && stdout.is_terminal() {
                 // ANSI escape codes: cursor moves up and clears the line.
@@ -601,164 +601,164 @@ fn test_part(
     match metadata {
         Ok(metadata) => {
             let mut ok = true;
-    let compare_ref = metadata
-        .part_configuration
-        .compare_ref
-        .unwrap_or(header_configuration.compare_ref.unwrap_or(true));
-    let validate_hints = metadata
-        .part_configuration
-        .validate_hints
-        .unwrap_or(header_configuration.validate_hints.unwrap_or(true));
-    let validate_autocomplete = metadata
-        .part_configuration
-        .validate_autocomplete
-        .unwrap_or(header_configuration.validate_autocomplete.unwrap_or(false));
+            let compare_ref = metadata
+                .part_configuration
+                .compare_ref
+                .unwrap_or(header_configuration.compare_ref.unwrap_or(true));
+            let validate_hints = metadata
+                .part_configuration
+                .validate_hints
+                .unwrap_or(header_configuration.validate_hints.unwrap_or(true));
+            let validate_autocomplete = metadata
+                .part_configuration
+                .validate_autocomplete
+                .unwrap_or(header_configuration.validate_autocomplete.unwrap_or(false));
 
-    if verbose {
+            if verbose {
                 writeln!(output, "Subtest {i} runs with compare_ref={compare_ref}; validate_hints={validate_hints}; validate_autocomplete={validate_autocomplete};").unwrap();
-    }
-    ok &= test_spans(output, source.root());
-    ok &= test_reparse(output, source.text(), i, rng);
+            }
+            ok &= test_spans(output, source.root());
+            ok &= test_reparse(output, source.text(), i, rng);
 
-    if world.print.model {
-        let world = (world as &dyn World).track();
-        let route = typst::engine::Route::default();
-        let mut tracer = typst::eval::Tracer::new();
+            if world.print.model {
+                let world = (world as &dyn World).track();
+                let route = typst::engine::Route::default();
+                let mut tracer = typst::eval::Tracer::new();
 
-        let module =
+                let module =
                     typst::eval::eval(world, route.track(), tracer.track_mut(), &source)
                         .unwrap();
-        writeln!(output, "Model:\n{:#?}\n", module.content()).unwrap();
-    }
-
-    let mut tracer = Tracer::new();
-    let (mut frames, diagnostics) = match typst::compile(world, &mut tracer) {
-        Ok(document) => (document.pages, tracer.warnings()),
-        Err(errors) => {
-            let mut warnings = tracer.warnings();
-            warnings.extend(errors);
-            (vec![], warnings)
-        }
-    };
-
-    // Don't retain frames if we don't want to compare with reference images.
-    if !compare_ref {
-        frames.clear();
-    }
-
-    // we never check autocomplete and error at the same time
-
-    let diagnostic_annotations = metadata
-        .annotations
-        .iter()
-        .filter(|a| {
-            !matches!(
-                a.kind,
-                AnnotationKind::AutocompleteContains
-                    | AnnotationKind::AutocompleteExcludes
-            )
-        })
-        .cloned()
-        .collect::<HashSet<_>>();
-
-    if !validate_autocomplete {
-        // Map diagnostics to range and message format, discard traces and errors from
-        // other files, collect hints.
-        //
-        // This has one caveat: due to the format of the expected hints, we can not
-        // verify if a hint belongs to a diagnostic or not. That should be irrelevant
-        // however, as the line of the hint is still verified.
-        let mut actual_diagnostics = HashSet::new();
-        for diagnostic in &diagnostics {
-            // Ignore diagnostics from other files.
-            if diagnostic.span.id().map_or(false, |id| id != source.id()) {
-                continue;
+                writeln!(output, "Model:\n{:#?}\n", module.content()).unwrap();
             }
 
-            let annotation = Annotation {
-                kind: match diagnostic.severity {
-                    Severity::Error => AnnotationKind::Error,
-                    Severity::Warning => AnnotationKind::Warning,
-                },
-                range: world.range(diagnostic.span),
-                message: diagnostic.message.replace("\\", "/"),
+            let mut tracer = Tracer::new();
+            let (mut frames, diagnostics) = match typst::compile(world, &mut tracer) {
+                Ok(document) => (document.pages, tracer.warnings()),
+                Err(errors) => {
+                    let mut warnings = tracer.warnings();
+                    warnings.extend(errors);
+                    (vec![], warnings)
+                }
             };
 
-            if validate_hints {
-                for hint in &diagnostic.hints {
-                    actual_diagnostics.insert(Annotation {
-                        kind: AnnotationKind::Hint,
-                        message: hint.clone(),
-                        range: annotation.range.clone(),
-                    });
-                }
+            // Don't retain frames if we don't want to compare with reference images.
+            if !compare_ref {
+                frames.clear();
             }
 
-            actual_diagnostics.insert(annotation);
-        }
+            // we never check autocomplete and error at the same time
 
-        // Basically symmetric_difference, but we need to know where an item is coming from.
-        let mut unexpected_outputs = actual_diagnostics
-            .difference(&diagnostic_annotations)
-            .collect::<Vec<_>>();
-        let mut missing_outputs = diagnostic_annotations
-            .difference(&actual_diagnostics)
-            .collect::<Vec<_>>();
+            let diagnostic_annotations = metadata
+                .annotations
+                .iter()
+                .filter(|a| {
+                    !matches!(
+                        a.kind,
+                        AnnotationKind::AutocompleteContains
+                            | AnnotationKind::AutocompleteExcludes
+                    )
+                })
+                .cloned()
+                .collect::<HashSet<_>>();
 
-        unexpected_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));
-        missing_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));
+            if !validate_autocomplete {
+                // Map diagnostics to range and message format, discard traces and errors from
+                // other files, collect hints.
+                //
+                // This has one caveat: due to the format of the expected hints, we can not
+                // verify if a hint belongs to a diagnostic or not. That should be irrelevant
+                // however, as the line of the hint is still verified.
+                let mut actual_diagnostics = HashSet::new();
+                for diagnostic in &diagnostics {
+                    // Ignore diagnostics from other files.
+                    if diagnostic.span.id().map_or(false, |id| id != source.id()) {
+                        continue;
+                    }
 
-        // This prints all unexpected emits first, then all missing emits.
-        // Is this reasonable or subject to change?
-        if !(unexpected_outputs.is_empty() && missing_outputs.is_empty()) {
+                    let annotation = Annotation {
+                        kind: match diagnostic.severity {
+                            Severity::Error => AnnotationKind::Error,
+                            Severity::Warning => AnnotationKind::Warning,
+                        },
+                        range: world.range(diagnostic.span),
+                        message: diagnostic.message.replace("\\", "/"),
+                    };
+
+                    if validate_hints {
+                        for hint in &diagnostic.hints {
+                            actual_diagnostics.insert(Annotation {
+                                kind: AnnotationKind::Hint,
+                                message: hint.clone(),
+                                range: annotation.range.clone(),
+                            });
+                        }
+                    }
+
+                    actual_diagnostics.insert(annotation);
+                }
+
+                // Basically symmetric_difference, but we need to know where an item is coming from.
+                let mut unexpected_outputs = actual_diagnostics
+                    .difference(&diagnostic_annotations)
+                    .collect::<Vec<_>>();
+                let mut missing_outputs = diagnostic_annotations
+                    .difference(&actual_diagnostics)
+                    .collect::<Vec<_>>();
+
+                unexpected_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));
+                missing_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));
+
+                // This prints all unexpected emits first, then all missing emits.
+                // Is this reasonable or subject to change?
+                if !(unexpected_outputs.is_empty() && missing_outputs.is_empty()) {
                     writeln!(output, "  Subtest {i} does not match expected errors.")
                         .unwrap();
-            ok = false;
+                    ok = false;
 
-            for unexpected in unexpected_outputs {
-                write!(output, "    Not annotated | ").unwrap();
-                print_annotation(output, &source, line, unexpected)
-            }
+                    for unexpected in unexpected_outputs {
+                        write!(output, "    Not annotated | ").unwrap();
+                        print_annotation(output, &source, line, unexpected)
+                    }
 
-            for missing in missing_outputs {
-                write!(output, "    Not emitted   | ").unwrap();
-                print_annotation(output, &source, line, missing)
-            }
-        }
-    } else {
-        // warns and ignores diagnostics
-        if !diagnostic_annotations.is_empty() {
-            writeln!(
-                output,
-                "  Subtest {i} contains diagnostics but is in autocomplete mode."
-            )
-            .unwrap();
-            for a in diagnostic_annotations {
-                write!(output, "    Ignored | ").unwrap();
-                print_annotation(output, &source, line, &a);
-            }
-        }
+                    for missing in missing_outputs {
+                        write!(output, "    Not emitted   | ").unwrap();
+                        print_annotation(output, &source, line, missing)
+                    }
+                }
+            } else {
+                // warns and ignores diagnostics
+                if !diagnostic_annotations.is_empty() {
+                    writeln!(
+                        output,
+                        "  Subtest {i} contains diagnostics but is in autocomplete mode."
+                    )
+                    .unwrap();
+                    for a in diagnostic_annotations {
+                        write!(output, "    Ignored | ").unwrap();
+                        print_annotation(output, &source, line, &a);
+                    }
+                }
 
-        for annotation in metadata.annotations.iter().filter(|a| {
-            matches!(
-                a.kind,
-                AnnotationKind::AutocompleteContains
-                    | AnnotationKind::AutocompleteExcludes
-            )
-        }) {
-            // Ok cause we checked in parsing that range was Some for this annotation
-            let cursor = annotation.range.as_ref().unwrap().start;
+                for annotation in metadata.annotations.iter().filter(|a| {
+                    matches!(
+                        a.kind,
+                        AnnotationKind::AutocompleteContains
+                            | AnnotationKind::AutocompleteExcludes
+                    )
+                }) {
+                    // Ok cause we checked in parsing that range was Some for this annotation
+                    let cursor = annotation.range.as_ref().unwrap().start;
 
-            // todo, use document if is_some to test labels autocomplete
+                    // todo, use document if is_some to test labels autocomplete
                     let completions =
                         typst_ide::autocomplete(world, None, &source, cursor, true)
-                .map(|(_, c)| c)
-                .unwrap_or_default()
-                .into_iter()
-                .map(|c| c.label.to_string())
-                .collect::<HashSet<_>>();
-            let completions =
-                completions.iter().map(|s| s.as_str()).collect::<HashSet<&str>>();
+                            .map(|(_, c)| c)
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(|c| c.label.to_string())
+                            .collect::<HashSet<_>>();
+                    let completions =
+                        completions.iter().map(|s| s.as_str()).collect::<HashSet<&str>>();
 
                     let must_contain_or_exclude =
                         parse_autocomplete_message(&annotation.message);
@@ -766,51 +766,51 @@ fn test_part(
                         .difference(&completions)
                         .collect::<Vec<_>>();
 
-            if !missing.is_empty()
-                && matches!(annotation.kind, AnnotationKind::AutocompleteContains)
-            {
+                    if !missing.is_empty()
+                        && matches!(annotation.kind, AnnotationKind::AutocompleteContains)
+                    {
                         writeln!(
                             output,
                             "  Subtest {i} does not match expected completions."
                         )
-                    .unwrap();
-                write!(output, "  for annotation | ").unwrap();
-                print_annotation(output, &source, line, annotation);
+                        .unwrap();
+                        write!(output, "  for annotation | ").unwrap();
+                        print_annotation(output, &source, line, annotation);
 
-                write!(output, "    Not contained  | ").unwrap();
-                for item in missing {
-                    write!(output, "{item:?}, ").unwrap()
-                }
-                writeln!(output).unwrap();
-                ok = false;
-            }
+                        write!(output, "    Not contained  | ").unwrap();
+                        for item in missing {
+                            write!(output, "{item:?}, ").unwrap()
+                        }
+                        writeln!(output).unwrap();
+                        ok = false;
+                    }
 
                     let undesired = must_contain_or_exclude
                         .intersection(&completions)
                         .collect::<Vec<_>>();
 
-            if !undesired.is_empty()
-                && matches!(annotation.kind, AnnotationKind::AutocompleteExcludes)
-            {
+                    if !undesired.is_empty()
+                        && matches!(annotation.kind, AnnotationKind::AutocompleteExcludes)
+                    {
                         writeln!(
                             output,
                             "  Subtest {i} does not match expected completions."
                         )
-                    .unwrap();
-                write!(output, "  for annotation | ").unwrap();
-                print_annotation(output, &source, line, annotation);
+                        .unwrap();
+                        write!(output, "  for annotation | ").unwrap();
+                        print_annotation(output, &source, line, annotation);
 
-                write!(output, "    Not excluded| ").unwrap();
-                for item in undesired {
-                    write!(output, "{item:?}, ").unwrap()
+                        write!(output, "    Not excluded| ").unwrap();
+                        for item in undesired {
+                            write!(output, "{item:?}, ").unwrap()
+                        }
+                        writeln!(output).unwrap();
+                        ok = false;
+                    }
                 }
-                writeln!(output).unwrap();
-                ok = false;
             }
-        }
-    }
 
-    (ok, compare_ref, frames)
+            (ok, compare_ref, frames)
         }
         Err(invalid_data) => {
             writeln!(output, "  Subtest {i} has invalid metadata, failing the test:")
