@@ -152,7 +152,11 @@ pub fn parse_part_metadata(
     let mut annotations = HashSet::default();
     let mut invalid_data = vec![];
 
-    let lines: Vec<_> = source.text().lines().map(str::trim).collect();
+    let lines = get_lines(source);
+
+    fn get_lines(source: &Source) -> Vec<&str> {
+        source.text().lines().map(str::trim).collect()
+    }
 
     fn num(s: &mut Scanner) -> Option<isize> {
         let mut first = true;
@@ -164,18 +168,23 @@ pub fn parse_part_metadata(
         n.parse().ok()
     }
 
-    let comments_until_code =
-        |i: usize| lines[i..].iter().take_while(|line| line.starts_with("//")).count();
+    fn comments_until_code(source: &Source, i: usize) -> usize {
+        get_lines(source)[i..]
+            .iter()
+            .take_while(|line| line.starts_with("//"))
+            .count()
+    }
 
-    let pos = |s: &mut Scanner, i: usize| -> Option<usize> {
+    fn pos(s: &mut Scanner, i: usize, source: &Source) -> Option<usize> {
         let first = num(s)? - 1;
         let (delta, column) =
             if s.eat_if(':') { (first, num(s)? - 1) } else { (0, first) };
-        let line = (i + comments_until_code(i)).checked_add_signed(delta)?;
+        let line = (i + comments_until_code(source, i)).checked_add_signed(delta)?;
         source.line_column_to_byte(line, usize::try_from(column).ok()?)
-    };
+    }
 
-    let range = |s: &mut Scanner, i: usize| -> Option<Range<usize>> {
+    fn range(s: &mut Scanner, i: usize, source: &Source) -> Option<Range<usize>> {
+        let lines = get_lines(source);
         s.eat_whitespace();
         if s.eat_if("-1") {
             let mut add = 1;
@@ -192,11 +201,11 @@ pub fn parse_part_metadata(
             s.eat_whitespace();
             return Some(index..index);
         }
-        let start = pos(s, i)?;
-        let end = if s.eat_if('-') { pos(s, i)? } else { start };
+        let start = pos(s, i, source)?;
+        let end = if s.eat_if('-') { pos(s, i, source)? } else { start };
         s.eat_whitespace();
         Some(start..end)
-    };
+    }
 
     for (i, line) in lines.iter().enumerate() {
         if let Some((key, value)) = get_metadata(line) {
@@ -216,7 +225,7 @@ pub fn parse_part_metadata(
                 annotation_key if AnnotationKind::from_str(annotation_key).is_some() => {
                     let kind = AnnotationKind::from_str(annotation_key).unwrap();
                     let mut s = Scanner::new(value);
-                    let range = range(&mut s, i);
+                    let range = range(&mut s, i, source);
                     let rest = if range.is_some() { s.after() } else { s.string() };
                     let message = rest
                         .trim()
