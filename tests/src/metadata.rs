@@ -238,8 +238,7 @@ pub fn parse_part_metadata(
                         invalid_data.push(InvalidMetadata::InvalidAnnotation(
                             annotation,
                             format!(
-                                "Error: header may not contain annotations of type {}",
-                                kind
+                                "Error: header may not contain annotations of type {kind}"
                             ),
                         ));
                         continue;
