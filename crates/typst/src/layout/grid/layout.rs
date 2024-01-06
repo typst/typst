@@ -376,6 +376,8 @@ impl<'a> GridLayouter<'a> {
 
         self.render_fills_strokes()?;
 
+        self.finished.iter_mut().for_each(|f| f.meta(self.styles, false));
+
         Ok(Fragment::frames(self.finished))
     }
 
