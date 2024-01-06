@@ -18,9 +18,37 @@ pub struct TestPartMetadata {
     pub part_configuration: TestConfiguration,
     pub annotations: HashSet<Annotation>,
     // the annotation has an invalid message, range etc.
-    pub invalid_data: Vec<(Option<Annotation>, String)>,
 }
 
+/// Parsing error when the metadata is invalid.
+pub(crate) enum InvalidMetadata {
+    /// An invalid annotation and it's error message.
+    InvalidAnnotation(Annotation, String),
+    /// Setting metadata can only be done with `true` or `false` as a value.
+    InvalidSet(String),
+}
+
+impl InvalidMetadata {
+    pub(crate) fn write(
+        invalid_data: Vec<InvalidMetadata>,
+        output: &mut String,
+        print_annotation: &mut impl FnMut(&Annotation, &mut String),
+    ) {
+        use std::fmt::Write;
+        for data in invalid_data.into_iter() {
+            let (annotation, error) = match data {
+                InvalidMetadata::InvalidAnnotation(a, e) => (Some(a), e),
+                InvalidMetadata::InvalidSet(e) => (None, e),
+            };
+            write!(output, "{error}",).unwrap();
+            if let Some(annotation) = annotation {
+                print_annotation(&annotation, output)
+            } else {
+                writeln!(output).unwrap();
+            }
+        }
+    }
+}
 /// Valid metadata keys are `Hint`, `Ref`, `Autocomplete`.
 /// Example : `// Ref: true`
 ///
@@ -114,7 +142,10 @@ impl Display for AnnotationKind {
 ///         example: `4-6`
 ///     - `-1` in which case, it is the range cursor..cursor where cursor is at the end of the next line,
 ///         skipping comments line. (Mostly useful for autocompletion which requires an index).
-pub fn parse_part_metadata(source: &Source) -> TestPartMetadata {
+pub fn parse_part_metadata(
+    source: &Source,
+    is_header: bool,
+) -> Result<TestPartMetadata, Vec<InvalidMetadata>> {
     let mut compare_ref = None;
     let mut validate_hints = None;
     let mut validate_autocomplete = None;
@@ -171,18 +202,17 @@ pub fn parse_part_metadata(source: &Source) -> TestPartMetadata {
         if let Some((key, value)) = get_metadata(line) {
             let key = key.trim();
             match key {
-                "Ref" | "Hints" | "Autocomplete" => {
-                    let value = value.trim();
-                    if value != "false" && value != "true" {
-                        invalid_data.push((None, format!("Error: trying to set Ref, Hints, or Autocomplete with value {value:?} != true, != false.")));
-                    }
-                    match key {
-                        "Ref" => compare_ref = Some(value == "true"),
-                        "Hints" => validate_hints = Some(value == "true"),
-                        "Autocomplete" => validate_autocomplete = Some(value == "true"),
-                        _ => unreachable!(),
-                    }
+                "Ref" => {
+                    validate_set_annotation(value, &mut compare_ref, &mut invalid_data)
                 }
+                "Hints" => {
+                    validate_set_annotation(value, &mut validate_hints, &mut invalid_data)
+                }
+                "Autocomplete" => validate_set_annotation(
+                    value,
+                    &mut validate_autocomplete,
+                    &mut invalid_data,
+                ),
                 annotation_key if AnnotationKind::from_str(annotation_key).is_some() => {
                     let kind = AnnotationKind::from_str(annotation_key).unwrap();
                     let mut s = Scanner::new(value);
@@ -195,6 +225,17 @@ pub fn parse_part_metadata(source: &Source) -> TestPartMetadata {
 
                     let annotation = Annotation { kind, range: range.clone(), message };
 
+                    if is_header {
+                        invalid_data.push(InvalidMetadata::InvalidAnnotation(
+                            annotation,
+                            format!(
+                                "Error: header may not contain annotations of type {}",
+                                kind
+                            ),
+                        ));
+                        continue;
+                    }
+
                     if matches!(
                         kind,
                         AnnotationKind::AutocompleteContains
@@ -202,12 +243,16 @@ pub fn parse_part_metadata(source: &Source) -> TestPartMetadata {
                     ) {
                         if let Some(range) = range {
                             if range.start != range.end {
-                                invalid_data.push((Some(annotation), "Error: using a range where range.start != range.end, range.end would be ignored.".to_string()));
+                                invalid_data.push(InvalidMetadata::InvalidAnnotation(
+                                    annotation,
+                                    "Error: found range in Autocomplete annotation where range.start != range.end, range.end would be ignored."
+                                        .to_string()
+                                    ));
                                 continue;
                             }
                         } else {
-                            invalid_data.push((
-                                Some(annotation),
+                            invalid_data.push(InvalidMetadata::InvalidAnnotation(
+                                annotation,
                                 "Error: autocomplete annotation but no range specified"
                                     .to_string(),
                             ));
@@ -216,19 +261,35 @@ pub fn parse_part_metadata(source: &Source) -> TestPartMetadata {
                     }
                     annotations.insert(annotation);
                 }
-                _ => {}
+                _ => (),
             }
         }
     }
-
-    TestPartMetadata {
+    if invalid_data.is_empty() {
+        Ok(TestPartMetadata {
         part_configuration: TestConfiguration {
             compare_ref,
             validate_hints,
             validate_autocomplete,
         },
         annotations,
-        invalid_data,
+        })
+    } else {
+        Err(invalid_data)
+    }
+}
+
+fn validate_set_annotation(
+    value: &str,
+    flag: &mut Option<bool>,
+    invalid_data: &mut Vec<InvalidMetadata>,
+) {
+    let value = value.trim();
+    if value != "false" && value != "true" {
+        invalid_data.push(
+            InvalidMetadata::InvalidSet(format!("Error: trying to set Ref, Hints, or Autocomplete with value {value:?} != true, != false.")))
+    } else {
+        *flag = Some(value == "true")
     }
 }
 
