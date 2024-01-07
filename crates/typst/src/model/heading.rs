@@ -17,7 +17,7 @@ use crate::util::{option_eq, NonZeroExt};
 /// With headings, you can structure your document into sections. Each heading
 /// has a _level,_ which starts at one and is unbounded upwards. This level
 /// indicates the logical role of the following content (section, subsection,
-/// etc.)  A top-level heading indicates a top-level section of the document
+/// etc.) A top-level heading indicates a top-level section of the document
 /// (not the document's title).
 ///
 /// Typst can automatically number your headings for you. To enable numbering,
@@ -42,18 +42,28 @@ use crate::util::{option_eq, NonZeroExt};
 /// # Syntax
 /// Headings have dedicated syntax: They can be created by starting a line with
 /// one or multiple equals signs, followed by a space. The number of equals
-/// signs determines the heading's logical nesting depth.
+/// signs determines the heading's logical nesting depth. The `{offset}` field
+/// can be set to configure the starting depth.
 #[elem(Locatable, Synthesize, Count, Show, Finalize, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
-    /// The logical nesting depth of the heading, starting from *one*.
+    /// The logical nesting depth of the heading, starting from *one*. This is
+    /// combined with `{offset}` to compute the actual `{level}`.
     #[default(NonZeroUsize::ONE)]
     pub depth: NonZeroUsize,
 
-    /// The starting offset each the heading's level.
+    /// The starting offset of each the heading's level.
+    ///
+    /// ```example
+    /// #set heading(offset: 1, numbering: "1.1")
+    ///
+    /// = Not Level 1
+    /// = Level 3
+    /// ```
     #[default(0)]
     pub offset: usize,
 
     /// The logical nesting depth of the heading, starting from its *offset*.
+    /// If set to `{auto}`, it is computed from `{offset + depth}`.
     pub level: Smart<NonZeroUsize>,
 
     /// How to number the heading. Accepts a
