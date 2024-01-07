@@ -68,3 +68,9 @@ Hidden:
   1. A
   2. B
 - 3
+
+---
+Hidden:
+#hide(image("/files/tiger.jpg", width: 5cm, height: 1cm,))
+
+#image("/files/tiger.jpg", width: 5cm, height: 1cm,)
