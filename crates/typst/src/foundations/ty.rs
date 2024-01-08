@@ -94,9 +94,7 @@ impl Type {
             .constructor
             .as_ref()
             .map(|lazy| Func::from(*lazy))
-            .ok_or_else(|| {
-                eco_format!("type {self} does not have a constructor")
-            })
+            .ok_or_else(|| eco_format!("type {self} does not have a constructor"))
     }
 
     /// The type's associated scope that holds sub-definitions.
@@ -106,9 +104,9 @@ impl Type {
 
     /// Get a field from this type's scope, if possible.
     pub fn field(&self, field: &str) -> StrResult<&'static Value> {
-        self.scope().get(field).ok_or_else(|| {
-            eco_format!("type {self} does not contain field `{field}`")
-        })
+        self.scope()
+            .get(field)
+            .ok_or_else(|| eco_format!("type {self} does not contain field `{field}`"))
     }
 }
 
