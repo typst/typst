@@ -95,7 +95,7 @@ impl Type {
             .as_ref()
             .map(|lazy| Func::from(*lazy))
             .ok_or_else(|| {
-                eco_format!("type `{}` does not have a constructor", self.short_name())
+                eco_format!("type {self} does not have a constructor")
             })
     }
 
