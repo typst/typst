@@ -107,7 +107,7 @@ impl Type {
     /// Get a field from this type's scope, if possible.
     pub fn field(&self, field: &str) -> StrResult<&'static Value> {
         self.scope().get(field).ok_or_else(|| {
-            eco_format!("type `{}` does not contain field `{}`", self.short_name(), field)
+            eco_format!("type {self} does not contain field `{field}`")
         })
     }
 }
