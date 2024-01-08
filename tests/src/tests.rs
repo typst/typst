@@ -1,19 +1,18 @@
-#![allow(clippy::comparison_chain)]
-
 /*! This is Typst's test runner.
 
-Tests are typst files composed of a header part followed by
-tests parts.
+Tests are Typst files composed of a header part followed by subtests.
 
 The header may contain:
 - a small description `// tests that features X works well`
 - metadata (see [metadata::TestConfiguration])
 
-The tests parts may use functions defined in [library], most importantly,
-`test(x, y)` which will fail the test `if x != y`
+The subtests may use extra testing functions defined in [library], most
+importantly, `test(x, y)` which will fail the test `if x != y`.
+*/
 
-!*/
+#![allow(clippy::comparison_chain)]
 mod metadata;
+
 use self::metadata::*;
 
 use std::collections::{HashMap, HashSet};
@@ -51,40 +50,42 @@ const SVG_DIR: &str = "svg";
 const FONT_DIR: &str = "../assets/fonts";
 const ASSET_DIR: &str = "../assets";
 
-/// Arguments that modify test behaviour
+/// Arguments that modify test behaviour.
 ///
 /// Specify them like this when developing:
 /// `cargo test --workspace --test tests -- --help`
 #[derive(Debug, Clone, Parser)]
 #[clap(name = "typst-test", author)]
 struct Args {
-    /// All the tests that contains a filter string will be
-    /// run except if `--exact` is specified
+    /// All the tests that contains a filter string will be run (unless
+    /// `--exact` is specified, which is even stricter).
     filter: Vec<String>,
-    /// Runs only the specified subtest
+    /// Runs only the specified subtest.
     #[arg(short, long)]
     #[arg(allow_hyphen_values = true)]
     subtest: Option<isize>,
-    /// Runs only the test with the exact name specified in your command
+    /// Runs only the test with the exact name specified in your command.
     ///
-    /// Example: `cargo test --workspace --test tests  -- compiler/bytes.typ --exact`
+    /// Example:
+    /// `cargo test --workspace --test tests  -- compiler/bytes.typ --exact`
     #[arg(long)]
     exact: bool,
-    /// Updates the reference images in `tests/ref`
+    /// Updates the reference images in `tests/ref`.
     #[arg(long, default_value_t = env::var_os("UPDATE_EXPECT").is_some())]
     update: bool,
-    /// Exports the tests as PDF into `tests/pdf`
+    /// Exports the tests as PDF into `tests/pdf`.
     #[arg(long)]
     pdf: bool,
+    /// Configuration of what to print.
     #[command(flatten)]
     print: PrintConfig,
     /// Running `cargo test --workspace -- --nocapture` for the unit tests would
     /// fail the test runner without argument.
-    // TODO: would it really still happen.
+    // TODO: would it really still happen?
     #[arg(long)]
     nocapture: bool,
-    /// prevents the terminal from being cleared of tests names
-    /// and includes non essential test messages.
+    /// Prevents the terminal from being cleared of test names and includes
+    /// non-essential test messages.
     #[arg(short, long)]
     verbose: bool,
 }
@@ -92,10 +93,13 @@ struct Args {
 /// Which things to print out for debugging.
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Parser)]
 struct PrintConfig {
+    /// Print the syntax tree.
     #[arg(long)]
     syntax: bool,
+    /// Print the content model.
     #[arg(long)]
     model: bool,
+    /// Print the layouted frames.
     #[arg(long)]
     frames: bool,
 }
@@ -392,7 +396,7 @@ fn read(path: &Path) -> FileResult<Vec<u8>> {
 
 /// Tests a test file and prints the result.
 ///
-/// Also tests that the header of each test is correctly written.
+/// Also tests that the header of each test is written correctly.
 /// See [parse_part_metadata] for more details.
 fn test(
     world: &mut TestWorld,
@@ -452,7 +456,7 @@ fn test(
             let metadata = parse_part_metadata(&source, true);
             match metadata {
                 Ok(metadata) => {
-                    header_configuration = Some(metadata.part_configuration);
+                    header_configuration = Some(metadata.config);
                 }
                 Err(invalid_data) => {
                     ok = false;
@@ -588,7 +592,7 @@ fn test_part(
     text: String,
     line: usize,
     i: usize,
-    header_configuration: &TestConfiguration,
+    header_configuration: &TestConfig,
     rng: &mut LinearShift,
     verbose: bool,
 ) -> (bool, bool, Vec<Frame>) {
@@ -616,15 +620,15 @@ fn test_part(
         Ok(metadata) => {
             let mut ok = true;
             let compare_ref = metadata
-                .part_configuration
+                .config
                 .compare_ref
                 .unwrap_or(header_configuration.compare_ref.unwrap_or(true));
             let validate_hints = metadata
-                .part_configuration
+                .config
                 .validate_hints
                 .unwrap_or(header_configuration.validate_hints.unwrap_or(true));
             let validate_autocomplete = metadata
-                .part_configuration
+                .config
                 .validate_autocomplete
                 .unwrap_or(header_configuration.validate_autocomplete.unwrap_or(false));
 
@@ -738,7 +742,7 @@ fn test_autocomplete<'a>(
         let completions =
             completions.iter().map(|s| s.as_str()).collect::<HashSet<&str>>();
 
-        let must_contain_or_exclude = parse_autocomplete_message(&annotation.message);
+        let must_contain_or_exclude = parse_string_list(&annotation.text);
         let missing =
             must_contain_or_exclude.difference(&completions).collect::<Vec<_>>();
 
@@ -810,14 +814,14 @@ fn test_diagnostics<'a>(
                 Severity::Warning => AnnotationKind::Warning,
             },
             range: world.range(diagnostic.span),
-            message: diagnostic.message.replace("\\", "/"),
+            text: diagnostic.message.replace("\\", "/"),
         };
 
         if validate_hints {
             for hint in &diagnostic.hints {
                 actual_diagnostics.insert(Annotation {
                     kind: AnnotationKind::Hint,
-                    message: hint.clone(),
+                    text: hint.clone(),
                     range: annotation.range.clone(),
                 });
             }
@@ -871,7 +875,7 @@ fn print_annotation(
     line: usize,
     annotation: &Annotation,
 ) {
-    let Annotation { range, message, kind } = annotation;
+    let Annotation { range, text, kind } = annotation;
     write!(output, "{kind}: ").unwrap();
     if let Some(range) = range {
         let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
@@ -880,7 +884,7 @@ fn print_annotation(
         let end_col = 1 + source.byte_to_column(range.end).unwrap();
         write!(output, "{start_line}:{start_col}-{end_line}:{end_col}: ").unwrap();
     }
-    writeln!(output, "{message}").unwrap();
+    writeln!(output, "{text}").unwrap();
 }
 
 /// Pseudorandomly edit the source file and test whether a reparse produces the
