@@ -42,6 +42,11 @@ Here are two paragraphs. The
 output is shown to the right.
 ```
 
+If you want to start from an preexisting LaTeX document instead, you can use
+[Pandoc](https://pandoc.org) to convert your source code to Typst markup. This
+conversion is also built into our web app, so you can upload your `.tex` file to
+start your project in Typst.
+
 ## How do I create section headings, emphasis, ...? { #elements }
 LaTeX uses the command `\section` to create a section heading. Nested headings
 are indicated with `\subsection`, `\subsubsection`, etc. Depending on your
@@ -208,14 +213,34 @@ characters.
 
 Typst provides [control flow constructs]($scripting/#conditionals) and
 [operators]($scripting/#operators) such as `+` for adding things or `==` for
-checking equality between two variables. You can also define your own
-[variables]($scripting/#bindings) and perform computations on them.
+checking equality between two variables.
+
+You can also store values, including functions, in your own
+[variables]($scripting/#bindings). This can be useful to perform computations on
+them, create reusable automations, or reference a value multiple times. The
+variable binding is accomplished with the let keyword, which works similar to
+`\newcommand`:
+
+```example
+// Store the integer `5`.
+#let five = 5
+
+// Define a function that
+// increments a value.
+#let inc(i) = i + 1
+
+// Reference the variables.
+I have #five fingers.
+
+If I had one more, I'd have
+#inc(five) fingers. Whoa!
+```
 
 ### Commands to affect the remaining document { #rules }
 In LaTeX, some commands like `\textbf{bold text}` receive an argument in curly
-braces and only affect that argument. Other commands such as
-`\bfseries bold text` act as switches, altering the appearance of all subsequent
-content within the document or current scope.
+braces and only affect that argument. Other commands such as `\bfseries bold
+text` act as switches (LaTeX calls this a declaration), altering the appearance
+of all subsequent content within the document or current scope.
 
 In Typst, the same function can be used both to affect the appearance for the
 remainder of the document, a block (or scope), or just its arguments. For
@@ -253,6 +278,22 @@ The `+` is syntactic sugar (think of it as an abbreviation) for a call to the
 an element beyond what its arguments enable, you can completely redefine its
 appearance with a [show rule]($styling/#show-rules) (somewhat comparable to
 `\renewcommand`).
+
+You can achieve the effects of LaTeX commands like `\textbf`, `\textsf`,
+`\rmfamily`, `\mdseries`, and `\itshape` with the [`font`]($text.font),
+[`style`]($text.style), and [`weight`]($text.weight) arguments of the `text`
+function. The text function can be used in a set rule (declaration style) or
+with a content argument. To replace `\textsc`, you can use the
+[`smallcaps`]($smallcaps) function, which renders its content argument as
+smallcaps. Should you want to use it declaration style (like `\scshape`), you
+can use an [_everything_ show rule]($styling/#show-rules) that applies the
+function to the rest of the scope:
+
+```example
+#show: smallcaps
+
+Boisterous Accusations
+```
 
 ## How do I load a document class? { #templates }
 In LaTeX, you start your main `.tex` file with the `\documentclass{article}`
@@ -562,6 +603,42 @@ The example below
 This should be a good starting point! If you want to go further, why not create
 a reusable template?
 
+## Bibliographies { #bibliographies }
+Typst includes a fully-featured bibliography system that is compatible with
+BibTeX files. You can continue to use your `.bib` literature libraries by
+loading them with the [`bibliography`]($bibliography) function. Another
+possibility is to use
+[Typst's YAML-based native format](https://github.com/typst/hayagriva/blob/main/docs/file-format.md).
+
+Typst uses the Citation Style Language to define and process citation and
+bibliography styles. You can compare CSL files to BibLaTeX's `.bbx` files.
+The compiler already includes [over 80 citation styles]($bibliography.style),
+but you can use any CSL-compliant style from the
+[CSL repository](https://github.com/citation-style-language/styles) or write
+your own.
+
+You can cite an entry in your bibliography or reference a label in your document
+with the same syntax: `[@key]` (this would reference an entry called `key`).
+Alternatively, you can use the [`cite`]($cite) function.
+
+Alternative forms for your citation, such as year only and citations for natural
+use in prose (cf. `\citet` and `\textcite`) are available with
+[`[#cite(<key>, form: "prose")]`]($cite.form).
+
+You can find more information on the documentation page of the [`bibliography`]($bibliography) function.
+
+## Installation { #installation }
+You have two ways to use Typst: In [our web app](https://typst.app/signup/) or
+by [installing the compiler](https://github.com/typst/typst/releases) on your
+computer. When you use the web app, we provide a batteries-included
+collaborative editor and run Typst in your browser, no installation required.
+
+If you choose to use Typst on your computer instead, you can download the
+compiler as a single, small binary which any user can run, no root privileges
+required. Unlike LaTeX, packages are downloaded  when you first use them and
+then cached locally, keeping your Typst installation lean. You can use your own
+editor and decide where to store your files with the local compiler.
+
 ## What limitations does Typst currently have compared to LaTeX? { #limitations }
 Although Typst can be a LaTeX replacement for many today, there are still
 features that Typst does not (yet) support. Here is a list of them which, where
@@ -581,10 +658,10 @@ applicable, contains possible workarounds.
 
 - **Include PDFs as images.** In LaTeX, it has become customary to insert vector
   graphics as PDF or EPS files. Typst supports neither format as an image
-  format, but you can easily convert both into SVG files with
-  [online tools](https://cloudconvert.com/pdf-to-svg) or
-  [Inkscape](https://inkscape.org/). We plan to add automatic conversion for
-  these file formats to the Typst web app, too!
+  format, but you can easily convert both into SVG files with [online
+  tools](https://cloudconvert.com/pdf-to-svg) or
+  [Inkscape](https://inkscape.org/). The web app will automatically convert PDF
+  files to SVG files upon uploading them.
 
 - **Page break optimization.** LaTeX runs some smart algorithms to not only
   optimize line but also page breaks. While Typst tries to avoid widows and
