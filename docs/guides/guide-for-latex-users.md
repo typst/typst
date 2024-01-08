@@ -562,18 +562,34 @@ The example below
 This should be a good starting point! If you want to go further, why not create
 a reusable template?
 
-## Bibliographies { #bibliographies}
-The bibliography system has many benefits. Those include the following:
-- **Built-in citation styles**. Typst has over 80 included citation styles
-- **Compability with CSL styles**. Typst is compatibly with
-  [CSL](https://github.com/citation-style-language/styles) bibliography styles.
-- **Support for BibTeX**. Typst also supports using BibTeX files which previous
-  LaTeX users might have.
+## Bibliographies { #bibliographies }
+Typst includes a fully-featured bibliography system that is compatible with
+BibTeX files. You can continue to use your `.bib` literature libraries by
+loading them with the [`bibliography`]($bibliography) function. Another
+possibility is to use
+[Typst's YAML-based native format](https://github.com/typst/hayagriva/blob/main/docs/file-format.md).
+
+Typst uses the Citation Style Language to define and process citation and
+bibliography styles. You can compare CSL files to BibLaTeX's `.bbx` files.
+The compiler already includes [over 80 citation styles]($bibliography.style),
+but you can use any CSL-compliant style from the
+[CSL repository](https://github.com/citation-style-language/styles) or write
+your own.
+
+You can cite an entry in your bibliography or reference a label in your document
+with the same syntax: `[@key]` (this would reference an entry called `key`).
+Alternatively, you can use the [`cite`]($cite) function.
+
+Alternative forms for your citation, such as year only and citations for natural
+use in prose (cf. `\citet` and `\textcite`) are available with
+[`[#cite(<key>, form: "prose")]`]($cite.form).
+
+You can find more information on the documentation page of the [`bibliography`]($bibliography) function.
 
 ## Local Installation { #installation }
-Typst is installed with a single, small binary which can be run by any user (no
-adming/root access needed). Unlike LaTeX it doesn't include any packages.
-The packages are installed when needed and cached locally.
+Typst is a single, small binary which any user can run, no root privileges
+required. Unlike LaTeX, packages are downloaded  when you first use them and
+then cached locally, keeping your Typst installation lean.
 
 ## What limitations does Typst currently have compared to LaTeX? { #limitations }
 Although Typst can be a LaTeX replacement for many today, there are still
