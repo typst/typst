@@ -275,10 +275,10 @@ Three
 
 // Error: 15 expected expression
 #let func(x) =
-
-// Error: 6-7 expected identifier, found opening paren
-#let (func)(x) = 3
-
-// Error: 6-7 expected identifier, found opening paren
-// Error: 15 expected equals sign
+---
+// Error: 13-14 unknown variable: x
 #let (func)(x)
+---
+#let (func)(x)
+// Error: 15-15 expected semicolon or line break
+#let (func)(x) = 3

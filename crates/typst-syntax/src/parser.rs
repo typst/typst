@@ -984,6 +984,7 @@ fn args(p: &mut Parser) {
 
 enum PatternKind {
     Ident,
+    WrappedIdent,
     Placeholder,
     Destructuring,
 }
@@ -995,7 +996,7 @@ fn pattern(p: &mut Parser) -> PatternKind {
         validate_pattern_at(p, m, true);
 
         if kind == SyntaxKind::Parenthesized {
-            PatternKind::Ident
+            PatternKind::WrappedIdent
         } else {
             p.wrap(m, SyntaxKind::Destructuring);
             PatternKind::Destructuring
@@ -1021,11 +1022,11 @@ fn let_binding(p: &mut Parser) {
             if closure {
                 let m3 = p.marker();
                 collection(p, false);
-                validate_closure_at(p, m2);
                 validate_params_at(p, m3);
                 p.wrap(m3, SyntaxKind::Params);
             }
         }
+        PatternKind::WrappedIdent => {}
         PatternKind::Placeholder => {}
         PatternKind::Destructuring => destructuring = true,
     }
@@ -1259,19 +1260,6 @@ fn validate_dict<'a>(children: impl Iterator<Item = &'a mut SyntaxNode>) {
                     kind.name()
                 ));
             }
-        }
-    }
-}
-
-fn validate_closure_at(p: &mut Parser, m: Marker) {
-    let node = p.node_mut(m);
-    if let Some(child) = node {
-        match child.kind() {
-            SyntaxKind::Ident => {}
-            kind => child.convert_to_error(eco_format!(
-                "expected identifier, found {}",
-                kind.name()
-            )),
         }
     }
 }
