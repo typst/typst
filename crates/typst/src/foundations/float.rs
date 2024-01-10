@@ -62,6 +62,21 @@ impl f64 {
     pub fn is_nan(self) -> bool {
         f64::is_nan(self)
     }
+
+    /// Checks if a float is infinite.
+    ///
+    /// For floats, there is positive and negative infinity. This function
+    /// returns `true` if the float is either positive or negative infinity.
+    ///
+    /// ```example
+    /// #float.is-infinite(0) \
+    /// #float.is-infinite(1) \
+    /// #float.is-infinite(calc.inf)
+    /// ```
+    #[func]
+    pub fn is_infinite(self) -> bool {
+        f64::is_infinite(self)
+    }
 }
 
 impl Repr for f64 {

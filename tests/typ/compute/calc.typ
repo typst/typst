@@ -25,6 +25,13 @@
 #test(float(10).is-nan(), false)
 
 ---
+// Test float `is-infinite()`.
+#test(float(calc.inf).is-infinite(), true)
+#test(float(-calc.inf).is-infinite(), true)
+#test(float(10).is-infinite(), false)
+#test(float(-10).is-infinite(), false)
+
+---
 #test(calc.round(calc.e, digits: 2), 2.72)
 #test(calc.round(calc.pi, digits: 2), 3.14)
 
