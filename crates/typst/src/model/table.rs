@@ -29,6 +29,8 @@ use crate::visualize::{Paint, Stroke};
 /// [figure]($figure).
 ///
 /// # Example
+///
+/// The example below demonstrates some of the most common table options.
 /// ```example
 /// #table(
 ///   columns: (1fr, auto, auto),
@@ -45,6 +47,40 @@ use crate::visualize::{Paint, Stroke};
 ///   image("tetrahedron.svg"),
 ///   $ sqrt(2) / 12 a^3 $,
 ///   [$a$: edge length]
+/// )
+/// ```
+///
+/// Much like with grids, you can use [`table.cell`]($table.cell) to customize
+/// the appearance and the position of each cell.
+///
+/// ```example
+/// #set page(width: auto)
+/// #show table.cell: it => {
+///   if it.x == 0 or it.y == 0 {
+///     set text(white)
+///     strong(it)
+///   } else if it.body == [] {
+///     // Replace empty cells with 'N/A'
+///     pad(rest: it.inset)[_N/A_]
+///   } else {
+///     it
+///   }
+/// }
+///
+/// #table(
+///   fill: (x, y) => if x == 0 or y == 0 { gray.darken(50%) },
+///   columns: 4,
+///   [], [Exam 1], [Exam 2], [Exam 3],
+///   ..([John], [Mary], [Jake], [Robert]).map(table.cell.with(x: 0)),
+///
+///   // Mary got grade A on Exam 3.
+///   table.cell(x: 3, y: 2, fill: green)[A],
+///
+///   // Everyone got grade A on Exam 2.
+///   ..(table.cell(x: 2, fill: green)[A],) * 4,
+///
+///   // Robert got grade B on other exams.
+///   ..(table.cell(y: 4, fill: aqua)[B],) * 2,
 /// )
 /// ```
 #[elem(scope, Layout, LocalName, Figurable)]
@@ -294,9 +330,11 @@ pub struct TableCell {
     body: Content,
 
     /// The cell's column (zero-indexed).
+    /// Functions identically to the `x` field in [`grid.cell`]($grid.cell).
     x: Smart<usize>,
 
     /// The cell's row (zero-indexed).
+    /// Functions identically to the `y` field in [`grid.cell`]($grid.cell).
     y: Smart<usize>,
 
     /// The cell's fill override.

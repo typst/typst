@@ -59,7 +59,8 @@ use crate::visualize::{Paint, Stroke};
 /// appearance options to depend on a cell's position (column and row), you may
 /// specify a function to `fill` or `align` of the form
 /// `(column, row) => value`. You may also use a show rule on
-/// [`grid.cell`]($grid.cell) - see that element's examples for more information.
+/// [`grid.cell`]($grid.cell) - see that element's examples or the examples
+/// below for more information.
 ///
 /// # Examples
 /// The example below demonstrates the different track sizing options.
@@ -94,6 +95,61 @@ use crate::visualize::{Paint, Stroke};
 ///   columns: 5,
 ///   gutter: 5pt,
 ///   ..range(25).map(str)
+/// )
+/// ```
+///
+/// Additionally, you can use [`grid.cell`]($grid.cell) in various ways to
+/// not only style each cell based on its position and other fields, but also
+/// to determine the cell's preferential position in the table.
+///
+/// ```example
+/// #set page(width: auto)
+/// #show grid.cell: it => {
+///   if it.y == 0 {
+///     // The first row's text must be white and bold.
+///     set text(white)
+///     strong(it)
+///   } else {
+///     // For the second row and beyond, we will show the day number for each
+///     // cell.
+///
+///     // In general, a cell's index is given by cell.x + columns * cell.y.
+///     // Days start in the second grid row, so we subtract 1 row.
+///     // But the first day is day 1, not day 0, so we add 1.
+///     let day = it.x + 7 * (it.y - 1) + 1
+///     if day <= 31 {
+///       // Place the day's number at the top left of the cell.
+///       // Only if the day is valid for this month (not 32 or higher).
+///       place(top + left, dx: 2pt, dy: 2pt, text(8pt, red.darken(40%))[#day])
+///     }
+///     it
+///   }
+/// }
+///
+/// #grid(
+///   fill: (x, y) => if y == 0 { gray.darken(50%) },
+///   columns: (30pt,) * 7,
+///   rows: (auto, 30pt),
+///   // Events will be written at the bottom of each day square.
+///   align: bottom,
+///   inset: 5pt,
+///   stroke: (thickness: 0.5pt, dash: "densely-dotted"),
+///
+///   [Sun], [Mon], [Tue], [Wed], [Thu], [Fri], [Sat],
+///
+///   // This event will occur on the first Friday (sixth column).
+///   grid.cell(x: 5, fill: yellow.darken(10%))[Call],
+///
+///   // This event will occur every Monday (second column).
+///   // We have to repeat it 5 times so it occurs every week.
+///   ..(grid.cell(x: 1, fill: red.lighten(50%))[Meet],) * 5,
+///
+///   // This event will occur at day 19.
+///   grid.cell(x: 4, y: 3, fill: orange.lighten(25%))[Talk],
+///
+///   // These events will occur at the second week, where available.
+///   grid.cell(y: 2, fill: aqua)[Chat],
+///   grid.cell(y: 2, fill: aqua)[Walk],
 /// )
 /// ```
 #[elem(scope, Layout)]
@@ -325,9 +381,47 @@ pub struct GridCell {
     body: Content,
 
     /// The cell's column (zero-indexed).
+    /// This field may be used in show rules to style a cell depending on its
+    /// column.
+    ///
+    /// You may override this field to pick in which column the cell must
+    /// be placed. If no row (`y`) is chosen, the cell will be placed in the
+    /// first row (starting at row 0) with that column available (or a new row
+    /// if none). If both `x` and `y` are chosen, however, the cell will be
+    /// placed in that exact position. An error is raised if that position is
+    /// not available (thus, it is usually wise to specify cells with a custom
+    /// position before cells with automatic positions).
+    ///
+    /// ```example
+    /// #grid(
+    ///   columns: 4,
+    ///   rows: 2.5em,
+    ///   fill: (x, y) => if calc.odd(x + y) { blue.lighten(50%) } else { blue.lighten(10%) },
+    ///   align: center + horizon,
+    ///   inset: 3pt,
+    ///   grid.cell(x: 2, y: 2)[3],
+    ///   [1], grid.cell(x: 3)[4], [2],
+    /// )
+    /// ```
     x: Smart<usize>,
 
     /// The cell's row (zero-indexed).
+    /// This field may be used in show rules to style a cell depending on its
+    /// row.
+    ///
+    /// You may override this field to pick in which row the cell must be
+    /// placed. If no column (`x`) is chosen, the cell will be placed in the
+    /// first column (starting at column 0) available in the chosen row. If all
+    /// columns in the chosen row are already occupied, an error is raised.
+    ///
+    /// ```example
+    /// #grid(
+    ///   columns: 2,
+    ///   fill: (x, y) => if calc.odd(x + y) { gray.lighten(40%) },
+    ///   inset: 1pt,
+    ///   [A], grid.cell(y: 1)[B], grid.cell(y: 1)[C], grid.cell(y: 2)[D]
+    /// )
+    /// ```
     y: Smart<usize>,
 
     /// The cell's fill override.
