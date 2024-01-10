@@ -46,24 +46,39 @@ use crate::util::{option_eq, NonZeroExt};
 /// can be set to configure the starting depth.
 #[elem(Locatable, Synthesize, Count, Show, Finalize, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
-    /// The logical nesting depth of the heading, starting from *one*. This is
+    /// The relative nesting depth of the heading, starting from *one*. This is
     /// combined with `{offset}` to compute the actual `{level}`.
+    ///
+    /// This is set by the heading syntax, such that `[== Heading]` creates a
+    /// heading with depth 2, but its actual level is affected by the
+    /// `{offset}`.
     #[default(NonZeroUsize::ONE)]
     pub depth: NonZeroUsize,
 
-    /// The starting offset of each the heading's level.
+    /// The starting offset of each heading's level, used to turn its relative
+    /// `{depth}` into its absolute `{level}`.
     ///
     /// ```example
     /// #set heading(offset: 1, numbering: "1.1")
     ///
     /// = Not Level 1
     /// = Level 3
+    /// #heading(offset: 2, depth: 2)[I'm level 4]
     /// ```
     #[default(0)]
     pub offset: usize,
 
-    /// The logical nesting depth of the heading, starting from its *offset*.
-    /// If set to `{auto}`, it is computed from `{offset + depth}`.
+    /// The absolute nesting depth of the heading, starting from *one*. If set
+    /// to `{auto}`, it is computed from `{offset + depth}`.
+    ///
+    /// ```example
+    /// = I'm a chapter
+    ///
+    /// #set heading(offset: 1, numbering: "1.1")
+    ///
+    /// #heading(level: 1)[I'm a also chapter]
+    /// = I'm a section
+    /// ```
     pub level: Smart<NonZeroUsize>,
 
     /// How to number the heading. Accepts a
