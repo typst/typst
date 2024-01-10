@@ -63,7 +63,8 @@ Emphasis (usually rendered as italic text) is expressed by enclosing text in
 `[*stars*]` instead.
 
 Here is a list of common markup commands used in LaTeX and their Typst
-equivalents. You can also check out the [full syntax cheat sheet]($syntax).
+equivalents. You can also check out the [full syntax cheat sheet]($syntax). 
+Try [Pandoc online converter](https://pandoc.org/try/?params=%7B%22text%22%3A%22%5C%5Ctextsc%7BLatex%7D%22%2C%22to%22%3A%22typst%22%2C%22from%22%3A%22latex%22%2C%22standalone%22%3Afalse%2C%22embed-resources%22%3Afalse%2C%22table-of-contents%22%3Afalse%2C%22number-sections%22%3Afalse%2C%22citeproc%22%3Afalse%2C%22html-math-method%22%3A%22plain%22%2C%22wrap%22%3A%22auto%22%2C%22highlight-style%22%3Anull%2C%22files%22%3A%7B%7D%2C%22template%22%3Anull%7D) to convert commands if you don't find equivalents. 
 
 | Element          | LaTeX                     | Typst                  | See
 |:-----------------|:--------------------------|:-----------------------|:--------------------
