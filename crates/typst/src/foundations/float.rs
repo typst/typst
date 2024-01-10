@@ -60,7 +60,7 @@ impl f64 {
     /// ```
     #[func]
     pub fn is_nan(self) -> bool {
-        self.is_nan()
+        f64::is_nan(self)
     }
 }
 
