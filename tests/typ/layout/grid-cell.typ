@@ -112,7 +112,7 @@
   show grid.cell: it => {
     if it.y == 0 {
       strong(it)
-    } else if it.x == it.y {
+    } else if it.x == 1 {
       emph(it)
     } else {
       it
