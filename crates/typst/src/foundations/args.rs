@@ -253,7 +253,7 @@ impl Args {
         /// The arguments to construct.
         #[external]
         #[variadic]
-        arguments: Vec<Args>,
+        arguments: Vec<Value>,
     ) -> Args {
         args.take()
     }

@@ -311,7 +311,7 @@ impl Func {
         /// The arguments to apply to the function.
         #[external]
         #[variadic]
-        arguments: Vec<Args>,
+        arguments: Vec<Value>,
     ) -> Func {
         let span = self.span;
         Self {
@@ -331,7 +331,7 @@ impl Func {
         /// The fields to filter for.
         #[variadic]
         #[external]
-        fields: Vec<Args>,
+        fields: Vec<Value>,
     ) -> StrResult<Selector> {
         let fields = args.to_named();
         args.items.retain(|arg| arg.name.is_none());
