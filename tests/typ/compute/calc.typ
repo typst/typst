@@ -20,6 +20,11 @@
 #test(type(float(10)), float)
 
 ---
+// Test float `is-nan()`.
+#test(float(calc.nan).is-nan(), true)
+#test(float(10).is-nan(), false)
+
+---
 #test(calc.round(calc.e, digits: 2), 2.72)
 #test(calc.round(calc.pi, digits: 2), 3.14)
 
@@ -283,17 +288,17 @@
 #range(10, step: 0)
 
 ---
-// Test `calc.sign`.
+// Test `calc.signum`.
 
-#test(calc.sign(0), 0)
-#test(calc.sign(1), 1)
-#test(calc.sign(10), 1)
-#test(calc.sign(-1), -1)
-#test(calc.sign(-10), -1)
-#test(calc.sign(0.0), 1)
-#test(calc.sign(1.0), 1)
-#test(calc.sign(-1.0), -1)
-#test(calc.sign(0.1), 1)
-#test(calc.sign(1.1), 1)
-#test(calc.sign(-1.1), -1)
-#test(calc.sign(calc.nan), 0)
+#test(calc.signum(0), 0)
+#test(calc.signum(1), 1)
+#test(calc.signum(10), 1)
+#test(calc.signum(-1), -1)
+#test(calc.signum(-10), -1)
+#test(calc.signum(0.0), 1)
+#test(calc.signum(1.0), 1)
+#test(calc.signum(-1.0), -1)
+#test(calc.signum(0.1), 1)
+#test(calc.signum(1.1), 1)
+#test(calc.signum(-1.1), -1)
+#test(calc.signum(calc.nan).is-nan(), true)

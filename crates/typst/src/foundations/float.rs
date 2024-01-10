@@ -47,6 +47,21 @@ impl f64 {
     ) -> f64 {
         value.0
     }
+
+    /// Checks if a float is not a number.
+    ///
+    /// In IEEE 754, not all bit patterns are valid floats. This function
+    /// returns `true` if the float is not a number (NaN).
+    ///
+    /// ```example
+    /// #float.is-nan(0) \
+    /// #float.is-nan(1) \
+    /// #float.is-nan(calc.nan)
+    /// ```
+    #[func]
+    pub fn is_nan(self) -> bool {
+        self.is_nan()
+    }
 }
 
 impl Repr for f64 {

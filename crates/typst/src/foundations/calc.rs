@@ -49,7 +49,7 @@ pub fn module() -> Module {
     scope.define_func::<div_euclid>();
     scope.define_func::<rem_euclid>();
     scope.define_func::<quo>();
-    scope.define_func::<sign>();
+    scope.define_func::<signum>();
     scope.define("inf", f64::INFINITY);
     scope.define("nan", f64::NAN);
     scope.define("pi", std::f64::consts::PI);
@@ -921,30 +921,25 @@ pub fn quo(
 /// If the number is a [`float`]($float):
 /// - If the number is positive (including `{+0.0}`), returns `{1}`.
 /// - If the number is negative (including `{-0.0}`), returns `{-1}`.
-/// - If the number is `{calc.nan}`, returns `{0}`.
+/// - If the number is [`{calc.nan}`]($calc.nan), returns
+///   [`{calc.nan}`]($calc.nan).
 ///
 /// ```example
-/// #calc.sign(5) \
-/// #calc.sign(-5) \
-/// #calc.sign(0) \
-/// #calc.sign(5.0) \
-/// #calc.sign(-5.0) \
-/// #calc.sign(calc.nan)
+/// #calc.signum(5) \
+/// #calc.signum(-5) \
+/// #calc.signum(0) \
+/// #calc.signum(5.0) \
+/// #calc.signum(-5.0) \
+/// #calc.signum(calc.nan)
 /// ```
 #[func]
-pub fn sign(
+pub fn signum(
     /// The number whose sign to calculate.
     value: Num,
-) -> i64 {
+) -> Num {
     match value {
-        Num::Int(n) => n.signum(),
-        Num::Float(n) => {
-            if n.is_nan() {
-                0
-            } else {
-                n.signum() as i64
-            }
-        }
+        Num::Int(n) => n.signum().into(),
+        Num::Float(n) => n.signum().into(),
     }
 }
 
@@ -997,6 +992,18 @@ cast! {
     },
     v: i64 => Self::Int(v),
     v: f64 => Self::Float(v),
+}
+
+impl From<i64> for Num {
+    fn from(value: i64) -> Self {
+        Self::Int(value)
+    }
+}
+
+impl From<f64> for Num {
+    fn from(value: f64) -> Self {
+        Self::Float(value)
+    }
 }
 
 /// A value that can be passed to a trigonometric function.
