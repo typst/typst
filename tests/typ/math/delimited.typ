@@ -2,6 +2,7 @@
 
 ---
 // Test automatic matching.
+#set page(width:122pt)
 $ (a) + {b/2} + abs(a)/2 + (b) $
 $f(x/2) < zeta(c^2 + abs(a + b/2))$
 
@@ -50,3 +51,9 @@ $ { x mid(|) sum_(i=1)^oo phi_i (x) < 1 } \
   { integral |x| dif x
       mid(bar.v.double)
     floor(hat(A) mid(|) { x mid(|) y } mid(|) A) } $
+
+---
+// Test ignoring weak spacing immediately after the opening
+// and immediately before the closing.
+
+$ [#h(1em, weak: true)A(dif x, f(x) dif x)sum#h(1em, weak: true)] $

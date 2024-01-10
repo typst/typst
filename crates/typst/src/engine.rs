@@ -73,10 +73,10 @@ impl Route<'_> {
     /// The maximum stack nesting depth.
     pub const MAX_SHOW_RULE_DEPTH: usize = 64;
 
-    /// The maxmium layout nesting depth.
+    /// The maximum layout nesting depth.
     pub const MAX_LAYOUT_DEPTH: usize = 72;
 
-    /// The maxmium function call nesting depth.
+    /// The maximum function call nesting depth.
     pub const MAX_CALL_DEPTH: usize = 80;
 }
 

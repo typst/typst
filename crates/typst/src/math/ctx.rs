@@ -1,3 +1,5 @@
+use std::f64::consts::SQRT_2;
+
 use comemo::Prehashed;
 use ecow::EcoString;
 use rustybuzz::Feature;
@@ -140,6 +142,11 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         self.fragments.extend(fragments);
     }
 
+    pub fn layout_root(&mut self, elem: &dyn LayoutMath) -> SourceResult<MathRow> {
+        let row = self.layout_fragments(elem)?;
+        Ok(MathRow::new(row))
+    }
+
     pub fn layout_fragment(
         &mut self,
         elem: &dyn LayoutMath,
@@ -202,7 +209,8 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             let class = self.style.class.as_custom().or(glyph.class);
             if class == Some(MathClass::Large) {
                 let mut variant = if self.style.size == MathSize::Display {
-                    let height = scaled!(self, display_operator_min_height);
+                    let height = scaled!(self, display_operator_min_height)
+                        .max(SQRT_2 * glyph.height());
                     glyph.stretch_vertical(self, height, Abs::zero())
                 } else {
                     glyph.into_variant()
@@ -221,7 +229,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 fragments.push(GlyphFragment::new(self, c, span).into());
             }
             let frame = MathRow::new(fragments).into_frame(self);
-            FrameFragment::new(self, frame).into()
+            FrameFragment::new(self, frame).with_text_like(true).into()
         } else {
             // Anything else is handled by Typst's standard text layout.
             let mut style = self.style;
@@ -281,6 +289,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
 
         Ok(FrameFragment::new(self, frame)
             .with_class(MathClass::Alphabetic)
+            .with_text_like(true)
             .with_spaced(spaced))
     }
 

@@ -51,7 +51,7 @@ _blocks:_
   functions. That is, `{list([A], [B])}` is equivalent to `{list[A][B]}`.
 
 Content and code blocks can be nested arbitrarily. In the example below,
-`{[hello]}` is joined with the output of  `{a + [ the ] + b}` yielding
+`{[hello ]}` is joined with the output of  `{a + [ the ] + b}` yielding
 `{[hello from the *world*]}`.
 
 ```example

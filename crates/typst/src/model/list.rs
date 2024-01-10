@@ -5,8 +5,8 @@ use crate::foundations::{
     Value,
 };
 use crate::layout::{
-    Axes, BlockElem, Celled, Em, Fragment, GridLayouter, HAlign, Layout, Length, Regions,
-    Sizing, Spacing, VAlign,
+    Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlign, Layout, Length,
+    Regions, Sizing, Spacing, VAlign,
 };
 use crate::model::ParElem;
 use crate::text::TextElem;
@@ -160,15 +160,14 @@ impl Layout for ListElem {
 
         let mut cells = vec![];
         for item in self.children() {
-            cells.push(Content::empty());
-            cells.push(marker.clone());
-            cells.push(Content::empty());
-            cells.push(item.body().clone().styled(Self::set_depth(Depth)));
+            cells.push(Cell::from(Content::empty()));
+            cells.push(Cell::from(marker.clone()));
+            cells.push(Cell::from(Content::empty()));
+            cells.push(Cell::from(item.body().clone().styled(Self::set_depth(Depth))));
         }
 
-        let fill = Celled::Value(None);
         let stroke = None;
-        let layouter = GridLayouter::new(
+        let grid = CellGrid::new(
             Axes::with_x(&[
                 Sizing::Rel(indent.into()),
                 Sizing::Auto,
@@ -176,15 +175,12 @@ impl Layout for ListElem {
                 Sizing::Auto,
             ]),
             Axes::with_y(&[gutter.into()]),
-            &cells,
-            &fill,
-            &stroke,
-            regions,
+            cells,
             styles,
-            self.span(),
         );
+        let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
 
-        Ok(layouter.layout(engine)?.fragment)
+        layouter.layout(engine)
     }
 }
 

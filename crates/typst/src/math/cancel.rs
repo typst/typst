@@ -109,8 +109,12 @@ impl LayoutMath for CancelElem {
     #[typst_macros::time(name = "math.cancel", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let body = ctx.layout_fragment(self.body())?;
-        // Use the same math class as the body, in order to preserve automatic spacing around it.
+        // Preserve properties of body.
         let body_class = body.class().unwrap_or(MathClass::Special);
+        let body_italics = body.italics_correction();
+        let body_attach = body.accent_attach();
+        let body_text_like = body.is_text_like();
+
         let mut body = body.into_frame();
 
         let styles = ctx.styles();
@@ -150,7 +154,13 @@ impl LayoutMath for CancelElem {
             body.push_frame(center, second_line);
         }
 
-        ctx.push(FrameFragment::new(ctx, body).with_class(body_class));
+        ctx.push(
+            FrameFragment::new(ctx, body)
+                .with_class(body_class)
+                .with_italics_correction(body_italics)
+                .with_accent_attach(body_attach)
+                .with_text_like(body_text_like),
+        );
 
         Ok(())
     }

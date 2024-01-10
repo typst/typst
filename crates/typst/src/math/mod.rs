@@ -181,6 +181,7 @@ pub fn module() -> Module {
     math.define_elem::<RootElem>();
     math.define_elem::<ClassElem>();
     math.define_elem::<OpElem>();
+    math.define_elem::<PrimesElem>();
     math.define_func::<abs>();
     math.define_func::<norm>();
     math.define_func::<floor>();
@@ -278,7 +279,10 @@ impl LayoutMath for Content {
         if let Some(elem) = self.to::<HElem>() {
             if let Spacing::Rel(rel) = elem.amount() {
                 if rel.rel.is_zero() {
-                    ctx.push(MathFragment::Spacing(rel.abs.resolve(ctx.styles())));
+                    ctx.push(SpacingFragment {
+                        width: rel.abs.resolve(ctx.styles()),
+                        weak: elem.weak(ctx.styles()),
+                    });
                 }
             }
             return Ok(());

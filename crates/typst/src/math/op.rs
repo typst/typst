@@ -37,9 +37,16 @@ impl LayoutMath for OpElem {
     #[typst_macros::time(name = "math.op", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let fragment = ctx.layout_fragment(self.text())?;
+        let italics = fragment.italics_correction();
+        let accent_attach = fragment.accent_attach();
+        let text_like = fragment.is_text_like();
+
         ctx.push(
             FrameFragment::new(ctx, fragment.into_frame())
                 .with_class(MathClass::Large)
+                .with_italics_correction(italics)
+                .with_accent_attach(accent_attach)
+                .with_text_like(text_like)
                 .with_limits(if self.limits(ctx.styles()) {
                     Limits::Display
                 } else {

@@ -1,9 +1,24 @@
+/*! This is Typst's test runner.
+
+Tests are Typst files composed of a header part followed by subtests.
+
+The header may contain:
+- a small description `// tests that features X works well`
+- metadata (see [metadata::TestConfiguration])
+
+The subtests may use extra testing functions defined in [library], most
+importantly, `test(x, y)` which will fail the test `if x != y`.
+*/
+
 #![allow(clippy::comparison_chain)]
+mod metadata;
+
+use self::metadata::*;
 
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
-use std::fmt::{self, Display, Formatter, Write as _};
-use std::io::{self, IsTerminal, Write};
+use std::fmt::Write as _;
+use std::io::{self, IsTerminal, Write as _};
 use std::ops::Range;
 use std::path::{Path, PathBuf, MAIN_SEPARATOR_STR};
 use std::sync::{OnceLock, RwLock};
@@ -11,23 +26,19 @@ use std::{env, fs};
 
 use clap::Parser;
 use comemo::{Prehashed, Track};
-use ecow::EcoString;
 use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use tiny_skia as sk;
-use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
+use typst::diag::{bail, FileError, FileResult, Severity, SourceDiagnostic, StrResult};
 use typst::eval::Tracer;
-use typst::foundations::{
-    eco_format, func, Bytes, Datetime, NoneValue, Repr, Smart, Value,
-};
+use typst::foundations::{func, Bytes, Datetime, NoneValue, Repr, Smart, Value};
 use typst::introspection::Meta;
 use typst::layout::{Abs, Frame, FrameItem, Margin, PageElem, Transform};
 use typst::model::Document;
-use typst::syntax::{FileId, PackageVersion, Source, SyntaxNode, VirtualPath};
+use typst::syntax::{FileId, Source, SyntaxNode, VirtualPath};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::visualize::Color;
 use typst::{Library, World, WorldExt};
-use unscanny::Scanner;
 use walkdir::WalkDir;
 
 // These directories are all relative to the tests/ directory.
@@ -39,33 +50,56 @@ const SVG_DIR: &str = "svg";
 const FONT_DIR: &str = "../assets/fonts";
 const ASSET_DIR: &str = "../assets";
 
+/// Arguments that modify test behaviour.
+///
+/// Specify them like this when developing:
+/// `cargo test --workspace --test tests -- --help`
 #[derive(Debug, Clone, Parser)]
 #[clap(name = "typst-test", author)]
 struct Args {
+    /// All the tests that contains a filter string will be run (unless
+    /// `--exact` is specified, which is even stricter).
     filter: Vec<String>,
-    /// runs only the specified subtest
+    /// Runs only the specified subtest.
     #[arg(short, long)]
     #[arg(allow_hyphen_values = true)]
     subtest: Option<isize>,
+    /// Runs only the test with the exact name specified in your command.
+    ///
+    /// Example:
+    /// `cargo test --workspace --test tests  -- compiler/bytes.typ --exact`
     #[arg(long)]
     exact: bool,
+    /// Updates the reference images in `tests/ref`.
     #[arg(long, default_value_t = env::var_os("UPDATE_EXPECT").is_some())]
     update: bool,
+    /// Exports the tests as PDF into `tests/pdf`.
     #[arg(long)]
     pdf: bool,
+    /// Configuration of what to print.
     #[command(flatten)]
     print: PrintConfig,
+    /// Running `cargo test --workspace -- --nocapture` for the unit tests would
+    /// fail the test runner without argument.
+    // TODO: would it really still happen?
     #[arg(long)]
-    nocapture: bool, // simply ignores the argument
+    nocapture: bool,
+    /// Prevents the terminal from being cleared of test names and includes
+    /// non-essential test messages.
+    #[arg(short, long)]
+    verbose: bool,
 }
 
 /// Which things to print out for debugging.
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Parser)]
 struct PrintConfig {
+    /// Print the syntax tree.
     #[arg(long)]
     syntax: bool,
+    /// Print the content model.
     #[arg(long)]
     model: bool,
+    /// Print the layouted frames.
     #[arg(long)]
     frames: bool,
 }
@@ -87,6 +121,7 @@ impl Args {
     }
 }
 
+/// Tests all test files and prints a summary.
 fn main() {
     let args = Args::parse();
 
@@ -359,6 +394,10 @@ fn read(path: &Path) -> FileResult<Vec<u8>> {
     }
 }
 
+/// Tests a test file and prints the result.
+///
+/// Also tests that the header of each test is written correctly.
+/// See [parse_part_metadata] for more details.
 fn test(
     world: &mut TestWorld,
     src_path: &Path,
@@ -386,8 +425,7 @@ fn test(
     let mut updated = false;
     let mut frames = vec![];
     let mut line = 0;
-    let mut compare_ref = None;
-    let mut validate_hints = None;
+    let mut header_configuration = None;
     let mut compare_ever = false;
     let mut rng = LinearShift::new();
 
@@ -414,9 +452,28 @@ fn test(
                 .all(|s| s.starts_with("//") || s.chars().all(|c| c.is_whitespace()));
 
         if is_header {
-            for line in part.lines() {
-                compare_ref = get_flag_metadata(line, "Ref").or(compare_ref);
-                validate_hints = get_flag_metadata(line, "Hints").or(validate_hints);
+            let source = Source::detached(part.to_string());
+            let metadata = parse_part_metadata(&source, true);
+            match metadata {
+                Ok(metadata) => {
+                    header_configuration = Some(metadata.config);
+                }
+                Err(invalid_data) => {
+                    ok = false;
+                    writeln!(
+                        output,
+                        " Test {}: invalid metadata in header, failing the test:",
+                        name.display()
+                    )
+                    .unwrap();
+                    InvalidMetadata::write(
+                        invalid_data,
+                        &mut output,
+                        &mut |annotation, output| {
+                            print_annotation(output, &source, line, annotation)
+                        },
+                    );
+                }
             }
         } else {
             let (part_ok, compare_here, part_frames) = test_part(
@@ -424,11 +481,11 @@ fn test(
                 world,
                 src_path,
                 part.into(),
-                i,
-                compare_ref.unwrap_or(true),
-                validate_hints.unwrap_or(true),
                 line,
+                i,
+                header_configuration.as_ref().unwrap_or(&Default::default()),
                 &mut rng,
+                args.verbose,
             );
 
             ok &= part_ok;
@@ -498,9 +555,9 @@ fn test(
         stdout.write_all(name.to_string_lossy().as_bytes()).unwrap();
         if ok {
             writeln!(stdout, " ✔").unwrap();
-            // Don't clear the line when the reference image was updated, to
-            // show in the output which test had its image updated.
-            if !updated && stdout.is_terminal() {
+            // Don't clear the line when in verbose mode or when the reference image
+            // was updated, to show in the output which test had its image updated.
+            if !updated && !args.verbose && stdout.is_terminal() {
                 // ANSI escape codes: cursor moves up and clears the line.
                 write!(stdout, "\x1b[1A\x1b[2K").unwrap();
             }
@@ -518,14 +575,6 @@ fn test(
     ok
 }
 
-fn get_metadata<'a>(line: &'a str, key: &str) -> Option<&'a str> {
-    line.strip_prefix(eco_format!("// {key}: ").as_str())
-}
-
-fn get_flag_metadata(line: &str, key: &str) -> Option<bool> {
-    get_metadata(line, key).map(|value| value == "true")
-}
-
 fn update_image(png_path: &Path, ref_path: &Path) {
     oxipng::optimize(
         &InFile::Path(png_path.to_owned()),
@@ -541,35 +590,19 @@ fn test_part(
     world: &mut TestWorld,
     src_path: &Path,
     text: String,
-    i: usize,
-    compare_ref: bool,
-    validate_hints: bool,
     line: usize,
+    i: usize,
+    header_configuration: &TestConfig,
     rng: &mut LinearShift,
+    verbose: bool,
 ) -> (bool, bool, Vec<Frame>) {
-    let mut ok = true;
-
     let source = world.set(src_path, text);
     if world.print.syntax {
         writeln!(output, "Syntax Tree:\n{:#?}\n", source.root()).unwrap();
     }
 
-    let metadata = parse_part_metadata(&source);
-    let compare_ref = metadata.part_configuration.compare_ref.unwrap_or(compare_ref);
-    let validate_hints =
-        metadata.part_configuration.validate_hints.unwrap_or(validate_hints);
-
-    ok &= test_spans(output, source.root());
-    ok &= test_reparse(output, source.text(), i, rng);
-
     if world.print.model {
-        let world = (world as &dyn World).track();
-        let route = typst::engine::Route::default();
-        let mut tracer = typst::eval::Tracer::new();
-
-        let module =
-            typst::eval::eval(world, route.track(), tracer.track_mut(), &source).unwrap();
-        writeln!(output, "Model:\n{:#?}\n", module.content()).unwrap();
+        print_model(world, &source, output);
     }
 
     let mut tracer = Tracer::new();
@@ -582,11 +615,186 @@ fn test_part(
         }
     };
 
-    // Don't retain frames if we don't want to compare with reference images.
-    if !compare_ref {
-        frames.clear();
-    }
+    let metadata = parse_part_metadata(&source, false);
+    match metadata {
+        Ok(metadata) => {
+            let mut ok = true;
+            let compare_ref = metadata
+                .config
+                .compare_ref
+                .unwrap_or(header_configuration.compare_ref.unwrap_or(true));
+            let validate_hints = metadata
+                .config
+                .validate_hints
+                .unwrap_or(header_configuration.validate_hints.unwrap_or(true));
+            let validate_autocomplete = metadata
+                .config
+                .validate_autocomplete
+                .unwrap_or(header_configuration.validate_autocomplete.unwrap_or(false));
 
+            if verbose {
+                writeln!(output, "Subtest {i} runs with compare_ref={compare_ref}; validate_hints={validate_hints}; validate_autocomplete={validate_autocomplete};").unwrap();
+            }
+            ok &= test_spans(output, source.root());
+            ok &= test_reparse(output, source.text(), i, rng);
+
+            // Don't retain frames if we don't want to compare with reference images.
+            if !compare_ref {
+                frames.clear();
+            }
+
+            // we never check autocomplete and error at the same time
+
+            let diagnostic_annotations = metadata
+                .annotations
+                .iter()
+                .filter(|a| {
+                    !matches!(
+                        a.kind,
+                        AnnotationKind::AutocompleteContains
+                            | AnnotationKind::AutocompleteExcludes
+                    )
+                })
+                .cloned()
+                .collect::<HashSet<_>>();
+
+            if validate_autocomplete {
+                // warns and ignores diagnostics
+                if !diagnostic_annotations.is_empty() {
+                    writeln!(
+                        output,
+                        "  Subtest {i} contains diagnostics but is in autocomplete mode."
+                    )
+                    .unwrap();
+                    for annotation in diagnostic_annotations {
+                        write!(output, "    Ignored | ").unwrap();
+                        print_annotation(output, &source, line, &annotation);
+                    }
+                }
+
+                test_autocomplete(
+                    output,
+                    world,
+                    &source,
+                    line,
+                    i,
+                    &mut ok,
+                    metadata.annotations.iter(),
+                );
+            } else {
+                test_diagnostics(
+                    output,
+                    world,
+                    &source,
+                    line,
+                    i,
+                    &mut ok,
+                    validate_hints,
+                    diagnostics.iter(),
+                    &diagnostic_annotations,
+                );
+            }
+
+            (ok, compare_ref, frames)
+        }
+        Err(invalid_data) => {
+            writeln!(output, "  Subtest {i} has invalid metadata, failing the test:")
+                .unwrap();
+            InvalidMetadata::write(
+                invalid_data,
+                output,
+                &mut |annotation: &Annotation, output: &mut String| {
+                    print_annotation(output, &source, line, annotation)
+                },
+            );
+
+            (false, false, frames)
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn test_autocomplete<'a>(
+    output: &mut String,
+    world: &mut TestWorld,
+    source: &Source,
+    line: usize,
+    i: usize,
+    ok: &mut bool,
+    annotations: impl Iterator<Item = &'a Annotation>,
+) {
+    for annotation in annotations.filter(|a| {
+        matches!(
+            a.kind,
+            AnnotationKind::AutocompleteContains | AnnotationKind::AutocompleteExcludes
+        )
+    }) {
+        // Ok cause we checked in parsing that range was Some for this annotation
+        let cursor = annotation.range.as_ref().unwrap().start;
+
+        // todo, use document if is_some to test labels autocomplete
+        let completions = typst_ide::autocomplete(world, None, source, cursor, true)
+            .map(|(_, c)| c)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|c| c.label.to_string())
+            .collect::<HashSet<_>>();
+        let completions =
+            completions.iter().map(|s| s.as_str()).collect::<HashSet<&str>>();
+
+        let must_contain_or_exclude = parse_string_list(&annotation.text);
+        let missing =
+            must_contain_or_exclude.difference(&completions).collect::<Vec<_>>();
+
+        if !missing.is_empty()
+            && matches!(annotation.kind, AnnotationKind::AutocompleteContains)
+        {
+            writeln!(output, "  Subtest {i} does not match expected completions.")
+                .unwrap();
+            write!(output, "  for annotation | ").unwrap();
+            print_annotation(output, source, line, annotation);
+
+            write!(output, "    Not contained  | ").unwrap();
+            for item in missing {
+                write!(output, "{item:?}, ").unwrap()
+            }
+            writeln!(output).unwrap();
+            *ok = false;
+        }
+
+        let undesired =
+            must_contain_or_exclude.intersection(&completions).collect::<Vec<_>>();
+
+        if !undesired.is_empty()
+            && matches!(annotation.kind, AnnotationKind::AutocompleteExcludes)
+        {
+            writeln!(output, "  Subtest {i} does not match expected completions.")
+                .unwrap();
+            write!(output, "  for annotation | ").unwrap();
+            print_annotation(output, source, line, annotation);
+
+            write!(output, "    Not excluded| ").unwrap();
+            for item in undesired {
+                write!(output, "{item:?}, ").unwrap()
+            }
+            writeln!(output).unwrap();
+            *ok = false;
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn test_diagnostics<'a>(
+    output: &mut String,
+    world: &mut TestWorld,
+    source: &Source,
+    line: usize,
+    i: usize,
+    ok: &mut bool,
+    validate_hints: bool,
+    diagnostics: impl Iterator<Item = &'a SourceDiagnostic>,
+    diagnostic_annotations: &HashSet<Annotation>,
+) {
     // Map diagnostics to range and message format, discard traces and errors from
     // other files, collect hints.
     //
@@ -594,7 +802,7 @@ fn test_part(
     // verify if a hint belongs to a diagnostic or not. That should be irrelevant
     // however, as the line of the hint is still verified.
     let mut actual_diagnostics = HashSet::new();
-    for diagnostic in &diagnostics {
+    for diagnostic in diagnostics {
         // Ignore diagnostics from other files.
         if diagnostic.span.id().map_or(false, |id| id != source.id()) {
             continue;
@@ -606,14 +814,14 @@ fn test_part(
                 Severity::Warning => AnnotationKind::Warning,
             },
             range: world.range(diagnostic.span),
-            message: diagnostic.message.replace("\\", "/"),
+            text: diagnostic.message.replace("\\", "/"),
         };
 
         if validate_hints {
             for hint in &diagnostic.hints {
                 actual_diagnostics.insert(Annotation {
                     kind: AnnotationKind::Hint,
-                    message: hint.clone(),
+                    text: hint.clone(),
                     range: annotation.range.clone(),
                 });
             }
@@ -624,10 +832,9 @@ fn test_part(
 
     // Basically symmetric_difference, but we need to know where an item is coming from.
     let mut unexpected_outputs = actual_diagnostics
-        .difference(&metadata.annotations)
+        .difference(diagnostic_annotations)
         .collect::<Vec<_>>();
-    let mut missing_outputs = metadata
-        .annotations
+    let mut missing_outputs = diagnostic_annotations
         .difference(&actual_diagnostics)
         .collect::<Vec<_>>();
 
@@ -638,20 +845,28 @@ fn test_part(
     // Is this reasonable or subject to change?
     if !(unexpected_outputs.is_empty() && missing_outputs.is_empty()) {
         writeln!(output, "  Subtest {i} does not match expected errors.").unwrap();
-        ok = false;
+        *ok = false;
 
         for unexpected in unexpected_outputs {
             write!(output, "    Not annotated | ").unwrap();
-            print_annotation(output, &source, line, unexpected)
+            print_annotation(output, source, line, unexpected)
         }
 
         for missing in missing_outputs {
             write!(output, "    Not emitted   | ").unwrap();
-            print_annotation(output, &source, line, missing)
+            print_annotation(output, source, line, missing)
         }
     }
+}
 
-    (ok, compare_ref, frames)
+fn print_model(world: &mut TestWorld, source: &Source, output: &mut String) {
+    let world = (world as &dyn World).track();
+    let route = typst::engine::Route::default();
+    let mut tracer = typst::eval::Tracer::new();
+
+    let module =
+        typst::eval::eval(world, route.track(), tracer.track_mut(), source).unwrap();
+    writeln!(output, "Model:\n{:#?}\n", module.content()).unwrap();
 }
 
 fn print_annotation(
@@ -660,7 +875,7 @@ fn print_annotation(
     line: usize,
     annotation: &Annotation,
 ) {
-    let Annotation { range, message, kind } = annotation;
+    let Annotation { range, text, kind } = annotation;
     write!(output, "{kind}: ").unwrap();
     if let Some(range) = range {
         let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
@@ -669,107 +884,7 @@ fn print_annotation(
         let end_col = 1 + source.byte_to_column(range.end).unwrap();
         write!(output, "{start_line}:{start_col}-{end_line}:{end_col}: ").unwrap();
     }
-    writeln!(output, "{message}").unwrap();
-}
-
-struct TestConfiguration {
-    compare_ref: Option<bool>,
-    validate_hints: Option<bool>,
-}
-
-struct TestPartMetadata {
-    part_configuration: TestConfiguration,
-    annotations: HashSet<Annotation>,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct Annotation {
-    range: Option<Range<usize>>,
-    message: EcoString,
-    kind: AnnotationKind,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-enum AnnotationKind {
-    Error,
-    Warning,
-    Hint,
-}
-
-impl AnnotationKind {
-    fn iter() -> impl Iterator<Item = Self> {
-        [AnnotationKind::Error, AnnotationKind::Warning, AnnotationKind::Hint].into_iter()
-    }
-
-    fn as_str(self) -> &'static str {
-        match self {
-            AnnotationKind::Error => "Error",
-            AnnotationKind::Warning => "Warning",
-            AnnotationKind::Hint => "Hint",
-        }
-    }
-}
-
-impl Display for AnnotationKind {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(self.as_str())
-    }
-}
-
-fn parse_part_metadata(source: &Source) -> TestPartMetadata {
-    let mut compare_ref = None;
-    let mut validate_hints = None;
-    let mut annotations = HashSet::default();
-
-    let lines: Vec<_> = source.text().lines().map(str::trim).collect();
-    for (i, line) in lines.iter().enumerate() {
-        compare_ref = get_flag_metadata(line, "Ref").or(compare_ref);
-        validate_hints = get_flag_metadata(line, "Hints").or(validate_hints);
-
-        fn num(s: &mut Scanner) -> Option<isize> {
-            let mut first = true;
-            let n = &s.eat_while(|c: char| {
-                let valid = first && c == '-' || c.is_numeric();
-                first = false;
-                valid
-            });
-            n.parse().ok()
-        }
-
-        let comments_until_code =
-            lines[i..].iter().take_while(|line| line.starts_with("//")).count();
-
-        let pos = |s: &mut Scanner| -> Option<usize> {
-            let first = num(s)? - 1;
-            let (delta, column) =
-                if s.eat_if(':') { (first, num(s)? - 1) } else { (0, first) };
-            let line = (i + comments_until_code).checked_add_signed(delta)?;
-            source.line_column_to_byte(line, usize::try_from(column).ok()?)
-        };
-
-        let range = |s: &mut Scanner| -> Option<Range<usize>> {
-            let start = pos(s)?;
-            let end = if s.eat_if('-') { pos(s)? } else { start };
-            Some(start..end)
-        };
-
-        for kind in AnnotationKind::iter() {
-            let Some(expectation) = get_metadata(line, kind.as_str()) else { continue };
-            let mut s = Scanner::new(expectation);
-            let range = range(&mut s);
-            let rest = if range.is_some() { s.after() } else { s.string() };
-            let message = rest
-                .trim()
-                .replace("VERSION", &PackageVersion::compiler().to_string())
-                .into();
-            annotations.insert(Annotation { kind, range, message });
-        }
-    }
-
-    TestPartMetadata {
-        part_configuration: TestConfiguration { compare_ref, validate_hints },
-        annotations,
-    }
+    writeln!(output, "{text}").unwrap();
 }
 
 /// Pseudorandomly edit the source file and test whether a reparse produces the

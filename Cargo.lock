@@ -2665,6 +2665,7 @@ dependencies = [
  "tiny-skia",
  "ttf-parser",
  "typst",
+ "typst-ide",
  "typst-pdf",
  "typst-render",
  "typst-svg",

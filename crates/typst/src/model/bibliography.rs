@@ -29,7 +29,7 @@ use crate::foundations::{
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{
-    BlockElem, Em, GridElem, HElem, PadElem, Sizing, TrackSizings, VElem,
+    BlockElem, Em, GridCell, GridElem, HElem, PadElem, Sizing, TrackSizings, VElem,
 };
 use crate::model::{
     CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
@@ -239,8 +239,8 @@ impl Show for BibliographyElem {
             if references.iter().any(|(prefix, _)| prefix.is_some()) {
                 let mut cells = vec![];
                 for (prefix, reference) in references {
-                    cells.push(prefix.clone().unwrap_or_default());
-                    cells.push(reference.clone());
+                    cells.push(GridCell::new(prefix.clone().unwrap_or_default()));
+                    cells.push(GridCell::new(reference.clone()));
                 }
 
                 seq.push(VElem::new(row_gutter).with_weakness(3).pack());
@@ -836,13 +836,13 @@ impl<'a> Generator<'a> {
     ) -> Option<Vec<(Option<Content>, Content)>> {
         let rendered = rendered.bibliography.as_ref()?;
 
-        // Determine for each citation key where it first occured, so that we
+        // Determine for each citation key where it first occurred, so that we
         // can link there.
-        let mut first_occurances = HashMap::new();
+        let mut first_occurrences = HashMap::new();
         for info in &self.infos {
             for subinfo in &info.subinfos {
                 let key = subinfo.key.as_str();
-                first_occurances.entry(key).or_insert(info.location);
+                first_occurrences.entry(key).or_insert(info.location);
             }
         }
 
@@ -866,7 +866,7 @@ impl<'a> Generator<'a> {
             // Render the first field.
             let mut prefix = item.first_field.as_ref().map(|elem| {
                 let mut content = renderer.display_elem_child(elem, &mut None);
-                if let Some(location) = first_occurances.get(item.key.as_str()) {
+                if let Some(location) = first_occurrences.get(item.key.as_str()) {
                     let dest = Destination::Location(*location);
                     content = content.linked(dest);
                 }
@@ -947,7 +947,7 @@ impl ElemRenderer<'_> {
 
         if let Some(prefix) = suf_prefix {
             const COLUMN_GUTTER: Em = Em::new(0.65);
-            content = GridElem::new(vec![prefix, content])
+            content = GridElem::new(vec![GridCell::new(prefix), GridCell::new(content)])
                 .spanned(self.span)
                 .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
                 .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))

@@ -2,7 +2,7 @@ use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
 use crate::foundations::{elem, Content, StyleChain};
-use crate::layout::{Abs, Frame, FrameItem, Point, Size};
+use crate::layout::{Abs, Frame, Point, Size};
 use crate::math::{
     FrameFragment, LayoutMath, MathContext, MathFragment, MathSize, Scaled,
 };
@@ -382,7 +382,7 @@ fn compute_shifts_up_and_down(
 
     let mut shift_up = Abs::zero();
     let mut shift_down = Abs::zero();
-    let is_char_box = is_character_box(base);
+    let is_text_like = base.is_text_like();
 
     if tl.is_some() || tr.is_some() {
         let ascent = match &base {
@@ -391,7 +391,7 @@ fn compute_shifts_up_and_down(
         };
         shift_up = shift_up
             .max(sup_shift_up)
-            .max(if is_char_box { Abs::zero() } else { ascent - sup_drop_max })
+            .max(if is_text_like { Abs::zero() } else { ascent - sup_drop_max })
             .max(sup_bottom_min + measure!(tl, descent))
             .max(sup_bottom_min + measure!(tr, descent));
     }
@@ -399,7 +399,7 @@ fn compute_shifts_up_and_down(
     if bl.is_some() || br.is_some() {
         shift_down = shift_down
             .max(sub_shift_down)
-            .max(if is_char_box { Abs::zero() } else { base.descent() + sub_drop_min })
+            .max(if is_text_like { Abs::zero() } else { base.descent() + sub_drop_min })
             .max(measure!(bl, ascent) - sub_top_max)
             .max(measure!(br, ascent) - sub_top_max);
     }
@@ -428,25 +428,4 @@ fn compute_shifts_up_and_down(
 /// Determines if the character is one of a variety of integral signs
 fn is_integral_char(c: char) -> bool {
     ('∫'..='∳').contains(&c) || ('⨋'..='⨜').contains(&c)
-}
-
-/// Whether the fragment consists of a single character or atomic piece of text.
-fn is_character_box(fragment: &MathFragment) -> bool {
-    match fragment {
-        MathFragment::Glyph(_) | MathFragment::Variant(_) => {
-            fragment.class() != Some(MathClass::Large)
-        }
-        MathFragment::Frame(fragment) => is_atomic_text_frame(&fragment.frame),
-        _ => false,
-    }
-}
-
-/// Handles e.g. "sin", "log", "exp", "CustomOperator".
-fn is_atomic_text_frame(frame: &Frame) -> bool {
-    // Meta information isn't visible or renderable, so we exclude it.
-    let mut iter = frame
-        .items()
-        .map(|(_, item)| item)
-        .filter(|item| !matches!(item, FrameItem::Meta(_, _)));
-    matches!(iter.next(), Some(FrameItem::Text(_))) && iter.next().is_none()
 }
