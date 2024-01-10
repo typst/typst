@@ -259,6 +259,34 @@ impl Figurable for TableElem {}
 ///   [M.], table.cell(inset: 0pt)[Player]
 /// )
 /// ```
+///
+/// You may also apply a show rule on `table.cell` to style all cells at once,
+/// which allows you, for example, to apply styles based on a cell's position:
+///
+/// ```example
+/// #show table.cell: it => {
+///   if it.y == 0 {
+///     // First row is bold
+///     strong(it)
+///   } else if it.x == 1 {
+///     // Second column is italicized
+///     // (except at the first row)
+///     emph(it)
+///   } else {
+///     // Remaining cells aren't changed
+///     it
+///   }
+/// }
+///
+/// #table(
+///   columns: 3,
+///   gutter: 3pt,
+///   [Name], [Age], [Info],
+///   [John], [52], [Nice],
+///   [Mary], [50], [Cool],
+///   [Jake], [49], [Epic]
+/// )
+/// ```
 #[elem(name = "cell", title = "Table Cell", Show)]
 pub struct TableCell {
     /// The cell's body.
