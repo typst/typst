@@ -6,7 +6,7 @@
   grid(
     columns: 2,
     inset: 5pt,
-    fill: red,
+    fill: aqua,
     [Hello], [World],
     [Sweet], [Italics]
   )
