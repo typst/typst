@@ -26,7 +26,7 @@ comemo = { workspace = true }
 csv = { workspace = true }
 ecow = { workspace = true}
 fontdb = { workspace = true }
-hayagriva = { workspace = true }
+hayagriva = { git = "https://github.com/nrydanov/hayagriva", branch = "feature/language-specific-terms" }
 hypher = { workspace = true }
 icu_properties = { workspace = true }
 icu_provider = { workspace = true }

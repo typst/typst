@@ -711,9 +711,20 @@ impl<'a> Generator<'a> {
                     Some(CitationForm::Year) => Some(hayagriva::CitePurpose::Year),
                 };
 
+                let mut locale: Option<citationberg::LocaleCode> = None;
+                if let Some(lang) = entry.language() {
+                    println!("Entry language: {:?}", lang);
+                    let lang_string = lang.language.to_string();
+                    if lang_string == "russian" {
+                        locale = Some(citationberg::LocaleCode(String::from("ru-RU")));
+                    } else {
+                        locale = Some(citationberg::LocaleCode(String::from("en-US")));
+                    }
+                }
+
                 normal &= special_form.is_none();
                 subinfos.push(CiteInfo { key, supplement, hidden });
-                items.push(CitationItem::new(entry, locator, None, hidden, special_form));
+                items.push(CitationItem::new(entry, locator, locale, hidden, special_form));
             }
 
             if !errors.is_empty() {
@@ -749,10 +760,19 @@ impl<'a> Generator<'a> {
         // bibliography.
         if self.bibliography.full(StyleChain::default()) {
             for entry in database.map.values() {
+                let mut locale: Option<citationberg::LocaleCode> = None;
+                if let Some(lang) = entry.language() {
+                    let lang_string = lang.language.to_string();
+                    if lang_string == "russian" {
+                        locale = Some(citationberg::LocaleCode(String::from("ru-RU")));
+                    } else {
+                        locale = Some(citationberg::LocaleCode(String::from("en-US")));
+                    }
+                }
                 driver.citation(CitationRequest::new(
-                    vec![CitationItem::new(entry, None, None, true, None)],
+                    vec![CitationItem::new(entry, None, locale, true, None)],
                     bibliography_style.get(),
-                    Some(locale.clone()),
+                    None,
                     &LOCALES,
                     None,
                 ));
