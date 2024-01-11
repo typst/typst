@@ -427,9 +427,21 @@ fn resolve_cell_position(
             Ok(resolved_index)
         }
         // Cell has chosen its exact position.
-        (Smart::Custom(cell_x), Smart::Custom(cell_y)) => cell_index(cell_x, cell_y),
+        (Smart::Custom(cell_x), Smart::Custom(cell_y)) => {
+            if cell_x >= columns {
+                return Err(HintedString::from(eco_format!(
+                    "a cell could not be placed at invalid column {cell_x}"
+                )));
+            }
+            cell_index(cell_x, cell_y)
+        }
         // Cell has only chosen its column, not its row.
         (Smart::Custom(cell_x), Smart::Auto) => {
+            if cell_x >= columns {
+                return Err(HintedString::from(eco_format!(
+                    "a cell could not be placed at invalid column {cell_x}"
+                )));
+            }
             // Let's find the first row which has that column available.
             let mut resolved_y = 0;
             while let Some(Some(_)) = resolved_cells.get(cell_index(cell_x, resolved_y)?)

@@ -76,6 +76,14 @@
 )
 
 ---
+// Error: 2-5:2 a cell could not be placed at invalid column 2
+#grid(
+  columns: 2,
+  [A],
+  grid.cell(x: 2)[This shall error]
+)
+
+---
 // Partial positioning
 #grid(
   columns: 3,
@@ -206,10 +214,10 @@
 )
 
 ---
-// Error: 1:2-6:2 the position of a cell at column 3, row 6148914691236517206 would be too large
+// Error: 1:2-6:2 the position of a cell at column 2, row 6148914691236517206 would be too large
 #table(
   columns: 3,
   rows: 2em,
   fill: (x, y) => if calc.odd(x + y) { red.lighten(50%) } else { green },
-  table.cell(x: 3, y: 6148914691236517206)[a],
+  table.cell(x: 2, y: 6148914691236517206)[a],
 )
