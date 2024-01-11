@@ -89,6 +89,14 @@
 )
 
 ---
+// Error: 2-5:2 Could not fit a cell at the requested row 0.
+#grid(
+  columns: 2,
+  [A], [B],
+  grid.cell(y: 0)[C]
+)
+
+---
 // Doc example 1
 #set page(width: auto)
 #show grid.cell: it => {
