@@ -7,18 +7,23 @@
     columns: 2,
     inset: 5pt,
     fill: aqua,
+    gutter: 3pt,
     [Hello], [World],
-    [Sweet], [Italics]
+    [Sweet], [Home]
   )
-  grid(
+}
+#{
+  show table.cell: it => pad(rest: it.inset)[#(it.x, it.y)]
+  table(
     columns: 2,
     gutter: 3pt,
     [Hello], [World],
-    [Sweet], [Italics]
+    [Sweet], [Home]
   )
 }
 
 ---
+// Positioning cells in a different order than they appear
 #grid(
   columns: 2,
   [A], [B],
@@ -27,6 +32,7 @@
 )
 
 ---
+// Creating more rows by positioning out of bounds
 #grid(
   columns: 3,
   rows: 1.5em,
@@ -54,30 +60,32 @@
 )
 
 ---
+// Automatic position cell skips custom position cell
 #grid(
   grid.cell(x: 0, y: 0)[This shall not error],
   [A]
 )
 
 ---
+// Partial positioning
 #grid(
   columns: 3,
   rows: 1.5em,
   inset: 5pt,
-  fill: (x, y) => if (x, y) == (0, 0) { blue } else if (x, y) == (2, 3) { red } else { green },
-  [A], grid.cell(y: 1)[B], [C], grid.cell(x: auto, y: 1)[D], [E],
-  grid.cell(y: 2)[F], grid.cell(x: 0)[G], grid.cell(x: 0, y: auto)[H],
-  grid.cell(x: 1)[I]
+  fill: aqua,
+  [A], grid.cell(y: 1, fill: green)[B], [C], grid.cell(x: auto, y: 1, fill: green)[D], [E],
+  grid.cell(y: 2, fill: green)[F], grid.cell(x: 0, fill: orange)[G], grid.cell(x: 0, y: auto, fill: orange)[H],
+  grid.cell(x: 1, fill: orange)[I]
 )
 
 #table(
   columns: 3,
   rows: 1.5em,
   inset: 5pt,
-  fill: (x, y) => if (x, y) == (0, 0) { blue } else if (x, y) == (2, 3) { red } else { green },
-  [A], table.cell(y: 1)[B], [C], table.cell(x: auto, y: 1)[D], [E],
-  table.cell(y: 2)[F], table.cell(x: 0)[G], table.cell(x: 0, y: auto)[H],
-  table.cell(x: 1)[I]
+  fill: aqua,
+  [A], table.cell(y: 1, fill: green)[B], [C], table.cell(x: auto, y: 1, fill: green)[D], [E],
+  table.cell(y: 2, fill: green)[F], table.cell(x: 0, fill: orange)[G], table.cell(x: 0, y: auto, fill: orange)[H],
+  table.cell(x: 1, fill: orange)[I]
 )
 
 ---
