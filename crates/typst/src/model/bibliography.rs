@@ -9,6 +9,7 @@ use std::sync::Arc;
 use comemo::{Prehashed, Tracked};
 use ecow::{eco_format, EcoString, EcoVec};
 use hayagriva::archive::ArchivedStyle;
+use hayagriva::citationberg::LocaleCode;
 use hayagriva::io::BibLaTeXError;
 use hayagriva::{
     citationberg, BibliographyDriver, BibliographyRequest, CitationItem, CitationRequest,
@@ -713,18 +714,21 @@ impl<'a> Generator<'a> {
 
                 let mut locale: Option<citationberg::LocaleCode> = None;
                 if let Some(lang) = entry.language() {
-                    println!("Entry language: {:?}", lang);
-                    let lang_string = lang.language.to_string();
-                    if lang_string == "russian" {
-                        locale = Some(citationberg::LocaleCode(String::from("ru-RU")));
-                    } else {
-                        locale = Some(citationberg::LocaleCode(String::from("en-US")));
+                    let lang_string = lang.language.as_str();
+                    if let Some(value) = hayagriva::lang::codes::get_mapping(lang_string)
+                    {
+                        locale = Some(LocaleCode(String::from(value)));
                     }
                 }
-
                 normal &= special_form.is_none();
                 subinfos.push(CiteInfo { key, supplement, hidden });
-                items.push(CitationItem::new(entry, locator, locale, hidden, special_form));
+                items.push(CitationItem::new(
+                    entry,
+                    locator,
+                    locale,
+                    hidden,
+                    special_form,
+                ));
             }
 
             if !errors.is_empty() {
@@ -762,11 +766,10 @@ impl<'a> Generator<'a> {
             for entry in database.map.values() {
                 let mut locale: Option<citationberg::LocaleCode> = None;
                 if let Some(lang) = entry.language() {
-                    let lang_string = lang.language.to_string();
-                    if lang_string == "russian" {
-                        locale = Some(citationberg::LocaleCode(String::from("ru-RU")));
-                    } else {
-                        locale = Some(citationberg::LocaleCode(String::from("en-US")));
+                    let lang_string = lang.language.as_str();
+                    if let Some(value) = hayagriva::lang::codes::get_mapping(lang_string)
+                    {
+                        locale = Some(LocaleCode(String::from(value)));
                     }
                 }
                 driver.citation(CitationRequest::new(

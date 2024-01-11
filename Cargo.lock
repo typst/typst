@@ -790,12 +790,13 @@ checksum = "290f1a1d9242c78d09ce40a5e87e7554ee637af1351968159f4952f028f75604"
 [[package]]
 name = "hayagriva"
 version = "0.5.1"
-source = "git+https://github.com/nrydanov/hayagriva?branch=feature/language-specific-terms#6dbb9832757a085f0d391110fccc56bd551d8a9f"
+source = "git+https://github.com/nrydanov/hayagriva?branch=feature/language-specific-terms#4f7bf0a247a1fca8249e50d3009b63fda117a5dd"
 dependencies = [
  "biblatex",
  "ciborium",
  "citationberg",
  "indexmap 2.1.0",
+ "lazy_static",
  "numerals",
  "paste",
  "serde",
