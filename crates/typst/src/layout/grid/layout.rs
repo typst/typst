@@ -1,6 +1,8 @@
-use ecow::eco_format;
+use ecow::{eco_format, EcoString};
 
-use crate::diag::{bail, At, Hint, HintedStrResult, SourceResult, StrResult};
+use crate::diag::{
+    bail, At, Hint, HintedStrResult, HintedString, SourceResult, StrResult,
+};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, CastInfo, Content, FromValue, Func, IntoValue, Reflect, Resolve, Smart,
@@ -383,7 +385,24 @@ fn resolve_cell_position(
     columns: usize,
 ) -> HintedStrResult<usize> {
     // Translates a (x, y) position to the equivalent index in the final cell vector.
-    let cell_index = |x, y| y * columns + x;
+    // Errors if the position would be too large.
+    let cell_index = |x, y: usize| {
+        y.checked_mul(columns)
+            .and_then(|row_index| row_index.checked_add(x))
+            .ok_or_else(|| {
+                let position = match (cell_x, cell_y) {
+                    (Smart::Auto, Smart::Auto) => EcoString::default(),
+                    (Smart::Custom(x), Smart::Auto) => eco_format!("at column {x} "),
+                    (Smart::Auto, Smart::Custom(y)) => eco_format!("at row {y} "),
+                    (Smart::Custom(x), Smart::Custom(y)) => {
+                        eco_format!("at column {x}, row {y} ")
+                    }
+                };
+                HintedString::from(eco_format!(
+                    "the position of a cell {position}would be too large"
+                ))
+            })
+    };
     match (cell_x, cell_y) {
         // Fully automatic cell positioning. The cell did not
         // request a coordinate.
@@ -408,18 +427,19 @@ fn resolve_cell_position(
             Ok(resolved_index)
         }
         // Cell has chosen its exact position.
-        (Smart::Custom(cell_x), Smart::Custom(cell_y)) => Ok(cell_index(cell_x, cell_y)),
+        (Smart::Custom(cell_x), Smart::Custom(cell_y)) => cell_index(cell_x, cell_y),
         // Cell has only chosen its column, not its row.
         (Smart::Custom(cell_x), Smart::Auto) => {
             // Let's find the first row which has that column available.
             let mut resolved_y = 0;
-            while let Some(Some(_)) = resolved_cells.get(cell_index(cell_x, resolved_y)) {
+            while let Some(Some(_)) = resolved_cells.get(cell_index(cell_x, resolved_y)?)
+            {
                 // Try each row until either we reach an absent position
                 // (`Some(None)`) or an out of bounds position (`None`),
                 // in which case we'd create a new row to place this cell in.
                 resolved_y += 1;
             }
-            Ok(cell_index(cell_x, resolved_y))
+            cell_index(cell_x, resolved_y)
         }
         // Cell has only chosen its row, not its column.
         (Smart::Auto, Smart::Custom(cell_y)) => {
@@ -433,11 +453,12 @@ fn resolve_cell_position(
             resolved_cells
                 .iter()
                 .map(Option::as_ref)
-                .skip(cell_index(0, cell_y))
+                .skip(cell_index(0, cell_y)?)
                 .chain(std::iter::repeat_with(|| None))
                 .take(columns)
                 .position(|cell| cell.is_none())
                 .map(|resolved_x| cell_index(resolved_x, cell_y))
+                .transpose()?
                 .ok_or_else(|| {
                     eco_format!(
                         "a cell could not be placed in row {cell_y} because it was full"
