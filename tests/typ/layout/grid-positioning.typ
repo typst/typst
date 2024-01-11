@@ -53,10 +53,19 @@
 )
 
 ---
-// Error: 2-4:2 Attempted to place two different cells at column 0, row 0.
+// Error: 2-4:2 attempted to place two distinct cells at column 0, row 0
+// Hint: 2-4:2 try specifying your cells in a different order
 #grid(
   [A],
   grid.cell(x: 0, y: 0)[This shall error]
+)
+
+---
+// Error: 2-4:2 attempted to place two distinct cells at column 0, row 0
+// Hint: 2-4:2 try specifying your cells in a different order
+#table(
+  [A],
+  table.cell(x: 0, y: 0)[This shall error]
 )
 
 ---
@@ -89,11 +98,21 @@
 )
 
 ---
-// Error: 2-5:2 Could not fit a cell at the requested row 0.
+// Error: 2-5:2 a cell could not be placed in row 0 because it was full
+// Hint: 2-5:2 try specifying your cells in a different order
 #grid(
   columns: 2,
   [A], [B],
   grid.cell(y: 0)[C]
+)
+
+---
+// Error: 2-5:2 a cell could not be placed in row 0 because it was full
+// Hint: 2-5:2 try specifying your cells in a different order
+#table(
+  columns: 2,
+  [A], [B],
+  table.cell(y: 0)[C]
 )
 
 ---

@@ -1,6 +1,6 @@
 use ecow::eco_format;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, At, Hint, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, CastInfo, Content, FromValue, Func, IntoValue, Reflect, Resolve, Smart,
@@ -275,7 +275,8 @@ impl CellGrid {
                 if existing_cell.is_some() {
                     bail!(
                         span,
-                        "Attempted to place two different cells at column {x}, row {y}."
+                        "attempted to place two distinct cells at column {x}, row {y}";
+                        hint: "try specifying your cells in a different order"
                     );
                 }
 
@@ -380,7 +381,7 @@ fn resolve_cell_position(
     resolved_cells: &[Option<Cell>],
     auto_index: &mut usize,
     columns: usize,
-) -> StrResult<usize> {
+) -> HintedStrResult<usize> {
     // Translates a (x, y) position to the equivalent index in the final cell vector.
     let cell_index = |x, y| y * columns + x;
     match (cell_x, cell_y) {
@@ -438,8 +439,11 @@ fn resolve_cell_position(
                 .position(|cell| cell.is_none())
                 .map(|resolved_x| cell_index(resolved_x, cell_y))
                 .ok_or_else(|| {
-                    eco_format!("Could not fit a cell at the requested row {cell_y}.")
+                    eco_format!(
+                        "a cell could not be placed in row {cell_y} because it was full"
+                    )
                 })
+                .hint("try specifying your cells in a different order")
         }
     }
 }
