@@ -422,20 +422,20 @@ fn resolve_cell_position(
         }
         // Cell has only chosen its row, not its column.
         (Smart::Auto, Smart::Custom(cell_y)) => {
-            // Let's find the first column which has that row available.
-            (0..columns)
-                .find(|possible_x| {
-                    // Much like in the previous cases, we skip any occupied
-                    // positions until we either reach an absent position
-                    // (`Some(None)`) or an out of bounds position (`None`),
-                    // in which case we can just expand the vector enough to
-                    // place this cell. In either case, we found an available
-                    // position.
-                    !matches!(
-                        resolved_cells.get(cell_index(*possible_x, cell_y)),
-                        Some(Some(_))
-                    )
-                })
+            // Let's find the first available column in the chosen row.
+            // The first available position after the first cell of the row,
+            // within up to 'columns' positions, will be the first available
+            // column. We chain extra absent positions (None) in case the
+            // vector isn't large enough yet to hold all cells in the row
+            // (in which case we can place the cell at the first out of bounds
+            // position, since it's available).
+            resolved_cells
+                .iter()
+                .map(Option::as_ref)
+                .skip(cell_index(0, cell_y))
+                .chain(std::iter::repeat_with(|| None))
+                .take(columns)
+                .position(|cell| cell.is_none())
                 .map(|resolved_x| cell_index(resolved_x, cell_y))
                 .ok_or_else(|| {
                     eco_format!("Could not fit a cell at the requested row {cell_y}.")
