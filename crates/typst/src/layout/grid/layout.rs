@@ -269,40 +269,34 @@ impl CellGrid {
                 styles,
             );
 
-            // Now let's check if the cell's position is valid.
-            if let Some(existing_cell) = resolved_cells.get_mut(resolved_index) {
-                // We are trying to place a cell in an existing position.
-                // Ensure we aren't trying to place a cell where there is
-                // already one.
-                if existing_cell.is_some() {
-                    bail!(
-                        span,
-                        "attempted to place two distinct cells at column {x}, row {y}";
-                        hint: "try specifying your cells in a different order"
-                    );
-                }
+            if resolved_index >= resolved_cells.len() {
+                let Some(new_len) = resolved_index.checked_add(1) else {
+                    bail!(span, "cell position too large")
+                };
+                // Here, the cell needs to be placed in a position which
+                // doesn't exist yet in the grid (out of bounds). We will add
+                // enough absent positions for this to be possible. They must
+                // be absent as no cells actually occupy them (they can be
+                // overridden later); however, if no cells occupy them as we
+                // finish building the grid, then such positions will be
+                // replaced by empty cells.
+                resolved_cells.resize_with(new_len, || None);
+            }
 
-                // Ok, position is available, so let's place the cell here.
-                *existing_cell = Some(cell);
-            } else if resolved_index == resolved_cells.len() {
-                // We can just place the new cell at the end of the grid vector.
-                // No other cell can be there.
-                resolved_cells.push(Some(cell));
-            } else {
-                // Here, resolved_index > resolved_cells.len(). Thus, the cell
-                // needs to be placed in a position which doesn't exist yet in
-                // the grid (out of bounds). We will add enough absent
-                // positions for this to be possible. They must be absent as no
-                // cells actually occupy them (they can be overridden later);
-                // however, if no cells occupy them as we finish building the
-                // grid, then such positions will be replaced by empty cells.
-                let new_position_count = resolved_index - resolved_cells.len();
-                resolved_cells.extend(
-                    std::iter::repeat_with(|| None)
-                        .take(new_position_count)
-                        .chain(std::iter::once(Some(cell))),
+            // The vector is large enough to contain the cell, so we can just
+            // index it directly to access the position it will be placed in.
+            // However, we still need to ensure we won't try to place a cell
+            // where there already is one.
+            let slot = &mut resolved_cells[resolved_index];
+            if slot.is_some() {
+                bail!(
+                    span,
+                    "attempted to place two distinct cells at column {x}, row {y}";
+                    hint: "try specifying your cells in a different order"
                 );
             }
+
+            *slot = Some(cell);
         }
 
         // If not all columns in the last row have cells, we will add absent
