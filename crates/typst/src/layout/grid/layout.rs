@@ -87,6 +87,7 @@ impl<T: FromValue> FromValue for Celled<T> {
 }
 
 /// Represents a cell in CellGrid, to be laid out by GridLayouter.
+#[derive(Clone)]
 pub struct Cell {
     /// The cell's body.
     pub body: Content,
@@ -244,7 +245,15 @@ impl CellGrid {
         // Create at least 'cells.len()' positions, since there will be at
         // least 'cells.len()' cells, even though some of them might be placed
         // in arbitrary positions and thus cause the grid to expand.
-        let cell_count = cells.len();
+        // Additionally, make sure we allocate up to the next multiple of 'c',
+        // since each row will have 'c' cells, even if the last few cells
+        // weren't explicitly specified by the user.
+        // We apply '% c' twice so that the amount of cells potentially missing
+        // is zero when 'cells.len()' is already a multiple of 'c' (thus
+        // 'cells.len() % c' would be zero).
+        let Some(cell_count) = cells.len().checked_add((c - cells.len() % c) % c) else {
+            bail!(span, "too many cells were given")
+        };
         let mut resolved_cells: Vec<Option<Cell>> = Vec::with_capacity(cell_count);
         for cell in cells.iter().cloned() {
             // Let's calculate the cell's final position based on its
@@ -273,6 +282,18 @@ impl CellGrid {
                 let Some(new_len) = resolved_index.checked_add(1) else {
                     bail!(span, "cell position too large")
                 };
+                // Ensure the length of the vector of resolved cells is always
+                // a multiple of 'c' by pushing full rows every time. Here, we
+                // add enough absent positions (later converted to empty cells)
+                // to ensure the last row in the new vector length is
+                // completely filled. This is necessary so that those
+                // positions, even if not explicitly used at the end, are
+                // eventually susceptible to show rules and receive grid
+                // styling, as they will be resolved as empty cells in a second
+                // loop below.
+                let Some(new_len) = new_len.checked_add((c - new_len % c) % c) else {
+                    bail!(span, "cell position too large")
+                };
                 // Here, the cell needs to be placed in a position which
                 // doesn't exist yet in the grid (out of bounds). We will add
                 // enough absent positions for this to be possible. They must
@@ -280,7 +301,7 @@ impl CellGrid {
                 // overridden later); however, if no cells occupy them as we
                 // finish building the grid, then such positions will be
                 // replaced by empty cells.
-                resolved_cells.resize_with(new_len, || None);
+                resolved_cells.resize(new_len, None);
             }
 
             // The vector is large enough to contain the cell, so we can just
@@ -299,20 +320,10 @@ impl CellGrid {
             *slot = Some(cell);
         }
 
-        // If not all columns in the last row have cells, we will add absent
-        // positions (later converted to empty cells) and complete the row so
-        // that those positions are susceptible to show rules and receive grid
-        // styling.
-        // We apply '% c' twice so that 'cells_remaining' is zero when the last
-        // row is already filled (then 'resolved_cells.len() % c' would be
-        // zero).
-        let cells_remaining = (c - resolved_cells.len() % c) % c;
-
         // Replace absent entries by resolved empty cells, and produce a vector
         // of 'Cell' from 'Option<Cell>' (final step).
         let resolved_cells = resolved_cells
             .into_iter()
-            .chain(std::iter::repeat_with(|| None).take(cells_remaining))
             .enumerate()
             .map(|(i, cell)| {
                 if let Some(cell) = cell {
