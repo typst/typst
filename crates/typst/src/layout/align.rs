@@ -245,10 +245,6 @@ impl From<Side> for Alignment {
     }
 }
 
-cast! {
-    type Alignment,
-}
-
 /// Where to align something horizontally.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum HAlignment {

@@ -53,7 +53,7 @@ pub use typst_macros::{scope, ty};
 /// - Adding/joining a type and string will yield a string
 /// - The `{in}` operator on a type and a dictionary will evaluate to `{true}`
 ///   if the dictionary has a string key matching the type's name
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Type(Static<NativeTypeData>);
 

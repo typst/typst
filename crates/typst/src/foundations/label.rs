@@ -31,7 +31,7 @@ use crate::util::PicoStr;
 ///
 /// Currently, labels can only be attached to elements in markup mode, not in
 /// code mode. This might change in the future.
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Label(PicoStr);
 

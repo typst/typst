@@ -19,7 +19,7 @@ use crate::layout::Ratio;
 /// #1e4 \
 /// #(10 / 4)
 /// ```
-#[ty(scope, name = "float")]
+#[ty(scope, cast, name = "float")]
 type f64;
 
 #[scope]

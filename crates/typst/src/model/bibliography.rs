@@ -421,10 +421,6 @@ impl Repr for Bibliography {
     }
 }
 
-cast! {
-    type Bibliography,
-}
-
 /// Format a BibLaTeX loading error.
 fn format_biblatex_error(path: &str, src: &str, errors: Vec<BibLaTeXError>) -> EcoString {
     let Some(error) = errors.first() else {
@@ -440,7 +436,7 @@ fn format_biblatex_error(path: &str, src: &str, errors: Vec<BibLaTeXError>) -> E
 }
 
 /// A loaded CSL style.
-#[ty]
+#[ty(cast)]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct CslStyle {
     name: Option<EcoString>,

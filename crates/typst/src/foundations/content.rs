@@ -65,7 +65,7 @@ use crate::util::fat;
 /// In the web app, you can hover over a content variable to see exactly which
 /// elements the content is composed of and what fields they have.
 /// Alternatively, you can inspect the output of the [`repr`]($repr) function.
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Content(Arc<dyn NativeElement>);

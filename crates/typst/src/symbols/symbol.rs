@@ -42,7 +42,7 @@ pub use typst_macros::symbols;
 /// $arrow.r$ \
 /// $arrow.t.quad$
 /// ```
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Symbol(Repr);
 

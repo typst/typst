@@ -67,7 +67,7 @@ pub use ecow::eco_format;
 /// - `[\r]` for a carriage return
 /// - `[\t]` for a tab
 /// - `[\u{1f600}]` for a hexadecimal Unicode escape sequence
-#[ty(scope, title = "String")]
+#[ty(scope, cast, title = "String")]
 #[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
@@ -896,10 +896,6 @@ impl Hash for Regex {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.as_str().hash(state);
     }
-}
-
-cast! {
-    type Regex,
 }
 
 /// A pattern which can be searched for in a string.

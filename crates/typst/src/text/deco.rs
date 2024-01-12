@@ -5,7 +5,7 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{cast, elem, ty, Content, Fold, Repr, Show, Smart, StyleChain};
+use crate::foundations::{elem, ty, Content, Fold, Repr, Show, Smart, StyleChain};
 use crate::layout::{Abs, Em, Frame, FrameItem, Length, Point, Size};
 use crate::syntax::Span;
 use crate::text::{
@@ -361,10 +361,6 @@ impl Repr for Decoration {
     fn repr(&self) -> EcoString {
         eco_format!("{self:?}")
     }
-}
-
-cast! {
-    type Decoration,
 }
 
 /// A kind of decorative line.

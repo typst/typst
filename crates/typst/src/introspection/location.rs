@@ -3,7 +3,7 @@ use std::num::NonZeroUsize;
 use ecow::EcoString;
 
 use crate::engine::Engine;
-use crate::foundations::{cast, func, scope, ty, Dict, Repr};
+use crate::foundations::{func, scope, ty, Dict, Repr};
 use crate::model::Numbering;
 
 /// Identifies an element in the document.
@@ -77,10 +77,6 @@ impl Repr for Location {
     fn repr(&self) -> EcoString {
         "..".into()
     }
-}
-
-cast! {
-    type Location,
 }
 
 /// Makes this element locatable through `engine.locate`.

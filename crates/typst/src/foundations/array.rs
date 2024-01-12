@@ -67,7 +67,7 @@ pub use crate::__array as array;
 /// #(("A", "B", "C")
 ///     .join(", ", last: " and "))
 /// ```
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Default, Clone, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Array(EcoVec<Value>);

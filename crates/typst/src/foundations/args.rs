@@ -38,7 +38,7 @@ use crate::syntax::{Span, Spanned};
 /// #let dict = (fill: blue)
 /// #text(..dict)[Hello]
 /// ```
-#[ty(scope, name = "arguments")]
+#[ty(scope, cast, name = "arguments")]
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Args {

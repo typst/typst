@@ -475,10 +475,6 @@ impl Repr for Counter {
     }
 }
 
-cast! {
-    type Counter,
-}
-
 /// Identifies a counter.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CounterKey {
@@ -521,7 +517,7 @@ impl Repr for CounterKey {
 }
 
 /// An update to perform on a counter.
-#[ty]
+#[ty(cast)]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CounterUpdate {
     /// Set the counter to the specified state.

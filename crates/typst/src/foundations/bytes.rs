@@ -37,7 +37,7 @@ use crate::foundations::{cast, func, scope, ty, Array, Reflect, Repr, Str, Value
 /// #array(data.slice(0, 4)) \
 /// #str(data.slice(1, 4))
 /// ```
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Clone, Hash, Eq, PartialEq)]
 pub struct Bytes(Arc<Prehashed<Cow<'static, [u8]>>>);
 

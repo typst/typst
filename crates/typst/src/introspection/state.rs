@@ -351,12 +351,8 @@ impl Repr for State {
     }
 }
 
-cast! {
-    type State,
-}
-
 /// An update to perform on a state.
-#[ty]
+#[ty(cast)]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum StateUpdate {
     /// Set the state to the specified value.

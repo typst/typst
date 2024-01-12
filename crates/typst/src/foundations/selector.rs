@@ -76,7 +76,7 @@ pub use crate::__select_where as select_where;
 /// == So will this
 /// === But this will not.
 /// ```
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Selector {
     /// Matches a specific type of element.

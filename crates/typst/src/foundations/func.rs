@@ -123,7 +123,7 @@ pub use typst_macros::func;
 /// The only exception are built-in methods like
 /// [`array.push(value)`]($array.push). These can modify the values they are
 /// called on.
-#[ty(scope, name = "function")]
+#[ty(scope, cast, name = "function")]
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Func {
