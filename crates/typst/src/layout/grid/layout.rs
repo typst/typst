@@ -409,16 +409,14 @@ fn resolve_cell_position(
         (Smart::Auto, Smart::Auto) => {
             // Let's find the first available position starting from the
             // automatic position counter, searching in row-major order.
-            // We have to sum 'next_auto_index' at the end since we'd have
-            // the position after the initial skip, not from the start of the
-            // vector.
-            let next_auto_index = *auto_index;
-            let resolved_index = resolved_cells
-                .iter()
-                .skip(next_auto_index)
-                .position(Option::is_none)
-                .map(|i| i + next_auto_index)
-                .unwrap_or_else(|| resolved_cells.len());
+            let mut resolved_index = *auto_index;
+            while let Some(Some(_)) = resolved_cells.get(resolved_index) {
+                // Skip any non-absent cell positions (`Some(None)`) to
+                // determine where this cell will be placed. An out of bounds
+                // position (thus `None`) is also a valid new position (only
+                // requires expanding the vector).
+                resolved_index += 1;
+            }
 
             // Ensure the next cell with automatic position will be
             // placed after this one (maybe not immediately after).
