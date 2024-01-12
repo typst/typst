@@ -213,10 +213,10 @@ impl CellGrid {
 
     /// Resolves and positions all cells in the grid before creating it.
     /// Allows them to keep track of their final properties and positions
-    /// adjust their fields accordingly.
+    /// and adjust their fields accordingly.
     /// Cells must implement Clone as they will be owned. Additionally, they
-    /// must implement Default in order to fill the last row of the grid with
-    /// empty cells, if it is not completely filled.
+    /// must implement Default in order to fill positions in the grid which
+    /// weren't explicitly specified by the user with empty cells.
     #[allow(clippy::too_many_arguments)]
     pub fn resolve<T: ResolvableCell + Clone + Default>(
         tracks: Axes<&[Sizing]>,
