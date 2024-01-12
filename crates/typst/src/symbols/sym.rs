@@ -17,6 +17,8 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     zwj: '\u{200D}',
     zwnj: '\u{200C}',
     zws: '\u{200B}',
+    lrm: '\u{200E}',
+    rlm: '\u{200F}',
 
     // Spaces.
     space: [
