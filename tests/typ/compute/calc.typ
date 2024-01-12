@@ -32,6 +32,23 @@
 #test(float(-10).is-infinite(), false)
 
 ---
+// Test float `signum()`
+#test(float(0.0).signum(), 1.0)
+#test(float(1.0).signum(), 1.0)
+#test(float(-1.0).signum(), -1.0)
+#test(float(10.0).signum(), 1.0)
+#test(float(-10.0).signum(), -1.0)
+#test(float(calc.nan).signum().is-nan(), true)
+
+---
+// Test int `signum()`
+#test(int(0).signum(), 0)
+#test(int(1.0).signum(), 1)
+#test(int(-1.0).signum(), -1)
+#test(int(10.0).signum(), 1)
+#test(int(-10.0).signum(), -1)
+
+---
 #test(calc.round(calc.e, digits: 2), 2.72)
 #test(calc.round(calc.pi, digits: 2), 3.14)
 
@@ -293,19 +310,3 @@
 ---
 // Error: 18-19 number must not be zero
 #range(10, step: 0)
-
----
-// Test `calc.signum`.
-
-#test(calc.signum(0), 0)
-#test(calc.signum(1), 1)
-#test(calc.signum(10), 1)
-#test(calc.signum(-1), -1)
-#test(calc.signum(-10), -1)
-#test(calc.signum(0.0), 1)
-#test(calc.signum(1.0), 1)
-#test(calc.signum(-1.0), -1)
-#test(calc.signum(0.1), 1)
-#test(calc.signum(1.1), 1)
-#test(calc.signum(-1.1), -1)
-#test(calc.signum(calc.nan).is-nan(), true)
