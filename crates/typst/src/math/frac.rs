@@ -152,11 +152,12 @@ fn layout(
         frame.push(
             line_pos,
             FrameItem::Shape(
-                Geometry::Line(Point::with_x(line_width)).stroked(FixedStroke {
-                    paint: TextElem::fill_in(ctx.styles()).as_decoration(),
-                    thickness,
-                    ..FixedStroke::default()
-                }),
+                Geometry::Line(Point::with_x(line_width)).stroked(
+                    FixedStroke::from_pair(
+                        TextElem::fill_in(ctx.styles()).as_decoration(),
+                        thickness,
+                    ),
+                ),
                 span,
             ),
         );

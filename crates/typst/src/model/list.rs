@@ -5,8 +5,8 @@ use crate::foundations::{
     Value,
 };
 use crate::layout::{
-    Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlign, Layout, Length,
-    Regions, Sizing, Spacing, VAlign,
+    Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment, Layout,
+    Length, Regions, Sizing, Spacing, VAlignment,
 };
 use crate::model::ParElem;
 use crate::text::TextElem;
@@ -156,7 +156,7 @@ impl Layout for ListElem {
             .marker(styles)
             .resolve(engine, depth)?
             // avoid '#set align' interference with the list
-            .aligned(HAlign::Start + VAlign::Top);
+            .aligned(HAlignment::Start + VAlignment::Top);
 
         let mut cells = vec![];
         for item in self.children() {

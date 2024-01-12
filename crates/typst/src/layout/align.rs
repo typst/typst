@@ -38,7 +38,7 @@ pub struct AlignElem {
     #[positional]
     #[fold]
     #[default]
-    pub alignment: Align,
+    pub alignment: Alignment,
 
     /// The content to align.
     #[required]
@@ -96,17 +96,17 @@ impl Show for AlignElem {
 /// #left.x \
 /// #left.y (none)
 /// ```
-#[ty(scope, name = "alignment")]
+#[ty(scope)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Align {
-    H(HAlign),
-    V(VAlign),
-    Both(HAlign, VAlign),
+pub enum Alignment {
+    H(HAlignment),
+    V(VAlignment),
+    Both(HAlignment, VAlignment),
 }
 
-impl Align {
+impl Alignment {
     /// The horizontal component.
-    pub const fn x(self) -> Option<HAlign> {
+    pub const fn x(self) -> Option<HAlignment> {
         match self {
             Self::H(x) | Self::Both(x, _) => Some(x),
             Self::V(_) => None,
@@ -114,7 +114,7 @@ impl Align {
     }
 
     /// The vertical component.
-    pub const fn y(self) -> Option<VAlign> {
+    pub const fn y(self) -> Option<VAlignment> {
         match self {
             Self::V(y) | Self::Both(_, y) => Some(y),
             Self::H(_) => None,
@@ -131,15 +131,15 @@ impl Align {
 }
 
 #[scope]
-impl Align {
-    pub const START: Self = Align::H(HAlign::Start);
-    pub const LEFT: Self = Align::H(HAlign::Left);
-    pub const CENTER: Self = Align::H(HAlign::Center);
-    pub const RIGHT: Self = Align::H(HAlign::Right);
-    pub const END: Self = Align::H(HAlign::End);
-    pub const TOP: Self = Align::V(VAlign::Top);
-    pub const HORIZON: Self = Align::V(VAlign::Horizon);
-    pub const BOTTOM: Self = Align::V(VAlign::Bottom);
+impl Alignment {
+    pub const START: Self = Alignment::H(HAlignment::Start);
+    pub const LEFT: Self = Alignment::H(HAlignment::Left);
+    pub const CENTER: Self = Alignment::H(HAlignment::Center);
+    pub const RIGHT: Self = Alignment::H(HAlignment::Right);
+    pub const END: Self = Alignment::H(HAlignment::End);
+    pub const TOP: Self = Alignment::V(VAlignment::Top);
+    pub const HORIZON: Self = Alignment::V(VAlignment::Horizon);
+    pub const BOTTOM: Self = Alignment::V(VAlignment::Bottom);
 
     /// The axis this alignment belongs to.
     /// - `{"horizontal"}` for `start`, `left`, `center`, `right`, and `end`
@@ -168,7 +168,7 @@ impl Align {
     /// #(left + bottom).inv()
     /// ```
     #[func(title = "Inverse")]
-    pub const fn inv(self) -> Align {
+    pub const fn inv(self) -> Alignment {
         match self {
             Self::H(h) => Self::H(h.inv()),
             Self::V(v) => Self::V(v.inv()),
@@ -177,13 +177,13 @@ impl Align {
     }
 }
 
-impl Default for Align {
+impl Default for Alignment {
     fn default() -> Self {
-        HAlign::default() + VAlign::default()
+        HAlignment::default() + VAlignment::default()
     }
 }
 
-impl Add for Align {
+impl Add for Alignment {
     type Output = StrResult<Self>;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -204,7 +204,7 @@ impl Add for Align {
     }
 }
 
-impl Repr for Align {
+impl Repr for Alignment {
     fn repr(&self) -> EcoString {
         match self {
             Self::H(x) => x.repr(),
@@ -214,7 +214,7 @@ impl Repr for Align {
     }
 }
 
-impl Fold for Align {
+impl Fold for Alignment {
     type Output = Self;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
@@ -226,7 +226,7 @@ impl Fold for Align {
     }
 }
 
-impl Resolve for Align {
+impl Resolve for Alignment {
     type Output = Axes<FixedAlign>;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
@@ -234,7 +234,7 @@ impl Resolve for Align {
     }
 }
 
-impl From<Side> for Align {
+impl From<Side> for Alignment {
     fn from(side: Side) -> Self {
         match side {
             Side::Left => Self::LEFT,
@@ -246,12 +246,12 @@ impl From<Side> for Align {
 }
 
 cast! {
-    type Align,
+    type Alignment,
 }
 
 /// Where to align something horizontally.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum HAlign {
+pub enum HAlignment {
     #[default]
     Start,
     Left,
@@ -260,7 +260,7 @@ pub enum HAlign {
     End,
 }
 
-impl HAlign {
+impl HAlignment {
     /// The inverse horizontal alignment.
     pub const fn inv(self) -> Self {
         match self {
@@ -284,7 +284,7 @@ impl HAlign {
     }
 }
 
-impl Repr for HAlign {
+impl Repr for HAlignment {
     fn repr(&self) -> EcoString {
         match self {
             Self::Start => "start".into(),
@@ -296,21 +296,21 @@ impl Repr for HAlign {
     }
 }
 
-impl Add<VAlign> for HAlign {
-    type Output = Align;
+impl Add<VAlignment> for HAlignment {
+    type Output = Alignment;
 
-    fn add(self, rhs: VAlign) -> Self::Output {
-        Align::Both(self, rhs)
+    fn add(self, rhs: VAlignment) -> Self::Output {
+        Alignment::Both(self, rhs)
     }
 }
 
-impl From<HAlign> for Align {
-    fn from(align: HAlign) -> Self {
+impl From<HAlignment> for Alignment {
+    fn from(align: HAlignment) -> Self {
         Self::H(align)
     }
 }
 
-impl Resolve for HAlign {
+impl Resolve for HAlignment {
     type Output = FixedAlign;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
@@ -319,24 +319,24 @@ impl Resolve for HAlign {
 }
 
 cast! {
-    HAlign,
-    self => Align::H(self).into_value(),
-    align: Align => match align {
-        Align::H(v) => v,
+    HAlignment,
+    self => Alignment::H(self).into_value(),
+    align: Alignment => match align {
+        Alignment::H(v) => v,
         v => bail!("expected `start`, `left`, `center`, `right`, or `end`, found {}", v.repr()),
     }
 }
 
 /// Where to align something vertically.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum VAlign {
+pub enum VAlignment {
     #[default]
     Top,
     Horizon,
     Bottom,
 }
 
-impl VAlign {
+impl VAlignment {
     /// The inverse vertical alignment.
     pub const fn inv(self) -> Self {
         match self {
@@ -356,7 +356,7 @@ impl VAlign {
     }
 }
 
-impl Repr for VAlign {
+impl Repr for VAlignment {
     fn repr(&self) -> EcoString {
         match self {
             Self::Top => "top".into(),
@@ -366,25 +366,25 @@ impl Repr for VAlign {
     }
 }
 
-impl Add<HAlign> for VAlign {
-    type Output = Align;
+impl Add<HAlignment> for VAlignment {
+    type Output = Alignment;
 
-    fn add(self, rhs: HAlign) -> Self::Output {
-        Align::Both(rhs, self)
+    fn add(self, rhs: HAlignment) -> Self::Output {
+        Alignment::Both(rhs, self)
     }
 }
 
-impl From<VAlign> for Align {
-    fn from(align: VAlign) -> Self {
+impl From<VAlignment> for Alignment {
+    fn from(align: VAlignment) -> Self {
         Self::V(align)
     }
 }
 
 cast! {
-    VAlign,
-    self => Align::V(self).into_value(),
-    align: Align => match align {
-        Align::V(v) => v,
+    VAlignment,
+    self => Alignment::V(self).into_value(),
+    align: Alignment => match align {
+        Alignment::V(v) => v,
         v => bail!("expected `top`, `horizon`, or `bottom`, found {}", v.repr()),
     }
 }

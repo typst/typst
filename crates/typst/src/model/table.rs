@@ -4,7 +4,7 @@ use crate::foundations::{
     cast, elem, scope, Content, Fold, NativeElement, Show, Smart, StyleChain,
 };
 use crate::layout::{
-    show_grid_cell, Abs, Align, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter,
+    show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter,
     Layout, Length, Regions, Rel, ResolvableCell, Sides, TrackSizings,
 };
 use crate::model::Figurable;
@@ -118,7 +118,7 @@ pub struct TableElem {
     /// )
     /// ```
     #[borrowed]
-    pub align: Celled<Smart<Align>>,
+    pub align: Celled<Smart<Alignment>>,
 
     /// How to [stroke]($stroke) the cells.
     ///
@@ -268,7 +268,7 @@ pub struct TableCell {
     fill: Smart<Option<Paint>>,
 
     /// The cell's alignment override.
-    align: Smart<Align>,
+    align: Smart<Alignment>,
 
     /// The cell's inset override.
     inset: Smart<Sides<Option<Rel<Length>>>>,
@@ -291,7 +291,7 @@ impl ResolvableCell for TableCell {
         _: usize,
         _: usize,
         fill: &Option<Paint>,
-        align: Smart<Align>,
+        align: Smart<Alignment>,
         inset: Sides<Rel<Length>>,
         styles: StyleChain,
     ) -> Cell {

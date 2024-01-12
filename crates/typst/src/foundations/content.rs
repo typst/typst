@@ -16,7 +16,7 @@ use crate::foundations::{
     NativeElement, Recipe, Repr, Selector, Str, Style, Styles, Value,
 };
 use crate::introspection::{Location, Meta, MetaElem};
-use crate::layout::{Align, AlignElem, Axes, Length, MoveElem, PadElem, Rel, Sides};
+use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
 use crate::model::{Destination, EmphElem, StrongElem};
 use crate::syntax::Span;
 use crate::text::UnderlineElem;
@@ -491,7 +491,7 @@ impl Content {
     }
 
     /// Set alignments for this content.
-    pub fn aligned(self, align: Align) -> Self {
+    pub fn aligned(self, align: Alignment) -> Self {
         self.styled(AlignElem::set_alignment(align))
     }
 

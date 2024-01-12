@@ -5,7 +5,7 @@ use crate::diag::{bail, StrResult};
 use crate::foundations::{
     cast, CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve, StyleChain, Value,
 };
-use crate::layout::{Abs, Align, Axes, Axis, Corner, Rel, Size};
+use crate::layout::{Abs, Alignment, Axes, Axis, Corner, Rel, Size};
 use crate::util::Get;
 
 /// A container with left, top, right and bottom components.
@@ -306,12 +306,12 @@ impl Side {
 
 cast! {
     Side,
-    self => Align::from(self).into_value(),
-    align: Align => match align {
-        Align::LEFT => Self::Left,
-        Align::RIGHT => Self::Right,
-        Align::TOP => Self::Top,
-        Align::BOTTOM => Self::Bottom,
+    self => Alignment::from(self).into_value(),
+    align: Alignment => match align {
+        Alignment::LEFT => Self::Left,
+        Alignment::RIGHT => Self::Right,
+        Alignment::TOP => Self::Top,
+        Alignment::BOTTOM => Self::Bottom,
         _ => bail!("cannot convert this alignment to a side"),
     },
 }
