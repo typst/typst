@@ -410,11 +410,10 @@ pub(crate) fn decorate(
     };
 
     let offset = offset.unwrap_or(-metrics.position.at(text.size)) - shift;
-    let stroke = stroke.clone().unwrap_or(FixedStroke {
-        paint: text.fill.as_decoration(),
-        thickness: metrics.thickness.at(text.size),
-        ..FixedStroke::default()
-    });
+    let stroke = stroke.clone().unwrap_or(FixedStroke::from_pair(
+        text.fill.as_decoration(),
+        metrics.thickness.at(text.size),
+    ));
 
     let gap_padding = 0.08 * text.size;
     let min_width = 0.162 * text.size;

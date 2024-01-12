@@ -6,7 +6,7 @@ use ecow::eco_format;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::eval::{access_dict, Access, Eval, Vm};
-use crate::foundations::{format_str, Datetime, IntoValue, Regex, Repr, Smart, Value};
+use crate::foundations::{format_str, Datetime, IntoValue, Regex, Repr, Value};
 use crate::layout::{Align, Length, Rel};
 use crate::syntax::ast::{self, AstNode};
 use crate::text::TextElem;
@@ -217,28 +217,15 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
 
-        (Color(color), Length(thickness)) | (Length(thickness), Color(color)) => Stroke {
-            paint: Smart::Custom(color.into()),
-            thickness: Smart::Custom(thickness),
-            ..Stroke::default()
+        (Color(color), Length(thickness)) | (Length(thickness), Color(color)) => {
+            Stroke::from_pair(color, thickness).into_value()
         }
-        .into_value(),
-
         (Gradient(gradient), Length(thickness))
-        | (Length(thickness), Gradient(gradient)) => Stroke {
-            paint: Smart::Custom(gradient.into()),
-            thickness: Smart::Custom(thickness),
-            ..Stroke::default()
+        | (Length(thickness), Gradient(gradient)) => {
+            Stroke::from_pair(gradient, thickness).into_value()
         }
-        .into_value(),
-
         (Pattern(pattern), Length(thickness)) | (Length(thickness), Pattern(pattern)) => {
-            Stroke {
-                paint: Smart::Custom(pattern.into()),
-                thickness: Smart::Custom(thickness),
-                ..Stroke::default()
-            }
-            .into_value()
+            Stroke::from_pair(pattern, thickness).into_value()
         }
 
         (Duration(a), Duration(b)) => Duration(a + b),
