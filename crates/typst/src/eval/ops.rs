@@ -7,7 +7,7 @@ use ecow::eco_format;
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::eval::{access_dict, Access, Eval, Vm};
 use crate::foundations::{format_str, Datetime, IntoValue, Regex, Repr, Value};
-use crate::layout::{Align, Length, Rel};
+use crate::layout::{Alignment, Length, Rel};
 use crate::syntax::ast::{self, AstNode};
 use crate::text::TextElem;
 use crate::util::Numeric;
@@ -148,7 +148,7 @@ pub fn pos(value: Value) -> StrResult<Value> {
             mismatch!("cannot apply unary '+' to {}", value)
         }
         Dyn(d) => {
-            if d.is::<Align>() {
+            if d.is::<Alignment>() {
                 mismatch!("cannot apply unary '+' to {}", d)
             } else {
                 mismatch!("cannot apply '+' to {}", d)
@@ -238,7 +238,9 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Dyn(a), Dyn(b)) => {
             // Alignments can be summed.
-            if let (Some(&a), Some(&b)) = (a.downcast::<Align>(), b.downcast::<Align>()) {
+            if let (Some(&a), Some(&b)) =
+                (a.downcast::<Alignment>(), b.downcast::<Alignment>())
+            {
                 return Ok((a + b)?.into_value());
             }
 

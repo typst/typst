@@ -3,7 +3,9 @@ use crate::engine::Engine;
 use crate::foundations::{
     elem, Behave, Behaviour, Content, NativeElement, Smart, StyleChain,
 };
-use crate::layout::{Align, Axes, Em, Fragment, Layout, Length, Regions, Rel, VAlign};
+use crate::layout::{
+    Alignment, Axes, Em, Fragment, Layout, Length, Regions, Rel, VAlignment,
+};
 
 /// Places content at an absolute position.
 ///
@@ -36,8 +38,8 @@ pub struct PlaceElem {
     /// that axis will be ignored, instead, the item will be placed in the
     /// origin of the axis.
     #[positional]
-    #[default(Smart::Custom(Align::START))]
-    pub alignment: Smart<Align>,
+    #[default(Smart::Custom(Alignment::START))]
+    pub alignment: Smart<Alignment>,
 
     /// Whether the placed element has floating layout.
     ///
@@ -101,8 +103,9 @@ impl Layout for PlaceElem {
         let alignment = self.alignment(styles);
 
         if float
-            && alignment
-                .map_or(false, |align| matches!(align.y(), None | Some(VAlign::Horizon)))
+            && alignment.map_or(false, |align| {
+                matches!(align.y(), None | Some(VAlignment::Horizon))
+            })
         {
             bail!(self.span(), "floating placement must be `auto`, `top`, or `bottom`");
         } else if !float && alignment.is_auto() {
@@ -114,7 +117,7 @@ impl Layout for PlaceElem {
         let child = self
             .body()
             .clone()
-            .aligned(alignment.unwrap_or_else(|| Align::CENTER));
+            .aligned(alignment.unwrap_or_else(|| Alignment::CENTER));
 
         let pod = Regions::one(base, Axes::splat(false));
         let frame = child.layout(engine, styles, pod)?.into_frame();

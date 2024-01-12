@@ -8,7 +8,7 @@ use crate::foundations::{
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
-    Abs, Align, AlignElem, Axes, Dir, Em, FixedAlign, Fragment, Frame, Layout, Point,
+    Abs, AlignElem, Alignment, Axes, Dir, Em, FixedAlign, Fragment, Frame, Layout, Point,
     Regions, Size,
 };
 use crate::math::{LayoutMath, MathContext};
@@ -127,7 +127,7 @@ impl Finalize for EquationElem {
     fn finalize(&self, realized: Content, style: StyleChain) -> Content {
         let mut realized = realized;
         if self.block(style) {
-            realized = realized.styled(AlignElem::set_alignment(Align::CENTER));
+            realized = realized.styled(AlignElem::set_alignment(Alignment::CENTER));
         }
         realized
             .styled(TextElem::set_weight(FontWeight::from_number(450)))

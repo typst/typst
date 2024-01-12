@@ -13,7 +13,9 @@ use crate::foundations::{
 use crate::introspection::{
     Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
 };
-use crate::layout::{Align, BlockElem, Em, HAlign, Length, PlaceElem, VAlign, VElem};
+use crate::layout::{
+    Alignment, BlockElem, Em, HAlignment, Length, PlaceElem, VAlignment, VElem,
+};
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
 use crate::syntax::Spanned;
 use crate::text::{Lang, Region, TextElem};
@@ -129,7 +131,7 @@ pub struct FigureElem {
     /// )
     /// #lorem(60)
     /// ```
-    pub placement: Option<Smart<VAlign>>,
+    pub placement: Option<Smart<VAlignment>>,
 
     /// The figure's caption.
     pub caption: Option<FigureCaption>,
@@ -307,7 +309,7 @@ impl Show for FigureElem {
         // Build the caption, if any.
         if let Some(caption) = self.caption(styles) {
             let v = VElem::weak(self.gap(styles).into()).pack();
-            realized = if caption.position(styles) == VAlign::Bottom {
+            realized = if caption.position(styles) == VAlignment::Bottom {
                 realized + v + caption.pack()
             } else {
                 caption.pack() + v + realized
@@ -319,14 +321,14 @@ impl Show for FigureElem {
             .with_body(Some(realized))
             .spanned(self.span())
             .pack()
-            .aligned(Align::CENTER);
+            .aligned(Alignment::CENTER);
 
         // Wrap in a float.
         if let Some(align) = self.placement(styles) {
             realized = PlaceElem::new(realized)
                 .spanned(self.span())
                 .with_float(true)
-                .with_alignment(align.map(|align| HAlign::Center + align))
+                .with_alignment(align.map(|align| HAlignment::Center + align))
                 .pack();
         }
 
@@ -450,17 +452,17 @@ pub struct FigureCaption {
     ///   )
     /// )
     /// ```
-    #[default(VAlign::Bottom)]
+    #[default(VAlignment::Bottom)]
     #[parse({
-        let option: Option<Spanned<VAlign>> = args.named("position")?;
+        let option: Option<Spanned<VAlignment>> = args.named("position")?;
         if let Some(Spanned { v: align, span }) = option {
-            if align == VAlign::Horizon {
+            if align == VAlignment::Horizon {
                 bail!(span, "expected `top` or `bottom`");
             }
         }
         option.map(|spanned| spanned.v)
     })]
-    pub position: VAlign,
+    pub position: VAlignment,
 
     /// The separator which will appear between the number and body.
     ///

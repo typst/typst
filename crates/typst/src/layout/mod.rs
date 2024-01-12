@@ -95,7 +95,7 @@ pub fn define(global: &mut Scope) {
     global.define_type::<Rel<Length>>();
     global.define_type::<Fr>();
     global.define_type::<Dir>();
-    global.define_type::<Align>();
+    global.define_type::<Alignment>();
     global.define_elem::<PageElem>();
     global.define_elem::<PagebreakElem>();
     global.define_elem::<VElem>();

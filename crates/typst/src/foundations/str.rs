@@ -13,7 +13,7 @@ use crate::foundations::{
     cast, dict, func, repr, scope, ty, Array, Bytes, Dict, Func, IntoValue, Label, Repr,
     Type, Value, Version,
 };
-use crate::layout::Align;
+use crate::layout::Alignment;
 use crate::syntax::{Span, Spanned};
 
 /// Create a new [`Str`] from a format string.
@@ -933,9 +933,9 @@ pub enum StrSide {
 
 cast! {
     StrSide,
-    v: Align => match v {
-        Align::START => Self::Start,
-        Align::END => Self::End,
+    v: Alignment => match v {
+        Alignment::START => Self::Start,
+        Alignment::END => Self::End,
         _ => bail!("expected either `start` or `end`"),
     },
 }
