@@ -264,6 +264,7 @@ impl LocalName for OutlineElem {
             Lang::ALBANIAN => "Përmbajtja",
             Lang::ARABIC => "المحتويات",
             Lang::BOKMÅL => "Innhold",
+            Lang::CATALAN => "Índex",
             Lang::CHINESE if option_eq(region, "TW") => "目錄",
             Lang::CHINESE => "目录",
             Lang::CZECH => "Obsah",

@@ -434,6 +434,7 @@ impl LocalName for RawElem {
             Lang::ALBANIAN => "List",
             Lang::ARABIC => "قائمة",
             Lang::BOKMÅL => "Utskrift",
+            Lang::CATALAN => "Llistat",
             Lang::CHINESE if option_eq(region, "TW") => "程式",
             Lang::CHINESE => "代码",
             Lang::CZECH => "Seznam",
