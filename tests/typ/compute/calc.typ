@@ -20,6 +20,35 @@
 #test(type(float(10)), float)
 
 ---
+// Test float `is-nan()`.
+#test(float(calc.nan).is-nan(), true)
+#test(float(10).is-nan(), false)
+
+---
+// Test float `is-infinite()`.
+#test(float(calc.inf).is-infinite(), true)
+#test(float(-calc.inf).is-infinite(), true)
+#test(float(10).is-infinite(), false)
+#test(float(-10).is-infinite(), false)
+
+---
+// Test float `signum()`
+#test(float(0.0).signum(), 1.0)
+#test(float(1.0).signum(), 1.0)
+#test(float(-1.0).signum(), -1.0)
+#test(float(10.0).signum(), 1.0)
+#test(float(-10.0).signum(), -1.0)
+#test(float(calc.nan).signum().is-nan(), true)
+
+---
+// Test int `signum()`
+#test(int(0).signum(), 0)
+#test(int(1.0).signum(), 1)
+#test(int(-1.0).signum(), -1)
+#test(int(10.0).signum(), 1)
+#test(int(-10.0).signum(), -1)
+
+---
 #test(calc.round(calc.e, digits: 2), 2.72)
 #test(calc.round(calc.pi, digits: 2), 3.14)
 

@@ -49,6 +49,22 @@ impl i64 {
     ) -> i64 {
         value.0
     }
+
+    /// Calculates the sign of an integer.
+    ///
+    /// - If the number is positive, returns `{1}`.
+    /// - If the number is negative, returns `{-1}`.
+    /// - If the number is zero, returns `{0}`.
+    ///
+    /// ```example
+    /// #(5).signum() \
+    /// #(-5).signum() \
+    /// #(0).signum() \
+    /// ```
+    #[func]
+    pub fn signum(self) -> i64 {
+        i64::signum(self)
+    }
 }
 
 impl Repr for i64 {
