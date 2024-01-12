@@ -429,32 +429,30 @@ fn resolve_cell_position(
 
             Ok(resolved_index)
         }
-        // Cell has chosen its exact position.
-        (Smart::Custom(cell_x), Smart::Custom(cell_y)) => {
+        // Cell has chosen at least its column.
+        (Smart::Custom(cell_x), cell_y) => {
             if cell_x >= columns {
                 return Err(HintedString::from(eco_format!(
                     "a cell could not be placed at invalid column {cell_x}"
                 )));
             }
-            cell_index(cell_x, cell_y)
-        }
-        // Cell has only chosen its column, not its row.
-        (Smart::Custom(cell_x), Smart::Auto) => {
-            if cell_x >= columns {
-                return Err(HintedString::from(eco_format!(
-                    "a cell could not be placed at invalid column {cell_x}"
-                )));
+            if let Smart::Custom(cell_y) = cell_y {
+                // Cell has chosen its exact position.
+                cell_index(cell_x, cell_y)
+            } else {
+                // Cell has only chosen its column.
+                // Let's find the first row which has that column available.
+                let mut resolved_y = 0;
+                while let Some(Some(_)) =
+                    resolved_cells.get(cell_index(cell_x, resolved_y)?)
+                {
+                    // Try each row until either we reach an absent position
+                    // (`Some(None)`) or an out of bounds position (`None`),
+                    // in which case we'd create a new row to place this cell in.
+                    resolved_y += 1;
+                }
+                cell_index(cell_x, resolved_y)
             }
-            // Let's find the first row which has that column available.
-            let mut resolved_y = 0;
-            while let Some(Some(_)) = resolved_cells.get(cell_index(cell_x, resolved_y)?)
-            {
-                // Try each row until either we reach an absent position
-                // (`Some(None)`) or an out of bounds position (`None`),
-                // in which case we'd create a new row to place this cell in.
-                resolved_y += 1;
-            }
-            cell_index(cell_x, resolved_y)
         }
         // Cell has only chosen its row, not its column.
         (Smart::Auto, Smart::Custom(cell_y)) => {
