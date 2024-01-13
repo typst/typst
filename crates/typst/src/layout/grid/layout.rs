@@ -251,7 +251,10 @@ impl CellGrid {
         // Additionally, make sure we allocate up to the next multiple of 'c',
         // since each row will have 'c' cells, even if the last few cells
         // weren't explicitly specified by the user.
-        let Some(cell_count) = cells.len().checked_next_multiple_of(c) else {
+        // We apply '% c' twice so that the amount of cells potentially missing
+        // is zero when 'cells.len()' is already a multiple of 'c' (thus
+        // 'cells.len() % c' would be zero).
+        let Some(cell_count) = cells.len().checked_add((c - cells.len() % c) % c) else {
             bail!(span, "too many cells were given")
         };
         let mut resolved_cells: Vec<Option<Cell>> = Vec::with_capacity(cell_count);
@@ -287,6 +290,9 @@ impl CellGrid {
             );
 
             if resolved_index >= resolved_cells.len() {
+                let Some(new_len) = resolved_index.checked_add(1) else {
+                    bail!(cell_span, "cell position too large")
+                };
                 // Ensure the length of the vector of resolved cells is always
                 // a multiple of 'c' by pushing full rows every time. Here, we
                 // add enough absent positions (later converted to empty cells)
@@ -296,13 +302,9 @@ impl CellGrid {
                 // eventually susceptible to show rules and receive grid
                 // styling, as they will be resolved as empty cells in a second
                 // loop below.
-                let Some(new_len) = resolved_index
-                    .checked_add(1)
-                    .and_then(|new_len| new_len.checked_next_multiple_of(c))
-                else {
+                let Some(new_len) = new_len.checked_add((c - new_len % c) % c) else {
                     bail!(cell_span, "cell position too large")
                 };
-
                 // Here, the cell needs to be placed in a position which
                 // doesn't exist yet in the grid (out of bounds). We will add
                 // enough absent positions for this to be possible. They must
