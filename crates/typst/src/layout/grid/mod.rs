@@ -15,6 +15,7 @@ use crate::foundations::{
 use crate::layout::{
     Abs, Align, AlignElem, Axes, Fragment, Layout, Length, Regions, Rel, Sides, Sizing,
 };
+use crate::syntax::Span;
 use crate::visualize::{Paint, Stroke};
 
 /// Arranges content in a grid.
@@ -481,6 +482,10 @@ impl ResolvableCell for GridCell {
 
     fn y(&self, styles: StyleChain) -> Smart<usize> {
         self.y(styles)
+    }
+
+    fn cell_span(&self) -> Span {
+        self.span()
     }
 }
 

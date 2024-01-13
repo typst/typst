@@ -1,4 +1,4 @@
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 
 use crate::diag::{
     bail, At, Hint, HintedStrResult, HintedString, SourceResult, StrResult,
@@ -134,6 +134,9 @@ pub trait ResolvableCell {
 
     /// Returns this cell's row override.
     fn y(&self, styles: StyleChain) -> Smart<usize>;
+
+    /// The cell's span, for errors.
+    fn cell_span(&self) -> Span;
 }
 
 /// A grid of cells, including the columns, rows, and cell data.
@@ -256,13 +259,21 @@ impl CellGrid {
         };
         let mut resolved_cells: Vec<Option<Cell>> = Vec::with_capacity(cell_count);
         for cell in cells.iter().cloned() {
+            let cell_span = {
+                let cell_span = cell.cell_span();
+                if cell_span.is_detached() {
+                    span
+                } else {
+                    cell_span
+                }
+            };
             // Let's calculate the cell's final position based on its
             // requested position.
             let resolved_index = {
                 let cell_x = cell.x(styles);
                 let cell_y = cell.y(styles);
                 resolve_cell_position(cell_x, cell_y, &resolved_cells, &mut auto_index, c)
-                    .at(span)?
+                    .at(cell_span)?
             };
             let x = resolved_index % c;
             let y = resolved_index / c;
@@ -280,7 +291,7 @@ impl CellGrid {
 
             if resolved_index >= resolved_cells.len() {
                 let Some(new_len) = resolved_index.checked_add(1) else {
-                    bail!(span, "cell position too large")
+                    bail!(cell_span, "cell position too large")
                 };
                 // Ensure the length of the vector of resolved cells is always
                 // a multiple of 'c' by pushing full rows every time. Here, we
@@ -292,7 +303,7 @@ impl CellGrid {
                 // styling, as they will be resolved as empty cells in a second
                 // loop below.
                 let Some(new_len) = new_len.checked_add((c - new_len % c) % c) else {
-                    bail!(span, "cell position too large")
+                    bail!(cell_span, "cell position too large")
                 };
                 // Here, the cell needs to be placed in a position which
                 // doesn't exist yet in the grid (out of bounds). We will add
@@ -311,8 +322,8 @@ impl CellGrid {
             let slot = &mut resolved_cells[resolved_index];
             if slot.is_some() {
                 bail!(
-                    span,
-                    "attempted to place two distinct cells at column {x}, row {y}";
+                    cell_span,
+                    "attempted to place a second cell at column {x}, row {y}";
                     hint: "try specifying your cells in a different order"
                 );
             }
@@ -394,19 +405,7 @@ fn resolve_cell_position(
     let cell_index = |x, y: usize| {
         y.checked_mul(columns)
             .and_then(|row_index| row_index.checked_add(x))
-            .ok_or_else(|| {
-                let position = match (cell_x, cell_y) {
-                    (Smart::Auto, Smart::Auto) => EcoString::default(),
-                    (Smart::Custom(x), Smart::Auto) => eco_format!("at column {x} "),
-                    (Smart::Auto, Smart::Custom(y)) => eco_format!("at row {y} "),
-                    (Smart::Custom(x), Smart::Custom(y)) => {
-                        eco_format!("at column {x}, row {y} ")
-                    }
-                };
-                HintedString::from(eco_format!(
-                    "the position of a cell {position}would be too large"
-                ))
-            })
+            .ok_or_else(|| HintedString::from(eco_format!("cell position too large")))
     };
     match (cell_x, cell_y) {
         // Fully automatic cell positioning. The cell did not
@@ -433,7 +432,7 @@ fn resolve_cell_position(
         (Smart::Custom(cell_x), cell_y) => {
             if cell_x >= columns {
                 return Err(HintedString::from(eco_format!(
-                    "a cell could not be placed at invalid column {cell_x}"
+                    "cell could not be placed at invalid column {cell_x}"
                 )));
             }
             if let Smart::Custom(cell_y) = cell_y {
@@ -458,9 +457,9 @@ fn resolve_cell_position(
         (Smart::Auto, Smart::Custom(cell_y)) => {
             // Let's find the first column which has that row available.
             let first_row_pos = cell_index(0, cell_y)?;
-            let last_row_pos = first_row_pos.checked_add(columns).ok_or_else(|| {
-                eco_format!("the position of a cell at row {cell_y} would be too large")
-            })?;
+            let last_row_pos = first_row_pos
+                .checked_add(columns)
+                .ok_or_else(|| eco_format!("cell position too large"))?;
 
             (first_row_pos..last_row_pos)
                 .find(|possible_index| {
@@ -474,7 +473,7 @@ fn resolve_cell_position(
                 })
                 .ok_or_else(|| {
                     eco_format!(
-                        "a cell could not be placed in row {cell_y} because it was full"
+                        "cell could not be placed in row {cell_y} because it was full"
                     )
                 })
                 .hint("try specifying your cells in a different order")

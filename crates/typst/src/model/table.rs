@@ -8,6 +8,7 @@ use crate::layout::{
     Layout, Length, Regions, Rel, ResolvableCell, Sides, TrackSizings,
 };
 use crate::model::Figurable;
+use crate::syntax::Span;
 use crate::text::{Lang, LocalName, Region};
 use crate::visualize::{Paint, Stroke};
 
@@ -394,6 +395,10 @@ impl ResolvableCell for TableCell {
 
     fn y(&self, styles: StyleChain) -> Smart<usize> {
         self.y(styles)
+    }
+
+    fn cell_span(&self) -> Span {
+        self.span()
     }
 }
 

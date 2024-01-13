@@ -53,16 +53,16 @@
 )
 
 ---
-// Error: 2-4:2 attempted to place two distinct cells at column 0, row 0
-// Hint: 2-4:2 try specifying your cells in a different order
+// Error: 3:3-3:42 attempted to place a second cell at column 0, row 0
+// Hint: 3:3-3:42 try specifying your cells in a different order
 #grid(
   [A],
   grid.cell(x: 0, y: 0)[This shall error]
 )
 
 ---
-// Error: 2-4:2 attempted to place two distinct cells at column 0, row 0
-// Hint: 2-4:2 try specifying your cells in a different order
+// Error: 3:3-3:43 attempted to place a second cell at column 0, row 0
+// Hint: 3:3-3:43 try specifying your cells in a different order
 #table(
   [A],
   table.cell(x: 0, y: 0)[This shall error]
@@ -76,7 +76,7 @@
 )
 
 ---
-// Error: 2-5:2 a cell could not be placed at invalid column 2
+// Error: 4:3-4:36 cell could not be placed at invalid column 2
 #grid(
   columns: 2,
   [A],
@@ -106,8 +106,8 @@
 )
 
 ---
-// Error: 2-5:2 a cell could not be placed in row 0 because it was full
-// Hint: 2-5:2 try specifying your cells in a different order
+// Error: 4:3-4:21 cell could not be placed in row 0 because it was full
+// Hint: 4:3-4:21 try specifying your cells in a different order
 #grid(
   columns: 2,
   [A], [B],
@@ -115,8 +115,8 @@
 )
 
 ---
-// Error: 2-5:2 a cell could not be placed in row 0 because it was full
-// Hint: 2-5:2 try specifying your cells in a different order
+// Error: 4:3-4:22 cell could not be placed in row 0 because it was full
+// Hint: 4:3-4:22 try specifying your cells in a different order
 #table(
   columns: 2,
   [A], [B],
@@ -205,7 +205,7 @@
 )
 
 ---
-// Error: 1:2-6:2 the position of a cell at row 6148914691236517206 would be too large
+// Error: 5:3-5:39 cell position too large
 #grid(
   columns: 3,
   rows: 2em,
@@ -214,7 +214,7 @@
 )
 
 ---
-// Error: 1:2-6:2 the position of a cell at column 2, row 6148914691236517206 would be too large
+// Error: 5:3-5:46 cell position too large
 #table(
   columns: 3,
   rows: 2em,
