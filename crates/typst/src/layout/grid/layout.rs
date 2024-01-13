@@ -290,9 +290,6 @@ impl CellGrid {
             );
 
             if resolved_index >= resolved_cells.len() {
-                let Some(new_len) = resolved_index.checked_add(1) else {
-                    bail!(cell_span, "cell position too large")
-                };
                 // Ensure the length of the vector of resolved cells is always
                 // a multiple of 'c' by pushing full rows every time. Here, we
                 // add enough absent positions (later converted to empty cells)
@@ -302,9 +299,13 @@ impl CellGrid {
                 // eventually susceptible to show rules and receive grid
                 // styling, as they will be resolved as empty cells in a second
                 // loop below.
-                let Some(new_len) = new_len.checked_add((c - new_len % c) % c) else {
+                let Some(new_len) = resolved_index
+                    .checked_add(1)
+                    .and_then(|new_len| new_len.checked_add((c - new_len % c) % c))
+                else {
                     bail!(cell_span, "cell position too large")
                 };
+
                 // Here, the cell needs to be placed in a position which
                 // doesn't exist yet in the grid (out of bounds). We will add
                 // enough absent positions for this to be possible. They must
