@@ -4,9 +4,10 @@ pub use self::layout::{Cell, CellGrid, Celled, GridLayouter, ResolvableCell};
 
 use std::num::NonZeroUsize;
 
+use ecow::eco_format;
 use smallvec::{smallvec, SmallVec};
 
-use crate::diag::{SourceResult, StrResult};
+use crate::diag::{SourceResult, StrResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Array, Content, Fold, NativeElement, Show, Smart, StyleChain,
@@ -298,6 +299,8 @@ impl Layout for GridElem {
 
         let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
+        // Use trace to link back to the grid when a specific cell errors
+        let tracepoint = || Tracepoint::Call(Some(eco_format!("grid")));
         let grid = CellGrid::resolve(
             tracks,
             gutter,
@@ -308,7 +311,8 @@ impl Layout for GridElem {
             engine,
             styles,
             self.span(),
-        )?;
+        )
+        .trace(engine.world, tracepoint, self.span())?;
 
         let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
 
