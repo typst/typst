@@ -1,7 +1,9 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
-use crate::foundations::{elem, func, Cast, Content, NativeElement, Smart, StyleChain};
+use crate::foundations::{
+    elem, func, Cast, Content, NativeElement, Packed, Smart, StyleChain,
+};
 use crate::math::{LayoutMath, MathContext};
 use crate::syntax::Span;
 
@@ -17,7 +19,7 @@ pub fn bold(
     /// The content to style.
     body: Content,
 ) -> Content {
-    MathStyleElem::new(body).spanned(span).with_bold(Some(true)).pack()
+    MathStyleElem::new(body).with_bold(Some(true)).pack().spanned(span)
 }
 
 /// Upright (non-italic) font style in math.
@@ -32,7 +34,7 @@ pub fn upright(
     /// The content to style.
     body: Content,
 ) -> Content {
-    MathStyleElem::new(body).spanned(span).with_italic(Some(false)).pack()
+    MathStyleElem::new(body).with_italic(Some(false)).pack().spanned(span)
 }
 
 /// Italic font style in math.
@@ -45,7 +47,7 @@ pub fn italic(
     /// The content to style.
     body: Content,
 ) -> Content {
-    MathStyleElem::new(body).spanned(span).with_italic(Some(true)).pack()
+    MathStyleElem::new(body).with_italic(Some(true)).pack().spanned(span)
 }
 /// Serif (roman) font style in math.
 ///
@@ -58,9 +60,9 @@ pub fn serif(
     body: Content,
 ) -> Content {
     MathStyleElem::new(body)
-        .spanned(span)
         .with_variant(Some(MathVariant::Serif))
         .pack()
+        .spanned(span)
 }
 
 /// Sans-serif font style in math.
@@ -76,9 +78,9 @@ pub fn sans(
     body: Content,
 ) -> Content {
     MathStyleElem::new(body)
-        .spanned(span)
         .with_variant(Some(MathVariant::Sans))
         .pack()
+        .spanned(span)
 }
 
 /// Calligraphic font style in math.
@@ -94,9 +96,9 @@ pub fn cal(
     body: Content,
 ) -> Content {
     MathStyleElem::new(body)
-        .spanned(span)
         .with_variant(Some(MathVariant::Cal))
         .pack()
+        .spanned(span)
 }
 
 /// Fraktur font style in math.
@@ -112,9 +114,9 @@ pub fn frak(
     body: Content,
 ) -> Content {
     MathStyleElem::new(body)
-        .spanned(span)
         .with_variant(Some(MathVariant::Frak))
         .pack()
+        .spanned(span)
 }
 
 /// Monospace font style in math.
@@ -130,9 +132,9 @@ pub fn mono(
     body: Content,
 ) -> Content {
     MathStyleElem::new(body)
-        .spanned(span)
         .with_variant(Some(MathVariant::Mono))
         .pack()
+        .spanned(span)
 }
 
 /// Blackboard bold (double-struck) font style in math.
@@ -153,9 +155,9 @@ pub fn bb(
     body: Content,
 ) -> Content {
     MathStyleElem::new(body)
-        .spanned(span)
         .with_variant(Some(MathVariant::Bb))
         .pack()
+        .spanned(span)
 }
 
 /// Forced display style in math.
@@ -178,10 +180,10 @@ pub fn display(
     cramped: bool,
 ) -> Content {
     MathStyleElem::new(body)
-        .spanned(span)
         .with_size(Some(MathSize::Display))
         .with_cramped(Some(cramped))
         .pack()
+        .spanned(span)
 }
 
 /// Forced inline (text) style in math.
@@ -205,10 +207,10 @@ pub fn inline(
     cramped: bool,
 ) -> Content {
     MathStyleElem::new(body)
-        .spanned(span)
         .with_size(Some(MathSize::Text))
         .with_cramped(Some(cramped))
         .pack()
+        .spanned(span)
 }
 
 /// Forced script style in math.
@@ -231,10 +233,10 @@ pub fn script(
     cramped: bool,
 ) -> Content {
     MathStyleElem::new(body)
-        .spanned(span)
         .with_size(Some(MathSize::Script))
         .with_cramped(Some(cramped))
         .pack()
+        .spanned(span)
 }
 
 /// Forced second script style in math.
@@ -258,10 +260,10 @@ pub fn sscript(
     cramped: bool,
 ) -> Content {
     MathStyleElem::new(body)
-        .spanned(span)
         .with_size(Some(MathSize::ScriptScript))
         .with_cramped(Some(cramped))
         .pack()
+        .spanned(span)
 }
 
 /// A font variant in math.
@@ -287,7 +289,7 @@ pub struct MathStyleElem {
     pub cramped: Option<bool>,
 }
 
-impl LayoutMath for MathStyleElem {
+impl LayoutMath for Packed<MathStyleElem> {
     #[typst_macros::time(name = "math.style", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut style = ctx.style;

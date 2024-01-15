@@ -1,7 +1,7 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
-use crate::foundations::{elem, func, Content, NativeElement, Resolve, Smart};
+use crate::foundations::{elem, func, Content, NativeElement, Packed, Resolve, Smart};
 use crate::layout::{Abs, Em, Length, Rel};
 use crate::math::{
     GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled, SpacingFragment,
@@ -35,7 +35,7 @@ pub struct LrElem {
     pub body: Content,
 }
 
-impl LayoutMath for LrElem {
+impl LayoutMath for Packed<LrElem> {
     #[typst_macros::time(name = "math.lr", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut body = self.body();
@@ -110,7 +110,7 @@ pub struct MidElem {
     pub body: Content,
 }
 
-impl LayoutMath for MidElem {
+impl LayoutMath for Packed<MidElem> {
     #[typst_macros::time(name = "math.mid", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut fragments = ctx.layout_fragments(self.body())?;
@@ -255,11 +255,10 @@ fn delimited(
         TextElem::packed(left),
         body,
         TextElem::packed(right),
-    ]))
-    .spanned(span);
+    ]));
     // Push size only if size is provided
     if let Some(size) = size {
         elem.push_size(size);
     }
-    elem.pack()
+    elem.pack().spanned(span)
 }

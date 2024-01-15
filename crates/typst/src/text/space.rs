@@ -1,4 +1,6 @@
-use crate::foundations::{elem, Behave, Behaviour, PlainText, Repr, Unlabellable};
+use crate::foundations::{
+    elem, Behave, Behaviour, Packed, PlainText, Repr, Unlabellable,
+};
 use ecow::EcoString;
 
 /// A text space.
@@ -11,15 +13,15 @@ impl Repr for SpaceElem {
     }
 }
 
-impl Behave for SpaceElem {
+impl Behave for Packed<SpaceElem> {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Weak(2)
     }
 }
 
-impl Unlabellable for SpaceElem {}
+impl Unlabellable for Packed<SpaceElem> {}
 
-impl PlainText for SpaceElem {
+impl PlainText for Packed<SpaceElem> {
     fn plain_text(&self, text: &mut EcoString) {
         text.push(' ');
     }

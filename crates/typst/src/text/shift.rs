@@ -2,7 +2,7 @@ use ecow::EcoString;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Show, StyleChain};
+use crate::foundations::{elem, Content, Packed, Show, StyleChain};
 use crate::layout::{Em, Length};
 use crate::text::{variant, SpaceElem, TextElem, TextSize};
 use crate::World;
@@ -47,7 +47,7 @@ pub struct SubElem {
     pub body: Content,
 }
 
-impl Show for SubElem {
+impl Show for Packed<SubElem> {
     #[typst_macros::time(name = "sub", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body().clone();
@@ -107,7 +107,7 @@ pub struct SuperElem {
     pub body: Content,
 }
 
-impl Show for SuperElem {
+impl Show for Packed<SuperElem> {
     #[typst_macros::time(name = "super", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body().clone();

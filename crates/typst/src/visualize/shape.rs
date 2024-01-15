@@ -2,7 +2,7 @@ use std::f64::consts::SQRT_2;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, NativeElement, Resolve, Smart, StyleChain};
+use crate::foundations::{elem, Content, Packed, Resolve, Smart, StyleChain};
 use crate::layout::{
     Abs, Axes, Corner, Corners, Fragment, Frame, FrameItem, Layout, Length, Point, Ratio,
     Regions, Rel, Sides, Size,
@@ -131,7 +131,7 @@ pub struct RectElem {
     pub body: Option<Content>,
 }
 
-impl Layout for RectElem {
+impl Layout for Packed<RectElem> {
     #[typst_macros::time(name = "rect", span = self.span())]
     fn layout(
         &self,
@@ -237,7 +237,7 @@ pub struct SquareElem {
     pub body: Option<Content>,
 }
 
-impl Layout for SquareElem {
+impl Layout for Packed<SquareElem> {
     #[typst_macros::time(name = "square", span = self.span())]
     fn layout(
         &self,
@@ -315,7 +315,7 @@ pub struct EllipseElem {
     pub body: Option<Content>,
 }
 
-impl Layout for EllipseElem {
+impl Layout for Packed<EllipseElem> {
     #[typst_macros::time(name = "ellipse", span = self.span())]
     fn layout(
         &self,
@@ -418,7 +418,7 @@ pub struct CircleElem {
     pub body: Option<Content>,
 }
 
-impl Layout for CircleElem {
+impl Layout for Packed<CircleElem> {
     #[typst_macros::time(name = "circle", span = self.span())]
     fn layout(
         &self,

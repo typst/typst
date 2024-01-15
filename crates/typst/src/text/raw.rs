@@ -13,7 +13,7 @@ use crate::diag::{At, FileError, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Args, Array, Bytes, Content, Finalize, Fold, NativeElement,
-    PlainText, Show, Smart, StyleChain, Styles, Synthesize, Value,
+    Packed, PlainText, Show, Smart, StyleChain, Styles, Synthesize, Value,
 };
 use crate::layout::{BlockElem, Em, HAlignment};
 use crate::model::Figurable;
@@ -261,7 +261,7 @@ pub struct RawElem {
     /// Made accessible for the [`raw.line` element]($raw.line).
     /// Allows more styling control in `show` rules.
     #[synthesized]
-    pub lines: Vec<RawLine>,
+    pub lines: Vec<Packed<RawLine>>,
 }
 
 #[scope]
@@ -287,9 +287,10 @@ impl RawElem {
     }
 }
 
-impl Synthesize for RawElem {
+impl Synthesize for Packed<RawElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        self.push_lang(self.lang(styles).clone());
+        let lang = self.lang(styles).clone();
+        self.push_lang(lang);
 
         let mut text = self.text().clone();
         if text.contains('\t') {
@@ -333,12 +334,12 @@ impl Synthesize for RawElem {
                 &mut |_, range, style| styled(&text[range], foreground, style),
                 &mut |i, range, line| {
                     seq.push(
-                        RawLine::new(
+                        Packed::new(RawLine::new(
                             i + 1,
                             count,
                             EcoString::from(&text[range]),
                             Content::sequence(line.drain(..)),
-                        )
+                        ))
                         .spanned(self.span()),
                     );
                 },
@@ -364,23 +365,23 @@ impl Synthesize for RawElem {
                 }
 
                 seq.push(
-                    RawLine::new(
+                    Packed::new(RawLine::new(
                         i as i64 + 1,
                         count,
                         EcoString::from(line),
                         Content::sequence(line_content),
-                    )
+                    ))
                     .spanned(self.span()),
                 );
             }
         } else {
             seq.extend(lines.into_iter().enumerate().map(|(i, line)| {
-                RawLine::new(
+                Packed::new(RawLine::new(
                     i as i64 + 1,
                     count,
                     EcoString::from(line),
                     TextElem::packed(line),
-                )
+                ))
                 .spanned(self.span())
             }));
         };
@@ -391,7 +392,7 @@ impl Synthesize for RawElem {
     }
 }
 
-impl Show for RawElem {
+impl Show for Packed<RawElem> {
     #[typst_macros::time(name = "raw", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut lines = EcoVec::with_capacity((2 * self.lines().len()).saturating_sub(1));
@@ -408,14 +409,14 @@ impl Show for RawElem {
             // Align the text before inserting it into the block.
             realized = realized.aligned(self.align(styles).into());
             realized =
-                BlockElem::new().spanned(self.span()).with_body(Some(realized)).pack();
+                BlockElem::new().with_body(Some(realized)).pack().spanned(self.span());
         }
 
         Ok(realized)
     }
 }
 
-impl Finalize for RawElem {
+impl Finalize for Packed<RawElem> {
     fn finalize(&self, realized: Content, _: StyleChain) -> Content {
         let mut styles = Styles::new();
         styles.set(TextElem::set_overhang(false));
@@ -428,7 +429,7 @@ impl Finalize for RawElem {
     }
 }
 
-impl LocalName for RawElem {
+impl LocalName for Packed<RawElem> {
     fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "List",
@@ -464,9 +465,9 @@ impl LocalName for RawElem {
     }
 }
 
-impl Figurable for RawElem {}
+impl Figurable for Packed<RawElem> {}
 
-impl PlainText for RawElem {
+impl PlainText for Packed<RawElem> {
     fn plain_text(&self, text: &mut EcoString) {
         text.push_str(self.text());
     }
@@ -498,14 +499,14 @@ pub struct RawLine {
     pub body: Content,
 }
 
-impl Show for RawLine {
+impl Show for Packed<RawLine> {
     #[typst_macros::time(name = "raw.line", span = self.span())]
     fn show(&self, _: &mut Engine, _styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone())
     }
 }
 
-impl PlainText for RawLine {
+impl PlainText for Packed<RawLine> {
     fn plain_text(&self, text: &mut EcoString) {
         text.push_str(self.text());
     }

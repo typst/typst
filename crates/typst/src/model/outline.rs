@@ -5,7 +5,7 @@ use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, select_where, Content, Finalize, Func, LocatableSelector,
-    NativeElement, Show, Smart, StyleChain,
+    NativeElement, Packed, Show, Smart, StyleChain,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
 use crate::layout::{BoxElem, Fr, HElem, HideElem, Length, Rel, RepeatElem, Spacing};
@@ -185,7 +185,7 @@ impl OutlineElem {
     type OutlineEntry;
 }
 
-impl Show for OutlineElem {
+impl Show for Packed<OutlineElem> {
     #[typst_macros::time(name = "outline", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![ParbreakElem::new().pack()];
@@ -197,9 +197,9 @@ impl Show for OutlineElem {
 
             seq.push(
                 HeadingElem::new(title)
-                    .spanned(self.span())
                     .with_level(NonZeroUsize::ONE)
-                    .pack(),
+                    .pack()
+                    .spanned(self.span()),
             );
         }
 
@@ -250,7 +250,7 @@ impl Show for OutlineElem {
     }
 }
 
-impl Finalize for OutlineElem {
+impl Finalize for Packed<OutlineElem> {
     fn finalize(&self, realized: Content, _: StyleChain) -> Content {
         realized
             .styled(HeadingElem::set_outlined(false))
@@ -258,7 +258,7 @@ impl Finalize for OutlineElem {
     }
 }
 
-impl LocalName for OutlineElem {
+impl LocalName for Packed<OutlineElem> {
     fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Përmbajtja",
@@ -492,7 +492,7 @@ impl OutlineEntry {
     }
 }
 
-impl Show for OutlineEntry {
+impl Show for Packed<OutlineEntry> {
     #[typst_macros::time(name = "outline.entry", span = self.span())]
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![];
@@ -518,10 +518,10 @@ impl Show for OutlineEntry {
             seq.push(SpaceElem::new().pack());
             seq.push(
                 BoxElem::new()
-                    .spanned(self.span())
                     .with_body(Some(filler.clone()))
                     .with_width(Fr::one().into())
-                    .pack(),
+                    .pack()
+                    .spanned(self.span()),
             );
             seq.push(SpaceElem::new().pack());
         } else {

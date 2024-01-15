@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 
-use crate::foundations::{cast, elem, Behave, Behaviour, Content, Resolve, StyleChain};
+use crate::foundations::{
+    cast, elem, Behave, Behaviour, Content, Packed, Resolve, StyleChain,
+};
 use crate::layout::{Abs, Em, Fr, Length, Ratio, Rel};
 use crate::util::Numeric;
 
@@ -62,7 +64,7 @@ impl HElem {
     }
 }
 
-impl Behave for HElem {
+impl Behave for Packed<HElem> {
     fn behaviour(&self) -> Behaviour {
         if self.amount().is_fractional() {
             Behaviour::Destructive
@@ -78,7 +80,7 @@ impl Behave for HElem {
         prev: &(Cow<Content>, Behaviour, StyleChain),
         styles: StyleChain,
     ) -> bool {
-        let Some(other) = prev.0.to::<Self>() else { return false };
+        let Some(other) = prev.0.to::<HElem>() else { return false };
         match (self.amount(), other.amount()) {
             (Spacing::Fr(this), Spacing::Fr(other)) => this > other,
             (Spacing::Rel(this), Spacing::Rel(other)) => {
@@ -164,7 +166,7 @@ impl VElem {
     }
 }
 
-impl Behave for VElem {
+impl Behave for Packed<VElem> {
     fn behaviour(&self) -> Behaviour {
         if self.amount().is_fractional() {
             Behaviour::Destructive
@@ -180,7 +182,7 @@ impl Behave for VElem {
         prev: &(Cow<Content>, Behaviour, StyleChain),
         styles: StyleChain,
     ) -> bool {
-        let Some(other) = prev.0.to::<Self>() else { return false };
+        let Some(other) = prev.0.to::<VElem>() else { return false };
         match (self.amount(), other.amount()) {
             (Spacing::Fr(this), Spacing::Fr(other)) => this > other,
             (Spacing::Rel(this), Spacing::Rel(other)) => {
@@ -193,7 +195,7 @@ impl Behave for VElem {
 
 cast! {
     VElem,
-    v: Content => v.to::<Self>().cloned().ok_or("expected `v` element")?,
+    v: Content => v.to_packed::<Self>().map_err(|_| "expected `v` element")?.unpack(),
 }
 
 /// Kinds of spacing.

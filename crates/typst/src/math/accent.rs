@@ -1,7 +1,7 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::{bail, SourceResult};
-use crate::foundations::{cast, elem, Content, NativeElement, Resolve, Smart, Value};
+use crate::foundations::{cast, elem, Content, Packed, Resolve, Smart, Value};
 use crate::layout::{Em, Frame, Length, Point, Rel, Size};
 use crate::math::{
     FrameFragment, GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled,
@@ -62,7 +62,7 @@ pub struct AccentElem {
     pub size: Smart<Rel<Length>>,
 }
 
-impl LayoutMath for AccentElem {
+impl LayoutMath for Packed<AccentElem> {
     #[typst_macros::time(name = "math.accent", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_cramped(true));

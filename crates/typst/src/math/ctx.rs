@@ -12,7 +12,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{Content, NativeElement, Smart, StyleChain, Styles};
+use crate::foundations::{Content, Packed, Smart, StyleChain, Styles};
 use crate::layout::{Abs, Axes, BoxElem, Em, Frame, Layout, Regions, Size};
 use crate::math::{
     FrameFragment, GlyphFragment, LayoutMath, MathFragment, MathRow, MathSize, MathStyle,
@@ -173,7 +173,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         Ok(self.layout_fragment(elem)?.into_frame())
     }
 
-    pub fn layout_box(&mut self, boxed: &BoxElem) -> SourceResult<Frame> {
+    pub fn layout_box(&mut self, boxed: &Packed<BoxElem>) -> SourceResult<Frame> {
         Ok(boxed
             .layout(self.engine, self.outer.chain(&self.local), self.regions)?
             .into_frame())
@@ -185,7 +185,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             .into_frame())
     }
 
-    pub fn layout_text(&mut self, elem: &TextElem) -> SourceResult<MathFragment> {
+    pub fn layout_text(&mut self, elem: &Packed<TextElem>) -> SourceResult<MathFragment> {
         let text = elem.text();
         let span = elem.span();
         let mut chars = text.chars();
@@ -276,7 +276,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         // it will overflow.  So emulate an `hbox` instead and allow the paragraph
         // to extend as far as needed.
         let span = elem.span();
-        let frame = ParElem::new(vec![Prehashed::new(elem)])
+        let frame = Packed::new(ParElem::new(vec![Prehashed::new(elem)]))
             .spanned(span)
             .layout(
                 self.engine,

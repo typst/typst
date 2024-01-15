@@ -13,7 +13,7 @@ use self::shaping::{
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
-use crate::foundations::{Content, Resolve, Smart, StyleChain};
+use crate::foundations::{Content, Packed, Resolve, Smart, StyleChain};
 use crate::introspection::{Introspector, Locator, MetaElem};
 use crate::layout::{
     Abs, AlignElem, Axes, BoxElem, Dir, Em, FixedAlign, Fr, Fragment, Frame, HElem,
@@ -189,9 +189,9 @@ enum Segment<'a> {
     /// Horizontal spacing between other segments.
     Spacing(Spacing),
     /// A mathematical equation.
-    Equation(&'a EquationElem, Vec<MathParItem>),
+    Equation(&'a Packed<EquationElem>, Vec<MathParItem>),
     /// A box with arbitrary content.
-    Box(&'a BoxElem, bool),
+    Box(&'a Packed<BoxElem>, bool),
     /// Metadata.
     Meta,
 }
@@ -221,7 +221,7 @@ enum Item<'a> {
     /// Absolute spacing between other items.
     Absolute(Abs),
     /// Fractional spacing between other items.
-    Fractional(Fr, Option<(&'a BoxElem, StyleChain<'a>)>),
+    Fractional(Fr, Option<(&'a Packed<BoxElem>, StyleChain<'a>)>),
     /// Layouted inline-level content.
     Frame(Frame),
     /// Metadata.

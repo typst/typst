@@ -1,6 +1,6 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, NativeElement, Resolve, StyleChain};
+use crate::foundations::{elem, Content, Packed, Resolve, StyleChain};
 use crate::layout::{
     Abs, AlignElem, Axes, Fragment, Frame, Layout, Point, Regions, Size,
 };
@@ -34,7 +34,7 @@ pub struct RepeatElem {
     pub body: Content,
 }
 
-impl Layout for RepeatElem {
+impl Layout for Packed<RepeatElem> {
     #[typst_macros::time(name = "repeat", span = self.span())]
     fn layout(
         &self,

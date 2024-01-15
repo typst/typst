@@ -5,8 +5,8 @@ use crate::diag::SourceResult;
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{
-    cast, elem, func, scope, select_where, ty, Content, Func, NativeElement, Repr,
-    Selector, Show, Str, StyleChain, Value,
+    cast, elem, func, scope, select_where, ty, Content, Func, NativeElement, Packed,
+    Repr, Selector, Show, Str, StyleChain, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location, Locator};
 use crate::syntax::Span;
@@ -280,7 +280,7 @@ impl State {
         #[default]
         func: Option<Func>,
     ) -> Content {
-        DisplayElem::new(self, func).spanned(span).pack()
+        DisplayElem::new(self, func).pack().spanned(span)
     }
 
     /// Update the value of the state.
@@ -301,7 +301,7 @@ impl State {
         /// to return the new state.
         update: StateUpdate,
     ) -> Content {
-        UpdateElem::new(self.key, update).spanned(span).pack()
+        UpdateElem::new(self.key, update).pack().spanned(span)
     }
 
     /// Get the value of the state at the given location.
@@ -385,7 +385,7 @@ struct DisplayElem {
     func: Option<Func>,
 }
 
-impl Show for DisplayElem {
+impl Show for Packed<DisplayElem> {
     #[typst_macros::time(name = "state.display", span = self.span())]
     fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
@@ -411,7 +411,7 @@ struct UpdateElem {
     update: StateUpdate,
 }
 
-impl Show for UpdateElem {
+impl Show for Packed<UpdateElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }

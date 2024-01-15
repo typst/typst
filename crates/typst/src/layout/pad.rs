@@ -1,6 +1,6 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Resolve, StyleChain};
+use crate::foundations::{elem, Content, Packed, Resolve, StyleChain};
 use crate::layout::{Abs, Fragment, Layout, Length, Point, Regions, Rel, Sides, Size};
 
 /// Adds spacing around content.
@@ -58,7 +58,7 @@ pub struct PadElem {
     pub body: Content,
 }
 
-impl Layout for PadElem {
+impl Layout for Packed<PadElem> {
     #[typst_macros::time(name = "pad", span = self.span())]
     fn layout(
         &self,

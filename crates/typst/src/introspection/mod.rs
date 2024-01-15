@@ -25,6 +25,7 @@ use std::fmt::{self, Debug, Formatter};
 use ecow::{eco_format, EcoString};
 use smallvec::SmallVec;
 
+use crate::foundations::Packed;
 use crate::foundations::{
     category, elem, ty, Behave, Behaviour, Category, Content, Repr, Scope, Unlabellable,
 };
@@ -61,9 +62,9 @@ pub struct MetaElem {
     pub data: SmallVec<[Meta; 1]>,
 }
 
-impl Unlabellable for MetaElem {}
+impl Unlabellable for Packed<MetaElem> {}
 
-impl Behave for MetaElem {
+impl Behave for Packed<MetaElem> {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Invisible
     }

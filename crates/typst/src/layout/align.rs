@@ -5,7 +5,7 @@ use ecow::{eco_format, EcoString};
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, ty, Content, Fold, Repr, Resolve, Show, StyleChain,
+    cast, elem, func, scope, ty, Content, Fold, Packed, Repr, Resolve, Show, StyleChain,
 };
 use crate::layout::{Abs, Axes, Axis, Dir, Side};
 use crate::text::TextElem;
@@ -45,13 +45,13 @@ pub struct AlignElem {
     pub body: Content,
 }
 
-impl Show for AlignElem {
+impl Show for Packed<AlignElem> {
     #[typst_macros::time(name = "align", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self
             .body()
             .clone()
-            .styled(Self::set_alignment(self.alignment(styles))))
+            .styled(AlignElem::set_alignment(self.alignment(styles))))
     }
 }
 

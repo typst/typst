@@ -13,8 +13,8 @@ use typed_arena::Arena;
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::foundations::{
-    Behave, Behaviour, Content, Finalize, Guard, NativeElement, Recipe, Selector, Show,
-    StyleChain, StyleVec, StyleVecBuilder, Styles, Synthesize,
+    Behave, Behaviour, Content, Finalize, Guard, NativeElement, Packed, Recipe, Selector,
+    Show, StyleChain, StyleVec, StyleVecBuilder, Styles, Synthesize,
 };
 use crate::introspection::{Locatable, Meta, MetaElem};
 use crate::layout::{
@@ -51,7 +51,7 @@ pub fn realize_root<'a>(
     builder.interrupt_page(Some(styles), true)?;
     let (pages, shared) = builder.doc.unwrap().pages.finish();
     let span = first_span(&pages);
-    Ok((Cow::Owned(DocumentElem::new(pages.to_vec()).spanned(span).pack()), shared))
+    Ok((Cow::Owned(DocumentElem::new(pages.to_vec()).pack().spanned(span)), shared))
 }
 
 /// Realize into an element that is capable of block-level layout.
@@ -86,7 +86,7 @@ pub fn realize_block<'a>(
 
     let (children, shared) = builder.flow.0.finish();
     let span = first_span(&children);
-    Ok((Cow::Owned(FlowElem::new(children.to_vec()).spanned(span).pack()), shared))
+    Ok((Cow::Owned(FlowElem::new(children.to_vec()).pack().spanned(span)), shared))
 }
 
 /// Whether the target is affected by show rules in the given style chain.
@@ -137,7 +137,7 @@ pub fn realize(
             let span = elem.span();
             let meta = Meta::Elem(elem.clone());
             return Ok(Some(
-                (elem + MetaElem::new().spanned(span).pack())
+                (elem + MetaElem::new().pack().spanned(span))
                     .styled(MetaElem::set_data(smallvec![meta])),
             ));
         }
@@ -307,7 +307,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             content = self
                 .scratch
                 .content
-                .alloc(EquationElem::new(content.clone()).spanned(content.span()).pack());
+                .alloc(EquationElem::new(content.clone()).pack().spanned(content.span()));
         }
 
         if let Some(realized) = realize(self.engine, content, styles)? {
@@ -482,9 +482,9 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
                 shared
             };
             let span = first_span(&children);
-            let flow = FlowElem::new(children.to_vec()).spanned(span);
-            let page = PageElem::new(flow.pack()).spanned(span);
-            let stored = self.scratch.content.alloc(page.pack());
+            let flow = FlowElem::new(children.to_vec());
+            let page = PageElem::new(flow.pack().spanned(span));
+            let stored = self.scratch.content.alloc(page.pack().spanned(span));
             self.accept(stored, styles)?;
         }
         Ok(())
@@ -622,7 +622,7 @@ impl<'a> ParBuilder<'a> {
     fn finish(self) -> (Content, StyleChain<'a>) {
         let (children, shared) = self.0.finish();
         let span = first_span(&children);
-        (ParElem::new(children.to_vec()).spanned(span).pack(), shared)
+        (ParElem::new(children.to_vec()).pack().spanned(span), shared)
     }
 }
 
@@ -671,46 +671,49 @@ impl<'a> ListBuilder<'a> {
                 items
                     .iter()
                     .map(|(item, local)| {
-                        let item = item.to::<ListItem>().unwrap();
-                        item.clone()
-                            .with_body(item.body().clone().styled_with_map(local.clone()))
+                        let mut item = item.to::<ListItem>().unwrap().clone();
+                        let body = item.body().clone().styled_with_map(local.clone());
+                        item.push_body(body);
+                        item
                     })
                     .collect::<Vec<_>>(),
             )
             .with_tight(self.tight)
-            .spanned(span)
             .pack()
+            .spanned(span)
         } else if item.is::<EnumItem>() {
             EnumElem::new(
                 items
                     .iter()
                     .map(|(item, local)| {
-                        let item = item.to::<EnumItem>().unwrap();
-                        item.clone()
-                            .with_body(item.body().clone().styled_with_map(local.clone()))
+                        let mut item = item.to::<EnumItem>().unwrap().clone();
+                        let body = item.body().clone().styled_with_map(local.clone());
+                        item.push_body(body);
+                        item
                     })
                     .collect::<Vec<_>>(),
             )
             .with_tight(self.tight)
-            .spanned(span)
             .pack()
+            .spanned(span)
         } else if item.is::<TermItem>() {
             TermsElem::new(
                 items
                     .iter()
                     .map(|(item, local)| {
-                        let item = item.to::<TermItem>().unwrap();
-                        item.clone()
-                            .with_term(item.term().clone().styled_with_map(local.clone()))
-                            .with_description(
-                                item.description().clone().styled_with_map(local.clone()),
-                            )
+                        let mut item = item.to::<TermItem>().unwrap().clone();
+                        let term = item.term().clone().styled_with_map(local.clone());
+                        let description =
+                            item.description().clone().styled_with_map(local.clone());
+                        item.push_term(term);
+                        item.push_description(description);
+                        item
                     })
                     .collect::<Vec<_>>(),
             )
             .with_tight(self.tight)
-            .spanned(span)
             .pack()
+            .spanned(span)
         } else {
             unreachable!()
         };
@@ -734,7 +737,7 @@ struct CiteGroupBuilder<'a> {
     /// The styles.
     styles: StyleChain<'a>,
     /// The citations.
-    items: Vec<CiteElem>,
+    items: Vec<Packed<CiteElem>>,
     /// Trailing content for which it is unclear whether it is part of the list.
     staged: Vec<(&'a Content, StyleChain<'a>)>,
 }
@@ -762,7 +765,7 @@ impl<'a> CiteGroupBuilder<'a> {
 
     fn finish(self) -> (Content, StyleChain<'a>) {
         let span = self.items.first().map(|cite| cite.span()).unwrap_or(Span::detached());
-        (CiteGroup::new(self.items).spanned(span).pack(), self.styles)
+        (CiteGroup::new(self.items).pack().spanned(span), self.styles)
     }
 }
 

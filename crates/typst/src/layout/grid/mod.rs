@@ -9,8 +9,8 @@ use smallvec::{smallvec, SmallVec};
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, NativeElement, Show, Smart, StyleChain,
-    Value,
+    cast, elem, scope, Array, Content, Fold, NativeElement, Packed, Show, Smart,
+    StyleChain, Value,
 };
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Fragment, Layout, Length, Regions, Rel, Sides,
@@ -222,7 +222,7 @@ impl GridElem {
     type GridCell;
 }
 
-impl Layout for GridElem {
+impl Layout for Packed<GridElem> {
     #[typst_macros::time(name = "grid", span = self.span())]
     fn layout(
         &self,
@@ -346,7 +346,7 @@ impl ResolvableCell for GridCell {
     }
 }
 
-impl Show for GridCell {
+impl Show for Packed<GridCell> {
     fn show(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         show_grid_cell(self.body().clone(), self.inset(styles), self.align(styles))
     }
@@ -354,10 +354,10 @@ impl Show for GridCell {
 
 impl From<Content> for GridCell {
     fn from(value: Content) -> Self {
-        value
-            .to::<Self>()
-            .cloned()
-            .unwrap_or_else(|| Self::new(value.clone()))
+        match value.to_packed::<Self>() {
+            Ok(packed) => packed.unpack(),
+            Err(v) => Self::new(v),
+        }
     }
 }
 

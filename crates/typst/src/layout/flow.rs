@@ -2,7 +2,9 @@ use comemo::Prehashed;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, NativeElement, Resolve, Smart, StyleChain};
+use crate::foundations::{
+    elem, Content, NativeElement, Packed, Resolve, Smart, StyleChain,
+};
 use crate::introspection::{Meta, MetaElem};
 use crate::layout::{
     Abs, AlignElem, Axes, BlockElem, ColbreakElem, ColumnsElem, FixedAlign, Fr, Fragment,
@@ -27,7 +29,7 @@ pub struct FlowElem {
     pub children: Vec<Prehashed<Content>>,
 }
 
-impl Layout for FlowElem {
+impl Layout for Packed<FlowElem> {
     #[typst_macros::time(name = "flow", span = self.span())]
     fn layout(
         &self,
@@ -207,7 +209,7 @@ impl<'a> FlowLayouter<'a> {
     fn layout_spacing(
         &mut self,
         engine: &mut Engine,
-        v: &VElem,
+        v: &Packed<VElem>,
         styles: StyleChain,
     ) -> SourceResult<()> {
         self.layout_item(
@@ -226,7 +228,7 @@ impl<'a> FlowLayouter<'a> {
     fn layout_par(
         &mut self,
         engine: &mut Engine,
-        par: &ParElem,
+        par: &Packed<ParElem>,
         styles: StyleChain,
     ) -> SourceResult<()> {
         let align = AlignElem::alignment_in(styles).resolve(styles);
@@ -299,7 +301,7 @@ impl<'a> FlowLayouter<'a> {
     fn layout_placed(
         &mut self,
         engine: &mut Engine,
-        placed: &PlaceElem,
+        placed: &Packed<PlaceElem>,
         styles: StyleChain,
     ) -> SourceResult<()> {
         let float = placed.float(styles);
@@ -631,7 +633,7 @@ impl FlowLayouter<'_> {
     fn try_handle_footnotes(
         &mut self,
         engine: &mut Engine,
-        mut notes: Vec<FootnoteElem>,
+        mut notes: Vec<Packed<FootnoteElem>>,
     ) -> SourceResult<()> {
         if self.root && !self.handle_footnotes(engine, &mut notes, false, false)? {
             self.finish_region(engine, false)?;
@@ -644,7 +646,7 @@ impl FlowLayouter<'_> {
     fn handle_footnotes(
         &mut self,
         engine: &mut Engine,
-        notes: &mut Vec<FootnoteElem>,
+        notes: &mut Vec<Packed<FootnoteElem>>,
         movable: bool,
         force: bool,
     ) -> SourceResult<bool> {
@@ -735,7 +737,7 @@ impl FlowLayouter<'_> {
 }
 
 /// Finds all footnotes in the frame.
-fn find_footnotes(notes: &mut Vec<FootnoteElem>, frame: &Frame) {
+fn find_footnotes(notes: &mut Vec<Packed<FootnoteElem>>, frame: &Frame) {
     for (_, item) in frame.items() {
         match item {
             FrameItem::Group(group) => find_footnotes(notes, &group.frame),

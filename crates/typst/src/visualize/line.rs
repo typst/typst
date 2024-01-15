@@ -1,6 +1,6 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{elem, NativeElement, StyleChain};
+use crate::foundations::{elem, Packed, StyleChain};
 use crate::layout::{
     Abs, Angle, Axes, Fragment, Frame, FrameItem, Layout, Length, Regions, Rel, Size,
 };
@@ -58,7 +58,7 @@ pub struct LineElem {
     pub stroke: Stroke,
 }
 
-impl Layout for LineElem {
+impl Layout for Packed<LineElem> {
     #[typst_macros::time(name = "line", span = self.span())]
     fn layout(
         &self,

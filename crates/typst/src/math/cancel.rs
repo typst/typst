@@ -1,7 +1,7 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::{At, SourceResult};
-use crate::foundations::{cast, elem, Content, Func, NativeElement, Resolve, Smart};
+use crate::foundations::{cast, elem, Content, Func, Packed, Resolve, Smart};
 use crate::layout::{
     Abs, Angle, Frame, FrameItem, Length, Point, Ratio, Rel, Size, Transform,
 };
@@ -105,7 +105,7 @@ pub struct CancelElem {
     pub stroke: Stroke,
 }
 
-impl LayoutMath for CancelElem {
+impl LayoutMath for Packed<CancelElem> {
     #[typst_macros::time(name = "math.cancel", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let body = ctx.layout_fragment(self.body())?;
