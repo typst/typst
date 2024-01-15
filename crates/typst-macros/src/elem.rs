@@ -311,6 +311,8 @@ fn create(element: &Elem) -> Result<TokenStream> {
         settable.clone().map(|field| create_set_field_method(element, field));
 
     // Trait implementations.
+    let fields_impl = create_fields_impl(element);
+    let capable_impl = create_capable_impl(element);
     let native_element_impl = create_native_elem_impl(element);
     let construct_impl =
         element.unless_capability("Construct", || create_construct_impl(element));
@@ -321,23 +323,11 @@ fn create(element: &Elem) -> Result<TokenStream> {
         element.unless_capability("PartialEq", || create_partial_eq_impl(element));
     let repr_impl = element.unless_capability("Repr", || create_repr_impl(element));
 
-    let label_and_location = element.unless_capability("Unlabellable", || {
-        quote! {
-            location: Option<::typst::introspection::Location>,
-            label: Option<#foundations::Label>,
-            prepared: bool,
-        }
-    });
-
     Ok(quote! {
         #[doc = #docs]
         #[derive(Debug, Clone, Hash)]
         #[allow(clippy::derived_hash_with_manual_eq)]
         #vis struct #ident {
-            span: ::typst::syntax::Span,
-            #label_and_location
-            guards: ::std::vec::Vec<#foundations::Guard>,
-
             #(#fields,)*
         }
 
@@ -353,6 +343,8 @@ fn create(element: &Elem) -> Result<TokenStream> {
         }
 
         #native_element_impl
+        #fields_impl
+        #capable_impl
         #construct_impl
         #set_impl
         #locatable_impl
@@ -406,6 +398,8 @@ fn create_fields_enum(element: &Elem) -> TokenStream {
         quote! { #enum_ident }
     });
 
+    let enum_repr = (!fields.is_empty()).then(|| quote! { #[repr(u8)] });
+
     quote! {
         // To hide the private type
         const _: () = {
@@ -414,10 +408,9 @@ fn create_fields_enum(element: &Elem) -> TokenStream {
             }
 
             #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-            #[repr(u8)]
+            #enum_repr
             pub enum #enum_ident {
                 #(#definitions,)*
-                Label = 255,
             }
 
             impl #enum_ident {
@@ -425,7 +418,6 @@ fn create_fields_enum(element: &Elem) -> TokenStream {
                 pub fn to_str(self) -> &'static str {
                     match self {
                         #(Self::#field_variants => #field_names,)*
-                        Self::Label => "label",
                     }
                 }
             }
@@ -437,7 +429,6 @@ fn create_fields_enum(element: &Elem) -> TokenStream {
                     #(const #field_consts: u8 = #enum_ident::#field_variants as u8;)*
                     match value {
                         #(#field_consts => Ok(Self::#field_variants),)*
-                        255 => Ok(Self::Label),
                         _ => Err(()),
                     }
                 }
@@ -455,7 +446,6 @@ fn create_fields_enum(element: &Elem) -> TokenStream {
                 fn from_str(s: &str) -> Result<Self, Self::Err> {
                     match s {
                         #(#field_names => Ok(Self::#field_variants),)*
-                        "label" => Ok(Self::Label),
                         _ => Err(()),
                     }
                 }
@@ -495,21 +485,10 @@ fn create_new_func(element: &Elem) -> TokenStream {
             }
         });
 
-    let label_and_location = element.unless_capability("Unlabellable", || {
-        quote! {
-            location: None,
-            label: None,
-            prepared: false,
-        }
-    });
-
     quote! {
         /// Create a new element.
         pub fn new(#(#params),*) -> Self {
             Self {
-                span: ::typst::syntax::Span::detached(),
-                #label_and_location
-                guards: ::std::vec::Vec::with_capacity(0),
                 #(#required,)*
                 #(#defaults,)*
                 #(#default_synthesized,)*
@@ -700,7 +679,6 @@ fn create_style_chain_access(
 fn create_native_elem_impl(element: &Elem) -> TokenStream {
     let Elem { name, ident, title, scope, keywords, docs, .. } = element;
 
-    let vtable_func = create_vtable_func(element);
     let params = element
         .fields
         .iter()
@@ -713,30 +691,48 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         quote! { #foundations::Scope::new() }
     };
 
-    // Fields that can be accessed using the `field` method.
-    let field_matches = element.visible_fields().map(|field| {
-        let elem = &element.ident;
-        let name = &field.enum_ident;
-        let field_ident = &field.ident;
+    let local_name = element
+        .if_capability(
+            "LocalName",
+            || quote! { Some(<#foundations::Packed<#ident> as ::typst::text::LocalName>::local_name) },
+        )
+        .unwrap_or_else(|| quote! { None });
 
-        if field.ghost {
-            quote! {
-                <#elem as #foundations::ElementFields>::Fields::#name => None,
-            }
-        } else if field.inherent() || (field.synthesized && field.default.is_some()) {
-            quote! {
-                <#elem as #foundations::ElementFields>::Fields::#name => Some(
-                    #foundations::IntoValue::into_value(self.#field_ident.clone())
-                ),
-            }
-        } else {
-            quote! {
-                <#elem as #foundations::ElementFields>::Fields::#name => {
-                    self.#field_ident.clone().map(#foundations::IntoValue::into_value)
-                }
+    let data = quote! {
+        #foundations::NativeElementData {
+            name: #name,
+            title: #title,
+            docs: #docs,
+            keywords: &[#(#keywords),*],
+            construct: <#ident as #foundations::Construct>::construct,
+            set: <#ident as #foundations::Set>::set,
+            vtable:  <#ident as #foundations::Capable>::vtable,
+            field_id: |name|
+                <
+                    <#ident as #foundations::ElementFields>::Fields as ::std::str::FromStr
+                >::from_str(name).ok().map(|id| id as u8),
+            field_name: |id|
+                <
+                    <#ident as #foundations::ElementFields>::Fields as ::std::convert::TryFrom<u8>
+                >::try_from(id).ok().map(<#ident as #foundations::ElementFields>::Fields::to_str),
+            local_name: #local_name,
+            scope: #foundations::Lazy::new(|| #scope),
+            params: #foundations::Lazy::new(|| ::std::vec![#(#params),*])
+        }
+    };
+
+    quote! {
+        impl #foundations::NativeElement for #ident {
+            fn data() -> &'static #foundations::NativeElementData {
+                static DATA: #foundations::NativeElementData = #data;
+                &DATA
             }
         }
-    });
+    }
+}
+
+fn create_fields_impl(element: &Elem) -> TokenStream {
+    let Elem { ident, .. } = element;
 
     // Fields that can be checked using the `has` method.
     let field_has_matches = element.visible_fields().map(|field| {
@@ -758,80 +754,6 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             }
         }
     });
-
-    // Fields that can be set using the `set_field` method.
-    let field_set_matches = element
-        .visible_fields()
-        .filter(|field| field.settable() && !field.synthesized && !field.ghost)
-        .map(|field| {
-            let elem = &element.ident;
-            let name = &field.enum_ident;
-            let field_ident = &field.ident;
-
-            quote! {
-                <#elem as #foundations::ElementFields>::Fields::#name => {
-                    self.#field_ident = Some(#foundations::FromValue::from_value(value)?);
-                    return Ok(());
-                }
-            }
-        });
-
-    // Fields that are inherent.
-    let field_inherent_matches = element
-        .visible_fields()
-        .filter(|field| field.inherent() && !field.ghost)
-        .map(|field| {
-            let elem = &element.ident;
-            let name = &field.enum_ident;
-            let field_ident = &field.ident;
-
-            quote! {
-                <#elem as #foundations::ElementFields>::Fields::#name => {
-                    self.#field_ident = #foundations::FromValue::from_value(value)?;
-                    return Ok(());
-                }
-            }
-        });
-
-    // Fields that cannot be set or are internal create an error.
-    let field_not_set_matches = element
-        .real_fields()
-        .filter(|field| field.internal || field.synthesized || field.ghost)
-        .map(|field| {
-            let elem = &element.ident;
-            let ident = &field.enum_ident;
-            let field_name = &field.name;
-            if field.internal {
-                // Internal fields create an error that they are unknown.
-                let unknown_field = format!("unknown field `{field_name}` on `{name}`");
-                quote! {
-                    <#elem as #foundations::ElementFields>::Fields::#ident => ::typst::diag::bail!(#unknown_field),
-                }
-            } else {
-                // Fields that cannot be set create an error that they are not settable.
-                let not_settable = format!("cannot set `{field_name}` on `{name}`");
-                quote! {
-                    <#elem as #foundations::ElementFields>::Fields::#ident => ::typst::diag::bail!(#not_settable),
-                }
-            }
-        });
-
-    // Statistically compute whether we need preparation or not.
-    let needs_preparation = element
-        .unless_capability("Unlabellable", || {
-            element
-                .capabilities
-                .iter()
-                .any(|capability| capability == "Locatable" || capability == "Synthesize")
-                .then(|| quote! { !self.prepared })
-                .unwrap_or_else(|| quote! { self.label().is_some() && !self.prepared })
-        })
-        .unwrap_or_else(|| {
-            assert!(element.capabilities.iter().all(|capability| capability
-                != "Locatable"
-                && capability != "Synthesize"));
-            quote! { false }
-        });
 
     // Creation of the fields dictionary for inherent fields.
     let field_dict = element
@@ -878,225 +800,57 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             }
         });
 
-    let location = element
-        .unless_capability("Unlabellable", || quote! { self.location })
-        .unwrap_or_else(|| quote! { None });
+    // Fields that can be accessed using the `field` method.
+    let field_matches = element.visible_fields().map(|field| {
+        let elem = &element.ident;
+        let name = &field.enum_ident;
+        let field_ident = &field.ident;
 
-    let set_location = element
-        .unless_capability("Unlabellable", || {
+        if field.ghost {
             quote! {
-                self.location = Some(location);
+                <#elem as #foundations::ElementFields>::Fields::#name => None,
             }
-        })
-        .unwrap_or_else(|| quote! { drop(location) });
-
-    let label = element
-        .unless_capability("Unlabellable", || quote! { self.label })
-        .unwrap_or_else(|| quote! { None });
-
-    let set_label = element
-        .unless_capability("Unlabellable", || {
+        } else if field.inherent() || (field.synthesized && field.default.is_some()) {
             quote! {
-                self.label = Some(label);
+                <#elem as #foundations::ElementFields>::Fields::#name => Some(
+                    #foundations::IntoValue::into_value(self.#field_ident.clone())
+                ),
             }
-        })
-        .unwrap_or_else(|| quote! { drop(label) });
-
-    let label_field = element
-        .unless_capability("Unlabellable", || {
+        } else {
             quote! {
-                self.label().map(#foundations::Value::Label)
-            }
-        })
-        .unwrap_or_else(|| quote! { None });
-
-    let label_has_field = element
-        .unless_capability("Unlabellable", || quote! { self.label().is_some() })
-        .unwrap_or_else(|| quote! { false });
-
-    let label_field_dict = element.unless_capability("Unlabellable", || {
-        quote! {
-            if let Some(label) = self.label() {
-                fields.insert(
-                    "label".into(),
-                    #foundations::IntoValue::into_value(label)
-                );
+                <#elem as #foundations::ElementFields>::Fields::#name => {
+                    self.#field_ident.clone().map(#foundations::IntoValue::into_value)
+                }
             }
         }
     });
 
-    let mark_prepared = element
-        .unless_capability("Unlabellable", || quote! { self.prepared = true; })
-        .unwrap_or_else(|| quote! {});
-
-    let prepared = element
-        .unless_capability("Unlabellable", || quote! { self.prepared })
-        .unwrap_or_else(|| quote! { true });
-
-    let local_name = element
-        .if_capability(
-            "LocalName",
-            || quote! { Some(<#ident as ::typst::text::LocalName>::local_name) },
-        )
-        .unwrap_or_else(|| quote! { None });
-
-    let unknown_field = format!("unknown field {{}} on {name}");
-    let label_error = format!("cannot set label on {name}");
-    let data = quote! {
-        #foundations::NativeElementData {
-            name: #name,
-            title: #title,
-            docs: #docs,
-            keywords: &[#(#keywords),*],
-            construct: <#ident as #foundations::Construct>::construct,
-            set: <#ident as #foundations::Set>::set,
-            vtable: #vtable_func,
-            field_id: |name|
-                <
-                    <#ident as #foundations::ElementFields>::Fields as ::std::str::FromStr
-                >::from_str(name).ok().map(|id| id as u8),
-            field_name: |id|
-                <
-                    <#ident as #foundations::ElementFields>::Fields as ::std::convert::TryFrom<u8>
-                >::try_from(id).ok().map(<#ident as #foundations::ElementFields>::Fields::to_str),
-            local_name: #local_name,
-            scope: #foundations::Lazy::new(|| #scope),
-            params: #foundations::Lazy::new(|| ::std::vec![#(#params),*])
-        }
-    };
-
     quote! {
-        impl #foundations::NativeElement for #ident {
-            fn data() -> &'static #foundations::NativeElementData {
-                static DATA: #foundations::NativeElementData = #data;
-                &DATA
-            }
-
-            fn dyn_elem(&self) -> #foundations::Element {
-                #foundations::Element::of::<Self>()
-            }
-
-            fn dyn_hash(&self, mut state: &mut dyn ::std::hash::Hasher) {
-                // Also hash the TypeId since values with different types but
-                // equal data should be different.
-                ::std::hash::Hash::hash(&::std::any::TypeId::of::<Self>(), &mut state);
-                ::std::hash::Hash::hash(self, &mut state);
-            }
-
-            fn dyn_eq(&self, other: &#foundations::Content) -> bool {
-                if let Some(other) = other.to::<Self>() {
-                    <Self as ::std::cmp::PartialEq>::eq(self, other)
-                } else {
-                    false
-                }
-            }
-
-            fn dyn_clone(&self) -> ::std::sync::Arc<dyn #foundations::NativeElement> {
-                ::std::sync::Arc::new(Clone::clone(self))
-            }
-
-            fn as_any(&self) -> &dyn ::std::any::Any {
-                self
-            }
-
-            fn as_any_mut(&mut self) -> &mut dyn ::std::any::Any {
-                self
-            }
-
-            fn into_any(self: ::std::sync::Arc<Self>) -> ::std::sync::Arc<dyn ::std::any::Any + Send + Sync> {
-                self
-            }
-
-            fn span(&self) -> ::typst::syntax::Span {
-                self.span
-            }
-
-            fn set_span(&mut self, span: ::typst::syntax::Span) {
-                if self.span().is_detached() {
-                    self.span = span;
-                }
-            }
-
-            fn label(&self) -> Option<#foundations::Label> {
-                #label
-            }
-
-            fn set_label(&mut self, label: #foundations::Label) {
-                #set_label
-            }
-
-            fn location(&self) -> Option<::typst::introspection::Location> {
-                #location
-            }
-
-            fn set_location(&mut self, location: ::typst::introspection::Location) {
-                #set_location
-            }
-
-            fn push_guard(&mut self, guard: #foundations::Guard) {
-                self.guards.push(guard);
-            }
-
-            fn is_guarded(&self, guard: #foundations::Guard) -> bool {
-                self.guards.contains(&guard)
-            }
-
-            fn is_pristine(&self) -> bool {
-                self.guards.is_empty()
-            }
-
-            fn mark_prepared(&mut self) {
-                #mark_prepared
-            }
-
-            fn needs_preparation(&self) -> bool {
-                #needs_preparation
-            }
-
-            fn is_prepared(&self) -> bool {
-                #prepared
-            }
-
-            fn field(&self, id: u8) -> Option<#foundations::Value> {
-                let id = <#ident as #foundations::ElementFields>::Fields::try_from(id).ok()?;
-                match id {
-                    <#ident as #foundations::ElementFields>::Fields::Label => #label_field,
-                    #(#field_matches)*
-                    _ => None,
-                }
-            }
-
+        impl #foundations::Fields for #ident {
             fn has(&self, id: u8) -> bool {
                 let Ok(id) = <#ident as #foundations::ElementFields>::Fields::try_from(id) else {
                     return false;
                 };
 
                 match id {
-                    <#ident as #foundations::ElementFields>::Fields::Label => #label_has_field,
                     #(#field_has_matches)*
                     _ => false,
                 }
             }
 
+            fn field(&self, id: u8) -> Option<#foundations::Value> {
+                let id = <#ident as #foundations::ElementFields>::Fields::try_from(id).ok()?;
+                match id {
+                    #(#field_matches)*
+                    _ => None,
+                }
+            }
+
             fn fields(&self) -> #foundations::Dict {
                 let mut fields = #foundations::Dict::new();
-                #label_field_dict
                 #(#field_dict)*
                 #(#field_opt_dict)*
                 fields
-            }
-
-            fn set_field(&mut self, id: u8, value: #foundations::Value) -> ::typst::diag::StrResult<()> {
-                let id = <#ident as #foundations::ElementFields>::Fields::try_from(id)
-                    .map_err(|_| ::ecow::eco_format!(#unknown_field, id))?;
-                match id {
-                    #(#field_set_matches)*
-                    #(#field_inherent_matches)*
-                    #(#field_not_set_matches)*
-                    <#ident as #foundations::ElementFields>::Fields::Label => {
-                        ::typst::diag::bail!(#label_error);
-                    }
-                }
             }
         }
     }
@@ -1182,7 +936,7 @@ fn create_set_impl(element: &Elem) -> TokenStream {
 /// Creates the element's `Locatable` implementation.
 fn create_locatable_impl(element: &Elem) -> TokenStream {
     let ident = &element.ident;
-    quote! { impl ::typst::introspection::Locatable for #ident {} }
+    quote! { impl ::typst::introspection::Locatable for #foundations::Packed<#ident> {} }
 }
 
 /// Creates the element's `PartialEq` implementation.
@@ -1208,7 +962,7 @@ fn create_repr_impl(element: &Elem) -> TokenStream {
     quote! {
         impl #foundations::Repr for #ident {
             fn repr(&self) -> ::ecow::EcoString {
-                let fields = #foundations::NativeElement::fields(self).into_iter()
+                let fields = #foundations::Fields::fields(self).into_iter()
                     .map(|(name, value)| ::ecow::eco_format!("{}: {}", name, value.repr()))
                     .collect::<Vec<_>>();
                 ::ecow::eco_format!(#repr_format, #foundations::repr::pretty_array_like(&fields, false))
@@ -1218,9 +972,9 @@ fn create_repr_impl(element: &Elem) -> TokenStream {
 }
 
 /// Creates the element's casting vtable.
-fn create_vtable_func(element: &Elem) -> TokenStream {
+fn create_capable_impl(element: &Elem) -> TokenStream {
     // Forbidden capabilities (i.e capabilities that are not object safe).
-    const FORBIDDEN: &[&str] = &["Construct", "PartialEq", "Hash", "LocalName"];
+    const FORBIDDEN: &[&str] = &["Construct", "PartialEq", "Hash", "LocalName", "Repr"];
 
     let ident = &element.ident;
     let relevant = element
@@ -1229,20 +983,23 @@ fn create_vtable_func(element: &Elem) -> TokenStream {
         .filter(|&ident| !FORBIDDEN.contains(&(&ident.to_string() as &str)));
     let checks = relevant.map(|capability| {
         quote! {
-            if id == ::std::any::TypeId::of::<dyn #capability>() {
-                let vtable = unsafe {
-                    let dangling = ::std::ptr::NonNull::<#ident>::dangling().as_ptr() as *const dyn #capability;
-                    ::typst::util::fat::vtable(dangling)
-                };
-                return Some(vtable);
+            if capability == ::std::any::TypeId::of::<dyn #capability>() {
+                // Safety: The vtable function doesn't require initialized
+                // data, so it's fine to use a dangling pointer.
+                return Some(unsafe {
+                    ::typst::util::fat::vtable(dangling as *const dyn #capability)
+                });
             }
         }
     });
 
     quote! {
-        |id| {
-            #(#checks)*
-            None
+        unsafe impl #foundations::Capable for #ident {
+            fn vtable(capability: ::std::any::TypeId) -> ::std::option::Option<*const ()> {
+                let dangling = ::std::ptr::NonNull::<#foundations::Packed<#ident>>::dangling().as_ptr();
+                #(#checks)*
+                None
+            }
         }
     }
 }
