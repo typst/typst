@@ -259,14 +259,7 @@ impl CellGrid {
         };
         let mut resolved_cells: Vec<Option<Cell>> = Vec::with_capacity(cell_count);
         for cell in cells.iter().cloned() {
-            let cell_span = {
-                let cell_span = cell.cell_span();
-                if cell_span.is_detached() {
-                    span
-                } else {
-                    cell_span
-                }
-            };
+            let cell_span = cell.cell_span();
             // Let's calculate the cell's final position based on its
             // requested position.
             let resolved_index = {
