@@ -253,7 +253,7 @@ impl LocalName for HeadingElem {
             Lang::ALBANIAN => "Kapitull",
             Lang::ARABIC => "الفصل",
             Lang::BOKMÅL => "Kapittel",
-            Lang::CATALAN => "Capítol",
+            Lang::CATALAN => "Secció",
             Lang::CHINESE if option_eq(region, "TW") => "小節",
             Lang::CHINESE => "小节",
             Lang::CZECH => "Kapitola",
