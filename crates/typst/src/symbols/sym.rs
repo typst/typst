@@ -395,6 +395,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     infinity: '∞',
     oo: '∞',
     diff: '∂',
+    gradient: '∇',
     nabla: '∇',
     sum: ['∑', integral: '⨋'],
     product: ['∏', co: '∐'],
