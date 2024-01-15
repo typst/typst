@@ -272,6 +272,7 @@ impl LocalName for EquationElem {
             Lang::ALBANIAN => "Ekuacion",
             Lang::ARABIC => "معادلة",
             Lang::BOKMÅL => "Ligning",
+            Lang::CATALAN => "Equació",
             Lang::CHINESE if option_eq(region, "TW") => "方程式",
             Lang::CHINESE => "公式",
             Lang::CZECH => "Rovnice",
