@@ -384,11 +384,8 @@ impl Frame {
             1,
             Point::with_y(self.baseline()),
             FrameItem::Shape(
-                Geometry::Line(Point::with_x(self.size.x)).stroked(FixedStroke {
-                    paint: Color::RED.into(),
-                    thickness: Abs::pt(1.0),
-                    ..FixedStroke::default()
-                }),
+                Geometry::Line(Point::with_x(self.size.x))
+                    .stroked(FixedStroke::from_pair(Color::RED, Abs::pt(1.0))),
                 Span::detached(),
             ),
         );
@@ -411,11 +408,8 @@ impl Frame {
         self.push(
             Point::with_y(y),
             FrameItem::Shape(
-                Geometry::Line(Point::with_x(self.size.x)).stroked(FixedStroke {
-                    paint: Color::GREEN.into(),
-                    thickness: Abs::pt(1.0),
-                    ..FixedStroke::default()
-                }),
+                Geometry::Line(Point::with_x(self.size.x))
+                    .stroked(FixedStroke::from_pair(Color::GREEN, Abs::pt(1.0))),
                 Span::detached(),
             ),
         );

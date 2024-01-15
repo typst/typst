@@ -123,7 +123,7 @@ pub use typst_macros::func;
 /// The only exception are built-in methods like
 /// [`array.push(value)`]($array.push). These can modify the values they are
 /// called on.
-#[ty(scope, name = "function")]
+#[ty(scope, cast, name = "function")]
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Func {
@@ -311,7 +311,7 @@ impl Func {
         /// The arguments to apply to the function.
         #[external]
         #[variadic]
-        arguments: Vec<Args>,
+        arguments: Vec<Value>,
     ) -> Func {
         let span = self.span;
         Self {
@@ -331,7 +331,7 @@ impl Func {
         /// The fields to filter for.
         #[variadic]
         #[external]
-        fields: Vec<Args>,
+        fields: Vec<Value>,
     ) -> StrResult<Selector> {
         let fields = args.to_named();
         args.items.retain(|arg| arg.name.is_none());

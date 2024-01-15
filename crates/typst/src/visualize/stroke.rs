@@ -49,7 +49,7 @@ use crate::visualize::{Color, Gradient, Paint, Pattern};
 /// constructor function. For example, `{(2pt + blue).thickness}` is `{2pt}`.
 /// Meanwhile, `{stroke(red).cap}` is `{auto}` because it's unspecified. Fields
 /// set to `{auto}` are inherited.
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Stroke<T: Numeric = Length> {
     /// The stroke's paint.
@@ -64,6 +64,17 @@ pub struct Stroke<T: Numeric = Length> {
     pub dash: Smart<Option<DashPattern<T>>>,
     /// The miter limit.
     pub miter_limit: Smart<Scalar>,
+}
+
+impl Stroke {
+    /// Create a stroke from a paint and a thickness.
+    pub fn from_pair(paint: impl Into<Paint>, thickness: Length) -> Self {
+        Self {
+            paint: Smart::Custom(paint.into()),
+            thickness: Smart::Custom(thickness),
+            ..Default::default()
+        }
+    }
 }
 
 #[scope]
@@ -581,6 +592,17 @@ pub struct FixedStroke {
     pub dash: Option<DashPattern<Abs, Abs>>,
     /// The miter limit. Defaults to 4.0, same as `tiny-skia`.
     pub miter_limit: Scalar,
+}
+
+impl FixedStroke {
+    /// Create a stroke from a paint and a thickness.
+    pub fn from_pair(paint: impl Into<Paint>, thickness: Abs) -> Self {
+        Self {
+            paint: paint.into(),
+            thickness,
+            ..Default::default()
+        }
+    }
 }
 
 impl Default for FixedStroke {

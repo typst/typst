@@ -253,6 +253,7 @@ impl LocalName for ImageElem {
             Lang::ALBANIAN => "Figurë",
             Lang::ARABIC => "شكل",
             Lang::BOKMÅL => "Figur",
+            Lang::CATALAN => "Figura",
             Lang::CHINESE if option_eq(region, "TW") => "圖",
             Lang::CHINESE => "图",
             Lang::CZECH => "Obrázek",

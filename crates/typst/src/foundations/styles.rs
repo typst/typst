@@ -64,7 +64,7 @@ impl Show for StyleElem {
 }
 
 /// A list of style properties.
-#[ty]
+#[ty(cast)]
 #[derive(Default, PartialEq, Clone, Hash)]
 pub struct Styles(EcoVec<Prehashed<Style>>);
 

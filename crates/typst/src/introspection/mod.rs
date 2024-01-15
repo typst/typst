@@ -26,8 +26,7 @@ use ecow::{eco_format, EcoString};
 use smallvec::SmallVec;
 
 use crate::foundations::{
-    cast, category, elem, ty, Behave, Behaviour, Category, Content, Repr, Scope,
-    Unlabellable,
+    category, elem, ty, Behave, Behaviour, Category, Content, Repr, Scope, Unlabellable,
 };
 use crate::layout::PdfPageLabel;
 use crate::model::{Destination, Numbering};
@@ -87,10 +86,6 @@ pub enum Meta {
     /// in the final frames as it is removed alongside the content that should
     /// be hidden.
     Hide,
-}
-
-cast! {
-    type Meta,
 }
 
 impl Debug for Meta {

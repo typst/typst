@@ -11,8 +11,8 @@ use crate::foundations::{
 };
 use crate::introspection::{Counter, CounterKey, ManualPageCounter, Meta};
 use crate::layout::{
-    Abs, Align, AlignElem, Axes, ColumnsElem, Dir, Fragment, Frame, HAlign, Layout,
-    Length, Point, Ratio, Regions, Rel, Sides, Size, VAlign,
+    Abs, AlignElem, Alignment, Axes, ColumnsElem, Dir, Fragment, Frame, HAlignment,
+    Layout, Length, Point, Ratio, Regions, Rel, Sides, Size, VAlignment,
 };
 
 use crate::model::Numbering;
@@ -221,17 +221,17 @@ pub struct PageElem {
     ///
     /// #lorem(30)
     /// ```
-    #[default(HAlign::Center + VAlign::Bottom)]
+    #[default(HAlignment::Center + VAlignment::Bottom)]
     #[parse({
-        let option: Option<Spanned<Align>> = args.named("number-align")?;
+        let option: Option<Spanned<Alignment>> = args.named("number-align")?;
         if let Some(Spanned { v: align, span }) = option {
-            if align.y() == Some(VAlign::Horizon) {
+            if align.y() == Some(VAlignment::Horizon) {
                 bail!(span, "page number cannot be `horizon`-aligned");
             }
         }
         option.map(|spanned| spanned.v)
     })]
-    pub number_align: Align,
+    pub number_align: Alignment,
 
     /// The page's header. Fills the top margin of each page.
     ///
@@ -440,7 +440,7 @@ impl PageElem {
             counter
         }));
 
-        if matches!(number_align.y(), Some(VAlign::Top)) {
+        if matches!(number_align.y(), Some(VAlignment::Top)) {
             header = if header.is_some() { header } else { numbering_marginal };
         } else {
             footer = if footer.is_some() { footer } else { numbering_marginal };
@@ -476,16 +476,16 @@ impl PageElem {
                     let ascent = header_ascent.relative_to(margin.top);
                     pos = Point::with_x(margin.left);
                     area = Size::new(pw, margin.top - ascent);
-                    align = Align::BOTTOM;
+                    align = Alignment::BOTTOM;
                 } else if ptr::eq(marginal, &footer) {
                     let descent = footer_descent.relative_to(margin.bottom);
                     pos = Point::new(margin.left, size.y - margin.bottom + descent);
                     area = Size::new(pw, margin.bottom - descent);
-                    align = Align::TOP;
+                    align = Alignment::TOP;
                 } else {
                     pos = Point::zero();
                     area = size;
-                    align = HAlign::Center + VAlign::Horizon;
+                    align = HAlignment::Center + VAlignment::Horizon;
                 };
 
                 let pod = Regions::one(area, Axes::splat(true));
@@ -650,12 +650,12 @@ impl Binding {
 cast! {
     Binding,
     self => match self {
-        Self::Left => Align::LEFT.into_value(),
-        Self::Right => Align::RIGHT.into_value(),
+        Self::Left => Alignment::LEFT.into_value(),
+        Self::Right => Alignment::RIGHT.into_value(),
     },
-    v: Align => match v {
-        Align::LEFT => Self::Left,
-        Align::RIGHT => Self::Right,
+    v: Alignment => match v {
+        Alignment::LEFT => Self::Left,
+        Alignment::RIGHT => Self::Right,
         _ => bail!("must be `left` or `right`"),
     },
 }

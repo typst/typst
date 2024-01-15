@@ -116,6 +116,8 @@ pub fn func(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 /// You can customize some properties of the resulting type:
 /// - `scope`: Indicates that the type has an associated scope defined by the
 ///   `#[scope]` macro
+/// - `cast`: Indicates that the type has a custom `cast!` implementation.
+///   The macro will then not autogenerate one.
 /// - `name`: The type's normal name (e.g. `str`). Defaults to the Rust name in
 ///   kebab-case.
 /// - `title`: The type's title case name (e.g. `String`). Defaults to the

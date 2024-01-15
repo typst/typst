@@ -17,7 +17,7 @@ use crate::util::{Numeric, Scalar};
 ///   Scaled apart.
 /// ]
 /// ```
-#[ty]
+#[ty(cast)]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Ratio(Scalar);
 

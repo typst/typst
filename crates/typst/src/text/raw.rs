@@ -15,7 +15,7 @@ use crate::foundations::{
     cast, elem, scope, Args, Array, Bytes, Content, Finalize, Fold, NativeElement,
     PlainText, Show, Smart, StyleChain, Styles, Synthesize, Value,
 };
-use crate::layout::{BlockElem, Em, HAlign};
+use crate::layout::{BlockElem, Em, HAlignment};
 use crate::model::Figurable;
 use crate::syntax::{split_newlines, LinkedNode, Spanned};
 use crate::text::{
@@ -172,8 +172,8 @@ pub struct RawElem {
     /// code = "centered"
     /// ```
     /// ````
-    #[default(HAlign::Start)]
-    pub align: HAlign,
+    #[default(HAlignment::Start)]
+    pub align: HAlignment,
 
     /// One or multiple additional syntax definitions to load. The syntax
     /// definitions should be in the
@@ -434,6 +434,7 @@ impl LocalName for RawElem {
             Lang::ALBANIAN => "List",
             Lang::ARABIC => "قائمة",
             Lang::BOKMÅL => "Utskrift",
+            Lang::CATALAN => "Llistat",
             Lang::CHINESE if option_eq(region, "TW") => "程式",
             Lang::CHINESE => "代码",
             Lang::CZECH => "Seznam",

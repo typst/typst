@@ -38,7 +38,7 @@ use crate::util::Numeric;
 /// - `abs`: A length with just the absolute component of the current length
 ///   (that is, excluding the `em` component).
 /// - `em`: The amount of `em` units in this length, as a [float]($float).
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Length {
     /// The absolute part.

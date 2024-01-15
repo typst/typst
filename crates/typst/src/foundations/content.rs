@@ -16,7 +16,7 @@ use crate::foundations::{
     NativeElement, Recipe, Repr, Selector, Str, Style, Styles, Value,
 };
 use crate::introspection::{Location, Meta, MetaElem};
-use crate::layout::{Align, AlignElem, Axes, Length, MoveElem, PadElem, Rel, Sides};
+use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
 use crate::model::{Destination, EmphElem, StrongElem};
 use crate::syntax::Span;
 use crate::text::UnderlineElem;
@@ -65,7 +65,7 @@ use crate::util::fat;
 /// In the web app, you can hover over a content variable to see exactly which
 /// elements the content is composed of and what fields they have.
 /// Alternatively, you can inspect the output of the [`repr`]($repr) function.
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Content(Arc<dyn NativeElement>);
@@ -491,7 +491,7 @@ impl Content {
     }
 
     /// Set alignments for this content.
-    pub fn aligned(self, align: Align) -> Self {
+    pub fn aligned(self, align: Alignment) -> Self {
         self.styled(AlignElem::set_alignment(align))
     }
 

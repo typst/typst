@@ -95,7 +95,7 @@ use crate::World;
 ///   that are implicitly created by show rules and elements. For example, a
 ///   [`rotate`]($rotate) will not affect the parent of a gradient, but a
 ///   [`grid`]($grid) will.
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Pattern(Arc<Repr>);
 

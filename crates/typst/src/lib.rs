@@ -70,7 +70,7 @@ use crate::foundations::{
     Array, Bytes, Content, Datetime, Dict, Module, Scope, StyleChain, Styles,
 };
 use crate::introspection::{Introspector, Locator};
-use crate::layout::{Align, Dir, LayoutRoot};
+use crate::layout::{Alignment, Dir, LayoutRoot};
 use crate::model::Document;
 use crate::syntax::{FileId, PackageSpec, Source, Span};
 use crate::text::{Font, FontBook};
@@ -342,12 +342,12 @@ fn prelude(global: &mut Scope) {
     global.define("rtl", Dir::RTL);
     global.define("ttb", Dir::TTB);
     global.define("btt", Dir::BTT);
-    global.define("start", Align::START);
-    global.define("left", Align::LEFT);
-    global.define("center", Align::CENTER);
-    global.define("right", Align::RIGHT);
-    global.define("end", Align::END);
-    global.define("top", Align::TOP);
-    global.define("horizon", Align::HORIZON);
-    global.define("bottom", Align::BOTTOM);
+    global.define("start", Alignment::START);
+    global.define("left", Alignment::LEFT);
+    global.define("center", Alignment::CENTER);
+    global.define("right", Alignment::RIGHT);
+    global.define("end", Alignment::END);
+    global.define("top", Alignment::TOP);
+    global.define("horizon", Alignment::HORIZON);
+    global.define("bottom", Alignment::BOTTOM);
 }

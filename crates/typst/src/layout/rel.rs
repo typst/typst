@@ -25,7 +25,7 @@ use crate::util::Numeric;
 /// A relative length has the following fields:
 /// - `length`: Its length component.
 /// - `ratio`: Its ratio component.
-#[ty(name = "relative", title = "Relative Length")]
+#[ty(cast, name = "relative", title = "Relative Length")]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Rel<T: Numeric = Length> {
     /// The relative part.

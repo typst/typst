@@ -9,7 +9,7 @@ use crate::foundations::{
     StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Align, Axes, Dir, Fr, Fragment, Frame, FrameItem, Layout, Length, Point,
+    Abs, Alignment, Axes, Dir, Fr, Fragment, Frame, FrameItem, Layout, Length, Point,
     Regions, Rel, Sides, Size, Sizing,
 };
 use crate::syntax::Span;
@@ -124,7 +124,7 @@ pub trait ResolvableCell {
         x: usize,
         y: usize,
         fill: &Option<Paint>,
-        align: Smart<Align>,
+        align: Smart<Alignment>,
         inset: Sides<Rel<Length>>,
         styles: StyleChain,
     ) -> Cell;
@@ -226,7 +226,7 @@ impl CellGrid {
         gutter: Axes<&[Sizing]>,
         cells: &[T],
         fill: &Celled<Option<Paint>>,
-        align: &Celled<Smart<Align>>,
+        align: &Celled<Smart<Alignment>>,
         inset: Sides<Rel<Length>>,
         engine: &mut Engine,
         styles: StyleChain,

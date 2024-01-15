@@ -163,7 +163,7 @@ const ANGLE_EPSILON: f32 = 1e-5;
 ///   )
 /// }))
 /// ```
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Copy, Clone)]
 pub enum Color {
     /// A 32-bit luma color.
