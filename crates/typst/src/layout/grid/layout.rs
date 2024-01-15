@@ -113,6 +113,28 @@ impl LayoutMultiple for Cell {
     }
 }
 
+/// A grid entry.
+enum Entry {
+    /// An entry which holds a cell.
+    Cell(Cell),
+    /// An entry which is merged with another cell.
+    #[allow(dead_code)]
+    Merged {
+        /// The index of the cell this entry is merged with.
+        parent: usize,
+    },
+}
+
+impl Entry {
+    /// Obtains the cell inside this entry, if this is not a merged cell.
+    fn as_cell(&self) -> Option<&Cell> {
+        match self {
+            Self::Cell(cell) => Some(cell),
+            Self::Merged { .. } => None,
+        }
+    }
+}
+
 /// Used for cell-like elements which are aware of their final properties in
 /// the table, and may have property overrides.
 pub trait ResolvableCell {
@@ -142,7 +164,7 @@ pub trait ResolvableCell {
 /// A grid of cells, including the columns, rows, and cell data.
 pub struct CellGrid {
     /// The grid cells.
-    cells: Vec<Cell>,
+    entries: Vec<Entry>,
     /// The column tracks including gutter tracks.
     cols: Vec<Sizing>,
     /// The row tracks including gutter tracks.
@@ -154,11 +176,11 @@ pub struct CellGrid {
 }
 
 impl CellGrid {
-    /// Generates the cell grid, given the tracks and resolved cells.
-    pub fn new(
+    /// Generates the cell grid, given the tracks and resolved entries.
+    fn new_internal(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
-        cells: Vec<Cell>,
+        entries: Vec<Entry>,
         styles: StyleChain,
     ) -> Self {
         let mut cols = vec![];
@@ -170,7 +192,7 @@ impl CellGrid {
         // Number of content rows: At least as many as given, but also at least
         // as many as needed to place each item.
         let r = {
-            let len = cells.len();
+            let len = entries.len();
             let given = tracks.y.len();
             let needed = len / c + (len % c).clamp(0, 1);
             given.max(needed)
@@ -211,7 +233,18 @@ impl CellGrid {
             cols.reverse();
         }
 
-        Self { cols, rows, cells, has_gutter, is_rtl }
+        Self { cols, rows, entries, has_gutter, is_rtl }
+    }
+
+    /// Generates the cell grid, given the tracks and cells.
+    pub fn new(
+        tracks: Axes<&[Sizing]>,
+        gutter: Axes<&[Sizing]>,
+        cells: Vec<Cell>,
+        styles: StyleChain,
+    ) -> Self {
+        let entries = cells.into_iter().map(Entry::Cell).collect();
+        Self::new_internal(tracks, gutter, entries, styles)
     }
 
     /// Resolves and positions all cells in the grid before creating it.
@@ -355,11 +388,11 @@ impl CellGrid {
         Ok(Self::new(tracks, gutter, resolved_cells, styles))
     }
 
-    /// Get the content of the cell in column `x` and row `y`.
+    /// Get the grid entry in column `x` and row `y`.
     ///
     /// Returns `None` if it's a gutter cell.
     #[track_caller]
-    fn cell(&self, mut x: usize, y: usize) -> Option<&Cell> {
+    fn entry(&self, mut x: usize, y: usize) -> Option<&Entry> {
         assert!(x < self.cols.len());
         assert!(y < self.rows.len());
 
@@ -372,14 +405,22 @@ impl CellGrid {
             // Even columns and rows are children, odd ones are gutter.
             if x % 2 == 0 && y % 2 == 0 {
                 let c = 1 + self.cols.len() / 2;
-                self.cells.get((y / 2) * c + x / 2)
+                self.entries.get((y / 2) * c + x / 2)
             } else {
                 None
             }
         } else {
             let c = self.cols.len();
-            self.cells.get(y * c + x)
+            self.entries.get(y * c + x)
         }
+    }
+
+    /// Get the content of the cell in column `x` and row `y`.
+    ///
+    /// Returns `None` if it's a gutter cell.
+    #[track_caller]
+    fn cell(&self, x: usize, y: usize) -> Option<&Cell> {
+        self.entry(x, y).and_then(Entry::as_cell)
     }
 }
 
