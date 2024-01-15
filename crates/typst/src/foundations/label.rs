@@ -42,13 +42,11 @@ impl Label {
     }
 
     /// Resolves the label to a string.
-    #[inline]
     pub fn as_str(&self) -> &'static str {
         self.0.resolve()
     }
 
     /// Turns this label into its inner interned string.
-    #[inline]
     pub fn into_inner(self) -> PicoStr {
         self.0
     }

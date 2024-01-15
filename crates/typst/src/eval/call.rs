@@ -511,7 +511,6 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Capture a variable if it isn't internal.
-    #[inline]
     fn capture(
         &mut self,
         ident: &str,

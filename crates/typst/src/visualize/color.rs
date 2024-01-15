@@ -1173,7 +1173,6 @@ impl Color {
     }
 
     /// Converts a 32-bit integer to an RGBA color.
-    #[inline]
     pub fn from_u32(color: u32) -> Self {
         Self::from_u8(
             ((color >> 24) & 0xFF) as u8,
