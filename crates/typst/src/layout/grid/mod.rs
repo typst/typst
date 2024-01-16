@@ -10,13 +10,13 @@ use smallvec::{smallvec, SmallVec};
 use crate::diag::{SourceResult, StrResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, NativeElement, Packed, Show, Smart,
-    StyleChain, Value,
+    cast, elem, scope, Array, Content, Fold, Packed, Show, Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Fragment, Layout, Length, Regions, Rel, Sides,
     Sizing,
 };
+use crate::syntax::Span;
 use crate::visualize::{Paint, Stroke};
 
 /// Arranges content in a grid.
@@ -444,13 +444,13 @@ cast! {
     v: Content => v.into(),
 }
 
-impl Default for GridCell {
+impl Default for Packed<GridCell> {
     fn default() -> Self {
-        Self::new(Content::default())
+        Packed::new(GridCell::new(Content::default()))
     }
 }
 
-impl ResolvableCell for GridCell {
+impl ResolvableCell for Packed<GridCell> {
     fn resolve_cell(
         mut self,
         x: usize,
@@ -460,32 +460,37 @@ impl ResolvableCell for GridCell {
         inset: Sides<Rel<Length>>,
         styles: StyleChain,
     ) -> Cell {
-        let fill = self.fill(styles).unwrap_or_else(|| fill.clone());
-        self.push_x(Smart::Custom(x));
-        self.push_y(Smart::Custom(y));
-        self.push_fill(Smart::Custom(fill.clone()));
-        self.push_align(match align {
+        let cell = &mut *self;
+        let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
+        cell.push_x(Smart::Custom(x));
+        cell.push_y(Smart::Custom(y));
+        cell.push_fill(Smart::Custom(fill.clone()));
+        cell.push_align(match align {
             Smart::Custom(align) => {
-                Smart::Custom(self.align(styles).map_or(align, |inner| inner.fold(align)))
+                Smart::Custom(cell.align(styles).map_or(align, |inner| inner.fold(align)))
             }
             // Don't fold if the grid is using outer alignment. Use the
             // cell's alignment instead (which, in the end, will fold with
             // the outer alignment when it is effectively displayed).
-            Smart::Auto => self.align(styles),
+            Smart::Auto => cell.align(styles),
         });
-        self.push_inset(Smart::Custom(
-            self.inset(styles).map_or(inset, |inner| inner.fold(inset)).map(Some),
+        cell.push_inset(Smart::Custom(
+            cell.inset(styles).map_or(inset, |inner| inner.fold(inset)).map(Some),
         ));
 
         Cell { body: self.pack(), fill }
     }
 
     fn x(&self, styles: StyleChain) -> Smart<usize> {
-        self.x(styles)
+        (**self).x(styles)
     }
 
     fn y(&self, styles: StyleChain) -> Smart<usize> {
-        self.y(styles)
+        (**self).y(styles)
+    }
+
+    fn span(&self) -> Span {
+        Packed::span(self)
     }
 }
 
