@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use ecow::eco_format;
 
 use crate::diag::{
@@ -157,6 +159,9 @@ pub trait ResolvableCell {
 
     /// Returns this cell's row override.
     fn y(&self, styles: StyleChain) -> Smart<usize>;
+
+    /// The amount of columns spanned by this cell.
+    fn colspan(&self) -> NonZeroUsize;
 
     /// The cell's span, for errors.
     fn span(&self) -> Span;

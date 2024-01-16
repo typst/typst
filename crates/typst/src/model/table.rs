@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use ecow::eco_format;
 
 use crate::diag::{SourceResult, Trace, Tracepoint};
@@ -12,6 +14,7 @@ use crate::layout::{
 use crate::model::Figurable;
 use crate::syntax::Span;
 use crate::text::{Lang, LocalName, Region};
+use crate::util::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
 
 /// A table of items.
@@ -401,6 +404,11 @@ impl ResolvableCell for Packed<TableCell> {
 
     fn y(&self, styles: StyleChain) -> Smart<usize> {
         (**self).y(styles)
+    }
+
+    fn colspan(&self) -> std::num::NonZeroUsize {
+        // TODO: unmock
+        NonZeroUsize::ONE
     }
 
     fn span(&self) -> Span {

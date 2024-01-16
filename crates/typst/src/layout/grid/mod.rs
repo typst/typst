@@ -17,6 +17,7 @@ use crate::layout::{
     Sides, Sizing,
 };
 use crate::syntax::Span;
+use crate::util::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
 
 /// Arranges content in a grid.
@@ -487,6 +488,11 @@ impl ResolvableCell for Packed<GridCell> {
 
     fn y(&self, styles: StyleChain) -> Smart<usize> {
         (**self).y(styles)
+    }
+
+    fn colspan(&self) -> NonZeroUsize {
+        // TODO: unmock
+        NonZeroUsize::ONE
     }
 
     fn span(&self) -> Span {
