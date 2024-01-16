@@ -1,5 +1,5 @@
 use crate::diag::{bail, SourceResult};
-use crate::foundations::{elem, Content, NativeElement, Value};
+use crate::foundations::{elem, Content, Packed, Value};
 use crate::layout::{Em, Frame, FrameItem, Point, Size};
 use crate::math::{
     FrameFragment, GlyphFragment, LayoutMath, MathContext, MathSize, Scaled,
@@ -35,7 +35,7 @@ pub struct FracElem {
     pub denom: Content,
 }
 
-impl LayoutMath for FracElem {
+impl LayoutMath for Packed<FracElem> {
     #[typst_macros::time(name = "math.frac", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, self.num(), std::slice::from_ref(self.denom()), false, self.span())
@@ -69,7 +69,7 @@ pub struct BinomElem {
     pub lower: Vec<Content>,
 }
 
-impl LayoutMath for BinomElem {
+impl LayoutMath for Packed<BinomElem> {
     #[typst_macros::time(name = "math.binom", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, self.upper(), self.lower(), true, self.span())

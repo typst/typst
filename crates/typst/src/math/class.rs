@@ -1,7 +1,7 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
-use crate::foundations::{elem, Content};
+use crate::foundations::{elem, Content, Packed};
 use crate::math::{LayoutMath, MathContext};
 
 /// Forced use of a certain math class.
@@ -29,7 +29,7 @@ pub struct ClassElem {
     pub body: Content,
 }
 
-impl LayoutMath for ClassElem {
+impl LayoutMath for Packed<ClassElem> {
     #[typst_macros::time(name = "math.class", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_class(*self.class()));

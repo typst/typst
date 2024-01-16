@@ -2,12 +2,14 @@ use comemo::Prehashed;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, NativeElement, Resolve, Smart, StyleChain};
+use crate::foundations::{
+    elem, Content, NativeElement, Packed, Resolve, Smart, StyleChain,
+};
 use crate::introspection::{Meta, MetaElem};
 use crate::layout::{
-    Abs, AlignElem, Axes, BlockElem, ColbreakElem, ColumnsElem, FixedAlign, Fr, Fragment,
-    Frame, FrameItem, Layout, PlaceElem, Point, Regions, Rel, Size, Spacing, VAlignment,
-    VElem,
+    Abs, AlignElem, Axes, BlockElem, ColbreakElem, ColumnsElem, FixedAlignment, Fr,
+    Fragment, Frame, FrameItem, Layout, PlaceElem, Point, Regions, Rel, Size, Spacing,
+    VAlignment, VElem,
 };
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
 use crate::util::Numeric;
@@ -27,7 +29,7 @@ pub struct FlowElem {
     pub children: Vec<Prehashed<Content>>,
 }
 
-impl Layout for FlowElem {
+impl Layout for Packed<FlowElem> {
     #[typst_macros::time(name = "flow", span = self.span())]
     fn layout(
         &self,
@@ -51,9 +53,9 @@ impl Layout for FlowElem {
                 styles = outer.chain(map);
             }
 
-            if let Some(elem) = child.to::<VElem>() {
+            if let Some(elem) = child.to_packed::<VElem>() {
                 layouter.layout_spacing(engine, elem, styles)?;
-            } else if let Some(elem) = child.to::<ParElem>() {
+            } else if let Some(elem) = child.to_packed::<ParElem>() {
                 layouter.layout_par(engine, elem, styles)?;
             } else if child.is::<LineElem>()
                 || child.is::<RectElem>()
@@ -71,11 +73,11 @@ impl Layout for FlowElem {
                 frame.meta(styles, true);
                 layouter.items.push(FlowItem::Frame {
                     frame,
-                    align: Axes::splat(FixedAlign::Start),
+                    align: Axes::splat(FixedAlignment::Start),
                     sticky: true,
                     movable: false,
                 });
-            } else if let Some(placed) = child.to::<PlaceElem>() {
+            } else if let Some(placed) = child.to_packed::<PlaceElem>() {
                 layouter.layout_placed(engine, placed, styles)?;
             } else if child.can::<dyn Layout>() {
                 layouter.layout_multiple(engine, child, styles)?;
@@ -137,12 +139,12 @@ enum FlowItem {
     /// A frame for a layouted block, how to align it, whether it sticks to the
     /// item after it (for orphan prevention), and whether it is movable
     /// (to keep it together with its footnotes).
-    Frame { frame: Frame, align: Axes<FixedAlign>, sticky: bool, movable: bool },
+    Frame { frame: Frame, align: Axes<FixedAlignment>, sticky: bool, movable: bool },
     /// An absolutely placed frame.
     Placed {
         frame: Frame,
-        x_align: FixedAlign,
-        y_align: Smart<Option<FixedAlign>>,
+        x_align: FixedAlignment,
+        y_align: Smart<Option<FixedAlignment>>,
         delta: Axes<Rel<Abs>>,
         float: bool,
         clearance: Abs,
@@ -207,7 +209,7 @@ impl<'a> FlowLayouter<'a> {
     fn layout_spacing(
         &mut self,
         engine: &mut Engine,
-        v: &VElem,
+        v: &Packed<VElem>,
         styles: StyleChain,
     ) -> SourceResult<()> {
         self.layout_item(
@@ -226,7 +228,7 @@ impl<'a> FlowLayouter<'a> {
     fn layout_par(
         &mut self,
         engine: &mut Engine,
-        par: &ParElem,
+        par: &Packed<ParElem>,
         styles: StyleChain,
     ) -> SourceResult<()> {
         let align = AlignElem::alignment_in(styles).resolve(styles);
@@ -299,14 +301,14 @@ impl<'a> FlowLayouter<'a> {
     fn layout_placed(
         &mut self,
         engine: &mut Engine,
-        placed: &PlaceElem,
+        placed: &Packed<PlaceElem>,
         styles: StyleChain,
     ) -> SourceResult<()> {
         let float = placed.float(styles);
         let clearance = placed.clearance(styles);
         let alignment = placed.alignment(styles);
         let delta = Axes::new(placed.dx(styles), placed.dy(styles)).resolve(styles);
-        let x_align = alignment.map_or(FixedAlign::Center, |align| {
+        let x_align = alignment.map_or(FixedAlignment::Center, |align| {
             align.x().unwrap_or_default().resolve(styles)
         });
         let y_align = alignment.map(|align| align.y().map(VAlignment::fix));
@@ -337,7 +339,7 @@ impl<'a> FlowLayouter<'a> {
         }
 
         // How to align the block.
-        let align = if let Some(align) = block.to::<AlignElem>() {
+        let align = if let Some(align) = block.to_packed::<AlignElem>() {
             align.alignment(styles)
         } else if let Some((_, local)) = block.to_styled() {
             AlignElem::alignment_in(styles.chain(local))
@@ -434,15 +436,18 @@ impl<'a> FlowLayouter<'a> {
                     let ratio = (self.regions.size.y
                         - (frame.height() + clearance) / 2.0)
                         / self.regions.full;
-                    let better_align =
-                        if ratio <= 0.5 { FixedAlign::End } else { FixedAlign::Start };
+                    let better_align = if ratio <= 0.5 {
+                        FixedAlignment::End
+                    } else {
+                        FixedAlignment::Start
+                    };
                     *y_align = Smart::Custom(Some(better_align));
                 }
 
                 // Add some clearance so that the float doesn't touch the main
                 // content.
                 frame.size_mut().y += clearance;
-                if *y_align == Smart::Custom(Some(FixedAlign::End)) {
+                if *y_align == Smart::Custom(Some(FixedAlignment::End)) {
                     frame.translate(Point::with_y(clearance));
                 }
 
@@ -504,10 +509,10 @@ impl<'a> FlowLayouter<'a> {
                 }
                 FlowItem::Placed { float: false, .. } => {}
                 FlowItem::Placed { frame, float: true, y_align, .. } => match y_align {
-                    Smart::Custom(Some(FixedAlign::Start)) => {
+                    Smart::Custom(Some(FixedAlignment::Start)) => {
                         float_top_height += frame.height()
                     }
-                    Smart::Custom(Some(FixedAlign::End)) => {
+                    Smart::Custom(Some(FixedAlignment::End)) => {
                         float_bottom_height += frame.height()
                     }
                     _ => {}
@@ -533,7 +538,7 @@ impl<'a> FlowLayouter<'a> {
         }
 
         let mut output = Frame::soft(size);
-        let mut ruler = FixedAlign::Start;
+        let mut ruler = FixedAlignment::Start;
         let mut float_top_offset = Abs::zero();
         let mut offset = float_top_height;
         let mut float_bottom_offset = Abs::zero();
@@ -561,12 +566,12 @@ impl<'a> FlowLayouter<'a> {
                     let x = x_align.position(size.x - frame.width());
                     let y = if float {
                         match y_align {
-                            Smart::Custom(Some(FixedAlign::Start)) => {
+                            Smart::Custom(Some(FixedAlignment::Start)) => {
                                 let y = float_top_offset;
                                 float_top_offset += frame.height();
                                 y
                             }
-                            Smart::Custom(Some(FixedAlign::End)) => {
+                            Smart::Custom(Some(FixedAlignment::End)) => {
                                 let y = size.y - footnote_height - float_bottom_height
                                     + float_bottom_offset;
                                 float_bottom_offset += frame.height();
@@ -631,7 +636,7 @@ impl FlowLayouter<'_> {
     fn try_handle_footnotes(
         &mut self,
         engine: &mut Engine,
-        mut notes: Vec<FootnoteElem>,
+        mut notes: Vec<Packed<FootnoteElem>>,
     ) -> SourceResult<()> {
         if self.root && !self.handle_footnotes(engine, &mut notes, false, false)? {
             self.finish_region(engine, false)?;
@@ -644,7 +649,7 @@ impl FlowLayouter<'_> {
     fn handle_footnotes(
         &mut self,
         engine: &mut Engine,
-        notes: &mut Vec<FootnoteElem>,
+        notes: &mut Vec<Packed<FootnoteElem>>,
         movable: bool,
         force: bool,
     ) -> SourceResult<bool> {
@@ -735,14 +740,16 @@ impl FlowLayouter<'_> {
 }
 
 /// Finds all footnotes in the frame.
-fn find_footnotes(notes: &mut Vec<FootnoteElem>, frame: &Frame) {
+fn find_footnotes(notes: &mut Vec<Packed<FootnoteElem>>, frame: &Frame) {
     for (_, item) in frame.items() {
         match item {
             FrameItem::Group(group) => find_footnotes(notes, &group.frame),
             FrameItem::Meta(Meta::Elem(content), _)
                 if !notes.iter().any(|note| note.location() == content.location()) =>
             {
-                let Some(footnote) = content.to::<FootnoteElem>() else { continue };
+                let Some(footnote) = content.to_packed::<FootnoteElem>() else {
+                    continue;
+                };
                 notes.push(footnote.clone());
             }
             _ => {}

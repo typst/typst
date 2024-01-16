@@ -10,14 +10,13 @@ use smallvec::{smallvec, SmallVec};
 use crate::diag::{SourceResult, StrResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, NativeElement, Show, Smart, StyleChain,
-    Value,
+    cast, elem, scope, Array, Content, Fold, NativeElement, Packed, Show, Smart,
+    StyleChain, Value,
 };
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Fragment, Layout, Length, Regions, Rel, Sides,
     Sizing,
 };
-use crate::syntax::Span;
 use crate::visualize::{Paint, Stroke};
 
 /// Arranges content in a grid.
@@ -271,7 +270,7 @@ pub struct GridElem {
     ///
     /// The cells are populated in row-major order.
     #[variadic]
-    pub children: Vec<GridCell>,
+    pub children: Vec<Packed<GridCell>>,
 }
 
 #[scope]
@@ -280,7 +279,7 @@ impl GridElem {
     type GridCell;
 }
 
-impl Layout for GridElem {
+impl Layout for Packed<GridElem> {
     #[typst_macros::time(name = "grid", span = self.span())]
     fn layout(
         &self,
@@ -488,13 +487,9 @@ impl ResolvableCell for GridCell {
     fn y(&self, styles: StyleChain) -> Smart<usize> {
         self.y(styles)
     }
-
-    fn cell_span(&self) -> Span {
-        self.span()
-    }
 }
 
-impl Show for GridCell {
+impl Show for Packed<GridCell> {
     fn show(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         show_grid_cell(self.body().clone(), self.inset(styles), self.align(styles))
     }
@@ -502,10 +497,8 @@ impl Show for GridCell {
 
 impl From<Content> for GridCell {
     fn from(value: Content) -> Self {
-        value
-            .to::<Self>()
-            .cloned()
-            .unwrap_or_else(|| Self::new(value.clone()))
+        #[allow(clippy::unwrap_or_default)]
+        value.unpack::<Self>().unwrap_or_else(Self::new)
     }
 }
 

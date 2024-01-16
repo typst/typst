@@ -1,6 +1,8 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{dict, elem, func, Content, Func, NativeElement, StyleChain};
+use crate::foundations::{
+    dict, elem, func, Content, Func, NativeElement, Packed, StyleChain,
+};
 use crate::layout::{Fragment, Layout, Regions, Size};
 use crate::syntax::Span;
 
@@ -57,7 +59,7 @@ pub fn layout(
     /// content that depends on the size of the container it is inside of.
     func: Func,
 ) -> Content {
-    LayoutElem::new(func).spanned(span).pack()
+    LayoutElem::new(func).pack().spanned(span)
 }
 
 /// Executes a `layout` call.
@@ -68,7 +70,7 @@ struct LayoutElem {
     func: Func,
 }
 
-impl Layout for LayoutElem {
+impl Layout for Packed<LayoutElem> {
     #[typst_macros::time(name = "layout", span = self.span())]
     fn layout(
         &self,

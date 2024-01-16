@@ -3,7 +3,7 @@ use std::num::NonZeroUsize;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Content, Finalize, NativeElement, Show, Smart, StyleChain, Styles,
+    elem, Content, Finalize, NativeElement, Packed, Show, Smart, StyleChain, Styles,
     Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
@@ -126,53 +126,49 @@ pub struct HeadingElem {
     pub body: Content,
 }
 
-impl Synthesize for HeadingElem {
+impl Synthesize for Packed<HeadingElem> {
     fn synthesize(
         &mut self,
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        // Resolve the supplement.
-        let supplement = match self.supplement(styles) {
+        let supplement = match (**self).supplement(styles) {
             Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => {
-                supplement.resolve(engine, [self.clone()])?
+                supplement.resolve(engine, [self.clone().pack()])?
             }
         };
 
-        self.push_level(self.level(styles));
-        self.push_numbering(self.numbering(styles).clone());
-        self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
-        self.push_outlined(self.outlined(styles));
-        self.push_bookmarked(self.bookmarked(styles));
+        let elem = self.as_mut();
+        elem.push_level(elem.level(styles));
+        elem.push_numbering(elem.numbering(styles).clone());
+        elem.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
+        elem.push_outlined(elem.outlined(styles));
+        elem.push_bookmarked(elem.bookmarked(styles));
 
         Ok(())
     }
 }
 
-impl Show for HeadingElem {
+impl Show for Packed<HeadingElem> {
     #[typst_macros::time(name = "heading", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
-        if let Some(numbering) = self.numbering(styles).as_ref() {
-            realized = Counter::of(Self::elem())
+        if let Some(numbering) = (**self).numbering(styles).as_ref() {
+            realized = Counter::of(HeadingElem::elem())
                 .display(self.span(), Some(numbering.clone()), false)
                 .spanned(self.span())
                 + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;
         }
-        Ok(BlockElem::new()
-            .spanned(self.span())
-            .spanned(self.span())
-            .with_body(Some(realized))
-            .pack())
+        Ok(BlockElem::new().with_body(Some(realized)).pack().spanned(self.span()))
     }
 }
 
-impl Finalize for HeadingElem {
+impl Finalize for Packed<HeadingElem> {
     fn finalize(&self, realized: Content, styles: StyleChain) -> Content {
-        let level = self.level(styles).get();
+        let level = (**self).level(styles).get();
         let scale = match level {
             1 => 1.4,
             2 => 1.2,
@@ -193,47 +189,42 @@ impl Finalize for HeadingElem {
     }
 }
 
-impl Count for HeadingElem {
+impl Count for Packed<HeadingElem> {
     fn update(&self) -> Option<CounterUpdate> {
-        self.numbering(StyleChain::default())
+        (**self)
+            .numbering(StyleChain::default())
             .is_some()
-            .then(|| CounterUpdate::Step(self.level(StyleChain::default())))
+            .then(|| CounterUpdate::Step((**self).level(StyleChain::default())))
     }
 }
 
-cast! {
-    HeadingElem,
-    v: Content => v.to::<Self>().ok_or("expected heading")?.clone(),
-}
-
-impl Refable for HeadingElem {
+impl Refable for Packed<HeadingElem> {
     fn supplement(&self) -> Content {
         // After synthesis, this should always be custom content.
-        match self.supplement(StyleChain::default()) {
+        match (**self).supplement(StyleChain::default()) {
             Smart::Custom(Some(Supplement::Content(content))) => content,
             _ => Content::empty(),
         }
     }
 
     fn counter(&self) -> Counter {
-        Counter::of(Self::elem())
+        Counter::of(HeadingElem::elem())
     }
 
     fn numbering(&self) -> Option<Numbering> {
-        self.numbering(StyleChain::default()).clone()
+        (**self).numbering(StyleChain::default()).clone()
     }
 }
 
-impl Outlinable for HeadingElem {
+impl Outlinable for Packed<HeadingElem> {
     fn outline(&self, engine: &mut Engine) -> SourceResult<Option<Content>> {
         if !self.outlined(StyleChain::default()) {
             return Ok(None);
         }
 
         let mut content = self.body().clone();
-        let default = StyleChain::default();
-        if let Some(numbering) = self.numbering(default).as_ref() {
-            let numbers = Counter::of(Self::elem())
+        if let Some(numbering) = (**self).numbering(StyleChain::default()).as_ref() {
+            let numbers = Counter::of(HeadingElem::elem())
                 .at(engine, self.location().unwrap())?
                 .display(engine, numbering)?;
             content = numbers + SpaceElem::new().pack() + content;
@@ -243,11 +234,11 @@ impl Outlinable for HeadingElem {
     }
 
     fn level(&self) -> NonZeroUsize {
-        self.level(StyleChain::default())
+        (**self).level(StyleChain::default())
     }
 }
 
-impl LocalName for HeadingElem {
+impl LocalName for Packed<HeadingElem> {
     fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Kapitull",

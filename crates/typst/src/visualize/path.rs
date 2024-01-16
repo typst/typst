@@ -3,7 +3,7 @@ use kurbo::{CubicBez, ParamCurveExtrema};
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    array, cast, elem, Array, NativeElement, Reflect, Resolve, Smart, StyleChain,
+    array, cast, elem, Array, Packed, Reflect, Resolve, Smart, StyleChain,
 };
 use crate::layout::{
     Abs, Axes, Fragment, Frame, FrameItem, Layout, Length, Point, Regions, Rel, Size,
@@ -70,7 +70,7 @@ pub struct PathElem {
     pub vertices: Vec<PathVertex>,
 }
 
-impl Layout for PathElem {
+impl Layout for Packed<PathElem> {
     #[typst_macros::time(name = "path", span = self.span())]
     fn layout(
         &self,

@@ -1,7 +1,7 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
-use crate::foundations::{elem, Content, StyleChain};
+use crate::foundations::{elem, Content, Packed, StyleChain};
 use crate::layout::{Abs, Frame, Point, Size};
 use crate::math::{
     FrameFragment, LayoutMath, MathContext, MathFragment, MathSize, Scaled,
@@ -48,7 +48,7 @@ pub struct AttachElem {
     pub br: Option<Content>,
 }
 
-impl LayoutMath for AttachElem {
+impl LayoutMath for Packed<AttachElem> {
     #[typst_macros::time(name = "math.attach", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         type GetAttachment = fn(&AttachElem, styles: StyleChain) -> Option<Content>;
@@ -61,15 +61,15 @@ impl LayoutMath for AttachElem {
         let base = ctx.layout_fragment(self.base())?;
 
         ctx.style(ctx.style.for_superscript());
-        let tl = layout_attachment(ctx, Self::tl)?;
-        let tr = layout_attachment(ctx, Self::tr)?;
-        let t = layout_attachment(ctx, Self::t)?;
+        let tl = layout_attachment(ctx, AttachElem::tl)?;
+        let tr = layout_attachment(ctx, AttachElem::tr)?;
+        let t = layout_attachment(ctx, AttachElem::t)?;
         ctx.unstyle();
 
         ctx.style(ctx.style.for_subscript());
-        let bl = layout_attachment(ctx, Self::bl)?;
-        let br = layout_attachment(ctx, Self::br)?;
-        let b = layout_attachment(ctx, Self::b)?;
+        let bl = layout_attachment(ctx, AttachElem::bl)?;
+        let br = layout_attachment(ctx, AttachElem::br)?;
+        let b = layout_attachment(ctx, AttachElem::b)?;
         ctx.unstyle();
 
         let limits = base.limits().active(ctx);
@@ -96,7 +96,7 @@ pub struct PrimesElem {
     pub count: usize,
 }
 
-impl LayoutMath for PrimesElem {
+impl LayoutMath for Packed<PrimesElem> {
     #[typst_macros::time(name = "math.primes", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         match *self.count() {
@@ -142,7 +142,7 @@ pub struct ScriptsElem {
     pub body: Content,
 }
 
-impl LayoutMath for ScriptsElem {
+impl LayoutMath for Packed<ScriptsElem> {
     #[typst_macros::time(name = "math.scripts", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut fragment = ctx.layout_fragment(self.body())?;
@@ -171,7 +171,7 @@ pub struct LimitsElem {
     pub inline: bool,
 }
 
-impl LayoutMath for LimitsElem {
+impl LayoutMath for Packed<LimitsElem> {
     #[typst_macros::time(name = "math.limits", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut fragment = ctx.layout_fragment(self.body())?;

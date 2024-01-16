@@ -24,8 +24,8 @@ use crate::engine::Engine;
 use crate::eval::{eval_string, EvalMode};
 use crate::foundations::{
     cast, elem, ty, Args, Array, Bytes, CastInfo, Content, Finalize, FromValue,
-    IntoValue, Label, NativeElement, Reflect, Repr, Scope, Show, Smart, Str, StyleChain,
-    Synthesize, Type, Value,
+    IntoValue, Label, NativeElement, Packed, Reflect, Repr, Scope, Show, Smart, Str,
+    StyleChain, Synthesize, Type, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{
@@ -155,7 +155,7 @@ cast! {
 
 impl BibliographyElem {
     /// Find the document's bibliography.
-    pub fn find(introspector: Tracked<Introspector>) -> StrResult<Self> {
+    pub fn find(introspector: Tracked<Introspector>) -> StrResult<Packed<Self>> {
         let query = introspector.query(&Self::elem().select());
         let mut iter = query.iter();
         let Some(elem) = iter.next() else {
@@ -166,7 +166,7 @@ impl BibliographyElem {
             bail!("multiple bibliographies are not yet supported");
         }
 
-        Ok(elem.to::<Self>().cloned().unwrap())
+        Ok(elem.to_packed::<Self>().unwrap().clone())
     }
 
     /// Whether the bibliography contains the given key.
@@ -176,7 +176,7 @@ impl BibliographyElem {
             .introspector
             .query(&Self::elem().select())
             .iter()
-            .any(|elem| elem.to::<Self>().unwrap().bibliography().has(key))
+            .any(|elem| elem.to_packed::<Self>().unwrap().bibliography().has(key))
     }
 
     /// Find all bibliography keys.
@@ -185,7 +185,7 @@ impl BibliographyElem {
     ) -> Vec<(EcoString, Option<EcoString>)> {
         let mut vec = vec![];
         for elem in introspector.query(&Self::elem().select()).iter() {
-            let this = elem.to::<Self>().unwrap();
+            let this = elem.to_packed::<Self>().unwrap();
             for entry in this.bibliography().entries() {
                 let key = entry.key().into();
                 let detail = entry.title().map(|title| title.value.to_str().into());
@@ -196,17 +196,18 @@ impl BibliographyElem {
     }
 }
 
-impl Synthesize for BibliographyElem {
+impl Synthesize for Packed<BibliographyElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        self.push_full(self.full(styles));
-        self.push_style(self.style(styles));
-        self.push_lang(TextElem::lang_in(styles));
-        self.push_region(TextElem::region_in(styles));
+        let elem = self.as_mut();
+        elem.push_full(elem.full(styles));
+        elem.push_style(elem.style(styles));
+        elem.push_lang(TextElem::lang_in(styles));
+        elem.push_region(TextElem::region_in(styles));
         Ok(())
     }
 }
 
-impl Show for BibliographyElem {
+impl Show for Packed<BibliographyElem> {
     #[typst_macros::time(name = "bibliography", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         const COLUMN_GUTTER: Em = Em::new(0.65);
@@ -220,9 +221,9 @@ impl Show for BibliographyElem {
 
             seq.push(
                 HeadingElem::new(title)
-                    .spanned(self.span())
                     .with_level(NonZeroUsize::ONE)
-                    .pack(),
+                    .pack()
+                    .spanned(self.span()),
             );
         }
 
@@ -240,19 +241,22 @@ impl Show for BibliographyElem {
                 let mut cells = vec![];
                 for (prefix, reference) in references {
                     cells.push(
-                        GridCell::new(prefix.clone().unwrap_or_default()).spanned(span),
+                        Packed::new(GridCell::new(prefix.clone().unwrap_or_default()))
+                            .spanned(span),
                     );
-                    cells.push(GridCell::new(reference.clone()).spanned(span));
+                    cells.push(
+                        Packed::new(GridCell::new(reference.clone())).spanned(span),
+                    );
                 }
 
                 seq.push(VElem::new(row_gutter).with_weakness(3).pack());
                 seq.push(
                     GridElem::new(cells)
-                        .spanned(self.span())
                         .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
                         .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
                         .with_row_gutter(TrackSizings(smallvec![(row_gutter).into()]))
-                        .pack(),
+                        .pack()
+                        .spanned(self.span()),
                 );
             } else {
                 for (_, reference) in references {
@@ -271,7 +275,7 @@ impl Show for BibliographyElem {
     }
 }
 
-impl Finalize for BibliographyElem {
+impl Finalize for Packed<BibliographyElem> {
     fn finalize(&self, realized: Content, _: StyleChain) -> Content {
         const INDENT: Em = Em::new(1.0);
         realized
@@ -280,7 +284,7 @@ impl Finalize for BibliographyElem {
     }
 }
 
-impl LocalName for BibliographyElem {
+impl LocalName for Packed<BibliographyElem> {
     fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Bibliografi",
@@ -609,7 +613,7 @@ struct Generator<'a> {
     /// The world that is used to evaluate mathematical material in citations.
     world: Tracked<'a, dyn World + 'a>,
     /// The document's bibliography.
-    bibliography: BibliographyElem,
+    bibliography: Packed<BibliographyElem>,
     /// The document's citation groups.
     groups: EcoVec<Prehashed<Content>>,
     /// Details about each group that are accumulated while driving hayagriva's
@@ -673,8 +677,8 @@ impl<'a> Generator<'a> {
         // Process all citation groups.
         let mut driver = BibliographyDriver::new();
         for elem in &self.groups {
-            let group = elem.to::<CiteGroup>().unwrap();
-            let location = group.location().unwrap();
+            let group = elem.to_packed::<CiteGroup>().unwrap();
+            let location = elem.location().unwrap();
             let children = group.children();
 
             // Groups should never be empty.
@@ -947,22 +951,22 @@ impl ElemRenderer<'_> {
         if let Some(prefix) = suf_prefix {
             const COLUMN_GUTTER: Em = Em::new(0.65);
             content = GridElem::new(vec![
-                GridCell::new(prefix).spanned(self.span),
-                GridCell::new(content).spanned(self.span),
+                Packed::new(GridCell::new(prefix)).spanned(self.span),
+                Packed::new(GridCell::new(content)).spanned(self.span),
             ])
-            .spanned(self.span)
             .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
             .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
-            .pack();
+            .pack()
+            .spanned(self.span);
         }
 
         match elem.display {
             Some(Display::Block) => {
                 content =
-                    BlockElem::new().spanned(self.span).with_body(Some(content)).pack();
+                    BlockElem::new().with_body(Some(content)).pack().spanned(self.span);
             }
             Some(Display::Indent) => {
-                content = PadElem::new(content).spanned(self.span).pack();
+                content = PadElem::new(content).pack().spanned(self.span);
             }
             Some(Display::LeftMargin) => {
                 *prefix.get_or_insert_with(Default::default) += content;
@@ -992,8 +996,8 @@ impl ElemRenderer<'_> {
     fn display_link(&self, text: &hayagriva::Formatted, url: &str) -> Content {
         let dest = Destination::Url(url.into());
         LinkElem::new(dest.into(), self.display_formatted(text))
-            .spanned(self.span)
             .pack()
+            .spanned(self.span)
     }
 
     /// Display transparent pass-through content.
@@ -1048,10 +1052,10 @@ fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Con
         citationberg::VerticalAlign::Baseline => {}
         citationberg::VerticalAlign::Sup => {
             // Add zero-width weak spacing to make the superscript "sticky".
-            content = HElem::hole().pack() + SuperElem::new(content).spanned(span).pack();
+            content = HElem::hole().pack() + SuperElem::new(content).pack().spanned(span);
         }
         citationberg::VerticalAlign::Sub => {
-            content = HElem::hole().pack() + SubElem::new(content).spanned(span).pack();
+            content = HElem::hole().pack() + SubElem::new(content).pack().spanned(span);
         }
     }
 

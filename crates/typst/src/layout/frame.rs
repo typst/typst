@@ -9,7 +9,7 @@ use ecow::{eco_format, EcoString};
 use crate::foundations::{cast, dict, Dict, Repr, StyleChain, Value};
 use crate::introspection::{Meta, MetaElem};
 use crate::layout::{
-    Abs, Axes, Corners, FixedAlign, Length, Point, Rel, Sides, Size, Transform,
+    Abs, Axes, Corners, FixedAlignment, Length, Point, Rel, Sides, Size, Transform,
 };
 use crate::syntax::Span;
 use crate::text::TextItem;
@@ -259,9 +259,9 @@ impl Frame {
 
     /// Resize the frame to a new size, distributing new space according to the
     /// given alignments.
-    pub fn resize(&mut self, target: Size, align: Axes<FixedAlign>) {
+    pub fn resize(&mut self, target: Size, align: Axes<FixedAlignment>) {
         if self.size != target {
-            let offset = align.zip_map(target - self.size, FixedAlign::position);
+            let offset = align.zip_map(target - self.size, FixedAlignment::position);
             self.size = target;
             self.translate(offset.to_point());
         }

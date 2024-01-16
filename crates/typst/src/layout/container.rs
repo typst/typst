@@ -1,7 +1,7 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, AutoValue, Content, NativeElement, Resolve, Smart, StyleChain, Value,
+    cast, elem, AutoValue, Content, Packed, Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, Axes, Corners, Em, Fr, Fragment, FrameKind, Layout, Length, Ratio, Regions, Rel,
@@ -109,7 +109,7 @@ pub struct BoxElem {
     pub body: Option<Content>,
 }
 
-impl Layout for BoxElem {
+impl Layout for Packed<BoxElem> {
     #[typst_macros::time(name = "box", span = self.span())]
     fn layout(
         &self,
@@ -341,7 +341,7 @@ pub struct BlockElem {
     pub sticky: bool,
 }
 
-impl Layout for BlockElem {
+impl Layout for Packed<BlockElem> {
     #[typst_macros::time(name = "block", span = self.span())]
     fn layout(
         &self,

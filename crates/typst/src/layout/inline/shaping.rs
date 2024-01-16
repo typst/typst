@@ -980,13 +980,11 @@ pub(super) fn is_gb_style(lang: Lang, region: Option<Region>) -> bool {
 }
 
 /// Whether the glyph is a space.
-#[inline]
 fn is_space(c: char) -> bool {
     matches!(c, ' ' | '\u{00A0}' | '　')
 }
 
 /// Whether the glyph is part of Chinese or Japanese script (i.e. CJ, not CJK).
-#[inline]
 pub(super) fn is_of_cj_script(c: char) -> bool {
     is_cj_script(c, c.script())
 }
@@ -994,7 +992,6 @@ pub(super) fn is_of_cj_script(c: char) -> bool {
 /// Whether the glyph is part of Chinese or Japanese script (i.e. CJ, not CJK).
 /// The function is dedicated to typesetting Chinese or Japanese, which do not
 /// have spaces between words, so K is not checked here.
-#[inline]
 fn is_cj_script(c: char, script: Script) -> bool {
     use Script::*;
     // U+30FC: Katakana-Hiragana Prolonged Sound Mark
@@ -1002,7 +999,6 @@ fn is_cj_script(c: char, script: Script) -> bool {
 }
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
-#[inline]
 fn is_cjk_left_aligned_punctuation(
     c: char,
     x_advance: Em,
@@ -1027,7 +1023,6 @@ fn is_cjk_left_aligned_punctuation(
 }
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
-#[inline]
 fn is_cjk_right_aligned_punctuation(
     c: char,
     x_advance: Em,
@@ -1043,7 +1038,6 @@ fn is_cjk_right_aligned_punctuation(
 }
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
-#[inline]
 fn is_cjk_center_aligned_punctuation(c: char, gb_style: bool) -> bool {
     if !gb_style && matches!(c, '，' | '。' | '．' | '、' | '：' | '；') {
         return true;
@@ -1060,7 +1054,6 @@ fn is_cjk_center_aligned_punctuation(c: char, gb_style: bool) -> bool {
 /// fullwidth. This heuristics can therefore fail for monospace latin fonts.
 /// However, since monospace fonts are usually not justified this edge case
 /// should be rare enough.
-#[inline]
 fn is_justifiable(
     c: char,
     script: Script,

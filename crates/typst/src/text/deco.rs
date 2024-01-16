@@ -5,7 +5,9 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, ty, Content, Fold, Repr, Show, Smart, StyleChain};
+use crate::foundations::{
+    elem, ty, Content, Fold, Packed, Repr, Show, Smart, StyleChain,
+};
 use crate::layout::{Abs, Em, Frame, FrameItem, Length, Point, Size};
 use crate::syntax::Span;
 use crate::text::{
@@ -84,7 +86,7 @@ pub struct UnderlineElem {
     pub body: Content,
 }
 
-impl Show for UnderlineElem {
+impl Show for Packed<UnderlineElem> {
     #[typst_macros::time(name = "underline", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
@@ -176,7 +178,7 @@ pub struct OverlineElem {
     pub body: Content,
 }
 
-impl Show for OverlineElem {
+impl Show for Packed<OverlineElem> {
     #[typst_macros::time(name = "overline", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
@@ -253,7 +255,7 @@ pub struct StrikeElem {
     pub body: Content,
 }
 
-impl Show for StrikeElem {
+impl Show for Packed<StrikeElem> {
     #[typst_macros::time(name = "strike", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
@@ -323,7 +325,7 @@ pub struct HighlightElem {
     pub body: Content,
 }
 
-impl Show for HighlightElem {
+impl Show for Packed<HighlightElem> {
     #[typst_macros::time(name = "highlight", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone().styled(TextElem::set_deco(Decoration {

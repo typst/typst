@@ -5,8 +5,8 @@ use crate::diag::{
 };
 use crate::engine::Engine;
 use crate::foundations::{
-    Array, CastInfo, Content, FromValue, Func, IntoValue, Reflect, Resolve, Smart,
-    StyleChain, Value,
+    Array, CastInfo, Content, FromValue, Func, IntoValue, NativeElement, Packed, Reflect,
+    Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, Alignment, Axes, Dir, Fr, Fragment, Frame, FrameItem, Layout, Length, Point,
@@ -134,9 +134,6 @@ pub trait ResolvableCell {
 
     /// Returns this cell's row override.
     fn y(&self, styles: StyleChain) -> Smart<usize>;
-
-    /// The cell's span, for errors.
-    fn cell_span(&self) -> Span;
 }
 
 /// A grid of cells, including the columns, rows, and cell data.
@@ -221,10 +218,10 @@ impl CellGrid {
     /// must implement Default in order to fill positions in the grid which
     /// weren't explicitly specified by the user with empty cells.
     #[allow(clippy::too_many_arguments)]
-    pub fn resolve<T: ResolvableCell + Clone + Default>(
+    pub fn resolve<T: ResolvableCell + NativeElement + Default>(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
-        cells: &[T],
+        cells: &[Packed<T>],
         fill: &Celled<Option<Paint>>,
         align: &Celled<Smart<Alignment>>,
         inset: Sides<Rel<Length>>,
@@ -259,7 +256,7 @@ impl CellGrid {
         };
         let mut resolved_cells: Vec<Option<Cell>> = Vec::with_capacity(cell_count);
         for cell in cells.iter().cloned() {
-            let cell_span = cell.cell_span();
+            let cell_span = cell.span();
             // Let's calculate the cell's final position based on its
             // requested position.
             let resolved_index = {
@@ -273,7 +270,7 @@ impl CellGrid {
 
             // Let's resolve the cell so it can determine its own fields
             // based on its final position.
-            let cell = cell.resolve_cell(
+            let cell = cell.unpack().resolve_cell(
                 x,
                 y,
                 &fill.resolve(engine, x, y)?,

@@ -1,8 +1,6 @@
 use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{
-    elem, Behave, Behaviour, Content, NativeElement, Smart, StyleChain,
-};
+use crate::foundations::{elem, Behave, Behaviour, Content, Packed, Smart, StyleChain};
 use crate::layout::{
     Alignment, Axes, Em, Fragment, Layout, Length, Regions, Rel, VAlignment,
 };
@@ -88,7 +86,7 @@ pub struct PlaceElem {
     pub body: Content,
 }
 
-impl Layout for PlaceElem {
+impl Layout for Packed<PlaceElem> {
     #[typst_macros::time(name = "place", span = self.span())]
     fn layout(
         &self,
@@ -125,7 +123,7 @@ impl Layout for PlaceElem {
     }
 }
 
-impl Behave for PlaceElem {
+impl Behave for Packed<PlaceElem> {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Ignorant
     }

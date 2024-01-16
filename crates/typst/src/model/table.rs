@@ -3,14 +3,13 @@ use ecow::eco_format;
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Content, Fold, NativeElement, Show, Smart, StyleChain,
+    cast, elem, scope, Content, Fold, NativeElement, Packed, Show, Smart, StyleChain,
 };
 use crate::layout::{
     show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter,
     Layout, Length, Regions, Rel, ResolvableCell, Sides, TrackSizings,
 };
 use crate::model::Figurable;
-use crate::syntax::Span;
 use crate::text::{Lang, LocalName, Region};
 use crate::visualize::{Paint, Stroke};
 
@@ -196,7 +195,7 @@ pub struct TableElem {
 
     /// The contents of the table cells.
     #[variadic]
-    pub children: Vec<TableCell>,
+    pub children: Vec<Packed<TableCell>>,
 }
 
 #[scope]
@@ -205,7 +204,7 @@ impl TableElem {
     type TableCell;
 }
 
-impl Layout for TableElem {
+impl Layout for Packed<TableElem> {
     #[typst_macros::time(name = "table", span = self.span())]
     fn layout(
         &self,
@@ -245,7 +244,7 @@ impl Layout for TableElem {
     }
 }
 
-impl LocalName for TableElem {
+impl LocalName for Packed<TableElem> {
     fn local_name(lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Tabel",
@@ -282,7 +281,7 @@ impl LocalName for TableElem {
     }
 }
 
-impl Figurable for TableElem {}
+impl Figurable for Packed<TableElem> {}
 
 /// A cell in the table. Use this to either override table properties for a
 /// particular cell, or in show rules to apply certain styles to multiple cells
@@ -402,13 +401,9 @@ impl ResolvableCell for TableCell {
     fn y(&self, styles: StyleChain) -> Smart<usize> {
         self.y(styles)
     }
-
-    fn cell_span(&self) -> Span {
-        self.span()
-    }
 }
 
-impl Show for TableCell {
+impl Show for Packed<TableCell> {
     fn show(&self, _engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         show_grid_cell(self.body().clone(), self.inset(styles), self.align(styles))
     }
@@ -416,9 +411,7 @@ impl Show for TableCell {
 
 impl From<Content> for TableCell {
     fn from(value: Content) -> Self {
-        value
-            .to::<Self>()
-            .cloned()
-            .unwrap_or_else(|| Self::new(value.clone()))
+        #[allow(clippy::unwrap_or_default)]
+        value.unpack::<Self>().unwrap_or_else(Self::new)
     }
 }

@@ -227,7 +227,7 @@ impl LayoutMath for Content {
         // #let my = $pi$
         // $ my r^2 $
         // ```
-        if let Some(elem) = self.to::<EquationElem>() {
+        if let Some(elem) = self.to_packed::<EquationElem>() {
             return elem.layout_math(ctx);
         }
 
@@ -276,7 +276,7 @@ impl LayoutMath for Content {
             return Ok(());
         }
 
-        if let Some(elem) = self.to::<HElem>() {
+        if let Some(elem) = self.to_packed::<HElem>() {
             if let Spacing::Rel(rel) = elem.amount() {
                 if rel.rel.is_zero() {
                     ctx.push(SpacingFragment {
@@ -288,13 +288,13 @@ impl LayoutMath for Content {
             return Ok(());
         }
 
-        if let Some(elem) = self.to::<TextElem>() {
+        if let Some(elem) = self.to_packed::<TextElem>() {
             let fragment = ctx.layout_text(elem)?;
             ctx.push(fragment);
             return Ok(());
         }
 
-        if let Some(boxed) = self.to::<BoxElem>() {
+        if let Some(boxed) = self.to_packed::<BoxElem>() {
             let frame = ctx.layout_box(boxed)?;
             ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
             return Ok(());

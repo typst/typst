@@ -3,7 +3,7 @@ use std::f64::consts::PI;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, func, scope, Content, NativeElement, Resolve, Smart, StyleChain,
+    elem, func, scope, Content, NativeElement, Packed, Resolve, Smart, StyleChain,
 };
 use crate::layout::{
     Axes, Em, Fragment, Frame, FrameItem, Layout, Length, Point, Regions, Rel,
@@ -114,18 +114,18 @@ impl PolygonElem {
             })
             .collect();
 
-        let mut elem = PolygonElem::new(vertices).spanned(span);
+        let mut elem = PolygonElem::new(vertices);
         if let Some(fill) = fill {
             elem.push_fill(fill);
         }
         if let Some(stroke) = stroke {
             elem.push_stroke(stroke);
         }
-        elem.pack()
+        elem.pack().spanned(span)
     }
 }
 
-impl Layout for PolygonElem {
+impl Layout for Packed<PolygonElem> {
     #[typst_macros::time(name = "polygon", span = self.span())]
     fn layout(
         &self,

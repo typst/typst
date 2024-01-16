@@ -6,8 +6,8 @@ use std::str::FromStr;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, AutoValue, Cast, Content, Dict, Fold, Func, NativeElement, Resolve,
-    Smart, StyleChain, Value,
+    cast, elem, AutoValue, Cast, Content, Dict, Fold, Func, NativeElement, Packed,
+    Resolve, Smart, StyleChain, Value,
 };
 use crate::introspection::{Counter, CounterKey, ManualPageCounter, Meta};
 use crate::layout::{
@@ -333,7 +333,7 @@ pub struct PageElem {
     pub clear_to: Option<Parity>,
 }
 
-impl PageElem {
+impl Packed<PageElem> {
     /// A document can consist of multiple `PageElem`s, one per run of pages
     /// with equal properties (not one per actual output page!). The `number` is
     /// the physical page number of the first page of this run. It is mutated
@@ -385,9 +385,9 @@ impl PageElem {
         let columns = self.columns(styles);
         if columns.get() > 1 {
             child = ColumnsElem::new(child)
-                .spanned(self.span())
                 .with_count(columns)
-                .pack();
+                .pack()
+                .spanned(self.span());
         }
 
         let area = size - margin.sum_by_axis();
