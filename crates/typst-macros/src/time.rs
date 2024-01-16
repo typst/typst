@@ -1,12 +1,12 @@
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::parse::{Parse, ParseStream};
-use syn::Result;
+use syn::{parse_quote, Result};
 
 use crate::util::{kw, parse_key_value, parse_string};
 
 /// Expand the `#[time(..)]` macro.
-pub fn time(stream: TokenStream, item: &syn::ItemFn) -> Result<TokenStream> {
+pub fn time(stream: TokenStream, item: syn::ItemFn) -> Result<TokenStream> {
     let meta: Meta = syn::parse2(stream)?;
     Ok(create(meta, item))
 }
@@ -26,7 +26,7 @@ impl Parse for Meta {
     }
 }
 
-fn create(meta: Meta, item: &syn::ItemFn) -> TokenStream {
+fn create(meta: Meta, mut item: syn::ItemFn) -> TokenStream {
     let name = meta.name.unwrap_or_else(|| item.sig.ident.to_string());
     let span = meta
         .span
@@ -34,18 +34,13 @@ fn create(meta: Meta, item: &syn::ItemFn) -> TokenStream {
         .map(|span| quote! { Some(#span) })
         .unwrap_or_else(|| quote! { None });
 
-    let sig = &item.sig;
-    let vis = &item.vis;
-    let block = &item.block;
-    quote! {
-        #vis #sig {
+    item.block.stmts.insert(
+        0,
+        parse_quote! {
             #[cfg(not(target_arch = "wasm32"))]
-            let __scope = ::typst_timing::TimingScope::new(#name, {
-                use ::typst::foundations::NativeElement;
-                #span
-            });
+            let __scope = ::typst_timing::TimingScope::new(#name, #span);
+        },
+    );
 
-            #block
-        }
-    }
+    item.into_token_stream()
 }
