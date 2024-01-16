@@ -275,3 +275,10 @@ Three
 
 // Error: 15 expected expression
 #let func(x) =
+---
+// Error: 12 expected equals sign
+#let (func)(x)
+---
+// Error: 12 expected equals sign
+// Error: 15-15 expected semicolon or line break
+#let (func)(x) = 3
