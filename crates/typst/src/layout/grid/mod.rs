@@ -479,7 +479,11 @@ impl ResolvableCell for Packed<GridCell> {
             cell.inset(styles).map_or(inset, |inner| inner.fold(inset)).map(Some),
         ));
 
-        Cell { body: self.pack(), fill }
+        Cell {
+            body: self.pack(),
+            fill,
+            colspan: NonZeroUsize::ONE,
+        }
     }
 
     fn x(&self, styles: StyleChain) -> Smart<usize> {

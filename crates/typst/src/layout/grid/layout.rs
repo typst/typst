@@ -16,7 +16,7 @@ use crate::layout::{
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
-use crate::util::Numeric;
+use crate::util::{NonZeroExt, Numeric};
 use crate::visualize::{FixedStroke, Geometry, Paint};
 
 /// A value that can be configured per cell.
@@ -95,12 +95,14 @@ pub struct Cell {
     pub body: Content,
     /// The cell's fill.
     pub fill: Option<Paint>,
+    /// The amount of columns spanned by the cell.
+    pub colspan: NonZeroUsize,
 }
 
 impl From<Content> for Cell {
     /// Create a simple cell given its body.
     fn from(body: Content) -> Self {
-        Self { body, fill: None }
+        Self { body, fill: None, colspan: NonZeroUsize::ONE }
     }
 }
 
