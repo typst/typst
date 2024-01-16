@@ -2,7 +2,7 @@ use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
-    cast, dict, elem, Array, Cast, Content, Dict, Fold, NativeElement, Resolve, Smart,
+    cast, dict, elem, Array, Cast, Content, Dict, Fold, Packed, Resolve, Smart,
     StyleChain, Value,
 };
 use crate::layout::{
@@ -57,7 +57,7 @@ pub struct VecElem {
     pub children: Vec<Content>,
 }
 
-impl LayoutMath for VecElem {
+impl LayoutMath for Packed<VecElem> {
     #[typst_macros::time(name = "math.vec", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
@@ -210,11 +210,9 @@ pub struct MatElem {
     pub rows: Vec<Vec<Content>>,
 }
 
-impl LayoutMath for MatElem {
+impl LayoutMath for Packed<MatElem> {
     #[typst_macros::time(name = "math.mat", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        // validate inputs
-
         let augment = self.augment(ctx.styles());
         let rows = self.rows();
 
@@ -311,7 +309,7 @@ pub struct CasesElem {
     pub children: Vec<Content>,
 }
 
-impl LayoutMath for CasesElem {
+impl LayoutMath for Packed<CasesElem> {
     #[typst_macros::time(name = "math.cases", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());

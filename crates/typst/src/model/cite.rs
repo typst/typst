@@ -1,7 +1,7 @@
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Cast, Content, Label, NativeElement, Show, Smart, StyleChain, Synthesize,
+    cast, elem, Cast, Content, Label, Packed, Show, Smart, StyleChain, Synthesize,
 };
 use crate::introspection::Locatable;
 use crate::model::bibliography::Works;
@@ -99,20 +99,21 @@ pub struct CiteElem {
     pub region: Option<Region>,
 }
 
-impl Synthesize for CiteElem {
+impl Synthesize for Packed<CiteElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        self.push_supplement(self.supplement(styles));
-        self.push_form(self.form(styles));
-        self.push_style(self.style(styles));
-        self.push_lang(TextElem::lang_in(styles));
-        self.push_region(TextElem::region_in(styles));
+        let elem = self.as_mut();
+        elem.push_supplement(elem.supplement(styles));
+        elem.push_form(elem.form(styles));
+        elem.push_style(elem.style(styles));
+        elem.push_lang(TextElem::lang_in(styles));
+        elem.push_region(TextElem::region_in(styles));
         Ok(())
     }
 }
 
 cast! {
     CiteElem,
-    v: Content => v.to::<Self>().cloned().ok_or("expected citation")?,
+    v: Content => v.to_packed::<Self>().map_err(|_| "expected citation")?.unpack(),
 }
 
 /// The form of the citation.
@@ -139,10 +140,10 @@ pub enum CitationForm {
 pub struct CiteGroup {
     /// The citations.
     #[required]
-    pub children: Vec<CiteElem>,
+    pub children: Vec<Packed<CiteElem>>,
 }
 
-impl Show for CiteGroup {
+impl Show for Packed<CiteGroup> {
     #[typst_macros::time(name = "cite", span = self.span())]
     fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {

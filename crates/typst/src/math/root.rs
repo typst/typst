@@ -1,5 +1,5 @@
 use crate::diag::SourceResult;
-use crate::foundations::{elem, func, Content, NativeElement};
+use crate::foundations::{elem, func, Content, NativeElement, Packed};
 use crate::layout::{Abs, Frame, FrameItem, Point, Size};
 use crate::math::{
     FrameFragment, GlyphFragment, LayoutMath, MathContext, MathSize, Scaled,
@@ -20,7 +20,7 @@ pub fn sqrt(
     /// The expression to take the square root of.
     radicand: Content,
 ) -> Content {
-    RootElem::new(radicand).spanned(span).pack()
+    RootElem::new(radicand).pack().spanned(span)
 }
 
 /// A general root.
@@ -39,7 +39,7 @@ pub struct RootElem {
     pub radicand: Content,
 }
 
-impl LayoutMath for RootElem {
+impl LayoutMath for Packed<RootElem> {
     #[typst_macros::time(name = "math.root", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, self.index(ctx.styles()).as_ref(), self.radicand(), self.span())

@@ -3,7 +3,7 @@ use std::str::FromStr;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, NativeElement, Smart, StyleChain,
+    cast, elem, scope, Array, Content, Fold, Packed, Smart, StyleChain,
 };
 use crate::layout::{
     Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
@@ -194,7 +194,7 @@ pub struct EnumElem {
     /// ) [+ #phase]
     /// ```
     #[variadic]
-    pub children: Vec<EnumItem>,
+    pub children: Vec<Packed<EnumItem>>,
 
     /// The numbers of parent items.
     #[internal]
@@ -208,7 +208,7 @@ impl EnumElem {
     type EnumItem;
 }
 
-impl Layout for EnumElem {
+impl Layout for Packed<EnumElem> {
     #[typst_macros::time(name = "enum", span = self.span())]
     fn layout(
         &self,
@@ -263,7 +263,7 @@ impl Layout for EnumElem {
             cells.push(Cell::from(resolved));
             cells.push(Cell::from(Content::empty()));
             cells.push(Cell::from(
-                item.body().clone().styled(Self::set_parents(Parent(number))),
+                item.body().clone().styled(EnumElem::set_parents(Parent(number))),
             ));
             number = number.saturating_add(1);
         }
@@ -308,7 +308,10 @@ cast! {
         };
         Self::new(body).with_number(number)
     },
-    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
+    v: Content => match v.to_packed::<Self>() {
+        Ok(packed) => packed.unpack(),
+        Err(v) => Self::new(v),
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]

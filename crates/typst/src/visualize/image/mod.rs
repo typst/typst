@@ -16,7 +16,7 @@ use ecow::EcoString;
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, Bytes, Cast, Content, NativeElement, Resolve, Smart,
+    cast, elem, func, scope, Bytes, Cast, Content, NativeElement, Packed, Resolve, Smart,
     StyleChain,
 };
 use crate::layout::{
@@ -124,7 +124,7 @@ impl ImageElem {
         #[named]
         fit: Option<ImageFit>,
     ) -> StrResult<Content> {
-        let mut elem = ImageElem::new(EcoString::new(), data).spanned(span);
+        let mut elem = ImageElem::new(EcoString::new(), data);
         if let Some(format) = format {
             elem.push_format(format);
         }
@@ -140,11 +140,11 @@ impl ImageElem {
         if let Some(fit) = fit {
             elem.push_fit(fit);
         }
-        Ok(elem.pack())
+        Ok(elem.pack().spanned(span))
     }
 }
 
-impl Layout for ImageElem {
+impl Layout for Packed<ImageElem> {
     #[typst_macros::time(name = "image", span = self.span())]
     fn layout(
         &self,
@@ -247,7 +247,7 @@ impl Layout for ImageElem {
     }
 }
 
-impl LocalName for ImageElem {
+impl LocalName for Packed<ImageElem> {
     fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Figurë",
@@ -285,7 +285,7 @@ impl LocalName for ImageElem {
     }
 }
 
-impl Figurable for ImageElem {}
+impl Figurable for Packed<ImageElem> {}
 
 /// How an image should adjust itself to a given area.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]

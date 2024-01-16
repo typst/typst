@@ -3,7 +3,7 @@ use comemo::Prehashed;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Args, Cast, Construct, Content, NativeElement, Set, Smart, StyleChain,
+    elem, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart, StyleChain,
     Unlabellable,
 };
 use crate::layout::{Em, Fragment, Length, Size};
@@ -122,7 +122,7 @@ impl Construct for ParElem {
     }
 }
 
-impl ParElem {
+impl Packed<ParElem> {
     /// Layout the paragraph into a collection of lines.
     #[typst_macros::time(name = "par", span = self.span())]
     pub fn layout(
@@ -177,4 +177,4 @@ pub enum Linebreaks {
 #[elem(title = "Paragraph Break", Unlabellable)]
 pub struct ParbreakElem {}
 
-impl Unlabellable for ParbreakElem {}
+impl Unlabellable for Packed<ParbreakElem> {}

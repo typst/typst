@@ -2,7 +2,7 @@ use std::num::NonZeroUsize;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Behave, Behaviour, Content, StyleChain};
+use crate::foundations::{elem, Behave, Behaviour, Content, Packed, StyleChain};
 use crate::layout::{
     Abs, Axes, Dir, Fragment, Frame, Layout, Length, Point, Ratio, Regions, Rel, Size,
 };
@@ -57,7 +57,7 @@ pub struct ColumnsElem {
     pub body: Content,
 }
 
-impl Layout for ColumnsElem {
+impl Layout for Packed<ColumnsElem> {
     #[typst_macros::time(name = "columns", span = self.span())]
     fn layout(
         &self,
@@ -166,7 +166,7 @@ pub struct ColbreakElem {
     pub weak: bool,
 }
 
-impl Behave for ColbreakElem {
+impl Behave for Packed<ColbreakElem> {
     fn behaviour(&self) -> Behaviour {
         if self.weak(StyleChain::default()) {
             Behaviour::Weak(1)

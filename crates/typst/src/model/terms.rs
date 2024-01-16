@@ -1,7 +1,7 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, NativeElement, Smart, StyleChain,
+    cast, elem, scope, Array, Content, NativeElement, Packed, Smart, StyleChain,
 };
 use crate::layout::{
     BlockElem, Em, Fragment, HElem, Layout, Length, Regions, Spacing, VElem,
@@ -98,7 +98,7 @@ pub struct TermsElem {
     /// ) [/ #product: Born in #year.]
     /// ```
     #[variadic]
-    pub children: Vec<TermItem>,
+    pub children: Vec<Packed<TermItem>>,
 }
 
 #[scope]
@@ -107,7 +107,7 @@ impl TermsElem {
     type TermItem;
 }
 
-impl Layout for TermsElem {
+impl Layout for Packed<TermsElem> {
     #[typst_macros::time(name = "terms", span = self.span())]
     fn layout(
         &self,
@@ -166,5 +166,5 @@ cast! {
         };
         Self::new(term, description)
     },
-    v: Content => v.to::<Self>().cloned().ok_or("expected term item or array")?,
+    v: Content => v.to_packed::<Self>().map_err(|_| "expected term item or array")?.unpack(),
 }

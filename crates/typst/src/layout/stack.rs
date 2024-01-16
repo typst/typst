@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{cast, elem, Content, Resolve, StyleChain};
+use crate::foundations::{cast, elem, Content, Packed, Resolve, StyleChain};
 use crate::layout::{
     Abs, AlignElem, Axes, Axis, Dir, FixedAlign, Fr, Fragment, Frame, Layout, Point,
     Regions, Size, Spacing,
@@ -51,7 +51,7 @@ pub struct StackElem {
     pub children: Vec<StackChild>,
 }
 
-impl Layout for StackElem {
+impl Layout for Packed<StackElem> {
     #[typst_macros::time(name = "stack", span = self.span())]
     fn layout(
         &self,

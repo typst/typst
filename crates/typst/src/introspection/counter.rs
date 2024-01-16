@@ -10,8 +10,8 @@ use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Array, Content, Element, Func, IntoValue,
-    Label, LocatableSelector, NativeElement, Repr, Selector, Show, Str, StyleChain,
-    Value,
+    Label, LocatableSelector, NativeElement, Packed, Repr, Selector, Show, Str,
+    StyleChain, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location, Locator, Meta};
 use crate::layout::{Frame, FrameItem, PageElem};
@@ -372,7 +372,7 @@ impl Counter {
         #[default(false)]
         both: bool,
     ) -> Content {
-        DisplayElem::new(self, numbering, both).spanned(span).pack()
+        DisplayElem::new(self, numbering, both).pack().spanned(span)
     }
 
     /// Increases the value of the counter by one.
@@ -411,7 +411,7 @@ impl Counter {
         /// return the new value (integer or array).
         update: CounterUpdate,
     ) -> Content {
-        UpdateElem::new(self.0, update).spanned(span).pack()
+        UpdateElem::new(self.0, update).pack().spanned(span)
     }
 
     /// Gets the value of the counter at the given location. Always returns an
@@ -632,7 +632,7 @@ struct DisplayElem {
     both: bool,
 }
 
-impl Show for DisplayElem {
+impl Show for Packed<DisplayElem> {
     #[typst_macros::time(name = "counter.display", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
@@ -681,13 +681,13 @@ struct UpdateElem {
     update: CounterUpdate,
 }
 
-impl Show for UpdateElem {
+impl Show for Packed<UpdateElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }
 }
 
-impl Count for UpdateElem {
+impl Count for Packed<UpdateElem> {
     fn update(&self) -> Option<CounterUpdate> {
         Some(self.update.clone())
     }
@@ -726,7 +726,7 @@ impl ManualPageCounter {
                     let Some(elem) = elem.to::<UpdateElem>() else { continue };
                     if *elem.key() == CounterKey::Page {
                         let mut state = CounterState(smallvec![self.logical]);
-                        state.update(engine, elem.update().clone())?;
+                        state.update(engine, elem.update.clone())?;
                         self.logical = state.first();
                     }
                 }

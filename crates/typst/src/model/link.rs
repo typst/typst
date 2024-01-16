@@ -3,7 +3,7 @@ use ecow::{eco_format, EcoString};
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Content, Label, NativeElement, Repr, Show, Smart, StyleChain,
+    cast, elem, Content, Label, Packed, Repr, Show, Smart, StyleChain,
 };
 use crate::introspection::Location;
 use crate::layout::Position;
@@ -89,7 +89,7 @@ impl LinkElem {
     }
 }
 
-impl Show for LinkElem {
+impl Show for Packed<LinkElem> {
     #[typst_macros::time(name = "link", span = self.span())]
     fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         let body = self.body().clone();

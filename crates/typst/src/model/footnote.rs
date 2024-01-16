@@ -4,8 +4,8 @@ use std::str::FromStr;
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Content, Finalize, Label, NativeElement, Show, Smart, StyleChain,
-    Synthesize,
+    cast, elem, scope, Content, Finalize, Label, NativeElement, Packed, Show, Smart,
+    StyleChain, Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Location};
 use crate::layout::{Abs, Em, HElem, Length, Ratio};
@@ -104,7 +104,9 @@ impl FootnoteElem {
             _ => None,
         }
     }
+}
 
+impl Packed<FootnoteElem> {
     /// Returns the location of the definition of this footnote.
     pub fn declaration_location(&self, engine: &Engine) -> StrResult<Location> {
         match self.body() {
@@ -120,22 +122,23 @@ impl FootnoteElem {
     }
 }
 
-impl Synthesize for FootnoteElem {
+impl Synthesize for Packed<FootnoteElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        self.push_numbering(self.numbering(styles).clone());
+        let elem = self.as_mut();
+        elem.push_numbering(elem.numbering(styles).clone());
         Ok(())
     }
 }
 
-impl Show for FootnoteElem {
+impl Show for Packed<FootnoteElem> {
     #[typst_macros::time(name = "footnote", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
             let loc = self.declaration_location(engine).at(self.span())?;
             let numbering = self.numbering(styles);
-            let counter = Counter::of(Self::elem());
+            let counter = Counter::of(FootnoteElem::elem());
             let num = counter.at(engine, loc)?.display(engine, numbering)?;
-            let sup = SuperElem::new(num).spanned(self.span()).pack();
+            let sup = SuperElem::new(num).pack().spanned(self.span());
             let loc = loc.variant(1);
             // Add zero-width weak spacing to make the footnote "sticky".
             Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc)))
@@ -143,7 +146,7 @@ impl Show for FootnoteElem {
     }
 }
 
-impl Count for FootnoteElem {
+impl Count for Packed<FootnoteElem> {
     fn update(&self) -> Option<CounterUpdate> {
         (!self.is_ref()).then(|| CounterUpdate::Step(NonZeroUsize::ONE))
     }
@@ -203,7 +206,7 @@ pub struct FootnoteEntry {
     /// listing #footnote[World! 🌏]
     /// ```
     #[required]
-    pub note: FootnoteElem,
+    pub note: Packed<FootnoteElem>,
 
     /// The separator between the document body and the footnote listing.
     ///
@@ -269,7 +272,7 @@ pub struct FootnoteEntry {
     pub indent: Length,
 }
 
-impl Show for FootnoteEntry {
+impl Show for Packed<FootnoteEntry> {
     #[typst_macros::time(name = "footnote.entry", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let note = self.note();
@@ -286,8 +289,8 @@ impl Show for FootnoteEntry {
 
         let num = counter.at(engine, loc)?.display(engine, numbering)?;
         let sup = SuperElem::new(num)
-            .spanned(self.span())
             .pack()
+            .spanned(self.span())
             .linked(Destination::Location(loc))
             .backlinked(loc.variant(1));
         Ok(Content::sequence([
@@ -299,7 +302,7 @@ impl Show for FootnoteEntry {
     }
 }
 
-impl Finalize for FootnoteEntry {
+impl Finalize for Packed<FootnoteEntry> {
     fn finalize(&self, realized: Content, _: StyleChain) -> Content {
         let text_size = Em::new(0.85);
         let leading = Em::new(0.5);
@@ -311,5 +314,8 @@ impl Finalize for FootnoteEntry {
 
 cast! {
     FootnoteElem,
-    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::with_content(v.clone())),
+    v: Content => match v.to_packed::<Self>() {
+        Ok(packed) => packed.unpack(),
+        Err(v) => Self::with_content(v),
+    }
 }

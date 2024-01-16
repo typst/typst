@@ -1,7 +1,7 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Content, Finalize, Label, NativeElement, Show, Smart, StyleChain,
+    cast, elem, Content, Finalize, Label, NativeElement, Packed, Show, Smart, StyleChain,
     Synthesize,
 };
 use crate::layout::{Alignment, BlockElem, Em, HElem, PadElem, Spacing, VElem};
@@ -145,15 +145,16 @@ cast! {
     label: Label => Self::Label(label),
 }
 
-impl Synthesize for QuoteElem {
+impl Synthesize for Packed<QuoteElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        self.push_block(self.block(styles));
-        self.push_quotes(self.quotes(styles));
+        let elem = self.as_mut();
+        elem.push_block(elem.block(styles));
+        elem.push_quotes(elem.quotes(styles));
         Ok(())
     }
 }
 
-impl Show for QuoteElem {
+impl Show for Packed<QuoteElem> {
     #[typst_macros::time(name = "quote", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
@@ -169,7 +170,7 @@ impl Show for QuoteElem {
 
         if block {
             realized =
-                BlockElem::new().spanned(self.span()).with_body(Some(realized)).pack();
+                BlockElem::new().with_body(Some(realized)).pack().spanned(self.span());
 
             if let Some(attribution) = self.attribution(styles).as_ref() {
                 let mut seq = vec![TextElem::packed('—'), SpaceElem::new().pack()];
@@ -181,9 +182,9 @@ impl Show for QuoteElem {
                     Attribution::Label(label) => {
                         seq.push(
                             CiteElem::new(*label)
-                                .spanned(self.span())
                                 .with_form(Some(CitationForm::Prose))
-                                .pack(),
+                                .pack()
+                                .spanned(self.span()),
                         );
                     }
                 }
@@ -197,14 +198,14 @@ impl Show for QuoteElem {
             realized = PadElem::new(realized).pack();
         } else if let Some(Attribution::Label(label)) = self.attribution(styles) {
             realized += SpaceElem::new().pack()
-                + CiteElem::new(*label).spanned(self.span()).pack();
+                + CiteElem::new(*label).pack().spanned(self.span());
         }
 
         Ok(realized)
     }
 }
 
-impl Finalize for QuoteElem {
+impl Finalize for Packed<QuoteElem> {
     fn finalize(&self, realized: Content, _: StyleChain) -> Content {
         let x = Em::new(1.0).into();
         let above = Em::new(2.4).into();

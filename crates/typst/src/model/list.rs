@@ -1,8 +1,7 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, Func, NativeElement, Smart, StyleChain,
-    Value,
+    cast, elem, scope, Array, Content, Fold, Func, Packed, Smart, StyleChain, Value,
 };
 use crate::layout::{
     Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment, Layout,
@@ -120,7 +119,7 @@ pub struct ListElem {
     /// ]
     /// ```
     #[variadic]
-    pub children: Vec<ListItem>,
+    pub children: Vec<Packed<ListItem>>,
 
     /// The nesting depth.
     #[internal]
@@ -134,7 +133,7 @@ impl ListElem {
     type ListItem;
 }
 
-impl Layout for ListElem {
+impl Layout for Packed<ListElem> {
     #[typst_macros::time(name = "list", span = self.span())]
     fn layout(
         &self,
@@ -163,7 +162,8 @@ impl Layout for ListElem {
             cells.push(Cell::from(Content::empty()));
             cells.push(Cell::from(marker.clone()));
             cells.push(Cell::from(Content::empty()));
-            cells.push(Cell::from(item.body().clone().styled(Self::set_depth(Depth))));
+            cells
+                .push(Cell::from(item.body().clone().styled(ListElem::set_depth(Depth))));
         }
 
         let stroke = None;
@@ -194,7 +194,10 @@ pub struct ListItem {
 
 cast! {
     ListItem,
-    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
+    v: Content => match v.to_packed::<Self>() {
+        Ok(packed) => packed.unpack(),
+        Err(v) => Self::new(v),
+    }
 }
 
 /// A list's marker.

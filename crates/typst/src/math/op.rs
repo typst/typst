@@ -2,7 +2,7 @@ use ecow::EcoString;
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
-use crate::foundations::{elem, Content, NativeElement, Scope};
+use crate::foundations::{elem, Content, NativeElement, Packed, Scope};
 use crate::layout::HElem;
 use crate::math::{FrameFragment, LayoutMath, Limits, MathContext, MathStyleElem, THIN};
 use crate::text::TextElem;
@@ -33,7 +33,7 @@ pub struct OpElem {
     pub limits: bool,
 }
 
-impl LayoutMath for OpElem {
+impl LayoutMath for Packed<OpElem> {
     #[typst_macros::time(name = "math.op", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let fragment = ctx.layout_fragment(self.text())?;

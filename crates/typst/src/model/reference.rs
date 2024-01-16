@@ -3,8 +3,8 @@ use ecow::eco_format;
 use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Content, Func, IntoValue, Label, NativeElement, Show, Smart, StyleChain,
-    Synthesize,
+    cast, elem, Content, Func, IntoValue, Label, NativeElement, Packed, Show, Smart,
+    StyleChain, Synthesize,
 };
 use crate::introspection::{Counter, Locatable};
 use crate::math::EquationElem;
@@ -129,27 +129,29 @@ pub struct RefElem {
 
     /// A synthesized citation.
     #[synthesized]
-    pub citation: Option<CiteElem>,
+    pub citation: Option<Packed<CiteElem>>,
 
     /// The referenced element.
     #[synthesized]
     pub element: Option<Content>,
 }
 
-impl Synthesize for RefElem {
+impl Synthesize for Packed<RefElem> {
     fn synthesize(
         &mut self,
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let citation = self.to_citation(engine, styles)?;
-        self.push_citation(Some(citation));
-        self.push_element(None);
+        let citation = to_citation(self, engine, styles)?;
 
-        let target = *self.target();
+        let elem = self.as_mut();
+        elem.push_citation(Some(citation));
+        elem.push_element(None);
+
+        let target = *elem.target();
         if !BibliographyElem::has(engine, target) {
-            if let Ok(elem) = engine.introspector.query_label(target).cloned() {
-                self.push_element(Some(elem.into_inner()));
+            if let Ok(found) = engine.introspector.query_label(target).cloned() {
+                elem.push_element(Some(found.into_inner()));
                 return Ok(());
             }
         }
@@ -158,7 +160,7 @@ impl Synthesize for RefElem {
     }
 }
 
-impl Show for RefElem {
+impl Show for Packed<RefElem> {
     #[typst_macros::time(name = "ref", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
@@ -171,13 +173,13 @@ impl Show for RefElem {
                     bail!(span, "label occurs in the document and its bibliography");
                 }
 
-                return Ok(self.to_citation(engine, styles)?.spanned(span).pack());
+                return Ok(to_citation(self, engine, styles)?.pack().spanned(span));
             }
 
             let elem = elem.at(span)?;
 
             if elem.func() == FootnoteElem::elem() {
-                return Ok(FootnoteElem::with_label(target).spanned(span).pack());
+                return Ok(FootnoteElem::with_label(target).pack().spanned(span));
             }
 
             let elem = elem.clone();
@@ -236,23 +238,23 @@ impl Show for RefElem {
     }
 }
 
-impl RefElem {
-    /// Turn the reference into a citation.
-    pub fn to_citation(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-    ) -> SourceResult<CiteElem> {
-        let mut elem = CiteElem::new(*self.target()).spanned(self.span());
-        elem.set_location(self.location().unwrap());
-        elem.synthesize(engine, styles)?;
-        elem.push_supplement(match self.supplement(styles).clone() {
+/// Turn a reference into a citation.
+fn to_citation(
+    reference: &Packed<RefElem>,
+    engine: &mut Engine,
+    styles: StyleChain,
+) -> SourceResult<Packed<CiteElem>> {
+    let mut elem = Packed::new(CiteElem::new(*reference.target()).with_supplement(
+        match reference.supplement(styles).clone() {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),
             _ => None,
-        });
+        },
+    ));
 
-        Ok(elem)
-    }
+    elem.synthesize(engine, styles)?;
+    elem.set_location(reference.location().unwrap());
+
+    Ok(elem)
 }
 
 /// Additional content for a reference.

@@ -1,6 +1,6 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Resolve, StyleChain};
+use crate::foundations::{elem, Content, Packed, Resolve, StyleChain};
 use crate::layout::{
     Abs, Alignment, Angle, Axes, FixedAlign, Fragment, Frame, HAlignment, Layout, Length,
     Point, Ratio, Regions, Rel, Size, VAlignment,
@@ -37,7 +37,7 @@ pub struct MoveElem {
     pub body: Content,
 }
 
-impl Layout for MoveElem {
+impl Layout for Packed<MoveElem> {
     #[typst_macros::time(name = "move", span = self.span())]
     fn layout(
         &self,
@@ -115,7 +115,7 @@ pub struct RotateElem {
     pub body: Content,
 }
 
-impl Layout for RotateElem {
+impl Layout for Packed<RotateElem> {
     #[typst_macros::time(name = "rotate", span = self.span())]
     fn layout(
         &self,
@@ -203,7 +203,7 @@ pub struct ScaleElem {
     pub body: Content,
 }
 
-impl Layout for ScaleElem {
+impl Layout for Packed<ScaleElem> {
     #[typst_macros::time(name = "scale", span = self.span())]
     fn layout(
         &self,

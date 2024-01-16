@@ -36,6 +36,7 @@ use ttf_parser::Rect;
 
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
+use crate::foundations::Packed;
 use crate::foundations::{
     cast, category, elem, Args, Array, Cast, Category, Construct, Content, Dict, Fold,
     NativeElement, Never, PlainText, Repr, Resolve, Scope, Set, Smart, StyleChain, Value,
@@ -673,7 +674,7 @@ impl Construct for TextElem {
     }
 }
 
-impl PlainText for TextElem {
+impl PlainText for Packed<TextElem> {
     fn plain_text(&self, text: &mut EcoString) {
         text.push_str(self.text());
     }

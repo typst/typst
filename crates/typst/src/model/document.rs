@@ -3,7 +3,8 @@ use ecow::EcoString;
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Args, Array, Construct, Content, Datetime, Smart, StyleChain, Value,
+    cast, elem, Args, Array, Construct, Content, Datetime, Packed, Smart, StyleChain,
+    Value,
 };
 use crate::introspection::{Introspector, ManualPageCounter};
 use crate::layout::{Frame, LayoutRoot, PageElem};
@@ -65,7 +66,7 @@ impl Construct for DocumentElem {
     }
 }
 
-impl LayoutRoot for DocumentElem {
+impl LayoutRoot for Packed<DocumentElem> {
     /// Layout the document into a sequence of frames, one per page.
     #[typst_macros::time(name = "document", span = self.span())]
     fn layout_root(

@@ -3,8 +3,8 @@ use std::num::NonZeroUsize;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, Finalize, Guard, NativeElement, Resolve, Show, Smart, StyleChain,
-    Synthesize,
+    elem, Content, Finalize, Guard, NativeElement, Packed, Resolve, Show, Smart,
+    StyleChain, Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
@@ -89,41 +89,41 @@ pub struct EquationElem {
     pub body: Content,
 }
 
-impl Synthesize for EquationElem {
+impl Synthesize for Packed<EquationElem> {
     fn synthesize(
         &mut self,
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        // Resolve the supplement.
-        let supplement = match self.supplement(styles) {
+        let supplement = match self.as_ref().supplement(styles) {
             Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => {
-                supplement.resolve(engine, [self.clone()])?
+                supplement.resolve(engine, [self.clone().pack()])?
             }
         };
 
-        self.push_block(self.block(styles));
-        self.push_numbering(self.numbering(styles));
-        self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
+        let elem = self.as_mut();
+        elem.push_block(elem.block(styles));
+        elem.push_numbering(elem.numbering(styles));
+        elem.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
 
         Ok(())
     }
 }
 
-impl Show for EquationElem {
+impl Show for Packed<EquationElem> {
     #[typst_macros::time(name = "math.equation", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.clone().pack().guarded(Guard::Base(Self::elem()));
+        let mut realized = self.clone().pack().guarded(Guard::Base(EquationElem::elem()));
         if self.block(styles) {
-            realized = AlignElem::new(realized).spanned(self.span()).pack();
+            realized = AlignElem::new(realized).pack().spanned(self.span());
         }
         Ok(realized)
     }
 }
 
-impl Finalize for EquationElem {
+impl Finalize for Packed<EquationElem> {
     fn finalize(&self, realized: Content, style: StyleChain) -> Content {
         let mut realized = realized;
         if self.block(style) {
@@ -154,7 +154,7 @@ impl MathParItem {
     }
 }
 
-impl EquationElem {
+impl Packed<EquationElem> {
     pub fn layout_inline(
         &self,
         engine: &mut Engine<'_>,
@@ -197,7 +197,7 @@ impl EquationElem {
     }
 }
 
-impl Layout for EquationElem {
+impl Layout for Packed<EquationElem> {
     #[typst_macros::time(name = "math.equation", span = self.span())]
     fn layout(
         &self,
@@ -215,9 +215,9 @@ impl Layout for EquationElem {
         let mut ctx = MathContext::new(engine, styles, regions, &font, true);
         let mut frame = ctx.layout_frame(self)?;
 
-        if let Some(numbering) = self.numbering(styles) {
+        if let Some(numbering) = (**self).numbering(styles) {
             let pod = Regions::one(regions.base(), Axes::splat(false));
-            let counter = Counter::of(Self::elem())
+            let counter = Counter::of(EquationElem::elem())
                 .display(self.span(), Some(numbering), false)
                 .layout(engine, styles, pod)?
                 .into_frame();
@@ -258,15 +258,14 @@ impl Layout for EquationElem {
     }
 }
 
-impl Count for EquationElem {
+impl Count for Packed<EquationElem> {
     fn update(&self) -> Option<CounterUpdate> {
-        (self.block(StyleChain::default())
-            && self.numbering(StyleChain::default()).is_some())
-        .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
+        (self.block(StyleChain::default()) && self.numbering().is_some())
+            .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
     }
 }
 
-impl LocalName for EquationElem {
+impl LocalName for Packed<EquationElem> {
     fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Ekuacion",
@@ -304,35 +303,35 @@ impl LocalName for EquationElem {
     }
 }
 
-impl Refable for EquationElem {
+impl Refable for Packed<EquationElem> {
     fn supplement(&self) -> Content {
         // After synthesis, this should always be custom content.
-        match self.supplement(StyleChain::default()) {
+        match (**self).supplement(StyleChain::default()) {
             Smart::Custom(Some(Supplement::Content(content))) => content,
             _ => Content::empty(),
         }
     }
 
     fn counter(&self) -> Counter {
-        Counter::of(Self::elem())
+        Counter::of(EquationElem::elem())
     }
 
     fn numbering(&self) -> Option<Numbering> {
-        self.numbering(StyleChain::default())
+        (**self).numbering(StyleChain::default())
     }
 }
 
-impl Outlinable for EquationElem {
+impl Outlinable for Packed<EquationElem> {
     fn outline(&self, engine: &mut Engine) -> SourceResult<Option<Content>> {
         if !self.block(StyleChain::default()) {
             return Ok(None);
         }
-        let Some(numbering) = self.numbering(StyleChain::default()) else {
+        let Some(numbering) = self.numbering() else {
             return Ok(None);
         };
 
         // After synthesis, this should always be custom content.
-        let mut supplement = match self.supplement(StyleChain::default()) {
+        let mut supplement = match (**self).supplement(StyleChain::default()) {
             Smart::Custom(Some(Supplement::Content(content))) => content,
             _ => Content::empty(),
         };
@@ -350,7 +349,7 @@ impl Outlinable for EquationElem {
     }
 }
 
-impl LayoutMath for EquationElem {
+impl LayoutMath for Packed<EquationElem> {
     #[typst_macros::time(name = "math.equation", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         self.body().layout_math(ctx)

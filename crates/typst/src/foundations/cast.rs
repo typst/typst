@@ -9,7 +9,7 @@ use smallvec::SmallVec;
 use unicode_math_class::MathClass;
 
 use crate::diag::{At, SourceResult, StrResult};
-use crate::foundations::{repr, Repr, Type, Value};
+use crate::foundations::{repr, NativeElement, Packed, Repr, Type, Value};
 use crate::syntax::{Span, Spanned};
 
 #[rustfmt::skip]
@@ -71,6 +71,20 @@ impl Reflect for Value {
 }
 
 impl<T: Reflect> Reflect for Spanned<T> {
+    fn input() -> CastInfo {
+        T::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        T::castable(value)
+    }
+}
+
+impl<T: NativeElement + Reflect> Reflect for Packed<T> {
     fn input() -> CastInfo {
         T::input()
     }
@@ -174,6 +188,12 @@ impl<T: IntoValue + Clone> IntoValue for Cow<'_, T> {
     }
 }
 
+impl<T: NativeElement + IntoValue> IntoValue for Packed<T> {
+    fn into_value(self) -> Value {
+        Value::Content(self.pack())
+    }
+}
+
 impl<T: IntoValue> IntoValue for Spanned<T> {
     fn into_value(self) -> Value {
         self.v.into_value()
@@ -230,6 +250,19 @@ pub trait FromValue<V = Value>: Sized + Reflect {
 impl FromValue for Value {
     fn from_value(value: Value) -> StrResult<Self> {
         Ok(value)
+    }
+}
+
+impl<T: NativeElement + FromValue> FromValue for Packed<T> {
+    fn from_value(mut value: Value) -> StrResult<Self> {
+        if let Value::Content(content) = value {
+            match content.to_packed::<T>() {
+                Ok(packed) => return Ok(packed),
+                Err(content) => value = Value::Content(content),
+            }
+        }
+        let val = T::from_value(value)?;
+        Ok(Packed::new(val))
     }
 }
 
