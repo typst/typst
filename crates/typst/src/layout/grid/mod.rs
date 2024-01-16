@@ -460,22 +460,23 @@ impl ResolvableCell for Packed<GridCell> {
         inset: Sides<Rel<Length>>,
         styles: StyleChain,
     ) -> Cell {
-        let cell = &mut *self;
-        let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
-        cell.push_x(Smart::Custom(x));
-        cell.push_y(Smart::Custom(y));
-        cell.push_fill(Smart::Custom(fill.clone()));
-        cell.push_align(match align {
+        let fill = self.fill(styles).unwrap_or_else(|| fill.clone());
+        let cell_align = self.align(styles);
+        let cell_inset = self.inset(styles);
+        self.push_x(Smart::Custom(x));
+        self.push_y(Smart::Custom(y));
+        self.push_fill(Smart::Custom(fill.clone()));
+        self.push_align(match align {
             Smart::Custom(align) => {
-                Smart::Custom(cell.align(styles).map_or(align, |inner| inner.fold(align)))
+                Smart::Custom(cell_align.map_or(align, |inner| inner.fold(align)))
             }
             // Don't fold if the grid is using outer alignment. Use the
             // cell's alignment instead (which, in the end, will fold with
             // the outer alignment when it is effectively displayed).
-            Smart::Auto => cell.align(styles),
+            Smart::Auto => cell_align,
         });
-        cell.push_inset(Smart::Custom(
-            cell.inset(styles).map_or(inset, |inner| inner.fold(inset)).map(Some),
+        self.push_inset(Smart::Custom(
+            cell_inset.map_or(inset, |inner| inner.fold(inset)).map(Some),
         ));
 
         Cell { body: self.pack(), fill }
