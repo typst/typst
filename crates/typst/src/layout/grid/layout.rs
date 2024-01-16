@@ -309,6 +309,15 @@ impl CellGrid {
             };
             let x = resolved_index % c;
             let y = resolved_index / c;
+            let colspan = cell.colspan().get();
+
+            if colspan > c - x {
+                bail!(cell_span, "cell's colspan ({colspan}) would cause it to exceed the available columns")
+            }
+
+            let Some(largest_index) = resolved_index.checked_add(colspan - 1) else {
+                bail!(cell_span, "cell would span an exceedingly large position")
+            };
 
             // Let's resolve the cell so it can determine its own fields
             // based on its final position.
@@ -321,7 +330,7 @@ impl CellGrid {
                 styles,
             );
 
-            if resolved_index >= resolved_cells.len() {
+            if largest_index >= resolved_cells.len() {
                 // Ensure the length of the vector of resolved cells is always
                 // a multiple of 'c' by pushing full rows every time. Here, we
                 // add enough absent positions (later converted to empty cells)
@@ -331,7 +340,7 @@ impl CellGrid {
                 // eventually susceptible to show rules and receive grid
                 // styling, as they will be resolved as empty cells in a second
                 // loop below.
-                let Some(new_len) = resolved_index
+                let Some(new_len) = largest_index
                     .checked_add(1)
                     .and_then(|new_len| new_len.checked_add((c - new_len % c) % c))
                 else {
@@ -362,6 +371,24 @@ impl CellGrid {
             }
 
             *slot = Some(Entry::Cell(cell));
+
+            // Now, if the cell spans more than one column, we fill the spanned
+            // positions in the grid with Entry::Merged pointing to the
+            // original cell as its parent.
+            for spanned_offset in 1..colspan {
+                let spanned_index = resolved_index + spanned_offset;
+                let slot = &mut resolved_cells[spanned_index];
+                if slot.is_some() {
+                    let spanned_x = spanned_index % c;
+                    let spanned_y = spanned_index / c;
+                    bail!(
+                        cell_span,
+                        "cell at column {x}, row {y} would span a position taken by another cell at column {spanned_x}, row {spanned_y}";
+                        hint: "try specifying your cells in a different order"
+                    )
+                }
+                *slot = Some(Entry::Merged { parent: resolved_index });
+            }
         }
 
         // Replace absent entries by resolved empty cells, and produce a vector
