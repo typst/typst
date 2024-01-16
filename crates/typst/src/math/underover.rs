@@ -2,7 +2,7 @@ use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
 use crate::foundations::{elem, Content, Packed};
-use crate::layout::{Abs, Em, FixedAlign, Frame, FrameItem, Point, Size};
+use crate::layout::{Abs, Em, FixedAlignment, Frame, FrameItem, Point, Size};
 use crate::math::{
     alignments, AlignmentResult, FrameFragment, GlyphFragment, LayoutMath, MathContext,
     MathRow, Scaled,
@@ -281,7 +281,7 @@ fn layout_underoverspreader(
         baseline = rows.len() - 1;
     }
 
-    let frame = stack(ctx, rows, FixedAlign::Center, gap, baseline);
+    let frame = stack(ctx, rows, FixedAlignment::Center, gap, baseline);
     ctx.push(FrameFragment::new(ctx, frame).with_class(body_class));
 
     Ok(())
@@ -294,7 +294,7 @@ fn layout_underoverspreader(
 pub(super) fn stack(
     ctx: &MathContext,
     rows: Vec<MathRow>,
-    align: FixedAlign,
+    align: FixedAlignment,
     gap: Abs,
     baseline: usize,
 ) -> Frame {

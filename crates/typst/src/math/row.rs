@@ -3,7 +3,7 @@ use std::iter::once;
 use unicode_math_class::MathClass;
 
 use crate::foundations::Resolve;
-use crate::layout::{Abs, AlignElem, Em, FixedAlign, Frame, FrameKind, Point, Size};
+use crate::layout::{Abs, AlignElem, Em, FixedAlignment, Frame, FrameKind, Point, Size};
 use crate::math::{
     alignments, spacing, AlignmentResult, FrameFragment, MathContext, MathFragment,
     MathParItem, MathSize, Scaled,
@@ -158,7 +158,7 @@ impl MathRow {
         self,
         ctx: &MathContext,
         points: &[Abs],
-        align: FixedAlign,
+        align: FixedAlignment,
     ) -> Frame {
         if !self.iter().any(|frag| matches!(frag, MathFragment::Linebreak)) {
             return self.into_line_frame(points, align);
@@ -198,14 +198,14 @@ impl MathRow {
         frame
     }
 
-    fn into_line_frame(self, points: &[Abs], align: FixedAlign) -> Frame {
+    fn into_line_frame(self, points: &[Abs], align: FixedAlignment) -> Frame {
         let ascent = self.ascent();
         let mut frame = Frame::soft(Size::new(Abs::zero(), ascent + self.descent()));
         frame.set_baseline(ascent);
 
         let mut next_x = {
             let mut widths = Vec::new();
-            if !points.is_empty() && align != FixedAlign::Start {
+            if !points.is_empty() && align != FixedAlignment::Start {
                 let mut width = Abs::zero();
                 for fragment in self.iter() {
                     if matches!(fragment, MathFragment::Align) {
@@ -223,8 +223,8 @@ impl MathRow {
             let mut point_widths = points.iter().copied().zip(widths);
             let mut alternator = LeftRightAlternator::Right;
             move || match align {
-                FixedAlign::Start => prev_points.next(),
-                FixedAlign::End => {
+                FixedAlignment::Start => prev_points.next(),
+                FixedAlignment::End => {
                     point_widths.next().map(|(point, width)| point - width)
                 }
                 _ => point_widths

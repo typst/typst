@@ -39,7 +39,7 @@ impl LayoutMath for Packed<LrElem> {
     #[typst_macros::time(name = "math.lr", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut body = self.body();
-        if let Some(elem) = body.to::<LrElem>() {
+        if let Some(elem) = body.to_packed::<LrElem>() {
             if elem.size(ctx.styles()).is_auto() {
                 body = elem.body();
             }

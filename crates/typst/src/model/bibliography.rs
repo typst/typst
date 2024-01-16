@@ -166,7 +166,7 @@ impl BibliographyElem {
             bail!("multiple bibliographies are not yet supported");
         }
 
-        Ok(elem.to::<Self>().unwrap().clone())
+        Ok(elem.to_packed::<Self>().unwrap().clone())
     }
 
     /// Whether the bibliography contains the given key.
@@ -176,7 +176,7 @@ impl BibliographyElem {
             .introspector
             .query(&Self::elem().select())
             .iter()
-            .any(|elem| elem.to::<Self>().unwrap().bibliography().has(key))
+            .any(|elem| elem.to_packed::<Self>().unwrap().bibliography().has(key))
     }
 
     /// Find all bibliography keys.
@@ -185,7 +185,7 @@ impl BibliographyElem {
     ) -> Vec<(EcoString, Option<EcoString>)> {
         let mut vec = vec![];
         for elem in introspector.query(&Self::elem().select()).iter() {
-            let this = elem.to::<Self>().unwrap();
+            let this = elem.to_packed::<Self>().unwrap();
             for entry in this.bibliography().entries() {
                 let key = entry.key().into();
                 let detail = entry.title().map(|title| title.value.to_str().into());
@@ -672,7 +672,7 @@ impl<'a> Generator<'a> {
         // Process all citation groups.
         let mut driver = BibliographyDriver::new();
         for elem in &self.groups {
-            let group = elem.to::<CiteGroup>().unwrap();
+            let group = elem.to_packed::<CiteGroup>().unwrap();
             let location = elem.location().unwrap();
             let children = group.children();
 

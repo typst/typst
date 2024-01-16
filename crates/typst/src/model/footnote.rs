@@ -113,7 +113,7 @@ impl Packed<FootnoteElem> {
             FootnoteBody::Reference(label) => {
                 let element = engine.introspector.query_label(*label)?;
                 let footnote = element
-                    .to::<FootnoteElem>()
+                    .to_packed::<FootnoteElem>()
                     .ok_or("referenced element should be a footnote")?;
                 footnote.declaration_location(engine)
             }
@@ -314,8 +314,5 @@ impl Finalize for Packed<FootnoteEntry> {
 
 cast! {
     FootnoteElem,
-    v: Content => match v.to_packed::<Self>() {
-        Ok(packed) => packed.unpack(),
-        Err(v) => Self::with_content(v),
-    }
+    v: Content => v.unpack::<Self>().unwrap_or_else(Self::with_content)
 }

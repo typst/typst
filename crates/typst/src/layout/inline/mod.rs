@@ -16,7 +16,7 @@ use crate::eval::Tracer;
 use crate::foundations::{Content, Packed, Resolve, Smart, StyleChain};
 use crate::introspection::{Introspector, Locator, MetaElem};
 use crate::layout::{
-    Abs, AlignElem, Axes, BoxElem, Dir, Em, FixedAlign, Fr, Fragment, Frame, HElem,
+    Abs, AlignElem, Axes, BoxElem, Dir, Em, FixedAlignment, Fr, Fragment, Frame, HElem,
     Layout, Point, Regions, Size, Sizing, Spacing,
 };
 use crate::math::{EquationElem, MathParItem};
@@ -119,7 +119,7 @@ struct Preparation<'a> {
     /// The text language if it's the same for all children.
     lang: Option<Lang>,
     /// The paragraph's resolved horizontal alignment.
-    align: FixedAlign,
+    align: FixedAlignment,
     /// Whether to justify the paragraph.
     justify: bool,
     /// The paragraph's hanging indent.
@@ -443,7 +443,7 @@ fn collect<'a>(
         let segment = if child.is::<SpaceElem>() {
             full.push(' ');
             Segment::Text(1)
-        } else if let Some(elem) = child.to::<TextElem>() {
+        } else if let Some(elem) = child.to_packed::<TextElem>() {
             let prev = full.len();
             if let Some(case) = TextElem::case_in(styles) {
                 full.push_str(&case.apply(elem.text()));
@@ -451,18 +451,18 @@ fn collect<'a>(
                 full.push_str(elem.text());
             }
             Segment::Text(full.len() - prev)
-        } else if let Some(elem) = child.to::<HElem>() {
+        } else if let Some(elem) = child.to_packed::<HElem>() {
             if elem.amount().is_zero() {
                 continue;
             }
 
             full.push(SPACING_REPLACE);
             Segment::Spacing(*elem.amount())
-        } else if let Some(elem) = child.to::<LinebreakElem>() {
+        } else if let Some(elem) = child.to_packed::<LinebreakElem>() {
             let c = if elem.justify(styles) { '\u{2028}' } else { '\n' };
             full.push(c);
             Segment::Text(c.len_utf8())
-        } else if let Some(elem) = child.to::<SmartQuoteElem>() {
+        } else if let Some(elem) = child.to_packed::<SmartQuoteElem>() {
             let prev = full.len();
             if SmartQuoteElem::enabled_in(styles) {
                 let quotes = SmartQuoteElem::quotes_in(styles);
@@ -480,7 +480,7 @@ fn collect<'a>(
                     } else {
                         child
                     };
-                    if let Some(elem) = child.to::<TextElem>() {
+                    if let Some(elem) = child.to_packed::<TextElem>() {
                         elem.text().chars().next()
                     } else if child.is::<SmartQuoteElem>() {
                         Some('"')
@@ -499,12 +499,12 @@ fn collect<'a>(
                 full.push(if elem.double(styles) { '"' } else { '\'' });
             }
             Segment::Text(full.len() - prev)
-        } else if let Some(elem) = child.to::<EquationElem>() {
+        } else if let Some(elem) = child.to_packed::<EquationElem>() {
             let pod = Regions::one(region, Axes::splat(false));
             let items = elem.layout_inline(engine, styles, pod)?;
             full.extend(items.iter().map(MathParItem::text));
             Segment::Equation(elem, items)
-        } else if let Some(elem) = child.to::<BoxElem>() {
+        } else if let Some(elem) = child.to_packed::<BoxElem>() {
             let frac = elem.width(styles).is_fractional();
             full.push(if frac { SPACING_REPLACE } else { OBJ_REPLACE });
             Segment::Box(elem, frac)

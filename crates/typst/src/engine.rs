@@ -1,3 +1,5 @@
+//! Definition of the central compilation context.
+
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use comemo::{Track, Tracked, TrackedMut, Validate};

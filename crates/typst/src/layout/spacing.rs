@@ -80,7 +80,7 @@ impl Behave for Packed<HElem> {
         prev: &(Cow<Content>, Behaviour, StyleChain),
         styles: StyleChain,
     ) -> bool {
-        let Some(other) = prev.0.to::<HElem>() else { return false };
+        let Some(other) = prev.0.to_packed::<HElem>() else { return false };
         match (self.amount(), other.amount()) {
             (Spacing::Fr(this), Spacing::Fr(other)) => this > other,
             (Spacing::Rel(this), Spacing::Rel(other)) => {
@@ -182,7 +182,7 @@ impl Behave for Packed<VElem> {
         prev: &(Cow<Content>, Behaviour, StyleChain),
         styles: StyleChain,
     ) -> bool {
-        let Some(other) = prev.0.to::<VElem>() else { return false };
+        let Some(other) = prev.0.to_packed::<VElem>() else { return false };
         match (self.amount(), other.amount()) {
             (Spacing::Fr(this), Spacing::Fr(other)) => this > other,
             (Spacing::Rel(this), Spacing::Rel(other)) => {
@@ -195,7 +195,7 @@ impl Behave for Packed<VElem> {
 
 cast! {
     VElem,
-    v: Content => v.to_packed::<Self>().map_err(|_| "expected `v` element")?.unpack(),
+    v: Content => v.unpack::<Self>().map_err(|_| "expected `v` element")?,
 }
 
 /// Kinds of spacing.

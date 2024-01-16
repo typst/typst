@@ -8,8 +8,8 @@ use crate::foundations::{
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, Dir, Em, FixedAlign, Fragment, Frame, Layout, Point,
-    Regions, Size,
+    Abs, AlignElem, Alignment, Axes, Dir, Em, FixedAlignment, Fragment, Frame, Layout,
+    Point, Regions, Size,
 };
 use crate::math::{LayoutMath, MathContext};
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
@@ -235,8 +235,8 @@ impl Layout for Packed<EquationElem> {
 
             let dir = TextElem::dir_in(styles);
             let offset = match (align, dir) {
-                (FixedAlign::Start, Dir::RTL) => full_counter_width,
-                (FixedAlign::End, Dir::LTR) => -full_counter_width,
+                (FixedAlignment::Start, Dir::RTL) => full_counter_width,
+                (FixedAlignment::End, Dir::LTR) => -full_counter_width,
                 _ => Abs::zero(),
             };
             frame.translate(Point::with_x(offset));

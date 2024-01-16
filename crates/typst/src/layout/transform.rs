@@ -2,8 +2,8 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Packed, Resolve, StyleChain};
 use crate::layout::{
-    Abs, Alignment, Angle, Axes, FixedAlign, Fragment, Frame, HAlignment, Layout, Length,
-    Point, Ratio, Regions, Rel, Size, VAlignment,
+    Abs, Alignment, Angle, Axes, FixedAlignment, Fragment, Frame, HAlignment, Layout,
+    Length, Point, Ratio, Regions, Rel, Size, VAlignment,
 };
 
 /// Moves content without affecting layout.
@@ -368,14 +368,14 @@ fn measure_and_layout(
     styles: StyleChain,
     body: &Content,
     transform: Transform,
-    align: Axes<FixedAlign>,
+    align: Axes<FixedAlignment>,
     reflow: bool,
 ) -> SourceResult<Fragment> {
     if !reflow {
         // Layout the body.
         let pod = Regions::one(base_size, Axes::splat(false));
         let mut frame = body.layout(engine, styles, pod)?.into_frame();
-        let Axes { x, y } = align.zip_map(frame.size(), FixedAlign::position);
+        let Axes { x, y } = align.zip_map(frame.size(), FixedAlignment::position);
 
         // Apply the transform.
         let ts = Transform::translate(x, y)
@@ -393,7 +393,7 @@ fn measure_and_layout(
     // Actually perform the layout.
     let pod = Regions::one(frame.size(), Axes::splat(true));
     let mut frame = body.layout(engine, styles, pod)?.into_frame();
-    let Axes { x, y } = align.zip_map(frame.size(), FixedAlign::position);
+    let Axes { x, y } = align.zip_map(frame.size(), FixedAlignment::position);
 
     // Apply the transform.
     let ts = Transform::translate(x, y)

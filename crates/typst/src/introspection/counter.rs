@@ -723,7 +723,7 @@ impl ManualPageCounter {
             match item {
                 FrameItem::Group(group) => self.visit(engine, &group.frame)?,
                 FrameItem::Meta(Meta::Elem(elem), _) => {
-                    let Some(elem) = elem.to::<UpdateElem>() else { continue };
+                    let Some(elem) = elem.to_packed::<UpdateElem>() else { continue };
                     if *elem.key() == CounterKey::Page {
                         let mut state = CounterState(smallvec![self.logical]);
                         state.update(engine, elem.update.clone())?;

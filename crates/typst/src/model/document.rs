@@ -88,11 +88,11 @@ impl LayoutRoot for Packed<DocumentElem> {
                 child = elem;
             }
 
-            if let Some(page) = child.to::<PageElem>() {
+            if let Some(page) = child.to_packed::<PageElem>() {
                 let extend_to = iter.peek().and_then(|&next| {
                     next.to_styled()
                         .map_or(next, |(elem, _)| elem)
-                        .to::<PageElem>()?
+                        .to_packed::<PageElem>()?
                         .clear_to(styles)
                 });
                 let fragment =

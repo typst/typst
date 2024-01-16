@@ -206,7 +206,7 @@ fn try_apply(
         }
 
         Some(Selector::Regex(regex)) => {
-            let Some(elem) = target.to::<TextElem>() else {
+            let Some(elem) = target.to_packed::<TextElem>() else {
                 return Ok(None);
             };
 
@@ -363,7 +363,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         }
 
         let keep = content
-            .to::<PagebreakElem>()
+            .to_packed::<PagebreakElem>()
             .map_or(false, |pagebreak| !pagebreak.weak(styles));
 
         self.interrupt_page(keep.then_some(styles), false)?;
@@ -503,13 +503,13 @@ struct DocBuilder<'a> {
 
 impl<'a> DocBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
-        if let Some(pagebreak) = content.to::<PagebreakElem>() {
+        if let Some(pagebreak) = content.to_packed::<PagebreakElem>() {
             self.keep_next = !pagebreak.weak(styles);
             self.clear_next = pagebreak.to(styles);
             return true;
         }
 
-        if let Some(page) = content.to::<PageElem>() {
+        if let Some(page) = content.to_packed::<PageElem>() {
             let elem = if let Some(clear_to) = self.clear_next.take() {
                 let mut page = page.clone();
                 page.push_clear_to(Some(clear_to));
@@ -561,11 +561,11 @@ impl<'a> FlowBuilder<'a> {
         }
 
         if content.can::<dyn Layout>() || content.is::<ParElem>() {
-            let is_tight_list = if let Some(elem) = content.to::<ListElem>() {
+            let is_tight_list = if let Some(elem) = content.to_packed::<ListElem>() {
                 elem.tight(styles)
-            } else if let Some(elem) = content.to::<EnumElem>() {
+            } else if let Some(elem) = content.to_packed::<EnumElem>() {
                 elem.tight(styles)
-            } else if let Some(elem) = content.to::<TermsElem>() {
+            } else if let Some(elem) = content.to_packed::<TermsElem>() {
                 elem.tight(styles)
             } else {
                 false
@@ -577,7 +577,7 @@ impl<'a> FlowBuilder<'a> {
                 self.0.push(Cow::Owned(spacing.pack()), styles);
             }
 
-            let (above, below) = if let Some(block) = content.to::<BlockElem>() {
+            let (above, below) = if let Some(block) = content.to_packed::<BlockElem>() {
                 (block.above(styles), block.below(styles))
             } else {
                 (BlockElem::above_in(styles), BlockElem::below_in(styles))
@@ -609,7 +609,9 @@ impl<'a> ParBuilder<'a> {
             || content.is::<HElem>()
             || content.is::<LinebreakElem>()
             || content.is::<SmartQuoteElem>()
-            || content.to::<EquationElem>().map_or(false, |elem| !elem.block(styles))
+            || content
+                .to_packed::<EquationElem>()
+                .map_or(false, |elem| !elem.block(styles))
             || content.is::<BoxElem>()
         {
             self.0.push(Cow::Borrowed(content), styles);
@@ -671,7 +673,7 @@ impl<'a> ListBuilder<'a> {
                 items
                     .iter()
                     .map(|(item, local)| {
-                        let mut item = item.to::<ListItem>().unwrap().clone();
+                        let mut item = item.to_packed::<ListItem>().unwrap().clone();
                         let body = item.body().clone().styled_with_map(local.clone());
                         item.push_body(body);
                         item
@@ -686,7 +688,7 @@ impl<'a> ListBuilder<'a> {
                 items
                     .iter()
                     .map(|(item, local)| {
-                        let mut item = item.to::<EnumItem>().unwrap().clone();
+                        let mut item = item.to_packed::<EnumItem>().unwrap().clone();
                         let body = item.body().clone().styled_with_map(local.clone());
                         item.push_body(body);
                         item
@@ -701,7 +703,7 @@ impl<'a> ListBuilder<'a> {
                 items
                     .iter()
                     .map(|(item, local)| {
-                        let mut item = item.to::<TermItem>().unwrap().clone();
+                        let mut item = item.to_packed::<TermItem>().unwrap().clone();
                         let term = item.term().clone().styled_with_map(local.clone());
                         let description =
                             item.description().clone().styled_with_map(local.clone());
@@ -751,7 +753,7 @@ impl<'a> CiteGroupBuilder<'a> {
             return true;
         }
 
-        if let Some(citation) = content.to::<CiteElem>() {
+        if let Some(citation) = content.to_packed::<CiteElem>() {
             if self.items.is_empty() {
                 self.styles = styles;
             }

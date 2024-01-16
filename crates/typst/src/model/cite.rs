@@ -113,7 +113,7 @@ impl Synthesize for Packed<CiteElem> {
 
 cast! {
     CiteElem,
-    v: Content => v.to_packed::<Self>().map_err(|_| "expected citation")?.unpack(),
+    v: Content => v.unpack::<Self>().map_err(|_| "expected citation")?,
 }
 
 /// The form of the citation.

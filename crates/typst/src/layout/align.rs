@@ -122,7 +122,7 @@ impl Alignment {
     }
 
     /// Normalize the alignment to a LTR-TTB space.
-    pub fn fix(self, text_dir: Dir) -> Axes<FixedAlign> {
+    pub fn fix(self, text_dir: Dir) -> Axes<FixedAlignment> {
         Axes::new(
             self.x().unwrap_or_default().fix(text_dir),
             self.y().unwrap_or_default().fix(),
@@ -227,7 +227,7 @@ impl Fold for Alignment {
 }
 
 impl Resolve for Alignment {
-    type Output = Axes<FixedAlign>;
+    type Output = Axes<FixedAlignment>;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         self.fix(TextElem::dir_in(styles))
@@ -269,13 +269,13 @@ impl HAlignment {
     }
 
     /// Resolve the axis alignment based on the horizontal direction.
-    pub const fn fix(self, dir: Dir) -> FixedAlign {
+    pub const fn fix(self, dir: Dir) -> FixedAlignment {
         match (self, dir.is_positive()) {
-            (Self::Start, true) | (Self::End, false) => FixedAlign::Start,
-            (Self::Left, _) => FixedAlign::Start,
-            (Self::Center, _) => FixedAlign::Center,
-            (Self::Right, _) => FixedAlign::End,
-            (Self::End, true) | (Self::Start, false) => FixedAlign::End,
+            (Self::Start, true) | (Self::End, false) => FixedAlignment::Start,
+            (Self::Left, _) => FixedAlignment::Start,
+            (Self::Center, _) => FixedAlignment::Center,
+            (Self::Right, _) => FixedAlignment::End,
+            (Self::End, true) | (Self::Start, false) => FixedAlignment::End,
         }
     }
 }
@@ -307,7 +307,7 @@ impl From<HAlignment> for Alignment {
 }
 
 impl Resolve for HAlignment {
-    type Output = FixedAlign;
+    type Output = FixedAlignment;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         self.fix(TextElem::dir_in(styles))
@@ -343,11 +343,11 @@ impl VAlignment {
     }
 
     /// Turns into a fixed alignment.
-    pub const fn fix(self) -> FixedAlign {
+    pub const fn fix(self) -> FixedAlignment {
         match self {
-            Self::Top => FixedAlign::Start,
-            Self::Horizon => FixedAlign::Center,
-            Self::Bottom => FixedAlign::End,
+            Self::Top => FixedAlignment::Start,
+            Self::Horizon => FixedAlignment::Center,
+            Self::Bottom => FixedAlignment::End,
         }
     }
 }
@@ -390,13 +390,13 @@ cast! {
 /// For horizontal alignment, start is globally left and for vertical alignment
 /// it is globally top.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum FixedAlign {
+pub enum FixedAlignment {
     Start,
     Center,
     End,
 }
 
-impl FixedAlign {
+impl FixedAlignment {
     /// Returns the position of this alignment in a container with the given
     /// extent.
     pub fn position(self, extent: Abs) -> Abs {
@@ -408,7 +408,7 @@ impl FixedAlign {
     }
 }
 
-impl From<Side> for FixedAlign {
+impl From<Side> for FixedAlignment {
     fn from(side: Side) -> Self {
         match side {
             Side::Left => Self::Start,

@@ -587,10 +587,7 @@ impl Show for Packed<FigureCaption> {
 
 cast! {
     FigureCaption,
-    v: Content => match v.to_packed::<Self>() {
-        Ok(packed) => packed.unpack(),
-        Err(v) => Self::new(v),
-    },
+    v: Content => v.unpack::<Self>().unwrap_or_else(Self::new),
 }
 
 /// The `kind` parameter of a [`FigureElem`].

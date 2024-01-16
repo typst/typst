@@ -140,7 +140,7 @@ impl Selector {
             }
             Self::Label(label) => target.label() == Some(*label),
             Self::Regex(regex) => target
-                .to::<TextElem>()
+                .to_packed::<TextElem>()
                 .map_or(false, |elem| regex.is_match(elem.text())),
             Self::Can(cap) => target.func().can_type_id(*cap),
             Self::Or(selectors) => selectors.iter().any(move |sel| sel.matches(target)),

@@ -166,5 +166,5 @@ cast! {
         };
         Self::new(term, description)
     },
-    v: Content => v.to_packed::<Self>().map_err(|_| "expected term item or array")?.unpack(),
+    v: Content => v.unpack::<Self>().map_err(|_| "expected term item or array")?,
 }

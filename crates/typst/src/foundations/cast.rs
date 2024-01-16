@@ -256,7 +256,7 @@ impl FromValue for Value {
 impl<T: NativeElement + FromValue> FromValue for Packed<T> {
     fn from_value(mut value: Value) -> StrResult<Self> {
         if let Value::Content(content) = value {
-            match content.to_packed::<T>() {
+            match content.into_packed::<T>() {
                 Ok(packed) => return Ok(packed),
                 Err(content) => value = Value::Content(content),
             }

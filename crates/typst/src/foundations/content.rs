@@ -240,18 +240,23 @@ impl Content {
     }
 
     /// Downcasts the element to a packed value.
-    pub fn to<T: NativeElement>(&self) -> Option<&Packed<T>> {
+    pub fn to_packed<T: NativeElement>(&self) -> Option<&Packed<T>> {
         Packed::from_ref(self)
     }
 
     /// Downcasts the element to a mutable packed value.
-    pub fn to_mut<T: NativeElement>(&mut self) -> Option<&mut Packed<T>> {
+    pub fn to_packed_mut<T: NativeElement>(&mut self) -> Option<&mut Packed<T>> {
         Packed::from_mut(self)
     }
 
     /// Downcasts the element into an owned packed value.
-    pub fn to_packed<T: NativeElement>(self) -> Result<Packed<T>, Self> {
+    pub fn into_packed<T: NativeElement>(self) -> Result<Packed<T>, Self> {
         Packed::from_owned(self)
+    }
+
+    /// Extract the raw underlying element.
+    pub fn unpack<T: NativeElement>(self) -> Result<T, Self> {
+        self.into_packed::<T>().map(Packed::unpack)
     }
 
     /// Makes sure the content is not shared and returns a mutable reference to
@@ -309,7 +314,7 @@ impl Content {
 
     /// Whether the content is an empty sequence.
     pub fn is_empty(&self) -> bool {
-        let Some(sequence) = self.to::<SequenceElem>() else {
+        let Some(sequence) = self.to_packed::<SequenceElem>() else {
             return false;
         };
 
@@ -323,7 +328,7 @@ impl Content {
 
     /// Access the children if this is a sequence.
     pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Prehashed<Content>>> {
-        let sequence = self.to::<SequenceElem>()?;
+        let sequence = self.to_packed::<SequenceElem>()?;
         Some(sequence.children.iter())
     }
 
@@ -338,7 +343,7 @@ impl Content {
 
     /// Access the child and styles.
     pub fn to_styled(&self) -> Option<(&Content, &Styles)> {
-        let styled = self.to::<StyledElem>()?;
+        let styled = self.to_packed::<StyledElem>()?;
         let child = styled.child();
         let styles = styled.styles();
         Some((child, styles))
@@ -364,7 +369,7 @@ impl Content {
 
     /// Style this content with a style entry.
     pub fn styled(mut self, style: impl Into<Style>) -> Self {
-        if let Some(style_elem) = self.to_mut::<StyledElem>() {
+        if let Some(style_elem) = self.to_packed_mut::<StyledElem>() {
             style_elem.styles.apply_one(style.into());
             self
         } else {
@@ -378,7 +383,7 @@ impl Content {
             return self;
         }
 
-        if let Some(style_elem) = self.to_mut::<StyledElem>() {
+        if let Some(style_elem) = self.to_packed_mut::<StyledElem>() {
             style_elem.styles.apply(styles);
             self
         } else {
@@ -617,7 +622,7 @@ impl Add for Content {
 
     fn add(self, mut rhs: Self) -> Self::Output {
         let mut lhs = self;
-        match (lhs.to_mut::<SequenceElem>(), rhs.to_mut::<SequenceElem>()) {
+        match (lhs.to_packed_mut::<SequenceElem>(), rhs.to_packed_mut::<SequenceElem>()) {
             (Some(seq_lhs), Some(rhs)) => {
                 seq_lhs.children.extend(rhs.children.iter().cloned());
                 lhs
@@ -640,7 +645,7 @@ impl<'a> Add<&'a Self> for Content {
 
     fn add(self, rhs: &'a Self) -> Self::Output {
         let mut lhs = self;
-        match (lhs.to_mut::<SequenceElem>(), rhs.to::<SequenceElem>()) {
+        match (lhs.to_packed_mut::<SequenceElem>(), rhs.to_packed::<SequenceElem>()) {
             (Some(seq_lhs), Some(rhs)) => {
                 seq_lhs.children.extend(rhs.children.iter().cloned());
                 lhs
@@ -651,7 +656,7 @@ impl<'a> Add<&'a Self> for Content {
             }
             (None, Some(_)) => {
                 let mut rhs = rhs.clone();
-                rhs.to_mut::<SequenceElem>()
+                rhs.to_packed_mut::<SequenceElem>()
                     .unwrap()
                     .children
                     .insert(0, Prehashed::new(lhs));
@@ -729,7 +734,7 @@ impl<T: NativeElement> Bounds for T {
     }
 
     fn dyn_eq(&self, other: &Content) -> bool {
-        let Some(other) = other.to::<Self>() else {
+        let Some(other) = other.to_packed::<Self>() else {
             return false;
         };
         *self == **other

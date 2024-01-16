@@ -19,7 +19,7 @@ pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
     let mut last_skipped_level = None;
     let elements = ctx.document.introspector.query(&HeadingElem::elem().select());
     for elem in elements.iter() {
-        let heading = elem.to::<HeadingElem>().unwrap();
+        let heading = elem.to_packed::<HeadingElem>().unwrap();
         let leaf = HeadingNode::leaf(heading);
 
         if leaf.bookmarked {

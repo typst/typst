@@ -308,10 +308,7 @@ cast! {
         };
         Self::new(body).with_number(number)
     },
-    v: Content => match v.to_packed::<Self>() {
-        Ok(packed) => packed.unpack(),
-        Err(v) => Self::new(v),
-    },
+    v: Content => v.unpack::<Self>().unwrap_or_else(Self::new),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]

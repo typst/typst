@@ -354,10 +354,8 @@ impl Show for Packed<GridCell> {
 
 impl From<Content> for GridCell {
     fn from(value: Content) -> Self {
-        match value.to_packed::<Self>() {
-            Ok(packed) => packed.unpack(),
-            Err(v) => Self::new(v),
-        }
+        #[allow(clippy::unwrap_or_default)]
+        value.unpack::<Self>().unwrap_or_else(Self::new)
     }
 }
 

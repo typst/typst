@@ -6,7 +6,7 @@ use crate::foundations::{
     StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Axes, Em, FixedAlign, Frame, FrameItem, Length, Point, Ratio, Rel, Size,
+    Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Length, Point, Ratio, Rel, Size,
 };
 use crate::math::{
     alignments, stack, AlignmentResult, FrameFragment, GlyphFragment, LayoutMath,
@@ -64,7 +64,7 @@ impl LayoutMath for Packed<VecElem> {
         let frame = layout_vec_body(
             ctx,
             self.children(),
-            FixedAlign::Center,
+            FixedAlignment::Center,
             self.gap(ctx.styles()),
         )?;
         layout_delimiters(
@@ -316,7 +316,7 @@ impl LayoutMath for Packed<CasesElem> {
         let frame = layout_vec_body(
             ctx,
             self.children(),
-            FixedAlign::Start,
+            FixedAlignment::Start,
             self.gap(ctx.styles()),
         )?;
 
@@ -378,7 +378,7 @@ impl Delimiter {
 fn layout_vec_body(
     ctx: &mut MathContext,
     column: &[Content],
-    align: FixedAlign,
+    align: FixedAlignment,
     row_gap: Rel<Abs>,
 ) -> SourceResult<Frame> {
     let gap = row_gap.relative_to(ctx.regions.base().y);
@@ -472,7 +472,7 @@ fn layout_mat_body(
         let mut y = Abs::zero();
 
         for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
-            let cell = cell.into_aligned_frame(ctx, &points, FixedAlign::Center);
+            let cell = cell.into_aligned_frame(ctx, &points, FixedAlignment::Center);
             let pos = Point::new(
                 if points.is_empty() { x + (rcol - cell.width()) / 2.0 } else { x },
                 y + ascent - cell.ascent(),
