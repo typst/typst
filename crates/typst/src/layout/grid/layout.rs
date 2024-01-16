@@ -114,6 +114,7 @@ impl LayoutMultiple for Cell {
 }
 
 /// A grid entry.
+#[derive(Clone)]
 enum Entry {
     /// An entry which holds a cell.
     Cell(Cell),
@@ -290,7 +291,7 @@ impl CellGrid {
         let Some(cell_count) = cells.len().checked_add((c - cells.len() % c) % c) else {
             bail!(span, "too many cells were given")
         };
-        let mut resolved_cells: Vec<Option<Cell>> = Vec::with_capacity(cell_count);
+        let mut resolved_cells: Vec<Option<Entry>> = Vec::with_capacity(cell_count);
         for cell in cells.iter().cloned() {
             let cell_span = cell.span();
             // Let's calculate the cell's final position based on its
@@ -355,11 +356,11 @@ impl CellGrid {
                 );
             }
 
-            *slot = Some(cell);
+            *slot = Some(Entry::Cell(cell));
         }
 
         // Replace absent entries by resolved empty cells, and produce a vector
-        // of 'Cell' from 'Option<Cell>' (final step).
+        // of 'Entry' from 'Option<Entry>' (final step).
         let resolved_cells = resolved_cells
             .into_iter()
             .enumerate()
@@ -380,12 +381,12 @@ impl CellGrid {
                         inset,
                         styles,
                     );
-                    Ok(new_cell)
+                    Ok(Entry::Cell(new_cell))
                 }
             })
-            .collect::<SourceResult<Vec<Cell>>>()?;
+            .collect::<SourceResult<Vec<Entry>>>()?;
 
-        Ok(Self::new(tracks, gutter, resolved_cells, styles))
+        Ok(Self::new_internal(tracks, gutter, resolved_cells, styles))
     }
 
     /// Get the grid entry in column `x` and row `y`.
@@ -431,7 +432,7 @@ impl CellGrid {
 fn resolve_cell_position(
     cell_x: Smart<usize>,
     cell_y: Smart<usize>,
-    resolved_cells: &[Option<Cell>],
+    resolved_cells: &[Option<Entry>],
     auto_index: &mut usize,
     columns: usize,
 ) -> HintedStrResult<usize> {
