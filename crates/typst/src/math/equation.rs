@@ -95,8 +95,7 @@ impl Synthesize for Packed<EquationElem> {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        // Resolve the supplement.
-        let supplement = match (**self).supplement(styles) {
+        let supplement = match self.as_ref().supplement(styles) {
             Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => {
@@ -104,11 +103,10 @@ impl Synthesize for Packed<EquationElem> {
             }
         };
 
-        let block = self.block(styles);
-        let numbering = (**self).numbering(styles);
-        self.push_block(block);
-        self.push_numbering(numbering);
-        self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
+        let elem = self.as_mut();
+        elem.push_block(elem.block(styles));
+        elem.push_numbering(elem.numbering(styles));
+        elem.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
 
         Ok(())
     }

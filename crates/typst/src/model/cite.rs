@@ -101,14 +101,12 @@ pub struct CiteElem {
 
 impl Synthesize for Packed<CiteElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        let supplement = self.supplement(styles);
-        let form = self.form(styles);
-        let style = self.style(styles);
-        self.push_supplement(supplement);
-        self.push_form(form);
-        self.push_style(style);
-        self.push_lang(TextElem::lang_in(styles));
-        self.push_region(TextElem::region_in(styles));
+        let elem = self.as_mut();
+        elem.push_supplement(elem.supplement(styles));
+        elem.push_form(elem.form(styles));
+        elem.push_style(elem.style(styles));
+        elem.push_lang(TextElem::lang_in(styles));
+        elem.push_region(TextElem::region_in(styles));
         Ok(())
     }
 }

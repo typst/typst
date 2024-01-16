@@ -147,10 +147,9 @@ cast! {
 
 impl Synthesize for Packed<QuoteElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        let block = self.block(styles);
-        let quotes = self.quotes(styles);
-        self.push_block(block);
-        self.push_quotes(quotes);
+        let elem = self.as_mut();
+        elem.push_block(elem.block(styles));
+        elem.push_quotes(elem.quotes(styles));
         Ok(())
     }
 }

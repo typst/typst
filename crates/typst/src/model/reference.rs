@@ -143,13 +143,15 @@ impl Synthesize for Packed<RefElem> {
         styles: StyleChain,
     ) -> SourceResult<()> {
         let citation = to_citation(self, engine, styles)?;
-        self.push_citation(Some(citation));
-        self.push_element(None);
 
-        let target = *self.target();
+        let elem = self.as_mut();
+        elem.push_citation(Some(citation));
+        elem.push_element(None);
+
+        let target = *elem.target();
         if !BibliographyElem::has(engine, target) {
-            if let Ok(elem) = engine.introspector.query_label(target).cloned() {
-                self.push_element(Some(elem.into_inner()));
+            if let Ok(found) = engine.introspector.query_label(target).cloned() {
+                elem.push_element(Some(found.into_inner()));
                 return Ok(());
             }
         }

@@ -228,19 +228,23 @@ impl Synthesize for Packed<FigureElem> {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let placement = self.placement(styles);
-        let numbering = (**self).numbering(styles);
+        let span = self.span();
+        let location = self.location();
+
+        let elem = self.as_mut();
+        let placement = elem.placement(styles);
+        let numbering = elem.numbering(styles);
 
         // Determine the figure's kind.
-        let kind = self.kind(styles).unwrap_or_else(|| {
-            self.body()
+        let kind = elem.kind(styles).unwrap_or_else(|| {
+            elem.body()
                 .query_first(Selector::can::<dyn Figurable>())
                 .map(|elem| FigureKind::Elem(elem.func()))
                 .unwrap_or_else(|| FigureKind::Elem(ImageElem::elem()))
         });
 
         // Resolve the supplement.
-        let supplement = match (**self).supplement(styles).as_ref() {
+        let supplement = match elem.supplement(styles).as_ref() {
             Smart::Auto => {
                 // Default to the local name for the kind, if available.
                 let name = match &kind {
@@ -254,7 +258,7 @@ impl Synthesize for Packed<FigureElem> {
                 };
 
                 if numbering.is_some() && name.is_none() {
-                    bail!(self.span(), "please specify the figure's supplement")
+                    bail!(span, "please specify the figure's supplement")
                 }
 
                 Some(name.unwrap_or_default())
@@ -264,14 +268,14 @@ impl Synthesize for Packed<FigureElem> {
                 // Resolve the supplement with the first descendant of the kind or
                 // just the body, if none was found.
                 let descendant = match kind {
-                    FigureKind::Elem(func) => self
+                    FigureKind::Elem(func) => elem
                         .body()
                         .query_first(Selector::Elem(func, None))
                         .map(Cow::Owned),
                     FigureKind::Name(_) => None,
                 };
 
-                let target = descendant.unwrap_or_else(|| Cow::Borrowed(self.body()));
+                let target = descendant.unwrap_or_else(|| Cow::Borrowed(elem.body()));
                 Some(supplement.resolve(engine, [target])?)
             }
         };
@@ -282,23 +286,22 @@ impl Synthesize for Packed<FigureElem> {
         ));
 
         // Fill the figure's caption.
-        let mut caption = self.caption(styles);
+        let mut caption = elem.caption(styles);
         if let Some(caption) = &mut caption {
             caption.push_kind(kind.clone());
             caption.push_supplement(supplement.clone());
             caption.push_numbering(numbering.clone());
             caption.push_counter(Some(counter.clone()));
-            caption.push_figure_location(self.location());
+            caption.push_figure_location(location);
         }
 
-        let outlined = self.outlined(styles);
-        self.push_placement(placement);
-        self.push_caption(caption);
-        self.push_kind(Smart::Custom(kind));
-        self.push_supplement(Smart::Custom(supplement.map(Supplement::Content)));
-        self.push_numbering(numbering);
-        self.push_outlined(outlined);
-        self.push_counter(Some(counter));
+        elem.push_placement(placement);
+        elem.push_caption(caption);
+        elem.push_kind(Smart::Custom(kind));
+        elem.push_supplement(Smart::Custom(supplement.map(Supplement::Content)));
+        elem.push_numbering(numbering);
+        elem.push_outlined(elem.outlined(styles));
+        elem.push_counter(Some(counter));
 
         Ok(())
     }
@@ -553,10 +556,9 @@ impl FigureCaption {
 
 impl Synthesize for Packed<FigureCaption> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        let position = self.position(styles);
-        let separator = Smart::Custom(self.get_separator(styles));
-        self.push_position(position);
-        self.push_separator(separator);
+        let elem = self.as_mut();
+        elem.push_position(elem.position(styles));
+        elem.push_separator(Smart::Custom(elem.get_separator(styles)));
         Ok(())
     }
 }

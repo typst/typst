@@ -692,7 +692,7 @@ impl Serialize for Content {
     }
 }
 
-/// The trait that that combines all the other traits into a trait object.
+/// The trait that combines all the other traits into a trait object.
 trait Bounds: Debug + Repr + Fields + Send + Sync + 'static {
     fn dyn_type_id(&self) -> TypeId;
     fn dyn_elem(&self) -> Element;

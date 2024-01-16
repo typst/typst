@@ -124,8 +124,8 @@ impl Packed<FootnoteElem> {
 
 impl Synthesize for Packed<FootnoteElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        let numbering = self.numbering(styles).clone();
-        self.push_numbering(numbering);
+        let elem = self.as_mut();
+        elem.push_numbering(elem.numbering(styles).clone());
         Ok(())
     }
 }

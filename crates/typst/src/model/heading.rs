@@ -132,24 +132,20 @@ impl Synthesize for Packed<HeadingElem> {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let level = (**self).level(styles);
-        let numbering = (**self).numbering(styles).clone();
-        let supplement =
-            Smart::Custom(Some(Supplement::Content(match (**self).supplement(styles) {
-                Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
-                Smart::Custom(None) => Content::empty(),
-                Smart::Custom(Some(supplement)) => {
-                    supplement.resolve(engine, [self.clone().pack()])?
-                }
-            })));
-        let outlined = self.outlined(styles);
-        let bookmarked = self.bookmarked(styles);
+        let supplement = match (**self).supplement(styles) {
+            Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
+            Smart::Custom(None) => Content::empty(),
+            Smart::Custom(Some(supplement)) => {
+                supplement.resolve(engine, [self.clone().pack()])?
+            }
+        };
 
-        self.push_level(level);
-        self.push_numbering(numbering);
-        self.push_supplement(supplement);
-        self.push_outlined(outlined);
-        self.push_bookmarked(bookmarked);
+        let elem = self.as_mut();
+        elem.push_level(elem.level(styles));
+        elem.push_numbering(elem.numbering(styles).clone());
+        elem.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
+        elem.push_outlined(elem.outlined(styles));
+        elem.push_bookmarked(elem.bookmarked(styles));
 
         Ok(())
     }

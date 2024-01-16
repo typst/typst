@@ -289,10 +289,13 @@ impl RawElem {
 
 impl Synthesize for Packed<RawElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        let lang = self.lang(styles).clone();
-        self.push_lang(lang);
+        let span = self.span();
+        let elem = self.as_mut();
 
-        let mut text = self.text().clone();
+        let lang = elem.lang(styles).clone();
+        elem.push_lang(lang);
+
+        let mut text = elem.text().clone();
         if text.contains('\t') {
             let tab_size = RawElem::tab_size_in(styles);
             text = align_tabs(&text, tab_size);
@@ -301,7 +304,7 @@ impl Synthesize for Packed<RawElem> {
         let lines = split_newlines(&text);
         let count = lines.len() as i64;
 
-        let lang = self
+        let lang = elem
             .lang(styles)
             .as_ref()
             .as_ref()
@@ -309,11 +312,11 @@ impl Synthesize for Packed<RawElem> {
             .or(Some("txt".into()));
 
         let extra_syntaxes = UnsyncLazy::new(|| {
-            load_syntaxes(&self.syntaxes(styles), &self.syntaxes_data(styles)).unwrap()
+            load_syntaxes(&elem.syntaxes(styles), &elem.syntaxes_data(styles)).unwrap()
         });
 
-        let theme = self.theme(styles).as_ref().as_ref().map(|theme_path| {
-            load_theme(theme_path, self.theme_data(styles).as_ref().as_ref().unwrap())
+        let theme = elem.theme(styles).as_ref().as_ref().map(|theme_path| {
+            load_theme(theme_path, elem.theme_data(styles).as_ref().as_ref().unwrap())
                 .unwrap()
         });
 
@@ -340,7 +343,7 @@ impl Synthesize for Packed<RawElem> {
                             EcoString::from(&text[range]),
                             Content::sequence(line.drain(..)),
                         ))
-                        .spanned(self.span()),
+                        .spanned(span),
                     );
                 },
             )
@@ -371,7 +374,7 @@ impl Synthesize for Packed<RawElem> {
                         EcoString::from(line),
                         Content::sequence(line_content),
                     ))
-                    .spanned(self.span()),
+                    .spanned(span),
                 );
             }
         } else {
@@ -382,11 +385,11 @@ impl Synthesize for Packed<RawElem> {
                     EcoString::from(line),
                     TextElem::packed(line),
                 ))
-                .spanned(self.span())
+                .spanned(span)
             }));
         };
 
-        self.push_lines(seq);
+        elem.push_lines(seq);
 
         Ok(())
     }

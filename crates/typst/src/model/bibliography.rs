@@ -198,12 +198,11 @@ impl BibliographyElem {
 
 impl Synthesize for Packed<BibliographyElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        let full = self.full(styles);
-        let style = self.style(styles);
-        self.push_full(full);
-        self.push_style(style);
-        self.push_lang(TextElem::lang_in(styles));
-        self.push_region(TextElem::region_in(styles));
+        let elem = self.as_mut();
+        elem.push_full(elem.full(styles));
+        elem.push_style(elem.style(styles));
+        elem.push_lang(TextElem::lang_in(styles));
+        elem.push_region(TextElem::region_in(styles));
         Ok(())
     }
 }
