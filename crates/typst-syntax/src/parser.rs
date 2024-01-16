@@ -984,7 +984,6 @@ fn args(p: &mut Parser) {
 
 enum PatternKind {
     Ident,
-    Closure,
     Other,
 }
 
@@ -1002,11 +1001,7 @@ fn pattern(p: &mut Parser) -> PatternKind {
         PatternKind::Other
     } else {
         p.expect(SyntaxKind::Ident);
-        if p.directly_at(SyntaxKind::LeftParen) {
-            PatternKind::Closure
-        } else {
-            PatternKind::Ident
-        }
+        PatternKind::Ident
     }
 }
 
@@ -1018,13 +1013,14 @@ fn let_binding(p: &mut Parser) {
     let mut closure = false;
     let mut other = false;
     match pattern(p) {
-        PatternKind::Ident => {}
-        PatternKind::Closure => {
-            let m3 = p.marker();
-            collection(p, false);
-            validate_params_at(p, m3);
-            p.wrap(m3, SyntaxKind::Params);
-            closure = true
+        PatternKind::Ident => {
+            if p.directly_at(SyntaxKind::LeftParen) {
+                let m3 = p.marker();
+                collection(p, false);
+                validate_params_at(p, m3);
+                p.wrap(m3, SyntaxKind::Params);
+                closure = true;
+            }
         }
         PatternKind::Other => other = true,
     }
