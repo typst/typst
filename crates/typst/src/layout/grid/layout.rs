@@ -1,4 +1,8 @@
-use crate::diag::{bail, At, SourceResult, StrResult};
+use ecow::eco_format;
+
+use crate::diag::{
+    bail, At, Hint, HintedStrResult, HintedString, SourceResult, StrResult,
+};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, CastInfo, Content, FromValue, Func, IntoValue, Reflect, Resolve, Smart,
@@ -83,6 +87,7 @@ impl<T: FromValue> FromValue for Celled<T> {
 }
 
 /// Represents a cell in CellGrid, to be laid out by GridLayouter.
+#[derive(Clone)]
 pub struct Cell {
     /// The cell's body.
     pub body: Content,
@@ -123,6 +128,15 @@ pub trait ResolvableCell {
         inset: Sides<Rel<Length>>,
         styles: StyleChain,
     ) -> Cell;
+
+    /// Returns this cell's column override.
+    fn x(&self, styles: StyleChain) -> Smart<usize>;
+
+    /// Returns this cell's row override.
+    fn y(&self, styles: StyleChain) -> Smart<usize>;
+
+    /// The cell's span, for errors.
+    fn span(&self) -> Span;
 }
 
 /// A grid of cells, including the columns, rows, and cell data.
@@ -200,12 +214,12 @@ impl CellGrid {
         Self { cols, rows, cells, has_gutter, is_rtl }
     }
 
-    /// Resolves all cells in the grid before creating it.
-    /// Allows them to keep track of their final properties and adjust their
-    /// fields accordingly.
+    /// Resolves and positions all cells in the grid before creating it.
+    /// Allows them to keep track of their final properties and positions
+    /// and adjust their fields accordingly.
     /// Cells must implement Clone as they will be owned. Additionally, they
-    /// must implement Default in order to fill the last row of the grid with
-    /// empty cells, if it is not completely filled.
+    /// must implement Default in order to fill positions in the grid which
+    /// weren't explicitly specified by the user with empty cells.
     #[allow(clippy::too_many_arguments)]
     pub fn resolve<T: ResolvableCell + Clone + Default>(
         tracks: Axes<&[Sizing]>,
@@ -216,38 +230,129 @@ impl CellGrid {
         inset: Sides<Rel<Length>>,
         engine: &mut Engine,
         styles: StyleChain,
+        span: Span,
     ) -> SourceResult<Self> {
         // Number of content columns: Always at least one.
         let c = tracks.x.len().max(1);
 
-        // If not all columns in the last row have cells, we will add empty
-        // cells and complete the row so that those positions are susceptible
-        // to show rules and receive grid styling.
-        // We apply '% c' twice so that 'cells_remaining' is zero when
-        // the last row is already filled (then 'cell_count % c' would be zero).
-        let cell_count = cells.len();
-        let cells_remaining = (c - cell_count % c) % c;
-        let cells = cells
-            .iter()
-            .cloned()
-            .chain(std::iter::repeat_with(T::default).take(cells_remaining))
+        // We can't just use the cell's index in the 'cells' vector to
+        // determine its automatic position, since cells could have arbitrary
+        // positions, so the position of a cell in 'cells' can differ from its
+        // final position in 'resolved_cells' (see below).
+        // Therefore, we use a counter, 'auto_index', to determine the position
+        // of the next cell with (x: auto, y: auto). It is only stepped when
+        // a cell with (x: auto, y: auto), usually the vast majority, is found.
+        let mut auto_index = 0;
+
+        // We have to rebuild the grid to account for arbitrary positions.
+        // Create at least 'cells.len()' positions, since there will be at
+        // least 'cells.len()' cells, even though some of them might be placed
+        // in arbitrary positions and thus cause the grid to expand.
+        // Additionally, make sure we allocate up to the next multiple of 'c',
+        // since each row will have 'c' cells, even if the last few cells
+        // weren't explicitly specified by the user.
+        // We apply '% c' twice so that the amount of cells potentially missing
+        // is zero when 'cells.len()' is already a multiple of 'c' (thus
+        // 'cells.len() % c' would be zero).
+        let Some(cell_count) = cells.len().checked_add((c - cells.len() % c) % c) else {
+            bail!(span, "too many cells were given")
+        };
+        let mut resolved_cells: Vec<Option<Cell>> = Vec::with_capacity(cell_count);
+        for cell in cells.iter().cloned() {
+            let cell_span = cell.span();
+            // Let's calculate the cell's final position based on its
+            // requested position.
+            let resolved_index = {
+                let cell_x = cell.x(styles);
+                let cell_y = cell.y(styles);
+                resolve_cell_position(cell_x, cell_y, &resolved_cells, &mut auto_index, c)
+                    .at(cell_span)?
+            };
+            let x = resolved_index % c;
+            let y = resolved_index / c;
+
+            // Let's resolve the cell so it can determine its own fields
+            // based on its final position.
+            let cell = cell.resolve_cell(
+                x,
+                y,
+                &fill.resolve(engine, x, y)?,
+                align.resolve(engine, x, y)?,
+                inset,
+                styles,
+            );
+
+            if resolved_index >= resolved_cells.len() {
+                // Ensure the length of the vector of resolved cells is always
+                // a multiple of 'c' by pushing full rows every time. Here, we
+                // add enough absent positions (later converted to empty cells)
+                // to ensure the last row in the new vector length is
+                // completely filled. This is necessary so that those
+                // positions, even if not explicitly used at the end, are
+                // eventually susceptible to show rules and receive grid
+                // styling, as they will be resolved as empty cells in a second
+                // loop below.
+                let Some(new_len) = resolved_index
+                    .checked_add(1)
+                    .and_then(|new_len| new_len.checked_add((c - new_len % c) % c))
+                else {
+                    bail!(cell_span, "cell position too large")
+                };
+
+                // Here, the cell needs to be placed in a position which
+                // doesn't exist yet in the grid (out of bounds). We will add
+                // enough absent positions for this to be possible. They must
+                // be absent as no cells actually occupy them (they can be
+                // overridden later); however, if no cells occupy them as we
+                // finish building the grid, then such positions will be
+                // replaced by empty cells.
+                resolved_cells.resize(new_len, None);
+            }
+
+            // The vector is large enough to contain the cell, so we can just
+            // index it directly to access the position it will be placed in.
+            // However, we still need to ensure we won't try to place a cell
+            // where there already is one.
+            let slot = &mut resolved_cells[resolved_index];
+            if slot.is_some() {
+                bail!(
+                    cell_span,
+                    "attempted to place a second cell at column {x}, row {y}";
+                    hint: "try specifying your cells in a different order"
+                );
+            }
+
+            *slot = Some(cell);
+        }
+
+        // Replace absent entries by resolved empty cells, and produce a vector
+        // of 'Cell' from 'Option<Cell>' (final step).
+        let resolved_cells = resolved_cells
+            .into_iter()
             .enumerate()
             .map(|(i, cell)| {
-                let x = i % c;
-                let y = i / c;
+                if let Some(cell) = cell {
+                    Ok(cell)
+                } else {
+                    let x = i % c;
+                    let y = i / c;
 
-                Ok(cell.resolve_cell(
-                    x,
-                    y,
-                    &fill.resolve(engine, x, y)?,
-                    align.resolve(engine, x, y)?,
-                    inset,
-                    styles,
-                ))
+                    // Ensure all absent entries are affected by show rules and
+                    // grid styling by turning them into resolved empty cells.
+                    let new_cell = T::default().resolve_cell(
+                        x,
+                        y,
+                        &fill.resolve(engine, x, y)?,
+                        align.resolve(engine, x, y)?,
+                        inset,
+                        styles,
+                    );
+                    Ok(new_cell)
+                }
             })
-            .collect::<SourceResult<Vec<_>>>()?;
+            .collect::<SourceResult<Vec<Cell>>>()?;
 
-        Ok(Self::new(tracks, gutter, cells, styles))
+        Ok(Self::new(tracks, gutter, resolved_cells, styles))
     }
 
     /// Get the content of the cell in column `x` and row `y`.
@@ -274,6 +379,98 @@ impl CellGrid {
         } else {
             let c = self.cols.len();
             self.cells.get(y * c + x)
+        }
+    }
+}
+
+/// Given a cell's requested x and y, the vector with the resolved cell
+/// positions, the `auto_index` counter (determines the position of the next
+/// `(auto, auto)` cell) and the amount of columns in the grid, returns the
+/// final index of this cell in the vector of resolved cells.
+fn resolve_cell_position(
+    cell_x: Smart<usize>,
+    cell_y: Smart<usize>,
+    resolved_cells: &[Option<Cell>],
+    auto_index: &mut usize,
+    columns: usize,
+) -> HintedStrResult<usize> {
+    // Translates a (x, y) position to the equivalent index in the final cell vector.
+    // Errors if the position would be too large.
+    let cell_index = |x, y: usize| {
+        y.checked_mul(columns)
+            .and_then(|row_index| row_index.checked_add(x))
+            .ok_or_else(|| HintedString::from(eco_format!("cell position too large")))
+    };
+    match (cell_x, cell_y) {
+        // Fully automatic cell positioning. The cell did not
+        // request a coordinate.
+        (Smart::Auto, Smart::Auto) => {
+            // Let's find the first available position starting from the
+            // automatic position counter, searching in row-major order.
+            let mut resolved_index = *auto_index;
+            while let Some(Some(_)) = resolved_cells.get(resolved_index) {
+                // Skip any non-absent cell positions (`Some(None)`) to
+                // determine where this cell will be placed. An out of bounds
+                // position (thus `None`) is also a valid new position (only
+                // requires expanding the vector).
+                resolved_index += 1;
+            }
+
+            // Ensure the next cell with automatic position will be
+            // placed after this one (maybe not immediately after).
+            *auto_index = resolved_index + 1;
+
+            Ok(resolved_index)
+        }
+        // Cell has chosen at least its column.
+        (Smart::Custom(cell_x), cell_y) => {
+            if cell_x >= columns {
+                return Err(HintedString::from(eco_format!(
+                    "cell could not be placed at invalid column {cell_x}"
+                )));
+            }
+            if let Smart::Custom(cell_y) = cell_y {
+                // Cell has chosen its exact position.
+                cell_index(cell_x, cell_y)
+            } else {
+                // Cell has only chosen its column.
+                // Let's find the first row which has that column available.
+                let mut resolved_y = 0;
+                while let Some(Some(_)) =
+                    resolved_cells.get(cell_index(cell_x, resolved_y)?)
+                {
+                    // Try each row until either we reach an absent position
+                    // (`Some(None)`) or an out of bounds position (`None`),
+                    // in which case we'd create a new row to place this cell in.
+                    resolved_y += 1;
+                }
+                cell_index(cell_x, resolved_y)
+            }
+        }
+        // Cell has only chosen its row, not its column.
+        (Smart::Auto, Smart::Custom(cell_y)) => {
+            // Let's find the first column which has that row available.
+            let first_row_pos = cell_index(0, cell_y)?;
+            let last_row_pos = first_row_pos
+                .checked_add(columns)
+                .ok_or_else(|| eco_format!("cell position too large"))?;
+
+            (first_row_pos..last_row_pos)
+                .find(|possible_index| {
+                    // Much like in the previous cases, we skip any occupied
+                    // positions until we either reach an absent position
+                    // (`Some(None)`) or an out of bounds position (`None`),
+                    // in which case we can just expand the vector enough to
+                    // place this cell. In either case, we found an available
+                    // position.
+                    !matches!(resolved_cells.get(*possible_index), Some(Some(_)))
+                })
+                .ok_or_else(|| {
+                    eco_format!(
+                        "cell could not be placed in row {cell_y} because it was full"
+                    )
+                })
+                .hint("try specifying your cells in a different order")
         }
     }
 }

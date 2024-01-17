@@ -4,18 +4,19 @@ pub use self::layout::{Cell, CellGrid, Celled, GridLayouter, ResolvableCell};
 
 use std::num::NonZeroUsize;
 
+use ecow::eco_format;
 use smallvec::{smallvec, SmallVec};
 
-use crate::diag::{SourceResult, StrResult};
+use crate::diag::{SourceResult, StrResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, NativeElement, Packed, Show, Smart,
-    StyleChain, Value,
+    cast, elem, scope, Array, Content, Fold, Packed, Show, Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Fragment, Layout, Length, Regions, Rel, Sides,
     Sizing,
 };
+use crate::syntax::Span;
 use crate::visualize::{Paint, Stroke};
 
 /// Arranges content in a grid.
@@ -60,7 +61,8 @@ use crate::visualize::{Paint, Stroke};
 /// appearance options to depend on a cell's position (column and row), you may
 /// specify a function to `fill` or `align` of the form
 /// `(column, row) => value`. You may also use a show rule on
-/// [`grid.cell`]($grid.cell) - see that element's examples for more information.
+/// [`grid.cell`]($grid.cell) - see that element's examples or the examples
+/// below for more information.
 ///
 /// # Examples
 /// The example below demonstrates the different track sizing options.
@@ -95,6 +97,61 @@ use crate::visualize::{Paint, Stroke};
 ///   columns: 5,
 ///   gutter: 5pt,
 ///   ..range(25).map(str)
+/// )
+/// ```
+///
+/// Additionally, you can use [`grid.cell`]($grid.cell) in various ways to
+/// not only style each cell based on its position and other fields, but also
+/// to determine the cell's preferential position in the table.
+///
+/// ```example
+/// #set page(width: auto)
+/// #show grid.cell: it => {
+///   if it.y == 0 {
+///     // The first row's text must be white and bold.
+///     set text(white)
+///     strong(it)
+///   } else {
+///     // For the second row and beyond, we will show the day number for each
+///     // cell.
+///
+///     // In general, a cell's index is given by cell.x + columns * cell.y.
+///     // Days start in the second grid row, so we subtract 1 row.
+///     // But the first day is day 1, not day 0, so we add 1.
+///     let day = it.x + 7 * (it.y - 1) + 1
+///     if day <= 31 {
+///       // Place the day's number at the top left of the cell.
+///       // Only if the day is valid for this month (not 32 or higher).
+///       place(top + left, dx: 2pt, dy: 2pt, text(8pt, red.darken(40%))[#day])
+///     }
+///     it
+///   }
+/// }
+///
+/// #grid(
+///   fill: (x, y) => if y == 0 { gray.darken(50%) },
+///   columns: (30pt,) * 7,
+///   rows: (auto, 30pt),
+///   // Events will be written at the bottom of each day square.
+///   align: bottom,
+///   inset: 5pt,
+///   stroke: (thickness: 0.5pt, dash: "densely-dotted"),
+///
+///   [Sun], [Mon], [Tue], [Wed], [Thu], [Fri], [Sat],
+///
+///   // This event will occur on the first Friday (sixth column).
+///   grid.cell(x: 5, fill: yellow.darken(10%))[Call],
+///
+///   // This event will occur every Monday (second column).
+///   // We have to repeat it 5 times so it occurs every week.
+///   ..(grid.cell(x: 1, fill: red.lighten(50%))[Meet],) * 5,
+///
+///   // This event will occur at day 19.
+///   grid.cell(x: 4, y: 3, fill: orange.lighten(25%))[Talk],
+///
+///   // These events will occur at the second week, where available.
+///   grid.cell(y: 2, fill: aqua)[Chat],
+///   grid.cell(y: 2, fill: aqua)[Walk],
 /// )
 /// ```
 #[elem(scope, Layout)]
@@ -213,7 +270,7 @@ pub struct GridElem {
     ///
     /// The cells are populated in row-major order.
     #[variadic]
-    pub children: Vec<GridCell>,
+    pub children: Vec<Packed<GridCell>>,
 }
 
 #[scope]
@@ -241,6 +298,8 @@ impl Layout for Packed<GridElem> {
 
         let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
+        // Use trace to link back to the grid when a specific cell errors
+        let tracepoint = || Tracepoint::Call(Some(eco_format!("grid")));
         let grid = CellGrid::resolve(
             tracks,
             gutter,
@@ -250,7 +309,9 @@ impl Layout for Packed<GridElem> {
             inset,
             engine,
             styles,
-        )?;
+            self.span(),
+        )
+        .trace(engine.world, tracepoint, self.span())?;
 
         let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
 
@@ -290,11 +351,83 @@ cast! {
 ///   [G], grid.cell(inset: 0pt)[H]
 /// )
 /// ```
+///
+/// You may also apply a show rule on `grid.cell` to style all cells at once,
+/// which allows you, for example, to apply styles based on a cell's position:
+///
+/// ```example
+/// #show grid.cell: it => {
+///   if it.y == 0 {
+///     // First row is bold
+///     strong(it)
+///   } else if it.x == 1 {
+///     // Second column is italicized
+///     // (except at the first row)
+///     emph(it)
+///   } else {
+///     // Remaining cells aren't changed
+///     it
+///   }
+/// }
+///
+/// #grid(
+///   columns: 3,
+///   gutter: 3pt,
+///   [Name], [Age], [Info],
+///   [John], [52], [Nice],
+///   [Mary], [50], [Cool],
+///   [Jake], [49], [Epic]
+/// )
+/// ```
 #[elem(name = "cell", title = "Grid Cell", Show)]
 pub struct GridCell {
     /// The cell's body.
     #[required]
     body: Content,
+
+    /// The cell's column (zero-indexed).
+    /// This field may be used in show rules to style a cell depending on its
+    /// column.
+    ///
+    /// You may override this field to pick in which column the cell must
+    /// be placed. If no row (`y`) is chosen, the cell will be placed in the
+    /// first row (starting at row 0) with that column available (or a new row
+    /// if none). If both `x` and `y` are chosen, however, the cell will be
+    /// placed in that exact position. An error is raised if that position is
+    /// not available (thus, it is usually wise to specify cells with a custom
+    /// position before cells with automatic positions).
+    ///
+    /// ```example
+    /// #grid(
+    ///   columns: 4,
+    ///   rows: 2.5em,
+    ///   fill: (x, y) => if calc.odd(x + y) { blue.lighten(50%) } else { blue.lighten(10%) },
+    ///   align: center + horizon,
+    ///   inset: 3pt,
+    ///   grid.cell(x: 2, y: 2)[3],
+    ///   [1], grid.cell(x: 3)[4], [2],
+    /// )
+    /// ```
+    x: Smart<usize>,
+
+    /// The cell's row (zero-indexed).
+    /// This field may be used in show rules to style a cell depending on its
+    /// row.
+    ///
+    /// You may override this field to pick in which row the cell must be
+    /// placed. If no column (`x`) is chosen, the cell will be placed in the
+    /// first column (starting at column 0) available in the chosen row. If all
+    /// columns in the chosen row are already occupied, an error is raised.
+    ///
+    /// ```example
+    /// #grid(
+    ///   columns: 2,
+    ///   fill: (x, y) => if calc.odd(x + y) { gray.lighten(40%) },
+    ///   inset: 1pt,
+    ///   [A], grid.cell(y: 1)[B], grid.cell(y: 1)[C], grid.cell(y: 2)[D]
+    /// )
+    /// ```
+    y: Smart<usize>,
 
     /// The cell's fill override.
     fill: Smart<Option<Paint>>,
@@ -311,38 +444,53 @@ cast! {
     v: Content => v.into(),
 }
 
-impl Default for GridCell {
+impl Default for Packed<GridCell> {
     fn default() -> Self {
-        Self::new(Content::default())
+        Packed::new(GridCell::new(Content::default()))
     }
 }
 
-impl ResolvableCell for GridCell {
+impl ResolvableCell for Packed<GridCell> {
     fn resolve_cell(
         mut self,
-        _: usize,
-        _: usize,
+        x: usize,
+        y: usize,
         fill: &Option<Paint>,
         align: Smart<Alignment>,
         inset: Sides<Rel<Length>>,
         styles: StyleChain,
     ) -> Cell {
-        let fill = self.fill(styles).unwrap_or_else(|| fill.clone());
-        self.push_fill(Smart::Custom(fill.clone()));
-        self.push_align(match align {
+        let cell = &mut *self;
+        let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
+        cell.push_x(Smart::Custom(x));
+        cell.push_y(Smart::Custom(y));
+        cell.push_fill(Smart::Custom(fill.clone()));
+        cell.push_align(match align {
             Smart::Custom(align) => {
-                Smart::Custom(self.align(styles).map_or(align, |inner| inner.fold(align)))
+                Smart::Custom(cell.align(styles).map_or(align, |inner| inner.fold(align)))
             }
             // Don't fold if the grid is using outer alignment. Use the
             // cell's alignment instead (which, in the end, will fold with
             // the outer alignment when it is effectively displayed).
-            Smart::Auto => self.align(styles),
+            Smart::Auto => cell.align(styles),
         });
-        self.push_inset(Smart::Custom(
-            self.inset(styles).map_or(inset, |inner| inner.fold(inset)).map(Some),
+        cell.push_inset(Smart::Custom(
+            cell.inset(styles).map_or(inset, |inner| inner.fold(inset)).map(Some),
         ));
 
         Cell { body: self.pack(), fill }
+    }
+
+    fn x(&self, styles: StyleChain) -> Smart<usize> {
+        (**self).x(styles)
+    }
+
+    fn y(&self, styles: StyleChain) -> Smart<usize> {
+        (**self).y(styles)
+    }
+
+    fn span(&self) -> Span {
+        Packed::span(self)
     }
 }
 

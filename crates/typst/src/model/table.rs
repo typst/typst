@@ -1,13 +1,16 @@
-use crate::diag::SourceResult;
+use ecow::eco_format;
+
+use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Content, Fold, NativeElement, Packed, Show, Smart, StyleChain,
+    cast, elem, scope, Content, Fold, Packed, Show, Smart, StyleChain,
 };
 use crate::layout::{
     show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter,
     Layout, Length, Regions, Rel, ResolvableCell, Sides, TrackSizings,
 };
 use crate::model::Figurable;
+use crate::syntax::Span;
 use crate::text::{Lang, LocalName, Region};
 use crate::visualize::{Paint, Stroke};
 
@@ -29,6 +32,8 @@ use crate::visualize::{Paint, Stroke};
 /// [figure]($figure).
 ///
 /// # Example
+///
+/// The example below demonstrates some of the most common table options.
 /// ```example
 /// #table(
 ///   columns: (1fr, auto, auto),
@@ -45,6 +50,40 @@ use crate::visualize::{Paint, Stroke};
 ///   image("tetrahedron.svg"),
 ///   $ sqrt(2) / 12 a^3 $,
 ///   [$a$: edge length]
+/// )
+/// ```
+///
+/// Much like with grids, you can use [`table.cell`]($table.cell) to customize
+/// the appearance and the position of each cell.
+///
+/// ```example
+/// #set page(width: auto)
+/// #show table.cell: it => {
+///   if it.x == 0 or it.y == 0 {
+///     set text(white)
+///     strong(it)
+///   } else if it.body == [] {
+///     // Replace empty cells with 'N/A'
+///     pad(rest: it.inset)[_N/A_]
+///   } else {
+///     it
+///   }
+/// }
+///
+/// #table(
+///   fill: (x, y) => if x == 0 or y == 0 { gray.darken(50%) },
+///   columns: 4,
+///   [], [Exam 1], [Exam 2], [Exam 3],
+///   ..([John], [Mary], [Jake], [Robert]).map(table.cell.with(x: 0)),
+///
+///   // Mary got grade A on Exam 3.
+///   table.cell(x: 3, y: 2, fill: green)[A],
+///
+///   // Everyone got grade A on Exam 2.
+///   ..(table.cell(x: 2, fill: green)[A],) * 4,
+///
+///   // Robert got grade B on other exams.
+///   ..(table.cell(y: 4, fill: aqua)[B],) * 2,
 /// )
 /// ```
 #[elem(scope, Layout, LocalName, Figurable)]
@@ -157,7 +196,7 @@ pub struct TableElem {
 
     /// The contents of the table cells.
     #[variadic]
-    pub children: Vec<TableCell>,
+    pub children: Vec<Packed<TableCell>>,
 }
 
 #[scope]
@@ -185,6 +224,8 @@ impl Layout for Packed<TableElem> {
 
         let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
+        // Use trace to link back to the table when a specific cell errors
+        let tracepoint = || Tracepoint::Call(Some(eco_format!("table")));
         let grid = CellGrid::resolve(
             tracks,
             gutter,
@@ -194,7 +235,9 @@ impl Layout for Packed<TableElem> {
             inset,
             engine,
             styles,
-        )?;
+            self.span(),
+        )
+        .trace(engine.world, tracepoint, self.span())?;
 
         let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
 
@@ -259,11 +302,47 @@ impl Figurable for Packed<TableElem> {}
 ///   [M.], table.cell(inset: 0pt)[Player]
 /// )
 /// ```
+///
+/// You may also apply a show rule on `table.cell` to style all cells at once,
+/// which allows you, for example, to apply styles based on a cell's position:
+///
+/// ```example
+/// #show table.cell: it => {
+///   if it.y == 0 {
+///     // First row is bold
+///     strong(it)
+///   } else if it.x == 1 {
+///     // Second column is italicized
+///     // (except at the first row)
+///     emph(it)
+///   } else {
+///     // Remaining cells aren't changed
+///     it
+///   }
+/// }
+///
+/// #table(
+///   columns: 3,
+///   gutter: 3pt,
+///   [Name], [Age], [Info],
+///   [John], [52], [Nice],
+///   [Mary], [50], [Cool],
+///   [Jake], [49], [Epic]
+/// )
+/// ```
 #[elem(name = "cell", title = "Table Cell", Show)]
 pub struct TableCell {
     /// The cell's body.
     #[required]
     body: Content,
+
+    /// The cell's column (zero-indexed).
+    /// Functions identically to the `x` field in [`grid.cell`]($grid.cell).
+    x: Smart<usize>,
+
+    /// The cell's row (zero-indexed).
+    /// Functions identically to the `y` field in [`grid.cell`]($grid.cell).
+    y: Smart<usize>,
 
     /// The cell's fill override.
     fill: Smart<Option<Paint>>,
@@ -280,38 +359,53 @@ cast! {
     v: Content => v.into(),
 }
 
-impl Default for TableCell {
+impl Default for Packed<TableCell> {
     fn default() -> Self {
-        Self::new(Content::default())
+        Packed::new(TableCell::new(Content::default()))
     }
 }
 
-impl ResolvableCell for TableCell {
+impl ResolvableCell for Packed<TableCell> {
     fn resolve_cell(
         mut self,
-        _: usize,
-        _: usize,
+        x: usize,
+        y: usize,
         fill: &Option<Paint>,
         align: Smart<Alignment>,
         inset: Sides<Rel<Length>>,
         styles: StyleChain,
     ) -> Cell {
-        let fill = self.fill(styles).unwrap_or_else(|| fill.clone());
-        self.push_fill(Smart::Custom(fill.clone()));
-        self.push_align(match align {
+        let cell = &mut *self;
+        let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
+        cell.push_x(Smart::Custom(x));
+        cell.push_y(Smart::Custom(y));
+        cell.push_fill(Smart::Custom(fill.clone()));
+        cell.push_align(match align {
             Smart::Custom(align) => {
-                Smart::Custom(self.align(styles).map_or(align, |inner| inner.fold(align)))
+                Smart::Custom(cell.align(styles).map_or(align, |inner| inner.fold(align)))
             }
             // Don't fold if the table is using outer alignment. Use the
             // cell's alignment instead (which, in the end, will fold with
             // the outer alignment when it is effectively displayed).
-            Smart::Auto => self.align(styles),
+            Smart::Auto => cell.align(styles),
         });
-        self.push_inset(Smart::Custom(
-            self.inset(styles).map_or(inset, |inner| inner.fold(inset)).map(Some),
+        cell.push_inset(Smart::Custom(
+            cell.inset(styles).map_or(inset, |inner| inner.fold(inset)).map(Some),
         ));
 
         Cell { body: self.pack(), fill }
+    }
+
+    fn x(&self, styles: StyleChain) -> Smart<usize> {
+        (**self).x(styles)
+    }
+
+    fn y(&self, styles: StyleChain) -> Smart<usize> {
+        (**self).y(styles)
+    }
+
+    fn span(&self) -> Span {
+        Packed::span(self)
     }
 }
 
