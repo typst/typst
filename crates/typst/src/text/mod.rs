@@ -86,7 +86,7 @@ pub(super) fn define(global: &mut Scope) {
 ///   With a function call.
 /// ])
 /// ```
-#[elem(Construct, PlainText, Repr)]
+#[elem(Debug, Construct, PlainText, Repr)]
 pub struct TextElem {
     /// A font family name or priority list of font family names.
     ///
@@ -654,6 +654,12 @@ impl TextElem {
     /// Create a new packed text element.
     pub fn packed(text: impl Into<EcoString>) -> Content {
         Self::new(text.into()).pack()
+    }
+}
+
+impl Debug for TextElem {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Text({})", self.text)
     }
 }
 

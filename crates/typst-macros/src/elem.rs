@@ -322,10 +322,12 @@ fn create(element: &Elem) -> Result<TokenStream> {
     let partial_eq_impl =
         element.unless_capability("PartialEq", || create_partial_eq_impl(element));
     let repr_impl = element.unless_capability("Repr", || create_repr_impl(element));
+    let derive_debug = element.unless_capability("Debug", || quote! { #[derive(Debug)] });
 
     Ok(quote! {
         #[doc = #docs]
-        #[derive(Debug, Clone, Hash)]
+        #derive_debug
+        #[derive(Clone, Hash)]
         #[allow(clippy::derived_hash_with_manual_eq)]
         #vis struct #ident {
             #(#fields,)*
@@ -974,7 +976,8 @@ fn create_repr_impl(element: &Elem) -> TokenStream {
 /// Creates the element's casting vtable.
 fn create_capable_impl(element: &Elem) -> TokenStream {
     // Forbidden capabilities (i.e capabilities that are not object safe).
-    const FORBIDDEN: &[&str] = &["Construct", "PartialEq", "Hash", "LocalName", "Repr"];
+    const FORBIDDEN: &[&str] =
+        &["Construct", "PartialEq", "Hash", "LocalName", "Repr", "Debug"];
 
     let ident = &element.ident;
     let relevant = element

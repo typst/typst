@@ -1,3 +1,5 @@
+use std::fmt::{self, Debug, Formatter};
+
 use comemo::Prehashed;
 
 use crate::diag::{bail, SourceResult};
@@ -22,7 +24,7 @@ use crate::visualize::{
 ///
 /// This element is responsible for layouting both the top-level content flow
 /// and the contents of boxes.
-#[elem(Layout)]
+#[elem(Debug, Layout)]
 pub struct FlowElem {
     /// The children that will be arranges into a flow.
     #[variadic]
@@ -92,6 +94,13 @@ impl Layout for Packed<FlowElem> {
         }
 
         layouter.finish(engine)
+    }
+}
+
+impl Debug for FlowElem {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Flow ")?;
+        f.debug_list().entries(&self.children).finish()
     }
 }
 

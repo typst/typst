@@ -879,10 +879,17 @@ impl<T: NativeElement + Debug> Debug for Packed<T> {
 }
 
 /// Defines the element for sequences.
-#[elem(Repr, PartialEq)]
+#[elem(Debug, Repr, PartialEq)]
 struct SequenceElem {
     #[required]
     children: Vec<Prehashed<Content>>,
+}
+
+impl Debug for SequenceElem {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Sequence ")?;
+        f.debug_list().entries(&self.children).finish()
+    }
 }
 
 // Derive is currently incompatible with `elem` macro.
@@ -923,12 +930,21 @@ impl Repr for SequenceElem {
 }
 
 /// Defines the `ElemFunc` for styled elements.
-#[elem(Repr, PartialEq)]
+#[elem(Debug, Repr, PartialEq)]
 struct StyledElem {
     #[required]
     child: Prehashed<Content>,
     #[required]
     styles: Styles,
+}
+
+impl Debug for StyledElem {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        for style in self.styles.iter() {
+            writeln!(f, "#{style:?}")?;
+        }
+        self.child.fmt(f)
+    }
 }
 
 impl PartialEq for StyledElem {

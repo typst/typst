@@ -80,6 +80,11 @@ impl Styles {
         self.0.is_empty()
     }
 
+    /// Iterate over the contained styles.
+    pub fn iter(&self) -> impl Iterator<Item = &Style> {
+        self.0.iter().map(|style| &**style)
+    }
+
     /// Set an inner value for a style property.
     ///
     /// If the property needs folding and the value is already contained in the
