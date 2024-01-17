@@ -322,9 +322,6 @@ impl<'a> ShapedText<'a> {
             offset += width;
         }
 
-        // Apply metadata.
-        frame.meta(self.styles, false);
-
         frame
     }
 

@@ -172,7 +172,6 @@ impl Layout for Packed<BoxElem> {
         }
 
         // Apply metadata.
-        frame.meta(styles, false);
         frame.set_kind(FrameKind::Hard);
 
         Ok(Fragment::frame(frame))
@@ -454,7 +453,6 @@ impl Layout for Packed<BlockElem> {
         // Apply metadata.
         for frame in &mut frames {
             frame.set_kind(FrameKind::Hard);
-            frame.meta(styles, false);
         }
 
         Ok(Fragment::frames(frames))

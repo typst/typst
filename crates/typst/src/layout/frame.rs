@@ -289,18 +289,30 @@ impl Frame {
     /// Attach metadata from an iterator.
     pub fn meta_iter(&mut self, iter: impl IntoIterator<Item = Meta>) {
         let mut hide = false;
-        for meta in iter {
+        let size = self.size;
+        self.prepend_multiple(iter.into_iter().filter_map(|meta| {
             if matches!(meta, Meta::Hide) {
                 hide = true;
+                None
             } else {
-                self.prepend(Point::zero(), FrameItem::Meta(meta, self.size));
+                Some((Point::zero(), FrameItem::Meta(meta, size)))
             }
-        }
+        }));
         if hide {
-            Arc::make_mut(&mut self.items).retain(|(_, item)| {
-                matches!(item, FrameItem::Group(_) | FrameItem::Meta(Meta::Elem(_), _))
-            });
+            self.hide();
         }
+    }
+
+    /// Hide all content in the frame, but keep metadata.
+    pub fn hide(&mut self) {
+        Arc::make_mut(&mut self.items).retain_mut(|(_, item)| match item {
+            FrameItem::Group(group) => {
+                group.frame.hide();
+                !group.frame.is_empty()
+            }
+            FrameItem::Meta(Meta::Elem(_), _) => true,
+            _ => false,
+        });
     }
 
     /// Add a background fill.

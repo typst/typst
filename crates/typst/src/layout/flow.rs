@@ -71,14 +71,7 @@ impl Layout for Packed<FlowElem> {
                 let layoutable = child.with::<dyn Layout>().unwrap();
                 layouter.layout_single(engine, layoutable, styles)?;
             } else if child.is::<MetaElem>() {
-                let mut frame = Frame::soft(Size::zero());
-                frame.meta(styles, true);
-                layouter.items.push(FlowItem::Frame {
-                    frame,
-                    align: Axes::splat(FixedAlignment::Start),
-                    sticky: true,
-                    movable: false,
-                });
+                layouter.layout_meta(styles);
             } else if let Some(placed) = child.to_packed::<PlaceElem>() {
                 layouter.layout_placed(engine, placed, styles)?;
             } else if child.can::<dyn Layout>() {
@@ -297,13 +290,26 @@ impl<'a> FlowLayouter<'a> {
         let align = AlignElem::alignment_in(styles).resolve(styles);
         let sticky = BlockElem::sticky_in(styles);
         let pod = Regions::one(self.regions.base(), Axes::splat(false));
-        let frame = content.layout(engine, styles, pod)?.into_frame();
+        let mut frame = content.layout(engine, styles, pod)?.into_frame();
+        frame.meta(styles, false);
         self.layout_item(
             engine,
             FlowItem::Frame { frame, align, sticky, movable: true },
         )?;
         self.last_was_par = false;
         Ok(())
+    }
+
+    /// Place explicit metadata into the flow.
+    fn layout_meta(&mut self, styles: StyleChain) {
+        let mut frame = Frame::soft(Size::zero());
+        frame.meta(styles, true);
+        self.items.push(FlowItem::Frame {
+            frame,
+            align: Axes::splat(FixedAlignment::Start),
+            sticky: true,
+            movable: false,
+        });
     }
 
     /// Layout a placed element.
@@ -321,7 +327,8 @@ impl<'a> FlowLayouter<'a> {
             align.x().unwrap_or_default().resolve(styles)
         });
         let y_align = alignment.map(|align| align.y().map(VAlignment::fix));
-        let frame = placed.layout(engine, styles, self.regions)?.into_frame();
+        let mut frame = placed.layout(engine, styles, self.regions)?.into_frame();
+        frame.meta(styles, false);
         let item = FlowItem::Placed { frame, x_align, y_align, delta, float, clearance };
         self.layout_item(engine, item)
     }
@@ -361,7 +368,7 @@ impl<'a> FlowLayouter<'a> {
         let sticky = BlockElem::sticky_in(styles);
         let fragment = block.layout(engine, styles, self.regions)?;
 
-        for (i, frame) in fragment.into_iter().enumerate() {
+        for (i, mut frame) in fragment.into_iter().enumerate() {
             // Find footnotes in the frame.
             if self.root {
                 find_footnotes(&mut notes, &frame);
@@ -371,8 +378,11 @@ impl<'a> FlowLayouter<'a> {
                 self.finish_region(engine, false)?;
             }
 
-            let item = FlowItem::Frame { frame, align, sticky, movable: false };
-            self.layout_item(engine, item)?;
+            frame.meta(styles, false);
+            self.layout_item(
+                engine,
+                FlowItem::Frame { frame, align, sticky, movable: false },
+            )?;
         }
 
         self.try_handle_footnotes(engine, notes)?;

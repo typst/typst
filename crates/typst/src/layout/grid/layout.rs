@@ -570,12 +570,7 @@ impl<'a> GridLayouter<'a> {
         }
 
         self.finish_region(engine)?;
-
         self.render_fills_strokes()?;
-
-        for frame in &mut self.finished {
-            frame.meta(self.styles, false);
-        }
 
         Ok(Fragment::frames(self.finished))
     }
