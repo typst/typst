@@ -523,9 +523,6 @@ fn layout(
         }
     }
 
-    // Apply metadata.
-    frame.meta(styles, false);
-
     Ok(Fragment::frame(frame))
 }
 

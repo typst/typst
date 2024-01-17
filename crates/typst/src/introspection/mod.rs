@@ -58,6 +58,15 @@ pub fn define(global: &mut Scope) {
 pub struct MetaElem {
     /// Metadata that should be attached to all elements affected by this style
     /// property.
+    ///
+    /// This must be accessed and applied to all frames produced by elements
+    /// that manually handle styles (because their children can have varying
+    /// styles). This currently includes flow, par, and equation.
+    ///
+    /// Other elements don't manually need to handle it because their parents
+    /// that result from realization will take care of it and the metadata can
+    /// only apply to them as a whole, not part of it (because they don't manage
+    /// styles).
     #[fold]
     pub data: SmallVec<[Meta; 1]>,
 }

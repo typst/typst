@@ -188,9 +188,6 @@ impl Packed<EquationElem> {
             let descent = bottom_edge.max(frame.descent() - slack);
             frame.translate(Point::with_y(ascent - frame.baseline()));
             frame.size_mut().y = ascent + descent;
-
-            // Apply metadata.
-            frame.meta(styles, false);
         }
 
         Ok(items)
@@ -250,9 +247,6 @@ impl Layout for Packed<EquationElem> {
 
             frame.push_frame(Point::new(x, y), counter)
         }
-
-        // Apply metadata.
-        frame.meta(styles, false);
 
         Ok(Fragment::frame(frame))
     }

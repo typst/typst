@@ -171,7 +171,6 @@ impl Layout for Packed<PolygonElem> {
 
         let shape = Shape { geometry: Geometry::Path(path), stroke, fill };
         frame.push(Point::zero(), FrameItem::Shape(shape, self.span()));
-        frame.meta(styles, false);
 
         Ok(Fragment::frame(frame))
     }

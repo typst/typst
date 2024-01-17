@@ -236,12 +236,8 @@ impl Layout for Packed<ImageElem> {
 
         // Create a clipping group if only part of the image should be visible.
         if fit == ImageFit::Cover && !target.fits(fitted) {
-            frame.meta(styles, false);
             frame.clip(Path::rect(frame.size()));
         }
-
-        // Apply metadata.
-        frame.meta(styles, false);
 
         Ok(Fragment::frame(frame))
     }

@@ -89,7 +89,6 @@ impl Layout for Packed<LineElem> {
         let mut frame = Frame::soft(target);
         let shape = Geometry::Line(delta.to_point()).stroked(stroke);
         frame.push(start.to_point(), FrameItem::Shape(shape, self.span()));
-        frame.meta(styles, false);
         Ok(Fragment::frame(frame))
     }
 }

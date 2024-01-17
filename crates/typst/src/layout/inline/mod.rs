@@ -501,7 +501,11 @@ fn collect<'a>(
             Segment::Text(full.len() - prev)
         } else if let Some(elem) = child.to_packed::<EquationElem>() {
             let pod = Regions::one(region, Axes::splat(false));
-            let items = elem.layout_inline(engine, styles, pod)?;
+            let mut items = elem.layout_inline(engine, styles, pod)?;
+            for item in &mut items {
+                let MathParItem::Frame(frame) = item else { continue };
+                frame.meta(styles, false);
+            }
             full.extend(items.iter().map(MathParItem::text));
             Segment::Equation(elem, items)
         } else if let Some(elem) = child.to_packed::<BoxElem>() {
@@ -591,6 +595,7 @@ fn prepare<'a>(
                 } else {
                     let pod = Regions::one(region, Axes::splat(false));
                     let mut frame = elem.layout(engine, styles, pod)?.into_frame();
+                    frame.meta(styles, false);
                     frame.translate(Point::with_y(TextElem::baseline_in(styles)));
                     items.push(Item::Frame(frame));
                 }
@@ -1315,6 +1320,7 @@ fn commit(
                     let region = Size::new(amount, full);
                     let pod = Regions::one(region, Axes::new(true, false));
                     let mut frame = elem.layout(engine, *styles, pod)?.into_frame();
+                    frame.meta(*styles, false);
                     frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
                     push(&mut offset, frame);
                 } else {
@@ -1322,8 +1328,9 @@ fn commit(
                 }
             }
             Item::Text(shaped) => {
-                let frame =
+                let mut frame =
                     shaped.build(engine, justification_ratio, extra_justification);
+                frame.meta(shaped.styles, false);
                 push(&mut offset, frame);
             }
             Item::Frame(frame) | Item::Meta(frame) => {
