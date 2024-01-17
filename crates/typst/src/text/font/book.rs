@@ -257,6 +257,9 @@ impl FontInfo {
                 {
                     number += 50;
                 }
+                if full.ends_with("black") {
+                    number = 900;
+                }
                 FontWeight::from_number(number)
             };
 
