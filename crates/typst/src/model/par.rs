@@ -1,3 +1,5 @@
+use std::fmt::{self, Debug, Formatter};
+
 use comemo::Prehashed;
 
 use crate::diag::SourceResult;
@@ -33,7 +35,7 @@ use crate::layout::{Em, Fragment, Length, Size};
 /// let $a$ be the smallest of the
 /// three integers. Then, we ...
 /// ```
-#[elem(title = "Paragraph", Construct)]
+#[elem(title = "Paragraph", Debug, Construct)]
 pub struct ParElem {
     /// The spacing between lines.
     #[resolve]
@@ -141,6 +143,13 @@ impl Packed<ParElem> {
             region,
             expand,
         )
+    }
+}
+
+impl Debug for ParElem {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Par ")?;
+        f.debug_list().entries(&self.children).finish()
     }
 }
 
