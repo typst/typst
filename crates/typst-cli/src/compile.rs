@@ -219,7 +219,7 @@ fn export_image(
         .pages
         .par_iter()
         .enumerate()
-        .map(|(i, frame)| {
+        .map(|(i, page)| {
             let storage;
             let path = if numbered {
                 storage = string.replace("{n}", &format!("{:0width$}", i + 1));
@@ -231,20 +231,23 @@ fn export_image(
             // If we are not watching, don't use the cache.
             // If the frame is in the cache, skip it.
             // If the file does not exist, always create it.
-            if watching && cache.is_cached(i, frame) && path.exists() {
+            if watching && cache.is_cached(i, &page.frame) && path.exists() {
                 return Ok(());
             }
 
             match fmt {
                 ImageExportFormat::Png => {
-                    let pixmap =
-                        typst_render::render(frame, command.ppi / 72.0, Color::WHITE);
+                    let pixmap = typst_render::render(
+                        &page.frame,
+                        command.ppi / 72.0,
+                        Color::WHITE,
+                    );
                     pixmap
                         .save_png(path)
                         .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;
                 }
                 ImageExportFormat::Svg => {
-                    let svg = typst_svg::svg(frame);
+                    let svg = typst_svg::svg(&page.frame);
                     fs::write(path, svg.as_bytes())
                         .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;
                 }

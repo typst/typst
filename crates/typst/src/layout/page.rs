@@ -9,10 +9,10 @@ use crate::foundations::{
     cast, elem, AutoValue, Cast, Content, Dict, Fold, Func, NativeElement, Packed,
     Resolve, Smart, StyleChain, Value,
 };
-use crate::introspection::{Counter, CounterKey, ManualPageCounter, Meta};
+use crate::introspection::{Counter, CounterKey, ManualPageCounter};
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, ColumnsElem, Dir, Fragment, Frame, HAlignment,
-    Layout, Length, Point, Ratio, Regions, Rel, Sides, Size, VAlignment,
+    Abs, AlignElem, Alignment, Axes, ColumnsElem, Dir, Frame, HAlignment, Layout, Length,
+    Point, Ratio, Regions, Rel, Sides, Size, VAlignment,
 };
 
 use crate::model::Numbering;
@@ -347,7 +347,7 @@ impl Packed<PageElem> {
         styles: StyleChain,
         page_counter: &mut ManualPageCounter,
         extend_to: Option<Parity>,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Vec<Page>> {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
         let width = self.width(styles).unwrap_or(Abs::inf());
@@ -413,7 +413,6 @@ impl Packed<PageElem> {
         let header_ascent = self.header_ascent(styles);
         let footer_descent = self.footer_descent(styles);
         let numbering = self.numbering(styles);
-        let numbering_meta = Meta::PageNumbering(numbering.clone());
         let number_align = self.number_align(styles);
         let mut header = Cow::Borrowed(self.header(styles));
         let mut footer = Cow::Borrowed(self.footer(styles));
@@ -447,7 +446,8 @@ impl Packed<PageElem> {
         }
 
         // Post-process pages.
-        for frame in frames.iter_mut() {
+        let mut pages = Vec::with_capacity(frames.len());
+        for mut frame in frames {
             // The padded width of the page's content without margins.
             let pw = frame.width();
 
@@ -462,7 +462,6 @@ impl Packed<PageElem> {
             // Realize margins.
             frame.set_size(frame.size() + margin.sum_by_axis());
             frame.translate(Point::new(margin.left, margin.top));
-            frame.push_positionless_meta(numbering_meta.clone());
 
             // The page size with margins.
             let size = frame.size();
@@ -506,20 +505,30 @@ impl Packed<PageElem> {
                 frame.fill(fill.clone());
             }
 
-            page_counter.visit(engine, frame)?;
-
-            // Add a PDF page label if there is a numbering.
-            if let Some(num) = numbering {
-                if let Some(page_label) = num.apply_pdf(page_counter.logical()) {
-                    frame.push_positionless_meta(Meta::PdfPageLabel(page_label));
-                }
-            }
+            page_counter.visit(engine, &frame)?;
+            pages.push(Page {
+                frame,
+                numbering: numbering.clone(),
+                number: page_counter.logical(),
+            });
 
             page_counter.step();
         }
 
-        Ok(Fragment::frames(frames))
+        Ok(pages)
     }
+}
+
+/// A finished page.
+#[derive(Debug, Default, Clone)]
+pub struct Page {
+    /// The frame that defines the page.
+    pub frame: Frame,
+    /// The page's numbering.
+    pub numbering: Option<Numbering>,
+    /// The logical page number (controlled by `counter(page)` and may thus not
+    /// match the physical number).
+    pub number: usize,
 }
 
 /// Specification of the page's margins.

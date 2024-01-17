@@ -33,7 +33,7 @@ use typst::diag::{bail, FileError, FileResult, Severity, SourceDiagnostic, StrRe
 use typst::eval::Tracer;
 use typst::foundations::{func, Bytes, Datetime, NoneValue, Repr, Smart, Value};
 use typst::introspection::Meta;
-use typst::layout::{Abs, Frame, FrameItem, Margin, PageElem, Transform};
+use typst::layout::{Abs, Frame, FrameItem, Margin, Page, PageElem, Transform};
 use typst::model::Document;
 use typst::syntax::{FileId, Source, SyntaxNode, VirtualPath};
 use typst::text::{Font, FontBook, TextElem, TextSize};
@@ -423,7 +423,7 @@ fn test(
     let mut output = String::new();
     let mut ok = true;
     let mut updated = false;
-    let mut frames = vec![];
+    let mut pages = vec![];
     let mut line = 0;
     let mut header_configuration = None;
     let mut compare_ever = false;
@@ -490,13 +490,13 @@ fn test(
 
             ok &= part_ok;
             compare_ever |= compare_here;
-            frames.extend(part_frames);
+            pages.extend(part_frames);
         }
 
         line += part.lines().count() + 1;
     }
 
-    let document = Document { pages: frames, ..Default::default() };
+    let document = Document { pages, ..Default::default() };
     if compare_ever {
         if let Some(pdf_path) = pdf_path {
             let pdf_data = typst_pdf::pdf(
@@ -514,11 +514,12 @@ fn test(
             }
         }
 
-        let canvas = render(&document.pages);
+        let canvas = render(&document);
         fs::create_dir_all(png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
-        let svg = typst_svg::svg_merged(&document.pages, Abs::pt(5.0));
+        let svg = typst_svg::svg_merged(&document, Abs::pt(5.0));
+
         fs::create_dir_all(svg_path.parent().unwrap()).unwrap();
         std::fs::write(svg_path, svg.as_bytes()).unwrap();
 
@@ -595,7 +596,7 @@ fn test_part(
     header_configuration: &TestConfig,
     rng: &mut LinearShift,
     verbose: bool,
-) -> (bool, bool, Vec<Frame>) {
+) -> (bool, bool, Vec<Page>) {
     let source = world.set(src_path, text);
     if world.print.syntax {
         writeln!(output, "Syntax Tree:\n{:#?}\n", source.root()).unwrap();
@@ -1038,19 +1039,19 @@ fn test_spans_impl(output: &mut String, node: &SyntaxNode, within: Range<u64>) -
 }
 
 /// Draw all frames into one image with padding in between.
-fn render(frames: &[Frame]) -> sk::Pixmap {
+fn render(document: &Document) -> sk::Pixmap {
     let pixel_per_pt = 2.0;
     let padding = Abs::pt(5.0);
 
-    for frame in frames {
+    for page in &document.pages {
         let limit = Abs::cm(100.0);
-        if frame.width() > limit || frame.height() > limit {
-            panic!("overlarge frame: {:?}", frame.size());
+        if page.frame.width() > limit || page.frame.height() > limit {
+            panic!("overlarge frame: {:?}", page.frame.size());
         }
     }
 
     let mut pixmap = typst_render::render_merged(
-        frames,
+        document,
         pixel_per_pt,
         Color::WHITE,
         padding,
@@ -1059,11 +1060,12 @@ fn render(frames: &[Frame]) -> sk::Pixmap {
 
     let padding = (pixel_per_pt * padding.to_pt() as f32).round();
     let [x, mut y] = [padding; 2];
-    for frame in frames {
+    for page in &document.pages {
         let ts =
             sk::Transform::from_scale(pixel_per_pt, pixel_per_pt).post_translate(x, y);
-        render_links(&mut pixmap, ts, frame);
-        y += (pixel_per_pt * frame.height().to_pt() as f32).round().max(1.0) + padding;
+        render_links(&mut pixmap, ts, &page.frame);
+        y += (pixel_per_pt * page.frame.height().to_pt() as f32).round().max(1.0)
+            + padding;
     }
 
     pixmap

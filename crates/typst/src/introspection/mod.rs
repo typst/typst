@@ -29,8 +29,7 @@ use crate::foundations::Packed;
 use crate::foundations::{
     category, elem, ty, Behave, Behaviour, Category, Content, Repr, Scope, Unlabellable,
 };
-use crate::layout::PdfPageLabel;
-use crate::model::{Destination, Numbering};
+use crate::model::Destination;
 
 /// Interactions between document parts.
 ///
@@ -88,10 +87,6 @@ pub enum Meta {
     /// An identifiable element that produces something within the area this
     /// metadata is attached to.
     Elem(Content),
-    /// The numbering of the current page.
-    PageNumbering(Option<Numbering>),
-    /// A PDF page label of the current page.
-    PdfPageLabel(PdfPageLabel),
     /// Indicates that content should be hidden. This variant doesn't appear
     /// in the final frames as it is removed alongside the content that should
     /// be hidden.
@@ -103,8 +98,6 @@ impl Debug for Meta {
         match self {
             Self::Link(dest) => write!(f, "Link({dest:?})"),
             Self::Elem(content) => write!(f, "Elem({:?})", content.func()),
-            Self::PageNumbering(value) => write!(f, "PageNumbering({value:?})"),
-            Self::PdfPageLabel(label) => write!(f, "PdfPageLabel({label:?})"),
             Self::Hide => f.pad("Hide"),
         }
     }

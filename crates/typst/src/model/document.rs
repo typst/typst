@@ -7,7 +7,7 @@ use crate::foundations::{
     Value,
 };
 use crate::introspection::{Introspector, ManualPageCounter};
-use crate::layout::{Frame, LayoutRoot, PageElem};
+use crate::layout::{LayoutRoot, Page, PageElem};
 
 /// The root element of a document and its metadata.
 ///
@@ -95,9 +95,8 @@ impl LayoutRoot for Packed<DocumentElem> {
                         .to_packed::<PageElem>()?
                         .clear_to(styles)
                 });
-                let fragment =
-                    page.layout(engine, styles, &mut page_counter, extend_to)?;
-                pages.extend(fragment);
+                let run = page.layout(engine, styles, &mut page_counter, extend_to)?;
+                pages.extend(run);
             } else {
                 bail!(child.span(), "unexpected document child");
             }
@@ -139,8 +138,8 @@ cast! {
 /// A finished document with metadata and page frames.
 #[derive(Debug, Default, Clone)]
 pub struct Document {
-    /// The page frames.
-    pub pages: Vec<Frame>,
+    /// The document's finished pages.
+    pub pages: Vec<Page>,
     /// The document's title.
     pub title: Option<EcoString>,
     /// The document's author.

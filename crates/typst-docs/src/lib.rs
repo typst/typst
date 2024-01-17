@@ -25,9 +25,10 @@ use typst::foundations::{
     FOUNDATIONS,
 };
 use typst::introspection::INTROSPECTION;
-use typst::layout::{Abs, Frame, Margin, PageElem, LAYOUT};
+use typst::layout::{Abs, Margin, PageElem, LAYOUT};
 use typst::loading::DATA_LOADING;
 use typst::math::MATH;
+use typst::model::Document;
 use typst::model::MODEL;
 use typst::symbols::SYMBOLS;
 use typst::text::{Font, FontBook, TEXT};
@@ -97,7 +98,7 @@ pub trait Resolver {
     fn image(&self, filename: &str, data: &[u8]) -> String;
 
     /// Produce HTML for an example.
-    fn example(&self, hash: u128, source: Option<Html>, frames: &[Frame]) -> Html;
+    fn example(&self, hash: u128, source: Option<Html>, document: &Document) -> Html;
 
     /// Determine the commits between two tags.
     fn commits(&self, from: &str, to: &str) -> Vec<Commit>;
@@ -789,7 +790,7 @@ mod tests {
             None
         }
 
-        fn example(&self, _: u128, _: Option<Html>, _: &[Frame]) -> Html {
+        fn example(&self, _: u128, _: Option<Html>, _: &Document) -> Html {
             Html::new(String::new())
         }
 
