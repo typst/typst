@@ -388,8 +388,8 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
     let world = DocWorld(source);
 
     let mut tracer = Tracer::new();
-    let mut frames = match typst::compile(&world, &mut tracer) {
-        Ok(doc) => doc.pages,
+    let mut document = match typst::compile(&world, &mut tracer) {
+        Ok(doc) => doc,
         Err(err) => {
             let msg = &err[0].message;
             panic!("while trying to compile:\n{text}:\n\nerror: {msg}");
@@ -397,16 +397,16 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
     };
 
     if let Some([x, y, w, h]) = zoom {
-        frames[0].translate(Point::new(-x, -y));
-        *frames[0].size_mut() = Size::new(w, h);
+        document.pages[0].frame.translate(Point::new(-x, -y));
+        *document.pages[0].frame.size_mut() = Size::new(w, h);
     }
 
     if single {
-        frames.truncate(1);
+        document.pages.truncate(1);
     }
 
     let hash = typst::util::hash128(text);
-    resolver.example(hash, highlighted, &frames)
+    resolver.example(hash, highlighted, &document)
 }
 
 /// Extract an attribute value from an HTML element.

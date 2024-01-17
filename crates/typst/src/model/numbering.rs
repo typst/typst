@@ -1,4 +1,3 @@
-use std::num::NonZeroUsize;
 use std::str::FromStr;
 
 use chinese_number::{ChineseCase, ChineseCountMethod, ChineseVariant, NumberToChinese};
@@ -7,7 +6,6 @@ use ecow::{eco_format, EcoString, EcoVec};
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{cast, func, Func, Str, Value};
-use crate::layout::{PdfPageLabel, PdfPageLabelStyle};
 use crate::text::Case;
 
 /// Applies a numbering to a sequence of numbers.
@@ -87,49 +85,6 @@ impl Numbering {
             Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).into()),
             Self::Func(func) => func.call(engine, numbers.iter().copied())?,
         })
-    }
-
-    /// Create a new `PdfNumbering` from a `Numbering` applied to a page
-    /// number.
-    pub fn apply_pdf(&self, number: usize) -> Option<PdfPageLabel> {
-        let Numbering::Pattern(pat) = self else {
-            return None;
-        };
-
-        let Some((prefix, kind, case)) = pat.pieces.first() else {
-            return None;
-        };
-
-        // If there is a suffix, we cannot use the common style optimisation,
-        // since PDF does not provide a suffix field.
-        let mut style = None;
-        if pat.suffix.is_empty() {
-            use {NumberingKind as Kind, PdfPageLabelStyle as Style};
-            match (kind, case) {
-                (Kind::Arabic, _) => style = Some(Style::Arabic),
-                (Kind::Roman, Case::Lower) => style = Some(Style::LowerRoman),
-                (Kind::Roman, Case::Upper) => style = Some(Style::UpperRoman),
-                (Kind::Letter, Case::Lower) if number <= 26 => {
-                    style = Some(Style::LowerAlpha)
-                }
-                (Kind::Letter, Case::Upper) if number <= 26 => {
-                    style = Some(Style::UpperAlpha)
-                }
-                _ => {}
-            }
-        }
-
-        // Prefix and offset depend on the style: If it is supported by the PDF
-        // spec, we use the given prefix and an offset. Otherwise, everything
-        // goes into prefix.
-        let prefix = if style.is_none() {
-            Some(pat.apply(&[number]))
-        } else {
-            (!prefix.is_empty()).then(|| prefix.clone())
-        };
-
-        let offset = style.and(NonZeroUsize::new(number));
-        Some(PdfPageLabel { prefix, style, offset })
     }
 
     /// Trim the prefix suffix if this is a pattern.

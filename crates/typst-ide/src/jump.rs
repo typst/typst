@@ -121,8 +121,8 @@ pub fn jump_from_cursor(
     }
 
     let span = node.span();
-    for (i, frame) in document.pages.iter().enumerate() {
-        if let Some(pos) = find_in_frame(frame, span) {
+    for (i, page) in document.pages.iter().enumerate() {
+        if let Some(pos) = find_in_frame(&page.frame, span) {
             return Some(Position {
                 page: NonZeroUsize::new(i + 1).unwrap(),
                 point: pos,

@@ -30,7 +30,7 @@ use crate::color::ColorSpaces;
 use crate::extg::ExtGState;
 use crate::gradient::PdfGradient;
 use crate::image::EncodedImage;
-use crate::page::Page;
+use crate::page::EncodedPage;
 use crate::pattern::PdfPattern;
 
 /// Export a document into a PDF file.
@@ -72,7 +72,7 @@ struct PdfContext<'a> {
     /// The writer we are writing the PDF into.
     pdf: Pdf,
     /// Content of exported pages.
-    pages: Vec<Page>,
+    pages: Vec<EncodedPage>,
     /// For each font a mapping from used glyphs to their text representation.
     /// May contain multiple chars in case of ligatures or similar things. The
     /// same glyph can have a different text representation within one document,
