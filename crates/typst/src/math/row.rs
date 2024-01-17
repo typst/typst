@@ -262,6 +262,7 @@ impl MathRow {
         let mut ascent = Abs::zero();
         let mut descent = Abs::zero();
         let mut frame = Frame::new(Size::zero(), FrameKind::Soft);
+        let mut empty = true;
 
         let finalize_frame = |frame: &mut Frame, x, ascent, descent| {
             frame.set_size(Size::new(x, ascent + descent));
@@ -299,6 +300,7 @@ impl MathRow {
             let pos = Point::new(x, -y);
             x += fragment.width();
             frame.push_frame(pos, fragment.into_frame());
+            empty = false;
 
             if class == Some(MathClass::Binary)
                 || (class == Some(MathClass::Relation)
@@ -311,6 +313,7 @@ impl MathRow {
 
                 finalize_frame(&mut frame_prev, x, ascent, descent);
                 items.push(MathParItem::Frame(frame_prev));
+                empty = true;
 
                 x = Abs::zero();
                 ascent = Abs::zero();
@@ -327,7 +330,9 @@ impl MathRow {
             }
         }
 
-        if !frame.is_empty() {
+        // Don't use `frame.is_empty()` because even an empty frame can
+        // contribute width (if it had hidden content).
+        if !empty {
             finalize_frame(&mut frame, x, ascent, descent);
             items.push(MathParItem::Frame(frame));
         }
