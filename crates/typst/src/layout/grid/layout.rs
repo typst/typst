@@ -1177,46 +1177,40 @@ fn split_vline(
     start: usize,
     end: usize,
 ) -> impl IntoIterator<Item = (Abs, usize, usize)> {
+    // Each segment that should be drawn of this vline.
     // The last element in the vector below will be the "currently drawn" vline.
-    // The initial segment of the vline has zero height and spans 0 rows.
-    let mut drawn_vlines = vec![(Abs::zero(), start, start)];
+    let mut drawn_vlines = vec![];
+    // Whether the latest vline segment is complete, because we hit a row we
+    // should skip while drawing the vline.
+    let mut interrupted = true;
 
     // We start at the top of the current region (the earliest row within the
     // vline's range of rows), and keep going down (increasing y) until we hit
-    // a row on top of which we shouldn't draw. This prompts us to push a new
-    // vline segment with 0 height and spanning 0 rows, as seen below.
+    // a row on top of which we shouldn't draw (which is skipped, generating a
+    // new vline segment later).
     for row in rows.iter().filter(|row| start <= row.y && row.y < end) {
         if should_draw_vline_at_row(grid, x, row.y, start, end) {
-            let current_vline = drawn_vlines.last_mut().unwrap();
-            if current_vline.1 == current_vline.2 {
-                // If the current vline had 0 length, this means we didn't draw
-                // at the previous row. Therefore, start drawing at this row.
-                current_vline.1 = row.y;
+            if interrupted {
+                // Last segment was interrupted by a colspan or something.
+                // Create a new segment to draw.
+                drawn_vlines.push((row.height, row.y, row.y + 1));
+                interrupted = false;
+            } else {
+                // Extend the current segment so it covers at least this row.
+                let current_segment = drawn_vlines.last_mut().unwrap();
+                current_segment.0 += row.height;
+                current_segment.2 = row.y + 1;
             }
-            current_vline.0 += row.height;
-            // Extend the current vline to draw at least up to this row.
-            current_vline.2 = row.y + 1;
         } else {
-            let (_, start, end) = drawn_vlines.last().unwrap();
-            if start != end {
-                // We found a row over which we can't draw. If the current
-                // vline has >0 length, this means we were drawing, so we
-                // should push a new 0 length vline instead to show that
-                // we had to interrupt the previous vline segment.
-                drawn_vlines.push((Abs::zero(), row.y + 1, row.y + 1));
-            }
+            interrupted = true;
         }
-    }
-    if drawn_vlines.last().is_some_and(|(_, start, end)| start == end) {
-        // Remove the last vline if it has zero length.
-        drawn_vlines.pop();
     }
 
     drawn_vlines
 }
 
-/// Returns 'true' if the vline right before of column 'x', given its
-/// start..end range of rows, should be drawn when going through row 'y'.
+/// Returns 'true' if the vline right before column 'x', given its start..end
+/// range of rows, should be drawn when going through row 'y'.
 /// This is only possible if the row is within its start..end range, and if it
 /// wouldn't go through a colspan.
 #[allow(dead_code)]
@@ -1238,22 +1232,19 @@ fn should_draw_vline_at_row(
     // When the vline isn't at the border, we need to check if a colspan would
     // be present between positions 'x' and 'x-1', and thus overlap with the
     // line.
-    // 'or_else' can be unwrapped, because 'grid.parent_cell_position' can only
-    // return 'None' if we hit a gutter cell, so there should be at least one
-    // more row in the grid, right below, which isn't gutter.
-    let (parent_x, _) = grid
-        .parent_cell_position(x, y)
-        .or_else(|| grid.parent_cell_position(x, y + 1))
+    // To do so, we analyze the cell right after this vline. If it is merged
+    // with a cell before this line (parent_x < x) which is at this row or
+    // above it (parent_y <= y), this means it would overlap with the vline,
+    // so the vline must not be drawn at this row.
+    let first_adjacent_cell = if grid.has_gutter {
+        // Skip the gutters, if (x, y) are gutter tracks.
+        (x + x % 2, y + y % 2)
+    } else {
+        (x, y)
+    };
+    let (parent_x, parent_y) = grid
+        .parent_cell_position(first_adjacent_cell.0, first_adjacent_cell.1)
         .unwrap();
 
-    // In either case, we're checking if we're about to hit a colspan - the
-    // 'or_else' case needs to be checked in case of a rowspan (not yet
-    // implemented), which is the only way to have colspans in a gutter row.
-    // Note that a merged cell at column 'x' in the row below the gutter
-    // (or in the current row, if 'y' isn't a gutter row), could indicate that
-    // a colspan is going through where the vline would be, but only if
-    // 'parent_x < x', since that means a cell from column 'x - 1' or before
-    // is merged with it. If that condition doesn't hold, that merged cell
-    // would only expand away from the vline, so it's ok to draw it here.
-    parent_x >= x
+    parent_x >= x || parent_y > y
 }
