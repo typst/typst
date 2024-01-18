@@ -700,13 +700,15 @@ impl<'a> GridLayouter<'a> {
             for (x, &col) in self.rcols.iter().enumerate() {
                 let mut dy = Abs::zero();
                 for row in rows {
-                    let fill =
-                        self.grid.cell(x, row.y).and_then(|cell| cell.fill.clone());
-                    if let Some(fill) = fill {
-                        let pos = Point::new(dx, dy);
-                        let size = Size::new(col, row.height);
-                        let rect = Geometry::Rect(size).filled(fill);
-                        frame.prepend(pos, FrameItem::Shape(rect, self.span));
+                    if let Some(cell) = self.grid.cell(x, row.y) {
+                        let fill = cell.fill.clone();
+                        if let Some(fill) = fill {
+                            let pos = Point::new(dx, dy);
+                            let width = self.cell_spanned_width(x, cell.colspan.get());
+                            let size = Size::new(width, row.height);
+                            let rect = Geometry::Rect(size).filled(fill);
+                            frame.prepend(pos, FrameItem::Shape(rect, self.span));
+                        }
                     }
                     dy += row.height;
                 }
