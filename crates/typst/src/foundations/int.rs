@@ -71,7 +71,7 @@ impl i64 {
 
     /// Calculates the bitwise NOT of an integer.
     ///
-    /// For the purposes of this function, the parameter is treated as a signed
+    /// For the purposes of this function, the operand is treated as a signed
     /// integer of 64 bits.
     ///
     /// ```example
@@ -85,7 +85,7 @@ impl i64 {
 
     /// Calculates the bitwise AND between two integers.
     ///
-    /// For the purposes of this function, the parameters are treated as signed
+    /// For the purposes of this function, the operands are treated as signed
     /// integers of 64 bits.
     ///
     /// ```example
@@ -100,15 +100,15 @@ impl i64 {
         self & rhs
     }
 
-    #[func(title = "Bitwise OR")]
     /// Calculates the bitwise OR between two integers.
     ///
-    /// For the purposes of this function, the parameters are treated as signed
+    /// For the purposes of this function, the operands are treated as signed
     /// integers of 64 bits.
     ///
     /// ```example
     /// #64.bit-or(32)
     /// ```
+    #[func(title = "Bitwise OR")]
     pub fn bit_or(
         self,
         /// The right-hand operand of the bitwise OR.
@@ -117,15 +117,15 @@ impl i64 {
         self | rhs
     }
 
-    #[func(title = "Bitwise XOR")]
     /// Calculates the bitwise XOR between two integers.
     ///
-    /// For the purposes of this function, the parameters are treated as signed
+    /// For the purposes of this function, the operands are treated as signed
     /// integers of 64 bits.
     ///
     /// ```example
     /// #64.bit-xor(96)
     /// ```
+    #[func(title = "Bitwise XOR")]
     pub fn bit_xor(
         self,
         /// The right-hand operand of the bitwise XOR.
@@ -134,7 +134,6 @@ impl i64 {
         self ^ rhs
     }
 
-    #[func(title = "Bitwise Left Shift")]
     /// Shifts the operand's bits to the left by the specified amount.
     ///
     /// For the purposes of this function, the operand is treated as a signed
@@ -145,6 +144,7 @@ impl i64 {
     /// #33.bit-lshift(2)
     /// #(-1).bit-lshift(3)
     /// ```
+    #[func(title = "Bitwise Left Shift")]
     pub fn bit_lshift(
         self,
 
@@ -154,7 +154,6 @@ impl i64 {
         Ok(self.checked_shl(shift).ok_or("the result is too large")?)
     }
 
-    #[func(title = "Bitwise Right Shift")]
     /// Shifts the operand's bits to the right by the specified amount.
     /// Performs an arithmetic shift by default (extends the sign bit to the left,
     /// such that negative numbers stay negative), but that can be changed by the
@@ -168,6 +167,7 @@ impl i64 {
     /// #(-8).bit-rshift(2)
     /// #(-8).bit-rshift(2, logical: true)
     /// ```
+    #[func(title = "Bitwise Right Shift")]
     pub fn bit_rshift(
         self,
 
