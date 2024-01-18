@@ -123,7 +123,6 @@ enum Entry {
     /// An entry which holds a cell.
     Cell(Cell),
     /// An entry which is merged with another cell.
-    #[allow(dead_code)]
     Merged {
         /// The index of the cell this entry is merged with.
         parent: usize,
