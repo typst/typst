@@ -163,7 +163,7 @@ pub trait ResolvableCell {
     fn y(&self, styles: StyleChain) -> Smart<usize>;
 
     /// The amount of columns spanned by this cell.
-    fn colspan(&self) -> NonZeroUsize;
+    fn colspan(&self, styles: StyleChain) -> NonZeroUsize;
 
     /// The cell's span, for errors.
     fn span(&self) -> Span;
@@ -311,7 +311,7 @@ impl CellGrid {
             };
             let x = resolved_index % c;
             let y = resolved_index / c;
-            let colspan = cell.colspan().get();
+            let colspan = cell.colspan(styles).get();
 
             if colspan > c - x {
                 bail!(cell_span, "cell's colspan ({colspan}) would cause it to exceed the available columns")

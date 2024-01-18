@@ -349,6 +349,10 @@ pub struct TableCell {
     /// The cell's fill override.
     fill: Smart<Option<Paint>>,
 
+    /// The amount of columns spanned by this cell.
+    #[default(NonZeroUsize::ONE)]
+    colspan: NonZeroUsize,
+
     /// The cell's alignment override.
     align: Smart<Alignment>,
 
@@ -378,6 +382,7 @@ impl ResolvableCell for Packed<TableCell> {
         styles: StyleChain,
     ) -> Cell {
         let cell = &mut *self;
+        let colspan = cell.colspan(styles);
         let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
         cell.push_x(Smart::Custom(x));
         cell.push_y(Smart::Custom(y));
@@ -395,11 +400,7 @@ impl ResolvableCell for Packed<TableCell> {
             cell.inset(styles).map_or(inset, |inner| inner.fold(inset)).map(Some),
         ));
 
-        Cell {
-            body: self.pack(),
-            fill,
-            colspan: NonZeroUsize::ONE,
-        }
+        Cell { body: self.pack(), fill, colspan }
     }
 
     fn x(&self, styles: StyleChain) -> Smart<usize> {
@@ -410,9 +411,8 @@ impl ResolvableCell for Packed<TableCell> {
         (**self).y(styles)
     }
 
-    fn colspan(&self) -> std::num::NonZeroUsize {
-        // TODO: unmock
-        NonZeroUsize::ONE
+    fn colspan(&self, styles: StyleChain) -> std::num::NonZeroUsize {
+        (**self).colspan(styles)
     }
 
     fn span(&self) -> Span {
