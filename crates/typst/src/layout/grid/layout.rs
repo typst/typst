@@ -1168,7 +1168,9 @@ fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
 /// interrupt the current vline to be drawn when a colspan is detected, or the
 /// end of the row range (or of the region) is reached.
 /// The idea is to not draw vlines over colspans.
-/// Note that this assumes that rows are ordered in ascending 'y'.
+/// This will return the start offsets and lengths of each final segment of
+/// this vline. The offsets are relative to the top of the first row.
+/// Note that this assumes that rows are sorted according to ascending 'y'.
 #[allow(dead_code)]
 fn split_vline(
     grid: &CellGrid,
@@ -1176,34 +1178,40 @@ fn split_vline(
     x: usize,
     start: usize,
     end: usize,
-) -> impl IntoIterator<Item = (Abs, usize, usize)> {
+) -> impl IntoIterator<Item = (Abs, Abs)> {
     // Each segment that should be drawn of this vline.
     // The last element in the vector below will be the "currently drawn" vline.
     let mut drawn_vlines = vec![];
     // Whether the latest vline segment is complete, because we hit a row we
     // should skip while drawing the vline.
     let mut interrupted = true;
+    // How far down from the first row have we gone so far.
+    // Used to determine the positions at which to draw each segment.
+    let mut offset = Abs::zero();
 
     // We start at the top of the current region (the earliest row within the
     // vline's range of rows), and keep going down (increasing y) until we hit
     // a row on top of which we shouldn't draw (which is skipped, generating a
     // new vline segment later).
-    for row in rows.iter().filter(|row| start <= row.y && row.y < end) {
+    for row in rows.iter().take_while(|row| row.y < end) {
         if should_draw_vline_at_row(grid, x, row.y, start, end) {
             if interrupted {
-                // Last segment was interrupted by a colspan or something.
-                // Create a new segment to draw.
-                drawn_vlines.push((row.height, row.y, row.y + 1));
+                // Last segment was interrupted by a colspan, or there are no
+                // segments yet.
+                // Create a new segment to draw. We start spanning this row.
+                drawn_vlines.push((offset, row.height));
                 interrupted = false;
             } else {
-                // Extend the current segment so it covers at least this row.
+                // Extend the current segment so it covers at least this row
+                // as well.
+                // The vector can't be empty if interrupted is false.
                 let current_segment = drawn_vlines.last_mut().unwrap();
-                current_segment.0 += row.height;
-                current_segment.2 = row.y + 1;
+                current_segment.1 += row.height;
             }
         } else {
             interrupted = true;
         }
+        offset += row.height;
     }
 
     drawn_vlines
@@ -1324,10 +1332,14 @@ mod test {
         ];
         // One of the vlines is blocked by successive colspans
         let expected_vline_splits = &[
-            vec![(Abs::pt(1. + 2. + 4. + 8. + 16. + 32.), 0, 6)],
-            vec![(Abs::pt(1. + 2. + 4. + 8. + 16. + 32.), 0, 6)],
-            vec![(Abs::pt(1.), 0, 1), (Abs::pt(4.), 2, 3), (Abs::pt(32.), 5, 6)],
-            vec![(Abs::pt(1. + 2. + 4. + 8. + 16. + 32.), 0, 6)],
+            vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
+            vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
+            vec![
+                (Abs::pt(0.), Abs::pt(1.)),
+                (Abs::pt(1. + 2.), Abs::pt(4.)),
+                (Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
+            ],
+            vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
         ];
         for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
             assert_eq!(
@@ -1357,37 +1369,39 @@ mod test {
         let expected_vline_splits = &[
             // left border
             vec![(
+                Abs::pt(0.),
                 Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
-                0,
-                11,
             )],
             // gutter line below
             vec![(
+                Abs::pt(0.),
                 Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
-                0,
-                11,
             )],
             vec![(
+                Abs::pt(0.),
                 Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
-                0,
-                11,
             )],
             // gutter line below
             vec![
-                (Abs::pt(1. + 2.), 0, 2),
-                (Abs::pt(8. + 16. + 32.), 3, 6),
-                (Abs::pt(512. + 1024.), 9, 11),
+                (Abs::pt(0.), Abs::pt(1. + 2.)),
+                (Abs::pt(1. + 2. + 4.), Abs::pt(8. + 16. + 32.)),
+                (
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
+                    Abs::pt(512. + 1024.),
+                ),
             ],
             vec![
-                (Abs::pt(1. + 2.), 0, 2),
-                (Abs::pt(8. + 16. + 32.), 3, 6),
-                (Abs::pt(512. + 1024.), 9, 11),
+                (Abs::pt(0.), Abs::pt(1. + 2.)),
+                (Abs::pt(1. + 2. + 4.), Abs::pt(8. + 16. + 32.)),
+                (
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
+                    Abs::pt(512. + 1024.),
+                ),
             ],
             // right border
             vec![(
+                Abs::pt(0.),
                 Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
-                0,
-                11,
             )],
         ];
         for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
