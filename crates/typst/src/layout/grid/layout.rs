@@ -1248,3 +1248,153 @@ fn should_draw_vline_at_row(
 
     parent_x >= x || parent_y > y
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn sample_cell() -> Cell {
+        Cell {
+            body: Content::default(),
+            fill: None,
+            colspan: NonZeroUsize::ONE,
+        }
+    }
+
+    fn cell_with_colspan(colspan: usize) -> Cell {
+        Cell {
+            body: Content::default(),
+            fill: None,
+            colspan: NonZeroUsize::try_from(colspan).unwrap(),
+        }
+    }
+
+    fn sample_grid(gutters: bool) -> CellGrid {
+        // 3 columns, 6 rows
+        let entries = vec![
+            // row 0
+            Entry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
+            // row 1
+            Entry::Cell(sample_cell()),
+            Entry::Cell(cell_with_colspan(2)),
+            Entry::Merged { parent: 4 },
+            // row 2
+            Entry::Merged { parent: 3 },
+            Entry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
+            // row 3
+            Entry::Cell(sample_cell()),
+            Entry::Cell(cell_with_colspan(2)),
+            Entry::Merged { parent: 10 },
+            // row 4
+            Entry::Cell(sample_cell()),
+            Entry::Merged { parent: 10 },
+            Entry::Merged { parent: 10 },
+            // row 5
+            Entry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
+        ];
+        const COLS: usize = 3;
+        const ROWS: usize = 6;
+        CellGrid::new_internal(
+            Axes::with_x(&[Sizing::Auto, Sizing::Auto, Sizing::Auto]),
+            if gutters {
+                Axes::new(&[Sizing::Auto; COLS], &[Sizing::Auto; ROWS])
+            } else {
+                Axes::default()
+            },
+            entries,
+            StyleChain::default(),
+        )
+    }
+
+    #[test]
+    fn test_vline_splitting_without_gutter() {
+        let grid = sample_grid(false);
+        let rows = &[
+            RowPiece { height: Abs::pt(1.0), y: 0 },
+            RowPiece { height: Abs::pt(2.0), y: 1 },
+            RowPiece { height: Abs::pt(4.0), y: 2 },
+            RowPiece { height: Abs::pt(8.0), y: 3 },
+            RowPiece { height: Abs::pt(16.0), y: 4 },
+            RowPiece { height: Abs::pt(32.0), y: 5 },
+        ];
+        // One of the vlines is blocked by successive colspans
+        let expected_vline_splits = &[
+            vec![(Abs::pt(1. + 2. + 4. + 8. + 16. + 32.), 0, 6)],
+            vec![(Abs::pt(1. + 2. + 4. + 8. + 16. + 32.), 0, 6)],
+            vec![(Abs::pt(1.), 0, 1), (Abs::pt(4.), 2, 3), (Abs::pt(32.), 5, 6)],
+            vec![(Abs::pt(1. + 2. + 4. + 8. + 16. + 32.), 0, 6)],
+        ];
+        for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
+            assert_eq!(
+                expected_splits,
+                &split_vline(&grid, rows, x, 0, 6).into_iter().collect::<Vec<_>>(),
+            );
+        }
+    }
+
+    #[test]
+    fn test_vline_splitting_with_gutter() {
+        let grid = sample_grid(true);
+        let rows = &[
+            RowPiece { height: Abs::pt(1.0), y: 0 },
+            RowPiece { height: Abs::pt(2.0), y: 1 },
+            RowPiece { height: Abs::pt(4.0), y: 2 },
+            RowPiece { height: Abs::pt(8.0), y: 3 },
+            RowPiece { height: Abs::pt(16.0), y: 4 },
+            RowPiece { height: Abs::pt(32.0), y: 5 },
+            RowPiece { height: Abs::pt(64.0), y: 6 },
+            RowPiece { height: Abs::pt(128.0), y: 7 },
+            RowPiece { height: Abs::pt(256.0), y: 8 },
+            RowPiece { height: Abs::pt(512.0), y: 9 },
+            RowPiece { height: Abs::pt(1024.0), y: 10 },
+        ];
+        // One of the vlines is blocked by successive colspans
+        let expected_vline_splits = &[
+            // left border
+            vec![(
+                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
+                0,
+                11,
+            )],
+            // gutter line below
+            vec![(
+                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
+                0,
+                11,
+            )],
+            vec![(
+                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
+                0,
+                11,
+            )],
+            // gutter line below
+            vec![
+                (Abs::pt(1. + 2.), 0, 2),
+                (Abs::pt(8. + 16. + 32.), 3, 6),
+                (Abs::pt(512. + 1024.), 9, 11),
+            ],
+            vec![
+                (Abs::pt(1. + 2.), 0, 2),
+                (Abs::pt(8. + 16. + 32.), 3, 6),
+                (Abs::pt(512. + 1024.), 9, 11),
+            ],
+            // right border
+            vec![(
+                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
+                0,
+                11,
+            )],
+        ];
+        for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
+            assert_eq!(
+                expected_splits,
+                &split_vline(&grid, rows, x, 0, 11).into_iter().collect::<Vec<_>>(),
+            );
+        }
+    }
+}
