@@ -120,7 +120,7 @@ fn encode_raster_image(image: &RasterImage) -> (Vec<u8>, Filter, bool) {
         let mut data = Cursor::new(vec![]);
         dynamic.write_to(&mut data, image::ImageFormat::Jpeg).unwrap();
         (data.into_inner(), Filter::DctDecode, has_color)
-    }   else {
+    } else {
         // TODO: Encode flate streams with PNG-predictor?
         let data = match (dynamic, channel_count) {
             (DynamicImage::ImageLuma8(luma), _) => deflate(luma.as_raw()),
