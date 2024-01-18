@@ -657,14 +657,14 @@ impl<'a> GridLayouter<'a> {
         }
 
         self.finish_region(engine)?;
-        self.render_fills_strokes()?;
 
-        Ok(Fragment::frames(self.finished))
+        self.render_fills_strokes()
     }
 
     /// Add lines and backgrounds.
-    fn render_fills_strokes(&mut self) -> SourceResult<()> {
-        for (frame, rows) in self.finished.iter_mut().zip(&self.rrows) {
+    fn render_fills_strokes(mut self) -> SourceResult<Fragment> {
+        let mut finished = std::mem::take(&mut self.finished);
+        for (frame, rows) in finished.iter_mut().zip(&self.rrows) {
             if self.rcols.is_empty() || rows.is_empty() {
                 continue;
             }
@@ -714,7 +714,7 @@ impl<'a> GridLayouter<'a> {
             }
         }
 
-        Ok(())
+        Ok(Fragment::frames(finished))
     }
 
     /// Determine all column sizes.
