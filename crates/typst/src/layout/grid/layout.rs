@@ -457,6 +457,17 @@ impl CellGrid {
     fn cell(&self, x: usize, y: usize) -> Option<&Cell> {
         self.entry(x, y).and_then(Entry::as_cell)
     }
+
+    /// Returns the parent cell of the grid entry at a certain position.
+    /// If the entry at that position is a cell, returns a reference to it.
+    /// If it is a merged cell, returns a reference to the parent cell.
+    /// If it is a gutter cell, returns None.
+    fn parent_cell(&self, x: usize, y: usize) -> Option<&Cell> {
+        self.entry(x, y).map(|entry| match entry {
+            Entry::Cell(cell) => cell,
+            Entry::Merged { parent } => self.entries[*parent].as_cell().unwrap(),
+        })
+    }
 }
 
 /// Given a cell's requested x and y, the vector with the resolved cell
@@ -751,6 +762,16 @@ impl<'a> GridLayouter<'a> {
         Ok(())
     }
 
+    /// Total width spanned by the cell (among resolved columns).
+    /// Includes spanned gutter columns.
+    fn cell_spanned_width(&self, cell_x: usize, cell_colspan: usize) -> Abs {
+        self.rcols
+            .iter()
+            .skip(cell_x)
+            .take(if self.grid.has_gutter { 2 * cell_colspan - 1 } else { cell_colspan })
+            .sum()
+    }
+
     /// Measure the size that is available to auto columns.
     fn measure_auto_columns(
         &mut self,
@@ -769,7 +790,23 @@ impl<'a> GridLayouter<'a> {
 
             let mut resolved = Abs::zero();
             for y in 0..self.grid.rows.len() {
-                if let Some(cell) = self.grid.cell(x, y) {
+                // We get the parent cell in case this is a merged position.
+                let Some(cell) = self.grid.parent_cell(x, y) else {
+                    continue;
+                };
+                let colspan = cell.colspan.get();
+                // A colspan only affects the size of the last spanned auto column.
+                let last_spanned_auto_col = self
+                    .grid
+                    .cols
+                    .iter()
+                    .enumerate()
+                    .skip(x)
+                    .take(if self.grid.has_gutter { 2 * colspan - 1 } else { colspan })
+                    .rev()
+                    .find(|(_, col)| **col == Sizing::Auto)
+                    .map(|(x, _)| x);
+                if last_spanned_auto_col == Some(x) {
                     // For relative rows, we can already resolve the correct
                     // base and for auto and fr we could only guess anyway.
                     let height = match self.grid.rows[y] {
@@ -778,11 +815,25 @@ impl<'a> GridLayouter<'a> {
                         }
                         _ => self.regions.base().y,
                     };
+                    // Don't expand this auto column more than the cell
+                    // actually needs. To do this, we check how much the other,
+                    // previously resolved columns provide to the cell in terms
+                    // of width (if it is a colspan), and subtract this from
+                    // its expected width when comparing with other cells in
+                    // this column. Note that, since this is the last auto
+                    // column spanned by this cell, all other auto columns will
+                    // already have been resolved and will be considered.
+                    // Only fractional columns will be excluded from this
+                    // calculation, which can lead to auto columns being
+                    // expanded unnecessarily when cells span both a fractional
+                    // column and an auto column. Some mitigations to this
+                    // problem will be put in place.
+                    let already_covered_width = self.cell_spanned_width(x, colspan);
 
                     let size = Size::new(available, height);
                     let pod = Regions::one(size, Axes::splat(false));
                     let frame = cell.measure(engine, self.styles, pod)?.into_frame();
-                    resolved.set_max(frame.width());
+                    resolved.set_max(frame.width() - already_covered_width);
                 }
             }
 
@@ -900,10 +951,10 @@ impl<'a> GridLayouter<'a> {
     ) -> SourceResult<Option<Vec<Abs>>> {
         let mut resolved: Vec<Abs> = vec![];
 
-        for (x, &rcol) in self.rcols.iter().enumerate() {
+        for x in 0..self.rcols.len() {
             if let Some(cell) = self.grid.cell(x, y) {
                 let mut pod = self.regions;
-                pod.size.x = rcol;
+                pod.size.x = self.cell_spanned_width(x, cell.colspan.get());
 
                 let frames = cell.measure(engine, self.styles, pod)?.into_frames();
 
@@ -975,7 +1026,8 @@ impl<'a> GridLayouter<'a> {
 
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(cell) = self.grid.cell(x, y) {
-                let size = Size::new(rcol, height);
+                let width = self.cell_spanned_width(x, cell.colspan.get());
+                let size = Size::new(width, height);
                 let mut pod = Regions::one(size, Axes::splat(true));
                 if self.grid.rows[y] == Sizing::Auto {
                     pod.full = self.regions.full;
@@ -1013,7 +1065,7 @@ impl<'a> GridLayouter<'a> {
         let mut pos = Point::zero();
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(cell) = self.grid.cell(x, y) {
-                pod.size.x = rcol;
+                pod.size.x = self.cell_spanned_width(x, cell.colspan.get());
 
                 // Push the layouted frames into the individual output frames.
                 let fragment = cell.layout(engine, self.styles, pod)?;
