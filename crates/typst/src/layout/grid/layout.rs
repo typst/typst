@@ -458,14 +458,24 @@ impl CellGrid {
         self.entry(x, y).and_then(Entry::as_cell)
     }
 
-    /// Returns the parent cell of the grid entry at a certain position.
-    /// If the entry at that position is a cell, returns a reference to it.
-    /// If it is a merged cell, returns a reference to the parent cell.
+    /// Returns the position of the parent cell of the grid entry at the given
+    /// position. It is guaranteed to have a non-gutter, non-merged cell at
+    /// that position, due to how the grid is built.
+    /// If the entry at that position is a cell, returns the given position.
+    /// If it is a merged cell, returns the parent cell's position.
     /// If it is a gutter cell, returns None.
-    fn parent_cell(&self, x: usize, y: usize) -> Option<&Cell> {
+    fn parent_cell_position(&self, x: usize, y: usize) -> Option<(usize, usize)> {
         self.entry(x, y).map(|entry| match entry {
-            Entry::Cell(cell) => cell,
-            Entry::Merged { parent } => self.entries[*parent].as_cell().unwrap(),
+            Entry::Cell(_) => (x, y),
+            Entry::Merged { parent } => {
+                let c = if self.has_gutter {
+                    1 + self.cols.len() / 2
+                } else {
+                    self.cols.len()
+                };
+                let factor = if self.has_gutter { 2 } else { 1 };
+                (factor * (*parent % c), factor * (*parent / c))
+            }
         })
     }
 }
@@ -793,9 +803,11 @@ impl<'a> GridLayouter<'a> {
             let mut resolved = Abs::zero();
             for y in 0..self.grid.rows.len() {
                 // We get the parent cell in case this is a merged position.
-                let Some(cell) = self.grid.parent_cell(x, y) else {
+                let Some((parent_x, parent_y)) = self.grid.parent_cell_position(x, y)
+                else {
                     continue;
                 };
+                let cell = self.grid.cell(parent_x, parent_y).unwrap();
                 let colspan = cell.colspan.get();
                 // A colspan only affects the size of the last spanned auto column.
                 let last_spanned_auto_col = self
@@ -803,7 +815,7 @@ impl<'a> GridLayouter<'a> {
                     .cols
                     .iter()
                     .enumerate()
-                    .skip(x)
+                    .skip(parent_x)
                     .take(if self.grid.has_gutter { 2 * colspan - 1 } else { colspan })
                     .rev()
                     .find(|(_, col)| **col == Sizing::Auto)
@@ -830,7 +842,8 @@ impl<'a> GridLayouter<'a> {
                     // expanded unnecessarily when cells span both a fractional
                     // column and an auto column. Some mitigations to this
                     // problem will be put in place.
-                    let already_covered_width = self.cell_spanned_width(x, colspan);
+                    let already_covered_width =
+                        self.cell_spanned_width(parent_x, colspan);
 
                     let size = Size::new(available, height);
                     let pod = Regions::one(size, Axes::splat(false));
