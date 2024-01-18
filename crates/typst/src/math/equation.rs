@@ -8,8 +8,8 @@ use crate::foundations::{
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, Dir, Em, FixedAlignment, Fragment, Frame, Layout,
-    Point, Regions, Size,
+    Abs, AlignElem, Alignment, Axes, Dir, Em, FixedAlignment, Frame, LayoutMultiple,
+    LayoutSingle, Point, Regions, Size,
 };
 use crate::math::{LayoutMath, MathContext};
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
@@ -45,7 +45,15 @@ use crate::World;
 /// horizontally. For more details about math syntax, see the
 /// [main math page]($category/math).
 #[elem(
-    Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName, Refable,
+    Locatable,
+    Synthesize,
+    Show,
+    Finalize,
+    LayoutSingle,
+    LayoutMath,
+    Count,
+    LocalName,
+    Refable,
     Outlinable
 )]
 pub struct EquationElem {
@@ -194,14 +202,14 @@ impl Packed<EquationElem> {
     }
 }
 
-impl Layout for Packed<EquationElem> {
+impl LayoutSingle for Packed<EquationElem> {
     #[typst_macros::time(name = "math.equation", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         const NUMBER_GUTTER: Em = Em::new(0.5);
 
         assert!(self.block(styles));
@@ -248,7 +256,7 @@ impl Layout for Packed<EquationElem> {
             frame.push_frame(Point::new(x, y), counter)
         }
 
-        Ok(Fragment::frame(frame))
+        Ok(frame)
     }
 }
 

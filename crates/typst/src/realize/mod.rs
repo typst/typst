@@ -18,8 +18,8 @@ use crate::foundations::{
 };
 use crate::introspection::{Locatable, Meta, MetaElem};
 use crate::layout::{
-    AlignElem, BlockElem, BoxElem, ColbreakElem, FlowElem, HElem, Layout, LayoutRoot,
-    PageElem, PagebreakElem, Parity, PlaceElem, VElem,
+    AlignElem, BlockElem, BoxElem, ColbreakElem, FlowElem, HElem, LayoutMultiple,
+    LayoutSingle, PageElem, PagebreakElem, Parity, PlaceElem, VElem,
 };
 use crate::math::{EquationElem, LayoutMath};
 use crate::model::{
@@ -29,10 +29,6 @@ use crate::model::{
 use crate::syntax::Span;
 use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 use crate::util::hash128;
-use crate::visualize::{
-    CircleElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem, RectElem,
-    SquareElem,
-};
 
 /// Realize into an element that is capable of root-level layout.
 #[typst_macros::time(name = "realize root")]
@@ -41,17 +37,13 @@ pub fn realize_root<'a>(
     scratch: &'a Scratch<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
-) -> SourceResult<(Cow<'a, Content>, StyleChain<'a>)> {
-    if content.can::<dyn LayoutRoot>() && !applicable(content, styles) {
-        return Ok((Cow::Borrowed(content), styles));
-    }
-
+) -> SourceResult<(Packed<DocumentElem>, StyleChain<'a>)> {
     let mut builder = Builder::new(engine, scratch, true);
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles), true)?;
     let (pages, shared) = builder.doc.unwrap().pages.finish();
     let span = first_span(&pages);
-    Ok((Cow::Owned(DocumentElem::new(pages.to_vec()).pack().spanned(span)), shared))
+    Ok((Packed::new(DocumentElem::new(pages.to_vec())).spanned(span), shared))
 }
 
 /// Realize into an element that is capable of block-level layout.
@@ -64,19 +56,7 @@ pub fn realize_block<'a>(
 ) -> SourceResult<(Cow<'a, Content>, StyleChain<'a>)> {
     // These elements implement `Layout` but still require a flow for
     // proper layout.
-    if content.can::<dyn Layout>()
-        && !content.is::<BoxElem>()
-        && !content.is::<LineElem>()
-        && !content.is::<RectElem>()
-        && !content.is::<SquareElem>()
-        && !content.is::<EllipseElem>()
-        && !content.is::<CircleElem>()
-        && !content.is::<ImageElem>()
-        && !content.is::<PolygonElem>()
-        && !content.is::<PathElem>()
-        && !content.is::<PlaceElem>()
-        && !applicable(content, styles)
-    {
+    if content.can::<dyn LayoutMultiple>() && !applicable(content, styles) {
         return Ok((Cow::Borrowed(content), styles));
     }
 
@@ -560,7 +540,10 @@ impl<'a> FlowBuilder<'a> {
             return true;
         }
 
-        if content.can::<dyn Layout>() || content.is::<ParElem>() {
+        if content.can::<dyn LayoutSingle>()
+            || content.can::<dyn LayoutMultiple>()
+            || content.is::<ParElem>()
+        {
             let is_tight_list = if let Some(elem) = content.to_packed::<ListElem>() {
                 elem.tight(styles)
             } else if let Some(elem) = content.to_packed::<EnumElem>() {

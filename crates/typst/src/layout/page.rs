@@ -11,8 +11,8 @@ use crate::foundations::{
 };
 use crate::introspection::{Counter, CounterKey, ManualPageCounter};
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, ColumnsElem, Dir, Frame, HAlignment, Layout, Length,
-    Point, Ratio, Regions, Rel, Sides, Size, VAlignment,
+    Abs, AlignElem, Alignment, Axes, ColumnsElem, Dir, Frame, HAlignment, LayoutMultiple,
+    Length, Point, Ratio, Regions, Rel, Sides, Size, VAlignment,
 };
 
 use crate::model::Numbering;

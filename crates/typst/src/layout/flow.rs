@@ -10,28 +10,24 @@ use crate::foundations::{
 use crate::introspection::{Meta, MetaElem};
 use crate::layout::{
     Abs, AlignElem, Axes, BlockElem, ColbreakElem, ColumnsElem, FixedAlignment, Fr,
-    Fragment, Frame, FrameItem, Layout, PlaceElem, Point, Regions, Rel, Size, Spacing,
-    VAlignment, VElem,
+    Fragment, Frame, FrameItem, LayoutMultiple, LayoutSingle, PlaceElem, Point, Regions,
+    Rel, Size, Spacing, VAlignment, VElem,
 };
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
 use crate::util::Numeric;
-use crate::visualize::{
-    CircleElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem, RectElem,
-    SquareElem,
-};
 
 /// Arranges spacing, paragraphs and block-level elements into a flow.
 ///
 /// This element is responsible for layouting both the top-level content flow
 /// and the contents of boxes.
-#[elem(Debug, Layout)]
+#[elem(Debug, LayoutMultiple)]
 pub struct FlowElem {
     /// The children that will be arranges into a flow.
     #[variadic]
     pub children: Vec<Prehashed<Content>>,
 }
 
-impl Layout for Packed<FlowElem> {
+impl LayoutMultiple for Packed<FlowElem> {
     #[typst_macros::time(name = "flow", span = self.span())]
     fn layout(
         &self,
@@ -45,8 +41,8 @@ impl Layout for Packed<FlowElem> {
         if !regions.size.y.is_finite() && regions.expand.y {
             bail!(self.span(), "cannot expand into infinite height");
         }
-        let mut layouter = FlowLayouter::new(regions, styles);
 
+        let mut layouter = FlowLayouter::new(regions, styles);
         for mut child in self.children().iter().map(|c| &**c) {
             let outer = styles;
             let mut styles = styles;
@@ -55,32 +51,23 @@ impl Layout for Packed<FlowElem> {
                 styles = outer.chain(map);
             }
 
-            if let Some(elem) = child.to_packed::<VElem>() {
-                layouter.layout_spacing(engine, elem, styles)?;
-            } else if let Some(elem) = child.to_packed::<ParElem>() {
-                layouter.layout_par(engine, elem, styles)?;
-            } else if child.is::<LineElem>()
-                || child.is::<RectElem>()
-                || child.is::<SquareElem>()
-                || child.is::<EllipseElem>()
-                || child.is::<CircleElem>()
-                || child.is::<ImageElem>()
-                || child.is::<PolygonElem>()
-                || child.is::<PathElem>()
-            {
-                let layoutable = child.with::<dyn Layout>().unwrap();
-                layouter.layout_single(engine, layoutable, styles)?;
-            } else if child.is::<MetaElem>() {
+            if child.is::<MetaElem>() {
                 layouter.layout_meta(styles);
+            } else if let Some(elem) = child.to_packed::<VElem>() {
+                layouter.layout_spacing(engine, elem, styles)?;
             } else if let Some(placed) = child.to_packed::<PlaceElem>() {
                 layouter.layout_placed(engine, placed, styles)?;
-            } else if child.can::<dyn Layout>() {
-                layouter.layout_multiple(engine, child, styles)?;
             } else if child.is::<ColbreakElem>() {
                 if !layouter.regions.backlog.is_empty() || layouter.regions.last.is_some()
                 {
                     layouter.finish_region(engine, true)?;
                 }
+            } else if let Some(elem) = child.to_packed::<ParElem>() {
+                layouter.layout_par(engine, elem, styles)?;
+            } else if let Some(layoutable) = child.with::<dyn LayoutSingle>() {
+                layouter.layout_single(engine, layoutable, styles)?;
+            } else if child.can::<dyn LayoutMultiple>() {
+                layouter.layout_multiple(engine, child, styles)?;
             } else {
                 bail!(child.span(), "unexpected flow child");
             }
@@ -207,6 +194,18 @@ impl<'a> FlowLayouter<'a> {
         }
     }
 
+    /// Place explicit metadata into the flow.
+    fn layout_meta(&mut self, styles: StyleChain) {
+        let mut frame = Frame::soft(Size::zero());
+        frame.meta(styles, true);
+        self.items.push(FlowItem::Frame {
+            frame,
+            align: Axes::splat(FixedAlignment::Start),
+            sticky: true,
+            movable: false,
+        });
+    }
+
     /// Layout vertical spacing.
     fn layout_spacing(
         &mut self,
@@ -284,13 +283,13 @@ impl<'a> FlowLayouter<'a> {
     fn layout_single(
         &mut self,
         engine: &mut Engine,
-        content: &dyn Layout,
+        layoutable: &dyn LayoutSingle,
         styles: StyleChain,
     ) -> SourceResult<()> {
         let align = AlignElem::alignment_in(styles).resolve(styles);
         let sticky = BlockElem::sticky_in(styles);
         let pod = Regions::one(self.regions.base(), Axes::splat(false));
-        let mut frame = content.layout(engine, styles, pod)?.into_frame();
+        let mut frame = layoutable.layout(engine, styles, pod)?;
         frame.meta(styles, false);
         self.layout_item(
             engine,
@@ -298,18 +297,6 @@ impl<'a> FlowLayouter<'a> {
         )?;
         self.last_was_par = false;
         Ok(())
-    }
-
-    /// Place explicit metadata into the flow.
-    fn layout_meta(&mut self, styles: StyleChain) {
-        let mut frame = Frame::soft(Size::zero());
-        frame.meta(styles, true);
-        self.items.push(FlowItem::Frame {
-            frame,
-            align: Axes::splat(FixedAlignment::Start),
-            sticky: true,
-            movable: false,
-        });
     }
 
     /// Layout a placed element.
@@ -337,12 +324,12 @@ impl<'a> FlowLayouter<'a> {
     fn layout_multiple(
         &mut self,
         engine: &mut Engine,
-        block: &Content,
+        child: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
         // Temporarily delegerate rootness to the columns.
         let is_root = self.root;
-        if is_root && block.is::<ColumnsElem>() {
+        if is_root && child.is::<ColumnsElem>() {
             self.root = false;
             self.regions.root = true;
         }
@@ -355,9 +342,9 @@ impl<'a> FlowLayouter<'a> {
         }
 
         // How to align the block.
-        let align = if let Some(align) = block.to_packed::<AlignElem>() {
+        let align = if let Some(align) = child.to_packed::<AlignElem>() {
             align.alignment(styles)
-        } else if let Some((_, local)) = block.to_styled() {
+        } else if let Some((_, local)) = child.to_styled() {
             AlignElem::alignment_in(styles.chain(local))
         } else {
             AlignElem::alignment_in(styles)
@@ -366,7 +353,7 @@ impl<'a> FlowLayouter<'a> {
 
         // Layout the block itself.
         let sticky = BlockElem::sticky_in(styles);
-        let fragment = block.layout(engine, styles, self.regions)?;
+        let fragment = child.layout(engine, styles, self.regions)?;
 
         for (i, mut frame) in fragment.into_iter().enumerate() {
             // Find footnotes in the frame.

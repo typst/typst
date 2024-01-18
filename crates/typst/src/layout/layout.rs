@@ -3,7 +3,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     dict, elem, func, Content, Func, NativeElement, Packed, StyleChain,
 };
-use crate::layout::{Fragment, Layout, Regions, Size};
+use crate::layout::{Fragment, LayoutMultiple, Regions, Size};
 use crate::syntax::Span;
 
 /// Provides access to the current outer container's (or page's, if none) size
@@ -63,14 +63,14 @@ pub fn layout(
 }
 
 /// Executes a `layout` call.
-#[elem(Layout)]
+#[elem(LayoutMultiple)]
 struct LayoutElem {
     /// The function to call with the outer container's (or page's) size.
     #[required]
     func: Func,
 }
 
-impl Layout for Packed<LayoutElem> {
+impl LayoutMultiple for Packed<LayoutElem> {
     #[typst_macros::time(name = "layout", span = self.span())]
     fn layout(
         &self,

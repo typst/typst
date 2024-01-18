@@ -7,7 +7,7 @@ use crate::foundations::{
 };
 use crate::layout::{
     Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
-    Layout, Length, Regions, Sizing, Spacing, VAlignment,
+    LayoutMultiple, Length, Regions, Sizing, Spacing, VAlignment,
 };
 use crate::model::{Numbering, NumberingPattern, ParElem};
 use crate::text::TextElem;
@@ -68,7 +68,7 @@ use crate::text::TextElem;
 /// Enumeration items can contain multiple paragraphs and other block-level
 /// content. All content that is indented more than an item's marker becomes
 /// part of that item.
-#[elem(scope, title = "Numbered List", Layout)]
+#[elem(scope, title = "Numbered List", LayoutMultiple)]
 pub struct EnumElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [enum spacing]($enum.spacing). If it is `{true}`, they use normal
@@ -208,7 +208,7 @@ impl EnumElem {
     type EnumItem;
 }
 
-impl Layout for Packed<EnumElem> {
+impl LayoutMultiple for Packed<EnumElem> {
     #[typst_macros::time(name = "enum", span = self.span())]
     fn layout(
         &self,

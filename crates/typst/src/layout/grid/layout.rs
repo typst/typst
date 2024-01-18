@@ -9,8 +9,8 @@ use crate::foundations::{
     StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Alignment, Axes, Dir, Fr, Fragment, Frame, FrameItem, Layout, Length, Point,
-    Regions, Rel, Sides, Size, Sizing,
+    Abs, Alignment, Axes, Dir, Fr, Fragment, Frame, FrameItem, LayoutMultiple, Length,
+    Point, Regions, Rel, Sides, Size, Sizing,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
@@ -102,7 +102,7 @@ impl From<Content> for Cell {
     }
 }
 
-impl Layout for Cell {
+impl LayoutMultiple for Cell {
     fn layout(
         &self,
         engine: &mut Engine,

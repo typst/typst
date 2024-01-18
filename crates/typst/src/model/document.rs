@@ -67,7 +67,6 @@ impl Construct for DocumentElem {
 }
 
 impl LayoutRoot for Packed<DocumentElem> {
-    /// Layout the document into a sequence of frames, one per page.
     #[typst_macros::time(name = "document", span = self.span())]
     fn layout_root(
         &self,

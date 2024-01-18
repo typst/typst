@@ -2,8 +2,8 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Packed, Resolve, StyleChain};
 use crate::layout::{
-    Abs, Alignment, Angle, Axes, FixedAlignment, Fragment, Frame, HAlignment, Layout,
-    Length, Point, Ratio, Regions, Rel, Size, VAlignment,
+    Abs, Alignment, Angle, Axes, FixedAlignment, Frame, HAlignment, LayoutMultiple,
+    LayoutSingle, Length, Point, Ratio, Regions, Rel, Size, VAlignment,
 };
 
 /// Moves content without affecting layout.
@@ -24,7 +24,7 @@ use crate::layout::{
 ///   )
 /// ))
 /// ```
-#[elem(Layout)]
+#[elem(LayoutSingle)]
 pub struct MoveElem {
     /// The horizontal displacement of the content.
     pub dx: Rel<Length>,
@@ -37,20 +37,20 @@ pub struct MoveElem {
     pub body: Content,
 }
 
-impl Layout for Packed<MoveElem> {
+impl LayoutSingle for Packed<MoveElem> {
     #[typst_macros::time(name = "move", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         let pod = Regions::one(regions.base(), Axes::splat(false));
         let mut frame = self.body().layout(engine, styles, pod)?.into_frame();
         let delta = Axes::new(self.dx(styles), self.dy(styles)).resolve(styles);
         let delta = delta.zip_map(regions.base(), Rel::relative_to);
         frame.translate(delta.to_point());
-        Ok(Fragment::frame(frame))
+        Ok(frame)
     }
 }
 
@@ -68,7 +68,7 @@ impl Layout for Packed<MoveElem> {
 ///     .map(i => rotate(24deg * i)[X]),
 /// )
 /// ```
-#[elem(Layout)]
+#[elem(LayoutSingle)]
 pub struct RotateElem {
     /// The amount of rotation.
     ///
@@ -115,14 +115,14 @@ pub struct RotateElem {
     pub body: Content,
 }
 
-impl Layout for Packed<RotateElem> {
+impl LayoutSingle for Packed<RotateElem> {
     #[typst_macros::time(name = "rotate", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         let angle = self.angle(styles);
         let align = self.origin(styles).resolve(styles);
 
@@ -157,7 +157,7 @@ impl Layout for Packed<RotateElem> {
 /// #scale(x: -100%)[This is mirrored.]
 /// #scale(x: -100%, reflow: true)[This is mirrored.]
 /// ```
-#[elem(Layout)]
+#[elem(LayoutSingle)]
 pub struct ScaleElem {
     /// The horizontal scaling factor.
     ///
@@ -203,14 +203,14 @@ pub struct ScaleElem {
     pub body: Content,
 }
 
-impl Layout for Packed<ScaleElem> {
+impl LayoutSingle for Packed<ScaleElem> {
     #[typst_macros::time(name = "scale", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         let sx = self.x(styles);
         let sy = self.y(styles);
         let align = self.origin(styles).resolve(styles);
@@ -370,7 +370,7 @@ fn measure_and_layout(
     transform: Transform,
     align: Axes<FixedAlignment>,
     reflow: bool,
-) -> SourceResult<Fragment> {
+) -> SourceResult<Frame> {
     if !reflow {
         // Layout the body.
         let pod = Regions::one(base_size, Axes::splat(false));
@@ -383,7 +383,7 @@ fn measure_and_layout(
             .pre_concat(Transform::translate(-x, -y));
         frame.transform(ts);
 
-        return Ok(Fragment::frame(frame));
+        return Ok(frame);
     }
 
     // Measure the size of the body.
@@ -405,7 +405,7 @@ fn measure_and_layout(
     frame.transform(ts);
     frame.translate(offset);
     frame.set_size(size);
-    Ok(Fragment::frame(frame))
+    Ok(frame)
 }
 
 /// Computes the bounding box and offset of a transformed frame.

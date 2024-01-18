@@ -13,7 +13,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{Content, Packed, Smart, StyleChain, Styles};
-use crate::layout::{Abs, Axes, BoxElem, Em, Frame, Layout, Regions, Size};
+use crate::layout::{Abs, Axes, BoxElem, Em, Frame, LayoutMultiple, Regions, Size};
 use crate::math::{
     FrameFragment, GlyphFragment, LayoutMath, MathFragment, MathRow, MathSize, MathStyle,
     MathVariant, THICK,
@@ -174,9 +174,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     }
 
     pub fn layout_box(&mut self, boxed: &Packed<BoxElem>) -> SourceResult<Frame> {
-        Ok(boxed
-            .layout(self.engine, self.outer.chain(&self.local), self.regions)?
-            .into_frame())
+        boxed.layout(self.engine, self.outer.chain(&self.local), self.regions)
     }
 
     pub fn layout_content(&mut self, content: &Content) -> SourceResult<Frame> {

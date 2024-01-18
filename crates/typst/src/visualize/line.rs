@@ -2,7 +2,7 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{elem, Packed, StyleChain};
 use crate::layout::{
-    Abs, Angle, Axes, Fragment, Frame, FrameItem, Layout, Length, Regions, Rel, Size,
+    Abs, Angle, Axes, Frame, FrameItem, LayoutSingle, Length, Regions, Rel, Size,
 };
 use crate::util::Numeric;
 use crate::visualize::{Geometry, Stroke};
@@ -20,7 +20,7 @@ use crate::visualize::{Geometry, Stroke};
 ///   stroke: 2pt + maroon,
 /// )
 /// ```
-#[elem(Layout)]
+#[elem(LayoutSingle)]
 pub struct LineElem {
     /// The start point of the line.
     ///
@@ -58,14 +58,14 @@ pub struct LineElem {
     pub stroke: Stroke,
 }
 
-impl Layout for Packed<LineElem> {
+impl LayoutSingle for Packed<LineElem> {
     #[typst_macros::time(name = "line", span = self.span())]
     fn layout(
         &self,
         _: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         let resolve =
             |axes: Axes<Rel<Abs>>| axes.zip_map(regions.base(), Rel::relative_to);
         let start = resolve(self.start(styles));
@@ -89,6 +89,6 @@ impl Layout for Packed<LineElem> {
         let mut frame = Frame::soft(target);
         let shape = Geometry::Line(delta.to_point()).stroked(stroke);
         frame.push(start.to_point(), FrameItem::Shape(shape, self.span()));
-        Ok(Fragment::frame(frame))
+        Ok(frame)
     }
 }

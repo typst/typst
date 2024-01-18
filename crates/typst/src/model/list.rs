@@ -4,8 +4,8 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, Fold, Func, Packed, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment, Layout,
-    Length, Regions, Sizing, Spacing, VAlignment,
+    Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
+    LayoutMultiple, Length, Regions, Sizing, Spacing, VAlignment,
 };
 use crate::model::ParElem;
 use crate::text::TextElem;
@@ -41,7 +41,7 @@ use crate::text::TextElem;
 /// followed by a space to create a list item. A list item can contain multiple
 /// paragraphs and other block-level content. All content that is indented
 /// more than an item's marker becomes part of that item.
-#[elem(scope, title = "Bullet List", Layout)]
+#[elem(scope, title = "Bullet List", LayoutMultiple)]
 pub struct ListElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [list spacing]($list.spacing). If it is `{true}`, they use normal
@@ -133,7 +133,7 @@ impl ListElem {
     type ListItem;
 }
 
-impl Layout for Packed<ListElem> {
+impl LayoutMultiple for Packed<ListElem> {
     #[typst_macros::time(name = "list", span = self.span())]
     fn layout(
         &self,

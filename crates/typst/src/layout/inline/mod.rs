@@ -17,7 +17,7 @@ use crate::foundations::{Content, Packed, Resolve, Smart, StyleChain};
 use crate::introspection::{Introspector, Locator, MetaElem};
 use crate::layout::{
     Abs, AlignElem, Axes, BoxElem, Dir, Em, FixedAlignment, Fr, Fragment, Frame, HElem,
-    Layout, Point, Regions, Size, Sizing, Spacing,
+    Point, Regions, Size, Sizing, Spacing,
 };
 use crate::math::{EquationElem, MathParItem};
 use crate::model::{Linebreaks, ParElem};
@@ -594,7 +594,7 @@ fn prepare<'a>(
                     items.push(Item::Fractional(v, Some((elem, styles))));
                 } else {
                     let pod = Regions::one(region, Axes::splat(false));
-                    let mut frame = elem.layout(engine, styles, pod)?.into_frame();
+                    let mut frame = elem.layout(engine, styles, pod)?;
                     frame.meta(styles, false);
                     frame.translate(Point::with_y(TextElem::baseline_in(styles)));
                     items.push(Item::Frame(frame));
@@ -1319,7 +1319,7 @@ fn commit(
                 if let Some((elem, styles)) = elem {
                     let region = Size::new(amount, full);
                     let pod = Regions::one(region, Axes::new(true, false));
-                    let mut frame = elem.layout(engine, *styles, pod)?.into_frame();
+                    let mut frame = elem.layout(engine, *styles, pod)?;
                     frame.meta(*styles, false);
                     frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
                     push(&mut offset, frame);

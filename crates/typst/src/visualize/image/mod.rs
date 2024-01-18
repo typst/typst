@@ -20,8 +20,8 @@ use crate::foundations::{
     StyleChain,
 };
 use crate::layout::{
-    Abs, Axes, FixedAlignment, Fragment, Frame, FrameItem, Layout, Length, Point,
-    Regions, Rel, Size,
+    Abs, Axes, FixedAlignment, Frame, FrameItem, LayoutSingle, Length, Point, Regions,
+    Rel, Size,
 };
 use crate::loading::Readable;
 use crate::model::Figurable;
@@ -51,7 +51,7 @@ use crate::World;
 /// ```
 ///
 /// [gh-svg]: https://github.com/typst/typst/issues?q=is%3Aopen+is%3Aissue+label%3Asvg
-#[elem(scope, Layout, LocalName, Figurable)]
+#[elem(scope, LayoutSingle, LocalName, Figurable)]
 pub struct ImageElem {
     /// Path to an image file.
     #[required]
@@ -144,14 +144,14 @@ impl ImageElem {
     }
 }
 
-impl Layout for Packed<ImageElem> {
+impl LayoutSingle for Packed<ImageElem> {
     #[typst_macros::time(name = "image", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         // Take the format that was explicitly defined, or parse the extension,
         // or try to detect the format.
         let data = self.data();
@@ -239,7 +239,7 @@ impl Layout for Packed<ImageElem> {
             frame.clip(Path::rect(frame.size()));
         }
 
-        Ok(Fragment::frame(frame))
+        Ok(frame)
     }
 }
 

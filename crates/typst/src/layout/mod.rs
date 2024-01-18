@@ -120,7 +120,7 @@ pub fn define(global: &mut Scope) {
 
 /// Root-level layout.
 pub trait LayoutRoot {
-    /// Layout into one frame per page.
+    /// Layout into a document with one frame per page.
     fn layout_root(
         &self,
         engine: &mut Engine,
@@ -128,8 +128,8 @@ pub trait LayoutRoot {
     ) -> SourceResult<Document>;
 }
 
-/// Layout into regions.
-pub trait Layout {
+/// Layout into multiple regions.
+pub trait LayoutMultiple {
     /// Layout into one frame per region.
     fn layout(
         &self,
@@ -160,8 +160,18 @@ pub trait Layout {
     }
 }
 
+/// Layout into a single region.
+pub trait LayoutSingle {
+    /// Layout into one frame per region.
+    fn layout(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<Frame>;
+}
+
 impl LayoutRoot for Content {
-    #[typst_macros::time(name = "layout root", span = self.span())]
     fn layout_root(
         &self,
         engine: &mut Engine,
@@ -186,12 +196,9 @@ impl LayoutRoot for Content {
                 tracer,
             };
             let scratch = Scratch::default();
-            let (realized, styles) =
+            let (document, styles) =
                 realize_root(&mut engine, &scratch, content, styles)?;
-            realized
-                .with::<dyn LayoutRoot>()
-                .unwrap()
-                .layout_root(&mut engine, styles)
+            document.layout_root(&mut engine, styles)
         }
 
         cached(
@@ -206,7 +213,7 @@ impl LayoutRoot for Content {
     }
 }
 
-impl Layout for Content {
+impl LayoutMultiple for Content {
     fn layout(
         &self,
         engine: &mut Engine,
@@ -244,10 +251,11 @@ impl Layout for Content {
             let scratch = Scratch::default();
             let (realized, styles) =
                 realize_block(&mut engine, &scratch, content, styles)?;
-            realized
-                .with::<dyn Layout>()
-                .unwrap()
-                .layout(&mut engine, styles, regions)
+            realized.with::<dyn LayoutMultiple>().unwrap().layout(
+                &mut engine,
+                styles,
+                regions,
+            )
         }
 
         let fragment = cached(
