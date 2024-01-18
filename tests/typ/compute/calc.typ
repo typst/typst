@@ -169,46 +169,46 @@
 
 ---
 // Test the `bit-not`, `bit-and`, `bit-or` and `bit-xor` functions.
-#test(calc.bit-not(64), -65)
-#test(calc.bit-not(0), -1)
-#test(calc.bit-not(-56), 55)
-#test(calc.bit-and(128, 192), 128)
-#test(calc.bit-and(192, 224), 192)
-#test(calc.bit-and(-1, 325532), 325532)
-#test(calc.bit-and(0, -53), 0)
-#test(calc.bit-or(0, -1), -1)
-#test(calc.bit-or(5, 3), 7)
-#test(calc.bit-or(-50, 3), -49)
-#test(calc.bit-or(64, 32), 96)
-#test(calc.bit-xor(-1, 1), -2)
-#test(calc.bit-xor(64, 96), 32)
-#test(calc.bit-xor(-1, -7), 6)
-#test(calc.bit-xor(0, 492), 492)
+#test(64.bit-not(), -65)
+#test(0.bit-not(), -1)
+#test((-56).bit-not(), 55)
+#test(128.bit-and(192), 128)
+#test(192.bit-and(224), 192)
+#test((-1).bit-and(325532), 325532)
+#test(0.bit-and(-53), 0)
+#test(0.bit-or(-1), -1)
+#test(5.bit-or(3), 7)
+#test((-50).bit-or(3), -49)
+#test(64.bit-or(32), 96)
+#test((-1).bit-xor(1), -2)
+#test(64.bit-xor(96), 32)
+#test((-1).bit-xor(-7), 6)
+#test(0.bit-xor(492), 492)
 
 ---
 // Test the `bit-lshift` and `bit-rshift` functions.
-#test(calc.bit-lshift(32, 2), 128)
-#test(calc.bit-lshift(694, 0), 694)
-#test(calc.bit-rshift(128, 2), 32)
-#test(calc.bit-rshift(128, 12345), 0)
-#test(calc.bit-rshift(-7, 2), -2)
-#test(calc.bit-rshift(-7, 12345), -1)
-#test(calc.bit-rshift(128, 2, logical: true), 32)
-#test(calc.bit-rshift(-7, 61, logical: true), 7)
-#test(calc.bit-rshift(128, 12345, logical: true), 0)
-#test(calc.bit-rshift(-7, 12345, logical: true), 0)
+#test(32.bit-lshift(2), 128)
+#test(694.bit-lshift(0), 694)
+#test(128.bit-rshift(2), 32)
+#test(128.bit-rshift(12345), 0)
+#test((-7).bit-rshift(2), -2)
+#test((-7).bit-rshift(12345), -1)
+#test(128.bit-rshift(2, logical: true), 32)
+#test((-7).bit-rshift(61, logical: true), 7)
+#test(128.bit-rshift(12345, logical: true), 0)
+#test((-7).bit-rshift(12345, logical: true), 0)
 
 ---
-// Error: 17-24 the result is too large
-#calc.bit-lshift(1, 64)
+// Error: 2-18 the result is too large
+#1.bit-lshift(64)
 
 ---
-// Error: 21-23 number must be at least zero
-#calc.bit-lshift(1, -1)
+// Error: 15-17 number must be at least zero
+#1.bit-lshift(-1)
 
 ---
-// Error: 21-23 number must be at least zero
-#calc.bit-rshift(1, -1)
+// Error: 15-17 number must be at least zero
+#1.bit-rshift(-1)
 
 ---
 // Error: 10-16 zero to the power of zero is undefined
