@@ -695,13 +695,27 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 // Render vertical lines.
-                for offset in points(self.rcols.iter().copied()) {
-                    let target = Point::with_y(frame.height() + thickness);
+                let auto_vlines =
+                    points(self.rcols.iter().copied()).enumerate().flat_map(|(x, dx)| {
+                        // We want each vline to span the entire table (start
+                        // at y = 0, end after all rows).
+                        // We use 'split_vline' to split the vline such that it
+                        // is not drawn above colspans.
+                        split_vline(
+                            self.grid,
+                            rows,
+                            x,
+                            0,
+                            self.grid.rows.len(),
+                            thickness,
+                        )
+                        .into_iter()
+                        .zip(std::iter::repeat(dx))
+                    });
+                for ((dy, length), dx) in auto_vlines {
+                    let target = Point::with_y(length);
                     let vline = Geometry::Line(target).stroked(stroke.clone());
-                    frame.prepend(
-                        Point::new(offset, -half),
-                        FrameItem::Shape(vline, self.span),
-                    );
+                    frame.prepend(Point::new(dx, dy), FrameItem::Shape(vline, self.span));
                 }
             }
 
@@ -1171,7 +1185,6 @@ fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
 /// This will return the start offsets and lengths of each final segment of
 /// this vline. The offsets are relative to the top of the first row.
 /// Note that this assumes that rows are sorted according to ascending 'y'.
-#[allow(dead_code)]
 fn split_vline(
     grid: &CellGrid,
     rows: &[RowPiece],
@@ -1233,7 +1246,6 @@ fn split_vline(
 /// range of rows, should be drawn when going through row 'y'.
 /// This is only possible if the row is within its start..end range, and if it
 /// wouldn't go through a colspan.
-#[allow(dead_code)]
 fn should_draw_vline_at_row(
     grid: &CellGrid,
     x: usize,
