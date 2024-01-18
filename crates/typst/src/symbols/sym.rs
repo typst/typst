@@ -394,7 +394,8 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     // Calculus.
     infinity: '∞',
     oo: '∞',
-    diff: '∂',
+    diff: '∂', // deprecated (don't forget to delete later)
+    partial: '∂',
     gradient: '∇',
     nabla: '∇',
     sum: ['∑', integral: '⨋'],
