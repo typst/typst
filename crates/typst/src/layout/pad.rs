@@ -1,7 +1,9 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Packed, Resolve, StyleChain};
-use crate::layout::{Abs, Fragment, Layout, Length, Point, Regions, Rel, Sides, Size};
+use crate::layout::{
+    Abs, Fragment, LayoutMultiple, Length, Point, Regions, Rel, Sides, Size,
+};
 
 /// Adds spacing around content.
 ///
@@ -16,7 +18,7 @@ use crate::layout::{Abs, Fragment, Layout, Length, Point, Regions, Rel, Sides, S
 /// _Typing speeds can be
 ///  measured in words per minute._
 /// ```
-#[elem(title = "Padding", Layout)]
+#[elem(title = "Padding", LayoutMultiple)]
 pub struct PadElem {
     /// The padding at the left side.
     #[parse(
@@ -58,7 +60,7 @@ pub struct PadElem {
     pub body: Content,
 }
 
-impl Layout for Packed<PadElem> {
+impl LayoutMultiple for Packed<PadElem> {
     #[typst_macros::time(name = "pad", span = self.span())]
     fn layout(
         &self,

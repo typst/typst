@@ -4,8 +4,8 @@ use crate::foundations::{
     cast, elem, AutoValue, Content, Packed, Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Axes, Corners, Em, Fr, Fragment, FrameKind, Layout, Length, Ratio, Regions, Rel,
-    Sides, Size, Spacing, VElem,
+    Abs, Axes, Corners, Em, Fr, Fragment, Frame, FrameKind, LayoutMultiple, Length,
+    Ratio, Regions, Rel, Sides, Size, Spacing, VElem,
 };
 use crate::util::Numeric;
 use crate::visualize::{clip_rect, Paint, Stroke};
@@ -26,7 +26,7 @@ use crate::visualize::{clip_rect, Paint, Stroke};
 /// )
 /// for more information.
 /// ```
-#[elem(Layout)]
+#[elem]
 pub struct BoxElem {
     /// The width of the box.
     ///
@@ -109,14 +109,14 @@ pub struct BoxElem {
     pub body: Option<Content>,
 }
 
-impl Layout for Packed<BoxElem> {
+impl Packed<BoxElem> {
     #[typst_macros::time(name = "box", span = self.span())]
-    fn layout(
+    pub fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         let width = match self.width(styles) {
             Sizing::Auto => Smart::Auto,
             Sizing::Rel(rel) => Smart::Custom(rel),
@@ -174,7 +174,7 @@ impl Layout for Packed<BoxElem> {
         // Apply metadata.
         frame.set_kind(FrameKind::Hard);
 
-        Ok(Fragment::frame(frame))
+        Ok(frame)
     }
 }
 
@@ -207,7 +207,7 @@ impl Layout for Packed<BoxElem> {
 /// = Blocky
 /// More text.
 /// ```
-#[elem(Layout)]
+#[elem(LayoutMultiple)]
 pub struct BlockElem {
     /// The block's width.
     ///
@@ -340,7 +340,7 @@ pub struct BlockElem {
     pub sticky: bool,
 }
 
-impl Layout for Packed<BlockElem> {
+impl LayoutMultiple for Packed<BlockElem> {
     #[typst_macros::time(name = "block", span = self.span())]
     fn layout(
         &self,

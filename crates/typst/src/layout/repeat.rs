@@ -2,7 +2,7 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Packed, Resolve, StyleChain};
 use crate::layout::{
-    Abs, AlignElem, Axes, Fragment, Frame, Layout, Point, Regions, Size,
+    Abs, AlignElem, Axes, Fragment, Frame, LayoutMultiple, Point, Regions, Size,
 };
 use crate::util::Numeric;
 
@@ -27,14 +27,14 @@ use crate::util::Numeric;
 ///   Berlin, the 22nd of December, 2022
 /// ]
 /// ```
-#[elem(Layout)]
+#[elem(LayoutMultiple)]
 pub struct RepeatElem {
     /// The content to repeat.
     #[required]
     pub body: Content,
 }
 
-impl Layout for Packed<RepeatElem> {
+impl LayoutMultiple for Packed<RepeatElem> {
     #[typst_macros::time(name = "repeat", span = self.span())]
     fn layout(
         &self,

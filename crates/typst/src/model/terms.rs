@@ -4,7 +4,7 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, NativeElement, Packed, Smart, StyleChain,
 };
 use crate::layout::{
-    BlockElem, Em, Fragment, HElem, Layout, Length, Regions, Spacing, VElem,
+    BlockElem, Em, Fragment, HElem, LayoutMultiple, Length, Regions, Spacing, VElem,
 };
 use crate::model::ParElem;
 use crate::util::Numeric;
@@ -25,7 +25,7 @@ use crate::util::Numeric;
 /// # Syntax
 /// This function also has dedicated syntax: Starting a line with a slash,
 /// followed by a term, a colon and a description creates a term list item.
-#[elem(scope, title = "Term List", Layout)]
+#[elem(scope, title = "Term List", LayoutMultiple)]
 pub struct TermsElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [term list spacing]($terms.spacing). If it is `{true}`, they use normal
@@ -107,7 +107,7 @@ impl TermsElem {
     type TermItem;
 }
 
-impl Layout for Packed<TermsElem> {
+impl LayoutMultiple for Packed<TermsElem> {
     #[typst_macros::time(name = "terms", span = self.span())]
     fn layout(
         &self,

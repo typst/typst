@@ -2,7 +2,7 @@ use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{elem, Behave, Behaviour, Content, Packed, Smart, StyleChain};
 use crate::layout::{
-    Alignment, Axes, Em, Fragment, Layout, Length, Regions, Rel, VAlignment,
+    Alignment, Axes, Em, Fragment, LayoutMultiple, Length, Regions, Rel, VAlignment,
 };
 
 /// Places content at an absolute position.
@@ -25,7 +25,7 @@ use crate::layout::{
 ///   ),
 /// )
 /// ```
-#[elem(Layout, Behave)]
+#[elem(Behave)]
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
     ///
@@ -86,9 +86,9 @@ pub struct PlaceElem {
     pub body: Content,
 }
 
-impl Layout for Packed<PlaceElem> {
+impl Packed<PlaceElem> {
     #[typst_macros::time(name = "place", span = self.span())]
-    fn layout(
+    pub fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,

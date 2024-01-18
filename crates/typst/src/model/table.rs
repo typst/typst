@@ -7,7 +7,7 @@ use crate::foundations::{
 };
 use crate::layout::{
     show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter,
-    Layout, Length, Regions, Rel, ResolvableCell, Sides, TrackSizings,
+    LayoutMultiple, Length, Regions, Rel, ResolvableCell, Sides, TrackSizings,
 };
 use crate::model::Figurable;
 use crate::syntax::Span;
@@ -86,7 +86,7 @@ use crate::visualize::{Paint, Stroke};
 ///   ..(table.cell(y: 4, fill: aqua)[B],) * 2,
 /// )
 /// ```
-#[elem(scope, Layout, LocalName, Figurable)]
+#[elem(scope, LayoutMultiple, LocalName, Figurable)]
 pub struct TableElem {
     /// The column sizes. See the [grid documentation]($grid) for more
     /// information on track sizing.
@@ -205,7 +205,7 @@ impl TableElem {
     type TableCell;
 }
 
-impl Layout for Packed<TableElem> {
+impl LayoutMultiple for Packed<TableElem> {
     #[typst_macros::time(name = "table", span = self.span())]
     fn layout(
         &self,
@@ -240,7 +240,6 @@ impl Layout for Packed<TableElem> {
         .trace(engine.world, tracepoint, self.span())?;
 
         let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
-
         layouter.layout(engine)
     }
 }

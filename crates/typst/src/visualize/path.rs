@@ -6,7 +6,8 @@ use crate::foundations::{
     array, cast, elem, Array, Packed, Reflect, Resolve, Smart, StyleChain,
 };
 use crate::layout::{
-    Abs, Axes, Fragment, Frame, FrameItem, Layout, Length, Point, Regions, Rel, Size,
+    Abs, Axes, Fragment, Frame, FrameItem, LayoutMultiple, Length, Point, Regions, Rel,
+    Size,
 };
 use crate::visualize::{FixedStroke, Geometry, Paint, Shape, Stroke};
 
@@ -25,7 +26,7 @@ use PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
 ///   ((50%, 0pt), (40pt, 0pt)),
 /// )
 /// ```
-#[elem(Layout)]
+#[elem(LayoutMultiple)]
 pub struct PathElem {
     /// How to fill the path.
     ///
@@ -70,7 +71,7 @@ pub struct PathElem {
     pub vertices: Vec<PathVertex>,
 }
 
-impl Layout for Packed<PathElem> {
+impl LayoutMultiple for Packed<PathElem> {
     #[typst_macros::time(name = "path", span = self.span())]
     fn layout(
         &self,

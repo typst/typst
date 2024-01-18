@@ -4,8 +4,8 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Packed, Resolve, Smart, StyleChain};
 use crate::layout::{
-    Abs, Axes, Corner, Corners, Fragment, Frame, FrameItem, Layout, Length, Point, Ratio,
-    Regions, Rel, Sides, Size,
+    Abs, Axes, Corner, Corners, Frame, FrameItem, LayoutMultiple, LayoutSingle, Length,
+    Point, Ratio, Regions, Rel, Sides, Size,
 };
 use crate::syntax::Span;
 use crate::util::Get;
@@ -24,7 +24,7 @@ use crate::visualize::{FixedStroke, Paint, Path, Stroke};
 ///   to fit the content.
 /// ]
 /// ```
-#[elem(title = "Rectangle", Layout)]
+#[elem(title = "Rectangle", LayoutSingle)]
 pub struct RectElem {
     /// The rectangle's width, relative to its parent container.
     pub width: Smart<Rel<Length>>,
@@ -131,14 +131,14 @@ pub struct RectElem {
     pub body: Option<Content>,
 }
 
-impl Layout for Packed<RectElem> {
+impl LayoutSingle for Packed<RectElem> {
     #[typst_macros::time(name = "rect", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         layout(
             engine,
             styles,
@@ -169,7 +169,7 @@ impl Layout for Packed<RectElem> {
 ///   sized to fit.
 /// ]
 /// ```
-#[elem(Layout)]
+#[elem(LayoutSingle)]
 pub struct SquareElem {
     /// The square's side length. This is mutually exclusive with `width` and
     /// `height`.
@@ -237,14 +237,14 @@ pub struct SquareElem {
     pub body: Option<Content>,
 }
 
-impl Layout for Packed<SquareElem> {
+impl LayoutSingle for Packed<SquareElem> {
     #[typst_macros::time(name = "square", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         layout(
             engine,
             styles,
@@ -276,7 +276,7 @@ impl Layout for Packed<SquareElem> {
 ///   to fit the content.
 /// ]
 /// ```
-#[elem(Layout)]
+#[elem(LayoutSingle)]
 pub struct EllipseElem {
     /// The ellipse's width, relative to its parent container.
     pub width: Smart<Rel<Length>>,
@@ -315,14 +315,14 @@ pub struct EllipseElem {
     pub body: Option<Content>,
 }
 
-impl Layout for Packed<EllipseElem> {
+impl LayoutSingle for Packed<EllipseElem> {
     #[typst_macros::time(name = "ellipse", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         layout(
             engine,
             styles,
@@ -354,7 +354,7 @@ impl Layout for Packed<EllipseElem> {
 ///   sized to fit.
 /// ]
 /// ```
-#[elem(Layout)]
+#[elem(LayoutSingle)]
 pub struct CircleElem {
     /// The circle's radius. This is mutually exclusive with `width` and
     /// `height`.
@@ -418,14 +418,14 @@ pub struct CircleElem {
     pub body: Option<Content>,
 }
 
-impl Layout for Packed<CircleElem> {
+impl LayoutSingle for Packed<CircleElem> {
     #[typst_macros::time(name = "circle", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         layout(
             engine,
             styles,
@@ -458,7 +458,7 @@ fn layout(
     outset: Sides<Rel<Abs>>,
     radius: Corners<Rel<Abs>>,
     span: Span,
-) -> SourceResult<Fragment> {
+) -> SourceResult<Frame> {
     let resolved = sizing
         .zip_map(regions.base(), |s, r| s.map(|v| v.resolve(styles).relative_to(r)));
 
@@ -523,7 +523,7 @@ fn layout(
         }
     }
 
-    Ok(Fragment::frame(frame))
+    Ok(frame)
 }
 
 /// A category of shape.

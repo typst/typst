@@ -6,7 +6,7 @@ use crate::foundations::{
     elem, func, scope, Content, NativeElement, Packed, Resolve, Smart, StyleChain,
 };
 use crate::layout::{
-    Axes, Em, Fragment, Frame, FrameItem, Layout, Length, Point, Regions, Rel,
+    Axes, Em, Frame, FrameItem, LayoutSingle, Length, Point, Regions, Rel,
 };
 use crate::syntax::Span;
 use crate::util::Numeric;
@@ -27,7 +27,7 @@ use crate::visualize::{FixedStroke, Geometry, Paint, Path, Shape, Stroke};
 ///   (0%,  2cm),
 /// )
 /// ```
-#[elem(scope, Layout)]
+#[elem(scope, LayoutSingle)]
 pub struct PolygonElem {
     /// How to fill the polygon.
     ///
@@ -125,14 +125,14 @@ impl PolygonElem {
     }
 }
 
-impl Layout for Packed<PolygonElem> {
+impl LayoutSingle for Packed<PolygonElem> {
     #[typst_macros::time(name = "polygon", span = self.span())]
     fn layout(
         &self,
         _: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
+    ) -> SourceResult<Frame> {
         let points: Vec<Point> = self
             .vertices()
             .iter()
@@ -150,7 +150,7 @@ impl Layout for Packed<PolygonElem> {
 
         // Only create a path if there are more than zero points.
         if points.is_empty() {
-            return Ok(Fragment::frame(frame));
+            return Ok(frame);
         }
 
         // Prepare fill and stroke.
@@ -171,7 +171,6 @@ impl Layout for Packed<PolygonElem> {
 
         let shape = Shape { geometry: Geometry::Path(path), stroke, fill };
         frame.push(Point::zero(), FrameItem::Shape(shape, self.span()));
-
-        Ok(Fragment::frame(frame))
+        Ok(frame)
     }
 }

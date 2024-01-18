@@ -4,8 +4,8 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{cast, elem, Content, Packed, Resolve, StyleChain};
 use crate::layout::{
-    Abs, AlignElem, Axes, Axis, Dir, FixedAlignment, Fr, Fragment, Frame, Layout, Point,
-    Regions, Size, Spacing,
+    Abs, AlignElem, Axes, Axis, Dir, FixedAlignment, Fr, Fragment, Frame, LayoutMultiple,
+    Point, Regions, Size, Spacing,
 };
 use crate::util::{Get, Numeric};
 
@@ -23,7 +23,7 @@ use crate::util::{Get, Numeric};
 ///   rect(width: 90pt),
 /// )
 /// ```
-#[elem(Layout)]
+#[elem(LayoutMultiple)]
 pub struct StackElem {
     /// The direction along which the items are stacked. Possible values are:
     ///
@@ -51,7 +51,7 @@ pub struct StackElem {
     pub children: Vec<StackChild>,
 }
 
-impl Layout for Packed<StackElem> {
+impl LayoutMultiple for Packed<StackElem> {
     #[typst_macros::time(name = "stack", span = self.span())]
     fn layout(
         &self,

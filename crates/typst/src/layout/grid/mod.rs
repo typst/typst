@@ -13,8 +13,8 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, Fold, Packed, Show, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, Fragment, Layout, Length, Regions, Rel, Sides,
-    Sizing,
+    Abs, AlignElem, Alignment, Axes, Fragment, LayoutMultiple, Length, Regions, Rel,
+    Sides, Sizing,
 };
 use crate::syntax::Span;
 use crate::visualize::{Paint, Stroke};
@@ -154,7 +154,7 @@ use crate::visualize::{Paint, Stroke};
 ///   grid.cell(y: 2, fill: aqua)[Walk],
 /// )
 /// ```
-#[elem(scope, Layout)]
+#[elem(scope, LayoutMultiple)]
 pub struct GridElem {
     /// The column sizes.
     ///
@@ -279,7 +279,7 @@ impl GridElem {
     type GridCell;
 }
 
-impl Layout for Packed<GridElem> {
+impl LayoutMultiple for Packed<GridElem> {
     #[typst_macros::time(name = "grid", span = self.span())]
     fn layout(
         &self,
