@@ -8,9 +8,9 @@ use crate::math::{LayoutMath, Limits, MathContext};
 ///
 /// This is useful to treat certain symbols as if they were of a different
 /// class, e.g. to make a symbol behave like a relation. The class of a symbol
-/// defines spacing around the symbol, and how scripts are attached to it by
-/// default. Note that the latter can always be overridden using
-/// [`{limits}`](math.limits) and [`{scripts}`](math.scripts).
+/// defines the way it is laid out, including spacing around it, and how its
+/// scripts are attached by default. Note that the latter can always be
+/// overridden using [`{limits}`](math.limits) and [`{scripts}`](math.scripts).
 ///
 /// # Example
 /// ```example
