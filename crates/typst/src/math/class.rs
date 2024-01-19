@@ -2,7 +2,7 @@ use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
 use crate::foundations::{elem, Content, Packed};
-use crate::math::{LayoutMath, MathContext};
+use crate::math::{LayoutMath, Limits, MathContext};
 
 /// Forced use of a certain math class.
 ///
@@ -37,6 +37,7 @@ impl LayoutMath for Packed<ClassElem> {
         ctx.unstyle();
 
         fragment.set_class(*self.class());
+        fragment.set_limits(Limits::for_class(*self.class()));
         ctx.push(fragment);
         Ok(())
     }
