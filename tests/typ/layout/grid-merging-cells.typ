@@ -60,3 +60,12 @@
   table.cell(colspan: 2, fill: orange)[7], [8], [9],
   [10], table.cell(colspan: 2, fill: orange.darken(10%))[11], [12]
 )
+
+---
+#table(
+  columns: (2em, 2em, auto, auto),
+  stroke: 5pt,
+  [A], [B], [C], [D],
+  table.cell(colspan: 4, lorem(20)),
+  [A], [B], table.cell(colspan: 2)[C, D, E, F]
+)
