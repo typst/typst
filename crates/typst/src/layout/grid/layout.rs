@@ -700,21 +700,17 @@ impl<'a> GridLayouter<'a> {
                         // at y = 0, end after all rows).
                         // We use 'split_vline' to split the vline such that it
                         // is not drawn above colspans.
-                        split_vline(
-                            self.grid,
-                            rows,
-                            x,
-                            0,
-                            self.grid.rows.len(),
-                            thickness,
-                        )
-                        .into_iter()
-                        .zip(std::iter::repeat(dx))
+                        split_vline(self.grid, rows, x, 0, self.grid.rows.len())
+                            .into_iter()
+                            .zip(std::iter::repeat(dx))
                     });
                 for ((dy, length), dx) in auto_vlines {
-                    let target = Point::with_y(length);
+                    let target = Point::with_y(length + thickness);
                     let vline = Geometry::Line(target).stroked(stroke.clone());
-                    frame.prepend(Point::new(dx, dy), FrameItem::Shape(vline, self.span));
+                    frame.prepend(
+                        Point::new(dx, dy - half),
+                        FrameItem::Shape(vline, self.span),
+                    );
                 }
             }
 
@@ -1190,7 +1186,6 @@ fn split_vline(
     x: usize,
     start: usize,
     end: usize,
-    thickness: Abs,
 ) -> impl IntoIterator<Item = (Abs, Abs)> {
     // Each segment that should be drawn of this vline.
     // The last element in the vector below will be the "currently drawn" vline.
@@ -1225,17 +1220,6 @@ fn split_vline(
             interrupted = true;
         }
         offset += row.height;
-    }
-
-    // Make the line longer by thickness / 2 on both ends.
-    // Ensures hlines and vlines will properly join on corners.
-    if let Some(first_segment) = drawn_vlines.first_mut() {
-        first_segment.0 -= thickness / 2.0;
-    }
-    if let Some(last_segment) = drawn_vlines.last_mut() {
-        // Add thickness / 2 twice to compensate for the -thickness / 2 at the
-        // start of the vline.
-        last_segment.1 += thickness;
     }
 
     drawn_vlines
@@ -1353,24 +1337,21 @@ mod test {
             RowPiece { height: Abs::pt(16.0), y: 4 },
             RowPiece { height: Abs::pt(32.0), y: 5 },
         ];
-        let thickness = Abs::pt(0.5);
         // One of the vlines is blocked by successive colspans
         let expected_vline_splits = &[
-            vec![(Abs::pt(-0.25), Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 0.5))],
-            vec![(Abs::pt(-0.25), Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 0.5))],
+            vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
+            vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
             vec![
-                (Abs::pt(-0.25), Abs::pt(1.)),
+                (Abs::pt(0.), Abs::pt(1.)),
                 (Abs::pt(1. + 2.), Abs::pt(4.)),
-                (Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32. + 0.5)),
+                (Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
             ],
-            vec![(Abs::pt(-0.25), Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 0.5))],
+            vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
         ];
         for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
             assert_eq!(
                 expected_splits,
-                &split_vline(&grid, rows, x, 0, 6, thickness)
-                    .into_iter()
-                    .collect::<Vec<_>>(),
+                &split_vline(&grid, rows, x, 0, 6).into_iter().collect::<Vec<_>>(),
             );
         }
     }
@@ -1391,100 +1372,49 @@ mod test {
             RowPiece { height: Abs::pt(512.0), y: 9 },
             RowPiece { height: Abs::pt(1024.0), y: 10 },
         ];
-        let thickness = Abs::pt(0.5);
         // One of the vlines is blocked by successive colspans
         let expected_vline_splits = &[
             // left border
             vec![(
-                Abs::pt(-0.25),
-                Abs::pt(
-                    1. + 2.
-                        + 4.
-                        + 8.
-                        + 16.
-                        + 32.
-                        + 64.
-                        + 128.
-                        + 256.
-                        + 512.
-                        + 1024.
-                        + 0.5,
-                ),
+                Abs::pt(0.),
+                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
             )],
             // gutter line below
             vec![(
-                Abs::pt(-0.25),
-                Abs::pt(
-                    1. + 2.
-                        + 4.
-                        + 8.
-                        + 16.
-                        + 32.
-                        + 64.
-                        + 128.
-                        + 256.
-                        + 512.
-                        + 1024.
-                        + 0.5,
-                ),
+                Abs::pt(0.),
+                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
             )],
             vec![(
-                Abs::pt(-0.25),
-                Abs::pt(
-                    1. + 2.
-                        + 4.
-                        + 8.
-                        + 16.
-                        + 32.
-                        + 64.
-                        + 128.
-                        + 256.
-                        + 512.
-                        + 1024.
-                        + 0.5,
-                ),
+                Abs::pt(0.),
+                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
             )],
             // gutter line below
             vec![
-                (Abs::pt(-0.25), Abs::pt(1. + 2.)),
+                (Abs::pt(0.), Abs::pt(1. + 2.)),
                 (Abs::pt(1. + 2. + 4.), Abs::pt(8. + 16. + 32.)),
                 (
                     Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
-                    Abs::pt(512. + 1024. + 0.5),
+                    Abs::pt(512. + 1024.),
                 ),
             ],
             vec![
-                (Abs::pt(-0.25), Abs::pt(1. + 2.)),
+                (Abs::pt(0.), Abs::pt(1. + 2.)),
                 (Abs::pt(1. + 2. + 4.), Abs::pt(8. + 16. + 32.)),
                 (
                     Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
-                    Abs::pt(512. + 1024. + 0.5),
+                    Abs::pt(512. + 1024.),
                 ),
             ],
             // right border
             vec![(
-                Abs::pt(-0.25),
-                Abs::pt(
-                    1. + 2.
-                        + 4.
-                        + 8.
-                        + 16.
-                        + 32.
-                        + 64.
-                        + 128.
-                        + 256.
-                        + 512.
-                        + 1024.
-                        + 0.5,
-                ),
+                Abs::pt(0.),
+                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
             )],
         ];
         for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
             assert_eq!(
                 expected_splits,
-                &split_vline(&grid, rows, x, 0, 11, thickness)
-                    .into_iter()
-                    .collect::<Vec<_>>(),
+                &split_vline(&grid, rows, x, 0, 11).into_iter().collect::<Vec<_>>(),
             );
         }
     }
