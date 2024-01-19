@@ -8,6 +8,8 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::text::{Font, FontStretch, FontStyle, FontVariant, FontWeight};
 
+use super::override_list::override_entry;
+
 /// Metadata about a collection of fonts.
 #[derive(Debug, Default, Clone, Hash)]
 pub struct FontBook {
@@ -206,6 +208,8 @@ impl FontInfo {
 
     /// Compute metadata for a single ttf-parser face.
     pub(super) fn from_ttf(ttf: &ttf_parser::Face) -> Option<Self> {
+        let ps_name = find_name(ttf, name_id::POST_SCRIPT_NAME);
+        let override_ = ps_name.as_deref().and_then(override_entry);
         // We cannot use Name ID 16 "Typographic Family", because for some
         // fonts it groups together more than just Style / Weight / Stretch
         // variants (e.g. Display variants of Noto fonts) and then some
@@ -222,45 +226,42 @@ impl FontInfo {
         // because Name ID 1 "Family" sometimes contains "Display" and
         // sometimes doesn't for the Display variants and that mixes things
         // up.
-        let family = {
+        let family = override_.and_then(|c| c.family.clone()).or_else(|| {
             let mut family = find_name(ttf, name_id::FAMILY)?;
-            if family.starts_with("Noto")
-                || family.starts_with("NewCM")
-                || family.starts_with("NewComputerModern")
-            {
+            if family.starts_with("Noto") {
                 family = find_name(ttf, name_id::FULL_NAME)?;
             }
-            typographic_family(&family).to_string()
-        };
+            Some(typographic_family(&family).to_string())
+        })?;
 
         let variant = {
-            let mut full = find_name(ttf, name_id::FULL_NAME).unwrap_or_default();
-            full.make_ascii_lowercase();
+            let style = override_.and_then(|c| c.style).unwrap_or_else(|| {
+                let mut full = find_name(ttf, name_id::FULL_NAME).unwrap_or_default();
+                full.make_ascii_lowercase();
 
-            // Some fonts miss the relevant bits for italic or oblique, so
-            // we also try to infer that from the full name.
-            let italic = ttf.is_italic() || full.contains("italic");
-            let oblique =
-                ttf.is_oblique() || full.contains("oblique") || full.contains("slanted");
+                // Some fonts miss the relevant bits for italic or oblique, so
+                // we also try to infer that from the full name.
+                let italic = ttf.is_italic() || full.contains("italic");
+                let oblique = ttf.is_oblique()
+                    || full.contains("oblique")
+                    || full.contains("slanted");
 
-            let style = match (italic, oblique) {
-                (false, false) => FontStyle::Normal,
-                (true, _) => FontStyle::Italic,
-                (_, true) => FontStyle::Oblique,
-            };
-
-            let weight = {
-                let mut number = ttf.weight().to_number();
-                if (family.starts_with("NewCM")
-                    || family.starts_with("New Computer Modern"))
-                    && full.contains("book")
-                {
-                    number += 50;
+                match (italic, oblique) {
+                    (false, false) => FontStyle::Normal,
+                    (true, _) => FontStyle::Italic,
+                    (_, true) => FontStyle::Oblique,
                 }
-                FontWeight::from_number(number)
-            };
+            });
 
-            let stretch = FontStretch::from_number(ttf.width().to_number());
+            let weight = override_.and_then(|c| c.weight).unwrap_or_else(|| {
+                let number = ttf.weight().to_number();
+                FontWeight::from_number(number)
+            });
+
+            let stretch = override_
+                .and_then(|c| c.stretch)
+                .unwrap_or_else(|| FontStretch::from_number(ttf.width().to_number()));
+
             FontVariant { style, weight, stretch }
         };
 
@@ -355,12 +356,6 @@ fn typographic_family(mut family: &str) -> &str {
         "narrow", "condensed", "cond", "cn", "cd", "compressed", "expanded", "exp"
     ];
 
-    let mut extra = [].as_slice();
-    let newcm = family.starts_with("NewCM") || family.starts_with("NewComputerModern");
-    if newcm {
-        extra = &["book"];
-    }
-
     // Trim spacing and weird leading dots in Apple fonts.
     family = family.trim().trim_start_matches('.');
 
@@ -376,7 +371,7 @@ fn typographic_family(mut family: &str) -> &str {
         // Find style suffix.
         let mut t = trimmed;
         let mut shortened = false;
-        while let Some(s) = SUFFIXES.iter().chain(extra).find_map(|s| t.strip_suffix(s)) {
+        while let Some(s) = SUFFIXES.iter().find_map(|s| t.strip_suffix(s)) {
             shortened = true;
             t = s;
         }
@@ -403,20 +398,7 @@ fn typographic_family(mut family: &str) -> &str {
     // Apply style suffix trimming.
     family = &family[..len];
 
-    if newcm {
-        family = family.trim_end_matches("10");
-    }
-
-    // Fix bad names.
-    match family {
-        "Noto Sans Symbols2" => "Noto Sans Symbols 2",
-        "NewComputerModern" => "New Computer Modern",
-        "NewComputerModernMono" => "New Computer Modern Mono",
-        "NewComputerModernSans" => "New Computer Modern Sans",
-        "NewComputerModernMath" => "New Computer Modern Math",
-        "NewCMUncial" | "NewComputerModernUncial" => "New Computer Modern Uncial",
-        other => other,
-    }
+    family
 }
 
 /// How many words the two strings share in their prefix.
