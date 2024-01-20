@@ -315,7 +315,7 @@ impl CellGrid {
             if colspan > c - x {
                 bail!(
                     cell_span,
-                    "cell's colspan of {colspan} at column {x} would cause it to exceed the available {c} column(s)";
+                    "cell's colspan would cause it to exceed the available column(s)";
                     hint: "try placing the cell in another position or reducing its colspan"
                 )
             }
@@ -392,7 +392,7 @@ impl CellGrid {
                     let spanned_y = spanned_index / c;
                     bail!(
                         cell_span,
-                        "cell at column {x}, row {y} would span an existing cell at column {spanned_x}, row {spanned_y}";
+                        "cell would span a previously placed cell at column {spanned_x}, row {spanned_y}";
                         hint: "try specifying your cells in a different order or reducing the cell's colspan"
                     )
                 }
