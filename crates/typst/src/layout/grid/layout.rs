@@ -313,7 +313,7 @@ impl CellGrid {
             let colspan = cell.colspan(styles).get();
 
             if colspan > c - x {
-                bail!(cell_span, "cell's colspan ({colspan}) would cause it to exceed the available columns")
+                bail!(cell_span, "cell's colspan of {colspan} at column {x} would cause it to exceed the available {c} column(s)")
             }
 
             let Some(largest_index) = resolved_index.checked_add(colspan - 1) else {
@@ -384,8 +384,8 @@ impl CellGrid {
                     let spanned_y = spanned_index / c;
                     bail!(
                         cell_span,
-                        "cell at column {x}, row {y} would span a position taken by another cell at column {spanned_x}, row {spanned_y}";
-                        hint: "try specifying your cells in a different order"
+                        "cell at column {x}, row {y} would span an existing cell at column {spanned_x}, row {spanned_y}";
+                        hint: "try specifying your cells in a different order or changing the cell's colspan"
                     )
                 }
                 *slot = Some(Entry::Merged { parent: resolved_index });
