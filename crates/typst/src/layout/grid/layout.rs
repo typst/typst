@@ -836,16 +836,23 @@ impl<'a> GridLayouter<'a> {
                 };
                 let cell = self.grid.cell(parent_x, parent_y).unwrap();
                 let colspan = cell.colspan.get();
-                let last_spanned_auto_col = self
-                    .grid
-                    .cols
-                    .iter()
-                    .enumerate()
-                    .skip(parent_x)
-                    .take(if self.grid.has_gutter { 2 * colspan - 1 } else { colspan })
-                    .rev()
-                    .find(|(_, col)| **col == Sizing::Auto)
-                    .map(|(x, _)| x);
+                let last_spanned_auto_col = if colspan == 1 {
+                    Some(x)
+                } else {
+                    self.grid
+                        .cols
+                        .iter()
+                        .enumerate()
+                        .skip(parent_x)
+                        .take(if self.grid.has_gutter {
+                            2 * colspan - 1
+                        } else {
+                            colspan
+                        })
+                        .rev()
+                        .find(|(_, col)| **col == Sizing::Auto)
+                        .map(|(x, _)| x)
+                };
 
                 let spans_all_frac_cols = || {
                     colspan > 1
