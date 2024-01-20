@@ -17,7 +17,7 @@ use crate::foundations::{
 };
 use crate::layout::{BlockElem, Em, HAlignment};
 use crate::model::Figurable;
-use crate::syntax::{split_newlines, LinkedNode, Spanned};
+use crate::syntax::{split_newlines, LinkedNode, Span, Spanned};
 use crate::text::{
     FontFamily, FontList, Hyphenate, Lang, LinebreakElem, LocalName, Region,
     SmartQuoteElem, TextElem, TextSize,
@@ -334,7 +334,7 @@ impl Synthesize for Packed<RawElem> {
                 &text,
                 LinkedNode::new(&root),
                 synt::Highlighter::new(theme),
-                &mut |_, range, style| styled(&text[range], foreground, style),
+                &mut |_, range, style| styled(&text[range], foreground, style, span),
                 &mut |i, range, line| {
                     seq.push(
                         Packed::new(RawLine::new(
@@ -364,7 +364,7 @@ impl Synthesize for Packed<RawElem> {
                 for (style, piece) in
                     highlighter.highlight_line(line, syntax_set).into_iter().flatten()
                 {
-                    line_content.push(styled(piece, foreground, style));
+                    line_content.push(styled(piece, foreground, style, span));
                 }
 
                 seq.push(
@@ -398,10 +398,11 @@ impl Synthesize for Packed<RawElem> {
 impl Show for Packed<RawElem> {
     #[typst_macros::time(name = "raw", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let span = self.span();
         let mut lines = EcoVec::with_capacity((2 * self.lines().len()).saturating_sub(1));
         for (i, line) in self.lines().iter().enumerate() {
             if i != 0 {
-                lines.push(LinebreakElem::new().pack());
+                lines.push(LinebreakElem::new().pack().spanned(span));
             }
 
             lines.push(line.clone().pack());
@@ -411,8 +412,7 @@ impl Show for Packed<RawElem> {
         if self.block(styles) {
             // Align the text before inserting it into the block.
             realized = realized.aligned(self.align(styles).into());
-            realized =
-                BlockElem::new().with_body(Some(realized)).pack().spanned(self.span());
+            realized = BlockElem::new().with_body(Some(realized)).pack().spanned(span);
         }
 
         Ok(realized)
@@ -615,23 +615,28 @@ impl<'a> ThemedHighlighter<'a> {
 }
 
 /// Style a piece of text with a syntect style.
-fn styled(piece: &str, foreground: synt::Color, style: synt::Style) -> Content {
-    let mut body = TextElem::packed(piece);
+fn styled(
+    piece: &str,
+    foreground: synt::Color,
+    style: synt::Style,
+    span: Span,
+) -> Content {
+    let mut body = TextElem::packed(piece).spanned(span);
 
     if style.foreground != foreground {
         body = body.styled(TextElem::set_fill(to_typst(style.foreground).into()));
     }
 
     if style.font_style.contains(synt::FontStyle::BOLD) {
-        body = body.strong();
+        body = body.strong().spanned(span);
     }
 
     if style.font_style.contains(synt::FontStyle::ITALIC) {
-        body = body.emph();
+        body = body.emph().spanned(span);
     }
 
     if style.font_style.contains(synt::FontStyle::UNDERLINE) {
-        body = body.underlined();
+        body = body.underlined().spanned(span);
     }
 
     body

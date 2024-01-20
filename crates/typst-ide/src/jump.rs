@@ -4,7 +4,7 @@ use ecow::EcoString;
 use typst::introspection::Meta;
 use typst::layout::{Frame, FrameItem, Point, Position, Size};
 use typst::model::{Destination, Document};
-use typst::syntax::{FileId, LinkedNode, Source, Span, SyntaxKind};
+use typst::syntax::{ast, FileId, LinkedNode, Source, Span, SyntaxKind};
 use typst::visualize::Geometry;
 use typst::World;
 
@@ -74,17 +74,31 @@ pub fn jump_from_click(
                         let Some(id) = span.id() else { continue };
                         let source = world.source(id).ok()?;
                         let node = source.find(span)?;
-                        let pos = if node.kind() == SyntaxKind::Text {
-                            let range = node.range();
-                            let mut offset = range.start + usize::from(span_offset);
-                            if (click.x - pos.x) > width / 2.0 {
-                                offset += glyph.range().len();
+                        let range = node.range();
+
+                        // Jump to the start of the relevant AST node.
+                        let mut offset = range.start;
+
+                        // Put cursor on the correct side of the glyph.
+                        let mut span_offset = usize::from(span_offset);
+                        if (click.x - pos.x) > width / 2.0 {
+                            span_offset += glyph.range().len();
+                        }
+
+                        // Try to jump even more precisely -- into the text or
+                        // raw element.
+                        match node.cast() {
+                            Some(ast::Expr::Text(_)) => offset += span_offset,
+                            Some(ast::Expr::Raw(raw)) => {
+                                offset += raw.map_offset_back(span_offset).unwrap_or(0)
                             }
-                            offset.min(range.end)
-                        } else {
-                            node.offset()
-                        };
-                        return Some(Jump::Source(source.id(), pos));
+                            _ => {}
+                        }
+
+                        // Ensure we stay in bounds.
+                        offset = offset.min(range.end);
+
+                        return Some(Jump::Source(source.id(), offset));
                     }
 
                     pos.x += width;

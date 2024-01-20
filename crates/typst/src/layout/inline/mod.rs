@@ -285,10 +285,19 @@ impl SpanMapper {
     ///
     /// May return a detached span.
     fn span_at(&self, offset: usize) -> (Span, u16) {
+        // When there are multiple consecutive items with the same span, we
+        // resolve the span offset relative to the whole cluster starting at
+        // `base`.
+        let mut base = 0;
         let mut cursor = 0;
+        let mut prev_span = Span::detached();
         for &(len, span) in &self.0 {
+            if span != prev_span {
+                base = cursor;
+                prev_span = span;
+            }
             if (cursor..=cursor + len).contains(&offset) {
-                return (span, u16::try_from(offset - cursor).unwrap_or(0));
+                return (span, u16::try_from(offset - base).unwrap_or(0));
             }
             cursor += len;
         }
@@ -522,7 +531,9 @@ fn collect<'a>(
             quoter.last(last, child.is::<SmartQuoteElem>());
         }
 
-        spans.push(segment.len(), child.span());
+        if segment.len() > 0 {
+            spans.push(segment.len(), child.span());
+        }
 
         if let (Some((Segment::Text(last_len), last_styles)), Segment::Text(len)) =
             (segments.last_mut(), &segment)

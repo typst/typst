@@ -56,6 +56,10 @@ pub struct Glyph {
     /// be more than one due to multi-byte UTF-8 encoding or ligatures.
     pub range: Range<u16>,
     /// The source code location of the text.
+    ///
+    /// The u16 describes the offset of the glyph in the shaped text among all
+    /// consecutive text with this span (in the paragraph). It can, but does not
+    /// necessarily make sense to use as an offset directly into an AST node.
     pub span: (Span, u16),
 }
 

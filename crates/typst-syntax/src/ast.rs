@@ -631,6 +631,25 @@ impl<'a> Raw<'a> {
         let text = self.0.text();
         text.starts_with("```") && text.chars().any(is_newline)
     }
+
+    /// Tries to map an offset in the resulting `text()` to a corresponding
+    /// offset in the syntax node.
+    pub fn map_offset_back(self, text_offset: usize) -> Option<usize> {
+        // TODO: This doesn't respect indent.
+        let text = self.0.text().as_str();
+        let mut s = Scanner::new(text);
+        s.eat_while('`');
+
+        if text.starts_with("```") {
+            if s.eat_if(is_id_start) {
+                s.eat_while(is_id_continue);
+            }
+            s.eat_if(' ');
+            s.eat_if(is_newline);
+        }
+
+        Some(s.cursor() + text_offset)
+    }
 }
 
 node! {
