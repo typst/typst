@@ -851,7 +851,7 @@ impl<'a> GridLayouter<'a> {
                         && !all_frac_cols.is_empty()
                         && all_frac_cols
                             .iter()
-                            .all(|&x| parent_x <= x && x < parent_x + colspan)
+                            .all(|x| (parent_x..parent_x + colspan).contains(x))
                 };
 
                 // A colspan only affects the size of the last spanned auto
@@ -1275,7 +1275,7 @@ fn should_draw_vline_at_row(
     start: usize,
     end: usize,
 ) -> bool {
-    if y < start || end <= y {
+    if !(start..end).contains(&y) {
         // Row is out of range for this line
         return false;
     }
