@@ -62,12 +62,13 @@
 )
 
 ---
+#set page(width: 300pt)
 #table(
   columns: (2em, 2em, auto, auto),
   stroke: 5pt,
   [A], [B], [C], [D],
   table.cell(colspan: 4, lorem(20)),
-  [A], [B], table.cell(colspan: 2)[C, D, E, F]
+  [A], table.cell(colspan: 2)[BCBCBCBC], [D]
 )
 
 ---
@@ -114,4 +115,17 @@
   table.cell(colspan: 3, lorem(8)),
   [A], [B], [C],
   [D], [E], [F]
+)
+
+---
+// Test multiple regions
+#set page(height: 5em)
+#grid(
+  stroke: red,
+  fill: aqua,
+  columns: 4,
+  [a], [b], [c], [d],
+  [a], grid.cell(colspan: 2)[e, f, g, h, i], [f],
+  [e], [g], grid.cell(colspan: 2)[eee\ e\ e\ e],
+  grid.cell(colspan: 4)[eeee e e e]
 )
