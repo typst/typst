@@ -869,8 +869,8 @@ impl<'a> GridLayouter<'a> {
                 // columns, since those would already expand to provide all
                 // remaining available after auto column sizing to that cell.
                 // However, this heuristic is only valid in finite regions
-                // (non-auto pages), since otherwise the fractional columns
-                // don't expand at all.
+                // (pages without 'auto' width), since otherwise the fractional
+                // columns don't expand at all.
                 if last_spanned_auto_col == Some(x)
                     && (!spans_all_frac_cols() || !self.regions.size.x.is_finite())
                 {
@@ -893,8 +893,10 @@ impl<'a> GridLayouter<'a> {
                     // Only fractional columns will be excluded from this
                     // calculation, which can lead to auto columns being
                     // expanded unnecessarily when cells span both a fractional
-                    // column and an auto column. Some mitigations to this
-                    // problem will be put in place.
+                    // column and an auto column. One mitigation for this is
+                    // the heuristic used above to not expand the last auto
+                    // column spanned by a cell if it spans all fractional
+                    // columns in a finite region.
                     let already_covered_width =
                         self.cell_spanned_width(parent_x, colspan);
 
