@@ -384,15 +384,16 @@ impl CellGrid {
             // Now, if the cell spans more than one column, we fill the spanned
             // positions in the grid with Entry::Merged pointing to the
             // original cell as its parent.
-            for spanned_offset in 1..colspan {
-                let spanned_index = resolved_index + spanned_offset;
-                let slot = &mut resolved_cells[spanned_index];
+            for (offset, slot) in resolved_cells[resolved_index..][..colspan]
+                .iter_mut()
+                .enumerate()
+                .skip(1)
+            {
                 if slot.is_some() {
-                    let spanned_x = spanned_index % c;
-                    let spanned_y = spanned_index / c;
+                    let spanned_x = x + offset;
                     bail!(
                         cell_span,
-                        "cell would span a previously placed cell at column {spanned_x}, row {spanned_y}";
+                        "cell would span a previously placed cell at column {spanned_x}, row {y}";
                         hint: "try specifying your cells in a different order or reducing the cell's colspan"
                     )
                 }
