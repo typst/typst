@@ -1285,39 +1285,45 @@ mod test {
     }
 
     fn sample_grid(gutters: bool) -> CellGrid {
-        // 3 columns, 6 rows
+        // 4 columns, 6 rows
         let entries = vec![
             // row 0
             Entry::Cell(sample_cell()),
             Entry::Cell(sample_cell()),
-            Entry::Cell(sample_cell()),
+            Entry::Cell(cell_with_colspan(2)),
+            Entry::Merged { parent: 2 },
             // row 1
             Entry::Cell(sample_cell()),
-            Entry::Cell(cell_with_colspan(2)),
-            Entry::Merged { parent: 4 },
+            Entry::Cell(cell_with_colspan(3)),
+            Entry::Merged { parent: 5 },
+            Entry::Merged { parent: 5 },
             // row 2
-            Entry::Merged { parent: 3 },
+            Entry::Merged { parent: 4 },
             Entry::Cell(sample_cell()),
-            Entry::Cell(sample_cell()),
+            Entry::Cell(cell_with_colspan(2)),
+            Entry::Merged { parent: 10 },
             // row 3
             Entry::Cell(sample_cell()),
-            Entry::Cell(cell_with_colspan(2)),
-            Entry::Merged { parent: 10 },
+            Entry::Cell(cell_with_colspan(3)),
+            Entry::Merged { parent: 13 },
+            Entry::Merged { parent: 13 },
             // row 4
             Entry::Cell(sample_cell()),
-            Entry::Merged { parent: 10 },
-            Entry::Merged { parent: 10 },
+            Entry::Merged { parent: 13 },
+            Entry::Merged { parent: 13 },
+            Entry::Merged { parent: 13 },
             // row 5
             Entry::Cell(sample_cell()),
             Entry::Cell(sample_cell()),
-            Entry::Cell(sample_cell()),
+            Entry::Cell(cell_with_colspan(2)),
+            Entry::Merged { parent: 22 },
         ];
-        const COLS: usize = 3;
+        const COLS: usize = 4;
         const ROWS: usize = 6;
         CellGrid::new_internal(
-            Axes::with_x(&[Sizing::Auto, Sizing::Auto, Sizing::Auto]),
+            Axes::with_x(&[Sizing::Auto; COLS]),
             if gutters {
-                Axes::new(&[Sizing::Auto; COLS], &[Sizing::Auto; ROWS])
+                Axes::new(&[Sizing::Auto; COLS - 1], &[Sizing::Auto; ROWS - 1])
             } else {
                 Axes::default()
             },
@@ -1337,15 +1343,17 @@ mod test {
             RowPiece { height: Abs::pt(16.0), y: 4 },
             RowPiece { height: Abs::pt(32.0), y: 5 },
         ];
-        // One of the vlines is blocked by successive colspans
         let expected_vline_splits = &[
             vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
             vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
+            // interrupted a few times by colspans
             vec![
                 (Abs::pt(0.), Abs::pt(1.)),
                 (Abs::pt(1. + 2.), Abs::pt(4.)),
                 (Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
             ],
+            // interrupted every time by colspans
+            vec![],
             vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
         ];
         for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
@@ -1403,6 +1411,26 @@ mod test {
                 (
                     Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
                     Abs::pt(512. + 1024.),
+                ),
+            ],
+            // gutter line below
+            // the two lines below can only cross certain gutter rows.
+            vec![
+                (Abs::pt(1.), Abs::pt(2.)),
+                (Abs::pt(1. + 2. + 4.), Abs::pt(8.)),
+                (Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
+                (
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
+                    Abs::pt(512.),
+                ),
+            ],
+            vec![
+                (Abs::pt(1.), Abs::pt(2.)),
+                (Abs::pt(1. + 2. + 4.), Abs::pt(8.)),
+                (Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
+                (
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
+                    Abs::pt(512.),
                 ),
             ],
             // right border
