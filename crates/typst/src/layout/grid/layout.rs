@@ -247,7 +247,7 @@ impl CellGrid {
     pub fn new(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
-        cells: Vec<Cell>,
+        cells: impl IntoIterator<Item = Cell>,
         styles: StyleChain,
     ) -> Self {
         let entries = cells.into_iter().map(Entry::Cell).collect();
