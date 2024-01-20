@@ -103,6 +103,16 @@
 )
 
 ---
+// Colspan over only some fractional columns will not trigger the heuristic, and
+// the auto column will expand more than it should. The table looks off, as a result.
+#table(
+  columns: (1fr, 1fr, auto),
+  [], table.cell(colspan: 2, lorem(8)),
+  [A], [B], [C],
+  [D], [E], [F]
+)
+
+---
 // On infinite pages, colspan over all fractional columns SHOULD expand auto columns
 #set page(width: auto)
 #table(
