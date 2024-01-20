@@ -793,11 +793,11 @@ impl<'a> GridLayouter<'a> {
 
     /// Total width spanned by the cell (among resolved columns).
     /// Includes spanned gutter columns.
-    fn cell_spanned_width(&self, cell_x: usize, cell_colspan: usize) -> Abs {
+    fn cell_spanned_width(&self, x: usize, colspan: usize) -> Abs {
         self.rcols
             .iter()
-            .skip(cell_x)
-            .take(if self.grid.has_gutter { 2 * cell_colspan - 1 } else { cell_colspan })
+            .skip(x)
+            .take(if self.grid.has_gutter { 2 * colspan - 1 } else { colspan })
             .sum()
     }
 
@@ -1195,20 +1195,23 @@ fn split_vline(
     start: usize,
     end: usize,
 ) -> impl IntoIterator<Item = (Abs, Abs)> {
-    // Each segment that should be drawn of this vline.
-    // The last element in the vector below will be the "currently drawn" vline.
+    // Each segment of this vline that should be drawn.
+    // The last element in the vector below is the currently drawn segment.
+    // That is, the last segment will be expanded until interrupted.
     let mut drawn_vlines = vec![];
     // Whether the latest vline segment is complete, because we hit a row we
-    // should skip while drawing the vline.
+    // should skip while drawing the vline. Starts at true so we push
+    // the first segment to the vector.
     let mut interrupted = true;
     // How far down from the first row have we gone so far.
     // Used to determine the positions at which to draw each segment.
     let mut offset = Abs::zero();
 
-    // We start at the top of the current region (the earliest row within the
-    // vline's range of rows), and keep going down (increasing y) until we hit
-    // a row on top of which we shouldn't draw (which is skipped, generating a
-    // new vline segment later).
+    // We start drawing at the first suitable row, and keep going down
+    // (increasing y) expanding the last segment until we hit a row on top of
+    // which we shouldn't draw, which is skipped, leading to the creation of a
+    // new vline segment later if a suitable row is found, restarting the
+    // cycle.
     for row in rows.iter().take_while(|row| row.y < end) {
         if should_draw_vline_at_row(grid, x, row.y, start, end) {
             if interrupted {
@@ -1235,7 +1238,7 @@ fn split_vline(
 
 /// Returns 'true' if the vline right before column 'x', given its start..end
 /// range of rows, should be drawn when going through row 'y'.
-/// This is only possible if the row is within its start..end range, and if it
+/// That only occurs if the row is within its start..end range, and if it
 /// wouldn't go through a colspan.
 fn should_draw_vline_at_row(
     grid: &CellGrid,
@@ -1253,14 +1256,17 @@ fn should_draw_vline_at_row(
         return true;
     }
     // When the vline isn't at the border, we need to check if a colspan would
-    // be present between positions 'x' and 'x-1', and thus overlap with the
-    // line.
+    // be present between columns 'x' and 'x-1' at row 'y', and thus overlap
+    // with the line.
     // To do so, we analyze the cell right after this vline. If it is merged
     // with a cell before this line (parent_x < x) which is at this row or
     // above it (parent_y <= y), this means it would overlap with the vline,
     // so the vline must not be drawn at this row.
     let first_adjacent_cell = if grid.has_gutter {
-        // Skip the gutters, if (x, y) are gutter tracks.
+        // Skip the gutters, if x or y represent gutter tracks.
+        // We would then analyze the cell one column after (if at a gutter
+        // column), and/or one row below (if at a gutter row), in order to
+        // check if it would be merged with something before the vline.
         (x + x % 2, y + y % 2)
     } else {
         (x, y)
@@ -1293,7 +1299,8 @@ mod test {
     }
 
     fn sample_grid(gutters: bool) -> CellGrid {
-        // 4 columns, 6 rows
+        const COLS: usize = 4;
+        const ROWS: usize = 6;
         let entries = vec![
             // row 0
             Entry::Cell(sample_cell()),
@@ -1326,8 +1333,6 @@ mod test {
             Entry::Cell(cell_with_colspan(2)),
             Entry::Merged { parent: 22 },
         ];
-        const COLS: usize = 4;
-        const ROWS: usize = 6;
         CellGrid::new_internal(
             Axes::with_x(&[Sizing::Auto; COLS]),
             if gutters {
@@ -1422,7 +1427,9 @@ mod test {
                 ),
             ],
             // gutter line below
-            // the two lines below can only cross certain gutter rows.
+            // the two lines below can only cross certain gutter rows, because
+            // all non-gutter cells in the following column are merged with
+            // cells from the previous column.
             vec![
                 (Abs::pt(1.), Abs::pt(2.)),
                 (Abs::pt(1. + 2. + 4.), Abs::pt(8.)),
