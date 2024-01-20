@@ -1295,7 +1295,7 @@ fn should_draw_vline_at_row(
         // Skip the gutters, if x or y represent gutter tracks.
         // We would then analyze the cell one column after (if at a gutter
         // column), and/or one row below (if at a gutter row), in order to
-        // check if it would be merged with something before the vline.
+        // check if it would be merged with a cell before the vline.
         (x + x % 2, y + y % 2)
     } else {
         (x, y)
@@ -1422,7 +1422,6 @@ mod test {
             RowPiece { height: Abs::pt(512.0), y: 9 },
             RowPiece { height: Abs::pt(1024.0), y: 10 },
         ];
-        // One of the vlines is blocked by successive colspans
         let expected_vline_splits = &[
             // left border
             vec![(
@@ -1439,6 +1438,7 @@ mod test {
                 Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
             )],
             // gutter line below
+            // the two lines below are interrupted multiple times by colspans
             vec![
                 (Abs::pt(0.), Abs::pt(1. + 2.)),
                 (Abs::pt(1. + 2. + 4.), Abs::pt(8. + 16. + 32.)),
