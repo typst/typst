@@ -468,8 +468,9 @@ impl CellGrid {
 
     /// Returns the position of the parent cell of the grid entry at the given
     /// position. It is guaranteed to have a non-gutter, non-merged cell at
-    /// that position, due to how the grid is built.
-    /// If the entry at that position is a cell, returns the given position.
+    /// the returned position, due to how the grid is built.
+    /// If the entry at the given position is a cell, returns the given
+    /// position.
     /// If it is a merged cell, returns the parent cell's position.
     /// If it is a gutter cell, returns None.
     fn parent_cell_position(&self, x: usize, y: usize) -> Option<(usize, usize)> {
