@@ -809,6 +809,14 @@ impl<'a> GridLayouter<'a> {
     ) -> SourceResult<(Abs, usize)> {
         let mut auto = Abs::zero();
         let mut count = 0;
+        let all_frac_cols = self
+            .grid
+            .cols
+            .iter()
+            .enumerate()
+            .filter(|(_, col)| col.is_fractional())
+            .map(|(x, _)| x)
+            .collect::<Vec<_>>();
 
         // Determine size of auto columns by laying out all cells in those
         // columns, measuring them and finding the largest one.
@@ -826,7 +834,6 @@ impl<'a> GridLayouter<'a> {
                 };
                 let cell = self.grid.cell(parent_x, parent_y).unwrap();
                 let colspan = cell.colspan.get();
-                // A colspan only affects the size of the last spanned auto column.
                 let last_spanned_auto_col = self
                     .grid
                     .cols
@@ -837,7 +844,27 @@ impl<'a> GridLayouter<'a> {
                     .rev()
                     .find(|(_, col)| **col == Sizing::Auto)
                     .map(|(x, _)| x);
-                if last_spanned_auto_col == Some(x) {
+
+                let spans_all_frac_cols = || {
+                    colspan > 1
+                        && !all_frac_cols.is_empty()
+                        && all_frac_cols
+                            .iter()
+                            .all(|&x| parent_x <= x && x < parent_x + colspan)
+                };
+
+                // A colspan only affects the size of the last spanned auto
+                // column.
+                // Additionally, as a heuristic, a colspan won't affect the
+                // size of auto columns if it already spans all fractional
+                // columns, since those would already expand to provide all
+                // remaining available after auto column sizing to that cell.
+                // However, this heuristic is only valid in finite regions
+                // (non-auto pages), since otherwise the fractional columns
+                // don't expand at all.
+                if last_spanned_auto_col == Some(x)
+                    && (!spans_all_frac_cols() || !self.regions.size.x.is_finite())
+                {
                     // For relative rows, we can already resolve the correct
                     // base and for auto and fr we could only guess anyway.
                     let height = match self.grid.rows[y] {
