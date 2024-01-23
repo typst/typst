@@ -43,7 +43,7 @@ pub trait Reflect {
     /// dynamic checks instead of optimized machine code for each type).
     fn castable(value: &Value) -> bool;
 
-    /// Produce an error message for an inacceptable value.
+    /// Produce an error message for an inacceptable value type.
     ///
     /// ```
     /// assert_eq!(
