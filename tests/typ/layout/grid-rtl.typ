@@ -74,3 +74,17 @@
   table.cell(colspan: 2, fill: orange)[7], [8], [9],
   [10], table.cell(colspan: 2, fill: orange.darken(10%))[11], [12]
 )
+
+---
+// Test multiple regions
+#set page(height: 5em)
+#set text(dir: rtl)
+#grid(
+  stroke: red,
+  fill: aqua,
+  columns: 4,
+  [a], [b], [c], [d],
+  [a], grid.cell(colspan: 2)[e, f, g, h, i], [f],
+  [e], [g], grid.cell(colspan: 2)[eee\ e\ e\ e],
+  grid.cell(colspan: 4)[eeee e e e]
+)
