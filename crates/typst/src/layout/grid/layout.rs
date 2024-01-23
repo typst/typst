@@ -692,16 +692,8 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 // Render vertical lines.
-                let auto_vlines = points(self.rcols.iter().copied())
-                    .enumerate()
-                    .flat_map(|(mut x, dx)| {
-                        if self.is_rtl {
-                            // Column order is reversed, so place vlines in
-                            // opposite order as well.
-                            // Note that there are 'self.rcols.len() + 1'
-                            // vlines (there's one at the end too)!
-                            x = self.rcols.len() - x;
-                        }
+                let auto_vlines =
+                    points(self.rcols.iter().copied()).enumerate().flat_map(|(x, dx)| {
                         // We want each vline to span the entire table (start
                         // at y = 0, end after all rows).
                         // We use 'split_vline' to split the vline such that it
@@ -713,6 +705,7 @@ impl<'a> GridLayouter<'a> {
                 for ((dy, length), dx) in auto_vlines {
                     let target = Point::with_y(length + thickness);
                     let vline = Geometry::Line(target).stroked(stroke.clone());
+                    let dx = if self.is_rtl { self.width - dx } else { dx };
                     frame.prepend(
                         Point::new(dx, dy - half),
                         FrameItem::Shape(vline, self.span),
