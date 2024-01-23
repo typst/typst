@@ -64,8 +64,10 @@ NewCMSans10-Book:
 NewCMSans10-BookOblique:
   family: New Computer Modern Sans
   weight: 450
+  style: oblique
 NewCMSans10-Oblique:
   family: New Computer Modern Sans
+  style: oblique
 NewCMSans10-Regular:
   family: New Computer Modern Sans
 NewCMUncial08-Bold:
