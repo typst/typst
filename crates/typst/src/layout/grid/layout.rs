@@ -16,7 +16,7 @@ use crate::layout::{
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
-use crate::util::{NonZeroExt, Numeric};
+use crate::util::{MaybeReverseIter, NonZeroExt, Numeric};
 use crate::visualize::{FixedStroke, Geometry, Paint};
 
 /// A value that can be configured per cell.
@@ -178,8 +178,6 @@ pub struct CellGrid {
     rows: Vec<Sizing>,
     /// Whether this grid has gutters.
     has_gutter: bool,
-    /// Whether this is an RTL grid.
-    is_rtl: bool,
 }
 
 impl CellGrid {
@@ -188,7 +186,6 @@ impl CellGrid {
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
         entries: Vec<Entry>,
-        styles: StyleChain,
     ) -> Self {
         let mut cols = vec![];
         let mut rows = vec![];
@@ -234,13 +231,7 @@ impl CellGrid {
             rows.pop();
         }
 
-        // Reverse for RTL.
-        let is_rtl = TextElem::dir_in(styles) == Dir::RTL;
-        if is_rtl {
-            cols.reverse();
-        }
-
-        Self { cols, rows, entries, has_gutter, is_rtl }
+        Self { cols, rows, entries, has_gutter }
     }
 
     /// Generates the cell grid, given the tracks and cells.
@@ -248,10 +239,9 @@ impl CellGrid {
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
         cells: impl IntoIterator<Item = Cell>,
-        styles: StyleChain,
     ) -> Self {
         let entries = cells.into_iter().map(Entry::Cell).collect();
-        Self::new_internal(tracks, gutter, entries, styles)
+        Self::new_internal(tracks, gutter, entries)
     }
 
     /// Resolves and positions all cells in the grid before creating it.
@@ -428,21 +418,16 @@ impl CellGrid {
             })
             .collect::<SourceResult<Vec<Entry>>>()?;
 
-        Ok(Self::new_internal(tracks, gutter, resolved_cells, styles))
+        Ok(Self::new_internal(tracks, gutter, resolved_cells))
     }
 
     /// Get the grid entry in column `x` and row `y`.
     ///
     /// Returns `None` if it's a gutter cell.
     #[track_caller]
-    fn entry(&self, mut x: usize, y: usize) -> Option<&Entry> {
+    fn entry(&self, x: usize, y: usize) -> Option<&Entry> {
         assert!(x < self.cols.len());
         assert!(y < self.rows.len());
-
-        // Columns are reorder, but the cell slice is not.
-        if self.is_rtl {
-            x = self.cols.len() - 1 - x;
-        }
 
         if self.has_gutter {
             // Even columns and rows are children, odd ones are gutter.
@@ -603,6 +588,8 @@ pub struct GridLayouter<'a> {
     initial: Size,
     /// Frames for finished regions.
     finished: Vec<Frame>,
+    /// Whether this is an RTL grid.
+    is_rtl: bool,
     /// The span of the grid element.
     span: Span,
 }
@@ -653,6 +640,7 @@ impl<'a> GridLayouter<'a> {
             lrows: vec![],
             initial: regions.size,
             finished: vec![],
+            is_rtl: TextElem::dir_in(styles) == Dir::RTL,
             span,
         }
     }
@@ -704,8 +692,16 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 // Render vertical lines.
-                let auto_vlines =
-                    points(self.rcols.iter().copied()).enumerate().flat_map(|(x, dx)| {
+                let auto_vlines = points(self.rcols.iter().copied())
+                    .enumerate()
+                    .flat_map(|(mut x, dx)| {
+                        if self.is_rtl {
+                            // Column order is reversed, so place vlines in
+                            // opposite order as well.
+                            // Note that there are 'self.rcols.len() + 1'
+                            // vlines (there's one at the end too)!
+                            x = self.rcols.len() - x;
+                        }
                         // We want each vline to span the entire table (start
                         // at y = 0, end after all rows).
                         // We use 'split_vline' to split the vline such that it
@@ -725,15 +721,27 @@ impl<'a> GridLayouter<'a> {
             }
 
             // Render cell backgrounds.
+            // Reverse with RTL so that later columns start first.
             let mut dx = Abs::zero();
-            for (x, &col) in self.rcols.iter().enumerate() {
+            for (x, &col) in self.rcols.iter().enumerate().rev_if(self.is_rtl) {
                 let mut dy = Abs::zero();
                 for row in rows {
                     if let Some(cell) = self.grid.cell(x, row.y) {
                         let fill = cell.fill.clone();
                         if let Some(fill) = fill {
-                            let pos = Point::new(dx, dy);
                             let width = self.cell_spanned_width(x, cell.colspan.get());
+                            // In the grid, cell colspans expand to the right,
+                            // so we're at the leftmost (lowest 'x') column
+                            // spanned by the cell. However, in RTL, cells
+                            // expand to the left. Therefore, without the
+                            // offset below, cell fills would start at the
+                            // rightmost visual position of a cell and extend
+                            // over to unrelated columns to the right in RTL.
+                            // We avoid this by ensuring the fill starts at the
+                            // very left of the cell, even with colspan > 1.
+                            let offset =
+                                if self.is_rtl { -width + col } else { Abs::zero() };
+                            let pos = Point::new(dx + offset, dy);
                             let size = Size::new(width, row.height);
                             let rect = Geometry::Rect(size).filled(fill);
                             frame.prepend(pos, FrameItem::Shape(rect, self.span));
@@ -1094,7 +1102,8 @@ impl<'a> GridLayouter<'a> {
         let mut output = Frame::soft(Size::new(self.width, height));
         let mut pos = Point::zero();
 
-        for (x, &rcol) in self.rcols.iter().enumerate() {
+        // Reverse the column order when using RTL.
+        for (x, &rcol) in self.rcols.iter().enumerate().rev_if(self.is_rtl) {
             if let Some(cell) = self.grid.cell(x, y) {
                 let width = self.cell_spanned_width(x, cell.colspan.get());
                 let size = Size::new(width, height);
@@ -1102,7 +1111,20 @@ impl<'a> GridLayouter<'a> {
                 if self.grid.rows[y] == Sizing::Auto {
                     pod.full = self.regions.full;
                 }
-                let frame = cell.layout(engine, self.styles, pod)?.into_frame();
+                let mut frame = cell.layout(engine, self.styles, pod)?.into_frame();
+                if self.is_rtl {
+                    // In the grid, cell colspans expand to the right,
+                    // so we're at the leftmost (lowest 'x') column
+                    // spanned by the cell. However, in RTL, cells
+                    // expand to the left. Therefore, without the
+                    // offset below, the cell's contents would be laid out
+                    // starting at its rightmost visual position and extend
+                    // over to unrelated cells to its right in RTL.
+                    // We avoid this by ensuring the rendered cell starts at
+                    // the very left of the cell, even with colspan > 1.
+                    let offset = Point::with_x(-width + rcol);
+                    frame.translate(offset);
+                }
                 output.push_frame(pos, frame);
             }
 
@@ -1133,13 +1155,18 @@ impl<'a> GridLayouter<'a> {
 
         // Layout the row.
         let mut pos = Point::zero();
-        for (x, &rcol) in self.rcols.iter().enumerate() {
+        for (x, &rcol) in self.rcols.iter().enumerate().rev_if(self.is_rtl) {
             if let Some(cell) = self.grid.cell(x, y) {
-                pod.size.x = self.cell_spanned_width(x, cell.colspan.get());
+                let width = self.cell_spanned_width(x, cell.colspan.get());
+                pod.size.x = width;
 
                 // Push the layouted frames into the individual output frames.
                 let fragment = cell.layout(engine, self.styles, pod)?;
-                for (output, frame) in outputs.iter_mut().zip(fragment) {
+                for (output, mut frame) in outputs.iter_mut().zip(fragment) {
+                    if self.is_rtl {
+                        let offset = Point::with_x(-width + rcol);
+                        frame.translate(offset);
+                    }
                     output.push_frame(pos, frame);
                 }
             }
@@ -1379,7 +1406,6 @@ mod test {
                 Axes::default()
             },
             entries,
-            StyleChain::default(),
         )
     }
 
