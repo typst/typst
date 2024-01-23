@@ -119,13 +119,13 @@ impl Dict {
         if iter.peek().is_none() {
             return Ok(());
         }
-        let unexpected_keys: Vec<&str> = iter.map(|kv| kv.0.as_str()).collect();
+        let unexpected: Vec<&str> = iter.map(|kv| kv.0.as_str()).collect();
 
-        Self::unexpected_keys(unexpected_keys, expected)
+        Err(Self::unexpected_keys(unexpected, expected))
     }
 
-    // Return an "unexpected key" error.
-    pub fn unexpected_keys(unexpected: Vec<&str>, expected: &[&str]) -> StrResult<()> {
+    // Return an "unexpected key" error string.
+    pub fn unexpected_keys(unexpected: Vec<&str>, expected: &[&str]) -> EcoString {
         let format_as_list = |arr: &[&str]| {
             repr::separated_list(
                 &arr.iter().map(|s| eco_format!("\"{s}\"")).collect::<Vec<_>>(),
@@ -133,13 +133,16 @@ impl Dict {
             )
         };
 
-        let mut msg =
-            format!("unexpected key{} ", if unexpected.len() > 1 { "s" } else { "" });
+        let mut msg = String::from(match unexpected.len() {
+            0 => "unexpectedly empty",
+            1 => "unexpected key ",
+            _ => "unexpected keys ",
+        });
         msg.push_str(&format_as_list(&unexpected[..]));
         msg.push_str(", valid keys are ");
         msg.push_str(&format_as_list(expected));
 
-        Err(msg.into())
+        msg.into()
     }
 }
 

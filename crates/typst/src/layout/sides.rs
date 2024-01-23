@@ -212,11 +212,10 @@ where
         if T::castable(&value) {
             Ok(Self::splat(Some(T::from_value(value)?)))
         } else if let Value::Dict(dict) = &mut value {
-            let error = Dict::unexpected_keys(
+            Err(Dict::unexpected_keys(
                 dict.iter().map(|kv| kv.0.as_str()).collect(),
                 &expected_keys,
-            );
-            Err(error.err().unwrap())
+            ))
         } else {
             Err(Self::error(&value))
         }
