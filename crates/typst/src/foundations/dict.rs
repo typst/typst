@@ -115,12 +115,11 @@ impl Dict {
 
     /// Check if there is any remaining pair, and if so return an "unexpected key" error.
     pub fn finish(&self, expected: &[&str]) -> StrResult<()> {
-        let remaining: Vec<(&Str, &Value)> = self.iter().collect();
-        if remaining.is_empty() {
+        let mut iter = self.iter().peekable();
+        if iter.peek().is_none() {
             return Ok(());
         }
-        let unexpected_keys: Vec<&str> =
-            remaining.iter().map(|kv| kv.0.as_str()).collect();
+        let unexpected_keys: Vec<&str> = iter.map(|kv| kv.0.as_str()).collect();
 
         Self::unexpected_keys(unexpected_keys, expected)
     }
