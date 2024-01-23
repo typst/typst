@@ -39,6 +39,7 @@ extern crate self as typst;
 
 #[macro_use]
 pub mod util;
+pub mod compile;
 pub mod diag;
 pub mod engine;
 pub mod eval;
@@ -90,7 +91,7 @@ pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document>
     let world = world.track();
 
     // Try to evaluate the source file into a module.
-    let module = crate::eval::eval(
+    let module = crate::compile::eval(
         world,
         Route::default().track(),
         tracer.track_mut(),

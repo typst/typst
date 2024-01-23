@@ -110,6 +110,11 @@ impl Styles {
         self.0 = outer.iter().cloned().chain(mem::take(self).0).collect();
     }
 
+    /// Get the inner value for a style property.
+    pub fn as_slice(&self) -> &[Prehashed<Style>] {
+        self.0.as_slice()
+    }
+
     /// Add an origin span to all contained properties.
     pub fn spanned(mut self, span: Span) -> Self {
         for entry in self.0.make_mut() {
@@ -417,6 +422,7 @@ cast! {
     Transformation,
     content: Content => Self::Content(content),
     func: Func => Self::Func(func),
+    styles: Styles => Self::Style(styles),
 }
 
 /// A chain of styles, similar to a linked list.

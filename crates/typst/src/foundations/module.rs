@@ -91,6 +91,18 @@ impl Module {
         })
     }
 
+    pub fn field_index(&self, name: &str) -> StrResult<usize> {
+        self.scope().get_index(name).ok_or_else(|| {
+            eco_format!("module `{}` does not contain `{name}`", self.name())
+        })
+    }
+
+    pub fn field_by_id(&self, id: usize) -> StrResult<&Value> {
+        self.scope().get_by_id(id).ok_or_else(|| {
+            eco_format!("module `{}` does not contain `{}`", self.name(), id)
+        })
+    }
+
     /// Extract the module's content.
     pub fn content(self) -> Content {
         match Arc::try_unwrap(self.inner) {

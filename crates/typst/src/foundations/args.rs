@@ -67,11 +67,35 @@ impl Args {
         self.items.iter().filter(|slot| slot.name.is_none()).count()
     }
 
+    pub fn chain(&mut self, other: Self) {
+        self.items.extend(other.items);
+    }
+
+    pub fn insert_at(&mut self, index: usize, span: Span, value: Value) {
+        self.items.insert(
+            index,
+            Arg {
+                span: self.span,
+                name: None,
+                value: Spanned::new(value, span),
+            },
+        )
+    }
+
     /// Push a positional argument.
     pub fn push(&mut self, span: Span, value: Value) {
         self.items.push(Arg {
             span: self.span,
             name: None,
+            value: Spanned::new(value, span),
+        })
+    }
+
+    /// Push a named argument.
+    pub fn insert(&mut self, span: Span, name: Str, value: Value) {
+        self.items.push(Arg {
+            span: self.span,
+            name: Some(name),
             value: Spanned::new(value, span),
         })
     }
@@ -232,6 +256,32 @@ impl Args {
             }
         }
         Ok(())
+    }
+}
+
+impl Extend<Value> for Args {
+    fn extend<T: IntoIterator<Item = Value>>(&mut self, iter: T) {
+        let iter = iter.into_iter();
+        self.items.reserve(iter.size_hint().0);
+        for value in iter {
+            self.push(self.span, value);
+        }
+    }
+}
+
+impl Extend<(Str, Value)> for Args {
+    fn extend<T: IntoIterator<Item = (Str, Value)>>(&mut self, iter: T) {
+        let iter = iter.into_iter();
+        self.items.reserve(iter.size_hint().0);
+        for (name, value) in iter {
+            self.insert(self.span, name, value);
+        }
+    }
+}
+
+impl Extend<Arg> for Args {
+    fn extend<T: IntoIterator<Item = Arg>>(&mut self, iter: T) {
+        self.items.extend(iter);
     }
 }
 

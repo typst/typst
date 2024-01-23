@@ -126,9 +126,13 @@ impl Scope {
         self.category = None;
     }
 
+    pub fn len(&self) -> usize {
+        self.map.len()
+    }
+
     /// Bind a value to a name.
     #[track_caller]
-    pub fn define(&mut self, name: impl Into<EcoString>, value: impl IntoValue) {
+    pub fn define(&mut self, name: impl Into<EcoString>, value: impl IntoValue) -> usize {
         let name = name.into();
 
         #[cfg(debug_assertions)]
@@ -136,8 +140,15 @@ impl Scope {
             panic!("duplicate definition: {name}");
         }
 
+        if let Some(index) = self.map.get_index_of(&name) {
+            return index;
+        }
+
+        let id = self.map.len();
         self.map
             .insert(name, Slot::new(value.into_value(), Kind::Normal, self.category));
+
+        id
     }
 
     /// Define a native function through a Rust type that shadows the function.
@@ -179,6 +190,22 @@ impl Scope {
     /// Try to access a variable immutably.
     pub fn get(&self, var: &str) -> Option<&Value> {
         self.map.get(var).map(Slot::read)
+    }
+
+    pub fn get_by_id(&self, id: usize) -> Option<&Value> {
+        self.map.get_index(id).map(|(_, v)| v).map(Slot::read)
+    }
+
+    pub fn get_mut_by_id(&mut self, id: usize) -> Option<&mut Value> {
+        self.map
+            .get_index_mut(id)
+            .map(|(_, v)| v)
+            .map(Slot::write)
+            .map(Result::unwrap)
+    }
+
+    pub fn get_index(&self, var: &str) -> Option<usize> {
+        self.map.get_index_of(var)
     }
 
     /// Try to access a variable mutably.

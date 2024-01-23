@@ -97,6 +97,10 @@ impl Value {
         Self::Dyn(Dynamic::new(any))
     }
 
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+
     /// Create a numeric value from a number with a unit.
     pub fn numeric(pair: (f64, ast::Unit)) -> Self {
         let (v, unit) = pair;

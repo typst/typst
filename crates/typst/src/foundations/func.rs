@@ -133,6 +133,12 @@ pub struct Func {
     span: Span,
 }
 
+impl Func {
+    pub fn method(value: impl Into<Value>, func: impl Into<Func>) -> Self {
+        Repr::Method(Arc::new(Prehashed::new(value.into())), Arc::new(func.into())).into()
+    }
+}
+
 /// The different kinds of function representations.
 #[derive(Clone, PartialEq, Hash)]
 enum Repr {
@@ -142,6 +148,10 @@ enum Repr {
     Element(Element),
     /// A user-defined closure.
     Closure(Arc<Prehashed<Closure>>),
+    /// A native closure.
+    NativeClosure(Arc<typst::compile::Closure>),
+    /// A composite method.
+    Method(Arc<Prehashed<Value>>, Arc<Func>),
     /// A nested function with pre-applied arguments.
     With(Arc<(Func, Args)>),
 }
@@ -155,7 +165,9 @@ impl Func {
             Repr::Native(native) => Some(native.name),
             Repr::Element(elem) => Some(elem.name()),
             Repr::Closure(closure) => closure.name(),
+            Repr::NativeClosure(closure) => Some(&closure.name),
             Repr::With(with) => with.0.name(),
+            Repr::Method(_, func) => func.name(),
         }
     }
 
@@ -166,8 +178,9 @@ impl Func {
         match &self.repr {
             Repr::Native(native) => Some(native.title),
             Repr::Element(elem) => Some(elem.title()),
-            Repr::Closure(_) => None,
+            Repr::Closure(_) | Repr::NativeClosure(_) => None,
             Repr::With(with) => with.0.title(),
+            Repr::Method(_, func) => func.title(),
         }
     }
 
@@ -176,8 +189,9 @@ impl Func {
         match &self.repr {
             Repr::Native(native) => Some(native.docs),
             Repr::Element(elem) => Some(elem.docs()),
-            Repr::Closure(_) => None,
+            Repr::Closure(_) | Repr::NativeClosure(_) => None,
             Repr::With(with) => with.0.docs(),
+            Repr::Method(_, func) => func.docs(),
         }
     }
 
@@ -186,8 +200,9 @@ impl Func {
         match &self.repr {
             Repr::Native(native) => Some(&native.0.params),
             Repr::Element(elem) => Some(elem.params()),
-            Repr::Closure(_) => None,
+            Repr::Closure(_) | Repr::NativeClosure(_) => None,
             Repr::With(with) => with.0.params(),
+            Repr::Method(_, func) => func.params(),
         }
     }
 
@@ -203,8 +218,9 @@ impl Func {
         match &self.repr {
             Repr::Native(native) => Some(&native.0.returns),
             Repr::Element(_) => Some(&CONTENT),
-            Repr::Closure(_) => None,
+            Repr::Closure(_) | Repr::NativeClosure(_) => None,
             Repr::With(with) => with.0.returns(),
+            Repr::Method(_, func) => func.returns(),
         }
     }
 
@@ -213,8 +229,9 @@ impl Func {
         match &self.repr {
             Repr::Native(native) => native.keywords,
             Repr::Element(elem) => elem.keywords(),
-            Repr::Closure(_) => &[],
+            Repr::Closure(_) | Repr::NativeClosure(_) => &[],
             Repr::With(with) => with.0.keywords(),
+            Repr::Method(_, func) => func.keywords(),
         }
     }
 
@@ -223,8 +240,9 @@ impl Func {
         match &self.repr {
             Repr::Native(native) => Some(&native.0.scope),
             Repr::Element(elem) => Some(elem.scope()),
-            Repr::Closure(_) => None,
+            Repr::Closure(_) | Repr::NativeClosure(_) => None,
             Repr::With(with) => with.0.scope(),
+            Repr::Method(_, func) => func.scope(),
         }
     }
 
@@ -278,9 +296,14 @@ impl Func {
                 TrackedMut::reborrow_mut(&mut engine.tracer),
                 args,
             ),
+            Repr::NativeClosure(closure) => closure.call(engine, args),
             Repr::With(with) => {
                 args.items = with.1.items.iter().cloned().chain(args.items).collect();
                 with.0.call(engine, args)
+            }
+            Repr::Method(value, func) => {
+                args.insert_at(0, Span::detached(), (&***value).clone());
+                func.call(engine, args)
             }
         }
     }
@@ -396,6 +419,12 @@ impl From<Repr> for Func {
 impl From<Element> for Func {
     fn from(func: Element) -> Self {
         Repr::Element(func).into()
+    }
+}
+
+impl From<typst::compile::Closure> for Func {
+    fn from(value: typst::compile::Closure) -> Self {
+        Repr::NativeClosure(Arc::new(value)).into()
     }
 }
 
