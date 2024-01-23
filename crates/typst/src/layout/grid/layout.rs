@@ -483,12 +483,21 @@ impl CellGrid {
                     self.cols.len()
                 };
                 let factor = if self.has_gutter { 2 } else { 1 };
-                let x = factor * (*parent % c);
-                let x = if self.is_rtl { self.cols.len() - 1 - x } else { x };
+                let x = self.convert_ltr_col_to_rtl(factor * (*parent % c));
                 let y = factor * (*parent / c);
                 (x, y)
             }
         })
+    }
+
+    /// Given a pre-RTL column index, converts it to a post-RTL index, if
+    /// if needed.
+    fn convert_ltr_col_to_rtl(&self, x: usize) -> usize {
+        if self.is_rtl {
+            self.cols.len() - 1 - x
+        } else {
+            x
+        }
     }
 }
 
@@ -801,11 +810,30 @@ impl<'a> GridLayouter<'a> {
     /// Total width spanned by the cell (among resolved columns).
     /// Includes spanned gutter columns.
     fn cell_spanned_width(&self, x: usize, colspan: usize) -> Abs {
-        let colspan = if self.grid.has_gutter { 2 * colspan - 1 } else { colspan };
+        /// This is a function because lambdas can't have generics ('impl').
+        /// Needed so we can conditionally apply 'rev()' below.
+        fn calculate_spanned_width<'a>(
+            rcols: impl IntoIterator<Item = &'a Abs>,
+            colspan: usize,
+            has_gutter: bool,
+        ) -> Abs {
+            rcols
+                .into_iter()
+                .take(if has_gutter { 2 * colspan - 1 } else { colspan })
+                .sum()
+        }
         if self.grid.is_rtl {
-            self.rcols[x + 1 - colspan..=x].iter().sum()
+            calculate_spanned_width(
+                self.rcols.iter().rev().skip(self.grid.convert_ltr_col_to_rtl(x)),
+                colspan,
+                self.grid.has_gutter,
+            )
         } else {
-            self.rcols[x..x + colspan].iter().sum()
+            calculate_spanned_width(
+                self.rcols.iter().skip(x),
+                colspan,
+                self.grid.has_gutter,
+            )
         }
     }
 
@@ -815,6 +843,26 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
         available: Abs,
     ) -> SourceResult<(Abs, usize)> {
+        /// Finds the last auto column a cell at column 'x' with given colspan
+        /// spans. Assumes the columns are in LTR order.
+        /// This is a function because lambdas can't have generics
+        /// ('impl'), and this is needed so we can conditionally apply 'rev()'
+        /// below, in the loop.
+        fn find_last_spanned_auto_col<'a>(
+            cols: impl Iterator<Item = &'a Sizing> + ExactSizeIterator + DoubleEndedIterator,
+            has_gutter: bool,
+            x: usize,
+            colspan: usize,
+        ) -> Option<usize> {
+            cols.into_iter()
+                .enumerate()
+                .skip(x)
+                .take(if has_gutter { 2 * colspan - 1 } else { colspan })
+                .rev()
+                .find(|(_, col)| **col == Sizing::Auto)
+                .map(|(x, _)| x)
+        }
+
         let mut auto = Abs::zero();
         let mut count = 0;
         let all_frac_cols = self
@@ -828,15 +876,7 @@ impl<'a> GridLayouter<'a> {
 
         // Determine size of auto columns by laying out all cells in those
         // columns, measuring them and finding the largest one.
-        let mut cols = self.grid.cols.clone();
-        if self.grid.is_rtl {
-            // Analyze rightmost cells first, as they expand to the left, so
-            // the leftmost merged position of a colspan needs resolved size
-            // info from the other positions (to the right) in order to know
-            // how much to expand the last spanned column in the end.
-            cols.reverse();
-        }
-        for (x, &col) in cols.iter().enumerate() {
+        for (x, &col) in self.grid.cols.iter().enumerate() {
             if col != Sizing::Auto {
                 continue;
             }
@@ -850,52 +890,30 @@ impl<'a> GridLayouter<'a> {
                 };
                 let cell = self.grid.cell(parent_x, parent_y).unwrap();
                 let colspan = cell.colspan.get();
-                let colspan =
-                    if self.grid.has_gutter { 2 * colspan - 1 } else { colspan };
                 let last_spanned_auto_col = if colspan == 1 {
                     Some(x)
                 } else if self.grid.is_rtl {
-                    // Cells expand to the left with RTL.
-                    // Therefore, the "last" auto column spanned by the parent
-                    // cell of this position is the leftmost auto column
-                    // (first in the iterator of spanned columns).
-                    self.grid
-                        .cols
-                        .iter()
-                        .enumerate()
-                        .skip(parent_x + 1 - colspan)
-                        .take(colspan)
-                        .find(|(_, &col)| col == Sizing::Auto)
-                        .map(|(x, _)| x)
+                    find_last_spanned_auto_col(
+                        self.grid.cols.iter().rev(),
+                        self.grid.has_gutter,
+                        parent_x,
+                        colspan,
+                    )
                 } else {
-                    // Cells expand to the right with LTR.
-                    // Therefore, the last auto column spanned by the parent
-                    // cell of this position is the rightmost auto column
-                    // (last in the iterator, so we have to reverse it).
-                    self.grid
-                        .cols
-                        .iter()
-                        .enumerate()
-                        .skip(x)
-                        .take(colspan)
-                        .rev()
-                        .find(|(_, &col)| col == Sizing::Auto)
-                        .map(|(x, _)| x)
+                    find_last_spanned_auto_col(
+                        self.grid.cols.iter(),
+                        self.grid.has_gutter,
+                        parent_x,
+                        colspan,
+                    )
                 };
 
                 let spans_all_frac_cols = || {
-                    let column_range = if self.grid.is_rtl {
-                        // RTL expands to the left, so `parent_x` is the
-                        // rightmost spanned column.
-                        (parent_x + 1 - colspan)..parent_x + 1
-                    } else {
-                        // LTR expands to the right, so `parent_x` is the
-                        // leftmost spanned column.
-                        parent_x..parent_x + colspan
-                    };
                     colspan > 1
                         && !all_frac_cols.is_empty()
-                        && all_frac_cols.iter().all(|x| column_range.contains(x))
+                        && all_frac_cols
+                            .iter()
+                            .all(|x| (parent_x..parent_x + colspan).contains(x))
                 };
 
                 // A colspan only affects the size of the last spanned auto
@@ -934,7 +952,7 @@ impl<'a> GridLayouter<'a> {
                     // column spanned by a cell if it spans all fractional
                     // columns in a finite region.
                     let already_covered_width =
-                        self.cell_spanned_width(parent_x, cell.colspan.get());
+                        self.cell_spanned_width(parent_x, colspan);
 
                     let size = Size::new(available, height);
                     let pod = Regions::one(size, Axes::splat(false));
