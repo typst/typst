@@ -164,7 +164,7 @@ where
     T: FromValue + Clone,
 {
     fn from_value(mut value: Value) -> StrResult<Self> {
-        let keys = [
+        let expected_keys = [
             "top-left",
             "top-right",
             "bottom-right",
@@ -177,7 +177,7 @@ where
         ];
 
         if let Value::Dict(dict) = &mut value {
-            if dict.iter().any(|(key, _)| keys.contains(&key.as_str())) {
+            if dict.iter().any(|(key, _)| expected_keys.contains(&key.as_str())) {
                 let mut take = |key| dict.take(key).ok().map(T::from_value).transpose();
                 let rest = take("rest")?;
                 let left = take("left")?.or_else(|| rest.clone());
@@ -199,7 +199,7 @@ where
                         .or_else(|| left.clone()),
                 };
 
-                dict.finish(&keys)?;
+                dict.finish(&expected_keys)?;
                 return Ok(corners);
             }
         }
@@ -209,7 +209,7 @@ where
         } else if let Value::Dict(dict) = &mut value {
             let error = Dict::unexpected_keys(
                 dict.iter().map(|kv| kv.0.as_str()).collect(),
-                &keys,
+                &expected_keys,
             );
             Err(error.err().unwrap())
         } else {
