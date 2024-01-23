@@ -483,21 +483,9 @@ impl CellGrid {
                     self.cols.len()
                 };
                 let factor = if self.has_gutter { 2 } else { 1 };
-                let x = self.convert_ltr_col_to_rtl(factor * (*parent % c));
-                let y = factor * (*parent / c);
-                (x, y)
+                (factor * (*parent % c), factor * (*parent / c))
             }
         })
-    }
-
-    /// Given a pre-RTL column index, converts it to a post-RTL index, if
-    /// if needed.
-    fn convert_ltr_col_to_rtl(&self, x: usize) -> usize {
-        if self.is_rtl {
-            self.cols.len() - 1 - x
-        } else {
-            x
-        }
     }
 }
 
@@ -744,10 +732,8 @@ impl<'a> GridLayouter<'a> {
                     if let Some(cell) = self.grid.cell(x, row.y) {
                         let fill = cell.fill.clone();
                         if let Some(fill) = fill {
+                            let pos = Point::new(dx, dy);
                             let width = self.cell_spanned_width(x, cell.colspan.get());
-                            let offset =
-                                if self.grid.is_rtl { -width + col } else { Abs::zero() };
-                            let pos = Point::new(dx + offset, dy);
                             let size = Size::new(width, row.height);
                             let rect = Geometry::Rect(size).filled(fill);
                             frame.prepend(pos, FrameItem::Shape(rect, self.span));
@@ -810,31 +796,11 @@ impl<'a> GridLayouter<'a> {
     /// Total width spanned by the cell (among resolved columns).
     /// Includes spanned gutter columns.
     fn cell_spanned_width(&self, x: usize, colspan: usize) -> Abs {
-        /// This is a function because lambdas can't have generics ('impl').
-        /// Needed so we can conditionally apply 'rev()' below.
-        fn calculate_spanned_width<'a>(
-            rcols: impl IntoIterator<Item = &'a Abs>,
-            colspan: usize,
-            has_gutter: bool,
-        ) -> Abs {
-            rcols
-                .into_iter()
-                .take(if has_gutter { 2 * colspan - 1 } else { colspan })
-                .sum()
-        }
-        if self.grid.is_rtl {
-            calculate_spanned_width(
-                self.rcols.iter().rev().skip(self.grid.convert_ltr_col_to_rtl(x)),
-                colspan,
-                self.grid.has_gutter,
-            )
-        } else {
-            calculate_spanned_width(
-                self.rcols.iter().skip(x),
-                colspan,
-                self.grid.has_gutter,
-            )
-        }
+        self.rcols
+            .iter()
+            .skip(x)
+            .take(if self.grid.has_gutter { 2 * colspan - 1 } else { colspan })
+            .sum()
     }
 
     /// Measure the size that is available to auto columns.
@@ -843,26 +809,6 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
         available: Abs,
     ) -> SourceResult<(Abs, usize)> {
-        /// Finds the last auto column a cell at column 'x' with given colspan
-        /// spans. Assumes the columns are in LTR order.
-        /// This is a function because lambdas can't have generics
-        /// ('impl'), and this is needed so we can conditionally apply 'rev()'
-        /// below, in the loop.
-        fn find_last_spanned_auto_col<'a>(
-            cols: impl Iterator<Item = &'a Sizing> + ExactSizeIterator + DoubleEndedIterator,
-            has_gutter: bool,
-            x: usize,
-            colspan: usize,
-        ) -> Option<usize> {
-            cols.into_iter()
-                .enumerate()
-                .skip(x)
-                .take(if has_gutter { 2 * colspan - 1 } else { colspan })
-                .rev()
-                .find(|(_, col)| **col == Sizing::Auto)
-                .map(|(x, _)| x)
-        }
-
         let mut auto = Abs::zero();
         let mut count = 0;
         let all_frac_cols = self
@@ -892,20 +838,20 @@ impl<'a> GridLayouter<'a> {
                 let colspan = cell.colspan.get();
                 let last_spanned_auto_col = if colspan == 1 {
                     Some(x)
-                } else if self.grid.is_rtl {
-                    find_last_spanned_auto_col(
-                        self.grid.cols.iter().rev(),
-                        self.grid.has_gutter,
-                        parent_x,
-                        colspan,
-                    )
                 } else {
-                    find_last_spanned_auto_col(
-                        self.grid.cols.iter(),
-                        self.grid.has_gutter,
-                        parent_x,
-                        colspan,
-                    )
+                    self.grid
+                        .cols
+                        .iter()
+                        .enumerate()
+                        .skip(parent_x)
+                        .take(if self.grid.has_gutter {
+                            2 * colspan - 1
+                        } else {
+                            colspan
+                        })
+                        .rev()
+                        .find(|(_, col)| **col == Sizing::Auto)
+                        .map(|(x, _)| x)
                 };
 
                 let spans_all_frac_cols = || {
@@ -1156,11 +1102,7 @@ impl<'a> GridLayouter<'a> {
                 if self.grid.rows[y] == Sizing::Auto {
                     pod.full = self.regions.full;
                 }
-                let mut frame = cell.layout(engine, self.styles, pod)?.into_frame();
-                if self.grid.is_rtl {
-                    let offset = Point::with_x(-width + rcol);
-                    frame.translate(offset);
-                }
+                let frame = cell.layout(engine, self.styles, pod)?.into_frame();
                 output.push_frame(pos, frame);
             }
 
@@ -1193,16 +1135,11 @@ impl<'a> GridLayouter<'a> {
         let mut pos = Point::zero();
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(cell) = self.grid.cell(x, y) {
-                let width = self.cell_spanned_width(x, cell.colspan.get());
-                pod.size.x = width;
+                pod.size.x = self.cell_spanned_width(x, cell.colspan.get());
 
                 // Push the layouted frames into the individual output frames.
                 let fragment = cell.layout(engine, self.styles, pod)?;
-                for (output, mut frame) in outputs.iter_mut().zip(fragment) {
-                    if self.grid.is_rtl {
-                        let offset = Point::with_x(-width + rcol);
-                        frame.translate(offset);
-                    }
+                for (output, frame) in outputs.iter_mut().zip(fragment) {
                     output.push_frame(pos, frame);
                 }
             }
@@ -1343,7 +1280,7 @@ fn split_vline(
 /// wouldn't go through a colspan.
 fn should_draw_vline_at_row(
     grid: &CellGrid,
-    mut x: usize,
+    x: usize,
     y: usize,
     start: usize,
     end: usize,
@@ -1355,10 +1292,6 @@ fn should_draw_vline_at_row(
     if x == 0 || x == grid.cols.len() {
         // Border vline. Always drawn.
         return true;
-    }
-    if grid.is_rtl {
-        // We will consider the cell to the left instead of to the right.
-        x -= 1;
     }
     // When the vline isn't at the border, we need to check if a colspan would
     // be present between columns 'x' and 'x-1' at row 'y', and thus overlap
@@ -1372,7 +1305,7 @@ fn should_draw_vline_at_row(
         // We would then analyze the cell one column after (if at a gutter
         // column), and/or one row below (if at a gutter row), in order to
         // check if it would be merged with a cell before the vline.
-        (if grid.is_rtl { x - (x % 2) } else { x + (x % 2) }, y + y % 2)
+        (x + x % 2, y + y % 2)
     } else {
         (x, y)
     };
@@ -1380,15 +1313,11 @@ fn should_draw_vline_at_row(
         .parent_cell_position(first_adjacent_cell.0, first_adjacent_cell.1)
         .unwrap();
 
-    // If RTL, we ensure the cell to the left doesn't expand to the right.
-    // If not RTL, we ensure the cell to the right doesn't expand to the left.
-    grid.is_rtl && parent_x <= x || !grid.is_rtl && parent_x >= x || parent_y > y
+    parent_x >= x || parent_y > y
 }
 
 #[cfg(test)]
 mod test {
-    use crate::{foundations::Styles, text::TextDir};
-
     use super::*;
 
     fn sample_cell() -> Cell {
@@ -1407,7 +1336,7 @@ mod test {
         }
     }
 
-    fn sample_grid(gutters: bool, is_rtl: bool) -> CellGrid {
+    fn sample_grid(gutters: bool) -> CellGrid {
         const COLS: usize = 4;
         const ROWS: usize = 6;
         let entries = vec![
@@ -1442,12 +1371,6 @@ mod test {
             Entry::Cell(cell_with_colspan(2)),
             Entry::Merged { parent: 22 },
         ];
-        let text_dir =
-            Styles::from(TextElem::set_dir(TextDir(Smart::Custom(if is_rtl {
-                Dir::RTL
-            } else {
-                Dir::LTR
-            }))));
         CellGrid::new_internal(
             Axes::with_x(&[Sizing::Auto; COLS]),
             if gutters {
@@ -1456,12 +1379,13 @@ mod test {
                 Axes::default()
             },
             entries,
-            StyleChain::new(&text_dir),
+            StyleChain::default(),
         )
     }
 
-    fn test_vline_splitting_without_gutter(is_rtl: bool) {
-        let grid = sample_grid(false, is_rtl);
+    #[test]
+    fn test_vline_splitting_without_gutter() {
+        let grid = sample_grid(false);
         let rows = &[
             RowPiece { height: Abs::pt(1.0), y: 0 },
             RowPiece { height: Abs::pt(2.0), y: 1 },
@@ -1470,7 +1394,7 @@ mod test {
             RowPiece { height: Abs::pt(16.0), y: 4 },
             RowPiece { height: Abs::pt(32.0), y: 5 },
         ];
-        let mut expected_vline_splits = vec![
+        let expected_vline_splits = &[
             vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
             vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
             // interrupted a few times by colspans
@@ -1483,9 +1407,6 @@ mod test {
             vec![],
             vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
         ];
-        if is_rtl {
-            expected_vline_splits.reverse();
-        }
         for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
             assert_eq!(
                 expected_splits,
@@ -1494,8 +1415,9 @@ mod test {
         }
     }
 
-    fn test_vline_splitting_with_gutter(is_rtl: bool) {
-        let grid = sample_grid(true, is_rtl);
+    #[test]
+    fn test_vline_splitting_with_gutter() {
+        let grid = sample_grid(true);
         let rows = &[
             RowPiece { height: Abs::pt(1.0), y: 0 },
             RowPiece { height: Abs::pt(2.0), y: 1 },
@@ -1509,7 +1431,7 @@ mod test {
             RowPiece { height: Abs::pt(512.0), y: 9 },
             RowPiece { height: Abs::pt(1024.0), y: 10 },
         ];
-        let mut expected_vline_splits = vec![
+        let expected_vline_splits = &[
             // left border
             vec![(
                 Abs::pt(0.),
@@ -1570,34 +1492,11 @@ mod test {
                 Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
             )],
         ];
-        if is_rtl {
-            expected_vline_splits.reverse();
-        }
         for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
             assert_eq!(
                 expected_splits,
                 &split_vline(&grid, rows, x, 0, 11).into_iter().collect::<Vec<_>>(),
             );
         }
-    }
-
-    #[test]
-    fn test_vline_splitting_without_gutter_ltr() {
-        test_vline_splitting_without_gutter(false)
-    }
-
-    #[test]
-    fn test_vline_splitting_without_gutter_rtl() {
-        test_vline_splitting_without_gutter(true)
-    }
-
-    #[test]
-    fn test_vline_splitting_with_gutter_ltr() {
-        test_vline_splitting_with_gutter(false)
-    }
-
-    #[test]
-    fn test_vline_splitting_with_gutter_rtl() {
-        test_vline_splitting_with_gutter(true)
     }
 }
