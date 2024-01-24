@@ -79,7 +79,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     at: '@',
     backslash: ['\\', circle: '⦸', not: '⧷'],
     co: '℅',
-    colon: [':', eq: '≔', double.eq: '⩴'],
+    colon: [':', double: '∷', eq: '≔', double.eq: '⩴'],
     comma: ',',
     dagger: ['†', double: '‡'],
     dash: [
