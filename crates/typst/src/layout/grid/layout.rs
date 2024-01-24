@@ -835,10 +835,9 @@ impl<'a> GridLayouter<'a> {
                 };
                 let cell = self.grid.cell(parent_x, parent_y).unwrap();
                 let colspan = cell.colspan.get();
-                let last_spanned_auto_col = if colspan == 1 {
-                    Some(x)
-                } else {
-                    self.grid
+                if colspan > 1 {
+                    let last_spanned_auto_col = self
+                        .grid
                         .cols
                         .iter()
                         .enumerate()
@@ -850,60 +849,60 @@ impl<'a> GridLayouter<'a> {
                         })
                         .rev()
                         .find(|(_, col)| **col == Sizing::Auto)
-                        .map(|(x, _)| x)
-                };
+                        .map(|(x, _)| x);
 
-                let spans_all_frac_cols = || {
-                    colspan > 1
-                        && !all_frac_cols.is_empty()
-                        && all_frac_cols
-                            .iter()
-                            .all(|x| (parent_x..parent_x + colspan).contains(x))
-                };
-
-                // A colspan only affects the size of the last spanned auto
-                // column.
-                // Additionally, as a heuristic, a colspan won't affect the
-                // size of auto columns if it already spans all fractional
-                // columns, since those would already expand to provide all
-                // remaining available after auto column sizing to that cell.
-                // However, this heuristic is only valid in finite regions
-                // (pages without 'auto' width), since otherwise the fractional
-                // columns don't expand at all.
-                if last_spanned_auto_col == Some(x)
-                    && (!spans_all_frac_cols() || !self.regions.size.x.is_finite())
-                {
-                    // For relative rows, we can already resolve the correct
-                    // base and for auto and fr we could only guess anyway.
-                    let height = match self.grid.rows[y] {
-                        Sizing::Rel(v) => {
-                            v.resolve(self.styles).relative_to(self.regions.base().y)
-                        }
-                        _ => self.regions.base().y,
-                    };
-                    // Don't expand this auto column more than the cell
-                    // actually needs. To do this, we check how much the other,
-                    // previously resolved columns provide to the cell in terms
-                    // of width (if it is a colspan), and subtract this from
-                    // its expected width when comparing with other cells in
-                    // this column. Note that, since this is the last auto
-                    // column spanned by this cell, all other auto columns will
-                    // already have been resolved and will be considered.
-                    // Only fractional columns will be excluded from this
-                    // calculation, which can lead to auto columns being
-                    // expanded unnecessarily when cells span both a fractional
-                    // column and an auto column. One mitigation for this is
-                    // the heuristic used above to not expand the last auto
-                    // column spanned by a cell if it spans all fractional
-                    // columns in a finite region.
-                    let already_covered_width =
-                        self.cell_spanned_width(parent_x, colspan);
-
-                    let size = Size::new(available, height);
-                    let pod = Regions::one(size, Axes::splat(false));
-                    let frame = cell.measure(engine, self.styles, pod)?.into_frame();
-                    resolved.set_max(frame.width() - already_covered_width);
+                    if last_spanned_auto_col != Some(x) {
+                        // A colspan only affects the size of the last spanned
+                        // auto column.
+                        continue;
+                    }
                 }
+
+                if colspan > 1
+                    && self.regions.size.x.is_finite()
+                    && !all_frac_cols.is_empty()
+                    && all_frac_cols
+                        .iter()
+                        .all(|x| (parent_x..parent_x + colspan).contains(x))
+                {
+                    // Additionally, as a heuristic, a colspan won't affect the
+                    // size of auto columns if it already spans all fractional
+                    // columns, since those would already expand to provide all
+                    // remaining available after auto column sizing to that
+                    // cell. However, this heuristic is only valid in finite
+                    // regions (pages without 'auto' width), since otherwise
+                    // the fractional columns don't expand at all.
+                    continue;
+                }
+
+                // For relative rows, we can already resolve the correct
+                // base and for auto and fr we could only guess anyway.
+                let height = match self.grid.rows[y] {
+                    Sizing::Rel(v) => {
+                        v.resolve(self.styles).relative_to(self.regions.base().y)
+                    }
+                    _ => self.regions.base().y,
+                };
+                // Don't expand this auto column more than the cell actually
+                // needs. To do this, we check how much the other, previously
+                // resolved columns provide to the cell in terms of width
+                // (if it is a colspan), and subtract this from its expected
+                // width when comparing with other cells in this column. Note
+                // that, since this is the last auto column spanned by this
+                // cell, all other auto columns will already have been resolved
+                // and will be considered.
+                // Only fractional columns will be excluded from this
+                // calculation, which can lead to auto columns being expanded
+                // unnecessarily when cells span both a fractional column and
+                // an auto column. One mitigation for this is the heuristic
+                // used above to not expand the last auto column spanned by a
+                // cell if it spans all fractional columns in a finite region.
+                let already_covered_width = self.cell_spanned_width(parent_x, colspan);
+
+                let size = Size::new(available, height);
+                let pod = Regions::one(size, Axes::splat(false));
+                let frame = cell.measure(engine, self.styles, pod)?.into_frame();
+                resolved.set_max(frame.width() - already_covered_width);
             }
 
             self.rcols[x] = resolved;
