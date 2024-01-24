@@ -8,7 +8,7 @@ use std::ops::Deref;
 use ecow::EcoString;
 use unscanny::Scanner;
 
-use crate::{is_id_continue, is_id_start, split_newlines, Span, SyntaxKind, SyntaxNode};
+use crate::{is_newline, Span, SyntaxKind, SyntaxNode};
 
 /// A typed AST node.
 pub trait AstNode<'a>: Sized {
@@ -551,116 +551,56 @@ node! {
 }
 
 impl<'a> Raw<'a> {
-    fn components(&self) -> (usize, std::slice::Iter<'a, SyntaxNode>) {
-        println!("raw text: {:?}", self.0.text());
-        println!("raw elem: {:#?}", self.0);
-
-        let mut children = self.0.children();
-        let backtick = children.next().unwrap();
-        // remove last
-        let _backtick_end = children.next_back().unwrap();
-        // println!("backtick: {:?}", backtick.text());
-        // println!("backtick2: {:?}", backtick_end.text());
-        // println!("content: {text:?}");
-
-        (backtick.len(), children)
-    }
-
-    /// The lines in the raw text without the processing markers.
+    /// The lines in the raw text
     pub fn lines(self) -> impl Iterator<Item = RawLine<'a>> {
-        let (backtick, children) = self.components();
-        let _blocky = backtick >= 3;
-
-        let text: EcoString =
-            children.clone().cloned().map(SyntaxNode::into_text).collect();
-        let text = text.as_ref();
-
-        println!("content: {text:?}");
-
-        children.filter_map(RawLine::from_untyped)
+        self.0.children().filter_map(RawLine::from_untyped)
     }
 
     /// The trimmed raw text.
     pub fn text(self) -> EcoString {
-        let (backtick, children) = self.components();
-        let blocky = backtick >= 3;
-
-        let text: EcoString = children.cloned().map(SyntaxNode::into_text).collect();
-        let mut text = text.as_ref();
-
-        // Trim tag, one space at the start, and one space at the end if the
-        // last non-whitespace char is a backtick.
-        if blocky {
-            let mut s = Scanner::new(text);
-            if s.eat_if(is_id_start) {
-                s.eat_while(is_id_continue);
-            }
-            text = s.after();
-            text = text.strip_prefix(' ').unwrap_or(text);
-            if text.trim_end().ends_with('`') {
-                text = text.strip_suffix(' ').unwrap_or(text);
-            }
-        }
-
-        // Split into lines.
-        let mut lines = split_newlines(text);
-
-        if blocky {
-            let dedent = lines
-                .iter()
-                .skip(1)
-                .filter(|line| !line.chars().all(char::is_whitespace))
-                // The line with the closing ``` is always taken into account
-                .chain(lines.last())
-                .map(|line| line.chars().take_while(|c| c.is_whitespace()).count())
-                .min()
-                .unwrap_or(0);
-
-            // Dedent based on column, but not for the first line.
-            for line in lines.iter_mut().skip(1) {
-                let offset = line.chars().take(dedent).map(char::len_utf8).sum();
-                *line = &line[offset..];
-            }
-
-            let is_whitespace = |line: &&str| line.chars().all(char::is_whitespace);
-
-            // Trims a sequence of whitespace followed by a newline at the start.
-            if lines.first().map_or(false, is_whitespace) {
-                lines.remove(0);
-            }
-
-            // Trims a newline followed by a sequence of whitespace at the end.
-            if lines.last().map_or(false, is_whitespace) {
-                lines.pop();
-            }
-        }
-
-        lines.join("\n").into()
+        self.0
+            .children()
+            .filter_map(RawLine::from_untyped)
+            .map(|line| line.0.text())
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n")
+            .into()
     }
 
     /// An optional identifier specifying the language to syntax-highlight in.
     pub fn lang(self) -> Option<&'a str> {
-        let (backtick, mut children) = self.components();
-        let blocky = backtick >= 3;
+        let delim: RawDelim = self.0.cast_first_match().unwrap();
 
         // Only blocky literals are supposed to contain a language.
-        if !blocky {
+        if delim.0.text().len() < 3 {
             return Option::None;
         }
 
-        let text = children.next()?.text().as_ref();
-        let mut s = Scanner::new(text);
-        s.eat_if(is_id_start).then(|| {
-            s.eat_while(is_id_continue);
-            s.before()
-        })
+        let lang: Option<RawLang> = self.0.cast_first_match();
+        lang.map(|lang| lang.0.text().as_str())
     }
 
     /// Whether the raw text should be displayed in a separate block.
     pub fn block(self) -> bool {
-        let (backtick, children) = self.components();
-        backtick >= 3 && children.len() > 1
+        let delim: RawDelim = self.0.cast_first_match().unwrap();
+
+        let mut newlines = self.0.children().filter(|e| {
+            matches!(e.kind(), SyntaxKind::RawTrimmed) && e.text().chars().any(is_newline)
+        });
+
+        delim.0.text().len() >= 3 && newlines.next().is_some()
     }
+}
+
+node! {
+    /// A language tag at the start of raw element: ``typ ``.
+    RawLang
+}
+
+node! {
+    /// A single or 3+ backticks: `` ` ``.
+    RawDelim
 }
 
 node! {
@@ -668,7 +608,12 @@ node! {
     RawLine
 }
 
-impl<'a> RawLine<'a> {}
+impl<'a> RawLine<'a> {
+    /// Inner content of the line.
+    pub fn text(self) -> EcoString {
+        self.0.text().clone()
+    }
+}
 
 node! {
     /// A hyperlink: `https://typst.org`.
