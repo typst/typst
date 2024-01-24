@@ -22,7 +22,7 @@ use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, 
 use crate::model::{Destination, EmphElem, StrongElem};
 use crate::syntax::Span;
 use crate::text::UnderlineElem;
-use crate::util::fat;
+use crate::util::{fat, BitSet};
 
 /// A piece of document content.
 ///
@@ -71,17 +71,25 @@ use crate::util::fat;
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Content {
+    /// The partially element-dependant inner data.
     inner: Arc<Inner<dyn Bounds>>,
+    /// The element's source code location.
     span: Span,
 }
 
 /// The inner representation behind the `Arc`.
 #[derive(Hash)]
 struct Inner<T: ?Sized> {
+    /// An optional label attached to the element.
     label: Option<Label>,
+    /// The element's location which identifies it in the layouted output.
     location: Option<Location>,
-    prepared: bool,
-    guards: Vec<Guard>,
+    /// Manages the element during realization.
+    /// - If bit 0 is set, the element is prepared.
+    /// - If bit n is set, the element is guarded against the n-th show rule
+    ///   recipe from the top of the style chain (counting from 1).
+    lifecycle: BitSet,
+    /// The element's raw data.
     elem: T,
 }
 
@@ -92,8 +100,7 @@ impl Content {
             inner: Arc::new(Inner {
                 label: None,
                 location: None,
-                prepared: false,
-                guards: vec![],
+                lifecycle: BitSet::new(),
                 elem,
             }),
             span: Span::detached(),
@@ -141,13 +148,13 @@ impl Content {
 
     /// Disable a show rule recipe.
     pub fn guarded(mut self, guard: Guard) -> Self {
-        self.make_mut().guards.push(guard);
+        self.make_mut().lifecycle.insert(guard.0);
         self
     }
 
     /// Whether the content needs to be realized specially.
     pub fn needs_preparation(&self) -> bool {
-        !self.inner.prepared
+        !self.is_prepared()
             && (self.can::<dyn Locatable>()
                 || self.can::<dyn Synthesize>()
                 || self.can::<dyn Finalize>()
@@ -156,17 +163,17 @@ impl Content {
 
     /// Check whether a show rule recipe is disabled.
     pub fn is_guarded(&self, guard: Guard) -> bool {
-        self.inner.guards.contains(&guard)
+        self.inner.lifecycle.contains(guard.0)
     }
 
     /// Whether this content has already been prepared.
     pub fn is_prepared(&self) -> bool {
-        self.inner.prepared
+        self.inner.lifecycle.contains(0)
     }
 
     /// Mark this content as prepared.
     pub fn mark_prepared(&mut self) {
-        self.make_mut().prepared = true;
+        self.make_mut().lifecycle.insert(0);
     }
 
     /// Get a field by ID.
@@ -716,8 +723,7 @@ impl<T: NativeElement> Bounds for T {
             inner: Arc::new(Inner {
                 label: inner.label,
                 location: inner.location,
-                prepared: inner.prepared,
-                guards: inner.guards.clone(),
+                lifecycle: inner.lifecycle.clone(),
                 elem: self.clone(),
             }),
             span,
