@@ -692,24 +692,22 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 // Render vertical lines.
-                let auto_vlines =
-                    points(self.rcols.iter().copied()).enumerate().flat_map(|(x, dx)| {
-                        // We want each vline to span the entire table (start
-                        // at y = 0, end after all rows).
-                        // We use 'split_vline' to split the vline such that it
-                        // is not drawn above colspans.
-                        split_vline(self.grid, rows, x, 0, self.grid.rows.len())
-                            .into_iter()
-                            .zip(std::iter::repeat(dx))
-                    });
-                for ((dy, length), dx) in auto_vlines {
-                    let target = Point::with_y(length + thickness);
-                    let vline = Geometry::Line(target).stroked(stroke.clone());
+                for (x, dx) in points(self.rcols.iter().copied()).enumerate() {
                     let dx = if self.is_rtl { self.width - dx } else { dx };
-                    frame.prepend(
-                        Point::new(dx, dy - half),
-                        FrameItem::Shape(vline, self.span),
-                    );
+                    // We want each vline to span the entire table (start
+                    // at y = 0, end after all rows).
+                    // We use 'split_vline' to split the vline such that it
+                    // is not drawn above colspans.
+                    for (dy, length) in
+                        split_vline(self.grid, rows, x, 0, self.grid.rows.len())
+                    {
+                        let target = Point::with_y(length + thickness);
+                        let vline = Geometry::Line(target).stroked(stroke.clone());
+                        frame.prepend(
+                            Point::new(dx, dy - half),
+                            FrameItem::Shape(vline, self.span),
+                        );
+                    }
                 }
             }
 
