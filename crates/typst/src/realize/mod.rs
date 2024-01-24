@@ -107,58 +107,53 @@ pub fn realize(
             elem.set_location(location);
         }
 
-        if let Some(elem) = elem.with_mut::<dyn Synthesize>() {
-            elem.synthesize(engine, styles)?;
+        if let Some(synthesizable) = elem.with_mut::<dyn Synthesize>() {
+            synthesizable.synthesize(engine, styles)?;
         }
 
         elem.mark_prepared();
 
-        if elem.location().is_some() {
-            let span = elem.span();
-            let meta = Meta::Elem(elem.clone());
-            return Ok(Some(
-                (elem + MetaElem::new().pack().spanned(span))
-                    .styled(MetaElem::set_data(smallvec![meta])),
-            ));
+        let span = elem.span();
+        let meta = elem.location().is_some().then(|| Meta::Elem(elem.clone()));
+
+        let mut content = elem;
+        if let Some(finalizable) = target.with::<dyn Finalize>() {
+            content = finalizable.finalize(content, styles);
         }
 
-        return Ok(Some(elem));
+        if let Some(meta) = meta {
+            return Ok(Some(
+                (content + MetaElem::new().pack().spanned(span))
+                    .styled(MetaElem::set_data(smallvec![meta])),
+            ));
+        } else {
+            return Ok(Some(content));
+        }
     }
 
     // Find out how many recipes there are.
     let mut n = styles.recipes().count();
 
-    // Find an applicable recipe.
-    let mut realized = None;
+    // Find an applicable show rule recipe.
     for recipe in styles.recipes() {
         let guard = Guard::Nth(n);
         if recipe.applicable(target) && !target.is_guarded(guard) {
             if let Some(content) = try_apply(engine, target, recipe, guard)? {
-                realized = Some(content);
-                break;
+                return Ok(Some(content));
             }
         }
         n -= 1;
     }
 
-    // Realize if there was no matching recipe.
-    if let Some(showable) = target.with::<dyn Show>() {
-        let guard = Guard::Base(target.func());
-        if realized.is_none() && !target.is_guarded(guard) {
-            realized = Some(showable.show(engine, styles)?);
+    // Apply the built-in show rule if there was no matching recipe.
+    let guard = Guard::Base(target.func());
+    if !target.is_guarded(guard) {
+        if let Some(showable) = target.with::<dyn Show>() {
+            return Ok(Some(showable.show(engine, styles)?));
         }
     }
 
-    // Finalize only if this is the first application for this element.
-    if let Some(elem) = target.with::<dyn Finalize>() {
-        if target.is_pristine() {
-            if let Some(already) = realized {
-                realized = Some(elem.finalize(already, styles));
-            }
-        }
-    }
-
-    Ok(realized)
+    Ok(None)
 }
 
 /// Try to apply a recipe to the target.
