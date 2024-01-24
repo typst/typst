@@ -445,7 +445,7 @@ impl CellGrid {
 
     /// Get the content of the cell in column `x` and row `y`.
     ///
-    /// Returns `None` if it's a gutter cell.
+    /// Returns `None` if it's a gutter cell or merged position.
     #[track_caller]
     fn cell(&self, x: usize, y: usize) -> Option<&Cell> {
         self.entry(x, y).and_then(Entry::as_cell)
