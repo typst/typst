@@ -181,59 +181,6 @@ pub struct CellGrid {
 }
 
 impl CellGrid {
-    /// Generates the cell grid, given the tracks and resolved entries.
-    fn new_internal(
-        tracks: Axes<&[Sizing]>,
-        gutter: Axes<&[Sizing]>,
-        entries: Vec<Entry>,
-    ) -> Self {
-        let mut cols = vec![];
-        let mut rows = vec![];
-
-        // Number of content columns: Always at least one.
-        let c = tracks.x.len().max(1);
-
-        // Number of content rows: At least as many as given, but also at least
-        // as many as needed to place each item.
-        let r = {
-            let len = entries.len();
-            let given = tracks.y.len();
-            let needed = len / c + (len % c).clamp(0, 1);
-            given.max(needed)
-        };
-
-        let has_gutter = gutter.any(|tracks| !tracks.is_empty());
-        let auto = Sizing::Auto;
-        let zero = Sizing::Rel(Rel::zero());
-        let get_or = |tracks: &[_], idx, default| {
-            tracks.get(idx).or(tracks.last()).copied().unwrap_or(default)
-        };
-
-        // Collect content and gutter columns.
-        for x in 0..c {
-            cols.push(get_or(tracks.x, x, auto));
-            if has_gutter {
-                cols.push(get_or(gutter.x, x, zero));
-            }
-        }
-
-        // Collect content and gutter rows.
-        for y in 0..r {
-            rows.push(get_or(tracks.y, y, auto));
-            if has_gutter {
-                rows.push(get_or(gutter.y, y, zero));
-            }
-        }
-
-        // Remove superfluous gutter tracks.
-        if has_gutter {
-            cols.pop();
-            rows.pop();
-        }
-
-        Self { cols, rows, entries, has_gutter }
-    }
-
     /// Generates the cell grid, given the tracks and cells.
     pub fn new(
         tracks: Axes<&[Sizing]>,
@@ -419,6 +366,59 @@ impl CellGrid {
             .collect::<SourceResult<Vec<Entry>>>()?;
 
         Ok(Self::new_internal(tracks, gutter, resolved_cells))
+    }
+
+    /// Generates the cell grid, given the tracks and resolved entries.
+    fn new_internal(
+        tracks: Axes<&[Sizing]>,
+        gutter: Axes<&[Sizing]>,
+        entries: Vec<Entry>,
+    ) -> Self {
+        let mut cols = vec![];
+        let mut rows = vec![];
+
+        // Number of content columns: Always at least one.
+        let c = tracks.x.len().max(1);
+
+        // Number of content rows: At least as many as given, but also at least
+        // as many as needed to place each item.
+        let r = {
+            let len = entries.len();
+            let given = tracks.y.len();
+            let needed = len / c + (len % c).clamp(0, 1);
+            given.max(needed)
+        };
+
+        let has_gutter = gutter.any(|tracks| !tracks.is_empty());
+        let auto = Sizing::Auto;
+        let zero = Sizing::Rel(Rel::zero());
+        let get_or = |tracks: &[_], idx, default| {
+            tracks.get(idx).or(tracks.last()).copied().unwrap_or(default)
+        };
+
+        // Collect content and gutter columns.
+        for x in 0..c {
+            cols.push(get_or(tracks.x, x, auto));
+            if has_gutter {
+                cols.push(get_or(gutter.x, x, zero));
+            }
+        }
+
+        // Collect content and gutter rows.
+        for y in 0..r {
+            rows.push(get_or(tracks.y, y, auto));
+            if has_gutter {
+                rows.push(get_or(gutter.y, y, zero));
+            }
+        }
+
+        // Remove superfluous gutter tracks.
+        if has_gutter {
+            cols.pop();
+            rows.pop();
+        }
+
+        Self { cols, rows, entries, has_gutter }
     }
 
     /// Get the grid entry in column `x` and row `y`.
