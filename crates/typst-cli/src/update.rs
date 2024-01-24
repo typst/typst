@@ -1,4 +1,4 @@
-use std::io::{Cursor, Read, Write};
+use std::io::{self, Cursor, Read, Write};
 use std::path::PathBuf;
 use std::{env, fs};
 
@@ -111,12 +111,12 @@ impl Release {
 
         match download(&url) {
             Ok(response) => response
-                .into_json()
+                .json()
                 .map_err(|err| eco_format!("unable to parse JSON response: {err}")),
-            Err(ureq::Error::Status(404, _)) => {
-                bail!("release not found (searched at {url})")
-            }
-            Err(err) => bail!("failed to download release ({err})"),
+            Err(err) => match err.kind() {
+                io::ErrorKind::NotFound => bail!("release not found (searched at {url})"),
+                _ => bail!("failed to download release ({err})"),
+            },
         }
     }
 
@@ -133,10 +133,12 @@ impl Release {
         eprintln!("Downloading release ...");
         let data = match download_with_progress(&asset.browser_download_url) {
             Ok(data) => data,
-            Err(ureq::Error::Status(404, _)) => {
-                bail!("asset not found (searched for {})", asset.name);
-            }
-            Err(err) => bail!("failed to download asset ({err})"),
+            Err(err) => match err.kind() {
+                io::ErrorKind::NotFound => {
+                    bail!("asset not found (searched for {})", asset.name)
+                }
+                _ => bail!("failed to download asset ({err})"),
+            },
         };
 
         if asset_name.contains("windows") {

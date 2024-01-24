@@ -4,64 +4,62 @@
 
 use std::collections::VecDeque;
 use std::io::{self, ErrorKind, Read, Stderr, Write};
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use once_cell::sync::Lazy;
-use ureq::Response;
+use reqwest::blocking::{Client, Response};
+use reqwest::{Certificate, StatusCode};
 
 /// Keep track of this many download speed samples.
 const SPEED_SAMPLES: usize = 5;
 
 /// Lazily loads a custom CA certificate if present, but if there's an error
 /// loading certificate, it just uses the default configuration.
-static TLS_CONFIG: Lazy<Option<Arc<rustls::ClientConfig>>> = Lazy::new(|| {
-    crate::ARGS
-        .cert
-        .as_ref()
-        .map(|path| {
-            let file = std::fs::OpenOptions::new().read(true).open(path)?;
-            let mut buffer = std::io::BufReader::new(file);
-            let certs = rustls_pemfile::certs(&mut buffer)?;
-            let mut store = rustls::RootCertStore::empty();
-            store.add_parsable_certificates(&certs);
-            let config = rustls::ClientConfig::builder()
-                .with_safe_defaults()
-                .with_root_certificates(store)
-                .with_no_client_auth();
-            Ok::<_, std::io::Error>(Arc::new(config))
-        })
-        .and_then(|x| x.ok())
+static CERT: Lazy<Option<Certificate>> = Lazy::new(|| {
+    let path = crate::ARGS.cert.as_ref()?;
+    let pem = std::fs::read(path).ok()?;
+    reqwest::Certificate::from_pem(&pem).ok()
 });
 
 /// Download binary data and display its progress.
-#[allow(clippy::result_large_err)]
-pub fn download_with_progress(url: &str) -> Result<Vec<u8>, ureq::Error> {
+pub fn download_with_progress(url: &str) -> io::Result<Vec<u8>> {
     let response = download(url)?;
-    Ok(RemoteReader::from_response(response).download()?)
+    RemoteReader::from_response(response).download()
 }
 
 /// Download from a URL.
-#[allow(clippy::result_large_err)]
-pub fn download(url: &str) -> Result<ureq::Response, ureq::Error> {
-    let mut builder = ureq::AgentBuilder::new()
-        .user_agent(concat!("typst/", env!("CARGO_PKG_VERSION")));
+pub fn download(url: &str) -> io::Result<Response> {
+    let response =
+        download_inner(url).map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+    let status = response.status();
+    if status.is_success() {
+        Ok(response)
+    } else if status == StatusCode::NOT_FOUND {
+        Err(io::ErrorKind::NotFound.into())
+    } else {
+        Err(io::Error::new(io::ErrorKind::Other, format!("{status}")))
+    }
+}
+
+/// Internal download implementation.
+fn download_inner(url: &str) -> reqwest::Result<Response> {
+    let mut builder =
+        Client::builder().user_agent(concat!("typst/", env!("CARGO_PKG_VERSION")));
 
     // Get the network proxy config from the environment.
     if let Some(proxy) = env_proxy::for_url_str(url)
         .to_url()
-        .and_then(|url| ureq::Proxy::new(url).ok())
+        .and_then(|url| reqwest::Proxy::all(url).ok())
     {
         builder = builder.proxy(proxy);
     }
 
     // Apply a custom CA certificate if present.
-    if let Some(config) = &*TLS_CONFIG {
-        builder = builder.tls_config(config.clone());
+    if let Some(cert) = &*CERT {
+        builder = builder.add_root_certificate(cert.clone());
     }
 
-    let agent = builder.build();
-    agent.get(url).call()
+    builder.build()?.get(url).send()
 }
 
 /// A wrapper around [`ureq::Response`] that reads the response body in chunks
@@ -70,7 +68,7 @@ pub fn download(url: &str) -> Result<ureq::Response, ureq::Error> {
 /// Downloads will _never_ fail due to statistics failing to print, print errors
 /// are silently ignored.
 struct RemoteReader {
-    reader: Box<dyn Read + Send + Sync + 'static>,
+    response: Response,
     content_len: Option<usize>,
     total_downloaded: usize,
     downloaded_this_sec: usize,
@@ -88,11 +86,12 @@ impl RemoteReader {
     /// optimization, if present.
     pub fn from_response(response: Response) -> Self {
         let content_len: Option<usize> = response
-            .header("Content-Length")
-            .and_then(|header| header.parse().ok());
+            .headers()
+            .get(reqwest::header::CONTENT_LENGTH)
+            .and_then(|header| header.to_str().ok()?.parse().ok());
 
         Self {
-            reader: response.into_reader(),
+            response,
             content_len,
             total_downloaded: 0,
             downloaded_this_sec: 0,
@@ -118,7 +117,7 @@ impl RemoteReader {
         };
 
         loop {
-            let read = match self.reader.read(&mut buffer) {
+            let read = match self.response.read(&mut buffer) {
                 Ok(0) => break,
                 Ok(n) => n,
                 // If the data is not yet ready but will be available eventually

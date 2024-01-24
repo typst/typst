@@ -54,10 +54,12 @@ fn download_package(spec: &PackageSpec, package_dir: &Path) -> PackageResult<()>
 
     let data = match download_with_progress(&url) {
         Ok(data) => data,
-        Err(ureq::Error::Status(404, _)) => {
-            return Err(PackageError::NotFound(spec.clone()))
+        Err(err) => {
+            return Err(match err.kind() {
+                io::ErrorKind::NotFound => PackageError::NotFound(spec.clone()),
+                _ => PackageError::NetworkFailed(Some(eco_format!("{err}"))),
+            })
         }
-        Err(err) => return Err(PackageError::NetworkFailed(Some(eco_format!("{err}")))),
     };
 
     let decompressed = flate2::read::GzDecoder::new(data.as_slice());

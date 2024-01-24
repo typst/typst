@@ -41,8 +41,6 @@ open = { workspace = true }
 parking_lot = { workspace = true }
 pathdiff = { workspace = true }
 rayon = { workspace = true }
-rustls = { workspace = true }
-rustls-pemfile = { workspace = true }
 same-file = { workspace = true }
 self-replace = { workspace = true, optional = true }
 semver = { workspace = true }
@@ -52,7 +50,7 @@ serde_yaml = { workspace = true }
 siphasher = { workspace = true }
 tar = { workspace = true }
 tempfile = { workspace = true }
-ureq = { workspace = true }
+reqwest = { workspace = true }
 xz2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
 
@@ -72,7 +70,7 @@ default = ["embed-fonts"]
 embed-fonts = []
 
 # Permits the CLI to update itself without a package manager
-self-update = ["dep:self-replace", "dep:xz2", "dep:zip", "ureq/json"]
+self-update = ["dep:self-replace", "dep:xz2", "dep:zip", "reqwest/json"]
 
 [lints]
 workspace = true
