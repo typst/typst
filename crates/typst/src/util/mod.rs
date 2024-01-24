@@ -4,10 +4,12 @@ pub mod fat;
 
 #[macro_use]
 mod macros;
+mod bitset;
 mod deferred;
 mod pico;
 mod scalar;
 
+pub use self::bitset::BitSet;
 pub use self::deferred::Deferred;
 pub use self::pico::PicoStr;
 pub use self::scalar::Scalar;
