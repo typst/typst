@@ -14,8 +14,8 @@ use smallvec::smallvec;
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, func, scope, ty, Dict, Element, Fields, Guard, IntoValue, Label, NativeElement,
-    Recipe, Repr, Selector, Str, Style, Styles, Synthesize, Value,
+    elem, func, scope, ty, Dict, Element, Fields, Finalize, Guard, IntoValue, Label,
+    NativeElement, Recipe, Repr, Selector, Str, Style, Styles, Synthesize, Value,
 };
 use crate::introspection::{Locatable, Location, Meta, MetaElem};
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
@@ -147,10 +147,11 @@ impl Content {
 
     /// Whether the content needs to be realized specially.
     pub fn needs_preparation(&self) -> bool {
-        (self.can::<dyn Locatable>()
-            || self.can::<dyn Synthesize>()
-            || self.label().is_some())
-            && !self.inner.prepared
+        !self.inner.prepared
+            && (self.can::<dyn Locatable>()
+                || self.can::<dyn Synthesize>()
+                || self.can::<dyn Finalize>()
+                || self.label().is_some())
     }
 
     /// Check whether a show rule recipe is disabled.
