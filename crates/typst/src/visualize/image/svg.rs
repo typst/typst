@@ -5,7 +5,7 @@ use std::sync::Arc;
 use comemo::Tracked;
 use ecow::EcoString;
 use siphasher::sip128::Hasher128;
-use usvg::{Node, TreeParsing, TreeTextToPath};
+use usvg::{Node, PostProcessingSteps, TreeParsing, TreePostProc};
 
 use crate::diag::{format_xml_like_error, StrResult};
 use crate::foundations::Bytes;
@@ -57,7 +57,7 @@ impl SvgImage {
         let mut font_hash = 0;
         if tree.has_text_nodes() {
             let (fontdb, hash) = load_svg_fonts(world, &mut tree, families);
-            tree.convert_text(&fontdb);
+            tree.postprocess(PostProcessingSteps::default(), &fontdb);
             font_hash = hash;
         }
         tree.calculate_bounding_boxes();
