@@ -159,11 +159,6 @@ impl Content {
         self.inner.guards.contains(&guard)
     }
 
-    /// Whether no show rule was executed for this content so far.
-    pub fn is_pristine(&self) -> bool {
-        self.inner.guards.is_empty()
-    }
-
     /// Whether this content has already been prepared.
     pub fn is_prepared(&self) -> bool {
         self.inner.prepared
