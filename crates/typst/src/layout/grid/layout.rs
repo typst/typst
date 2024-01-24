@@ -458,9 +458,10 @@ impl CellGrid {
     /// position.
     /// If it is a merged cell, returns the parent cell's position.
     /// If it is a gutter cell, returns None.
-    fn parent_cell_position(&self, x: usize, y: usize) -> Option<(usize, usize)> {
+    #[track_caller]
+    fn parent_cell_position(&self, x: usize, y: usize) -> Option<Axes<usize>> {
         self.entry(x, y).map(|entry| match entry {
-            Entry::Cell(_) => (x, y),
+            Entry::Cell(_) => Axes::new(x, y),
             Entry::Merged { parent } => {
                 let c = if self.has_gutter {
                     1 + self.cols.len() / 2
@@ -468,7 +469,7 @@ impl CellGrid {
                     self.cols.len()
                 };
                 let factor = if self.has_gutter { 2 } else { 1 };
-                (factor * (*parent % c), factor * (*parent / c))
+                Axes::new(factor * (*parent % c), factor * (*parent / c))
             }
         })
     }
@@ -829,7 +830,8 @@ impl<'a> GridLayouter<'a> {
             let mut resolved = Abs::zero();
             for y in 0..self.grid.rows.len() {
                 // We get the parent cell in case this is a merged position.
-                let Some((parent_x, parent_y)) = self.grid.parent_cell_position(x, y)
+                let Some(Axes { x: parent_x, y: parent_y }) =
+                    self.grid.parent_cell_position(x, y)
                 else {
                     continue;
                 };
@@ -1326,7 +1328,7 @@ fn should_draw_vline_at_row(
     } else {
         (x, y)
     };
-    let (parent_x, parent_y) = grid
+    let Axes { x: parent_x, y: parent_y } = grid
         .parent_cell_position(first_adjacent_cell.0, first_adjacent_cell.1)
         .unwrap();
 
