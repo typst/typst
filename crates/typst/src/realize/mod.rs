@@ -71,11 +71,7 @@ pub fn realize_block<'a>(
 
 /// Whether the target is affected by show rules in the given style chain.
 pub fn applicable(target: &Content, styles: StyleChain) -> bool {
-    if target.needs_preparation() {
-        return true;
-    }
-
-    if target.can::<dyn Show>() && target.is_pristine() {
+    if target.needs_preparation() || target.can::<dyn Show>() {
         return true;
     }
 
@@ -84,7 +80,7 @@ pub fn applicable(target: &Content, styles: StyleChain) -> bool {
 
     // Find out whether any recipe matches and is unguarded.
     for recipe in styles.recipes() {
-        if recipe.applicable(target) && !target.is_guarded(Guard::Nth(n)) {
+        if !target.is_guarded(Guard(n)) && recipe.applicable(target) {
             return true;
         }
         n -= 1;
@@ -136,8 +132,8 @@ pub fn realize(
 
     // Find an applicable show rule recipe.
     for recipe in styles.recipes() {
-        let guard = Guard::Nth(n);
-        if recipe.applicable(target) && !target.is_guarded(guard) {
+        let guard = Guard(n);
+        if !target.is_guarded(guard) && recipe.applicable(target) {
             if let Some(content) = try_apply(engine, target, recipe, guard)? {
                 return Ok(Some(content));
             }
@@ -146,11 +142,8 @@ pub fn realize(
     }
 
     // Apply the built-in show rule if there was no matching recipe.
-    let guard = Guard::Base(target.func());
-    if !target.is_guarded(guard) {
-        if let Some(showable) = target.with::<dyn Show>() {
-            return Ok(Some(showable.show(engine, styles)?));
-        }
+    if let Some(showable) = target.with::<dyn Show>() {
+        return Ok(Some(showable.show(engine, styles)?));
     }
 
     Ok(None)
