@@ -2,11 +2,11 @@ use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
-    cast, dict, elem, Array, Cast, Content, Dict, Fold, NativeElement, Resolve, Smart,
+    cast, dict, elem, Array, Cast, Content, Dict, Fold, Packed, Resolve, Smart,
     StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Axes, Em, FixedAlign, Frame, FrameItem, Length, Point, Ratio, Rel, Size,
+    Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Length, Point, Ratio, Rel, Size,
 };
 use crate::math::{
     alignments, stack, AlignmentResult, FrameFragment, GlyphFragment, LayoutMath,
@@ -57,14 +57,14 @@ pub struct VecElem {
     pub children: Vec<Content>,
 }
 
-impl LayoutMath for VecElem {
-    #[tracing::instrument(skip(ctx))]
+impl LayoutMath for Packed<VecElem> {
+    #[typst_macros::time(name = "math.vec", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(
             ctx,
             self.children(),
-            FixedAlign::Center,
+            FixedAlignment::Center,
             self.gap(ctx.styles()),
         )?;
         layout_delimiters(
@@ -210,11 +210,9 @@ pub struct MatElem {
     pub rows: Vec<Vec<Content>>,
 }
 
-impl LayoutMath for MatElem {
-    #[tracing::instrument(skip(ctx))]
+impl LayoutMath for Packed<MatElem> {
+    #[typst_macros::time(name = "math.mat", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        // validate inputs
-
         let augment = self.augment(ctx.styles());
         let rows = self.rows();
 
@@ -311,14 +309,14 @@ pub struct CasesElem {
     pub children: Vec<Content>,
 }
 
-impl LayoutMath for CasesElem {
-    #[tracing::instrument(skip(ctx))]
+impl LayoutMath for Packed<CasesElem> {
+    #[typst_macros::time(name = "math.cases", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(
             ctx,
             self.children(),
-            FixedAlign::Start,
+            FixedAlignment::Start,
             self.gap(ctx.styles()),
         )?;
 
@@ -380,7 +378,7 @@ impl Delimiter {
 fn layout_vec_body(
     ctx: &mut MathContext,
     column: &[Content],
-    align: FixedAlign,
+    align: FixedAlignment,
     row_gap: Rel<Abs>,
 ) -> SourceResult<Frame> {
     let gap = row_gap.relative_to(ctx.regions.base().y);
@@ -474,7 +472,7 @@ fn layout_mat_body(
         let mut y = Abs::zero();
 
         for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
-            let cell = cell.into_aligned_frame(ctx, &points, FixedAlign::Center);
+            let cell = cell.into_aligned_frame(ctx, &points, FixedAlignment::Center);
             let pos = Point::new(
                 if points.is_empty() { x + (rcol - cell.width()) / 2.0 } else { x },
                 y + ascent - cell.ascent(),

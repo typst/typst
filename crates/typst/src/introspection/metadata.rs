@@ -1,6 +1,8 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Behave, Behaviour, Content, Show, StyleChain, Value};
+use crate::foundations::{
+    elem, Behave, Behaviour, Content, Packed, Show, StyleChain, Value,
+};
 use crate::introspection::Locatable;
 
 /// Exposes a value to the query system without producing visible content.
@@ -30,13 +32,13 @@ pub struct MetadataElem {
     pub value: Value,
 }
 
-impl Show for MetadataElem {
+impl Show for Packed<MetadataElem> {
     fn show(&self, _: &mut Engine, _styles: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }
 }
 
-impl Behave for MetadataElem {
+impl Behave for Packed<MetadataElem> {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Invisible
     }

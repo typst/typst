@@ -3,11 +3,11 @@ use std::str::FromStr;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, NativeElement, Smart, StyleChain,
+    cast, elem, scope, Array, Content, Fold, Packed, Smart, StyleChain,
 };
 use crate::layout::{
-    Align, Axes, BlockElem, Celled, Em, Fragment, GridLayouter, HAlign, Layout, Length,
-    Regions, Sizing, Spacing, VAlign,
+    Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
+    LayoutMultiple, Length, Regions, Sizing, Spacing, VAlignment,
 };
 use crate::model::{Numbering, NumberingPattern, ParElem};
 use crate::text::TextElem;
@@ -68,7 +68,7 @@ use crate::text::TextElem;
 /// Enumeration items can contain multiple paragraphs and other block-level
 /// content. All content that is indented more than an item's marker becomes
 /// part of that item.
-#[elem(scope, title = "Numbered List", Layout)]
+#[elem(scope, title = "Numbered List", LayoutMultiple)]
 pub struct EnumElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [enum spacing]($enum.spacing). If it is `{true}`, they use normal
@@ -178,8 +178,8 @@ pub struct EnumElem {
     /// 16. Sixteen
     /// 32. Thirty two
     /// ````
-    #[default(HAlign::End + VAlign::Top)]
-    pub number_align: Align,
+    #[default(HAlignment::End + VAlignment::Top)]
+    pub number_align: Alignment,
 
     /// The numbered list's items.
     ///
@@ -194,7 +194,7 @@ pub struct EnumElem {
     /// ) [+ #phase]
     /// ```
     #[variadic]
-    pub children: Vec<EnumItem>,
+    pub children: Vec<Packed<EnumItem>>,
 
     /// The numbers of parent items.
     #[internal]
@@ -208,8 +208,8 @@ impl EnumElem {
     type EnumItem;
 }
 
-impl Layout for EnumElem {
-    #[tracing::instrument(name = "EnumElem::layout", skip_all)]
+impl LayoutMultiple for Packed<EnumElem> {
+    #[typst_macros::time(name = "enum", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -259,16 +259,17 @@ impl Layout for EnumElem {
             let resolved =
                 resolved.aligned(number_align).styled(TextElem::set_overhang(false));
 
-            cells.push(Content::empty());
-            cells.push(resolved);
-            cells.push(Content::empty());
-            cells.push(item.body().clone().styled(Self::set_parents(Parent(number))));
+            cells.push(Cell::from(Content::empty()));
+            cells.push(Cell::from(resolved));
+            cells.push(Cell::from(Content::empty()));
+            cells.push(Cell::from(
+                item.body().clone().styled(EnumElem::set_parents(Parent(number))),
+            ));
             number = number.saturating_add(1);
         }
 
-        let fill = Celled::Value(None);
         let stroke = None;
-        let layouter = GridLayouter::new(
+        let grid = CellGrid::new(
             Axes::with_x(&[
                 Sizing::Rel(indent.into()),
                 Sizing::Auto,
@@ -276,15 +277,12 @@ impl Layout for EnumElem {
                 Sizing::Auto,
             ]),
             Axes::with_y(&[gutter.into()]),
-            &cells,
-            &fill,
-            &stroke,
-            regions,
+            cells,
             styles,
-            self.span(),
         );
+        let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
 
-        Ok(layouter.layout(engine)?.fragment)
+        layouter.layout(engine)
     }
 }
 
@@ -310,7 +308,7 @@ cast! {
         };
         Self::new(body).with_number(number)
     },
-    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
+    v: Content => v.unpack::<Self>().unwrap_or_else(Self::new),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]

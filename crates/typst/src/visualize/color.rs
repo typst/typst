@@ -163,7 +163,7 @@ const ANGLE_EPSILON: f32 = 1e-5;
 ///   )
 /// }))
 /// ```
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Copy, Clone)]
 pub enum Color {
     /// A 32-bit luma color.
@@ -510,7 +510,7 @@ impl Color {
     /// to RGB for display preview might differ from how your printer reproduces
     /// the color.
     ///
-    /// An HSL color is represented internally by an array of four components:
+    /// A CMYK color is represented internally by an array of four components:
     /// - cyan ([`ratio`]($ratio))
     /// - magenta ([`ratio`]($ratio))
     /// - yellow ([`ratio`]($ratio))
@@ -1173,7 +1173,6 @@ impl Color {
     }
 
     /// Converts a 32-bit integer to an RGBA color.
-    #[inline]
     pub fn from_u32(color: u32) -> Self {
         Self::from_u8(
             ((color >> 24) & 0xFF) as u8,

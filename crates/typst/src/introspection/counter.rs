@@ -10,13 +10,14 @@ use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Array, Content, Element, Func, IntoValue,
-    Label, LocatableSelector, NativeElement, Repr, Selector, Show, Str, StyleChain,
-    Value,
+    Label, LocatableSelector, NativeElement, Packed, Repr, Selector, Show, Str,
+    StyleChain, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location, Locator, Meta};
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
 use crate::model::{FigureElem, HeadingElem, Numbering, NumberingPattern};
+use crate::syntax::Span;
 use crate::util::NonZeroExt;
 use crate::World;
 
@@ -350,6 +351,8 @@ impl Counter {
     #[func]
     pub fn display(
         self,
+        /// The call span of the display.
+        span: Span,
         /// A [numbering pattern or a function]($numbering), which specifies how
         /// to display the counter. If given a function, that function receives
         /// each number of the counter as a separate argument. If the amount of
@@ -369,7 +372,7 @@ impl Counter {
         #[default(false)]
         both: bool,
     ) -> Content {
-        DisplayElem::new(self, numbering, both).pack()
+        DisplayElem::new(self, numbering, both).pack().spanned(span)
     }
 
     /// Increases the value of the counter by one.
@@ -383,12 +386,14 @@ impl Counter {
     #[func]
     pub fn step(
         self,
+        /// The call span of the update.
+        span: Span,
         /// The depth at which to step the counter. Defaults to `{1}`.
         #[named]
         #[default(NonZeroUsize::ONE)]
         level: NonZeroUsize,
     ) -> Content {
-        self.update(CounterUpdate::Step(level))
+        self.update(span, CounterUpdate::Step(level))
     }
 
     /// Updates the value of the counter.
@@ -398,13 +403,15 @@ impl Counter {
     #[func]
     pub fn update(
         self,
+        /// The call span of the update.
+        span: Span,
         /// If given an integer or array of integers, sets the counter to that
         /// value. If given a function, that function receives the previous
         /// counter value (with each number as a separate argument) and has to
         /// return the new value (integer or array).
         update: CounterUpdate,
     ) -> Content {
-        UpdateElem::new(self.0, update).pack()
+        UpdateElem::new(self.0, update).pack().spanned(span)
     }
 
     /// Gets the value of the counter at the given location. Always returns an
@@ -468,10 +475,6 @@ impl Repr for Counter {
     }
 }
 
-cast! {
-    type Counter,
-}
-
 /// Identifies a counter.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CounterKey {
@@ -514,7 +517,7 @@ impl Repr for CounterKey {
 }
 
 /// An update to perform on a counter.
-#[ty]
+#[ty(cast)]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CounterUpdate {
     /// Set the counter to the specified state.
@@ -629,8 +632,8 @@ struct DisplayElem {
     both: bool,
 }
 
-impl Show for DisplayElem {
-    #[tracing::instrument(name = "DisplayElem::show", skip_all)]
+impl Show for Packed<DisplayElem> {
+    #[typst_macros::time(name = "counter.display", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
             let location = self.location().unwrap();
@@ -678,14 +681,13 @@ struct UpdateElem {
     update: CounterUpdate,
 }
 
-impl Show for UpdateElem {
-    #[tracing::instrument(name = "UpdateElem::show", skip(self))]
+impl Show for Packed<UpdateElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }
 }
 
-impl Count for UpdateElem {
+impl Count for Packed<UpdateElem> {
     fn update(&self) -> Option<CounterUpdate> {
         Some(self.update.clone())
     }
@@ -721,10 +723,10 @@ impl ManualPageCounter {
             match item {
                 FrameItem::Group(group) => self.visit(engine, &group.frame)?,
                 FrameItem::Meta(Meta::Elem(elem), _) => {
-                    let Some(elem) = elem.to::<UpdateElem>() else { continue };
+                    let Some(elem) = elem.to_packed::<UpdateElem>() else { continue };
                     if *elem.key() == CounterKey::Page {
                         let mut state = CounterState(smallvec![self.logical]);
-                        state.update(engine, elem.update().clone())?;
+                        state.update(engine, elem.update.clone())?;
                         self.logical = state.first();
                     }
                 }

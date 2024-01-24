@@ -1,8 +1,8 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
-use crate::foundations::{elem, Content, StyleChain};
-use crate::layout::{Abs, Frame, FrameItem, Point, Size};
+use crate::foundations::{elem, Content, Packed, StyleChain};
+use crate::layout::{Abs, Frame, Point, Size};
 use crate::math::{
     FrameFragment, LayoutMath, MathContext, MathFragment, MathSize, Scaled,
 };
@@ -48,8 +48,8 @@ pub struct AttachElem {
     pub br: Option<Content>,
 }
 
-impl LayoutMath for AttachElem {
-    #[tracing::instrument(skip(ctx))]
+impl LayoutMath for Packed<AttachElem> {
+    #[typst_macros::time(name = "math.attach", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         type GetAttachment = fn(&AttachElem, styles: StyleChain) -> Option<Content>;
         let layout_attachment = |ctx: &mut MathContext, getter: GetAttachment| {
@@ -61,15 +61,15 @@ impl LayoutMath for AttachElem {
         let base = ctx.layout_fragment(self.base())?;
 
         ctx.style(ctx.style.for_superscript());
-        let tl = layout_attachment(ctx, Self::tl)?;
-        let tr = layout_attachment(ctx, Self::tr)?;
-        let t = layout_attachment(ctx, Self::t)?;
+        let tl = layout_attachment(ctx, AttachElem::tl)?;
+        let tr = layout_attachment(ctx, AttachElem::tr)?;
+        let t = layout_attachment(ctx, AttachElem::t)?;
         ctx.unstyle();
 
         ctx.style(ctx.style.for_subscript());
-        let bl = layout_attachment(ctx, Self::bl)?;
-        let br = layout_attachment(ctx, Self::br)?;
-        let b = layout_attachment(ctx, Self::b)?;
+        let bl = layout_attachment(ctx, AttachElem::bl)?;
+        let br = layout_attachment(ctx, AttachElem::br)?;
+        let b = layout_attachment(ctx, AttachElem::b)?;
         ctx.unstyle();
 
         let limits = base.limits().active(ctx);
@@ -96,8 +96,8 @@ pub struct PrimesElem {
     pub count: usize,
 }
 
-impl LayoutMath for PrimesElem {
-    #[tracing::instrument(skip(ctx))]
+impl LayoutMath for Packed<PrimesElem> {
+    #[typst_macros::time(name = "math.primes", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         match *self.count() {
             count @ 1..=4 => {
@@ -142,8 +142,8 @@ pub struct ScriptsElem {
     pub body: Content,
 }
 
-impl LayoutMath for ScriptsElem {
-    #[tracing::instrument(skip(ctx))]
+impl LayoutMath for Packed<ScriptsElem> {
+    #[typst_macros::time(name = "math.scripts", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut fragment = ctx.layout_fragment(self.body())?;
         fragment.set_limits(Limits::Never);
@@ -171,8 +171,8 @@ pub struct LimitsElem {
     pub inline: bool,
 }
 
-impl LayoutMath for LimitsElem {
-    #[tracing::instrument(skip(ctx))]
+impl LayoutMath for Packed<LimitsElem> {
+    #[typst_macros::time(name = "math.limits", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut fragment = ctx.layout_fragment(self.body())?;
         fragment.set_limits(if self.inline(ctx.styles()) {
@@ -382,7 +382,7 @@ fn compute_shifts_up_and_down(
 
     let mut shift_up = Abs::zero();
     let mut shift_down = Abs::zero();
-    let is_char_box = is_character_box(base);
+    let is_text_like = base.is_text_like();
 
     if tl.is_some() || tr.is_some() {
         let ascent = match &base {
@@ -391,7 +391,7 @@ fn compute_shifts_up_and_down(
         };
         shift_up = shift_up
             .max(sup_shift_up)
-            .max(if is_char_box { Abs::zero() } else { ascent - sup_drop_max })
+            .max(if is_text_like { Abs::zero() } else { ascent - sup_drop_max })
             .max(sup_bottom_min + measure!(tl, descent))
             .max(sup_bottom_min + measure!(tr, descent));
     }
@@ -399,7 +399,7 @@ fn compute_shifts_up_and_down(
     if bl.is_some() || br.is_some() {
         shift_down = shift_down
             .max(sub_shift_down)
-            .max(if is_char_box { Abs::zero() } else { base.descent() + sub_drop_min })
+            .max(if is_text_like { Abs::zero() } else { base.descent() + sub_drop_min })
             .max(measure!(bl, ascent) - sub_top_max)
             .max(measure!(br, ascent) - sub_top_max);
     }
@@ -428,25 +428,4 @@ fn compute_shifts_up_and_down(
 /// Determines if the character is one of a variety of integral signs
 fn is_integral_char(c: char) -> bool {
     ('∫'..='∳').contains(&c) || ('⨋'..='⨜').contains(&c)
-}
-
-/// Whether the fragment consists of a single character or atomic piece of text.
-fn is_character_box(fragment: &MathFragment) -> bool {
-    match fragment {
-        MathFragment::Glyph(_) | MathFragment::Variant(_) => {
-            fragment.class() != Some(MathClass::Large)
-        }
-        MathFragment::Frame(fragment) => is_atomic_text_frame(&fragment.frame),
-        _ => false,
-    }
-}
-
-/// Handles e.g. "sin", "log", "exp", "CustomOperator".
-fn is_atomic_text_frame(frame: &Frame) -> bool {
-    // Meta information isn't visible or renderable, so we exclude it.
-    let mut iter = frame
-        .items()
-        .map(|(_, item)| item)
-        .filter(|item| !matches!(item, FrameItem::Meta(_, _)));
-    matches!(iter.next(), Some(FrameItem::Text(_))) && iter.next().is_none()
 }

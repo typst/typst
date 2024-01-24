@@ -93,8 +93,8 @@ impl FontBook {
         variant: FontVariant,
         text: &str,
     ) -> Option<usize> {
-        // Find the fonts that contain the text's first char ...
-        let c = text.chars().next()?;
+        // Find the fonts that contain the text's first non-space char ...
+        let c = text.chars().find(|c| !c.is_whitespace())?;
         let ids = self
             .infos
             .iter()

@@ -1,10 +1,10 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, NativeElement, Smart, StyleChain,
+    cast, elem, scope, Array, Content, NativeElement, Packed, Smart, StyleChain,
 };
 use crate::layout::{
-    BlockElem, Em, Fragment, HElem, Layout, Length, Regions, Spacing, VElem,
+    BlockElem, Em, Fragment, HElem, LayoutMultiple, Length, Regions, Spacing, VElem,
 };
 use crate::model::ParElem;
 use crate::util::Numeric;
@@ -25,7 +25,7 @@ use crate::util::Numeric;
 /// # Syntax
 /// This function also has dedicated syntax: Starting a line with a slash,
 /// followed by a term, a colon and a description creates a term list item.
-#[elem(scope, title = "Term List", Layout)]
+#[elem(scope, title = "Term List", LayoutMultiple)]
 pub struct TermsElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [term list spacing]($terms.spacing). If it is `{true}`, they use normal
@@ -98,7 +98,7 @@ pub struct TermsElem {
     /// ) [/ #product: Born in #year.]
     /// ```
     #[variadic]
-    pub children: Vec<TermItem>,
+    pub children: Vec<Packed<TermItem>>,
 }
 
 #[scope]
@@ -107,8 +107,8 @@ impl TermsElem {
     type TermItem;
 }
 
-impl Layout for TermsElem {
-    #[tracing::instrument(name = "TermsElem::layout", skip_all)]
+impl LayoutMultiple for Packed<TermsElem> {
+    #[typst_macros::time(name = "terms", span = self.span())]
     fn layout(
         &self,
         engine: &mut Engine,
@@ -166,5 +166,5 @@ cast! {
         };
         Self::new(term, description)
     },
-    v: Content => v.to::<Self>().cloned().ok_or("expected term item or array")?,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected term item or array")?,
 }

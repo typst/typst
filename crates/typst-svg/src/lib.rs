@@ -11,6 +11,7 @@ use typst::layout::{
     Abs, Angle, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Quadrant, Ratio,
     Size, Transform,
 };
+use typst::model::Document;
 use typst::text::{Font, TextItem};
 use typst::util::hash128;
 use typst::visualize::{
@@ -25,7 +26,7 @@ use xmlwriter::XmlWriter;
 const CONIC_SEGMENT: usize = 360;
 
 /// Export a frame into a SVG file.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "svg")]
 pub fn svg(frame: &Frame) -> String {
     let mut renderer = SVGRenderer::new();
     renderer.write_header(frame.size());
@@ -35,25 +36,33 @@ pub fn svg(frame: &Frame) -> String {
     renderer.finalize()
 }
 
-/// Export multiple frames into a single SVG file.
+/// Export a document with potentially multiple pages into a single SVG file.
 ///
 /// The padding will be added around and between the individual frames.
-#[tracing::instrument(skip_all)]
-pub fn svg_merged(frames: &[Frame], padding: Abs) -> String {
+pub fn svg_merged(document: &Document, padding: Abs) -> String {
     let width = 2.0 * padding
-        + frames.iter().map(|frame| frame.width()).max().unwrap_or_default();
-    let height = padding + frames.iter().map(|page| page.height() + padding).sum::<Abs>();
-    let size = Size::new(width, height);
+        + document
+            .pages
+            .iter()
+            .map(|page| page.frame.width())
+            .max()
+            .unwrap_or_default();
+    let height = padding
+        + document
+            .pages
+            .iter()
+            .map(|page| page.frame.height() + padding)
+            .sum::<Abs>();
 
     let mut renderer = SVGRenderer::new();
-    renderer.write_header(size);
+    renderer.write_header(Size::new(width, height));
 
     let [x, mut y] = [padding; 2];
-    for frame in frames {
+    for page in &document.pages {
         let ts = Transform::translate(x, y);
-        let state = State::new(frame.size(), Transform::identity());
-        renderer.render_frame(state, ts, frame);
-        y += frame.height() + padding;
+        let state = State::new(page.frame.size(), Transform::identity());
+        renderer.render_frame(state, ts, &page.frame);
+        y += page.frame.height() + padding;
     }
 
     renderer.finalize()

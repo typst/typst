@@ -4,7 +4,7 @@ mod download;
 mod fonts;
 mod package;
 mod query;
-mod tracing;
+mod timings;
 #[cfg(feature = "self-update")]
 mod update;
 mod watch;
@@ -20,6 +20,7 @@ use once_cell::sync::Lazy;
 use termcolor::{ColorChoice, WriteColor};
 
 use crate::args::{CliArguments, Command};
+use crate::timings::Timer;
 
 thread_local! {
     /// The CLI's exit code.
@@ -31,17 +32,10 @@ static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
 
 /// Entry point.
 fn main() -> ExitCode {
-    let _guard = match crate::tracing::setup_tracing(&ARGS) {
-        Ok(guard) => guard,
-        Err(err) => {
-            eprintln!("failed to initialize tracing ({err})");
-            None
-        }
-    };
-
+    let timer = Timer::new(&ARGS);
     let res = match &ARGS.command {
-        Command::Compile(command) => crate::compile::compile(command.clone()),
-        Command::Watch(command) => crate::watch::watch(command.clone()),
+        Command::Compile(command) => crate::compile::compile(timer, command.clone()),
+        Command::Watch(command) => crate::watch::watch(timer, command.clone()),
         Command::Query(command) => crate::query::query(command),
         Command::Fonts(command) => crate::fonts::fonts(command),
         Command::Update(command) => crate::update::update(command),
@@ -74,10 +68,16 @@ fn print_error(msg: &str) -> io::Result<()> {
 
 /// Get stderr with color support if desirable.
 fn color_stream() -> termcolor::StandardStream {
-    termcolor::StandardStream::stderr(if std::io::stderr().is_terminal() {
-        ColorChoice::Auto
-    } else {
-        ColorChoice::Never
+    termcolor::StandardStream::stderr(match ARGS.color {
+        clap::ColorChoice::Auto => {
+            if std::io::stderr().is_terminal() {
+                ColorChoice::Auto
+            } else {
+                ColorChoice::Never
+            }
+        }
+        clap::ColorChoice::Always => ColorChoice::Always,
+        clap::ColorChoice::Never => ColorChoice::Never,
     })
 }
 

@@ -32,7 +32,6 @@ impl Scalar {
     }
 
     /// Gets the value of this [`Scalar`].
-    #[inline]
     pub const fn get(self) -> f64 {
         self.0
     }

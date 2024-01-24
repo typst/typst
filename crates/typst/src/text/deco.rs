@@ -5,7 +5,9 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{cast, elem, ty, Content, Fold, Repr, Show, Smart, StyleChain};
+use crate::foundations::{
+    elem, ty, Content, Fold, Packed, Repr, Show, Smart, StyleChain,
+};
 use crate::layout::{Abs, Em, Frame, FrameItem, Length, Point, Size};
 use crate::syntax::Span;
 use crate::text::{
@@ -84,8 +86,8 @@ pub struct UnderlineElem {
     pub body: Content,
 }
 
-impl Show for UnderlineElem {
-    #[tracing::instrument(name = "UnderlineElem::show", skip_all)]
+impl Show for Packed<UnderlineElem> {
+    #[typst_macros::time(name = "underline", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Underline {
@@ -176,8 +178,8 @@ pub struct OverlineElem {
     pub body: Content,
 }
 
-impl Show for OverlineElem {
-    #[tracing::instrument(name = "OverlineElem::show", skip_all)]
+impl Show for Packed<OverlineElem> {
+    #[typst_macros::time(name = "overline", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Overline {
@@ -253,8 +255,8 @@ pub struct StrikeElem {
     pub body: Content,
 }
 
-impl Show for StrikeElem {
-    #[tracing::instrument(name = "StrikeElem::show", skip_all)]
+impl Show for Packed<StrikeElem> {
+    #[typst_macros::time(name = "strike", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
             // Note that we do not support evade option for strikethrough.
@@ -323,8 +325,8 @@ pub struct HighlightElem {
     pub body: Content,
 }
 
-impl Show for HighlightElem {
-    #[tracing::instrument(name = "HighlightElem::show", skip_all)]
+impl Show for Packed<HighlightElem> {
+    #[typst_macros::time(name = "highlight", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Highlight {
@@ -361,10 +363,6 @@ impl Repr for Decoration {
     fn repr(&self) -> EcoString {
         eco_format!("{self:?}")
     }
-}
-
-cast! {
-    type Decoration,
 }
 
 /// A kind of decorative line.
@@ -410,11 +408,10 @@ pub(crate) fn decorate(
     };
 
     let offset = offset.unwrap_or(-metrics.position.at(text.size)) - shift;
-    let stroke = stroke.clone().unwrap_or(FixedStroke {
-        paint: text.fill.as_decoration(),
-        thickness: metrics.thickness.at(text.size),
-        ..FixedStroke::default()
-    });
+    let stroke = stroke.clone().unwrap_or(FixedStroke::from_pair(
+        text.fill.as_decoration(),
+        metrics.thickness.at(text.size),
+    ));
 
     let gap_padding = 0.08 * text.size;
     let min_width = 0.162 * text.size;

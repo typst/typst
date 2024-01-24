@@ -54,7 +54,7 @@ $ A = mat(
 $ x_"1,2" = frac(-b +- sqrt(b^2 - 4 a c), 2 a) $
 
 ---
-// Test miscelaneous
+// Test miscellaneous
 #show math.equation: set text(fill: gradient.linear(..color.map.rainbow))
 #show math.equation: box
 

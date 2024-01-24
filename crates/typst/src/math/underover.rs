@@ -1,8 +1,8 @@
 use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
-use crate::foundations::{elem, Content, NativeElement};
-use crate::layout::{Abs, Em, FixedAlign, Frame, FrameItem, Point, Size};
+use crate::foundations::{elem, Content, Packed};
+use crate::layout::{Abs, Em, FixedAlignment, Frame, FrameItem, Point, Size};
 use crate::math::{
     alignments, AlignmentResult, FrameFragment, GlyphFragment, LayoutMath, MathContext,
     MathRow, Scaled,
@@ -32,8 +32,8 @@ pub struct UnderlineElem {
     pub body: Content,
 }
 
-impl LayoutMath for UnderlineElem {
-    #[tracing::instrument(skip(ctx))]
+impl LayoutMath for Packed<UnderlineElem> {
+    #[typst_macros::time(name = "math.underline", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout_underoverline(ctx, self.body(), self.span(), LineKind::Under)
     }
@@ -51,8 +51,8 @@ pub struct OverlineElem {
     pub body: Content,
 }
 
-impl LayoutMath for OverlineElem {
-    #[tracing::instrument(skip(ctx))]
+impl LayoutMath for Packed<OverlineElem> {
+    #[typst_macros::time(name = "math.overline", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout_underoverline(ctx, self.body(), self.span(), LineKind::Over)
     }
@@ -136,8 +136,8 @@ pub struct UnderbraceElem {
     pub annotation: Option<Content>,
 }
 
-impl LayoutMath for UnderbraceElem {
-    #[tracing::instrument(skip(ctx))]
+impl LayoutMath for Packed<UnderbraceElem> {
+    #[typst_macros::time(name = "math.underbrace", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout_underoverspreader(
             ctx,
@@ -167,8 +167,8 @@ pub struct OverbraceElem {
     pub annotation: Option<Content>,
 }
 
-impl LayoutMath for OverbraceElem {
-    #[tracing::instrument(skip(ctx))]
+impl LayoutMath for Packed<OverbraceElem> {
+    #[typst_macros::time(name = "math.overbrace", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout_underoverspreader(
             ctx,
@@ -198,8 +198,8 @@ pub struct UnderbracketElem {
     pub annotation: Option<Content>,
 }
 
-impl LayoutMath for UnderbracketElem {
-    #[tracing::instrument(skip(ctx))]
+impl LayoutMath for Packed<UnderbracketElem> {
+    #[typst_macros::time(name = "math.underbrace", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout_underoverspreader(
             ctx,
@@ -229,8 +229,8 @@ pub struct OverbracketElem {
     pub annotation: Option<Content>,
 }
 
-impl LayoutMath for OverbracketElem {
-    #[tracing::instrument(skip(ctx))]
+impl LayoutMath for Packed<OverbracketElem> {
+    #[typst_macros::time(name = "math.overbracket", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout_underoverspreader(
             ctx,
@@ -281,7 +281,7 @@ fn layout_underoverspreader(
         baseline = rows.len() - 1;
     }
 
-    let frame = stack(ctx, rows, FixedAlign::Center, gap, baseline);
+    let frame = stack(ctx, rows, FixedAlignment::Center, gap, baseline);
     ctx.push(FrameFragment::new(ctx, frame).with_class(body_class));
 
     Ok(())
@@ -294,7 +294,7 @@ fn layout_underoverspreader(
 pub(super) fn stack(
     ctx: &MathContext,
     rows: Vec<MathRow>,
-    align: FixedAlign,
+    align: FixedAlignment,
     gap: Abs,
     baseline: usize,
 ) -> Frame {

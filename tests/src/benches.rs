@@ -75,7 +75,7 @@ fn bench_render(iai: &mut Iai) {
     let world = BenchWorld::new();
     let mut tracer = Tracer::new();
     let document = typst::compile(&world, &mut tracer).unwrap();
-    iai.run(|| typst_render::render(&document.pages[0], 1.0, Color::WHITE))
+    iai.run(|| typst_render::render(&document.pages[0].frame, 1.0, Color::WHITE))
 }
 
 struct BenchWorld {

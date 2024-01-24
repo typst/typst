@@ -42,7 +42,7 @@ pub use typst_macros::symbols;
 /// $arrow.r$ \
 /// $arrow.t.quad$
 /// ```
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Symbol(Repr);
 
@@ -134,7 +134,8 @@ impl Symbol {
         set.into_iter()
     }
 
-    /// Normalize an accent to a combining one.
+    /// Normalize an accent to a combining one. Keep it synced with the
+    /// documenting table in accent.rs AccentElem.
     pub fn combining_accent(c: char) -> Option<char> {
         Some(match c {
             '\u{0300}' | '`' => '\u{0300}',
@@ -153,9 +154,9 @@ impl Symbol {
             '\u{030c}' | 'ˇ' => '\u{030c}',
             '\u{20d6}' | '←' => '\u{20d6}',
             '\u{20d7}' | '→' | '⟶' => '\u{20d7}',
+            '\u{20e1}' | '↔' | '⟷' => '\u{20e1}',
             '\u{20d0}' | '↼' => '\u{20d0}',
             '\u{20d1}' | '⇀' => '\u{20d1}',
-            '\u{20e1}' | '↔' | '⟷' => '\u{20e1}',
             _ => return None,
         })
     }

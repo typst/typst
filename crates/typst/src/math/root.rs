@@ -1,5 +1,5 @@
 use crate::diag::SourceResult;
-use crate::foundations::{elem, func, Content, NativeElement};
+use crate::foundations::{elem, func, Content, NativeElement, Packed};
 use crate::layout::{Abs, Frame, FrameItem, Point, Size};
 use crate::math::{
     FrameFragment, GlyphFragment, LayoutMath, MathContext, MathSize, Scaled,
@@ -15,10 +15,12 @@ use crate::visualize::{FixedStroke, Geometry};
 /// ```
 #[func(title = "Square Root")]
 pub fn sqrt(
+    /// The call span of this function.
+    span: Span,
     /// The expression to take the square root of.
     radicand: Content,
 ) -> Content {
-    RootElem::new(radicand).pack()
+    RootElem::new(radicand).pack().spanned(span)
 }
 
 /// A general root.
@@ -37,8 +39,8 @@ pub struct RootElem {
     pub radicand: Content,
 }
 
-impl LayoutMath for RootElem {
-    #[tracing::instrument(skip(ctx))]
+impl LayoutMath for Packed<RootElem> {
+    #[typst_macros::time(name = "math.root", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, self.index(ctx.styles()).as_ref(), self.radicand(), self.span())
     }
@@ -129,11 +131,12 @@ fn layout(
     frame.push(
         line_pos,
         FrameItem::Shape(
-            Geometry::Line(Point::with_x(radicand.width())).stroked(FixedStroke {
-                paint: TextElem::fill_in(ctx.styles()).as_decoration(),
-                thickness,
-                ..FixedStroke::default()
-            }),
+            Geometry::Line(Point::with_x(radicand.width())).stroked(
+                FixedStroke::from_pair(
+                    TextElem::fill_in(ctx.styles()).as_decoration(),
+                    thickness,
+                ),
+            ),
             span,
         ),
     );

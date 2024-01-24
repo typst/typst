@@ -1,5 +1,5 @@
 use crate::diag::{bail, SourceResult};
-use crate::foundations::{elem, Content, NativeElement, Value};
+use crate::foundations::{elem, Content, Packed, Value};
 use crate::layout::{Em, Frame, FrameItem, Point, Size};
 use crate::math::{
     FrameFragment, GlyphFragment, LayoutMath, MathContext, MathSize, Scaled,
@@ -35,8 +35,8 @@ pub struct FracElem {
     pub denom: Content,
 }
 
-impl LayoutMath for FracElem {
-    #[tracing::instrument(skip(ctx))]
+impl LayoutMath for Packed<FracElem> {
+    #[typst_macros::time(name = "math.frac", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, self.num(), std::slice::from_ref(self.denom()), false, self.span())
     }
@@ -69,7 +69,8 @@ pub struct BinomElem {
     pub lower: Vec<Content>,
 }
 
-impl LayoutMath for BinomElem {
+impl LayoutMath for Packed<BinomElem> {
+    #[typst_macros::time(name = "math.binom", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, self.upper(), self.lower(), true, self.span())
     }
@@ -151,11 +152,12 @@ fn layout(
         frame.push(
             line_pos,
             FrameItem::Shape(
-                Geometry::Line(Point::with_x(line_width)).stroked(FixedStroke {
-                    paint: TextElem::fill_in(ctx.styles()).as_decoration(),
-                    thickness,
-                    ..FixedStroke::default()
-                }),
+                Geometry::Line(Point::with_x(line_width)).stroked(
+                    FixedStroke::from_pair(
+                        TextElem::fill_in(ctx.styles()).as_decoration(),
+                        thickness,
+                    ),
+                ),
                 span,
             ),
         );

@@ -1,7 +1,7 @@
 // Test shorthands for unicode codepoints.
 
 ---
-The non-breaking space~does work, soft-?hypen also does.
+The non-breaking space~does work, soft-?hyphen also does.
 
 ---
 // Make sure non-breaking and normal space always

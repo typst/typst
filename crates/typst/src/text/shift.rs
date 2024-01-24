@@ -2,7 +2,7 @@ use ecow::EcoString;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Show, StyleChain};
+use crate::foundations::{elem, Content, Packed, Show, StyleChain};
 use crate::layout::{Em, Length};
 use crate::text::{variant, SpaceElem, TextElem, TextSize};
 use crate::World;
@@ -47,8 +47,8 @@ pub struct SubElem {
     pub body: Content,
 }
 
-impl Show for SubElem {
-    #[tracing::instrument(name = "SubElem::show", skip_all)]
+impl Show for Packed<SubElem> {
+    #[typst_macros::time(name = "sub", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body().clone();
         let mut transformed = None;
@@ -107,8 +107,8 @@ pub struct SuperElem {
     pub body: Content,
 }
 
-impl Show for SuperElem {
-    #[tracing::instrument(name = "SuperElem::show", skip_all)]
+impl Show for Packed<SuperElem> {
+    #[typst_macros::time(name = "super", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body().clone();
         let mut transformed = None;
@@ -132,7 +132,7 @@ impl Show for SuperElem {
 fn search_text(content: &Content, sub: bool) -> Option<EcoString> {
     if content.is::<SpaceElem>() {
         Some(' '.into())
-    } else if let Some(elem) = content.to::<TextElem>() {
+    } else if let Some(elem) = content.to_packed::<TextElem>() {
         convert_script(elem.text(), sub)
     } else if let Some(children) = content.to_sequence() {
         let mut full = EcoString::new();

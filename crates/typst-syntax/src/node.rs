@@ -202,7 +202,6 @@ impl SyntaxNode {
     }
 
     /// Assign spans to each node.
-    #[tracing::instrument(skip_all)]
     pub(super) fn numberize(
         &mut self,
         id: FileId,

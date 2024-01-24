@@ -7,7 +7,6 @@ use unicode_math_class::MathClass;
 use crate::{ast, is_ident, is_newline, LexMode, Lexer, SyntaxKind, SyntaxNode};
 
 /// Parse a source file.
-#[tracing::instrument(skip_all)]
 pub fn parse(text: &str) -> SyntaxNode {
     let mut p = Parser::new(text, 0, LexMode::Markup);
     markup(&mut p, true, 0, |_| false);
@@ -15,7 +14,6 @@ pub fn parse(text: &str) -> SyntaxNode {
 }
 
 /// Parse top-level code.
-#[tracing::instrument(skip_all)]
 pub fn parse_code(text: &str) -> SyntaxNode {
     let mut p = Parser::new(text, 0, LexMode::Code);
     let m = p.marker();
@@ -26,7 +24,6 @@ pub fn parse_code(text: &str) -> SyntaxNode {
 }
 
 /// Parse top-level math.
-#[tracing::instrument(skip_all)]
 pub fn parse_math(text: &str) -> SyntaxNode {
     let mut p = Parser::new(text, 0, LexMode::Math);
     math(&mut p, |_| false);
@@ -987,8 +984,7 @@ fn args(p: &mut Parser) {
 
 enum PatternKind {
     Ident,
-    Placeholder,
-    Destructuring,
+    Other,
 }
 
 fn pattern(p: &mut Parser) -> PatternKind {
@@ -997,14 +993,12 @@ fn pattern(p: &mut Parser) -> PatternKind {
         let kind = collection(p, false);
         validate_pattern_at(p, m, true);
 
-        if kind == SyntaxKind::Parenthesized {
-            PatternKind::Ident
-        } else {
+        if kind != SyntaxKind::Parenthesized {
             p.wrap(m, SyntaxKind::Destructuring);
-            PatternKind::Destructuring
         }
+        PatternKind::Other
     } else if p.eat_if(SyntaxKind::Underscore) {
-        PatternKind::Placeholder
+        PatternKind::Other
     } else {
         p.expect(SyntaxKind::Ident);
         PatternKind::Ident
@@ -1017,22 +1011,21 @@ fn let_binding(p: &mut Parser) {
 
     let m2 = p.marker();
     let mut closure = false;
-    let mut destructuring = false;
+    let mut other = false;
     match pattern(p) {
         PatternKind::Ident => {
-            closure = p.directly_at(SyntaxKind::LeftParen);
-            if closure {
+            if p.directly_at(SyntaxKind::LeftParen) {
                 let m3 = p.marker();
                 collection(p, false);
                 validate_params_at(p, m3);
                 p.wrap(m3, SyntaxKind::Params);
+                closure = true;
             }
         }
-        PatternKind::Placeholder => {}
-        PatternKind::Destructuring => destructuring = true,
+        PatternKind::Other => other = true,
     }
 
-    let f = if closure || destructuring { Parser::expect } else { Parser::eat_if };
+    let f = if closure || other { Parser::expect } else { Parser::eat_if };
     if f(p, SyntaxKind::Eq) {
         code_expr(p);
     }

@@ -12,7 +12,8 @@ use smallvec::SmallVec;
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, ty, Content, Element, Func, NativeElement, Repr, Selector, Show,
+    cast, elem, func, ty, Content, Element, Func, NativeElement, Packed, Repr, Selector,
+    Show,
 };
 use crate::syntax::Span;
 use crate::text::{FontFamily, FontList, TextElem};
@@ -35,6 +36,8 @@ use crate::text::{FontFamily, FontList, TextElem};
 /// ```
 #[func]
 pub fn style(
+    /// The call site span.
+    span: Span,
     /// A function to call with the styles. Its return value is displayed
     /// in the document.
     ///
@@ -43,7 +46,7 @@ pub fn style(
     /// content that depends on the style context it appears in.
     func: Func,
 ) -> Content {
-    StyleElem::new(func).pack()
+    StyleElem::new(func).pack().spanned(span)
 }
 
 /// Executes a style access.
@@ -54,15 +57,15 @@ struct StyleElem {
     func: Func,
 }
 
-impl Show for StyleElem {
-    #[tracing::instrument(name = "StyleElem::show", skip_all)]
+impl Show for Packed<StyleElem> {
+    #[typst_macros::time(name = "style", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.func().call(engine, [styles.to_map()])?.display())
     }
 }
 
 /// A list of style properties.
-#[ty]
+#[ty(cast)]
 #[derive(Default, PartialEq, Clone, Hash)]
 pub struct Styles(EcoVec<Prehashed<Style>>);
 
@@ -75,6 +78,11 @@ impl Styles {
     /// Whether this contains no styles.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    /// Iterate over the contained styles.
+    pub fn iter(&self) -> impl Iterator<Item = &Style> {
+        self.0.iter().map(|style| &**style)
     }
 
     /// Set an inner value for a style property.

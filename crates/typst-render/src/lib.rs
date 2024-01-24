@@ -13,6 +13,7 @@ use typst::introspection::Meta;
 use typst::layout::{
     Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Size, Transform,
 };
+use typst::model::Document;
 use typst::text::{Font, TextItem};
 use typst::visualize::{
     Color, DashPattern, FixedStroke, Geometry, Gradient, Image, ImageKind, LineCap,
@@ -24,6 +25,7 @@ use usvg::TreeParsing;
 ///
 /// This renders the frame at the given number of pixels per point and returns
 /// the resulting `tiny-skia` pixel buffer.
+#[typst_macros::time(name = "render")]
 pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
     let size = frame.size();
     let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
@@ -38,19 +40,20 @@ pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
     canvas
 }
 
-/// Export multiple frames into a single raster image.
+/// Export a document with potentially multiple pages into a single raster image.
 ///
 /// The padding will be added around and between the individual frames.
 pub fn render_merged(
-    frames: &[Frame],
+    document: &Document,
     pixel_per_pt: f32,
     frame_fill: Color,
     padding: Abs,
     padding_fill: Color,
 ) -> sk::Pixmap {
-    let pixmaps: Vec<_> = frames
+    let pixmaps: Vec<_> = document
+        .pages
         .iter()
-        .map(|frame| render(frame, pixel_per_pt, frame_fill))
+        .map(|page| render(&page.frame, pixel_per_pt, frame_fill))
         .collect();
 
     let padding = (pixel_per_pt * padding.to_f32()).round() as u32;
@@ -164,8 +167,6 @@ fn render_frame(canvas: &mut sk::Pixmap, state: State, frame: &Frame) {
             FrameItem::Meta(meta, _) => match meta {
                 Meta::Link(_) => {}
                 Meta::Elem(_) => {}
-                Meta::PageNumbering(_) => {}
-                Meta::PdfPageLabel(_) => {}
                 Meta::Hide => {}
             },
         }

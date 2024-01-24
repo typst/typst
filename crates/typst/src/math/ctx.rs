@@ -1,3 +1,5 @@
+use std::f64::consts::SQRT_2;
+
 use comemo::Prehashed;
 use ecow::EcoString;
 use rustybuzz::Feature;
@@ -10,8 +12,8 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{Content, NativeElement, Smart, StyleChain, Styles};
-use crate::layout::{Abs, Axes, BoxElem, Em, Frame, Layout, Regions, Size};
+use crate::foundations::{Content, Packed, Smart, StyleChain, Styles};
+use crate::layout::{Abs, Axes, BoxElem, Em, Frame, LayoutMultiple, Regions, Size};
 use crate::math::{
     FrameFragment, GlyphFragment, LayoutMath, MathFragment, MathRow, MathSize, MathStyle,
     MathVariant, THICK,
@@ -140,6 +142,11 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         self.fragments.extend(fragments);
     }
 
+    pub fn layout_root(&mut self, elem: &dyn LayoutMath) -> SourceResult<MathRow> {
+        let row = self.layout_fragments(elem)?;
+        Ok(MathRow::new(row))
+    }
+
     pub fn layout_fragment(
         &mut self,
         elem: &dyn LayoutMath,
@@ -166,10 +173,8 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         Ok(self.layout_fragment(elem)?.into_frame())
     }
 
-    pub fn layout_box(&mut self, boxed: &BoxElem) -> SourceResult<Frame> {
-        Ok(boxed
-            .layout(self.engine, self.outer.chain(&self.local), self.regions)?
-            .into_frame())
+    pub fn layout_box(&mut self, boxed: &Packed<BoxElem>) -> SourceResult<Frame> {
+        boxed.layout(self.engine, self.outer.chain(&self.local), self.regions)
     }
 
     pub fn layout_content(&mut self, content: &Content) -> SourceResult<Frame> {
@@ -178,7 +183,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             .into_frame())
     }
 
-    pub fn layout_text(&mut self, elem: &TextElem) -> SourceResult<MathFragment> {
+    pub fn layout_text(&mut self, elem: &Packed<TextElem>) -> SourceResult<MathFragment> {
         let text = elem.text();
         let span = elem.span();
         let mut chars = text.chars();
@@ -202,7 +207,8 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             let class = self.style.class.as_custom().or(glyph.class);
             if class == Some(MathClass::Large) {
                 let mut variant = if self.style.size == MathSize::Display {
-                    let height = scaled!(self, display_operator_min_height);
+                    let height = scaled!(self, display_operator_min_height)
+                        .max(SQRT_2 * glyph.height());
                     glyph.stretch_vertical(self, height, Abs::zero())
                 } else {
                     glyph.into_variant()
@@ -221,7 +227,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 fragments.push(GlyphFragment::new(self, c, span).into());
             }
             let frame = MathRow::new(fragments).into_frame(self);
-            FrameFragment::new(self, frame).into()
+            FrameFragment::new(self, frame).with_text_like(true).into()
         } else {
             // Anything else is handled by Typst's standard text layout.
             let mut style = self.style;
@@ -268,7 +274,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         // it will overflow.  So emulate an `hbox` instead and allow the paragraph
         // to extend as far as needed.
         let span = elem.span();
-        let frame = ParElem::new(vec![Prehashed::new(elem)])
+        let frame = Packed::new(ParElem::new(vec![Prehashed::new(elem)]))
             .spanned(span)
             .layout(
                 self.engine,
@@ -281,6 +287,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
 
         Ok(FrameFragment::new(self, frame)
             .with_class(MathClass::Alphabetic)
+            .with_text_like(true)
             .with_spaced(spaced))
     }
 

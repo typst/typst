@@ -67,7 +67,7 @@ fuzz_target!(|text: &str| {
     let mut tracer = Tracer::new();
     if let Ok(document) = typst::compile(&world, &mut tracer) {
         if let Some(page) = document.pages.first() {
-            std::hint::black_box(typst_render::render(page, 1.0, Color::WHITE));
+            std::hint::black_box(typst_render::render(&page.frame, 1.0, Color::WHITE));
         }
     }
     comemo::evict(10);

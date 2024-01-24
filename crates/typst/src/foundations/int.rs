@@ -25,7 +25,7 @@ use crate::foundations::{cast, func, repr, scope, ty, Repr, Str, Value};
 /// #0o10 \
 /// #0b1001
 /// ```
-#[ty(scope, name = "int", title = "Integer")]
+#[ty(scope, cast, name = "int", title = "Integer")]
 type i64;
 
 #[scope]
@@ -48,6 +48,22 @@ impl i64 {
         value: ToInt,
     ) -> i64 {
         value.0
+    }
+
+    /// Calculates the sign of an integer.
+    ///
+    /// - If the number is positive, returns `{1}`.
+    /// - If the number is negative, returns `{-1}`.
+    /// - If the number is zero, returns `{0}`.
+    ///
+    /// ```example
+    /// #(5).signum() \
+    /// #(-5).signum() \
+    /// #(0).signum() \
+    /// ```
+    #[func]
+    pub fn signum(self) -> i64 {
+        i64::signum(self)
     }
 }
 
