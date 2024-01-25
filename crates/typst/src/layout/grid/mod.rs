@@ -17,6 +17,7 @@ use crate::layout::{
     Sides, Sizing,
 };
 use crate::syntax::Span;
+use crate::util::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
 
 /// Arranges content in a grid.
@@ -429,6 +430,10 @@ pub struct GridCell {
     /// ```
     y: Smart<usize>,
 
+    /// The amount of columns spanned by this cell.
+    #[default(NonZeroUsize::ONE)]
+    colspan: NonZeroUsize,
+
     /// The cell's fill override.
     fill: Smart<Option<Paint>>,
 
@@ -461,6 +466,7 @@ impl ResolvableCell for Packed<GridCell> {
         styles: StyleChain,
     ) -> Cell {
         let cell = &mut *self;
+        let colspan = cell.colspan(styles);
         let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
         cell.push_x(Smart::Custom(x));
         cell.push_y(Smart::Custom(y));
@@ -478,7 +484,7 @@ impl ResolvableCell for Packed<GridCell> {
             cell.inset(styles).map_or(inset, |inner| inner.fold(inset)).map(Some),
         ));
 
-        Cell { body: self.pack(), fill }
+        Cell { body: self.pack(), fill, colspan }
     }
 
     fn x(&self, styles: StyleChain) -> Smart<usize> {
@@ -487,6 +493,10 @@ impl ResolvableCell for Packed<GridCell> {
 
     fn y(&self, styles: StyleChain) -> Smart<usize> {
         (**self).y(styles)
+    }
+
+    fn colspan(&self, styles: StyleChain) -> NonZeroUsize {
+        (**self).colspan(styles)
     }
 
     fn span(&self) -> Span {
