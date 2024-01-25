@@ -258,9 +258,9 @@ impl Lexer<'_> {
             end_pos: usize,
             /// Whether the content should be trimmed a space at the end.
             content_ends_with_backticks: bool,
-            /// The tokens without dedent adjustment.
+            /// The language tag of the raw block.
             lang: Option<usize>,
-            /// Whether the raw block is correctly closed or not.
+            /// The tokens without dedent adjustment.
             offsets: Vec<(SyntaxKind, usize)>,
         }
 
@@ -274,11 +274,11 @@ impl Lexer<'_> {
             // Copies the scanner to determine the dedent level and the end position of the raw block.
             let mut s = self.s;
 
-            // Reuses buffer
+            // Reuses buffer.
             let mut offsets = std::mem::take(&mut self.offsets);
             offsets.clear();
 
-            // Parses lang if blocky
+            // Parses lang if blocky.
             let lang = {
                 if blocky && s.eat_if(is_id_start) {
                     s.eat_while(is_id_continue);
@@ -288,15 +288,15 @@ impl Lexer<'_> {
                 }
             };
 
-            // Trims an ascii space if blocky
+            // Trims an ascii space if blocky.
             if blocky {
                 s.eat_if(' ');
             }
 
-            // A placeholder trim
+            // A placeholder `RawTrimmed`
             offsets.push((SyntaxKind::RawTrimmed, s.cursor()));
 
-            // Determines the end position of the raw block, also constructs the line offsets.
+            // Determines the end position of the raw block, also constructs the token offsets.
             let mut accumulated_backticks = 0;
             while accumulated_backticks < backticks {
                 match s.eat() {
@@ -306,7 +306,7 @@ impl Lexer<'_> {
                         accumulated_backticks = 0;
 
                         if is_newline(c) {
-                            // The last position of the char.
+                            // The previous position of the char.
                             let uneaten = s.cursor() - c.len_utf8();
 
                             offsets.push((SyntaxKind::RawLine, uneaten));
@@ -336,7 +336,7 @@ impl Lexer<'_> {
                 return self.error("unclosed raw text");
             }
 
-            // Needs trims an ascii space if blocky and the content ends with a backtick.
+            // Needs to trim an ascii space if it is blocky and the content ends with a backtick.
             let content_ends_with_backticks = blocky && {
                 let text = s.get(offsets[0].1..offsets.last().unwrap().1);
                 text.trim_end().ends_with('`')
@@ -379,11 +379,8 @@ impl Lexer<'_> {
                 for chunk in offsets.chunks_exact_mut(2).skip(1) {
                     let [trimmed, line] = chunk else { unreachable!() };
 
-                    // Dedents the line by the dedent value.
-                    let line_str = self.s.get(trimmed.1..line.1);
-                    let offset: usize =
-                        line_str.chars().take(dedent).map(char::len_utf8).sum();
-                    trimmed.1 += offset;
+                    let dedent = self.s.get(trimmed.1..line.1).chars().take(dedent);
+                    trimmed.1 += dedent.map(char::len_utf8).sum::<usize>();
                 }
             }
 
@@ -405,10 +402,9 @@ impl Lexer<'_> {
                 if line_end < line_start {
                     std::mem::swap(&mut line_end, &mut line_start);
                 }
-                let line = s.get(line_start..line_end);
-                let all_whitespace = line.chars().all(char::is_whitespace);
 
-                if !all_whitespace {
+                let last_line = s.get(line_start..line_end);
+                if !last_line.chars().all(char::is_whitespace) {
                     // There are three cases:
                     // 1. When the last line are all whitespace.
                     // 1.1. If the last line is empty, then the last char is a newline
@@ -420,7 +416,7 @@ impl Lexer<'_> {
                     //   Then we would hit the following conditions:
                     //     trim an ascii space if `content_ends_with_backticks`
                     if content_ends_with_backticks {
-                        let Some(last_char) = line.chars().last() else {
+                        let Some(last_char) = last_line.chars().last() else {
                             return;
                         };
                         if last_char != ' ' {
