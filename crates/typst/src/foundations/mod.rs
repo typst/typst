@@ -256,8 +256,6 @@ pub fn eval(
     /// The engine.
     engine: &mut Engine,
     /// A string of Typst code to evaluate.
-    ///
-    /// The code in the string cannot interact with the file system.
     source: Spanned<String>,
     /// The syntactical mode in which the string is parsed.
     ///
