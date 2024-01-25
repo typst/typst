@@ -247,8 +247,10 @@ impl SVGRenderer {
             "viewBox",
             format_args!("0 0 {} {}", size.x.to_pt(), size.y.to_pt()),
         );
-        self.xml.write_attribute("width", &size.x.to_pt());
-        self.xml.write_attribute("height", &size.y.to_pt());
+        self.xml
+            .write_attribute_fmt("width", format_args!("{}pt", size.x.to_pt()));
+        self.xml
+            .write_attribute_fmt("height", format_args!("{}pt", size.y.to_pt()));
         self.xml.write_attribute("xmlns", "http://www.w3.org/2000/svg");
         self.xml
             .write_attribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
