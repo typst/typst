@@ -344,10 +344,8 @@ impl Lexer<'_> {
 
             let dedent = blocky.then(|| {
                 let mut lines = offsets.as_slice().chunks_exact(2).map(|chunk| {
-                    // get end first to reduce one bound check
-                    let end = chunk[1].1;
-                    let start = chunk[0].1;
-                    s.get(start..end)
+                    let [trimmed, line] = chunk else { unreachable!() };
+                    s.get(trimmed.1..line.1)
                 });
 
                 let last_line = lines.next_back();
@@ -378,15 +376,14 @@ impl Lexer<'_> {
 
             // Dedents based on column, but not for the first line.
             if let Some(dedent) = dedent {
-                for line in offsets.chunks_exact_mut(2).skip(1) {
-                    // Does early bound checking
-                    let _ = &line[1];
+                for chunk in offsets.chunks_exact_mut(2).skip(1) {
+                    let [trimmed, line] = chunk else { unreachable!() };
 
                     // Dedents the line by the dedent value.
-                    let line_str = self.s.get(line[0].1..line[1].1);
+                    let line_str = self.s.get(trimmed.1..line.1);
                     let offset: usize =
                         line_str.chars().take(dedent).map(char::len_utf8).sum();
-                    line[0].1 += offset;
+                    trimmed.1 += offset;
                 }
             }
 
@@ -401,13 +398,14 @@ impl Lexer<'_> {
                 }
 
                 // Gets the last line
-                let line_range = &offsets[offsets.len() - 2..];
-                let mut line_end = line_range[1].1;
-                let mut trim_end = line_range[0].1;
-                if line_end < trim_end {
-                    std::mem::swap(&mut line_end, &mut trim_end);
+                let chunk = &offsets[offsets.len() - 2..];
+                let [(_, mut line_start), (_, mut line_end)] = chunk else {
+                    unreachable!()
+                };
+                if line_end < line_start {
+                    std::mem::swap(&mut line_end, &mut line_start);
                 }
-                let line = s.get(trim_end..line_end);
+                let line = s.get(line_start..line_end);
                 let all_whitespace = line.chars().all(char::is_whitespace);
 
                 if !all_whitespace {
@@ -444,9 +442,9 @@ impl Lexer<'_> {
                 if let Some(trimmed) =
                     offsets.last_mut().filter(|(kind, _)| *kind == SyntaxKind::RawTrimmed)
                 {
-                    trimmed.1 = trimmed.1.max(trim_end);
+                    trimmed.1 = trimmed.1.max(line_end);
                 } else {
-                    offsets.push((SyntaxKind::RawTrimmed, trim_end));
+                    offsets.push((SyntaxKind::RawTrimmed, line_end));
                 }
             }
 
