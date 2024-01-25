@@ -47,7 +47,7 @@ pub trait Reflect {
     ///
     /// ```
     /// assert_eq!(
-    ///   <Int as Reflect>::error(Value::None),
+    ///   <Int as Reflect>::error(&Value::None),
     ///   "expected integer, found none",
     /// );
     /// ```
