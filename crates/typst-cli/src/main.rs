@@ -12,12 +12,14 @@ mod watch;
 mod world;
 
 use std::cell::Cell;
+use std::io::{self, Write};
 use std::process::ExitCode;
 
 use clap::Parser;
+use codespan_reporting::term;
+use codespan_reporting::term::termcolor::WriteColor;
 use ecow::eco_format;
 use once_cell::sync::Lazy;
-use terminal::TermOut;
 
 use crate::args::{CliArguments, Command};
 use crate::timings::Timer;
@@ -33,16 +35,10 @@ static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
 /// Entry point.
 fn main() -> ExitCode {
     let timer = Timer::new(&ARGS);
-    let mut term_out = TermOut::new();
-    term_out.init_exit_handler();
 
     let mut res = match &ARGS.command {
-        Command::Compile(command) => {
-            crate::compile::compile(&mut term_out, timer, command.clone())
-        }
-        Command::Watch(command) => {
-            crate::watch::watch(&mut term_out, timer, command.clone())
-        }
+        Command::Compile(command) => crate::compile::compile(timer, command.clone()),
+        Command::Watch(command) => crate::watch::watch(timer, command.clone()),
         Command::Query(command) => crate::query::query(command),
         Command::Fonts(command) => crate::fonts::fonts(command),
         Command::Update(command) => crate::update::update(command),
@@ -50,13 +46,13 @@ fn main() -> ExitCode {
 
     // Leave the alternate screen if it was opened. This operation occurs here
     // so that it is executed prior to printing the final error.
-    res = res.or(term_out
+    res = res.or(terminal::out()
         .leave_alternate_screen()
         .map_err(|err| eco_format!("failed to leave alternate screen ({err})")));
 
     if let Err(msg) = res {
         set_failed();
-        terminal::print_error(&mut term_out, &msg).expect("failed to print error");
+        print_error(&msg).expect("failed to print error");
     }
 
     EXIT.with(|cell| cell.get())
@@ -70,6 +66,18 @@ fn set_failed() {
 /// Used by `args.rs`.
 fn typst_version() -> &'static str {
     env!("TYPST_VERSION")
+}
+
+/// Print an application-level error (independent from a source file).
+pub fn print_error(msg: &str) -> io::Result<()> {
+    let styles = term::Styles::default();
+
+    let mut output = terminal::out();
+    output.set_color(&styles.header_error)?;
+    write!(output, "error")?;
+
+    output.reset()?;
+    writeln!(output, ": {msg}.")
 }
 
 #[cfg(not(feature = "self-update"))]

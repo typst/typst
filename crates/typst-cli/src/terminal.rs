@@ -2,10 +2,19 @@ use std::io::{self, IsTerminal, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use codespan_reporting::term::{self, termcolor};
+use codespan_reporting::term::termcolor;
+use ecow::eco_format;
+use once_cell::sync::Lazy;
 use termcolor::{ColorChoice, WriteColor};
+use typst::diag::StrResult;
 
-use crate::args::{Command, DiagnosticFormat};
+use crate::ARGS;
+
+/// Returns a handle to the optionally colored terminal output.
+pub fn out() -> TermOut {
+    static OUTPUT: Lazy<TermOut> = Lazy::new(TermOut::new);
+    TermOut::clone(&OUTPUT)
+}
 
 /// A utility that allows users to write colored terminal output.
 /// If colors are not supported by the terminal, they are disabled.
@@ -23,9 +32,11 @@ struct TermOutInner {
 }
 
 impl TermOut {
-    pub fn new() -> Self {
+    fn new() -> Self {
         let color_choice = match ARGS.color {
-            clap::ColorChoice::Auto if std::io::stderr().is_terminal() => color_choice,
+            clap::ColorChoice::Auto if std::io::stderr().is_terminal() => {
+                ColorChoice::Auto
+            }
             clap::ColorChoice::Always => ColorChoice::Always,
             _ => ColorChoice::Never,
         };
@@ -42,21 +53,19 @@ impl TermOut {
 
     /// Initialize a handler that listens for Ctrl-C signals.
     /// This is used to exit the alternate screen that might have been opened.
-    pub fn init_exit_handler(&mut self) {
+    pub fn init_exit_handler(&mut self) -> StrResult<()> {
         // We can safely ignore the error as the only thing this handler would do
         // is leave an alternate screen if none was opened; not very important.
         let mut term_out = self.clone();
-        let res = ctrlc::set_handler(move || {
+        ctrlc::set_handler(move || {
             let _ = term_out.leave_alternate_screen();
             term_out.inner.active.store(false, Ordering::Release);
-        });
-        if let Err(err) = res {
-            let _ = write!(self, "failed to initialize exit handler ({err})");
-        }
+        })
+        .map_err(|err| eco_format!("failed to initialize exit handler ({err})"))
     }
 
     /// Whether this program is still active and was not stopped by the Ctrl-C handler.
-    pub fn active(&self) -> bool {
+    pub fn is_active(&self) -> bool {
         self.inner.active.load(Ordering::Acquire)
     }
 
@@ -129,15 +138,4 @@ impl WriteColor for TermOut {
     fn reset(&mut self) -> io::Result<()> {
         self.inner.stream.lock().reset()
     }
-}
-
-/// Print an application-level error (independent from a source file).
-pub fn print_error(output: &mut TermOut, msg: &str) -> io::Result<()> {
-    let styles = term::Styles::default();
-
-    output.set_color(&styles.header_error)?;
-    write!(output, "error")?;
-
-    output.reset()?;
-    writeln!(output, ": {msg}.")
 }

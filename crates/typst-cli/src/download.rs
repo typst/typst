@@ -11,7 +11,7 @@ use native_tls::{Certificate, TlsConnector};
 use once_cell::sync::Lazy;
 use ureq::Response;
 
-use crate::terminal::TermOut;
+use crate::terminal;
 
 /// Keep track of this many download speed samples.
 const SPEED_SAMPLES: usize = 5;
@@ -26,12 +26,9 @@ static CERT: Lazy<Option<Certificate>> = Lazy::new(|| {
 
 /// Download binary data and display its progress.
 #[allow(clippy::result_large_err)]
-pub fn download_with_progress(
-    term_out: TermOut,
-    url: &str,
-) -> Result<Vec<u8>, ureq::Error> {
+pub fn download_with_progress(url: &str) -> Result<Vec<u8>, ureq::Error> {
     let response = download(url)?;
-    Ok(RemoteReader::from_response(term_out, response).download()?)
+    Ok(RemoteReader::from_response(response).download()?)
 }
 
 /// Download from a URL.
@@ -77,7 +74,6 @@ struct RemoteReader {
     downloaded_last_few_secs: VecDeque<usize>,
     start_time: Instant,
     last_print: Option<Instant>,
-    term_out: TermOut,
 }
 
 impl RemoteReader {
@@ -85,7 +81,7 @@ impl RemoteReader {
     ///
     /// The 'Content-Length' header is used as a size hint for read
     /// optimization, if present.
-    pub fn from_response(term_out: TermOut, response: Response) -> Self {
+    pub fn from_response(response: Response) -> Self {
         let content_len: Option<usize> = response
             .header("Content-Length")
             .and_then(|header| header.parse().ok());
@@ -98,7 +94,6 @@ impl RemoteReader {
             downloaded_last_few_secs: VecDeque::with_capacity(SPEED_SAMPLES),
             start_time: Instant::now(),
             last_print: None,
-            term_out,
         }
     }
 
@@ -149,14 +144,14 @@ impl RemoteReader {
                 self.downloaded_last_few_secs.push_front(self.downloaded_this_sec);
                 self.downloaded_this_sec = 0;
 
-                self.term_out.clear_last_line()?;
+                terminal::out().clear_last_line()?;
                 self.display()?;
                 self.last_print = Some(Instant::now());
             }
         }
 
         self.display()?;
-        writeln!(self.term_out)?;
+        writeln!(&mut terminal::out())?;
 
         Ok(data)
     }
@@ -185,12 +180,12 @@ impl RemoteReader {
                     (remaining / speed) as u64
                 }));
                 writeln!(
-                    self.term_out,
+                    &mut terminal::out(),
                     "{total_downloaded} / {download_size} ({percent:3.0} %) {speed_h} in {elapsed} ETA: {eta}",
                 )?;
             }
             None => writeln!(
-                self.term_out,
+                &mut terminal::out(),
                 "Total downloaded: {total_downloaded} Speed: {speed_h} Elapsed: {elapsed}",
             )?,
         };

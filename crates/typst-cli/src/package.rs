@@ -8,15 +8,11 @@ use termcolor::WriteColor;
 use typst::diag::{PackageError, PackageResult};
 use typst::syntax::PackageSpec;
 
-use crate::color_stream;
 use crate::download::download_with_progress;
-use crate::terminal::TermOut;
+use crate::terminal;
 
 /// Make a package available in the on-disk cache.
-pub fn prepare_package(
-    term_out: &mut TermOut,
-    spec: &PackageSpec,
-) -> PackageResult<PathBuf> {
+pub fn prepare_package(spec: &PackageSpec) -> PackageResult<PathBuf> {
     let subdir =
         format!("typst/packages/{}/{}/{}", spec.namespace, spec.name, spec.version);
 
@@ -32,7 +28,7 @@ pub fn prepare_package(
 
         // Download from network if it doesn't exist yet.
         if spec.namespace == "preview" && !dir.exists() {
-            download_package(term_out, spec, &dir)?;
+            download_package(spec, &dir)?;
         }
 
         if dir.exists() {
@@ -44,11 +40,7 @@ pub fn prepare_package(
 }
 
 /// Download a package over the network.
-fn download_package(
-    term_out: &mut TermOut,
-    spec: &PackageSpec,
-    package_dir: &Path,
-) -> PackageResult<()> {
+fn download_package(spec: &PackageSpec, package_dir: &Path) -> PackageResult<()> {
     // The `@preview` namespace is the only namespace that supports on-demand
     // fetching.
     assert_eq!(spec.namespace, "preview");
@@ -58,9 +50,9 @@ fn download_package(
         spec.name, spec.version
     );
 
-    print_downloading(term_out, spec).unwrap();
+    print_downloading(spec).unwrap();
 
-    let data = match download_with_progress(term_out.clone(), &url) {
+    let data = match download_with_progress(&url) {
         Ok(data) => data,
         Err(ureq::Error::Status(404, _)) => {
             return Err(PackageError::NotFound(spec.clone()))
@@ -76,9 +68,10 @@ fn download_package(
 }
 
 /// Print that a package downloading is happening.
-fn print_downloading(term_out: &mut TermOut, spec: &PackageSpec) -> io::Result<()> {
+fn print_downloading(spec: &PackageSpec) -> io::Result<()> {
     let styles = term::Styles::default();
 
+    let mut term_out = terminal::out();
     term_out.set_color(&styles.header_help)?;
     write!(term_out, "downloading")?;
 

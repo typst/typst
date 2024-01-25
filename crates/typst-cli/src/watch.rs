@@ -1,39 +1,33 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+use codespan_reporting::term::termcolor::WriteColor;
 use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use same_file::is_same_file;
-use termcolor::WriteColor;
 use typst::diag::StrResult;
 
 use crate::args::CompileCommand;
 use crate::compile::compile_once;
-use crate::terminal::TermOut;
+use crate::terminal;
 use crate::timings::Timer;
 use crate::world::SystemWorld;
 
 /// Execute a watching compilation command.
-pub fn watch(
-    term_out: &mut TermOut,
-    mut timer: Timer,
-    mut command: CompileCommand,
-) -> StrResult<()> {
+pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
     // Enter the alternate screen and handle Ctrl-C ourselves.
-    term_out.init_exit_handler();
-    term_out
+    terminal::out().init_exit_handler()?;
+    terminal::out()
         .enter_alternate_screen()
         .map_err(|err| eco_format!("failed to enter alternate screen ({err})"))?;
 
     // Create the world that serves sources, files, and fonts.
-    let mut world = SystemWorld::new(term_out.clone(), &command.common)?;
+    let mut world = SystemWorld::new(&command.common)?;
 
     // Perform initial compilation.
-    timer.record(&mut world, |world| {
-        compile_once(term_out, world, &mut command, true)
-    })??;
+    timer.record(&mut world, |world| compile_once(world, &mut command, true))??;
 
     // Setup file watching.
     let (tx, rx) = std::sync::mpsc::channel();
@@ -47,7 +41,7 @@ pub fn watch(
     // Handle events.
     let timeout = std::time::Duration::from_millis(100);
     let output = command.output();
-    while term_out.active() {
+    while terminal::out().is_active() {
         let mut recompile = false;
         if let Ok(event) = rx.recv_timeout(timeout) {
             let event =
@@ -76,9 +70,8 @@ pub fn watch(
             world.reset();
 
             // Recompile.
-            timer.record(&mut world, |world| {
-                compile_once(term_out, world, &mut command, true)
-            })??;
+            timer
+                .record(&mut world, |world| compile_once(world, &mut command, true))??;
 
             comemo::evict(10);
 
@@ -164,15 +157,12 @@ pub enum Status {
 
 impl Status {
     /// Clear the terminal and render the status message.
-    pub fn print(
-        &self,
-        term_out: &mut TermOut,
-        command: &CompileCommand,
-    ) -> io::Result<()> {
+    pub fn print(&self, command: &CompileCommand) -> io::Result<()> {
         let output = command.output();
         let timestamp = chrono::offset::Local::now().format("%H:%M:%S");
         let color = self.color();
 
+        let mut term_out = terminal::out();
         term_out.clear_screen()?;
 
         term_out.set_color(&color)?;

@@ -10,12 +10,12 @@ use typst::World;
 
 use crate::args::{QueryCommand, SerializationFormat};
 use crate::compile::print_diagnostics;
+use crate::set_failed;
 use crate::world::SystemWorld;
-use crate::{set_failed, TermOut};
 
 /// Execute a query command.
 pub fn query(command: &QueryCommand) -> StrResult<()> {
-    let mut world = SystemWorld::new(term_out.clone(), &command.common)?;
+    let mut world = SystemWorld::new(&command.common)?;
     // Reset everything and ensure that the main file is present.
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
@@ -31,7 +31,6 @@ pub fn query(command: &QueryCommand) -> StrResult<()> {
             let serialized = format(data, command)?;
             println!("{serialized}");
             print_diagnostics(
-                term_out,
                 &mut world,
                 &[],
                 &warnings,
@@ -44,7 +43,6 @@ pub fn query(command: &QueryCommand) -> StrResult<()> {
         Err(errors) => {
             set_failed();
             print_diagnostics(
-                term_out,
                 &mut world,
                 &errors,
                 &warnings,
