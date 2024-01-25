@@ -74,7 +74,10 @@ pub fn jump_from_click(
                         let Some(id) = span.id() else { continue };
                         let source = world.source(id).ok()?;
                         let node = source.find(span)?;
-                        let pos = if node.kind() == SyntaxKind::Text {
+                        let pos = if matches!(
+                            node.kind(),
+                            SyntaxKind::Text | SyntaxKind::RawLine
+                        ) {
                             let range = node.range();
                             let mut offset = range.start + usize::from(span_offset);
                             if (click.x - pos.x) > width / 2.0 {
