@@ -113,42 +113,24 @@ pub(crate) fn write_images(ctx: &mut PdfContext) {
 /// Skips the alpha channel as that's encoded separately.
 fn encode_raster_image(image: &RasterImage) -> (Vec<u8>, Filter, bool) {
     let dynamic = image.dynamic();
-    match (image.format(), dynamic) {
-        // 8-bit gray JPEG.
-        (RasterFormat::Jpg, DynamicImage::ImageLuma8(_)) => {
-            let mut data = Cursor::new(vec![]);
-            dynamic.write_to(&mut data, image::ImageFormat::Jpeg).unwrap();
-            (data.into_inner(), Filter::DctDecode, false)
-        }
+    let channel_count = dynamic.color().channel_count();
+    let has_color = channel_count > 2;
 
-        // 8-bit RGB JPEG (CMYK JPEGs get converted to RGB earlier).
-        (RasterFormat::Jpg, DynamicImage::ImageRgb8(_)) => {
-            let mut data = Cursor::new(vec![]);
-            dynamic.write_to(&mut data, image::ImageFormat::Jpeg).unwrap();
-            (data.into_inner(), Filter::DctDecode, true)
-        }
-
+    if image.format() == RasterFormat::Jpg {
+        let mut data = Cursor::new(vec![]);
+        dynamic.write_to(&mut data, image::ImageFormat::Jpeg).unwrap();
+        (data.into_inner(), Filter::DctDecode, has_color)
+    } else {
         // TODO: Encode flate streams with PNG-predictor?
-
-        // 8-bit gray PNG.
-        (RasterFormat::Png, DynamicImage::ImageLuma8(luma)) => {
-            let data = deflate(luma.as_raw());
-            (data, Filter::FlateDecode, false)
-        }
-
-        // Anything else (including Rgb(a) PNGs).
-        (_, buf) => {
-            let (width, height) = buf.dimensions();
-            let mut pixels = Vec::with_capacity(3 * width as usize * height as usize);
-            for (_, _, Rgba([r, g, b, _])) in buf.pixels() {
-                pixels.push(r);
-                pixels.push(g);
-                pixels.push(b);
-            }
-
-            let data = deflate(&pixels);
-            (data, Filter::FlateDecode, true)
-        }
+        let data = match (dynamic, channel_count) {
+            (DynamicImage::ImageLuma8(luma), _) => deflate(luma.as_raw()),
+            (DynamicImage::ImageRgb8(rgb), _) => deflate(rgb.as_raw()),
+            // Grayscale image
+            (_, 1 | 2) => deflate(dynamic.to_luma8().as_raw()),
+            // Anything else
+            _ => deflate(dynamic.to_rgb8().as_raw()),
+        };
+        (data, Filter::FlateDecode, has_color)
     }
 }
 
