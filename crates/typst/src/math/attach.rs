@@ -212,6 +212,15 @@ impl Limits {
         }
     }
 
+    /// The default limit configuration for a math class.
+    pub fn for_class(class: MathClass) -> Self {
+        match class {
+            MathClass::Large => Self::Display,
+            MathClass::Relation => Self::Always,
+            _ => Self::Never,
+        }
+    }
+
     /// Whether limits should be displayed in this context
     pub fn active(&self, ctx: &MathContext) -> bool {
         match self {

@@ -35,3 +35,13 @@ $ a pluseq 5 $
 ---
 // Test exceptions.
 $ sqrt(3)\/2 quad d_0.d_1d_2 dots $
+
+---
+// Test if the math class changes the limit configuration.
+$ class("normal", ->)_a $
+$class("relation", x)_a$
+$ class("large", x)_a $
+$class("large", ->)_a$
+
+$limits(class("normal", ->))_a$
+$ scripts(class("relation", x))_a $
