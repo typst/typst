@@ -619,6 +619,11 @@ pub struct TextElem {
     #[required]
     pub text: EcoString,
 
+    /// The span offset of the text.
+    #[internal]
+    #[ghost]
+    pub span_offset: usize,
+
     /// A delta to apply on the font weight.
     #[internal]
     #[fold]
