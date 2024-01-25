@@ -5,6 +5,7 @@ use std::sync::Arc;
 use ecow::{eco_format, EcoString, EcoVec};
 use once_cell::sync::Lazy;
 use once_cell::unsync::Lazy as UnsyncLazy;
+use syntax::Span;
 use syntect::highlighting as synt;
 use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use unicode_segmentation::UnicodeSegmentation;
@@ -27,7 +28,8 @@ use crate::visualize::Color;
 use crate::{syntax, World};
 
 // Shorthand for highlighter closures.
-type StyleFn<'a> = &'a mut dyn FnMut(&LinkedNode, Range<usize>, synt::Style) -> Content;
+type StyleFn<'a> =
+    &'a mut dyn FnMut(i64, &LinkedNode, Range<usize>, synt::Style) -> Content;
 type LineFn<'a> = &'a mut dyn FnMut(i64, Range<usize>, &mut Vec<Content>);
 
 /// Raw text with optional syntax highlighting.
@@ -102,6 +104,10 @@ pub struct RawElem {
     /// ````
     #[required]
     pub text: EcoString,
+
+    #[internal]
+    #[synthesized]
+    pub ast_lines: Option<Vec<(EcoString, Span)>>,
 
     /// Whether the raw text is displayed as a separate block.
     ///
@@ -289,19 +295,28 @@ impl RawElem {
 
 impl Synthesize for Packed<RawElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        let span = self.span();
         let elem = self.as_mut();
 
         let lang = elem.lang(styles).clone();
         elem.push_lang(lang);
 
+        // ast_lines
         let mut text = elem.text().clone();
-        if text.contains('\t') {
-            let tab_size = RawElem::tab_size_in(styles);
-            text = align_tabs(&text, tab_size);
-        }
+        let lines = if text.contains('\t') || elem.ast_lines.is_none() {
+            if text.contains('\t') {
+                let tab_size = RawElem::tab_size_in(styles);
+                text = align_tabs(&text, tab_size);
+            }
 
-        let lines = split_newlines(&text);
+            let lines = split_newlines(&text);
+
+            lines
+                .into_iter()
+                .map(|line| (line.into(), Span::detached()))
+                .collect()
+        } else {
+            elem.ast_lines.clone().unwrap().unwrap()
+        };
         let count = lines.len() as i64;
 
         let lang = elem
@@ -334,7 +349,21 @@ impl Synthesize for Packed<RawElem> {
                 &text,
                 LinkedNode::new(&root),
                 synt::Highlighter::new(theme),
-                &mut |_, range, style| styled(&text[range], foreground, style),
+                &mut |i, _, range, style| {
+                    // find offset to previous newline or start of before range start
+                    // Note: dedent is already applied to the text
+                    let span_offset = text[..range.start]
+                        .rfind('\n')
+                        .map(|i| range.start - (i + 1))
+                        .unwrap_or(0);
+                    styled(
+                        &text[range],
+                        foreground,
+                        style,
+                        lines[i as usize].1,
+                        span_offset,
+                    )
+                },
                 &mut |i, range, line| {
                     seq.push(
                         Packed::new(RawLine::new(
@@ -343,7 +372,7 @@ impl Synthesize for Packed<RawElem> {
                             EcoString::from(&text[range]),
                             Content::sequence(line.drain(..)),
                         ))
-                        .spanned(span),
+                        .spanned(lines[i as usize].1),
                     );
                 },
             )
@@ -361,20 +390,30 @@ impl Synthesize for Packed<RawElem> {
             let mut highlighter = syntect::easy::HighlightLines::new(syntax, theme);
             for (i, line) in lines.into_iter().enumerate() {
                 let mut line_content = vec![];
-                for (style, piece) in
-                    highlighter.highlight_line(line, syntax_set).into_iter().flatten()
+                let mut line_inner_offset = 0usize;
+                for (style, piece) in highlighter
+                    .highlight_line(line.0.as_str(), syntax_set)
+                    .into_iter()
+                    .flatten()
                 {
-                    line_content.push(styled(piece, foreground, style));
+                    line_content.push(styled(
+                        piece,
+                        foreground,
+                        style,
+                        line.1,
+                        line_inner_offset,
+                    ));
+                    line_inner_offset += piece.len();
                 }
 
                 seq.push(
                     Packed::new(RawLine::new(
                         i as i64 + 1,
                         count,
-                        EcoString::from(line),
+                        line.0,
                         Content::sequence(line_content),
                     ))
-                    .spanned(span),
+                    .spanned(line.1),
                 );
             }
         } else {
@@ -382,10 +421,10 @@ impl Synthesize for Packed<RawElem> {
                 Packed::new(RawLine::new(
                     i as i64 + 1,
                     count,
-                    EcoString::from(line),
-                    TextElem::packed(line),
+                    line.0.clone(),
+                    TextElem::packed(line.0).spanned(line.1),
                 ))
-                .spanned(span)
+                .spanned(line.1)
             }));
         };
 
@@ -591,8 +630,12 @@ impl<'a> ThemedHighlighter<'a> {
 
                 let offset = self.node.range().start + len;
                 let token_range = offset..(offset + line.len());
-                self.current_line
-                    .push((self.style_fn)(&self.node, token_range, style));
+                self.current_line.push((self.style_fn)(
+                    self.line,
+                    &self.node,
+                    token_range,
+                    style,
+                ));
 
                 len += line.len() + 1;
             }
@@ -615,23 +658,31 @@ impl<'a> ThemedHighlighter<'a> {
 }
 
 /// Style a piece of text with a syntect style.
-fn styled(piece: &str, foreground: synt::Color, style: synt::Style) -> Content {
-    let mut body = TextElem::packed(piece);
+fn styled(
+    piece: &str,
+    foreground: synt::Color,
+    style: synt::Style,
+    span: Span,
+    span_offset: usize,
+) -> Content {
+    let mut body = TextElem::packed(piece)
+        .spanned(span)
+        .styled(TextElem::set_span_offset(span_offset));
 
     if style.foreground != foreground {
         body = body.styled(TextElem::set_fill(to_typst(style.foreground).into()));
     }
 
     if style.font_style.contains(synt::FontStyle::BOLD) {
-        body = body.strong();
+        body = body.strong().spanned(span);
     }
 
     if style.font_style.contains(synt::FontStyle::ITALIC) {
-        body = body.emph();
+        body = body.emph().spanned(span);
     }
 
     if style.font_style.contains(synt::FontStyle::UNDERLINE) {
-        body = body.underlined();
+        body = body.underlined().spanned(span);
     }
 
     body
