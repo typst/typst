@@ -2,12 +2,15 @@ use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
 use crate::foundations::{elem, Content, Packed};
-use crate::math::{LayoutMath, MathContext};
+use crate::math::{LayoutMath, Limits, MathContext};
 
 /// Forced use of a certain math class.
 ///
 /// This is useful to treat certain symbols as if they were of a different
-/// class, e.g. to make a symbol behave like a relation.
+/// class, e.g. to make a symbol behave like a relation. The class of a symbol
+/// defines the way it is laid out, including spacing around it, and how its
+/// scripts are attached by default. Note that the latter can always be
+/// overridden using [`{limits}`](math.limits) and [`{scripts}`](math.scripts).
 ///
 /// # Example
 /// ```example
@@ -37,6 +40,7 @@ impl LayoutMath for Packed<ClassElem> {
         ctx.unstyle();
 
         fragment.set_class(*self.class());
+        fragment.set_limits(Limits::for_class(*self.class()));
         ctx.push(fragment);
         Ok(())
     }

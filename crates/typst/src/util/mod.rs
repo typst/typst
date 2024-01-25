@@ -4,16 +4,19 @@ pub mod fat;
 
 #[macro_use]
 mod macros;
+mod bitset;
 mod deferred;
 mod pico;
 mod scalar;
 
+pub use self::bitset::BitSet;
 pub use self::deferred::Deferred;
 pub use self::pico::PicoStr;
 pub use self::scalar::Scalar;
 
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
+use std::iter::{Chain, Flatten, Rev};
 use std::num::NonZeroUsize;
 use std::ops::{Add, Deref, Div, Mul, Neg, Sub};
 use std::sync::Arc;
@@ -111,6 +114,34 @@ where
         let (head, tail) = self.slice.split_at(count);
         self.slice = tail;
         Some((key, head))
+    }
+}
+
+/// Adapter for reversing iterators conditionally.
+pub trait MaybeReverseIter {
+    type RevIfIter;
+
+    /// Reverse this iterator (apply .rev()) based on some condition.
+    fn rev_if(self, condition: bool) -> Self::RevIfIter
+    where
+        Self: Sized;
+}
+
+impl<I: Iterator + DoubleEndedIterator> MaybeReverseIter for I {
+    type RevIfIter =
+        Chain<Flatten<std::option::IntoIter<I>>, Flatten<std::option::IntoIter<Rev<I>>>>;
+
+    fn rev_if(self, condition: bool) -> Self::RevIfIter
+    where
+        Self: Sized,
+    {
+        let (maybe_self_iter, maybe_rev_iter) =
+            if condition { (None, Some(self.rev())) } else { (Some(self), None) };
+
+        maybe_self_iter
+            .into_iter()
+            .flatten()
+            .chain(maybe_rev_iter.into_iter().flatten())
     }
 }
 

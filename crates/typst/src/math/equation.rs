@@ -3,8 +3,8 @@ use std::num::NonZeroUsize;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, Finalize, Guard, NativeElement, Packed, Resolve, Show, Smart,
-    StyleChain, Synthesize,
+    elem, Content, Finalize, NativeElement, Packed, Resolve, Smart, StyleChain,
+    Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
@@ -47,7 +47,6 @@ use crate::World;
 #[elem(
     Locatable,
     Synthesize,
-    Show,
     Finalize,
     LayoutSingle,
     LayoutMath,
@@ -117,17 +116,6 @@ impl Synthesize for Packed<EquationElem> {
         elem.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
 
         Ok(())
-    }
-}
-
-impl Show for Packed<EquationElem> {
-    #[typst_macros::time(name = "math.equation", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.clone().pack().guarded(Guard::Base(EquationElem::elem()));
-        if self.block(styles) {
-            realized = AlignElem::new(realized).pack().spanned(self.span());
-        }
-        Ok(realized)
     }
 }
 
