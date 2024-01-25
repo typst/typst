@@ -28,9 +28,9 @@ typst-svg = { workspace = true }
 typst-timing = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
-ctrlc = { workspace = true }
 codespan-reporting = { workspace = true }
 comemo = { workspace = true }
+ctrlc = { workspace = true }
 dirs = { workspace = true }
 ecow = { workspace = true }
 env_proxy = { workspace = true }

@@ -44,7 +44,7 @@ fn main() -> ExitCode {
         Command::Update(command) => crate::update::update(command),
     };
 
-    // Leave the alternate screen if it was opened. This operation occurs here
+    // Leave the alternate screen if it was opened. This operation is done here
     // so that it is executed prior to printing the final error.
     res = res.or(terminal::out()
         .leave_alternate_screen()
@@ -69,7 +69,7 @@ fn typst_version() -> &'static str {
 }
 
 /// Print an application-level error (independent from a source file).
-pub fn print_error(msg: &str) -> io::Result<()> {
+fn print_error(msg: &str) -> io::Result<()> {
     let styles = term::Styles::default();
 
     let mut output = terminal::out();
