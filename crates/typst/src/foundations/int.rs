@@ -2,7 +2,10 @@ use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError
 
 use ecow::{eco_format, EcoString};
 
-use crate::foundations::{cast, func, repr, scope, ty, Repr, Str, Value};
+use crate::{
+    diag::StrResult,
+    foundations::{cast, func, repr, scope, ty, Repr, Str, Value},
+};
 
 /// A whole number.
 ///
@@ -64,6 +67,154 @@ impl i64 {
     #[func]
     pub fn signum(self) -> i64 {
         i64::signum(self)
+    }
+
+    /// Calculates the bitwise NOT of an integer.
+    ///
+    /// For the purposes of this function, the operand is treated as a signed
+    /// integer of 64 bits.
+    ///
+    /// ```example
+    /// #4.bit-not()
+    /// #(-1).bit-not()
+    /// ```
+    #[func(title = "Bitwise NOT")]
+    pub fn bit_not(self) -> i64 {
+        !self
+    }
+
+    /// Calculates the bitwise AND between two integers.
+    ///
+    /// For the purposes of this function, the operands are treated as signed
+    /// integers of 64 bits.
+    ///
+    /// ```example
+    /// #128.bit-and(192)
+    /// ```
+    #[func(title = "Bitwise AND")]
+    pub fn bit_and(
+        self,
+        /// The right-hand operand of the bitwise AND.
+        rhs: i64,
+    ) -> i64 {
+        self & rhs
+    }
+
+    /// Calculates the bitwise OR between two integers.
+    ///
+    /// For the purposes of this function, the operands are treated as signed
+    /// integers of 64 bits.
+    ///
+    /// ```example
+    /// #64.bit-or(32)
+    /// ```
+    #[func(title = "Bitwise OR")]
+    pub fn bit_or(
+        self,
+        /// The right-hand operand of the bitwise OR.
+        rhs: i64,
+    ) -> i64 {
+        self | rhs
+    }
+
+    /// Calculates the bitwise XOR between two integers.
+    ///
+    /// For the purposes of this function, the operands are treated as signed
+    /// integers of 64 bits.
+    ///
+    /// ```example
+    /// #64.bit-xor(96)
+    /// ```
+    #[func(title = "Bitwise XOR")]
+    pub fn bit_xor(
+        self,
+        /// The right-hand operand of the bitwise XOR.
+        rhs: i64,
+    ) -> i64 {
+        self ^ rhs
+    }
+
+    /// Shifts the operand's bits to the left by the specified amount.
+    ///
+    /// For the purposes of this function, the operand is treated as a signed
+    /// integer of 64 bits. An error will occur if the result is too large to
+    /// fit in a 64-bit integer.
+    ///
+    /// ```example
+    /// #33.bit-lshift(2)
+    /// #(-1).bit-lshift(3)
+    /// ```
+    #[func(title = "Bitwise Left Shift")]
+    pub fn bit_lshift(
+        self,
+
+        /// The amount of bits to shift. Must not be negative.
+        shift: u32,
+    ) -> StrResult<i64> {
+        Ok(self.checked_shl(shift).ok_or("the result is too large")?)
+    }
+
+    /// Shifts the operand's bits to the right by the specified amount.
+    /// Performs an arithmetic shift by default (extends the sign bit to the left,
+    /// such that negative numbers stay negative), but that can be changed by the
+    /// `logical` parameter.
+    ///
+    /// For the purposes of this function, the operand is treated as a signed
+    /// integer of 64 bits.
+    ///
+    /// ```example
+    /// #64.bit-rshift(2)
+    /// #(-8).bit-rshift(2)
+    /// #(-8).bit-rshift(2, logical: true)
+    /// ```
+    #[func(title = "Bitwise Right Shift")]
+    pub fn bit_rshift(
+        self,
+
+        /// The amount of bits to shift. Must not be negative.
+        ///
+        /// Shifts larger than 63 are allowed and will cause the return value to
+        /// saturate. For non-negative numbers, the return value saturates at `0`,
+        /// while, for negative numbers, it saturates at `-1` if `logical` is set
+        /// to `false`, or `0` if it is `true`. This behavior is consistent with
+        /// just applying this operation multiple times. Therefore, the shift will
+        /// always succeed.
+        shift: u32,
+
+        /// Toggles whether a logical (unsigned) right shift should be performed
+        /// instead of arithmetic right shift.
+        /// If this is `true`, negative operands will not preserve their sign bit,
+        /// and bits which appear to the left after the shift will be `0`.
+        /// This parameter has no effect on non-negative operands.
+        #[named]
+        #[default(false)]
+        logical: bool,
+    ) -> i64 {
+        if logical {
+            if shift >= u64::BITS {
+                // Excessive logical right shift would be equivalent to setting
+                // all bits to zero. Using `.min(63)` is not enough for logical
+                // right shift, since `-1 >> 63` returns 1, whereas
+                // `calc.bit-rshift(-1, 64)` should return the same as
+                // `(-1 >> 63) >> 1`, which is zero.
+                0
+            } else {
+                // Here we reinterpret the signed integer's bits as unsigned to
+                // perform logical right shift, and then reinterpret back as signed.
+                // This is valid as, according to the Rust reference, casting between
+                // two integers of same size (i64 <-> u64) is a no-op (two's complement
+                // is used).
+                // Reference:
+                // https://doc.rust-lang.org/stable/reference/expressions/operator-expr.html#numeric-cast
+                ((self as u64) >> shift) as i64
+            }
+        } else {
+            // Saturate at -1 (negative) or 0 (otherwise) on excessive arithmetic
+            // right shift. Shifting those numbers any further does not change
+            // them, so it is consistent.
+            let shift = shift.min(i64::BITS - 1);
+            self >> shift
+        }
     }
 }
 
