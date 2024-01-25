@@ -24,6 +24,12 @@ use crate::text::{Lang, Region, TextElem};
 /// You can also call `cite`
 /// explicitly. #cite(<arrgh>)
 ///
+/// If your source name contains
+/// certain characters such as slashes
+/// which are not recognized by the `<>` syntax,
+/// you can use `label` instead.
+/// #cite(label("DBLP:books/lib/Knuth86a"))
+///
 /// #bibliography("works.bib")
 /// ```
 ///
