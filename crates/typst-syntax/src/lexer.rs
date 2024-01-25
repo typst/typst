@@ -18,6 +18,9 @@ pub(super) struct Lexer<'s> {
     newline: bool,
     /// An error for the last token.
     error: Option<EcoString>,
+
+    /// The state holds by raw line lexing
+    offsets: Vec<(SyntaxKind, usize)>,
 }
 
 /// What kind of tokens to emit.
@@ -40,6 +43,7 @@ impl<'s> Lexer<'s> {
             mode,
             newline: false,
             error: None,
+            offsets: Vec::new(),
         }
     }
 
@@ -104,6 +108,15 @@ impl Lexer<'_> {
             },
 
             None => SyntaxKind::Eof,
+        }
+    }
+
+    pub fn next_raw(&mut self) -> SyntaxKind {
+        if let Some((kind, end)) = self.offsets.pop() {
+            self.s.jump(end);
+            kind
+        } else {
+            SyntaxKind::Eof
         }
     }
 
@@ -224,29 +237,240 @@ impl Lexer<'_> {
     }
 
     fn raw(&mut self) -> SyntaxKind {
-        let mut backticks = 1;
-        while self.s.eat_if('`') {
-            backticks += 1;
-        }
+        let backticks = self.cursor() - 1;
+        while self.s.eat_if('`') {}
+        let backticks = self.cursor() - backticks;
+        let blocky = backticks >= 3;
 
         if backticks == 2 {
-            return SyntaxKind::Raw;
+            self.offsets.clear();
+            self.offsets.push((SyntaxKind::RawDelim, self.s.cursor()));
+
+            self.s.uneat();
+            return SyntaxKind::RawDelim;
         }
 
-        let mut found = 0;
-        while found < backticks {
-            match self.s.eat() {
-                Some('`') => found += 1,
-                Some(_) => found = 0,
-                None => break,
+        /// The first pass determines following things.
+        struct FirstPass {
+            /// The dedent level.
+            dedent: Option<usize>,
+            /// The end position of the raw block.
+            end_pos: usize,
+            /// Whether the content should be trimmed a space at the end.
+            content_ends_with_backticks: bool,
+            /// The tokens without dedent adjustment.
+            lang: Option<usize>,
+            /// Whether the raw block is correctly closed or not.
+            offsets: Vec<(SyntaxKind, usize)>,
+        }
+
+        let FirstPass {
+            dedent,
+            lang,
+            end_pos,
+            content_ends_with_backticks,
+            offsets,
+        } = {
+            // Copies the scanner to determine the dedent level and the end position of the raw block.
+            let mut s = self.s;
+
+            // Reuses buffer
+            let mut offsets = std::mem::take(&mut self.offsets);
+            offsets.clear();
+
+            // Parses lang if blocky
+            let lang = {
+                if blocky && s.eat_if(is_id_start) {
+                    s.eat_while(is_id_continue);
+                    Some(s.cursor())
+                } else {
+                    None
+                }
+            };
+
+            // Trims an ascii space if blocky
+            if blocky {
+                s.eat_if(' ');
             }
-        }
 
-        if found != backticks {
-            return self.error("unclosed raw text");
-        }
+            // A placeholder trim
+            offsets.push((SyntaxKind::RawTrimmed, s.cursor()));
 
-        SyntaxKind::Raw
+            // Determines the end position of the raw block, also constructs the line offsets.
+            let mut accumulated_backticks = 0;
+            while accumulated_backticks < backticks {
+                match s.eat() {
+                    None => break,
+                    Some('`') => accumulated_backticks += 1,
+                    Some(c) => {
+                        accumulated_backticks = 0;
+
+                        if is_newline(c) {
+                            // The last position of the char.
+                            let uneaten = s.cursor() - c.len_utf8();
+
+                            offsets.push((SyntaxKind::RawLine, uneaten));
+                            if c == '\r' {
+                                s.eat_if('\n');
+                            }
+                            offsets.push((SyntaxKind::RawTrimmed, s.cursor()));
+                        }
+                    }
+                }
+            }
+
+            let end_backticks = accumulated_backticks;
+            let end_pos = s.cursor();
+
+            // The last end position of the line in the raw block.
+            offsets.push((SyntaxKind::RawLine, end_pos - end_backticks));
+
+            if end_backticks != backticks {
+                // Restores the scanner and emits an error.
+                self.jump(end_pos);
+
+                // Returns the offsets buffer.
+                offsets.clear();
+                self.offsets = offsets;
+
+                return self.error("unclosed raw text");
+            }
+
+            // Needs trims an ascii space if blocky and the content ends with a backtick.
+            let content_ends_with_backticks = blocky && {
+                let text = s.get(offsets[0].1..offsets.last().unwrap().1);
+                text.trim_end().ends_with('`')
+            };
+
+            let dedent = blocky.then(|| {
+                let mut lines = offsets.as_slice().chunks_exact(2).map(|chunk| {
+                    // get end first to reduce one bound check
+                    let end = chunk[1].1;
+                    let start = chunk[0].1;
+                    s.get(start..end)
+                });
+
+                let last_line = lines.next_back();
+
+                let dedents = lines
+                    .skip(1)
+                    .filter(|line| !line.chars().all(char::is_whitespace))
+                    // The line with the closing ``` is always taken into account
+                    .chain(last_line)
+                    .map(|line| line.chars().take_while(|c| c.is_whitespace()).count());
+
+                dedents.min()
+            });
+            let dedent = dedent.flatten();
+
+            FirstPass {
+                dedent,
+                lang,
+                end_pos,
+                content_ends_with_backticks,
+                offsets,
+            }
+        };
+
+        // The second pass calculates the jump stack of raw tokens.
+        let offsets = {
+            let mut offsets = offsets;
+
+            // Dedents based on column, but not for the first line.
+            if let Some(dedent) = dedent {
+                for line in offsets.chunks_exact_mut(2).skip(1) {
+                    // Does early bound checking
+                    let _ = &line[1];
+
+                    // Dedents the line by the dedent value.
+                    let line_str = self.s.get(line[0].1..line[1].1);
+                    let offset: usize =
+                        line_str.chars().take(dedent).map(char::len_utf8).sum();
+                    line[0].1 += offset;
+                }
+            }
+
+            fn trim_last_if_whitespace(
+                s: &Scanner<'_>,
+                offsets: &mut Vec<(SyntaxKind, usize)>,
+                content_ends_with_backticks: bool,
+            ) {
+                // Insufficient tokens
+                if offsets.len() < 2 {
+                    return;
+                }
+
+                // Gets the last line
+                let line_range = &offsets[offsets.len() - 2..];
+                let mut line_end = line_range[1].1;
+                let mut trim_end = line_range[0].1;
+                if line_end < trim_end {
+                    std::mem::swap(&mut line_end, &mut trim_end);
+                }
+                let line = s.get(trim_end..line_end);
+                let all_whitespace = line.chars().all(char::is_whitespace);
+
+                if !all_whitespace {
+                    // There are three cases:
+                    // 1. When the last line are all whitespace.
+                    // 1.1. If the last line is empty, then the last char is a newline
+                    //     hence there is no an ascii space to trim at the end.
+                    // 1.2. If the last line is not empty, then we run into the case that
+                    //     `all_whitespace` is true, so all the chars are trimmed
+                    //     (including the last possible ascii space).
+                    // 2. When the last line are not all whitespace.
+                    //   Then we would hit the following conditions:
+                    //     trim an ascii space if `content_ends_with_backticks`
+                    if content_ends_with_backticks {
+                        let Some(last_char) = line.chars().last() else {
+                            return;
+                        };
+                        if last_char != ' ' {
+                            return;
+                        }
+
+                        offsets.last_mut().unwrap().1 -= last_char.len_utf8();
+                        offsets.push((SyntaxKind::RawTrimmed, line_end));
+                        return;
+                    }
+
+                    return;
+                }
+
+                offsets.pop();
+                offsets.pop();
+
+                // Reuses a trimmed token if it exists or creates a new one.
+                if let Some(trimmed) =
+                    offsets.last_mut().filter(|(kind, _)| *kind == SyntaxKind::RawTrimmed)
+                {
+                    trimmed.1 = trimmed.1.max(trim_end);
+                } else {
+                    offsets.push((SyntaxKind::RawTrimmed, trim_end));
+                }
+            }
+
+            // Trims a newline followed by a sequence of whitespace at the end.
+            trim_last_if_whitespace(&self.s, &mut offsets, content_ends_with_backticks);
+
+            // Sets the end position of the raw delim.
+            offsets.push((SyntaxKind::RawDelim, end_pos));
+
+            // Reverses the offsets to make it a stack.
+            offsets.reverse();
+
+            // Trims a sequence of whitespace followed by a newline at the start.
+            trim_last_if_whitespace(&self.s, &mut offsets, false);
+
+            if let Some(lang) = lang {
+                offsets.push((SyntaxKind::RawLang, lang));
+            }
+
+            offsets
+        };
+
+        self.offsets = offsets;
+        SyntaxKind::RawDelim
     }
 
     fn link(&mut self) -> SyntaxKind {

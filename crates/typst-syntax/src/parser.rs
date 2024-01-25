@@ -110,10 +110,10 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::Escape
         | SyntaxKind::Shorthand
         | SyntaxKind::SmartQuote
-        | SyntaxKind::Raw
         | SyntaxKind::Link
         | SyntaxKind::Label => p.eat(),
 
+        SyntaxKind::RawDelim => raw(p),
         SyntaxKind::Hash => embedded_code_expr(p),
         SyntaxKind::Star => strong(p),
         SyntaxKind::Underscore => emph(p),
@@ -136,6 +136,22 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
     }
 
     *at_start = false;
+}
+
+fn raw(p: &mut Parser) {
+    let m = p.marker();
+
+    // Eats the delimiter.
+    p.eat_raw();
+    // Eats until the closing delimiter.
+    while !p.eof() && !p.at(SyntaxKind::RawDelim) {
+        p.eat_raw();
+    }
+
+    // Lex the next token after the raw block.
+    p.expect(SyntaxKind::RawDelim);
+
+    p.wrap(m, SyntaxKind::Raw);
 }
 
 fn strong(p: &mut Parser) {
@@ -717,6 +733,7 @@ fn code_primary(p: &mut Parser, atomic: bool, allow_destructuring: bool) {
                 underscore.convert_to_error("expected expression, found underscore");
             }
         }
+        SyntaxKind::RawDelim => raw(p),
 
         SyntaxKind::LeftBrace => code_block(p),
         SyntaxKind::LeftBracket => content_block(p),
@@ -741,8 +758,7 @@ fn code_primary(p: &mut Parser, atomic: bool, allow_destructuring: bool) {
         | SyntaxKind::Bool
         | SyntaxKind::Numeric
         | SyntaxKind::Str
-        | SyntaxKind::Label
-        | SyntaxKind::Raw => p.eat(),
+        | SyntaxKind::Label => p.eat(),
 
         _ => p.expected("expression"),
     }
@@ -1618,6 +1634,11 @@ impl<'s> Parser<'s> {
         self.skip();
     }
 
+    fn eat_raw(&mut self) {
+        self.save();
+        self.lex_raw();
+    }
+
     fn skip(&mut self) {
         if self.lexer.mode() != LexMode::Markup {
             while self.current.is_trivia() {
@@ -1669,6 +1690,11 @@ impl<'s> Parser<'s> {
         {
             self.current = SyntaxKind::Eof;
         }
+    }
+
+    fn lex_raw(&mut self) {
+        self.current_start = self.lexer.cursor();
+        self.current = self.lexer.next_raw();
     }
 }
 

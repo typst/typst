@@ -8,9 +8,7 @@ use std::ops::Deref;
 use ecow::EcoString;
 use unscanny::Scanner;
 
-use crate::{
-    is_id_continue, is_id_start, is_newline, split_newlines, Span, SyntaxKind, SyntaxNode,
-};
+use crate::{is_id_continue, is_id_start, split_newlines, Span, SyntaxKind, SyntaxNode};
 
 /// A typed AST node.
 pub trait AstNode<'a>: Sized {
@@ -553,11 +551,42 @@ node! {
 }
 
 impl<'a> Raw<'a> {
+    fn components(&self) -> (usize, std::slice::Iter<'a, SyntaxNode>) {
+        println!("raw text: {:?}", self.0.text());
+        println!("raw elem: {:#?}", self.0);
+
+        let mut children = self.0.children();
+        let backtick = children.next().unwrap();
+        // remove last
+        let _backtick_end = children.next_back().unwrap();
+        // println!("backtick: {:?}", backtick.text());
+        // println!("backtick2: {:?}", backtick_end.text());
+        // println!("content: {text:?}");
+
+        (backtick.len(), children)
+    }
+
+    /// The lines in the raw text without the processing markers.
+    pub fn lines(self) -> impl Iterator<Item = RawLine<'a>> {
+        let (backtick, children) = self.components();
+        let _blocky = backtick >= 3;
+
+        let text: EcoString =
+            children.clone().cloned().map(SyntaxNode::into_text).collect();
+        let text = text.as_ref();
+
+        println!("content: {text:?}");
+
+        children.filter_map(RawLine::from_untyped)
+    }
+
     /// The trimmed raw text.
     pub fn text(self) -> EcoString {
-        let mut text = self.0.text().as_str();
-        let blocky = text.starts_with("```");
-        text = text.trim_matches('`');
+        let (backtick, children) = self.components();
+        let blocky = backtick >= 3;
+
+        let text: EcoString = children.cloned().map(SyntaxNode::into_text).collect();
+        let mut text = text.as_ref();
 
         // Trim tag, one space at the start, and one space at the end if the
         // last non-whitespace char is a backtick.
@@ -611,15 +640,16 @@ impl<'a> Raw<'a> {
 
     /// An optional identifier specifying the language to syntax-highlight in.
     pub fn lang(self) -> Option<&'a str> {
-        let text = self.0.text();
+        let (backtick, mut children) = self.components();
+        let blocky = backtick >= 3;
 
         // Only blocky literals are supposed to contain a language.
-        if !text.starts_with("```") {
+        if !blocky {
             return Option::None;
         }
 
-        let inner = text.trim_start_matches('`');
-        let mut s = Scanner::new(inner);
+        let text = children.next()?.text().as_ref();
+        let mut s = Scanner::new(text);
         s.eat_if(is_id_start).then(|| {
             s.eat_while(is_id_continue);
             s.before()
@@ -628,10 +658,17 @@ impl<'a> Raw<'a> {
 
     /// Whether the raw text should be displayed in a separate block.
     pub fn block(self) -> bool {
-        let text = self.0.text();
-        text.starts_with("```") && text.chars().any(is_newline)
+        let (backtick, children) = self.components();
+        backtick >= 3 && children.len() > 1
     }
 }
+
+node! {
+    /// A line in a multiline raw block: `    let x = 1;`.
+    RawLine
+}
+
+impl<'a> RawLine<'a> {}
 
 node! {
     /// A hyperlink: `https://typst.org`.
