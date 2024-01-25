@@ -24,6 +24,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     space: [
         ' ',
         nobreak: '\u{A0}',
+        nobreak.narrow: '\u{202F}',
         en: '\u{2002}',
         quad: '\u{2003}',
         third: '\u{2004}',
