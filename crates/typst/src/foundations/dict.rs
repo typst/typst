@@ -121,11 +121,14 @@ impl Dict {
         }
         let unexpected: Vec<&str> = iter.map(|kv| kv.0.as_str()).collect();
 
-        Err(Self::unexpected_keys(unexpected, expected))
+        Err(Self::unexpected_keys(unexpected, Some(expected)))
     }
 
     // Return an "unexpected key" error string.
-    pub fn unexpected_keys(unexpected: Vec<&str>, expected: &[&str]) -> EcoString {
+    pub fn unexpected_keys(
+        unexpected: Vec<&str>,
+        hint_expected: Option<&[&str]>,
+    ) -> EcoString {
         let format_as_list = |arr: &[&str]| {
             repr::separated_list(
                 &arr.iter().map(|s| eco_format!("\"{s}\"")).collect::<Vec<_>>(),
@@ -138,9 +141,13 @@ impl Dict {
             1 => "unexpected key ",
             _ => "unexpected keys ",
         });
+
         msg.push_str(&format_as_list(&unexpected[..]));
-        msg.push_str(", valid keys are ");
-        msg.push_str(&format_as_list(expected));
+
+        if let Some(expected) = hint_expected {
+            msg.push_str(", valid keys are ");
+            msg.push_str(&format_as_list(expected));
+        }
 
         msg.into()
     }

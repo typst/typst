@@ -3,11 +3,11 @@
 // Ref: false
 
 ---
-// Error: 16-58 unexpected keys "unexpected" and "unexpected-too", valid keys are "left", "top", "right", "bottom", "x", "y", and "rest"
+// Error: 16-58 unexpected keys "unexpected" and "unexpected-too"
 #block(outset: (unexpected: 0.5em, unexpected-too: 0.2em), [Hi])
 
 ---
-// Error: 14-56 unexpected keys "unexpected" and "unexpected-too", valid keys are "top-left", "top-right", "bottom-right", "bottom-left", "left", "top", "right", "bottom", and "rest"
+// Error: 14-56 unexpected keys "unexpected" and "unexpected-too"
 #box(radius: (unexpected: 0.5em, unexpected-too: 0.5em), [Hi])
 
 ---
@@ -19,9 +19,9 @@
 #box(radius: (top-left: 0.5em, unexpected: 0.5em), [Hi]) // The 2nd key is unexpected
 
 ---
-// Error: 16-19 unexpectedly empty, valid keys are "left", "top", "right", "bottom", "x", "y", and "rest"
+// Error: 16-19 unexpectedly empty
 #block(outset: (:), [Hi])
 
 ---
-// Error: 14-17 unexpectedly empty, valid keys are "top-left", "top-right", "bottom-right", "bottom-left", "left", "top", "right", "bottom", and "rest"
+// Error: 14-17 unexpectedly empty
 #box(radius: (:), [Hi])
