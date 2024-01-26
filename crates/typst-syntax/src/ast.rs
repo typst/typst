@@ -587,12 +587,12 @@ node! {
 }
 
 node! {
-    /// A single or 3+ backticks: `` ` ``.
+    /// A raw delimiter in single or 3+ backticks: `` ` ``.
     RawDelim
 }
 
 node! {
-    /// A line in a multiline raw block: `    let x = 1;`.
+    /// A line in a raw block: `  let x = 1;`.
     RawLine
 }
 

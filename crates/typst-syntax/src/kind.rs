@@ -30,11 +30,11 @@ pub enum SyntaxKind {
     Raw,
     /// A language tag at the start of raw element: ``typ ``.
     RawLang,
-    /// A single or 3+ backticks: `` ` ``.
+    /// A raw delimiter in single or 3+ backticks: `` ` ``.
     RawDelim,
-    /// Ingored whitespace in a raw block: `    `.
+    /// A sequence of whitespace to ignore in a raw block: `    `.
     RawTrimmed,
-    /// A line in a multiline raw block: `    let x = 1;`.
+    /// A line in a raw block: `  let x = 1;`.
     RawLine,
     /// A hyperlink: `https://typst.org`.
     Link,
