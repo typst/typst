@@ -107,8 +107,9 @@ impl TermOut {
     /// Leaves the alternate screen if it is already open.
     pub fn leave_alternate_screen(&mut self) -> io::Result<()> {
         if self.inner.in_alternate_screen.load(Ordering::Acquire) {
-            write!(self.inner.stream.lock(), "\x1B[?1049l")?;
-            self.inner.stream.lock().flush()?;
+            let mut stream = self.inner.stream.lock();
+            write!(stream, "\x1B[?1049l")?;
+            stream.flush()?;
             self.inner.in_alternate_screen.store(false, Ordering::Release);
         }
         Ok(())
