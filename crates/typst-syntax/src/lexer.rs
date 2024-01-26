@@ -90,6 +90,8 @@ impl Lexer<'_> {
         self.error = None;
         let start = self.s.cursor();
         match self.s.eat() {
+            // We do not want U+3000 IDEOGRAPHIC SPACE becoming a white space.
+            // See https://github.com/typst/typst/issues/3240#issuecomment-1910489806
             Some(c) if c.is_whitespace() && c != '\u{3000}' => self.whitespace(start, c),
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
