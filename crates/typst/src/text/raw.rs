@@ -44,15 +44,16 @@ pub enum RawContent {
 impl RawContent {
     /// Synthesizes the text content of the raw text.
     pub fn content(&self) -> EcoString {
-        match self {
-            RawContent::Text(text) => text.clone(),
-            RawContent::Lines(lines) => lines
-                .clone()
-                .into_iter()
-                .map(|(s, _)| s)
-                .collect::<Vec<_>>()
-                .join("\n")
-                .into(),
+        match self.clone() {
+            RawContent::Text(text) => text,
+            RawContent::Lines(lines) => {
+                let mut lines = lines.into_iter().map(|(s, _)| s);
+                if lines.len() <= 1 {
+                    lines.next().unwrap_or_default()
+                } else {
+                    lines.collect::<Vec<_>>().join("\n").into()
+                }
+            }
         }
     }
 }
