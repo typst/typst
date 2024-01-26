@@ -360,17 +360,49 @@ pub(super) fn vline_stroke_at_row(
         }
     }
 
+    let cell_y = if grid.has_gutter {
+        // Skip the gutter row this vline is in.
+        // This is because positions before and after it, even if gutter, could
+        // be part of a rowspan, so we have to check the cell below.
+        // However, this is only valid if we're not in a gutter column.
+        y + y % 2
+    } else {
+        y
+    };
+
     let (left_cell_stroke, left_cell_prioritized) = x
         .checked_sub(1)
-        .and_then(|left_x| grid.parent_cell(left_x, y))
-        .map(|left_cell| {
+        .and_then(|left_x| {
+            // Let's find the parent cell of the position before us, in order
+            // to take its right stroke, even with gutter before us.
+            grid.parent_cell_position(left_x, cell_y)
+        })
+        .filter(|Axes { y: parent_y, .. }| {
+            // Only use the stroke of the cell before us but one row below
+            // if it is merged with a cell before this line's row.
+            // If the position before us is a simple non-merged cell, or the
+            // parent of a rowspan, this will also evaluate to true.
+            parent_y <= &y
+        })
+        .map(|Axes { x: parent_x, y: parent_y }| {
+            let left_cell = grid.cell(parent_x, parent_y).unwrap();
             (left_cell.stroke.right.clone(), left_cell.stroke_overridden.right)
         })
         .unwrap_or((None, false));
 
     let (right_cell_stroke, right_cell_prioritized) = if x < grid.cols.len() {
-        grid.parent_cell(x, y)
-            .map(|right_cell| {
+        // Let's find the parent cell of the position after us, in order
+        // to take its left stroke, even with gutter after us.
+        grid.parent_cell_position(x, cell_y)
+            .filter(|Axes { y: parent_y, .. }| {
+                // Only use the stroke of the cell after us but one row below
+                // if it is merged with a cell before this line's row.
+                // If the position after us is a simple non-merged cell, or the
+                // parent of a rowspan, this will also evaluate to true.
+                parent_y <= &y
+            })
+            .map(|Axes { x: parent_x, y: parent_y }| {
+                let right_cell = grid.cell(parent_x, parent_y).unwrap();
                 (right_cell.stroke.left.clone(), right_cell.stroke_overridden.left)
             })
             .unwrap_or((None, false))
@@ -434,8 +466,34 @@ pub(super) fn hline_stroke_at_column(
     x: usize,
     stroke: Option<Option<Arc<Stroke<Abs>>>>,
 ) -> Option<(Arc<Stroke<Abs>>, StrokePriority)> {
-    // There are no rowspans yet, so no need to add a check here. The line will
-    // always be drawn, if it has a stroke.
+    if y != 0 && y != grid.rows.len() {
+        // When the hline isn't at the border, we need to check if a rowspan
+        // would be present between rows 'y' and 'y-1' at column 'x', and thus
+        // overlap with the line.
+        // To do so, we analyze the cell right below this hline. If it is
+        // merged with a cell above this line (parent_y < y) which is at this
+        // column or before it (parent_x <= x), this means it would overlap
+        // with the hline, so the hline must not be drawn at this column.
+        let first_adjacent_cell = if grid.has_gutter {
+            // Skip the gutters, if x or y represent gutter tracks.
+            // We would then analyze the cell one column after (if at a gutter
+            // column), and/or one row below (if at a gutter row), in order to
+            // check if it would be merged with a cell before the hline.
+            (x + x % 2, y + y % 2)
+        } else {
+            (x, y)
+        };
+        let Axes { x: parent_x, y: parent_y } = grid
+            .parent_cell_position(first_adjacent_cell.0, first_adjacent_cell.1)
+            .unwrap();
+
+        if parent_y < y && parent_x <= x {
+            // There is a rowspan cell going through this hline's position,
+            // so don't draw it here.
+            return None;
+        }
+    }
+
     let cell_x = if grid.has_gutter {
         // Skip the gutter column this hline is in.
         // This is because positions above and below it, even if gutter, could
@@ -694,16 +752,11 @@ mod test {
                     length: Abs::pt(1.),
                     priority: StrokePriority::GridStroke,
                 },
+                // Covers the rowspan between (original) rows 1 and 2
                 LineSegment {
                     stroke: stroke.clone(),
                     offset: Abs::pt(1. + 2.),
-                    length: Abs::pt(4.),
-                    priority: StrokePriority::GridStroke,
-                },
-                LineSegment {
-                    stroke: stroke.clone(),
-                    offset: Abs::pt(1. + 2. + 4. + 8.),
-                    length: Abs::pt(16.),
+                    length: Abs::pt(4. + 8. + 16.),
                     priority: StrokePriority::GridStroke,
                 },
                 LineSegment {
@@ -735,16 +788,11 @@ mod test {
                     length: Abs::pt(1.),
                     priority: StrokePriority::GridStroke,
                 },
+                // Covers the rowspan between (original) rows 1 and 2
                 LineSegment {
                     stroke: stroke.clone(),
                     offset: Abs::pt(1. + 2.),
-                    length: Abs::pt(4.),
-                    priority: StrokePriority::GridStroke,
-                },
-                LineSegment {
-                    stroke: stroke.clone(),
-                    offset: Abs::pt(1. + 2. + 4. + 8.),
-                    length: Abs::pt(16.),
+                    length: Abs::pt(4. + 8. + 16.),
                     priority: StrokePriority::GridStroke,
                 },
                 LineSegment {
@@ -787,16 +835,11 @@ mod test {
                     length: Abs::pt(16.),
                     priority: StrokePriority::GridStroke,
                 },
+                // Covers the rowspan between (original) rows 3 and 4
                 LineSegment {
                     stroke: stroke.clone(),
                     offset: Abs::pt(1. + 2. + 4. + 8. + 16. + 32.),
-                    length: Abs::pt(64.),
-                    priority: StrokePriority::GridStroke,
-                },
-                LineSegment {
-                    stroke: stroke.clone(),
-                    offset: Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128.),
-                    length: Abs::pt(256.),
+                    length: Abs::pt(64. + 128. + 256.),
                     priority: StrokePriority::GridStroke,
                 },
                 LineSegment {
@@ -880,16 +923,11 @@ mod test {
                     length: Abs::pt(16.),
                     priority: StrokePriority::GridStroke,
                 },
+                // Covers the rowspan between (original) rows 3 and 4
                 LineSegment {
                     stroke: stroke.clone(),
                     offset: Abs::pt(1. + 2. + 4. + 8. + 16. + 32.),
-                    length: Abs::pt(64.),
-                    priority: StrokePriority::GridStroke,
-                },
-                LineSegment {
-                    stroke: stroke.clone(),
-                    offset: Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128.),
-                    length: Abs::pt(256.),
+                    length: Abs::pt(64. + 128. + 256.),
                     priority: StrokePriority::GridStroke,
                 },
                 LineSegment {

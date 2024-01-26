@@ -776,16 +776,6 @@ impl CellGrid {
         self.entry(x, y).and_then(Entry::as_cell)
     }
 
-    /// Returns the parent cell of the grid entry at the given position.
-    /// - If the entry at the given position is a cell, returns it.
-    /// - If it is a merged cell, returns the parent cell.
-    /// - If it is a gutter cell, returns None.
-    #[track_caller]
-    pub(super) fn parent_cell(&self, x: usize, y: usize) -> Option<&Cell> {
-        self.parent_cell_position(x, y)
-            .and_then(|Axes { x, y }| self.cell(x, y))
-    }
-
     /// Returns the position of the parent cell of the grid entry at the given
     /// position. It is guaranteed to have a non-gutter, non-merged cell at
     /// the returned position, due to how the grid is built.
