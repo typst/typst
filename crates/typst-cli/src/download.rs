@@ -7,6 +7,7 @@ use std::io::{self, ErrorKind, Read, Stderr, Write};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use native_tls::{Certificate, TlsConnector};
 use once_cell::sync::Lazy;
 use ureq::Response;
 
@@ -15,23 +16,10 @@ const SPEED_SAMPLES: usize = 5;
 
 /// Lazily loads a custom CA certificate if present, but if there's an error
 /// loading certificate, it just uses the default configuration.
-static TLS_CONFIG: Lazy<Option<Arc<rustls::ClientConfig>>> = Lazy::new(|| {
-    crate::ARGS
-        .cert
-        .as_ref()
-        .map(|path| {
-            let file = std::fs::OpenOptions::new().read(true).open(path)?;
-            let mut buffer = std::io::BufReader::new(file);
-            let certs = rustls_pemfile::certs(&mut buffer)?;
-            let mut store = rustls::RootCertStore::empty();
-            store.add_parsable_certificates(&certs);
-            let config = rustls::ClientConfig::builder()
-                .with_safe_defaults()
-                .with_root_certificates(store)
-                .with_no_client_auth();
-            Ok::<_, std::io::Error>(Arc::new(config))
-        })
-        .and_then(|x| x.ok())
+static CERT: Lazy<Option<Certificate>> = Lazy::new(|| {
+    let path = crate::ARGS.cert.as_ref()?;
+    let pem = std::fs::read(path).ok()?;
+    Certificate::from_pem(&pem).ok()
 });
 
 /// Download binary data and display its progress.
@@ -44,10 +32,13 @@ pub fn download_with_progress(url: &str) -> Result<Vec<u8>, ureq::Error> {
 /// Download from a URL.
 #[allow(clippy::result_large_err)]
 pub fn download(url: &str) -> Result<ureq::Response, ureq::Error> {
-    let mut builder = ureq::AgentBuilder::new()
-        .user_agent(concat!("typst/", env!("CARGO_PKG_VERSION")));
+    let mut builder = ureq::AgentBuilder::new();
+    let mut tls = TlsConnector::builder();
 
-    // Get the network proxy config from the environment.
+    // Set user agent.
+    builder = builder.user_agent(concat!("typst/", env!("CARGO_PKG_VERSION")));
+
+    // Get the network proxy config from the environment and apply it.
     if let Some(proxy) = env_proxy::for_url_str(url)
         .to_url()
         .and_then(|url| ureq::Proxy::new(url).ok())
@@ -56,12 +47,16 @@ pub fn download(url: &str) -> Result<ureq::Response, ureq::Error> {
     }
 
     // Apply a custom CA certificate if present.
-    if let Some(config) = &*TLS_CONFIG {
-        builder = builder.tls_config(config.clone());
+    if let Some(cert) = &*CERT {
+        tls.add_root_certificate(cert.clone());
     }
 
-    let agent = builder.build();
-    agent.get(url).call()
+    // Configure native TLS.
+    let connector =
+        tls.build().map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+    builder = builder.tls_connector(Arc::new(connector));
+
+    builder.build().get(url).call()
 }
 
 /// A wrapper around [`ureq::Response`] that reads the response body in chunks

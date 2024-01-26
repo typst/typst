@@ -35,14 +35,13 @@ ecow = { workspace = true }
 env_proxy = { workspace = true }
 flate2 = { workspace = true }
 fontdb = { workspace = true, features = ["memmap", "fontconfig"] }
+native-tls = { workspace = true }
 notify = { workspace = true }
 once_cell = { workspace = true }
 open = { workspace = true }
 parking_lot = { workspace = true }
 pathdiff = { workspace = true }
 rayon = { workspace = true }
-rustls = { workspace = true }
-rustls-pemfile = { workspace = true }
 same-file = { workspace = true }
 self-replace = { workspace = true, optional = true }
 semver = { workspace = true }

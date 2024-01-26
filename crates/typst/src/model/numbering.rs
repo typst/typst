@@ -37,7 +37,7 @@ pub fn numbering(
     engine: &mut Engine,
     /// Defines how the numbering works.
     ///
-    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `あ`, `い`, `ア`, `イ`, `א`, `가`,
+    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `一`, `壹`, `あ`, `い`, `ア`, `イ`, `א`, `가`,
     /// `ㄱ`, and `*`. They are replaced by the number in the sequence, in the
     /// given case.
     ///
@@ -114,8 +114,9 @@ cast! {
 
 /// How to turn a number into text.
 ///
-/// A pattern consists of a prefix, followed by one of `1`, `a`, `A`, `i`,
-/// `I`, `あ`, `い`, `ア`, `イ`, `א`, `가`, `ㄱ`, or `*`, and then a suffix.
+/// A pattern consists of a prefix, followed by one of
+/// `1`, `a`, `A`, `i`, `I`, `一`, `壹`, `あ`, `い`, `ア`, `イ`, `א`, `가`, `ㄱ`, or `*`,
+/// and then a suffix.
 ///
 /// Examples of valid patterns:
 /// - `1)`

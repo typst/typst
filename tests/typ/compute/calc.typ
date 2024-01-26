@@ -168,6 +168,49 @@
 #test(calc.ln(10), calc.log(10, base: calc.e))
 
 ---
+// Test the `bit-not`, `bit-and`, `bit-or` and `bit-xor` functions.
+#test(64.bit-not(), -65)
+#test(0.bit-not(), -1)
+#test((-56).bit-not(), 55)
+#test(128.bit-and(192), 128)
+#test(192.bit-and(224), 192)
+#test((-1).bit-and(325532), 325532)
+#test(0.bit-and(-53), 0)
+#test(0.bit-or(-1), -1)
+#test(5.bit-or(3), 7)
+#test((-50).bit-or(3), -49)
+#test(64.bit-or(32), 96)
+#test((-1).bit-xor(1), -2)
+#test(64.bit-xor(96), 32)
+#test((-1).bit-xor(-7), 6)
+#test(0.bit-xor(492), 492)
+
+---
+// Test the `bit-lshift` and `bit-rshift` functions.
+#test(32.bit-lshift(2), 128)
+#test(694.bit-lshift(0), 694)
+#test(128.bit-rshift(2), 32)
+#test(128.bit-rshift(12345), 0)
+#test((-7).bit-rshift(2), -2)
+#test((-7).bit-rshift(12345), -1)
+#test(128.bit-rshift(2, logical: true), 32)
+#test((-7).bit-rshift(61, logical: true), 7)
+#test(128.bit-rshift(12345, logical: true), 0)
+#test((-7).bit-rshift(12345, logical: true), 0)
+
+---
+// Error: 2-18 the result is too large
+#1.bit-lshift(64)
+
+---
+// Error: 15-17 number must be at least zero
+#1.bit-lshift(-1)
+
+---
+// Error: 15-17 number must be at least zero
+#1.bit-rshift(-1)
+
+---
 // Error: 10-16 zero to the power of zero is undefined
 #calc.pow(0, 0)
 

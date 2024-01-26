@@ -278,7 +278,6 @@ impl LayoutMultiple for Packed<EnumElem> {
             ]),
             Axes::with_y(&[gutter.into()]),
             cells,
-            styles,
         );
         let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
 
