@@ -293,6 +293,9 @@ pub trait ResolvableCell {
     /// The amount of columns spanned by this cell.
     fn colspan(&self, styles: StyleChain) -> NonZeroUsize;
 
+    /// The amount of rows spanned by this cell.
+    fn rowspan(&self, styles: StyleChain) -> NonZeroUsize;
+
     /// The cell's span, for errors.
     fn span(&self) -> Span;
 }

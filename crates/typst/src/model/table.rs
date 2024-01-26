@@ -535,6 +535,10 @@ pub struct TableCell {
     #[default(NonZeroUsize::ONE)]
     pub colspan: NonZeroUsize,
 
+    /// The amount of rows spanned by this cell.
+    #[default(NonZeroUsize::ONE)]
+    rowspan: NonZeroUsize,
+
     /// The cell's alignment override.
     pub align: Smart<Alignment>,
 
@@ -634,6 +638,10 @@ impl ResolvableCell for Packed<TableCell> {
 
     fn colspan(&self, styles: StyleChain) -> std::num::NonZeroUsize {
         (**self).colspan(styles)
+    }
+
+    fn rowspan(&self, styles: StyleChain) -> std::num::NonZeroUsize {
+        (**self).rowspan(styles)
     }
 
     fn span(&self) -> Span {
