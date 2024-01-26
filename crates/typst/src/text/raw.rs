@@ -13,8 +13,8 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{At, FileError, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Args, Array, Bytes, Content, Finalize, Fold, NativeElement,
-    Packed, PlainText, Show, Smart, StyleChain, Styles, Synthesize, Value,
+    cast, elem, scope, Args, Array, Bytes, Content, Finalize, Fold, IntoValue,
+    NativeElement, Packed, PlainText, Show, Smart, StyleChain, Styles, Synthesize, Value,
 };
 use crate::layout::{BlockElem, Em, HAlignment};
 use crate::model::Figurable;
@@ -31,6 +31,37 @@ use crate::{syntax, World};
 type StyleFn<'a> =
     &'a mut dyn FnMut(i64, &LinkedNode, Range<usize>, synt::Style) -> Content;
 type LineFn<'a> = &'a mut dyn FnMut(i64, Range<usize>, &mut Vec<Content>);
+
+/// The raw text.
+#[derive(Debug, Clone, Hash, PartialEq)]
+pub enum RawContent {
+    /// From a string.
+    Text(EcoString),
+    /// From lines of text.
+    Lines(EcoVec<(EcoString, Span)>),
+}
+
+impl RawContent {
+    /// Synthesizes the text content of the raw text.
+    pub fn content(&self) -> EcoString {
+        match self {
+            RawContent::Text(text) => text.clone(),
+            RawContent::Lines(lines) => lines
+                .clone()
+                .into_iter()
+                .map(|(s, _)| s)
+                .collect::<Vec<_>>()
+                .join("\n")
+                .into(),
+        }
+    }
+}
+
+cast! {
+    RawContent,
+    self => IntoValue::into_value(self.content()),
+    v: EcoString => Self::Text(v),
+}
 
 /// Raw text with optional syntax highlighting.
 ///
@@ -103,11 +134,7 @@ pub struct RawElem {
     /// ```
     /// ````
     #[required]
-    pub text: EcoString,
-
-    #[internal]
-    #[synthesized]
-    pub ast_lines: Option<Vec<(EcoString, Span)>>,
+    pub text: RawContent,
 
     /// Whether the raw text is displayed as a separate block.
     ///
@@ -300,22 +327,25 @@ impl Synthesize for Packed<RawElem> {
         let lang = elem.lang(styles).clone();
         elem.push_lang(lang);
 
-        // ast_lines
-        let mut text = elem.text().clone();
-        let lines = if text.contains('\t') || elem.ast_lines.is_none() {
-            if text.contains('\t') {
-                let tab_size = RawElem::tab_size_in(styles);
-                text = align_tabs(&text, tab_size);
+        let text = elem.text();
+        let lines = match text {
+            RawContent::Lines(lines) if !lines.iter().any(|(s, _)| s.contains('\t')) => {
+                lines.clone()
             }
+            _ => {
+                let mut text = text.content();
+                if text.contains('\t') {
+                    let tab_size = RawElem::tab_size_in(styles);
+                    text = align_tabs(&text, tab_size);
+                }
 
-            let lines = split_newlines(&text);
+                let lines = split_newlines(&text);
 
-            lines
-                .into_iter()
-                .map(|line| (line.into(), Span::detached()))
-                .collect()
-        } else {
-            elem.ast_lines.clone().unwrap().unwrap()
+                lines
+                    .into_iter()
+                    .map(|line| (line.into(), Span::detached()))
+                    .collect()
+            }
         };
         let count = lines.len() as i64;
 
@@ -340,6 +370,7 @@ impl Synthesize for Packed<RawElem> {
 
         let mut seq = vec![];
         if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
+            let text = text.content();
             let root = match lang.as_deref() {
                 Some("typc") => syntax::parse_code(&text),
                 _ => syntax::parse(&text),
@@ -511,7 +542,7 @@ impl Figurable for Packed<RawElem> {}
 
 impl PlainText for Packed<RawElem> {
     fn plain_text(&self, text: &mut EcoString) {
-        text.push_str(self.text());
+        text.push_str(&self.text().content());
     }
 }
 
