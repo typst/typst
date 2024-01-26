@@ -119,7 +119,7 @@ pub fn jump_from_cursor(
     cursor: usize,
 ) -> Option<Position> {
     let node = LinkedNode::new(source.root()).leaf_at(cursor)?;
-    if node.kind() != SyntaxKind::Text {
+    if !matches!(node.kind(), SyntaxKind::Text | SyntaxKind::RawLine) {
         return None;
     }
 
