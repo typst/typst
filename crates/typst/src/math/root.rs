@@ -1,8 +1,11 @@
+use comemo::Prehashed;
+
 use crate::diag::SourceResult;
-use crate::foundations::{elem, func, Content, NativeElement, Packed};
+use crate::foundations::{elem, func, Content, NativeElement, Packed, StyleChain};
 use crate::layout::{Abs, Frame, FrameItem, Point, Size};
 use crate::math::{
-    FrameFragment, GlyphFragment, LayoutMath, MathContext, MathSize, Scaled,
+    style_cramped, EquationElem, FrameFragment, GlyphFragment, LayoutMath, MathContext,
+    MathSize, Scaled,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
@@ -41,8 +44,8 @@ pub struct RootElem {
 
 impl LayoutMath for Packed<RootElem> {
     #[typst_macros::time(name = "math.root", span = self.span())]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, self.index(ctx.styles()).as_ref(), self.radicand(), self.span())
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        layout(ctx, styles, self.index(styles).as_ref(), self.radicand(), self.span())
     }
 }
 
@@ -52,36 +55,37 @@ impl LayoutMath for Packed<RootElem> {
 /// See also: https://www.w3.org/TR/mathml-core/#radicals-msqrt-mroot
 fn layout(
     ctx: &mut MathContext,
+    styles: StyleChain,
     index: Option<&Content>,
     radicand: &Content,
     span: Span,
 ) -> SourceResult<()> {
     let gap = scaled!(
-        ctx,
+        ctx, styles,
         text: radical_vertical_gap,
         display: radical_display_style_vertical_gap,
     );
-    let thickness = scaled!(ctx, radical_rule_thickness);
-    let extra_ascender = scaled!(ctx, radical_extra_ascender);
-    let kern_before = scaled!(ctx, radical_kern_before_degree);
-    let kern_after = scaled!(ctx, radical_kern_after_degree);
+    let thickness = scaled!(ctx, styles, radical_rule_thickness);
+    let extra_ascender = scaled!(ctx, styles, radical_extra_ascender);
+    let kern_before = scaled!(ctx, styles, radical_kern_before_degree);
+    let kern_after = scaled!(ctx, styles, radical_kern_after_degree);
     let raise_factor = percent!(ctx, radical_degree_bottom_raise_percent);
 
     // Layout radicand.
-    ctx.style(ctx.style.with_cramped(true));
-    let radicand = ctx.layout_frame(radicand)?;
-    ctx.unstyle();
+    let cramped = style_cramped();
+    let radicand = ctx.layout_frame(radicand, styles.chain(&cramped))?;
 
     // Layout root symbol.
     let target = radicand.height() + thickness + gap;
-    let sqrt = GlyphFragment::new(ctx, '√', span)
+    let sqrt = GlyphFragment::new(ctx, styles, '√', span)
         .stretch_vertical(ctx, target, Abs::zero())
         .frame;
 
     // Layout the index.
-    ctx.style(ctx.style.with_size(MathSize::ScriptScript));
-    let index = index.map(|elem| ctx.layout_frame(elem)).transpose()?;
-    ctx.unstyle();
+    let sscript = Prehashed::new(EquationElem::set_size(MathSize::ScriptScript));
+    let index = index
+        .map(|elem| ctx.layout_frame(elem, styles.chain(&sscript)))
+        .transpose()?;
 
     // TeXbook, page 443, item 11
     // Keep original gap, and then distribute any remaining free space
@@ -133,7 +137,7 @@ fn layout(
         FrameItem::Shape(
             Geometry::Line(Point::with_x(radicand.width())).stroked(
                 FixedStroke::from_pair(
-                    TextElem::fill_in(ctx.styles()).as_decoration(),
+                    TextElem::fill_in(styles).as_decoration(),
                     thickness,
                 ),
             ),
@@ -142,7 +146,7 @@ fn layout(
     );
 
     frame.push_frame(radicand_pos, radicand);
-    ctx.push(FrameFragment::new(ctx, frame));
+    ctx.push(FrameFragment::new(ctx, styles, frame));
 
     Ok(())
 }

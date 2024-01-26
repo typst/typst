@@ -1,7 +1,5 @@
-use unicode_math_class::MathClass;
-
 use crate::diag::{At, SourceResult};
-use crate::foundations::{cast, elem, Content, Func, Packed, Resolve, Smart};
+use crate::foundations::{cast, elem, Content, Func, Packed, Resolve, Smart, StyleChain};
 use crate::layout::{
     Abs, Angle, Frame, FrameItem, Length, Point, Ratio, Rel, Size, Transform,
 };
@@ -107,17 +105,15 @@ pub struct CancelElem {
 
 impl LayoutMath for Packed<CancelElem> {
     #[typst_macros::time(name = "math.cancel", span = self.span())]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let body = ctx.layout_fragment(self.body())?;
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        let body = ctx.layout_fragment(self.body(), styles)?;
         // Preserve properties of body.
-        let body_class = body.class().unwrap_or(MathClass::Special);
+        let body_class = body.class();
         let body_italics = body.italics_correction();
         let body_attach = body.accent_attach();
         let body_text_like = body.is_text_like();
 
         let mut body = body.into_frame();
-
-        let styles = ctx.styles();
         let body_size = body.size();
         let span = self.span();
         let length = self.length(styles).resolve(styles);
@@ -155,7 +151,7 @@ impl LayoutMath for Packed<CancelElem> {
         }
 
         ctx.push(
-            FrameFragment::new(ctx, body)
+            FrameFragment::new(ctx, styles, body)
                 .with_class(body_class)
                 .with_italics_correction(body_italics)
                 .with_accent_attach(body_attach)

@@ -1,10 +1,11 @@
-use unicode_math_class::MathClass;
-
 use crate::diag::{bail, SourceResult};
-use crate::foundations::{cast, elem, Content, Packed, Resolve, Smart, Value};
+use crate::foundations::{
+    cast, elem, Content, Packed, Resolve, Smart, StyleChain, Value,
+};
 use crate::layout::{Em, Frame, Length, Point, Rel, Size};
 use crate::math::{
-    FrameFragment, GlyphFragment, LayoutMath, MathContext, MathFragment, Scaled,
+    style_cramped, FrameFragment, GlyphFragment, LayoutMath, MathContext, MathFragment,
+    Scaled,
 };
 use crate::symbols::Symbol;
 use crate::text::TextElem;
@@ -64,26 +65,25 @@ pub struct AccentElem {
 
 impl LayoutMath for Packed<AccentElem> {
     #[typst_macros::time(name = "math.accent", span = self.span())]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        ctx.style(ctx.style.with_cramped(true));
-        let base = ctx.layout_fragment(self.base())?;
-        ctx.unstyle();
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        let cramped = style_cramped();
+        let base = ctx.layout_fragment(self.base(), styles.chain(&cramped))?;
 
         // Preserve class to preserve automatic spacing.
-        let base_class = base.class().unwrap_or(MathClass::Normal);
+        let base_class = base.class();
         let base_attach = base.accent_attach();
 
         let width = self
-            .size(ctx.styles())
+            .size(styles)
             .unwrap_or(Rel::one())
-            .resolve(ctx.styles())
+            .resolve(styles)
             .relative_to(base.width());
 
         // Forcing the accent to be at least as large as the base makes it too
         // wide in many case.
         let Accent(c) = self.accent();
-        let glyph = GlyphFragment::new(ctx, *c, self.span());
-        let short_fall = ACCENT_SHORT_FALL.scaled(ctx);
+        let glyph = GlyphFragment::new(ctx, styles, *c, self.span());
+        let short_fall = ACCENT_SHORT_FALL.at(glyph.font_size);
         let variant = glyph.stretch_horizontal(ctx, width, short_fall);
         let accent = variant.frame;
         let accent_attach = variant.accent_attach;
@@ -92,7 +92,7 @@ impl LayoutMath for Packed<AccentElem> {
         // baseline. Therefore, the default gap is the accent's negated descent
         // minus the accent base height. Only if the base is very small, we need
         // a larger gap so that the accent doesn't move too low.
-        let accent_base_height = scaled!(ctx, accent_base_height);
+        let accent_base_height = scaled!(ctx, styles, accent_base_height);
         let gap = -accent.descent() - base.height().min(accent_base_height);
         let size = Size::new(base.width(), accent.height() + gap + base.height());
         let accent_pos = Point::with_x(base_attach - accent_attach);
@@ -111,7 +111,7 @@ impl LayoutMath for Packed<AccentElem> {
         frame.push_frame(accent_pos, accent);
         frame.push_frame(base_pos, base.into_frame());
         ctx.push(
-            FrameFragment::new(ctx, frame)
+            FrameFragment::new(ctx, styles, frame)
                 .with_class(base_class)
                 .with_base_ascent(base_ascent)
                 .with_italics_correction(base_italics_correction)

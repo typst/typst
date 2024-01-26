@@ -9,8 +9,8 @@ use crate::layout::{
     Abs, Axes, Em, FixedAlignment, Frame, FrameItem, Length, Point, Ratio, Rel, Size,
 };
 use crate::math::{
-    alignments, stack, AlignmentResult, FrameFragment, GlyphFragment, LayoutMath,
-    MathContext, Scaled, DELIM_SHORT_FALL,
+    alignments, scaled_font_size, stack, style_for_denominator, AlignmentResult,
+    FrameFragment, GlyphFragment, LayoutMath, MathContext, Scaled, DELIM_SHORT_FALL,
 };
 use crate::syntax::{Span, Spanned};
 use crate::text::TextElem;
@@ -59,16 +59,19 @@ pub struct VecElem {
 
 impl LayoutMath for Packed<VecElem> {
     #[typst_macros::time(name = "math.vec", span = self.span())]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let delim = self.delim(ctx.styles());
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        let delim = self.delim(styles);
         let frame = layout_vec_body(
             ctx,
+            styles,
             self.children(),
             FixedAlignment::Center,
-            self.gap(ctx.styles()),
+            self.gap(styles),
         )?;
+
         layout_delimiters(
             ctx,
+            styles,
             frame,
             delim.map(Delimiter::open),
             delim.map(Delimiter::close),
@@ -212,8 +215,8 @@ pub struct MatElem {
 
 impl LayoutMath for Packed<MatElem> {
     #[typst_macros::time(name = "math.mat", span = self.span())]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let augment = self.augment(ctx.styles());
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        let augment = self.augment(styles);
         let rows = self.rows();
 
         if let Some(aug) = &augment {
@@ -242,17 +245,19 @@ impl LayoutMath for Packed<MatElem> {
             }
         }
 
-        let delim = self.delim(ctx.styles());
+        let delim = self.delim(styles);
         let frame = layout_mat_body(
             ctx,
+            styles,
             rows,
             augment,
-            Axes::new(self.column_gap(ctx.styles()), self.row_gap(ctx.styles())),
+            Axes::new(self.column_gap(styles), self.row_gap(styles)),
             self.span(),
         )?;
 
         layout_delimiters(
             ctx,
+            styles,
             frame,
             delim.map(Delimiter::open),
             delim.map(Delimiter::close),
@@ -311,22 +316,23 @@ pub struct CasesElem {
 
 impl LayoutMath for Packed<CasesElem> {
     #[typst_macros::time(name = "math.cases", span = self.span())]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let delim = self.delim(ctx.styles());
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        let delim = self.delim(styles);
         let frame = layout_vec_body(
             ctx,
+            styles,
             self.children(),
             FixedAlignment::Start,
-            self.gap(ctx.styles()),
+            self.gap(styles),
         )?;
 
-        let (open, close) = if self.reverse(ctx.styles()) {
+        let (open, close) = if self.reverse(styles) {
             (None, Some(delim.close()))
         } else {
             (Some(delim.open()), None)
         };
 
-        layout_delimiters(ctx, frame, open, close, self.span())
+        layout_delimiters(ctx, styles, frame, open, close, self.span())
     }
 }
 
@@ -377,23 +383,26 @@ impl Delimiter {
 /// Layout the inner contents of a vector.
 fn layout_vec_body(
     ctx: &mut MathContext,
+    styles: StyleChain,
     column: &[Content],
     align: FixedAlignment,
     row_gap: Rel<Abs>,
 ) -> SourceResult<Frame> {
     let gap = row_gap.relative_to(ctx.regions.base().y);
-    ctx.style(ctx.style.for_denominator());
+
+    let denom_style = style_for_denominator(styles);
     let mut flat = vec![];
     for child in column {
-        flat.push(ctx.layout_row(child)?);
+        flat.push(ctx.layout_row(child, styles.chain(&denom_style))?);
     }
-    ctx.unstyle();
-    Ok(stack(ctx, flat, align, gap, 0))
+
+    Ok(stack(ctx, styles, flat, align, gap, 0))
 }
 
 /// Layout the inner contents of a matrix.
 fn layout_mat_body(
     ctx: &mut MathContext,
+    styles: StyleChain,
     rows: &[Vec<Content>],
     augment: Option<Augment<Abs>>,
     gap: Axes<Rel<Abs>>,
@@ -406,10 +415,11 @@ fn layout_mat_body(
     // with font size to ensure that augmentation lines
     // look correct by default at all matrix sizes.
     // The line cap is also set to square because it looks more "correct".
-    let default_stroke_thickness = DEFAULT_STROKE_THICKNESS.scaled(ctx);
+    let font_size = scaled_font_size(ctx, styles);
+    let default_stroke_thickness = DEFAULT_STROKE_THICKNESS.at(font_size);
     let default_stroke = FixedStroke {
         thickness: default_stroke_thickness,
-        paint: TextElem::fill_in(ctx.styles()).as_decoration(),
+        paint: TextElem::fill_in(styles).as_decoration(),
         cap: LineCap::Square,
         ..Default::default()
     };
@@ -443,10 +453,10 @@ fn layout_mat_body(
     // individual cells are then added to it.
     let mut cols = vec![vec![]; ncols];
 
-    ctx.style(ctx.style.for_denominator());
+    let denom_style = style_for_denominator(styles);
     for (row, (ascent, descent)) in rows.iter().zip(&mut heights) {
         for (cell, col) in row.iter().zip(&mut cols) {
-            let cell = ctx.layout_row(cell)?;
+            let cell = ctx.layout_row(cell, styles.chain(&denom_style))?;
 
             ascent.set_max(cell.ascent());
             descent.set_max(cell.descent());
@@ -454,7 +464,6 @@ fn layout_mat_body(
             col.push(cell);
         }
     }
-    ctx.unstyle();
 
     // For each row, combine maximum ascent and descent into a row height.
     // Sum the row heights, then add the total height of the gaps between rows.
@@ -472,7 +481,8 @@ fn layout_mat_body(
         let mut y = Abs::zero();
 
         for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
-            let cell = cell.into_aligned_frame(ctx, &points, FixedAlignment::Center);
+            let cell =
+                cell.into_aligned_frame(ctx, styles, &points, FixedAlignment::Center);
             let pos = Point::new(
                 if points.is_empty() { x + (rcol - cell.width()) / 2.0 } else { x },
                 y + ascent - cell.ascent(),
@@ -542,28 +552,30 @@ fn line_item(length: Abs, vertical: bool, stroke: FixedStroke, span: Span) -> Fr
 /// Layout the outer wrapper around the body of a vector or matrix.
 fn layout_delimiters(
     ctx: &mut MathContext,
+    styles: StyleChain,
     mut frame: Frame,
     left: Option<char>,
     right: Option<char>,
     span: Span,
 ) -> SourceResult<()> {
-    let axis = scaled!(ctx, axis_height);
-    let short_fall = DELIM_SHORT_FALL.scaled(ctx);
+    let font_size = scaled_font_size(ctx, styles);
+    let short_fall = DELIM_SHORT_FALL.at(font_size);
+    let axis = ctx.constants.axis_height().scaled(ctx, font_size);
     let height = frame.height();
     let target = height + VERTICAL_PADDING.of(height);
     frame.set_baseline(height / 2.0 + axis);
 
     if let Some(left) = left {
-        let mut left =
-            GlyphFragment::new(ctx, left, span).stretch_vertical(ctx, target, short_fall);
+        let mut left = GlyphFragment::new(ctx, styles, left, span)
+            .stretch_vertical(ctx, target, short_fall);
         left.center_on_axis(ctx);
         ctx.push(left);
     }
 
-    ctx.push(FrameFragment::new(ctx, frame));
+    ctx.push(FrameFragment::new(ctx, styles, frame));
 
     if let Some(right) = right {
-        let mut right = GlyphFragment::new(ctx, right, span)
+        let mut right = GlyphFragment::new(ctx, styles, right, span)
             .stretch_vertical(ctx, target, short_fall);
         right.center_on_axis(ctx);
         ctx.push(right);
