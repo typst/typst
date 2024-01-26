@@ -474,6 +474,7 @@ impl CellGrid {
             let x = resolved_index % c;
             let y = resolved_index / c;
             let colspan = cell.colspan(styles).get();
+            let rowspan = cell.rowspan(styles).get();
 
             if colspan > c - x {
                 bail!(
@@ -483,11 +484,17 @@ impl CellGrid {
                 )
             }
 
-            let Some(largest_index) = resolved_index.checked_add(colspan - 1) else {
+            let Some(largest_index) = c
+                .checked_mul(rowspan - 1)
+                .and_then(|full_rowspan_offset| {
+                    resolved_index.checked_add(full_rowspan_offset)
+                })
+                .and_then(|last_row_pos| last_row_pos.checked_add(colspan - 1))
+            else {
                 bail!(
                     cell_span,
                     "cell would span an exceedingly large position";
-                    hint: "try reducing the cell's colspan"
+                    hint: "try reducing the cell's rowspan or colspan"
                 )
             };
 
@@ -545,23 +552,29 @@ impl CellGrid {
 
             *slot = Some(Entry::Cell(cell));
 
-            // Now, if the cell spans more than one column, we fill the spanned
-            // positions in the grid with Entry::Merged pointing to the
+            // Now, if the cell spans more than one row or column, we fill the
+            // spanned positions in the grid with Entry::Merged pointing to the
             // original cell as its parent.
-            for (offset, slot) in resolved_cells[resolved_index..][..colspan]
-                .iter_mut()
-                .enumerate()
-                .skip(1)
-            {
-                if slot.is_some() {
-                    let spanned_x = x + offset;
-                    bail!(
-                        cell_span,
-                        "cell would span a previously placed cell at column {spanned_x}, row {y}";
-                        hint: "try specifying your cells in a different order or reducing the cell's colspan"
-                    )
+            for rowspan_offset in 0..rowspan {
+                let spanned_y = y + rowspan_offset;
+                let first_row_index = resolved_index + c * rowspan_offset;
+                for (colspan_offset, slot) in
+                    resolved_cells[first_row_index..][..colspan].iter_mut().enumerate()
+                {
+                    let spanned_x = x + colspan_offset;
+                    if spanned_x == x && spanned_y == y {
+                        // This is the parent cell.
+                        continue;
+                    }
+                    if slot.is_some() {
+                        bail!(
+                            cell_span,
+                            "cell would span a previously placed cell at column {spanned_x}, row {spanned_y}";
+                            hint: "try specifying your cells in a different order or reducing the cell's rowspan or colspan"
+                        )
+                    }
+                    *slot = Some(Entry::Merged { parent: resolved_index });
                 }
-                *slot = Some(Entry::Merged { parent: resolved_index });
             }
         }
 
