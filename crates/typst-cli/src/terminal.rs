@@ -1,6 +1,5 @@
 use std::io::{self, IsTerminal, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 
 use codespan_reporting::term::termcolor;
 use ecow::eco_format;
@@ -12,16 +11,8 @@ use crate::ARGS;
 
 /// Returns a handle to the optionally colored terminal output.
 pub fn out() -> TermOut {
-    static OUTPUT: Lazy<TermOut> = Lazy::new(TermOut::new);
-    TermOut::clone(&OUTPUT)
-}
-
-/// A utility that allows users to write colored terminal output.
-/// If colors are not supported by the terminal, they are disabled.
-/// This type also allows for deletion of previously written lines.
-#[derive(Clone)]
-pub struct TermOut {
-    inner: Arc<TermOutInner>,
+    static OUTPUT: Lazy<TermOutInner> = Lazy::new(TermOutInner::new);
+    TermOut { inner: &OUTPUT }
 }
 
 /// The stuff that has to be shared between instances of [`TermOut`].
@@ -31,7 +22,7 @@ struct TermOutInner {
     in_alternate_screen: AtomicBool,
 }
 
-impl TermOut {
+impl TermOutInner {
     fn new() -> Self {
         let color_choice = match ARGS.color {
             clap::ColorChoice::Auto if std::io::stderr().is_terminal() => {
@@ -42,15 +33,23 @@ impl TermOut {
         };
 
         let stream = termcolor::StandardStream::stderr(color_choice);
-        TermOut {
-            inner: Arc::new(TermOutInner {
-                active: AtomicBool::new(true),
-                stream,
-                in_alternate_screen: AtomicBool::new(false),
-            }),
+        TermOutInner {
+            active: AtomicBool::new(true),
+            stream,
+            in_alternate_screen: AtomicBool::new(false),
         }
     }
+}
 
+/// A utility that allows users to write colored terminal output.
+/// If colors are not supported by the terminal, they are disabled.
+/// This type also allows for deletion of previously written lines.
+#[derive(Clone)]
+pub struct TermOut {
+    inner: &'static TermOutInner,
+}
+
+impl TermOut {
     /// Initialize a handler that listens for Ctrl-C signals.
     /// This is used to exit the alternate screen that might have been opened.
     pub fn init_exit_handler(&mut self) -> StrResult<()> {
