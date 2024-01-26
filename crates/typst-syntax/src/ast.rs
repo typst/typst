@@ -551,21 +551,9 @@ node! {
 }
 
 impl<'a> Raw<'a> {
-    /// The lines in the raw text
+    /// The lines in the raw block.
     pub fn lines(self) -> impl Iterator<Item = RawLine<'a>> {
         self.0.children().filter_map(RawLine::from_untyped)
-    }
-
-    /// The trimmed raw text.
-    pub fn text(self) -> EcoString {
-        self.0
-            .children()
-            .filter_map(RawLine::from_untyped)
-            .map(|line| line.0.text())
-            .cloned()
-            .collect::<Vec<_>>()
-            .join("\n")
-            .into()
     }
 
     /// An optional identifier specifying the language to syntax-highlight in.
