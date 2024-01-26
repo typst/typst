@@ -36,7 +36,7 @@ static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
 fn main() -> ExitCode {
     let timer = Timer::new(&ARGS);
 
-    let mut res = match &ARGS.command {
+    let res = match &ARGS.command {
         Command::Compile(command) => crate::compile::compile(timer, command.clone()),
         Command::Watch(command) => crate::watch::watch(timer, command.clone()),
         Command::Query(command) => crate::query::query(command),
@@ -46,11 +46,11 @@ fn main() -> ExitCode {
 
     // Leave the alternate screen if it was opened. This operation is done here
     // so that it is executed prior to printing the final error.
-    res = res.or(terminal::out()
+    let res_leave = terminal::out()
         .leave_alternate_screen()
-        .map_err(|err| eco_format!("failed to leave alternate screen ({err})")));
+        .map_err(|err| eco_format!("failed to leave alternate screen ({err})"));
 
-    if let Err(msg) = res {
+    if let Err(msg) = res.or(res_leave) {
         set_failed();
         print_error(&msg).expect("failed to print error");
     }

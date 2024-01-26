@@ -6,9 +6,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
 use ecow::{eco_format, EcoString};
 use parking_lot::RwLock;
-use rayon::prelude::{
-    IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator,
-};
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
 use typst::eval::Tracer;
 use typst::foundations::Datetime;
@@ -309,7 +307,7 @@ fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
 
 /// Print diagnostic messages to the terminal.
 pub fn print_diagnostics(
-    world: &mut SystemWorld,
+    world: &SystemWorld,
     errors: &[SourceDiagnostic],
     warnings: &[SourceDiagnostic],
     diagnostic_format: DiagnosticFormat,
