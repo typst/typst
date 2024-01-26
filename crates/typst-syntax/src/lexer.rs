@@ -252,24 +252,24 @@ impl Lexer<'_> {
 
         /// The first pass determines following things.
         struct FirstPass {
+            /// The tokens without dedent adjustment.
+            offsets: Vec<(SyntaxKind, usize)>,
             /// The dedent level.
             dedent: Option<usize>,
-            /// The end position of the raw block.
-            end_pos: usize,
             /// Whether the content should be trimmed a space at the end.
             content_ends_with_backticks: bool,
             /// The language tag of the raw block.
             lang: Option<usize>,
-            /// The tokens without dedent adjustment.
-            offsets: Vec<(SyntaxKind, usize)>,
+            /// The end position of the raw block.
+            end_pos: usize,
         }
 
         let FirstPass {
+            offsets,
             dedent,
+            content_ends_with_backticks,
             lang,
             end_pos,
-            content_ends_with_backticks,
-            offsets,
         } = {
             // Copies the scanner to determine the dedent level and the end position of the raw block.
             let mut s = self.s;
@@ -362,11 +362,11 @@ impl Lexer<'_> {
             let dedent = dedent.flatten();
 
             FirstPass {
+                offsets,
                 dedent,
+                content_ends_with_backticks,
                 lang,
                 end_pos,
-                content_ends_with_backticks,
-                offsets,
             }
         };
 
