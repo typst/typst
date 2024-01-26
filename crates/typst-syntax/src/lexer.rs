@@ -90,7 +90,7 @@ impl Lexer<'_> {
         self.error = None;
         let start = self.s.cursor();
         match self.s.eat() {
-            Some(c) if c.is_whitespace() => self.whitespace(start, c),
+            Some(c) if c.is_whitespace() && c != '\u{3000}' => self.whitespace(start, c),
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
             Some('*') if self.s.eat_if('/') => {
