@@ -1286,6 +1286,10 @@ impl<'a> GridLayouter<'a> {
                 else {
                     continue;
                 };
+                if parent_y != y {
+                    // Don't check the width of rowspans more than once.
+                    continue;
+                }
                 let cell = self.grid.cell(parent_x, parent_y).unwrap();
                 let colspan = cell.colspan.get();
                 if colspan > 1 {
@@ -1328,14 +1332,28 @@ impl<'a> GridLayouter<'a> {
                     continue;
                 }
 
-                // For relative rows, we can already resolve the correct
-                // base and for auto and fr we could only guess anyway.
-                let height = match self.grid.rows[y] {
-                    Sizing::Rel(v) => {
-                        v.resolve(self.styles).relative_to(self.regions.base().y)
-                    }
-                    _ => self.regions.base().y,
-                };
+                // Sum the heights of spanned rows to find the expected
+                // available height for the cell, unless it spans a fractional
+                // or auto column.
+                let height = self
+                    .grid
+                    .rows
+                    .iter()
+                    .skip(y)
+                    .take(cell.rowspan.get())
+                    .try_fold(Abs::zero(), |acc, col| {
+                        // For relative rows, we can already resolve the correct
+                        // base and for auto and fr we could only guess anyway.
+                        match col {
+                            Sizing::Rel(v) => Some(
+                                acc + v
+                                    .resolve(self.styles)
+                                    .relative_to(self.regions.base().y),
+                            ),
+                            _ => None,
+                        }
+                    })
+                    .unwrap_or_else(|| self.regions.base().y);
                 // Don't expand this auto column more than the cell actually
                 // needs. To do this, we check how much the other, previously
                 // resolved columns provide to the cell in terms of width
