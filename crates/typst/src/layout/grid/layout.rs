@@ -1491,32 +1491,50 @@ impl<'a> GridLayouter<'a> {
         let mut resolved: Vec<Abs> = vec![];
 
         for x in 0..self.rcols.len() {
-            if let Some(cell) = self.grid.cell(x, y) {
-                let mut pod = self.regions;
-                pod.size.x = self.cell_spanned_width(x, cell.colspan.get());
-
-                let frames = cell.measure(engine, self.styles, pod)?.into_frames();
-
-                // Skip the first region if one cell in it is empty. Then,
-                // remeasure.
-                if let [first, rest @ ..] = frames.as_slice() {
-                    if can_skip
-                        && first.is_empty()
-                        && rest.iter().any(|frame| !frame.is_empty())
-                    {
-                        return Ok(None);
-                    }
-                }
-
-                let mut sizes = frames.iter().map(|frame| frame.height());
-                for (target, size) in resolved.iter_mut().zip(&mut sizes) {
-                    target.set_max(size);
-                }
-
-                // New heights are maximal by virtue of being new. Note that
-                // this extend only uses the rest of the sizes iterator.
-                resolved.extend(sizes);
+            // Get the parent cell in case this is a merged position.
+            let Some(Axes { x: parent_x, y: parent_y }) =
+                self.grid.parent_cell_position(x, y)
+            else {
+                // Skip gutter columns.
+                continue;
+            };
+            if parent_x != x {
+                // Only check the height of a colspan once.
+                continue;
             }
+            // The parent cell is never a gutter or merged position.
+            let cell = self.grid.cell(parent_x, parent_y).unwrap();
+            let rowspan = cell.rowspan.get();
+            if parent_y + rowspan - 1 != y {
+                // A rowspan should only affect the height of the last spanned
+                // auto row.
+                continue;
+            }
+
+            let mut pod = self.regions;
+            pod.size.x = self.cell_spanned_width(x, cell.colspan.get());
+
+            let frames = cell.measure(engine, self.styles, pod)?.into_frames();
+
+            // Skip the first region if one cell in it is empty. Then,
+            // remeasure.
+            if let [first, rest @ ..] = frames.as_slice() {
+                if can_skip
+                    && first.is_empty()
+                    && rest.iter().any(|frame| !frame.is_empty())
+                {
+                    return Ok(None);
+                }
+            }
+
+            let mut sizes = frames.iter().map(|frame| frame.height());
+            for (target, size) in resolved.iter_mut().zip(&mut sizes) {
+                target.set_max(size);
+            }
+
+            // New heights are maximal by virtue of being new. Note that
+            // this extend only uses the rest of the sizes iterator.
+            resolved.extend(sizes);
         }
 
         Ok(Some(resolved))
