@@ -575,6 +575,7 @@ impl ResolvableCell for Packed<TableCell> {
     ) -> Cell {
         let cell = &mut *self;
         let colspan = cell.colspan(styles);
+        let rowspan = cell.rowspan(styles);
         let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
 
         let cell_stroke = cell.stroke(styles);
@@ -623,6 +624,7 @@ impl ResolvableCell for Packed<TableCell> {
             body: self.pack(),
             fill,
             colspan,
+            rowspan,
             stroke,
             stroke_overridden,
         }

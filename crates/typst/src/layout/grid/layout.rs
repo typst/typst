@@ -172,6 +172,8 @@ pub struct Cell {
     pub fill: Option<Paint>,
     /// The amount of columns spanned by the cell.
     pub colspan: NonZeroUsize,
+    /// The amount of rows spanned by the cell.
+    pub rowspan: NonZeroUsize,
     /// The cell's stroke.
     ///
     /// We use an Arc to avoid unnecessary space usage when all sides are the
@@ -194,6 +196,7 @@ impl From<Content> for Cell {
             body,
             fill: None,
             colspan: NonZeroUsize::ONE,
+            rowspan: NonZeroUsize::ONE,
             stroke: Sides::splat(None),
             stroke_overridden: Sides::splat(false),
         }
