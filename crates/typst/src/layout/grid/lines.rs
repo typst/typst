@@ -607,7 +607,7 @@ mod test {
         }
     }
 
-    fn sample_grid(gutters: bool) -> CellGrid {
+    fn sample_grid_for_vlines(gutters: bool) -> CellGrid {
         const COLS: usize = 4;
         const ROWS: usize = 6;
         let entries = vec![
@@ -658,7 +658,7 @@ mod test {
     #[test]
     fn test_vline_splitting_without_gutter() {
         let stroke = Arc::new(Stroke::default());
-        let grid = sample_grid(false);
+        let grid = sample_grid_for_vlines(false);
         let rows = &[
             RowPiece { height: Abs::pt(1.0), y: 0 },
             RowPiece { height: Abs::pt(2.0), y: 1 },
@@ -730,7 +730,7 @@ mod test {
     #[test]
     fn test_vline_splitting_with_gutter_and_per_cell_stroke() {
         let stroke = Arc::new(Stroke::default());
-        let grid = sample_grid(true);
+        let grid = sample_grid_for_vlines(true);
         let rows = &[
             RowPiece { height: Abs::pt(1.0), y: 0 },
             RowPiece { height: Abs::pt(2.0), y: 1 },
@@ -962,7 +962,7 @@ mod test {
     #[test]
     fn test_vline_splitting_with_gutter_and_explicit_vlines() {
         let stroke = Arc::new(Stroke::default());
-        let grid = sample_grid(true);
+        let grid = sample_grid_for_vlines(true);
         let rows = &[
             RowPiece { height: Abs::pt(1.0), y: 0 },
             RowPiece { height: Abs::pt(2.0), y: 1 },
@@ -1137,6 +1137,336 @@ mod test {
                     ],
                     x == grid.cols.len(),
                     vline_stroke_at_row
+                )
+                .collect::<Vec<_>>(),
+            );
+        }
+    }
+
+    fn sample_grid_for_hlines(gutters: bool) -> CellGrid {
+        const COLS: usize = 4;
+        const ROWS: usize = 9;
+        let entries = vec![
+            // row 0
+            Entry::Cell(cell_with_colspan_rowspan(1, 2)),
+            Entry::Cell(sample_cell()),
+            Entry::Cell(cell_with_colspan_rowspan(2, 2)),
+            Entry::Merged { parent: 2 },
+            // row 1
+            Entry::Merged { parent: 0 },
+            Entry::Cell(sample_cell()),
+            Entry::Merged { parent: 2 },
+            Entry::Merged { parent: 2 },
+            // row 2
+            Entry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
+            // row 3
+            Entry::Cell(cell_with_colspan_rowspan(4, 2)),
+            Entry::Merged { parent: 12 },
+            Entry::Merged { parent: 12 },
+            Entry::Merged { parent: 12 },
+            // row 4
+            Entry::Merged { parent: 12 },
+            Entry::Merged { parent: 12 },
+            Entry::Merged { parent: 12 },
+            Entry::Merged { parent: 12 },
+            // row 5
+            Entry::Cell(sample_cell()),
+            Entry::Cell(cell_with_colspan_rowspan(1, 2)),
+            Entry::Cell(cell_with_colspan_rowspan(2, 1)),
+            Entry::Merged { parent: 22 },
+            // row 6
+            Entry::Cell(sample_cell()),
+            Entry::Merged { parent: 21 },
+            Entry::Cell(sample_cell()),
+            Entry::Cell(sample_cell()),
+            // row 7 (adjacent rowspans covering the whole row)
+            Entry::Cell(cell_with_colspan_rowspan(2, 2)),
+            Entry::Merged { parent: 28 },
+            Entry::Cell(cell_with_colspan_rowspan(2, 2)),
+            Entry::Merged { parent: 30 },
+            // row 8
+            Entry::Merged { parent: 28 },
+            Entry::Merged { parent: 28 },
+            Entry::Merged { parent: 30 },
+            Entry::Merged { parent: 30 },
+        ];
+        CellGrid::new_internal(
+            Axes::with_x(&[Sizing::Auto; COLS]),
+            if gutters {
+                Axes::new(&[Sizing::Auto; COLS - 1], &[Sizing::Auto; ROWS - 1])
+            } else {
+                Axes::default()
+            },
+            vec![],
+            vec![],
+            entries,
+        )
+    }
+
+    #[test]
+    fn test_hline_splitting_without_gutter() {
+        let stroke = Arc::new(Stroke::default());
+        let grid = sample_grid_for_hlines(false);
+        let columns = &[Abs::pt(1.), Abs::pt(2.), Abs::pt(4.), Abs::pt(8.)];
+        let expected_hline_splits = &[
+            // top border
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8.),
+                priority: StrokePriority::GridStroke,
+            }],
+            // interrupted a few times by rowspans
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(1.),
+                length: Abs::pt(2.),
+                priority: StrokePriority::GridStroke,
+            }],
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8.),
+                priority: StrokePriority::GridStroke,
+            }],
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8.),
+                priority: StrokePriority::GridStroke,
+            }],
+            // interrupted every time by rowspans
+            vec![],
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8.),
+                priority: StrokePriority::GridStroke,
+            }],
+            // interrupted once by rowspan
+            vec![
+                LineSegment {
+                    stroke: stroke.clone(),
+                    offset: Abs::pt(0.),
+                    length: Abs::pt(1.),
+                    priority: StrokePriority::GridStroke,
+                },
+                LineSegment {
+                    stroke: stroke.clone(),
+                    offset: Abs::pt(1. + 2.),
+                    length: Abs::pt(4. + 8.),
+                    priority: StrokePriority::GridStroke,
+                },
+            ],
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8.),
+                priority: StrokePriority::GridStroke,
+            }],
+            // interrupted every time by successive rowspans
+            vec![],
+            // bottom border
+            vec![LineSegment {
+                stroke,
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8.),
+                priority: StrokePriority::GridStroke,
+            }],
+        ];
+        for (y, expected_splits) in expected_hline_splits.iter().enumerate() {
+            let tracks = columns.iter().copied().enumerate();
+            assert_eq!(
+                expected_splits,
+                &generate_line_segments(
+                    &grid,
+                    tracks,
+                    y,
+                    &[],
+                    y == grid.rows.len(),
+                    hline_stroke_at_column
+                )
+                .collect::<Vec<_>>(),
+            );
+        }
+    }
+
+    #[test]
+    fn test_hline_splitting_with_gutter_and_explicit_hlines() {
+        let stroke = Arc::new(Stroke::default());
+        let grid = sample_grid_for_hlines(true);
+        let columns = &[
+            Abs::pt(1.0),
+            Abs::pt(2.0),
+            Abs::pt(4.0),
+            Abs::pt(8.0),
+            Abs::pt(16.0),
+            Abs::pt(32.0),
+            Abs::pt(64.0),
+        ];
+        let expected_hline_splits = &[
+            // top border
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64.),
+                priority: StrokePriority::ExplicitLine,
+            }],
+            // gutter line below
+            // interrupted a few times by rowspans
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(1.),
+                length: Abs::pt(2. + 4. + 8.),
+                priority: StrokePriority::ExplicitLine,
+            }],
+            // interrupted a few times by rowspans
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(1.),
+                length: Abs::pt(2. + 4. + 8.),
+                priority: StrokePriority::ExplicitLine,
+            }],
+            // gutter line below
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64.),
+                priority: StrokePriority::ExplicitLine,
+            }],
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64.),
+                priority: StrokePriority::ExplicitLine,
+            }],
+            // gutter line below
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64.),
+                priority: StrokePriority::ExplicitLine,
+            }],
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64.),
+                priority: StrokePriority::ExplicitLine,
+            }],
+            // gutter line below
+            // interrupted every time by rowspans
+            vec![],
+            // interrupted every time by rowspans
+            vec![],
+            // gutter line below
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64.),
+                priority: StrokePriority::ExplicitLine,
+            }],
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64.),
+                priority: StrokePriority::ExplicitLine,
+            }],
+            // gutter line below
+            // interrupted once by rowspan
+            vec![
+                LineSegment {
+                    stroke: stroke.clone(),
+                    offset: Abs::pt(0.),
+                    length: Abs::pt(1. + 2.),
+                    priority: StrokePriority::ExplicitLine,
+                },
+                LineSegment {
+                    stroke: stroke.clone(),
+                    offset: Abs::pt(1. + 2. + 4.),
+                    length: Abs::pt(8. + 16. + 32. + 64.),
+                    priority: StrokePriority::ExplicitLine,
+                },
+            ],
+            // interrupted once by rowspan
+            vec![
+                LineSegment {
+                    stroke: stroke.clone(),
+                    offset: Abs::pt(0.),
+                    length: Abs::pt(1. + 2.),
+                    priority: StrokePriority::ExplicitLine,
+                },
+                LineSegment {
+                    stroke: stroke.clone(),
+                    offset: Abs::pt(1. + 2. + 4.),
+                    length: Abs::pt(8. + 16. + 32. + 64.),
+                    priority: StrokePriority::ExplicitLine,
+                },
+            ],
+            // gutter line below
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64.),
+                priority: StrokePriority::ExplicitLine,
+            }],
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64.),
+                priority: StrokePriority::ExplicitLine,
+            }],
+            // gutter line below
+            // there are two consecutive rowspans, but the gutter column
+            // between them is free.
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(1. + 2. + 4.),
+                length: Abs::pt(8.),
+                priority: StrokePriority::ExplicitLine,
+            }],
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(1. + 2. + 4.),
+                length: Abs::pt(8.),
+                priority: StrokePriority::ExplicitLine,
+            }],
+            // bottom border
+            vec![LineSegment {
+                stroke: stroke.clone(),
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64.),
+                priority: StrokePriority::ExplicitLine,
+            }],
+        ];
+        for (y, expected_splits) in expected_hline_splits.iter().enumerate() {
+            let tracks = columns.iter().copied().enumerate();
+            assert_eq!(
+                expected_splits,
+                &generate_line_segments(
+                    &grid,
+                    tracks,
+                    y,
+                    &[
+                        Line {
+                            index: y,
+                            start: 0,
+                            end: None,
+                            stroke: Some(stroke.clone()),
+                            position: LinePosition::Before
+                        },
+                        Line {
+                            index: y,
+                            start: 0,
+                            end: None,
+                            stroke: Some(stroke.clone()),
+                            position: LinePosition::After
+                        },
+                    ],
+                    y == grid.rows.len(),
+                    hline_stroke_at_column
                 )
                 .collect::<Vec<_>>(),
             );
