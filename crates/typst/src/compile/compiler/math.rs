@@ -16,6 +16,7 @@ impl Compile for ast::Math<'_> {
         // We push a join group.
         compiler.spans.push(self.span());
         compiler.instructions.push(Instruction::JoinGroup {
+            content: true,
             capacity: exprs.size_hint().1.unwrap_or_else(|| exprs.size_hint().0) as u16,
         });
 

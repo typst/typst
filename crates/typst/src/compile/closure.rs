@@ -1,16 +1,15 @@
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec};
 use smallvec::{smallvec, SmallVec};
 use typst_syntax::Span;
 
 use crate::compile::{
-    Call, ClosureParam, CompiledClosure, Executor, Instruction, Pattern, Register,
-    RegisterTable, Value,
+    Call, ClosureParam, CompiledClosure, Executor, ExecutorFlags, Instruction, Pattern, Register, RegisterTable, Value
 };
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
-use crate::foundations::{Args, Func, IntoValue, Label, Scopes};
+use crate::foundations::{Args, Func, IntoValue, Label};
 use crate::introspection::{Introspector, Locator};
 use crate::World;
 
@@ -70,6 +69,7 @@ pub enum IntansiatedClosureParam {
 }
 
 impl Closure {
+    #[typst_macros::time(name = "closure instantiation", span = compiled_closure.span)]
     pub fn instantiate(
         executor: &Executor<'_>,
         compiled_closure: &CompiledClosure,
@@ -182,13 +182,17 @@ impl Closure {
 
         // Call the function in a memoized context to re-use existing (cached)
         // closures.
-        memoized(
+        let out = memoized(
             self,
             engine.world,
+            engine.introspector,
             engine.route.track(),
+            engine.locator.track(),
             TrackedMut::reborrow_mut(&mut engine.tracer),
             &params,
-        )
+        )?;
+
+        Ok(out)
     }
 }
 
@@ -196,30 +200,30 @@ impl Closure {
 fn memoized(
     closure: &Closure,
     world: Tracked<dyn World + '_>,
+    introspector: Tracked<Introspector>,
     route: Tracked<Route>,
+    locator: Tracked<Locator>,
     tracer: TrackedMut<Tracer>,
     params: &[Value],
 ) -> SourceResult<Value> {
-    let scopes = Scopes::new(Some(world.library()));
-
     // Prepare the engine.
-    let mut locator = Locator::new();
-    let introspector = Introspector::default();
+    let mut locator = Locator::chained(locator);
     let mut engine = Engine {
         world,
+        introspector,
         route: Route::extend(route),
-        introspector: introspector.track(),
         locator: &mut locator,
         tracer,
     };
 
     // Create the executor
     let mut executor = Executor {
+        state: ExecutorFlags::NONE,
         output: closure.output,
         registers: RegisterTable::default(),
         locals: smallvec![Value::None; closure.locals],
         scope_stack: SmallVec::new(),
-        scopes,
+        base: Some(world.library()),
         instructions: &closure.instructions,
         labels: &closure.labels,
         calls: &closure.calls,

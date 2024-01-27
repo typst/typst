@@ -127,6 +127,7 @@ impl Compile for ast::Args<'_> {
 }
 
 impl Compile for ast::Closure<'_> {
+    #[typst_macros::time(name = "closure compilation", span = self.span())]
     fn compile(&self, compiler: &mut Compiler) -> SourceResult<Register> {
         // Evaluate default values of named parameters.
         let mut defaults = Vec::new();
@@ -141,7 +142,7 @@ impl Compile for ast::Closure<'_> {
         let library = compiler.engine.world.library().clone().into_inner();
         // Create a new scope for the closure.
         let mut closure_compiler =
-            Compiler::new(&mut compiler.engine, None, Some(library), true)
+            Compiler::new(&mut compiler.engine, None, library, true)
                 .with_parent(&compiler.scopes);
 
         // Create the local such that the closure can use itself.
@@ -177,9 +178,11 @@ impl Compile for ast::Closure<'_> {
                     )) = &pattern.kind
                     {
                         closure_compiler.spans.push(*span);
-                        closure_compiler
-                            .instructions
-                            .push(Instruction::Store { scope: ScopeId::SELF, local: *id, value: target });
+                        closure_compiler.instructions.push(Instruction::Store {
+                            scope: ScopeId::SELF,
+                            local: *id,
+                            value: target,
+                        });
                     } else {
                         let pattern_id = closure_compiler.pattern(pattern);
                         closure_compiler.spans.push(span);
@@ -214,9 +217,11 @@ impl Compile for ast::Closure<'_> {
 
                     // Bind the argument to the local variable.
                     closure_compiler.spans.push(named.name().span());
-                    closure_compiler
-                        .instructions
-                        .push(Instruction::Store { scope: ScopeId::SELF, local, value: target });
+                    closure_compiler.instructions.push(Instruction::Store {
+                        scope: ScopeId::SELF,
+                        local,
+                        value: target,
+                    });
 
                     // Add the parameter to the list.
                     params.push(ClosureParam::Named {
@@ -246,9 +251,11 @@ impl Compile for ast::Closure<'_> {
 
                     // Bind the argument to the local variable.
                     closure_compiler.spans.push(sink.span());
-                    closure_compiler
-                        .instructions
-                        .push(Instruction::Store { scope: ScopeId::SELF, value: target, local });
+                    closure_compiler.instructions.push(Instruction::Store {
+                        scope: ScopeId::SELF,
+                        value: target,
+                        local,
+                    });
 
                     // Add the parameter to the list.
                     params.push(ClosureParam::Sink(sink.span(), name.get().clone()));

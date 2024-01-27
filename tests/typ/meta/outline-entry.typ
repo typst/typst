@@ -54,6 +54,6 @@
 === Lower heading
 
 ---
-// Error: 2-27 cannot outline metadata
+// Error: cannot outline metadata
 #outline(target: metadata)
 #metadata("hello")

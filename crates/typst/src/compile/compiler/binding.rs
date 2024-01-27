@@ -31,7 +31,11 @@ impl Compile for ast::LetBinding<'_> {
                 )) = &pattern.kind
                 {
                     compiler.spans.push(*span);
-                    compiler.instructions.push(Instruction::Store { scope: ScopeId::SELF, local: *id, value });
+                    compiler.instructions.push(Instruction::Store {
+                        scope: ScopeId::SELF,
+                        local: *id,
+                        value,
+                    });
                 } else {
                     // We add the pattern to the local scope.
                     let pattern_id = compiler.pattern(pattern);
@@ -65,7 +69,11 @@ impl Compile for ast::LetBinding<'_> {
 
                 // We set the local to the initializer.
                 compiler.spans.push(self.span());
-                compiler.instructions.push(Instruction::Store { scope: ScopeId::SELF, local, value });
+                compiler.instructions.push(Instruction::Store {
+                    scope: ScopeId::SELF,
+                    local,
+                    value,
+                });
 
                 compiler.free(value);
 
@@ -92,7 +100,11 @@ impl Compile for ast::DestructAssignment<'_> {
         )) = &pattern.kind
         {
             compiler.spans.push(*span);
-            compiler.instructions.push(Instruction::Store { scope: ScopeId::SELF, local: *id, value });
+            compiler.instructions.push(Instruction::Store {
+                scope: ScopeId::SELF,
+                local: *id,
+                value,
+            });
         } else {
             let pattern_id = compiler.pattern(pattern);
             compiler.spans.push(self.span());

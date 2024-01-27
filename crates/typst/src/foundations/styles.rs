@@ -110,6 +110,17 @@ impl Styles {
         self.0 = outer.iter().cloned().chain(mem::take(self).0).collect();
     }
 
+    pub fn push(&mut self, style: impl Into<Style>) {
+        self.0.push(Prehashed::new(style.into()));
+    }
+
+    pub fn push_all<I: Into<Prehashed<Style>>>(
+        &mut self,
+        styles: impl IntoIterator<Item = I>,
+    ) {
+        self.0.extend(styles.into_iter().map(Into::into));
+    }
+
     /// Get the inner value for a style property.
     pub fn as_slice(&self) -> &[Prehashed<Style>] {
         self.0.as_slice()
@@ -145,6 +156,15 @@ impl Styles {
                 .chain(TextElem::font_in(existing).into_iter().cloned())
                 .collect(),
         )));
+    }
+}
+
+impl IntoIterator for Styles {
+    type Item = Prehashed<Style>;
+    type IntoIter = ecow::vec::IntoIter<Prehashed<Style>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 

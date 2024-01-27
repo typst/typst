@@ -23,7 +23,7 @@ impl Compile for ast::Code<'_> {
         compiler.spans.push(self.span());
         compiler
             .instructions
-            .push(Instruction::JoinGroup { capacity: size_hint as u16 });
+            .push(Instruction::JoinGroup { content: false, capacity: size_hint as u16 });
 
         for expr in &mut exprs {
             // Handle set rules specially.
@@ -149,6 +149,82 @@ impl Compile for ast::Expr<'_> {
             ast::Expr::Break(break_) => break_.compile(compiler),
             ast::Expr::Continue(continue_) => continue_.compile(compiler),
             ast::Expr::Return(ret) => ret.compile(compiler),
+        }
+    }
+
+    fn compile_display(&self, compiler: &mut Compiler) -> SourceResult<Register> {
+        let span = self.span();
+        let forbidden = |name: &str| {
+            error!(span, "{} is only allowed directly in code and content blocks", name)
+        };
+
+        match self {
+            ast::Expr::Text(txt) => txt.compile_display(compiler),
+            ast::Expr::Space(space) => space.compile_display(compiler),
+            ast::Expr::Linebreak(linebreak) => linebreak.compile_display(compiler),
+            ast::Expr::Parbreak(parbreak) => parbreak.compile_display(compiler),
+            ast::Expr::Escape(escape) => escape.compile_display(compiler),
+            ast::Expr::Shorthand(shorthand) => shorthand.compile_display(compiler),
+            ast::Expr::SmartQuote(smart_quote) => smart_quote.compile_display(compiler),
+            ast::Expr::Strong(strong) => strong.compile_display(compiler),
+            ast::Expr::Emph(emph) => emph.compile_display(compiler),
+            ast::Expr::Raw(raw) => raw.compile_display(compiler),
+            ast::Expr::Link(link) => link.compile_display(compiler),
+            ast::Expr::Label(label) => label.compile_display(compiler),
+            ast::Expr::Ref(ref_) => ref_.compile_display(compiler),
+            ast::Expr::Heading(heading) => heading.compile_display(compiler),
+            ast::Expr::List(list) => list.compile_display(compiler),
+            ast::Expr::Enum(enum_) => enum_.compile_display(compiler),
+            ast::Expr::Term(term) => term.compile_display(compiler),
+            ast::Expr::Equation(equation) => equation.compile_display(compiler),
+            ast::Expr::Math(math) => math.compile_display(compiler),
+            ast::Expr::MathIdent(math_ident) => math_ident.compile_display(compiler),
+            ast::Expr::MathAlignPoint(math_align_point) => {
+                math_align_point.compile_display(compiler)
+            }
+            ast::Expr::MathDelimited(math_delimited) => {
+                math_delimited.compile_display(compiler)
+            }
+            ast::Expr::MathAttach(math_attach) => math_attach.compile_display(compiler),
+            ast::Expr::MathPrimes(math_primes) => math_primes.compile_display(compiler),
+            ast::Expr::MathFrac(math_frac) => math_frac.compile_display(compiler),
+            ast::Expr::MathRoot(math_root) => math_root.compile_display(compiler),
+            ast::Expr::Ident(ident) => ident.compile_display(compiler),
+            ast::Expr::None(none) => none.compile_display(compiler),
+            ast::Expr::Auto(auto) => auto.compile_display(compiler),
+            ast::Expr::Bool(bool_) => bool_.compile_display(compiler),
+            ast::Expr::Int(int) => int.compile_display(compiler),
+            ast::Expr::Float(float) => float.compile_display(compiler),
+            ast::Expr::Numeric(numeric) => numeric.compile_display(compiler),
+            ast::Expr::Str(str_) => str_.compile_display(compiler),
+            ast::Expr::Code(code) => code.compile_display(compiler),
+            ast::Expr::Content(content) => content.compile_display(compiler),
+            ast::Expr::Parenthesized(parenthesized) => {
+                parenthesized.compile_display(compiler)
+            }
+            ast::Expr::Array(array) => array.compile_display(compiler),
+            ast::Expr::Dict(dict) => dict.compile_display(compiler),
+            ast::Expr::Unary(unary) => unary.compile_display(compiler),
+            ast::Expr::Binary(binary) => binary.compile_display(compiler),
+            ast::Expr::FieldAccess(field_access) => {
+                field_access.compile_display(compiler)
+            }
+            ast::Expr::FuncCall(func_call) => func_call.compile_display(compiler),
+            ast::Expr::Closure(closure) => closure.compile_display(compiler),
+            ast::Expr::Let(let_) => let_.compile_display(compiler),
+            ast::Expr::DestructAssign(destruct_assign) => {
+                destruct_assign.compile_display(compiler)
+            }
+            ast::Expr::Set(_) => bail!(forbidden("set")),
+            ast::Expr::Show(_) => bail!(forbidden("show")),
+            ast::Expr::Conditional(cond) => cond.compile_display(compiler),
+            ast::Expr::While(while_) => while_.compile_display(compiler),
+            ast::Expr::For(for_) => for_.compile_display(compiler),
+            ast::Expr::Import(import) => import.compile_display(compiler),
+            ast::Expr::Include(include) => include.compile_display(compiler),
+            ast::Expr::Break(break_) => break_.compile_display(compiler),
+            ast::Expr::Continue(continue_) => continue_.compile_display(compiler),
+            ast::Expr::Return(ret) => ret.compile_display(compiler),
         }
     }
 }

@@ -11,14 +11,15 @@ use crate::engine::Engine;
 use crate::eval::ops;
 use crate::foundations::{
     array, call_method_mut, is_mutating_method, Args, Array, Content, Dict, Func,
-    NativeElement, Recipe, Scopes, ShowableSelector, Str, Style, Styles, Transformation,
-    Type, Unlabellable,
+    NativeElement, NativeFunc, Recipe, ShowableSelector, Str, Style, Styles,
+    Transformation, Type, Unlabellable,
 };
 use crate::foundations::{calc::rem_euclid, IntoValue, Label, Smart, Value};
 use crate::math::{AttachElem, EquationElem, FracElem, LrElem, RootElem};
 use crate::model::{
     EmphElem, EnumItem, HeadingElem, ListItem, RefElem, StrongElem, Supplement, TermItem,
 };
+use crate::Library;
 
 mod closure;
 mod compiler;
@@ -105,6 +106,16 @@ id! {
     ClosureId => "Clo",
     ArgumentId => "Arg",
     StringId => "S",
+    ScopeId => "Sc",
+}
+
+bitflags::bitflags! {
+    pub struct ExecutorFlags: u8 {
+        const NONE = 0b0000_0000;
+        const BREAKING = 0b0000_0001;
+        const CONTINUE = 0b0000_0010;
+        const RETURN = 0b0000_0100;
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -119,10 +130,6 @@ pub enum RegisterOrString {
     Register(Register),
     String(StringId),
 }
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[repr(transparent)]
-pub struct ScopeId(u16);
 
 impl ScopeId {
     pub const SELF: Self = Self(0);
@@ -310,6 +317,8 @@ pub enum Instruction {
     JoinGroup {
         /// The capacity hint of the join group.
         capacity: u16,
+        /// Whether popping the group always produces a `content`.
+        content: bool,
     },
     /// Pop a join group
     PopGroup {
@@ -363,6 +372,8 @@ pub enum Instruction {
         /// The register to return from.
         register: Register,
     },
+    /// Return from a function the join group.
+    ReturnJoined {},
     /// Store a value in a local.
     Store {
         /// The scope to load from:
@@ -714,17 +725,21 @@ pub struct JoinContext {
     elements: SmallVec<[(Value, Span); 4]>,
     /// The equivalent depth of the join group.
     depth: u16,
+    /// Whether this join group always produces a content.
+    content: bool,
 }
 
 type Locals = SmallVec<[Value; 4]>;
 
 pub struct Executor<'a> {
+    /// The current state flags.
+    pub state: ExecutorFlags,
     /// The current register table.
     pub registers: RegisterTable,
     /// The locals used in the instruction set.
     pub locals: Locals,
     /// The scopes used in the instruction set.
-    pub scopes: Scopes<'a>,
+    pub base: Option<&'a Library>,
     /// The instructions to execute.
     pub instructions: &'a [Instruction],
     /// The labels in the instruction set.
@@ -888,10 +903,14 @@ impl Executor<'_> {
             Instruction::Ref { label, supplement, target } => {
                 self.ref_(ip, label, supplement, target)?
             }
-            Instruction::Store { scope, local, value } => self.store(ip, scope, local, value)?,
-            Instruction::Load { local, scope, target } => self.load(scope, local, target)?,
+            Instruction::Store { scope, local, value } => {
+                self.store(ip, scope, local, value)?
+            }
+            Instruction::Load { local, scope, target } => {
+                self.load(scope, local, target)?
+            }
             Instruction::LoadModule { module, local, target } => {
-                let Some(library) = self.scopes.base else {
+                let Some(library) = self.base else {
                     bail!(self.spans[ip], "library scope is missing");
                 };
 
@@ -963,9 +982,14 @@ impl Executor<'_> {
                 self.set(target, equation.into_value());
             }
             Instruction::Display { value, target } => {
-                let value = self.get(value).clone().display();
+                let value = self.get(value).clone();
 
-                self.set(target, value.into_value());
+                // Special casing for labels.
+                if let Value::Label(label) = value {
+                    self.set(target, Value::Label(label));
+                } else {
+                    self.set(target, value.display().into_value());
+                }
             }
             Instruction::Delimited { left, body, right, target } => {
                 let left: Content = self.get(left).clone().cast().at(self.spans[ip])?;
@@ -1246,6 +1270,16 @@ impl Executor<'_> {
                             ),
                         };
 
+                        if callee == Func::from(crate::foundations::panic::data()) {
+                            eprintln!("{:#?}", self.captured);
+                            eprintln!("{:#?}", self.calls);
+                            eprintln!("{:#?}", self.instructions);
+                        }
+
+                        if callee.name() == Some("validate-cols-rows") {
+                            eprintln!("{:#?}", args.items[0]);
+                        }
+
                         let res = callee.call(engine, args)?;
                         self.set(call.target, res);
                     }
@@ -1282,6 +1316,15 @@ impl Executor<'_> {
                     .at(self.spans[ip])?;
 
                 let args = self.get(args);
+                if args.is_none() {
+                    let args = Args::new(self.spans[ip], std::iter::empty::<Value>());
+                    self.set(
+                        result,
+                        target.set(engine, args)?.spanned(self.spans[ip]).into_value(),
+                    );
+                    return Ok(ControlFlow::Continue);
+                }
+
                 let Value::Args(args) = args.clone() else {
                     bail!(
                         self.spans[ip],
@@ -1319,18 +1362,32 @@ impl Executor<'_> {
                 self.set(result, out.into_value());
             }
             Instruction::StylePush { style } => {
-                let styles =
-                    self.get(style).clone().cast::<Styles>().at(self.spans[ip])?;
+                let style = self.get(style).clone();
+                if style.is_none() {
+                    let join_context = JoinContext {
+                        styles: None,
+                        elements: SmallVec::new(),
+                        depth: 1,
+                        content: true,
+                    };
+
+                    self.join_contexts.push(join_context);
+
+                    return Ok(ControlFlow::Continue);
+                }
+
+                let styles = style.clone().cast::<Styles>().at(self.spans[ip])?;
 
                 if let Some(context) = self.join_contexts.last_mut() {
                     if context.styles.is_some() && context.elements.is_empty() {
                         context.depth += 1;
-                        context.styles.as_mut().unwrap().apply_slice(styles.as_slice());
+                        context.styles.as_mut().unwrap().push_all(styles);
                     } else {
                         let join_context = JoinContext {
                             styles: Some(styles),
                             elements: SmallVec::new(),
                             depth: 1,
+                            content: true,
                         };
 
                         self.join_contexts.push(join_context);
@@ -1340,6 +1397,7 @@ impl Executor<'_> {
                         styles: Some(styles),
                         elements: SmallVec::new(),
                         depth: 1,
+                        content: true,
                     };
 
                     self.join_contexts.push(join_context);
@@ -1360,22 +1418,24 @@ impl Executor<'_> {
                         .map(|(_, span)| *span)
                         .unwrap_or_else(|| self.spans[ip]);
 
-                    let Some(styles) = join_context.styles else {
-                        bail!(span, "style pop without style")
-                    };
-
                     let elems =
                         join_context.elements.into_iter().map(|(elem, _)| elem.display());
-                    let out =
-                        Content::sequence(elems).styled_with_map(styles).into_value();
+                    let out = Content::sequence(elems);
+
+                    let out = if let Some(styles) = join_context.styles {
+                        out.styled_with_map(styles).into_value()
+                    } else {
+                        out.into_value()
+                    };
                     self.join_contexts.last_mut().unwrap().elements.push((out, span));
                 }
             }
-            Instruction::JoinGroup { capacity } => {
+            Instruction::JoinGroup { capacity, content } => {
                 let join_context = JoinContext {
                     styles: None,
                     elements: SmallVec::with_capacity(capacity as usize),
                     depth: 1,
+                    content,
                 };
 
                 self.join_contexts.push(join_context);
@@ -1452,6 +1512,8 @@ impl Executor<'_> {
                             .find(|node| !node.can::<dyn Unlabellable>())
                         {
                             *elem = std::mem::take(elem).labelled(*label);
+                        } else {
+                            join_context.elements.push((value, self.spans[ip]));
                         }
                     } else {
                         join_context.elements.push((value, self.spans[ip]));
@@ -1459,13 +1521,21 @@ impl Executor<'_> {
                 }
             }
             Instruction::Enter { size } => {
+                eprintln!("-------------------");
+                eprintln!("Enter: {size}");
                 let mut locals = smallvec![Value::None; size as usize];
                 std::mem::swap(&mut self.locals, &mut locals);
                 self.scope_stack.push(locals);
             }
             Instruction::Exit {} => {
-                let mut locals = self.scope_stack.pop().unwrap();
-                std::mem::swap(&mut self.locals, &mut locals);
+                eprintln!("Exit");
+                let Some(locals) = self.scope_stack.pop() else {
+                    bail!(
+                        self.spans[ip],
+                        "attempted to exit scope when no scope is active")
+                };
+
+                self.locals = locals;
             }
 
             Instruction::Iter { value, iterator } => {
@@ -1566,6 +1636,62 @@ impl Executor<'_> {
                     AssignOp::Sub => *value = ops::sub(lhs, rhs).at(span)?,
                     AssignOp::Div => *value = ops::div(lhs, rhs).at(span)?,
                 }
+            }
+            Instruction::ReturnJoined {} => {
+                // If there are no join contexts, then we can just return.
+                if self.join_contexts.is_empty() {
+                    return Ok(ControlFlow::Stop(Value::None));
+                }
+
+                let mut previous = Value::None;
+                let contexts = std::mem::take(&mut self.join_contexts);
+                for JoinContext { styles, elements, content, .. } in
+                    contexts.into_iter().rev()
+                {
+                    // We we have some style, then we know that we need to apply it to the group.
+                    let len = previous.is_none() as usize + elements.len();
+                    let mut elements = elements
+                        .into_iter()
+                        .chain(std::iter::once((previous, Span::detached())))
+                        .peekable();
+                    let out = if let Some(styles) = styles {
+                        // If there's only one element in the group, then we can just apply the style
+                        // to the element.
+                        if len == 0 {
+                            Value::None
+                        } else if len == 1 {
+                            elements
+                                .next()
+                                .unwrap()
+                                .0
+                                .display()
+                                .styled_with_map(styles)
+                                .into_value()
+                        } else {
+                            Content::sequence(elements.map(|(v, _)| v.display()))
+                                .styled_with_map(styles)
+                                .into_value()
+                        }
+                    } else {
+                        let mut out = elements
+                            .next()
+                            .map(|(elem, _)| elem)
+                            .unwrap_or_else(|| Value::None);
+                        for (elem, span) in elements {
+                            out = ops::join(out, elem).at(span)?;
+                        }
+
+                        out
+                    };
+
+                    if out.is_none() && content {
+                        previous = Content::sequence(std::iter::empty()).into_value();
+                    } else {
+                        previous = out;
+                    }
+                }
+
+                return Ok(ControlFlow::Stop(previous));
             }
         }
 
@@ -1848,30 +1974,47 @@ impl Executor<'_> {
         Ok(())
     }
 
-    fn store(&mut self, _: usize, scope: ScopeId, local: LocalId, value: Register) -> SourceResult<()> {
+    fn store(
+        &mut self,
+        ip: usize,
+        scope: ScopeId,
+        local: LocalId,
+        value: Register,
+    ) -> SourceResult<()> {
+        let span = self.spans[ip];
         let value = self.get(value).clone();
         let loc = if scope == ScopeId::SELF {
-            self
-                .locals
+            eprintln!("{:?} => {:?}", local.0, self.locals);
+            self.locals
                 .get_mut(local.0 as usize)
-                .expect("cannot store local: out of bounds")
         } else {
+            let Some(scope) =
             self.scope_stack
                 .iter_mut()
                 .rev()
-                .nth(scope.0 as usize - 1)
-                .and_then(|locals| locals.get_mut(local.0 as usize))
-                .expect("cannot load local: out of bounds")
+                .nth(scope.0 as usize - 1) else {
+                    bail!(span, "cannot store local: scope out of bounds")
+                };
+
+            scope.get_mut(local.0 as usize)
+        };
+
+        let Some(loc) = loc else {
+            bail!(span, "cannot store local: local out of bounds")
         };
 
         *loc = value;
         Ok(())
     }
 
-    fn load(&mut self, scope: ScopeId, local: LocalId, target: Register) -> SourceResult<()> {
+    fn load(
+        &mut self,
+        scope: ScopeId,
+        local: LocalId,
+        target: Register,
+    ) -> SourceResult<()> {
         let value = if scope == ScopeId::SELF {
-            self
-                .locals
+            self.locals
                 .get(local.0 as usize)
                 .expect("cannot load local: out of bounds")
                 .clone()
@@ -1890,9 +2033,7 @@ impl Executor<'_> {
 
     fn local(&self, scope: ScopeId, local: LocalId) -> Option<&Value> {
         if scope == ScopeId::SELF {
-            self
-                .locals
-                .get(local.0 as usize)
+            self.locals.get(local.0 as usize)
         } else {
             self.scope_stack
                 .iter()
@@ -1904,9 +2045,7 @@ impl Executor<'_> {
 
     fn local_mut(&mut self, scope: ScopeId, local: LocalId) -> Option<&mut Value> {
         if scope == ScopeId::SELF {
-            self
-                .locals
-                .get_mut(local.0 as usize)
+            self.locals.get_mut(local.0 as usize)
         } else {
             self.scope_stack
                 .iter_mut()
@@ -2108,7 +2247,7 @@ mod tests {
         let markup = root.cast::<ast::Markup>().unwrap();
 
         let global = Library::builder().build();
-        let module = markup.compile_all(&mut engine, "top", Some(global)).unwrap();
+        let module = markup.compile_all(&mut engine, "top", global).unwrap();
 
         let module = module.eval(&mut engine).unwrap();
         panic!("{:#?}", module.content());

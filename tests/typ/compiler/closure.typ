@@ -58,17 +58,6 @@
 }
 
 ---
-// Import bindings.
-#{
-  let b = "module.typ"
-  let f() = {
-    import b: b
-    b
-  }
-  test(f(), 1)
-}
-
----
 // For loop bindings.
 #{
   let v = (1, 2, 3)

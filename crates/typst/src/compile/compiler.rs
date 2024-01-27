@@ -44,7 +44,6 @@ use super::{
 pub struct ScopeLinkedList {
     pub top: Scope,
     pub next: Option<Box<ScopeLinkedList>>,
-    pub len: usize,
 }
 
 impl ScopeLinkedList {
@@ -54,8 +53,7 @@ impl ScopeLinkedList {
     }
 
     pub fn exit(&mut self) {
-        let mut next = self.next.take().unwrap();
-        next.len += self.len;
+        let next = self.next.take().unwrap();
         *self = *next;
     }
 
@@ -129,13 +127,13 @@ pub struct Compiler<'a, 'b: 'a> {
     pub in_function: bool,
     pub current_name: Option<EcoString>,
     pub registers: Registers,
-    pub loop_stack: Vec<(JmpLabel, JmpLabel)>,
+    pub loop_stack: Vec<(JmpLabel, JmpLabel, usize)>,
 }
 
 pub struct CompilerScopes(Rc<RefCell<Inner>>);
 
 pub struct Inner {
-    pub base: Option<Library>,
+    pub base: Library,
     pub scopes: ScopeLinkedList,
     pub parent: Option<CompilerScopes>,
     pub captures: IndexMap<u128, (usize, Capture)>,
@@ -205,6 +203,7 @@ impl CompilerScopes {
             scopes: &CompilerScopes,
             name: &EcoString,
             target: Register,
+            allow_base: bool,
         ) -> Option<Instruction> {
             let inner = scopes.0.borrow();
             if let Some((scope, local)) = inner
@@ -218,18 +217,11 @@ impl CompilerScopes {
                     local: LocalId(local as u16),
                     target,
                 })
-            } else if let Some(idx) = inner
-                .base
+            } else if let Some(local) = inner
+                .parent
                 .as_ref()
-                .and_then(|base| base.global.field_index(name).ok())
+                .and_then(|parent| inner_local_ref(parent, name, target, false))
             {
-                Some(Instruction::LoadModule {
-                    module: ModuleId::Global,
-                    local: LocalId(idx as u16),
-                    target,
-                })
-            } else if let Some(parent) = &inner.parent {
-                let local = inner_local_ref(parent, name, target)?;
                 drop(inner);
                 match local {
                     Instruction::Load { scope, local, .. } => {
@@ -242,12 +234,22 @@ impl CompilerScopes {
                     }
                     _ => unreachable!(),
                 }
+            } else if let Some(idx) = inner.base.global.field_index(name).ok() {
+                if !allow_base {
+                    return None;
+                }
+
+                Some(Instruction::LoadModule {
+                    module: ModuleId::Global,
+                    local: LocalId(idx as u16),
+                    target,
+                })
             } else {
                 None
             }
         }
 
-        inner_local_ref(&self, name, target)
+        inner_local_ref(&self, name, target, true)
     }
 
     pub fn local_ref_in_math(
@@ -257,13 +259,7 @@ impl CompilerScopes {
     ) -> Option<Instruction> {
         if let Some(isr) = self.local_ref(name, target) {
             Some(isr)
-        } else if let Some(idx) = self
-            .0
-            .borrow()
-            .base
-            .as_ref()
-            .and_then(|base| base.math.field_index(name).ok())
-        {
+        } else if let Some(idx) = self.0.borrow().base.math.field_index(name).ok() {
             Some(Instruction::LoadModule {
                 module: ModuleId::Math,
                 local: LocalId(idx as u16),
@@ -279,7 +275,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
     pub fn new(
         engine: &'a mut Engine<'b>,
         parents: Option<ScopeLinkedList>,
-        base: Option<Library>,
+        base: Library,
         in_function: bool,
     ) -> Self {
         Self {
@@ -298,7 +294,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 base,
                 scopes: ScopeLinkedList {
                     top: Scope::new(),
-                    len: parents.as_ref().map(|p| p.len).unwrap_or_default(),
                     next: parents.map(Box::new),
                 },
                 parent: None,
@@ -518,7 +513,7 @@ pub trait Compile {
         &self,
         engine: &'a mut Engine<'c>,
         name: impl Into<EcoString>,
-        base: Option<Library>,
+        base: Library,
     ) -> SourceResult<CompiledModule> {
         // Create a new scope for the module.
         let mut compiler = Compiler::new(engine, None, base, false);
@@ -553,9 +548,12 @@ pub trait Compile {
         compiler
             .spans
             .push(compiler.spans.last().copied().unwrap_or_else(Span::detached));
-        compiler
-            .instructions
-            .push(Instruction::Display { value, target: value });
+
+        if !value.is_none() {
+            compiler
+                .instructions
+                .push(Instruction::Display { value, target: value });
+        }
 
         Ok(value)
     }
@@ -567,14 +565,17 @@ impl Compile for ast::FuncReturn<'_> {
             bail!(self.span(), "cannot return outside of function");
         }
 
-        let body = self
-            .body()
-            .map_or(Ok(Register::NONE), |value| value.compile(compiler))?;
+        let body = self.body().map(|value| value.compile(compiler)).transpose()?;
 
-        compiler.spans.push(self.span());
-        compiler.instructions.push(Instruction::Return { register: body });
+        if let Some(body) = body {
+            compiler.spans.push(self.span());
+            compiler.instructions.push(Instruction::Return { register: body });
 
-        compiler.free(body);
+            compiler.free(body);
+        } else {
+            compiler.spans.push(self.span());
+            compiler.instructions.push(Instruction::ReturnJoined {});
+        }
 
         Ok(Register::NONE)
     }

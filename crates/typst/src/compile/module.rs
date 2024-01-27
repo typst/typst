@@ -4,15 +4,14 @@ use smallvec::{smallvec, SmallVec};
 use typst_syntax::{ast, Source, Span};
 
 use crate::compile::{
-    Call, Compile, CompiledClosure, Executor, Instruction, Pattern, Register,
-    RegisterTable,
+    Call, Compile, CompiledClosure, Executor, ExecutorFlags, Instruction, Pattern, Register, RegisterTable
 };
 use crate::diag::SourceResult;
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
-use crate::foundations::{Label, Module, Scope, Scopes, Value};
+use crate::foundations::{Label, Module, Scope, Value};
 use crate::introspection::{Introspector, Locator};
-use crate::{Library, World};
+use crate::World;
 
 use super::AccessPattern;
 
@@ -49,11 +48,11 @@ pub struct CompiledModule {
 }
 
 impl CompiledModule {
+    #[typst_macros::time(name = "module eval", span = self.spans[0])]
     pub fn eval(&self, engine: &mut Engine) -> SourceResult<Module> {
         #[comemo::memoize]
         fn memoized(
             module: &CompiledModule,
-            library: &Library,
             world: Tracked<dyn World + '_>,
             introspector: Tracked<Introspector>,
             route: Tracked<Route>,
@@ -72,11 +71,12 @@ impl CompiledModule {
 
             // We instantiate the executor.
             let mut executor = Executor {
+                state: ExecutorFlags::NONE,
                 output: module.output,
                 registers: RegisterTable::default(),
                 locals: smallvec![Value::None; module.locals],
                 scope_stack: SmallVec::new(),
-                scopes: Scopes::new(Some(library)),
+                base: Some(world.library()),
                 instructions: &module.instructions,
                 labels: &module.labels,
                 calls: &module.calls,
@@ -115,7 +115,6 @@ impl CompiledModule {
 
         memoized(
             self,
-            engine.world.library(),
             engine.world,
             engine.introspector,
             engine.route.track(),
@@ -172,7 +171,8 @@ pub fn eval(
     // Evaluate the module.
     let markup = root.cast::<ast::Markup>().unwrap();
     let library = world.library().clone().into_inner();
-    let output = markup.compile_all(&mut engine, name, Some(library))?;
+    let output = markup.compile_all(&mut engine, name, library)?;
+    // eprintln!("{:#?}", output.instructions);
 
     let module = output.eval(&mut engine)?;
     Ok(module)

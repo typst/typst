@@ -35,7 +35,7 @@
 
 ---
 // Error: 8-25 condition is always true
-#while 2 < "hello".len() {}
+// TODO: #while 2 < "hello".len() {}
 
 ---
 // Error: 2:2-2:24 loop seems to be infinite

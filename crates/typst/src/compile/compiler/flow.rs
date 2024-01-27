@@ -84,7 +84,9 @@ impl Compile for ast::Conditional<'_> {
 impl Compile for ast::WhileLoop<'_> {
     fn compile(&self, compiler: &mut Compiler) -> SourceResult<Register> {
         compiler.spans.push(self.span());
-        compiler.instructions.push(Instruction::JoinGroup { capacity: 0 });
+        compiler
+            .instructions
+            .push(Instruction::JoinGroup { content: false, capacity: 0 });
 
         compiler.in_scope(self.span(), |compiler| {
             let top = compiler.label();
@@ -100,7 +102,7 @@ impl Compile for ast::WhileLoop<'_> {
                 .instructions
                 .push(Instruction::JumpIfNot { condition, label: bottom });
 
-            compiler.loop_stack.push((top, bottom));
+            compiler.loop_stack.push((top, bottom, compiler.scopes.len()));
 
             let out = self.body().compile(compiler)?;
             if !out.is_none() {
@@ -132,7 +134,9 @@ impl Compile for ast::WhileLoop<'_> {
 impl Compile for ast::ForLoop<'_> {
     fn compile(&self, compiler: &mut Compiler) -> SourceResult<Register> {
         compiler.spans.push(self.span());
-        compiler.instructions.push(Instruction::JoinGroup { capacity: 0 });
+        compiler
+            .instructions
+            .push(Instruction::JoinGroup { content: false, capacity: 0 });
 
         compiler.in_scope(self.span(), |compiler| {
             let top = compiler.label();
@@ -146,10 +150,10 @@ impl Compile for ast::ForLoop<'_> {
             compiler
                 .instructions
                 .push(Instruction::Iter { value: iterable, iterator });
-            compiler.free(iterable);
 
             compiler.spans.push(self.span());
             compiler.instructions.push(Instruction::Label { label: top });
+            compiler.free(iterable);
 
             compiler.spans.push(self.span());
             compiler.instructions.push(Instruction::Next {
@@ -162,29 +166,32 @@ impl Compile for ast::ForLoop<'_> {
 
             if let PatternKind::Single(PatternItem::Simple(
                 span,
-                AccessPattern::Local(ScopeId(0), id),
+                AccessPattern::Local(ScopeId::SELF, id),
                 _,
             )) = &pattern.kind
             {
                 compiler.spans.push(*span);
-                compiler
-                    .instructions
-                    .push(Instruction::Store { scope: ScopeId::SELF, local: *id, value: next });
+                compiler.instructions.push(Instruction::Store {
+                    scope: ScopeId::SELF,
+                    local: *id,
+                    value: next,
+                });
             } else {
-                let pattern_id = compiler.pattern(pattern);
-                compiler.spans.push(self.span());
+                let pattern_id = compiler.pattern(pattern.clone());
+                compiler.spans.push(self.pattern().span());
                 compiler
                     .instructions
                     .push(Instruction::Destructure { pattern: pattern_id, value: next });
             }
 
-            compiler.loop_stack.push((top, bottom));
+            compiler.loop_stack.push((top, bottom, compiler.scopes.len()));
             let res = self.body().compile(compiler)?;
             if !res.is_none() {
                 compiler.spans.push(self.body().span());
                 compiler.instructions.push(Instruction::Join { value: res });
             }
 
+            pattern.free(compiler);
             compiler.free(res);
             compiler.loop_stack.pop();
 
@@ -212,9 +219,14 @@ impl Compile for ast::ForLoop<'_> {
 
 impl Compile for ast::LoopBreak<'_> {
     fn compile(&self, compiler: &mut Compiler) -> SourceResult<Register> {
-        let Some((_, bottom)) = compiler.loop_stack.last().copied() else {
+        let Some((_, bottom, stack)) = compiler.loop_stack.last().copied() else {
             bail!(self.span(), "break outside of loop")
         };
+
+        for _ in stack..compiler.scopes.len() {
+            compiler.spans.push(self.span());
+            compiler.instructions.push(Instruction::Exit {});
+        }
 
         compiler.spans.push(self.span());
         compiler.instructions.push(Instruction::Jump { label: bottom });
@@ -225,9 +237,14 @@ impl Compile for ast::LoopBreak<'_> {
 
 impl Compile for ast::LoopContinue<'_> {
     fn compile(&self, compiler: &mut Compiler) -> SourceResult<Register> {
-        let Some((top, _)) = compiler.loop_stack.last().copied() else {
+        let Some((top, _, stack)) = compiler.loop_stack.last().copied() else {
             bail!(self.span(), "continue outside of loop")
         };
+
+        for _ in stack..compiler.scopes.len() {
+            compiler.spans.push(self.span());
+            compiler.instructions.push(Instruction::Exit {});
+        }
 
         compiler.spans.push(self.span());
         compiler.instructions.push(Instruction::Jump { label: top });

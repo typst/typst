@@ -25,6 +25,7 @@ impl Compile for ast::Markup<'_> {
         // We push a new join group.
         compiler.spans.push(self.span());
         compiler.instructions.push(Instruction::JoinGroup {
+            content: true,
             capacity: exprs.size_hint().1.unwrap_or_else(|| exprs.size_hint().0) as u16,
         });
 
@@ -248,6 +249,10 @@ impl Compile for ast::Label<'_> {
         compiler.instructions.push(Instruction::Set { value, register });
 
         Ok(register)
+    }
+
+    fn compile_display(&self, compiler: &mut Compiler) -> SourceResult<Register> {
+        self.compile(compiler)
     }
 }
 

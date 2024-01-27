@@ -15,6 +15,15 @@ pub struct Pattern {
     pub kind: PatternKind,
 }
 
+impl Pattern {
+    pub fn free(&self, compiler: &mut Compiler) {
+        match &self.kind {
+            PatternKind::Single(single) => single.free(compiler),
+            PatternKind::Tuple(items) => items.iter().for_each(|i| i.free(compiler)),
+        }
+    }
+}
+
 pub trait PatternCompile {
     fn compile(&self, compiler: &mut Compiler, declare: bool) -> SourceResult<Pattern>;
 }
@@ -30,8 +39,6 @@ impl PatternCompile for ast::Pattern<'_> {
                     } else {
                         ident.access(compiler, false)?
                     };
-
-                    index.free(compiler);
 
                     return Ok(Pattern {
                         span: ident.span(),
@@ -66,8 +73,6 @@ impl PatternCompile for ast::Pattern<'_> {
                                     ident.access(compiler, false)?
                                 };
 
-                                index.free(compiler);
-
                                 items.push(PatternItem::Simple(
                                     binding.span(),
                                     index,
@@ -89,8 +94,6 @@ impl PatternCompile for ast::Pattern<'_> {
                                     ident.access(compiler, false)?
                                 };
 
-                                index.free(compiler);
-
                                 items.push(PatternItem::Spread(sink.span(), index));
                             } else {
                                 items.push(PatternItem::SpreadDiscard(sink.span()));
@@ -110,7 +113,6 @@ impl PatternCompile for ast::Pattern<'_> {
                                 named.expr().access(compiler, false)?
                             };
 
-                            index.free(compiler);
                             items.push(PatternItem::Named(
                                 named.span(),
                                 index,
@@ -157,4 +159,16 @@ pub enum PatternItem {
 
     /// A named pattern.
     Named(Span, AccessPattern, EcoString),
+}
+
+impl PatternItem {
+    fn free(&self, compiler: &mut Compiler) {
+        match self {
+            PatternItem::Placeholder(_) => {}
+            PatternItem::Simple(_, index, _) => index.free(compiler),
+            PatternItem::Spread(_, index) => index.free(compiler),
+            PatternItem::SpreadDiscard(_) => {}
+            PatternItem::Named(_, index, _) => index.free(compiler),
+        }
+    }
 }

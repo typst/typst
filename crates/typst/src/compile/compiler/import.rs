@@ -31,9 +31,11 @@ impl Compile for ast::ModuleImport<'_> {
                         compiler.instructions.push(Instruction::Set { register, value });
 
                         compiler.spans.push(self.span());
-                        compiler
-                            .instructions
-                            .push(Instruction::Store { scope: ScopeId::SELF, local, value: register });
+                        compiler.instructions.push(Instruction::Store {
+                            scope: ScopeId::SELF,
+                            local,
+                            value: register,
+                        });
                     }
                     compiler.free(register);
                 }
@@ -57,9 +59,11 @@ impl Compile for ast::ModuleImport<'_> {
                                     .push(Instruction::Set { register, value });
 
                                 compiler.spans.push(self.span());
-                                compiler
-                                    .instructions
-                                    .push(Instruction::Store { scope: ScopeId::SELF, local, value: register });
+                                compiler.instructions.push(Instruction::Store {
+                                    scope: ScopeId::SELF,
+                                    local,
+                                    value: register,
+                                });
                             }
                             ast::ImportItem::Renamed(renamed) => {
                                 let name = renamed.original_name().get();
@@ -78,9 +82,11 @@ impl Compile for ast::ModuleImport<'_> {
                                     .push(Instruction::Set { register, value });
 
                                 compiler.spans.push(self.span());
-                                compiler
-                                    .instructions
-                                    .push(Instruction::Store { scope: ScopeId::SELF, local, value: register });
+                                compiler.instructions.push(Instruction::Store {
+                                    scope: ScopeId::SELF,
+                                    local,
+                                    value: register,
+                                });
                             }
                         }
                     }
@@ -99,9 +105,11 @@ impl Compile for ast::ModuleImport<'_> {
             compiler.instructions.push(Instruction::Set { register, value });
 
             compiler.spans.push(self.span());
-            compiler
-                .instructions
-                .push(Instruction::Store { scope: ScopeId::SELF, local, value: register });
+            compiler.instructions.push(Instruction::Store {
+                scope: ScopeId::SELF,
+                local,
+                value: register,
+            });
             compiler.free(register);
         }
 
@@ -218,11 +226,7 @@ fn get_field(name: &str, compiler: &Compiler) -> StrResult<Value> {
         }
 
         Ok(value.clone())
-    } else if let Some(value) = scopes
-        .base
-        .as_ref()
-        .and_then(|library| library.global.scope().get(name))
-    {
+    } else if let Some(value) = scopes.base.global.scope().get(name) {
         Ok(value.clone())
     } else {
         bail!("unknown variable `{}`", name)

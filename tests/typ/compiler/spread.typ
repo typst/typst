@@ -27,7 +27,7 @@
 #{
   let save(..args) = {
     test(type(args), arguments)
-    test(repr(args), "(three: true, 1, 2)")
+    test(repr(args), "(1, 2, three: true)")
   }
 
   save(1, 2, three: true)
