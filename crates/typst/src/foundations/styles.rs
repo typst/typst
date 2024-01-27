@@ -183,6 +183,15 @@ impl From<Prehashed<Style>> for Styles {
     }
 }
 
+impl IntoIterator for Styles {
+    type Item = Prehashed<Style>;
+    type IntoIter = ecow::vec::IntoIter<Prehashed<Style>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 impl From<Style> for Styles {
     fn from(style: Style) -> Self {
         Self(eco_vec![Prehashed::new(style)])
