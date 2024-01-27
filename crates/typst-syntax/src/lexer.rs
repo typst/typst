@@ -630,7 +630,7 @@ fn keyword(ident: &str) -> Option<SyntaxKind> {
 
 /// Whether a character will become a Space token in Typst
 #[inline]
-pub fn is_space(character: char, mode: LexMode) -> bool {
+fn is_space(character: char, mode: LexMode) -> bool {
     match mode {
         LexMode::Markup => matches!(character, ' ' | '\t') || is_newline(character),
         _ => character.is_whitespace(),
