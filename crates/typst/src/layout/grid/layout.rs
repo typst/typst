@@ -1335,12 +1335,13 @@ impl<'a> GridLayouter<'a> {
                 // Sum the heights of spanned rows to find the expected
                 // available height for the cell, unless it spans a fractional
                 // or auto column.
+                let rowspan = cell.rowspan.get();
                 let height = self
                     .grid
                     .rows
                     .iter()
                     .skip(y)
-                    .take(cell.rowspan.get())
+                    .take(if self.grid.has_gutter { 2 * rowspan - 1 } else { rowspan })
                     .try_fold(Abs::zero(), |acc, col| {
                         // For relative rows, we can already resolve the correct
                         // base and for auto and fr we could only guess anyway.
@@ -1505,6 +1506,7 @@ impl<'a> GridLayouter<'a> {
             // The parent cell is never a gutter or merged position.
             let cell = self.grid.cell(parent_x, parent_y).unwrap();
             let rowspan = cell.rowspan.get();
+            let rowspan = if self.grid.has_gutter { 2 * rowspan - 1 } else { rowspan };
             if parent_y + rowspan - 1 != y {
                 // A rowspan should only affect the height of the last spanned
                 // auto row.
