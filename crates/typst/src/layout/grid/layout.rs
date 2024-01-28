@@ -924,6 +924,8 @@ pub struct GridLayouter<'a> {
     /// As an invariant, the last row in an unbreakable row group must NOT be a
     /// gutter row.
     unbreakable_row_group: Vec<Row>,
+    /// Rowspans to layout after all regions were finished.
+    rowspans: Vec<Rowspan>,
     /// The initial size of the current region before we started subtracting.
     initial: Size,
     /// Frames for finished regions.
@@ -943,8 +945,30 @@ pub struct RowPiece {
     pub y: usize,
 }
 
+/// All information needed to layout a single rowspan.
+struct Rowspan {
+    // First column of this rowspan.
+    x: usize,
+    // First row of this rowspan.
+    y: usize,
+    // Amount of rows spanned by the cell at (x, y).
+    rowspan: usize,
+    /// The horizontal offset of this rowspan in all regions.
+    dx: Abs,
+    /// The vertical offset of this rowspan in the first region.
+    dy: Abs,
+    /// The index of the first region this rowspan appears in.
+    first_region: usize,
+    // The full height in the first region this rowspan appears in, for
+    // relative sizing.
+    region_full: Abs,
+    /// The vertical space available for this rowspan in each region.
+    heights: Vec<Abs>,
+}
+
 /// Produced by initial row layout, auto and relative rows are already finished,
 /// fractional rows not yet.
+/// Includes new rowspans found in this row.
 enum Row {
     /// Finished row frame of auto or relative row with y index.
     Frame(Frame, usize),
@@ -977,6 +1001,7 @@ impl<'a> GridLayouter<'a> {
             lrows: vec![],
             unbreakable_rows_left: 0,
             unbreakable_row_group: vec![],
+            rowspans: vec![],
             initial: regions.size,
             finished: vec![],
             is_rtl: TextElem::dir_in(styles) == Dir::RTL,
@@ -995,7 +1020,7 @@ impl<'a> GridLayouter<'a> {
                 self.finish_region(engine)?;
             }
 
-            self.check_for_unbreakable_rowspans(y);
+            self.check_for_rowspans(y);
 
             match self.grid.rows[y] {
                 Sizing::Auto => self.layout_auto_row(engine, y)?,
@@ -1021,8 +1046,53 @@ impl<'a> GridLayouter<'a> {
         }
 
         self.finish_region(engine)?;
-
+        self.layout_rowspans(engine)?;
         self.render_fills_strokes()
+    }
+
+    /// Layout rowspans over the already finished regions.
+    /// We need to do this later once we already know the heights of all
+    /// spanned rows.
+    fn layout_rowspans(&mut self, engine: &mut Engine) -> SourceResult<()> {
+        for rowspan_data in std::mem::take(&mut self.rowspans) {
+            let Rowspan {
+                x, y, dx, dy, first_region, region_full, heights, ..
+            } = rowspan_data;
+            let Some((&first_height, backlog)) = heights.split_first() else {
+                // Nothing to layout
+                continue;
+            };
+            let first_column = self.rcols[x];
+            let cell = self.grid.cell(x, y).unwrap();
+            let width = self.cell_spanned_width(x, cell.colspan.get());
+
+            // Prepare regions.
+            let size = Size::new(width, first_height);
+            let mut pod = Regions::one(size, Axes::splat(true));
+            pod.full = region_full;
+            pod.backlog = backlog;
+
+            // Push the layouted frames directly into the finished frames.
+            // At first, we draw the rowspan starting at its expected offset
+            // in the first region.
+            let mut pos = Point::new(dx, dy);
+            let fragment = cell.layout(engine, self.styles, pod)?;
+            for (finished, mut frame) in
+                self.finished.iter_mut().skip(first_region).zip(fragment)
+            {
+                if self.is_rtl {
+                    let offset = Point::with_x(-width + first_column);
+                    frame.translate(offset);
+                }
+                finished.push_frame(pos, frame);
+
+                // From the second region onwards, the rowspan's continuation
+                // starts at the very top.
+                pos.y = Abs::zero();
+            }
+        }
+
+        Ok(())
     }
 
     /// Add lines and backgrounds.
@@ -1464,17 +1534,40 @@ impl<'a> GridLayouter<'a> {
         }
     }
 
-    /// Checks if a row contains the beginning of one or more unbreakable
-    /// rowspan cells. If so, updates the 'unbreakable_rows_left' counter such
-    /// that the rows spanned by those cells are laid out together, in the same
-    /// region.
-    fn check_for_unbreakable_rowspans(&mut self, y: usize) {
-        for x in 0..self.grid.cols.len() {
-            if self.is_unbreakable_rowspan(x, y) {
-                let cell = self.grid.cell(x, y).unwrap();
+    /// Checks if a row contains the beginning of one or more rowspan cells.
+    /// If so, adds them to the rowspan vector.
+    /// Additionally, if the rowspan cells are unbreakable, updates the
+    /// 'unbreakable_rows_left' counter such that the rows spanned by those
+    /// cells are laid out together, in the same region.
+    fn check_for_rowspans(&mut self, y: usize) {
+        // We will compute the horizontal offset of each rowspan in advance.
+        // For that reason, we must reverse the column order when using RTL.
+        let mut dx = Abs::zero();
+        for (x, &rcol) in self.rcols.iter().enumerate().rev_if(self.is_rtl) {
+            let Some(cell) = self.grid.cell(x, y) else {
+                dx += rcol;
+                continue;
+            };
+            let rowspan = cell.rowspan.get();
+            let rowspan = if self.grid.has_gutter { 2 * rowspan - 1 } else { rowspan };
+            if rowspan == 1 {
+                dx += rcol;
+                continue;
+            }
+            // Rowspan detected. We will lay it out later.
+            self.rowspans.push(Rowspan {
+                x,
+                y,
+                rowspan,
+                dx,
+                // The four fields below will be updated in 'finish_region'.
+                dy: Abs::zero(),
+                first_region: usize::MAX,
+                region_full: Abs::zero(),
+                heights: vec![],
+            });
+            if self.is_unbreakable_rowspan(cell, y) {
                 let rowspan = cell.rowspan.get();
-                let rowspan =
-                    if self.grid.has_gutter { 2 * rowspan - 1 } else { rowspan };
                 // At least the next 'rowspan' rows should be grouped together,
                 // in the same page, as this rowspan can't be broken apart.
                 // Since the last row in a rowspan is never gutter, here we
@@ -1483,19 +1576,17 @@ impl<'a> GridLayouter<'a> {
                 // are added.
                 self.unbreakable_rows_left = self.unbreakable_rows_left.max(rowspan);
             }
+            dx += rcol;
         }
     }
 
     /// Checks if the cell at a given position is the parent of an unbreakable
     /// rowspan. This only holds when the cell spans multiple rows, of which
     /// none are auto rows.
-    fn is_unbreakable_rowspan(&self, x: usize, y: usize) -> bool {
-        let Some(cell) = self.grid.cell(x, y) else {
-            return false;
-        };
+    fn is_unbreakable_rowspan(&self, cell: &Cell, y: usize) -> bool {
         let rowspan = cell.rowspan.get();
-        // Unbreakable rowspan: spans more than one row and does not span any
-        // auto rows.
+        // Unbreakable rowspans span more than one row and do not span any auto
+        // rows.
         return rowspan > 1
             && self
                 .grid
@@ -1779,27 +1870,30 @@ impl<'a> GridLayouter<'a> {
         // Reverse the column order when using RTL.
         for (x, &rcol) in self.rcols.iter().enumerate().rev_if(self.is_rtl) {
             if let Some(cell) = self.grid.cell(x, y) {
-                let width = self.cell_spanned_width(x, cell.colspan.get());
-                let size = Size::new(width, height);
-                let mut pod = Regions::one(size, Axes::splat(true));
-                if self.grid.rows[y] == Sizing::Auto {
-                    pod.full = self.regions.full;
+                // Rowspans have a separate layout step
+                if cell.rowspan.get() == 1 {
+                    let width = self.cell_spanned_width(x, cell.colspan.get());
+                    let size = Size::new(width, height);
+                    let mut pod = Regions::one(size, Axes::splat(true));
+                    if self.grid.rows[y] == Sizing::Auto {
+                        pod.full = self.regions.full;
+                    }
+                    let mut frame = cell.layout(engine, self.styles, pod)?.into_frame();
+                    if self.is_rtl {
+                        // In the grid, cell colspans expand to the right,
+                        // so we're at the leftmost (lowest 'x') column
+                        // spanned by the cell. However, in RTL, cells
+                        // expand to the left. Therefore, without the
+                        // offset below, the cell's contents would be laid out
+                        // starting at its rightmost visual position and extend
+                        // over to unrelated cells to its right in RTL.
+                        // We avoid this by ensuring the rendered cell starts at
+                        // the very left of the cell, even with colspan > 1.
+                        let offset = Point::with_x(-width + rcol);
+                        frame.translate(offset);
+                    }
+                    output.push_frame(pos, frame);
                 }
-                let mut frame = cell.layout(engine, self.styles, pod)?.into_frame();
-                if self.is_rtl {
-                    // In the grid, cell colspans expand to the right,
-                    // so we're at the leftmost (lowest 'x') column
-                    // spanned by the cell. However, in RTL, cells
-                    // expand to the left. Therefore, without the
-                    // offset below, the cell's contents would be laid out
-                    // starting at its rightmost visual position and extend
-                    // over to unrelated cells to its right in RTL.
-                    // We avoid this by ensuring the rendered cell starts at
-                    // the very left of the cell, even with colspan > 1.
-                    let offset = Point::with_x(-width + rcol);
-                    frame.translate(offset);
-                }
-                output.push_frame(pos, frame);
             }
 
             pos.x += rcol;
@@ -1831,17 +1925,20 @@ impl<'a> GridLayouter<'a> {
         let mut pos = Point::zero();
         for (x, &rcol) in self.rcols.iter().enumerate().rev_if(self.is_rtl) {
             if let Some(cell) = self.grid.cell(x, y) {
-                let width = self.cell_spanned_width(x, cell.colspan.get());
-                pod.size.x = width;
+                // Rowspans have a separate layout step
+                if cell.rowspan.get() == 1 {
+                    let width = self.cell_spanned_width(x, cell.colspan.get());
+                    pod.size.x = width;
 
-                // Push the layouted frames into the individual output frames.
-                let fragment = cell.layout(engine, self.styles, pod)?;
-                for (output, mut frame) in outputs.iter_mut().zip(fragment) {
-                    if self.is_rtl {
-                        let offset = Point::with_x(-width + rcol);
-                        frame.translate(offset);
+                    // Push the layouted frames into the individual output frames.
+                    let fragment = cell.layout(engine, self.styles, pod)?;
+                    for (output, mut frame) in outputs.iter_mut().zip(fragment) {
+                        if self.is_rtl {
+                            let offset = Point::with_x(-width + rcol);
+                            frame.translate(offset);
+                        }
+                        output.push_frame(pos, frame);
                     }
-                    output.push_frame(pos, frame);
                 }
             }
 
@@ -1887,6 +1984,7 @@ impl<'a> GridLayouter<'a> {
         let mut output = Frame::soft(size);
         let mut pos = Point::zero();
         let mut rrows = vec![];
+        let current_region = self.finished.len();
 
         // Place finished rows and layout fractional rows.
         for row in std::mem::take(&mut self.lrows) {
@@ -1900,6 +1998,39 @@ impl<'a> GridLayouter<'a> {
             };
 
             let height = frame.height();
+
+            // Ensure rowspans which span this row will have enough space to
+            // be laid out over it later.
+            for rowspan in self
+                .rowspans
+                .iter_mut()
+                .filter(|rowspan| (rowspan.y..rowspan.y + rowspan.rowspan).contains(&y))
+            {
+                // If the first region wasn't defined yet, it will have the the
+                // initial value of usize::MAX, so we can set it to the current
+                // region's index.
+                if rowspan.first_region > current_region {
+                    rowspan.first_region = current_region;
+                    // The rowspan starts at this region, precisely at this
+                    // row. In other regions, it will start at dy = 0.
+                    rowspan.dy = pos.y;
+                    // When we layout the rowspan later, the full size of the
+                    // pod must be equal to the full size of the first region
+                    // it appears in.
+                    rowspan.region_full = self.regions.full;
+                }
+                let amount_missing_heights = (current_region + 1)
+                    .saturating_sub(rowspan.heights.len() + rowspan.first_region);
+                // Ensure the vector of heights is long enough such that the
+                // last height is the one for the current region.
+                rowspan
+                    .heights
+                    .extend(std::iter::repeat(Abs::zero()).take(amount_missing_heights));
+                // Ensure that, in this region, the rowspan will span at least
+                // this row.
+                *rowspan.heights.last_mut().unwrap() += height;
+            }
+
             output.push_frame(pos, frame);
             rrows.push(RowPiece { height, y });
             pos.y += height;
