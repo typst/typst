@@ -911,6 +911,19 @@ pub struct GridLayouter<'a> {
     rrows: Vec<Vec<RowPiece>>,
     /// Rows in the current region.
     lrows: Vec<Row>,
+    /// The amount of unbreakable rows remaining to be added in the unbreakable
+    /// row group. When this is 0, no unbreakable row group is being built, and
+    /// the grid layout process continues normally. But when this is > 0, any
+    /// future rows must be added to 'unbreakable_row_group' first before being
+    /// pushed to 'lrows'.
+    unbreakable_rows_left: usize,
+    /// Current group of unbreakable rows to layout in the same region.
+    /// This is a temporary buffer which will be appended to 'lrows' after the
+    /// full row group is defined. This ensures all rows in this buffer will
+    /// appear in the same region.
+    /// As an invariant, the last row in an unbreakable row group must NOT be a
+    /// gutter row.
+    unbreakable_row_group: Vec<Row>,
     /// The initial size of the current region before we started subtracting.
     initial: Size,
     /// Frames for finished regions.
@@ -962,6 +975,8 @@ impl<'a> GridLayouter<'a> {
             width: Abs::zero(),
             rrows: vec![],
             lrows: vec![],
+            unbreakable_rows_left: 0,
+            unbreakable_row_group: vec![],
             initial: regions.size,
             finished: vec![],
             is_rtl: TextElem::dir_in(styles) == Dir::RTL,
@@ -980,11 +995,29 @@ impl<'a> GridLayouter<'a> {
                 self.finish_region(engine)?;
             }
 
+            self.check_for_unbreakable_rowspans(y);
+
             match self.grid.rows[y] {
                 Sizing::Auto => self.layout_auto_row(engine, y)?,
                 Sizing::Rel(v) => self.layout_relative_row(engine, v, y)?,
-                Sizing::Fr(v) => self.lrows.push(Row::Fr(v, y)),
+                Sizing::Fr(v) => {
+                    let row = Row::Fr(v, y);
+                    if self.unbreakable_rows_left > 0 {
+                        // Don't push it to the current region just yet.
+                        self.unbreakable_row_group.push(row);
+                    } else {
+                        self.lrows.push(row);
+                    }
+                }
             }
+
+            if self.unbreakable_rows_left == 1 {
+                // That was the last row in the unbreakable row group (if there
+                // was one). Now we render all rows in the group together, in
+                // the same region.
+                self.layout_unbreakable_row_group(engine)?;
+            }
+            self.unbreakable_rows_left = self.unbreakable_rows_left.saturating_sub(1);
         }
 
         self.finish_region(engine)?;
@@ -1431,16 +1464,85 @@ impl<'a> GridLayouter<'a> {
         }
     }
 
+    /// Checks if a row contains the beginning of one or more unbreakable
+    /// rowspan cells. If so, updates the 'unbreakable_rows_left' counter such
+    /// that the rows spanned by those cells are laid out together, in the same
+    /// region.
+    fn check_for_unbreakable_rowspans(&mut self, y: usize) {
+        for x in 0..self.grid.cols.len() {
+            if self.is_unbreakable_rowspan(x, y) {
+                let cell = self.grid.cell(x, y).unwrap();
+                let rowspan = cell.rowspan.get();
+                let rowspan =
+                    if self.grid.has_gutter { 2 * rowspan - 1 } else { rowspan };
+                // At least the next 'rowspan' rows should be grouped together,
+                // in the same page, as this rowspan can't be broken apart.
+                // Since the last row in a rowspan is never gutter, here we
+                // satisfy the invariant that a gutter row won't be the last
+                // row in the unbreakable row group after the remaining rows
+                // are added.
+                self.unbreakable_rows_left = self.unbreakable_rows_left.max(rowspan);
+            }
+        }
+    }
+
+    /// Checks if the cell at a given position is the parent of an unbreakable
+    /// rowspan. This only holds when the cell spans multiple rows, of which
+    /// none are auto rows.
+    fn is_unbreakable_rowspan(&self, x: usize, y: usize) -> bool {
+        let Some(cell) = self.grid.cell(x, y) else {
+            return false;
+        };
+        let rowspan = cell.rowspan.get();
+        // Unbreakable rowspan: spans more than one row and does not span any
+        // auto rows.
+        return rowspan > 1
+            && self
+                .grid
+                .rows
+                .iter()
+                .skip(y)
+                .take(if self.grid.has_gutter { 2 * rowspan - 1 } else { rowspan })
+                .all(|&row| row != Sizing::Auto);
+    }
+
+    /// Empties the buffer of unbreakable rows in the current group, and pushes
+    /// all of them to 'lrows' together. Finishes the current region before
+    /// that, if needed. This ensures the rows in the group will necessarily be
+    /// laid out in the same region.
+    fn layout_unbreakable_row_group(&mut self, engine: &mut Engine) -> SourceResult<()> {
+        let row_group = std::mem::take(&mut self.unbreakable_row_group);
+        let group_height: Abs = row_group
+            .iter()
+            .map(|row| match row {
+                Row::Frame(frame, _) => frame.height(),
+                _ => Abs::zero(),
+            })
+            .sum();
+
+        // Skip to fitting region.
+        // We assume the invariant that the last row in the row group isn't
+        // gutter.
+        while !self.regions.size.y.fits(group_height) && !self.regions.in_last() {
+            self.finish_region(engine)?;
+        }
+        self.lrows.extend(row_group);
+
+        Ok(())
+    }
+
     /// Layout a row with automatic height. Such a row may break across multiple
     /// regions.
     fn layout_auto_row(&mut self, engine: &mut Engine, y: usize) -> SourceResult<()> {
+        let unbreakable = self.unbreakable_rows_left > 0;
+
         // Determine the size for each region of the row. If the first region
         // ends up empty for some column, skip the region and remeasure.
-        let mut resolved = match self.measure_auto_row(engine, y, true)? {
+        let mut resolved = match self.measure_auto_row(engine, y, true, unbreakable)? {
             Some(resolved) => resolved,
             None => {
                 self.finish_region(engine)?;
-                self.measure_auto_row(engine, y, false)?.unwrap()
+                self.measure_auto_row(engine, y, false, unbreakable)?.unwrap()
             }
         };
 
@@ -1488,6 +1590,7 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
         y: usize,
         can_skip: bool,
+        unbreakable: bool,
     ) -> SourceResult<Option<Vec<Abs>>> {
         let mut resolved: Vec<Abs> = vec![];
 
@@ -1513,15 +1616,27 @@ impl<'a> GridLayouter<'a> {
                 continue;
             }
 
-            let mut pod = self.regions;
-            pod.size.x = self.cell_spanned_width(x, cell.colspan.get());
+            let width = self.cell_spanned_width(x, cell.colspan.get());
 
-            let frames = cell.measure(engine, self.styles, pod)?.into_frames();
+            let frames = if unbreakable {
+                // Force cell to fit into a single region when the row is unbreakable.
+                let mut pod = Regions::one(
+                    Axes::new(width, self.regions.size.y),
+                    Axes::splat(true),
+                );
+                pod.full = self.regions.full;
+                vec![cell.measure(engine, self.styles, pod)?.into_frame()]
+            } else {
+                let mut pod = self.regions;
+                pod.size.x = width;
+                cell.measure(engine, self.styles, pod)?.into_frames()
+            };
 
             // Skip the first region if one cell in it is empty. Then,
             // remeasure.
             if let [first, rest @ ..] = frames.as_slice() {
                 if can_skip
+                    && !unbreakable
                     && first.is_empty()
                     && rest.iter().any(|frame| !frame.is_empty())
                 {
@@ -1660,8 +1775,15 @@ impl<'a> GridLayouter<'a> {
 
     /// Push a row frame into the current region.
     fn push_row(&mut self, frame: Frame, y: usize) {
-        self.regions.size.y -= frame.height();
-        self.lrows.push(Row::Frame(frame, y));
+        if self.unbreakable_rows_left > 0 {
+            // Add this row to the unbreakable row group first.
+            // It will be pushed to the vector of rows in the current region
+            // later, together with other rows in the current group.
+            self.unbreakable_row_group.push(Row::Frame(frame, y));
+        } else {
+            self.regions.size.y -= frame.height();
+            self.lrows.push(Row::Frame(frame, y));
+        }
     }
 
     /// Finish rows for one region.
