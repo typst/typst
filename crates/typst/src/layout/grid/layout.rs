@@ -1262,10 +1262,62 @@ impl<'a> GridLayouter<'a> {
             let mut dx = Abs::zero();
             for (x, &col) in self.rcols.iter().enumerate().rev_if(self.is_rtl) {
                 let mut dy = Abs::zero();
+                let mut first_row = true;
                 for row in rows {
-                    if let Some(cell) = self.grid.cell(x, row.y) {
+                    let mut cell_with_y = self.grid.cell(x, row.y).zip(Some(row.y));
+                    if cell_with_y.is_none() && first_row {
+                        // The grid position at (x, row.y) is either a gutter
+                        // cell or a merged position.
+                        // If this is the first row for this column, this could
+                        // be a position merged with a rowspan from a previous
+                        // region, therefore we need to draw its fill again in
+                        // the current region.
+                        // We ignore positions in the second row onwards in
+                        // order to not draw the same fill more than once.
+                        let parent_cell_pos = self.grid.parent_cell_position(x, row.y);
+
+                        if let Some(Axes { x: parent_x, y: parent_y }) = parent_cell_pos {
+                            // Ensure we draw the fill starting at the
+                            // first column spanned by the original rowspan
+                            // cell this position is merged with.
+                            // This condition, by itself, also ensures
+                            // parent_y != row.y (and thus parent_y < row.y,
+                            // since rowspans expand towards increasing 'y'),
+                            // otherwise 'cell_with_y' would have held the
+                            // parent cell (as it would have had coordinates
+                            // (x, row.y)), and thus wouldn't have been None.
+                            // Therefore, the condition below implies
+                            // (x, row.y) is merged with a rowspan from another
+                            // region, since we're in the the first row for
+                            // this region, so any row before this one must be
+                            // in a previous region.
+                            if parent_x == x {
+                                cell_with_y = self
+                                    .grid
+                                    .cell(parent_x, parent_y)
+                                    .zip(Some(parent_y));
+                            }
+                        }
+                    };
+                    if let Some((cell, cell_y)) = cell_with_y {
                         let fill = cell.fill.clone();
                         if let Some(fill) = fill {
+                            let rowspan = cell.rowspan.get();
+                            let rowspan = if self.grid.has_gutter {
+                                2 * rowspan - 1
+                            } else {
+                                rowspan
+                            };
+                            let height = if rowspan == 1 {
+                                row.height
+                            } else {
+                                rows.iter()
+                                    .filter(|row| {
+                                        (cell_y..cell_y + rowspan).contains(&row.y)
+                                    })
+                                    .map(|row| row.height)
+                                    .sum()
+                            };
                             let width = self.cell_spanned_width(x, cell.colspan.get());
                             // In the grid, cell colspans expand to the right,
                             // so we're at the leftmost (lowest 'x') column
@@ -1279,12 +1331,13 @@ impl<'a> GridLayouter<'a> {
                             let offset =
                                 if self.is_rtl { -width + col } else { Abs::zero() };
                             let pos = Point::new(dx + offset, dy);
-                            let size = Size::new(width, row.height);
+                            let size = Size::new(width, height);
                             let rect = Geometry::Rect(size).filled(fill);
                             fills.push((pos, FrameItem::Shape(rect, self.span)));
                         }
                     }
                     dy += row.height;
+                    first_row = false;
                 }
                 dx += col;
             }
