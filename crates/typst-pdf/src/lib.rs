@@ -296,16 +296,14 @@ fn write_and_collect_destinations<'a>(
     ctx: &mut PdfContext,
 ) -> Vec<(Str<'a>, Ref, Ref, f32, f32)> {
     let mut destinations = vec![];
-    for elem in ctx
-        .document
-        .introspector
-        .all()
-        .filter(|c| c.elem() == HeadingElem::elem())
-    {
+
+    let elements = ctx.document.introspector.query(&HeadingElem::elem().select());
+    for elem in elements.iter() {
+        let heading = elem.to_packed::<HeadingElem>().unwrap();
         if_chain!(
-            if let Some(label) = elem.label();
+            if let Some(label) = heading.label();
             if let Ok(_) = ctx.document.introspector.query_label(label);
-            if let Some(loc) = elem.location();
+            if let Some(loc) = heading.location();
             let name = Str(label.as_str().as_bytes());
             let pos = ctx.document.introspector.position(loc);
             let index = pos.page.get() - 1;
