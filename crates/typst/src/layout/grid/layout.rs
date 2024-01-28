@@ -1610,10 +1610,23 @@ impl<'a> GridLayouter<'a> {
             let cell = self.grid.cell(parent_x, parent_y).unwrap();
             let rowspan = cell.rowspan.get();
             let rowspan = if self.grid.has_gutter { 2 * rowspan - 1 } else { rowspan };
-            if parent_y + rowspan - 1 != y {
-                // A rowspan should only affect the height of the last spanned
-                // auto row.
-                continue;
+            if rowspan > 1 {
+                let last_spanned_auto_row = self
+                    .grid
+                    .rows
+                    .iter()
+                    .enumerate()
+                    .skip(parent_y)
+                    .take(rowspan)
+                    .rev()
+                    .find(|(_, &row)| row == Sizing::Auto)
+                    .map(|(y, _)| y);
+
+                if last_spanned_auto_row != Some(y) {
+                    // A rowspan should only affect the height of its last
+                    // spanned auto row.
+                    continue;
+                }
             }
 
             let width = self.cell_spanned_width(x, cell.colspan.get());
@@ -1644,7 +1657,72 @@ impl<'a> GridLayouter<'a> {
                 }
             }
 
-            let mut sizes = frames.iter().map(|frame| frame.height());
+            let mut sizes = frames.iter().map(|frame| frame.height()).collect::<Vec<_>>();
+
+            // Don't expand this row more than the cell needs.
+            // To do so, we must subtract, from the cell's expected height,
+            // the already resolved heights of its spanned rows. Note that this
+            // is the last spanned auto row, so all other auto rows were
+            // already resolved, as well as previous fractional rows.
+            // Additionally, we subtract the heights of fixed-size rows which
+            // weren't resolved yet.
+            // Thus, only upcoming fractional rows won't be included in this
+            // calculation.
+            if rowspan > 1 {
+                let last_spanned_row = parent_y + rowspan - 1;
+                let mut already_covered_height: Abs = self
+                    .rrows
+                    .iter()
+                    .flatten()
+                    .filter(|row| (parent_y..last_spanned_row).contains(&row.y))
+                    .map(|row| row.height)
+                    .sum();
+
+                // Remove frames which were already covered by previous rows
+                // spanned by this cell.
+                while already_covered_height > Abs::zero()
+                    && sizes.first().is_some_and(|&size| size <= already_covered_height)
+                {
+                    already_covered_height -= sizes.remove(0);
+                }
+                // Subtract remaining height from the first frame.
+                if let Some(first_frame_size) = sizes.first_mut() {
+                    *first_frame_size -= already_covered_height;
+                }
+
+                // We can only predict the resolved size of upcoming fixed-size
+                // rows, but not fractional rows.
+                // We can ignore auto rows since this is the last spanned auto
+                // row.
+                let mut will_be_covered_height: Abs = self
+                    .grid
+                    .rows
+                    .iter()
+                    .skip(y + 1)
+                    .take(last_spanned_row - y)
+                    .filter_map(|row| match row {
+                        Sizing::Rel(v) => Some(
+                            v.resolve(self.styles).relative_to(self.regions.base().y),
+                        ),
+                        _ => None,
+                    })
+                    .sum();
+
+                // Remove future frames which will already be covered by
+                // further rows spanned by this cell.
+                while will_be_covered_height > Abs::zero()
+                    && sizes.last().is_some_and(|&size| size <= will_be_covered_height)
+                {
+                    will_be_covered_height -= sizes.pop().unwrap();
+                }
+                // Subtract remaining height from the last frame.
+                if let Some(last_frame_size) = sizes.last_mut() {
+                    *last_frame_size -= will_be_covered_height;
+                }
+            }
+
+            let mut sizes = sizes.into_iter();
+
             for (target, size) in resolved.iter_mut().zip(&mut sizes) {
                 target.set_max(size);
             }
