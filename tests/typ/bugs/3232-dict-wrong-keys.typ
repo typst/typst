@@ -19,8 +19,7 @@
 #box(radius: (top-left: 0.5em, unexpected: 0.5em), [Hi]) // The 2nd key is unexpected
 
 ---
-// Error: 16-19 unexpectedly empty
-#block(outset: (:), [Hi])
+#block(outset: (:), [Hi]) // Ok
 
 ---
 // Error: 14-17 unexpectedly empty

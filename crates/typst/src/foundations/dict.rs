@@ -113,7 +113,8 @@ impl Dict {
         self.0.iter()
     }
 
-    /// Check if there is any remaining pair, and if so return an "unexpected key" error.
+    /// Check if there is any remaining pair, and if so return an
+    /// "unexpected key" error.
     pub fn finish(&self, expected: &[&str]) -> StrResult<()> {
         let mut iter = self.iter().peekable();
         if iter.peek().is_none() {

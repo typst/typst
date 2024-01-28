@@ -206,6 +206,8 @@ where
 
                 dict.finish(&expected_keys)?;
                 return Ok(sides);
+            } else if dict.is_empty() {
+                return Ok(Self::splat(None));
             }
         }
 
@@ -213,8 +215,8 @@ where
             Ok(Self::splat(Some(T::from_value(value)?)))
         } else if let Value::Dict(dict) = &value {
             let keys = dict.iter().map(|kv| kv.0.as_str()).collect();
-            // Do not hint at expected_keys, because T may be castable from Dict objects
-            // with other sets of expected keys.
+            // Do not hint at expected_keys, because T may be castable from Dict
+            // objects with other sets of expected keys.
             Err(Dict::unexpected_keys(keys, None))
         } else {
             Err(Self::error(&value))
