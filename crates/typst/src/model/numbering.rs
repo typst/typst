@@ -1,4 +1,3 @@
-use std::num::NonZeroUsize;
 use std::str::FromStr;
 
 use chinese_number::{ChineseCase, ChineseCountMethod, ChineseVariant, NumberToChinese};
@@ -7,7 +6,6 @@ use ecow::{eco_format, EcoString, EcoVec};
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{cast, func, Func, Str, Value};
-use crate::layout::{PdfPageLabel, PdfPageLabelStyle};
 use crate::text::Case;
 
 /// Applies a numbering to a sequence of numbers.
@@ -39,7 +37,7 @@ pub fn numbering(
     engine: &mut Engine,
     /// Defines how the numbering works.
     ///
-    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `い`, `イ`, `א`, `가`,
+    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `一`, `壹`, `あ`, `い`, `ア`, `イ`, `א`, `가`,
     /// `ㄱ`, and `*`. They are replaced by the number in the sequence, in the
     /// given case.
     ///
@@ -89,49 +87,6 @@ impl Numbering {
         })
     }
 
-    /// Create a new `PdfNumbering` from a `Numbering` applied to a page
-    /// number.
-    pub fn apply_pdf(&self, number: usize) -> Option<PdfPageLabel> {
-        let Numbering::Pattern(pat) = self else {
-            return None;
-        };
-
-        let Some((prefix, kind, case)) = pat.pieces.first() else {
-            return None;
-        };
-
-        // If there is a suffix, we cannot use the common style optimisation,
-        // since PDF does not provide a suffix field.
-        let mut style = None;
-        if pat.suffix.is_empty() {
-            use {NumberingKind as Kind, PdfPageLabelStyle as Style};
-            match (kind, case) {
-                (Kind::Arabic, _) => style = Some(Style::Arabic),
-                (Kind::Roman, Case::Lower) => style = Some(Style::LowerRoman),
-                (Kind::Roman, Case::Upper) => style = Some(Style::UpperRoman),
-                (Kind::Letter, Case::Lower) if number <= 26 => {
-                    style = Some(Style::LowerAlpha)
-                }
-                (Kind::Letter, Case::Upper) if number <= 26 => {
-                    style = Some(Style::UpperAlpha)
-                }
-                _ => {}
-            }
-        }
-
-        // Prefix and offset depend on the style: If it is supported by the PDF
-        // spec, we use the given prefix and an offset. Otherwise, everything
-        // goes into prefix.
-        let prefix = if style.is_none() {
-            Some(pat.apply(&[number]))
-        } else {
-            (!prefix.is_empty()).then(|| prefix.clone())
-        };
-
-        let offset = style.and(NonZeroUsize::new(number));
-        Some(PdfPageLabel { prefix, style, offset })
-    }
-
     /// Trim the prefix suffix if this is a pattern.
     pub fn trimmed(mut self) -> Self {
         if let Self::Pattern(pattern) = &mut self {
@@ -159,8 +114,9 @@ cast! {
 
 /// How to turn a number into text.
 ///
-/// A pattern consists of a prefix, followed by one of `1`, `a`, `A`, `i`,
-/// `I`, `い`, `イ`, `א`, `가`, `ㄱ`, or `*`, and then a suffix.
+/// A pattern consists of a prefix, followed by one of
+/// `1`, `a`, `A`, `i`, `I`, `一`, `壹`, `あ`, `い`, `ア`, `イ`, `א`, `가`, `ㄱ`, or `*`,
+/// and then a suffix.
 ///
 /// Examples of valid patterns:
 /// - `1)`
@@ -292,7 +248,9 @@ pub enum NumberingKind {
     // character.
     #[allow(unused)]
     TraditionalChinese,
+    HiraganaAiueo,
     HiraganaIroha,
+    KatakanaAiueo,
     KatakanaIroha,
     KoreanJamo,
     KoreanSyllable,
@@ -308,7 +266,9 @@ impl NumberingKind {
             '*' => NumberingKind::Symbol,
             'א' => NumberingKind::Hebrew,
             '一' | '壹' => NumberingKind::SimplifiedChinese,
+            'あ' => NumberingKind::HiraganaAiueo,
             'い' => NumberingKind::HiraganaIroha,
+            'ア' => NumberingKind::KatakanaAiueo,
             'イ' => NumberingKind::KatakanaIroha,
             'ㄱ' => NumberingKind::KoreanJamo,
             '가' => NumberingKind::KoreanSyllable,
@@ -326,7 +286,9 @@ impl NumberingKind {
             Self::Hebrew => 'א',
             Self::SimplifiedChinese => '一',
             Self::TraditionalChinese => '一',
+            Self::HiraganaAiueo => 'あ',
             Self::HiraganaIroha => 'い',
+            Self::KatakanaAiueo => 'ア',
             Self::KatakanaIroha => 'イ',
             Self::KoreanJamo => 'ㄱ',
             Self::KoreanSyllable => '가',
@@ -346,6 +308,18 @@ impl NumberingKind {
                 },
                 n,
             ),
+            Self::HiraganaAiueo => zeroless::<46>(
+                |x| {
+                    [
+                        'あ', 'い', 'う', 'え', 'お', 'か', 'き', 'く', 'け', 'こ', 'さ',
+                        'し', 'す', 'せ', 'そ', 'た', 'ち', 'つ', 'て', 'と', 'な', 'に',
+                        'ぬ', 'ね', 'の', 'は', 'ひ', 'ふ', 'へ', 'ほ', 'ま', 'み', 'む',
+                        'め', 'も', 'や', 'ゆ', 'よ', 'ら', 'り', 'る', 'れ', 'ろ', 'わ',
+                        'を', 'ん',
+                    ][x]
+                },
+                n,
+            ),
             Self::HiraganaIroha => zeroless::<47>(
                 |x| {
                     [
@@ -354,6 +328,18 @@ impl NumberingKind {
                         'む', 'う', 'ゐ', 'の', 'お', 'く', 'や', 'ま', 'け', 'ふ', 'こ',
                         'え', 'て', 'あ', 'さ', 'き', 'ゆ', 'め', 'み', 'し', 'ゑ', 'ひ',
                         'も', 'せ', 'す',
+                    ][x]
+                },
+                n,
+            ),
+            Self::KatakanaAiueo => zeroless::<46>(
+                |x| {
+                    [
+                        'ア', 'イ', 'ウ', 'エ', 'オ', 'カ', 'キ', 'ク', 'ケ', 'コ', 'サ',
+                        'シ', 'ス', 'セ', 'ソ', 'タ', 'チ', 'ツ', 'テ', 'ト', 'ナ', 'ニ',
+                        'ヌ', 'ネ', 'ノ', 'ハ', 'ヒ', 'フ', 'ヘ', 'ホ', 'マ', 'ミ', 'ム',
+                        'メ', 'モ', 'ヤ', 'ユ', 'ヨ', 'ラ', 'リ', 'ル', 'レ', 'ロ', 'ワ',
+                        'ヲ', 'ン',
                     ][x]
                 },
                 n,

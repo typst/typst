@@ -1,20 +1,23 @@
 use std::num::NonZeroUsize;
 
+use unicode_math_class::MathClass;
+
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, Finalize, Guard, NativeElement, Resolve, Show, Smart, StyleChain,
+    elem, Content, Finalize, NativeElement, Packed, Resolve, Smart, StyleChain,
     Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
-    Abs, Align, AlignElem, Axes, Dir, Em, FixedAlign, Fragment, Layout, Point, Regions,
-    Size,
+    Abs, AlignElem, Alignment, Axes, Dir, Em, FixedAlignment, Frame, LayoutMultiple,
+    LayoutSingle, Point, Regions, Size,
 };
-use crate::math::{LayoutMath, MathContext};
+use crate::math::{scaled_font_size, LayoutMath, MathContext, MathSize, MathVariant};
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
+use crate::syntax::Span;
 use crate::text::{
-    families, variant, FontFamily, FontList, FontWeight, Lang, LocalName, Region,
+    families, variant, Font, FontFamily, FontList, FontWeight, Lang, LocalName, Region,
     TextElem,
 };
 use crate::util::{option_eq, NonZeroExt, Numeric};
@@ -44,7 +47,14 @@ use crate::World;
 /// horizontally. For more details about math syntax, see the
 /// [main math page]($category/math).
 #[elem(
-    Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName, Refable,
+    Locatable,
+    Synthesize,
+    Finalize,
+    LayoutSingle,
+    LayoutMath,
+    Count,
+    LocalName,
+    Refable,
     Outlinable
 )]
 pub struct EquationElem {
@@ -86,47 +96,64 @@ pub struct EquationElem {
     /// The contents of the equation.
     #[required]
     pub body: Content,
+
+    /// The size of the glyphs.
+    #[internal]
+    #[default(MathSize::Text)]
+    pub size: MathSize,
+
+    /// The style variant to select.
+    #[internal]
+    pub variant: MathVariant,
+
+    /// Affects the height of exponents.
+    #[internal]
+    #[default(false)]
+    pub cramped: bool,
+
+    /// Whether to use bold glyphs.
+    #[internal]
+    #[default(false)]
+    pub bold: bool,
+
+    /// Whether to use italic glyphs.
+    #[internal]
+    pub italic: Smart<bool>,
+
+    /// A forced class to use for all fragment.
+    #[internal]
+    pub class: Option<MathClass>,
 }
 
-impl Synthesize for EquationElem {
+impl Synthesize for Packed<EquationElem> {
     fn synthesize(
         &mut self,
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        // Resolve the supplement.
-        let supplement = match self.supplement(styles) {
+        let supplement = match self.as_ref().supplement(styles) {
             Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => {
-                supplement.resolve(engine, [self.clone()])?
+                supplement.resolve(engine, [self.clone().pack()])?
             }
         };
 
-        self.push_block(self.block(styles));
-        self.push_numbering(self.numbering(styles));
-        self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
+        let elem = self.as_mut();
+        elem.push_block(elem.block(styles));
+        elem.push_numbering(elem.numbering(styles));
+        elem.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
 
         Ok(())
     }
 }
 
-impl Show for EquationElem {
-    #[tracing::instrument(name = "EquationElem::show", skip_all)]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.clone().pack().guarded(Guard::Base(Self::elem()));
-        if self.block(styles) {
-            realized = AlignElem::new(realized).pack();
-        }
-        Ok(realized)
-    }
-}
-
-impl Finalize for EquationElem {
+impl Finalize for Packed<EquationElem> {
     fn finalize(&self, realized: Content, style: StyleChain) -> Content {
         let mut realized = realized;
         if self.block(style) {
-            realized = realized.styled(AlignElem::set_alignment(Align::CENTER));
+            realized = realized.styled(AlignElem::set_alignment(Alignment::CENTER));
+            realized = realized.styled(EquationElem::set_size(MathSize::Display));
         }
         realized
             .styled(TextElem::set_weight(FontWeight::from_number(450)))
@@ -136,71 +163,48 @@ impl Finalize for EquationElem {
     }
 }
 
-impl Layout for EquationElem {
-    #[tracing::instrument(name = "EquationElem::layout", skip_all)]
-    fn layout(
+/// Layouted items suitable for placing in a paragraph.
+#[derive(Debug, Clone)]
+pub enum MathParItem {
+    Space(Abs),
+    Frame(Frame),
+}
+
+impl MathParItem {
+    /// The text representation of this item.
+    pub fn text(&self) -> char {
+        match self {
+            MathParItem::Space(_) => ' ',        // Space
+            MathParItem::Frame(_) => '\u{FFFC}', // Object Replacement Character
+        }
+    }
+}
+
+impl Packed<EquationElem> {
+    pub fn layout_inline(
         &self,
-        engine: &mut Engine,
+        engine: &mut Engine<'_>,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<Fragment> {
-        const NUMBER_GUTTER: Em = Em::new(0.5);
-
-        let block = self.block(styles);
+    ) -> SourceResult<Vec<MathParItem>> {
+        assert!(!self.block(styles));
 
         // Find a math font.
-        let variant = variant(styles);
-        let world = engine.world;
-        let Some(font) = families(styles).find_map(|family| {
-            let id = world.book().select(family, variant)?;
-            let font = world.font(id)?;
-            let _ = font.ttf().tables().math?.constants?;
-            Some(font)
-        }) else {
-            bail!(self.span(), "current font does not support math");
+        let font = find_math_font(engine, styles, self.span())?;
+
+        let mut ctx = MathContext::new(engine, styles, regions, &font);
+        let rows = ctx.layout_root(self, styles)?;
+
+        let mut items = if rows.row_count() == 1 {
+            rows.into_par_items()
+        } else {
+            vec![MathParItem::Frame(rows.into_fragment(&ctx, styles).into_frame())]
         };
 
-        let mut ctx = MathContext::new(engine, styles, regions, &font, block);
-        let mut frame = ctx.layout_frame(self)?;
+        for item in &mut items {
+            let MathParItem::Frame(frame) = item else { continue };
 
-        if block {
-            if let Some(numbering) = self.numbering(styles) {
-                let pod = Regions::one(regions.base(), Axes::splat(false));
-                let counter = Counter::of(Self::elem())
-                    .display(Some(numbering), false)
-                    .layout(engine, styles, pod)?
-                    .into_frame();
-
-                let full_counter_width = counter.width() + NUMBER_GUTTER.resolve(styles);
-                let width = if regions.size.x.is_finite() {
-                    regions.size.x
-                } else {
-                    frame.width() + 2.0 * full_counter_width
-                };
-
-                let height = frame.height().max(counter.height());
-                let align = AlignElem::alignment_in(styles).resolve(styles).x;
-                frame.resize(Size::new(width, height), Axes::splat(align));
-
-                let dir = TextElem::dir_in(styles);
-                let offset = match (align, dir) {
-                    (FixedAlign::Start, Dir::RTL) => full_counter_width,
-                    (FixedAlign::End, Dir::LTR) => -full_counter_width,
-                    _ => Abs::zero(),
-                };
-                frame.translate(Point::with_x(offset));
-
-                let x = if dir.is_positive() {
-                    frame.width() - counter.width()
-                } else {
-                    Abs::zero()
-                };
-                let y = (frame.height() - counter.height()) / 2.0;
-
-                frame.push_frame(Point::new(x, y), counter)
-            }
-        } else {
-            let font_size = TextElem::size_in(styles);
+            let font_size = scaled_font_size(&ctx, styles);
             let slack = ParElem::leading_in(styles) * 0.7;
             let top_edge = TextElem::top_edge_in(styles).resolve(font_size, &font, None);
             let bottom_edge =
@@ -212,27 +216,82 @@ impl Layout for EquationElem {
             frame.size_mut().y = ascent + descent;
         }
 
-        // Apply metadata.
-        frame.meta(styles, false);
-
-        Ok(Fragment::frame(frame))
+        Ok(items)
     }
 }
 
-impl Count for EquationElem {
+impl LayoutSingle for Packed<EquationElem> {
+    #[typst_macros::time(name = "math.equation", span = self.span())]
+    fn layout(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<Frame> {
+        const NUMBER_GUTTER: Em = Em::new(0.5);
+
+        assert!(self.block(styles));
+
+        // Find a math font.
+        let font = find_math_font(engine, styles, self.span())?;
+
+        let mut ctx = MathContext::new(engine, styles, regions, &font);
+        let mut frame = ctx.layout_frame(self, styles)?;
+
+        if let Some(numbering) = (**self).numbering(styles) {
+            let pod = Regions::one(regions.base(), Axes::splat(false));
+            let counter = Counter::of(EquationElem::elem())
+                .display(self.span(), Some(numbering), false)
+                .layout(engine, styles, pod)?
+                .into_frame();
+
+            let full_counter_width = counter.width() + NUMBER_GUTTER.resolve(styles);
+            let width = if regions.size.x.is_finite() {
+                regions.size.x
+            } else {
+                frame.width() + 2.0 * full_counter_width
+            };
+
+            let height = frame.height().max(counter.height());
+            let align = AlignElem::alignment_in(styles).resolve(styles).x;
+            frame.resize(Size::new(width, height), Axes::splat(align));
+
+            let dir = TextElem::dir_in(styles);
+            let offset = match (align, dir) {
+                (FixedAlignment::Start, Dir::RTL) => full_counter_width,
+                (FixedAlignment::End, Dir::LTR) => -full_counter_width,
+                _ => Abs::zero(),
+            };
+            frame.translate(Point::with_x(offset));
+
+            let x = if dir.is_positive() {
+                frame.width() - counter.width()
+            } else {
+                Abs::zero()
+            };
+            let y = (frame.height() - counter.height()) / 2.0;
+
+            frame.push_frame(Point::new(x, y), counter)
+        }
+
+        Ok(frame)
+    }
+}
+
+impl Count for Packed<EquationElem> {
     fn update(&self) -> Option<CounterUpdate> {
-        (self.block(StyleChain::default())
-            && self.numbering(StyleChain::default()).is_some())
-        .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
+        (self.block(StyleChain::default()) && self.numbering().is_some())
+            .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
     }
 }
 
-impl LocalName for EquationElem {
+impl LocalName for Packed<EquationElem> {
     fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Ekuacion",
             Lang::ARABIC => "معادلة",
             Lang::BOKMÅL => "Ligning",
+            Lang::CATALAN => "Equació",
             Lang::CHINESE if option_eq(region, "TW") => "方程式",
             Lang::CHINESE => "公式",
             Lang::CZECH => "Rovnice",
@@ -251,6 +310,7 @@ impl LocalName for EquationElem {
             Lang::PORTUGUESE => "Equação",
             Lang::ROMANIAN => "Ecuația",
             Lang::RUSSIAN => "Уравнение",
+            Lang::SERBIAN => "Једначина",
             Lang::SLOVENIAN => "Enačba",
             Lang::SPANISH => "Ecuación",
             Lang::SWEDISH => "Ekvation",
@@ -263,35 +323,35 @@ impl LocalName for EquationElem {
     }
 }
 
-impl Refable for EquationElem {
+impl Refable for Packed<EquationElem> {
     fn supplement(&self) -> Content {
         // After synthesis, this should always be custom content.
-        match self.supplement(StyleChain::default()) {
+        match (**self).supplement(StyleChain::default()) {
             Smart::Custom(Some(Supplement::Content(content))) => content,
             _ => Content::empty(),
         }
     }
 
     fn counter(&self) -> Counter {
-        Counter::of(Self::elem())
+        Counter::of(EquationElem::elem())
     }
 
     fn numbering(&self) -> Option<Numbering> {
-        self.numbering(StyleChain::default())
+        (**self).numbering(StyleChain::default())
     }
 }
 
-impl Outlinable for EquationElem {
+impl Outlinable for Packed<EquationElem> {
     fn outline(&self, engine: &mut Engine) -> SourceResult<Option<Content>> {
         if !self.block(StyleChain::default()) {
             return Ok(None);
         }
-        let Some(numbering) = self.numbering(StyleChain::default()) else {
+        let Some(numbering) = self.numbering() else {
             return Ok(None);
         };
 
         // After synthesis, this should always be custom content.
-        let mut supplement = match self.supplement(StyleChain::default()) {
+        let mut supplement = match (**self).supplement(StyleChain::default()) {
             Smart::Custom(Some(Supplement::Content(content))) => content,
             _ => Content::empty(),
         };
@@ -309,9 +369,27 @@ impl Outlinable for EquationElem {
     }
 }
 
-impl LayoutMath for EquationElem {
-    #[tracing::instrument(skip(ctx))]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        self.body().layout_math(ctx)
+impl LayoutMath for Packed<EquationElem> {
+    #[typst_macros::time(name = "math.equation", span = self.span())]
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        self.body().layout_math(ctx, styles)
     }
+}
+
+fn find_math_font(
+    engine: &mut Engine<'_>,
+    styles: StyleChain,
+    span: Span,
+) -> SourceResult<Font> {
+    let variant = variant(styles);
+    let world = engine.world;
+    let Some(font) = families(styles).find_map(|family| {
+        let id = world.book().select(family, variant)?;
+        let font = world.font(id)?;
+        let _ = font.ttf().tables().math?.constants?;
+        Some(font)
+    }) else {
+        bail!(span, "current font does not support math");
+    };
+    Ok(font)
 }

@@ -13,17 +13,19 @@ use typst::introspection::Meta;
 use typst::layout::{
     Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Size, Transform,
 };
+use typst::model::Document;
 use typst::text::{Font, TextItem};
 use typst::visualize::{
     Color, DashPattern, FixedStroke, Geometry, Gradient, Image, ImageKind, LineCap,
     LineJoin, Paint, Path, PathItem, Pattern, RasterFormat, RelativeTo, Shape,
 };
-use usvg::{NodeExt, TreeParsing};
+use usvg::TreeParsing;
 
 /// Export a frame into a raster image.
 ///
 /// This renders the frame at the given number of pixels per point and returns
 /// the resulting `tiny-skia` pixel buffer.
+#[typst_macros::time(name = "render")]
 pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
     let size = frame.size();
     let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
@@ -38,19 +40,20 @@ pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
     canvas
 }
 
-/// Export multiple frames into a single raster image.
+/// Export a document with potentially multiple pages into a single raster image.
 ///
 /// The padding will be added around and between the individual frames.
 pub fn render_merged(
-    frames: &[Frame],
+    document: &Document,
     pixel_per_pt: f32,
     frame_fill: Color,
     padding: Abs,
     padding_fill: Color,
 ) -> sk::Pixmap {
-    let pixmaps: Vec<_> = frames
+    let pixmaps: Vec<_> = document
+        .pages
         .iter()
-        .map(|frame| render(frame, pixel_per_pt, frame_fill))
+        .map(|page| render(&page.frame, pixel_per_pt, frame_fill))
         .collect();
 
     let padding = (pixel_per_pt * padding.to_f32()).round() as u32;
@@ -164,8 +167,6 @@ fn render_frame(canvas: &mut sk::Pixmap, state: State, frame: &Frame) {
             FrameItem::Meta(meta, _) => match meta {
                 Meta::Link(_) => {}
                 Meta::Elem(_) => {}
-                Meta::PageNumbering(_) => {}
-                Meta::PdfPageLabel(_) => {}
                 Meta::Hide => {}
             },
         }
@@ -271,8 +272,8 @@ fn render_svg_glyph(
 
     // Parse SVG.
     let opts = usvg::Options::default();
-    let usvg_tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
-    let tree = resvg::Tree::from_usvg(&usvg_tree);
+    let mut tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
+    tree.calculate_bounding_boxes();
     let view_box = tree.view_box.rect;
 
     // If there's no viewbox defined, use the em square for our scale
@@ -297,10 +298,8 @@ fn render_svg_glyph(
     // See https://github.com/RazrFalcon/resvg/issues/602 for why
     // using the svg size is problematic here.
     let mut bbox = usvg::BBox::default();
-    for node in usvg_tree.root.descendants() {
-        if let Some(rect) = node.calculate_bbox() {
-            bbox = bbox.expand(rect);
-        }
+    if let Some(tree_bbox) = tree.root.bounding_box {
+        bbox = bbox.expand(tree_bbox);
     }
 
     // Compute the bbox after the transform is applied.
@@ -319,7 +318,7 @@ fn render_svg_glyph(
 
     // We offset our transform so that the pixmap starts at the edge of the bbox.
     let ts = ts.post_translate(-bbox.left() as f32, -bbox.top() as f32);
-    tree.render(ts, &mut pixmap.as_mut());
+    resvg::render(&tree, ts, &mut pixmap.as_mut());
 
     canvas.draw_pixmap(
         bbox.left(),
@@ -410,17 +409,11 @@ fn render_outline_glyph(
         );
         canvas.fill_path(&path, &paint, rule, ts, state.mask);
 
-        if let Some(FixedStroke {
-            paint,
-            thickness,
-            line_cap,
-            line_join,
-            dash_pattern,
-            miter_limit,
-        }) = &text.stroke
+        if let Some(FixedStroke { paint, thickness, cap, join, dash, miter_limit }) =
+            &text.stroke
         {
             if thickness.to_f32() > 0.0 {
-                let dash = dash_pattern.as_ref().and_then(to_sk_dash_pattern);
+                let dash = dash.as_ref().and_then(to_sk_dash_pattern);
 
                 let paint = to_sk_paint(
                     paint,
@@ -433,8 +426,8 @@ fn render_outline_glyph(
                 );
                 let stroke = sk::Stroke {
                     width: thickness.to_f32() / scale, // When we scale the path, we need to scale the stroke width, too.
-                    line_cap: to_sk_line_cap(*line_cap),
-                    line_join: to_sk_line_join(*line_join),
+                    line_cap: to_sk_line_cap(*cap),
+                    line_join: to_sk_line_join(*join),
                     dash,
                     miter_limit: miter_limit.get() as f32,
                 };
@@ -607,20 +600,14 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
         canvas.fill_path(&path, &paint, rule, ts, state.mask);
     }
 
-    if let Some(FixedStroke {
-        paint,
-        thickness,
-        line_cap,
-        line_join,
-        dash_pattern,
-        miter_limit,
-    }) = &shape.stroke
+    if let Some(FixedStroke { paint, thickness, cap, join, dash, miter_limit }) =
+        &shape.stroke
     {
         let width = thickness.to_f32();
 
         // Don't draw zero-pt stroke.
         if width > 0.0 {
-            let dash = dash_pattern.as_ref().and_then(to_sk_dash_pattern);
+            let dash = dash.as_ref().and_then(to_sk_dash_pattern);
 
             let bbox = shape.geometry.bbox_size();
             let offset_bbox = (!matches!(shape.geometry, Geometry::Line(..)))
@@ -661,8 +648,8 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
             );
             let stroke = sk::Stroke {
                 width,
-                line_cap: to_sk_line_cap(*line_cap),
-                line_join: to_sk_line_join(*line_join),
+                line_cap: to_sk_line_cap(*cap),
+                line_join: to_sk_line_join(*join),
                 dash,
                 miter_limit: miter_limit.get() as f32,
             };
@@ -768,12 +755,11 @@ fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
         // of `with`.
         ImageKind::Svg(svg) => unsafe {
             svg.with(|tree| {
-                let tree = resvg::Tree::from_usvg(tree);
                 let ts = tiny_skia::Transform::from_scale(
                     w as f32 / tree.size.width(),
                     h as f32 / tree.size.height(),
                 );
-                tree.render(ts, &mut pixmap.as_mut())
+                resvg::render(tree, ts, &mut pixmap.as_mut())
             });
         },
     }

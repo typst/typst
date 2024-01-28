@@ -1,8 +1,9 @@
-use unicode_math_class::MathClass;
+use comemo::Prehashed;
 
-use crate::diag::SourceResult;
-use crate::foundations::{elem, func, Cast, Content, NativeElement, Smart, StyleChain};
-use crate::math::{LayoutMath, MathContext};
+use crate::foundations::{func, Cast, Content, Smart, Style, StyleChain};
+use crate::layout::Abs;
+use crate::math::{EquationElem, MathContext};
+use crate::text::TextElem;
 
 /// Bold font style in math.
 ///
@@ -14,7 +15,7 @@ pub fn bold(
     /// The content to style.
     body: Content,
 ) -> Content {
-    MathStyleElem::new(body).with_bold(Some(true)).pack()
+    body.styled(EquationElem::set_bold(true))
 }
 
 /// Upright (non-italic) font style in math.
@@ -27,7 +28,7 @@ pub fn upright(
     /// The content to style.
     body: Content,
 ) -> Content {
-    MathStyleElem::new(body).with_italic(Some(false)).pack()
+    body.styled(EquationElem::set_italic(Smart::Custom(false)))
 }
 
 /// Italic font style in math.
@@ -38,8 +39,9 @@ pub fn italic(
     /// The content to style.
     body: Content,
 ) -> Content {
-    MathStyleElem::new(body).with_italic(Some(true)).pack()
+    body.styled(EquationElem::set_italic(Smart::Custom(true)))
 }
+
 /// Serif (roman) font style in math.
 ///
 /// This is already the default.
@@ -48,7 +50,7 @@ pub fn serif(
     /// The content to style.
     body: Content,
 ) -> Content {
-    MathStyleElem::new(body).with_variant(Some(MathVariant::Serif)).pack()
+    body.styled(EquationElem::set_variant(MathVariant::Serif))
 }
 
 /// Sans-serif font style in math.
@@ -61,7 +63,7 @@ pub fn sans(
     /// The content to style.
     body: Content,
 ) -> Content {
-    MathStyleElem::new(body).with_variant(Some(MathVariant::Sans)).pack()
+    body.styled(EquationElem::set_variant(MathVariant::Sans))
 }
 
 /// Calligraphic font style in math.
@@ -74,7 +76,7 @@ pub fn cal(
     /// The content to style.
     body: Content,
 ) -> Content {
-    MathStyleElem::new(body).with_variant(Some(MathVariant::Cal)).pack()
+    body.styled(EquationElem::set_variant(MathVariant::Cal))
 }
 
 /// Fraktur font style in math.
@@ -87,7 +89,7 @@ pub fn frak(
     /// The content to style.
     body: Content,
 ) -> Content {
-    MathStyleElem::new(body).with_variant(Some(MathVariant::Frak)).pack()
+    body.styled(EquationElem::set_variant(MathVariant::Frak))
 }
 
 /// Monospace font style in math.
@@ -100,7 +102,7 @@ pub fn mono(
     /// The content to style.
     body: Content,
 ) -> Content {
-    MathStyleElem::new(body).with_variant(Some(MathVariant::Mono)).pack()
+    body.styled(EquationElem::set_variant(MathVariant::Mono))
 }
 
 /// Blackboard bold (double-struck) font style in math.
@@ -118,7 +120,7 @@ pub fn bb(
     /// The content to style.
     body: Content,
 ) -> Content {
-    MathStyleElem::new(body).with_variant(Some(MathVariant::Bb)).pack()
+    body.styled(EquationElem::set_variant(MathVariant::Bb))
 }
 
 /// Forced display style in math.
@@ -138,10 +140,8 @@ pub fn display(
     #[default(false)]
     cramped: bool,
 ) -> Content {
-    MathStyleElem::new(body)
-        .with_size(Some(MathSize::Display))
-        .with_cramped(Some(cramped))
-        .pack()
+    body.styled(EquationElem::set_size(MathSize::Display))
+        .styled(EquationElem::set_cramped(cramped))
 }
 
 /// Forced inline (text) style in math.
@@ -162,10 +162,8 @@ pub fn inline(
     #[default(false)]
     cramped: bool,
 ) -> Content {
-    MathStyleElem::new(body)
-        .with_size(Some(MathSize::Text))
-        .with_cramped(Some(cramped))
-        .pack()
+    body.styled(EquationElem::set_size(MathSize::Text))
+        .styled(EquationElem::set_cramped(cramped))
 }
 
 /// Forced script style in math.
@@ -185,10 +183,8 @@ pub fn script(
     #[default(true)]
     cramped: bool,
 ) -> Content {
-    MathStyleElem::new(body)
-        .with_size(Some(MathSize::Script))
-        .with_cramped(Some(cramped))
-        .pack()
+    body.styled(EquationElem::set_size(MathSize::Script))
+        .styled(EquationElem::set_cramped(cramped))
 }
 
 /// Forced second script style in math.
@@ -209,140 +205,8 @@ pub fn sscript(
     #[default(true)]
     cramped: bool,
 ) -> Content {
-    MathStyleElem::new(body)
-        .with_size(Some(MathSize::ScriptScript))
-        .with_cramped(Some(cramped))
-        .pack()
-}
-
-/// A font variant in math.
-#[elem(LayoutMath)]
-pub struct MathStyleElem {
-    /// The content to style.
-    #[required]
-    pub body: Content,
-
-    /// The variant to select.
-    pub variant: Option<MathVariant>,
-
-    /// Whether to use bold glyphs.
-    pub bold: Option<bool>,
-
-    /// Whether to use italic glyphs.
-    pub italic: Option<bool>,
-
-    /// Whether to use forced size
-    pub size: Option<MathSize>,
-
-    /// Whether to limit height of exponents
-    pub cramped: Option<bool>,
-}
-
-impl LayoutMath for MathStyleElem {
-    #[tracing::instrument(skip(ctx))]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let mut style = ctx.style;
-        if let Some(variant) = self.variant(StyleChain::default()) {
-            style = style.with_variant(variant);
-        }
-        if let Some(bold) = self.bold(StyleChain::default()) {
-            style = style.with_bold(bold);
-        }
-        if let Some(italic) = self.italic(StyleChain::default()) {
-            style = style.with_italic(italic);
-        }
-        if let Some(size) = self.size(StyleChain::default()) {
-            style = style.with_size(size);
-        }
-        if let Some(cramped) = self.cramped(StyleChain::default()) {
-            style = style.with_cramped(cramped);
-        }
-        ctx.style(style);
-        self.body().layout_math(ctx)?;
-        ctx.unstyle();
-        Ok(())
-    }
-}
-
-/// Text properties in math.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct MathStyle {
-    /// The style variant to select.
-    pub variant: MathVariant,
-    /// The size of the glyphs.
-    pub size: MathSize,
-    /// The class of the element.
-    pub class: Smart<MathClass>,
-    /// Affects the height of exponents.
-    pub cramped: bool,
-    /// Whether to use bold glyphs.
-    pub bold: bool,
-    /// Whether to use italic glyphs.
-    pub italic: Smart<bool>,
-}
-
-impl MathStyle {
-    /// This style, with the given `variant`.
-    pub fn with_variant(self, variant: MathVariant) -> Self {
-        Self { variant, ..self }
-    }
-
-    /// This style, with the given `size`.
-    pub fn with_size(self, size: MathSize) -> Self {
-        Self { size, ..self }
-    }
-
-    // This style, with the given `class`.
-    pub fn with_class(self, class: MathClass) -> Self {
-        Self { class: Smart::Custom(class), ..self }
-    }
-
-    /// This style, with `cramped` set to the given value.
-    pub fn with_cramped(self, cramped: bool) -> Self {
-        Self { cramped, ..self }
-    }
-
-    /// This style, with `bold` set to the given value.
-    pub fn with_bold(self, bold: bool) -> Self {
-        Self { bold, ..self }
-    }
-
-    /// This style, with `italic` set to the given value.
-    pub fn with_italic(self, italic: bool) -> Self {
-        Self { italic: Smart::Custom(italic), ..self }
-    }
-
-    /// The style for subscripts in the current style.
-    pub fn for_subscript(self) -> Self {
-        self.for_superscript().with_cramped(true)
-    }
-
-    /// The style for superscripts in the current style.
-    pub fn for_superscript(self) -> Self {
-        self.with_size(match self.size {
-            MathSize::Display | MathSize::Text => MathSize::Script,
-            MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
-        })
-    }
-
-    /// The style for numerators in the current style.
-    pub fn for_numerator(self) -> Self {
-        self.with_size(match self.size {
-            MathSize::Display => MathSize::Text,
-            MathSize::Text => MathSize::Script,
-            MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
-        })
-    }
-
-    /// The style for denominators in the current style.
-    pub fn for_denominator(self) -> Self {
-        self.for_numerator().with_cramped(true)
-    }
-
-    /// Apply the style to a character.
-    pub fn styled_char(self, c: char) -> char {
-        styled_char(self, c)
-    }
+    body.styled(EquationElem::set_size(MathSize::ScriptScript))
+        .styled(EquationElem::set_cramped(cramped))
 }
 
 /// The size of elements in an equation.
@@ -361,7 +225,8 @@ pub enum MathSize {
 }
 
 impl MathSize {
-    pub(super) fn factor(self, ctx: &MathContext) -> f64 {
+    /// The scaling factor.
+    pub fn factor(self, ctx: &MathContext) -> f64 {
         match self {
             Self::Display | Self::Text => 1.0,
             Self::Script => percent!(ctx, script_percent_scale_down),
@@ -371,8 +236,9 @@ impl MathSize {
 }
 
 /// A mathematical style variant, as defined by Unicode.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Cast, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Cast, Hash)]
 pub enum MathVariant {
+    #[default]
     Serif,
     Sans,
     Cal,
@@ -381,21 +247,53 @@ pub enum MathVariant {
     Bb,
 }
 
-impl Default for MathVariant {
-    fn default() -> Self {
-        Self::Serif
-    }
+/// Get the font size scaled with the `MathSize`.
+pub fn scaled_font_size(ctx: &MathContext, styles: StyleChain) -> Abs {
+    EquationElem::size_in(styles).factor(ctx) * TextElem::size_in(styles)
+}
+
+/// Styles something as cramped.
+pub fn style_cramped() -> Prehashed<Style> {
+    Prehashed::new(EquationElem::set_cramped(true))
+}
+
+/// The style for subscripts in the current style.
+pub fn style_for_subscript(styles: StyleChain) -> [Prehashed<Style>; 2] {
+    [style_for_superscript(styles), Prehashed::new(EquationElem::set_cramped(true))]
+}
+
+/// The style for superscripts in the current style.
+pub fn style_for_superscript(styles: StyleChain) -> Prehashed<Style> {
+    Prehashed::new(EquationElem::set_size(match EquationElem::size_in(styles) {
+        MathSize::Display | MathSize::Text => MathSize::Script,
+        MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
+    }))
+}
+
+/// The style for numerators in the current style.
+pub fn style_for_numerator(styles: StyleChain) -> Prehashed<Style> {
+    Prehashed::new(EquationElem::set_size(match EquationElem::size_in(styles) {
+        MathSize::Display => MathSize::Text,
+        MathSize::Text => MathSize::Script,
+        MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
+    }))
+}
+
+/// The style for denominators in the current style.
+pub fn style_for_denominator(styles: StyleChain) -> [Prehashed<Style>; 2] {
+    [style_for_numerator(styles), Prehashed::new(EquationElem::set_cramped(true))]
 }
 
 /// Select the correct styled math letter.
 ///
-/// https://www.w3.org/TR/mathml-core/#new-text-transform-mappings
-/// https://en.wikipedia.org/wiki/Mathematical_Alphanumeric_Symbols
-pub(super) fn styled_char(style: MathStyle, c: char) -> char {
+/// <https://www.w3.org/TR/mathml-core/#new-text-transform-mappings>
+/// <https://en.wikipedia.org/wiki/Mathematical_Alphanumeric_Symbols>
+pub fn styled_char(styles: StyleChain, c: char) -> char {
     use MathVariant::*;
 
-    let MathStyle { variant, bold, .. } = style;
-    let italic = style.italic.unwrap_or(matches!(
+    let variant = EquationElem::variant_in(styles);
+    let bold = EquationElem::bold_in(styles);
+    let italic = EquationElem::italic_in(styles).unwrap_or(matches!(
         c,
         'a'..='z' | 'ı' | 'ȷ' | 'A'..='Z' | 'α'..='ω' |
         '∂' | 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ'

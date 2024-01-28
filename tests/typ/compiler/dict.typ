@@ -105,11 +105,11 @@
 ---
 #{
   let dict = (
-    func: () => 1,
+    call-me: () => 1,
   )
-  // Error: 8-12 type dictionary has no method `func`
-  // Hint: 8-12 to call the function stored in the dictionary, surround the field access with parentheses
-  dict.func()
+  // Error: 8-15 type dictionary has no method `call-me`
+  // Hint: 8-15 to call the function stored in the dictionary, surround the field access with parentheses, e.g. `(dict.call-me)(..)`
+  dict.call-me()
 }
 
 ---
@@ -119,6 +119,7 @@
   )
 
   // Error: 8-15 type dictionary has no method `nonfunc`
+  // Hint: 8-15 did you mean to access the field `nonfunc`?
   dict.nonfunc()
 }
 

@@ -5,7 +5,7 @@ use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, select_where, Content, Finalize, Func, LocatableSelector,
-    NativeElement, Show, Smart, StyleChain,
+    NativeElement, Packed, Show, Smart, StyleChain,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
 use crate::layout::{BoxElem, Fr, HElem, HideElem, Length, Rel, RepeatElem, Spacing};
@@ -185,8 +185,8 @@ impl OutlineElem {
     type OutlineEntry;
 }
 
-impl Show for OutlineElem {
-    #[tracing::instrument(name = "OutlineElem::show", skip_all)]
+impl Show for Packed<OutlineElem> {
+    #[typst_macros::time(name = "outline", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![ParbreakElem::new().pack()];
         // Build the outline title.
@@ -195,7 +195,12 @@ impl Show for OutlineElem {
                 TextElem::packed(Self::local_name_in(styles)).spanned(self.span())
             });
 
-            seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
+            seq.push(
+                HeadingElem::new(title)
+                    .with_level(NonZeroUsize::ONE)
+                    .pack()
+                    .spanned(self.span()),
+            );
         }
 
         let indent = self.indent(styles);
@@ -245,7 +250,7 @@ impl Show for OutlineElem {
     }
 }
 
-impl Finalize for OutlineElem {
+impl Finalize for Packed<OutlineElem> {
     fn finalize(&self, realized: Content, _: StyleChain) -> Content {
         realized
             .styled(HeadingElem::set_outlined(false))
@@ -253,12 +258,13 @@ impl Finalize for OutlineElem {
     }
 }
 
-impl LocalName for OutlineElem {
+impl LocalName for Packed<OutlineElem> {
     fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Përmbajtja",
             Lang::ARABIC => "المحتويات",
             Lang::BOKMÅL => "Innhold",
+            Lang::CATALAN => "Índex",
             Lang::CHINESE if option_eq(region, "TW") => "目錄",
             Lang::CHINESE => "目录",
             Lang::CZECH => "Obsah",
@@ -278,6 +284,7 @@ impl LocalName for OutlineElem {
             Lang::PORTUGUESE => "Sumário",
             Lang::ROMANIAN => "Cuprins",
             Lang::RUSSIAN => "Содержание",
+            Lang::SERBIAN => "Садржај",
             Lang::SLOVENIAN => "Kazalo",
             Lang::SPANISH => "Índice",
             Lang::SWEDISH => "Innehåll",
@@ -485,7 +492,8 @@ impl OutlineEntry {
     }
 }
 
-impl Show for OutlineEntry {
+impl Show for Packed<OutlineEntry> {
+    #[typst_macros::time(name = "outline.entry", span = self.span())]
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![];
         let elem = self.element();
@@ -512,7 +520,8 @@ impl Show for OutlineEntry {
                 BoxElem::new()
                     .with_body(Some(filler.clone()))
                     .with_width(Fr::one().into())
-                    .pack(),
+                    .pack()
+                    .spanned(self.span()),
             );
             seq.push(SpaceElem::new().pack());
         } else {

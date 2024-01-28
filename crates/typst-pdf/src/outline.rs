@@ -1,14 +1,13 @@
 use std::num::NonZeroUsize;
 
 use pdf_writer::{Finish, Ref, TextStr};
-use typst::foundations::{Content, NativeElement, Smart};
+use typst::foundations::{NativeElement, Packed, StyleChain};
 use typst::layout::Abs;
 use typst::model::HeadingElem;
 
 use crate::{AbsExt, PdfContext};
 
 /// Construct the outline for the document.
-#[tracing::instrument(skip_all)]
 pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
     let mut tree: Vec<HeadingNode> = vec![];
 
@@ -18,8 +17,10 @@ pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
     // Therefore, its next descendant must be added at its level, which is
     // enforced in the manner shown below.
     let mut last_skipped_level = None;
-    for heading in ctx.document.introspector.query(&HeadingElem::elem().select()).iter() {
-        let leaf = HeadingNode::leaf((**heading).clone());
+    let elements = ctx.document.introspector.query(&HeadingElem::elem().select());
+    for elem in elements.iter() {
+        let heading = elem.to_packed::<HeadingElem>().unwrap();
+        let leaf = HeadingNode::leaf(heading);
 
         if leaf.bookmarked {
             let mut children = &mut tree;
@@ -104,21 +105,21 @@ pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
 
 /// A heading in the outline panel.
 #[derive(Debug, Clone)]
-struct HeadingNode {
-    element: Content,
+struct HeadingNode<'a> {
+    element: &'a Packed<HeadingElem>,
     level: NonZeroUsize,
     bookmarked: bool,
-    children: Vec<HeadingNode>,
+    children: Vec<HeadingNode<'a>>,
 }
 
-impl HeadingNode {
-    fn leaf(element: Content) -> Self {
+impl<'a> HeadingNode<'a> {
+    fn leaf(element: &'a Packed<HeadingElem>) -> Self {
         HeadingNode {
-            level: element.expect_field_by_name::<NonZeroUsize>("level"),
+            level: element.level(StyleChain::default()),
             // 'bookmarked' set to 'auto' falls back to the value of 'outlined'.
             bookmarked: element
-                .expect_field_by_name::<Smart<bool>>("bookmarked")
-                .unwrap_or_else(|| element.expect_field_by_name::<bool>("outlined")),
+                .bookmarked(StyleChain::default())
+                .unwrap_or_else(|| element.outlined(StyleChain::default())),
             element,
             children: Vec::new(),
         }
@@ -130,7 +131,6 @@ impl HeadingNode {
 }
 
 /// Write an outline item and all its children.
-#[tracing::instrument(skip_all)]
 fn write_outline_item(
     ctx: &mut PdfContext,
     node: &HeadingNode,
@@ -159,7 +159,7 @@ fn write_outline_item(
         outline.count(-(node.children.len() as i32));
     }
 
-    let body = node.element.expect_field_by_name::<Content>("body");
+    let body = node.element.body();
     outline.title(TextStr(body.plain_text().trim()));
 
     let loc = node.element.location().unwrap();

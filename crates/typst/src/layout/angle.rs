@@ -19,7 +19,7 @@ use crate::util::{Numeric, Scalar};
 /// ```example
 /// #rotate(10deg)[Hello there!]
 /// ```
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Angle(Scalar);
 

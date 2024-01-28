@@ -13,7 +13,7 @@ use crate::foundations::{ty, Repr};
 /// #true \
 /// #(1 < 2)
 /// ```
-#[ty(title = "Boolean")]
+#[ty(cast, title = "Boolean")]
 type bool;
 
 impl Repr for bool {

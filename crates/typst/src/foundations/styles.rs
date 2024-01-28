@@ -12,7 +12,8 @@ use smallvec::SmallVec;
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, ty, Content, Element, Func, NativeElement, Repr, Selector, Show,
+    cast, elem, func, ty, Content, Element, Func, NativeElement, Packed, Repr, Selector,
+    Show,
 };
 use crate::syntax::Span;
 use crate::text::{FontFamily, FontList, TextElem};
@@ -35,6 +36,8 @@ use crate::text::{FontFamily, FontList, TextElem};
 /// ```
 #[func]
 pub fn style(
+    /// The call site span.
+    span: Span,
     /// A function to call with the styles. Its return value is displayed
     /// in the document.
     ///
@@ -43,7 +46,7 @@ pub fn style(
     /// content that depends on the style context it appears in.
     func: Func,
 ) -> Content {
-    StyleElem::new(func).pack()
+    StyleElem::new(func).pack().spanned(span)
 }
 
 /// Executes a style access.
@@ -54,15 +57,15 @@ struct StyleElem {
     func: Func,
 }
 
-impl Show for StyleElem {
-    #[tracing::instrument(name = "StyleElem::show", skip_all)]
+impl Show for Packed<StyleElem> {
+    #[typst_macros::time(name = "style", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.func().call(engine, [styles.to_map()])?.display())
     }
 }
 
 /// A list of style properties.
-#[ty]
+#[ty(cast)]
 #[derive(Default, PartialEq, Clone, Hash)]
 pub struct Styles(EcoVec<Prehashed<Style>>);
 
@@ -75,6 +78,11 @@ impl Styles {
     /// Whether this contains no styles.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    /// Iterate over the contained styles.
+    pub fn iter(&self) -> impl Iterator<Item = &Style> {
+        self.0.iter().map(|style| &**style)
     }
 
     /// Set an inner value for a style property.
@@ -437,17 +445,16 @@ impl<'a> StyleChain<'a> {
         Self { head: &root.0, tail: None }
     }
 
-    /// Make the given style list the first link of this chain.
+    /// Make the given chainable the first link of this chain.
     ///
     /// The resulting style chain contains styles from `local` as well as
     /// `self`. The ones from `local` take precedence over the ones from
     /// `self`. For folded properties `local` contributes the inner value.
-    pub fn chain<'b>(&'b self, local: &'b Styles) -> StyleChain<'b> {
-        if local.is_empty() {
-            *self
-        } else {
-            StyleChain { head: &local.0, tail: Some(self) }
-        }
+    pub fn chain<'b, C>(&'b self, local: &'b C) -> StyleChain<'b>
+    where
+        C: Chainable,
+    {
+        Chainable::chain(local, self)
     }
 
     /// Cast the first value for the given property in the chain,
@@ -619,6 +626,43 @@ impl PartialEq for StyleChain<'_> {
                 (None, None) => true,
                 _ => false,
             }
+    }
+}
+
+/// Things that can be attached to a style chain.
+pub trait Chainable {
+    /// Attach `self` as the first link of the chain.
+    fn chain<'a>(&'a self, outer: &'a StyleChain<'_>) -> StyleChain<'a>;
+}
+
+impl Chainable for Prehashed<Style> {
+    fn chain<'a>(&'a self, outer: &'a StyleChain<'_>) -> StyleChain<'a> {
+        StyleChain {
+            head: std::slice::from_ref(self),
+            tail: Some(outer),
+        }
+    }
+}
+
+impl Chainable for [Prehashed<Style>] {
+    fn chain<'a>(&'a self, outer: &'a StyleChain<'_>) -> StyleChain<'a> {
+        if self.is_empty() {
+            *outer
+        } else {
+            StyleChain { head: self, tail: Some(outer) }
+        }
+    }
+}
+
+impl<const N: usize> Chainable for [Prehashed<Style>; N] {
+    fn chain<'a>(&'a self, outer: &'a StyleChain<'_>) -> StyleChain<'a> {
+        Chainable::chain(self.as_slice(), outer)
+    }
+}
+
+impl Chainable for Styles {
+    fn chain<'a>(&'a self, outer: &'a StyleChain<'_>) -> StyleChain<'a> {
+        Chainable::chain(self.0.as_slice(), outer)
     }
 }
 

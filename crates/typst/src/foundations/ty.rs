@@ -53,7 +53,7 @@ pub use typst_macros::{scope, ty};
 /// - Adding/joining a type and string will yield a string
 /// - The `{in}` operator on a type and a dictionary will evaluate to `{true}`
 ///   if the dictionary has a string key matching the type's name
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Type(Static<NativeTypeData>);
 
@@ -94,10 +94,10 @@ impl Type {
             .constructor
             .as_ref()
             .map(|lazy| Func::from(*lazy))
-            .ok_or_else(|| eco_format!("type self does not have a constructor"))
+            .ok_or_else(|| eco_format!("type {self} does not have a constructor"))
     }
 
-    /// The type's associated scope of sub-definition.
+    /// The type's associated scope that holds sub-definitions.
     pub fn scope(&self) -> &'static Scope {
         &(self.0).0.scope
     }
@@ -106,13 +106,13 @@ impl Type {
     pub fn field(&self, field: &str) -> StrResult<&'static Value> {
         self.scope()
             .get(field)
-            .ok_or_else(|| eco_format!("type self does not contain field `{}`", field))
+            .ok_or_else(|| eco_format!("type {self} does not contain field `{field}`"))
     }
 }
 
 // Type compatibility.
 impl Type {
-    /// The type's backwards-compatible name.
+    /// The type's backward-compatible name.
     pub fn compat_name(&self) -> &str {
         self.long_name()
     }

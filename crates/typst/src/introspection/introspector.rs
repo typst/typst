@@ -12,7 +12,7 @@ use smallvec::SmallVec;
 use crate::diag::{bail, StrResult};
 use crate::foundations::{Content, Label, Repr, Selector};
 use crate::introspection::{Location, Meta};
-use crate::layout::{Frame, FrameItem, Point, Position, Transform};
+use crate::layout::{Frame, FrameItem, Page, Point, Position, Transform};
 use crate::model::Numbering;
 use crate::util::NonZeroExt;
 
@@ -37,22 +37,22 @@ pub struct Introspector {
 
 impl Introspector {
     /// Applies new frames in-place, reusing the existing allocations.
-    #[tracing::instrument(skip_all)]
-    pub fn rebuild(&mut self, frames: &[Frame]) {
-        self.pages = frames.len();
+    #[typst_macros::time(name = "introspect")]
+    pub fn rebuild(&mut self, pages: &[Page]) {
+        self.pages = pages.len();
         self.elems.clear();
         self.labels.clear();
         self.page_numberings.clear();
         self.queries.clear();
 
-        for (i, frame) in frames.iter().enumerate() {
-            let page = NonZeroUsize::new(1 + i).unwrap();
-            self.extract(frame, page, Transform::identity());
+        for (i, page) in pages.iter().enumerate() {
+            let page_nr = NonZeroUsize::new(1 + i).unwrap();
+            self.extract(&page.frame, page_nr, Transform::identity());
+            self.page_numberings.push(page.numbering.clone());
         }
     }
 
     /// Extract metadata from a frame.
-    #[tracing::instrument(skip_all)]
     fn extract(&mut self, frame: &Frame, page: NonZeroUsize, ts: Transform) {
         for (pos, item) in frame.items() {
             match item {
@@ -77,9 +77,6 @@ impl Introspector {
                     if let Some(label) = content.label() {
                         self.labels.entry(label).or_default().push(self.elems.len() - 1);
                     }
-                }
-                FrameItem::Meta(Meta::PageNumbering(numbering), _) => {
-                    self.page_numberings.push(numbering.clone());
                 }
                 _ => {}
             }

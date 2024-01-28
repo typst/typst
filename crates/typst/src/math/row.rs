@@ -2,13 +2,15 @@ use std::iter::once;
 
 use unicode_math_class::MathClass;
 
-use crate::foundations::Resolve;
-use crate::layout::{Abs, AlignElem, Em, FixedAlign, Frame, Point, Size};
+use crate::foundations::{Resolve, StyleChain};
+use crate::layout::{Abs, AlignElem, Em, FixedAlignment, Frame, FrameKind, Point, Size};
 use crate::math::{
-    alignments, spacing, AlignmentResult, FrameFragment, MathContext, MathFragment,
-    MathSize, Scaled,
+    alignments, scaled_font_size, spacing, AlignmentResult, EquationElem, FrameFragment,
+    MathContext, MathFragment, MathParItem, MathSize,
 };
 use crate::model::ParElem;
+
+use super::fragment::SpacingFragment;
 
 pub const TIGHT_LEADING: Em = Em::new(0.25);
 
@@ -59,9 +61,9 @@ impl MathRow {
 
             // Convert variable operators into binary operators if something
             // precedes them and they are not preceded by a operator or comparator.
-            if fragment.class() == Some(MathClass::Vary)
+            if fragment.class() == MathClass::Vary
                 && matches!(
-                    last.and_then(|i| resolved[i].class()),
+                    last.map(|i| resolved[i].class()),
                     Some(
                         MathClass::Normal
                             | MathClass::Alphabetic
@@ -103,6 +105,19 @@ impl MathRow {
             .collect()
     }
 
+    pub fn row_count(&self) -> usize {
+        let mut count =
+            1 + self.0.iter().filter(|f| matches!(f, MathFragment::Linebreak)).count();
+
+        // A linebreak at the very end does not introduce an extra row.
+        if let Some(f) = self.0.last() {
+            if matches!(f, MathFragment::Linebreak) {
+                count -= 1
+            }
+        }
+        count
+    }
+
     pub fn ascent(&self) -> Abs {
         self.iter().map(MathFragment::ascent).max().unwrap_or_default()
     }
@@ -116,8 +131,8 @@ impl MathRow {
         if self.0.len() == 1 {
             self.0
                 .first()
-                .and_then(|fragment| fragment.class())
-                .unwrap_or(MathClass::Special)
+                .map(|fragment| fragment.class())
+                .unwrap_or(MathClass::Normal)
         } else {
             // FrameFragment::new() (inside 'into_fragment' in this branch) defaults
             // to MathClass::Normal for its class.
@@ -125,34 +140,35 @@ impl MathRow {
         }
     }
 
-    pub fn into_frame(self, ctx: &MathContext) -> Frame {
-        let styles = ctx.styles();
+    pub fn into_frame(self, ctx: &MathContext, styles: StyleChain) -> Frame {
         let align = AlignElem::alignment_in(styles).resolve(styles).x;
-        self.into_aligned_frame(ctx, &[], align)
+        self.into_aligned_frame(ctx, styles, &[], align)
     }
 
-    pub fn into_fragment(self, ctx: &MathContext) -> MathFragment {
+    pub fn into_fragment(self, ctx: &MathContext, styles: StyleChain) -> MathFragment {
         if self.0.len() == 1 {
             self.0.into_iter().next().unwrap()
         } else {
-            FrameFragment::new(ctx, self.into_frame(ctx)).into()
+            FrameFragment::new(ctx, styles, self.into_frame(ctx, styles)).into()
         }
     }
 
     pub fn into_aligned_frame(
         self,
         ctx: &MathContext,
+        styles: StyleChain,
         points: &[Abs],
-        align: FixedAlign,
+        align: FixedAlignment,
     ) -> Frame {
         if !self.iter().any(|frag| matches!(frag, MathFragment::Linebreak)) {
             return self.into_line_frame(points, align);
         }
 
-        let leading = if ctx.style.size >= MathSize::Text {
-            ParElem::leading_in(ctx.styles())
+        let leading = if EquationElem::size_in(styles) >= MathSize::Text {
+            ParElem::leading_in(styles)
         } else {
-            TIGHT_LEADING.scaled(ctx)
+            let font_size = scaled_font_size(ctx, styles);
+            TIGHT_LEADING.at(font_size)
         };
 
         let mut rows: Vec<_> = self.rows();
@@ -183,14 +199,14 @@ impl MathRow {
         frame
     }
 
-    fn into_line_frame(self, points: &[Abs], align: FixedAlign) -> Frame {
+    fn into_line_frame(self, points: &[Abs], align: FixedAlignment) -> Frame {
         let ascent = self.ascent();
         let mut frame = Frame::soft(Size::new(Abs::zero(), ascent + self.descent()));
         frame.set_baseline(ascent);
 
         let mut next_x = {
             let mut widths = Vec::new();
-            if !points.is_empty() && align != FixedAlign::Start {
+            if !points.is_empty() && align != FixedAlignment::Start {
                 let mut width = Abs::zero();
                 for fragment in self.iter() {
                     if matches!(fragment, MathFragment::Align) {
@@ -208,8 +224,8 @@ impl MathRow {
             let mut point_widths = points.iter().copied().zip(widths);
             let mut alternator = LeftRightAlternator::Right;
             move || match align {
-                FixedAlign::Start => prev_points.next(),
-                FixedAlign::End => {
+                FixedAlignment::Start => prev_points.next(),
+                FixedAlignment::End => {
                     point_widths.next().map(|(point, width)| point - width)
                 }
                 _ => point_widths
@@ -238,6 +254,90 @@ impl MathRow {
 
         frame.size_mut().x = x;
         frame
+    }
+
+    pub fn into_par_items(self) -> Vec<MathParItem> {
+        let mut items = vec![];
+
+        let mut x = Abs::zero();
+        let mut ascent = Abs::zero();
+        let mut descent = Abs::zero();
+        let mut frame = Frame::new(Size::zero(), FrameKind::Soft);
+        let mut empty = true;
+
+        let finalize_frame = |frame: &mut Frame, x, ascent, descent| {
+            frame.set_size(Size::new(x, ascent + descent));
+            frame.set_baseline(Abs::zero());
+            frame.translate(Point::with_y(ascent));
+        };
+
+        let mut space_is_visible = false;
+
+        let is_relation = |f: &MathFragment| matches!(f.class(), MathClass::Relation);
+        let is_space = |f: &MathFragment| {
+            matches!(f, MathFragment::Space(_) | MathFragment::Spacing(_))
+        };
+
+        let mut iter = self.0.into_iter().peekable();
+        while let Some(fragment) = iter.next() {
+            if space_is_visible {
+                match fragment {
+                    MathFragment::Space(width)
+                    | MathFragment::Spacing(SpacingFragment { width, .. }) => {
+                        items.push(MathParItem::Space(width));
+                        continue;
+                    }
+                    _ => {}
+                }
+            }
+
+            let class = fragment.class();
+            let y = fragment.ascent();
+
+            ascent.set_max(y);
+            descent.set_max(fragment.descent());
+
+            let pos = Point::new(x, -y);
+            x += fragment.width();
+            frame.push_frame(pos, fragment.into_frame());
+            empty = false;
+
+            if class == MathClass::Binary
+                || (class == MathClass::Relation
+                    && !iter.peek().map(is_relation).unwrap_or_default())
+            {
+                let mut frame_prev = std::mem::replace(
+                    &mut frame,
+                    Frame::new(Size::zero(), FrameKind::Soft),
+                );
+
+                finalize_frame(&mut frame_prev, x, ascent, descent);
+                items.push(MathParItem::Frame(frame_prev));
+                empty = true;
+
+                x = Abs::zero();
+                ascent = Abs::zero();
+                descent = Abs::zero();
+
+                space_is_visible = true;
+                if let Some(f_next) = iter.peek() {
+                    if !is_space(f_next) {
+                        items.push(MathParItem::Space(Abs::zero()));
+                    }
+                }
+            } else {
+                space_is_visible = false;
+            }
+        }
+
+        // Don't use `frame.is_empty()` because even an empty frame can
+        // contribute width (if it had hidden content).
+        if !empty {
+            finalize_frame(&mut frame, x, ascent, descent);
+            items.push(MathParItem::Frame(frame));
+        }
+
+        items
     }
 }
 

@@ -36,6 +36,7 @@ use ttf_parser::Rect;
 
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
+use crate::foundations::Packed;
 use crate::foundations::{
     cast, category, elem, Args, Array, Cast, Category, Construct, Content, Dict, Fold,
     NativeElement, Never, PlainText, Repr, Resolve, Scope, Set, Smart, StyleChain, Value,
@@ -85,7 +86,7 @@ pub(super) fn define(global: &mut Scope) {
 ///   With a function call.
 /// ])
 /// ```
-#[elem(Construct, PlainText, Repr)]
+#[elem(Debug, Construct, PlainText, Repr)]
 pub struct TextElem {
     /// A font family name or priority list of font family names.
     ///
@@ -656,6 +657,12 @@ impl TextElem {
     }
 }
 
+impl Debug for TextElem {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Text({})", self.text)
+    }
+}
+
 impl Repr for TextElem {
     fn repr(&self) -> EcoString {
         eco_format!("[{}]", self.text)
@@ -673,7 +680,7 @@ impl Construct for TextElem {
     }
 }
 
-impl PlainText for TextElem {
+impl PlainText for Packed<TextElem> {
     fn plain_text(&self, text: &mut EcoString) {
         text.push_str(self.text());
     }

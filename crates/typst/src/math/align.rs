@@ -1,5 +1,5 @@
 use crate::diag::SourceResult;
-use crate::foundations::elem;
+use crate::foundations::{elem, Packed, StyleChain};
 use crate::layout::Abs;
 use crate::math::{LayoutMath, MathContext, MathFragment, MathRow};
 
@@ -7,9 +7,8 @@ use crate::math::{LayoutMath, MathContext, MathFragment, MathRow};
 #[elem(title = "Alignment Point", LayoutMath)]
 pub struct AlignPointElem {}
 
-impl LayoutMath for AlignPointElem {
-    #[tracing::instrument(skip(ctx))]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+impl LayoutMath for Packed<AlignPointElem> {
+    fn layout_math(&self, ctx: &mut MathContext, _: StyleChain) -> SourceResult<()> {
         ctx.push(MathFragment::Align);
         Ok(())
     }

@@ -95,7 +95,7 @@ pub fn define(global: &mut Scope) {
     global.define_type::<Rel<Length>>();
     global.define_type::<Fr>();
     global.define_type::<Dir>();
-    global.define_type::<Align>();
+    global.define_type::<Alignment>();
     global.define_elem::<PageElem>();
     global.define_elem::<PagebreakElem>();
     global.define_elem::<VElem>();
@@ -120,7 +120,7 @@ pub fn define(global: &mut Scope) {
 
 /// Root-level layout.
 pub trait LayoutRoot {
-    /// Layout into one frame per page.
+    /// Layout into a document with one frame per page.
     fn layout_root(
         &self,
         engine: &mut Engine,
@@ -128,8 +128,8 @@ pub trait LayoutRoot {
     ) -> SourceResult<Document>;
 }
 
-/// Layout into regions.
-pub trait Layout {
+/// Layout into multiple regions.
+pub trait LayoutMultiple {
     /// Layout into one frame per region.
     fn layout(
         &self,
@@ -142,7 +142,6 @@ pub trait Layout {
     ///
     /// This element must be layouted again in the same order for the results to
     /// be valid.
-    #[tracing::instrument(name = "Layout::measure", skip_all)]
     fn measure(
         &self,
         engine: &mut Engine,
@@ -161,8 +160,18 @@ pub trait Layout {
     }
 }
 
+/// Layout into a single region.
+pub trait LayoutSingle {
+    /// Layout into one frame per region.
+    fn layout(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<Frame>;
+}
+
 impl LayoutRoot for Content {
-    #[tracing::instrument(name = "Content::layout_root", skip_all)]
     fn layout_root(
         &self,
         engine: &mut Engine,
@@ -187,15 +196,11 @@ impl LayoutRoot for Content {
                 tracer,
             };
             let scratch = Scratch::default();
-            let (realized, styles) =
+            let (document, styles) =
                 realize_root(&mut engine, &scratch, content, styles)?;
-            realized
-                .with::<dyn LayoutRoot>()
-                .unwrap()
-                .layout_root(&mut engine, styles)
+            document.layout_root(&mut engine, styles)
         }
 
-        tracing::info!("Starting layout");
         cached(
             self,
             engine.world,
@@ -208,8 +213,7 @@ impl LayoutRoot for Content {
     }
 }
 
-impl Layout for Content {
-    #[tracing::instrument(name = "Content::layout", skip_all)]
+impl LayoutMultiple for Content {
     fn layout(
         &self,
         engine: &mut Engine,
@@ -247,13 +251,12 @@ impl Layout for Content {
             let scratch = Scratch::default();
             let (realized, styles) =
                 realize_block(&mut engine, &scratch, content, styles)?;
-            realized
-                .with::<dyn Layout>()
-                .unwrap()
-                .layout(&mut engine, styles, regions)
+            realized.with::<dyn LayoutMultiple>().unwrap().layout(
+                &mut engine,
+                styles,
+                regions,
+            )
         }
-
-        tracing::info!("Layouting `Content`");
 
         let fragment = cached(
             self,

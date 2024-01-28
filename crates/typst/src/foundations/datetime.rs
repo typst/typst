@@ -111,7 +111,7 @@ use crate::World;
 /// will be stored as a plain date internally, meaning that you cannot use
 /// components such as `hour` or `minute`, which would only work on datetimes
 /// that have a specified time.
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 pub enum Datetime {
     /// Representation as a date.

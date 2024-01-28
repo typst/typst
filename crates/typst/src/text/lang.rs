@@ -14,6 +14,7 @@ impl Lang {
     pub const ALBANIAN: Self = Self(*b"sq ", 2);
     pub const ARABIC: Self = Self(*b"ar ", 2);
     pub const BOKMÅL: Self = Self(*b"nb ", 2);
+    pub const CATALAN: Self = Self(*b"ca ", 2);
     pub const CHINESE: Self = Self(*b"zh ", 2);
     pub const CZECH: Self = Self(*b"cs ", 2);
     pub const DANISH: Self = Self(*b"da ", 2);
@@ -31,6 +32,7 @@ impl Lang {
     pub const POLISH: Self = Self(*b"pl ", 2);
     pub const PORTUGUESE: Self = Self(*b"pt ", 2);
     pub const RUSSIAN: Self = Self(*b"ru ", 2);
+    pub const SERBIAN: Self = Self(*b"sr ", 2);
     pub const SLOVENIAN: Self = Self(*b"sl ", 2);
     pub const SPANISH: Self = Self(*b"es ", 2);
     pub const SWEDISH: Self = Self(*b"sv ", 2);

@@ -41,7 +41,6 @@ impl FlowEvent {
 impl Eval for ast::Conditional<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "Conditional::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let condition = self.condition();
         if condition.eval(vm)?.cast::<bool>().at(condition.span())? {
@@ -57,7 +56,7 @@ impl Eval for ast::Conditional<'_> {
 impl Eval for ast::WhileLoop<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "WhileLoop::eval", skip_all)]
+    #[typst_macros::time(name = "while loop", span = self.span())]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let flow = vm.flow.take();
         let mut output = Value::None;
@@ -103,7 +102,7 @@ impl Eval for ast::WhileLoop<'_> {
 impl Eval for ast::ForLoop<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "ForLoop::eval", skip_all)]
+    #[typst_macros::time(name = "for loop", span = self.span())]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let flow = vm.flow.take();
         let mut output = Value::None;
@@ -170,7 +169,6 @@ impl Eval for ast::ForLoop<'_> {
 impl Eval for ast::LoopBreak<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "LoopBreak::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         if vm.flow.is_none() {
             vm.flow = Some(FlowEvent::Break(self.span()));
@@ -182,7 +180,6 @@ impl Eval for ast::LoopBreak<'_> {
 impl Eval for ast::LoopContinue<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "LoopContinue::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         if vm.flow.is_none() {
             vm.flow = Some(FlowEvent::Continue(self.span()));
@@ -194,7 +191,6 @@ impl Eval for ast::LoopContinue<'_> {
 impl Eval for ast::FuncReturn<'_> {
     type Output = Value;
 
-    #[tracing::instrument(name = "FuncReturn::eval", skip_all)]
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = self.body().map(|body| body.eval(vm)).transpose()?;
         if vm.flow.is_none() {

@@ -1,9 +1,9 @@
 use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{
-    elem, Behave, Behaviour, Content, NativeElement, Smart, StyleChain,
+use crate::foundations::{elem, Behave, Behaviour, Content, Packed, Smart, StyleChain};
+use crate::layout::{
+    Alignment, Axes, Em, Fragment, LayoutMultiple, Length, Regions, Rel, VAlignment,
 };
-use crate::layout::{Align, Axes, Em, Fragment, Layout, Length, Regions, Rel, VAlign};
 
 /// Places content at an absolute position.
 ///
@@ -25,7 +25,7 @@ use crate::layout::{Align, Axes, Em, Fragment, Layout, Length, Regions, Rel, VAl
 ///   ),
 /// )
 /// ```
-#[elem(Layout, Behave)]
+#[elem(Behave)]
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
     ///
@@ -36,8 +36,8 @@ pub struct PlaceElem {
     /// that axis will be ignored, instead, the item will be placed in the
     /// origin of the axis.
     #[positional]
-    #[default(Smart::Custom(Align::START))]
-    pub alignment: Smart<Align>,
+    #[default(Smart::Custom(Alignment::START))]
+    pub alignment: Smart<Alignment>,
 
     /// Whether the placed element has floating layout.
     ///
@@ -86,9 +86,9 @@ pub struct PlaceElem {
     pub body: Content,
 }
 
-impl Layout for PlaceElem {
-    #[tracing::instrument(name = "PlaceElem::layout", skip_all)]
-    fn layout(
+impl Packed<PlaceElem> {
+    #[typst_macros::time(name = "place", span = self.span())]
+    pub fn layout(
         &self,
         engine: &mut Engine,
         styles: StyleChain,
@@ -101,8 +101,9 @@ impl Layout for PlaceElem {
         let alignment = self.alignment(styles);
 
         if float
-            && alignment
-                .map_or(false, |align| matches!(align.y(), None | Some(VAlign::Horizon)))
+            && alignment.map_or(false, |align| {
+                matches!(align.y(), None | Some(VAlignment::Horizon))
+            })
         {
             bail!(self.span(), "floating placement must be `auto`, `top`, or `bottom`");
         } else if !float && alignment.is_auto() {
@@ -114,7 +115,7 @@ impl Layout for PlaceElem {
         let child = self
             .body()
             .clone()
-            .aligned(alignment.unwrap_or_else(|| Align::CENTER));
+            .aligned(alignment.unwrap_or_else(|| Alignment::CENTER));
 
         let pod = Regions::one(base, Axes::splat(false));
         let frame = child.layout(engine, styles, pod)?.into_frame();
@@ -122,7 +123,7 @@ impl Layout for PlaceElem {
     }
 }
 
-impl Behave for PlaceElem {
+impl Behave for Packed<PlaceElem> {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Ignorant
     }

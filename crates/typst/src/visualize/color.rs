@@ -19,13 +19,13 @@ use crate::layout::{Angle, Ratio};
 use crate::syntax::{Span, Spanned};
 
 // Type aliases for `palette` internal types in f32.
-pub(crate) type Oklab = palette::oklab::Oklaba<f32>;
-pub(crate) type Oklch = palette::oklch::Oklcha<f32>;
-pub(crate) type LinearRgb = palette::rgb::Rgba<Linear<encoding::Srgb>, f32>;
-pub(crate) type Rgb = palette::rgb::Rgba<encoding::Srgb, f32>;
-pub(crate) type Hsl = palette::hsl::Hsla<encoding::Srgb, f32>;
-pub(crate) type Hsv = palette::hsv::Hsva<encoding::Srgb, f32>;
-pub(crate) type Luma = palette::luma::Luma<encoding::Srgb, f32>;
+pub type Oklab = palette::oklab::Oklaba<f32>;
+pub type Oklch = palette::oklch::Oklcha<f32>;
+pub type LinearRgb = palette::rgb::Rgba<Linear<encoding::Srgb>, f32>;
+pub type Rgb = palette::rgb::Rgba<encoding::Srgb, f32>;
+pub type Hsl = palette::hsl::Hsla<encoding::Srgb, f32>;
+pub type Hsv = palette::hsv::Hsva<encoding::Srgb, f32>;
+pub type Luma = palette::luma::Luma<encoding::Srgb, f32>;
 
 /// Equivalent of [`std::f32::EPSILON`] but for hue angles.
 const ANGLE_EPSILON: f32 = 1e-5;
@@ -163,7 +163,7 @@ const ANGLE_EPSILON: f32 = 1e-5;
 ///   )
 /// }))
 /// ```
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Copy, Clone)]
 pub enum Color {
     /// A 32-bit luma color.
@@ -510,7 +510,7 @@ impl Color {
     /// to RGB for display preview might differ from how your printer reproduces
     /// the color.
     ///
-    /// An HSL color is represented internally by an array of four components:
+    /// A CMYK color is represented internally by an array of four components:
     /// - cyan ([`ratio`]($ratio))
     /// - magenta ([`ratio`]($ratio))
     /// - yellow ([`ratio`]($ratio))
@@ -1173,7 +1173,6 @@ impl Color {
     }
 
     /// Converts a 32-bit integer to an RGBA color.
-    #[inline]
     pub fn from_u32(color: u32) -> Self {
         Self::from_u8(
             ((color >> 24) & 0xFF) as u8,

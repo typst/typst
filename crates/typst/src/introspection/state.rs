@@ -5,10 +5,11 @@ use crate::diag::SourceResult;
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{
-    cast, elem, func, scope, select_where, ty, Content, Func, NativeElement, Repr,
-    Selector, Show, Str, StyleChain, Value,
+    cast, elem, func, scope, select_where, ty, Content, Func, NativeElement, Packed,
+    Repr, Selector, Show, Str, StyleChain, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location, Locator};
+use crate::syntax::Span;
 use crate::World;
 
 /// Manages stateful parts of your document.
@@ -236,7 +237,7 @@ impl State {
         let mut stops = eco_vec![state.clone()];
 
         for elem in introspector.query(&self.selector()) {
-            let elem = elem.to::<UpdateElem>().unwrap();
+            let elem = elem.to_packed::<UpdateElem>().unwrap();
             match elem.update() {
                 StateUpdate::Set(value) => state = value.clone(),
                 StateUpdate::Func(func) => state = func.call(&mut engine, [state])?,
@@ -271,13 +272,15 @@ impl State {
     #[func]
     pub fn display(
         self,
+        /// The span of the `display` call.
+        span: Span,
         /// A function which receives the value of the state and can return
         /// arbitrary content which is then displayed. If this is omitted, the
         /// value is directly displayed.
         #[default]
         func: Option<Func>,
     ) -> Content {
-        DisplayElem::new(self, func).pack()
+        DisplayElem::new(self, func).pack().spanned(span)
     }
 
     /// Update the value of the state.
@@ -291,12 +294,14 @@ impl State {
     #[func]
     pub fn update(
         self,
+        /// The span of the `update` call.
+        span: Span,
         /// If given a non function-value, sets the state to that value. If
         /// given a function, that function receives the previous state and has
         /// to return the new state.
         update: StateUpdate,
     ) -> Content {
-        UpdateElem::new(self.key, update).pack()
+        UpdateElem::new(self.key, update).pack().spanned(span)
     }
 
     /// Get the value of the state at the given location.
@@ -346,12 +351,8 @@ impl Repr for State {
     }
 }
 
-cast! {
-    type State,
-}
-
 /// An update to perform on a state.
-#[ty]
+#[ty(cast)]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum StateUpdate {
     /// Set the state to the specified value.
@@ -384,8 +385,8 @@ struct DisplayElem {
     func: Option<Func>,
 }
 
-impl Show for DisplayElem {
-    #[tracing::instrument(name = "DisplayElem::show", skip(self, engine))]
+impl Show for Packed<DisplayElem> {
+    #[typst_macros::time(name = "state.display", span = self.span())]
     fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(engine.delayed(|engine| {
             let location = self.location().unwrap();
@@ -410,8 +411,7 @@ struct UpdateElem {
     update: StateUpdate,
 }
 
-impl Show for UpdateElem {
-    #[tracing::instrument(name = "UpdateElem::show")]
+impl Show for Packed<UpdateElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }

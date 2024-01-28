@@ -12,15 +12,16 @@ use typst::diag::StrResult;
 use crate::args::CompileCommand;
 use crate::color_stream;
 use crate::compile::compile_once;
+use crate::timings::Timer;
 use crate::world::SystemWorld;
 
 /// Execute a watching compilation command.
-pub fn watch(mut command: CompileCommand) -> StrResult<()> {
+pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
     // Create the world that serves sources, files, and fonts.
     let mut world = SystemWorld::new(&command.common)?;
 
     // Perform initial compilation.
-    compile_once(&mut world, &mut command, true)?;
+    timer.record(&mut world, |world| compile_once(world, &mut command, true))??;
 
     // Setup file watching.
     let (tx, rx) = std::sync::mpsc::channel();
@@ -67,7 +68,9 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
             world.reset();
 
             // Recompile.
-            compile_once(&mut world, &mut command, true)?;
+            timer
+                .record(&mut world, |world| compile_once(world, &mut command, true))??;
+
             comemo::evict(10);
 
             // Adjust the file watching.
@@ -78,7 +81,6 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
 
 /// Adjust the file watching. Watches all new dependencies and unwatches
 /// all previously `watched` files that are no relevant anymore.
-#[tracing::instrument(skip_all)]
 fn watch_dependencies(
     world: &mut SystemWorld,
     watcher: &mut dyn Watcher,
@@ -95,7 +97,6 @@ fn watch_dependencies(
     // unfortunately, so we filter those out.
     for path in world.dependencies().filter(|path| path.exists()) {
         if !watched.contains_key(&path) {
-            tracing::info!("Watching {}", path.display());
             watcher
                 .watch(&path, RecursiveMode::NonRecursive)
                 .map_err(|err| eco_format!("failed to watch {path:?} ({err})"))?;
@@ -108,7 +109,6 @@ fn watch_dependencies(
     // Unwatch old paths that don't need to be watched anymore.
     watched.retain(|path, &mut seen| {
         if !seen {
-            tracing::info!("Unwatching {}", path.display());
             watcher.unwatch(path).ok();
         }
         seen

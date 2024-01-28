@@ -25,12 +25,11 @@ use std::fmt::{self, Debug, Formatter};
 use ecow::{eco_format, EcoString};
 use smallvec::SmallVec;
 
+use crate::foundations::Packed;
 use crate::foundations::{
-    cast, category, elem, ty, Behave, Behaviour, Category, Content, Repr, Scope,
-    Unlabellable,
+    category, elem, ty, Behave, Behaviour, Category, Content, Repr, Scope, Unlabellable,
 };
-use crate::layout::PdfPageLabel;
-use crate::model::{Destination, Numbering};
+use crate::model::Destination;
 
 /// Interactions between document parts.
 ///
@@ -58,13 +57,22 @@ pub fn define(global: &mut Scope) {
 pub struct MetaElem {
     /// Metadata that should be attached to all elements affected by this style
     /// property.
+    ///
+    /// This must be accessed and applied to all frames produced by elements
+    /// that manually handle styles (because their children can have varying
+    /// styles). This currently includes flow, par, and equation.
+    ///
+    /// Other elements don't manually need to handle it because their parents
+    /// that result from realization will take care of it and the metadata can
+    /// only apply to them as a whole, not part of it (because they don't manage
+    /// styles).
     #[fold]
     pub data: SmallVec<[Meta; 1]>,
 }
 
-impl Unlabellable for MetaElem {}
+impl Unlabellable for Packed<MetaElem> {}
 
-impl Behave for MetaElem {
+impl Behave for Packed<MetaElem> {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Invisible
     }
@@ -79,18 +87,10 @@ pub enum Meta {
     /// An identifiable element that produces something within the area this
     /// metadata is attached to.
     Elem(Content),
-    /// The numbering of the current page.
-    PageNumbering(Option<Numbering>),
-    /// A PDF page label of the current page.
-    PdfPageLabel(PdfPageLabel),
     /// Indicates that content should be hidden. This variant doesn't appear
     /// in the final frames as it is removed alongside the content that should
     /// be hidden.
     Hide,
-}
-
-cast! {
-    type Meta,
 }
 
 impl Debug for Meta {
@@ -98,8 +98,6 @@ impl Debug for Meta {
         match self {
             Self::Link(dest) => write!(f, "Link({dest:?})"),
             Self::Elem(content) => write!(f, "Elem({:?})", content.func()),
-            Self::PageNumbering(value) => write!(f, "PageNumbering({value:?})"),
-            Self::PdfPageLabel(label) => write!(f, "PdfPageLabel({label:?})"),
             Self::Hide => f.pad("Hide"),
         }
     }

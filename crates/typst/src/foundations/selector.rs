@@ -76,7 +76,7 @@ pub use crate::__select_where as select_where;
 /// == So will this
 /// === But this will not.
 /// ```
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Selector {
     /// Matches a specific type of element.
@@ -140,7 +140,7 @@ impl Selector {
             }
             Self::Label(label) => target.label() == Some(*label),
             Self::Regex(regex) => target
-                .to::<TextElem>()
+                .to_packed::<TextElem>()
                 .map_or(false, |elem| regex.is_match(elem.text())),
             Self::Can(cap) => target.func().can_type_id(*cap),
             Self::Or(selectors) => selectors.iter().any(move |sel| sel.matches(target)),

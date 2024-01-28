@@ -175,7 +175,7 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 ///   [`color.oklab`]($color.oklab) colors with extra stops in between. This
 ///   avoids needing to encode these color spaces in your PDF file, but it does
 ///   add extra stops to your gradient, which can increase the file size.
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Gradient {
     Linear(Arc<LinearGradient>),

@@ -7,7 +7,7 @@ use ecow::{eco_format, EcoString};
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{func, repr, scope, ty, Content, Smart, StyleChain};
-use crate::layout::{Abs, Axes, Frame, Layout, Length, Regions, Size};
+use crate::layout::{Abs, Axes, Frame, LayoutMultiple, Length, Regions, Size};
 use crate::syntax::{Span, Spanned};
 use crate::util::Numeric;
 use crate::visualize::RelativeTo;
@@ -95,7 +95,7 @@ use crate::World;
 ///   that are implicitly created by show rules and elements. For example, a
 ///   [`rotate`]($rotate) will not affect the parent of a gradient, but a
 ///   [`grid`]($grid) will.
-#[ty(scope)]
+#[ty(scope, cast)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Pattern(Arc<Repr>);
 

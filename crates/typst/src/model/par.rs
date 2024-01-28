@@ -1,9 +1,11 @@
+use std::fmt::{self, Debug, Formatter};
+
 use comemo::Prehashed;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Args, Cast, Construct, Content, NativeElement, Set, Smart, StyleChain,
+    elem, Args, Cast, Construct, Content, NativeElement, Packed, Set, Smart, StyleChain,
     Unlabellable,
 };
 use crate::layout::{Em, Fragment, Length, Size};
@@ -33,7 +35,7 @@ use crate::layout::{Em, Fragment, Length, Size};
 /// let $a$ be the smallest of the
 /// three integers. Then, we ...
 /// ```
-#[elem(title = "Paragraph", Construct)]
+#[elem(title = "Paragraph", Debug, Construct)]
 pub struct ParElem {
     /// The spacing between lines.
     #[resolve]
@@ -122,9 +124,9 @@ impl Construct for ParElem {
     }
 }
 
-impl ParElem {
+impl Packed<ParElem> {
     /// Layout the paragraph into a collection of lines.
-    #[tracing::instrument(name = "ParElement::layout", skip_all)]
+    #[typst_macros::time(name = "par", span = self.span())]
     pub fn layout(
         &self,
         engine: &mut Engine,
@@ -141,6 +143,13 @@ impl ParElem {
             region,
             expand,
         )
+    }
+}
+
+impl Debug for ParElem {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Par ")?;
+        f.debug_list().entries(&self.children).finish()
     }
 }
 
@@ -177,4 +186,4 @@ pub enum Linebreaks {
 #[elem(title = "Paragraph Break", Unlabellable)]
 pub struct ParbreakElem {}
 
-impl Unlabellable for ParbreakElem {}
+impl Unlabellable for Packed<ParbreakElem> {}

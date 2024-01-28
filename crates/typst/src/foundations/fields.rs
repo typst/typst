@@ -4,7 +4,7 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
 use crate::foundations::{IntoValue, Type, Value, Version};
-use crate::layout::{Align, Length, Rel};
+use crate::layout::{Alignment, Length, Rel};
 use crate::visualize::Stroke;
 
 /// Try to access a field on a value.
@@ -37,15 +37,15 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
                 match field {
                     "paint" => stroke.paint.clone().into_value(),
                     "thickness" => stroke.thickness.into_value(),
-                    "cap" => stroke.line_cap.into_value(),
-                    "join" => stroke.line_join.into_value(),
-                    "dash" => stroke.dash_pattern.clone().into_value(),
+                    "cap" => stroke.cap.into_value(),
+                    "join" => stroke.join.into_value(),
+                    "dash" => stroke.dash.clone().into_value(),
                     "miter-limit" => {
                         stroke.miter_limit.map(|limit| limit.get()).into_value()
                     }
                     _ => return missing(),
                 }
-            } else if let Some(align) = dynamic.downcast::<Align>() {
+            } else if let Some(align) = dynamic.downcast::<Alignment>() {
                 match field {
                     "x" => align.x().into_value(),
                     "y" => align.y().into_value(),
@@ -83,7 +83,7 @@ pub fn fields_on(ty: Type) -> &'static [&'static str] {
         &["ratio", "length"]
     } else if ty == Type::of::<Stroke>() {
         &["paint", "thickness", "cap", "join", "dash", "miter-limit"]
-    } else if ty == Type::of::<Align>() {
+    } else if ty == Type::of::<Alignment>() {
         &["x", "y"]
     } else {
         &[]

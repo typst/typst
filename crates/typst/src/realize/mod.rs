@@ -13,13 +13,13 @@ use typed_arena::Arena;
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::foundations::{
-    Content, Finalize, Guard, NativeElement, Recipe, Selector, Show, StyleChain,
-    StyleVecBuilder, Styles, Synthesize,
+    Behave, Behaviour, Content, Finalize, Guard, NativeElement, Packed, Recipe, Selector,
+    Show, StyleChain, StyleVec, StyleVecBuilder, Styles, Synthesize,
 };
 use crate::introspection::{Locatable, Meta, MetaElem};
 use crate::layout::{
-    AlignElem, BlockElem, BoxElem, ColbreakElem, FlowElem, HElem, Layout, LayoutRoot,
-    PageElem, PagebreakElem, Parity, PlaceElem, VElem,
+    AlignElem, BlockElem, BoxElem, ColbreakElem, FlowElem, HElem, LayoutMultiple,
+    LayoutSingle, PageElem, PagebreakElem, Parity, PlaceElem, VElem,
 };
 use crate::math::{EquationElem, LayoutMath};
 use crate::model::{
@@ -29,32 +29,25 @@ use crate::model::{
 use crate::syntax::Span;
 use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 use crate::util::hash128;
-use crate::visualize::{
-    CircleElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem, RectElem,
-    SquareElem,
-};
 
 /// Realize into an element that is capable of root-level layout.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "realize root")]
 pub fn realize_root<'a>(
     engine: &mut Engine,
     scratch: &'a Scratch<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
-) -> SourceResult<(Cow<'a, Content>, StyleChain<'a>)> {
-    if content.can::<dyn LayoutRoot>() && !applicable(content, styles) {
-        return Ok((Cow::Borrowed(content), styles));
-    }
-
+) -> SourceResult<(Packed<DocumentElem>, StyleChain<'a>)> {
     let mut builder = Builder::new(engine, scratch, true);
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles), true)?;
     let (pages, shared) = builder.doc.unwrap().pages.finish();
-    Ok((Cow::Owned(DocumentElem::new(pages.to_vec()).pack()), shared))
+    let span = first_span(&pages);
+    Ok((Packed::new(DocumentElem::new(pages.to_vec())).spanned(span), shared))
 }
 
 /// Realize into an element that is capable of block-level layout.
-#[tracing::instrument(skip_all)]
+#[typst_macros::time(name = "realize block")]
 pub fn realize_block<'a>(
     engine: &mut Engine,
     scratch: &'a Scratch<'a>,
@@ -63,36 +56,22 @@ pub fn realize_block<'a>(
 ) -> SourceResult<(Cow<'a, Content>, StyleChain<'a>)> {
     // These elements implement `Layout` but still require a flow for
     // proper layout.
-    if content.can::<dyn Layout>()
-        && !content.is::<BoxElem>()
-        && !content.is::<LineElem>()
-        && !content.is::<RectElem>()
-        && !content.is::<SquareElem>()
-        && !content.is::<EllipseElem>()
-        && !content.is::<CircleElem>()
-        && !content.is::<ImageElem>()
-        && !content.is::<PolygonElem>()
-        && !content.is::<PathElem>()
-        && !content.is::<PlaceElem>()
-        && !applicable(content, styles)
-    {
+    if content.can::<dyn LayoutMultiple>() && !applicable(content, styles) {
         return Ok((Cow::Borrowed(content), styles));
     }
 
     let mut builder = Builder::new(engine, scratch, false);
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
+
     let (children, shared) = builder.flow.0.finish();
-    Ok((Cow::Owned(FlowElem::new(children.to_vec()).pack()), shared))
+    let span = first_span(&children);
+    Ok((Cow::Owned(FlowElem::new(children.to_vec()).pack().spanned(span)), shared))
 }
 
 /// Whether the target is affected by show rules in the given style chain.
 pub fn applicable(target: &Content, styles: StyleChain) -> bool {
-    if target.needs_preparation() {
-        return true;
-    }
-
-    if target.can::<dyn Show>() && target.is_pristine() {
+    if target.needs_preparation() || target.can::<dyn Show>() {
         return true;
     }
 
@@ -101,7 +80,7 @@ pub fn applicable(target: &Content, styles: StyleChain) -> bool {
 
     // Find out whether any recipe matches and is unguarded.
     for recipe in styles.recipes() {
-        if recipe.applicable(target) && !target.is_guarded(Guard::Nth(n)) {
+        if !target.is_guarded(Guard(n)) && recipe.applicable(target) {
             return true;
         }
         n -= 1;
@@ -124,58 +103,50 @@ pub fn realize(
             elem.set_location(location);
         }
 
-        if let Some(elem) = elem.with_mut::<dyn Synthesize>() {
-            elem.synthesize(engine, styles)?;
+        if let Some(synthesizable) = elem.with_mut::<dyn Synthesize>() {
+            synthesizable.synthesize(engine, styles)?;
         }
 
         elem.mark_prepared();
 
-        if elem.location().is_some() {
-            let span = elem.span();
-            let meta = Meta::Elem(elem.clone());
-            return Ok(Some(
-                (elem + MetaElem::new().spanned(span).pack())
-                    .styled(MetaElem::set_data(smallvec![meta])),
-            ));
+        let span = elem.span();
+        let meta = elem.location().is_some().then(|| Meta::Elem(elem.clone()));
+
+        let mut content = elem;
+        if let Some(finalizable) = target.with::<dyn Finalize>() {
+            content = finalizable.finalize(content, styles);
         }
 
-        return Ok(Some(elem));
+        if let Some(meta) = meta {
+            return Ok(Some(
+                (content + MetaElem::new().pack().spanned(span))
+                    .styled(MetaElem::set_data(smallvec![meta])),
+            ));
+        } else {
+            return Ok(Some(content));
+        }
     }
 
     // Find out how many recipes there are.
     let mut n = styles.recipes().count();
 
-    // Find an applicable recipe.
-    let mut realized = None;
+    // Find an applicable show rule recipe.
     for recipe in styles.recipes() {
-        let guard = Guard::Nth(n);
-        if recipe.applicable(target) && !target.is_guarded(guard) {
+        let guard = Guard(n);
+        if !target.is_guarded(guard) && recipe.applicable(target) {
             if let Some(content) = try_apply(engine, target, recipe, guard)? {
-                realized = Some(content);
-                break;
+                return Ok(Some(content));
             }
         }
         n -= 1;
     }
 
-    // Realize if there was no matching recipe.
+    // Apply the built-in show rule if there was no matching recipe.
     if let Some(showable) = target.with::<dyn Show>() {
-        let guard = Guard::Base(target.func());
-        if realized.is_none() && !target.is_guarded(guard) {
-            realized = Some(showable.show(engine, styles)?);
-        }
+        return Ok(Some(showable.show(engine, styles)?));
     }
 
-    // Finalize only if this is the first application for this element.
-    if let Some(elem) = target.with::<dyn Finalize>() {
-        if target.is_pristine() {
-            if let Some(already) = realized {
-                realized = Some(elem.finalize(already, styles));
-            }
-        }
-    }
-
-    Ok(realized)
+    Ok(None)
 }
 
 /// Try to apply a recipe to the target.
@@ -203,7 +174,7 @@ fn try_apply(
         }
 
         Some(Selector::Regex(regex)) => {
-            let Some(elem) = target.to::<TextElem>() else {
+            let Some(elem) = target.to_packed::<TextElem>() else {
                 return Ok(None);
             };
 
@@ -301,8 +272,10 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
         if content.can::<dyn LayoutMath>() && !content.is::<EquationElem>() {
-            content =
-                self.scratch.content.alloc(EquationElem::new(content.clone()).pack());
+            content = self
+                .scratch
+                .content
+                .alloc(EquationElem::new(content.clone()).pack().spanned(content.span()));
         }
 
         if let Some(realized) = realize(self.engine, content, styles)? {
@@ -358,7 +331,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         }
 
         let keep = content
-            .to::<PagebreakElem>()
+            .to_packed::<PagebreakElem>()
             .map_or(false, |pagebreak| !pagebreak.weak(styles));
 
         self.interrupt_page(keep.then_some(styles), false)?;
@@ -470,14 +443,16 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         self.interrupt_par()?;
         let Some(doc) = &mut self.doc else { return Ok(()) };
         if (doc.keep_next && styles.is_some()) || self.flow.0.has_strong_elements(last) {
-            let (flow, shared) = mem::take(&mut self.flow).0.finish();
+            let (children, shared) = mem::take(&mut self.flow).0.finish();
             let styles = if shared == StyleChain::default() {
                 styles.unwrap_or_default()
             } else {
                 shared
             };
-            let page = PageElem::new(FlowElem::new(flow.to_vec()).pack());
-            let stored = self.scratch.content.alloc(page.pack());
+            let span = first_span(&children);
+            let flow = FlowElem::new(children.to_vec());
+            let page = PageElem::new(flow.pack().spanned(span));
+            let stored = self.scratch.content.alloc(page.pack().spanned(span));
             self.accept(stored, styles)?;
         }
         Ok(())
@@ -496,13 +471,13 @@ struct DocBuilder<'a> {
 
 impl<'a> DocBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
-        if let Some(pagebreak) = content.to::<PagebreakElem>() {
+        if let Some(pagebreak) = content.to_packed::<PagebreakElem>() {
             self.keep_next = !pagebreak.weak(styles);
             self.clear_next = pagebreak.to(styles);
             return true;
         }
 
-        if let Some(page) = content.to::<PageElem>() {
+        if let Some(page) = content.to_packed::<PageElem>() {
             let elem = if let Some(clear_to) = self.clear_next.take() {
                 let mut page = page.clone();
                 page.push_clear_to(Some(clear_to));
@@ -553,12 +528,15 @@ impl<'a> FlowBuilder<'a> {
             return true;
         }
 
-        if content.can::<dyn Layout>() || content.is::<ParElem>() {
-            let is_tight_list = if let Some(elem) = content.to::<ListElem>() {
+        if content.can::<dyn LayoutSingle>()
+            || content.can::<dyn LayoutMultiple>()
+            || content.is::<ParElem>()
+        {
+            let is_tight_list = if let Some(elem) = content.to_packed::<ListElem>() {
                 elem.tight(styles)
-            } else if let Some(elem) = content.to::<EnumElem>() {
+            } else if let Some(elem) = content.to_packed::<EnumElem>() {
                 elem.tight(styles)
-            } else if let Some(elem) = content.to::<TermsElem>() {
+            } else if let Some(elem) = content.to_packed::<TermsElem>() {
                 elem.tight(styles)
             } else {
                 false
@@ -570,7 +548,7 @@ impl<'a> FlowBuilder<'a> {
                 self.0.push(Cow::Owned(spacing.pack()), styles);
             }
 
-            let (above, below) = if let Some(block) = content.to::<BlockElem>() {
+            let (above, below) = if let Some(block) = content.to_packed::<BlockElem>() {
                 (block.above(styles), block.below(styles))
             } else {
                 (BlockElem::above_in(styles), BlockElem::below_in(styles))
@@ -602,7 +580,9 @@ impl<'a> ParBuilder<'a> {
             || content.is::<HElem>()
             || content.is::<LinebreakElem>()
             || content.is::<SmartQuoteElem>()
-            || content.to::<EquationElem>().map_or(false, |elem| !elem.block(styles))
+            || content
+                .to_packed::<EquationElem>()
+                .map_or(false, |elem| !elem.block(styles))
             || content.is::<BoxElem>()
         {
             self.0.push(Cow::Borrowed(content), styles);
@@ -614,15 +594,8 @@ impl<'a> ParBuilder<'a> {
 
     fn finish(self) -> (Content, StyleChain<'a>) {
         let (children, shared) = self.0.finish();
-
-        // Find the first span that isn't detached.
-        let span = children
-            .iter()
-            .map(|(cnt, _)| cnt.span())
-            .find(|span| !span.is_detached())
-            .unwrap_or_else(Span::detached);
-
-        (ParElem::new(children.to_vec()).spanned(span).pack(), shared)
+        let span = first_span(&children);
+        (ParElem::new(children.to_vec()).pack().spanned(span), shared)
     }
 }
 
@@ -664,49 +637,56 @@ impl<'a> ListBuilder<'a> {
 
     fn finish(self) -> (Content, StyleChain<'a>) {
         let (items, shared) = self.items.finish();
+        let span = first_span(&items);
         let item = items.items().next().unwrap();
         let output = if item.is::<ListItem>() {
             ListElem::new(
                 items
                     .iter()
                     .map(|(item, local)| {
-                        let item = item.to::<ListItem>().unwrap();
-                        item.clone()
-                            .with_body(item.body().clone().styled_with_map(local.clone()))
+                        let mut item = item.to_packed::<ListItem>().unwrap().clone();
+                        let body = item.body().clone().styled_with_map(local.clone());
+                        item.push_body(body);
+                        item
                     })
                     .collect::<Vec<_>>(),
             )
             .with_tight(self.tight)
             .pack()
+            .spanned(span)
         } else if item.is::<EnumItem>() {
             EnumElem::new(
                 items
                     .iter()
                     .map(|(item, local)| {
-                        let item = item.to::<EnumItem>().unwrap();
-                        item.clone()
-                            .with_body(item.body().clone().styled_with_map(local.clone()))
+                        let mut item = item.to_packed::<EnumItem>().unwrap().clone();
+                        let body = item.body().clone().styled_with_map(local.clone());
+                        item.push_body(body);
+                        item
                     })
                     .collect::<Vec<_>>(),
             )
             .with_tight(self.tight)
             .pack()
+            .spanned(span)
         } else if item.is::<TermItem>() {
             TermsElem::new(
                 items
                     .iter()
                     .map(|(item, local)| {
-                        let item = item.to::<TermItem>().unwrap();
-                        item.clone()
-                            .with_term(item.term().clone().styled_with_map(local.clone()))
-                            .with_description(
-                                item.description().clone().styled_with_map(local.clone()),
-                            )
+                        let mut item = item.to_packed::<TermItem>().unwrap().clone();
+                        let term = item.term().clone().styled_with_map(local.clone());
+                        let description =
+                            item.description().clone().styled_with_map(local.clone());
+                        item.push_term(term);
+                        item.push_description(description);
+                        item
                     })
                     .collect::<Vec<_>>(),
             )
             .with_tight(self.tight)
             .pack()
+            .spanned(span)
         } else {
             unreachable!()
         };
@@ -730,7 +710,7 @@ struct CiteGroupBuilder<'a> {
     /// The styles.
     styles: StyleChain<'a>,
     /// The citations.
-    items: Vec<CiteElem>,
+    items: Vec<Packed<CiteElem>>,
     /// Trailing content for which it is unclear whether it is part of the list.
     staged: Vec<(&'a Content, StyleChain<'a>)>,
 }
@@ -744,7 +724,7 @@ impl<'a> CiteGroupBuilder<'a> {
             return true;
         }
 
-        if let Some(citation) = content.to::<CiteElem>() {
+        if let Some(citation) = content.to_packed::<CiteElem>() {
             if self.items.is_empty() {
                 self.styles = styles;
             }
@@ -758,6 +738,19 @@ impl<'a> CiteGroupBuilder<'a> {
 
     fn finish(self) -> (Content, StyleChain<'a>) {
         let span = self.items.first().map(|cite| cite.span()).unwrap_or(Span::detached());
-        (CiteGroup::new(self.items).spanned(span).pack(), self.styles)
+        (CiteGroup::new(self.items).pack().spanned(span), self.styles)
     }
+}
+
+/// Find the first span that isn't detached.
+fn first_span(children: &StyleVec<Cow<Content>>) -> Span {
+    children
+        .iter()
+        .filter(|(elem, _)| {
+            elem.with::<dyn Behave>()
+                .map_or(true, |b| b.behaviour() != Behaviour::Invisible)
+        })
+        .map(|(elem, _)| elem.span())
+        .find(|span| !span.is_detached())
+        .unwrap_or_else(Span::detached)
 }

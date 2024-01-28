@@ -123,7 +123,7 @@ pub use typst_macros::func;
 /// The only exception are built-in methods like
 /// [`array.push(value)`]($array.push). These can modify the values they are
 /// called on.
-#[ty(scope, name = "function")]
+#[ty(scope, cast, name = "function")]
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Func {
@@ -250,19 +250,13 @@ impl Func {
     }
 
     /// Call the function with the given arguments.
-    #[tracing::instrument(skip_all)]
     pub fn call(&self, engine: &mut Engine, args: impl IntoArgs) -> SourceResult<Value> {
         self.call_impl(engine, args.into_args(self.span))
     }
 
     /// Non-generic implementation of `call`.
+    #[typst_macros::time(name = "func call", span = self.span())]
     fn call_impl(&self, engine: &mut Engine, mut args: Args) -> SourceResult<Value> {
-        let _span = tracing::info_span!(
-            "call",
-            name = self.name().unwrap_or("<anon>"),
-            file = 0,
-        );
-
         match &self.repr {
             Repr::Native(native) => {
                 let value = (native.function)(engine, &mut args)?;
@@ -317,7 +311,7 @@ impl Func {
         /// The arguments to apply to the function.
         #[external]
         #[variadic]
-        arguments: Vec<Args>,
+        arguments: Vec<Value>,
     ) -> Func {
         let span = self.span;
         Self {
@@ -337,7 +331,7 @@ impl Func {
         /// The fields to filter for.
         #[variadic]
         #[external]
-        fields: Vec<Args>,
+        fields: Vec<Value>,
     ) -> StrResult<Selector> {
         let fields = args.to_named();
         args.items.retain(|arg| arg.name.is_none());
