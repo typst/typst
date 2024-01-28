@@ -292,7 +292,6 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     catalog.finish();
 }
 
-#[tracing::instrument(skip_all)]
 fn write_and_collect_destinations<'a>(
     ctx: &mut PdfContext,
 ) -> Vec<(Str<'a>, Ref, Ref, f32, f32)> {
