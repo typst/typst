@@ -1814,12 +1814,31 @@ impl<'a> GridLayouter<'a> {
             // calculation.
             if rowspan > 1 {
                 let last_spanned_row = parent_y + rowspan - 1;
+                // Consider already covered height for rows from previous
+                // regions...
                 let mut already_covered_height: Abs = self
                     .rrows
                     .iter()
                     .flatten()
                     .filter(|row| (parent_y..last_spanned_row).contains(&row.y))
                     .map(|row| row.height)
+                    .sum();
+
+                // ...and for rows from the current region.
+                already_covered_height += self
+                    .lrows
+                    .iter()
+                    .chain(self.unbreakable_row_group.iter())
+                    .filter_map(|row| match row {
+                        Row::Frame(frame, y)
+                            if (parent_y..last_spanned_row).contains(y) =>
+                        {
+                            Some(frame.height())
+                        }
+                        // Either we have a row outside of the rowspan, or a
+                        // fractional row, whose size we can't really guess.
+                        _ => None,
+                    })
                     .sum();
 
                 // Remove frames which were already covered by previous rows
