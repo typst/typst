@@ -26,7 +26,7 @@ macro_rules! __select_where {
         let mut fields = ::smallvec::SmallVec::new();
         $(
             fields.push((
-                <$ty as $crate::foundations::ElementFields>::Fields::$field as u8,
+                <$ty as $crate::foundations::Fields>::Enum::$field as u8,
                 $crate::foundations::IntoValue::into_value($value),
             ));
         )*

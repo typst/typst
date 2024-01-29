@@ -41,7 +41,7 @@
 }
 
 ---
-#set text(lang: "jp", font: ("Linux Libertine", "Noto Serif CJK JP"))
+#set text(lang: "ja", font: ("Linux Libertine", "Noto Serif CJK JP"))
 #for i in range(0, 4) {
   numbering("イ", i)
   [ (or ]
