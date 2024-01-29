@@ -20,7 +20,4 @@
 
 ---
 #block(outset: (:), [Hi]) // Ok
-
----
-// Error: 14-17 unexpectedly empty
-#box(radius: (:), [Hi])
+#box(radius: (:), [Hi]) // Ok

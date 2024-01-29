@@ -138,7 +138,7 @@ impl Dict {
         };
 
         let mut msg = String::from(match unexpected.len() {
-            0 => "unexpectedly empty",
+            0 => unreachable!(),
             1 => "unexpected key ",
             _ => "unexpected keys ",
         });
