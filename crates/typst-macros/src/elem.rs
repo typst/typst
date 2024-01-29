@@ -33,29 +33,15 @@ struct Elem {
 
 impl Elem {
     /// Calls the closure to produce a token stream if the
-    /// element does not have the given capability.
-    fn unless_capability(
-        &self,
-        name: &str,
-        closure: impl FnOnce() -> TokenStream,
-    ) -> Option<TokenStream> {
-        self.capabilities
-            .iter()
-            .all(|capability| capability != name)
-            .then(closure)
+    /// element has the given capability.
+    fn can(&self, name: &str) -> bool {
+        self.capabilities.iter().any(|capability| capability == name)
     }
 
     /// Calls the closure to produce a token stream if the
-    /// element has the given capability.
-    fn if_capability(
-        &self,
-        name: &str,
-        closure: impl FnOnce() -> TokenStream,
-    ) -> Option<TokenStream> {
-        self.capabilities
-            .iter()
-            .any(|capability| capability == name)
-            .then(closure)
+    /// element does not have the given capability.
+    fn cannot(&self, name: &str) -> bool {
+        !self.can(name)
     }
 
     /// All fields.
@@ -296,6 +282,7 @@ fn create(element: &Elem) -> Result<TokenStream> {
     let settable = all.clone().filter(|field| !field.synthesized && field.settable());
 
     // The struct itself.
+    let derive_debug = element.cannot("Debug").then(|| quote! { #[derive(Debug)] });
     let fields = present.clone().map(create_field);
 
     // Inherent functions.
@@ -309,18 +296,16 @@ fn create(element: &Elem) -> Result<TokenStream> {
         settable.clone().map(|field| create_set_field_method(element, field));
 
     // Trait implementations.
+    let native_element_impl = create_native_elem_impl(element);
     let fields_impl = create_fields_impl(element);
     let capable_impl = create_capable_impl(element);
-    let native_element_impl = create_native_elem_impl(element);
     let construct_impl =
-        element.unless_capability("Construct", || create_construct_impl(element));
-    let set_impl = element.unless_capability("Set", || create_set_impl(element));
-    let locatable_impl =
-        element.if_capability("Locatable", || create_locatable_impl(element));
+        element.cannot("Construct").then(|| create_construct_impl(element));
+    let set_impl = element.cannot("Set").then(|| create_set_impl(element));
     let partial_eq_impl =
-        element.unless_capability("PartialEq", || create_partial_eq_impl(element));
-    let repr_impl = element.unless_capability("Repr", || create_repr_impl(element));
-    let derive_debug = element.unless_capability("Debug", || quote! { #[derive(Debug)] });
+        element.cannot("PartialEq").then(|| create_partial_eq_impl(element));
+    let repr_impl = element.cannot("Repr").then(|| create_repr_impl(element));
+    let locatable_impl = element.can("Locatable").then(|| create_locatable_impl(element));
 
     Ok(quote! {
         #[doc = #docs]
@@ -346,9 +331,9 @@ fn create(element: &Elem) -> Result<TokenStream> {
             #capable_impl
             #construct_impl
             #set_impl
-            #locatable_impl
             #partial_eq_impl
             #repr_impl
+            #locatable_impl
 
             impl #foundations::IntoValue for #ident {
                 fn into_value(self) -> #foundations::Value {
@@ -615,12 +600,11 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
         quote! { #foundations::Scope::new() }
     };
 
-    let local_name = element
-        .if_capability(
-            "LocalName",
-            || quote! { Some(<#foundations::Packed<#ident> as ::typst::text::LocalName>::local_name) },
-        )
-        .unwrap_or_else(|| quote! { None });
+    let local_name = if element.can("LocalName") {
+        quote! { Some(<#foundations::Packed<#ident> as ::typst::text::LocalName>::local_name) }
+    } else {
+        quote! { None }
+    };
 
     let data = quote! {
         #foundations::NativeElementData {
