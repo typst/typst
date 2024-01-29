@@ -658,11 +658,8 @@ cast! {
 }
 
 impl Fold for SyntaxPaths {
-    type Output = Self;
-
-    fn fold(mut self, outer: Self::Output) -> Self::Output {
-        self.0.extend(outer.0);
-        self
+    fn fold(self, outer: Self) -> Self {
+        Self(self.0.fold(outer.0))
     }
 }
 

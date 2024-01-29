@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
+use smallvec::{smallvec, SmallVec};
+
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, Packed, Smart, StyleChain,
-};
+use crate::foundations::{cast, elem, scope, Array, Content, Packed, Smart, StyleChain};
 use crate::layout::{
     Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
     LayoutMultiple, Length, Regions, Sizing, Spacing, VAlignment,
@@ -199,7 +199,7 @@ pub struct EnumElem {
     /// The numbers of parent items.
     #[internal]
     #[fold]
-    parents: Parent,
+    parents: SmallVec<[usize; 4]>,
 }
 
 #[scope]
@@ -229,6 +229,8 @@ impl LayoutMultiple for Packed<EnumElem> {
         let mut cells = vec![];
         let mut number = self.start(styles);
         let mut parents = self.parents(styles);
+        parents.reverse();
+
         let full = self.full(styles);
 
         // Horizontally align based on the given respective parameter.
@@ -263,7 +265,7 @@ impl LayoutMultiple for Packed<EnumElem> {
             cells.push(Cell::from(resolved));
             cells.push(Cell::from(Content::empty()));
             cells.push(Cell::from(
-                item.body().clone().styled(EnumElem::set_parents(Parent(number))),
+                item.body().clone().styled(EnumElem::set_parents(smallvec![number])),
             ));
             number = number.saturating_add(1);
         }
@@ -308,22 +310,4 @@ cast! {
         Self::new(body).with_number(number)
     },
     v: Content => v.unpack::<Self>().unwrap_or_else(Self::new),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Hash)]
-struct Parent(usize);
-
-cast! {
-    Parent,
-    self => self.0.into_value(),
-    v: usize => Self(v),
-}
-
-impl Fold for Parent {
-    type Output = Vec<usize>;
-
-    fn fold(self, mut outer: Self::Output) -> Self::Output {
-        outer.push(self.0);
-        outer
-    }
 }
