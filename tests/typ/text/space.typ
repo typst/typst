@@ -40,3 +40,14 @@ A#"\n" B
 ---
 // Test that trailing space does not force a line break.
 LLLLLLLLLLLLLLLLLL R _L_
+
+---
+// Test that ideographic spaces are preserved.
+#set text(lang: "ja", font: "Noto Serif CJK JP")
+
+だろうか？　何のために！　私は、
+
+---
+// Test that thin spaces are preserved.
+| | U+0020 regular space \
+| | U+2009 thin space
