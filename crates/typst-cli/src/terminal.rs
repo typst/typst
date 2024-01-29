@@ -64,7 +64,8 @@ impl TermOut {
             term_out.inner.active.store(false, Ordering::Release);
 
             // Wait for some time and if the application is still running, simply exit.
-            // Not exiting immediately allows file writes to complete.
+            // Not exiting immediately potentially allows destructors to run and file writes
+            // to complete.
             std::thread::sleep(MAX_TIME_TO_EXIT);
 
             // Leave alternate screen only after the timeout has expired.
