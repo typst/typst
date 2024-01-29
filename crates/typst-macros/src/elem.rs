@@ -744,7 +744,7 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
             }
         } else if field.inherent() || (field.synthesized && field.default.is_some()) {
             quote! {
-                #foundations::IntoValue::into_value(self.#field_ident.clone())
+                #foundations::IntoValue::into_value(self.#field_ident().clone())
             }
         } else if field.synthesized {
             quote! {

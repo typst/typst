@@ -61,13 +61,13 @@ Hello World!
 
 ---
 // Test that resolving is taken into account.
-#set enum(body-indent: 2em)
+#set line(start: (1em, 1em + 2pt))
 
-#[
-  #show enum.where(body-indent: 2em): "Trigger"
-  + A
-]
-#[
-  #show enum.where(body-indent: 20pt): "Trigger"
-  + A
-]
+#{
+  show line.where(start: (1em, 1em + 2pt)): "Trigger"
+  line()
+}
+#{
+  show line.where(start: (10pt, 12pt)): "Trigger"
+  line()
+}

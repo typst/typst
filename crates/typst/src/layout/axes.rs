@@ -283,18 +283,6 @@ impl BitAndAssign for Axes<bool> {
 }
 
 cast! {
-    Axes<Rel<Length>>,
-    self => array![self.x, self.y].into_value(),
-    array: Array => {
-        let mut iter = array.into_iter();
-        match (iter.next(), iter.next(), iter.next()) {
-            (Some(a), Some(b), None) => Axes::new(a.cast()?, b.cast()?),
-            _ => bail!("point array must contain exactly two entries"),
-        }
-    },
-}
-
-cast! {
     Axes<Ratio>,
     self => array![self.x, self.y].into_value(),
     array: Array => {
@@ -316,6 +304,28 @@ cast! {
             _ => bail!("length array must contain exactly two entries"),
         }
     },
+}
+
+cast! {
+    Axes<Rel<Length>>,
+    self => array![self.x, self.y].into_value(),
+    array: Array => {
+        let mut iter = array.into_iter();
+        match (iter.next(), iter.next(), iter.next()) {
+            (Some(a), Some(b), None) => Axes::new(a.cast()?, b.cast()?),
+            _ => bail!("point array must contain exactly two entries"),
+        }
+    },
+}
+
+cast! {
+    Axes<Abs>,
+    self => array![self.x, self.y].into_value(),
+}
+
+cast! {
+    Axes<Rel<Abs>>,
+    self => array![self.x, self.y].into_value(),
 }
 
 impl<T: Resolve> Resolve for Axes<T> {
