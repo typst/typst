@@ -201,7 +201,13 @@ fn parse(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
     let syn::Fields::Named(named) = &body.fields else {
         bail!(body, "expected named fields");
     };
-    let fields = named.named.iter().map(parse_field).collect::<Result<_>>()?;
+
+    let fields = named.named.iter().map(parse_field).collect::<Result<Vec<_>>>()?;
+    if fields.iter().any(|field| field.ghost)
+        && meta.capabilities.iter().all(|capability| capability != "Construct")
+    {
+        bail!(body.ident, "cannot have ghost fields and have `Construct` auto generated");
+    }
 
     Ok(Elem {
         name,
@@ -285,22 +291,14 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
 fn create(element: &Elem) -> Result<TokenStream> {
     let Elem { vis, ident, docs, .. } = element;
 
-    if element.fields.iter().any(|field| field.ghost)
-        && element
-            .capabilities
-            .iter()
-            .all(|capability| capability != "Construct")
-    {
-        bail!(ident, "cannot have ghost fields and have `Construct` auto generated");
-    }
-
     let all = element.real_fields();
     let present = element.present_fields();
     let settable = all.clone().filter(|field| !field.synthesized && field.settable());
 
+    // The struct itself.
     let fields = present.clone().map(create_field);
-    let fields_enum = create_fields_enum(element);
 
+    // Inherent functions.
     let new = create_new_func(element);
     let field_methods = all.clone().map(|field| create_field_method(element, field));
     let field_in_methods =
@@ -333,31 +331,31 @@ fn create(element: &Elem) -> Result<TokenStream> {
             #(#fields,)*
         }
 
-        #fields_enum
-
-        impl #ident {
-            #new
-            #(#field_methods)*
-            #(#field_in_methods)*
-            #(#with_field_methods)*
-            #(#push_field_methods)*
-            #(#field_style_methods)*
-        }
-
-        #native_element_impl
-        #fields_impl
-        #capable_impl
-        #construct_impl
-        #set_impl
-        #locatable_impl
-        #partial_eq_impl
-        #repr_impl
-
-        impl #foundations::IntoValue for #ident {
-            fn into_value(self) -> #foundations::Value {
-                #foundations::Value::Content(#foundations::Content::new(self))
+        const _: () = {
+            impl #ident {
+                #new
+                #(#field_methods)*
+                #(#field_in_methods)*
+                #(#with_field_methods)*
+                #(#push_field_methods)*
+                #(#field_style_methods)*
             }
-        }
+
+            #native_element_impl
+            #fields_impl
+            #capable_impl
+            #construct_impl
+            #set_impl
+            #locatable_impl
+            #partial_eq_impl
+            #repr_impl
+
+            impl #foundations::IntoValue for #ident {
+                fn into_value(self) -> #foundations::Value {
+                    #foundations::Value::Content(#foundations::Content::new(self))
+                }
+            }
+        };
     })
 }
 
@@ -377,82 +375,6 @@ fn create_field(field: &Field) -> TokenStream {
     quote! {
         #[doc = #docs]
         #ident: #ty
-    }
-}
-
-/// Creates the element's enum for field identifiers.
-fn create_fields_enum(element: &Elem) -> TokenStream {
-    let Elem { ident, enum_ident, .. } = element;
-
-    let fields = element.real_fields().collect::<Vec<_>>();
-    let field_names = fields.iter().map(|Field { name, .. }| name).collect::<Vec<_>>();
-    let field_consts = fields
-        .iter()
-        .map(|Field { const_ident, .. }| const_ident)
-        .collect::<Vec<_>>();
-
-    let field_variants = fields
-        .iter()
-        .map(|Field { enum_ident, .. }| enum_ident)
-        .collect::<Vec<_>>();
-
-    let definitions = fields.iter().map(|Field { enum_ident, .. }| {
-        quote! { #enum_ident }
-    });
-
-    let enum_repr = (!fields.is_empty()).then(|| quote! { #[repr(u8)] });
-
-    quote! {
-        // To hide the private type
-        const _: () = {
-            impl #foundations::ElementFields for #ident {
-                type Fields = #enum_ident;
-            }
-
-            #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-            #enum_repr
-            pub enum #enum_ident {
-                #(#definitions,)*
-            }
-
-            impl #enum_ident {
-                /// Converts this field identifier to the field name.
-                pub fn to_str(self) -> &'static str {
-                    match self {
-                        #(Self::#field_variants => #field_names,)*
-                    }
-                }
-            }
-
-            impl ::std::convert::TryFrom<u8> for #enum_ident {
-                type Error = ();
-
-                fn try_from(value: u8) -> Result<Self, Self::Error> {
-                    #(const #field_consts: u8 = #enum_ident::#field_variants as u8;)*
-                    match value {
-                        #(#field_consts => Ok(Self::#field_variants),)*
-                        _ => Err(()),
-                    }
-                }
-            }
-
-            impl ::std::fmt::Display for #enum_ident {
-                fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-                    f.pad(self.to_str())
-                }
-            }
-
-            impl ::std::str::FromStr for #enum_ident {
-                type Err = ();
-
-                fn from_str(s: &str) -> Result<Self, Self::Err> {
-                    match s {
-                        #(#field_names => Ok(Self::#field_variants),)*
-                        _ => Err(()),
-                    }
-                }
-            }
-        };
     }
 }
 
@@ -564,7 +486,7 @@ fn create_set_field_method(element: &Elem, field: &Field) -> TokenStream {
         #vis fn #set_ident(#ident: #ty) -> #foundations::Style {
             #foundations::Style::Property(#foundations::Property::new(
                 <Self as #foundations::NativeElement>::elem(),
-                <#elem as #foundations::ElementFields>::Fields::#enum_ident as u8,
+                <#elem as #foundations::Fields>::Enum::#enum_ident as u8,
                 #ident,
             ))
         }
@@ -670,7 +592,7 @@ fn create_style_chain_access(
         #init
         styles.#getter::<#ty>(
             <Self as #foundations::NativeElement>::elem(),
-            <#elem as #foundations::ElementFields>::Fields::#enum_ident as u8,
+            <#elem as #foundations::Fields>::Enum::#enum_ident as u8,
             #inherent,
             #default,
         )
@@ -710,13 +632,11 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             set: <#ident as #foundations::Set>::set,
             vtable:  <#ident as #foundations::Capable>::vtable,
             field_id: |name|
-                <
-                    <#ident as #foundations::ElementFields>::Fields as ::std::str::FromStr
-                >::from_str(name).ok().map(|id| id as u8),
+                <<#ident as #foundations::Fields>::Enum as ::std::str::FromStr>
+                    ::from_str(name).ok().map(|id| id as u8),
             field_name: |id|
-                <
-                    <#ident as #foundations::ElementFields>::Fields as ::std::convert::TryFrom<u8>
-                >::try_from(id).ok().map(<#ident as #foundations::ElementFields>::Fields::to_str),
+                <<#ident as #foundations::Fields>::Enum as ::std::convert::TryFrom<u8>>
+                    ::try_from(id).ok().map(<#ident as #foundations::Fields>::Enum::to_str),
             local_name: #local_name,
             scope: #foundations::Lazy::new(|| #scope),
             params: #foundations::Lazy::new(|| ::std::vec![#(#params),*])
@@ -734,7 +654,9 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
 }
 
 fn create_fields_impl(element: &Elem) -> TokenStream {
-    let Elem { ident, .. } = element;
+    let Elem { ident, enum_ident, .. } = element;
+
+    let fields_enum = create_fields_enum(element);
 
     // Fields that can be checked using the `has` method.
     let field_has_matches = element.visible_fields().map(|field| {
@@ -744,15 +666,15 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
 
         if field.ghost {
             quote! {
-                <#elem as #foundations::ElementFields>::Fields::#name => false,
+                <#elem as #foundations::Fields>::Enum::#name => false,
             }
         } else if field.inherent() || (field.synthesized && field.default.is_some()) {
             quote! {
-                <#elem as #foundations::ElementFields>::Fields::#name => true,
+                <#elem as #foundations::Fields>::Enum::#name => true,
             }
         } else {
             quote! {
-                <#elem as #foundations::ElementFields>::Fields::#name => self.#field_ident.is_some(),
+                <#elem as #foundations::Fields>::Enum::#name => self.#field_ident.is_some(),
             }
         }
     });
@@ -810,17 +732,17 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
 
         if field.ghost {
             quote! {
-                <#elem as #foundations::ElementFields>::Fields::#name => None,
+                <#elem as #foundations::Fields>::Enum::#name => None,
             }
         } else if field.inherent() || (field.synthesized && field.default.is_some()) {
             quote! {
-                <#elem as #foundations::ElementFields>::Fields::#name => Some(
+                <#elem as #foundations::Fields>::Enum::#name => Some(
                     #foundations::IntoValue::into_value(self.#field_ident.clone())
                 ),
             }
         } else {
             quote! {
-                <#elem as #foundations::ElementFields>::Fields::#name => {
+                <#elem as #foundations::Fields>::Enum::#name => {
                     self.#field_ident.clone().map(#foundations::IntoValue::into_value)
                 }
             }
@@ -828,9 +750,13 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
     });
 
     quote! {
+        #fields_enum
+
         impl #foundations::Fields for #ident {
+            type Enum = #enum_ident;
+
             fn has(&self, id: u8) -> bool {
-                let Ok(id) = <#ident as #foundations::ElementFields>::Fields::try_from(id) else {
+                let Ok(id) = <#ident as #foundations::Fields>::Enum::try_from(id) else {
                     return false;
                 };
 
@@ -841,7 +767,7 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
             }
 
             fn field(&self, id: u8) -> Option<#foundations::Value> {
-                let id = <#ident as #foundations::ElementFields>::Fields::try_from(id).ok()?;
+                let id = <#ident as #foundations::Fields>::Enum::try_from(id).ok()?;
                 match id {
                     #(#field_matches)*
                     _ => None,
@@ -853,6 +779,75 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
                 #(#field_dict)*
                 #(#field_opt_dict)*
                 fields
+            }
+        }
+    }
+}
+
+/// Creates the element's enum for field identifiers.
+fn create_fields_enum(element: &Elem) -> TokenStream {
+    let Elem { enum_ident, .. } = element;
+
+    let fields = element.real_fields().collect::<Vec<_>>();
+    let field_names = fields.iter().map(|Field { name, .. }| name).collect::<Vec<_>>();
+    let field_consts = fields
+        .iter()
+        .map(|Field { const_ident, .. }| const_ident)
+        .collect::<Vec<_>>();
+
+    let field_variants = fields
+        .iter()
+        .map(|Field { enum_ident, .. }| enum_ident)
+        .collect::<Vec<_>>();
+
+    let definitions = fields.iter().map(|Field { enum_ident, .. }| {
+        quote! { #enum_ident }
+    });
+
+    let enum_repr = (!fields.is_empty()).then(|| quote! { #[repr(u8)] });
+
+    quote! {
+        #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+        #enum_repr
+        pub enum #enum_ident {
+            #(#definitions,)*
+        }
+
+        impl #enum_ident {
+            /// Converts this field identifier to the field name.
+            pub fn to_str(self) -> &'static str {
+                match self {
+                    #(Self::#field_variants => #field_names,)*
+                }
+            }
+        }
+
+        impl ::std::convert::TryFrom<u8> for #enum_ident {
+            type Error = ();
+
+            fn try_from(value: u8) -> Result<Self, Self::Error> {
+                #(const #field_consts: u8 = #enum_ident::#field_variants as u8;)*
+                match value {
+                    #(#field_consts => Ok(Self::#field_variants),)*
+                    _ => Err(()),
+                }
+            }
+        }
+
+        impl ::std::fmt::Display for #enum_ident {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                f.pad(self.to_str())
+            }
+        }
+
+        impl ::std::str::FromStr for #enum_ident {
+            type Err = ();
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                match s {
+                    #(#field_names => Ok(Self::#field_variants),)*
+                    _ => Err(()),
+                }
             }
         }
     }

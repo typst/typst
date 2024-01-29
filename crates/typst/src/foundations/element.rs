@@ -159,12 +159,6 @@ cast! {
     v: Func => v.element().ok_or("expected element")?,
 }
 
-/// Fields of an element.
-pub trait ElementFields {
-    /// The fields of the element.
-    type Fields;
-}
-
 /// A Typst element that is defined by a native Rust type.
 pub trait NativeElement:
     Debug
@@ -215,6 +209,11 @@ pub unsafe trait Capable {
 
 /// Defines how fields of an element are accessed.
 pub trait Fields {
+    /// An enum with the fields of the element.
+    type Enum
+    where
+        Self: Sized;
+
     /// Whether the element has the given field set.
     fn has(&self, id: u8) -> bool;
 
