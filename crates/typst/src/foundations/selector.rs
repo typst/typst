@@ -7,7 +7,7 @@ use smallvec::SmallVec;
 use crate::diag::{bail, StrResult};
 use crate::foundations::{
     cast, func, repr, scope, ty, CastInfo, Content, Dict, Element, FromValue, Func,
-    Label, Reflect, Regex, Repr, Str, Type, Value,
+    Label, Reflect, Regex, Repr, Str, StyleChain, Type, Value,
 };
 use crate::introspection::{Locatable, Location};
 use crate::symbols::Symbol;
@@ -128,23 +128,26 @@ impl Selector {
     }
 
     /// Whether the selector matches for the target.
-    pub fn matches(&self, target: &Content) -> bool {
-        // TODO: optimize field access to not clone.
+    pub fn matches(&self, target: &Content, styles: Option<StyleChain>) -> bool {
         match self {
             Self::Elem(element, dict) => {
+                // TODO: Optimize field access to not clone.
                 target.func() == *element
-                    && dict
-                        .iter()
-                        .flat_map(|dict| dict.iter())
-                        .all(|(id, value)| target.get(*id).as_ref() == Some(value))
+                    && dict.iter().flat_map(|dict| dict.iter()).all(|(id, value)| {
+                        target.get(*id, styles).as_ref() == Some(value)
+                    })
             }
             Self::Label(label) => target.label() == Some(*label),
             Self::Regex(regex) => target
                 .to_packed::<TextElem>()
                 .map_or(false, |elem| regex.is_match(elem.text())),
             Self::Can(cap) => target.func().can_type_id(*cap),
-            Self::Or(selectors) => selectors.iter().any(move |sel| sel.matches(target)),
-            Self::And(selectors) => selectors.iter().all(move |sel| sel.matches(target)),
+            Self::Or(selectors) => {
+                selectors.iter().any(move |sel| sel.matches(target, styles))
+            }
+            Self::And(selectors) => {
+                selectors.iter().all(move |sel| sel.matches(target, styles))
+            }
             Self::Location(location) => target.location() == Some(*location),
             // Not supported here.
             Self::Before { .. } | Self::After { .. } => false,

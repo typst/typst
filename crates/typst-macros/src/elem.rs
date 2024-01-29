@@ -648,18 +648,16 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
         let name = &field.enum_ident;
         let field_ident = &field.ident;
 
-        if field.ghost {
-            quote! {
-                <#elem as #foundations::Fields>::Enum::#name => false,
-            }
+        let expr = if field.ghost {
+            quote! { false }
         } else if field.inherent() || (field.synthesized && field.default.is_some()) {
-            quote! {
-                <#elem as #foundations::Fields>::Enum::#name => true,
-            }
+            quote! { true }
         } else {
-            quote! {
-                <#elem as #foundations::Fields>::Enum::#name => self.#field_ident.is_some(),
-            }
+            quote! { self.#field_ident.is_some() }
+        };
+
+        quote! {
+            <#elem as #foundations::Fields>::Enum::#name => #expr,
         }
     });
 
@@ -714,22 +712,52 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
         let name = &field.enum_ident;
         let field_ident = &field.ident;
 
-        if field.ghost {
+        let expr = if field.ghost {
             quote! {
-                <#elem as #foundations::Fields>::Enum::#name => None,
+                None
             }
         } else if field.inherent() || (field.synthesized && field.default.is_some()) {
             quote! {
-                <#elem as #foundations::Fields>::Enum::#name => Some(
-                    #foundations::IntoValue::into_value(self.#field_ident.clone())
-                ),
+                Some(#foundations::IntoValue::into_value(self.#field_ident.clone()))
             }
         } else {
             quote! {
-                <#elem as #foundations::Fields>::Enum::#name => {
-                    self.#field_ident.clone().map(#foundations::IntoValue::into_value)
-                }
+                self.#field_ident.clone().map(#foundations::IntoValue::into_value)
             }
+        };
+
+        quote! {
+            <#elem as #foundations::Fields>::Enum::#name => #expr,
+        }
+    });
+
+    // Fields that can be accessed using the `field_with_styles` method.
+    let field_with_styles_matches = element.visible_fields().map(|field| {
+        let elem = &element.ident;
+        let name = &field.enum_ident;
+        let field_ident = &field.ident;
+        let ident_in = &field.ident_in;
+
+        let expr = if field.ghost {
+            quote! {
+                #foundations::IntoValue::into_value(#ident::#ident_in(styles).clone())
+            }
+        } else if field.inherent() || (field.synthesized && field.default.is_some()) {
+            quote! {
+                #foundations::IntoValue::into_value(self.#field_ident.clone())
+            }
+        } else if field.synthesized {
+            quote! {
+                #foundations::IntoValue::into_value(self.#field_ident.clone()?)
+            }
+        } else {
+            quote! {
+                #foundations::IntoValue::into_value(self.#field_ident(styles).clone())
+            }
+        };
+
+        quote! {
+            <#elem as #foundations::Fields>::Enum::#name => Some(#expr),
         }
     });
 
@@ -754,6 +782,14 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
                 let id = <#ident as #foundations::Fields>::Enum::try_from(id).ok()?;
                 match id {
                     #(#field_matches)*
+                    _ => None,
+                }
+            }
+
+            fn field_with_styles(&self, id: u8, styles: #foundations::StyleChain) -> Option<#foundations::Value> {
+                let id = <#ident as #foundations::Fields>::Enum::try_from(id).ok()?;
+                match id {
+                    #(#field_with_styles_matches)*
                     _ => None,
                 }
             }

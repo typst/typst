@@ -1,6 +1,6 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{elem, Packed, StyleChain};
+use crate::foundations::{elem, Packed, Resolve, StyleChain};
 use crate::layout::{
     Abs, Angle, Axes, Frame, FrameItem, LayoutSingle, Length, Regions, Rel, Size,
 };
@@ -25,11 +25,9 @@ pub struct LineElem {
     /// The start point of the line.
     ///
     /// Must be an array of exactly two relative lengths.
-    #[resolve]
     pub start: Axes<Rel<Length>>,
 
     /// The offset from `start` where the line ends.
-    #[resolve]
     pub end: Option<Axes<Rel<Length>>>,
 
     /// The line's length. This is only respected if `end` is `none`.
@@ -68,9 +66,11 @@ impl LayoutSingle for Packed<LineElem> {
     ) -> SourceResult<Frame> {
         let resolve =
             |axes: Axes<Rel<Abs>>| axes.zip_map(regions.base(), Rel::relative_to);
-        let start = resolve(self.start(styles));
-        let delta =
-            self.end(styles).map(|end| resolve(end) - start).unwrap_or_else(|| {
+        let start = resolve(self.start(styles).resolve(styles));
+        let delta = self
+            .end(styles)
+            .map(|end| resolve(end.resolve(styles)) - start)
+            .unwrap_or_else(|| {
                 let length = self.length(styles);
                 let angle = self.angle(styles);
                 let x = angle.cos() * length;
