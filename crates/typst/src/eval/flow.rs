@@ -5,6 +5,7 @@ use crate::eval::{destructure, ops, Eval, Vm};
 use crate::foundations::{IntoValue, Value};
 use crate::syntax::ast::{self, AstNode};
 use crate::syntax::{Span, SyntaxKind, SyntaxNode};
+use ast::Pattern;
 
 /// The maximum number of loop iterations.
 const MAX_ITERATIONS: usize = 10_000;
@@ -134,27 +135,28 @@ impl Eval for ast::ForLoop<'_> {
             }};
         }
 
-        let iter = self.iter().eval(vm)?;
         let pattern = self.pattern();
+        let iterable = self.iter().eval(vm)?;
+        let iterable_type = iterable.ty();
 
-        match (&pattern, iter.clone()) {
-            (ast::Pattern::Normal(_), Value::Str(string)) => {
-                // Iterate over graphemes of string.
-                iter!(for pattern in string.as_str().graphemes(true));
+        match (pattern, iterable) {
+            (_, Value::Array(array)) => {
+                // Iterate over values of array.
+                iter!(for pattern in array);
             }
             (_, Value::Dict(dict)) => {
                 // Iterate over pairs of dict.
                 iter!(for pattern in dict.pairs());
             }
-            (_, Value::Array(array)) => {
-                // Iterate over values of array.
-                iter!(for pattern in array);
+            (Pattern::Normal(_) | Pattern::Placeholder(_), Value::Str(string)) => {
+                // Iterate over graphemes of string.
+                iter!(for pattern in string.as_str().graphemes(true));
             }
-            (ast::Pattern::Normal(_), _) => {
-                bail!(self.iter().span(), "cannot loop over {}", iter.ty());
+            (Pattern::Destructuring(_), Value::Str(_)) => {
+                bail!(pattern.span(), "cannot destructure values of {}", iterable_type);
             }
             (_, _) => {
-                bail!(pattern.span(), "cannot destructure values of {}", iter.ty())
+                bail!(self.iter().span(), "cannot loop over {}", iterable_type);
             }
         }
 
