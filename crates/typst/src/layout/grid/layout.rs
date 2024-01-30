@@ -1262,44 +1262,64 @@ impl<'a> GridLayouter<'a> {
             let mut dx = Abs::zero();
             for (x, &col) in self.rcols.iter().enumerate().rev_if(self.is_rtl) {
                 let mut dy = Abs::zero();
-                let mut first_row = true;
                 for row in rows {
-                    let mut cell_with_y = self.grid.cell(x, row.y).zip(Some(row.y));
-                    if cell_with_y.is_none() && first_row {
-                        // The grid position at (x, row.y) is either a gutter
-                        // cell or a merged position.
-                        // If this is the first row for this column, this could
-                        // be a position merged with a rowspan from a previous
-                        // region, therefore we need to draw its fill again in
-                        // the current region.
-                        // We ignore positions in the second row onwards in
-                        // order to not draw the same fill more than once.
-                        let parent_cell_pos = self.grid.parent_cell_position(x, row.y);
-
-                        if let Some(Axes { x: parent_x, y: parent_y }) = parent_cell_pos {
-                            // Ensure we draw the fill starting at the
-                            // first column spanned by the original rowspan
-                            // cell this position is merged with.
-                            // This condition, by itself, also ensures
-                            // parent_y != row.y (and thus parent_y < row.y,
-                            // since rowspans expand towards increasing 'y'),
-                            // otherwise 'cell_with_y' would have held the
-                            // parent cell (as it would have had coordinates
-                            // (x, row.y)), and thus wouldn't have been None.
-                            // Therefore, the condition below implies
-                            // (x, row.y) is merged with a rowspan from another
-                            // region, since we're in the the first row for
-                            // this region, so any row before this one must be
-                            // in a previous region.
-                            if parent_x == x {
-                                cell_with_y = self
-                                    .grid
-                                    .cell(parent_x, parent_y)
-                                    .zip(Some(parent_y));
-                            }
-                        }
+                    // We want to only draw the fill starting at the parent
+                    // positions of cells. However, sometimes the parent
+                    // position is absent from the current region, either
+                    // because the first few rows of a rowspan were empty auto
+                    // rows and thus removed from layout, or because the parent
+                    // cell was in a previous region (in which case we'd want
+                    // to draw its fill again, in the current region).
+                    // Therefore, we first analyze the parent position to see
+                    // if the current row would be the first row spanned by the
+                    // parent cell in this region. If so, this means we have to
+                    // start drawing the cell's fill here. If not, we ignore
+                    // the position `(x, row.y)`, as its fill will already have
+                    // been rendered before.
+                    // NOTE: In the case of gutter rows, we have to check the
+                    // row below before discarding them fully, because a
+                    // gutter row might be the first row spanned by a rowspan
+                    // in this region (e.g. if the first row was empty and
+                    // therefore removed), so its fill could start in that
+                    // gutter row.
+                    let Some(Axes { x: parent_x, y: parent_y }) =
+                        self.grid.parent_cell_position(
+                            x,
+                            row.y + if self.grid.has_gutter { row.y % 2 } else { 0 },
+                        )
+                    else {
+                        // Ignore gutter columns.
+                        dy += row.height;
+                        continue;
                     };
-                    if let Some((cell, cell_y)) = cell_with_y {
+
+                    if parent_x != x {
+                        // This isn't the first column spanned by the cell, so
+                        // we already rendered its fill in a previous
+                        // iteration of the outer loop. Skip.
+                        dy += row.height;
+                        continue;
+                    }
+
+                    // The "effective parent Y" is the first row spanned by the
+                    // parent cell in this region.
+                    // Even if the parent cell's fill was already drawn in a
+                    // previous region, we must render it again in later
+                    // regions.
+                    let is_effective_parent_y = {
+                        parent_y == row.y
+                            || parent_y < row.y
+                                && rows.iter().find(|row| row.y >= parent_y).is_some_and(
+                                    |first_spanned_row| first_spanned_row.y == row.y,
+                                )
+                    };
+
+                    // Ensure we are at the very first row spanned by the cell
+                    // in this region before rendering fill. Note that this
+                    // will always be true if the current cell has rowspan == 1
+                    // and we're not currently handling a gutter row.
+                    if is_effective_parent_y {
+                        let cell = self.grid.cell(parent_x, parent_y).unwrap();
                         let fill = cell.fill.clone();
                         if let Some(fill) = fill {
                             let rowspan = cell.rowspan.get();
@@ -1313,7 +1333,7 @@ impl<'a> GridLayouter<'a> {
                             } else {
                                 rows.iter()
                                     .filter(|row| {
-                                        (cell_y..cell_y + rowspan).contains(&row.y)
+                                        (parent_y..parent_y + rowspan).contains(&row.y)
                                     })
                                     .map(|row| row.height)
                                     .sum()
@@ -1337,7 +1357,6 @@ impl<'a> GridLayouter<'a> {
                         }
                     }
                     dy += row.height;
-                    first_row = false;
                 }
                 dx += col;
             }
