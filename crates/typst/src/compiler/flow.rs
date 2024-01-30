@@ -159,7 +159,7 @@ impl Compile for ast::ForLoop<'_> {
                     compiler.next(*span, writable);
                 } else {
                     let i = compiler.register();
-                    compiler.next(self.iter().span(), i.as_writeable());
+                    compiler.next(self.iterable().span(), i.as_writeable());
 
                     let pattern_id = compiler.pattern(pattern.as_vm_pattern());
                     compiler.destructure(
@@ -180,8 +180,8 @@ impl Compile for ast::ForLoop<'_> {
                 Ok(())
             },
             |compiler, engine, len, out| {
-                let iterable = self.iter().compile(engine, compiler)?;
-                compiler.iter(self.iter().span(), len as u32, &iterable, 0b101, out);
+                let iterable = self.iterable().compile(engine, compiler)?;
+                compiler.iter(self.iterable().span(), len as u32, &iterable, 0b101, out);
                 Ok(())
             },
         )

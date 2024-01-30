@@ -147,6 +147,7 @@ impl Access {
         }
     }
 }
+
 /// The missing method error message.
 #[cold]
 fn missing_method(ty: Type, method: &str) -> String {

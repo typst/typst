@@ -934,7 +934,7 @@ impl<T: NativeElement + Debug> Debug for Packed<T> {
 }
 
 /// Defines the element for sequences.
-#[elem(Repr, PartialEq)]
+#[elem(Debug, Repr, PartialEq)]
 pub struct SequenceElem {
     #[required]
     children: Vec<Prehashed<Content>>,
