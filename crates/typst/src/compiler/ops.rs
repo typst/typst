@@ -128,7 +128,7 @@ fn compile_and_or(
     let rhs = binary.rhs().compile(engine, compiler)?;
 
     // We add the jump label.
-    compiler.isr(Opcode::jump_label(binary.span(), label));
+    compiler.isr(Opcode::jump_label(binary.span(), compiler.scope_id(), label));
 
     // Then, based on the result of the lhs, we either select the rhs to the output or the lhs.
     match binary.op() {

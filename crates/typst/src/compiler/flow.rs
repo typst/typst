@@ -30,11 +30,11 @@ impl Compile for ast::Conditional<'_> {
 
             compiler.isr(Opcode::jump(else_body.span(), after));
 
-            compiler.isr(Opcode::jump_label(self.span(), true_));
+            compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), true_));
 
             self.if_body().compile_into(engine, compiler, output)?;
 
-            compiler.isr(Opcode::jump_label(self.span(), after));
+            compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), after));
         } else {
             compiler.isr(Opcode::jump_if_not(self.span(), &condition, after));
 
@@ -90,7 +90,7 @@ impl Compile for ast::WhileLoop<'_> {
                 let top = compiler.jump();
                 let after = compiler.jump();
 
-                compiler.isr(Opcode::jump_label(self.span(), top));
+                compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), top));
 
                 let condition = self.condition().compile(engine, compiler)?;
                 compiler.isr(Opcode::jump_if_not(self.span(), &condition, after));
@@ -101,7 +101,7 @@ impl Compile for ast::WhileLoop<'_> {
                     Some(WritableGuard::Joined),
                 )?;
 
-                compiler.isr(Opcode::jump_label(self.span(), after));
+                compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), after));
 
                 Ok(())
             },
@@ -151,7 +151,7 @@ impl Compile for ast::ForLoop<'_> {
                     0b01,
                     Writable::joined(),
                 ));
-                compiler.isr(Opcode::jump_label(self.span(), top));
+                compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), top));
 
                 let pattern = self.pattern().compile(engine, compiler, true)?;
                 if let PatternKind::Single(PatternItem::Simple(
@@ -180,7 +180,7 @@ impl Compile for ast::ForLoop<'_> {
                 )?;
                 compiler.isr(Opcode::jump(self.span(), top));
 
-                compiler.isr(Opcode::jump_label(self.span(), after));
+                compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), after));
 
                 Ok(())
             },

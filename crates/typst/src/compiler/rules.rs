@@ -39,7 +39,7 @@ impl Compile for ast::SetRule<'_> {
 
             compiler.isr(Opcode::set(self.span(), &target, &args, reg.as_writeable()));
 
-            compiler.isr(Opcode::jump_label(expr.span(), jmp_label));
+            compiler.isr(Opcode::jump_label(expr.span(), compiler.scope_id(), jmp_label));
             compiler.isr(Opcode::select(
                 expr.span(),
                 &condition,

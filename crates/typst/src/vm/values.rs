@@ -253,7 +253,27 @@ impl Readable {
 
 impl fmt::Debug for Readable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        if self.is_none() {
+            write!(f, "none")
+        } else if self.is_auto() {
+            write!(f, "auto")
+        } else if self.is_bool() {
+            self.as_bool().fmt(f)
+        } else if self.is_const() {
+            self.as_const().fmt(f)
+        } else if self.is_reg() {
+            self.as_reg().fmt(f)
+        } else if self.is_string() {
+            self.as_string().fmt(f)
+        } else if self.is_global() {
+            self.as_global().fmt(f)
+        } else if self.is_math() {
+            self.as_math().fmt(f)
+        } else if self.is_parent() {
+            self.as_parent().fmt(f)
+        } else {
+            unreachable!()
+        }
     }
 }
 
@@ -362,7 +382,15 @@ impl Writable {
 
 impl fmt::Debug for Writable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        if self.is_joined() {
+            write!(f, "J")
+        } else if self.is_reg() {
+            self.as_reg().fmt(f)
+        } else if self.is_parent() {
+            self.as_parent().fmt(f)
+        } else {
+            unreachable!()
+        }
     }
 }
 

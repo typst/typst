@@ -1,5 +1,5 @@
-use std::{fmt, mem::size_of};
 use std::num::NonZeroU32;
+use std::{fmt, mem::size_of};
 
 use bytemuck::cast;
 use typst_syntax::Span;
@@ -68,7 +68,7 @@ macro_rules! opcodes {
 
         #[derive(Clone)]
         pub enum Opcode {
-            JumpLabel(JumpLabel),
+            JumpLabel(Option<ScopeId>, JumpLabel),
             $(
                 $name($name),
             )*
@@ -77,7 +77,7 @@ macro_rules! opcodes {
         impl Opcode {
             pub fn span(&self) -> Span {
                 match self {
-                    Self::JumpLabel(_) => Span::detached(),
+                    Self::JumpLabel(_, _) => Span::detached(),
                     $(
                         Self::$name(isr) => isr.span,
                     )*
@@ -98,8 +98,8 @@ macro_rules! opcodes {
                 }
             )*
 
-            pub fn jump_label(_: Span, label: JumpLabel) -> Self {
-                Self::JumpLabel(label)
+            pub fn jump_label(_: Span, scope_id: Option<ScopeId>, label: JumpLabel) -> Self {
+                Self::JumpLabel(scope_id, label)
             }
         }
 
@@ -107,7 +107,7 @@ macro_rules! opcodes {
             #[allow(unused_variables)]
             fn write(&self, opcodes: &[Opcode], buffer: &mut Vec<u8>) {
                 match self {
-                    Self::JumpLabel(_) => {},
+                    Self::JumpLabel(_, _) => {},
                     $(
                         Self::$name(isr) => {
                             buffer.reserve(std::mem::size_of::<$name>());
@@ -126,10 +126,10 @@ macro_rules! opcodes {
             #[allow(unused_variables)]
             fn size(&self) -> usize {
                 match self {
-                    Self::JumpLabel(_) => 0,
+                    Self::JumpLabel(_, _) => 0,
                     $(
                         Self::$name(isr) => {
-                            1 + 8 $($(
+                            1 + isr.span.size() $($(
                                 + isr.$arg.size()
                             )*)? $(+ <$out as Write>::size(&isr.out))?
                         }
@@ -141,7 +141,7 @@ macro_rules! opcodes {
         impl fmt::Debug for Opcode {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match self {
-                    Self::JumpLabel(_) => write!(f, "JumpLabel"),
+                    Self::JumpLabel(_, i) => i.fmt(f),
                     $(
                         Self::$name(isr) => isr.fmt(f),
                     )*
@@ -301,15 +301,59 @@ impl Write for PatternId {
 
 impl Write for JumpLabel {
     fn write(&self, opcodes: &[Opcode], buffer: &mut Vec<u8>) {
-        opcodes
-            .iter()
-            .position(|opcode| match opcode {
-                Opcode::JumpLabel(label) => label == self,
-                _ => false,
-            })
-            .map(|i| crate::vm::Pointer::new(i as u32))
-            .unwrap()
-            .write(opcodes, buffer);
+        fn recursive_find<'a, I: Iterator<Item = &'a Opcode>>(
+            to_find: &JumpLabel,
+            iter: &mut std::iter::Peekable<I>,
+            len: u32,
+            current_scope: Option<ScopeId>,
+        ) -> Option<u32> {
+            let mut i = 0;
+            while i != len {
+                let opcode = iter.next()?;
+                match opcode {
+                    Opcode::JumpLabel(scope_id, label) => {
+                        debug_assert!(*scope_id == current_scope);
+                        if label == to_find {
+                            return Some(i);
+                        }
+                    }
+                    Opcode::Enter(scope) => {
+                        if let Some(i) =
+                            recursive_find(to_find, iter, scope.len, Some(scope.scope))
+                        {
+                            debug_assert!(i <= scope.len);
+                            return Some(i);
+                        } else {
+                            i += scope.len;
+                        }
+                    }
+                    _ => {}
+                }
+
+                i += opcode.size() as u32;
+            }
+
+            if let Some(Opcode::JumpLabel(id, label)) = iter.peek() {
+                if *id == current_scope && label == to_find {
+                    return Some(i);
+                }
+            }
+
+            if len != u32::MAX {
+                debug_assert!(i == len);
+            }
+
+            None
+        }
+
+        let index = recursive_find(self, &mut opcodes.iter().peekable(), u32::MAX, None)
+            .expect("Jump label not found");
+
+        debug_assert!(
+            index <= opcodes.iter().map(|opcode| opcode.size() as u32).sum::<u32>()
+        );
+
+        crate::vm::Pointer::new(index).write(opcodes, buffer);
     }
 
     fn size(&self) -> usize {

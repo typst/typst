@@ -52,6 +52,8 @@ pub struct Compiler {
     pub name: Option<EcoString>,
     /// The common values between scopes.
     common: Inner,
+    /// The current scope ID.
+    scope_id: Option<ScopeId>,
 }
 
 impl Compiler {
@@ -62,6 +64,7 @@ impl Compiler {
             scope: Rc::new(RefCell::new(CompilerScope::module(library))),
             name: Some(name.into()),
             common: Inner::new(),
+            scope_id: None,
         }
     }
 
@@ -73,6 +76,7 @@ impl Compiler {
             scope: Rc::new(RefCell::new(CompilerScope::function(parent))),
             name: Some(name.into()),
             common: Inner::new(),
+            scope_id: None,
         }
     }
 
@@ -84,17 +88,7 @@ impl Compiler {
             scope: Rc::new(RefCell::new(CompilerScope::loop_(parent))),
             name: None,
             common: Inner::new(),
-        }
-    }
-
-    /// Creates a new compiler for a scope.
-    pub fn scope(parent: &Self) -> Self {
-        let parent = parent.scope.clone();
-        Self {
-            instructions: Vec::with_capacity(DEFAULT_CAPACITY),
-            scope: Rc::new(RefCell::new(CompilerScope::scope(parent))),
-            name: None,
-            common: Inner::new(),
+            scope_id: None,
         }
     }
 
@@ -178,16 +172,19 @@ impl Compiler {
         mut display: bool,
         f: impl FnOnce(&mut Self, &mut bool) -> SourceResult<()>,
     ) -> SourceResult<()> {
+        let mut scope_id = Some(ScopeId::new(self.common.defaults.len() as u16));
         let mut scope = Rc::new(RefCell::new(CompilerScope::scope(self.scope.clone())));
         let mut instructions = Vec::with_capacity(DEFAULT_CAPACITY);
 
         std::mem::swap(&mut self.scope, &mut scope);
         std::mem::swap(&mut self.instructions, &mut instructions);
+        std::mem::swap(&mut self.scope_id, &mut scope_id);
 
         f(self, &mut display)?;
 
         std::mem::swap(&mut self.scope, &mut scope);
         std::mem::swap(&mut self.instructions, &mut instructions);
+        std::mem::swap(&mut self.scope_id, &mut scope_id);
 
         let out = match joining {
             Some(out) => OptionalWritable::some(out),
@@ -202,7 +199,8 @@ impl Compiler {
             .map(|(value, target)| DefaultValue { target, value })
             .collect::<EcoVec<_>>();
 
-        let scope_id = self.common.defaults.insert(defaults);
+        self.common.defaults.push(defaults);
+        let scope_id = scope_id.unwrap();
 
         let len = instructions.iter().map(Write::size).sum::<usize>();
         self.instructions.push(Opcode::enter(
@@ -219,6 +217,11 @@ impl Compiler {
         self.instructions.extend(instructions);
 
         Ok(())
+    }
+
+    /// Get the current scope ID.
+    pub fn scope_id(&self) -> Option<ScopeId> {
+        self.scope_id
     }
 
     /// Push a new instruction.
@@ -264,7 +267,7 @@ impl Compiler {
     }
 
     pub fn into_compiled_closure(
-        self,
+        mut self,
         span: Span,
         params: Vec<CompiledParam>,
         self_storage: Option<WritableGuard>,
@@ -286,8 +289,7 @@ impl Compiler {
             .for_each(|isr| isr.write(&self.instructions, &mut instructions));
         instructions.shrink_to_fit();
 
-        let mut defaults = self.common.defaults.into_values();
-        defaults.insert(0, self.get_default_scope());
+        self.common.defaults.insert(0, self.get_default_scope());
 
         CompiledClosure {
             inner: Arc::new(vm::Inner {
@@ -301,7 +303,7 @@ impl Compiler {
                 accesses: self.common.accesses.into_values(),
                 labels: self.common.labels.into_values(),
                 patterns: self.common.patterns.into_values(),
-                defaults,
+                defaults: self.common.defaults,
                 output: None,
                 joined: true,
             }),
@@ -337,7 +339,7 @@ struct Inner {
     /// The pattern remapper.
     patterns: Remapper<PatternId, VmPattern>,
     /// The default value remapper.
-    defaults: Remapper<ScopeId, EcoVec<DefaultValue>>,
+    defaults: Vec<EcoVec<DefaultValue>>,
     /// The jump label counter.
     jump: u16,
 }

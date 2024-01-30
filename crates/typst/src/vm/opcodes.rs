@@ -130,16 +130,7 @@ macro_rules! opcodes {
 
                         // Obtain the instruction's slice.
                         debug_assert!(vm.instruction_pointer + OFFSET + LEN <= instructions.len());
-
-                        // SAFETY: The instruction pointer is always within the bounds of the
-                        // instruction list.
-                        // JUSTIFICATION: This avoids a bounds check on every instruction.
-                        let instructions = unsafe {
-                            std::slice::from_raw_parts(
-                                instructions.as_ptr().add(vm.instruction_pointer + OFFSET),
-                                instructions.len() - vm.instruction_pointer,
-                            )
-                        };
+                        let instructions = &instructions[vm.instruction_pointer + OFFSET..];
 
                         // Copy the instruction into the stack.
                         let mut __i = 0;
@@ -155,7 +146,12 @@ macro_rules! opcodes {
                         };
 
                         // Cast the instruction to the opcode.
-                        eprintln!(concat!(stringify!($name), ": {:?}"), instruction);
+                        eprintln!(
+                            concat!("{:4} => ", stringify!($name), ": {:?} <= {}"),
+                            vm.instruction_pointer,
+                            instruction,
+                            OFFSET + LEN,
+                        );
 
                         // Move the instruction pointer and counter.
                         vm.instruction_pointer += OFFSET + LEN;
@@ -1305,10 +1301,7 @@ impl Run for Enter {
         // instruction list.
         // JUSTIFICATION: This avoids a bounds check on every scope.
         let instructions = unsafe {
-            std::slice::from_raw_parts(
-                instructions.as_ptr(),
-                self.len as usize,
-            )
+            std::slice::from_raw_parts(instructions.as_ptr(), self.len as usize)
         };
 
         let defaults = vm.read(self.scope).at(span)?.clone();
@@ -1344,6 +1337,8 @@ impl Run for Enter {
                     value
                 }
             };
+
+            eprintln!("{:4} => Exit: {:?} + {}", self.len, joined, self.len);
 
             if let Some(out) = self.out.ok() {
                 // Write the output to the output register.

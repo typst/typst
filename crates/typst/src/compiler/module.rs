@@ -23,7 +23,7 @@ pub struct CompiledModule {
 }
 
 impl CompiledModule {
-    pub fn new(compiler: Compiler, output: Readable, span: Span) -> Self {
+    pub fn new(mut compiler: Compiler, output: Readable, span: Span) -> Self {
         let mut instructions = Vec::with_capacity(1 << 20);
         compiler
             .instructions
@@ -42,8 +42,7 @@ impl CompiledModule {
             })
             .collect();
 
-        let mut defaults = compiler.common.defaults.into_values();
-        defaults.insert(0, compiler.get_default_scope());
+        compiler.common.defaults.insert(0, compiler.get_default_scope());
 
         CompiledModule {
             inner: Arc::new(Repr {
@@ -57,7 +56,7 @@ impl CompiledModule {
                 accesses: compiler.common.accesses.into_values(),
                 labels: compiler.common.labels.into_values(),
                 patterns: compiler.common.patterns.into_values(),
-                defaults,
+                defaults: compiler.common.defaults,
                 output: Some(output),
                 joined: true,
                 exports,
