@@ -134,10 +134,11 @@ impl Eval for ast::ForLoop<'_> {
             }};
         }
 
-        let iter = self.iter().eval(vm)?;
+        let iterable = self.iterable().eval(vm)?;
+        let iterable_type = iterable.ty();
         let pattern = self.pattern();
 
-        match (&pattern, iter.clone()) {
+        match (&pattern, iterable) {
             (ast::Pattern::Normal(_), Value::Str(string)) => {
                 // Iterate over graphemes of string.
                 iter!(for pattern in string.as_str().graphemes(true));
@@ -151,10 +152,10 @@ impl Eval for ast::ForLoop<'_> {
                 iter!(for pattern in array);
             }
             (ast::Pattern::Normal(_), _) => {
-                bail!(self.iter().span(), "cannot loop over {}", iter.ty());
+                bail!(self.iterable().span(), "cannot loop over {}", iterable_type);
             }
             (_, _) => {
-                bail!(pattern.span(), "cannot destructure values of {}", iter.ty())
+                bail!(pattern.span(), "cannot destructure values of {}", iterable_type)
             }
         }
 

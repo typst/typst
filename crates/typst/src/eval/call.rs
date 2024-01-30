@@ -467,7 +467,7 @@ impl<'a> CapturesVisitor<'a> {
             // active after the iterable is evaluated but before the body is
             // evaluated.
             Some(ast::Expr::For(expr)) => {
-                self.visit(expr.iter().to_untyped());
+                self.visit(expr.iterable().to_untyped());
                 self.internal.enter();
 
                 let pattern = expr.pattern();
