@@ -98,9 +98,14 @@ impl Compile for ast::WhileLoop<'_> {
                 self.body().compile_into(
                     engine,
                     compiler,
-                    Some(WritableGuard::Joined),
+                    if output.is_some() {
+                        Some(WritableGuard::Joined)
+                    } else {
+                        None
+                    },
                 )?;
 
+                compiler.isr(Opcode::jump(self.span(), top));
                 compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), after));
 
                 Ok(())

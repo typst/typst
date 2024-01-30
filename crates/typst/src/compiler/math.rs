@@ -76,7 +76,7 @@ impl Compile for ast::MathIdent<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let Some(value) = compiler.read(self.span(), self.get()).at(self.span())? else {
-            bail!(self.span(), "identifier {} is not defined", self.get())
+            bail!(self.span(), "unknown variable: {}", self.get())
         };
 
         Ok(value)

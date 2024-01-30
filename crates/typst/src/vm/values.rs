@@ -906,10 +906,11 @@ impl VmRead for Parent {
 
 impl VmWrite for Parent {
     fn write<'a>(&self, vm: &'a mut VMState) -> StrResult<&'a mut Value> {
-        let i = 0;
+        let mut i = 0;
         let mut parent = vm.parent.as_mut();
         while i < self.scope() {
             parent = parent.and_then(|vm| vm.parent.as_mut());
+            i += 1;
         }
 
         let Some(parent) = parent else {
