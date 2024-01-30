@@ -743,16 +743,17 @@ impl Run for Set {
             Value::None => crate::foundations::Args::new::<Value>(span, []),
             Value::Args(args) => args.clone(),
             _ => {
-                bail!(span, "expected arguments or none, found {}", args.ty().long_name());
+                bail!(
+                    span,
+                    "expected arguments or none, found {}",
+                    args.ty().long_name()
+                );
             }
         };
 
         // Create the set rule and store it in the target.
-        vm.write_one(
-            self.out,
-            target.set(engine, args)?.spanned(span).into_value(),
-        )
-        .at(span)?;
+        vm.write_one(self.out, target.set(engine, args)?.spanned(span).into_value())
+            .at(span)?;
 
         Ok(())
     }
@@ -858,7 +859,11 @@ impl Run for Call {
             Value::None => crate::foundations::Args::new::<Value>(span, []),
             Value::Args(args) => args.clone(),
             _ => {
-                bail!(span, "expected arguments or none, found {}", args.ty().long_name());
+                bail!(
+                    span,
+                    "expected arguments or none, found {}",
+                    args.ty().long_name()
+                );
             }
         };
 

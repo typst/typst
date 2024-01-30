@@ -173,7 +173,8 @@ impl Compiler {
         f: impl FnOnce(&mut Self, &mut bool) -> SourceResult<()>,
     ) -> SourceResult<()> {
         let mut scope_id = Some(ScopeId::new(self.common.defaults.len() as u16));
-        let mut scope = Rc::new(RefCell::new(CompilerScope::scope(self.scope.clone(), looping)));
+        let mut scope =
+            Rc::new(RefCell::new(CompilerScope::scope(self.scope.clone(), looping)));
         let mut instructions = Vec::with_capacity(DEFAULT_CAPACITY);
 
         std::mem::swap(&mut self.scope, &mut scope);
@@ -226,10 +227,17 @@ impl Compiler {
         joining: Option<Writable>,
         mut display: bool,
         f: impl FnOnce(&mut Self, &mut Engine, &mut bool) -> SourceResult<()>,
-        pre: impl FnOnce(&mut Self, &mut Engine, usize, OptionalWritable, ScopeId) -> SourceResult<()>,
+        pre: impl FnOnce(
+            &mut Self,
+            &mut Engine,
+            usize,
+            OptionalWritable,
+            ScopeId,
+        ) -> SourceResult<()>,
     ) -> SourceResult<()> {
         let mut scope_id = Some(ScopeId::new(self.common.defaults.len() as u16));
-        let mut scope = Rc::new(RefCell::new(CompilerScope::scope(self.scope.clone(), looping)));
+        let mut scope =
+            Rc::new(RefCell::new(CompilerScope::scope(self.scope.clone(), looping)));
         let mut instructions = Vec::with_capacity(DEFAULT_CAPACITY);
 
         std::mem::swap(&mut self.scope, &mut scope);

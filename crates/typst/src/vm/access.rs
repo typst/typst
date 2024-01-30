@@ -58,7 +58,11 @@ impl Access {
                 let mut args = match args {
                     Value::Args(args) => args.clone(),
                     Value::None => Args::new(span, std::iter::empty::<Value>()),
-                    _ => bail!(span, "expected argumentss, found {}", args.ty().long_name()),
+                    _ => bail!(
+                        span,
+                        "expected argumentss, found {}",
+                        args.ty().long_name()
+                    ),
                 };
 
                 // Call the method.
@@ -128,7 +132,11 @@ impl Access {
                 let args = match args {
                     Value::Args(args) => args.clone(),
                     Value::None => Args::new(span, std::iter::empty::<Value>()),
-                    _ => bail!(span, "expected argumentss, found {}", args.ty().long_name()),
+                    _ => bail!(
+                        span,
+                        "expected argumentss, found {}",
+                        args.ty().long_name()
+                    ),
                 };
 
                 // Get the callee.

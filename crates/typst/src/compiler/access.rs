@@ -158,11 +158,7 @@ impl Access for ast::FuncCall<'_> {
             let left = access.target().access(engine, compiler, mutable)?;
 
             let method = access.field();
-            Ok(AccessPattern::AccessorMethod(
-                Arc::new(left),
-                method.get().clone(),
-                args,
-            ))
+            Ok(AccessPattern::AccessorMethod(Arc::new(left), method.get().clone(), args))
         } else {
             bail!(self.span(), "cannot mutate a temporary value")
         }

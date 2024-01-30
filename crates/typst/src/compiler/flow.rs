@@ -98,11 +98,7 @@ impl Compile for ast::WhileLoop<'_> {
                 self.body().compile_into(
                     engine,
                     compiler,
-                    if output.is_some() {
-                        Some(WritableGuard::Joined)
-                    } else {
-                        None
-                    },
+                    if output.is_some() { Some(WritableGuard::Joined) } else { None },
                 )?;
 
                 compiler.isr(Opcode::jump(self.span(), top));
@@ -188,7 +184,7 @@ impl Compile for ast::ForLoop<'_> {
                     Writable::joined(),
                 ));
                 Ok(())
-            }
+            },
         )
     }
     fn compile(

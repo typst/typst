@@ -58,7 +58,7 @@ struct RegisterInner(Register, Rc<RefCell<RegisterTable>>);
 impl RegisterGuard {
     /// Get the raw index of this register.
     pub fn as_raw(&self) -> u16 {
-        self.0.0.as_raw()
+        self.0 .0.as_raw()
     }
 
     /// Create a new register guard.
@@ -68,7 +68,7 @@ impl RegisterGuard {
 
     /// Get this register as a [`Register`].
     pub fn as_register(&self) -> Register {
-        self.0.0
+        self.0 .0
     }
 
     /// Get this register as a [`Readable`].
@@ -84,7 +84,7 @@ impl RegisterGuard {
 
 impl fmt::Debug for RegisterGuard {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.0.fmt(f)
+        self.0 .0.fmt(f)
     }
 }
 
@@ -165,7 +165,10 @@ impl ReadableGuard {
         } else if readable.is_parent() {
             Self::Parent(ParentGuard::new(
                 readable.as_parent().scope(),
-                RegisterGuard::new(Register::new(readable.as_parent().value()), registers),
+                RegisterGuard::new(
+                    Register::new(readable.as_parent().value()),
+                    registers,
+                ),
             ))
         } else {
             unreachable!()
