@@ -15,11 +15,11 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use base64::Engine;
-use ecow::{eco_format, EcoString};
+use ecow::{eco_format, eco_vec, EcoString};
 use if_chain::if_chain;
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
-use typst::foundations::{Datetime, NativeElement};
+use typst::foundations::{Datetime, NativeElement, Selector};
 use typst::layout::{Abs, Dir, Em, Transform};
 use typst::model::{Document, HeadingElem};
 use typst::text::{Font, Lang};
@@ -302,7 +302,11 @@ fn write_and_collect_destinations<'a>(
         let heading = elem.to_packed::<HeadingElem>().unwrap();
         if_chain!(
             if let Some(label) = heading.label();
-            if let Ok(_) = ctx.document.introspector.query_label(label);
+            if let Some(first) = ctx.document.introspector.query_first(&Selector::And(eco_vec![
+                HeadingElem::elem().select(),
+                Selector::Label(label)
+            ]));
+            if heading == first.to_packed::<HeadingElem>().unwrap();
             if let Some(loc) = heading.location();
             let name = Str(label.as_str().as_bytes());
             let pos = ctx.document.introspector.position(loc);
