@@ -229,11 +229,17 @@ pub struct Property {
 
 impl Property {
     /// Create a new property from a key-value pair.
-    pub fn new<T>(elem: Element, id: u8, value: T) -> Self
+    pub fn new<E, T>(id: u8, value: T) -> Self
     where
+        E: NativeElement,
         T: Debug + Clone + Hash + Send + Sync + 'static,
     {
-        Self { elem, id, value: Block::new(value), span: None }
+        Self {
+            elem: E::elem(),
+            id,
+            value: Block::new(value),
+            span: None,
+        }
     }
 
     /// Whether this property is the given one.
@@ -244,6 +250,11 @@ impl Property {
     /// Whether this property belongs to the given element.
     pub fn is_of(&self, elem: Element) -> bool {
         self.elem == elem
+    }
+
+    /// Turn this property into prehashed style.
+    pub fn wrap(self) -> Prehashed<Style> {
+        Prehashed::new(Style::Property(self))
     }
 }
 

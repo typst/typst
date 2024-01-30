@@ -124,6 +124,7 @@ pub struct ListElem {
     /// The nesting depth.
     #[internal]
     #[fold]
+    #[ghost]
     depth: Depth,
 }
 
@@ -150,7 +151,7 @@ impl LayoutMultiple for Packed<ListElem> {
                 .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
         };
 
-        let Depth(depth) = self.depth(styles);
+        let Depth(depth) = ListElem::depth_in(styles);
         let marker = self
             .marker(styles)
             .resolve(engine, depth)?

@@ -199,6 +199,7 @@ pub struct EnumElem {
     /// The numbers of parent items.
     #[internal]
     #[fold]
+    #[ghost]
     parents: SmallVec<[usize; 4]>,
 }
 
@@ -228,7 +229,7 @@ impl LayoutMultiple for Packed<EnumElem> {
 
         let mut cells = vec![];
         let mut number = self.start(styles);
-        let mut parents = self.parents(styles);
+        let mut parents = EnumElem::parents_in(styles);
         parents.reverse();
 
         let full = self.full(styles);

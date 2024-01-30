@@ -100,28 +100,34 @@ pub struct EquationElem {
     /// The size of the glyphs.
     #[internal]
     #[default(MathSize::Text)]
+    #[ghost]
     pub size: MathSize,
 
     /// The style variant to select.
     #[internal]
+    #[ghost]
     pub variant: MathVariant,
 
     /// Affects the height of exponents.
     #[internal]
     #[default(false)]
+    #[ghost]
     pub cramped: bool,
 
     /// Whether to use bold glyphs.
     #[internal]
     #[default(false)]
+    #[ghost]
     pub bold: bool,
 
     /// Whether to use italic glyphs.
     #[internal]
+    #[ghost]
     pub italic: Smart<bool>,
 
     /// A forced class to use for all fragment.
     #[internal]
+    #[ghost]
     pub class: Option<MathClass>,
 }
 
