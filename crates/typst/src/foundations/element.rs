@@ -223,6 +223,9 @@ pub trait Fields {
     /// Get the field with the given ID in the presence of styles.
     fn field_with_styles(&self, id: u8, styles: StyleChain) -> Option<Value>;
 
+    /// Resolve all fields with the styles and save them in-place.
+    fn materialize(&mut self, styles: StyleChain);
+
     /// Get the fields of the element.
     fn fields(&self) -> Dict;
 }
@@ -282,17 +285,20 @@ pub trait Synthesize {
         -> SourceResult<()>;
 }
 
-/// The base recipe for an element.
+/// Defines a built-in show rule for an element.
 pub trait Show {
     /// Execute the base recipe for this element.
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content>;
 }
 
-/// Post-process an element after it was realized.
-pub trait Finalize {
+/// Defines built-in show set rules for an element.
+///
+/// This is a bit more powerful than a user-defined show-set because it can
+/// access the element's fields.
+pub trait ShowSet {
     /// Finalize the fully realized form of the element. Use this for effects
     /// that should work even in the face of a user-defined show rule.
-    fn finalize(&self, realized: Content, styles: StyleChain) -> Content;
+    fn show_set(&self, styles: StyleChain) -> Styles;
 }
 
 /// How the element interacts with other elements.

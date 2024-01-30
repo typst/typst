@@ -3,7 +3,7 @@ use std::num::NonZeroUsize;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, Finalize, NativeElement, Packed, Show, Smart, StyleChain, Styles,
+    elem, Content, NativeElement, Packed, Show, ShowSet, Smart, StyleChain, Styles,
     Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
@@ -43,7 +43,7 @@ use crate::util::{option_eq, NonZeroExt};
 /// Headings have dedicated syntax: They can be created by starting a line with
 /// one or multiple equals signs, followed by a space. The number of equals
 /// signs determines the heading's logical nesting depth.
-#[elem(Locatable, Synthesize, Count, Show, Finalize, LocalName, Refable, Outlinable)]
+#[elem(Locatable, Synthesize, Count, Show, ShowSet, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
     /// The logical nesting depth of the heading, starting from one.
     #[default(NonZeroUsize::ONE)]
@@ -140,13 +140,7 @@ impl Synthesize for Packed<HeadingElem> {
             }
         };
 
-        let elem = self.as_mut();
-        elem.push_level(elem.level(styles));
-        elem.push_numbering(elem.numbering(styles).clone());
-        elem.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
-        elem.push_outlined(elem.outlined(styles));
-        elem.push_bookmarked(elem.bookmarked(styles));
-
+        self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
         Ok(())
     }
 }
@@ -166,8 +160,8 @@ impl Show for Packed<HeadingElem> {
     }
 }
 
-impl Finalize for Packed<HeadingElem> {
-    fn finalize(&self, realized: Content, styles: StyleChain) -> Content {
+impl ShowSet for Packed<HeadingElem> {
+    fn show_set(&self, styles: StyleChain) -> Styles {
         let level = (**self).level(styles).get();
         let scale = match level {
             1 => 1.4,
@@ -179,13 +173,13 @@ impl Finalize for Packed<HeadingElem> {
         let above = Em::new(if level == 1 { 1.8 } else { 1.44 }) / scale;
         let below = Em::new(0.75) / scale;
 
-        let mut styles = Styles::new();
-        styles.set(TextElem::set_size(TextSize(size.into())));
-        styles.set(TextElem::set_weight(FontWeight::BOLD));
-        styles.set(BlockElem::set_above(VElem::block_around(above.into())));
-        styles.set(BlockElem::set_below(VElem::block_around(below.into())));
-        styles.set(BlockElem::set_sticky(true));
-        realized.styled_with_map(styles)
+        let mut out = Styles::new();
+        out.set(TextElem::set_size(TextSize(size.into())));
+        out.set(TextElem::set_weight(FontWeight::BOLD));
+        out.set(BlockElem::set_above(VElem::block_around(above.into())));
+        out.set(BlockElem::set_below(VElem::block_around(below.into())));
+        out.set(BlockElem::set_sticky(true));
+        out
     }
 }
 

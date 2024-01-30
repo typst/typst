@@ -14,11 +14,10 @@ use smallvec::smallvec;
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, func, scope, ty, Dict, Element, Fields, Finalize, Guard, IntoValue, Label,
-    NativeElement, Recipe, Repr, Selector, Str, Style, StyleChain, Styles, Synthesize,
-    Value,
+    elem, func, scope, ty, Dict, Element, Fields, Guard, IntoValue, Label, NativeElement,
+    Recipe, Repr, Selector, Str, Style, StyleChain, Styles, Value,
 };
-use crate::introspection::{Locatable, Location, Meta, MetaElem};
+use crate::introspection::{Location, Meta, MetaElem};
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
 use crate::model::{Destination, EmphElem, StrongElem};
 use crate::syntax::Span;
@@ -142,6 +141,16 @@ impl Content {
         self
     }
 
+    /// Check whether a show rule recipe is disabled.
+    pub fn is_guarded(&self, guard: Guard) -> bool {
+        self.inner.lifecycle.contains(guard.0)
+    }
+
+    /// Whether this content has already been prepared.
+    pub fn is_prepared(&self) -> bool {
+        self.inner.lifecycle.contains(0)
+    }
+
     /// Set the location of the content.
     pub fn set_location(&mut self, location: Location) {
         self.make_mut().location = Some(location);
@@ -151,25 +160,6 @@ impl Content {
     pub fn guarded(mut self, guard: Guard) -> Self {
         self.make_mut().lifecycle.insert(guard.0);
         self
-    }
-
-    /// Whether the content needs to be realized specially.
-    pub fn needs_preparation(&self) -> bool {
-        !self.is_prepared()
-            && (self.can::<dyn Locatable>()
-                || self.can::<dyn Synthesize>()
-                || self.can::<dyn Finalize>()
-                || self.label().is_some())
-    }
-
-    /// Check whether a show rule recipe is disabled.
-    pub fn is_guarded(&self, guard: Guard) -> bool {
-        self.inner.lifecycle.contains(guard.0)
-    }
-
-    /// Whether this content has already been prepared.
-    pub fn is_prepared(&self) -> bool {
-        self.inner.lifecycle.contains(0)
     }
 
     /// Mark this content as prepared.
@@ -225,6 +215,11 @@ impl Content {
     /// instead.
     pub fn field_by_name(&self, name: &str) -> StrResult<Value> {
         self.get_by_name(name).ok_or_else(|| missing_field(name))
+    }
+
+    /// Resolve all fields with the styles and save them in-place.
+    pub fn materialize(&mut self, styles: StyleChain) {
+        self.make_mut().elem.materialize(styles);
     }
 
     /// Create a new sequence element from multiples elements.

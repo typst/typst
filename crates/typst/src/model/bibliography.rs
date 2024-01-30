@@ -23,9 +23,9 @@ use crate::diag::{bail, error, At, FileError, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::eval::{eval_string, EvalMode};
 use crate::foundations::{
-    cast, elem, ty, Args, Array, Bytes, CastInfo, Content, Finalize, FromValue,
-    IntoValue, Label, NativeElement, Packed, Reflect, Repr, Scope, Show, Smart, Str,
-    StyleChain, Synthesize, Type, Value,
+    cast, elem, ty, Args, Array, Bytes, CastInfo, Content, FromValue, IntoValue, Label,
+    NativeElement, Packed, Reflect, Repr, Scope, Show, ShowSet, Smart, Str, StyleChain,
+    Styles, Synthesize, Type, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{
@@ -84,7 +84,7 @@ use crate::World;
 ///
 /// #bibliography("works.bib")
 /// ```
-#[elem(Locatable, Synthesize, Show, Finalize, LocalName)]
+#[elem(Locatable, Synthesize, Show, ShowSet, LocalName)]
 pub struct BibliographyElem {
     /// Path(s) to Hayagriva `.yml` and/or BibLaTeX `.bib` files.
     #[required]
@@ -199,8 +199,6 @@ impl BibliographyElem {
 impl Synthesize for Packed<BibliographyElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         let elem = self.as_mut();
-        elem.push_full(elem.full(styles));
-        elem.push_style(elem.style(styles));
         elem.push_lang(TextElem::lang_in(styles));
         elem.push_region(TextElem::region_in(styles));
         Ok(())
@@ -275,12 +273,13 @@ impl Show for Packed<BibliographyElem> {
     }
 }
 
-impl Finalize for Packed<BibliographyElem> {
-    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
+impl ShowSet for Packed<BibliographyElem> {
+    fn show_set(&self, _: StyleChain) -> Styles {
         const INDENT: Em = Em::new(1.0);
-        realized
-            .styled(HeadingElem::set_numbering(None))
-            .styled(PadElem::set_left(INDENT.into()))
+        let mut out = Styles::new();
+        out.set(HeadingElem::set_numbering(None));
+        out.set(PadElem::set_left(INDENT.into()));
+        out
     }
 }
 

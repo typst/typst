@@ -31,9 +31,9 @@ You can use the ```rs *const T``` pointer or
 the ```rs &mut T``` reference.
 
 ---
+#show heading: set text(green)
 #show heading.where(level: 1): set text(red)
 #show heading.where(level: 2): set text(blue)
-#show heading: set text(green)
 = Red
 == Blue
 === Green

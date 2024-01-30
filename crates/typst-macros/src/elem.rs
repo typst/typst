@@ -866,6 +866,28 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
         quote! { Fields::#enum_ident => #expr }
     });
 
+    // Sets fields from the style chain.
+    let materializes = visible_non_ghost()
+        .filter(|field| !field.required && !field.synthesized)
+        .map(|field| {
+            let Field { ident, .. } = field;
+            let value = create_style_chain_access(
+                field,
+                false,
+                if field.ghost { quote!(None) } else { quote!(self.#ident.as_ref()) },
+            );
+
+            if field.fold {
+                quote! { self.#ident = Some(#value); }
+            } else {
+                quote! {
+                    if self.#ident.is_none() {
+                        self.#ident = Some(#value);
+                    }
+                }
+            }
+        });
+
     // Creation of the `fields` dictionary for inherent fields.
     let field_inserts = visible_non_ghost().map(|field| {
         let Field { ident, name, .. } = field;
@@ -915,6 +937,10 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
                     #(#field_with_styles_arms,)*
                     _ => None,
                 }
+            }
+
+            fn materialize(&mut self, styles: #foundations::StyleChain) {
+               #(#materializes)*
             }
 
             fn fields(&self) -> #foundations::Dict {
