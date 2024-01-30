@@ -5,7 +5,7 @@ use std::ops::{Add, Div, Mul, Neg};
 use ecow::{eco_format, EcoString};
 
 use crate::diag::{At, Hint, SourceResult};
-use crate::foundations::{func, scope, ty, Repr, Resolve, StyleChain, Styles};
+use crate::foundations::{func, scope, ty, Fold, Repr, Resolve, StyleChain, Styles};
 use crate::layout::{Abs, Em};
 use crate::syntax::Span;
 use crate::util::Numeric;
@@ -272,5 +272,11 @@ impl Resolve for Length {
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         self.abs + self.em.resolve(styles)
+    }
+}
+
+impl Fold for Length {
+    fn fold(self, _: Self) -> Self {
+        self
     }
 }

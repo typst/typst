@@ -97,7 +97,7 @@ pub struct CancelElem {
     #[fold]
     #[default(Stroke {
         // Default stroke has 0.5pt for better visuals.
-        thickness: Smart::Custom(Abs::pt(0.5)),
+        thickness: Smart::Custom(Abs::pt(0.5).into()),
         ..Default::default()
     })]
     pub stroke: Stroke,

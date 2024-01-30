@@ -330,6 +330,19 @@ impl<T: Numeric + Repr> Repr for Stroke<T> {
     }
 }
 
+impl<T: Numeric + Fold> Fold for Stroke<T> {
+    fn fold(self, outer: Self) -> Self {
+        Self {
+            paint: self.paint.or(outer.paint),
+            thickness: self.thickness.or(outer.thickness),
+            cap: self.cap.or(outer.cap),
+            join: self.join.or(outer.join),
+            dash: self.dash.or(outer.dash),
+            miter_limit: self.miter_limit.or(outer.miter_limit),
+        }
+    }
+}
+
 impl Resolve for Stroke {
     type Output = Stroke<Abs>;
 
@@ -341,21 +354,6 @@ impl Resolve for Stroke {
             join: self.join,
             dash: self.dash.resolve(styles),
             miter_limit: self.miter_limit,
-        }
-    }
-}
-
-impl Fold for Stroke<Abs> {
-    type Output = Self;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        Self {
-            paint: self.paint.or(outer.paint),
-            thickness: self.thickness.or(outer.thickness),
-            cap: self.cap.or(outer.cap),
-            join: self.join.or(outer.join),
-            dash: self.dash.or(outer.dash),
-            miter_limit: self.miter_limit.or(outer.miter_limit),
         }
     }
 }

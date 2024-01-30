@@ -323,7 +323,6 @@ impl LocalName for Packed<BibliographyElem> {
 }
 
 /// A loaded bibliography.
-#[ty]
 #[derive(Clone, PartialEq)]
 pub struct Bibliography {
     map: Arc<IndexMap<PicoStr, hayagriva::Entry>>,
@@ -419,12 +418,6 @@ impl Debug for Bibliography {
 impl Hash for Bibliography {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.hash.hash(state);
-    }
-}
-
-impl Repr for Bibliography {
-    fn repr(&self) -> EcoString {
-        "..".into()
     }
 }
 

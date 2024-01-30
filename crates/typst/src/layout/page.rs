@@ -330,6 +330,8 @@ pub struct PageElem {
 
     /// Whether the page should be aligned to an even or odd page.
     #[internal]
+    #[synthesized]
+    #[default(None)]
     pub clear_to: Option<Parity>,
 }
 
@@ -549,18 +551,11 @@ impl Margin {
 }
 
 impl Fold for Margin {
-    type Output = Margin;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        let sides =
-            self.sides
-                .zip(outer.sides)
-                .map(|(inner, outer)| match (inner, outer) {
-                    (Some(value), Some(outer)) => Some(value.fold(outer)),
-                    _ => inner.or(outer),
-                });
-        let two_sided = self.two_sided.or(outer.two_sided);
-        Margin { sides, two_sided }
+    fn fold(self, outer: Self) -> Self {
+        Margin {
+            sides: self.sides.fold(outer.sides),
+            two_sided: self.two_sided.fold(outer.two_sided),
+        }
     }
 }
 
