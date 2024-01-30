@@ -40,5 +40,5 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 #bibliography("/files/works.bib")
 
 ---
-// Error: 15-55 duplicate bibliography keys: netwok, issue201, arrgh, quark, distress, glacier-melt, tolkien54, sharing, restful, mcintosh_anxiety, psychology25
+// Error: 15-55 duplicate bibliography keys: netwok, issue201, arrgh, quark, distress, glacier-melt, tolkien54, DBLP:books/lib/Knuth86a, sharing, restful, mcintosh_anxiety, psychology25
 #bibliography(("/files/works.bib", "/files/works.bib"))
