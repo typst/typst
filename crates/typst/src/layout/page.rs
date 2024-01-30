@@ -330,6 +330,8 @@ pub struct PageElem {
 
     /// Whether the page should be aligned to an even or odd page.
     #[internal]
+    #[synthesized]
+    #[default(None)]
     pub clear_to: Option<Parity>,
 }
 

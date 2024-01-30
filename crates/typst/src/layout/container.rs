@@ -341,6 +341,7 @@ pub struct BlockElem {
     /// Use this to prevent page breaks between e.g. a heading and its body.
     #[internal]
     #[default(false)]
+    #[ghost]
     pub sticky: bool,
 }
 

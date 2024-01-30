@@ -1,5 +1,3 @@
-use comemo::Prehashed;
-
 use crate::diag::SourceResult;
 use crate::foundations::{elem, func, Content, NativeElement, Packed, StyleChain};
 use crate::layout::{Abs, Frame, FrameItem, Point, Size};
@@ -82,7 +80,7 @@ fn layout(
         .frame;
 
     // Layout the index.
-    let sscript = Prehashed::new(EquationElem::set_size(MathSize::ScriptScript));
+    let sscript = EquationElem::set_size(MathSize::ScriptScript).wrap();
     let index = index
         .map(|elem| ctx.layout_frame(elem, styles.chain(&sscript)))
         .transpose()?;
