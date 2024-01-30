@@ -566,18 +566,18 @@ fn create_set_field_method(field: &Field) -> TokenStream {
 /// Create a style chain access method for a field.
 fn create_style_chain_access(
     field: &Field,
-    borrow: bool,
+    borrowed: bool,
     inherent: TokenStream,
 ) -> TokenStream {
     let Field { ty, default, enum_ident, const_ident, .. } = field;
 
-    let getter = match (field.fold, borrow) {
+    let getter = match (field.fold, borrowed) {
         (false, false) => quote! { get },
         (false, true) => quote! { get_ref },
         (true, _) => quote! { get_folded },
     };
 
-    let default = if borrow {
+    let default = if borrowed {
         quote! { || &#const_ident }
     } else {
         match default {
