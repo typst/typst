@@ -220,6 +220,9 @@ pub trait Fields {
     /// Get the field with the given field ID.
     fn field(&self, id: u8) -> Option<Value>;
 
+    /// Get the field with the given ID in the presence of styles.
+    fn field_with_styles(&self, id: u8, styles: StyleChain) -> Option<Value>;
+
     /// Get the fields of the element.
     fn fields(&self) -> Dict;
 }

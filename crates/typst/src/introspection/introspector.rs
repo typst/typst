@@ -127,9 +127,11 @@ impl Introspector {
                     indices.iter().map(|&index| self.elems[index].0.clone()).collect()
                 })
                 .unwrap_or_default(),
-            Selector::Elem(..) | Selector::Regex(_) | Selector::Can(_) => {
-                self.all().filter(|elem| selector.matches(elem)).cloned().collect()
-            }
+            Selector::Elem(..) | Selector::Regex(_) | Selector::Can(_) => self
+                .all()
+                .filter(|elem| selector.matches(elem, None))
+                .cloned()
+                .collect(),
             Selector::Location(location) => {
                 self.get(location).cloned().into_iter().collect()
             }

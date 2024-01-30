@@ -93,7 +93,7 @@ impl Elem {
 
     /// Fields that are visible to the user.
     fn visible_fields(&self) -> impl Iterator<Item = &Field> + Clone {
-        self.real_fields().filter(|field| !field.internal && !field.ghost)
+        self.real_fields().filter(|field| !field.internal)
     }
 }
 
@@ -509,7 +509,11 @@ fn create_field_method(field: &Field) -> TokenStream {
             quote! { (&self, styles: #foundations::StyleChain) -> #output }
         };
 
-        let mut value = create_style_chain_access(field, quote! { self.#ident.as_ref() });
+        let mut value = create_style_chain_access(
+            field,
+            field.borrowed,
+            quote! { self.#ident.as_ref() },
+        );
         if field.resolve {
             value = quote! { #foundations::Resolve::resolve(#value, styles) };
         }
@@ -530,7 +534,7 @@ fn create_field_in_method(field: &Field) -> TokenStream {
 
     let ref_ = field.borrowed.then(|| quote! { & });
 
-    let mut value = create_style_chain_access(field, quote! { None });
+    let mut value = create_style_chain_access(field, field.borrowed, quote! { None });
     if field.resolve {
         value = quote! { #foundations::Resolve::resolve(#value, styles) };
     }
@@ -560,16 +564,20 @@ fn create_set_field_method(field: &Field) -> TokenStream {
 }
 
 /// Create a style chain access method for a field.
-fn create_style_chain_access(field: &Field, inherent: TokenStream) -> TokenStream {
+fn create_style_chain_access(
+    field: &Field,
+    borrowed: bool,
+    inherent: TokenStream,
+) -> TokenStream {
     let Field { ty, default, enum_ident, const_ident, .. } = field;
 
-    let getter = match (field.fold, field.borrowed) {
+    let getter = match (field.fold, borrowed) {
         (false, false) => quote! { get },
         (false, true) => quote! { get_ref },
         (true, _) => quote! { get_folded },
     };
 
-    let default = if field.borrowed {
+    let default = if borrowed {
         quote! { || &#const_ident }
     } else {
         match default {
@@ -821,9 +829,10 @@ fn create_capable_impl(element: &Elem) -> TokenStream {
 /// Creates the element's `Fields` implementation.
 fn create_fields_impl(element: &Elem) -> TokenStream {
     let into_value = quote! { #foundations::IntoValue::into_value };
+    let visible_non_ghost = || element.visible_fields().filter(|field| !field.ghost);
 
     // Fields that can be checked using the `has` method.
-    let has_arms = element.visible_fields().map(|field| {
+    let has_arms = visible_non_ghost().map(|field| {
         let Field { enum_ident, ident, .. } = field;
 
         let expr = if field.inherent() {
@@ -836,7 +845,7 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
     });
 
     // Fields that can be accessed using the `field` method.
-    let field_arms = element.visible_fields().map(|field| {
+    let field_arms = visible_non_ghost().filter(|field| !field.ghost).map(|field| {
         let Field { enum_ident, ident, .. } = field;
 
         let expr = if field.inherent() {
@@ -848,8 +857,29 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
         quote! { Fields::#enum_ident => #expr }
     });
 
+    // Fields that can be accessed using the `field_with_styles` method.
+    let field_with_styles_arms = element.visible_fields().map(|field| {
+        let Field { enum_ident, ident, .. } = field;
+
+        let expr = if field.inherent() {
+            quote! { Some(#into_value(self.#ident.clone())) }
+        } else if field.synthesized && field.default.is_none() {
+            quote! { self.#ident.clone().map(#into_value) }
+        } else {
+            let value = create_style_chain_access(
+                field,
+                false,
+                if field.ghost { quote!(None) } else { quote!(self.#ident.as_ref()) },
+            );
+
+            quote! { Some(#into_value(#value)) }
+        };
+
+        quote! { Fields::#enum_ident => #expr }
+    });
+
     // Creation of the `fields` dictionary for inherent fields.
-    let field_inserts = element.visible_fields().map(|field| {
+    let field_inserts = visible_non_ghost().map(|field| {
         let Field { ident, name, .. } = field;
         let string = quote! { #name.into() };
 
@@ -873,7 +903,7 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
             type Enum = Fields;
 
             fn has(&self, id: u8) -> bool {
-                let Ok(id) = <#ident as #foundations::Fields>::Enum::try_from(id) else {
+                let Ok(id) = Fields::try_from(id) else {
                     return false;
                 };
 
@@ -884,9 +914,17 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
             }
 
             fn field(&self, id: u8) -> Option<#foundations::Value> {
-                let id = <#ident as #foundations::Fields>::Enum::try_from(id).ok()?;
+                let id = Fields::try_from(id).ok()?;
                 match id {
                     #(#field_arms,)*
+                    _ => None,
+                }
+            }
+
+            fn field_with_styles(&self, id: u8, styles: #foundations::StyleChain) -> Option<#foundations::Value> {
+                let id = Fields::try_from(id).ok()?;
+                match id {
+                    #(#field_with_styles_arms,)*
                     _ => None,
                 }
             }

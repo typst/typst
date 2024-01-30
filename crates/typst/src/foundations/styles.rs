@@ -369,10 +369,10 @@ impl Recipe {
     }
 
     /// Whether the recipe is applicable to the target.
-    pub fn applicable(&self, target: &Content) -> bool {
+    pub fn applicable(&self, target: &Content, styles: StyleChain) -> bool {
         self.selector
             .as_ref()
-            .map_or(false, |selector| selector.matches(target))
+            .map_or(false, |selector| selector.matches(target, Some(styles)))
     }
 
     /// Apply the recipe to the given content.
