@@ -106,7 +106,9 @@ impl Elem {
     /// This includes:
     /// - Fields that are not synthesized.
     fn construct_fields(&self) -> impl Iterator<Item = &Field> + Clone {
-        self.real_fields().filter(|field| !field.synthesized)
+        self.real_fields().filter(|field| {
+            !field.synthesized && (!field.internal || field.parse.is_some())
+        })
     }
 }
 
@@ -261,11 +263,6 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
     if field.resolve {
         let output = &field.output;
         field.output = parse_quote! { <#output as #foundations::Resolve>::Output };
-    }
-
-    if field.fold {
-        let output = &field.output;
-        field.output = parse_quote! { <#output as #foundations::Fold>::Output };
     }
 
     validate_attrs(&attrs)?;
@@ -555,32 +552,42 @@ fn create_style_chain_access(
     let elem = &element.ident;
 
     let Field { ty, default, enum_ident, .. } = field;
-    let getter = match (field.fold, field.resolve, field.borrowed) {
-        (false, false, false) => quote! { get },
-        (false, false, true) => quote! { get_borrowed },
-        (false, true, _) => quote! { get_resolve },
-        (true, false, _) => quote! { get_fold },
-        (true, true, _) => quote! { get_resolve_fold },
+
+    let getter = match (field.fold, field.borrowed) {
+        (false, false) => quote! { get },
+        (false, true) => quote! { get_ref },
+        (true, _) => quote! { get_folded },
     };
 
-    let default = default
-        .clone()
-        .unwrap_or_else(|| parse_quote! { ::std::default::Default::default() });
-    let (init, default) = field.fold.then(|| (None, quote! { || #default })).unwrap_or_else(|| (
-        Some(quote! {
-            static DEFAULT: ::once_cell::sync::Lazy<#ty> = ::once_cell::sync::Lazy::new(|| #default);
-        }),
-        quote! { &DEFAULT },
-    ));
+    let mut default = match default {
+        Some(default) => quote! { #default },
+        None => quote! { ::std::default::Default::default() },
+    };
 
-    quote! {
-        #init
+    let mut init = None;
+    if field.borrowed {
+        init = Some(quote! {
+            static DEFAULT: ::once_cell::sync::Lazy<#ty> = ::once_cell::sync::Lazy::new(|| #default);
+        });
+        default = quote! { &DEFAULT };
+    }
+
+    let mut value = quote! {
         styles.#getter::<#ty>(
             <Self as #foundations::NativeElement>::elem(),
             <#elem as #foundations::Fields>::Enum::#enum_ident as u8,
             #inherent,
-            #default,
+            || #default,
         )
+    };
+
+    if field.resolve {
+        value = quote! { #foundations::Resolve::resolve(#value, styles) };
+    }
+
+    quote! {
+        #init
+        #value
     }
 }
 
@@ -995,21 +1002,18 @@ fn create_param_info(field: &Field) -> TokenStream {
         variadic,
         required,
         default,
-        fold,
         ty,
-        output,
         ..
     } = field;
     let named = !positional;
     let settable = field.settable();
-    let default_ty = if *fold { &output } else { &ty };
     let default = quote_option(&settable.then(|| {
         let default = default
             .clone()
             .unwrap_or_else(|| parse_quote! { ::std::default::Default::default() });
         quote! {
             || {
-                let typed: #default_ty = #default;
+                let typed: #ty = #default;
                 #foundations::IntoValue::into_value(typed)
             }
         }

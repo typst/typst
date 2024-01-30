@@ -215,9 +215,7 @@ impl Repr for Alignment {
 }
 
 impl Fold for Alignment {
-    type Output = Self;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
+    fn fold(self, outer: Self) -> Self {
         match (self, outer) {
             (Self::H(x), Self::V(y) | Self::Both(_, y)) => Self::Both(x, y),
             (Self::V(y), Self::H(x) | Self::Both(x, _)) => Self::Both(x, y),

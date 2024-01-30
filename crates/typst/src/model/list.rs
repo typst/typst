@@ -150,7 +150,7 @@ impl LayoutMultiple for Packed<ListElem> {
                 .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
         };
 
-        let depth = self.depth(styles);
+        let Depth(depth) = self.depth(styles);
         let marker = self
             .marker(styles)
             .resolve(engine, depth)?
@@ -162,8 +162,9 @@ impl LayoutMultiple for Packed<ListElem> {
             cells.push(Cell::from(Content::empty()));
             cells.push(Cell::from(marker.clone()));
             cells.push(Cell::from(Content::empty()));
-            cells
-                .push(Cell::from(item.body().clone().styled(ListElem::set_depth(Depth))));
+            cells.push(Cell::from(
+                item.body().clone().styled(ListElem::set_depth(Depth(1))),
+            ));
         }
 
         let stroke = None;
@@ -235,19 +236,11 @@ cast! {
     v: Func => Self::Func(v),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Hash)]
-struct Depth;
-
-cast! {
-    Depth,
-    self => Value::None,
-    _: Value => Self,
-}
+#[derive(Debug, Default, Clone, Copy, PartialEq, Hash)]
+struct Depth(usize);
 
 impl Fold for Depth {
-    type Output = usize;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        outer + 1
+    fn fold(self, outer: Self) -> Self {
+        Self(outer.0 + self.0)
     }
 }

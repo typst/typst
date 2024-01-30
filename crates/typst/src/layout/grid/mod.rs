@@ -13,8 +13,8 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, Fold, Packed, Show, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, Fragment, LayoutMultiple, Length, Regions, Rel,
-    Sides, Sizing,
+    AlignElem, Alignment, Axes, Fragment, LayoutMultiple, Length, Regions, Rel, Sides,
+    Sizing,
 };
 use crate::syntax::Span;
 use crate::util::NonZeroExt;
@@ -264,7 +264,6 @@ pub struct GridElem {
     /// )
     /// ```
     #[fold]
-    #[default(Sides::splat(Abs::pt(0.0).into()))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// The contents of the grid cells.
@@ -462,7 +461,7 @@ impl ResolvableCell for Packed<GridCell> {
         y: usize,
         fill: &Option<Paint>,
         align: Smart<Alignment>,
-        inset: Sides<Rel<Length>>,
+        inset: Sides<Option<Rel<Length>>>,
         styles: StyleChain,
     ) -> Cell {
         let cell = &mut *self;
@@ -481,9 +480,8 @@ impl ResolvableCell for Packed<GridCell> {
             Smart::Auto => cell.align(styles),
         });
         cell.push_inset(Smart::Custom(
-            cell.inset(styles).map_or(inset, |inner| inner.fold(inset)).map(Some),
+            cell.inset(styles).map_or(inset, |inner| inner.fold(inset)),
         ));
-
         Cell { body: self.pack(), fill, colspan }
     }
 

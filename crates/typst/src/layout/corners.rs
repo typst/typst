@@ -80,6 +80,16 @@ impl<T> Corners<T> {
     }
 }
 
+impl<T> Corners<Option<T>> {
+    /// Unwrap-or-default the individual corners.
+    pub fn unwrap_or_default(self) -> Corners<T>
+    where
+        T: Default,
+    {
+        self.map(Option::unwrap_or_default)
+    }
+}
+
 impl<T> Get<Corner> for Corners<T> {
     type Component = T;
 
@@ -133,20 +143,21 @@ impl<T: Reflect> Reflect for Corners<Option<T>> {
     }
 }
 
-impl<T> IntoValue for Corners<T>
+impl<T> IntoValue for Corners<Option<T>>
 where
     T: PartialEq + IntoValue,
 {
     fn into_value(self) -> Value {
         if self.is_uniform() {
-            return self.top_left.into_value();
+            if let Some(top_left) = self.top_left {
+                return top_left.into_value();
+            }
         }
 
         let mut dict = Dict::new();
-        let mut handle = |key: &str, component: T| {
-            let value = component.into_value();
-            if value != Value::None {
-                dict.insert(key.into(), value);
+        let mut handle = |key: &str, component: Option<T>| {
+            if let Some(c) = component {
+                dict.insert(key.into(), c.into_value());
             }
         };
 
@@ -228,12 +239,13 @@ impl<T: Resolve> Resolve for Corners<T> {
 }
 
 impl<T: Fold> Fold for Corners<Option<T>> {
-    type Output = Corners<T::Output>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer).map(|(inner, outer)| match inner {
-            Some(value) => value.fold(outer),
-            None => outer,
+    fn fold(self, outer: Self) -> Self {
+        self.zip(outer).map(|(inner, outer)| match (inner, outer) {
+            (Some(inner), Some(outer)) => Some(inner.fold(outer)),
+            // Usually, folding an inner `None` with an `outer` preferres the
+            // explicit `None`. However, here `None` means unspecified and thus
+            // we want `outer`.
+            (inner, outer) => inner.or(outer),
         })
     }
 }

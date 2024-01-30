@@ -1,13 +1,10 @@
 use kurbo::{BezPath, Line, ParamCurve};
+use smallvec::smallvec;
 use ttf_parser::{GlyphId, OutlineBuilder};
-
-use ecow::{eco_format, EcoString};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{
-    elem, ty, Content, Fold, Packed, Repr, Show, Smart, StyleChain,
-};
+use crate::foundations::{elem, Content, Packed, Show, Smart, StyleChain};
 use crate::layout::{Abs, Em, Frame, FrameItem, Length, Point, Size};
 use crate::syntax::Span;
 use crate::text::{
@@ -89,7 +86,7 @@ pub struct UnderlineElem {
 impl Show for Packed<UnderlineElem> {
     #[typst_macros::time(name = "underline", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
+        Ok(self.body().clone().styled(TextElem::set_deco(smallvec![Decoration {
             line: DecoLine::Underline {
                 stroke: self.stroke(styles).unwrap_or_default(),
                 offset: self.offset(styles),
@@ -97,7 +94,7 @@ impl Show for Packed<UnderlineElem> {
                 background: self.background(styles),
             },
             extent: self.extent(styles),
-        })))
+        }])))
     }
 }
 
@@ -181,7 +178,7 @@ pub struct OverlineElem {
 impl Show for Packed<OverlineElem> {
     #[typst_macros::time(name = "overline", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
+        Ok(self.body().clone().styled(TextElem::set_deco(smallvec![Decoration {
             line: DecoLine::Overline {
                 stroke: self.stroke(styles).unwrap_or_default(),
                 offset: self.offset(styles),
@@ -189,7 +186,7 @@ impl Show for Packed<OverlineElem> {
                 background: self.background(styles),
             },
             extent: self.extent(styles),
-        })))
+        }])))
     }
 }
 
@@ -258,7 +255,7 @@ pub struct StrikeElem {
 impl Show for Packed<StrikeElem> {
     #[typst_macros::time(name = "strike", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
+        Ok(self.body().clone().styled(TextElem::set_deco(smallvec![Decoration {
             // Note that we do not support evade option for strikethrough.
             line: DecoLine::Strikethrough {
                 stroke: self.stroke(styles).unwrap_or_default(),
@@ -266,7 +263,7 @@ impl Show for Packed<StrikeElem> {
                 background: self.background(styles),
             },
             extent: self.extent(styles),
-        })))
+        }])))
     }
 }
 
@@ -328,14 +325,14 @@ pub struct HighlightElem {
 impl Show for Packed<HighlightElem> {
     #[typst_macros::time(name = "highlight", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().clone().styled(TextElem::set_deco(Decoration {
+        Ok(self.body().clone().styled(TextElem::set_deco(smallvec![Decoration {
             line: DecoLine::Highlight {
                 fill: self.fill(styles),
                 top_edge: self.top_edge(styles),
                 bottom_edge: self.bottom_edge(styles),
             },
             extent: self.extent(styles),
-        })))
+        }])))
     }
 }
 
@@ -343,26 +340,10 @@ impl Show for Packed<HighlightElem> {
 ///
 /// Can be positioned over, under, or on top of text, or highlight the text with
 /// a background.
-#[ty]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Decoration {
     line: DecoLine,
     extent: Abs,
-}
-
-impl Fold for Decoration {
-    type Output = Vec<Self>;
-
-    fn fold(self, mut outer: Self::Output) -> Self::Output {
-        outer.insert(0, self);
-        outer
-    }
-}
-
-impl Repr for Decoration {
-    fn repr(&self) -> EcoString {
-        eco_format!("{self:?}")
-    }
 }
 
 /// A kind of decorative line.
