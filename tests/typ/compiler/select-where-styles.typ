@@ -47,27 +47,45 @@ Hello World!
 #set rect(stroke: 2pt)
 
 #{
-  show rect.where(stroke: blue): "Trigger"
+  show rect.where(stroke: blue): "Not Triggered"
   rect()
 }
 #{
-  show rect.where(stroke: 2pt): "Trigger"
+  show rect.where(stroke: 2pt): "Not Triggered"
   rect()
 }
 #{
-  show rect.where(stroke: 2pt + blue): "Trigger"
+  show rect.where(stroke: 2pt + blue): "Triggered"
   rect()
 }
 
 ---
-// Test that resolving is taken into account.
+// Test that resolving is *not* taken into account.
 #set line(start: (1em, 1em + 2pt))
 
 #{
-  show line.where(start: (1em, 1em + 2pt)): "Trigger"
+  show line.where(start: (1em, 1em + 2pt)): "Triggered"
   line()
 }
 #{
-  show line.where(start: (10pt, 12pt)): "Trigger"
+  show line.where(start: (10pt, 12pt)): "Not Triggered"
   line()
 }
+
+
+---
+// Test again that resolving is *not* taken into account.
+#set text(hyphenate: auto)
+
+#[
+  #show text.where(hyphenate: auto): underline
+  Auto
+]
+#[
+  #show text.where(hyphenate: true): underline
+  True
+]
+#[
+  #show text.where(hyphenate: false): underline
+  False
+]
