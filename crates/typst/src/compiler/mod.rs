@@ -27,7 +27,9 @@ use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{IntoValue, Label, Str, Value};
 use crate::vm::{
-    self, Access as VmAccess, AccessId, ClosureId, CompiledClosure, CompiledParam, Constant, DefaultValue, LabelId, OptionalWritable, Pattern as VmPattern, PatternId, ScopeId, StringId, Writable
+    self, Access as VmAccess, AccessId, ClosureId, CompiledClosure, CompiledParam,
+    Constant, DefaultValue, LabelId, OptionalWritable, Pattern as VmPattern, PatternId,
+    ScopeId, StringId, Writable,
 };
 use crate::Library;
 
@@ -192,7 +194,8 @@ impl Compiler {
             None => OptionalWritable::none(),
         };
 
-        let defaults = scope.borrow()
+        let defaults = scope
+            .borrow()
             .variables
             .values()
             .filter_map(|v| v.default.clone().map(|d| (d, v.register.as_register())))
@@ -308,12 +311,9 @@ impl Compiler {
         }
     }
 
-    pub fn into_module(self, span: Span) -> CompiledModule {
-        CompiledModule::new(self, span)
-    }
-
     pub fn get_default_scope(&self) -> EcoVec<DefaultValue> {
-        self.scope.borrow()
+        self.scope
+            .borrow()
             .variables
             .values()
             .filter_map(|v| v.default.clone().map(|d| (d, v.register.as_register())))

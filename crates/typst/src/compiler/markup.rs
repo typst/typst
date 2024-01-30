@@ -2,7 +2,7 @@ use std::num::NonZeroU32;
 
 use typst_syntax::ast::{self, AstNode};
 
-use crate::diag::{At, SourceResult};
+use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{IntoValue, Label, NativeElement, Value};
 use crate::model::{LinkElem, ParbreakElem};
@@ -33,13 +33,23 @@ impl Compile for ast::Markup<'_> {
                 for expr in self.exprs() {
                     // Handle set rules specially.
                     if let ast::Expr::Set(set) = expr {
-                        set.compile_into(engine, compiler, join_output.clone())?;
+                        let style = set.compile(engine, compiler)?;
+                        if join_output.is_none() {
+                            bail!(set.span(), "cannot set style without output");
+                        }
+
+                        compiler.isr(Opcode::styled(set.span(), &style));
                         continue;
                     }
 
                     // Handle show rules specially.
                     if let ast::Expr::Show(show) = expr {
-                        show.compile_into(engine, compiler, join_output.clone())?;
+                        let style = show.compile(engine, compiler)?;
+                        if join_output.is_none() {
+                            bail!(show.span(), "cannot set style without output");
+                        }
+
+                        compiler.isr(Opcode::styled(show.span(), &style));
                         continue;
                     }
 

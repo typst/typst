@@ -12,7 +12,9 @@ use crate::introspection::{Introspector, Locator};
 use crate::vm::{ControlFlow, VM};
 use crate::{Library, World};
 
-use super::{Access, OptionalWritable, Pattern, Readable, Register, State, VMState, Writable};
+use super::{
+    Access, OptionalWritable, Pattern, Readable, Register, State, VMState, Writable,
+};
 
 /// A closure that has been instantiated.
 #[derive(Clone, Hash)]

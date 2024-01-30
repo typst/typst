@@ -23,7 +23,7 @@ pub struct CompiledModule {
 }
 
 impl CompiledModule {
-    pub fn new(compiler: Compiler, span: Span) -> Self {
+    pub fn new(compiler: Compiler, output: Readable, span: Span) -> Self {
         let mut instructions = Vec::with_capacity(1 << 20);
         compiler
             .instructions
@@ -58,7 +58,7 @@ impl CompiledModule {
                 labels: compiler.common.labels.into_values(),
                 patterns: compiler.common.patterns.into_values(),
                 defaults,
-                output: None,
+                output: Some(output),
                 joined: true,
                 exports,
             }),
@@ -158,7 +158,9 @@ pub fn compile_module(
         Compiler::module(&name, engine.world.library().clone().into_inner());
 
     // Compile the module.
-    markup.compile(&mut engine, &mut compiler)?;
+    let output = markup.compile(&mut engine, &mut compiler)?;
 
-    Ok(CompiledModule::new(compiler, root.span()))
+    eprintln!("{:#?}", compiler.instructions);
+
+    Ok(CompiledModule::new(compiler, output.as_readable(), root.span()))
 }

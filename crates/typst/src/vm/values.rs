@@ -818,9 +818,9 @@ impl VmRead for ScopeId {
     type Output<'a> = &'a EcoVec<DefaultValue>;
 
     fn read<'a>(&self, vm: &'a VMState) -> StrResult<Self::Output<'a>> {
-        // The minus 1 accounts for that fact that at position zero is the first scope
-        // in the chain, which is not stored in the scope stack.
-        vm.defaults.get(self.0 as usize - 1).ok_or_else(|| {
+        // The plus 1 accounts for that fact that at position zero is the first scope
+        // in the chain, which is inserted after the scope stack is built.
+        vm.defaults.get(self.0 as usize + 1).ok_or_else(|| {
             eco_format!("invalid scope: {}, malformed instruction", self.0)
         })
     }

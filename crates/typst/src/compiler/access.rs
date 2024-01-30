@@ -145,7 +145,7 @@ impl Access for ast::FuncCall<'_> {
             self.compile(engine, compiler)?;
 
             // Remove the actual call.
-            let Some(Opcode::Call(_, call)) = compiler.instructions.pop() else {
+            let Some(Opcode::Call(call)) = compiler.instructions.pop() else {
                 bail!(self.span(), "expected a call instruction");
             };
 

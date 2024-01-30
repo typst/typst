@@ -213,7 +213,7 @@ opcodes! {
     } = 0xA1,
 
     /// Style the remaining joined items with the given style.
-    Styled: styled -> Writable => {
+    Styled: styled => {
         /// The style to apply.
         style: Readable,
     } = 0xA2,

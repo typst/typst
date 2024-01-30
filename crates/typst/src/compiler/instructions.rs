@@ -1,10 +1,12 @@
+use std::{fmt, mem::size_of};
+use std::num::NonZeroU32;
+
 use bytemuck::cast;
-use std::{mem::size_of, num::NonZeroU32};
 use typst_syntax::Span;
 
 use crate::vm::{
     AccessId, ClosureId, LabelId, OptionalReadable, OptionalWritable, PatternId,
-    Readable, Writable, ScopeId,
+    Readable, ScopeId, Writable,
 };
 
 type Pointer = JumpLabel;
@@ -23,8 +25,11 @@ macro_rules! opcode_struct {
         })?
     ) => {
         $(#[$sattr])*
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Copy, Clone)]
+        #[repr(C)]
         pub struct $name {
+            #[doc = "The span of the instruction."]
+            pub span: Span,
             $(
                 $(
                     $(#[$attr])*
@@ -61,11 +66,11 @@ macro_rules! opcodes {
             }
         )*
 
-        #[derive(Debug, Clone)]
+        #[derive(Clone)]
         pub enum Opcode {
             JumpLabel(JumpLabel),
             $(
-                $name(Span, $name),
+                $name($name),
             )*
         }
 
@@ -74,14 +79,15 @@ macro_rules! opcodes {
                 match self {
                     Self::JumpLabel(_) => Span::detached(),
                     $(
-                        Self::$name(span, _) => *span,
+                        Self::$name(isr) => isr.span,
                     )*
                 }
             }
 
             $(
                 pub fn $snek(span: Span, $($($arg: impl Into<$arg_ty>,)*)? $(out: impl Into<$out>)?) -> Self {
-                    Self::$name(span, $name {
+                    Self::$name($name {
+                        span,
                         $($(
                             $arg: $arg.into(),
                         )*)?
@@ -103,17 +109,15 @@ macro_rules! opcodes {
                 match self {
                     Self::JumpLabel(_) => {},
                     $(
-                        Self::$name(span, isr) => {
+                        Self::$name(isr) => {
+                            buffer.reserve(std::mem::size_of::<$name>());
+
                             buffer.push($value);
-                            span.write(opcodes, buffer);
-                            $(
-                                <$out as Write>::write(&isr.out, opcodes, buffer);
-                            )?
-                            $(
-                                $(
-                                    isr.$arg.write(opcodes, buffer);
-                                )*
-                            )?
+                            buffer.extend(cast::<u64, [u8; 8]>(isr.span.as_raw().get()));
+                            $($(
+                                isr.$arg.write(opcodes, buffer);
+                            )*)?
+                            $(<$out as Write>::write(&isr.out, opcodes, buffer);)?
                         }
                     )*
                 }
@@ -124,15 +128,22 @@ macro_rules! opcodes {
                 match self {
                     Self::JumpLabel(_) => 0,
                     $(
-                        Self::$name(span, isr) => {
-                            1 + span.size() $(
-                                + <$out as Write>::size(&isr.out)
-                            )? $(
-                                $(
-                                    + <$arg_ty as Write>::size(&isr.$arg)
-                                )*
-                            )?
+                        Self::$name(isr) => {
+                            1 + 8 $($(
+                                + isr.$arg.size()
+                            )*)? $(+ <$out as Write>::size(&isr.out))?
                         }
+                    )*
+                }
+            }
+        }
+
+        impl fmt::Debug for Opcode {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                match self {
+                    Self::JumpLabel(_) => write!(f, "JumpLabel"),
+                    $(
+                        Self::$name(isr) => isr.fmt(f),
                     )*
                 }
             }

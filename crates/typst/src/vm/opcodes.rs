@@ -17,7 +17,7 @@ use crate::vm::{ControlFlow, State};
 
 use super::{
     Access, AccessId, ClosureId, LabelId, OptionalReadable, OptionalWritable, PatternId,
-    Pointer, Readable, VMState, Writable, ScopeId,
+    Pointer, Readable, ScopeId, VMState, Writable,
 };
 
 pub trait Run {
@@ -111,32 +111,57 @@ macro_rules! opcodes {
                 vm: &mut VMState,
                 engine: &mut Engine,
             ) -> SourceResult<()> {
+                const OFFSET: usize = std::mem::size_of::<u8>() + std::mem::size_of::<Span>();
                 match self {
                     $(Self::$name => {
                         // The constant that contains the length of one instruction.
-                        const LEN: usize = std::mem::size_of::<$name>() + 1;
+                        const LEN: usize = {
+                            let mut __i = 0;
+                            $($(
+                                // Add the size of the argument.
+                                __i += std::mem::size_of::<$arg_ty>();
+                            )*)?
+                            $(
+                                __i += std::mem::size_of::<$out>();
+                            )?
+
+                            __i
+                        };
 
                         // Obtain the instruction's slice.
-                        debug_assert!(vm.instruction_pointer + LEN <= instructions.len());
+                        debug_assert!(vm.instruction_pointer + OFFSET + LEN <= instructions.len());
 
                         // SAFETY: The instruction pointer is always within the bounds of the
                         // instruction list.
                         // JUSTIFICATION: This avoids a bounds check on every instruction.
-                        let instruction = unsafe {
+                        let instructions = unsafe {
                             std::slice::from_raw_parts(
-                                instructions.as_ptr().add(vm.instruction_pointer),
-                                LEN
+                                instructions.as_ptr().add(vm.instruction_pointer + OFFSET),
+                                instructions.len() - vm.instruction_pointer,
                             )
                         };
 
+                        // Copy the instruction into the stack.
+                        let mut __i = 0;
+                        $($(
+                            let $arg = bytemuck::pod_read_unaligned(&instructions[__i..__i + std::mem::size_of::<$arg_ty>()]);
+                            __i += std::mem::size_of::<$arg_ty>();
+                        )*)?
+                        let instruction = $name {
+                            $($($arg,)*)?
+                            $(
+                                out: bytemuck::pod_read_unaligned(&instructions[__i..__i + std::mem::size_of::<$out>()]),
+                            )?
+                        };
+
                         // Cast the instruction to the opcode.
-                        let instruction: &$name = bytemuck::from_bytes(instruction);
+                        eprintln!(concat!(stringify!($name), ": {:?}"), instruction);
 
                         // Move the instruction pointer and counter.
-                        vm.instruction_pointer += LEN;
+                        vm.instruction_pointer += OFFSET + LEN;
 
                         // Run the instruction.
-                        instruction.run(&instructions[LEN + 1..], span, vm, engine)?;
+                        instruction.run(&instructions[LEN..], span, vm, engine)?;
 
                         Ok(())
                     })*
@@ -939,8 +964,16 @@ impl Run for Iter {
         };
 
         // Evaluate the loop.
-        let flow =
-            vm.enter_scope(engine, &[], instructions, Some(iter), None, joins, content, span)?;
+        let flow = vm.enter_scope(
+            engine,
+            &[],
+            instructions,
+            Some(iter),
+            None,
+            joins,
+            content,
+            span,
+        )?;
 
         let joined = match flow {
             ControlFlow::Done(value) => value,
@@ -1273,7 +1306,7 @@ impl Run for Enter {
         // JUSTIFICATION: This avoids a bounds check on every scope.
         let instructions = unsafe {
             std::slice::from_raw_parts(
-                instructions.as_ptr().add(vm.instruction_pointer),
+                instructions.as_ptr(),
                 self.len as usize,
             )
         };
@@ -1285,8 +1318,16 @@ impl Run for Enter {
         let content = self.flags & 0b100 != 0;
 
         let f = move || {
-            let flow =
-                vm.enter_scope(engine, &defaults, instructions, None, None, joins, content, span)?;
+            let flow = vm.enter_scope(
+                engine,
+                &defaults,
+                instructions,
+                None,
+                None,
+                joins,
+                content,
+                span,
+            )?;
 
             let joined = match flow {
                 ControlFlow::Done(value) => value,

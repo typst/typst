@@ -91,15 +91,29 @@ pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document>
     // Call `track` on the world just once to keep comemo's ID stable.
     let world = world.track();
 
-    // Try to evaluate the source file into a module.
-    /*let module = crate::compile::eval(
-        world,
-        Route::default().track(),
-        tracer.track_mut(),
+    let introspector = Introspector::default();
+    let route = Route::default();
+    let locator = Locator::new();
+
+    // Try to compile the file
+    let compiled = crate::compiler::compile_module(
         &world.main(),
-    )
-    .map_err(deduplicate)?;*/
-    let module: Module = todo!();
+        world,
+        introspector.track(),
+        route.track(),
+        locator.track(),
+        tracer.track_mut(),
+    )?;
+
+    // Try to evaluate the compiled file into a module.
+    let module: Module = crate::vm::run_module(
+        &compiled,
+        world,
+        introspector.track(),
+        route.track(),
+        locator.track(),
+        tracer.track_mut(),
+    )?;
 
     // Typeset the module's content, relayouting until convergence.
     typeset(world, tracer, &module.content()).map_err(deduplicate)
