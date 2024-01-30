@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use super::layout::CellGrid;
+use super::layout::{CellGrid, RowPiece};
 use crate::foundations::{AlternativeFold, Fold};
 use crate::layout::{Abs, Axes};
 use crate::visualize::Stroke;
@@ -460,8 +460,18 @@ pub(super) fn vline_stroke_at_row(
 ///
 /// The priority associated with the returned stroke follows the rules
 /// described in the docs for `generate_line_segment`.
+///
+/// The rows argument is needed to know which rows are effectively present in
+/// the current region, in order to avoid unnecessary hline splitting when a
+/// rowspan's previous rows are either in a previous region or empty (and thus
+/// wouldn't overlap with the hline, since its first row in the current region
+/// is below the hline).
+///
+/// This function assumes columns are sorted by increasing 'x', and rows are
+/// sorted by increasing 'y'.
 pub(super) fn hline_stroke_at_column(
     grid: &CellGrid,
+    rows: &[RowPiece],
     y: usize,
     x: usize,
     stroke: Option<Option<Arc<Stroke<Abs>>>>,
@@ -487,7 +497,15 @@ pub(super) fn hline_stroke_at_column(
             .parent_cell_position(first_adjacent_cell.0, first_adjacent_cell.1)
             .unwrap();
 
-        if parent_y < y && parent_x <= x {
+        // Get the first 'y' spanned by the possible rowspan in this region.
+        // The 'parent_y' row or the following rows could be missing.
+        let effective_parent_y = rows
+            .iter()
+            .find(|row| row.y >= parent_y)
+            .map(|row| row.y)
+            .unwrap_or(y);
+
+        if effective_parent_y < y && parent_x <= x {
             // There is a rowspan cell going through this hline's position,
             // so don't draw it here.
             return None;
@@ -1211,6 +1229,13 @@ mod test {
         let stroke = Arc::new(Stroke::default());
         let grid = sample_grid_for_hlines(false);
         let columns = &[Abs::pt(1.), Abs::pt(2.), Abs::pt(4.), Abs::pt(8.)];
+        // Assume all rows would be drawn in the same region, and are available.
+        let rows = grid
+            .rows
+            .iter()
+            .enumerate()
+            .map(|(y, _)| RowPiece { height: Abs::pt(f64::from(2u32.pow(y as u32))), y })
+            .collect::<Vec<_>>();
         let expected_hline_splits = &[
             // top border
             vec![LineSegment {
@@ -1287,7 +1312,9 @@ mod test {
                     y,
                     &[],
                     y == grid.rows.len(),
-                    hline_stroke_at_column
+                    |grid, y, x, stroke| hline_stroke_at_column(
+                        grid, &rows, y, x, stroke
+                    )
                 )
                 .collect::<Vec<_>>(),
             );
@@ -1307,6 +1334,13 @@ mod test {
             Abs::pt(32.0),
             Abs::pt(64.0),
         ];
+        // Assume all rows would be drawn in the same region, and are available.
+        let rows = grid
+            .rows
+            .iter()
+            .enumerate()
+            .map(|(y, _)| RowPiece { height: Abs::pt(f64::from(2u32.pow(y as u32))), y })
+            .collect::<Vec<_>>();
         let expected_hline_splits = &[
             // top border
             vec![LineSegment {
@@ -1466,10 +1500,49 @@ mod test {
                         },
                     ],
                     y == grid.rows.len(),
-                    hline_stroke_at_column
+                    |grid, y, x, stroke| hline_stroke_at_column(
+                        grid, &rows, y, x, stroke
+                    )
                 )
                 .collect::<Vec<_>>(),
             );
         }
+    }
+
+    #[test]
+    fn test_hline_splitting_considers_absent_rows() {
+        let grid = sample_grid_for_hlines(false);
+        let columns = &[Abs::pt(1.), Abs::pt(2.), Abs::pt(4.), Abs::pt(8.)];
+        // Assume row 3 is absent (even though there's a rowspan between rows
+        // 3 and 4)
+        // This can happen if it is an auto row which turns out to be fully
+        // empty.
+        let rows = grid
+            .rows
+            .iter()
+            .enumerate()
+            .filter(|(y, _)| *y != 3)
+            .map(|(y, _)| RowPiece { height: Abs::pt(f64::from(2u32.pow(y as u32))), y })
+            .collect::<Vec<_>>();
+
+        // Hline above row 4 is no longer blocked, since the rowspan is now
+        // effectively spanning just one row (at least, visibly).
+        assert_eq!(
+            &vec![LineSegment {
+                stroke: Arc::new(Stroke::default()),
+                offset: Abs::pt(0.),
+                length: Abs::pt(1. + 2. + 4. + 8.),
+                priority: StrokePriority::GridStroke
+            }],
+            &generate_line_segments(
+                &grid,
+                columns.iter().copied().enumerate(),
+                4,
+                &[],
+                4 == grid.rows.len(),
+                |grid, y, x, stroke| hline_stroke_at_column(grid, &rows, y, x, stroke)
+            )
+            .collect::<Vec<_>>()
+        );
     }
 }

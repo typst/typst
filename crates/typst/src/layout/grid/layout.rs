@@ -1222,7 +1222,7 @@ impl<'a> GridLayouter<'a> {
                     y,
                     hlines_at_row,
                     is_bottom_border,
-                    hline_stroke_at_column,
+                    |grid, y, x, stroke| hline_stroke_at_column(grid, rows, y, x, stroke),
                 )
                 .map(|segment| {
                     let LineSegment { stroke, offset: dx, length, priority } = segment;
