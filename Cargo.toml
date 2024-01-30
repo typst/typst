@@ -29,7 +29,7 @@ typst-timing = { path = "crates/typst-timing" }
 az = "1.2"
 base64 = "0.21.2"
 bitflags = { version = "2", features = ["serde"] }
-bytemuck = "1"
+bytemuck = { version = "1.14", features = [ "derive" ] }
 chinese-number = { version = "0.7.2", default-features = false, features = ["number-to-chinese"] }
 chrono = { version = "0.4.24", default-features = false, features = ["clock", "std"] }
 ciborium = "0.2.1"

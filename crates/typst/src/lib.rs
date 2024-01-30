@@ -39,7 +39,7 @@ extern crate self as typst;
 
 #[macro_use]
 pub mod util;
-pub mod compile;
+pub mod compiler;
 pub mod diag;
 pub mod engine;
 pub mod eval;
@@ -53,6 +53,7 @@ pub mod realize;
 pub mod symbols;
 pub mod text;
 pub mod visualize;
+pub mod vm;
 
 #[doc(inline)]
 pub use typst_syntax as syntax;
@@ -91,13 +92,14 @@ pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document>
     let world = world.track();
 
     // Try to evaluate the source file into a module.
-    let module = crate::compile::eval(
+    /*let module = crate::compile::eval(
         world,
         Route::default().track(),
         tracer.track_mut(),
         &world.main(),
     )
-    .map_err(deduplicate)?;
+    .map_err(deduplicate)?;*/
+    let module: Module = todo!();
 
     // Typeset the module's content, relayouting until convergence.
     typeset(world, tracer, &module.content()).map_err(deduplicate)

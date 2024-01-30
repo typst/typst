@@ -26,6 +26,7 @@ use crate::FileId;
 /// This type takes up 8 bytes and is null-optimized (i.e. `Option<Span>` also
 /// takes 8 bytes).
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[repr(transparent)]
 pub struct Span(NonZeroU64);
 
 impl Span {
@@ -52,6 +53,20 @@ impl Span {
             Some(v) => Some(Self(v)),
             None => unreachable!(),
         }
+    }
+
+    /// Create a new span from its raw representation.
+    ///
+    /// # Safety
+    ///
+    /// The raw representation must be a valid span.
+    pub const unsafe fn new_unchecked(number: NonZeroU64) -> Self {
+        Self(number)
+    }
+
+    /// Get the raw representation of this span.
+    pub const fn as_raw(self) -> NonZeroU64 {
+        self.0
     }
 
     /// Create a span that does not point into any source file.

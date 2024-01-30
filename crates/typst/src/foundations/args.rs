@@ -62,6 +62,10 @@ impl Args {
         Self { span, items }
     }
 
+    pub fn with_capacity(span: Span, capacity: usize) -> Self {
+        Self { span, items: EcoVec::with_capacity(capacity) }
+    }
+
     /// Returns the number of remaining positional arguments.
     pub fn remaining(&self) -> usize {
         self.items.iter().filter(|slot| slot.name.is_none()).count()

@@ -200,6 +200,24 @@ impl Add for Bytes {
     }
 }
 
+impl Add for &Bytes {
+    type Output = Bytes;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        if rhs.is_empty() {
+            self.clone()
+        } else if self.is_empty() {
+            rhs.clone()
+        } else {
+            let mut out = Vec::with_capacity(self.len() + rhs.len());
+            out.extend_from_slice(self);
+            out.extend_from_slice(rhs);
+
+            out.into()
+        }
+    }
+}
+
 impl AddAssign for Bytes {
     fn add_assign(&mut self, rhs: Self) {
         if rhs.is_empty() {

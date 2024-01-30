@@ -24,10 +24,11 @@ use crate::visualize::{Color, Gradient, Pattern};
 
 /// A computational value.
 #[derive(Default, Clone)]
+#[repr(u8)]
 pub enum Value {
     /// The value that indicates the absence of a meaningful value.
     #[default]
-    None,
+    None = 0,
     /// A value that indicates some smart default behaviour.
     Auto,
     /// A boolean: `true, false`.

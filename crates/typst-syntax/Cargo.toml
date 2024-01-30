@@ -16,6 +16,7 @@ doctest = false
 bench = false
 
 [dependencies]
+bytemuck = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 once_cell = { workspace = true }

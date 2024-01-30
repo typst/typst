@@ -640,6 +640,55 @@ impl Add for Content {
     }
 }
 
+impl Add for &Content {
+    type Output = Content;
+
+    fn add(self, rhs: &Content) -> Self::Output {
+        match (self.to_packed::<SequenceElem>(), rhs.to_packed::<SequenceElem>()) {
+            (Some(seq_lhs), Some(seq_rhs)) => {
+                if seq_lhs.children.is_empty() {
+                    return rhs.clone();
+                }
+
+                if seq_rhs.children.is_empty() {
+                    return self.clone();
+                }
+
+                let mut sequence =
+                    Vec::with_capacity(seq_lhs.children.len() + seq_rhs.children.len());
+                sequence.extend(seq_lhs.children.iter().cloned());
+                sequence.extend(seq_rhs.children.iter().cloned());
+                SequenceElem::new(sequence).pack().spanned(seq_lhs.span())
+            }
+            (Some(seq_lhs), None) => {
+                if seq_lhs.children.is_empty() {
+                    return rhs.clone();
+                }
+
+                let mut sequence = Vec::with_capacity(seq_lhs.children.len() + 1);
+                sequence.extend(seq_lhs.children.iter().cloned());
+                sequence.push(Prehashed::new(rhs.clone()));
+                SequenceElem::new(sequence).pack().spanned(seq_lhs.span())
+            }
+            (None, Some(seq_rhs)) => {
+                if seq_rhs.children.is_empty() {
+                    return self.clone();
+                }
+
+                let mut sequence = Vec::with_capacity(seq_rhs.children.len() + 1);
+                sequence.push(Prehashed::new(self.clone()));
+                sequence.extend(seq_rhs.children.iter().cloned());
+                SequenceElem::new(sequence).pack().spanned(seq_rhs.span())
+            }
+            (None, None) => {
+                SequenceElem::new(vec![self.clone().into(), rhs.clone().into()])
+                    .pack()
+                    .spanned(self.span())
+            }
+        }
+    }
+}
+
 impl<'a> Add<&'a Self> for Content {
     type Output = Self;
 
@@ -880,9 +929,19 @@ impl<T: NativeElement + Debug> Debug for Packed<T> {
 
 /// Defines the element for sequences.
 #[elem(Repr, PartialEq)]
-struct SequenceElem {
+pub struct SequenceElem {
     #[required]
     children: Vec<Prehashed<Content>>,
+}
+
+impl SequenceElem {
+    pub fn push(&mut self, child: impl Into<Content>) {
+        self.children.push(Prehashed::new(child.into()));
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.children.is_empty()
+    }
 }
 
 // Derive is currently incompatible with `elem` macro.

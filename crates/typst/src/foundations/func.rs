@@ -147,9 +147,7 @@ enum Repr {
     /// A function for an element.
     Element(Element),
     /// A user-defined closure.
-    Closure(Arc<Prehashed<Closure>>),
-    /// A native closure.
-    NativeClosure(Arc<typst::compile::Closure>),
+    Closure(Arc<Prehashed<crate::vm::Closure>>),
     /// A composite method.
     Method(Arc<Prehashed<Value>>, Arc<Func>),
     /// A nested function with pre-applied arguments.
@@ -165,7 +163,6 @@ impl Func {
             Repr::Native(native) => Some(native.name),
             Repr::Element(elem) => Some(elem.name()),
             Repr::Closure(closure) => closure.name(),
-            Repr::NativeClosure(closure) => Some(&closure.name),
             Repr::With(with) => with.0.name(),
             Repr::Method(_, func) => func.name(),
         }
@@ -178,7 +175,7 @@ impl Func {
         match &self.repr {
             Repr::Native(native) => Some(native.title),
             Repr::Element(elem) => Some(elem.title()),
-            Repr::Closure(_) | Repr::NativeClosure(_) => None,
+            Repr::Closure(_) => None,
             Repr::With(with) => with.0.title(),
             Repr::Method(_, func) => func.title(),
         }
@@ -189,7 +186,7 @@ impl Func {
         match &self.repr {
             Repr::Native(native) => Some(native.docs),
             Repr::Element(elem) => Some(elem.docs()),
-            Repr::Closure(_) | Repr::NativeClosure(_) => None,
+            Repr::Closure(_) => None,
             Repr::With(with) => with.0.docs(),
             Repr::Method(_, func) => func.docs(),
         }
@@ -200,7 +197,7 @@ impl Func {
         match &self.repr {
             Repr::Native(native) => Some(&native.0.params),
             Repr::Element(elem) => Some(elem.params()),
-            Repr::Closure(_) | Repr::NativeClosure(_) => None,
+            Repr::Closure(_) => None,
             Repr::With(with) => with.0.params(),
             Repr::Method(_, func) => func.params(),
         }
@@ -218,7 +215,7 @@ impl Func {
         match &self.repr {
             Repr::Native(native) => Some(&native.0.returns),
             Repr::Element(_) => Some(&CONTENT),
-            Repr::Closure(_) | Repr::NativeClosure(_) => None,
+            Repr::Closure(_) => None,
             Repr::With(with) => with.0.returns(),
             Repr::Method(_, func) => func.returns(),
         }
@@ -229,7 +226,7 @@ impl Func {
         match &self.repr {
             Repr::Native(native) => native.keywords,
             Repr::Element(elem) => elem.keywords(),
-            Repr::Closure(_) | Repr::NativeClosure(_) => &[],
+            Repr::Closure(_) => &[],
             Repr::With(with) => with.0.keywords(),
             Repr::Method(_, func) => func.keywords(),
         }
@@ -240,7 +237,7 @@ impl Func {
         match &self.repr {
             Repr::Native(native) => Some(&native.0.scope),
             Repr::Element(elem) => Some(elem.scope()),
-            Repr::Closure(_) | Repr::NativeClosure(_) => None,
+            Repr::Closure(_) => None,
             Repr::With(with) => with.0.scope(),
             Repr::Method(_, func) => func.scope(),
         }
@@ -286,8 +283,7 @@ impl Func {
                 args.finish()?;
                 Ok(Value::Content(value))
             }
-            Repr::Closure(closure) => crate::eval::call_closure(
-                self,
+            Repr::Closure(closure) => crate::vm::call_closure(
                 closure,
                 engine.world,
                 engine.introspector,
@@ -296,7 +292,6 @@ impl Func {
                 TrackedMut::reborrow_mut(&mut engine.tracer),
                 args,
             ),
-            Repr::NativeClosure(closure) => closure.call(engine, args),
             Repr::With(with) => {
                 args.items = with.1.items.iter().cloned().chain(args.items).collect();
                 with.0.call(engine, args)
@@ -422,12 +417,6 @@ impl From<Element> for Func {
     }
 }
 
-impl From<typst::compile::Closure> for Func {
-    fn from(value: typst::compile::Closure) -> Self {
-        Repr::NativeClosure(Arc::new(value)).into()
-    }
-}
-
 /// A Typst function that is defined by a native Rust type that shadows a
 /// native Rust function.
 pub trait NativeFunc {
@@ -513,7 +502,13 @@ impl Closure {
 }
 
 impl From<Closure> for Func {
-    fn from(closure: Closure) -> Self {
+    fn from(_closure: Closure) -> Self {
+        todo!()
+    }
+}
+
+impl From<crate::vm::Closure> for Func {
+    fn from(closure: crate::vm::Closure) -> Self {
         Repr::Closure(Arc::new(Prehashed::new(closure))).into()
     }
 }

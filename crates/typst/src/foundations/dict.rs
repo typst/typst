@@ -253,6 +253,17 @@ impl Add for Dict {
     }
 }
 
+impl Add for &Dict {
+    type Output = Dict;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let mut out = IndexMap::with_capacity(self.len() + rhs.len());
+        out.extend(self.iter().map(|(k, v)| (k.clone(), v.clone())));
+        out.extend(rhs.iter().map(|(k, v)| (k.clone(), v.clone())));
+        out.into()
+    }
+}
+
 impl AddAssign for Dict {
     fn add_assign(&mut self, rhs: Dict) {
         match Arc::try_unwrap(rhs.0) {
