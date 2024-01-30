@@ -1,7 +1,7 @@
 //! Font handling.
 
 mod book;
-mod override_list;
+mod exceptions;
 mod variant;
 
 pub use self::book::{Coverage, FontBook, FontFlags, FontInfo};

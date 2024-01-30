@@ -8,7 +8,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::text::{Font, FontStretch, FontStyle, FontVariant, FontWeight};
 
-use super::override_list::override_entry;
+use super::exceptions::override_entry;
 
 /// Metadata about a collection of fonts.
 #[derive(Debug, Default, Clone, Hash)]
