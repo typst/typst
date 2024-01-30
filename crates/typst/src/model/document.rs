@@ -89,10 +89,11 @@ impl LayoutRoot for Packed<DocumentElem> {
 
             if let Some(page) = child.to_packed::<PageElem>() {
                 let extend_to = iter.peek().and_then(|&next| {
-                    next.to_styled()
+                    *next
+                        .to_styled()
                         .map_or(next, |(elem, _)| elem)
                         .to_packed::<PageElem>()?
-                        .clear_to(styles)
+                        .clear_to()
                 });
                 let run = page.layout(engine, styles, &mut page_counter, extend_to)?;
                 pages.extend(run);
@@ -103,10 +104,10 @@ impl LayoutRoot for Packed<DocumentElem> {
 
         Ok(Document {
             pages,
-            title: self.title(styles).map(|content| content.plain_text()),
-            author: self.author(styles).0,
-            keywords: self.keywords(styles).0,
-            date: self.date(styles),
+            title: DocumentElem::title_in(styles).map(|content| content.plain_text()),
+            author: DocumentElem::author_in(styles).0,
+            keywords: DocumentElem::keywords_in(styles).0,
+            date: DocumentElem::date_in(styles),
             introspector: Introspector::default(),
         })
     }

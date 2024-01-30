@@ -239,14 +239,14 @@ impl<T: Resolve> Resolve for Smart<T> {
     }
 }
 
-impl<T> Fold for Smart<T>
-where
-    T: Fold,
-    T::Output: Default,
-{
-    type Output = Smart<T::Output>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.map(|inner| inner.fold(outer.unwrap_or_default()))
+impl<T: Fold> Fold for Smart<T> {
+    fn fold(self, outer: Self) -> Self {
+        use Smart::Custom;
+        match (self, outer) {
+            (Custom(inner), Custom(outer)) => Custom(inner.fold(outer)),
+            // An explicit `auto` should be respected, thus we don't do
+            // `inner.or(outer)`.
+            (inner, _) => inner,
+        }
     }
 }

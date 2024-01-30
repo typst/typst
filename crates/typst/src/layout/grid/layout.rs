@@ -151,7 +151,7 @@ pub trait ResolvableCell {
         y: usize,
         fill: &Option<Paint>,
         align: Smart<Alignment>,
-        inset: Sides<Rel<Length>>,
+        inset: Sides<Option<Rel<Length>>>,
         styles: StyleChain,
     ) -> Cell;
 
@@ -204,7 +204,7 @@ impl CellGrid {
         cells: &[T],
         fill: &Celled<Option<Paint>>,
         align: &Celled<Smart<Alignment>>,
-        inset: Sides<Rel<Length>>,
+        inset: Sides<Option<Rel<Length>>>,
         engine: &mut Engine,
         styles: StyleChain,
         span: Span,

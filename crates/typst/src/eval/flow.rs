@@ -136,7 +136,7 @@ impl Eval for ast::ForLoop<'_> {
         }
 
         let pattern = self.pattern();
-        let iterable = self.iter().eval(vm)?;
+        let iterable = self.iterable().eval(vm)?;
         let iterable_type = iterable.ty();
 
         match (pattern, iterable) {
@@ -156,7 +156,7 @@ impl Eval for ast::ForLoop<'_> {
                 bail!(pattern.span(), "cannot destructure values of {}", iterable_type);
             }
             (_, _) => {
-                bail!(self.iter().span(), "cannot loop over {}", iterable_type);
+                bail!(self.iterable().span(), "cannot loop over {}", iterable_type);
             }
         }
 

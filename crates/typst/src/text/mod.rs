@@ -32,6 +32,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use ecow::{eco_format, EcoString};
 use rustybuzz::{Feature, Tag};
+use smallvec::SmallVec;
 use ttf_parser::Rect;
 
 use crate::diag::{bail, SourceResult, StrResult};
@@ -39,8 +40,9 @@ use crate::engine::Engine;
 use crate::foundations::Packed;
 use crate::foundations::{
     cast, category, elem, Args, Array, Cast, Category, Construct, Content, Dict, Fold,
-    NativeElement, Never, PlainText, Repr, Resolve, Scope, Set, Smart, StyleChain, Value,
+    NativeElement, Never, PlainText, Repr, Resolve, Scope, Set, Smart, StyleChain,
 };
+use crate::layout::Em;
 use crate::layout::{Abs, Axis, Dir, Length, Rel};
 use crate::model::ParElem;
 use crate::syntax::Spanned;
@@ -214,7 +216,8 @@ pub struct TextElem {
     /// ```
     #[parse(args.named_or_find("size")?)]
     #[fold]
-    #[default(Abs::pt(11.0))]
+    #[default(TextSize(Abs::pt(11.0).into()))]
+    #[resolve]
     #[ghost]
     pub size: TextSize,
 
@@ -628,7 +631,7 @@ pub struct TextElem {
     /// Whether the font style should be inverted.
     #[internal]
     #[fold]
-    #[default(false)]
+    #[default(ItalicToggle(false))]
     #[ghost]
     pub emph: ItalicToggle,
 
@@ -636,7 +639,7 @@ pub struct TextElem {
     #[internal]
     #[fold]
     #[ghost]
-    pub deco: Decoration,
+    pub deco: SmallVec<[Decoration; 1]>,
 
     /// A case transformation that should be applied to the text.
     #[internal]
@@ -763,12 +766,12 @@ pub(crate) fn variant(styles: StyleChain) -> FontVariant {
         TextElem::stretch_in(styles),
     );
 
-    let delta = TextElem::delta_in(styles);
+    let WeightDelta(delta) = TextElem::delta_in(styles);
     variant.weight = variant
         .weight
         .thicken(delta.clamp(i16::MIN as i64, i16::MAX as i64) as i16);
 
-    if TextElem::emph_in(styles) {
+    if TextElem::emph_in(styles).0 {
         variant.style = match variant.style {
             FontStyle::Normal => FontStyle::Italic,
             FontStyle::Italic => FontStyle::Normal,
@@ -784,10 +787,20 @@ pub(crate) fn variant(styles: StyleChain) -> FontVariant {
 pub struct TextSize(pub Length);
 
 impl Fold for TextSize {
+    fn fold(self, outer: Self) -> Self {
+        // Multiply the two linear functions.
+        Self(Length {
+            em: Em::new(self.0.em.get() * outer.0.em.get()),
+            abs: self.0.em.get() * outer.0.abs + self.0.abs,
+        })
+    }
+}
+
+impl Resolve for TextSize {
     type Output = Abs;
 
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.0.em.at(outer) + self.0.abs
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.0.resolve(styles)
     }
 }
 
@@ -1056,11 +1069,8 @@ cast! {
 }
 
 impl Fold for FontFeatures {
-    type Output = Self;
-
-    fn fold(mut self, outer: Self::Output) -> Self::Output {
-        self.0.extend(outer.0);
-        self
+    fn fold(self, outer: Self) -> Self {
+        Self(self.0.fold(outer.0))
     }
 }
 
@@ -1133,36 +1143,20 @@ pub(crate) fn features(styles: StyleChain) -> Vec<Feature> {
 
 /// A toggle that turns on and off alternatingly if folded.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ItalicToggle;
-
-cast! {
-    ItalicToggle,
-    self => Value::None,
-    _: Value => Self,
-}
+pub struct ItalicToggle(pub bool);
 
 impl Fold for ItalicToggle {
-    type Output = bool;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        !outer
+    fn fold(self, outer: Self) -> Self {
+        Self(self.0 ^ outer.0)
     }
 }
 
 /// A delta that is summed up when folded.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct WeightDelta(pub i64);
 
-cast! {
-    WeightDelta,
-    self => self.0.into_value(),
-    v: i64 => Self(v),
-}
-
 impl Fold for WeightDelta {
-    type Output = i64;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        outer + self.0
+    fn fold(self, outer: Self) -> Self {
+        Self(outer.0 + self.0)
     }
 }

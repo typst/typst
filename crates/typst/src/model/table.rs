@@ -194,7 +194,7 @@ pub struct TableElem {
     /// )
     /// ```
     #[fold]
-    #[default(Sides::splat(Abs::pt(5.0).into()))]
+    #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// The contents of the table cells.
@@ -378,7 +378,7 @@ impl ResolvableCell for Packed<TableCell> {
         y: usize,
         fill: &Option<Paint>,
         align: Smart<Alignment>,
-        inset: Sides<Rel<Length>>,
+        inset: Sides<Option<Rel<Length>>>,
         styles: StyleChain,
     ) -> Cell {
         let cell = &mut *self;
@@ -397,9 +397,8 @@ impl ResolvableCell for Packed<TableCell> {
             Smart::Auto => cell.align(styles),
         });
         cell.push_inset(Smart::Custom(
-            cell.inset(styles).map_or(inset, |inner| inner.fold(inset)).map(Some),
+            cell.inset(styles).map_or(inset, |inner| inner.fold(inset)),
         ));
-
         Cell { body: self.pack(), fill, colspan }
     }
 
