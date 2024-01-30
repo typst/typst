@@ -115,6 +115,10 @@ impl Compile for ast::Args<'_> {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
+        if self.items().next().is_none() {
+            return Ok(ReadableGuard::None);
+        }
+
         // Get an output register.
         let reg = compiler.register().at(self.span())?;
 

@@ -3,8 +3,8 @@ use std::sync::Arc;
 use ecow::EcoString;
 use typst_syntax::ast::{self, AstNode};
 
-use super::{Compile, Compiler, Opcode, ReadableGuard, RegisterGuard, WritableGuard};
-use crate::diag::{bail, At, SourceResult, StrResult};
+use super::{Compile, Compiler, ReadableGuard, WritableGuard};
+use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
 use crate::vm::Access as VmAccess;
 
@@ -62,8 +62,12 @@ impl Access for ast::Expr<'_> {
             Self::Parenthesized(v) => v.access(engine, compiler, mutable),
             Self::FieldAccess(v) => v.access(engine, compiler, mutable),
             Self::FuncCall(v) => v.access(engine, compiler, mutable),
-            _ => {
+            _ if mutable => {
                 bail!(self.span(), "cannot mutate a temporary value");
+            }
+            other => {
+                let value = other.compile(engine, compiler)?;
+                Ok(AccessPattern::Readable(value))
             }
         }
     }
@@ -141,13 +145,14 @@ impl Access for ast::FuncCall<'_> {
         compiler: &'a mut Compiler,
         mutable: bool,
     ) -> SourceResult<AccessPattern> {
-        if let ast::Expr::FieldAccess(access) = self.callee() {
-            self.compile(engine, compiler)?;
-
-            // Remove the actual call.
-            let Some(Opcode::Call(call)) = compiler.instructions.pop() else {
-                bail!(self.span(), "expected a call instruction");
-            };
+        if !mutable {
+            // Compile the function call.
+            let call = self.compile(engine, compiler)?;
+            Ok(AccessPattern::Readable(call))
+        } else if let ast::Expr::FieldAccess(access) = self.callee() {
+            // Compile the arguments.
+            let args = self.args();
+            let args = args.compile(engine, compiler)?;
 
             // Ensure that the arguments live long enough.
             let left = access.target().access(engine, compiler, mutable)?;
@@ -156,16 +161,8 @@ impl Access for ast::FuncCall<'_> {
             Ok(AccessPattern::AccessorMethod(
                 Arc::new(left),
                 method.get().clone(),
-                RegisterGuard::new(
-                    call.args.as_raw(),
-                    compiler.scope.borrow().registers.clone(),
-                )
-                .into(),
+                args,
             ))
-        } else if !mutable {
-            let callee = self.callee().compile(engine, compiler)?;
-            let callee: StrResult<_> = callee.try_into();
-            Ok(AccessPattern::Writable(callee.at(self.span())?))
         } else {
             bail!(self.span(), "cannot mutate a temporary value")
         }

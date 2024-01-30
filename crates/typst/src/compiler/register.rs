@@ -18,18 +18,18 @@ impl RegisterTable {
     }
 
     /// Allocates a register.
-    pub fn allocate(&mut self) -> Option<u16> {
+    pub fn allocate(&mut self) -> Option<Register> {
         self.0.iter_mut().enumerate().find(|(_, (is_used, _))| !*is_used).map(
             |(index, (is_used, is_pristine))| {
                 *is_used = true;
                 *is_pristine = false;
-                index as u16
+                Register::new(index as u16)
             },
         )
     }
 
     /// Allocates a pristine register.
-    pub fn allocate_pristine(&mut self) -> Option<u16> {
+    pub fn allocate_pristine(&mut self) -> Option<Register> {
         self.0
             .iter_mut()
             .enumerate()
@@ -37,13 +37,13 @@ impl RegisterTable {
             .map(|(index, (is_used, is_pristine))| {
                 *is_used = true;
                 *is_pristine = false;
-                index as u16
+                Register::new(index as u16)
             })
     }
 
     /// Frees a register.
-    fn free(&mut self, index: u16) {
-        self.0[index as usize] = (false, false);
+    fn free(&mut self, index: Register) {
+        self.0[index.as_raw() as usize] = (false, false);
     }
 }
 
@@ -51,22 +51,24 @@ impl RegisterTable {
 ///
 /// When dropped, the register is freed.
 #[derive(Clone)]
-pub struct RegisterGuard(u16, Rc<RefCell<RegisterTable>>);
+pub struct RegisterGuard(Rc<RegisterInner>);
+
+struct RegisterInner(Register, Rc<RefCell<RegisterTable>>);
 
 impl RegisterGuard {
     /// Get the raw index of this register.
-    pub const fn as_raw(&self) -> u16 {
-        self.0
+    pub fn as_raw(&self) -> u16 {
+        self.0.0.as_raw()
     }
 
     /// Create a new register guard.
-    pub fn new(index: u16, table: Rc<RefCell<RegisterTable>>) -> Self {
-        Self(index, table)
+    pub fn new(index: Register, table: Rc<RefCell<RegisterTable>>) -> Self {
+        Self(Rc::new(RegisterInner(index, table)))
     }
 
     /// Get this register as a [`Register`].
-    pub const fn as_register(&self) -> Register {
-        Register::new(self.0)
+    pub fn as_register(&self) -> Register {
+        self.0.0
     }
 
     /// Get this register as a [`Readable`].
@@ -82,11 +84,11 @@ impl RegisterGuard {
 
 impl fmt::Debug for RegisterGuard {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "R{}", self.0)
+        self.0.0.fmt(f)
     }
 }
 
-impl Drop for RegisterGuard {
+impl Drop for RegisterInner {
     fn drop(&mut self) {
         self.1.borrow_mut().free(self.0);
     }
@@ -113,7 +115,7 @@ impl ParentGuard {
     }
 
     /// Get the parent access id.
-    pub const fn as_parent(&self) -> Parent {
+    pub fn as_parent(&self) -> Parent {
         Parent::new(self.parent, self.register.as_raw())
     }
 
@@ -143,6 +145,32 @@ pub enum ReadableGuard {
 }
 
 impl ReadableGuard {
+    pub fn new(readable: Readable, registers: Rc<RefCell<RegisterTable>>) -> Self {
+        if readable.is_none() {
+            Self::None
+        } else if readable.is_auto() {
+            Self::Auto
+        } else if readable.is_reg() {
+            Self::Register(RegisterGuard::new(readable.as_reg(), registers))
+        } else if readable.is_string() {
+            Self::String(readable.as_string())
+        } else if readable.is_const() {
+            Self::Constant(readable.as_const())
+        } else if readable.is_global() {
+            Self::Global(readable.as_global())
+        } else if readable.is_math() {
+            Self::Math(readable.as_math())
+        } else if readable.is_bool() {
+            Self::Bool(readable.as_bool())
+        } else if readable.is_parent() {
+            Self::Parent(ParentGuard::new(
+                readable.as_parent().scope(),
+                RegisterGuard::new(Register::new(readable.as_parent().value()), registers),
+            ))
+        } else {
+            unreachable!()
+        }
+    }
     pub fn as_readable(&self) -> Readable {
         self.into()
     }
@@ -218,6 +246,10 @@ pub enum WritableGuard {
 impl WritableGuard {
     pub fn as_writable(&self) -> Writable {
         self.into()
+    }
+
+    pub fn is_joined(&self) -> bool {
+        matches!(self, Self::Joined)
     }
 }
 

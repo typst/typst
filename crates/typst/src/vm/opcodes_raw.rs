@@ -254,6 +254,8 @@ opcodes! {
 
     /// Enter a new iterator scope with optional joining.
     Iter: iter -> OptionalWritable => {
+        /// The scope to load.
+        scope: ScopeId,
         /// The length of the scope to enter.
         len: u32,
         /// The value to iterate over.

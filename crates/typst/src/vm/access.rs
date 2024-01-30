@@ -5,7 +5,7 @@ use ecow::EcoString;
 use typst_syntax::Span;
 
 use crate::diag::{bail, At, SourceResult};
-use crate::foundations::{call_method_access, Func, Str, Type, Value};
+use crate::foundations::{call_method_access, Args, Func, Str, Type, Value};
 
 use super::{Readable, VMState, VmRead, Writable};
 
@@ -55,8 +55,10 @@ impl Access {
 
                 // Get the arguments.
                 let args = vm.read(*args).at(span)?;
-                let Value::Args(mut args) = args.clone() else {
-                    bail!(span, "expected args, found {}", args.ty().long_name());
+                let mut args = match args {
+                    Value::Args(args) => args.clone(),
+                    Value::None => Args::new(span, std::iter::empty::<Value>()),
+                    _ => bail!(span, "expected argumentss, found {}", args.ty().long_name()),
                 };
 
                 // Call the method.
@@ -123,8 +125,10 @@ impl Access {
             Access::AccessorMethod(value, method, args) => {
                 // Get the arguments.
                 let args = vm.read(*args).at(span)?;
-                let Value::Args(args) = args.clone() else {
-                    bail!(span, "expected args, found {}", args.ty().long_name());
+                let args = match args {
+                    Value::Args(args) => args.clone(),
+                    Value::None => Args::new(span, std::iter::empty::<Value>()),
+                    _ => bail!(span, "expected argumentss, found {}", args.ty().long_name()),
                 };
 
                 // Get the callee.

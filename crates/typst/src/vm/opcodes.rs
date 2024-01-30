@@ -739,14 +739,18 @@ impl Run for Set {
 
         // Load the arguments.
         let args = vm.read(self.args).at(span)?;
-        let Value::Args(args) = args else {
-            bail!(span, "expected arguments, found {}", args.ty().long_name());
+        let args = match args {
+            Value::None => crate::foundations::Args::new::<Value>(span, []),
+            Value::Args(args) => args.clone(),
+            _ => {
+                bail!(span, "expected arguments or none, found {}", args.ty().long_name());
+            }
         };
 
         // Create the set rule and store it in the target.
         vm.write_one(
             self.out,
-            target.set(engine, args.clone())?.spanned(span).into_value(),
+            target.set(engine, args)?.spanned(span).into_value(),
         )
         .at(span)?;
 
@@ -850,8 +854,12 @@ impl Run for Call {
 
         // Get the arguments.
         let args = vm.read(self.args).at(span)?;
-        let Value::Args(args) = args.clone() else {
-            bail!(span, "expected arguments, found {}", args.ty().long_name());
+        let args = match args {
+            Value::None => crate::foundations::Args::new::<Value>(span, []),
+            Value::Args(args) => args.clone(),
+            _ => {
+                bail!(span, "expected arguments or none, found {}", args.ty().long_name());
+            }
         };
 
         match accessor {
@@ -860,7 +868,7 @@ impl Run for Call {
                 let mut value = rest.write(span, vm)?;
 
                 // Call the method.
-                let value = call_method_mut(&mut value, &last, args.clone(), span)?;
+                let value = call_method_mut(&mut value, &last, args, span)?;
 
                 // Write the value to the output.
                 vm.write_one(self.out, value).at(span)?;
@@ -925,15 +933,10 @@ impl Run for Iter {
         // instruction list.
         // JUSTIFICATION: This avoids a bounds check on every scope.
         let instructions = unsafe {
-            std::slice::from_raw_parts(
-                instructions.as_ptr().add(vm.instruction_pointer),
-                self.len as usize,
-            )
+            std::slice::from_raw_parts(instructions.as_ptr(), self.len as usize)
         };
 
-        // Enter the scope within the vm.
-        let joins = self.flags & 0b010 != 0;
-        let content = self.flags & 0b100 != 0;
+        let defaults = vm.read(self.scope).at(span)?.clone();
 
         // Turn the iterable into an iterator.
         let iter: Box<dyn Iterator<Item = Value>> = match iterable {
@@ -959,35 +962,52 @@ impl Run for Iter {
             }
         };
 
-        // Evaluate the loop.
-        let flow = vm.enter_scope(
-            engine,
-            &[],
-            instructions,
-            Some(iter),
-            None,
-            joins,
-            content,
-            span,
-        )?;
+        let f = move || {
+            let flow = vm.enter_scope(
+                engine,
+                &defaults,
+                instructions,
+                Some(iter),
+                None,
+                true,
+                false,
+                span,
+            )?;
 
-        let joined = match flow {
-            ControlFlow::Done(value) => value,
-            ControlFlow::Return(value) => {
-                vm.state |= State::RETURNING;
-                value
+            let joined = match flow {
+                ControlFlow::Done(value) => value,
+                ControlFlow::Break(value) => {
+                    vm.state |= State::BREAKING;
+                    value
+                }
+                ControlFlow::Continue(value) => {
+                    vm.state |= State::CONTINUING;
+                    value
+                }
+                ControlFlow::Return(value) => {
+                    vm.state |= State::RETURNING;
+                    value
+                }
+            };
+
+            eprintln!("{:4} => Exit: {:?} + {}", self.len, joined, self.len);
+
+            if let Some(out) = self.out.ok() {
+                // Write the output to the output register.
+                vm.write_one(out, joined).at(span)?;
             }
-            ControlFlow::Break(_) | ControlFlow::Continue(_) => unreachable!(
-                "loops should never cause parent scopes to break or continue"
-            ),
+
+            vm.instruction_pointer += self.len as usize;
+
+            Ok(())
         };
 
-        // Write the value to the output.
-        if let Some(out) = self.out.ok() {
-            vm.write_one(out, joined).at(span)?;
-        }
+        // Stacker is broken on WASM.
+        #[cfg(target_arch = "wasm32")]
+        return f();
 
-        Ok(())
+        #[cfg(not(target_arch = "wasm32"))]
+        stacker::maybe_grow(32 * 1024, 2 * 1024 * 1024, f)
     }
 }
 

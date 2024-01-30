@@ -33,8 +33,6 @@ impl Compile for ast::Conditional<'_> {
             compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), true_));
 
             self.if_body().compile_into(engine, compiler, output)?;
-
-            compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), after));
         } else {
             compiler.isr(Opcode::jump_if_not(self.span(), &condition, after));
 
@@ -51,6 +49,8 @@ impl Compile for ast::Conditional<'_> {
                 self.if_body().compile_into(engine, compiler, None)?;
             }
         }
+
+        compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), after));
 
         Ok(())
     }
@@ -134,23 +134,13 @@ impl Compile for ast::ForLoop<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        compiler.enter(
-            self.span(),
+        compiler.enter_indefinite(
+            engine,
             true,
             output.as_ref().map(|w| w.as_writable()),
             false,
-            |compiler, _| {
+            |compiler, engine, _| {
                 let top = compiler.jump();
-                let after = compiler.jump();
-
-                let iterable = self.iter().compile(engine, compiler)?;
-                compiler.isr(Opcode::iter(
-                    self.iter().span(),
-                    0_u32,
-                    &iterable,
-                    0b01,
-                    Writable::joined(),
-                ));
                 compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), top));
 
                 let pattern = self.pattern().compile(engine, compiler, true)?;
@@ -180,10 +170,20 @@ impl Compile for ast::ForLoop<'_> {
                 )?;
                 compiler.isr(Opcode::jump(self.span(), top));
 
-                compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), after));
-
                 Ok(())
             },
+            |compiler, engine, len, _, scope| {
+                let iterable = self.iter().compile(engine, compiler)?;
+                compiler.isr(Opcode::iter(
+                    self.iter().span(),
+                    scope,
+                    len as u32,
+                    &iterable,
+                    0b01,
+                    Writable::joined(),
+                ));
+                Ok(())
+            }
         )
     }
     fn compile(

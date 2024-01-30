@@ -121,7 +121,7 @@ impl Compile for ast::Closure<'_> {
         }
 
         // Compile the body of the closure.
-        self.body().compile_into(engine, &mut closure_compiler, None)?;
+        self.body().compile_into(engine, &mut closure_compiler, Some(WritableGuard::Joined))?;
 
         // Collect the compiled closure.
         let closure = closure_compiler.into_compiled_closure(

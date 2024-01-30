@@ -159,7 +159,5 @@ pub fn compile_module(
     // Compile the module.
     let output = markup.compile(&mut engine, &mut compiler)?;
 
-    eprintln!("{:#?}", compiler.instructions);
-
     Ok(CompiledModule::new(compiler, output.as_readable(), root.span()))
 }

@@ -175,8 +175,8 @@ impl Compile for ast::Expr<'_> {
                 continue_.compile_into(engine, compiler, ())
             }
             ast::Expr::Return(return_) => return_.compile_into(engine, compiler, ()),
-            ast::Expr::Import(_) => todo!(),
-            ast::Expr::Include(_) => todo!(),
+            ast::Expr::Import(import) => import.compile_into(engine, compiler, ()),
+            ast::Expr::Include(include) => include.compile_into(engine, compiler, output),
         }
     }
 
@@ -274,8 +274,11 @@ impl Compile for ast::Expr<'_> {
                 return_.compile(engine, compiler)?;
                 Ok(ReadableGuard::None)
             }
-            ast::Expr::Import(_) => todo!(),
-            ast::Expr::Include(_) => todo!(),
+            ast::Expr::Import(import) => {
+                import.compile(engine, compiler)?;
+                Ok(ReadableGuard::None)
+            }
+            ast::Expr::Include(include) => include.compile(engine, compiler),
         }
     }
 }
@@ -513,20 +516,29 @@ impl Compile for ast::Array<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let cap = self.items().count();
-            compiler.isr(Opcode::array(self.span(), cap as u32, &output));
+        let Some(output) = output else {
+            return Ok(());
+        };
 
-            for item in self.items() {
-                match item {
-                    ast::ArrayItem::Pos(item) => {
-                        let value = item.compile(engine, compiler)?;
-                        compiler.isr(Opcode::push(item.span(), &value, &output));
-                    }
-                    ast::ArrayItem::Spread(item) => {
-                        let value = item.compile(engine, compiler)?;
-                        compiler.isr(Opcode::spread(item.span(), &value, &output));
-                    }
+        if output.is_joined() {
+            let input = self.compile(engine, compiler)?;
+            compiler.isr(Opcode::copy(self.span(), &input, &output));
+
+            return Ok(());
+        }
+
+        let cap = self.items().count();
+        compiler.isr(Opcode::array(self.span(), cap as u32, &output));
+
+        for item in self.items() {
+            match item {
+                ast::ArrayItem::Pos(item) => {
+                    let value = item.compile(engine, compiler)?;
+                    compiler.isr(Opcode::push(item.span(), &value, &output));
+                }
+                ast::ArrayItem::Spread(item) => {
+                    let value = item.compile(engine, compiler)?;
+                    compiler.isr(Opcode::spread(item.span(), &value, &output));
                 }
             }
         }
@@ -555,26 +567,35 @@ impl Compile for ast::Dict<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let cap = self.items().count();
-            compiler.isr(Opcode::dict(self.span(), cap as u32, &output));
+        let Some(output) = output else {
+            return Ok(());
+        };
 
-            for item in self.items() {
-                match item {
-                    ast::DictItem::Named(item) => {
-                        let key = compiler.string(item.name().get().clone());
-                        let value = item.expr().compile(engine, compiler)?;
-                        compiler.isr(Opcode::insert(item.span(), key, &value, &output));
-                    }
-                    ast::DictItem::Keyed(item) => {
-                        let key = item.key().compile(engine, compiler)?;
-                        let value = item.expr().compile(engine, compiler)?;
-                        compiler.isr(Opcode::insert(item.span(), &key, &value, &output));
-                    }
-                    ast::DictItem::Spread(item) => {
-                        let value = item.compile(engine, compiler)?;
-                        compiler.isr(Opcode::spread(item.span(), &value, &output));
-                    }
+        if output.is_joined() {
+            let input = self.compile(engine, compiler)?;
+            compiler.isr(Opcode::copy(self.span(), &input, &output));
+
+            return Ok(());
+        }
+
+        let cap = self.items().count();
+        compiler.isr(Opcode::dict(self.span(), cap as u32, &output));
+
+        for item in self.items() {
+            match item {
+                ast::DictItem::Named(item) => {
+                    let key = compiler.string(item.name().get().clone());
+                    let value = item.expr().compile(engine, compiler)?;
+                    compiler.isr(Opcode::insert(item.span(), key, &value, &output));
+                }
+                ast::DictItem::Keyed(item) => {
+                    let key = item.key().compile(engine, compiler)?;
+                    let value = item.expr().compile(engine, compiler)?;
+                    compiler.isr(Opcode::insert(item.span(), &key, &value, &output));
+                }
+                ast::DictItem::Spread(item) => {
+                    let value = item.compile(engine, compiler)?;
+                    compiler.isr(Opcode::spread(item.span(), &value, &output));
                 }
             }
         }

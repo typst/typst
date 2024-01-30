@@ -327,6 +327,16 @@ impl Write for JumpLabel {
                             i += scope.len;
                         }
                     }
+                    Opcode::Iter(op) => {
+                        if let Some(i) =
+                            recursive_find(to_find, iter, op.len, Some(op.scope))
+                        {
+                            debug_assert!(i <= op.len);
+                            return Some(i);
+                        } else {
+                            i += op.len;
+                        }
+                    }
                     _ => {}
                 }
 

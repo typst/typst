@@ -173,7 +173,7 @@ impl Compiler {
         f: impl FnOnce(&mut Self, &mut bool) -> SourceResult<()>,
     ) -> SourceResult<()> {
         let mut scope_id = Some(ScopeId::new(self.common.defaults.len() as u16));
-        let mut scope = Rc::new(RefCell::new(CompilerScope::scope(self.scope.clone())));
+        let mut scope = Rc::new(RefCell::new(CompilerScope::scope(self.scope.clone(), looping)));
         let mut instructions = Vec::with_capacity(DEFAULT_CAPACITY);
 
         std::mem::swap(&mut self.scope, &mut scope);
@@ -213,6 +213,53 @@ impl Compiler {
                 | if display { 0b100 } else { 0b000 },
             out,
         ));
+
+        self.instructions.extend(instructions);
+
+        Ok(())
+    }
+
+    pub fn enter_indefinite(
+        &mut self,
+        engine: &mut Engine,
+        looping: bool,
+        joining: Option<Writable>,
+        mut display: bool,
+        f: impl FnOnce(&mut Self, &mut Engine, &mut bool) -> SourceResult<()>,
+        pre: impl FnOnce(&mut Self, &mut Engine, usize, OptionalWritable, ScopeId) -> SourceResult<()>,
+    ) -> SourceResult<()> {
+        let mut scope_id = Some(ScopeId::new(self.common.defaults.len() as u16));
+        let mut scope = Rc::new(RefCell::new(CompilerScope::scope(self.scope.clone(), looping)));
+        let mut instructions = Vec::with_capacity(DEFAULT_CAPACITY);
+
+        std::mem::swap(&mut self.scope, &mut scope);
+        std::mem::swap(&mut self.instructions, &mut instructions);
+        std::mem::swap(&mut self.scope_id, &mut scope_id);
+
+        f(self, engine, &mut display)?;
+
+        std::mem::swap(&mut self.scope, &mut scope);
+        std::mem::swap(&mut self.instructions, &mut instructions);
+        std::mem::swap(&mut self.scope_id, &mut scope_id);
+
+        let out = match joining {
+            Some(out) => OptionalWritable::some(out),
+            None => OptionalWritable::none(),
+        };
+
+        let defaults = scope
+            .borrow()
+            .variables
+            .values()
+            .filter_map(|v| v.default.clone().map(|d| (d, v.register.as_register())))
+            .map(|(value, target)| DefaultValue { target, value })
+            .collect::<EcoVec<_>>();
+
+        self.common.defaults.push(defaults);
+        let scope_id = scope_id.unwrap();
+
+        let len = instructions.iter().map(Write::size).sum::<usize>();
+        pre(self, engine, len, out, scope_id)?;
 
         self.instructions.extend(instructions);
 

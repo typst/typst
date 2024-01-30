@@ -102,7 +102,7 @@ impl Closure {
                 Param::Pos(name) => {
                     if let Some(target) = target.ok() {
                         state
-                            .write_one(target, args.expect(name)?)
+                            .write_one(target, args.expect::<Value>(name)?)
                             .at(self.inner.span)?;
                     }
                 }

@@ -96,7 +96,7 @@ impl Compile for ast::ShowRule<'_> {
 
         compiler.isr(Opcode::show(self.span(), selector, &transform, &output));
 
-        todo!()
+        Ok(())
     }
 
     fn compile(

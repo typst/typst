@@ -131,6 +131,8 @@ pub enum ControlFlow {
 impl VM<'_> {
     /// Runs the VM to completion.
     pub fn run(&mut self, engine: &mut Engine) -> SourceResult<ControlFlow> {
+        eprintln!("{:?}", self.state.constants);
+        eprintln!("{:?}", self.state.accesses);
         while self.state.state.is_running() {
             self.run_one(engine)?;
 

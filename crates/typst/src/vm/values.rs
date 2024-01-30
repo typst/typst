@@ -887,10 +887,11 @@ impl VmRead for Parent {
     type Output<'a> = &'a Value;
 
     fn read<'a>(&self, vm: &'a VMState) -> StrResult<&'a Value> {
-        let i = 0;
+        let mut i = 0;
         let mut parent = vm.parent.as_ref();
-        while i <= self.scope() {
+        while i < self.scope() {
             parent = parent.and_then(|vm| vm.parent.as_ref());
+            i += 1;
         }
 
         let Some(parent) = parent else {

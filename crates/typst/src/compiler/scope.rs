@@ -70,9 +70,9 @@ impl CompilerScope {
         Self::new(global, is_function, true).with_parent(parent)
     }
 
-    pub fn scope(parent: Rc<RefCell<Self>>) -> Self {
+    pub fn scope(parent: Rc<RefCell<Self>>, is_loop: bool) -> Self {
         let is_function = parent.borrow().is_function;
-        let is_loop = parent.borrow().is_loop;
+        let is_loop = is_loop || parent.borrow().is_loop;
         let global = parent.borrow().global.clone();
         Self::new(global, is_function, is_loop).with_parent(parent)
     }
@@ -94,19 +94,21 @@ impl CompilerScope {
 
     /// Allocates a new register.
     pub fn register(&self) -> StrResult<RegisterGuard> {
+        let registers = self.registers.clone();
         self.registers
             .borrow_mut()
             .allocate()
-            .map(|index| RegisterGuard::new(index, self.registers.clone()))
+            .map(|index| RegisterGuard::new(index, registers))
             .ok_or_else(|| error!("out of registers"))
     }
 
     /// Allocates a new pristine register.
     pub fn pristine_register(&self) -> StrResult<RegisterGuard> {
+        let registers = self.registers.clone();
         self.registers
             .borrow_mut()
             .allocate_pristine()
-            .map(|index| RegisterGuard::new(index, self.registers.clone()))
+            .map(|index| RegisterGuard::new(index, registers))
             .ok_or_else(|| error!("out of pristine registers"))
     }
 
