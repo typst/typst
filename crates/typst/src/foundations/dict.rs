@@ -113,15 +113,44 @@ impl Dict {
         self.0.iter()
     }
 
-    /// Return an "unexpected key" error if there is any remaining pair.
+    /// Check if there is any remaining pair, and if so return an
+    /// "unexpected key" error.
     pub fn finish(&self, expected: &[&str]) -> StrResult<()> {
-        if let Some((key, _)) = self.iter().next() {
-            let parts: Vec<_> = expected.iter().map(|s| eco_format!("\"{s}\"")).collect();
-            let mut msg = format!("unexpected key {}, valid keys are ", key.repr());
-            msg.push_str(&repr::separated_list(&parts, "and"));
-            return Err(msg.into());
+        let mut iter = self.iter().peekable();
+        if iter.peek().is_none() {
+            return Ok(());
         }
-        Ok(())
+        let unexpected: Vec<&str> = iter.map(|kv| kv.0.as_str()).collect();
+
+        Err(Self::unexpected_keys(unexpected, Some(expected)))
+    }
+
+    // Return an "unexpected key" error string.
+    pub fn unexpected_keys(
+        unexpected: Vec<&str>,
+        hint_expected: Option<&[&str]>,
+    ) -> EcoString {
+        let format_as_list = |arr: &[&str]| {
+            repr::separated_list(
+                &arr.iter().map(|s| eco_format!("\"{s}\"")).collect::<Vec<_>>(),
+                "and",
+            )
+        };
+
+        let mut msg = String::from(match unexpected.len() {
+            0 => unreachable!(),
+            1 => "unexpected key ",
+            _ => "unexpected keys ",
+        });
+
+        msg.push_str(&format_as_list(&unexpected[..]));
+
+        if let Some(expected) = hint_expected {
+            msg.push_str(", valid keys are ");
+            msg.push_str(&format_as_list(expected));
+        }
+
+        msg.into()
     }
 }
 

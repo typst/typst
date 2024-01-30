@@ -190,9 +190,11 @@ where
     T: Default + FromValue + Clone,
 {
     fn from_value(mut value: Value) -> StrResult<Self> {
-        let keys = ["left", "top", "right", "bottom", "x", "y", "rest"];
+        let expected_keys = ["left", "top", "right", "bottom", "x", "y", "rest"];
         if let Value::Dict(dict) = &mut value {
-            if dict.iter().any(|(key, _)| keys.contains(&key.as_str())) {
+            if dict.is_empty() {
+                return Ok(Self::splat(None));
+            } else if dict.iter().any(|(key, _)| expected_keys.contains(&key.as_str())) {
                 let mut take = |key| dict.take(key).ok().map(T::from_value).transpose();
                 let rest = take("rest")?;
                 let x = take("x")?.or_else(|| rest.clone());
@@ -204,13 +206,18 @@ where
                     bottom: take("bottom")?.or_else(|| y.clone()),
                 };
 
-                dict.finish(&keys)?;
+                dict.finish(&expected_keys)?;
                 return Ok(sides);
             }
         }
 
         if T::castable(&value) {
             Ok(Self::splat(Some(T::from_value(value)?)))
+        } else if let Value::Dict(dict) = &value {
+            let keys = dict.iter().map(|kv| kv.0.as_str()).collect();
+            // Do not hint at expected_keys, because T may be castable from Dict
+            // objects with other sets of expected keys.
+            Err(Dict::unexpected_keys(keys, None))
         } else {
             Err(Self::error(&value))
         }
