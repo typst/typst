@@ -81,12 +81,12 @@ impl Compile for ast::WhileLoop<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        compiler.enter(
-            self.span(),
+        compiler.enter_indefinite(
+            engine,
             true,
             output.as_ref().map(|w| w.as_writable()),
             false,
-            |compiler, _| {
+            |compiler, engine, _| {
                 let top = compiler.jump();
                 let after = compiler.jump();
 
@@ -104,6 +104,16 @@ impl Compile for ast::WhileLoop<'_> {
                 compiler.isr(Opcode::jump(self.span(), top));
                 compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), after));
 
+                Ok(())
+            },
+            |compiler, engine, len, _, scope| {
+                compiler.isr(Opcode::while_(
+                    self.span(),
+                    scope,
+                    len as u32,
+                    0b01,
+                    Writable::joined(),
+                ));
                 Ok(())
             },
         )

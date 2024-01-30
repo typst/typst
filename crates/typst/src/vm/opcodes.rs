@@ -921,6 +921,70 @@ impl Run for Field {
     }
 }
 
+impl Run for While {
+    fn run(
+        &self,
+        instructions: &[u8],
+        span: Span,
+        vm: &mut VMState,
+        engine: &mut Engine,
+    ) -> SourceResult<()> {
+        debug_assert!(self.len as usize <= instructions.len());
+
+        // SAFETY: The instruction pointer is always within the bounds of the
+        // instruction list.
+        // JUSTIFICATION: This avoids a bounds check on every scope.
+        let instructions = unsafe {
+            std::slice::from_raw_parts(instructions.as_ptr(), self.len as usize)
+        };
+
+        let defaults = vm.read(self.scope).at(span)?.clone();
+
+        let f = move || {
+            let flow = vm.enter_scope(
+                engine,
+                &defaults,
+                instructions,
+                Some(Box::new(std::iter::empty())),
+                None,
+                true,
+                false,
+                span,
+            )?;
+
+            let joined = match flow {
+                ControlFlow::Done(value) | ControlFlow::Continue(value) => value,
+                ControlFlow::Break(value) => {
+                    vm.state |= State::DONE;
+                    value
+                }
+                ControlFlow::Return(value) => {
+                    vm.state |= State::RETURNING;
+                    value
+                }
+            };
+
+            eprintln!("{:4} => Exit: {:?} + {}", self.len, joined, self.len);
+
+            if let Some(out) = self.out.ok() {
+                // Write the output to the output register.
+                vm.write_one(out, joined).at(span)?;
+            }
+
+            vm.instruction_pointer += self.len as usize;
+
+            Ok(())
+        };
+
+        // Stacker is broken on WASM.
+        #[cfg(target_arch = "wasm32")]
+        return f();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        stacker::maybe_grow(32 * 1024, 2 * 1024 * 1024, f)
+    }
+}
+
 impl Run for Iter {
     fn run(
         &self,
@@ -980,13 +1044,9 @@ impl Run for Iter {
             )?;
 
             let joined = match flow {
-                ControlFlow::Done(value) => value,
+                ControlFlow::Done(value) | ControlFlow::Continue(value) => value,
                 ControlFlow::Break(value) => {
-                    vm.state |= State::BREAKING;
-                    value
-                }
-                ControlFlow::Continue(value) => {
-                    vm.state |= State::CONTINUING;
+                    vm.state |= State::DONE;
                     value
                 }
                 ControlFlow::Return(value) => {

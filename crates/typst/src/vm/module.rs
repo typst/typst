@@ -70,7 +70,7 @@ pub fn run_module(
 
     let output = match vm.run(&mut engine)? {
         ControlFlow::Done(value) => value,
-        _ => bail!(module.inner.span, "module did not produce a value"),
+        other => bail!(module.inner.span, "module did not produce a value: {other:?}"),
     };
 
     let mut scope = Scope::new();

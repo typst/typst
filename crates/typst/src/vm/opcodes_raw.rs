@@ -252,7 +252,20 @@ opcodes! {
         access: AccessId,
     } = 0xB2,
 
-    /// Enter a new iterator scope with optional joining.
+    /// Enters a new while loop scope with optional joining.
+    While: while_ -> OptionalWritable => {
+        /// The scope to load.
+        scope: ScopeId,
+        /// The length of the scope to enter.
+        len: u32,
+        /// Whether the scope is a loop.
+        ///
+        /// - Bit 1: Whether joining is enabled.
+        /// - Bit 2: Whether joining results in a content.
+        flags: u8,
+    } = 0xB3,
+
+    /// Enters a new iterator scope with optional joining.
     Iter: iter -> OptionalWritable => {
         /// The scope to load.
         scope: ScopeId,
