@@ -106,7 +106,7 @@ impl Compile for ast::WhileLoop<'_> {
 
                 Ok(())
             },
-            |compiler, engine, len, _, scope| {
+            |compiler, _, len, _, scope| {
                 compiler.isr(Opcode::while_(
                     self.span(),
                     scope,

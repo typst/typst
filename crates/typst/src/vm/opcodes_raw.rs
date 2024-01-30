@@ -278,23 +278,23 @@ opcodes! {
         /// - Bit 1: Whether joining is enabled.
         /// - Bit 2: Whether joining results in a content.
         flags: u8,
-    } = 0xB3,
+    } = 0xB4,
 
     /// Queries the next value of an iterator.
     /// Returns from the iterator scope if the iterator is exhausted.
-    Next: next -> Writable => { } = 0xB4,
+    Next: next -> Writable => { } = 0xB5,
 
     /// Continues a loop.
-    Continue: continue_ => {} = 0xB5,
+    Continue: continue_ => {} = 0xB6,
 
     /// Breaks out of a loop.
-    Break: break_ => {} = 0xB6,
+    Break: break_ => {} = 0xB7,
 
     /// Returns a value from a function.
     Return: return_ => {
         /// The value to return.
         value: OptionalReadable,
-    } = 0xB7,
+    } = 0xB8,
 
     // -----------------------------------------------------------------------------
     // ---------------------------------- VALUES------------------------------------
