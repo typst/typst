@@ -133,7 +133,7 @@ impl Packed<BoxElem> {
 
         // Apply inset.
         let mut body = self.body(styles).unwrap_or_default();
-        let inset = self.inset(styles);
+        let inset = self.inset(styles).unwrap_or_default();
         if inset.iter().any(|v| !v.is_zero()) {
             body = body.padded(inset.map(|side| side.map(Length::from)));
         }
@@ -154,20 +154,24 @@ impl Packed<BoxElem> {
 
         // Prepare fill and stroke.
         let fill = self.fill(styles);
-        let stroke = self.stroke(styles).map(|s| s.map(Stroke::unwrap_or_default));
+        let stroke = self
+            .stroke(styles)
+            .unwrap_or_default()
+            .map(|s| s.map(Stroke::unwrap_or_default));
 
         // Clip the contents
         if self.clip(styles) {
-            let outset = self.outset(styles).relative_to(frame.size());
+            let outset =
+                self.outset(styles).unwrap_or_default().relative_to(frame.size());
             let size = frame.size() + outset.sum_by_axis();
-            let radius = self.radius(styles);
+            let radius = self.radius(styles).unwrap_or_default();
             frame.clip(clip_rect(size, radius, &stroke));
         }
 
         // Add fill and/or stroke.
         if fill.is_some() || stroke.iter().any(Option::is_some) {
-            let outset = self.outset(styles);
-            let radius = self.radius(styles);
+            let outset = self.outset(styles).unwrap_or_default();
+            let radius = self.radius(styles).unwrap_or_default();
             frame.fill_and_stroke(fill, stroke, outset, radius, self.span());
         }
 
@@ -350,7 +354,7 @@ impl LayoutMultiple for Packed<BlockElem> {
     ) -> SourceResult<Fragment> {
         // Apply inset.
         let mut body = self.body(styles).unwrap_or_default();
-        let inset = self.inset(styles);
+        let inset = self.inset(styles).unwrap_or_default();
         if inset.iter().any(|v| !v.is_zero()) {
             body = body.clone().padded(inset.map(|side| side.map(Length::from)));
         }
@@ -418,14 +422,18 @@ impl LayoutMultiple for Packed<BlockElem> {
 
         // Prepare fill and stroke.
         let fill = self.fill(styles);
-        let stroke = self.stroke(styles).map(|s| s.map(Stroke::unwrap_or_default));
+        let stroke = self
+            .stroke(styles)
+            .unwrap_or_default()
+            .map(|s| s.map(Stroke::unwrap_or_default));
 
         // Clip the contents
         if self.clip(styles) {
             for frame in frames.iter_mut() {
-                let outset = self.outset(styles).relative_to(frame.size());
+                let outset =
+                    self.outset(styles).unwrap_or_default().relative_to(frame.size());
                 let size = frame.size() + outset.sum_by_axis();
-                let radius = self.radius(styles);
+                let radius = self.radius(styles).unwrap_or_default();
                 frame.clip(clip_rect(size, radius, &stroke));
             }
         }
@@ -437,8 +445,8 @@ impl LayoutMultiple for Packed<BlockElem> {
                 skip = first.is_empty() && rest.iter().any(|frame| !frame.is_empty());
             }
 
-            let outset = self.outset(styles);
-            let radius = self.radius(styles);
+            let outset = self.outset(styles).unwrap_or_default();
+            let radius = self.radius(styles).unwrap_or_default();
             for frame in frames.iter_mut().skip(skip as usize) {
                 frame.fill_and_stroke(
                     fill.clone(),

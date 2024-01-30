@@ -94,6 +94,16 @@ impl<T: Add> Sides<T> {
     }
 }
 
+impl<T> Sides<Option<T>> {
+    /// Unwrap-or-default the individual sides.
+    pub fn unwrap_or_default(self) -> Sides<T>
+    where
+        T: Default,
+    {
+        self.map(Option::unwrap_or_default)
+    }
+}
+
 impl Sides<Rel<Abs>> {
     /// Evaluate the sides relative to the given `size`.
     pub fn relative_to(self, size: Size) -> Sides<Abs> {
@@ -159,20 +169,21 @@ impl<T: Reflect> Reflect for Sides<Option<T>> {
     }
 }
 
-impl<T> IntoValue for Sides<T>
+impl<T> IntoValue for Sides<Option<T>>
 where
     T: PartialEq + IntoValue,
 {
     fn into_value(self) -> Value {
         if self.is_uniform() {
-            return self.left.into_value();
+            if let Some(left) = self.left {
+                return left.into_value();
+            }
         }
 
         let mut dict = Dict::new();
-        let mut handle = |key: &str, component: T| {
-            let value = component.into_value();
-            if value != Value::None {
-                dict.insert(key.into(), value);
+        let mut handle = |key: &str, component: Option<T>| {
+            if let Some(c) = component {
+                dict.insert(key.into(), c.into_value());
             }
         };
 
@@ -233,12 +244,13 @@ impl<T: Resolve> Resolve for Sides<T> {
 }
 
 impl<T: Fold> Fold for Sides<Option<T>> {
-    type Output = Sides<T::Output>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer).map(|(inner, outer)| match inner {
-            Some(value) => value.fold(outer),
-            None => outer,
+    fn fold(self, outer: Self) -> Self {
+        self.zip(outer).map(|(inner, outer)| match (inner, outer) {
+            (Some(inner), Some(outer)) => Some(inner.fold(outer)),
+            // Usually, folding an inner `None` with an `outer` preferres the
+            // explicit `None`. However, here `None` means unspecified and thus
+            // we want `outer`.
+            (inner, outer) => inner.or(outer),
         })
     }
 }
