@@ -261,6 +261,12 @@ fn create(element: &Elem) -> Result<TokenStream> {
     // The enum with the struct's fields.
     let fields_enum = create_fields_enum(element);
 
+    // The statics with borrowed fields' default values.
+    let default_statics = element
+        .style_fields()
+        .filter(|field| field.borrowed)
+        .map(create_default_static);
+
     // Trait implementations.
     let native_element_impl = create_native_elem_impl(element);
     let partial_eq_impl =
@@ -281,6 +287,7 @@ fn create(element: &Elem) -> Result<TokenStream> {
 
         const _: () = {
             #fields_enum
+            #(#default_statics)*
             #inherent_impl
             #native_element_impl
             #fields_impl
@@ -373,6 +380,21 @@ fn create_fields_enum(element: &Elem) -> TokenStream {
                 f.pad(self.to_str())
             }
         }
+    }
+}
+
+/// Creates a static with a borrowed field's default value.
+fn create_default_static(field: &Field) -> TokenStream {
+    let Field { const_ident, default, ty, .. } = field;
+
+    let init = match default {
+        Some(default) => quote! { || #default },
+        None => quote! { ::std::default::Default::default },
+    };
+
+    quote! {
+        static #const_ident: ::once_cell::sync::Lazy<#ty> =
+            ::once_cell::sync::Lazy::new(#init);
     }
 }
 
@@ -528,19 +550,18 @@ fn create_set_field_method(field: &Field) -> TokenStream {
 
     quote! {
         #[doc = #doc]
-        #vis fn #set_ident(#ident: #ty) -> #foundations::Style {
-            #foundations::Style::Property(#foundations::Property::new(
-                <Self as #foundations::NativeElement>::elem(),
+        #vis fn #set_ident(#ident: #ty) -> #foundations::Property {
+            #foundations::Property::new::<Self, _>(
                 Fields::#enum_ident as u8,
                 #ident,
-            ))
+            )
         }
     }
 }
 
 /// Create a style chain access method for a field.
 fn create_style_chain_access(field: &Field, inherent: TokenStream) -> TokenStream {
-    let Field { ty, default, enum_ident, .. } = field;
+    let Field { ty, default, enum_ident, const_ident, .. } = field;
 
     let getter = match (field.fold, field.borrowed) {
         (false, false) => quote! { get },
@@ -548,18 +569,14 @@ fn create_style_chain_access(field: &Field, inherent: TokenStream) -> TokenStrea
         (true, _) => quote! { get_folded },
     };
 
-    let mut default = match default {
-        Some(default) => quote! { || #default },
-        None => quote! { ::std::default::Default::default },
+    let default = if field.borrowed {
+        quote! { || &#const_ident }
+    } else {
+        match default {
+            Some(default) => quote! { || #default },
+            None => quote! { ::std::default::Default::default },
+        }
     };
-
-    if field.borrowed {
-        default = quote!(|| {
-            static DEFAULT: ::once_cell::sync::Lazy<#ty> =
-                ::once_cell::sync::Lazy::new(#default);
-            &DEFAULT
-        });
-    }
 
     quote! {
         styles.#getter::<#ty>(
@@ -637,10 +654,7 @@ fn create_param_info(field: &Field) -> TokenStream {
             .clone()
             .unwrap_or_else(|| parse_quote! { ::std::default::Default::default() });
         quote! {
-            Some(|| {
-                let typed: #ty = #default;
-                #foundations::IntoValue::into_value(typed)
-            })
+            Some(|| <#ty as #foundations::IntoValue>::into_value(#default))
         }
     } else {
         quote! { None }
