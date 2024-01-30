@@ -2,26 +2,42 @@
 // Ref: false
 
 ---
-#for x in (1, 2, 3) {}
-#for x in (a:1, b:2, c:3) {}
+// Normal variable.
+#for x in (1, 2) {}
+#for x in (a: 1, b: 2) {}
 #for x in "foo" {}
-#for _ in (1, 2, 3) {}
-#for _ in (a: 1, b: 2, c: 3) {}
+
+---
+// Placeholder.
+#for _ in (1, 2) {}
+#for _ in (a: 1, b: 2) {}
 #for _ in "foo" {}
+
+---
+// Destructuring.
 #for (x, y) in (("a", 1), ("b", 2), ("c", 3)) {}
 #for (x, y) in (a: 1, b: 2, c: 3) {}
+
 ---
-// Error: 11-16 cannot loop over integer
-#for x in 12306 {}
+// Error: 11-17 cannot loop over content
+#for x in [1, 2] {}
+
 ---
-// Error: 11-16 cannot loop over integer
-#for _ in 12306 {}
+// Error: 11-25 cannot loop over bytes
+#for _ in bytes((22, 0)) {}
+
 ---
 // Error: 16-21 cannot loop over integer
 #for (x, y) in 12306 {}
+
+---
+// Error: 16-22 cannot loop over content
+#for (x, y) in [1, 2] {}
+
 ---
 // Error: 6-12 cannot destructure values of string
 #for (x, y) in "foo" {}
+
 ---
 // Error: 6-12 cannot destructure string
-#for (x, y) in ("foo", "bar", "baz") {}
+#for (x, y) in ("foo", "bar") {}
