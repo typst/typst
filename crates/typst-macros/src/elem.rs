@@ -82,13 +82,13 @@ impl Elem {
 
     /// Fields that can be configured with set rules.
     fn set_fields(&self) -> impl Iterator<Item = &Field> + Clone {
-        self.construct_fields().filter(|field| !field.inherent())
+        self.construct_fields().filter(|field| !field.required)
     }
 
     /// Fields that can be accessed from the style chain.
     fn style_fields(&self) -> impl Iterator<Item = &Field> + Clone {
         self.real_fields()
-            .filter(|field| !field.inherent() && !field.synthesized)
+            .filter(|field| !field.required && !field.synthesized)
     }
 
     /// Fields that are visible to the user.
@@ -122,13 +122,6 @@ struct Field {
     synthesized: bool,
     parse: Option<BlockWithReturn>,
     default: Option<syn::Expr>,
-}
-
-impl Field {
-    /// Whether the field is present on every instance of the element.
-    fn inherent(&self) -> bool {
-        self.required || (self.synthesized && self.default.is_some())
-    }
 }
 
 /// The `..` in `#[elem(..)]`.
@@ -174,7 +167,10 @@ fn parse(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
     if fields.iter().any(|field| field.ghost && !field.internal)
         && meta.capabilities.iter().all(|capability| capability != "Construct")
     {
-        bail!(body.ident, "cannot have ghost fields and have `Construct` auto generated");
+        bail!(
+            body.ident,
+            "cannot have public ghost fields and an auto-generated constructor"
+        );
     }
 
     Ok(Elem {
@@ -231,15 +227,17 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
         default: parse_attr::<syn::Expr>(&mut attrs, "default")?.flatten(),
     };
 
-    if field.required || field.variadic {
-        if !field.positional {
-            bail!(ident, "inherent fields must be positional");
-        } else if field.fold || field.resolve || field.ghost || field.synthesized {
-            bail!(
-                ident,
-                "inherent fields cannot be fold, resolve, ghost, or synthesized"
-            );
-        }
+    if field.required && field.synthesized {
+        bail!(ident, "required fields cannot be synthesized");
+    }
+
+    if (field.required || field.synthesized)
+        && (field.default.is_some() || field.fold || field.resolve || field.ghost)
+    {
+        bail!(
+            ident,
+            "required and synthesized fields cannot be default, fold, resolve, or ghost"
+        );
     }
 
     if field.resolve {
@@ -322,7 +320,7 @@ fn create_struct(element: &Elem) -> TokenStream {
 /// Create a field declaration for the struct.
 fn create_field(field: &Field) -> TokenStream {
     let Field { ident, ty, .. } = field;
-    if field.inherent() {
+    if field.required {
         quote! { #ident: #ty }
     } else {
         quote! { #ident: ::std::option::Option<#ty> }
@@ -425,18 +423,12 @@ fn create_inherent_impl(element: &Elem) -> TokenStream {
 fn create_new_func(element: &Elem) -> TokenStream {
     let params = element
         .struct_fields()
-        .filter(|field| field.inherent() && !field.synthesized)
+        .filter(|field| field.required)
         .map(|Field { ident, ty, .. }| quote! { #ident: #ty });
 
     let fields = element.struct_fields().map(|field| {
-        let Field { ident, default, .. } = field;
-        if field.synthesized {
-            if let Some(expr) = default {
-                quote! { #ident: #expr }
-            } else {
-                quote! { #ident: None }
-            }
-        } else if field.inherent() {
+        let ident = &field.ident;
+        if field.required {
             quote! { #ident }
         } else {
             quote! { #ident: None }
@@ -469,7 +461,7 @@ fn create_push_field_method(field: &Field) -> TokenStream {
     let Field { vis, ident, push_ident, name, ty, .. } = field;
     let doc = format!("Setter for the [`{name}`](Self::{ident}) field.");
 
-    let expr = if field.inherent() {
+    let expr = if field.required {
         quote! { #ident }
     } else {
         quote! { Some(#ident) }
@@ -487,7 +479,7 @@ fn create_push_field_method(field: &Field) -> TokenStream {
 fn create_field_method(field: &Field) -> TokenStream {
     let Field { vis, docs, ident, output, .. } = field;
 
-    if field.inherent() {
+    if field.required {
         quote! {
             #[doc = #docs]
             #vis fn #ident(&self) -> &#output {
@@ -498,8 +490,8 @@ fn create_field_method(field: &Field) -> TokenStream {
         quote! {
             #[doc = #docs]
             #[track_caller]
-            #vis fn #ident(&self) -> &#output {
-                self.#ident.as_ref().unwrap()
+            #vis fn #ident(&self) -> ::std::option::Option<&#output> {
+                self.#ident.as_ref()
             }
         }
     } else {
@@ -655,7 +647,7 @@ fn create_param_info(field: &Field) -> TokenStream {
     } = field;
 
     let named = !positional;
-    let settable = !field.inherent();
+    let settable = !field.required;
 
     let default = if settable {
         let default = default
@@ -718,13 +710,9 @@ fn create_construct_impl(element: &Elem) -> TokenStream {
     });
 
     let fields = element.struct_fields().map(|field| {
-        let Field { ident, default, .. } = field;
+        let ident = &field.ident;
         if field.synthesized {
-            if let Some(expr) = default {
-                quote! { #ident: #expr }
-            } else {
-                quote! { #ident: None }
-            }
+            quote! { #ident: None }
         } else {
             quote! { #ident }
         }
@@ -835,7 +823,7 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
     let has_arms = visible_non_ghost().map(|field| {
         let Field { enum_ident, ident, .. } = field;
 
-        let expr = if field.inherent() {
+        let expr = if field.required {
             quote! { true }
         } else {
             quote! { self.#ident.is_some() }
@@ -845,10 +833,10 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
     });
 
     // Fields that can be accessed using the `field` method.
-    let field_arms = visible_non_ghost().filter(|field| !field.ghost).map(|field| {
+    let field_arms = visible_non_ghost().map(|field| {
         let Field { enum_ident, ident, .. } = field;
 
-        let expr = if field.inherent() {
+        let expr = if field.required {
             quote! { Some(#into_value(self.#ident.clone())) }
         } else {
             quote! { self.#ident.clone().map(#into_value) }
@@ -861,9 +849,9 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
     let field_with_styles_arms = element.visible_fields().map(|field| {
         let Field { enum_ident, ident, .. } = field;
 
-        let expr = if field.inherent() {
+        let expr = if field.required {
             quote! { Some(#into_value(self.#ident.clone())) }
-        } else if field.synthesized && field.default.is_none() {
+        } else if field.synthesized {
             quote! { self.#ident.clone().map(#into_value) }
         } else {
             let value = create_style_chain_access(
@@ -883,9 +871,9 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
         let Field { ident, name, .. } = field;
         let string = quote! { #name.into() };
 
-        if field.inherent() {
+        if field.required {
             quote! {
-                fields.insert( #string, #into_value(self.#ident.clone()));
+                fields.insert(#string, #into_value(self.#ident.clone()));
             }
         } else {
             quote! {
