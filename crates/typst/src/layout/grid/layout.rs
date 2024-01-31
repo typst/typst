@@ -1774,72 +1774,81 @@ impl<'a> GridLayouter<'a> {
             let rowspan = cell.rowspan.get();
             let rowspan = if self.grid.has_gutter { 2 * rowspan - 1 } else { rowspan };
 
-            let (height, backlog, height_in_this_region) = if rowspan > 1 {
-                let last_spanned_auto_row = self
-                    .grid
-                    .rows
-                    .iter()
-                    .enumerate()
-                    .skip(parent_y)
-                    .take(rowspan)
-                    .rev()
-                    .find(|(_, &row)| row == Sizing::Auto)
-                    .map(|(y, _)| y);
+            let (height, backlog, height_in_this_region, started_in_this_region) =
+                if rowspan > 1 {
+                    let last_spanned_auto_row = self
+                        .grid
+                        .rows
+                        .iter()
+                        .enumerate()
+                        .skip(parent_y)
+                        .take(rowspan)
+                        .rev()
+                        .find(|(_, &row)| row == Sizing::Auto)
+                        .map(|(y, _)| y);
 
-                if last_spanned_auto_row != Some(y) {
-                    // A rowspan should only affect the height of its last
-                    // spanned auto row.
-                    continue;
-                }
+                    if last_spanned_auto_row != Some(y) {
+                        // A rowspan should only affect the height of its last
+                        // spanned auto row.
+                        continue;
+                    }
 
-                // Height of the rowspan covered by spanned rows in the current
-                // region.
-                let height_in_this_region: Abs = self
-                    .lrows
-                    .iter()
-                    .filter_map(|row| match row {
-                        Row::Frame(frame, y)
-                            if (parent_y..parent_y + rowspan).contains(y) =>
-                        {
-                            Some(frame.height())
-                        }
-                        // Either we have a row outside of the rowspan, or a
-                        // fractional row, whose size we can't really guess.
-                        _ => None,
-                    })
-                    .sum();
+                    // Height of the rowspan covered by spanned rows in the current
+                    // region.
+                    let height_in_this_region: Abs = self
+                        .lrows
+                        .iter()
+                        .filter_map(|row| match row {
+                            Row::Frame(frame, y)
+                                if (parent_y..parent_y + rowspan).contains(y) =>
+                            {
+                                Some(frame.height())
+                            }
+                            // Either we have a row outside of the rowspan, or a
+                            // fractional row, whose size we can't really guess.
+                            _ => None,
+                        })
+                        .sum();
 
-                // Ensure we will measure the rowspan with the correct heights.
-                // For that, we will gather the total height spanned by this
-                // rowspan in previous regions.
-                self.rowspans
-                    .iter()
-                    .find(|data| data.x == parent_x && data.y == parent_y)
-                    .and_then(|data| data.heights.split_first())
-                    .map(|(&height, backlog)| (height, backlog, height_in_this_region))
-                    .unwrap_or_else(|| {
-                        // If we're here, the rowspan is in the current region,
-                        // as 'data.heights' was empty, implying none of its
-                        // spanned rows were laid out yet. Therefore, the value
-                        // of 'regions.size' at the rowspan's first row will be
-                        // the total spanned height so far (note that each
-                        // spanned row, when pushed, subtracted its own height
-                        // from 'self.regions.size') plus the current size.
-                        (
-                            height_in_this_region + self.regions.size.y,
-                            &self.regions.backlog,
-                            // We already added 'height_in_this_region' to the
-                            // height above, so the exclusive height in this
-                            // region is zero. This avoids considering the
-                            // height in this region twice for
-                            // 'already_covered_height' later on.
-                            Abs::zero(),
-                        )
-                    })
-            } else {
-                // Not a rowspan, so no height in this region yet.
-                (self.regions.size.y, self.regions.backlog, Abs::zero())
-            };
+                    // Ensure we will measure the rowspan with the correct heights.
+                    // For that, we will gather the total height spanned by this
+                    // rowspan in previous regions.
+                    self.rowspans
+                        .iter()
+                        .find(|data| data.x == parent_x && data.y == parent_y)
+                        .and_then(|data| data.heights.split_first())
+                        .map(|(&height, backlog)| {
+                            // 1. Dereference the height.
+                            // 2. 'data.heights' had values, so the rowspan did not
+                            // start at the current region, as only 'finish_region'
+                            // fills the 'heights' field of rowspans.
+                            (height, backlog, height_in_this_region, false)
+                        })
+                        .unwrap_or_else(|| {
+                            (
+                                // If we're here, the rowspan is in the current region,
+                                // as 'data.heights' was empty, implying none of its
+                                // spanned rows were laid out yet. Therefore, the value
+                                // of 'regions.size' at the rowspan's first row will be
+                                // the total spanned height so far (note that each
+                                // spanned row, when pushed, subtracted its own height
+                                // from 'self.regions.size') plus the current size.
+                                height_in_this_region + self.regions.size.y,
+                                &self.regions.backlog,
+                                height_in_this_region,
+                                // As explained above, the rowspan started in the
+                                // current region.
+                                true,
+                            )
+                        })
+                } else {
+                    // Not a rowspan, so:
+                    // 1. Use the available height remaining in the region.
+                    // 2. Use the same backlog.
+                    // 3. Height occupied in this region so far is zero.
+                    // 4. Yes, this cell started in this region.
+                    (self.regions.size.y, self.regions.backlog, Abs::zero(), true)
+                };
 
             let width = self.cell_spanned_width(x, cell.colspan.get());
 
@@ -1887,8 +1896,17 @@ impl<'a> GridLayouter<'a> {
                 let last_spanned_row = parent_y + rowspan - 1;
                 // Consider already covered height for rows from previous
                 // regions and in the current region.
-                let mut already_covered_height: Abs =
-                    height_in_this_region + height + backlog.iter().sum();
+                let mut already_covered_height = backlog.iter().sum();
+
+                if started_in_this_region {
+                    // The only height covered so far for this rowspan is the
+                    // height in the previous rows of this region.
+                    already_covered_height += height_in_this_region;
+                } else {
+                    // Initial height was in a separate region, so we can
+                    // consider it as already covered.
+                    already_covered_height += height;
+                }
 
                 // Make sure to also subtract the sizes of rows which were
                 // already laid out, but not pushed to 'self.lrows' yet due to
