@@ -69,6 +69,7 @@ macro_rules! opcodes {
         #[derive(Clone)]
         pub enum Opcode {
             JumpLabel(Option<ScopeId>, JumpLabel),
+            Flow,
             $(
                 $name($name),
             )*
@@ -78,6 +79,7 @@ macro_rules! opcodes {
             pub fn span(&self) -> Span {
                 match self {
                     Self::JumpLabel(_, _) => Span::detached(),
+                    Self::Flow => Span::detached(),
                     $(
                         Self::$name(isr) => isr.span,
                     )*
@@ -108,6 +110,9 @@ macro_rules! opcodes {
             fn write(&self, opcodes: &[Opcode], buffer: &mut Vec<u8>) {
                 match self {
                     Self::JumpLabel(_, _) => {},
+                    Self::Flow => {
+                        buffer.push(0x00);
+                    },
                     $(
                         Self::$name(isr) => {
                             buffer.reserve(std::mem::size_of::<$name>());
@@ -127,6 +132,7 @@ macro_rules! opcodes {
             fn size(&self) -> usize {
                 match self {
                     Self::JumpLabel(_, _) => 0,
+                    Self::Flow => 1,
                     $(
                         Self::$name(isr) => {
                             1 + isr.span.size() $($(
@@ -142,6 +148,7 @@ macro_rules! opcodes {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match self {
                     Self::JumpLabel(_, i) => i.fmt(f),
+                    Self::Flow => write!(f, "Flow"),
                     $(
                         Self::$name(isr) => isr.fmt(f),
                     )*
@@ -301,7 +308,6 @@ impl Write for PatternId {
 
 impl Write for JumpLabel {
     fn write(&self, opcodes: &[Opcode], buffer: &mut Vec<u8>) {
-        eprintln!("-------------------------------");
         fn recursive_find<'a, I: Iterator<Item = &'a Opcode>>(
             to_find: &JumpLabel,
             iter: &mut std::iter::Peekable<I>,
@@ -311,7 +317,6 @@ impl Write for JumpLabel {
             let mut i = 0;
             while i != len {
                 let opcode = iter.next()?;
-                eprintln!("{opcode:?} += {}", i + opcode.size() as u32);
                 match opcode {
                     Opcode::JumpLabel(scope_id, label) => {
                         if label == to_find {
@@ -320,38 +325,32 @@ impl Write for JumpLabel {
                         }
                     }
                     Opcode::Enter(op) => {
-                        eprintln!(" - Enter({})", op.len);
                         if let Some(i) =
                             recursive_find(to_find, iter, op.len, Some(op.scope))
                         {
                             debug_assert!(i <= op.len);
                             return Some(i);
                         } else {
-                            eprintln!("Exit");
                             i += op.len;
                         }
                     }
                     Opcode::Iter(op) => {
-                        eprintln!(" - Enter({})", op.len);
                         if let Some(i) =
                             recursive_find(to_find, iter, op.len, Some(op.scope))
                         {
                             debug_assert!(i <= op.len);
                             return Some(i);
                         } else {
-                            eprintln!("Exit");
                             i += op.len;
                         }
                     }
                     Opcode::While(op) => {
-                        eprintln!(" - Enter({})", op.len);
                         if let Some(i) =
                             recursive_find(to_find, iter, op.len, Some(op.scope))
                         {
                             debug_assert!(i <= op.len);
                             return Some(i);
                         } else {
-                            eprintln!("Exit");
                             i += op.len;
                         }
                     }
@@ -362,9 +361,7 @@ impl Write for JumpLabel {
             }
 
             if let Some(Opcode::JumpLabel(id, label)) = iter.peek() {
-                eprintln!("{:?} {:?} {label:?} {to_find:?}", id, current_scope);
                 if *id == current_scope && label == to_find {
-                    eprintln!("found2");
                     return Some(i);
                 }
             }

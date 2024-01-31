@@ -132,7 +132,6 @@ impl VM<'_> {
                 break;
             };
 
-            eprintln!("{opcode:?}");
             if opcode == Opcode::Flow {
                 if self.state.iterator.is_some() {
                     if self.state.state.is_continuing() {
@@ -154,7 +153,6 @@ impl VM<'_> {
                 }
             }
         }
-        eprintln!("here1");
 
         let output = if let Some(reg) = self.state.output {
             reg.read(&self.state).cloned().map(Some).at(self.span)?
@@ -181,13 +179,14 @@ impl VM<'_> {
             return None;
         }
 
-        debug_assert!(
-            self.state.instruction_pointer + 1 + std::mem::size_of::<Span>()
-                <= self.instructions.len()
-        );
+        debug_assert!(self.state.instruction_pointer + 1 <= self.instructions.len());
 
         let opcode = self.instructions[self.state.instruction_pointer];
         let opcode = Opcode::from_u8(opcode).expect("malformed opcode");
+        if opcode == Opcode::Flow {
+            return Some((opcode, Span::detached()));
+        }
+
         let span = self.read_span(self.state.instruction_pointer + 1);
 
         Some((opcode, span))

@@ -30,7 +30,7 @@ impl Compile for ast::Math<'_> {
 
                 for expr in self.exprs() {
                     expr.compile_into(engine, compiler, join.clone())?;
-                    compiler.isr(Opcode::flow(expr.span()));
+                    compiler.isr(Opcode::Flow);
                 }
 
                 Ok(())

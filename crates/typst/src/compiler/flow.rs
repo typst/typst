@@ -95,7 +95,7 @@ impl Compile for ast::WhileLoop<'_> {
                     compiler,
                     if output.is_some() { Some(WritableGuard::Joined) } else { None },
                 )?;
-                compiler.isr(Opcode::flow(self.body().span()));
+                compiler.isr(Opcode::Flow);
 
                 compiler.isr(Opcode::jump(self.span(), top));
                 compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), after));
@@ -169,7 +169,7 @@ impl Compile for ast::ForLoop<'_> {
                     compiler,
                     Some(WritableGuard::Joined),
                 )?;
-                compiler.isr(Opcode::flow(self.body().span()));
+                compiler.isr(Opcode::Flow);
                 compiler.isr(Opcode::jump(self.span(), top));
 
                 Ok(())

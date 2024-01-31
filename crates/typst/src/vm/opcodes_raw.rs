@@ -7,9 +7,6 @@ opcodes! {
     // --------------------------------- OPERATORS ---------------------------------
     // -----------------------------------------------------------------------------
 
-    /// No operation.
-    Nop: noop = 0x00,
-
     /// Adds two values together.
     Add: add -> Writable => {
         /// The left-hand side of the addition.
@@ -295,9 +292,6 @@ opcodes! {
         /// The value to return.
         value: OptionalReadable,
     } = 0xB8,
-
-    /// Adds a flow point.
-    Flow: flow => {} = 0xB9,
 
     // -----------------------------------------------------------------------------
     // ---------------------------------- VALUES------------------------------------

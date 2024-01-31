@@ -82,6 +82,8 @@ macro_rules! opcodes {
 
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
         pub enum Opcode {
+            #[doc = "Indicates a flow event."]
+            Flow,
             $(
                 $(#[$sattr])*
                 $name
@@ -91,6 +93,7 @@ macro_rules! opcodes {
         impl Opcode {
             pub fn from_u8(value: u8) -> Option<Self> {
                 match value {
+                    0x00 => Some(Self::Flow),
                     $($value => Some(Self::$name),)*
                     _ => None,
                 }
@@ -98,6 +101,7 @@ macro_rules! opcodes {
 
             pub fn to_u8(self) -> u8 {
                 match self {
+                    Self::Flow => 0x00,
                     $(Self::$name => $value,)*
                 }
             }
@@ -113,6 +117,12 @@ macro_rules! opcodes {
             ) -> SourceResult<()> {
                 const OFFSET: usize = std::mem::size_of::<u8>() + std::mem::size_of::<Span>();
                 match self {
+                    Self::Flow => {
+                        // Move the instruction pointer and counter.
+                        vm.instruction_pointer += 1;
+
+                        Ok(())
+                    }
                     $(Self::$name => {
                         // The constant that contains the length of one instruction.
                         const LEN: usize = {
@@ -145,14 +155,6 @@ macro_rules! opcodes {
                             )?
                         };
 
-                        // Cast the instruction to the opcode.
-                        eprintln!(
-                            concat!("{:4} => ", stringify!($name), ": {:?} <= {}"),
-                            vm.instruction_pointer,
-                            instruction,
-                            OFFSET + LEN,
-                        );
-
                         // Move the instruction pointer and counter.
                         vm.instruction_pointer += OFFSET + LEN;
 
@@ -168,18 +170,6 @@ macro_rules! opcodes {
 }
 
 include!("opcodes_raw.rs");
-
-impl Run for Nop {
-    fn run(
-        &self,
-        _: &[u8],
-        _: Span,
-        _: &mut VMState,
-        _: &mut Engine,
-    ) -> SourceResult<()> {
-        Ok(())
-    }
-}
 
 impl Run for Add {
     fn run(
@@ -952,8 +942,6 @@ impl Run for While {
                 span,
             )?;
 
-            eprintln!("{:4} => Exit: {:?} + {}", self.len, flow, self.len);
-
             let joined = match flow {
                 ControlFlow::Done(value) => value,
                 ControlFlow::Break(_) | ControlFlow::Continue(_) => {
@@ -1041,8 +1029,6 @@ impl Run for Iter {
                 false,
                 span,
             )?;
-
-            eprintln!("{:4} => Exit: {:?} + {}", self.len, flow, self.len);
 
             let joined = match flow {
                 ControlFlow::Done(value) => value,
@@ -1138,18 +1124,6 @@ impl Run for Return {
         vm.output = self.value.ok();
         vm.state |= State::RETURNING;
 
-        Ok(())
-    }
-}
-
-impl Run for Flow {
-    fn run(
-        &self,
-        _: &[u8],
-        _: Span,
-        _: &mut VMState,
-        _: &mut Engine,
-    ) -> SourceResult<()> {
         Ok(())
     }
 }
@@ -1417,8 +1391,6 @@ impl Run for Enter {
                 span,
             )?;
 
-            eprintln!("{:4} => Exit: {:?} + {}", self.len, flow, self.len);
-
             let joined = match flow {
                 ControlFlow::Done(value) => value,
                 ControlFlow::Break(value) => {
@@ -1436,7 +1408,6 @@ impl Run for Enter {
             };
 
             if let Some(out) = self.out.ok() {
-                eprintln!(" - Writing to {:?}", out);
                 // Write the output to the output register.
                 vm.write_one(out, joined).at(span)?;
             }
