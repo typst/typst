@@ -741,13 +741,19 @@ impl<'a> Generator<'a> {
             driver.citation(CitationRequest::new(
                 items,
                 style,
-                Some(locale(*first.lang(), *first.region())),
+                Some(locale(
+                    first.lang().copied().unwrap_or(Lang::ENGLISH),
+                    first.region().copied().flatten(),
+                )),
                 &LOCALES,
                 None,
             ));
         }
 
-        let locale = locale(*self.bibliography.lang(), *self.bibliography.region());
+        let locale = locale(
+            self.bibliography.lang().copied().unwrap_or(Lang::ENGLISH),
+            self.bibliography.region().copied().flatten(),
+        );
 
         // Add hidden items for everything if we should print the whole
         // bibliography.
