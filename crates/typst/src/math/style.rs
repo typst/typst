@@ -254,34 +254,36 @@ pub fn scaled_font_size(ctx: &MathContext, styles: StyleChain) -> Abs {
 
 /// Styles something as cramped.
 pub fn style_cramped() -> Prehashed<Style> {
-    Prehashed::new(EquationElem::set_cramped(true))
+    EquationElem::set_cramped(true).wrap()
 }
 
 /// The style for subscripts in the current style.
 pub fn style_for_subscript(styles: StyleChain) -> [Prehashed<Style>; 2] {
-    [style_for_superscript(styles), Prehashed::new(EquationElem::set_cramped(true))]
+    [style_for_superscript(styles), EquationElem::set_cramped(true).wrap()]
 }
 
 /// The style for superscripts in the current style.
 pub fn style_for_superscript(styles: StyleChain) -> Prehashed<Style> {
-    Prehashed::new(EquationElem::set_size(match EquationElem::size_in(styles) {
+    EquationElem::set_size(match EquationElem::size_in(styles) {
         MathSize::Display | MathSize::Text => MathSize::Script,
         MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
-    }))
+    })
+    .wrap()
 }
 
 /// The style for numerators in the current style.
 pub fn style_for_numerator(styles: StyleChain) -> Prehashed<Style> {
-    Prehashed::new(EquationElem::set_size(match EquationElem::size_in(styles) {
+    EquationElem::set_size(match EquationElem::size_in(styles) {
         MathSize::Display => MathSize::Text,
         MathSize::Text => MathSize::Script,
         MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
-    }))
+    })
+    .wrap()
 }
 
 /// The style for denominators in the current style.
 pub fn style_for_denominator(styles: StyleChain) -> [Prehashed<Style>; 2] {
-    [style_for_numerator(styles), Prehashed::new(EquationElem::set_cramped(true))]
+    [style_for_numerator(styles), EquationElem::set_cramped(true).wrap()]
 }
 
 /// Select the correct styled math letter.

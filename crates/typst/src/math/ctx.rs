@@ -173,9 +173,8 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         boxed: &Packed<BoxElem>,
         styles: StyleChain,
     ) -> SourceResult<Frame> {
-        let local = Prehashed::new(TextElem::set_size(TextSize(
-            scaled_font_size(self, styles).into(),
-        )));
+        let local =
+            TextElem::set_size(TextSize(scaled_font_size(self, styles).into())).wrap();
         boxed.layout(self.engine, styles.chain(&local), self.regions)
     }
 
@@ -184,9 +183,8 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         content: &Content,
         styles: StyleChain,
     ) -> SourceResult<Frame> {
-        let local = Prehashed::new(TextElem::set_size(TextSize(
-            scaled_font_size(self, styles).into(),
-        )));
+        let local =
+            TextElem::set_size(TextSize(scaled_font_size(self, styles).into())).wrap();
         Ok(content
             .layout(self.engine, styles.chain(&local), self.regions)?
             .into_frame())
@@ -248,7 +246,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 TextElem::set_size(TextSize(scaled_font_size(self, styles).into())),
                 EquationElem::set_italic(Smart::Custom(false)),
             ]
-            .map(Prehashed::new);
+            .map(|p| p.wrap());
 
             // Anything else is handled by Typst's standard text layout.
             let styles = styles.chain(&local);

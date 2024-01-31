@@ -27,6 +27,15 @@ use crate::text::{Lang, Region, TextElem};
 /// #bibliography("works.bib")
 /// ```
 ///
+/// If your source name contains certain characters such as slashes, which are
+/// not recognized by the `<>` syntax, you can explicitly call `label` instead.
+///
+/// ```typ
+/// Computer Modern is an example of a modernist serif typeface.
+/// #cite(label("DBLP:books/lib/Knuth86a")).
+/// >>> #bibliography("works.bib")
+/// ```
+///
 /// # Syntax
 /// This function indirectly has dedicated syntax. [References]($ref) can be
 /// used to cite works from the bibliography. The label then corresponds to the

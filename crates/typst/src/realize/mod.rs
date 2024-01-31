@@ -80,7 +80,7 @@ pub fn applicable(target: &Content, styles: StyleChain) -> bool {
 
     // Find out whether any recipe matches and is unguarded.
     for recipe in styles.recipes() {
-        if !target.is_guarded(Guard(n)) && recipe.applicable(target) {
+        if !target.is_guarded(Guard(n)) && recipe.applicable(target, styles) {
             return true;
         }
         n -= 1;
@@ -133,7 +133,7 @@ pub fn realize(
     // Find an applicable show rule recipe.
     for recipe in styles.recipes() {
         let guard = Guard(n);
-        if !target.is_guarded(guard) && recipe.applicable(target) {
+        if !target.is_guarded(guard) && recipe.applicable(target, styles) {
             if let Some(content) = try_apply(engine, target, recipe, guard)? {
                 return Ok(Some(content));
             }
