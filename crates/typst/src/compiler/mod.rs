@@ -35,7 +35,6 @@ use crate::Library;
 
 pub use self::access::*;
 pub use self::instructions::*;
-pub use self::markup::*;
 pub use self::module::*;
 pub use self::pattern::*;
 pub use self::register::*;
@@ -59,11 +58,11 @@ pub struct Compiler {
 
 impl Compiler {
     /// Creates a new compiler for a module.
-    pub fn module(name: &str, library: Library) -> Self {
+    pub fn module(library: Library) -> Self {
         Self {
             instructions: Vec::with_capacity(DEFAULT_CAPACITY),
             scope: Rc::new(RefCell::new(CompilerScope::module(library))),
-            name: Some(name.into()),
+            name: None,
             common: Inner::new(),
             scope_id: None,
         }
@@ -400,6 +399,14 @@ impl Inner {
     fn new() -> Self {
         Self::default()
     }
+}
+
+pub trait CompileTopLevel {
+    fn compile_top_level(
+        &self,
+        engine: &mut Engine,
+        compiler: &mut Compiler,
+    ) -> SourceResult<()>;
 }
 
 pub trait Compile {

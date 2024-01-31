@@ -11,15 +11,7 @@ use crate::text::{LinebreakElem, RawElem, SmartQuoteElem};
 use crate::text::{SpaceElem, TextElem};
 use crate::vm::{Constant, OptionalReadable};
 
-use super::{Compile, Compiler, Opcode, ReadableGuard, WritableGuard};
-
-pub trait CompileTopLevel {
-    fn compile_top_level(
-        &self,
-        engine: &mut Engine,
-        compiler: &mut Compiler,
-    ) -> SourceResult<()>;
-}
+use super::{Compile, CompileTopLevel, Compiler, Opcode, ReadableGuard, WritableGuard};
 
 impl CompileTopLevel for ast::Markup<'_> {
     fn compile_top_level(

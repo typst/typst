@@ -197,7 +197,7 @@ impl CompilerScope {
 
         if let Some(capture) = self.capturing.as_ref() {
             let mut ref_ = capture.borrow_mut();
-            if let Some(readable) = ref_.read(span, var)? {
+            if let Some(readable) = ref_.read_no_global(span, var)? {
                 let reg = self.pristine_register()?;
                 self.captures.insert(
                     var.clone(),
@@ -230,7 +230,7 @@ impl CompilerScope {
                     }
 
                     let mut ref_ = capture.borrow_mut();
-                    if let Some(readable) = ref_.read(span, var)? {
+                    if let Some(readable) = ref_.read_no_global(span, var)? {
                         let reg = ancestor.pristine_register()?;
                         ancestor.captures.insert(
                             var.clone(),
@@ -288,6 +288,21 @@ impl CompilerScope {
             Ok(Some(captured))
         } else if let Ok(id) = self.global.global.field_index(var) {
             Ok(Some(Global::new(id as u16).into()))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Read a variable from this scope, including the global scope.
+    pub fn read_no_global(
+        &mut self,
+        span: Span,
+        var: &EcoString,
+    ) -> StrResult<Option<ReadableGuard>> {
+        if let Some(guard) = self.read_own(var) {
+            Ok(Some(guard))
+        } else if let Some(captured) = self.read_captured(span, var)? {
+            Ok(Some(captured))
         } else {
             Ok(None)
         }

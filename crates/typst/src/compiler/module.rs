@@ -23,7 +23,7 @@ pub struct CompiledModule {
 }
 
 impl CompiledModule {
-    pub fn new(mut compiler: Compiler, span: Span) -> Self {
+    pub fn new(mut compiler: Compiler, span: Span, name: impl Into<EcoString>) -> Self {
         let mut instructions = Vec::with_capacity(1 << 20);
         compiler
             .instructions
@@ -46,7 +46,7 @@ impl CompiledModule {
 
         CompiledModule {
             inner: Arc::new(Repr {
-                name: compiler.name.unwrap(),
+                name: name.into(),
                 span,
                 instructions,
                 global: compiler.scope.borrow().global().clone(),
@@ -150,11 +150,10 @@ pub fn compile_module(
         .to_string_lossy();
 
     // Prepare Compiler.
-    let mut compiler =
-        Compiler::module(&name, engine.world.library().clone().into_inner());
+    let mut compiler = Compiler::module(engine.world.library().clone().into_inner());
 
     // Compile the module.
     markup.compile_top_level(&mut engine, &mut compiler)?;
 
-    Ok(CompiledModule::new(compiler, root.span()))
+    Ok(CompiledModule::new(compiler, root.span(), name))
 }
