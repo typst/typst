@@ -155,8 +155,6 @@ macro_rules! opcodes {
                             )?
                         };
 
-                        eprintln!("{instruction:?}");
-
                         // Move the instruction pointer and counter.
                         vm.instruction_pointer += OFFSET + LEN;
 
@@ -913,7 +911,7 @@ impl Run for Field {
         _: &mut Engine,
     ) -> SourceResult<()> {
         // Get the value.
-        let value = dbg!(vm.read(self.access).at(span)?).read(span, vm)?;
+        let value = vm.read(self.access).at(span)?.read(span, vm)?;
 
         // Write the value to the output.
         vm.write_one(self.out, value.into_owned()).at(span)?;

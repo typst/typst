@@ -471,7 +471,6 @@ impl Joiner {
                     };
 
                     last.update(|elem| {
-                        eprintln!("{elem:?} + {label:?}");
                         elem.set_label(label)
                     });
 
