@@ -1899,15 +1899,9 @@ impl<'a> GridLayouter<'a> {
             // calculation.
             if rowspan > 1 {
                 let last_spanned_row = parent_y + rowspan - 1;
-                // Consider already covered height from previous rows in the
+                // Subtract already covered height from previous rows in the
                 // current region, if applicable.
-                let mut already_covered_height = if started_in_this_region {
-                    // The only height covered so far for this rowspan is the
-                    // height in the previous rows of this region.
-                    height_in_this_region
-                } else {
-                    Abs::zero()
-                };
+                let mut already_covered_height = height_in_this_region;
 
                 // Make sure to also subtract the sizes of rows which were
                 // already laid out, but not pushed to 'self.lrows' yet due to
