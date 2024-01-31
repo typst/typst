@@ -10,214 +10,121 @@ pub struct Exception {
     pub stretch: Option<FontStretch>,
 }
 
+impl Exception {
+    pub const fn new() -> Self {
+        Self {
+            family: None,
+            style: None,
+            weight: None,
+            stretch: None,
+        }
+    }
+
+    const fn family(self, family: &'static str) -> Self {
+        Self { family: Some(family), ..self }
+    }
+
+    const fn style(self, style: FontStyle) -> Self {
+        Self { style: Some(style), ..self }
+    }
+
+    const fn weight(self, weight: u16) -> Self {
+        Self { weight: Some(FontWeight(weight)), ..self }
+    }
+
+    #[allow(unused)] // left for future use
+    const fn stretch(self, stretch: u16) -> Self {
+        Self { stretch: Some(FontStretch(stretch)), ..self }
+    }
+}
+
 pub fn find_exception(postscript_name: &str) -> Option<&'static Exception> {
     EXCEPTION_MAP.get(postscript_name)
 }
 
 /// A map which keys are PostScript name and values are override entries.
 static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
-    "NewCM08-Book" => Exception {
-        family: Some("New Computer Modern 08"),
-        weight: Some(FontWeight(450)),
-        style: None,
-        stretch: None,
-    },
-    "NewCM08-BookItalic" => Exception {
-        family: Some("New Computer Modern 08"),
-        weight: Some(FontWeight(450)),
-        style: None,
-        stretch: None,
-    },
-    "NewCM08-Italic" => Exception {
-        family: Some("New Computer Modern 08"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCM08-Regular" => Exception {
-        family: Some("New Computer Modern 08"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCM10-Bold" => Exception {
-        family: Some("New Computer Modern"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCM10-BoldItalic" => Exception {
-        family: Some("New Computer Modern"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCM10-Book" => Exception {
-        family: Some("New Computer Modern"),
-        weight: Some(FontWeight(450)),
-        style: None,
-        stretch: None,
-    },
-    "NewCM10-BookItalic" => Exception {
-        family: Some("New Computer Modern"),
-        weight: Some(FontWeight(450)),
-        style: None,
-        stretch: None,
-    },
-    "NewCM10-Italic" => Exception {
-        family: Some("New Computer Modern"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCM10-Regular" => Exception {
-        family: Some("New Computer Modern"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCMMath-Book" => Exception {
-        family: Some("New Computer Modern Math"),
-        weight: Some(FontWeight(450)),
-        style: None,
-        stretch: None,
-    },
-    "NewCMMath-Regular" => Exception {
-        family: Some("New Computer Modern Math"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCMMono10-Bold" => Exception {
-        family: Some("New Computer Modern Mono"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCMMono10-BoldOblique" => Exception {
-        family: Some("New Computer Modern Mono"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCMMono10-Book" => Exception {
-        family: Some("New Computer Modern Mono"),
-        weight: Some(FontWeight(450)),
-        style: None,
-        stretch: None,
-    },
-    "NewCMMono10-BookItalic" => Exception {
-        family: Some("New Computer Modern Mono"),
-        weight: Some(FontWeight(450)),
-        style: None,
-        stretch: None,
-    },
-    "NewCMMono10-Italic" => Exception {
-        family: Some("New Computer Modern Mono"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCMMono10-Regular" => Exception {
-        family: Some("New Computer Modern Mono"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCMSans08-Book" => Exception {
-        family: Some("New Computer Modern Sans 08"),
-        weight: Some(FontWeight(450)),
-        style: None,
-        stretch: None,
-    },
-    "NewCMSans08-BookOblique" => Exception {
-        family: Some("New Computer Modern Sans 08"),
-        weight: Some(FontWeight(450)),
-        style: None,
-        stretch: None,
-    },
-    "NewCMSans08-Oblique" => Exception {
-        family: Some("New Computer Modern Sans 08"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCMSans08-Regular" => Exception {
-        family: Some("New Computer Modern Sans 08"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCMSans10-Bold" => Exception {
-        family: Some("New Computer Modern Sans"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCMSans10-BoldOblique" => Exception {
-        family: Some("New Computer Modern Sans"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCMSans10-Book" => Exception {
-        family: Some("New Computer Modern Sans"),
-        weight: Some(FontWeight(450)),
-        style: None,
-        stretch: None,
-    },
-    "NewCMSans10-BookOblique" => Exception {
-        family: Some("New Computer Modern Sans"),
-        weight: Some(FontWeight(450)),
-        style: Some(FontStyle::Oblique),
-        stretch: None,
-    },
-    "NewCMSans10-Oblique" => Exception {
-        family: Some("New Computer Modern Sans"),
-        weight: None,
-        style: Some(FontStyle::Oblique),
-        stretch: None,
-    },
-    "NewCMSans10-Regular" => Exception {
-        family: Some("New Computer Modern Sans"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCMUncial08-Bold" => Exception {
-        family: Some("New Computer Modern Uncial 08"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCMUncial08-Book" => Exception {
-        family: Some("New Computer Modern Uncial 08"),
-        weight: Some(FontWeight(450)),
-        style: None,
-        stretch: None,
-    },
-    "NewCMUncial08-Regular" => Exception {
-        family: Some("New Computer Modern Uncial 08"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCMUncial10-Bold" => Exception {
-        family: Some("New Computer Modern Uncial"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
-    "NewCMUncial10-Book" => Exception {
-        family: Some("New Computer Modern Uncial"),
-        weight: Some(FontWeight(450)),
-        style: None,
-        stretch: None,
-    },
-    "NewCMUncial10-Regular" => Exception {
-        family: Some("New Computer Modern Uncial"),
-        weight: None,
-        style: None,
-        stretch: None,
-    },
+    "NewCM08-Book" => Exception::new()
+        .family("New Computer Modern 08")
+        .weight(450),
+    "NewCM08-BookItalic" => Exception::new()
+        .family("New Computer Modern 08")
+        .weight(450),
+    "NewCM08-Italic" => Exception::new()
+        .family("New Computer Modern 08"),
+    "NewCM08-Regular" => Exception::new()
+        .family("New Computer Modern 08"),
+    "NewCM10-Bold" => Exception::new()
+        .family("New Computer Modern"),
+    "NewCM10-BoldItalic" => Exception::new()
+        .family("New Computer Modern"),
+    "NewCM10-Book" => Exception::new()
+        .family("New Computer Modern")
+        .weight(450),
+    "NewCM10-BookItalic" => Exception::new()
+        .family("New Computer Modern")
+        .weight(450),
+    "NewCM10-Italic" => Exception::new()
+        .family("New Computer Modern"),
+    "NewCM10-Regular" => Exception::new()
+        .family("New Computer Modern"),
+    "NewCMMath-Book" => Exception::new()
+        .family("New Computer Modern Math")
+        .weight(450),
+    "NewCMMath-Regular" => Exception::new()
+        .family("New Computer Modern Math"),
+    "NewCMMono10-Bold" => Exception::new()
+        .family("New Computer Modern Mono"),
+    "NewCMMono10-BoldOblique" => Exception::new()
+        .family("New Computer Modern Mono"),
+    "NewCMMono10-Book" => Exception::new()
+        .family("New Computer Modern Mono")
+        .weight(450),
+    "NewCMMono10-BookItalic" => Exception::new()
+        .family("New Computer Modern Mono")
+        .weight(450),
+    "NewCMMono10-Italic" => Exception::new()
+        .family("New Computer Modern Mono"),
+    "NewCMMono10-Regular" => Exception::new()
+        .family("New Computer Modern Mono"),
+    "NewCMSans08-Book" => Exception::new()
+        .family("New Computer Modern Sans 08")
+        .weight(450),
+    "NewCMSans08-BookOblique" => Exception::new()
+        .family("New Computer Modern Sans 08")
+        .weight(450),
+    "NewCMSans08-Oblique" => Exception::new()
+        .family("New Computer Modern Sans 08"),
+    "NewCMSans08-Regular" => Exception::new()
+        .family("New Computer Modern Sans 08"),
+    "NewCMSans10-Bold" => Exception::new()
+        .family("New Computer Modern Sans"),
+    "NewCMSans10-BoldOblique" => Exception::new()
+        .family("New Computer Modern Sans"),
+    "NewCMSans10-Book" => Exception::new()
+        .family("New Computer Modern Sans")
+        .weight(450),
+    "NewCMSans10-BookOblique" => Exception::new()
+        .family("New Computer Modern Sans")
+        .weight(450)
+        .style(FontStyle::Oblique),
+    "NewCMSans10-Oblique" => Exception::new()
+        .family("New Computer Modern Sans")
+        .style(FontStyle::Oblique),
+    "NewCMSans10-Regular" => Exception::new()
+        .family("New Computer Modern Sans"),
+    "NewCMUncial08-Bold" => Exception::new()
+        .family("New Computer Modern Uncial 08"),
+    "NewCMUncial08-Book" => Exception::new()
+        .family("New Computer Modern Uncial 08")
+        .weight(450),
+    "NewCMUncial08-Regular" => Exception::new()
+        .family("New Computer Modern Uncial 08"),
+    "NewCMUncial10-Bold" => Exception::new()
+        .family("New Computer Modern Uncial"),
+    "NewCMUncial10-Book" => Exception::new()
+        .family("New Computer Modern Uncial")
+        .weight(450),
+    "NewCMUncial10-Regular" => Exception::new()
+        .family("New Computer Modern Uncial"),
 };
