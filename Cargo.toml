@@ -36,6 +36,7 @@ ciborium = "0.2.1"
 clap = { version = "4.4", features = ["derive", "env"] }
 clap_complete = "4.2.1"
 clap_mangen = "0.2.10"
+ctrlc = "3.4.1"
 codespan-reporting = "0.11"
 comemo = { git = "https://github.com/typst/comemo", rev = "ddb3773" }
 csv = "1"
