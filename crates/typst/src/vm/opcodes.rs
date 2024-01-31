@@ -828,6 +828,16 @@ impl Run for Styled {
             }
         }
 
+        if style.len() == 1 {
+            // If it is a single style, without a selector, we must style it using `recipe`
+            if let Style::Recipe(r @ Recipe { span: _, selector: None, transform: _ }) =
+                &*style.as_slice()[0]
+            {
+                vm.recipe(r.clone()).at(span)?;
+                return Ok(());
+            }
+        }
+
         // Style the remaining content.
         vm.styled(style).at(span)?;
 

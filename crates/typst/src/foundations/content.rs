@@ -156,11 +156,6 @@ impl Content {
         self.inner.lifecycle.contains(0)
     }
 
-    /// Set the label of the content.
-    pub fn set_label(&mut self, label: Label) {
-        self.make_mut().label = Some(label);
-    }
-
     /// Set the location of the content.
     pub fn set_location(&mut self, location: Location) {
         self.make_mut().location = Some(location);
