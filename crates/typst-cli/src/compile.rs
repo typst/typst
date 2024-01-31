@@ -3,11 +3,10 @@ use std::path::{Path, PathBuf};
 
 use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::term::{self, termcolor};
+use codespan_reporting::term;
 use ecow::{eco_format, EcoString};
 use parking_lot::RwLock;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use termcolor::{ColorChoice, StandardStream};
 use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
 use typst::eval::Tracer;
 use typst::foundations::Datetime;
@@ -21,7 +20,7 @@ use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
 use crate::timings::Timer;
 use crate::watch::Status;
 use crate::world::SystemWorld;
-use crate::{color_stream, set_failed};
+use crate::{set_failed, terminal};
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
@@ -313,11 +312,6 @@ pub fn print_diagnostics(
     warnings: &[SourceDiagnostic],
     diagnostic_format: DiagnosticFormat,
 ) -> Result<(), codespan_reporting::files::Error> {
-    let mut w = match diagnostic_format {
-        DiagnosticFormat::Human => color_stream(),
-        DiagnosticFormat::Short => StandardStream::stderr(ColorChoice::Never),
-    };
-
     let mut config = term::Config { tab_width: 2, ..Default::default() };
     if diagnostic_format == DiagnosticFormat::Short {
         config.display_style = term::DisplayStyle::Short;
@@ -338,7 +332,7 @@ pub fn print_diagnostics(
         )
         .with_labels(label(world, diagnostic.span).into_iter().collect());
 
-        term::emit(&mut w, &config, world, &diag)?;
+        term::emit(&mut terminal::out(), &config, world, &diag)?;
 
         // Stacktrace-like helper diagnostics.
         for point in &diagnostic.trace {
@@ -347,7 +341,7 @@ pub fn print_diagnostics(
                 .with_message(message)
                 .with_labels(label(world, point.span).into_iter().collect());
 
-            term::emit(&mut w, &config, world, &help)?;
+            term::emit(&mut terminal::out(), &config, world, &help)?;
         }
     }
 
