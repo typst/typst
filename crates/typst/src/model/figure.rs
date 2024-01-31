@@ -371,7 +371,8 @@ impl Refable for Packed<FigureElem> {
     fn counter(&self) -> Counter {
         (**self)
             .counter()
-            .clone()
+            .cloned()
+            .flatten()
             .unwrap_or_else(|| Counter::of(FigureElem::elem()))
     }
 
@@ -393,7 +394,7 @@ impl Outlinable for Packed<FigureElem> {
         let mut realized = caption.body().clone();
         if let (
             Smart::Custom(Some(Supplement::Content(mut supplement))),
-            Some(counter),
+            Some(Some(counter)),
             Some(numbering),
         ) = (
             (**self).supplement(StyleChain::default()).clone(),
@@ -512,23 +513,19 @@ pub struct FigureCaption {
 
     /// The figure's supplement.
     #[synthesized]
-    #[default(None)]
     pub supplement: Option<Content>,
 
     /// How to number the figure.
     #[synthesized]
-    #[default(None)]
     pub numbering: Option<Numbering>,
 
     /// The counter for the figure.
     #[synthesized]
-    #[default(None)]
     pub counter: Option<Counter>,
 
     /// The figure's location.
     #[internal]
     #[synthesized]
-    #[default(None)]
     pub figure_location: Option<Location>,
 }
 
@@ -568,8 +565,13 @@ impl Show for Packed<FigureCaption> {
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
 
-        if let (Some(mut supplement), Some(numbering), Some(counter), Some(location)) = (
-            self.supplement().clone(),
+        if let (
+            Some(Some(mut supplement)),
+            Some(Some(numbering)),
+            Some(Some(counter)),
+            Some(Some(location)),
+        ) = (
+            self.supplement().cloned(),
             self.numbering(),
             self.counter(),
             self.figure_location(),

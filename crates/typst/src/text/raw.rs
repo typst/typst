@@ -398,16 +398,18 @@ impl Synthesize for Packed<RawElem> {
 impl Show for Packed<RawElem> {
     #[typst_macros::time(name = "raw", span = self.span())]
     fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut lines = EcoVec::with_capacity((2 * self.lines().len()).saturating_sub(1));
-        for (i, line) in self.lines().iter().enumerate() {
+        let lines = self.lines().map(|v| v.as_slice()).unwrap_or_default();
+
+        let mut seq = EcoVec::with_capacity((2 * lines.len()).saturating_sub(1));
+        for (i, line) in lines.iter().enumerate() {
             if i != 0 {
-                lines.push(LinebreakElem::new().pack());
+                seq.push(LinebreakElem::new().pack());
             }
 
-            lines.push(line.clone().pack());
+            seq.push(line.clone().pack());
         }
 
-        let mut realized = Content::sequence(lines);
+        let mut realized = Content::sequence(seq);
         if self.block(styles) {
             // Align the text before inserting it into the block.
             realized = realized.aligned(self.align(styles).into());
