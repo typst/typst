@@ -108,11 +108,11 @@ impl Eval for ast::ForLoop<'_> {
         let mut output = Value::None;
 
         macro_rules! iter {
-            (for $pat:ident in $iter:expr) => {{
+            (for $pat:ident in $iterable:expr) => {{
                 vm.scopes.enter();
 
                 #[allow(unused_parens)]
-                for value in $iter {
+                for value in $iterable {
                     destructure(vm, $pat, value.into_value())?;
 
                     let body = self.body();
@@ -134,28 +134,29 @@ impl Eval for ast::ForLoop<'_> {
             }};
         }
 
+        let pattern = self.pattern();
         let iterable = self.iterable().eval(vm)?;
         let iterable_type = iterable.ty();
-        let pattern = self.pattern();
 
-        match (&pattern, iterable) {
-            (ast::Pattern::Normal(_), Value::Str(string)) => {
-                // Iterate over graphemes of string.
-                iter!(for pattern in string.as_str().graphemes(true));
+        use ast::Pattern;
+        match (pattern, iterable) {
+            (_, Value::Array(array)) => {
+                // Iterate over values of array.
+                iter!(for pattern in array);
             }
             (_, Value::Dict(dict)) => {
                 // Iterate over pairs of dict.
                 iter!(for pattern in dict.pairs());
             }
-            (_, Value::Array(array)) => {
-                // Iterate over values of array.
-                iter!(for pattern in array);
+            (Pattern::Normal(_) | Pattern::Placeholder(_), Value::Str(str)) => {
+                // Iterate over graphemes of string.
+                iter!(for pattern in str.as_str().graphemes(true));
             }
-            (ast::Pattern::Normal(_), _) => {
+            (Pattern::Destructuring(_), Value::Str(_)) => {
+                bail!(pattern.span(), "cannot destructure values of {}", iterable_type);
+            }
+            _ => {
                 bail!(self.iterable().span(), "cannot loop over {}", iterable_type);
-            }
-            (_, _) => {
-                bail!(pattern.span(), "cannot destructure values of {}", iterable_type)
             }
         }
 
