@@ -4,7 +4,7 @@ use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec};
 use typst_syntax::{ast, Source, Span};
 
-use crate::compiler::Compile;
+use crate::compiler::CompileTopLevel;
 use crate::diag::SourceResult;
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
@@ -23,7 +23,7 @@ pub struct CompiledModule {
 }
 
 impl CompiledModule {
-    pub fn new(mut compiler: Compiler, output: Readable, span: Span) -> Self {
+    pub fn new(mut compiler: Compiler, span: Span) -> Self {
         let mut instructions = Vec::with_capacity(1 << 20);
         compiler
             .instructions
@@ -57,7 +57,6 @@ impl CompiledModule {
                 labels: compiler.common.labels.into_values(),
                 patterns: compiler.common.patterns.into_values(),
                 defaults: compiler.common.defaults,
-                output: Some(output),
                 joined: true,
                 exports,
             }),
@@ -89,15 +88,13 @@ pub struct Repr {
     pub patterns: Vec<Pattern>,
     /// The default values of variables.
     pub defaults: Vec<EcoVec<DefaultValue>>,
-    /// The output value (if any).
-    pub output: Option<Readable>,
     /// Whether this module returns a joined value.
     pub joined: bool,
     /// The exports of the module.
     pub exports: Vec<Export>,
 }
 
-#[derive(Clone, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub struct Export {
     /// The name of the export.
     pub name: EcoString,
@@ -157,7 +154,7 @@ pub fn compile_module(
         Compiler::module(&name, engine.world.library().clone().into_inner());
 
     // Compile the module.
-    let output = markup.compile(&mut engine, &mut compiler)?;
+    markup.compile_top_level(&mut engine, &mut compiler)?;
 
-    Ok(CompiledModule::new(compiler, output.as_readable(), root.span()))
+    Ok(CompiledModule::new(compiler, root.span()))
 }

@@ -133,7 +133,7 @@ impl ParentGuard {
 #[derive(Clone, Debug)]
 pub enum ReadableGuard {
     Register(RegisterGuard),
-    Captured(RegisterGuard),
+    Captured(Box<ReadableGuard>),
     Parent(ParentGuard),
     Constant(Constant),
     String(StringId),
@@ -182,9 +182,8 @@ impl ReadableGuard {
 impl Into<Readable> for &ReadableGuard {
     fn into(self) -> Readable {
         match self {
-            ReadableGuard::Register(register) | ReadableGuard::Captured(register) => {
-                register.as_readable()
-            }
+            ReadableGuard::Register(register) => register.as_readable(),
+            ReadableGuard::Captured(captured) => (&**captured).into(),
             ReadableGuard::Parent(parent) => parent.as_readable(),
             ReadableGuard::Constant(constant) => (*constant).into(),
             ReadableGuard::String(string) => (*string).into(),

@@ -189,19 +189,28 @@ impl CompilerScope {
         span: Span,
         var: &EcoString,
     ) -> StrResult<Option<ReadableGuard>> {
+        if let Some(capture) = self.captures.get(var) {
+            return Ok(Some(ReadableGuard::Captured(Box::new(ReadableGuard::Register(
+                capture.register.clone(),
+            )))));
+        }
+
         if let Some(capture) = self.capturing.as_ref() {
-            let ref_ = capture.borrow();
-            if let Some(variable) = ref_.variables.get(var) {
+            let mut ref_ = capture.borrow_mut();
+            if let Some(readable) = ref_.read(span, var)? {
                 let reg = self.pristine_register()?;
                 self.captures.insert(
                     var.clone(),
                     Capture {
-                        readable: variable.register.clone().into(),
+                        name: var.clone(),
+                        readable: readable.clone(),
                         register: reg.clone(),
                         span,
                     },
                 );
-                return Ok(Some(ReadableGuard::Captured(reg)));
+                return Ok(Some(ReadableGuard::Captured(Box::new(
+                    ReadableGuard::Register(reg),
+                ))));
             }
 
             Ok(None)
@@ -209,30 +218,38 @@ impl CompilerScope {
             let mut i = 0;
             let mut next = self.parent.clone();
             while let Some(parent) = next {
-                let ref_ = parent.borrow();
-                if let Some(capture) = ref_.capturing.as_ref() {
-                    let ref_ = capture.borrow();
-                    if let Some(variable) = ref_.variables.get(var) {
-                        let reg = self.pristine_register()?;
-                        self.captures.insert(
+                let mut ancestor = parent.borrow_mut();
+                if let Some(capture) = ancestor.capturing.clone() {
+                    if let Some(capture) = ancestor.captures.get(var) {
+                        return Ok(Some(ReadableGuard::Captured(Box::new(
+                            ReadableGuard::Parent(ParentGuard::new(
+                                i,
+                                capture.register.clone(),
+                            )),
+                        ))));
+                    }
+
+                    let mut ref_ = capture.borrow_mut();
+                    if let Some(readable) = ref_.read(span, var)? {
+                        let reg = ancestor.pristine_register()?;
+                        ancestor.captures.insert(
                             var.clone(),
                             Capture {
-                                readable: ParentGuard::new(
-                                    i as u16,
-                                    variable.register.clone(),
-                                )
-                                .into(),
+                                name: var.clone(),
+                                readable: readable.clone(),
                                 register: reg.clone(),
                                 span,
                             },
                         );
 
-                        return Ok(Some(reg.into()));
+                        return Ok(Some(ReadableGuard::Captured(Box::new(
+                            ReadableGuard::Parent(ParentGuard::new(i, reg)),
+                        ))));
                     }
                 }
 
                 i += 1;
-                next = ref_.parent.clone();
+                next = ancestor.parent.clone();
             }
 
             Ok(None)
@@ -267,10 +284,10 @@ impl CompilerScope {
     ) -> StrResult<Option<ReadableGuard>> {
         if let Some(guard) = self.read_own(var) {
             Ok(Some(guard))
-        } else if let Ok(id) = self.global.global.field_index(var) {
-            Ok(Some(Global::new(id as u16).into()))
         } else if let Some(captured) = self.read_captured(span, var)? {
             Ok(Some(captured))
+        } else if let Ok(id) = self.global.global.field_index(var) {
+            Ok(Some(Global::new(id as u16).into()))
         } else {
             Ok(None)
         }
@@ -297,6 +314,7 @@ impl CompilerScope {
     }
 }
 
+#[derive(Debug)]
 pub struct Variable {
     /// The register this variable is stored in.
     pub register: RegisterGuard,
@@ -307,6 +325,8 @@ pub struct Variable {
 }
 
 pub struct Capture {
+    /// The name of the captured value.
+    pub name: EcoString,
     /// The readable this value is stored in (in the parent's scope).
     pub readable: ReadableGuard,
     /// The register in which this capture is stored.

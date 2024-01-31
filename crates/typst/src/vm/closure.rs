@@ -235,8 +235,10 @@ pub struct Inner {
     pub joined: bool,
 }
 
-#[derive(Clone, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub struct Capture {
+    /// The name of the value to capture.
+    pub name: EcoString,
     /// The value of the capture **in the parent scope**.
     pub value: Readable,
     /// Where the value is stored **in the closure's scope**.

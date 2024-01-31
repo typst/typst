@@ -35,6 +35,7 @@ use crate::Library;
 
 pub use self::access::*;
 pub use self::instructions::*;
+pub use self::markup::*;
 pub use self::module::*;
 pub use self::pattern::*;
 pub use self::register::*;
@@ -324,6 +325,7 @@ impl Compiler {
             .captures
             .values()
             .map(|capture| vm::Capture {
+                name: capture.name.clone(),
                 value: capture.readable.as_readable(),
                 location: capture.register.as_writeable(),
                 span: capture.span,

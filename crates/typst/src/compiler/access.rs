@@ -99,7 +99,7 @@ impl Access for ast::Ident<'_> {
                 if mutable {
                     bail!(self.span(), "cannot mutate a captured value")
                 } else {
-                    Ok(AccessPattern::Readable(cap.into()))
+                    Ok(AccessPattern::Readable((*cap).into()))
                 }
             }
             Some(ReadableGuard::Global(global)) => {

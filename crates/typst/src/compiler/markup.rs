@@ -13,6 +13,47 @@ use crate::vm::{Constant, OptionalReadable};
 
 use super::{Compile, Compiler, Opcode, ReadableGuard, WritableGuard};
 
+pub trait CompileTopLevel {
+    fn compile_top_level(
+        &self,
+        engine: &mut Engine,
+        compiler: &mut Compiler,
+    ) -> SourceResult<()>;
+}
+
+impl CompileTopLevel for ast::Markup<'_> {
+    fn compile_top_level(
+        &self,
+        engine: &mut Engine,
+        compiler: &mut Compiler,
+    ) -> SourceResult<()> {
+        for expr in self.exprs() {
+            // Handle set rules specially.
+            if let ast::Expr::Set(set) = expr {
+                let style = set.compile(engine, compiler)?;
+                compiler.isr(Opcode::styled(set.span(), &style));
+                compiler.isr(Opcode::Flow);
+                continue;
+            }
+
+            // Handle show rules specially.
+            if let ast::Expr::Show(show) = expr {
+                let style = show.compile(engine, compiler)?;
+                compiler.isr(Opcode::styled(show.span(), &style));
+                compiler.isr(Opcode::Flow);
+                continue;
+            }
+
+            // Compile the expression, appending its output to the join
+            // output.
+            expr.compile_into(engine, compiler, Some(WritableGuard::Joined))?;
+            compiler.isr(Opcode::Flow);
+        }
+
+        Ok(())
+    }
+}
+
 impl Compile for ast::Markup<'_> {
     type Output = Option<WritableGuard>;
     type IntoOutput = ReadableGuard;
