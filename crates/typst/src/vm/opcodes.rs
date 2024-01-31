@@ -954,7 +954,9 @@ impl Run for While {
 
             let joined = match flow {
                 ControlFlow::Done(value) => value,
-                ControlFlow::Break(_) | ControlFlow::Continue(_)  => unreachable!("unexpected control flow"),
+                ControlFlow::Break(_) | ControlFlow::Continue(_) => {
+                    unreachable!("unexpected control flow")
+                }
                 ControlFlow::Return(value) => {
                     vm.state |= State::RETURNING;
                     value
@@ -1041,8 +1043,10 @@ impl Run for Iter {
             )?;
 
             let joined = match flow {
-                ControlFlow::Done(value)=> value,
-                ControlFlow::Break(_) | ControlFlow::Continue(_)  => unreachable!("unexpected control flow"),
+                ControlFlow::Done(value) => value,
+                ControlFlow::Break(_) | ControlFlow::Continue(_) => {
+                    unreachable!("unexpected control flow")
+                }
                 ControlFlow::Return(value) => {
                     vm.state |= State::RETURNING;
                     value

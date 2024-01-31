@@ -102,13 +102,7 @@ impl Compile for ast::WhileLoop<'_> {
                 Ok(())
             },
             |compiler, _, len, out, scope| {
-                compiler.isr(Opcode::while_(
-                    self.span(),
-                    scope,
-                    len as u32,
-                    0b01,
-                    out,
-                ));
+                compiler.isr(Opcode::while_(self.span(), scope, len as u32, 0b01, out));
                 Ok(())
             },
         )
