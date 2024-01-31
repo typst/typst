@@ -1881,7 +1881,12 @@ impl<'a> GridLayouter<'a> {
                 }
             }
 
-            let mut sizes = frames.iter().map(|frame| frame.height()).collect::<Vec<_>>();
+            // Skip frames from previous regions if applicable.
+            let mut sizes = frames
+                .iter()
+                .skip(if !started_in_this_region { backlog.len() + 1 } else { 0 })
+                .map(|frame| frame.height())
+                .collect::<Vec<_>>();
 
             // Don't expand this row more than the cell needs.
             // To do so, we must subtract, from the cell's expected height,
@@ -1894,19 +1899,15 @@ impl<'a> GridLayouter<'a> {
             // calculation.
             if rowspan > 1 {
                 let last_spanned_row = parent_y + rowspan - 1;
-                // Consider already covered height for rows from previous
-                // regions and in the current region.
-                let mut already_covered_height = backlog.iter().sum();
-
-                if started_in_this_region {
+                // Consider already covered height from previous rows in the
+                // current region, if applicable.
+                let mut already_covered_height = if started_in_this_region {
                     // The only height covered so far for this rowspan is the
                     // height in the previous rows of this region.
-                    already_covered_height += height_in_this_region;
+                    height_in_this_region
                 } else {
-                    // Initial height was in a separate region, so we can
-                    // consider it as already covered.
-                    already_covered_height += height;
-                }
+                    Abs::zero()
+                };
 
                 // Make sure to also subtract the sizes of rows which were
                 // already laid out, but not pushed to 'self.lrows' yet due to
