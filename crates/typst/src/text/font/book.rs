@@ -8,7 +8,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::text::{Font, FontStretch, FontStyle, FontVariant, FontWeight};
 
-use super::exceptions::override_entry;
+use super::exceptions::find_exception;
 
 /// Metadata about a collection of fonts.
 #[derive(Debug, Default, Clone, Hash)]
@@ -209,7 +209,7 @@ impl FontInfo {
     /// Compute metadata for a single ttf-parser face.
     pub(super) fn from_ttf(ttf: &ttf_parser::Face) -> Option<Self> {
         let ps_name = find_name(ttf, name_id::POST_SCRIPT_NAME);
-        let override_ = ps_name.as_deref().and_then(override_entry);
+        let override_ = ps_name.as_deref().and_then(find_exception);
         // We cannot use Name ID 16 "Typographic Family", because for some
         // fonts it groups together more than just Style / Weight / Stretch
         // variants (e.g. Display variants of Noto fonts) and then some
@@ -226,13 +226,14 @@ impl FontInfo {
         // because Name ID 1 "Family" sometimes contains "Display" and
         // sometimes doesn't for the Display variants and that mixes things
         // up.
-        let family = override_.and_then(|c| c.family.clone()).or_else(|| {
-            let mut family = find_name(ttf, name_id::FAMILY)?;
-            if family.starts_with("Noto") {
-                family = find_name(ttf, name_id::FULL_NAME)?;
-            }
-            Some(typographic_family(&family).to_string())
-        })?;
+        let family =
+            override_.and_then(|c| c.family.map(str::to_string)).or_else(|| {
+                let mut family = find_name(ttf, name_id::FAMILY)?;
+                if family.starts_with("Noto") {
+                    family = find_name(ttf, name_id::FULL_NAME)?;
+                }
+                Some(typographic_family(&family).to_string())
+            })?;
 
         let variant = {
             let style = override_.and_then(|c| c.style).unwrap_or_else(|| {
