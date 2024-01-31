@@ -134,6 +134,11 @@ impl Content {
         self
     }
 
+    /// Set the label of the content.
+    pub fn set_label(&mut self, label: Label) {
+        self.make_mut().label = Some(label);
+    }
+
     /// Set the location of the content.
     pub fn set_location(&mut self, location: Location) {
         self.make_mut().location = Some(location);
@@ -937,6 +942,10 @@ pub struct SequenceElem {
 impl SequenceElem {
     pub fn push(&mut self, child: impl Into<Content>) {
         self.children.push(Prehashed::new(child.into()));
+    }
+
+    pub fn children_mut(&mut self) -> std::slice::IterMut<Prehashed<Content>> {
+        self.children.iter_mut()
     }
 
     pub fn is_empty(&self) -> bool {

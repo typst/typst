@@ -18,7 +18,7 @@ use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::{Engine, Route};
 use crate::eval::{ops, Tracer};
 use crate::foundations::{
-    Content, IntoValue, Label, Module, NativeElement, SequenceElem, Styles, Value,
+    Content, IntoValue, Label, Module, NativeElement, SequenceElem, Styles, Unlabellable, Value
 };
 use crate::introspection::{Introspector, Locator};
 use crate::{Library, World};
@@ -289,7 +289,7 @@ impl<'a> VMState<'a> {
         if let Some(joiner) = self.joined.take() {
             self.joined = Some(joiner.join(value)?);
         } else if self.state.is_display() {
-            self.joined = Some(Joiner::Display(value.display()));
+            self.joined = Some(Joiner::Display(SequenceElem::new(vec![value.display().into()])));
         } else {
             self.joined = Some(Joiner::Value(value));
         }
@@ -427,20 +427,59 @@ impl<'a> VMState<'a> {
 #[derive(Clone)]
 enum Joiner {
     Value(Value),
-    Display(Content),
+    Display(SequenceElem),
     Styled { parent: Option<Box<Joiner>>, content: SequenceElem, styles: Styles },
 }
 
 impl Joiner {
     pub fn join(self, other: Value) -> StrResult<Joiner> {
-        match self {
-            Self::Value(value) => Ok(Joiner::Value(ops::join(value, other)?)),
-            Self::Display(content) => Ok(Joiner::Display(
-                ops::join(content.into_value(), other.display().into_value())?.display(),
-            )),
-            Self::Styled { parent, mut content, styles } => {
-                content.push(other.display());
-                Ok(Joiner::Styled { parent, content, styles })
+        if other.is_none() {
+            return Ok(self);
+        }
+
+        if let Value::Label(label) = other {
+            match self {
+                Self::Value(value) => Ok(Joiner::Value(ops::join(value, other)?)),
+                Self::Display(mut content) => {
+                    let Some(last) = content.children_mut().rev().find(|elem| {
+                        !elem.can::<dyn Unlabellable>()
+                    }) else {
+                        bail!("nothing to label");
+                    };
+
+                    last.update(|elem| {
+                        eprintln!("{elem:?} + {label:?}");
+                        elem.set_label(label)
+                    });
+
+                    Ok(Joiner::Display(content))
+                },
+                Self::Styled { parent, mut content, styles } => {
+                    let Some(last) = content.children_mut().rev().find(|elem| {
+                        !elem.can::<dyn Unlabellable>()
+                    }) else {
+                        bail!("nothing to label");
+                    };
+
+                    last.update(|elem| {
+                        eprintln!("{elem:?} + {label:?}");
+                        elem.set_label(label)
+                    });
+
+                    Ok(Joiner::Styled { parent, content, styles })
+                }
+            }
+        } else {
+            match self {
+                Self::Value(value) => Ok(Joiner::Value(ops::join(value, other)?)),
+                Self::Display(mut content) => {
+                    content.push(other.display());
+                    Ok(Joiner::Display(content))
+                },
+                Self::Styled { parent, mut content, styles } => {
+                    content.push(other.display());
+                    Ok(Joiner::Styled { parent, content, styles })
+                }
             }
         }
     }
