@@ -5,7 +5,6 @@ use crate::eval::{destructure, ops, Eval, Vm};
 use crate::foundations::{IntoValue, Value};
 use crate::syntax::ast::{self, AstNode};
 use crate::syntax::{Span, SyntaxKind, SyntaxNode};
-use ast::Pattern;
 
 /// The maximum number of loop iterations.
 const MAX_ITERATIONS: usize = 10_000;
@@ -109,11 +108,11 @@ impl Eval for ast::ForLoop<'_> {
         let mut output = Value::None;
 
         macro_rules! iter {
-            (for $pat:ident in $iter:expr) => {{
+            (for $pat:ident in $iterable:expr) => {{
                 vm.scopes.enter();
 
                 #[allow(unused_parens)]
-                for value in $iter {
+                for value in $iterable {
                     destructure(vm, $pat, value.into_value())?;
 
                     let body = self.body();
@@ -139,6 +138,7 @@ impl Eval for ast::ForLoop<'_> {
         let iterable = self.iterable().eval(vm)?;
         let iterable_type = iterable.ty();
 
+        use ast::Pattern;
         match (pattern, iterable) {
             (_, Value::Array(array)) => {
                 // Iterate over values of array.
@@ -148,14 +148,14 @@ impl Eval for ast::ForLoop<'_> {
                 // Iterate over pairs of dict.
                 iter!(for pattern in dict.pairs());
             }
-            (Pattern::Normal(_) | Pattern::Placeholder(_), Value::Str(string)) => {
+            (Pattern::Normal(_) | Pattern::Placeholder(_), Value::Str(str)) => {
                 // Iterate over graphemes of string.
-                iter!(for pattern in string.as_str().graphemes(true));
+                iter!(for pattern in str.as_str().graphemes(true));
             }
             (Pattern::Destructuring(_), Value::Str(_)) => {
                 bail!(pattern.span(), "cannot destructure values of {}", iterable_type);
             }
-            (_, _) => {
+            _ => {
                 bail!(self.iterable().span(), "cannot loop over {}", iterable_type);
             }
         }

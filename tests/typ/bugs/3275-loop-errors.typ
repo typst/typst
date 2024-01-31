@@ -15,8 +15,10 @@
 
 ---
 // Destructuring.
-#for (x, y) in (("a", 1), ("b", 2), ("c", 3)) {}
-#for (x, y) in (a: 1, b: 2, c: 3) {}
+#for (k, v)  in (("a", 1), ("b", 2), ("c", 3)) {}
+#for (k, ..) in (("a", 1), ("b", 2), ("c", 3)) {}
+#for (k, v)  in (a: 1, b: 2, c: 3) {}
+#for (.., v) in (a: 1, b: 2, c: 3) {}
 
 ---
 // Error: 11-17 cannot loop over content
@@ -41,3 +43,7 @@
 ---
 // Error: 6-12 cannot destructure string
 #for (x, y) in ("foo", "bar") {}
+
+---
+// Error: 6-12 cannot destructure integer
+#for (x, y) in (1, 2) {}
