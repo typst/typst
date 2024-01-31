@@ -951,6 +951,14 @@ impl SequenceElem {
     pub fn is_empty(&self) -> bool {
         self.children.is_empty()
     }
+
+    pub fn len(&self) -> usize {
+        self.children.len()
+    }
+
+    pub fn pop(&mut self) -> Option<Content> {
+        self.children.pop().map(|c| c.into_inner())
+    }
 }
 
 // Derive is currently incompatible with `elem` macro.

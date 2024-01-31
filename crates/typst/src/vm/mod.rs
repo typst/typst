@@ -18,7 +18,8 @@ use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::{Engine, Route};
 use crate::eval::{ops, Tracer};
 use crate::foundations::{
-    Content, IntoValue, Label, Module, NativeElement, SequenceElem, Styles, Unlabellable, Value
+    Content, IntoValue, Label, Module, NativeElement, Recipe, SequenceElem, Styles,
+    Unlabellable, Value,
 };
 use crate::introspection::{Introspector, Locator};
 use crate::{Library, World};
@@ -157,7 +158,7 @@ impl VM<'_> {
         let output = if let Some(reg) = self.state.output {
             reg.read(&self.state).cloned().map(Some).at(self.span)?
         } else if let Some(joined) = self.state.joined.clone() {
-            Some(joined.collect())
+            Some(joined.collect(engine)?)
         } else {
             None
         };
@@ -289,7 +290,8 @@ impl<'a> VMState<'a> {
         if let Some(joiner) = self.joined.take() {
             self.joined = Some(joiner.join(value)?);
         } else if self.state.is_display() {
-            self.joined = Some(Joiner::Display(SequenceElem::new(vec![value.display().into()])));
+            self.joined =
+                Some(Joiner::Display(SequenceElem::new(vec![value.display().into()])));
         } else {
             self.joined = Some(Joiner::Value(value));
         }
@@ -309,6 +311,24 @@ impl<'a> VMState<'a> {
                 parent: None,
                 content: SequenceElem::new(vec![]),
                 styles,
+            });
+        }
+
+        Ok(())
+    }
+
+    pub fn recipe(&mut self, recipe: Recipe) -> StrResult<()> {
+        if !self.state.is_joining() {
+            bail!("cannot style in non-joining state");
+        }
+
+        if let Some(joiner) = self.joined.take() {
+            self.joined = Some(joiner.recipe(recipe));
+        } else {
+            self.joined = Some(Joiner::Recipe {
+                parent: None,
+                content: SequenceElem::new(vec![]),
+                recipe,
             });
         }
 
@@ -428,7 +448,8 @@ impl<'a> VMState<'a> {
 enum Joiner {
     Value(Value),
     Display(SequenceElem),
-    Styled { parent: Option<Box<Joiner>>, content: SequenceElem, styles: Styles },
+    Styled { parent: Option<Box<Joiner>>, styles: Styles, content: SequenceElem },
+    Recipe { parent: Option<Box<Joiner>>, recipe: Recipe, content: SequenceElem },
 }
 
 impl Joiner {
@@ -441,9 +462,11 @@ impl Joiner {
             match self {
                 Self::Value(value) => Ok(Joiner::Value(ops::join(value, other)?)),
                 Self::Display(mut content) => {
-                    let Some(last) = content.children_mut().rev().find(|elem| {
-                        !elem.can::<dyn Unlabellable>()
-                    }) else {
+                    let Some(last) = content
+                        .children_mut()
+                        .rev()
+                        .find(|elem| !elem.can::<dyn Unlabellable>())
+                    else {
                         bail!("nothing to label");
                     };
 
@@ -453,20 +476,32 @@ impl Joiner {
                     });
 
                     Ok(Joiner::Display(content))
-                },
+                }
                 Self::Styled { parent, mut content, styles } => {
-                    let Some(last) = content.children_mut().rev().find(|elem| {
-                        !elem.can::<dyn Unlabellable>()
-                    }) else {
+                    let Some(last) = content
+                        .children_mut()
+                        .rev()
+                        .find(|elem| !elem.can::<dyn Unlabellable>())
+                    else {
                         bail!("nothing to label");
                     };
 
-                    last.update(|elem| {
-                        eprintln!("{elem:?} + {label:?}");
-                        elem.set_label(label)
-                    });
+                    last.update(|elem| elem.set_label(label));
 
                     Ok(Joiner::Styled { parent, content, styles })
+                }
+                Self::Recipe { parent, recipe, mut content } => {
+                    let Some(last) = content
+                        .children_mut()
+                        .rev()
+                        .find(|elem| !elem.can::<dyn Unlabellable>())
+                    else {
+                        bail!("nothing to label");
+                    };
+
+                    last.update(|elem| elem.set_label(label));
+
+                    Ok(Joiner::Recipe { parent, content, recipe })
                 }
             }
         } else {
@@ -475,10 +510,14 @@ impl Joiner {
                 Self::Display(mut content) => {
                     content.push(other.display());
                     Ok(Joiner::Display(content))
-                },
+                }
                 Self::Styled { parent, mut content, styles } => {
                     content.push(other.display());
                     Ok(Joiner::Styled { parent, content, styles })
+                }
+                Self::Recipe { parent, recipe, mut content } => {
+                    content.push(other.display());
+                    Ok(Joiner::Recipe { parent, content, recipe })
                 }
             }
         }
@@ -505,22 +544,67 @@ impl Joiner {
         }
     }
 
-    pub fn collect(self) -> Value {
-        match self {
-            Self::Value(value) => value,
-            Self::Display(content) => content.into_value(),
-            Self::Styled { parent, content, styles } => {
-                let Some(parent) = parent else {
-                    return content.pack().styled_with_map(styles).into_value();
-                };
-
-                Content::sequence([
-                    parent.collect().display(),
-                    content.pack().styled_with_map(styles),
-                ])
-                .into_value()
-            }
+    pub fn recipe(self, recipe: Recipe) -> Joiner {
+        Self::Recipe {
+            parent: Some(Box::new(self)),
+            content: SequenceElem::new(vec![]),
+            recipe,
         }
+    }
+
+    pub fn collect(self, engine: &mut Engine) -> SourceResult<Value> {
+        fn collect_inner(
+            joiner: Joiner,
+            engine: &mut Engine,
+            rest: Option<Content>,
+        ) -> SourceResult<Value> {
+            Ok(match joiner {
+                Joiner::Value(value) => {
+                    if let Some(rest) = rest {
+                        Content::sequence([value.display(), rest]).into_value()
+                    } else {
+                        value
+                    }
+                }
+                Joiner::Display(mut content) => {
+                    if let Some(rest) = rest {
+                        content.push(rest);
+                    }
+
+                    if content.len() == 1 {
+                        content.pop().unwrap().into_value()
+                    } else {
+                        content.into_value()
+                    }
+                }
+                Joiner::Styled { parent, mut content, styles } => {
+                    if let Some(rest) = rest {
+                        content.push(rest);
+                    }
+
+                    let rest = content.pack().styled_with_map(styles);
+                    if let Some(parent) = parent {
+                        collect_inner(*parent, engine, Some(rest))?
+                    } else {
+                        rest.into_value()
+                    }
+                }
+                Joiner::Recipe { parent, recipe, mut content } => {
+                    if let Some(rest) = rest {
+                        content.push(rest);
+                    }
+
+                    let rest = content.pack().styled_with_recipe(engine, recipe)?;
+                    if let Some(parent) = parent {
+                        collect_inner(*parent, engine, Some(rest))?
+                    } else {
+                        rest.into_value()
+                    }
+                }
+            })
+        }
+
+        collect_inner(self, engine, None)
     }
 }
 

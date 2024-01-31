@@ -80,6 +80,11 @@ impl Styles {
         self.0.is_empty()
     }
 
+    /// Number of styles in this list.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     /// Set an inner value for a style property.
     ///
     /// If the property needs folding and the value is already contained in the

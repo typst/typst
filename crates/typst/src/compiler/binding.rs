@@ -74,6 +74,7 @@ fn compile_normal(
 
         let pattern_id = compiler.pattern(pattern.as_vm_pattern());
 
+        compiler.isr(Opcode::Flow);
         compiler.isr(Opcode::destructure(binding.span(), &value, pattern_id))
     }
 

@@ -744,7 +744,7 @@ impl Run for Set {
         };
 
         // Create the set rule and store it in the target.
-        vm.write_one(self.out, target.set(engine, args)?.spanned(span).into_value())
+        vm.write_one(self.out, target.set(engine, args)?.spanned(span))
             .at(span)?;
 
         Ok(())
@@ -776,8 +776,7 @@ impl Run for Show {
             .at(span)?;
 
         // Create the show rule.
-        let mut value = Styles::new();
-        value.apply_one(Style::Recipe(Recipe {
+        let value = Styles::from(Style::Recipe(Recipe {
             span,
             selector: selector.map(|selector| selector.0),
             transform,
@@ -803,6 +802,16 @@ impl Run for Styled {
 
         // Load the style
         let style = vm.read(self.style).at(span)?.clone().cast::<Styles>().at(span)?;
+
+        if style.len() == 1 {
+            // If it is a single style, without a selector, we must style it using `recipe`
+            if let Style::Recipe(r @ Recipe { span: _, selector: None, transform: _ }) =
+                &*style.as_slice()[0]
+            {
+                vm.recipe(r.clone()).at(span)?;
+                return Ok(());
+            }
+        }
 
         // Style the remaining content.
         vm.styled(style).at(span)?;
@@ -1095,7 +1104,9 @@ impl Run for Continue {
         vm: &mut VMState,
         _: &mut Engine,
     ) -> SourceResult<()> {
-        vm.state |= State::CONTINUING;
+        if !vm.state.is_breaking() && !vm.state.is_returning() {
+            vm.state |= State::CONTINUING;
+        }
 
         Ok(())
     }
@@ -1109,7 +1120,9 @@ impl Run for Break {
         vm: &mut VMState,
         _: &mut Engine,
     ) -> SourceResult<()> {
-        vm.state |= State::BREAKING;
+        if !vm.state.is_continuing() && !vm.state.is_returning() {
+            vm.state |= State::BREAKING;
+        }
 
         Ok(())
     }
@@ -1124,7 +1137,9 @@ impl Run for Return {
         _: &mut Engine,
     ) -> SourceResult<()> {
         vm.output = self.value.ok();
-        vm.state |= State::RETURNING;
+        if !vm.state.is_breaking() && !vm.state.is_continuing() {
+            vm.state |= State::RETURNING;
+        }
 
         Ok(())
     }

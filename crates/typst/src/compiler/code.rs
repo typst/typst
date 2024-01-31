@@ -32,7 +32,8 @@ impl Compile for ast::Code<'_> {
                     // Handle set rules specially.
                     if let ast::Expr::Set(set) = expr {
                         *display = true;
-                        set.compile_into(engine, compiler, join_output.clone())?;
+                        let style = set.compile(engine, compiler)?;
+                        compiler.isr(Opcode::styled(set.span(), &style));
                         compiler.isr(Opcode::Flow);
                         continue;
                     }
@@ -40,7 +41,8 @@ impl Compile for ast::Code<'_> {
                     // Handle show rules specially.
                     if let ast::Expr::Show(show) = expr {
                         *display = true;
-                        show.compile_into(engine, compiler, join_output.clone())?;
+                        let style = show.compile(engine, compiler)?;
+                        compiler.isr(Opcode::styled(show.span(), &style));
                         compiler.isr(Opcode::Flow);
                         continue;
                     }
