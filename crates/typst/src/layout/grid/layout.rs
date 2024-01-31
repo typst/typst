@@ -1773,7 +1773,8 @@ impl<'a> GridLayouter<'a> {
             let cell = self.grid.cell(parent_x, parent_y).unwrap();
             let rowspan = cell.rowspan.get();
             let rowspan = if self.grid.has_gutter { 2 * rowspan - 1 } else { rowspan };
-            if rowspan > 1 {
+
+            let (height, backlog, height_in_this_region) = if rowspan > 1 {
                 let last_spanned_auto_row = self
                     .grid
                     .rows
@@ -1790,21 +1791,72 @@ impl<'a> GridLayouter<'a> {
                     // spanned auto row.
                     continue;
                 }
-            }
+
+                // Height of the rowspan covered by spanned rows in the current
+                // region.
+                let height_in_this_region: Abs = self
+                    .lrows
+                    .iter()
+                    .filter_map(|row| match row {
+                        Row::Frame(frame, y)
+                            if (parent_y..parent_y + rowspan).contains(y) =>
+                        {
+                            Some(frame.height())
+                        }
+                        // Either we have a row outside of the rowspan, or a
+                        // fractional row, whose size we can't really guess.
+                        _ => None,
+                    })
+                    .sum();
+
+                // Ensure we will measure the rowspan with the correct heights.
+                // For that, we will gather the total height spanned by this
+                // rowspan in previous regions.
+                self.rowspans
+                    .iter()
+                    .find(|data| data.x == parent_x && data.y == parent_y)
+                    .and_then(|data| data.heights.split_first())
+                    .map(|(&height, backlog)| (height, backlog, height_in_this_region))
+                    .unwrap_or_else(|| {
+                        // If we're here, the rowspan is in the current region,
+                        // as 'data.heights' was empty, implying none of its
+                        // spanned rows were laid out yet. Therefore, the value
+                        // of 'regions.size' at the rowspan's first row will be
+                        // the total spanned height so far (note that each
+                        // spanned row, when pushed, subtracted its own height
+                        // from 'self.regions.size') plus the current size.
+                        (
+                            height_in_this_region + self.regions.size.y,
+                            &self.regions.backlog,
+                            // We already added 'height_in_this_region' to the
+                            // height above, so the exclusive height in this
+                            // region is zero. This avoids considering the
+                            // height in this region twice for
+                            // 'already_covered_height' later on.
+                            Abs::zero(),
+                        )
+                    })
+            } else {
+                // Not a rowspan, so no height in this region yet.
+                (self.regions.size.y, self.regions.backlog, Abs::zero())
+            };
 
             let width = self.cell_spanned_width(x, cell.colspan.get());
 
             let frames = if unbreakable {
                 // Force cell to fit into a single region when the row is unbreakable.
-                let mut pod = Regions::one(
-                    Axes::new(width, self.regions.size.y),
-                    Axes::splat(true),
-                );
+                let mut pod = Regions::one(Axes::new(width, height), Axes::splat(true));
+                if rowspan > 1 {
+                    // Best effort to conciliate a breakable rowspan going
+                    // through an unbreakable auto row.
+                    pod.size.y += backlog.iter().sum();
+                }
                 pod.full = self.regions.full;
                 vec![cell.measure(engine, self.styles, pod)?.into_frame()]
             } else {
                 let mut pod = self.regions;
-                pod.size.x = width;
+                pod.size = Axes::new(width, height);
+                pod.backlog = backlog;
                 cell.measure(engine, self.styles, pod)?.into_frames()
             };
 
@@ -1834,23 +1886,19 @@ impl<'a> GridLayouter<'a> {
             if rowspan > 1 {
                 let last_spanned_row = parent_y + rowspan - 1;
                 // Consider already covered height for rows from previous
-                // regions...
-                let mut already_covered_height: Abs = self
-                    .rrows
-                    .iter()
-                    .flatten()
-                    .filter(|row| (parent_y..last_spanned_row).contains(&row.y))
-                    .map(|row| row.height)
-                    .sum();
+                // regions and in the current region.
+                let mut already_covered_height: Abs =
+                    height_in_this_region + height + backlog.iter().sum();
 
-                // ...and for rows from the current region.
+                // Make sure to also subtract the sizes of rows which were
+                // already laid out, but not pushed to 'self.lrows' yet due to
+                // an unbreakable row group being formed.
                 already_covered_height += self
-                    .lrows
+                    .unbreakable_row_group
                     .iter()
-                    .chain(self.unbreakable_row_group.iter())
                     .filter_map(|row| match row {
                         Row::Frame(frame, y)
-                            if (parent_y..last_spanned_row).contains(y) =>
+                            if (parent_y..=last_spanned_row).contains(y) =>
                         {
                             Some(frame.height())
                         }
