@@ -953,11 +953,8 @@ impl Run for While {
             )?;
 
             let joined = match flow {
-                ControlFlow::Done(value) | ControlFlow::Continue(value) => value,
-                ControlFlow::Break(value) => {
-                    vm.state |= State::DONE;
-                    value
-                }
+                ControlFlow::Done(value) => value,
+                ControlFlow::Break(_) | ControlFlow::Continue(_)  => unreachable!("unexpected control flow"),
                 ControlFlow::Return(value) => {
                     vm.state |= State::RETURNING;
                     value
@@ -1044,11 +1041,8 @@ impl Run for Iter {
             )?;
 
             let joined = match flow {
-                ControlFlow::Done(value) | ControlFlow::Continue(value) => value,
-                ControlFlow::Break(value) => {
-                    vm.state |= State::DONE;
-                    value
-                }
+                ControlFlow::Done(value)=> value,
+                ControlFlow::Break(_) | ControlFlow::Continue(_)  => unreachable!("unexpected control flow"),
                 ControlFlow::Return(value) => {
                     vm.state |= State::RETURNING;
                     value
@@ -1426,6 +1420,7 @@ impl Run for Enter {
             eprintln!("{:4} => Exit: {:?} + {}", self.len, joined, self.len);
 
             if let Some(out) = self.out.ok() {
+                eprintln!(" - Writing to {:?}", out);
                 // Write the output to the output register.
                 vm.write_one(out, joined).at(span)?;
             }

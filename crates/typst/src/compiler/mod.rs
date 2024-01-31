@@ -80,18 +80,6 @@ impl Compiler {
         }
     }
 
-    /// Creates a new compiler for a loop.
-    pub fn loop_(parent: &Self) -> Self {
-        let parent = parent.scope.clone();
-        Self {
-            instructions: Vec::with_capacity(DEFAULT_CAPACITY),
-            scope: Rc::new(RefCell::new(CompilerScope::loop_(parent))),
-            name: None,
-            common: Inner::new(),
-            scope_id: None,
-        }
-    }
-
     /// Get the global library.
     pub fn library(&self) -> Library {
         self.scope.borrow().global().clone()
@@ -172,10 +160,12 @@ impl Compiler {
         mut display: bool,
         f: impl FnOnce(&mut Self, &mut bool) -> SourceResult<()>,
     ) -> SourceResult<()> {
-        let mut scope_id = Some(ScopeId::new(self.common.defaults.len() as u16));
+        let mut scope_id = Some(ScopeId::new(self.common.scopes));
         let mut scope =
             Rc::new(RefCell::new(CompilerScope::scope(self.scope.clone(), looping)));
         let mut instructions = Vec::with_capacity(DEFAULT_CAPACITY);
+
+        self.common.scopes += 1;
 
         std::mem::swap(&mut self.scope, &mut scope);
         std::mem::swap(&mut self.instructions, &mut instructions);
@@ -235,10 +225,12 @@ impl Compiler {
             ScopeId,
         ) -> SourceResult<()>,
     ) -> SourceResult<()> {
-        let mut scope_id = Some(ScopeId::new(self.common.defaults.len() as u16));
+        let mut scope_id = Some(ScopeId::new(self.common.scopes));
         let mut scope =
             Rc::new(RefCell::new(CompilerScope::scope(self.scope.clone(), looping)));
         let mut instructions = Vec::with_capacity(DEFAULT_CAPACITY);
+
+        self.common.scopes += 1;
 
         std::mem::swap(&mut self.scope, &mut scope);
         std::mem::swap(&mut self.instructions, &mut instructions);
@@ -393,6 +385,8 @@ struct Inner {
     accesses: Remapper<AccessId, VmAccess>,
     /// The pattern remapper.
     patterns: Remapper<PatternId, VmPattern>,
+    /// The current scope counter.
+    scopes: u16,
     /// The default value remapper.
     defaults: Vec<EcoVec<DefaultValue>>,
     /// The jump label counter.

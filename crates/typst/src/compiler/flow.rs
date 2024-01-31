@@ -2,7 +2,7 @@ use typst_syntax::ast::{self, AstNode};
 
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
-use crate::vm::{OptionalReadable, Readable, Writable};
+use crate::vm::{OptionalReadable, Readable};
 
 use super::{
     AccessPattern, Compile, Compiler, Opcode, PatternCompile, PatternItem, PatternKind,
@@ -19,35 +19,30 @@ impl Compile for ast::Conditional<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        let true_ = compiler.jump();
         let after = compiler.jump();
 
         let condition = self.condition().compile(engine, compiler)?;
         if let Some(else_body) = self.else_body() {
+            let true_ = compiler.jump();
+
             compiler.isr(Opcode::jump_if(self.span(), &condition, true_));
-
             else_body.compile_into(engine, compiler, output.clone())?;
-
             compiler.isr(Opcode::jump(else_body.span(), after));
 
             compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), true_));
-
             self.if_body().compile_into(engine, compiler, output)?;
+        } else if let Some(output) = output {
+            let true_ = compiler.jump();
+
+            compiler.isr(Opcode::jump_if(self.span(), &condition, true_));
+            compiler.isr(Opcode::copy(self.span(), Readable::none(), &output));
+            compiler.isr(Opcode::jump(self.span(), after));
+
+            compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), true_));
+            self.if_body().compile_into(engine, compiler, Some(output))?;
         } else {
             compiler.isr(Opcode::jump_if_not(self.span(), &condition, after));
-
-            if let Some(output) = output {
-                let reg = self.if_body().compile(engine, compiler)?;
-                compiler.isr(Opcode::select(
-                    self.condition().span(),
-                    &condition,
-                    &reg,
-                    Readable::none(),
-                    &output,
-                ));
-            } else {
-                self.if_body().compile_into(engine, compiler, None)?;
-            }
+            self.if_body().compile_into(engine, compiler, None)?;
         }
 
         compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), after));
@@ -106,13 +101,13 @@ impl Compile for ast::WhileLoop<'_> {
 
                 Ok(())
             },
-            |compiler, _, len, _, scope| {
+            |compiler, _, len, out, scope| {
                 compiler.isr(Opcode::while_(
                     self.span(),
                     scope,
                     len as u32,
                     0b01,
-                    Writable::joined(),
+                    out,
                 ));
                 Ok(())
             },
@@ -183,7 +178,7 @@ impl Compile for ast::ForLoop<'_> {
 
                 Ok(())
             },
-            |compiler, engine, len, _, scope| {
+            |compiler, engine, len, out, scope| {
                 let iterable = self.iter().compile(engine, compiler)?;
                 compiler.isr(Opcode::iter(
                     self.iter().span(),
@@ -191,7 +186,7 @@ impl Compile for ast::ForLoop<'_> {
                     len as u32,
                     &iterable,
                     0b01,
-                    Writable::joined(),
+                    out,
                 ));
                 Ok(())
             },
