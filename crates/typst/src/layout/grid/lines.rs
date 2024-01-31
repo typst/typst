@@ -497,18 +497,25 @@ pub(super) fn hline_stroke_at_column(
             .parent_cell_position(first_adjacent_cell.0, first_adjacent_cell.1)
             .unwrap();
 
-        // Get the first 'y' spanned by the possible rowspan in this region.
-        // The 'parent_y' row or the following rows could be missing.
-        let effective_parent_y = rows
-            .iter()
-            .find(|row| row.y >= parent_y)
-            .map(|row| row.y)
-            .unwrap_or(y);
+        if parent_y < y && parent_x <= x {
+            // Get the first 'y' spanned by the possible rowspan in this region.
+            // The 'parent_y' row and any other spanned rows above 'y' could be
+            // missing from this region, which could have lead the check above
+            // to be triggered, even though there is no spanned row above the
+            // hline in the final layout of this region, and thus no overlap
+            // with the hline, allowing it to be drawn regardless of the
+            // theoretical presence of a rowspan going across its position.
+            let effective_parent_y = rows
+                .iter()
+                .find(|row| row.y >= parent_y)
+                .map(|row| row.y)
+                .unwrap_or(y);
 
-        if effective_parent_y < y && parent_x <= x {
-            // There is a rowspan cell going through this hline's position,
-            // so don't draw it here.
-            return None;
+            if effective_parent_y < y {
+                // There is a rowspan cell going through this hline's position,
+                // so don't draw it here.
+                return None;
+            }
         }
     }
 
