@@ -95,6 +95,7 @@ impl Compile for ast::WhileLoop<'_> {
                     compiler,
                     if output.is_some() { Some(WritableGuard::Joined) } else { None },
                 )?;
+                compiler.isr(Opcode::flow(self.body().span()));
 
                 compiler.isr(Opcode::jump(self.span(), top));
                 compiler.isr(Opcode::jump_label(self.span(), compiler.scope_id(), after));
@@ -102,7 +103,7 @@ impl Compile for ast::WhileLoop<'_> {
                 Ok(())
             },
             |compiler, _, len, out, scope| {
-                compiler.isr(Opcode::while_(self.span(), scope, len as u32, 0b01, out));
+                compiler.isr(Opcode::while_(self.span(), scope, len as u32, 0b101, out));
                 Ok(())
             },
         )
@@ -168,6 +169,7 @@ impl Compile for ast::ForLoop<'_> {
                     compiler,
                     Some(WritableGuard::Joined),
                 )?;
+                compiler.isr(Opcode::flow(self.body().span()));
                 compiler.isr(Opcode::jump(self.span(), top));
 
                 Ok(())
@@ -179,7 +181,7 @@ impl Compile for ast::ForLoop<'_> {
                     scope,
                     len as u32,
                     &iterable,
-                    0b01,
+                    0b101,
                     out,
                 ));
                 Ok(())
@@ -221,7 +223,7 @@ impl Compile for ast::LoopBreak<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         if !compiler.in_loop() {
-            bail!(self.span(), "cannot break outside of a loop");
+            bail!(self.span(), "cannot break outside of loop");
         }
 
         compiler.isr(Opcode::break_(self.span()));
@@ -249,7 +251,7 @@ impl Compile for ast::LoopContinue<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         if !compiler.in_loop() {
-            bail!(self.span(), "cannot continue outside of a loop");
+            bail!(self.span(), "cannot continue outside of loop");
         }
 
         compiler.isr(Opcode::continue_(self.span()));
@@ -277,7 +279,7 @@ impl Compile for ast::FuncReturn<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         if !compiler.in_function() {
-            bail!(self.span(), "cannot return outside of a function");
+            bail!(self.span(), "cannot return outside of function");
         }
 
         let value = self.body().map(|body| body.compile(engine, compiler)).transpose()?;

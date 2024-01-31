@@ -39,6 +39,7 @@ impl Compile for ast::Markup<'_> {
                         }
 
                         compiler.isr(Opcode::styled(set.span(), &style));
+                        compiler.isr(Opcode::flow(expr.span()));
                         continue;
                     }
 
@@ -50,12 +51,14 @@ impl Compile for ast::Markup<'_> {
                         }
 
                         compiler.isr(Opcode::styled(show.span(), &style));
+                        compiler.isr(Opcode::flow(expr.span()));
                         continue;
                     }
 
                     // Compile the expression, appending its output to the join
                     // output.
                     expr.compile_into(engine, compiler, join_output.clone())?;
+                    compiler.isr(Opcode::flow(expr.span()));
                 }
 
                 Ok(())

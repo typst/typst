@@ -260,8 +260,8 @@ opcodes! {
         len: u32,
         /// Whether the scope is a loop.
         ///
-        /// - Bit 1: Whether joining is enabled.
-        /// - Bit 2: Whether joining results in a content.
+        /// - Bit 0: Whether joining is enabled.
+        /// - Bit 1: Whether joining results in a content.
         flags: u8,
     } = 0xB3,
 
@@ -275,8 +275,8 @@ opcodes! {
         iterable: Readable,
         /// Whether the scope is a loop.
         ///
-        /// - Bit 1: Whether joining is enabled.
-        /// - Bit 2: Whether joining results in a content.
+        /// - Bit 0: Whether joining is enabled.
+        /// - Bit 1: Whether joining results in a content.
         flags: u8,
     } = 0xB4,
 
@@ -295,6 +295,9 @@ opcodes! {
         /// The value to return.
         value: OptionalReadable,
     } = 0xB8,
+
+    /// Adds a flow point.
+    Flow: flow => {} = 0xB9,
 
     // -----------------------------------------------------------------------------
     // ---------------------------------- VALUES------------------------------------

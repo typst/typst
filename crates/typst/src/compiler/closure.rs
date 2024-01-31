@@ -126,6 +126,7 @@ impl Compile for ast::Closure<'_> {
             &mut closure_compiler,
             Some(WritableGuard::Joined),
         )?;
+        compiler.isr(Opcode::flow(self.body().span()));
 
         // Collect the compiled closure.
         let closure = closure_compiler.into_compiled_closure(

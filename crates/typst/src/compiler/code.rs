@@ -33,6 +33,7 @@ impl Compile for ast::Code<'_> {
                     if let ast::Expr::Set(set) = expr {
                         *display = true;
                         set.compile_into(engine, compiler, join_output.clone())?;
+                        compiler.isr(Opcode::flow(expr.span()));
                         continue;
                     }
 
@@ -40,12 +41,14 @@ impl Compile for ast::Code<'_> {
                     if let ast::Expr::Show(show) = expr {
                         *display = true;
                         show.compile_into(engine, compiler, join_output.clone())?;
+                        compiler.isr(Opcode::flow(expr.span()));
                         continue;
                     }
 
                     // Compile the expression, appending its output to the join
                     // output.
                     expr.compile_into(engine, compiler, join_output.clone())?;
+                    compiler.isr(Opcode::flow(expr.span()));
                 }
 
                 Ok(())

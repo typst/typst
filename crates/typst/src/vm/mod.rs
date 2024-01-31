@@ -59,7 +59,7 @@ pub fn eval(
 
 bitflags::bitflags! {
     /// The current state of the VM.
-    struct State: u8 {
+    struct State: u16 {
         /// The VM is currently running.
         const LOOPING = 0b0000_0001;
         /// The VM is currently joining.
@@ -86,10 +86,6 @@ impl State {
         self.contains(Self::CONTINUING)
     }
 
-    const fn is_exiting_loop(&self) -> bool {
-        self.is_breaking() || self.is_continuing()
-    }
-
     const fn is_returning(&self) -> bool {
         self.contains(Self::RETURNING)
     }
@@ -99,7 +95,7 @@ impl State {
     }
 
     const fn is_running(&self) -> bool {
-        !self.is_returning() && !self.is_exiting_loop() && !self.is_done()
+        !self.is_done()
     }
 
     const fn is_joining(&self) -> bool {
@@ -132,24 +128,33 @@ impl VM<'_> {
     /// Runs the VM to completion.
     pub fn run(&mut self, engine: &mut Engine) -> SourceResult<ControlFlow> {
         while self.state.state.is_running() {
-            self.run_one(engine)?;
+            let Some(opcode) = self.run_one(engine)? else {
+                break;
+            };
 
-            if self.state.state.is_continuing() {
+            eprintln!("{opcode:?}");
+            if opcode == Opcode::Flow {
                 if self.state.iterator.is_some() {
-                    self.state.instruction_pointer = 0;
-                    self.state.state.remove(State::CONTINUING);
-                    continue;
+                    if self.state.state.is_continuing() {
+                        self.state.instruction_pointer = 0;
+                        self.state.state.remove(State::CONTINUING);
+                        continue;
+                    } else if self.state.state.is_breaking()
+                        || self.state.state.is_returning()
+                    {
+                        // In theory, the compiler should make sure that this is valid.
+                        break;
+                    }
+                } else if self.state.state.is_breaking()
+                    || self.state.state.is_continuing()
+                    || self.state.state.is_returning()
+                {
+                    // In theory, the compiler should make sure that this is valid.
+                    break;
                 }
-
-                // In theory, the compiler should make sure that this is valid.
-                break;
-            } else if self.state.state.is_breaking() {
-                // In theory, the compiler should make sure that this is valid.
-                break;
-            } else if self.state.state.is_done() {
-                break;
             }
         }
+        eprintln!("here1");
 
         let output = if let Some(reg) = self.state.output {
             reg.read(&self.state).cloned().map(Some).at(self.span)?
@@ -202,15 +207,15 @@ impl VM<'_> {
         unsafe { Span::new_unchecked(number) }
     }
 
-    fn run_one(&mut self, engine: &mut Engine) -> SourceResult<()> {
+    fn run_one(&mut self, engine: &mut Engine) -> SourceResult<Option<Opcode>> {
         let Some((opcode, span)) = self.next_opcode() else {
             self.state.state.insert(State::DONE);
-            return Ok(());
+            return Ok(None);
         };
 
         opcode.run(&self.instructions, span, &mut self.state, engine)?;
 
-        Ok(())
+        Ok(Some(opcode))
     }
 }
 

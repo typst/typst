@@ -952,6 +952,8 @@ impl Run for While {
                 span,
             )?;
 
+            eprintln!("{:4} => Exit: {:?} + {}", self.len, flow, self.len);
+
             let joined = match flow {
                 ControlFlow::Done(value) => value,
                 ControlFlow::Break(_) | ControlFlow::Continue(_) => {
@@ -962,8 +964,6 @@ impl Run for While {
                     value
                 }
             };
-
-            eprintln!("{:4} => Exit: {:?} + {}", self.len, joined, self.len);
 
             if let Some(out) = self.out.ok() {
                 // Write the output to the output register.
@@ -1042,6 +1042,8 @@ impl Run for Iter {
                 span,
             )?;
 
+            eprintln!("{:4} => Exit: {:?} + {}", self.len, flow, self.len);
+
             let joined = match flow {
                 ControlFlow::Done(value) => value,
                 ControlFlow::Break(_) | ControlFlow::Continue(_) => {
@@ -1052,8 +1054,6 @@ impl Run for Iter {
                     value
                 }
             };
-
-            eprintln!("{:4} => Exit: {:?} + {}", self.len, joined, self.len);
 
             if let Some(out) = self.out.ok() {
                 // Write the output to the output register.
@@ -1138,6 +1138,18 @@ impl Run for Return {
         vm.output = self.value.ok();
         vm.state |= State::RETURNING;
 
+        Ok(())
+    }
+}
+
+impl Run for Flow {
+    fn run(
+        &self,
+        _: &[u8],
+        _: Span,
+        _: &mut VMState,
+        _: &mut Engine,
+    ) -> SourceResult<()> {
         Ok(())
     }
 }
@@ -1405,6 +1417,8 @@ impl Run for Enter {
                 span,
             )?;
 
+            eprintln!("{:4} => Exit: {:?} + {}", self.len, flow, self.len);
+
             let joined = match flow {
                 ControlFlow::Done(value) => value,
                 ControlFlow::Break(value) => {
@@ -1420,8 +1434,6 @@ impl Run for Enter {
                     value
                 }
             };
-
-            eprintln!("{:4} => Exit: {:?} + {}", self.len, joined, self.len);
 
             if let Some(out) = self.out.ok() {
                 eprintln!(" - Writing to {:?}", out);
