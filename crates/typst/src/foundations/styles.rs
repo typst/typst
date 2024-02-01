@@ -177,9 +177,15 @@ impl IntoIterator for Styles {
     }
 }
 
+impl From<Prehashed<Style>> for Styles {
+    fn from(style: Prehashed<Style>) -> Self {
+        Self(eco_vec![style])
+    }
+}
+
 impl From<Style> for Styles {
-    fn from(entry: Style) -> Self {
-        Self(eco_vec![Prehashed::new(entry)])
+    fn from(style: Style) -> Self {
+        Self(eco_vec![Prehashed::new(style)])
     }
 }
 

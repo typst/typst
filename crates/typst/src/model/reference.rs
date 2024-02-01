@@ -251,8 +251,11 @@ fn to_citation(
         },
     ));
 
+    if let Some(loc) = reference.location() {
+        elem.set_location(loc);
+    }
+
     elem.synthesize(engine, styles)?;
-    elem.set_location(reference.location().unwrap());
 
     Ok(elem)
 }
