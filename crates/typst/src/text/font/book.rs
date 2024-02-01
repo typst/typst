@@ -6,9 +6,8 @@ use serde::{Deserialize, Serialize};
 use ttf_parser::{name_id, PlatformId, Tag};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::text::{Font, FontStretch, FontStyle, FontVariant, FontWeight};
-
 use super::exceptions::find_exception;
+use crate::text::{Font, FontStretch, FontStyle, FontVariant, FontWeight};
 
 /// Metadata about a collection of fonts.
 #[derive(Debug, Default, Clone, Hash)]
@@ -209,7 +208,7 @@ impl FontInfo {
     /// Compute metadata for a single ttf-parser face.
     pub(super) fn from_ttf(ttf: &ttf_parser::Face) -> Option<Self> {
         let ps_name = find_name(ttf, name_id::POST_SCRIPT_NAME);
-        let override_ = ps_name.as_deref().and_then(find_exception);
+        let exception = ps_name.as_deref().and_then(find_exception);
         // We cannot use Name ID 16 "Typographic Family", because for some
         // fonts it groups together more than just Style / Weight / Stretch
         // variants (e.g. Display variants of Noto fonts) and then some
@@ -227,7 +226,7 @@ impl FontInfo {
         // sometimes doesn't for the Display variants and that mixes things
         // up.
         let family =
-            override_.and_then(|c| c.family.map(str::to_string)).or_else(|| {
+            exception.and_then(|c| c.family.map(str::to_string)).or_else(|| {
                 let mut family = find_name(ttf, name_id::FAMILY)?;
                 if family.starts_with("Noto") {
                     family = find_name(ttf, name_id::FULL_NAME)?;
@@ -236,7 +235,7 @@ impl FontInfo {
             })?;
 
         let variant = {
-            let style = override_.and_then(|c| c.style).unwrap_or_else(|| {
+            let style = exception.and_then(|c| c.style).unwrap_or_else(|| {
                 let mut full = find_name(ttf, name_id::FULL_NAME).unwrap_or_default();
                 full.make_ascii_lowercase();
 
@@ -254,12 +253,12 @@ impl FontInfo {
                 }
             });
 
-            let weight = override_.and_then(|c| c.weight).unwrap_or_else(|| {
+            let weight = exception.and_then(|c| c.weight).unwrap_or_else(|| {
                 let number = ttf.weight().to_number();
                 FontWeight::from_number(number)
             });
 
-            let stretch = override_
+            let stretch = exception
                 .and_then(|c| c.stretch)
                 .unwrap_or_else(|| FontStretch::from_number(ttf.width().to_number()));
 
