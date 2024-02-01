@@ -49,31 +49,26 @@ fn compile_normal(
     binding: &ast::LetBinding<'_>,
     pattern: &ast::Pattern<'_>,
 ) -> SourceResult<()> {
-    // We compile the pattern.
-    let pattern = pattern.compile(engine, compiler, true)?;
-
-    // We destructure the initializer using the pattern.
     // Simple patterns can be directly stored.
-    if let PatternKind::Single(PatternItem::Simple(
-        span,
-        AccessPattern::Writable(guard),
-        _,
-    )) = &pattern.kind
-    {
+    if let ast::Pattern::Normal(ast::Expr::Ident(ident)) = pattern {
+        let guard = compiler.register().at(ident.span())?;
         if let Some(init) = binding.init() {
-            init.compile_into(engine, compiler, Some(guard.clone()))?;
-        } else {
-            compiler.isr(Opcode::copy(*span, Readable::none(), guard));
+            init.compile_into(engine, compiler, Some(WritableGuard::from(guard.clone())))?;
         }
+        compiler.declare_into(ident.span(), ident.get().clone(), guard).at(ident.span())?;
     } else {
+        // We destructure the initializer using the pattern.
         let value = if let Some(init) = binding.init() {
             init.compile(engine, compiler)?
         } else {
             ReadableGuard::None
         };
 
+        // We compile the pattern.
+        let pattern = pattern.compile(engine, compiler, true)?;
         let pattern_id = compiler.pattern(pattern.as_vm_pattern());
 
+        // We destructure the initializer using the pattern.
         compiler.isr(Opcode::Flow);
         compiler.isr(Opcode::destructure(binding.span(), &value, pattern_id))
     }

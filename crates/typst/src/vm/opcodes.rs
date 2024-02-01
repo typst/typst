@@ -155,6 +155,8 @@ macro_rules! opcodes {
                             )?
                         };
 
+                        eprintln!("{instruction:?}");
+
                         // Move the instruction pointer and counter.
                         vm.instruction_pointer += OFFSET + LEN;
 

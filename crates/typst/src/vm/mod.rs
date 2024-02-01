@@ -362,6 +362,7 @@ impl<'a> VMState<'a> {
         // Load the captured values.
         let mut captures = EcoVec::with_capacity(closure.captures.len());
         for capture in &closure.captures {
+            eprintln!(" - {:?}: {:?}", capture.location, capture.value);
             captures.push((
                 capture.location,
                 self.read(capture.value).at(capture.span)?.clone(),

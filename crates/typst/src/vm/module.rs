@@ -36,7 +36,7 @@ pub fn run_module(
     };
 
     let mut state = VMState {
-        state: State::JOINING,
+        state: State::JOINING | State::DISPLAY,
         output: None,
         global: &module.inner.global,
         instruction_pointer: 0,

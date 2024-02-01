@@ -115,6 +115,18 @@ impl Compiler {
     }
 
     /// Declares a new variable.
+    pub fn declare_into(
+        &self,
+        span: Span,
+        name: impl Into<EcoString>,
+        output: impl Into<RegisterGuard>,
+    ) -> StrResult<()> {
+        self.scope
+            .borrow_mut()
+            .declare_into(span, name.into(), output.into())
+    }
+
+    /// Declares a new variable.
     pub fn declare_default(
         &self,
         span: Span,
