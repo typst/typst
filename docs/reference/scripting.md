@@ -197,14 +197,14 @@ For loops can iterate over a variety of collections:
   The pairs can also be destructured by using `{for (key, value) in dict {..}}`.
 
 - `{for letter in "abc" {..}}` \
-  Iterates over the characters of the [string]($str). Technically, it iterates over the
-  grapheme clusters of the string. Most of the time, a grapheme cluster is just a single
-  codepoint. However, a grapheme cluster could contain multiple codepoints, like a flag
-  emoji.
+  Iterates over the characters of the [string]($str). Technically, it iterates
+  over the grapheme clusters of the string. Most of the time, a grapheme cluster
+  is just a single codepoint. However, a grapheme cluster could contain multiple
+  codepoints, like a flag emoji.
 
 - `{for byte in bytes("😀") {..}}` \
-  Iterates over the [bytes]($bytes), which is constructed from a [string]($str) or an
-  [array]($array), or [read]($read) from a file without encoding. Each byte value is an
+  Iterates over the [bytes]($bytes), which can be converted from a [string]($str)
+  or [read]($read) from a file without encoding. Each byte value is an
   [integer]($int) between `{0}` and `{255}`.
 
 To control the execution of the loop, Typst provides the `{break}` and
