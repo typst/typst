@@ -7,8 +7,8 @@ use ecow::EcoString;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, select_where, Content, Element, Finalize, NativeElement, Packed,
-    Selector, Show, Smart, StyleChain, Synthesize,
+    cast, elem, scope, select_where, Content, Element, NativeElement, Packed, Selector,
+    Show, ShowSet, Smart, StyleChain, Styles, Synthesize,
 };
 use crate::introspection::{
     Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
@@ -101,7 +101,7 @@ use crate::visualize::ImageElem;
 ///   caption: [I'm up here],
 /// )
 /// ```
-#[elem(scope, Locatable, Synthesize, Count, Show, Finalize, Refable, Outlinable)]
+#[elem(scope, Locatable, Synthesize, Count, Show, ShowSet, Refable, Outlinable)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image]($image).
     #[required]
@@ -165,7 +165,6 @@ pub struct FigureElem {
     ///   supplement: [Atom],
     /// )
     /// ```
-    #[default(Smart::Auto)]
     pub kind: Smart<FigureKind>,
 
     /// The figure's supplement.
@@ -230,9 +229,7 @@ impl Synthesize for Packed<FigureElem> {
     ) -> SourceResult<()> {
         let span = self.span();
         let location = self.location();
-
         let elem = self.as_mut();
-        let placement = elem.placement(styles);
         let numbering = elem.numbering(styles);
 
         // Determine the figure's kind.
@@ -295,13 +292,10 @@ impl Synthesize for Packed<FigureElem> {
             caption.push_figure_location(location);
         }
 
-        elem.push_placement(placement);
-        elem.push_caption(caption);
         elem.push_kind(Smart::Custom(kind));
         elem.push_supplement(Smart::Custom(supplement.map(Supplement::Content)));
-        elem.push_numbering(numbering);
-        elem.push_outlined(elem.outlined(styles));
         elem.push_counter(Some(counter));
+        elem.push_caption(caption);
 
         Ok(())
     }
@@ -342,10 +336,11 @@ impl Show for Packed<FigureElem> {
     }
 }
 
-impl Finalize for Packed<FigureElem> {
-    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
-        // Allow breakable figures with `show figure: set block(breakable: true)`.
-        realized.styled(BlockElem::set_breakable(false))
+impl ShowSet for Packed<FigureElem> {
+    fn show_set(&self, _: StyleChain) -> Styles {
+        // Still allows breakable figures with
+        // `show figure: set block(breakable: true)`.
+        BlockElem::set_breakable(false).wrap().into()
     }
 }
 
@@ -434,7 +429,7 @@ impl Outlinable for Packed<FigureElem> {
 ///   caption: [A rectangle],
 /// )
 /// ```
-#[elem(name = "caption", Synthesize, Show)]
+#[elem(name = "caption", Show)]
 pub struct FigureCaption {
     /// The caption's position in the figure. Either `{top}` or `{bottom}`.
     ///
@@ -548,15 +543,6 @@ impl FigureCaption {
                 TextElem::region_in(styles),
             ))
         })
-    }
-}
-
-impl Synthesize for Packed<FigureCaption> {
-    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        let elem = self.as_mut();
-        elem.push_position(elem.position(styles));
-        elem.push_separator(Smart::Custom(elem.get_separator(styles)));
-        Ok(())
     }
 }
 

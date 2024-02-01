@@ -5,7 +5,7 @@ use unicode_math_class::MathClass;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, Finalize, NativeElement, Packed, Resolve, Smart, StyleChain,
+    elem, Content, NativeElement, Packed, Resolve, ShowSet, Smart, StyleChain, Styles,
     Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
@@ -49,7 +49,7 @@ use crate::World;
 #[elem(
     Locatable,
     Synthesize,
-    Finalize,
+    ShowSet,
     LayoutSingle,
     LayoutMath,
     Count,
@@ -145,27 +145,23 @@ impl Synthesize for Packed<EquationElem> {
             }
         };
 
-        let elem = self.as_mut();
-        elem.push_block(elem.block(styles));
-        elem.push_numbering(elem.numbering(styles));
-        elem.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
-
+        self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
         Ok(())
     }
 }
 
-impl Finalize for Packed<EquationElem> {
-    fn finalize(&self, realized: Content, style: StyleChain) -> Content {
-        let mut realized = realized;
-        if self.block(style) {
-            realized = realized.styled(AlignElem::set_alignment(Alignment::CENTER));
-            realized = realized.styled(EquationElem::set_size(MathSize::Display));
+impl ShowSet for Packed<EquationElem> {
+    fn show_set(&self, styles: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        if self.block(styles) {
+            out.set(AlignElem::set_alignment(Alignment::CENTER));
+            out.set(EquationElem::set_size(MathSize::Display));
         }
-        realized
-            .styled(TextElem::set_weight(FontWeight::from_number(450)))
-            .styled(TextElem::set_font(FontList(vec![FontFamily::new(
-                "New Computer Modern Math",
-            )])))
+        out.set(TextElem::set_weight(FontWeight::from_number(450)));
+        out.set(TextElem::set_font(FontList(vec![FontFamily::new(
+            "New Computer Modern Math",
+        )])));
+        out
     }
 }
 

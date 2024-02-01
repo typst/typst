@@ -12,8 +12,8 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{At, FileError, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Args, Array, Bytes, Content, Finalize, Fold, NativeElement,
-    Packed, PlainText, Show, Smart, StyleChain, Styles, Synthesize, Value,
+    cast, elem, scope, Args, Array, Bytes, Content, Fold, NativeElement, Packed,
+    PlainText, Show, ShowSet, Smart, StyleChain, Styles, Synthesize, Value,
 };
 use crate::layout::{BlockElem, Em, HAlignment};
 use crate::model::Figurable;
@@ -74,7 +74,7 @@ type LineFn<'a> = &'a mut dyn FnMut(i64, Range<usize>, &mut Vec<Content>);
     title = "Raw Text / Code",
     Synthesize,
     Show,
-    Finalize,
+    ShowSet,
     LocalName,
     Figurable,
     PlainText
@@ -289,11 +289,17 @@ impl RawElem {
 
 impl Synthesize for Packed<RawElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        let span = self.span();
-        let elem = self.as_mut();
+        let seq = self.highlight(styles);
+        self.push_lines(seq);
+        Ok(())
+    }
+}
 
-        let lang = elem.lang(styles).clone();
-        elem.push_lang(lang);
+impl Packed<RawElem> {
+    #[comemo::memoize]
+    fn highlight(&self, styles: StyleChain) -> Vec<Packed<RawLine>> {
+        let elem = self.as_ref();
+        let span = self.span();
 
         let mut text = elem.text().clone();
         if text.contains('\t') {
@@ -389,9 +395,7 @@ impl Synthesize for Packed<RawElem> {
             }));
         };
 
-        elem.push_lines(seq);
-
-        Ok(())
+        seq
     }
 }
 
@@ -421,16 +425,15 @@ impl Show for Packed<RawElem> {
     }
 }
 
-impl Finalize for Packed<RawElem> {
-    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
-        let mut styles = Styles::new();
-        styles.set(TextElem::set_overhang(false));
-        styles.set(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false))));
-        styles.set(TextElem::set_size(TextSize(Em::new(0.8).into())));
-        styles
-            .set(TextElem::set_font(FontList(vec![FontFamily::new("DejaVu Sans Mono")])));
-        styles.set(SmartQuoteElem::set_enabled(false));
-        realized.styled_with_map(styles)
+impl ShowSet for Packed<RawElem> {
+    fn show_set(&self, _: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        out.set(TextElem::set_overhang(false));
+        out.set(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false))));
+        out.set(TextElem::set_size(TextSize(Em::new(0.8).into())));
+        out.set(TextElem::set_font(FontList(vec![FontFamily::new("DejaVu Sans Mono")])));
+        out.set(SmartQuoteElem::set_enabled(false));
+        out
     }
 }
 
