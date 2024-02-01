@@ -77,7 +77,7 @@ impl From<usvg::FontStyle> for FontStyle {
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct FontWeight(u16);
+pub struct FontWeight(pub(super) u16);
 
 impl FontWeight {
     /// Thin weight (100).
@@ -180,7 +180,7 @@ cast! {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct FontStretch(u16);
+pub struct FontStretch(pub(super) u16);
 
 impl FontStretch {
     /// Ultra-condensed stretch (50%).
