@@ -6,17 +6,19 @@
 #for x in (1, 2) {}
 #for x in (a: 1, b: 2) {}
 #for x in "foo" {}
+#for x in bytes("😊") {}
 
 ---
 // Placeholder.
 #for _ in (1, 2) {}
 #for _ in (a: 1, b: 2) {}
 #for _ in "foo" {}
+#for _ in bytes("😊") {}
 
 ---
 // Destructuring.
-#for (k, v)  in (("a", 1), ("b", 2), ("c", 3)) {}
-#for (k, ..) in (("a", 1), ("b", 2), ("c", 3)) {}
+#for (a,b,c) in (("a", 1, bytes(())), ("b", 2, bytes(""))) {}
+#for (a, ..) in (("a", 1, bytes(())), ("b", 2, bytes(""))) {}
 #for (k, v)  in (a: 1, b: 2, c: 3) {}
 #for (.., v) in (a: 1, b: 2, c: 3) {}
 
@@ -25,8 +27,8 @@
 #for x in [1, 2] {}
 
 ---
-// Error: 11-25 cannot loop over bytes
-#for _ in bytes((22, 0)) {}
+// Error: 11-25 cannot loop over arguments
+#for _ in arguments("a") {}
 
 ---
 // Error: 16-21 cannot loop over integer
@@ -45,5 +47,21 @@
 #for (x, y) in ("foo", "bar") {}
 
 ---
+// Error: 6-12 cannot destructure values of bytes
+#for (x, y) in bytes("😊") {}
+
+---
+// Error: 6-12 cannot destructure bytes
+#for (x, y) in (bytes((1,2)), bytes((1,2))) {}
+
+---
 // Error: 6-12 cannot destructure integer
 #for (x, y) in (1, 2) {}
+
+---
+// Error: 10-11 not enough elements to destructure
+#for (x, y) in ((1,), (2,)) {}
+
+---
+// Error: 6-12 too many elements to destructure
+#for (x, y) in ((1,2,3), (4,5,6)) {}

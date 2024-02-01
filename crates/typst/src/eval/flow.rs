@@ -152,7 +152,11 @@ impl Eval for ast::ForLoop<'_> {
                 // Iterate over graphemes of string.
                 iter!(for pattern in str.as_str().graphemes(true));
             }
-            (Pattern::Destructuring(_), Value::Str(_)) => {
+            (Pattern::Normal(_) | Pattern::Placeholder(_), Value::Bytes(bytes)) => {
+                // Iterate over the integers of bytes.
+                iter!(for pattern in bytes.as_slice());
+            }
+            (Pattern::Destructuring(_), Value::Str(_) | Value::Bytes(_)) => {
                 bail!(pattern.span(), "cannot destructure values of {}", iterable_type);
             }
             _ => {
