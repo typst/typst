@@ -72,6 +72,7 @@ palette = { version = "0.7.3", default-features = false, features = ["approx", "
 parking_lot = "0.12.1"
 pathdiff = "0.2"
 pdf-writer = "0.9.2"
+phf = { version = "0.11", features = ["macros"] }
 pixglyph = "0.3"
 proc-macro2 = "1"
 pulldown-cmark = "0.9"
