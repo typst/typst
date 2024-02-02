@@ -44,6 +44,10 @@ pub fn find_exception(postscript_name: &str) -> Option<&'static Exception> {
 
 /// A map which keys are PostScript name and values are override entries.
 static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
+    // The old version of Arial-Black, published by Microsoft in 1996 in their "core fonts for the web" project, has a wrong weight of 400.
+    // See https://corefonts.sourceforge.net/.
+    "Arial-Black" => Exception::new()
+        .weight(900),
     "NewCM08-Book" => Exception::new()
         .family("New Computer Modern 08")
         .weight(450),
