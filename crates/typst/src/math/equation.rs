@@ -368,7 +368,7 @@ impl Outlinable for Packed<EquationElem> {
         let numbers = self
             .counter()
             .at(engine, self.location().unwrap())?
-            .display(engine, &numbering)?;
+            .display(engine, numbering)?;
 
         Ok(Some(supplement + numbers))
     }

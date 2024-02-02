@@ -399,7 +399,7 @@ impl Outlinable for Packed<FigureElem> {
         ) {
             let numbers = counter
                 .at(engine, self.location().unwrap())?
-                .display(engine, &numbering)?;
+                .display(engine, numbering)?;
 
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');
