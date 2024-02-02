@@ -176,9 +176,9 @@ impl Selector {
         self,
         /// The other selectors to match on.
         #[variadic]
-        others: Vec<LocatableSelector>,
+        others: Vec<Selector>,
     ) -> Selector {
-        Self::Or(others.into_iter().map(|s| s.0).chain(Some(self)).collect())
+        Self::Or(others.into_iter().chain(Some(self)).collect())
     }
 
     /// Selects all elements that match this and all of the the other selectors.
@@ -187,9 +187,9 @@ impl Selector {
         self,
         /// The other selectors to match on.
         #[variadic]
-        others: Vec<LocatableSelector>,
+        others: Vec<Selector>,
     ) -> Selector {
-        Self::And(others.into_iter().map(|s| s.0).chain(Some(self)).collect())
+        Self::And(others.into_iter().chain(Some(self)).collect())
     }
 
     /// Returns a modified selector that will only match elements that occur
@@ -407,13 +407,17 @@ cast! {
 
 impl FromValue for ShowableSelector {
     fn from_value(value: Value) -> StrResult<Self> {
-        fn validate(selector: &Selector) -> StrResult<()> {
+        fn validate(selector: &Selector, nested: bool) -> StrResult<()> {
             match selector {
                 Selector::Elem(_, _) => {}
                 Selector::Label(_) => {}
-                Selector::Regex(_) => {}
-                Selector::Or(_)
-                | Selector::And(_)
+                Selector::Regex(_) if !nested => {}
+                Selector::Or(list) | Selector::And(list) => {
+                    for selector in list {
+                        validate(selector, true)?;
+                    }
+                }
+                Selector::Regex(_)
                 | Selector::Location(_)
                 | Selector::Can(_)
                 | Selector::Before { .. }
@@ -429,7 +433,7 @@ impl FromValue for ShowableSelector {
         }
 
         let selector = Selector::from_value(value)?;
-        validate(&selector)?;
+        validate(&selector, false)?;
         Ok(Self(selector))
     }
 }
