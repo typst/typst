@@ -127,4 +127,86 @@ static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
         .weight(450),
     "NewCMUncial10-Regular" => Exception::new()
         .family("New Computer Modern Uncial"),
+    "LMMono8-Regular" => Exception::new()
+        .family("Latin Modern Mono 8"),
+    "LMMono9-Regular" => Exception::new()
+        .family("Latin Modern Mono 9"),
+    "LMMono12-Regular" => Exception::new()
+        .family("Latin Modern Mono 12"),
+    "LMMonoLt10-BoldOblique" => Exception::new()
+        .style(FontStyle::Oblique),
+    "LMMonoLt10-Regular" => Exception::new()
+        .weight(300),
+    "LMMonoLt10-Oblique" => Exception::new()
+        .weight(300)
+        .style(FontStyle::Oblique),
+    "LMMonoLtCond10-Regular" => Exception::new()
+        .weight(300)
+        .stretch(666),
+    "LMMonoLtCond10-Oblique" => Exception::new()
+        .weight(300)
+        .style(FontStyle::Oblique)
+        .stretch(666),
+    "LMMonoPropLt10-Regular" => Exception::new()
+        .weight(300),
+    "LMMonoPropLt10-Oblique" => Exception::new()
+        .weight(300),
+    "LMRoman5-Regular" => Exception::new()
+        .family("Latin Modern Roman 5"),
+    "LMRoman6-Regular" => Exception::new()
+        .family("Latin Modern Roman 6"),
+    "LMRoman7-Regular" => Exception::new()
+        .family("Latin Modern Roman 7"),
+    "LMRoman8-Regular" => Exception::new()
+        .family("Latin Modern Roman 8"),
+    "LMRoman9-Regular" => Exception::new()
+        .family("Latin Modern Roman 9"),
+    "LMRoman12-Regular" => Exception::new()
+        .family("Latin Modern Roman 12"),
+    "LMRoman17-Regular" => Exception::new()
+        .family("Latin Modern Roman 17"),
+    "LMRoman7-Italic" => Exception::new()
+        .family("Latin Modern Roman 7"),
+    "LMRoman8-Italic" => Exception::new()
+        .family("Latin Modern Roman 8"),
+    "LMRoman9-Italic" => Exception::new()
+        .family("Latin Modern Roman 9"),
+    "LMRoman12-Italic" => Exception::new()
+        .family("Latin Modern Roman 12"),
+    "LMRoman5-Bold" => Exception::new()
+        .family("Latin Modern Roman 5"),
+    "LMRoman6-Bold" => Exception::new()
+        .family("Latin Modern Roman 6"),
+    "LMRoman7-Bold" => Exception::new()
+        .family("Latin Modern Roman 7"),
+    "LMRoman8-Bold" => Exception::new()
+        .family("Latin Modern Roman 8"),
+    "LMRoman9-Bold" => Exception::new()
+        .family("Latin Modern Roman 9"),
+    "LMRoman12-Bold" => Exception::new()
+        .family("Latin Modern Roman 12"),
+    "LMRomanSlant8-Regular" => Exception::new()
+        .family("Latin Modern Roman 8"),
+    "LMRomanSlant9-Regular" => Exception::new()
+        .family("Latin Modern Roman 9"),
+    "LMRomanSlant12-Regular" => Exception::new()
+        .family("Latin Modern Roman 12"),
+    "LMRomanSlant17-Regular" => Exception::new()
+        .family("Latin Modern Roman 17"),
+    "LMSans8-Regular" => Exception::new()
+        .family("Latin Modern Sans 8"),
+    "LMSans9-Regular" => Exception::new()
+        .family("Latin Modern Sans 9"),
+    "LMSans12-Regular" => Exception::new()
+        .family("Latin Modern Sans 12"),
+    "LMSans17-Regular" => Exception::new()
+        .family("Latin Modern Sans 17"),
+    "LMSans8-Oblique" => Exception::new()
+        .family("Latin Modern Sans 8"),
+    "LMSans9-Oblique" => Exception::new()
+        .family("Latin Modern Sans 9"),
+    "LMSans12-Oblique" => Exception::new()
+        .family("Latin Modern Sans 12"),
+    "LMSans17-Oblique" => Exception::new()
+        .family("Latin Modern Sans 17"),
 };
