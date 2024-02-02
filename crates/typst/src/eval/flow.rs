@@ -145,7 +145,7 @@ impl Eval for ast::ForLoop<'_> {
                 iter!(for pattern in array);
             }
             (_, Value::Dict(dict)) => {
-                // Iterate over pairs of dict.
+                // Iterate over key-value pairs of dict.
                 iter!(for pattern in dict.iter());
             }
             (Pattern::Normal(_) | Pattern::Placeholder(_), Value::Str(str)) => {
