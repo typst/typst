@@ -13,12 +13,13 @@ use crate::foundations::{cast, func, scope, ty, Array, Reflect, Repr, Str, Value
 /// A sequence of bytes.
 ///
 /// This is conceptually similar to an array of [integers]($int) between `{0}`
-/// and `{255}`, but represented much more efficiently.
+/// and `{255}`, but represented much more efficiently. You can iterate over it
+/// using a [for loop]($scripting/#loops).
 ///
 /// You can convert
 /// - a [string]($str) or an [array]($array) of integers to bytes with the
 ///   [`bytes`]($bytes) constructor
-/// - bytes to a string with the [`str`]($str) constructor
+/// - bytes to a string with the [`str`]($str) constructor, with UTF-8 encoding
 /// - bytes to an array of integers with the [`array`]($array) constructor
 ///
 /// When [reading]($read) data from a file, you can decide whether to load it
