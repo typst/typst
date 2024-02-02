@@ -182,7 +182,7 @@ impl IntoValue for Value {
     }
 }
 
-impl<K, V: Clone> IntoValue for (&K, &V) {
+impl<K, V: IntoValue + Clone> IntoValue for (&K, &V) {
     fn into_value(self) -> Value {
         Value::Array(array![self.0.clone(), self.1.clone()])
     }
