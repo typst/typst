@@ -195,6 +195,8 @@ For loops can iterate over a variety of collections:
 - `{for pair in dict {..}}` \
   Iterates over the key-value pairs of the [dictionary]($dictionary).
   The pairs can also be destructured by using `{for (key, value) in dict {..}}`.
+  It is more efficient than `{for pair in dict.pairs() {..}}` because it doesn't
+  create a temporary array of all key-value pairs.
 
 - `{for letter in "abc" {..}}` \
   Iterates over the characters of the [string]($str). Technically, it iterates
