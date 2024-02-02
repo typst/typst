@@ -13,7 +13,7 @@ use crate::introspection::{Introspector, Locator};
 use crate::vm::{Access, CompiledClosure, DefaultValue, Pattern, Readable};
 use crate::{Library, World};
 
-use super::{Compiler, Write};
+use super::{Compiler, Opcode};
 
 /// A module that has been compiled but is not yet executed.
 #[derive(Clone, Hash)]
@@ -24,13 +24,6 @@ pub struct CompiledModule {
 
 impl CompiledModule {
     pub fn new(mut compiler: Compiler, span: Span, name: impl Into<EcoString>) -> Self {
-        let mut instructions = Vec::with_capacity(1 << 20);
-        compiler
-            .instructions
-            .iter()
-            .for_each(|isr| isr.write(&compiler.instructions, &mut instructions));
-        instructions.shrink_to_fit();
-
         let scopes = compiler.scope.borrow();
         let exports = scopes
             .variables
@@ -43,12 +36,15 @@ impl CompiledModule {
             .collect();
 
         compiler.common.defaults.insert(0, compiler.get_default_scope());
+        compiler.instructions.shrink_to_fit();
+        compiler.spans.shrink_to_fit();
 
         CompiledModule {
             inner: Arc::new(Repr {
                 name: name.into(),
                 span,
-                instructions,
+                instructions: compiler.instructions,
+                spans: compiler.spans,
                 global: compiler.scope.borrow().global().clone(),
                 constants: compiler.common.constants.into_values(),
                 strings: compiler.common.strings.into_values(),
@@ -71,7 +67,9 @@ pub struct Repr {
     /// The span where the module was defined.
     pub span: Span,
     /// The instructions as byte code.
-    pub instructions: Vec<u8>,
+    pub instructions: Vec<Opcode>,
+    /// The spans of the instructions.
+    pub spans: Vec<Span>,
     /// The global library.
     pub global: Library,
     /// The list of constants.

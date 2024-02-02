@@ -6,7 +6,7 @@ use crate::engine::Engine;
 use crate::foundations::is_mutating_method;
 use crate::vm::Readable;
 
-use super::{AccessPattern, Compile, Compiler, Opcode, ReadableGuard, WritableGuard};
+use super::{AccessPattern, Compile, Compiler, ReadableGuard, WritableGuard};
 
 impl Compile for ast::FuncCall<'_> {
     type Output = Option<WritableGuard>;
@@ -47,13 +47,13 @@ impl Compile for ast::FuncCall<'_> {
         };
 
         let closure = compiler.access(callee.as_vm_access());
-        compiler.isr(Opcode::call(
+        compiler.call(
             self.span(),
             closure,
             &args,
             if in_math { 0b01 } else { 0b00 } | if trailing_comma { 0b10 } else { 0b00 },
             &output,
-        ));
+        );
 
         Ok(())
     }
@@ -91,13 +91,13 @@ impl Compile for ast::Args<'_> {
         let capacity = self.items().count();
         let mut args = self.items();
         let Some(first) = args.next() else {
-            compiler.isr(Opcode::copy(self.span(), Readable::none(), &output));
+            compiler.copy(self.span(), Readable::none(), &output);
 
             return Ok(());
         };
 
         // Allocate the arguments
-        compiler.isr(Opcode::args(self.span(), capacity as u32, &output));
+        compiler.args(self.span(), capacity as u32, &output);
 
         // Compile the first argument
         first.compile_into(engine, compiler, output.clone())?;
@@ -142,18 +142,24 @@ impl Compile for ast::Arg<'_> {
     ) -> SourceResult<()> {
         match self {
             ast::Arg::Pos(pos) => {
-                let pos = pos.compile(engine, compiler)?;
-                compiler.isr(Opcode::push_arg(self.span(), &pos, &output));
+                let guard = pos.compile(engine, compiler)?;
+                compiler.push_arg(self.span(), &guard, pos.span(), &output);
             }
             ast::Arg::Named(named) => {
                 let name = named.name().get().clone();
                 let name_id = compiler.string(name.clone());
                 let value = named.expr().compile(engine, compiler)?;
-                compiler.isr(Opcode::insert_arg(self.span(), name_id, &value, &output));
+                compiler.insert_arg(
+                    self.span(),
+                    name_id,
+                    &value,
+                    named.expr().span(),
+                    &output,
+                );
             }
             ast::Arg::Spread(spread) => {
-                let spread = spread.compile(engine, compiler)?;
-                compiler.isr(Opcode::spread(self.span(), &spread, &output));
+                let guard = spread.compile(engine, compiler)?;
+                compiler.spread_arg(self.span(), &guard, spread.span(), &output);
             }
         }
 

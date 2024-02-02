@@ -13,7 +13,7 @@ opcodes! {
         lhs: Readable,
         /// The right-hand side of the addition.
         rhs: Readable,
-    } = 0x01,
+    },
 
     /// Subtracts two values.
     Sub: sub -> Writable => {
@@ -21,7 +21,7 @@ opcodes! {
         lhs: Readable,
         /// The right-hand side of the subtraction.
         rhs: Readable,
-    } = 0x02,
+    },
 
     /// Multiplies two values.
     Mul: mul -> Writable => {
@@ -29,7 +29,7 @@ opcodes! {
         lhs: Readable,
         /// The right-hand side of the multiplication.
         rhs: Readable,
-    } = 0x03,
+    },
 
     /// Divides two values.
     Div: div -> Writable => {
@@ -37,25 +37,25 @@ opcodes! {
         lhs: Readable,
         /// The right-hand side of the division.
         rhs: Readable,
-    } = 0x04,
+    },
 
     /// Negates a value.
     Neg: neg -> Writable => {
         /// The value to negate.
         value: Readable,
-    } = 0x05,
+    },
 
     /// Positivizes a value.
     Pos: pos -> Writable => {
         /// The value to negate.
         value: Readable,
-    } = 0x06,
+    },
 
     /// Logical not.
     Not: not -> Writable => {
         /// The value to negate.
         value: Readable,
-    } = 0x07,
+    },
 
     /// Greater than.
     Gt: gt -> Writable => {
@@ -63,7 +63,7 @@ opcodes! {
         lhs: Readable,
         /// The right-hand side of the comparison.
         rhs: Readable,
-    } = 0x08,
+    },
 
     /// Greater than or equal to.
     Geq: geq -> Writable => {
@@ -71,7 +71,7 @@ opcodes! {
         lhs: Readable,
         /// The right-hand side of the comparison.
         rhs: Readable,
-    } = 0x09,
+    },
 
     /// Less than.
     Lt: lt -> Writable => {
@@ -79,7 +79,7 @@ opcodes! {
         lhs: Readable,
         /// The right-hand side of the comparison.
         rhs: Readable,
-    } = 0x0A,
+    },
 
     /// Less than or equal to.
     Leq: leq -> Writable => {
@@ -87,7 +87,7 @@ opcodes! {
         lhs: Readable,
         /// The right-hand side of the comparison.
         rhs: Readable,
-    } = 0x0B,
+    },
 
     /// Equal to.
     Eq: eq -> Writable => {
@@ -95,7 +95,7 @@ opcodes! {
         lhs: Readable,
         /// The right-hand side of the comparison.
         rhs: Readable,
-    } = 0x0C,
+    },
 
     /// Not equal to.
     Neq: neq -> Writable => {
@@ -103,7 +103,7 @@ opcodes! {
         lhs: Readable,
         /// The right-hand side of the comparison.
         rhs: Readable,
-    } = 0x0D,
+    },
 
     /// Whether the left-hand side is in the right-hand side.
     In: in_ -> Writable => {
@@ -111,7 +111,7 @@ opcodes! {
         lhs: Readable,
         /// The right-hand side of the comparison.
         rhs: Readable,
-    } = 0x0E,
+    },
 
     /// Whether the left-hand side is not in the right-hand side.
     NotIn: not_in -> Writable => {
@@ -119,7 +119,7 @@ opcodes! {
         lhs: Readable,
         /// The right-hand side of the comparison.
         rhs: Readable,
-    } = 0x0F,
+    },
 
     /// Logical and.
     And: and -> Writable => {
@@ -127,7 +127,7 @@ opcodes! {
         lhs: Readable,
         /// The right-hand side of the comparison.
         rhs: Readable,
-    } = 0x10,
+    },
 
     /// Logical or.
     Or: or -> Writable => {
@@ -135,19 +135,19 @@ opcodes! {
         lhs: Readable,
         /// The right-hand side of the comparison.
         rhs: Readable,
-    } = 0x11,
+    },
 
     /// Copies a value.
-    Copy: copy -> Writable => {
+    CopyIsr: copy -> Writable => {
         /// The value to copy.
         value: Readable,
-    } = 0x12,
+    },
 
     /// Creates a new [`Value::None`].
-    None: none -> Writable => { } = 0x13,
+    None: none -> Writable => { },
 
     /// Creates a new [`Value::Auto`].
-    Auto: auto -> Writable => { } = 0x14,
+    Auto: auto -> Writable => { },
 
     // -----------------------------------------------------------------------------
     // ---------------------------------- ASSIGN -----------------------------------
@@ -157,37 +157,37 @@ opcodes! {
     Assign: assign -> AccessId => {
         /// The value to assign.
         value: Readable,
-    } = 0x20,
+    },
 
     /// Assign and add to a value.
     AddAssign: add_assign -> AccessId => {
         /// The value to assign.
         value: Readable,
-    } = 0x21,
+    },
 
     /// Assign and subtract from a value.
     SubAssign: sub_assign -> AccessId => {
         /// The value to assign.
         value: Readable,
-    } = 0x22,
+    },
 
     /// Assign and multiply a value.
     MulAssign: mul_assign -> AccessId => {
         /// The value to assign.
         value: Readable,
-    } = 0x23,
+    },
 
     /// Assign and divide a value.
     DivAssign: div_assign -> AccessId => {
         /// The value to assign.
         value: Readable,
-    } = 0x24,
+    },
 
     /// Destructures a value into a pattern.
     Destructure: destructure -> PatternId => {
         /// The value to destructure.
         value: Readable,
-    } = 0x25,
+    },
 
     // -----------------------------------------------------------------------------
     // ---------------------------------- STYLING ----------------------------------
@@ -199,7 +199,7 @@ opcodes! {
         target: Readable,
         /// The arguments to supply to the set rule.
         args: Readable,
-    } = 0xA0,
+    },
 
     /// Creates a new show rule.
     Show: show -> Writable => {
@@ -207,13 +207,13 @@ opcodes! {
         selector: OptionalReadable,
         /// The transform to apply.
         transform: Readable,
-    } = 0xA1,
+    },
 
     /// Style the remaining joined items with the given style.
     Styled: styled => {
         /// The style to apply.
         style: Readable,
-    } = 0xA2,
+    },
 
     // -----------------------------------------------------------------------------
     // ----------------------------- FUNCTIONS & FLOW ------------------------------
@@ -229,7 +229,7 @@ opcodes! {
     Instantiate: instantiate -> Writable => {
         /// The closure to instantiate.
         closure: ClosureId,
-    } = 0xB0,
+    },
 
     /// Calls a function.
     Call: call -> Writable => {
@@ -241,13 +241,13 @@ opcodes! {
         /// - Bit 0: Whether the call is done in a math context.
         /// - Bit 1: Whether the call contains a trailing comma.
         flags: u8,
-    } = 0xB1,
+    },
 
     /// Accesses a field.
     Field: field -> Writable => {
         /// The value to access.
         access: AccessId,
-    } = 0xB2,
+    },
 
     /// Enters a new while loop scope with optional joining.
     While: while_ -> OptionalWritable => {
@@ -260,7 +260,7 @@ opcodes! {
         /// - Bit 0: Whether joining is enabled.
         /// - Bit 1: Whether joining results in a content.
         flags: u8,
-    } = 0xB3,
+    },
 
     /// Enters a new iterator scope with optional joining.
     Iter: iter -> OptionalWritable => {
@@ -275,23 +275,23 @@ opcodes! {
         /// - Bit 0: Whether joining is enabled.
         /// - Bit 1: Whether joining results in a content.
         flags: u8,
-    } = 0xB4,
+    },
 
     /// Queries the next value of an iterator.
     /// Returns from the iterator scope if the iterator is exhausted.
-    Next: next -> Writable => { } = 0xB5,
+    Next: next -> Writable => { },
 
     /// Continues a loop.
-    Continue: continue_ => {} = 0xB6,
+    Continue: continue_ => {},
 
     /// Breaks out of a loop.
-    Break: break_ => {} = 0xB7,
+    Break: break_ => {},
 
     /// Returns a value from a function.
     Return: return_ => {
         /// The value to return.
         value: OptionalReadable,
-    } = 0xB8,
+    },
 
     // -----------------------------------------------------------------------------
     // ---------------------------------- VALUES------------------------------------
@@ -301,19 +301,19 @@ opcodes! {
     Array: array -> Writable => {
         /// The capacity of the array.
         capacity: u32,
-    } = 0xC0,
+    },
 
     /// Push a value to an array.
     Push: push -> Writable => {
         /// The value to push.
         value: Readable,
-    } = 0xC1,
+    },
 
     /// Allocates a new dictionary.
     Dict: dict -> Writable => {
         /// The capacity of the dictionary.
         capacity: u32,
-    } = 0xC2,
+    },
 
     /// Insert a value into a dictionary.
     Insert: insert -> Writable => {
@@ -321,19 +321,21 @@ opcodes! {
         key: Readable,
         /// The value to insert.
         value: Readable,
-    } = 0xC3,
+    },
 
     /// Allocates a new argument set.
     Args: args -> Writable => {
         /// The capacity of the argument set.
         capacity: u32,
-    } = 0xC4,
+    },
 
     /// Pushes a value into an argument set.
     PushArg: push_arg -> Writable => {
         /// The value to insert.
         value: Readable,
-    } = 0xC5,
+        /// The span of the value.
+        value_span: Span,
+    },
 
     /// Inserts a named value into an argument set.
     InsertArg: insert_arg -> Writable => {
@@ -341,7 +343,17 @@ opcodes! {
         key: Readable,
         /// The value to insert.
         value: Readable,
-    } = 0xC6,
+        /// The span of the value.
+        value_span: Span,
+    },
+
+    /// Inserts a named value into an argument set.
+    SpreadArg: spread_arg -> Writable => {
+        /// The value to insert.
+        value: Readable,
+        /// The span of the value.
+        value_span: Span,
+    },
 
     /// Spreads this value into either:
     /// - An array.
@@ -350,7 +362,7 @@ opcodes! {
     Spread: spread -> Writable => {
         /// The value to spread.
         value: Readable,
-    } = 0xC7,
+    },
 
     // -----------------------------------------------------------------------------
     // ----------------------------- CONDITIONAL JUMPS -----------------------------
@@ -368,13 +380,13 @@ opcodes! {
         /// - Bit 1: Whether joining.
         /// - Bit 2: Whether joining results in a content.
         flags: u8,
-    } = 0xD0,
+    },
 
     /// Jump to a new instruction.
     Jump: jump => {
         /// The instruction to jump to.
         instruction: Pointer,
-    } = 0xD1,
+    },
 
     /// Jump to a new instruction if the condition is true.
     JumpIf: jump_if => {
@@ -382,14 +394,14 @@ opcodes! {
         condition: Readable,
         /// The instruction to jump to.
         instruction: Pointer,
-    } = 0xD2,
+    },
 
     JumpIfNot: jump_if_not => {
         /// The condition to check.
         condition: Readable,
         /// The instruction to jump to.
         instruction: Pointer,
-    } = 0xD3,
+    },
 
     /// Select one of two values based on a condition.
     Select: select -> Writable => {
@@ -399,7 +411,7 @@ opcodes! {
         true_: Readable,
         /// The value to select if the condition is
         false_: Readable,
-    } = 0xD4,
+    },
 
     // -----------------------------------------------------------------------------
     // ----------------------------------- MATH ------------------------------------
@@ -413,7 +425,7 @@ opcodes! {
         body: Readable,
         /// The right delimiter.
         right: Readable,
-    } = 0xE0,
+    },
 
     /// Builds an [`AttachElem`].
     Attach: attach -> Writable => {
@@ -423,7 +435,7 @@ opcodes! {
         top: OptionalReadable,
         /// The bottom supplement.
         bottom: OptionalReadable,
-    } = 0xE1,
+    },
 
     /// Builds a fraction.
     Frac: frac -> Writable => {
@@ -431,7 +443,7 @@ opcodes! {
         numerator: Readable,
         /// The denominator.
         denominator: Readable,
-    } = 0xE2,
+    },
 
     /// Builds a root.
     Root: root -> Writable => {
@@ -439,7 +451,7 @@ opcodes! {
         degree: OptionalReadable,
         /// The radicand.
         radicand: Readable,
-    } = 0xE3,
+    },
 
     // -----------------------------------------------------------------------------
     // ---------------------------------- CONTENT ----------------------------------
@@ -452,19 +464,19 @@ opcodes! {
 
         /// The supplement (if any).
         supplement: OptionalReadable,
-    } = 0xF0,
+    },
 
     /// Makes a value strong.
     Strong: strong -> Writable => {
         /// The value to make strong.
         value: Readable,
-    } = 0xF1,
+    },
 
     /// Makes a value emphasized.
     Emph: emph -> Writable => {
         /// The value to emphasize.
         value: Readable,
-    } = 0xF2,
+    },
 
     /// Makes a value into a heading.
     Heading: heading -> Writable => {
@@ -472,13 +484,13 @@ opcodes! {
         value: Readable,
         /// The level of the heading.
         level: u32,
-    } = 0xF3,
+    },
 
     /// Makes a list item.
     ListItem: list_item -> Writable => {
         /// The value to make into a list item.
         value: Readable,
-    } = 0xF4,
+    },
 
     /// Makes an enum item.
     EnumItem: enum_item -> Writable => {
@@ -486,7 +498,7 @@ opcodes! {
         value: Readable,
         /// The optional number of the enum item.
         number: Option<NonZeroU32>,
-    } = 0xF5,
+    },
 
     /// Markes a term.
     TermItem: term_item -> Writable => {
@@ -494,11 +506,11 @@ opcodes! {
         term: Readable,
         /// The description of the term.
         description: Readable,
-    } = 0xF6,
+    },
 
     /// Makes an equation.
     Equation: equation -> Writable => {
         /// The value to make into an equation.
         value: Readable,
-    } = 0xF7,
+    },
 }

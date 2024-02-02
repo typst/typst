@@ -45,7 +45,9 @@ const DEFAULT_CAPACITY: usize = 8 << 10;
 
 pub struct Compiler {
     /// The raw instruction buffer.
-    pub instructions: Vec<Opcode>,
+    instructions: Vec<Opcode>,
+    /// The span buffer.
+    spans: Vec<Span>,
     /// The current scope.
     pub scope: Rc<RefCell<CompilerScope>>,
     /// The function name (if any).
@@ -61,6 +63,7 @@ impl Compiler {
     pub fn module(library: Library) -> Self {
         Self {
             instructions: Vec::with_capacity(DEFAULT_CAPACITY),
+            spans: Vec::with_capacity(DEFAULT_CAPACITY),
             scope: Rc::new(RefCell::new(CompilerScope::module(library))),
             name: None,
             common: Inner::new(),
@@ -72,7 +75,8 @@ impl Compiler {
     pub fn function(parent: &Self, name: impl Into<EcoString>) -> Self {
         let parent = parent.scope.clone();
         Self {
-            instructions: Vec::with_capacity(DEFAULT_CAPACITY),
+            instructions: Vec::with_capacity(DEFAULT_CAPACITY * 8),
+            spans: Vec::with_capacity(DEFAULT_CAPACITY),
             scope: Rc::new(RefCell::new(CompilerScope::function(parent))),
             name: Some(name.into()),
             common: Inner::new(),
@@ -121,9 +125,7 @@ impl Compiler {
         name: impl Into<EcoString>,
         output: impl Into<RegisterGuard>,
     ) -> StrResult<()> {
-        self.scope
-            .borrow_mut()
-            .declare_into(span, name.into(), output.into())
+        self.scope.borrow_mut().declare_into(span, name.into(), output.into())
     }
 
     /// Declares a new variable.
@@ -166,60 +168,34 @@ impl Compiler {
     /// Enter a new scope.
     pub fn enter(
         &mut self,
+        engine: &mut Engine,
         span: Span,
         looping: bool,
         joining: Option<Writable>,
-        mut display: bool,
-        f: impl FnOnce(&mut Self, &mut bool) -> SourceResult<()>,
+        display: bool,
+        f: impl FnOnce(&mut Self, &mut Engine, &mut bool) -> SourceResult<()>,
     ) -> SourceResult<()> {
-        let mut scope_id = Some(ScopeId::new(self.common.scopes));
-        let mut scope =
-            Rc::new(RefCell::new(CompilerScope::scope(self.scope.clone(), looping)));
-        let mut instructions = Vec::with_capacity(DEFAULT_CAPACITY);
+        self.enter_indefinite(
+            engine,
+            looping,
+            joining,
+            display,
+            f,
+            |compiler, _, len, out, scope_id| {
+                compiler.enter_isr(
+                    span,
+                    len as u32,
+                    scope_id,
+                    0b000
+                        | if looping { 0b001 } else { 0b000 }
+                        | if joining.is_some() { 0b010 } else { 0b000 }
+                        | if display { 0b100 } else { 0b000 },
+                    out,
+                );
 
-        self.common.scopes += 1;
-
-        std::mem::swap(&mut self.scope, &mut scope);
-        std::mem::swap(&mut self.instructions, &mut instructions);
-        std::mem::swap(&mut self.scope_id, &mut scope_id);
-
-        f(self, &mut display)?;
-
-        std::mem::swap(&mut self.scope, &mut scope);
-        std::mem::swap(&mut self.instructions, &mut instructions);
-        std::mem::swap(&mut self.scope_id, &mut scope_id);
-
-        let out = match joining {
-            Some(out) => OptionalWritable::some(out),
-            None => OptionalWritable::none(),
-        };
-
-        let defaults = scope
-            .borrow()
-            .variables
-            .values()
-            .filter_map(|v| v.default.clone().map(|d| (d, v.register.as_register())))
-            .map(|(value, target)| DefaultValue { target, value })
-            .collect::<EcoVec<_>>();
-
-        self.common.defaults.push(defaults);
-        let scope_id = scope_id.unwrap();
-
-        let len = instructions.iter().map(Write::size).sum::<usize>();
-        self.instructions.push(Opcode::enter(
-            span,
-            len as u32,
-            scope_id,
-            0b000
-                | if looping { 0b001 } else { 0b000 }
-                | if joining.is_some() { 0b010 } else { 0b000 }
-                | if display { 0b100 } else { 0b000 },
-            out,
-        ));
-
-        self.instructions.extend(instructions);
-
-        Ok(())
+                Ok(())
+            },
+        )
     }
 
     pub fn enter_indefinite(
@@ -240,18 +216,21 @@ impl Compiler {
         let mut scope_id = Some(ScopeId::new(self.common.scopes));
         let mut scope =
             Rc::new(RefCell::new(CompilerScope::scope(self.scope.clone(), looping)));
-        let mut instructions = Vec::with_capacity(DEFAULT_CAPACITY);
+        let mut instructions = Vec::with_capacity(DEFAULT_CAPACITY * 8);
+        let mut spans = Vec::with_capacity(DEFAULT_CAPACITY);
 
         self.common.scopes += 1;
 
         std::mem::swap(&mut self.scope, &mut scope);
         std::mem::swap(&mut self.instructions, &mut instructions);
+        std::mem::swap(&mut self.spans, &mut spans);
         std::mem::swap(&mut self.scope_id, &mut scope_id);
 
         f(self, engine, &mut display)?;
 
         std::mem::swap(&mut self.scope, &mut scope);
         std::mem::swap(&mut self.instructions, &mut instructions);
+        std::mem::swap(&mut self.spans, &mut spans);
         std::mem::swap(&mut self.scope_id, &mut scope_id);
 
         let out = match joining {
@@ -270,22 +249,37 @@ impl Compiler {
         self.common.defaults.push(defaults);
         let scope_id = scope_id.unwrap();
 
-        let len = instructions.iter().map(Write::size).sum::<usize>();
+        let len = instructions.len();
         pre(self, engine, len, out, scope_id)?;
 
+        self.spans.extend(spans);
         self.instructions.extend(instructions);
 
         Ok(())
     }
 
+    pub fn section(
+        &mut self,
+        engine: &mut Engine,
+        f: impl FnOnce(&mut Self, &mut Engine) -> SourceResult<()>,
+    ) -> SourceResult<CompiledSection> {
+        let mut instructions = Vec::with_capacity(DEFAULT_CAPACITY);
+        let mut spans = Vec::with_capacity(DEFAULT_CAPACITY);
+
+        std::mem::swap(&mut self.instructions, &mut instructions);
+        std::mem::swap(&mut self.spans, &mut spans);
+
+        f(self, engine)?;
+
+        std::mem::swap(&mut self.instructions, &mut instructions);
+        std::mem::swap(&mut self.spans, &mut spans);
+
+        Ok(CompiledSection { instructions, spans })
+    }
+
     /// Get the current scope ID.
     pub fn scope_id(&self) -> Option<ScopeId> {
         self.scope_id
-    }
-
-    /// Push a new instruction.
-    pub fn isr(&mut self, isr: impl Into<Opcode>) {
-        self.instructions.push(isr.into());
     }
 
     /// Allocates a new constant.
@@ -318,13 +312,6 @@ impl Compiler {
         self.common.patterns.insert(value)
     }
 
-    /// Allocates a new jump label.
-    pub fn jump(&mut self) -> JumpLabel {
-        let jump = self.common.jump;
-        self.common.jump += 1;
-        JumpLabel(jump)
-    }
-
     pub fn into_compiled_closure(
         mut self,
         span: Span,
@@ -343,19 +330,16 @@ impl Compiler {
             })
             .collect();
 
-        let mut instructions = Vec::with_capacity(1 << 20);
-        self.instructions
-            .iter()
-            .for_each(|isr| isr.write(&self.instructions, &mut instructions));
-        instructions.shrink_to_fit();
-
         self.common.defaults.insert(0, self.get_default_scope());
+        self.instructions.shrink_to_fit();
+        self.spans.shrink_to_fit();
 
         CompiledClosure {
             inner: Arc::new(vm::Inner {
                 name: self.name,
                 span,
-                instructions,
+                instructions: self.instructions,
+                spans: self.spans,
                 global: scopes.global().clone(),
                 constants: self.common.constants.into_values(),
                 strings: self.common.strings.into_values(),
@@ -382,6 +366,24 @@ impl Compiler {
             .map(|(value, target)| DefaultValue { target, value })
             .collect::<EcoVec<_>>()
     }
+
+    pub fn flow(&mut self) {
+        self.instructions.push(Opcode::Flow);
+        self.spans.push(Span::detached());
+    }
+
+    pub fn len(&self) -> usize {
+        self.instructions.len()
+    }
+
+    pub fn spans(&self) -> usize {
+        self.spans.len()
+    }
+
+    pub fn extend(&mut self, section: CompiledSection) {
+        self.instructions.extend(section.instructions);
+        self.spans.extend(section.spans);
+    }
 }
 
 #[derive(Default)]
@@ -402,8 +404,6 @@ struct Inner {
     scopes: u16,
     /// The default value remapper.
     defaults: Vec<EcoVec<DefaultValue>>,
-    /// The jump label counter.
-    jump: u16,
 }
 
 impl Inner {
@@ -438,4 +438,19 @@ pub trait Compile {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput>;
+}
+
+pub struct CompiledSection {
+    pub instructions: Vec<Opcode>,
+    pub spans: Vec<Span>,
+}
+
+impl CompiledSection {
+    pub fn len(&self) -> usize {
+        self.instructions.len()
+    }
+
+    pub fn spans(&self) -> usize {
+        self.spans.len()
+    }
 }

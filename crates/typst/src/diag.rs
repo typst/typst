@@ -272,6 +272,9 @@ pub type StrResult<T> = Result<T, EcoString>;
 pub trait At<T> {
     /// Add the span information.
     fn at(self, span: Span) -> SourceResult<T>;
+
+    /// Add the span informaton only if the result is an error.
+    fn at_err(self, span: impl Fn() -> Span) -> SourceResult<T>;
 }
 
 impl<T, S> At<T> for Result<T, S>
@@ -281,6 +284,18 @@ where
     fn at(self, span: Span) -> SourceResult<T> {
         self.map_err(|message| {
             let mut diagnostic = SourceDiagnostic::error(span, message);
+            if diagnostic.message.contains("(access denied)") {
+                diagnostic.hint("cannot read file outside of project root");
+                diagnostic
+                    .hint("you can adjust the project root with the --root argument");
+            }
+            eco_vec![diagnostic]
+        })
+    }
+
+    fn at_err(self, span: impl Fn() -> Span) -> SourceResult<T> {
+        self.map_err(|message| {
+            let mut diagnostic = SourceDiagnostic::error(span(), message);
             if diagnostic.message.contains("(access denied)") {
                 diagnostic.hint("cannot read file outside of project root");
                 diagnostic
@@ -314,6 +329,14 @@ impl<T> At<T> for Result<T, HintedString> {
     fn at(self, span: Span) -> SourceResult<T> {
         self.map_err(|diags| {
             eco_vec![SourceDiagnostic::error(span, diags.message).with_hints(diags.hints)]
+        })
+    }
+
+    fn at_err(self, span: impl FnOnce() -> Span) -> SourceResult<T> {
+        self.map_err(|diags| {
+            eco_vec![
+                SourceDiagnostic::error(span(), diags.message).with_hints(diags.hints)
+            ]
         })
     }
 }

@@ -1,6 +1,5 @@
 use std::fmt;
 
-use bytemuck::{Pod, Zeroable};
 use ecow::{eco_format, EcoVec};
 
 use crate::diag::{bail, StrResult};
@@ -40,7 +39,7 @@ pub trait VmWrite {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Pod, Zeroable)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct Readable(u16);
 
@@ -313,7 +312,7 @@ impl From<Math> for Readable {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Pod, Zeroable)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct Writable(u16);
 
@@ -444,7 +443,7 @@ impl VmRead for Writable {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Pod, Zeroable)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct OptionalReadable(u16);
 
@@ -534,7 +533,7 @@ impl VmRead for OptionalReadable {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Pod, Zeroable)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct OptionalWritable(u16);
 
@@ -609,7 +608,7 @@ impl fmt::Debug for OptionalWritable {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Pod, Zeroable)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct OptionalRegister(u16);
 
@@ -681,7 +680,7 @@ impl fmt::Debug for OptionalRegister {
 
 macro_rules! id {
     ($name:ident($type:ty) => $l:literal) => {
-        #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Pod, Zeroable)]
+        #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
         #[repr(transparent)]
         pub struct $name(pub(super) $type);
 
@@ -697,12 +696,12 @@ macro_rules! id {
 
         impl std::fmt::Debug for $name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, concat!($l, "{}"), self.0)
+                write!(f, concat!($l, "{:?}"), self.0)
             }
         }
     };
     ($name:ident => $l:literal) => {
-        #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Pod, Zeroable)]
+        #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
         #[repr(transparent)]
         pub struct $name(pub(super) u16);
 
@@ -854,7 +853,7 @@ impl VmRead for ScopeId {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Pod, Zeroable)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct Parent(u16);
 

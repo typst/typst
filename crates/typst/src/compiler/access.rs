@@ -97,14 +97,14 @@ impl Access for ast::Ident<'_> {
             }
             Some(ReadableGuard::Captured(cap)) => {
                 if mutable {
-                    bail!(self.span(), "cannot mutate a captured value")
+                    bail!(self.span(), "variables from outside the function are read-only and cannot be modified")
                 } else {
                     Ok(AccessPattern::Readable((*cap).into()))
                 }
             }
             Some(ReadableGuard::Global(global)) => {
                 if mutable {
-                    bail!(self.span(), "cannot mutate a global value")
+                    bail!(self.span(), "variables in the global scope are read-only and cannot be modified")
                 } else {
                     Ok(AccessPattern::Readable(global.into()))
                 }

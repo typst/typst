@@ -8,7 +8,7 @@ use crate::math::{AlignPointElem, PrimesElem};
 use crate::text::TextElem;
 use crate::vm::Constant;
 
-use super::{Compile, Compiler, Opcode, ReadableGuard, WritableGuard};
+use super::{Compile, Compiler, ReadableGuard, WritableGuard};
 
 impl Compile for ast::Math<'_> {
     type Output = Option<WritableGuard>;
@@ -21,16 +21,17 @@ impl Compile for ast::Math<'_> {
         output: Self::Output,
     ) -> SourceResult<()> {
         compiler.enter(
+            engine,
             self.span(),
             false,
             output.as_ref().map(|w| w.as_writable()),
             true,
-            |compiler, _| {
+            |compiler, engine, _| {
                 let join = Some(WritableGuard::Joined);
 
                 for expr in self.exprs() {
                     expr.compile_into(engine, compiler, join.clone())?;
-                    compiler.isr(Opcode::Flow);
+                    compiler.flow();
                 }
 
                 Ok(())
@@ -66,7 +67,7 @@ impl Compile for ast::MathIdent<'_> {
 
         let read = self.compile(engine, compiler)?;
 
-        compiler.isr(Opcode::copy(self.span(), &read, &output));
+        compiler.copy(self.span(), &read, &output);
 
         Ok(())
     }
@@ -102,7 +103,7 @@ impl Compile for ast::MathAlignPoint<'_> {
 
         let read = self.compile(engine, compiler)?;
 
-        compiler.isr(Opcode::copy(self.span(), read, &output));
+        compiler.copy(self.span(), read, &output);
 
         Ok(())
     }
@@ -136,7 +137,7 @@ impl Compile for ast::MathDelimited<'_> {
         let body = self.body().compile(engine, compiler)?;
         let right = self.close().compile(engine, compiler)?;
 
-        compiler.isr(Opcode::delimited(self.span(), &left, &body, &right, &output));
+        compiler.delimited(self.span(), &left, &body, &right, &output);
 
         Ok(())
     }
@@ -186,7 +187,7 @@ impl Compile for ast::MathAttach<'_> {
             .bottom()
             .map_or(Ok(None), |value| value.compile(engine, compiler).map(Some))?;
 
-        compiler.isr(Opcode::attach(self.span(), &base, top, bottom, &output));
+        compiler.attach(self.span(), &base, top, bottom, &output);
 
         Ok(())
     }
@@ -219,7 +220,7 @@ impl Compile for ast::MathPrimes<'_> {
 
         let value = self.compile(engine, compiler)?;
 
-        compiler.isr(Opcode::copy(self.span(), value, &output));
+        compiler.copy(self.span(), value, &output);
 
         Ok(())
     }
@@ -252,7 +253,7 @@ impl Compile for ast::MathFrac<'_> {
         let num = self.num().compile(engine, compiler)?;
         let denom = self.denom().compile(engine, compiler)?;
 
-        compiler.isr(Opcode::frac(self.span(), &num, &denom, &output));
+        compiler.frac(self.span(), &num, &denom, &output);
 
         Ok(())
     }
@@ -289,7 +290,7 @@ impl Compile for ast::MathRoot<'_> {
             .map(|i| TextElem::packed(eco_format!("{i}")).spanned(self.span()))
             .map(|value| compiler.const_(value));
 
-        compiler.isr(Opcode::root(self.span(), degree, &radicand, &output));
+        compiler.root(self.span(), degree, &radicand, &output);
 
         Ok(())
     }

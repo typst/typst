@@ -12,6 +12,7 @@ use crate::introspection::{Introspector, Locator};
 use crate::vm::{ControlFlow, VM};
 use crate::{Library, World};
 
+use super::opcodes::Opcode;
 use super::{
     Access, OptionalWritable, Pattern, Readable, Register, State, VMState, Writable,
 };
@@ -154,6 +155,7 @@ impl Closure {
             state,
             span: self.inner.span,
             instructions: &self.inner.instructions,
+            spans: &self.inner.spans,
         };
 
         match vm.run(engine)? {
@@ -212,7 +214,9 @@ pub struct Inner {
     /// The span where the closure was defined.
     pub span: Span,
     /// The instructions as byte code.
-    pub instructions: Vec<u8>,
+    pub instructions: Vec<Opcode>,
+    /// The spans of the instructions.
+    pub spans: Vec<Span>,
     /// The global library.
     pub global: Library,
     /// The list of constants.

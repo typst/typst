@@ -22,7 +22,7 @@ impl Pattern {
                 // Placeholders simply discard the value.
                 PatternItem::Placeholder(_) => {}
                 PatternItem::Simple(span, local, _) => {
-                    local.write(*span, vm)?;
+                    local.write(|| *span, vm)?;
                 }
                 PatternItem::Named(span, _, _) => bail!(
                     *span,
@@ -96,7 +96,7 @@ fn destructure_array(
             }
             PatternItem::Simple(span, local, _) => {
                 if i < len {
-                    *local.write(*span, vm)? = value.as_slice()[i].clone();
+                    *local.write(|| *span, vm)? = value.as_slice()[i].clone();
                     i += 1;
                 } else {
                     bail!(*span, "not enough elements to destructure")
@@ -106,7 +106,7 @@ fn destructure_array(
                 let sink_size = (1 + len).checked_sub(tuple.len());
                 let sink = sink_size.and_then(|s| value.as_slice().get(i..i + s));
                 if let (Some(sink_size), Some(sink)) = (sink_size, sink) {
-                    *local.write(*span, vm)? = Value::Array(sink.into());
+                    *local.write(|| *span, vm)? = Value::Array(sink.into());
                     i += sink_size;
                 } else {
                     bail!(*span, "not enough elements to destructure")
@@ -139,7 +139,7 @@ fn destructure_dict(
         match p {
             PatternItem::Simple(span, local, name) => {
                 let v = dict.get(&name).at(*span)?;
-                *local.write(*span, vm)? = v.clone();
+                *local.write(|| *span, vm)? = v.clone();
                 used.insert(name.clone());
             }
             PatternItem::Placeholder(_) => {}
@@ -147,7 +147,7 @@ fn destructure_dict(
             PatternItem::SpreadDiscard(span) => sink = Some((*span, None)),
             PatternItem::Named(span, local, name) => {
                 let v = dict.get(&name).at(*span)?;
-                *local.write(*span, vm)? = v.clone();
+                *local.write(|| *span, vm)? = v.clone();
                 used.insert(name.clone());
             }
         }
@@ -162,7 +162,7 @@ fn destructure_dict(
                 }
             }
 
-            *local.write(span, vm)? = Value::Dict(sink);
+            *local.write(|| span, vm)? = Value::Dict(sink);
         }
     }
 

@@ -5,7 +5,7 @@ use crate::engine::Engine;
 use crate::vm::Readable;
 
 use super::{
-    AccessPattern, Compile, Compiler, Opcode, PatternCompile, PatternItem, PatternKind,
+    AccessPattern, Compile, Compiler, PatternCompile, PatternItem, PatternKind,
     ReadableGuard, WritableGuard,
 };
 
@@ -20,7 +20,7 @@ impl Compile for ast::LetBinding<'_> {
         output: Self::Output,
     ) -> SourceResult<()> {
         if let Some(output) = output {
-            compiler.isr(Opcode::copy(self.span(), Readable::none(), &output));
+            compiler.copy(self.span(), Readable::none(), &output);
         }
 
         self.compile(engine, compiler)?;
@@ -53,9 +53,15 @@ fn compile_normal(
     if let ast::Pattern::Normal(ast::Expr::Ident(ident)) = pattern {
         let guard = compiler.register().at(ident.span())?;
         if let Some(init) = binding.init() {
-            init.compile_into(engine, compiler, Some(WritableGuard::from(guard.clone())))?;
+            init.compile_into(
+                engine,
+                compiler,
+                Some(WritableGuard::from(guard.clone())),
+            )?;
         }
-        compiler.declare_into(ident.span(), ident.get().clone(), guard).at(ident.span())?;
+        compiler
+            .declare_into(ident.span(), ident.get().clone(), guard)
+            .at(ident.span())?;
     } else {
         // We destructure the initializer using the pattern.
         let value = if let Some(init) = binding.init() {
@@ -69,8 +75,8 @@ fn compile_normal(
         let pattern_id = compiler.pattern(pattern.as_vm_pattern());
 
         // We destructure the initializer using the pattern.
-        compiler.isr(Opcode::Flow);
-        compiler.isr(Opcode::destructure(binding.span(), &value, pattern_id))
+        compiler.flow();
+        compiler.destructure(binding.span(), &value, pattern_id);
     }
 
     Ok(())
@@ -116,7 +122,7 @@ impl Compile for ast::DestructAssignment<'_> {
     ) -> SourceResult<()> {
         self.compile(engine, compiler)?;
         if let Some(output) = output {
-            compiler.isr(Opcode::copy(self.span(), Readable::none(), &output));
+            compiler.copy(self.span(), Readable::none(), &output);
         }
 
         Ok(())
@@ -143,7 +149,7 @@ impl Compile for ast::DestructAssignment<'_> {
             let value = self.value().compile(engine, compiler)?;
             let pattern_id = compiler.pattern(pattern.as_vm_pattern());
 
-            compiler.isr(Opcode::destructure(self.span(), &value, pattern_id));
+            compiler.destructure(self.span(), &value, pattern_id);
         }
 
         Ok(())

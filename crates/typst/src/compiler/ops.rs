@@ -2,9 +2,9 @@ use typst_syntax::ast::{self, AstNode};
 
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
-use crate::vm::Readable;
+use crate::vm::{Pointer, Readable};
 
-use super::{Access, Compile, Compiler, Opcode, ReadableGuard, WritableGuard};
+use super::{Access, Compile, Compiler, ReadableGuard, WritableGuard};
 
 impl Compile for ast::Binary<'_> {
     type Output = Option<WritableGuard>;
@@ -33,7 +33,7 @@ impl Compile for ast::Binary<'_> {
                 | ast::BinOp::MulAssign
                 | ast::BinOp::DivAssign
         ) {
-            compiler.isr(Opcode::copy(self.span(), Readable::none(), &output));
+            compiler.copy(self.span(), Readable::none(), &output);
 
             return compile_assign(engine, compiler, self);
         }
@@ -42,34 +42,18 @@ impl Compile for ast::Binary<'_> {
         let rhs = self.rhs().compile(engine, compiler)?;
 
         match self.op() {
-            ast::BinOp::Add => {
-                compiler.isr(Opcode::add(self.span(), &lhs, &rhs, &output))
-            }
-            ast::BinOp::Sub => {
-                compiler.isr(Opcode::sub(self.span(), &lhs, &rhs, &output))
-            }
-            ast::BinOp::Mul => {
-                compiler.isr(Opcode::mul(self.span(), &lhs, &rhs, &output))
-            }
-            ast::BinOp::Div => {
-                compiler.isr(Opcode::div(self.span(), &lhs, &rhs, &output))
-            }
-            ast::BinOp::Eq => compiler.isr(Opcode::eq(self.span(), &lhs, &rhs, &output)),
-            ast::BinOp::Neq => {
-                compiler.isr(Opcode::neq(self.span(), &lhs, &rhs, &output))
-            }
-            ast::BinOp::Lt => compiler.isr(Opcode::lt(self.span(), &lhs, &rhs, &output)),
-            ast::BinOp::Leq => {
-                compiler.isr(Opcode::leq(self.span(), &lhs, &rhs, &output))
-            }
-            ast::BinOp::Gt => compiler.isr(Opcode::gt(self.span(), &lhs, &rhs, &output)),
-            ast::BinOp::Geq => {
-                compiler.isr(Opcode::geq(self.span(), &lhs, &rhs, &output))
-            }
-            ast::BinOp::In => compiler.isr(Opcode::in_(self.span(), &lhs, &rhs, &output)),
-            ast::BinOp::NotIn => {
-                compiler.isr(Opcode::not_in(self.span(), &lhs, &rhs, &output))
-            }
+            ast::BinOp::Add => compiler.add(self.span(), &lhs, &rhs, &output),
+            ast::BinOp::Sub => compiler.sub(self.span(), &lhs, &rhs, &output),
+            ast::BinOp::Mul => compiler.mul(self.span(), &lhs, &rhs, &output),
+            ast::BinOp::Div => compiler.div(self.span(), &lhs, &rhs, &output),
+            ast::BinOp::Eq => compiler.eq(self.span(), &lhs, &rhs, &output),
+            ast::BinOp::Neq => compiler.neq(self.span(), &lhs, &rhs, &output),
+            ast::BinOp::Lt => compiler.lt(self.span(), &lhs, &rhs, &output),
+            ast::BinOp::Leq => compiler.leq(self.span(), &lhs, &rhs, &output),
+            ast::BinOp::Gt => compiler.gt(self.span(), &lhs, &rhs, &output),
+            ast::BinOp::Geq => compiler.geq(self.span(), &lhs, &rhs, &output),
+            ast::BinOp::In => compiler.in_(self.span(), &lhs, &rhs, &output),
+            ast::BinOp::NotIn => compiler.not_in(self.span(), &lhs, &rhs, &output),
             ast::BinOp::And
             | ast::BinOp::Or
             | ast::BinOp::Assign
@@ -112,40 +96,43 @@ fn compile_and_or(
     binary: &ast::Binary<'_>,
     output: WritableGuard,
 ) -> SourceResult<()> {
-    let label = compiler.jump();
-
     // First we run the lhs.
     let lhs = binary.lhs().compile(engine, compiler)?;
 
+    let reg = compiler.register().at(binary.span())?;
+    let rhs = compiler.section(engine, |compiler, engine| {
+        binary.rhs().compile_into(engine, compiler, Some(reg.clone().into()))
+    })?;
+
+    let label_index = compiler.len() + 1 + rhs.len();
+    let label = Pointer::new(label_index as u32);
+
     // Then we conditionally jump to the end.
     match binary.op() {
-        ast::BinOp::Or => compiler.isr(Opcode::jump_if(binary.span(), &lhs, label)),
-        ast::BinOp::And => compiler.isr(Opcode::jump_if_not(binary.span(), &lhs, label)),
+        ast::BinOp::Or => compiler.jump_if(binary.span(), &lhs, label),
+        ast::BinOp::And => compiler.jump_if_not(binary.span(), &lhs, label),
         _ => unreachable!(),
     }
 
     // Then we run the rhs.
-    let rhs = binary.rhs().compile(engine, compiler)?;
-
-    // We add the jump label.
-    compiler.isr(Opcode::jump_label(binary.span(), compiler.scope_id(), label));
+    compiler.extend(rhs);
 
     // Then, based on the result of the lhs, we either select the rhs to the output or the lhs.
     match binary.op() {
-        ast::BinOp::Or => compiler.isr(Opcode::select(
+        ast::BinOp::Or => compiler.select(
             binary.span(),
             &lhs,
             Readable::bool(true),
-            &rhs,
+            reg.as_readable(),
             &output,
-        )),
-        ast::BinOp::And => compiler.isr(Opcode::select(
+        ),
+        ast::BinOp::And => compiler.select(
             binary.span(),
             &lhs,
-            &rhs,
+            reg.as_readable(),
             Readable::bool(false),
             &output,
-        )),
+        ),
         _ => unreachable!(),
     }
 
@@ -163,19 +150,11 @@ fn compile_assign(
     let access = compiler.access(lhs.as_vm_access());
 
     match binary.op() {
-        ast::BinOp::Assign => compiler.isr(Opcode::assign(binary.span(), &rhs, access)),
-        ast::BinOp::AddAssign => {
-            compiler.isr(Opcode::add_assign(binary.span(), &rhs, access))
-        }
-        ast::BinOp::SubAssign => {
-            compiler.isr(Opcode::sub_assign(binary.span(), &rhs, access))
-        }
-        ast::BinOp::MulAssign => {
-            compiler.isr(Opcode::mul_assign(binary.span(), &rhs, access))
-        }
-        ast::BinOp::DivAssign => {
-            compiler.isr(Opcode::div_assign(binary.span(), &rhs, access))
-        }
+        ast::BinOp::Assign => compiler.assign(binary.span(), &rhs, access),
+        ast::BinOp::AddAssign => compiler.add_assign(binary.span(), &rhs, access),
+        ast::BinOp::SubAssign => compiler.sub_assign(binary.span(), &rhs, access),
+        ast::BinOp::MulAssign => compiler.mul_assign(binary.span(), &rhs, access),
+        ast::BinOp::DivAssign => compiler.div_assign(binary.span(), &rhs, access),
         _ => unreachable!(),
     }
 
@@ -199,9 +178,9 @@ impl Compile for ast::Unary<'_> {
         let value = self.expr().compile(engine, compiler)?;
 
         match self.op() {
-            ast::UnOp::Pos => compiler.isr(Opcode::pos(self.span(), &value, &output)),
-            ast::UnOp::Neg => compiler.isr(Opcode::neg(self.span(), &value, &output)),
-            ast::UnOp::Not => compiler.isr(Opcode::not(self.span(), &value, &output)),
+            ast::UnOp::Pos => compiler.pos(self.span(), &value, &output),
+            ast::UnOp::Neg => compiler.neg(self.span(), &value, &output),
+            ast::UnOp::Not => compiler.not(self.span(), &value, &output),
         }
 
         Ok(())

@@ -3,10 +3,10 @@ use typst_syntax::ast::{self, AstNode};
 use crate::{
     diag::{At, SourceResult},
     engine::Engine,
-    vm::Readable,
+    vm::{Pointer, Readable},
 };
 
-use super::{Compile, Opcode, ReadableGuard, WritableGuard};
+use super::{Compile, ReadableGuard, WritableGuard};
 
 impl Compile for ast::SetRule<'_> {
     type Output = Option<WritableGuard>;
@@ -24,34 +24,44 @@ impl Compile for ast::SetRule<'_> {
 
         if let Some(expr) = self.condition() {
             let condition = expr.compile(engine, compiler)?;
-            let jmp_label = compiler.jump();
 
-            compiler.isr(Opcode::jump_if_not(
-                expr.span(),
-                condition.as_readable(),
-                jmp_label,
-            ));
+            let target = compiler.register().at(self.span())?;
+            let args = compiler.register().at(self.span())?;
+            let set = compiler.section(engine, |compiler, engine| {
+                self.target().compile_into(
+                    engine,
+                    compiler,
+                    Some(target.clone().into()),
+                )?;
+                self.args()
+                    .compile_into(engine, compiler, Some(args.clone().into()))?;
+                Ok(())
+            })?;
+
+            let jump_index = compiler.len() + set.len() + 2;
+            let jump_label = Pointer::new(jump_index as u32);
+            compiler.jump_if_not(expr.span(), condition.as_readable(), jump_label);
 
             let reg = compiler.register().at(self.span())?;
+            compiler.set(
+                self.span(),
+                target.as_readable(),
+                args.as_readable(),
+                reg.as_writeable(),
+            );
 
-            let target = self.target().compile(engine, compiler)?;
-            let args = self.args().compile(engine, compiler)?;
-
-            compiler.isr(Opcode::set(self.span(), &target, &args, reg.as_writeable()));
-
-            compiler.isr(Opcode::jump_label(expr.span(), compiler.scope_id(), jmp_label));
-            compiler.isr(Opcode::select(
+            compiler.select(
                 expr.span(),
                 &condition,
                 reg.as_readable(),
                 Readable::none(),
                 &output,
-            ))
+            );
         } else {
             let target = self.target().compile(engine, compiler)?;
             let args = self.args().compile(engine, compiler)?;
 
-            compiler.isr(Opcode::set(self.span(), &target, &args, &output));
+            compiler.set(self.span(), &target, &args, &output);
         }
 
         Ok(())
@@ -94,7 +104,7 @@ impl Compile for ast::ShowRule<'_> {
             other => other.compile(engine, compiler)?,
         };
 
-        compiler.isr(Opcode::show(self.span(), selector, &transform, &output));
+        compiler.show(self.span(), selector, &transform, &output);
 
         Ok(())
     }

@@ -12,7 +12,7 @@ use crate::foundations::{Module, Value};
 use crate::vm::eval;
 use crate::World;
 
-use super::{Compile, Compiler, Opcode, ReadableGuard, WritableGuard};
+use super::{Compile, Compiler, ReadableGuard, WritableGuard};
 
 impl Compile for ast::ModuleImport<'_> {
     type Output = ();
@@ -122,7 +122,7 @@ impl Compile for ast::ModuleInclude<'_> {
             let module = self.source().load(engine, compiler)?;
             let constant = compiler.const_(module);
 
-            compiler.isr(Opcode::copy(self.span(), constant, &output));
+            compiler.copy(self.span(), constant, &output);
         }
 
         Ok(())

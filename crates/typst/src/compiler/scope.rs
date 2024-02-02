@@ -122,9 +122,13 @@ impl CompilerScope {
         Ok(register)
     }
 
-
     /// Declare a variable in this scope.
-    pub fn declare_into(&mut self, span: Span, name: EcoString, register: RegisterGuard) -> StrResult<()> {
+    pub fn declare_into(
+        &mut self,
+        span: Span,
+        name: EcoString,
+        register: RegisterGuard,
+    ) -> StrResult<()> {
         let variable = Variable { register, span, default: None };
 
         self.variables.insert(name, variable);

@@ -6,7 +6,7 @@ use crate::engine::Engine;
 use crate::vm::{CompiledParam, OptionalWritable};
 
 use super::{
-    AccessPattern, Compile, Compiler, Opcode, PatternCompile, PatternItem, PatternKind,
+    AccessPattern, Compile, Compiler, PatternCompile, PatternItem, PatternKind,
     ReadableGuard, WritableGuard,
 };
 
@@ -73,11 +73,7 @@ impl Compile for ast::Closure<'_> {
                             reg.as_writeable(),
                             "anonymous".into(),
                         ));
-                        compiler.isr(Opcode::destructure(
-                            pat.span(),
-                            reg.as_readable(),
-                            pattern_id,
-                        ))
+                        compiler.destructure(pat.span(), reg.as_readable(), pattern_id);
                     }
                 }
                 ast::Param::Named(named) => {
@@ -126,7 +122,7 @@ impl Compile for ast::Closure<'_> {
             &mut closure_compiler,
             Some(WritableGuard::Joined),
         )?;
-        compiler.isr(Opcode::Flow);
+        compiler.flow();
 
         // Collect the compiled closure.
         let closure = closure_compiler.into_compiled_closure(
@@ -139,7 +135,7 @@ impl Compile for ast::Closure<'_> {
         let closure_id = compiler.closure(closure);
 
         // Instantiate the closure.
-        compiler.isr(Opcode::instantiate(self.span(), closure_id, &output));
+        compiler.instantiate(self.span(), closure_id, &output);
 
         Ok(())
     }

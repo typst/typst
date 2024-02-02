@@ -66,6 +66,7 @@ pub fn run_module(
         state,
         span: module.inner.span,
         instructions: &module.inner.instructions,
+        spans: &module.inner.spans,
     };
 
     let output = match vm.run(&mut engine)? {

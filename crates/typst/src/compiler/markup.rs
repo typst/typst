@@ -11,7 +11,7 @@ use crate::text::{LinebreakElem, RawElem, SmartQuoteElem};
 use crate::text::{SpaceElem, TextElem};
 use crate::vm::{Constant, OptionalReadable};
 
-use super::{Compile, CompileTopLevel, Compiler, Opcode, ReadableGuard, WritableGuard};
+use super::{Compile, CompileTopLevel, Compiler, ReadableGuard, WritableGuard};
 
 impl CompileTopLevel for ast::Markup<'_> {
     fn compile_top_level(
@@ -23,23 +23,23 @@ impl CompileTopLevel for ast::Markup<'_> {
             // Handle set rules specially.
             if let ast::Expr::Set(set) = expr {
                 let style = set.compile(engine, compiler)?;
-                compiler.isr(Opcode::styled(set.span(), &style));
-                compiler.isr(Opcode::Flow);
+                compiler.styled(set.span(), &style);
+                compiler.flow();
                 continue;
             }
 
             // Handle show rules specially.
             if let ast::Expr::Show(show) = expr {
                 let style = show.compile(engine, compiler)?;
-                compiler.isr(Opcode::styled(show.span(), &style));
-                compiler.isr(Opcode::Flow);
+                compiler.styled(show.span(), &style);
+                compiler.flow();
                 continue;
             }
 
             // Compile the expression, appending its output to the join
             // output.
             expr.compile_into(engine, compiler, Some(WritableGuard::Joined))?;
-            compiler.isr(Opcode::Flow);
+            compiler.flow();
         }
 
         Ok(())
@@ -57,11 +57,12 @@ impl Compile for ast::Markup<'_> {
         output: Self::Output,
     ) -> SourceResult<()> {
         compiler.enter(
+            engine,
             self.span(),
             false,
             output.as_ref().map(|w| w.as_writable()),
             true,
-            |compiler, _| {
+            |compiler, engine, _| {
                 let join_output = output.is_some().then(|| WritableGuard::Joined);
                 for expr in self.exprs() {
                     // Handle set rules specially.
@@ -71,8 +72,8 @@ impl Compile for ast::Markup<'_> {
                             bail!(set.span(), "cannot set style without output");
                         }
 
-                        compiler.isr(Opcode::styled(set.span(), &style));
-                        compiler.isr(Opcode::Flow);
+                        compiler.styled(set.span(), &style);
+                        compiler.flow();
                         continue;
                     }
 
@@ -83,15 +84,15 @@ impl Compile for ast::Markup<'_> {
                             bail!(show.span(), "cannot set style without output");
                         }
 
-                        compiler.isr(Opcode::styled(show.span(), &style));
-                        compiler.isr(Opcode::Flow);
+                        compiler.styled(show.span(), &style);
+                        compiler.flow();
                         continue;
                     }
 
                     // Compile the expression, appending its output to the join
                     // output.
                     expr.compile_into(engine, compiler, join_output.clone())?;
-                    compiler.isr(Opcode::Flow);
+                    compiler.flow();
                 }
 
                 Ok(())
@@ -129,7 +130,7 @@ impl Compile for ast::Text<'_> {
         if let Some(output) = output {
             let const_ = self.compile(engine, compiler)?;
 
-            compiler.isr(Opcode::copy(self.span(), &const_, &output));
+            compiler.copy(self.span(), &const_, &output);
         }
 
         Ok(())
@@ -160,7 +161,7 @@ impl Compile for ast::Space<'_> {
         if let Some(output) = output {
             let const_ = self.compile(engine, compiler)?;
 
-            compiler.isr(Opcode::copy(self.span(), &const_, &output));
+            compiler.copy(self.span(), &const_, &output);
         }
 
         Ok(())
@@ -171,7 +172,7 @@ impl Compile for ast::Space<'_> {
         _: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let value = SpaceElem::new().pack().spanned(self.span());
+        let value = SpaceElem::new().pack();
         let value = compiler.const_(value.into_value());
 
         Ok(value.into())
@@ -191,7 +192,7 @@ impl Compile for ast::Linebreak<'_> {
         if let Some(output) = output {
             let const_ = self.compile(engine, compiler)?;
 
-            compiler.isr(Opcode::copy(self.span(), &const_, &output));
+            compiler.copy(self.span(), &const_, &output);
         }
 
         Ok(())
@@ -222,7 +223,7 @@ impl Compile for ast::Parbreak<'_> {
         if let Some(output) = output {
             let const_ = self.compile(engine, compiler)?;
 
-            compiler.isr(Opcode::copy(self.span(), &const_, &output));
+            compiler.copy(self.span(), &const_, &output);
         }
 
         Ok(())
@@ -253,7 +254,7 @@ impl Compile for ast::Escape<'_> {
         if let Some(output) = output {
             let const_ = self.compile(engine, compiler)?;
 
-            compiler.isr(Opcode::copy(self.span(), &const_, &output));
+            compiler.copy(self.span(), &const_, &output);
         }
 
         Ok(())
@@ -284,7 +285,7 @@ impl Compile for ast::Shorthand<'_> {
         if let Some(output) = output {
             let const_ = self.compile(engine, compiler)?;
 
-            compiler.isr(Opcode::copy(self.span(), &const_, &output));
+            compiler.copy(self.span(), &const_, &output);
         }
 
         Ok(())
@@ -315,7 +316,7 @@ impl Compile for ast::SmartQuote<'_> {
         if let Some(output) = output {
             let const_ = self.compile(engine, compiler)?;
 
-            compiler.isr(Opcode::copy(self.span(), &const_, &output));
+            compiler.copy(self.span(), &const_, &output);
         }
 
         Ok(())
@@ -346,7 +347,7 @@ impl Compile for ast::Strong<'_> {
     ) -> SourceResult<()> {
         if let Some(output) = output {
             let body = self.body().compile(engine, compiler)?;
-            compiler.isr(Opcode::strong(self.span(), &body, &output));
+            compiler.strong(self.span(), &body, &output);
         }
 
         Ok(())
@@ -375,7 +376,7 @@ impl Compile for ast::Emph<'_> {
     ) -> SourceResult<()> {
         if let Some(output) = output {
             let body = self.body().compile(engine, compiler)?;
-            compiler.isr(Opcode::emph(self.span(), &body, &output));
+            compiler.emph(self.span(), &body, &output);
         }
 
         Ok(())
@@ -405,7 +406,7 @@ impl Compile for ast::Raw<'_> {
         if let Some(output) = output {
             let const_ = self.compile(engine, compiler)?;
 
-            compiler.isr(Opcode::copy(self.span(), const_, &output));
+            compiler.copy(self.span(), const_, &output);
         }
 
         Ok(())
@@ -438,7 +439,7 @@ impl Compile for ast::Link<'_> {
         if let Some(output) = output {
             let const_ = self.compile(engine, compiler)?;
 
-            compiler.isr(Opcode::copy(self.span(), const_, &output));
+            compiler.copy(self.span(), const_, &output);
         }
 
         Ok(())
@@ -468,7 +469,7 @@ impl Compile for ast::Label<'_> {
         if let Some(output) = output {
             let const_ = self.compile(engine, compiler)?;
 
-            compiler.isr(Opcode::copy(self.span(), const_, &output));
+            compiler.copy(self.span(), const_, &output);
         }
 
         Ok(())
@@ -502,14 +503,14 @@ impl Compile for ast::Ref<'_> {
                 .map(|sup| sup.compile(engine, compiler))
                 .transpose()?;
 
-            compiler.isr(Opcode::ref_(
+            compiler.ref_(
                 self.span(),
                 label,
                 supplement
                     .map(|r| OptionalReadable::some(r.as_readable()))
                     .unwrap_or_else(OptionalReadable::none),
                 &output,
-            ));
+            );
         }
 
         Ok(())
@@ -540,12 +541,7 @@ impl Compile for ast::Heading<'_> {
             let level = self.level();
             let body = self.body().compile(engine, compiler)?;
 
-            compiler.isr(Opcode::heading(
-                self.span(),
-                &body,
-                level.get() as u32,
-                &output,
-            ));
+            compiler.heading(self.span(), &body, level.get() as u32, &output);
         }
 
         Ok(())
@@ -574,7 +570,7 @@ impl Compile for ast::ListItem<'_> {
     ) -> SourceResult<()> {
         if let Some(output) = output {
             let body = self.body().compile(engine, compiler)?;
-            compiler.isr(Opcode::list_item(self.span(), &body, &output));
+            compiler.list_item(self.span(), &body, &output);
         }
 
         Ok(())
@@ -604,7 +600,7 @@ impl Compile for ast::EnumItem<'_> {
         if let Some(output) = output {
             let number = self.number().and_then(|n| NonZeroU32::new(n as u32 + 1));
             let body = self.body().compile(engine, compiler)?;
-            compiler.isr(Opcode::enum_item(self.span(), &body, number, &output));
+            compiler.enum_item(self.span(), &body, number, &output);
         }
 
         Ok(())
@@ -634,7 +630,7 @@ impl Compile for ast::TermItem<'_> {
         if let Some(output) = output {
             let term = self.term().compile(engine, compiler)?;
             let description = self.description().compile(engine, compiler)?;
-            compiler.isr(Opcode::term_item(self.span(), &term, &description, &output));
+            compiler.term_item(self.span(), &term, &description, &output);
         }
 
         Ok(())
@@ -663,7 +659,7 @@ impl Compile for ast::Equation<'_> {
     ) -> SourceResult<()> {
         if let Some(output) = output {
             let body = self.body().compile(engine, compiler)?;
-            compiler.isr(Opcode::equation(self.span(), &body, &output));
+            compiler.equation(self.span(), &body, &output);
         }
 
         Ok(())

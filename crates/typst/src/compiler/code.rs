@@ -8,7 +8,7 @@ use crate::engine::Engine;
 use crate::foundations::Value;
 use crate::vm::Readable;
 
-use super::{Compile, Compiler, Opcode, ReadableGuard, WritableGuard};
+use super::{Compile, Compiler, ReadableGuard, WritableGuard};
 
 impl Compile for ast::Code<'_> {
     type Output = Option<WritableGuard>;
@@ -21,11 +21,12 @@ impl Compile for ast::Code<'_> {
         output: Self::Output,
     ) -> SourceResult<()> {
         compiler.enter(
+            engine,
             self.span(),
             false,
             output.as_ref().map(|w| w.as_writable()),
             false,
-            |compiler, display| {
+            |compiler, engine, display| {
                 let join_output = output.is_some().then(|| WritableGuard::Joined);
 
                 for expr in self.exprs() {
@@ -33,8 +34,8 @@ impl Compile for ast::Code<'_> {
                     if let ast::Expr::Set(set) = expr {
                         *display = true;
                         let style = set.compile(engine, compiler)?;
-                        compiler.isr(Opcode::styled(set.span(), &style));
-                        compiler.isr(Opcode::Flow);
+                        compiler.styled(set.span(), &style);
+                        compiler.flow();
                         continue;
                     }
 
@@ -42,15 +43,15 @@ impl Compile for ast::Code<'_> {
                     if let ast::Expr::Show(show) = expr {
                         *display = true;
                         let style = show.compile(engine, compiler)?;
-                        compiler.isr(Opcode::styled(show.span(), &style));
-                        compiler.isr(Opcode::Flow);
+                        compiler.styled(show.span(), &style);
+                        compiler.flow();
                         continue;
                     }
 
                     // Compile the expression, appending its output to the join
                     // output.
                     expr.compile_into(engine, compiler, join_output.clone())?;
-                    compiler.isr(Opcode::Flow);
+                    compiler.flow();
                 }
 
                 Ok(())
@@ -306,7 +307,7 @@ impl Compile for ast::Ident<'_> {
 
         let read = self.compile(engine, compiler)?;
 
-        compiler.isr(Opcode::copy(self.span(), &read, &output));
+        compiler.copy(self.span(), &read, &output);
 
         Ok(())
     }
@@ -335,7 +336,7 @@ impl Compile for ast::None<'_> {
         output: Self::Output,
     ) -> SourceResult<()> {
         if let Some(output) = output {
-            compiler.isr(Opcode::none(self.span(), &output));
+            compiler.none(self.span(), &output);
         }
         Ok(())
     }
@@ -360,7 +361,7 @@ impl Compile for ast::Auto<'_> {
         output: Self::Output,
     ) -> SourceResult<()> {
         if let Some(output) = output {
-            compiler.isr(Opcode::auto(self.span(), &output));
+            compiler.auto(self.span(), &output);
         }
         Ok(())
     }
@@ -385,7 +386,7 @@ impl Compile for ast::Bool<'_> {
         output: Self::Output,
     ) -> SourceResult<()> {
         if let Some(output) = output {
-            compiler.isr(Opcode::copy(self.span(), Readable::bool(self.get()), &output));
+            compiler.copy(self.span(), Readable::bool(self.get()), &output);
         }
         Ok(())
     }
@@ -411,7 +412,7 @@ impl Compile for ast::Int<'_> {
     ) -> SourceResult<()> {
         if let Some(output) = output {
             let cst = self.compile(engine, compiler)?;
-            compiler.isr(Opcode::copy(self.span(), &cst, &output));
+            compiler.copy(self.span(), &cst, &output);
         }
 
         Ok(())
@@ -439,7 +440,7 @@ impl Compile for ast::Float<'_> {
     ) -> SourceResult<()> {
         if let Some(output) = output {
             let cst = self.compile(engine, compiler)?;
-            compiler.isr(Opcode::copy(self.span(), &cst, &output));
+            compiler.copy(self.span(), &cst, &output);
         }
 
         Ok(())
@@ -467,7 +468,7 @@ impl Compile for ast::Numeric<'_> {
     ) -> SourceResult<()> {
         if let Some(output) = output {
             let cst = self.compile(engine, compiler)?;
-            compiler.isr(Opcode::copy(self.span(), &cst, &output));
+            compiler.copy(self.span(), &cst, &output);
         }
 
         Ok(())
@@ -495,7 +496,7 @@ impl Compile for ast::Str<'_> {
     ) -> SourceResult<()> {
         if let Some(output) = output {
             let str = self.compile(engine, compiler)?;
-            compiler.isr(Opcode::copy(self.span(), &str, &output));
+            compiler.copy(self.span(), &str, &output);
         }
 
         Ok(())
@@ -527,23 +528,23 @@ impl Compile for ast::Array<'_> {
 
         if output.is_joined() {
             let input = self.compile(engine, compiler)?;
-            compiler.isr(Opcode::copy(self.span(), &input, &output));
+            compiler.copy(self.span(), &input, &output);
 
             return Ok(());
         }
 
         let cap = self.items().count();
-        compiler.isr(Opcode::array(self.span(), cap as u32, &output));
+        compiler.array(self.span(), cap as u32, &output);
 
         for item in self.items() {
             match item {
                 ast::ArrayItem::Pos(item) => {
                     let value = item.compile(engine, compiler)?;
-                    compiler.isr(Opcode::push(item.span(), &value, &output));
+                    compiler.push(item.span(), &value, &output);
                 }
                 ast::ArrayItem::Spread(item) => {
                     let value = item.compile(engine, compiler)?;
-                    compiler.isr(Opcode::spread(item.span(), &value, &output));
+                    compiler.spread(item.span(), &value, &output);
                 }
             }
         }
@@ -578,29 +579,29 @@ impl Compile for ast::Dict<'_> {
 
         if output.is_joined() {
             let input = self.compile(engine, compiler)?;
-            compiler.isr(Opcode::copy(self.span(), &input, &output));
+            compiler.copy(self.span(), &input, &output);
 
             return Ok(());
         }
 
         let cap = self.items().count();
-        compiler.isr(Opcode::dict(self.span(), cap as u32, &output));
+        compiler.dict(self.span(), cap as u32, &output);
 
         for item in self.items() {
             match item {
                 ast::DictItem::Named(item) => {
                     let key = compiler.string(item.name().get().clone());
                     let value = item.expr().compile(engine, compiler)?;
-                    compiler.isr(Opcode::insert(item.span(), key, &value, &output));
+                    compiler.insert(item.span(), key, &value, &output);
                 }
                 ast::DictItem::Keyed(item) => {
                     let key = item.key().compile(engine, compiler)?;
                     let value = item.expr().compile(engine, compiler)?;
-                    compiler.isr(Opcode::insert(item.span(), &key, &value, &output));
+                    compiler.insert(item.span(), &key, &value, &output);
                 }
                 ast::DictItem::Spread(item) => {
                     let value = item.compile(engine, compiler)?;
-                    compiler.isr(Opcode::spread(item.span(), &value, &output));
+                    compiler.spread(item.span(), &value, &output);
                 }
             }
         }
@@ -709,7 +710,7 @@ impl Compile for ast::FieldAccess<'_> {
             AccessPattern::Chained(Arc::new(pattern), self.field().get().clone());
         let access_id = compiler.access(access.as_vm_access());
 
-        compiler.isr(Opcode::field(self.span(), access_id, &output));
+        compiler.field(self.span(), access_id, &output);
 
         Ok(())
     }
