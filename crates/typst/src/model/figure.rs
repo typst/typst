@@ -192,6 +192,7 @@ pub struct FigureElem {
     /// How to number the figure. Accepts a
     /// [numbering pattern or function]($numbering).
     #[default(Some(NumberingPattern::from_str("1").unwrap().into()))]
+    #[borrowed]
     pub numbering: Option<Numbering>,
 
     /// The vertical gap between the body and caption.
@@ -371,8 +372,8 @@ impl Refable for Packed<FigureElem> {
             .unwrap_or_else(|| Counter::of(FigureElem::elem()))
     }
 
-    fn numbering(&self) -> Option<Numbering> {
-        (**self).numbering(StyleChain::default())
+    fn numbering(&self) -> Option<&Numbering> {
+        (**self).numbering(StyleChain::default()).as_ref()
     }
 }
 
@@ -396,8 +397,9 @@ impl Outlinable for Packed<FigureElem> {
             (**self).counter(),
             self.numbering(),
         ) {
-            let location = self.location().unwrap();
-            let numbers = counter.at(engine, location)?.display(engine, &numbering)?;
+            let numbers = counter
+                .at(engine, self.location().unwrap())?
+                .display(engine, numbering)?;
 
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');

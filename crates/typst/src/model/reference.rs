@@ -220,7 +220,7 @@ impl Show for Packed<RefElem> {
             let numbers = refable
                 .counter()
                 .at(engine, loc)?
-                .display(engine, &numbering.trimmed())?;
+                .display(engine, &numbering.clone().trimmed())?;
 
             let supplement = match self.supplement(styles).as_ref() {
                 Smart::Auto => refable.supplement(),
@@ -301,5 +301,5 @@ pub trait Refable {
     fn counter(&self) -> Counter;
 
     /// Returns the numbering of this element.
-    fn numbering(&self) -> Option<Numbering>;
+    fn numbering(&self) -> Option<&Numbering>;
 }
