@@ -202,6 +202,8 @@ For loops can iterate over a variety of collections:
 - `{for pair in dict {..}}` \
   Iterates over the key-value pairs of the [dictionary]($dictionary).
   The pairs can also be destructured by using `{for (key, value) in dict {..}}`.
+  It is more efficient than `{for pair in dict.pairs() {..}}` because it doesn't
+  create a temporary array of all key-value pairs.
 
 To control the execution of the loop, Typst provides the `{break}` and
 `{continue}` statements. The former performs an early exit from the loop while
