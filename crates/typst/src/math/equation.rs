@@ -73,6 +73,7 @@ pub struct EquationElem {
     /// With @ratio, we get:
     /// $ F_n = floor(1 / sqrt(5) phi.alt^n) $
     /// ```
+    #[borrowed]
     pub numbering: Option<Numbering>,
 
     /// A supplement for the equation.
@@ -243,7 +244,9 @@ impl LayoutSingle for Packed<EquationElem> {
         if let Some(numbering) = (**self).numbering(styles) {
             let pod = Regions::one(regions.base(), Axes::splat(false));
             let counter = Counter::of(EquationElem::elem())
-                .display(self.span(), Some(numbering), false)
+                .at(engine, self.location().unwrap())?
+                .display(engine, numbering)?
+                .spanned(self.span())
                 .layout(engine, styles, pod)?
                 .into_frame();
 
@@ -338,8 +341,8 @@ impl Refable for Packed<EquationElem> {
         Counter::of(EquationElem::elem())
     }
 
-    fn numbering(&self) -> Option<Numbering> {
-        (**self).numbering(StyleChain::default())
+    fn numbering(&self) -> Option<&Numbering> {
+        (**self).numbering(StyleChain::default()).as_ref()
     }
 }
 
@@ -365,7 +368,7 @@ impl Outlinable for Packed<EquationElem> {
         let numbers = self
             .counter()
             .at(engine, self.location().unwrap())?
-            .display(engine, &numbering)?;
+            .display(engine, numbering)?;
 
         Ok(Some(supplement + numbers))
     }

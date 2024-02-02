@@ -147,11 +147,12 @@ impl Synthesize for Packed<HeadingElem> {
 
 impl Show for Packed<HeadingElem> {
     #[typst_macros::time(name = "heading", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
         if let Some(numbering) = (**self).numbering(styles).as_ref() {
             realized = Counter::of(HeadingElem::elem())
-                .display(self.span(), Some(numbering.clone()), false)
+                .at(engine, self.location().unwrap())?
+                .display(engine, numbering)?
                 .spanned(self.span())
                 + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;
@@ -205,8 +206,8 @@ impl Refable for Packed<HeadingElem> {
         Counter::of(HeadingElem::elem())
     }
 
-    fn numbering(&self) -> Option<Numbering> {
-        (**self).numbering(StyleChain::default()).clone()
+    fn numbering(&self) -> Option<&Numbering> {
+        (**self).numbering(StyleChain::default()).as_ref()
     }
 }
 

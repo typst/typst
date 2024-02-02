@@ -341,7 +341,7 @@ impl OutlineIndent {
                         let numbers = ancestor_outlinable
                             .counter()
                             .at(engine, ancestor.location().unwrap())?
-                            .display(engine, &numbering)?;
+                            .display(engine, numbering)?;
 
                         hidden += numbers + SpaceElem::new().pack();
                     };
