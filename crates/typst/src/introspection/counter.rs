@@ -649,9 +649,9 @@ impl Show for Packed<DisplayElem> {
                     if func == HeadingElem::elem() {
                         HeadingElem::numbering_in(styles).clone()
                     } else if func == FigureElem::elem() {
-                        FigureElem::numbering_in(styles)
+                        FigureElem::numbering_in(styles).clone()
                     } else if func == EquationElem::elem() {
-                        EquationElem::numbering_in(styles)
+                        EquationElem::numbering_in(styles).clone()
                     } else {
                         None
                     }
