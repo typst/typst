@@ -9,7 +9,7 @@ use smallvec::SmallVec;
 use unicode_math_class::MathClass;
 
 use crate::diag::{At, SourceResult, StrResult};
-use crate::foundations::{array, repr, NativeElement, Packed, Repr, Str, Type, Value};
+use crate::foundations::{array, repr, NativeElement, Packed, Repr, Type, Value};
 use crate::syntax::{Span, Spanned};
 
 #[rustfmt::skip]
@@ -182,7 +182,7 @@ impl IntoValue for Value {
     }
 }
 
-impl IntoValue for (&Str, &Value) {
+impl<K, V: Clone> IntoValue for (&K, &V) {
     fn into_value(self) -> Value {
         Value::Array(array![self.0.clone(), self.1.clone()])
     }
