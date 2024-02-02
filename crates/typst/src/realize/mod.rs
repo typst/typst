@@ -92,18 +92,17 @@ pub fn realize(
         meta = prepare(engine, &mut target, &mut map, styles)?;
     }
 
-    // Apply the step.
+    // Apply a step, if there is one.
     let mut output = match step {
-        // Apply a user-defined show rule.
-        Some(Step::Recipe(recipe, guard)) => show(engine, target, recipe, guard)?,
-
-        // If the verdict picks this step, the `target` is guaranteed
-        // to have a built-in show rule.
-        Some(Step::Builtin) => {
-            target.with::<dyn Show>().unwrap().show(engine, styles.chain(&map))?
+        Some(step) => {
+            // Errors in show rules don't terminate compilation immediately. We
+            // just continue with empty content for them and show all errors
+            // together, if they remain by the end of the introspection loop.
+            //
+            // This way, we can ignore errors that only occur in earlier
+            // iterations and also show more useful errors at once.
+            engine.delayed(|engine| apply(engine, target, step, styles.chain(&map)))
         }
-
-        // Nothing to do.
         None => target,
     };
 
@@ -269,6 +268,23 @@ fn prepare(
     }
 
     Ok(None)
+}
+
+/// Apply a step.
+fn apply(
+    engine: &mut Engine,
+    target: Content,
+    step: Step,
+    styles: StyleChain,
+) -> SourceResult<Content> {
+    match step {
+        // Apply a user-defined show rule.
+        Step::Recipe(recipe, guard) => show(engine, target, recipe, guard),
+
+        // If the verdict picks this step, the `target` is guaranteed
+        // to have a built-in show rule.
+        Step::Builtin => target.with::<dyn Show>().unwrap().show(engine, styles),
+    }
 }
 
 /// Apply a user-defined show rule.

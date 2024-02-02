@@ -635,37 +635,35 @@ struct DisplayElem {
 impl Show for Packed<DisplayElem> {
     #[typst_macros::time(name = "counter.display", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(engine.delayed(|engine| {
-            let location = self.location().unwrap();
-            let counter = self.counter();
-            let numbering = self
-                .numbering()
-                .clone()
-                .or_else(|| {
-                    let CounterKey::Selector(Selector::Elem(func, _)) = counter.0 else {
-                        return None;
-                    };
+        let location = self.location().unwrap();
+        let counter = self.counter();
+        let numbering = self
+            .numbering()
+            .clone()
+            .or_else(|| {
+                let CounterKey::Selector(Selector::Elem(func, _)) = counter.0 else {
+                    return None;
+                };
 
-                    if func == HeadingElem::elem() {
-                        HeadingElem::numbering_in(styles).clone()
-                    } else if func == FigureElem::elem() {
-                        FigureElem::numbering_in(styles).clone()
-                    } else if func == EquationElem::elem() {
-                        EquationElem::numbering_in(styles).clone()
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
+                if func == HeadingElem::elem() {
+                    HeadingElem::numbering_in(styles).clone()
+                } else if func == FigureElem::elem() {
+                    FigureElem::numbering_in(styles).clone()
+                } else if func == EquationElem::elem() {
+                    EquationElem::numbering_in(styles).clone()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
 
-            let state = if *self.both() {
-                counter.both(engine, location)?
-            } else {
-                counter.at(engine, location)?
-            };
+        let state = if *self.both() {
+            counter.both(engine, location)?
+        } else {
+            counter.at(engine, location)?
+        };
 
-            state.display(engine, &numbering)
-        }))
+        state.display(engine, &numbering)
     }
 }
 

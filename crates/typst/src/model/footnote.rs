@@ -126,16 +126,14 @@ impl Packed<FootnoteElem> {
 impl Show for Packed<FootnoteElem> {
     #[typst_macros::time(name = "footnote", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(engine.delayed(|engine| {
-            let loc = self.declaration_location(engine).at(self.span())?;
-            let numbering = self.numbering(styles);
-            let counter = Counter::of(FootnoteElem::elem());
-            let num = counter.at(engine, loc)?.display(engine, numbering)?;
-            let sup = SuperElem::new(num).pack().spanned(self.span());
-            let loc = loc.variant(1);
-            // Add zero-width weak spacing to make the footnote "sticky".
-            Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc)))
-        }))
+        let loc = self.declaration_location(engine).at(self.span())?;
+        let numbering = self.numbering(styles);
+        let counter = Counter::of(FootnoteElem::elem());
+        let num = counter.at(engine, loc)?.display(engine, numbering)?;
+        let sup = SuperElem::new(num).pack().spanned(self.span());
+        let loc = loc.variant(1);
+        // Add zero-width weak spacing to make the footnote "sticky".
+        Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc)))
     }
 }
 
