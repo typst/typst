@@ -52,6 +52,7 @@ impl CompiledModule {
                 accesses: compiler.common.accesses.into_values(),
                 labels: compiler.common.labels.into_values(),
                 patterns: compiler.common.patterns.into_values(),
+                isr_spans: compiler.common.spans.into_values(),
                 defaults: compiler.common.defaults,
                 joined: true,
                 exports,
@@ -86,6 +87,8 @@ pub struct Repr {
     pub patterns: Vec<Pattern>,
     /// The default values of variables.
     pub defaults: Vec<EcoVec<DefaultValue>>,
+    /// The spans used in the module.
+    pub isr_spans: Vec<Span>,
     /// Whether this module returns a joined value.
     pub joined: bool,
     /// The exports of the module.

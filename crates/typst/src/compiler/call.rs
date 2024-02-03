@@ -143,23 +143,20 @@ impl Compile for ast::Arg<'_> {
         match self {
             ast::Arg::Pos(pos) => {
                 let guard = pos.compile(engine, compiler)?;
-                compiler.push_arg(self.span(), &guard, pos.span(), &output);
+                let span_id = compiler.span(pos.span());
+                compiler.push_arg(self.span(), &guard, span_id, &output);
             }
             ast::Arg::Named(named) => {
                 let name = named.name().get().clone();
                 let name_id = compiler.string(name.clone());
                 let value = named.expr().compile(engine, compiler)?;
-                compiler.insert_arg(
-                    self.span(),
-                    name_id,
-                    &value,
-                    named.expr().span(),
-                    &output,
-                );
+                let span_id = compiler.span(named.expr().span());
+                compiler.insert_arg(self.span(), name_id, &value, span_id, &output);
             }
             ast::Arg::Spread(spread) => {
                 let guard = spread.compile(engine, compiler)?;
-                compiler.spread_arg(self.span(), &guard, spread.span(), &output);
+                let span_id = compiler.span(spread.span());
+                compiler.spread_arg(self.span(), &guard, span_id, &output);
             }
         }
 

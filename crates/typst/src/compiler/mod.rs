@@ -29,7 +29,7 @@ use crate::foundations::{IntoValue, Label, Str, Value};
 use crate::vm::{
     self, Access as VmAccess, AccessId, ClosureId, CompiledClosure, CompiledParam,
     Constant, DefaultValue, LabelId, OptionalWritable, Pattern as VmPattern, PatternId,
-    ScopeId, StringId, Writable,
+    ScopeId, SpanId, StringId, Writable,
 };
 use crate::Library;
 
@@ -312,6 +312,10 @@ impl Compiler {
         self.common.patterns.insert(value)
     }
 
+    pub fn span(&mut self, span: Span) -> SpanId {
+        self.common.spans.insert(span)
+    }
+
     pub fn into_compiled_closure(
         mut self,
         span: Span,
@@ -347,6 +351,7 @@ impl Compiler {
                 accesses: self.common.accesses.into_values(),
                 labels: self.common.labels.into_values(),
                 patterns: self.common.patterns.into_values(),
+                isr_spans: self.common.spans.into_values(),
                 defaults: self.common.defaults,
                 output: None,
                 joined: true,
@@ -381,8 +386,26 @@ impl Compiler {
     }
 
     pub fn extend(&mut self, section: CompiledSection) {
-        self.instructions.extend(section.instructions);
         self.spans.extend(section.spans);
+
+        let offset = self.instructions.len();
+        for isr in section.instructions {
+            match isr {
+                Opcode::Jump(mut jump) => {
+                    jump.instruction.0 += offset as u32;
+                    self.instructions.push(Opcode::Jump(jump));
+                }
+                Opcode::JumpIfNot(mut jump_if_not) => {
+                    jump_if_not.instruction.0 += offset as u32;
+                    self.instructions.push(Opcode::JumpIfNot(jump_if_not));
+                }
+                Opcode::JumpIf(mut jump_if) => {
+                    jump_if.instruction.0 += offset as u32;
+                    self.instructions.push(Opcode::JumpIf(jump_if));
+                }
+                other => self.instructions.push(other),
+            }
+        }
     }
 }
 
@@ -400,6 +423,8 @@ struct Inner {
     accesses: Remapper<AccessId, VmAccess>,
     /// The pattern remapper.
     patterns: Remapper<PatternId, VmPattern>,
+    /// The span remapper.
+    spans: Remapper<SpanId, Span>,
     /// The current scope counter.
     scopes: u16,
     /// The default value remapper.

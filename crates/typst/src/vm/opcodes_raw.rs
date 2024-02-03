@@ -334,7 +334,7 @@ opcodes! {
         /// The value to insert.
         value: Readable,
         /// The span of the value.
-        value_span: Span,
+        value_span: SpanId,
     },
 
     /// Inserts a named value into an argument set.
@@ -344,7 +344,7 @@ opcodes! {
         /// The value to insert.
         value: Readable,
         /// The span of the value.
-        value_span: Span,
+        value_span: SpanId,
     },
 
     /// Inserts a named value into an argument set.
@@ -352,7 +352,7 @@ opcodes! {
         /// The value to insert.
         value: Readable,
         /// The span of the value.
-        value_span: Span,
+        value_span: SpanId,
     },
 
     /// Spreads this value into either:

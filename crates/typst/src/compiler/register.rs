@@ -9,12 +9,12 @@ use crate::vm::{
 };
 
 /// The table of occupied registers.
-pub struct RegisterTable([(bool, bool); 256]);
+pub struct RegisterTable([(bool, bool); 128]);
 
 impl RegisterTable {
     /// Creates a new empty register table.
     pub fn new() -> Self {
-        Self([(false, true); 256])
+        Self([(false, true); 128])
     }
 
     /// Allocates a register.

@@ -1,22 +1,23 @@
 use std::num::{NonZeroU32, NonZeroUsize};
 
-use typst_syntax::Span;
+use typst_syntax::{Span, Spanned};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{bail, error, At, SourceResult};
 use crate::engine::Engine;
 use crate::eval::ops;
 use crate::foundations::{
-    array, call_method_mut, is_mutating_method, Content, Func, IntoValue, NativeElement,
-    Recipe, ShowableSelector, Style, Styles, Transformation, Value,
+    array, call_method_mut, is_mutating_method, Arg, Content, Func, IntoValue,
+    NativeElement, Recipe, ShowableSelector, Style, Styles, Transformation, Value,
 };
 use crate::math::{AttachElem, EquationElem, FracElem, LrElem};
 use crate::model::{EmphElem, HeadingElem, RefElem, StrongElem};
-use crate::vm::{ControlFlow, State};
+use crate::vm::{ControlFlow, Register, State};
+use crate::World;
 
 use super::{
     Access, AccessId, ClosureId, LabelId, OptionalReadable, OptionalWritable, PatternId,
-    Pointer, Readable, ScopeId, VMState, Writable,
+    Pointer, Readable, ScopeId, SpanId, VMState, Writable,
 };
 
 pub trait Run {
@@ -28,6 +29,15 @@ pub trait Run {
         vm: &mut VMState,
         engine: &mut Engine,
     ) -> SourceResult<()>;
+}
+
+/// Turns a span into a (file, line) pair.
+fn resolve_span(world: &dyn World, span: Span) -> Option<(String, u32)> {
+    let id = span.id()?;
+    let source = world.source(id).ok()?;
+    let range = source.range(span)?;
+    let line = source.byte_to_line(range.start)?;
+    Some((format!("{id:?}"), line as u32 + 1))
 }
 
 macro_rules! opcode_struct {
@@ -42,7 +52,6 @@ macro_rules! opcode_struct {
     ) => {
         $(#[$sattr])*
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        #[repr(C)]
         pub struct $name {
             $(
                 $(
@@ -109,7 +118,12 @@ macro_rules! opcodes {
                         Ok(())
                     }
                     $(Self::$name($snek) => {
-                        // eprintln!("{:?}", $snek);
+                        eprintln!(
+                            "{}: {:?}{}",
+                            vm.instruction_pointer,
+                            $snek,
+                            resolve_span(&*engine.world, span()).map(|(f, l)| format!(" at {f}:{l}")).unwrap_or_default()
+                        );
                         vm.instruction_pointer += 1;
                         $snek.run(
                             &instructions[vm.instruction_pointer..],
@@ -961,20 +975,27 @@ impl Run for While {
                 span(),
             )?;
 
-            let joined = match flow {
+            let mut forced_return = false;
+            let output = match flow {
                 ControlFlow::Done(value) => value,
                 ControlFlow::Break(_) | ControlFlow::Continue(_) => {
                     unreachable!("unexpected control flow")
                 }
-                ControlFlow::Return(value) => {
-                    vm.state |= State::RETURNING;
+                ControlFlow::Return(value, forced) => {
+                    vm.state |=
+                        if forced { State::FORCE_RETURNING } else { State::RETURNING };
+                    forced_return = forced;
                     value
                 }
             };
 
-            if let Some(out) = self.out.ok() {
+            if forced_return {
+                let reg = Register(0);
+                vm.write_one(reg, output).at_err(span)?;
+                vm.output = Some(Readable::reg(reg));
+            } else if let Some(out) = self.out.ok() {
                 // Write the output to the output register.
-                vm.write_one(out, joined).at_err(span)?;
+                vm.write_one(out, output).at_err(span)?;
             }
 
             vm.instruction_pointer += self.len as usize;
@@ -1051,20 +1072,27 @@ impl Run for Iter {
                 span(),
             )?;
 
-            let joined = match flow {
+            let mut forced_return = false;
+            let output = match flow {
                 ControlFlow::Done(value) => value,
                 ControlFlow::Break(_) | ControlFlow::Continue(_) => {
                     unreachable!("unexpected control flow")
                 }
-                ControlFlow::Return(value) => {
-                    vm.state |= State::RETURNING;
+                ControlFlow::Return(value, forced) => {
+                    vm.state |=
+                        if forced { State::FORCE_RETURNING } else { State::RETURNING };
+                    forced_return = forced;
                     value
                 }
             };
 
-            if let Some(out) = self.out.ok() {
+            if forced_return {
+                let reg = Register(0);
+                vm.write_one(reg, output).at_err(span)?;
+                vm.output = Some(Readable::reg(reg));
+            } else if let Some(out) = self.out.ok() {
                 // Write the output to the output register.
-                vm.write_one(out, joined).at_err(span)?;
+                vm.write_one(out, output).at_err(span)?;
             }
 
             vm.instruction_pointer += self.len as usize;
@@ -1152,7 +1180,11 @@ impl Run for Return {
     ) -> SourceResult<()> {
         vm.output = self.value.ok();
         if !vm.state.is_breaking() && !vm.state.is_continuing() {
-            vm.state |= State::RETURNING;
+            if vm.output.is_some() {
+                vm.state |= State::FORCE_RETURNING;
+            } else {
+                vm.state |= State::RETURNING;
+            }
         }
 
         Ok(())
@@ -1282,6 +1314,9 @@ impl Run for PushArg {
         vm: &mut VMState,
         _: &mut Engine,
     ) -> SourceResult<()> {
+        // Obtain the value's span.
+        let value_span = vm.read(self.value_span).at_err(span)?;
+
         // Obtain the value.
         let value = vm.read(self.value).at_err(span)?.clone();
 
@@ -1290,7 +1325,7 @@ impl Run for PushArg {
             bail!(span(), "expected argument set, found {}", value.ty().long_name());
         };
 
-        args.push(span(), value);
+        args.push(value_span, value);
 
         Ok(())
     }
@@ -1305,6 +1340,9 @@ impl Run for InsertArg {
         vm: &mut VMState,
         _: &mut Engine,
     ) -> SourceResult<()> {
+        // Obtain the value's span.
+        let value_span = vm.read(self.value_span).at_err(span)?;
+
         // Obtain the value.
         let value = vm.read(self.value).at_err(span)?.clone();
 
@@ -1318,7 +1356,7 @@ impl Run for InsertArg {
             bail!(span(), "expected argument set, found {}", value.ty().long_name());
         };
 
-        args.insert(span(), key, value);
+        args.insert(value_span, key, value);
 
         Ok(())
     }
@@ -1333,6 +1371,9 @@ impl Run for SpreadArg {
         vm: &mut VMState,
         _: &mut Engine,
     ) -> SourceResult<()> {
+        // Obtain the value's span.
+        let value_span = vm.read(self.value_span).at_err(span)?;
+
         // Obtain the value.
         let value = vm.read(self.value).at_err(span)?.clone();
 
@@ -1346,18 +1387,22 @@ impl Run for SpreadArg {
                 into.chain(args_);
             }
             Value::Dict(dict) => {
-                into.extend(dict.iter().map(|(k, v)| (k.clone(), v.clone())));
+                into.extend(dict.into_iter().map(|(name, value)| Arg {
+                    span: span(),
+                    name: Some(name),
+                    value: Spanned::new(value, value_span),
+                }));
             }
             Value::Array(array) => {
-                into.extend(array.into_iter().map(|v| v.clone()));
+                into.extend(array.into_iter().map(|value| Arg {
+                    span: span(),
+                    name: None,
+                    value: Spanned::new(value, value_span),
+                }));
             }
             Value::None => {}
             _ => {
-                bail!(
-                    span(),
-                    "expected arguments, array, dictionary, or none, found {}",
-                    value.ty().long_name()
-                );
+                bail!(span(), "cannot spread {}", value.ty());
             }
         }
 
@@ -1384,11 +1429,7 @@ impl Run for Spread {
                 }
                 Value::None => {}
                 _ => {
-                    bail!(
-                        span(),
-                        "expected array or none, found {}",
-                        value.ty().long_name()
-                    );
+                    bail!(span(), "cannot spread {} into array", value.ty());
                 }
             },
             Value::Dict(into) => match value {
@@ -1397,11 +1438,7 @@ impl Run for Spread {
                 }
                 Value::None => {}
                 _ => {
-                    bail!(
-                        span(),
-                        "expected dictionary or none, found {}",
-                        value.ty().long_name()
-                    );
+                    bail!(span(), "cannot spread {} into dictionary", value.ty());
                 }
             },
             Value::Args(into) => match value {
@@ -1416,11 +1453,7 @@ impl Run for Spread {
                 }
                 Value::None => {}
                 _ => {
-                    bail!(
-                        span(),
-                        "expected arguments, array, dictionary, or none, found {}",
-                        value.ty().long_name()
-                    );
+                    bail!(span(), "cannot spread {}", value.ty());
                 }
             },
             _ => {
@@ -1473,7 +1506,8 @@ impl Run for Enter {
                 span(),
             )?;
 
-            let joined = match flow {
+            let mut forced_return = false;
+            let output = match flow {
                 ControlFlow::Done(value) => value,
                 ControlFlow::Break(value) => {
                     vm.state |= State::BREAKING;
@@ -1483,15 +1517,21 @@ impl Run for Enter {
                     vm.state |= State::CONTINUING;
                     value
                 }
-                ControlFlow::Return(value) => {
-                    vm.state |= State::RETURNING;
+                ControlFlow::Return(value, forced) => {
+                    vm.state |=
+                        if forced { State::FORCE_RETURNING } else { State::RETURNING };
+                    forced_return = forced;
                     value
                 }
             };
 
-            if let Some(out) = self.out.ok() {
+            if forced_return {
+                let reg = Register(0);
+                vm.write_one(reg, output).at_err(span)?;
+                vm.output = Some(Readable::reg(reg));
+            } else if let Some(out) = self.out.ok() {
                 // Write the output to the output register.
-                vm.write_one(out, joined).at_err(span)?;
+                vm.write_one(out, output).at_err(span)?;
             }
 
             vm.instruction_pointer += self.len as usize;

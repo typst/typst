@@ -316,10 +316,16 @@ impl Compile for ast::FuncReturn<'_> {
         }
 
         let value = self.body().map(|body| body.compile(engine, compiler)).transpose()?;
+        let flow = value.is_some();
         compiler.return_(
             self.span(),
             value.map_or_else(OptionalReadable::none, |v| v.as_readable().into()),
         );
+
+        if flow {
+            // Force a flow after a return with a value.
+            compiler.flow();
+        }
 
         Ok(())
     }

@@ -71,8 +71,10 @@ bitflags::bitflags! {
         const CONTINUING = 0b0010_0000;
         /// The VM is currently returning.
         const RETURNING = 0b0100_0000;
+        /// Force the VM to return the `vm.output`.
+        const FORCE_RETURNING = 0b1100_0000;
         /// The VM is done.
-        const DONE = 0b1000_0000;
+        const DONE = 0b1_0000_0000;
     }
 }
 
@@ -87,6 +89,10 @@ impl State {
 
     const fn is_returning(&self) -> bool {
         self.contains(Self::RETURNING)
+    }
+
+    const fn is_force_return(&self) -> bool {
+        self.contains(Self::FORCE_RETURNING)
     }
 
     const fn is_done(&self) -> bool {
@@ -109,12 +115,12 @@ impl State {
 pub struct VM<'a> {
     /// The mutable state of the VM.
     state: VMState<'a>,
-    /// The span of the whole VM.
-    span: Span,
     /// The list of instructions.
     instructions: &'a [Opcode],
     /// The spans of the instructions.
     spans: &'a [Span],
+    /// The span of the whole VM.
+    span: Span,
 }
 
 #[derive(Debug)]
@@ -122,7 +128,7 @@ pub enum ControlFlow {
     Done(Value),
     Break(Value),
     Continue(Value),
-    Return(Value),
+    Return(Value, bool),
 }
 
 impl<'a> VM<'a> {
@@ -168,7 +174,10 @@ impl<'a> VM<'a> {
         } else if self.state.state.is_breaking() && self.state.iterator.is_none() {
             Ok(ControlFlow::Break(output.unwrap_or(Value::None)))
         } else if self.state.state.is_returning() {
-            Ok(ControlFlow::Return(output.unwrap_or(Value::None)))
+            Ok(ControlFlow::Return(
+                output.unwrap_or(Value::None),
+                self.state.state.is_force_return(),
+            ))
         } else {
             Ok(ControlFlow::Done(output.unwrap_or(Value::None)))
         }
@@ -200,20 +209,20 @@ impl<'a> VM<'a> {
 }
 
 pub struct VMState<'a> {
-    /// The current state of the VM.
-    state: State,
-    /// The output register, if any.
-    output: Option<Readable>,
-    /// The global library.
-    global: &'a Library,
+    /// The registers.
+    registers: [Value; 128],
     /// The current instruction pointer.
     instruction_pointer: usize,
-    /// The registers.
-    registers: [Value; 256],
     /// The joined values.
     joined: Option<Joiner>,
+    /// The current state of the VM.
+    state: State,
+    /// The global library.
+    global: &'a Library,
     /// The constants.
     constants: &'a [Value],
+    /// The output register, if any.
+    output: Option<Readable>,
     /// The strings.
     /// These are stored as [`Value`] but they are always [`Value::Str`].
     strings: &'a [Value],
@@ -227,6 +236,8 @@ pub struct VMState<'a> {
     patterns: &'a [Pattern],
     /// The default values of each scope.
     defaults: &'a [EcoVec<DefaultValue>],
+    /// The spans used in the instructions.
+    spans: &'a [Span],
     /// The parent VM.
     parent: Option<&'a mut VMState<'a>>,
     /// The iterator, if any.
@@ -374,7 +385,7 @@ impl<'a> VMState<'a> {
     {
         // These are required to prove that the registers can be created
         // at compile time safely.
-        const SIZE: usize = 256;
+        const SIZE: usize = 128;
         const NONE: Value = Value::None;
 
         let global: &'b Library = cast_lifetime::<'a, 'b, _>(self.global);
@@ -384,6 +395,7 @@ impl<'a> VMState<'a> {
         let closures: &'b [CompiledClosure] = cast_lifetime::<'a, 'b, _>(self.closures);
         let accesses: &'b [Access] = cast_lifetime::<'a, 'b, _>(self.accesses);
         let patterns: &'b [Pattern] = cast_lifetime::<'a, 'b, _>(self.patterns);
+        let state_spans: &'b [Span] = cast_lifetime::<'a, 'b, _>(self.spans);
         let defaults: &'b [EcoVec<DefaultValue>] =
             cast_lifetime::<'a, 'b, _>(self.defaults);
         let this: &'b mut VMState<'b> = unsafe {
@@ -411,6 +423,7 @@ impl<'a> VMState<'a> {
             accesses,
             patterns,
             defaults,
+            spans: state_spans,
             parent: Some(this),
             iterator,
         };

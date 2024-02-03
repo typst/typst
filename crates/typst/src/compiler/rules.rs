@@ -43,6 +43,7 @@ impl Compile for ast::SetRule<'_> {
             compiler.jump_if_not(expr.span(), condition.as_readable(), jump_label);
 
             let reg = compiler.register().at(self.span())?;
+            compiler.extend(set);
             compiler.set(
                 self.span(),
                 target.as_readable(),

@@ -3,7 +3,9 @@ use std::hash::Hash;
 use indexmap::IndexMap;
 
 use crate::util::hash128;
-use crate::vm::{AccessId, ClosureId, Constant, LabelId, PatternId, ScopeId, StringId};
+use crate::vm::{
+    AccessId, ClosureId, Constant, LabelId, PatternId, ScopeId, SpanId, StringId,
+};
 
 pub struct Remapper<K, V> {
     values: IndexMap<u128, (K, V)>,
@@ -111,6 +113,16 @@ impl RemapperKey for PatternId {
 impl RemapperKey for ScopeId {
     fn as_raw(&self) -> u16 {
         ScopeId::as_raw(*self)
+    }
+
+    fn from_raw(raw: u16) -> Self {
+        Self::new(raw)
+    }
+}
+
+impl RemapperKey for SpanId {
+    fn as_raw(&self) -> u16 {
+        SpanId::as_raw(*self)
     }
 
     fn from_raw(raw: u16) -> Self {

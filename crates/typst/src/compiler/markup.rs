@@ -203,7 +203,7 @@ impl Compile for ast::Linebreak<'_> {
         _: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let value = LinebreakElem::new().pack().spanned(self.span());
+        let value = LinebreakElem::new().pack();
         let value = compiler.const_(value.into_value());
 
         Ok(value.into())
@@ -234,7 +234,7 @@ impl Compile for ast::Parbreak<'_> {
         _: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let value = ParbreakElem::new().pack().spanned(self.span());
+        let value = ParbreakElem::new().pack();
         let value = compiler.const_(value.into_value());
 
         Ok(value.into())

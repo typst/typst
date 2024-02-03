@@ -23,7 +23,7 @@ pub fn run_module(
 ) -> SourceResult<Module> {
     // These are required to prove that the registers can be created
     // at compile time safely.
-    const SIZE: usize = 256;
+    const SIZE: usize = 128;
     const NONE: Value = Value::None;
 
     let mut locator = Locator::chained(locator);
@@ -49,6 +49,7 @@ pub fn run_module(
         accesses: &module.inner.accesses,
         patterns: &module.inner.patterns,
         defaults: &module.inner.defaults,
+        spans: &module.inner.isr_spans,
         parent: None,
         iterator: None,
     };

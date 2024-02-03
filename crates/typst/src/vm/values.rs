@@ -1,6 +1,7 @@
 use std::fmt;
 
-use ecow::{eco_format, EcoVec};
+use ecow::{eco_format, EcoString, EcoVec};
+use typst_syntax::Span;
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{IntoValue, Label, Value};
@@ -443,6 +444,20 @@ impl VmRead for Writable {
     }
 }
 
+impl TryInto<Readable> for Writable {
+    type Error = EcoString;
+
+    fn try_into(self) -> Result<Readable, Self::Error> {
+        if self.is_reg() {
+            Ok(Readable::from(self.as_reg()))
+        } else if self.is_parent() {
+            Ok(Readable::from(self.as_parent()))
+        } else {
+            bail!("cannot read joined value")
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct OptionalReadable(u16);
@@ -682,7 +697,7 @@ macro_rules! id {
     ($name:ident($type:ty) => $l:literal) => {
         #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
         #[repr(transparent)]
-        pub struct $name(pub(super) $type);
+        pub struct $name(pub $type);
 
         impl $name {
             pub fn new(index: $type) -> Self {
@@ -703,7 +718,7 @@ macro_rules! id {
     ($name:ident => $l:literal) => {
         #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
         #[repr(transparent)]
-        pub struct $name(pub(super) u16);
+        pub struct $name(pub u16);
 
         impl $name {
             pub const fn new(index: u16) -> Self {
@@ -739,6 +754,7 @@ id! {
     CallId => "K",
     PatternId => "D",
     ScopeId => "O",
+    SpanId => "N",
 }
 
 impl VmRead for Constant {
@@ -850,6 +866,17 @@ impl VmRead for ScopeId {
         vm.defaults.get(self.0 as usize + 1).ok_or_else(|| {
             eco_format!("invalid scope: {}, malformed instruction", self.0)
         })
+    }
+}
+
+impl VmRead for SpanId {
+    type Output<'a> = Span;
+
+    fn read<'a>(&self, vm: &'a VMState) -> StrResult<Self::Output<'a>> {
+        vm.spans
+            .get(self.0 as usize)
+            .copied()
+            .ok_or_else(|| eco_format!("invalid span: {}, malformed instruction", self.0))
     }
 }
 

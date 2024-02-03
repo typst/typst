@@ -48,7 +48,7 @@ impl Closure {
     pub fn run(&self, engine: &mut Engine, mut args: Args) -> SourceResult<Value> {
         // These are required to prove that the registers can be created
         // at compile time safely.
-        const SIZE: usize = 256;
+        const SIZE: usize = 128;
         const NONE: Value = Value::None;
 
         let num_pos_params =
@@ -71,6 +71,7 @@ impl Closure {
             accesses: &self.inner.accesses,
             patterns: &self.inner.patterns,
             defaults: &self.inner.defaults,
+            spans: &self.inner.isr_spans,
             parent: None,
             iterator: None,
         };
@@ -159,7 +160,7 @@ impl Closure {
         };
 
         match vm.run(engine)? {
-            ControlFlow::Return(value) | ControlFlow::Done(value) => Ok(value),
+            ControlFlow::Return(value, _) | ControlFlow::Done(value) => Ok(value),
             _ => bail!(self.inner.span, "closure did not return a value"),
         }
     }
@@ -233,6 +234,8 @@ pub struct Inner {
     pub patterns: Vec<Pattern>,
     /// The default values of variables.
     pub defaults: Vec<EcoVec<DefaultValue>>,
+    /// The spans used in the closure.
+    pub isr_spans: Vec<Span>,
     /// The output value (if any).
     pub output: Option<Readable>,
     /// Whether this closure returns a joined value.
