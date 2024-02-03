@@ -96,17 +96,13 @@ impl CompilerScope {
     /// Allocates a new register.
     pub fn register(&self) -> RegisterGuard {
         let registers = self.registers.clone();
-        RegisterGuard::new(self.registers
-            .borrow_mut()
-            .allocate(), registers)
+        RegisterGuard::new(self.registers.borrow_mut().allocate(), registers)
     }
 
     /// Allocates a new pristine register.
     pub fn pristine_register(&self) -> RegisterGuard {
         let registers = self.registers.clone();
-        RegisterGuard::new(self.registers
-            .borrow_mut()
-            .allocate_pristine(), registers)
+        RegisterGuard::new(self.registers.borrow_mut().allocate_pristine(), registers)
     }
 
     /// Declare a variable in this scope.
@@ -120,12 +116,7 @@ impl CompilerScope {
     }
 
     /// Declare a variable in this scope.
-    pub fn declare_into(
-        &mut self,
-        span: Span,
-        name: EcoString,
-        register: RegisterGuard,
-    ) {
+    pub fn declare_into(&mut self, span: Span, name: EcoString, register: RegisterGuard) {
         let variable = Variable { register, span, default: None };
 
         self.variables.insert(name, variable);
@@ -191,11 +182,7 @@ impl CompilerScope {
         }
     }
 
-    fn read_captured(
-        &mut self,
-        span: Span,
-        var: &EcoString,
-    ) -> Option<ReadableGuard> {
+    fn read_captured(&mut self, span: Span, var: &EcoString) -> Option<ReadableGuard> {
         if let Some(capture) = self.captures.get(var) {
             return Some(ReadableGuard::Captured(Box::new(ReadableGuard::Register(
                 capture.register.clone(),
@@ -215,9 +202,9 @@ impl CompilerScope {
                         span,
                     },
                 );
-                return Some(ReadableGuard::Captured(Box::new(
-                    ReadableGuard::Register(reg),
-                )));
+                return Some(ReadableGuard::Captured(Box::new(ReadableGuard::Register(
+                    reg,
+                ))));
             }
 
             None

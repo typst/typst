@@ -59,7 +59,13 @@ pub fn run_module(
             .at(module.inner.span)?;
     }
 
-    let output = match crate::vm::run(&mut engine, &mut state, &module.inner.instructions, &module.inner.spans, module.inner.span)? {
+    let output = match crate::vm::run(
+        &mut engine,
+        &mut state,
+        &module.inner.instructions,
+        &module.inner.spans,
+        module.inner.span,
+    )? {
         ControlFlow::Done(value) => value,
         other => bail!(module.inner.span, "module did not produce a value: {other:?}"),
     };

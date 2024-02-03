@@ -83,8 +83,8 @@ impl Compile for ast::Closure<'_> {
                 ast::Param::Named(named) => {
                     // Create the local variable.
                     let name = named.name().get();
-                    let target = closure_compiler
-                        .declare(named.name().span(), name.clone());
+                    let target =
+                        closure_compiler.declare(named.name().span(), name.clone());
 
                     // Add the parameter to the list.
                     params.push(CompiledParam::Named {
@@ -106,8 +106,8 @@ impl Compile for ast::Closure<'_> {
                     };
 
                     // Create the local variable.
-                    let target = closure_compiler
-                        .declare(name.span(), name.get().clone());
+                    let target =
+                        closure_compiler.declare(name.span(), name.get().clone());
 
                     params.push(CompiledParam::Sink(
                         sink.span(),

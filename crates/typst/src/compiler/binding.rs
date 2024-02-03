@@ -59,8 +59,7 @@ fn compile_normal(
                 Some(WritableGuard::from(guard.clone())),
             )?;
         }
-        compiler
-            .declare_into(ident.span(), ident.get().clone(), guard);
+        compiler.declare_into(ident.span(), ident.get().clone(), guard);
     } else {
         // We destructure the initializer using the pattern.
         let value = if let Some(init) = binding.init() {
@@ -88,8 +87,7 @@ fn compile_closure(
     closure_name: &ast::Ident<'_>,
 ) -> SourceResult<()> {
     // We create the local.
-    let local = compiler
-        .declare(closure_name.span(), closure_name.get().clone());
+    let local = compiler.declare(closure_name.span(), closure_name.get().clone());
 
     let Some(init) = binding.init() else {
         bail!(binding.span(), "closure declaration requires an initializer");

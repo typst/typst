@@ -106,11 +106,7 @@ impl Compiler {
     }
 
     /// Declares a new variable.
-    pub fn declare(
-        &self,
-        span: Span,
-        name: impl Into<EcoString>,
-    ) -> RegisterGuard {
+    pub fn declare(&self, span: Span, name: impl Into<EcoString>) -> RegisterGuard {
         self.scope.borrow_mut().declare(span, name.into())
     }
 
@@ -200,12 +196,7 @@ impl Compiler {
         joining: Option<Writable>,
         mut display: bool,
         f: impl FnOnce(&mut Self, &mut Engine, &mut bool) -> SourceResult<()>,
-        pre: impl FnOnce(
-            &mut Self,
-            &mut Engine,
-            usize,
-            OptionalWritable,
-        ) -> SourceResult<()>,
+        pre: impl FnOnce(&mut Self, &mut Engine, usize, OptionalWritable) -> SourceResult<()>,
     ) -> SourceResult<()> {
         let mut scope =
             Rc::new(RefCell::new(CompilerScope::scope(self.scope.clone(), looping)));

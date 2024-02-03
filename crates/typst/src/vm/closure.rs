@@ -148,7 +148,13 @@ impl Closure {
         // Ensure all arguments have been used.
         args.finish()?;
 
-        match crate::vm::run(engine, &mut state, &self.inner.instructions, &self.inner.spans, self.inner.span)? {
+        match crate::vm::run(
+            engine,
+            &mut state,
+            &self.inner.instructions,
+            &self.inner.spans,
+            self.inner.span,
+        )? {
             ControlFlow::Return(value, _) | ControlFlow::Done(value) => Ok(value),
             _ => bail!(self.inner.span, "closure did not return a value"),
         }

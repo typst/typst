@@ -181,13 +181,7 @@ impl Compile for ast::ForLoop<'_> {
             },
             |compiler, engine, len, out| {
                 let iterable = self.iter().compile(engine, compiler)?;
-                compiler.iter(
-                    self.iter().span(),
-                    len as u32,
-                    &iterable,
-                    0b101,
-                    out,
-                );
+                compiler.iter(self.iter().span(), len as u32, &iterable, 0b101, out);
                 Ok(())
             },
         )

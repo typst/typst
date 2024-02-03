@@ -41,8 +41,11 @@ impl Compile for ast::ModuleImport<'_> {
                 ast::Imports::Wildcard => {
                     // Import all names.
                     for (name, value) in module.scope().iter() {
-                        compiler
-                            .declare_default(self.span(), name.clone(), value.clone());
+                        compiler.declare_default(
+                            self.span(),
+                            name.clone(),
+                            value.clone(),
+                        );
                     }
                 }
                 ast::Imports::Items(items) => {
@@ -58,12 +61,11 @@ impl Compile for ast::ModuleImport<'_> {
                                     )
                                 };
 
-                                compiler
-                                    .declare_default(
-                                        self.span(),
-                                        name.get().to_owned(),
-                                        value.clone(),
-                                    );
+                                compiler.declare_default(
+                                    self.span(),
+                                    name.get().to_owned(),
+                                    value.clone(),
+                                );
                             }
                             ast::ImportItem::Renamed(renamed) => {
                                 let original = renamed.original_name();
@@ -77,12 +79,11 @@ impl Compile for ast::ModuleImport<'_> {
                                     )
                                 };
 
-                                compiler
-                                    .declare_default(
-                                        renamed.new_name().span(),
-                                        renamed.new_name().get().clone(),
-                                        value.clone(),
-                                    );
+                                compiler.declare_default(
+                                    renamed.new_name().span(),
+                                    renamed.new_name().get().clone(),
+                                    value.clone(),
+                                );
                             }
                         }
                     }
@@ -92,12 +93,11 @@ impl Compile for ast::ModuleImport<'_> {
 
         // Handle renaming.
         if let Some(rename) = self.new_name() {
-            compiler
-                .declare_default(
-                    rename.span(),
-                    rename.get().to_owned(),
-                    Value::Module(module),
-                );
+            compiler.declare_default(
+                rename.span(),
+                rename.get().to_owned(),
+                Value::Module(module),
+            );
         }
 
         Ok(())

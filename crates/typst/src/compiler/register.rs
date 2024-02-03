@@ -4,8 +4,8 @@ use ecow::EcoString;
 
 use crate::diag::bail;
 use crate::vm::{
-    Constant, Global, Math, OptionalReadable, OptionalWritable, Readable,
-    Register, StringId, Writable,
+    Constant, Global, Math, OptionalReadable, OptionalWritable, Readable, Register,
+    StringId, Writable,
 };
 
 /// The table of occupied registers.
@@ -19,13 +19,15 @@ impl RegisterTable {
 
     /// Allocates a register.
     pub fn allocate(&mut self) -> Register {
-        let Some(reg) = self.0.iter_mut().enumerate().find(|(_, (is_used, _))| !*is_used).map(
-            |(index, (is_used, is_pristine))| {
-                *is_used = true;
-                *is_pristine = false;
-                Register::new(index as u16)
-            },
-        ) else {
+        let Some(reg) =
+            self.0.iter_mut().enumerate().find(|(_, (is_used, _))| !*is_used).map(
+                |(index, (is_used, is_pristine))| {
+                    *is_used = true;
+                    *is_pristine = false;
+                    Register::new(index as u16)
+                },
+            )
+        else {
             return self.allocate_pristine();
         };
 

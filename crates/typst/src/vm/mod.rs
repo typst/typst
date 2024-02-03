@@ -117,7 +117,7 @@ pub fn run(
     state: &mut VMState,
     instructions: &[Opcode],
     spans: &[Span],
-    span: Span
+    span: Span,
 ) -> SourceResult<ControlFlow> {
     fn next<'a>(state: &mut VMState, instructions: &'a [Opcode]) -> Option<&'a Opcode> {
         if state.instruction_pointer == instructions.len() {
@@ -145,9 +145,7 @@ pub fn run(
                     state.instruction_pointer = 0;
                     state.state.remove(State::CONTINUING);
                     continue;
-                } else if state.state.is_breaking()
-                    || state.state.is_returning()
-                {
+                } else if state.state.is_breaking() || state.state.is_returning() {
                     // In theory, the compiler should make sure that this is valid.
                     break;
                 }
