@@ -136,6 +136,7 @@ pub fn run<I: Iterator<Item = Value>>(
 
     while state.state.is_running() {
         let Some(opcode) = next(state, instructions) else {
+            state.state.insert(State::DONE);
             break;
         };
 
