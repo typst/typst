@@ -98,23 +98,24 @@ fn watch_dependencies(
     // Retrieve the dependencies of the last compilation and watch new paths
     // that weren't watched yet. We can't watch paths that don't exist yet
     // unfortunately, so we filter those out.
-    for path in world.dependencies().filter(|path| path.exists()) {
-        if !watched.contains_key(&path) {
+    for path in world.dependencies() {
+        let path_exists = path.exists();
+        if !watched.contains_key(&path) && path_exists {
             watcher
                 .watch(&path, RecursiveMode::NonRecursive)
                 .map_err(|err| eco_format!("failed to watch {path:?} ({err})"))?;
         }
 
         // Mark the file as "seen" so that we don't unwatch it.
-        watched.insert(path, true);
+        watched.insert(path.clone(), path_exists);
     }
 
     // Unwatch old paths that don't need to be watched anymore.
     watched.retain(|path, &mut seen| {
-        if !seen {
-            watcher.unwatch(path).ok();
+        if !seen && path.exists() {
+            watcher.watch(path, RecursiveMode::NonRecursive).ok();
         }
-        seen
+        seen || path.exists()
     });
 
     Ok(())
