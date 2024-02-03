@@ -1016,22 +1016,30 @@ impl<'a> GridLayouter<'a> {
         for y in 0..self.grid.rows.len() {
             // Skip to next region if current one is full, but only for content
             // rows, not for gutter rows.
-            if self.regions.is_full() && (!self.grid.has_gutter || y % 2 == 0) {
+            let is_content_row = !self.grid.has_gutter || y % 2 == 0;
+            if self.regions.is_full() && is_content_row {
                 self.finish_region(engine)?;
             }
 
-            self.check_for_rowspans(y);
+            // Don't layout gutter rows at the top of a region, unless they're
+            // part of an unbreakable row group (when the group is pushed to
+            // lrows, the gutter row won't be at the top, since only rowspans
+            // in non-gutter rows can initiate unbreakable row groups).
+            if is_content_row || !self.lrows.is_empty() || self.unbreakable_rows_left > 0
+            {
+                self.check_for_rowspans(y);
 
-            match self.grid.rows[y] {
-                Sizing::Auto => self.layout_auto_row(engine, y)?,
-                Sizing::Rel(v) => self.layout_relative_row(engine, v, y)?,
-                Sizing::Fr(v) => {
-                    let row = Row::Fr(v, y);
-                    if self.unbreakable_rows_left > 0 {
-                        // Don't push it to the current region just yet.
-                        self.unbreakable_row_group.push(row);
-                    } else {
-                        self.lrows.push(row);
+                match self.grid.rows[y] {
+                    Sizing::Auto => self.layout_auto_row(engine, y)?,
+                    Sizing::Rel(v) => self.layout_relative_row(engine, v, y)?,
+                    Sizing::Fr(v) => {
+                        let row = Row::Fr(v, y);
+                        if self.unbreakable_rows_left > 0 {
+                            // Don't push it to the current region just yet.
+                            self.unbreakable_row_group.push(row);
+                        } else {
+                            self.lrows.push(row);
+                        }
                     }
                 }
             }
@@ -2115,6 +2123,15 @@ impl<'a> GridLayouter<'a> {
 
     /// Finish rows for one region.
     fn finish_region(&mut self, engine: &mut Engine) -> SourceResult<()> {
+        if self.grid.has_gutter
+            && self.lrows.last().is_some_and(|row| {
+                let (Row::Frame(_, y) | Row::Fr(_, y)) = row;
+                y % 2 == 1
+            })
+        {
+            // Remove the last row in the region if it is a gutter row.
+            self.lrows.pop().unwrap();
+        }
         // Determine the height of existing rows in the region.
         let mut used = Abs::zero();
         let mut fr = Fr::zero();
