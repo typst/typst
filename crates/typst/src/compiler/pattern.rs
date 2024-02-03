@@ -9,7 +9,7 @@ use crate::vm::{
     Pattern as VmPattern, PatternItem as VmPatternItem, PatternKind as VmPatternKind,
 };
 use crate::{
-    diag::{bail, At, SourceResult},
+    diag::{bail, SourceResult},
     engine::Engine,
 };
 
@@ -48,8 +48,7 @@ impl PatternCompile for ast::Pattern<'_> {
                 ast::Expr::Ident(ident) => {
                     let index = if declare {
                         let id = compiler
-                            .declare(ident.span(), ident.get().clone())
-                            .at(self.span())?;
+                            .declare(ident.span(), ident.get().clone());
                         AccessPattern::Writable(id.into())
                     } else {
                         ident.access(engine, compiler, false)?
@@ -82,8 +81,7 @@ impl PatternCompile for ast::Pattern<'_> {
                             ast::Expr::Ident(ident) => {
                                 let index = if declare {
                                     let id = compiler
-                                        .declare(ident.span(), ident.get().clone())
-                                        .at(self.span())?;
+                                        .declare(ident.span(), ident.get().clone());
                                     AccessPattern::Writable(id.into())
                                 } else {
                                     ident.access(engine, compiler, false)?
@@ -104,8 +102,7 @@ impl PatternCompile for ast::Pattern<'_> {
                             if let Some(ident) = sink.name() {
                                 let index = if declare {
                                     let id = compiler
-                                        .declare(ident.span(), ident.get().clone())
-                                        .at(self.span())?;
+                                        .declare(ident.span(), ident.get().clone());
                                     AccessPattern::Writable(id.into())
                                 } else {
                                     ident.access(engine, compiler, false)?
@@ -119,8 +116,7 @@ impl PatternCompile for ast::Pattern<'_> {
                         ast::DestructuringKind::Named(named) => {
                             let index = if let ast::Expr::Ident(ident) = named.expr() {
                                 let id = compiler
-                                    .declare(ident.span(), ident.get().clone())
-                                    .at(self.span())?;
+                                    .declare(ident.span(), ident.get().clone());
                                 AccessPattern::Writable(id.into())
                             } else if declare {
                                 bail!(

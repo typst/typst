@@ -6,7 +6,7 @@ use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{Module, Scope, Value};
 use crate::introspection::{Introspector, Locator};
-use crate::vm::{ControlFlow, VM};
+use crate::vm::ControlFlow;
 use crate::World;
 
 use super::{State, VMState};
@@ -23,7 +23,6 @@ pub fn run_module(
 ) -> SourceResult<Module> {
     // These are required to prove that the registers can be created
     // at compile time safely.
-    const SIZE: usize = 128;
     const NONE: Value = Value::None;
 
     let mut locator = Locator::chained(locator);
@@ -40,7 +39,7 @@ pub fn run_module(
         output: None,
         global: &module.inner.global,
         instruction_pointer: 0,
-        registers: [NONE; SIZE],
+        registers: vec![NONE; module.inner.registers],
         joined: None,
         constants: &module.inner.constants,
         strings: &module.inner.strings,
@@ -48,30 +47,19 @@ pub fn run_module(
         closures: &module.inner.closures,
         accesses: &module.inner.accesses,
         patterns: &module.inner.patterns,
-        defaults: &module.inner.defaults,
         spans: &module.inner.isr_spans,
         jumps: &module.inner.jumps,
-        parent: None,
         iterator: None,
     };
 
     // Write all default values.
-    if let Some(defaults) = module.inner.defaults.get(0) {
-        for default in defaults {
-            state
-                .write_one(default.target, default.value.clone())
-                .at(module.inner.span)?;
-        }
+    for default in &module.inner.defaults {
+        state
+            .write_one(default.target, default.value.clone())
+            .at(module.inner.span)?;
     }
 
-    let mut vm = VM {
-        state,
-        span: module.inner.span,
-        instructions: &module.inner.instructions,
-        spans: &module.inner.spans,
-    };
-
-    let output = match vm.run(&mut engine)? {
+    let output = match crate::vm::run(&mut engine, &mut state, &module.inner.instructions, &module.inner.spans, module.inner.span)? {
         ControlFlow::Done(value) => value,
         other => bail!(module.inner.span, "module did not produce a value: {other:?}"),
     };
@@ -80,7 +68,7 @@ pub fn run_module(
     for export in &module.inner.exports {
         scope.define(
             export.name.clone(),
-            vm.state.read(export.value).at(export.span)?.clone(),
+            state.read(export.value).at(export.span)?.clone(),
         );
     }
 

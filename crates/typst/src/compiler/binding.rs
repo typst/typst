@@ -1,6 +1,6 @@
 use typst_syntax::ast::{self, AstNode};
 
-use crate::diag::{bail, At, SourceResult};
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::vm::Readable;
 
@@ -51,7 +51,7 @@ fn compile_normal(
 ) -> SourceResult<()> {
     // Simple patterns can be directly stored.
     if let ast::Pattern::Normal(ast::Expr::Ident(ident)) = pattern {
-        let guard = compiler.register().at(ident.span())?;
+        let guard = compiler.register();
         if let Some(init) = binding.init() {
             init.compile_into(
                 engine,
@@ -60,8 +60,7 @@ fn compile_normal(
             )?;
         }
         compiler
-            .declare_into(ident.span(), ident.get().clone(), guard)
-            .at(ident.span())?;
+            .declare_into(ident.span(), ident.get().clone(), guard);
     } else {
         // We destructure the initializer using the pattern.
         let value = if let Some(init) = binding.init() {
@@ -90,8 +89,7 @@ fn compile_closure(
 ) -> SourceResult<()> {
     // We create the local.
     let local = compiler
-        .declare(closure_name.span(), closure_name.get().clone())
-        .at(binding.span())?;
+        .declare(closure_name.span(), closure_name.get().clone());
 
     let Some(init) = binding.init() else {
         bail!(binding.span(), "closure declaration requires an initializer");

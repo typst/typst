@@ -1,12 +1,12 @@
 use std::fmt;
 
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{eco_format, EcoString};
 use typst_syntax::Span;
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{IntoValue, Label, Value};
 
-use super::{Access, CompiledClosure, DefaultValue, Pattern, VMState};
+use super::{Access, CompiledClosure, Pattern, VMState};
 
 pub trait VmRead {
     type Output<'a>;
@@ -53,7 +53,6 @@ bitflags::bitflags! {
         const AUTO     = 0b1000_0000_0000_0000;
         const GLOBAL   = 0b1010_0000_0000_0000;
         const MATH     = 0b1100_0000_0000_0000;
-        const PARENT   = 0b1110_0000_0000_0000;
         const BOOL     = 0b0001_0000_0000_0000;
     }
 }
@@ -67,7 +66,6 @@ impl VmRead for Readable {
         const STR: u16 = ReadableKind::STRING.bits();
         const GLOB: u16 = ReadableKind::GLOBAL.bits();
         const MATH: u16 = ReadableKind::MATH.bits();
-        const PARENT: u16 = ReadableKind::PARENT.bits();
         const NONE: u16 = ReadableKind::NONE.bits();
         const AUTO: u16 = ReadableKind::AUTO.bits();
         const BOOL: u16 = ReadableKind::BOOL.bits();
@@ -78,7 +76,6 @@ impl VmRead for Readable {
             STR => self.as_string().read(vm),
             GLOB => self.as_global().read(vm),
             MATH => self.as_math().read(vm),
-            PARENT => self.as_parent().read(vm),
             NONE => Ok(&Value::None),
             AUTO => Ok(&Value::Auto),
             BOOL => {
@@ -144,13 +141,6 @@ impl Readable {
         Self(index | ReadableKind::MATH.bits())
     }
 
-    /// Creates a new parent readable.
-    pub const fn parent(Parent(index): Parent) -> Self {
-        debug_assert!(index < 0x1000);
-
-        Self(index | ReadableKind::PARENT.bits())
-    }
-
     /// Returns [`true`] if this readable is a constant.
     pub const fn is_const(self) -> bool {
         (self.0 & 0xF000) == ReadableKind::CONSTANT.bits()
@@ -174,11 +164,6 @@ impl Readable {
     /// Returns [`true`] if this readable is a math.
     pub const fn is_math(self) -> bool {
         (self.0 & 0xF000) == ReadableKind::MATH.bits()
-    }
-
-    /// Returns [`true`] if this readable is a parent.
-    pub const fn is_parent(self) -> bool {
-        (self.0 & 0xF000) == ReadableKind::PARENT.bits()
     }
 
     /// Returns [`true`] if this readable is a none.
@@ -231,13 +216,6 @@ impl Readable {
         Math(self.0 & 0x1FFF)
     }
 
-    /// Returns this readable as a parent.
-    pub fn as_parent(self) -> Parent {
-        debug_assert!(self.is_parent());
-
-        Parent(self.0 & 0x1FFF)
-    }
-
     /// Returns this readable as a bool.
     pub fn as_bool(self) -> bool {
         debug_assert!(self.is_bool());
@@ -269,8 +247,6 @@ impl fmt::Debug for Readable {
             self.as_global().fmt(f)
         } else if self.is_math() {
             self.as_math().fmt(f)
-        } else if self.is_parent() {
-            self.as_parent().fmt(f)
         } else {
             unreachable!()
         }
@@ -286,12 +262,6 @@ impl From<Constant> for Readable {
 impl From<Register> for Readable {
     fn from(register: Register) -> Self {
         Self::reg(register)
-    }
-}
-
-impl From<Parent> for Readable {
-    fn from(constant: Parent) -> Self {
-        Self::parent(constant)
     }
 }
 
@@ -319,7 +289,6 @@ pub struct Writable(u16);
 
 bitflags::bitflags! {
     struct WritableKind: u16 {
-        const PARENT = 0b000_0000_0000_0000;
         const REGISTER = 0b0100_0000_0000_0000;
         const JOINED = 0b1000_0000_0000_0000;
     }
@@ -333,13 +302,6 @@ impl Writable {
         Self(index | WritableKind::REGISTER.bits())
     }
 
-    /// Creates a new parent writeable.
-    pub const fn parent(Parent(index): Parent) -> Self {
-        debug_assert!(index < 0x2000);
-
-        Self(index | WritableKind::PARENT.bits())
-    }
-
     /// Creates a new joined writeable.
     pub const fn joined() -> Self {
         Self(WritableKind::JOINED.bits())
@@ -348,11 +310,6 @@ impl Writable {
     /// Returns [`true`] if this writeable is a register.
     pub const fn is_reg(self) -> bool {
         (self.0 & 0xE000) == WritableKind::REGISTER.bits()
-    }
-
-    /// Returns [`true`] if this writeable is a parent.
-    pub const fn is_parent(self) -> bool {
-        (self.0 & 0xE000) == WritableKind::PARENT.bits()
     }
 
     /// Returns [`true`] if this writeable is a joined.
@@ -367,13 +324,6 @@ impl Writable {
         Register(self.0 & 0x1FFF)
     }
 
-    /// Returns this writeable as a parent.
-    pub const fn as_parent(self) -> Parent {
-        assert!(self.is_parent());
-
-        Parent(self.0 & 0x1FFF)
-    }
-
     /// Returns this writeable as its raw representation.
     pub const fn as_raw(self) -> u16 {
         self.0
@@ -386,8 +336,6 @@ impl fmt::Debug for Writable {
             write!(f, "J")
         } else if self.is_reg() {
             self.as_reg().fmt(f)
-        } else if self.is_parent() {
-            self.as_parent().fmt(f)
         } else {
             unreachable!()
         }
@@ -400,18 +348,10 @@ impl From<Register> for Writable {
     }
 }
 
-impl From<Parent> for Writable {
-    fn from(parent: Parent) -> Self {
-        Self::parent(parent)
-    }
-}
-
 impl VmWrite for Writable {
     fn write<'a>(&self, vm: &'a mut VMState) -> StrResult<&'a mut Value> {
         if self.is_reg() {
             self.as_reg().write(vm)
-        } else if self.is_parent() {
-            self.as_parent().write(vm)
         } else {
             bail!("cannot get mutable reference to joined value")
         }
@@ -436,8 +376,6 @@ impl VmRead for Writable {
     fn read<'a>(&self, vm: &'a VMState) -> StrResult<Self::Output<'a>> {
         if self.is_reg() {
             self.as_reg().read(vm)
-        } else if self.is_parent() {
-            self.as_parent().read(vm)
         } else {
             bail!("cannot get reference to joined value")
         }
@@ -450,8 +388,6 @@ impl TryInto<Readable> for Writable {
     fn try_into(self) -> Result<Readable, Self::Error> {
         if self.is_reg() {
             Ok(Readable::from(self.as_reg()))
-        } else if self.is_parent() {
-            Ok(Readable::from(self.as_parent()))
         } else {
             bail!("cannot read joined value")
         }
@@ -767,7 +703,6 @@ id! {
     LabelId => "L",
     CallId => "K",
     PatternId => "D",
-    ScopeId => "O",
     SpanId => "N",
 }
 
@@ -871,18 +806,6 @@ impl VmRead for PatternId {
     }
 }
 
-impl VmRead for ScopeId {
-    type Output<'a> = &'a EcoVec<DefaultValue>;
-
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<Self::Output<'a>> {
-        // The plus 1 accounts for that fact that at position zero is the first scope
-        // in the chain, which is inserted after the scope stack is built.
-        vm.defaults.get(self.0 as usize + 1).ok_or_else(|| {
-            eco_format!("invalid scope: {}, malformed instruction", self.0)
-        })
-    }
-}
-
 impl VmRead for SpanId {
     type Output<'a> = Span;
 
@@ -902,74 +825,5 @@ impl VmRead for Pointer {
             .get(self.0 as usize)
             .copied()
             .ok_or_else(|| eco_format!("invalid jump: {}, malformed instruction", self.0))
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[repr(transparent)]
-pub struct Parent(u16);
-
-impl Parent {
-    /// Creates a new parent.
-    pub const fn new(scope: u16, value: u16) -> Self {
-        debug_assert!(scope < 64);
-        debug_assert!(value < 128);
-        Self((scope << 7) | value)
-    }
-
-    /// Returns the scope of this parent.
-    pub const fn scope(self) -> u16 {
-        self.0 >> 7 & 0x3F
-    }
-
-    /// Returns the value of this parent.
-    pub const fn value(self) -> u16 {
-        self.0 & 0x7F
-    }
-}
-
-impl fmt::Debug for Parent {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "P{}.{}", self.scope(), self.value())
-    }
-}
-
-impl VmRead for Parent {
-    type Output<'a> = &'a Value;
-
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<&'a Value> {
-        let mut i = 0;
-        let mut parent = vm.parent.as_ref();
-        while i < self.scope() {
-            parent = parent.and_then(|vm| vm.parent.as_ref());
-            i += 1;
-        }
-
-        let Some(parent) = parent else {
-            bail!("missing parent: {:?}, malformed instruction", self)
-        };
-
-        parent.registers.get(self.value() as usize).ok_or_else(|| {
-            eco_format!("invalid parent: {:?}, malformed instruction", self)
-        })
-    }
-}
-
-impl VmWrite for Parent {
-    fn write<'a>(&self, vm: &'a mut VMState) -> StrResult<&'a mut Value> {
-        let mut i = 0;
-        let mut parent = vm.parent.as_mut();
-        while i < self.scope() {
-            parent = parent.and_then(|vm| vm.parent.as_mut());
-            i += 1;
-        }
-
-        let Some(parent) = parent else {
-            bail!("missing parent: {:?}, malformed instruction", self)
-        };
-
-        parent.registers.get_mut(self.value() as usize).ok_or_else(|| {
-            eco_format!("invalid parent: {:?}, malformed instruction", self)
-        })
     }
 }

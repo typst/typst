@@ -2,7 +2,7 @@ use std::num::NonZeroU32;
 
 use typst_syntax::ast::{self, AstNode};
 
-use crate::diag::{bail, At, SourceResult};
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{IntoValue, Label, NativeElement, Value};
 use crate::model::{LinkElem, ParbreakElem};
@@ -106,7 +106,7 @@ impl Compile for ast::Markup<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         // Get an output register.
-        let reg = compiler.register().at(self.span())?;
+        let reg = compiler.register();
 
         // Compile into the register.
         let output = Some(WritableGuard::from(reg.clone()));
@@ -358,7 +358,7 @@ impl Compile for ast::Strong<'_> {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let out = compiler.register().at(self.span())?;
+        let out = compiler.register();
         self.compile_into(engine, compiler, Some(out.clone().into()))?;
         Ok(out.into())
     }
@@ -387,7 +387,7 @@ impl Compile for ast::Emph<'_> {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let out = compiler.register().at(self.span())?;
+        let out = compiler.register();
         self.compile_into(engine, compiler, Some(out.clone().into()))?;
         Ok(out.into())
     }
@@ -521,7 +521,7 @@ impl Compile for ast::Ref<'_> {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let output = compiler.register().at(self.span())?;
+        let output = compiler.register();
         self.compile_into(engine, compiler, Some(output.clone().into()))?;
         Ok(output.into())
     }
@@ -552,7 +552,7 @@ impl Compile for ast::Heading<'_> {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let output = compiler.register().at(self.span())?;
+        let output = compiler.register();
         self.compile_into(engine, compiler, Some(output.clone().into()))?;
         Ok(output.into())
     }
@@ -581,7 +581,7 @@ impl Compile for ast::ListItem<'_> {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let output = compiler.register().at(self.span())?;
+        let output = compiler.register();
         self.compile_into(engine, compiler, Some(output.clone().into()))?;
         Ok(output.into())
     }
@@ -611,7 +611,7 @@ impl Compile for ast::EnumItem<'_> {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let output = compiler.register().at(self.span())?;
+        let output = compiler.register();
         self.compile_into(engine, compiler, Some(output.clone().into()))?;
         Ok(output.into())
     }
@@ -641,7 +641,7 @@ impl Compile for ast::TermItem<'_> {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let output = compiler.register().at(self.span())?;
+        let output = compiler.register();
         self.compile_into(engine, compiler, Some(output.clone().into()))?;
         Ok(output.into())
     }
@@ -670,7 +670,7 @@ impl Compile for ast::Equation<'_> {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let output = compiler.register().at(self.span())?;
+        let output = compiler.register();
         self.compile_into(engine, compiler, Some(output.clone().into()))?;
         Ok(output.into())
     }

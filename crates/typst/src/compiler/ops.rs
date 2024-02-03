@@ -1,6 +1,6 @@
 use typst_syntax::ast::{self, AstNode};
 
-use crate::diag::{At, SourceResult};
+use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::vm::Readable;
 
@@ -84,7 +84,7 @@ impl Compile for ast::Binary<'_> {
             return Ok(None);
         }
 
-        let output = compiler.register().at(self.span())?;
+        let output = compiler.register();
         self.compile_into(engine, compiler, Some(output.clone().into()))?;
         Ok(Some(output.into()))
     }
@@ -181,7 +181,7 @@ impl Compile for ast::Unary<'_> {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let output = compiler.register().at(self.span())?;
+        let output = compiler.register();
         self.compile_into(engine, compiler, Some(output.clone().into()))?;
         Ok(output.into())
     }

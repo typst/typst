@@ -1,10 +1,8 @@
 use typst_syntax::ast::{self, AstNode};
 
-use crate::{
-    diag::{At, SourceResult},
-    engine::Engine,
-    vm::Readable,
-};
+use crate::diag::SourceResult;
+use crate::engine::Engine;
+use crate::vm::Readable;
 
 use super::{Compile, ReadableGuard, WritableGuard};
 
@@ -63,7 +61,7 @@ impl Compile for ast::SetRule<'_> {
         compiler: &mut super::Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         // Get an output register.
-        let reg = compiler.register().at(self.span())?;
+        let reg = compiler.register();
 
         // Compile into the register.
         self.compile_into(engine, compiler, Some(reg.clone().into()))?;
@@ -105,7 +103,7 @@ impl Compile for ast::ShowRule<'_> {
         compiler: &mut super::Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         // Get an output register.
-        let reg = compiler.register().at(self.span())?;
+        let reg = compiler.register();
 
         // Compile into the register.
         self.compile_into(engine, compiler, Some(reg.clone().into()))?;

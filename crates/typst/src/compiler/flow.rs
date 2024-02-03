@@ -1,6 +1,6 @@
 use typst_syntax::ast::{self, AstNode};
 
-use crate::diag::{bail, At, SourceResult};
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::vm::{OptionalReadable, Readable};
 
@@ -55,7 +55,7 @@ impl Compile for ast::Conditional<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         // Get an output register.
-        let reg = compiler.register().at(self.span())?;
+        let reg = compiler.register();
 
         // Compile into the register.
         self.compile_into(engine, compiler, Some(reg.clone().into()))?;
@@ -110,8 +110,8 @@ impl Compile for ast::WhileLoop<'_> {
 
                 Ok(())
             },
-            |compiler, _, len, out, scope| {
-                compiler.while_(self.span(), scope, len as u32, 0b101, out);
+            |compiler, _, len, out| {
+                compiler.while_(self.span(), len as u32, 0b101, out);
                 Ok(())
             },
         )
@@ -123,7 +123,7 @@ impl Compile for ast::WhileLoop<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         // Get an output register.
-        let reg = compiler.register().at(self.span())?;
+        let reg = compiler.register();
 
         // Compile into the register.
         self.compile_into(engine, compiler, Some(reg.clone().into()))?;
@@ -158,7 +158,7 @@ impl Compile for ast::ForLoop<'_> {
                 {
                     compiler.next(*span, writable);
                 } else {
-                    let i = compiler.register().at(self.span())?;
+                    let i = compiler.register();
                     compiler.next(self.iter().span(), i.as_writeable());
 
                     let pattern_id = compiler.pattern(pattern.as_vm_pattern());
@@ -179,11 +179,10 @@ impl Compile for ast::ForLoop<'_> {
 
                 Ok(())
             },
-            |compiler, engine, len, out, scope| {
+            |compiler, engine, len, out| {
                 let iterable = self.iter().compile(engine, compiler)?;
                 compiler.iter(
                     self.iter().span(),
-                    scope,
                     len as u32,
                     &iterable,
                     0b101,
@@ -199,7 +198,7 @@ impl Compile for ast::ForLoop<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         // Get an output register.
-        let reg = compiler.register().at(self.span())?;
+        let reg = compiler.register();
 
         // Compile into the register.
         self.compile_into(engine, compiler, Some(reg.clone().into()))?;

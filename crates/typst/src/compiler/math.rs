@@ -44,7 +44,7 @@ impl Compile for ast::Math<'_> {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let output = compiler.register().at(self.span())?;
+        let output = compiler.register();
         self.compile_into(engine, compiler, Some(output.clone().into()))?;
         Ok(output.into())
     }
@@ -147,7 +147,7 @@ impl Compile for ast::MathDelimited<'_> {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let output = compiler.register().at(self.span())?;
+        let output = compiler.register();
         self.compile_into(engine, compiler, Some(output.clone().into()))?;
         Ok(output.into())
     }
@@ -197,7 +197,7 @@ impl Compile for ast::MathAttach<'_> {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let output = compiler.register().at(self.span())?;
+        let output = compiler.register();
         self.compile_into(engine, compiler, Some(output.clone().into()))?;
         Ok(output.into())
     }
@@ -263,7 +263,7 @@ impl Compile for ast::MathFrac<'_> {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let output = compiler.register().at(self.span())?;
+        let output = compiler.register();
         self.compile_into(engine, compiler, Some(output.clone().into()))?;
         Ok(output.into())
     }
@@ -300,7 +300,7 @@ impl Compile for ast::MathRoot<'_> {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        let output = compiler.register().at(self.span())?;
+        let output = compiler.register();
         self.compile_into(engine, compiler, Some(output.clone().into()))?;
         Ok(output.into())
     }

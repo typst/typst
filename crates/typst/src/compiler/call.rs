@@ -1,7 +1,7 @@
 use typst_syntax::ast::{self, AstNode};
 
 use crate::compiler::Access;
-use crate::diag::{bail, At, SourceResult};
+use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::is_mutating_method;
 use crate::vm::Readable;
@@ -64,7 +64,7 @@ impl Compile for ast::FuncCall<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         // Get an output register.
-        let reg = compiler.register().at(self.span())?;
+        let reg = compiler.register();
 
         // Compile into the register.
         self.compile_into(engine, compiler, Some(reg.clone().into()))?;
@@ -120,7 +120,7 @@ impl Compile for ast::Args<'_> {
         }
 
         // Get an output register.
-        let reg = compiler.register().at(self.span())?;
+        let reg = compiler.register();
 
         // Compile into the register.
         self.compile_into(engine, compiler, Some(reg.clone().into()))?;

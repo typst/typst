@@ -9,7 +9,7 @@ use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{Args, Func, IntoValue, Label, Value};
 use crate::introspection::{Introspector, Locator};
-use crate::vm::{ControlFlow, VM};
+use crate::vm::ControlFlow;
 use crate::{Library, World};
 
 use super::opcodes::Opcode;
@@ -48,7 +48,6 @@ impl Closure {
     pub fn run(&self, engine: &mut Engine, mut args: Args) -> SourceResult<Value> {
         // These are required to prove that the registers can be created
         // at compile time safely.
-        const SIZE: usize = 128;
         const NONE: Value = Value::None;
 
         let num_pos_params =
@@ -62,7 +61,7 @@ impl Closure {
             output: self.inner.output,
             global: &self.inner.global,
             instruction_pointer: 0,
-            registers: [NONE; SIZE],
+            registers: vec![NONE; self.inner.registers],
             joined: None,
             constants: &self.inner.constants,
             strings: &self.inner.strings,
@@ -70,20 +69,16 @@ impl Closure {
             closures: &self.inner.closures,
             accesses: &self.inner.accesses,
             patterns: &self.inner.patterns,
-            defaults: &self.inner.defaults,
             spans: &self.inner.isr_spans,
             jumps: &self.inner.jumps,
-            parent: None,
             iterator: None,
         };
 
         // Write all default values.
-        if let Some(defaults) = self.inner.defaults.get(0) {
-            for default in defaults {
-                state
-                    .write_one(default.target, default.value.clone())
-                    .at(self.inner.span)?;
-            }
+        for default in &self.inner.defaults {
+            state
+                .write_one(default.target, default.value.clone())
+                .at(self.inner.span)?;
         }
 
         // Write all of the captured values to the registers.
@@ -153,14 +148,7 @@ impl Closure {
         // Ensure all arguments have been used.
         args.finish()?;
 
-        let mut vm = VM {
-            state,
-            span: self.inner.span,
-            instructions: &self.inner.instructions,
-            spans: &self.inner.spans,
-        };
-
-        match vm.run(engine)? {
+        match crate::vm::run(engine, &mut state, &self.inner.instructions, &self.inner.spans, self.inner.span)? {
             ControlFlow::Return(value, _) | ControlFlow::Done(value) => Ok(value),
             _ => bail!(self.inner.span, "closure did not return a value"),
         }
@@ -215,6 +203,8 @@ pub struct Inner {
     pub name: Option<EcoString>,
     /// The span where the closure was defined.
     pub span: Span,
+    /// The number of registers needed for the closure.
+    pub registers: usize,
     /// The instructions as byte code.
     pub instructions: Vec<Opcode>,
     /// The spans of the instructions.
@@ -234,7 +224,7 @@ pub struct Inner {
     /// The list of patterns.
     pub patterns: Vec<Pattern>,
     /// The default values of variables.
-    pub defaults: Vec<EcoVec<DefaultValue>>,
+    pub defaults: EcoVec<DefaultValue>,
     /// The spans used in the closure.
     pub isr_spans: Vec<Span>,
     /// The jumps used in the closure.

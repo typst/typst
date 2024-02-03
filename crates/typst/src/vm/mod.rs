@@ -112,15 +112,75 @@ impl State {
     }
 }
 
-pub struct VM<'a> {
-    /// The mutable state of the VM.
-    state: VMState<'a>,
-    /// The list of instructions.
-    instructions: &'a [Opcode],
-    /// The spans of the instructions.
-    spans: &'a [Span],
-    /// The span of the whole VM.
-    span: Span,
+pub fn run(
+    engine: &mut Engine,
+    state: &mut VMState,
+    instructions: &[Opcode],
+    spans: &[Span],
+    span: Span
+) -> SourceResult<ControlFlow> {
+    fn next<'a>(state: &mut VMState, instructions: &'a [Opcode]) -> Option<&'a Opcode> {
+        if state.instruction_pointer == instructions.len() {
+            state.state.insert(State::DONE);
+            return None;
+        }
+
+        debug_assert!(state.instruction_pointer + 1 <= instructions.len());
+        Some(&instructions[state.instruction_pointer])
+    }
+
+    while state.state.is_running() {
+        let Some(opcode) = next(state, instructions) else {
+            break;
+        };
+
+        let idx = state.instruction_pointer;
+        let span = || spans[idx];
+
+        opcode.run(&instructions, &spans, span, state, engine)?;
+
+        if matches!(opcode, Opcode::Flow) {
+            if state.iterator.is_some() {
+                if state.state.is_continuing() {
+                    state.instruction_pointer = 0;
+                    state.state.remove(State::CONTINUING);
+                    continue;
+                } else if state.state.is_breaking()
+                    || state.state.is_returning()
+                {
+                    // In theory, the compiler should make sure that this is valid.
+                    break;
+                }
+            } else if state.state.is_breaking()
+                || state.state.is_continuing()
+                || state.state.is_returning()
+            {
+                // In theory, the compiler should make sure that this is valid.
+                break;
+            }
+        }
+    }
+
+    let output = if let Some(reg) = state.output {
+        reg.read(&state).cloned().map(Some).at(span)?
+    } else if let Some(joined) = state.joined.clone() {
+        Some(joined.collect(engine)?)
+    } else {
+        None
+    };
+
+    if state.state.is_continuing() && state.iterator.is_none() {
+        Ok(ControlFlow::Continue(output.unwrap_or(Value::None)))
+    } else if state.state.is_breaking() && state.iterator.is_none() {
+        Ok(ControlFlow::Break(output.unwrap_or(Value::None)))
+    } else if state.state.is_returning() {
+        Ok(ControlFlow::Return(
+            output.unwrap_or(Value::None),
+            state.state.is_force_return(),
+        ))
+    } else {
+        Ok(ControlFlow::Done(output.unwrap_or(Value::None)))
+    }
 }
 
 #[derive(Debug)]
@@ -130,87 +190,9 @@ pub enum ControlFlow {
     Continue(Value),
     Return(Value, bool),
 }
-
-impl<'a> VM<'a> {
-    /// Runs the VM to completion.
-    pub fn run(&mut self, engine: &mut Engine) -> SourceResult<ControlFlow> {
-        while self.state.state.is_running() {
-            let Some(opcode) = self.run_one(engine)? else {
-                break;
-            };
-
-            if matches!(opcode, Opcode::Flow) {
-                if self.state.iterator.is_some() {
-                    if self.state.state.is_continuing() {
-                        self.state.instruction_pointer = 0;
-                        self.state.state.remove(State::CONTINUING);
-                        continue;
-                    } else if self.state.state.is_breaking()
-                        || self.state.state.is_returning()
-                    {
-                        // In theory, the compiler should make sure that this is valid.
-                        break;
-                    }
-                } else if self.state.state.is_breaking()
-                    || self.state.state.is_continuing()
-                    || self.state.state.is_returning()
-                {
-                    // In theory, the compiler should make sure that this is valid.
-                    break;
-                }
-            }
-        }
-
-        let output = if let Some(reg) = self.state.output {
-            reg.read(&self.state).cloned().map(Some).at(self.span)?
-        } else if let Some(joined) = self.state.joined.clone() {
-            Some(joined.collect(engine)?)
-        } else {
-            None
-        };
-
-        if self.state.state.is_continuing() && self.state.iterator.is_none() {
-            Ok(ControlFlow::Continue(output.unwrap_or(Value::None)))
-        } else if self.state.state.is_breaking() && self.state.iterator.is_none() {
-            Ok(ControlFlow::Break(output.unwrap_or(Value::None)))
-        } else if self.state.state.is_returning() {
-            Ok(ControlFlow::Return(
-                output.unwrap_or(Value::None),
-                self.state.state.is_force_return(),
-            ))
-        } else {
-            Ok(ControlFlow::Done(output.unwrap_or(Value::None)))
-        }
-    }
-
-    /// Gets the next op code from the instruction list.
-    fn next_opcode(&self) -> Option<&'a Opcode> {
-        if self.state.instruction_pointer == self.instructions.len() {
-            return None;
-        }
-
-        debug_assert!(self.state.instruction_pointer + 1 <= self.instructions.len());
-        Some(&self.instructions[self.state.instruction_pointer])
-    }
-
-    fn run_one(&mut self, engine: &mut Engine) -> SourceResult<Option<&'a Opcode>> {
-        let Some(opcode) = self.next_opcode() else {
-            self.state.state.insert(State::DONE);
-            return Ok(None);
-        };
-
-        let idx = self.state.instruction_pointer;
-        let span = || self.spans[idx];
-
-        opcode.run(&self.instructions, &self.spans, span, &mut self.state, engine)?;
-
-        Ok(Some(opcode))
-    }
-}
-
 pub struct VMState<'a> {
     /// The registers.
-    registers: [Value; 128],
+    registers: Vec<Value>,
     /// The current instruction pointer.
     instruction_pointer: usize,
     /// The joined values.
@@ -236,12 +218,8 @@ pub struct VMState<'a> {
     accesses: &'a [Access],
     /// The destructure patterns.
     patterns: &'a [Pattern],
-    /// The default values of each scope.
-    defaults: &'a [EcoVec<DefaultValue>],
     /// The spans used in the instructions.
     spans: &'a [Span],
-    /// The parent VM.
-    parent: Option<&'a mut VMState<'a>>,
     /// The iterator, if any.
     iterator: Option<Box<dyn Iterator<Item = Value>>>,
 }
@@ -370,75 +348,40 @@ impl<'a> VMState<'a> {
     }
 
     /// Enter a new scope.
-    pub fn enter_scope<'b>(
-        &'b mut self,
+    pub fn enter_scope(
+        &mut self,
         engine: &mut Engine,
-        default_values: &[DefaultValue],
-        instructions: &'b [Opcode],
-        spans: &'b [Span],
-        iterator: Option<Box<dyn Iterator<Item = Value>>>,
-        output: Option<Readable>,
+        instructions: &[Opcode],
+        spans: &[Span],
+        mut iterator: Option<Box<dyn Iterator<Item = Value>>>,
+        mut output: Option<Readable>,
         joins: bool,
         content: bool,
         span: Span,
-    ) -> SourceResult<ControlFlow>
-    where
-        'a: 'b,
-    {
-        // These are required to prove that the registers can be created
-        // at compile time safely.
-        const SIZE: usize = 128;
-        const NONE: Value = Value::None;
+    ) -> SourceResult<ControlFlow> {
+        let mut state = State::empty()
+            | if iterator.is_some() { State::LOOPING } else { State::empty() }
+            | if joins { State::JOINING } else { State::empty() }
+            | if content { State::DISPLAY } else { State::empty() };
 
-        let global: &'b Library = cast_lifetime::<'a, 'b, _>(self.global);
-        let constants: &'b [Value] = cast_lifetime::<'a, 'b, _>(self.constants);
-        let strings: &'b [Value] = cast_lifetime::<'a, 'b, _>(self.strings);
-        let labels: &'b [Label] = cast_lifetime::<'a, 'b, _>(self.labels);
-        let closures: &'b [CompiledClosure] = cast_lifetime::<'a, 'b, _>(self.closures);
-        let accesses: &'b [Access] = cast_lifetime::<'a, 'b, _>(self.accesses);
-        let patterns: &'b [Pattern] = cast_lifetime::<'a, 'b, _>(self.patterns);
-        let state_spans: &'b [Span] = cast_lifetime::<'a, 'b, _>(self.spans);
-        let jumps: &'b [usize] = cast_lifetime::<'a, 'b, _>(self.jumps);
-        let defaults: &'b [EcoVec<DefaultValue>] =
-            cast_lifetime::<'a, 'b, _>(self.defaults);
-        let this: &'b mut VMState<'b> = unsafe {
-            // SAFETY: we are casting the lifetime of the reference to the
-            //         parent VM state to the lifetime of the new VM state.
-            //         This is safe because the parent VM state is guaranteed
-            //         to live at least as long as the new VM state.
-            std::mem::transmute(self)
-        };
+        let mut joiner = None;
+        let mut instruction_pointer = 0;
 
-        let mut state = VMState::<'b> {
-            state: State::empty()
-                | if iterator.is_some() { State::LOOPING } else { State::empty() }
-                | if joins { State::JOINING } else { State::empty() }
-                | if content { State::DISPLAY } else { State::empty() },
-            output,
-            global,
-            instruction_pointer: 0,
-            registers: [NONE; SIZE],
-            joined: None,
-            constants,
-            strings,
-            labels,
-            closures,
-            accesses,
-            patterns,
-            defaults,
-            jumps,
-            spans: state_spans,
-            parent: Some(this),
-            iterator,
-        };
+        std::mem::swap(&mut self.state, &mut state);
+        std::mem::swap(&mut self.iterator, &mut iterator);
+        std::mem::swap(&mut self.output, &mut output);
+        std::mem::swap(&mut self.joined, &mut joiner);
+        std::mem::swap(&mut self.instruction_pointer, &mut instruction_pointer);
 
-        for default in default_values {
-            state.registers[default.target.as_raw() as usize] = default.value.clone();
-        }
+        let out = run(engine, self, instructions, spans, span)?;
 
-        let mut vm = VM { state, span, instructions, spans };
+        std::mem::swap(&mut self.state, &mut state);
+        std::mem::swap(&mut self.iterator, &mut iterator);
+        std::mem::swap(&mut self.output, &mut output);
+        std::mem::swap(&mut self.joined, &mut joiner);
+        std::mem::swap(&mut self.instruction_pointer, &mut instruction_pointer);
 
-        vm.run(engine)
+        Ok(out)
     }
 }
 
@@ -601,9 +544,4 @@ impl Joiner {
 
         collect_inner(self, engine, None)
     }
-}
-
-/// Workaround for some lifetime issues.
-fn cast_lifetime<'a: 'b, 'b, T: ?Sized + 'a>(value: &'a T) -> &'b T {
-    value
 }

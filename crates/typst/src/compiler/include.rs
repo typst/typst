@@ -42,8 +42,7 @@ impl Compile for ast::ModuleImport<'_> {
                     // Import all names.
                     for (name, value) in module.scope().iter() {
                         compiler
-                            .declare_default(self.span(), name.clone(), value.clone())
-                            .at(self.span())?;
+                            .declare_default(self.span(), name.clone(), value.clone());
                     }
                 }
                 ast::Imports::Items(items) => {
@@ -64,8 +63,7 @@ impl Compile for ast::ModuleImport<'_> {
                                         self.span(),
                                         name.get().to_owned(),
                                         value.clone(),
-                                    )
-                                    .at(self.span())?;
+                                    );
                             }
                             ast::ImportItem::Renamed(renamed) => {
                                 let original = renamed.original_name();
@@ -84,8 +82,7 @@ impl Compile for ast::ModuleImport<'_> {
                                         renamed.new_name().span(),
                                         renamed.new_name().get().clone(),
                                         value.clone(),
-                                    )
-                                    .at(self.span())?;
+                                    );
                             }
                         }
                     }
@@ -100,8 +97,7 @@ impl Compile for ast::ModuleImport<'_> {
                     rename.span(),
                     rename.get().to_owned(),
                     Value::Module(module),
-                )
-                .at(rename.span())?;
+                );
         }
 
         Ok(())

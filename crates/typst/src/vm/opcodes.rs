@@ -17,7 +17,7 @@ use crate::World;
 
 use super::{
     Access, AccessId, ClosureId, LabelId, OptionalReadable, OptionalWritable, PatternId,
-    Pointer, Readable, ScopeId, SpanId, VMState, Writable,
+    Pointer, Readable, SpanId, VMState, Writable,
 };
 
 pub trait Run {
@@ -956,12 +956,9 @@ impl Run for While {
             std::slice::from_raw_parts(instructions.as_ptr(), self.len as usize)
         };
 
-        let defaults = vm.read(self.scope).at_err(span)?.clone();
-
         let f = move || {
             let flow = vm.enter_scope(
                 engine,
-                &defaults,
                 instructions,
                 spans,
                 Some(Box::new(std::iter::empty())),
@@ -1029,8 +1026,6 @@ impl Run for Iter {
             std::slice::from_raw_parts(instructions.as_ptr(), self.len as usize)
         };
 
-        let defaults = vm.read(self.scope).at_err(span)?.clone();
-
         // Turn the iterable into an iterator.
         let iter: Box<dyn Iterator<Item = Value>> = match iterable {
             Value::Str(string) => {
@@ -1058,7 +1053,6 @@ impl Run for Iter {
         let f = move || {
             let flow = vm.enter_scope(
                 engine,
-                &defaults,
                 instructions,
                 spans,
                 Some(iter),
@@ -1483,8 +1477,6 @@ impl Run for Enter {
             std::slice::from_raw_parts(instructions.as_ptr(), self.len as usize)
         };
 
-        let defaults = vm.read(self.scope).at_err(span)?.clone();
-
         // Enter the scope within the vm.
         let joins = self.flags & 0b010 != 0;
         let content = self.flags & 0b100 != 0;
@@ -1492,7 +1484,6 @@ impl Run for Enter {
         let f = move || {
             let flow = vm.enter_scope(
                 engine,
-                &defaults,
                 instructions,
                 spans,
                 None,

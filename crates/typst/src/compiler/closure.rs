@@ -1,7 +1,7 @@
 use ecow::EcoString;
 use typst_syntax::ast::{self, AstNode};
 
-use crate::diag::{At, SourceResult};
+use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::vm::{CompiledParam, OptionalWritable};
 
@@ -41,7 +41,7 @@ impl Compile for ast::Closure<'_> {
 
         // Create the local such that the closure can use itself.
         let closure_local = if let Some(name) = name.clone() {
-            Some(closure_compiler.declare(self.span(), name).at(self.span())?)
+            Some(closure_compiler.declare(self.span(), name))
         } else {
             None
         };
@@ -66,7 +66,7 @@ impl Compile for ast::Closure<'_> {
                         params.push(CompiledParam::Pos(reg.into(), name.clone()));
                     } else {
                         // Create a register for the pattern.
-                        let reg = closure_compiler.register().at(pat.span())?;
+                        let reg = closure_compiler.register();
                         let pattern_id =
                             closure_compiler.pattern(pattern.as_vm_pattern());
                         params.push(CompiledParam::Pos(
@@ -84,8 +84,7 @@ impl Compile for ast::Closure<'_> {
                     // Create the local variable.
                     let name = named.name().get();
                     let target = closure_compiler
-                        .declare(named.name().span(), name.clone())
-                        .at(named.span())?;
+                        .declare(named.name().span(), name.clone());
 
                     // Add the parameter to the list.
                     params.push(CompiledParam::Named {
@@ -108,8 +107,7 @@ impl Compile for ast::Closure<'_> {
 
                     // Create the local variable.
                     let target = closure_compiler
-                        .declare(name.span(), name.get().clone())
-                        .at(name.span())?;
+                        .declare(name.span(), name.get().clone());
 
                     params.push(CompiledParam::Sink(
                         sink.span(),
@@ -150,7 +148,7 @@ impl Compile for ast::Closure<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         // Get an output register.
-        let reg = compiler.register().at(self.span())?;
+        let reg = compiler.register();
 
         // Compile into the register.
         self.compile_into(engine, compiler, Some(reg.clone().into()))?;

@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 
 use crate::util::hash128;
 use crate::vm::{
-    AccessId, ClosureId, Constant, LabelId, PatternId, Pointer, ScopeId, SpanId, StringId,
+    AccessId, ClosureId, Constant, LabelId, PatternId, Pointer, SpanId, StringId,
 };
 
 pub struct Remapper<K, V> {
@@ -101,16 +101,6 @@ impl RemapperKey for AccessId {
 }
 
 impl RemapperKey for PatternId {
-    fn as_raw(&self) -> u16 {
-        Self::as_raw(*self)
-    }
-
-    fn from_raw(raw: u16) -> Self {
-        Self::new(raw)
-    }
-}
-
-impl RemapperKey for ScopeId {
     fn as_raw(&self) -> u16 {
         Self::as_raw(*self)
     }

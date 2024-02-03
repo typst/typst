@@ -35,8 +35,6 @@ impl CompiledModule {
             })
             .collect();
 
-        compiler.common.defaults.insert(0, compiler.get_default_scope());
-
         let jumps = compiler.remapped_instructions();
         compiler.instructions.shrink_to_fit();
         compiler.spans.shrink_to_fit();
@@ -44,6 +42,8 @@ impl CompiledModule {
             inner: Arc::new(Repr {
                 name: name.into(),
                 span,
+                registers: compiler.scope.borrow().registers.borrow().len() as usize,
+                defaults: compiler.get_default_scope(),
                 instructions: compiler.instructions,
                 spans: compiler.spans,
                 global: compiler.scope.borrow().global().clone(),
@@ -54,7 +54,6 @@ impl CompiledModule {
                 labels: compiler.common.labels.into_values(),
                 patterns: compiler.common.patterns.into_values(),
                 isr_spans: compiler.common.spans.into_values(),
-                defaults: compiler.common.defaults,
                 jumps,
                 joined: true,
                 exports,
@@ -75,6 +74,8 @@ pub struct Repr {
     pub spans: Vec<Span>,
     /// The global library.
     pub global: Library,
+    /// The number of registers needed for the module.
+    pub registers: usize,
     /// The list of constants.
     pub constants: Vec<Value>,
     /// The list of strings.
@@ -88,7 +89,7 @@ pub struct Repr {
     /// The list of patterns.
     pub patterns: Vec<Pattern>,
     /// The default values of variables.
-    pub defaults: Vec<EcoVec<DefaultValue>>,
+    pub defaults: EcoVec<DefaultValue>,
     /// The spans used in the module.
     pub isr_spans: Vec<Span>,
     /// The jumps used in the module.

@@ -29,7 +29,7 @@ use crate::foundations::{IntoValue, Label, Str, Value};
 use crate::vm::{
     self, Access as VmAccess, AccessId, ClosureId, CompiledClosure, CompiledParam,
     Constant, DefaultValue, LabelId, OptionalWritable, Pattern as VmPattern, PatternId,
-    Pointer, ScopeId, SpanId, StringId, Writable,
+    Pointer, SpanId, StringId, Writable,
 };
 use crate::Library;
 
@@ -54,8 +54,6 @@ pub struct Compiler {
     pub name: Option<EcoString>,
     /// The common values between scopes.
     common: Inner,
-    /// The current scope ID.
-    scope_id: Option<ScopeId>,
 }
 
 impl Compiler {
@@ -67,7 +65,6 @@ impl Compiler {
             scope: Rc::new(RefCell::new(CompilerScope::module(library))),
             name: None,
             common: Inner::new(),
-            scope_id: None,
         }
     }
 
@@ -80,7 +77,6 @@ impl Compiler {
             scope: Rc::new(RefCell::new(CompilerScope::function(parent))),
             name: Some(name.into()),
             common: Inner::new(),
-            scope_id: None,
         }
     }
 
@@ -100,12 +96,12 @@ impl Compiler {
     }
 
     /// Allocates a new register.
-    pub fn register(&self) -> StrResult<RegisterGuard> {
+    pub fn register(&self) -> RegisterGuard {
         self.scope.borrow().register()
     }
 
     /// Allocates a pristine register.
-    pub fn pristine_register(&self) -> StrResult<RegisterGuard> {
+    pub fn pristine_register(&self) -> RegisterGuard {
         self.scope.borrow().pristine_register()
     }
 
@@ -114,7 +110,7 @@ impl Compiler {
         &self,
         span: Span,
         name: impl Into<EcoString>,
-    ) -> StrResult<RegisterGuard> {
+    ) -> RegisterGuard {
         self.scope.borrow_mut().declare(span, name.into())
     }
 
@@ -124,7 +120,7 @@ impl Compiler {
         span: Span,
         name: impl Into<EcoString>,
         output: impl Into<RegisterGuard>,
-    ) -> StrResult<()> {
+    ) {
         self.scope.borrow_mut().declare_into(span, name.into(), output.into())
     }
 
@@ -134,7 +130,7 @@ impl Compiler {
         span: Span,
         name: impl Into<EcoString>,
         default: impl IntoValue,
-    ) -> StrResult<RegisterGuard> {
+    ) -> RegisterGuard {
         self.scope.borrow_mut().declare_with_default(
             span,
             name.into(),
@@ -181,11 +177,10 @@ impl Compiler {
             joining,
             display,
             f,
-            |compiler, _, len, out, scope_id| {
+            |compiler, _, len, out| {
                 compiler.enter_isr(
                     span,
                     len as u32,
-                    scope_id,
                     0b000
                         | if looping { 0b001 } else { 0b000 }
                         | if joining.is_some() { 0b010 } else { 0b000 }
@@ -210,10 +205,8 @@ impl Compiler {
             &mut Engine,
             usize,
             OptionalWritable,
-            ScopeId,
         ) -> SourceResult<()>,
     ) -> SourceResult<()> {
-        let mut scope_id = Some(ScopeId::new(self.common.scopes));
         let mut scope =
             Rc::new(RefCell::new(CompilerScope::scope(self.scope.clone(), looping)));
         let mut instructions = Vec::with_capacity(DEFAULT_CAPACITY * 8);
@@ -224,43 +217,25 @@ impl Compiler {
         std::mem::swap(&mut self.scope, &mut scope);
         std::mem::swap(&mut self.instructions, &mut instructions);
         std::mem::swap(&mut self.spans, &mut spans);
-        std::mem::swap(&mut self.scope_id, &mut scope_id);
 
         f(self, engine, &mut display)?;
 
         std::mem::swap(&mut self.scope, &mut scope);
         std::mem::swap(&mut self.instructions, &mut instructions);
         std::mem::swap(&mut self.spans, &mut spans);
-        std::mem::swap(&mut self.scope_id, &mut scope_id);
 
         let out = match joining {
             Some(out) => OptionalWritable::some(out),
             None => OptionalWritable::none(),
         };
 
-        let defaults = scope
-            .borrow()
-            .variables
-            .values()
-            .filter_map(|v| v.default.clone().map(|d| (d, v.register.as_register())))
-            .map(|(value, target)| DefaultValue { target, value })
-            .collect::<EcoVec<_>>();
-
-        self.common.defaults.push(defaults);
-        let scope_id = scope_id.unwrap();
-
         let len = instructions.len();
-        pre(self, engine, len, out, scope_id)?;
+        pre(self, engine, len, out)?;
 
         self.spans.extend(spans);
         self.instructions.extend(instructions);
 
         Ok(())
-    }
-
-    /// Get the current scope ID.
-    pub fn scope_id(&self) -> Option<ScopeId> {
-        self.scope_id
     }
 
     /// Allocates a new constant.
@@ -354,6 +329,7 @@ impl Compiler {
         self_storage: Option<WritableGuard>,
     ) -> CompiledClosure {
         let scopes = self.scope.borrow();
+        let registers = scopes.registers.borrow().len() as usize;
         let captures = scopes
             .captures
             .values()
@@ -365,15 +341,15 @@ impl Compiler {
             })
             .collect();
 
-        self.common.defaults.insert(0, self.get_default_scope());
-
         let jumps = self.remapped_instructions();
         self.instructions.shrink_to_fit();
         self.spans.shrink_to_fit();
         CompiledClosure {
             inner: Arc::new(vm::Inner {
-                name: self.name,
+                defaults: self.get_default_scope(),
                 span,
+                registers,
+                name: self.name,
                 instructions: self.instructions,
                 spans: self.spans,
                 global: scopes.global().clone(),
@@ -384,7 +360,6 @@ impl Compiler {
                 labels: self.common.labels.into_values(),
                 patterns: self.common.patterns.into_values(),
                 isr_spans: self.common.spans.into_values(),
-                defaults: self.common.defaults,
                 jumps,
                 output: None,
                 joined: true,
@@ -445,8 +420,6 @@ struct Inner {
     scopes: u16,
     /// The current jump counter.
     jumps: u16,
-    /// The default value remapper.
-    defaults: Vec<EcoVec<DefaultValue>>,
 }
 
 impl Inner {

@@ -5,7 +5,7 @@ use typst_syntax::Span;
 use super::Compiler;
 use crate::vm::{
     AccessId, ClosureId, LabelId, OptionalReadable, OptionalWritable, PatternId, Pointer,
-    Readable, ScopeId, SpanId, Writable,
+    Readable, SpanId, Writable,
 };
 
 pub use crate::vm::opcodes::*;

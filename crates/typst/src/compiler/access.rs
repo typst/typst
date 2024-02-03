@@ -88,13 +88,6 @@ impl Access for ast::Ident<'_> {
                     Ok(AccessPattern::Readable(reg.into()))
                 }
             }
-            Some(ReadableGuard::Parent(parent)) => {
-                if mutable {
-                    Ok(AccessPattern::Writable(parent.into()))
-                } else {
-                    Ok(AccessPattern::Readable(parent.into()))
-                }
-            }
             Some(ReadableGuard::Captured(cap)) => {
                 if mutable {
                     bail!(self.span(), "variables from outside the function are read-only and cannot be modified")

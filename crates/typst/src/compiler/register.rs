@@ -4,46 +4,48 @@ use ecow::EcoString;
 
 use crate::diag::bail;
 use crate::vm::{
-    Constant, Global, Math, OptionalReadable, OptionalWritable, Parent, Readable,
+    Constant, Global, Math, OptionalReadable, OptionalWritable, Readable,
     Register, StringId, Writable,
 };
 
 /// The table of occupied registers.
-pub struct RegisterTable([(bool, bool); 128]);
+pub struct RegisterTable(Vec<(bool, bool)>);
 
 impl RegisterTable {
     /// Creates a new empty register table.
     pub fn new() -> Self {
-        Self([(false, true); 128])
+        Self(Vec::with_capacity(64))
     }
 
     /// Allocates a register.
-    pub fn allocate(&mut self) -> Option<Register> {
-        self.0.iter_mut().enumerate().find(|(_, (is_used, _))| !*is_used).map(
+    pub fn allocate(&mut self) -> Register {
+        let Some(reg) = self.0.iter_mut().enumerate().find(|(_, (is_used, _))| !*is_used).map(
             |(index, (is_used, is_pristine))| {
                 *is_used = true;
                 *is_pristine = false;
                 Register::new(index as u16)
             },
-        )
+        ) else {
+            return self.allocate_pristine();
+        };
+
+        reg
     }
 
     /// Allocates a pristine register.
-    pub fn allocate_pristine(&mut self) -> Option<Register> {
-        self.0
-            .iter_mut()
-            .enumerate()
-            .find(|(_, (is_used, is_pristine))| !*is_used && *is_pristine)
-            .map(|(index, (is_used, is_pristine))| {
-                *is_used = true;
-                *is_pristine = false;
-                Register::new(index as u16)
-            })
+    pub fn allocate_pristine(&mut self) -> Register {
+        let idx = self.0.len();
+        self.0.push((true, false));
+        Register::new(idx as u16)
     }
 
     /// Frees a register.
     fn free(&mut self, index: Register) {
         self.0[index.as_raw() as usize] = (false, false);
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 }
 
@@ -94,47 +96,10 @@ impl Drop for RegisterInner {
     }
 }
 
-#[derive(Clone)]
-pub struct ParentGuard {
-    /// The parent access id.
-    parent: u16,
-    /// The register this variable is stored in.
-    register: RegisterGuard,
-}
-
-impl fmt::Debug for ParentGuard {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "P{}.{}", self.parent, self.register.as_raw())
-    }
-}
-
-impl ParentGuard {
-    /// Creates a new parent guard.
-    pub fn new(parent: u16, register: RegisterGuard) -> Self {
-        Self { parent, register }
-    }
-
-    /// Get the parent access id.
-    pub fn as_parent(&self) -> Parent {
-        Parent::new(self.parent, self.register.as_raw())
-    }
-
-    /// Get this register as a [`Readable`].
-    pub fn as_readable(&self) -> Readable {
-        self.as_parent().into()
-    }
-
-    /// Get this register as a [`Writable`].
-    pub fn as_writeable(&self) -> Writable {
-        self.as_parent().into()
-    }
-}
-
 #[derive(Clone, Debug)]
 pub enum ReadableGuard {
     Register(RegisterGuard),
     Captured(Box<ReadableGuard>),
-    Parent(ParentGuard),
     Constant(Constant),
     String(StringId),
     Global(Global),
@@ -162,14 +127,6 @@ impl ReadableGuard {
             Self::Math(readable.as_math())
         } else if readable.is_bool() {
             Self::Bool(readable.as_bool())
-        } else if readable.is_parent() {
-            Self::Parent(ParentGuard::new(
-                readable.as_parent().scope(),
-                RegisterGuard::new(
-                    Register::new(readable.as_parent().value()),
-                    registers,
-                ),
-            ))
         } else {
             unreachable!()
         }
@@ -184,7 +141,6 @@ impl Into<Readable> for &ReadableGuard {
         match self {
             ReadableGuard::Register(register) => register.as_readable(),
             ReadableGuard::Captured(captured) => (&**captured).into(),
-            ReadableGuard::Parent(parent) => parent.as_readable(),
             ReadableGuard::Constant(constant) => (*constant).into(),
             ReadableGuard::String(string) => (*string).into(),
             ReadableGuard::Global(global) => (*global).into(),
@@ -199,12 +155,6 @@ impl Into<Readable> for &ReadableGuard {
 impl From<RegisterGuard> for ReadableGuard {
     fn from(register: RegisterGuard) -> Self {
         Self::Register(register)
-    }
-}
-
-impl From<ParentGuard> for ReadableGuard {
-    fn from(parent: ParentGuard) -> Self {
-        Self::Parent(parent)
     }
 }
 
@@ -241,7 +191,6 @@ impl From<bool> for ReadableGuard {
 #[derive(Clone, Debug)]
 pub enum WritableGuard {
     Register(RegisterGuard),
-    Parent(ParentGuard),
     Joined,
 }
 
@@ -261,17 +210,10 @@ impl From<RegisterGuard> for WritableGuard {
     }
 }
 
-impl From<ParentGuard> for WritableGuard {
-    fn from(parent: ParentGuard) -> Self {
-        Self::Parent(parent)
-    }
-}
-
 impl Into<Readable> for &WritableGuard {
     fn into(self) -> Readable {
         match self {
             WritableGuard::Register(register) => register.as_readable(),
-            WritableGuard::Parent(parent) => parent.as_readable(),
             WritableGuard::Joined => unreachable!(),
         }
     }
@@ -281,7 +223,6 @@ impl Into<Writable> for &WritableGuard {
     fn into(self) -> Writable {
         match self {
             WritableGuard::Register(register) => register.as_writeable(),
-            WritableGuard::Parent(parent) => parent.as_writeable(),
             WritableGuard::Joined => Writable::joined(),
         }
     }
@@ -320,8 +261,6 @@ impl TryFrom<ReadableGuard> for WritableGuard {
     fn try_from(value: ReadableGuard) -> Result<Self, Self::Error> {
         if let ReadableGuard::Register(register) = value {
             Ok(Self::Register(register))
-        } else if let ReadableGuard::Parent(parent) = value {
-            Ok(Self::Parent(parent))
         } else {
             bail!("this value is not writable")
         }
