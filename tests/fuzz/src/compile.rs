@@ -3,7 +3,7 @@
 use comemo::Prehashed;
 use libfuzzer_sys::fuzz_target;
 use typst::diag::{FileError, FileResult};
-use typst::eval::Tracer;
+use typst::vm::Tracer;
 use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook};

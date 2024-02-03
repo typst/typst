@@ -9,7 +9,7 @@ use parking_lot::RwLock;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use termcolor::{ColorChoice, StandardStream};
 use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
-use typst::eval::Tracer;
+use typst::vm::Tracer;
 use typst::foundations::Datetime;
 use typst::layout::Frame;
 use typst::model::Document;

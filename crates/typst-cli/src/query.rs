@@ -2,7 +2,7 @@ use comemo::Track;
 use ecow::{eco_format, EcoString};
 use serde::Serialize;
 use typst::diag::{bail, StrResult};
-use typst::eval::{eval_string, EvalMode, Tracer};
+use typst::vm::{eval_string, EvalMode, Tracer};
 use typst::foundations::{Content, IntoValue, LocatableSelector, Scope};
 use typst::model::Document;
 use typst::syntax::Span;

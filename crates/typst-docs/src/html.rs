@@ -8,7 +8,7 @@ use pulldown_cmark as md;
 use serde::{Deserialize, Serialize};
 use typed_arena::Arena;
 use typst::diag::{FileResult, StrResult};
-use typst::eval::Tracer;
+use typst::vm::Tracer;
 use typst::foundations::{Bytes, Datetime};
 use typst::layout::{Abs, Point, Size};
 use typst::syntax::{FileId, Source, VirtualPath};
