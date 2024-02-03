@@ -39,7 +39,7 @@ pub fn run_module(
         output: None,
         global: &module.inner.global,
         instruction_pointer: 0,
-        registers: vec![NONE; module.inner.registers],
+        registers: smallvec::smallvec![NONE; module.inner.registers],
         joined: None,
         constants: &module.inner.constants,
         strings: &module.inner.strings,

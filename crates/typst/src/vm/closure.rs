@@ -66,7 +66,7 @@ impl Closure {
             output: self.inner.output,
             global: &self.inner.global,
             instruction_pointer: 0,
-            registers: vec![NONE; self.inner.registers],
+            registers: smallvec::smallvec![NONE; self.inner.registers],
             joined: None,
             constants: &self.inner.constants,
             strings: &self.inner.strings,

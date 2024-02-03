@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
+use smallvec::SmallVec;
 use typst_syntax::{Source, Span};
 
 use crate::compiler::compile_module;
@@ -191,8 +192,6 @@ pub enum ControlFlow {
     Return(Value, bool),
 }
 pub struct VMState<'a> {
-    /// The registers.
-    registers: Vec<Value>,
     /// The current instruction pointer.
     instruction_pointer: usize,
     /// The joined values.
@@ -222,6 +221,8 @@ pub struct VMState<'a> {
     spans: &'a [Span],
     /// The iterator, if any.
     iterator: Option<Box<dyn Iterator<Item = Value>>>,
+    /// The registers.
+    registers: SmallVec<[Value; 16]>,
 }
 
 impl<'a> VMState<'a> {

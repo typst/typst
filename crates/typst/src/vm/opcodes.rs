@@ -885,7 +885,7 @@ impl Run for Call {
                 let value = f()?;
 
                 #[cfg(not(target_arch = "wasm32"))]
-                let value = stacker::maybe_grow(32 * 1024, 64 * 1024, f)?;
+                let value = stacker::maybe_grow(4 * 1024, 8 * 1024, f)?;
 
                 // Write the value to the output.
                 vm.write_one(self.out, value).at(span)?;
