@@ -72,8 +72,8 @@ use ecow::EcoString;
 
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::eval::EvalMode;
 use crate::syntax::Spanned;
+use crate::vm::EvalMode;
 
 /// Foundational types and functions.
 ///
@@ -291,5 +291,5 @@ pub fn eval(
     for (key, value) in dict {
         scope.define(key, value);
     }
-    crate::eval::eval_string(engine.world, &text, span, mode, scope)
+    crate::vm::eval_string(engine.world, &text, span, mode, scope)
 }

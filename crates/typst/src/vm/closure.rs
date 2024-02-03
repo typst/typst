@@ -6,7 +6,6 @@ use typst_syntax::Span;
 
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
 use crate::foundations::{Args, Func, IntoValue, Label, Value};
 use crate::introspection::{Introspector, Locator};
 use crate::vm::ControlFlow;
@@ -14,7 +13,8 @@ use crate::{Library, World};
 
 use super::opcodes::Opcode;
 use super::{
-    Access, OptionalWritable, Pattern, Readable, Register, State, VMState, Writable,
+    Access, OptionalWritable, Pattern, Readable, Register, State, Tracer, VMState,
+    Writable,
 };
 
 /// A closure that has been instantiated.

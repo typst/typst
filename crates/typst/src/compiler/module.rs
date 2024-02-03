@@ -7,10 +7,9 @@ use typst_syntax::{ast, Source, Span};
 use crate::compiler::CompileTopLevel;
 use crate::diag::SourceResult;
 use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
 use crate::foundations::{Label, Value};
 use crate::introspection::{Introspector, Locator};
-use crate::vm::{Access, CompiledClosure, DefaultValue, Pattern, Readable};
+use crate::vm::{Access, CompiledClosure, DefaultValue, Pattern, Readable, Tracer};
 use crate::{Library, World};
 
 use super::{Compiler, Opcode};

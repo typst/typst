@@ -1,8 +1,11 @@
 mod access;
 mod closure;
+mod eval;
 mod module;
 pub mod opcodes;
+pub mod ops;
 mod pattern;
+mod tracer;
 mod values;
 
 use std::sync::Arc;
@@ -15,7 +18,6 @@ use typst_syntax::{Source, Span};
 use crate::compiler::compile_module;
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::{Engine, Route};
-use crate::eval::{ops, Tracer};
 use crate::foundations::{
     Content, IntoValue, Label, Module, NativeElement, Recipe, SequenceElem, Styles,
     Unlabellable, Value,
@@ -25,9 +27,11 @@ use crate::{Library, World};
 
 pub use self::access::*;
 pub use self::closure::*;
+pub use self::eval::*;
 pub use self::module::*;
 use self::opcodes::{Opcode, Run};
 pub use self::pattern::*;
+pub use self::tracer::*;
 pub use self::values::*;
 
 /// Evaluate a source file and return the resulting module.

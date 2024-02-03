@@ -73,11 +73,11 @@ use comemo::{Tracked, TrackedMut};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
 use crate::foundations::{category, Category, Content, Scope, StyleChain};
 use crate::introspection::{Introspector, Locator};
 use crate::model::Document;
 use crate::realize::{realize_block, realize_root, Scratch};
+use crate::vm::Tracer;
 use crate::World;
 
 /// Arranging elements on the page in different ways.

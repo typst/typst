@@ -3,7 +3,7 @@ use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
 use crate::diag::SourceResult;
 use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
+use crate::vm::Tracer;
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Content, Func, NativeElement, Packed,
     Repr, Selector, Show, Str, StyleChain, Value,

@@ -42,7 +42,6 @@ pub mod util;
 pub mod compiler;
 pub mod diag;
 pub mod engine;
-pub mod eval;
 pub mod foundations;
 pub mod introspection;
 pub mod layout;
@@ -67,7 +66,6 @@ use typst_timing::{timed, TimingScope};
 
 use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
 use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
 use crate::foundations::{
     Array, Bytes, Content, Datetime, Dict, Module, Scope, StyleChain, Styles,
 };
@@ -77,6 +75,7 @@ use crate::model::Document;
 use crate::syntax::{FileId, PackageSpec, Source, Span};
 use crate::text::{Font, FontBook};
 use crate::visualize::Color;
+use crate::vm::Tracer;
 
 /// Compile a source file into a fully layouted document.
 ///

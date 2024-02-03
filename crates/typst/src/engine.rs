@@ -5,9 +5,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use comemo::{Track, Tracked, TrackedMut, Validate};
 
 use crate::diag::SourceResult;
-use crate::eval::Tracer;
 use crate::introspection::{Introspector, Locator};
 use crate::syntax::FileId;
+use crate::vm::Tracer;
 use crate::World;
 
 /// Holds all data needed during compilation.

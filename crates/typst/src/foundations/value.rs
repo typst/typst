@@ -10,7 +10,6 @@ use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::diag::StrResult;
-use crate::eval::ops;
 use crate::foundations::{
     fields, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Dict,
     Duration, FromValue, Func, IntoValue, Label, Module, NativeElement, NativeType,
@@ -21,6 +20,7 @@ use crate::symbols::Symbol;
 use crate::syntax::{ast, Span};
 use crate::text::{RawElem, TextElem};
 use crate::visualize::{Color, Gradient, Pattern};
+use crate::vm::ops;
 
 /// A computational value.
 #[derive(Default, Clone)]

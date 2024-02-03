@@ -5,14 +5,13 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{bail, error, At, SourceResult};
 use crate::engine::Engine;
-use crate::eval::ops;
 use crate::foundations::{
     array, call_method_mut, is_mutating_method, Arg, Content, Func, IntoValue,
     NativeElement, Recipe, ShowableSelector, Style, Styles, Transformation, Value,
 };
 use crate::math::{AttachElem, EquationElem, FracElem, LrElem};
 use crate::model::{EmphElem, HeadingElem, RefElem, StrongElem};
-use crate::vm::{ControlFlow, Register, State};
+use crate::vm::{ops, ControlFlow, Register, State};
 
 use super::{
     Access, AccessId, ClosureId, LabelId, OptionalReadable, OptionalWritable, PatternId,

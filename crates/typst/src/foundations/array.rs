@@ -9,12 +9,12 @@ use smallvec::SmallVec;
 
 use crate::diag::{At, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::eval::ops;
 use crate::foundations::{
     cast, func, repr, scope, ty, Args, Bytes, CastInfo, FromValue, Func, IntoValue,
     Reflect, Repr, Value, Version,
 };
 use crate::syntax::Span;
+use crate::vm::ops;
 
 /// Create a new [`Array`] from values.
 #[macro_export]

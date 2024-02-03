@@ -3,13 +3,12 @@ use comemo::{Tracked, TrackedMut};
 use crate::compiler::CompiledModule;
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
 use crate::foundations::{Module, Scope, Value};
 use crate::introspection::{Introspector, Locator};
 use crate::vm::ControlFlow;
 use crate::World;
 
-use super::{State, VMState};
+use super::{State, Tracer, VMState};
 
 #[comemo::memoize]
 #[typst_macros::time(name = "module eval")]

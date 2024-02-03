@@ -21,7 +21,6 @@ use typed_arena::Arena;
 
 use crate::diag::{bail, error, At, FileError, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::eval::{eval_string, EvalMode};
 use crate::foundations::{
     cast, elem, ty, Args, Array, Bytes, CastInfo, Content, Finalize, FromValue,
     IntoValue, Label, NativeElement, Packed, Reflect, Repr, Scope, Show, Smart, Str,
@@ -34,6 +33,7 @@ use crate::layout::{
 use crate::model::{
     CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
 };
+use crate::vm::{eval_string, EvalMode};
 
 use crate::syntax::{Span, Spanned};
 use crate::text::{
