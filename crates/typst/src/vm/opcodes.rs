@@ -20,13 +20,14 @@ use super::{
 };
 
 pub trait Run {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         instructions: &[Opcode],
         spans: &[Span],
         span: Span,
         vm: &mut VMState,
         engine: &mut Engine,
+        iterator: Option<&mut I>,
     ) -> SourceResult<()>;
 }
 
@@ -93,13 +94,14 @@ macro_rules! opcodes {
         }
 
         impl Run for Opcode {
-            fn run(
+            fn run<I: Iterator<Item = Value>>(
                 &self,
                 instructions: &[Opcode],
                 spans: &[Span],
                 span: Span,
                 vm: &mut VMState,
                 engine: &mut Engine,
+                iterator: Option<&mut I>
             ) -> SourceResult<()> {
                 match self {
                     Self::Flow => {
@@ -115,7 +117,8 @@ macro_rules! opcodes {
                             &spans[vm.instruction_pointer..],
                             span,
                             vm,
-                            engine
+                            engine,
+                            iterator
                         )
                     })*
                 }
@@ -127,13 +130,14 @@ macro_rules! opcodes {
 include!("opcodes_raw.rs");
 
 impl Run for Add {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the left-hand side and right-hand side.
         let lhs = vm.read(self.lhs);
@@ -148,13 +152,14 @@ impl Run for Add {
 }
 
 impl Run for Sub {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the left-hand side and right-hand side.
         let lhs = vm.read(self.lhs);
@@ -169,13 +174,14 @@ impl Run for Sub {
 }
 
 impl Run for Mul {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the left-hand side and right-hand side.
         let lhs = vm.read(self.lhs);
@@ -190,13 +196,14 @@ impl Run for Mul {
 }
 
 impl Run for Div {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the left-hand side and right-hand side.
         let lhs = vm.read(self.lhs);
@@ -211,13 +218,14 @@ impl Run for Div {
 }
 
 impl Run for Neg {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the value.
         let value = vm.read(self.value);
@@ -230,13 +238,14 @@ impl Run for Neg {
 }
 
 impl Run for Pos {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the value.
         let value = vm.read(self.value);
@@ -249,13 +258,14 @@ impl Run for Pos {
 }
 
 impl Run for Not {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the value.
         let value = vm.read(self.value);
@@ -268,13 +278,14 @@ impl Run for Not {
 }
 
 impl Run for Gt {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the left-hand side and right-hand side.
         let lhs = vm.read(self.lhs);
@@ -289,13 +300,14 @@ impl Run for Gt {
 }
 
 impl Run for Geq {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the left-hand side and right-hand side.
         let lhs = vm.read(self.lhs);
@@ -310,13 +322,14 @@ impl Run for Geq {
 }
 
 impl Run for Lt {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the left-hand side and right-hand side.
         let lhs = vm.read(self.lhs);
@@ -331,13 +344,14 @@ impl Run for Lt {
 }
 
 impl Run for Leq {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the left-hand side and right-hand side.
         let lhs = vm.read(self.lhs);
@@ -352,13 +366,14 @@ impl Run for Leq {
 }
 
 impl Run for Eq {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the left-hand side and right-hand side.
         let lhs = vm.read(self.lhs);
@@ -373,13 +388,14 @@ impl Run for Eq {
 }
 
 impl Run for Neq {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the left-hand side and right-hand side.
         let lhs = vm.read(self.lhs);
@@ -394,13 +410,14 @@ impl Run for Neq {
 }
 
 impl Run for In {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the left-hand side and right-hand side.
         let lhs = vm.read(self.lhs);
@@ -415,13 +432,14 @@ impl Run for In {
 }
 
 impl Run for NotIn {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the left-hand side and right-hand side.
         let lhs = vm.read(self.lhs);
@@ -436,13 +454,14 @@ impl Run for NotIn {
 }
 
 impl Run for And {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the left-hand side and right-hand side.
         let lhs = vm.read(self.lhs);
@@ -457,13 +476,14 @@ impl Run for And {
 }
 
 impl Run for Assign {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Get the value.
         let value = vm.read(self.value).clone();
@@ -482,13 +502,14 @@ impl Run for Assign {
 }
 
 impl Run for AddAssign {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Get the value.
         let value = vm.read(self.value).clone();
@@ -510,13 +531,14 @@ impl Run for AddAssign {
 }
 
 impl Run for SubAssign {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Get the value.
         let value = vm.read(self.value).clone();
@@ -538,13 +560,14 @@ impl Run for SubAssign {
 }
 
 impl Run for MulAssign {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Get the value.
         let value = vm.read(self.value).clone();
@@ -566,13 +589,14 @@ impl Run for MulAssign {
 }
 
 impl Run for DivAssign {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Get the value.
         let value = vm.read(self.value).clone();
@@ -594,13 +618,14 @@ impl Run for DivAssign {
 }
 
 impl Run for Destructure {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         _: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Get the value.
         let value = vm.read(self.value).clone();
@@ -616,13 +641,14 @@ impl Run for Destructure {
 }
 
 impl Run for Or {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the left-hand side.
         let lhs = vm.read(self.lhs);
@@ -637,13 +663,14 @@ impl Run for Or {
 }
 
 impl Run for CopyIsr {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Get the value.
         let value = vm.read(self.value).clone();
@@ -656,13 +683,14 @@ impl Run for CopyIsr {
 }
 
 impl Run for None {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Write a `none` value to the output.
         vm.write_one(self.out, Value::None).at(span)?;
@@ -672,13 +700,14 @@ impl Run for None {
 }
 
 impl Run for Auto {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Write a `auto` value to the output.
         vm.write_one(self.out, Value::Auto).at(span)?;
@@ -688,13 +717,14 @@ impl Run for Auto {
 }
 
 impl Run for Set {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         engine: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Load the target function.
         let target = vm
@@ -731,13 +761,14 @@ impl Run for Set {
 }
 
 impl Run for Show {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Load the selector.
         let selector = self
@@ -766,13 +797,14 @@ impl Run for Show {
 }
 
 impl Run for Styled {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Set that we are only displaying the remaining joined items.
         vm.state |= State::DISPLAY;
@@ -804,13 +836,14 @@ impl Run for Styled {
 }
 
 impl Run for Instantiate {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Get the closure.
         let closure = vm.read(self.closure);
@@ -828,13 +861,14 @@ impl Run for Instantiate {
 }
 
 impl Run for Call {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         engine: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Get the function.
         let accessor = vm.read(self.closure).clone();
@@ -897,13 +931,14 @@ impl Run for Call {
 }
 
 impl Run for Field {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Get the value.
         let value = vm.read(self.access).read(span, vm)?;
@@ -916,13 +951,14 @@ impl Run for Field {
 }
 
 impl Run for While {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         instructions: &[Opcode],
         spans: &[Span],
         span: Span,
         vm: &mut VMState,
         engine: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         debug_assert!(self.len as usize <= instructions.len());
 
@@ -933,14 +969,15 @@ impl Run for While {
             std::slice::from_raw_parts(instructions.as_ptr(), self.len as usize)
         };
 
-        let flow = vm.enter_scope(
+        let flow = vm.enter_scope::<std::iter::Empty<Value>>(
             engine,
             instructions,
             spans,
-            Some(Box::new(std::iter::empty())),
+            None,
             None,
             true,
             false,
+            true,
         )?;
 
         let mut forced_return = false;
@@ -973,13 +1010,14 @@ impl Run for While {
 }
 
 impl Run for Iter {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         instructions: &[Opcode],
         spans: &[Span],
         span: Span,
         vm: &mut VMState,
         engine: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         debug_assert!(self.len as usize <= instructions.len());
 
@@ -1017,8 +1055,16 @@ impl Run for Iter {
             }
         };
 
-        let flow =
-            vm.enter_scope(engine, instructions, spans, Some(iter), None, true, false)?;
+        let flow = vm.enter_scope(
+            engine,
+            instructions,
+            spans,
+            Some(iter),
+            None,
+            true,
+            false,
+            true,
+        )?;
 
         let mut forced_return = false;
         let output = match flow {
@@ -1050,15 +1096,16 @@ impl Run for Iter {
 }
 
 impl Run for Next {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        iterator: Option<&mut I>,
     ) -> SourceResult<()> {
-        let Some(iter) = &mut vm.iterator else {
+        let Some(iter) = iterator else {
             bail!(span, "not in an iterable scope");
         };
 
@@ -1076,13 +1123,14 @@ impl Run for Next {
 }
 
 impl Run for Continue {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         _: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         if !vm.state.is_breaking() && !vm.state.is_returning() {
             vm.state |= State::CONTINUING;
@@ -1093,13 +1141,14 @@ impl Run for Continue {
 }
 
 impl Run for Break {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         _: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         if !vm.state.is_continuing() && !vm.state.is_returning() {
             vm.state |= State::BREAKING;
@@ -1110,13 +1159,14 @@ impl Run for Break {
 }
 
 impl Run for Return {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         _: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         vm.output = self.value.ok();
         if !vm.state.is_breaking() && !vm.state.is_continuing() {
@@ -1132,13 +1182,14 @@ impl Run for Return {
 }
 
 impl Run for Array {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Create a new array.
         let array = Value::Array(crate::foundations::Array::with_capacity(
@@ -1153,13 +1204,14 @@ impl Run for Array {
 }
 
 impl Run for Push {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the value.
         let value = vm.read(self.value).clone();
@@ -1176,13 +1228,14 @@ impl Run for Push {
 }
 
 impl Run for Dict {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Create a new dictionary.
         let dict =
@@ -1196,13 +1249,14 @@ impl Run for Dict {
 }
 
 impl Run for Insert {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the value.
         let value = vm.read(self.value).clone();
@@ -1224,13 +1278,14 @@ impl Run for Insert {
 }
 
 impl Run for Args {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Create a new argument set.
         let args = Value::Args(crate::foundations::Args::with_capacity(
@@ -1246,13 +1301,14 @@ impl Run for Args {
 }
 
 impl Run for PushArg {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the value's span.
         let value_span = vm.read(self.value_span);
@@ -1272,13 +1328,14 @@ impl Run for PushArg {
 }
 
 impl Run for InsertArg {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the value's span.
         let value_span = vm.read(self.value_span);
@@ -1303,13 +1360,14 @@ impl Run for InsertArg {
 }
 
 impl Run for SpreadArg {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the value's span.
         let value_span = vm.read(self.value_span);
@@ -1351,13 +1409,14 @@ impl Run for SpreadArg {
 }
 
 impl Run for Spread {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the value.
         let value = vm.read(self.value).clone();
@@ -1410,13 +1469,14 @@ impl Run for Spread {
 }
 
 impl Run for Enter {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         instructions: &[Opcode],
         spans: &[Span],
         span: Span,
         vm: &mut VMState,
         engine: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         debug_assert!(self.len as usize <= instructions.len());
 
@@ -1431,8 +1491,16 @@ impl Run for Enter {
         let joins = self.flags & 0b010 != 0;
         let content = self.flags & 0b100 != 0;
 
-        let flow =
-            vm.enter_scope(engine, instructions, spans, None, None, joins, content)?;
+        let flow = vm.enter_scope::<std::iter::Empty<Value>>(
+            engine,
+            instructions,
+            spans,
+            None,
+            None,
+            joins,
+            content,
+            false,
+        )?;
 
         let mut forced_return = false;
         let output = match flow {
@@ -1469,26 +1537,28 @@ impl Run for Enter {
 }
 
 impl Run for PointerMarker {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         _: Span,
         _: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         Ok(())
     }
 }
 
 impl Run for JumpTop {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         _: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Jump to the instruction.
         vm.instruction_pointer = 0;
@@ -1498,13 +1568,14 @@ impl Run for JumpTop {
 }
 
 impl Run for Jump {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         _: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Jump to the instruction.
         vm.instruction_pointer = vm.read(self.instruction);
@@ -1514,13 +1585,14 @@ impl Run for Jump {
 }
 
 impl Run for JumpIf {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the condition.
         let condition = vm.read(self.condition);
@@ -1540,13 +1612,14 @@ impl Run for JumpIf {
 }
 
 impl Run for JumpIfNot {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the condition.
         let condition = vm.read(self.condition);
@@ -1566,13 +1639,14 @@ impl Run for JumpIfNot {
 }
 
 impl Run for Select {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the condition.
         let condition = vm.read(self.condition);
@@ -1594,13 +1668,14 @@ impl Run for Select {
 }
 
 impl Run for Delimited {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the left delimiter, body, and right delimiter.
         let left: Content = vm.read(self.left).clone().display();
@@ -1618,13 +1693,14 @@ impl Run for Delimited {
 }
 
 impl Run for Attach {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the base, top, and bottom.
         let base = vm.read(self.base);
@@ -1650,13 +1726,14 @@ impl Run for Attach {
 }
 
 impl Run for Frac {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the numerator and denominator.
         let numerator = vm.read(self.numerator);
@@ -1674,13 +1751,14 @@ impl Run for Frac {
 }
 
 impl Run for Root {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the degree and radicand.
         let degree = vm.read(self.degree);
@@ -1701,13 +1779,14 @@ impl Run for Root {
 }
 
 impl Run for Ref {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the supplement.
         let supplement = self.supplement.ok().map(|supplement| vm.read(supplement));
@@ -1727,13 +1806,14 @@ impl Run for Ref {
 }
 
 impl Run for Strong {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the value.
         let value = vm.read(self.value);
@@ -1749,13 +1829,14 @@ impl Run for Strong {
 }
 
 impl Run for Emph {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the value.
         let value = vm.read(self.value);
@@ -1771,13 +1852,14 @@ impl Run for Emph {
 }
 
 impl Run for Heading {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the value and level.
         let value = vm.read(self.value);
@@ -1800,13 +1882,14 @@ impl Run for Heading {
 }
 
 impl Run for ListItem {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the value.
         let value = vm.read(self.value);
@@ -1822,13 +1905,14 @@ impl Run for ListItem {
 }
 
 impl Run for EnumItem {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the value and number.
         let value = vm.read(self.value);
@@ -1846,13 +1930,14 @@ impl Run for EnumItem {
 }
 
 impl Run for TermItem {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the value and description.
         let value = vm.read(self.term);
@@ -1872,13 +1957,14 @@ impl Run for TermItem {
 }
 
 impl Run for Equation {
-    fn run(
+    fn run<I: Iterator<Item = Value>>(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
         _: &mut Engine,
+        _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the value.
         let value = vm.read(self.value);

@@ -80,6 +80,10 @@ bitflags::bitflags! {
 }
 
 impl State {
+    const fn is_looping(&self) -> bool {
+        self.contains(Self::LOOPING)
+    }
+
     const fn is_breaking(&self) -> bool {
         self.contains(Self::BREAKING)
     }
@@ -113,11 +117,12 @@ impl State {
     }
 }
 
-pub fn run(
+pub fn run<I: Iterator<Item = Value>>(
     engine: &mut Engine,
     state: &mut VMState,
     instructions: &[Opcode],
     spans: &[Span],
+    mut iterator: Option<I>,
 ) -> SourceResult<ControlFlow> {
     fn next<'a>(state: &mut VMState, instructions: &'a [Opcode]) -> Option<&'a Opcode> {
         if state.instruction_pointer == instructions.len() {
@@ -136,10 +141,17 @@ pub fn run(
 
         let idx = state.instruction_pointer;
 
-        opcode.run(&instructions, &spans, spans[idx], state, engine)?;
+        opcode.run(
+            &instructions,
+            &spans,
+            spans[idx],
+            state,
+            engine,
+            iterator.as_mut(),
+        )?;
 
         if matches!(opcode, Opcode::Flow) {
-            if state.iterator.is_some() {
+            if state.state.is_looping() {
                 if state.state.is_continuing() {
                     state.instruction_pointer = 0;
                     state.state.remove(State::CONTINUING);
@@ -170,9 +182,9 @@ pub fn run(
         None
     };
 
-    if state.state.is_continuing() && state.iterator.is_none() {
+    if state.state.is_continuing() && !state.state.is_looping() {
         Ok(ControlFlow::Continue(output.unwrap_or(Value::None)))
-    } else if state.state.is_breaking() && state.iterator.is_none() {
+    } else if state.state.is_breaking() && !state.state.is_looping() {
         Ok(ControlFlow::Break(output.unwrap_or(Value::None)))
     } else if state.state.is_returning() {
         Ok(ControlFlow::Return(
@@ -219,8 +231,6 @@ pub struct VMState<'a> {
     patterns: &'a [Pattern],
     /// The spans used in the instructions.
     spans: &'a [Span],
-    /// The iterator, if any.
-    iterator: Option<Box<dyn Iterator<Item = Value>>>,
     /// The registers.
     registers: SmallVec<[Value; 16]>,
 }
@@ -350,18 +360,19 @@ impl<'a> VMState<'a> {
     }
 
     /// Enter a new scope.
-    pub fn enter_scope(
+    pub fn enter_scope<I: Iterator<Item = Value>>(
         &mut self,
         engine: &mut Engine,
         instructions: &[Opcode],
         spans: &[Span],
-        mut iterator: Option<Box<dyn Iterator<Item = Value>>>,
+        iterator: Option<I>,
         mut output: Option<Readable>,
         joins: bool,
         content: bool,
+        looping: bool,
     ) -> SourceResult<ControlFlow> {
         let mut state = State::empty()
-            | if iterator.is_some() { State::LOOPING } else { State::empty() }
+            | if looping || iterator.is_some() { State::LOOPING } else { State::empty() }
             | if joins { State::JOINING } else { State::empty() }
             | if content { State::DISPLAY } else { State::empty() };
 
@@ -369,15 +380,13 @@ impl<'a> VMState<'a> {
         let mut instruction_pointer = 0;
 
         std::mem::swap(&mut self.state, &mut state);
-        std::mem::swap(&mut self.iterator, &mut iterator);
         std::mem::swap(&mut self.output, &mut output);
         std::mem::swap(&mut self.joined, &mut joiner);
         std::mem::swap(&mut self.instruction_pointer, &mut instruction_pointer);
 
-        let out = run(engine, self, instructions, spans)?;
+        let out = run(engine, self, instructions, spans, iterator)?;
 
         std::mem::swap(&mut self.state, &mut state);
-        std::mem::swap(&mut self.iterator, &mut iterator);
         std::mem::swap(&mut self.output, &mut output);
         std::mem::swap(&mut self.joined, &mut joiner);
         std::mem::swap(&mut self.instruction_pointer, &mut instruction_pointer);

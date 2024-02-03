@@ -49,7 +49,6 @@ pub fn run_module(
         patterns: &module.inner.patterns,
         spans: &module.inner.isr_spans,
         jumps: &module.inner.jumps,
-        iterator: None,
     };
 
     // Write all default values.
@@ -59,11 +58,12 @@ pub fn run_module(
             .at(module.inner.span)?;
     }
 
-    let output = match crate::vm::run(
+    let output = match crate::vm::run::<std::iter::Empty<Value>>(
         &mut engine,
         &mut state,
         &module.inner.instructions,
         &module.inner.spans,
+        None,
     )? {
         ControlFlow::Done(value) => value,
         other => bail!(module.inner.span, "module did not produce a value: {other:?}"),

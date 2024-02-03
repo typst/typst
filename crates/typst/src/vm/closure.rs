@@ -76,7 +76,6 @@ impl Closure {
             patterns: &self.inner.patterns,
             spans: &self.inner.isr_spans,
             jumps: &self.inner.jumps,
-            iterator: None,
         };
 
         // Write all default values.
@@ -153,11 +152,12 @@ impl Closure {
         // Ensure all arguments have been used.
         args.finish()?;
 
-        match crate::vm::run(
+        match crate::vm::run::<std::iter::Empty<Value>>(
             engine,
             &mut state,
             &self.inner.instructions,
             &self.inner.spans,
+            None,
         )? {
             ControlFlow::Return(value, _) | ControlFlow::Done(value) => Ok(value),
             _ => bail!(self.inner.span, "closure did not return a value"),
