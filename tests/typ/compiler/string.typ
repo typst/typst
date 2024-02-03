@@ -33,11 +33,11 @@
 #test("z", "Hello".at(5, default: "z"))
 
 ---
-// Error: 2-14 string index 2 is not a character boundary
+// Error: 11-14 string index 2 is not a character boundary
 #"🏳️‍🌈".at(2)
 
 ---
-// Error: 2-15 no default value was specified and string index out of bounds (index: 5, len: 5)
+// Error: 12-15 no default value was specified and string index out of bounds (index: 5, len: 5)
 #"Hello".at(5)
 
 ---
@@ -51,7 +51,7 @@
 #test("abc🏡def".slice(-3, -1), "de")
 
 ---
-// Error: 2-21 string index -1 is not a character boundary
+// Error: 14-21 string index -1 is not a character boundary
 #"🏳️‍🌈".slice(0, -1)
 
 ---
@@ -172,7 +172,7 @@
 #test("aaa".replace("a", m => str(m.captures.len())), "000")
 
 ---
-// Error: 23-24 expected string, found integer
+// Error: 23-29 expected string, found integer
 #"123".replace("123", m => 1)
 
 ---

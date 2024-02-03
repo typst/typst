@@ -12,23 +12,6 @@ pub use crate::vm::opcodes::*;
 
 macro_rules! snek_filter {
     ($(#[$sattr:meta])*
-    $name:ident: jump $(-> $out:ty)? $(=> {
-        $(
-            $(#[$attr:meta])*
-            $arg:ident: $arg_ty:ty
-        ),* $(,)?
-    })?) => {
-        snek_filter! {
-            $(#[$sattr])*
-            $name: jump_isr $(-> $out)? $(=> {
-                $(
-                    $(#[$attr])*
-                    $arg: $arg_ty
-                ),*,
-            })?
-        }
-    };
-    ($(#[$sattr:meta])*
     $name:ident: enter $(-> $out:ty)? $(=> {
         $(
             $(#[$attr:meta])*

@@ -694,7 +694,11 @@ impl fmt::Debug for OptionalRegister {
 }
 
 macro_rules! id {
-    ($name:ident($type:ty) => $l:literal) => {
+    (
+        $(#[$sattr:meta])*
+        $name:ident($type:ty) => $l:literal
+    ) => {
+        $(#[$attr])*
         #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
         #[repr(transparent)]
         pub struct $name(pub $type);
@@ -715,7 +719,11 @@ macro_rules! id {
             }
         }
     };
-    ($name:ident => $l:literal) => {
+    (
+        $(#[$attr:meta])*
+        $name:ident => $l:literal
+    ) => {
+        $(#[$attr])*
         #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
         #[repr(transparent)]
         pub struct $name(pub u16);
@@ -736,8 +744,14 @@ macro_rules! id {
             }
         }
     };
-    ($( $name:ident$(($type:ty))? => $l:literal),* $(,)*) => {
-        $( id!($name$(($type))? => $l); )*
+    ($(
+        $(#[$attr:meta])*
+        $name:ident$(($type:ty))? => $l:literal
+    ),* $(,)*) => {
+        $( id!(
+            $(#[$attr])*
+            $name$(($type))? => $l
+        ); )*
     };
 }
 
@@ -749,7 +763,7 @@ id! {
     AccessId => "A",
     Global => "G",
     Math => "M",
-    Pointer(u32) => "P",
+    Pointer => "P",
     LabelId => "L",
     CallId => "K",
     PatternId => "D",
@@ -877,6 +891,17 @@ impl VmRead for SpanId {
             .get(self.0 as usize)
             .copied()
             .ok_or_else(|| eco_format!("invalid span: {}, malformed instruction", self.0))
+    }
+}
+
+impl VmRead for Pointer {
+    type Output<'a> = usize;
+
+    fn read<'a>(&self, vm: &'a VMState) -> StrResult<Self::Output<'a>> {
+        vm.jumps
+            .get(self.0 as usize)
+            .copied()
+            .ok_or_else(|| eco_format!("invalid jump: {}, malformed instruction", self.0))
     }
 }
 

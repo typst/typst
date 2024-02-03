@@ -36,9 +36,10 @@ impl CompiledModule {
             .collect();
 
         compiler.common.defaults.insert(0, compiler.get_default_scope());
+
+        let jumps = compiler.remapped_instructions();
         compiler.instructions.shrink_to_fit();
         compiler.spans.shrink_to_fit();
-
         CompiledModule {
             inner: Arc::new(Repr {
                 name: name.into(),
@@ -54,6 +55,7 @@ impl CompiledModule {
                 patterns: compiler.common.patterns.into_values(),
                 isr_spans: compiler.common.spans.into_values(),
                 defaults: compiler.common.defaults,
+                jumps,
                 joined: true,
                 exports,
             }),
@@ -89,6 +91,8 @@ pub struct Repr {
     pub defaults: Vec<EcoVec<DefaultValue>>,
     /// The spans used in the module.
     pub isr_spans: Vec<Span>,
+    /// The jumps used in the module.
+    pub jumps: Vec<usize>,
     /// Whether this module returns a joined value.
     pub joined: bool,
     /// The exports of the module.

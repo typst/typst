@@ -382,11 +382,20 @@ opcodes! {
         flags: u8,
     },
 
+    /// Appends a marker to the current scope.
+    PointerMarker: mark => {
+        /// The marker to create.
+        marker: Pointer,
+    },
+
     /// Jump to a new instruction.
     Jump: jump => {
         /// The instruction to jump to.
         instruction: Pointer,
     },
+
+    /// Jump to the top of the current scope.
+    JumpTop: jump_top => {},
 
     /// Jump to a new instruction if the condition is true.
     JumpIf: jump_if => {

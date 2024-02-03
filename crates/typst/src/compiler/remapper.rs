@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 
 use crate::util::hash128;
 use crate::vm::{
-    AccessId, ClosureId, Constant, LabelId, PatternId, ScopeId, SpanId, StringId,
+    AccessId, ClosureId, Constant, LabelId, PatternId, Pointer, ScopeId, SpanId, StringId,
 };
 
 pub struct Remapper<K, V> {
@@ -52,7 +52,7 @@ pub trait RemapperKey: Clone {
 
 impl RemapperKey for Constant {
     fn as_raw(&self) -> u16 {
-        Constant::as_raw(*self)
+        Self::as_raw(*self)
     }
 
     fn from_raw(raw: u16) -> Self {
@@ -62,7 +62,7 @@ impl RemapperKey for Constant {
 
 impl RemapperKey for StringId {
     fn as_raw(&self) -> u16 {
-        StringId::as_raw(*self)
+        Self::as_raw(*self)
     }
 
     fn from_raw(raw: u16) -> Self {
@@ -72,7 +72,7 @@ impl RemapperKey for StringId {
 
 impl RemapperKey for LabelId {
     fn as_raw(&self) -> u16 {
-        LabelId::as_raw(*self)
+        Self::as_raw(*self)
     }
 
     fn from_raw(raw: u16) -> Self {
@@ -82,7 +82,7 @@ impl RemapperKey for LabelId {
 
 impl RemapperKey for ClosureId {
     fn as_raw(&self) -> u16 {
-        ClosureId::as_raw(*self)
+        Self::as_raw(*self)
     }
 
     fn from_raw(raw: u16) -> Self {
@@ -92,7 +92,7 @@ impl RemapperKey for ClosureId {
 
 impl RemapperKey for AccessId {
     fn as_raw(&self) -> u16 {
-        AccessId::as_raw(*self)
+        Self::as_raw(*self)
     }
 
     fn from_raw(raw: u16) -> Self {
@@ -102,7 +102,7 @@ impl RemapperKey for AccessId {
 
 impl RemapperKey for PatternId {
     fn as_raw(&self) -> u16 {
-        PatternId::as_raw(*self)
+        Self::as_raw(*self)
     }
 
     fn from_raw(raw: u16) -> Self {
@@ -112,7 +112,7 @@ impl RemapperKey for PatternId {
 
 impl RemapperKey for ScopeId {
     fn as_raw(&self) -> u16 {
-        ScopeId::as_raw(*self)
+        Self::as_raw(*self)
     }
 
     fn from_raw(raw: u16) -> Self {
@@ -122,7 +122,17 @@ impl RemapperKey for ScopeId {
 
 impl RemapperKey for SpanId {
     fn as_raw(&self) -> u16 {
-        SpanId::as_raw(*self)
+        Self::as_raw(*self)
+    }
+
+    fn from_raw(raw: u16) -> Self {
+        Self::new(raw)
+    }
+}
+
+impl RemapperKey for Pointer {
+    fn as_raw(&self) -> u16 {
+        Self::as_raw(*self)
     }
 
     fn from_raw(raw: u16) -> Self {

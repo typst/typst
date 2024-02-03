@@ -2,7 +2,7 @@ use typst_syntax::ast::{self, AstNode};
 
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
-use crate::vm::{Pointer, Readable};
+use crate::vm::Readable;
 
 use super::{Access, Compile, Compiler, ReadableGuard, WritableGuard};
 
@@ -99,40 +99,30 @@ fn compile_and_or(
     // First we run the lhs.
     let lhs = binary.lhs().compile(engine, compiler)?;
 
-    let reg = compiler.register().at(binary.span())?;
-    let rhs = compiler.section(engine, |compiler, engine| {
-        binary.rhs().compile_into(engine, compiler, Some(reg.clone().into()))
-    })?;
-
-    let label_index = compiler.len() + 1 + rhs.len();
-    let label = Pointer::new(label_index as u32);
+    // Then we create a marker for the end of the operation.
+    let marker = compiler.marker();
 
     // Then we conditionally jump to the end.
     match binary.op() {
-        ast::BinOp::Or => compiler.jump_if(binary.span(), &lhs, label),
-        ast::BinOp::And => compiler.jump_if_not(binary.span(), &lhs, label),
+        ast::BinOp::Or => compiler.jump_if(binary.span(), &lhs, marker),
+        ast::BinOp::And => compiler.jump_if_not(binary.span(), &lhs, marker),
         _ => unreachable!(),
     }
 
     // Then we run the rhs.
-    compiler.extend(rhs);
+    let rhs = binary.rhs().compile(engine, compiler)?;
+
+    // Add the marker.
+    compiler.mark(binary.span(), marker);
 
     // Then, based on the result of the lhs, we either select the rhs to the output or the lhs.
     match binary.op() {
-        ast::BinOp::Or => compiler.select(
-            binary.span(),
-            &lhs,
-            Readable::bool(true),
-            reg.as_readable(),
-            &output,
-        ),
-        ast::BinOp::And => compiler.select(
-            binary.span(),
-            &lhs,
-            reg.as_readable(),
-            Readable::bool(false),
-            &output,
-        ),
+        ast::BinOp::Or => {
+            compiler.select(binary.span(), &lhs, Readable::bool(true), &rhs, &output)
+        }
+        ast::BinOp::And => {
+            compiler.select(binary.span(), &lhs, &rhs, Readable::bool(false), &output)
+        }
         _ => unreachable!(),
     }
 

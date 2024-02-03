@@ -50,6 +50,7 @@ pub fn run_module(
         patterns: &module.inner.patterns,
         defaults: &module.inner.defaults,
         spans: &module.inner.isr_spans,
+        jumps: &module.inner.jumps,
         parent: None,
         iterator: None,
     };

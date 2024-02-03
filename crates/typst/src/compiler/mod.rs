@@ -29,7 +29,7 @@ use crate::foundations::{IntoValue, Label, Str, Value};
 use crate::vm::{
     self, Access as VmAccess, AccessId, ClosureId, CompiledClosure, CompiledParam,
     Constant, DefaultValue, LabelId, OptionalWritable, Pattern as VmPattern, PatternId,
-    ScopeId, SpanId, StringId, Writable,
+    Pointer, ScopeId, SpanId, StringId, Writable,
 };
 use crate::Library;
 
@@ -258,25 +258,6 @@ impl Compiler {
         Ok(())
     }
 
-    pub fn section(
-        &mut self,
-        engine: &mut Engine,
-        f: impl FnOnce(&mut Self, &mut Engine) -> SourceResult<()>,
-    ) -> SourceResult<CompiledSection> {
-        let mut instructions = Vec::with_capacity(DEFAULT_CAPACITY);
-        let mut spans = Vec::with_capacity(DEFAULT_CAPACITY);
-
-        std::mem::swap(&mut self.instructions, &mut instructions);
-        std::mem::swap(&mut self.spans, &mut spans);
-
-        f(self, engine)?;
-
-        std::mem::swap(&mut self.instructions, &mut instructions);
-        std::mem::swap(&mut self.spans, &mut spans);
-
-        Ok(CompiledSection { instructions, spans })
-    }
-
     /// Get the current scope ID.
     pub fn scope_id(&self) -> Option<ScopeId> {
         self.scope_id
@@ -316,6 +297,56 @@ impl Compiler {
         self.common.spans.insert(span)
     }
 
+    pub fn remapped_instructions(&self) -> Vec<usize> {
+        let mut iter = self.instructions.iter();
+        let mut jumps = vec![usize::MAX; self.common.jumps as usize];
+
+        fn remap<'a>(
+            iter: &mut dyn Iterator<Item = &'a Opcode>,
+            jumps: &mut Vec<usize>,
+            count: &mut usize,
+        ) {
+            let mut i = 0;
+            while let Some(next) = iter.next() {
+                match next {
+                    Opcode::PointerMarker(id) => {
+                        jumps[id.marker.as_raw() as usize] = i;
+                        *count -= 1;
+                    }
+                    Opcode::Enter(enter) => {
+                        remap(&mut iter.take(enter.len as usize), jumps, count);
+                        i += enter.len as usize;
+                    }
+                    Opcode::While(while_) => {
+                        remap(&mut iter.take(while_.len as usize), jumps, count);
+                        i += while_.len as usize;
+                    }
+                    Opcode::Iter(iter_op) => {
+                        remap(&mut iter.take(iter_op.len as usize), jumps, count);
+                        i += iter_op.len as usize;
+                    }
+                    _ => {}
+                }
+
+                i += 1;
+                if *count == 0 {
+                    break;
+                }
+            }
+        }
+
+        if self.common.jumps > 0 {
+            let mut i = self.common.jumps as usize;
+            remap(&mut iter, &mut jumps, &mut i);
+        }
+
+        if jumps.iter().any(|i| *i == usize::MAX) {
+            unreachable!("unresolved jumps: {:?}", jumps);
+        }
+
+        jumps
+    }
+
     pub fn into_compiled_closure(
         mut self,
         span: Span,
@@ -335,9 +366,10 @@ impl Compiler {
             .collect();
 
         self.common.defaults.insert(0, self.get_default_scope());
+
+        let jumps = self.remapped_instructions();
         self.instructions.shrink_to_fit();
         self.spans.shrink_to_fit();
-
         CompiledClosure {
             inner: Arc::new(vm::Inner {
                 name: self.name,
@@ -353,6 +385,7 @@ impl Compiler {
                 patterns: self.common.patterns.into_values(),
                 isr_spans: self.common.spans.into_values(),
                 defaults: self.common.defaults,
+                jumps,
                 output: None,
                 joined: true,
             }),
@@ -385,27 +418,10 @@ impl Compiler {
         self.spans.len()
     }
 
-    pub fn extend(&mut self, section: CompiledSection) {
-        self.spans.extend(section.spans);
-
-        let offset = self.instructions.len();
-        for isr in section.instructions {
-            match isr {
-                Opcode::Jump(mut jump) => {
-                    jump.instruction.0 += offset as u32;
-                    self.instructions.push(Opcode::Jump(jump));
-                }
-                Opcode::JumpIfNot(mut jump_if_not) => {
-                    jump_if_not.instruction.0 += offset as u32;
-                    self.instructions.push(Opcode::JumpIfNot(jump_if_not));
-                }
-                Opcode::JumpIf(mut jump_if) => {
-                    jump_if.instruction.0 += offset as u32;
-                    self.instructions.push(Opcode::JumpIf(jump_if));
-                }
-                other => self.instructions.push(other),
-            }
-        }
+    pub fn marker(&mut self) -> Pointer {
+        let id = self.common.jumps;
+        self.common.jumps += 1;
+        Pointer::new(id)
     }
 }
 
@@ -427,6 +443,8 @@ struct Inner {
     spans: Remapper<SpanId, Span>,
     /// The current scope counter.
     scopes: u16,
+    /// The current jump counter.
+    jumps: u16,
     /// The default value remapper.
     defaults: Vec<EcoVec<DefaultValue>>,
 }
@@ -463,19 +481,4 @@ pub trait Compile {
         engine: &mut Engine,
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput>;
-}
-
-pub struct CompiledSection {
-    pub instructions: Vec<Opcode>,
-    pub spans: Vec<Span>,
-}
-
-impl CompiledSection {
-    pub fn len(&self) -> usize {
-        self.instructions.len()
-    }
-
-    pub fn spans(&self) -> usize {
-        self.spans.len()
-    }
 }

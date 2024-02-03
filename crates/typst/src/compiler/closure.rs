@@ -73,7 +73,11 @@ impl Compile for ast::Closure<'_> {
                             reg.as_writeable(),
                             "anonymous".into(),
                         ));
-                        compiler.destructure(pat.span(), reg.as_readable(), pattern_id);
+                        closure_compiler.destructure(
+                            pat.span(),
+                            reg.as_readable(),
+                            pattern_id,
+                        );
                     }
                 }
                 ast::Param::Named(named) => {
@@ -122,7 +126,7 @@ impl Compile for ast::Closure<'_> {
             &mut closure_compiler,
             Some(WritableGuard::Joined),
         )?;
-        compiler.flow();
+        closure_compiler.flow();
 
         // Collect the compiled closure.
         let closure = closure_compiler.into_compiled_closure(

@@ -221,6 +221,8 @@ pub struct VMState<'a> {
     global: &'a Library,
     /// The constants.
     constants: &'a [Value],
+    /// The jump table.
+    jumps: &'a [usize],
     /// The output register, if any.
     output: Option<Readable>,
     /// The strings.
@@ -396,6 +398,7 @@ impl<'a> VMState<'a> {
         let accesses: &'b [Access] = cast_lifetime::<'a, 'b, _>(self.accesses);
         let patterns: &'b [Pattern] = cast_lifetime::<'a, 'b, _>(self.patterns);
         let state_spans: &'b [Span] = cast_lifetime::<'a, 'b, _>(self.spans);
+        let jumps: &'b [usize] = cast_lifetime::<'a, 'b, _>(self.jumps);
         let defaults: &'b [EcoVec<DefaultValue>] =
             cast_lifetime::<'a, 'b, _>(self.defaults);
         let this: &'b mut VMState<'b> = unsafe {
@@ -423,6 +426,7 @@ impl<'a> VMState<'a> {
             accesses,
             patterns,
             defaults,
+            jumps,
             spans: state_spans,
             parent: Some(this),
             iterator,

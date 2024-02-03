@@ -174,7 +174,7 @@ impl PatternKind {
 
 #[derive(Debug, Clone)]
 pub enum PatternItem {
-    /// Destructure into a single local.
+    /// Destructure into nothing.
     Placeholder(Span),
 
     /// Destructure into a single local.

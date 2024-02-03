@@ -92,9 +92,10 @@ macro_rules! opcodes {
         )*
 
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[repr(u8)]
         pub enum Opcode {
             #[doc = "Indicates a flow event."]
-            Flow,
+            Flow = 0,
             $(
                 $(#[$sattr])*
                 $name($name)
@@ -118,12 +119,6 @@ macro_rules! opcodes {
                         Ok(())
                     }
                     $(Self::$name($snek) => {
-                        eprintln!(
-                            "{}: {:?}{}",
-                            vm.instruction_pointer,
-                            $snek,
-                            resolve_span(&*engine.world, span()).map(|(f, l)| format!(" at {f}:{l}")).unwrap_or_default()
-                        );
                         vm.instruction_pointer += 1;
                         $snek.run(
                             &instructions[vm.instruction_pointer..],
@@ -851,7 +846,8 @@ impl Run for Instantiate {
         let closure = vm.instantiate(closure)?;
 
         // Write the closure to the output.
-        vm.write_one(self.out, closure).at_err(span)?;
+        vm.write_one(self.out, Func::from(closure).spanned(span()))
+            .at_err(span)?;
 
         Ok(())
     }
@@ -1548,7 +1544,20 @@ impl Run for Enter {
     }
 }
 
-impl Run for Jump {
+impl Run for PointerMarker {
+    fn run(
+        &self,
+        _: &[Opcode],
+        _: &[Span],
+        _: impl Fn() -> Span,
+        _: &mut VMState,
+        _: &mut Engine,
+    ) -> SourceResult<()> {
+        Ok(())
+    }
+}
+
+impl Run for JumpTop {
     fn run(
         &self,
         _: &[Opcode],
@@ -1558,7 +1567,23 @@ impl Run for Jump {
         _: &mut Engine,
     ) -> SourceResult<()> {
         // Jump to the instruction.
-        vm.instruction_pointer = self.instruction.0 as usize;
+        vm.instruction_pointer = 0;
+
+        Ok(())
+    }
+}
+
+impl Run for Jump {
+    fn run(
+        &self,
+        _: &[Opcode],
+        _: &[Span],
+        span: impl Fn() -> Span,
+        vm: &mut VMState,
+        _: &mut Engine,
+    ) -> SourceResult<()> {
+        // Jump to the instruction.
+        vm.instruction_pointer = vm.read(self.instruction).at_err(span)?;
 
         Ok(())
     }
@@ -1583,7 +1608,7 @@ impl Run for JumpIf {
 
         // Jump to the instruction if the condition is true.
         if *condition {
-            vm.instruction_pointer = self.instruction.0 as usize;
+            vm.instruction_pointer = vm.read(self.instruction).at_err(span)?;
         }
 
         Ok(())
@@ -1609,7 +1634,7 @@ impl Run for JumpIfNot {
 
         // Jump to the instruction if the condition is false.
         if !*condition {
-            vm.instruction_pointer = self.instruction.0 as usize;
+            vm.instruction_pointer = vm.read(self.instruction).at_err(span)?;
         }
 
         Ok(())

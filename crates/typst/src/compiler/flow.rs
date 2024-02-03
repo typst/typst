@@ -2,7 +2,7 @@ use typst_syntax::ast::{self, AstNode};
 
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
-use crate::vm::{OptionalReadable, Pointer, Readable};
+use crate::vm::{OptionalReadable, Readable};
 
 use super::{
     AccessPattern, Compile, Compiler, PatternCompile, PatternItem, PatternKind,
@@ -19,48 +19,32 @@ impl Compile for ast::Conditional<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        let if_body = compiler.section(engine, |compiler, engine| {
-            self.if_body().compile_into(engine, compiler, output.clone())
-        })?;
-
-        let else_body = self
-            .else_body()
-            .map(|else_body| {
-                compiler.section(engine, |compiler, engine| {
-                    else_body.compile_into(engine, compiler, output.clone())
-                })
-            })
-            .transpose()?
-            .unwrap_or_else(|| {
-                compiler
-                    .section(engine, |compiler, _| {
-                        if let Some(output) = &output {
-                            compiler.copy(self.span(), Readable::none(), output);
-                        }
-                        Ok(())
-                    })
-                    .unwrap()
-            });
-
+        // Compile the condition
         let condition = self.condition().compile(engine, compiler)?;
 
-        // Compute the index of the true label:
-        // + The current index in the bytecode.
-        // + The length of the else body.
-        // + The length of the jump opcode.
-        let index = compiler.len() + else_body.len() + 1 + 1;
-        let true_ = Pointer::new(index as u32);
-        compiler.jump_if(self.span(), &condition, true_);
-        compiler.extend(else_body);
+        // Create the jump labels
+        let if_ = compiler.marker();
+        let end = compiler.marker();
 
-        // Compute the index of the after label:
-        // + The current index in the bytecode.
-        // + The length of the jump opcode.
-        // + The length of the if body.
-        let index_after = compiler.len() + 1 + if_body.len();
-        let after_ = Pointer::new(index_after as u32);
-        compiler.jump_isr(self.span(), after_);
-        compiler.extend(if_body);
+        // Create the conditonal jump
+        compiler.jump_if(self.span(), &condition, if_);
+
+        // Compile the else body
+        if let Some(else_body) = self.else_body() {
+            else_body.compile_into(engine, compiler, output.clone())?;
+        } else if let Some(output) = &output {
+            compiler.copy(self.span(), Readable::none(), output);
+        }
+
+        // Jump to the end
+        compiler.jump(self.span(), end);
+
+        // Compile the if body
+        compiler.mark(self.span(), if_);
+        self.if_body().compile_into(engine, compiler, output)?;
+
+        // Mark the end
+        compiler.mark(self.span(), end);
 
         Ok(())
     }
@@ -97,41 +81,32 @@ impl Compile for ast::WhileLoop<'_> {
             output.as_ref().map(|w| w.as_writable()),
             false,
             |compiler, engine, _| {
-                let reg = compiler.register().at(self.span())?;
-                let condition = compiler.section(engine, |compiler, engine| {
-                    self.condition().compile_into(
-                        engine,
-                        compiler,
-                        Some(reg.clone().into()),
-                    )
-                })?;
+                // Create the jump labels
+                let top = compiler.marker();
+                let end = compiler.marker();
 
-                let body = compiler.section(engine, |compiler, engine| {
-                    self.body().compile_into(
-                        engine,
-                        compiler,
-                        if output.is_some() { Some(WritableGuard::Joined) } else { None },
-                    )?;
-                    compiler.flow();
-                    Ok(())
-                })?;
+                // Mark the top
+                compiler.mark(self.span(), top);
 
-                // The index of the top label.
-                let top_index = compiler.len();
-                let top = Pointer::new(top_index as u32);
+                // Compile the condition
+                let condition = self.condition().compile(engine, compiler)?;
 
-                // The index of the after label.
-                // + The index of the top label.
-                // + The length of the condition.
-                // + The length of the jump-if-not opcode.
-                // + The length of the body.
-                // + The length of the jump opcode.
-                let after_index = top_index + condition.len() + 1 + body.len() + 1;
-                let after = Pointer::new(after_index as u32);
-                compiler.extend(condition);
-                compiler.jump_if_not(self.span(), reg.as_readable(), after);
-                compiler.extend(body);
-                compiler.jump_isr(self.span(), top);
+                // Create the conditonal jump
+                compiler.jump_if_not(self.span(), &condition, end);
+
+                // Compile the while body
+                self.body().compile_into(
+                    engine,
+                    compiler,
+                    if output.is_some() { Some(WritableGuard::Joined) } else { None },
+                )?;
+                compiler.flow();
+
+                // Jump to the top
+                compiler.jump(self.span(), top);
+
+                // Mark the end
+                compiler.mark(self.span(), end);
 
                 Ok(())
             },
@@ -174,9 +149,6 @@ impl Compile for ast::ForLoop<'_> {
             output.as_ref().map(|w| w.as_writable()),
             false,
             |compiler, engine, _| {
-                let top_index = compiler.len();
-                let top = Pointer::new(top_index as u32);
-
                 let pattern = self.pattern().compile(engine, compiler, true)?;
                 if let PatternKind::Single(PatternItem::Simple(
                     span,
@@ -203,7 +175,7 @@ impl Compile for ast::ForLoop<'_> {
                     Some(WritableGuard::Joined),
                 )?;
                 compiler.flow();
-                compiler.jump_isr(self.span(), top);
+                compiler.jump_top(self.span());
 
                 Ok(())
             },
@@ -316,16 +288,10 @@ impl Compile for ast::FuncReturn<'_> {
         }
 
         let value = self.body().map(|body| body.compile(engine, compiler)).transpose()?;
-        let flow = value.is_some();
         compiler.return_(
             self.span(),
             value.map_or_else(OptionalReadable::none, |v| v.as_readable().into()),
         );
-
-        if flow {
-            // Force a flow after a return with a value.
-            compiler.flow();
-        }
 
         Ok(())
     }

@@ -72,6 +72,7 @@ impl Closure {
             patterns: &self.inner.patterns,
             defaults: &self.inner.defaults,
             spans: &self.inner.isr_spans,
+            jumps: &self.inner.jumps,
             parent: None,
             iterator: None,
         };
@@ -236,6 +237,8 @@ pub struct Inner {
     pub defaults: Vec<EcoVec<DefaultValue>>,
     /// The spans used in the closure.
     pub isr_spans: Vec<Span>,
+    /// The jumps used in the closure.
+    pub jumps: Vec<usize>,
     /// The output value (if any).
     pub output: Option<Readable>,
     /// Whether this closure returns a joined value.

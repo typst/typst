@@ -3,7 +3,7 @@ use typst_syntax::ast::{self, AstNode};
 use crate::{
     diag::{At, SourceResult},
     engine::Engine,
-    vm::{Pointer, Readable},
+    vm::Readable,
 };
 
 use super::{Compile, ReadableGuard, WritableGuard};
@@ -23,41 +23,30 @@ impl Compile for ast::SetRule<'_> {
         };
 
         if let Some(expr) = self.condition() {
+            // Compile the condition.
             let condition = expr.compile(engine, compiler)?;
 
-            let target = compiler.register().at(self.span())?;
-            let args = compiler.register().at(self.span())?;
-            let set = compiler.section(engine, |compiler, engine| {
-                self.target().compile_into(
-                    engine,
-                    compiler,
-                    Some(target.clone().into()),
-                )?;
-                self.args()
-                    .compile_into(engine, compiler, Some(args.clone().into()))?;
-                Ok(())
-            })?;
+            // Create the jump marker.
+            let else_ = compiler.marker();
+            let end = compiler.marker();
 
-            let jump_index = compiler.len() + set.len() + 2;
-            let jump_label = Pointer::new(jump_index as u32);
-            compiler.jump_if_not(expr.span(), condition.as_readable(), jump_label);
+            // Create the jump.
+            compiler.jump_if_not(expr.span(), condition.as_readable(), else_);
 
-            let reg = compiler.register().at(self.span())?;
-            compiler.extend(set);
-            compiler.set(
-                self.span(),
-                target.as_readable(),
-                args.as_readable(),
-                reg.as_writeable(),
-            );
+            // Compile the set.
+            let target = self.target().compile(engine, compiler)?;
+            let args = self.args().compile(engine, compiler)?;
+            compiler.set(self.span(), &target, &args, &output);
 
-            compiler.select(
-                expr.span(),
-                &condition,
-                reg.as_readable(),
-                Readable::none(),
-                &output,
-            );
+            // Jump to the end.
+            compiler.jump(expr.span(), end);
+
+            // Compile the else body.
+            compiler.mark(expr.span(), else_);
+            compiler.copy(expr.span(), Readable::none(), &output);
+
+            // Mark the end.
+            compiler.mark(expr.span(), end);
         } else {
             let target = self.target().compile(engine, compiler)?;
             let args = self.args().compile(engine, compiler)?;
