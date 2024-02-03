@@ -20,6 +20,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use comemo::Prehashed;
 use ecow::{EcoString, EcoVec};
 use typst_syntax::Span;
 
@@ -316,7 +317,7 @@ impl Compiler {
     pub fn into_compiled_closure(
         mut self,
         span: Span,
-        params: Vec<CompiledParam>,
+        params: EcoVec<CompiledParam>,
         self_storage: Option<WritableGuard>,
     ) -> CompiledClosure {
         let scopes = self.scope.borrow();
@@ -336,7 +337,7 @@ impl Compiler {
         self.instructions.shrink_to_fit();
         self.spans.shrink_to_fit();
         CompiledClosure {
-            inner: Arc::new(vm::Inner {
+            inner: Arc::new(Prehashed::new(vm::Inner {
                 defaults: self.get_default_scope(),
                 span,
                 registers,
@@ -354,7 +355,7 @@ impl Compiler {
                 jumps,
                 output: None,
                 joined: true,
-            }),
+            })),
             captures,
             params,
             self_storage: self_storage.map(|r| r.as_writable()),

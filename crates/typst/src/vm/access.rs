@@ -26,24 +26,16 @@ pub enum Access {
 
 impl Access {
     /// Gets the value using read-only access.
-    pub fn read<'a>(
-        &self,
-        span: impl Fn() -> Span + Copy,
-        vm: &'a VMState,
-    ) -> SourceResult<Cow<'a, Value>> {
+    pub fn read<'a>(&self, span: Span, vm: &'a VMState) -> SourceResult<Cow<'a, Value>> {
         match self {
-            Access::Readable(readable) => {
-                readable.read(vm).map(Cow::Borrowed).at_err(span)
-            }
-            Access::Writable(writeable) => {
-                writeable.read(vm).map(Cow::Borrowed).at_err(span)
-            }
+            Access::Readable(readable) => Ok(Cow::Borrowed(readable.read(vm))),
+            Access::Writable(writeable) => Ok(Cow::Borrowed(writeable.read(vm))),
             Access::Chained(value, field) => {
                 let value = value.read(span, vm)?;
                 if let Some(assoc) = value.ty().scope().get(field) {
                     let Value::Func(method) = assoc else {
                         bail!(
-                            span(),
+                            span,
                             "expected function, found {}",
                             assoc.ty().long_name()
                         );
@@ -54,7 +46,7 @@ impl Access {
                         method.clone(),
                     ))))
                 } else {
-                    value.field(field).map(Cow::Owned).at_err(span)
+                    value.field(field).map(Cow::Owned).at(span)
                 }
             }
             Access::AccessorMethod(value, method, args) => {
@@ -62,12 +54,12 @@ impl Access {
                 let value = value.read(span, vm)?;
 
                 // Get the arguments.
-                let args = vm.read(*args).at_err(span)?;
+                let args = vm.read(*args);
                 let mut args = match args {
                     Value::Args(args) => args.clone(),
-                    Value::None => Args::new(span(), std::iter::empty::<Value>()),
+                    Value::None => Args::new(span, std::iter::empty::<Value>()),
                     _ => bail!(
-                        span(),
+                        span,
                         "expected argumentss, found {}",
                         args.ty().long_name()
                     ),
@@ -75,16 +67,16 @@ impl Access {
 
                 // Call the method.
                 let ty = value.ty();
-                let missing = || Err(missing_method(ty, method)).at_err(span);
+                let missing = || Err(missing_method(ty, method)).at(span);
                 let accessed = match &*value {
                     Value::Array(array) => match method.as_str() {
-                        "first" => array.first().at_err(span)?,
-                        "last" => array.last().at_err(span)?,
-                        "at" => array.at(args.expect("index")?, None).at_err(span)?,
+                        "first" => array.first().at(span)?,
+                        "last" => array.last().at(span)?,
+                        "at" => array.at(args.expect("index")?, None).at(span)?,
                         _ => return missing(),
                     },
                     Value::Dict(dict) => match method.as_str() {
-                        "at" => dict.at(args.expect::<Str>("key")?, None).at_err(span)?,
+                        "at" => dict.at(args.expect::<Str>("key")?, None).at(span)?,
                         _ => return missing(),
                     },
                     _ => return missing(),
@@ -98,18 +90,18 @@ impl Access {
     /// Gets the value using write access.
     pub fn write<'a>(
         &self,
-        span: impl Fn() -> Span + Copy,
+        span: Span,
         vm: &'a mut VMState,
     ) -> SourceResult<&'a mut Value> {
         match self {
             Access::Readable(_) => {
-                bail!(span(), "cannot write to a readable, malformed access")
+                bail!(span, "cannot write to a readable, malformed access")
             }
-            Access::Writable(writable) => vm.write(*writable).at_err(span),
+            Access::Writable(writable) => Ok(vm.write(*writable)),
             Access::Chained(value, field) => {
                 let value = value.write(span, vm)?;
                 match value {
-                    Value::Dict(dict) => dict.at_mut(field.as_str()).at_err(span),
+                    Value::Dict(dict) => dict.at_mut(field.as_str()).at(span),
                     value => {
                         let ty = value.ty();
                         if matches!(
@@ -119,14 +111,14 @@ impl Access {
                                 | Value::Module(_)
                                 | Value::Func(_)
                         ) {
-                            bail!(span(), "cannot mutate fields on {ty}");
+                            bail!(span, "cannot mutate fields on {ty}");
                         } else if crate::foundations::fields_on(ty).is_empty() {
-                            bail!(span(), "{ty} does not have accessible fields");
+                            bail!(span, "{ty} does not have accessible fields");
                         } else {
                             // type supports static fields, which don't yet have
                             // setters
                             bail!(
-                                span(),
+                                span,
                                 "fields on {ty} are not yet mutable";
                                 hint: "try creating a new {ty} with the updated field value instead"
                             )
@@ -136,12 +128,12 @@ impl Access {
             }
             Access::AccessorMethod(value, method, args) => {
                 // Get the arguments.
-                let args = vm.read(*args).at_err(span)?;
+                let args = vm.read(*args);
                 let args = match args {
                     Value::Args(args) => args.clone(),
-                    Value::None => Args::new(span(), std::iter::empty::<Value>()),
+                    Value::None => Args::new(span, std::iter::empty::<Value>()),
                     _ => bail!(
-                        span(),
+                        span,
                         "expected argumentss, found {}",
                         args.ty().long_name()
                     ),
@@ -150,7 +142,7 @@ impl Access {
                 // Get the callee.
                 let value = value.write(span, vm)?;
 
-                call_method_access(value, method, args, span())
+                call_method_access(value, method, args, span)
             }
         }
     }

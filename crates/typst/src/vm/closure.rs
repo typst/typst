@@ -18,13 +18,13 @@ use super::{
 };
 
 /// A closure that has been instantiated.
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq)]
 pub struct Closure {
-    pub inner: Arc<Inner>,
+    pub inner: Arc<Prehashed<Inner>>,
     /// The parameters of the closure.
-    pub params: EcoVec<(OptionalWritable, Param)>,
+    pub params: Prehashed<EcoVec<(OptionalWritable, Param)>>,
     /// The captured values and where to store them.
-    pub captures: EcoVec<(Writable, Value)>,
+    pub captures: Prehashed<EcoVec<(Writable, Value)>>,
     /// Where to store the reference to the closure itself.
     pub self_storage: Option<Writable>,
 }
@@ -32,12 +32,17 @@ pub struct Closure {
 impl Closure {
     /// Creates a new closure.
     pub fn new(
-        inner: Arc<Inner>,
+        inner: Arc<Prehashed<Inner>>,
         params: EcoVec<(OptionalWritable, Param)>,
         captures: EcoVec<(Writable, Value)>,
         self_storage: Option<Writable>,
     ) -> Self {
-        Self { inner, params, captures, self_storage }
+        Self {
+            inner,
+            params: Prehashed::new(params),
+            captures: Prehashed::new(captures),
+            self_storage,
+        }
     }
 
     pub fn name(&self) -> Option<&str> {
@@ -82,7 +87,7 @@ impl Closure {
         }
 
         // Write all of the captured values to the registers.
-        for (target, value) in &self.captures {
+        for (target, value) in &*self.captures {
             state.write_one(*target, value.clone()).at(self.inner.span)?;
         }
 
@@ -95,7 +100,7 @@ impl Closure {
 
         // Write all of the arguments to the registers.
         let mut sink = None;
-        for (target, arg) in &self.params {
+        for (target, arg) in &*self.params {
             match arg {
                 Param::Pos(name) => {
                     if let Some(target) = target.ok() {
@@ -135,7 +140,7 @@ impl Closure {
 
         if let Some(sink) = sink {
             if let Some(sink) = sink.ok() {
-                let Value::Args(sink) = state.write(sink).unwrap() else {
+                let Value::Args(sink) = state.write(sink) else {
                     unreachable!("sink should always be an args");
                 };
 
@@ -153,7 +158,6 @@ impl Closure {
             &mut state,
             &self.inner.instructions,
             &self.inner.spans,
-            self.inner.span,
         )? {
             ControlFlow::Return(value, _) | ControlFlow::Done(value) => Ok(value),
             _ => bail!(self.inner.span, "closure did not return a value"),
@@ -170,7 +174,7 @@ impl IntoValue for Closure {
 #[comemo::memoize]
 #[typst_macros::time(name = "call closure", span = closure.inner.span)]
 pub fn call_closure(
-    closure: &Prehashed<Closure>,
+    closure: &Closure,
     world: Tracked<dyn World + '_>,
     introspector: Tracked<Introspector>,
     route: Tracked<Route>,
@@ -191,14 +195,14 @@ pub fn call_closure(
 }
 
 /// A closure that has been compiled but is not yet instantiated.
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq)]
 pub struct CompiledClosure {
     /// The common data.
-    pub inner: Arc<Inner>,
+    pub inner: Arc<Prehashed<Inner>>,
     /// The captures of the closure.
-    pub captures: Vec<Capture>,
+    pub captures: EcoVec<Capture>,
     /// The parameters of the closure.
-    pub params: Vec<CompiledParam>,
+    pub params: EcoVec<CompiledParam>,
     /// Where to store the reference to the closure itself.
     pub self_storage: Option<Writable>,
 }
@@ -241,7 +245,7 @@ pub struct Inner {
     pub joined: bool,
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub struct Capture {
     /// The name of the value to capture.
     pub name: EcoString,
@@ -268,7 +272,7 @@ pub enum Param {
     Sink(Span, EcoString),
 }
 
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq)]
 pub enum CompiledParam {
     /// A positional parameter.
     Pos(Writable, EcoString),

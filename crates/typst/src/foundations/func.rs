@@ -147,7 +147,7 @@ enum Repr {
     /// A function for an element.
     Element(Element),
     /// A user-defined closure.
-    Closure(Arc<Prehashed<crate::vm::Closure>>),
+    Closure(Arc<crate::vm::Closure>),
     /// A composite method.
     Method(Arc<Prehashed<Value>>, Arc<Func>),
     /// A nested function with pre-applied arguments.
@@ -509,7 +509,7 @@ impl From<Closure> for Func {
 
 impl From<crate::vm::Closure> for Func {
     fn from(closure: crate::vm::Closure) -> Self {
-        Repr::Closure(Arc::new(Prehashed::new(closure))).into()
+        Repr::Closure(Arc::new(closure)).into()
     }
 }
 

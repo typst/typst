@@ -64,7 +64,6 @@ pub fn run_module(
         &mut state,
         &module.inner.instructions,
         &module.inner.spans,
-        module.inner.span,
     )? {
         ControlFlow::Done(value) => value,
         other => bail!(module.inner.span, "module did not produce a value: {other:?}"),
@@ -72,10 +71,7 @@ pub fn run_module(
 
     let mut scope = Scope::new();
     for export in &module.inner.exports {
-        scope.define(
-            export.name.clone(),
-            state.read(export.value).at(export.span)?.clone(),
-        );
+        scope.define(export.name.clone(), state.read(export.value).clone());
     }
 
     Ok(Module::new(module.inner.name.clone(), scope).with_content(output.display()))

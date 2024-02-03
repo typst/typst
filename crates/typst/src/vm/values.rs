@@ -1,41 +1,41 @@
 use std::fmt;
 
-use ecow::{eco_format, EcoString};
+use ecow::EcoString;
 use typst_syntax::Span;
 
-use crate::diag::{bail, StrResult};
-use crate::foundations::{IntoValue, Label, Value};
+use crate::{
+    diag::StrResult,
+    foundations::{IntoValue, Label, Value},
+};
 
 use super::{Access, CompiledClosure, Pattern, VMState};
 
 pub trait VmRead {
     type Output<'a>;
 
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<Self::Output<'a>>;
+    fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a>;
 }
 
 impl<T: VmRead> VmRead for Option<T> {
     type Output<'a> = Option<T::Output<'a>>;
 
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<Self::Output<'a>> {
+    fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a> {
         if let Some(this) = self {
-            this.read(vm).map(Some)
+            Some(this.read(vm))
         } else {
-            Ok(None)
+            None
         }
     }
 }
 
 pub trait VmWrite {
-    fn write<'a>(&self, vm: &'a mut VMState) -> StrResult<&'a mut Value>;
+    fn write<'a>(&self, vm: &'a mut VMState) -> &'a mut Value;
 
     fn write_one(self, vm: &mut VMState, value: impl IntoValue) -> StrResult<()>
     where
         Self: Sized,
     {
-        let target = self.write(vm)?;
-        *target = value.into_value();
-
+        *self.write(vm) = value.into_value();
         Ok(())
     }
 }
@@ -60,7 +60,7 @@ bitflags::bitflags! {
 impl VmRead for Readable {
     type Output<'a> = &'a Value;
 
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<&'a Value> {
+    fn read<'a>(&self, vm: &'a VMState) -> &'a Value {
         const CONST: u16 = ReadableKind::CONSTANT.bits();
         const REG: u16 = ReadableKind::REGISTER.bits();
         const STR: u16 = ReadableKind::STRING.bits();
@@ -76,16 +76,16 @@ impl VmRead for Readable {
             STR => self.as_string().read(vm),
             GLOB => self.as_global().read(vm),
             MATH => self.as_math().read(vm),
-            NONE => Ok(&Value::None),
-            AUTO => Ok(&Value::Auto),
+            NONE => &Value::None,
+            AUTO => &Value::Auto,
             BOOL => {
                 if self.as_bool() {
-                    Ok(&Value::Bool(true))
+                    &Value::Bool(true)
                 } else {
-                    Ok(&Value::Bool(false))
+                    &Value::Bool(false)
                 }
             }
-            _ => bail!("invalid readable: malformed kind"),
+            _ => unreachable!("invalid readable: malformed kind"),
         }
     }
 }
@@ -349,11 +349,11 @@ impl From<Register> for Writable {
 }
 
 impl VmWrite for Writable {
-    fn write<'a>(&self, vm: &'a mut VMState) -> StrResult<&'a mut Value> {
+    fn write<'a>(&self, vm: &'a mut VMState) -> &'a mut Value {
         if self.is_reg() {
             self.as_reg().write(vm)
         } else {
-            bail!("cannot get mutable reference to joined value")
+            unreachable!("cannot get mutable reference to joined value")
         }
     }
 
@@ -364,7 +364,7 @@ impl VmWrite for Writable {
         if self.is_joined() {
             vm.join(value)
         } else {
-            *self.write(vm)? = value.into_value();
+            *self.write(vm) = value.into_value();
             Ok(())
         }
     }
@@ -373,11 +373,11 @@ impl VmWrite for Writable {
 impl VmRead for Writable {
     type Output<'a> = &'a Value;
 
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<Self::Output<'a>> {
+    fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a> {
         if self.is_reg() {
             self.as_reg().read(vm)
         } else {
-            bail!("cannot get reference to joined value")
+            unreachable!("cannot get reference to joined value")
         }
     }
 }
@@ -389,7 +389,7 @@ impl TryInto<Readable> for Writable {
         if self.is_reg() {
             Ok(Readable::from(self.as_reg()))
         } else {
-            bail!("cannot read joined value")
+            unreachable!("cannot read joined value")
         }
     }
 }
@@ -475,11 +475,11 @@ impl fmt::Debug for OptionalReadable {
 impl VmRead for OptionalReadable {
     type Output<'a> = Option<&'a Value>;
 
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<Option<&'a Value>> {
+    fn read<'a>(&self, vm: &'a VMState) -> Option<&'a Value> {
         if let Some(this) = self.ok() {
-            this.read(vm).map(Some)
+            Some(this.read(vm))
         } else {
-            Ok(None)
+            None
         }
     }
 }
@@ -709,121 +709,93 @@ id! {
 impl VmRead for Constant {
     type Output<'a> = &'a Value;
 
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<&'a Value> {
-        vm.constants.get(self.0 as usize).ok_or_else(|| {
-            eco_format!("invalid constant: {}, malformed instruction", self.0)
-        })
+    fn read<'a>(&self, vm: &'a VMState) -> &'a Value {
+        &vm.constants[self.0 as usize]
     }
 }
 
 impl VmRead for Register {
     type Output<'a> = &'a Value;
 
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<&'a Value> {
-        vm.registers.get(self.0 as usize).ok_or_else(|| {
-            eco_format!("invalid register: {}, malformed instruction", self.0)
-        })
+    fn read<'a>(&self, vm: &'a VMState) -> &'a Value {
+        &vm.registers[self.0 as usize]
     }
 }
 
 impl VmWrite for Register {
-    fn write<'a>(&self, vm: &'a mut VMState) -> StrResult<&'a mut Value> {
-        vm.registers.get_mut(self.0 as usize).ok_or_else(|| {
-            eco_format!("invalid register: {}, malformed instruction", self.0)
-        })
+    fn write<'a>(&self, vm: &'a mut VMState) -> &'a mut Value {
+        &mut vm.registers[self.0 as usize]
     }
 }
 
 impl VmRead for StringId {
     type Output<'a> = &'a Value;
 
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<&'a Value> {
-        vm.strings.get(self.0 as usize).ok_or_else(|| {
-            eco_format!("invalid string: {}, malformed instruction", self.0)
-        })
+    fn read<'a>(&self, vm: &'a VMState) -> &'a Value {
+        &vm.strings[self.0 as usize]
     }
 }
 
 impl VmRead for ClosureId {
     type Output<'a> = &'a CompiledClosure;
 
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<&'a CompiledClosure> {
-        vm.closures.get(self.0 as usize).ok_or_else(|| {
-            eco_format!("invalid closure: {}, malformed instruction", self.0)
-        })
+    fn read<'a>(&self, vm: &'a VMState) -> &'a CompiledClosure {
+        &vm.closures[self.0 as usize]
     }
 }
 
 impl VmRead for Global {
     type Output<'a> = &'a Value;
 
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<&'a Value> {
-        vm.global
-            .global
-            .field_by_id(self.0 as usize)
-            .map_err(|_| eco_format!("invalid global: {}, malformed instruction", self.0))
+    fn read<'a>(&self, vm: &'a VMState) -> &'a Value {
+        vm.global.global.field_by_id(self.0 as usize).unwrap()
     }
 }
 
 impl VmRead for Math {
     type Output<'a> = &'a Value;
 
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<&'a Value> {
-        vm.global
-            .math
-            .field_by_id(self.0 as usize)
-            .map_err(|_| eco_format!("invalid math: {}, malformed instruction", self.0))
+    fn read<'a>(&self, vm: &'a VMState) -> &'a Value {
+        vm.global.math.field_by_id(self.0 as usize).unwrap()
     }
 }
 
 impl VmRead for LabelId {
-    type Output<'a> = &'a Label;
+    type Output<'a> = Label;
 
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<&'a Label> {
-        vm.labels.get(self.0 as usize).ok_or_else(|| {
-            eco_format!("invalid label: {}, malformed instruction", self.0)
-        })
+    fn read<'a>(&self, vm: &'a VMState) -> Label {
+        vm.labels[self.0 as usize]
     }
 }
 
 impl VmRead for AccessId {
     type Output<'a> = &'a Access;
 
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<Self::Output<'a>> {
-        vm.accesses.get(self.0 as usize).ok_or_else(|| {
-            eco_format!("invalid access: {}, malformed instruction", self.0)
-        })
+    fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a> {
+        &vm.accesses[self.0 as usize]
     }
 }
 
 impl VmRead for PatternId {
     type Output<'a> = &'a Pattern;
 
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<Self::Output<'a>> {
-        vm.patterns.get(self.0 as usize).ok_or_else(|| {
-            eco_format!("invalid destructure: {}, malformed instruction", self.0)
-        })
+    fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a> {
+        &vm.patterns[self.0 as usize]
     }
 }
 
 impl VmRead for SpanId {
     type Output<'a> = Span;
 
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<Self::Output<'a>> {
-        vm.spans
-            .get(self.0 as usize)
-            .copied()
-            .ok_or_else(|| eco_format!("invalid span: {}, malformed instruction", self.0))
+    fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a> {
+        vm.spans[self.0 as usize]
     }
 }
 
 impl VmRead for Pointer {
     type Output<'a> = usize;
 
-    fn read<'a>(&self, vm: &'a VMState) -> StrResult<Self::Output<'a>> {
-        vm.jumps
-            .get(self.0 as usize)
-            .copied()
-            .ok_or_else(|| eco_format!("invalid jump: {}, malformed instruction", self.0))
+    fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a> {
+        vm.jumps[self.0 as usize]
     }
 }

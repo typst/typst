@@ -12,7 +12,7 @@ use ecow::EcoVec;
 use typst_syntax::{Source, Span};
 
 use crate::compiler::compile_module;
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::{Engine, Route};
 use crate::eval::{ops, Tracer};
 use crate::foundations::{
@@ -117,7 +117,6 @@ pub fn run(
     state: &mut VMState,
     instructions: &[Opcode],
     spans: &[Span],
-    span: Span,
 ) -> SourceResult<ControlFlow> {
     fn next<'a>(state: &mut VMState, instructions: &'a [Opcode]) -> Option<&'a Opcode> {
         if state.instruction_pointer == instructions.len() {
@@ -135,9 +134,8 @@ pub fn run(
         };
 
         let idx = state.instruction_pointer;
-        let span = || spans[idx];
 
-        opcode.run(&instructions, &spans, span, state, engine)?;
+        opcode.run(&instructions, &spans, spans[idx], state, engine)?;
 
         if matches!(opcode, Opcode::Flow) {
             if state.iterator.is_some() {
@@ -160,7 +158,11 @@ pub fn run(
     }
 
     let output = if let Some(reg) = state.output {
-        reg.read(&state).cloned().map(Some).at(span)?
+        if reg.is_reg() {
+            Some(state.take(reg.as_reg()))
+        } else {
+            Some(state.read(reg).clone())
+        }
     } else if let Some(joined) = state.joined.clone() {
         Some(joined.collect(engine)?)
     } else {
@@ -224,12 +226,16 @@ pub struct VMState<'a> {
 
 impl<'a> VMState<'a> {
     /// Read a value from the VM.
-    pub fn read<T: VmRead>(&self, readable: T) -> StrResult<T::Output<'_>> {
+    pub fn read<T: VmRead>(&self, readable: T) -> T::Output<'_> {
         readable.read(self)
     }
 
+    pub fn take(&mut self, register: Register) -> Value {
+        std::mem::take(&mut self.registers[register.0 as usize])
+    }
+
     /// Write a value to the VM, returning a mutable reference to the value.
-    pub fn write(&mut self, writable: impl VmWrite) -> StrResult<&mut Value> {
+    pub fn write(&mut self, writable: impl VmWrite) -> &mut Value {
         writable.write(self)
     }
 
@@ -313,12 +319,12 @@ impl<'a> VMState<'a> {
             match param {
                 CompiledParam::Pos(target, pos) => params
                     .push((OptionalWritable::some(*target), Param::Pos(pos.clone()))),
-                CompiledParam::Named { span, target, name, default } => {
+                CompiledParam::Named { target, name, default, .. } => {
                     params.push((
                         OptionalWritable::some(*target),
                         Param::Named {
                             name: name.clone(),
-                            default: self.read(*default).at(*span)?.cloned(),
+                            default: self.read(*default).cloned(),
                         },
                     ));
                 }
@@ -331,10 +337,7 @@ impl<'a> VMState<'a> {
         // Load the captured values.
         let mut captures = EcoVec::with_capacity(closure.captures.len());
         for capture in &closure.captures {
-            captures.push((
-                capture.location,
-                self.read(capture.value).at(capture.span)?.clone(),
-            ));
+            captures.push((capture.location, self.read(capture.value).clone()));
         }
 
         Ok(Closure::new(
@@ -355,7 +358,6 @@ impl<'a> VMState<'a> {
         mut output: Option<Readable>,
         joins: bool,
         content: bool,
-        span: Span,
     ) -> SourceResult<ControlFlow> {
         let mut state = State::empty()
             | if iterator.is_some() { State::LOOPING } else { State::empty() }
@@ -371,7 +373,7 @@ impl<'a> VMState<'a> {
         std::mem::swap(&mut self.joined, &mut joiner);
         std::mem::swap(&mut self.instruction_pointer, &mut instruction_pointer);
 
-        let out = run(engine, self, instructions, spans, span)?;
+        let out = run(engine, self, instructions, spans)?;
 
         std::mem::swap(&mut self.state, &mut state);
         std::mem::swap(&mut self.iterator, &mut iterator);

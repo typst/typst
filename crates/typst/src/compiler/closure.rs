@@ -1,4 +1,4 @@
-use ecow::EcoString;
+use ecow::{EcoString, EcoVec};
 use typst_syntax::ast::{self, AstNode};
 
 use crate::diag::SourceResult;
@@ -47,7 +47,7 @@ impl Compile for ast::Closure<'_> {
         };
 
         // Build the parameter list of the closure.
-        let mut params = Vec::new();
+        let mut params = EcoVec::new();
         let mut defaults_iter = defaults.iter();
         for param in self.params().children() {
             match param {
