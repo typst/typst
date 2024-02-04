@@ -1,11 +1,13 @@
 use std::collections::HashMap;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
-use std::{fs, mem};
+use std::{fs, io, mem};
 
 use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
 use ecow::eco_format;
+use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use typst::diag::{FileError, FileResult, StrResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
@@ -18,6 +20,11 @@ use crate::args::SharedArgs;
 use crate::compile::ExportCache;
 use crate::fonts::{FontSearcher, FontSlot};
 use crate::package::prepare_package;
+
+/// Static `FileId` allocated for stdin.
+/// This is to ensure that a file is read in the correct way.
+static STDIN_ID: Lazy<FileId> =
+    Lazy::new(|| FileId::new_fake(VirtualPath::new("<stdin>")));
 
 /// A world that provides access to the operating system.
 pub struct SystemWorld {
@@ -231,7 +238,7 @@ impl FileSlot {
     /// Retrieve the source for this file.
     fn source(&mut self, project_root: &Path) -> FileResult<Source> {
         self.source.get_or_init(
-            || system_path(project_root, self.id),
+            || FileReader::from(self.id).read(project_root),
             |data, prev| {
                 let name = if prev.is_some() { "reparsing file" } else { "parsing file" };
                 let _scope = TimingScope::new(name, None);
@@ -248,8 +255,10 @@ impl FileSlot {
 
     /// Retrieve the file's bytes.
     fn file(&mut self, project_root: &Path) -> FileResult<Bytes> {
-        self.file
-            .get_or_init(|| system_path(project_root, self.id), |data, _| Ok(data.into()))
+        self.file.get_or_init(
+            || FileReader::from(self.id).read(project_root),
+            |data, _| Ok(data.into()),
+        )
     }
 }
 
@@ -283,7 +292,7 @@ impl<T: Clone> SlotCell<T> {
     /// Gets the contents of the cell or initialize them.
     fn get_or_init(
         &mut self,
-        path: impl FnOnce() -> FileResult<PathBuf>,
+        load_content: impl FnOnce() -> FileResult<Vec<u8>>,
         f: impl FnOnce(Vec<u8>, Option<T>) -> FileResult<T>,
     ) -> FileResult<T> {
         // If we accessed the file already in this compilation, retrieve it.
@@ -294,7 +303,7 @@ impl<T: Clone> SlotCell<T> {
         }
 
         // Read and hash the file.
-        let result = timed!("loading file", path().and_then(|p| read(&p)));
+        let result = timed!("loading file", load_content());
         let fingerprint = timed!("hashing file", typst::util::hash128(&result));
 
         // If the file contents didn't change, yield the old processed data.
@@ -329,14 +338,52 @@ fn system_path(project_root: &Path, id: FileId) -> FileResult<PathBuf> {
     id.vpath().resolve(root).ok_or(FileError::AccessDenied)
 }
 
-/// Read a file.
-fn read(path: &Path) -> FileResult<Vec<u8>> {
+/// Reads a file from a `FileId`.
+/// It knows that whether a file is on disk or "fake".
+enum FileReader {
+    /// A real file that is on disk.
+    Disk(FileId),
+    /// A "fake" file that represents `stdin`.
+    Stdin(FileId),
+}
+
+impl From<FileId> for FileReader {
+    fn from(id: FileId) -> Self {
+        if id == *STDIN_ID {
+            Self::Stdin(id)
+        } else {
+            Self::Disk(id)
+        }
+    }
+}
+
+impl FileReader {
+    /// Reads a file from the `FileId`.
+    fn read(self, project_root: &Path) -> FileResult<Vec<u8>> {
+        match self {
+            Self::Disk(id) => read_from_disk(&system_path(project_root, id)?),
+            Self::Stdin(_) => read_from_stdin(),
+        }
+    }
+}
+
+/// Read a file from disk.
+fn read_from_disk(path: &Path) -> FileResult<Vec<u8>> {
     let f = |e| FileError::from_io(e, path);
     if fs::metadata(path).map_err(f)?.is_dir() {
         Err(FileError::IsDirectory)
     } else {
         fs::read(path).map_err(f)
     }
+}
+
+/// Read from stdin.
+fn read_from_stdin() -> FileResult<Vec<u8>> {
+    let mut buf = Vec::new();
+    io::stdin()
+        .read_to_end(&mut buf)
+        .map_err(|err| FileError::Other(Some(eco_format!("{err}"))))?;
+    Ok(buf)
 }
 
 /// Decode UTF-8 with an optional BOM.
