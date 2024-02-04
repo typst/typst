@@ -31,7 +31,7 @@ pub struct SystemWorld {
     /// The working directory.
     workdir: Option<PathBuf>,
     /// The canonical path to the input file.
-    input: PathBuf,
+    input: Option<PathBuf>,
     /// The root relative to which absolute paths are resolved.
     root: PathBuf,
     /// The input path.
@@ -59,25 +59,36 @@ impl SystemWorld {
         searcher.search(&command.font_paths);
 
         // Resolve the system-global input path.
-        let input = command.input.canonicalize().map_err(|_| {
-            eco_format!("input file not found (searched at {})", command.input.display())
-        })?;
+        let input = command
+            .input()
+            .map(|i| {
+                i.canonicalize().map_err(|_| {
+                    eco_format!("input file not found (searched at {})", i.display())
+                })
+            })
+            .transpose()?;
 
         // Resolve the system-global root directory.
         let root = {
             let path = command
                 .root
                 .as_deref()
-                .or_else(|| input.parent())
+                .or_else(|| input.as_deref().and_then(|i| i.parent()))
                 .unwrap_or(Path::new("."));
             path.canonicalize().map_err(|_| {
                 eco_format!("root directory not found (searched at {})", path.display())
             })?
         };
 
-        // Resolve the virtual path of the main file within the project root.
-        let main_path = VirtualPath::within_root(&input, &root)
-            .ok_or("source file must be contained in project root")?;
+        let main = if let Some(path) = &input {
+            // Resolve the virtual path of the main file within the project root.
+            let main_path = VirtualPath::within_root(path, &root)
+                .ok_or("source file must be contained in project root")?;
+            FileId::new(None, main_path)
+        } else {
+            // Return the special id of STDIN otherwise
+            *STDIN_ID
+        };
 
         let library = {
             // Convert the input pairs to a dictionary.
@@ -94,7 +105,7 @@ impl SystemWorld {
             workdir: std::env::current_dir().ok(),
             input,
             root,
-            main: FileId::new(None, main_path),
+            main,
             library: Prehashed::new(library),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
@@ -137,8 +148,8 @@ impl SystemWorld {
     }
 
     /// Return the canonical path to the input file.
-    pub fn input(&self) -> &PathBuf {
-        &self.input
+    pub fn input(&self) -> Option<&PathBuf> {
+        self.input.as_ref()
     }
 
     /// Lookup a source file by id.

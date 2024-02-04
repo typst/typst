@@ -29,7 +29,9 @@ impl CompileCommand {
     /// The output path.
     pub fn output(&self) -> PathBuf {
         self.output.clone().unwrap_or_else(|| {
-            self.common.input.with_extension(
+            let input = self.common.input()
+                .expect("Output must be specified when input is from stdin, as guarded by the CLI");
+            input.with_extension(
                 match self.output_format().unwrap_or(OutputFormat::Pdf) {
                     OutputFormat::Pdf => "pdf",
                     OutputFormat::Png => "png",
@@ -163,8 +165,8 @@ fn export_pdf(
     command: &CompileCommand,
     world: &SystemWorld,
 ) -> StrResult<()> {
-    let ident = world.input().to_string_lossy();
-    let buffer = typst_pdf::pdf(document, Some(&ident), now());
+    let ident = world.input().map(|i| i.to_string_lossy());
+    let buffer = typst_pdf::pdf(document, ident.as_deref(), now());
     let output = command.output();
     fs::write(output, buffer)
         .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;

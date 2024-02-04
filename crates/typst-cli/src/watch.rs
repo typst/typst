@@ -168,7 +168,14 @@ impl Status {
         term_out.set_color(&color)?;
         write!(term_out, "watching")?;
         term_out.reset()?;
-        writeln!(term_out, " {}", command.common.input.display())?;
+        writeln!(
+            term_out,
+            " {}",
+            command
+                .common
+                .input()
+                .map_or("<stdin>".to_string(), |i| i.display().to_string())
+        )?;
 
         term_out.set_color(&color)?;
         write!(term_out, "writing to")?;
