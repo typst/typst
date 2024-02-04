@@ -4,9 +4,11 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, NativeElement, Packed, Smart, StyleChain,
 };
 use crate::layout::{
-    BlockElem, Em, Fragment, HElem, LayoutMultiple, Length, Regions, Spacing, VElem,
+    BlockElem, Dir, Em, Fragment, HElem, LayoutMultiple, Length, Regions, Sides, Spacing,
+    StackChild, StackElem,
 };
 use crate::model::ParElem;
+use crate::text::TextElem;
 use crate::util::Numeric;
 
 /// A list of terms and their descriptions.
@@ -125,21 +127,31 @@ impl LayoutMultiple for Packed<TermsElem> {
                 .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
         };
 
-        let mut seq = vec![];
-        for (i, child) in self.children().iter().enumerate() {
-            if i > 0 {
-                seq.push(VElem::new(gutter).with_weakness(1).pack());
-            }
-            if !indent.is_zero() {
-                seq.push(HElem::new(indent.into()).pack());
-            }
+        let pad = hanging_indent + indent;
+        let unpad = (!hanging_indent.is_zero())
+            .then(|| HElem::new((-hanging_indent).into()).pack());
+
+        let mut children = vec![];
+        for child in self.children().iter() {
+            let mut seq = vec![];
+            seq.extend(unpad.clone());
             seq.push(child.term().clone().strong());
             seq.push((*separator).clone());
             seq.push(child.description().clone());
+            children.push(StackChild::Block(Content::sequence(seq)));
         }
 
-        Content::sequence(seq)
-            .styled(ParElem::set_hanging_indent(hanging_indent + indent))
+        let mut padding = Sides::default();
+        if TextElem::dir_in(styles) == Dir::LTR {
+            padding.left = pad.into();
+        } else {
+            padding.right = pad.into();
+        }
+
+        StackElem::new(children)
+            .with_spacing(Some(gutter))
+            .pack()
+            .padded(padding)
             .layout(engine, styles, regions)
     }
 }
