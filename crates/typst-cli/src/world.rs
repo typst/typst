@@ -391,9 +391,12 @@ fn read_from_disk(path: &Path) -> FileResult<Vec<u8>> {
 /// Read from stdin.
 fn read_from_stdin() -> FileResult<Vec<u8>> {
     let mut buf = Vec::new();
-    io::stdin()
-        .read_to_end(&mut buf)
-        .map_err(|err| FileError::Other(Some(eco_format!("{err}"))))?;
+    let result = io::stdin().read_to_end(&mut buf);
+    match result {
+        Ok(_) => (),
+        Err(e) if e.kind() == io::ErrorKind::BrokenPipe => (),
+        Err(err) => return Err(FileError::Other(Some(eco_format!("{err}")))),
+    }
     Ok(buf)
 }
 
