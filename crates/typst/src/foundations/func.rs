@@ -133,6 +133,12 @@ pub struct Func {
     span: Span,
 }
 
+impl Func {
+    pub fn method(value: impl Into<Value>, func: impl Into<Func>) -> Self {
+        Repr::Method(Arc::new(Prehashed::new(value.into())), Arc::new(func.into())).into()
+    }
+}
+
 /// The different kinds of function representations.
 #[derive(Clone, PartialEq, Hash)]
 enum Repr {
@@ -141,7 +147,9 @@ enum Repr {
     /// A function for an element.
     Element(Element),
     /// A user-defined closure.
-    Closure(Arc<Prehashed<Closure>>),
+    Closure(Arc<crate::vm::Closure>),
+    /// A composite method.
+    Method(Arc<Prehashed<Value>>, Arc<Func>),
     /// A nested function with pre-applied arguments.
     With(Arc<(Func, Args)>),
 }
@@ -156,6 +164,7 @@ impl Func {
             Repr::Element(elem) => Some(elem.name()),
             Repr::Closure(closure) => closure.name(),
             Repr::With(with) => with.0.name(),
+            Repr::Method(_, func) => func.name(),
         }
     }
 
@@ -168,6 +177,7 @@ impl Func {
             Repr::Element(elem) => Some(elem.title()),
             Repr::Closure(_) => None,
             Repr::With(with) => with.0.title(),
+            Repr::Method(_, func) => func.title(),
         }
     }
 
@@ -178,6 +188,7 @@ impl Func {
             Repr::Element(elem) => Some(elem.docs()),
             Repr::Closure(_) => None,
             Repr::With(with) => with.0.docs(),
+            Repr::Method(_, func) => func.docs(),
         }
     }
 
@@ -188,6 +199,7 @@ impl Func {
             Repr::Element(elem) => Some(elem.params()),
             Repr::Closure(_) => None,
             Repr::With(with) => with.0.params(),
+            Repr::Method(_, func) => func.params(),
         }
     }
 
@@ -205,6 +217,7 @@ impl Func {
             Repr::Element(_) => Some(&CONTENT),
             Repr::Closure(_) => None,
             Repr::With(with) => with.0.returns(),
+            Repr::Method(_, func) => func.returns(),
         }
     }
 
@@ -215,6 +228,7 @@ impl Func {
             Repr::Element(elem) => elem.keywords(),
             Repr::Closure(_) => &[],
             Repr::With(with) => with.0.keywords(),
+            Repr::Method(_, func) => func.keywords(),
         }
     }
 
@@ -225,6 +239,7 @@ impl Func {
             Repr::Element(elem) => Some(elem.scope()),
             Repr::Closure(_) => None,
             Repr::With(with) => with.0.scope(),
+            Repr::Method(_, func) => func.scope(),
         }
     }
 
@@ -268,8 +283,7 @@ impl Func {
                 args.finish()?;
                 Ok(Value::Content(value))
             }
-            Repr::Closure(closure) => crate::eval::call_closure(
-                self,
+            Repr::Closure(closure) => crate::vm::call_closure(
                 closure,
                 engine.world,
                 engine.introspector,
@@ -281,6 +295,10 @@ impl Func {
             Repr::With(with) => {
                 args.items = with.1.items.iter().cloned().chain(args.items).collect();
                 with.0.call(engine, args)
+            }
+            Repr::Method(value, func) => {
+                args.insert_at(0, Span::detached(), (&***value).clone());
+                func.call(engine, args)
             }
         }
     }
@@ -484,8 +502,14 @@ impl Closure {
 }
 
 impl From<Closure> for Func {
-    fn from(closure: Closure) -> Self {
-        Repr::Closure(Arc::new(Prehashed::new(closure))).into()
+    fn from(_closure: Closure) -> Self {
+        todo!()
+    }
+}
+
+impl From<crate::vm::Closure> for Func {
+    fn from(closure: crate::vm::Closure) -> Self {
+        Repr::Closure(Arc::new(closure)).into()
     }
 }
 

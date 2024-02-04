@@ -12,7 +12,6 @@ use self::shaping::{
 };
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
 use crate::foundations::{Content, Packed, Resolve, Smart, StyleChain};
 use crate::introspection::{Introspector, Locator, MetaElem};
 use crate::layout::{
@@ -26,6 +25,7 @@ use crate::text::{
     Lang, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
 };
 use crate::util::Numeric;
+use crate::vm::Tracer;
 use crate::World;
 
 /// Layouts content inline.

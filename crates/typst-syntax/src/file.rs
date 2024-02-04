@@ -6,6 +6,7 @@ use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 use std::sync::RwLock;
 
+use bytemuck::{Pod, Zeroable};
 use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -28,7 +29,8 @@ type Pair = &'static (Option<PackageSpec>, VirtualPath);
 /// Identifies a file in a project or package.
 ///
 /// This type is globally interned and thus cheap to copy, compare, and hash.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Pod, Zeroable)]
+#[repr(transparent)]
 pub struct FileId(u16);
 
 impl FileId {

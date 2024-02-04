@@ -9,12 +9,12 @@ use smallvec::SmallVec;
 
 use crate::diag::{At, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::eval::ops;
 use crate::foundations::{
     cast, func, repr, scope, ty, Args, Bytes, CastInfo, FromValue, Func, IntoValue,
     Reflect, Repr, Value, Version,
 };
 use crate::syntax::Span;
+use crate::vm::ops;
 
 /// Create a new [`Array`] from values.
 #[macro_export]
@@ -549,7 +549,7 @@ impl Array {
             .or(default)
             .ok_or("cannot calculate sum of empty array with no default")?;
         for item in iter {
-            acc = ops::add(acc, item)?;
+            acc = ops::add(&acc, &item)?;
         }
         Ok(acc)
     }
@@ -570,7 +570,7 @@ impl Array {
             .or(default)
             .ok_or("cannot calculate product of empty array with no default")?;
         for item in iter {
-            acc = ops::mul(acc, item)?;
+            acc = ops::mul(&acc, &item)?;
         }
         Ok(acc)
     }
@@ -835,6 +835,17 @@ impl Add for Array {
     fn add(mut self, rhs: Array) -> Self::Output {
         self += rhs;
         self
+    }
+}
+
+impl Add for &Array {
+    type Output = Array;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let mut out = EcoVec::with_capacity(self.len() + rhs.len());
+        out.extend(self.iter().cloned());
+        out.extend(rhs.iter().cloned());
+        out.into()
     }
 }
 

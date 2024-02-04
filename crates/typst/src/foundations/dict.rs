@@ -72,6 +72,11 @@ impl Dict {
         Self::default()
     }
 
+    /// Create a new dictionary with the given capacity.
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self(Arc::new(IndexMap::with_capacity(capacity)))
+    }
+
     /// Whether the dictionary is empty.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
@@ -273,6 +278,17 @@ impl Add for Dict {
     fn add(mut self, rhs: Dict) -> Self::Output {
         self += rhs;
         self
+    }
+}
+
+impl Add for &Dict {
+    type Output = Dict;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let mut out = IndexMap::with_capacity(self.len() + rhs.len());
+        out.extend(self.iter().map(|(k, v)| (k.clone(), v.clone())));
+        out.extend(rhs.iter().map(|(k, v)| (k.clone(), v.clone())));
+        out.into()
     }
 }
 

@@ -21,6 +21,7 @@ typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
 az = { workspace = true }
 bitflags = { workspace = true }
+bytemuck = { workspace = true }
 chinese-number = { workspace = true }
 ciborium = { workspace = true }
 comemo = { workspace = true }

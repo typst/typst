@@ -656,6 +656,26 @@ impl Add for Str {
     }
 }
 
+impl Add for &Str {
+    type Output = Str;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        if self.is_empty() {
+            return rhs.clone();
+        }
+
+        if rhs.is_empty() {
+            return self.clone();
+        }
+
+        let mut out = EcoString::with_capacity(self.len() + rhs.len());
+        out.push_str(self.as_str());
+        out.push_str(rhs.as_str());
+
+        out.into()
+    }
+}
+
 impl AddAssign for Str {
     fn add_assign(&mut self, rhs: Self) {
         self.0.push_str(rhs.as_str());

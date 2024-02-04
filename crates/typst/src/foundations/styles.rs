@@ -79,6 +79,11 @@ impl Styles {
         self.0.is_empty()
     }
 
+    /// Number of styles in this list.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     /// Iterate over the contained styles.
     pub fn iter(&self) -> impl Iterator<Item = &Style> {
         self.0.iter().map(|style| &**style)
@@ -114,6 +119,22 @@ impl Styles {
         self.0 = outer.iter().cloned().chain(mem::take(self).0).collect();
     }
 
+    pub fn push(&mut self, style: impl Into<Style>) {
+        self.0.push(Prehashed::new(style.into()));
+    }
+
+    pub fn push_all<I: Into<Prehashed<Style>>>(
+        &mut self,
+        styles: impl IntoIterator<Item = I>,
+    ) {
+        self.0.extend(styles.into_iter().map(Into::into));
+    }
+
+    /// Get the inner value for a style property.
+    pub fn as_slice(&self) -> &[Prehashed<Style>] {
+        self.0.as_slice()
+    }
+
     /// Add an origin span to all contained properties.
     pub fn spanned(mut self, span: Span) -> Self {
         for entry in self.0.make_mut() {
@@ -144,6 +165,15 @@ impl Styles {
                 .chain(TextElem::font_in(existing).into_iter().cloned())
                 .collect(),
         )));
+    }
+}
+
+impl IntoIterator for Styles {
+    type Item = Prehashed<Style>;
+    type IntoIter = ecow::vec::IntoIter<Prehashed<Style>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
@@ -438,6 +468,7 @@ cast! {
     Transformation,
     content: Content => Self::Content(content),
     func: Func => Self::Func(func),
+    styles: Styles => Self::Style(styles),
 }
 
 /// A chain of styles, similar to a linked list.

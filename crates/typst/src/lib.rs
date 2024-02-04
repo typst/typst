@@ -39,9 +39,9 @@ extern crate self as typst;
 
 #[macro_use]
 pub mod util;
+pub mod compiler;
 pub mod diag;
 pub mod engine;
-pub mod eval;
 pub mod foundations;
 pub mod introspection;
 pub mod layout;
@@ -52,6 +52,7 @@ pub mod realize;
 pub mod symbols;
 pub mod text;
 pub mod visualize;
+pub mod vm;
 
 #[doc(inline)]
 pub use typst_syntax as syntax;
@@ -65,7 +66,6 @@ use typst_timing::{timed, TimingScope};
 
 use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
 use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
 use crate::foundations::{
     Array, Bytes, Content, Datetime, Dict, Module, Scope, StyleChain, Styles,
 };
@@ -75,6 +75,7 @@ use crate::model::Document;
 use crate::syntax::{FileId, PackageSpec, Source, Span};
 use crate::text::{Font, FontBook};
 use crate::visualize::Color;
+use crate::vm::Tracer;
 
 /// Compile a source file into a fully layouted document.
 ///
@@ -89,14 +90,11 @@ pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document>
     // Call `track` on the world just once to keep comemo's ID stable.
     let world = world.track();
 
-    // Try to evaluate the source file into a module.
-    let module = crate::eval::eval(
-        world,
-        Route::default().track(),
-        tracer.track_mut(),
-        &world.main(),
-    )
-    .map_err(deduplicate)?;
+    let route = Route::default();
+
+    // Try to compile the file
+    let module =
+        crate::vm::eval(world, route.track(), tracer.track_mut(), &world.main())?;
 
     // Typeset the module's content, relayouting until convergence.
     typeset(world, tracer, &module.content()).map_err(deduplicate)

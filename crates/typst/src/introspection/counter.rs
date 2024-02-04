@@ -7,7 +7,6 @@ use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{At, SourceResult, StrResult};
 use crate::engine::{Engine, Route};
-use crate::eval::Tracer;
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Array, Content, Element, Func, IntoValue,
     Label, LocatableSelector, NativeElement, Packed, Repr, Selector, Show, Str,
@@ -19,6 +18,7 @@ use crate::math::EquationElem;
 use crate::model::{FigureElem, HeadingElem, Numbering, NumberingPattern};
 use crate::syntax::Span;
 use crate::util::NonZeroExt;
+use crate::vm::Tracer;
 use crate::World;
 
 /// Counts through pages, elements, and more.

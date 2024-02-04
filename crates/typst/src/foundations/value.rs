@@ -10,7 +10,6 @@ use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::diag::StrResult;
-use crate::eval::ops;
 use crate::foundations::{
     fields, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Dict,
     Duration, FromValue, Func, IntoValue, Label, Module, NativeElement, NativeType,
@@ -21,13 +20,15 @@ use crate::symbols::Symbol;
 use crate::syntax::{ast, Span};
 use crate::text::{RawElem, TextElem};
 use crate::visualize::{Color, Gradient, Pattern};
+use crate::vm::ops;
 
 /// A computational value.
 #[derive(Default, Clone)]
+#[repr(u8)]
 pub enum Value {
     /// The value that indicates the absence of a meaningful value.
     #[default]
-    None,
+    None = 0,
     /// A value that indicates some smart default behaviour.
     Auto,
     /// A boolean: `true, false`.
@@ -95,6 +96,10 @@ impl Value {
         T: Debug + Repr + NativeType + PartialEq + Hash + Sync + Send + 'static,
     {
         Self::Dyn(Dynamic::new(any))
+    }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
     }
 
     /// Create a numeric value from a number with a unit.
