@@ -1299,7 +1299,7 @@ struct Id(char, u128, usize);
 
 impl Display for Id {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{:0X}", self.0, self.1)
+        write!(f, "{}{:0X}", self.0, self.2)
     }
 }
 
