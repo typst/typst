@@ -8,12 +8,12 @@ use ecow::{eco_format, EcoString};
 use parking_lot::RwLock;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
-use typst::vm::Tracer;
 use typst::foundations::Datetime;
 use typst::layout::Frame;
 use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
 use typst::visualize::Color;
+use typst::vm::Tracer;
 use typst::{World, WorldExt};
 
 use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};

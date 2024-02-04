@@ -129,10 +129,14 @@ impl Content {
         }
         self
     }
-
     /// Get the label of the content.
     pub fn label(&self) -> Option<Label> {
         self.inner.label
+    }
+
+    /// Set the label of the content.
+    pub fn set_label(&mut self, label: Label) {
+        self.make_mut().label = Some(label);
     }
 
     /// Set the label of the content.

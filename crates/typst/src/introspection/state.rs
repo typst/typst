@@ -3,13 +3,13 @@ use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
 use crate::diag::SourceResult;
 use crate::engine::{Engine, Route};
-use crate::vm::Tracer;
 use crate::foundations::{
     cast, elem, func, scope, select_where, ty, Content, Func, NativeElement, Packed,
     Repr, Selector, Show, Str, StyleChain, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location, Locator};
 use crate::syntax::Span;
+use crate::vm::Tracer;
 use crate::World;
 
 /// Manages stateful parts of your document.
