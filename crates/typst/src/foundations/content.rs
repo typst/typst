@@ -141,11 +141,6 @@ impl Content {
         self
     }
 
-    /// Set the label of the content.
-    pub fn set_label(&mut self, label: Label) {
-        self.make_mut().label = Some(label);
-    }
-
     /// Check whether a show rule recipe is disabled.
     pub fn is_guarded(&self, guard: Guard) -> bool {
         self.inner.lifecycle.contains(guard.0)
