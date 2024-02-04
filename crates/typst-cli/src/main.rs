@@ -50,7 +50,7 @@ fn main() -> ExitCode {
         .leave_alternate_screen()
         .map_err(|err| eco_format!("failed to leave alternate screen ({err})"));
 
-    if let Err(msg) = res.or(res_leave) {
+    if let Some(msg) = res.err().or(res_leave.err()) {
         set_failed();
         print_error(&msg).expect("failed to print error");
     }
