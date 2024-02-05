@@ -208,7 +208,7 @@ pub enum SyntaxKind {
     Dict,
     /// A named pair: `thickness: 3pt`.
     Named,
-    /// A keyed pair: `"spacy key": true`.
+    /// A keyed pair: `"spacy key": true`, `(expr): false`.
     Keyed,
     /// A numbered pair: `65: "A"`.
     Numbered,

@@ -238,12 +238,12 @@ impl Eval for ast::Dict<'_> {
                 ast::DictItem::Keyed(keyed) => {
                     let raw_key = keyed.key();
                     let key = raw_key.eval(vm)?;
-                    let key = key.cast::<Str>().unwrap_or_else(|error| {
+                    let key = key.cast::<DictKey>().unwrap_or_else(|error| {
                         let error = SourceDiagnostic::error(raw_key.span(), error);
                         invalid_keys.push(error);
-                        Str::default()
+                        DictKey::Str(Str::default())
                     });
-                    map.insert(key.into(), keyed.expr().eval(vm)?);
+                    map.insert(key, keyed.expr().eval(vm)?);
                 }
                 ast::DictItem::Numbered(numbered) => {
                     map.insert(numbered.number().get().into(), numbered.expr().eval(vm)?);

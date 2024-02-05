@@ -1216,7 +1216,7 @@ impl<'a> Dict<'a> {
 pub enum DictItem<'a> {
     /// A named pair: `thickness: 3pt`.
     Named(Named<'a>),
-    /// A keyed pair: `"spacy key": true`.
+    /// A keyed pair: `"spacy key": true`, `(expr): false`.
     Keyed(Keyed<'a>),
     /// A numbered pair: `65: "A"`.
     Numbered(Numbered<'a>),
@@ -1268,7 +1268,7 @@ impl<'a> Named<'a> {
 }
 
 node! {
-    /// A keyed pair: `"spacy key": true`.
+    /// A keyed pair: `"spacy key": true`, `(expr): false`.
     Keyed
 }
 

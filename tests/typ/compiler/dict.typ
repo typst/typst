@@ -7,13 +7,16 @@
 // Empty
 #(:)
 
-// Two pairs and string key.
-#let dict = (normal: 1, "spacy key": 2, 3: <foo>)
+#let string = "string"
+#let number = 12306;
+#let dict = (normal: 1, "spacy key": 2, 3: <foo>, (string): number, (number): string)
 #dict
 
 #test(dict.normal, 1)
 #test(dict.at("spacy key"), 2)
 #test(dict.at(3), <foo>)
+#test(dict.at(string), number)
+#test(dict.at(number), string)
 
 ---
 // Test lvalue and rvalue access.
@@ -169,6 +172,6 @@
 #let ((a): 10) = "world"
 
 ---
-// Error: 3-7 expected string, found boolean
-// Error: 16-20 expected string, found float
+// Error: 3-7 expected string or integer, found boolean
+// Error: 16-20 expected string or integer, found float
 #(true: false, 42.0: 3)
