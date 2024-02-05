@@ -247,7 +247,7 @@ impl FileSlot {
     /// Retrieve the source for this file.
     fn source(&mut self, project_root: &Path) -> FileResult<Source> {
         self.source.get_or_init(
-            || FileReader::from(self.id).read(project_root),
+            || read(self.id, project_root),
             |data, prev| {
                 let name = if prev.is_some() { "reparsing file" } else { "parsing file" };
                 let _scope = TimingScope::new(name, None);
@@ -264,10 +264,8 @@ impl FileSlot {
 
     /// Retrieve the file's bytes.
     fn file(&mut self, project_root: &Path) -> FileResult<Bytes> {
-        self.file.get_or_init(
-            || FileReader::from(self.id).read(project_root),
-            |data, _| Ok(data.into()),
-        )
+        self.file
+            .get_or_init(|| read(self.id, project_root), |data, _| Ok(data.into()))
     }
 }
 
@@ -348,31 +346,14 @@ fn system_path(project_root: &Path, id: FileId) -> FileResult<PathBuf> {
 }
 
 /// Reads a file from a `FileId`.
-/// It knows that whether a file is on disk or "fake".
-enum FileReader {
-    /// A real file that is on disk.
-    Disk(FileId),
-    /// A "fake" file that represents `stdin`.
-    Stdin,
-}
-
-impl From<FileId> for FileReader {
-    fn from(id: FileId) -> Self {
-        if id == *STDIN_ID {
-            Self::Stdin
-        } else {
-            Self::Disk(id)
-        }
-    }
-}
-
-impl FileReader {
-    /// Reads a file from the `FileId`.
-    fn read(self, project_root: &Path) -> FileResult<Vec<u8>> {
-        match self {
-            Self::Disk(id) => read_from_disk(&system_path(project_root, id)?),
-            Self::Stdin => read_from_stdin(),
-        }
+///
+/// If the ID represents stdin it will read from standard input,
+/// otherwise it gets the file path of the ID and reads the file from disk.
+fn read(id: FileId, project_root: &Path) -> FileResult<Vec<u8>> {
+    if id == *STDIN_ID {
+        read_from_stdin()
+    } else {
+        read_from_disk(&system_path(project_root, id)?)
     }
 }
 
