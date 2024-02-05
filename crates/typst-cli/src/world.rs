@@ -301,7 +301,7 @@ impl<T: Clone> SlotCell<T> {
     /// Gets the contents of the cell or initialize them.
     fn get_or_init(
         &mut self,
-        load_content: impl FnOnce() -> FileResult<Vec<u8>>,
+        load: impl FnOnce() -> FileResult<Vec<u8>>,
         f: impl FnOnce(Vec<u8>, Option<T>) -> FileResult<T>,
     ) -> FileResult<T> {
         // If we accessed the file already in this compilation, retrieve it.
@@ -312,7 +312,7 @@ impl<T: Clone> SlotCell<T> {
         }
 
         // Read and hash the file.
-        let result = timed!("loading file", load_content());
+        let result = timed!("loading file", load());
         let fingerprint = timed!("hashing file", typst::util::hash128(&result));
 
         // If the file contents didn't change, yield the old processed data.
