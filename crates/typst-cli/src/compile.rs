@@ -30,7 +30,7 @@ impl CompileCommand {
     pub fn output(&self) -> PathBuf {
         self.output.clone().unwrap_or_else(|| {
             let Input::Path(path) = &self.common.input else {
-                panic!("Output must be specified when input is from stdin, as guarded by the CLI");
+                panic!("output must be specified when input is from stdin, as guarded by the CLI");
             };
             path.with_extension(
                 match self.output_format().unwrap_or(OutputFormat::Pdf) {
