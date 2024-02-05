@@ -5,7 +5,7 @@ use typst_syntax::ast::AstNode;
 use typst_syntax::{ast, FileId, PackageSpec, PackageVersion, Span, VirtualPath};
 
 use crate::diag::{
-    bail, error, At, FileError, SourceResult, StrResult, Trace, Tracepoint,
+    bail, warning, error, At, FileError, SourceResult, StrResult, Trace, Tracepoint,
 };
 use crate::engine::Engine;
 use crate::foundations::{Module, Value};
@@ -89,16 +89,33 @@ impl Compile for ast::ModuleImport<'_> {
                     }
                 }
             }
+        } else {
+            let name: EcoString = module.name().clone();
+            compiler.declare_default(
+                self.span(),
+                name,
+                Value::Module(module.clone()),
+            );
         }
 
         // Handle renaming.
-        if let Some(rename) = self.new_name() {
+        if let Some(new_name) = self.new_name() {
+            if let ast::Expr::Ident(ident) = self.source() {
+                if ident.as_str() == new_name.as_str() {
+                    // Warn on `import x as x`
+                    engine.tracer.warn(warning!(
+                        new_name.span(),
+                        "unnecessary import rename to same name",
+                    ));
+                }
+            }
+
             compiler.declare_default(
-                rename.span(),
-                rename.get().to_owned(),
+                self.span(),
+                new_name.get().to_owned(),
                 Value::Module(module),
             );
-        }
+        };
 
         Ok(())
     }

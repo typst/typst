@@ -144,23 +144,17 @@ impl CompilerScope {
     /// Read the default value of a variable.
     pub fn default(&self, var: &str) -> StrResult<Option<Value>> {
         if let Some(variable) = self.variables.get(var) {
-            Ok(variable.default.clone())
+            return Ok(variable.default.clone());
+        } else if let Some(parent) = self.parent.as_ref() {
+            let ref_ = parent.borrow();
+            return ref_.default(var);
+        } else if let Some(captures) = self.capturing.as_ref() {
+            let ref_ = captures.borrow();
+            return ref_.default(var);
+        } else if let Ok(field) = self.global.global.field(var) {
+            return Ok(Some(field.clone()));
         } else {
-            let mut next = self.parent.clone();
-            while let Some(parent) = next {
-                let ref_ = parent.borrow();
-                if let Some(variable) = ref_.variables.get(var) {
-                    return Ok(variable.default.clone());
-                }
-
-                next = ref_.parent.clone();
-            }
-
-            if let Ok(field) = self.global.global.field(var) {
-                Ok(Some(field.clone()))
-            } else {
-                bail!("unknown variable `{}`", var);
-            }
+            bail!("variable `{}` not found", var);
         }
     }
 
