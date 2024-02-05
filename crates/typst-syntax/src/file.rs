@@ -57,11 +57,12 @@ impl FileId {
         id
     }
 
-    /// Create a new "fake" file specification which is *not* interned.
+    /// Create a new unique ("fake") file specification, which is not
+    /// accessible by path.
     ///
     /// Caution: the ID returned by this method is the *only* identifier of the
-    /// file, constructing a FileID with a path will *not* reuse the ID even if
-    /// the path is the same. This method should only be used for generating
+    /// file, constructing a file ID with a path will *not* reuse the ID even
+    /// if the path is the same. This method should only be used for generating
     /// "virtual" file ids such as content read from stdin.
     #[track_caller]
     pub fn new_fake(path: VirtualPath) -> Self {
