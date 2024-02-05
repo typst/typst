@@ -74,6 +74,7 @@ impl PatternCompile for ast::Pattern<'_> {
             }
             ast::Pattern::Destructuring(destructure) => {
                 let mut items = SmallVec::new();
+                let mut has_sink = false;
                 for binding in destructure.bindings() {
                     match binding {
                         ast::DestructuringKind::Normal(normal) => match normal {
@@ -99,6 +100,7 @@ impl PatternCompile for ast::Pattern<'_> {
                         },
                         ast::DestructuringKind::Sink(sink) => {
                             if let Some(ident) = sink.name() {
+                                has_sink = true;
                                 let index = if declare {
                                     let id = compiler
                                         .declare(ident.span(), ident.get().clone());
@@ -140,7 +142,7 @@ impl PatternCompile for ast::Pattern<'_> {
 
                 Ok(Pattern {
                     span: destructure.span(),
-                    kind: PatternKind::Tuple(items),
+                    kind: PatternKind::Tuple(items, has_sink),
                 })
             }
         }
@@ -153,16 +155,17 @@ pub enum PatternKind {
     Single(PatternItem),
 
     /// Destructure into a tuple of locals.
-    Tuple(SmallVec<[PatternItem; 2]>),
+    Tuple(SmallVec<[PatternItem; 2]>, bool),
 }
 
 impl PatternKind {
     pub fn as_vm_kind(&self) -> VmPatternKind {
         match self {
             Self::Single(item) => VmPatternKind::Single(item.as_vm_item()),
-            Self::Tuple(items) => {
-                VmPatternKind::Tuple(items.iter().map(|item| item.as_vm_item()).collect())
-            }
+            Self::Tuple(items, has_shink) => VmPatternKind::Tuple(
+                items.iter().map(|item| item.as_vm_item()).collect(),
+                *has_shink,
+            ),
         }
     }
 }

@@ -215,12 +215,12 @@ pub enum ControlFlow {
     Return(Value, bool),
 }
 pub struct VMState<'a> {
+    /// The current state of the VM.
+    state: State,
     /// The current instruction pointer.
     instruction_pointer: usize,
     /// The joined values.
     joined: Option<Joiner>,
-    /// The current state of the VM.
-    state: State,
     /// The global library.
     global: &'a Library,
     /// The constants.

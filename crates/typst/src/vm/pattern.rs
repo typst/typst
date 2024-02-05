@@ -35,9 +35,9 @@ impl Pattern {
                     value.ty().long_name()
                 ),
             },
-            PatternKind::Tuple(tuple) => match value {
+            PatternKind::Tuple(tuple, has_sink) => match value {
                 Value::Array(array) => destructure_array(vm, array, tuple)?,
-                Value::Dict(dict) => destructure_dict(vm, dict, tuple)?,
+                Value::Dict(dict) => destructure_dict(vm, dict, *has_sink, tuple)?,
                 other => {
                     bail!(self.span, "cannot destructure {}", other.ty().long_name())
                 }
@@ -54,7 +54,7 @@ pub enum PatternKind {
     Single(PatternItem),
 
     /// Destructure into a tuple of locals.
-    Tuple(SmallVec<[PatternItem; 2]>),
+    Tuple(SmallVec<[PatternItem; 2]>, bool),
 }
 
 #[derive(Debug, Clone, Hash, PartialEq)]
@@ -130,17 +130,21 @@ fn destructure_array(
 fn destructure_dict(
     vm: &mut VMState,
     dict: Dict,
+    has_sink: bool,
     tuple: &[PatternItem],
 ) -> SourceResult<()> {
+    // If there is no sink, we purposefully don't bother allocating
+    // a set for the used keys.
     let mut sink = None;
-    let mut used = HashSet::new();
+    let mut used = has_sink.then(HashSet::new);
 
     for p in tuple {
         match p {
             PatternItem::Simple(span, local, name) => {
                 let v = dict.get(&name).at(*span)?;
                 *local.write(*span, vm)? = v.clone();
-                used.insert(name.clone());
+
+                used.as_mut().map(|u| u.insert(name.clone()));
             }
             PatternItem::Placeholder(_) => {}
             PatternItem::Spread(span, local) => sink = Some((*span, Some(local))),
@@ -148,12 +152,13 @@ fn destructure_dict(
             PatternItem::Named(span, local, name) => {
                 let v = dict.get(&name).at(*span)?;
                 *local.write(*span, vm)? = v.clone();
-                used.insert(name.clone());
+                used.as_mut().map(|u| u.insert(name.clone()));
             }
         }
     }
 
     if let Some((span, local)) = sink {
+        let used = used.unwrap();
         if let Some(local) = local {
             let mut sink = Dict::new();
             for (key, value) in dict {
