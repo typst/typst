@@ -16,7 +16,7 @@ use typst::text::{Font, FontBook};
 use typst::{Library, World};
 use typst_timing::{timed, TimingScope};
 
-use crate::args::SharedArgs;
+use crate::args::{InputPath, SharedArgs};
 use crate::compile::ExportCache;
 use crate::fonts::{FontSearcher, FontSlot};
 use crate::package::prepare_package;
@@ -59,14 +59,12 @@ impl SystemWorld {
         searcher.search(&command.font_paths);
 
         // Resolve the system-global input path.
-        let input = command
-            .input()
-            .map(|i| {
-                i.canonicalize().map_err(|_| {
-                    eco_format!("input file not found (searched at {})", i.display())
-                })
-            })
-            .transpose()?;
+        let input = match &command.input {
+            InputPath::Stdin => None,
+            InputPath::Path(path) => Some(path.canonicalize().map_err(|_| {
+                eco_format!("input file not found (searched at {})", path.display())
+            })?),
+        };
 
         // Resolve the system-global root directory.
         let root = {

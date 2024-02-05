@@ -16,7 +16,7 @@ use typst::syntax::{FileId, Source, Span};
 use typst::visualize::Color;
 use typst::{World, WorldExt};
 
-use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
+use crate::args::{CompileCommand, DiagnosticFormat, InputPath, OutputFormat};
 use crate::timings::Timer;
 use crate::watch::Status;
 use crate::world::SystemWorld;
@@ -29,9 +29,10 @@ impl CompileCommand {
     /// The output path.
     pub fn output(&self) -> PathBuf {
         self.output.clone().unwrap_or_else(|| {
-            let input = self.common.input()
-                .expect("Output must be specified when input is from stdin, as guarded by the CLI");
-            input.with_extension(
+            let InputPath::Path(path) = &self.common.input else {
+                panic!("Output must be specified when input is from stdin, as guarded by the CLI");
+            };
+            path.with_extension(
                 match self.output_format().unwrap_or(OutputFormat::Pdf) {
                     OutputFormat::Pdf => "pdf",
                     OutputFormat::Png => "png",

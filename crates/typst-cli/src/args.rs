@@ -157,23 +157,12 @@ pub struct SharedArgs {
     pub diagnostic_format: DiagnosticFormat,
 }
 
-impl SharedArgs {
-    /// Convert `InputPath` to an `Option` to simplify processing in other code
-    pub fn input(&self) -> Option<&PathBuf> {
-        match &self.input {
-            InputPath::Stdin => None,
-            InputPath::Path(p) => Some(p),
-        }
-    }
-}
-
-/// A path that is either stdin or a real path.
-///
-/// Need to be extracted as a separate type solely because clap insists on
-/// special-casing `Option<PathBuf>`.
+/// An input path that is either stdin or a real path.
 #[derive(Clone, Debug)]
 pub enum InputPath {
+    /// stdin, represented by `-`
     Stdin,
+    /// A non-empty path
     Path(PathBuf),
 }
 
