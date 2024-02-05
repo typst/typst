@@ -225,51 +225,47 @@ impl Show for Packed<BibliographyElem> {
             );
         }
 
-        Ok(engine.delayed(|engine| {
-            let span = self.span();
-            let works = Works::generate(engine.world, engine.introspector).at(span)?;
-            let references = works
-                .references
-                .as_ref()
-                .ok_or("CSL style is not suitable for bibliographies")
-                .at(span)?;
+        let span = self.span();
+        let works = Works::generate(engine.world, engine.introspector).at(span)?;
+        let references = works
+            .references
+            .as_ref()
+            .ok_or("CSL style is not suitable for bibliographies")
+            .at(span)?;
 
-            let row_gutter = *BlockElem::below_in(styles).amount();
-            if references.iter().any(|(prefix, _)| prefix.is_some()) {
-                let mut cells = vec![];
-                for (prefix, reference) in references {
-                    cells.push(
-                        Packed::new(GridCell::new(prefix.clone().unwrap_or_default()))
-                            .spanned(span),
-                    );
-                    cells.push(
-                        Packed::new(GridCell::new(reference.clone())).spanned(span),
-                    );
-                }
-
-                seq.push(VElem::new(row_gutter).with_weakness(3).pack());
-                seq.push(
-                    GridElem::new(cells)
-                        .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
-                        .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
-                        .with_row_gutter(TrackSizings(smallvec![(row_gutter).into()]))
-                        .pack()
-                        .spanned(self.span()),
+        let row_gutter = *BlockElem::below_in(styles).amount();
+        if references.iter().any(|(prefix, _)| prefix.is_some()) {
+            let mut cells = vec![];
+            for (prefix, reference) in references {
+                cells.push(
+                    Packed::new(GridCell::new(prefix.clone().unwrap_or_default()))
+                        .spanned(span),
                 );
-            } else {
-                for (_, reference) in references {
-                    seq.push(VElem::new(row_gutter).with_weakness(3).pack());
-                    seq.push(reference.clone());
-                }
+                cells.push(Packed::new(GridCell::new(reference.clone())).spanned(span));
             }
 
-            let mut content = Content::sequence(seq);
-            if works.hanging_indent {
-                content = content.styled(ParElem::set_hanging_indent(INDENT.into()));
+            seq.push(VElem::new(row_gutter).with_weakness(3).pack());
+            seq.push(
+                GridElem::new(cells)
+                    .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
+                    .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
+                    .with_row_gutter(TrackSizings(smallvec![(row_gutter).into()]))
+                    .pack()
+                    .spanned(self.span()),
+            );
+        } else {
+            for (_, reference) in references {
+                seq.push(VElem::new(row_gutter).with_weakness(3).pack());
+                seq.push(reference.clone());
             }
+        }
 
-            Ok(content)
-        }))
+        let mut content = Content::sequence(seq);
+        if works.hanging_indent {
+            content = content.styled(ParElem::set_hanging_indent(INDENT.into()));
+        }
+
+        Ok(content)
     }
 }
 

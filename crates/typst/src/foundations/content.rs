@@ -14,8 +14,8 @@ use smallvec::smallvec;
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, func, scope, ty, Dict, Element, Fields, Guard, IntoValue, Label, NativeElement,
-    Recipe, Repr, Selector, Str, Style, StyleChain, Styles, Value,
+    elem, func, scope, ty, Dict, Element, Fields, IntoValue, Label, NativeElement,
+    Recipe, RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles, Value,
 };
 use crate::introspection::{Location, Meta, MetaElem};
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
@@ -142,8 +142,8 @@ impl Content {
     }
 
     /// Check whether a show rule recipe is disabled.
-    pub fn is_guarded(&self, guard: Guard) -> bool {
-        self.inner.lifecycle.contains(guard.0)
+    pub fn is_guarded(&self, index: RecipeIndex) -> bool {
+        self.inner.lifecycle.contains(index.0)
     }
 
     /// Whether this content has already been prepared.
@@ -157,8 +157,8 @@ impl Content {
     }
 
     /// Disable a show rule recipe.
-    pub fn guarded(mut self, guard: Guard) -> Self {
-        self.make_mut().lifecycle.insert(guard.0);
+    pub fn guarded(mut self, index: RecipeIndex) -> Self {
+        self.make_mut().lifecycle.insert(index.0);
         self
     }
 
