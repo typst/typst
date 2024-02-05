@@ -123,8 +123,8 @@ pub enum SerializationFormat {
 #[derive(Debug, Clone, Args)]
 pub struct SharedArgs {
     /// Path to input Typst file, use `-` to read input from stdin
-    #[clap(value_parser = input_path_value_parser)]
-    pub input: InputPath,
+    #[clap(value_parser = input_value_parser)]
+    pub input: Input,
 
     /// Configures the project root (for absolute paths)
     #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
@@ -157,23 +157,23 @@ pub struct SharedArgs {
     pub diagnostic_format: DiagnosticFormat,
 }
 
-/// An input path that is either stdin or a real path.
-#[derive(Clone, Debug)]
-pub enum InputPath {
-    /// stdin, represented by `-`
+/// An input that is either stdin or a real path.
+#[derive(Debug, Clone)]
+pub enum Input {
+    /// Stdin, represented by `-`.
     Stdin,
-    /// A non-empty path
+    /// A non-empty path.
     Path(PathBuf),
 }
 
 /// The clap value parser used by `SharedArgs.input`
-fn input_path_value_parser(value: &str) -> Result<InputPath, clap::error::Error> {
+fn input_value_parser(value: &str) -> Result<Input, clap::error::Error> {
     if value.is_empty() {
         Err(clap::Error::new(clap::error::ErrorKind::InvalidValue))
     } else if value == "-" {
-        Ok(InputPath::Stdin)
+        Ok(Input::Stdin)
     } else {
-        Ok(InputPath::Path(value.into()))
+        Ok(Input::Path(value.into()))
     }
 }
 

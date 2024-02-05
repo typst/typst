@@ -16,7 +16,7 @@ use typst::syntax::{FileId, Source, Span};
 use typst::visualize::Color;
 use typst::{World, WorldExt};
 
-use crate::args::{CompileCommand, DiagnosticFormat, InputPath, OutputFormat};
+use crate::args::{CompileCommand, DiagnosticFormat, Input, OutputFormat};
 use crate::timings::Timer;
 use crate::watch::Status;
 use crate::world::SystemWorld;
@@ -29,7 +29,7 @@ impl CompileCommand {
     /// The output path.
     pub fn output(&self) -> PathBuf {
         self.output.clone().unwrap_or_else(|| {
-            let InputPath::Path(path) = &self.common.input else {
+            let Input::Path(path) = &self.common.input else {
                 panic!("Output must be specified when input is from stdin, as guarded by the CLI");
             };
             path.with_extension(

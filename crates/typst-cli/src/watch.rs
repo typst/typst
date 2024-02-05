@@ -9,7 +9,7 @@ use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use same_file::is_same_file;
 use typst::diag::StrResult;
 
-use crate::args::{CompileCommand, InputPath};
+use crate::args::{CompileCommand, Input};
 use crate::compile::compile_once;
 use crate::terminal;
 use crate::timings::Timer;
@@ -169,8 +169,8 @@ impl Status {
         write!(term_out, "watching")?;
         term_out.reset()?;
         match &command.common.input {
-            InputPath::Stdin => writeln!(term_out, " <stdin>"),
-            InputPath::Path(path) => writeln!(term_out, " {}", path.display()),
+            Input::Stdin => writeln!(term_out, " <stdin>"),
+            Input::Path(path) => writeln!(term_out, " {}", path.display()),
         }?;
 
         term_out.set_color(&color)?;
