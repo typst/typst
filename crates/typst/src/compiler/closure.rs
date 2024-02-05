@@ -3,7 +3,7 @@ use typst_syntax::ast::{self, AstNode};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::vm::{CompiledParam, OptionalWritable};
+use crate::vm::CompiledParam;
 
 use super::{
     AccessPattern, Compile, CompileTopLevel, Compiler, PatternCompile, PatternItem,
@@ -99,7 +99,7 @@ impl Compile for ast::Closure<'_> {
                         // Add the parameter to the list.
                         params.push(CompiledParam::Sink(
                             sink.span(),
-                            OptionalWritable::none(),
+                            None,
                             EcoString::new(),
                         ));
                         continue;
@@ -111,7 +111,7 @@ impl Compile for ast::Closure<'_> {
 
                     params.push(CompiledParam::Sink(
                         sink.span(),
-                        OptionalWritable::some(target.as_writeable()),
+                        Some(target.as_writeable()),
                         EcoString::new(),
                     ));
                 }

@@ -29,8 +29,8 @@ use crate::engine::Engine;
 use crate::foundations::{IntoValue, Label, Str, Value};
 use crate::vm::{
     self, Access as VmAccess, AccessId, ClosureId, CompiledClosure, CompiledParam,
-    Constant, DefaultValue, LabelId, OptionalWritable, Pattern as VmPattern, PatternId,
-    Pointer, SpanId, StringId, Writable,
+    Constant, DefaultValue, LabelId, Pattern as VmPattern, PatternId, Pointer, SpanId,
+    StringId, Writable,
 };
 use crate::Library;
 
@@ -197,7 +197,7 @@ impl Compiler {
         joining: Option<Writable>,
         mut display: bool,
         f: impl FnOnce(&mut Self, &mut Engine, &mut bool) -> SourceResult<()>,
-        pre: impl FnOnce(&mut Self, &mut Engine, usize, OptionalWritable) -> SourceResult<()>,
+        pre: impl FnOnce(&mut Self, &mut Engine, usize, Option<Writable>) -> SourceResult<()>,
     ) -> SourceResult<()> {
         let mut scope =
             Rc::new(RefCell::new(CompilerScope::scope(self.scope.clone(), looping)));
@@ -216,13 +216,8 @@ impl Compiler {
         std::mem::swap(&mut self.instructions, &mut instructions);
         std::mem::swap(&mut self.spans, &mut spans);
 
-        let out = match joining {
-            Some(out) => OptionalWritable::some(out),
-            None => OptionalWritable::none(),
-        };
-
         let len = instructions.len();
-        pre(self, engine, len, out)?;
+        pre(self, engine, len, joining)?;
 
         self.spans.extend(spans);
         self.instructions.extend(instructions);

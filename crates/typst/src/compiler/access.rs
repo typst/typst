@@ -4,11 +4,10 @@ use ecow::EcoString;
 use typst_syntax::ast::{self, AstNode};
 
 use super::{Compile, Compiler, ReadableGuard, WritableGuard};
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{Func, Module, Type, Value};
 use crate::vm::Access as VmAccess;
-use crate::Library;
 
 #[derive(Debug, Clone)]
 pub enum AccessPattern {
@@ -195,18 +194,6 @@ impl Access for ast::FieldAccess<'_> {
             }
         }
     }
-}
-
-fn read_global<'a>(global: &'a Library, indices: &[usize]) -> StrResult<&'a Module> {
-    let mut value = &global.global;
-    for &index in indices.iter() {
-        value = match value.field_by_id(index)? {
-            Value::Module(module) => module,
-            value => bail!("expected module, found {}", value.ty()),
-        }
-    }
-
-    Ok(value)
 }
 
 impl Access for ast::FuncCall<'_> {

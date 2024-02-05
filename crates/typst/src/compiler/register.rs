@@ -3,10 +3,7 @@ use std::{cell::RefCell, fmt, rc::Rc};
 use ecow::EcoString;
 
 use crate::diag::bail;
-use crate::vm::{
-    Constant, Global, Math, OptionalReadable, OptionalWritable, Readable, Register,
-    StringId, Writable,
-};
+use crate::vm::{Constant, Global, Math, Readable, Register, StringId, Writable};
 
 /// The table of occupied registers.
 pub struct RegisterTable(Vec<(bool, bool)>);
@@ -113,24 +110,15 @@ pub enum ReadableGuard {
 
 impl ReadableGuard {
     pub fn new(readable: Readable, registers: Rc<RefCell<RegisterTable>>) -> Self {
-        if readable.is_none() {
-            Self::None
-        } else if readable.is_auto() {
-            Self::Auto
-        } else if readable.is_reg() {
-            Self::Register(RegisterGuard::new(readable.as_reg(), registers))
-        } else if readable.is_string() {
-            Self::String(readable.as_string())
-        } else if readable.is_const() {
-            Self::Constant(readable.as_const())
-        } else if readable.is_global() {
-            Self::Global(readable.as_global())
-        } else if readable.is_math() {
-            Self::Math(readable.as_math())
-        } else if readable.is_bool() {
-            Self::Bool(readable.as_bool())
-        } else {
-            unreachable!()
+        match readable {
+            Readable::Const(constant) => Self::Constant(constant),
+            Readable::Reg(reg) => Self::Register(RegisterGuard::new(reg, registers)),
+            Readable::Str(string) => Self::String(string),
+            Readable::Global(global) => Self::Global(global),
+            Readable::Math(math) => Self::Math(math),
+            Readable::None => Self::None,
+            Readable::Auto => Self::Auto,
+            Readable::Bool(value) => Self::Bool(value),
         }
     }
     pub fn as_readable(&self) -> Readable {
@@ -226,33 +214,6 @@ impl Into<Writable> for &WritableGuard {
         match self {
             WritableGuard::Register(register) => register.as_writeable(),
             WritableGuard::Joined => Writable::joined(),
-        }
-    }
-}
-
-impl Into<OptionalReadable> for Option<ReadableGuard> {
-    fn into(self) -> OptionalReadable {
-        match self {
-            Some(readable) => (&readable).into(),
-            None => OptionalReadable::none().into(),
-        }
-    }
-}
-
-impl Into<OptionalReadable> for Option<Constant> {
-    fn into(self) -> OptionalReadable {
-        match self {
-            Some(const_) => OptionalReadable::some(Readable::const_(const_)),
-            None => OptionalReadable::none().into(),
-        }
-    }
-}
-
-impl Into<OptionalWritable> for Option<WritableGuard> {
-    fn into(self) -> OptionalWritable {
-        match self {
-            Some(readable) => (&readable).into(),
-            None => OptionalWritable::none().into(),
         }
     }
 }

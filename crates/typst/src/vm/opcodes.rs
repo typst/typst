@@ -14,8 +14,8 @@ use crate::model::{EmphElem, HeadingElem, RefElem, StrongElem};
 use crate::vm::{ops, ControlFlow, Register, State};
 
 use super::{
-    Access, AccessId, ClosureId, LabelId, OptionalReadable, OptionalWritable, PatternId,
-    Pointer, Readable, SpanId, VMState, Writable,
+    Access, AccessId, ClosureId, LabelId, PatternId, Pointer, Readable, SpanId, VMState,
+    Writable,
 };
 
 pub trait Run {
@@ -772,7 +772,6 @@ impl Run for Show {
         // Load the selector.
         let selector = self
             .selector
-            .ok()
             .map(|selector| vm.read(selector).clone().cast::<ShowableSelector>())
             .transpose()
             .at(span)?;
@@ -1009,7 +1008,7 @@ impl Run for While {
             let reg = Register(0);
             vm.write_one(reg, output).at(span)?;
             vm.output = Some(Readable::reg(reg));
-        } else if let Some(out) = self.out.ok() {
+        } else if let Some(out) = self.out {
             // Write the output to the output register.
             vm.write_one(out, output).at(span)?;
         }
@@ -1114,7 +1113,7 @@ impl Run for Iter {
             let reg = Register(0);
             vm.write_one(reg, output).at(span)?;
             vm.output = Some(Readable::reg(reg));
-        } else if let Some(out) = self.out.ok() {
+        } else if let Some(out) = self.out {
             // Write the output to the output register.
             vm.write_one(out, output).at(span)?;
         }
@@ -1198,7 +1197,7 @@ impl Run for Return {
         _: &mut Engine,
         _: Option<&mut I>,
     ) -> SourceResult<()> {
-        vm.output = self.value.ok();
+        vm.output = self.value;
         if !vm.state.is_breaking() && !vm.state.is_continuing() {
             if vm.output.is_some() {
                 vm.state |= State::FORCE_RETURNING;
@@ -1555,7 +1554,7 @@ impl Run for Enter {
             let reg = Register(0);
             vm.write_one(reg, output).at(span)?;
             vm.output = Some(Readable::reg(reg));
-        } else if let Some(out) = self.out.ok() {
+        } else if let Some(out) = self.out {
             // Write the output to the output register.
             vm.write_one(out, output).at(span)?;
         }
@@ -1819,7 +1818,7 @@ impl Run for Ref {
         _: Option<&mut I>,
     ) -> SourceResult<()> {
         // Obtain the supplement.
-        let supplement = self.supplement.ok().map(|supplement| vm.read(supplement));
+        let supplement = self.supplement.map(|supplement| vm.read(supplement));
 
         // Create the reference.
         let mut reference = RefElem::new(vm.read(self.label));

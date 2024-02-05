@@ -204,7 +204,7 @@ opcodes! {
     /// Creates a new show rule.
     Show: show -> Writable => {
         /// The selector for the value to show.
-        selector: OptionalReadable,
+        selector: Option<Readable>,
         /// The transform to apply.
         transform: Readable,
     },
@@ -250,7 +250,7 @@ opcodes! {
     },
 
     /// Enters a new while loop scope with optional joining.
-    While: while_ -> OptionalWritable => {
+    While: while_ -> Option<Writable> => {
         /// The length of the scope to enter.
         len: u32,
         /// Whether the scope is a loop.
@@ -261,7 +261,7 @@ opcodes! {
     },
 
     /// Enters a new iterator scope with optional joining.
-    Iter: iter -> OptionalWritable => {
+    Iter: iter -> Option<Writable> => {
         /// The length of the scope to enter.
         len: u32,
         /// The value to iterate over.
@@ -286,7 +286,7 @@ opcodes! {
     /// Returns a value from a function.
     Return: return_ => {
         /// The value to return.
-        value: OptionalReadable,
+        value: Option<Readable>,
     },
 
     // -----------------------------------------------------------------------------
@@ -365,7 +365,7 @@ opcodes! {
     // -----------------------------------------------------------------------------
 
     /// Enter a new scope with optional joining.
-    Enter: enter -> OptionalWritable => {
+    Enter: enter -> Option<Writable> => {
         /// The length of the scope to enter.
         len: u32,
         /// Whether the scope is a loop.
@@ -435,9 +435,9 @@ opcodes! {
         /// The base value.
         base: Readable,
         /// The top supplement.
-        top: OptionalReadable,
+        top: Option<Readable>,
         /// The bottom supplement.
-        bottom: OptionalReadable,
+        bottom: Option<Readable>,
     },
 
     /// Builds a fraction.
@@ -451,7 +451,7 @@ opcodes! {
     /// Builds a root.
     Root: root -> Writable => {
         /// The degree.
-        degree: OptionalReadable,
+        degree: Option<Readable>,
         /// The radicand.
         radicand: Readable,
     },
@@ -466,7 +466,7 @@ opcodes! {
         label: LabelId,
 
         /// The supplement (if any).
-        supplement: OptionalReadable,
+        supplement: Option<Readable>,
     },
 
     /// Makes a value strong.

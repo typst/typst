@@ -92,7 +92,12 @@ impl Compile for ast::ShowRule<'_> {
             other => other.compile(engine, compiler)?,
         };
 
-        compiler.show(self.span(), selector, &transform, &output);
+        compiler.show(
+            self.span(),
+            selector.map(|r| r.as_readable()),
+            &transform,
+            &output,
+        );
 
         Ok(())
     }

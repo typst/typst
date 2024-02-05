@@ -2,7 +2,7 @@ use typst_syntax::ast::{self, AstNode};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::vm::{OptionalReadable, Readable};
+use crate::vm::Readable;
 
 use super::{
     AccessPattern, Compile, CompileTopLevel, Compiler, PatternCompile, PatternItem,
@@ -298,10 +298,7 @@ impl Compile for ast::FuncReturn<'_> {
         }
 
         let value = self.body().map(|body| body.compile(engine, compiler)).transpose()?;
-        compiler.return_(
-            self.span(),
-            value.map_or_else(OptionalReadable::none, |v| v.as_readable().into()),
-        );
+        compiler.return_(self.span(), value.map(|v| v.as_readable().into()));
 
         Ok(())
     }

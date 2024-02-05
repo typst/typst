@@ -9,7 +9,7 @@ use crate::model::{LinkElem, ParbreakElem};
 use crate::symbols::Symbol;
 use crate::text::{LinebreakElem, RawElem, SmartQuoteElem};
 use crate::text::{SpaceElem, TextElem};
-use crate::vm::{Constant, OptionalReadable};
+use crate::vm::Constant;
 
 use super::{Compile, CompileTopLevel, Compiler, ReadableGuard, WritableGuard};
 
@@ -506,9 +506,7 @@ impl Compile for ast::Ref<'_> {
             compiler.ref_(
                 self.span(),
                 label,
-                supplement
-                    .map(|r| OptionalReadable::some(r.as_readable()))
-                    .unwrap_or_else(OptionalReadable::none),
+                supplement.map(|r| r.as_readable()),
                 &output,
             );
         }

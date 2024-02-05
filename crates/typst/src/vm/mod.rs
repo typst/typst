@@ -181,13 +181,14 @@ pub fn run<I: Iterator<Item = Value>>(
         }
     }
 
-    let output = if let Some(reg) = state.output {
-        if reg.is_reg() {
-            Some(state.take(reg.as_reg()))
-        } else {
-            Some(state.read(reg).clone())
+    let output = if let Some(readable) = state.output {
+        match readable {
+            Readable::Reg(reg) => Some(state.take(reg)),
+            Readable::None => Some(Value::None),
+            Readable::Bool(b) => Some(Value::Bool(b)),
+            _ => Some(state.read(readable).clone()),
         }
-    } else if let Some(joined) = state.joined.clone() {
+    } else if let Some(joined) = state.joined.take() {
         Some(joined.collect(engine)?)
     } else {
         None
@@ -339,11 +340,12 @@ impl<'a> VMState<'a> {
         let mut params = EcoVec::with_capacity(closure.params.len());
         for param in &closure.params {
             match param {
-                CompiledParam::Pos(target, pos) => params
-                    .push((OptionalWritable::some(*target), Param::Pos(pos.clone()))),
+                CompiledParam::Pos(target, pos) => {
+                    params.push((Some(*target), Param::Pos(pos.clone())))
+                }
                 CompiledParam::Named { target, name, default, .. } => {
                     params.push((
-                        OptionalWritable::some(*target),
+                        Some(*target),
                         Param::Named {
                             name: name.clone(),
                             default: self.read(*default).cloned(),

@@ -12,17 +12,14 @@ use crate::vm::ControlFlow;
 use crate::{Library, World};
 
 use super::opcodes::Opcode;
-use super::{
-    Access, OptionalWritable, Pattern, Readable, Register, State, Tracer, VMState,
-    Writable,
-};
+use super::{Access, Pattern, Readable, Register, State, Tracer, VMState, Writable};
 
 /// A closure that has been instantiated.
 #[derive(Clone, Hash, PartialEq)]
 pub struct Closure {
     pub inner: Arc<Prehashed<Inner>>,
     /// The parameters of the closure.
-    pub params: Prehashed<EcoVec<(OptionalWritable, Param)>>,
+    pub params: Prehashed<EcoVec<(Option<Writable>, Param)>>,
     /// The captured values and where to store them.
     pub captures: Prehashed<EcoVec<(Writable, Value)>>,
     /// Where to store the reference to the closure itself.
@@ -33,7 +30,7 @@ impl Closure {
     /// Creates a new closure.
     pub fn new(
         inner: Arc<Prehashed<Inner>>,
-        params: EcoVec<(OptionalWritable, Param)>,
+        params: EcoVec<(Option<Writable>, Param)>,
         captures: EcoVec<(Writable, Value)>,
         self_storage: Option<Writable>,
     ) -> Self {
@@ -102,19 +99,19 @@ impl Closure {
         for (target, arg) in &*self.params {
             match arg {
                 Param::Pos(name) => {
-                    if let Some(target) = target.ok() {
+                    if let Some(target) = target {
                         state
-                            .write_one(target, args.expect::<Value>(name)?)
+                            .write_one(*target, args.expect::<Value>(name)?)
                             .at(self.inner.span)?;
                     }
                 }
                 Param::Named { name, default } => {
-                    if let Some(target) = target.ok() {
+                    if let Some(target) = target {
                         if let Some(value) = args.named::<Value>(name)? {
-                            state.write_one(target, value).at(self.inner.span)?;
+                            state.write_one(*target, value).at(self.inner.span)?;
                         } else if let Some(default) = default {
                             state
-                                .write_one(target, default.clone())
+                                .write_one(*target, default.clone())
                                 .at(self.inner.span)?;
                         } else {
                             unreachable!(
@@ -130,15 +127,15 @@ impl Closure {
                         arguments.extend(args.consume(sink_size)?);
                     }
 
-                    if let Some(target) = target.ok() {
-                        state.write_one(target, arguments).at(self.inner.span)?;
+                    if let Some(target) = target {
+                        state.write_one(*target, arguments).at(self.inner.span)?;
                     }
                 }
             }
         }
 
         if let Some(sink) = sink {
-            if let Some(sink) = sink.ok() {
+            if let Some(sink) = sink {
                 let Value::Args(sink) = state.write(sink) else {
                     unreachable!("sink should always be an args");
                 };
@@ -287,7 +284,7 @@ pub enum CompiledParam {
         default: Option<Readable>,
     },
     /// A sink parameter.
-    Sink(Span, OptionalWritable, EcoString),
+    Sink(Span, Option<Writable>, EcoString),
 }
 
 #[derive(Clone, Hash)]

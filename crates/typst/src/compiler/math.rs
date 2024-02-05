@@ -187,7 +187,13 @@ impl Compile for ast::MathAttach<'_> {
             .bottom()
             .map_or(Ok(None), |value| value.compile(engine, compiler).map(Some))?;
 
-        compiler.attach(self.span(), &base, top, bottom, &output);
+        compiler.attach(
+            self.span(),
+            &base,
+            top.map(|r| r.as_readable()),
+            bottom.map(|r| r.as_readable()),
+            &output,
+        );
 
         Ok(())
     }
@@ -290,7 +296,7 @@ impl Compile for ast::MathRoot<'_> {
             .map(|i| TextElem::packed(eco_format!("{i}")).spanned(self.span()))
             .map(|value| compiler.const_(value));
 
-        compiler.root(self.span(), degree, &radicand, &output);
+        compiler.root(self.span(), degree.map(|r| r.into()), &radicand, &output);
 
         Ok(())
     }
