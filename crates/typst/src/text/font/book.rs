@@ -2,12 +2,16 @@ use std::cmp::Reverse;
 use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 
+use comemo::TrackedMut;
 use serde::{Deserialize, Serialize};
 use ttf_parser::{name_id, PlatformId, Tag};
+use typst_syntax::Span;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::exceptions::find_exception;
+use crate::eval::Tracer;
 use crate::text::{Font, FontStretch, FontStyle, FontVariant, FontWeight};
+use crate::warning;
 
 /// Metadata about a collection of fonts.
 #[derive(Debug, Default, Clone, Hash)]
@@ -93,6 +97,8 @@ impl FontBook {
         like: Option<&FontInfo>,
         variant: FontVariant,
         text: &str,
+        mut tracer: TrackedMut<Tracer>,
+        span: Span,
     ) -> Option<usize> {
         // Find the fonts that contain the text's first non-space char ...
         let c = text.chars().find(|c| !c.is_whitespace())?;
@@ -104,7 +110,19 @@ impl FontBook {
             .map(|(index, _)| index);
 
         // ... and find the best variant among them.
-        self.find_best_variant(like, variant, ids)
+        let res = self.find_best_variant(like, variant, ids);
+        if let Some(res) = res {
+            tracer.warn(warning!(
+                span, "Doesn't match any font! Using fallback font: {} {:?}", self.infos[res].family, self.infos[res].variant;
+                hint: "Consider adding a font that supports the characters in the text."
+            ));
+        } else {
+            tracer.warn(warning!(
+                span, "Doesn't match any font!";
+                hint: "Consider adding a font that supports the characters in the text."
+            ));
+        }
+        res
     }
 
     /// Find the font in the passed iterator that

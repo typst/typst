@@ -10,11 +10,12 @@ use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
-use comemo::Tracked;
+use comemo::{Prehashed, Tracked, TrackedMut};
 use ecow::EcoString;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
+use crate::eval::Tracer;
 use crate::foundations::{
     cast, elem, func, scope, Bytes, Cast, Content, NativeElement, Packed, Resolve, Smart,
     StyleChain,
@@ -186,6 +187,8 @@ impl LayoutSingle for Packed<ImageElem> {
             self.alt(styles),
             engine.world,
             &families(styles).map(|s| s.into()).collect::<Vec<_>>(),
+            TrackedMut::reborrow_mut(&mut engine.tracer),
+            self.span(),
         )
         .at(self.span())?;
 
@@ -349,13 +352,15 @@ impl Image {
         alt: Option<EcoString>,
         world: Tracked<dyn World + '_>,
         families: &[String],
+        tracer: TrackedMut<Tracer>,
+        span: Span,
     ) -> StrResult<Image> {
         let kind = match format {
             ImageFormat::Raster(format) => {
                 ImageKind::Raster(RasterImage::new(data, format)?)
             }
             ImageFormat::Vector(VectorFormat::Svg) => {
-                ImageKind::Svg(SvgImage::with_fonts(data, world, families)?)
+                ImageKind::Svg(SvgImage::with_fonts(data, world, families, tracer, span)?)
             }
         };
 
