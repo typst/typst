@@ -206,12 +206,10 @@ pub enum SyntaxKind {
     Array,
     /// A dictionary: `(thickness: 3pt, pattern: dashed)`.
     Dict,
-    /// A named pair: `thickness: 3pt`.
+    /// A named pair: `thickness: 3pt`; the key is an identifier.
     Named,
-    /// A keyed pair: `"spacy key": true`, `(expr): false`.
+    /// A keyed pair: `"spacy key": true`, `65: "A"`, `(expr): 42`.
     Keyed,
-    /// A numbered pair: `65: "A"`.
-    Numbered,
     /// A unary operation: `-x`.
     Unary,
     /// A binary operation: `a + b`.
@@ -453,7 +451,6 @@ impl SyntaxKind {
             Self::Dict => "dictionary",
             Self::Named => "named pair",
             Self::Keyed => "keyed pair",
-            Self::Numbered => "numbered pair",
             Self::Unary => "unary expression",
             Self::Binary => "binary expression",
             Self::FieldAccess => "field access",

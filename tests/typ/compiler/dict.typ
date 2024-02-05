@@ -90,10 +90,14 @@
 
 ---
 // Test dictionary methods.
-#let dict = (a: 3, c: 2, b: 1)
+#let dict = (a: 3, c: 2, b: 1, 42: "z")
 #test("c" in dict, true)
-#test(dict.len(), 3)
-#test(dict.values(), (3, 2, 1))
+#test(42 in dict, true)
+#test(dict.len(), 4)
+#test(dict.keys(), ("a", "c", "b", 42))
+#test(dict.values(), (3, 2, 1, "z"))
+
+#dict.remove(42)
 #test(dict.pairs().map(p => p.first() + str(p.last())).join(), "a3c2b1")
 
 #dict.remove("c")

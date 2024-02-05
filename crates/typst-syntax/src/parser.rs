@@ -827,15 +827,13 @@ fn invalidate_destructuring(p: &mut Parser, m: Marker) {
     let mut collection_kind = Option::None;
     for child in p.post_process(m) {
         match child.kind() {
-            SyntaxKind::Named | SyntaxKind::Keyed | SyntaxKind::Numbered => {
-                match collection_kind {
-                    Some(SyntaxKind::Array) => child.convert_to_error(eco_format!(
-                        "expected expression, found {}",
-                        child.kind().name()
-                    )),
-                    _ => collection_kind = Some(SyntaxKind::Dict),
-                }
-            }
+            SyntaxKind::Named | SyntaxKind::Keyed => match collection_kind {
+                Some(SyntaxKind::Array) => child.convert_to_error(eco_format!(
+                    "expected expression, found {}",
+                    child.kind().name()
+                )),
+                _ => collection_kind = Some(SyntaxKind::Dict),
+            },
             SyntaxKind::LeftParen | SyntaxKind::RightParen | SyntaxKind::Comma => {}
             kind => match collection_kind {
                 Some(SyntaxKind::Dict) => child.convert_to_error(eco_format!(
@@ -848,7 +846,7 @@ fn invalidate_destructuring(p: &mut Parser, m: Marker) {
     }
 }
 
-fn collection(p: &mut Parser, allow_non_ident_key: bool) -> SyntaxKind {
+fn collection(p: &mut Parser, keyed: bool) -> SyntaxKind {
     p.enter_newline_mode(NewlineMode::Continue);
 
     let m = p.marker();
@@ -857,16 +855,16 @@ fn collection(p: &mut Parser, allow_non_ident_key: bool) -> SyntaxKind {
     let mut count = 0;
     let mut parenthesized = true;
     let mut kind = None;
-    if allow_non_ident_key && p.eat_if(SyntaxKind::Colon) {
+    if keyed && p.eat_if(SyntaxKind::Colon) {
         kind = Some(SyntaxKind::Dict);
         parenthesized = false;
     }
 
     while !p.current().is_terminator() {
         let prev = p.prev_end();
-        match item(p, allow_non_ident_key) {
+        match item(p, keyed) {
             SyntaxKind::Spread => parenthesized = false,
-            SyntaxKind::Named | SyntaxKind::Keyed | SyntaxKind::Numbered => {
+            SyntaxKind::Named | SyntaxKind::Keyed => {
                 match kind {
                     Some(SyntaxKind::Array) => kind = Some(SyntaxKind::Destructuring),
                     _ => kind = Some(SyntaxKind::Dict),
@@ -907,7 +905,7 @@ fn collection(p: &mut Parser, allow_non_ident_key: bool) -> SyntaxKind {
     }
 }
 
-fn item(p: &mut Parser, allow_non_ident_key: bool) -> SyntaxKind {
+fn item(p: &mut Parser, keyed: bool) -> SyntaxKind {
     let m = p.marker();
 
     if p.eat_if(SyntaxKind::Dots) {
@@ -944,8 +942,7 @@ fn item(p: &mut Parser, allow_non_ident_key: bool) -> SyntaxKind {
 
     let kind = match p.node(m).map(SyntaxNode::kind) {
         Some(SyntaxKind::Ident) => SyntaxKind::Named,
-        Some(SyntaxKind::Int) if allow_non_ident_key => SyntaxKind::Numbered,
-        Some(_) if allow_non_ident_key => SyntaxKind::Keyed,
+        Some(_) if keyed => SyntaxKind::Keyed,
         _ => {
             for child in p.post_process(m) {
                 if child.kind() == SyntaxKind::Colon {
@@ -954,7 +951,7 @@ fn item(p: &mut Parser, allow_non_ident_key: bool) -> SyntaxKind {
 
                 let message = eco_format!(
                     "expected {}, found {}",
-                    if allow_non_ident_key { "expression" } else { "identifier" },
+                    if keyed { "expression" } else { "identifier" },
                     child.kind().name(),
                 );
                 child.convert_to_error(message);
@@ -1211,10 +1208,7 @@ fn validate_array<'a>(children: impl Iterator<Item = &'a mut SyntaxNode>) {
         match kind {
             SyntaxKind::Array => validate_array(child.children_mut().iter_mut()),
             SyntaxKind::Dict => validate_dict(child.children_mut().iter_mut()),
-            SyntaxKind::Named
-            | SyntaxKind::Keyed
-            | SyntaxKind::Numbered
-            | SyntaxKind::Underscore => {
+            SyntaxKind::Named | SyntaxKind::Keyed | SyntaxKind::Underscore => {
                 child.convert_to_error(eco_format!(
                     "expected expression, found {}",
                     kind.name()
@@ -1234,7 +1228,7 @@ fn validate_dict<'a>(children: impl Iterator<Item = &'a mut SyntaxNode>) {
     let mut used_ints = HashSet::new();
     for child in children {
         match child.kind() {
-            SyntaxKind::Named | SyntaxKind::Keyed | SyntaxKind::Numbered => {
+            SyntaxKind::Named | SyntaxKind::Keyed => {
                 let Some(first) = child.children_mut().first_mut() else { continue };
 
                 macro_rules! check_unique_key {

@@ -256,7 +256,6 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Dict => None,
         SyntaxKind::Named => None,
         SyntaxKind::Keyed => None,
-        SyntaxKind::Numbered => None,
         SyntaxKind::Unary => None,
         SyntaxKind::Binary => None,
         SyntaxKind::FieldAccess => None,

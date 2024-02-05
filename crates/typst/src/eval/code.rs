@@ -245,9 +245,6 @@ impl Eval for ast::Dict<'_> {
                     });
                     map.insert(key, keyed.expr().eval(vm)?);
                 }
-                ast::DictItem::Numbered(numbered) => {
-                    map.insert(numbered.number().get().into(), numbered.expr().eval(vm)?);
-                }
                 ast::DictItem::Spread(expr) => match expr.eval(vm)? {
                     Value::None => {}
                     Value::Dict(dict) => map.extend(dict.into_iter()),

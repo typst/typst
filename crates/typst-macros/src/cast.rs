@@ -141,16 +141,16 @@ impl Parse for CastInput {
         let ty = input.parse()?;
         let _: syn::Token![,] = input.parse()?;
 
-        let mut to_value = None;
+        let mut into_value = None;
         if input.peek(syn::Token![self]) {
             let _: syn::Token![self] = input.parse()?;
             let _: syn::Token![=>] = input.parse()?;
-            to_value = Some(input.parse()?);
+            into_value = Some(input.parse()?);
             let _: syn::Token![,] = input.parse()?;
         }
 
         let from_value = Punctuated::parse_terminated(input)?;
-        Ok(Self { ty, dynamic, into_value: to_value, from_value })
+        Ok(Self { ty, dynamic, into_value, from_value })
     }
 }
 

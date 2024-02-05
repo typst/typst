@@ -9,8 +9,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::diag::StrResult;
 use crate::foundations::{
-    array, func, repr, scope, ty, Array, CastInfo, FromValue, IntoValue, Reflect, Repr,
-    Str, Value,
+    array, cast, func, repr, scope, ty, Array, IntoValue, Repr, Str, Value,
 };
 use crate::syntax::is_ident;
 use crate::util::ArcExt;
@@ -119,37 +118,14 @@ impl From<DictKey> for EcoString {
     }
 }
 
-impl FromValue for DictKey {
-    fn from_value(value: Value) -> StrResult<Self> {
-        match value {
-            Value::Str(s) => Ok(Self::Str(s)),
-            Value::Int(i) => Ok(Self::Int(i)),
-            _ => Err(Self::error(&value)),
-        }
-    }
-}
-
-impl IntoValue for DictKey {
-    fn into_value(self) -> Value {
-        match self {
-            Self::Str(s) => Value::Str(s),
-            Self::Int(i) => Value::Int(i),
-        }
-    }
-}
-
-impl Reflect for DictKey {
-    fn input() -> CastInfo {
-        Str::input() + i64::input()
-    }
-
-    fn output() -> CastInfo {
-        Str::output() + i64::output()
-    }
-
-    fn castable(_: &Value) -> bool {
-        true
-    }
+cast! {
+    DictKey,
+    self => match self {
+        Self::Str(s) => Value::Str(s),
+        Self::Int(i) => Value::Int(i),
+    },
+    s: Str => Self::Str(s),
+    i: i64 => Self::Int(i),
 }
 
 impl Repr for DictKey {
