@@ -373,8 +373,8 @@ fn read_from_stdin() -> FileResult<Vec<u8>> {
     let result = io::stdin().read_to_end(&mut buf);
     match result {
         Ok(_) => (),
-        Err(e) if e.kind() == io::ErrorKind::BrokenPipe => (),
-        Err(err) => return Err(FileError::Other(Some(eco_format!("{err}")))),
+        Err(err) if err.kind() == io::ErrorKind::BrokenPipe => (),
+        Err(err) => return Err(FileError::from_io(err, Path::new("<stdin>"))),
     }
     Ok(buf)
 }
