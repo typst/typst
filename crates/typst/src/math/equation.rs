@@ -1,5 +1,6 @@
 use std::num::NonZeroUsize;
 
+use comemo::TrackedMut;
 use unicode_math_class::MathClass;
 
 use crate::diag::{bail, SourceResult};
@@ -385,7 +386,11 @@ fn find_math_font(
     let variant = variant(styles);
     let world = engine.world;
     let Some(font) = families(styles).find_map(|family| {
-        let id = world.book().select(family, variant)?;
+        let id = world.book().select(
+            family,
+            variant,
+            Some((TrackedMut::reborrow_mut(&mut engine.tracer), span)),
+        )?;
         let font = world.font(id)?;
         let _ = font.ttf().tables().math?.constants?;
         Some(font)

@@ -178,8 +178,11 @@ fn load_svg_fonts(
                     // and the current document font families.
                     let mut like = None;
                     for family in span.font.families.iter().chain(families) {
-                        let Some(id) = book.select(&family.to_lowercase(), variant)
-                        else {
+                        let Some(id) = book.select(
+                            &family.to_lowercase(),
+                            variant,
+                            Some((TrackedMut::reborrow_mut(&mut tracer), img_span)),
+                        ) else {
                             continue;
                         };
                         let Some(info) = book.info(id) else { continue };
@@ -198,8 +201,7 @@ fn load_svg_fonts(
                         like,
                         variant,
                         text,
-                        TrackedMut::reborrow_mut(&mut tracer),
-                        img_span,
+                        Some((TrackedMut::reborrow_mut(&mut tracer), img_span)),
                     ) {
                         if let Some(usvg_family) = load_into_db(id) {
                             span.font.families = vec![usvg_family];

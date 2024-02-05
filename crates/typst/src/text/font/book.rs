@@ -73,9 +73,14 @@ impl FontBook {
     /// `variant` as closely as possible.
     ///
     /// The `family` should be all lowercase.
-    pub fn select(&self, family: &str, variant: FontVariant) -> Option<usize> {
+    pub fn select(
+        &self,
+        family: &str,
+        variant: FontVariant,
+        tracer: Option<(TrackedMut<Tracer>, Span)>,
+    ) -> Option<usize> {
         let ids = self.families.get(family)?;
-        self.find_best_variant(None, variant, ids.iter().copied())
+        self.find_best_variant(None, variant, ids.iter().copied(), tracer)
     }
 
     /// Iterate over all variants of a family.
@@ -97,8 +102,7 @@ impl FontBook {
         like: Option<&FontInfo>,
         variant: FontVariant,
         text: &str,
-        mut tracer: TrackedMut<Tracer>,
-        span: Span,
+        tracer: Option<(TrackedMut<Tracer>, Span)>,
     ) -> Option<usize> {
         // Find the fonts that contain the text's first non-space char ...
         let c = text.chars().find(|c| !c.is_whitespace())?;
@@ -110,19 +114,25 @@ impl FontBook {
             .map(|(index, _)| index);
 
         // ... and find the best variant among them.
-        let res = self.find_best_variant(like, variant, ids);
-        if let Some(res) = res {
-            tracer.warn(warning!(
+        if let Some((mut tracer, span)) = tracer {
+            let new_tracer = TrackedMut::reborrow_mut(&mut tracer);
+            let res =
+                self.find_best_variant(like, variant, ids, Some((new_tracer, span)));
+            if let Some(res) = res {
+                tracer.warn(warning!(
                 span, "Doesn't match any font! Using fallback font: {} {:?}", self.infos[res].family, self.infos[res].variant;
                 hint: "Consider adding a font that supports the characters in the text."
             ));
-        } else {
-            tracer.warn(warning!(
+            } else {
+                tracer.warn(warning!(
                 span, "Doesn't match any font!";
                 hint: "Consider adding a font that supports the characters in the text."
             ));
+            }
+            res
+        } else {
+            self.find_best_variant(like, variant, ids, None)
         }
-        res
     }
 
     /// Find the font in the passed iterator that
@@ -151,6 +161,7 @@ impl FontBook {
         like: Option<&FontInfo>,
         variant: FontVariant,
         ids: impl IntoIterator<Item = usize>,
+        tracer: Option<(TrackedMut<Tracer>, Span)>,
     ) -> Option<usize> {
         let mut best = None;
         let mut best_key = None;
@@ -176,6 +187,16 @@ impl FontBook {
             if best_key.map_or(true, |b| key < b) {
                 best = Some(id);
                 best_key = Some(key);
+            }
+        }
+        if let Some((mut tracer, span)) = tracer {
+            if let Some((_name, style_dis, stretch_dis, weight_dis)) = best_key {
+                if style_dis != 0 || !stretch_dis.is_one() && weight_dis != 0 {
+                    tracer.warn(warning!(
+                    span, "No font matches the requested style, stretch and weight!: style: {:?}, stretch: {:?}, weight: {:?}", variant.style, variant.stretch, variant.weight;
+                    hint: "Consider adding a font that matches the requested style, stretch and weight."
+                ));
+                }
             }
         }
 

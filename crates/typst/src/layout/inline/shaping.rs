@@ -347,7 +347,7 @@ impl<'a> ShapedText<'a> {
             for family in families(self.styles) {
                 if let Some(font) = world
                     .book()
-                    .select(family, self.variant)
+                    .select(family, self.variant, None)
                     .and_then(|id| world.font(id))
                 {
                     expand(&font, None);
@@ -446,20 +446,12 @@ impl<'a> ShapedText<'a> {
         let world = engine.world;
         let book = world.book();
         let mut fallback_func = if fallback {
-            Some(|| {
-                book.select_fallback(
-                    None,
-                    self.variant,
-                    "-",
-                    TrackedMut::reborrow_mut(&mut engine.tracer),
-                    Span::detached(),
-                )
-            })
+            Some(|| book.select_fallback(None, self.variant, "-", None))
         } else {
             None
         };
         let mut chain = families(self.styles)
-            .map(|family| book.select(family, self.variant))
+            .map(|family| book.select(family, self.variant, None))
             .chain(fallback_func.iter_mut().map(|f| f()))
             .flatten();
 
@@ -661,9 +653,16 @@ fn shape_segment<'a>(
     let world = ctx.engine.world;
     let book = world.book();
     let mut selection = families.find_map(|family| {
-        book.select(family, ctx.variant)
-            .and_then(|id| world.font(id))
-            .filter(|font| !ctx.used.contains(font))
+        book.select(
+            family,
+            ctx.variant,
+            Some((
+                TrackedMut::reborrow_mut(&mut ctx.engine.tracer),
+                ctx.spans.span_at(base).0,
+            )),
+        )
+        .and_then(|id| world.font(id))
+        .filter(|font| !ctx.used.contains(font))
     });
 
     // Do font fallback if the families are exhausted and fallback is enabled.
@@ -674,8 +673,10 @@ fn shape_segment<'a>(
                 first,
                 ctx.variant,
                 text,
-                TrackedMut::reborrow_mut(&mut ctx.engine.tracer),
-                ctx.spans.span_at(base).0,
+                Some((
+                    TrackedMut::reborrow_mut(&mut ctx.engine.tracer),
+                    ctx.spans.span_at(base).0,
+                )),
             )
             .and_then(|id| world.font(id))
             .filter(|font| !ctx.used.contains(font));
