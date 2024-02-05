@@ -68,7 +68,7 @@ pub fn compile(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
 /// Compile a single time.
 ///
 /// Returns whether it compiled without errors.
-#[typst_macros::time(name = "compile once")]
+#[typst_macros::time(name = "compile document once")]
 pub fn compile_once(
     world: &mut SystemWorld,
     command: &mut CompileCommand,

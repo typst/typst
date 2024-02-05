@@ -172,7 +172,6 @@ impl IntoValue for Closure {
 }
 
 #[comemo::memoize]
-#[typst_macros::time(name = "call closure", span = closure.inner.span)]
 pub fn call_closure(
     closure: &Closure,
     world: Tracked<dyn World + '_>,

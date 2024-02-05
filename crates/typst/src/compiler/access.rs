@@ -4,9 +4,11 @@ use ecow::EcoString;
 use typst_syntax::ast::{self, AstNode};
 
 use super::{Compile, Compiler, ReadableGuard, WritableGuard};
-use crate::diag::{bail, At, SourceResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
+use crate::foundations::{Func, Module, Type, Value};
 use crate::vm::Access as VmAccess;
+use crate::Library;
 
 #[derive(Debug, Clone)]
 pub enum AccessPattern {
@@ -18,6 +20,18 @@ pub enum AccessPattern {
 
     /// Access this value through a chained access.
     Chained(Arc<Self>, EcoString),
+
+    /// Access a global value.
+    Global(Module),
+
+    /// A type that is accessed through a chain of accesses.
+    Type(Type),
+
+    /// Access this value through a chain of accesses.
+    Value(Value),
+
+    /// Access this value through an accessor method.
+    Func(Func),
 
     /// Access this value through an accessor method.
     AccessorMethod(Arc<Self>, EcoString, ReadableGuard),
@@ -31,11 +45,15 @@ impl AccessPattern {
             AccessPattern::Chained(other, v) => {
                 VmAccess::Chained(Arc::new(other.as_vm_access()), v.clone())
             }
+            AccessPattern::Global(global) => VmAccess::Global(global.clone()),
             AccessPattern::AccessorMethod(other, v, r) => VmAccess::AccessorMethod(
                 Arc::new(other.as_vm_access()),
                 v.clone(),
                 r.as_readable(),
             ),
+            AccessPattern::Type(ty) => VmAccess::Type(ty.clone()),
+            AccessPattern::Value(value) => VmAccess::Value(value.clone()),
+            AccessPattern::Func(func) => VmAccess::Func(func.clone()),
         }
     }
 }
@@ -99,7 +117,19 @@ impl Access for ast::Ident<'_> {
                 if mutable {
                     bail!(self.span(), "variables in the global scope are read-only and cannot be modified")
                 } else {
-                    Ok(AccessPattern::Readable(global.into()))
+                    match compiler
+                        .library()
+                        .global
+                        .field_by_id(global.as_raw() as usize)
+                        .at(self.span())?
+                    {
+                        Value::Module(module) => {
+                            Ok(AccessPattern::Global(module.clone()))
+                        }
+                        Value::Type(ty_) => Ok(AccessPattern::Type(ty_.clone())),
+                        Value::Func(func_) => Ok(AccessPattern::Func(func_.clone())),
+                        value => Ok(AccessPattern::Value(value.clone())),
+                    }
                 }
             }
             None => bail!(self.span(), "could not find `{}` in scope", self.get()),
@@ -127,8 +157,56 @@ impl Access for ast::FieldAccess<'_> {
         mutable: bool,
     ) -> SourceResult<AccessPattern> {
         let left = self.target().access(engine, compiler, mutable)?;
-        Ok(AccessPattern::Chained(Arc::new(left), self.field().get().clone()))
+        match left {
+            AccessPattern::Global(global) => {
+                match global.field(self.field().get()).at(self.span())? {
+                    Value::Module(module) => Ok(AccessPattern::Global(module.clone())),
+                    Value::Type(ty_) => Ok(AccessPattern::Type(ty_.clone())),
+                    Value::Func(func_) => Ok(AccessPattern::Func(func_.clone())),
+                    value => Ok(AccessPattern::Value(value.clone())),
+                }
+            }
+            AccessPattern::Type(ty) => {
+                match ty.field(self.field().get()).at(self.field().span())? {
+                    Value::Module(module) => Ok(AccessPattern::Global(module.clone())),
+                    Value::Type(ty_) => Ok(AccessPattern::Type(ty_.clone())),
+                    Value::Func(func_) => Ok(AccessPattern::Func(func_.clone())),
+                    value => Ok(AccessPattern::Value(value.clone())),
+                }
+            }
+            AccessPattern::Func(func) => {
+                match func.field(self.field().get()).at(self.field().span())? {
+                    Value::Module(module) => Ok(AccessPattern::Global(module.clone())),
+                    Value::Type(ty_) => Ok(AccessPattern::Type(ty_.clone())),
+                    Value::Func(func_) => Ok(AccessPattern::Func(func_.clone())),
+                    value => Ok(AccessPattern::Value(value.clone())),
+                }
+            }
+            AccessPattern::Value(value) => {
+                match value.field(self.field().get()).at(self.field().span())? {
+                    Value::Module(module) => Ok(AccessPattern::Global(module.clone())),
+                    Value::Type(ty_) => Ok(AccessPattern::Type(ty_.clone())),
+                    Value::Func(func_) => Ok(AccessPattern::Func(func_.clone())),
+                    value => Ok(AccessPattern::Value(value.clone())),
+                }
+            }
+            other => {
+                Ok(AccessPattern::Chained(Arc::new(other), self.field().get().clone()))
+            }
+        }
     }
+}
+
+fn read_global<'a>(global: &'a Library, indices: &[usize]) -> StrResult<&'a Module> {
+    let mut value = &global.global;
+    for &index in indices.iter() {
+        value = match value.field_by_id(index)? {
+            Value::Module(module) => module,
+            value => bail!("expected module, found {}", value.ty()),
+        }
+    }
+
+    Ok(value)
 }
 
 impl Access for ast::FuncCall<'_> {

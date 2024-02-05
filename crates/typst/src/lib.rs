@@ -85,7 +85,7 @@ use crate::vm::Tracer;
 /// Requires a mutable reference to a tracer. Such a tracer can be created with
 /// `Tracer::new()`. Independently of whether compilation succeeded, calling
 /// `tracer.warnings()` after compilation will return all compiler warnings.
-#[typst_macros::time(name = "compile")]
+#[typst_macros::time(name = "compile document")]
 pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document> {
     // Call `track` on the world just once to keep comemo's ID stable.
     let world = world.track();

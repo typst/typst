@@ -6,8 +6,8 @@ use crate::engine::Engine;
 use crate::vm::{CompiledParam, OptionalWritable};
 
 use super::{
-    AccessPattern, Compile, Compiler, PatternCompile, PatternItem, PatternKind,
-    ReadableGuard, WritableGuard,
+    AccessPattern, Compile, CompileTopLevel, Compiler, PatternCompile, PatternItem,
+    PatternKind, ReadableGuard, WritableGuard,
 };
 
 impl Compile for ast::Closure<'_> {
@@ -119,11 +119,20 @@ impl Compile for ast::Closure<'_> {
         }
 
         // Compile the body of the closure.
-        self.body().compile_into(
-            engine,
-            &mut closure_compiler,
-            Some(WritableGuard::Joined),
-        )?;
+        match self.body() {
+            ast::Expr::Code(code) => {
+                code.body().compile_top_level(engine, &mut closure_compiler)?;
+            }
+            ast::Expr::Content(content) => {
+                content.body().compile_top_level(engine, &mut closure_compiler)?;
+            }
+            other => other.compile_into(
+                engine,
+                &mut closure_compiler,
+                Some(WritableGuard::Joined),
+            )?,
+        }
+
         closure_compiler.flow();
 
         // Collect the compiled closure.

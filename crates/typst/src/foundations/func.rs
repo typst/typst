@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
-use comemo::{Prehashed, TrackedMut};
+use comemo::TrackedMut;
 use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 
@@ -135,7 +135,7 @@ pub struct Func {
 
 impl Func {
     pub fn method(value: impl Into<Value>, func: impl Into<Func>) -> Self {
-        Repr::Method(Arc::new(Prehashed::new(value.into())), Arc::new(func.into())).into()
+        Repr::Method(Arc::new(value.into()), Arc::new(func.into())).into()
     }
 }
 
@@ -149,7 +149,7 @@ enum Repr {
     /// A user-defined closure.
     Closure(Arc<crate::vm::Closure>),
     /// A composite method.
-    Method(Arc<Prehashed<Value>>, Arc<Func>),
+    Method(Arc<Value>, Arc<Func>),
     /// A nested function with pre-applied arguments.
     With(Arc<(Func, Args)>),
 }
@@ -303,7 +303,7 @@ impl Func {
                 with.0.call(engine, args)
             }
             Repr::Method(value, func) => {
-                args.insert_at(0, Span::detached(), (&***value).clone());
+                args.insert_at(0, Span::detached(), (&**value).clone());
                 func.call(engine, args)
             }
         }

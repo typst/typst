@@ -415,6 +415,7 @@ enum Joiner {
 }
 
 impl Joiner {
+    #[typst_macros::time(name = "join")]
     pub fn join(self, other: Value) -> StrResult<Joiner> {
         if other.is_none() {
             return Ok(self);

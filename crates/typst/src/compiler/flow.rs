@@ -5,8 +5,8 @@ use crate::engine::Engine;
 use crate::vm::{OptionalReadable, Readable};
 
 use super::{
-    AccessPattern, Compile, Compiler, PatternCompile, PatternItem, PatternKind,
-    ReadableGuard, WritableGuard,
+    AccessPattern, Compile, CompileTopLevel, Compiler, PatternCompile, PatternItem,
+    PatternKind, ReadableGuard, WritableGuard,
 };
 
 impl Compile for ast::Conditional<'_> {
@@ -95,11 +95,19 @@ impl Compile for ast::WhileLoop<'_> {
                 compiler.jump_if_not(self.span(), &condition, end);
 
                 // Compile the while body
-                self.body().compile_into(
-                    engine,
-                    compiler,
-                    if output.is_some() { Some(WritableGuard::Joined) } else { None },
-                )?;
+                match self.body() {
+                    ast::Expr::Code(code) => {
+                        code.body().compile_top_level(engine, compiler)?;
+                    }
+                    ast::Expr::Content(content) => {
+                        content.body().compile_top_level(engine, compiler)?;
+                    }
+                    other => other.compile_into(
+                        engine,
+                        compiler,
+                        Some(WritableGuard::Joined),
+                    )?,
+                }
                 compiler.flow();
 
                 // Jump to the top
@@ -169,11 +177,20 @@ impl Compile for ast::ForLoop<'_> {
                     );
                 }
 
-                self.body().compile_into(
-                    engine,
-                    compiler,
-                    Some(WritableGuard::Joined),
-                )?;
+                match self.body() {
+                    ast::Expr::Code(code) => {
+                        code.body().compile_top_level(engine, compiler)?;
+                    }
+                    ast::Expr::Content(content) => {
+                        content.body().compile_top_level(engine, compiler)?;
+                    }
+                    other => other.compile_into(
+                        engine,
+                        compiler,
+                        Some(WritableGuard::Joined),
+                    )?,
+                }
+
                 compiler.flow();
                 compiler.jump_top(self.span());
 

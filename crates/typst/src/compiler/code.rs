@@ -8,7 +8,40 @@ use crate::engine::Engine;
 use crate::foundations::Value;
 use crate::vm::Readable;
 
-use super::{Compile, Compiler, ReadableGuard, WritableGuard};
+use super::{Compile, CompileTopLevel, Compiler, ReadableGuard, WritableGuard};
+
+impl CompileTopLevel for ast::Code<'_> {
+    fn compile_top_level(
+        &self,
+        engine: &mut Engine,
+        compiler: &mut Compiler,
+    ) -> SourceResult<()> {
+        for expr in self.exprs() {
+            // Handle set rules specially.
+            if let ast::Expr::Set(set) = expr {
+                let style = set.compile(engine, compiler)?;
+                compiler.styled(set.span(), &style);
+                compiler.flow();
+                continue;
+            }
+
+            // Handle show rules specially.
+            if let ast::Expr::Show(show) = expr {
+                let style = show.compile(engine, compiler)?;
+                compiler.styled(show.span(), &style);
+                compiler.flow();
+                continue;
+            }
+
+            // Compile the expression, appending its output to the join
+            // output.
+            expr.compile_into(engine, compiler, Some(WritableGuard::Joined))?;
+            compiler.flow();
+        }
+
+        Ok(())
+    }
+}
 
 impl Compile for ast::Code<'_> {
     type Output = Option<WritableGuard>;

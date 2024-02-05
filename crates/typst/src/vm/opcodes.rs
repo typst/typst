@@ -3,7 +3,7 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use typst_syntax::{Span, Spanned};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::diag::{bail, error, At, SourceResult};
+use crate::diag::{bail, error, At, SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     array, call_method_mut, is_mutating_method, Arg, Content, Func, IntoValue,
@@ -42,7 +42,6 @@ macro_rules! opcode_struct {
     ) => {
         $(#[$sattr])*
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        #[repr(packed)]
         pub struct $name {
             $(
                 $(
@@ -857,6 +856,7 @@ impl Run for Instantiate {
     ) -> SourceResult<()> {
         // Get the closure.
         let closure = vm.read(self.closure);
+        let closure_span = closure.inner.span;
 
         // Instantiate the closure. This involves:
         // - Capturing all necessary values.
@@ -864,7 +864,8 @@ impl Run for Instantiate {
         let closure = vm.instantiate(closure)?;
 
         // Write the closure to the output.
-        vm.write_one(self.out, Func::from(closure).spanned(span)).at(span)?;
+        vm.write_one(self.out, Func::from(closure).spanned(closure_span))
+            .at(span)?;
 
         Ok(())
     }
@@ -913,23 +914,23 @@ impl Run for Call {
                 let func = other.read(span, vm)?;
 
                 // Call the method.
-                let func = match &*func {
-                    Value::Func(func) => func.clone(),
-                    Value::Type(type_) => type_.constructor().at(span)?,
+                let value = match &*func {
+                    Value::Func(func) => {
+                        let point = || Tracepoint::Call(func.name().map(Into::into));
+                        func.call(engine, args).trace(engine.world, point, span)?
+                    }
+                    Value::Type(type_) => {
+                        let point = || Tracepoint::Call(func.name().map(Into::into));
+                        type_.constructor().at(span)?.call(engine, args).trace(
+                            engine.world,
+                            point,
+                            span,
+                        )?
+                    }
                     _ => {
                         bail!(span, "expected function, found {}", func.ty().long_name())
                     }
                 };
-
-                // Call the function.
-                let f = move || func.call(engine, args);
-
-                // Stacker is broken on WASM.
-                #[cfg(target_arch = "wasm32")]
-                let value = f()?;
-
-                #[cfg(not(target_arch = "wasm32"))]
-                let value = stacker::maybe_grow(128 << 10, 1 << 20, f)?;
 
                 // Write the value to the output.
                 vm.write_one(self.out, value).at(span)?;
@@ -1020,6 +1021,7 @@ impl Run for While {
 }
 
 impl Run for Iter {
+    #[typst_macros::time(name = "for loop", span = span)]
     fn run<I: Iterator<Item = Value>>(
         &self,
         instructions: &[Opcode],
@@ -1042,39 +1044,57 @@ impl Run for Iter {
         };
 
         // Turn the iterable into an iterator.
-        let iter: Box<dyn Iterator<Item = Value>> = match iterable {
+        let flow = match iterable {
             Value::Str(string) => {
-                let iter = string
-                    .graphemes(true)
-                    .map(|s| Value::Str(s.into()))
-                    .collect::<Vec<_>>();
+                let mut iter = string.graphemes(true).map(|s| Value::Str(s.into()));
 
-                Box::new(iter.into_iter())
+                vm.enter_scope::<&mut dyn Iterator<Item = Value>>(
+                    engine,
+                    instructions,
+                    spans,
+                    Some(&mut iter),
+                    None,
+                    true,
+                    false,
+                    true,
+                )?
             }
-            Value::Array(array) => Box::new(array.into_iter()),
-            Value::Dict(dict) => Box::new(
-                dict.into_iter()
-                    .map(|(key, value)| array![key.into_value(), value].into_value()),
-            ),
+            Value::Array(array) => {
+                let mut iter = array.iter().cloned();
+                vm.enter_scope::<&mut dyn Iterator<Item = Value>>(
+                    engine,
+                    instructions,
+                    spans,
+                    Some(&mut iter),
+                    None,
+                    true,
+                    false,
+                    true,
+                )?
+            }
+            Value::Dict(dict) => {
+                let mut iter = dict
+                    .into_iter()
+                    .map(|(key, value)| array![key.into_value(), value].into_value());
+                vm.enter_scope::<&mut dyn Iterator<Item = Value>>(
+                    engine,
+                    instructions,
+                    spans,
+                    Some(&mut iter),
+                    None,
+                    true,
+                    false,
+                    true,
+                )?
+            }
             _ => {
                 bail!(
                     span,
-                    "expected array or dictionary, found {}",
+                    "expected array, string, or dictionary, found {}",
                     iterable.ty().long_name()
                 );
             }
         };
-
-        let flow = vm.enter_scope(
-            engine,
-            instructions,
-            spans,
-            Some(iter),
-            None,
-            true,
-            false,
-            true,
-        )?;
 
         let mut forced_return = false;
         let output = match flow {
@@ -1355,12 +1375,12 @@ impl Run for InsertArg {
 
         // Obtain the key.
         let Value::Str(key) = vm.read(self.key).clone() else {
-            bail!(span, "expected string, found {}", value.ty().long_name());
+            bail!(span, "expected string, found {}", value.ty());
         };
 
         // Get a mutable reference to the argument set.
         let Value::Args(args) = vm.write(self.out) else {
-            bail!(span, "expected argument set, found {}", value.ty().long_name());
+            bail!(span, "expected argument set, found {}", value.ty());
         };
 
         args.insert(value_span, key, value);

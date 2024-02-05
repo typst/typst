@@ -5,7 +5,7 @@ use ecow::EcoString;
 use typst_syntax::Span;
 
 use crate::diag::{bail, At, SourceResult};
-use crate::foundations::{call_method_access, Args, Func, Str, Type, Value};
+use crate::foundations::{call_method_access, Args, Func, Module, Str, Type, Value};
 
 use super::{Readable, VMState, VmRead, Writable};
 
@@ -17,6 +17,15 @@ pub enum Access {
     /// Access this value through a writeable.
     Writable(Writable),
 
+    /// Access this value through the global scope.
+    Global(Module),
+
+    Func(Func),
+
+    Value(Value),
+
+    Type(Type),
+
     /// Access this value through a chained access.
     Chained(Arc<Self>, EcoString),
 
@@ -26,10 +35,18 @@ pub enum Access {
 
 impl Access {
     /// Gets the value using read-only access.
-    pub fn read<'a>(&self, span: Span, vm: &'a VMState) -> SourceResult<Cow<'a, Value>> {
+    pub fn read<'a>(
+        &'a self,
+        span: Span,
+        vm: &'a VMState,
+    ) -> SourceResult<Cow<'a, Value>> {
         match self {
             Access::Readable(readable) => Ok(Cow::Borrowed(readable.read(vm))),
             Access::Writable(writeable) => Ok(Cow::Borrowed(writeable.read(vm))),
+            Access::Global(module) => Ok(Cow::Owned(Value::Module(module.clone()))),
+            Access::Func(func) => Ok(Cow::Owned(Value::Func(func.clone()))),
+            Access::Value(value) => Ok(Cow::Borrowed(value)),
+            Access::Type(ty) => Ok(Cow::Owned(Value::Type(ty.clone()))),
             Access::Chained(value, field) => {
                 let value = value.read(span, vm)?;
                 if let Some(assoc) = value.ty().scope().get(field) {
@@ -98,6 +115,16 @@ impl Access {
                 bail!(span, "cannot write to a readable, malformed access")
             }
             Access::Writable(writable) => Ok(vm.write(*writable)),
+            Access::Global(_) => {
+                bail!(span, "cannot write to a global, malformed access")
+            }
+            Access::Func(_) => {
+                bail!(span, "cannot write to a function, malformed access")
+            }
+            Access::Value(_) => {
+                bail!(span, "cannot write to a static value, malformed access")
+            }
+            Access::Type(_) => bail!(span, "cannot write to a type, malformed access"),
             Access::Chained(value, field) => {
                 let value = value.write(span, vm)?;
                 match value {
