@@ -14,9 +14,9 @@ use typed_arena::Arena;
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::foundations::{
-    Behave, Behaviour, Content, Guard, NativeElement, Packed, Recipe, Regex, Selector,
-    Show, ShowSet, StyleChain, StyleVec, StyleVecBuilder, Styles, Synthesize,
-    Transformation,
+    Behave, Behaviour, Content, NativeElement, Packed, Recipe, RecipeIndex, Regex,
+    Selector, Show, ShowSet, Style, StyleChain, StyleVec, StyleVecBuilder, Styles,
+    Synthesize, Transformation,
 };
 use crate::introspection::{Locatable, Meta, MetaElem};
 use crate::layout::{
@@ -30,7 +30,7 @@ use crate::model::{
 };
 use crate::syntax::Span;
 use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
-use crate::util::hash128;
+use crate::util::{hash128, BitSet};
 
 /// Realize into an element that is capable of root-level layout.
 #[typst_macros::time(name = "realize root")]
@@ -129,7 +129,7 @@ struct Verdict<'a> {
 /// An optional transformation step to apply to an element.
 enum Step<'a> {
     /// A user-defined transformational show rule.
-    Recipe(&'a Recipe, Guard),
+    Recipe(&'a Recipe, RecipeIndex),
     /// The built-in show rule.
     Builtin,
 }
@@ -143,6 +143,7 @@ fn verdict<'a>(
 ) -> Option<Verdict<'a>> {
     let mut target = target;
     let mut map = Styles::new();
+    let mut revoked = BitSet::new();
     let mut step = None;
     let mut slot;
 
@@ -162,9 +163,20 @@ fn verdict<'a>(
         target = &slot;
     }
 
-    for (i, recipe) in styles.recipes().enumerate() {
+    let mut r = 0;
+    for entry in styles.entries() {
+        let recipe = match entry {
+            Style::Recipe(recipe) => recipe,
+            Style::Property(_) => continue,
+            Style::Revocation(index) => {
+                revoked.insert(index.0);
+                continue;
+            }
+        };
+
         // We're not interested in recipes that don't match.
         if !recipe.applicable(target, styles) {
+            r += 1;
             continue;
         }
 
@@ -180,14 +192,15 @@ fn verdict<'a>(
             // applied to the `target` previously. For this purpose, show rules
             // are indexed from the top of the chain as the chain might grow to
             // the bottom.
-            let depth = *depth.get_or_init(|| styles.recipes().count());
-            let guard = Guard(depth - i);
+            let depth =
+                *depth.get_or_init(|| styles.entries().filter_map(Style::recipe).count());
+            let index = RecipeIndex(depth - r);
 
-            if !target.is_guarded(guard) {
+            if !target.is_guarded(index) && !revoked.contains(index.0) {
                 // If we find a matching, unguarded replacement show rule,
                 // remember it, but still continue searching for potential
                 // show-set styles that might change the verdict.
-                step = Some(Step::Recipe(recipe, guard));
+                step = Some(Step::Recipe(recipe, index));
 
                 // If we found a show rule and are already prepared, there is
                 // nothing else to do, so we can just break.
@@ -196,6 +209,8 @@ fn verdict<'a>(
                 }
             }
         }
+
+        r += 1;
     }
 
     // If we found no user-defined rule, also consider the built-in show rule.
@@ -276,16 +291,16 @@ fn show(
     engine: &mut Engine,
     target: Content,
     recipe: &Recipe,
-    guard: Guard,
+    index: RecipeIndex,
 ) -> SourceResult<Content> {
     match &recipe.selector {
         Some(Selector::Regex(regex)) => {
             // If the verdict picks this rule, the `target` is guaranteed
             // to be a text element.
             let text = target.into_packed::<TextElem>().unwrap();
-            show_regex(engine, &text, regex, recipe, guard)
+            show_regex(engine, &text, regex, recipe, index)
         }
-        _ => recipe.apply(engine, target.guarded(guard)),
+        _ => recipe.apply(engine, target.guarded(index)),
     }
 }
 
@@ -295,7 +310,7 @@ fn show_regex(
     elem: &Packed<TextElem>,
     regex: &Regex,
     recipe: &Recipe,
-    guard: Guard,
+    index: RecipeIndex,
 ) -> SourceResult<Content> {
     let make = |s: &str| {
         let mut fresh = elem.clone();
@@ -314,7 +329,7 @@ fn show_regex(
             result.push(make(&text[cursor..start]));
         }
 
-        let piece = make(m.as_str()).guarded(guard);
+        let piece = make(m.as_str());
         let transformed = recipe.apply(engine, piece)?;
         result.push(transformed);
         cursor = m.end();
@@ -324,7 +339,18 @@ fn show_regex(
         result.push(make(&text[cursor..]));
     }
 
-    Ok(Content::sequence(result))
+    // In contrast to normal elements, which are guarded individually, for text
+    // show rules, we fully revoke the rule. This means that we can replace text
+    // with other text that rematches without running into infinite recursion
+    // problems.
+    //
+    // We do _not_ do this for all content because revoking e.g. a list show
+    // rule for all content resulting from that rule would be wrong: The list
+    // might contain nested lists. Moreover, replacing a normal element with one
+    // that rematches is bad practice: It can for instance also lead to
+    // surprising query results, so it's better to let the user deal with it.
+    // All these problems don't exist for text, so it's fine here.
+    Ok(Content::sequence(result).styled(Style::Revocation(index)))
 }
 
 /// Builds a document or a flow element from content.
@@ -384,8 +410,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             if !self.engine.route.within(Route::MAX_SHOW_RULE_DEPTH) {
                 bail!(
                     content.span(), "maximum show rule depth exceeded";
-                    hint: "check whether the show rule matches its own output";
-                    hint: "this is a current compiler limitation that will be resolved in the future",
+                    hint: "check whether the show rule matches its own output"
                 );
             }
             let stored = self.scratch.content.alloc(realized);

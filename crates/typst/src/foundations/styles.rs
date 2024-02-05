@@ -133,6 +133,7 @@ impl Styles {
         self.0.iter().find_map(|entry| match &**entry {
             Style::Property(property) => property.is_of(elem).then_some(property.span),
             Style::Recipe(recipe) => recipe.is_of(elem).then_some(Some(recipe.span)),
+            Style::Revocation(_) => None,
         })
     }
 
@@ -179,6 +180,8 @@ pub enum Style {
     Property(Property),
     /// A show rule recipe.
     Recipe(Recipe),
+    /// Disables a specific show rule recipe.
+    Revocation(RecipeIndex),
 }
 
 impl Style {
@@ -204,6 +207,7 @@ impl Debug for Style {
         match self {
             Self::Property(property) => property.fmt(f),
             Self::Recipe(recipe) => recipe.fmt(f),
+            Self::Revocation(guard) => guard.fmt(f),
         }
     }
 }
@@ -413,6 +417,10 @@ impl Debug for Recipe {
     }
 }
 
+/// Identifies a show rule recipe from the top of the chain.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct RecipeIndex(pub usize);
+
 /// A show rule transformation that can be applied to a match.
 #[derive(Clone, PartialEq, Hash)]
 pub enum Transformation {
@@ -522,13 +530,8 @@ impl<'a> StyleChain<'a> {
         next(self.properties::<T>(func, id, inherent).cloned(), &default)
     }
 
-    /// Iterate over all style recipes in the chain.
-    pub fn recipes(self) -> impl Iterator<Item = &'a Recipe> {
-        self.entries().filter_map(Style::recipe)
-    }
-
     /// Iterate over all values for the given property in the chain.
-    pub fn properties<T: 'static>(
+    fn properties<T: 'static>(
         self,
         func: Element,
         id: u8,
@@ -562,7 +565,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Iterate over the entries of the chain.
-    fn entries(self) -> Entries<'a> {
+    pub fn entries(self) -> Entries<'a> {
         Entries { inner: [].as_slice().iter(), links: self.links() }
     }
 
@@ -646,7 +649,7 @@ impl Chainable for Styles {
 }
 
 /// An iterator over the entries in a style chain.
-struct Entries<'a> {
+pub struct Entries<'a> {
     inner: std::slice::Iter<'a, Prehashed<Style>>,
     links: Links<'a>,
 }

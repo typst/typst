@@ -336,7 +336,3 @@ pub enum Behaviour {
     /// An element that does not have a visual representation.
     Invisible,
 }
-
-/// Guards content against being affected by the same show rule multiple times.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Guard(pub usize);
