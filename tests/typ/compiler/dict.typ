@@ -8,19 +8,22 @@
 #(:)
 
 // Two pairs and string key.
-#let dict = (normal: 1, "spacy key": 2)
+#let dict = (normal: 1, "spacy key": 2, 3: <foo>)
 #dict
 
 #test(dict.normal, 1)
 #test(dict.at("spacy key"), 2)
+#test(dict.at(3), <foo>)
 
 ---
 // Test lvalue and rvalue access.
 #{
-  let dict = (a: 1, "b b": 1)
+  let dict = (a: 1, "b b": 1, 42: 1)
+  dict.at("a") += 1
   dict.at("b b") += 1
+  dict.at(42) += 1
   dict.state = (ok: true, err: false)
-  test(dict, (a: 1, "b b": 2, state: (ok: true, err: false)))
+  test(dict, (a: 2, "b b": 2, 42: 2, state: (ok: true, err: false)))
   test(dict.state.ok, true)
   dict.at("state").ok = false
   test(dict.state.ok, false)
@@ -39,17 +42,39 @@
 // Test default value.
 #test((a: 1, b: 2).at("b", default: 3), 2)
 #test((a: 1, b: 2).at("c", default: 3), 3)
+#test((a: 1, 42: 2).at(42, default: 3), 2)
+#test((a: 1, 42: 2).at(-42, default: 3), 3)
+
+---
+// Test insert.
+#{
+  let dict = (a: 1, b: 2)
+  dict.insert("b", 3)
+  test(dict, (a: 1, b: 3))
+  dict.insert("c", 5)
+  test(dict, (a: 1, b: 3, c: 5))
+}
+
+#{
+  let dict = (a: 1, 42: 2)
+  dict.insert(42, 3)
+  test(dict, (a: 1, 42: 3))
+  dict.insert(43, 5)
+  test(dict, (a: 1, 42: 3, 43: 5))
+}
 
 ---
 // Test remove with default value.
 #{
-  let dict = (a: 1, b: 2)
+  let dict = (a: 1, b: 2, 42: 3)
   test(dict.remove("b", default: 3), 2)
+  test(dict.remove(42, default: 5), 3)
 }
 
 #{
   let dict = (a: 1, b: 2)
   test(dict.remove("c", default: 3), 3)
+  test(dict.remove(42, default: 3), 3)
 }
 
 ---
@@ -87,13 +112,17 @@
 #(a: 1, "b": 2, "a": 3)
 
 ---
+// Error: 16-18 duplicate key: 42
+#(a: 1, 42: 2, 42: 3)
+
+---
 // Simple expression after already being identified as a dictionary.
-// Error: 9-10 expected named or keyed pair, found identifier
+// Error: 9-10 expected named, keyed, or numbered pair, found identifier
 #(a: 1, b)
 
 // Identified as dictionary due to initial colon.
 // The boolean key is allowed for now since it will only cause an error at the evaluation stage.
-// Error: 4-5 expected named or keyed pair, found integer
+// Error: 4-5 expected named, keyed, or numbered pair, but found integer
 // Error: 5 expected comma
 // Error: 17 expected expression
 #(:1 b:"", true:)
@@ -141,5 +170,5 @@
 
 ---
 // Error: 3-7 expected string, found boolean
-// Error: 16-18 expected string, found integer
-#(true: false, 42: 3)
+// Error: 16-20 expected string, found float
+#(true: false, 42.0: 3)

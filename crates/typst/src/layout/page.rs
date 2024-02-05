@@ -6,8 +6,8 @@ use std::str::FromStr;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, AutoValue, Cast, Content, Dict, Fold, Func, NativeElement, Packed,
-    Resolve, Smart, StyleChain, Value,
+    cast, dict_keys, elem, AutoValue, Cast, Content, Dict, Fold, Func, NativeElement,
+    Packed, Resolve, Smart, StyleChain, Value,
 };
 use crate::introspection::{Counter, CounterKey, ManualPageCounter};
 use crate::layout::{
@@ -611,7 +611,7 @@ cast! {
         let two_sided = (implicitly_two_sided || implicitly_not_two_sided)
             .then_some(implicitly_two_sided);
 
-        dict.finish(&[
+        dict.finish(dict_keys![
             "left", "top", "right", "bottom", "outside", "inside", "x", "y", "rest",
         ])?;
 

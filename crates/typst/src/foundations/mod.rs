@@ -287,7 +287,11 @@ pub fn eval(
     let dict = scope;
     let mut scope = Scope::new();
     for (key, value) in dict {
-        scope.define(key, value);
+        if let DictKey::Str(key) = key {
+            scope.define(key, value);
+        } else {
+            bail!(span, "unable to define names with an integer: {key}");
+        }
     }
     crate::eval::eval_string(engine.world, &text, span, mode, scope)
 }

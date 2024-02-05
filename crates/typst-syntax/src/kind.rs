@@ -210,6 +210,8 @@ pub enum SyntaxKind {
     Named,
     /// A keyed pair: `"spacy key": true`.
     Keyed,
+    /// A numbered pair: `65: "A"`.
+    Numbered,
     /// A unary operation: `-x`.
     Unary,
     /// A binary operation: `a + b`.
@@ -451,6 +453,7 @@ impl SyntaxKind {
             Self::Dict => "dictionary",
             Self::Named => "named pair",
             Self::Keyed => "keyed pair",
+            Self::Numbered => "numbered pair",
             Self::Unary => "unary expression",
             Self::Binary => "binary expression",
             Self::FieldAccess => "field access",

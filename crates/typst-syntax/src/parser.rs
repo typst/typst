@@ -827,17 +827,19 @@ fn invalidate_destructuring(p: &mut Parser, m: Marker) {
     let mut collection_kind = Option::None;
     for child in p.post_process(m) {
         match child.kind() {
-            SyntaxKind::Named | SyntaxKind::Keyed => match collection_kind {
-                Some(SyntaxKind::Array) => child.convert_to_error(eco_format!(
-                    "expected expression, found {}",
-                    child.kind().name()
-                )),
-                _ => collection_kind = Some(SyntaxKind::Dict),
-            },
+            SyntaxKind::Named | SyntaxKind::Keyed | SyntaxKind::Numbered => {
+                match collection_kind {
+                    Some(SyntaxKind::Array) => child.convert_to_error(eco_format!(
+                        "expected expression, found {}",
+                        child.kind().name()
+                    )),
+                    _ => collection_kind = Some(SyntaxKind::Dict),
+                }
+            }
             SyntaxKind::LeftParen | SyntaxKind::RightParen | SyntaxKind::Comma => {}
             kind => match collection_kind {
                 Some(SyntaxKind::Dict) => child.convert_to_error(eco_format!(
-                    "expected named or keyed pair, found {}",
+                    "expected named, keyed, or numbered pair, found {}",
                     kind.name()
                 )),
                 _ => collection_kind = Some(SyntaxKind::Array),
@@ -846,7 +848,7 @@ fn invalidate_destructuring(p: &mut Parser, m: Marker) {
     }
 }
 
-fn collection(p: &mut Parser, keyed: bool) -> SyntaxKind {
+fn collection(p: &mut Parser, allow_non_ident_key: bool) -> SyntaxKind {
     p.enter_newline_mode(NewlineMode::Continue);
 
     let m = p.marker();
@@ -855,16 +857,16 @@ fn collection(p: &mut Parser, keyed: bool) -> SyntaxKind {
     let mut count = 0;
     let mut parenthesized = true;
     let mut kind = None;
-    if keyed && p.eat_if(SyntaxKind::Colon) {
+    if allow_non_ident_key && p.eat_if(SyntaxKind::Colon) {
         kind = Some(SyntaxKind::Dict);
         parenthesized = false;
     }
 
     while !p.current().is_terminator() {
         let prev = p.prev_end();
-        match item(p, keyed) {
+        match item(p, allow_non_ident_key) {
             SyntaxKind::Spread => parenthesized = false,
-            SyntaxKind::Named | SyntaxKind::Keyed => {
+            SyntaxKind::Named | SyntaxKind::Keyed | SyntaxKind::Numbered => {
                 match kind {
                     Some(SyntaxKind::Array) => kind = Some(SyntaxKind::Destructuring),
                     _ => kind = Some(SyntaxKind::Dict),
@@ -905,7 +907,7 @@ fn collection(p: &mut Parser, keyed: bool) -> SyntaxKind {
     }
 }
 
-fn item(p: &mut Parser, keyed: bool) -> SyntaxKind {
+fn item(p: &mut Parser, allow_non_ident_key: bool) -> SyntaxKind {
     let m = p.marker();
 
     if p.eat_if(SyntaxKind::Dots) {
@@ -942,17 +944,18 @@ fn item(p: &mut Parser, keyed: bool) -> SyntaxKind {
 
     let kind = match p.node(m).map(SyntaxNode::kind) {
         Some(SyntaxKind::Ident) => SyntaxKind::Named,
-        Some(_) if keyed => SyntaxKind::Keyed,
+        Some(SyntaxKind::Int) if allow_non_ident_key => SyntaxKind::Numbered,
+        Some(_) if allow_non_ident_key => SyntaxKind::Keyed,
         _ => {
             for child in p.post_process(m) {
                 if child.kind() == SyntaxKind::Colon {
                     break;
                 }
 
-                let expected = if keyed { "expression" } else { "identifier" };
                 let message = eco_format!(
-                    "expected {expected}, found {found}",
-                    found = child.kind().name(),
+                    "expected {}, found {}",
+                    if allow_non_ident_key { "expression" } else { "identifier" },
+                    child.kind().name(),
                 );
                 child.convert_to_error(message);
             }
@@ -1208,7 +1211,10 @@ fn validate_array<'a>(children: impl Iterator<Item = &'a mut SyntaxNode>) {
         match kind {
             SyntaxKind::Array => validate_array(child.children_mut().iter_mut()),
             SyntaxKind::Dict => validate_dict(child.children_mut().iter_mut()),
-            SyntaxKind::Named | SyntaxKind::Keyed | SyntaxKind::Underscore => {
+            SyntaxKind::Named
+            | SyntaxKind::Keyed
+            | SyntaxKind::Numbered
+            | SyntaxKind::Underscore => {
                 child.convert_to_error(eco_format!(
                     "expected expression, found {}",
                     kind.name()
@@ -1224,23 +1230,31 @@ fn validate_dict_at(p: &mut Parser, m: Marker) {
 }
 
 fn validate_dict<'a>(children: impl Iterator<Item = &'a mut SyntaxNode>) {
-    let mut used = HashSet::new();
+    let mut used_strs = HashSet::new();
+    let mut used_ints = HashSet::new();
     for child in children {
         match child.kind() {
-            SyntaxKind::Named | SyntaxKind::Keyed => {
+            SyntaxKind::Named | SyntaxKind::Keyed | SyntaxKind::Numbered => {
                 let Some(first) = child.children_mut().first_mut() else { continue };
-                let key = if let Some(str) = first.cast::<ast::Str>() {
-                    str.get()
+
+                macro_rules! check_unique_key {
+                    ($k:expr, $used:ident) => {
+                        if !$used.insert($k.clone()) {
+                            first.convert_to_error(eco_format!("duplicate key: {}", $k));
+                            child.make_erroneous();
+                        }
+                    };
+                }
+
+                if let Some(str) = first.cast::<ast::Str>() {
+                    check_unique_key!(str.get(), used_strs);
                 } else if let Some(ident) = first.cast::<ast::Ident>() {
-                    ident.get().clone()
+                    check_unique_key!(ident.get().clone(), used_strs);
+                } else if let Some(int) = first.cast::<ast::Int>() {
+                    check_unique_key!(int.get(), used_ints);
                 } else {
                     continue;
                 };
-
-                if !used.insert(key.clone()) {
-                    first.convert_to_error(eco_format!("duplicate key: {key}"));
-                    child.make_erroneous();
-                }
             }
             SyntaxKind::Spread => {}
             SyntaxKind::LeftParen
@@ -1250,7 +1264,7 @@ fn validate_dict<'a>(children: impl Iterator<Item = &'a mut SyntaxNode>) {
             | SyntaxKind::Space => {}
             kind => {
                 child.convert_to_error(eco_format!(
-                    "expected named or keyed pair, found {}",
+                    "expected named, keyed, or numbered pair, but found {}",
                     kind.name()
                 ));
             }

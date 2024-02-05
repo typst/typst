@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use crate::foundations::{cast, dict, Dict, StyleChain, Value};
+use crate::foundations::{cast, dict, dict_keys, Dict, StyleChain, Value};
 use crate::introspection::{Meta, MetaElem};
 use crate::layout::{
     Abs, Axes, Corners, FixedAlignment, Length, Point, Rel, Sides, Size, Transform,
@@ -536,7 +536,7 @@ cast! {
         let page = dict.take("page")?.cast()?;
         let x: Length = dict.take("x")?.cast()?;
         let y: Length = dict.take("y")?.cast()?;
-        dict.finish(&["page", "x", "y"])?;
+        dict.finish(dict_keys!["page", "x", "y"])?;
         Self { page, point: Point::new(x.abs, y.abs) }
     },
 }

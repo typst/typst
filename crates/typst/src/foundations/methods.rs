@@ -1,7 +1,7 @@
 //! Handles special built-in methods on values.
 
 use crate::diag::{At, SourceResult};
-use crate::foundations::{Args, Array, Dict, Str, Type, Value};
+use crate::foundations::{Args, Array, Dict, DictKey, Type, Value};
 use crate::syntax::Span;
 
 /// List the available methods for a type and whether they take arguments.
@@ -60,7 +60,9 @@ pub(crate) fn call_method_mut(
         },
 
         Value::Dict(dict) => match method {
-            "insert" => dict.insert(args.expect::<Str>("key")?, args.expect("value")?),
+            "insert" => {
+                dict.insert(args.expect::<DictKey>("key")?, args.expect("value")?)
+            }
             "remove" => {
                 output =
                     dict.remove(args.expect("key")?, args.named("default")?).at(span)?
@@ -93,7 +95,7 @@ pub(crate) fn call_method_access<'a>(
             _ => return missing(),
         },
         Value::Dict(dict) => match method {
-            "at" => dict.at_mut(&args.expect::<Str>("key")?).at(span)?,
+            "at" => dict.at_mut(args.expect::<DictKey>("key")?).at(span)?,
             _ => return missing(),
         },
         _ => return missing(),

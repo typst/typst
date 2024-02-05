@@ -8,8 +8,8 @@ use once_cell::sync::Lazy;
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, repr, scope, ty, Args, CastInfo, Content, Element, IntoArgs, Scope, Selector,
-    Type, Value,
+    cast, repr, scope, ty, Args, CastInfo, Content, DictKey, Element, IntoArgs, Scope,
+    Selector, Type, Value,
 };
 use crate::syntax::{ast, Span, SyntaxNode};
 use crate::util::Static;
@@ -342,14 +342,17 @@ impl Func {
 
         let fields = fields
             .into_iter()
-            .map(|(key, value)| {
-                element.field_id(&key).map(|id| (id, value)).ok_or_else(|| {
-                    eco_format!(
-                        "element `{}` does not have field `{}`",
-                        element.name(),
-                        key
-                    )
-                })
+            .map(|(key, value)| match key {
+                DictKey::Str(key) => {
+                    element.field_id(&key).map(|id| (id, value)).ok_or_else(|| {
+                        eco_format!(
+                            "element `{}` does not have field `{}`",
+                            element.name(),
+                            key
+                        )
+                    })
+                }
+                _ => Err(eco_format!("found non-string field key `{}`", key)),
             })
             .collect::<StrResult<smallvec::SmallVec<_>>>()?;
 

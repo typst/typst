@@ -2,8 +2,8 @@ use ecow::EcoString;
 
 use crate::diag::{SourceResult, StrResult};
 use crate::foundations::{
-    cast, dict, func, scope, ty, Args, Cast, Dict, Fold, FromValue, NoneValue, Repr,
-    Resolve, Smart, StyleChain, Value,
+    cast, dict, dict_keys, func, scope, ty, Args, Cast, Dict, Fold, FromValue, NoneValue,
+    Repr, Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{Abs, Length};
 use crate::util::{Numeric, Scalar};
@@ -389,7 +389,7 @@ cast! {
         let join = take::<LineJoin>(&mut dict, "join")?;
         let dash = take::<Option<DashPattern>>(&mut dict, "dash")?;
         let miter_limit = take::<f64>(&mut dict, "miter-limit")?;
-        dict.finish(&["paint", "thickness", "cap", "join", "dash", "miter-limit"])?;
+        dict.finish(dict_keys!["paint", "thickness", "cap", "join", "dash", "miter-limit"])?;
 
         Self {
             paint,
@@ -515,7 +515,7 @@ cast! {
         let array: Vec<DashLength> = dict.take("array")?.cast()?;
         let phase = dict.take("phase").ok().map(Value::cast)
             .transpose()?.unwrap_or(Length::zero());
-        dict.finish(&["array", "phase"])?;
+        dict.finish(dict_keys!["array", "phase"])?;
         Self {
             array,
             phase,

@@ -2,7 +2,8 @@ use std::fmt::{self, Debug, Formatter};
 
 use crate::diag::StrResult;
 use crate::foundations::{
-    CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve, StyleChain, Value,
+    dict_keys, CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve, StyleChain,
+    Value,
 };
 use crate::layout::Side;
 use crate::util::Get;
@@ -175,7 +176,7 @@ where
     T: FromValue + Clone,
 {
     fn from_value(mut value: Value) -> StrResult<Self> {
-        let expected_keys = [
+        let expected_keys = dict_keys![
             "top-left",
             "top-right",
             "bottom-right",
@@ -190,8 +191,9 @@ where
         if let Value::Dict(dict) = &mut value {
             if dict.is_empty() {
                 return Ok(Self::splat(None));
-            } else if dict.iter().any(|(key, _)| expected_keys.contains(&key.as_str())) {
-                let mut take = |key| dict.take(key).ok().map(T::from_value).transpose();
+            } else if dict.iter().any(|(key, _)| expected_keys.contains(key)) {
+                let mut take =
+                    |key: &str| dict.take(key).ok().map(T::from_value).transpose();
                 let rest = take("rest")?;
                 let left = take("left")?.or_else(|| rest.clone());
                 let top = take("top")?.or_else(|| rest.clone());
@@ -212,7 +214,7 @@ where
                         .or_else(|| left.clone()),
                 };
 
-                dict.finish(&expected_keys)?;
+                dict.finish(expected_keys)?;
                 return Ok(corners);
             }
         }
@@ -220,7 +222,7 @@ where
         if T::castable(&value) {
             Ok(Self::splat(Some(T::from_value(value)?)))
         } else if let Value::Dict(dict) = &value {
-            let keys = dict.iter().map(|kv| kv.0.as_str()).collect();
+            let keys = dict.iter().map(|kv| kv.0.clone()).collect();
             // Do not hint at expected_keys, because T may be castable from Dict
             // objects with other sets of expected keys.
             Err(Dict::unexpected_keys(keys, None))

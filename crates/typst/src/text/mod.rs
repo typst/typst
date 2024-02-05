@@ -39,8 +39,8 @@ use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::Packed;
 use crate::foundations::{
-    cast, category, elem, Args, Array, Cast, Category, Construct, Content, Dict, Fold,
-    NativeElement, Never, PlainText, Repr, Resolve, Scope, Set, Smart, StyleChain,
+    cast, category, elem, Args, Array, Cast, Category, Construct, Content, Dict, DictKey,
+    Fold, NativeElement, Never, PlainText, Repr, Resolve, Scope, Set, Smart, StyleChain,
 };
 use crate::layout::Em;
 use crate::layout::{Abs, Axis, Dir, Length, Rel};
@@ -1061,9 +1061,13 @@ cast! {
     values: Dict => Self(values
         .into_iter()
         .map(|(k, v)| {
-            let num = v.cast::<u32>()?;
-            let tag = Tag::from_bytes_lossy(k.as_bytes());
-            Ok((tag, num))
+            if let DictKey::Str(k) = k {
+                let num = v.cast::<u32>()?;
+                let tag = Tag::from_bytes_lossy(k.as_bytes());
+                Ok((tag, num))
+            } else {
+                bail!("found non-string field key {k}")
+            }
         })
         .collect::<StrResult<_>>()?),
 }

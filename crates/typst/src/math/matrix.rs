@@ -641,7 +641,7 @@ cast! {
         stroke: Smart::Auto,
     },
     mut dict: Dict => {
-        let mut take = |key| dict.take(key).ok().map(AugmentOffsets::from_value).transpose();
+        let mut take = |key: &str| dict.take(key).ok().map(AugmentOffsets::from_value).transpose();
         let hline = take("hline")?.unwrap_or_default();
         let vline = take("vline")?.unwrap_or_default();
         let stroke = dict.take("stroke")

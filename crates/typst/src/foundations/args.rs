@@ -4,7 +4,7 @@ use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
 use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult};
 use crate::foundations::{
-    func, repr, scope, ty, Array, Dict, FromValue, IntoValue, Repr, Str, Value,
+    func, repr, scope, ty, Array, Dict, DictKey, FromValue, IntoValue, Repr, Str, Value,
 };
 use crate::syntax::{Span, Spanned};
 
@@ -273,7 +273,11 @@ impl Args {
     pub fn to_named(&self) -> Dict {
         self.items
             .iter()
-            .filter_map(|item| item.name.clone().map(|name| (name, item.value.v.clone())))
+            .filter_map(|item| {
+                item.name
+                    .clone()
+                    .map(|name| (DictKey::Str(name), item.value.v.clone()))
+            })
             .collect()
     }
 }

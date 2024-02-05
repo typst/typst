@@ -2,7 +2,7 @@ use ecow::{eco_vec, EcoVec};
 
 use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult};
 use crate::eval::{ops, Eval, Vm};
-use crate::foundations::{Array, Content, Dict, Str, Value};
+use crate::foundations::{Array, Content, Dict, DictKey, Str, Value};
 use crate::syntax::ast::{self, AstNode};
 
 impl Eval for ast::Code<'_> {
@@ -226,7 +226,7 @@ impl Eval for ast::Dict<'_> {
     type Output = Dict;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let mut map = indexmap::IndexMap::new();
+        let mut map = indexmap::IndexMap::<DictKey, Value>::new();
 
         let mut invalid_keys = eco_vec![];
 
@@ -243,7 +243,10 @@ impl Eval for ast::Dict<'_> {
                         invalid_keys.push(error);
                         Str::default()
                     });
-                    map.insert(key, keyed.expr().eval(vm)?);
+                    map.insert(key.into(), keyed.expr().eval(vm)?);
+                }
+                ast::DictItem::Numbered(numbered) => {
+                    map.insert(numbered.number().get().into(), numbered.expr().eval(vm)?);
                 }
                 ast::DictItem::Spread(expr) => match expr.eval(vm)? {
                     Value::None => {}

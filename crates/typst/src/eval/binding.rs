@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::diag::{bail, At, SourceResult};
 use crate::eval::{Access, Eval, Vm};
-use crate::foundations::{Array, Dict, Value};
+use crate::foundations::{Array, Dict, DictKey, Value};
 use crate::syntax::ast::{self, AstNode};
 
 impl Eval for ast::LetBinding<'_> {
@@ -141,20 +141,20 @@ where
     F: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<()>,
 {
     let mut sink = None;
-    let mut used = HashSet::new();
+    let mut used: HashSet<DictKey> = HashSet::new();
     for p in destruct.bindings() {
         match p {
             ast::DestructuringKind::Normal(ast::Expr::Ident(ident)) => {
-                let v = dict.get(&ident).at(ident.span())?;
+                let v = dict.get(ident.as_str()).at(ident.span())?;
                 f(vm, ast::Expr::Ident(ident), v.clone())?;
-                used.insert(ident.as_str());
+                used.insert(ident.as_str().into());
             }
             ast::DestructuringKind::Sink(spread) => sink = spread.expr(),
             ast::DestructuringKind::Named(named) => {
                 let name = named.name();
-                let v = dict.get(&name).at(name.span())?;
+                let v = dict.get(name.as_str()).at(name.span())?;
                 f(vm, named.expr(), v.clone())?;
-                used.insert(name.as_str());
+                used.insert(name.as_str().into());
             }
             ast::DestructuringKind::Placeholder(_) => {}
             ast::DestructuringKind::Normal(expr) => {
@@ -166,7 +166,7 @@ where
     if let Some(expr) = sink {
         let mut sink = Dict::new();
         for (key, value) in dict {
-            if !used.contains(key.as_str()) {
+            if !used.contains(&key) {
                 sink.insert(key, value);
             }
         }

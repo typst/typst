@@ -1218,6 +1218,8 @@ pub enum DictItem<'a> {
     Named(Named<'a>),
     /// A keyed pair: `"spacy key": true`.
     Keyed(Keyed<'a>),
+    /// A numbered pair: `65: "A"`.
+    Numbered(Numbered<'a>),
     /// A spread expression: `..things`.
     Spread(Expr<'a>),
 }
@@ -1227,6 +1229,7 @@ impl<'a> AstNode<'a> for DictItem<'a> {
         match node.kind() {
             SyntaxKind::Named => node.cast().map(Self::Named),
             SyntaxKind::Keyed => node.cast().map(Self::Keyed),
+            SyntaxKind::Numbered => node.cast().map(Self::Numbered),
             SyntaxKind::Spread => node.cast_first_match().map(Self::Spread),
             _ => Option::None,
         }
@@ -1236,6 +1239,7 @@ impl<'a> AstNode<'a> for DictItem<'a> {
         match self {
             Self::Named(v) => v.to_untyped(),
             Self::Keyed(v) => v.to_untyped(),
+            Self::Numbered(v) => v.to_untyped(),
             Self::Spread(v) => v.to_untyped(),
         }
     }
@@ -1275,6 +1279,23 @@ impl<'a> Keyed<'a> {
     }
 
     /// The right-hand side of the pair: `true`.
+    pub fn expr(self) -> Expr<'a> {
+        self.0.cast_last_match().unwrap_or_default()
+    }
+}
+
+node! {
+    /// A numbered pair: `65: "A"`.
+    Numbered
+}
+
+impl<'a> Numbered<'a> {
+    /// The key: `65`.
+    pub fn number(self) -> Int<'a> {
+        self.0.cast_first_match().unwrap_or_default()
+    }
+
+    /// The right-hand side of the pair: `"A"`.
     pub fn expr(self) -> Expr<'a> {
         self.0.cast_last_match().unwrap_or_default()
     }

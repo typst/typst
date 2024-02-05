@@ -5,8 +5,8 @@ use crate::diag::{bail, error, At, HintedStrResult, SourceResult, Trace, Tracepo
 use crate::engine::Engine;
 use crate::eval::{Access, Eval, FlowEvent, Route, Tracer, Vm};
 use crate::foundations::{
-    call_method_mut, is_mutating_method, Arg, Args, Bytes, Closure, Content, Func,
-    IntoValue, NativeElement, Scope, Scopes, Value,
+    call_method_mut, is_mutating_method, Arg, Args, Bytes, Closure, Content, DictKey,
+    Func, IntoValue, NativeElement, Repr, Scope, Scopes, Value,
 };
 use crate::introspection::{Introspector, Locator};
 use crate::math::{Accent, AccentElem, LrElem};
@@ -109,7 +109,7 @@ impl Eval for ast::FuncCall<'_> {
 
                 match target {
                     Value::Dict(ref dict) => {
-                        if matches!(dict.get(&field), Ok(Value::Func(_))) {
+                        if matches!(dict.get(field.as_str()), Ok(Value::Func(_))) {
                             error.hint(eco_format!(
                                 "to call the function stored in the dictionary, surround \
                                  the field access with parentheses, e.g. `(dict.{})(..)`",
@@ -208,11 +208,17 @@ impl Eval for ast::Args<'_> {
                         }));
                     }
                     Value::Dict(dict) => {
-                        items.extend(dict.into_iter().map(|(key, value)| Arg {
-                            span,
-                            name: Some(key),
-                            value: Spanned::new(value, span),
-                        }));
+                        for (key, value) in dict.iter() {
+                            if let DictKey::Str(key) = key {
+                                items.push(Arg {
+                                    span,
+                                    name: Some(key.clone()),
+                                    value: Spanned::new(value.clone(), span),
+                                })
+                            } else {
+                                bail!(expr.span(), "found non-string key {}", key.repr());
+                            }
+                        }
                     }
                     Value::Args(args) => items.extend(args.items),
                     v => bail!(expr.span(), "cannot spread {}", v.ty()),
