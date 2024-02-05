@@ -353,13 +353,13 @@ enum FileReader {
     /// A real file that is on disk.
     Disk(FileId),
     /// A "fake" file that represents `stdin`.
-    Stdin(FileId),
+    Stdin,
 }
 
 impl From<FileId> for FileReader {
     fn from(id: FileId) -> Self {
         if id == *STDIN_ID {
-            Self::Stdin(id)
+            Self::Stdin
         } else {
             Self::Disk(id)
         }
@@ -371,7 +371,7 @@ impl FileReader {
     fn read(self, project_root: &Path) -> FileResult<Vec<u8>> {
         match self {
             Self::Disk(id) => read_from_disk(&system_path(project_root, id)?),
-            Self::Stdin(_) => read_from_stdin(),
+            Self::Stdin => read_from_stdin(),
         }
     }
 }
