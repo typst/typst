@@ -182,8 +182,8 @@ impl Dict {
             .ok_or_else(|| missing_key_no_default(&key))
     }
 
-    /// Inserts a new pair into the dictionary and return the value. If the
-    /// dictionary already contains this key, the value is updated.
+    /// Inserts a new pair into the dictionary. If the dictionary already
+    /// contains this key, the value is updated.
     #[func]
     pub fn insert(
         &mut self,
