@@ -283,15 +283,21 @@ impl Func {
                 args.finish()?;
                 Ok(Value::Content(value))
             }
-            Repr::Closure(closure) => crate::vm::call_closure(
-                closure,
-                engine.world,
-                engine.introspector,
-                engine.route.track(),
-                engine.locator.track(),
-                TrackedMut::reborrow_mut(&mut engine.tracer),
-                args,
-            ),
+            Repr::Closure(closure) => {
+                let f = move || {
+                    crate::vm::call_closure(
+                        closure,
+                        engine.world,
+                        engine.introspector,
+                        engine.route.track(),
+                        engine.locator.track(),
+                        TrackedMut::reborrow_mut(&mut engine.tracer),
+                        args,
+                    )
+                };
+
+                stacker::maybe_grow(128 << 10, 1 << 20, f)
+            }
             Repr::With(with) => {
                 args.items = with.1.items.iter().cloned().chain(args.items).collect();
                 with.0.call(engine, args)

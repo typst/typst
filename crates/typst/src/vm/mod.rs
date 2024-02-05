@@ -40,25 +40,31 @@ pub use self::values::*;
 pub fn eval(
     world: Tracked<dyn World + '_>,
     route: Tracked<Route>,
-    mut tracer: TrackedMut<Tracer>,
+    tracer: TrackedMut<Tracer>,
     source: &Source,
 ) -> SourceResult<Module> {
+    // Prevent cyclic evaluation.
+    let id = source.id();
+    if route.contains(id) {
+        panic!("Tried to cyclicly evaluate {:?}", id.vpath());
+    }
+
     // Prepare the engine.
-    let locator = Locator::new();
+    let mut locator = Locator::new();
     let introspector = Introspector::default();
+    let mut engine = Engine {
+        world,
+        introspector: introspector.track(),
+        route: Route::extend(route).with_id(id),
+        locator: &mut locator,
+        tracer,
+    };
 
     // Compile the module
-    let compiled = compile_module(
-        source,
-        world,
-        introspector.track(),
-        route,
-        locator.track(),
-        TrackedMut::reborrow_mut(&mut tracer),
-    )?;
+    let compiled = compile_module(source, &mut engine)?;
 
     // Evaluate the module
-    run_module(&compiled, world, introspector.track(), route, locator.track(), tracer)
+    run_module(source, &compiled, &mut engine)
 }
 
 bitflags::bitflags! {

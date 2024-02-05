@@ -5,7 +5,7 @@ use typst_syntax::ast::AstNode;
 use typst_syntax::{ast, FileId, PackageSpec, PackageVersion, Span, VirtualPath};
 
 use crate::diag::{
-    bail, warning, error, At, FileError, SourceResult, StrResult, Trace, Tracepoint,
+    bail, error, warning, At, FileError, SourceResult, StrResult, Trace, Tracepoint,
 };
 use crate::engine::Engine;
 use crate::foundations::{Module, Value};
@@ -91,11 +91,7 @@ impl Compile for ast::ModuleImport<'_> {
             }
         } else {
             let name: EcoString = module.name().clone();
-            compiler.declare_default(
-                self.span(),
-                name,
-                Value::Module(module.clone()),
-            );
+            compiler.declare_default(self.span(), name, Value::Module(module.clone()));
         }
 
         // Handle renaming.

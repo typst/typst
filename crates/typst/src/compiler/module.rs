@@ -1,15 +1,13 @@
 use std::sync::Arc;
 
-use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec};
 use typst_syntax::{ast, Source, Span};
 
 use crate::compiler::CompileTopLevel;
 use crate::diag::SourceResult;
-use crate::engine::{Engine, Route};
+use crate::engine::Engine;
 use crate::foundations::{Label, Value};
-use crate::introspection::{Introspector, Locator};
-use crate::vm::{Access, CompiledClosure, DefaultValue, Pattern, Readable, Tracer};
+use crate::vm::{Access, CompiledClosure, DefaultValue, Pattern, Readable};
 use crate::{Library, World};
 
 use super::{Compiler, Opcode};
@@ -109,31 +107,11 @@ pub struct Export {
     pub span: Span,
 }
 
-#[comemo::memoize]
 #[typst_macros::time(name = "module compile", span = source.root().span())]
 pub fn compile_module(
     source: &Source,
-    world: Tracked<dyn World + '_>,
-    introspector: Tracked<Introspector>,
-    route: Tracked<Route>,
-    locator: Tracked<Locator>,
-    tracer: TrackedMut<Tracer>,
+    engine: &mut Engine,
 ) -> SourceResult<CompiledModule> {
-    // Prevent cyclic evaluation.
-    let id = source.id();
-    if route.contains(id) {
-        panic!("Tried to cyclicly evaluate {:?}", id.vpath());
-    }
-
-    let mut locator = Locator::chained(locator);
-    let mut engine = Engine {
-        world,
-        introspector,
-        route: Route::extend(route),
-        locator: &mut locator,
-        tracer,
-    };
-
     // Parse the source.
     let root = source.root();
 
@@ -147,7 +125,8 @@ pub fn compile_module(
     let markup = root.cast::<ast::Markup>().unwrap();
 
     // Assemble the module.
-    let name = id
+    let name = source
+        .id()
         .vpath()
         .as_rootless_path()
         .file_stem()
@@ -158,7 +137,7 @@ pub fn compile_module(
     let mut compiler = Compiler::module(engine.world.library().clone().into_inner());
 
     // Compile the module.
-    markup.compile_top_level(&mut engine, &mut compiler)?;
+    markup.compile_top_level(engine, &mut compiler)?;
 
     Ok(CompiledModule::new(compiler, root.span(), name))
 }
