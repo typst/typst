@@ -152,17 +152,13 @@ pub struct CiteGroup {
 impl Show for Packed<CiteGroup> {
     #[typst_macros::time(name = "cite", span = self.span())]
     fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(engine.delayed(|engine| {
-            let location = self.location().unwrap();
-            let span = self.span();
-            Works::generate(engine.world, engine.introspector)
-                .at(span)?
-                .citations
-                .get(&location)
-                .cloned()
-                .unwrap_or_else(|| {
-                    bail!(span, "failed to format citation (this is a bug)")
-                })
-        }))
+        let location = self.location().unwrap();
+        let span = self.span();
+        Works::generate(engine.world, engine.introspector)
+            .at(span)?
+            .citations
+            .get(&location)
+            .cloned()
+            .unwrap_or_else(|| bail!(span, "failed to format citation (this is a bug)"))
     }
 }

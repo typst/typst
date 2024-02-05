@@ -44,9 +44,7 @@ struct LocateElem {
 impl Show for Packed<LocateElem> {
     #[typst_macros::time(name = "locate", span = self.span())]
     fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(engine.delayed(|engine| {
-            let location = self.location().unwrap();
-            Ok(self.func().call(engine, [location])?.display())
-        }))
+        let location = self.location().unwrap();
+        Ok(self.func().call(engine, [location])?.display())
     }
 }

@@ -92,18 +92,17 @@ pub fn realize(
         meta = prepare(engine, &mut target, &mut map, styles)?;
     }
 
-    // Apply the step.
+    // Apply a step, if there is one.
     let mut output = match step {
-        // Apply a user-defined show rule.
-        Some(Step::Recipe(recipe, guard)) => show(engine, target, recipe, guard)?,
-
-        // If the verdict picks this step, the `target` is guaranteed
-        // to have a built-in show rule.
-        Some(Step::Builtin) => {
-            target.with::<dyn Show>().unwrap().show(engine, styles.chain(&map))?
+        Some(step) => {
+            // Errors in show rules don't terminate compilation immediately. We
+            // just continue with empty content for them and show all errors
+            // together, if they remain by the end of the introspection loop.
+            //
+            // This way, we can ignore errors that only occur in earlier
+            // iterations and also show more useful errors at once.
+            engine.delayed(|engine| show(engine, target, step, styles.chain(&map)))
         }
-
-        // Nothing to do.
         None => target,
     };
 
@@ -122,12 +121,12 @@ struct Verdict<'a> {
     prepared: bool,
     /// A map of styles to apply to the element.
     map: Styles,
-    /// An optional transformation step to apply to the element.
-    step: Option<Step<'a>>,
+    /// An optional show rule transformation to apply to the element.
+    step: Option<ShowStep<'a>>,
 }
 
-/// An optional transformation step to apply to an element.
-enum Step<'a> {
+/// An optional show rule transformation to apply to the element.
+enum ShowStep<'a> {
     /// A user-defined transformational show rule.
     Recipe(&'a Recipe, RecipeIndex),
     /// The built-in show rule.
@@ -200,7 +199,7 @@ fn verdict<'a>(
                 // If we find a matching, unguarded replacement show rule,
                 // remember it, but still continue searching for potential
                 // show-set styles that might change the verdict.
-                step = Some(Step::Recipe(recipe, index));
+                step = Some(ShowStep::Recipe(recipe, index));
 
                 // If we found a show rule and are already prepared, there is
                 // nothing else to do, so we can just break.
@@ -215,7 +214,7 @@ fn verdict<'a>(
 
     // If we found no user-defined rule, also consider the built-in show rule.
     if step.is_none() && target.can::<dyn Show>() {
-        step = Some(Step::Builtin);
+        step = Some(ShowStep::Builtin);
     }
 
     // If there's no nothing to do, there is also no verdict.
@@ -286,21 +285,30 @@ fn prepare(
     Ok(None)
 }
 
-/// Apply a user-defined show rule.
+/// Apply a step.
 fn show(
     engine: &mut Engine,
     target: Content,
-    recipe: &Recipe,
-    index: RecipeIndex,
+    step: ShowStep,
+    styles: StyleChain,
 ) -> SourceResult<Content> {
-    match &recipe.selector {
-        Some(Selector::Regex(regex)) => {
-            // If the verdict picks this rule, the `target` is guaranteed
-            // to be a text element.
-            let text = target.into_packed::<TextElem>().unwrap();
-            show_regex(engine, &text, regex, recipe, index)
-        }
-        _ => recipe.apply(engine, target.guarded(index)),
+    match step {
+        // Apply a user-defined show rule.
+        ShowStep::Recipe(recipe, guard) => match &recipe.selector {
+            // If the selector is a regex, the `target` is guaranteed to be a
+            // text element. This invokes special regex handling.
+            Some(Selector::Regex(regex)) => {
+                let text = target.into_packed::<TextElem>().unwrap();
+                show_regex(engine, &text, regex, recipe, guard)
+            }
+
+            // Just apply the recipe.
+            _ => recipe.apply(engine, target.guarded(guard)),
+        },
+
+        // If the verdict picks this step, the `target` is guaranteed to have a
+        // built-in show rule.
+        ShowStep::Builtin => target.with::<dyn Show>().unwrap().show(engine, styles),
     }
 }
 

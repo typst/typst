@@ -163,78 +163,73 @@ impl Synthesize for Packed<RefElem> {
 impl Show for Packed<RefElem> {
     #[typst_macros::time(name = "ref", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(engine.delayed(|engine| {
-            let target = *self.target();
-            let elem = engine.introspector.query_label(target);
-            let span = self.span();
+        let target = *self.target();
+        let elem = engine.introspector.query_label(target);
+        let span = self.span();
 
-            if BibliographyElem::has(engine, target) {
-                if elem.is_ok() {
-                    bail!(span, "label occurs in the document and its bibliography");
-                }
-
-                return Ok(to_citation(self, engine, styles)?.pack().spanned(span));
+        if BibliographyElem::has(engine, target) {
+            if elem.is_ok() {
+                bail!(span, "label occurs in the document and its bibliography");
             }
 
-            let elem = elem.at(span)?;
+            return Ok(to_citation(self, engine, styles)?.pack().spanned(span));
+        }
 
-            if elem.func() == FootnoteElem::elem() {
-                return Ok(FootnoteElem::with_label(target).pack().spanned(span));
-            }
+        let elem = elem.at(span)?;
 
-            let elem = elem.clone();
-            let refable = elem
-                .with::<dyn Refable>()
-                .ok_or_else(|| {
-                    if elem.can::<dyn Figurable>() {
-                        eco_format!(
-                            "cannot reference {} directly, try putting it into a figure",
-                            elem.func().name()
-                        )
-                    } else {
-                        eco_format!("cannot reference {}", elem.func().name())
-                    }
-                })
-                .at(span)?;
+        if elem.func() == FootnoteElem::elem() {
+            return Ok(FootnoteElem::with_label(target).pack().spanned(span));
+        }
 
-            let numbering = refable
-                .numbering()
-                .ok_or_else(|| {
+        let elem = elem.clone();
+        let refable = elem
+            .with::<dyn Refable>()
+            .ok_or_else(|| {
+                if elem.can::<dyn Figurable>() {
                     eco_format!(
-                        "cannot reference {} without numbering",
+                        "cannot reference {} directly, try putting it into a figure",
                         elem.func().name()
                     )
-                })
-                .hint(eco_format!(
-                    "you can enable {} numbering with `#set {}(numbering: \"1.\")`",
-                    elem.func().name(),
-                    if elem.func() == EquationElem::elem() {
-                        "math.equation"
-                    } else {
-                        elem.func().name()
-                    }
-                ))
-                .at(span)?;
+                } else {
+                    eco_format!("cannot reference {}", elem.func().name())
+                }
+            })
+            .at(span)?;
 
-            let loc = elem.location().unwrap();
-            let numbers = refable
-                .counter()
-                .at(engine, loc)?
-                .display(engine, &numbering.clone().trimmed())?;
+        let numbering = refable
+            .numbering()
+            .ok_or_else(|| {
+                eco_format!("cannot reference {} without numbering", elem.func().name())
+            })
+            .hint(eco_format!(
+                "you can enable {} numbering with `#set {}(numbering: \"1.\")`",
+                elem.func().name(),
+                if elem.func() == EquationElem::elem() {
+                    "math.equation"
+                } else {
+                    elem.func().name()
+                }
+            ))
+            .at(span)?;
 
-            let supplement = match self.supplement(styles).as_ref() {
-                Smart::Auto => refable.supplement(),
-                Smart::Custom(None) => Content::empty(),
-                Smart::Custom(Some(supplement)) => supplement.resolve(engine, [elem])?,
-            };
+        let loc = elem.location().unwrap();
+        let numbers = refable
+            .counter()
+            .at(engine, loc)?
+            .display(engine, &numbering.clone().trimmed())?;
 
-            let mut content = numbers;
-            if !supplement.is_empty() {
-                content = supplement + TextElem::packed("\u{a0}") + content;
-            }
+        let supplement = match self.supplement(styles).as_ref() {
+            Smart::Auto => refable.supplement(),
+            Smart::Custom(None) => Content::empty(),
+            Smart::Custom(Some(supplement)) => supplement.resolve(engine, [elem])?,
+        };
 
-            Ok(content.linked(Destination::Location(loc)))
-        }))
+        let mut content = numbers;
+        if !supplement.is_empty() {
+            content = supplement + TextElem::packed("\u{a0}") + content;
+        }
+
+        Ok(content.linked(Destination::Location(loc)))
     }
 }
 
