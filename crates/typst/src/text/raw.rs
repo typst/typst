@@ -696,9 +696,11 @@ fn styled(
     span: Span,
     span_offset: usize,
 ) -> Content {
-    let mut body = TextElem::packed(piece)
-        .spanned(span)
-        .styled(TextElem::set_span_offset(span_offset));
+    let mut body = TextElem::packed(piece).spanned(span);
+
+    if span_offset > 0 {
+        body = body.styled(TextElem::set_span_offset(span_offset));
+    }
 
     if style.foreground != foreground {
         body = body.styled(TextElem::set_fill(to_typst(style.foreground).into()));
