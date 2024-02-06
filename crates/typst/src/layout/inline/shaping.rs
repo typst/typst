@@ -4,7 +4,7 @@ use std::ops::Range;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use az::SaturatingAs;
+use az::{CheckedAs, SaturatingAs};
 use ecow::EcoString;
 use rustybuzz::{ShapePlan, Tag, UnicodeBuffer};
 use unicode_script::{Script, UnicodeScript};
@@ -272,9 +272,15 @@ impl<'a> ShapedText<'a> {
                         shaped.span
                     } else {
                         let (span, offset) = shaped.span;
-                        if let Some(offset) = offset.checked_add(span_offset as u16) {
+
+                        // Check whether we can reach it with an `u16` offset.
+                        if let Some(offset) = span_offset
+                            .checked_as()
+                            .and_then(|span_offset: u16| offset.checked_add(span_offset))
+                        {
                             (span, offset)
                         } else {
+                            // If not, we detach the span.
                             (Span::detached(), 0)
                         }
                     };
