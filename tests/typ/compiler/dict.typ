@@ -41,6 +41,16 @@
 #test((a: 1, b: 2).at("c", default: 3), 3)
 
 ---
+// Test insert.
+#{
+  let dict = (a: 1, b: 2)
+  dict.insert("b", 3)
+  test(dict, (a: 1, b: 3))
+  dict.insert("c", 5)
+  test(dict, (a: 1, b: 3, c: 5))
+}
+
+---
 // Test remove with default value.
 #{
   let dict = (a: 1, b: 2)

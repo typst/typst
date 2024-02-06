@@ -1,17 +1,19 @@
 use std::num::NonZeroUsize;
 
+use unicode_math_class::MathClass;
+
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, Finalize, Guard, NativeElement, Packed, Resolve, Show, Smart,
-    StyleChain, Synthesize,
+    elem, Content, NativeElement, Packed, Resolve, ShowSet, Smart, StyleChain, Styles,
+    Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Dir, Em, FixedAlignment, Frame, LayoutMultiple,
     LayoutSingle, Point, Regions, Size,
 };
-use crate::math::{LayoutMath, MathContext};
+use crate::math::{scaled_font_size, LayoutMath, MathContext, MathSize, MathVariant};
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::syntax::Span;
 use crate::text::{
@@ -47,8 +49,7 @@ use crate::World;
 #[elem(
     Locatable,
     Synthesize,
-    Show,
-    Finalize,
+    ShowSet,
     LayoutSingle,
     LayoutMath,
     Count,
@@ -72,6 +73,7 @@ pub struct EquationElem {
     /// With @ratio, we get:
     /// $ F_n = floor(1 / sqrt(5) phi.alt^n) $
     /// ```
+    #[borrowed]
     pub numbering: Option<Numbering>,
 
     /// A supplement for the equation.
@@ -95,6 +97,39 @@ pub struct EquationElem {
     /// The contents of the equation.
     #[required]
     pub body: Content,
+
+    /// The size of the glyphs.
+    #[internal]
+    #[default(MathSize::Text)]
+    #[ghost]
+    pub size: MathSize,
+
+    /// The style variant to select.
+    #[internal]
+    #[ghost]
+    pub variant: MathVariant,
+
+    /// Affects the height of exponents.
+    #[internal]
+    #[default(false)]
+    #[ghost]
+    pub cramped: bool,
+
+    /// Whether to use bold glyphs.
+    #[internal]
+    #[default(false)]
+    #[ghost]
+    pub bold: bool,
+
+    /// Whether to use italic glyphs.
+    #[internal]
+    #[ghost]
+    pub italic: Smart<bool>,
+
+    /// A forced class to use for all fragment.
+    #[internal]
+    #[ghost]
+    pub class: Option<MathClass>,
 }
 
 impl Synthesize for Packed<EquationElem> {
@@ -111,37 +146,23 @@ impl Synthesize for Packed<EquationElem> {
             }
         };
 
-        let elem = self.as_mut();
-        elem.push_block(elem.block(styles));
-        elem.push_numbering(elem.numbering(styles));
-        elem.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
-
+        self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
         Ok(())
     }
 }
 
-impl Show for Packed<EquationElem> {
-    #[typst_macros::time(name = "math.equation", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.clone().pack().guarded(Guard::Base(EquationElem::elem()));
+impl ShowSet for Packed<EquationElem> {
+    fn show_set(&self, styles: StyleChain) -> Styles {
+        let mut out = Styles::new();
         if self.block(styles) {
-            realized = AlignElem::new(realized).pack().spanned(self.span());
+            out.set(AlignElem::set_alignment(Alignment::CENTER));
+            out.set(EquationElem::set_size(MathSize::Display));
         }
-        Ok(realized)
-    }
-}
-
-impl Finalize for Packed<EquationElem> {
-    fn finalize(&self, realized: Content, style: StyleChain) -> Content {
-        let mut realized = realized;
-        if self.block(style) {
-            realized = realized.styled(AlignElem::set_alignment(Alignment::CENTER));
-        }
-        realized
-            .styled(TextElem::set_weight(FontWeight::from_number(450)))
-            .styled(TextElem::set_font(FontList(vec![FontFamily::new(
-                "New Computer Modern Math",
-            )])))
+        out.set(TextElem::set_weight(FontWeight::from_number(450)));
+        out.set(TextElem::set_font(FontList(vec![FontFamily::new(
+            "New Computer Modern Math",
+        )])));
+        out
     }
 }
 
@@ -174,19 +195,19 @@ impl Packed<EquationElem> {
         // Find a math font.
         let font = find_math_font(engine, styles, self.span())?;
 
-        let mut ctx = MathContext::new(engine, styles, regions, &font, false);
-        let rows = ctx.layout_root(self)?;
+        let mut ctx = MathContext::new(engine, styles, regions, &font);
+        let rows = ctx.layout_root(self, styles)?;
 
         let mut items = if rows.row_count() == 1 {
             rows.into_par_items()
         } else {
-            vec![MathParItem::Frame(rows.into_fragment(&ctx).into_frame())]
+            vec![MathParItem::Frame(rows.into_fragment(&ctx, styles).into_frame())]
         };
 
         for item in &mut items {
             let MathParItem::Frame(frame) = item else { continue };
 
-            let font_size = TextElem::size_in(styles);
+            let font_size = scaled_font_size(&ctx, styles);
             let slack = ParElem::leading_in(styles) * 0.7;
             let top_edge = TextElem::top_edge_in(styles).resolve(font_size, &font, None);
             let bottom_edge =
@@ -217,13 +238,15 @@ impl LayoutSingle for Packed<EquationElem> {
         // Find a math font.
         let font = find_math_font(engine, styles, self.span())?;
 
-        let mut ctx = MathContext::new(engine, styles, regions, &font, true);
-        let mut frame = ctx.layout_frame(self)?;
+        let mut ctx = MathContext::new(engine, styles, regions, &font);
+        let mut frame = ctx.layout_frame(self, styles)?;
 
         if let Some(numbering) = (**self).numbering(styles) {
             let pod = Regions::one(regions.base(), Axes::splat(false));
             let counter = Counter::of(EquationElem::elem())
-                .display(self.span(), Some(numbering), false)
+                .at(engine, self.location().unwrap())?
+                .display(engine, numbering)?
+                .spanned(self.span())
                 .layout(engine, styles, pod)?
                 .into_frame();
 
@@ -318,8 +341,8 @@ impl Refable for Packed<EquationElem> {
         Counter::of(EquationElem::elem())
     }
 
-    fn numbering(&self) -> Option<Numbering> {
-        (**self).numbering(StyleChain::default())
+    fn numbering(&self) -> Option<&Numbering> {
+        (**self).numbering(StyleChain::default()).as_ref()
     }
 }
 
@@ -345,7 +368,7 @@ impl Outlinable for Packed<EquationElem> {
         let numbers = self
             .counter()
             .at(engine, self.location().unwrap())?
-            .display(engine, &numbering)?;
+            .display(engine, numbering)?;
 
         Ok(Some(supplement + numbers))
     }
@@ -353,8 +376,8 @@ impl Outlinable for Packed<EquationElem> {
 
 impl LayoutMath for Packed<EquationElem> {
     #[typst_macros::time(name = "math.equation", span = self.span())]
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        self.body().layout_math(ctx)
+    fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
+        self.body().layout_math(ctx, styles)
     }
 }
 

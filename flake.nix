@@ -49,12 +49,18 @@
             commonCraneArgs = {
               inherit src pname version;
 
-              buildInputs = optionals pkgs.stdenv.isDarwin [
+              buildInputs = (optionals pkgs.stdenv.isDarwin [
                 pkgs.darwin.apple_sdk.frameworks.CoreServices
                 pkgs.libiconv
+              ]) ++ [
+                pkgs.openssl
               ];
 
-              nativeBuildInputs = [ pkgs.installShellFiles ];
+              nativeBuildInputs = [
+                pkgs.installShellFiles
+                pkgs.pkg-config
+                pkgs.openssl.dev
+              ];
             };
 
             # Derivation with just the dependencies, so we don't have to keep
@@ -105,9 +111,16 @@
             cargo
           ];
 
-          buildInputs = lib.optionals pkgs.stdenv.isDarwin [
+          buildInputs = (lib.optionals pkgs.stdenv.isDarwin [
             pkgs.darwin.apple_sdk.frameworks.CoreServices
             pkgs.libiconv
+          ]) ++ [
+            pkgs.openssl
+          ];
+
+          nativeBuildInputs = [
+            pkgs.pkg-config
+            pkgs.openssl.dev
           ];
         };
       };

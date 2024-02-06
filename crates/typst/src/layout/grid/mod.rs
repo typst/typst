@@ -13,10 +13,11 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, Fold, Packed, Show, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, Fragment, LayoutMultiple, Length, Regions, Rel,
-    Sides, Sizing,
+    AlignElem, Alignment, Axes, Fragment, LayoutMultiple, Length, Regions, Rel, Sides,
+    Sizing,
 };
 use crate::syntax::Span;
+use crate::util::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
 
 /// Arranges content in a grid.
@@ -263,7 +264,6 @@ pub struct GridElem {
     /// )
     /// ```
     #[fold]
-    #[default(Sides::splat(Abs::pt(0.0).into()))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// The contents of the grid cells.
@@ -429,6 +429,10 @@ pub struct GridCell {
     /// ```
     y: Smart<usize>,
 
+    /// The amount of columns spanned by this cell.
+    #[default(NonZeroUsize::ONE)]
+    colspan: NonZeroUsize,
+
     /// The cell's fill override.
     fill: Smart<Option<Paint>>,
 
@@ -457,10 +461,11 @@ impl ResolvableCell for Packed<GridCell> {
         y: usize,
         fill: &Option<Paint>,
         align: Smart<Alignment>,
-        inset: Sides<Rel<Length>>,
+        inset: Sides<Option<Rel<Length>>>,
         styles: StyleChain,
     ) -> Cell {
         let cell = &mut *self;
+        let colspan = cell.colspan(styles);
         let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
         cell.push_x(Smart::Custom(x));
         cell.push_y(Smart::Custom(y));
@@ -475,10 +480,9 @@ impl ResolvableCell for Packed<GridCell> {
             Smart::Auto => cell.align(styles),
         });
         cell.push_inset(Smart::Custom(
-            cell.inset(styles).map_or(inset, |inner| inner.fold(inset)).map(Some),
+            cell.inset(styles).map_or(inset, |inner| inner.fold(inset)),
         ));
-
-        Cell { body: self.pack(), fill }
+        Cell { body: self.pack(), fill, colspan }
     }
 
     fn x(&self, styles: StyleChain) -> Smart<usize> {
@@ -487,6 +491,10 @@ impl ResolvableCell for Packed<GridCell> {
 
     fn y(&self, styles: StyleChain) -> Smart<usize> {
         (**self).y(styles)
+    }
+
+    fn colspan(&self, styles: StyleChain) -> NonZeroUsize {
+        (**self).colspan(styles)
     }
 
     fn span(&self) -> Span {

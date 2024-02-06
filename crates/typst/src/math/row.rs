@@ -2,11 +2,11 @@ use std::iter::once;
 
 use unicode_math_class::MathClass;
 
-use crate::foundations::Resolve;
+use crate::foundations::{Resolve, StyleChain};
 use crate::layout::{Abs, AlignElem, Em, FixedAlignment, Frame, FrameKind, Point, Size};
 use crate::math::{
-    alignments, spacing, AlignmentResult, FrameFragment, MathContext, MathFragment,
-    MathParItem, MathSize, Scaled,
+    alignments, scaled_font_size, spacing, AlignmentResult, EquationElem, FrameFragment,
+    MathContext, MathFragment, MathParItem, MathSize,
 };
 use crate::model::ParElem;
 
@@ -61,9 +61,9 @@ impl MathRow {
 
             // Convert variable operators into binary operators if something
             // precedes them and they are not preceded by a operator or comparator.
-            if fragment.class() == Some(MathClass::Vary)
+            if fragment.class() == MathClass::Vary
                 && matches!(
-                    last.and_then(|i| resolved[i].class()),
+                    last.map(|i| resolved[i].class()),
                     Some(
                         MathClass::Normal
                             | MathClass::Alphabetic
@@ -131,8 +131,8 @@ impl MathRow {
         if self.0.len() == 1 {
             self.0
                 .first()
-                .and_then(|fragment| fragment.class())
-                .unwrap_or(MathClass::Special)
+                .map(|fragment| fragment.class())
+                .unwrap_or(MathClass::Normal)
         } else {
             // FrameFragment::new() (inside 'into_fragment' in this branch) defaults
             // to MathClass::Normal for its class.
@@ -140,23 +140,23 @@ impl MathRow {
         }
     }
 
-    pub fn into_frame(self, ctx: &MathContext) -> Frame {
-        let styles = ctx.styles();
+    pub fn into_frame(self, ctx: &MathContext, styles: StyleChain) -> Frame {
         let align = AlignElem::alignment_in(styles).resolve(styles).x;
-        self.into_aligned_frame(ctx, &[], align)
+        self.into_aligned_frame(ctx, styles, &[], align)
     }
 
-    pub fn into_fragment(self, ctx: &MathContext) -> MathFragment {
+    pub fn into_fragment(self, ctx: &MathContext, styles: StyleChain) -> MathFragment {
         if self.0.len() == 1 {
             self.0.into_iter().next().unwrap()
         } else {
-            FrameFragment::new(ctx, self.into_frame(ctx)).into()
+            FrameFragment::new(ctx, styles, self.into_frame(ctx, styles)).into()
         }
     }
 
     pub fn into_aligned_frame(
         self,
         ctx: &MathContext,
+        styles: StyleChain,
         points: &[Abs],
         align: FixedAlignment,
     ) -> Frame {
@@ -164,10 +164,11 @@ impl MathRow {
             return self.into_line_frame(points, align);
         }
 
-        let leading = if ctx.style.size >= MathSize::Text {
-            ParElem::leading_in(ctx.styles())
+        let leading = if EquationElem::size_in(styles) >= MathSize::Text {
+            ParElem::leading_in(styles)
         } else {
-            TIGHT_LEADING.scaled(ctx)
+            let font_size = scaled_font_size(ctx, styles);
+            TIGHT_LEADING.at(font_size)
         };
 
         let mut rows: Vec<_> = self.rows();
@@ -272,8 +273,7 @@ impl MathRow {
 
         let mut space_is_visible = false;
 
-        let is_relation =
-            |f: &MathFragment| matches!(f.class(), Some(MathClass::Relation));
+        let is_relation = |f: &MathFragment| matches!(f.class(), MathClass::Relation);
         let is_space = |f: &MathFragment| {
             matches!(f, MathFragment::Space(_) | MathFragment::Spacing(_))
         };
@@ -302,8 +302,8 @@ impl MathRow {
             frame.push_frame(pos, fragment.into_frame());
             empty = false;
 
-            if class == Some(MathClass::Binary)
-                || (class == Some(MathClass::Relation)
+            if class == MathClass::Binary
+                || (class == MathClass::Relation
                     && !iter.peek().map(is_relation).unwrap_or_default())
             {
                 let mut frame_prev = std::mem::replace(

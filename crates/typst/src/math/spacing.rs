@@ -27,15 +27,14 @@ pub(super) fn spacing(
 ) -> Option<MathFragment> {
     use MathClass::*;
 
-    let class = |f: &MathFragment| f.class().unwrap_or(Special);
     let resolve = |v: Em, size_ref: &MathFragment| -> Option<MathFragment> {
         let width = size_ref.font_size().map_or(Abs::zero(), |size| v.at(size));
         Some(SpacingFragment { width, weak: false }.into())
     };
     let script =
-        |f: &MathFragment| f.style().map_or(false, |s| s.size <= MathSize::Script);
+        |f: &MathFragment| f.math_size().map_or(false, |s| s <= MathSize::Script);
 
-    match (class(l), class(r)) {
+    match (l.class(), r.class()) {
         // No spacing before punctuation; thin spacing after punctuation, unless
         // in script size.
         (_, Punctuation) => None,

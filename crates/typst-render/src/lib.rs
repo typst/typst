@@ -19,7 +19,7 @@ use typst::visualize::{
     Color, DashPattern, FixedStroke, Geometry, Gradient, Image, ImageKind, LineCap,
     LineJoin, Paint, Path, PathItem, Pattern, RasterFormat, RelativeTo, Shape,
 };
-use usvg::{NodeExt, TreeParsing};
+use usvg::TreeParsing;
 
 /// Export a frame into a raster image.
 ///
@@ -272,8 +272,8 @@ fn render_svg_glyph(
 
     // Parse SVG.
     let opts = usvg::Options::default();
-    let usvg_tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
-    let tree = resvg::Tree::from_usvg(&usvg_tree);
+    let mut tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
+    tree.calculate_bounding_boxes();
     let view_box = tree.view_box.rect;
 
     // If there's no viewbox defined, use the em square for our scale
@@ -298,10 +298,8 @@ fn render_svg_glyph(
     // See https://github.com/RazrFalcon/resvg/issues/602 for why
     // using the svg size is problematic here.
     let mut bbox = usvg::BBox::default();
-    for node in usvg_tree.root.descendants() {
-        if let Some(rect) = node.calculate_bbox() {
-            bbox = bbox.expand(rect);
-        }
+    if let Some(tree_bbox) = tree.root.bounding_box {
+        bbox = bbox.expand(tree_bbox);
     }
 
     // Compute the bbox after the transform is applied.
@@ -320,7 +318,7 @@ fn render_svg_glyph(
 
     // We offset our transform so that the pixmap starts at the edge of the bbox.
     let ts = ts.post_translate(-bbox.left() as f32, -bbox.top() as f32);
-    tree.render(ts, &mut pixmap.as_mut());
+    resvg::render(&tree, ts, &mut pixmap.as_mut());
 
     canvas.draw_pixmap(
         bbox.left(),
@@ -757,12 +755,11 @@ fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
         // of `with`.
         ImageKind::Svg(svg) => unsafe {
             svg.with(|tree| {
-                let tree = resvg::Tree::from_usvg(tree);
                 let ts = tiny_skia::Transform::from_scale(
                     w as f32 / tree.size.width(),
                     h as f32 / tree.size.height(),
                 );
-                tree.render(ts, &mut pixmap.as_mut())
+                resvg::render(tree, ts, &mut pixmap.as_mut())
             });
         },
     }

@@ -114,7 +114,7 @@ pub struct RectElem {
     /// See the [box's documentation]($box.outset) for more details.
     #[resolve]
     #[fold]
-    #[default(Sides::splat(Abs::pt(5.0).into()))]
+    #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the rectangle's size without affecting the layout.
@@ -219,7 +219,7 @@ pub struct SquareElem {
     /// [box's documentation]($box.inset) for more details.
     #[resolve]
     #[fold]
-    #[default(Sides::splat(Abs::pt(5.0).into()))]
+    #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the square's size without affecting the layout. See
@@ -298,7 +298,7 @@ pub struct EllipseElem {
     /// [box's documentation]($box.inset) for more details.
     #[resolve]
     #[fold]
-    #[default(Sides::splat(Abs::pt(5.0).into()))]
+    #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the ellipse's size without affecting the layout. See
@@ -331,10 +331,10 @@ impl LayoutSingle for Packed<EllipseElem> {
             &self.body(styles),
             Axes::new(self.width(styles), self.height(styles)),
             self.fill(styles),
-            self.stroke(styles).map(Sides::splat),
+            self.stroke(styles).map(|s| Sides::splat(Some(s))),
             self.inset(styles),
             self.outset(styles),
-            Corners::splat(Rel::zero()),
+            Corners::splat(None),
             self.span(),
         )
     }
@@ -403,7 +403,7 @@ pub struct CircleElem {
     /// [box's documentation]($box.inset) for more details.
     #[resolve]
     #[fold]
-    #[default(Sides::splat(Abs::pt(5.0).into()))]
+    #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the circle's size without affecting the layout. See
@@ -434,10 +434,10 @@ impl LayoutSingle for Packed<CircleElem> {
             &self.body(styles),
             Axes::new(self.width(styles), self.height(styles)),
             self.fill(styles),
-            self.stroke(styles).map(Sides::splat),
+            self.stroke(styles).map(|s| Sides::splat(Some(s))),
             self.inset(styles),
             self.outset(styles),
-            Corners::splat(Rel::zero()),
+            Corners::splat(None),
             self.span(),
         )
     }
@@ -453,18 +453,21 @@ fn layout(
     body: &Option<Content>,
     sizing: Axes<Smart<Rel<Length>>>,
     fill: Option<Paint>,
-    stroke: Smart<Sides<Option<Stroke<Abs>>>>,
-    mut inset: Sides<Rel<Abs>>,
-    outset: Sides<Rel<Abs>>,
-    radius: Corners<Rel<Abs>>,
+    stroke: Smart<Sides<Option<Option<Stroke<Abs>>>>>,
+    inset: Sides<Option<Rel<Abs>>>,
+    outset: Sides<Option<Rel<Abs>>>,
+    radius: Corners<Option<Rel<Abs>>>,
     span: Span,
 ) -> SourceResult<Frame> {
     let resolved = sizing
         .zip_map(regions.base(), |s, r| s.map(|v| v.resolve(styles).relative_to(r)));
 
     let mut frame;
+    let mut inset = inset.unwrap_or_default();
+
     if let Some(child) = body {
         let region = resolved.unwrap_or(regions.base());
+
         if kind.is_round() {
             inset = inset.map(|side| side + Ratio::new(0.5 - SQRT_2 / 4.0));
         }
@@ -507,19 +510,27 @@ fn layout(
     let stroke = match stroke {
         Smart::Auto if fill.is_none() => Sides::splat(Some(FixedStroke::default())),
         Smart::Auto => Sides::splat(None),
-        Smart::Custom(strokes) => strokes.map(|s| s.map(Stroke::unwrap_or_default)),
+        Smart::Custom(strokes) => {
+            strokes.unwrap_or_default().map(|s| s.map(Stroke::unwrap_or_default))
+        }
     };
 
     // Add fill and/or stroke.
     if fill.is_some() || stroke.iter().any(Option::is_some) {
         if kind.is_round() {
-            let outset = outset.relative_to(frame.size());
+            let outset = outset.unwrap_or_default().relative_to(frame.size());
             let size = frame.size() + outset.sum_by_axis();
             let pos = Point::new(-outset.left, -outset.top);
             let shape = ellipse(size, fill, stroke.left);
             frame.prepend(pos, FrameItem::Shape(shape, span));
         } else {
-            frame.fill_and_stroke(fill, stroke, outset, radius, span);
+            frame.fill_and_stroke(
+                fill,
+                stroke,
+                outset.unwrap_or_default(),
+                radius.unwrap_or_default(),
+                span,
+            );
         }
     }
 

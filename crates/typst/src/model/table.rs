@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use ecow::eco_format;
 
 use crate::diag::{SourceResult, Trace, Tracepoint};
@@ -12,6 +14,7 @@ use crate::layout::{
 use crate::model::Figurable;
 use crate::syntax::Span;
 use crate::text::{Lang, LocalName, Region};
+use crate::util::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
 
 /// A table of items.
@@ -191,7 +194,7 @@ pub struct TableElem {
     /// )
     /// ```
     #[fold]
-    #[default(Sides::splat(Abs::pt(5.0).into()))]
+    #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// The contents of the table cells.
@@ -346,6 +349,10 @@ pub struct TableCell {
     /// The cell's fill override.
     fill: Smart<Option<Paint>>,
 
+    /// The amount of columns spanned by this cell.
+    #[default(NonZeroUsize::ONE)]
+    colspan: NonZeroUsize,
+
     /// The cell's alignment override.
     align: Smart<Alignment>,
 
@@ -371,10 +378,11 @@ impl ResolvableCell for Packed<TableCell> {
         y: usize,
         fill: &Option<Paint>,
         align: Smart<Alignment>,
-        inset: Sides<Rel<Length>>,
+        inset: Sides<Option<Rel<Length>>>,
         styles: StyleChain,
     ) -> Cell {
         let cell = &mut *self;
+        let colspan = cell.colspan(styles);
         let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
         cell.push_x(Smart::Custom(x));
         cell.push_y(Smart::Custom(y));
@@ -389,10 +397,9 @@ impl ResolvableCell for Packed<TableCell> {
             Smart::Auto => cell.align(styles),
         });
         cell.push_inset(Smart::Custom(
-            cell.inset(styles).map_or(inset, |inner| inner.fold(inset)).map(Some),
+            cell.inset(styles).map_or(inset, |inner| inner.fold(inset)),
         ));
-
-        Cell { body: self.pack(), fill }
+        Cell { body: self.pack(), fill, colspan }
     }
 
     fn x(&self, styles: StyleChain) -> Smart<usize> {
@@ -401,6 +408,10 @@ impl ResolvableCell for Packed<TableCell> {
 
     fn y(&self, styles: StyleChain) -> Smart<usize> {
         (**self).y(styles)
+    }
+
+    fn colspan(&self, styles: StyleChain) -> std::num::NonZeroUsize {
+        (**self).colspan(styles)
     }
 
     fn span(&self) -> Span {

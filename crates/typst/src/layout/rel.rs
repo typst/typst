@@ -259,19 +259,12 @@ where
     }
 }
 
-impl Fold for Rel<Abs> {
-    type Output = Self;
-
-    fn fold(self, _: Self::Output) -> Self::Output {
-        self
-    }
-}
-
-impl Fold for Rel<Length> {
-    type Output = Self;
-
-    fn fold(self, _: Self::Output) -> Self::Output {
-        self
+impl<T> Fold for Rel<T>
+where
+    T: Numeric + Fold,
+{
+    fn fold(self, outer: Self) -> Self {
+        Self { rel: self.rel, abs: self.abs.fold(outer.abs) }
     }
 }
 

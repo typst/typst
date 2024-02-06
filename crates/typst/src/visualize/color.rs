@@ -19,13 +19,13 @@ use crate::layout::{Angle, Ratio};
 use crate::syntax::{Span, Spanned};
 
 // Type aliases for `palette` internal types in f32.
-pub(crate) type Oklab = palette::oklab::Oklaba<f32>;
-pub(crate) type Oklch = palette::oklch::Oklcha<f32>;
-pub(crate) type LinearRgb = palette::rgb::Rgba<Linear<encoding::Srgb>, f32>;
-pub(crate) type Rgb = palette::rgb::Rgba<encoding::Srgb, f32>;
-pub(crate) type Hsl = palette::hsl::Hsla<encoding::Srgb, f32>;
-pub(crate) type Hsv = palette::hsv::Hsva<encoding::Srgb, f32>;
-pub(crate) type Luma = palette::luma::Luma<encoding::Srgb, f32>;
+pub type Oklab = palette::oklab::Oklaba<f32>;
+pub type Oklch = palette::oklch::Oklcha<f32>;
+pub type LinearRgb = palette::rgb::Rgba<Linear<encoding::Srgb>, f32>;
+pub type Rgb = palette::rgb::Rgba<encoding::Srgb, f32>;
+pub type Hsl = palette::hsl::Hsla<encoding::Srgb, f32>;
+pub type Hsv = palette::hsv::Hsva<encoding::Srgb, f32>;
+pub type Luma = palette::luma::Luma<encoding::Srgb, f32>;
 
 /// Equivalent of [`std::f32::EPSILON`] but for hue angles.
 const ANGLE_EPSILON: f32 = 1e-5;

@@ -57,7 +57,7 @@ Let's dissect what's going on:
   markup like this, see the [syntax] reference for a full list.
 
 - [Mathematical equations][math] are enclosed in dollar signs. By adding extra
-  spaces around the contents of a equation, we can put it into a separate block.
+  spaces around the contents of an equation, we can put it into a separate block.
   Multi-letter identifiers are interpreted as Typst definitions and functions
   unless put into quotes. This way, we don't need backslashes for things like
   `floor` and `sqrt`. And `phi.alt` applies the `alt` modifier to the `phi` to
