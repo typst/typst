@@ -43,7 +43,11 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
     let output = command.output();
     while terminal::out().is_active() {
         let mut recompile = false;
-        if let Ok(event) = rx.recv_timeout(timeout) {
+        for event in rx
+            .recv()
+            .into_iter()
+            .chain(std::iter::from_fn(|| rx.recv_timeout(timeout).ok()))
+        {
             let event =
                 event.map_err(|err| eco_format!("failed to watch directory ({err})"))?;
 
