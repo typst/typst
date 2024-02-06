@@ -377,9 +377,9 @@ impl Resolve for InsideStroke {
     }
 }
 
-impl From<Option<Stroke>> for InsideStroke {
-    fn from(stroke: Option<Stroke>) -> Self {
-        Self::Auto(stroke)
+impl From<Stroke> for InsideStroke {
+    fn from(stroke: Stroke) -> Self {
+        Self::Auto(Some(stroke))
     }
 }
 
@@ -427,13 +427,13 @@ where
 
 impl<I: Reflect> Reflect for GridStroke<I> {
     fn input() -> CastInfo {
-        <Option<Stroke> as Reflect>::input() + <Dict as Reflect>::input()
+        Dict::input() + I::input()
     }
     fn output() -> CastInfo {
         Self::input()
     }
     fn castable(value: &Value) -> bool {
-        <Option<Stroke> as Reflect>::castable(value) || <Dict as Reflect>::castable(value)
+        Dict::castable(value) || I::castable(value)
     }
 }
 
@@ -457,16 +457,19 @@ impl<I: IntoValue> IntoValue for GridStroke<I> {
         }
     }
 }
+
 impl<I> FromValue for GridStroke<I>
 where
-    I: Default + FromValue + From<Option<Stroke>>,
+    I: Default + FromValue + From<Stroke> + Reflect,
 {
     fn from_value(value: Value) -> ::typst::diag::StrResult<Self> {
-        if <Option<Stroke> as Reflect>::castable(&value) {
-            let stroke = Option::<Stroke>::from_value(value)?;
-            return Ok(Self { outside: Smart::Auto, inside: I::from(stroke) });
-        }
-        if <Dict as Reflect>::castable(&value) {
+        if Dict::castable(&value) {
+            if let Ok(stroke) = Stroke::from_value(value.clone()) {
+                // This dictionary has valid stroke properties, so it must
+                // correspond to the inside stroke.
+                let inside = I::from(stroke);
+                return Ok(Self { outside: Smart::Auto, inside });
+            }
             let mut dict = Dict::from_value(value)?;
             return Ok({
                 fn take<T: FromValue>(
@@ -492,7 +495,11 @@ where
                 }
             });
         }
-        Err(<Self as Reflect>::error(&value))
+        if I::castable(&value) {
+            let inside = I::from_value(value)?;
+            return Ok(Self { outside: Smart::Auto, inside });
+        }
+        Err(Self::error(&value))
     }
 }
 

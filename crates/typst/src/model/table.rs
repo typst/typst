@@ -331,9 +331,9 @@ impl Resolve for InsideStroke {
     }
 }
 
-impl From<Option<Stroke>> for InsideStroke {
-    fn from(stroke: Option<Stroke>) -> Self {
-        Self::Auto(stroke)
+impl From<Stroke> for InsideStroke {
+    fn from(stroke: Stroke) -> Self {
+        Self::Auto(Some(stroke))
     }
 }
 
