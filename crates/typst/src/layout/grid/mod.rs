@@ -1,8 +1,12 @@
 mod layout;
 
-pub use self::layout::{Cell, CellGrid, Celled, GridLayouter, ResolvableCell};
+pub use self::layout::{
+    Cell, CellGrid, Celled, GridLayouter, ResolvableCell, ResolvedGridStroke,
+    ResolvedInsideStroke,
+};
 
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 use ecow::eco_format;
 use smallvec::{smallvec, SmallVec};
@@ -10,11 +14,12 @@ use smallvec::{smallvec, SmallVec};
 use crate::diag::{SourceResult, StrResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, Packed, Show, Smart, StyleChain, Value,
+    cast, elem, scope, Array, Content, Dict, Fold, FromValue, IntoValue, Packed, Resolve,
+    Show, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    AlignElem, Alignment, Axes, Fragment, LayoutMultiple, Length, Regions, Rel, Sides,
-    Sizing,
+    Abs, AlignElem, Alignment, Axes, Fragment, LayoutMultiple, Length, Regions, Rel,
+    Sides, Sizing,
 };
 use crate::syntax::Span;
 use crate::util::NonZeroExt;
@@ -240,7 +245,7 @@ pub struct GridElem {
     /// third-party [tablex library](https://github.com/PgBiel/typst-tablex/).
     #[resolve]
     #[fold]
-    pub stroke: Option<Stroke>,
+    pub stroke: GridStroke,
 
     /// How much to pad the cells' content.
     ///
@@ -294,7 +299,7 @@ impl LayoutMultiple for Packed<GridElem> {
         let column_gutter = self.column_gutter(styles);
         let row_gutter = self.row_gutter(styles);
         let fill = self.fill(styles);
-        let stroke = self.stroke(styles).map(Stroke::unwrap_or_default);
+        let stroke = self.stroke(styles);
 
         let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
@@ -307,13 +312,14 @@ impl LayoutMultiple for Packed<GridElem> {
             fill,
             align,
             inset,
+            stroke,
             engine,
             styles,
             self.span(),
         )
         .trace(engine.world, tracepoint, self.span())?;
 
-        let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
+        let layouter = GridLayouter::new(&grid, regions, styles, self.span());
 
         // Measure the columns and layout the grid row-by-row.
         layouter.layout(engine)
@@ -330,6 +336,146 @@ cast! {
     sizing: Sizing => Self(smallvec![sizing]),
     count: NonZeroUsize => Self(smallvec![Sizing::Auto; count.get()]),
     values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+}
+
+/// Possible settings for the strokes of cells' lines.
+#[derive(Debug, Clone, Hash, PartialEq)]
+pub enum InsideStroke {
+    /// Configures all automatic lines spanning the whole grid.
+    Auto(Option<Stroke>),
+    /// Configures the borders of each cell.
+    Celled(Celled<Sides<Option<Option<Arc<Stroke>>>>>),
+}
+
+impl Default for InsideStroke {
+    fn default() -> Self {
+        Self::Auto(None)
+    }
+}
+
+impl Fold for InsideStroke {
+    fn fold(self, outer: Self) -> Self {
+        match (self, outer) {
+            (Self::Auto(inner), Self::Auto(outer)) => Self::Auto(inner.fold(outer)),
+            (Self::Celled(inner), Self::Celled(outer)) => Self::Celled(inner.fold(outer)),
+            (inner, _) => inner,
+        }
+    }
+}
+
+impl Resolve for InsideStroke {
+    type Output = ResolvedInsideStroke;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        match self {
+            Self::Auto(stroke) => ResolvedInsideStroke::Auto(
+                stroke.resolve(styles).map(Stroke::unwrap_or_default),
+            ),
+            Self::Celled(stroke) => {
+                ResolvedInsideStroke::Celled(Resolve::resolve(stroke, styles))
+            }
+        }
+    }
+}
+
+cast! {
+    InsideStroke,
+
+    self => match self {
+        Self::Auto(stroke) => stroke.into_value(),
+        Self::Celled(stroke) => stroke.into_value(),
+    },
+    v: Option<Stroke> => Self::Auto(v),
+    v: Celled<Sides<Option<Option<Arc<Stroke>>>>> => Self::Celled(v),
+}
+
+/// Grid-wide stroke settings.
+#[derive(Debug, Clone, Hash, Default, PartialEq)]
+pub struct GridStroke {
+    /// Configures only the grid's border lines.
+    pub outside: Smart<Sides<Option<Option<Arc<Stroke>>>>>,
+    /// Configures the cells' lines.
+    pub inside: InsideStroke,
+}
+
+impl Fold for GridStroke {
+    fn fold(self, outer: Self) -> Self {
+        Self {
+            outside: self.outside.fold(outer.outside),
+            inside: self.inside.fold(outer.inside),
+        }
+    }
+}
+
+impl Resolve for GridStroke {
+    type Output = ResolvedGridStroke;
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        ResolvedGridStroke {
+            outside: self.outside.resolve(styles),
+            inside: self.inside.resolve(styles),
+        }
+    }
+}
+
+cast! {
+    GridStroke,
+
+    self => {
+        if let Smart::Custom(outside) = self.outside {
+            let mut dict = Dict::new();
+            let mut handle = |key: &str, component: Option<Value>| {
+                if let Some(value) = component {
+                    // Insert component even if it is none, as long as it was
+                    // specified.
+                    dict.insert(key.into(), value);
+                }
+            };
+
+            handle("top", outside.top.map(IntoValue::into_value));
+            handle("bottom", outside.bottom.map(IntoValue::into_value));
+            handle("left", outside.left.map(IntoValue::into_value));
+            handle("right", outside.right.map(IntoValue::into_value));
+            dict.insert("inside".into(), self.inside.into_value());
+
+            Value::Dict(dict)
+        } else {
+            self.inside.into_value()
+        }
+    },
+
+    stroke: Option<Stroke> => Self {
+        outside: Smart::Auto,
+        inside: InsideStroke::Auto(stroke),
+    },
+
+    mut dict: Dict => {
+        fn take<T: FromValue>(dict: &mut Dict, key: &str) -> StrResult<Option<T>> {
+            dict.take(key).ok().map(Value::cast).transpose()
+        }
+
+        let rest = take(&mut dict, "rest")?;
+        let x = take(&mut dict, "x")?.or_else(|| rest.clone());
+        let y = take(&mut dict, "y")?.or(rest);
+        let top = take(&mut dict, "top")?.or_else(|| y.clone());
+        let bottom = take(&mut dict, "bottom")?.or(y);
+        let left = take(&mut dict, "left")?.or_else(|| x.clone());
+        let right = take(&mut dict, "right")?.or(x);
+        let inside = take(&mut dict, "inside")?.unwrap_or_default();
+
+        dict.finish(&[
+            "inside", "left", "top", "right", "bottom", "x", "y", "rest",
+        ])?;
+
+        Self {
+            outside: Smart::Custom(Sides {
+                left,
+                top,
+                right,
+                bottom,
+            }),
+            inside,
+        }
+    },
 }
 
 /// A cell in the grid. Use this to either override grid properties for a
@@ -441,6 +587,10 @@ pub struct GridCell {
 
     /// The cell's inset override.
     inset: Smart<Sides<Option<Rel<Length>>>>,
+
+    /// The cell's stroke override.
+    #[resolve]
+    stroke: Sides<Option<Option<Arc<Stroke>>>>,
 }
 
 cast! {
@@ -454,6 +604,8 @@ impl Default for Packed<GridCell> {
     }
 }
 
+// TODO: Avoid cloning Arcs unnecessarily (here and for TableCell too)
+// Fold again (manually) when pushing stroke; don't convert to FixedStroke
 impl ResolvableCell for Packed<GridCell> {
     fn resolve_cell(
         mut self,
@@ -462,11 +614,18 @@ impl ResolvableCell for Packed<GridCell> {
         fill: &Option<Paint>,
         align: Smart<Alignment>,
         inset: Sides<Option<Rel<Length>>>,
+        stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         styles: StyleChain,
     ) -> Cell {
         let cell = &mut *self;
         let colspan = cell.colspan(styles);
         let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
+        // Using a typical 'Sides' fold, an unspecified side loses to a
+        // specified side. Additionally, when both are specified, an inner
+        // None wins over the outer Some, and vice-versa. When both are
+        // specified and Some, fold occurs, which, remarkably, leads to an Arc
+        // clone.
+        let stroke = cell.stroke(styles).fold(stroke);
         cell.push_x(Smart::Custom(x));
         cell.push_y(Smart::Custom(y));
         cell.push_fill(Smart::Custom(fill.clone()));
@@ -482,7 +641,27 @@ impl ResolvableCell for Packed<GridCell> {
         cell.push_inset(Smart::Custom(
             cell.inset(styles).map_or(inset, |inner| inner.fold(inset)),
         ));
-        Cell { body: self.pack(), fill, colspan }
+        cell.push_stroke(
+            // Here we convert the resolved stroke to a regular stroke, however
+            // with resolved units (that is, 'em' converted to absolute units).
+            // We also convert any stroke unspecified by both the cell and the
+            // outer stroke ('None' in the folded stroke) to 'none', that is,
+            // all sides are present in the resulting Sides object.
+            stroke.clone().map(|side| {
+                Some(side.flatten().map(|cell_stroke| {
+                    Arc::new((*cell_stroke).clone().map(Length::from))
+                }))
+            }),
+        );
+
+        // For layout purposes, a stroke of 'none' on a cell is the same as not
+        // specifying it, so we use flatten to equate strokes of 'none' to
+        // unspecified sides. We also convert strokes to FixedStroke.
+        let stroke = stroke.map(|side| {
+            side.flatten()
+                .map(|cell_stroke| Arc::new((*cell_stroke).clone().unwrap_or_default()))
+        });
+        Cell { body: self.pack(), fill, colspan, stroke }
     }
 
     fn x(&self, styles: StyleChain) -> Smart<usize> {

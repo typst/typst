@@ -1,4 +1,7 @@
+use std::fmt::Debug;
+use std::hash::Hash;
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 use ecow::eco_format;
 
@@ -7,7 +10,7 @@ use crate::diag::{
 };
 use crate::engine::Engine;
 use crate::foundations::{
-    Array, CastInfo, Content, FromValue, Func, IntoValue, Reflect, Resolve, Smart,
+    Array, CastInfo, Content, Fold, FromValue, Func, IntoValue, Reflect, Resolve, Smart,
     StyleChain, Value,
 };
 use crate::layout::{
@@ -17,7 +20,31 @@ use crate::layout::{
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::util::{MaybeReverseIter, NonZeroExt, Numeric};
-use crate::visualize::{FixedStroke, Geometry, Paint};
+use crate::visualize::{FixedStroke, Geometry, Paint, Stroke};
+
+/// Resolved settings for the strokes of cells' lines.
+pub enum ResolvedInsideStroke {
+    /// Configures all automatic lines spanning the whole grid.
+    Auto(Option<FixedStroke>),
+    /// Configures the borders of each cell.
+    Celled(ResolvedCelled<Sides<Option<Option<Arc<Stroke>>>>>),
+}
+
+impl Default for ResolvedInsideStroke {
+    fn default() -> Self {
+        Self::Auto(None)
+    }
+}
+
+/// Resolved grid-wide stroke settings.
+#[derive(Default)]
+pub struct ResolvedGridStroke {
+    /// Configures only the grid's border lines.
+    #[allow(clippy::type_complexity)] // TODO: Create a type alias or something
+    pub outside: Smart<Sides<Option<Option<Arc<Stroke<Abs>>>>>>,
+    /// Configures the cells' lines.
+    pub inside: ResolvedInsideStroke,
+}
 
 /// A value that can be configured per cell.
 #[derive(Debug, Clone, PartialEq, Hash)]
@@ -88,6 +115,94 @@ impl<T: FromValue> FromValue for Celled<T> {
     }
 }
 
+impl<T: Fold> Fold for Celled<T> {
+    fn fold(self, outer: Self) -> Self {
+        match (self, outer) {
+            (Self::Value(inner), Self::Value(outer)) => Self::Value(inner.fold(outer)),
+            (self_, _) => self_,
+        }
+    }
+}
+
+impl<T: Resolve> Resolve for Celled<T> {
+    type Output = ResolvedCelled<T>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        match self {
+            Self::Value(value) => ResolvedCelled::Value(value.resolve(styles)),
+            Self::Func(func) => ResolvedCelled::Func(func),
+            Self::Array(values) => ResolvedCelled::Array(
+                values.into_iter().map(|value| value.resolve(styles)).collect(),
+            ),
+        }
+    }
+}
+
+/// The result of resolving a Celled's value according to styles.
+/// Holds resolved values which depend on each grid cell's position.
+pub enum ResolvedCelled<T: Resolve> {
+    /// The resolved value. The same for all cells.
+    Value(<T as Resolve>::Output),
+    /// A closure mapping cell coordinates to a value.
+    /// The value is only resolved upon usage.
+    Func(Func),
+    /// An array of resolved values corresponding to each column.
+    Array(Vec<<T as Resolve>::Output>),
+}
+
+impl<T> ResolvedCelled<T>
+where
+    T: FromValue + Resolve,
+    <T as Resolve>::Output: Default + Clone,
+{
+    /// Resolve the value based on the cell position.
+    pub fn resolve(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        x: usize,
+        y: usize,
+    ) -> SourceResult<T::Output> {
+        Ok(match self {
+            Self::Value(value) => value.clone(),
+            Self::Func(func) => func
+                .call(engine, [x, y])?
+                .cast::<T>()
+                .at(func.span())?
+                .resolve(styles),
+            Self::Array(array) => x
+                .checked_rem(array.len())
+                .and_then(|i| array.get(i))
+                .cloned()
+                .unwrap_or_default(),
+        })
+    }
+}
+
+impl<T> Default for ResolvedCelled<T>
+where
+    T: Resolve,
+    <T as Resolve>::Output: Default,
+{
+    fn default() -> Self {
+        Self::Value(<T as Resolve>::Output::default())
+    }
+}
+
+impl<T> Clone for ResolvedCelled<T>
+where
+    T: Resolve,
+    <T as Resolve>::Output: Clone,
+{
+    fn clone(&self) -> Self {
+        match self {
+            Self::Value(value) => Self::Value(value.clone()),
+            Self::Func(func) => Self::Func(func.clone()),
+            Self::Array(values) => Self::Array(values.clone()),
+        }
+    }
+}
+
 /// Represents a cell in CellGrid, to be laid out by GridLayouter.
 #[derive(Clone)]
 pub struct Cell {
@@ -97,12 +212,21 @@ pub struct Cell {
     pub fill: Option<Paint>,
     /// The amount of columns spanned by the cell.
     pub colspan: NonZeroUsize,
+    /// The cell's stroke.
+    /// We use an Arc to avoid unnecessary space usage when all sides are the
+    /// same, or when the strokes come from a common source.
+    pub stroke: Sides<Option<Arc<FixedStroke>>>,
 }
 
 impl From<Content> for Cell {
     /// Create a simple cell given its body.
     fn from(body: Content) -> Self {
-        Self { body, fill: None, colspan: NonZeroUsize::ONE }
+        Self {
+            body,
+            fill: None,
+            colspan: NonZeroUsize::ONE,
+            stroke: Sides::splat(None),
+        }
     }
 }
 
@@ -143,8 +267,9 @@ impl Entry {
 /// the table, and may have property overrides.
 pub trait ResolvableCell {
     /// Resolves the cell's fields, given its coordinates and default grid-wide
-    /// fill, align and inset properties.
+    /// fill, align, inset and stroke properties.
     /// Returns a final Cell.
+    #[allow(clippy::too_many_arguments)]
     fn resolve_cell(
         self,
         x: usize,
@@ -152,6 +277,7 @@ pub trait ResolvableCell {
         fill: &Option<Paint>,
         align: Smart<Alignment>,
         inset: Sides<Option<Rel<Length>>>,
+        stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         styles: StyleChain,
     ) -> Cell;
 
@@ -176,6 +302,8 @@ pub struct CellGrid {
     cols: Vec<Sizing>,
     /// The row tracks including gutter tracks.
     rows: Vec<Sizing>,
+    /// The global grid stroke options.
+    stroke: ResolvedGridStroke,
     /// Whether this grid has gutters.
     has_gutter: bool,
 }
@@ -188,7 +316,7 @@ impl CellGrid {
         cells: impl IntoIterator<Item = Cell>,
     ) -> Self {
         let entries = cells.into_iter().map(Entry::Cell).collect();
-        Self::new_internal(tracks, gutter, entries)
+        Self::new_internal(tracks, gutter, ResolvedGridStroke::default(), entries)
     }
 
     /// Resolves and positions all cells in the grid before creating it.
@@ -205,6 +333,7 @@ impl CellGrid {
         fill: &Celled<Option<Paint>>,
         align: &Celled<Smart<Alignment>>,
         inset: Sides<Option<Rel<Length>>>,
+        stroke: ResolvedGridStroke,
         engine: &mut Engine,
         styles: StyleChain,
         span: Span,
@@ -265,6 +394,13 @@ impl CellGrid {
                 )
             };
 
+            let stroke = match &stroke.inside {
+                ResolvedInsideStroke::Auto(_) => Sides::default(),
+                ResolvedInsideStroke::Celled(stroke) => {
+                    stroke.clone().resolve(engine, styles, x, y)?
+                }
+            };
+
             // Let's resolve the cell so it can determine its own fields
             // based on its final position.
             let cell = cell.resolve_cell(
@@ -273,6 +409,7 @@ impl CellGrid {
                 &fill.resolve(engine, x, y)?,
                 align.resolve(engine, x, y)?,
                 inset,
+                stroke,
                 styles,
             );
 
@@ -349,6 +486,12 @@ impl CellGrid {
                 } else {
                     let x = i % c;
                     let y = i / c;
+                    let stroke = match &stroke.inside {
+                        ResolvedInsideStroke::Auto(_) => Sides::default(),
+                        ResolvedInsideStroke::Celled(stroke) => {
+                            stroke.clone().resolve(engine, styles, x, y)?
+                        }
+                    };
 
                     // Ensure all absent entries are affected by show rules and
                     // grid styling by turning them into resolved empty cells.
@@ -358,6 +501,7 @@ impl CellGrid {
                         &fill.resolve(engine, x, y)?,
                         align.resolve(engine, x, y)?,
                         inset,
+                        stroke,
                         styles,
                     );
                     Ok(Entry::Cell(new_cell))
@@ -365,13 +509,14 @@ impl CellGrid {
             })
             .collect::<SourceResult<Vec<Entry>>>()?;
 
-        Ok(Self::new_internal(tracks, gutter, resolved_cells))
+        Ok(Self::new_internal(tracks, gutter, stroke, resolved_cells))
     }
 
     /// Generates the cell grid, given the tracks and resolved entries.
     fn new_internal(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
+        stroke: ResolvedGridStroke,
         entries: Vec<Entry>,
     ) -> Self {
         let mut cols = vec![];
@@ -418,7 +563,7 @@ impl CellGrid {
             rows.pop();
         }
 
-        Self { cols, rows, entries, has_gutter }
+        Self { cols, rows, entries, stroke, has_gutter }
     }
 
     /// Get the grid entry in column `x` and row `y`.
@@ -571,8 +716,6 @@ fn resolve_cell_position(
 pub struct GridLayouter<'a> {
     /// The grid of cells.
     grid: &'a CellGrid,
-    // How to stroke the cells.
-    stroke: &'a Option<FixedStroke>,
     /// The regions to layout children into.
     regions: Regions<'a>,
     /// The inherited styles.
@@ -617,10 +760,8 @@ impl<'a> GridLayouter<'a> {
     /// Create a new grid layouter.
     ///
     /// This prepares grid layout by unifying content and gutter tracks.
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         grid: &'a CellGrid,
-        stroke: &'a Option<FixedStroke>,
         regions: Regions<'a>,
         styles: StyleChain<'a>,
         span: Span,
@@ -632,7 +773,6 @@ impl<'a> GridLayouter<'a> {
 
         Self {
             grid,
-            stroke,
             regions,
             styles,
             rcols: vec![Abs::zero(); grid.cols.len()],
@@ -678,7 +818,7 @@ impl<'a> GridLayouter<'a> {
             }
 
             // Render table lines.
-            if let Some(stroke) = self.stroke {
+            if let ResolvedInsideStroke::Auto(Some(stroke)) = &self.grid.stroke.inside {
                 let thickness = stroke.thickness;
                 let half = thickness / 2.0;
 
@@ -1344,6 +1484,7 @@ mod test {
             body: Content::default(),
             fill: None,
             colspan: NonZeroUsize::ONE,
+            stroke: Sides::default(),
         }
     }
 
@@ -1352,6 +1493,7 @@ mod test {
             body: Content::default(),
             fill: None,
             colspan: NonZeroUsize::try_from(colspan).unwrap(),
+            stroke: Sides::default(),
         }
     }
 
@@ -1397,6 +1539,7 @@ mod test {
             } else {
                 Axes::default()
             },
+            ResolvedGridStroke::default(),
             entries,
         )
     }

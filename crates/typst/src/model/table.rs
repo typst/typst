@@ -1,4 +1,5 @@
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 use ecow::eco_format;
 
@@ -9,7 +10,8 @@ use crate::foundations::{
 };
 use crate::layout::{
     show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter,
-    LayoutMultiple, Length, Regions, Rel, ResolvableCell, Sides, TrackSizings,
+    GridStroke, InsideStroke, LayoutMultiple, Length, Regions, Rel, ResolvableCell,
+    Sides, TrackSizings,
 };
 use crate::model::Figurable;
 use crate::syntax::Span;
@@ -171,8 +173,8 @@ pub struct TableElem {
     /// third-party [tablex library](https://github.com/PgBiel/typst-tablex/).
     #[resolve]
     #[fold]
-    #[default(Some(Stroke::default()))]
-    pub stroke: Option<Stroke>,
+    #[default(GridStroke { outside: Smart::Auto, inside: InsideStroke::Auto(Some(Stroke::default())) })]
+    pub stroke: GridStroke,
 
     /// How much to pad the cells' content.
     ///
@@ -223,7 +225,7 @@ impl LayoutMultiple for Packed<TableElem> {
         let column_gutter = self.column_gutter(styles);
         let row_gutter = self.row_gutter(styles);
         let fill = self.fill(styles);
-        let stroke = self.stroke(styles).map(Stroke::unwrap_or_default);
+        let stroke = self.stroke(styles);
 
         let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
@@ -236,13 +238,14 @@ impl LayoutMultiple for Packed<TableElem> {
             fill,
             align,
             inset,
+            stroke,
             engine,
             styles,
             self.span(),
         )
         .trace(engine.world, tracepoint, self.span())?;
 
-        let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
+        let layouter = GridLayouter::new(&grid, regions, styles, self.span());
         layouter.layout(engine)
     }
 }
@@ -358,6 +361,10 @@ pub struct TableCell {
 
     /// The cell's inset override.
     inset: Smart<Sides<Option<Rel<Length>>>>,
+
+    /// The cell's stroke override.
+    #[resolve]
+    stroke: Sides<Option<Option<Arc<Stroke>>>>,
 }
 
 cast! {
@@ -379,11 +386,18 @@ impl ResolvableCell for Packed<TableCell> {
         fill: &Option<Paint>,
         align: Smart<Alignment>,
         inset: Sides<Option<Rel<Length>>>,
+        stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         styles: StyleChain,
     ) -> Cell {
         let cell = &mut *self;
         let colspan = cell.colspan(styles);
         let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
+        // Using a typical 'Sides' fold, an unspecified side loses to a
+        // specified side. Additionally, when both are specified, an inner
+        // None wins over the outer Some, and vice-versa. When both are
+        // specified and Some, fold occurs, which, remarkably, leads to an Arc
+        // clone.
+        let stroke = cell.stroke(styles).fold(stroke);
         cell.push_x(Smart::Custom(x));
         cell.push_y(Smart::Custom(y));
         cell.push_fill(Smart::Custom(fill.clone()));
@@ -399,7 +413,27 @@ impl ResolvableCell for Packed<TableCell> {
         cell.push_inset(Smart::Custom(
             cell.inset(styles).map_or(inset, |inner| inner.fold(inset)),
         ));
-        Cell { body: self.pack(), fill, colspan }
+        cell.push_stroke(
+            // Here we convert the resolved stroke to a regular stroke, however
+            // with resolved units (that is, 'em' converted to absolute units).
+            // We also convert any stroke unspecified by both the cell and the
+            // outer stroke ('None' in the folded stroke) to 'none', that is,
+            // all sides are present in the resulting Sides object.
+            stroke.clone().map(|side| {
+                Some(side.flatten().map(|cell_stroke| {
+                    Arc::new((*cell_stroke).clone().map(Length::from))
+                }))
+            }),
+        );
+
+        // For layout purposes, a stroke of 'none' on a cell is the same as not
+        // specifying it, so we use flatten to equate strokes of 'none' to
+        // unspecified sides. We also convert strokes to FixedStroke.
+        let stroke = stroke.map(|side| {
+            side.flatten()
+                .map(|cell_stroke| Arc::new((*cell_stroke).clone().unwrap_or_default()))
+        });
+        Cell { body: self.pack(), fill, colspan, stroke }
     }
 
     fn x(&self, styles: StyleChain) -> Smart<usize> {
