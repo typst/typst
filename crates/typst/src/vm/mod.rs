@@ -8,11 +8,11 @@ mod pattern;
 mod tracer;
 mod values;
 
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
-use smallvec::SmallVec;
 use typst_syntax::{Source, Span};
 
 use crate::compiler::compile_module;
@@ -183,7 +183,7 @@ pub fn run(
 
     let output = if let Some(readable) = state.output {
         match readable {
-            Readable::Reg(reg) => Some(state.take(reg)),
+            Readable::Reg(reg) => Some(state.take(reg).into_owned()),
             Readable::None => Some(Value::None),
             Readable::Bool(b) => Some(Value::Bool(b)),
             _ => Some(state.read(readable).clone()),
@@ -244,7 +244,7 @@ pub struct VMState<'a> {
     /// The spans used in the instructions.
     spans: &'a [Span],
     /// The registers.
-    registers: SmallVec<[Value; 16]>,
+    registers: Vec<Cow<'a, Value>>,
 }
 
 impl<'a> VMState<'a> {
@@ -253,7 +253,8 @@ impl<'a> VMState<'a> {
         readable.read(self)
     }
 
-    pub fn take(&mut self, register: Register) -> Value {
+    /// Take a register from the VM.
+    pub fn take(&mut self, register: Register) -> Cow<'a, Value> {
         std::mem::take(&mut self.registers[register.0 as usize])
     }
 
@@ -269,6 +270,20 @@ impl<'a> VMState<'a> {
         value: impl IntoValue,
     ) -> StrResult<()> {
         writable.write_one(self, value)
+    }
+
+    /// Write a borrowed value to the VM.
+    pub fn write_borrowed(
+        &mut self,
+        register: Register,
+        value: &'a Value,
+    ) -> StrResult<()> {
+        if register.0 as usize > self.registers.len() {
+            bail!("register out of bounds");
+        }
+
+        self.registers[register.0 as usize] = Cow::Borrowed(value);
+        Ok(())
     }
 
     /// Join a value to the current joining state.

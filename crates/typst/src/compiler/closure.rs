@@ -59,18 +59,18 @@ impl Compile for ast::Closure<'_> {
                     // Simple patterns can be directly stored.
                     if let PatternKind::Single(PatternItem::Simple(
                         _,
-                        AccessPattern::Writable(reg),
+                        AccessPattern::Writable(WritableGuard::Register(reg)),
                         name,
                     )) = &pattern.kind
                     {
-                        params.push(CompiledParam::Pos(reg.into(), name.clone()));
+                        params.push(CompiledParam::Pos(reg.as_register(), name.clone()));
                     } else {
                         // Create a register for the pattern.
                         let reg = closure_compiler.register();
                         let pattern_id =
                             closure_compiler.pattern(pattern.as_vm_pattern());
                         params.push(CompiledParam::Pos(
-                            reg.as_writeable(),
+                            reg.as_register(),
                             "anonymous".into(),
                         ));
                         closure_compiler.destructure(
@@ -89,7 +89,7 @@ impl Compile for ast::Closure<'_> {
                     // Add the parameter to the list.
                     params.push(CompiledParam::Named {
                         span: named.span(),
-                        target: target.as_writeable(),
+                        target: target.as_register(),
                         name: name.clone(),
                         default: defaults_iter.next().map(|r| r.as_readable()),
                     });
@@ -111,7 +111,7 @@ impl Compile for ast::Closure<'_> {
 
                     params.push(CompiledParam::Sink(
                         sink.span(),
-                        Some(target.as_writeable()),
+                        Some(target.as_register()),
                         EcoString::new(),
                     ));
                 }
@@ -136,11 +136,8 @@ impl Compile for ast::Closure<'_> {
         closure_compiler.flow();
 
         // Collect the compiled closure.
-        let closure = closure_compiler.into_compiled_closure(
-            self.span(),
-            params,
-            closure_local.map(WritableGuard::Register),
-        );
+        let closure =
+            closure_compiler.into_compiled_closure(self.span(), params, closure_local);
 
         // Get the closure ID.
         let closure_id = compiler.closure(closure);

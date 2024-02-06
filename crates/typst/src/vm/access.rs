@@ -5,7 +5,7 @@ use ecow::EcoString;
 use typst_syntax::Span;
 
 use crate::diag::{bail, At, SourceResult};
-use crate::foundations::{call_method_access, Args, Func, Module, Str, Type, Value};
+use crate::foundations::{call_method_access, Args, Str, Type, Value, IntoValue};
 
 use super::{Readable, VMState, VmRead, Writable};
 
@@ -18,13 +18,13 @@ pub enum Access {
     Writable(Writable),
 
     /// Access this value through the global scope.
-    Global(Module),
+    Module(Value),
 
-    Func(Func),
+    Func(Value),
 
     Value(Value),
 
-    Type(Type),
+    Type(Value),
 
     /// Access this value through a chained access.
     Chained(Arc<Self>, EcoString),
@@ -43,10 +43,10 @@ impl Access {
         match self {
             Access::Readable(readable) => Ok(Cow::Borrowed(readable.read(vm))),
             Access::Writable(writeable) => Ok(Cow::Borrowed(writeable.read(vm))),
-            Access::Global(module) => Ok(Cow::Owned(Value::Module(module.clone()))),
-            Access::Func(func) => Ok(Cow::Owned(Value::Func(func.clone()))),
+            Access::Module(module) => Ok(Cow::Borrowed(module)),
+            Access::Func(func) => Ok(Cow::Borrowed(func)),
             Access::Value(value) => Ok(Cow::Borrowed(value)),
-            Access::Type(ty) => Ok(Cow::Owned(Value::Type(ty.clone()))),
+            Access::Type(ty) => Ok(Cow::Borrowed(ty)),
             Access::Chained(value, field) => {
                 let value = value.read(span, vm)?;
                 if let Some(assoc) = value.ty().scope().get(field) {
@@ -58,10 +58,12 @@ impl Access {
                         );
                     };
 
-                    Ok(Cow::Owned(Value::Func(Func::method(
-                        value.into_owned(),
-                        method.clone(),
-                    ))))
+                    let mut args = Args::new(
+                        Span::detached(),
+                        std::iter::once(value.into_owned()),
+                    );
+
+                    Ok(Cow::Owned(method.clone().with(&mut args).into_value()))
                 } else {
                     value.field(field).map(Cow::Owned).at(span)
                 }
@@ -74,7 +76,7 @@ impl Access {
                 let args = vm.read(*args);
                 let mut args = match args {
                     Value::Args(args) => args.clone(),
-                    Value::None => Args::new(span, std::iter::empty::<Value>()),
+                    Value::None => Args::with_capacity(span, 0),
                     _ => bail!(
                         span,
                         "expected argumentss, found {}",
@@ -115,7 +117,7 @@ impl Access {
                 bail!(span, "cannot write to a readable, malformed access")
             }
             Access::Writable(writable) => Ok(vm.write(*writable)),
-            Access::Global(_) => {
+            Access::Module(_) => {
                 bail!(span, "cannot write to a global, malformed access")
             }
             Access::Func(_) => {
@@ -155,10 +157,14 @@ impl Access {
             }
             Access::AccessorMethod(value, method, args) => {
                 // Get the arguments.
-                let args = vm.read(*args);
+                let args = match *args {
+                    Readable::Reg(reg) => vm.take(reg).into_owned(),
+                    other => vm.read(other).clone(),
+                };
+
                 let args = match args {
                     Value::Args(args) => args.clone(),
-                    Value::None => Args::new(span, std::iter::empty::<Value>()),
+                    Value::None => Args::with_capacity(span, 0),
                     _ => bail!(
                         span,
                         "expected argumentss, found {}",

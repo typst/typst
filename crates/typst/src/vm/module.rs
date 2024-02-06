@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use typst_syntax::{Source, Span};
 
 use crate::compiler::CompiledModule;
@@ -23,7 +25,7 @@ pub fn run_module(
         output: None,
         global: &module.inner.global,
         instruction_pointer: 0,
-        registers: smallvec::smallvec![NONE; module.inner.registers],
+        registers: vec![Cow::Borrowed(&NONE); module.inner.registers],
         joined: None,
         constants: &module.inner.constants,
         strings: &module.inner.strings,
@@ -76,7 +78,7 @@ pub fn run_module_as_eval(
         output: None,
         global: &module.inner.global,
         instruction_pointer: 0,
-        registers: smallvec::smallvec![NONE; module.inner.registers],
+        registers: vec![Cow::Borrowed(&NONE); module.inner.registers],
         joined: None,
         constants: &module.inner.constants,
         strings: &module.inner.strings,

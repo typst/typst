@@ -880,10 +880,14 @@ impl Run for Call {
         let accessor = vm.read(self.closure).clone();
 
         // Get the arguments.
-        let args = vm.read(self.args);
+        let args = match self.args {
+            Readable::Reg(reg) => vm.take(reg).into_owned(),
+            other => vm.read(other).clone(),
+        };
+
         let args = match args {
             Value::None => crate::foundations::Args::new::<Value>(span, []),
-            Value::Args(args) => args.clone(),
+            Value::Args(args) => args,
             _ => {
                 bail!(
                     span,

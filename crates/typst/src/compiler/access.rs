@@ -6,7 +6,7 @@ use typst_syntax::ast::{self, AstNode};
 use super::{Compile, Compiler, ReadableGuard, WritableGuard};
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{Func, Module, Type, Value};
+use crate::foundations::{Func, IntoValue, Module, Type, Value};
 use crate::vm::Access as VmAccess;
 
 #[derive(Debug, Clone)]
@@ -44,15 +44,15 @@ impl AccessPattern {
             AccessPattern::Chained(other, v) => {
                 VmAccess::Chained(Arc::new(other.as_vm_access()), v.clone())
             }
-            AccessPattern::Global(global) => VmAccess::Global(global.clone()),
+            AccessPattern::Global(global) => VmAccess::Module(global.clone().into_value()),
             AccessPattern::AccessorMethod(other, v, r) => VmAccess::AccessorMethod(
                 Arc::new(other.as_vm_access()),
                 v.clone(),
                 r.as_readable(),
             ),
-            AccessPattern::Type(ty) => VmAccess::Type(ty.clone()),
+            AccessPattern::Type(ty) => VmAccess::Type(ty.clone().into_value()),
             AccessPattern::Value(value) => VmAccess::Value(value.clone()),
-            AccessPattern::Func(func) => VmAccess::Func(func.clone()),
+            AccessPattern::Func(func) => VmAccess::Func(func.clone().into_value()),
         }
     }
 }

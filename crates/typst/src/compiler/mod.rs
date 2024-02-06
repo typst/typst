@@ -22,6 +22,7 @@ use std::sync::Arc;
 
 use comemo::Prehashed;
 use ecow::{EcoString, EcoVec};
+use once_cell::sync::OnceCell;
 use typst_syntax::Span;
 
 use crate::diag::{SourceResult, StrResult};
@@ -313,7 +314,7 @@ impl Compiler {
         mut self,
         span: Span,
         params: EcoVec<CompiledParam>,
-        self_storage: Option<WritableGuard>,
+        self_storage: Option<RegisterGuard>,
     ) -> CompiledClosure {
         let scopes = self.scope.borrow();
         let registers = scopes.registers.borrow().len() as usize;
@@ -323,7 +324,7 @@ impl Compiler {
             .map(|capture| vm::Capture {
                 name: capture.name.clone(),
                 value: capture.readable.as_readable(),
-                location: capture.register.as_writeable(),
+                location: capture.register.as_register(),
                 span: capture.span,
             })
             .collect();
@@ -350,10 +351,11 @@ impl Compiler {
                 jumps,
                 output: None,
                 joined: true,
+                this: OnceCell::new(),
             })),
             captures,
             params,
-            self_storage: self_storage.map(|r| r.as_writable()),
+            self_storage: self_storage.map(|r| r.as_register()),
         }
     }
 

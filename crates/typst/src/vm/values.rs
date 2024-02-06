@@ -387,7 +387,8 @@ impl VmRead for Register {
 
 impl VmWrite for Register {
     fn write<'a>(&self, vm: &'a mut VMState) -> &'a mut Value {
-        &mut vm.registers[self.0 as usize]
+        let ref_ = &mut vm.registers[self.0 as usize];
+        ref_.to_mut()
     }
 }
 

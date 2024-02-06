@@ -1,7 +1,9 @@
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec};
+use once_cell::sync::OnceCell;
 use typst_syntax::Span;
 
 use crate::diag::{bail, At, SourceResult};
@@ -12,27 +14,27 @@ use crate::vm::ControlFlow;
 use crate::{Library, World};
 
 use super::opcodes::Opcode;
-use super::{Access, Pattern, Readable, Register, State, Tracer, VMState, Writable};
+use super::{Access, Pattern, Readable, Register, State, Tracer, VMState};
 
 /// A closure that has been instantiated.
 #[derive(Clone, Hash, PartialEq)]
 pub struct Closure {
     pub inner: Arc<Prehashed<Inner>>,
     /// The parameters of the closure.
-    pub params: Prehashed<EcoVec<(Option<Writable>, Param)>>,
+    pub params: Prehashed<EcoVec<(Option<Register>, Param)>>,
     /// The captured values and where to store them.
-    pub captures: Prehashed<EcoVec<(Writable, Value)>>,
+    pub captures: Prehashed<EcoVec<(Register, Value)>>,
     /// Where to store the reference to the closure itself.
-    pub self_storage: Option<Writable>,
+    pub self_storage: Option<Register>,
 }
 
 impl Closure {
     /// Creates a new closure.
     pub fn new(
         inner: Arc<Prehashed<Inner>>,
-        params: EcoVec<(Option<Writable>, Param)>,
-        captures: EcoVec<(Writable, Value)>,
-        self_storage: Option<Writable>,
+        params: EcoVec<(Option<Register>, Param)>,
+        captures: EcoVec<(Register, Value)>,
+        self_storage: Option<Register>,
     ) -> Self {
         Self {
             inner,
@@ -63,7 +65,7 @@ impl Closure {
             output: self.inner.output,
             global: &self.inner.global,
             instruction_pointer: 0,
-            registers: smallvec::smallvec![NONE; self.inner.registers],
+            registers: vec![Cow::Borrowed(&NONE); self.inner.registers],
             joined: None,
             constants: &self.inner.constants,
             strings: &self.inner.strings,
@@ -78,19 +80,24 @@ impl Closure {
         // Write all default values.
         for default in &self.inner.defaults {
             state
-                .write_one(default.target, default.value.clone())
+                .write_borrowed(default.target, &default.value)
                 .at(self.inner.span)?;
         }
 
         // Write all of the captured values to the registers.
         for (target, value) in &*self.captures {
-            state.write_one(*target, value.clone()).at(self.inner.span)?;
+            state.write_borrowed(*target, &value).at(self.inner.span)?;
         }
 
         // Write the self reference to the registers.
         if let Some(self_storage) = self.self_storage {
+            let this = self
+                .inner
+                .this
+                .get_or_init(|| Some(Value::Func(Func::from(self.clone()))));
+
             state
-                .write_one(self_storage, Value::Func(Func::from(self.clone())))
+                .write_borrowed(self_storage, this.as_ref().unwrap())
                 .at(self.inner.span)?;
         }
 
@@ -110,9 +117,7 @@ impl Closure {
                         if let Some(value) = args.named::<Value>(name)? {
                             state.write_one(*target, value).at(self.inner.span)?;
                         } else if let Some(default) = default {
-                            state
-                                .write_one(*target, default.clone())
-                                .at(self.inner.span)?;
+                            state.write_borrowed(*target, default).at(self.inner.span)?;
                         } else {
                             unreachable!(
                                 "named arguments should always have a default value"
@@ -122,13 +127,16 @@ impl Closure {
                 }
                 Param::Sink(span, _) => {
                     sink = Some(*target);
-                    let mut arguments = Args::new(*span, std::iter::empty::<Value>());
-                    if let Some(sink_size) = sink_size {
-                        arguments.extend(args.consume(sink_size)?);
-                    }
-
                     if let Some(target) = target {
+                        let mut arguments = Args::new(*span, std::iter::empty::<Value>());
+
+                        if let Some(sink_size) = sink_size {
+                            arguments.extend(args.consume(sink_size)?);
+                        }
+
                         state.write_one(*target, arguments).at(self.inner.span)?;
+                    } else if let Some(sink_size) = sink_size {
+                        args.consume(sink_size)?;
                     }
                 }
             }
@@ -200,10 +208,10 @@ pub struct CompiledClosure {
     /// The parameters of the closure.
     pub params: EcoVec<CompiledParam>,
     /// Where to store the reference to the closure itself.
-    pub self_storage: Option<Writable>,
+    pub self_storage: Option<Register>,
 }
 
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub struct Inner {
     /// The name of the closure.
     pub name: Option<EcoString>,
@@ -239,6 +247,30 @@ pub struct Inner {
     pub output: Option<Readable>,
     /// Whether this closure returns a joined value.
     pub joined: bool,
+    /// The reference to itself as a function.
+    pub this: OnceCell<Option<Value>>,
+}
+
+impl std::hash::Hash for Inner {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.span.hash(state);
+        self.registers.hash(state);
+        self.instructions.hash(state);
+        self.spans.hash(state);
+        self.global.hash(state);
+        self.constants.hash(state);
+        self.strings.hash(state);
+        self.closures.hash(state);
+        self.accesses.hash(state);
+        self.labels.hash(state);
+        self.patterns.hash(state);
+        self.defaults.hash(state);
+        self.isr_spans.hash(state);
+        self.jumps.hash(state);
+        self.output.hash(state);
+        self.joined.hash(state);
+    }
 }
 
 #[derive(Debug, Clone, Hash, PartialEq)]
@@ -248,7 +280,7 @@ pub struct Capture {
     /// The value of the capture **in the parent scope**.
     pub value: Readable,
     /// Where the value is stored **in the closure's scope**.
-    pub location: Writable,
+    pub location: Register,
     /// The span where the capture was occurs.
     pub span: Span,
 }
@@ -271,20 +303,20 @@ pub enum Param {
 #[derive(Clone, Hash, PartialEq)]
 pub enum CompiledParam {
     /// A positional parameter.
-    Pos(Writable, EcoString),
+    Pos(Register, EcoString),
     /// A named parameter.
     Named {
         /// The span of the parameter.
         span: Span,
         /// The location where the parameter will be stored.
-        target: Writable,
+        target: Register,
         /// The name of the parameter.
         name: EcoString,
         /// The default value of the parameter.
         default: Option<Readable>,
     },
     /// A sink parameter.
-    Sink(Span, Option<Writable>, EcoString),
+    Sink(Span, Option<Register>, EcoString),
 }
 
 #[derive(Clone, Hash)]
