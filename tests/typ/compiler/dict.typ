@@ -151,6 +151,10 @@
 #(a+b: 1, (a+b): 2, a: 3, ("made in berlin".at(1)): 4)
 
 ---
+#let other = (a: 2, "foo": 2, "bar": 2)
+#test((a: 1, foo: 1, ("bark".slice(0,3)): 1, ..other), (a: 2, foo: 2, "bar": 2))
+
+---
 #let func() = { "a" }
 // Error: 9-17 duplicate key: a
 #(a: 3, (func()): 4)
