@@ -20,7 +20,7 @@ pub(super) struct Lexer<'s> {
     error: Option<EcoString>,
 
     /// The state holds by raw line lexing
-    offsets: Vec<(SyntaxKind, usize)>,
+    raw_offsets: Vec<(SyntaxKind, usize)>,
 }
 
 /// What kind of tokens to emit.
@@ -43,7 +43,7 @@ impl<'s> Lexer<'s> {
             mode,
             newline: false,
             error: None,
-            offsets: Vec::new(),
+            raw_offsets: Vec::new(),
         }
     }
 
@@ -112,7 +112,7 @@ impl Lexer<'_> {
     }
 
     pub fn next_raw(&mut self) -> SyntaxKind {
-        if let Some((kind, end)) = self.offsets.pop() {
+        if let Some((kind, end)) = self.raw_offsets.pop() {
             self.s.jump(end);
             kind
         } else {
@@ -243,9 +243,8 @@ impl Lexer<'_> {
         let blocky = backticks >= 3;
 
         if backticks == 2 {
-            self.offsets.clear();
-            self.offsets.push((SyntaxKind::RawDelim, self.s.cursor()));
-
+            self.raw_offsets.clear();
+            self.raw_offsets.push((SyntaxKind::RawDelim, self.s.cursor()));
             self.s.uneat();
             return SyntaxKind::RawDelim;
         }
@@ -275,7 +274,7 @@ impl Lexer<'_> {
             let mut s = self.s;
 
             // Reuses buffer.
-            let mut offsets = std::mem::take(&mut self.offsets);
+            let mut offsets = std::mem::take(&mut self.raw_offsets);
             offsets.clear();
 
             // Parses lang if blocky.
@@ -331,7 +330,7 @@ impl Lexer<'_> {
 
                 // Returns the offsets buffer.
                 offsets.clear();
-                self.offsets = offsets;
+                self.raw_offsets = offsets;
 
                 return self.error("unclosed raw text");
             }
@@ -463,7 +462,7 @@ impl Lexer<'_> {
             offsets
         };
 
-        self.offsets = offsets;
+        self.raw_offsets = offsets;
         SyntaxKind::RawDelim
     }
 
