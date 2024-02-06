@@ -86,7 +86,7 @@ impl Dict {
     pub fn at_mut(&mut self, key: &str) -> StrResult<&mut Value> {
         Arc::make_mut(&mut self.0)
             .get_mut(key)
-            .ok_or_else(|| missing_key_no_default(key))
+            .ok_or_else(|| missing_key_no_mutable_entry(key))
     }
 
     /// Remove the value if the dictionary contains the given key.
@@ -354,7 +354,17 @@ fn missing_key(key: &str) -> EcoString {
     eco_format!("dictionary does not contain key {}", key.repr())
 }
 
-/// The missing key access error message when no default was fiven.
+/// The missing key access error message so there's no mutable entry to return.
+#[cold]
+fn missing_key_no_mutable_entry(key: &str) -> EcoString {
+    eco_format!(
+        "dictionary does not contain key {} \
+         so cannot get a mutable entry from it",
+        key.repr()
+    )
+}
+
+/// The missing key access error message when no default was given.
 #[cold]
 fn missing_key_no_default(key: &str) -> EcoString {
     eco_format!(

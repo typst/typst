@@ -66,7 +66,7 @@
 // Missing lvalue is not automatically none-initialized.
 #{
   let dict = (:)
-  // Error: 3-9 dictionary does not contain key "b" and no default value was specified
+  // Error: 3-9 dictionary does not contain key "b" so cannot get a mutable entry from it
   dict.b += 1
 }
 
