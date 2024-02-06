@@ -1,12 +1,15 @@
 use comemo::{Track, Tracked};
+use ecow::EcoString;
 use typst_macros::Cast;
 use typst_syntax::{ast, parse, parse_code, parse_math, Span};
 
+use crate::compiler::{CompileTopLevel, CompiledModule, Compiler};
 use crate::diag::SourceResult;
 use crate::engine::{Engine, Route};
-use crate::foundations::{Scope, Value};
+use crate::foundations::{NativeElement, Scope, Value};
 use crate::introspection::{Introspector, Locator};
-use crate::vm::Tracer;
+use crate::math::EquationElem;
+use crate::vm::{run_module_as_eval, Tracer};
 use crate::World;
 
 /// Evaluate a string as code and return the resulting value.
@@ -38,7 +41,7 @@ pub fn eval_string(
     let mut tracer = Tracer::new();
     let mut locator = Locator::new();
     let introspector = Introspector::default();
-    let engine = Engine {
+    let mut engine = Engine {
         world,
         introspector: introspector.track(),
         route: Route::default(),
@@ -46,32 +49,35 @@ pub fn eval_string(
         tracer: tracer.track_mut(),
     };
 
-    // Prepare VM.
-    /*let scopes = Scopes::new(Some(world.library()));
-    let mut vm = Vm::new(engine, scopes, root.span());
-    vm.scopes.scopes.push(scope);
+    let mut compiler = Compiler::module(engine.world.library().clone().into_inner());
 
-    // Evaluate the code.
-    let output = match mode {
-        EvalMode::Code => root.cast::<ast::Code>().unwrap().eval(&mut vm)?,
-        EvalMode::Markup => {
-            Value::Content(root.cast::<ast::Markup>().unwrap().eval(&mut vm)?)
-        }
-        EvalMode::Math => Value::Content(
-            EquationElem::new(root.cast::<ast::Math>().unwrap().eval(&mut vm)?)
-                .with_block(false)
-                .pack(),
-        ),
-    };
-
-    // Handle control flow.
-    if let Some(flow) = vm.flow {
-        bail!(flow.forbidden());
+    // Compile the code.
+    match mode {
+        EvalMode::Code => root
+            .cast::<ast::Code>()
+            .unwrap()
+            .compile_top_level(&mut engine, &mut compiler)?,
+        EvalMode::Markup => root
+            .cast::<ast::Markup>()
+            .unwrap()
+            .compile_top_level(&mut engine, &mut compiler)?,
+        EvalMode::Math => root
+            .cast::<ast::Math>()
+            .unwrap()
+            .compile_top_level(&mut engine, &mut compiler)?,
     }
 
-    Ok(output)*/
+    let module = CompiledModule::new(compiler, root.span(), EcoString::inline("eval"));
 
-    todo!()
+    let output = run_module_as_eval(&module, &mut engine, root.span())?;
+
+    Ok(match mode {
+        EvalMode::Code => output,
+        EvalMode::Markup => Value::Content(output.display()),
+        EvalMode::Math => {
+            Value::Content(EquationElem::new(output.display()).with_block(false).pack())
+        }
+    })
 }
 
 /// In which mode to evaluate a string.

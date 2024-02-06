@@ -149,7 +149,7 @@ impl Closure {
         // Ensure all arguments have been used.
         args.finish()?;
 
-        match crate::vm::run::<std::iter::Empty<Value>>(
+        match crate::vm::run(
             engine,
             &mut state,
             &self.inner.instructions,

@@ -8,7 +8,22 @@ use crate::math::{AlignPointElem, PrimesElem};
 use crate::text::TextElem;
 use crate::vm::Constant;
 
-use super::{Compile, Compiler, ReadableGuard, WritableGuard};
+use super::{Compile, CompileTopLevel, Compiler, ReadableGuard, WritableGuard};
+
+impl CompileTopLevel for ast::Math<'_> {
+    fn compile_top_level(
+        &self,
+        engine: &mut Engine,
+        compiler: &mut Compiler,
+    ) -> SourceResult<()> {
+        for expr in self.exprs() {
+            expr.compile_into(engine, compiler, Some(WritableGuard::Joined))?;
+            compiler.flow();
+        }
+
+        Ok(())
+    }
+}
 
 impl Compile for ast::Math<'_> {
     type Output = Option<WritableGuard>;

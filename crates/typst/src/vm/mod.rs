@@ -127,12 +127,12 @@ impl State {
     }
 }
 
-pub fn run<I: Iterator<Item = Value>>(
+pub fn run(
     engine: &mut Engine,
     state: &mut VMState,
     instructions: &[Opcode],
     spans: &[Span],
-    mut iterator: Option<I>,
+    mut iterator: Option<&mut dyn Iterator<Item = Value>>,
 ) -> SourceResult<ControlFlow> {
     fn next<'a>(state: &mut VMState, instructions: &'a [Opcode]) -> Option<&'a Opcode> {
         if state.instruction_pointer == instructions.len() {
@@ -158,7 +158,7 @@ pub fn run<I: Iterator<Item = Value>>(
             spans[idx],
             state,
             engine,
-            iterator.as_mut(),
+            iterator.as_mut().map_or(None, |p| Some(&mut **p)),
         )?;
 
         if matches!(opcode, Opcode::Flow) {
@@ -373,12 +373,12 @@ impl<'a> VMState<'a> {
     }
 
     /// Enter a new scope.
-    pub fn enter_scope<I: Iterator<Item = Value>>(
+    pub fn enter_scope(
         &mut self,
         engine: &mut Engine,
         instructions: &[Opcode],
         spans: &[Span],
-        iterator: Option<I>,
+        iterator: Option<&mut dyn Iterator<Item = Value>>,
         mut output: Option<Readable>,
         joins: bool,
         content: bool,
