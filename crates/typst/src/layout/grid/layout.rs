@@ -596,6 +596,16 @@ impl CellGrid {
         self.entry(x, y).and_then(Entry::as_cell)
     }
 
+    /// Returns the parent cell of the grid entry at the given position.
+    /// If the entry at the given position is a cell, returns it.
+    /// If it is a merged cell, returns the parent cell.
+    /// If it is a gutter cell, returns None.
+    #[track_caller]
+    fn parent_cell(&self, x: usize, y: usize) -> Option<&Cell> {
+        self.parent_cell_position(x, y)
+            .and_then(|Axes { x, y }| self.cell(x, y))
+    }
+
     /// Returns the position of the parent cell of the grid entry at the given
     /// position. It is guaranteed to have a non-gutter, non-merged cell at
     /// the returned position, due to how the grid is built.
@@ -813,18 +823,21 @@ impl<'a> GridLayouter<'a> {
     fn render_fills_strokes(mut self) -> SourceResult<Fragment> {
         let mut finished = std::mem::take(&mut self.finished);
         let stroke = match &self.grid.stroke.inside {
-            ResolvedInsideStroke::Auto(Some(stroke)) => {
-                Some(stroke.clone().unwrap_or_default())
-            }
+            ResolvedInsideStroke::Auto(Some(stroke)) => Some(Arc::new(stroke.clone())),
             _ => None,
         };
+        let fixed_stroke = stroke
+            .as_ref()
+            .map(|stroke| Stroke::clone(stroke))
+            .map(Stroke::unwrap_or_default);
+
         for (frame, rows) in finished.iter_mut().zip(&self.rrows) {
             if self.rcols.is_empty() || rows.is_empty() {
                 continue;
             }
 
             // Render table lines.
-            if let Some(stroke) = &stroke {
+            if let Some(stroke) = &fixed_stroke {
                 let thickness = stroke.thickness;
                 let half = thickness / 2.0;
 
@@ -837,24 +850,33 @@ impl<'a> GridLayouter<'a> {
                         FrameItem::Shape(hline, self.span),
                     );
                 }
+            }
 
-                // Render vertical lines.
-                for (x, dx) in points(self.rcols.iter().copied()).enumerate() {
-                    let dx = if self.is_rtl { self.width - dx } else { dx };
-                    // We want each vline to span the entire table (start
-                    // at y = 0, end after all rows).
-                    // We use 'split_vline' to split the vline such that it
-                    // is not drawn above colspans.
-                    for (dy, length) in
-                        split_vline(self.grid, rows, x, 0, self.grid.rows.len())
-                    {
-                        let target = Point::with_y(length + thickness);
-                        let vline = Geometry::Line(target).stroked(stroke.clone());
-                        frame.prepend(
-                            Point::new(dx, dy - half),
-                            FrameItem::Shape(vline, self.span),
-                        );
-                    }
+            // Render vertical lines.
+            for (x, dx) in points(self.rcols.iter().copied()).enumerate() {
+                let dx = if self.is_rtl { self.width - dx } else { dx };
+                // We want each vline to span the entire table (start
+                // at y = 0, end after all rows).
+                // We use 'split_vline' to split the vline such that it
+                // is not drawn above colspans.
+                for (stroke, dy, length) in split_vline(
+                    self.grid,
+                    rows,
+                    x,
+                    0,
+                    self.grid.rows.len(),
+                    stroke.as_ref(),
+                    false,
+                ) {
+                    let stroke = (*stroke).clone().unwrap_or_default();
+                    let thickness = stroke.thickness;
+                    let half = thickness / 2.0;
+                    let target = Point::with_y(length + thickness);
+                    let vline = Geometry::Line(target).stroked(stroke);
+                    frame.prepend(
+                        Point::new(dx, dy - half),
+                        FrameItem::Shape(vline, self.span),
+                    );
                 }
             }
 
@@ -1391,13 +1413,17 @@ fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
 /// This will return the start offsets and lengths of each final segment of
 /// this vline. The offsets are relative to the top of the first row.
 /// Note that this assumes that rows are sorted according to ascending 'y'.
+/// This function will also provide the stroke that should be used for each
+/// segment. Use 'skip_cells' to not draw segments over cell strokes.
 fn split_vline(
     grid: &CellGrid,
     rows: &[RowPiece],
     x: usize,
     start: usize,
     end: usize,
-) -> impl IntoIterator<Item = (Abs, Abs)> {
+    stroke: Option<&Arc<Stroke<Abs>>>,
+    skip_cells: bool,
+) -> impl IntoIterator<Item = (Arc<Stroke<Abs>>, Abs, Abs)> {
     // Each segment of this vline that should be drawn.
     // The last element in the vector below is the currently drawn segment.
     // That is, the last segment will be expanded until interrupted.
@@ -1416,19 +1442,26 @@ fn split_vline(
     // new vline segment later if a suitable row is found, restarting the
     // cycle.
     for row in rows.iter().take_while(|row| row.y < end) {
-        if should_draw_vline_at_row(grid, x, row.y, start, end) {
+        if let Some(stroke) =
+            vline_stroke_at_row(grid, x, row.y, start, end, stroke, skip_cells)
+        {
             if interrupted {
-                // Last segment was interrupted by a colspan, or there are no
-                // segments yet.
+                // Last segment was interrupted by a colspan, had a stroke of
+                // 'none', or there are no segments yet.
                 // Create a new segment to draw. We start spanning this row.
-                drawn_vlines.push((offset, row.height));
+                drawn_vlines.push((stroke, offset, row.height));
                 interrupted = false;
             } else {
-                // Extend the current segment so it covers at least this row
-                // as well.
-                // The vector can't be empty if interrupted is false.
                 let current_segment = drawn_vlines.last_mut().unwrap();
-                current_segment.1 += row.height;
+                if current_segment.0 == stroke {
+                    // Extend the current segment so it covers at least this row
+                    // as well, since it has the same stroke in this row.
+                    // The vector can't be empty if interrupted is false.
+                    current_segment.2 += row.height;
+                } else {
+                    // We got a different stroke now, so create a new segment.
+                    drawn_vlines.push((stroke, offset, row.height));
+                }
             }
         } else {
             interrupted = true;
@@ -1439,46 +1472,97 @@ fn split_vline(
     drawn_vlines
 }
 
-/// Returns 'true' if the vline right before column 'x', given its start..end
-/// range of rows, should be drawn when going through row 'y'.
-/// That only occurs if the row is within its start..end range, and if it
-/// wouldn't go through a colspan.
-fn should_draw_vline_at_row(
+/// Returns the correct stroke with which to draw the vline right before
+/// column 'x' when going through row 'y', given its start..end range of rows.
+/// If the row is not within its start..end range, or if the vline would go
+/// through a colspan, returns None. If the one (at the border) or two
+/// (otherwise) cells to the left and right of the vline override their
+/// right and left strokes respectively, then, if 'skip_cells' is false, the
+/// fold of those strokes will be returned (with priority to the right cell's
+/// stroke); otherwise ('skip_cells' is true), returns None.
+/// If the vline is otherwise not intersecting with any cell with a stroke
+/// override, is within range and is not conflicting with a colspan, returns
+/// its own stroke (passed via the 'stroke' parameter).
+fn vline_stroke_at_row(
     grid: &CellGrid,
     x: usize,
     y: usize,
     start: usize,
     end: usize,
-) -> bool {
+    stroke: Option<&Arc<Stroke<Abs>>>,
+    skip_cells: bool,
+) -> Option<Arc<Stroke<Abs>>> {
     if !(start..end).contains(&y) {
         // Row is out of range for this line
-        return false;
+        return None;
     }
-    if x == 0 || x == grid.cols.len() {
-        // Border vline. Always drawn.
-        return true;
-    }
-    // When the vline isn't at the border, we need to check if a colspan would
-    // be present between columns 'x' and 'x-1' at row 'y', and thus overlap
-    // with the line.
-    // To do so, we analyze the cell right after this vline. If it is merged
-    // with a cell before this line (parent_x < x) which is at this row or
-    // above it (parent_y <= y), this means it would overlap with the vline,
-    // so the vline must not be drawn at this row.
-    let first_adjacent_cell = if grid.has_gutter {
-        // Skip the gutters, if x or y represent gutter tracks.
-        // We would then analyze the cell one column after (if at a gutter
-        // column), and/or one row below (if at a gutter row), in order to
-        // check if it would be merged with a cell before the vline.
-        (x + x % 2, y + y % 2)
-    } else {
-        (x, y)
-    };
-    let Axes { x: parent_x, y: parent_y } = grid
-        .parent_cell_position(first_adjacent_cell.0, first_adjacent_cell.1)
-        .unwrap();
 
-    parent_x >= x || parent_y > y
+    if x != 0 && x != grid.cols.len() {
+        // When the vline isn't at the border, we need to check if a colspan would
+        // be present between columns 'x' and 'x-1' at row 'y', and thus overlap
+        // with the line.
+        // To do so, we analyze the cell right after this vline. If it is merged
+        // with a cell before this line (parent_x < x) which is at this row or
+        // above it (parent_y <= y), this means it would overlap with the vline,
+        // so the vline must not be drawn at this row.
+        let first_adjacent_cell = if grid.has_gutter {
+            // Skip the gutters, if x or y represent gutter tracks.
+            // We would then analyze the cell one column after (if at a gutter
+            // column), and/or one row below (if at a gutter row), in order to
+            // check if it would be merged with a cell before the vline.
+            (x + x % 2, y + y % 2)
+        } else {
+            (x, y)
+        };
+        let Axes { x: parent_x, y: parent_y } = grid
+            .parent_cell_position(first_adjacent_cell.0, first_adjacent_cell.1)
+            .unwrap();
+
+        if parent_x < x && parent_y <= y {
+            // There is a colspan cell going through this vline's position,
+            // so don't draw it here.
+            return None;
+        }
+    }
+
+    let left_cell_stroke = x
+        .checked_sub(1)
+        .and_then(|left_x| grid.parent_cell(left_x, y))
+        .and_then(|left_cell| left_cell.stroke.right.as_ref());
+    let right_cell_stroke = if x < grid.cols.len() {
+        grid.parent_cell(x, y)
+            .and_then(|right_cell| right_cell.stroke.left.as_ref())
+    } else {
+        None
+    };
+
+    if skip_cells {
+        if left_cell_stroke.is_some() || right_cell_stroke.is_some() {
+            None
+        } else {
+            stroke.cloned()
+        }
+    } else {
+        let cell_stroke = match (left_cell_stroke.cloned(), right_cell_stroke.cloned()) {
+            (Some(left_cell_stroke), Some(right_cell_stroke)) => {
+                // When both cells specify a stroke for this line segment, fold
+                // both strokes, with priority to the right cell's left stroke.
+                Some(right_cell_stroke.fold(left_cell_stroke))
+            }
+            // When one of the cells doesn't specify a stroke, the other cell's
+            // stroke should be used.
+            (left_cell_stroke, right_cell_stroke) => {
+                left_cell_stroke.or(right_cell_stroke)
+            }
+        };
+
+        // Fold the line stroke and folded cell strokes, if possible.
+        // Otherwise, use whichever of the two isn't 'none' or unspecified.
+        match (cell_stroke, stroke.cloned()) {
+            (Some(cell_stroke), Some(stroke)) => Some(cell_stroke.fold(stroke)),
+            (cell_stroke, stroke) => cell_stroke.or(stroke),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1552,6 +1636,7 @@ mod test {
 
     #[test]
     fn test_vline_splitting_without_gutter() {
+        let stroke = Arc::new(Stroke::default());
         let grid = sample_grid(false);
         let rows = &[
             RowPiece { height: Abs::pt(1.0), y: 0 },
@@ -1562,28 +1647,31 @@ mod test {
             RowPiece { height: Abs::pt(32.0), y: 5 },
         ];
         let expected_vline_splits = &[
-            vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
-            vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
+            vec![(stroke.clone(), Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
+            vec![(stroke.clone(), Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
             // interrupted a few times by colspans
             vec![
-                (Abs::pt(0.), Abs::pt(1.)),
-                (Abs::pt(1. + 2.), Abs::pt(4.)),
-                (Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
+                (stroke.clone(), Abs::pt(0.), Abs::pt(1.)),
+                (stroke.clone(), Abs::pt(1. + 2.), Abs::pt(4.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
             ],
             // interrupted every time by colspans
             vec![],
-            vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
+            vec![(stroke.clone(), Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
         ];
         for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
             assert_eq!(
                 expected_splits,
-                &split_vline(&grid, rows, x, 0, 6).into_iter().collect::<Vec<_>>(),
+                &split_vline(&grid, rows, x, 0, 6, Some(&stroke), false)
+                    .into_iter()
+                    .collect::<Vec<_>>(),
             );
         }
     }
 
     #[test]
     fn test_vline_splitting_with_gutter() {
+        let stroke = Arc::new(Stroke::default());
         let grid = sample_grid(true);
         let rows = &[
             RowPiece { height: Abs::pt(1.0), y: 0 },
@@ -1601,32 +1689,37 @@ mod test {
         let expected_vline_splits = &[
             // left border
             vec![(
+                stroke.clone(),
                 Abs::pt(0.),
                 Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
             )],
             // gutter line below
             vec![(
+                stroke.clone(),
                 Abs::pt(0.),
                 Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
             )],
             vec![(
+                stroke.clone(),
                 Abs::pt(0.),
                 Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
             )],
             // gutter line below
             // the two lines below are interrupted multiple times by colspans
             vec![
-                (Abs::pt(0.), Abs::pt(1. + 2.)),
-                (Abs::pt(1. + 2. + 4.), Abs::pt(8. + 16. + 32.)),
+                (stroke.clone(), Abs::pt(0.), Abs::pt(1. + 2.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4.), Abs::pt(8. + 16. + 32.)),
                 (
+                    stroke.clone(),
                     Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
                     Abs::pt(512. + 1024.),
                 ),
             ],
             vec![
-                (Abs::pt(0.), Abs::pt(1. + 2.)),
-                (Abs::pt(1. + 2. + 4.), Abs::pt(8. + 16. + 32.)),
+                (stroke.clone(), Abs::pt(0.), Abs::pt(1. + 2.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4.), Abs::pt(8. + 16. + 32.)),
                 (
+                    stroke.clone(),
                     Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
                     Abs::pt(512. + 1024.),
                 ),
@@ -1636,25 +1729,28 @@ mod test {
             // all non-gutter cells in the following column are merged with
             // cells from the previous column.
             vec![
-                (Abs::pt(1.), Abs::pt(2.)),
-                (Abs::pt(1. + 2. + 4.), Abs::pt(8.)),
-                (Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
+                (stroke.clone(), Abs::pt(1.), Abs::pt(2.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4.), Abs::pt(8.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
                 (
+                    stroke.clone(),
                     Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
                     Abs::pt(512.),
                 ),
             ],
             vec![
-                (Abs::pt(1.), Abs::pt(2.)),
-                (Abs::pt(1. + 2. + 4.), Abs::pt(8.)),
-                (Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
+                (stroke.clone(), Abs::pt(1.), Abs::pt(2.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4.), Abs::pt(8.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
                 (
+                    stroke.clone(),
                     Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
                     Abs::pt(512.),
                 ),
             ],
             // right border
             vec![(
+                stroke.clone(),
                 Abs::pt(0.),
                 Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
             )],
@@ -1662,7 +1758,9 @@ mod test {
         for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
             assert_eq!(
                 expected_splits,
-                &split_vline(&grid, rows, x, 0, 11).into_iter().collect::<Vec<_>>(),
+                &split_vline(&grid, rows, x, 0, 11, Some(&stroke), false)
+                    .into_iter()
+                    .collect::<Vec<_>>(),
             );
         }
     }
