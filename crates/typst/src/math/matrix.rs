@@ -425,11 +425,10 @@ fn layout_mat_body(
     };
 
     let (hline, vline, stroke) = match augment {
-        Some(v) => {
-            // need to get stroke here for ownership
-            let stroke = v.stroke_or(default_stroke);
-
-            (v.hline, v.vline, stroke)
+        Some(augment) => {
+            // We need to get stroke here for ownership.
+            let stroke = augment.stroke.unwrap_or_default().unwrap_or(default_stroke);
+            (augment.hline, augment.vline, stroke)
         }
         _ => (AugmentOffsets::default(), AugmentOffsets::default(), default_stroke),
     };
@@ -593,11 +592,19 @@ pub struct Augment<T: Numeric = Length> {
     pub stroke: Smart<Stroke<T>>,
 }
 
-impl Augment<Abs> {
-    fn stroke_or(&self, fallback: FixedStroke) -> FixedStroke {
-        match &self.stroke {
-            Smart::Custom(v) => v.clone().unwrap_or(fallback),
-            Smart::Auto => fallback,
+impl<T: Numeric + Fold> Fold for Augment<T> {
+    fn fold(self, outer: Self) -> Self {
+        Self {
+            stroke: match (self.stroke, outer.stroke) {
+                (Smart::Custom(inner), Smart::Custom(outer)) => {
+                    Smart::Custom(inner.fold(outer))
+                }
+                // Usually, folding an inner `auto` with an `outer` preferres
+                // the explicit `auto`. However, here `auto` means unspecified
+                // and thus we want `outer`.
+                (inner, outer) => inner.or(outer),
+            },
+            ..self
         }
     }
 }
@@ -614,21 +621,6 @@ impl Resolve for Augment {
     }
 }
 
-impl Fold for Augment<Abs> {
-    type Output = Augment<Abs>;
-
-    fn fold(mut self, outer: Self::Output) -> Self::Output {
-        // Special case for handling `auto` strokes in subsequent `Augment`.
-        if self.stroke.is_auto() && outer.stroke.is_custom() {
-            self.stroke = outer.stroke;
-        } else {
-            self.stroke = self.stroke.fold(outer.stroke);
-        }
-
-        self
-    }
-}
-
 cast! {
     Augment,
     self => {
@@ -637,13 +629,11 @@ cast! {
             return self.vline.0[0].into_value();
         }
 
-        let d = dict! {
-            "hline" => self.hline.into_value(),
-            "vline" => self.vline.into_value(),
-            "stroke" => self.stroke.into_value()
-        };
-
-        d.into_value()
+        dict! {
+            "hline" => self.hline,
+            "vline" => self.vline,
+            "stroke" => self.stroke,
+        }.into_value()
     },
     v: isize => Augment {
         hline: AugmentOffsets::default(),
@@ -651,15 +641,15 @@ cast! {
         stroke: Smart::Auto,
     },
     mut dict: Dict => {
-        // need the transpose for the defaults to work
-        let hline = dict.take("hline").ok().map(AugmentOffsets::from_value)
-            .transpose().unwrap_or_default().unwrap_or_default();
-        let vline = dict.take("vline").ok().map(AugmentOffsets::from_value)
-            .transpose().unwrap_or_default().unwrap_or_default();
-
-        let stroke = dict.take("stroke").ok().map(Stroke::from_value)
-            .transpose()?.map(Smart::Custom).unwrap_or(Smart::Auto);
-
+        let mut take = |key| dict.take(key).ok().map(AugmentOffsets::from_value).transpose();
+        let hline = take("hline")?.unwrap_or_default();
+        let vline = take("vline")?.unwrap_or_default();
+        let stroke = dict.take("stroke")
+            .ok()
+            .map(Stroke::from_value)
+            .transpose()?
+            .map(Smart::Custom)
+            .unwrap_or(Smart::Auto);
         Augment { hline, vline, stroke }
     },
 }

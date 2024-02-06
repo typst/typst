@@ -1967,7 +1967,7 @@ impl<'a> ForLoop<'a> {
     }
 
     /// The expression to iterate over.
-    pub fn iter(self) -> Expr<'a> {
+    pub fn iterable(self) -> Expr<'a> {
         self.0
             .children()
             .skip_while(|&c| c.kind() != SyntaxKind::In)

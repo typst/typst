@@ -90,7 +90,7 @@ impl Lexer<'_> {
         self.error = None;
         let start = self.s.cursor();
         match self.s.eat() {
-            Some(c) if c.is_whitespace() => self.whitespace(start, c),
+            Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
             Some('*') if self.s.eat_if('/') => {
@@ -108,7 +108,7 @@ impl Lexer<'_> {
     }
 
     fn whitespace(&mut self, start: usize, c: char) -> SyntaxKind {
-        let more = self.s.eat_while(char::is_whitespace);
+        let more = self.s.eat_while(|c| is_space(c, self.mode));
         let newlines = match c {
             ' ' if more.is_empty() => 0,
             _ => count_newlines(self.s.from(start)),
@@ -626,6 +626,15 @@ fn keyword(ident: &str) -> Option<SyntaxKind> {
         "as" => SyntaxKind::As,
         _ => return None,
     })
+}
+
+/// Whether a character will become a Space token in Typst
+#[inline]
+fn is_space(character: char, mode: LexMode) -> bool {
+    match mode {
+        LexMode::Markup => matches!(character, ' ' | '\t') || is_newline(character),
+        _ => character.is_whitespace(),
+    }
 }
 
 /// Whether a character is interpreted as a newline by Typst.

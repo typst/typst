@@ -9,7 +9,7 @@ use smallvec::SmallVec;
 use unicode_math_class::MathClass;
 
 use crate::diag::{At, SourceResult, StrResult};
-use crate::foundations::{repr, NativeElement, Packed, Repr, Type, Value};
+use crate::foundations::{array, repr, NativeElement, Packed, Repr, Str, Type, Value};
 use crate::syntax::{Span, Spanned};
 
 #[rustfmt::skip]
@@ -43,11 +43,11 @@ pub trait Reflect {
     /// dynamic checks instead of optimized machine code for each type).
     fn castable(value: &Value) -> bool;
 
-    /// Produce an error message for an inacceptable value.
+    /// Produce an error message for an inacceptable value type.
     ///
     /// ```
     /// assert_eq!(
-    ///   <Int as Reflect>::error(Value::None),
+    ///   <Int as Reflect>::error(&Value::None),
     ///   "expected integer, found none",
     /// );
     /// ```
@@ -179,6 +179,12 @@ pub trait IntoValue {
 impl IntoValue for Value {
     fn into_value(self) -> Value {
         self
+    }
+}
+
+impl IntoValue for (&Str, &Value) {
+    fn into_value(self) -> Value {
+        Value::Array(array![self.0.clone(), self.1.clone()])
     }
 }
 

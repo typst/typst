@@ -3,13 +3,15 @@
 // https://github.com/rust-lang/rustup/blob/master/src/cli/download_tracker.rs
 
 use std::collections::VecDeque;
-use std::io::{self, ErrorKind, Read, Stderr, Write};
+use std::io::{self, ErrorKind, Read, Write};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use native_tls::{Certificate, TlsConnector};
 use once_cell::sync::Lazy;
 use ureq::Response;
+
+use crate::terminal;
 
 /// Keep track of this many download speed samples.
 const SPEED_SAMPLES: usize = 5;
@@ -72,8 +74,6 @@ struct RemoteReader {
     downloaded_last_few_secs: VecDeque<usize>,
     start_time: Instant,
     last_print: Option<Instant>,
-    displayed_charcount: Option<usize>,
-    stderr: Stderr,
 }
 
 impl RemoteReader {
@@ -94,8 +94,6 @@ impl RemoteReader {
             downloaded_last_few_secs: VecDeque::with_capacity(SPEED_SAMPLES),
             start_time: Instant::now(),
             last_print: None,
-            displayed_charcount: None,
-            stderr: io::stderr(),
         }
     }
 
@@ -146,66 +144,52 @@ impl RemoteReader {
                 self.downloaded_last_few_secs.push_front(self.downloaded_this_sec);
                 self.downloaded_this_sec = 0;
 
-                if let Some(n) = self.displayed_charcount {
-                    self.erase_chars(n);
-                }
-
-                self.display();
-                let _ = write!(self.stderr, "\r");
+                terminal::out().clear_last_line()?;
+                self.display()?;
                 self.last_print = Some(Instant::now());
             }
         }
 
-        self.display();
-        let _ = writeln!(self.stderr);
+        self.display()?;
+        writeln!(&mut terminal::out())?;
 
         Ok(data)
     }
 
     /// Compile and format several download statistics and make an attempt at
     /// displaying them on standard error.
-    fn display(&mut self) {
+    fn display(&mut self) -> io::Result<()> {
         let sum: usize = self.downloaded_last_few_secs.iter().sum();
         let len = self.downloaded_last_few_secs.len();
         let speed = if len > 0 { sum / len } else { self.content_len.unwrap_or(0) };
 
-        let total = as_time_unit(self.total_downloaded, false);
-        let speed_h = as_time_unit(speed, true);
+        let total_downloaded = as_bytes_unit(self.total_downloaded);
+        let speed_h = as_throughput_unit(speed);
         let elapsed =
             time_suffix(Instant::now().saturating_duration_since(self.start_time));
 
-        let output = match self.content_len {
+        match self.content_len {
             Some(content_len) => {
                 let percent = (self.total_downloaded as f64 / content_len as f64) * 100.;
                 let remaining = content_len - self.total_downloaded;
 
-                format!(
-                    "{} / {} ({:3.0} %) {} in {} ETA: {}",
-                    total,
-                    as_time_unit(content_len, false),
-                    percent,
-                    speed_h,
-                    elapsed,
-                    time_suffix(Duration::from_secs(if speed == 0 {
-                        0
-                    } else {
-                        (remaining / speed) as u64
-                    }))
-                )
+                let download_size = as_bytes_unit(content_len);
+                let eta = time_suffix(Duration::from_secs(if speed == 0 {
+                    0
+                } else {
+                    (remaining / speed) as u64
+                }));
+                writeln!(
+                    &mut terminal::out(),
+                    "{total_downloaded} / {download_size} ({percent:3.0} %) {speed_h} in {elapsed} ETA: {eta}",
+                )?;
             }
-            None => format!("Total: {total} Speed: {speed_h} Elapsed: {elapsed}"),
+            None => writeln!(
+                &mut terminal::out(),
+                "Total downloaded: {total_downloaded} Speed: {speed_h} Elapsed: {elapsed}",
+            )?,
         };
-
-        let _ = write!(self.stderr, "{output}");
-
-        self.displayed_charcount = Some(output.chars().count());
-    }
-
-    /// Erase each previously printed character and add a carriage return
-    /// character, clearing the line for the next `display()` update.
-    fn erase_chars(&mut self, count: usize) {
-        let _ = write!(self.stderr, "{}", " ".repeat(count));
-        let _ = write!(self.stderr, "\r");
+        Ok(())
     }
 }
 
@@ -231,22 +215,24 @@ fn format_dhms(sec: u64) -> (u64, u8, u8, u8) {
 
 /// Format a given size as a unit of time. Setting `include_suffix` to true
 /// appends a '/s' (per second) suffix.
-fn as_time_unit(size: usize, include_suffix: bool) -> String {
+fn as_bytes_unit(size: usize) -> String {
     const KI: f64 = 1024.0;
     const MI: f64 = KI * KI;
     const GI: f64 = KI * KI * KI;
 
     let size = size as f64;
 
-    let suffix = if include_suffix { "/s" } else { "" };
-
     if size >= GI {
-        format!("{:5.1} GiB{}", size / GI, suffix)
+        format!("{:5.1} GiB", size / GI)
     } else if size >= MI {
-        format!("{:5.1} MiB{}", size / MI, suffix)
+        format!("{:5.1} MiB", size / MI)
     } else if size >= KI {
-        format!("{:5.1} KiB{}", size / KI, suffix)
+        format!("{:5.1} KiB", size / KI)
     } else {
-        format!("{size:3.0} B{suffix}")
+        format!("{size:3.0} B")
     }
+}
+
+fn as_throughput_unit(size: usize) -> String {
+    as_bytes_unit(size) + "/s"
 }

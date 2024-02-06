@@ -317,6 +317,8 @@ impl Datetime {
     /// `[[year]-[month]-[day]]`. If you specified a time, it will be
     /// `[[hour]:[minute]:[second]]`. In the case of a datetime, it will be
     /// `[[year]-[month]-[day] [hour]:[minute]:[second]]`.
+    ///
+    /// See the [format syntax]($datetime/#format) for more information.
     #[func]
     pub fn display(
         &self,

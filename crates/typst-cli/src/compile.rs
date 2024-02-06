@@ -3,11 +3,10 @@ use std::path::{Path, PathBuf};
 
 use chrono::{Datelike, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::term::{self, termcolor};
+use codespan_reporting::term;
 use ecow::{eco_format, EcoString};
 use parking_lot::RwLock;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use termcolor::{ColorChoice, StandardStream};
 use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
 use typst::eval::Tracer;
 use typst::foundations::Datetime;
@@ -17,11 +16,11 @@ use typst::syntax::{FileId, Source, Span};
 use typst::visualize::Color;
 use typst::{World, WorldExt};
 
-use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
+use crate::args::{CompileCommand, DiagnosticFormat, Input, OutputFormat};
 use crate::timings::Timer;
 use crate::watch::Status;
 use crate::world::SystemWorld;
-use crate::{color_stream, set_failed};
+use crate::{set_failed, terminal};
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
@@ -30,7 +29,10 @@ impl CompileCommand {
     /// The output path.
     pub fn output(&self) -> PathBuf {
         self.output.clone().unwrap_or_else(|| {
-            self.common.input.with_extension(
+            let Input::Path(path) = &self.common.input else {
+                panic!("output must be specified when input is from stdin, as guarded by the CLI");
+            };
+            path.with_extension(
                 match self.output_format().unwrap_or(OutputFormat::Pdf) {
                     OutputFormat::Pdf => "pdf",
                     OutputFormat::Png => "png",
@@ -164,8 +166,8 @@ fn export_pdf(
     command: &CompileCommand,
     world: &SystemWorld,
 ) -> StrResult<()> {
-    let ident = world.input().to_string_lossy();
-    let buffer = typst_pdf::pdf(document, Some(&ident), now());
+    let ident = world.input().map(|i| i.to_string_lossy());
+    let buffer = typst_pdf::pdf(document, ident.as_deref(), now());
     let output = command.output();
     fs::write(output, buffer)
         .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;
@@ -313,11 +315,6 @@ pub fn print_diagnostics(
     warnings: &[SourceDiagnostic],
     diagnostic_format: DiagnosticFormat,
 ) -> Result<(), codespan_reporting::files::Error> {
-    let mut w = match diagnostic_format {
-        DiagnosticFormat::Human => color_stream(),
-        DiagnosticFormat::Short => StandardStream::stderr(ColorChoice::Never),
-    };
-
     let mut config = term::Config { tab_width: 2, ..Default::default() };
     if diagnostic_format == DiagnosticFormat::Short {
         config.display_style = term::DisplayStyle::Short;
@@ -338,7 +335,7 @@ pub fn print_diagnostics(
         )
         .with_labels(label(world, diagnostic.span).into_iter().collect());
 
-        term::emit(&mut w, &config, world, &diag)?;
+        term::emit(&mut terminal::out(), &config, world, &diag)?;
 
         // Stacktrace-like helper diagnostics.
         for point in &diagnostic.trace {
@@ -347,7 +344,7 @@ pub fn print_diagnostics(
                 .with_message(message)
                 .with_labels(label(world, point.span).into_iter().collect());
 
-            term::emit(&mut w, &config, world, &help)?;
+            term::emit(&mut terminal::out(), &config, world, &help)?;
         }
     }
 

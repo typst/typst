@@ -6,7 +6,6 @@ use std::{iter, mem, ptr};
 
 use comemo::Prehashed;
 use ecow::{eco_vec, EcoString, EcoVec};
-use once_cell::sync::Lazy;
 use smallvec::SmallVec;
 
 use crate::diag::{SourceResult, Trace, Tracepoint};
@@ -134,6 +133,7 @@ impl Styles {
         self.0.iter().find_map(|entry| match &**entry {
             Style::Property(property) => property.is_of(elem).then_some(property.span),
             Style::Recipe(recipe) => recipe.is_of(elem).then_some(Some(recipe.span)),
+            Style::Revocation(_) => None,
         })
     }
 
@@ -148,9 +148,15 @@ impl Styles {
     }
 }
 
+impl From<Prehashed<Style>> for Styles {
+    fn from(style: Prehashed<Style>) -> Self {
+        Self(eco_vec![style])
+    }
+}
+
 impl From<Style> for Styles {
-    fn from(entry: Style) -> Self {
-        Self(eco_vec![Prehashed::new(entry)])
+    fn from(style: Style) -> Self {
+        Self(eco_vec![Prehashed::new(style)])
     }
 }
 
@@ -174,6 +180,8 @@ pub enum Style {
     Property(Property),
     /// A show rule recipe.
     Recipe(Recipe),
+    /// Disables a specific show rule recipe.
+    Revocation(RecipeIndex),
 }
 
 impl Style {
@@ -199,6 +207,7 @@ impl Debug for Style {
         match self {
             Self::Property(property) => property.fmt(f),
             Self::Recipe(recipe) => recipe.fmt(f),
+            Self::Revocation(guard) => guard.fmt(f),
         }
     }
 }
@@ -230,11 +239,17 @@ pub struct Property {
 
 impl Property {
     /// Create a new property from a key-value pair.
-    pub fn new<T>(elem: Element, id: u8, value: T) -> Self
+    pub fn new<E, T>(id: u8, value: T) -> Self
     where
+        E: NativeElement,
         T: Debug + Clone + Hash + Send + Sync + 'static,
     {
-        Self { elem, id, value: Block::new(value), span: None }
+        Self {
+            elem: E::elem(),
+            id,
+            value: Block::new(value),
+            span: None,
+        }
     }
 
     /// Whether this property is the given one.
@@ -245,6 +260,11 @@ impl Property {
     /// Whether this property belongs to the given element.
     pub fn is_of(&self, elem: Element) -> bool {
         self.elem == elem
+    }
+
+    /// Turn this property into prehashed style.
+    pub fn wrap(self) -> Prehashed<Style> {
+        Prehashed::new(Style::Property(self))
     }
 }
 
@@ -359,10 +379,10 @@ impl Recipe {
     }
 
     /// Whether the recipe is applicable to the target.
-    pub fn applicable(&self, target: &Content) -> bool {
+    pub fn applicable(&self, target: &Content, styles: StyleChain) -> bool {
         self.selector
             .as_ref()
-            .map_or(false, |selector| selector.matches(target))
+            .map_or(false, |selector| selector.matches(target, Some(styles)))
     }
 
     /// Apply the recipe to the given content.
@@ -396,6 +416,10 @@ impl Debug for Recipe {
         self.transform.fmt(f)
     }
 }
+
+/// Identifies a show rule recipe from the top of the chain.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct RecipeIndex(pub usize);
 
 /// A show rule transformation that can be applied to a match.
 #[derive(Clone, PartialEq, Hash)]
@@ -457,54 +481,47 @@ impl<'a> StyleChain<'a> {
         Chainable::chain(local, self)
     }
 
+    /// Cast the first value for the given property in the chain.
+    pub fn get<T: Clone + 'static>(
+        self,
+        func: Element,
+        id: u8,
+        inherent: Option<&T>,
+        default: impl Fn() -> T,
+    ) -> T {
+        self.properties::<T>(func, id, inherent)
+            .next()
+            .cloned()
+            .unwrap_or_else(default)
+    }
+
     /// Cast the first value for the given property in the chain,
-    /// returning a borrowed value if possible.
-    pub fn get_borrowed<T: Clone>(
+    /// returning a borrowed value.
+    pub fn get_ref<T: 'static>(
         self,
         func: Element,
         id: u8,
         inherent: Option<&'a T>,
-        default: &'static Lazy<T>,
+        default: impl Fn() -> &'a T,
     ) -> &'a T {
         self.properties::<T>(func, id, inherent)
             .next()
-            .unwrap_or_else(|| default)
+            .unwrap_or_else(default)
     }
 
-    /// Cast the first value for the given property in the chain.
-    pub fn get<T: Clone>(
+    /// Cast the first value for the given property in the chain, taking
+    /// `Fold` implementations into account.
+    pub fn get_folded<T: Fold + Clone + 'static>(
         self,
         func: Element,
         id: u8,
         inherent: Option<&T>,
-        default: &'static Lazy<T>,
+        default: impl Fn() -> T,
     ) -> T {
-        self.get_borrowed(func, id, inherent, default).clone()
-    }
-
-    /// Cast the first value for the given property in the chain.
-    pub fn get_resolve<T: Clone + Resolve>(
-        self,
-        func: Element,
-        id: u8,
-        inherent: Option<&T>,
-        default: &'static Lazy<T>,
-    ) -> T::Output {
-        self.get(func, id, inherent, default).resolve(self)
-    }
-
-    /// Cast the first value for the given property in the chain.
-    pub fn get_fold<T: Clone + Fold + 'static>(
-        self,
-        func: Element,
-        id: u8,
-        inherent: Option<&T>,
-        default: impl Fn() -> T::Output,
-    ) -> T::Output {
         fn next<T: Fold>(
             mut values: impl Iterator<Item = T>,
-            default: &impl Fn() -> T::Output,
-        ) -> T::Output {
+            default: &impl Fn() -> T,
+        ) -> T {
             values
                 .next()
                 .map(|value| value.fold(next(values, default)))
@@ -513,43 +530,8 @@ impl<'a> StyleChain<'a> {
         next(self.properties::<T>(func, id, inherent).cloned(), &default)
     }
 
-    /// Cast the first value for the given property in the chain.
-    pub fn get_resolve_fold<T>(
-        self,
-        func: Element,
-        id: u8,
-        inherent: Option<&T>,
-        default: impl Fn() -> <T::Output as Fold>::Output,
-    ) -> <T::Output as Fold>::Output
-    where
-        T: Resolve + Clone + 'static,
-        T::Output: Fold,
-    {
-        fn next<T>(
-            mut values: impl Iterator<Item = T>,
-            styles: StyleChain,
-            default: &impl Fn() -> <T::Output as Fold>::Output,
-        ) -> <T::Output as Fold>::Output
-        where
-            T: Resolve + 'static,
-            T::Output: Fold,
-        {
-            values
-                .next()
-                .map(|value| value.resolve(styles).fold(next(values, styles, default)))
-                .unwrap_or_else(default)
-        }
-
-        next(self.properties::<T>(func, id, inherent).cloned(), self, &default)
-    }
-
-    /// Iterate over all style recipes in the chain.
-    pub fn recipes(self) -> impl Iterator<Item = &'a Recipe> {
-        self.entries().filter_map(Style::recipe)
-    }
-
     /// Iterate over all values for the given property in the chain.
-    pub fn properties<T: 'static>(
+    fn properties<T: 'static>(
         self,
         func: Element,
         id: u8,
@@ -583,7 +565,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Iterate over the entries of the chain.
-    fn entries(self) -> Entries<'a> {
+    pub fn entries(self) -> Entries<'a> {
         Entries { inner: [].as_slice().iter(), links: self.links() }
     }
 
@@ -667,7 +649,7 @@ impl Chainable for Styles {
 }
 
 /// An iterator over the entries in a style chain.
-struct Entries<'a> {
+pub struct Entries<'a> {
     inner: std::slice::Iter<'a, Prehashed<Style>>,
     links: Links<'a>,
 }
@@ -925,38 +907,36 @@ impl<T: Resolve> Resolve for Option<T> {
 /// #rect()
 /// ```
 pub trait Fold {
-    /// The type of the folded output.
-    type Output;
-
     /// Fold this inner value with an outer folded value.
-    fn fold(self, outer: Self::Output) -> Self::Output;
+    fn fold(self, outer: Self) -> Self;
 }
 
-impl<T> Fold for Option<T>
-where
-    T: Fold,
-    T::Output: Default,
-{
-    type Output = Option<T::Output>;
+impl Fold for bool {
+    fn fold(self, _: Self) -> Self {
+        self
+    }
+}
 
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.map(|inner| inner.fold(outer.unwrap_or_default()))
+impl<T: Fold> Fold for Option<T> {
+    fn fold(self, outer: Self) -> Self {
+        match (self, outer) {
+            (Some(inner), Some(outer)) => Some(inner.fold(outer)),
+            // An explicit `None` should be respected, thus we don't do
+            // `inner.or(outer)`.
+            (inner, _) => inner,
+        }
     }
 }
 
 impl<T> Fold for Vec<T> {
-    type Output = Vec<T>;
-
-    fn fold(mut self, outer: Self::Output) -> Self::Output {
+    fn fold(mut self, outer: Self) -> Self {
         self.extend(outer);
         self
     }
 }
 
 impl<T, const N: usize> Fold for SmallVec<[T; N]> {
-    type Output = SmallVec<[T; N]>;
-
-    fn fold(mut self, outer: Self::Output) -> Self::Output {
+    fn fold(mut self, outer: Self) -> Self {
         self.extend(outer);
         self
     }

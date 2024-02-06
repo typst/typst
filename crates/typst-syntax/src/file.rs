@@ -57,6 +57,24 @@ impl FileId {
         id
     }
 
+    /// Create a new unique ("fake") file specification, which is not
+    /// accessible by path.
+    ///
+    /// Caution: the ID returned by this method is the *only* identifier of the
+    /// file, constructing a file ID with a path will *not* reuse the ID even
+    /// if the path is the same. This method should only be used for generating
+    /// "virtual" file ids such as content read from stdin.
+    #[track_caller]
+    pub fn new_fake(path: VirtualPath) -> Self {
+        let mut interner = INTERNER.write().unwrap();
+        let num = interner.from_id.len().try_into().expect("out of file ids");
+
+        let id = FileId(num);
+        let leaked = Box::leak(Box::new((None, path)));
+        interner.from_id.push(leaked);
+        id
+    }
+
     /// The package the file resides in, if any.
     pub fn package(&self) -> Option<&'static PackageSpec> {
         self.pair().0.as_ref()

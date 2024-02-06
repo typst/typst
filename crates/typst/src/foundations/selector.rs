@@ -7,7 +7,7 @@ use smallvec::SmallVec;
 use crate::diag::{bail, StrResult};
 use crate::foundations::{
     cast, func, repr, scope, ty, CastInfo, Content, Dict, Element, FromValue, Func,
-    Label, Reflect, Regex, Repr, Str, Type, Value,
+    Label, Reflect, Regex, Repr, Str, StyleChain, Type, Value,
 };
 use crate::introspection::{Locatable, Location};
 use crate::symbols::Symbol;
@@ -26,7 +26,7 @@ macro_rules! __select_where {
         let mut fields = ::smallvec::SmallVec::new();
         $(
             fields.push((
-                <$ty as $crate::foundations::ElementFields>::Fields::$field as u8,
+                <$ty as $crate::foundations::Fields>::Enum::$field as u8,
                 $crate::foundations::IntoValue::into_value($value),
             ));
         )*
@@ -128,23 +128,26 @@ impl Selector {
     }
 
     /// Whether the selector matches for the target.
-    pub fn matches(&self, target: &Content) -> bool {
-        // TODO: optimize field access to not clone.
+    pub fn matches(&self, target: &Content, styles: Option<StyleChain>) -> bool {
         match self {
             Self::Elem(element, dict) => {
+                // TODO: Optimize field access to not clone.
                 target.func() == *element
-                    && dict
-                        .iter()
-                        .flat_map(|dict| dict.iter())
-                        .all(|(id, value)| target.get(*id).as_ref() == Some(value))
+                    && dict.iter().flat_map(|dict| dict.iter()).all(|(id, value)| {
+                        target.get(*id, styles).as_ref() == Some(value)
+                    })
             }
             Self::Label(label) => target.label() == Some(*label),
             Self::Regex(regex) => target
                 .to_packed::<TextElem>()
                 .map_or(false, |elem| regex.is_match(elem.text())),
             Self::Can(cap) => target.func().can_type_id(*cap),
-            Self::Or(selectors) => selectors.iter().any(move |sel| sel.matches(target)),
-            Self::And(selectors) => selectors.iter().all(move |sel| sel.matches(target)),
+            Self::Or(selectors) => {
+                selectors.iter().any(move |sel| sel.matches(target, styles))
+            }
+            Self::And(selectors) => {
+                selectors.iter().all(move |sel| sel.matches(target, styles))
+            }
             Self::Location(location) => target.location() == Some(*location),
             // Not supported here.
             Self::Before { .. } | Self::After { .. } => false,
@@ -173,9 +176,9 @@ impl Selector {
         self,
         /// The other selectors to match on.
         #[variadic]
-        others: Vec<LocatableSelector>,
+        others: Vec<Selector>,
     ) -> Selector {
-        Self::Or(others.into_iter().map(|s| s.0).chain(Some(self)).collect())
+        Self::Or(others.into_iter().chain(Some(self)).collect())
     }
 
     /// Selects all elements that match this and all of the the other selectors.
@@ -184,9 +187,9 @@ impl Selector {
         self,
         /// The other selectors to match on.
         #[variadic]
-        others: Vec<LocatableSelector>,
+        others: Vec<Selector>,
     ) -> Selector {
-        Self::And(others.into_iter().map(|s| s.0).chain(Some(self)).collect())
+        Self::And(others.into_iter().chain(Some(self)).collect())
     }
 
     /// Returns a modified selector that will only match elements that occur
@@ -404,13 +407,17 @@ cast! {
 
 impl FromValue for ShowableSelector {
     fn from_value(value: Value) -> StrResult<Self> {
-        fn validate(selector: &Selector) -> StrResult<()> {
+        fn validate(selector: &Selector, nested: bool) -> StrResult<()> {
             match selector {
                 Selector::Elem(_, _) => {}
                 Selector::Label(_) => {}
-                Selector::Regex(_) => {}
-                Selector::Or(_)
-                | Selector::And(_)
+                Selector::Regex(_) if !nested => {}
+                Selector::Or(list) | Selector::And(list) => {
+                    for selector in list {
+                        validate(selector, true)?;
+                    }
+                }
+                Selector::Regex(_)
                 | Selector::Location(_)
                 | Selector::Can(_)
                 | Selector::Before { .. }
@@ -426,7 +433,7 @@ impl FromValue for ShowableSelector {
         }
 
         let selector = Selector::from_value(value)?;
-        validate(&selector)?;
+        validate(&selector, false)?;
         Ok(Self(selector))
     }
 }

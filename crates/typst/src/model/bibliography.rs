@@ -23,9 +23,9 @@ use crate::diag::{bail, error, At, FileError, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::eval::{eval_string, EvalMode};
 use crate::foundations::{
-    cast, elem, ty, Args, Array, Bytes, CastInfo, Content, Finalize, FromValue,
-    IntoValue, Label, NativeElement, Packed, Reflect, Repr, Scope, Show, Smart, Str,
-    StyleChain, Synthesize, Type, Value,
+    cast, elem, ty, Args, Array, Bytes, CastInfo, Content, FromValue, IntoValue, Label,
+    NativeElement, Packed, Reflect, Repr, Scope, Show, ShowSet, Smart, Str, StyleChain,
+    Styles, Synthesize, Type, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{
@@ -84,7 +84,7 @@ use crate::World;
 ///
 /// #bibliography("works.bib")
 /// ```
-#[elem(Locatable, Synthesize, Show, Finalize, LocalName)]
+#[elem(Locatable, Synthesize, Show, ShowSet, LocalName)]
 pub struct BibliographyElem {
     /// Path(s) to Hayagriva `.yml` and/or BibLaTeX `.bib` files.
     #[required]
@@ -199,8 +199,6 @@ impl BibliographyElem {
 impl Synthesize for Packed<BibliographyElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         let elem = self.as_mut();
-        elem.push_full(elem.full(styles));
-        elem.push_style(elem.style(styles));
         elem.push_lang(TextElem::lang_in(styles));
         elem.push_region(TextElem::region_in(styles));
         Ok(())
@@ -227,60 +225,57 @@ impl Show for Packed<BibliographyElem> {
             );
         }
 
-        Ok(engine.delayed(|engine| {
-            let span = self.span();
-            let works = Works::generate(engine.world, engine.introspector).at(span)?;
-            let references = works
-                .references
-                .as_ref()
-                .ok_or("CSL style is not suitable for bibliographies")
-                .at(span)?;
+        let span = self.span();
+        let works = Works::generate(engine.world, engine.introspector).at(span)?;
+        let references = works
+            .references
+            .as_ref()
+            .ok_or("CSL style is not suitable for bibliographies")
+            .at(span)?;
 
-            let row_gutter = *BlockElem::below_in(styles).amount();
-            if references.iter().any(|(prefix, _)| prefix.is_some()) {
-                let mut cells = vec![];
-                for (prefix, reference) in references {
-                    cells.push(
-                        Packed::new(GridCell::new(prefix.clone().unwrap_or_default()))
-                            .spanned(span),
-                    );
-                    cells.push(
-                        Packed::new(GridCell::new(reference.clone())).spanned(span),
-                    );
-                }
-
-                seq.push(VElem::new(row_gutter).with_weakness(3).pack());
-                seq.push(
-                    GridElem::new(cells)
-                        .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
-                        .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
-                        .with_row_gutter(TrackSizings(smallvec![(row_gutter).into()]))
-                        .pack()
-                        .spanned(self.span()),
+        let row_gutter = *BlockElem::below_in(styles).amount();
+        if references.iter().any(|(prefix, _)| prefix.is_some()) {
+            let mut cells = vec![];
+            for (prefix, reference) in references {
+                cells.push(
+                    Packed::new(GridCell::new(prefix.clone().unwrap_or_default()))
+                        .spanned(span),
                 );
-            } else {
-                for (_, reference) in references {
-                    seq.push(VElem::new(row_gutter).with_weakness(3).pack());
-                    seq.push(reference.clone());
-                }
+                cells.push(Packed::new(GridCell::new(reference.clone())).spanned(span));
             }
 
-            let mut content = Content::sequence(seq);
-            if works.hanging_indent {
-                content = content.styled(ParElem::set_hanging_indent(INDENT.into()));
+            seq.push(VElem::new(row_gutter).with_weakness(3).pack());
+            seq.push(
+                GridElem::new(cells)
+                    .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
+                    .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))
+                    .with_row_gutter(TrackSizings(smallvec![(row_gutter).into()]))
+                    .pack()
+                    .spanned(self.span()),
+            );
+        } else {
+            for (_, reference) in references {
+                seq.push(VElem::new(row_gutter).with_weakness(3).pack());
+                seq.push(reference.clone());
             }
+        }
 
-            Ok(content)
-        }))
+        let mut content = Content::sequence(seq);
+        if works.hanging_indent {
+            content = content.styled(ParElem::set_hanging_indent(INDENT.into()));
+        }
+
+        Ok(content)
     }
 }
 
-impl Finalize for Packed<BibliographyElem> {
-    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
+impl ShowSet for Packed<BibliographyElem> {
+    fn show_set(&self, _: StyleChain) -> Styles {
         const INDENT: Em = Em::new(1.0);
-        realized
-            .styled(HeadingElem::set_numbering(None))
-            .styled(PadElem::set_left(INDENT.into()))
+        let mut out = Styles::new();
+        out.set(HeadingElem::set_numbering(None));
+        out.set(PadElem::set_left(INDENT.into()));
+        out
     }
 }
 
@@ -323,7 +318,6 @@ impl LocalName for Packed<BibliographyElem> {
 }
 
 /// A loaded bibliography.
-#[ty]
 #[derive(Clone, PartialEq)]
 pub struct Bibliography {
     map: Arc<IndexMap<PicoStr, hayagriva::Entry>>,
@@ -419,12 +413,6 @@ impl Debug for Bibliography {
 impl Hash for Bibliography {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.hash.hash(state);
-    }
-}
-
-impl Repr for Bibliography {
-    fn repr(&self) -> EcoString {
-        "..".into()
     }
 }
 
@@ -748,13 +736,19 @@ impl<'a> Generator<'a> {
             driver.citation(CitationRequest::new(
                 items,
                 style,
-                Some(locale(*first.lang(), *first.region())),
+                Some(locale(
+                    first.lang().copied().unwrap_or(Lang::ENGLISH),
+                    first.region().copied().flatten(),
+                )),
                 &LOCALES,
                 None,
             ));
         }
 
-        let locale = locale(*self.bibliography.lang(), *self.bibliography.region());
+        let locale = locale(
+            self.bibliography.lang().copied().unwrap_or(Lang::ENGLISH),
+            self.bibliography.region().copied().flatten(),
+        );
 
         // Add hidden items for everything if we should print the whole
         // bibliography.

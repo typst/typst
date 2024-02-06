@@ -5,7 +5,7 @@ use unicode_math_class::MathClass;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, Finalize, NativeElement, Packed, Resolve, Smart, StyleChain,
+    elem, Content, NativeElement, Packed, Resolve, ShowSet, Smart, StyleChain, Styles,
     Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
@@ -49,7 +49,7 @@ use crate::World;
 #[elem(
     Locatable,
     Synthesize,
-    Finalize,
+    ShowSet,
     LayoutSingle,
     LayoutMath,
     Count,
@@ -73,6 +73,7 @@ pub struct EquationElem {
     /// With @ratio, we get:
     /// $ F_n = floor(1 / sqrt(5) phi.alt^n) $
     /// ```
+    #[borrowed]
     pub numbering: Option<Numbering>,
 
     /// A supplement for the equation.
@@ -100,28 +101,34 @@ pub struct EquationElem {
     /// The size of the glyphs.
     #[internal]
     #[default(MathSize::Text)]
+    #[ghost]
     pub size: MathSize,
 
     /// The style variant to select.
     #[internal]
+    #[ghost]
     pub variant: MathVariant,
 
     /// Affects the height of exponents.
     #[internal]
     #[default(false)]
+    #[ghost]
     pub cramped: bool,
 
     /// Whether to use bold glyphs.
     #[internal]
     #[default(false)]
+    #[ghost]
     pub bold: bool,
 
     /// Whether to use italic glyphs.
     #[internal]
+    #[ghost]
     pub italic: Smart<bool>,
 
     /// A forced class to use for all fragment.
     #[internal]
+    #[ghost]
     pub class: Option<MathClass>,
 }
 
@@ -139,27 +146,23 @@ impl Synthesize for Packed<EquationElem> {
             }
         };
 
-        let elem = self.as_mut();
-        elem.push_block(elem.block(styles));
-        elem.push_numbering(elem.numbering(styles));
-        elem.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
-
+        self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
         Ok(())
     }
 }
 
-impl Finalize for Packed<EquationElem> {
-    fn finalize(&self, realized: Content, style: StyleChain) -> Content {
-        let mut realized = realized;
-        if self.block(style) {
-            realized = realized.styled(AlignElem::set_alignment(Alignment::CENTER));
-            realized = realized.styled(EquationElem::set_size(MathSize::Display));
+impl ShowSet for Packed<EquationElem> {
+    fn show_set(&self, styles: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        if self.block(styles) {
+            out.set(AlignElem::set_alignment(Alignment::CENTER));
+            out.set(EquationElem::set_size(MathSize::Display));
         }
-        realized
-            .styled(TextElem::set_weight(FontWeight::from_number(450)))
-            .styled(TextElem::set_font(FontList(vec![FontFamily::new(
-                "New Computer Modern Math",
-            )])))
+        out.set(TextElem::set_weight(FontWeight::from_number(450)));
+        out.set(TextElem::set_font(FontList(vec![FontFamily::new(
+            "New Computer Modern Math",
+        )])));
+        out
     }
 }
 
@@ -241,7 +244,9 @@ impl LayoutSingle for Packed<EquationElem> {
         if let Some(numbering) = (**self).numbering(styles) {
             let pod = Regions::one(regions.base(), Axes::splat(false));
             let counter = Counter::of(EquationElem::elem())
-                .display(self.span(), Some(numbering), false)
+                .at(engine, self.location().unwrap())?
+                .display(engine, numbering)?
+                .spanned(self.span())
                 .layout(engine, styles, pod)?
                 .into_frame();
 
@@ -336,8 +341,8 @@ impl Refable for Packed<EquationElem> {
         Counter::of(EquationElem::elem())
     }
 
-    fn numbering(&self) -> Option<Numbering> {
-        (**self).numbering(StyleChain::default())
+    fn numbering(&self) -> Option<&Numbering> {
+        (**self).numbering(StyleChain::default()).as_ref()
     }
 }
 
@@ -363,7 +368,7 @@ impl Outlinable for Packed<EquationElem> {
         let numbers = self
             .counter()
             .at(engine, self.location().unwrap())?
-            .display(engine, &numbering)?;
+            .display(engine, numbering)?;
 
         Ok(Some(supplement + numbers))
     }
