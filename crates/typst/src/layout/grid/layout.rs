@@ -20,12 +20,12 @@ use crate::layout::{
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::util::{MaybeReverseIter, NonZeroExt, Numeric};
-use crate::visualize::{FixedStroke, Geometry, Paint, Stroke};
+use crate::visualize::{Geometry, Paint, Stroke};
 
 /// Resolved settings for the strokes of cells' lines.
 pub enum ResolvedInsideStroke {
     /// Configures all automatic lines spanning the whole grid.
-    Auto(Option<FixedStroke>),
+    Auto(Option<Stroke<Abs>>),
     /// Configures the borders of each cell.
     Celled(ResolvedCelled<Sides<Option<Option<Arc<Stroke>>>>>),
 }
@@ -215,7 +215,7 @@ pub struct Cell {
     /// The cell's stroke.
     /// We use an Arc to avoid unnecessary space usage when all sides are the
     /// same, or when the strokes come from a common source.
-    pub stroke: Sides<Option<Arc<FixedStroke>>>,
+    pub stroke: Sides<Option<Arc<Stroke<Abs>>>>,
 }
 
 impl From<Content> for Cell {
@@ -812,13 +812,19 @@ impl<'a> GridLayouter<'a> {
     /// Add lines and backgrounds.
     fn render_fills_strokes(mut self) -> SourceResult<Fragment> {
         let mut finished = std::mem::take(&mut self.finished);
+        let stroke = match &self.grid.stroke.inside {
+            ResolvedInsideStroke::Auto(Some(stroke)) => {
+                Some(stroke.clone().unwrap_or_default())
+            }
+            _ => None,
+        };
         for (frame, rows) in finished.iter_mut().zip(&self.rrows) {
             if self.rcols.is_empty() || rows.is_empty() {
                 continue;
             }
 
             // Render table lines.
-            if let ResolvedInsideStroke::Auto(Some(stroke)) = &self.grid.stroke.inside {
+            if let Some(stroke) = &stroke {
                 let thickness = stroke.thickness;
                 let half = thickness / 2.0;
 

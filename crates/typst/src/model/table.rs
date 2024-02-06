@@ -397,7 +397,10 @@ impl ResolvableCell for Packed<TableCell> {
         // None wins over the outer Some, and vice-versa. When both are
         // specified and Some, fold occurs, which, remarkably, leads to an Arc
         // clone.
-        let stroke = cell.stroke(styles).fold(stroke);
+        // In the end, we flatten because, for layout purposes, an unspecified
+        // cell stroke is the same as specifying 'none', so we equate the two
+        // concepts.
+        let stroke = cell.stroke(styles).fold(stroke).map(Option::flatten);
         cell.push_x(Smart::Custom(x));
         cell.push_y(Smart::Custom(y));
         cell.push_fill(Smart::Custom(fill.clone()));
@@ -420,19 +423,11 @@ impl ResolvableCell for Packed<TableCell> {
             // outer stroke ('None' in the folded stroke) to 'none', that is,
             // all sides are present in the resulting Sides object.
             stroke.clone().map(|side| {
-                Some(side.flatten().map(|cell_stroke| {
+                Some(side.map(|cell_stroke| {
                     Arc::new((*cell_stroke).clone().map(Length::from))
                 }))
             }),
         );
-
-        // For layout purposes, a stroke of 'none' on a cell is the same as not
-        // specifying it, so we use flatten to equate strokes of 'none' to
-        // unspecified sides. We also convert strokes to FixedStroke.
-        let stroke = stroke.map(|side| {
-            side.flatten()
-                .map(|cell_stroke| Arc::new((*cell_stroke).clone().unwrap_or_default()))
-        });
         Cell { body: self.pack(), fill, colspan, stroke }
     }
 
