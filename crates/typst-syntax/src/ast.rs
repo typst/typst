@@ -558,7 +558,7 @@ impl<'a> Raw<'a> {
 
     /// An optional identifier specifying the language to syntax-highlight in.
     pub fn lang(self) -> Option<&'a EcoString> {
-        let delim: RawDelim = self.0.cast_first_match().unwrap();
+        let delim: RawDelim = self.0.cast_first_match()?;
 
         // Only blocky literals are supposed to contain a language.
         if delim.0.len() < 3 {
@@ -571,7 +571,9 @@ impl<'a> Raw<'a> {
 
     /// Whether the raw text should be displayed in a separate block.
     pub fn block(self) -> bool {
-        let delim: RawDelim = self.0.cast_first_match().unwrap();
+        let Some(delim): Option<RawDelim> = self.0.cast_first_match() else {
+            return false;
+        };
 
         let mut newlines = self.0.children().filter(|e| {
             matches!(e.kind(), SyntaxKind::RawTrimmed) && e.text().chars().any(is_newline)
