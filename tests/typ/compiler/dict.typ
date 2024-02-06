@@ -135,14 +135,25 @@
 
 ---
 #let a = "hello"
-#let b = "world"
-#let c = "value"
-#let d = "conflict"
+// Error: 11-14 duplicate key: hello
+#((a): 1, (a): 2)
 
-#assert.eq(((a): b), ("hello": "world"))
-#assert.eq(((a): 1, (a): 2), ("hello": 2))
-#assert.eq((hello: 1, (a): 2), ("hello": 2))
-#assert.eq((a + b: c, (a + b): d, (a): "value2", a: "value3"), ("helloworld": "conflict", "hello": "value2", "a": "value3"))
+---
+#let a = "hello"
+// Error: 13-16 duplicate key: hello
+#(hello: 1, (a): 2)
+
+---
+#let a = "hello"
+#let b = "world"
+// Error: 11-16 duplicate key: helloworld
+// Error: 27-51 duplicate key: a
+#(a+b: 1, (a+b): 2, a: 3, ("made in berlin".at(1)): 4)
+
+---
+#let func() = { "a" }
+// Error: 9-17 duplicate key: a
+#(a: 3, (func()): 4)
 
 ---
 // Error: 7-10 expected identifier, found group

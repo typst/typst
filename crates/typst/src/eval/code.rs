@@ -1,4 +1,5 @@
-use ecow::{eco_vec, EcoVec};
+use ecow::{eco_format, eco_vec, EcoVec};
+use indexmap::IndexMap;
 
 use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult};
 use crate::eval::{ops, Eval, Vm};
@@ -230,20 +231,56 @@ impl Eval for ast::Dict<'_> {
 
         let mut invalid_keys = eco_vec![];
 
+        let add_named = |map: &mut IndexMap<Str, Value>,
+                         named: ast::Named<'_>,
+                         vm: &mut Vm,
+                         invalid_keys: &mut EcoVec<SourceDiagnostic>|
+         -> SourceResult<()> {
+            let ident = named.name();
+            let prev = map.insert(ident.get().clone().into(), named.expr().eval(vm)?);
+            if prev.is_some() {
+                let error = SourceDiagnostic::error(
+                    ident.span(),
+                    eco_format!("duplicate key: {}", ident.get()),
+                );
+                invalid_keys.push(error);
+            }
+            Ok(())
+        };
+
+        let add_keyed = |map: &mut IndexMap<Str, Value>,
+                         keyed: ast::Keyed<'_>,
+                         vm: &mut Vm,
+                         invalid_keys: &mut EcoVec<SourceDiagnostic>|
+         -> SourceResult<()> {
+            let raw_key = keyed.key();
+            let key = raw_key.eval(vm)?.cast::<Str>();
+            match key {
+                Ok(key) => {
+                    let prev = map.insert(key.clone(), keyed.expr().eval(vm)?);
+                    if prev.is_some() {
+                        let error = SourceDiagnostic::error(
+                            raw_key.span(),
+                            eco_format!("duplicate key: {}", key),
+                        );
+                        invalid_keys.push(error);
+                    }
+                }
+                Err(error) => {
+                    let error = SourceDiagnostic::error(raw_key.span(), error);
+                    invalid_keys.push(error);
+                }
+            }
+            Ok(())
+        };
+
         for item in self.items() {
             match item {
                 ast::DictItem::Named(named) => {
-                    map.insert(named.name().get().clone().into(), named.expr().eval(vm)?);
+                    add_named(&mut map, named, vm, &mut invalid_keys)?;
                 }
                 ast::DictItem::Keyed(keyed) => {
-                    let raw_key = keyed.key();
-                    let key = raw_key.eval(vm)?;
-                    let key = key.cast::<Str>().unwrap_or_else(|error| {
-                        let error = SourceDiagnostic::error(raw_key.span(), error);
-                        invalid_keys.push(error);
-                        Str::default()
-                    });
-                    map.insert(key, keyed.expr().eval(vm)?);
+                    add_keyed(&mut map, keyed, vm, &mut invalid_keys)?;
                 }
                 ast::DictItem::Spread(expr) => match expr.eval(vm)? {
                     Value::None => {}
