@@ -373,9 +373,7 @@ impl VmRead for Constant {
     type Output<'a> = &'a Value;
 
     fn read<'a>(&self, vm: &'a VMState) -> &'a Value {
-        unsafe {
-            vm.constants.get_unchecked(self.0 as usize)
-        }
+        &vm.constants[self.0 as usize]
     }
 }
 
@@ -383,17 +381,13 @@ impl VmRead for Register {
     type Output<'a> = &'a Value;
 
     fn read<'a>(&self, vm: &'a VMState) -> &'a Value {
-        unsafe {
-            vm.registers.get_unchecked(self.0 as usize)
-        }
+        &vm.registers[self.0 as usize]
     }
 }
 
 impl VmWrite for Register {
     fn write<'a>(&self, vm: &'a mut VMState) -> &'a mut Value {
-        unsafe {
-            vm.registers.get_unchecked_mut(self.0 as usize)
-        }
+        &mut vm.registers[self.0 as usize]
     }
 }
 
@@ -401,9 +395,7 @@ impl VmRead for StringId {
     type Output<'a> = &'a Value;
 
     fn read<'a>(&self, vm: &'a VMState) -> &'a Value {
-        unsafe {
-            vm.strings.get_unchecked(self.0 as usize)
-        }
+        &vm.strings[self.0 as usize]
     }
 }
 
@@ -411,9 +403,7 @@ impl VmRead for ClosureId {
     type Output<'a> = &'a CompiledClosure;
 
     fn read<'a>(&self, vm: &'a VMState) -> &'a CompiledClosure {
-        unsafe {
-            vm.closures.get_unchecked(self.0 as usize)
-        }
+        &vm.closures[self.0 as usize]
     }
 }
 
@@ -437,9 +427,7 @@ impl VmRead for LabelId {
     type Output<'a> = Label;
 
     fn read<'a>(&self, vm: &'a VMState) -> Label {
-        unsafe {
-            *vm.labels.get_unchecked(self.0 as usize)
-        }
+        vm.labels[self.0 as usize]
     }
 }
 
@@ -447,9 +435,7 @@ impl VmRead for AccessId {
     type Output<'a> = &'a Access;
 
     fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a> {
-        unsafe {
-            vm.accesses.get_unchecked(self.0 as usize)
-        }
+        &vm.accesses[self.0 as usize]
     }
 }
 
@@ -457,9 +443,7 @@ impl VmRead for PatternId {
     type Output<'a> = &'a Pattern;
 
     fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a> {
-        unsafe {
-            vm.patterns.get_unchecked(self.0 as usize)
-        }
+        &vm.patterns[self.0 as usize]
     }
 }
 
@@ -467,9 +451,7 @@ impl VmRead for SpanId {
     type Output<'a> = Span;
 
     fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a> {
-        unsafe {
-            *vm.spans.get_unchecked(self.0 as usize)
-        }
+        vm.spans[self.0 as usize]
     }
 }
 
@@ -477,8 +459,6 @@ impl VmRead for Pointer {
     type Output<'a> = usize;
 
     fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a> {
-        unsafe {
-            *vm.jumps.get_unchecked(self.0 as usize)
-        }
+        vm.jumps[self.0 as usize]
     }
 }

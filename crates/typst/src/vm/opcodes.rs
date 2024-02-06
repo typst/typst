@@ -966,14 +966,7 @@ impl Run for While {
         engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
-        debug_assert!(self.len as usize <= instructions.len());
-
-        // SAFETY: The instruction pointer is always within the bounds of the
-        // instruction list.
-        // JUSTIFICATION: This avoids a bounds check on every scope.
-        let instructions = unsafe {
-            std::slice::from_raw_parts(instructions.as_ptr(), self.len as usize)
-        };
+        let instructions = &instructions[..self.len as usize];
 
         let flow =
             vm.enter_scope(engine, instructions, spans, None, None, true, false, true)?;
@@ -1022,13 +1015,7 @@ impl Run for Iter {
 
         // Get the iterable.
         let iterable = vm.read(self.iterable).clone();
-
-        // SAFETY: The instruction pointer is always within the bounds of the
-        // instruction list.
-        // JUSTIFICATION: This avoids a bounds check on every scope.
-        let instructions = unsafe {
-            std::slice::from_raw_parts(instructions.as_ptr(), self.len as usize)
-        };
+        let instructions = &instructions[..self.len as usize];
 
         // Turn the iterable into an iterator.
         let flow = match iterable {
@@ -1495,14 +1482,7 @@ impl Run for Enter {
         engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
-        debug_assert!(self.len as usize <= instructions.len());
-
-        // SAFETY: The instruction pointer is always within the bounds of the
-        // instruction list.
-        // JUSTIFICATION: This avoids a bounds check on every scope.
-        let instructions = unsafe {
-            std::slice::from_raw_parts(instructions.as_ptr(), self.len as usize)
-        };
+        let instructions = &instructions[..self.len as usize];
 
         // Enter the scope within the vm.
         let joins = self.flags & 0b010 != 0;
