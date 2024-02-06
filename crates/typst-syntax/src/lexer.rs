@@ -237,9 +237,10 @@ impl Lexer<'_> {
     }
 
     fn raw(&mut self) -> SyntaxKind {
-        let backticks = self.cursor() - 1;
-        while self.s.eat_if('`') {}
-        let backticks = self.cursor() - backticks;
+        let mut backticks = 1;
+        while self.s.eat_if('`') {
+            backticks += 1;
+        }
         let blocky = backticks >= 3;
 
         if backticks == 2 {

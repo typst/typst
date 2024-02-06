@@ -577,7 +577,7 @@ impl<'a> Raw<'a> {
             matches!(e.kind(), SyntaxKind::RawTrimmed) && e.text().chars().any(is_newline)
         });
 
-        delim.0.text().len() >= 3 && newlines.next().is_some()
+        delim.0.len() >= 3 && newlines.next().is_some()
     }
 }
 
