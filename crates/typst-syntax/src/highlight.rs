@@ -156,7 +156,6 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::RawLang => None,
         SyntaxKind::RawTrimmed => None,
         SyntaxKind::RawDelim => Some(Tag::Raw),
-        SyntaxKind::RawLine => Some(Tag::Raw),
         SyntaxKind::Link => Some(Tag::Link),
         SyntaxKind::Label => Some(Tag::Label),
         SyntaxKind::Ref => Some(Tag::Ref),

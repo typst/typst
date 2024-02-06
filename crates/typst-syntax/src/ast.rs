@@ -552,7 +552,7 @@ node! {
 
 impl<'a> Raw<'a> {
     /// The lines in the raw block.
-    pub fn lines(self) -> impl Iterator<Item = RawLine<'a>> {
+    pub fn lines(self) -> impl Iterator<Item = Text<'a>> {
         self.0.children().filter_map(SyntaxNode::cast)
     }
 
@@ -589,18 +589,6 @@ node! {
 node! {
     /// A raw delimiter in single or 3+ backticks: `` ` ``.
     RawDelim
-}
-
-node! {
-    /// A line in a raw block: `  let x = 1;`.
-    RawLine
-}
-
-impl<'a> RawLine<'a> {
-    /// Inner content of the line.
-    pub fn text(self) -> EcoString {
-        self.0.text().clone()
-    }
 }
 
 node! {

@@ -34,8 +34,6 @@ pub enum SyntaxKind {
     RawDelim,
     /// A sequence of whitespace to ignore in a raw block: `    `.
     RawTrimmed,
-    /// A line in a raw block: `  let x = 1;`.
-    RawLine,
     /// A hyperlink: `https://typst.org`.
     Link,
     /// A label: `<intro>`.
@@ -375,7 +373,6 @@ impl SyntaxKind {
             Self::RawLang => "raw language",
             Self::RawTrimmed => "raw trimmed",
             Self::RawDelim => "raw delimiter",
-            Self::RawLine => "raw line",
             Self::Link => "link",
             Self::Label => "label",
             Self::Ref => "reference",

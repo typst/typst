@@ -308,7 +308,7 @@ impl Lexer<'_> {
                             // The previous position of the char.
                             let uneaten = s.cursor() - c.len_utf8();
 
-                            offsets.push((SyntaxKind::RawLine, uneaten));
+                            offsets.push((SyntaxKind::Text, uneaten));
                             if c == '\r' {
                                 s.eat_if('\n');
                             }
@@ -322,7 +322,7 @@ impl Lexer<'_> {
             let end_pos = s.cursor();
 
             // The last end position of the line in the raw block.
-            offsets.push((SyntaxKind::RawLine, end_pos - end_backticks));
+            offsets.push((SyntaxKind::Text, end_pos - end_backticks));
 
             if end_backticks != backticks {
                 // Restores the scanner and emits an error.

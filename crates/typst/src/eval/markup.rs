@@ -167,7 +167,7 @@ impl Eval for ast::Raw<'_> {
     type Output = Content;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        let lines = self.lines().map(|line| (line.text(), line.span())).collect();
+        let lines = self.lines().map(|line| (line.get().clone(), line.span())).collect();
         let mut elem = RawElem::new(RawContent::Lines(lines)).with_block(self.block());
         if let Some(lang) = self.lang() {
             elem.push_lang(Some(lang.clone()));
