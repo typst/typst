@@ -140,6 +140,7 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
 
 fn raw(p: &mut Parser) {
     let m = p.marker();
+    p.enter(LexMode::Raw);
 
     // Eats the delimiter.
     p.eat_raw();
@@ -147,10 +148,10 @@ fn raw(p: &mut Parser) {
     while !p.eof() && !p.at(SyntaxKind::RawDelim) {
         p.eat_raw();
     }
-
     // Lex the next token after the raw block.
     p.expect(SyntaxKind::RawDelim);
 
+    p.exit();
     p.wrap(m, SyntaxKind::Raw);
 }
 
@@ -1636,7 +1637,7 @@ impl<'s> Parser<'s> {
 
     fn eat_raw(&mut self) {
         self.save();
-        self.lex_raw();
+        self.lex();
     }
 
     fn skip(&mut self) {
@@ -1690,11 +1691,6 @@ impl<'s> Parser<'s> {
         {
             self.current = SyntaxKind::Eof;
         }
-    }
-
-    fn lex_raw(&mut self) {
-        self.current_start = self.lexer.cursor();
-        self.current = self.lexer.next_raw();
     }
 }
 

@@ -32,6 +32,8 @@ pub(super) enum LexMode {
     Math,
     /// Keywords, literals and operators.
     Code,
+    /// Raw block.
+    Raw,
 }
 
 impl<'s> Lexer<'s> {
@@ -90,6 +92,15 @@ impl Lexer<'_> {
 /// Shared.
 impl Lexer<'_> {
     pub fn next(&mut self) -> SyntaxKind {
+        if matches!(self.mode, LexMode::Raw) {
+            return if let Some((kind, end)) = self.raw_offsets.pop() {
+                self.s.jump(end);
+                kind
+            } else {
+                SyntaxKind::Eof
+            };
+        }
+
         self.newline = false;
         self.error = None;
         let start = self.s.cursor();
@@ -105,18 +116,10 @@ impl Lexer<'_> {
                 LexMode::Markup => self.markup(start, c),
                 LexMode::Math => self.math(start, c),
                 LexMode::Code => self.code(start, c),
+                LexMode::Raw => unreachable!(),
             },
 
             None => SyntaxKind::Eof,
-        }
-    }
-
-    pub fn next_raw(&mut self) -> SyntaxKind {
-        if let Some((kind, end)) = self.raw_offsets.pop() {
-            self.s.jump(end);
-            kind
-        } else {
-            SyntaxKind::Eof
         }
     }
 
