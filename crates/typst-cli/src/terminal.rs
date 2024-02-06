@@ -116,7 +116,9 @@ impl TermOut {
 
     /// Enters the alternate screen if none was opened already.
     pub fn enter_alternate_screen(&mut self) -> io::Result<()> {
-        if !self.inner.in_alternate_screen.load(Ordering::Acquire) {
+        if self.inner.stream.supports_color()
+            && !self.inner.in_alternate_screen.load(Ordering::Acquire)
+        {
             let mut stream = self.inner.stream.lock();
             write!(stream, "\x1B[?1049h")?;
             stream.flush()?;
@@ -127,7 +129,9 @@ impl TermOut {
 
     /// Leaves the alternate screen if it is already open.
     pub fn leave_alternate_screen(&mut self) -> io::Result<()> {
-        if self.inner.in_alternate_screen.load(Ordering::Acquire) {
+        if self.inner.stream.supports_color()
+            && self.inner.in_alternate_screen.load(Ordering::Acquire)
+        {
             let mut stream = self.inner.stream.lock();
             write!(stream, "\x1B[?1049l")?;
             stream.flush()?;
