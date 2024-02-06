@@ -14,8 +14,8 @@ use smallvec::{smallvec, SmallVec};
 use crate::diag::{SourceResult, StrResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Dict, Fold, FromValue, IntoValue, Packed, Resolve,
-    Show, Smart, StyleChain, Value,
+    cast, elem, scope, Array, CastInfo, Content, Dict, Fold, FromValue, IntoValue,
+    Packed, Reflect, Resolve, Show, Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Fragment, LayoutMultiple, Length, Regions, Rel,
@@ -245,7 +245,7 @@ pub struct GridElem {
     /// third-party [tablex library](https://github.com/PgBiel/typst-tablex/).
     #[resolve]
     #[fold]
-    pub stroke: GridStroke,
+    pub stroke: GridStroke<InsideStroke>,
 
     /// How much to pad the cells' content.
     ///
@@ -338,7 +338,8 @@ cast! {
     values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
 }
 
-/// Possible settings for the strokes of cells' lines.
+/// Possible settings for the strokes of grid cells' lines.
+/// Tables have their own variant of this type, with a different default.
 #[derive(Debug, Clone, Hash, PartialEq)]
 pub enum InsideStroke {
     /// Configures all automatic lines spanning the whole grid.
@@ -376,6 +377,12 @@ impl Resolve for InsideStroke {
     }
 }
 
+impl From<Option<Stroke>> for InsideStroke {
+    fn from(stroke: Option<Stroke>) -> Self {
+        Self::Auto(stroke)
+    }
+}
+
 cast! {
     InsideStroke,
 
@@ -389,14 +396,14 @@ cast! {
 
 /// Grid-wide stroke settings.
 #[derive(Debug, Clone, Hash, Default, PartialEq)]
-pub struct GridStroke {
+pub struct GridStroke<I> {
     /// Configures only the grid's border lines.
     pub outside: Smart<Sides<Option<Option<Arc<Stroke>>>>>,
     /// Configures the cells' lines.
-    pub inside: InsideStroke,
+    pub inside: I,
 }
 
-impl Fold for GridStroke {
+impl<I: Fold> Fold for GridStroke<I> {
     fn fold(self, outer: Self) -> Self {
         Self {
             outside: self.outside.fold(outer.outside),
@@ -405,7 +412,10 @@ impl Fold for GridStroke {
     }
 }
 
-impl Resolve for GridStroke {
+impl<I> Resolve for GridStroke<I>
+where
+    I: Resolve<Output = ResolvedInsideStroke>,
+{
     type Output = ResolvedGridStroke;
     fn resolve(self, styles: StyleChain) -> Self::Output {
         ResolvedGridStroke {
@@ -415,65 +425,75 @@ impl Resolve for GridStroke {
     }
 }
 
-cast! {
-    GridStroke,
+impl<I: Reflect> Reflect for GridStroke<I> {
+    fn input() -> CastInfo {
+        <Option<Stroke> as Reflect>::input() + <Dict as Reflect>::input()
+    }
+    fn output() -> CastInfo {
+        Self::input()
+    }
+    fn castable(value: &Value) -> bool {
+        <Option<Stroke> as Reflect>::castable(value) || <Dict as Reflect>::castable(value)
+    }
+}
 
-    self => {
+impl<I: IntoValue> IntoValue for GridStroke<I> {
+    fn into_value(self) -> Value {
         if let Smart::Custom(outside) = self.outside {
             let mut dict = Dict::new();
             let mut handle = |key: &str, component: Option<Value>| {
                 if let Some(value) = component {
-                    // Insert component even if it is none, as long as it was
-                    // specified.
                     dict.insert(key.into(), value);
                 }
             };
-
             handle("top", outside.top.map(IntoValue::into_value));
             handle("bottom", outside.bottom.map(IntoValue::into_value));
             handle("left", outside.left.map(IntoValue::into_value));
             handle("right", outside.right.map(IntoValue::into_value));
             dict.insert("inside".into(), self.inside.into_value());
-
             Value::Dict(dict)
         } else {
             self.inside.into_value()
         }
-    },
-
-    stroke: Option<Stroke> => Self {
-        outside: Smart::Auto,
-        inside: InsideStroke::Auto(stroke),
-    },
-
-    mut dict: Dict => {
-        fn take<T: FromValue>(dict: &mut Dict, key: &str) -> StrResult<Option<T>> {
-            dict.take(key).ok().map(Value::cast).transpose()
+    }
+}
+impl<I> FromValue for GridStroke<I>
+where
+    I: Default + FromValue + From<Option<Stroke>>,
+{
+    fn from_value(value: Value) -> ::typst::diag::StrResult<Self> {
+        if <Option<Stroke> as Reflect>::castable(&value) {
+            let stroke = Option::<Stroke>::from_value(value)?;
+            return Ok(Self { outside: Smart::Auto, inside: I::from(stroke) });
         }
-
-        let rest = take(&mut dict, "rest")?;
-        let x = take(&mut dict, "x")?.or_else(|| rest.clone());
-        let y = take(&mut dict, "y")?.or(rest);
-        let top = take(&mut dict, "top")?.or_else(|| y.clone());
-        let bottom = take(&mut dict, "bottom")?.or(y);
-        let left = take(&mut dict, "left")?.or_else(|| x.clone());
-        let right = take(&mut dict, "right")?.or(x);
-        let inside = take(&mut dict, "inside")?.unwrap_or_default();
-
-        dict.finish(&[
-            "inside", "left", "top", "right", "bottom", "x", "y", "rest",
-        ])?;
-
-        Self {
-            outside: Smart::Custom(Sides {
-                left,
-                top,
-                right,
-                bottom,
-            }),
-            inside,
+        if <Dict as Reflect>::castable(&value) {
+            let mut dict = Dict::from_value(value)?;
+            return Ok({
+                fn take<T: FromValue>(
+                    dict: &mut Dict,
+                    key: &str,
+                ) -> StrResult<Option<T>> {
+                    dict.take(key).ok().map(Value::cast).transpose()
+                }
+                let rest = take(&mut dict, "rest")?;
+                let x = take(&mut dict, "x")?.or_else(|| rest.clone());
+                let y = take(&mut dict, "y")?.or(rest);
+                let top = take(&mut dict, "top")?.or_else(|| y.clone());
+                let bottom = take(&mut dict, "bottom")?.or(y);
+                let left = take(&mut dict, "left")?.or_else(|| x.clone());
+                let right = take(&mut dict, "right")?.or(x);
+                let inside = take(&mut dict, "inside")?.unwrap_or_default();
+                dict.finish(&[
+                    "inside", "left", "top", "right", "bottom", "x", "y", "rest",
+                ])?;
+                Self {
+                    outside: Smart::Custom(Sides { left, top, right, bottom }),
+                    inside,
+                }
+            });
         }
-    },
+        Err(<Self as Reflect>::error(&value))
+    }
 }
 
 /// A cell in the grid. Use this to either override grid properties for a

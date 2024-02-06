@@ -6,12 +6,12 @@ use ecow::eco_format;
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Content, Fold, Packed, Show, Smart, StyleChain,
+    cast, elem, scope, Content, Fold, Packed, Resolve, Show, Smart, StyleChain,
 };
 use crate::layout::{
     show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter,
-    GridStroke, InsideStroke, LayoutMultiple, Length, Regions, Rel, ResolvableCell,
-    Sides, TrackSizings,
+    GridStroke, LayoutMultiple, Length, Regions, Rel, ResolvableCell,
+    ResolvedInsideStroke, Sides, TrackSizings,
 };
 use crate::model::Figurable;
 use crate::syntax::Span;
@@ -173,8 +173,7 @@ pub struct TableElem {
     /// third-party [tablex library](https://github.com/PgBiel/typst-tablex/).
     #[resolve]
     #[fold]
-    #[default(GridStroke { outside: Smart::Auto, inside: InsideStroke::Auto(Some(Stroke::default())) })]
-    pub stroke: GridStroke,
+    pub stroke: GridStroke<InsideStroke>,
 
     /// How much to pad the cells' content.
     ///
@@ -288,6 +287,66 @@ impl LocalName for Packed<TableElem> {
 }
 
 impl Figurable for Packed<TableElem> {}
+
+/// Possible settings for the strokes of table cells' lines.
+/// This has a different default from grids' [`InsideStroke`], hence why there
+/// are separate types for table inside stroke and grid inside stroke.
+/// However, both resolve to [`ResolvedInsideStroke`].
+///
+/// [`InsideStroke`]: crate::layout::InsideStroke
+#[derive(Debug, Clone, Hash, PartialEq)]
+pub enum InsideStroke {
+    /// Configures all automatic lines spanning the whole grid.
+    Auto(Option<Stroke>),
+    /// Configures the borders of each cell.
+    Celled(Celled<Sides<Option<Option<Arc<Stroke>>>>>),
+}
+
+impl Default for InsideStroke {
+    fn default() -> Self {
+        Self::Auto(Some(Stroke::default()))
+    }
+}
+
+impl Fold for InsideStroke {
+    fn fold(self, outer: Self) -> Self {
+        match (self, outer) {
+            (Self::Auto(inner), Self::Auto(outer)) => Self::Auto(inner.fold(outer)),
+            (Self::Celled(inner), Self::Celled(outer)) => Self::Celled(inner.fold(outer)),
+            (inner, _) => inner,
+        }
+    }
+}
+
+impl Resolve for InsideStroke {
+    type Output = ResolvedInsideStroke;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        match self {
+            Self::Auto(stroke) => ResolvedInsideStroke::Auto(stroke.resolve(styles)),
+            Self::Celled(stroke) => {
+                ResolvedInsideStroke::Celled(Resolve::resolve(stroke, styles))
+            }
+        }
+    }
+}
+
+impl From<Option<Stroke>> for InsideStroke {
+    fn from(stroke: Option<Stroke>) -> Self {
+        Self::Auto(stroke)
+    }
+}
+
+cast! {
+    InsideStroke,
+
+    self => match self {
+        Self::Auto(stroke) => stroke.into_value(),
+        Self::Celled(stroke) => stroke.into_value(),
+    },
+    v: Option<Stroke> => Self::Auto(v),
+    v: Celled<Sides<Option<Option<Arc<Stroke>>>>> => Self::Celled(v),
+}
 
 /// A cell in the table. Use this to either override table properties for a
 /// particular cell, or in show rules to apply certain styles to multiple cells
