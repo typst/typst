@@ -73,33 +73,9 @@ pub enum DictKey {
     Int(i64),
 }
 
-impl From<&str> for DictKey {
-    fn from(v: &str) -> Self {
+impl<T: Into<Str>> From<T> for DictKey {
+    fn from(v: T) -> Self {
         DictKey::Str(v.into())
-    }
-}
-
-impl From<Str> for DictKey {
-    fn from(v: Str) -> Self {
-        DictKey::Str(v)
-    }
-}
-
-impl From<&Str> for DictKey {
-    fn from(v: &Str) -> Self {
-        DictKey::Str(v.clone())
-    }
-}
-
-impl From<EcoString> for DictKey {
-    fn from(v: EcoString) -> Self {
-        DictKey::Str(v.into())
-    }
-}
-
-impl From<&EcoString> for DictKey {
-    fn from(v: &EcoString) -> Self {
-        DictKey::Str(v.clone().into())
     }
 }
 
@@ -131,8 +107,8 @@ cast! {
 impl Repr for DictKey {
     fn repr(&self) -> EcoString {
         match self {
-            Self::Str(s) => Value::Str(s.clone()).repr(),
-            Self::Int(i) => Value::Int(*i).repr(),
+            Self::Str(s) => s.repr(),
+            Self::Int(i) => i.repr(),
         }
     }
 }
@@ -214,22 +190,22 @@ impl Dict {
 
     /// Check if there is any remaining pair, and if so return an
     /// "unexpected key" error.
-    pub fn finish(&self, expected: Vec<DictKey>) -> StrResult<()> {
+    pub fn finish(&self, expected: &Vec<DictKey>) -> StrResult<()> {
         let mut iter = self.iter().peekable();
         if iter.peek().is_none() {
             return Ok(());
         }
-        let unexpected: Vec<DictKey> = iter.map(|kv| kv.0.clone()).collect();
+        let unexpected: Vec<&DictKey> = iter.map(|kv| kv.0).collect();
 
         Err(Self::unexpected_keys(unexpected, Some(expected)))
     }
 
     // Return an "unexpected key" error string.
     pub fn unexpected_keys(
-        unexpected: Vec<DictKey>,
-        hint_expected: Option<Vec<DictKey>>,
+        unexpected: Vec<&DictKey>,
+        hint_expected: Option<&Vec<DictKey>>,
     ) -> EcoString {
-        let format_as_list = |arr: &Vec<DictKey>| {
+        let format_as_list = |arr: Vec<&DictKey>| {
             repr::separated_list(
                 &arr.iter().map(|k| eco_format!("\"{k}\"")).collect::<Vec<_>>(),
                 "and",
@@ -241,11 +217,11 @@ impl Dict {
             _ => "unexpected keys ",
         });
 
-        msg.push_str(&format_as_list(&unexpected));
+        msg.push_str(&format_as_list(unexpected));
 
         if let Some(expected) = hint_expected {
             msg.push_str(", valid keys are ");
-            msg.push_str(&format_as_list(&expected));
+            msg.push_str(&format_as_list(expected.iter().collect()));
         }
 
         msg.into()

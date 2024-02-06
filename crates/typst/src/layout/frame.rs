@@ -536,7 +536,7 @@ cast! {
         let page = dict.take("page")?.cast()?;
         let x: Length = dict.take("x")?.cast()?;
         let y: Length = dict.take("y")?.cast()?;
-        dict.finish(dict_keys!["page", "x", "y"])?;
+        dict.finish(&dict_keys!["page", "x", "y"])?;
         Self { page, point: Point::new(x.abs, y.abs) }
     },
 }

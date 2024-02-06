@@ -611,7 +611,7 @@ cast! {
         let two_sided = (implicitly_two_sided || implicitly_not_two_sided)
             .then_some(implicitly_two_sided);
 
-        dict.finish(dict_keys![
+        dict.finish(&dict_keys![
             "left", "top", "right", "bottom", "outside", "inside", "x", "y", "rest",
         ])?;
 

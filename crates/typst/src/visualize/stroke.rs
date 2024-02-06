@@ -389,7 +389,7 @@ cast! {
         let join = take::<LineJoin>(&mut dict, "join")?;
         let dash = take::<Option<DashPattern>>(&mut dict, "dash")?;
         let miter_limit = take::<f64>(&mut dict, "miter-limit")?;
-        dict.finish(dict_keys!["paint", "thickness", "cap", "join", "dash", "miter-limit"])?;
+        dict.finish(&dict_keys!["paint", "thickness", "cap", "join", "dash", "miter-limit"])?;
 
         Self {
             paint,
@@ -515,7 +515,7 @@ cast! {
         let array: Vec<DashLength> = dict.take("array")?.cast()?;
         let phase = dict.take("phase").ok().map(Value::cast)
             .transpose()?.unwrap_or(Length::zero());
-        dict.finish(dict_keys!["array", "phase"])?;
+        dict.finish(&dict_keys!["array", "phase"])?;
         Self {
             array,
             phase,

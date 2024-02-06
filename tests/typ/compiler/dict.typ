@@ -100,18 +100,18 @@
 
 ---
 // Test dictionary methods.
-#let dict = (a: 3, c: 2, b: 1, 42: "z")
+#let dict = (a: 3, c: 2, b: 1, -1: "z")
 #test("c" in dict, true)
-#test(42 in dict, true)
+#test(-1 in dict, true)
 #test(dict.len(), 4)
-#test(dict.keys(), ("a", "c", "b", 42))
+#test(dict.keys(), ("a", "c", "b", -1))
 #test(dict.values(), (3, 2, 1, "z"))
-
-#dict.remove(42)
-#test(dict.pairs().map(p => p.first() + str(p.last())).join(), "a3c2b1")
+#test(dict.pairs().map(p => str(p.first()) + str(p.last())).join(), "a3c2b1−1z")
 
 #dict.remove("c")
+#dict.remove(-1)
 #test("c" in dict, false)
+#test(-1 not in dict, true)
 #test(dict, (a: 3, b: 1))
 
 ---
@@ -134,12 +134,12 @@
 
 ---
 // Simple expression after already being identified as a dictionary.
-// Error: 9-10 expected named, keyed, or numbered pair, found identifier
+// Error: 9-10 expected named or keyed pair, found identifier
 #(a: 1, b)
 
 // Identified as dictionary due to initial colon.
 // The boolean key is allowed for now since it will only cause an error at the evaluation stage.
-// Error: 4-5 expected named, keyed, or numbered pair, but found integer
+// Error: 4-5 expected named or keyed pair, found integer
 // Error: 5 expected comma
 // Error: 17 expected expression
 #(:1 b:"", true:)

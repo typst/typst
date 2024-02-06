@@ -837,7 +837,7 @@ fn invalidate_destructuring(p: &mut Parser, m: Marker) {
             SyntaxKind::LeftParen | SyntaxKind::RightParen | SyntaxKind::Comma => {}
             kind => match collection_kind {
                 Some(SyntaxKind::Dict) => child.convert_to_error(eco_format!(
-                    "expected named, keyed, or numbered pair, found {}",
+                    "expected named or keyed pair, found {}",
                     kind.name()
                 )),
                 _ => collection_kind = Some(SyntaxKind::Array),
@@ -1258,7 +1258,7 @@ fn validate_dict<'a>(children: impl Iterator<Item = &'a mut SyntaxNode>) {
             | SyntaxKind::Space => {}
             kind => {
                 child.convert_to_error(eco_format!(
-                    "expected named, keyed, or numbered pair, but found {}",
+                    "expected named or keyed pair, found {}",
                     kind.name()
                 ));
             }

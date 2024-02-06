@@ -45,7 +45,9 @@ impl Access for ast::Parenthesized<'_> {
 
 impl Access for ast::FieldAccess<'_> {
     fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
-        access_dict(vm, self)?.at_mut(self.field().get()).at(self.span())
+        access_dict(vm, self)?
+            .at_mut(self.field().get().clone())
+            .at(self.span())
     }
 }
 

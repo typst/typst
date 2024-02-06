@@ -365,7 +365,7 @@ cast! {
             .transpose()?
             .unwrap_or(Smart::Auto);
 
-        value.finish(keys)?;
+        value.finish(&keys)?;
 
         Self { single, double }
     },

@@ -214,7 +214,7 @@ where
                         .or_else(|| left.clone()),
                 };
 
-                dict.finish(expected_keys)?;
+                dict.finish(&expected_keys)?;
                 return Ok(corners);
             }
         }
@@ -222,7 +222,7 @@ where
         if T::castable(&value) {
             Ok(Self::splat(Some(T::from_value(value)?)))
         } else if let Value::Dict(dict) = &value {
-            let keys = dict.iter().map(|kv| kv.0.clone()).collect();
+            let keys = dict.iter().map(|kv| kv.0).collect();
             // Do not hint at expected_keys, because T may be castable from Dict
             // objects with other sets of expected keys.
             Err(Dict::unexpected_keys(keys, None))
