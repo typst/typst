@@ -332,7 +332,6 @@ impl Packed<RawElem> {
     #[comemo::memoize]
     fn highlight(&self, styles: StyleChain) -> Vec<Packed<RawLine>> {
         let elem = self.as_ref();
-        let span = self.span();
 
         let text = elem.text();
         let lines = match text {
