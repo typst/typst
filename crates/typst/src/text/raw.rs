@@ -5,7 +5,6 @@ use std::sync::Arc;
 use ecow::{eco_format, EcoString, EcoVec};
 use once_cell::sync::Lazy;
 use once_cell::unsync::Lazy as UnsyncLazy;
-use syntax::Span;
 use syntect::highlighting as synt;
 use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use unicode_segmentation::UnicodeSegmentation;
@@ -18,7 +17,7 @@ use crate::foundations::{
 };
 use crate::layout::{BlockElem, Em, HAlignment};
 use crate::model::Figurable;
-use crate::syntax::{split_newlines, LinkedNode, Spanned};
+use crate::syntax::{split_newlines, LinkedNode, Span, Spanned};
 use crate::text::{
     FontFamily, FontList, Hyphenate, Lang, LinebreakElem, LocalName, Region,
     SmartQuoteElem, TextElem, TextSize,

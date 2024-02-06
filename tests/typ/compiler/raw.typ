@@ -115,31 +115,23 @@ test
   block: true,
 )
 
+#let cases = (
+  empty,
+  backtick,
+  lang-backtick,
+  lang-space,
+  lang-newline,
+  blocky,
+  blocky-dedent-dont-considering-first-line,
+  blocky-dedent,
+  blocky-dedent-lastline,
+  blocky-dedent-lastline2,
+  blocky-tab,
+  blocky-tab-dedent,
+)
 
-#let main() = {
-  
-  let cases = (
-    empty,
-    backtick,
-    lang-backtick,
-    lang-space,
-    lang-newline,
-    blocky,
-    blocky-dedent-dont-considering-first-line,
-    blocky-dedent,
-    blocky-dedent-lastline,
-    blocky-dedent-lastline2,
-    blocky-tab,
-    blocky-tab-dedent,
-  )
-
-  
-  for c in cases {
-    assert.eq(c.text, c.input.text, message: "in point " + c.name + ", expect " + repr(c.text) + ", got " + repr(c.input.text) + "")
-    let block = c.at("block", default: false)
-    assert.eq(block, c.input.block, message: "in point " + c.name + ", expect " + repr(block) + ", got " + repr(c.input.block) + "")
-  }
+#for c in cases {
+  assert.eq(c.text, c.input.text, message: "in point " + c.name + ", expect " + repr(c.text) + ", got " + repr(c.input.text) + "")
+  let block = c.at("block", default: false)
+  assert.eq(block, c.input.block, message: "in point " + c.name + ", expect " + repr(block) + ", got " + repr(c.input.block) + "")
 }
-
-#main()
-

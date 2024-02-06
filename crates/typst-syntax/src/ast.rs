@@ -553,20 +553,20 @@ node! {
 impl<'a> Raw<'a> {
     /// The lines in the raw block.
     pub fn lines(self) -> impl Iterator<Item = RawLine<'a>> {
-        self.0.children().filter_map(RawLine::from_untyped)
+        self.0.children().filter_map(SyntaxNode::cast)
     }
 
     /// An optional identifier specifying the language to syntax-highlight in.
-    pub fn lang(self) -> Option<&'a str> {
+    pub fn lang(self) -> Option<&'a EcoString> {
         let delim: RawDelim = self.0.cast_first_match().unwrap();
 
         // Only blocky literals are supposed to contain a language.
-        if delim.0.text().len() < 3 {
+        if delim.0.len() < 3 {
             return Option::None;
         }
 
         let lang: Option<RawLang> = self.0.cast_first_match();
-        lang.map(|lang| lang.0.text().as_str())
+        lang.map(|lang| lang.0.text())
     }
 
     /// Whether the raw text should be displayed in a separate block.

@@ -258,7 +258,7 @@ impl Lexer<'_> {
             dedent: Option<usize>,
             /// Whether the content should be trimmed a space at the end.
             content_ends_with_backticks: bool,
-            /// The language tag of the raw block.
+            /// The offset of language tag in the raw block.
             lang: Option<usize>,
             /// The end position of the raw block.
             end_pos: usize,
