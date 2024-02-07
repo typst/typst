@@ -842,6 +842,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
      bet: 'ב',
      gimmel: 'ג',
      gimel: 'ג',
+     dalet: 'ד',
      shin: 'ש',
 
      // Double-struck.
