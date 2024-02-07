@@ -100,18 +100,12 @@ impl Array {
 
     /// Mutably borrow the first value in the array.
     pub fn first_mut(&mut self) -> StrResult<&mut Value> {
-        self.0
-            .make_mut()
-            .first_mut()
-            .ok_or_else(array_is_empty_no_mutable_entry)
+        self.0.make_mut().first_mut().ok_or_else(array_is_empty)
     }
 
     /// Mutably borrow the last value in the array.
     pub fn last_mut(&mut self) -> StrResult<&mut Value> {
-        self.0
-            .make_mut()
-            .last_mut()
-            .ok_or_else(array_is_empty_no_mutable_entry)
+        self.0.make_mut().last_mut().ok_or_else(array_is_empty)
     }
 
     /// Mutably borrow the value at the given index.
@@ -119,7 +113,7 @@ impl Array {
         let len = self.len();
         self.locate_opt(index, false)
             .and_then(move |i| self.0.make_mut().get_mut(i))
-            .ok_or_else(|| out_of_bounds_no_mutable_entry(index, len))
+            .ok_or_else(|| out_of_bounds(index, len))
     }
 
     /// Resolve an index or throw an out of bounds error.
@@ -950,25 +944,10 @@ fn array_is_empty() -> EcoString {
     "array is empty".into()
 }
 
-/// The error message when the array is empty so there's no mutable entry to return.
-#[cold]
-fn array_is_empty_no_mutable_entry() -> EcoString {
-    "array is empty so cannot get a mutable entry from it".into()
-}
-
 /// The out of bounds access error message.
 #[cold]
 fn out_of_bounds(index: i64, len: usize) -> EcoString {
     eco_format!("array index out of bounds (index: {index}, len: {len})")
-}
-
-/// The missing key access error message so there's no mutable entry to return.
-#[cold]
-fn out_of_bounds_no_mutable_entry(index: i64, len: usize) -> EcoString {
-    eco_format!(
-        "array index out of bounds (index: {index}, len: {len}) \
-         so cannot get a mutable entry from it",
-    )
 }
 
 /// The out of bounds access error message when no default value was given.

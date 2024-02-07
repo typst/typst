@@ -12,7 +12,7 @@
 ---
 #{
   let array = ()
-  // Error: 3-16 array is empty so cannot get a mutable entry from it
+  // Error: 3-16 array is empty
   array.first() = 9
 }
 
@@ -26,7 +26,7 @@
 ---
 #{
   let array = ()
-  // Error: 3-15 array is empty so cannot get a mutable entry from it
+  // Error: 3-15 array is empty
   array.last() = 9
 }
 
@@ -46,14 +46,14 @@
 ---
 #{
   let array = (1,)
-  // Error: 3-14 array index out of bounds (index: 1, len: 1) so cannot get a mutable entry from it
+  // Error: 3-14 array index out of bounds (index: 1, len: 1)
   array.at(1) = 9
 }
 
 ---
 #{
   let array = (1,)
-  // Error: 3-26 array index out of bounds (index: 1, len: 1) so cannot get a mutable entry from it
+  // Error: 3-26 array index out of bounds (index: 1, len: 1)
   array.at(1, default: 0) = 9
 }
 
@@ -73,14 +73,14 @@
 ---
 #{
   let dict = (a: 1)
-  // Error: 3-15 dictionary does not contain key "b" so cannot get a mutable entry from it
+  // Error: 3-15 dictionary does not contain key "b"
   dict.at("b") = 9
 }
 
 ---
 #{
   let dict = (a: 1)
-  // Error: 3-27 dictionary does not contain key "b" so cannot get a mutable entry from it
+  // Error: 3-27 dictionary does not contain key "b"
   dict.at("b", default: 0) = 9
 }
 
@@ -101,6 +101,6 @@
 ---
 #{
   let dict = (a: 1)
-  // Error: 3-9 dictionary does not contain key "b" so cannot get a mutable entry from it
+  // Error: 3-9 dictionary does not contain key "b"
   dict.b += 9
 }
