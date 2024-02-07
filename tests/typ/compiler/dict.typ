@@ -67,6 +67,7 @@
 #{
   let dict = (:)
   // Error: 3-9 dictionary does not contain key "b"
+  // Hint: 3-9 use `insert` to add or update values
   dict.b += 1
 }
 

@@ -74,6 +74,7 @@
 #{
   let dict = (a: 1)
   // Error: 3-15 dictionary does not contain key "b"
+  // Hint: 3-15 use `insert` to add or update values
   dict.at("b") = 9
 }
 
@@ -81,6 +82,7 @@
 #{
   let dict = (a: 1)
   // Error: 3-27 dictionary does not contain key "b"
+  // Hint: 3-27 use `insert` to add or update values
   dict.at("b", default: 0) = 9
 }
 
@@ -102,5 +104,6 @@
 #{
   let dict = (a: 1)
   // Error: 3-9 dictionary does not contain key "b"
+  // Hint: 3-9 use `insert` to add or update values
   dict.b += 9
 }

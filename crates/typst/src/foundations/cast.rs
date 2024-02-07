@@ -8,7 +8,7 @@ use ecow::{eco_format, EcoString};
 use smallvec::SmallVec;
 use unicode_math_class::MathClass;
 
-use crate::diag::{At, SourceResult, StrResult};
+use crate::diag::{At, HintedStrResult, SourceResult, StrResult};
 use crate::foundations::{array, repr, NativeElement, Packed, Repr, Str, Type, Value};
 use crate::syntax::{Span, Spanned};
 
@@ -228,6 +228,12 @@ impl<T: IntoValue> IntoResult for T {
 }
 
 impl<T: IntoValue> IntoResult for StrResult<T> {
+    fn into_result(self, span: Span) -> SourceResult<Value> {
+        self.map(IntoValue::into_value).at(span)
+    }
+}
+
+impl<T: IntoValue> IntoResult for HintedStrResult<T> {
     fn into_result(self, span: Span) -> SourceResult<Value> {
         self.map(IntoValue::into_value).at(span)
     }
