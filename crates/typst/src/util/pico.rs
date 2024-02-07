@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
+use std::num::NonZeroU32;
 use std::sync::RwLock;
 
 use ecow::EcoString;
@@ -24,7 +25,7 @@ struct Interner {
 /// unnecessarily. For this reason, the user should use the [`PicoStr::resolve`]
 /// method to get the underlying string, such that the lookup is done only once.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct PicoStr(u32);
+pub struct PicoStr(NonZeroU32);
 
 impl PicoStr {
     /// Creates a new interned string.
@@ -34,12 +35,29 @@ impl PicoStr {
         }
 
         let mut interner = INTERNER.write().unwrap();
-        let num = interner.from_id.len().try_into().expect("out of string ids");
+        let num: u32 = interner.from_id.len().try_into().expect("out of string ids");
 
         // Create a new entry forever by leaking the string. PicoStr is only
         // used for strings that aren't created en masse, so it is okay.
-        let id = Self(num);
+        let id = Self(NonZeroU32::new(num + 1).unwrap());
         let string = Box::leak(string.to_string().into_boxed_str());
+        interner.to_id.insert(string, id);
+        interner.from_id.push(string);
+        id
+    }
+
+    /// Creates a new interned static string.
+    pub fn static_(string: &'static str) -> Self {
+        if let Some(&id) = INTERNER.read().unwrap().to_id.get(string) {
+            return id;
+        }
+
+        let mut interner = INTERNER.write().unwrap();
+        let num: u32 = interner.from_id.len().try_into().expect("out of string ids");
+
+        // Create a new entry forever by leaking the string. PicoStr is only
+        // used for strings that aren't created en masse, so it is okay.
+        let id = Self(NonZeroU32::new(num + 1).unwrap());
         interner.to_id.insert(string, id);
         interner.from_id.push(string);
         id
@@ -47,7 +65,7 @@ impl PicoStr {
 
     /// Resolves the interned string.
     pub fn resolve(&self) -> &'static str {
-        INTERNER.read().unwrap().from_id[self.0 as usize]
+        INTERNER.read().unwrap().from_id[self.0.get() as usize - 1]
     }
 }
 
@@ -79,4 +97,13 @@ impl From<&EcoString> for PicoStr {
     fn from(value: &EcoString) -> Self {
         Self::new(value)
     }
+}
+
+macro_rules! pico {
+    ($name:literal) => {{
+        static PICO_STR: ::once_cell::sync::Lazy<$crate::util::PicoStr> =
+            ::once_cell::sync::Lazy::new(|| $crate::util::PicoStr::static_($name));
+
+        *PICO_STR
+    }};
 }

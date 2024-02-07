@@ -46,24 +46,26 @@ pub(crate) fn call_method_mut(
 
     match value {
         Value::Array(array) => match method {
-            "push" => array.push(args.expect("value")?),
+            "push" => array.push(args.expect(pico!("value"))?),
             "pop" => output = array.pop().at(span)?,
-            "insert" => {
-                array.insert(args.expect("index")?, args.expect("value")?).at(span)?
-            }
+            "insert" => array
+                .insert(args.expect(pico!("index"))?, args.expect(pico!("value"))?)
+                .at(span)?,
             "remove" => {
                 output = array
-                    .remove(args.expect("index")?, args.named("default")?)
+                    .remove(args.expect(pico!("index"))?, args.named(pico!("default"))?)
                     .at(span)?
             }
             _ => return missing(),
         },
 
         Value::Dict(dict) => match method {
-            "insert" => dict.insert(args.expect::<Str>("key")?, args.expect("value")?),
+            "insert" => dict
+                .insert(args.expect::<Str>(pico!("key"))?, args.expect(pico!("value"))?),
             "remove" => {
-                output =
-                    dict.remove(args.expect("key")?, args.named("default")?).at(span)?
+                output = dict
+                    .remove(args.expect(pico!("key"))?, args.named(pico!("default"))?)
+                    .at(span)?
             }
             _ => return missing(),
         },
@@ -89,11 +91,11 @@ pub(crate) fn call_method_access<'a>(
         Value::Array(array) => match method {
             "first" => array.first_mut().at(span)?,
             "last" => array.last_mut().at(span)?,
-            "at" => array.at_mut(args.expect("index")?).at(span)?,
+            "at" => array.at_mut(args.expect(pico!("index"))?).at(span)?,
             _ => return missing(),
         },
         Value::Dict(dict) => match method {
-            "at" => dict.at_mut(&args.expect::<Str>("key")?).at(span)?,
+            "at" => dict.at_mut(&args.expect::<Str>(pico!("key"))?).at(span)?,
             _ => return missing(),
         },
         _ => return missing(),

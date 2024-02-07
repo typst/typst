@@ -61,8 +61,8 @@ pub struct PageElem {
     /// ```
     #[resolve]
     #[parse(
-        let paper = args.named_or_find::<Paper>("paper")?;
-        args.named("width")?
+        let paper = args.named_or_find::<Paper>(pico!("paper"))?;
+        args.named(pico!("width"))?
             .or_else(|| paper.map(|paper| Smart::Custom(paper.width().into())))
     )]
     #[default(Smart::Custom(Paper::A4.width().into()))]
@@ -76,7 +76,7 @@ pub struct PageElem {
     /// grow and shrink to fit their content.
     #[resolve]
     #[parse(
-        args.named("height")?
+        args.named(pico!("height"))?
             .or_else(|| paper.map(|paper| Smart::Custom(paper.height().into())))
     )]
     #[default(Smart::Custom(Paper::A4.height().into()))]
@@ -223,7 +223,7 @@ pub struct PageElem {
     /// ```
     #[default(HAlignment::Center + VAlignment::Bottom)]
     #[parse({
-        let option: Option<Spanned<Alignment>> = args.named("number-align")?;
+        let option: Option<Spanned<Alignment>> = args.named(pico!("number-align"))?;
         if let Some(Spanned { v: align, span }) = option {
             if align.y() == Some(VAlignment::Horizon) {
                 bail!(span, "page number cannot be `horizon`-aligned");

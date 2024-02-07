@@ -115,7 +115,7 @@ impl Construct for ParElem {
         // element. Instead, it just ensures that the passed content lives in a
         // separate paragraph and styles it.
         let styles = Self::set(engine, args)?;
-        let body = args.expect::<Content>("body")?;
+        let body = args.expect::<Content>(pico!("body"))?;
         Ok(Content::sequence([
             ParbreakElem::new().pack(),
             body.styled_with_map(styles),

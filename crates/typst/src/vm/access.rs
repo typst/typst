@@ -5,7 +5,7 @@ use ecow::EcoString;
 use typst_syntax::Span;
 
 use crate::diag::{bail, At, SourceResult};
-use crate::foundations::{call_method_access, Args, Str, Type, Value, IntoValue};
+use crate::foundations::{call_method_access, Args, IntoValue, Str, Type, Value};
 
 use super::{Readable, VMState, VmRead, Writable};
 
@@ -58,10 +58,8 @@ impl Access {
                         );
                     };
 
-                    let mut args = Args::new(
-                        Span::detached(),
-                        std::iter::once(value.into_owned()),
-                    );
+                    let mut args =
+                        Args::new(Span::detached(), std::iter::once(value.into_owned()));
 
                     Ok(Cow::Owned(method.clone().with(&mut args).into_value()))
                 } else {
@@ -91,11 +89,13 @@ impl Access {
                     Value::Array(array) => match method.as_str() {
                         "first" => array.first().at(span)?,
                         "last" => array.last().at(span)?,
-                        "at" => array.at(args.expect("index")?, None).at(span)?,
+                        "at" => array.at(args.expect(pico!("index"))?, None).at(span)?,
                         _ => return missing(),
                     },
                     Value::Dict(dict) => match method.as_str() {
-                        "at" => dict.at(args.expect::<Str>("key")?, None).at(span)?,
+                        "at" => {
+                            dict.at(args.expect::<Str>(pico!("key"))?, None).at(span)?
+                        }
                         _ => return missing(),
                     },
                     _ => return missing(),

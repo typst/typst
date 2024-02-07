@@ -1,4 +1,4 @@
-use heck::ToKebabCase;
+use heck::{ToKebabCase, ToShoutySnakeCase};
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
@@ -45,6 +45,7 @@ struct SpecialParams {
 struct Param {
     binding: Binding,
     ident: Ident,
+    const_ident: Ident,
     ty: syn::Type,
     name: String,
     docs: String,
@@ -147,6 +148,7 @@ fn parse_param(
             special.self_ = Some(Param {
                 binding,
                 ident: syn::Ident::new("self_", recv.self_token.span),
+                const_ident: Ident::new("THIS", recv.self_token.span),
                 ty: match parent {
                     Some(ty) => ty.clone(),
                     None => bail!(recv, "explicit parent type required"),
@@ -178,6 +180,10 @@ fn parse_param(
             params.push(Param {
                 binding: Binding::Owned,
                 ident: ident.clone(),
+                const_ident: Ident::new(
+                    &ident.to_string().to_shouty_snake_case(),
+                    ident.span(),
+                ),
                 ty: (*typed.ty).clone(),
                 name: ident.to_string().to_kebab_case(),
                 docs: documentation(&attrs),
@@ -378,16 +384,28 @@ fn create_param_info(param: &Param) -> TokenStream {
 
 /// Create argument parsing code for a parameter.
 fn create_param_parser(param: &Param) -> TokenStream {
-    let Param { name, ident, ty, .. } = param;
+    let Param { name, ident, const_ident, ty, .. } = param;
 
     let mut value = if param.variadic {
         quote! { args.all()? }
     } else if param.named {
-        quote! { args.named(#name)? }
+        quote! {
+            {
+                static #const_ident: ::once_cell::sync::Lazy<::typst::util::PicoStr> =
+                    ::once_cell::sync::Lazy::new(|| ::typst::util::PicoStr::static_(#name));
+                args.named(*#const_ident)?
+            }
+        }
     } else if param.default.is_some() {
         quote! { args.eat()? }
     } else {
-        quote! { args.expect(#name)? }
+        quote! {
+            {
+                static #const_ident: ::once_cell::sync::Lazy<::typst::util::PicoStr> =
+                    ::once_cell::sync::Lazy::new(|| ::typst::util::PicoStr::static_(#name));
+                args.expect(*#const_ident)?
+            }
+        }
     };
 
     if let Some(default) = &param.default {

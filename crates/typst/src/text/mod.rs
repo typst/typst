@@ -214,7 +214,7 @@ pub struct TextElem {
     /// #set text(size: 20pt)
     /// very #text(1.5em)[big] text
     /// ```
-    #[parse(args.named_or_find("size")?)]
+    #[parse(args.named_or_find(pico!("size"))?)]
     #[fold]
     #[default(TextSize(Abs::pt(11.0).into()))]
     #[resolve]
@@ -228,7 +228,7 @@ pub struct TextElem {
     /// This text is red.
     /// ```
     #[parse({
-        let paint: Option<Spanned<Paint>> = args.named_or_find("fill")?;
+        let paint: Option<Spanned<Paint>> = args.named_or_find(pico!("fill"))?;
         if let Some(paint) = &paint {
             if paint.v.relative() == Smart::Custom(RelativeTo::Self_) {
                 bail!(
@@ -678,7 +678,7 @@ impl Construct for TextElem {
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
         let styles = Self::set(engine, args)?;
-        let body = args.expect::<Content>("body")?;
+        let body = args.expect::<Content>(pico!("body"))?;
         Ok(body.styled_with_map(styles))
     }
 }

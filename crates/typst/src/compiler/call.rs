@@ -4,6 +4,7 @@ use crate::compiler::Access;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::is_mutating_method;
+use crate::util::PicoStr;
 use crate::vm::Readable;
 
 use super::{AccessPattern, Compile, Compiler, ReadableGuard, WritableGuard};
@@ -147,11 +148,10 @@ impl Compile for ast::Arg<'_> {
                 compiler.push_arg(self.span(), &guard, span_id, &output);
             }
             ast::Arg::Named(named) => {
-                let name = named.name().get().clone();
-                let name_id = compiler.string(name.clone());
+                let name = PicoStr::new(named.name().get());
                 let value = named.expr().compile(engine, compiler)?;
                 let span_id = compiler.span(named.expr().span());
-                compiler.insert_arg(self.span(), name_id, &value, span_id, &output);
+                compiler.insert_arg(self.span(), name, &value, span_id, &output);
             }
             ast::Arg::Spread(spread) => {
                 let guard = spread.compile(engine, compiler)?;

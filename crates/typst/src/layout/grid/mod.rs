@@ -181,14 +181,14 @@ pub struct GridElem {
 
     /// The gaps between columns. Takes precedence over `gutter`.
     #[parse(
-        let gutter = args.named("gutter")?;
-        args.named("column-gutter")?.or_else(|| gutter.clone())
+        let gutter = args.named(pico!("gutter"))?;
+        args.named(pico!("column-gutter"))?.or_else(|| gutter.clone())
     )]
     #[borrowed]
     pub column_gutter: TrackSizings,
 
     /// The gaps between rows. Takes precedence over `gutter`.
-    #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
+    #[parse(args.named(pico!("row-gutter"))?.or_else(|| gutter.clone()))]
     #[borrowed]
     pub row_gutter: TrackSizings,
 

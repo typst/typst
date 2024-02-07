@@ -371,7 +371,7 @@ impl Array {
         #[default(NonZeroI64::new(1).unwrap())]
         step: NonZeroI64,
     ) -> SourceResult<Array> {
-        let first = args.expect::<i64>("end")?;
+        let first = args.expect::<i64>(pico!("end"))?;
         let (start, end) = match args.eat::<i64>()? {
             Some(second) => (first, second),
             None => (0, first),
@@ -481,7 +481,7 @@ impl Array {
 
         // Fast path for just two arrays.
         if remaining == 1 {
-            let other = args.expect::<Array>("others")?;
+            let other = args.expect::<Array>(pico!("others"))?;
             return Ok(self
                 .into_iter()
                 .zip(other)

@@ -10,6 +10,7 @@ use crate::diag::{bail, At, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::foundations::{Args, Func, IntoValue, Label, Value};
 use crate::introspection::{Introspector, Locator};
+use crate::util::PicoStr;
 use crate::vm::ControlFlow;
 use crate::{Library, World};
 
@@ -30,12 +31,13 @@ pub struct Closure {
 
 impl Closure {
     /// Creates a new closure.
+    #[comemo::memoize]
     pub fn new(
         inner: Arc<Prehashed<Inner>>,
         params: EcoVec<(Option<Register>, Param)>,
         captures: EcoVec<(Register, Value)>,
         self_storage: Option<Register>,
-    ) -> Self {
+    ) -> Closure {
         Self {
             inner,
             params: Prehashed::new(params),
@@ -108,13 +110,13 @@ impl Closure {
                 Param::Pos(name) => {
                     if let Some(target) = target {
                         state
-                            .write_one(*target, args.expect::<Value>(name)?)
+                            .write_one(*target, args.expect::<Value>(*name)?)
                             .at(self.inner.span)?;
                     }
                 }
                 Param::Named { name, default } => {
                     if let Some(target) = target {
-                        if let Some(value) = args.named::<Value>(name)? {
+                        if let Some(value) = args.named::<Value>(*name)? {
                             state.write_one(*target, value).at(self.inner.span)?;
                         } else if let Some(default) = default {
                             state.write_borrowed(*target, default).at(self.inner.span)?;
@@ -288,22 +290,22 @@ pub struct Capture {
 #[derive(Debug, Clone, Hash, PartialEq)]
 pub enum Param {
     /// A positional parameter.
-    Pos(EcoString),
+    Pos(PicoStr),
     /// A named parameter.
     Named {
         /// The name of the parameter.
-        name: EcoString,
+        name: PicoStr,
         /// The default value of the parameter.
         default: Option<Value>,
     },
     /// A sink parameter.
-    Sink(Span, EcoString),
+    Sink(Span, PicoStr),
 }
 
 #[derive(Clone, Hash, PartialEq)]
 pub enum CompiledParam {
     /// A positional parameter.
-    Pos(Register, EcoString),
+    Pos(Register, PicoStr),
     /// A named parameter.
     Named {
         /// The span of the parameter.
@@ -311,12 +313,12 @@ pub enum CompiledParam {
         /// The location where the parameter will be stored.
         target: Register,
         /// The name of the parameter.
-        name: EcoString,
+        name: PicoStr,
         /// The default value of the parameter.
         default: Option<Readable>,
     },
     /// A sink parameter.
-    Sink(Span, Option<Register>, EcoString),
+    Sink(Span, Option<Register>, PicoStr),
 }
 
 #[derive(Clone, Hash)]

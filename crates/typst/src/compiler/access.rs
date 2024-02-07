@@ -44,7 +44,9 @@ impl AccessPattern {
             AccessPattern::Chained(other, v) => {
                 VmAccess::Chained(Arc::new(other.as_vm_access()), v.clone())
             }
-            AccessPattern::Global(global) => VmAccess::Module(global.clone().into_value()),
+            AccessPattern::Global(global) => {
+                VmAccess::Module(global.clone().into_value())
+            }
             AccessPattern::AccessorMethod(other, v, r) => VmAccess::AccessorMethod(
                 Arc::new(other.as_vm_access()),
                 v.clone(),

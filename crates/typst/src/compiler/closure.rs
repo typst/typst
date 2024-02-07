@@ -1,9 +1,9 @@
 use ecow::{EcoString, EcoVec};
 use typst_syntax::ast::{self, AstNode};
 
-use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::vm::CompiledParam;
+use crate::{diag::SourceResult, util::PicoStr};
 
 use super::{
     AccessPattern, Compile, CompileTopLevel, Compiler, PatternCompile, PatternItem,
@@ -63,7 +63,10 @@ impl Compile for ast::Closure<'_> {
                         name,
                     )) = &pattern.kind
                     {
-                        params.push(CompiledParam::Pos(reg.as_register(), name.clone()));
+                        params.push(CompiledParam::Pos(
+                            reg.as_register(),
+                            PicoStr::new(name.as_str()),
+                        ));
                     } else {
                         // Create a register for the pattern.
                         let reg = closure_compiler.register();
@@ -90,18 +93,14 @@ impl Compile for ast::Closure<'_> {
                     params.push(CompiledParam::Named {
                         span: named.span(),
                         target: target.as_register(),
-                        name: name.clone(),
+                        name: PicoStr::new(name.as_str()),
                         default: defaults_iter.next().map(|r| r.as_readable()),
                     });
                 }
                 ast::Param::Sink(sink) => {
                     let Some(name) = sink.name() else {
                         // Add the parameter to the list.
-                        params.push(CompiledParam::Sink(
-                            sink.span(),
-                            None,
-                            EcoString::new(),
-                        ));
+                        params.push(CompiledParam::Sink(sink.span(), None, pico!("..")));
                         continue;
                     };
 
@@ -112,7 +111,7 @@ impl Compile for ast::Closure<'_> {
                     params.push(CompiledParam::Sink(
                         sink.span(),
                         Some(target.as_register()),
-                        EcoString::new(),
+                        pico!(".."),
                     ));
                 }
             }

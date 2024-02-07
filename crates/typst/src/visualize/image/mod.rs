@@ -57,7 +57,7 @@ pub struct ImageElem {
     #[required]
     #[parse(
         let Spanned { v: path, span } =
-            args.expect::<Spanned<EcoString>>("path to image file")?;
+            args.expect::<Spanned<EcoString>>(pico!("path to image file"))?;
         let id = span.resolve_path(&path).at(span)?;
         let data = engine.world.file(id).at(span)?;
         path

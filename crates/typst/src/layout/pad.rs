@@ -22,23 +22,23 @@ use crate::layout::{
 pub struct PadElem {
     /// The padding at the left side.
     #[parse(
-        let all = args.named("rest")?.or(args.find()?);
-        let x = args.named("x")?.or(all);
-        let y = args.named("y")?.or(all);
-        args.named("left")?.or(x)
+        let all = args.named(pico!("rest"))?.or(args.find()?);
+        let x = args.named(pico!("x"))?.or(all);
+        let y = args.named(pico!("y"))?.or(all);
+        args.named(pico!("left"))?.or(x)
     )]
     pub left: Rel<Length>,
 
     /// The padding at the top side.
-    #[parse(args.named("top")?.or(y))]
+    #[parse(args.named(pico!("top"))?.or(y))]
     pub top: Rel<Length>,
 
     /// The padding at the right side.
-    #[parse(args.named("right")?.or(x))]
+    #[parse(args.named(pico!("right"))?.or(x))]
     pub right: Rel<Length>,
 
     /// The padding at the bottom side.
-    #[parse(args.named("bottom")?.or(y))]
+    #[parse(args.named(pico!("bottom"))?.or(y))]
     pub bottom: Rel<Length>,
 
     /// The horizontal padding. Both `left` and `right` take precedence over

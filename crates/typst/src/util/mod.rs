@@ -6,6 +6,7 @@ pub mod fat;
 mod macros;
 mod bitset;
 mod deferred;
+#[macro_use]
 mod pico;
 mod scalar;
 

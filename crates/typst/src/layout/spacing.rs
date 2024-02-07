@@ -135,7 +135,7 @@ pub struct VElem {
 
     /// The element's weakness level, see also [`Behaviour`].
     #[internal]
-    #[parse(args.named("weak")?.map(|v: bool| v as usize))]
+    #[parse(args.named(pico!("weak"))?.map(|v: bool| v as usize))]
     pub weakness: usize,
 }
 

@@ -61,7 +61,7 @@ pub struct LinkElem {
     /// ```
     #[required]
     #[parse(
-        let dest = args.expect::<LinkTarget>("destination")?;
+        let dest = args.expect::<LinkTarget>(pico!("destination"))?;
         dest.clone()
     )]
     pub dest: LinkTarget,
@@ -76,7 +76,7 @@ pub struct LinkElem {
             Some(body) => body,
             None => body_from_url(url),
         },
-        _ => args.expect("body")?,
+        _ => args.expect(pico!("body"))?,
     })]
     pub body: Content,
 }

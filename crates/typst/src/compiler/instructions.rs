@@ -3,6 +3,7 @@ use std::num::NonZeroU32;
 use typst_syntax::Span;
 
 use super::Compiler;
+use crate::util::PicoStr;
 use crate::vm::{
     AccessId, ClosureId, LabelId, PatternId, Pointer, Readable, SpanId, Writable,
 };

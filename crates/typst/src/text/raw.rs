@@ -692,7 +692,7 @@ fn parse_syntaxes(
     args: &mut Args,
 ) -> SourceResult<(Option<SyntaxPaths>, Option<Vec<Bytes>>)> {
     let Some(Spanned { v: paths, span }) =
-        args.named::<Spanned<SyntaxPaths>>("syntaxes")?
+        args.named::<Spanned<SyntaxPaths>>(pico!("syntaxes"))?
     else {
         return Ok((None, None));
     };
@@ -729,7 +729,8 @@ fn parse_theme(
     engine: &mut Engine,
     args: &mut Args,
 ) -> SourceResult<(Option<EcoString>, Option<Bytes>)> {
-    let Some(Spanned { v: path, span }) = args.named::<Spanned<EcoString>>("theme")?
+    let Some(Spanned { v: path, span }) =
+        args.named::<Spanned<EcoString>>(pico!("theme"))?
     else {
         return Ok((None, None));
     };

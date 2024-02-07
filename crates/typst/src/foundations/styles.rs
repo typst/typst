@@ -79,6 +79,10 @@ impl Styles {
         self.0.is_empty()
     }
 
+    pub fn pop(&mut self) -> Option<Style> {
+        self.0.pop().map(|style| style.into_inner())
+    }
+
     /// Number of styles in this list.
     pub fn len(&self) -> usize {
         self.0.len()

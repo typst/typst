@@ -193,26 +193,29 @@ opcodes! {
     // ---------------------------------- STYLING ----------------------------------
     // -----------------------------------------------------------------------------
 
-    /// Creates a new set rule.
-    Set: set -> Writable => {
+    /// Creates and applies a new set rule.
+    Set: set => {
         /// The target to set the rule on.
         target: Readable,
         /// The arguments to supply to the set rule.
         args: Readable,
     },
 
-    /// Creates a new show rule.
-    Show: show -> Writable => {
+    /// Creates and applies a new show rule.
+    Show: show => {
         /// The selector for the value to show.
         selector: Option<Readable>,
         /// The transform to apply.
         transform: Readable,
     },
 
-    /// Style the remaining joined items with the given style.
-    Styled: styled => {
-        /// The style to apply.
-        style: Readable,
+    ShowSet: show_set => {
+        /// The selector for the value to show.
+        selector: Option<Readable>,
+        /// The target to set the rule on.
+        target: Readable,
+        /// The arguments to supply to the set rule.
+        args: Readable,
     },
 
     // -----------------------------------------------------------------------------
@@ -336,7 +339,7 @@ opcodes! {
     /// Inserts a named value into an argument set.
     InsertArg: insert_arg -> Writable => {
         /// The key to insert.
-        key: Readable,
+        key: PicoStr,
         /// The value to insert.
         value: Readable,
         /// The span of the value.

@@ -766,14 +766,27 @@ fn create_field_parser(field: &Field) -> (TokenStream, TokenStream) {
     }
 
     let name = &field.name;
+    let const_ident = &field.const_ident;
     let value = if field.variadic {
         quote! { args.all()? }
     } else if field.required {
-        quote! { args.expect(#name)? }
+        quote! {
+            {
+                static #const_ident: ::once_cell::sync::Lazy<::typst::util::PicoStr> =
+                    ::once_cell::sync::Lazy::new(|| ::typst::util::PicoStr::static_(#name));
+                args.expect(*#const_ident)?
+            }
+        }
     } else if field.positional {
         quote! { args.find()? }
     } else {
-        quote! { args.named(#name)? }
+        quote! {
+            {
+                static #const_ident: ::once_cell::sync::Lazy<::typst::util::PicoStr> =
+                    ::once_cell::sync::Lazy::new(|| ::typst::util::PicoStr::static_(#name));
+                args.named(*#const_ident)?
+            }
+        }
     };
 
     (quote! {}, value)

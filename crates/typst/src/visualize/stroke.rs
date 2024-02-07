@@ -6,7 +6,7 @@ use crate::foundations::{
     Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{Abs, Length};
-use crate::util::{Numeric, Scalar};
+use crate::util::{Numeric, PicoStr, Scalar};
 use crate::visualize::{Color, Gradient, Paint, Pattern};
 
 /// Defines how to draw a line.
@@ -187,16 +187,16 @@ impl Stroke {
             return Ok(stroke);
         }
 
-        fn take<T: FromValue>(args: &mut Args, arg: &str) -> SourceResult<Smart<T>> {
+        fn take<T: FromValue>(args: &mut Args, arg: PicoStr) -> SourceResult<Smart<T>> {
             Ok(args.named::<Smart<T>>(arg)?.unwrap_or(Smart::Auto))
         }
 
-        let paint = take::<Paint>(args, "paint")?;
-        let thickness = take::<Length>(args, "thickness")?;
-        let cap = take::<LineCap>(args, "cap")?;
-        let join = take::<LineJoin>(args, "join")?;
-        let dash = take::<Option<DashPattern>>(args, "dash")?;
-        let miter_limit = take::<f64>(args, "miter-limit")?.map(Scalar::new);
+        let paint = take::<Paint>(args, pico!("paint"))?;
+        let thickness = take::<Length>(args, pico!("thickness"))?;
+        let cap = take::<LineCap>(args, pico!("cap"))?;
+        let join = take::<LineJoin>(args, pico!("join"))?;
+        let dash = take::<Option<DashPattern>>(args, pico!("dash"))?;
+        let miter_limit = take::<f64>(args, pico!("miter-limit"))?.map(Scalar::new);
 
         Ok(Self { paint, thickness, cap, join, dash, miter_limit })
     }

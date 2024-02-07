@@ -460,7 +460,7 @@ pub struct FigureCaption {
     /// ```
     #[default(VAlignment::Bottom)]
     #[parse({
-        let option: Option<Spanned<VAlignment>> = args.named("position")?;
+        let option: Option<Spanned<VAlignment>> = args.named(pico!("position"))?;
         if let Some(Spanned { v: align, span }) = option {
             if align == VAlignment::Horizon {
                 bail!(span, "expected `top` or `bottom`");

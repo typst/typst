@@ -22,16 +22,14 @@ impl CompileTopLevel for ast::Markup<'_> {
         for expr in self.exprs() {
             // Handle set rules specially.
             if let ast::Expr::Set(set) = expr {
-                let style = set.compile(engine, compiler)?;
-                compiler.styled(set.span(), &style);
+                set.compile(engine, compiler)?;
                 compiler.flow();
                 continue;
             }
 
             // Handle show rules specially.
             if let ast::Expr::Show(show) = expr {
-                let style = show.compile(engine, compiler)?;
-                compiler.styled(show.span(), &style);
+                show.compile(engine, compiler)?;
                 compiler.flow();
                 continue;
             }
@@ -67,24 +65,22 @@ impl Compile for ast::Markup<'_> {
                 for expr in self.exprs() {
                     // Handle set rules specially.
                     if let ast::Expr::Set(set) = expr {
-                        let style = set.compile(engine, compiler)?;
+                        set.compile(engine, compiler)?;
                         if join_output.is_none() {
                             bail!(set.span(), "cannot set style without output");
                         }
 
-                        compiler.styled(set.span(), &style);
                         compiler.flow();
                         continue;
                     }
 
                     // Handle show rules specially.
                     if let ast::Expr::Show(show) = expr {
-                        let style = show.compile(engine, compiler)?;
+                        show.compile(engine, compiler)?;
                         if join_output.is_none() {
                             bail!(show.span(), "cannot set style without output");
                         }
 
-                        compiler.styled(show.span(), &style);
                         compiler.flow();
                         continue;
                     }

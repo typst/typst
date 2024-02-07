@@ -161,8 +161,8 @@ pub struct MatElem {
     /// ```
     #[resolve]
     #[parse(
-        let gap = args.named("gap")?;
-        args.named("row-gap")?.or(gap)
+        let gap = args.named(pico!("gap"))?;
+        args.named(pico!("row-gap"))?.or(gap)
     )]
     #[default(DEFAULT_ROW_GAP.into())]
     pub row_gap: Rel<Length>,
@@ -174,7 +174,7 @@ pub struct MatElem {
     /// $ mat(1, 2; 3, 4) $
     /// ```
     #[resolve]
-    #[parse(args.named("column-gap")?.or(gap))]
+    #[parse(args.named(pico!("column-gap"))?.or(gap))]
     #[default(DEFAULT_COL_GAP.into())]
     pub column_gap: Rel<Length>,
 

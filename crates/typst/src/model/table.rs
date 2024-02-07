@@ -110,14 +110,14 @@ pub struct TableElem {
     /// [grid documentation]($grid) for more information on gutters.
     #[borrowed]
     #[parse(
-        let gutter = args.named("gutter")?;
-        args.named("column-gutter")?.or_else(|| gutter.clone())
+        let gutter = args.named(pico!("gutter"))?;
+        args.named(pico!("column-gutter"))?.or_else(|| gutter.clone())
     )]
     pub column_gutter: TrackSizings,
 
     /// The gaps between rows. Takes precedence over `gutter`. See the
     /// [grid documentation]($grid) for more information on gutters.
-    #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
+    #[parse(args.named(pico!("row-gutter"))?.or_else(|| gutter.clone()))]
     #[borrowed]
     pub row_gutter: TrackSizings,
 

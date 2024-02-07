@@ -19,16 +19,14 @@ impl CompileTopLevel for ast::Code<'_> {
         for expr in self.exprs() {
             // Handle set rules specially.
             if let ast::Expr::Set(set) = expr {
-                let style = set.compile(engine, compiler)?;
-                compiler.styled(set.span(), &style);
+                set.compile(engine, compiler)?;
                 compiler.flow();
                 continue;
             }
 
             // Handle show rules specially.
             if let ast::Expr::Show(show) = expr {
-                let style = show.compile(engine, compiler)?;
-                compiler.styled(show.span(), &style);
+                show.compile(engine, compiler)?;
                 compiler.flow();
                 continue;
             }
@@ -66,8 +64,7 @@ impl Compile for ast::Code<'_> {
                     // Handle set rules specially.
                     if let ast::Expr::Set(set) = expr {
                         *display = true;
-                        let style = set.compile(engine, compiler)?;
-                        compiler.styled(set.span(), &style);
+                        set.compile(engine, compiler)?;
                         compiler.flow();
                         continue;
                     }
@@ -75,8 +72,7 @@ impl Compile for ast::Code<'_> {
                     // Handle show rules specially.
                     if let ast::Expr::Show(show) = expr {
                         *display = true;
-                        let style = show.compile(engine, compiler)?;
-                        compiler.styled(show.span(), &style);
+                        show.compile(engine, compiler)?;
                         compiler.flow();
                         continue;
                     }

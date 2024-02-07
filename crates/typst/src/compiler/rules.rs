@@ -1,55 +1,52 @@
 use typst_syntax::ast::{self, AstNode};
 
-use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::vm::Readable;
+use crate::{diag::SourceResult, vm::Pointer};
 
-use super::{Compile, ReadableGuard, WritableGuard};
+use super::{Compile, ReadableGuard};
+
+fn compile_set(
+    set: &ast::SetRule<'_>,
+    engine: &mut Engine,
+    compiler: &mut super::Compiler,
+) -> SourceResult<(ReadableGuard, ReadableGuard, Option<Pointer>)> {
+    if let Some(expr) = set.condition() {
+        // Compile the condition.
+        let condition = expr.compile(engine, compiler)?;
+
+        // Create the jump marker.
+        let else_ = compiler.marker();
+
+        // Create the jump.
+        compiler.jump_if_not(expr.span(), condition.as_readable(), else_);
+
+        // Compile the set.
+        let target = set.target().compile(engine, compiler)?;
+        let args = set.args().compile(engine, compiler)?;
+
+        Ok((target, args, Some(else_)))
+    } else {
+        let target = set.target().compile(engine, compiler)?;
+        let args = set.args().compile(engine, compiler)?;
+
+        Ok((target, args, None))
+    }
+}
 
 impl Compile for ast::SetRule<'_> {
-    type Output = Option<WritableGuard>;
-    type IntoOutput = ReadableGuard;
+    type Output = ();
+    type IntoOutput = ();
 
     fn compile_into(
         &self,
         engine: &mut Engine,
         compiler: &mut super::Compiler,
-        output: Self::Output,
+        _: Self::Output,
     ) -> SourceResult<()> {
-        let Some(output) = output else {
-            return Ok(());
-        };
-
-        if let Some(expr) = self.condition() {
-            // Compile the condition.
-            let condition = expr.compile(engine, compiler)?;
-
-            // Create the jump marker.
-            let else_ = compiler.marker();
-            let end = compiler.marker();
-
-            // Create the jump.
-            compiler.jump_if_not(expr.span(), condition.as_readable(), else_);
-
-            // Compile the set.
-            let target = self.target().compile(engine, compiler)?;
-            let args = self.args().compile(engine, compiler)?;
-            compiler.set(self.span(), &target, &args, &output);
-
-            // Jump to the end.
-            compiler.jump(expr.span(), end);
-
-            // Compile the else body.
-            compiler.mark(expr.span(), else_);
-            compiler.copy(expr.span(), Readable::none(), &output);
-
-            // Mark the end.
-            compiler.mark(expr.span(), end);
-        } else {
-            let target = self.target().compile(engine, compiler)?;
-            let args = self.args().compile(engine, compiler)?;
-
-            compiler.set(self.span(), &target, &args, &output);
+        let (target, args, else_) = compile_set(self, engine, compiler)?;
+        compiler.set(self.span(), target.as_readable(), args.as_readable());
+        if let Some(else_) = else_ {
+            compiler.mark(self.span(), else_);
         }
 
         Ok(())
@@ -60,44 +57,43 @@ impl Compile for ast::SetRule<'_> {
         engine: &mut Engine,
         compiler: &mut super::Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        // Get an output register.
-        let reg = compiler.register();
-
         // Compile into the register.
-        self.compile_into(engine, compiler, Some(reg.clone().into()))?;
-
-        // Return the register.
-        Ok(reg.into())
+        self.compile_into(engine, compiler, ())
     }
 }
 
 impl Compile for ast::ShowRule<'_> {
-    type Output = Option<WritableGuard>;
-    type IntoOutput = ReadableGuard;
+    type Output = ();
+    type IntoOutput = ();
 
     fn compile_into(
         &self,
         engine: &mut Engine,
         compiler: &mut super::Compiler,
-        output: Self::Output,
+        _: Self::Output,
     ) -> SourceResult<()> {
-        let Some(output) = output else {
-            return Ok(());
-        };
-
         let selector =
             self.selector().map(|sel| sel.compile(engine, compiler)).transpose()?;
-        let transform = match self.transform() {
-            ast::Expr::Set(set) => set.compile(engine, compiler)?,
-            other => other.compile(engine, compiler)?,
-        };
 
-        compiler.show(
-            self.span(),
-            selector.map(|r| r.as_readable()),
-            &transform,
-            &output,
-        );
+        match self.transform() {
+            ast::Expr::Set(set) => {
+                let (target, args, else_) = compile_set(&set, engine, compiler)?;
+                compiler.show_set(
+                    self.span(),
+                    selector.map(|s| s.as_readable()),
+                    target.as_readable(),
+                    args.as_readable(),
+                );
+
+                if let Some(else_) = else_ {
+                    compiler.mark(self.span(), else_);
+                }
+            }
+            other => {
+                let transform = other.compile(engine, compiler)?;
+                compiler.show(self.span(), selector.map(|s| s.as_readable()), &transform);
+            }
+        }
 
         Ok(())
     }
@@ -107,13 +103,6 @@ impl Compile for ast::ShowRule<'_> {
         engine: &mut Engine,
         compiler: &mut super::Compiler,
     ) -> SourceResult<Self::IntoOutput> {
-        // Get an output register.
-        let reg = compiler.register();
-
-        // Compile into the register.
-        self.compile_into(engine, compiler, Some(reg.clone().into()))?;
-
-        // Return the register.
-        Ok(reg.into())
+        self.compile_into(engine, compiler, ())
     }
 }

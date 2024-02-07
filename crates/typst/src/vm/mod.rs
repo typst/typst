@@ -249,7 +249,7 @@ pub struct VMState<'a> {
 
 impl<'a> VMState<'a> {
     /// Read a value from the VM.
-    pub fn read<T: VmRead>(&self, readable: T) -> T::Output<'_> {
+    pub fn read<'b, T: VmRead>(&'b self, readable: T) -> T::Output<'a, 'b> {
         readable.read(self)
     }
 
@@ -362,7 +362,7 @@ impl<'a> VMState<'a> {
                     params.push((
                         Some(*target),
                         Param::Named {
-                            name: name.clone(),
+                            name: *name,
                             default: self.read(*default).cloned(),
                         },
                     ));
@@ -380,7 +380,9 @@ impl<'a> VMState<'a> {
         }
 
         Ok(Closure::new(
-            Arc::clone(&closure.inner),
+            // this must **not** be a clone, otherwise the closure cell
+            // will be shared across multiple instantiation of the closure.
+            Arc::new((*closure.inner).clone()),
             params,
             captures,
             closure.self_storage,

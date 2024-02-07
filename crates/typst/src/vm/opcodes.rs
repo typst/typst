@@ -3,14 +3,15 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use typst_syntax::{Span, Spanned};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::diag::{bail, error, At, SourceResult, Trace, Tracepoint};
+use crate::diag::{bail, At, SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     array, call_method_mut, is_mutating_method, Arg, Content, Func, IntoValue,
-    NativeElement, Recipe, ShowableSelector, Style, Styles, Transformation, Value,
+    NativeElement, Recipe, SequenceElem, ShowableSelector, Transformation, Value,
 };
 use crate::math::{AttachElem, EquationElem, FracElem, LrElem};
 use crate::model::{EmphElem, HeadingElem, RefElem, StrongElem};
+use crate::util::PicoStr;
 use crate::vm::{ops, ControlFlow, Register, State};
 
 use super::{
@@ -42,6 +43,7 @@ macro_rules! opcode_struct {
     ) => {
         $(#[$sattr])*
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[repr(packed)]
         pub struct $name {
             $(
                 $(
@@ -484,7 +486,7 @@ impl Run for Assign {
         let value = vm.read(self.value).clone();
 
         // Get the accessor.
-        let access = vm.read(self.out).clone();
+        let access = vm.read(self.out);
 
         // Get the mutable reference to the target.
         let out = access.write(span, vm)?;
@@ -510,7 +512,7 @@ impl Run for AddAssign {
         let value = vm.read(self.value).clone();
 
         // Get the accessor.
-        let access = vm.read(self.out).clone();
+        let access = vm.read(self.out);
 
         // Get the mutable reference to the target.
         let out = access.write(span, vm)?;
@@ -539,7 +541,7 @@ impl Run for SubAssign {
         let value = vm.read(self.value).clone();
 
         // Get the accessor.
-        let access = vm.read(self.out).clone();
+        let access = vm.read(self.out);
 
         // Get the mutable reference to the target.
         let out = access.write(span, vm)?;
@@ -568,7 +570,7 @@ impl Run for MulAssign {
         let value = vm.read(self.value).clone();
 
         // Get the accessor.
-        let access = vm.read(self.out).clone();
+        let access = vm.read(self.out);
 
         // Get the mutable reference to the target.
         let out = access.write(span, vm)?;
@@ -597,7 +599,7 @@ impl Run for DivAssign {
         let value = vm.read(self.value).clone();
 
         // Get the accessor.
-        let access = vm.read(self.out).clone();
+        let access = vm.read(self.out);
 
         // Get the mutable reference to the target.
         let out = access.write(span, vm)?;
@@ -626,7 +628,7 @@ impl Run for Destructure {
         let value = vm.read(self.value).clone();
 
         // Get the pattern.
-        let pattern = vm.read(self.out).clone();
+        let pattern = vm.read(self.out);
 
         // Destructure the value.
         pattern.write(vm, value)?;
@@ -667,11 +669,41 @@ impl Run for CopyIsr {
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
+        const NONE: Value = Value::None;
+        const AUTO: Value = Value::Auto;
+        const TRUE: Value = Value::Bool(true);
+        const FALSE: Value = Value::Bool(false);
+
         // Get the value.
-        let value = vm.read(self.value).clone();
+        let value = match self.value {
+            Readable::Reg(reg) => {
+                let value = vm.read(reg);
+
+                // Write the value to the output.
+                vm.write_one(self.out, value.clone()).at(span)?;
+
+                return Ok(());
+            }
+            Readable::Const(const_) => vm.read(const_),
+            Readable::Str(string) => vm.read(string),
+            Readable::Global(global) => vm.read(global),
+            Readable::Math(math) => vm.read(math),
+            Readable::None => &NONE,
+            Readable::Auto => &AUTO,
+            Readable::Bool(bool_) => {
+                if bool_ {
+                    &TRUE
+                } else {
+                    &FALSE
+                }
+            }
+        };
 
         // Write the value to the output.
-        vm.write_one(self.out, value).at(span)?;
+        match self.out {
+            Writable::Reg(reg) => vm.write_borrowed(reg, value).at(span)?,
+            Writable::Joined => vm.join(value.clone()).at(span)?,
+        }
 
         Ok(())
     }
@@ -721,23 +753,15 @@ impl Run for Set {
         engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
-        // Load the target function.
-        let target = vm
-            .read(self.target)
-            .clone()
-            .cast::<Func>()
-            .and_then(|func| {
-                func.element().ok_or_else(|| {
-                    error!("only element functions can be used in set rules")
-                })
-            })
-            .at(span)?;
-
         // Load the arguments.
-        let args = vm.read(self.args);
+        let args = match self.args {
+            Readable::Reg(reg) => vm.take(reg).into_owned(),
+            other => vm.read(other).clone(),
+        };
+
         let args = match args {
             Value::None => crate::foundations::Args::new::<Value>(span, []),
-            Value::Args(args) => args.clone(),
+            Value::Args(args) => args,
             _ => {
                 bail!(
                     span,
@@ -747,9 +771,28 @@ impl Run for Set {
             }
         };
 
-        // Create the set rule and store it in the target.
-        vm.write_one(self.out, target.set(engine, args)?.spanned(span))
-            .at(span)?;
+        // Load the target function.
+        let target = match vm.read(self.target) {
+            Value::Func(func) => {
+                if let Some(elem) = func.element() {
+                    elem
+                } else {
+                    bail!(span, "only element functions can be used in set rules")
+                }
+            }
+            Value::Type(ty) => {
+                if let Some(elem) = ty.constructor().at(span)?.element() {
+                    elem
+                } else {
+                    bail!(span, "only element functions can be used in set rules")
+                }
+            }
+            other => bail!(span, "expected function, found {}", other.ty()),
+        };
+
+        // Build the rule and apply it.
+        let set_rule = target.set(engine, args)?.spanned(span);
+        vm.styled(set_rule).at(span)?;
 
         Ok(())
     }
@@ -777,63 +820,82 @@ impl Run for Show {
             vm.read(self.transform).clone().cast::<Transformation>().at(span)?;
 
         // Create the show rule.
-        let value = Styles::from(Style::Recipe(Recipe {
+        let show_rule = Recipe {
             span,
             selector: selector.map(|selector| selector.0),
             transform,
-        }));
+        };
 
         // Write the value to the output.
-        vm.write_one(self.out, value).at(span)?;
+        vm.recipe(show_rule).at(span)?;
 
         Ok(())
     }
 }
 
-impl Run for Styled {
+impl Run for ShowSet {
     fn run(
         &self,
         _: &[Opcode],
         _: &[Span],
         span: Span,
         vm: &mut VMState,
-        _: &mut Engine,
+        engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
-        // Set that we are only displaying the remaining joined items.
-        vm.state |= State::DISPLAY;
+        // Load the selector.
+        let selector = self
+            .selector
+            .map(|selector| vm.read(selector).clone().cast::<ShowableSelector>())
+            .transpose()
+            .at(span)?;
+        // Load the arguments.
+        let args = match self.args {
+            Readable::Reg(reg) => vm.take(reg).into_owned(),
+            other => vm.read(other).clone(),
+        };
 
-        // Load the content.
-        let styles = vm.read(self.style).clone();
-        if styles.is_none() {
-            return Ok(());
-        }
-
-        // Load the style
-        let style = styles.clone().cast::<Styles>().at(span)?;
-
-        if style.len() == 1 {
-            // If it is a single style, without a selector, we must style it using `recipe`
-            if let Style::Recipe(r @ Recipe { span: _, selector: None, transform: _ }) =
-                &*style.as_slice()[0]
-            {
-                vm.recipe(r.clone()).at(span)?;
-                return Ok(());
+        let args = match args {
+            Value::None => crate::foundations::Args::new::<Value>(span, []),
+            Value::Args(args) => args,
+            _ => {
+                bail!(
+                    span,
+                    "expected arguments or none, found {}",
+                    args.ty().long_name()
+                );
             }
-        }
+        };
 
-        if style.len() == 1 {
-            // If it is a single style, without a selector, we must style it using `recipe`
-            if let Style::Recipe(r @ Recipe { span: _, selector: None, transform: _ }) =
-                &*style.as_slice()[0]
-            {
-                vm.recipe(r.clone()).at(span)?;
-                return Ok(());
+        // Load the target function.
+        let target = match vm.read(self.target) {
+            Value::Func(func) => {
+                if let Some(elem) = func.element() {
+                    elem
+                } else {
+                    bail!(span, "only element functions can be used in set rules")
+                }
             }
-        }
+            Value::Type(ty) => {
+                if let Some(elem) = ty.constructor().at(span)?.element() {
+                    elem
+                } else {
+                    bail!(span, "only element functions can be used in set rules")
+                }
+            }
+            other => bail!(span, "expected function, found {}", other.ty()),
+        };
 
-        // Style the remaining content.
-        vm.styled(style).at(span)?;
+        // Create the show rule.
+        let set_rule = target.set(engine, args)?.spanned(span);
+        let show_rule = Recipe {
+            span,
+            selector: selector.map(|selector| selector.0),
+            transform: Transformation::Style(set_rule),
+        };
+
+        // Write the value to the output.
+        vm.recipe(show_rule).at(span)?;
 
         Ok(())
     }
@@ -877,7 +939,7 @@ impl Run for Call {
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
         // Get the function.
-        let accessor = vm.read(self.closure).clone();
+        let accessor = vm.read(self.closure);
 
         // Get the arguments.
         let args = match self.args {
@@ -1351,17 +1413,12 @@ impl Run for InsertArg {
         // Obtain the value.
         let value = vm.read(self.value).clone();
 
-        // Obtain the key.
-        let Value::Str(key) = vm.read(self.key).clone() else {
-            bail!(span, "expected string, found {}", value.ty());
-        };
-
         // Get a mutable reference to the argument set.
         let Value::Args(args) = vm.write(self.out) else {
             bail!(span, "expected argument set, found {}", value.ty());
         };
 
-        args.insert(value_span, key, value);
+        args.insert(value_span, self.key, value);
 
         Ok(())
     }
@@ -1395,7 +1452,7 @@ impl Run for SpreadArg {
             Value::Dict(dict) => {
                 into.extend(dict.into_iter().map(|(name, value)| Arg {
                     span,
-                    name: Some(name),
+                    name: Some(PicoStr::new(name.as_str())),
                     value: Spanned::new(value, value_span),
                 }));
             }
@@ -1432,7 +1489,7 @@ impl Run for Spread {
         match vm.write(self.out) {
             Value::Array(into) => match value {
                 Value::Array(array) => {
-                    into.extend(array.into_iter().map(|v| v.clone()));
+                    into.extend(array.into_iter());
                 }
                 Value::None => {}
                 _ => {
@@ -1441,7 +1498,7 @@ impl Run for Spread {
             },
             Value::Dict(into) => match value {
                 Value::Dict(dict) => {
-                    into.extend(dict.iter().map(|(k, v)| (k.clone(), v.clone())));
+                    into.extend(dict.into_iter());
                 }
                 Value::None => {}
                 _ => {
@@ -1453,10 +1510,10 @@ impl Run for Spread {
                     into.chain(args_);
                 }
                 Value::Dict(dict) => {
-                    into.extend(dict.iter().map(|(k, v)| (k.clone(), v.clone())));
+                    into.extend(dict.into_iter());
                 }
                 Value::Array(array) => {
-                    into.extend(array.into_iter().map(|v| v.clone()));
+                    into.extend(array.into_iter());
                 }
                 Value::None => {}
                 _ => {
@@ -1684,7 +1741,11 @@ impl Run for Delimited {
         let right: Content = vm.read(self.right).clone().display();
 
         // Make the value into a delimited.
-        let value = LrElem::new(left + body + right);
+        let value = LrElem::new(
+            SequenceElem::new(vec![left.into(), body.into(), right.into()])
+                .pack()
+                .spanned(span),
+        );
 
         // Write the value to the output.
         vm.write_one(self.out, value.pack().spanned(span)).at(span)?;

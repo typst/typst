@@ -334,8 +334,8 @@ impl Bibliography {
         engine: &mut Engine,
         args: &mut Args,
     ) -> SourceResult<(BibliographyPaths, Bibliography)> {
-        let Spanned { v: paths, span } =
-            args.expect::<Spanned<BibliographyPaths>>("path to bibliography file")?;
+        let Spanned { v: paths, span } = args
+            .expect::<Spanned<BibliographyPaths>>(pico!("path to bibliography file"))?;
 
         // Load bibliography files.
         let data = paths
@@ -446,7 +446,7 @@ impl CslStyle {
     /// Parse the style argument.
     pub fn parse(engine: &mut Engine, args: &mut Args) -> SourceResult<Option<CslStyle>> {
         let Some(Spanned { v: string, span }) =
-            args.named::<Spanned<EcoString>>("style")?
+            args.named::<Spanned<EcoString>>(pico!("style"))?
         else {
             return Ok(None);
         };
@@ -460,7 +460,7 @@ impl CslStyle {
         args: &mut Args,
     ) -> SourceResult<Option<Smart<CslStyle>>> {
         let Some(Spanned { v: smart, span }) =
-            args.named::<Spanned<Smart<EcoString>>>("style")?
+            args.named::<Spanned<Smart<EcoString>>>(pico!("style"))?
         else {
             return Ok(None);
         };

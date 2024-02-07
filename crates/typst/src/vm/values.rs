@@ -9,15 +9,17 @@ use crate::foundations::{IntoValue, Label, Value};
 use super::{Access, CompiledClosure, Pattern, VMState};
 
 pub trait VmRead {
-    type Output<'a>;
+    type Output<'a, 'b>
+    where
+        'a: 'b;
 
-    fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a>;
+    fn read<'a, 'b>(&self, vm: &'b VMState<'a>) -> Self::Output<'a, 'b>;
 }
 
 impl<T: VmRead> VmRead for Option<T> {
-    type Output<'a> = Option<T::Output<'a>>;
+    type Output<'a, 'b> = Option<T::Output<'a, 'b>> where 'a: 'b;
 
-    fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a> {
+    fn read<'a, 'b>(&self, vm: &'b VMState<'a>) -> Self::Output<'a, 'b> {
         if let Some(this) = self {
             Some(this.read(vm))
         } else {
@@ -52,9 +54,9 @@ pub enum Readable {
 }
 
 impl VmRead for Readable {
-    type Output<'a> = &'a Value;
+    type Output<'a, 'b> = &'b Value where 'a: 'b;
 
-    fn read<'a>(&self, vm: &'a VMState) -> &'a Value {
+    fn read<'a, 'b>(&self, vm: &'b VMState<'a>) -> Self::Output<'a, 'b> {
         match self {
             Self::Const(constant) => constant.read(vm),
             Self::Reg(register) => register.read(vm),
@@ -271,9 +273,9 @@ impl VmWrite for Writable {
 }
 
 impl VmRead for Writable {
-    type Output<'a> = &'a Value;
+    type Output<'a, 'b> = &'b Value where 'a: 'b;
 
-    fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a> {
+    fn read<'a, 'b>(&self, vm: &'b VMState<'a>) -> Self::Output<'a, 'b> {
         match self {
             Self::Reg(register) => register.read(vm),
             Self::Joined => unreachable!("cannot read joined value"),
@@ -370,17 +372,17 @@ id! {
 }
 
 impl VmRead for Constant {
-    type Output<'a> = &'a Value;
+    type Output<'a, 'b> = &'a Value where 'a: 'b;
 
-    fn read<'a>(&self, vm: &'a VMState) -> &'a Value {
+    fn read<'a, 'b>(&self, vm: &'b VMState<'a>) -> Self::Output<'a, 'b> {
         &vm.constants[self.0 as usize]
     }
 }
 
 impl VmRead for Register {
-    type Output<'a> = &'a Value;
+    type Output<'a, 'b> = &'b Value where 'a: 'b;
 
-    fn read<'a>(&self, vm: &'a VMState) -> &'a Value {
+    fn read<'a, 'b>(&self, vm: &'b VMState<'a>) -> Self::Output<'a, 'b> {
         &vm.registers[self.0 as usize]
     }
 }
@@ -393,73 +395,73 @@ impl VmWrite for Register {
 }
 
 impl VmRead for StringId {
-    type Output<'a> = &'a Value;
+    type Output<'a, 'b> = &'a Value where 'a: 'b;
 
-    fn read<'a>(&self, vm: &'a VMState) -> &'a Value {
+    fn read<'a, 'b>(&self, vm: &'b VMState<'a>) -> Self::Output<'a, 'b> {
         &vm.strings[self.0 as usize]
     }
 }
 
 impl VmRead for ClosureId {
-    type Output<'a> = &'a CompiledClosure;
+    type Output<'a, 'b> = &'a CompiledClosure where 'a: 'b;
 
-    fn read<'a>(&self, vm: &'a VMState) -> &'a CompiledClosure {
+    fn read<'a, 'b>(&self, vm: &'b VMState<'a>) -> Self::Output<'a, 'b> {
         &vm.closures[self.0 as usize]
     }
 }
 
 impl VmRead for Global {
-    type Output<'a> = &'a Value;
+    type Output<'a, 'b> = &'a Value where 'a: 'b;
 
-    fn read<'a>(&self, vm: &'a VMState) -> &'a Value {
+    fn read<'a, 'b>(&self, vm: &'b VMState<'a>) -> Self::Output<'a, 'b> {
         vm.global.global.field_by_id(self.0 as usize).unwrap()
     }
 }
 
 impl VmRead for Math {
-    type Output<'a> = &'a Value;
+    type Output<'a, 'b> = &'a Value where 'a: 'b;
 
-    fn read<'a>(&self, vm: &'a VMState) -> &'a Value {
+    fn read<'a, 'b>(&self, vm: &'b VMState<'a>) -> Self::Output<'a, 'b> {
         vm.global.math.field_by_id(self.0 as usize).unwrap()
     }
 }
 
 impl VmRead for LabelId {
-    type Output<'a> = Label;
+    type Output<'a, 'b> = Label where 'a: 'b;
 
-    fn read<'a>(&self, vm: &'a VMState) -> Label {
+    fn read<'a, 'b>(&self, vm: &'b VMState<'a>) -> Self::Output<'a, 'b> {
         vm.labels[self.0 as usize]
     }
 }
 
 impl VmRead for AccessId {
-    type Output<'a> = &'a Access;
+    type Output<'a, 'b> = &'a Access where 'a: 'b;
 
-    fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a> {
+    fn read<'a, 'b>(&self, vm: &'b VMState<'a>) -> Self::Output<'a, 'b> {
         &vm.accesses[self.0 as usize]
     }
 }
 
 impl VmRead for PatternId {
-    type Output<'a> = &'a Pattern;
+    type Output<'a, 'b> = &'a Pattern where 'a: 'b;
 
-    fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a> {
+    fn read<'a, 'b>(&self, vm: &'b VMState<'a>) -> Self::Output<'a, 'b> {
         &vm.patterns[self.0 as usize]
     }
 }
 
 impl VmRead for SpanId {
-    type Output<'a> = Span;
+    type Output<'a, 'b> = Span where 'a: 'b;
 
-    fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a> {
+    fn read<'a, 'b>(&self, vm: &'b VMState<'a>) -> Self::Output<'a, 'b> {
         vm.spans[self.0 as usize]
     }
 }
 
 impl VmRead for Pointer {
-    type Output<'a> = usize;
+    type Output<'a, 'b> = usize where 'a: 'b;
 
-    fn read<'a>(&self, vm: &'a VMState) -> Self::Output<'a> {
+    fn read<'a, 'b>(&self, vm: &'b VMState<'a>) -> Self::Output<'a, 'b> {
         vm.jumps[self.0 as usize]
     }
 }
