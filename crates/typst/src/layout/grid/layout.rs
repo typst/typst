@@ -988,15 +988,21 @@ impl<'a> GridLayouter<'a> {
                 let dx = if self.is_rtl { self.width - dx } else { dx };
                 let vlines =
                     self.grid.vlines.get(x).map(|vlines| &**vlines).unwrap_or(&[]);
+                let tracks = rows.iter().map(|row| (row.y, row.height));
 
                 // Determine all different line segments we have to draw in
                 // this column.
                 // Even a single line might generate more than one segment,
                 // if it happens to cross a colspan (over which it must not be
                 // drawn).
-                for (stroke, dy, length) in
-                    generate_vline_segments(self.grid, rows, x, stroke.as_ref(), vlines)
-                {
+                for (stroke, dy, length) in generate_line_segments(
+                    self.grid,
+                    tracks,
+                    x,
+                    stroke.as_ref(),
+                    vlines,
+                    vline_stroke_at_row,
+                ) {
                     let stroke = (*stroke).clone().unwrap_or_default();
                     let thickness = stroke.thickness;
                     let half = thickness / 2.0;
@@ -1532,93 +1538,110 @@ fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
     })
 }
 
-/// Given the 'x' of the column right after the vline (or cols.len() at the
-/// border) and its start..end range of rows, alongside the rows for the
-/// current region, the stroke for the automatic vline at this column and all
-/// user-specified vlines for this column, splits the vline into contiguous
-/// parts to draw, including the height and the appropriate stroke of the vline
-/// in each part. This will go through each row and interrupt the current vline
-/// to be drawn when a colspan is detected, a different stroke should be used,
-/// or the end of the row range (or of the region) is reached.
-/// The idea is to not draw vlines over colspans, first and foremost; but also
-/// to collect the different stroke parts specified for this vline by the user.
-/// This is done by, at each row, folding the strokes of each manually
-/// specified vline with the automatic vline stroke, and finally with the
-/// stroke overrides for the two cells around the vline (left and right).
-/// This will return the start offsets and lengths of each final segment of
-/// this vline, alongside each stroke used. The offsets are relative to the top
-/// of the first row.
-/// Note that this assumes that rows are sorted according to ascending 'y'.
-fn generate_vline_segments(
+/// Generates the segments of lines that should be drawn alongside a certain
+/// axis in the grid, going through the given tracks (orthogonal to the lines).
+/// Each returned segment contains its stroke, its offset from the start, and
+/// its length.
+/// Accepts, as parameters, the index of the lines that should be produced
+/// (for example, the column at which vertical lines will be drawn); the
+/// default stroke of lines at this index (used if there aren't any overrides
+/// by intersecting cells or user-specified lines); a list of user-specified
+/// lines with the same index (the `lines` parameter); and a function
+/// which returns the final stroke that should be used for each track the line
+/// goes through (its parameters are the grid, the track number, the index of
+/// the line to be drawn and the default stroke at this index).
+/// Contiguous segments with the same stroke are joined together automatically.
+/// The function should return 'None' for positions at which the line would
+/// otherwise cross a merged cell (for example, a vline could cross a colspan),
+/// in which case a new segment should be drawn after the merged cell(s), even
+/// if it would have the same stroke as the previous one.
+/// Note that we assume that the tracks are sorted according to ascending
+/// number, and they must be iterable over pairs of (number, size). For
+/// vertical lines, for instance, 'tracks' would describe the rows in the
+/// current region, as pairs (row index, row height).
+fn generate_line_segments<F>(
     grid: &CellGrid,
-    rows: &[RowPiece],
-    x: usize,
+    tracks: impl IntoIterator<Item = (usize, Abs)>,
+    index: usize,
     stroke: Option<&Arc<Stroke<Abs>>>,
-    vlines: &[Line],
-) -> impl IntoIterator<Item = (Arc<Stroke<Abs>>, Abs, Abs)> {
-    // Each segment of this vline that should be drawn.
+    lines: &[Line],
+    line_stroke_at_track: F,
+) -> impl IntoIterator<Item = (Arc<Stroke<Abs>>, Abs, Abs)>
+where
+    F: Fn(&CellGrid, usize, usize, Option<Arc<Stroke<Abs>>>) -> Option<Arc<Stroke<Abs>>>,
+{
+    // Each line segment that should be drawn.
     // The last element in the vector below is the currently drawn segment.
     // That is, the last segment will be expanded until interrupted.
-    let mut drawn_vlines = vec![];
-    // Whether the latest vline segment is complete, because we hit a row we
-    // should skip while drawing the vline. Starts at true so we push
-    // the first segment to the vector.
+    let mut drawn_lines = vec![];
+    // Whether the latest line segment is complete, because we hit a row we
+    // should skip while drawing the line. Starts at true so we push the first
+    // segment to the vector.
     let mut interrupted = true;
-    // How far down from the first row have we gone so far.
+    // How far from the start (before the first track) have we gone so far.
     // Used to determine the positions at which to draw each segment.
     let mut offset = Abs::zero();
 
-    // We start drawing at the first suitable row, and keep going down
-    // (increasing y) expanding the last segment until we hit a row on top of
-    // which we shouldn't draw, which is skipped, leading to the creation of a
-    // new vline segment later if a suitable row is found, restarting the
+    // We start drawing at the first suitable track, and keep going through
+    // tracks (of increasing numbers) expanding the last segment until we hit
+    // a track next to which we shouldn't draw, which is skipped, or we find a
+    // stroke override (either by a cell or by a user-specified line),
+    // requiring us to use a different stroke. Both cases lead to the creation
+    // of a new line segment later if a suitable track is found, restarting the
     // cycle.
-    for row in rows {
-        // Get the expected stroke at this row by folding the automatic vline's
-        // stroke with the strokes of other user-specified vlines at this row.
-        // 'vline_stroke_at_row' will then fold the resulting stroke with the
-        // strokes of the (up to) two cells around the vline, generating the
-        // final stroke to draw at this position.
-        let stroke = vlines
+    for (track, size) in tracks {
+        // Get the expected stroke at this track by folding the strokes of each
+        // user-specified line going through the current position, with
+        // priority to the line specified last, and then folding the resulting
+        // stroke with the default stroke at this position (with priority to
+        // the stroke resulting from user-specified lines).
+        let stroke = lines
             .iter()
-            .filter(|v| {
-                v.end
-                    .map(|end| (v.start..end.get()).contains(&row.y))
-                    .unwrap_or_else(|| row.y >= v.start)
+            .filter(|line| {
+                line.end
+                    .map(|end| (line.start..end.get()).contains(&track))
+                    .unwrap_or_else(|| track >= line.start)
             })
             .rev()
             .fold(stroke.cloned(), |stroke, v| {
                 match (stroke, v.stroke.as_ref().cloned()) {
-                    (Some(stroke), Some(vline_stroke)) => Some(vline_stroke.fold(stroke)),
-                    (stroke, vline_stroke) => stroke.or(vline_stroke),
+                    (Some(stroke), Some(line_stroke)) => Some(line_stroke.fold(stroke)),
+                    (stroke, line_stroke) => stroke.or(line_stroke),
                 }
             });
-        if let Some(stroke) = vline_stroke_at_row(grid, x, row.y, stroke) {
+
+        // The function shall determine if it is appropriate to draw the line
+        // at this position or not (i.e. whether or not it would cross a merged
+        // cell), and, if so, the final stroke it should have (because cells
+        // near this position could have stroke overrides, which have priority
+        // and should be folded with the stroke obtained above).
+        if let Some(stroke) = line_stroke_at_track(grid, index, track, stroke) {
             if interrupted {
-                // Last segment was interrupted by a colspan, had a stroke of
-                // 'none', or there are no segments yet.
-                // Create a new segment to draw. We start spanning this row.
-                drawn_vlines.push((stroke, offset, row.height));
+                // Last segment was interrupted by a merged cell, had a stroke
+                // of 'None', or there are no segments yet.
+                // Create a new segment to draw. We start spanning this track.
+                drawn_lines.push((stroke, offset, size));
                 interrupted = false;
             } else {
-                let current_segment = drawn_vlines.last_mut().unwrap();
+                // The vector can't be empty if interrupted is false.
+                let current_segment = drawn_lines.last_mut().unwrap();
                 if current_segment.0 == stroke {
-                    // Extend the current segment so it covers at least this row
-                    // as well, since it has the same stroke in this row.
-                    // The vector can't be empty if interrupted is false.
-                    current_segment.2 += row.height;
+                    // Extend the current segment so it covers at least this
+                    // track as well, since it has the same stroke in this
+                    // track.
+                    current_segment.2 += size;
                 } else {
                     // We got a different stroke now, so create a new segment.
-                    drawn_vlines.push((stroke, offset, row.height));
+                    drawn_lines.push((stroke, offset, size));
                 }
             }
         } else {
             interrupted = true;
         }
-        offset += row.height;
+        offset += size;
     }
 
-    drawn_vlines
+    drawn_lines
 }
 
 /// Returns the correct stroke with which to draw a vline right before column
@@ -1791,11 +1814,19 @@ mod test {
             vec![(stroke.clone(), Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
         ];
         for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
+            let tracks = rows.iter().map(|row| (row.y, row.height));
             assert_eq!(
                 expected_splits,
-                &generate_vline_segments(&grid, rows, x, Some(&stroke), &[])
-                    .into_iter()
-                    .collect::<Vec<_>>(),
+                &generate_line_segments(
+                    &grid,
+                    tracks,
+                    x,
+                    Some(&stroke),
+                    &[],
+                    vline_stroke_at_row
+                )
+                .into_iter()
+                .collect::<Vec<_>>(),
             );
         }
     }
@@ -1887,11 +1918,19 @@ mod test {
             )],
         ];
         for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
+            let tracks = rows.iter().map(|row| (row.y, row.height));
             assert_eq!(
                 expected_splits,
-                &generate_vline_segments(&grid, rows, x, Some(&stroke), &[])
-                    .into_iter()
-                    .collect::<Vec<_>>(),
+                &generate_line_segments(
+                    &grid,
+                    tracks,
+                    x,
+                    Some(&stroke),
+                    &[],
+                    vline_stroke_at_row
+                )
+                .into_iter()
+                .collect::<Vec<_>>(),
             );
         }
     }
