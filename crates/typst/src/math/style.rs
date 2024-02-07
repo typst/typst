@@ -313,6 +313,10 @@ pub fn styled_char(styles: StyleChain, c: char) -> char {
         return c;
     }
 
+    if let Some(c) = hebrew_exception(c) {
+        return c;
+    }
+
     let base = match c {
         'A'..='Z' => 'A',
         'a'..='z' => 'a',
@@ -473,6 +477,15 @@ fn greek_exception(
         (Serif, true, true) => list[2],
         (Sans, _, false) => list[3],
         (Sans, _, true) => list[4],
+        _ => return None,
+    })
+}
+
+fn hebrew_exception(c: char) -> Option<char> {
+    Some(match c {
+        'א' => 'ℵ',
+        'ב' => 'ℶ',
+        'ג' => 'ℷ',
         _ => return None,
     })
 }
