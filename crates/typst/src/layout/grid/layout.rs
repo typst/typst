@@ -958,6 +958,7 @@ impl<'a> GridLayouter<'a> {
             // Render vertical lines.
             for (x, dx) in points(self.rcols.iter().copied()).enumerate() {
                 let dx = if self.is_rtl { self.width - dx } else { dx };
+                let vlines = self.grid.vlines.get(x).map(|vlines| &**vlines);
                 // We want each vline to span the entire table (start
                 // at y = 0, end after all rows).
                 // We use 'split_vline' to split the vline such that it
@@ -969,7 +970,7 @@ impl<'a> GridLayouter<'a> {
                     0,
                     self.grid.rows.len(),
                     stroke.as_ref(),
-                    false,
+                    vlines,
                 ) {
                     let stroke = (*stroke).clone().unwrap_or_default();
                     let thickness = stroke.thickness;
@@ -1508,16 +1509,21 @@ fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
 
 /// Given the 'x' of the column right after the vline (or cols.len() at the
 /// border) and its start..end range of rows, alongside the rows for the
-/// current region, splits the vline into contiguous parts to draw, including
-/// the height of the vline in each part. This will go through each row and
-/// interrupt the current vline to be drawn when a colspan is detected, or the
-/// end of the row range (or of the region) is reached.
-/// The idea is to not draw vlines over colspans.
+/// current region, the stroke for the automatic vline at this column and all
+/// user-specified vlines for this column, splits the vline into contiguous
+/// parts to draw, including the height and the appropriate stroke of the vline
+/// in each part. This will go through each row and interrupt the current vline
+/// to be drawn when a colspan is detected, a different stroke should be used,
+/// or the end of the row range (or of the region) is reached.
+/// The idea is to not draw vlines over colspans, first and foremost; but also
+/// to collect the different stroke parts specified for this vline by the user.
+/// This is done by, at each row, folding the strokes of each manually
+/// specified vline with the automatic vline stroke, and finally with the
+/// stroke overrides for the two cells around the vline (left and right).
 /// This will return the start offsets and lengths of each final segment of
-/// this vline. The offsets are relative to the top of the first row.
+/// this vline, alongside each stroke used. The offsets are relative to the top
+/// of the first row.
 /// Note that this assumes that rows are sorted according to ascending 'y'.
-/// This function will also provide the stroke that should be used for each
-/// segment. Use 'skip_cells' to not draw segments over cell strokes.
 fn split_vline(
     grid: &CellGrid,
     rows: &[RowPiece],
@@ -1525,7 +1531,7 @@ fn split_vline(
     start: usize,
     end: usize,
     stroke: Option<&Arc<Stroke<Abs>>>,
-    skip_cells: bool,
+    vlines: Option<&[Line]>,
 ) -> impl IntoIterator<Item = (Arc<Stroke<Abs>>, Abs, Abs)> {
     // Each segment of this vline that should be drawn.
     // The last element in the vector below is the currently drawn segment.
@@ -1545,9 +1551,32 @@ fn split_vline(
     // new vline segment later if a suitable row is found, restarting the
     // cycle.
     for row in rows.iter().take_while(|row| row.y < end) {
-        if let Some(stroke) =
-            vline_stroke_at_row(grid, x, row.y, start, end, stroke, skip_cells)
-        {
+        // Get the expected stroke at this row by folding the automatic vline's
+        // stroke with the strokes of other user-specified vlines at this row.
+        // 'vline_stroke_at_row' will then fold the resulting stroke with the
+        // strokes of the (up to) two cells around the vline, generating the
+        // final stroke to draw at this position.
+        let stroke = vlines
+            .map(|vlines| {
+                vlines
+                    .iter()
+                    .filter(|v| {
+                        v.end
+                            .map(|end| (v.start..end.get()).contains(&row.y))
+                            .unwrap_or_else(|| row.y >= v.start)
+                    })
+                    .rev()
+                    .fold(stroke.cloned(), |stroke, v| {
+                        match (stroke, v.stroke.as_ref().cloned()) {
+                            (Some(stroke), Some(vline_stroke)) => {
+                                Some(vline_stroke.fold(stroke))
+                            }
+                            (stroke, vline_stroke) => stroke.or(vline_stroke),
+                        }
+                    })
+            })
+            .unwrap_or_else(|| stroke.cloned());
+        if let Some(stroke) = vline_stroke_at_row(grid, x, row.y, start, end, stroke) {
             if interrupted {
                 // Last segment was interrupted by a colspan, had a stroke of
                 // 'none', or there are no segments yet.
@@ -1592,8 +1621,7 @@ fn vline_stroke_at_row(
     y: usize,
     start: usize,
     end: usize,
-    stroke: Option<&Arc<Stroke<Abs>>>,
-    skip_cells: bool,
+    stroke: Option<Arc<Stroke<Abs>>>,
 ) -> Option<Arc<Stroke<Abs>>> {
     if !(start..end).contains(&y) {
         // Row is out of range for this line
@@ -1639,32 +1667,22 @@ fn vline_stroke_at_row(
         None
     };
 
-    if skip_cells {
-        if left_cell_stroke.is_some() || right_cell_stroke.is_some() {
-            None
-        } else {
-            stroke.cloned()
+    let cell_stroke = match (left_cell_stroke.cloned(), right_cell_stroke.cloned()) {
+        (Some(left_cell_stroke), Some(right_cell_stroke)) => {
+            // When both cells specify a stroke for this line segment, fold
+            // both strokes, with priority to the right cell's left stroke.
+            Some(right_cell_stroke.fold(left_cell_stroke))
         }
-    } else {
-        let cell_stroke = match (left_cell_stroke.cloned(), right_cell_stroke.cloned()) {
-            (Some(left_cell_stroke), Some(right_cell_stroke)) => {
-                // When both cells specify a stroke for this line segment, fold
-                // both strokes, with priority to the right cell's left stroke.
-                Some(right_cell_stroke.fold(left_cell_stroke))
-            }
-            // When one of the cells doesn't specify a stroke, the other cell's
-            // stroke should be used.
-            (left_cell_stroke, right_cell_stroke) => {
-                left_cell_stroke.or(right_cell_stroke)
-            }
-        };
+        // When one of the cells doesn't specify a stroke, the other cell's
+        // stroke should be used.
+        (left_cell_stroke, right_cell_stroke) => left_cell_stroke.or(right_cell_stroke),
+    };
 
-        // Fold the line stroke and folded cell strokes, if possible.
-        // Otherwise, use whichever of the two isn't 'none' or unspecified.
-        match (cell_stroke, stroke.cloned()) {
-            (Some(cell_stroke), Some(stroke)) => Some(cell_stroke.fold(stroke)),
-            (cell_stroke, stroke) => cell_stroke.or(stroke),
-        }
+    // Fold the line stroke and folded cell strokes, if possible.
+    // Otherwise, use whichever of the two isn't 'none' or unspecified.
+    match (cell_stroke, stroke) {
+        (Some(cell_stroke), Some(stroke)) => Some(cell_stroke.fold(stroke.clone())),
+        (cell_stroke, stroke) => cell_stroke.or_else(|| stroke.clone()),
     }
 }
 
@@ -1767,7 +1785,7 @@ mod test {
         for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
             assert_eq!(
                 expected_splits,
-                &split_vline(&grid, rows, x, 0, 6, Some(&stroke), false)
+                &split_vline(&grid, rows, x, 0, 6, Some(&stroke), None)
                     .into_iter()
                     .collect::<Vec<_>>(),
             );
@@ -1863,7 +1881,7 @@ mod test {
         for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
             assert_eq!(
                 expected_splits,
-                &split_vline(&grid, rows, x, 0, 11, Some(&stroke), false)
+                &split_vline(&grid, rows, x, 0, 11, Some(&stroke), None)
                     .into_iter()
                     .collect::<Vec<_>>(),
             );
