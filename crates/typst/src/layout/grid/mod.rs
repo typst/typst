@@ -421,7 +421,7 @@ cast! {
 #[derive(Debug, Clone, Hash, Default, PartialEq)]
 pub struct GridStroke<I> {
     /// Configures only the grid's border lines.
-    pub outside: Smart<Sides<Option<Option<Arc<Stroke>>>>>,
+    pub outside: Sides<Option<Option<Arc<Stroke>>>>,
     /// Configures the cells' lines.
     pub inside: I,
 }
@@ -462,17 +462,17 @@ impl<I: Reflect> Reflect for GridStroke<I> {
 
 impl<I: IntoValue> IntoValue for GridStroke<I> {
     fn into_value(self) -> Value {
-        if let Smart::Custom(outside) = self.outside {
+        if self.outside.iter().any(Option::is_some) {
             let mut dict = Dict::new();
             let mut handle = |key: &str, component: Option<Value>| {
                 if let Some(value) = component {
                     dict.insert(key.into(), value);
                 }
             };
-            handle("top", outside.top.map(IntoValue::into_value));
-            handle("bottom", outside.bottom.map(IntoValue::into_value));
-            handle("left", outside.left.map(IntoValue::into_value));
-            handle("right", outside.right.map(IntoValue::into_value));
+            handle("top", self.outside.top.map(IntoValue::into_value));
+            handle("bottom", self.outside.bottom.map(IntoValue::into_value));
+            handle("left", self.outside.left.map(IntoValue::into_value));
+            handle("right", self.outside.right.map(IntoValue::into_value));
             dict.insert("inside".into(), self.inside.into_value());
             Value::Dict(dict)
         } else {
@@ -491,7 +491,7 @@ where
                 // This dictionary has valid stroke properties, so it must
                 // correspond to the inside stroke.
                 let inside = I::from(stroke);
-                return Ok(Self { outside: Smart::Auto, inside });
+                return Ok(Self { outside: Sides::default(), inside });
             }
             let mut dict = Dict::from_value(value)?;
             return Ok({
@@ -513,14 +513,14 @@ where
                     "inside", "left", "top", "right", "bottom", "x", "y", "rest",
                 ])?;
                 Self {
-                    outside: Smart::Custom(Sides { left, top, right, bottom }),
+                    outside: Sides { left, top, right, bottom },
                     inside,
                 }
             });
         }
         if I::castable(&value) {
             let inside = I::from_value(value)?;
-            return Ok(Self { outside: Smart::Auto, inside });
+            return Ok(Self { outside: Sides::default(), inside });
         }
         Err(Self::error(&value))
     }

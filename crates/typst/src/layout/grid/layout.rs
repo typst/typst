@@ -41,7 +41,7 @@ impl Default for ResolvedInsideStroke {
 pub struct ResolvedGridStroke {
     /// Configures only the grid's border lines.
     #[allow(clippy::type_complexity)] // TODO: Create a type alias or something
-    pub outside: Smart<Sides<Option<Option<Arc<Stroke<Abs>>>>>>,
+    pub outside: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
     /// Configures the cells' lines.
     pub inside: ResolvedInsideStroke,
 }
@@ -981,6 +981,28 @@ impl<'a> GridLayouter<'a> {
                 let hlines_at_row =
                     self.grid.hlines.get(y).map(|hlines| &**hlines).unwrap_or(&[]);
                 let tracks = self.rcols.iter().copied().enumerate();
+
+                // Apply top / bottom border stroke overrides.
+                let stroke = match y {
+                    0 => self
+                        .grid
+                        .stroke
+                        .outside
+                        .top
+                        .as_ref()
+                        .map(|border_stroke| border_stroke.clone().fold(stroke.clone()))
+                        .unwrap_or_else(|| stroke.clone()),
+                    y if y == self.grid.rows.len() => self
+                        .grid
+                        .stroke
+                        .outside
+                        .bottom
+                        .as_ref()
+                        .map(|border_stroke| border_stroke.clone().fold(stroke.clone()))
+                        .unwrap_or_else(|| stroke.clone()),
+                    _ => stroke.clone(),
+                };
+
                 // Determine all different line segments we have to draw in
                 // this row.
                 for (stroke, dx, length) in generate_line_segments(
@@ -1010,6 +1032,27 @@ impl<'a> GridLayouter<'a> {
                 let vlines_at_column =
                     self.grid.vlines.get(x).map(|vlines| &**vlines).unwrap_or(&[]);
                 let tracks = rows.iter().map(|row| (row.y, row.height));
+
+                // Apply left / right border stroke overrides.
+                let stroke = match x {
+                    0 => self
+                        .grid
+                        .stroke
+                        .outside
+                        .left
+                        .as_ref()
+                        .map(|border_stroke| border_stroke.clone().fold(stroke.clone()))
+                        .unwrap_or_else(|| stroke.clone()),
+                    x if x == self.grid.cols.len() => self
+                        .grid
+                        .stroke
+                        .outside
+                        .right
+                        .as_ref()
+                        .map(|border_stroke| border_stroke.clone().fold(stroke.clone()))
+                        .unwrap_or_else(|| stroke.clone()),
+                    _ => stroke.clone(),
+                };
 
                 // Determine all different line segments we have to draw in
                 // this column.
