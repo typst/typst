@@ -957,10 +957,6 @@ impl<'a> GridLayouter<'a> {
             ResolvedInsideStroke::Auto(Some(stroke)) => Some(Arc::new(stroke.clone())),
             _ => None,
         };
-        let fixed_stroke = stroke
-            .as_ref()
-            .map(|stroke| Stroke::clone(stroke))
-            .map(Stroke::unwrap_or_default);
 
         for (frame, rows) in finished.iter_mut().zip(&self.rrows) {
             if self.rcols.is_empty() || rows.is_empty() {
@@ -968,16 +964,41 @@ impl<'a> GridLayouter<'a> {
             }
 
             // Render table lines.
-            if let Some(stroke) = &fixed_stroke {
-                let thickness = stroke.thickness;
-                let half = thickness / 2.0;
 
-                // Render horizontal lines.
-                for offset in points(rows.iter().map(|piece| piece.height)) {
-                    let target = Point::with_x(frame.width() + thickness);
-                    let hline = Geometry::Line(target).stroked(stroke.clone());
+            // Render horizontal lines.
+            // First, calculate their offsets from the top of the frame.
+            let hline_offsets = points(rows.iter().map(|piece| piece.height));
+            // Additionally, determine their indices (the indices of the
+            // rows they are drawn on top of). In principle, this will
+            // correspond to the rows' indices directly, except for the
+            // first and last hlines, which must be 0 and (amount of rows)
+            // respectively, as they are always drawn (due to being part of
+            // the table's border).
+            let hline_indices = std::iter::once(0)
+                .chain(rows.iter().map(|piece| piece.y).skip(1))
+                .chain(std::iter::once(self.grid.rows.len()));
+            for (y, dy) in hline_indices.zip(hline_offsets) {
+                let hlines_at_row =
+                    self.grid.hlines.get(y).map(|hlines| &**hlines).unwrap_or(&[]);
+                let tracks = self.rcols.iter().copied().enumerate();
+                // Determine all different line segments we have to draw in
+                // this row.
+                for (stroke, dx, length) in generate_line_segments(
+                    self.grid,
+                    tracks,
+                    y,
+                    stroke.as_ref(),
+                    hlines_at_row,
+                    hline_stroke_at_column,
+                ) {
+                    let stroke = (*stroke).clone().unwrap_or_default();
+                    let thickness = stroke.thickness;
+                    let half = thickness / 2.0;
+                    let dx = if self.is_rtl { self.width - dx - length } else { dx };
+                    let target = Point::with_x(length + thickness);
+                    let hline = Geometry::Line(target).stroked(stroke);
                     frame.prepend(
-                        Point::new(-half, offset),
+                        Point::new(dx - half, dy),
                         FrameItem::Shape(hline, self.span),
                     );
                 }
@@ -986,7 +1007,7 @@ impl<'a> GridLayouter<'a> {
             // Render vertical lines.
             for (x, dx) in points(self.rcols.iter().copied()).enumerate() {
                 let dx = if self.is_rtl { self.width - dx } else { dx };
-                let vlines =
+                let vlines_at_column =
                     self.grid.vlines.get(x).map(|vlines| &**vlines).unwrap_or(&[]);
                 let tracks = rows.iter().map(|row| (row.y, row.height));
 
@@ -1000,7 +1021,7 @@ impl<'a> GridLayouter<'a> {
                     tracks,
                     x,
                     stroke.as_ref(),
-                    vlines,
+                    vlines_at_column,
                     vline_stroke_at_row,
                 ) {
                     let stroke = (*stroke).clone().unwrap_or_default();
@@ -1707,6 +1728,52 @@ fn vline_stroke_at_row(
         // When one of the cells doesn't specify a stroke, the other cell's
         // stroke should be used.
         (left_cell_stroke, right_cell_stroke) => left_cell_stroke.or(right_cell_stroke),
+    };
+
+    // Fold the line stroke and folded cell strokes, if possible.
+    // Otherwise, use whichever of the two isn't 'none' or unspecified.
+    match (cell_stroke, stroke) {
+        (Some(cell_stroke), Some(stroke)) => Some(cell_stroke.fold(stroke.clone())),
+        (cell_stroke, stroke) => cell_stroke.or_else(|| stroke.clone()),
+    }
+}
+
+/// Returns the correct stroke with which to draw a hline on top of row 'y'
+/// when going through column 'x', given its initial stroke.
+/// If the one (when at the border) or two (otherwise) cells above and below
+/// the hline have bottom and top stroke overrides, respectively, then the
+/// cells' stroke overrides are folded together with the hline's stroke (with
+/// priority to the bottom cell's stroke, followed by the top cell's) and
+/// returned. If, however, the cells around the hline at this column do not
+/// have any stroke overrides, then the hline's own stroke is returned.
+fn hline_stroke_at_column(
+    grid: &CellGrid,
+    y: usize,
+    x: usize,
+    stroke: Option<Arc<Stroke<Abs>>>,
+) -> Option<Arc<Stroke<Abs>>> {
+    // There are no rowspans yet, so no need to add a check here. The line will
+    // always be drawn, if it has a stroke.
+    let top_cell_stroke = y
+        .checked_sub(1)
+        .and_then(|top_y| grid.parent_cell(x, top_y))
+        .and_then(|top_cell| top_cell.stroke.bottom.as_ref());
+    let bottom_cell_stroke = if y < grid.rows.len() {
+        grid.parent_cell(x, y)
+            .and_then(|bottom_cell| bottom_cell.stroke.top.as_ref())
+    } else {
+        None
+    };
+
+    let cell_stroke = match (top_cell_stroke.cloned(), bottom_cell_stroke.cloned()) {
+        (Some(top_cell_stroke), Some(bottom_cell_stroke)) => {
+            // When both cells specify a stroke for this line segment, fold
+            // both strokes, with priority to the bottom cell's top stroke.
+            Some(bottom_cell_stroke.fold(top_cell_stroke))
+        }
+        // When one of the cells doesn't specify a stroke, the other cell's
+        // stroke should be used.
+        (top_cell_stroke, bottom_cell_stroke) => top_cell_stroke.or(bottom_cell_stroke),
     };
 
     // Fold the line stroke and folded cell strokes, if possible.
