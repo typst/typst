@@ -299,6 +299,8 @@ pub enum GridItem<T: ResolvableCell> {
         start: usize,
         end: Option<NonZeroUsize>,
         stroke: Option<Arc<Stroke<Abs>>>,
+        /// The span of the corresponding line element.
+        span: Span,
     },
     /// A vertical line in the grid.
     VLine {
@@ -307,6 +309,8 @@ pub enum GridItem<T: ResolvableCell> {
         start: usize,
         end: Option<NonZeroUsize>,
         stroke: Option<Arc<Stroke<Abs>>>,
+        /// The span of the corresponding line element.
+        span: Span,
     },
     /// A cell in the grid.
     Cell(T),
@@ -413,6 +417,9 @@ impl CellGrid {
         // Lists of lines.
         let mut vlines: Vec<Vec<Line>> = Vec::with_capacity(c);
         let mut hlines: Vec<Vec<Line>> = Vec::new();
+        // Horizontal lines placed above rows that don't exist yet.
+        // We keep their spans so we can report errors later.
+        let mut pending_hlines: Vec<(Span, Line)> = Vec::new();
 
         // We can't just use the cell's index in the 'cells' vector to
         // determine its automatic position, since cells could have arbitrary
@@ -440,16 +447,26 @@ impl CellGrid {
         let mut resolved_cells: Vec<Option<Entry>> = Vec::with_capacity(item_count);
         for item in items {
             let cell = match item {
-                GridItem::HLine { y, start, end, stroke } => {
+                GridItem::HLine { y, start, end, stroke, span } => {
                     let y = y.as_custom().unwrap(); // TODO: automatic line positioning
+                    if resolved_cells.len().div_ceil(c) < y {
+                        // We don't know yet if this hline will be placed on
+                        // top of a valid row, or below it (border).
+                        pending_hlines
+                            .push((span, Line { index: y, start, end, stroke }));
+                        continue;
+                    }
                     if hlines.len() <= y {
                         hlines.resize_with(y + 1, Vec::new);
                     }
                     hlines[y].push(Line { index: y, start, end, stroke });
                     continue;
                 }
-                GridItem::VLine { x, start, end, stroke } => {
+                GridItem::VLine { x, start, end, stroke, span } => {
                     let x = x.as_custom().unwrap(); // TODO: automatic line positioning
+                    if x > c {
+                        bail!(span, "cannot place vertical line at invalid column");
+                    }
                     if vlines.len() <= x {
                         vlines.resize_with(x + 1, Vec::new);
                     }
@@ -601,6 +618,17 @@ impl CellGrid {
                 }
             })
             .collect::<SourceResult<Vec<Entry>>>()?;
+
+        for (span, line) in pending_hlines {
+            let y = line.index;
+            if resolved_cells.len().div_ceil(c) < y {
+                bail!(span, "cannot place horizontal line at invalid row");
+            }
+            if hlines.len() <= y {
+                hlines.resize_with(y + 1, Vec::new);
+            }
+            hlines[y].push(line);
+        }
 
         Ok(Self::new_internal(tracks, gutter, stroke, vlines, hlines, resolved_cells))
     }

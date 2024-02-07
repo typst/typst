@@ -311,20 +311,22 @@ impl LayoutMultiple for Packed<GridElem> {
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
         // Use trace to link back to the grid when a specific cell errors
         let tracepoint = || Tracepoint::Call(Some(eco_format!("grid")));
-        let items = self.children().iter().cloned().map(|child| match child {
+        let items = self.children().iter().map(|child| match child {
             GridChild::HLine(hline) => GridItem::HLine {
                 y: hline.y(styles),
                 start: hline.start(styles),
                 end: hline.end(styles),
                 stroke: hline.stroke(styles),
+                span: hline.span(),
             },
             GridChild::VLine(vline) => GridItem::VLine {
                 x: vline.x(styles),
                 start: vline.start(styles),
                 end: vline.end(styles),
                 stroke: vline.stroke(styles),
+                span: vline.span(),
             },
-            GridChild::Cell(cell) => GridItem::Cell(cell),
+            GridChild::Cell(cell) => GridItem::Cell(cell.clone()),
         });
         let grid = CellGrid::resolve(
             tracks,
@@ -527,8 +529,8 @@ where
 /// Any child of a grid element.
 #[derive(Debug, PartialEq, Clone, Hash)]
 pub enum GridChild {
-    HLine(GridHLine),
-    VLine(GridVLine),
+    HLine(Packed<GridHLine>),
+    VLine(Packed<GridVLine>),
     Cell(Packed<GridCell>),
 }
 
@@ -546,9 +548,9 @@ impl From<Content> for GridChild {
     fn from(value: Content) -> Self {
         #[allow(clippy::unwrap_or_default)]
         value
-            .unpack::<GridHLine>()
+            .into_packed::<GridHLine>()
             .map(GridChild::HLine)
-            .or_else(|value| value.unpack::<GridVLine>().map(GridChild::VLine))
+            .or_else(|value| value.into_packed::<GridVLine>().map(GridChild::VLine))
             .or_else(|value| value.into_packed::<GridCell>().map(GridChild::Cell))
             .unwrap_or_else(|value| {
                 let span = value.span();

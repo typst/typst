@@ -236,20 +236,22 @@ impl LayoutMultiple for Packed<TableElem> {
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
         // Use trace to link back to the table when a specific cell errors
         let tracepoint = || Tracepoint::Call(Some(eco_format!("table")));
-        let items = self.children().iter().cloned().map(|child| match child {
+        let items = self.children().iter().map(|child| match child {
             TableChild::HLine(hline) => GridItem::HLine {
                 y: hline.y(styles),
                 start: hline.start(styles),
                 end: hline.end(styles),
                 stroke: hline.stroke(styles),
+                span: hline.span(),
             },
             TableChild::VLine(vline) => GridItem::VLine {
                 x: vline.x(styles),
                 start: vline.start(styles),
                 end: vline.end(styles),
                 stroke: vline.stroke(styles),
+                span: vline.span(),
             },
-            TableChild::Cell(cell) => GridItem::Cell(cell),
+            TableChild::Cell(cell) => GridItem::Cell(cell.clone()),
         });
         let grid = CellGrid::resolve(
             tracks,
@@ -372,8 +374,8 @@ cast! {
 /// Any child of a table element.
 #[derive(Debug, PartialEq, Clone, Hash)]
 pub enum TableChild {
-    HLine(TableHLine),
-    VLine(TableVLine),
+    HLine(Packed<TableHLine>),
+    VLine(Packed<TableVLine>),
     Cell(Packed<TableCell>),
 }
 
@@ -391,9 +393,9 @@ impl From<Content> for TableChild {
     fn from(value: Content) -> Self {
         #[allow(clippy::unwrap_or_default)]
         value
-            .unpack::<TableHLine>()
+            .into_packed::<TableHLine>()
             .map(TableChild::HLine)
-            .or_else(|value| value.unpack::<TableVLine>().map(TableChild::VLine))
+            .or_else(|value| value.into_packed::<TableVLine>().map(TableChild::VLine))
             .or_else(|value| value.into_packed::<TableCell>().map(TableChild::Cell))
             .unwrap_or_else(|value| {
                 let span = value.span();
