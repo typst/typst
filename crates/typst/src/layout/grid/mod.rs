@@ -1,7 +1,7 @@
 mod layout;
 
 pub use self::layout::{
-    Cell, CellGrid, Celled, GridLayouter, ResolvableCell, ResolvedGridStroke,
+    Cell, CellGrid, Celled, GridItem, GridLayouter, ResolvableCell, ResolvedGridStroke,
     ResolvedInsideStroke,
 };
 
@@ -305,10 +305,11 @@ impl LayoutMultiple for Packed<GridElem> {
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
         // Use trace to link back to the grid when a specific cell errors
         let tracepoint = || Tracepoint::Call(Some(eco_format!("grid")));
+        let items = self.children().iter().cloned().map(GridItem::Cell);
         let grid = CellGrid::resolve(
             tracks,
             gutter,
-            self.children(),
+            items,
             fill,
             align,
             inset,

@@ -203,6 +203,32 @@ where
     }
 }
 
+/// Represents an explicit grid line (horizontal or vertical) specified by the
+/// user.
+#[allow(dead_code)]
+pub struct Line {
+    /// The index of the track after this line. This will be the index of the
+    /// row a horizontal line is above of, or of the column right after a
+    /// vertical line.
+    /// Must be within `0..=tracks.len()` (where `tracks` is either `grid.cols`
+    /// or `grid.rows`, as appropriate).
+    index: usize,
+    /// The index of the track at which this line starts being drawn.
+    /// This is the first column a horizontal line appears in, or the first row
+    /// a vertical line appears in.
+    /// Must be within `0..tracks.len()`.
+    start: usize,
+    /// The index after the last track through which the line is drawn.
+    /// Thus, the line is drawn through tracks `start..end` (note that `end` is
+    /// exclusive).
+    /// Must be within `1..=tracks.len()`.
+    /// None indicates the line should go all the way to the end.
+    end: Option<NonZeroUsize>,
+    /// The line's stroke. This is `None` when the line is explicitly used to
+    /// simply remove an automatic line.
+    stroke: Option<Arc<Stroke<Abs>>>,
+}
+
 /// Represents a cell in CellGrid, to be laid out by GridLayouter.
 #[derive(Clone)]
 pub struct Cell {
@@ -263,6 +289,29 @@ impl Entry {
     }
 }
 
+/// A grid item, possibly affected by automatic cell positioning. Can be either
+/// a line or a cell.
+pub enum GridItem<T: ResolvableCell> {
+    /// A horizontal line in the grid.
+    HLine {
+        /// The row above which the horizontal line is drawn.
+        y: Smart<usize>,
+        start: usize,
+        end: Option<NonZeroUsize>,
+        stroke: Option<Arc<Stroke<Abs>>>,
+    },
+    /// A vertical line in the grid.
+    VLine {
+        /// The column before which the vertical line is drawn.
+        x: Smart<usize>,
+        start: usize,
+        end: Option<NonZeroUsize>,
+        stroke: Option<Arc<Stroke<Abs>>>,
+    },
+    /// A cell in the grid.
+    Cell(T),
+}
+
 /// Used for cell-like elements which are aware of their final properties in
 /// the table, and may have property overrides.
 pub trait ResolvableCell {
@@ -304,6 +353,14 @@ pub struct CellGrid {
     rows: Vec<Sizing>,
     /// The global grid stroke options.
     stroke: ResolvedGridStroke,
+    /// The vertical lines before each column, or on the right border.
+    /// Contains up to 'cols.len() + 1' vectors of lines.
+    #[allow(dead_code)]
+    vlines: Vec<Vec<Line>>,
+    /// The horizontal lines on top of each row, or on the bottom border.
+    /// Contains up to 'rows.len() + 1' vectors of lines.
+    #[allow(dead_code)]
+    hlines: Vec<Vec<Line>>,
     /// Whether this grid has gutters.
     has_gutter: bool,
 }
@@ -316,7 +373,14 @@ impl CellGrid {
         cells: impl IntoIterator<Item = Cell>,
     ) -> Self {
         let entries = cells.into_iter().map(Entry::Cell).collect();
-        Self::new_internal(tracks, gutter, ResolvedGridStroke::default(), entries)
+        Self::new_internal(
+            tracks,
+            gutter,
+            ResolvedGridStroke::default(),
+            vec![],
+            vec![],
+            entries,
+        )
     }
 
     /// Resolves and positions all cells in the grid before creating it.
@@ -326,10 +390,10 @@ impl CellGrid {
     /// must implement Default in order to fill positions in the grid which
     /// weren't explicitly specified by the user with empty cells.
     #[allow(clippy::too_many_arguments)]
-    pub fn resolve<T: ResolvableCell + Clone + Default>(
+    pub fn resolve<T, I>(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
-        cells: &[T],
+        items: I,
         fill: &Celled<Option<Paint>>,
         align: &Celled<Smart<Alignment>>,
         inset: Sides<Option<Rel<Length>>>,
@@ -337,9 +401,18 @@ impl CellGrid {
         engine: &mut Engine,
         styles: StyleChain,
         span: Span,
-    ) -> SourceResult<Self> {
+    ) -> SourceResult<Self>
+    where
+        T: ResolvableCell + Default,
+        I: IntoIterator<Item = GridItem<T>>,
+        I::IntoIter: ExactSizeIterator,
+    {
         // Number of content columns: Always at least one.
         let c = tracks.x.len().max(1);
+
+        // Lists of lines.
+        let mut vlines: Vec<Vec<Line>> = Vec::with_capacity(c);
+        let mut hlines: Vec<Vec<Line>> = Vec::new();
 
         // We can't just use the cell's index in the 'cells' vector to
         // determine its automatic position, since cells could have arbitrary
@@ -351,20 +424,40 @@ impl CellGrid {
         let mut auto_index = 0;
 
         // We have to rebuild the grid to account for arbitrary positions.
-        // Create at least 'cells.len()' positions, since there will be at
-        // least 'cells.len()' cells, even though some of them might be placed
+        // Create at least 'items.len()' positions, since there could be at
+        // least 'items.len()' cells, even though some of them might be placed
         // in arbitrary positions and thus cause the grid to expand.
         // Additionally, make sure we allocate up to the next multiple of 'c',
         // since each row will have 'c' cells, even if the last few cells
         // weren't explicitly specified by the user.
         // We apply '% c' twice so that the amount of cells potentially missing
-        // is zero when 'cells.len()' is already a multiple of 'c' (thus
-        // 'cells.len() % c' would be zero).
-        let Some(cell_count) = cells.len().checked_add((c - cells.len() % c) % c) else {
-            bail!(span, "too many cells were given")
+        // is zero when 'items.len()' is already a multiple of 'c' (thus
+        // 'items.len() % c' would be zero).
+        let items = items.into_iter();
+        let Some(item_count) = items.len().checked_add((c - items.len() % c) % c) else {
+            bail!(span, "too many cells or lines were given")
         };
-        let mut resolved_cells: Vec<Option<Entry>> = Vec::with_capacity(cell_count);
-        for cell in cells.iter().cloned() {
+        let mut resolved_cells: Vec<Option<Entry>> = Vec::with_capacity(item_count);
+        for item in items {
+            let cell = match item {
+                GridItem::HLine { y, start, end, stroke } => {
+                    let y = y.as_custom().unwrap(); // TODO: automatic line positioning
+                    if hlines.len() <= y {
+                        hlines.resize_with(y + 1, Vec::new);
+                    }
+                    hlines[y].push(Line { index: y, start, end, stroke });
+                    continue;
+                }
+                GridItem::VLine { x, start, end, stroke } => {
+                    let x = x.as_custom().unwrap(); // TODO: automatic line positioning
+                    if vlines.len() <= x {
+                        vlines.resize_with(x + 1, Vec::new);
+                    }
+                    vlines[x].push(Line { index: x, start, end, stroke });
+                    continue;
+                }
+                GridItem::Cell(cell) => cell,
+            };
             let cell_span = cell.span();
             // Let's calculate the cell's final position based on its
             // requested position.
@@ -509,7 +602,7 @@ impl CellGrid {
             })
             .collect::<SourceResult<Vec<Entry>>>()?;
 
-        Ok(Self::new_internal(tracks, gutter, stroke, resolved_cells))
+        Ok(Self::new_internal(tracks, gutter, stroke, vlines, hlines, resolved_cells))
     }
 
     /// Generates the cell grid, given the tracks and resolved entries.
@@ -517,6 +610,8 @@ impl CellGrid {
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
         stroke: ResolvedGridStroke,
+        vlines: Vec<Vec<Line>>,
+        hlines: Vec<Vec<Line>>,
         entries: Vec<Entry>,
     ) -> Self {
         let mut cols = vec![];
@@ -563,7 +658,15 @@ impl CellGrid {
             rows.pop();
         }
 
-        Self { cols, rows, entries, stroke, has_gutter }
+        Self {
+            cols,
+            rows,
+            entries,
+            stroke,
+            vlines,
+            hlines,
+            has_gutter,
+        }
     }
 
     /// Get the grid entry in column `x` and row `y`.
@@ -1630,6 +1733,8 @@ mod test {
                 Axes::default()
             },
             ResolvedGridStroke::default(),
+            vec![],
+            vec![],
             entries,
         )
     }

@@ -9,8 +9,8 @@ use crate::foundations::{
     cast, elem, scope, Content, Fold, Packed, Resolve, Show, Smart, StyleChain,
 };
 use crate::layout::{
-    show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter,
-    GridStroke, LayoutMultiple, Length, Regions, Rel, ResolvableCell,
+    show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Fragment, GridItem,
+    GridLayouter, GridStroke, LayoutMultiple, Length, Regions, Rel, ResolvableCell,
     ResolvedInsideStroke, Sides, TrackSizings,
 };
 use crate::model::Figurable;
@@ -230,10 +230,11 @@ impl LayoutMultiple for Packed<TableElem> {
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
         // Use trace to link back to the table when a specific cell errors
         let tracepoint = || Tracepoint::Call(Some(eco_format!("table")));
+        let items = self.children().iter().cloned().map(GridItem::Cell);
         let grid = CellGrid::resolve(
             tracks,
             gutter,
-            self.children(),
+            items,
             fill,
             align,
             inset,
