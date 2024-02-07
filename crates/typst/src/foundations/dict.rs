@@ -7,7 +7,7 @@ use ecow::{eco_format, EcoString};
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::diag::StrResult;
+use crate::diag::{bail, StrResult};
 use crate::foundations::{array, func, repr, scope, ty, Array, Repr, Str, Value};
 use crate::syntax::is_ident;
 use crate::util::ArcExt;
@@ -231,6 +231,29 @@ impl Dict {
             .iter()
             .map(|(k, v)| Value::Array(array![k.clone(), v.clone()]))
             .collect()
+    }
+
+    #[func]
+    pub fn from_pairs(pairs: Array) -> StrResult<Dict> {
+        let mut dict = Dict::new();
+
+        for value in pairs.into_iter() {
+            match value {
+                Value::Array(array) => {
+                    if array.len() == 2 {
+                        if let (Ok(Value::Str(key)), Ok(value)) = (array.first(), array.last()) {
+                            dict.insert(key, value);
+                        }
+                    } else {
+                        bail!("not an array of key-value pairs")
+                    }
+                },
+                _ => bail!("not an array of key-value pairs"),
+            };
+        }
+
+        Ok(dict)
+
     }
 }
 
