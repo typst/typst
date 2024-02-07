@@ -9,6 +9,7 @@ use crate::eval::ops;
 use crate::foundations::{cast, func, IntoValue, Module, Scope, Value};
 use crate::layout::{Angle, Fr, Length, Ratio};
 use crate::syntax::{Span, Spanned};
+use crate::util::Numeric;
 
 /// A module with calculation definitions.
 pub fn module() -> Module {
@@ -332,20 +333,48 @@ pub fn atan(
 
 /// Calculates the four-quadrant arctangent of a coordinate.
 ///
-/// The arguments are `(x, y)`, not `(y, x)`.
+/// The arguments may be numbers or lengths if they have compatible units.
+/// The order of the arguments is `(x, y)`, not `(y, x)`.
 ///
 /// ```example
 /// #calc.atan2(1, 1) \
-/// #calc.atan2(-2, -3)
+/// #calc.atan2(-2pt, -3pt)
 /// ```
 #[func(title = "Four-quadrant Arctangent")]
 pub fn atan2(
+    /// The callsite span.
+    span: Span,
     /// The X coordinate.
-    x: Num,
+    x: LengthLike,
     /// The Y coordinate.
-    y: Num,
-) -> Angle {
-    Angle::rad(f64::atan2(y.float(), x.float()))
+    y: LengthLike,
+) -> SourceResult<Angle> {
+    match (x, y) {
+        (LengthLike::Num(x), LengthLike::Num(y)) => {
+            Ok(Angle::rad(f64::atan2(y.float(), x.float())))
+        }
+        (LengthLike::Length(x), LengthLike::Length(y)) => {
+            if x.abs.is_zero() && y.abs.is_zero() {
+                Ok(Angle::rad(f64::atan2(y.em.get(), x.em.get())))
+            } else if x.em.is_zero() && y.em.is_zero() {
+                Ok(Angle::rad(f64::atan2(y.abs.to_raw(), x.abs.to_raw())))
+            } else {
+                bail!(span, "lengths must have comparable units")
+            }
+        }
+        _ => bail!(span, "arguments must be of the same type"),
+    }
+}
+
+pub enum LengthLike {
+    Num(Num),
+    Length(Length),
+}
+
+cast! {
+    LengthLike,
+    v: Num => Self::Num(v),
+    v: Length => Self::Length(v),
 }
 
 /// Calculates the hyperbolic sine of a hyperbolic angle.
