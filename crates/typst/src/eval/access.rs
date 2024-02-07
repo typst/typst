@@ -7,7 +7,7 @@ use crate::syntax::ast::{self, AstNode};
 
 /// Access an expression mutably.
 pub(crate) trait Access {
-    /// Access the value.
+    /// Access the expression's evaluated value mutably.
     fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value>;
 }
 
