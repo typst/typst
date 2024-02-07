@@ -48,6 +48,22 @@ static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
     // See https://corefonts.sourceforge.net/.
     "Arial-Black" => Exception::new()
         .weight(900),
+    // Noto fonts
+    "NotoNaskhArabicUISemi-Bold" => Exception::new()
+        .family("Noto Naskh Arabic UI")
+        .weight(600),
+    "NotoSansSoraSompengSemi-Bold" => Exception::new()
+        .family("Noto Sans Sora Sompeng")
+        .weight(600),
+    // The following three postscript names are only used in the version 2.007
+    // of the Noto Sans font. Other versions, while have different postscript
+    // name, happen to have correct metadata.
+    "NotoSerif-DisplayCondensedBold" => Exception::new()
+        .family("Noto Serif Display"),
+    "NotoSerif-DisplayExtraCondensedBold" => Exception::new()
+        .family("Noto Serif Display"),
+    "NotoSerif-DisplaySemiCondensedBold" => Exception::new()
+        .family("Noto Serif Display"),
     "NewCM08-Book" => Exception::new()
         .family("New Computer Modern 08")
         .weight(450),

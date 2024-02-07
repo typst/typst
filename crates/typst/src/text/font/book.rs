@@ -220,17 +220,9 @@ impl FontInfo {
         // So, instead we use Name ID 1 "Family" and trim many common
         // suffixes for which know that they just describe styling (e.g.
         // "ExtraBold").
-        //
-        // Also, for Noto fonts we use Name ID 4 "Full Name" instead,
-        // because Name ID 1 "Family" sometimes contains "Display" and
-        // sometimes doesn't for the Display variants and that mixes things
-        // up.
         let family =
             exception.and_then(|c| c.family.map(str::to_string)).or_else(|| {
-                let mut family = find_name(ttf, name_id::FAMILY)?;
-                if family.starts_with("Noto") {
-                    family = find_name(ttf, name_id::FULL_NAME)?;
-                }
+                let family = find_name(ttf, name_id::FAMILY)?;
                 Some(typographic_family(&family).to_string())
             })?;
 
