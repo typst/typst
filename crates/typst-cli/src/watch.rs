@@ -58,8 +58,12 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
 
     // Handle events.
     let output = command.output();
-    while terminal::out().is_active() {
+    loop {
         let mut recompile = false;
+
+        // If there are missing files, we want to regularly check whether they are created.
+        let initial_timeout =
+            if missing.is_empty() { Duration::MAX } else { Duration::from_millis(200) };
 
         // Watch for file system events. If multiple events happen consecutively all within
         // a certain duration, then they are bunched up without a recompile in-between.
@@ -67,7 +71,10 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
         // Events are also only watched until a certain point, to hinder a barrage of events from
         // preventing recompilations.
         let recv_loop_start = Instant::now();
-        for event in iter::from_fn(|| rx.recv_timeout(WATCH_TIMEOUT).ok())
+        for event in rx
+            .recv_timeout(initial_timeout)
+            .into_iter()
+            .chain(iter::from_fn(|| rx.recv_timeout(WATCH_TIMEOUT).ok()))
             .take_while(|_| recv_loop_start.elapsed() <= STARVE_DURATION)
         {
             let event = event
@@ -116,7 +123,6 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
             watch_dependencies(&mut world, &mut watcher, &mut watched, &mut missing)?;
         }
     }
-    Ok(())
 }
 
 /// Adjust the file watching. Watches all new dependencies and unwatches
