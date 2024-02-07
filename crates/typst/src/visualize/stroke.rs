@@ -311,7 +311,7 @@ impl<T: Numeric + Repr> Repr for Stroke<T> {
             }
             if let Smart::Custom(dash) = &dash {
                 r.push_str(sep);
-                r.push_str("cap: ");
+                r.push_str("dash: ");
                 if let Some(dash) = dash {
                     r.push_str(&dash.repr());
                 } else {
