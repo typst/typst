@@ -8,7 +8,7 @@ use crate::engine::Engine;
 use crate::foundations::{call_method_access, Args, IntoValue, Type, Value};
 use crate::util::PicoStr;
 
-use super::{Readable, VMState, VmRead, Writable};
+use super::{Readable, Vm, VmRead, Writable};
 
 #[derive(Debug, Clone, Hash, PartialEq)]
 pub enum Access {
@@ -39,7 +39,7 @@ impl Access {
     pub fn read<'a: 'b, 'b>(
         &'a self,
         span: Span,
-        vm: &'b VMState<'a, '_>,
+        vm: &'b Vm<'a, '_>,
     ) -> SourceResult<Cow<'b, Value>> {
         match self {
             Access::Readable(readable) => Ok(Cow::Borrowed(readable.read(vm))),
@@ -122,7 +122,7 @@ impl Access {
     pub fn write<'a: 'b, 'b>(
         &self,
         span: Span,
-        vm: &'b mut VMState<'a, '_>,
+        vm: &'b mut Vm<'a, '_>,
         engine: &mut Engine,
     ) -> SourceResult<&'b mut Value> {
         match self {

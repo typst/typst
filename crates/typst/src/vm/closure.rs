@@ -13,7 +13,7 @@ use crate::util::PicoStr;
 use crate::vm::ControlFlow;
 use crate::{Library, World};
 
-use super::{Constant, Readable, Register, State, StringId, Tracer, VMState};
+use super::{Constant, Readable, Register, State, StringId, Tracer, Vm};
 
 /// A closure that has been instantiated.
 #[derive(Clone, Hash, PartialEq)]
@@ -136,7 +136,7 @@ impl Closure {
         let num_pos_args = args.to_pos().len();
         let sink_size = num_pos_args.checked_sub(num_pos_params);
 
-        let mut state = VMState {
+        let mut state = Vm {
             output: None,
             state: State::empty(),
             instruction_pointer: 0,

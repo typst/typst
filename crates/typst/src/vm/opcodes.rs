@@ -12,10 +12,10 @@ use crate::foundations::{
 use crate::math::{AttachElem, EquationElem, FracElem, LrElem};
 use crate::model::{EmphElem, HeadingElem, RefElem, StrongElem};
 use crate::util::PicoStr;
-use crate::vm::{ops, ControlFlow, Register, State};
+use crate::vm::{ops, ControlFlow, Register};
 
 use super::{
-    Access, AccessId, ClosureId, LabelId, PatternId, Pointer, Readable, SpanId, VMState,
+    Access, AccessId, ClosureId, LabelId, PatternId, Pointer, Readable, SpanId, Vm,
     Writable,
 };
 
@@ -25,7 +25,7 @@ pub trait Run {
         instructions: &[Opcode],
         spans: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         engine: &mut Engine,
         iterator: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()>;
@@ -100,7 +100,7 @@ macro_rules! opcodes {
                 instructions: &[Opcode],
                 spans: &[Span],
                 span: Span,
-                vm: &mut VMState,
+                vm: &mut Vm,
                 engine: &mut Engine,
                 iterator: Option<&mut dyn Iterator<Item = Value>>
             ) -> SourceResult<()> {
@@ -132,7 +132,7 @@ impl Run for Add {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -154,7 +154,7 @@ impl Run for Sub {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -176,7 +176,7 @@ impl Run for Mul {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -198,7 +198,7 @@ impl Run for Div {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -220,7 +220,7 @@ impl Run for Neg {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -240,7 +240,7 @@ impl Run for Pos {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -260,7 +260,7 @@ impl Run for Not {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -280,7 +280,7 @@ impl Run for Gt {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -302,7 +302,7 @@ impl Run for Geq {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -324,7 +324,7 @@ impl Run for Lt {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -346,7 +346,7 @@ impl Run for Leq {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -368,7 +368,7 @@ impl Run for Eq {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -390,7 +390,7 @@ impl Run for Neq {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -412,7 +412,7 @@ impl Run for In {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -434,7 +434,7 @@ impl Run for NotIn {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -456,7 +456,7 @@ impl Run for And {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -478,7 +478,7 @@ impl Run for Assign {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -513,7 +513,7 @@ impl Run for AddAssign {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -542,7 +542,7 @@ impl Run for SubAssign {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -571,7 +571,7 @@ impl Run for MulAssign {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -600,7 +600,7 @@ impl Run for DivAssign {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -629,7 +629,7 @@ impl Run for Destructure {
         _: &[Opcode],
         _: &[Span],
         _: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -652,7 +652,7 @@ impl Run for Or {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -674,7 +674,7 @@ impl Run for CopyIsr {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -726,7 +726,7 @@ impl Run for None {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -743,7 +743,7 @@ impl Run for Auto {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -760,7 +760,7 @@ impl Run for Set {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -815,7 +815,7 @@ impl Run for Show {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -850,7 +850,7 @@ impl Run for ShowSet {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -918,7 +918,7 @@ impl Run for Instantiate {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -945,7 +945,7 @@ impl Run for Call {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1024,7 +1024,7 @@ impl Run for Field {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1044,7 +1044,7 @@ impl Run for While {
         instructions: &[Opcode],
         spans: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1060,8 +1060,7 @@ impl Run for While {
                 unreachable!("unexpected control flow")
             }
             ControlFlow::Return(value, forced) => {
-                vm.state |=
-                    if forced { State::FORCE_RETURNING } else { State::RETURNING };
+                vm.state.set_returning(forced);
                 forced_return = forced;
                 value
             }
@@ -1089,7 +1088,7 @@ impl Run for Iter {
         instructions: &[Opcode],
         spans: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1156,8 +1155,7 @@ impl Run for Iter {
                 unreachable!("unexpected control flow")
             }
             ControlFlow::Return(value, forced) => {
-                vm.state |=
-                    if forced { State::FORCE_RETURNING } else { State::RETURNING };
+                vm.state.set_returning(forced);
                 forced_return = forced;
                 value
             }
@@ -1184,7 +1182,7 @@ impl Run for Next {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         iterator: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1194,7 +1192,7 @@ impl Run for Next {
 
         // Get the next value.
         let Some(value) = iter.next() else {
-            vm.state |= State::DONE;
+            vm.state.set_done();
             return Ok(());
         };
 
@@ -1211,12 +1209,12 @@ impl Run for Continue {
         _: &[Opcode],
         _: &[Span],
         _: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
         if !vm.state.is_breaking() && !vm.state.is_returning() {
-            vm.state |= State::CONTINUING;
+            vm.state.set_continuing();
         }
 
         Ok(())
@@ -1229,12 +1227,12 @@ impl Run for Break {
         _: &[Opcode],
         _: &[Span],
         _: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
         if !vm.state.is_continuing() && !vm.state.is_returning() {
-            vm.state |= State::BREAKING;
+            vm.state.set_breaking();
         }
 
         Ok(())
@@ -1247,16 +1245,16 @@ impl Run for Return {
         _: &[Opcode],
         _: &[Span],
         _: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
         vm.output = self.value;
         if !vm.state.is_breaking() && !vm.state.is_continuing() {
             if vm.output.is_some() {
-                vm.state |= State::FORCE_RETURNING;
+                vm.state.set_returning(true);
             } else {
-                vm.state |= State::RETURNING;
+                vm.state.set_returning(false);
             }
         }
 
@@ -1270,7 +1268,7 @@ impl Run for Array {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1292,7 +1290,7 @@ impl Run for Push {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1316,7 +1314,7 @@ impl Run for Dict {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1337,7 +1335,7 @@ impl Run for Insert {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1366,7 +1364,7 @@ impl Run for Args {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1389,7 +1387,7 @@ impl Run for PushArg {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1416,7 +1414,7 @@ impl Run for InsertArg {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1443,7 +1441,7 @@ impl Run for SpreadArg {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1492,7 +1490,7 @@ impl Run for Spread {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1552,7 +1550,7 @@ impl Run for Enter {
         instructions: &[Opcode],
         spans: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1566,16 +1564,15 @@ impl Run for Enter {
         let output = match flow {
             ControlFlow::Done(value) => value,
             ControlFlow::Break(value) => {
-                vm.state |= State::BREAKING;
+                vm.state.set_breaking();
                 value
             }
             ControlFlow::Continue(value) => {
-                vm.state |= State::CONTINUING;
+                vm.state.set_continuing();
                 value
             }
             ControlFlow::Return(value, forced) => {
-                vm.state |=
-                    if forced { State::FORCE_RETURNING } else { State::RETURNING };
+                vm.state.set_returning(forced);
                 forced_return = forced;
                 value
             }
@@ -1602,7 +1599,7 @@ impl Run for PointerMarker {
         _: &[Opcode],
         _: &[Span],
         _: Span,
-        _: &mut VMState,
+        _: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1616,7 +1613,7 @@ impl Run for JumpTop {
         _: &[Opcode],
         _: &[Span],
         _: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1633,7 +1630,7 @@ impl Run for Jump {
         _: &[Opcode],
         _: &[Span],
         _: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1650,7 +1647,7 @@ impl Run for JumpIf {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1677,7 +1674,7 @@ impl Run for JumpIfNot {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1704,7 +1701,7 @@ impl Run for Select {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1733,7 +1730,7 @@ impl Run for Delimited {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1762,7 +1759,7 @@ impl Run for Attach {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1795,7 +1792,7 @@ impl Run for Frac {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1820,7 +1817,7 @@ impl Run for Root {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1848,7 +1845,7 @@ impl Run for Ref {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1875,7 +1872,7 @@ impl Run for Strong {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1898,7 +1895,7 @@ impl Run for Emph {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1921,7 +1918,7 @@ impl Run for Heading {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1951,7 +1948,7 @@ impl Run for ListItem {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1974,7 +1971,7 @@ impl Run for EnumItem {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -1999,7 +1996,7 @@ impl Run for TermItem {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
@@ -2026,7 +2023,7 @@ impl Run for Equation {
         _: &[Opcode],
         _: &[Span],
         span: Span,
-        vm: &mut VMState,
+        vm: &mut Vm,
         _: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {

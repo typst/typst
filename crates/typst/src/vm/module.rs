@@ -8,7 +8,7 @@ use crate::engine::Engine;
 use crate::foundations::{Module, Scope, Value};
 use crate::vm::ControlFlow;
 
-use super::{State, VMState};
+use super::{State, Vm};
 
 #[typst_macros::time(name = "module eval", span = source.root().span())]
 pub fn run_module(
@@ -71,8 +71,8 @@ fn run_module_internal<'a>(
     registers: &mut [Cow<'a, Value>],
     scope: bool,
 ) -> SourceResult<(Value, Option<Scope>)> {
-    let mut state = VMState {
-        state: State::DISPLAY,
+    let mut state = Vm {
+        state: State::empty().display(true),
         output: None,
         instruction_pointer: 0,
         registers,

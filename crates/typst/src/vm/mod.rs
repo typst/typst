@@ -5,6 +5,7 @@ mod module;
 pub mod opcodes;
 pub mod ops;
 mod pattern;
+mod state;
 mod tracer;
 mod values;
 
@@ -30,188 +31,11 @@ pub use self::eval::*;
 pub use self::module::*;
 use self::opcodes::{Opcode, Run};
 pub use self::pattern::*;
+pub use self::state::*;
 pub use self::tracer::*;
 pub use self::values::*;
 
-/// Evaluate a source file and return the resulting module.
-#[comemo::memoize]
-#[typst_macros::time(name = "eval", span = source.root().span())]
-pub fn eval(
-    world: Tracked<dyn World + '_>,
-    route: Tracked<Route>,
-    tracer: TrackedMut<Tracer>,
-    source: &Source,
-) -> SourceResult<Module> {
-    // Prevent cyclic evaluation.
-    let id = source.id();
-    if route.contains(id) {
-        panic!("Tried to cyclicly evaluate {:?}", id.vpath());
-    }
-
-    // Prepare the engine.
-    let mut locator = Locator::new();
-    let introspector = Introspector::default();
-    let mut engine = Engine {
-        world,
-        route: Route::extend(route).with_id(id),
-        introspector: introspector.track(),
-        locator: &mut locator,
-        tracer,
-    };
-
-    // Compile the module
-    let compiled = compile_module(source, &mut engine)?;
-
-    // Evaluate the module
-    run_module(source, &compiled, &mut engine)
-}
-
-bitflags::bitflags! {
-    /// The current state of the VM.
-    struct State: u16 {
-        /// The VM is currently running.
-        const LOOPING = 0b0000_0001;
-        /// The VM is currently displaying.
-        const DISPLAY = 0b0000_0100;
-        /// The VM is currently breaking.
-        const BREAKING = 0b0001_0000;
-        /// The VM is currently continuing.
-        const CONTINUING = 0b0010_0000;
-        /// The VM is currently returning.
-        const RETURNING = 0b0100_0000;
-        /// Force the VM to return the `vm.output`.
-        const FORCE_RETURNING = 0b1100_0000;
-        /// The VM is done.
-        const DONE = 0b1_0000_0000;
-    }
-}
-
-impl State {
-    const fn is_looping(&self) -> bool {
-        self.contains(Self::LOOPING)
-    }
-
-    const fn is_breaking(&self) -> bool {
-        self.contains(Self::BREAKING)
-    }
-
-    const fn is_continuing(&self) -> bool {
-        self.contains(Self::CONTINUING)
-    }
-
-    const fn is_returning(&self) -> bool {
-        self.contains(Self::RETURNING)
-    }
-
-    const fn is_force_return(&self) -> bool {
-        self.contains(Self::FORCE_RETURNING)
-    }
-
-    const fn is_done(&self) -> bool {
-        self.contains(Self::DONE)
-    }
-
-    const fn is_running(&self) -> bool {
-        !self.is_done()
-    }
-
-    const fn is_display(&self) -> bool {
-        self.contains(Self::DISPLAY)
-    }
-}
-
-pub fn run<'a: 'b, 'b, 'c>(
-    engine: &mut Engine,
-    state: &mut VMState<'a, 'c>,
-    instructions: &'b [Opcode],
-    spans: &'b [Span],
-    mut iterator: Option<&mut dyn Iterator<Item = Value>>,
-) -> SourceResult<ControlFlow> {
-    fn next<'a: 'b, 'b, 'c>(
-        state: &mut VMState<'a, 'c>,
-        instructions: &'b [Opcode],
-    ) -> Option<&'b Opcode> {
-        if state.instruction_pointer == instructions.len() {
-            state.state.insert(State::DONE);
-            return None;
-        }
-
-        debug_assert!(state.instruction_pointer + 1 <= instructions.len());
-        Some(&instructions[state.instruction_pointer])
-    }
-
-    while state.state.is_running() {
-        let Some(opcode) = next(state, instructions) else {
-            state.state.insert(State::DONE);
-            break;
-        };
-
-        let idx = state.instruction_pointer;
-
-        opcode.run(
-            &instructions,
-            &spans,
-            spans[idx],
-            state,
-            engine,
-            iterator.as_mut().map_or(None, |p| Some(&mut **p)),
-        )?;
-
-        if matches!(opcode, Opcode::Flow) {
-            if state.state.is_looping() {
-                if state.state.is_continuing() {
-                    state.instruction_pointer = 0;
-                    state.state.remove(State::CONTINUING);
-                    continue;
-                } else if state.state.is_breaking() || state.state.is_returning() {
-                    // In theory, the compiler should make sure that this is valid.
-                    break;
-                }
-            } else if state.state.is_breaking()
-                || state.state.is_continuing()
-                || state.state.is_returning()
-            {
-                // In theory, the compiler should make sure that this is valid.
-                break;
-            }
-        }
-    }
-
-    let output = if let Some(readable) = state.output {
-        match readable {
-            Readable::Reg(reg) => Some(state.take(reg).into_owned()),
-            Readable::None => Some(Value::None),
-            Readable::Bool(b) => Some(Value::Bool(b)),
-            _ => Some(state.read(readable).clone()),
-        }
-    } else if let Some(joined) = state.joined.take() {
-        Some(joined.collect(engine)?)
-    } else {
-        None
-    };
-
-    if state.state.is_continuing() && !state.state.is_looping() {
-        Ok(ControlFlow::Continue(output.unwrap_or(Value::None)))
-    } else if state.state.is_breaking() && !state.state.is_looping() {
-        Ok(ControlFlow::Break(output.unwrap_or(Value::None)))
-    } else if state.state.is_returning() {
-        Ok(ControlFlow::Return(
-            output.unwrap_or(Value::None),
-            state.state.is_force_return(),
-        ))
-    } else {
-        Ok(ControlFlow::Done(output.unwrap_or(Value::None)))
-    }
-}
-
-#[derive(Debug)]
-pub enum ControlFlow {
-    Done(Value),
-    Break(Value),
-    Continue(Value),
-    Return(Value, bool),
-}
-pub struct VMState<'a, 'b> {
+pub struct Vm<'a, 'b> {
     /// The current state of the VM.
     state: State,
     /// The output of the VM.
@@ -226,7 +50,7 @@ pub struct VMState<'a, 'b> {
     code: &'a CompiledCode,
 }
 
-impl<'a> VMState<'a, '_> {
+impl<'a> Vm<'a, '_> {
     /// Read a value from the VM.
     pub fn read<'b, T: VmRead>(&'b self, readable: T) -> T::Output<'a, 'b> {
         readable.read(self)
@@ -371,9 +195,8 @@ impl<'a> VMState<'a, '_> {
         content: bool,
         looping: bool,
     ) -> SourceResult<ControlFlow> {
-        let mut state = State::empty()
-            | if looping || iterator.is_some() { State::LOOPING } else { State::empty() }
-            | if content { State::DISPLAY } else { State::empty() };
+        let mut state =
+            State::empty().loop_(looping || iterator.is_some()).display(content);
 
         let mut joiner = None;
         let mut instruction_pointer = 0;
@@ -554,6 +377,123 @@ impl Joiner {
 
         collect_inner(self, engine, None)
     }
+}
+
+/// Evaluate a source file and return the resulting module.
+#[comemo::memoize]
+#[typst_macros::time(name = "eval", span = source.root().span())]
+pub fn eval(
+    world: Tracked<dyn World + '_>,
+    route: Tracked<Route>,
+    tracer: TrackedMut<Tracer>,
+    source: &Source,
+) -> SourceResult<Module> {
+    // Prevent cyclic evaluation.
+    let id = source.id();
+    if route.contains(id) {
+        panic!("Tried to cyclicly evaluate {:?}", id.vpath());
+    }
+
+    // Prepare the engine.
+    let mut locator = Locator::new();
+    let introspector = Introspector::default();
+    let mut engine = Engine {
+        world,
+        route: Route::extend(route).with_id(id),
+        introspector: introspector.track(),
+        locator: &mut locator,
+        tracer,
+    };
+
+    // Compile the module
+    let compiled = compile_module(source, &mut engine)?;
+
+    // Evaluate the module
+    run_module(source, &compiled, &mut engine)
+}
+
+pub fn run<'a: 'b, 'b, 'c>(
+    engine: &mut Engine,
+    state: &mut Vm<'a, 'c>,
+    instructions: &'b [Opcode],
+    spans: &'b [Span],
+    mut iterator: Option<&mut dyn Iterator<Item = Value>>,
+) -> SourceResult<ControlFlow> {
+    fn next<'a: 'b, 'b, 'c>(
+        state: &mut Vm<'a, 'c>,
+        instructions: &'b [Opcode],
+    ) -> Option<&'b Opcode> {
+        if state.instruction_pointer == instructions.len() {
+            state.state.done();
+            return None;
+        }
+
+        debug_assert!(state.instruction_pointer + 1 <= instructions.len());
+        Some(&instructions[state.instruction_pointer])
+    }
+
+    while state.state.is_running() {
+        let Some(opcode) = next(state, instructions) else {
+            state.state.done();
+            break;
+        };
+
+        let idx = state.instruction_pointer;
+
+        opcode.run(
+            &instructions,
+            &spans,
+            spans[idx],
+            state,
+            engine,
+            iterator.as_mut().map_or(None, |p| Some(&mut **p)),
+        )?;
+
+        if matches!(opcode, Opcode::Flow) {
+            if state.state.is_looping() {
+                match state.state.flow {
+                    Flow::None => {}
+                    Flow::Continue => {
+                        state.instruction_pointer = 0;
+                        state.state.flow = Flow::None;
+                        continue;
+                    }
+                    Flow::Break | Flow::Return(_) | Flow::Done => {
+                        break;
+                    }
+                }
+            } else {
+                match state.state.flow {
+                    Flow::None => {}
+                    Flow::Continue | Flow::Break | Flow::Return(_) | Flow::Done => {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    let output = if let Some(readable) = state.output {
+        match readable {
+            Readable::Reg(reg) => Some(state.take(reg).into_owned()),
+            Readable::None => Some(Value::None),
+            Readable::Bool(b) => Some(Value::Bool(b)),
+            _ => Some(state.read(readable).clone()),
+        }
+    } else if let Some(joined) = state.joined.take() {
+        Some(joined.collect(engine)?)
+    } else {
+        None
+    };
+
+    Ok(match state.state.flow {
+        Flow::Break => ControlFlow::Break(output.unwrap_or(Value::None)),
+        Flow::Continue => ControlFlow::Continue(output.unwrap_or(Value::None)),
+        Flow::Return(forced) => {
+            ControlFlow::Return(output.unwrap_or(Value::None), forced)
+        }
+        _ => ControlFlow::Done(output.unwrap_or(Value::None)),
+    })
 }
 
 pub trait VmStorage<'a> {

@@ -8,7 +8,7 @@ use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{Array, Dict, Value};
 
-use super::{Access, VMState};
+use super::{Access, Vm};
 
 #[derive(Debug, Clone, Hash, PartialEq)]
 pub struct Pattern {
@@ -19,7 +19,7 @@ pub struct Pattern {
 impl Pattern {
     pub fn write(
         &self,
-        vm: &mut VMState,
+        vm: &mut Vm,
         engine: &mut Engine,
         value: Value,
     ) -> SourceResult<()> {
@@ -84,7 +84,7 @@ pub enum PatternItem {
 }
 
 fn destructure_array(
-    vm: &mut VMState,
+    vm: &mut Vm,
     engine: &mut Engine,
     value: Array,
     tuple: &[PatternItem],
@@ -137,7 +137,7 @@ fn destructure_array(
 }
 
 fn destructure_dict(
-    vm: &mut VMState,
+    vm: &mut Vm,
     engine: &mut Engine,
     dict: Dict,
     has_sink: bool,
