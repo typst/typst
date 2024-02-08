@@ -353,3 +353,9 @@
 ---
 // Error: 18-19 number must not be zero
 #range(10, step: 0)
+
+---
+// Test atan2 with length arguments
+#test(calc.atan2(2, 3), calc.atan2(2cm, 3cm))
+#test(calc.atan2(1, -5), calc.atan2(1em, -5em))
+#test(calc.atan2(0pt, 1pt), 90deg)
