@@ -153,3 +153,17 @@
 // Error: 3-7 expected string, found boolean
 // Error: 16-18 expected string, found integer
 #(true: false, 42: 3)
+
+---
+/// Test constructor from pairs
+#let dict = (a: 1, b: 2, c: 3)
+#test(dictionary.from-pairs(dict.pairs()), dict)
+#test(dictionary.from-pairs((("a", 1), ("b", 2), ("a", 3))), (a: 3, b: 2))
+
+---
+// Error: 23-41 must be an array of pairs (arrays of length 2)
+#dictionary.from-pairs(((a: 1), (b: 2)))
+
+---
+// Error: 23-43 first item of pair must be a string
+#dictionary.from-pairs((("a", 1), (3, 2)))
