@@ -240,10 +240,10 @@ opcodes! {
         closure: AccessId,
         /// The arguments to call the closure with.
         args: Readable,
-        /// The flags:
-        /// - Bit 0: Whether the call is done in a math context.
-        /// - Bit 1: Whether the call contains a trailing comma.
-        flags: u8,
+        /// Whether the call is done in a math context.
+        math: bool,
+        /// Whether the call contains a trailing comma.
+        trailing_comma: bool,
     },
 
     /// Accesses a field.

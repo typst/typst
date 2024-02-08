@@ -44,13 +44,7 @@ impl Compile for ast::FuncCall<'_> {
         };
 
         let closure = compiler.access(callee.as_vm_access());
-        compiler.call(
-            self.span(),
-            closure,
-            &args,
-            if in_math { 0b01 } else { 0b00 } | if trailing_comma { 0b10 } else { 0b00 },
-            &output,
-        );
+        compiler.call(self.span(), closure, &args, in_math, trailing_comma, &output);
 
         Ok(())
     }
