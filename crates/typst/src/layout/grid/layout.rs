@@ -1011,8 +1011,16 @@ impl<'a> GridLayouter<'a> {
                 .chain(rows.iter().map(|piece| piece.y).skip(1))
                 .chain(std::iter::once(self.grid.rows.len()));
             for (y, dy) in hline_indices.zip(hline_offsets) {
-                let hlines_at_row =
-                    self.grid.hlines.get(y).map(|hlines| &**hlines).unwrap_or(&[]);
+                let hlines_at_row = if self.grid.has_gutter && y % 2 == 1 {
+                    // TODO: allow specifying lines before gutter
+                    &[]
+                } else {
+                    self.grid
+                        .hlines
+                        .get(if self.grid.has_gutter { y / 2 } else { y })
+                        .map(|hlines| &**hlines)
+                        .unwrap_or(&[])
+                };
                 let tracks = self.rcols.iter().copied().enumerate();
 
                 // Apply top / bottom border stroke overrides.
@@ -1062,8 +1070,16 @@ impl<'a> GridLayouter<'a> {
             // Render vertical lines.
             for (x, dx) in points(self.rcols.iter().copied()).enumerate() {
                 let dx = if self.is_rtl { self.width - dx } else { dx };
-                let vlines_at_column =
-                    self.grid.vlines.get(x).map(|vlines| &**vlines).unwrap_or(&[]);
+                let vlines_at_column = if self.grid.has_gutter && x % 2 == 1 {
+                    // TODO: allow specifying lines before gutter
+                    &[]
+                } else {
+                    self.grid
+                        .vlines
+                        .get(if self.grid.has_gutter { x / 2 } else { x })
+                        .map(|vlines| &**vlines)
+                        .unwrap_or(&[])
+                };
                 let tracks = rows.iter().map(|row| (row.y, row.height));
 
                 // Apply left / right border stroke overrides.
@@ -1678,6 +1694,8 @@ where
     // How far from the start (before the first track) have we gone so far.
     // Used to determine the positions at which to draw each segment.
     let mut offset = Abs::zero();
+    // How much to multiply line indices by to account for gutter.
+    let gutter_factor = if grid.has_gutter { 2 } else { 1 };
 
     // We start drawing at the first suitable track, and keep going through
     // tracks (of increasing numbers) expanding the last segment until we hit
@@ -1696,8 +1714,14 @@ where
             .iter()
             .filter(|line| {
                 line.end
-                    .map(|end| (line.start..end.get()).contains(&track))
-                    .unwrap_or_else(|| track >= line.start)
+                    .map(|end| {
+                        // Subtract 1 from end index so we stop at the last
+                        // cell before it (don't cross one extra gutter).
+                        let end =
+                            if grid.has_gutter { 2 * end.get() - 1 } else { end.get() };
+                        (gutter_factor * line.start..end).contains(&track)
+                    })
+                    .unwrap_or_else(|| track >= gutter_factor * line.start)
             })
             .fold(stroke.cloned(), |stroke, line| {
                 match (stroke, line.stroke.as_ref().cloned()) {
