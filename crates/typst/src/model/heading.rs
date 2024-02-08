@@ -39,6 +39,22 @@ use crate::util::{option_eq, NonZeroExt};
 /// To start, ...
 /// ```
 ///
+/// The following example inserts space after the heading number and uppercases the title:
+/// ```typ
+/// #set heading(numbering: "1.1")
+/// #show heading: it => {
+///   if it.numbering != none {
+///     counter(heading).display()
+///     box(width: 15pt)
+///   }
+///   upper(it.body)
+/// }
+///
+/// = Introduction
+///
+/// == Preliminaries
+/// ```
+///
 /// # Syntax
 /// Headings have dedicated syntax: They can be created by starting a line with
 /// one or multiple equals signs, followed by a space. The number of equals
