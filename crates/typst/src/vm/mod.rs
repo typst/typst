@@ -414,48 +414,48 @@ pub fn eval(
 
 pub fn run<'a: 'b, 'b, 'c>(
     engine: &mut Engine,
-    state: &mut Vm<'a, 'c>,
+    vm: &mut Vm<'a, 'c>,
     instructions: &'b [Opcode],
     spans: &'b [Span],
     mut iterator: Option<&mut dyn Iterator<Item = Value>>,
 ) -> SourceResult<ControlFlow> {
     fn next<'a: 'b, 'b, 'c>(
-        state: &mut Vm<'a, 'c>,
+        vm: &mut Vm<'a, 'c>,
         instructions: &'b [Opcode],
     ) -> Option<&'b Opcode> {
-        if state.instruction_pointer == instructions.len() {
-            state.state.done();
+        if vm.instruction_pointer == instructions.len() {
+            vm.state.done();
             return None;
         }
 
-        debug_assert!(state.instruction_pointer + 1 <= instructions.len());
-        Some(&instructions[state.instruction_pointer])
+        debug_assert!(vm.instruction_pointer + 1 <= instructions.len());
+        Some(&instructions[vm.instruction_pointer])
     }
 
-    while state.state.is_running() {
-        let Some(opcode) = next(state, instructions) else {
-            state.state.done();
+    while vm.state.is_running() {
+        let Some(opcode) = next(vm, instructions) else {
+            vm.state.done();
             break;
         };
 
-        let idx = state.instruction_pointer;
+        let idx = vm.instruction_pointer;
 
         opcode.run(
             &instructions,
             &spans,
             spans[idx],
-            state,
+            vm,
             engine,
             iterator.as_mut().map_or(None, |p| Some(&mut **p)),
         )?;
 
-        if matches!(opcode, Opcode::Flow) {
-            if state.state.is_looping() {
-                match state.state.flow {
+        if matches!(opcode, Opcode::Flow) && !matches!(vm.state.flow, Flow::None) {
+            if vm.state.is_looping() {
+                match vm.state.flow {
                     Flow::None => {}
                     Flow::Continue => {
-                        state.instruction_pointer = 0;
-                        state.state.flow = Flow::None;
+                        vm.instruction_pointer = 0;
+                        vm.state.flow = Flow::None;
                         continue;
                     }
                     Flow::Break | Flow::Return(_) | Flow::Done => {
@@ -463,7 +463,7 @@ pub fn run<'a: 'b, 'b, 'c>(
                     }
                 }
             } else {
-                match state.state.flow {
+                match vm.state.flow {
                     Flow::None => {}
                     Flow::Continue | Flow::Break | Flow::Return(_) | Flow::Done => {
                         break;
@@ -473,20 +473,20 @@ pub fn run<'a: 'b, 'b, 'c>(
         }
     }
 
-    let output = if let Some(readable) = state.output {
+    let output = if let Some(readable) = vm.output {
         match readable {
-            Readable::Reg(reg) => Some(state.take(reg).into_owned()),
+            Readable::Reg(reg) => Some(vm.take(reg).into_owned()),
             Readable::None => Some(Value::None),
             Readable::Bool(b) => Some(Value::Bool(b)),
-            _ => Some(state.read(readable).clone()),
+            _ => Some(vm.read(readable).clone()),
         }
-    } else if let Some(joined) = state.joined.take() {
+    } else if let Some(joined) = vm.joined.take() {
         Some(joined.collect(engine)?)
     } else {
         None
     };
 
-    Ok(match state.state.flow {
+    Ok(match vm.state.flow {
         Flow::Break => ControlFlow::Break(output.unwrap_or(Value::None)),
         Flow::Continue => ControlFlow::Continue(output.unwrap_or(Value::None)),
         Flow::Return(forced) => {

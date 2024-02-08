@@ -8,6 +8,7 @@ pub enum ControlFlow {
     Return(Value, bool),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Flow {
     None,
     Done,
@@ -16,6 +17,7 @@ pub enum Flow {
     Return(bool),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct State {
     pub display: bool,
     pub looping: bool,
@@ -50,7 +52,7 @@ impl State {
     }
 
     pub fn is_running(&self) -> bool {
-        matches!(self.flow, Flow::None)
+        !matches!(self.flow, Flow::Done)
     }
 
     pub fn is_done(&self) -> bool {
