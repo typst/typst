@@ -44,8 +44,7 @@ use crate::util::{option_eq, NonZeroExt};
 /// #set heading(numbering: "1.1")
 /// #show heading: it => {
 ///   if it.numbering != none {
-///     counter(heading).display()
-///     box(width: 15pt)
+///     box(width: 35pt, counter(heading).display())
 ///   }
 ///   upper(it.body)
 /// }
