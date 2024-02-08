@@ -17,7 +17,7 @@ impl CompileTopLevel for ast::Math<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<()> {
         for expr in self.exprs() {
-            expr.compile_into(engine, compiler, Some(WritableGuard::Joined))?;
+            expr.compile_into(engine, compiler, WritableGuard::Joined)?;
             compiler.flow();
         }
 
@@ -26,7 +26,7 @@ impl CompileTopLevel for ast::Math<'_> {
 }
 
 impl Compile for ast::Math<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -39,17 +39,14 @@ impl Compile for ast::Math<'_> {
             engine,
             self.span(),
             false,
-            output.as_ref().map(|w| w.as_writable()),
-            true,
-            |compiler, engine, _| {
-                let join = Some(WritableGuard::Joined);
-
+            output.as_writable(),
+            |compiler, engine| {
                 for expr in self.exprs() {
-                    expr.compile_into(engine, compiler, join.clone())?;
+                    expr.compile_into(engine, compiler, WritableGuard::Joined)?;
                     compiler.flow();
                 }
 
-                Ok(())
+                Ok(true)
             },
         )
     }
@@ -60,13 +57,13 @@ impl Compile for ast::Math<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let output = compiler.register();
-        self.compile_into(engine, compiler, Some(output.clone().into()))?;
+        self.compile_into(engine, compiler, output.clone().into())?;
         Ok(output.into())
     }
 }
 
 impl Compile for ast::MathIdent<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -75,11 +72,6 @@ impl Compile for ast::MathIdent<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        // If we don't have an output, we do nothing.
-        let Some(output) = output else {
-            return Ok(());
-        };
-
         let read = self.compile(engine, compiler)?;
 
         compiler.copy(self.span(), &read, &output);
@@ -102,7 +94,7 @@ impl Compile for ast::MathIdent<'_> {
 }
 
 impl Compile for ast::MathAlignPoint<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = Constant;
 
     fn compile_into(
@@ -111,11 +103,6 @@ impl Compile for ast::MathAlignPoint<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        // If we don't have an output, we do nothing.
-        let Some(output) = output else {
-            return Ok(());
-        };
-
         let read = self.compile(engine, compiler)?;
 
         compiler.copy(self.span(), read, &output);
@@ -134,7 +121,7 @@ impl Compile for ast::MathAlignPoint<'_> {
 }
 
 impl Compile for ast::MathDelimited<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -143,11 +130,6 @@ impl Compile for ast::MathDelimited<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        // If we don't have an output, we do nothing.
-        let Some(output) = output else {
-            return Ok(());
-        };
-
         let left = self.open().compile(engine, compiler)?;
         let body = self.body().compile(engine, compiler)?;
         let right = self.close().compile(engine, compiler)?;
@@ -163,13 +145,13 @@ impl Compile for ast::MathDelimited<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let output = compiler.register();
-        self.compile_into(engine, compiler, Some(output.clone().into()))?;
+        self.compile_into(engine, compiler, output.clone().into())?;
         Ok(output.into())
     }
 }
 
 impl Compile for ast::MathAttach<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -178,10 +160,6 @@ impl Compile for ast::MathAttach<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        // If we don't have an output, we do nothing.
-        let Some(output) = output else {
-            return Ok(());
-        };
         let base = self.base().compile(engine, compiler)?;
 
         let top = if let Some(top) =
@@ -219,13 +197,13 @@ impl Compile for ast::MathAttach<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let output = compiler.register();
-        self.compile_into(engine, compiler, Some(output.clone().into()))?;
+        self.compile_into(engine, compiler, output.clone().into())?;
         Ok(output.into())
     }
 }
 
 impl Compile for ast::MathPrimes<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = Constant;
 
     fn compile_into(
@@ -234,11 +212,6 @@ impl Compile for ast::MathPrimes<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        // If we don't have an output, we do nothing.
-        let Some(output) = output else {
-            return Ok(());
-        };
-
         let value = self.compile(engine, compiler)?;
 
         compiler.copy(self.span(), value, &output);
@@ -257,7 +230,7 @@ impl Compile for ast::MathPrimes<'_> {
 }
 
 impl Compile for ast::MathFrac<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -266,11 +239,6 @@ impl Compile for ast::MathFrac<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        // If we don't have an output, we do nothing.
-        let Some(output) = output else {
-            return Ok(());
-        };
-
         let num = self.num().compile(engine, compiler)?;
         let denom = self.denom().compile(engine, compiler)?;
 
@@ -285,13 +253,13 @@ impl Compile for ast::MathFrac<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let output = compiler.register();
-        self.compile_into(engine, compiler, Some(output.clone().into()))?;
+        self.compile_into(engine, compiler, output.clone().into())?;
         Ok(output.into())
     }
 }
 
 impl Compile for ast::MathRoot<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -300,11 +268,6 @@ impl Compile for ast::MathRoot<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        // If we don't have an output, we do nothing.
-        let Some(output) = output else {
-            return Ok(());
-        };
-
         let radicand = self.radicand().compile(engine, compiler)?;
         let degree = self
             .index()
@@ -322,7 +285,7 @@ impl Compile for ast::MathRoot<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let output = compiler.register();
-        self.compile_into(engine, compiler, Some(output.clone().into()))?;
+        self.compile_into(engine, compiler, output.clone().into())?;
         Ok(output.into())
     }
 }

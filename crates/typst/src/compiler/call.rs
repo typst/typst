@@ -10,7 +10,7 @@ use crate::vm::Readable;
 use super::{AccessPattern, Compile, Compiler, ReadableGuard, WritableGuard};
 
 impl Compile for ast::FuncCall<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -19,10 +19,6 @@ impl Compile for ast::FuncCall<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        let Some(output) = output else {
-            return Ok(());
-        };
-
         let callee = self.callee();
         let in_math = in_math(callee);
         let args = self.args();
@@ -68,7 +64,7 @@ impl Compile for ast::FuncCall<'_> {
         let reg = compiler.register();
 
         // Compile into the register.
-        self.compile_into(engine, compiler, Some(reg.clone().into()))?;
+        self.compile_into(engine, compiler, reg.clone().into())?;
 
         // Return the register.
         Ok(reg.into())
@@ -76,7 +72,7 @@ impl Compile for ast::FuncCall<'_> {
 }
 
 impl Compile for ast::Args<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -85,11 +81,6 @@ impl Compile for ast::Args<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        let Some(output) = output else {
-            return Ok(());
-        };
-
-        let capacity = self.items().count();
         let mut args = self.items();
         let Some(first) = args.next() else {
             compiler.copy(self.span(), Readable::none(), &output);
@@ -98,6 +89,7 @@ impl Compile for ast::Args<'_> {
         };
 
         // Allocate the arguments
+        let capacity = self.items().count();
         compiler.args(self.span(), capacity as u32, &output);
 
         // Compile the first argument
@@ -124,7 +116,7 @@ impl Compile for ast::Args<'_> {
         let reg = compiler.register();
 
         // Compile into the register.
-        self.compile_into(engine, compiler, Some(reg.clone().into()))?;
+        self.compile_into(engine, compiler, reg.clone().into())?;
 
         // Return the register.
         Ok(reg.into())

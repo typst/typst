@@ -39,10 +39,6 @@ pub struct CompiledCode {
     pub isr_spans: Vec<Span>,
     /// The jumps used in the code.
     pub jumps: Vec<usize>,
-    /// The output value (if any).
-    pub output: Option<Readable>,
-    /// Whether this code returns a joined value.
-    pub joined: bool,
     /// The exports of the module (empty for closures).
     pub exports: Vec<Export>,
     /// The captures of the code (empty for modules).

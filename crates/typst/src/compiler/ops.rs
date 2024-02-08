@@ -7,7 +7,7 @@ use crate::vm::Readable;
 use super::{Access, Compile, Compiler, ReadableGuard, WritableGuard};
 
 impl Compile for ast::Binary<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = Option<ReadableGuard>;
 
     fn compile_into(
@@ -16,11 +16,6 @@ impl Compile for ast::Binary<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        // If we don't have an output, we do nothing.
-        let Some(output) = output else {
-            return Ok(());
-        };
-
         if matches!(self.op(), ast::BinOp::Or | ast::BinOp::And) {
             return compile_and_or(engine, compiler, self, output);
         }
@@ -85,7 +80,7 @@ impl Compile for ast::Binary<'_> {
         }
 
         let output = compiler.register();
-        self.compile_into(engine, compiler, Some(output.clone().into()))?;
+        self.compile_into(engine, compiler, output.clone().into())?;
         Ok(Some(output.into()))
     }
 }
@@ -152,7 +147,7 @@ fn compile_assign(
 }
 
 impl Compile for ast::Unary<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -161,10 +156,6 @@ impl Compile for ast::Unary<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        let Some(output) = output else {
-            return Ok(());
-        };
-
         let value = self.expr().compile(engine, compiler)?;
 
         match self.op() {
@@ -182,7 +173,7 @@ impl Compile for ast::Unary<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let output = compiler.register();
-        self.compile_into(engine, compiler, Some(output.clone().into()))?;
+        self.compile_into(engine, compiler, output.clone().into())?;
         Ok(output.into())
     }
 }

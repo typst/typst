@@ -3,7 +3,6 @@ use typst_syntax::ast::{self, AstNode};
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::util::PicoStr;
-use crate::vm::Readable;
 
 use super::{
     AccessPattern, Compile, Compiler, PatternCompile, PatternItem, PatternKind,
@@ -11,19 +10,15 @@ use super::{
 };
 
 impl Compile for ast::LetBinding<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = ();
     type IntoOutput = ();
 
     fn compile_into(
         &self,
         engine: &mut Engine,
         compiler: &mut Compiler,
-        output: Self::Output,
+        _: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            compiler.copy(self.span(), Readable::none(), &output);
-        }
-
         self.compile(engine, compiler)?;
         Ok(())
     }
@@ -54,11 +49,7 @@ fn compile_normal(
     if let ast::Pattern::Normal(ast::Expr::Ident(ident)) = pattern {
         let guard = compiler.register();
         if let Some(init) = binding.init() {
-            init.compile_into(
-                engine,
-                compiler,
-                Some(WritableGuard::from(guard.clone())),
-            )?;
+            init.compile_into(engine, compiler, WritableGuard::from(guard.clone()))?;
         }
         compiler.declare_into(ident.span(), ident.get(), guard);
     } else {
@@ -102,7 +93,7 @@ fn compile_closure(
     std::mem::swap(&mut name, &mut compiler.name);
 
     // We compile the initializer.
-    init.compile_into(engine, compiler, Some(local.into()))?;
+    init.compile_into(engine, compiler, local.into())?;
 
     // We swap the names back.
     std::mem::swap(&mut name, &mut compiler.name);
@@ -111,19 +102,16 @@ fn compile_closure(
 }
 
 impl Compile for ast::DestructAssignment<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = ();
     type IntoOutput = ();
 
     fn compile_into(
         &self,
         engine: &mut Engine,
         compiler: &mut Compiler,
-        output: Self::Output,
+        _: Self::Output,
     ) -> SourceResult<()> {
         self.compile(engine, compiler)?;
-        if let Some(output) = output {
-            compiler.copy(self.span(), Readable::none(), &output);
-        }
 
         Ok(())
     }
@@ -144,7 +132,7 @@ impl Compile for ast::DestructAssignment<'_> {
             _,
         )) = &pattern.kind
         {
-            self.value().compile_into(engine, compiler, Some(guard.clone()))?;
+            self.value().compile_into(engine, compiler, guard.clone())?;
         } else {
             let value = self.value().compile(engine, compiler)?;
             let pattern_id = compiler.pattern(pattern.as_vm_pattern());

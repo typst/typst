@@ -72,8 +72,8 @@ fn run_module_internal<'a>(
     scope: bool,
 ) -> SourceResult<(Value, Option<Scope>)> {
     let mut state = VMState {
-        state: State::JOINING | State::DISPLAY,
-        output: module.inner.output,
+        state: State::DISPLAY,
+        output: None,
         instruction_pointer: 0,
         registers,
         joined: None,

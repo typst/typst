@@ -59,7 +59,7 @@ impl CompiledClosure {
 }
 
 impl Compile for ast::Closure<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -68,10 +68,6 @@ impl Compile for ast::Closure<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        let Some(output) = output else {
-            return Ok(());
-        };
-
         // Evaluate default values of named parameters.
         let mut defaults = Vec::new();
         for param in self.params().children() {
@@ -174,7 +170,7 @@ impl Compile for ast::Closure<'_> {
             other => other.compile_into(
                 engine,
                 &mut closure_compiler,
-                Some(WritableGuard::Joined),
+                WritableGuard::Joined,
             )?,
         }
 
@@ -202,7 +198,7 @@ impl Compile for ast::Closure<'_> {
         let reg = compiler.register();
 
         // Compile into the register.
-        self.compile_into(engine, compiler, Some(reg.clone().into()))?;
+        self.compile_into(engine, compiler, reg.clone().into())?;
 
         // Return the register.
         Ok(reg.into())

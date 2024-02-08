@@ -34,7 +34,7 @@ impl CompileTopLevel for ast::Code<'_> {
 
             // Compile the expression, appending its output to the join
             // output.
-            expr.compile_into(engine, compiler, Some(WritableGuard::Joined))?;
+            expr.compile_into(engine, compiler, WritableGuard::Joined)?;
             compiler.flow();
         }
 
@@ -43,7 +43,7 @@ impl CompileTopLevel for ast::Code<'_> {
 }
 
 impl Compile for ast::Code<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -56,15 +56,13 @@ impl Compile for ast::Code<'_> {
             engine,
             self.span(),
             false,
-            output.as_ref().map(|w| w.as_writable()),
-            false,
-            |compiler, engine, display| {
-                let join_output = output.is_some().then(|| WritableGuard::Joined);
-
+            output.as_writable(),
+            |compiler, engine| {
+                let mut is_content = false;
                 for expr in self.exprs() {
                     // Handle set rules specially.
                     if let ast::Expr::Set(set) = expr {
-                        *display = true;
+                        is_content = true;
                         set.compile(engine, compiler)?;
                         compiler.flow();
                         continue;
@@ -72,7 +70,7 @@ impl Compile for ast::Code<'_> {
 
                     // Handle show rules specially.
                     if let ast::Expr::Show(show) = expr {
-                        *display = true;
+                        is_content = true;
                         show.compile(engine, compiler)?;
                         compiler.flow();
                         continue;
@@ -80,11 +78,11 @@ impl Compile for ast::Code<'_> {
 
                     // Compile the expression, appending its output to the join
                     // output.
-                    expr.compile_into(engine, compiler, join_output.clone())?;
+                    expr.compile_into(engine, compiler, WritableGuard::Joined)?;
                     compiler.flow();
                 }
 
-                Ok(())
+                Ok(is_content)
             },
         )
     }
@@ -98,8 +96,7 @@ impl Compile for ast::Code<'_> {
         let reg = compiler.register();
 
         // Compile into the register.
-        let output = Some(WritableGuard::from(reg.clone()));
-        self.compile_into(engine, compiler, output)?;
+        self.compile_into(engine, compiler, WritableGuard::from(reg.clone()))?;
 
         // Return the register.
         Ok(ReadableGuard::from(reg))
@@ -107,7 +104,7 @@ impl Compile for ast::Code<'_> {
 }
 
 impl Compile for ast::Expr<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
 
     type IntoOutput = ReadableGuard;
 
@@ -120,6 +117,12 @@ impl Compile for ast::Expr<'_> {
         let span = self.span();
         let forbidden = |name: &str| {
             error!(span, "{} is only allowed directly in code and content blocks", name)
+        };
+
+        let copy = |compiler: &mut Compiler| {
+            if !output.is_joined() {
+                compiler.copy(span, Readable::none(), &output)
+            }
         };
 
         match self {
@@ -197,9 +200,15 @@ impl Compile for ast::Expr<'_> {
             ast::Expr::FieldAccess(field) => field.compile_into(engine, compiler, output),
             ast::Expr::FuncCall(call) => call.compile_into(engine, compiler, output),
             ast::Expr::Closure(closure) => closure.compile_into(engine, compiler, output),
-            ast::Expr::Let(let_) => let_.compile_into(engine, compiler, output),
+            ast::Expr::Let(let_) => {
+                let_.compile_into(engine, compiler, ())?;
+                copy(compiler);
+                Ok(())
+            }
             ast::Expr::DestructAssign(destructure) => {
-                destructure.compile_into(engine, compiler, output)
+                destructure.compile_into(engine, compiler, ())?;
+                copy(compiler);
+                Ok(())
             }
             ast::Expr::Set(_) => bail!(forbidden("set")),
             ast::Expr::Show(_) => bail!(forbidden("show")),
@@ -320,7 +329,7 @@ impl Compile for ast::Expr<'_> {
 }
 
 impl Compile for ast::Ident<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
 
     type IntoOutput = ReadableGuard;
 
@@ -330,11 +339,6 @@ impl Compile for ast::Ident<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        // If we don't have an output, we do nothing.
-        let Some(output) = output else {
-            return Ok(());
-        };
-
         let read = self.compile(engine, compiler)?;
 
         compiler.copy(self.span(), &read, &output);
@@ -356,7 +360,7 @@ impl Compile for ast::Ident<'_> {
 }
 
 impl Compile for ast::None<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -365,9 +369,7 @@ impl Compile for ast::None<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            compiler.none(self.span(), &output);
-        }
+        compiler.none(self.span(), &output);
         Ok(())
     }
 
@@ -381,7 +383,7 @@ impl Compile for ast::None<'_> {
 }
 
 impl Compile for ast::Auto<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -390,9 +392,7 @@ impl Compile for ast::Auto<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            compiler.auto(self.span(), &output);
-        }
+        compiler.auto(self.span(), &output);
         Ok(())
     }
 
@@ -406,7 +406,7 @@ impl Compile for ast::Auto<'_> {
 }
 
 impl Compile for ast::Bool<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -415,9 +415,7 @@ impl Compile for ast::Bool<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            compiler.copy(self.span(), Readable::bool(self.get()), &output);
-        }
+        compiler.copy(self.span(), Readable::bool(self.get()), &output);
         Ok(())
     }
 
@@ -431,7 +429,7 @@ impl Compile for ast::Bool<'_> {
 }
 
 impl Compile for ast::Int<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -440,10 +438,8 @@ impl Compile for ast::Int<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let cst = self.compile(engine, compiler)?;
-            compiler.copy(self.span(), &cst, &output);
-        }
+        let cst = self.compile(engine, compiler)?;
+        compiler.copy(self.span(), &cst, &output);
 
         Ok(())
     }
@@ -459,7 +455,7 @@ impl Compile for ast::Int<'_> {
 }
 
 impl Compile for ast::Float<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -468,10 +464,8 @@ impl Compile for ast::Float<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let cst = self.compile(engine, compiler)?;
-            compiler.copy(self.span(), &cst, &output);
-        }
+        let cst = self.compile(engine, compiler)?;
+        compiler.copy(self.span(), &cst, &output);
 
         Ok(())
     }
@@ -487,7 +481,7 @@ impl Compile for ast::Float<'_> {
 }
 
 impl Compile for ast::Numeric<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -496,10 +490,8 @@ impl Compile for ast::Numeric<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let cst = self.compile(engine, compiler)?;
-            compiler.copy(self.span(), &cst, &output);
-        }
+        let cst = self.compile(engine, compiler)?;
+        compiler.copy(self.span(), &cst, &output);
 
         Ok(())
     }
@@ -515,7 +507,7 @@ impl Compile for ast::Numeric<'_> {
 }
 
 impl Compile for ast::Str<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -524,10 +516,8 @@ impl Compile for ast::Str<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let str = self.compile(engine, compiler)?;
-            compiler.copy(self.span(), &str, &output);
-        }
+        let str = self.compile(engine, compiler)?;
+        compiler.copy(self.span(), &str, &output);
 
         Ok(())
     }
@@ -543,7 +533,7 @@ impl Compile for ast::Str<'_> {
 }
 
 impl Compile for ast::Array<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -552,10 +542,6 @@ impl Compile for ast::Array<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        let Some(output) = output else {
-            return Ok(());
-        };
-
         if output.is_joined() {
             let input = self.compile(engine, compiler)?;
             compiler.copy(self.span(), &input, &output);
@@ -588,13 +574,13 @@ impl Compile for ast::Array<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let output = compiler.register();
-        self.compile_into(engine, compiler, Some(output.clone().into()))?;
+        self.compile_into(engine, compiler, output.clone().into())?;
         Ok(output.into())
     }
 }
 
 impl Compile for ast::Dict<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -603,10 +589,6 @@ impl Compile for ast::Dict<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        let Some(output) = output else {
-            return Ok(());
-        };
-
         if output.is_joined() {
             let input = self.compile(engine, compiler)?;
             compiler.copy(self.span(), &input, &output);
@@ -645,13 +627,13 @@ impl Compile for ast::Dict<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let output = compiler.register();
-        self.compile_into(engine, compiler, Some(output.clone().into()))?;
+        self.compile_into(engine, compiler, output.clone().into())?;
         Ok(output.into())
     }
 }
 
 impl Compile for ast::CodeBlock<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -675,7 +657,7 @@ impl Compile for ast::CodeBlock<'_> {
 }
 
 impl Compile for ast::ContentBlock<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -699,7 +681,7 @@ impl Compile for ast::ContentBlock<'_> {
 }
 
 impl Compile for ast::Parenthesized<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -721,7 +703,7 @@ impl Compile for ast::Parenthesized<'_> {
 }
 
 impl Compile for ast::FieldAccess<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -730,10 +712,6 @@ impl Compile for ast::FieldAccess<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        let Some(output) = output else {
-            return Ok(());
-        };
-
         let pattern = self.target().access(engine, compiler, false)?;
 
         let access =
@@ -754,7 +732,7 @@ impl Compile for ast::FieldAccess<'_> {
         let reg = compiler.register();
 
         // Compile into the register.
-        self.compile_into(engine, compiler, Some(reg.clone().into()))?;
+        self.compile_into(engine, compiler, reg.clone().into())?;
 
         // Return the register.
         Ok(reg.into())

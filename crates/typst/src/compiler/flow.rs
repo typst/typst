@@ -10,7 +10,7 @@ use super::{
 };
 
 impl Compile for ast::Conditional<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -32,8 +32,8 @@ impl Compile for ast::Conditional<'_> {
         // Compile the else body
         if let Some(else_body) = self.else_body() {
             else_body.compile_into(engine, compiler, output.clone())?;
-        } else if let Some(output) = &output {
-            compiler.copy(self.span(), Readable::none(), output);
+        } else {
+            compiler.copy(self.span(), Readable::none(), output.as_writable());
         }
 
         // Jump to the end
@@ -58,7 +58,7 @@ impl Compile for ast::Conditional<'_> {
         let reg = compiler.register();
 
         // Compile into the register.
-        self.compile_into(engine, compiler, Some(reg.clone().into()))?;
+        self.compile_into(engine, compiler, reg.clone().into())?;
 
         // Return the register.
         Ok(reg.into())
@@ -66,7 +66,7 @@ impl Compile for ast::Conditional<'_> {
 }
 
 impl Compile for ast::WhileLoop<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -78,9 +78,9 @@ impl Compile for ast::WhileLoop<'_> {
         compiler.enter_indefinite(
             engine,
             true,
-            output.as_ref().map(|w| w.as_writable()),
-            false,
-            |compiler, engine, _| {
+            |compiler, engine| {
+                let mut is_content = false;
+
                 // Create the jump labels
                 let top = compiler.marker();
                 let end = compiler.marker();
@@ -100,13 +100,12 @@ impl Compile for ast::WhileLoop<'_> {
                         code.body().compile_top_level(engine, compiler)?;
                     }
                     ast::Expr::Content(content) => {
+                        is_content = true;
                         content.body().compile_top_level(engine, compiler)?;
                     }
-                    other => other.compile_into(
-                        engine,
-                        compiler,
-                        Some(WritableGuard::Joined),
-                    )?,
+                    other => {
+                        other.compile_into(engine, compiler, WritableGuard::Joined)?
+                    }
                 }
                 compiler.flow();
 
@@ -116,10 +115,15 @@ impl Compile for ast::WhileLoop<'_> {
                 // Mark the end
                 compiler.mark(self.span(), end);
 
-                Ok(())
+                Ok(is_content)
             },
-            |compiler, _, len, out| {
-                compiler.while_(self.span(), len as u32, 0b101, out);
+            |compiler, _, len, is_content| {
+                compiler.while_(
+                    self.span(),
+                    len as u32,
+                    is_content,
+                    output.as_writable(),
+                );
                 Ok(())
             },
         )
@@ -134,7 +138,7 @@ impl Compile for ast::WhileLoop<'_> {
         let reg = compiler.register();
 
         // Compile into the register.
-        self.compile_into(engine, compiler, Some(reg.clone().into()))?;
+        self.compile_into(engine, compiler, reg.clone().into())?;
 
         // Return the register.
         Ok(reg.into())
@@ -142,7 +146,7 @@ impl Compile for ast::WhileLoop<'_> {
 }
 
 impl Compile for ast::ForLoop<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -154,9 +158,8 @@ impl Compile for ast::ForLoop<'_> {
         compiler.enter_indefinite(
             engine,
             true,
-            output.as_ref().map(|w| w.as_writable()),
-            false,
-            |compiler, engine, _| {
+            |compiler, engine| {
+                let mut is_content = false;
                 let pattern = self.pattern().compile(engine, compiler, true)?;
                 if let PatternKind::Single(PatternItem::Simple(
                     span,
@@ -182,23 +185,28 @@ impl Compile for ast::ForLoop<'_> {
                         code.body().compile_top_level(engine, compiler)?;
                     }
                     ast::Expr::Content(content) => {
+                        is_content = true;
                         content.body().compile_top_level(engine, compiler)?;
                     }
-                    other => other.compile_into(
-                        engine,
-                        compiler,
-                        Some(WritableGuard::Joined),
-                    )?,
+                    other => {
+                        other.compile_into(engine, compiler, WritableGuard::Joined)?
+                    }
                 }
 
                 compiler.flow();
                 compiler.jump_top(self.span());
 
-                Ok(())
+                Ok(is_content)
             },
-            |compiler, engine, len, out| {
+            |compiler, engine, len, is_content| {
                 let iterable = self.iterable().compile(engine, compiler)?;
-                compiler.iter(self.iterable().span(), len as u32, &iterable, 0b101, out);
+                compiler.iter(
+                    self.iterable().span(),
+                    len as u32,
+                    &iterable,
+                    is_content,
+                    output.as_writable(),
+                );
                 Ok(())
             },
         )
@@ -212,7 +220,7 @@ impl Compile for ast::ForLoop<'_> {
         let reg = compiler.register();
 
         // Compile into the register.
-        self.compile_into(engine, compiler, Some(reg.clone().into()))?;
+        self.compile_into(engine, compiler, reg.clone().into())?;
 
         // Return the register.
         Ok(reg.into())

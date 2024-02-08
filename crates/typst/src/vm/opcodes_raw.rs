@@ -253,27 +253,21 @@ opcodes! {
     },
 
     /// Enters a new while loop scope with optional joining.
-    While: while_ -> Option<Writable> => {
+    While: while_ -> Writable => {
         /// The length of the scope to enter.
         len: u32,
-        /// Whether the scope is joining.
-        ///
-        /// - Bit 0: Whether joining is enabled.
-        /// - Bit 1: Whether joining results in a content.
-        flags: u8,
+        /// Whether the scope produces content.
+        content: bool,
     },
 
     /// Enters a new iterator scope with optional joining.
-    Iter: iter -> Option<Writable> => {
+    Iter: iter -> Writable => {
         /// The length of the scope to enter.
         len: u32,
         /// The value to iterate over.
         iterable: Readable,
-        /// Whether the scope is a loop.
-        ///
-        /// - Bit 0: Whether joining is enabled.
-        /// - Bit 1: Whether joining results in a content.
-        flags: u8,
+        /// Whether the scope produces content.
+        content: bool,
     },
 
     /// Queries the next value of an iterator.
@@ -368,15 +362,11 @@ opcodes! {
     // -----------------------------------------------------------------------------
 
     /// Enter a new scope with optional joining.
-    Enter: enter -> Option<Writable> => {
+    Enter: enter -> Writable => {
         /// The length of the scope to enter.
         len: u32,
-        /// Whether the scope is a loop.
-        ///
-        /// - Bit 0: Whether this is a loop.
-        /// - Bit 1: Whether joining.
-        /// - Bit 2: Whether joining results in a content.
-        flags: u8,
+        /// Whether the scope produces content.
+        content: bool,
     },
 
     /// Appends a marker to the current scope.

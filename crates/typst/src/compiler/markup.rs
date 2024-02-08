@@ -2,7 +2,7 @@ use std::num::NonZeroU32;
 
 use typst_syntax::ast::{self, AstNode};
 
-use crate::diag::{bail, SourceResult};
+use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{IntoValue, Label, NativeElement, Value};
 use crate::model::{LinkElem, ParbreakElem};
@@ -36,7 +36,7 @@ impl CompileTopLevel for ast::Markup<'_> {
 
             // Compile the expression, appending its output to the join
             // output.
-            expr.compile_into(engine, compiler, Some(WritableGuard::Joined))?;
+            expr.compile_into(engine, compiler, WritableGuard::Joined)?;
             compiler.flow();
         }
 
@@ -45,7 +45,7 @@ impl CompileTopLevel for ast::Markup<'_> {
 }
 
 impl Compile for ast::Markup<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -58,18 +58,12 @@ impl Compile for ast::Markup<'_> {
             engine,
             self.span(),
             false,
-            output.as_ref().map(|w| w.as_writable()),
-            true,
-            |compiler, engine, _| {
-                let join_output = output.is_some().then(|| WritableGuard::Joined);
+            output.as_writable(),
+            |compiler, engine| {
                 for expr in self.exprs() {
                     // Handle set rules specially.
                     if let ast::Expr::Set(set) = expr {
                         set.compile(engine, compiler)?;
-                        if join_output.is_none() {
-                            bail!(set.span(), "cannot set style without output");
-                        }
-
                         compiler.flow();
                         continue;
                     }
@@ -77,21 +71,17 @@ impl Compile for ast::Markup<'_> {
                     // Handle show rules specially.
                     if let ast::Expr::Show(show) = expr {
                         show.compile(engine, compiler)?;
-                        if join_output.is_none() {
-                            bail!(show.span(), "cannot set style without output");
-                        }
-
                         compiler.flow();
                         continue;
                     }
 
                     // Compile the expression, appending its output to the join
                     // output.
-                    expr.compile_into(engine, compiler, join_output.clone())?;
+                    expr.compile_into(engine, compiler, WritableGuard::Joined)?;
                     compiler.flow();
                 }
 
-                Ok(())
+                Ok(true)
             },
         )
     }
@@ -105,8 +95,7 @@ impl Compile for ast::Markup<'_> {
         let reg = compiler.register();
 
         // Compile into the register.
-        let output = Some(WritableGuard::from(reg.clone()));
-        self.compile_into(engine, compiler, output)?;
+        self.compile_into(engine, compiler, WritableGuard::from(reg.clone()))?;
 
         // Return the register.
         Ok(reg.into())
@@ -114,7 +103,7 @@ impl Compile for ast::Markup<'_> {
 }
 
 impl Compile for ast::Text<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -123,11 +112,9 @@ impl Compile for ast::Text<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let const_ = self.compile(engine, compiler)?;
+        let const_ = self.compile(engine, compiler)?;
 
-            compiler.copy(self.span(), &const_, &output);
-        }
+        compiler.copy(self.span(), &const_, &output);
 
         Ok(())
     }
@@ -145,7 +132,7 @@ impl Compile for ast::Text<'_> {
 }
 
 impl Compile for ast::Space<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -154,11 +141,9 @@ impl Compile for ast::Space<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let const_ = self.compile(engine, compiler)?;
+        let const_ = self.compile(engine, compiler)?;
 
-            compiler.copy(self.span(), &const_, &output);
-        }
+        compiler.copy(self.span(), &const_, &output);
 
         Ok(())
     }
@@ -176,7 +161,7 @@ impl Compile for ast::Space<'_> {
 }
 
 impl Compile for ast::Linebreak<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -185,11 +170,9 @@ impl Compile for ast::Linebreak<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let const_ = self.compile(engine, compiler)?;
+        let const_ = self.compile(engine, compiler)?;
 
-            compiler.copy(self.span(), &const_, &output);
-        }
+        compiler.copy(self.span(), &const_, &output);
 
         Ok(())
     }
@@ -207,7 +190,7 @@ impl Compile for ast::Linebreak<'_> {
 }
 
 impl Compile for ast::Parbreak<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -216,11 +199,9 @@ impl Compile for ast::Parbreak<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let const_ = self.compile(engine, compiler)?;
+        let const_ = self.compile(engine, compiler)?;
 
-            compiler.copy(self.span(), &const_, &output);
-        }
+        compiler.copy(self.span(), &const_, &output);
 
         Ok(())
     }
@@ -238,7 +219,7 @@ impl Compile for ast::Parbreak<'_> {
 }
 
 impl Compile for ast::Escape<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -247,11 +228,9 @@ impl Compile for ast::Escape<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let const_ = self.compile(engine, compiler)?;
+        let const_ = self.compile(engine, compiler)?;
 
-            compiler.copy(self.span(), &const_, &output);
-        }
+        compiler.copy(self.span(), &const_, &output);
 
         Ok(())
     }
@@ -269,7 +248,7 @@ impl Compile for ast::Escape<'_> {
 }
 
 impl Compile for ast::Shorthand<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -278,11 +257,9 @@ impl Compile for ast::Shorthand<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let const_ = self.compile(engine, compiler)?;
+        let const_ = self.compile(engine, compiler)?;
 
-            compiler.copy(self.span(), &const_, &output);
-        }
+        compiler.copy(self.span(), &const_, &output);
 
         Ok(())
     }
@@ -300,7 +277,7 @@ impl Compile for ast::Shorthand<'_> {
 }
 
 impl Compile for ast::SmartQuote<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -309,11 +286,9 @@ impl Compile for ast::SmartQuote<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let const_ = self.compile(engine, compiler)?;
+        let const_ = self.compile(engine, compiler)?;
 
-            compiler.copy(self.span(), &const_, &output);
-        }
+        compiler.copy(self.span(), &const_, &output);
 
         Ok(())
     }
@@ -332,7 +307,7 @@ impl Compile for ast::SmartQuote<'_> {
 }
 
 impl Compile for ast::Strong<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -341,10 +316,8 @@ impl Compile for ast::Strong<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let body = self.body().compile(engine, compiler)?;
-            compiler.strong(self.span(), &body, &output);
-        }
+        let body = self.body().compile(engine, compiler)?;
+        compiler.strong(self.span(), &body, &output);
 
         Ok(())
     }
@@ -355,13 +328,13 @@ impl Compile for ast::Strong<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let out = compiler.register();
-        self.compile_into(engine, compiler, Some(out.clone().into()))?;
+        self.compile_into(engine, compiler, out.clone().into())?;
         Ok(out.into())
     }
 }
 
 impl Compile for ast::Emph<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -370,10 +343,8 @@ impl Compile for ast::Emph<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let body = self.body().compile(engine, compiler)?;
-            compiler.emph(self.span(), &body, &output);
-        }
+        let body = self.body().compile(engine, compiler)?;
+        compiler.emph(self.span(), &body, &output);
 
         Ok(())
     }
@@ -384,13 +355,13 @@ impl Compile for ast::Emph<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let out = compiler.register();
-        self.compile_into(engine, compiler, Some(out.clone().into()))?;
+        self.compile_into(engine, compiler, out.clone().into())?;
         Ok(out.into())
     }
 }
 
 impl Compile for ast::Raw<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = Constant;
 
     fn compile_into(
@@ -399,11 +370,9 @@ impl Compile for ast::Raw<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let const_ = self.compile(engine, compiler)?;
+        let const_ = self.compile(engine, compiler)?;
 
-            compiler.copy(self.span(), const_, &output);
-        }
+        compiler.copy(self.span(), const_, &output);
 
         Ok(())
     }
@@ -423,7 +392,7 @@ impl Compile for ast::Raw<'_> {
 }
 
 impl Compile for ast::Link<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = Constant;
 
     fn compile_into(
@@ -432,11 +401,9 @@ impl Compile for ast::Link<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let const_ = self.compile(engine, compiler)?;
+        let const_ = self.compile(engine, compiler)?;
 
-            compiler.copy(self.span(), const_, &output);
-        }
+        compiler.copy(self.span(), const_, &output);
 
         Ok(())
     }
@@ -453,7 +420,7 @@ impl Compile for ast::Link<'_> {
 }
 
 impl Compile for ast::Label<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = Constant;
 
     fn compile_into(
@@ -462,11 +429,9 @@ impl Compile for ast::Label<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let const_ = self.compile(engine, compiler)?;
+        let const_ = self.compile(engine, compiler)?;
 
-            compiler.copy(self.span(), const_, &output);
-        }
+        compiler.copy(self.span(), const_, &output);
 
         Ok(())
     }
@@ -483,7 +448,7 @@ impl Compile for ast::Label<'_> {
 }
 
 impl Compile for ast::Ref<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -492,20 +457,13 @@ impl Compile for ast::Ref<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let label = compiler.label(self.target());
-            let supplement = self
-                .supplement()
-                .map(|sup| sup.compile(engine, compiler))
-                .transpose()?;
+        let label = compiler.label(self.target());
+        let supplement = self
+            .supplement()
+            .map(|sup| sup.compile(engine, compiler))
+            .transpose()?;
 
-            compiler.ref_(
-                self.span(),
-                label,
-                supplement.map(|r| r.as_readable()),
-                &output,
-            );
-        }
+        compiler.ref_(self.span(), label, supplement.map(|r| r.as_readable()), &output);
 
         Ok(())
     }
@@ -516,13 +474,13 @@ impl Compile for ast::Ref<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let output = compiler.register();
-        self.compile_into(engine, compiler, Some(output.clone().into()))?;
+        self.compile_into(engine, compiler, output.clone().into())?;
         Ok(output.into())
     }
 }
 
 impl Compile for ast::Heading<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -531,12 +489,10 @@ impl Compile for ast::Heading<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let level = self.level();
-            let body = self.body().compile(engine, compiler)?;
+        let level = self.level();
+        let body = self.body().compile(engine, compiler)?;
 
-            compiler.heading(self.span(), &body, level.get() as u32, &output);
-        }
+        compiler.heading(self.span(), &body, level.get() as u32, &output);
 
         Ok(())
     }
@@ -547,13 +503,13 @@ impl Compile for ast::Heading<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let output = compiler.register();
-        self.compile_into(engine, compiler, Some(output.clone().into()))?;
+        self.compile_into(engine, compiler, output.clone().into())?;
         Ok(output.into())
     }
 }
 
 impl Compile for ast::ListItem<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -562,10 +518,8 @@ impl Compile for ast::ListItem<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let body = self.body().compile(engine, compiler)?;
-            compiler.list_item(self.span(), &body, &output);
-        }
+        let body = self.body().compile(engine, compiler)?;
+        compiler.list_item(self.span(), &body, &output);
 
         Ok(())
     }
@@ -576,13 +530,13 @@ impl Compile for ast::ListItem<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let output = compiler.register();
-        self.compile_into(engine, compiler, Some(output.clone().into()))?;
+        self.compile_into(engine, compiler, output.clone().into())?;
         Ok(output.into())
     }
 }
 
 impl Compile for ast::EnumItem<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -591,11 +545,9 @@ impl Compile for ast::EnumItem<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let number = self.number().and_then(|n| NonZeroU32::new(n as u32 + 1));
-            let body = self.body().compile(engine, compiler)?;
-            compiler.enum_item(self.span(), &body, number, &output);
-        }
+        let number = self.number().and_then(|n| NonZeroU32::new(n as u32 + 1));
+        let body = self.body().compile(engine, compiler)?;
+        compiler.enum_item(self.span(), &body, number, &output);
 
         Ok(())
     }
@@ -606,13 +558,13 @@ impl Compile for ast::EnumItem<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let output = compiler.register();
-        self.compile_into(engine, compiler, Some(output.clone().into()))?;
+        self.compile_into(engine, compiler, output.clone().into())?;
         Ok(output.into())
     }
 }
 
 impl Compile for ast::TermItem<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -621,11 +573,9 @@ impl Compile for ast::TermItem<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let term = self.term().compile(engine, compiler)?;
-            let description = self.description().compile(engine, compiler)?;
-            compiler.term_item(self.span(), &term, &description, &output);
-        }
+        let term = self.term().compile(engine, compiler)?;
+        let description = self.description().compile(engine, compiler)?;
+        compiler.term_item(self.span(), &term, &description, &output);
 
         Ok(())
     }
@@ -636,13 +586,13 @@ impl Compile for ast::TermItem<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let output = compiler.register();
-        self.compile_into(engine, compiler, Some(output.clone().into()))?;
+        self.compile_into(engine, compiler, output.clone().into())?;
         Ok(output.into())
     }
 }
 
 impl Compile for ast::Equation<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -651,10 +601,8 @@ impl Compile for ast::Equation<'_> {
         compiler: &mut Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let body = self.body().compile(engine, compiler)?;
-            compiler.equation(self.span(), &body, &output);
-        }
+        let body = self.body().compile(engine, compiler)?;
+        compiler.equation(self.span(), &body, &output);
 
         Ok(())
     }
@@ -665,7 +613,7 @@ impl Compile for ast::Equation<'_> {
         compiler: &mut Compiler,
     ) -> SourceResult<Self::IntoOutput> {
         let output = compiler.register();
-        self.compile_into(engine, compiler, Some(output.clone().into()))?;
+        self.compile_into(engine, compiler, output.clone().into())?;
         Ok(output.into())
     }
 }

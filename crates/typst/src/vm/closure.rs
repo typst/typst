@@ -137,12 +137,8 @@ impl Closure {
         let sink_size = num_pos_args.checked_sub(num_pos_params);
 
         let mut state = VMState {
-            output: self.inner.compiled.output,
-            state: if self.inner.compiled.joined {
-                State::JOINING
-            } else {
-                State::empty()
-            },
+            output: None,
+            state: State::empty(),
             instruction_pointer: 0,
             registers,
             joined: None,

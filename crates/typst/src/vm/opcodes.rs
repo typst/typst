@@ -1051,7 +1051,7 @@ impl Run for While {
         let instructions = &instructions[..self.len as usize];
 
         let flow =
-            vm.enter_scope(engine, instructions, spans, None, None, true, false, true)?;
+            vm.enter_scope(engine, instructions, spans, None, None, self.content, true)?;
 
         let mut forced_return = false;
         let output = match flow {
@@ -1071,9 +1071,9 @@ impl Run for While {
             let reg = Register(0);
             vm.write_one(reg, output).at(span)?;
             vm.output = Some(Readable::reg(reg));
-        } else if let Some(out) = self.out {
+        } else {
             // Write the output to the output register.
-            vm.write_one(out, output).at(span)?;
+            vm.write_one(self.out, output).at(span)?;
         }
 
         vm.instruction_pointer += self.len as usize;
@@ -1110,8 +1110,7 @@ impl Run for Iter {
                     spans,
                     Some(&mut iter),
                     None,
-                    true,
-                    false,
+                    self.content,
                     true,
                 )?
             }
@@ -1123,8 +1122,7 @@ impl Run for Iter {
                     spans,
                     Some(&mut iter),
                     None,
-                    true,
-                    false,
+                    self.content,
                     true,
                 )?
             }
@@ -1138,8 +1136,7 @@ impl Run for Iter {
                     spans,
                     Some(&mut iter),
                     None,
-                    true,
-                    false,
+                    self.content,
                     true,
                 )?
             }
@@ -1170,9 +1167,9 @@ impl Run for Iter {
             let reg = Register(0);
             vm.write_one(reg, output).at(span)?;
             vm.output = Some(Readable::reg(reg));
-        } else if let Some(out) = self.out {
+        } else {
             // Write the output to the output register.
-            vm.write_one(out, output).at(span)?;
+            vm.write_one(self.out, output).at(span)?;
         }
 
         vm.instruction_pointer += self.len as usize;
@@ -1562,19 +1559,8 @@ impl Run for Enter {
         let instructions = &instructions[..self.len as usize];
 
         // Enter the scope within the vm.
-        let joins = self.flags & 0b010 != 0;
-        let content = self.flags & 0b100 != 0;
-
-        let flow = vm.enter_scope(
-            engine,
-            instructions,
-            spans,
-            None,
-            None,
-            joins,
-            content,
-            false,
-        )?;
+        let flow =
+            vm.enter_scope(engine, instructions, spans, None, None, self.content, false)?;
 
         let mut forced_return = false;
         let output = match flow {
@@ -1599,9 +1585,9 @@ impl Run for Enter {
             let reg = Register(0);
             vm.write_one(reg, output).at(span)?;
             vm.output = Some(Readable::reg(reg));
-        } else if let Some(out) = self.out {
+        } else {
             // Write the output to the output register.
-            vm.write_one(out, output).at(span)?;
+            vm.write_one(self.out, output).at(span)?;
         }
 
         vm.instruction_pointer += self.len as usize;

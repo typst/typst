@@ -114,7 +114,7 @@ impl Compile for ast::ModuleImport<'_> {
 }
 
 impl Compile for ast::ModuleInclude<'_> {
-    type Output = Option<WritableGuard>;
+    type Output = WritableGuard;
     type IntoOutput = ReadableGuard;
 
     fn compile_into(
@@ -123,12 +123,14 @@ impl Compile for ast::ModuleInclude<'_> {
         compiler: &mut super::Compiler,
         output: Self::Output,
     ) -> SourceResult<()> {
-        if let Some(output) = output {
-            let module = self.source().load(engine, compiler)?;
-            let constant = compiler.const_(module);
+        // Compile and evaluate the module.
+        let module = self.source().load(engine, compiler)?;
 
-            compiler.copy(self.span(), constant, &output);
-        }
+        // Create a constant for the module.
+        let constant = compiler.const_(module);
+
+        // Copy the constant into the output register.
+        compiler.copy(self.span(), constant, &output);
 
         Ok(())
     }

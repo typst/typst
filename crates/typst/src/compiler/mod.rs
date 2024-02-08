@@ -165,40 +165,22 @@ impl Compiler {
         engine: &mut Engine,
         span: Span,
         looping: bool,
-        joining: Option<Writable>,
-        display: bool,
-        f: impl FnOnce(&mut Self, &mut Engine, &mut bool) -> SourceResult<()>,
+        output: Writable,
+        f: impl FnOnce(&mut Self, &mut Engine) -> SourceResult<bool>,
     ) -> SourceResult<()> {
-        self.enter_indefinite(
-            engine,
-            looping,
-            joining,
-            display,
-            f,
-            |compiler, _, len, out| {
-                compiler.enter_isr(
-                    span,
-                    len as u32,
-                    0b000
-                        | if looping { 0b001 } else { 0b000 }
-                        | if joining.is_some() { 0b010 } else { 0b000 }
-                        | if display { 0b100 } else { 0b000 },
-                    out,
-                );
+        self.enter_indefinite(engine, looping, f, |compiler, _, len, is_content| {
+            compiler.enter_isr(span, len as u32, is_content, output);
 
-                Ok(())
-            },
-        )
+            Ok(())
+        })
     }
 
-    pub fn enter_indefinite(
+    pub fn enter_indefinite<O>(
         &mut self,
         engine: &mut Engine,
         looping: bool,
-        joining: Option<Writable>,
-        mut display: bool,
-        f: impl FnOnce(&mut Self, &mut Engine, &mut bool) -> SourceResult<()>,
-        pre: impl FnOnce(&mut Self, &mut Engine, usize, Option<Writable>) -> SourceResult<()>,
+        f: impl FnOnce(&mut Self, &mut Engine) -> SourceResult<O>,
+        pre: impl FnOnce(&mut Self, &mut Engine, usize, O) -> SourceResult<()>,
     ) -> SourceResult<()> {
         let mut scope =
             Rc::new(RefCell::new(CompilerScope::scope(self.scope.clone(), looping)));
@@ -211,14 +193,14 @@ impl Compiler {
         std::mem::swap(&mut self.instructions, &mut instructions);
         std::mem::swap(&mut self.spans, &mut spans);
 
-        f(self, engine, &mut display)?;
+        let out = f(self, engine)?;
 
         std::mem::swap(&mut self.scope, &mut scope);
         std::mem::swap(&mut self.instructions, &mut instructions);
         std::mem::swap(&mut self.spans, &mut spans);
 
         let len = instructions.len();
-        pre(self, engine, len, joining)?;
+        pre(self, engine, len, out)?;
 
         self.spans.extend(spans);
         self.instructions.extend(instructions);
@@ -348,8 +330,6 @@ impl Compiler {
             patterns: self.common.patterns.into_values(),
             isr_spans: self.common.spans.into_values(),
             jumps,
-            output: None,
-            joined: true,
             captures,
             params,
             self_storage: self_storage.map(|r| r.as_register()),
@@ -387,8 +367,6 @@ impl Compiler {
             patterns: self.common.patterns.into_values(),
             isr_spans: self.common.spans.into_values(),
             jumps,
-            output: None,
-            joined: true,
             captures: vec![],
             params: vec![],
             self_storage: None,

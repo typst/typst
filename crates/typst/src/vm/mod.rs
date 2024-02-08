@@ -71,8 +71,6 @@ bitflags::bitflags! {
     struct State: u16 {
         /// The VM is currently running.
         const LOOPING = 0b0000_0001;
-        /// The VM is currently joining.
-        const JOINING = 0b0000_0010;
         /// The VM is currently displaying.
         const DISPLAY = 0b0000_0100;
         /// The VM is currently breaking.
@@ -117,12 +115,8 @@ impl State {
         !self.is_done()
     }
 
-    const fn is_joining(&self) -> bool {
-        self.contains(Self::JOINING)
-    }
-
     const fn is_display(&self) -> bool {
-        self.is_joining() && self.contains(Self::DISPLAY)
+        self.contains(Self::DISPLAY)
     }
 }
 
@@ -274,10 +268,6 @@ impl<'a> VMState<'a, '_> {
 
     /// Join a value to the current joining state.
     pub fn join(&mut self, value: impl IntoValue) -> StrResult<()> {
-        if !self.state.is_joining() {
-            bail!("cannot join in non-joining state");
-        }
-
         // Convert the value to a display value if we are in display mode.
         let value = value.into_value();
 
@@ -299,10 +289,6 @@ impl<'a> VMState<'a, '_> {
     }
 
     pub fn styled(&mut self, styles: Styles) -> StrResult<()> {
-        if !self.state.is_joining() {
-            bail!("cannot style in non-joining state");
-        }
-
         if let Some(joiner) = self.joined.take() {
             self.joined = Some(joiner.styled(styles));
         } else {
@@ -317,10 +303,6 @@ impl<'a> VMState<'a, '_> {
     }
 
     pub fn recipe(&mut self, recipe: Recipe) -> StrResult<()> {
-        if !self.state.is_joining() {
-            bail!("cannot style in non-joining state");
-        }
-
         if let Some(joiner) = self.joined.take() {
             self.joined = Some(joiner.recipe(recipe));
         } else {
@@ -386,13 +368,11 @@ impl<'a> VMState<'a, '_> {
         spans: &'b [Span],
         iterator: Option<&mut dyn Iterator<Item = Value>>,
         mut output: Option<Readable>,
-        joins: bool,
         content: bool,
         looping: bool,
     ) -> SourceResult<ControlFlow> {
         let mut state = State::empty()
             | if looping || iterator.is_some() { State::LOOPING } else { State::empty() }
-            | if joins { State::JOINING } else { State::empty() }
             | if content { State::DISPLAY } else { State::empty() };
 
         let mut joiner = None;
