@@ -416,18 +416,18 @@ pub struct TableHLine {
     /// Specifying the amount of rows causes this horizontal line to override
     /// the bottom border of the table, while a value of 0 overrides the top
     /// border.
-    y: Smart<usize>,
+    pub y: Smart<usize>,
     /// The column at which the horizontal line starts (zero-indexed).
-    start: usize,
+    pub start: usize,
     /// The column before which the horizontal line ends (zero-indexed).
     /// The horizontal line will be drawn up to column 'end - 1' (inclusive).
     /// A value equal to `none` or to the amount of columns causes it to extend
     /// all the way towards the end of the table.
-    end: Option<NonZeroUsize>,
+    pub end: Option<NonZeroUsize>,
     /// The line's stroke.
     #[resolve]
     #[fold]
-    stroke: Option<Arc<Stroke>>,
+    pub stroke: Option<Arc<Stroke>>,
     /// The position at which the line is placed, given its row - either
     /// `{top}` to draw above it or `{bottom}` to draw below it. This setting
     /// is mostly useful when row gutter is enabled, since then the position
@@ -443,7 +443,7 @@ pub struct TableHLine {
         }
         option.map(|spanned| spanned.v)
     })]
-    position: VAlignment,
+    pub position: VAlignment,
 }
 
 /// A custom vertical line in the table. When placed on top of a line
@@ -458,18 +458,18 @@ pub struct TableVLine {
     /// Specifying the amount of columns causes this vertical line to override
     /// the right (in LTR) border of the table, while a value of 0 overrides
     /// the left border.
-    x: Smart<usize>,
+    pub x: Smart<usize>,
     /// The row at which the vertical line starts (zero-indexed).
-    start: usize,
+    pub start: usize,
     /// The row on top of which the vertical line ends (zero-indexed).
     /// The vertical line will be drawn up to row 'end - 1' (inclusive).
     /// A value equal to `none` or to the amount of rows causes it to extend
     /// all the way towards the bottom of the table.
-    end: Option<NonZeroUsize>,
+    pub end: Option<NonZeroUsize>,
     /// The line's stroke.
     #[resolve]
     #[fold]
-    stroke: Option<Arc<Stroke>>,
+    pub stroke: Option<Arc<Stroke>>,
     /// The position at which the line is placed, given its column - either
     /// `{left}` to draw before it or `{right}` to draw after it. This setting
     /// is mostly useful when column gutter is enabled, since then the position
@@ -485,7 +485,7 @@ pub struct TableVLine {
         }
         option.map(|spanned| spanned.v)
     })]
-    position: HAlignment,
+    pub position: HAlignment,
 }
 
 /// A cell in the table. Use this to either override table properties for a
@@ -538,32 +538,32 @@ pub struct TableVLine {
 pub struct TableCell {
     /// The cell's body.
     #[required]
-    body: Content,
+    pub body: Content,
 
     /// The cell's column (zero-indexed).
     /// Functions identically to the `x` field in [`grid.cell`]($grid.cell).
-    x: Smart<usize>,
+    pub x: Smart<usize>,
 
     /// The cell's row (zero-indexed).
     /// Functions identically to the `y` field in [`grid.cell`]($grid.cell).
-    y: Smart<usize>,
+    pub y: Smart<usize>,
 
     /// The cell's fill override.
-    fill: Smart<Option<Paint>>,
+    pub fill: Smart<Option<Paint>>,
 
     /// The amount of columns spanned by this cell.
     #[default(NonZeroUsize::ONE)]
-    colspan: NonZeroUsize,
+    pub colspan: NonZeroUsize,
 
     /// The cell's alignment override.
-    align: Smart<Alignment>,
+    pub align: Smart<Alignment>,
 
     /// The cell's inset override.
-    inset: Smart<Sides<Option<Rel<Length>>>>,
+    pub inset: Smart<Sides<Option<Rel<Length>>>>,
 
     /// The cell's stroke override.
     #[resolve]
-    stroke: Sides<Option<Option<Arc<Stroke>>>>,
+    pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
 }
 
 cast! {
