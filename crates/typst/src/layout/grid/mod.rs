@@ -11,17 +11,17 @@ use std::sync::Arc;
 use ecow::eco_format;
 use smallvec::{smallvec, SmallVec};
 
-use crate::diag::{SourceResult, StrResult, Trace, Tracepoint};
+use crate::diag::{bail, SourceResult, StrResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Array, CastInfo, Content, Dict, Fold, FromValue, IntoValue,
     Packed, Reflect, Resolve, Show, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, Fragment, LayoutMultiple, Length, Regions, Rel,
-    Sides, Sizing,
+    Abs, AlignElem, Alignment, Axes, Fragment, HAlignment, LayoutMultiple, Length,
+    Regions, Rel, Sides, Sizing, VAlignment,
 };
-use crate::syntax::Span;
+use crate::syntax::{Span, Spanned};
 use crate::util::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
 
@@ -583,6 +583,22 @@ pub struct GridHLine {
     #[resolve]
     #[fold]
     stroke: Option<Arc<Stroke>>,
+    /// The position at which the line is placed, given its row - either
+    /// `{top}` to draw above it or `{bottom}` to draw below it. This setting
+    /// is mostly useful when row gutter is enabled, since then the position
+    /// above a row is different from the position below the previous row due
+    /// to the spacing between both.
+    #[default(VAlignment::Top)]
+    #[parse({
+        let option: Option<Spanned<VAlignment>> = args.named("position")?;
+        if let Some(Spanned { v: align, span }) = option {
+            if align == VAlignment::Horizon {
+                bail!(span, "expected `top` or `bottom`");
+            }
+        }
+        option.map(|spanned| spanned.v)
+    })]
+    position: VAlignment,
 }
 
 /// A custom vertical line in the grid. When placed on top of a line
@@ -609,6 +625,22 @@ pub struct GridVLine {
     #[resolve]
     #[fold]
     stroke: Option<Arc<Stroke>>,
+    /// The position at which the line is placed, given its column - either
+    /// `{left}` to draw before it or `{right}` to draw after it. This setting
+    /// is mostly useful when column gutter is enabled, since then the position
+    /// before a column is different from the position after the previous
+    /// column due to the spacing between both.
+    #[default(HAlignment::Left)]
+    #[parse({
+        let option: Option<Spanned<HAlignment>> = args.named("position")?;
+        if let Some(Spanned { v: align, span }) = option {
+            if align != HAlignment::Left && align != HAlignment::Right {
+                bail!(span, "expected `left` or `right`");
+            }
+        }
+        option.map(|spanned| spanned.v)
+    })]
+    position: HAlignment,
 }
 
 /// A cell in the grid. Use this to either override grid properties for a

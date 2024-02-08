@@ -3,18 +3,18 @@ use std::sync::Arc;
 
 use ecow::eco_format;
 
-use crate::diag::{SourceResult, Trace, Tracepoint};
+use crate::diag::{bail, SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Content, Fold, Packed, Resolve, Show, Smart, StyleChain,
 };
 use crate::layout::{
     show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Fragment, GridItem,
-    GridLayouter, GridStroke, LayoutMultiple, Length, Regions, Rel, ResolvableCell,
-    ResolvedInsideStroke, Sides, TrackSizings,
+    GridLayouter, GridStroke, HAlignment, LayoutMultiple, Length, Regions, Rel,
+    ResolvableCell, ResolvedInsideStroke, Sides, TrackSizings, VAlignment,
 };
 use crate::model::Figurable;
-use crate::syntax::Span;
+use crate::syntax::{Span, Spanned};
 use crate::text::{Lang, LocalName, Region};
 use crate::util::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
@@ -428,6 +428,22 @@ pub struct TableHLine {
     #[resolve]
     #[fold]
     stroke: Option<Arc<Stroke>>,
+    /// The position at which the line is placed, given its row - either
+    /// `{top}` to draw above it or `{bottom}` to draw below it. This setting
+    /// is mostly useful when row gutter is enabled, since then the position
+    /// above a row is different from the position below the previous row due
+    /// to the spacing between both.
+    #[default(VAlignment::Top)]
+    #[parse({
+        let option: Option<Spanned<VAlignment>> = args.named("position")?;
+        if let Some(Spanned { v: align, span }) = option {
+            if align == VAlignment::Horizon {
+                bail!(span, "expected `top` or `bottom`");
+            }
+        }
+        option.map(|spanned| spanned.v)
+    })]
+    position: VAlignment,
 }
 
 /// A custom vertical line in the table. When placed on top of a line
@@ -454,6 +470,22 @@ pub struct TableVLine {
     #[resolve]
     #[fold]
     stroke: Option<Arc<Stroke>>,
+    /// The position at which the line is placed, given its column - either
+    /// `{left}` to draw before it or `{right}` to draw after it. This setting
+    /// is mostly useful when column gutter is enabled, since then the position
+    /// before a column is different from the position after the previous
+    /// column due to the spacing between both.
+    #[default(HAlignment::Left)]
+    #[parse({
+        let option: Option<Spanned<HAlignment>> = args.named("position")?;
+        if let Some(Spanned { v: align, span }) = option {
+            if align != HAlignment::Left && align != HAlignment::Right {
+                bail!(span, "expected `left` or `right`");
+            }
+        }
+        option.map(|spanned| spanned.v)
+    })]
+    position: HAlignment,
 }
 
 /// A cell in the table. Use this to either override table properties for a
