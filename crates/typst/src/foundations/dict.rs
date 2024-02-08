@@ -233,27 +233,28 @@ impl Dict {
             .collect()
     }
 
+    /// Converts an array of key and value pairs into a dictionary. Each pair is
+    /// represented as an array of length two.
     #[func]
     pub fn from_pairs(pairs: Array) -> StrResult<Dict> {
         let mut dict = Dict::new();
 
         for value in pairs.into_iter() {
             match value {
-                Value::Array(array) => {
-                    if array.len() == 2 {
-                        if let (Ok(Value::Str(key)), Ok(value)) = (array.first(), array.last()) {
-                            dict.insert(key, value);
-                        }
+                Value::Array(array) if array.len() == 2 => {
+                    if let (Ok(Value::Str(key)), Ok(value)) =
+                        (array.first(), array.last())
+                    {
+                        dict.insert(key, value);
                     } else {
-                        bail!("not an array of key-value pairs")
+                        bail!("first item of pair must be a string")
                     }
-                },
-                _ => bail!("not an array of key-value pairs"),
+                }
+                _ => bail!("must be an array of pairs (arrays of length 2)"),
             };
         }
 
         Ok(dict)
-
     }
 }
 
