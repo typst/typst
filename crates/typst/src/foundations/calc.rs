@@ -362,7 +362,7 @@ pub fn atan2(
                 bail!(span, "lengths must have comparable units")
             }
         }
-        _ => bail!(span, "arguments must be of the same type"),
+        _ => bail!(span, "values must be both numbers or both lengths"),
     }
 }
 
