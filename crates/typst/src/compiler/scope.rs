@@ -1,12 +1,13 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use ecow::EcoString;
+use indexmap::IndexMap;
 use typst_syntax::Span;
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::Value;
+use crate::util::PicoStr;
 use crate::vm::{Global, Math};
 use crate::Library;
 
@@ -22,9 +23,9 @@ pub struct CompilerScope {
     /// The capturing scopes.
     pub capturing: Option<Rc<RefCell<Self>>>,
     /// The captures (as defined in the capturing scope)
-    pub captures: HashMap<EcoString, Capture>,
+    pub captures: IndexMap<PicoStr, Capture>,
     /// The table of variables.
-    pub variables: HashMap<EcoString, Variable>,
+    pub variables: IndexMap<PicoStr, Variable>,
     /// Whether this scope is a function.
     pub is_function: bool,
     /// Whether this scope is a loop.
@@ -38,8 +39,8 @@ impl CompilerScope {
             registers: Rc::new(RefCell::new(RegisterTable::new())),
             parent: None,
             capturing: None,
-            captures: HashMap::new(),
-            variables: HashMap::new(),
+            captures: IndexMap::new(),
+            variables: IndexMap::new(),
             is_function,
             is_loop,
         }
@@ -106,7 +107,7 @@ impl CompilerScope {
     }
 
     /// Declare a variable in this scope.
-    pub fn declare(&mut self, span: Span, name: EcoString) -> RegisterGuard {
+    pub fn declare(&mut self, span: Span, name: PicoStr) -> RegisterGuard {
         let register = self.register();
         let variable = Variable { register: register.clone(), span, default: None };
 
@@ -116,7 +117,7 @@ impl CompilerScope {
     }
 
     /// Declare a variable in this scope.
-    pub fn declare_into(&mut self, span: Span, name: EcoString, register: RegisterGuard) {
+    pub fn declare_into(&mut self, span: Span, name: PicoStr, register: RegisterGuard) {
         let variable = Variable { register, span, default: None };
 
         self.variables.insert(name, variable);
@@ -126,7 +127,7 @@ impl CompilerScope {
     pub fn declare_with_default(
         &mut self,
         span: Span,
-        name: EcoString,
+        name: PicoStr,
         default: Value,
     ) -> RegisterGuard {
         let register = self.pristine_register();
@@ -142,8 +143,9 @@ impl CompilerScope {
     }
 
     /// Read the default value of a variable.
-    pub fn default(&self, var: &str) -> StrResult<Option<Value>> {
-        if let Some(variable) = self.variables.get(var) {
+    pub fn default(&self, var: impl Into<PicoStr>) -> StrResult<Option<Value>> {
+        let var = var.into();
+        if let Some(variable) = self.variables.get(&var) {
             return Ok(variable.default.clone());
         } else if let Some(parent) = self.parent.as_ref() {
             let ref_ = parent.borrow();
@@ -154,19 +156,20 @@ impl CompilerScope {
         } else if let Ok(field) = self.global.global.field(var) {
             return Ok(Some(field.clone()));
         } else {
-            bail!("variable `{}` not found", var);
+            bail!("variable `{}` not found", var.resolve());
         }
     }
 
     /// Read a variable from this scope, excluding the global scope.
-    fn read_own(&self, var: &str) -> Option<ReadableGuard> {
-        if let Some(variable) = self.variables.get(var) {
+    fn read_own(&self, var: impl Into<PicoStr>) -> Option<ReadableGuard> {
+        let var = var.into();
+        if let Some(variable) = self.variables.get(&var) {
             Some(variable.register.clone().into())
         } else {
             let mut next = self.parent.clone();
             while let Some(parent) = next {
                 let ref_ = parent.borrow();
-                if let Some(variable) = ref_.variables.get(var) {
+                if let Some(variable) = ref_.variables.get(&var) {
                     return Some(variable.register.clone().into());
                 }
 
@@ -176,8 +179,13 @@ impl CompilerScope {
         }
     }
 
-    fn read_captured(&mut self, span: Span, var: &EcoString) -> Option<ReadableGuard> {
-        if let Some(capture) = self.captures.get(var) {
+    fn read_captured(
+        &mut self,
+        span: Span,
+        var: impl Into<PicoStr>,
+    ) -> Option<ReadableGuard> {
+        let var = var.into();
+        if let Some(capture) = self.captures.get(&var) {
             return Some(ReadableGuard::Captured(Box::new(ReadableGuard::Register(
                 capture.register.clone(),
             ))));
@@ -188,9 +196,9 @@ impl CompilerScope {
             if let Some(readable) = ref_.read_no_global(span, var) {
                 let reg = self.pristine_register();
                 self.captures.insert(
-                    var.clone(),
+                    var,
                     Capture {
-                        name: var.clone(),
+                        name: var,
                         readable: readable.clone(),
                         register: reg.clone(),
                         span,
@@ -207,7 +215,7 @@ impl CompilerScope {
             while let Some(parent) = next {
                 let mut ancestor = parent.borrow_mut();
                 if let Some(capture) = ancestor.capturing.clone() {
-                    if let Some(capture) = ancestor.captures.get(var) {
+                    if let Some(capture) = ancestor.captures.get(&var) {
                         return Some(ReadableGuard::Captured(Box::new(
                             ReadableGuard::Register(capture.register.clone()),
                         )));
@@ -240,14 +248,15 @@ impl CompilerScope {
     }
 
     /// Read a variable from this scope, excluding the global scope.
-    fn write_own(&self, var: &str) -> Option<WritableGuard> {
-        if let Some(variable) = self.variables.get(var) {
+    fn write_own(&self, var: impl Into<PicoStr>) -> Option<WritableGuard> {
+        let var = var.into();
+        if let Some(variable) = self.variables.get(&var) {
             Some(variable.register.clone().into())
         } else {
             let mut next = self.parent.clone();
             while let Some(parent) = next {
                 let ref_ = parent.borrow();
-                if let Some(variable) = ref_.variables.get(var) {
+                if let Some(variable) = ref_.variables.get(&var) {
                     return Some(variable.register.clone().into());
                 }
 
@@ -278,8 +287,9 @@ impl CompilerScope {
     pub fn read_no_global(
         &mut self,
         span: Span,
-        var: &EcoString,
+        var: impl Into<PicoStr>,
     ) -> Option<ReadableGuard> {
+        let var = var.into();
         if let Some(guard) = self.read_own(var) {
             Some(guard)
         } else if let Some(captured) = self.read_captured(span, var) {
@@ -322,7 +332,7 @@ pub struct Variable {
 
 pub struct Capture {
     /// The name of the captured value.
-    pub name: EcoString,
+    pub name: PicoStr,
     /// The readable this value is stored in (in the parent's scope).
     pub readable: ReadableGuard,
     /// The register in which this capture is stored.

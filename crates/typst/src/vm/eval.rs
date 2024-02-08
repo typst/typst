@@ -1,5 +1,4 @@
 use comemo::{Track, Tracked};
-use ecow::EcoString;
 use typst_macros::Cast;
 use typst_syntax::{ast, parse, parse_code, parse_math, Span};
 
@@ -67,7 +66,7 @@ pub fn eval_string(
             .compile_top_level(&mut engine, &mut compiler)?,
     }
 
-    let module = CompiledModule::new(compiler, root.span(), EcoString::inline("eval"));
+    let module = CompiledModule::new(compiler.finish_module(root.span(), "eval", vec![]));
 
     let output = run_module_as_eval(&module, &mut engine, root.span())?;
 

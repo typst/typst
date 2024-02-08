@@ -6,7 +6,7 @@ use crate::diag::bail;
 use crate::vm::{Constant, Global, Math, Readable, Register, StringId, Writable};
 
 /// The table of occupied registers.
-pub struct RegisterTable(Vec<(bool, bool)>);
+pub struct RegisterTable(Vec<bool>);
 
 impl RegisterTable {
     /// Creates a new empty register table.
@@ -17,10 +17,9 @@ impl RegisterTable {
     /// Allocates a register.
     pub fn allocate(&mut self) -> Register {
         let Some(reg) =
-            self.0.iter_mut().enumerate().find(|(_, (is_used, _))| !*is_used).map(
-                |(index, (is_used, is_pristine))| {
+            self.0.iter_mut().enumerate().find(|(_, is_used)| !**is_used).map(
+                |(index, is_used)| {
                     *is_used = true;
-                    *is_pristine = false;
                     Register::new(index as u16)
                 },
             )
@@ -34,13 +33,13 @@ impl RegisterTable {
     /// Allocates a pristine register.
     pub fn allocate_pristine(&mut self) -> Register {
         let idx = self.0.len();
-        self.0.push((true, false));
+        self.0.push(true);
         Register::new(idx as u16)
     }
 
     /// Frees a register.
     fn free(&mut self, index: Register) {
-        self.0[index.as_raw() as usize] = (false, false);
+        self.0[index.as_raw() as usize] = false;
     }
 
     pub fn len(&self) -> usize {
@@ -109,18 +108,6 @@ pub enum ReadableGuard {
 }
 
 impl ReadableGuard {
-    pub fn new(readable: Readable, registers: Rc<RefCell<RegisterTable>>) -> Self {
-        match readable {
-            Readable::Const(constant) => Self::Constant(constant),
-            Readable::Reg(reg) => Self::Register(RegisterGuard::new(reg, registers)),
-            Readable::Str(string) => Self::String(string),
-            Readable::Global(global) => Self::Global(global),
-            Readable::Math(math) => Self::Math(math),
-            Readable::None => Self::None,
-            Readable::Auto => Self::Auto,
-            Readable::Bool(value) => Self::Bool(value),
-        }
-    }
     pub fn as_readable(&self) -> Readable {
         self.into()
     }

@@ -12,18 +12,17 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use comemo::{Track, Tracked, TrackedMut};
-use ecow::EcoVec;
 use typst_syntax::{Source, Span};
 
-use crate::compiler::compile_module;
+use crate::compiler::{compile_module, CompiledClosure, CompiledCode, CompiledParam};
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::{Engine, Route};
 use crate::foundations::{
-    Content, IntoValue, Label, Module, NativeElement, Recipe, SequenceElem, Styles,
+    Content, IntoValue, Module, NativeElement, Recipe, SequenceElem, Styles,
     Unlabellable, Value,
 };
 use crate::introspection::{Introspector, Locator};
-use crate::{Library, World};
+use crate::World;
 
 pub use self::access::*;
 pub use self::closure::*;
@@ -127,14 +126,17 @@ impl State {
     }
 }
 
-pub fn run(
+pub fn run<'a: 'b, 'b, 'c>(
     engine: &mut Engine,
-    state: &mut VMState,
-    instructions: &[Opcode],
-    spans: &[Span],
+    state: &mut VMState<'a, 'c>,
+    instructions: &'b [Opcode],
+    spans: &'b [Span],
     mut iterator: Option<&mut dyn Iterator<Item = Value>>,
 ) -> SourceResult<ControlFlow> {
-    fn next<'a>(state: &mut VMState, instructions: &'a [Opcode]) -> Option<&'a Opcode> {
+    fn next<'a: 'b, 'b, 'c>(
+        state: &mut VMState<'a, 'c>,
+        instructions: &'b [Opcode],
+    ) -> Option<&'b Opcode> {
         if state.instruction_pointer == instructions.len() {
             state.state.insert(State::DONE);
             return None;
@@ -215,47 +217,35 @@ pub enum ControlFlow {
     Continue(Value),
     Return(Value, bool),
 }
-pub struct VMState<'a> {
+pub struct VMState<'a, 'b> {
     /// The current state of the VM.
     state: State,
+    /// The output of the VM.
+    output: Option<Readable>,
     /// The current instruction pointer.
     instruction_pointer: usize,
     /// The joined values.
     joined: Option<Joiner>,
-    /// The global library.
-    global: &'a Library,
-    /// The constants.
-    constants: &'a [Value],
-    /// The jump table.
-    jumps: &'a [usize],
-    /// The output register, if any.
-    output: Option<Readable>,
-    /// The strings.
-    /// These are stored as [`Value`] but they are always [`Value::Str`].
-    strings: &'a [Value],
-    /// The labels.
-    labels: &'a [Label],
-    /// The closures.
-    closures: &'a [CompiledClosure],
-    /// The access patterns.
-    accesses: &'a [Access],
-    /// The destructure patterns.
-    patterns: &'a [Pattern],
-    /// The spans used in the instructions.
-    spans: &'a [Span],
     /// The registers.
-    registers: Vec<Cow<'a, Value>>,
+    registers: &'b mut [Cow<'a, Value>],
+    /// The code being executed.
+    code: &'a CompiledCode,
 }
 
-impl<'a> VMState<'a> {
+impl<'a> VMState<'a, '_> {
     /// Read a value from the VM.
     pub fn read<'b, T: VmRead>(&'b self, readable: T) -> T::Output<'a, 'b> {
         readable.read(self)
     }
 
+    /// Read a register from the VM.
+    pub fn read_register<'b>(&'b self, register: Register) -> &'b Cow<'a, Value> {
+        &self.registers.read(register.0 as usize)
+    }
+
     /// Take a register from the VM.
     pub fn take(&mut self, register: Register) -> Cow<'a, Value> {
-        std::mem::take(&mut self.registers[register.0 as usize])
+        self.registers.take(register.0 as usize)
     }
 
     /// Write a value to the VM, returning a mutable reference to the value.
@@ -278,11 +268,7 @@ impl<'a> VMState<'a> {
         register: Register,
         value: &'a Value,
     ) -> StrResult<()> {
-        if register.0 as usize > self.registers.len() {
-            bail!("register out of bounds");
-        }
-
-        self.registers[register.0 as usize] = Cow::Borrowed(value);
+        self.registers.write_one(register.0 as usize, Cow::Borrowed(value));
         Ok(())
     }
 
@@ -349,14 +335,24 @@ impl<'a> VMState<'a> {
     }
 
     /// Instantiate a closure.
-    #[typst_macros::time(name = "instantiate closure", span = closure.inner.span)]
-    pub fn instantiate(&self, closure: &CompiledClosure) -> SourceResult<Closure> {
+    #[typst_macros::time(name = "instantiate closure", span = closure.span())]
+    pub fn instantiate(
+        &self,
+        closure: &'a CompiledClosure,
+    ) -> SourceResult<Cow<'a, Closure>> {
+        let closure = match closure {
+            CompiledClosure::Closure(closure) => closure,
+            CompiledClosure::Instanciated(closure) => {
+                return Ok(Cow::Borrowed(closure));
+            }
+        };
+
         // Load the default values for the parameters.
-        let mut params = EcoVec::with_capacity(closure.params.len());
+        let mut params = Vec::with_capacity(closure.params.len());
         for param in &closure.params {
             match param {
                 CompiledParam::Pos(target, pos) => {
-                    params.push((Some(*target), Param::Pos(pos.clone())))
+                    params.push((Some(*target), Param::Pos(*pos)))
                 }
                 CompiledParam::Named { target, name, default, .. } => {
                     params.push((
@@ -368,33 +364,26 @@ impl<'a> VMState<'a> {
                     ));
                 }
                 CompiledParam::Sink(span, target, name) => {
-                    params.push((*target, Param::Sink(*span, name.clone())));
+                    params.push((*target, Param::Sink(*span, *name)));
                 }
             }
         }
 
         // Load the captured values.
-        let mut captures = EcoVec::with_capacity(closure.captures.len());
+        let mut captures = Vec::with_capacity(closure.captures.len());
         for capture in &closure.captures {
-            captures.push((capture.location, self.read(capture.value).clone()));
+            captures.push((capture.register, self.read(capture.readable).clone()));
         }
 
-        Ok(Closure::new(
-            // this must **not** be a clone, otherwise the closure cell
-            // will be shared across multiple instantiation of the closure.
-            Arc::new((*closure.inner).clone()),
-            params,
-            captures,
-            closure.self_storage,
-        ))
+        Ok(Cow::Owned(Closure::new(Arc::clone(closure), params, captures)))
     }
 
     /// Enter a new scope.
-    pub fn enter_scope(
-        &mut self,
+    pub fn enter_scope<'b>(
+        &'b mut self,
         engine: &mut Engine,
-        instructions: &[Opcode],
-        spans: &[Span],
+        instructions: &'b [Opcode],
+        spans: &'b [Span],
         iterator: Option<&mut dyn Iterator<Item = Value>>,
         mut output: Option<Readable>,
         joins: bool,
@@ -584,5 +573,39 @@ impl Joiner {
         }
 
         collect_inner(self, engine, None)
+    }
+}
+
+pub trait VmStorage<'a> {
+    fn check(&self, size: usize);
+
+    fn read<'c>(&'c self, index: usize) -> &'c Cow<'a, Value>;
+
+    fn write(&mut self, index: usize) -> &mut Value;
+
+    fn write_one(&mut self, index: usize, value: Cow<'a, Value>);
+
+    fn take(&mut self, index: usize) -> Cow<'a, Value>;
+}
+
+impl<'a: 'b, 'b> VmStorage<'a> for &'b mut [Cow<'a, Value>] {
+    fn check(&self, size: usize) {
+        assert!(self.len() >= size, "not enough registers");
+    }
+
+    fn read<'c>(&'c self, index: usize) -> &'c Cow<'a, Value> {
+        &self[index]
+    }
+
+    fn write(&mut self, index: usize) -> &mut Value {
+        self[index].to_mut()
+    }
+
+    fn write_one(&mut self, index: usize, value: Cow<'a, Value>) {
+        self[index] = value;
+    }
+
+    fn take(&mut self, index: usize) -> Cow<'a, Value> {
+        std::mem::take(&mut self[index])
     }
 }

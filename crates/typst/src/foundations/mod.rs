@@ -287,7 +287,7 @@ pub fn eval(
     let dict = scope;
     let mut scope = Scope::new();
     for (key, value) in dict {
-        scope.define(key, value);
+        scope.define(key.as_str(), value);
     }
     crate::vm::eval_string(engine.world, &text, span, mode, scope)
 }

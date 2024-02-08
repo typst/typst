@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 use indexmap::IndexMap;
 
 use crate::diag::{bail, HintedStrResult, HintedString, StrResult};
@@ -9,7 +9,7 @@ use crate::foundations::{
     Element, Func, IntoValue, Module, NativeElement, NativeFunc, NativeFuncData,
     NativeType, Type, Value,
 };
-use crate::util::Static;
+use crate::util::{PicoStr, Static};
 use crate::Library;
 
 #[doc(inline)]
@@ -45,7 +45,7 @@ impl<'a> Scopes<'a> {
     }
 
     /// Try to access a variable immutably.
-    pub fn get(&self, var: &str) -> HintedStrResult<&Value> {
+    pub fn get(&self, var: PicoStr) -> HintedStrResult<&Value> {
         std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
             .chain(self.base.map(|base| base.global.scope()))
@@ -54,7 +54,7 @@ impl<'a> Scopes<'a> {
     }
 
     /// Try to access a variable immutably in math.
-    pub fn get_in_math(&self, var: &str) -> HintedStrResult<&Value> {
+    pub fn get_in_math(&self, var: PicoStr) -> HintedStrResult<&Value> {
         std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
             .chain(self.base.map(|base| base.math.scope()))
@@ -63,13 +63,15 @@ impl<'a> Scopes<'a> {
     }
 
     /// Try to access a variable mutably.
-    pub fn get_mut(&mut self, var: &str) -> HintedStrResult<&mut Value> {
+    pub fn get_mut(&mut self, var: PicoStr) -> HintedStrResult<&mut Value> {
         std::iter::once(&mut self.top)
             .chain(&mut self.scopes.iter_mut().rev())
             .find_map(|scope| scope.get_mut(var))
             .ok_or_else(|| {
                 match self.base.and_then(|base| base.global.scope().get(var)) {
-                    Some(_) => eco_format!("cannot mutate a constant: {}", var).into(),
+                    Some(_) => {
+                        eco_format!("cannot mutate a constant: {}", var.resolve()).into()
+                    }
                     _ => unknown_variable(var),
                 }
             })?
@@ -78,7 +80,8 @@ impl<'a> Scopes<'a> {
 
 /// The error message when a variable is not found.
 #[cold]
-fn unknown_variable(var: &str) -> HintedString {
+fn unknown_variable(var: PicoStr) -> HintedString {
+    let var = var.resolve();
     let mut res = HintedString {
         message: eco_format!("unknown variable: {}", var),
         hints: vec![],
@@ -100,7 +103,7 @@ fn unknown_variable(var: &str) -> HintedString {
 /// A map from binding names to values.
 #[derive(Default, Clone)]
 pub struct Scope {
-    map: IndexMap<EcoString, Slot>,
+    map: IndexMap<PicoStr, Slot>,
     deduplicate: bool,
     category: Option<Category>,
 }
@@ -132,12 +135,12 @@ impl Scope {
 
     /// Bind a value to a name.
     #[track_caller]
-    pub fn define(&mut self, name: impl Into<EcoString>, value: impl IntoValue) -> usize {
+    pub fn define(&mut self, name: impl Into<PicoStr>, value: impl IntoValue) -> usize {
         let name = name.into();
 
         #[cfg(debug_assertions)]
         if self.deduplicate && self.map.contains_key(&name) {
-            panic!("duplicate definition: {name}");
+            panic!("duplicate definition: {}", name.resolve());
         }
 
         if let Some(index) = self.map.get_index_of(&name) {
@@ -176,11 +179,11 @@ impl Scope {
 
     /// Define a module.
     pub fn define_module(&mut self, module: Module) {
-        self.define(module.name().clone(), module);
+        self.define(module.name(), module);
     }
 
     /// Define a captured, immutable binding.
-    pub fn define_captured(&mut self, var: impl Into<EcoString>, value: impl IntoValue) {
+    pub fn define_captured(&mut self, var: impl Into<PicoStr>, value: impl IntoValue) {
         self.map.insert(
             var.into(),
             Slot::new(value.into_value(), Kind::Captured, self.category),
@@ -188,8 +191,9 @@ impl Scope {
     }
 
     /// Try to access a variable immutably.
-    pub fn get(&self, var: &str) -> Option<&Value> {
-        self.map.get(var).map(Slot::read)
+    pub fn get(&self, var: impl Into<PicoStr>) -> Option<&Value> {
+        let var = var.into();
+        self.map.get(&var).map(Slot::read)
     }
 
     pub fn get_by_id(&self, id: usize) -> Option<&Value> {
@@ -204,26 +208,31 @@ impl Scope {
             .map(Result::unwrap)
     }
 
-    pub fn get_index(&self, var: &str) -> Option<usize> {
-        self.map.get_index_of(var)
+    pub fn get_index(&self, var: PicoStr) -> Option<usize> {
+        self.map.get_index_of(&var)
     }
 
     /// Try to access a variable mutably.
-    pub fn get_mut(&mut self, var: &str) -> Option<HintedStrResult<&mut Value>> {
+    pub fn get_mut(&mut self, var: PicoStr) -> Option<HintedStrResult<&mut Value>> {
         self.map
-            .get_mut(var)
+            .get_mut(&var)
             .map(Slot::write)
             .map(|res| res.map_err(HintedString::from))
     }
 
     /// Get the category of a definition.
-    pub fn get_category(&self, var: &str) -> Option<Category> {
-        self.map.get(var)?.category
+    pub fn get_category(&self, var: PicoStr) -> Option<Category> {
+        self.map.get(&var)?.category
     }
 
     /// Iterate over all definitions.
-    pub fn iter(&self) -> impl Iterator<Item = (&EcoString, &Value)> {
-        self.map.iter().map(|(k, v)| (k, v.read()))
+    pub fn iter_pico(&self) -> impl Iterator<Item = (PicoStr, &Value)> {
+        self.map.iter().map(|(k, v)| (*k, v.read()))
+    }
+
+    /// Iterate over all definitions.
+    pub fn iter(&self) -> impl Iterator<Item = (&'static str, &Value)> {
+        self.map.iter().map(|(k, v)| (k.resolve(), v.read()))
     }
 }
 

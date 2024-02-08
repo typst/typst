@@ -43,7 +43,7 @@ impl Compile for ast::ModuleImport<'_> {
                     for (name, value) in module.scope().iter() {
                         compiler.declare_default(
                             self.span(),
-                            name.clone(),
+                            name,
                             value.clone(),
                         );
                     }
@@ -52,18 +52,19 @@ impl Compile for ast::ModuleImport<'_> {
                     for item in items.iter() {
                         match item {
                             ast::ImportItem::Simple(name) => {
-                                let Some(value) = module.scope().get(name.get()) else {
+                                let Some(value) = module.scope().get(name.get().as_str())
+                                else {
                                     bail!(
                                         name.span(),
                                         "cannot find {} in module {}",
                                         name.get(),
-                                        module.name()
+                                        module.name().resolve()
                                     )
                                 };
 
                                 compiler.declare_default(
                                     self.span(),
-                                    name.get().to_owned(),
+                                    name.get(),
                                     value.clone(),
                                 );
                             }
@@ -75,13 +76,13 @@ impl Compile for ast::ModuleImport<'_> {
                                         original.span(),
                                         "cannot find {} in module {}",
                                         original.get(),
-                                        module.name()
+                                        module.name().resolve(),
                                     )
                                 };
 
                                 compiler.declare_default(
                                     renamed.new_name().span(),
-                                    renamed.new_name().get().clone(),
+                                    renamed.new_name().get(),
                                     value.clone(),
                                 );
                             }
@@ -90,8 +91,11 @@ impl Compile for ast::ModuleImport<'_> {
                 }
             }
         } else {
-            let name: EcoString = module.name().clone();
-            compiler.declare_default(self.span(), name, Value::Module(module.clone()));
+            compiler.declare_default(
+                self.span(),
+                module.name(),
+                Value::Module(module.clone()),
+            );
         }
 
         // Handle renaming.
@@ -106,11 +110,7 @@ impl Compile for ast::ModuleImport<'_> {
                 }
             }
 
-            compiler.declare_default(
-                self.span(),
-                new_name.get().to_owned(),
-                Value::Module(module),
-            );
+            compiler.declare_default(self.span(), new_name.get(), Value::Module(module));
         };
 
         Ok(())
@@ -324,7 +324,7 @@ fn import_package(
         &source,
     )
     .trace(world, point, span)?
-    .with_name(manifest.package.name))
+    .with_name(&manifest.package.name))
 }
 
 /// Import a file from a path.
@@ -333,11 +333,6 @@ fn import_file(engine: &mut Engine, path: &str, span: Span) -> SourceResult<Modu
     let world = engine.world;
     let id = span.resolve_path(path).at(span)?;
     let source = world.source(id).at(span)?;
-
-    // Prevent cyclic importing.
-    if engine.route.contains(source.id()) {
-        bail!(span, "cyclic import");
-    }
 
     // Evaluate the file.
     let point = || Tracepoint::Import;

@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 
 use crate::diag::StrResult;
 use crate::foundations::{cast, func, Func, NativeFuncData, Repr, Scope, Value};
-use crate::util::Static;
+use crate::util::{PicoStr, Static};
 
 #[rustfmt::skip]
 #[doc(inline)]
@@ -103,10 +103,11 @@ impl Type {
     }
 
     /// Get a field from this type's scope, if possible.
-    pub fn field(&self, field: &str) -> StrResult<&'static Value> {
-        self.scope()
-            .get(field)
-            .ok_or_else(|| eco_format!("type {self} does not contain field `{field}`"))
+    pub fn field(&self, field: impl Into<PicoStr>) -> StrResult<&'static Value> {
+        let field = field.into();
+        self.scope().get(field).ok_or_else(|| {
+            eco_format!("type {self} does not contain field `{}`", field.resolve())
+        })
     }
 }
 

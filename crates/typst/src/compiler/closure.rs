@@ -1,14 +1,62 @@
-use ecow::{EcoString, EcoVec};
+use std::sync::Arc;
+
+use comemo::Prehashed;
 use typst_syntax::ast::{self, AstNode};
+use typst_syntax::Span;
 
 use crate::engine::Engine;
-use crate::vm::CompiledParam;
+use crate::vm::Closure;
 use crate::{diag::SourceResult, util::PicoStr};
 
 use super::{
-    AccessPattern, Compile, CompileTopLevel, Compiler, PatternCompile, PatternItem,
-    PatternKind, ReadableGuard, WritableGuard,
+    AccessPattern, Compile, CompileTopLevel, CompiledCode, CompiledParam, Compiler,
+    PatternCompile, PatternItem, PatternKind, ReadableGuard, WritableGuard,
 };
+
+/// A closure that has been compiled but is not yet instantiated.
+#[derive(Clone, Hash, PartialEq)]
+pub enum CompiledClosure {
+    /// A closure that has been compiled but is not yet instantiated.
+    Closure(Arc<Prehashed<CompiledCode>>),
+    /// A closure that has been instantiated statically.
+    ///
+    /// This is used for closures that do not capture any variables.
+    /// The closure is already compiled and can be used directly.
+    Instanciated(Closure),
+}
+
+impl CompiledClosure {
+    pub fn new(resource: CompiledCode, compiler: &Compiler) -> Self {
+        // Check whether we have any defaults that are resolved at runtime.
+        let has_defaults = resource
+            .params
+            .iter()
+            .filter_map(|param| param.default())
+            .any(|default| default.is_reg());
+
+        // Check if we have any captures.
+        let has_captures = !resource.captures.is_empty();
+
+        if has_defaults || has_captures {
+            Self::Closure(Arc::new(Prehashed::new(resource)))
+        } else {
+            let scope = compiler.scope.borrow();
+            Self::Instanciated(Closure::no_instance(
+                resource,
+                &compiler.common.constants,
+                &scope.global,
+                &compiler.common.strings,
+            ))
+        }
+    }
+
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Closure(resource) => resource.span,
+            Self::Instanciated(closure) => closure.inner.compiled.span,
+        }
+    }
+}
 
 impl Compile for ast::Closure<'_> {
     type Output = Option<WritableGuard>;
@@ -36,18 +84,18 @@ impl Compile for ast::Closure<'_> {
         let name = compiler.name.clone();
         let mut closure_compiler = Compiler::function(
             compiler,
-            name.clone().unwrap_or_else(|| EcoString::inline("anonymous")),
+            name.clone().unwrap_or_else(|| pico!("anonymous")),
         );
 
         // Create the local such that the closure can use itself.
-        let closure_local = if let Some(name) = name.clone() {
+        let closure_local = if let Some(name) = name {
             Some(closure_compiler.declare(self.span(), name))
         } else {
             None
         };
 
         // Build the parameter list of the closure.
-        let mut params = EcoVec::new();
+        let mut params = Vec::with_capacity(self.params().children().count());
         let mut defaults_iter = defaults.iter();
         for param in self.params().children() {
             match param {
@@ -86,8 +134,7 @@ impl Compile for ast::Closure<'_> {
                 ast::Param::Named(named) => {
                     // Create the local variable.
                     let name = named.name().get();
-                    let target =
-                        closure_compiler.declare(named.name().span(), name.clone());
+                    let target = closure_compiler.declare(named.name().span(), name);
 
                     // Add the parameter to the list.
                     params.push(CompiledParam::Named {
@@ -105,8 +152,7 @@ impl Compile for ast::Closure<'_> {
                     };
 
                     // Create the local variable.
-                    let target =
-                        closure_compiler.declare(name.span(), name.get().clone());
+                    let target = closure_compiler.declare(name.span(), name.get());
 
                     params.push(CompiledParam::Sink(
                         sink.span(),
@@ -135,11 +181,11 @@ impl Compile for ast::Closure<'_> {
         closure_compiler.flow();
 
         // Collect the compiled closure.
-        let closure =
-            closure_compiler.into_compiled_closure(self.span(), params, closure_local);
+        let closure = closure_compiler.finish_closure(self.span(), params, closure_local);
 
         // Get the closure ID.
-        let closure_id = compiler.closure(closure);
+        let compiled = CompiledClosure::new(closure, &*compiler);
+        let closure_id = compiler.closure(compiled);
 
         // Instantiate the closure.
         compiler.instantiate(self.span(), closure_id, &output);

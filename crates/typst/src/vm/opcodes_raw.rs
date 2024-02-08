@@ -256,7 +256,7 @@ opcodes! {
     While: while_ -> Option<Writable> => {
         /// The length of the scope to enter.
         len: u32,
-        /// Whether the scope is a loop.
+        /// Whether the scope is joining.
         ///
         /// - Bit 0: Whether joining is enabled.
         /// - Bit 1: Whether joining results in a content.

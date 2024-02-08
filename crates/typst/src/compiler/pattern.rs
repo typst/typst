@@ -47,7 +47,7 @@ impl PatternCompile for ast::Pattern<'_> {
             ast::Pattern::Normal(normal) => match normal {
                 ast::Expr::Ident(ident) => {
                     let index = if declare {
-                        let id = compiler.declare(ident.span(), ident.get().clone());
+                        let id = compiler.declare(ident.span(), ident.get());
                         AccessPattern::Writable(id.into())
                     } else {
                         ident.access(engine, compiler, false)?
@@ -80,8 +80,7 @@ impl PatternCompile for ast::Pattern<'_> {
                         ast::DestructuringKind::Normal(normal) => match normal {
                             ast::Expr::Ident(ident) => {
                                 let index = if declare {
-                                    let id = compiler
-                                        .declare(ident.span(), ident.get().clone());
+                                    let id = compiler.declare(ident.span(), ident.get());
                                     AccessPattern::Writable(id.into())
                                 } else {
                                     ident.access(engine, compiler, false)?
@@ -102,8 +101,7 @@ impl PatternCompile for ast::Pattern<'_> {
                             if let Some(ident) = sink.name() {
                                 has_sink = true;
                                 let index = if declare {
-                                    let id = compiler
-                                        .declare(ident.span(), ident.get().clone());
+                                    let id = compiler.declare(ident.span(), ident.get());
                                     AccessPattern::Writable(id.into())
                                 } else {
                                     ident.access(engine, compiler, false)?
@@ -116,8 +114,7 @@ impl PatternCompile for ast::Pattern<'_> {
                         }
                         ast::DestructuringKind::Named(named) => {
                             let index = if let ast::Expr::Ident(ident) = named.expr() {
-                                let id =
-                                    compiler.declare(ident.span(), ident.get().clone());
+                                let id = compiler.declare(ident.span(), ident.get());
                                 AccessPattern::Writable(id.into())
                             } else if declare {
                                 bail!(

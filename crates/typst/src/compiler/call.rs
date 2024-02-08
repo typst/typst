@@ -36,7 +36,7 @@ impl Compile for ast::FuncCall<'_> {
 
             // If this is a mutating method, we need to access the target instead
             // of the usual copy.
-            if is_mutating_method(&field) {
+            if is_mutating_method(PicoStr::new(&field)) {
                 access.access(engine, compiler, true)?
             } else {
                 let c = self.callee().compile(engine, compiler)?;

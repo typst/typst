@@ -36,6 +36,13 @@ impl<K: RemapperKey, V: Hash> Remapper<K, V> {
         key.clone()
     }
 
+    pub fn get(&self, index: usize) -> &V {
+        self.values
+            .get_index(index)
+            .map(|(_, (_, v))| v)
+            .expect("index out of bounds")
+    }
+
     pub fn into_values(&self) -> Vec<V>
     where
         V: Clone,

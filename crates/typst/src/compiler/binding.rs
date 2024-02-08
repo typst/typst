@@ -2,6 +2,7 @@ use typst_syntax::ast::{self, AstNode};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
+use crate::util::PicoStr;
 use crate::vm::Readable;
 
 use super::{
@@ -59,7 +60,7 @@ fn compile_normal(
                 Some(WritableGuard::from(guard.clone())),
             )?;
         }
-        compiler.declare_into(ident.span(), ident.get().clone(), guard);
+        compiler.declare_into(ident.span(), ident.get(), guard);
     } else {
         // We destructure the initializer using the pattern.
         let value = if let Some(init) = binding.init() {
@@ -86,15 +87,18 @@ fn compile_closure(
     binding: &ast::LetBinding<'_>,
     closure_name: &ast::Ident<'_>,
 ) -> SourceResult<()> {
+    let closure_span = closure_name.span();
+    let closure_name = PicoStr::new(closure_name.get());
+
     // We create the local.
-    let local = compiler.declare(closure_name.span(), closure_name.get().clone());
+    let local = compiler.declare(closure_span, closure_name);
 
     let Some(init) = binding.init() else {
         bail!(binding.span(), "closure declaration requires an initializer");
     };
 
     // We swap the names
-    let mut name = Some(closure_name.get().clone());
+    let mut name = Some(closure_name);
     std::mem::swap(&mut name, &mut compiler.name);
 
     // We compile the initializer.

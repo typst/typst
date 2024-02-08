@@ -16,51 +16,26 @@ pub fn run_module(
     module: &CompiledModule,
     engine: &mut Engine,
 ) -> SourceResult<Module> {
-    // These are required to prove that the registers can be created
-    // at compile time safely.
-    const NONE: Value = Value::None;
-
-    let mut state = VMState {
-        state: State::JOINING | State::DISPLAY,
-        output: None,
-        global: &module.inner.global,
-        instruction_pointer: 0,
-        registers: vec![Cow::Borrowed(&NONE); module.inner.registers],
-        joined: None,
-        constants: &module.inner.constants,
-        strings: &module.inner.strings,
-        labels: &module.inner.labels,
-        closures: &module.inner.closures,
-        accesses: &module.inner.accesses,
-        patterns: &module.inner.patterns,
-        spans: &module.inner.isr_spans,
-        jumps: &module.inner.jumps,
+    const NONE: Cow<Value> = Cow::Borrowed(&Value::None);
+    let (output, scope) = if module.inner.registers <= 4 {
+        let mut storage = [NONE; 4];
+        run_module_internal(module, engine, &mut storage, true)?
+    } else if module.inner.registers <= 8 {
+        let mut storage = [NONE; 8];
+        run_module_internal(module, engine, &mut storage, true)?
+    } else if module.inner.registers <= 16 {
+        let mut storage = [NONE; 16];
+        run_module_internal(module, engine, &mut storage, true)?
+    } else if module.inner.registers <= 32 {
+        let mut storage = [NONE; 32];
+        run_module_internal(module, engine, &mut storage, true)?
+    } else {
+        let mut storage = vec![NONE; module.inner.registers as usize];
+        run_module_internal(module, engine, &mut storage, true)?
     };
 
-    // Write all default values.
-    for default in &module.inner.defaults {
-        state
-            .write_one(default.target, default.value.clone())
-            .at(module.inner.span)?;
-    }
-
-    let output = match crate::vm::run(
-        engine,
-        &mut state,
-        &module.inner.instructions,
-        &module.inner.spans,
-        None,
-    )? {
-        ControlFlow::Done(value) => value,
-        other => bail!(module.inner.span, "module did not produce a value: {other:?}"),
-    };
-
-    let mut scope = Scope::new();
-    for export in &module.inner.exports {
-        scope.define(export.name.clone(), state.read(export.value).clone());
-    }
-
-    Ok(Module::new(module.inner.name.clone(), scope).with_content(output.display()))
+    Ok(Module::new(module.inner.name.clone().unwrap(), scope.unwrap())
+        .with_content(output.display()))
 }
 
 #[typst_macros::time(name = "eval", span = span)]
@@ -69,25 +44,40 @@ pub fn run_module_as_eval(
     engine: &mut Engine,
     span: Span,
 ) -> SourceResult<Value> {
-    // These are required to prove that the registers can be created
-    // at compile time safely.
-    const NONE: Value = Value::None;
+    const NONE: Cow<Value> = Cow::Borrowed(&Value::None);
+    let (output, _) = if module.inner.registers <= 4 {
+        let mut storage = [NONE; 4];
+        run_module_internal(module, engine, &mut storage, false)?
+    } else if module.inner.registers <= 8 {
+        let mut storage = [NONE; 8];
+        run_module_internal(module, engine, &mut storage, false)?
+    } else if module.inner.registers <= 16 {
+        let mut storage = [NONE; 16];
+        run_module_internal(module, engine, &mut storage, false)?
+    } else if module.inner.registers <= 32 {
+        let mut storage = [NONE; 32];
+        run_module_internal(module, engine, &mut storage, false)?
+    } else {
+        let mut storage = vec![NONE; module.inner.registers as usize];
+        run_module_internal(module, engine, &mut storage, false)?
+    };
 
+    Ok(output)
+}
+
+fn run_module_internal<'a>(
+    module: &'a CompiledModule,
+    engine: &mut Engine,
+    registers: &mut [Cow<'a, Value>],
+    scope: bool,
+) -> SourceResult<(Value, Option<Scope>)> {
     let mut state = VMState {
         state: State::JOINING | State::DISPLAY,
-        output: None,
-        global: &module.inner.global,
+        output: module.inner.output,
         instruction_pointer: 0,
-        registers: vec![Cow::Borrowed(&NONE); module.inner.registers],
+        registers,
         joined: None,
-        constants: &module.inner.constants,
-        strings: &module.inner.strings,
-        labels: &module.inner.labels,
-        closures: &module.inner.closures,
-        accesses: &module.inner.accesses,
-        patterns: &module.inner.patterns,
-        spans: &module.inner.isr_spans,
-        jumps: &module.inner.jumps,
+        code: &**module.inner,
     };
 
     // Write all default values.
@@ -108,5 +98,13 @@ pub fn run_module_as_eval(
         other => bail!(module.inner.span, "module did not produce a value: {other:?}"),
     };
 
-    Ok(output)
+    let scope = scope.then(|| {
+        let mut scope = Scope::new();
+        for export in &module.inner.exports {
+            scope.define(export.name.clone(), state.read(export.value).clone());
+        }
+        scope
+    });
+
+    Ok((output, scope))
 }

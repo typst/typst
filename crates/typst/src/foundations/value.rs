@@ -19,6 +19,7 @@ use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio, Rel};
 use crate::symbols::Symbol;
 use crate::syntax::{ast, Span};
 use crate::text::{RawElem, TextElem};
+use crate::util::PicoStr;
 use crate::visualize::{Color, Gradient, Pattern};
 use crate::vm::ops;
 
@@ -160,16 +161,19 @@ impl Value {
     }
 
     /// Try to access a field on the value.
-    pub fn field(&self, field: &str) -> StrResult<Value> {
+    pub fn field(&self, field: impl Into<PicoStr>) -> StrResult<Value> {
+        let field = field.into();
         match self {
-            Self::Symbol(symbol) => symbol.clone().modified(field).map(Self::Symbol),
-            Self::Version(version) => version.component(field).map(Self::Int),
-            Self::Dict(dict) => dict.get(field).cloned(),
-            Self::Content(content) => content.field_by_name(field),
+            Self::Symbol(symbol) => {
+                symbol.clone().modified(field.resolve()).map(Self::Symbol)
+            }
+            Self::Version(version) => version.component(field.resolve()).map(Self::Int),
+            Self::Dict(dict) => dict.get(field.resolve()).cloned(),
+            Self::Content(content) => content.field_by_name(field.resolve()),
             Self::Type(ty) => ty.field(field).cloned(),
             Self::Func(func) => func.field(field).cloned(),
             Self::Module(module) => module.field(field).cloned(),
-            _ => fields::field(self, field),
+            _ => fields::field(self, field.resolve()),
         }
     }
 
@@ -188,7 +192,7 @@ impl Value {
         match self {
             Self::Func(func) => func.name(),
             Self::Type(ty) => Some(ty.short_name()),
-            Self::Module(module) => Some(module.name()),
+            Self::Module(module) => Some(module.name().resolve()),
             _ => None,
         }
     }

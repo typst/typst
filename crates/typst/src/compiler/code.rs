@@ -6,6 +6,7 @@ use crate::compiler::{Access, AccessPattern};
 use crate::diag::{bail, error, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::Value;
+use crate::util::PicoStr;
 use crate::vm::Readable;
 
 use super::{Compile, CompileTopLevel, Compiler, ReadableGuard, WritableGuard};
@@ -736,7 +737,7 @@ impl Compile for ast::FieldAccess<'_> {
         let pattern = self.target().access(engine, compiler, false)?;
 
         let access =
-            AccessPattern::Chained(Arc::new(pattern), self.field().get().clone());
+            AccessPattern::Chained(Arc::new(pattern), PicoStr::new(self.field().get()));
         let access_id = compiler.access(access.as_vm_access());
 
         compiler.field(self.span(), access_id, &output);

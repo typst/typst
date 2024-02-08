@@ -12,7 +12,7 @@ use crate::foundations::{
     Type, Value,
 };
 use crate::syntax::{ast, Span, SyntaxNode};
-use crate::util::Static;
+use crate::util::{PicoStr, Static};
 
 #[doc(inline)]
 pub use typst_macros::func;
@@ -141,7 +141,7 @@ enum Repr {
     /// A function for an element.
     Element(Element),
     /// A user-defined closure.
-    Closure(Arc<crate::vm::Closure>),
+    Closure(crate::vm::Closure),
     /// A nested function with pre-applied arguments.
     With(Arc<(Func, Args)>),
 }
@@ -229,14 +229,18 @@ impl Func {
     }
 
     /// Get a field from this function's scope, if possible.
-    pub fn field(&self, field: &str) -> StrResult<&'static Value> {
+    pub fn field(&self, field: impl Into<PicoStr>) -> StrResult<&'static Value> {
+        let field = field.into();
         let scope =
             self.scope().ok_or("cannot access fields on user-defined functions")?;
         match scope.get(field) {
             Some(field) => Ok(field),
             None => match self.name() {
-                Some(name) => bail!("function `{name}` does not contain field `{field}`"),
-                None => bail!("function does not contain field `{field}`"),
+                Some(name) => bail!(
+                    "function `{name}` does not contain field `{}`",
+                    field.resolve()
+                ),
+                None => bail!("function does not contain field `{}`", field.resolve()),
             },
         }
     }
@@ -496,7 +500,7 @@ impl From<Closure> for Func {
 
 impl From<crate::vm::Closure> for Func {
     fn from(closure: crate::vm::Closure) -> Self {
-        Repr::Closure(Arc::new(closure)).into()
+        Repr::Closure(closure).into()
     }
 }
 

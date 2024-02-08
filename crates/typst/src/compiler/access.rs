@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use ecow::EcoString;
 use typst_syntax::ast::{self, AstNode};
 
 use super::{Compile, Compiler, ReadableGuard, WritableGuard};
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{Func, IntoValue, Module, Type, Value};
+use crate::util::PicoStr;
 use crate::vm::Access as VmAccess;
 
 #[derive(Debug, Clone)]
@@ -18,7 +18,7 @@ pub enum AccessPattern {
     Writable(WritableGuard),
 
     /// Access this value through a chained access.
-    Chained(Arc<Self>, EcoString),
+    Chained(Arc<Self>, PicoStr),
 
     /// Access a global value.
     Global(Module),
@@ -33,7 +33,7 @@ pub enum AccessPattern {
     Func(Func),
 
     /// Access this value through an accessor method.
-    AccessorMethod(Arc<Self>, EcoString, ReadableGuard),
+    AccessorMethod(Arc<Self>, PicoStr, ReadableGuard),
 }
 
 impl AccessPattern {
@@ -191,9 +191,10 @@ impl Access for ast::FieldAccess<'_> {
                     value => Ok(AccessPattern::Value(value.clone())),
                 }
             }
-            other => {
-                Ok(AccessPattern::Chained(Arc::new(other), self.field().get().clone()))
-            }
+            other => Ok(AccessPattern::Chained(
+                Arc::new(other),
+                PicoStr::new(self.field().get()),
+            )),
         }
     }
 }
@@ -218,7 +219,11 @@ impl Access for ast::FuncCall<'_> {
             let left = access.target().access(engine, compiler, mutable)?;
 
             let method = access.field();
-            Ok(AccessPattern::AccessorMethod(Arc::new(left), method.get().clone(), args))
+            Ok(AccessPattern::AccessorMethod(
+                Arc::new(left),
+                PicoStr::new(method.get()),
+                args,
+            ))
         } else {
             bail!(self.span(), "cannot mutate a temporary value")
         }

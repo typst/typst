@@ -3,6 +3,7 @@ mod binding;
 mod call;
 mod closure;
 mod code;
+mod compiled;
 mod flow;
 mod include;
 mod instructions;
@@ -18,24 +19,23 @@ mod scope;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
 
-use comemo::Prehashed;
-use ecow::{EcoString, EcoVec};
-use once_cell::sync::OnceCell;
+use ecow::EcoString;
 use typst_syntax::Span;
 
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{IntoValue, Label, Str, Value};
+use crate::util::PicoStr;
 use crate::vm::{
-    self, Access as VmAccess, AccessId, ClosureId, CompiledClosure, CompiledParam,
-    Constant, DefaultValue, LabelId, Pattern as VmPattern, PatternId, Pointer, SpanId,
-    StringId, Writable,
+    Access as VmAccess, AccessId, ClosureId, Constant, LabelId, Pattern as VmPattern,
+    PatternId, Pointer, SpanId, StringId, Writable,
 };
 use crate::Library;
 
 pub use self::access::*;
+pub use self::closure::*;
+pub use self::compiled::*;
 pub use self::instructions::*;
 pub use self::module::*;
 pub use self::pattern::*;
@@ -53,7 +53,7 @@ pub struct Compiler {
     /// The current scope.
     pub scope: Rc<RefCell<CompilerScope>>,
     /// The function name (if any).
-    pub name: Option<EcoString>,
+    pub name: Option<PicoStr>,
     /// The common values between scopes.
     common: Inner,
 }
@@ -71,10 +71,10 @@ impl Compiler {
     }
 
     /// Creates a new compiler for a function.
-    pub fn function(parent: &Self, name: impl Into<EcoString>) -> Self {
+    pub fn function(parent: &Self, name: impl Into<PicoStr>) -> Self {
         let parent = parent.scope.clone();
         Self {
-            instructions: Vec::with_capacity(DEFAULT_CAPACITY * 8),
+            instructions: Vec::with_capacity(DEFAULT_CAPACITY),
             spans: Vec::with_capacity(DEFAULT_CAPACITY),
             scope: Rc::new(RefCell::new(CompilerScope::function(parent))),
             name: Some(name.into()),
@@ -108,7 +108,7 @@ impl Compiler {
     }
 
     /// Declares a new variable.
-    pub fn declare(&self, span: Span, name: impl Into<EcoString>) -> RegisterGuard {
+    pub fn declare(&self, span: Span, name: impl Into<PicoStr>) -> RegisterGuard {
         self.scope.borrow_mut().declare(span, name.into())
     }
 
@@ -116,7 +116,7 @@ impl Compiler {
     pub fn declare_into(
         &self,
         span: Span,
-        name: impl Into<EcoString>,
+        name: impl Into<PicoStr>,
         output: impl Into<RegisterGuard>,
     ) {
         self.scope.borrow_mut().declare_into(span, name.into(), output.into())
@@ -126,7 +126,7 @@ impl Compiler {
     pub fn declare_default(
         &self,
         span: Span,
-        name: impl Into<EcoString>,
+        name: impl Into<PicoStr>,
         default: impl IntoValue,
     ) -> RegisterGuard {
         self.scope.borrow_mut().declare_with_default(
@@ -310,63 +310,99 @@ impl Compiler {
         jumps
     }
 
-    pub fn into_compiled_closure(
+    pub fn finish_closure(
         mut self,
         span: Span,
-        params: EcoVec<CompiledParam>,
+        params: Vec<CompiledParam>,
         self_storage: Option<RegisterGuard>,
-    ) -> CompiledClosure {
+    ) -> CompiledCode {
         let scopes = self.scope.borrow();
-        let registers = scopes.registers.borrow().len() as usize;
         let captures = scopes
             .captures
             .values()
-            .map(|capture| vm::Capture {
+            .map(|capture| CodeCapture {
                 name: capture.name.clone(),
-                value: capture.readable.as_readable(),
-                location: capture.register.as_register(),
                 span: capture.span,
+                readable: capture.readable.as_readable(),
+                register: capture.register.as_register(),
             })
             .collect();
 
         let jumps = self.remapped_instructions();
         self.instructions.shrink_to_fit();
         self.spans.shrink_to_fit();
-        CompiledClosure {
-            inner: Arc::new(Prehashed::new(vm::Inner {
-                defaults: self.get_default_scope(),
-                span,
-                registers,
-                name: self.name,
-                instructions: self.instructions,
-                spans: self.spans,
-                global: scopes.global().clone(),
-                constants: self.common.constants.into_values(),
-                strings: self.common.strings.into_values(),
-                closures: self.common.closures.into_values(),
-                accesses: self.common.accesses.into_values(),
-                labels: self.common.labels.into_values(),
-                patterns: self.common.patterns.into_values(),
-                isr_spans: self.common.spans.into_values(),
-                jumps,
-                output: None,
-                joined: true,
-                this: OnceCell::new(),
-            })),
+        let registers = scopes.registers.borrow().len() as usize;
+        CompiledCode {
+            defaults: self.get_default_scope(),
+            span,
+            registers,
+            name: self.name,
+            instructions: self.instructions,
+            spans: self.spans,
+            global: scopes.global().clone(),
+            constants: self.common.constants.into_values(),
+            strings: self.common.strings.into_values(),
+            closures: self.common.closures.into_values(),
+            accesses: self.common.accesses.into_values(),
+            labels: self.common.labels.into_values(),
+            patterns: self.common.patterns.into_values(),
+            isr_spans: self.common.spans.into_values(),
+            jumps,
+            output: None,
+            joined: true,
             captures,
             params,
             self_storage: self_storage.map(|r| r.as_register()),
+            exports: vec![],
         }
     }
 
-    pub fn get_default_scope(&self) -> EcoVec<DefaultValue> {
+    pub fn finish_module(
+        mut self,
+        span: Span,
+        name: impl Into<PicoStr>,
+        exports: Vec<Export>,
+    ) -> CompiledCode {
+        let scopes = self.scope.borrow();
+        debug_assert!(scopes.captures.is_empty());
+
+        let jumps = self.remapped_instructions();
+        self.instructions.shrink_to_fit();
+        self.spans.shrink_to_fit();
+        let registers = scopes.registers.borrow().len() as usize;
+        CompiledCode {
+            defaults: self.get_default_scope(),
+            span,
+            registers,
+            name: Some(name.into()),
+            instructions: self.instructions,
+            spans: self.spans,
+            global: scopes.global().clone(),
+            constants: self.common.constants.into_values(),
+            strings: self.common.strings.into_values(),
+            closures: self.common.closures.into_values(),
+            accesses: self.common.accesses.into_values(),
+            labels: self.common.labels.into_values(),
+            patterns: self.common.patterns.into_values(),
+            isr_spans: self.common.spans.into_values(),
+            jumps,
+            output: None,
+            joined: true,
+            captures: vec![],
+            params: vec![],
+            self_storage: None,
+            exports,
+        }
+    }
+
+    pub fn get_default_scope(&self) -> Vec<DefaultValue> {
         self.scope
             .borrow()
             .variables
             .values()
             .filter_map(|v| v.default.clone().map(|d| (d, v.register.as_register())))
             .map(|(value, target)| DefaultValue { target, value })
-            .collect::<EcoVec<_>>()
+            .collect::<Vec<_>>()
     }
 
     pub fn flow(&mut self) {

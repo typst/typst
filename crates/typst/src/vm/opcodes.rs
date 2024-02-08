@@ -675,6 +675,8 @@ impl Run for CopyIsr {
         const FALSE: Value = Value::Bool(false);
 
         // Get the value.
+        // This is optimized such that values that *can* be borrowed
+        // are borrowed, and values that *cannot* be borrowed are cloned.
         let value = match self.value {
             Readable::Reg(reg) => {
                 let value = vm.read(reg);
@@ -913,7 +915,7 @@ impl Run for Instantiate {
     ) -> SourceResult<()> {
         // Get the closure.
         let closure = vm.read(self.closure);
-        let closure_span = closure.inner.span;
+        let closure_span = closure.span();
 
         // Instantiate the closure. This involves:
         // - Capturing all necessary values.
@@ -921,7 +923,7 @@ impl Run for Instantiate {
         let closure = vm.instantiate(closure)?;
 
         // Write the closure to the output.
-        vm.write_one(self.out, Func::from(closure).spanned(closure_span))
+        vm.write_one(self.out, Func::from(closure.into_owned()).spanned(closure_span))
             .at(span)?;
 
         Ok(())
@@ -960,12 +962,12 @@ impl Run for Call {
         };
 
         match accessor {
-            Access::Chained(rest, last) if is_mutating_method(&last) => {
+            Access::Chained(rest, last) if is_mutating_method(*last) => {
                 // Obtain the value.
                 let mut value = rest.write(span, vm)?;
 
                 // Call the method.
-                let value = call_method_mut(&mut value, &last, args, span)?;
+                let value = call_method_mut(&mut value, *last, args, span)?;
 
                 // Write the value to the output.
                 vm.write_one(self.out, value).at(span)?;

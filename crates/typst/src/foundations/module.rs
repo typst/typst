@@ -5,6 +5,7 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
 use crate::foundations::{repr, ty, Content, Scope, Value};
+use crate::util::PicoStr;
 
 /// An evaluated module, either built-in or resulting from a file.
 ///
@@ -28,7 +29,7 @@ use crate::foundations::{repr, ty, Content, Scope, Value};
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Module {
     /// The module's name.
-    name: EcoString,
+    name: PicoStr,
     /// The reference-counted inner fields.
     inner: Arc<Repr>,
 }
@@ -44,7 +45,7 @@ struct Repr {
 
 impl Module {
     /// Create a new module.
-    pub fn new(name: impl Into<EcoString>, scope: Scope) -> Self {
+    pub fn new(name: impl Into<PicoStr>, scope: Scope) -> Self {
         Self {
             name: name.into(),
             inner: Arc::new(Repr { scope, content: Content::empty() }),
@@ -52,7 +53,7 @@ impl Module {
     }
 
     /// Update the module's name.
-    pub fn with_name(mut self, name: impl Into<EcoString>) -> Self {
+    pub fn with_name(mut self, name: impl Into<PicoStr>) -> Self {
         self.name = name.into();
         self
     }
@@ -70,8 +71,8 @@ impl Module {
     }
 
     /// Get the module's name.
-    pub fn name(&self) -> &EcoString {
-        &self.name
+    pub fn name(&self) -> PicoStr {
+        self.name
     }
 
     /// Access the module's scope.
@@ -85,21 +86,31 @@ impl Module {
     }
 
     /// Try to access a definition in the module.
-    pub fn field(&self, name: &str) -> StrResult<&Value> {
+    pub fn field(&self, name: impl Into<PicoStr>) -> StrResult<&Value> {
+        let name = name.into();
         self.scope().get(name).ok_or_else(|| {
-            eco_format!("module `{}` does not contain `{name}`", self.name())
+            eco_format!(
+                "module `{}` does not contain `{}`",
+                self.name().resolve(),
+                name.resolve()
+            )
         })
     }
 
-    pub fn field_index(&self, name: &str) -> StrResult<usize> {
+    pub fn field_index(&self, name: impl Into<PicoStr>) -> StrResult<usize> {
+        let name = name.into();
         self.scope().get_index(name).ok_or_else(|| {
-            eco_format!("module `{}` does not contain `{name}`", self.name())
+            eco_format!(
+                "module `{}` does not contain `{}`",
+                self.name().resolve(),
+                name.resolve()
+            )
         })
     }
 
     pub fn field_by_id(&self, id: usize) -> StrResult<&Value> {
         self.scope().get_by_id(id).ok_or_else(|| {
-            eco_format!("module `{}` does not contain `{}`", self.name(), id)
+            eco_format!("module `{}` does not contain `{}`", self.name().resolve(), id)
         })
     }
 
@@ -124,7 +135,7 @@ impl Debug for Module {
 
 impl repr::Repr for Module {
     fn repr(&self) -> EcoString {
-        eco_format!("<module {}>", self.name())
+        eco_format!("<module {}>", self.name().resolve())
     }
 }
 
