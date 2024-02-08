@@ -417,7 +417,8 @@ impl CellGrid {
         // Lists of lines.
         let mut vlines: Vec<Vec<Line>> = Vec::with_capacity(c);
         let mut hlines: Vec<Vec<Line>> = Vec::new();
-        // Horizontal lines placed above rows that don't exist yet.
+        // Horizontal lines are only pushed later to be able to check for row
+        // validity.
         // We keep their spans so we can report errors later.
         let mut pending_hlines: Vec<(Span, Line)> = Vec::new();
 
@@ -464,17 +465,19 @@ impl CellGrid {
                             .checked_sub(1)
                             .map_or(0, |last_auto_index| last_auto_index / c + 1)
                     });
-                    if resolved_cells.len().div_ceil(c) < y {
-                        // We don't know yet if this hline will be placed on
-                        // top of a valid row, or below it (border).
-                        pending_hlines
-                            .push((span, Line { index: y, start, end, stroke }));
-                        continue;
-                    }
-                    if hlines.len() <= y {
-                        hlines.resize_with(y + 1, Vec::new);
-                    }
-                    hlines[y].push(Line { index: y, start, end, stroke });
+                    // Since the amount of rows is dynamic, delay placing
+                    // hlines until after all cells were placed so we can
+                    // properly verify if they are valid. Note that we can't
+                    // place hlines even if we already know they would be in a
+                    // valid row, since it's possible that we pushed pending
+                    // hlines in the same row as this one in previous
+                    // iterations, and we need to ensure that hlines from
+                    // previous iterations are pushed to the final vector of
+                    // hlines first - the order of hlines must be kept, as this
+                    // matters when determining which one "wins" in case of
+                    // conflict. Pushing the current hline before we push
+                    // pending hlines later would change their order!
+                    pending_hlines.push((span, Line { index: y, start, end, stroke }));
                     continue;
                 }
                 GridItem::VLine { x, start, end, stroke, span } => {
