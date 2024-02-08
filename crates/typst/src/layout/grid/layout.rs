@@ -1666,9 +1666,9 @@ where
                     .map(|end| (line.start..end.get()).contains(&track))
                     .unwrap_or_else(|| track >= line.start)
             })
-            .rev()
-            .fold(stroke.cloned(), |stroke, v| {
-                match (stroke, v.stroke.as_ref().cloned()) {
+            .fold(stroke.cloned(), |stroke, line| {
+                match (stroke, line.stroke.as_ref().cloned()) {
+                    // Fold with priority to the line specified last.
                     (Some(stroke), Some(line_stroke)) => Some(line_stroke.fold(stroke)),
                     (stroke, line_stroke) => stroke.or(line_stroke),
                 }
