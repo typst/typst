@@ -428,7 +428,7 @@ impl CellGrid {
         // Therefore, we use a counter, 'auto_index', to determine the position
         // of the next cell with (x: auto, y: auto). It is only stepped when
         // a cell with (x: auto, y: auto), usually the vast majority, is found.
-        let mut auto_index = 0;
+        let mut auto_index: usize = 0;
 
         // We have to rebuild the grid to account for arbitrary positions.
         // Create at least 'items.len()' positions, since there could be at
@@ -448,7 +448,22 @@ impl CellGrid {
         for item in items {
             let cell = match item {
                 GridItem::HLine { y, start, end, stroke, span } => {
-                    let y = y.as_custom().unwrap(); // TODO: automatic line positioning
+                    let y = y.as_custom().unwrap_or_else(|| {
+                        // When no 'y' is specified for the hline, we place it
+                        // under the latest automatically positioned cell.
+                        // The current value of the auto index is always the
+                        // index of the latest automatically positioned cell
+                        // placed plus one (that's what we do in
+                        // 'resolve_cell_position'), so we subtract 1 to get
+                        // that cell's index, and place the hline below its
+                        // row. The exception is when the auto_index is 0,
+                        // meaning no automatically positioned cell was placed
+                        // yet. In that case, we place the hline at the top of
+                        // the table.
+                        auto_index
+                            .checked_sub(1)
+                            .map_or(0, |last_auto_index| last_auto_index / c + 1)
+                    });
                     if resolved_cells.len().div_ceil(c) < y {
                         // We don't know yet if this hline will be placed on
                         // top of a valid row, or below it (border).
@@ -463,7 +478,22 @@ impl CellGrid {
                     continue;
                 }
                 GridItem::VLine { x, start, end, stroke, span } => {
-                    let x = x.as_custom().unwrap(); // TODO: automatic line positioning
+                    let x = x.as_custom().unwrap_or_else(|| {
+                        // When no 'x' is specified for the vline, we place it
+                        // after the latest automatically positioned cell.
+                        // The current value of the auto index is always the
+                        // index of the latest automatically positioned cell
+                        // placed plus one (that's what we do in
+                        // 'resolve_cell_position'), so we subtract 1 to get
+                        // that cell's index, and place the vline after its
+                        // column. The exception is when the auto_index is 0,
+                        // meaning no automatically positioned cell was placed
+                        // yet. In that case, we place the vline to the left of
+                        // the table.
+                        auto_index
+                            .checked_sub(1)
+                            .map_or(0, |last_auto_index| last_auto_index % c + 1)
+                    });
                     if x > c {
                         bail!(span, "cannot place vertical line at invalid column");
                     }
