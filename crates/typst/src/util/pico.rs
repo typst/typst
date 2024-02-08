@@ -99,6 +99,7 @@ impl From<&EcoString> for PicoStr {
     }
 }
 
+#[macro_export]
 macro_rules! pico {
     ($name:literal) => {{
         static PICO_STR: ::once_cell::sync::Lazy<$crate::util::PicoStr> =

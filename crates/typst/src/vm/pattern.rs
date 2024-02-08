@@ -5,6 +5,7 @@ use smallvec::SmallVec;
 use typst_syntax::Span;
 
 use crate::diag::{bail, At, SourceResult};
+use crate::engine::Engine;
 use crate::foundations::{Array, Dict, Value};
 
 use super::{Access, VMState};
@@ -16,13 +17,18 @@ pub struct Pattern {
 }
 
 impl Pattern {
-    pub fn write(&self, vm: &mut VMState, value: Value) -> SourceResult<()> {
+    pub fn write(
+        &self,
+        vm: &mut VMState,
+        engine: &mut Engine,
+        value: Value,
+    ) -> SourceResult<()> {
         match &self.kind {
             PatternKind::Single(single) => match single {
                 // Placeholders simply discard the value.
                 PatternItem::Placeholder(_) => {}
                 PatternItem::Simple(span, local, _) => {
-                    local.write(*span, vm)?;
+                    local.write(*span, vm, engine)?;
                 }
                 PatternItem::Named(span, _, _) => bail!(
                     *span,
@@ -36,8 +42,10 @@ impl Pattern {
                 ),
             },
             PatternKind::Tuple(tuple, has_sink) => match value {
-                Value::Array(array) => destructure_array(vm, array, tuple)?,
-                Value::Dict(dict) => destructure_dict(vm, dict, *has_sink, tuple)?,
+                Value::Array(array) => destructure_array(vm, engine, array, tuple)?,
+                Value::Dict(dict) => {
+                    destructure_dict(vm, engine, dict, *has_sink, tuple)?
+                }
                 other => {
                     bail!(self.span, "cannot destructure {}", other.ty().long_name())
                 }
@@ -77,6 +85,7 @@ pub enum PatternItem {
 
 fn destructure_array(
     vm: &mut VMState,
+    engine: &mut Engine,
     value: Array,
     tuple: &[PatternItem],
 ) -> SourceResult<()> {
@@ -96,7 +105,7 @@ fn destructure_array(
             }
             PatternItem::Simple(span, local, _) => {
                 if i < len {
-                    *local.write(*span, vm)? = value.as_slice()[i].clone();
+                    *local.write(*span, vm, engine)? = value.as_slice()[i].clone();
                     i += 1;
                 } else {
                     bail!(*span, "not enough elements to destructure")
@@ -106,7 +115,7 @@ fn destructure_array(
                 let sink_size = (1 + len).checked_sub(tuple.len());
                 let sink = sink_size.and_then(|s| value.as_slice().get(i..i + s));
                 if let (Some(sink_size), Some(sink)) = (sink_size, sink) {
-                    *local.write(*span, vm)? = Value::Array(sink.into());
+                    *local.write(*span, vm, engine)? = Value::Array(sink.into());
                     i += sink_size;
                 } else {
                     bail!(*span, "not enough elements to destructure")
@@ -129,6 +138,7 @@ fn destructure_array(
 
 fn destructure_dict(
     vm: &mut VMState,
+    engine: &mut Engine,
     dict: Dict,
     has_sink: bool,
     tuple: &[PatternItem],
@@ -142,7 +152,7 @@ fn destructure_dict(
         match p {
             PatternItem::Simple(span, local, name) => {
                 let v = dict.get(&name).at(*span)?;
-                *local.write(*span, vm)? = v.clone();
+                *local.write(*span, vm, engine)? = v.clone();
 
                 used.as_mut().map(|u| u.insert(name.clone()));
             }
@@ -151,7 +161,7 @@ fn destructure_dict(
             PatternItem::SpreadDiscard(span) => sink = Some((*span, None)),
             PatternItem::Named(span, local, name) => {
                 let v = dict.get(&name).at(*span)?;
-                *local.write(*span, vm)? = v.clone();
+                *local.write(*span, vm, engine)? = v.clone();
                 used.as_mut().map(|u| u.insert(name.clone()));
             }
         }
@@ -167,7 +177,7 @@ fn destructure_dict(
                 }
             }
 
-            *local.write(span, vm)? = Value::Dict(sink);
+            *local.write(span, vm, engine)? = Value::Dict(sink);
         }
     }
 

@@ -362,12 +362,12 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
 /// Add completions for all fields on a value.
 fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
     for (name, value) in value.ty().scope().iter() {
-        ctx.value_completion(Some(name.clone()), value, true, None);
+        ctx.value_completion(Some(name.into()), value, true, None);
     }
 
     if let Some(scope) = value.scope() {
         for (name, value) in scope.iter() {
-            ctx.value_completion(Some(name.clone()), value, true, None);
+            ctx.value_completion(Some(name.into()), value, true, None);
         }
     }
 
@@ -517,7 +517,7 @@ fn import_item_completions<'a>(
 
     for (name, value) in scope.iter() {
         if existing.iter().all(|item| item.original_name().as_str() != name) {
-            ctx.value_completion(Some(name.clone()), value, false, None);
+            ctx.value_completion(Some(name.into()), value, false, None);
         }
     }
 }
@@ -760,11 +760,11 @@ fn resolve_global_callee<'a>(
     callee: ast::Expr<'a>,
 ) -> Option<&'a Func> {
     let value = match callee {
-        ast::Expr::Ident(ident) => ctx.global.get(&ident)?,
+        ast::Expr::Ident(ident) => ctx.global.get(ident.get())?,
         ast::Expr::FieldAccess(access) => match access.target() {
-            ast::Expr::Ident(target) => match ctx.global.get(&target)? {
-                Value::Module(module) => module.field(&access.field()).ok()?,
-                Value::Func(func) => func.field(&access.field()).ok()?,
+            ast::Expr::Ident(target) => match ctx.global.get(target.get())? {
+                Value::Module(module) => module.field(access.field().get()).ok()?,
+                Value::Func(func) => func.field(access.field().get()).ok()?,
                 _ => return None,
             },
             _ => return None,
@@ -1303,7 +1303,7 @@ impl<'a> CompletionContext<'a> {
                                     defined.extend(value.name().map(Into::into));
                                 } else if let Some(scope) = value.scope() {
                                     for (name, _) in scope.iter() {
-                                        defined.insert(name.clone());
+                                        defined.insert(name.into());
                                     }
                                 }
                             }
@@ -1347,7 +1347,7 @@ impl<'a> CompletionContext<'a> {
         let scope = if in_math { self.math } else { self.global };
         for (name, value) in scope.iter() {
             if filter(value) && !defined.contains(name) {
-                self.value_completion(Some(name.clone()), value, parens, None);
+                self.value_completion(Some(name.into()), value, parens, None);
             }
         }
 

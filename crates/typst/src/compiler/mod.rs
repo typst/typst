@@ -361,7 +361,7 @@ impl Compiler {
         mut self,
         span: Span,
         name: impl Into<PicoStr>,
-        exports: Vec<Export>,
+        mut exports: Vec<Export>,
     ) -> CompiledCode {
         let scopes = self.scope.borrow();
         debug_assert!(scopes.captures.is_empty());
@@ -369,6 +369,7 @@ impl Compiler {
         let jumps = self.remapped_instructions();
         self.instructions.shrink_to_fit();
         self.spans.shrink_to_fit();
+        exports.shrink_to_fit();
         let registers = scopes.registers.borrow().len() as usize;
         CompiledCode {
             defaults: self.get_default_scope(),

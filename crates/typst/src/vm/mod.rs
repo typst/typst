@@ -53,8 +53,8 @@ pub fn eval(
     let introspector = Introspector::default();
     let mut engine = Engine {
         world,
-        introspector: introspector.track(),
         route: Route::extend(route).with_id(id),
+        introspector: introspector.track(),
         locator: &mut locator,
         tracer,
     };

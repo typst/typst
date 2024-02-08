@@ -1,11 +1,11 @@
 use comemo::{Prehashed, Track, Tracked};
 use iai::{black_box, main, Iai};
 use typst::diag::FileResult;
-use typst::eval::Tracer;
 use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook};
 use typst::visualize::Color;
+use typst::vm::Tracer;
 use typst::{Library, World};
 use unscanny::Scanner;
 
@@ -58,9 +58,9 @@ fn bench_edit(iai: &mut Iai) {
 fn bench_eval(iai: &mut Iai) {
     let world = BenchWorld::new();
     let route = typst::engine::Route::default();
-    let mut tracer = typst::eval::Tracer::new();
+    let mut tracer = typst::vm::Tracer::new();
     iai.run(|| {
-        typst::eval::eval(world.track(), route.track(), tracer.track_mut(), &world.source)
+        typst::vm::eval(world.track(), route.track(), tracer.track_mut(), &world.source)
             .unwrap()
     });
 }

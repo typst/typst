@@ -1,11 +1,11 @@
 use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
 use typst::engine::{Engine, Route};
-use typst::eval::{Tracer, Vm};
 use typst::foundations::{Label, Scopes, Value};
 use typst::introspection::{Introspector, Locator};
 use typst::model::{BibliographyElem, Document};
 use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
+use typst::vm::Tracer;
 use typst::World;
 
 /// Try to determine a set of possible values for an expression.
@@ -23,7 +23,7 @@ pub fn analyze_expr(world: &dyn World, node: &LinkedNode) -> EcoVec<Value> {
             let Some(child) = node.children().next() else { return eco_vec![] };
             analyze_expr(world, &child)
                 .into_iter()
-                .filter_map(|target| target.field(&access.field()).ok())
+                .filter_map(|target| target.field(access.field().get()).ok())
                 .collect()
         }
 
@@ -62,10 +62,11 @@ pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
         tracer: tracer.track_mut(),
     };
 
-    let mut vm = Vm::new(engine, Scopes::new(Some(world.library())), Span::detached());
+    /*let mut vm = Vm::new(engine, Scopes::new(Some(world.library())), Span::detached());
     typst::eval::import(&mut vm, source, Span::detached(), true)
         .ok()
-        .map(Value::Module)
+        .map(Value::Module)*/
+    todo!()
 }
 
 /// Find all labels and details for them.

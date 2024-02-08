@@ -30,6 +30,7 @@ use typst::loading::DATA_LOADING;
 use typst::math::MATH;
 use typst::model::Document;
 use typst::model::MODEL;
+use typst::pico;
 use typst::symbols::SYMBOLS;
 use typst::text::{Font, FontBook, TEXT};
 use typst::visualize::VISUALIZE;
@@ -48,7 +49,7 @@ static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| {
                 .scope()
                 .iter()
                 .filter(|(_, v)| matches!(v, Value::Func(_)))
-                .map(|(k, _)| k.clone())
+                .map(|(k, _)| k.to_owned())
                 .collect();
         }
     }
@@ -241,19 +242,20 @@ fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
 
     // Add functions.
     let scope = module.scope();
-    for (name, value) in scope.iter() {
+    for (name, value) in scope.iter_pico() {
         if scope.get_category(name) != Some(category) {
             continue;
         }
 
         if category == MATH {
             // Skip grouped functions.
-            if GROUPS.iter().flat_map(|group| &group.filter).any(|f| f == name) {
+            let resolved = name.resolve();
+            if GROUPS.iter().flat_map(|group| &group.filter).any(|f| *f == resolved) {
                 continue;
             }
 
             // Already documented in the text category.
-            if name == "text" {
+            if name == pico!("text") {
                 continue;
             }
         }
@@ -532,7 +534,7 @@ fn group_page(
 
     let mut outline_items = vec![];
     for name in &group.filter {
-        let value = group.module().scope().get(name).unwrap();
+        let value = group.module().scope().get(name as &str).unwrap();
         let Value::Func(func) = value else { panic!("not a function") };
         let func = func_model(resolver, func, &path, true);
         let id_base = urlify(&eco_format!("functions-{}", func.name));
@@ -644,7 +646,7 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
         let Value::Symbol(symbol) = value else { continue };
         let complete = |variant: &str| {
             if variant.is_empty() {
-                name.clone()
+                EcoString::from(name)
             } else {
                 eco_format!("{}.{}", name, variant)
             }
@@ -760,7 +762,7 @@ struct GroupData {
     #[serde(default)]
     path: Vec<EcoString>,
     #[serde(default)]
-    filter: Vec<EcoString>,
+    filter: Vec<String>,
     details: EcoString,
 }
 

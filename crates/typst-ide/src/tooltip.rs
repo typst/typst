@@ -2,12 +2,12 @@ use std::fmt::Write;
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
-use typst::eval::{CapturesVisitor, Tracer};
 use typst::foundations::{repr, CastInfo, Repr, Value};
 use typst::layout::Length;
 use typst::model::Document;
 use typst::syntax::{ast, LinkedNode, Source, SyntaxKind};
 use typst::util::{round_2, Numeric};
+use typst::vm::Tracer;
 use typst::World;
 
 use crate::analyze::{analyze_expr, analyze_labels};
@@ -119,7 +119,7 @@ fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
         return None;
     }
 
-    // Analyze the closure's captures.
+    /*// Analyze the closure's captures.
     let mut visitor = CapturesVisitor::new(None);
     visitor.visit(parent);
 
@@ -133,7 +133,8 @@ fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
     names.sort();
 
     let tooltip = repr::separated_list(&names, "and");
-    Some(Tooltip::Text(eco_format!("This closure captures {tooltip}.")))
+    Some(Tooltip::Text(eco_format!("This closure captures {tooltip}.")))*/
+    None
 }
 
 /// Tooltip text for a hovered length.
@@ -184,7 +185,7 @@ fn named_param_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> 
         };
 
         // Find metadata about the function.
-        if let Some(Value::Func(func)) = world.library().global.scope().get(&callee);
+        if let Some(Value::Func(func)) = world.library().global.scope().get(callee.get());
         then { (func, named) }
         else { return None; }
     };

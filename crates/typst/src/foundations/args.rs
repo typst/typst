@@ -88,20 +88,20 @@ impl Args {
     }
 
     /// Push a positional argument.
-    pub fn push(&mut self, span: Span, value: Value) {
+    pub fn push(&mut self, span: Span, value_span: Span, value: Value) {
         self.items.push(Arg {
-            span: self.span,
+            span,
             name: None,
-            value: Spanned::new(value, span),
+            value: Spanned::new(value, value_span),
         })
     }
 
     /// Push a named argument.
-    pub fn insert(&mut self, span: Span, name: PicoStr, value: Value) {
+    pub fn insert(&mut self, span: Span, value_span: Span, name: PicoStr, value: Value) {
         self.items.push(Arg {
-            span: self.span,
+            span,
             name: Some(name),
-            value: Spanned::new(value, span),
+            value: Spanned::new(value, value_span),
         })
     }
 
@@ -269,7 +269,7 @@ impl Extend<Value> for Args {
         let iter = iter.into_iter();
         self.items.reserve(iter.size_hint().0);
         for value in iter {
-            self.push(self.span, value);
+            self.push(self.span, self.span, value);
         }
     }
 }
@@ -279,7 +279,7 @@ impl Extend<(Str, Value)> for Args {
         let iter = iter.into_iter();
         self.items.reserve(iter.size_hint().0);
         for (name, value) in iter {
-            self.insert(self.span, PicoStr::new(&name), value);
+            self.insert(self.span, self.span, PicoStr::new(&name), value);
         }
     }
 }

@@ -221,7 +221,8 @@ impl Scope {
     }
 
     /// Get the category of a definition.
-    pub fn get_category(&self, var: PicoStr) -> Option<Category> {
+    pub fn get_category(&self, var: impl Into<PicoStr>) -> Option<Category> {
+        let var = var.into();
         self.map.get(&var)?.category
     }
 

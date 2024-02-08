@@ -3,7 +3,8 @@ use std::sync::Arc;
 
 use typst_syntax::Span;
 
-use crate::diag::{bail, At, SourceResult};
+use crate::diag::{bail, At, SourceResult, Trace, Tracepoint};
+use crate::engine::Engine;
 use crate::foundations::{call_method_access, Args, IntoValue, Type, Value};
 use crate::util::PicoStr;
 
@@ -122,6 +123,7 @@ impl Access {
         &self,
         span: Span,
         vm: &'b mut VMState<'a, '_>,
+        engine: &mut Engine,
     ) -> SourceResult<&'b mut Value> {
         match self {
             Access::Readable(_) => {
@@ -139,7 +141,7 @@ impl Access {
             }
             Access::Type(_) => bail!(span, "cannot write to a type, malformed access"),
             Access::Chained(value, field) => {
-                let value = value.write(span, vm)?;
+                let value = value.write(span, vm, engine)?;
                 match value {
                     Value::Dict(dict) => dict.at_mut(field.resolve()).at(span),
                     value => {
@@ -184,9 +186,14 @@ impl Access {
                 };
 
                 // Get the callee.
-                let value = value.write(span, vm)?;
+                let value = value.write(span, vm, engine)?;
 
-                call_method_access(value, method.resolve(), args, span)
+                let point = || Tracepoint::Call(Some(method.resolve().into()));
+                call_method_access(value, method.resolve(), args, span).trace(
+                    engine.world,
+                    point,
+                    span,
+                )
             }
         }
     }

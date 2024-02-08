@@ -59,7 +59,7 @@ fn resolve_definition(head: &str) -> StrResult<String> {
 
     while let Some(name) = parts.peek() {
         if category.is_none() {
-            category = focus.scope().get_category(name);
+            category = focus.scope().get_category(*name);
         }
         let Ok(module) = get_module(focus, name) else { break };
         focus = module;
@@ -73,7 +73,7 @@ fn resolve_definition(head: &str) -> StrResult<String> {
 
     // Handle grouped functions.
     if let Some(group) = GROUPS.iter().find(|group| {
-        group.category == category.name() && group.filter.iter().any(|func| func == name)
+        group.category == category.name() && group.filter.iter().any(|func| *func == name)
     }) {
         let mut route = format!(
             "/docs/reference/{}/{}/#functions-{}",

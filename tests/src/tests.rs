@@ -30,7 +30,6 @@ use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use tiny_skia as sk;
 use typst::diag::{bail, FileError, FileResult, Severity, SourceDiagnostic, StrResult};
-use typst::eval::Tracer;
 use typst::foundations::{func, Bytes, Datetime, NoneValue, Repr, Smart, Value};
 use typst::introspection::Meta;
 use typst::layout::{Abs, Frame, FrameItem, Margin, Page, PageElem, Transform};
@@ -38,6 +37,7 @@ use typst::model::Document;
 use typst::syntax::{FileId, Source, SyntaxNode, VirtualPath};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::visualize::Color;
+use typst::vm::Tracer;
 use typst::{Library, World, WorldExt};
 use walkdir::WalkDir;
 
@@ -863,10 +863,10 @@ fn test_diagnostics<'a>(
 fn print_model(world: &mut TestWorld, source: &Source, output: &mut String) {
     let world = (world as &dyn World).track();
     let route = typst::engine::Route::default();
-    let mut tracer = typst::eval::Tracer::new();
+    let mut tracer = typst::vm::Tracer::new();
 
     let module =
-        typst::eval::eval(world, route.track(), tracer.track_mut(), source).unwrap();
+        typst::vm::eval(world, route.track(), tracer.track_mut(), source).unwrap();
     writeln!(output, "Model:\n{:#?}\n", module.content()).unwrap();
 }
 

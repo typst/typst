@@ -464,7 +464,7 @@ impl VmRead for SpanId {
     type Output<'a, 'b> = Span where 'a: 'b;
 
     fn read<'a, 'b>(&self, vm: &'b VMState<'a, '_>) -> Self::Output<'a, 'b> {
-        vm.code.spans[self.0 as usize]
+        vm.code.isr_spans[self.0 as usize]
     }
 }
 

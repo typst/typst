@@ -41,11 +41,7 @@ impl Compile for ast::ModuleImport<'_> {
                 ast::Imports::Wildcard => {
                     // Import all names.
                     for (name, value) in module.scope().iter() {
-                        compiler.declare_default(
-                            self.span(),
-                            name,
-                            value.clone(),
-                        );
+                        compiler.declare_default(self.span(), name, value.clone());
                     }
                 }
                 ast::Imports::Items(items) => {

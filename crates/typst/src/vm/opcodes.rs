@@ -479,7 +479,7 @@ impl Run for Assign {
         _: &[Span],
         span: Span,
         vm: &mut VMState,
-        _: &mut Engine,
+        engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
         // Get the value.
@@ -489,7 +489,16 @@ impl Run for Assign {
         let access = vm.read(self.out);
 
         // Get the mutable reference to the target.
-        let out = access.write(span, vm)?;
+        if let Access::Chained(dict, field) = access {
+            if let Access::Writable(dict) = &**dict {
+                if let Value::Dict(dict) = vm.write(*dict) {
+                    dict.insert(field.resolve().into(), value);
+                    return Ok(());
+                }
+            }
+        }
+
+        let out = access.write(span, vm, engine)?;
 
         // Write the value to the target.
         *out = value;
@@ -505,7 +514,7 @@ impl Run for AddAssign {
         _: &[Span],
         span: Span,
         vm: &mut VMState,
-        _: &mut Engine,
+        engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
         // Get the value.
@@ -515,7 +524,7 @@ impl Run for AddAssign {
         let access = vm.read(self.out);
 
         // Get the mutable reference to the target.
-        let out = access.write(span, vm)?;
+        let out = access.write(span, vm, engine)?;
 
         // Take the p: Transformationrevious value. (non-allocating)
         let pre = std::mem::take(out);
@@ -534,7 +543,7 @@ impl Run for SubAssign {
         _: &[Span],
         span: Span,
         vm: &mut VMState,
-        _: &mut Engine,
+        engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
         // Get the value.
@@ -544,7 +553,7 @@ impl Run for SubAssign {
         let access = vm.read(self.out);
 
         // Get the mutable reference to the target.
-        let out = access.write(span, vm)?;
+        let out = access.write(span, vm, engine)?;
 
         // Take the previous value. (non-allocating)
         let pre = std::mem::take(out);
@@ -563,7 +572,7 @@ impl Run for MulAssign {
         _: &[Span],
         span: Span,
         vm: &mut VMState,
-        _: &mut Engine,
+        engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
         // Get the value.
@@ -573,7 +582,7 @@ impl Run for MulAssign {
         let access = vm.read(self.out);
 
         // Get the mutable reference to the target.
-        let out = access.write(span, vm)?;
+        let out = access.write(span, vm, engine)?;
 
         // Take the previous value. (non-allocating)
         let pre = std::mem::take(out);
@@ -592,7 +601,7 @@ impl Run for DivAssign {
         _: &[Span],
         span: Span,
         vm: &mut VMState,
-        _: &mut Engine,
+        engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
         // Get the value.
@@ -602,7 +611,7 @@ impl Run for DivAssign {
         let access = vm.read(self.out);
 
         // Get the mutable reference to the target.
-        let out = access.write(span, vm)?;
+        let out = access.write(span, vm, engine)?;
 
         // Take the previous value. (non-allocating)
         let pre = std::mem::take(out);
@@ -621,7 +630,7 @@ impl Run for Destructure {
         _: &[Span],
         _: Span,
         vm: &mut VMState,
-        _: &mut Engine,
+        engine: &mut Engine,
         _: Option<&mut dyn Iterator<Item = Value>>,
     ) -> SourceResult<()> {
         // Get the value.
@@ -631,7 +640,7 @@ impl Run for Destructure {
         let pattern = vm.read(self.out);
 
         // Destructure the value.
-        pattern.write(vm, value)?;
+        pattern.write(vm, engine, value)?;
 
         Ok(())
     }
@@ -964,10 +973,15 @@ impl Run for Call {
         match accessor {
             Access::Chained(rest, last) if is_mutating_method(*last) => {
                 // Obtain the value.
-                let mut value = rest.write(span, vm)?;
+                let mut value = rest.write(span, vm, engine)?;
 
                 // Call the method.
-                let value = call_method_mut(&mut value, *last, args, span)?;
+                let point = || Tracepoint::Call(Some(last.resolve().into()));
+                let value = call_method_mut(&mut value, *last, args, span).trace(
+                    engine.world,
+                    point,
+                    span,
+                )?;
 
                 // Write the value to the output.
                 vm.write_one(self.out, value).at(span)?;
@@ -1393,7 +1407,7 @@ impl Run for PushArg {
             bail!(span, "expected argument set, found {}", value.ty().long_name());
         };
 
-        args.push(value_span, value);
+        args.push(span, value_span, value);
 
         Ok(())
     }
@@ -1420,7 +1434,7 @@ impl Run for InsertArg {
             bail!(span, "expected argument set, found {}", value.ty());
         };
 
-        args.insert(value_span, self.key, value);
+        args.insert(span, value_span, self.key, value);
 
         Ok(())
     }
