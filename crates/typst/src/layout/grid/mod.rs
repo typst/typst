@@ -1,8 +1,8 @@
 mod layout;
 
 pub use self::layout::{
-    Cell, CellGrid, Celled, GridItem, GridLayouter, ResolvableCell, ResolvedGridStroke,
-    ResolvedInsideStroke,
+    Cell, CellGrid, Celled, GridItem, GridLayouter, LinePosition, ResolvableCell,
+    ResolvedGridStroke, ResolvedInsideStroke,
 };
 
 use std::num::NonZeroUsize;
@@ -318,6 +318,12 @@ impl LayoutMultiple for Packed<GridElem> {
                 end: hline.end(styles),
                 stroke: hline.stroke(styles),
                 span: hline.span(),
+                position: match hline.position(styles) {
+                    VAlignment::Top => LinePosition::Before,
+                    VAlignment::Bottom => LinePosition::After,
+                    // Horizon is forbidden
+                    _ => unreachable!(),
+                },
             },
             GridChild::VLine(vline) => GridItem::VLine {
                 x: vline.x(styles),
@@ -325,6 +331,12 @@ impl LayoutMultiple for Packed<GridElem> {
                 end: vline.end(styles),
                 stroke: vline.stroke(styles),
                 span: vline.span(),
+                position: match vline.position(styles) {
+                    HAlignment::Left => LinePosition::Before,
+                    HAlignment::Right => LinePosition::After,
+                    // Other horizontal positions forbidden
+                    _ => unreachable!(),
+                },
             },
             GridChild::Cell(cell) => GridItem::Cell(cell.clone()),
         });

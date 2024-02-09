@@ -10,8 +10,8 @@ use crate::foundations::{
 };
 use crate::layout::{
     show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Fragment, GridItem,
-    GridLayouter, GridStroke, HAlignment, LayoutMultiple, Length, Regions, Rel,
-    ResolvableCell, ResolvedInsideStroke, Sides, TrackSizings, VAlignment,
+    GridLayouter, GridStroke, HAlignment, LayoutMultiple, Length, LinePosition, Regions,
+    Rel, ResolvableCell, ResolvedInsideStroke, Sides, TrackSizings, VAlignment,
 };
 use crate::model::Figurable;
 use crate::syntax::{Span, Spanned};
@@ -243,6 +243,12 @@ impl LayoutMultiple for Packed<TableElem> {
                 end: hline.end(styles),
                 stroke: hline.stroke(styles),
                 span: hline.span(),
+                position: match hline.position(styles) {
+                    VAlignment::Top => LinePosition::Before,
+                    VAlignment::Bottom => LinePosition::After,
+                    // Horizon is forbidden
+                    _ => unreachable!(),
+                },
             },
             TableChild::VLine(vline) => GridItem::VLine {
                 x: vline.x(styles),
@@ -250,6 +256,12 @@ impl LayoutMultiple for Packed<TableElem> {
                 end: vline.end(styles),
                 stroke: vline.stroke(styles),
                 span: vline.span(),
+                position: match vline.position(styles) {
+                    HAlignment::Left => LinePosition::Before,
+                    HAlignment::Right => LinePosition::After,
+                    // Other horizontal positions forbidden
+                    _ => unreachable!(),
+                },
             },
             TableChild::Cell(cell) => GridItem::Cell(cell.clone()),
         });

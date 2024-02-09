@@ -203,30 +203,44 @@ where
     }
 }
 
+/// Indicates whether the line should be drawn before or after the track with
+/// its index. This is mostly only relevant when gutter is used, since, then,
+/// the position after a track is not the same as before the next
+/// non-gutter track.
+#[derive(PartialEq, Eq)]
+pub enum LinePosition {
+    /// The line should be drawn before its track (e.g. hline on top of a row).
+    Before,
+    /// The line should be drawn after its track (e.g. hline below a row).
+    After,
+}
+
 /// Represents an explicit grid line (horizontal or vertical) specified by the
 /// user.
-#[allow(dead_code)]
 pub struct Line {
     /// The index of the track after this line. This will be the index of the
     /// row a horizontal line is above of, or of the column right after a
     /// vertical line.
     /// Must be within `0..=tracks.len()` (where `tracks` is either `grid.cols`
-    /// or `grid.rows`, as appropriate).
+    /// or `grid.rows`, ignoring gutter tracks, as appropriate).
     index: usize,
     /// The index of the track at which this line starts being drawn.
     /// This is the first column a horizontal line appears in, or the first row
     /// a vertical line appears in.
-    /// Must be within `0..tracks.len()`.
+    /// Must be within `0..tracks.len()` minus gutter tracks.
     start: usize,
     /// The index after the last track through which the line is drawn.
     /// Thus, the line is drawn through tracks `start..end` (note that `end` is
     /// exclusive).
-    /// Must be within `1..=tracks.len()`.
+    /// Must be within `1..=tracks.len()` minus gutter tracks.
     /// None indicates the line should go all the way to the end.
     end: Option<NonZeroUsize>,
     /// The line's stroke. This is `None` when the line is explicitly used to
     /// simply remove an automatic line.
     stroke: Option<Arc<Stroke<Abs>>>,
+    /// The line's position in relation to the track with its index.
+    #[allow(dead_code)]
+    position: LinePosition,
 }
 
 /// Represents a cell in CellGrid, to be laid out by GridLayouter.
@@ -301,6 +315,9 @@ pub enum GridItem<T: ResolvableCell> {
         stroke: Option<Arc<Stroke<Abs>>>,
         /// The span of the corresponding line element.
         span: Span,
+        /// The line's position. "before" here means on top of row 'y', while
+        /// "after" means below it.
+        position: LinePosition,
     },
     /// A vertical line in the grid.
     VLine {
@@ -311,6 +328,9 @@ pub enum GridItem<T: ResolvableCell> {
         stroke: Option<Arc<Stroke<Abs>>>,
         /// The span of the corresponding line element.
         span: Span,
+        /// The line's position. "before" here means to the left of column 'x',
+        /// while "after" means to its right (both considering LTR).
+        position: LinePosition,
     },
     /// A cell in the grid.
     Cell(T),
@@ -359,11 +379,9 @@ pub struct CellGrid {
     stroke: ResolvedGridStroke,
     /// The vertical lines before each column, or on the right border.
     /// Contains up to 'cols.len() + 1' vectors of lines.
-    #[allow(dead_code)]
     vlines: Vec<Vec<Line>>,
     /// The horizontal lines on top of each row, or on the bottom border.
     /// Contains up to 'rows.len() + 1' vectors of lines.
-    #[allow(dead_code)]
     hlines: Vec<Vec<Line>>,
     /// Whether this grid has gutters.
     has_gutter: bool,
@@ -421,6 +439,7 @@ impl CellGrid {
         // validity.
         // We keep their spans so we can report errors later.
         let mut pending_hlines: Vec<(Span, Line)> = Vec::new();
+        let has_gutter = gutter.any(|tracks| !tracks.is_empty());
 
         // We can't just use the cell's index in the 'cells' vector to
         // determine its automatic position, since cells could have arbitrary
@@ -448,7 +467,7 @@ impl CellGrid {
         let mut resolved_cells: Vec<Option<Entry>> = Vec::with_capacity(item_count);
         for item in items {
             let cell = match item {
-                GridItem::HLine { y, start, end, stroke, span } => {
+                GridItem::HLine { y, start, end, stroke, span, position } => {
                     let y = y.as_custom().unwrap_or_else(|| {
                         // When no 'y' is specified for the hline, we place it
                         // under the latest automatically positioned cell.
@@ -465,6 +484,20 @@ impl CellGrid {
                             .checked_sub(1)
                             .map_or(0, |last_auto_index| last_auto_index / c + 1)
                     });
+                    let line = if position == LinePosition::After && !has_gutter {
+                        // Just place the line on top of the next row if
+                        // there's no gutter and the line should be placed
+                        // after the one with given index.
+                        Line {
+                            index: y + 1,
+                            start,
+                            end,
+                            stroke,
+                            position: LinePosition::Before,
+                        }
+                    } else {
+                        Line { index: y, start, end, stroke, position }
+                    };
                     // Since the amount of rows is dynamic, delay placing
                     // hlines until after all cells were placed so we can
                     // properly verify if they are valid. Note that we can't
@@ -477,10 +510,10 @@ impl CellGrid {
                     // matters when determining which one "wins" in case of
                     // conflict. Pushing the current hline before we push
                     // pending hlines later would change their order!
-                    pending_hlines.push((span, Line { index: y, start, end, stroke }));
+                    pending_hlines.push((span, line));
                     continue;
                 }
-                GridItem::VLine { x, start, end, stroke, span } => {
+                GridItem::VLine { x, start, end, stroke, span, position } => {
                     let x = x.as_custom().unwrap_or_else(|| {
                         // When no 'x' is specified for the vline, we place it
                         // after the latest automatically positioned cell.
@@ -497,13 +530,30 @@ impl CellGrid {
                             .checked_sub(1)
                             .map_or(0, |last_auto_index| last_auto_index % c + 1)
                     });
+                    let (x, line) = if position == LinePosition::After && !has_gutter {
+                        // Just place the line before the next column if
+                        // there's no gutter and the line should be placed
+                        // after the one with given index.
+                        (
+                            x + 1,
+                            Line {
+                                index: x + 1,
+                                start,
+                                end,
+                                stroke,
+                                position: LinePosition::Before,
+                            },
+                        )
+                    } else {
+                        (x, Line { index: x, start, end, stroke, position })
+                    };
                     if x > c {
                         bail!(span, "cannot place vertical line at invalid column");
                     }
                     if vlines.len() <= x {
                         vlines.resize_with(x + 1, Vec::new);
                     }
-                    vlines[x].push(Line { index: x, start, end, stroke });
+                    vlines[x].push(line);
                     continue;
                 }
                 GridItem::Cell(cell) => cell,
