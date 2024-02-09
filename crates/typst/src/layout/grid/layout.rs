@@ -1816,13 +1816,8 @@ where
                         })
                         .unwrap_or_else(|| track >= gutter_factor * line.start)
             })
-            .fold(stroke.cloned(), |stroke, line| {
-                match (stroke, line.stroke.as_ref().cloned()) {
-                    // Fold with priority to the line specified last.
-                    (Some(stroke), Some(line_stroke)) => Some(line_stroke.fold(stroke)),
-                    (stroke, line_stroke) => stroke.or(line_stroke),
-                }
-            });
+            .map(|line| line.stroke.as_ref().cloned())
+            .fold(stroke.cloned(), |acc, line_stroke| line_stroke.fold(acc));
 
         // The function shall determine if it is appropriate to draw the line
         // at this position or not (i.e. whether or not it would cross a merged
