@@ -299,7 +299,7 @@ impl Compiler {
         self_storage: Option<RegisterGuard>,
     ) -> CompiledCode {
         let scopes = self.scope.borrow();
-        let captures = scopes
+        let captures: Vec<_> = scopes
             .captures
             .values()
             .map(|capture| CodeCapture {
@@ -315,25 +315,25 @@ impl Compiler {
         self.spans.shrink_to_fit();
         let registers = scopes.registers.borrow().len() as usize;
         CompiledCode {
-            defaults: self.get_default_scope(),
+            defaults: self.get_default_scope().into(),
             span,
             registers,
             name: self.name,
-            instructions: self.instructions,
-            spans: self.spans,
+            instructions: self.instructions.into(),
+            spans: self.spans.into(),
             global: scopes.global().clone(),
-            constants: self.common.constants.into_values(),
-            strings: self.common.strings.into_values(),
-            closures: self.common.closures.into_values(),
-            accesses: self.common.accesses.into_values(),
-            labels: self.common.labels.into_values(),
-            patterns: self.common.patterns.into_values(),
-            isr_spans: self.common.spans.into_values(),
-            jumps,
-            captures,
-            params,
+            constants: self.common.constants.into_values().into(),
+            strings: self.common.strings.into_values().into(),
+            closures: self.common.closures.into_values().into(),
+            accesses: self.common.accesses.into_values().into(),
+            labels: self.common.labels.into_values().into(),
+            patterns: self.common.patterns.into_values().into(),
+            isr_spans: self.common.spans.into_values().into(),
+            jumps: jumps.into(),
+            captures: Some(captures.into()),
+            params: Some(params.into()),
             self_storage: self_storage.map(|r| r.as_register()),
-            exports: vec![],
+            exports: None,
         }
     }
 
@@ -352,25 +352,25 @@ impl Compiler {
         exports.shrink_to_fit();
         let registers = scopes.registers.borrow().len() as usize;
         CompiledCode {
-            defaults: self.get_default_scope(),
+            defaults: self.get_default_scope().into(),
             span,
             registers,
             name: Some(name.into()),
-            instructions: self.instructions,
-            spans: self.spans,
+            instructions: self.instructions.into(),
+            spans: self.spans.into(),
             global: scopes.global().clone(),
-            constants: self.common.constants.into_values(),
-            strings: self.common.strings.into_values(),
-            closures: self.common.closures.into_values(),
-            accesses: self.common.accesses.into_values(),
-            labels: self.common.labels.into_values(),
-            patterns: self.common.patterns.into_values(),
-            isr_spans: self.common.spans.into_values(),
-            jumps,
-            captures: vec![],
-            params: vec![],
+            constants: self.common.constants.into_values().into(),
+            strings: self.common.strings.into_values().into(),
+            closures: self.common.closures.into_values().into(),
+            accesses: self.common.accesses.into_values().into(),
+            labels: self.common.labels.into_values().into(),
+            patterns: self.common.patterns.into_values().into(),
+            isr_spans: self.common.spans.into_values().into(),
+            jumps: jumps.into(),
+            captures: None,
+            params: None,
             self_storage: None,
-            exports,
+            exports: Some(exports.into()),
         }
     }
 

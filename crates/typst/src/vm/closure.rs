@@ -53,6 +53,7 @@ impl Closure {
         let params = compiled
             .params
             .iter()
+            .flat_map(|params| params.iter())
             .map(|param| match param {
                 CompiledParam::Pos(output, name) => {
                     (Some(*output), Param::Pos(name.clone()))
@@ -146,7 +147,7 @@ impl Closure {
         };
 
         // Write all default values.
-        for default in &self.inner.compiled.defaults {
+        for default in self.inner.compiled.defaults.iter() {
             state
                 .write_borrowed(default.target, &default.value)
                 .at(self.inner.compiled.span)?;

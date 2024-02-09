@@ -81,7 +81,7 @@ fn run_module_internal<'a>(
     };
 
     // Write all default values.
-    for default in &module.inner.defaults {
+    for default in &*module.inner.defaults {
         state
             .write_one(default.target, default.value.clone())
             .at(module.inner.span)?;
@@ -100,8 +100,8 @@ fn run_module_internal<'a>(
 
     let scope = scope.then(|| {
         let mut scope = Scope::new();
-        for export in &module.inner.exports {
-            scope.define(export.name.clone(), state.read(export.value).clone());
+        for export in module.inner.exports.iter().flat_map(|e| e.iter()) {
+            scope.define(export.name, state.read(export.value).clone());
         }
         scope
     });

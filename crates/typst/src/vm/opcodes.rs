@@ -1057,7 +1057,7 @@ impl Run for While {
         let output = match flow {
             ControlFlow::Done(value) => value,
             ControlFlow::Break(_) | ControlFlow::Continue(_) => {
-                unreachable!("unexpected control flow")
+                bail!(span, "unexpected control flow, malformed instruction")
             }
             ControlFlow::Return(value, forced) => {
                 vm.state.set_returning(forced);

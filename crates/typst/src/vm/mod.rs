@@ -133,7 +133,7 @@ impl<'a> Vm<'a, '_> {
             self.joined = Some(Joiner::Recipe {
                 parent: None,
                 content: SequenceElem::new(vec![]),
-                recipe,
+                recipe: Box::new(recipe),
             });
         }
 
@@ -154,8 +154,9 @@ impl<'a> Vm<'a, '_> {
         };
 
         // Load the default values for the parameters.
-        let mut params = Vec::with_capacity(closure.params.len());
-        for param in &closure.params {
+        let mut params =
+            Vec::with_capacity(closure.params.as_ref().map_or(0, |p| p.len()));
+        for param in closure.params.iter().flat_map(|p| p.iter()) {
             match param {
                 CompiledParam::Pos(target, pos) => {
                     params.push((Some(*target), Param::Pos(*pos)))
@@ -176,8 +177,9 @@ impl<'a> Vm<'a, '_> {
         }
 
         // Load the captured values.
-        let mut captures = Vec::with_capacity(closure.captures.len());
-        for capture in &closure.captures {
+        let mut captures =
+            Vec::with_capacity(closure.captures.as_ref().map_or(0, |c| c.len()));
+        for capture in closure.captures.iter().flat_map(|c| c.iter()) {
             captures.push((capture.register, self.read(capture.readable).clone()));
         }
 
@@ -222,7 +224,7 @@ enum Joiner {
     Value(Value),
     Display(SequenceElem),
     Styled { parent: Option<Box<Joiner>>, styles: Styles, content: SequenceElem },
-    Recipe { parent: Option<Box<Joiner>>, recipe: Recipe, content: SequenceElem },
+    Recipe { parent: Option<Box<Joiner>>, recipe: Box<Recipe>, content: SequenceElem },
 }
 
 impl Joiner {
@@ -319,7 +321,7 @@ impl Joiner {
         Self::Recipe {
             parent: Some(Box::new(self)),
             content: SequenceElem::new(vec![]),
-            recipe,
+            recipe: Box::new(recipe),
         }
     }
 
@@ -365,7 +367,7 @@ impl Joiner {
                         content.push(rest);
                     }
 
-                    let rest = content.pack().styled_with_recipe(engine, recipe)?;
+                    let rest = content.pack().styled_with_recipe(engine, *recipe)?;
                     if let Some(parent) = parent {
                         collect_inner(*parent, engine, Some(rest))?
                     } else {
@@ -459,6 +461,7 @@ pub fn run<'a: 'b, 'b, 'c>(
                         continue;
                     }
                     Flow::Break | Flow::Return(_) | Flow::Done => {
+                        vm.state.set_done();
                         break;
                     }
                 }

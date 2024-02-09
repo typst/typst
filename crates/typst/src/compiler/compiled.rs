@@ -14,37 +14,37 @@ pub struct CompiledCode {
     /// The span where the code was defined.
     pub span: Span,
     /// The instructions as byte code.
-    pub instructions: Vec<Opcode>,
+    pub instructions: Box<[Opcode]>,
     /// The spans of the instructions.
-    pub spans: Vec<Span>,
+    pub spans: Box<[Span]>,
     /// The global library.
     pub global: Library,
     /// The number of registers needed for the code.
     pub registers: usize,
     /// The list of constants.
-    pub constants: Vec<Value>,
+    pub constants: Box<[Value]>,
     /// The list of strings.
-    pub strings: Vec<Value>,
+    pub strings: Box<[Value]>,
     /// The list of closures.
-    pub closures: Vec<CompiledClosure>,
+    pub closures: Box<[CompiledClosure]>,
     /// The accesses.
-    pub accesses: Vec<Access>,
+    pub accesses: Box<[Access]>,
     /// The list of labels.
-    pub labels: Vec<Label>,
+    pub labels: Box<[Label]>,
     /// The list of patterns.
-    pub patterns: Vec<Pattern>,
+    pub patterns: Box<[Pattern]>,
     /// The default values of variables.
-    pub defaults: Vec<DefaultValue>,
+    pub defaults: Box<[DefaultValue]>,
     /// The spans used in the code.
-    pub isr_spans: Vec<Span>,
+    pub isr_spans: Box<[Span]>,
     /// The jumps used in the code.
-    pub jumps: Vec<usize>,
+    pub jumps: Box<[usize]>,
     /// The exports of the module (empty for closures).
-    pub exports: Vec<Export>,
+    pub exports: Option<Box<[Export]>>,
     /// The captures of the code (empty for modules).
-    pub captures: Vec<CodeCapture>,
+    pub captures: Option<Box<[CodeCapture]>>,
     /// The parameters of the code(empty for modules).
-    pub params: Vec<CompiledParam>,
+    pub params: Option<Box<[CompiledParam]>>,
     /// Where to store the reference to the closure itself(empty for modules).
     pub self_storage: Option<Register>,
 }

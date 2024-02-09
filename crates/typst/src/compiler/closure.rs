@@ -31,11 +31,12 @@ impl CompiledClosure {
         let has_defaults = resource
             .params
             .iter()
+            .flat_map(|param| param.iter())
             .filter_map(|param| param.default())
             .any(|default| default.is_reg());
 
         // Check if we have any captures.
-        let has_captures = !resource.captures.is_empty();
+        let has_captures = !resource.captures.as_ref().map_or(false, |c| c.is_empty());
 
         if has_defaults || has_captures {
             Self::Closure(Arc::new(Prehashed::new(resource)))
