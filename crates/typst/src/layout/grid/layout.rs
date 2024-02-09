@@ -239,7 +239,6 @@ pub struct Line {
     /// simply remove an automatic line.
     stroke: Option<Arc<Stroke<Abs>>>,
     /// The line's position in relation to the track with its index.
-    #[allow(dead_code)]
     position: LinePosition,
 }
 
@@ -547,7 +546,11 @@ impl CellGrid {
                     } else {
                         (x, Line { index: x, start, end, stroke, position })
                     };
-                    if x > c {
+                    // There must exist at least one more column for this line
+                    // to be effectively drawn, if "After" position was chosen.
+                    let visual_index =
+                        if line.position == LinePosition::After { x + 1 } else { x };
+                    if visual_index > c {
                         bail!(span, "cannot place vertical line at invalid column");
                     }
                     if vlines.len() <= x {
@@ -704,7 +707,11 @@ impl CellGrid {
 
         for (span, line) in pending_hlines {
             let y = line.index;
-            if resolved_cells.len().div_ceil(c) < y {
+            // There must exist at least one more row for this line to be
+            // effectively drawn, if "After" position was chosen.
+            let visual_index =
+                if line.position == LinePosition::After { y + 1 } else { y };
+            if resolved_cells.len().div_ceil(c) < visual_index {
                 bail!(span, "cannot place horizontal line at invalid row");
             }
             if hlines.len() <= y {
@@ -1061,16 +1068,26 @@ impl<'a> GridLayouter<'a> {
                 .chain(rows.iter().map(|piece| piece.y).skip(1))
                 .chain(std::iter::once(self.grid.rows.len()));
             for (y, dy) in hline_indices.zip(hline_offsets) {
-                let hlines_at_row = if self.grid.has_gutter && y % 2 == 1 {
-                    // TODO: allow specifying lines before gutter
-                    &[]
-                } else {
-                    self.grid
-                        .hlines
-                        .get(if self.grid.has_gutter { y / 2 } else { y })
-                        .map(|hlines| &**hlines)
-                        .unwrap_or(&[])
-                };
+                let is_bottom_border = y == self.grid.rows.len();
+                // Note that the index of the hlines that we're getting will
+                // round down to the index of the row immediately before the
+                // current row if it is a gutter row (since then 'y' is odd).
+                // This is intentional - inside 'generate_line_segments', we
+                // only draw lines with 'LinePosition::After' on top of gutter
+                // rows; the rest is ignored. Likewise, for non-gutter rows,
+                // we only draw lines with 'LinePosition::Before'.
+                let hlines_at_row = self
+                    .grid
+                    .hlines
+                    .get(if !self.grid.has_gutter {
+                        y
+                    } else if is_bottom_border {
+                        y / 2 + 1
+                    } else {
+                        y / 2
+                    })
+                    .map(|hlines| &**hlines)
+                    .unwrap_or(&[]);
                 let tracks = self.rcols.iter().copied().enumerate();
 
                 // Apply top / bottom border stroke overrides.
@@ -1083,7 +1100,7 @@ impl<'a> GridLayouter<'a> {
                         .as_ref()
                         .map(|border_stroke| border_stroke.clone().fold(stroke.clone()))
                         .unwrap_or_else(|| stroke.clone()),
-                    y if y == self.grid.rows.len() => self
+                    _ if is_bottom_border => self
                         .grid
                         .stroke
                         .outside
@@ -1102,6 +1119,7 @@ impl<'a> GridLayouter<'a> {
                     y,
                     stroke.as_ref(),
                     hlines_at_row,
+                    is_bottom_border,
                     hline_stroke_at_column,
                 ) {
                     let stroke = (*stroke).clone().unwrap_or_default();
@@ -1120,16 +1138,24 @@ impl<'a> GridLayouter<'a> {
             // Render vertical lines.
             for (x, dx) in points(self.rcols.iter().copied()).enumerate() {
                 let dx = if self.is_rtl { self.width - dx } else { dx };
-                let vlines_at_column = if self.grid.has_gutter && x % 2 == 1 {
-                    // TODO: allow specifying lines before gutter
-                    &[]
-                } else {
-                    self.grid
-                        .vlines
-                        .get(if self.grid.has_gutter { x / 2 } else { x })
-                        .map(|vlines| &**vlines)
-                        .unwrap_or(&[])
-                };
+                let is_right_border = x == self.grid.cols.len();
+                // Note that the index of the vlines that we're getting will
+                // round down to the index of the column immediately before the
+                // current one if it is a gutter column (since then 'x' is
+                // odd). This is intentional, for the same reason we do this
+                // for hlines.
+                let vlines_at_column = self
+                    .grid
+                    .vlines
+                    .get(if !self.grid.has_gutter {
+                        x
+                    } else if is_right_border {
+                        x / 2 + 1
+                    } else {
+                        x / 2
+                    })
+                    .map(|vlines| &**vlines)
+                    .unwrap_or(&[]);
                 let tracks = rows.iter().map(|row| (row.y, row.height));
 
                 // Apply left / right border stroke overrides.
@@ -1142,7 +1168,7 @@ impl<'a> GridLayouter<'a> {
                         .as_ref()
                         .map(|border_stroke| border_stroke.clone().fold(stroke.clone()))
                         .unwrap_or_else(|| stroke.clone()),
-                    x if x == self.grid.cols.len() => self
+                    _ if is_right_border => self
                         .grid
                         .stroke
                         .outside
@@ -1164,6 +1190,7 @@ impl<'a> GridLayouter<'a> {
                     x,
                     stroke.as_ref(),
                     vlines_at_column,
+                    is_right_border,
                     vline_stroke_at_row,
                 ) {
                     let stroke = (*stroke).clone().unwrap_or_default();
@@ -1709,10 +1736,11 @@ fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
 /// (for example, the column at which vertical lines will be drawn); the
 /// default stroke of lines at this index (used if there aren't any overrides
 /// by intersecting cells or user-specified lines); a list of user-specified
-/// lines with the same index (the `lines` parameter); and a function
-/// which returns the final stroke that should be used for each track the line
-/// goes through (its parameters are the grid, the track number, the index of
-/// the line to be drawn and the default stroke at this index).
+/// lines with the same index (the `lines` parameter); whether the given index
+/// corresponds to the maximum index for the line's axis; and a function which
+/// returns the final stroke that should be used for each track the line goes
+/// through (its parameters are the grid, the track number, the index of the
+/// line to be drawn and the default stroke at this index).
 /// Contiguous segments with the same stroke are joined together automatically.
 /// The function should return 'None' for positions at which the line would
 /// otherwise cross a merged cell (for example, a vline could cross a colspan),
@@ -1728,6 +1756,7 @@ fn generate_line_segments<F>(
     index: usize,
     stroke: Option<&Arc<Stroke<Abs>>>,
     lines: &[Line],
+    is_max_index: bool,
     line_stroke_at_track: F,
 ) -> impl IntoIterator<Item = (Arc<Stroke<Abs>>, Abs, Abs)>
 where
@@ -1746,6 +1775,15 @@ where
     let mut offset = Abs::zero();
     // How much to multiply line indices by to account for gutter.
     let gutter_factor = if grid.has_gutter { 2 } else { 1 };
+    // Which line position to look for in the given list of lines.
+    // If the index represents a gutter track, this means the list of lines at
+    // this index will actually correspond to the list of lines in the previous
+    // index, so we must look for lines positioned after it, and not before.
+    let expected_line_position = if grid.has_gutter && index % 2 == 1 && !is_max_index {
+        LinePosition::After
+    } else {
+        LinePosition::Before
+    };
 
     // We start drawing at the first suitable track, and keep going through
     // tracks (of increasing numbers) expanding the last segment until we hit
@@ -1763,15 +1801,20 @@ where
         let stroke = lines
             .iter()
             .filter(|line| {
-                line.end
-                    .map(|end| {
-                        // Subtract 1 from end index so we stop at the last
-                        // cell before it (don't cross one extra gutter).
-                        let end =
-                            if grid.has_gutter { 2 * end.get() - 1 } else { end.get() };
-                        (gutter_factor * line.start..end).contains(&track)
-                    })
-                    .unwrap_or_else(|| track >= gutter_factor * line.start)
+                line.position == expected_line_position
+                    && line
+                        .end
+                        .map(|end| {
+                            // Subtract 1 from end index so we stop at the last
+                            // cell before it (don't cross one extra gutter).
+                            let end = if grid.has_gutter {
+                                2 * end.get() - 1
+                            } else {
+                                end.get()
+                            };
+                            (gutter_factor * line.start..end).contains(&track)
+                        })
+                        .unwrap_or_else(|| track >= gutter_factor * line.start)
             })
             .fold(stroke.cloned(), |stroke, line| {
                 match (stroke, line.stroke.as_ref().cloned()) {
@@ -2040,6 +2083,7 @@ mod test {
                     x,
                     Some(&stroke),
                     &[],
+                    x == grid.cols.len(),
                     vline_stroke_at_row
                 )
                 .into_iter()
@@ -2144,6 +2188,7 @@ mod test {
                     x,
                     Some(&stroke),
                     &[],
+                    x == grid.cols.len(),
                     vline_stroke_at_row
                 )
                 .into_iter()
