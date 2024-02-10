@@ -95,13 +95,11 @@ impl Show for Packed<LinkElem> {
         let body = self.body().clone();
         let linked = match self.dest() {
             LinkTarget::Dest(dest) => body.linked(dest.clone()),
-            LinkTarget::Label(label) => engine
-                .delayed(|engine| {
-                    let elem = engine.introspector.query_label(*label).at(self.span())?;
-                    let dest = Destination::Location(elem.location().unwrap());
-                    Ok(Some(body.clone().linked(dest)))
-                })
-                .unwrap_or(body),
+            LinkTarget::Label(label) => {
+                let elem = engine.introspector.query_label(*label).at(self.span())?;
+                let dest = Destination::Location(elem.location().unwrap());
+                body.clone().linked(dest)
+            }
         };
 
         Ok(linked.styled(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false)))))

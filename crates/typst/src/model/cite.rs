@@ -111,9 +111,6 @@ pub struct CiteElem {
 impl Synthesize for Packed<CiteElem> {
     fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
         let elem = self.as_mut();
-        elem.push_supplement(elem.supplement(styles));
-        elem.push_form(elem.form(styles));
-        elem.push_style(elem.style(styles));
         elem.push_lang(TextElem::lang_in(styles));
         elem.push_region(TextElem::region_in(styles));
         Ok(())
@@ -155,17 +152,13 @@ pub struct CiteGroup {
 impl Show for Packed<CiteGroup> {
     #[typst_macros::time(name = "cite", span = self.span())]
     fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        Ok(engine.delayed(|engine| {
-            let location = self.location().unwrap();
-            let span = self.span();
-            Works::generate(engine.world, engine.introspector)
-                .at(span)?
-                .citations
-                .get(&location)
-                .cloned()
-                .unwrap_or_else(|| {
-                    bail!(span, "failed to format citation (this is a bug)")
-                })
-        }))
+        let location = self.location().unwrap();
+        let span = self.span();
+        Works::generate(engine.world, engine.introspector)
+            .at(span)?
+            .citations
+            .get(&location)
+            .cloned()
+            .unwrap_or_else(|| bail!(span, "failed to format citation (this is a bug)"))
     }
 }

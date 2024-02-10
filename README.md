@@ -57,7 +57,7 @@ Let's dissect what's going on:
   markup like this, see the [syntax] reference for a full list.
 
 - [Mathematical equations][math] are enclosed in dollar signs. By adding extra
-  spaces around the contents of a equation, we can put it into a separate block.
+  spaces around the contents of an equation, we can put it into a separate block.
   Multi-letter identifiers are interpreted as Typst definitions and functions
   unless put into quotes. This way, we don't need backslashes for things like
   `floor` and `sqrt`. And `phi.alt` applies the `alt` modifier to the `phi` to
@@ -120,7 +120,7 @@ Typst's CLI is available from different sources:
 
 - If you have a [Rust][rust] toolchain installed, you can also install the
   latest development version with
-  `cargo install --git https://github.com/typst/typst typst-cli`. Note that this
+  `cargo install --git https://github.com/typst/typst --locked typst-cli`. Note that this
   will be a "nightly" version that may be broken or not yet properly documented.
 
 - Nix users can use the `typst` package with `nix-shell -p typst` or build and

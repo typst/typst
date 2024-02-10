@@ -93,7 +93,7 @@ impl LayoutRoot for Packed<DocumentElem> {
                         .to_styled()
                         .map_or(next, |(elem, _)| elem)
                         .to_packed::<PageElem>()?
-                        .clear_to()
+                        .clear_to()?
                 });
                 let run = page.layout(engine, styles, &mut page_counter, extend_to)?;
                 pages.extend(run);
