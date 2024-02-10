@@ -1750,107 +1750,153 @@ fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
 /// number, and they must be iterable over pairs of (number, size). For
 /// vertical lines, for instance, 'tracks' would describe the rows in the
 /// current region, as pairs (row index, row height).
-fn generate_line_segments<F>(
-    grid: &CellGrid,
-    tracks: impl IntoIterator<Item = (usize, Abs)>,
+fn generate_line_segments<'grid, F, I>(
+    grid: &'grid CellGrid,
+    tracks: I,
     index: usize,
-    stroke: Option<&Arc<Stroke<Abs>>>,
-    lines: &[Line],
+    stroke: Option<&'grid Arc<Stroke<Abs>>>,
+    lines: &'grid [Line],
     is_max_index: bool,
     line_stroke_at_track: F,
-) -> impl IntoIterator<Item = (Arc<Stroke<Abs>>, Abs, Abs)>
+) -> impl IntoIterator<Item = (Arc<Stroke<Abs>>, Abs, Abs)> + 'grid
 where
-    F: Fn(&CellGrid, usize, usize, Option<Arc<Stroke<Abs>>>) -> Option<Arc<Stroke<Abs>>>,
+    F: Fn(&CellGrid, usize, usize, Option<Arc<Stroke<Abs>>>) -> Option<Arc<Stroke<Abs>>>
+        + 'grid,
+    I: IntoIterator<Item = (usize, Abs)>,
+    I::IntoIter: 'grid,
 {
-    // Each line segment that should be drawn.
-    // The last element in the vector below is the currently drawn segment.
-    // That is, the last segment will be expanded until interrupted.
-    let mut drawn_lines = vec![];
-    // Whether the latest line segment is complete, because we hit a row we
-    // should skip while drawing the line. Starts at true so we push the first
-    // segment to the vector.
-    let mut interrupted = true;
+    // The segment currently being drawn.
+    // It is extended for each consecutive track through which the line would
+    // be drawn with the same stroke.
+    // Starts as None to force us to create a new segment as soon as we find
+    // the first track through which we should draw.
+    let mut current_segment: Option<(Arc<Stroke<Abs>>, Abs, Abs)> = None;
     // How far from the start (before the first track) have we gone so far.
     // Used to determine the positions at which to draw each segment.
     let mut offset = Abs::zero();
     // How much to multiply line indices by to account for gutter.
     let gutter_factor = if grid.has_gutter { 2 } else { 1 };
     // Which line position to look for in the given list of lines.
-    // If the index represents a gutter track, this means the list of lines at
-    // this index will actually correspond to the list of lines in the previous
-    // index, so we must look for lines positioned after it, and not before.
+    // If the index represents a gutter track, this means the list of lines
+    // parameter will actually correspond to the list of lines in the previous
+    // index, so we must look for lines positioned after the previous index,
+    // and not before, to determine which lines should be placed in gutter.
+    // Note that the maximum index is always an odd number when there's gutter,
+    // so we must check for it to ensure we don't give it the same treatment as
+    // a line before a gutter track.
     let expected_line_position = if grid.has_gutter && index % 2 == 1 && !is_max_index {
         LinePosition::After
     } else {
         LinePosition::Before
     };
 
-    // We start drawing at the first suitable track, and keep going through
-    // tracks (of increasing numbers) expanding the last segment until we hit
-    // a track next to which we shouldn't draw, which is skipped, or we find a
-    // stroke override (either by a cell or by a user-specified line),
-    // requiring us to use a different stroke. Both cases lead to the creation
-    // of a new line segment later if a suitable track is found, restarting the
-    // cycle.
-    for (track, size) in tracks {
-        // Get the expected stroke at this track by folding the strokes of each
-        // user-specified line going through the current position, with
-        // priority to the line specified last, and then folding the resulting
-        // stroke with the default stroke at this position (with priority to
-        // the stroke resulting from user-specified lines).
-        let stroke = lines
-            .iter()
-            .filter(|line| {
-                line.position == expected_line_position
-                    && line
-                        .end
-                        .map(|end| {
-                            // Subtract 1 from end index so we stop at the last
-                            // cell before it (don't cross one extra gutter).
-                            let end = if grid.has_gutter {
-                                2 * end.get() - 1
-                            } else {
-                                end.get()
-                            };
-                            (gutter_factor * line.start..end).contains(&track)
-                        })
-                        .unwrap_or_else(|| track >= gutter_factor * line.start)
-            })
-            .map(|line| line.stroke.as_ref().cloned())
-            .fold(stroke.cloned(), |acc, line_stroke| line_stroke.fold(acc));
+    // Create an iterator which will go through each track at the given line
+    // index, from start to finish, and see if the current segment would be
+    // interrupted, either because, at this track, we hit a merged cell over
+    // which we shouldn't draw, or because the line would have a different
+    // stroke at this point (so we have to start a new segment). If so, the
+    // current segment is yielded and its variable is set to None (meaning we
+    // have to create a new one later) or to the new segment (if we're starting
+    // to draw a segment with a different stroke than before).
+    // Otherwise (if the current segment should span the current track), it is
+    // simply extended (or a new one is created, if it is 'None'), and no value
+    // is yielded for the current track, since the segment isn't yet complete
+    // (the next tracks might extend it further before it is interrupted and
+    // yielded). That is, we yield each segment only when it is interrupted,
+    // since then we will know its final length for sure.
+    // We chain an extra 'None' track to ensure the final segment is always
+    // interrupted and yielded, if it wasn't interrupted earlier.
+    tracks.into_iter().map(Some).chain(std::iter::once(None)).filter_map(
+        move |track_data| {
+            if let Some((track, size)) = track_data {
+                // Get the expected line stroke at this track by taking the
+                // default (table-wide) stroke for this index and folding it
+                // with the strokes of each user-specified line (with priority
+                // to the user-specified line specified last).
+                let stroke = lines
+                    .iter()
+                    .filter(|line| {
+                        line.position == expected_line_position
+                            && line
+                                .end
+                                .map(|end| {
+                                    // Subtract 1 from end index so we stop at the last
+                                    // cell before it (don't cross one extra gutter).
+                                    let end = if grid.has_gutter {
+                                        2 * end.get() - 1
+                                    } else {
+                                        end.get()
+                                    };
+                                    (gutter_factor * line.start..end).contains(&track)
+                                })
+                                .unwrap_or_else(|| track >= gutter_factor * line.start)
+                    })
+                    .map(|line| line.stroke.as_ref().cloned())
+                    .fold(stroke.cloned(), |acc, line_stroke| line_stroke.fold(acc));
 
-        // The function shall determine if it is appropriate to draw the line
-        // at this position or not (i.e. whether or not it would cross a merged
-        // cell), and, if so, the final stroke it should have (because cells
-        // near this position could have stroke overrides, which have priority
-        // and should be folded with the stroke obtained above).
-        if let Some(stroke) = line_stroke_at_track(grid, index, track, stroke) {
-            if interrupted {
-                // Last segment was interrupted by a merged cell, had a stroke
-                // of 'None', or there are no segments yet.
-                // Create a new segment to draw. We start spanning this track.
-                drawn_lines.push((stroke, offset, size));
-                interrupted = false;
-            } else {
-                // The vector can't be empty if interrupted is false.
-                let current_segment = drawn_lines.last_mut().unwrap();
-                if current_segment.0 == stroke {
-                    // Extend the current segment so it covers at least this
-                    // track as well, since it has the same stroke in this
-                    // track.
-                    current_segment.2 += size;
+                // The function shall determine if it is appropriate to draw
+                // the line at this position or not (i.e. whether or not it
+                // would cross a merged cell), and, if so, the final stroke it
+                // should have (because cells near this position could have
+                // stroke overrides, which have priority and should be folded
+                // with the stroke obtained above).
+                // The variable 'interrupted_segment' will contain the segment
+                // to yield for this track, which will be the current segment
+                // if it was interrupted, or 'None' (don't yield yet)
+                // otherwise.
+                let interrupted_segment = if let Some(stroke) =
+                    line_stroke_at_track(grid, index, track, stroke)
+                {
+                    // We should draw at this position. Let's check if we were
+                    // already drawing in the previous position.
+                    if let Some(current_segment) = &mut current_segment {
+                        // We are currently building a segment. Let's check if
+                        // we should extend it to this track as well.
+                        if current_segment.0 == stroke {
+                            // Extend the current segment so it covers at least
+                            // this track as well, since we should use the same
+                            // stroke as in the previous one when a line goes
+                            // through this track.
+                            current_segment.2 += size;
+                            // No need to yield the current segment, we might not
+                            // be done extending its length yet.
+                            None
+                        } else {
+                            // We got a different stroke now, so create a new
+                            // segment with the new stroke and spanning the
+                            // current track. Yield the old segment, as it was
+                            // interrupted and is thus complete.
+                            Some(std::mem::replace(
+                                current_segment,
+                                (stroke, offset, size),
+                            ))
+                        }
+                    } else {
+                        // We should draw here, but there is no segment
+                        // currently being drawn, either because the last
+                        // position had a merged cell, had a stroke
+                        // of 'None', or because this is the first track.
+                        // Create a new segment to draw. We start spanning this
+                        // track.
+                        current_segment = Some((stroke, offset, size));
+                        // Nothing to yield for this track. The new segment
+                        // might still be extended in the next track.
+                        None
+                    }
                 } else {
-                    // We got a different stroke now, so create a new segment.
-                    drawn_lines.push((stroke, offset, size));
-                }
+                    // We shouldn't draw here (stroke of None), so we yield the
+                    // current segment, as it was interrupted.
+                    current_segment.take()
+                };
+                offset += size;
+                interrupted_segment
+            } else {
+                // Reached the end of all tracks, so we interrupt and finish
+                // the current segment.
+                current_segment.take()
             }
-        } else {
-            interrupted = true;
-        }
-        offset += size;
-    }
-
-    drawn_lines
+        },
+    )
 }
 
 /// Returns the correct stroke with which to draw a vline right before column
