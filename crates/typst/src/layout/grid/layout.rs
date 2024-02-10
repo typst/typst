@@ -1054,6 +1054,10 @@ impl<'a> GridLayouter<'a> {
             }
 
             // Render table lines.
+            // We collect lines into a vector before rendering so we can sort
+            // them based on thickness, such that the lines with largest
+            // thickness are drawn on top.
+            let mut lines = Vec::new();
 
             // Render horizontal lines.
             // First, calculate their offsets from the top of the frame.
@@ -1112,8 +1116,8 @@ impl<'a> GridLayouter<'a> {
                 };
 
                 // Determine all different line segments we have to draw in
-                // this row.
-                for (stroke, dx, length) in generate_line_segments(
+                // this row, and convert them to points and shapes.
+                let segments = generate_line_segments(
                     self.grid,
                     tracks,
                     y,
@@ -1121,18 +1125,24 @@ impl<'a> GridLayouter<'a> {
                     hlines_at_row,
                     is_bottom_border,
                     hline_stroke_at_column,
-                ) {
+                )
+                .into_iter()
+                .map(|(stroke, dx, length)| {
                     let stroke = (*stroke).clone().unwrap_or_default();
                     let thickness = stroke.thickness;
                     let half = thickness / 2.0;
                     let dx = if self.is_rtl { self.width - dx - length } else { dx };
                     let target = Point::with_x(length + thickness);
                     let hline = Geometry::Line(target).stroked(stroke);
-                    frame.prepend(
+                    (
+                        thickness,
                         Point::new(dx - half, dy),
                         FrameItem::Shape(hline, self.span),
-                    );
-                }
+                    )
+                });
+
+                // Draw later (after we sort all lines below.)
+                lines.extend(segments);
             }
 
             // Render vertical lines.
@@ -1180,11 +1190,11 @@ impl<'a> GridLayouter<'a> {
                 };
 
                 // Determine all different line segments we have to draw in
-                // this column.
-                // Even a single line might generate more than one segment,
-                // if it happens to cross a colspan (over which it must not be
-                // drawn).
-                for (stroke, dy, length) in generate_line_segments(
+                // this column, and convert them to points and shapes.
+                // Even a single, uniform line might generate more than one
+                // segment, if it happens to cross a colspan (over which it
+                // must not be drawn).
+                let segments = generate_line_segments(
                     self.grid,
                     tracks,
                     x,
@@ -1192,17 +1202,35 @@ impl<'a> GridLayouter<'a> {
                     vlines_at_column,
                     is_right_border,
                     vline_stroke_at_row,
-                ) {
+                )
+                .into_iter()
+                .map(|(stroke, dy, length)| {
                     let stroke = (*stroke).clone().unwrap_or_default();
                     let thickness = stroke.thickness;
                     let half = thickness / 2.0;
                     let target = Point::with_y(length + thickness);
                     let vline = Geometry::Line(target).stroked(stroke);
-                    frame.prepend(
+                    (
+                        thickness,
                         Point::new(dx, dy - half),
                         FrameItem::Shape(vline, self.span),
-                    );
-                }
+                    )
+                });
+
+                lines.extend(segments);
+            }
+
+            // Sort by decreasing thickness, so that we draw larger strokes first.
+            // This avoids layering problems where a smaller hline appears
+            // "inside" a larger vline. When both have the same size, hlines
+            // are drawn on top (since the sort is stable, and they are
+            // pushed first).
+            lines.sort_by(|(a_thickness, ..), (b_thickness, ..)| {
+                b_thickness.cmp(a_thickness)
+            });
+
+            for (_, point, shape) in lines {
+                frame.prepend(point, shape);
             }
 
             // Render cell backgrounds.
