@@ -143,10 +143,8 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
 }
 
 fn name_from_loc<'a>(doc: &Document, loc: &Location) -> Option<Name<'a>> {
-    let mut query_res = doc.introspector.query(&Selector::Location(*loc));
-    let elem = query_res.pop()?;
+    let elem = doc.introspector.query_first(&Selector::Location(*loc))?;
     let label = elem.label()?;
-    assert!(query_res.is_empty());
     assert!(doc.introspector.query_label(label).is_ok());
     if elem.elem() != HeadingElem::elem() {
         return None;

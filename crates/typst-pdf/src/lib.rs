@@ -10,16 +10,15 @@ mod page;
 mod pattern;
 
 use std::cmp::Eq;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
 use std::sync::Arc;
 
 use base64::Engine;
-use ecow::{eco_format, eco_vec, EcoString};
-use if_chain::if_chain;
+use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
-use typst::foundations::{Datetime, NativeElement, Selector};
+use typst::foundations::{Datetime, NativeElement};
 use typst::layout::{Abs, Dir, Em, Transform};
 use typst::model::{Document, HeadingElem};
 use typst::text::{Font, Lang};
@@ -297,30 +296,27 @@ fn write_and_collect_destinations<'a>(
 ) -> Vec<(Str<'a>, Ref, Ref, f32, f32)> {
     let mut destinations = vec![];
 
+    let mut seen_labels = HashSet::new();
     let elements = ctx.document.introspector.query(&HeadingElem::elem().select());
     for elem in elements.iter() {
         let heading = elem.to_packed::<HeadingElem>().unwrap();
-        if_chain!(
-            if let Some(label) = heading.label();
-            if let Some(first) = ctx.document.introspector.query_first(&Selector::And(eco_vec![
-                HeadingElem::elem().select(),
-                Selector::Label(label)
-            ]));
-            if heading == first.to_packed::<HeadingElem>().unwrap();
-            if let Some(loc) = heading.location();
-            let name = Str(label.as_str().as_bytes());
-            let pos = ctx.document.introspector.position(loc);
-            let index = pos.page.get() - 1;
-            let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-            if let Some(page) = ctx.pages.get(index);
-            then {
-                let page_ref = ctx.page_refs[index];
-                let x = pos.point.x.to_f32();
-                let y = (page.size.y - y).to_f32();
-                let dest_ref = ctx.alloc.bump();
-                destinations.push((name, dest_ref, page_ref, x, y))
+        if let Some(label) = heading.label() {
+            if !seen_labels.contains(&label) {
+                let loc = heading.location().unwrap();
+                let name = Str(label.as_str().as_bytes());
+                let pos = ctx.document.introspector.position(loc);
+                let index = pos.page.get() - 1;
+                let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
+                if let Some(page) = ctx.pages.get(index) {
+                    seen_labels.insert(label);
+                    let page_ref = ctx.page_refs[index];
+                    let x = pos.point.x.to_f32();
+                    let y = (page.size.y - y).to_f32();
+                    let dest_ref = ctx.alloc.bump();
+                    destinations.push((name, dest_ref, page_ref, x, y))
+                }
             }
-        );
+        }
     }
     destinations.sort_by_key(|i| i.0);
     for (_name, dest_ref, page_ref, x, y) in destinations.iter().copied() {
