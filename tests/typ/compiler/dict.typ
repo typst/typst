@@ -66,7 +66,8 @@
 // Missing lvalue is not automatically none-initialized.
 #{
   let dict = (:)
-  // Error: 3-9 dictionary does not contain key "b" and no default value was specified
+  // Error: 3-9 dictionary does not contain key "b"
+  // Hint: 3-9 use `insert` to add or update values
   dict.b += 1
 }
 
