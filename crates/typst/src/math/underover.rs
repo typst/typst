@@ -12,6 +12,8 @@ use crate::visualize::{FixedStroke, Geometry};
 const BRACE_GAP: Em = Em::new(0.25);
 const BRACKET_GAP: Em = Em::new(0.25);
 
+use std::collections::HashSet;
+
 /// A marker to distinguish under- vs. overlines.
 enum LineKind {
     Over,
@@ -132,6 +134,24 @@ pub struct UnderbraceElem {
     /// The optional content below the brace.
     #[positional]
     pub annotation: Option<Content>,
+
+    /// Whether to fit to the content of the formula.
+    #[parse(
+        let fit_content = args.named("fit-content")?;
+        fit_content
+    )]
+    #[default(true)]
+    pub fit_content: bool,
+
+    /// Whether to fit to the width of the formula.
+    #[parse(args.named("fit-width")?.or(fit_content))]
+    #[default(true)]
+    pub fit_width: bool,
+
+    /// Whether to fit to the height of the formula.
+    #[parse(args.named("fit-height")?.or(fit_content))]
+    #[default(true)]
+    pub fit_height: bool,
 }
 
 impl LayoutMath for Packed<UnderbraceElem> {
@@ -146,6 +166,8 @@ impl LayoutMath for Packed<UnderbraceElem> {
             BRACE_GAP,
             false,
             self.span(),
+            self.fit_width(styles),
+            self.fit_height(styles),
         )
     }
 }
@@ -164,6 +186,24 @@ pub struct OverbraceElem {
     /// The optional content above the brace.
     #[positional]
     pub annotation: Option<Content>,
+
+    /// Whether to fit to the content of the formula.
+    #[parse(
+        let fit_content = args.named("fit-content")?;
+        fit_content
+    )]
+    #[default(true)]
+    pub fit_content: bool,
+
+    /// Whether to fit to the width of the formula.
+    #[parse(args.named("fit-width")?.or(fit_content))]
+    #[default(true)]
+    pub fit_width: bool,
+
+    /// Whether to fit to the height of the formula.
+    #[parse(args.named("fit-height")?.or(fit_content))]
+    #[default(true)]
+    pub fit_height: bool,
 }
 
 impl LayoutMath for Packed<OverbraceElem> {
@@ -178,6 +218,8 @@ impl LayoutMath for Packed<OverbraceElem> {
             BRACE_GAP,
             true,
             self.span(),
+            self.fit_width(styles),
+            self.fit_height(styles),
         )
     }
 }
@@ -196,6 +238,24 @@ pub struct UnderbracketElem {
     /// The optional content below the bracket.
     #[positional]
     pub annotation: Option<Content>,
+
+    /// Whether to fit to the content of the formula.
+    #[parse(
+        let fit_content = args.named("fit-content")?;
+        fit_content
+    )]
+    #[default(true)]
+    pub fit_content: bool,
+
+    /// Whether to fit to the width of the formula.
+    #[parse(args.named("fit-width")?.or(fit_content))]
+    #[default(true)]
+    pub fit_width: bool,
+
+    /// Whether to fit to the height of the formula.
+    #[parse(args.named("fit-height")?.or(fit_content))]
+    #[default(true)]
+    pub fit_height: bool,
 }
 
 impl LayoutMath for Packed<UnderbracketElem> {
@@ -210,6 +270,8 @@ impl LayoutMath for Packed<UnderbracketElem> {
             BRACKET_GAP,
             false,
             self.span(),
+            self.fit_width(styles),
+            self.fit_height(styles),
         )
     }
 }
@@ -228,6 +290,24 @@ pub struct OverbracketElem {
     /// The optional content above the bracket.
     #[positional]
     pub annotation: Option<Content>,
+
+    /// Whether to fit to the content of the formula.
+    #[parse(
+        let fit_content = args.named("fit-content")?;
+        fit_content
+    )]
+    #[default(true)]
+    pub fit_content: bool,
+
+    /// Whether to fit to the width of the formula.
+    #[parse(args.named("fit-width")?.or(fit_content))]
+    #[default(true)]
+    pub fit_width: bool,
+
+    /// Whether to fit to the height of the formula.
+    #[parse(args.named("fit-height")?.or(fit_content))]
+    #[default(true)]
+    pub fit_height: bool,
 }
 
 impl LayoutMath for Packed<OverbracketElem> {
@@ -242,6 +322,8 @@ impl LayoutMath for Packed<OverbracketElem> {
             BRACKET_GAP,
             true,
             self.span(),
+            self.fit_width(styles),
+            self.fit_height(styles),
         )
     }
 }
@@ -257,6 +339,8 @@ fn layout_underoverspreader(
     gap: Em,
     reverse: bool,
     span: Span,
+    fit_width: bool,
+    fit_height: bool,
 ) -> SourceResult<()> {
     let font_size = scaled_font_size(ctx, styles);
     let gap = gap.at(font_size);
@@ -290,7 +374,23 @@ fn layout_underoverspreader(
         baseline = rows.len() - 1;
     }
 
-    let frame = stack(ctx, styles, rows, FixedAlignment::Center, gap, baseline);
+    let mut ignore_width = HashSet::new();
+    if fit_width && !reverse {
+        ignore_width = (2..rows.len()).collect();
+    }
+    if fit_width && reverse {
+        ignore_width = (0..rows.len() - 2).collect();
+    }
+
+    let mut ignore_height = HashSet::new();
+    if fit_height && !reverse {
+        ignore_height = (1..rows.len()).collect();
+    }
+    if fit_height && reverse {
+        ignore_height = (0..rows.len() - 1).collect();
+    }
+
+    let frame = stack(ctx, styles, rows, FixedAlignment::Center, gap, baseline, ignore_width, ignore_height);
     ctx.push(FrameFragment::new(ctx, styles, frame).with_class(body_class));
 
     Ok(())
@@ -300,6 +400,7 @@ fn layout_underoverspreader(
 ///
 /// Add a `gap` between each row and uses the baseline of the `baseline`th
 /// row for the whole frame.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn stack(
     ctx: &MathContext,
     styles: StyleChain,
@@ -307,9 +408,13 @@ pub(super) fn stack(
     align: FixedAlignment,
     gap: Abs,
     baseline: usize,
+    ignore_width: HashSet<usize>,
+    ignore_height: HashSet<usize>,
 ) -> Frame {
     let rows: Vec<_> = rows.into_iter().flat_map(|r| r.rows()).collect();
-    let AlignmentResult { points, width } = alignments(&rows);
+    let AlignmentResult { points, width } = alignments(
+        &rows.clone().into_iter().enumerate().filter(|(i, _)| !ignore_width.contains(i)).map(|(_, r)| r).collect::<Vec<_>>()
+    );
     let rows: Vec<_> = rows
         .into_iter()
         .map(|row| row.into_aligned_frame(ctx, styles, &points, align))
@@ -318,8 +423,10 @@ pub(super) fn stack(
     let mut y = Abs::zero();
     let mut frame = Frame::soft(Size::new(
         width,
-        rows.iter().map(|row| row.height()).sum::<Abs>()
-            + rows.len().saturating_sub(1) as f64 * gap,
+        rows.iter().enumerate()
+            .filter(|(i, _)| !ignore_height.contains(i))
+            .map(|(_, row)| row.height()).sum::<Abs>()
+            + rows.len().saturating_sub(ignore_height.len() + 1) as f64 * gap,
     ));
 
     for (i, row) in rows.into_iter().enumerate() {

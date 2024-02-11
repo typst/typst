@@ -16,6 +16,8 @@ use crate::syntax::{Span, Spanned};
 use crate::text::TextElem;
 use crate::util::Numeric;
 use crate::visualize::{FixedStroke, Geometry, LineCap, Shape, Stroke};
+use std::collections::HashSet;
+use std::hash::Hash;
 
 const DEFAULT_ROW_GAP: Em = Em::new(0.5);
 const DEFAULT_COL_GAP: Em = Em::new(0.5);
@@ -396,7 +398,7 @@ fn layout_vec_body(
         flat.push(ctx.layout_row(child, styles.chain(&denom_style))?);
     }
 
-    Ok(stack(ctx, styles, flat, align, gap, 0))
+    Ok(stack(ctx, styles, flat, align, gap, 0, HashSet::new(), HashSet::new()))
 }
 
 /// Layout the inner contents of a matrix.
