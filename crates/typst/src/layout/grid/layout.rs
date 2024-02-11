@@ -1914,14 +1914,50 @@ fn hline_stroke_at_column(
 ) -> Option<Arc<Stroke<Abs>>> {
     // There are no rowspans yet, so no need to add a check here. The line will
     // always be drawn, if it has a stroke.
+    let cell_x = if grid.has_gutter {
+        // Skip the gutter column this hline is in.
+        // This is because positions above and below it, even if gutter, could
+        // be part of a colspan, so we have to check the following cell.
+        // However, this is only valid if we're not in a gutter row.
+        x + x % 2
+    } else {
+        x
+    };
     let top_cell_stroke = y
         .checked_sub(1)
-        .and_then(|top_y| grid.parent_cell(x, top_y))
-        .and_then(|top_cell| top_cell.stroke.bottom.as_ref());
+        .and_then(|top_y| {
+            // Let's find the parent cell of the position above us, in order
+            // to take its bottom stroke, even when we're below gutter.
+            grid.parent_cell_position(cell_x, top_y)
+        })
+        .filter(|Axes { x: parent_x, .. }| {
+            // Only use the stroke of the cell above us but one column to the
+            // right if it is merged with a cell before this line's column.
+            // If the position above us is a simple non-merged cell, or the
+            // parent of a colspan, this will also evaluate to true.
+            parent_x <= &x
+        })
+        .and_then(|Axes { x: parent_x, y: parent_y }| {
+            let top_cell = grid.cell(parent_x, parent_y).unwrap();
+            top_cell.stroke.bottom.as_ref()
+        });
     let bottom_cell_stroke = if y < grid.rows.len() {
-        grid.parent_cell(x, y)
-            .and_then(|bottom_cell| bottom_cell.stroke.top.as_ref())
+        // Let's find the parent cell of the position below us, in order
+        // to take its top stroke, even when we're above gutter.
+        grid.parent_cell_position(cell_x, y)
+            .filter(|Axes { x: parent_x, .. }| {
+                // Only use the stroke of the cell below us but one column to the
+                // right if it is merged with a cell before this line's column.
+                // If the position below us is a simple non-merged cell, or the
+                // parent of a colspan, this will also evaluate to true.
+                parent_x <= &x
+            })
+            .and_then(|Axes { x: parent_x, y: parent_y }| {
+                let bottom_cell = grid.cell(parent_x, parent_y).unwrap();
+                bottom_cell.stroke.top.as_ref()
+            })
     } else {
+        // No cell below the bottom border.
         None
     };
 
