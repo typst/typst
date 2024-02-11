@@ -2687,7 +2687,6 @@ dependencies = [
  "bytemuck",
  "comemo",
  "ecow",
- "if_chain",
  "image",
  "miniz_oxide",
  "once_cell",
