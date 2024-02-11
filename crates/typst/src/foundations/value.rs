@@ -20,6 +20,7 @@ use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio, Rel};
 use crate::symbols::Symbol;
 use crate::syntax::{ast, Span};
 use crate::text::{RawElem, TextElem};
+use crate::util::ArcExt;
 use crate::visualize::{Color, Gradient, Pattern};
 
 /// A computational value.
@@ -688,7 +689,7 @@ impl<T: Reflect> Reflect for Arc<T> {
 
 impl<T: Clone + IntoValue> IntoValue for Arc<T> {
     fn into_value(self) -> Value {
-        (*self).clone().into_value()
+        Arc::take(self).into_value()
     }
 }
 
@@ -705,13 +706,13 @@ impl<T: Clone + Resolve> Resolve for Arc<T> {
     type Output = Arc<T::Output>;
 
     fn resolve(self, styles: super::StyleChain) -> Self::Output {
-        Arc::new((*self).clone().resolve(styles))
+        Arc::new(Arc::take(self).resolve(styles))
     }
 }
 
 impl<T: Clone + Fold> Fold for Arc<T> {
     fn fold(self, outer: Self) -> Self {
-        Arc::new((*self).clone().fold((*outer).clone()))
+        Arc::new(Arc::take(self).fold(Arc::take(outer)))
     }
 }
 
