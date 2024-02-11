@@ -330,8 +330,8 @@ impl LayoutMultiple for Packed<GridElem> {
                 stroke: vline.stroke(styles),
                 span: vline.span(),
                 position: match vline.position(styles) {
-                    HAlignment::Left => LinePosition::Before,
-                    HAlignment::Right => LinePosition::After,
+                    HAlignment::Start => LinePosition::Before,
+                    HAlignment::End => LinePosition::After,
                     // Other horizontal positions forbidden
                     _ => unreachable!(),
                 },
@@ -471,16 +471,16 @@ pub struct GridVLine {
     #[fold]
     pub stroke: Option<Arc<Stroke>>,
     /// The position at which the line is placed, given its column - either
-    /// `{left}` to draw before it or `{right}` to draw after it. This setting
+    /// `{start}` to draw before it or `{end}` to draw after it. This setting
     /// is mostly useful when column gutter is enabled, since then the position
     /// before a column is different from the position after the previous
     /// column due to the spacing between both.
-    #[default(HAlignment::Left)]
+    #[default(HAlignment::Start)]
     #[parse({
         let option: Option<Spanned<HAlignment>> = args.named("position")?;
         if let Some(Spanned { v: align, span }) = option {
-            if align != HAlignment::Left && align != HAlignment::Right {
-                bail!(span, "expected `left` or `right`");
+            if align != HAlignment::Start && align != HAlignment::End {
+                bail!(span, "expected `start` or `end`");
             }
         }
         option.map(|spanned| spanned.v)
