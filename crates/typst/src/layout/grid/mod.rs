@@ -2,7 +2,6 @@ mod layout;
 
 pub use self::layout::{
     Cell, CellGrid, Celled, GridItem, GridLayouter, LinePosition, ResolvableCell,
-    ResolvedGridStroke, ResolvedInsideStroke,
 };
 
 use std::num::NonZeroUsize;
@@ -14,8 +13,7 @@ use smallvec::{smallvec, SmallVec};
 use crate::diag::{bail, SourceResult, StrResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, CastInfo, Content, Dict, Fold, FromValue, IntoValue,
-    Packed, Reflect, Resolve, Show, Smart, StyleChain, Value,
+    cast, elem, scope, Array, Content, Fold, Packed, Show, Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Fragment, HAlignment, LayoutMultiple, Length,
@@ -245,7 +243,7 @@ pub struct GridElem {
     /// third-party [tablex library](https://github.com/PgBiel/typst-tablex/).
     #[resolve]
     #[fold]
-    pub stroke: GridStroke<InsideStroke>,
+    pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
 
     /// How much to pad the cells' content.
     ///
@@ -347,7 +345,7 @@ impl LayoutMultiple for Packed<GridElem> {
             fill,
             align,
             inset,
-            stroke,
+            &stroke,
             engine,
             styles,
             self.span(),
@@ -371,171 +369,6 @@ cast! {
     sizing: Sizing => Self(smallvec![sizing]),
     count: NonZeroUsize => Self(smallvec![Sizing::Auto; count.get()]),
     values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
-}
-
-/// Possible settings for the strokes of grid cells' lines.
-/// Tables have their own variant of this type, with a different default.
-#[derive(Debug, Clone, Hash, PartialEq)]
-pub enum InsideStroke {
-    /// Configures all automatic lines spanning the whole grid.
-    Auto(Option<Stroke>),
-    /// Configures the borders of each cell.
-    Celled(Celled<Sides<Option<Option<Arc<Stroke>>>>>),
-}
-
-impl Default for InsideStroke {
-    fn default() -> Self {
-        Self::Auto(None)
-    }
-}
-
-impl Fold for InsideStroke {
-    fn fold(self, outer: Self) -> Self {
-        match (self, outer) {
-            (Self::Auto(inner), Self::Auto(outer)) => Self::Auto(inner.fold(outer)),
-            (Self::Celled(inner), Self::Celled(outer)) => Self::Celled(inner.fold(outer)),
-            (inner, _) => inner,
-        }
-    }
-}
-
-impl Resolve for InsideStroke {
-    type Output = ResolvedInsideStroke;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        match self {
-            Self::Auto(stroke) => ResolvedInsideStroke::Auto(stroke.resolve(styles)),
-            Self::Celled(stroke) => {
-                ResolvedInsideStroke::Celled(Resolve::resolve(stroke, styles))
-            }
-        }
-    }
-}
-
-impl From<Stroke> for InsideStroke {
-    fn from(stroke: Stroke) -> Self {
-        Self::Auto(Some(stroke))
-    }
-}
-
-cast! {
-    InsideStroke,
-
-    self => match self {
-        Self::Auto(stroke) => stroke.into_value(),
-        Self::Celled(stroke) => stroke.into_value(),
-    },
-    v: Option<Stroke> => Self::Auto(v),
-    v: Celled<Sides<Option<Option<Arc<Stroke>>>>> => Self::Celled(v),
-}
-
-/// Grid-wide stroke settings.
-#[derive(Debug, Clone, Hash, Default, PartialEq)]
-pub struct GridStroke<I> {
-    /// Configures only the grid's border lines.
-    pub outside: Sides<Option<Option<Arc<Stroke>>>>,
-    /// Configures the cells' lines.
-    pub inside: I,
-}
-
-impl<I: Fold> Fold for GridStroke<I> {
-    fn fold(self, outer: Self) -> Self {
-        Self {
-            outside: self.outside.fold(outer.outside),
-            inside: self.inside.fold(outer.inside),
-        }
-    }
-}
-
-impl<I> Resolve for GridStroke<I>
-where
-    I: Resolve<Output = ResolvedInsideStroke>,
-{
-    type Output = ResolvedGridStroke;
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        ResolvedGridStroke {
-            outside: self.outside.resolve(styles),
-            inside: self.inside.resolve(styles),
-        }
-    }
-}
-
-impl<I: Reflect> Reflect for GridStroke<I> {
-    fn input() -> CastInfo {
-        Dict::input() + I::input()
-    }
-    fn output() -> CastInfo {
-        Self::input()
-    }
-    fn castable(value: &Value) -> bool {
-        Dict::castable(value) || I::castable(value)
-    }
-}
-
-impl<I: IntoValue> IntoValue for GridStroke<I> {
-    fn into_value(self) -> Value {
-        if self.outside.iter().any(Option::is_some) {
-            let mut dict = Dict::new();
-            let mut handle = |key: &str, component: Option<Value>| {
-                if let Some(value) = component {
-                    dict.insert(key.into(), value);
-                }
-            };
-            handle("top", self.outside.top.map(IntoValue::into_value));
-            handle("bottom", self.outside.bottom.map(IntoValue::into_value));
-            handle("left", self.outside.left.map(IntoValue::into_value));
-            handle("right", self.outside.right.map(IntoValue::into_value));
-            dict.insert("inside".into(), self.inside.into_value());
-            Value::Dict(dict)
-        } else {
-            self.inside.into_value()
-        }
-    }
-}
-
-impl<I> FromValue for GridStroke<I>
-where
-    I: Default + FromValue + From<Stroke> + Reflect,
-{
-    fn from_value(value: Value) -> ::typst::diag::StrResult<Self> {
-        if Dict::castable(&value) {
-            if let Ok(stroke) = Stroke::from_value(value.clone()) {
-                // This dictionary has valid stroke properties, so it must
-                // correspond to the inside stroke.
-                let inside = I::from(stroke);
-                return Ok(Self { outside: Sides::default(), inside });
-            }
-            let mut dict = Dict::from_value(value)?;
-            return Ok({
-                fn take<T: FromValue>(
-                    dict: &mut Dict,
-                    key: &str,
-                ) -> StrResult<Option<T>> {
-                    dict.take(key).ok().map(Value::cast).transpose()
-                }
-                let rest = take(&mut dict, "rest")?;
-                let x = take(&mut dict, "x")?.or_else(|| rest.clone());
-                let y = take(&mut dict, "y")?.or(rest);
-                let top = take(&mut dict, "top")?.or_else(|| y.clone());
-                let bottom = take(&mut dict, "bottom")?.or(y);
-                let left = take(&mut dict, "left")?.or_else(|| x.clone());
-                let right = take(&mut dict, "right")?.or(x);
-                let inside = take(&mut dict, "inside")?.unwrap_or_default();
-                dict.finish(&[
-                    "inside", "left", "top", "right", "bottom", "x", "y", "rest",
-                ])?;
-                Self {
-                    outside: Sides { left, top, right, bottom },
-                    inside,
-                }
-            });
-        }
-        if I::castable(&value) {
-            let inside = I::from_value(value)?;
-            return Ok(Self { outside: Sides::default(), inside });
-        }
-        Err(Self::error(&value))
-    }
 }
 
 /// Any child of a grid element.

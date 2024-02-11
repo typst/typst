@@ -22,30 +22,6 @@ use crate::text::TextElem;
 use crate::util::{MaybeReverseIter, NonZeroExt, Numeric};
 use crate::visualize::{Geometry, Paint, Stroke};
 
-/// Resolved settings for the strokes of cells' lines.
-pub enum ResolvedInsideStroke {
-    /// Configures all automatic lines spanning the whole grid.
-    Auto(Option<Stroke<Abs>>),
-    /// Configures the borders of each cell.
-    Celled(ResolvedCelled<Sides<Option<Option<Arc<Stroke>>>>>),
-}
-
-impl Default for ResolvedInsideStroke {
-    fn default() -> Self {
-        Self::Auto(None)
-    }
-}
-
-/// Resolved grid-wide stroke settings.
-#[derive(Default)]
-pub struct ResolvedGridStroke {
-    /// Configures only the grid's border lines.
-    #[allow(clippy::type_complexity)] // TODO: Create a type alias or something
-    pub outside: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
-    /// Configures the cells' lines.
-    pub inside: ResolvedInsideStroke,
-}
-
 /// A value that can be configured per cell.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Celled<T> {
@@ -374,8 +350,6 @@ pub struct CellGrid {
     cols: Vec<Sizing>,
     /// The row tracks including gutter tracks.
     rows: Vec<Sizing>,
-    /// The global grid stroke options.
-    stroke: ResolvedGridStroke,
     /// The vertical lines before each column, or on the right border.
     /// Contains up to 'cols.len() + 1' vectors of lines.
     vlines: Vec<Vec<Line>>,
@@ -394,14 +368,7 @@ impl CellGrid {
         cells: impl IntoIterator<Item = Cell>,
     ) -> Self {
         let entries = cells.into_iter().map(Entry::Cell).collect();
-        Self::new_internal(
-            tracks,
-            gutter,
-            ResolvedGridStroke::default(),
-            vec![],
-            vec![],
-            entries,
-        )
+        Self::new_internal(tracks, gutter, vec![], vec![], entries)
     }
 
     /// Resolves and positions all cells in the grid before creating it.
@@ -418,7 +385,7 @@ impl CellGrid {
         fill: &Celled<Option<Paint>>,
         align: &Celled<Smart<Alignment>>,
         inset: Sides<Option<Rel<Length>>>,
-        stroke: ResolvedGridStroke,
+        stroke: &ResolvedCelled<Sides<Option<Option<Arc<Stroke>>>>>,
         engine: &mut Engine,
         styles: StyleChain,
         span: Span,
@@ -590,13 +557,6 @@ impl CellGrid {
                 )
             };
 
-            let stroke = match &stroke.inside {
-                ResolvedInsideStroke::Auto(_) => Sides::default(),
-                ResolvedInsideStroke::Celled(stroke) => {
-                    stroke.clone().resolve(engine, styles, x, y)?
-                }
-            };
-
             // Let's resolve the cell so it can determine its own fields
             // based on its final position.
             let cell = cell.resolve_cell(
@@ -605,7 +565,7 @@ impl CellGrid {
                 &fill.resolve(engine, x, y)?,
                 align.resolve(engine, x, y)?,
                 inset,
-                stroke,
+                stroke.resolve(engine, styles, x, y)?,
                 styles,
             );
 
@@ -682,12 +642,6 @@ impl CellGrid {
                 } else {
                     let x = i % c;
                     let y = i / c;
-                    let stroke = match &stroke.inside {
-                        ResolvedInsideStroke::Auto(_) => Sides::default(),
-                        ResolvedInsideStroke::Celled(stroke) => {
-                            stroke.clone().resolve(engine, styles, x, y)?
-                        }
-                    };
 
                     // Ensure all absent entries are affected by show rules and
                     // grid styling by turning them into resolved empty cells.
@@ -697,7 +651,7 @@ impl CellGrid {
                         &fill.resolve(engine, x, y)?,
                         align.resolve(engine, x, y)?,
                         inset,
-                        stroke,
+                        stroke.resolve(engine, styles, x, y)?,
                         styles,
                     );
                     Ok(Entry::Cell(new_cell))
@@ -720,14 +674,13 @@ impl CellGrid {
             hlines[y].push(line);
         }
 
-        Ok(Self::new_internal(tracks, gutter, stroke, vlines, hlines, resolved_cells))
+        Ok(Self::new_internal(tracks, gutter, vlines, hlines, resolved_cells))
     }
 
     /// Generates the cell grid, given the tracks and resolved entries.
     fn new_internal(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
-        stroke: ResolvedGridStroke,
         vlines: Vec<Vec<Line>>,
         hlines: Vec<Vec<Line>>,
         entries: Vec<Entry>,
@@ -776,15 +729,7 @@ impl CellGrid {
             rows.pop();
         }
 
-        Self {
-            cols,
-            rows,
-            entries,
-            stroke,
-            vlines,
-            hlines,
-            has_gutter,
-        }
+        Self { cols, rows, entries, vlines, hlines, has_gutter }
     }
 
     /// Get the grid entry in column `x` and row `y`.
@@ -1043,10 +988,6 @@ impl<'a> GridLayouter<'a> {
     /// Add lines and backgrounds.
     fn render_fills_strokes(mut self) -> SourceResult<Fragment> {
         let mut finished = std::mem::take(&mut self.finished);
-        let stroke = match &self.grid.stroke.inside {
-            ResolvedInsideStroke::Auto(Some(stroke)) => Some(Arc::new(stroke.clone())),
-            _ => None,
-        };
 
         for (frame, rows) in finished.iter_mut().zip(&self.rrows) {
             if self.rcols.is_empty() || rows.is_empty() {
@@ -1094,34 +1035,12 @@ impl<'a> GridLayouter<'a> {
                     .unwrap_or(&[]);
                 let tracks = self.rcols.iter().copied().enumerate();
 
-                // Apply top / bottom border stroke overrides.
-                let stroke = match y {
-                    0 => self
-                        .grid
-                        .stroke
-                        .outside
-                        .top
-                        .as_ref()
-                        .map(|border_stroke| border_stroke.clone().fold(stroke.clone()))
-                        .unwrap_or_else(|| stroke.clone()),
-                    _ if is_bottom_border => self
-                        .grid
-                        .stroke
-                        .outside
-                        .bottom
-                        .as_ref()
-                        .map(|border_stroke| border_stroke.clone().fold(stroke.clone()))
-                        .unwrap_or_else(|| stroke.clone()),
-                    _ => stroke.clone(),
-                };
-
                 // Determine all different line segments we have to draw in
                 // this row, and convert them to points and shapes.
                 let segments = generate_line_segments(
                     self.grid,
                     tracks,
                     y,
-                    stroke.as_ref(),
                     hlines_at_row,
                     is_bottom_border,
                     hline_stroke_at_column,
@@ -1168,27 +1087,6 @@ impl<'a> GridLayouter<'a> {
                     .unwrap_or(&[]);
                 let tracks = rows.iter().map(|row| (row.y, row.height));
 
-                // Apply left / right border stroke overrides.
-                let stroke = match x {
-                    0 => self
-                        .grid
-                        .stroke
-                        .outside
-                        .left
-                        .as_ref()
-                        .map(|border_stroke| border_stroke.clone().fold(stroke.clone()))
-                        .unwrap_or_else(|| stroke.clone()),
-                    _ if is_right_border => self
-                        .grid
-                        .stroke
-                        .outside
-                        .right
-                        .as_ref()
-                        .map(|border_stroke| border_stroke.clone().fold(stroke.clone()))
-                        .unwrap_or_else(|| stroke.clone()),
-                    _ => stroke.clone(),
-                };
-
                 // Determine all different line segments we have to draw in
                 // this column, and convert them to points and shapes.
                 // Even a single, uniform line might generate more than one
@@ -1198,7 +1096,6 @@ impl<'a> GridLayouter<'a> {
                     self.grid,
                     tracks,
                     x,
-                    stroke.as_ref(),
                     vlines_at_column,
                     is_right_border,
                     vline_stroke_at_row,
@@ -1782,7 +1679,6 @@ fn generate_line_segments<'grid, F, I>(
     grid: &'grid CellGrid,
     tracks: I,
     index: usize,
-    stroke: Option<&'grid Arc<Stroke<Abs>>>,
     lines: &'grid [Line],
     is_max_index: bool,
     line_stroke_at_track: F,
@@ -1837,10 +1733,9 @@ where
     tracks.into_iter().map(Some).chain(std::iter::once(None)).filter_map(
         move |track_data| {
             if let Some((track, size)) = track_data {
-                // Get the expected line stroke at this track by taking the
-                // default (table-wide) stroke for this index and folding it
-                // with the strokes of each user-specified line (with priority
-                // to the user-specified line specified last).
+                // Get the expected line stroke at this track by folding the
+                // strokes of each user-specified line (with priority to the
+                // user-specified line specified last).
                 let stroke = lines
                     .iter()
                     .filter(|line| {
@@ -1860,7 +1755,7 @@ where
                                 .unwrap_or_else(|| track >= gutter_factor * line.start)
                     })
                     .map(|line| line.stroke.as_ref().cloned())
-                    .fold(stroke.cloned(), |acc, line_stroke| line_stroke.fold(acc));
+                    .fold(None, |acc, line_stroke| line_stroke.fold(acc));
 
                 // The function shall determine if it is appropriate to draw
                 // the line at this position or not (i.e. whether or not it
@@ -1933,9 +1828,10 @@ where
 /// If the one (when at the border) or two (otherwise) cells to the left and
 /// right of the vline have right and left stroke overrides, respectively,
 /// then the cells' stroke overrides are folded together with the vline's
-/// stroke (with priority to the right cell's stroke, followed by the left
-/// cell's) and returned. If, however, the cells around the vline at this row
-/// do not have any stroke overrides, then the vline's own stroke is returned.
+/// stroke (with priority to the vline's stroke, followed by the right cell's
+/// stroke, and, finally, the left cell's) and returned. If, however, the cells
+/// around the vline at this row do not have any stroke overrides, then the
+/// vline's own stroke is directly returned.
 fn vline_stroke_at_row(
     grid: &CellGrid,
     x: usize,
@@ -1993,10 +1889,11 @@ fn vline_stroke_at_row(
     };
 
     // Fold the line stroke and folded cell strokes, if possible.
+    // Give priority to the explicit line stroke.
     // Otherwise, use whichever of the two isn't 'none' or unspecified.
     match (cell_stroke, stroke) {
-        (Some(cell_stroke), Some(stroke)) => Some(cell_stroke.fold(stroke.clone())),
-        (cell_stroke, stroke) => cell_stroke.or_else(|| stroke.clone()),
+        (Some(cell_stroke), Some(stroke)) => Some(stroke.fold(cell_stroke)),
+        (cell_stroke, stroke) => cell_stroke.or(stroke),
     }
 }
 
@@ -2005,9 +1902,10 @@ fn vline_stroke_at_row(
 /// If the one (when at the border) or two (otherwise) cells above and below
 /// the hline have bottom and top stroke overrides, respectively, then the
 /// cells' stroke overrides are folded together with the hline's stroke (with
-/// priority to the bottom cell's stroke, followed by the top cell's) and
-/// returned. If, however, the cells around the hline at this column do not
-/// have any stroke overrides, then the hline's own stroke is returned.
+/// priority to hline's stroke, followed by the bottom cell's stroke, and,
+/// finally, the top cell's) and returned. If, however, the cells around the
+/// hline at this column do not have any stroke overrides, then the hline's own
+/// stroke is directly returned.
 fn hline_stroke_at_column(
     grid: &CellGrid,
     y: usize,
@@ -2039,10 +1937,11 @@ fn hline_stroke_at_column(
     };
 
     // Fold the line stroke and folded cell strokes, if possible.
+    // Give priority to the explicit line stroke.
     // Otherwise, use whichever of the two isn't 'none' or unspecified.
     match (cell_stroke, stroke) {
-        (Some(cell_stroke), Some(stroke)) => Some(cell_stroke.fold(stroke.clone())),
-        (cell_stroke, stroke) => cell_stroke.or_else(|| stroke.clone()),
+        (Some(cell_stroke), Some(stroke)) => Some(stroke.fold(cell_stroke)),
+        (cell_stroke, stroke) => cell_stroke.or(stroke),
     }
 }
 
@@ -2055,7 +1954,7 @@ mod test {
             body: Content::default(),
             fill: None,
             colspan: NonZeroUsize::ONE,
-            stroke: Sides::default(),
+            stroke: Sides::splat(Some(Arc::new(Stroke::default()))),
         }
     }
 
@@ -2064,7 +1963,7 @@ mod test {
             body: Content::default(),
             fill: None,
             colspan: NonZeroUsize::try_from(colspan).unwrap(),
-            stroke: Sides::default(),
+            stroke: Sides::splat(Some(Arc::new(Stroke::default()))),
         }
     }
 
@@ -2110,7 +2009,6 @@ mod test {
             } else {
                 Axes::default()
             },
-            ResolvedGridStroke::default(),
             vec![],
             vec![],
             entries,
@@ -2140,7 +2038,7 @@ mod test {
             ],
             // interrupted every time by colspans
             vec![],
-            vec![(stroke.clone(), Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
+            vec![(stroke, Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
         ];
         for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
             let tracks = rows.iter().map(|row| (row.y, row.height));
@@ -2150,7 +2048,6 @@ mod test {
                     &grid,
                     tracks,
                     x,
-                    Some(&stroke),
                     &[],
                     x == grid.cols.len(),
                     vline_stroke_at_row
@@ -2178,74 +2075,101 @@ mod test {
             RowPiece { height: Abs::pt(512.0), y: 9 },
             RowPiece { height: Abs::pt(1024.0), y: 10 },
         ];
+        // Stroke is per-cell so we skip gutter
         let expected_vline_splits = &[
             // left border
-            vec![(
-                stroke.clone(),
-                Abs::pt(0.),
-                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
-            )],
-            // gutter line below
-            vec![(
-                stroke.clone(),
-                Abs::pt(0.),
-                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
-            )],
-            vec![(
-                stroke.clone(),
-                Abs::pt(0.),
-                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
-            )],
-            // gutter line below
-            // the two lines below are interrupted multiple times by colspans
             vec![
-                (stroke.clone(), Abs::pt(0.), Abs::pt(1. + 2.)),
-                (stroke.clone(), Abs::pt(1. + 2. + 4.), Abs::pt(8. + 16. + 32.)),
+                (stroke.clone(), Abs::pt(0.), Abs::pt(1.)),
+                (stroke.clone(), Abs::pt(1. + 2.), Abs::pt(4.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8.), Abs::pt(16.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.), Abs::pt(64.)),
                 (
                     stroke.clone(),
-                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
-                    Abs::pt(512. + 1024.),
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128.),
+                    Abs::pt(256.),
+                ),
+                (
+                    stroke.clone(),
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512.),
+                    Abs::pt(1024.),
+                ),
+            ],
+            // gutter line below
+            vec![
+                (stroke.clone(), Abs::pt(0.), Abs::pt(1.)),
+                (stroke.clone(), Abs::pt(1. + 2.), Abs::pt(4.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8.), Abs::pt(16.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.), Abs::pt(64.)),
+                (
+                    stroke.clone(),
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128.),
+                    Abs::pt(256.),
+                ),
+                (
+                    stroke.clone(),
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512.),
+                    Abs::pt(1024.),
                 ),
             ],
             vec![
-                (stroke.clone(), Abs::pt(0.), Abs::pt(1. + 2.)),
-                (stroke.clone(), Abs::pt(1. + 2. + 4.), Abs::pt(8. + 16. + 32.)),
+                (stroke.clone(), Abs::pt(0.), Abs::pt(1.)),
+                (stroke.clone(), Abs::pt(1. + 2.), Abs::pt(4.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8.), Abs::pt(16.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.), Abs::pt(64.)),
                 (
                     stroke.clone(),
-                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
-                    Abs::pt(512. + 1024.),
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128.),
+                    Abs::pt(256.),
+                ),
+                (
+                    stroke.clone(),
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512.),
+                    Abs::pt(1024.),
+                ),
+            ],
+            // gutter line below
+            // the two lines below are interrupted multiple times by colspans
+            vec![
+                (stroke.clone(), Abs::pt(0.), Abs::pt(1.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8.), Abs::pt(16.)),
+                (
+                    stroke.clone(),
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512.),
+                    Abs::pt(1024.),
+                ),
+            ],
+            vec![
+                (stroke.clone(), Abs::pt(0.), Abs::pt(1.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8.), Abs::pt(16.)),
+                (
+                    stroke.clone(),
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512.),
+                    Abs::pt(1024.),
                 ),
             ],
             // gutter line below
             // the two lines below can only cross certain gutter rows, because
             // all non-gutter cells in the following column are merged with
             // cells from the previous column.
-            vec![
-                (stroke.clone(), Abs::pt(1.), Abs::pt(2.)),
-                (stroke.clone(), Abs::pt(1. + 2. + 4.), Abs::pt(8.)),
-                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
-                (
-                    stroke.clone(),
-                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
-                    Abs::pt(512.),
-                ),
-            ],
-            vec![
-                (stroke.clone(), Abs::pt(1.), Abs::pt(2.)),
-                (stroke.clone(), Abs::pt(1. + 2. + 4.), Abs::pt(8.)),
-                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
-                (
-                    stroke.clone(),
-                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
-                    Abs::pt(512.),
-                ),
-            ],
+            vec![],
+            vec![],
             // right border
-            vec![(
-                stroke.clone(),
-                Abs::pt(0.),
-                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
-            )],
+            vec![
+                (stroke.clone(), Abs::pt(0.), Abs::pt(1.)),
+                (stroke.clone(), Abs::pt(1. + 2.), Abs::pt(4.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8.), Abs::pt(16.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.), Abs::pt(64.)),
+                (
+                    stroke.clone(),
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128.),
+                    Abs::pt(256.),
+                ),
+                (
+                    stroke.clone(),
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512.),
+                    Abs::pt(1024.),
+                ),
+            ],
         ];
         for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
             let tracks = rows.iter().map(|row| (row.y, row.height));
@@ -2255,7 +2179,6 @@ mod test {
                     &grid,
                     tracks,
                     x,
-                    Some(&stroke),
                     &[],
                     x == grid.cols.len(),
                     vline_stroke_at_row
