@@ -390,7 +390,16 @@ fn layout_underoverspreader(
         ignore_height = (0..rows.len() - 1).collect();
     }
 
-    let frame = stack(ctx, styles, rows, FixedAlignment::Center, gap, baseline, ignore_width, ignore_height);
+    let frame = stack(
+        ctx,
+        styles,
+        rows,
+        FixedAlignment::Center,
+        gap,
+        baseline,
+        ignore_width,
+        ignore_height,
+    );
     ctx.push(FrameFragment::new(ctx, styles, frame).with_class(body_class));
 
     Ok(())
@@ -413,7 +422,13 @@ pub(super) fn stack(
 ) -> Frame {
     let rows: Vec<_> = rows.into_iter().flat_map(|r| r.rows()).collect();
     let AlignmentResult { points, width } = alignments(
-        &rows.clone().into_iter().enumerate().filter(|(i, _)| !ignore_width.contains(i)).map(|(_, r)| r).collect::<Vec<_>>()
+        &rows
+            .clone()
+            .into_iter()
+            .enumerate()
+            .filter(|(i, _)| !ignore_width.contains(i))
+            .map(|(_, r)| r)
+            .collect::<Vec<_>>(),
     );
     let rows: Vec<_> = rows
         .into_iter()
@@ -423,9 +438,11 @@ pub(super) fn stack(
     let mut y = Abs::zero();
     let mut frame = Frame::soft(Size::new(
         width,
-        rows.iter().enumerate()
+        rows.iter()
+            .enumerate()
             .filter(|(i, _)| !ignore_height.contains(i))
-            .map(|(_, row)| row.height()).sum::<Abs>()
+            .map(|(_, row)| row.height())
+            .sum::<Abs>()
             + rows.len().saturating_sub(ignore_height.len() + 1) as f64 * gap,
     ));
 
