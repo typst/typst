@@ -1,8 +1,8 @@
 mod layout;
+mod lines;
 
-pub use self::layout::{
-    Cell, CellGrid, Celled, GridItem, GridLayouter, LinePosition, ResolvableCell,
-};
+pub use self::layout::{Cell, CellGrid, Celled, GridItem, GridLayouter, ResolvableCell};
+pub use self::lines::LinePosition;
 
 use std::num::NonZeroUsize;
 use std::sync::Arc;
