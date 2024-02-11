@@ -2095,7 +2095,7 @@ mod test {
     }
 
     #[test]
-    fn test_vline_splitting_with_gutter() {
+    fn test_vline_splitting_with_gutter_and_per_cell_stroke() {
         let stroke = Arc::new(Stroke::default());
         let grid = sample_grid(true);
         let rows = &[
@@ -2216,6 +2216,125 @@ mod test {
                     tracks,
                     x,
                     &[],
+                    x == grid.cols.len(),
+                    vline_stroke_at_row
+                )
+                .into_iter()
+                .collect::<Vec<_>>(),
+            );
+        }
+    }
+
+    #[test]
+    fn test_vline_splitting_with_gutter_and_explicit_vlines() {
+        let stroke = Arc::new(Stroke::default());
+        let grid = sample_grid(true);
+        let rows = &[
+            RowPiece { height: Abs::pt(1.0), y: 0 },
+            RowPiece { height: Abs::pt(2.0), y: 1 },
+            RowPiece { height: Abs::pt(4.0), y: 2 },
+            RowPiece { height: Abs::pt(8.0), y: 3 },
+            RowPiece { height: Abs::pt(16.0), y: 4 },
+            RowPiece { height: Abs::pt(32.0), y: 5 },
+            RowPiece { height: Abs::pt(64.0), y: 6 },
+            RowPiece { height: Abs::pt(128.0), y: 7 },
+            RowPiece { height: Abs::pt(256.0), y: 8 },
+            RowPiece { height: Abs::pt(512.0), y: 9 },
+            RowPiece { height: Abs::pt(1024.0), y: 10 },
+        ];
+        let expected_vline_splits = &[
+            // left border
+            vec![(
+                stroke.clone(),
+                Abs::pt(0.),
+                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
+            )],
+            // gutter line below
+            vec![(
+                stroke.clone(),
+                Abs::pt(0.),
+                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
+            )],
+            vec![(
+                stroke.clone(),
+                Abs::pt(0.),
+                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
+            )],
+            // gutter line below
+            // the two lines below are interrupted multiple times by colspans
+            vec![
+                (stroke.clone(), Abs::pt(0.), Abs::pt(1. + 2.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4.), Abs::pt(8. + 16. + 32.)),
+                (
+                    stroke.clone(),
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
+                    Abs::pt(512. + 1024.),
+                ),
+            ],
+            vec![
+                (stroke.clone(), Abs::pt(0.), Abs::pt(1. + 2.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4.), Abs::pt(8. + 16. + 32.)),
+                (
+                    stroke.clone(),
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
+                    Abs::pt(512. + 1024.),
+                ),
+            ],
+            // gutter line below
+            // the two lines below can only cross certain gutter rows, because
+            // all non-gutter cells in the following column are merged with
+            // cells from the previous column.
+            vec![
+                (stroke.clone(), Abs::pt(1.), Abs::pt(2.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4.), Abs::pt(8.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
+                (
+                    stroke.clone(),
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
+                    Abs::pt(512.),
+                ),
+            ],
+            vec![
+                (stroke.clone(), Abs::pt(1.), Abs::pt(2.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4.), Abs::pt(8.)),
+                (stroke.clone(), Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
+                (
+                    stroke.clone(),
+                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
+                    Abs::pt(512.),
+                ),
+            ],
+            // right border
+            vec![(
+                stroke.clone(),
+                Abs::pt(0.),
+                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
+            )],
+        ];
+        for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
+            let tracks = rows.iter().map(|row| (row.y, row.height));
+            assert_eq!(
+                expected_splits,
+                &generate_line_segments(
+                    &grid,
+                    tracks,
+                    x,
+                    &[
+                        Line {
+                            index: x,
+                            start: 0,
+                            end: None,
+                            stroke: Some(stroke.clone()),
+                            position: LinePosition::Before
+                        },
+                        Line {
+                            index: x,
+                            start: 0,
+                            end: None,
+                            stroke: Some(stroke.clone()),
+                            position: LinePosition::After
+                        },
+                    ],
                     x == grid.cols.len(),
                     vline_stroke_at_row
                 )
