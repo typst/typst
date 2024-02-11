@@ -317,10 +317,12 @@ pub struct CellGrid {
     /// The row tracks including gutter tracks.
     pub(super) rows: Vec<Sizing>,
     /// The vertical lines before each column, or on the right border.
-    /// Contains up to 'cols.len() + 1' vectors of lines.
+    /// Gutter columns are not included.
+    /// Contains up to 'cols_without_gutter.len() + 1' vectors of lines.
     pub(super) vlines: Vec<Vec<Line>>,
     /// The horizontal lines on top of each row, or on the bottom border.
-    /// Contains up to 'rows.len() + 1' vectors of lines.
+    /// Gutter rows are not included.
+    /// Contains up to 'rows_without_gutter.len() + 1' vectors of lines.
     pub(super) hlines: Vec<Vec<Line>>,
     /// Whether this grid has gutters.
     pub(super) has_gutter: bool,
@@ -365,12 +367,12 @@ impl CellGrid {
         let c = tracks.x.len().max(1);
 
         // Lists of lines.
-        let mut vlines: Vec<Vec<Line>> = Vec::with_capacity(c);
-        let mut hlines: Vec<Vec<Line>> = Vec::new();
+        let mut vlines: Vec<Vec<Line>> = vec![];
+        let mut hlines: Vec<Vec<Line>> = vec![];
         // Horizontal lines are only pushed later to be able to check for row
         // validity.
         // We keep their spans so we can report errors later.
-        let mut pending_hlines: Vec<(Span, Line)> = Vec::new();
+        let mut pending_hlines: Vec<(Span, Line)> = vec![];
         let has_gutter = gutter.any(|tracks| !tracks.is_empty());
 
         // We can't just use the cell's index in the 'cells' vector to
@@ -384,8 +386,9 @@ impl CellGrid {
 
         // We have to rebuild the grid to account for arbitrary positions.
         // Create at least 'items.len()' positions, since there could be at
-        // least 'items.len()' cells, even though some of them might be placed
-        // in arbitrary positions and thus cause the grid to expand.
+        // least 'items.len()' cells (if no explicit lines were specified),
+        // even though some of them might be placed in arbitrary positions and
+        // thus cause the grid to expand.
         // Additionally, make sure we allocate up to the next multiple of 'c',
         // since each row will have 'c' cells, even if the last few cells
         // weren't explicitly specified by the user.
@@ -480,10 +483,10 @@ impl CellGrid {
                         (x, Line { index: x, start, end, stroke, position })
                     };
                     // There must exist at least one more column for this line
-                    // to be effectively drawn, if "After" position was chosen.
-                    let visual_index =
+                    // to be actually drawn if the "After" position was chosen.
+                    let necessary_cols =
                         if line.position == LinePosition::After { x + 1 } else { x };
-                    if visual_index > c {
+                    if necessary_cols > c {
                         bail!(span, "cannot place vertical line at invalid column");
                     }
                     if vlines.len() <= x {
@@ -628,10 +631,10 @@ impl CellGrid {
         for (span, line) in pending_hlines {
             let y = line.index;
             // There must exist at least one more row for this line to be
-            // effectively drawn, if "After" position was chosen.
-            let visual_index =
+            // actually drawn if the "After" position was chosen.
+            let necessary_rows =
                 if line.position == LinePosition::After { y + 1 } else { y };
-            if resolved_cells.len().div_ceil(c) < visual_index {
+            if resolved_cells.len().div_ceil(c) < necessary_rows {
                 bail!(span, "cannot place horizontal line at invalid row");
             }
             if hlines.len() <= y {
