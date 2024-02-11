@@ -614,8 +614,6 @@ impl Default for Packed<GridCell> {
     }
 }
 
-// TODO: Avoid cloning Arcs unnecessarily (here and for TableCell too)
-// Fold again (manually) when pushing stroke; don't convert to FixedStroke
 impl ResolvableCell for Packed<GridCell> {
     fn resolve_cell(
         mut self,
