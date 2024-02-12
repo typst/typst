@@ -969,7 +969,62 @@ impl<'a> GridLayouter<'a> {
             // thickness are drawn on top.
             let mut lines = Vec::new();
 
+            // Render vertical lines.
+            // Render them first so horizontal lines have priority later.
+            for (x, dx) in points(self.rcols.iter().copied()).enumerate() {
+                let dx = if self.is_rtl { self.width - dx } else { dx };
+                let is_right_border = x == self.grid.cols.len();
+                // Note that the index of the vlines that we're getting will
+                // round down to the index of the column immediately before the
+                // current one if it is a gutter column (since then 'x' is
+                // odd). This is intentional, for the same reason we do this
+                // for hlines.
+                let vlines_at_column = self
+                    .grid
+                    .vlines
+                    .get(if !self.grid.has_gutter {
+                        x
+                    } else if is_right_border {
+                        x / 2 + 1
+                    } else {
+                        x / 2
+                    })
+                    .map(|vlines| &**vlines)
+                    .unwrap_or(&[]);
+                let tracks = rows.iter().map(|row| (row.y, row.height));
+
+                // Determine all different line segments we have to draw in
+                // this column, and convert them to points and shapes.
+                // Even a single, uniform line might generate more than one
+                // segment, if it happens to cross a colspan (over which it
+                // must not be drawn).
+                let segments = generate_line_segments(
+                    self.grid,
+                    tracks,
+                    x,
+                    vlines_at_column,
+                    is_right_border,
+                    vline_stroke_at_row,
+                )
+                .into_iter()
+                .map(|(stroke, dy, length)| {
+                    let stroke = (*stroke).clone().unwrap_or_default();
+                    let thickness = stroke.thickness;
+                    let half = thickness / 2.0;
+                    let target = Point::with_y(length + thickness);
+                    let vline = Geometry::Line(target).stroked(stroke);
+                    (
+                        thickness,
+                        Point::new(dx, dy - half),
+                        FrameItem::Shape(vline, self.span),
+                    )
+                });
+
+                lines.extend(segments);
+            }
+
             // Render horizontal lines.
+            // They are rendered second as they default to appearing on top.
             // First, calculate their offsets from the top of the frame.
             let hline_offsets = points(rows.iter().map(|piece| piece.height));
             // Additionally, determine their indices (the indices of the
@@ -1033,69 +1088,19 @@ impl<'a> GridLayouter<'a> {
                 lines.extend(segments);
             }
 
-            // Render vertical lines.
-            for (x, dx) in points(self.rcols.iter().copied()).enumerate() {
-                let dx = if self.is_rtl { self.width - dx } else { dx };
-                let is_right_border = x == self.grid.cols.len();
-                // Note that the index of the vlines that we're getting will
-                // round down to the index of the column immediately before the
-                // current one if it is a gutter column (since then 'x' is
-                // odd). This is intentional, for the same reason we do this
-                // for hlines.
-                let vlines_at_column = self
-                    .grid
-                    .vlines
-                    .get(if !self.grid.has_gutter {
-                        x
-                    } else if is_right_border {
-                        x / 2 + 1
-                    } else {
-                        x / 2
-                    })
-                    .map(|vlines| &**vlines)
-                    .unwrap_or(&[]);
-                let tracks = rows.iter().map(|row| (row.y, row.height));
-
-                // Determine all different line segments we have to draw in
-                // this column, and convert them to points and shapes.
-                // Even a single, uniform line might generate more than one
-                // segment, if it happens to cross a colspan (over which it
-                // must not be drawn).
-                let segments = generate_line_segments(
-                    self.grid,
-                    tracks,
-                    x,
-                    vlines_at_column,
-                    is_right_border,
-                    vline_stroke_at_row,
-                )
-                .into_iter()
-                .map(|(stroke, dy, length)| {
-                    let stroke = (*stroke).clone().unwrap_or_default();
-                    let thickness = stroke.thickness;
-                    let half = thickness / 2.0;
-                    let target = Point::with_y(length + thickness);
-                    let vline = Geometry::Line(target).stroked(stroke);
-                    (
-                        thickness,
-                        Point::new(dx, dy - half),
-                        FrameItem::Shape(vline, self.span),
-                    )
-                });
-
-                lines.extend(segments);
-            }
-
-            // Sort by decreasing thickness, so that we draw larger strokes first.
+            // Sort by increasing thickness, so that we draw larger strokes
+            // on top.
             // This avoids layering problems where a smaller hline appears
             // "inside" a larger vline. When both have the same size, hlines
             // are drawn on top (since the sort is stable, and they are
             // pushed first).
-            lines.sort_by(|(a_thickness, ..), (b_thickness, ..)| {
-                b_thickness.cmp(a_thickness)
-            });
+            lines.sort_by_key(|(thickness, ..)| *thickness);
 
-            for (_, point, shape) in lines {
+            // We render lines in the reverse order as we are prepending them,
+            // meaning the first line drawn will be on the top, the second will
+            // be below it, and so on; and, yet, the lines vector is sorted
+            // from bottom layer to top layer, that is, in the opposite order.
+            for (_, point, shape) in lines.into_iter().rev() {
                 frame.prepend(point, shape);
             }
 
