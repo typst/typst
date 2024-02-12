@@ -14,6 +14,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --workspace
+      - uses: portworx/action-check-clean-tree@v1
       - run: cargo test --workspace --no-fail-fast
 
   checks:
