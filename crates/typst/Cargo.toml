@@ -41,8 +41,8 @@ lipsum = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
 palette = { workspace = true }
-qcms = { workspace = true }
 phf = { workspace = true }
+qcms = { workspace = true }
 rayon = { workspace = true }
 regex = { workspace = true }
 roxmltree = { workspace = true }
