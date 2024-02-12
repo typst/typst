@@ -130,6 +130,7 @@ fn main() {
 
     println!("Running tests...");
     let results = WalkDir::new(TYP_DIR)
+        .sort_by_file_name()
         .into_iter()
         .par_bridge()
         .filter_map(|entry| {
