@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use crate::foundations::{
     cast, elem, Behave, Behaviour, Content, Packed, Resolve, StyleChain,
 };
@@ -75,16 +73,12 @@ impl Behave for Packed<HElem> {
         }
     }
 
-    fn larger(
-        &self,
-        prev: &(Cow<Content>, Behaviour, StyleChain),
-        styles: StyleChain,
-    ) -> bool {
+    fn larger(&self, prev: &(&Content, StyleChain), styles: StyleChain) -> bool {
         let Some(other) = prev.0.to_packed::<HElem>() else { return false };
         match (self.amount(), other.amount()) {
             (Spacing::Fr(this), Spacing::Fr(other)) => this > other,
             (Spacing::Rel(this), Spacing::Rel(other)) => {
-                this.resolve(styles) > other.resolve(prev.2)
+                this.resolve(styles) > other.resolve(prev.1)
             }
             _ => false,
         }
@@ -177,16 +171,12 @@ impl Behave for Packed<VElem> {
         }
     }
 
-    fn larger(
-        &self,
-        prev: &(Cow<Content>, Behaviour, StyleChain),
-        styles: StyleChain,
-    ) -> bool {
+    fn larger(&self, prev: &(&Content, StyleChain), styles: StyleChain) -> bool {
         let Some(other) = prev.0.to_packed::<VElem>() else { return false };
         match (self.amount(), other.amount()) {
             (Spacing::Fr(this), Spacing::Fr(other)) => this > other,
             (Spacing::Rel(this), Spacing::Rel(other)) => {
-                this.resolve(styles) > other.resolve(prev.2)
+                this.resolve(styles) > other.resolve(prev.1)
             }
             _ => false,
         }

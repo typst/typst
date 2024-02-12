@@ -40,8 +40,6 @@ use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
 
-use std::borrow::Cow;
-
 use crate::diag::SourceResult;
 use crate::foundations::{
     category, Category, Content, Module, Resolve, Scope, StyleChain,
@@ -239,10 +237,9 @@ impl LayoutMath for Content {
         if self.is_sequence() {
             let mut bb = BehavedBuilder::new();
             self.sequence_recursive_for_each(&mut |child: &Content| {
-                bb.push(Cow::Owned(child.clone()), StyleChain::default())
+                bb.push(child, StyleChain::default());
             });
-
-            for (child, _) in bb.finish().0.iter() {
+            for child in bb.finish::<Content>().0 {
                 child.layout_math(ctx, styles)?;
             }
             return Ok(());
