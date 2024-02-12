@@ -3,7 +3,9 @@
 use crate::foundations::{Behave, Behaviour, Content, StyleChain, Styles};
 use crate::syntax::Span;
 
-/// A wrapper around a [`StyleVecBuilder`] that allows elements to interact.
+/// Processes a sequence of content and resolves behaviour interactions between
+/// them and separates local styles for each element from the shared trunk of
+/// styles.
 #[derive(Debug)]
 pub struct BehavedBuilder<'a> {
     /// The collected content with its styles.
