@@ -1,7 +1,9 @@
 //! Realization of content.
 
+mod arenas;
 mod behave;
 
+pub use self::arenas::Arenas;
 pub use self::behave::BehavedBuilder;
 
 use std::borrow::Cow;
@@ -9,14 +11,12 @@ use std::cell::OnceCell;
 use std::mem;
 
 use smallvec::smallvec;
-use typed_arena::Arena;
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::foundations::{
-    Behave, Behaviour, Content, NativeElement, Packed, Recipe, RecipeIndex, Regex,
-    Selector, Show, ShowSet, Style, StyleChain, StyleVec, StyleVecBuilder, Styles,
-    Synthesize, Transformation,
+    Content, NativeElement, Packed, Recipe, RecipeIndex, Regex, Selector, Show, ShowSet,
+    Style, StyleChain, Styles, Synthesize, Transformation,
 };
 use crate::introspection::{Locatable, Meta, MetaElem};
 use crate::layout::{
@@ -36,15 +36,14 @@ use crate::util::{hash128, BitSet};
 #[typst_macros::time(name = "realize root")]
 pub fn realize_root<'a>(
     engine: &mut Engine,
-    scratch: &'a Scratch<'a>,
+    arenas: &'a Arenas<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<(Packed<DocumentElem>, StyleChain<'a>)> {
-    let mut builder = Builder::new(engine, scratch, true);
+    let mut builder = Builder::new(engine, arenas, true);
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles), true)?;
-    let (pages, shared) = builder.doc.unwrap().pages.finish();
-    let span = first_span(&pages);
+    let (pages, shared, span) = builder.doc.unwrap().pages.finish();
     Ok((Packed::new(DocumentElem::new(pages.to_vec())).spanned(span), shared))
 }
 
@@ -52,7 +51,7 @@ pub fn realize_root<'a>(
 #[typst_macros::time(name = "realize block")]
 pub fn realize_block<'a>(
     engine: &mut Engine,
-    scratch: &'a Scratch<'a>,
+    arenas: &'a Arenas<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<(Cow<'a, Content>, StyleChain<'a>)> {
@@ -62,13 +61,12 @@ pub fn realize_block<'a>(
         return Ok((Cow::Borrowed(content), styles));
     }
 
-    let mut builder = Builder::new(engine, scratch, false);
+    let mut builder = Builder::new(engine, arenas, false);
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
 
-    let (children, shared) = builder.flow.0.finish();
-    let span = first_span(&children);
-    Ok((Cow::Owned(FlowElem::new(children.to_vec()).pack().spanned(span)), shared))
+    let (children, shared, span) = builder.flow.0.finish();
+    Ok((Cow::Owned(FlowElem::new(children).pack().spanned(span)), shared))
 }
 
 /// Apply the show rules in the given style chain to a target element.
@@ -366,7 +364,7 @@ struct Builder<'a, 'v, 't> {
     /// The engine.
     engine: &'v mut Engine<'t>,
     /// Scratch arenas for building.
-    scratch: &'a Scratch<'a>,
+    arenas: &'a Arenas<'a>,
     /// The current document building state.
     doc: Option<DocBuilder<'a>>,
     /// The current flow building state.
@@ -379,20 +377,11 @@ struct Builder<'a, 'v, 't> {
     cites: CiteGroupBuilder<'a>,
 }
 
-/// Temporary storage arenas for building.
-#[derive(Default)]
-pub struct Scratch<'a> {
-    /// An arena where intermediate style chains are stored.
-    styles: Arena<StyleChain<'a>>,
-    /// An arena where intermediate content resulting from show rules is stored.
-    content: Arena<Content>,
-}
-
 impl<'a, 'v, 't> Builder<'a, 'v, 't> {
-    fn new(engine: &'v mut Engine<'t>, scratch: &'a Scratch<'a>, top: bool) -> Self {
+    fn new(engine: &'v mut Engine<'t>, arenas: &'a Arenas<'a>, top: bool) -> Self {
         Self {
             engine,
-            scratch,
+            arenas,
             doc: top.then(DocBuilder::default),
             flow: FlowBuilder::default(),
             par: ParBuilder::default(),
@@ -408,9 +397,8 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
     ) -> SourceResult<()> {
         if content.can::<dyn LayoutMath>() && !content.is::<EquationElem>() {
             content = self
-                .scratch
-                .content
-                .alloc(EquationElem::new(content.clone()).pack().spanned(content.span()));
+                .arenas
+                .store(EquationElem::new(content.clone()).pack().spanned(content.span()));
         }
 
         if let Some(realized) = realize(self.engine, content, styles)? {
@@ -421,10 +409,9 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
                     hint: "check whether the show rule matches its own output"
                 );
             }
-            let stored = self.scratch.content.alloc(realized);
-            let v = self.accept(stored, styles);
+            let result = self.accept(self.arenas.store(realized), styles);
             self.engine.route.decrease();
-            return v;
+            return result;
         }
 
         if let Some((elem, local)) = content.to_styled() {
@@ -460,7 +447,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
 
         self.interrupt_par()?;
 
-        if self.flow.accept(content, styles) {
+        if self.flow.accept(self.arenas, content, styles) {
             return Ok(());
         }
 
@@ -471,7 +458,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         self.interrupt_page(keep.then_some(styles), false)?;
 
         if let Some(doc) = &mut self.doc {
-            if doc.accept(content, styles) {
+            if doc.accept(self.arenas, content, styles) {
                 return Ok(());
             }
         }
@@ -489,7 +476,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         map: &'a Styles,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        let stored = self.scratch.styles.alloc(styles);
+        let stored = self.arenas.store(styles);
         let styles = stored.chain(map);
         self.interrupt_style(map, None)?;
         self.accept(elem, styles)?;
@@ -535,8 +522,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         if !self.cites.items.is_empty() {
             let staged = mem::take(&mut self.cites.staged);
             let (group, styles) = mem::take(&mut self.cites).finish();
-            let stored = self.scratch.content.alloc(group);
-            self.accept(stored, styles)?;
+            self.accept(self.arenas.store(group), styles)?;
             for (content, styles) in staged {
                 self.accept(content, styles)?;
             }
@@ -549,8 +535,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         if !self.list.items.is_empty() {
             let staged = mem::take(&mut self.list.staged);
             let (list, styles) = mem::take(&mut self.list).finish();
-            let stored = self.scratch.content.alloc(list);
-            self.accept(stored, styles)?;
+            self.accept(self.arenas.store(list), styles)?;
             for (content, styles) in staged {
                 self.accept(content, styles)?;
             }
@@ -562,8 +547,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         self.interrupt_list()?;
         if !self.par.0.is_empty() {
             let (par, styles) = mem::take(&mut self.par).finish();
-            let stored = self.scratch.content.alloc(par);
-            self.accept(stored, styles)?;
+            self.accept(self.arenas.store(par), styles)?;
         }
 
         Ok(())
@@ -577,17 +561,15 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         self.interrupt_par()?;
         let Some(doc) = &mut self.doc else { return Ok(()) };
         if (doc.keep_next && styles.is_some()) || self.flow.0.has_strong_elements(last) {
-            let (children, shared) = mem::take(&mut self.flow).0.finish();
+            let (children, shared, span) = mem::take(&mut self.flow).0.finish();
             let styles = if shared == StyleChain::default() {
                 styles.unwrap_or_default()
             } else {
                 shared
             };
-            let span = first_span(&children);
-            let flow = FlowElem::new(children.to_vec());
+            let flow = FlowElem::new(children);
             let page = PageElem::new(flow.pack().spanned(span));
-            let stored = self.scratch.content.alloc(page.pack().spanned(span));
-            self.accept(stored, styles)?;
+            self.accept(self.arenas.store(page.pack().spanned(span)), styles)?;
         }
         Ok(())
     }
@@ -596,7 +578,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
 /// Accepts pagebreaks and pages.
 struct DocBuilder<'a> {
     /// The page runs built so far.
-    pages: StyleVecBuilder<'a, Cow<'a, Content>>,
+    pages: BehavedBuilder<'a>,
     /// Whether to keep a following page even if it is empty.
     keep_next: bool,
     /// Whether the next page should be cleared to an even or odd number.
@@ -604,7 +586,12 @@ struct DocBuilder<'a> {
 }
 
 impl<'a> DocBuilder<'a> {
-    fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
+    fn accept(
+        &mut self,
+        arenas: &'a Arenas<'a>,
+        content: &'a Content,
+        styles: StyleChain<'a>,
+    ) -> bool {
         if let Some(pagebreak) = content.to_packed::<PagebreakElem>() {
             self.keep_next = !pagebreak.weak(styles);
             self.clear_next = pagebreak.to(styles);
@@ -615,9 +602,9 @@ impl<'a> DocBuilder<'a> {
             let elem = if let Some(clear_to) = self.clear_next.take() {
                 let mut page = page.clone();
                 page.push_clear_to(Some(clear_to));
-                Cow::Owned(page.pack())
+                arenas.store(page.pack())
             } else {
-                Cow::Borrowed(content)
+                content
             };
 
             self.pages.push(elem, styles);
@@ -632,7 +619,7 @@ impl<'a> DocBuilder<'a> {
 impl Default for DocBuilder<'_> {
     fn default() -> Self {
         Self {
-            pages: StyleVecBuilder::new(),
+            pages: BehavedBuilder::new(),
             keep_next: true,
             clear_next: None,
         }
@@ -644,7 +631,12 @@ impl Default for DocBuilder<'_> {
 struct FlowBuilder<'a>(BehavedBuilder<'a>, bool);
 
 impl<'a> FlowBuilder<'a> {
-    fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
+    fn accept(
+        &mut self,
+        arenas: &'a Arenas<'a>,
+        content: &'a Content,
+        styles: StyleChain<'a>,
+    ) -> bool {
         if content.is::<ParbreakElem>() {
             self.1 = true;
             return true;
@@ -658,7 +650,7 @@ impl<'a> FlowBuilder<'a> {
             || content.is::<MetaElem>()
             || content.is::<PlaceElem>()
         {
-            self.0.push(Cow::Borrowed(content), styles);
+            self.0.push(content, styles);
             return true;
         }
 
@@ -679,7 +671,7 @@ impl<'a> FlowBuilder<'a> {
             if !last_was_parbreak && is_tight_list {
                 let leading = ParElem::leading_in(styles);
                 let spacing = VElem::list_attach(leading.into());
-                self.0.push(Cow::Owned(spacing.pack()), styles);
+                self.0.push(arenas.store(spacing.pack()), styles);
             }
 
             let (above, below) = if let Some(block) = content.to_packed::<BlockElem>() {
@@ -688,9 +680,9 @@ impl<'a> FlowBuilder<'a> {
                 (BlockElem::above_in(styles), BlockElem::below_in(styles))
             };
 
-            self.0.push(Cow::Owned(above.pack()), styles);
-            self.0.push(Cow::Borrowed(content), styles);
-            self.0.push(Cow::Owned(below.pack()), styles);
+            self.0.push(arenas.store(above.pack()), styles);
+            self.0.push(content, styles);
+            self.0.push(arenas.store(below.pack()), styles);
             return true;
         }
 
@@ -706,7 +698,7 @@ impl<'a> ParBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
         if content.is::<MetaElem>() {
             if self.0.has_strong_elements(false) {
-                self.0.push(Cow::Borrowed(content), styles);
+                self.0.push(content, styles);
                 return true;
             }
         } else if content.is::<SpaceElem>()
@@ -719,7 +711,7 @@ impl<'a> ParBuilder<'a> {
                 .map_or(false, |elem| !elem.block(styles))
             || content.is::<BoxElem>()
         {
-            self.0.push(Cow::Borrowed(content), styles);
+            self.0.push(content, styles);
             return true;
         }
 
@@ -727,16 +719,15 @@ impl<'a> ParBuilder<'a> {
     }
 
     fn finish(self) -> (Content, StyleChain<'a>) {
-        let (children, shared) = self.0.finish();
-        let span = first_span(&children);
-        (ParElem::new(children.to_vec()).pack().spanned(span), shared)
+        let (children, shared, span) = self.0.finish();
+        (ParElem::new(children).pack().spanned(span), shared)
     }
 }
 
 /// Accepts list / enum items, spaces, paragraph breaks.
 struct ListBuilder<'a> {
     /// The list items collected so far.
-    items: StyleVecBuilder<'a, Cow<'a, Content>>,
+    items: BehavedBuilder<'a>,
     /// Whether the list contains no paragraph breaks.
     tight: bool,
     /// Trailing content for which it is unclear whether it is part of the list.
@@ -757,11 +748,11 @@ impl<'a> ListBuilder<'a> {
             || content.is::<TermItem>())
             && self
                 .items
-                .elems()
+                .items()
                 .next()
                 .map_or(true, |first| first.func() == content.func())
         {
-            self.items.push(Cow::Borrowed(content), styles);
+            self.items.push(content, styles);
             self.tight &= self.staged.drain(..).all(|(t, _)| !t.is::<ParbreakElem>());
             return true;
         }
@@ -770,53 +761,50 @@ impl<'a> ListBuilder<'a> {
     }
 
     fn finish(self) -> (Content, StyleChain<'a>) {
-        let (items, shared) = self.items.finish();
-        let span = first_span(&items);
-        let item = items.items().next().unwrap();
-        let output = if item.is::<ListItem>() {
+        let (items, shared, span) = self.items.finish_iter();
+        let mut items = items.peekable();
+        let (first, _) = items.peek().unwrap();
+        let output = if first.is::<ListItem>() {
             ListElem::new(
                 items
-                    .iter()
                     .map(|(item, local)| {
                         let mut item = item.to_packed::<ListItem>().unwrap().clone();
-                        let body = item.body().clone().styled_with_map(local.clone());
+                        let body = item.body().clone().styled_with_map(local);
                         item.push_body(body);
                         item
                     })
-                    .collect::<Vec<_>>(),
+                    .collect(),
             )
             .with_tight(self.tight)
             .pack()
             .spanned(span)
-        } else if item.is::<EnumItem>() {
+        } else if first.is::<EnumItem>() {
             EnumElem::new(
                 items
-                    .iter()
                     .map(|(item, local)| {
                         let mut item = item.to_packed::<EnumItem>().unwrap().clone();
-                        let body = item.body().clone().styled_with_map(local.clone());
+                        let body = item.body().clone().styled_with_map(local);
                         item.push_body(body);
                         item
                     })
-                    .collect::<Vec<_>>(),
+                    .collect(),
             )
             .with_tight(self.tight)
             .pack()
             .spanned(span)
-        } else if item.is::<TermItem>() {
+        } else if first.is::<TermItem>() {
             TermsElem::new(
                 items
-                    .iter()
                     .map(|(item, local)| {
                         let mut item = item.to_packed::<TermItem>().unwrap().clone();
                         let term = item.term().clone().styled_with_map(local.clone());
                         let description =
-                            item.description().clone().styled_with_map(local.clone());
+                            item.description().clone().styled_with_map(local);
                         item.push_term(term);
                         item.push_description(description);
                         item
                     })
-                    .collect::<Vec<_>>(),
+                    .collect(),
             )
             .with_tight(self.tight)
             .pack()
@@ -831,7 +819,7 @@ impl<'a> ListBuilder<'a> {
 impl Default for ListBuilder<'_> {
     fn default() -> Self {
         Self {
-            items: StyleVecBuilder::default(),
+            items: BehavedBuilder::default(),
             tight: true,
             staged: vec![],
         }
@@ -874,17 +862,4 @@ impl<'a> CiteGroupBuilder<'a> {
         let span = self.items.first().map(|cite| cite.span()).unwrap_or(Span::detached());
         (CiteGroup::new(self.items).pack().spanned(span), self.styles)
     }
-}
-
-/// Find the first span that isn't detached.
-fn first_span(children: &StyleVec<Cow<Content>>) -> Span {
-    children
-        .iter()
-        .filter(|(elem, _)| {
-            elem.with::<dyn Behave>()
-                .map_or(true, |b| b.behaviour() != Behaviour::Invisible)
-        })
-        .map(|(elem, _)| elem.span())
-        .find(|span| !span.is_detached())
-        .unwrap_or_else(Span::detached)
 }

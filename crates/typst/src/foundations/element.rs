@@ -1,5 +1,4 @@
 use std::any::TypeId;
-use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug};
 use std::hash::Hash;
@@ -309,11 +308,7 @@ pub trait Behave {
     /// Whether this weak element is larger than a previous one and thus picked
     /// as the maximum when the levels are the same.
     #[allow(unused_variables)]
-    fn larger(
-        &self,
-        prev: &(Cow<Content>, Behaviour, StyleChain),
-        styles: StyleChain,
-    ) -> bool {
+    fn larger(&self, prev: &(&Content, StyleChain), styles: StyleChain) -> bool {
         false
     }
 }
@@ -335,4 +330,11 @@ pub enum Behaviour {
     Ignorant,
     /// An element that does not have a visual representation.
     Invisible,
+}
+
+impl Behaviour {
+    /// Whether this of `Weak(_)` variant.
+    pub fn is_weak(self) -> bool {
+        matches!(self, Self::Weak(_))
+    }
 }

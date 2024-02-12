@@ -14,8 +14,9 @@ use smallvec::smallvec;
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, func, scope, ty, Dict, Element, Fields, IntoValue, Label, NativeElement,
-    Recipe, RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles, Value,
+    elem, func, scope, ty, Behave, Behaviour, Dict, Element, Fields, IntoValue, Label,
+    NativeElement, Recipe, RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles,
+    Value,
 };
 use crate::introspection::{Location, Meta, MetaElem};
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
@@ -165,6 +166,12 @@ impl Content {
     /// Mark this content as prepared.
     pub fn mark_prepared(&mut self) {
         self.make_mut().lifecycle.insert(0);
+    }
+
+    /// How this element interacts with other elements in a stream.
+    pub fn behaviour(&self) -> Behaviour {
+        self.with::<dyn Behave>()
+            .map_or(Behaviour::Supportive, Behave::behaviour)
     }
 
     /// Get a field by ID.
@@ -335,7 +342,7 @@ impl Content {
     }
 
     /// Also auto expands sequence of sequences into flat sequence
-    pub fn sequence_recursive_for_each(&self, f: &mut impl FnMut(&Self)) {
+    pub fn sequence_recursive_for_each<'a>(&'a self, f: &mut impl FnMut(&'a Self)) {
         if let Some(children) = self.to_sequence() {
             children.for_each(|c| c.sequence_recursive_for_each(f));
         } else {
