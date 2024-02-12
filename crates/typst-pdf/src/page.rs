@@ -8,11 +8,12 @@ use pdf_writer::types::{
 };
 use pdf_writer::writers::PageLabel;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
-use typst::introspection::Meta;
+use typst::foundations::{NativeElement, Selector};
+use typst::introspection::{Location, Meta};
 use typst::layout::{
     Abs, Em, Frame, FrameItem, GroupItem, Page, Point, Ratio, Size, Transform,
 };
-use typst::model::{Destination, Numbering};
+use typst::model::{Destination, Document, HeadingElem, Numbering};
 use typst::text::{Case, Font, TextItem};
 use typst::util::{Deferred, Numeric};
 use typst::visualize::{
@@ -141,6 +142,16 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
     ctx.colors.write_functions(&mut ctx.pdf);
 }
 
+fn name_from_loc<'a>(doc: &Document, loc: &Location) -> Option<Name<'a>> {
+    let elem = doc.introspector.query_first(&Selector::Location(*loc))?;
+    let label = elem.label()?;
+    debug_assert!(doc.introspector.query_label(label).is_ok());
+    if elem.elem() != HeadingElem::elem() {
+        return None;
+    }
+    Some(Name(label.as_str().as_bytes()))
+}
+
 /// Write a page tree node.
 fn write_page(ctx: &mut PdfContext, i: usize) {
     let page = &ctx.pages[i];
@@ -179,7 +190,17 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
                 continue;
             }
             Destination::Position(pos) => *pos,
-            Destination::Location(loc) => ctx.document.introspector.position(*loc),
+            Destination::Location(loc) => {
+                if let Some(name) = name_from_loc(ctx.document, loc) {
+                    annotation
+                        .action()
+                        .action_type(ActionType::GoTo)
+                        .destination_named(name);
+                    continue;
+                } else {
+                    ctx.document.introspector.position(*loc)
+                }
+            }
         };
 
         let index = pos.page.get() - 1;
