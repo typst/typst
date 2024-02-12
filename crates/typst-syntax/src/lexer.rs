@@ -345,7 +345,10 @@ impl Lexer<'_> {
                 c.is_alphanumeric()
                     && !matches!(
                         c.script(),
-                        Script::Han | Script::Hiragana | Script::Katakana
+                        Script::Han
+                            | Script::Hiragana
+                            | Script::Katakana
+                            | Script::Hangul
                     )
             })
         };
