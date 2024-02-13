@@ -30,6 +30,39 @@
 )
 
 ---
+// Test set rules on cells and folding
+#set grid.cell(stroke: 4pt)
+#set grid.cell(stroke: blue)
+#set grid.hline(stroke: red)
+#set grid.hline(stroke: 0.75pt)
+#set grid.vline(stroke: 0.75pt)
+#set grid.vline(stroke: aqua)
+
+#grid(
+  columns: 3,
+  gutter: 3pt,
+  inset: 5pt,
+  [a], [b], grid.vline(position: end), [c],
+  [d], [e], [f],
+  grid.hline(position: bottom),
+  [g], [h], [i],
+)
+
+---
+// Test stroke field on cell show rules
+#set table.cell(stroke: (x: 4pt))
+#set table.cell(stroke: (x: blue))
+#show table.cell: it => {
+  test(it.stroke, (left: stroke(paint: blue, thickness: 4pt, dash: "loosely-dotted"), right: blue + 4pt, top: stroke(thickness: 1pt), bottom: none))
+  it
+}
+#table(
+  stroke: (left: (dash: "loosely-dotted"), rest: none),
+  table.hline(stroke: red),
+  table.cell(stroke: (top: 1pt))[a], table.vline(stroke: yellow),
+)
+
+---
 #table(
   columns: 3,
   [a], table.cell(colspan: 2)[b c],
