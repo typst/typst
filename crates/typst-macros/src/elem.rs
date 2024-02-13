@@ -319,9 +319,9 @@ fn create_struct(element: &Elem) -> TokenStream {
 
 /// Create a field declaration for the struct.
 fn create_field(field: &Field) -> TokenStream {
-    let Field { ident, ty, .. } = field;
+    let Field { vis, ident, ty, .. } = field;
     if field.required {
-        quote! { #ident: #ty }
+        quote! { #vis #ident: #ty }
     } else {
         quote! { #ident: ::std::option::Option<#ty> }
     }

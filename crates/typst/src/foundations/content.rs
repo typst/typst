@@ -14,13 +14,13 @@ use smallvec::smallvec;
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, func, scope, ty, Behave, Behaviour, Dict, Element, Fields, IntoValue, Label,
-    NativeElement, Recipe, RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles,
-    Value,
+    elem, func, scope, ty, Dict, Element, Fields, IntoValue, Label, NativeElement,
+    Recipe, RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles, Value,
 };
 use crate::introspection::{Location, Meta, MetaElem};
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
 use crate::model::{Destination, EmphElem, StrongElem};
+use crate::realize::{Behave, Behaviour};
 use crate::syntax::Span;
 use crate::text::UnderlineElem;
 use crate::util::{fat, BitSet};
@@ -330,32 +330,15 @@ impl Content {
         sequence.children.is_empty()
     }
 
-    /// Whether the content is a sequence.
-    pub fn is_sequence(&self) -> bool {
-        self.is::<SequenceElem>()
-    }
-
-    /// Access the children if this is a sequence.
-    pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Prehashed<Content>>> {
-        let sequence = self.to_packed::<SequenceElem>()?;
-        Some(sequence.children.iter())
-    }
-
     /// Also auto expands sequence of sequences into flat sequence
     pub fn sequence_recursive_for_each<'a>(&'a self, f: &mut impl FnMut(&'a Self)) {
-        if let Some(children) = self.to_sequence() {
-            children.for_each(|c| c.sequence_recursive_for_each(f));
+        if let Some(sequence) = self.to_packed::<SequenceElem>() {
+            for child in &sequence.children {
+                child.sequence_recursive_for_each(f);
+            }
         } else {
             f(self);
         }
-    }
-
-    /// Access the child and styles.
-    pub fn to_styled(&self) -> Option<(&Content, &Styles)> {
-        let styled = self.to_packed::<StyledElem>()?;
-        let child = styled.child();
-        let styles = styled.styles();
-        Some((child, styles))
     }
 
     /// Style this content with a recipe, eagerly applying it if possible.
@@ -886,11 +869,12 @@ impl<T: NativeElement + Debug> Debug for Packed<T> {
     }
 }
 
-/// Defines the element for sequences.
+/// A sequence of content.
 #[elem(Debug, Repr, PartialEq)]
-struct SequenceElem {
+pub struct SequenceElem {
+    /// The elements.
     #[required]
-    children: Vec<Prehashed<Content>>,
+    pub children: Vec<Prehashed<Content>>,
 }
 
 impl Debug for SequenceElem {
@@ -937,13 +921,15 @@ impl Repr for SequenceElem {
     }
 }
 
-/// Defines the `ElemFunc` for styled elements.
+/// Content alongside styles.
 #[elem(Debug, Repr, PartialEq)]
-struct StyledElem {
+pub struct StyledElem {
+    /// The content.
     #[required]
-    child: Prehashed<Content>,
+    pub child: Prehashed<Content>,
+    /// The styles.
     #[required]
-    styles: Styles,
+    pub styles: Styles,
 }
 
 impl Debug for StyledElem {

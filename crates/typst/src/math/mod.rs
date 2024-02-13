@@ -41,11 +41,13 @@ use self::row::*;
 use self::spacing::*;
 
 use crate::diag::SourceResult;
+use crate::foundations::SequenceElem;
+use crate::foundations::StyledElem;
 use crate::foundations::{
     category, Category, Content, Module, Resolve, Scope, StyleChain,
 };
 use crate::layout::{BoxElem, HElem, Spacing};
-use crate::realize::{realize, BehavedBuilder};
+use crate::realize::{process, BehavedBuilder};
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
 
 /// Typst has special [syntax]($syntax/#math) and library functions to typeset
@@ -230,11 +232,11 @@ impl LayoutMath for Content {
             return elem.layout_math(ctx, styles);
         }
 
-        if let Some(realized) = realize(ctx.engine, self, styles)? {
+        if let Some(realized) = process(ctx.engine, self, styles)? {
             return realized.layout_math(ctx, styles);
         }
 
-        if self.is_sequence() {
+        if self.is::<SequenceElem>() {
             let mut bb = BehavedBuilder::new();
             self.sequence_recursive_for_each(&mut |child: &Content| {
                 bb.push(child, StyleChain::default());
@@ -245,17 +247,17 @@ impl LayoutMath for Content {
             return Ok(());
         }
 
-        if let Some((elem, local)) = self.to_styled() {
+        if let Some(styled) = self.to_packed::<StyledElem>() {
             let outer = styles;
-            let styles = outer.chain(local);
+            let styles = outer.chain(&styled.styles);
 
             if TextElem::font_in(styles) != TextElem::font_in(outer) {
-                let frame = ctx.layout_content(elem, styles)?;
+                let frame = ctx.layout_content(&styled.child, styles)?;
                 ctx.push(FrameFragment::new(ctx, styles, frame).with_spaced(true));
                 return Ok(());
             }
 
-            elem.layout_math(ctx, styles)?;
+            styled.child.layout_math(ctx, styles)?;
             return Ok(());
         }
 

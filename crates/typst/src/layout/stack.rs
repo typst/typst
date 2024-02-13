@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{cast, elem, Content, Packed, Resolve, StyleChain};
+use crate::foundations::{cast, elem, Content, Packed, Resolve, StyleChain, StyledElem};
 use crate::layout::{
     Abs, AlignElem, Axes, Axis, Dir, FixedAlignment, Fr, Fragment, Frame, LayoutMultiple,
     Point, Regions, Size, Spacing,
@@ -209,8 +209,8 @@ impl<'a> StackLayouter<'a> {
         // Block-axis alignment of the `AlignElement` is respected by stacks.
         let align = if let Some(align) = block.to_packed::<AlignElem>() {
             align.alignment(styles)
-        } else if let Some((_, local)) = block.to_styled() {
-            AlignElem::alignment_in(styles.chain(local))
+        } else if let Some(styled) = block.to_packed::<StyledElem>() {
+            AlignElem::alignment_in(styles.chain(&styled.styles))
         } else {
             AlignElem::alignment_in(styles)
         }

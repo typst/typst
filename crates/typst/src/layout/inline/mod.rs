@@ -13,7 +13,7 @@ use self::shaping::{
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
-use crate::foundations::{Content, Packed, Resolve, Smart, StyleChain};
+use crate::foundations::{Content, Packed, Resolve, Smart, StyleChain, StyledElem};
 use crate::introspection::{Introspector, Locator, MetaElem};
 use crate::layout::{
     Abs, AlignElem, Axes, BoxElem, Dir, Em, FixedAlignment, Fr, Fragment, Frame, HElem,
@@ -435,9 +435,9 @@ fn collect<'a>(
     while let Some(mut child) = iter.next() {
         let outer = styles;
         let mut styles = *styles;
-        if let Some((elem, local)) = child.to_styled() {
-            child = elem;
-            styles = outer.chain(local);
+        if let Some(styled) = child.to_packed::<StyledElem>() {
+            child = &styled.child;
+            styles = outer.chain(&styled.styles);
         }
 
         let segment = if child.is::<SpaceElem>() {
@@ -474,9 +474,9 @@ fn collect<'a>(
                     region,
                     SmartQuoteElem::alternative_in(styles),
                 );
-                let peeked = iter.peek().and_then(|child| {
-                    let child = if let Some((child, _)) = child.to_styled() {
-                        child
+                let peeked = iter.peek().and_then(|&child| {
+                    let child = if let Some(styled) = child.to_packed::<StyledElem>() {
+                        &styled.child
                     } else {
                         child
                     };
@@ -761,8 +761,8 @@ fn shared_get<T: PartialEq>(
     let value = getter(styles);
     children
         .iter()
-        .filter_map(|child| child.to_styled())
-        .all(|(_, local)| getter(styles.chain(local)) == value)
+        .filter_map(|child| child.to_packed::<StyledElem>())
+        .all(|styled| getter(styles.chain(&styled.styles)) == value)
         .then_some(value)
 }
 
