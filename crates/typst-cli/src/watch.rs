@@ -50,10 +50,11 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
     let mut watcher = RecommendedWatcher::new(tx, watch_config)
         .map_err(|err| eco_format!("failed to setup file watching ({err})"))?;
 
-    // Watch all the files that are used by the input file and its dependencies.
+    // Files that are currently being watched through notify-rs.
     let mut watched = HashMap::new();
-    // Files that were removed but are still dependencies.
+    // Files that are dependencies, but not present.
     let mut missing = HashSet::new();
+
     watch_dependencies(&mut world, &mut watcher, &mut watched, &mut missing)?;
 
     // Handle events.
@@ -95,7 +96,7 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
                     // Remove affected path from watched path map to restart
                     // watching on it later again.
                     watched.remove(path);
-                    missing.insert(path.clone());
+                    watcher.unwatch(path).ok();
                 }
             }
 
@@ -139,12 +140,20 @@ fn watch_dependencies(
         *seen = false;
     }
 
+    // Reset which files are missing.
+    missing.clear();
+
     // Retrieve the dependencies of the last compilation and watch new paths
-    // that weren't watched yet. We can't watch paths that don't exist yet
-    // unfortunately, so we filter those out.
-    for path in world.dependencies().filter(|path| path.exists()) {
-        let is_missing = missing.remove(&path);
-        if is_missing || !watched.contains_key(&path) {
+    // that weren't watched yet.
+    for path in world.dependencies() {
+        // We can't watch paths that don't exist with notify-rs. Instead, we
+        // add those to a `missing` set and fall back to manual poll watching.
+        if !path.exists() {
+            missing.insert(path);
+            continue;
+        }
+
+        if !watched.contains_key(&path) {
             watcher
                 .watch(&path, RecursiveMode::NonRecursive)
                 .map_err(|err| eco_format!("failed to watch {path:?} ({err})"))?;
