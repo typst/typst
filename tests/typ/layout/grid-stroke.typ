@@ -31,35 +31,36 @@
 
 ---
 // Test set rules on cells and folding
-#set grid.cell(stroke: 4pt)
-#set grid.cell(stroke: blue)
-#set grid.hline(stroke: red)
-#set grid.hline(stroke: 0.75pt)
-#set grid.vline(stroke: 0.75pt)
-#set grid.vline(stroke: aqua)
+#set table.cell(stroke: 4pt)
+#set table.cell(stroke: blue)
+#set table.hline(stroke: red)
+#set table.hline(stroke: 0.75pt)
+#set table.vline(stroke: 0.75pt)
+#set table.vline(stroke: aqua)
 
-#grid(
+#table(
   columns: 3,
   gutter: 3pt,
   inset: 5pt,
-  [a], [b], grid.vline(position: end), [c],
+  [a], [b], table.vline(position: end), [c],
   [d], [e], [f],
-  grid.hline(position: bottom),
+  table.hline(position: bottom),
   [g], [h], [i],
 )
 
 ---
 // Test stroke field on cell show rules
-#set table.cell(stroke: (x: 4pt))
-#set table.cell(stroke: (x: blue))
-#show table.cell: it => {
+#set grid.cell(stroke: (x: 4pt))
+#set grid.cell(stroke: (x: blue))
+#show grid.cell: it => {
   test(it.stroke, (left: stroke(paint: blue, thickness: 4pt, dash: "loosely-dotted"), right: blue + 4pt, top: stroke(thickness: 1pt), bottom: none))
   it
 }
-#table(
-  stroke: (left: (dash: "loosely-dotted"), rest: none),
-  table.hline(stroke: red),
-  table.cell(stroke: (top: 1pt))[a], table.vline(stroke: yellow),
+#grid(
+  stroke: (left: (dash: "loosely-dotted")),
+  inset: 5pt,
+  grid.hline(stroke: red),
+  grid.cell(stroke: (top: 1pt))[a], grid.vline(stroke: yellow),
 )
 
 ---
