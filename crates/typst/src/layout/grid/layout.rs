@@ -110,26 +110,21 @@ impl<T: Resolve> Resolve for Celled<T> {
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         match self {
-            Self::Value(value) => ResolvedCelled::Value(value.resolve(styles)),
-            Self::Func(func) => ResolvedCelled::Func(func),
-            Self::Array(values) => ResolvedCelled::Array(
+            Self::Value(value) => ResolvedCelled(Celled::Value(value.resolve(styles))),
+            Self::Func(func) => ResolvedCelled(Celled::Func(func)),
+            Self::Array(values) => ResolvedCelled(Celled::Array(
                 values.into_iter().map(|value| value.resolve(styles)).collect(),
-            ),
+            )),
         }
     }
 }
 
 /// The result of resolving a Celled's value according to styles.
 /// Holds resolved values which depend on each grid cell's position.
-pub enum ResolvedCelled<T: Resolve> {
-    /// The resolved value. The same for all cells.
-    Value(<T as Resolve>::Output),
-    /// A closure mapping cell coordinates to a value.
-    /// The value is only resolved upon usage.
-    Func(Func),
-    /// An array of resolved values corresponding to each column.
-    Array(Vec<<T as Resolve>::Output>),
-}
+/// When it is a closure, however, it is only resolved when the closure is
+/// called.
+#[derive(Default, Clone)]
+pub struct ResolvedCelled<T: Resolve>(Celled<T::Output>);
 
 impl<T> ResolvedCelled<T>
 where
@@ -144,43 +139,19 @@ where
         x: usize,
         y: usize,
     ) -> SourceResult<T::Output> {
-        Ok(match self {
-            Self::Value(value) => value.clone(),
-            Self::Func(func) => func
+        Ok(match &self.0 {
+            Celled::Value(value) => value.clone(),
+            Celled::Func(func) => func
                 .call(engine, [x, y])?
                 .cast::<T>()
                 .at(func.span())?
                 .resolve(styles),
-            Self::Array(array) => x
+            Celled::Array(array) => x
                 .checked_rem(array.len())
                 .and_then(|i| array.get(i))
                 .cloned()
                 .unwrap_or_default(),
         })
-    }
-}
-
-impl<T> Default for ResolvedCelled<T>
-where
-    T: Resolve,
-    <T as Resolve>::Output: Default,
-{
-    fn default() -> Self {
-        Self::Value(<T as Resolve>::Output::default())
-    }
-}
-
-impl<T> Clone for ResolvedCelled<T>
-where
-    T: Resolve,
-    <T as Resolve>::Output: Clone,
-{
-    fn clone(&self) -> Self {
-        match self {
-            Self::Value(value) => Self::Value(value.clone()),
-            Self::Func(func) => Self::Func(func.clone()),
-            Self::Array(values) => Self::Array(values.clone()),
-        }
     }
 }
 
