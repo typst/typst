@@ -341,7 +341,8 @@ impl CellGrid {
         let mut vlines: Vec<Vec<Line>> = vec![];
         let mut hlines: Vec<Vec<Line>> = vec![];
         // Horizontal lines are only pushed later to be able to check for row
-        // validity.
+        // validity, since the amount of rows isn't known until all items were
+        // analyzed in the for loop below.
         // We keep their spans so we can report errors later.
         let mut pending_hlines: Vec<(Span, Line)> = vec![];
         let has_gutter = gutter.any(|tracks| !tracks.is_empty());
