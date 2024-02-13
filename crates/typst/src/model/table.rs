@@ -380,6 +380,7 @@ pub struct TableHLine {
     /// The line's stroke.
     #[resolve]
     #[fold]
+    #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
     /// The position at which the line is placed, given its row - either
     /// `{top}` to draw above it or `{bottom}` to draw below it. This setting
@@ -422,6 +423,7 @@ pub struct TableVLine {
     /// The line's stroke.
     #[resolve]
     #[fold]
+    #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
     /// The position at which the line is placed, given its column - either
     /// `{start}` to draw before it or `{end}` to draw after it. This setting
