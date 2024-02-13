@@ -1,7 +1,46 @@
 //! Element interaction.
 
-use crate::foundations::{Behave, Behaviour, Content, StyleChain, Styles};
+use crate::foundations::{Content, StyleChain, Styles};
 use crate::syntax::Span;
+
+/// How an element interacts with other elements in a stream.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Behaviour {
+    /// A weak element which only survives when a supportive element is before
+    /// and after it. Furthermore, per consecutive run of weak elements, only
+    /// one survives: The one with the lowest weakness level (or the larger one
+    /// if there is a tie).
+    Weak(usize),
+    /// An element that enables adjacent weak elements to exist. The default.
+    Supportive,
+    /// An element that destroys adjacent weak elements.
+    Destructive,
+    /// An element that does not interact at all with other elements, having the
+    /// same effect as if it didn't exist, but has a visual representation.
+    Ignorant,
+    /// An element that does not have a visual representation.
+    Invisible,
+}
+
+impl Behaviour {
+    /// Whether this of `Weak(_)` variant.
+    pub fn is_weak(self) -> bool {
+        matches!(self, Self::Weak(_))
+    }
+}
+
+/// How the element interacts with other elements.
+pub trait Behave {
+    /// The element's interaction behaviour.
+    fn behaviour(&self) -> Behaviour;
+
+    /// Whether this weak element is larger than a previous one and thus picked
+    /// as the maximum when the levels are the same.
+    #[allow(unused_variables)]
+    fn larger(&self, prev: &(&Content, StyleChain), styles: StyleChain) -> bool {
+        false
+    }
+}
 
 /// Processes a sequence of content and resolves behaviour interactions between
 /// them and separates local styles for each element from the shared trunk of

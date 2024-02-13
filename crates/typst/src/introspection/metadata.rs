@@ -1,9 +1,8 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{
-    elem, Behave, Behaviour, Content, Packed, Show, StyleChain, Value,
-};
+use crate::foundations::{elem, Content, Packed, Show, StyleChain, Value};
 use crate::introspection::Locatable;
+use crate::realize::{Behave, Behaviour};
 
 /// Exposes a value to the query system without producing visible content.
 ///

@@ -2,11 +2,12 @@ use std::num::NonZeroUsize;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Behave, Behaviour, Content, Packed, StyleChain};
+use crate::foundations::{elem, Content, Packed, StyleChain};
 use crate::layout::{
     Abs, Axes, Dir, Fragment, Frame, LayoutMultiple, Length, Point, Ratio, Regions, Rel,
     Size,
 };
+use crate::realize::{Behave, Behaviour};
 use crate::text::TextElem;
 use crate::util::Numeric;
 

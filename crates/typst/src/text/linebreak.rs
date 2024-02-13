@@ -1,4 +1,5 @@
-use crate::foundations::{elem, Behave, Behaviour, Packed};
+use crate::foundations::{elem, Packed};
+use crate::realize::{Behave, Behaviour};
 
 /// Inserts a line break.
 ///

@@ -5,7 +5,7 @@ use comemo::Prehashed;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Resolve, Smart, StyleChain,
+    elem, Content, NativeElement, Packed, Resolve, Smart, StyleChain, StyledElem,
 };
 use crate::introspection::{Meta, MetaElem};
 use crate::layout::{
@@ -46,9 +46,9 @@ impl LayoutMultiple for Packed<FlowElem> {
         for mut child in self.children().iter().map(|c| &**c) {
             let outer = styles;
             let mut styles = styles;
-            if let Some((elem, map)) = child.to_styled() {
-                child = elem;
-                styles = outer.chain(map);
+            if let Some(styled) = child.to_packed::<StyledElem>() {
+                child = &styled.child;
+                styles = outer.chain(&styled.styles);
             }
 
             if child.is::<MetaElem>() {
@@ -344,8 +344,8 @@ impl<'a> FlowLayouter<'a> {
         // How to align the block.
         let align = if let Some(align) = child.to_packed::<AlignElem>() {
             align.alignment(styles)
-        } else if let Some((_, local)) = child.to_styled() {
-            AlignElem::alignment_in(styles.chain(local))
+        } else if let Some(styled) = child.to_packed::<StyledElem>() {
+            AlignElem::alignment_in(styles.chain(&styled.styles))
         } else {
             AlignElem::alignment_in(styles)
         }
