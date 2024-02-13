@@ -635,6 +635,7 @@ pub struct GridCell {
 
     /// The cell's stroke override.
     #[resolve]
+    #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
 }
 
