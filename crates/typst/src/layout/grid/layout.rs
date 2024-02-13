@@ -394,20 +394,7 @@ impl CellGrid {
                     if end.is_some_and(|end| end.get() < start) {
                         bail!(span, "line cannot end before it starts");
                     }
-                    let line = if position == LinePosition::After && !has_gutter {
-                        // Just place the line on top of the next row if
-                        // there's no gutter and the line should be placed
-                        // after the one with given index.
-                        Line {
-                            index: y + 1,
-                            start,
-                            end,
-                            stroke,
-                            position: LinePosition::Before,
-                        }
-                    } else {
-                        Line { index: y, start, end, stroke, position }
-                    };
+                    let line = Line { index: y, start, end, stroke, position };
                     // Since the amount of rows is dynamic, delay placing
                     // hlines until after all cells were placed so we can
                     // properly verify if they are valid. Note that we can't
@@ -443,10 +430,15 @@ impl CellGrid {
                     if end.is_some_and(|end| end.get() < start) {
                         bail!(span, "line cannot end before it starts");
                     }
-                    let (x, line) = if position == LinePosition::After && !has_gutter {
+                    let (x, line) = if position == LinePosition::After
+                        && (!has_gutter || x + 1 == c)
+                    {
                         // Just place the line before the next column if
                         // there's no gutter and the line should be placed
                         // after the one with given index.
+                        // Note that placing after the last column is also the
+                        // same as just placing on the grid's end border, even
+                        // with gutter.
                         (
                             x + 1,
                             Line {
@@ -606,13 +598,35 @@ impl CellGrid {
             })
             .collect::<SourceResult<Vec<Entry>>>()?;
 
+        let row_amount = resolved_cells.len().div_ceil(c);
         for (span, line) in pending_hlines {
+            let line = {
+                let Line { index: y, start, end, stroke, position } = line;
+                if position == LinePosition::After && (!has_gutter || y + 1 == row_amount)
+                {
+                    // Just place the line on top of the next row if
+                    // there's no gutter and the line should be placed
+                    // after the one with given index.
+                    // Note that placing after the last row is also the same as
+                    // just placing on the grid's bottom border, even with
+                    // gutter.
+                    Line {
+                        index: y + 1,
+                        start,
+                        end,
+                        stroke,
+                        position: LinePosition::Before,
+                    }
+                } else {
+                    Line { index: y, start, end, stroke, position }
+                }
+            };
             let y = line.index;
             // There must exist at least one more row for this line to be
             // actually drawn if the "After" position was chosen.
             let necessary_rows =
                 if line.position == LinePosition::After { y + 1 } else { y };
-            if resolved_cells.len().div_ceil(c) < necessary_rows {
+            if row_amount < necessary_rows {
                 bail!(span, "cannot place horizontal line at invalid row");
             }
             if hlines.len() <= y {
