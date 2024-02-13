@@ -363,7 +363,9 @@ impl From<Content> for TableChild {
     }
 }
 
-/// A horizontal line in the table.
+/// A horizontal line in the table. See the docs for
+/// [`grid.hline`]($grid.hline) for more information regarding how to use this
+/// element's fields.
 ///
 /// Overrides any per-cell stroke, including stroke specified through the
 /// table's `stroke` field. Can cross spacing between cells created through
@@ -371,26 +373,12 @@ impl From<Content> for TableChild {
 #[elem(name = "hline", title = "Table Horizontal Line")]
 pub struct TableHLine {
     /// The row above which the horizontal line is placed (zero-indexed).
-    /// If the `position` field is set to `{bottom}`, the line is placed below
-    /// the row with the given index instead (see that field's docs for
-    /// details).
-    /// Specifying `{auto}` causes the line to be placed at the row below the
-    /// last automatically positioned cell (that is, cell without coordinate
-    /// overrides) before the line among the table's children. If there is no
-    /// such cell before the line, it is placed at the top of the table
-    /// (row 0).
-    /// Note that specifying for this option exactly the total amount of rows
-    /// in the table causes this horizontal line to override the bottom border
-    /// of the table, while a value of 0 overrides the top border.
+    /// Functions identically to the `y` field in [`grid.hline`]($grid.hline).
     pub y: Smart<usize>,
     /// The column at which the horizontal line starts (zero-indexed, inclusive).
     pub start: usize,
     /// The column before which the horizontal line ends (zero-indexed,
     /// exclusive).
-    /// Therefore, the horizontal line will be drawn up to and across column
-    /// `end - 1`.
-    /// A value equal to `{none}` or to the amount of columns causes it to
-    /// extend all the way towards the end of the table.
     pub end: Option<NonZeroUsize>,
     /// The line's stroke.
     ///
@@ -402,6 +390,7 @@ pub struct TableHLine {
     pub stroke: Option<Arc<Stroke>>,
     /// The position at which the line is placed, given its row (`y`) - either
     /// `{top}` to draw above it or `{bottom}` to draw below it.
+    ///
     /// This setting is only relevant when row gutter is enabled (and
     /// shouldn't be used otherwise - prefer just increasing the `y` field by
     /// one instead), since then the position below a row becomes different
@@ -419,7 +408,8 @@ pub struct TableHLine {
     pub position: VAlignment,
 }
 
-/// A vertical line in the table.
+/// A vertical line in the table. See the docs for [`grid.vline`]($grid.vline)
+/// for more information regarding how to use this element's fields.
 ///
 /// Overrides any per-cell stroke, including stroke specified through the
 /// table's `stroke` field. Can cross spacing between cells created through
@@ -427,27 +417,12 @@ pub struct TableHLine {
 #[elem(name = "vline", title = "Table Vertical Line")]
 pub struct TableVLine {
     /// The column before which the horizontal line is placed (zero-indexed).
-    /// If the `position` field is set to `{end}`, the line is placed after the
-    /// column with the given index instead (see that field's docs for
-    /// details).
-    /// Specifying `{auto}` causes the line to be placed at the column after
-    /// the last automatically positioned cell (that is, cell without
-    /// coordinate overrides) before the line among the table's children. If
-    /// there is no such cell before the line, it is placed before the table's
-    /// first column (column 0).
-    /// Note that specifying for this option exactly the total amount of
-    /// columns in the table causes this vertical line to override the end
-    /// border of the table (right in LTR, left in RTL), while a value of 0
-    /// overrides the start border (left in LTR, right in RTL).
+    /// Functions identically to the `x` field in [`grid.vline`]($grid.vline).
     pub x: Smart<usize>,
     /// The row at which the vertical line starts (zero-indexed, inclusive).
     pub start: usize,
     /// The row on top of which the vertical line ends (zero-indexed,
     /// exclusive).
-    /// Therefore, the vertical line will be drawn up to and across row
-    /// `end - 1`.
-    /// A value equal to `{none}` or to the amount of rows causes it to extend
-    /// all the way towards the bottom of the table.
     pub end: Option<NonZeroUsize>,
     /// The line's stroke.
     ///
@@ -459,6 +434,7 @@ pub struct TableVLine {
     pub stroke: Option<Arc<Stroke>>,
     /// The position at which the line is placed, given its column (`x`) -
     /// either `{start}` to draw before it or `{end}` to draw after it.
+    ///
     /// This setting is only relevant when column gutter is enabled (and
     /// shouldn't be used otherwise - prefer just increasing the `x` field by
     /// one instead), since then the position after a column becomes different

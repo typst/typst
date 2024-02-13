@@ -446,6 +446,7 @@ pub struct GridHLine {
     pub stroke: Option<Arc<Stroke>>,
     /// The position at which the line is placed, given its row (`y`) - either
     /// `{top}` to draw above it or `{bottom}` to draw below it.
+    ///
     /// This setting is only relevant when row gutter is enabled (and
     /// shouldn't be used otherwise - prefer just increasing the `y` field by
     /// one instead), since then the position below a row becomes different
@@ -503,6 +504,7 @@ pub struct GridVLine {
     pub stroke: Option<Arc<Stroke>>,
     /// The position at which the line is placed, given its column (`x`) -
     /// either `{start}` to draw before it or `{end}` to draw after it.
+    ///
     /// This setting is only relevant when column gutter is enabled (and
     /// shouldn't be used otherwise - prefer just increasing the `x` field by
     /// one instead), since then the position after a column becomes different
