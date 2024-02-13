@@ -419,6 +419,9 @@ impl CellGrid {
                             .checked_sub(1)
                             .map_or(0, |last_auto_index| last_auto_index / c + 1)
                     });
+                    if end.is_some_and(|end| end.get() < start) {
+                        bail!(span, "line cannot end before it starts");
+                    }
                     let line = if position == LinePosition::After && !has_gutter {
                         // Just place the line on top of the next row if
                         // there's no gutter and the line should be placed
@@ -465,6 +468,9 @@ impl CellGrid {
                             .checked_sub(1)
                             .map_or(0, |last_auto_index| last_auto_index % c + 1)
                     });
+                    if end.is_some_and(|end| end.get() < start) {
+                        bail!(span, "line cannot end before it starts");
+                    }
                     let (x, line) = if position == LinePosition::After && !has_gutter {
                         // Just place the line before the next column if
                         // there's no gutter and the line should be placed
