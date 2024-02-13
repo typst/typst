@@ -66,16 +66,17 @@ struct Watcher {
     /// Notify event receiver.
     rx: Receiver<notify::Result<Event>>,
     /// Keeps track of which paths are watched via `watcher`. The boolean is
-    /// used during updating for mark-and-sweep garbage collection of paths
-    /// we should unwatch.
+    /// used during updating for mark-and-sweep garbage collection of paths we
+    /// should unwatch.
     watched: HashMap<PathBuf, bool>,
-    /// A set of files that should be watched, but doesn't exist. We manually
-    /// poll for those.
+    /// A set of files that should be watched, but don't exist. We manually poll
+    /// for those.
     missing: HashSet<PathBuf>,
 }
 
 impl Watcher {
-    /// How long to wait for a shortly following file system event when watching.
+    /// How long to wait for a shortly following file system event when
+    /// watching.
     const BATCH_TIMEOUT: Duration = Duration::from_millis(100);
 
     /// The maximum time we spend batching events before quitting wait().
@@ -90,11 +91,11 @@ impl Watcher {
         // Setup file watching.
         let (tx, rx) = std::sync::mpsc::channel();
 
-        // Set the poll interval to something more eager than the default.
-        // That default seems a bit excessive for our purposes at around 30s.
-        // Depending on feedback, some tuning might still be in order.
-        // Note that this only affects a tiny number of systems.
-        // Most do not use the [`notify::PollWatcher`].
+        // Set the poll interval to something more eager than the default. That
+        // default seems a bit excessive for our purposes at around 30s.
+        // Depending on feedback, some tuning might still be in order. Note that
+        // this only affects a tiny number of systems. Most do not use the
+        // [`notify::PollWatcher`].
         let config = notify::Config::default().with_poll_interval(Self::POLL_INTERVAL);
         let watcher = RecommendedWatcher::new(tx, config)
             .map_err(|err| eco_format!("failed to setup file watching ({err})"))?;
@@ -113,8 +114,8 @@ impl Watcher {
     /// Files that are not yet watched will be watched. Files that are already
     /// watched, but don't need to be watched anymore, will be unwatched.
     fn update(&mut self, iter: impl Iterator<Item = PathBuf>) -> StrResult<()> {
-        // Mark all files as not "seen" so that we may unwatch them if they aren't
-        // in the dependency list.
+        // Mark all files as not "seen" so that we may unwatch them if they
+        // aren't in the dependency list.
         for seen in self.watched.values_mut() {
             *seen = false;
         }
@@ -126,7 +127,8 @@ impl Watcher {
         // that weren't watched yet.
         for path in iter {
             // We can't watch paths that don't exist with notify-rs. Instead, we
-            // add those to a `missing` set and fall back to manual poll watching.
+            // add those to a `missing` set and fall back to manual poll
+            // watching.
             if !path.exists() {
                 self.missing.insert(path);
                 continue;
