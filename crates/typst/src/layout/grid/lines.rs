@@ -27,7 +27,7 @@ pub struct Line {
     /// Thus, the line is drawn through tracks `start..end` (note that `end` is
     /// exclusive).
     /// Must be within `1..=tracks.len()` minus gutter tracks.
-    /// None indicates the line should go all the way to the end.
+    /// `None` indicates the line should go all the way to the end.
     pub end: Option<NonZeroUsize>,
     /// The line's stroke. This is `None` when the line is explicitly used to
     /// override a previously specified line.
@@ -53,14 +53,13 @@ pub enum LinePosition {
 /// Each returned segment contains its stroke, its offset from the start, and
 /// its length.
 /// Accepts, as parameters, the index of the lines that should be produced
-/// (for example, the column at which vertical lines will be drawn); the
-/// default stroke of lines at this index (used if there aren't any overrides
-/// by intersecting cells or user-specified lines); a list of user-specified
-/// lines with the same index (the `lines` parameter); whether the given index
-/// corresponds to the maximum index for the line's axis; and a function which
-/// returns the final stroke that should be used for each track the line goes
-/// through (its parameters are the grid, the track number, the index of the
-/// line to be drawn and the default stroke at this index).
+/// (for example, the column at which vertical lines will be drawn); a list of
+/// user-specified lines with the same index (the `lines` parameter); whether
+/// the given index corresponds to the maximum index for the line's axis; and a
+/// function which returns the final stroke that should be used for each track
+/// the line goes through (its parameters are the grid, the index of the line
+/// to be drawn, the number of the track to draw at and the stroke of the user
+/// hline/vline override at this index to fold with, if any).
 /// Contiguous segments with the same stroke are joined together automatically.
 /// The function should return 'None' for positions at which the line would
 /// otherwise cross a merged cell (for example, a vline could cross a colspan),
@@ -109,12 +108,15 @@ where
         LinePosition::Before
     };
 
-    // Create an iterator which will go through each track at the given line
-    // index, from start to finish, and see if the current segment would be
+    // Create an iterator which will go through each track, from start to
+    // finish, to create line segments and extend them until they are
+    // interrupted. Each track will be mapped to the finished line segment
+    // they interrupted; if they didn't interrupt any, they are filtered out.
+    // When going through each track, we check if the current segment would be
     // interrupted, either because, at this track, we hit a merged cell over
     // which we shouldn't draw, or because the line would have a different
     // stroke at this point (so we have to start a new segment). If so, the
-    // current segment is yielded and its variable is set to None (meaning we
+    // current segment is yielded and the variable is set to None (meaning we
     // have to create a new one later) or to the new segment (if we're starting
     // to draw a segment with a different stroke than before).
     // Otherwise (if the current segment should span the current track), it is
@@ -218,7 +220,8 @@ where
 }
 
 /// Returns the correct stroke with which to draw a vline right before column
-/// 'x' when going through row 'y', given its initial stroke.
+/// 'x' when going through row 'y', given the stroke of the user-specified line
+/// at this position, if any.
 /// If the vline would go through a colspan, returns None (shouldn't be drawn).
 /// If the one (when at the border) or two (otherwise) cells to the left and
 /// right of the vline have right and left stroke overrides, respectively,
@@ -293,7 +296,8 @@ pub(super) fn vline_stroke_at_row(
 }
 
 /// Returns the correct stroke with which to draw a hline on top of row 'y'
-/// when going through column 'x', given its initial stroke.
+/// when going through column 'x', given the stroke of the user-specified line
+/// at this position, if any.
 /// If the one (when at the border) or two (otherwise) cells above and below
 /// the hline have bottom and top stroke overrides, respectively, then the
 /// cells' stroke overrides are folded together with the hline's stroke (with

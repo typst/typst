@@ -692,7 +692,8 @@ impl ResolvableCell for Packed<GridCell> {
             // with resolved units (that is, 'em' converted to absolute units).
             // We also convert any stroke unspecified by both the cell and the
             // outer stroke ('None' in the folded stroke) to 'none', that is,
-            // all sides are present in the resulting Sides object.
+            // all sides are present in the resulting Sides object accessible
+            // by show rules on grid cells.
             stroke.clone().map(|side| {
                 Some(side.map(|cell_stroke| {
                     Arc::new((*cell_stroke).clone().map(Length::from))

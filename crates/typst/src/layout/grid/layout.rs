@@ -287,7 +287,7 @@ pub struct CellGrid {
     pub(super) cols: Vec<Sizing>,
     /// The row tracks including gutter tracks.
     pub(super) rows: Vec<Sizing>,
-    /// The vertical lines before each column, or on the right border.
+    /// The vertical lines before each column, or on the end border.
     /// Gutter columns are not included.
     /// Contains up to 'cols_without_gutter.len() + 1' vectors of lines.
     pub(super) vlines: Vec<Vec<Line>>,
@@ -935,13 +935,12 @@ impl<'a> GridLayouter<'a> {
     /// Add lines and backgrounds.
     fn render_fills_strokes(mut self) -> SourceResult<Fragment> {
         let mut finished = std::mem::take(&mut self.finished);
-
         for (frame, rows) in finished.iter_mut().zip(&self.rrows) {
             if self.rcols.is_empty() || rows.is_empty() {
                 continue;
             }
 
-            // Render table lines.
+            // Render grid lines.
             // We collect lines into a vector before rendering so we can sort
             // them based on thickness, such that the lines with largest
             // thickness are drawn on top.
@@ -951,20 +950,32 @@ impl<'a> GridLayouter<'a> {
             // Render them first so horizontal lines have priority later.
             for (x, dx) in points(self.rcols.iter().copied()).enumerate() {
                 let dx = if self.is_rtl { self.width - dx } else { dx };
-                let is_right_border = x == self.grid.cols.len();
-                // Note that the index of the vlines that we're getting will
-                // round down to the index of the column immediately before the
-                // current one if it is a gutter column (since then 'x' is
-                // odd). This is intentional, for the same reason we do this
-                // for hlines.
+                let is_end_border = x == self.grid.cols.len();
                 let vlines_at_column = self
                     .grid
                     .vlines
                     .get(if !self.grid.has_gutter {
                         x
-                    } else if is_right_border {
+                    } else if is_end_border {
+                        // The end border has its own vector of lines, but
+                        // dividing it by 2 and flooring would give us the
+                        // vector of lines with the index of the last column.
+                        // Add 1 so we get the border's lines.
                         x / 2 + 1
                     } else {
+                        // If x is a gutter column, this will round down to the
+                        // index of the previous content column, which is
+                        // intentional - the only lines which can appear before
+                        // a gutter column are lines for the previous column
+                        // marked with "LinePosition::After". Therefore, we get
+                        // the previous column's lines. Worry not, as
+                        // 'generate_line_segments' will correctly filter lines
+                        // based on their LinePosition for us.
+                        // If x is a content column, this will correctly return
+                        // its index before applying gutters, so nothing
+                        // special here (lines with "LinePosition::After" would
+                        // then be ignored for this column, as we are drawing
+                        // lines before it, not after).
                         x / 2
                     })
                     .map(|vlines| &**vlines)
@@ -981,7 +992,7 @@ impl<'a> GridLayouter<'a> {
                     tracks,
                     x,
                     vlines_at_column,
-                    is_right_border,
+                    is_end_border,
                     vline_stroke_at_row,
                 )
                 .into_iter()
@@ -1016,13 +1027,6 @@ impl<'a> GridLayouter<'a> {
                 .chain(std::iter::once(self.grid.rows.len()));
             for (y, dy) in hline_indices.zip(hline_offsets) {
                 let is_bottom_border = y == self.grid.rows.len();
-                // Note that the index of the hlines that we're getting will
-                // round down to the index of the row immediately before the
-                // current row if it is a gutter row (since then 'y' is odd).
-                // This is intentional - inside 'generate_line_segments', we
-                // only draw lines with 'LinePosition::After' on top of gutter
-                // rows; the rest is ignored. Likewise, for non-gutter rows,
-                // we only draw lines with 'LinePosition::Before'.
                 let hlines_at_row = self
                     .grid
                     .hlines
@@ -1031,6 +1035,8 @@ impl<'a> GridLayouter<'a> {
                     } else if is_bottom_border {
                         y / 2 + 1
                     } else {
+                        // Check the vlines loop for an explanation regarding
+                        // these index operations.
                         y / 2
                     })
                     .map(|hlines| &**hlines)
@@ -1074,11 +1080,14 @@ impl<'a> GridLayouter<'a> {
             // pushed first).
             lines.sort_by_key(|(thickness, ..)| *thickness);
 
-            // We render lines in the reverse order as we are prepending them,
-            // meaning the first line drawn will be on the top, the second will
-            // be below it, and so on; and, yet, the lines vector is sorted
-            // from bottom layer to top layer, that is, in the opposite order.
+            // We render lines in the reverse order because we are prepending
+            // them, meaning the first prepended line will be on the top of the
+            // others, the second will be below the first one, and so on; and,
+            // yet, the lines vector is sorted from bottom layer to top layer,
+            // so we have to prepend from its end to its start.
             for (_, point, shape) in lines.into_iter().rev() {
+                // Prepend lines to the frame so they always appear below
+                // cells' content.
                 frame.prepend(point, shape);
             }
 
