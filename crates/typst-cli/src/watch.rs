@@ -1,13 +1,14 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 use std::iter;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
 use codespan_reporting::term::termcolor::WriteColor;
 use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as _};
 use same_file::is_same_file;
 use typst::diag::StrResult;
 
@@ -16,12 +17,6 @@ use crate::compile::compile_once;
 use crate::terminal;
 use crate::timings::Timer;
 use crate::world::SystemWorld;
-
-/// How long to wait for a shortly following file system event when watching.
-const WATCH_TIMEOUT: Duration = Duration::from_millis(100);
-/// How long file system events should be watched for before stopping
-/// to compile the document.
-const STARVE_DURATION: Duration = Duration::from_millis(500);
 
 /// Execute a watching compilation command.
 pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
@@ -37,167 +32,212 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
     // Perform initial compilation.
     timer.record(&mut world, |world| compile_once(world, &mut command, true))??;
 
-    // Setup file watching.
-    let (tx, rx) = std::sync::mpsc::channel();
+    // Create a file system watcher.
+    let mut watcher = Watcher::new(command.output())?;
 
-    // Set the poll interval to something more eager than the default.
-    // That default seems a bit excessive for our purposes at around 30s.
-    // Depending on feedback, some tuning might still be in order.
-    // Note that this only affects a tiny number of systems.
-    // Most do not use the [`notify::PollWatcher`].
-    let watch_config =
-        notify::Config::default().with_poll_interval(Duration::from_secs(4));
-    let mut watcher = RecommendedWatcher::new(tx, watch_config)
-        .map_err(|err| eco_format!("failed to setup file watching ({err})"))?;
+    // Watch all dependencies of the initial compilation.
+    watcher.update(world.dependencies())?;
 
-    // Files that are currently being watched through notify-rs.
-    let mut watched = HashMap::new();
-    // Files that are dependencies, but not present.
-    let mut missing = HashSet::new();
-
-    watch_dependencies(&mut world, &mut watcher, &mut watched, &mut missing)?;
-
-    // Handle events.
-    let output = command.output();
+    // Recompile whenever something relevant happens.
     loop {
-        let mut recompile = false;
+        // Wait until anything relevant happens.
+        watcher.wait()?;
 
-        // If there are missing files, we want to regularly check whether they are created.
-        let initial_timeout =
-            if missing.is_empty() { Duration::MAX } else { Duration::from_millis(200) };
+        // Reset all dependencies.
+        world.reset();
 
-        // Watch for file system events. If multiple events happen consecutively all within
-        // a certain duration, then they are bunched up without a recompile in-between.
-        // This helps against some editors' remove&move behavior.
-        // Events are also only watched until a certain point, to hinder a barrage of events from
-        // preventing recompilations.
-        let recv_loop_start = Instant::now();
-        for event in rx
-            .recv_timeout(initial_timeout)
-            .into_iter()
-            .chain(iter::from_fn(|| rx.recv_timeout(WATCH_TIMEOUT).ok()))
-            .take_while(|_| recv_loop_start.elapsed() <= STARVE_DURATION)
-        {
-            let event = event
-                .map_err(|err| eco_format!("failed to watch dependencies ({err})"))?;
+        // Recompile.
+        timer.record(&mut world, |world| compile_once(world, &mut command, true))??;
 
-            // Workaround for notify-rs' implicit unwatch on remove/rename
-            // (triggered by some editors when saving files) with the inotify
-            // backend. By keeping track of the potentially unwatched files, we
-            // can allow those we still depend on to be watched again later on.
-            if matches!(
-                event.kind,
-                notify::EventKind::Remove(notify::event::RemoveKind::File)
-                    | notify::EventKind::Modify(notify::event::ModifyKind::Name(
-                        notify::event::RenameMode::From
-                    ))
-            ) {
-                for path in &event.paths {
-                    // Remove affected path from watched path map to restart
-                    // watching on it later again.
-                    watched.remove(path);
-                    watcher.unwatch(path).ok();
-                }
+        // Evict the cache.
+        comemo::evict(10);
+
+        // Adjust the file watching.
+        watcher.update(world.dependencies())?;
+    }
+}
+
+/// Watches file system activity.
+struct Watcher {
+    /// The output file. We ignore any events for it.
+    output: PathBuf,
+    /// The underlying watcher.
+    watcher: RecommendedWatcher,
+    /// Notify event receiver.
+    rx: Receiver<notify::Result<Event>>,
+    /// Keeps track of which paths are watched via `watcher`. The boolean is
+    /// used during updating for mark-and-sweep garbage collection of paths
+    /// we should unwatch.
+    watched: HashMap<PathBuf, bool>,
+    /// A set of files that should be watched, but doesn't exist. We manually
+    /// poll for those.
+    missing: HashSet<PathBuf>,
+}
+
+impl Watcher {
+    /// How long to wait for a shortly following file system event when watching.
+    const BATCH_TIMEOUT: Duration = Duration::from_millis(100);
+
+    /// The maximum time we spend batching events before quitting wait().
+    const STARVE_TIMEOUT: Duration = Duration::from_millis(500);
+
+    /// The interval in which we poll when falling back to poll watching
+    /// due to missing files.
+    const POLL_INTERVAL: Duration = Duration::from_millis(300);
+
+    /// Create a new, blank watcher.
+    fn new(output: PathBuf) -> StrResult<Self> {
+        // Setup file watching.
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        // Set the poll interval to something more eager than the default.
+        // That default seems a bit excessive for our purposes at around 30s.
+        // Depending on feedback, some tuning might still be in order.
+        // Note that this only affects a tiny number of systems.
+        // Most do not use the [`notify::PollWatcher`].
+        let config = notify::Config::default().with_poll_interval(Self::POLL_INTERVAL);
+        let watcher = RecommendedWatcher::new(tx, config)
+            .map_err(|err| eco_format!("failed to setup file watching ({err})"))?;
+
+        Ok(Self {
+            output,
+            rx,
+            watcher,
+            watched: HashMap::new(),
+            missing: HashSet::new(),
+        })
+    }
+
+    /// Update the watching to watch exactly the listed files.
+    ///
+    /// Files that are not yet watched will be watched. Files that are already
+    /// watched, but don't need to be watched anymore, will be unwatched.
+    fn update(&mut self, iter: impl Iterator<Item = PathBuf>) -> StrResult<()> {
+        // Mark all files as not "seen" so that we may unwatch them if they aren't
+        // in the dependency list.
+        for seen in self.watched.values_mut() {
+            *seen = false;
+        }
+
+        // Reset which files are missing.
+        self.missing.clear();
+
+        // Retrieve the dependencies of the last compilation and watch new paths
+        // that weren't watched yet.
+        for path in iter {
+            // We can't watch paths that don't exist with notify-rs. Instead, we
+            // add those to a `missing` set and fall back to manual poll watching.
+            if !path.exists() {
+                self.missing.insert(path);
+                continue;
             }
 
-            recompile |= is_event_relevant(&event, &output);
+            // Watch the path if it's not already watched.
+            if !self.watched.contains_key(&path) {
+                self.watcher
+                    .watch(&path, RecursiveMode::NonRecursive)
+                    .map_err(|err| eco_format!("failed to watch {path:?} ({err})"))?;
+            }
+
+            // Mark the file as "seen" so that we don't unwatch it.
+            self.watched.insert(path, true);
         }
 
-        // notify-rs unwatches on remove/rename, potentially breaking watches if affected files
-        // are removed outside the [`WATCH_TIMEOUT`] duration.
-        // So we regularly check whether it reappears.
-        if !recompile {
-            recompile = missing.iter().any(|path| path.exists());
-        }
+        // Unwatch old paths that don't need to be watched anymore.
+        self.watched.retain(|path, &mut seen| {
+            if !seen {
+                self.watcher.unwatch(path).ok();
+            }
+            seen
+        });
 
-        if recompile {
-            // Reset all dependencies.
-            world.reset();
-
-            // Recompile.
-            timer
-                .record(&mut world, |world| compile_once(world, &mut command, true))??;
-
-            comemo::evict(10);
-
-            // Adjust the file watching.
-            watch_dependencies(&mut world, &mut watcher, &mut watched, &mut missing)?;
-        }
-    }
-}
-
-/// Adjust the file watching. Watches all new dependencies and unwatches
-/// all previously `watched` files that are no relevant anymore.
-fn watch_dependencies(
-    world: &mut SystemWorld,
-    watcher: &mut dyn Watcher,
-    watched: &mut HashMap<PathBuf, bool>,
-    missing: &mut HashSet<PathBuf>,
-) -> StrResult<()> {
-    // Mark all files as not "seen" so that we may unwatch them if they aren't
-    // in the dependency list.
-    for seen in watched.values_mut() {
-        *seen = false;
+        Ok(())
     }
 
-    // Reset which files are missing.
-    missing.clear();
+    /// Wait until there is a change to a watched path.
+    fn wait(&mut self) -> StrResult<()> {
+        loop {
+            // Wait for an initial event. If there are missing files, we need to
+            // poll those regularly to check whether they are created, so we
+            // wait with a smaller timeout.
+            let first = self.rx.recv_timeout(if self.missing.is_empty() {
+                Duration::MAX
+            } else {
+                Self::POLL_INTERVAL
+            });
 
-    // Retrieve the dependencies of the last compilation and watch new paths
-    // that weren't watched yet.
-    for path in world.dependencies() {
-        // We can't watch paths that don't exist with notify-rs. Instead, we
-        // add those to a `missing` set and fall back to manual poll watching.
-        if !path.exists() {
-            missing.insert(path);
-            continue;
+            // Watch for file system events. If multiple events happen
+            // consecutively all within a certain duration, then they are
+            // bunched up without a recompile in-between. This helps against
+            // some editors' remove & move behavior. Events are also only
+            // watched until a certain point, to hinder a barrage of events from
+            // preventing recompilations.
+            let mut relevant = false;
+            let batch_start = Instant::now();
+            for event in first
+                .into_iter()
+                .chain(iter::from_fn(|| self.rx.recv_timeout(Self::BATCH_TIMEOUT).ok()))
+                .take_while(|_| batch_start.elapsed() <= Self::STARVE_TIMEOUT)
+            {
+                let event = event
+                    .map_err(|err| eco_format!("failed to watch dependencies ({err})"))?;
+
+                // Workaround for notify-rs' implicit unwatch on remove/rename
+                // (triggered by some editors when saving files) with the
+                // inotify backend. By keeping track of the potentially
+                // unwatched files, we can allow those we still depend on to be
+                // watched again later on.
+                if matches!(
+                    event.kind,
+                    notify::EventKind::Remove(notify::event::RemoveKind::File)
+                        | notify::EventKind::Modify(notify::event::ModifyKind::Name(
+                            notify::event::RenameMode::From
+                        ))
+                ) {
+                    for path in &event.paths {
+                        // Remove affected path from the watched map to restart
+                        // watching on it later again.
+                        self.watcher.unwatch(path).ok();
+                        self.watched.remove(path);
+                    }
+                }
+
+                relevant |= self.is_event_relevant(&event);
+            }
+
+            // If we found a relevant event or if any of the missing files now
+            // exists, stop waiting.
+            if relevant || self.missing.iter().any(|path| path.exists()) {
+                return Ok(());
+            }
         }
-
-        if !watched.contains_key(&path) {
-            watcher
-                .watch(&path, RecursiveMode::NonRecursive)
-                .map_err(|err| eco_format!("failed to watch {path:?} ({err})"))?;
-        }
-
-        // Mark the file as "seen" so that we don't unwatch it.
-        watched.insert(path, true);
     }
 
-    // Unwatch old paths that don't need to be watched anymore.
-    watched.retain(|path, &mut seen| {
-        if !seen {
-            watcher.unwatch(path).ok();
+    /// Whether a watch event is relevant for compilation.
+    fn is_event_relevant(&self, event: &notify::Event) -> bool {
+        // Never recompile because the output file changed.
+        if event
+            .paths
+            .iter()
+            .all(|path| is_same_file(path, &self.output).unwrap_or(false))
+        {
+            return false;
         }
-        seen
-    });
 
-    Ok(())
-}
-
-/// Whether a watch event is relevant for compilation.
-fn is_event_relevant(event: &notify::Event, output: &Path) -> bool {
-    // Never recompile because the output file changed.
-    if event
-        .paths
-        .iter()
-        .all(|path| is_same_file(path, output).unwrap_or(false))
-    {
-        return false;
-    }
-
-    match &event.kind {
-        notify::EventKind::Any => true,
-        notify::EventKind::Access(_) => false,
-        notify::EventKind::Create(_) => true,
-        notify::EventKind::Modify(kind) => match kind {
-            notify::event::ModifyKind::Any => true,
-            notify::event::ModifyKind::Data(_) => true,
-            notify::event::ModifyKind::Metadata(_) => false,
-            notify::event::ModifyKind::Name(_) => true,
-            notify::event::ModifyKind::Other => false,
-        },
-        notify::EventKind::Remove(_) => true,
-        notify::EventKind::Other => false,
+        match &event.kind {
+            notify::EventKind::Any => true,
+            notify::EventKind::Access(_) => false,
+            notify::EventKind::Create(_) => true,
+            notify::EventKind::Modify(kind) => match kind {
+                notify::event::ModifyKind::Any => true,
+                notify::event::ModifyKind::Data(_) => true,
+                notify::event::ModifyKind::Metadata(_) => false,
+                notify::event::ModifyKind::Name(_) => true,
+                notify::event::ModifyKind::Other => false,
+            },
+            notify::EventKind::Remove(_) => true,
+            notify::EventKind::Other => false,
+        }
     }
 }
 
