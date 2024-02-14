@@ -352,7 +352,7 @@ fn render_bitmap_glyph(
     // and maybe also for Noto Color Emoji. And: Is the size calculation
     // correct?
     let h = text.size;
-    let w = (image.width() as f64 / image.height() as f64) * h;
+    let w = (image.width() / image.height()) * h;
     let dx = (raster.x as f32) / (image.width() as f32) * size;
     let dy = (raster.y as f32) / (image.height() as f32) * size;
     render_image(
@@ -742,7 +742,7 @@ fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
     let mut pixmap = sk::Pixmap::new(w, h)?;
     match image.kind() {
         ImageKind::Raster(raster) => {
-            let downscale = w < image.width();
+            let downscale = w < raster.width();
             let filter =
                 if downscale { FilterType::Lanczos3 } else { FilterType::CatmullRom };
             let buf = raster.dynamic().resize(w, h, filter);

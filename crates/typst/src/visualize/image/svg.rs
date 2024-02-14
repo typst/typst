@@ -20,7 +20,7 @@ pub struct SvgImage(Arc<Repr>);
 /// The internal representation.
 struct Repr {
     data: Bytes,
-    size: Axes<u32>,
+    size: Axes<f64>,
     font_hash: u128,
     tree: sync::SyncTree,
 }
@@ -76,12 +76,12 @@ impl SvgImage {
     }
 
     /// The SVG's width in pixels.
-    pub fn width(&self) -> u32 {
+    pub fn width(&self) -> f64 {
         self.0.size.x
     }
 
     /// The SVG's height in pixels.
-    pub fn height(&self) -> u32 {
+    pub fn height(&self) -> f64 {
         self.0.size.y
     }
 
@@ -222,8 +222,8 @@ where
 }
 
 /// The ceiled pixel size of an SVG.
-fn tree_size(tree: &usvg::Tree) -> Axes<u32> {
-    Axes::new(tree.size.width().ceil() as u32, tree.size.height().ceil() as u32)
+fn tree_size(tree: &usvg::Tree) -> Axes<f64> {
+    Axes::new(tree.size.width() as f64, tree.size.height() as f64)
 }
 
 /// Format the user-facing SVG decoding error message.
