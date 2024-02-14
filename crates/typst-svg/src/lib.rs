@@ -409,8 +409,8 @@ impl SVGRenderer {
 
         let glyph_hash = hash128(&(&text.font, id));
         let id = self.glyphs.insert_with(glyph_hash, || {
-            let width = image.width() as f64;
-            let height = image.height() as f64;
+            let width = image.width();
+            let height = image.height();
             let url = convert_image_to_base64_url(&image);
             let ts = Transform::translate(
                 Abs::pt(bitmap_x_offset),
@@ -426,7 +426,7 @@ impl SVGRenderer {
         // The image is stored with the height of `image.height()`, but we want
         // to render it with a height of `target_height`. So we need to scale
         // it.
-        let scale_factor = target_height / image.height() as f64;
+        let scale_factor = target_height / image.height();
         self.xml.write_attribute("x", &(x_offset / scale_factor));
         self.xml.write_attribute_fmt(
             "transform",

@@ -379,17 +379,17 @@ impl Image {
     }
 
     /// The width of the image in pixels.
-    pub fn width(&self) -> u32 {
+    pub fn width(&self) -> f64 {
         match &self.0.kind {
-            ImageKind::Raster(raster) => raster.width(),
+            ImageKind::Raster(raster) => raster.width() as f64,
             ImageKind::Svg(svg) => svg.width(),
         }
     }
 
     /// The height of the image in pixels.
-    pub fn height(&self) -> u32 {
+    pub fn height(&self) -> f64 {
         match &self.0.kind {
-            ImageKind::Raster(raster) => raster.height(),
+            ImageKind::Raster(raster) => raster.height() as f64,
             ImageKind::Svg(svg) => svg.height(),
         }
     }
