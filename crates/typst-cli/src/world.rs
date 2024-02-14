@@ -398,7 +398,7 @@ fn decode_utf8(buf: &[u8]) -> FileResult<&str> {
 pub enum WorldCreationError {
     /// The input file does not appear to exist.
     InputNotFound(PathBuf),
-    /// The input file is not contained withhin the root folder.
+    /// The input file is not contained within the root folder.
     InputOutsideRoot,
     /// The root directory does not appear to exist.
     RootNotFound(PathBuf),
