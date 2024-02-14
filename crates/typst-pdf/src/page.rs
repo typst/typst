@@ -6,7 +6,7 @@ use pdf_writer::types::{
     ActionType, AnnotationFlags, AnnotationType, ColorSpaceOperand, LineCapStyle,
     LineJoinStyle, NumberingStyle,
 };
-use pdf_writer::writers::PageLabel;
+use pdf_writer::writers::{PageLabel, Resources};
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
 use typst::introspection::Meta;
 use typst::layout::{
@@ -85,16 +85,27 @@ pub(crate) fn construct_page(ctx: &mut PdfContext, frame: &Frame) -> (Ref, Encod
 
 /// Write the page tree.
 pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
+    let resources_ref = write_global_resources(ctx);
+
     for i in 0..ctx.pages.len() {
-        write_page(ctx, i);
+        write_page(ctx, i, resources_ref);
     }
 
-    let mut pages = ctx.pdf.pages(ctx.page_tree_ref);
-    pages
+    ctx.pdf
+        .pages(ctx.page_tree_ref)
         .count(ctx.page_refs.len() as i32)
         .kids(ctx.page_refs.iter().copied());
+}
 
-    let mut resources = pages.resources();
+/// Write the global resource dictionary that will be referenced by all pages.
+///
+/// We add a reference to this dictionary to each page individually instead of
+/// to the root node of the page tree because using the resource inheritance
+/// feature breaks PDF merging with Apple Preview.
+fn write_global_resources(ctx: &mut PdfContext) -> Ref {
+    let resource_ref = ctx.alloc.bump();
+
+    let mut resources = ctx.pdf.indirect(resource_ref).start::<Resources>();
     ctx.colors
         .write_color_spaces(resources.color_spaces(), &mut ctx.alloc);
 
@@ -135,14 +146,15 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
     ext_gs_states.finish();
 
     resources.finish();
-    pages.finish();
 
     // Write all of the functions used by the document.
     ctx.colors.write_functions(&mut ctx.pdf);
+
+    resource_ref
 }
 
 /// Write a page tree node.
-fn write_page(ctx: &mut PdfContext, i: usize) {
+fn write_page(ctx: &mut PdfContext, i: usize, resources_ref: Ref) {
     let page = &ctx.pages[i];
     let content_id = ctx.alloc.bump();
 
@@ -153,6 +165,7 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
     let h = page.size.y.to_f32();
     page_writer.media_box(Rect::new(0.0, 0.0, w, h));
     page_writer.contents(content_id);
+    page_writer.pair(Name(b"Resources"), resources_ref);
 
     if page.uses_opacities {
         page_writer
