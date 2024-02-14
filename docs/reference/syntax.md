@@ -11,6 +11,18 @@ set and show rules, which let you style your document easily and automatically.
 All this is backed by a tightly integrated scripting language with built-in and
 user-defined functions.
 
+## Modes
+
+Typst has three syntactical modes: Markup, math, and code. Markup mode is the default in a Typst document, math mode lets you write mathematical formulas, and code mode lets you use Typst's scripting features.
+
+You can switch between two modes at any point by referring to the following table.
+
+| Initial mode  | New mode | Syntax                                                        | Example                                                      |
+|---------------|----------|---------------------------------------------------------------|--------------------------------------------------------------|
+| Markup / math | Code     | Prefix the code with `#`. You might want to use a code block. | `[#{1 + 2} is a number]` <br/> `[$4 + 2 = #{4 + 2}$]`        |
+| Markup / code | Math     | Surround the formula with `$`.                                | `[$-x$ is the opposite of $x$]` <br/> `{let eq = $y = x^2$}` |
+| Code          | Markup   | Surround markup with square brackets.                         | `{let brand = [*Typst!*]}`                                   |
+
 ## Markup
 Typst provides built-in markup for the most common document elements. Most of
 the syntax elements are just shortcuts for a corresponding function. The table
