@@ -129,7 +129,11 @@ fn verdict<'a>(
             continue;
         }
 
-        if let Transformation::Style(transform) = &recipe.transform {
+        // Special handling for show-set rules. Exception: Regex show rules,
+        // those need to be handled like normal transformations.
+        if let (Transformation::Style(transform), false) =
+            (&recipe.transform, matches!(&recipe.selector, Some(Selector::Regex(_))))
+        {
             // If this is a show-set for an unprepared element, we need to apply
             // it.
             if !prepared {
