@@ -6,6 +6,7 @@ use std::{fmt, fs, io, mem};
 
 use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
+use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use typst::diag::{FileError, FileResult};
@@ -19,35 +20,6 @@ use crate::args::{Input, SharedArgs};
 use crate::compile::ExportCache;
 use crate::fonts::{FontSearcher, FontSlot};
 use crate::package::prepare_package;
-
-#[derive(Debug)]
-pub enum InitWorldError {
-    /// The input file does not appear to exist.
-    InputNotFound(PathBuf),
-    /// The input file is not contained withhin the root folder.
-    InputOutsideRoot,
-    /// The root directory does not appear to exist.
-    RootNotFound(PathBuf),
-    /// Another type of I/O error.
-    Io(io::Error),
-}
-
-impl fmt::Display for InitWorldError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            InitWorldError::InputNotFound(path) => {
-                write!(f, "input file not found (searched at {})", path.display())
-            }
-            InitWorldError::InputOutsideRoot => {
-                write!(f, "source file must be contained in project root")
-            }
-            InitWorldError::RootNotFound(path) => {
-                write!(f, "root directory not found (searched at {})", path.display())
-            }
-            InitWorldError::Io(err) => write!(f, "{err}"),
-        }
-    }
-}
 
 /// Static `FileId` allocated for stdin.
 /// This is to ensure that a file is read in the correct way.
@@ -82,19 +54,16 @@ pub struct SystemWorld {
 
 impl SystemWorld {
     /// Create a new system world.
-    pub fn new(command: &SharedArgs) -> Result<Self, InitWorldError> {
-        let mut searcher = FontSearcher::new();
-        searcher.search(&command.font_paths);
-
+    pub fn new(command: &SharedArgs) -> Result<Self, WorldCreationError> {
         // Resolve the system-global input path.
         let input = match &command.input {
             Input::Stdin => None,
             Input::Path(path) => {
                 Some(path.canonicalize().map_err(|err| match err.kind() {
                     io::ErrorKind::NotFound => {
-                        InitWorldError::InputNotFound(path.clone())
+                        WorldCreationError::InputNotFound(path.clone())
                     }
-                    _ => InitWorldError::Io(err),
+                    _ => WorldCreationError::Io(err),
                 })?)
             }
         };
@@ -108,16 +77,16 @@ impl SystemWorld {
                 .unwrap_or(Path::new("."));
             path.canonicalize().map_err(|err| match err.kind() {
                 io::ErrorKind::NotFound => {
-                    InitWorldError::RootNotFound(path.to_path_buf())
+                    WorldCreationError::RootNotFound(path.to_path_buf())
                 }
-                _ => InitWorldError::Io(err),
+                _ => WorldCreationError::Io(err),
             })?
         };
 
         let main = if let Some(path) = &input {
             // Resolve the virtual path of the main file within the project root.
             let main_path = VirtualPath::within_root(path, &root)
-                .ok_or(InitWorldError::InputOutsideRoot)?;
+                .ok_or(WorldCreationError::InputOutsideRoot)?;
             FileId::new(None, main_path)
         } else {
             // Return the special id of STDIN otherwise
@@ -134,6 +103,9 @@ impl SystemWorld {
 
             Library::builder().with_inputs(inputs).build()
         };
+
+        let mut searcher = FontSearcher::new();
+        searcher.search(&command.font_paths);
 
         Ok(Self {
             workdir: std::env::current_dir().ok(),
@@ -419,4 +391,40 @@ fn read_from_stdin() -> FileResult<Vec<u8>> {
 fn decode_utf8(buf: &[u8]) -> FileResult<&str> {
     // Remove UTF-8 BOM.
     Ok(std::str::from_utf8(buf.strip_prefix(b"\xef\xbb\xbf").unwrap_or(buf))?)
+}
+
+/// An error that occurs during world construction.
+#[derive(Debug)]
+pub enum WorldCreationError {
+    /// The input file does not appear to exist.
+    InputNotFound(PathBuf),
+    /// The input file is not contained withhin the root folder.
+    InputOutsideRoot,
+    /// The root directory does not appear to exist.
+    RootNotFound(PathBuf),
+    /// Another type of I/O error.
+    Io(io::Error),
+}
+
+impl fmt::Display for WorldCreationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WorldCreationError::InputNotFound(path) => {
+                write!(f, "input file not found (searched at {})", path.display())
+            }
+            WorldCreationError::InputOutsideRoot => {
+                write!(f, "source file must be contained in project root")
+            }
+            WorldCreationError::RootNotFound(path) => {
+                write!(f, "root directory not found (searched at {})", path.display())
+            }
+            WorldCreationError::Io(err) => write!(f, "{err}"),
+        }
+    }
+}
+
+impl From<WorldCreationError> for EcoString {
+    fn from(err: WorldCreationError) -> Self {
+        eco_format!("{err}")
+    }
 }

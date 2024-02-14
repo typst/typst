@@ -15,7 +15,7 @@ use typst::diag::StrResult;
 use crate::args::{CompileCommand, Input};
 use crate::compile::compile_once;
 use crate::timings::Timer;
-use crate::world::{InitWorldError, SystemWorld};
+use crate::world::{SystemWorld, WorldCreationError};
 use crate::{print_error, terminal};
 
 /// Execute a watching compilation command.
@@ -34,14 +34,16 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
     let mut world = loop {
         match SystemWorld::new(&command.common) {
             Ok(world) => break world,
-            Err(ref err @ InitWorldError::InputNotFound(ref path))
-            | Err(ref err @ InitWorldError::RootNotFound(ref path)) => {
+            Err(
+                ref err @ (WorldCreationError::InputNotFound(ref path)
+                | WorldCreationError::RootNotFound(ref path)),
+            ) => {
                 watcher.update([path.clone()])?;
                 Status::Error.print(&command).unwrap();
                 print_error(&err.to_string()).unwrap();
                 watcher.wait()?;
             }
-            Err(err) => return Err(eco_format!("{err}")),
+            Err(err) => return Err(err.into()),
         }
     };
 
