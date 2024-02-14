@@ -29,8 +29,9 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
     // Create a file system watcher.
     let mut watcher = Watcher::new(command.output())?;
 
+    // Create the world that serves sources, files, and fonts.
+    // Additionally, if any files do not exist, wait until they do.
     let mut world = loop {
-        // Create the world that serves sources, files, and fonts.
         match SystemWorld::new(&command.common) {
             Ok(world) => break world,
             Err(ref err @ InitWorldError::InputNotFound(ref path))
@@ -38,10 +39,10 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
                 watcher.update([path.clone()])?;
                 Status::Error.print(&command).unwrap();
                 print_error(&err.to_string()).unwrap();
+                watcher.wait()?;
             }
             Err(err) => return Err(eco_format!("{err}")),
         }
-        watcher.wait()?;
     };
 
     // Perform initial compilation.
