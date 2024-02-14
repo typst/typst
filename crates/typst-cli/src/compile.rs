@@ -63,7 +63,8 @@ impl CompileCommand {
 
 /// Execute a compilation command.
 pub fn compile(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
-    let mut world = SystemWorld::new(&command.common)?;
+    let mut world =
+        SystemWorld::new(&command.common).map_err(|err| eco_format!("{err}"))?;
     timer.record(&mut world, |world| compile_once(world, &mut command, false))??;
     Ok(())
 }

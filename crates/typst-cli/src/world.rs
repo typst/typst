@@ -2,14 +2,14 @@ use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
-use std::{fs, io, mem};
+use std::{fmt, fs, io, mem};
 
 use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
-use ecow::eco_format;
+use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-use typst::diag::{FileError, FileResult, StrResult};
+use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
@@ -54,16 +54,18 @@ pub struct SystemWorld {
 
 impl SystemWorld {
     /// Create a new system world.
-    pub fn new(command: &SharedArgs) -> StrResult<Self> {
-        let mut searcher = FontSearcher::new();
-        searcher.search(&command.font_paths);
-
+    pub fn new(command: &SharedArgs) -> Result<Self, WorldCreationError> {
         // Resolve the system-global input path.
         let input = match &command.input {
             Input::Stdin => None,
-            Input::Path(path) => Some(path.canonicalize().map_err(|_| {
-                eco_format!("input file not found (searched at {})", path.display())
-            })?),
+            Input::Path(path) => {
+                Some(path.canonicalize().map_err(|err| match err.kind() {
+                    io::ErrorKind::NotFound => {
+                        WorldCreationError::InputNotFound(path.clone())
+                    }
+                    _ => WorldCreationError::Io(err),
+                })?)
+            }
         };
 
         // Resolve the system-global root directory.
@@ -73,15 +75,18 @@ impl SystemWorld {
                 .as_deref()
                 .or_else(|| input.as_deref().and_then(|i| i.parent()))
                 .unwrap_or(Path::new("."));
-            path.canonicalize().map_err(|_| {
-                eco_format!("root directory not found (searched at {})", path.display())
+            path.canonicalize().map_err(|err| match err.kind() {
+                io::ErrorKind::NotFound => {
+                    WorldCreationError::RootNotFound(path.to_path_buf())
+                }
+                _ => WorldCreationError::Io(err),
             })?
         };
 
         let main = if let Some(path) = &input {
             // Resolve the virtual path of the main file within the project root.
             let main_path = VirtualPath::within_root(path, &root)
-                .ok_or("source file must be contained in project root")?;
+                .ok_or(WorldCreationError::InputOutsideRoot)?;
             FileId::new(None, main_path)
         } else {
             // Return the special id of STDIN otherwise
@@ -98,6 +103,9 @@ impl SystemWorld {
 
             Library::builder().with_inputs(inputs).build()
         };
+
+        let mut searcher = FontSearcher::new();
+        searcher.search(&command.font_paths);
 
         Ok(Self {
             workdir: std::env::current_dir().ok(),
@@ -383,4 +391,40 @@ fn read_from_stdin() -> FileResult<Vec<u8>> {
 fn decode_utf8(buf: &[u8]) -> FileResult<&str> {
     // Remove UTF-8 BOM.
     Ok(std::str::from_utf8(buf.strip_prefix(b"\xef\xbb\xbf").unwrap_or(buf))?)
+}
+
+/// An error that occurs during world construction.
+#[derive(Debug)]
+pub enum WorldCreationError {
+    /// The input file does not appear to exist.
+    InputNotFound(PathBuf),
+    /// The input file is not contained withhin the root folder.
+    InputOutsideRoot,
+    /// The root directory does not appear to exist.
+    RootNotFound(PathBuf),
+    /// Another type of I/O error.
+    Io(io::Error),
+}
+
+impl fmt::Display for WorldCreationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WorldCreationError::InputNotFound(path) => {
+                write!(f, "input file not found (searched at {})", path.display())
+            }
+            WorldCreationError::InputOutsideRoot => {
+                write!(f, "source file must be contained in project root")
+            }
+            WorldCreationError::RootNotFound(path) => {
+                write!(f, "root directory not found (searched at {})", path.display())
+            }
+            WorldCreationError::Io(err) => write!(f, "{err}"),
+        }
+    }
+}
+
+impl From<WorldCreationError> for EcoString {
+    fn from(err: WorldCreationError) -> Self {
+        eco_format!("{err}")
+    }
 }
