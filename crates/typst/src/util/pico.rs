@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::sync::RwLock;
@@ -23,7 +24,7 @@ struct Interner {
 /// slow to look up a string in the interner, so we want to avoid doing it
 /// unnecessarily. For this reason, the user should use the [`PicoStr::resolve`]
 /// method to get the underlying string, such that the lookup is done only once.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct PicoStr(u32);
 
 impl PicoStr {
@@ -60,6 +61,18 @@ cast! {
 impl Debug for PicoStr {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.resolve().fmt(f)
+    }
+}
+
+impl Ord for PicoStr {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.resolve().cmp(other.resolve())
+    }
+}
+
+impl PartialOrd for PicoStr {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 

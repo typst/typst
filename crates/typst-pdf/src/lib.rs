@@ -17,8 +17,10 @@ use std::sync::Arc;
 use base64::Engine;
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
+use pdf_writer::writers::Destination;
 use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
-use typst::foundations::{Datetime, NativeElement};
+use typst::foundations::{Datetime, Label, NativeElement};
+use typst::introspection::Location;
 use typst::layout::{Abs, Dir, Em, Transform};
 use typst::model::{Document, HeadingElem};
 use typst::text::{Font, Lang};
@@ -60,6 +62,7 @@ pub fn pdf(
     gradient::write_gradients(&mut ctx);
     extg::write_external_graphics_states(&mut ctx);
     pattern::write_patterns(&mut ctx);
+    write_named_destinations(&mut ctx);
     page::write_page_tree(&mut ctx);
     write_catalog(&mut ctx, ident, timestamp);
     ctx.pdf.finish()
@@ -115,6 +118,11 @@ struct PdfContext<'a> {
     pattern_map: Remapper<PdfPattern>,
     /// Deduplicates external graphics states used across the document.
     extg_map: Remapper<ExtGState>,
+
+    /// A sorted list of all named destinations.
+    dests: Vec<(Label, Ref)>,
+    /// Maps from locations to named destinations that point to them.
+    loc_to_dest: HashMap<Location, Label>,
 }
 
 impl<'a> PdfContext<'a> {
@@ -142,6 +150,8 @@ impl<'a> PdfContext<'a> {
             gradient_map: Remapper::new(),
             pattern_map: Remapper::new(),
             extg_map: Remapper::new(),
+            dests: vec![],
+            loc_to_dest: HashMap::new(),
         }
     }
 }
@@ -252,20 +262,18 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
         .pair(Name(b"Type"), Name(b"Metadata"))
         .pair(Name(b"Subtype"), Name(b"XML"));
 
-    let destinations = write_and_collect_destinations(ctx);
-
     // Write the document catalog.
     let mut catalog = ctx.pdf.catalog(ctx.alloc.bump());
     catalog.pages(ctx.page_tree_ref);
     catalog.viewer_preferences().direction(dir);
     catalog.metadata(meta_ref);
 
-    // Write the named destinations.
+    // Write the named destination tree.
     let mut name_dict = catalog.names();
     let mut dests_name_tree = name_dict.destinations();
     let mut names = dests_name_tree.names();
-    for (name, dest_ref, _page_ref, _x, _y) in destinations {
-        names.insert(name, dest_ref);
+    for &(name, dest_ref, ..) in &ctx.dests {
+        names.insert(Str(name.as_str().as_bytes()), dest_ref);
     }
     names.finish();
     dests_name_tree.finish();
@@ -291,38 +299,43 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     catalog.finish();
 }
 
-fn write_and_collect_destinations<'a>(
-    ctx: &mut PdfContext,
-) -> Vec<(Str<'a>, Ref, Ref, f32, f32)> {
-    let mut destinations = vec![];
+/// Fills in the map and vector for named destinations and writes the indirect
+/// destination objects.
+fn write_named_destinations(ctx: &mut PdfContext) {
+    let mut seen = HashSet::new();
 
-    let mut seen_labels = HashSet::new();
-    let elements = ctx.document.introspector.query(&HeadingElem::elem().select());
-    for elem in elements.iter() {
-        let heading = elem.to_packed::<HeadingElem>().unwrap();
-        if let Some(label) = heading.label() {
-            if !seen_labels.contains(&label) {
-                let loc = heading.location().unwrap();
-                let name = Str(label.as_str().as_bytes());
-                let pos = ctx.document.introspector.position(loc);
-                let index = pos.page.get() - 1;
-                let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-                if let Some(page) = ctx.pages.get(index) {
-                    seen_labels.insert(label);
-                    let page_ref = ctx.page_refs[index];
-                    let x = pos.point.x.to_f32();
-                    let y = (page.size.y - y).to_f32();
-                    let dest_ref = ctx.alloc.bump();
-                    destinations.push((name, dest_ref, page_ref, x, y))
-                }
-            }
+    // Find all headings that have a label and are the first among other
+    // headings with the same label.
+    let mut matches: Vec<_> = ctx
+        .document
+        .introspector
+        .query(&HeadingElem::elem().select())
+        .iter()
+        .filter_map(|elem| elem.location().zip(elem.label()))
+        .filter(|&(_, label)| seen.insert(label))
+        .collect();
+
+    // Named destinations must be sorted by key.
+    matches.sort_by_key(|&(_, label)| label);
+
+    for (loc, label) in matches {
+        let pos = ctx.document.introspector.position(loc);
+        let index = pos.page.get() - 1;
+        let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
+
+        if let Some(page) = ctx.pages.get(index) {
+            let dest_ref = ctx.alloc.bump();
+            let x = pos.point.x.to_f32();
+            let y = (page.size.y - y).to_f32();
+            ctx.dests.push((label, dest_ref));
+            ctx.loc_to_dest.insert(loc, label);
+            ctx.pdf
+                .indirect(dest_ref)
+                .start::<Destination>()
+                .page(page.id)
+                .xyz(x, y, None);
         }
     }
-    destinations.sort_by_key(|i| i.0);
-    for (_name, dest_ref, page_ref, x, y) in destinations.iter().copied() {
-        ctx.pdf.destination(dest_ref).page(page_ref).xyz(x, y, None);
-    }
-    destinations
 }
 
 /// Compress data with the DEFLATE algorithm.

@@ -8,12 +8,11 @@ use pdf_writer::types::{
 };
 use pdf_writer::writers::PageLabel;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
-use typst::foundations::{NativeElement, Selector};
-use typst::introspection::{Location, Meta};
+use typst::introspection::Meta;
 use typst::layout::{
     Abs, Em, Frame, FrameItem, GroupItem, Page, Point, Ratio, Size, Transform,
 };
-use typst::model::{Destination, Document, HeadingElem, Numbering};
+use typst::model::{Destination, Numbering};
 use typst::text::{Case, Font, TextItem};
 use typst::util::{Deferred, Numeric};
 use typst::visualize::{
@@ -142,16 +141,6 @@ pub(crate) fn write_page_tree(ctx: &mut PdfContext) {
     ctx.colors.write_functions(&mut ctx.pdf);
 }
 
-fn name_from_loc<'a>(doc: &Document, loc: &Location) -> Option<Name<'a>> {
-    let elem = doc.introspector.query_first(&Selector::Location(*loc))?;
-    let label = elem.label()?;
-    debug_assert!(doc.introspector.query_label(label).is_ok());
-    if elem.elem() != HeadingElem::elem() {
-        return None;
-    }
-    Some(Name(label.as_str().as_bytes()))
-}
-
 /// Write a page tree node.
 fn write_page(ctx: &mut PdfContext, i: usize) {
     let page = &ctx.pages[i];
@@ -191,11 +180,12 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
             }
             Destination::Position(pos) => *pos,
             Destination::Location(loc) => {
-                if let Some(name) = name_from_loc(ctx.document, loc) {
+                if let Some(key) = ctx.loc_to_dest.get(loc) {
                     annotation
                         .action()
                         .action_type(ActionType::GoTo)
-                        .destination_named(name);
+                        // `key` must be a `Str`, not a `Name`.
+                        .pair(Name(b"D"), Str(key.as_str().as_bytes()));
                     continue;
                 } else {
                     ctx.document.introspector.position(*loc)
@@ -205,12 +195,13 @@ fn write_page(ctx: &mut PdfContext, i: usize) {
 
         let index = pos.page.get() - 1;
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
+
         if let Some(page) = ctx.pages.get(index) {
             annotation
                 .action()
                 .action_type(ActionType::GoTo)
                 .destination()
-                .page(ctx.page_refs[index])
+                .page(page.id)
                 .xyz(pos.point.x.to_f32(), (page.size.y - y).to_f32(), None);
         }
     }
