@@ -7,7 +7,7 @@ use ecow::{eco_format, EcoString};
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::diag::StrResult;
+use crate::diag::{Hint, HintedStrResult, StrResult};
 use crate::foundations::{array, func, repr, scope, ty, Array, Repr, Str, Value};
 use crate::syntax::is_ident;
 use crate::util::ArcExt;
@@ -83,10 +83,11 @@ impl Dict {
     }
 
     /// Mutably borrow the value the given `key` maps to.
-    pub fn at_mut(&mut self, key: &str) -> StrResult<&mut Value> {
+    pub fn at_mut(&mut self, key: &str) -> HintedStrResult<&mut Value> {
         Arc::make_mut(&mut self.0)
             .get_mut(key)
-            .ok_or_else(|| missing_key_no_default(key))
+            .ok_or_else(|| missing_key(key))
+            .hint("use `insert` to add or update values")
     }
 
     /// Remove the value if the dictionary contains the given key.
@@ -354,7 +355,7 @@ fn missing_key(key: &str) -> EcoString {
     eco_format!("dictionary does not contain key {}", key.repr())
 }
 
-/// The missing key access error message when no default was fiven.
+/// The missing key access error message when no default was given.
 #[cold]
 fn missing_key_no_default(key: &str) -> EcoString {
     eco_format!(

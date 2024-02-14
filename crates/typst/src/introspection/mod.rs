@@ -27,9 +27,10 @@ use smallvec::SmallVec;
 
 use crate::foundations::Packed;
 use crate::foundations::{
-    category, elem, ty, Behave, Behaviour, Category, Content, Repr, Scope, Unlabellable,
+    category, elem, ty, Category, Content, Repr, Scope, Unlabellable,
 };
 use crate::model::Destination;
+use crate::realize::{Behave, Behaviour};
 
 /// Interactions between document parts.
 ///

@@ -9,6 +9,7 @@ use palette::encoding::{self, Linear};
 use palette::{
     Darken, Desaturate, FromColor, Lighten, Okhsva, OklabHue, RgbHue, Saturate, ShiftHue,
 };
+use qcms::Profile;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
@@ -29,6 +30,36 @@ pub type Luma = palette::luma::Luma<encoding::Srgb, f32>;
 
 /// Equivalent of [`std::f32::EPSILON`] but for hue angles.
 const ANGLE_EPSILON: f32 = 1e-5;
+
+/// The ICC profile used to convert from CMYK to RGB.
+///
+/// This is a minimal CMYK profile that only contains the necessary information
+/// to convert from CMYK to RGB. It is based on the CGATS TR 001-1995
+/// specification. See
+/// https://github.com/saucecontrol/Compact-ICC-Profiles#cmyk.
+static CGATS001_COMPACT_PROFILE: Lazy<Box<Profile>> = Lazy::new(|| {
+    let bytes = include_bytes!("../../assets/CGATS001Compat-v2-micro.icc");
+    Profile::new_from_slice(bytes, false).unwrap()
+});
+
+/// The target sRGB profile.
+static SRGB_PROFILE: Lazy<Box<Profile>> = Lazy::new(|| {
+    let mut out = Profile::new_sRGB();
+    out.precache_output_transform();
+    out
+});
+
+static TO_SRGB: Lazy<qcms::Transform> = Lazy::new(|| {
+    qcms::Transform::new_to(
+        &CGATS001_COMPACT_PROFILE,
+        &SRGB_PROFILE,
+        qcms::DataType::CMYK,
+        qcms::DataType::RGB8,
+        // Our input profile only supports perceptual intent.
+        qcms::Intent::Perceptual,
+    )
+    .unwrap()
+});
 
 /// A color in a specific color space.
 ///
@@ -1691,6 +1722,8 @@ impl Cmyk {
         Cmyk::new(l * 0.75, l * 0.68, l * 0.67, l * 0.90)
     }
 
+    // This still uses naive conversion, because qcms does not support
+    // converting to CMYK yet.
     fn from_rgba(rgba: Rgb) -> Self {
         let r = rgba.red;
         let g = rgba.green;
@@ -1709,11 +1742,23 @@ impl Cmyk {
     }
 
     fn to_rgba(self) -> Rgb {
-        let r = (1.0 - self.c) * (1.0 - self.k);
-        let g = (1.0 - self.m) * (1.0 - self.k);
-        let b = (1.0 - self.y) * (1.0 - self.k);
+        let mut dest: [u8; 3] = [0; 3];
+        TO_SRGB.convert(
+            &[
+                (self.c * 255.0).round() as u8,
+                (self.m * 255.0).round() as u8,
+                (self.y * 255.0).round() as u8,
+                (self.k * 255.0).round() as u8,
+            ],
+            &mut dest,
+        );
 
-        Rgb::new(r, g, b, 1.0)
+        Rgb::new(
+            dest[0] as f32 / 255.0,
+            dest[1] as f32 / 255.0,
+            dest[2] as f32 / 255.0,
+            1.0,
+        )
     }
 
     fn lighten(self, factor: f32) -> Self {

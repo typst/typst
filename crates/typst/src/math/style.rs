@@ -319,6 +319,8 @@ pub fn styled_char(styles: StyleChain, c: char) -> char {
         'Α'..='Ω' => 'Α',
         'α'..='ω' => 'α',
         '0'..='9' => '0',
+        // Hebrew Alef -> Dalet.
+        '\u{05D0}'..='\u{05D3}' => '\u{05D0}',
         _ => return c,
     };
 
@@ -381,6 +383,9 @@ pub fn styled_char(styles: StyleChain, c: char) -> char {
             (Sans, _, true) => 0x1D7AA,
             (Cal | Frak | Mono | Bb, _, _) => return c,
         },
+
+        // Hebrew Alef -> Dalet.
+        '\u{05D0}'..='\u{05D3}' => 0x2135,
 
         // Numbers.
         '0'..='9' => match tuple {

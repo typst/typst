@@ -77,7 +77,7 @@ use crate::eval::Tracer;
 use crate::foundations::{category, Category, Content, Scope, StyleChain};
 use crate::introspection::{Introspector, Locator};
 use crate::model::Document;
-use crate::realize::{realize_block, realize_root, Scratch};
+use crate::realize::{realize_block, realize_root, Arenas};
 use crate::World;
 
 /// Arranging elements on the page in different ways.
@@ -195,9 +195,8 @@ impl LayoutRoot for Content {
                 locator: &mut locator,
                 tracer,
             };
-            let scratch = Scratch::default();
-            let (document, styles) =
-                realize_root(&mut engine, &scratch, content, styles)?;
+            let arenas = Arenas::default();
+            let (document, styles) = realize_root(&mut engine, &arenas, content, styles)?;
             document.layout_root(&mut engine, styles)
         }
 
@@ -248,9 +247,9 @@ impl LayoutMultiple for Content {
                 );
             }
 
-            let scratch = Scratch::default();
+            let arenas = Arenas::default();
             let (realized, styles) =
-                realize_block(&mut engine, &scratch, content, styles)?;
+                realize_block(&mut engine, &arenas, content, styles)?;
             realized.with::<dyn LayoutMultiple>().unwrap().layout(
                 &mut engine,
                 styles,

@@ -10,17 +10,17 @@ mod page;
 mod pattern;
 
 use std::cmp::Eq;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
 use std::sync::Arc;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
-use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
-use typst::foundations::Datetime;
+use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
+use typst::foundations::{Datetime, NativeElement};
 use typst::layout::{Abs, Dir, Em, Transform};
-use typst::model::Document;
+use typst::model::{Document, HeadingElem};
 use typst::text::{Font, Lang};
 use typst::util::Deferred;
 use typst::visualize::Image;
@@ -252,11 +252,24 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
         .pair(Name(b"Type"), Name(b"Metadata"))
         .pair(Name(b"Subtype"), Name(b"XML"));
 
+    let destinations = write_and_collect_destinations(ctx);
+
     // Write the document catalog.
     let mut catalog = ctx.pdf.catalog(ctx.alloc.bump());
     catalog.pages(ctx.page_tree_ref);
     catalog.viewer_preferences().direction(dir);
     catalog.metadata(meta_ref);
+
+    // Write the named destinations.
+    let mut name_dict = catalog.names();
+    let mut dests_name_tree = name_dict.destinations();
+    let mut names = dests_name_tree.names();
+    for (name, dest_ref, _page_ref, _x, _y) in destinations {
+        names.insert(name, dest_ref);
+    }
+    names.finish();
+    dests_name_tree.finish();
+    name_dict.finish();
 
     // Insert the page labels.
     if !page_labels.is_empty() {
@@ -274,6 +287,42 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     if let Some(lang) = lang {
         catalog.lang(TextStr(lang.as_str()));
     }
+
+    catalog.finish();
+}
+
+fn write_and_collect_destinations<'a>(
+    ctx: &mut PdfContext,
+) -> Vec<(Str<'a>, Ref, Ref, f32, f32)> {
+    let mut destinations = vec![];
+
+    let mut seen_labels = HashSet::new();
+    let elements = ctx.document.introspector.query(&HeadingElem::elem().select());
+    for elem in elements.iter() {
+        let heading = elem.to_packed::<HeadingElem>().unwrap();
+        if let Some(label) = heading.label() {
+            if !seen_labels.contains(&label) {
+                let loc = heading.location().unwrap();
+                let name = Str(label.as_str().as_bytes());
+                let pos = ctx.document.introspector.position(loc);
+                let index = pos.page.get() - 1;
+                let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
+                if let Some(page) = ctx.pages.get(index) {
+                    seen_labels.insert(label);
+                    let page_ref = ctx.page_refs[index];
+                    let x = pos.point.x.to_f32();
+                    let y = (page.size.y - y).to_f32();
+                    let dest_ref = ctx.alloc.bump();
+                    destinations.push((name, dest_ref, page_ref, x, y))
+                }
+            }
+        }
+    }
+    destinations.sort_by_key(|i| i.0);
+    for (_name, dest_ref, page_ref, x, y) in destinations.iter().copied() {
+        ctx.pdf.destination(dest_ref).page(page_ref).xyz(x, y, None);
+    }
+    destinations
 }
 
 /// Compress data with the DEFLATE algorithm.

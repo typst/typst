@@ -113,7 +113,7 @@ impl Array {
         let len = self.len();
         self.locate_opt(index, false)
             .and_then(move |i| self.0.make_mut().get_mut(i))
-            .ok_or_else(|| out_of_bounds_no_default(index, len))
+            .ok_or_else(|| out_of_bounds(index, len))
     }
 
     /// Resolve an index or throw an out of bounds error.

@@ -1,5 +1,4 @@
 use std::any::TypeId;
-use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug};
 use std::hash::Hash;
@@ -299,40 +298,4 @@ pub trait ShowSet {
     /// Finalize the fully realized form of the element. Use this for effects
     /// that should work even in the face of a user-defined show rule.
     fn show_set(&self, styles: StyleChain) -> Styles;
-}
-
-/// How the element interacts with other elements.
-pub trait Behave {
-    /// The element's interaction behaviour.
-    fn behaviour(&self) -> Behaviour;
-
-    /// Whether this weak element is larger than a previous one and thus picked
-    /// as the maximum when the levels are the same.
-    #[allow(unused_variables)]
-    fn larger(
-        &self,
-        prev: &(Cow<Content>, Behaviour, StyleChain),
-        styles: StyleChain,
-    ) -> bool {
-        false
-    }
-}
-
-/// How an element interacts with other elements in a stream.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Behaviour {
-    /// A weak element which only survives when a supportive element is before
-    /// and after it. Furthermore, per consecutive run of weak elements, only
-    /// one survives: The one with the lowest weakness level (or the larger one
-    /// if there is a tie).
-    Weak(usize),
-    /// An element that enables adjacent weak elements to exist. The default.
-    Supportive,
-    /// An element that destroys adjacent weak elements.
-    Destructive,
-    /// An element that does not interact at all with other elements, having the
-    /// same effect as if it didn't exist, but has a visual representation.
-    Ignorant,
-    /// An element that does not have a visual representation.
-    Invisible,
 }
