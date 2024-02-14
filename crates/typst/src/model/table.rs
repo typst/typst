@@ -200,8 +200,8 @@ pub struct TableElem {
     /// )
     /// ```
     #[fold]
-    #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
-    pub inset: Sides<Option<Rel<Length>>>,
+    #[default(Celled::Value(Sides::splat(Some(Abs::pt(5.0).into()))))]
+    pub inset: Celled<Sides<Option<Rel<Length>>>>,
 
     /// The contents of the table cells, plus any extra table lines specified
     /// with the [`table.hline`]($table.hline) and
@@ -282,7 +282,7 @@ impl LayoutMultiple for Packed<TableElem> {
             items,
             fill,
             align,
-            inset,
+            &inset,
             &stroke,
             engine,
             styles,

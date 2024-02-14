@@ -270,7 +270,7 @@ pub struct GridElem {
     /// )
     /// ```
     #[fold]
-    pub inset: Sides<Option<Rel<Length>>>,
+    pub inset: Celled<Sides<Option<Rel<Length>>>>,
 
     /// The contents of the grid cells, plus any extra grid lines specified
     /// with the [`grid.hline`]($grid.hline) and [`grid.vline`]($grid.vline)
@@ -353,7 +353,7 @@ impl LayoutMultiple for Packed<GridElem> {
             items,
             fill,
             align,
-            inset,
+            &inset,
             &stroke,
             engine,
             styles,
