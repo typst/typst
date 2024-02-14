@@ -7,7 +7,7 @@ use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
 use image::io::Limits;
-use image::{guess_format, ImageDecoder, ImageResult};
+use image::{guess_format, DynamicImage, ImageDecoder, ImageResult};
 
 use crate::diag::{bail, StrResult};
 use crate::foundations::{Bytes, Cast};
@@ -39,12 +39,16 @@ impl RasterImage {
         }
 
         let cursor = io::Cursor::new(&data);
-        let (dynamic, icc) = match format {
+        let (mut dynamic, icc) = match format {
             RasterFormat::Jpg => decode_with(JpegDecoder::new(cursor)),
             RasterFormat::Png => decode_with(PngDecoder::new(cursor)),
             RasterFormat::Gif => decode_with(GifDecoder::new(cursor)),
         }
         .map_err(format_image_error)?;
+
+        if let Some(rotation) = exif_rotation(&data) {
+            apply_rotation(&mut dynamic, rotation);
+        }
 
         Ok(Self(Arc::new(Repr { data, format, dynamic, icc })))
     }
@@ -126,6 +130,36 @@ impl TryFrom<image::ImageFormat> for RasterFormat {
             image::ImageFormat::Gif => RasterFormat::Gif,
             _ => bail!("Format not yet supported."),
         })
+    }
+}
+
+/// Get rotation from EXIF metadata.
+fn exif_rotation(data: &[u8]) -> Option<u32> {
+    let reader = exif::Reader::new();
+    let mut cursor = std::io::Cursor::new(data);
+    let exif = reader.read_from_container(&mut cursor).ok()?;
+    let orient = exif.get_field(exif::Tag::Orientation, exif::In::PRIMARY)?;
+    orient.value.get_uint(0)
+}
+
+/// Apply an EXIF rotation to a dynamic image.
+fn apply_rotation(image: &mut DynamicImage, rotation: u32) {
+    use image::imageops as ops;
+    match rotation {
+        2 => ops::flip_horizontal_in_place(image),
+        3 => ops::rotate180_in_place(image),
+        4 => ops::flip_vertical_in_place(image),
+        5 => {
+            ops::flip_horizontal_in_place(image);
+            *image = image.rotate270();
+        }
+        6 => *image = image.rotate90(),
+        7 => {
+            ops::flip_horizontal_in_place(image);
+            *image = image.rotate90();
+        }
+        8 => *image = image.rotate270(),
+        _ => {}
     }
 }
 

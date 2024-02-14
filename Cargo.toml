@@ -58,6 +58,7 @@ if_chain = "1"
 image = { version = "0.24", default-features = false, features = ["png", "jpeg", "gif"] }
 include_dir = "0.7"
 indexmap = { version = "2", features = ["serde"] }
+kamadak-exif = "0.5"
 kurbo = "0.9" # in sync with usvg
 libfuzzer-sys = "0.4"
 lipsum = "0.9"

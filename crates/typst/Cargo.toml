@@ -36,6 +36,7 @@ icu_provider_blob = { workspace = true }
 icu_segmenter = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }
+kamadak-exif = { workspace = true }
 kurbo = { workspace = true }
 lipsum = { workspace = true }
 log = { workspace = true }
