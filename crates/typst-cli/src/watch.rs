@@ -14,9 +14,9 @@ use typst::diag::StrResult;
 
 use crate::args::{CompileCommand, Input};
 use crate::compile::compile_once;
-use crate::terminal;
 use crate::timings::Timer;
-use crate::world::SystemWorld;
+use crate::world::{InitWorldError, SystemWorld};
+use crate::{print_error, terminal};
 
 /// Execute a watching compilation command.
 pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
@@ -26,14 +26,26 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
         .enter_alternate_screen()
         .map_err(|err| eco_format!("failed to enter alternate screen ({err})"))?;
 
-    // Create the world that serves sources, files, and fonts.
-    let mut world = SystemWorld::new(&command.common)?;
+    // Create a file system watcher.
+    let mut watcher = Watcher::new(command.output())?;
+
+    let mut world = loop {
+        // Create the world that serves sources, files, and fonts.
+        match SystemWorld::new(&command.common) {
+            Ok(world) => break world,
+            Err(ref err @ InitWorldError::InputNotFound(ref path))
+            | Err(ref err @ InitWorldError::RootNotFound(ref path)) => {
+                watcher.update([path.clone()])?;
+                Status::Error.print(&command).unwrap();
+                print_error(&err.to_string()).unwrap();
+            }
+            Err(err) => return Err(eco_format!("{err}")),
+        }
+        watcher.wait()?;
+    };
 
     // Perform initial compilation.
     timer.record(&mut world, |world| compile_once(world, &mut command, true))??;
-
-    // Create a file system watcher.
-    let mut watcher = Watcher::new(command.output())?;
 
     // Watch all dependencies of the initial compilation.
     watcher.update(world.dependencies())?;
@@ -113,7 +125,7 @@ impl Watcher {
     ///
     /// Files that are not yet watched will be watched. Files that are already
     /// watched, but don't need to be watched anymore, will be unwatched.
-    fn update(&mut self, iter: impl Iterator<Item = PathBuf>) -> StrResult<()> {
+    fn update(&mut self, iter: impl IntoIterator<Item = PathBuf>) -> StrResult<()> {
         // Mark all files as not "seen" so that we may unwatch them if they
         // aren't in the dependency list.
         for seen in self.watched.values_mut() {

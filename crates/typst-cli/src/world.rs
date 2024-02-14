@@ -2,14 +2,13 @@ use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
-use std::{fs, io, mem};
+use std::{fmt, fs, io, mem};
 
 use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
-use ecow::eco_format;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-use typst::diag::{FileError, FileResult, StrResult};
+use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
@@ -20,6 +19,35 @@ use crate::args::{Input, SharedArgs};
 use crate::compile::ExportCache;
 use crate::fonts::{FontSearcher, FontSlot};
 use crate::package::prepare_package;
+
+#[derive(Debug)]
+pub enum InitWorldError {
+    /// The input file does not appear to exist.
+    InputNotFound(PathBuf),
+    /// The input file is not contained withhin the root folder.
+    InputOutsideRoot,
+    /// The root directory does not appear to exist.
+    RootNotFound(PathBuf),
+    /// Another type of I/O error.
+    Io(io::Error),
+}
+
+impl fmt::Display for InitWorldError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            InitWorldError::InputNotFound(path) => {
+                write!(f, "input file not found (searched at {})", path.display())
+            }
+            InitWorldError::InputOutsideRoot => {
+                write!(f, "source file must be contained in project root")
+            }
+            InitWorldError::RootNotFound(path) => {
+                write!(f, "root directory not found (searched at {})", path.display())
+            }
+            InitWorldError::Io(err) => write!(f, "{err}"),
+        }
+    }
+}
 
 /// Static `FileId` allocated for stdin.
 /// This is to ensure that a file is read in the correct way.
@@ -54,16 +82,21 @@ pub struct SystemWorld {
 
 impl SystemWorld {
     /// Create a new system world.
-    pub fn new(command: &SharedArgs) -> StrResult<Self> {
+    pub fn new(command: &SharedArgs) -> Result<Self, InitWorldError> {
         let mut searcher = FontSearcher::new();
         searcher.search(&command.font_paths);
 
         // Resolve the system-global input path.
         let input = match &command.input {
             Input::Stdin => None,
-            Input::Path(path) => Some(path.canonicalize().map_err(|_| {
-                eco_format!("input file not found (searched at {})", path.display())
-            })?),
+            Input::Path(path) => {
+                Some(path.canonicalize().map_err(|err| match err.kind() {
+                    io::ErrorKind::NotFound => {
+                        InitWorldError::InputNotFound(path.clone())
+                    }
+                    _ => InitWorldError::Io(err),
+                })?)
+            }
         };
 
         // Resolve the system-global root directory.
@@ -73,15 +106,18 @@ impl SystemWorld {
                 .as_deref()
                 .or_else(|| input.as_deref().and_then(|i| i.parent()))
                 .unwrap_or(Path::new("."));
-            path.canonicalize().map_err(|_| {
-                eco_format!("root directory not found (searched at {})", path.display())
+            path.canonicalize().map_err(|err| match err.kind() {
+                io::ErrorKind::NotFound => {
+                    InitWorldError::RootNotFound(path.to_path_buf())
+                }
+                _ => InitWorldError::Io(err),
             })?
         };
 
         let main = if let Some(path) = &input {
             // Resolve the virtual path of the main file within the project root.
             let main_path = VirtualPath::within_root(path, &root)
-                .ok_or("source file must be contained in project root")?;
+                .ok_or(InitWorldError::InputOutsideRoot)?;
             FileId::new(None, main_path)
         } else {
             // Return the special id of STDIN otherwise
