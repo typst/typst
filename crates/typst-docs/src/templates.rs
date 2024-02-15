@@ -7,6 +7,9 @@ use typst_docs::{
     TypeModel,
 };
 
+const BUST: &'static str = "20231030";
+const D: &'static str = "2024-02-14";
+
 #[derive(Template)]
 #[template(path = "category.html")]
 pub struct CategoryTemplate<'a> {
@@ -16,6 +19,8 @@ pub struct CategoryTemplate<'a> {
     breadcrumbs: Vec<&'a PageModel>,
     all_pages: &'a [&'a PageModel],
     root_pages: &'a [&'a PageModel],
+    bust: &'a str,
+    d: &'a str,
     category: &'a CategoryModel,
 }
 
@@ -28,6 +33,8 @@ pub struct FuncTemplate<'a> {
     breadcrumbs: Vec<&'a PageModel>,
     all_pages: &'a [&'a PageModel],
     root_pages: &'a [&'a PageModel],
+    bust: &'a str,
+    d: &'a str,
     func: &'a FuncModel,
 }
 
@@ -40,6 +47,8 @@ pub struct GroupTemplate<'a> {
     breadcrumbs: Vec<&'a PageModel>,
     all_pages: &'a [&'a PageModel],
     root_pages: &'a [&'a PageModel],
+    bust: &'a str,
+    d: &'a str,
     group: &'a GroupModel,
 }
 
@@ -52,6 +61,8 @@ pub struct HtmlTemplate<'a> {
     breadcrumbs: Vec<&'a PageModel>,
     all_pages: &'a [&'a PageModel],
     root_pages: &'a [&'a PageModel],
+    bust: &'a str,
+    d: &'a str,
     html: &'a Html,
 }
 
@@ -64,6 +75,8 @@ pub struct PackagesTemplate<'a> {
     breadcrumbs: Vec<&'a PageModel>,
     all_pages: &'a [&'a PageModel],
     root_pages: &'a [&'a PageModel],
+    bust: &'a str,
+    d: &'a str,
     packages: (),
 }
 
@@ -76,6 +89,8 @@ pub struct SymbolsTemplate<'a> {
     breadcrumbs: Vec<&'a PageModel>,
     all_pages: &'a [&'a PageModel],
     root_pages: &'a [&'a PageModel],
+    bust: &'a str,
+    d: &'a str,
     symbols: &'a SymbolsModel,
 }
 
@@ -88,6 +103,8 @@ pub struct TypeTemplate<'a> {
     breadcrumbs: Vec<&'a PageModel>,
     all_pages: &'a [&'a PageModel],
     root_pages: &'a [&'a PageModel],
+    bust: &'a str,
+    d: &'a str,
     type_: &'a TypeModel,
 }
 
@@ -150,6 +167,8 @@ pub fn render_page<'a>(
             breadcrumbs,
             all_pages,
             root_pages,
+            bust: BUST,
+            d: D,
             category,
         }
         .render()?,
@@ -160,6 +179,8 @@ pub fn render_page<'a>(
             breadcrumbs,
             all_pages,
             root_pages,
+            bust: BUST,
+            d: D,
             func,
         }
         .render()?,
@@ -170,6 +191,8 @@ pub fn render_page<'a>(
             breadcrumbs,
             all_pages,
             root_pages,
+            bust: BUST,
+            d: D,
             group,
         }
         .render()?,
@@ -180,6 +203,8 @@ pub fn render_page<'a>(
             breadcrumbs,
             all_pages,
             root_pages,
+            bust: BUST,
+            d: D,
             html,
         }
         .render()?,
@@ -190,6 +215,8 @@ pub fn render_page<'a>(
             breadcrumbs,
             all_pages,
             root_pages,
+            bust: BUST,
+            d: D,
             packages: (),
         }
         .render()?,
@@ -200,6 +227,8 @@ pub fn render_page<'a>(
             breadcrumbs,
             all_pages,
             root_pages,
+            bust: BUST,
+            d: D,
             symbols,
         }
         .render()?,
@@ -210,6 +239,8 @@ pub fn render_page<'a>(
             breadcrumbs,
             all_pages,
             root_pages,
+            bust: BUST,
+            d: D,
             type_,
         }
         .render()?,

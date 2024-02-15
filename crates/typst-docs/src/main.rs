@@ -7,7 +7,6 @@ use std::{
 
 use clap::Parser;
 use include_dir::{include_dir, Dir};
-use pulldown_cmark::escape::escape_html;
 use typst::{model::Document, visualize::Color};
 use typst_docs::{provide, Html, PageModel, Resolver};
 use typst_render::render;
@@ -98,6 +97,8 @@ struct Args {
     out_dir: PathBuf,
     #[arg(short, long)]
     verbose: bool,
+    #[arg(long)]
+    json: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -109,6 +110,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     let root_pages: Vec<_> = own_root_pages.iter().collect();
     eprintln!("Generated data for {} root pages", root_pages.len());
+
+    if args.json {
+        let json = serde_json::to_string_pretty(&own_root_pages)?;
+        println!("{json}");
+    }
 
     fn pages_flat_helper<'a>(
         page: &'a PageModel,

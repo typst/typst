@@ -15,7 +15,7 @@ name = "typst-docs"
 required-features = ["cli"]
 
 [features]
-cli = ["clap", "askama", "typst-render"]
+cli = ["clap", "askama", "typst-render", "serde_json"]
 
 [dependencies]
 typst = { workspace = true }
@@ -35,6 +35,7 @@ yaml-front-matter = { workspace = true }
 clap = { workspace = true, optional = true }
 askama = { workspace = true, optional = true }
 typst-render = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 
 [lints]
 workspace = true

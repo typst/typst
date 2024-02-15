@@ -2756,6 +2756,7 @@ dependencies = [
  "once_cell",
  "pulldown-cmark",
  "serde",
+ "serde_json",
  "serde_yaml 0.9.27",
  "syntect",
  "typed-arena",
