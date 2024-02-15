@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>Figure Function – Typst Documentation</title>
+  <meta name="description" content="Documentation for the `figure` function.">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#239dad">
+  <link rel="manifest" href="/assets/site.webmanifest">
+  <meta property="og:url" content="https://typst.app/docs/reference/model/figure/">
+  <meta property="og:title" content="Figure Function – Typst Documentation">
+  <meta property="og:site_name" content="Typst">
+  <meta property="og:description" content="Documentation for the `figure` function.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://typst.app/assets/social.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:site" content="@typstapp">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://typst.app/docs/reference/model/figure/">
+  <meta name="twitter:image:alt"
+    content="The left side of a text editor with colorful cursors, as well as the text &#x27;Compose papers faster, Typst&#x27;">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+  <link rel="mask-icon" href="/assets/safari-pinned-tab.svg" color="#239dad">
+  <link rel="manifest" href="/assets/site.webmanifest">
+  <link rel="stylesheet" href="/styles/default.css?bust=20231030?d=2024-02-14">
+  <link rel="stylesheet" href="/styles/docs.css?bust=20231030?d=2024-02-14">
+  <link rel="preload" href="/assets/fonts/HKGrotesk-Regular.woff2" as="font">
+  <link rel="preload" href="/assets/fonts/HKGrotesk-Bold.woff2" as="font">
+  <link rel="preload" href="/assets/fonts/HKGrotesk-SemiBold.woff2" as="font">
+  <link rel="preload" href="/assets/fonts/CascadiaMono-Regular-Sub.woff2" as="font">
+  <link rel="preload" href="/assets/images/blur.webp" as="image">
+  <script>document.documentElement.className = document.documentElement.className.replace("no-js", "js"), document.addEventListener("DOMContentLoaded", (() => { const e = document.cookie.split("; ").find((e => e.startsWith("INSECURE_SIGNED_IN=")))?.split("=")[1].toLowerCase(); if ("1" === e || "true" === e || "yes" === e) { document.documentElement.classList.add("signed-in"); const e = document.querySelector("header nav a.nav-btn"), t = document.querySelector("header nav a.sign-in"); e && (e.innerHTML = "Go to app", e.setAttribute("href", "/app/")), t && (t.innerHTML = "Sign out", t.setAttribute("href", "https://api.typst.app/v1/auth/logout")) } }))</script>
+</head>
+
+<body class="no-js docs has-outline">
+  <header class="boring">
+    <div><a href="/docs" class="logo-box"><img src="/assets/images/typst.svg" alt="Typst" width="91"
+          height="35"><span>Documentation</span></a><button class="hamburger"><img alt="Open navigation"
+          src="/assets/icons/16-hamburger-dark.svg" width="16" height="16"></button>
+      <nav>
+        <ul>
+          <li class="social"><a href="https://twitter.com/typstapp/"><svg width="16" height="16" viewBox="0 0 16 16"
+                preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby=":Rsq:-label">
+                <title id=":Rsq:-label">Twitter</title>
+                <use href="/assets/icons/social.svg#twitter"></use>
+              </svg></a></li>
+          <li class="social"><a href="https://discord.gg/2uDybryKPe"><svg width="16" height="16" viewBox="0 0 16 16"
+                preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby=":R1cq:-label">
+                <title id=":R1cq:-label">Discord</title>
+                <use href="/assets/icons/social.svg#discord"></use>
+              </svg></a></li>
+          <li class="social"><a href="https://github.com/typst/"><svg width="16" height="16" viewBox="0 0 16 16"
+                preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby=":R1sq:-label">
+                <title id=":R1sq:-label">GitHub</title>
+                <use href="/assets/icons/social.svg#github"></use>
+              </svg></a></li>
+          <li class="social"><a href="https://www.linkedin.com/company/typst/"><svg width="16" height="16"
+                viewBox="0 0 16 16" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby=":R2cq:-label">
+                <title id=":R2cq:-label">LinkedIn</title>
+                <use href="/assets/icons/social.svg#linkedin"></use>
+              </svg></a></li>
+          <li class="secondary"><a href="/">Home</a></li>
+          <li class="secondary"><a href="/signin/" class="sign-in">Sign in</a></li>
+          <li><a href="/signup" id="header-btn" class="nav-btn btn">Sign up</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  <div class="main-grid">
+    <nav class="folding"><a href="/docs" class="title-row"><svg width="91" height="35" viewBox="0 0 91 35"
+          preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby=":R4la:-label">
+          <title id=":R4la:-label">Typst</title>
+          <use href="/assets/images/typst.svg#logo"></use>
+        </svg><span>Documentation</span></a><button class="close"><img alt="Close" src="/assets/icons/16-close-dark.svg"
+          width="16" height="16"></button>
+      <div class="search"><img src="/assets/icons/16-search-gray.svg" alt="Search" width="16" height="16"><input
+          type="search" placeholder="Search" id="docs-search"></div>
+      <ul class="search-results hidden" id="search-results"></ul>
+      <ul>
+        <li><a href="/docs/">Overview</a></li>
+        <li><a href="/docs/tutorial/">Tutorial</a><button><img alt="Expand" src="/assets/icons/16-arrow-right.svg"
+              width="16" height="16"></button>
+          <ul>
+            <li><a href="/docs/tutorial/writing-in-typst/">Writing in Typst</a></li>
+            <li><a href="/docs/tutorial/formatting/">Formatting</a></li>
+            <li><a href="/docs/tutorial/advanced-styling/">Advanced Styling</a></li>
+            <li><a href="/docs/tutorial/making-a-template/">Making a Template</a></li>
+          </ul>
+        </li>
+        <li><a href="/docs/reference/">Reference</a><button><img alt="Expand" src="/assets/icons/16-arrow-right.svg"
+              width="16" height="16"></button>
+          <ul>
+            <li class="category">Language</li>
+            <li><a href="/docs/reference/syntax/">Syntax</a></li>
+            <li><a href="/docs/reference/styling/">Styling</a></li>
+            <li><a href="/docs/reference/scripting/">Scripting</a></li>
+            <li class="category">Library</li>
+            <li><a href="/docs/reference/foundations/">Foundations</a><button><img alt="Expand"
+                  src="/assets/icons/16-arrow-right.svg" width="16" height="16"></button>
+              <ul>
+                <li><a href="/docs/reference/foundations/arguments/">Arguments</a></li>
+                <li><a href="/docs/reference/foundations/array/">Array</a></li>
+                <li><a href="/docs/reference/foundations/assert/">Assert</a></li>
+                <li><a href="/docs/reference/foundations/bool/">Boolean</a></li>
+                <li><a href="/docs/reference/foundations/bytes/">Bytes</a></li>
+                <li><a href="/docs/reference/foundations/calc">Calculation</a></li>
+                <li><a href="/docs/reference/foundations/content/">Content</a></li>
+                <li><a href="/docs/reference/foundations/datetime/">Datetime</a></li>
+                <li><a href="/docs/reference/foundations/dictionary/">Dictionary</a></li>
+                <li><a href="/docs/reference/foundations/duration/">Duration</a></li>
+                <li><a href="/docs/reference/foundations/eval/">Evaluate</a></li>
+                <li><a href="/docs/reference/foundations/float/">Float</a></li>
+                <li><a href="/docs/reference/foundations/function/">Function</a></li>
+                <li><a href="/docs/reference/foundations/int/">Integer</a></li>
+                <li><a href="/docs/reference/foundations/label/">Label</a></li>
+                <li><a href="/docs/reference/foundations/module/">Module</a></li>
+                <li><a href="/docs/reference/foundations/panic/">Panic</a></li>
+                <li><a href="/docs/reference/foundations/plugin/">Plugin</a></li>
+                <li><a href="/docs/reference/foundations/regex/">Regex</a></li>
+                <li><a href="/docs/reference/foundations/repr/">Representation</a></li>
+                <li><a href="/docs/reference/foundations/selector/">Selector</a></li>
+                <li><a href="/docs/reference/foundations/str/">String</a></li>
+                <li><a href="/docs/reference/foundations/style/">Style</a></li>
+                <li><a href="/docs/reference/foundations/sys">System</a></li>
+                <li><a href="/docs/reference/foundations/type/">Type</a></li>
+                <li><a href="/docs/reference/foundations/version/">Version</a></li>
+              </ul>
+            </li>
+            <li><a href="/docs/reference/model/">Model</a><button><img alt="Expand"
+                  src="/assets/icons/16-arrow-right.svg" width="16" height="16"></button>
+              <ul>
+                <li><a href="/docs/reference/model/bibliography/">Bibliography</a></li>
+                <li><a href="/docs/reference/model/list/">Bullet List</a></li>
+                <li><a href="/docs/reference/model/cite/">Cite</a></li>
+                <li><a href="/docs/reference/model/document/">Document</a></li>
+                <li><a href="/docs/reference/model/emph/">Emphasis</a></li>
+                <li><a href="/docs/reference/model/figure/" aria-current="page">Figure</a></li>
+                <li><a href="/docs/reference/model/footnote/">Footnote</a></li>
+                <li><a href="/docs/reference/model/heading/">Heading</a></li>
+                <li><a href="/docs/reference/model/link/">Link</a></li>
+                <li><a href="/docs/reference/model/enum/">Numbered List</a></li>
+                <li><a href="/docs/reference/model/numbering/">Numbering</a></li>
+                <li><a href="/docs/reference/model/outline/">Outline</a></li>
+                <li><a href="/docs/reference/model/par/">Paragraph</a></li>
+                <li><a href="/docs/reference/model/parbreak/">Paragraph Break</a></li>
+                <li><a href="/docs/reference/model/quote/">Quote</a></li>
+                <li><a href="/docs/reference/model/ref/">Reference</a></li>
+                <li><a href="/docs/reference/model/strong/">Strong Emphasis</a></li>
+                <li><a href="/docs/reference/model/table/">Table</a></li>
+                <li><a href="/docs/reference/model/terms/">Term List</a></li>
+              </ul>
+            </li>
+            <li><a href="/docs/reference/text/">Text</a><button><img alt="Expand" src="/assets/icons/16-arrow-right.svg"
+                  width="16" height="16"></button>
+              <ul>
+                <li><a href="/docs/reference/text/highlight/">Highlight</a></li>
+                <li><a href="/docs/reference/text/linebreak/">Line Break</a></li>
+                <li><a href="/docs/reference/text/lorem/">Lorem</a></li>
+                <li><a href="/docs/reference/text/lower/">Lowercase</a></li>
+                <li><a href="/docs/reference/text/overline/">Overline</a></li>
+                <li><a href="/docs/reference/text/raw/">Raw Text / Code</a></li>
+                <li><a href="/docs/reference/text/smallcaps/">Small Capitals</a></li>
+                <li><a href="/docs/reference/text/smartquote/">Smartquote</a></li>
+                <li><a href="/docs/reference/text/strike/">Strikethrough</a></li>
+                <li><a href="/docs/reference/text/sub/">Subscript</a></li>
+                <li><a href="/docs/reference/text/super/">Superscript</a></li>
+                <li><a href="/docs/reference/text/text/">Text</a></li>
+                <li><a href="/docs/reference/text/underline/">Underline</a></li>
+                <li><a href="/docs/reference/text/upper/">Uppercase</a></li>
+              </ul>
+            </li>
+            <li><a href="/docs/reference/math/">Math</a><button><img alt="Expand" src="/assets/icons/16-arrow-right.svg"
+                  width="16" height="16"></button>
+              <ul>
+                <li><a href="/docs/reference/math/accent/">Accent</a></li>
+                <li><a href="/docs/reference/math/attach">Attach</a></li>
+                <li><a href="/docs/reference/math/cancel/">Cancel</a></li>
+                <li><a href="/docs/reference/math/cases/">Cases</a></li>
+                <li><a href="/docs/reference/math/class/">Class</a></li>
+                <li><a href="/docs/reference/math/equation/">Equation</a></li>
+                <li><a href="/docs/reference/math/frac/">Fraction</a></li>
+                <li><a href="/docs/reference/math/lr">Left/Right</a></li>
+                <li><a href="/docs/reference/math/mat/">Matrix</a></li>
+                <li><a href="/docs/reference/math/roots">Roots</a></li>
+                <li><a href="/docs/reference/math/sizes">Sizes</a></li>
+                <li><a href="/docs/reference/math/styles">Styles</a></li>
+                <li><a href="/docs/reference/math/op/">Text Operator</a></li>
+                <li><a href="/docs/reference/math/underover">Under/Over</a></li>
+                <li><a href="/docs/reference/math/variants">Variants</a></li>
+                <li><a href="/docs/reference/math/vec/">Vector</a></li>
+              </ul>
+            </li>
+            <li><a href="/docs/reference/symbols/">Symbols</a><button><img alt="Expand"
+                  src="/assets/icons/16-arrow-right.svg" width="16" height="16"></button>
+              <ul>
+                <li><a href="/docs/reference/symbols/sym/">General</a></li>
+                <li><a href="/docs/reference/symbols/emoji/">Emoji</a></li>
+                <li><a href="/docs/reference/symbols/symbol/">Symbol</a></li>
+              </ul>
+            </li>
+            <li><a href="/docs/reference/layout/">Layout</a><button><img alt="Expand"
+                  src="/assets/icons/16-arrow-right.svg" width="16" height="16"></button>
+              <ul>
+                <li><a href="/docs/reference/layout/align/">Align</a></li>
+                <li><a href="/docs/reference/layout/alignment/">Alignment</a></li>
+                <li><a href="/docs/reference/layout/angle/">Angle</a></li>
+                <li><a href="/docs/reference/layout/block/">Block</a></li>
+                <li><a href="/docs/reference/layout/box/">Box</a></li>
+                <li><a href="/docs/reference/layout/colbreak/">Column Break</a></li>
+                <li><a href="/docs/reference/layout/columns/">Columns</a></li>
+                <li><a href="/docs/reference/layout/direction/">Direction</a></li>
+                <li><a href="/docs/reference/layout/fraction/">Fraction</a></li>
+                <li><a href="/docs/reference/layout/grid/">Grid</a></li>
+                <li><a href="/docs/reference/layout/hide/">Hide</a></li>
+                <li><a href="/docs/reference/layout/layout/">Layout</a></li>
+                <li><a href="/docs/reference/layout/length/">Length</a></li>
+                <li><a href="/docs/reference/layout/measure/">Measure</a></li>
+                <li><a href="/docs/reference/layout/move/">Move</a></li>
+                <li><a href="/docs/reference/layout/pad/">Padding</a></li>
+                <li><a href="/docs/reference/layout/page/">Page</a></li>
+                <li><a href="/docs/reference/layout/pagebreak/">Page Break</a></li>
+                <li><a href="/docs/reference/layout/place/">Place</a></li>
+                <li><a href="/docs/reference/layout/ratio/">Ratio</a></li>
+                <li><a href="/docs/reference/layout/relative/">Relative Length</a></li>
+                <li><a href="/docs/reference/layout/repeat/">Repeat</a></li>
+                <li><a href="/docs/reference/layout/rotate/">Rotate</a></li>
+                <li><a href="/docs/reference/layout/scale/">Scale</a></li>
+                <li><a href="/docs/reference/layout/h/">Spacing (H)</a></li>
+                <li><a href="/docs/reference/layout/v/">Spacing (V)</a></li>
+                <li><a href="/docs/reference/layout/stack/">Stack</a></li>
+              </ul>
+            </li>
+            <li><a href="/docs/reference/visualize/">Visualize</a><button><img alt="Expand"
+                  src="/assets/icons/16-arrow-right.svg" width="16" height="16"></button>
+              <ul>
+                <li><a href="/docs/reference/visualize/circle/">Circle</a></li>
+                <li><a href="/docs/reference/visualize/color/">Color</a></li>
+                <li><a href="/docs/reference/visualize/ellipse/">Ellipse</a></li>
+                <li><a href="/docs/reference/visualize/gradient/">Gradient</a></li>
+                <li><a href="/docs/reference/visualize/image/">Image</a></li>
+                <li><a href="/docs/reference/visualize/line/">Line</a></li>
+                <li><a href="/docs/reference/visualize/path/">Path</a></li>
+                <li><a href="/docs/reference/visualize/pattern/">Pattern</a></li>
+                <li><a href="/docs/reference/visualize/polygon/">Polygon</a></li>
+                <li><a href="/docs/reference/visualize/rect/">Rectangle</a></li>
+                <li><a href="/docs/reference/visualize/square/">Square</a></li>
+                <li><a href="/docs/reference/visualize/stroke/">Stroke</a></li>
+              </ul>
+            </li>
+            <li><a href="/docs/reference/introspection/">Introspection</a><button><img alt="Expand"
+                  src="/assets/icons/16-arrow-right.svg" width="16" height="16"></button>
+              <ul>
+                <li><a href="/docs/reference/introspection/counter/">Counter</a></li>
+                <li><a href="/docs/reference/introspection/locate/">Locate</a></li>
+                <li><a href="/docs/reference/introspection/location/">Location</a></li>
+                <li><a href="/docs/reference/introspection/metadata/">Metadata</a></li>
+                <li><a href="/docs/reference/introspection/query/">Query</a></li>
+                <li><a href="/docs/reference/introspection/state/">State</a></li>
+              </ul>
+            </li>
+            <li><a href="/docs/reference/data-loading/">Data Loading</a><button><img alt="Expand"
+                  src="/assets/icons/16-arrow-right.svg" width="16" height="16"></button>
+              <ul>
+                <li><a href="/docs/reference/data-loading/cbor/">CBOR</a></li>
+                <li><a href="/docs/reference/data-loading/csv/">CSV</a></li>
+                <li><a href="/docs/reference/data-loading/json/">JSON</a></li>
+                <li><a href="/docs/reference/data-loading/read/">Read</a></li>
+                <li><a href="/docs/reference/data-loading/toml/">TOML</a></li>
+                <li><a href="/docs/reference/data-loading/xml/">XML</a></li>
+                <li><a href="/docs/reference/data-loading/yaml/">YAML</a></li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+        <li><a href="/docs/guides/">Guides</a><button><img alt="Expand" src="/assets/icons/16-arrow-right.svg"
+              width="16" height="16"></button>
+          <ul>
+            <li><a href="/docs/guides/guide-for-latex-users/">Guide for LaTeX users</a></li>
+            <li><a href="/docs/guides/page-setup-guide/">Page setup guide</a></li>
+          </ul>
+        </li>
+        <li><a href="/docs/packages/">Packages</a></li>
+        <li><a href="/docs/changelog/">Changelog</a></li>
+        <li><a href="/docs/roadmap/">Roadmap</a></li>
+        <li><a href="/docs/community/">Community</a></li>
+      </ul>
+    </nav>
+    <main>
+      <ul class="breadcrumbs" aria-label="Breadcrumbs">
+        <li class="root"><a href="/docs"><img src="/assets/icons/16-docs-dark.svg" alt="Docs" width="16"
+              height="16"></a></li>
+        <li aria-hidden="true"><img src="/assets/icons/16-arrow-right.svg" width="16" height="16" alt=""></li>
+        <li><a href="/docs/reference/">Reference</a></li>
+        <li aria-hidden="true"><img src="/assets/icons/16-arrow-right.svg" width="16" height="16" alt=""></li>
+        <li><a href="/docs/reference/model/">Model</a></li>
+        <li aria-hidden="true"><img src="/assets/icons/16-arrow-right.svg" width="16" height="16" alt=""></li>
+        <li><a href="/docs/reference/model/figure/">Figure</a></li>
+      </ul>
+      
+      {% block main %}{% endblock %}
+
+      <div class="page-end-buttons"><a href="/docs/reference/model/emph/" class="previous"><img
+            src="/assets/icons/16-arrow-right.svg" alt="←">
+          <div><span class="page-title">Emphasis</span><span class="hint">Previous page</span></div>
+        </a><a href="/docs/reference/model/footnote/" class="next"><img src="/assets/icons/16-arrow-right.svg" alt="→">
+          <div><span class="page-title">Footnote</span><span class="hint">Next page</span></div>
+        </a></div>
+    </main>
+    <nav id="page-overview"><strong>On this page</strong>
+      <ul>
+        <li data-assoc="summary"><a href="#summary">Summary</a>
+          <ul></ul>
+        </li>
+        <li data-assoc="examples"><a href="#examples">Examples</a>
+          <ul></ul>
+        </li>
+        <li data-assoc="figure-behaviour"><a href="#figure-behaviour">Figure Behaviour</a>
+          <ul></ul>
+        </li>
+        <li data-assoc="caption-customization"><a href="#caption-customization">Caption Customization</a>
+          <ul></ul>
+        </li>
+        <li data-assoc="parameters"><a href="#parameters">Parameters</a>
+          <ul>
+            <li data-assoc="parameters-body"><a href="#parameters-body">body</a>
+              <ul></ul>
+            </li>
+            <li data-assoc="parameters-placement"><a href="#parameters-placement">placement</a>
+              <ul></ul>
+            </li>
+            <li data-assoc="parameters-caption"><a href="#parameters-caption">caption</a>
+              <ul></ul>
+            </li>
+            <li data-assoc="parameters-kind"><a href="#parameters-kind">kind</a>
+              <ul></ul>
+            </li>
+            <li data-assoc="parameters-supplement"><a href="#parameters-supplement">supplement</a>
+              <ul></ul>
+            </li>
+            <li data-assoc="parameters-numbering"><a href="#parameters-numbering">numbering</a>
+              <ul></ul>
+            </li>
+            <li data-assoc="parameters-gap"><a href="#parameters-gap">gap</a>
+              <ul></ul>
+            </li>
+            <li data-assoc="parameters-outlined"><a href="#parameters-outlined">outlined</a>
+              <ul></ul>
+            </li>
+          </ul>
+        </li>
+        <li data-assoc="definitions"><a href="#definitions">Definitions</a>
+          <ul>
+            <li data-assoc="definitions-caption"><a href="#definitions-caption">Caption</a>
+              <ul>
+                <li data-assoc="definitions-caption-position"><a href="#definitions-caption-position">position</a>
+                  <ul></ul>
+                </li>
+                <li data-assoc="definitions-caption-separator"><a href="#definitions-caption-separator">separator</a>
+                  <ul></ul>
+                </li>
+                <li data-assoc="definitions-caption-body"><a href="#definitions-caption-body">body</a>
+                  <ul></ul>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+  </div>
+  <footer>
+    <div>
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/docs/">Documentation</a></li>
+        <li><a href="/about/">About Us</a></li>
+        <li><a href="/contact/">Contact Us</a></li>
+        <li><a href="/tools/">Tools</a></li>
+        <li><a href="/privacy/">Privacy</a></li>
+        <li><a href="/terms/">Terms of Service</a></li>
+        <li><a href="/legal/">Legal (Impressum)</a></li>
+      </ul>
+    </div>
+    <div>
+      <ul>
+        <li><a href="/blog/">Blog</a></li>
+        <li><a href="https://twitter.com/typstapp/">Twitter</a></li>
+        <li><a href="https://discord.gg/2uDybryKPe">Discord</a></li>
+        <li><a rel="me" href="https://mastodon.social/@typst">Mastodon</a></li>
+        <li><a href="https://www.linkedin.com/company/typst/">LinkedIn</a></li>
+        <li><a href="https://instagram.com/typstapp/">Instagram</a></li>
+        <li><a href="https://github.com/typst/">GitHub</a></li>
+      </ul>
+    </div>
+    <div>
+      <p>Made in Berlin</p>
+    </div>
+  </footer>
+  <script src="/scripts/docs.js?bust=20231006"></script>
+  <script src="/scripts/analytics.js" defer></script>
+</body>
+
+</html>
