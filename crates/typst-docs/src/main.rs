@@ -7,8 +7,9 @@ use std::{
 
 use clap::Parser;
 use include_dir::{include_dir, Dir};
-use typst::model::Document;
+use typst::{model::Document, visualize::Color};
 use typst_docs::{provide, Html, PageModel, Resolver};
+use typst_render::render;
 
 use self::templates::render_page;
 
@@ -16,10 +17,13 @@ static PUBLIC_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/public");
 
 struct MyResolver<'a> {
     out_dir: &'a Path,
+    verbose: bool,
 }
 impl<'a> Resolver for MyResolver<'a> {
     fn commits(&self, from: &str, to: &str) -> Vec<typst_docs::Commit> {
-        eprintln!("commits({from}, {to})");
+        if self.verbose {
+            eprintln!("commits({from}, {to})");
+        }
         vec![]
     }
     fn example(
@@ -28,24 +32,30 @@ impl<'a> Resolver for MyResolver<'a> {
         source: Option<typst_docs::Html>,
         _document: &Document,
     ) -> typst_docs::Html {
-        eprintln!(
-            "example(0x{hash:x}, {:?} chars, Document)",
-            source.as_ref().map(|s| s.as_str().len())
-        );
+        if self.verbose {
+            eprintln!(
+                "example(0x{hash:x}, {:?} chars, Document)",
+                source.as_ref().map(|s| s.as_str().len())
+            );
+        }
 
         Html::new("".to_string())
     }
     fn image(&self, filename: &str, data: &[u8]) -> String {
-        eprintln!("image({filename}, {} bytes)", data.len());
+        if self.verbose {
+            eprintln!("image({filename}, {} bytes)", data.len());
+        }
 
-        let path = self.out_dir.join("docs").join(filename);
+        let path = self.out_dir.join("assets").join("docs").join(filename);
         create_dir_all(path.parent().expect("parent")).expect("create dir");
         write(path, data).expect("write image");
 
         format!("/assets/docs/{filename}")
     }
     fn link(&self, link: &str) -> Option<String> {
-        eprintln!("link({link})");
+        if self.verbose {
+            eprintln!("link({link})");
+        }
         None
     }
 }
@@ -59,42 +69,61 @@ impl<'a> Resolver for MyResolver<'a> {
 struct Args {
     #[arg(short, long, default_value = "_site")]
     out_dir: PathBuf,
+    #[arg(short, long)]
+    verbose: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    let own_pages = provide(&MyResolver { out_dir: args.out_dir.as_path() });
-    let pages: Vec<_> = own_pages.iter().collect();
+    let own_root_pages = provide(&MyResolver {
+        out_dir: args.out_dir.as_path(),
+        verbose: args.verbose.clone(),
+    });
+    let root_pages: Vec<_> = own_root_pages.iter().collect();
+    eprintln!("Generated data for {} root pages", root_pages.len());
 
-    fn pages_flat_helper<'a>(page: &'a PageModel, pages: &mut Vec<&'a PageModel>) {
-        pages.push(page);
-        pages.extend(page.children.iter());
+    fn pages_flat_helper<'a>(
+        page: &'a PageModel,
+        mut all_pages: &mut Vec<&'a PageModel>,
+    ) {
+        all_pages.push(page);
+        for page in &page.children {
+            pages_flat_helper(page, &mut all_pages);
+        }
     }
     let mut all_pages: Vec<&PageModel> = Vec::new();
-    for page in &pages {
-        pages_flat_helper(page, &mut all_pages);
+    for root_page in &root_pages {
+        pages_flat_helper(root_page, &mut all_pages);
     }
+    eprintln!("Crawled root pages and found data for {} total pages", all_pages.len());
 
-    for page in &pages {
+    for page in &all_pages {
         let mut path = args.out_dir.clone();
-        let mut route = page.route.to_string();
-        if route.ends_with("/") {
-            route.push_str("index.html");
+        let mut route_path = page.route.to_string();
+        if route_path.ends_with("/") {
+            route_path.push_str("index.html");
         }
-        let mut route = route.strip_prefix("/docs/").unwrap_or(&route).to_string();
-        if route.starts_with("/") {
-            route.remove(0);
+        if route_path.starts_with("/") {
+            route_path.remove(0);
         }
-        path.push(route);
+        path.push(route_path);
 
-        let html = render_page(page, &all_pages)?;
+        let html = render_page(page, &all_pages, &root_pages)?;
+        if args.verbose {
+            eprintln!("Generated {} chars of HTML for {:?}", html.len(), &page.route);
+        }
 
-        create_dir_all(path.parent().expect("parent")).expect("create dir");
-        write(path, html.as_str()).expect("write page");
+        create_dir_all(path.parent().ok_or("no parent")?)?;
+        write(&path, html.as_str())?;
+        eprintln!("Created {:?}", &path);
     }
 
-    PUBLIC_DIR.extract(args.out_dir)?;
+    create_dir_all(&args.out_dir)?;
+    PUBLIC_DIR.extract(&args.out_dir)?;
+    eprintln!("Extracted other assets to {:?}", &args.out_dir);
+
+    eprintln!("All done!");
 
     Ok(())
 }

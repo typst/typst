@@ -15,6 +15,7 @@ pub struct CategoryTemplate<'a> {
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
     all_pages: &'a [&'a PageModel],
+    root_pages: &'a [&'a PageModel],
     category: &'a CategoryModel,
 }
 
@@ -26,6 +27,7 @@ pub struct FuncTemplate<'a> {
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
     all_pages: &'a [&'a PageModel],
+    root_pages: &'a [&'a PageModel],
     func: &'a FuncModel,
 }
 
@@ -37,6 +39,7 @@ pub struct GroupTemplate<'a> {
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
     all_pages: &'a [&'a PageModel],
+    root_pages: &'a [&'a PageModel],
     group: &'a GroupModel,
 }
 
@@ -48,6 +51,7 @@ pub struct HtmlTemplate<'a> {
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
     all_pages: &'a [&'a PageModel],
+    root_pages: &'a [&'a PageModel],
     html: &'a Html,
 }
 
@@ -59,6 +63,7 @@ pub struct PackagesTemplate<'a> {
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
     all_pages: &'a [&'a PageModel],
+    root_pages: &'a [&'a PageModel],
     packages: (),
 }
 
@@ -70,6 +75,7 @@ pub struct SymbolsTemplate<'a> {
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
     all_pages: &'a [&'a PageModel],
+    root_pages: &'a [&'a PageModel],
     symbols: &'a SymbolsModel,
 }
 
@@ -81,6 +87,7 @@ pub struct TypeTemplate<'a> {
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
     all_pages: &'a [&'a PageModel],
+    root_pages: &'a [&'a PageModel],
     type_: &'a TypeModel,
 }
 
@@ -123,6 +130,7 @@ pub fn get_breadcrumbs<'a>(
 pub fn render_page<'a>(
     page: &'a PageModel,
     all_pages: &'a [&'a PageModel],
+    root_pages: &'a [&'a PageModel],
 ) -> Result<EcoString, Box<dyn Error>> {
     let page_index = all_pages.iter().position(|p| p.route == page.route).unwrap();
     let prev = if page_index > 0 { Some(all_pages[page_index - 1]) } else { None };
@@ -135,35 +143,76 @@ pub fn render_page<'a>(
     let breadcrumbs = get_breadcrumbs(page, all_pages);
 
     let html_string = match &page.body {
-        BodyModel::Category(category) => {
-            CategoryTemplate { page, prev, next, breadcrumbs, all_pages, category }
-                .render()?
+        BodyModel::Category(category) => CategoryTemplate {
+            page,
+            prev,
+            next,
+            breadcrumbs,
+            all_pages,
+            root_pages,
+            category,
         }
-        BodyModel::Func(func) => {
-            FuncTemplate { page, prev, next, breadcrumbs, all_pages, func }.render()?
+        .render()?,
+        BodyModel::Func(func) => FuncTemplate {
+            page,
+            prev,
+            next,
+            breadcrumbs,
+            all_pages,
+            root_pages,
+            func,
         }
-        BodyModel::Group(group) => {
-            GroupTemplate { page, prev, next, breadcrumbs, all_pages, group }.render()?
+        .render()?,
+        BodyModel::Group(group) => GroupTemplate {
+            page,
+            prev,
+            next,
+            breadcrumbs,
+            all_pages,
+            root_pages,
+            group,
         }
-        BodyModel::Html(html) => {
-            HtmlTemplate { page, prev, next, breadcrumbs, all_pages, html }.render()?
+        .render()?,
+        BodyModel::Html(html) => HtmlTemplate {
+            page,
+            prev,
+            next,
+            breadcrumbs,
+            all_pages,
+            root_pages,
+            html,
         }
+        .render()?,
         BodyModel::Packages(_) => PackagesTemplate {
             page,
             prev,
             next,
             breadcrumbs,
             all_pages,
+            root_pages,
             packages: (),
         }
         .render()?,
-        BodyModel::Symbols(symbols) => {
-            SymbolsTemplate { page, prev, next, breadcrumbs, all_pages, symbols }
-                .render()?
+        BodyModel::Symbols(symbols) => SymbolsTemplate {
+            page,
+            prev,
+            next,
+            breadcrumbs,
+            all_pages,
+            root_pages,
+            symbols,
         }
-        BodyModel::Type(type_) => {
-            TypeTemplate { page, prev, next, breadcrumbs, all_pages, type_ }.render()?
+        .render()?,
+        BodyModel::Type(type_) => TypeTemplate {
+            page,
+            prev,
+            next,
+            breadcrumbs,
+            all_pages,
+            root_pages,
+            type_,
         }
+        .render()?,
     };
     Ok(EcoString::from(html_string))
 }

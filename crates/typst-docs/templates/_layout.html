@@ -81,26 +81,45 @@
           type="search" placeholder="Search" id="docs-search"></div>
       <ul class="search-results hidden" id="search-results"></ul>
       <ul>
-        {% for page1 in all_pages %}
+        {% for page1 in root_pages %}
             <li>
-                <a href="{{ page1.route }}">{{ page1.title }}</a>
+                {% if page1.route == page.route %}
+                    <a href="{{ page1.route }}" aria-current="page">{{ page1.title }}</a>
+                {% else %}
+                    <a href="{{ page1.route }}">{{ page1.title }}</a>
+                {% endif %}
                 {% if !page1.children.is_empty() %}
                     <button>
                         <img alt="Expand" src="/assets/icons/16-arrow-right.svg" width="16" height="16">
                     </button>
-                    {% for page2 in page1.children %}
-                        <li>
-                            <a href="{{ page2.route }}">{{ page2.title }}</a>
-                            {% if !page2.children.is_empty() %}
-                                <button>
-                                    <img alt="Expand" src="/assets/icons/16-arrow-right.svg" width="16" height="16">
-                                </button>
-                                {% for page3 in page2.children %}
-                                    <li><a href="{{ page3.route }}">{{ page3.title }}</a></li>
-                                {% endfor %}
+                    <ul>
+                        {% for page2 in page1.children %}
+                            {% if let Some(part) = page2.part %}
+                                <li class="category">{{ part }}</li>
                             {% endif %}
-                        </li>
-                    {% endfor %}
+                            <li>
+                                {% if page2.route == page.route %}
+                                    <a href="{{ page2.route }}" aria-current="page">{{ page2.title }}</a>
+                                {% else %}
+                                    <a href="{{ page2.route }}">{{ page2.title }}</a>
+                                {% endif %}
+                                {% if !page2.children.is_empty() %}
+                                    <button>
+                                        <img alt="Expand" src="/assets/icons/16-arrow-right.svg" width="16" height="16">
+                                    </button>
+                                    <ul>
+                                        {% for page3 in page2.children %}
+                                            {% if page2.route == page.route %}
+                                                <a href="{{ page3.route }}" aria-current="page">{{ page3.title }}</a>
+                                            {% else %}
+                                                <a href="{{ page3.route }}">{{ page3.title }}</a>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
                 {% endif %}
             </li>
         {% endfor %}
