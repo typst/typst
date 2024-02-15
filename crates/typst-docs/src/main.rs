@@ -8,7 +8,7 @@ use std::{
 use clap::Parser;
 use include_dir::{include_dir, Dir};
 use typst::model::Document;
-use typst_docs::{provide, BodyModel, Html, PageModel, Resolver};
+use typst_docs::{provide, Html, PageModel, Resolver};
 
 use self::templates::render_page;
 
@@ -26,7 +26,7 @@ impl<'a> Resolver for MyResolver<'a> {
         &self,
         hash: u128,
         source: Option<typst_docs::Html>,
-        document: &Document,
+        _document: &Document,
     ) -> typst_docs::Html {
         eprintln!(
             "example(0x{hash:x}, {:?} chars, Document)",

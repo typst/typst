@@ -3,9 +3,8 @@ use std::error::Error;
 use askama::Template;
 use ecow::EcoString;
 use typst_docs::{
-    contributors, provide, Author, BodyModel, CategoryItem, CategoryModel, Commit,
-    FuncModel, GroupModel, Html, OutlineItem, PageModel, ParamModel, Resolver,
-    ShorthandsModel, StrParam, SymbolModel, SymbolsModel, TypeModel,
+    BodyModel, CategoryModel,
+    FuncModel, GroupModel, Html, PageModel, SymbolsModel, TypeModel,
 };
 
 #[derive(Template)]
