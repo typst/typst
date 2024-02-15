@@ -135,7 +135,9 @@
         {% endfor %}
       </ul>
       
-      {% block main %}{% endblock %}
+      {% block main %}
+        <!-- Missing main block! -->
+      {% endblock %}
 
         <div class="page-end-buttons">
             {% if let Some(prev) = prev %}

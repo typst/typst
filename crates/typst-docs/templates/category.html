@@ -1,1 +1,19 @@
 {% extends "_layout.html" %}
+
+{% block main %}
+<h1 id="summary">{{ category.title }}</h1>
+
+{{ category.details.as_str()|safe }}
+
+<h2 id="definitions">Definitions</h2>
+<ul class="subgridded">
+  <li>
+    <a href="/docs/reference/foundations/arguments/"><code>arguments</code></a
+    ><span>Captured arguments to a function.</span>
+  </li>
+  <li>
+    <a href="/docs/reference/foundations/array/"><code>array</code></a
+    ><span>A sequence of values.</span>
+  </li>
+</ul>
+{% endblock %}
