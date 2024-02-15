@@ -28,3 +28,6 @@ package-lock.json
 # Nix
 /result
 .direnv/
+
+# typst-docs output
+_site
