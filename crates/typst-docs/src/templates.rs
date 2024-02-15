@@ -3,8 +3,8 @@ use std::error::Error;
 use askama::Template;
 use ecow::EcoString;
 use typst_docs::{
-    BodyModel, CategoryModel,
-    FuncModel, GroupModel, Html, PageModel, SymbolsModel, TypeModel,
+    BodyModel, CategoryModel, FuncModel, GroupModel, Html, PageModel, SymbolsModel,
+    TypeModel,
 };
 
 #[derive(Template)]
@@ -14,7 +14,7 @@ pub struct CategoryTemplate<'a> {
     prev: Option<&'a PageModel>,
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
-    pages: &'a [&'a PageModel],
+    all_pages: &'a [&'a PageModel],
     category: &'a CategoryModel,
 }
 
@@ -25,6 +25,7 @@ pub struct FuncTemplate<'a> {
     prev: Option<&'a PageModel>,
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
+    all_pages: &'a [&'a PageModel],
     func: &'a FuncModel,
 }
 
@@ -35,6 +36,7 @@ pub struct GroupTemplate<'a> {
     prev: Option<&'a PageModel>,
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
+    all_pages: &'a [&'a PageModel],
     group: &'a GroupModel,
 }
 
@@ -45,6 +47,7 @@ pub struct HtmlTemplate<'a> {
     prev: Option<&'a PageModel>,
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
+    all_pages: &'a [&'a PageModel],
     html: &'a Html,
 }
 
@@ -55,6 +58,7 @@ pub struct PackagesTemplate<'a> {
     prev: Option<&'a PageModel>,
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
+    all_pages: &'a [&'a PageModel],
     packages: (),
 }
 
@@ -65,6 +69,7 @@ pub struct SymbolsTemplate<'a> {
     prev: Option<&'a PageModel>,
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
+    all_pages: &'a [&'a PageModel],
     symbols: &'a SymbolsModel,
 }
 
@@ -75,6 +80,7 @@ pub struct TypeTemplate<'a> {
     prev: Option<&'a PageModel>,
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
+    all_pages: &'a [&'a PageModel],
     type_: &'a TypeModel,
 }
 
@@ -129,32 +135,34 @@ pub fn render_page<'a>(
     let breadcrumbs = get_breadcrumbs(page, all_pages);
 
     let html_string = match &page.body {
-        BodyModel::Category(category) => CategoryTemplate {
+        BodyModel::Category(category) => {
+            CategoryTemplate { page, prev, next, breadcrumbs, all_pages, category }
+                .render()?
+        }
+        BodyModel::Func(func) => {
+            FuncTemplate { page, prev, next, breadcrumbs, all_pages, func }.render()?
+        }
+        BodyModel::Group(group) => {
+            GroupTemplate { page, prev, next, breadcrumbs, all_pages, group }.render()?
+        }
+        BodyModel::Html(html) => {
+            HtmlTemplate { page, prev, next, breadcrumbs, all_pages, html }.render()?
+        }
+        BodyModel::Packages(_) => PackagesTemplate {
             page,
             prev,
             next,
             breadcrumbs,
-            pages: all_pages,
-            category,
+            all_pages,
+            packages: (),
         }
         .render()?,
-        BodyModel::Func(func) => {
-            FuncTemplate { page, prev, next, breadcrumbs, func }.render()?
-        }
-        BodyModel::Group(group) => {
-            GroupTemplate { page, prev, next, breadcrumbs, group }.render()?
-        }
-        BodyModel::Html(html) => {
-            HtmlTemplate { page, prev, next, breadcrumbs, html }.render()?
-        }
-        BodyModel::Packages(_) => {
-            PackagesTemplate { page, prev, next, breadcrumbs, packages: () }.render()?
-        }
         BodyModel::Symbols(symbols) => {
-            SymbolsTemplate { page, prev, next, breadcrumbs, symbols }.render()?
+            SymbolsTemplate { page, prev, next, breadcrumbs, all_pages, symbols }
+                .render()?
         }
         BodyModel::Type(type_) => {
-            TypeTemplate { page, prev, next, breadcrumbs, type_ }.render()?
+            TypeTemplate { page, prev, next, breadcrumbs, all_pages, type_ }.render()?
         }
     };
     Ok(EcoString::from(html_string))
