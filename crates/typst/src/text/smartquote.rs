@@ -251,7 +251,7 @@ impl<'s> SmartQuotes<'s> {
     }
 
     /// The opening quote.
-    fn open(&self, double: bool) -> &'s str {
+    pub fn open(&self, double: bool) -> &'s str {
         if double {
             self.double_open
         } else {
@@ -260,7 +260,7 @@ impl<'s> SmartQuotes<'s> {
     }
 
     /// The closing quote.
-    fn close(&self, double: bool) -> &'s str {
+    pub fn close(&self, double: bool) -> &'s str {
         if double {
             self.double_close
         } else {
@@ -269,7 +269,7 @@ impl<'s> SmartQuotes<'s> {
     }
 
     /// Which character should be used as a prime.
-    fn prime(&self, double: bool) -> &'static str {
+    pub fn prime(&self, double: bool) -> &'static str {
         if double {
             "″"
         } else {
@@ -278,7 +278,7 @@ impl<'s> SmartQuotes<'s> {
     }
 
     /// Which character should be used as a fallback quote.
-    fn fallback(&self, double: bool) -> &'static str {
+    pub fn fallback(&self, double: bool) -> &'static str {
         if double {
             "\""
         } else {

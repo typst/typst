@@ -464,15 +464,12 @@ fn collect<'a>(
             Segment::Text(c.len_utf8())
         } else if let Some(elem) = child.to_packed::<SmartQuoteElem>() {
             let prev = full.len();
-            if SmartQuoteElem::enabled_in(styles) {
-                let quotes = SmartQuoteElem::quotes_in(styles);
-                let lang = TextElem::lang_in(styles);
-                let region = TextElem::region_in(styles);
+            if elem.enabled(styles) {
                 let quotes = SmartQuotes::new(
-                    quotes,
-                    lang,
-                    region,
-                    SmartQuoteElem::alternative_in(styles),
+                    elem.quotes(styles),
+                    TextElem::lang_in(styles),
+                    TextElem::region_in(styles),
+                    elem.alternative(styles),
                 );
                 let peeked = iter.peek().and_then(|&child| {
                     let child = if let Some(styled) = child.to_packed::<StyledElem>() {
