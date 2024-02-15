@@ -745,3 +745,13 @@ impl<T, const N: usize> Fold for SmallVec<[T; N]> {
         self
     }
 }
+
+/// A type that accumulates depth when folded.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Hash)]
+pub struct Depth(pub usize);
+
+impl Fold for Depth {
+    fn fold(self, outer: Self) -> Self {
+        Self(outer.0 + self.0)
+    }
+}

@@ -1,12 +1,12 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Content, Label, NativeElement, Packed, Show, ShowSet, Smart, StyleChain,
-    Styles,
+    cast, elem, Content, Depth, Label, NativeElement, Packed, Show, ShowSet, Smart,
+    StyleChain, Styles,
 };
 use crate::layout::{Alignment, BlockElem, Em, HElem, PadElem, Spacing, VElem};
 use crate::model::{CitationForm, CiteElem};
-use crate::text::{SmartQuoteElem, SpaceElem, TextElem};
+use crate::text::{SmartQuoteElem, SmartQuotes, SpaceElem, TextElem};
 
 /// Displays a quote alongside an optional attribution.
 ///
@@ -126,6 +126,12 @@ pub struct QuoteElem {
     /// The quote.
     #[required]
     body: Content,
+
+    /// The nesting depth.
+    #[internal]
+    #[fold]
+    #[ghost]
+    depth: Depth,
 }
 
 /// Attribution for a [quote](QuoteElem).
@@ -152,11 +158,27 @@ impl Show for Packed<QuoteElem> {
         let block = self.block(styles);
 
         if self.quotes(styles) == Smart::Custom(true) || !block {
+            let quotes = SmartQuotes::new(
+                SmartQuoteElem::quotes_in(styles),
+                TextElem::lang_in(styles),
+                TextElem::region_in(styles),
+                SmartQuoteElem::alternative_in(styles),
+            );
+
+            // Alternate between single and double quotes.
+            let Depth(depth) = QuoteElem::depth_in(styles);
+            let double = depth % 2 == 0;
+
             // Add zero-width weak spacing to make the quotes "sticky".
             let hole = HElem::hole().pack();
-            let quote = SmartQuoteElem::new().with_double(true).pack();
-            realized =
-                Content::sequence([quote.clone(), hole.clone(), realized, hole, quote]);
+            realized = Content::sequence([
+                TextElem::packed(quotes.open(double)),
+                hole.clone(),
+                realized,
+                hole,
+                TextElem::packed(quotes.close(double)),
+            ])
+            .styled(QuoteElem::set_depth(Depth(1)));
         }
 
         if block {

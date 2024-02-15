@@ -1,7 +1,7 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, Func, Packed, Smart, StyleChain, Value,
+    cast, elem, scope, Array, Content, Depth, Func, Packed, Smart, StyleChain, Value,
 };
 use crate::layout::{
     Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
@@ -235,13 +235,4 @@ cast! {
         Self::Content(array.into_iter().map(Value::display).collect())
     },
     v: Func => Self::Func(v),
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Hash)]
-struct Depth(usize);
-
-impl Fold for Depth {
-    fn fold(self, outer: Self) -> Self {
-        Self(outer.0 + self.0)
-    }
 }
