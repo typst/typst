@@ -17,7 +17,7 @@ pub struct CategoryTemplate<'a> {
     prev: Option<&'a PageModel>,
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
-    all_pages: &'a [&'a PageModel],
+    // all_pages: &'a [&'a PageModel],
     root_pages: &'a [&'a PageModel],
     bust: &'a str,
     d: &'a str,
@@ -31,7 +31,7 @@ pub struct FuncTemplate<'a> {
     prev: Option<&'a PageModel>,
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
-    all_pages: &'a [&'a PageModel],
+    // all_pages: &'a [&'a PageModel],
     root_pages: &'a [&'a PageModel],
     bust: &'a str,
     d: &'a str,
@@ -45,7 +45,7 @@ pub struct GroupTemplate<'a> {
     prev: Option<&'a PageModel>,
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
-    all_pages: &'a [&'a PageModel],
+    // all_pages: &'a [&'a PageModel],
     root_pages: &'a [&'a PageModel],
     bust: &'a str,
     d: &'a str,
@@ -59,7 +59,7 @@ pub struct HtmlTemplate<'a> {
     prev: Option<&'a PageModel>,
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
-    all_pages: &'a [&'a PageModel],
+    // all_pages: &'a [&'a PageModel],
     root_pages: &'a [&'a PageModel],
     bust: &'a str,
     d: &'a str,
@@ -73,11 +73,11 @@ pub struct PackagesTemplate<'a> {
     prev: Option<&'a PageModel>,
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
-    all_pages: &'a [&'a PageModel],
+    // all_pages: &'a [&'a PageModel],
     root_pages: &'a [&'a PageModel],
     bust: &'a str,
     d: &'a str,
-    packages: (),
+    packages: &'a Html,
 }
 
 #[derive(Template)]
@@ -87,7 +87,7 @@ pub struct SymbolsTemplate<'a> {
     prev: Option<&'a PageModel>,
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
-    all_pages: &'a [&'a PageModel],
+    // all_pages: &'a [&'a PageModel],
     root_pages: &'a [&'a PageModel],
     bust: &'a str,
     d: &'a str,
@@ -101,7 +101,7 @@ pub struct TypeTemplate<'a> {
     prev: Option<&'a PageModel>,
     next: Option<&'a PageModel>,
     breadcrumbs: Vec<&'a PageModel>,
-    all_pages: &'a [&'a PageModel],
+    // all_pages: &'a [&'a PageModel],
     root_pages: &'a [&'a PageModel],
     bust: &'a str,
     d: &'a str,
@@ -116,31 +116,11 @@ pub fn get_breadcrumbs<'a>(
     all_pages: &'a [&'a PageModel],
 ) -> Vec<&'a PageModel> {
     let mut breadcrumbs = Vec::new();
-    // Start with the current page
-    breadcrumbs.push(page);
-
-    // Helper function to find parent page by route
-    fn find_parent<'a>(
-        route: &str,
-        all_pages: &'a [&'a PageModel],
-    ) -> Option<&'a PageModel> {
-        all_pages.iter().find(|p| &p.route == &route).copied()
-    }
-
-    // Traverse upwards to find parent pages until the root
-    let mut current_page = page;
-    while let Some(parent_route) = current_page.part {
-        if let Some(parent_page) = find_parent(parent_route, all_pages) {
-            breadcrumbs.push(parent_page);
-            current_page = parent_page;
-        } else {
-            // Parent page not found, break the loop
-            break;
+    for &p in all_pages {
+        if page.route.starts_with(p.route.as_str()) {
+            breadcrumbs.push(p);
         }
     }
-
-    // Reverse the vector to have the highest level first
-    breadcrumbs.reverse();
     breadcrumbs
 }
 
@@ -165,7 +145,7 @@ pub fn render_page<'a>(
             prev,
             next,
             breadcrumbs,
-            all_pages,
+            // all_pages,
             root_pages,
             bust: BUST,
             d: D,
@@ -177,7 +157,7 @@ pub fn render_page<'a>(
             prev,
             next,
             breadcrumbs,
-            all_pages,
+            // all_pages,
             root_pages,
             bust: BUST,
             d: D,
@@ -189,7 +169,7 @@ pub fn render_page<'a>(
             prev,
             next,
             breadcrumbs,
-            all_pages,
+            // all_pages,
             root_pages,
             bust: BUST,
             d: D,
@@ -201,23 +181,23 @@ pub fn render_page<'a>(
             prev,
             next,
             breadcrumbs,
-            all_pages,
+            // all_pages,
             root_pages,
             bust: BUST,
             d: D,
             html,
         }
         .render()?,
-        BodyModel::Packages(_) => PackagesTemplate {
+        BodyModel::Packages(packages) => PackagesTemplate {
             page,
             prev,
             next,
             breadcrumbs,
-            all_pages,
+            // all_pages,
             root_pages,
             bust: BUST,
             d: D,
-            packages: (),
+            packages,
         }
         .render()?,
         BodyModel::Symbols(symbols) => SymbolsTemplate {
@@ -225,7 +205,7 @@ pub fn render_page<'a>(
             prev,
             next,
             breadcrumbs,
-            all_pages,
+            // all_pages,
             root_pages,
             bust: BUST,
             d: D,
@@ -237,7 +217,7 @@ pub fn render_page<'a>(
             prev,
             next,
             breadcrumbs,
-            all_pages,
+            // all_pages,
             root_pages,
             bust: BUST,
             d: D,

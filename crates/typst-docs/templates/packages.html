@@ -1,1 +1,33 @@
 {% extends "_layout.html" %}
+
+{% block main %}
+<h1>Packages</h1>
+{{ packages.as_str()|safe }}
+
+<div class="search">
+  <img
+    src="/assets/icons/16-search-gray.svg"
+    alt="Search"
+    width="16"
+    height="16"
+  />
+  <input type="search" id="package-search" placeholder="Search in packages" />
+</div>
+<div class="show-all">
+  <input id="package-show-all-versions" type="checkbox" />
+  <label for="package-show-all-versions">Show all versions</label>
+</div>
+<table class="package-list">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Description</th>
+      <th>Version</th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+<script src="/scripts/fuse.basic.min.js"></script>
+{% endblock %}

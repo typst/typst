@@ -1,1 +1,38 @@
 {% extends "_layout.html" %}
+
+{% block main %}
+<h1 id="summary"><span class="pill pill-obj">{{ type_.name }}</span></h1>
+{{ type_.details.as_str()|safe }}
+
+{% if let Some(constructor) = type_.constructor %}
+<h2 id="constructor">
+  Constructor
+  <small
+    ><div class="tooltip-context">
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 12 12"
+        preserveAspectRatio="xMidYMid meet"
+        role="img"
+        aria-labelledby=":R38n9a:-label"
+      >
+        <title id=":R38n9a:-label">Question mark</title>
+        <use href="/assets/icons/12-tooltip.svg#icon"></use>
+      </svg>
+      <div
+        role="tooltip"
+        id="constructor-constructor-tooltip"
+        tabindex="-1"
+        aria-hidden="true"
+      >
+        If a type has a constructor, you can call it like a function to create a
+        new value of the type.
+      </div>
+    </div></small
+  >
+</h2>
+{{ constructor.details.as_str()|safe }}
+{% endif %}
+
+{% endblock %}

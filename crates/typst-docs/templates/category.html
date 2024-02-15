@@ -7,13 +7,11 @@
 
 <h2 id="definitions">Definitions</h2>
 <ul class="subgridded">
-  <li>
-    <a href="/docs/reference/foundations/arguments/"><code>arguments</code></a
-    ><span>Captured arguments to a function.</span>
-  </li>
-  <li>
-    <a href="/docs/reference/foundations/array/"><code>array</code></a
-    ><span>A sequence of values.</span>
-  </li>
+  {% for item in category.items %}
+    <li>
+      <a href="{{ item.route }}">{{ item.name }}</a>
+      <span>{{ item.oneliner }}</span>
+    </li>
+  {% endfor %}
 </ul>
 {% endblock %}
