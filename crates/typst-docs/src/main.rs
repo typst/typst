@@ -7,6 +7,7 @@ use std::{
 
 use clap::Parser;
 use include_dir::{include_dir, Dir};
+use pulldown_cmark::escape::escape_html;
 use typst::{model::Document, visualize::Color};
 use typst_docs::{provide, Html, PageModel, Resolver};
 use typst_render::render;
@@ -29,8 +30,8 @@ impl<'a> Resolver for MyResolver<'a> {
     fn example(
         &self,
         hash: u128,
-        source: Option<typst_docs::Html>,
-        _document: &Document,
+        source: Option<Html>,
+        document: &Document,
     ) -> typst_docs::Html {
         if self.verbose {
             eprintln!(
@@ -39,7 +40,32 @@ impl<'a> Resolver for MyResolver<'a> {
             );
         }
 
-        Html::new("".to_string())
+        let frame = &document.pages.first().expect("page 0").frame;
+        let pixmap = render(frame, 2.0, Color::WHITE);
+        let filename = format!("{hash:x}.png");
+        let path = self.out_dir.join("assets").join("docs").join(&filename);
+        create_dir_all(path.parent().expect("parent")).expect("create dir");
+        pixmap.save_png(path.as_path()).expect("save png");
+        let src = format!("/assets/docs/{filename}");
+        eprintln!("Generated example image {path:?}");
+
+        if let Some(code) = source {
+            let code_safe = code.as_str();
+            Html::new(format!(
+                r#"<div class="previewed-code">
+                    <pre>{code_safe}</pre>
+                    <div class="preview">
+                        <img src="{src}" alt="Preview" width="480" height="190" />
+                    </div>
+                </div>"#
+            ))
+        } else {
+            Html::new(format!(
+                r#"<div class="preview">
+                <img src="{src}" alt="Preview" width="480" height="190" />
+            </div>"#
+            ))
+        }
     }
     fn image(&self, filename: &str, data: &[u8]) -> String {
         if self.verbose {
@@ -48,7 +74,8 @@ impl<'a> Resolver for MyResolver<'a> {
 
         let path = self.out_dir.join("assets").join("docs").join(filename);
         create_dir_all(path.parent().expect("parent")).expect("create dir");
-        write(path, data).expect("write image");
+        write(&path, data).expect("write image");
+        eprintln!("Created {} byte image at {path:?}", data.len());
 
         format!("/assets/docs/{filename}")
     }
