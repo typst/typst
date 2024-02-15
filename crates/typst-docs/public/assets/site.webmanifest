@@ -1,0 +1,29 @@
+{
+  "name": "Typst",
+  "short_name": "Typst",
+  "icons": [
+    {
+      "src": "/assets/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/maskable_icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "theme_color": "#239dad",
+  "background_color": "#eff0f3",
+  "categories": ["productivity", "education", "utilities"],
+  "display": "fullscreen",
+  "start_url": "/"
+}
