@@ -4,8 +4,8 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{cast, elem, Content, Packed, Resolve, StyleChain, StyledElem};
 use crate::layout::{
-    Abs, AlignElem, Axes, Axis, Dir, FixedAlignment, Fr, Fragment, Frame, LayoutMultiple,
-    Point, Regions, Size, Spacing,
+    Abs, AlignElem, Axes, Axis, Dir, FixedAlignment, Fr, Fragment, Frame, HElem,
+    LayoutMultiple, Point, Regions, Size, Spacing, VElem,
 };
 use crate::util::{Get, Numeric};
 
@@ -60,6 +60,7 @@ impl LayoutMultiple for Packed<StackElem> {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         let mut layouter = StackLayouter::new(self.dir(styles), regions, styles);
+        let axis = layouter.dir.axis();
 
         // Spacing to insert before the next block.
         let spacing = self.spacing(styles);
@@ -72,6 +73,20 @@ impl LayoutMultiple for Packed<StackElem> {
                     deferred = None;
                 }
                 StackChild::Block(block) => {
+                    // Transparently handle `h`.
+                    if let (Axis::X, Some(h)) = (axis, block.to_packed::<HElem>()) {
+                        layouter.layout_spacing(*h.amount());
+                        deferred = None;
+                        continue;
+                    }
+
+                    // Transparently handle `v`.
+                    if let (Axis::Y, Some(v)) = (axis, block.to_packed::<VElem>()) {
+                        layouter.layout_spacing(*v.amount());
+                        deferred = None;
+                        continue;
+                    }
+
                     if let Some(kind) = deferred {
                         layouter.layout_spacing(kind);
                     }
