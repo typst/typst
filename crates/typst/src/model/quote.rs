@@ -162,7 +162,7 @@ impl Show for Packed<QuoteElem> {
                 SmartQuoteElem::quotes_in(styles),
                 TextElem::lang_in(styles),
                 TextElem::region_in(styles),
-                false,
+                SmartQuoteElem::alternative_in(styles),
             );
 
             // Alternate between single and double quotes.
