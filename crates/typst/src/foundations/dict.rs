@@ -8,7 +8,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::diag::{Hint, HintedStrResult, StrResult};
-use crate::foundations::{array, func, repr, scope, ty, Array, Repr, Str, Value};
+use crate::foundations::{cast, array, func, repr, scope, ty, Module, Array, Repr, Str, Value};
 use crate::syntax::is_ident;
 use crate::util::ArcExt;
 
@@ -156,6 +156,29 @@ impl Dict {
 
 #[scope]
 impl Dict {
+    /// Converts a value into a dictionary
+    ///
+    /// This function can convert a module into a dictionary
+    ///
+    /// ```example
+    /// #include "test.typ" as test
+    /// #dictionary(test)
+    /// ```
+    #[func(constructor)]
+    pub fn construct(
+        /// The value that should be converted to a dictionary.
+        value: ToDict,
+    ) -> Dict {
+        value.0
+    }
+
+    //pub fn from_module(
+    //    /// The module to turn into a dictionary
+    //    module: Module
+    //) -> Dict {
+    //    module.scope().iter().map(|(k, v)| (Str::from(k.clone()), v.clone())).collect::<Dict>()
+    //}
+
     /// The number of pairs in the dictionary.
     #[func(title = "Length")]
     pub fn len(&self) -> usize {
@@ -233,6 +256,14 @@ impl Dict {
             .map(|(k, v)| Value::Array(array![k.clone(), v.clone()]))
             .collect()
     }
+}
+
+/// A value that can be cast to bytes.
+pub struct ToDict(Dict);
+
+cast! {
+    ToDict,
+    v: Module => Self(v.scope().iter().map(|(k, v)| (Str::from(k.clone()), v.clone())).collect()),
 }
 
 impl Debug for Dict {
