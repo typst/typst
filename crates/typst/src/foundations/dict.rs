@@ -8,7 +8,9 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::diag::{Hint, HintedStrResult, StrResult};
-use crate::foundations::{cast, array, func, repr, scope, ty, Module, Array, Repr, Str, Value};
+use crate::foundations::{
+    array, cast, func, repr, scope, ty, Array, Module, Repr, Str, Value,
+};
 use crate::syntax::is_ident;
 use crate::util::ArcExt;
 
