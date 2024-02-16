@@ -5,7 +5,7 @@ use std::{
 
 use clap::Parser;
 use typst::{model::Document, visualize::Color};
-use typst_docs::{provide, Html, PageModel, Resolver};
+use typst_docs::{provide, Html, Resolver};
 use typst_render::render;
 
 struct MyResolver<'a> {
@@ -104,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let root_pages = provide(&MyResolver {
         out_dir: args.out_dir.as_path(),
-        verbose: args.verbose.clone(),
+        verbose: args.verbose,
     });
     let json = serde_json::to_string_pretty(&root_pages)?;
     println!("{json}");
