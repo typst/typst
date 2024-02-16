@@ -4,7 +4,7 @@ use std::sync::Arc;
 use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
-use crate::foundations::{repr, ty, Content, Scope, Value};
+use crate::foundations::{func, repr, scope, ty, Content, Repr as OtherRepr, Scope, Str, Value};
 
 /// An evaluated module, either built-in or resulting from a file.
 ///
@@ -23,7 +23,7 @@ use crate::foundations::{repr, ty, Content, Scope, Value};
 /// >>>
 /// >>> #(-3)
 /// ```
-#[ty(cast)]
+#[ty(scope, cast)]
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Module {
@@ -98,6 +98,23 @@ impl Module {
             Err(arc) => arc.content.clone(),
         }
     }
+
+
+}
+
+#[scope]
+impl Module {
+    #[func]
+    pub fn at(
+        &self,
+        /// The key at which to retrieve the defined value.
+        key: Str,
+        /// A default value to return if the defined value is not defined in the module.
+        #[named]
+        default: Option<Value>,
+    ) -> StrResult<Value> {
+        self.scope().get(&key).cloned().or(default).ok_or_else(|| missing_key_no_default(&key))
+    }
 }
 
 impl Debug for Module {
@@ -120,4 +137,14 @@ impl PartialEq for Module {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name && Arc::ptr_eq(&self.inner, &other.inner)
     }
+}
+
+/// The missing key access error message when no default was given.
+#[cold]
+fn missing_key_no_default(key: &str) -> EcoString {
+    eco_format!(
+        "module does not contain defined value {} \
+         and no default value was specified",
+        key.repr()
+    )
 }
