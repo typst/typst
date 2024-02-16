@@ -14,4 +14,173 @@
     </li>
   {% endfor %}
 </ul>
+
+{% if let Some(shorthands) = category.shorthands %}
+<h2 id="shorthands">Shorthands</h2>
+<p>
+  Shorthands are concise sequences of characters that evoke specific
+  glyphs. Shorthands and other ways to produce symbols can be used
+  interchangeably. You can use different sets of shorthands in math and
+  markup mode. Some shorthands, like <code>~</code> for a non-breaking
+  space produce non-printing symbols, which are indicated with gray
+  placeholder text.
+</p>
+<p>
+  You can deactivate a shorthand&#x27;s interpretation by escaping any
+  of its characters. If you escape a single character in a shorthand,
+  the remaining unescaped characters may form a different shorthand.
+</p>
+
+{% if !shorthands.markup.is_empty() %}
+<h3>Within Markup Mode</h3>
+<ul class="symbol-grid">
+  {% for symbol in shorthands.markup %}
+    <li
+      id="symbol-{{ symbol.name }}"
+      data-unic-name='{{ symbol.unicode_name.clone().unwrap_or_default() }}'
+      data-codepoint="{ symbol.codepoint }"
+      data-alternates='{{ symbol.alternates.join(" ") }}'
+      data-markup-shorthand='{{ symbol.markup_shorthand.expect("markup shorthand") }}'
+      data-override="nbsp"
+    >
+      <button>
+        <span class="sym">nbsp</span
+        ><code class="typ-escape">{{ symbol.markup_shorthand.expect("markup shorthand") }}<wbr /></code>
+      </button>
+    </li>
+  {% endfor %}
+</ul>
+
+<template id="flyout-template"
+  ><div class="symbol-flyout">
+    <div class="info">
+      <button class="main"><span class="sym"></span></button>
+      <div>
+        <h3><span class="unic-name"></span></h3>
+        <p class="sym-name">
+          Name: <code></code>
+          <button class="copy">
+            <img
+              width="16"
+              height="16"
+              alt="Copy"
+              src="/assets/icons/16-copy.svg"
+            />
+          </button>
+        </p>
+        <p class="codepoint">
+          Escape:<!-- -->
+          <code class="typ-escape">\u<!-- -->{<span></span>}</code>
+          <button class="copy">
+            <img
+              width="16"
+              height="16"
+              alt="Copy"
+              src="/assets/icons/16-copy.svg"
+            />
+          </button>
+        </p>
+        <p class="shorthand">
+          Shorthand: <code class="typ-escape"></code>
+          <button class="copy">
+            <img
+              width="16"
+              height="16"
+              alt="Copy"
+              src="/assets/icons/16-copy.svg"
+            /></button
+          ><span class="remark"></span>
+        </p>
+        <p class="accent">
+          Accent:<!-- -->
+          <img
+            src="/assets/icons/16-close.svg"
+            width="16"
+            height="16"
+          />
+        </p>
+      </div>
+    </div></div></template
+><template id="flyout-sym-row"
+  ><li>
+    <button><span class="sym"></span></button></li
+></template>
+{% endif %}
+
+{% if !shorthands.math.is_empty() %}
+<h3>Within Math Mode</h3>
+<ul class="symbol-grid">
+  {% for symbol in shorthands.math %}
+    <li
+      id="symbol-{{ symbol.name }}"
+      data-unic-name='{{ symbol.unicode_name.clone().unwrap_or_default() }}'
+      data-codepoint="{ symbol.codepoint }"
+      data-alternates='{{ symbol.alternates.join(" ") }}'
+      data-math-shorthand='{{ symbol.math_shorthand.expect("math shorthand") }}'
+    >
+      <button>
+        <span class="sym">⟦</span
+        ><code class="typ-escape">{{ symbol.math_shorthand.expect("math shorthand") }}<wbr /></code>
+      </button>
+    </li>
+  {% endfor %}
+</ul>
+
+<template id="flyout-template"
+  ><div class="symbol-flyout">
+    <div class="info">
+      <button class="main"><span class="sym"></span></button>
+      <div>
+        <h3><span class="unic-name"></span></h3>
+        <p class="sym-name">
+          Name: <code></code>
+          <button class="copy">
+            <img
+              width="16"
+              height="16"
+              alt="Copy"
+              src="/assets/icons/16-copy.svg"
+            />
+          </button>
+        </p>
+        <p class="codepoint">
+          Escape:<!-- -->
+          <code class="typ-escape">\u<!-- -->{<span></span>}</code>
+          <button class="copy">
+            <img
+              width="16"
+              height="16"
+              alt="Copy"
+              src="/assets/icons/16-copy.svg"
+            />
+          </button>
+        </p>
+        <p class="shorthand">
+          Shorthand: <code class="typ-escape"></code>
+          <button class="copy">
+            <img
+              width="16"
+              height="16"
+              alt="Copy"
+              src="/assets/icons/16-copy.svg"
+            /></button
+          ><span class="remark"></span>
+        </p>
+        <p class="accent">
+          Accent:<!-- -->
+          <img
+            src="/assets/icons/16-close.svg"
+            width="16"
+            height="16"
+          />
+        </p>
+      </div>
+    </div></div></template
+><template id="flyout-sym-row"
+  ><li>
+    <button><span class="sym"></span></button></li
+></template>
+{% endif %}
+{% endif %}
+
 {% endblock %}
