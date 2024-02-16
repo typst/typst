@@ -4,7 +4,9 @@ use std::sync::Arc;
 use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
-use crate::foundations::{func, repr, scope, ty, Content, Repr as OtherRepr, Scope, Str, Value};
+use crate::foundations::{
+    func, repr, scope, ty, Content, Repr as OtherRepr, Scope, Str, Value,
+};
 
 /// An evaluated module, either built-in or resulting from a file.
 ///
@@ -98,8 +100,6 @@ impl Module {
             Err(arc) => arc.content.clone(),
         }
     }
-
-
 }
 
 #[scope]
@@ -113,7 +113,11 @@ impl Module {
         #[named]
         default: Option<Value>,
     ) -> StrResult<Value> {
-        self.scope().get(&key).cloned().or(default).ok_or_else(|| missing_key_no_default(&key))
+        self.scope()
+            .get(&key)
+            .cloned()
+            .or(default)
+            .ok_or_else(|| missing_key_no_default(&key))
     }
 }
 
