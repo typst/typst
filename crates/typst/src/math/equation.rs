@@ -84,8 +84,8 @@ pub struct EquationElem {
     /// We define:
     /// $ phi.alt := (1 + sqrt(5)) / 2 $
     /// ```
-    #[default(NumberingAlignment::End)]
-    pub numbering_alignment: NumberingAlignment,
+    #[default(RelativeAlignment::End)]
+    pub numbering_alignment: RelativeAlignment,
 
     /// A supplement for the equation.
     ///
@@ -389,25 +389,37 @@ fn find_math_font(
     Ok(font)
 }
 
-/// The alignment of equation numbers.
+/// The alignment of the equation number in the block.
 #[derive(Debug, Copy, Clone, PartialEq, Hash, Cast)]
-enum NumberingAlignment {
-    // Align the number on the block's start.
+enum RelativeAlignment {
+    /// Align the number at the start of text direction.
     Start,
-    // Align the number on the block's end.
+    /// Align the number at the end of text direction.
     End,
+    /// Align the number on the left.
+    Left,
+    /// Align the number on the right.
+    Right,
 }
 
 fn add_equation_number(
     equation: &mut Frame,
     number: Frame,
-    number_align: NumberingAlignment,
+    number_align: RelativeAlignment,
     styles: StyleChain,
     region_size_x: Abs,
     equation_align: FixedAlignment,
     text_dir: Dir,
 ) {
     static NUMBER_GUTTER: Em = Em::new(0.5);
+    let number_align = match (number_align, text_dir.is_positive()) {
+        (RelativeAlignment::Start, true) => FixedAlignment::Start,
+        (RelativeAlignment::Start, false) => FixedAlignment::End,
+        (RelativeAlignment::End, true) => FixedAlignment::End,
+        (RelativeAlignment::End, false) => FixedAlignment::Start,
+        (RelativeAlignment::Left, _) => FixedAlignment::Start,
+        (RelativeAlignment::Right, _) => FixedAlignment::End,
+    };
 
     let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
     let width = if region_size_x.is_finite() {
@@ -419,20 +431,17 @@ fn add_equation_number(
     let height = equation.height().max(number.height());
     equation.resize(Size::new(width, height), Axes::splat(equation_align));
 
-    let offset = match (equation_align, number_align, text_dir) {
-        (FixedAlignment::Start, NumberingAlignment::Start, Dir::LTR) => full_number_width,
-        (FixedAlignment::Start, NumberingAlignment::End, Dir::RTL) => full_number_width,
-        (FixedAlignment::End, NumberingAlignment::Start, Dir::RTL) => -full_number_width,
-        (FixedAlignment::End, NumberingAlignment::End, Dir::LTR) => -full_number_width,
+    let offset = match (equation_align, number_align) {
+        (FixedAlignment::Start, FixedAlignment::Start) => full_number_width,
+        (FixedAlignment::End, FixedAlignment::End) => -full_number_width,
         _ => Abs::zero(),
     };
     equation.translate(Point::with_x(offset));
 
-    let x = match (number_align, text_dir.is_positive()) {
-        (NumberingAlignment::Start, true) => Abs::zero(),
-        (NumberingAlignment::Start, false) => equation.width() - number.width(),
-        (NumberingAlignment::End, true) => equation.width() - number.width(),
-        (NumberingAlignment::End, false) => Abs::zero(),
+    let x = match number_align {
+        FixedAlignment::Start => Abs::zero(),
+        FixedAlignment::End => equation.width() - number.width(),
+        _ => unreachable!(),
     };
     let y = (equation.height() - number.height()) / 2.0;
 
