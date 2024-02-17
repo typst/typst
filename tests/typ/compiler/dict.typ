@@ -84,6 +84,11 @@
 #test(dict, (a: 3, b: 1))
 
 ---
+// Test dictionary constructor
+#dictionary(sys).at("version")
+#dictionary(sys).at("no_crash", default: none)
+
+---
 // Test that removal keeps order.
 #let dict = (a: 1, b: 2, c: 3, d: 4)
 #dict.remove("b")

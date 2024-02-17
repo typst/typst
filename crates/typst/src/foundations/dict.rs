@@ -165,8 +165,7 @@ impl Dict {
     /// from individual pairs. Use the dictionary syntax `(key: value)` instead.
     ///
     /// ```example
-    /// #include "test.typ" as test
-    /// #dictionary(test)
+    /// #dictionary(sys).at("version")
     /// ```
     #[func(constructor)]
     pub fn construct(
