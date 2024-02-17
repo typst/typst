@@ -7,7 +7,7 @@ use ecow::eco_format;
 
 use super::lines::{
     generate_line_segments, hline_stroke_at_column, vline_stroke_at_row, Line,
-    LinePosition,
+    LinePosition, LineSegment,
 };
 use crate::diag::{
     bail, At, Hint, HintedStrResult, HintedString, SourceResult, StrResult,
@@ -1015,7 +1015,8 @@ impl<'a> GridLayouter<'a> {
                     is_end_border,
                     vline_stroke_at_row,
                 )
-                .map(|(stroke, dy, length)| {
+                .map(|segment| {
+                    let LineSegment { stroke, offset: dy, length, priority } = segment;
                     let stroke = (*stroke).clone().unwrap_or_default();
                     let thickness = stroke.thickness;
                     let half = thickness / 2.0;
@@ -1023,6 +1024,7 @@ impl<'a> GridLayouter<'a> {
                     let vline = Geometry::Line(target).stroked(stroke);
                     (
                         thickness,
+                        priority,
                         Point::new(dx, dy - half),
                         FrameItem::Shape(vline, self.span),
                     )
@@ -1074,7 +1076,8 @@ impl<'a> GridLayouter<'a> {
                     is_bottom_border,
                     hline_stroke_at_column,
                 )
-                .map(|(stroke, dx, length)| {
+                .map(|segment| {
+                    let LineSegment { stroke, offset: dx, length, priority } = segment;
                     let stroke = (*stroke).clone().unwrap_or_default();
                     let thickness = stroke.thickness;
                     let half = thickness / 2.0;
@@ -1083,6 +1086,7 @@ impl<'a> GridLayouter<'a> {
                     let hline = Geometry::Line(target).stroked(stroke);
                     (
                         thickness,
+                        priority,
                         Point::new(dx - half, dy),
                         FrameItem::Shape(hline, self.span),
                     )
@@ -1093,13 +1097,13 @@ impl<'a> GridLayouter<'a> {
             }
 
             // Sort by increasing thickness, so that we draw larger strokes
-            // on top.
+            // on top. When the thickness is the same, sort by priority.
             //
-            // This avoids layering problems where a smaller hline appears
-            // "inside" a larger vline. When both have the same size, hlines
-            // are drawn on top (since the sort is stable, and they are
-            // pushed first).
-            lines.sort_by_key(|(thickness, ..)| *thickness);
+            // Sorting by thickness avoids layering problems where a smaller
+            // hline appears "inside" a larger vline. When both have the same
+            // size, hlines are drawn on top (since the sort is stable, and
+            // they are pushed later).
+            lines.sort_by_key(|(thickness, priority, ..)| (*thickness, *priority));
 
             // Render cell backgrounds.
             // We collect them into a vector so they can all be prepended at
@@ -1143,7 +1147,7 @@ impl<'a> GridLayouter<'a> {
             frame.prepend_multiple(
                 fills
                     .into_iter()
-                    .chain(lines.into_iter().map(|(_, point, shape)| (point, shape))),
+                    .chain(lines.into_iter().map(|(_, _, point, shape)| (point, shape))),
             );
         }
 
