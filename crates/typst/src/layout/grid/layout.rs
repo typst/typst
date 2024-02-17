@@ -958,8 +958,11 @@ impl<'a> GridLayouter<'a> {
             // Render grid lines.
             // We collect lines into a vector before rendering so we can sort
             // them based on thickness, such that the lines with largest
-            // thickness are drawn on top.
-            let mut lines = Vec::new();
+            // thickness are drawn on top; and also so we can prepend all of
+            // them at once in the frame, as calling prepend() for each line,
+            // and thus pushing all frame items forward each time, would result
+            // in quadratic complexity.
+            let mut lines = vec![];
 
             // Render vertical lines.
             // Render them first so horizontal lines have priority later.
@@ -1098,18 +1101,11 @@ impl<'a> GridLayouter<'a> {
             // pushed first).
             lines.sort_by_key(|(thickness, ..)| *thickness);
 
-            // We render lines in the reverse order because we are prepending
-            // them, meaning the first prepended line will be on the top of the
-            // others, the second will be below the first one, and so on; and,
-            // yet, the lines vector is sorted from bottom layer to top layer,
-            // so we have to prepend from its end to its start.
-            for (_, point, shape) in lines.into_iter().rev() {
-                // Prepend lines to the frame so they always appear below
-                // cells' content.
-                frame.prepend(point, shape);
-            }
-
             // Render cell backgrounds.
+            // We collect them into a vector so they can all be prepended at
+            // once to the frame, together with lines.
+            let mut fills = vec![];
+
             // Reverse with RTL so that later columns start first.
             let mut dx = Abs::zero();
             for (x, &col) in self.rcols.iter().enumerate().rev_if(self.is_rtl) {
@@ -1133,13 +1129,22 @@ impl<'a> GridLayouter<'a> {
                             let pos = Point::new(dx + offset, dy);
                             let size = Size::new(width, row.height);
                             let rect = Geometry::Rect(size).filled(fill);
-                            frame.prepend(pos, FrameItem::Shape(rect, self.span));
+                            fills.push((pos, FrameItem::Shape(rect, self.span)));
                         }
                     }
                     dy += row.height;
                 }
                 dx += col;
             }
+
+            // Now we render each fill and stroke by prepending to the frame,
+            // such that both appear below cell contents. Fills come first so
+            // that they appear below lines.
+            frame.prepend_multiple(
+                fills
+                    .into_iter()
+                    .chain(lines.into_iter().map(|(_, point, shape)| (point, shape))),
+            );
         }
 
         Ok(Fragment::frames(finished))
