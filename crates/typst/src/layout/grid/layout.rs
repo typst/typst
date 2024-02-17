@@ -168,6 +168,14 @@ pub struct Cell {
     /// We use an Arc to avoid unnecessary space usage when all sides are the
     /// same, or when the strokes come from a common source.
     pub stroke: Sides<Option<Arc<Stroke<Abs>>>>,
+    /// Which stroke sides were explicitly overridden by the cell, over the
+    /// grid's global stroke setting.
+    ///
+    /// This is used to define whether or not this cell's stroke sides should
+    /// have priority over adjacent cells' stroke sides, if those don't
+    /// override their own stroke properties (and thus have less priority when
+    /// defining with which stroke to draw grid lines around this cell).
+    pub stroke_overridden: Sides<bool>,
 }
 
 impl From<Content> for Cell {
@@ -178,6 +186,7 @@ impl From<Content> for Cell {
             fill: None,
             colspan: NonZeroUsize::ONE,
             stroke: Sides::splat(None),
+            stroke_overridden: Sides::splat(false),
         }
     }
 }

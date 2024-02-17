@@ -676,6 +676,10 @@ impl ResolvableCell for Packed<GridCell> {
         let colspan = cell.colspan(styles);
         let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
 
+        let cell_stroke = cell.stroke(styles);
+        let stroke_overridden =
+            cell_stroke.as_ref().map(|side| matches!(side, Some(Some(_))));
+
         // Using a typical 'Sides' fold, an unspecified side loses to a
         // specified side. Additionally, when both are specified, an inner
         // None wins over the outer Some, and vice-versa. When both are
@@ -685,7 +689,7 @@ impl ResolvableCell for Packed<GridCell> {
         // In the end, we flatten because, for layout purposes, an unspecified
         // cell stroke is the same as specifying 'none', so we equate the two
         // concepts.
-        let stroke = cell.stroke(styles).fold(stroke).map(Option::flatten);
+        let stroke = cell_stroke.fold(stroke).map(Option::flatten);
         cell.push_x(Smart::Custom(x));
         cell.push_y(Smart::Custom(y));
         cell.push_fill(Smart::Custom(fill.clone()));
@@ -714,7 +718,13 @@ impl ResolvableCell for Packed<GridCell> {
                 }))
             }),
         );
-        Cell { body: self.pack(), fill, colspan, stroke }
+        Cell {
+            body: self.pack(),
+            fill,
+            colspan,
+            stroke,
+            stroke_overridden,
+        }
     }
 
     fn x(&self, styles: StyleChain) -> Smart<usize> {

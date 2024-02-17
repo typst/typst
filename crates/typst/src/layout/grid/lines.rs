@@ -297,9 +297,14 @@ where
 /// right of the vline have right and left stroke overrides, respectively,
 /// then the cells' stroke overrides are folded together with the vline's
 /// stroke (with priority to the vline's stroke, followed by the right cell's
-/// stroke, and, finally, the left cell's) and returned. If, however, the cells
-/// around the vline at this row do not have any stroke overrides, then the
-/// vline's own stroke is directly returned.
+/// stroke, and, finally, the left cell's) and returned. If only one of the two
+/// cells around the vline (if there are two) has an override, that cell's
+/// stroke is given priority when folding. If, however, the cells around the
+/// vline at this row do not have any stroke overrides, then the vline's own
+/// stroke, as defined by user-specified lines (if any), is returned.
+///
+/// The priority associated with the returned stroke follows the rules
+/// described in the docs for 'generate_line_segment'.
 pub(super) fn vline_stroke_at_row(
     grid: &CellGrid,
     x: usize,
@@ -334,30 +339,51 @@ pub(super) fn vline_stroke_at_row(
         }
     }
 
-    let left_cell_stroke = x
+    let (left_cell_stroke, left_cell_prioritized) = x
         .checked_sub(1)
         .and_then(|left_x| grid.parent_cell(left_x, y))
-        .and_then(|left_cell| left_cell.stroke.right.as_ref());
-    let right_cell_stroke = if x < grid.cols.len() {
+        .map(|left_cell| {
+            (left_cell.stroke.right.clone(), left_cell.stroke_overridden.right)
+        })
+        .unwrap_or((None, false));
+
+    let (right_cell_stroke, right_cell_prioritized) = if x < grid.cols.len() {
         grid.parent_cell(x, y)
-            .and_then(|right_cell| right_cell.stroke.left.as_ref())
+            .map(|right_cell| {
+                (right_cell.stroke.left.clone(), right_cell.stroke_overridden.left)
+            })
+            .unwrap_or((None, false))
     } else {
-        None
+        (None, false)
     };
 
-    let cell_stroke = match (left_cell_stroke.cloned(), right_cell_stroke.cloned()) {
-        (Some(left_cell_stroke), Some(right_cell_stroke)) => {
+    let (prioritized_cell_stroke, deprioritized_cell_stroke) =
+        if left_cell_prioritized && !right_cell_prioritized {
+            (left_cell_stroke, right_cell_stroke)
+        } else {
+            // When both cells' strokes have the same priority, we default to
+            // prioritizing the right cell's left stroke.
+            (right_cell_stroke, left_cell_stroke)
+        };
+
+    let cell_stroke = match (prioritized_cell_stroke, deprioritized_cell_stroke) {
+        (Some(prioritized_cell_stroke), Some(deprioritized_cell_stroke)) => {
             // When both cells specify a stroke for this line segment, fold
-            // both strokes, with priority to the right cell's left stroke.
-            Some(right_cell_stroke.fold(left_cell_stroke))
+            // both strokes, with priority to either the one prioritized cell,
+            // or to the right cell's left stroke in case of a tie.
+            Some(prioritized_cell_stroke.fold(deprioritized_cell_stroke))
         }
         // When one of the cells doesn't specify a stroke, the other cell's
         // stroke should be used.
-        (left_cell_stroke, right_cell_stroke) => left_cell_stroke.or(right_cell_stroke),
+        (prioritized_cell_stroke, deprioritized_cell_stroke) => {
+            prioritized_cell_stroke.or(deprioritized_cell_stroke)
+        }
     };
 
     let priority = if stroke.is_some() {
         StrokePriority::ExplicitLine
+    } else if left_cell_prioritized || right_cell_prioritized {
+        StrokePriority::CellStroke
     } else {
         StrokePriority::GridStroke
     };
@@ -382,9 +408,14 @@ pub(super) fn vline_stroke_at_row(
 /// the hline have bottom and top stroke overrides, respectively, then the
 /// cells' stroke overrides are folded together with the hline's stroke (with
 /// priority to hline's stroke, followed by the bottom cell's stroke, and,
-/// finally, the top cell's) and returned. If, however, the cells around the
-/// hline at this column do not have any stroke overrides, then the hline's own
-/// stroke is directly returned.
+/// finally, the top cell's) and returned. If only one of the two cells around
+/// the vline (if there are two) has an override, that cell's stroke is given
+/// priority when folding. If, however, the cells around the hline at this
+/// column do not have any stroke overrides, then the hline's own stroke, as
+/// defined by user-specified lines (if any), is directly returned.
+///
+/// The priority associated with the returned stroke follows the rules
+/// described in the docs for 'generate_line_segment'.
 pub(super) fn hline_stroke_at_column(
     grid: &CellGrid,
     y: usize,
@@ -402,7 +433,8 @@ pub(super) fn hline_stroke_at_column(
     } else {
         x
     };
-    let top_cell_stroke = y
+
+    let (top_cell_stroke, top_cell_prioritized) = y
         .checked_sub(1)
         .and_then(|top_y| {
             // Let's find the parent cell of the position above us, in order
@@ -416,11 +448,13 @@ pub(super) fn hline_stroke_at_column(
             // parent of a colspan, this will also evaluate to true.
             parent_x <= &x
         })
-        .and_then(|Axes { x: parent_x, y: parent_y }| {
+        .map(|Axes { x: parent_x, y: parent_y }| {
             let top_cell = grid.cell(parent_x, parent_y).unwrap();
-            top_cell.stroke.bottom.as_ref()
-        });
-    let bottom_cell_stroke = if y < grid.rows.len() {
+            (top_cell.stroke.bottom.clone(), top_cell.stroke_overridden.bottom)
+        })
+        .unwrap_or((None, false));
+
+    let (bottom_cell_stroke, bottom_cell_prioritized) = if y < grid.rows.len() {
         // Let's find the parent cell of the position below us, in order
         // to take its top stroke, even when we're above gutter.
         grid.parent_cell_position(cell_x, y)
@@ -431,30 +465,45 @@ pub(super) fn hline_stroke_at_column(
                 // parent of a colspan, this will also evaluate to true.
                 parent_x <= &x
             })
-            .and_then(|Axes { x: parent_x, y: parent_y }| {
+            .map(|Axes { x: parent_x, y: parent_y }| {
                 let bottom_cell = grid.cell(parent_x, parent_y).unwrap();
-                bottom_cell.stroke.top.as_ref()
+                (bottom_cell.stroke.top.clone(), bottom_cell.stroke_overridden.top)
             })
+            .unwrap_or((None, false))
     } else {
         // No cell below the bottom border.
-        None
+        (None, false)
+    };
+
+    let (prioritized_cell_stroke, deprioritized_cell_stroke) =
+        if top_cell_prioritized && !bottom_cell_prioritized {
+            (top_cell_stroke, bottom_cell_stroke)
+        } else {
+            // When both cells' strokes have the same priority, we default to
+            // prioritizing the bottom cell's top stroke.
+            (bottom_cell_stroke, top_cell_stroke)
+        };
+
+    let cell_stroke = match (prioritized_cell_stroke, deprioritized_cell_stroke) {
+        (Some(prioritized_cell_stroke), Some(deprioritized_cell_stroke)) => {
+            // When both cells specify a stroke for this line segment, fold
+            // both strokes, with priority to either the one prioritized cell,
+            // or to the bottom cell's top stroke in case of a tie.
+            Some(prioritized_cell_stroke.fold(deprioritized_cell_stroke))
+        }
+        // When one of the cells doesn't specify a stroke, the other cell's
+        // stroke should be used.
+        (prioritized_cell_stroke, deprioritized_cell_stroke) => {
+            prioritized_cell_stroke.or(deprioritized_cell_stroke)
+        }
     };
 
     let priority = if stroke.is_some() {
         StrokePriority::ExplicitLine
+    } else if top_cell_prioritized || bottom_cell_prioritized {
+        StrokePriority::CellStroke
     } else {
         StrokePriority::GridStroke
-    };
-
-    let cell_stroke = match (top_cell_stroke.cloned(), bottom_cell_stroke.cloned()) {
-        (Some(top_cell_stroke), Some(bottom_cell_stroke)) => {
-            // When both cells specify a stroke for this line segment, fold
-            // both strokes, with priority to the bottom cell's top stroke.
-            Some(bottom_cell_stroke.fold(top_cell_stroke))
-        }
-        // When one of the cells doesn't specify a stroke, the other cell's
-        // stroke should be used.
-        (top_cell_stroke, bottom_cell_stroke) => top_cell_stroke.or(bottom_cell_stroke),
     };
 
     // Fold the line stroke and folded cell strokes, if possible.
@@ -482,6 +531,7 @@ mod test {
             fill: None,
             colspan: NonZeroUsize::ONE,
             stroke: Sides::splat(Some(Arc::new(Stroke::default()))),
+            stroke_overridden: Sides::splat(false),
         }
     }
 
@@ -491,6 +541,7 @@ mod test {
             fill: None,
             colspan: NonZeroUsize::try_from(colspan).unwrap(),
             stroke: Sides::splat(Some(Arc::new(Stroke::default()))),
+            stroke_overridden: Sides::splat(false),
         }
     }
 
