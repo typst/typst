@@ -47,3 +47,23 @@ $∫'$, $∑'$, $ ∑'_S' $
 ---
 // Test attaching primes only
 $a' = a^', a_', a_'''^''^'$
+
+---
+// Test primes always attaching as scripts
+$ x' $
+$ x^' $
+$ attach(x, t: ') $
+$ <' $
+$ attach(<, br: ') $
+$ op(<, limits: #true)' $
+$ limits(<)' $
+
+---
+// Test forcefully attaching primes as limits
+$ attach(<, t: ') $
+$ <^' $
+$ attach(<, b: ') $
+$ <_' $
+
+$ limits(x)^' $
+$ attach(limits(x), t: ') $
