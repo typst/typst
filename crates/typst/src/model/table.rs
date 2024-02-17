@@ -350,7 +350,6 @@ cast! {
 
 impl From<Content> for TableChild {
     fn from(value: Content) -> Self {
-        #[allow(clippy::unwrap_or_default)]
         value
             .into_packed::<TableHLine>()
             .map(TableChild::HLine)
@@ -375,11 +374,14 @@ pub struct TableHLine {
     /// The row above which the horizontal line is placed (zero-indexed).
     /// Functions identically to the `y` field in [`grid.hline`]($grid.hline).
     pub y: Smart<usize>,
+
     /// The column at which the horizontal line starts (zero-indexed, inclusive).
     pub start: usize,
+
     /// The column before which the horizontal line ends (zero-indexed,
     /// exclusive).
     pub end: Option<NonZeroUsize>,
+
     /// The line's stroke.
     ///
     /// Specifying `{none}` interrupts previous hlines placed across this
@@ -388,6 +390,7 @@ pub struct TableHLine {
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
+
     /// The position at which the line is placed, given its row (`y`) - either
     /// `{top}` to draw above it or `{bottom}` to draw below it.
     ///
@@ -419,11 +422,14 @@ pub struct TableVLine {
     /// The column before which the horizontal line is placed (zero-indexed).
     /// Functions identically to the `x` field in [`grid.vline`]($grid.vline).
     pub x: Smart<usize>,
+
     /// The row at which the vertical line starts (zero-indexed, inclusive).
     pub start: usize,
+
     /// The row on top of which the vertical line ends (zero-indexed,
     /// exclusive).
     pub end: Option<NonZeroUsize>,
+
     /// The line's stroke.
     ///
     /// Specifying `{none}` interrupts previous vlines placed across this
@@ -432,6 +438,7 @@ pub struct TableVLine {
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
+
     /// The position at which the line is placed, given its column (`x`) -
     /// either `{start}` to draw before it or `{end}` to draw after it.
     ///

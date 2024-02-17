@@ -395,7 +395,6 @@ cast! {
 
 impl From<Content> for GridChild {
     fn from(value: Content) -> Self {
-        #[allow(clippy::unwrap_or_default)]
         value
             .into_packed::<GridHLine>()
             .map(GridChild::HLine)
@@ -419,6 +418,7 @@ pub struct GridHLine {
     /// If the `position` field is set to `{bottom}`, the line is placed below
     /// the row with the given index instead (see that field's docs for
     /// details).
+    ///
     /// Specifying `{auto}` causes the line to be placed at the row below the
     /// last automatically positioned cell (that is, cell without coordinate
     /// overrides) before the line among the grid's children. If there is no
@@ -427,15 +427,19 @@ pub struct GridHLine {
     /// in the grid causes this horizontal line to override the bottom border
     /// of the grid, while a value of 0 overrides the top border.
     pub y: Smart<usize>,
+
     /// The column at which the horizontal line starts (zero-indexed, inclusive).
     pub start: usize,
+
     /// The column before which the horizontal line ends (zero-indexed,
     /// exclusive).
     /// Therefore, the horizontal line will be drawn up to and across column
     /// `end - 1`.
+    ///
     /// A value equal to `{none}` or to the amount of columns causes it to
     /// extend all the way towards the end of the grid.
     pub end: Option<NonZeroUsize>,
+
     /// The line's stroke.
     ///
     /// Specifying `{none}` interrupts previous hlines placed across this
@@ -444,6 +448,7 @@ pub struct GridHLine {
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
+
     /// The position at which the line is placed, given its row (`y`) - either
     /// `{top}` to draw above it or `{bottom}` to draw below it.
     ///
@@ -475,6 +480,7 @@ pub struct GridVLine {
     /// If the `position` field is set to `{end}`, the line is placed after the
     /// column with the given index instead (see that field's docs for
     /// details).
+    ///
     /// Specifying `{auto}` causes the line to be placed at the column after
     /// the last automatically positioned cell (that is, cell without
     /// coordinate overrides) before the line among the grid's children. If
@@ -485,15 +491,19 @@ pub struct GridVLine {
     /// border of the grid (right in LTR, left in RTL), while a value of 0
     /// overrides the start border (left in LTR, right in RTL).
     pub x: Smart<usize>,
+
     /// The row at which the vertical line starts (zero-indexed, inclusive).
     pub start: usize,
+
     /// The row on top of which the vertical line ends (zero-indexed,
     /// exclusive).
     /// Therefore, the vertical line will be drawn up to and across row
     /// `end - 1`.
+    ///
     /// A value equal to `{none}` or to the amount of rows causes it to extend
     /// all the way towards the bottom of the grid.
     pub end: Option<NonZeroUsize>,
+
     /// The line's stroke.
     ///
     /// Specifying `{none}` interrupts previous vlines placed across this
@@ -502,6 +512,7 @@ pub struct GridVLine {
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
     pub stroke: Option<Arc<Stroke>>,
+
     /// The position at which the line is placed, given its column (`x`) -
     /// either `{start}` to draw before it or `{end}` to draw after it.
     ///

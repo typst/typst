@@ -5,6 +5,10 @@ use std::sync::Arc;
 
 use ecow::eco_format;
 
+use super::lines::{
+    generate_line_segments, hline_stroke_at_column, vline_stroke_at_row, Line,
+    LinePosition,
+};
 use crate::diag::{
     bail, At, Hint, HintedStrResult, HintedString, SourceResult, StrResult,
 };
@@ -21,11 +25,6 @@ use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::util::{MaybeReverseIter, NonZeroExt, Numeric};
 use crate::visualize::{Geometry, Paint, Stroke};
-
-use super::lines::{
-    generate_line_segments, hline_stroke_at_column, vline_stroke_at_row, Line,
-    LinePosition,
-};
 
 /// A value that can be configured per cell.
 #[derive(Debug, Clone, PartialEq, Hash)]
@@ -165,6 +164,7 @@ pub struct Cell {
     /// The amount of columns spanned by the cell.
     pub colspan: NonZeroUsize,
     /// The cell's stroke.
+    ///
     /// We use an Arc to avoid unnecessary space usage when all sides are the
     /// same, or when the strokes come from a common source.
     pub stroke: Sides<Option<Arc<Stroke<Abs>>>>,
@@ -607,6 +607,7 @@ impl CellGrid {
                     // Just place the line on top of the next row if
                     // there's no gutter and the line should be placed
                     // after the one with given index.
+                    //
                     // Note that placing after the last row is also the same as
                     // just placing on the grid's bottom border, even with
                     // gutter.
@@ -724,9 +725,9 @@ impl CellGrid {
     }
 
     /// Returns the parent cell of the grid entry at the given position.
-    /// If the entry at the given position is a cell, returns it.
-    /// If it is a merged cell, returns the parent cell.
-    /// If it is a gutter cell, returns None.
+    /// - If the entry at the given position is a cell, returns it.
+    /// - If it is a merged cell, returns the parent cell.
+    /// - If it is a gutter cell, returns None.
     #[track_caller]
     pub(super) fn parent_cell(&self, x: usize, y: usize) -> Option<&Cell> {
         self.parent_cell_position(x, y)
@@ -736,10 +737,10 @@ impl CellGrid {
     /// Returns the position of the parent cell of the grid entry at the given
     /// position. It is guaranteed to have a non-gutter, non-merged cell at
     /// the returned position, due to how the grid is built.
-    /// If the entry at the given position is a cell, returns the given
+    /// - If the entry at the given position is a cell, returns the given
     /// position.
-    /// If it is a merged cell, returns the parent cell's position.
-    /// If it is a gutter cell, returns None.
+    /// - If it is a merged cell, returns the parent cell's position.
+    /// - If it is a gutter cell, returns None.
     #[track_caller]
     pub(super) fn parent_cell_position(&self, x: usize, y: usize) -> Option<Axes<usize>> {
         self.entry(x, y).map(|entry| match entry {
@@ -985,6 +986,7 @@ impl<'a> GridLayouter<'a> {
                         // the previous column's lines. Worry not, as
                         // 'generate_line_segments' will correctly filter lines
                         // based on their LinePosition for us.
+                        //
                         // If x is a content column, this will correctly return
                         // its index before applying gutters, so nothing
                         // special here (lines with "LinePosition::After" would
@@ -998,6 +1000,7 @@ impl<'a> GridLayouter<'a> {
 
                 // Determine all different line segments we have to draw in
                 // this column, and convert them to points and shapes.
+                //
                 // Even a single, uniform line might generate more than one
                 // segment, if it happens to cross a colspan (over which it
                 // must not be drawn).
@@ -1030,6 +1033,7 @@ impl<'a> GridLayouter<'a> {
             // They are rendered second as they default to appearing on top.
             // First, calculate their offsets from the top of the frame.
             let hline_offsets = points(rows.iter().map(|piece| piece.height));
+
             // Additionally, determine their indices (the indices of the
             // rows they are drawn on top of). In principle, this will
             // correspond to the rows' indices directly, except for the
@@ -1039,6 +1043,7 @@ impl<'a> GridLayouter<'a> {
             let hline_indices = std::iter::once(0)
                 .chain(rows.iter().map(|piece| piece.y).skip(1))
                 .chain(std::iter::once(self.grid.rows.len()));
+
             for (y, dy) in hline_indices.zip(hline_offsets) {
                 let is_bottom_border = y == self.grid.rows.len();
                 let hlines_at_row = self
@@ -1088,6 +1093,7 @@ impl<'a> GridLayouter<'a> {
 
             // Sort by increasing thickness, so that we draw larger strokes
             // on top.
+            //
             // This avoids layering problems where a smaller hline appears
             // "inside" a larger vline. When both have the same size, hlines
             // are drawn on top (since the sort is stable, and they are

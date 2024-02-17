@@ -1,13 +1,10 @@
-use std::{num::NonZeroUsize, sync::Arc};
+use std::num::NonZeroUsize;
+use std::sync::Arc;
 
+use super::layout::CellGrid;
 use crate::foundations::Fold;
 use crate::layout::{Abs, Axes};
 use crate::visualize::Stroke;
-
-use super::layout::CellGrid;
-
-#[cfg(test)]
-use super::layout::{Entry, RowPiece};
 
 /// Represents an explicit grid line (horizontal or vertical) specified by the
 /// user.
@@ -15,17 +12,20 @@ pub struct Line {
     /// The index of the track after this line. This will be the index of the
     /// row a horizontal line is above of, or of the column right after a
     /// vertical line.
+    ///
     /// Must be within `0..=tracks.len()` (where `tracks` is either `grid.cols`
     /// or `grid.rows`, ignoring gutter tracks, as appropriate).
     pub index: usize,
     /// The index of the track at which this line starts being drawn.
     /// This is the first column a horizontal line appears in, or the first row
     /// a vertical line appears in.
+    ///
     /// Must be within `0..tracks.len()` minus gutter tracks.
     pub start: usize,
     /// The index after the last track through which the line is drawn.
     /// Thus, the line is drawn through tracks `start..end` (note that `end` is
     /// exclusive).
+    ///
     /// Must be within `1..=tracks.len()` minus gutter tracks.
     /// `None` indicates the line should go all the way to the end.
     pub end: Option<NonZeroUsize>,
@@ -52,6 +52,7 @@ pub enum LinePosition {
 /// axis in the grid, going through the given tracks (orthogonal to the lines).
 /// Each returned segment contains its stroke, its offset from the start, and
 /// its length.
+///
 /// Accepts, as parameters, the index of the lines that should be produced
 /// (for example, the column at which vertical lines will be drawn); a list of
 /// user-specified lines with the same index (the `lines` parameter); whether
@@ -61,10 +62,12 @@ pub enum LinePosition {
 /// to be drawn, the number of the track to draw at and the stroke of the user
 /// hline/vline override at this index to fold with, if any).
 /// Contiguous segments with the same stroke are joined together automatically.
+///
 /// The function should return 'None' for positions at which the line would
 /// otherwise cross a merged cell (for example, a vline could cross a colspan),
 /// in which case a new segment should be drawn after the merged cell(s), even
 /// if it would have the same stroke as the previous one.
+///
 /// Note that we assume that the tracks are sorted according to ascending
 /// number, and they must be iterable over pairs of (number, size). For
 /// vertical lines, for instance, 'tracks' would describe the rows in the
@@ -84,21 +87,28 @@ where
     I::IntoIter: 'grid,
 {
     // The segment currently being drawn.
+    //
     // It is extended for each consecutive track through which the line would
     // be drawn with the same stroke.
+    //
     // Starts as None to force us to create a new segment as soon as we find
     // the first track through which we should draw.
     let mut current_segment: Option<(Arc<Stroke<Abs>>, Abs, Abs)> = None;
+
     // How far from the start (before the first track) have we gone so far.
     // Used to determine the positions at which to draw each segment.
     let mut offset = Abs::zero();
+
     // How much to multiply line indices by to account for gutter.
     let gutter_factor = if grid.has_gutter { 2 } else { 1 };
+
     // Which line position to look for in the given list of lines.
+    //
     // If the index represents a gutter track, this means the list of lines
     // parameter will actually correspond to the list of lines in the previous
     // index, so we must look for lines positioned after the previous index,
     // and not before, to determine which lines should be placed in gutter.
+    //
     // Note that the maximum index is always an odd number when there's gutter,
     // so we must check for it to ensure we don't give it the same treatment as
     // a line before a gutter track.
@@ -112,6 +122,7 @@ where
     // finish, to create line segments and extend them until they are
     // interrupted. Each track will be mapped to the finished line segment
     // they interrupted; if they didn't interrupt any, they are filtered out.
+    //
     // When going through each track, we check if the current segment would be
     // interrupted, either because, at this track, we hit a merged cell over
     // which we shouldn't draw, or because the line would have a different
@@ -125,6 +136,7 @@ where
     // (the next tracks might extend it further before it is interrupted and
     // yielded). That is, we yield each segment only when it is interrupted,
     // since then we will know its final length for sure.
+    //
     // We chain an extra 'None' track to ensure the final segment is always
     // interrupted and yielded, if it wasn't interrupted earlier.
     tracks.into_iter().map(Some).chain(std::iter::once(None)).filter_map(
@@ -151,7 +163,7 @@ where
                                 })
                                 .unwrap_or_else(|| track >= gutter_factor * line.start)
                     })
-                    .map(|line| line.stroke.as_ref().cloned())
+                    .map(|line| line.stroke.clone())
                     .fold(None, |acc, line_stroke| line_stroke.fold(acc));
 
                 // The function shall determine if it is appropriate to draw
@@ -160,6 +172,7 @@ where
                 // should have (because cells near this position could have
                 // stroke overrides, which have priority and should be folded
                 // with the stroke obtained above).
+                //
                 // The variable 'interrupted_segment' will contain the segment
                 // to yield for this track, which will be the current segment
                 // if it was interrupted, or 'None' (don't yield yet)
@@ -222,6 +235,7 @@ where
 /// Returns the correct stroke with which to draw a vline right before column
 /// 'x' when going through row 'y', given the stroke of the user-specified line
 /// at this position, if any.
+//
 /// If the vline would go through a colspan, returns None (shouldn't be drawn).
 /// If the one (when at the border) or two (otherwise) cells to the left and
 /// right of the vline have right and left stroke overrides, respectively,
@@ -298,6 +312,7 @@ pub(super) fn vline_stroke_at_row(
 /// Returns the correct stroke with which to draw a hline on top of row 'y'
 /// when going through column 'x', given the stroke of the user-specified line
 /// at this position, if any.
+//
 /// If the one (when at the border) or two (otherwise) cells above and below
 /// the hline have bottom and top stroke overrides, respectively, then the
 /// cells' stroke overrides are folded together with the hline's stroke (with
@@ -382,11 +397,11 @@ pub(super) fn hline_stroke_at_column(
 
 #[cfg(test)]
 mod test {
+    use super::super::layout::{Entry, RowPiece};
+    use super::*;
     use crate::foundations::Content;
     use crate::layout::{Cell, Sides, Sizing};
     use crate::util::NonZeroExt;
-
-    use super::*;
 
     fn sample_cell() -> Cell {
         Cell {
