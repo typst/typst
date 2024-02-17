@@ -5,8 +5,8 @@ use unicode_math_class::MathClass;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Resolve, ShowSet, Smart, StyleChain, Styles,
-    Synthesize,
+    elem, Cast, Content, NativeElement, Packed, Resolve, ShowSet, Smart, StyleChain,
+    Styles, Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
@@ -75,6 +75,17 @@ pub struct EquationElem {
     /// ```
     #[borrowed]
     pub numbering: Option<Numbering>,
+
+    /// Where to put the equation number, relative to the equation.
+    ///
+    /// ```example
+    /// #set math.equation(numbering: "(1)", numbering-alignment: "start")
+    ///
+    /// We define:
+    /// $ phi.alt := (1 + sqrt(5)) / 2 $
+    /// ```
+    #[default(NumberingAlignment::End)]
+    pub numbering_alignment: NumberingAlignment,
 
     /// A supplement for the equation.
     ///
@@ -231,11 +242,8 @@ impl LayoutSingle for Packed<EquationElem> {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Frame> {
-        const NUMBER_GUTTER: Em = Em::new(0.5);
-
         assert!(self.block(styles));
 
-        // Find a math font.
         let font = find_math_font(engine, styles, self.span())?;
 
         let mut ctx = MathContext::new(engine, styles, regions, &font);
@@ -243,40 +251,22 @@ impl LayoutSingle for Packed<EquationElem> {
 
         if let Some(numbering) = (**self).numbering(styles) {
             let pod = Regions::one(regions.base(), Axes::splat(false));
-            let counter = Counter::of(EquationElem::elem())
+            let number = Counter::of(EquationElem::elem())
                 .at(engine, self.location().unwrap())?
                 .display(engine, numbering)?
                 .spanned(self.span())
                 .layout(engine, styles, pod)?
                 .into_frame();
 
-            let full_counter_width = counter.width() + NUMBER_GUTTER.resolve(styles);
-            let width = if regions.size.x.is_finite() {
-                regions.size.x
-            } else {
-                frame.width() + 2.0 * full_counter_width
-            };
-
-            let height = frame.height().max(counter.height());
-            let align = AlignElem::alignment_in(styles).resolve(styles).x;
-            frame.resize(Size::new(width, height), Axes::splat(align));
-
-            let dir = TextElem::dir_in(styles);
-            let offset = match (align, dir) {
-                (FixedAlignment::Start, Dir::RTL) => full_counter_width,
-                (FixedAlignment::End, Dir::LTR) => -full_counter_width,
-                _ => Abs::zero(),
-            };
-            frame.translate(Point::with_x(offset));
-
-            let x = if dir.is_positive() {
-                frame.width() - counter.width()
-            } else {
-                Abs::zero()
-            };
-            let y = (frame.height() - counter.height()) / 2.0;
-
-            frame.push_frame(Point::new(x, y), counter)
+            add_equation_number(
+                &mut frame,
+                number,
+                self.numbering_alignment(styles),
+                styles,
+                regions.size.x,
+                AlignElem::alignment_in(styles).resolve(styles).x,
+                TextElem::dir_in(styles),
+            );
         }
 
         Ok(frame)
@@ -397,4 +387,54 @@ fn find_math_font(
         bail!(span, "current font does not support math");
     };
     Ok(font)
+}
+
+/// The alignment of equation numbers.
+#[derive(Debug, Copy, Clone, PartialEq, Hash, Cast)]
+enum NumberingAlignment {
+    // Align the number on the block's start.
+    Start,
+    // Align the number on the block's end.
+    End,
+}
+
+fn add_equation_number(
+    equation: &mut Frame,
+    number: Frame,
+    number_align: NumberingAlignment,
+    styles: StyleChain,
+    region_size_x: Abs,
+    equation_align: FixedAlignment,
+    text_dir: Dir,
+) {
+    static NUMBER_GUTTER: Em = Em::new(0.5);
+
+    let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
+    let width = if region_size_x.is_finite() {
+        region_size_x
+    } else {
+        equation.width() + 2.0 * full_number_width
+    };
+
+    let height = equation.height().max(number.height());
+    equation.resize(Size::new(width, height), Axes::splat(equation_align));
+
+    let offset = match (equation_align, number_align, text_dir) {
+        (FixedAlignment::Start, NumberingAlignment::Start, Dir::LTR) => full_number_width,
+        (FixedAlignment::Start, NumberingAlignment::End, Dir::RTL) => full_number_width,
+        (FixedAlignment::End, NumberingAlignment::Start, Dir::RTL) => -full_number_width,
+        (FixedAlignment::End, NumberingAlignment::End, Dir::LTR) => -full_number_width,
+        _ => Abs::zero(),
+    };
+    equation.translate(Point::with_x(offset));
+
+    let x = match (number_align, text_dir.is_positive()) {
+        (NumberingAlignment::Start, true) => Abs::zero(),
+        (NumberingAlignment::Start, false) => equation.width() - number.width(),
+        (NumberingAlignment::End, true) => equation.width() - number.width(),
+        (NumberingAlignment::End, false) => Abs::zero(),
+    };
+    let y = (equation.height() - number.height()) / 2.0;
+
+    equation.push_frame(Point::new(x, y), number);
 }
