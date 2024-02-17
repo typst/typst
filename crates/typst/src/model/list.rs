@@ -8,7 +8,7 @@ use crate::layout::{
     LayoutMultiple, Length, Regions, Sizing, Spacing, VAlignment,
 };
 use crate::model::ParElem;
-use crate::text::TextElem;
+use crate::text::{Lang, Region, TextElem};
 
 /// A bullet list.
 ///
@@ -72,6 +72,9 @@ pub struct ListElem {
     /// control, you may pass a function that maps the list's nesting depth
     /// (starting from `{0}`) to a desired marker.
     ///
+    /// If set to `{auto}` (the default), markers will adapt to the current
+    /// locale.
+    ///
     /// ```example
     /// #set list(marker: [--])
     /// - A more classic list
@@ -84,15 +87,7 @@ pub struct ListElem {
     /// - Items
     /// ```
     #[borrowed]
-    #[default(ListMarker::Content(vec![
-        // These are all available in the default font, vertically centered, and
-        // roughly of the same size (with the last one having slightly lower
-        // weight because it is not filled).
-        TextElem::packed('\u{2022}'), // Bullet
-        TextElem::packed('\u{2023}'), // Triangular Bullet
-        TextElem::packed('\u{2013}'), // En-dash
-    ]))]
-    pub marker: ListMarker,
+    pub marker: Smart<ListMarker>,
 
     /// The indent of each item.
     #[resolve]
@@ -134,6 +129,37 @@ impl ListElem {
     type ListItem;
 }
 
+impl ListElem {
+    /// Gets the default marker for a specific depth in the specified locale.
+    fn local_separator(lang: Lang, _: Option<Region>, depth: usize) -> &'static str {
+        match lang {
+            Lang::FRENCH => "–",
+            Lang::ENGLISH | _ => {
+                // These are all available in the default font, vertically centered, and
+                // roughly of the same size (with the last one having slightly lower
+                // weight because it is not filled).
+                ["•", "‣", "–"][depth % 3]
+            }
+        }
+    }
+
+    fn get_separator(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        depth: usize,
+    ) -> SourceResult<Content> {
+        match self.marker(styles) {
+            Smart::Auto => Ok(TextElem::packed(Self::local_separator(
+                TextElem::lang_in(styles),
+                TextElem::region_in(styles),
+                depth,
+            ))),
+            Smart::Custom(marker) => marker.resolve(engine, depth),
+        }
+    }
+}
+
 impl LayoutMultiple for Packed<ListElem> {
     #[typst_macros::time(name = "list", span = self.span())]
     fn layout(
@@ -153,8 +179,7 @@ impl LayoutMultiple for Packed<ListElem> {
 
         let Depth(depth) = ListElem::depth_in(styles);
         let marker = self
-            .marker(styles)
-            .resolve(engine, depth)?
+            .get_separator(engine, styles, depth)?
             // avoid '#set align' interference with the list
             .aligned(HAlignment::Start + VAlignment::Top);
 
