@@ -26,7 +26,7 @@ pub type LinearRgb = palette::rgb::Rgba<Linear<encoding::Srgb>, f32>;
 pub type Rgb = palette::rgb::Rgba<encoding::Srgb, f32>;
 pub type Hsl = palette::hsl::Hsla<encoding::Srgb, f32>;
 pub type Hsv = palette::hsv::Hsva<encoding::Srgb, f32>;
-pub type Luma = palette::luma::Luma<encoding::Srgb, f32>;
+pub type Luma = palette::luma::Lumaa<encoding::Srgb, f32>;
 
 /// Equivalent of [`std::f32::EPSILON`] but for hue angles.
 const ANGLE_EPSILON: f32 = 1e-5;
@@ -224,10 +224,10 @@ impl Color {
         MODULE.clone()
     };
 
-    pub const BLACK: Self = Self::Luma(Luma::new(0.0));
-    pub const GRAY: Self = Self::Luma(Luma::new(0.6666666));
-    pub const WHITE: Self = Self::Luma(Luma::new(1.0));
-    pub const SILVER: Self = Self::Luma(Luma::new(0.8666667));
+    pub const BLACK: Self = Self::Luma(Luma::new(0.0, 1.0));
+    pub const GRAY: Self = Self::Luma(Luma::new(0.6666666, 1.0));
+    pub const WHITE: Self = Self::Luma(Luma::new(1.0, 1.0));
+    pub const SILVER: Self = Self::Luma(Luma::new(0.8666667, 1.0));
     pub const NAVY: Self = Self::Rgb(Rgb::new(0.0, 0.121569, 0.247059, 1.0));
     pub const BLUE: Self = Self::Rgb(Rgb::new(0.0, 0.454902, 0.85098, 1.0));
     pub const AQUA: Self = Self::Rgb(Rgb::new(0.4980392, 0.858823, 1.0, 1.0));
@@ -264,6 +264,9 @@ impl Color {
         /// The lightness component.
         #[external]
         lightness: Component,
+        /// The alpha component.
+        #[external]
+        alpha: RatioComponent,
         /// Alternatively: The color to convert to grayscale.
         ///
         /// If this is given, the `lightness` should not be given.
@@ -275,7 +278,9 @@ impl Color {
         } else {
             let Component(gray) =
                 args.expect("gray component").unwrap_or(Component(Ratio::one()));
-            Self::Luma(Luma::new(gray.get() as f32))
+            let RatioComponent(alpha) =
+                args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
+            Self::Luma(Luma::new(gray.get() as f32, alpha.get() as f32))
         })
     }
 
@@ -748,7 +753,13 @@ impl Color {
         alpha: bool,
     ) -> Array {
         match self {
-            Self::Luma(c) => array![Ratio::new(c.luma as _)],
+            Self::Luma(c) => {
+                if alpha {
+                    array![Ratio::new(c.luma as _), Ratio::new(c.alpha as _)]
+                } else {
+                    array![Ratio::new(c.luma as _)]
+                }
+            }
             Self::Oklab(c) => {
                 if alpha {
                     array![
@@ -1003,7 +1014,7 @@ impl Color {
     #[func]
     pub fn negate(self) -> Color {
         match self {
-            Self::Luma(c) => Self::Luma(Luma::new(1.0 - c.luma)),
+            Self::Luma(c) => Self::Luma(Luma::new(1.0 - c.luma, c.alpha)),
             Self::Oklab(c) => Self::Oklab(Oklab::new(c.l, -c.a, -c.b, c.alpha)),
             Self::Oklch(c) => Self::Oklch(Oklch::new(
                 c.l,
@@ -1189,7 +1200,7 @@ impl Color {
                 Color::Hsv(Hsv::new(RgbHue::from_degrees(m[0]), m[1], m[2], m[3]))
             }
             ColorSpace::Cmyk => Color::Cmyk(Cmyk::new(m[0], m[1], m[2], m[3])),
-            ColorSpace::D65Gray => Color::Luma(Luma::new(m[0])),
+            ColorSpace::D65Gray => Color::Luma(Luma::new(m[0], m[1])),
         })
     }
 
@@ -1216,7 +1227,8 @@ impl Color {
     /// Returns the alpha channel of the color, if it has one.
     pub fn alpha(&self) -> Option<f32> {
         match self {
-            Color::Luma(_) | Color::Cmyk(_) => None,
+            Color::Cmyk(_) => None,
+            Color::Luma(c) => Some(c.alpha),
             Color::Oklab(c) => Some(c.alpha),
             Color::Oklch(c) => Some(c.alpha),
             Color::Rgb(c) => Some(c.alpha),
@@ -1229,7 +1241,8 @@ impl Color {
     /// Sets the alpha channel of the color, if it has one.
     pub fn with_alpha(mut self, alpha: f32) -> Self {
         match &mut self {
-            Color::Luma(_) | Color::Cmyk(_) => {}
+            Color::Cmyk(_) => {}
+            Color::Luma(c) => c.alpha = alpha,
             Color::Oklab(c) => c.alpha = alpha,
             Color::Oklch(c) => c.alpha = alpha,
             Color::Rgb(c) => c.alpha = alpha,
@@ -1244,7 +1257,7 @@ impl Color {
     /// Converts the color to a vec of four floats.
     pub fn to_vec4(&self) -> [f32; 4] {
         match self {
-            Color::Luma(c) => [c.luma; 4],
+            Color::Luma(c) => [c.luma, c.luma, c.luma, c.alpha],
             Color::Oklab(c) => [c.l, c.a, c.b, c.alpha],
             Color::Oklch(c) => [
                 c.l,
@@ -1426,7 +1439,7 @@ impl Color {
 impl Debug for Color {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Luma(v) => write!(f, "Luma({})", v.luma),
+            Self::Luma(v) => write!(f, "Luma({}, {})", v.luma, v.alpha),
             Self::Oklab(v) => write!(f, "Oklab({}, {}, {}, {})", v.l, v.a, v.b, v.alpha),
             Self::Oklch(v) => {
                 write!(
@@ -1468,7 +1481,17 @@ impl Debug for Color {
 impl Repr for Color {
     fn repr(&self) -> EcoString {
         match self {
-            Self::Luma(c) => eco_format!("luma({})", Ratio::new(c.luma as _).repr()),
+            Self::Luma(c) => {
+                if c.alpha == 1.0 {
+                    eco_format!("luma({})", Ratio::new(c.luma as _).repr())
+                } else {
+                    eco_format!(
+                        "luma({}, {})",
+                        Ratio::new(c.luma as _).repr(),
+                        Ratio::new(c.alpha as _).repr(),
+                    )
+                }
+            }
             Self::Rgb(_) => eco_format!("rgb({})", self.to_hex().repr()),
             Self::LinearRgb(c) => {
                 if c.alpha == 1.0 {
