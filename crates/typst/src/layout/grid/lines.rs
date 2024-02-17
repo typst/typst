@@ -503,7 +503,6 @@ mod test {
                     x == grid.cols.len(),
                     vline_stroke_at_row
                 )
-                .into_iter()
                 .collect::<Vec<_>>(),
             );
         }
@@ -634,7 +633,6 @@ mod test {
                     x == grid.cols.len(),
                     vline_stroke_at_row
                 )
-                .into_iter()
                 .collect::<Vec<_>>(),
             );
         }
@@ -753,7 +751,6 @@ mod test {
                     x == grid.cols.len(),
                     vline_stroke_at_row
                 )
-                .into_iter()
                 .collect::<Vec<_>>(),
             );
         }
