@@ -185,13 +185,39 @@
 )
 
 ---
+// Hlines and vlines should always appear on top of cell strokes.
+#table(
+  columns: 3,
+  stroke: aqua,
+  table.vline(stroke: red, position: end), [a], table.vline(stroke: red), [b], [c],
+  table.cell(stroke: blue)[d], [e], [f],
+  table.hline(stroke: red),
+  [g], table.cell(stroke: blue)[h], [i],
+)
+
 #table(
   columns: 3,
   gutter: 3pt,
-  table.vline(stroke: red, position: end), [a], table.vline(stroke: red + 1.001pt), [b], [c],
-  [d], [e], [f],
+  stroke: aqua,
+  table.vline(stroke: red, position: end), [a], table.vline(stroke: red), [b], [c],
+  table.cell(stroke: blue)[d], [e], [f],
   table.hline(stroke: red),
-  [g], [h], [i]
+  [g], table.cell(stroke: blue)[h], [i],
+)
+
+---
+// Ensure cell stroke overrides always appear on top.
+#table(
+  columns: 2,
+  stroke: black,
+  table.cell(stroke: red)[a], [b],
+  [c], [d],
+)
+
+#table(
+  columns: 2,
+  table.cell(stroke: red)[a], [b],
+  [c], [d],
 )
 
 ---
