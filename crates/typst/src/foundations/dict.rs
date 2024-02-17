@@ -174,13 +174,6 @@ impl Dict {
         value.0
     }
 
-    //pub fn from_module(
-    //    /// The module to turn into a dictionary
-    //    module: Module
-    //) -> Dict {
-    //    module.scope().iter().map(|(k, v)| (Str::from(k.clone()), v.clone())).collect::<Dict>()
-    //}
-
     /// The number of pairs in the dictionary.
     #[func(title = "Length")]
     pub fn len(&self) -> usize {
