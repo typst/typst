@@ -158,9 +158,11 @@ impl Dict {
 
 #[scope]
 impl Dict {
-    /// Converts a value into a dictionary
+    /// Converts a value into a dictionary.
     ///
-    /// This function can convert a module into a dictionary
+    /// Note that this function is only intended for conversion of a
+    /// dictionary-like value to a dictionary, not for creation of a dictionary
+    /// from individual pairs. Use the dictionary syntax `(key: value)` instead.
     ///
     /// ```example
     /// #include "test.typ" as test
