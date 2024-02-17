@@ -79,7 +79,7 @@ pub(super) fn generate_line_segments<'grid, F, I>(
     lines: &'grid [Line],
     is_max_index: bool,
     line_stroke_at_track: F,
-) -> impl IntoIterator<Item = (Arc<Stroke<Abs>>, Abs, Abs)> + 'grid
+) -> impl Iterator<Item = (Arc<Stroke<Abs>>, Abs, Abs)> + 'grid
 where
     F: Fn(&CellGrid, usize, usize, Option<Arc<Stroke<Abs>>>) -> Option<Arc<Stroke<Abs>>>
         + 'grid,
@@ -141,93 +141,90 @@ where
     // interrupted and yielded, if it wasn't interrupted earlier.
     tracks.into_iter().map(Some).chain(std::iter::once(None)).filter_map(
         move |track_data| {
-            if let Some((track, size)) = track_data {
-                // Get the expected line stroke at this track by folding the
-                // strokes of each user-specified line (with priority to the
-                // user-specified line specified last).
-                let stroke = lines
-                    .iter()
-                    .filter(|line| {
-                        line.position == expected_line_position
-                            && line
-                                .end
-                                .map(|end| {
-                                    // Subtract 1 from end index so we stop at the last
-                                    // cell before it (don't cross one extra gutter).
-                                    let end = if grid.has_gutter {
-                                        2 * end.get() - 1
-                                    } else {
-                                        end.get()
-                                    };
-                                    (gutter_factor * line.start..end).contains(&track)
-                                })
-                                .unwrap_or_else(|| track >= gutter_factor * line.start)
-                    })
-                    .map(|line| line.stroke.clone())
-                    .fold(None, |acc, line_stroke| line_stroke.fold(acc));
-
-                // The function shall determine if it is appropriate to draw
-                // the line at this position or not (i.e. whether or not it
-                // would cross a merged cell), and, if so, the final stroke it
-                // should have (because cells near this position could have
-                // stroke overrides, which have priority and should be folded
-                // with the stroke obtained above).
-                //
-                // The variable 'interrupted_segment' will contain the segment
-                // to yield for this track, which will be the current segment
-                // if it was interrupted, or 'None' (don't yield yet)
-                // otherwise.
-                let interrupted_segment = if let Some(stroke) =
-                    line_stroke_at_track(grid, index, track, stroke)
-                {
-                    // We should draw at this position. Let's check if we were
-                    // already drawing in the previous position.
-                    if let Some(current_segment) = &mut current_segment {
-                        // We are currently building a segment. Let's check if
-                        // we should extend it to this track as well.
-                        if current_segment.0 == stroke {
-                            // Extend the current segment so it covers at least
-                            // this track as well, since we should use the same
-                            // stroke as in the previous one when a line goes
-                            // through this track.
-                            current_segment.2 += size;
-                            // No need to yield the current segment, we might not
-                            // be done extending its length yet.
-                            None
-                        } else {
-                            // We got a different stroke now, so create a new
-                            // segment with the new stroke and spanning the
-                            // current track. Yield the old segment, as it was
-                            // interrupted and is thus complete.
-                            Some(std::mem::replace(
-                                current_segment,
-                                (stroke, offset, size),
-                            ))
-                        }
-                    } else {
-                        // We should draw here, but there is no segment
-                        // currently being drawn, either because the last
-                        // position had a merged cell, had a stroke
-                        // of 'None', or because this is the first track.
-                        // Create a new segment to draw. We start spanning this
-                        // track.
-                        current_segment = Some((stroke, offset, size));
-                        // Nothing to yield for this track. The new segment
-                        // might still be extended in the next track.
-                        None
-                    }
-                } else {
-                    // We shouldn't draw here (stroke of None), so we yield the
-                    // current segment, as it was interrupted.
-                    current_segment.take()
-                };
-                offset += size;
-                interrupted_segment
-            } else {
+            let Some((track, size)) = track_data else {
                 // Reached the end of all tracks, so we interrupt and finish
                 // the current segment.
+                return current_segment.take();
+            };
+
+            // Get the expected line stroke at this track by folding the
+            // strokes of each user-specified line (with priority to the
+            // user-specified line specified last).
+            let stroke = lines
+                .iter()
+                .filter(|line| {
+                    line.position == expected_line_position
+                        && line
+                            .end
+                            .map(|end| {
+                                // Subtract 1 from end index so we stop at the last
+                                // cell before it (don't cross one extra gutter).
+                                let end = if grid.has_gutter {
+                                    2 * end.get() - 1
+                                } else {
+                                    end.get()
+                                };
+                                (gutter_factor * line.start..end).contains(&track)
+                            })
+                            .unwrap_or_else(|| track >= gutter_factor * line.start)
+                })
+                .map(|line| line.stroke.clone())
+                .fold(None, |acc, line_stroke| line_stroke.fold(acc));
+
+            // The function shall determine if it is appropriate to draw
+            // the line at this position or not (i.e. whether or not it
+            // would cross a merged cell), and, if so, the final stroke it
+            // should have (because cells near this position could have
+            // stroke overrides, which have priority and should be folded
+            // with the stroke obtained above).
+            //
+            // The variable 'interrupted_segment' will contain the segment
+            // to yield for this track, which will be the current segment
+            // if it was interrupted, or 'None' (don't yield yet)
+            // otherwise.
+            let interrupted_segment = if let Some(stroke) =
+                line_stroke_at_track(grid, index, track, stroke)
+            {
+                // We should draw at this position. Let's check if we were
+                // already drawing in the previous position.
+                if let Some(current_segment) = &mut current_segment {
+                    // We are currently building a segment. Let's check if
+                    // we should extend it to this track as well.
+                    if current_segment.0 == stroke {
+                        // Extend the current segment so it covers at least
+                        // this track as well, since we should use the same
+                        // stroke as in the previous one when a line goes
+                        // through this track.
+                        current_segment.2 += size;
+                        // No need to yield the current segment, we might not
+                        // be done extending its length yet.
+                        None
+                    } else {
+                        // We got a different stroke now, so create a new
+                        // segment with the new stroke and spanning the
+                        // current track. Yield the old segment, as it was
+                        // interrupted and is thus complete.
+                        Some(std::mem::replace(current_segment, (stroke, offset, size)))
+                    }
+                } else {
+                    // We should draw here, but there is no segment
+                    // currently being drawn, either because the last
+                    // position had a merged cell, had a stroke
+                    // of 'None', or because this is the first track.
+                    // Create a new segment to draw. We start spanning this
+                    // track.
+                    current_segment = Some((stroke, offset, size));
+                    // Nothing to yield for this track. The new segment
+                    // might still be extended in the next track.
+                    None
+                }
+            } else {
+                // We shouldn't draw here (stroke of None), so we yield the
+                // current segment, as it was interrupted.
                 current_segment.take()
-            }
+            };
+            offset += size;
+            interrupted_segment
         },
     )
 }

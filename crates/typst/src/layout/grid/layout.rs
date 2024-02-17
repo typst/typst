@@ -375,7 +375,7 @@ impl CellGrid {
         for item in items {
             let cell = match item {
                 GridItem::HLine { y, start, end, stroke, span, position } => {
-                    let y = y.as_custom().unwrap_or_else(|| {
+                    let y = y.unwrap_or_else(|| {
                         // When no 'y' is specified for the hline, we place it
                         // under the latest automatically positioned cell.
                         // The current value of the auto index is always the
@@ -411,7 +411,7 @@ impl CellGrid {
                     continue;
                 }
                 GridItem::VLine { x, start, end, stroke, span, position } => {
-                    let x = x.as_custom().unwrap_or_else(|| {
+                    let x = x.unwrap_or_else(|| {
                         // When no 'x' is specified for the vline, we place it
                         // after the latest automatically positioned cell.
                         // The current value of the auto index is always the
@@ -1012,7 +1012,6 @@ impl<'a> GridLayouter<'a> {
                     is_end_border,
                     vline_stroke_at_row,
                 )
-                .into_iter()
                 .map(|(stroke, dy, length)| {
                     let stroke = (*stroke).clone().unwrap_or_default();
                     let thickness = stroke.thickness;
@@ -1072,7 +1071,6 @@ impl<'a> GridLayouter<'a> {
                     is_bottom_border,
                     hline_stroke_at_column,
                 )
-                .into_iter()
                 .map(|(stroke, dx, length)| {
                     let stroke = (*stroke).clone().unwrap_or_default();
                     let thickness = stroke.thickness;

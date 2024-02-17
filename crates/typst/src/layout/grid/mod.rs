@@ -675,11 +675,13 @@ impl ResolvableCell for Packed<GridCell> {
         let cell = &mut *self;
         let colspan = cell.colspan(styles);
         let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
+
         // Using a typical 'Sides' fold, an unspecified side loses to a
         // specified side. Additionally, when both are specified, an inner
         // None wins over the outer Some, and vice-versa. When both are
         // specified and Some, fold occurs, which, remarkably, leads to an Arc
         // clone.
+        //
         // In the end, we flatten because, for layout purposes, an unspecified
         // cell stroke is the same as specifying 'none', so we equate the two
         // concepts.
@@ -706,9 +708,9 @@ impl ResolvableCell for Packed<GridCell> {
             // outer stroke ('None' in the folded stroke) to 'none', that is,
             // all sides are present in the resulting Sides object accessible
             // by show rules on grid cells.
-            stroke.clone().map(|side| {
-                Some(side.map(|cell_stroke| {
-                    Arc::new((*cell_stroke).clone().map(Length::from))
+            stroke.as_ref().map(|side| {
+                Some(side.as_ref().map(|cell_stroke| {
+                    Arc::new((**cell_stroke).clone().map(Length::from))
                 }))
             }),
         );
