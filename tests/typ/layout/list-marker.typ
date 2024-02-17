@@ -32,3 +32,19 @@
 ---
 // Error: 19-21 array must contain at least one marker
 #set list(marker: ())
+
+---
+// Test that locale affects markers.
+#set text(lang: "en")
+English:
+- A
+  - B
+    - C
+      - D
+
+French:
+#set text(lang: "fr")
+- A
+  - B
+    - C
+      - D
