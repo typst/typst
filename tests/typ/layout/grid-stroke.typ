@@ -321,17 +321,9 @@
 )
 
 ---
-// Error: 24-31 expected `top` or `bottom`
+// Error: 24-31 expected `top` or `bottom`, found horizon
 #table.hline(position: horizon)
 
 ---
-// Error: 24-30 expected `start` or `end`
+// Error: 24-30 expected `start`, `left`, `right`, or `end`, found center
 #table.vline(position: center)
-
----
-// Error: 24-28 expected `start` or `end`
-#table.vline(position: left)
-
----
-// Error: 24-29 expected `start` or `end`
-#table.vline(position: right)

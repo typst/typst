@@ -3,19 +3,19 @@ use std::sync::Arc;
 
 use ecow::eco_format;
 
-use crate::diag::{bail, SourceResult, Trace, Tracepoint};
+use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Content, Fold, Packed, Show, Smart, StyleChain,
 };
 use crate::layout::{
-    show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Fragment, GridItem,
-    GridLayouter, HAlignment, LayoutMultiple, Length, LinePosition, Regions, Rel,
-    ResolvableCell, Sides, TrackSizings, VAlignment,
+    show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Dir, Fragment,
+    GridItem, GridLayouter, LayoutMultiple, Length, LinePosition, OuterHAlignment,
+    OuterVAlignment, Regions, Rel, ResolvableCell, Sides, TrackSizings,
 };
 use crate::model::Figurable;
-use crate::syntax::{Span, Spanned};
-use crate::text::{Lang, LocalName, Region};
+use crate::syntax::Span;
+use crate::text::{Lang, LocalName, Region, TextElem};
 use crate::util::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
 
@@ -251,10 +251,8 @@ impl LayoutMultiple for Packed<TableElem> {
                 stroke: hline.stroke(styles),
                 span: hline.span(),
                 position: match hline.position(styles) {
-                    VAlignment::Top => LinePosition::Before,
-                    VAlignment::Bottom => LinePosition::After,
-                    // Horizon is forbidden
-                    _ => unreachable!(),
+                    OuterVAlignment::Top => LinePosition::Before,
+                    OuterVAlignment::Bottom => LinePosition::After,
                 },
             },
             TableChild::VLine(vline) => GridItem::VLine {
@@ -264,10 +262,16 @@ impl LayoutMultiple for Packed<TableElem> {
                 stroke: vline.stroke(styles),
                 span: vline.span(),
                 position: match vline.position(styles) {
-                    HAlignment::Start => LinePosition::Before,
-                    HAlignment::End => LinePosition::After,
-                    // Other horizontal positions forbidden
-                    _ => unreachable!(),
+                    OuterHAlignment::Left if TextElem::dir_in(styles) == Dir::RTL => {
+                        LinePosition::After
+                    }
+                    OuterHAlignment::Right if TextElem::dir_in(styles) == Dir::RTL => {
+                        LinePosition::Before
+                    }
+                    OuterHAlignment::Start | OuterHAlignment::Left => {
+                        LinePosition::Before
+                    }
+                    OuterHAlignment::End | OuterHAlignment::Right => LinePosition::After,
                 },
             },
             TableChild::Cell(cell) => GridItem::Cell(cell.clone()),
@@ -398,17 +402,8 @@ pub struct TableHLine {
     /// shouldn't be used otherwise - prefer just increasing the `y` field by
     /// one instead), since then the position below a row becomes different
     /// from the position above the next row due to the spacing between both.
-    #[default(VAlignment::Top)]
-    #[parse({
-        let option: Option<Spanned<VAlignment>> = args.named("position")?;
-        if let Some(Spanned { v: align, span }) = option {
-            if align == VAlignment::Horizon {
-                bail!(span, "expected `top` or `bottom`");
-            }
-        }
-        option.map(|spanned| spanned.v)
-    })]
-    pub position: VAlignment,
+    #[default(OuterVAlignment::Top)]
+    pub position: OuterVAlignment,
 }
 
 /// A vertical line in the table. See the docs for [`grid.vline`]($grid.vline)
@@ -442,22 +437,17 @@ pub struct TableVLine {
     /// The position at which the line is placed, given its column (`x`) -
     /// either `{start}` to draw before it or `{end}` to draw after it.
     ///
+    /// The values `{left}` and `{right}` are also accepted, but discouraged as
+    /// they cause your table to be inconsistent between left-to-right and
+    /// right-to-left documents.
+    ///
     /// This setting is only relevant when column gutter is enabled (and
     /// shouldn't be used otherwise - prefer just increasing the `x` field by
     /// one instead), since then the position after a column becomes different
     /// from the position before the next column due to the spacing between
     /// both.
-    #[default(HAlignment::Start)]
-    #[parse({
-        let option: Option<Spanned<HAlignment>> = args.named("position")?;
-        if let Some(Spanned { v: align, span }) = option {
-            if align != HAlignment::Start && align != HAlignment::End {
-                bail!(span, "expected `start` or `end`");
-            }
-        }
-        option.map(|spanned| spanned.v)
-    })]
-    pub position: HAlignment,
+    #[default(OuterHAlignment::Start)]
+    pub position: OuterHAlignment,
 }
 
 /// A cell in the table. Use this to either override table properties for a
