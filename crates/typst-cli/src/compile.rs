@@ -12,6 +12,7 @@ use typst::foundations::Datetime;
 use typst::layout::Frame;
 use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
+use typst::util::{HITS, MISSES};
 use typst::visualize::Color;
 use typst::vm::Tracer;
 use typst::{World, WorldExt};
@@ -135,6 +136,10 @@ pub fn compile_once(
             .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
     }
+
+    let hits = HITS.load(std::sync::atomic::Ordering::SeqCst);
+    let misses = MISSES.load(std::sync::atomic::Ordering::SeqCst);
+    eprintln!("Hit rate: {}% ({} / {})", hits as f64 * 100.0 / (hits as f64 + misses as f64), hits, hits + misses);
 
     Ok(())
 }
