@@ -169,19 +169,21 @@ where
         LinePosition::Before
     };
 
-    // Create an iterator which will go through each track, from start to
-    // finish, to create line segments and extend them until they are
-    // interrupted. Each track will be mapped to the finished line segment
-    // they interrupted; if they didn't interrupt any, they are filtered out.
+    // Create an iterator of line segments, which will go through each track,
+    // from start to finish, to create line segments and extend them until they
+    // are interrupted and thus yielded through the iterator. We then repeat
+    // the process, picking up from the track after the one at which we had
+    // an interruption, until we have gone through all tracks.
     //
     // When going through each track, we check if the current segment would be
     // interrupted, either because, at this track, we hit a merged cell over
     // which we shouldn't draw, or because the line would have a different
     // stroke or priority at this point (so we have to start a new segment). If
-    // so, the current segment is yielded and the variable is set to None
-    // (meaning we have to create a new one later) or to the new segment (if
-    // we're starting to draw a segment with a different stroke or priority
-    // than before).
+    // so, the current segment is yielded and its variable is either set to
+    // 'None' (if no segment should be drawn at the point of interruption,
+    // meaning we might have to create a new segment later) or to the new
+    // segment (if we're starting to draw a segment with a different stroke or
+    // priority than before).
     // Otherwise (if the current segment should span the current track), it is
     // simply extended (or a new one is created, if it is 'None'), and no value
     // is yielded for the current track, since the segment isn't yet complete
@@ -189,16 +191,17 @@ where
     // yielded). That is, we yield each segment only when it is interrupted,
     // since then we will know its final length for sure.
     //
-    // We chain an extra 'None' track to ensure the final segment is always
-    // interrupted and yielded, if it wasn't interrupted earlier.
-    tracks.into_iter().map(Some).chain(std::iter::once(None)).filter_map(
-        move |track_data| {
-            let Some((track, size)) = track_data else {
-                // Reached the end of all tracks, so we interrupt and finish
-                // the current segment.
-                return current_segment.take();
-            };
-
+    // After the loop is done (and thus we went through all tracks), we
+    // interrupt the current segment one last time, to ensure the final segment
+    // is always interrupted and yielded, if it wasn't interrupted earlier.
+    let mut tracks = tracks.into_iter();
+    std::iter::from_fn(move || {
+        // Each time this closure runs, we advance the track iterator as much
+        // as possible before returning because the current segment was
+        // interrupted. The for loop is resumed from where it stopped at the
+        // next call due to that, ensuring we go through all tracks and then
+        // stop.
+        for (track, size) in &mut tracks {
             // Get the expected line stroke at this track by folding the
             // strokes of each user-specified line (with priority to the
             // user-specified line specified last).
@@ -230,11 +233,14 @@ where
             // stroke overrides, which have priority and should be folded
             // with the stroke obtained above).
             //
-            // The variable 'interrupted_segment' will contain the segment
-            // to yield for this track, which will be the current segment
-            // if it was interrupted, or 'None' (don't yield yet)
-            // otherwise.
-            let interrupted_segment = if let Some((stroke, priority)) =
+            // If we are currently already drawing a segment and the function
+            // indicates we should, at this track, draw some other segment
+            // (with a different stroke or priority), or even no segment at
+            // all, we interrupt and yield the current segment (which was drawn
+            // up to the previous track) by returning it wrapped in 'Some()'
+            // (which indicates, in the context of 'std::iter::from_fn', that
+            // our iterator isn't over yet, and this should be its next value).
+            if let Some((stroke, priority)) =
                 line_stroke_at_track(grid, index, track, stroke)
             {
                 // We should draw at this position. Let's check if we were
@@ -250,9 +256,6 @@ where
                         // stroke as in the previous one when a line goes
                         // through this track, with the same priority.
                         current_segment.length += size;
-                        // No need to yield the current segment, we might not
-                        // be done extending its length yet.
-                        None
                     } else {
                         // We got a different stroke or priority now, so create
                         // a new segment with the new stroke and spanning the
@@ -261,7 +264,8 @@ where
                         let new_segment =
                             LineSegment { stroke, offset, length: size, priority };
                         let old_segment = std::mem::replace(current_segment, new_segment);
-                        Some(old_segment)
+                        offset += size;
+                        return Some(old_segment);
                     }
                 } else {
                     // We should draw here, but there is no segment
@@ -272,19 +276,29 @@ where
                     // track.
                     current_segment =
                         Some(LineSegment { stroke, offset, length: size, priority });
-                    // Nothing to yield for this track. The new segment
-                    // might still be extended in the next track.
-                    None
                 }
-            } else {
+            } else if let Some(old_segment) = current_segment.take() {
                 // We shouldn't draw here (stroke of None), so we yield the
                 // current segment, as it was interrupted.
-                current_segment.take()
-            };
+                offset += size;
+                return Some(old_segment);
+            }
+            // Either the current segment is None (meaning we didn't start
+            // drawing a segment yet since the last yielded one), so we keep
+            // searching for a track where we should draw one; or the current
+            // segment is Some but wasn't interrupted at this track, so we keep
+            // looping through the following tracks until it is interrupted,
+            // or we reach the end.
             offset += size;
-            interrupted_segment
-        },
-    )
+        }
+
+        // Reached the end of all tracks, so we interrupt and finish
+        // the current segment. Note that, on future calls to this
+        // closure, the current segment will necessarily be 'None',
+        // so the iterator will necessarily end (that is, we will return None)
+        // after this.
+        current_segment.take()
+    })
 }
 
 /// Returns the correct stroke with which to draw a vline right before column
