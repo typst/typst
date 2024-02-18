@@ -543,7 +543,7 @@ fn write_bitmap<S: PaintSampler>(
                 let color = sampler.sample((x as _, y as _));
                 let color = bytemuck::cast(color);
                 let pi = (y * cw + x) as usize;
-                // Fast path if color is transparent.
+                // Fast path if color is opaque.
                 if cov == u8::MAX && color & 0xFF == 0xFF {
                     pixels[pi] = color;
                     continue;
