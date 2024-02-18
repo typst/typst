@@ -276,12 +276,12 @@ impl Show for Packed<StrikeElem> {
 #[elem(Show)]
 pub struct HighlightElem {
     /// The color to highlight the text with.
-    /// (Default: #fffd1199)
+    /// (Default: #fffd11a1)
     ///
     /// ```example
     /// This is #highlight(fill: blue)[with blue].
     /// ```
-    #[default(Color::from_u8(0xFF, 0xFD, 0x11, 0x99).into())]
+    #[default(Color::from_u8(0xFF, 0xFD, 0x11, 0xA1).into())]
     pub fill: Paint,
 
     /// The top end of the background rectangle.
