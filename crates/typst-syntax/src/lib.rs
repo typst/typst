@@ -9,6 +9,7 @@ mod lexer;
 mod node;
 mod parser;
 mod reparser;
+mod set;
 mod source;
 mod span;
 
