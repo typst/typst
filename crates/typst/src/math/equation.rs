@@ -5,13 +5,13 @@ use unicode_math_class::MathClass;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Cast, Content, NativeElement, Packed, Resolve, ShowSet, Smart, StyleChain,
-    Styles, Synthesize,
+    elem, Content, NativeElement, Packed, Resolve, ShowSet, Smart, StyleChain, Styles,
+    Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, Dir, Em, FixedAlignment, Frame, LayoutMultiple,
-    LayoutSingle, Point, Regions, Size,
+    Abs, AlignElem, Alignment, Axes, Em, FixedAlignment, Frame, HAlignment,
+    LayoutMultiple, LayoutSingle, Point, Regions, Size,
 };
 use crate::math::{scaled_font_size, LayoutMath, MathContext, MathSize, MathVariant};
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
@@ -76,16 +76,19 @@ pub struct EquationElem {
     #[borrowed]
     pub numbering: Option<Numbering>,
 
-    /// Where to put the equation number, relative to the equation.
+    /// The alignment of the equation numbering.
+    ///
+    /// By default, the number is put at the `end` of the equation. Both `start` and
+    /// `end` respects text direction; to use absolute position, use `left` or `right`.
     ///
     /// ```example
-    /// #set math.equation(numbering: "(1)", numbering-alignment: "start")
+    /// #set math.equation(numbering: "(1)", number-align: start)
     ///
     /// We define:
     /// $ phi.alt := (1 + sqrt(5)) / 2 $
     /// ```
-    #[default(RelativeAlignment::End)]
-    pub numbering_alignment: RelativeAlignment,
+    #[default(HAlignment::End)]
+    pub number_align: HAlignment,
 
     /// A supplement for the equation.
     ///
@@ -244,7 +247,8 @@ impl LayoutSingle for Packed<EquationElem> {
     ) -> SourceResult<Frame> {
         assert!(self.block(styles));
 
-        let font = find_math_font(engine, styles, self.span())?;
+        let span = self.span();
+        let font = find_math_font(engine, styles, span)?;
 
         let mut ctx = MathContext::new(engine, styles, regions, &font);
         let mut frame = ctx.layout_frame(self, styles)?;
@@ -254,18 +258,25 @@ impl LayoutSingle for Packed<EquationElem> {
             let number = Counter::of(EquationElem::elem())
                 .at(engine, self.location().unwrap())?
                 .display(engine, numbering)?
-                .spanned(self.span())
+                .spanned(span)
                 .layout(engine, styles, pod)?
                 .into_frame();
+
+            static NUMBER_GUTTER: Em = Em::new(0.5);
+            let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
+
+            let number_align = self.number_align(styles).resolve(styles);
+            if !matches!(number_align, FixedAlignment::Start | FixedAlignment::End) {
+                bail!(span, "equation number cannot be aligned at {number_align}");
+            }
 
             add_equation_number(
                 &mut frame,
                 number,
-                self.numbering_alignment(styles),
-                styles,
-                regions.size.x,
+                number_align,
                 AlignElem::alignment_in(styles).resolve(styles).x,
-                TextElem::dir_in(styles),
+                regions.size.x,
+                full_number_width,
             );
         }
 
@@ -389,39 +400,14 @@ fn find_math_font(
     Ok(font)
 }
 
-/// The alignment of the equation number in the block.
-#[derive(Debug, Copy, Clone, PartialEq, Hash, Cast)]
-enum RelativeAlignment {
-    /// Align the number at the start of text direction.
-    Start,
-    /// Align the number at the end of text direction.
-    End,
-    /// Align the number on the left.
-    Left,
-    /// Align the number on the right.
-    Right,
-}
-
 fn add_equation_number(
     equation: &mut Frame,
     number: Frame,
-    number_align: RelativeAlignment,
-    styles: StyleChain,
-    region_size_x: Abs,
+    number_align: FixedAlignment,
     equation_align: FixedAlignment,
-    text_dir: Dir,
+    region_size_x: Abs,
+    full_number_width: Abs,
 ) {
-    static NUMBER_GUTTER: Em = Em::new(0.5);
-    let number_align = match (number_align, text_dir.is_positive()) {
-        (RelativeAlignment::Start, true) => FixedAlignment::Start,
-        (RelativeAlignment::Start, false) => FixedAlignment::End,
-        (RelativeAlignment::End, true) => FixedAlignment::End,
-        (RelativeAlignment::End, false) => FixedAlignment::Start,
-        (RelativeAlignment::Left, _) => FixedAlignment::Start,
-        (RelativeAlignment::Right, _) => FixedAlignment::End,
-    };
-
-    let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
     let width = if region_size_x.is_finite() {
         region_size_x
     } else {

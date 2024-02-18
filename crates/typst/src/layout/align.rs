@@ -9,6 +9,7 @@ use crate::foundations::{
 };
 use crate::layout::{Abs, Axes, Axis, Dir, Side};
 use crate::text::TextElem;
+use std::fmt::{self, Display, Formatter};
 
 /// Aligns content horizontally and vertically.
 ///
@@ -414,5 +415,16 @@ impl From<Side> for FixedAlignment {
             Side::Right => Self::End,
             Side::Bottom => Self::End,
         }
+    }
+}
+
+impl Display for FixedAlignment {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let name = match self {
+            FixedAlignment::Start => "start",
+            FixedAlignment::Center => "center",
+            FixedAlignment::End => "end",
+        };
+        write!(f, "{name}")
     }
 }
