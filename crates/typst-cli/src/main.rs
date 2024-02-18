@@ -77,7 +77,7 @@ fn print_error(msg: &str) -> io::Result<()> {
     write!(output, "error")?;
 
     output.reset()?;
-    writeln!(output, ": {msg}.")
+    writeln!(output, ": {msg}")
 }
 
 #[cfg(not(feature = "self-update"))]

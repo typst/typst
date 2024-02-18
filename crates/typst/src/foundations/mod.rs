@@ -257,7 +257,8 @@ pub fn eval(
     engine: &mut Engine,
     /// A string of Typst code to evaluate.
     source: Spanned<String>,
-    /// The syntactical mode in which the string is parsed.
+    /// The [syntactical mode]($reference/syntax/#modes) in which the string is
+    /// parsed.
     ///
     /// ```example
     /// #eval("= Heading", mode: "markup")

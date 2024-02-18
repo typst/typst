@@ -1,6 +1,5 @@
 use std::io::{self, IsTerminal, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
 
 use codespan_reporting::term::termcolor;
 use ecow::eco_format;
@@ -18,7 +17,6 @@ pub fn out() -> TermOut {
 
 /// The stuff that has to be shared between instances of [`TermOut`].
 struct TermOutInner {
-    active: AtomicBool,
     stream: termcolor::StandardStream,
     in_alternate_screen: AtomicBool,
 }
@@ -35,7 +33,6 @@ impl TermOutInner {
 
         let stream = termcolor::StandardStream::stderr(color_choice);
         TermOutInner {
-            active: AtomicBool::new(true),
             stream,
             in_alternate_screen: AtomicBool::new(false),
         }
@@ -54,25 +51,10 @@ impl TermOut {
     /// Initialize a handler that listens for Ctrl-C signals.
     /// This is used to exit the alternate screen that might have been opened.
     pub fn init_exit_handler(&mut self) -> StrResult<()> {
-        /// The duration the application may keep running after an exit signal was received.
-        const MAX_TIME_TO_EXIT: Duration = Duration::from_millis(750);
-
         // We can safely ignore the error as the only thing this handler would do
         // is leave an alternate screen if none was opened; not very important.
         let mut term_out = self.clone();
         ctrlc::set_handler(move || {
-            term_out.inner.active.store(false, Ordering::Release);
-
-            // Wait for some time and if the application is still running, simply exit.
-            // Not exiting immediately potentially allows destructors to run and file writes
-            // to complete.
-            std::thread::sleep(MAX_TIME_TO_EXIT);
-
-            // Leave alternate screen only after the timeout has expired.
-            // This prevents console output intended only for within the alternate screen
-            // from showing up outside it.
-            // Remember that the alternate screen is also closed if the timeout is not reached,
-            // just from a different location in code.
             let _ = term_out.leave_alternate_screen();
 
             // Exit with the exit code standard for Ctrl-C exits[^1].
@@ -82,11 +64,6 @@ impl TermOut {
             std::process::exit(128 + 2);
         })
         .map_err(|err| eco_format!("failed to initialize exit handler ({err})"))
-    }
-
-    /// Whether this program is still active and was not stopped by the Ctrl-C handler.
-    pub fn is_active(&self) -> bool {
-        self.inner.active.load(Ordering::Acquire)
     }
 
     /// Clears the entire screen.
