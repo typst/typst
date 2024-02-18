@@ -123,51 +123,51 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         self.fragments.extend(fragments);
     }
 
-    pub fn layout_root(
-        &mut self,
-        elem: &dyn LayoutMath,
-        styles: StyleChain,
-    ) -> SourceResult<MathRow> {
-        let row = self.layout_fragments(elem, styles)?;
-        Ok(MathRow::new(row))
-    }
-
-    pub fn layout_fragment(
-        &mut self,
-        elem: &dyn LayoutMath,
-        styles: StyleChain,
-    ) -> SourceResult<MathFragment> {
-        let row = self.layout_fragments(elem, styles)?;
-        Ok(MathRow::new(row).into_fragment(self, styles))
-    }
-
-    pub fn layout_fragments(
+    /// Layout the given element and return the resulting `MathFragment`s.
+    pub fn layout_into_fragments(
         &mut self,
         elem: &dyn LayoutMath,
         styles: StyleChain,
     ) -> SourceResult<Vec<MathFragment>> {
+        // The element's layout_math() changes the fragments held in this
+        // MathContext object, but for convenience this function shouldn't change
+        // them, so we restore the MathContext's fragments after obtaining the
+        // layout result.
         let prev = std::mem::take(&mut self.fragments);
         elem.layout_math(self, styles)?;
         Ok(std::mem::replace(&mut self.fragments, prev))
     }
 
-    pub fn layout_row(
+    /// Layout the given element and return the result as a `MathRow`.
+    pub fn layout_into_row(
         &mut self,
         elem: &dyn LayoutMath,
         styles: StyleChain,
     ) -> SourceResult<MathRow> {
-        let fragments = self.layout_fragments(elem, styles)?;
-        Ok(MathRow::new(fragments))
+        let row = self.layout_into_fragments(elem, styles)?;
+        Ok(MathRow::new(row))
     }
 
-    pub fn layout_frame(
+    /// Layout the given element and return the result as a
+    /// unified `MathFragment`.
+    pub fn layout_into_fragment(
+        &mut self,
+        elem: &dyn LayoutMath,
+        styles: StyleChain,
+    ) -> SourceResult<MathFragment> {
+        Ok(self.layout_into_row(elem, styles)?.into_fragment(self, styles))
+    }
+
+    /// Layout the given element and return the result as a `Frame`.
+    pub fn layout_into_frame(
         &mut self,
         elem: &dyn LayoutMath,
         styles: StyleChain,
     ) -> SourceResult<Frame> {
-        Ok(self.layout_fragment(elem, styles)?.into_frame())
+        Ok(self.layout_into_fragment(elem, styles)?.into_frame())
     }
 
+    /// Layout the given `BoxElem` into a `Frame`.
     pub fn layout_box(
         &mut self,
         boxed: &Packed<BoxElem>,
@@ -178,6 +178,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         boxed.layout(self.engine, styles.chain(&local), self.regions)
     }
 
+    /// Layout the given `Content` into a `Frame`.
     pub fn layout_content(
         &mut self,
         content: &Content,
@@ -190,6 +191,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             .into_frame())
     }
 
+    /// Layout the given `TextElem` into a `MathFragment`.
     pub fn layout_text(
         &mut self,
         elem: &Packed<TextElem>,
@@ -273,6 +275,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         Ok(fragment)
     }
 
+    /// Layout the given text string into a `FrameFragment`.
     fn layout_complex_text(
         &mut self,
         text: &str,

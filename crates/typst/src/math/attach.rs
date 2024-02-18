@@ -57,11 +57,11 @@ impl LayoutMath for Packed<AttachElem> {
         let layout_attachment =
             |ctx: &mut MathContext, styles: StyleChain, getter: GetAttachment| {
                 getter(self, styles)
-                    .map(|elem| ctx.layout_fragment(&elem, styles))
+                    .map(|elem| ctx.layout_into_fragment(&elem, styles))
                     .transpose()
             };
 
-        let base = ctx.layout_fragment(self.base(), styles)?;
+        let base = ctx.layout_into_fragment(self.base(), styles)?;
 
         let sup_style = style_for_superscript(styles);
         let tl = layout_attachment(ctx, styles.chain(&sup_style), AttachElem::tl)?;
@@ -109,13 +109,14 @@ impl LayoutMath for Packed<PrimesElem> {
                     4 => '⁗',
                     _ => unreachable!(),
                 };
-                let f = ctx.layout_fragment(&TextElem::packed(c), styles)?;
+                let f = ctx.layout_into_fragment(&TextElem::packed(c), styles)?;
                 ctx.push(f);
             }
             count => {
                 // Custom amount of primes
-                let prime =
-                    ctx.layout_fragment(&TextElem::packed('′'), styles)?.into_frame();
+                let prime = ctx
+                    .layout_into_fragment(&TextElem::packed('′'), styles)?
+                    .into_frame();
                 let width = prime.width() * (count + 1) as f64 / 2.0;
                 let mut frame = Frame::soft(Size::new(width, prime.height()));
                 frame.set_baseline(prime.ascent());
@@ -148,7 +149,7 @@ pub struct ScriptsElem {
 impl LayoutMath for Packed<ScriptsElem> {
     #[typst_macros::time(name = "math.scripts", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        let mut fragment = ctx.layout_fragment(self.body(), styles)?;
+        let mut fragment = ctx.layout_into_fragment(self.body(), styles)?;
         fragment.set_limits(Limits::Never);
         ctx.push(fragment);
         Ok(())
@@ -178,7 +179,7 @@ impl LayoutMath for Packed<LimitsElem> {
     #[typst_macros::time(name = "math.limits", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
         let limits = if self.inline(styles) { Limits::Always } else { Limits::Display };
-        let mut fragment = ctx.layout_fragment(self.body(), styles)?;
+        let mut fragment = ctx.layout_into_fragment(self.body(), styles)?;
         fragment.set_limits(limits);
         ctx.push(fragment);
         Ok(())

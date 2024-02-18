@@ -196,7 +196,7 @@ impl Packed<EquationElem> {
         let font = find_math_font(engine, styles, self.span())?;
 
         let mut ctx = MathContext::new(engine, styles, regions, &font);
-        let rows = ctx.layout_root(self, styles)?;
+        let rows = ctx.layout_into_row(self, styles)?;
 
         let mut items = if rows.row_count() == 1 {
             rows.into_par_items()
@@ -239,7 +239,7 @@ impl LayoutSingle for Packed<EquationElem> {
         let font = find_math_font(engine, styles, self.span())?;
 
         let mut ctx = MathContext::new(engine, styles, regions, &font);
-        let mut frame = ctx.layout_frame(self, styles)?;
+        let mut frame = ctx.layout_into_frame(self, styles)?;
 
         if let Some(numbering) = (**self).numbering(styles) {
             let pod = Regions::one(regions.base(), Axes::splat(false));
