@@ -87,6 +87,5 @@
 #eq(end)
 
 ---
+// Error: 52-58 equation number cannot be `center`-aligned
 #set math.equation(numbering: "(1)", number-align: center)
-// Error: 1-14 equation number cannot be aligned at center
-$ a + b = c $

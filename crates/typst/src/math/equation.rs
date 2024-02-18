@@ -16,6 +16,7 @@ use crate::layout::{
 use crate::math::{scaled_font_size, LayoutMath, MathContext, MathSize, MathVariant};
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::syntax::Span;
+use crate::syntax::Spanned;
 use crate::text::{
     families, variant, Font, FontFamily, FontList, FontWeight, Lang, LocalName, Region,
     TextElem,
@@ -78,16 +79,26 @@ pub struct EquationElem {
 
     /// The alignment of the equation numbering.
     ///
-    /// By default, the number is put at the `end` of the equation. Both `start` and
-    /// `end` respects text direction; to use absolute position, use `left` or `right`.
+    /// By default, the number is put at the `{end}` of the equation block. Both `{start}`
+    /// and `{end}` respects text direction; for absolute positioning, use `{left}` or
+    /// `{right}`.
     ///
     /// ```example
     /// #set math.equation(numbering: "(1)", number-align: start)
     ///
-    /// We define:
-    /// $ phi.alt := (1 + sqrt(5)) / 2 $
+    /// With natural units, we know:
+    /// $ E^2 = m^2 + p^2 $
     /// ```
     #[default(HAlignment::End)]
+    #[parse({
+        let option: Option<Spanned<HAlignment>> = args.named("number-align")?;
+        if let Some(Spanned { v: align, span }) = option {
+            if align == HAlignment::Center {
+                bail!(span, "equation number cannot be `center`-aligned");
+            }
+        }
+        option.map(|spanned| spanned.v)
+    })]
     pub number_align: HAlignment,
 
     /// A supplement for the equation.
@@ -265,15 +276,10 @@ impl LayoutSingle for Packed<EquationElem> {
             static NUMBER_GUTTER: Em = Em::new(0.5);
             let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
 
-            let number_align = self.number_align(styles).resolve(styles);
-            if !matches!(number_align, FixedAlignment::Start | FixedAlignment::End) {
-                bail!(span, "equation number cannot be aligned at {number_align}");
-            }
-
             add_equation_number(
                 &mut frame,
                 number,
-                number_align,
+                self.number_align(styles).resolve(styles),
                 AlignElem::alignment_in(styles).resolve(styles).x,
                 regions.size.x,
                 full_number_width,
