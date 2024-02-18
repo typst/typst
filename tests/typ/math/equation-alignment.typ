@@ -2,12 +2,12 @@
 // with text direction.
 
 ---
-// Equation number aligned on the default horizontal alignment
+// Equation alignment: mutate through possible values.
+// Number alignment: use the default setting.
 #let eq(eq-alignment) = {
   show math.equation: set align(eq-alignment)
   $ a + b = c $
 }
-
 #set math.equation(numbering: "(1)")
 
 #eq(center)
@@ -19,12 +19,12 @@
 #eq(end)
 
 ---
-// Test equation alignments, with its number aligned on the start
+// Equation alignment: mutate through possible values.
+// Number alignment: start of block, respecting text direction.
 #let eq(eq-alignment) = {
   show math.equation: set align(eq-alignment)
   $ a + b = c $
 }
-
 #set math.equation(numbering: "(1)", number-align: start)
 
 #eq(center)
@@ -36,12 +36,12 @@
 #eq(end)
 
 ---
-// Test equation alignments, with its number aligned on the end
+// Equation alignment: mutate through possible values.
+// Number alignment: end of block, respecting text direction.
 #let eq(eq-alignment) = {
   show math.equation: set align(eq-alignment)
   $ a + b = c $
 }
-
 #set math.equation(numbering: "(1)", number-align: end)
 
 #eq(center)
@@ -53,12 +53,12 @@
 #eq(end)
 
 ---
-// Test equation alignments, with its number aligned on the left
+// Equation alignment: mutate through possible values.
+// Number alignment: left of block.
 #let eq(eq-alignment) = {
   show math.equation: set align(eq-alignment)
   $ a + b = c $
 }
-
 #set math.equation(numbering: "(1)", number-align: left)
 
 #eq(center)
@@ -70,12 +70,12 @@
 #eq(end)
 
 ---
-// Test equation alignments, with its number aligned on the right
+// Equation alignment: mutate through possible values.
+// Number alignment: right of block.
 #let eq(eq-alignment) = {
   show math.equation: set align(eq-alignment)
   $ a + b = c $
 }
-
 #set math.equation(numbering: "(1)", number-align: right)
 
 #eq(center)
