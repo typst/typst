@@ -347,13 +347,14 @@ impl CellGrid {
         let c = tracks.x.len().max(1);
 
         // Lists of lines.
-        let mut vlines: Vec<Vec<Line>> = vec![];
-        let mut hlines: Vec<Vec<Line>> = vec![];
         // Horizontal lines are only pushed later to be able to check for row
         // validity, since the amount of rows isn't known until all items were
         // analyzed in the for loop below.
         // We keep their spans so we can report errors later.
         let mut pending_hlines: Vec<(Span, Line)> = vec![];
+
+        // For consistency, only push vertical lines later as well.
+        let mut pending_vlines: Vec<(Span, Line)> = vec![];
         let has_gutter = gutter.any(|tracks| !tracks.is_empty());
 
         // We can't just use the cell's index in the 'cells' vector to
@@ -404,6 +405,7 @@ impl CellGrid {
                         bail!(span, "line cannot end before it starts");
                     }
                     let line = Line { index: y, start, end, stroke, position };
+
                     // Since the amount of rows is dynamic, delay placing
                     // hlines until after all cells were placed so we can
                     // properly verify if they are valid. Note that we can't
@@ -439,39 +441,11 @@ impl CellGrid {
                     if end.is_some_and(|end| end.get() < start) {
                         bail!(span, "line cannot end before it starts");
                     }
-                    let (x, line) = if position == LinePosition::After
-                        && (!has_gutter || x + 1 == c)
-                    {
-                        // Just place the line before the next column if
-                        // there's no gutter and the line should be placed
-                        // after the one with given index.
-                        // Note that placing after the last column is also the
-                        // same as just placing on the grid's end border, even
-                        // with gutter.
-                        (
-                            x + 1,
-                            Line {
-                                index: x + 1,
-                                start,
-                                end,
-                                stroke,
-                                position: LinePosition::Before,
-                            },
-                        )
-                    } else {
-                        (x, Line { index: x, start, end, stroke, position })
-                    };
-                    // There must exist at least one more column for this line
-                    // to be actually drawn if the "After" position was chosen.
-                    let necessary_cols =
-                        if line.position == LinePosition::After { x + 1 } else { x };
-                    if necessary_cols > c {
-                        bail!(span, "cannot place vertical line at invalid column");
-                    }
-                    if vlines.len() <= x {
-                        vlines.resize_with(x + 1, Vec::new);
-                    }
-                    vlines[x].push(line);
+                    let line = Line { index: x, start, end, stroke, position };
+
+                    // For consistency with hlines, we only push vlines to the
+                    // final vector of vlines after processing every cell.
+                    pending_vlines.push((span, line));
                     continue;
                 }
                 GridItem::Cell(cell) => cell,
@@ -607,42 +581,86 @@ impl CellGrid {
             })
             .collect::<SourceResult<Vec<Entry>>>()?;
 
+        // Populate the final lists of lines.
+        // For each line type (horizontal or vertical), we keep a vector for
+        // every group of lines with the same index.
+        let mut vlines: Vec<Vec<Line>> = vec![];
+        let mut hlines: Vec<Vec<Line>> = vec![];
         let row_amount = resolved_cells.len().div_ceil(c);
-        for (span, line) in pending_hlines {
-            let line = {
-                let Line { index: y, start, end, stroke, position } = line;
-                if position == LinePosition::After && (!has_gutter || y + 1 == row_amount)
-                {
-                    // Just place the line on top of the next row if
-                    // there's no gutter and the line should be placed
-                    // after the one with given index.
-                    //
-                    // Note that placing after the last row is also the same as
-                    // just placing on the grid's bottom border, even with
-                    // gutter.
-                    Line {
-                        index: y + 1,
-                        start,
-                        end,
-                        stroke,
-                        position: LinePosition::Before,
-                    }
-                } else {
-                    Line { index: y, start, end, stroke, position }
+
+        for (line_span, line) in pending_hlines {
+            let y = line.index;
+            if y > row_amount {
+                bail!(line_span, "cannot place horizontal line at invalid row {y}");
+            }
+            if y == row_amount && line.position == LinePosition::After {
+                bail!(
+                    line_span,
+                    "cannot place horizontal line at the 'bottom' position of the bottom border (y = {y})";
+                    hint: "set the line's position to 'top' or place it at a smaller 'y' index"
+                );
+            }
+            let line = if line.position == LinePosition::After
+                && (!has_gutter || y + 1 == row_amount)
+            {
+                // Just place the line on top of the next row if
+                // there's no gutter and the line should be placed
+                // after the one with given index.
+                //
+                // Note that placing after the last row is also the same as
+                // just placing on the grid's bottom border, even with
+                // gutter.
+                Line {
+                    index: y + 1,
+                    position: LinePosition::Before,
+                    ..line
                 }
+            } else {
+                line
             };
             let y = line.index;
-            // There must exist at least one more row for this line to be
-            // actually drawn if the "After" position was chosen.
-            let necessary_rows =
-                if line.position == LinePosition::After { y + 1 } else { y };
-            if row_amount < necessary_rows {
-                bail!(span, "cannot place horizontal line at invalid row");
-            }
+
             if hlines.len() <= y {
                 hlines.resize_with(y + 1, Vec::new);
             }
             hlines[y].push(line);
+        }
+
+        for (line_span, line) in pending_vlines {
+            let x = line.index;
+            if x > c {
+                bail!(line_span, "cannot place vertical line at invalid column {x}");
+            }
+            if x == c && line.position == LinePosition::After {
+                bail!(
+                    line_span,
+                    "cannot place vertical line at the 'end' position of the end border (x = {c})";
+                    hint: "set the line's position to 'start' or place it at a smaller 'x' index"
+                );
+            }
+            let line =
+                if line.position == LinePosition::After && (!has_gutter || x + 1 == c) {
+                    // Just place the line before the next column if
+                    // there's no gutter and the line should be placed
+                    // after the one with given index.
+                    //
+                    // Note that placing after the last column is also the
+                    // same as just placing on the grid's end border, even
+                    // with gutter.
+                    Line {
+                        index: x + 1,
+                        position: LinePosition::Before,
+                        ..line
+                    }
+                } else {
+                    line
+                };
+            let x = line.index;
+
+            if vlines.len() <= x {
+                vlines.resize_with(x + 1, Vec::new);
+            }
+            vlines[x].push(line);
         }
 
         Ok(Self::new_internal(tracks, gutter, vlines, hlines, resolved_cells))

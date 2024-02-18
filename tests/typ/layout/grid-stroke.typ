@@ -221,22 +221,85 @@
 )
 
 ---
-// Error: 5:3-5:32 cannot place horizontal line at invalid row
+// Error: 7:3-7:32 cannot place horizontal line at the 'bottom' position of the bottom border (y = 2)
+// Hint: 7:3-7:32 set the line's position to 'top' or place it at a smaller 'y' index
 #table(
-  [a],
+  columns: 2,
+  [a], [b],
+  [c], [d],
   table.hline(stroke: aqua),
   table.hline(position: top),
   table.hline(position: bottom)
 )
 
 ---
-// Error: 6:3-6:32 cannot place horizontal line at invalid row
+// Error: 8:3-8:32 cannot place horizontal line at the 'bottom' position of the bottom border (y = 2)
+// Hint: 8:3-8:32 set the line's position to 'top' or place it at a smaller 'y' index
 #table(
+  columns: 2,
   gutter: 3pt,
-  [a], table.vline(stroke: red),
+  [a], [b],
+  [c], [d], table.vline(stroke: red),
   table.hline(stroke: aqua),
   table.hline(position: top),
   table.hline(position: bottom)
+)
+
+---
+// Error: 6:3-6:28 cannot place vertical line at the 'end' position of the end border (x = 2)
+// Hint: 6:3-6:28 set the line's position to 'start' or place it at a smaller 'x' index
+#grid(
+  columns: 2,
+  [a], [b],
+  grid.vline(stroke: aqua),
+  grid.vline(position: start),
+  grid.vline(position: end)
+)
+
+---
+// Error: 7:3-7:28 cannot place vertical line at the 'end' position of the end border (x = 2)
+// Hint: 7:3-7:28 set the line's position to 'start' or place it at a smaller 'x' index
+#grid(
+  columns: 2,
+  gutter: 3pt,
+  [a], [b],
+  grid.vline(stroke: aqua),
+  grid.vline(position: start),
+  grid.vline(position: end)
+)
+
+---
+// Error: 4:3-4:19 cannot place horizontal line at invalid row 3
+#grid(
+  [a],
+  [b],
+  grid.hline(y: 3)
+)
+
+---
+// Error: 5:3-5:19 cannot place horizontal line at invalid row 3
+#grid(
+  gutter: 3pt,
+  [a],
+  [b],
+  grid.hline(y: 3)
+)
+
+---
+// Error: 4:3-4:20 cannot place vertical line at invalid column 3
+#table(
+  columns: 2,
+  [a], [b],
+  table.vline(x: 3)
+)
+
+---
+// Error: 5:3-5:20 cannot place vertical line at invalid column 3
+#table(
+  columns: 2,
+  gutter: 3pt,
+  [a], [b],
+  table.vline(x: 3)
 )
 
 ---
