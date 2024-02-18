@@ -2,7 +2,7 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use super::layout::CellGrid;
-use crate::foundations::Fold;
+use crate::foundations::{AlternativeFold, Fold};
 use crate::layout::{Abs, Axes};
 use crate::visualize::Stroke;
 
@@ -357,6 +357,14 @@ pub(super) fn vline_stroke_at_row(
         (None, false)
     };
 
+    let priority = if stroke.is_some() {
+        StrokePriority::ExplicitLine
+    } else if left_cell_prioritized || right_cell_prioritized {
+        StrokePriority::CellStroke
+    } else {
+        StrokePriority::GridStroke
+    };
+
     let (prioritized_cell_stroke, deprioritized_cell_stroke) =
         if left_cell_prioritized && !right_cell_prioritized {
             (left_cell_stroke, right_cell_stroke)
@@ -366,35 +374,17 @@ pub(super) fn vline_stroke_at_row(
             (right_cell_stroke, left_cell_stroke)
         };
 
-    let cell_stroke = match (prioritized_cell_stroke, deprioritized_cell_stroke) {
-        (Some(prioritized_cell_stroke), Some(deprioritized_cell_stroke)) => {
-            // When both cells specify a stroke for this line segment, fold
-            // both strokes, with priority to either the one prioritized cell,
-            // or to the right cell's left stroke in case of a tie.
-            Some(prioritized_cell_stroke.fold(deprioritized_cell_stroke))
-        }
-        // When one of the cells doesn't specify a stroke, the other cell's
-        // stroke should be used.
-        (prioritized_cell_stroke, deprioritized_cell_stroke) => {
-            prioritized_cell_stroke.or(deprioritized_cell_stroke)
-        }
-    };
-
-    let priority = if stroke.is_some() {
-        StrokePriority::ExplicitLine
-    } else if left_cell_prioritized || right_cell_prioritized {
-        StrokePriority::CellStroke
-    } else {
-        StrokePriority::GridStroke
-    };
+    // When both cells specify a stroke for this line segment, fold
+    // both strokes, with priority to either the one prioritized cell,
+    // or to the right cell's left stroke in case of a tie. But when one of
+    // them doesn't specify a stroke, the other cell's stroke should be used
+    // instead, regardless of priority (hence the usage of 'fold_or').
+    let cell_stroke = prioritized_cell_stroke.fold_or(deprioritized_cell_stroke);
 
     // Fold the line stroke and folded cell strokes, if possible.
     // Give priority to the explicit line stroke.
     // Otherwise, use whichever of the two isn't 'none' or unspecified.
-    let final_stroke = match (cell_stroke, stroke) {
-        (Some(cell_stroke), Some(stroke)) => Some(stroke.fold(cell_stroke)),
-        (cell_stroke, stroke) => cell_stroke.or(stroke),
-    };
+    let final_stroke = stroke.fold_or(cell_stroke);
 
     final_stroke.zip(Some(priority))
 }
@@ -475,6 +465,14 @@ pub(super) fn hline_stroke_at_column(
         (None, false)
     };
 
+    let priority = if stroke.is_some() {
+        StrokePriority::ExplicitLine
+    } else if top_cell_prioritized || bottom_cell_prioritized {
+        StrokePriority::CellStroke
+    } else {
+        StrokePriority::GridStroke
+    };
+
     let (prioritized_cell_stroke, deprioritized_cell_stroke) =
         if top_cell_prioritized && !bottom_cell_prioritized {
             (top_cell_stroke, bottom_cell_stroke)
@@ -484,35 +482,17 @@ pub(super) fn hline_stroke_at_column(
             (bottom_cell_stroke, top_cell_stroke)
         };
 
-    let cell_stroke = match (prioritized_cell_stroke, deprioritized_cell_stroke) {
-        (Some(prioritized_cell_stroke), Some(deprioritized_cell_stroke)) => {
-            // When both cells specify a stroke for this line segment, fold
-            // both strokes, with priority to either the one prioritized cell,
-            // or to the bottom cell's top stroke in case of a tie.
-            Some(prioritized_cell_stroke.fold(deprioritized_cell_stroke))
-        }
-        // When one of the cells doesn't specify a stroke, the other cell's
-        // stroke should be used.
-        (prioritized_cell_stroke, deprioritized_cell_stroke) => {
-            prioritized_cell_stroke.or(deprioritized_cell_stroke)
-        }
-    };
-
-    let priority = if stroke.is_some() {
-        StrokePriority::ExplicitLine
-    } else if top_cell_prioritized || bottom_cell_prioritized {
-        StrokePriority::CellStroke
-    } else {
-        StrokePriority::GridStroke
-    };
+    // When both cells specify a stroke for this line segment, fold
+    // both strokes, with priority to either the one prioritized cell,
+    // or to the bottom cell's top stroke in case of a tie. But when one of
+    // them doesn't specify a stroke, the other cell's stroke should be used
+    // instead, regardless of priority (hence the usage of 'fold_or').
+    let cell_stroke = prioritized_cell_stroke.fold_or(deprioritized_cell_stroke);
 
     // Fold the line stroke and folded cell strokes, if possible.
     // Give priority to the explicit line stroke.
     // Otherwise, use whichever of the two isn't 'none' or unspecified.
-    let final_stroke = match (cell_stroke, stroke) {
-        (Some(cell_stroke), Some(stroke)) => Some(stroke.fold(cell_stroke)),
-        (cell_stroke, stroke) => cell_stroke.or(stroke),
-    };
+    let final_stroke = stroke.fold_or(cell_stroke);
 
     final_stroke.zip(Some(priority))
 }
