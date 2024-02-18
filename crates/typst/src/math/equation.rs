@@ -217,7 +217,6 @@ impl Packed<EquationElem> {
     ) -> SourceResult<Vec<MathParItem>> {
         assert!(!self.block(styles));
 
-        // Find a math font.
         let font = find_math_font(engine, styles, self.span())?;
 
         let mut ctx = MathContext::new(engine, styles, regions, &font);
