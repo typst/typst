@@ -1,7 +1,5 @@
 use std::fmt::{self, Debug, Formatter};
 
-use comemo::Prehashed;
-
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -24,7 +22,7 @@ use crate::util::Numeric;
 pub struct FlowElem {
     /// The children that will be arranges into a flow.
     #[variadic]
-    pub children: Vec<Prehashed<Content>>,
+    pub children: Vec<Content>,
 }
 
 impl LayoutMultiple for Packed<FlowElem> {
@@ -43,7 +41,7 @@ impl LayoutMultiple for Packed<FlowElem> {
         }
 
         let mut layouter = FlowLayouter::new(regions, styles);
-        for mut child in self.children().iter().map(|c| &**c) {
+        for mut child in self.children().iter() {
             let outer = styles;
             let mut styles = styles;
             if let Some(styled) = child.to_packed::<StyledElem>() {

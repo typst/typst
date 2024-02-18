@@ -19,6 +19,7 @@ bench = false
 typst-macros = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
+atomic = { workspace = true }
 az = { workspace = true }
 bitflags = { workspace = true }
 chinese-number = { workspace = true }
