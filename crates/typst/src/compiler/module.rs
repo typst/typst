@@ -1,12 +1,11 @@
 use std::sync::Arc;
-
-use comemo::Prehashed;
 use typst_syntax::{ast, Source};
 
 use crate::compiler::CompileTopLevel;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::World;
+use crate::util::LazyHash;
 
 use super::{CompiledCode, Compiler, Export};
 
@@ -14,12 +13,12 @@ use super::{CompiledCode, Compiler, Export};
 #[derive(Clone, Hash)]
 pub struct CompiledModule {
     /// The common data.
-    pub inner: Arc<Prehashed<CompiledCode>>,
+    pub inner: Arc<LazyHash<CompiledCode>>,
 }
 
 impl CompiledModule {
     pub fn new(resource: CompiledCode) -> Self {
-        Self { inner: Arc::new(Prehashed::new(resource)) }
+        Self { inner: Arc::new(LazyHash::new(resource)) }
     }
 }
 

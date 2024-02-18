@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
-use comemo::{Prehashed, Tracked, TrackedMut};
+use comemo::{Tracked, TrackedMut};
 use typst_syntax::Span;
 
 use crate::compiler::{CompiledCode, CompiledParam, Remapper};
@@ -9,7 +9,7 @@ use crate::diag::{bail, At, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::foundations::{Args, Func, IntoValue, Value};
 use crate::introspection::{Introspector, Locator};
-use crate::util::PicoStr;
+use crate::util::{LazyHash, PicoStr};
 use crate::vm::ControlFlow;
 use crate::{Library, World};
 
@@ -18,13 +18,13 @@ use super::{Constant, Readable, Register, State, StringId, Tracer, Vm};
 /// A closure that has been instantiated.
 #[derive(Clone, Hash, PartialEq)]
 pub struct Closure {
-    pub inner: Arc<Prehashed<Repr>>,
+    pub inner: Arc<LazyHash<Repr>>,
 }
 
 #[derive(Hash)]
 pub struct Repr {
     /// The compiled code of the closure.
-    pub compiled: Arc<Prehashed<CompiledCode>>,
+    pub compiled: Arc<LazyHash<CompiledCode>>,
     /// The parameters of the closure.
     params: Vec<(Option<Register>, Param)>,
     /// The captured values and where to store them.
@@ -35,12 +35,12 @@ impl Closure {
     /// Creates a new closure.
     #[comemo::memoize]
     pub fn new(
-        compiled: Arc<Prehashed<CompiledCode>>,
+        compiled: Arc<LazyHash<CompiledCode>>,
         params: Vec<(Option<Register>, Param)>,
         captures: Vec<(Register, Value)>,
     ) -> Closure {
         Self {
-            inner: Arc::new(Prehashed::new(Repr { compiled, params, captures })),
+            inner: Arc::new(LazyHash::new(Repr { compiled, params, captures })),
         }
     }
 
@@ -93,7 +93,7 @@ impl Closure {
             })
             .collect();
 
-        Self::new(Arc::new(Prehashed::new(compiled)), params, Vec::new())
+        Self::new(Arc::new(LazyHash::new(compiled)), params, Vec::new())
     }
 
     pub fn name(&self) -> Option<&'static str> {

@@ -4,7 +4,6 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::{iter, mem, ptr};
 
-use comemo::Prehashed;
 use ecow::{eco_vec, EcoString, EcoVec};
 use smallvec::SmallVec;
 
@@ -16,6 +15,7 @@ use crate::foundations::{
 };
 use crate::syntax::Span;
 use crate::text::{FontFamily, FontList, TextElem};
+use crate::util::LazyHash;
 
 /// Provides access to active styles.
 ///
@@ -66,7 +66,7 @@ impl Show for Packed<StyleElem> {
 /// A list of style properties.
 #[ty(cast)]
 #[derive(Default, PartialEq, Clone, Hash)]
-pub struct Styles(EcoVec<Prehashed<Style>>);
+pub struct Styles(EcoVec<LazyHash<Style>>);
 
 impl Styles {
     /// Create a new, empty style list.
@@ -99,7 +99,7 @@ impl Styles {
     /// style map, `self` contributes the outer values and `value` is the inner
     /// one.
     pub fn set(&mut self, style: impl Into<Style>) {
-        self.0.push(Prehashed::new(style.into()));
+        self.0.push(LazyHash::new(style.into()));
     }
 
     /// Remove the style that was last set.
@@ -115,19 +115,19 @@ impl Styles {
 
     /// Apply one outer styles.
     pub fn apply_one(&mut self, outer: Style) {
-        self.0.insert(0, Prehashed::new(outer));
+        self.0.insert(0, LazyHash::new(outer));
     }
 
     /// Apply a slice of outer styles.
-    pub fn apply_slice(&mut self, outer: &[Prehashed<Style>]) {
+    pub fn apply_slice(&mut self, outer: &[LazyHash<Style>]) {
         self.0 = outer.iter().cloned().chain(mem::take(self).0).collect();
     }
 
     pub fn push(&mut self, style: impl Into<Style>) {
-        self.0.push(Prehashed::new(style.into()));
+        self.0.push(LazyHash::new(style.into()));
     }
 
-    pub fn push_all<I: Into<Prehashed<Style>>>(
+    pub fn push_all<I: Into<LazyHash<Style>>>(
         &mut self,
         styles: impl IntoIterator<Item = I>,
     ) {
@@ -135,18 +135,16 @@ impl Styles {
     }
 
     /// Get the inner value for a style property.
-    pub fn as_slice(&self) -> &[Prehashed<Style>] {
+    pub fn as_slice(&self) -> &[LazyHash<Style>] {
         self.0.as_slice()
     }
 
     /// Add an origin span to all contained properties.
     pub fn spanned(mut self, span: Span) -> Self {
         for entry in self.0.make_mut() {
-            entry.update(|entry| {
-                if let Style::Property(property) = entry {
-                    property.span = Some(span);
-                }
-            });
+            if let Style::Property(property) = &mut **entry {
+                property.span = Some(span);
+            }
         }
         self
     }
@@ -173,23 +171,23 @@ impl Styles {
 }
 
 impl IntoIterator for Styles {
-    type Item = Prehashed<Style>;
-    type IntoIter = ecow::vec::IntoIter<Prehashed<Style>>;
+    type Item = LazyHash<Style>;
+    type IntoIter = ecow::vec::IntoIter<LazyHash<Style>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
 }
 
-impl From<Prehashed<Style>> for Styles {
-    fn from(style: Prehashed<Style>) -> Self {
+impl From<LazyHash<Style>> for Styles {
+    fn from(style: LazyHash<Style>) -> Self {
         Self(eco_vec![style])
     }
 }
 
 impl From<Style> for Styles {
     fn from(style: Style) -> Self {
-        Self(eco_vec![Prehashed::new(style)])
+        Self(eco_vec![LazyHash::new(style)])
     }
 }
 
@@ -293,8 +291,8 @@ impl Property {
     }
 
     /// Turn this property into prehashed style.
-    pub fn wrap(self) -> Prehashed<Style> {
-        Prehashed::new(Style::Property(self))
+    pub fn wrap(self) -> LazyHash<Style> {
+        LazyHash::new(Style::Property(self))
     }
 }
 
@@ -485,7 +483,7 @@ cast! {
 #[derive(Default, Clone, Copy, Hash)]
 pub struct StyleChain<'a> {
     /// The first link of this chain.
-    head: &'a [Prehashed<Style>],
+    head: &'a [LazyHash<Style>],
     /// The remaining links in the chain.
     tail: Option<&'a Self>,
 }
@@ -649,7 +647,7 @@ pub trait Chainable {
     fn chain<'a>(&'a self, outer: &'a StyleChain<'_>) -> StyleChain<'a>;
 }
 
-impl Chainable for Prehashed<Style> {
+impl Chainable for LazyHash<Style> {
     fn chain<'a>(&'a self, outer: &'a StyleChain<'_>) -> StyleChain<'a> {
         StyleChain {
             head: std::slice::from_ref(self),
@@ -658,7 +656,7 @@ impl Chainable for Prehashed<Style> {
     }
 }
 
-impl Chainable for [Prehashed<Style>] {
+impl Chainable for [LazyHash<Style>] {
     fn chain<'a>(&'a self, outer: &'a StyleChain<'_>) -> StyleChain<'a> {
         if self.is_empty() {
             *outer
@@ -668,7 +666,7 @@ impl Chainable for [Prehashed<Style>] {
     }
 }
 
-impl<const N: usize> Chainable for [Prehashed<Style>; N] {
+impl<const N: usize> Chainable for [LazyHash<Style>; N] {
     fn chain<'a>(&'a self, outer: &'a StyleChain<'_>) -> StyleChain<'a> {
         Chainable::chain(self.as_slice(), outer)
     }
@@ -682,7 +680,7 @@ impl Chainable for Styles {
 
 /// An iterator over the entries in a style chain.
 struct Entries<'a> {
-    inner: std::slice::Iter<'a, Prehashed<Style>>,
+    inner: std::slice::Iter<'a, LazyHash<Style>>,
     links: Links<'a>,
 }
 
@@ -707,7 +705,7 @@ impl<'a> Iterator for Entries<'a> {
 struct Links<'a>(Option<StyleChain<'a>>);
 
 impl<'a> Iterator for Links<'a> {
-    type Item = &'a [Prehashed<Style>];
+    type Item = &'a [LazyHash<Style>];
 
     fn next(&mut self) -> Option<Self::Item> {
         let StyleChain { head, tail } = self.0?;

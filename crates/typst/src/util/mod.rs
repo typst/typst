@@ -9,11 +9,13 @@ mod deferred;
 #[macro_use]
 mod pico;
 mod scalar;
+mod hash;
 
 pub use self::bitset::BitSet;
 pub use self::deferred::Deferred;
 pub use self::pico::PicoStr;
 pub use self::scalar::Scalar;
+pub use self::hash::{LazyHash, MISSES, HITS};
 
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
@@ -48,6 +50,13 @@ pub fn hash128<T: Hash + ?Sized>(value: &T) -> u128 {
     let mut state = SipHasher13::new();
     value.hash(&mut state);
     state.finish128().as_u128()
+}
+
+/// Calculate a 128-bit siphash of a value.
+pub fn hash128_tuple<T: Hash + ?Sized>(value: &T) -> (u64, u64) {
+    let mut state = SipHasher13::new();
+    value.hash(&mut state);
+    state.finish128().as_u64()
 }
 
 /// An extra constant for [`NonZeroUsize`].

@@ -121,6 +121,7 @@ xmp-writer = "0.2"
 xz2 = "0.1"
 yaml-front-matter = "0.1"
 zip = { version = "0.6", default-features = false, features = ["deflate"] }
+atomic = "0.6.0"
 
 [profile.dev.package."*"]
 opt-level = 2

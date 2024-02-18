@@ -1,9 +1,8 @@
-use comemo::Prehashed;
-
 use crate::foundations::{func, Cast, Content, Smart, Style, StyleChain};
 use crate::layout::Abs;
 use crate::math::{EquationElem, MathContext};
 use crate::text::TextElem;
+use crate::util::LazyHash;
 
 /// Bold font style in math.
 ///
@@ -253,17 +252,17 @@ pub fn scaled_font_size(ctx: &MathContext, styles: StyleChain) -> Abs {
 }
 
 /// Styles something as cramped.
-pub fn style_cramped() -> Prehashed<Style> {
+pub fn style_cramped() -> LazyHash<Style> {
     EquationElem::set_cramped(true).wrap()
 }
 
 /// The style for subscripts in the current style.
-pub fn style_for_subscript(styles: StyleChain) -> [Prehashed<Style>; 2] {
+pub fn style_for_subscript(styles: StyleChain) -> [LazyHash<Style>; 2] {
     [style_for_superscript(styles), EquationElem::set_cramped(true).wrap()]
 }
 
 /// The style for superscripts in the current style.
-pub fn style_for_superscript(styles: StyleChain) -> Prehashed<Style> {
+pub fn style_for_superscript(styles: StyleChain) -> LazyHash<Style> {
     EquationElem::set_size(match EquationElem::size_in(styles) {
         MathSize::Display | MathSize::Text => MathSize::Script,
         MathSize::Script | MathSize::ScriptScript => MathSize::ScriptScript,
@@ -272,7 +271,7 @@ pub fn style_for_superscript(styles: StyleChain) -> Prehashed<Style> {
 }
 
 /// The style for numerators in the current style.
-pub fn style_for_numerator(styles: StyleChain) -> Prehashed<Style> {
+pub fn style_for_numerator(styles: StyleChain) -> LazyHash<Style> {
     EquationElem::set_size(match EquationElem::size_in(styles) {
         MathSize::Display => MathSize::Text,
         MathSize::Text => MathSize::Script,
@@ -282,7 +281,7 @@ pub fn style_for_numerator(styles: StyleChain) -> Prehashed<Style> {
 }
 
 /// The style for denominators in the current style.
-pub fn style_for_denominator(styles: StyleChain) -> [Prehashed<Style>; 2] {
+pub fn style_for_denominator(styles: StyleChain) -> [LazyHash<Style>; 2] {
     [style_for_numerator(styles), EquationElem::set_cramped(true).wrap()]
 }
 

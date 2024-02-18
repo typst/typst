@@ -6,7 +6,6 @@ use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Deref, DerefMut};
 use std::sync::Arc;
 
-use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
 use smallvec::smallvec;
@@ -22,7 +21,7 @@ use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, 
 use crate::model::{Destination, EmphElem, StrongElem};
 use crate::syntax::Span;
 use crate::text::UnderlineElem;
-use crate::util::{fat, BitSet};
+use crate::util::{fat, BitSet, LazyHash};
 
 /// A piece of document content.
 ///
@@ -90,7 +89,7 @@ struct Inner<T: ?Sized> {
     ///   recipe from the top of the style chain (counting from 1).
     lifecycle: BitSet,
     /// The element's raw data.
-    elem: T,
+    elem: LazyHash<T>,
 }
 
 impl Content {
@@ -101,7 +100,7 @@ impl Content {
                 label: None,
                 location: None,
                 lifecycle: BitSet::new(),
-                elem,
+                elem: LazyHash::new(elem),
             }),
             span: Span::detached(),
         }
@@ -232,9 +231,9 @@ impl Content {
         let Some(first) = iter.next() else { return Self::empty() };
         let Some(second) = iter.next() else { return first };
         SequenceElem::new(
-            std::iter::once(Prehashed::new(first))
-                .chain(std::iter::once(Prehashed::new(second)))
-                .chain(iter.map(Prehashed::new))
+            std::iter::once(first)
+                .chain(std::iter::once(second))
+                .chain(iter)
                 .collect(),
         )
         .into()
@@ -272,6 +271,7 @@ impl Content {
         if Arc::strong_count(arc) > 1 || Arc::weak_count(arc) > 0 {
             *self = arc.elem.dyn_clone(arc, self.span);
         }
+
         Arc::get_mut(&mut self.inner).unwrap()
     }
 
@@ -333,7 +333,7 @@ impl Content {
     }
 
     /// Access the children if this is a sequence.
-    pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Prehashed<Content>>> {
+    pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Content>> {
         let sequence = self.to_packed::<SequenceElem>()?;
         Some(sequence.children.iter())
     }
@@ -393,7 +393,7 @@ impl Content {
             style_elem.styles.apply(styles);
             self
         } else {
-            StyledElem::new(Prehashed::new(self), styles).into()
+            StyledElem::new(self, styles).into()
         }
     }
 
@@ -634,11 +634,11 @@ impl Add for Content {
                 lhs
             }
             (Some(seq_lhs), None) => {
-                seq_lhs.children.push(Prehashed::new(rhs));
+                seq_lhs.children.push(rhs);
                 lhs
             }
             (None, Some(rhs_seq)) => {
-                rhs_seq.children.insert(0, Prehashed::new(lhs));
+                rhs_seq.children.insert(0, lhs);
                 rhs
             }
             (None, None) => Self::sequence([lhs, rhs]),
@@ -673,7 +673,7 @@ impl Add for &Content {
 
                 let mut sequence = Vec::with_capacity(seq_lhs.children.len() + 1);
                 sequence.extend(seq_lhs.children.iter().cloned());
-                sequence.push(Prehashed::new(rhs.clone()));
+                sequence.push(rhs.clone());
                 SequenceElem::new(sequence).pack().spanned(seq_lhs.span())
             }
             (None, Some(seq_rhs)) => {
@@ -682,7 +682,7 @@ impl Add for &Content {
                 }
 
                 let mut sequence = Vec::with_capacity(seq_rhs.children.len() + 1);
-                sequence.push(Prehashed::new(self.clone()));
+                sequence.push(self.clone());
                 sequence.extend(seq_rhs.children.iter().cloned());
                 SequenceElem::new(sequence).pack().spanned(seq_rhs.span())
             }
@@ -706,7 +706,7 @@ impl<'a> Add<&'a Self> for Content {
                 lhs
             }
             (Some(seq_lhs), None) => {
-                seq_lhs.children.push(Prehashed::new(rhs.clone()));
+                seq_lhs.children.push(rhs.clone());
                 lhs
             }
             (None, Some(_)) => {
@@ -714,7 +714,7 @@ impl<'a> Add<&'a Self> for Content {
                 rhs.to_packed_mut::<SequenceElem>()
                     .unwrap()
                     .children
-                    .insert(0, Prehashed::new(lhs));
+                    .insert(0, lhs);
                 rhs
             }
             (None, None) => Self::sequence([lhs, rhs.clone()]),
@@ -776,7 +776,7 @@ impl<T: NativeElement> Bounds for T {
                 label: inner.label,
                 location: inner.location,
                 lifecycle: inner.lifecycle.clone(),
-                elem: self.clone(),
+                elem: LazyHash::new(self.clone()),
             }),
             span,
         }
@@ -908,7 +908,7 @@ impl<T: NativeElement> Deref for Packed<T> {
         //   an element of type `T`.
         // - This downcast works the same way as dyn Any's does. We can't reuse
         //   that one because we don't want to pay the cost for every deref.
-        let elem = &self.0.inner.elem;
+        let elem = &self.0.inner.elem.value;
         unsafe { &*(elem as *const dyn Bounds as *const T) }
     }
 }
@@ -921,7 +921,7 @@ impl<T: NativeElement> DerefMut for Packed<T> {
         // - We have guaranteed unique access thanks to `make_mut`.
         // - This downcast works the same way as dyn Any's does. We can't reuse
         //   that one because we don't want to pay the cost for every deref.
-        let elem = &mut self.0.make_mut().elem;
+        let elem = &mut self.0.make_mut().elem.value;
         unsafe { &mut *(elem as *mut dyn Bounds as *mut T) }
     }
 }
@@ -936,15 +936,15 @@ impl<T: NativeElement + Debug> Debug for Packed<T> {
 #[elem(Debug, Repr, PartialEq)]
 pub struct SequenceElem {
     #[required]
-    children: Vec<Prehashed<Content>>,
+    children: Vec<Content>,
 }
 
 impl SequenceElem {
     pub fn push(&mut self, child: impl Into<Content>) {
-        self.children.push(Prehashed::new(child.into()));
+        self.children.push(child.into());
     }
 
-    pub fn children_mut(&mut self) -> std::slice::IterMut<Prehashed<Content>> {
+    pub fn children_mut(&mut self) -> std::slice::IterMut<Content> {
         self.children.iter_mut()
     }
 
@@ -957,7 +957,7 @@ impl SequenceElem {
     }
 
     pub fn pop(&mut self) -> Option<Content> {
-        self.children.pop().map(|c| c.into_inner())
+        self.children.pop()
     }
 }
 
@@ -980,8 +980,7 @@ impl PartialEq for SequenceElem {
     fn eq(&self, other: &Self) -> bool {
         self.children
             .iter()
-            .map(|c| &**c)
-            .eq(other.children.iter().map(|c| &**c))
+            .eq(other.children.iter())
     }
 }
 
@@ -1009,7 +1008,7 @@ impl Repr for SequenceElem {
 #[elem(Debug, Repr, PartialEq)]
 struct StyledElem {
     #[required]
-    child: Prehashed<Content>,
+    child: Content,
     #[required]
     styles: Styles,
 }
@@ -1025,7 +1024,7 @@ impl Debug for StyledElem {
 
 impl PartialEq for StyledElem {
     fn eq(&self, other: &Self) -> bool {
-        *self.child == *other.child
+        self.child == other.child
     }
 }
 

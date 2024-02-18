@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use comemo::Prehashed;
 use typst_syntax::ast::{self, AstNode};
 use typst_syntax::Span;
 
 use crate::engine::Engine;
+use crate::util::LazyHash;
 use crate::vm::Closure;
 use crate::{diag::SourceResult, util::PicoStr};
 
@@ -17,7 +17,7 @@ use super::{
 #[derive(Clone, Hash, PartialEq)]
 pub enum CompiledClosure {
     /// A closure that has been compiled but is not yet instantiated.
-    Closure(Arc<Prehashed<CompiledCode>>),
+    Closure(Arc<LazyHash<CompiledCode>>),
     /// A closure that has been instantiated statically.
     ///
     /// This is used for closures that do not capture any variables.
@@ -39,7 +39,7 @@ impl CompiledClosure {
         let has_captures = !resource.captures.as_ref().map_or(false, |c| c.is_empty());
 
         if has_defaults || has_captures {
-            Self::Closure(Arc::new(Prehashed::new(resource)))
+            Self::Closure(Arc::new(LazyHash::new(resource)))
         } else {
             let scope = compiler.scope.borrow();
             Self::Instanciated(Closure::no_instance(

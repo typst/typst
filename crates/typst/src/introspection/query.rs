@@ -157,6 +157,6 @@ pub fn query(
     let _ = location;
     let vec = engine.introspector.query(&target.0);
     vec.into_iter()
-        .map(|elem| Value::Content(elem.into_inner()))
+        .map(|elem| Value::Content(elem))
         .collect()
 }

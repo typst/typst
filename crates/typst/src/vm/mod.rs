@@ -246,7 +246,7 @@ impl Joiner {
                         bail!("nothing to label");
                     };
 
-                    last.update(|elem| elem.set_label(label));
+                    last.set_label(label);
 
                     Ok(Joiner::Display(content))
                 }
@@ -259,7 +259,7 @@ impl Joiner {
                         bail!("nothing to label");
                     };
 
-                    last.update(|elem| elem.set_label(label));
+                    last.set_label(label);
 
                     Ok(Joiner::Styled { parent, content, styles })
                 }
@@ -272,7 +272,7 @@ impl Joiner {
                         bail!("nothing to label");
                     };
 
-                    last.update(|elem| elem.set_label(label));
+                    last.set_label(label);
 
                     Ok(Joiner::Recipe { parent, content, recipe })
                 }
