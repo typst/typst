@@ -79,9 +79,9 @@ pub struct EquationElem {
 
     /// The alignment of the equation numbering.
     ///
-    /// By default, the number is put at the `{end}` of the equation block. Both `{start}`
-    /// and `{end}` respects text direction; for absolute positioning, use `{left}` or
-    /// `{right}`.
+    /// By default, the number is put at the `{end}` of the equation block. Both
+    /// `{start}` and `{end}` respects text direction; for absolute positioning,
+    /// use `{left}` or `{right}`.
     ///
     /// ```example
     /// #set math.equation(numbering: "(1)", number-align: start)
