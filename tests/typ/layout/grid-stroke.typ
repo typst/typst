@@ -185,6 +185,48 @@
 )
 
 ---
+// Test left and right for grid vlines.
+#grid(
+  columns: 3,
+  inset: 5pt,
+  grid.vline(stroke: green, position: left), grid.vline(stroke: red, position: right), [a],
+  grid.vline(stroke: 2pt, position: left), grid.vline(stroke: red, position: right), [b],
+  grid.vline(stroke: 2pt, position: left), grid.vline(stroke: red, position: right), [c],
+  grid.vline(stroke: 2pt, position: left)
+)
+
+#grid(
+  columns: 3,
+  inset: 5pt,
+  gutter: 3pt,
+  grid.vline(stroke: green, position: left), grid.vline(stroke: red, position: right), [a],
+  grid.vline(stroke: blue, position: left), grid.vline(stroke: red, position: right), [b],
+  grid.vline(stroke: blue, position: left), grid.vline(stroke: red, position: right), [c],
+  grid.vline(stroke: 2pt, position: left)
+)
+
+---
+// Test left and right for table vlines.
+#table(
+  columns: 3,
+  inset: 5pt,
+  table.vline(stroke: green, position: left), table.vline(stroke: red, position: right), [a],
+  table.vline(stroke: 2pt, position: left), table.vline(stroke: red, position: right), [b],
+  table.vline(stroke: 2pt, position: left), table.vline(stroke: red, position: right), [c],
+  table.vline(stroke: 2pt, position: left)
+)
+
+#table(
+  columns: 3,
+  inset: 5pt,
+  gutter: 3pt,
+  table.vline(stroke: green, position: left), table.vline(stroke: red, position: right), [a],
+  table.vline(stroke: blue, position: left), table.vline(stroke: red, position: right), [b],
+  table.vline(stroke: blue, position: left), table.vline(stroke: red, position: right), [c],
+  table.vline(stroke: 2pt, position: left)
+)
+
+---
 // Hlines and vlines should always appear on top of cell strokes.
 #table(
   columns: 3,

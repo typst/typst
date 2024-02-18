@@ -88,3 +88,52 @@
   [e], [g], grid.cell(colspan: 2)[eee\ e\ e\ e],
   grid.cell(colspan: 4)[eeee e e e]
 )
+
+---
+// Test left and right for vlines in RTL
+#set text(dir: rtl)
+#grid(
+  columns: 3,
+  inset: 5pt,
+  grid.vline(stroke: red, position: left), grid.vline(stroke: green, position: right), [a],
+  grid.vline(stroke: red, position: left), grid.vline(stroke: 2pt, position: right), [b],
+  grid.vline(stroke: red, position: left), grid.vline(stroke: 2pt, position: right), [c],
+  grid.vline(stroke: aqua, position: right)
+)
+
+#grid(
+  columns: 3,
+  inset: 5pt,
+  gutter: 3pt,
+  grid.vline(stroke: green, position: left), grid.vline(stroke: red, position: right), [a],
+  grid.vline(stroke: blue, position: left), grid.vline(stroke: red, position: right), [b],
+  grid.vline(stroke: blue, position: left), grid.vline(stroke: red, position: right), [c],
+  grid.vline(stroke: 2pt, position: right)
+)
+
+#grid(
+  columns: 3,
+  inset: 5pt,
+  grid.vline(stroke: green, position: start), grid.vline(stroke: red, position: end), [a],
+  grid.vline(stroke: 2pt, position: start), grid.vline(stroke: red, position: end), [b],
+  grid.vline(stroke: 2pt, position: start), grid.vline(stroke: red, position: end), [c],
+  grid.vline(stroke: 2pt, position: start)
+)
+
+#grid(
+  columns: 3,
+  inset: 5pt,
+  gutter: 3pt,
+  grid.vline(stroke: green, position: start), grid.vline(stroke: red, position: end), [a],
+  grid.vline(stroke: blue, position: start), grid.vline(stroke: red, position: end), [b],
+  grid.vline(stroke: blue, position: start), grid.vline(stroke: red, position: end), [c],
+  grid.vline(stroke: 2pt, position: start)
+)
+
+---
+// Error: 3:8-3:34 cannot place vertical line at the 'end' position of the end border (x = 1)
+// Hint: 3:8-3:34 set the line's position to 'start' or place it at a smaller 'x' index
+#set text(dir: rtl)
+#grid(
+  [a], grid.vline(position: left)
+)
