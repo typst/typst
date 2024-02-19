@@ -68,8 +68,8 @@ impl<T: Hash + ?Sized + 'static> LazyHash<T> {
 
     /// Reset the hash to zero.
     #[inline]
-    fn reset_hash(&self) {
-        *self.hash.write() = 0;
+    fn reset_hash(&mut self) {
+        *self.hash.get_mut() = 0;
     }
 
     /// Get the hash or compute it if not set yet.
