@@ -164,13 +164,8 @@ impl MathRow {
         align: FixedAlignment,
     ) -> MathRowFrameBuilder {
         let rows: Vec<_> = self.rows();
+        let row_count = rows.len();
         let alignments = alignments(&rows);
-
-        if !self.is_multiline() {
-            let frame = self.into_line_frame(&alignments.points, align);
-            let size = Size { x: frame.width(), y: frame.height() };
-            return MathRowFrameBuilder { size, frames: vec![(frame, Point::zero())] };
-        }
 
         let leading = if EquationElem::size_in(styles) >= MathSize::Text {
             ParElem::leading_in(styles)
@@ -181,7 +176,6 @@ impl MathRow {
 
         let mut frames: Vec<(Frame, Point)> = vec![];
         let mut size = Size::zero();
-        let row_count = rows.len();
         for (i, row) in rows.into_iter().enumerate() {
             if i == row_count - 1 && row.0.is_empty() {
                 continue;
@@ -387,16 +381,12 @@ pub struct MathRowFrameBuilder {
 
 impl MathRowFrameBuilder {
     /// Consumes the builder and returns a `Frame`.
-    pub fn build(mut self) -> Frame {
-        if self.frames.len() == 1 {
-            return self.frames.pop().unwrap().0;
+    pub fn build(self) -> Frame {
+        let mut frame = Frame::soft(self.size);
+        for (sub, pos) in self.frames.into_iter() {
+            frame.push_frame(pos, sub);
         }
 
-        let mut big_frame = Frame::soft(self.size);
-        for (frame, pos) in self.frames.into_iter() {
-            big_frame.push_frame(pos, frame);
-        }
-
-        big_frame
+        frame
     }
 }
