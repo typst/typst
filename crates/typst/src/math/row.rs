@@ -142,7 +142,11 @@ impl MathRow {
 
     pub fn into_frame(self, ctx: &MathContext, styles: StyleChain) -> Frame {
         let align = AlignElem::alignment_in(styles).resolve(styles).x;
-        self.aligned_frame_builder(ctx, styles, &[], align).build()
+        if !self.is_multiline() {
+            self.into_line_frame(&[], align)
+        } else {
+            self.aligned_frame_builder(ctx, styles, align).build()
+        }
     }
 
     pub fn into_fragment(self, ctx: &MathContext, styles: StyleChain) -> MathFragment {
@@ -157,14 +161,13 @@ impl MathRow {
         self,
         ctx: &MathContext,
         styles: StyleChain,
-        points_for_oneline: &[Abs],
         align: FixedAlignment,
     ) -> MathRowFrameBuilder {
         let rows: Vec<_> = self.rows();
         let alignments = alignments(&rows);
 
-        if !self.iter().any(|frag| matches!(frag, MathFragment::Linebreak)) {
-            let frame = self.into_line_frame(points_for_oneline, align);
+        if !self.is_multiline() {
+            let frame = self.into_line_frame(&alignments.points, align);
             let size = Size { x: frame.width(), y: frame.height() };
             return MathRowFrameBuilder { size, frames: vec![(frame, Point::zero())] };
         }
@@ -202,7 +205,7 @@ impl MathRow {
         MathRowFrameBuilder { size, frames }
     }
 
-    fn into_line_frame(self, points: &[Abs], align: FixedAlignment) -> Frame {
+    pub fn into_line_frame(self, points: &[Abs], align: FixedAlignment) -> Frame {
         let ascent = self.ascent();
         let mut frame = Frame::soft(Size::new(Abs::zero(), ascent + self.descent()));
         frame.set_baseline(ascent);
@@ -341,6 +344,10 @@ impl MathRow {
         }
 
         items
+    }
+
+    fn is_multiline(&self) -> bool {
+        self.iter().any(|frag| matches!(frag, MathFragment::Linebreak))
     }
 }
 
