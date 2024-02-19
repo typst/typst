@@ -254,7 +254,7 @@ impl Dict {
     }
 }
 
-/// A value that can be cast to bytes.
+/// A value that can be cast to dictionary.
 pub struct ToDict(Dict);
 
 cast! {
