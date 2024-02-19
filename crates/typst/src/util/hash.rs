@@ -63,7 +63,7 @@ impl<T: Hash + ?Sized + 'static> LazyHash<T> {
     /// Get the hash, returns zero if not computed yet.
     #[inline]
     pub fn hash(&self) -> u128 {
-        self.hash.read().clone()
+        *self.hash.read()
     }
 
     /// Reset the hash to zero.
