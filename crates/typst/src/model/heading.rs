@@ -129,6 +129,8 @@ pub struct HeadingElem {
     /// with the first one.
     ///
     /// ```example
+    /// #set heading(numbering: "1.")
+    ///
     /// #heading[Multiline heading]
     /// The second line of this heading
     /// will be aligned to the left side of
