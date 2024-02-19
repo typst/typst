@@ -19,7 +19,6 @@ bench = false
 typst-macros = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
-atomic = { workspace = true }
 az = { workspace = true }
 bitflags = { workspace = true }
 chinese-number = { workspace = true }
@@ -44,6 +43,7 @@ log = { workspace = true }
 once_cell = { workspace = true }
 palette = { workspace = true }
 qcms = { workspace = true }
+parking_lot = { workspace = true }
 phf = { workspace = true }
 rayon = { workspace = true }
 regex = { workspace = true }

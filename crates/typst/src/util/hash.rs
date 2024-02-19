@@ -2,9 +2,8 @@ use std::any::Any;
 use std::fmt::{self, Debug};
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
-use std::sync::atomic::Ordering;
 
-use atomic::Atomic;
+use parking_lot::RwLock;
 use siphasher::sip128::{Hasher128, SipHasher13};
 
 /// A wrapper type with lazily-computed hash.
@@ -31,7 +30,7 @@ use siphasher::sip128::{Hasher128, SipHasher13};
 /// has been computed.
 pub struct LazyHash<T: ?Sized> {
     /// The hash for the value.
-    hash: Atomic<u128>,
+    hash: RwLock<u128>,
     /// The underlying value.
     value: T,
 }
@@ -40,7 +39,7 @@ impl<T> LazyHash<T> {
     /// Wrap an item without pre-computed hash.
     #[inline]
     pub fn new(value: T) -> Self {
-        Self { hash: Atomic::new(0), value }
+        Self { hash: RwLock::new(0), value }
     }
 
     /// Wrap an item with a pre-computed hash.
@@ -50,7 +49,7 @@ impl<T> LazyHash<T> {
     /// compile time, so use with caution.
     #[inline]
     pub unsafe fn with_hash(value: T, hash: u128) -> Self {
-        Self { hash: Atomic::new(hash), value }
+        Self { hash: RwLock::new(hash), value }
     }
 
     /// Return the wrapped value.
@@ -64,32 +63,32 @@ impl<T: Hash + ?Sized + 'static> LazyHash<T> {
     /// Get the hash, returns zero if not computed yet.
     #[inline]
     pub fn hash(&self) -> u128 {
-        self.hash.load(Ordering::Acquire)
+        self.hash.read().clone()
     }
 
     /// Reset the hash to zero.
     #[inline]
     fn reset_hash(&self) {
-        self.hash.store(0, Ordering::Release);
+        *self.hash.write() = 0;
     }
 
     /// Get the hash or compute it if not set yet.
     #[inline]
     fn get_or_set_hash(&self) -> u128 {
-        let hashed = self.hash();
-        if hashed == 0 {
-            let hashed = hash(&self.value);
-            self.hash.store(hashed, Ordering::Release);
+        let mut hash = self.hash.upgradable_read();
+        if *hash == 0 {
+            let hashed = hash_item(&self.value);
+            hash.with_upgraded(|hash| *hash = hashed);
             hashed
         } else {
-            hashed
+            *hash
         }
     }
 }
 
 /// Hash the item.
 #[inline]
-fn hash<T: Hash + ?Sized + 'static>(item: &T) -> u128 {
+fn hash_item<T: Hash + ?Sized + 'static>(item: &T) -> u128 {
     // Also hash the TypeId because the type might be converted
     // through an unsized coercion.
     let mut state = SipHasher13::new();
@@ -141,7 +140,7 @@ impl<T: Hash + ?Sized + 'static> DerefMut for LazyHash<T> {
 impl<T: Hash + Clone + 'static> Clone for LazyHash<T> {
     fn clone(&self) -> Self {
         Self {
-            hash: Atomic::new(self.hash()),
+            hash: RwLock::new(self.hash()),
             value: self.value.clone(),
         }
     }
