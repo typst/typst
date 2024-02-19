@@ -312,7 +312,7 @@ pub(super) fn stack(
     let AlignmentResult { points, width } = alignments(&rows);
     let rows: Vec<_> = rows
         .into_iter()
-        .map(|row| row.into_aligned_frame(ctx, styles, &points, align))
+        .map(|row| row.aligned_frame_builder(ctx, styles, &points, align).build())
         .collect();
 
     let mut y = Abs::zero();

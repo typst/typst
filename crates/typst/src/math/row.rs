@@ -5,8 +5,8 @@ use unicode_math_class::MathClass;
 use crate::foundations::{Resolve, StyleChain};
 use crate::layout::{Abs, AlignElem, Em, FixedAlignment, Frame, FrameKind, Point, Size};
 use crate::math::{
-    alignments, scaled_font_size, spacing, AlignmentResult, EquationElem, FrameFragment,
-    MathContext, MathFragment, MathParItem, MathSize,
+    alignments, scaled_font_size, spacing, EquationElem, FrameFragment, MathContext,
+    MathFragment, MathParItem, MathSize,
 };
 use crate::model::ParElem;
 
@@ -142,7 +142,7 @@ impl MathRow {
 
     pub fn into_frame(self, ctx: &MathContext, styles: StyleChain) -> Frame {
         let align = AlignElem::alignment_in(styles).resolve(styles).x;
-        self.into_aligned_frame(ctx, styles, &[], align)
+        self.aligned_frame_builder(ctx, styles, &[], align).build()
     }
 
     pub fn into_fragment(self, ctx: &MathContext, styles: StyleChain) -> MathFragment {
@@ -153,15 +153,20 @@ impl MathRow {
         }
     }
 
-    pub fn into_aligned_frame(
+    pub fn aligned_frame_builder(
         self,
         ctx: &MathContext,
         styles: StyleChain,
-        points: &[Abs],
+        points_for_oneline: &[Abs],
         align: FixedAlignment,
-    ) -> Frame {
+    ) -> MathRowFrameBuilder {
+        let rows: Vec<_> = self.rows();
+        let alignments = alignments(&rows);
+
         if !self.iter().any(|frag| matches!(frag, MathFragment::Linebreak)) {
-            return self.into_line_frame(points, align);
+            let frame = self.into_line_frame(points_for_oneline, align);
+            let size = Size { x: frame.width(), y: frame.height() };
+            return MathRowFrameBuilder { size, frames: vec![(frame, Point::zero())] };
         }
 
         let leading = if EquationElem::size_in(styles) >= MathSize::Text {
@@ -171,32 +176,30 @@ impl MathRow {
             TIGHT_LEADING.at(font_size)
         };
 
-        let mut rows: Vec<_> = self.rows();
-
-        if matches!(rows.last(), Some(row) if row.0.is_empty()) {
-            rows.pop();
-        }
-
-        let AlignmentResult { points, width } = alignments(&rows);
-        let mut frame = Frame::soft(Size::zero());
-
+        let mut frames: Vec<(Frame, Point)> = vec![];
+        let mut size = Size::zero();
+        let row_count = rows.len();
         for (i, row) in rows.into_iter().enumerate() {
-            let sub = row.into_line_frame(&points, align);
-            let size = frame.size_mut();
+            if i == row_count - 1 && row.0.is_empty() {
+                continue;
+            }
+
+            let sub = row.into_line_frame(&alignments.points, align);
+            let sub_size = sub.size();
             if i > 0 {
                 size.y += leading;
             }
 
             let mut pos = Point::with_y(size.y);
-            if points.is_empty() {
-                pos.x = align.position(width - sub.width());
+            if alignments.points.is_empty() {
+                pos.x = align.position(alignments.width - sub_size.x);
             }
-            size.y += sub.height();
             size.x.set_max(sub.width());
-            frame.push_frame(pos, sub);
+            size.y += sub_size.y;
+            frames.push((sub, pos));
         }
 
-        frame
+        MathRowFrameBuilder { size, frames }
     }
 
     fn into_line_frame(self, points: &[Abs], align: FixedAlignment) -> Frame {
@@ -363,5 +366,30 @@ impl Iterator for LeftRightAlternator {
             Self::Right => *self = Self::Left,
         }
         r
+    }
+}
+
+/// How the rows should be aligned and merged into a Frame.
+pub struct MathRowFrameBuilder {
+    /// The size of the resulting frame.
+    size: Size,
+    /// Sub frames, and the positions where they should be pushed into
+    /// the resulting frame.
+    frames: Vec<(Frame, Point)>,
+}
+
+impl MathRowFrameBuilder {
+    /// Consumes the builder and returns a `Frame`.
+    pub fn build(mut self) -> Frame {
+        if self.frames.len() == 1 {
+            return self.frames.pop().unwrap().0;
+        }
+
+        let mut big_frame = Frame::soft(self.size);
+        for (frame, pos) in self.frames.into_iter() {
+            big_frame.push_frame(pos, frame);
+        }
+
+        big_frame
     }
 }

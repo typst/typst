@@ -480,8 +480,9 @@ fn layout_mat_body(
         let mut y = Abs::zero();
 
         for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
-            let cell =
-                cell.into_aligned_frame(ctx, styles, &points, FixedAlignment::Center);
+            let cell = cell
+                .aligned_frame_builder(ctx, styles, &points, FixedAlignment::Center)
+                .build();
             let pos = Point::new(
                 if points.is_empty() { x + (rcol - cell.width()) / 2.0 } else { x },
                 y + ascent - cell.ascent(),
