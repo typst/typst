@@ -322,8 +322,7 @@ cast! {
     }
 }
 
-/// A horizontal alignment which only allows `left`/`right` and `start`/`end`,
-/// thus excluding `center`.
+/// A horizontal alignment which only allows either ends, thus excluding `center`.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum OuterHAlignment {
     #[default]
@@ -439,8 +438,7 @@ cast! {
     }
 }
 
-/// A vertical alignment which only allows `top` and `bottom`, thus excluding
-/// `horizon`.
+/// A vertical alignment which only allows either ends, thus excluding `horizon`.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum OuterVAlignment {
     #[default]
