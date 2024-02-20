@@ -1782,94 +1782,123 @@ impl<'a> GridLayouter<'a> {
             let rowspan = cell.rowspan.get();
             let rowspan = if self.grid.has_gutter { 2 * rowspan - 1 } else { rowspan };
 
-            let (height, backlog, height_in_this_region, started_in_this_region) =
-                if rowspan > 1 {
-                    let last_spanned_auto_row = self
-                        .grid
-                        .rows
-                        .iter()
-                        .enumerate()
-                        .skip(parent_y)
-                        .take(rowspan)
-                        .rev()
-                        .find(|(_, &row)| row == Sizing::Auto)
-                        .map(|(y, _)| y);
+            // This variable is used to construct a custom backlog if the cell
+            // is a rowspan. When measuring, we join the heights from previous
+            // regions to the current backlog to form the rowspan's expected
+            // backlog.
+            let rowspan_backlog: Vec<Abs>;
+            let (height, backlog, height_in_this_region, started_in_this_region);
+            if rowspan == 1 {
+                // Not a rowspan, so the cell only occupies this row. Therefore:
+                // 1. When we measure the cell below, use the available height
+                // remaining in the region as the height it has available.
+                // 2. Also use the region's backlog when measuring.
+                // 3. No height occupied by this cell in this region so far.
+                // 4. Yes, this cell started in this region.
+                height = self.regions.size.y;
+                backlog = self.regions.backlog;
+                height_in_this_region = Abs::zero();
+                started_in_this_region = true;
+            } else {
+                let last_spanned_auto_row = self
+                    .grid
+                    .rows
+                    .iter()
+                    .enumerate()
+                    .skip(parent_y)
+                    .take(rowspan)
+                    .rev()
+                    .find(|(_, &row)| row == Sizing::Auto)
+                    .map(|(y, _)| y);
 
-                    if last_spanned_auto_row != Some(y) {
-                        // A rowspan should only affect the height of its last
-                        // spanned auto row.
-                        continue;
-                    }
+                if last_spanned_auto_row != Some(y) {
+                    // A rowspan should only affect the height of its last
+                    // spanned auto row.
+                    continue;
+                }
 
-                    // Height of the rowspan covered by spanned rows in the current
-                    // region.
-                    let height_in_this_region: Abs = self
-                        .lrows
-                        .iter()
-                        .filter_map(|row| match row {
-                            Row::Frame(frame, y)
-                                if (parent_y..parent_y + rowspan).contains(y) =>
-                            {
-                                Some(frame.height())
-                            }
-                            // Either we have a row outside of the rowspan, or a
-                            // fractional row, whose size we can't really guess.
-                            _ => None,
-                        })
-                        .sum();
+                // Height of the rowspan covered by spanned rows in the current
+                // region.
+                height_in_this_region = self
+                    .lrows
+                    .iter()
+                    .filter_map(|row| match row {
+                        Row::Frame(frame, y)
+                            if (parent_y..parent_y + rowspan).contains(y) =>
+                        {
+                            Some(frame.height())
+                        }
+                        // Either we have a row outside of the rowspan, or a
+                        // fractional row, whose size we can't really guess.
+                        _ => None,
+                    })
+                    .sum();
 
-                    // Ensure we will measure the rowspan with the correct heights.
-                    // For that, we will gather the total height spanned by this
-                    // rowspan in previous regions.
-                    self.rowspans
-                        .iter()
-                        .find(|data| data.x == parent_x && data.y == parent_y)
-                        .and_then(|data| data.heights.split_first())
-                        .map(|(&height, backlog)| {
-                            // 1. Dereference the height.
-                            // 2. 'data.heights' had values, so the rowspan did not
-                            // start at the current region, as only 'finish_region'
-                            // fills the 'heights' field of rowspans.
-                            (height, backlog, height_in_this_region, false)
-                        })
-                        .unwrap_or_else(|| {
-                            (
-                                // If we're here, the rowspan is in the current region,
-                                // as 'data.heights' was empty, implying none of its
-                                // spanned rows were laid out yet. Therefore, the value
-                                // of 'regions.size' at the rowspan's first row will be
-                                // the total spanned height so far (note that each
-                                // spanned row, when pushed, subtracted its own height
-                                // from 'self.regions.size') plus the current size.
-                                height_in_this_region + self.regions.size.y,
-                                &self.regions.backlog,
-                                height_in_this_region,
-                                // As explained above, the rowspan started in the
-                                // current region.
-                                true,
-                            )
-                        })
+                // Ensure we will measure the rowspan with the correct heights.
+                // For that, we will gather the total height spanned by this
+                // rowspan in previous regions.
+                if let Some([rowspan_height, rowspan_other_heights @ ..]) = self
+                    .rowspans
+                    .iter()
+                    .find(|data| data.x == parent_x && data.y == parent_y)
+                    .map(|data| &*data.heights)
+                {
+                    // The rowspan started in a previous region (as it already
+                    // has at least one region height).
+                    // Therefore, its initial height will be the height in its
+                    // first spanned region, and the backlog will be the
+                    // remaining heights plus the current backlog.
+                    started_in_this_region = false;
+                    rowspan_backlog = if unbreakable {
+                        // No extra backlog if this is an unbreakable auto row.
+                        // Ensure, when measuring, that the rowspan can be laid
+                        // out through all spanned rows which were already laid
+                        // out so far, but don't go further than this region.
+                        rowspan_other_heights
+                            .iter()
+                            .copied()
+                            .chain(std::iter::once(self.initial.y))
+                            .collect::<Vec<_>>()
+                    } else {
+                        // Join the rowspan's already laid out heights with the
+                        // current backlog to have the backlog we can predict
+                        // for it.
+                        rowspan_other_heights
+                            .iter()
+                            .copied()
+                            .chain(std::iter::once(self.initial.y))
+                            .chain(self.regions.backlog.iter().copied())
+                            .collect::<Vec<_>>()
+                    };
+
+                    (height, backlog) = (*rowspan_height, &rowspan_backlog);
                 } else {
-                    // Not a rowspan, so:
-                    // 1. Use the available height remaining in the region.
-                    // 2. Use the same backlog.
-                    // 3. Height occupied in this region so far is zero.
-                    // 4. Yes, this cell started in this region.
-                    (self.regions.size.y, self.regions.backlog, Abs::zero(), true)
-                };
+                    // The rowspan started in the current region.
+                    // Therefore, the height it has available at its first row
+                    // will be the current available size, plus the size
+                    // spanned in previous rows.
+                    // The backlog will be the same as now.
+                    started_in_this_region = true;
+                    height = height_in_this_region + self.regions.size.y;
+                    backlog = &self.regions.backlog;
+                }
+            }
 
             let width = self.cell_spanned_width(x, cell.colspan.get());
 
             let frames = if unbreakable {
                 // Force cell to fit into a single region when the row is unbreakable.
                 let mut pod = Regions::one(Axes::new(width, height), Axes::splat(true));
-                if rowspan > 1 {
-                    // Best effort to conciliate a breakable rowspan going
-                    // through an unbreakable auto row.
-                    pod.size.y += backlog.iter().sum();
-                }
                 pod.full = self.regions.full;
-                vec![cell.measure(engine, self.styles, pod)?.into_frame()]
+                if started_in_this_region {
+                    vec![cell.measure(engine, self.styles, pod)?.into_frame()]
+                } else {
+                    // Best effort to conciliate a breakable rowspan going
+                    // through an unbreakable auto row. Ensure it goes through
+                    // previously laid out regions, but stops at this one.
+                    pod.backlog = backlog;
+                    cell.measure(engine, self.styles, pod)?.into_frames()
+                }
             } else {
                 let mut pod = self.regions;
                 pod.size = Axes::new(width, height);
@@ -1892,7 +1921,11 @@ impl<'a> GridLayouter<'a> {
             // Skip frames from previous regions if applicable.
             let mut sizes = frames
                 .iter()
-                .skip(if !started_in_this_region { backlog.len() + 1 } else { 0 })
+                .skip(if !started_in_this_region {
+                    backlog.len() - self.regions.backlog.len()
+                } else {
+                    0
+                })
                 .map(|frame| frame.height())
                 .collect::<Vec<_>>();
 
