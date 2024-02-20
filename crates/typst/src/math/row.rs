@@ -145,7 +145,7 @@ impl MathRow {
         if !self.is_multiline() {
             self.into_line_frame(&[], align)
         } else {
-            self.aligned_frame_builder(ctx, styles, align).build()
+            self.multiline_frame_builder(ctx, styles, align).build()
         }
     }
 
@@ -157,7 +157,9 @@ impl MathRow {
         }
     }
 
-    pub fn aligned_frame_builder(
+    /// Returns a builder that lays out `MathFragment`s into a multi-row frame. The set
+    /// of alignment points are computed from those rows combined.
+    pub fn multiline_frame_builder(
         self,
         ctx: &MathContext,
         styles: StyleChain,
@@ -199,6 +201,7 @@ impl MathRow {
         MathRowFrameBuilder { size, frames }
     }
 
+    /// Lay out `MathFragment`s into a one-row frame, with alignment points respected.
     pub fn into_line_frame(self, points: &[Abs], align: FixedAlignment) -> Frame {
         let ascent = self.ascent();
         let mut frame = Frame::soft(Size::new(Abs::zero(), ascent + self.descent()));
