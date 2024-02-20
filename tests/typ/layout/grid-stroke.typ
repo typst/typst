@@ -369,3 +369,11 @@
 ---
 // Error: 24-30 expected `start`, `left`, `right`, or `end`, found center
 #table.vline(position: center)
+
+---
+// Error: 24-29 expected `top` or `bottom`, found right
+#table.hline(position: right)
+
+---
+// Error: 24-27 expected `start`, `left`, `right`, or `end`, found top
+#table.vline(position: top)

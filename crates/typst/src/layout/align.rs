@@ -346,11 +346,11 @@ impl From<OuterHAlignment> for HAlignment {
 cast! {
     OuterHAlignment,
     self => HAlignment::from(self).into_value(),
-    align: HAlignment => match align {
-        HAlignment::Start => Self::Start,
-        HAlignment::Left => Self::Left,
-        HAlignment::Right => Self::Right,
-        HAlignment::End => Self::End,
+    align: Alignment => match align {
+        Alignment::H(HAlignment::Start) => Self::Start,
+        Alignment::H(HAlignment::Left) => Self::Left,
+        Alignment::H(HAlignment::Right) => Self::Right,
+        Alignment::H(HAlignment::End) => Self::End,
         v => bail!("expected `start`, `left`, `right`, or `end`, found {}", v.repr()),
     }
 }
@@ -438,9 +438,9 @@ impl From<OuterVAlignment> for VAlignment {
 cast! {
     OuterVAlignment,
     self => VAlignment::from(self).into_value(),
-    align: VAlignment => match align {
-        VAlignment::Top => Self::Top,
-        VAlignment::Bottom => Self::Bottom,
+    align: Alignment => match align {
+        Alignment::V(VAlignment::Top) => Self::Top,
+        Alignment::V(VAlignment::Bottom) => Self::Bottom,
         v => bail!("expected `top` or `bottom`, found {}", v.repr()),
     }
 }
