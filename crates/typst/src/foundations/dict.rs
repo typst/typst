@@ -92,7 +92,9 @@ impl Dict {
 
     /// Remove the value if the dictionary contains the given key.
     pub fn take(&mut self, key: &str) -> StrResult<Value> {
-        Arc::make_mut(&mut self.0).remove(key).ok_or_else(|| missing_key(key))
+        Arc::make_mut(&mut self.0)
+            .shift_remove(key)
+            .ok_or_else(|| missing_key(key))
     }
 
     /// Whether the dictionary contains a specific key.
