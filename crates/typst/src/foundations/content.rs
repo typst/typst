@@ -709,11 +709,7 @@ impl<T: NativeElement> Bounds for T {
                 label: inner.label,
                 location: inner.location,
                 lifecycle: inner.lifecycle.clone(),
-                elem: unsafe {
-                    // SAFETY: The element is known to be of type `T`, and we know
-                    // that `inner.elem` is a `LazyHash<T>`.
-                    LazyHash::with_hash(self.clone(), inner.elem.hash())
-                },
+                elem: LazyHash::with_hash(self.clone(), inner.elem.hash()),
             }),
             span,
         }
