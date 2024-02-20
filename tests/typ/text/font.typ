@@ -30,6 +30,12 @@ Emoji: 🐪, 🌋, 🏞
   This is #text(rgb("FA644B"))[way more] colorful.
 ]
 
+// Transparency.
+#block(fill: green)[
+  #set text(fill: rgb("FF000080"))
+  This text is transparent.
+]
+
 // Disable font fallback beyond the user-specified list.
 // Without disabling, New Computer Modern Math would come to the rescue.
 #set text(font: ("PT Sans", "Twitter Color Emoji"), fallback: false)
