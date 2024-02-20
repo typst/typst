@@ -290,7 +290,7 @@ fn layout_underoverspreader(
         baseline = rows.len() - 1;
     }
 
-    let frame = stack(ctx, styles, rows, FixedAlignment::Center, gap, baseline);
+    let frame = stack(rows, FixedAlignment::Center, gap, baseline);
     ctx.push(FrameFragment::new(ctx, styles, frame).with_class(body_class));
 
     Ok(())
@@ -301,8 +301,6 @@ fn layout_underoverspreader(
 /// Add a `gap` between each row and uses the baseline of the `baseline`th
 /// row for the whole frame.
 pub(super) fn stack(
-    ctx: &MathContext,
-    styles: StyleChain,
     rows: Vec<MathRow>,
     align: FixedAlignment,
     gap: Abs,
@@ -312,7 +310,7 @@ pub(super) fn stack(
     let AlignmentResult { points, width } = alignments(&rows);
     let rows: Vec<_> = rows
         .into_iter()
-        .map(|row| row.into_aligned_frame(ctx, styles, &points, align))
+        .map(|row| row.into_line_frame(&points, align))
         .collect();
 
     let mut y = Abs::zero();
