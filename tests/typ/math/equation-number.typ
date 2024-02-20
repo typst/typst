@@ -92,5 +92,5 @@ $ a + b = c $
 $ a + b = c $
 
 ---
-// Error: 52-58 equation number cannot be `center`-aligned
+// Error: 52-58 expected `start`, `left`, `right`, or `end`, found center
 #set math.equation(numbering: "(1)", number-align: center)

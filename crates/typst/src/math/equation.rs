@@ -10,13 +10,12 @@ use crate::foundations::{
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, Em, FixedAlignment, Frame, HAlignment,
-    LayoutMultiple, LayoutSingle, Point, Regions, Size,
+    Abs, AlignElem, Alignment, Axes, Em, FixedAlignment, Frame, LayoutMultiple,
+    LayoutSingle, OuterHAlignment, Point, Regions, Size,
 };
 use crate::math::{scaled_font_size, LayoutMath, MathContext, MathSize, MathVariant};
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::syntax::Span;
-use crate::syntax::Spanned;
 use crate::text::{
     families, variant, Font, FontFamily, FontList, FontWeight, Lang, LocalName, Region,
     TextElem,
@@ -89,17 +88,8 @@ pub struct EquationElem {
     /// With natural units, we know:
     /// $ E^2 = m^2 + p^2 $
     /// ```
-    #[default(HAlignment::End)]
-    #[parse({
-        let option: Option<Spanned<HAlignment>> = args.named("number-align")?;
-        if let Some(Spanned { v: align, span }) = option {
-            if align == HAlignment::Center {
-                bail!(span, "equation number cannot be `center`-aligned");
-            }
-        }
-        option.map(|spanned| spanned.v)
-    })]
-    pub number_align: HAlignment,
+    #[default(OuterHAlignment::End)]
+    pub number_align: OuterHAlignment,
 
     /// A supplement for the equation.
     ///
@@ -220,7 +210,7 @@ impl Packed<EquationElem> {
         let font = find_math_font(engine, styles, self.span())?;
 
         let mut ctx = MathContext::new(engine, styles, regions, &font);
-        let rows = ctx.layout_root(self, styles)?;
+        let rows = ctx.layout_into_row(self, styles)?;
 
         let mut items = if rows.row_count() == 1 {
             rows.into_par_items()
@@ -261,7 +251,7 @@ impl LayoutSingle for Packed<EquationElem> {
         let font = find_math_font(engine, styles, span)?;
 
         let mut ctx = MathContext::new(engine, styles, regions, &font);
-        let mut frame = ctx.layout_frame(self, styles)?;
+        let mut frame = ctx.layout_into_frame(self, styles)?;
 
         if let Some(numbering) = (**self).numbering(styles) {
             let pod = Regions::one(regions.base(), Axes::splat(false));

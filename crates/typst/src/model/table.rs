@@ -1,4 +1,5 @@
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 use ecow::eco_format;
 
@@ -8,12 +9,13 @@ use crate::foundations::{
     cast, elem, scope, Content, Fold, Packed, Show, Smart, StyleChain,
 };
 use crate::layout::{
-    show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Fragment, GridLayouter,
-    LayoutMultiple, Length, Regions, Rel, ResolvableCell, Sides, TrackSizings,
+    show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Dir, Fragment,
+    GridItem, GridLayouter, LayoutMultiple, Length, LinePosition, OuterHAlignment,
+    OuterVAlignment, Regions, Rel, ResolvableCell, Sides, TrackSizings,
 };
 use crate::model::Figurable;
 use crate::syntax::Span;
-use crate::text::{Lang, LocalName, Region};
+use crate::text::{Lang, LocalName, Region, TextElem};
 use crate::util::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
 
@@ -166,13 +168,17 @@ pub struct TableElem {
     ///
     /// Strokes can be disabled by setting this to `{none}`.
     ///
-    /// _Note:_ Richer stroke customization for individual cells is not yet
-    /// implemented, but will be in the future. In the meantime, you can use the
-    /// third-party [tablex library](https://github.com/PgBiel/typst-tablex/).
+    /// If it is necessary to place lines which can cross spacing between cells
+    /// produced by the `gutter` option, or to override the stroke between
+    /// multiple specific cells, consider specifying one or more of
+    /// [`table.hline`]($table.hline) and [`table.vline`]($table.vline) alongside
+    /// your table cells.
+    ///
+    /// See the [grid documentation]($grid) for more information on stroke.
     #[resolve]
     #[fold]
-    #[default(Some(Stroke::default()))]
-    pub stroke: Option<Stroke>,
+    #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
+    pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
 
     /// How much to pad the cells' content.
     ///
@@ -197,15 +203,23 @@ pub struct TableElem {
     #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
     pub inset: Sides<Option<Rel<Length>>>,
 
-    /// The contents of the table cells.
+    /// The contents of the table cells, plus any extra table lines specified
+    /// with the [`table.hline`]($table.hline) and
+    /// [`table.vline`]($table.vline) elements.
     #[variadic]
-    pub children: Vec<Packed<TableCell>>,
+    pub children: Vec<TableChild>,
 }
 
 #[scope]
 impl TableElem {
     #[elem]
     type TableCell;
+
+    #[elem]
+    type TableHLine;
+
+    #[elem]
+    type TableVLine;
 }
 
 impl LayoutMultiple for Packed<TableElem> {
@@ -223,26 +237,60 @@ impl LayoutMultiple for Packed<TableElem> {
         let column_gutter = self.column_gutter(styles);
         let row_gutter = self.row_gutter(styles);
         let fill = self.fill(styles);
-        let stroke = self.stroke(styles).map(Stroke::unwrap_or_default);
+        let stroke = self.stroke(styles);
 
         let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
         // Use trace to link back to the table when a specific cell errors
         let tracepoint = || Tracepoint::Call(Some(eco_format!("table")));
+        let items = self.children().iter().map(|child| match child {
+            TableChild::HLine(hline) => GridItem::HLine {
+                y: hline.y(styles),
+                start: hline.start(styles),
+                end: hline.end(styles),
+                stroke: hline.stroke(styles),
+                span: hline.span(),
+                position: match hline.position(styles) {
+                    OuterVAlignment::Top => LinePosition::Before,
+                    OuterVAlignment::Bottom => LinePosition::After,
+                },
+            },
+            TableChild::VLine(vline) => GridItem::VLine {
+                x: vline.x(styles),
+                start: vline.start(styles),
+                end: vline.end(styles),
+                stroke: vline.stroke(styles),
+                span: vline.span(),
+                position: match vline.position(styles) {
+                    OuterHAlignment::Left if TextElem::dir_in(styles) == Dir::RTL => {
+                        LinePosition::After
+                    }
+                    OuterHAlignment::Right if TextElem::dir_in(styles) == Dir::RTL => {
+                        LinePosition::Before
+                    }
+                    OuterHAlignment::Start | OuterHAlignment::Left => {
+                        LinePosition::Before
+                    }
+                    OuterHAlignment::End | OuterHAlignment::Right => LinePosition::After,
+                },
+            },
+            TableChild::Cell(cell) => GridItem::Cell(cell.clone()),
+        });
         let grid = CellGrid::resolve(
             tracks,
             gutter,
-            self.children(),
+            items,
             fill,
             align,
             inset,
+            &stroke,
             engine,
             styles,
             self.span(),
         )
         .trace(engine.world, tracepoint, self.span())?;
 
-        let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
+        let layouter = GridLayouter::new(&grid, regions, styles, self.span());
         layouter.layout(engine)
     }
 }
@@ -285,6 +333,122 @@ impl LocalName for Packed<TableElem> {
 }
 
 impl Figurable for Packed<TableElem> {}
+
+/// Any child of a table element.
+#[derive(Debug, PartialEq, Clone, Hash)]
+pub enum TableChild {
+    HLine(Packed<TableHLine>),
+    VLine(Packed<TableVLine>),
+    Cell(Packed<TableCell>),
+}
+
+cast! {
+    TableChild,
+    self => match self {
+        Self::HLine(hline) => hline.into_value(),
+        Self::VLine(vline) => vline.into_value(),
+        Self::Cell(cell) => cell.into_value(),
+    },
+    v: Content => v.into(),
+}
+
+impl From<Content> for TableChild {
+    fn from(value: Content) -> Self {
+        value
+            .into_packed::<TableHLine>()
+            .map(TableChild::HLine)
+            .or_else(|value| value.into_packed::<TableVLine>().map(TableChild::VLine))
+            .or_else(|value| value.into_packed::<TableCell>().map(TableChild::Cell))
+            .unwrap_or_else(|value| {
+                let span = value.span();
+                TableChild::Cell(Packed::new(TableCell::new(value)).spanned(span))
+            })
+    }
+}
+
+/// A horizontal line in the table. See the docs for
+/// [`grid.hline`]($grid.hline) for more information regarding how to use this
+/// element's fields.
+///
+/// Overrides any per-cell stroke, including stroke specified through the
+/// table's `stroke` field. Can cross spacing between cells created through
+/// the table's `column-gutter` option.
+#[elem(name = "hline", title = "Table Horizontal Line")]
+pub struct TableHLine {
+    /// The row above which the horizontal line is placed (zero-indexed).
+    /// Functions identically to the `y` field in [`grid.hline`]($grid.hline).
+    pub y: Smart<usize>,
+
+    /// The column at which the horizontal line starts (zero-indexed, inclusive).
+    pub start: usize,
+
+    /// The column before which the horizontal line ends (zero-indexed,
+    /// exclusive).
+    pub end: Option<NonZeroUsize>,
+
+    /// The line's stroke.
+    ///
+    /// Specifying `{none}` interrupts previous hlines placed across this
+    /// line's range, but does not affect per-cell stroke or vlines.
+    #[resolve]
+    #[fold]
+    #[default(Some(Arc::new(Stroke::default())))]
+    pub stroke: Option<Arc<Stroke>>,
+
+    /// The position at which the line is placed, given its row (`y`) - either
+    /// `{top}` to draw above it or `{bottom}` to draw below it.
+    ///
+    /// This setting is only relevant when row gutter is enabled (and
+    /// shouldn't be used otherwise - prefer just increasing the `y` field by
+    /// one instead), since then the position below a row becomes different
+    /// from the position above the next row due to the spacing between both.
+    #[default(OuterVAlignment::Top)]
+    pub position: OuterVAlignment,
+}
+
+/// A vertical line in the table. See the docs for [`grid.vline`]($grid.vline)
+/// for more information regarding how to use this element's fields.
+///
+/// Overrides any per-cell stroke, including stroke specified through the
+/// table's `stroke` field. Can cross spacing between cells created through
+/// the table's `row-gutter` option.
+#[elem(name = "vline", title = "Table Vertical Line")]
+pub struct TableVLine {
+    /// The column before which the horizontal line is placed (zero-indexed).
+    /// Functions identically to the `x` field in [`grid.vline`]($grid.vline).
+    pub x: Smart<usize>,
+
+    /// The row at which the vertical line starts (zero-indexed, inclusive).
+    pub start: usize,
+
+    /// The row on top of which the vertical line ends (zero-indexed,
+    /// exclusive).
+    pub end: Option<NonZeroUsize>,
+
+    /// The line's stroke.
+    ///
+    /// Specifying `{none}` interrupts previous vlines placed across this
+    /// line's range, but does not affect per-cell stroke or hlines.
+    #[resolve]
+    #[fold]
+    #[default(Some(Arc::new(Stroke::default())))]
+    pub stroke: Option<Arc<Stroke>>,
+
+    /// The position at which the line is placed, given its column (`x`) -
+    /// either `{start}` to draw before it or `{end}` to draw after it.
+    ///
+    /// The values `{left}` and `{right}` are also accepted, but discouraged as
+    /// they cause your table to be inconsistent between left-to-right and
+    /// right-to-left documents.
+    ///
+    /// This setting is only relevant when column gutter is enabled (and
+    /// shouldn't be used otherwise - prefer just increasing the `x` field by
+    /// one instead), since then the position after a column becomes different
+    /// from the position before the next column due to the spacing between
+    /// both.
+    #[default(OuterHAlignment::Start)]
+    pub position: OuterHAlignment,
+}
 
 /// A cell in the table. Use this to either override table properties for a
 /// particular cell, or in show rules to apply certain styles to multiple cells
@@ -336,28 +500,33 @@ impl Figurable for Packed<TableElem> {}
 pub struct TableCell {
     /// The cell's body.
     #[required]
-    body: Content,
+    pub body: Content,
 
     /// The cell's column (zero-indexed).
     /// Functions identically to the `x` field in [`grid.cell`]($grid.cell).
-    x: Smart<usize>,
+    pub x: Smart<usize>,
 
     /// The cell's row (zero-indexed).
     /// Functions identically to the `y` field in [`grid.cell`]($grid.cell).
-    y: Smart<usize>,
+    pub y: Smart<usize>,
 
     /// The cell's fill override.
-    fill: Smart<Option<Paint>>,
+    pub fill: Smart<Option<Paint>>,
 
     /// The amount of columns spanned by this cell.
     #[default(NonZeroUsize::ONE)]
-    colspan: NonZeroUsize,
+    pub colspan: NonZeroUsize,
 
     /// The cell's alignment override.
-    align: Smart<Alignment>,
+    pub align: Smart<Alignment>,
 
     /// The cell's inset override.
-    inset: Smart<Sides<Option<Rel<Length>>>>,
+    pub inset: Smart<Sides<Option<Rel<Length>>>>,
+
+    /// The cell's stroke override.
+    #[resolve]
+    #[fold]
+    pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
 }
 
 cast! {
@@ -379,11 +548,27 @@ impl ResolvableCell for Packed<TableCell> {
         fill: &Option<Paint>,
         align: Smart<Alignment>,
         inset: Sides<Option<Rel<Length>>>,
+        stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         styles: StyleChain,
     ) -> Cell {
         let cell = &mut *self;
         let colspan = cell.colspan(styles);
         let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
+
+        let cell_stroke = cell.stroke(styles);
+        let stroke_overridden =
+            cell_stroke.as_ref().map(|side| matches!(side, Some(Some(_))));
+
+        // Using a typical 'Sides' fold, an unspecified side loses to a
+        // specified side. Additionally, when both are specified, an inner
+        // None wins over the outer Some, and vice-versa. When both are
+        // specified and Some, fold occurs, which, remarkably, leads to an Arc
+        // clone.
+        //
+        // In the end, we flatten because, for layout purposes, an unspecified
+        // cell stroke is the same as specifying 'none', so we equate the two
+        // concepts.
+        let stroke = cell_stroke.fold(stroke).map(Option::flatten);
         cell.push_x(Smart::Custom(x));
         cell.push_y(Smart::Custom(y));
         cell.push_fill(Smart::Custom(fill.clone()));
@@ -399,7 +584,26 @@ impl ResolvableCell for Packed<TableCell> {
         cell.push_inset(Smart::Custom(
             cell.inset(styles).map_or(inset, |inner| inner.fold(inset)),
         ));
-        Cell { body: self.pack(), fill, colspan }
+        cell.push_stroke(
+            // Here we convert the resolved stroke to a regular stroke, however
+            // with resolved units (that is, 'em' converted to absolute units).
+            // We also convert any stroke unspecified by both the cell and the
+            // outer stroke ('None' in the folded stroke) to 'none', that is,
+            // all sides are present in the resulting Sides object accessible
+            // by show rules on table cells.
+            stroke.as_ref().map(|side| {
+                Some(side.as_ref().map(|cell_stroke| {
+                    Arc::new((**cell_stroke).clone().map(Length::from))
+                }))
+            }),
+        );
+        Cell {
+            body: self.pack(),
+            fill,
+            colspan,
+            stroke,
+            stroke_overridden,
+        }
     }
 
     fn x(&self, styles: StyleChain) -> Smart<usize> {

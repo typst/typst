@@ -244,6 +244,7 @@ impl From<Side> for Alignment {
 }
 
 /// Where to align something horizontally.
+/// To exclude `center`, use `OuterHAlignment` instead.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum HAlignment {
     #[default]
@@ -321,7 +322,62 @@ cast! {
     }
 }
 
+/// A horizontal alignment which only allows `left`/`right` and `start`/`end`,
+/// thus excluding `center`.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum OuterHAlignment {
+    #[default]
+    Start,
+    Left,
+    Right,
+    End,
+}
+
+impl OuterHAlignment {
+    /// Resolve the axis alignment based on the horizontal direction.
+    pub const fn fix(self, dir: Dir) -> FixedAlignment {
+        match (self, dir.is_positive()) {
+            (Self::Start, true) | (Self::End, false) => FixedAlignment::Start,
+            (Self::Left, _) => FixedAlignment::Start,
+            (Self::Right, _) => FixedAlignment::End,
+            (Self::End, true) | (Self::Start, false) => FixedAlignment::End,
+        }
+    }
+}
+
+impl From<OuterHAlignment> for HAlignment {
+    fn from(value: OuterHAlignment) -> Self {
+        match value {
+            OuterHAlignment::Start => Self::Start,
+            OuterHAlignment::Left => Self::Left,
+            OuterHAlignment::Right => Self::Right,
+            OuterHAlignment::End => Self::End,
+        }
+    }
+}
+
+impl Resolve for OuterHAlignment {
+    type Output = FixedAlignment;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.fix(TextElem::dir_in(styles))
+    }
+}
+
+cast! {
+    OuterHAlignment,
+    self => HAlignment::from(self).into_value(),
+    align: Alignment => match align {
+        Alignment::H(HAlignment::Start) => Self::Start,
+        Alignment::H(HAlignment::Left) => Self::Left,
+        Alignment::H(HAlignment::Right) => Self::Right,
+        Alignment::H(HAlignment::End) => Self::End,
+        v => bail!("expected `start`, `left`, `right`, or `end`, found {}", v.repr()),
+    }
+}
+
 /// Where to align something vertically.
+/// To exclude `center`, use `OuteVAlignment` instead.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum VAlignment {
     #[default]
@@ -380,6 +436,34 @@ cast! {
     align: Alignment => match align {
         Alignment::V(v) => v,
         v => bail!("expected `top`, `horizon`, or `bottom`, found {}", v.repr()),
+    }
+}
+
+/// A vertical alignment which only allows `top` and `bottom`, thus excluding
+/// `horizon`.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum OuterVAlignment {
+    #[default]
+    Top,
+    Bottom,
+}
+
+impl From<OuterVAlignment> for VAlignment {
+    fn from(value: OuterVAlignment) -> Self {
+        match value {
+            OuterVAlignment::Top => Self::Top,
+            OuterVAlignment::Bottom => Self::Bottom,
+        }
+    }
+}
+
+cast! {
+    OuterVAlignment,
+    self => VAlignment::from(self).into_value(),
+    align: Alignment => match align {
+        Alignment::V(VAlignment::Top) => Self::Top,
+        Alignment::V(VAlignment::Bottom) => Self::Bottom,
+        v => bail!("expected `top` or `bottom`, found {}", v.repr()),
     }
 }
 

@@ -118,10 +118,10 @@ fn layout(
     );
 
     let num_style = style_for_numerator(styles);
-    let num = ctx.layout_frame(num, styles.chain(&num_style))?;
+    let num = ctx.layout_into_frame(num, styles.chain(&num_style))?;
 
     let denom_style = style_for_denominator(styles);
-    let denom = ctx.layout_frame(
+    let denom = ctx.layout_into_frame(
         &Content::sequence(
             // Add a comma between each element.
             denom.iter().flat_map(|a| [TextElem::packed(','), a.clone()]).skip(1),

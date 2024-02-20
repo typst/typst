@@ -746,6 +746,34 @@ impl<T, const N: usize> Fold for SmallVec<[T; N]> {
     }
 }
 
+/// A variant of fold for foldable optional (`Option<T>`) values where an inner
+/// `None` value isn't respected (contrary to `Option`'s usual `Fold`
+/// implementation, with which folding with an inner `None` always returns
+/// `None`). Instead, when either of the `Option` objects is `None`, the other
+/// one is necessarily returned by `fold_or`. Normal folding still occurs when
+/// both values are `Some`, using `T`'s `Fold` implementation.
+///
+/// This is useful when `None` in a particular context means "unspecified"
+/// rather than "absent", in which case a specified value (`Some`) is chosen
+/// over an unspecified one (`None`), while two specified values are folded
+/// together.
+pub trait AlternativeFold {
+    /// Attempts to fold this inner value with an outer value. However, if
+    /// either value is `None`, returns the other one instead of folding.
+    fn fold_or(self, outer: Self) -> Self;
+}
+
+impl<T: Fold> AlternativeFold for Option<T> {
+    fn fold_or(self, outer: Self) -> Self {
+        match (self, outer) {
+            (Some(inner), Some(outer)) => Some(inner.fold(outer)),
+            // If one of values is `None`, return the other one instead of
+            // folding.
+            (inner, outer) => inner.or(outer),
+        }
+    }
+}
+
 /// A type that accumulates depth when folded.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Hash)]
 pub struct Depth(pub usize);

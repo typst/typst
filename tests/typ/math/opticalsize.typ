@@ -37,7 +37,7 @@ $a'$, $a'''_b$, $'$, $'''''''$
 $a' ' '$, $' ' '$, $a' '/b$
 
 ---
-// Test complex prime combilnations
+// Test complex prime combinations
 $a'_b^c$, $a_b'^c$, $a_b^c'$, $a_b'^c'^d'$
 
 $(a'_b')^(c'_d')$, $a'/b'$, $a_b'/c_d'$
@@ -47,3 +47,23 @@ $∫'$, $∑'$, $ ∑'_S' $
 ---
 // Test attaching primes only
 $a' = a^', a_', a_'''^''^'$
+
+---
+// Test primes always attaching as scripts
+$ x' $
+$ x^' $
+$ attach(x, t: ') $
+$ <' $
+$ attach(<, br: ') $
+$ op(<, limits: #true)' $
+$ limits(<)' $
+
+---
+// Test forcefully attaching primes as limits
+$ attach(<, t: ') $
+$ <^' $
+$ attach(<, b: ') $
+$ <_' $
+
+$ limits(x)^' $
+$ attach(limits(x), t: ') $

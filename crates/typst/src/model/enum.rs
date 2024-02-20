@@ -271,7 +271,6 @@ impl LayoutMultiple for Packed<EnumElem> {
             number = number.saturating_add(1);
         }
 
-        let stroke = None;
         let grid = CellGrid::new(
             Axes::with_x(&[
                 Sizing::Rel(indent.into()),
@@ -282,7 +281,7 @@ impl LayoutMultiple for Packed<EnumElem> {
             Axes::with_y(&[gutter.into()]),
             cells,
         );
-        let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
+        let layouter = GridLayouter::new(&grid, regions, styles, self.span());
 
         layouter.layout(engine)
     }

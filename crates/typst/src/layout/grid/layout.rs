@@ -1,13 +1,20 @@
+use std::fmt::Debug;
+use std::hash::Hash;
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 use ecow::eco_format;
 
+use super::lines::{
+    generate_line_segments, hline_stroke_at_column, vline_stroke_at_row, Line,
+    LinePosition, LineSegment,
+};
 use crate::diag::{
     bail, At, Hint, HintedStrResult, HintedString, SourceResult, StrResult,
 };
 use crate::engine::Engine;
 use crate::foundations::{
-    Array, CastInfo, Content, FromValue, Func, IntoValue, Reflect, Resolve, Smart,
+    Array, CastInfo, Content, Fold, FromValue, Func, IntoValue, Reflect, Resolve, Smart,
     StyleChain, Value,
 };
 use crate::layout::{
@@ -17,7 +24,7 @@ use crate::layout::{
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::util::{MaybeReverseIter, NonZeroExt, Numeric};
-use crate::visualize::{FixedStroke, Geometry, Paint};
+use crate::visualize::{Geometry, Paint, Stroke};
 
 /// A value that can be configured per cell.
 #[derive(Debug, Clone, PartialEq, Hash)]
@@ -88,6 +95,65 @@ impl<T: FromValue> FromValue for Celled<T> {
     }
 }
 
+impl<T: Fold> Fold for Celled<T> {
+    fn fold(self, outer: Self) -> Self {
+        match (self, outer) {
+            (Self::Value(inner), Self::Value(outer)) => Self::Value(inner.fold(outer)),
+            (self_, _) => self_,
+        }
+    }
+}
+
+impl<T: Resolve> Resolve for Celled<T> {
+    type Output = ResolvedCelled<T>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        match self {
+            Self::Value(value) => ResolvedCelled(Celled::Value(value.resolve(styles))),
+            Self::Func(func) => ResolvedCelled(Celled::Func(func)),
+            Self::Array(values) => ResolvedCelled(Celled::Array(
+                values.into_iter().map(|value| value.resolve(styles)).collect(),
+            )),
+        }
+    }
+}
+
+/// The result of resolving a Celled's value according to styles.
+/// Holds resolved values which depend on each grid cell's position.
+/// When it is a closure, however, it is only resolved when the closure is
+/// called.
+#[derive(Default, Clone)]
+pub struct ResolvedCelled<T: Resolve>(Celled<T::Output>);
+
+impl<T> ResolvedCelled<T>
+where
+    T: FromValue + Resolve,
+    <T as Resolve>::Output: Default + Clone,
+{
+    /// Resolve the value based on the cell position.
+    pub fn resolve(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        x: usize,
+        y: usize,
+    ) -> SourceResult<T::Output> {
+        Ok(match &self.0 {
+            Celled::Value(value) => value.clone(),
+            Celled::Func(func) => func
+                .call(engine, [x, y])?
+                .cast::<T>()
+                .at(func.span())?
+                .resolve(styles),
+            Celled::Array(array) => x
+                .checked_rem(array.len())
+                .and_then(|i| array.get(i))
+                .cloned()
+                .unwrap_or_default(),
+        })
+    }
+}
+
 /// Represents a cell in CellGrid, to be laid out by GridLayouter.
 #[derive(Clone)]
 pub struct Cell {
@@ -97,12 +163,31 @@ pub struct Cell {
     pub fill: Option<Paint>,
     /// The amount of columns spanned by the cell.
     pub colspan: NonZeroUsize,
+    /// The cell's stroke.
+    ///
+    /// We use an Arc to avoid unnecessary space usage when all sides are the
+    /// same, or when the strokes come from a common source.
+    pub stroke: Sides<Option<Arc<Stroke<Abs>>>>,
+    /// Which stroke sides were explicitly overridden by the cell, over the
+    /// grid's global stroke setting.
+    ///
+    /// This is used to define whether or not this cell's stroke sides should
+    /// have priority over adjacent cells' stroke sides, if those don't
+    /// override their own stroke properties (and thus have less priority when
+    /// defining with which stroke to draw grid lines around this cell).
+    pub stroke_overridden: Sides<bool>,
 }
 
 impl From<Content> for Cell {
     /// Create a simple cell given its body.
     fn from(body: Content) -> Self {
-        Self { body, fill: None, colspan: NonZeroUsize::ONE }
+        Self {
+            body,
+            fill: None,
+            colspan: NonZeroUsize::ONE,
+            stroke: Sides::splat(None),
+            stroke_overridden: Sides::splat(false),
+        }
     }
 }
 
@@ -119,7 +204,7 @@ impl LayoutMultiple for Cell {
 
 /// A grid entry.
 #[derive(Clone)]
-enum Entry {
+pub(super) enum Entry {
     /// An entry which holds a cell.
     Cell(Cell),
     /// An entry which is merged with another cell.
@@ -139,12 +224,46 @@ impl Entry {
     }
 }
 
+/// A grid item, possibly affected by automatic cell positioning. Can be either
+/// a line or a cell.
+pub enum GridItem<T: ResolvableCell> {
+    /// A horizontal line in the grid.
+    HLine {
+        /// The row above which the horizontal line is drawn.
+        y: Smart<usize>,
+        start: usize,
+        end: Option<NonZeroUsize>,
+        stroke: Option<Arc<Stroke<Abs>>>,
+        /// The span of the corresponding line element.
+        span: Span,
+        /// The line's position. "before" here means on top of row 'y', while
+        /// "after" means below it.
+        position: LinePosition,
+    },
+    /// A vertical line in the grid.
+    VLine {
+        /// The column before which the vertical line is drawn.
+        x: Smart<usize>,
+        start: usize,
+        end: Option<NonZeroUsize>,
+        stroke: Option<Arc<Stroke<Abs>>>,
+        /// The span of the corresponding line element.
+        span: Span,
+        /// The line's position. "before" here means to the left of column 'x',
+        /// while "after" means to its right (both considering LTR).
+        position: LinePosition,
+    },
+    /// A cell in the grid.
+    Cell(T),
+}
+
 /// Used for cell-like elements which are aware of their final properties in
 /// the table, and may have property overrides.
 pub trait ResolvableCell {
     /// Resolves the cell's fields, given its coordinates and default grid-wide
-    /// fill, align and inset properties.
+    /// fill, align, inset and stroke properties.
     /// Returns a final Cell.
+    #[allow(clippy::too_many_arguments)]
     fn resolve_cell(
         self,
         x: usize,
@@ -152,6 +271,7 @@ pub trait ResolvableCell {
         fill: &Option<Paint>,
         align: Smart<Alignment>,
         inset: Sides<Option<Rel<Length>>>,
+        stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         styles: StyleChain,
     ) -> Cell;
 
@@ -171,13 +291,21 @@ pub trait ResolvableCell {
 /// A grid of cells, including the columns, rows, and cell data.
 pub struct CellGrid {
     /// The grid cells.
-    entries: Vec<Entry>,
+    pub(super) entries: Vec<Entry>,
     /// The column tracks including gutter tracks.
-    cols: Vec<Sizing>,
+    pub(super) cols: Vec<Sizing>,
     /// The row tracks including gutter tracks.
-    rows: Vec<Sizing>,
+    pub(super) rows: Vec<Sizing>,
+    /// The vertical lines before each column, or on the end border.
+    /// Gutter columns are not included.
+    /// Contains up to 'cols_without_gutter.len() + 1' vectors of lines.
+    pub(super) vlines: Vec<Vec<Line>>,
+    /// The horizontal lines on top of each row, or on the bottom border.
+    /// Gutter rows are not included.
+    /// Contains up to 'rows_without_gutter.len() + 1' vectors of lines.
+    pub(super) hlines: Vec<Vec<Line>>,
     /// Whether this grid has gutters.
-    has_gutter: bool,
+    pub(super) has_gutter: bool,
 }
 
 impl CellGrid {
@@ -188,7 +316,7 @@ impl CellGrid {
         cells: impl IntoIterator<Item = Cell>,
     ) -> Self {
         let entries = cells.into_iter().map(Entry::Cell).collect();
-        Self::new_internal(tracks, gutter, entries)
+        Self::new_internal(tracks, gutter, vec![], vec![], entries)
     }
 
     /// Resolves and positions all cells in the grid before creating it.
@@ -198,19 +326,36 @@ impl CellGrid {
     /// must implement Default in order to fill positions in the grid which
     /// weren't explicitly specified by the user with empty cells.
     #[allow(clippy::too_many_arguments)]
-    pub fn resolve<T: ResolvableCell + Clone + Default>(
+    pub fn resolve<T, I>(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
-        cells: &[T],
+        items: I,
         fill: &Celled<Option<Paint>>,
         align: &Celled<Smart<Alignment>>,
         inset: Sides<Option<Rel<Length>>>,
+        stroke: &ResolvedCelled<Sides<Option<Option<Arc<Stroke>>>>>,
         engine: &mut Engine,
         styles: StyleChain,
         span: Span,
-    ) -> SourceResult<Self> {
+    ) -> SourceResult<Self>
+    where
+        T: ResolvableCell + Default,
+        I: IntoIterator<Item = GridItem<T>>,
+        I::IntoIter: ExactSizeIterator,
+    {
         // Number of content columns: Always at least one.
         let c = tracks.x.len().max(1);
+
+        // Lists of lines.
+        // Horizontal lines are only pushed later to be able to check for row
+        // validity, since the amount of rows isn't known until all items were
+        // analyzed in the for loop below.
+        // We keep their spans so we can report errors later.
+        let mut pending_hlines: Vec<(Span, Line)> = vec![];
+
+        // For consistency, only push vertical lines later as well.
+        let mut pending_vlines: Vec<(Span, Line)> = vec![];
+        let has_gutter = gutter.any(|tracks| !tracks.is_empty());
 
         // We can't just use the cell's index in the 'cells' vector to
         // determine its automatic position, since cells could have arbitrary
@@ -219,23 +364,92 @@ impl CellGrid {
         // Therefore, we use a counter, 'auto_index', to determine the position
         // of the next cell with (x: auto, y: auto). It is only stepped when
         // a cell with (x: auto, y: auto), usually the vast majority, is found.
-        let mut auto_index = 0;
+        let mut auto_index: usize = 0;
 
         // We have to rebuild the grid to account for arbitrary positions.
-        // Create at least 'cells.len()' positions, since there will be at
-        // least 'cells.len()' cells, even though some of them might be placed
-        // in arbitrary positions and thus cause the grid to expand.
+        // Create at least 'items.len()' positions, since there could be at
+        // least 'items.len()' cells (if no explicit lines were specified),
+        // even though some of them might be placed in arbitrary positions and
+        // thus cause the grid to expand.
         // Additionally, make sure we allocate up to the next multiple of 'c',
         // since each row will have 'c' cells, even if the last few cells
         // weren't explicitly specified by the user.
         // We apply '% c' twice so that the amount of cells potentially missing
-        // is zero when 'cells.len()' is already a multiple of 'c' (thus
-        // 'cells.len() % c' would be zero).
-        let Some(cell_count) = cells.len().checked_add((c - cells.len() % c) % c) else {
-            bail!(span, "too many cells were given")
+        // is zero when 'items.len()' is already a multiple of 'c' (thus
+        // 'items.len() % c' would be zero).
+        let items = items.into_iter();
+        let Some(item_count) = items.len().checked_add((c - items.len() % c) % c) else {
+            bail!(span, "too many cells or lines were given")
         };
-        let mut resolved_cells: Vec<Option<Entry>> = Vec::with_capacity(cell_count);
-        for cell in cells.iter().cloned() {
+        let mut resolved_cells: Vec<Option<Entry>> = Vec::with_capacity(item_count);
+        for item in items {
+            let cell = match item {
+                GridItem::HLine { y, start, end, stroke, span, position } => {
+                    let y = y.unwrap_or_else(|| {
+                        // When no 'y' is specified for the hline, we place it
+                        // under the latest automatically positioned cell.
+                        // The current value of the auto index is always the
+                        // index of the latest automatically positioned cell
+                        // placed plus one (that's what we do in
+                        // 'resolve_cell_position'), so we subtract 1 to get
+                        // that cell's index, and place the hline below its
+                        // row. The exception is when the auto_index is 0,
+                        // meaning no automatically positioned cell was placed
+                        // yet. In that case, we place the hline at the top of
+                        // the table.
+                        auto_index
+                            .checked_sub(1)
+                            .map_or(0, |last_auto_index| last_auto_index / c + 1)
+                    });
+                    if end.is_some_and(|end| end.get() < start) {
+                        bail!(span, "line cannot end before it starts");
+                    }
+                    let line = Line { index: y, start, end, stroke, position };
+
+                    // Since the amount of rows is dynamic, delay placing
+                    // hlines until after all cells were placed so we can
+                    // properly verify if they are valid. Note that we can't
+                    // place hlines even if we already know they would be in a
+                    // valid row, since it's possible that we pushed pending
+                    // hlines in the same row as this one in previous
+                    // iterations, and we need to ensure that hlines from
+                    // previous iterations are pushed to the final vector of
+                    // hlines first - the order of hlines must be kept, as this
+                    // matters when determining which one "wins" in case of
+                    // conflict. Pushing the current hline before we push
+                    // pending hlines later would change their order!
+                    pending_hlines.push((span, line));
+                    continue;
+                }
+                GridItem::VLine { x, start, end, stroke, span, position } => {
+                    let x = x.unwrap_or_else(|| {
+                        // When no 'x' is specified for the vline, we place it
+                        // after the latest automatically positioned cell.
+                        // The current value of the auto index is always the
+                        // index of the latest automatically positioned cell
+                        // placed plus one (that's what we do in
+                        // 'resolve_cell_position'), so we subtract 1 to get
+                        // that cell's index, and place the vline after its
+                        // column. The exception is when the auto_index is 0,
+                        // meaning no automatically positioned cell was placed
+                        // yet. In that case, we place the vline to the left of
+                        // the table.
+                        auto_index
+                            .checked_sub(1)
+                            .map_or(0, |last_auto_index| last_auto_index % c + 1)
+                    });
+                    if end.is_some_and(|end| end.get() < start) {
+                        bail!(span, "line cannot end before it starts");
+                    }
+                    let line = Line { index: x, start, end, stroke, position };
+
+                    // For consistency with hlines, we only push vlines to the
+                    // final vector of vlines after processing every cell.
+                    pending_vlines.push((span, line));
+                    continue;
+                }
+                GridItem::Cell(cell) => cell,
+            };
             let cell_span = cell.span();
             // Let's calculate the cell's final position based on its
             // requested position.
@@ -273,6 +487,7 @@ impl CellGrid {
                 &fill.resolve(engine, x, y)?,
                 align.resolve(engine, x, y)?,
                 inset,
+                stroke.resolve(engine, styles, x, y)?,
                 styles,
             );
 
@@ -358,6 +573,7 @@ impl CellGrid {
                         &fill.resolve(engine, x, y)?,
                         align.resolve(engine, x, y)?,
                         inset,
+                        stroke.resolve(engine, styles, x, y)?,
                         styles,
                     );
                     Ok(Entry::Cell(new_cell))
@@ -365,13 +581,97 @@ impl CellGrid {
             })
             .collect::<SourceResult<Vec<Entry>>>()?;
 
-        Ok(Self::new_internal(tracks, gutter, resolved_cells))
+        // Populate the final lists of lines.
+        // For each line type (horizontal or vertical), we keep a vector for
+        // every group of lines with the same index.
+        let mut vlines: Vec<Vec<Line>> = vec![];
+        let mut hlines: Vec<Vec<Line>> = vec![];
+        let row_amount = resolved_cells.len().div_ceil(c);
+
+        for (line_span, line) in pending_hlines {
+            let y = line.index;
+            if y > row_amount {
+                bail!(line_span, "cannot place horizontal line at invalid row {y}");
+            }
+            if y == row_amount && line.position == LinePosition::After {
+                bail!(
+                    line_span,
+                    "cannot place horizontal line at the 'bottom' position of the bottom border (y = {y})";
+                    hint: "set the line's position to 'top' or place it at a smaller 'y' index"
+                );
+            }
+            let line = if line.position == LinePosition::After
+                && (!has_gutter || y + 1 == row_amount)
+            {
+                // Just place the line on top of the next row if
+                // there's no gutter and the line should be placed
+                // after the one with given index.
+                //
+                // Note that placing after the last row is also the same as
+                // just placing on the grid's bottom border, even with
+                // gutter.
+                Line {
+                    index: y + 1,
+                    position: LinePosition::Before,
+                    ..line
+                }
+            } else {
+                line
+            };
+            let y = line.index;
+
+            if hlines.len() <= y {
+                hlines.resize_with(y + 1, Vec::new);
+            }
+            hlines[y].push(line);
+        }
+
+        for (line_span, line) in pending_vlines {
+            let x = line.index;
+            if x > c {
+                bail!(line_span, "cannot place vertical line at invalid column {x}");
+            }
+            if x == c && line.position == LinePosition::After {
+                bail!(
+                    line_span,
+                    "cannot place vertical line at the 'end' position of the end border (x = {c})";
+                    hint: "set the line's position to 'start' or place it at a smaller 'x' index"
+                );
+            }
+            let line =
+                if line.position == LinePosition::After && (!has_gutter || x + 1 == c) {
+                    // Just place the line before the next column if
+                    // there's no gutter and the line should be placed
+                    // after the one with given index.
+                    //
+                    // Note that placing after the last column is also the
+                    // same as just placing on the grid's end border, even
+                    // with gutter.
+                    Line {
+                        index: x + 1,
+                        position: LinePosition::Before,
+                        ..line
+                    }
+                } else {
+                    line
+                };
+            let x = line.index;
+
+            if vlines.len() <= x {
+                vlines.resize_with(x + 1, Vec::new);
+            }
+            vlines[x].push(line);
+        }
+
+        Ok(Self::new_internal(tracks, gutter, vlines, hlines, resolved_cells))
     }
 
     /// Generates the cell grid, given the tracks and resolved entries.
-    fn new_internal(
+    pub(super) fn new_internal(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
+        vlines: Vec<Vec<Line>>,
+        hlines: Vec<Vec<Line>>,
         entries: Vec<Entry>,
     ) -> Self {
         let mut cols = vec![];
@@ -418,14 +718,14 @@ impl CellGrid {
             rows.pop();
         }
 
-        Self { cols, rows, entries, has_gutter }
+        Self { cols, rows, entries, vlines, hlines, has_gutter }
     }
 
     /// Get the grid entry in column `x` and row `y`.
     ///
     /// Returns `None` if it's a gutter cell.
     #[track_caller]
-    fn entry(&self, x: usize, y: usize) -> Option<&Entry> {
+    pub(super) fn entry(&self, x: usize, y: usize) -> Option<&Entry> {
         assert!(x < self.cols.len());
         assert!(y < self.rows.len());
 
@@ -447,19 +747,29 @@ impl CellGrid {
     ///
     /// Returns `None` if it's a gutter cell or merged position.
     #[track_caller]
-    fn cell(&self, x: usize, y: usize) -> Option<&Cell> {
+    pub(super) fn cell(&self, x: usize, y: usize) -> Option<&Cell> {
         self.entry(x, y).and_then(Entry::as_cell)
+    }
+
+    /// Returns the parent cell of the grid entry at the given position.
+    /// - If the entry at the given position is a cell, returns it.
+    /// - If it is a merged cell, returns the parent cell.
+    /// - If it is a gutter cell, returns None.
+    #[track_caller]
+    pub(super) fn parent_cell(&self, x: usize, y: usize) -> Option<&Cell> {
+        self.parent_cell_position(x, y)
+            .and_then(|Axes { x, y }| self.cell(x, y))
     }
 
     /// Returns the position of the parent cell of the grid entry at the given
     /// position. It is guaranteed to have a non-gutter, non-merged cell at
     /// the returned position, due to how the grid is built.
-    /// If the entry at the given position is a cell, returns the given
+    /// - If the entry at the given position is a cell, returns the given
     /// position.
-    /// If it is a merged cell, returns the parent cell's position.
-    /// If it is a gutter cell, returns None.
+    /// - If it is a merged cell, returns the parent cell's position.
+    /// - If it is a gutter cell, returns None.
     #[track_caller]
-    fn parent_cell_position(&self, x: usize, y: usize) -> Option<Axes<usize>> {
+    pub(super) fn parent_cell_position(&self, x: usize, y: usize) -> Option<Axes<usize>> {
         self.entry(x, y).map(|entry| match entry {
             Entry::Cell(_) => Axes::new(x, y),
             Entry::Merged { parent } => {
@@ -571,8 +881,6 @@ fn resolve_cell_position(
 pub struct GridLayouter<'a> {
     /// The grid of cells.
     grid: &'a CellGrid,
-    // How to stroke the cells.
-    stroke: &'a Option<FixedStroke>,
     /// The regions to layout children into.
     regions: Regions<'a>,
     /// The inherited styles.
@@ -617,10 +925,8 @@ impl<'a> GridLayouter<'a> {
     /// Create a new grid layouter.
     ///
     /// This prepares grid layout by unifying content and gutter tracks.
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         grid: &'a CellGrid,
-        stroke: &'a Option<FixedStroke>,
         regions: Regions<'a>,
         styles: StyleChain<'a>,
         span: Span,
@@ -632,7 +938,6 @@ impl<'a> GridLayouter<'a> {
 
         Self {
             grid,
-            stroke,
             regions,
             styles,
             rcols: vec![Abs::zero(); grid.cols.len()],
@@ -677,42 +982,161 @@ impl<'a> GridLayouter<'a> {
                 continue;
             }
 
-            // Render table lines.
-            if let Some(stroke) = self.stroke {
-                let thickness = stroke.thickness;
-                let half = thickness / 2.0;
+            // Render grid lines.
+            // We collect lines into a vector before rendering so we can sort
+            // them based on thickness, such that the lines with largest
+            // thickness are drawn on top; and also so we can prepend all of
+            // them at once in the frame, as calling prepend() for each line,
+            // and thus pushing all frame items forward each time, would result
+            // in quadratic complexity.
+            let mut lines = vec![];
 
-                // Render horizontal lines.
-                for offset in points(rows.iter().map(|piece| piece.height)) {
-                    let target = Point::with_x(frame.width() + thickness);
-                    let hline = Geometry::Line(target).stroked(stroke.clone());
-                    frame.prepend(
-                        Point::new(-half, offset),
-                        FrameItem::Shape(hline, self.span),
-                    );
-                }
+            // Render vertical lines.
+            // Render them first so horizontal lines have priority later.
+            for (x, dx) in points(self.rcols.iter().copied()).enumerate() {
+                let dx = if self.is_rtl { self.width - dx } else { dx };
+                let is_end_border = x == self.grid.cols.len();
+                let vlines_at_column = self
+                    .grid
+                    .vlines
+                    .get(if !self.grid.has_gutter {
+                        x
+                    } else if is_end_border {
+                        // The end border has its own vector of lines, but
+                        // dividing it by 2 and flooring would give us the
+                        // vector of lines with the index of the last column.
+                        // Add 1 so we get the border's lines.
+                        x / 2 + 1
+                    } else {
+                        // If x is a gutter column, this will round down to the
+                        // index of the previous content column, which is
+                        // intentional - the only lines which can appear before
+                        // a gutter column are lines for the previous column
+                        // marked with "LinePosition::After". Therefore, we get
+                        // the previous column's lines. Worry not, as
+                        // 'generate_line_segments' will correctly filter lines
+                        // based on their LinePosition for us.
+                        //
+                        // If x is a content column, this will correctly return
+                        // its index before applying gutters, so nothing
+                        // special here (lines with "LinePosition::After" would
+                        // then be ignored for this column, as we are drawing
+                        // lines before it, not after).
+                        x / 2
+                    })
+                    .map(|vlines| &**vlines)
+                    .unwrap_or(&[]);
+                let tracks = rows.iter().map(|row| (row.y, row.height));
 
-                // Render vertical lines.
-                for (x, dx) in points(self.rcols.iter().copied()).enumerate() {
-                    let dx = if self.is_rtl { self.width - dx } else { dx };
-                    // We want each vline to span the entire table (start
-                    // at y = 0, end after all rows).
-                    // We use 'split_vline' to split the vline such that it
-                    // is not drawn above colspans.
-                    for (dy, length) in
-                        split_vline(self.grid, rows, x, 0, self.grid.rows.len())
-                    {
-                        let target = Point::with_y(length + thickness);
-                        let vline = Geometry::Line(target).stroked(stroke.clone());
-                        frame.prepend(
-                            Point::new(dx, dy - half),
-                            FrameItem::Shape(vline, self.span),
-                        );
-                    }
-                }
+                // Determine all different line segments we have to draw in
+                // this column, and convert them to points and shapes.
+                //
+                // Even a single, uniform line might generate more than one
+                // segment, if it happens to cross a colspan (over which it
+                // must not be drawn).
+                let segments = generate_line_segments(
+                    self.grid,
+                    tracks,
+                    x,
+                    vlines_at_column,
+                    is_end_border,
+                    vline_stroke_at_row,
+                )
+                .map(|segment| {
+                    let LineSegment { stroke, offset: dy, length, priority } = segment;
+                    let stroke = (*stroke).clone().unwrap_or_default();
+                    let thickness = stroke.thickness;
+                    let half = thickness / 2.0;
+                    let target = Point::with_y(length + thickness);
+                    let vline = Geometry::Line(target).stroked(stroke);
+                    (
+                        thickness,
+                        priority,
+                        Point::new(dx, dy - half),
+                        FrameItem::Shape(vline, self.span),
+                    )
+                });
+
+                lines.extend(segments);
             }
 
+            // Render horizontal lines.
+            // They are rendered second as they default to appearing on top.
+            // First, calculate their offsets from the top of the frame.
+            let hline_offsets = points(rows.iter().map(|piece| piece.height));
+
+            // Additionally, determine their indices (the indices of the
+            // rows they are drawn on top of). In principle, this will
+            // correspond to the rows' indices directly, except for the
+            // first and last hlines, which must be 0 and (amount of rows)
+            // respectively, as they are always drawn (due to being part of
+            // the table's border).
+            let hline_indices = std::iter::once(0)
+                .chain(rows.iter().map(|piece| piece.y).skip(1))
+                .chain(std::iter::once(self.grid.rows.len()));
+
+            for (y, dy) in hline_indices.zip(hline_offsets) {
+                let is_bottom_border = y == self.grid.rows.len();
+                let hlines_at_row = self
+                    .grid
+                    .hlines
+                    .get(if !self.grid.has_gutter {
+                        y
+                    } else if is_bottom_border {
+                        y / 2 + 1
+                    } else {
+                        // Check the vlines loop for an explanation regarding
+                        // these index operations.
+                        y / 2
+                    })
+                    .map(|hlines| &**hlines)
+                    .unwrap_or(&[]);
+                let tracks = self.rcols.iter().copied().enumerate();
+
+                // Determine all different line segments we have to draw in
+                // this row, and convert them to points and shapes.
+                let segments = generate_line_segments(
+                    self.grid,
+                    tracks,
+                    y,
+                    hlines_at_row,
+                    is_bottom_border,
+                    hline_stroke_at_column,
+                )
+                .map(|segment| {
+                    let LineSegment { stroke, offset: dx, length, priority } = segment;
+                    let stroke = (*stroke).clone().unwrap_or_default();
+                    let thickness = stroke.thickness;
+                    let half = thickness / 2.0;
+                    let dx = if self.is_rtl { self.width - dx - length } else { dx };
+                    let target = Point::with_x(length + thickness);
+                    let hline = Geometry::Line(target).stroked(stroke);
+                    (
+                        thickness,
+                        priority,
+                        Point::new(dx - half, dy),
+                        FrameItem::Shape(hline, self.span),
+                    )
+                });
+
+                // Draw later (after we sort all lines below.)
+                lines.extend(segments);
+            }
+
+            // Sort by increasing thickness, so that we draw larger strokes
+            // on top. When the thickness is the same, sort by priority.
+            //
+            // Sorting by thickness avoids layering problems where a smaller
+            // hline appears "inside" a larger vline. When both have the same
+            // size, hlines are drawn on top (since the sort is stable, and
+            // they are pushed later).
+            lines.sort_by_key(|(thickness, priority, ..)| (*thickness, *priority));
+
             // Render cell backgrounds.
+            // We collect them into a vector so they can all be prepended at
+            // once to the frame, together with lines.
+            let mut fills = vec![];
+
             // Reverse with RTL so that later columns start first.
             let mut dx = Abs::zero();
             for (x, &col) in self.rcols.iter().enumerate().rev_if(self.is_rtl) {
@@ -736,13 +1160,22 @@ impl<'a> GridLayouter<'a> {
                             let pos = Point::new(dx + offset, dy);
                             let size = Size::new(width, row.height);
                             let rect = Geometry::Rect(size).filled(fill);
-                            frame.prepend(pos, FrameItem::Shape(rect, self.span));
+                            fills.push((pos, FrameItem::Shape(rect, self.span)));
                         }
                     }
                     dy += row.height;
                 }
                 dx += col;
             }
+
+            // Now we render each fill and stroke by prepending to the frame,
+            // such that both appear below cell contents. Fills come first so
+            // that they appear below lines.
+            frame.prepend_multiple(
+                fills
+                    .into_iter()
+                    .chain(lines.into_iter().map(|(_, _, point, shape)| (point, shape))),
+            );
         }
 
         Ok(Fragment::frames(finished))
@@ -1233,288 +1666,4 @@ fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
         offset += extent;
         offset
     })
-}
-
-/// Given the 'x' of the column right after the vline (or cols.len() at the
-/// border) and its start..end range of rows, alongside the rows for the
-/// current region, splits the vline into contiguous parts to draw, including
-/// the height of the vline in each part. This will go through each row and
-/// interrupt the current vline to be drawn when a colspan is detected, or the
-/// end of the row range (or of the region) is reached.
-/// The idea is to not draw vlines over colspans.
-/// This will return the start offsets and lengths of each final segment of
-/// this vline. The offsets are relative to the top of the first row.
-/// Note that this assumes that rows are sorted according to ascending 'y'.
-fn split_vline(
-    grid: &CellGrid,
-    rows: &[RowPiece],
-    x: usize,
-    start: usize,
-    end: usize,
-) -> impl IntoIterator<Item = (Abs, Abs)> {
-    // Each segment of this vline that should be drawn.
-    // The last element in the vector below is the currently drawn segment.
-    // That is, the last segment will be expanded until interrupted.
-    let mut drawn_vlines = vec![];
-    // Whether the latest vline segment is complete, because we hit a row we
-    // should skip while drawing the vline. Starts at true so we push
-    // the first segment to the vector.
-    let mut interrupted = true;
-    // How far down from the first row have we gone so far.
-    // Used to determine the positions at which to draw each segment.
-    let mut offset = Abs::zero();
-
-    // We start drawing at the first suitable row, and keep going down
-    // (increasing y) expanding the last segment until we hit a row on top of
-    // which we shouldn't draw, which is skipped, leading to the creation of a
-    // new vline segment later if a suitable row is found, restarting the
-    // cycle.
-    for row in rows.iter().take_while(|row| row.y < end) {
-        if should_draw_vline_at_row(grid, x, row.y, start, end) {
-            if interrupted {
-                // Last segment was interrupted by a colspan, or there are no
-                // segments yet.
-                // Create a new segment to draw. We start spanning this row.
-                drawn_vlines.push((offset, row.height));
-                interrupted = false;
-            } else {
-                // Extend the current segment so it covers at least this row
-                // as well.
-                // The vector can't be empty if interrupted is false.
-                let current_segment = drawn_vlines.last_mut().unwrap();
-                current_segment.1 += row.height;
-            }
-        } else {
-            interrupted = true;
-        }
-        offset += row.height;
-    }
-
-    drawn_vlines
-}
-
-/// Returns 'true' if the vline right before column 'x', given its start..end
-/// range of rows, should be drawn when going through row 'y'.
-/// That only occurs if the row is within its start..end range, and if it
-/// wouldn't go through a colspan.
-fn should_draw_vline_at_row(
-    grid: &CellGrid,
-    x: usize,
-    y: usize,
-    start: usize,
-    end: usize,
-) -> bool {
-    if !(start..end).contains(&y) {
-        // Row is out of range for this line
-        return false;
-    }
-    if x == 0 || x == grid.cols.len() {
-        // Border vline. Always drawn.
-        return true;
-    }
-    // When the vline isn't at the border, we need to check if a colspan would
-    // be present between columns 'x' and 'x-1' at row 'y', and thus overlap
-    // with the line.
-    // To do so, we analyze the cell right after this vline. If it is merged
-    // with a cell before this line (parent_x < x) which is at this row or
-    // above it (parent_y <= y), this means it would overlap with the vline,
-    // so the vline must not be drawn at this row.
-    let first_adjacent_cell = if grid.has_gutter {
-        // Skip the gutters, if x or y represent gutter tracks.
-        // We would then analyze the cell one column after (if at a gutter
-        // column), and/or one row below (if at a gutter row), in order to
-        // check if it would be merged with a cell before the vline.
-        (x + x % 2, y + y % 2)
-    } else {
-        (x, y)
-    };
-    let Axes { x: parent_x, y: parent_y } = grid
-        .parent_cell_position(first_adjacent_cell.0, first_adjacent_cell.1)
-        .unwrap();
-
-    parent_x >= x || parent_y > y
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    fn sample_cell() -> Cell {
-        Cell {
-            body: Content::default(),
-            fill: None,
-            colspan: NonZeroUsize::ONE,
-        }
-    }
-
-    fn cell_with_colspan(colspan: usize) -> Cell {
-        Cell {
-            body: Content::default(),
-            fill: None,
-            colspan: NonZeroUsize::try_from(colspan).unwrap(),
-        }
-    }
-
-    fn sample_grid(gutters: bool) -> CellGrid {
-        const COLS: usize = 4;
-        const ROWS: usize = 6;
-        let entries = vec![
-            // row 0
-            Entry::Cell(sample_cell()),
-            Entry::Cell(sample_cell()),
-            Entry::Cell(cell_with_colspan(2)),
-            Entry::Merged { parent: 2 },
-            // row 1
-            Entry::Cell(sample_cell()),
-            Entry::Cell(cell_with_colspan(3)),
-            Entry::Merged { parent: 5 },
-            Entry::Merged { parent: 5 },
-            // row 2
-            Entry::Merged { parent: 4 },
-            Entry::Cell(sample_cell()),
-            Entry::Cell(cell_with_colspan(2)),
-            Entry::Merged { parent: 10 },
-            // row 3
-            Entry::Cell(sample_cell()),
-            Entry::Cell(cell_with_colspan(3)),
-            Entry::Merged { parent: 13 },
-            Entry::Merged { parent: 13 },
-            // row 4
-            Entry::Cell(sample_cell()),
-            Entry::Merged { parent: 13 },
-            Entry::Merged { parent: 13 },
-            Entry::Merged { parent: 13 },
-            // row 5
-            Entry::Cell(sample_cell()),
-            Entry::Cell(sample_cell()),
-            Entry::Cell(cell_with_colspan(2)),
-            Entry::Merged { parent: 22 },
-        ];
-        CellGrid::new_internal(
-            Axes::with_x(&[Sizing::Auto; COLS]),
-            if gutters {
-                Axes::new(&[Sizing::Auto; COLS - 1], &[Sizing::Auto; ROWS - 1])
-            } else {
-                Axes::default()
-            },
-            entries,
-        )
-    }
-
-    #[test]
-    fn test_vline_splitting_without_gutter() {
-        let grid = sample_grid(false);
-        let rows = &[
-            RowPiece { height: Abs::pt(1.0), y: 0 },
-            RowPiece { height: Abs::pt(2.0), y: 1 },
-            RowPiece { height: Abs::pt(4.0), y: 2 },
-            RowPiece { height: Abs::pt(8.0), y: 3 },
-            RowPiece { height: Abs::pt(16.0), y: 4 },
-            RowPiece { height: Abs::pt(32.0), y: 5 },
-        ];
-        let expected_vline_splits = &[
-            vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
-            vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
-            // interrupted a few times by colspans
-            vec![
-                (Abs::pt(0.), Abs::pt(1.)),
-                (Abs::pt(1. + 2.), Abs::pt(4.)),
-                (Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
-            ],
-            // interrupted every time by colspans
-            vec![],
-            vec![(Abs::pt(0.), Abs::pt(1. + 2. + 4. + 8. + 16. + 32.))],
-        ];
-        for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
-            assert_eq!(
-                expected_splits,
-                &split_vline(&grid, rows, x, 0, 6).into_iter().collect::<Vec<_>>(),
-            );
-        }
-    }
-
-    #[test]
-    fn test_vline_splitting_with_gutter() {
-        let grid = sample_grid(true);
-        let rows = &[
-            RowPiece { height: Abs::pt(1.0), y: 0 },
-            RowPiece { height: Abs::pt(2.0), y: 1 },
-            RowPiece { height: Abs::pt(4.0), y: 2 },
-            RowPiece { height: Abs::pt(8.0), y: 3 },
-            RowPiece { height: Abs::pt(16.0), y: 4 },
-            RowPiece { height: Abs::pt(32.0), y: 5 },
-            RowPiece { height: Abs::pt(64.0), y: 6 },
-            RowPiece { height: Abs::pt(128.0), y: 7 },
-            RowPiece { height: Abs::pt(256.0), y: 8 },
-            RowPiece { height: Abs::pt(512.0), y: 9 },
-            RowPiece { height: Abs::pt(1024.0), y: 10 },
-        ];
-        let expected_vline_splits = &[
-            // left border
-            vec![(
-                Abs::pt(0.),
-                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
-            )],
-            // gutter line below
-            vec![(
-                Abs::pt(0.),
-                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
-            )],
-            vec![(
-                Abs::pt(0.),
-                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
-            )],
-            // gutter line below
-            // the two lines below are interrupted multiple times by colspans
-            vec![
-                (Abs::pt(0.), Abs::pt(1. + 2.)),
-                (Abs::pt(1. + 2. + 4.), Abs::pt(8. + 16. + 32.)),
-                (
-                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
-                    Abs::pt(512. + 1024.),
-                ),
-            ],
-            vec![
-                (Abs::pt(0.), Abs::pt(1. + 2.)),
-                (Abs::pt(1. + 2. + 4.), Abs::pt(8. + 16. + 32.)),
-                (
-                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
-                    Abs::pt(512. + 1024.),
-                ),
-            ],
-            // gutter line below
-            // the two lines below can only cross certain gutter rows, because
-            // all non-gutter cells in the following column are merged with
-            // cells from the previous column.
-            vec![
-                (Abs::pt(1.), Abs::pt(2.)),
-                (Abs::pt(1. + 2. + 4.), Abs::pt(8.)),
-                (Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
-                (
-                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
-                    Abs::pt(512.),
-                ),
-            ],
-            vec![
-                (Abs::pt(1.), Abs::pt(2.)),
-                (Abs::pt(1. + 2. + 4.), Abs::pt(8.)),
-                (Abs::pt(1. + 2. + 4. + 8. + 16.), Abs::pt(32.)),
-                (
-                    Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256.),
-                    Abs::pt(512.),
-                ),
-            ],
-            // right border
-            vec![(
-                Abs::pt(0.),
-                Abs::pt(1. + 2. + 4. + 8. + 16. + 32. + 64. + 128. + 256. + 512. + 1024.),
-            )],
-        ];
-        for (x, expected_splits) in expected_vline_splits.iter().enumerate() {
-            assert_eq!(
-                expected_splits,
-                &split_vline(&grid, rows, x, 0, 11).into_iter().collect::<Vec<_>>(),
-            );
-        }
-    }
 }
