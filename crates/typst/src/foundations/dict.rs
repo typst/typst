@@ -8,7 +8,9 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::diag::{Hint, HintedStrResult, StrResult};
-use crate::foundations::{array, func, repr, scope, ty, Array, Repr, Str, Value};
+use crate::foundations::{
+    array, cast, func, repr, scope, ty, Array, Module, Repr, Str, Value,
+};
 use crate::syntax::is_ident;
 use crate::util::ArcExt;
 
@@ -158,6 +160,23 @@ impl Dict {
 
 #[scope]
 impl Dict {
+    /// Converts a value into a dictionary.
+    ///
+    /// Note that this function is only intended for conversion of a
+    /// dictionary-like value to a dictionary, not for creation of a dictionary
+    /// from individual pairs. Use the dictionary syntax `(key: value)` instead.
+    ///
+    /// ```example
+    /// #dictionary(sys).at("version")
+    /// ```
+    #[func(constructor)]
+    pub fn construct(
+        /// The value that should be converted to a dictionary.
+        value: ToDict,
+    ) -> Dict {
+        value.0
+    }
+
     /// The number of pairs in the dictionary.
     #[func(title = "Length")]
     pub fn len(&self) -> usize {
@@ -235,6 +254,14 @@ impl Dict {
             .map(|(k, v)| Value::Array(array![k.clone(), v.clone()]))
             .collect()
     }
+}
+
+/// A value that can be cast to dictionary.
+pub struct ToDict(Dict);
+
+cast! {
+    ToDict,
+    v: Module => Self(v.scope().iter().map(|(k, v)| (Str::from(k.clone()), v.clone())).collect()),
 }
 
 impl Debug for Dict {
