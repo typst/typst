@@ -44,11 +44,10 @@ impl<T> LazyHash<T> {
 
     /// Wrap an item with a pre-computed hash.
     ///
-    /// # Safety
-    /// The hash must be correct for the value. This cannot be enforced at
-    /// compile time, so use with caution.
+    /// **Important:** The hash must be correct for the value. This cannot be
+    /// enforced at compile time, so use with caution.
     #[inline]
-    pub unsafe fn with_hash(value: T, hash: u128) -> Self {
+    pub fn with_hash(value: T, hash: u128) -> Self {
         Self { hash: AtomicU128::new(hash), value }
     }
 
