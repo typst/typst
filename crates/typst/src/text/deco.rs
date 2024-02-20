@@ -276,7 +276,6 @@ impl Show for Packed<StrikeElem> {
 #[elem(Show)]
 pub struct HighlightElem {
     /// The color to highlight the text with.
-    /// (Default: #fffd11a1)
     ///
     /// ```example
     /// This is #highlight(fill: blue)[with blue].
