@@ -1285,7 +1285,7 @@ impl<'a> CompletionContext<'a> {
             let mut sibling = Some(node.clone());
             while let Some(node) = &sibling {
                 if let Some(v) = node.cast::<ast::LetBinding>() {
-                    for ident in v.kind().idents() {
+                    for ident in v.kind().bindings() {
                         defined.insert(ident.get().clone());
                     }
                 }
@@ -1323,7 +1323,7 @@ impl<'a> CompletionContext<'a> {
                 if let Some(v) = parent.cast::<ast::ForLoop>() {
                     if node.prev_sibling_kind() != Some(SyntaxKind::In) {
                         let pattern = v.pattern();
-                        for ident in pattern.idents() {
+                        for ident in pattern.bindings() {
                             defined.insert(ident.get().clone());
                         }
                     }

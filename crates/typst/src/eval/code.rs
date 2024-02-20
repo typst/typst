@@ -210,10 +210,10 @@ impl Eval for ast::Array<'_> {
         for item in items {
             match item {
                 ast::ArrayItem::Pos(expr) => vec.push(expr.eval(vm)?),
-                ast::ArrayItem::Spread(expr) => match expr.eval(vm)? {
+                ast::ArrayItem::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
                     Value::Array(array) => vec.extend(array.into_iter()),
-                    v => bail!(expr.span(), "cannot spread {} into array", v.ty()),
+                    v => bail!(spread.span(), "cannot spread {} into array", v.ty()),
                 },
             }
         }
@@ -227,7 +227,6 @@ impl Eval for ast::Dict<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let mut map = indexmap::IndexMap::new();
-
         let mut invalid_keys = eco_vec![];
 
         for item in self.items() {
@@ -245,10 +244,10 @@ impl Eval for ast::Dict<'_> {
                     });
                     map.insert(key, keyed.expr().eval(vm)?);
                 }
-                ast::DictItem::Spread(expr) => match expr.eval(vm)? {
+                ast::DictItem::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
                     Value::Dict(dict) => map.extend(dict.into_iter()),
-                    v => bail!(expr.span(), "cannot spread {} into dictionary", v.ty()),
+                    v => bail!(spread.span(), "cannot spread {} into dictionary", v.ty()),
                 },
             }
         }

@@ -86,7 +86,7 @@
 #eval("RR_1^NN", mode: "math", scope: (RR: math.NN, NN: math.RR))
 
 ---
-// Error: 7-12 expected identifier
+// Error: 7-12 expected pattern
 #eval("let")
 
 ---

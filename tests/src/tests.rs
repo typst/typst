@@ -884,7 +884,7 @@ fn print_annotation(
         let start_col = 1 + source.byte_to_column(range.start).unwrap();
         let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
         let end_col = 1 + source.byte_to_column(range.end).unwrap();
-        write!(output, "{start_line}:{start_col}-{end_line}:{end_col}: ").unwrap();
+        write!(output, "{start_line}:{start_col}-{end_line}:{end_col} ").unwrap();
     }
     writeln!(output, "{text}").unwrap();
 }
