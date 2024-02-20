@@ -59,7 +59,6 @@ pub(super) enum StrokePriority {
     /// stroke override, so it should have priority over non-overridden cell
     /// strokes and be drawn on top of them (when they have the same
     /// thickness).
-    #[allow(dead_code)]
     CellStroke = 1,
     /// The segment's stroke was derived from a user's explicitly placed line
     /// (hline or vline), and thus should have maximum priority, drawn on top
