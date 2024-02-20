@@ -106,7 +106,7 @@ pub struct CancelElem {
 impl LayoutMath for Packed<CancelElem> {
     #[typst_macros::time(name = "math.cancel", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        let body = ctx.layout_fragment(self.body(), styles)?;
+        let body = ctx.layout_into_fragment(self.body(), styles)?;
         // Preserve properties of body.
         let body_class = body.class();
         let body_italics = body.italics_correction();

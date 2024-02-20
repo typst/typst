@@ -37,7 +37,7 @@ impl LayoutMath for Packed<ClassElem> {
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
         let class = *self.class();
         let style = EquationElem::set_class(Some(class)).wrap();
-        let mut fragment = ctx.layout_fragment(self.body(), styles.chain(&style))?;
+        let mut fragment = ctx.layout_into_fragment(self.body(), styles.chain(&style))?;
         fragment.set_class(class);
         fragment.set_limits(Limits::for_class(class));
         ctx.push(fragment);
