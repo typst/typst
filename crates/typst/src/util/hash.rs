@@ -7,6 +7,7 @@ use portable_atomic::{AtomicU128, Ordering};
 use siphasher::sip128::{Hasher128, SipHasher13};
 
 /// A wrapper type with lazily-computed hash.
+///
 /// This is useful if you want to pass large values of `T` to memoized
 /// functions. Especially recursive structures like trees benefit from
 /// intermediate prehashed nodes.
