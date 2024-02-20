@@ -1,5 +1,5 @@
-// Test alignment of equation, equation number, and its interaction
-// with text direction.
+// Test equation number, and its interaction with equation
+// block's alignment and text direction.
 
 ---
 #set math.equation(numbering: "(1)")
