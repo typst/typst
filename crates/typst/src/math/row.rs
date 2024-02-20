@@ -184,17 +184,16 @@ impl MathRow {
             }
 
             let sub = row.into_line_frame(&alignments.points, align);
-            let sub_size = sub.size();
             if i > 0 {
                 size.y += leading;
             }
 
             let mut pos = Point::with_y(size.y);
             if alignments.points.is_empty() {
-                pos.x = align.position(alignments.width - sub_size.x);
+                pos.x = align.position(alignments.width - sub.width());
             }
             size.x.set_max(sub.width());
-            size.y += sub_size.y;
+            size.y += sub.height();
             frames.push((sub, pos));
         }
 
@@ -389,7 +388,6 @@ impl MathRowFrameBuilder {
         for (sub, pos) in self.frames.into_iter() {
             frame.push_frame(pos, sub);
         }
-
         frame
     }
 }
