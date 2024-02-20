@@ -55,7 +55,7 @@ impl Eval for ast::MathAttach<'_> {
         if let Some(expr) = self.top() {
             elem.push_t(Some(expr.eval_display(vm)?));
         } else if let Some(primes) = self.primes() {
-            elem.push_t(Some(primes.eval(vm)?));
+            elem.push_tr(Some(primes.eval(vm)?));
         }
 
         if let Some(expr) = self.bottom() {
