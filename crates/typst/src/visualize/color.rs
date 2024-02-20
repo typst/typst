@@ -1306,14 +1306,13 @@ impl Color {
             Self::Luma(c) => c,
             // Perform sRGB gamut mapping by converting to Okhsv first.
             // This yields better results than clamping.
-            Self::Oklab(c) => Luma::from_color_unclamped(Okhsva::from_color(c)),
-            Self::Oklch(c) => Luma::from_color_unclamped(Okhsva::from_color(c)),
-            // No clamping necessary because these color spaces are all within sRGB, same as [`Luma`].
-            Self::Rgb(c) => Luma::from_color_unclamped(c),
-            Self::LinearRgb(c) => Luma::from_color_unclamped(c),
-            Self::Cmyk(c) => Luma::from_color_unclamped(c.to_rgba()),
-            Self::Hsl(c) => Luma::from_color_unclamped(c),
-            Self::Hsv(c) => Luma::from_color_unclamped(c),
+            Self::Oklab(c) => Luma::from_color(Okhsva::from_color(c)),
+            Self::Oklch(c) => Luma::from_color(Okhsva::from_color(c)),
+            Self::Rgb(c) => Luma::from_color(c),
+            Self::LinearRgb(c) => Luma::from_color(c),
+            Self::Cmyk(c) => Luma::from_color(c.to_rgba()),
+            Self::Hsl(c) => Luma::from_color(c),
+            Self::Hsv(c) => Luma::from_color(c),
         })
     }
 
@@ -1349,35 +1348,31 @@ impl Color {
 
     pub fn to_rgb(self) -> Self {
         Self::Rgb(match self {
-            // No clamping necessary because Luma is within sRGB, same as [`Rgb`].
-            Self::Luma(c) => Rgb::from_color_unclamped(c),
+            Self::Luma(c) => Rgb::from_color(c),
             // Perform sRGB gamut mapping by converting to Okhsv first.
             // This yields better results than clamping.
-            Self::Oklab(c) => Rgb::from_color_unclamped(Okhsva::from_color(c)),
-            Self::Oklch(c) => Rgb::from_color_unclamped(Okhsva::from_color(c)),
-            // No clamping necessary because these color spaces are all within sRGB, same as [`Rgb`].
+            Self::Oklab(c) => Rgb::from_color(Okhsva::from_color(c)),
+            Self::Oklch(c) => Rgb::from_color(Okhsva::from_color(c)),
             Self::Rgb(c) => c,
             Self::LinearRgb(c) => Rgb::from_linear(c),
-            Self::Cmyk(c) => Rgb::from_color_unclamped(c.to_rgba()),
-            Self::Hsl(c) => Rgb::from_color_unclamped(c),
-            Self::Hsv(c) => Rgb::from_color_unclamped(c),
+            Self::Cmyk(c) => Rgb::from_color(c.to_rgba()),
+            Self::Hsl(c) => Rgb::from_color(c),
+            Self::Hsv(c) => Rgb::from_color(c),
         })
     }
 
     pub fn to_linear_rgb(self) -> Self {
         Self::LinearRgb(match self {
-            // No clamping necessary because Luma is within sRGB, same as $to.
-            Self::Luma(c) => LinearRgb::from_color_unclamped(c),
+            Self::Luma(c) => LinearRgb::from_color(c),
             // Perform sRGB gamut mapping by converting to Okhsv first.
             // This yields better results than clamping.
-            Self::Oklab(c) => LinearRgb::from_color_unclamped(Okhsva::from_color(c)),
-            Self::Oklch(c) => LinearRgb::from_color_unclamped(Okhsva::from_color(c)),
-            // No clamping necessary because these color spaces are all within sRGB, same as $to.
-            Self::Rgb(c) => LinearRgb::from_color_unclamped(c),
+            Self::Oklab(c) => LinearRgb::from_color(Okhsva::from_color(c)),
+            Self::Oklch(c) => LinearRgb::from_color(Okhsva::from_color(c)),
+            Self::Rgb(c) => LinearRgb::from_color(c),
             Self::LinearRgb(c) => c,
-            Self::Cmyk(c) => LinearRgb::from_color_unclamped(c.to_rgba()),
-            Self::Hsl(c) => Rgb::from_color_unclamped(c).into_linear(),
-            Self::Hsv(c) => Rgb::from_color_unclamped(c).into_linear(),
+            Self::Cmyk(c) => LinearRgb::from_color(c.to_rgba()),
+            Self::Hsl(c) => Rgb::from_color(c).into_linear(),
+            Self::Hsv(c) => Rgb::from_color(c).into_linear(),
         })
     }
 
@@ -1386,51 +1381,42 @@ impl Color {
             Self::Luma(c) => Cmyk::from_luma(c),
             // Perform sRGB gamut mapping by converting to Okhsv first.
             // This yields better results than clamping.
-            Self::Oklab(c) => {
-                Cmyk::from_rgba(Rgb::from_color_unclamped(Okhsva::from_color(c)))
-            }
-            Self::Oklch(c) => {
-                Cmyk::from_rgba(Rgb::from_color_unclamped(Okhsva::from_color(c)))
-            }
+            Self::Oklab(c) => Cmyk::from_rgba(Rgb::from_color(Okhsva::from_color(c))),
+            Self::Oklch(c) => Cmyk::from_rgba(Rgb::from_color(Okhsva::from_color(c))),
             Self::Rgb(c) => Cmyk::from_rgba(c),
             Self::LinearRgb(c) => Cmyk::from_rgba(Rgb::from_linear(c)),
             Self::Cmyk(c) => c,
-            // No clamping necessary because these color spaces are all within sRGB, same as [`Cmyk`].
-            Self::Hsl(c) => Cmyk::from_rgba(Rgb::from_color_unclamped(c)),
-            Self::Hsv(c) => Cmyk::from_rgba(Rgb::from_color_unclamped(c)),
+            Self::Hsl(c) => Cmyk::from_rgba(Rgb::from_color(c)),
+            Self::Hsv(c) => Cmyk::from_rgba(Rgb::from_color(c)),
         })
     }
 
     pub fn to_hsl(self) -> Self {
         Self::Hsl(match self {
-            // No clamping necessary because Luma is within sRGB, same as [`Hsl`].
-            Self::Luma(c) => Hsl::from_color_unclamped(c),
+            Self::Luma(c) => Hsl::from_color(c),
             // Perform sRGB gamut mapping by converting to Okhsv first.
             // This yields better results than clamping.
-            Self::Oklab(c) => Hsl::from_color_unclamped(Okhsva::from_color(c)),
-            Self::Oklch(c) => Hsl::from_color_unclamped(Okhsva::from_color(c)),
-            // No clamping necessary because these color spaces are all within sRGB, same as [`Hsl`].
-            Self::Rgb(c) => Hsl::from_color_unclamped(c),
-            Self::LinearRgb(c) => Hsl::from_color_unclamped(Rgb::from_linear(c)),
-            Self::Cmyk(c) => Hsl::from_color_unclamped(c.to_rgba()),
+            Self::Oklab(c) => Hsl::from_color(Okhsva::from_color(c)),
+            Self::Oklch(c) => Hsl::from_color(Okhsva::from_color(c)),
+            Self::Rgb(c) => Hsl::from_color(c),
+            Self::LinearRgb(c) => Hsl::from_color(Rgb::from_linear(c)),
+            Self::Cmyk(c) => Hsl::from_color(c.to_rgba()),
             Self::Hsl(c) => c,
-            Self::Hsv(c) => Hsl::from_color_unclamped(c),
+            Self::Hsv(c) => Hsl::from_color(c),
         })
     }
 
     pub fn to_hsv(self) -> Self {
         Self::Hsv(match self {
-            // No clamping necessary because Luma is within sRGB, same as [`Hsv`].
-            Self::Luma(c) => Hsv::from_color_unclamped(c),
+            Self::Luma(c) => Hsv::from_color(c),
             // Perform sRGB gamut mapping by converting to Okhsv first.
             // This yields better results than clamping.
-            Self::Oklab(c) => Hsv::from_color_unclamped(Okhsva::from_color(c)),
-            Self::Oklch(c) => Hsv::from_color_unclamped(Okhsva::from_color(c)),
-            // No clamping necessary because these color spaces are all within sRGB, same as [`Hsv`].
-            Self::Rgb(c) => Hsv::from_color_unclamped(c),
-            Self::LinearRgb(c) => Hsv::from_color_unclamped(Rgb::from_linear(c)),
-            Self::Cmyk(c) => Hsv::from_color_unclamped(c.to_rgba()),
-            Self::Hsl(c) => Hsv::from_color_unclamped(c),
+            Self::Oklab(c) => Hsv::from_color(Okhsva::from_color(c)),
+            Self::Oklch(c) => Hsv::from_color(Okhsva::from_color(c)),
+            Self::Rgb(c) => Hsv::from_color(c),
+            Self::LinearRgb(c) => Hsv::from_color(Rgb::from_linear(c)),
+            Self::Cmyk(c) => Hsv::from_color(c.to_rgba()),
+            Self::Hsl(c) => Hsv::from_color(c),
             Self::Hsv(c) => c,
         })
     }

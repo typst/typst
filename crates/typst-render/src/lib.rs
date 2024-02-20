@@ -1008,8 +1008,9 @@ fn render_pattern_frame(state: &State, pattern: &Pattern) -> sk::Pixmap {
 }
 
 fn to_sk_color(color: Color) -> sk::Color {
-    let [r, g, b, a] = color.to_rgb().to_vec4_u8();
-    sk::Color::from_rgba8(r, g, b, a)
+    let [r, g, b, a] = color.to_rgb().to_vec4();
+    sk::Color::from_rgba(r, g, b, a)
+        .expect("components must always be in the range [0..=1]")
 }
 
 fn to_sk_color_u8(color: Color) -> sk::ColorU8 {
