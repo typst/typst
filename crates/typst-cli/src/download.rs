@@ -1,5 +1,5 @@
 // Acknowledgement:
-// Closely modelled after rustup's [`DownloadTracker`].
+// Closely modelled after rustup's `DownloadTracker`.
 // https://github.com/rust-lang/rustup/blob/master/src/cli/download_tracker.rs
 
 use std::collections::VecDeque;
