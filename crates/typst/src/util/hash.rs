@@ -19,7 +19,7 @@ use siphasher::sip128::{Hasher128, SipHasher13};
 /// values of type `T` or with values of type `LazyHash<T>`, not a mix of both.
 ///
 /// # Equality
-/// Because typst uses high-quality 128 bit hashes in all places, the risk of a
+/// Because Typst uses high-quality 128 bit hashes in all places, the risk of a
 /// hash collision is reduced to an absolute minimum. Therefore, this type
 /// additionally provides `PartialEq` and `Eq` implementations that compare by
 /// hash instead of by value. For this to be correct, your hash implementation
