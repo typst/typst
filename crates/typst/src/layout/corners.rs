@@ -2,7 +2,8 @@ use std::fmt::{self, Debug, Formatter};
 
 use crate::diag::StrResult;
 use crate::foundations::{
-    CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve, StyleChain, Value,
+    AlternativeFold, CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve,
+    StyleChain, Value,
 };
 use crate::layout::Side;
 use crate::util::Get;
@@ -240,13 +241,10 @@ impl<T: Resolve> Resolve for Corners<T> {
 
 impl<T: Fold> Fold for Corners<Option<T>> {
     fn fold(self, outer: Self) -> Self {
-        self.zip(outer).map(|(inner, outer)| match (inner, outer) {
-            (Some(inner), Some(outer)) => Some(inner.fold(outer)),
-            // Usually, folding an inner `None` with an `outer` preferres the
-            // explicit `None`. However, here `None` means unspecified and thus
-            // we want `outer`.
-            (inner, outer) => inner.or(outer),
-        })
+        // Usually, folding an inner `None` with an `outer` preferres the
+        // explicit `None`. However, here `None` means unspecified and thus
+        // we want `outer`, so we use `fold_or` to opt into such behavior.
+        self.zip(outer).map(|(inner, outer)| inner.fold_or(outer))
     }
 }
 

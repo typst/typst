@@ -29,7 +29,8 @@ use crate::foundations::{
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{
-    BlockElem, Em, GridCell, GridElem, HElem, PadElem, Sizing, TrackSizings, VElem,
+    BlockElem, Em, GridCell, GridChild, GridElem, HElem, PadElem, Sizing, TrackSizings,
+    VElem,
 };
 use crate::model::{
     CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
@@ -237,11 +238,13 @@ impl Show for Packed<BibliographyElem> {
         if references.iter().any(|(prefix, _)| prefix.is_some()) {
             let mut cells = vec![];
             for (prefix, reference) in references {
-                cells.push(
+                cells.push(GridChild::Cell(
                     Packed::new(GridCell::new(prefix.clone().unwrap_or_default()))
                         .spanned(span),
-                );
-                cells.push(Packed::new(GridCell::new(reference.clone())).spanned(span));
+                ));
+                cells.push(GridChild::Cell(
+                    Packed::new(GridCell::new(reference.clone())).spanned(span),
+                ));
             }
 
             seq.push(VElem::new(row_gutter).with_weakness(3).pack());
@@ -945,8 +948,8 @@ impl ElemRenderer<'_> {
         if let Some(prefix) = suf_prefix {
             const COLUMN_GUTTER: Em = Em::new(0.65);
             content = GridElem::new(vec![
-                Packed::new(GridCell::new(prefix)).spanned(self.span),
-                Packed::new(GridCell::new(content)).spanned(self.span),
+                GridChild::Cell(Packed::new(GridCell::new(prefix)).spanned(self.span)),
+                GridChild::Cell(Packed::new(GridCell::new(content)).spanned(self.span)),
             ])
             .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
             .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))

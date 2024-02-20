@@ -1,8 +1,11 @@
 mod layout;
+mod lines;
 
-pub use self::layout::{Cell, CellGrid, Celled, GridLayouter, ResolvableCell};
+pub use self::layout::{Cell, CellGrid, Celled, GridItem, GridLayouter, ResolvableCell};
+pub use self::lines::LinePosition;
 
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 use ecow::eco_format;
 use smallvec::{smallvec, SmallVec};
@@ -13,10 +16,11 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, Fold, Packed, Show, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    AlignElem, Alignment, Axes, Fragment, LayoutMultiple, Length, Regions, Rel, Sides,
-    Sizing,
+    Abs, AlignElem, Alignment, Axes, Dir, Fragment, LayoutMultiple, Length,
+    OuterHAlignment, OuterVAlignment, Regions, Rel, Sides, Sizing,
 };
 use crate::syntax::Span;
+use crate::text::TextElem;
 use crate::util::NonZeroExt;
 use crate::visualize::{Paint, Stroke};
 
@@ -235,12 +239,14 @@ pub struct GridElem {
     /// Grids have no strokes by default, which can be changed by setting this
     /// option to the desired stroke.
     ///
-    /// _Note:_ Richer stroke customization for individual cells is not yet
-    /// implemented, but will be in the future. In the meantime, you can use the
-    /// third-party [tablex library](https://github.com/PgBiel/typst-tablex/).
+    /// If it is necessary to place lines which can cross spacing between cells
+    /// produced by the `gutter` option, or to override the stroke between
+    /// multiple specific cells, consider specifying one or more of
+    /// [`grid.hline`]($grid.hline) and [`grid.vline`]($grid.vline) alongside
+    /// your grid cells.
     #[resolve]
     #[fold]
-    pub stroke: Option<Stroke>,
+    pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
 
     /// How much to pad the cells' content.
     ///
@@ -266,17 +272,25 @@ pub struct GridElem {
     #[fold]
     pub inset: Sides<Option<Rel<Length>>>,
 
-    /// The contents of the grid cells.
+    /// The contents of the grid cells, plus any extra grid lines specified
+    /// with the [`grid.hline`]($grid.hline) and [`grid.vline`]($grid.vline)
+    /// elements.
     ///
     /// The cells are populated in row-major order.
     #[variadic]
-    pub children: Vec<Packed<GridCell>>,
+    pub children: Vec<GridChild>,
 }
 
 #[scope]
 impl GridElem {
     #[elem]
     type GridCell;
+
+    #[elem]
+    type GridHLine;
+
+    #[elem]
+    type GridVLine;
 }
 
 impl LayoutMultiple for Packed<GridElem> {
@@ -294,26 +308,60 @@ impl LayoutMultiple for Packed<GridElem> {
         let column_gutter = self.column_gutter(styles);
         let row_gutter = self.row_gutter(styles);
         let fill = self.fill(styles);
-        let stroke = self.stroke(styles).map(Stroke::unwrap_or_default);
+        let stroke = self.stroke(styles);
 
         let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
         // Use trace to link back to the grid when a specific cell errors
         let tracepoint = || Tracepoint::Call(Some(eco_format!("grid")));
+        let items = self.children().iter().map(|child| match child {
+            GridChild::HLine(hline) => GridItem::HLine {
+                y: hline.y(styles),
+                start: hline.start(styles),
+                end: hline.end(styles),
+                stroke: hline.stroke(styles),
+                span: hline.span(),
+                position: match hline.position(styles) {
+                    OuterVAlignment::Top => LinePosition::Before,
+                    OuterVAlignment::Bottom => LinePosition::After,
+                },
+            },
+            GridChild::VLine(vline) => GridItem::VLine {
+                x: vline.x(styles),
+                start: vline.start(styles),
+                end: vline.end(styles),
+                stroke: vline.stroke(styles),
+                span: vline.span(),
+                position: match vline.position(styles) {
+                    OuterHAlignment::Left if TextElem::dir_in(styles) == Dir::RTL => {
+                        LinePosition::After
+                    }
+                    OuterHAlignment::Right if TextElem::dir_in(styles) == Dir::RTL => {
+                        LinePosition::Before
+                    }
+                    OuterHAlignment::Start | OuterHAlignment::Left => {
+                        LinePosition::Before
+                    }
+                    OuterHAlignment::End | OuterHAlignment::Right => LinePosition::After,
+                },
+            },
+            GridChild::Cell(cell) => GridItem::Cell(cell.clone()),
+        });
         let grid = CellGrid::resolve(
             tracks,
             gutter,
-            self.children(),
+            items,
             fill,
             align,
             inset,
+            &stroke,
             engine,
             styles,
             self.span(),
         )
         .trace(engine.world, tracepoint, self.span())?;
 
-        let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
+        let layouter = GridLayouter::new(&grid, regions, styles, self.span());
 
         // Measure the columns and layout the grid row-by-row.
         layouter.layout(engine)
@@ -330,6 +378,151 @@ cast! {
     sizing: Sizing => Self(smallvec![sizing]),
     count: NonZeroUsize => Self(smallvec![Sizing::Auto; count.get()]),
     values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+}
+
+/// Any child of a grid element.
+#[derive(Debug, PartialEq, Clone, Hash)]
+pub enum GridChild {
+    HLine(Packed<GridHLine>),
+    VLine(Packed<GridVLine>),
+    Cell(Packed<GridCell>),
+}
+
+cast! {
+    GridChild,
+    self => match self {
+        Self::HLine(hline) => hline.into_value(),
+        Self::VLine(vline) => vline.into_value(),
+        Self::Cell(cell) => cell.into_value(),
+    },
+    v: Content => v.into(),
+}
+
+impl From<Content> for GridChild {
+    fn from(value: Content) -> Self {
+        value
+            .into_packed::<GridHLine>()
+            .map(GridChild::HLine)
+            .or_else(|value| value.into_packed::<GridVLine>().map(GridChild::VLine))
+            .or_else(|value| value.into_packed::<GridCell>().map(GridChild::Cell))
+            .unwrap_or_else(|value| {
+                let span = value.span();
+                GridChild::Cell(Packed::new(GridCell::new(value)).spanned(span))
+            })
+    }
+}
+
+/// A horizontal line in the grid.
+///
+/// Overrides any per-cell stroke, including stroke specified through the
+/// grid's `stroke` field. Can cross spacing between cells created through
+/// the grid's `column-gutter` option.
+#[elem(name = "hline", title = "Grid Horizontal Line")]
+pub struct GridHLine {
+    /// The row above which the horizontal line is placed (zero-indexed).
+    /// If the `position` field is set to `{bottom}`, the line is placed below
+    /// the row with the given index instead (see that field's docs for
+    /// details).
+    ///
+    /// Specifying `{auto}` causes the line to be placed at the row below the
+    /// last automatically positioned cell (that is, cell without coordinate
+    /// overrides) before the line among the grid's children. If there is no
+    /// such cell before the line, it is placed at the top of the grid (row 0).
+    /// Note that specifying for this option exactly the total amount of rows
+    /// in the grid causes this horizontal line to override the bottom border
+    /// of the grid, while a value of 0 overrides the top border.
+    pub y: Smart<usize>,
+
+    /// The column at which the horizontal line starts (zero-indexed, inclusive).
+    pub start: usize,
+
+    /// The column before which the horizontal line ends (zero-indexed,
+    /// exclusive).
+    /// Therefore, the horizontal line will be drawn up to and across column
+    /// `end - 1`.
+    ///
+    /// A value equal to `{none}` or to the amount of columns causes it to
+    /// extend all the way towards the end of the grid.
+    pub end: Option<NonZeroUsize>,
+
+    /// The line's stroke.
+    ///
+    /// Specifying `{none}` interrupts previous hlines placed across this
+    /// line's range, but does not affect per-cell stroke or vlines.
+    #[resolve]
+    #[fold]
+    #[default(Some(Arc::new(Stroke::default())))]
+    pub stroke: Option<Arc<Stroke>>,
+
+    /// The position at which the line is placed, given its row (`y`) - either
+    /// `{top}` to draw above it or `{bottom}` to draw below it.
+    ///
+    /// This setting is only relevant when row gutter is enabled (and
+    /// shouldn't be used otherwise - prefer just increasing the `y` field by
+    /// one instead), since then the position below a row becomes different
+    /// from the position above the next row due to the spacing between both.
+    #[default(OuterVAlignment::Top)]
+    pub position: OuterVAlignment,
+}
+
+/// A vertical line in the grid.
+///
+/// Overrides any per-cell stroke, including stroke specified through the
+/// grid's `stroke` field. Can cross spacing between cells created through
+/// the grid's `row-gutter` option.
+#[elem(name = "vline", title = "Grid Vertical Line")]
+pub struct GridVLine {
+    /// The column before which the horizontal line is placed (zero-indexed).
+    /// If the `position` field is set to `{end}`, the line is placed after the
+    /// column with the given index instead (see that field's docs for
+    /// details).
+    ///
+    /// Specifying `{auto}` causes the line to be placed at the column after
+    /// the last automatically positioned cell (that is, cell without
+    /// coordinate overrides) before the line among the grid's children. If
+    /// there is no such cell before the line, it is placed before the grid's
+    /// first column (column 0).
+    /// Note that specifying for this option exactly the total amount of
+    /// columns in the grid causes this vertical line to override the end
+    /// border of the grid (right in LTR, left in RTL), while a value of 0
+    /// overrides the start border (left in LTR, right in RTL).
+    pub x: Smart<usize>,
+
+    /// The row at which the vertical line starts (zero-indexed, inclusive).
+    pub start: usize,
+
+    /// The row on top of which the vertical line ends (zero-indexed,
+    /// exclusive).
+    /// Therefore, the vertical line will be drawn up to and across row
+    /// `end - 1`.
+    ///
+    /// A value equal to `{none}` or to the amount of rows causes it to extend
+    /// all the way towards the bottom of the grid.
+    pub end: Option<NonZeroUsize>,
+
+    /// The line's stroke.
+    ///
+    /// Specifying `{none}` interrupts previous vlines placed across this
+    /// line's range, but does not affect per-cell stroke or hlines.
+    #[resolve]
+    #[fold]
+    #[default(Some(Arc::new(Stroke::default())))]
+    pub stroke: Option<Arc<Stroke>>,
+
+    /// The position at which the line is placed, given its column (`x`) -
+    /// either `{start}` to draw before it or `{end}` to draw after it.
+    ///
+    /// The values `{left}` and `{right}` are also accepted, but discouraged as
+    /// they cause your grid to be inconsistent between left-to-right and
+    /// right-to-left documents.
+    ///
+    /// This setting is only relevant when column gutter is enabled (and
+    /// shouldn't be used otherwise - prefer just increasing the `x` field by
+    /// one instead), since then the position after a column becomes different
+    /// from the position before the next column due to the spacing between
+    /// both.
+    #[default(OuterHAlignment::Start)]
+    pub position: OuterHAlignment,
 }
 
 /// A cell in the grid. Use this to either override grid properties for a
@@ -383,7 +576,7 @@ cast! {
 pub struct GridCell {
     /// The cell's body.
     #[required]
-    body: Content,
+    pub body: Content,
 
     /// The cell's column (zero-indexed).
     /// This field may be used in show rules to style a cell depending on its
@@ -408,7 +601,7 @@ pub struct GridCell {
     ///   [1], grid.cell(x: 3)[4], [2],
     /// )
     /// ```
-    x: Smart<usize>,
+    pub x: Smart<usize>,
 
     /// The cell's row (zero-indexed).
     /// This field may be used in show rules to style a cell depending on its
@@ -427,20 +620,25 @@ pub struct GridCell {
     ///   [A], grid.cell(y: 1)[B], grid.cell(y: 1)[C], grid.cell(y: 2)[D]
     /// )
     /// ```
-    y: Smart<usize>,
+    pub y: Smart<usize>,
 
     /// The amount of columns spanned by this cell.
     #[default(NonZeroUsize::ONE)]
-    colspan: NonZeroUsize,
+    pub colspan: NonZeroUsize,
 
     /// The cell's fill override.
-    fill: Smart<Option<Paint>>,
+    pub fill: Smart<Option<Paint>>,
 
     /// The cell's alignment override.
-    align: Smart<Alignment>,
+    pub align: Smart<Alignment>,
 
     /// The cell's inset override.
-    inset: Smart<Sides<Option<Rel<Length>>>>,
+    pub inset: Smart<Sides<Option<Rel<Length>>>>,
+
+    /// The cell's stroke override.
+    #[resolve]
+    #[fold]
+    pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
 }
 
 cast! {
@@ -462,11 +660,27 @@ impl ResolvableCell for Packed<GridCell> {
         fill: &Option<Paint>,
         align: Smart<Alignment>,
         inset: Sides<Option<Rel<Length>>>,
+        stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         styles: StyleChain,
     ) -> Cell {
         let cell = &mut *self;
         let colspan = cell.colspan(styles);
         let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
+
+        let cell_stroke = cell.stroke(styles);
+        let stroke_overridden =
+            cell_stroke.as_ref().map(|side| matches!(side, Some(Some(_))));
+
+        // Using a typical 'Sides' fold, an unspecified side loses to a
+        // specified side. Additionally, when both are specified, an inner
+        // None wins over the outer Some, and vice-versa. When both are
+        // specified and Some, fold occurs, which, remarkably, leads to an Arc
+        // clone.
+        //
+        // In the end, we flatten because, for layout purposes, an unspecified
+        // cell stroke is the same as specifying 'none', so we equate the two
+        // concepts.
+        let stroke = cell_stroke.fold(stroke).map(Option::flatten);
         cell.push_x(Smart::Custom(x));
         cell.push_y(Smart::Custom(y));
         cell.push_fill(Smart::Custom(fill.clone()));
@@ -482,7 +696,26 @@ impl ResolvableCell for Packed<GridCell> {
         cell.push_inset(Smart::Custom(
             cell.inset(styles).map_or(inset, |inner| inner.fold(inset)),
         ));
-        Cell { body: self.pack(), fill, colspan }
+        cell.push_stroke(
+            // Here we convert the resolved stroke to a regular stroke, however
+            // with resolved units (that is, 'em' converted to absolute units).
+            // We also convert any stroke unspecified by both the cell and the
+            // outer stroke ('None' in the folded stroke) to 'none', that is,
+            // all sides are present in the resulting Sides object accessible
+            // by show rules on grid cells.
+            stroke.as_ref().map(|side| {
+                Some(side.as_ref().map(|cell_stroke| {
+                    Arc::new((**cell_stroke).clone().map(Length::from))
+                }))
+            }),
+        );
+        Cell {
+            body: self.pack(),
+            fill,
+            colspan,
+            stroke,
+            stroke_overridden,
+        }
     }
 
     fn x(&self, styles: StyleChain) -> Smart<usize> {
