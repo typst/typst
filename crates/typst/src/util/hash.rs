@@ -27,8 +27,8 @@ use siphasher::sip128::{Hasher128, SipHasher13};
 /// hasher.**
 ///
 /// # Usage
-/// It is best used inside of an `Arc` or `Rc` to best re-use the hash once it
-/// has been computed.
+/// If the value is expected to be cloned, it is best used inside of an `Arc`
+/// or `Rc` to best re-use the hash once it has been computed.
 pub struct LazyHash<T: ?Sized> {
     /// The hash for the value.
     hash: AtomicU128,
