@@ -36,6 +36,13 @@ pub struct LazyHash<T: ?Sized> {
     value: T,
 }
 
+impl<T: Default> Default for LazyHash<T> {
+    #[inline]
+    fn default() -> Self {
+        Self::new(Default::default())
+    }
+}
+
 impl<T> LazyHash<T> {
     /// Wrap an item without pre-computed hash.
     #[inline]
