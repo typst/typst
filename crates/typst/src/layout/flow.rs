@@ -9,7 +9,7 @@ use crate::introspection::{Meta, MetaElem};
 use crate::layout::{
     Abs, AlignElem, Axes, BlockElem, ColbreakElem, ColumnsElem, FixedAlignment, Fr,
     Fragment, Frame, FrameItem, LayoutMultiple, LayoutSingle, PlaceElem, Point, Regions,
-    Rel, Size, Spacing, VAlignment, VElem,
+    Rel, Size, Spacing, VAlignment, VAxis, VElem,
 };
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
 use crate::util::Numeric;

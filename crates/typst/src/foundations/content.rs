@@ -17,7 +17,9 @@ use crate::foundations::{
     Recipe, RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles, Value,
 };
 use crate::introspection::{Location, Meta, MetaElem};
-use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
+use crate::layout::{
+    AlignElem, Axes, FullAlignment, Length, MoveElem, PadElem, Rel, Sides,
+};
 use crate::model::{Destination, EmphElem, StrongElem};
 use crate::realize::{Behave, Behaviour};
 use crate::syntax::Span;
@@ -482,7 +484,7 @@ impl Content {
     }
 
     /// Set alignments for this content.
-    pub fn aligned(self, align: Alignment) -> Self {
+    pub fn aligned(self, align: FullAlignment) -> Self {
         self.styled(AlignElem::set_alignment(align))
     }
 

@@ -15,7 +15,7 @@ use crate::foundations::{
     cast, elem, scope, Args, Array, Bytes, Content, Fold, NativeElement, Packed,
     PlainText, Show, ShowSet, Smart, StyleChain, Styles, Synthesize, Value,
 };
-use crate::layout::{BlockElem, Em, HAlignment};
+use crate::layout::{BlockElem, Em, FullAlignment, HAlignment};
 use crate::model::Figurable;
 use crate::syntax::{split_newlines, LinkedNode, Spanned};
 use crate::text::{
@@ -417,7 +417,7 @@ impl Show for Packed<RawElem> {
         let mut realized = Content::sequence(seq);
         if self.block(styles) {
             // Align the text before inserting it into the block.
-            realized = realized.aligned(self.align(styles).into());
+            realized = realized.aligned(FullAlignment::H(self.align(styles).into()));
             realized =
                 BlockElem::new().with_body(Some(realized)).pack().spanned(self.span());
         }

@@ -9,7 +9,7 @@ use crate::foundations::{
     cast, elem, scope, Content, Fold, Packed, Show, Smart, StyleChain,
 };
 use crate::layout::{
-    show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Dir, Fragment,
+    show_grid_cell, Abs, Axes, Cell, CellGrid, Celled, Dir, Fragment, FullAlignment,
     GridItem, GridLayouter, LayoutMultiple, Length, LinePosition, OuterHAlignment,
     OuterVAlignment, Regions, Rel, ResolvableCell, Sides, TrackSizings,
 };
@@ -162,7 +162,7 @@ pub struct TableElem {
     /// )
     /// ```
     #[borrowed]
-    pub align: Celled<Smart<Alignment>>,
+    pub align: Celled<Smart<FullAlignment>>,
 
     /// How to [stroke]($stroke) the cells.
     ///
@@ -518,7 +518,7 @@ pub struct TableCell {
     pub colspan: NonZeroUsize,
 
     /// The cell's alignment override.
-    pub align: Smart<Alignment>,
+    pub align: Smart<FullAlignment>,
 
     /// The cell's inset override.
     pub inset: Smart<Sides<Option<Rel<Length>>>>,
@@ -546,7 +546,7 @@ impl ResolvableCell for Packed<TableCell> {
         x: usize,
         y: usize,
         fill: &Option<Paint>,
-        align: Smart<Alignment>,
+        align: Smart<FullAlignment>,
         inset: Sides<Option<Rel<Length>>>,
         stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         styles: StyleChain,

@@ -39,7 +39,7 @@ pub struct AlignElem {
     #[positional]
     #[fold]
     #[default]
-    pub alignment: Alignment,
+    pub alignment: FullAlignment,
 
     /// The content to align.
     #[required]
@@ -121,14 +121,6 @@ impl Alignment {
             Self::H(_) => None,
         }
     }
-
-    /// Normalize the alignment to a LTR-TTB space.
-    pub fn fix(self, text_dir: Dir) -> Axes<FixedAlignment> {
-        Axes::new(
-            self.x().unwrap_or_default().fix(text_dir),
-            self.y().unwrap_or_default().fix(),
-        )
-    }
 }
 
 #[scope]
@@ -169,18 +161,12 @@ impl Alignment {
     /// #(left + bottom).inv()
     /// ```
     #[func(title = "Inverse")]
-    pub const fn inv(self) -> Alignment {
+    fn inv(self) -> Alignment {
         match self {
             Self::H(h) => Self::H(h.inv()),
             Self::V(v) => Self::V(v.inv()),
             Self::Both(h, v) => Self::Both(h.inv(), v.inv()),
         }
-    }
-}
-
-impl Default for Alignment {
-    fn default() -> Self {
-        HAlignment::default() + VAlignment::default()
     }
 }
 
@@ -225,13 +211,13 @@ impl Fold for Alignment {
     }
 }
 
-impl Resolve for Alignment {
-    type Output = Axes<FixedAlignment>;
+// impl Resolve for Alignment {
+//     type Output = Axes<FixedAlignment>;
 
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.fix(TextElem::dir_in(styles))
-    }
-}
+//     fn resolve(self, styles: StyleChain) -> Self::Output {
+//         self.fix(TextElem::dir_in(styles))
+//     }
+// }
 
 impl From<Side> for Alignment {
     fn from(side: Side) -> Self {
@@ -242,6 +228,20 @@ impl From<Side> for Alignment {
             Side::Bottom => Self::BOTTOM,
         }
     }
+}
+
+pub trait HAxis {
+    /// The inverse horizontal alignment.
+    fn inv(self) -> Self;
+    /// Resolve to the absolute axis alignment based on the horizontal direction.
+    fn fix(self, dir: Dir) -> FixedAlignment;
+}
+
+pub trait VAxis {
+    /// The inverse vertical alignment.
+    fn inv(self) -> Self;
+    /// Resolve to the absolute axis alignment.
+    fn fix(self) -> FixedAlignment;
 }
 
 /// Where to align something horizontally.
@@ -255,9 +255,9 @@ pub enum HAlignment {
     End,
 }
 
-impl HAlignment {
+impl HAxis for HAlignment {
     /// The inverse horizontal alignment.
-    pub const fn inv(self) -> Self {
+    fn inv(self) -> Self {
         match self {
             Self::Start => Self::End,
             Self::Left => Self::Right,
@@ -267,8 +267,8 @@ impl HAlignment {
         }
     }
 
-    /// Resolve the axis alignment based on the horizontal direction.
-    pub const fn fix(self, dir: Dir) -> FixedAlignment {
+    /// Resolve to the absolute axis alignment based on the horizontal direction.
+    fn fix(self, dir: Dir) -> FixedAlignment {
         match (self, dir.is_positive()) {
             (Self::Start, true) | (Self::End, false) => FixedAlignment::Start,
             (Self::Left, _) => FixedAlignment::Start,
@@ -344,9 +344,19 @@ pub enum OuterHAlignment {
     End,
 }
 
-impl OuterHAlignment {
-    /// Resolve the axis alignment based on the horizontal direction.
-    pub const fn fix(self, dir: Dir) -> FixedAlignment {
+impl HAxis for OuterHAlignment {
+    /// The inverse of the alignment.
+    fn inv(self) -> Self {
+        match self {
+            Self::Start => Self::End,
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
+            Self::End => Self::Start,
+        }
+    }
+
+    /// Resolve to the absolute axis alignment based on the horizontal direction.
+    fn fix(self, dir: Dir) -> FixedAlignment {
         match (self, dir.is_positive()) {
             (Self::Start, true) | (Self::End, false) => FixedAlignment::Start,
             (Self::Left, _) => FixedAlignment::Start,
@@ -396,9 +406,9 @@ pub enum VAlignment {
     Bottom,
 }
 
-impl VAlignment {
+impl VAxis for VAlignment {
     /// The inverse vertical alignment.
-    pub const fn inv(self) -> Self {
+    fn inv(self) -> Self {
         match self {
             Self::Top => Self::Bottom,
             Self::Horizon => Self::Horizon,
@@ -406,8 +416,8 @@ impl VAlignment {
         }
     }
 
-    /// Turns into a fixed alignment.
-    pub const fn fix(self) -> FixedAlignment {
+    /// Resolve to the absolute axis alignment.
+    fn fix(self) -> FixedAlignment {
         match self {
             Self::Top => FixedAlignment::Start,
             Self::Horizon => FixedAlignment::Center,
@@ -466,9 +476,17 @@ pub enum OuterVAlignment {
     Bottom,
 }
 
-impl OuterVAlignment {
-    /// Resolve the axis alignment based on the vertical direction.
-    pub const fn fix(self) -> FixedAlignment {
+impl VAxis for OuterVAlignment {
+    /// The inverse vertical alignment.
+    fn inv(self) -> Self {
+        match self {
+            Self::Top => Self::Bottom,
+            Self::Bottom => Self::Top,
+        }
+    }
+
+    /// Resolve to the absolute axis alignment.
+    fn fix(self) -> FixedAlignment {
         match self {
             Self::Top => FixedAlignment::Start,
             Self::Bottom => FixedAlignment::End,
@@ -516,10 +534,14 @@ pub enum SpecificAlignment<H, V> {
     Both(H, V),
 }
 
+/// An internal representation where the full set of alignment positions
+/// are allowed.
+pub type FullAlignment = SpecificAlignment<HAlignment, VAlignment>;
+
 impl<H, V> SpecificAlignment<H, V>
 where
-    H: Copy,
-    V: Copy,
+    H: Default + Copy + HAxis,
+    V: Default + Copy + VAxis,
 {
     /// The horizontal component.
     pub const fn x(self) -> Option<H> {
@@ -535,6 +557,50 @@ where
             Self::V(v) | Self::Both(_, v) => Some(v),
             Self::H(_) => None,
         }
+    }
+
+    /// Normalize the alignment to a LTR-TTB space.
+    pub fn fix(self, text_dir: Dir) -> Axes<FixedAlignment> {
+        Axes::new(
+            self.x().unwrap_or_default().fix(text_dir),
+            self.y().unwrap_or_default().fix(),
+        )
+    }
+}
+
+impl<H, V> Default for SpecificAlignment<H, V>
+where
+    H: Default,
+    V: Default,
+{
+    fn default() -> Self {
+        Self::Both(H::default(), V::default())
+    }
+}
+
+impl<H, V> Fold for SpecificAlignment<H, V>
+where
+    H: Copy,
+    V: Copy,
+{
+    fn fold(self, outer: Self) -> Self {
+        match (self, outer) {
+            (Self::H(h), Self::V(v) | Self::Both(_, v)) => Self::Both(h, v),
+            (Self::V(v), Self::H(h) | Self::Both(h, _)) => Self::Both(h, v),
+            _ => self,
+        }
+    }
+}
+
+impl<H, V> Resolve for SpecificAlignment<H, V>
+where
+    H: Default + Copy + HAxis,
+    V: Default + Copy + VAxis,
+{
+    type Output = Axes<FixedAlignment>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.fix(TextElem::dir_in(styles))
     }
 }
 

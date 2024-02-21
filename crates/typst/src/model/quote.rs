@@ -4,7 +4,9 @@ use crate::foundations::{
     cast, elem, Content, Depth, Label, NativeElement, Packed, Show, ShowSet, Smart,
     StyleChain, Styles,
 };
-use crate::layout::{Alignment, BlockElem, Em, HElem, PadElem, Spacing, VElem};
+use crate::layout::{
+    BlockElem, Em, FullAlignment, HAlignment, HElem, PadElem, Spacing, VElem,
+};
 use crate::model::{CitationForm, CiteElem};
 use crate::text::{SmartQuoteElem, SmartQuotes, SpaceElem, TextElem};
 
@@ -205,7 +207,8 @@ impl Show for Packed<QuoteElem> {
                 // Use v(0.9em, weak: true) bring the attribution closer to the
                 // quote.
                 let weak_v = VElem::weak(Spacing::Rel(Em::new(0.9).into())).pack();
-                realized += weak_v + Content::sequence(seq).aligned(Alignment::END);
+                realized += weak_v
+                    + Content::sequence(seq).aligned(FullAlignment::H(HAlignment::End));
             }
 
             realized = PadElem::new(realized).pack();

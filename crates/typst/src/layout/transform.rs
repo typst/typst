@@ -2,7 +2,7 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Packed, Resolve, StyleChain};
 use crate::layout::{
-    Abs, Alignment, Angle, Axes, FixedAlignment, Frame, HAlignment, LayoutMultiple,
+    Abs, Angle, Axes, FixedAlignment, Frame, FullAlignment, HAlignment, LayoutMultiple,
     LayoutSingle, Length, Point, Ratio, Regions, Rel, Size, VAlignment,
 };
 
@@ -95,8 +95,8 @@ pub struct RotateElem {
     /// #box(rotate(30deg, origin: bottom + right, square()))
     /// ```
     #[fold]
-    #[default(HAlignment::Center + VAlignment::Horizon)]
-    pub origin: Alignment,
+    #[default(FullAlignment::Both(HAlignment::Center, VAlignment::Horizon))]
+    pub origin: FullAlignment,
 
     /// Whether the rotation impacts the layout.
     ///
@@ -183,8 +183,8 @@ pub struct ScaleElem {
     /// B#box(scale(75%, origin: bottom + left)[B])B
     /// ```
     #[fold]
-    #[default(HAlignment::Center + VAlignment::Horizon)]
-    pub origin: Alignment,
+    #[default(FullAlignment::Both(HAlignment::Center, VAlignment::Horizon))]
+    pub origin: FullAlignment,
 
     /// Whether the scaling impacts the layout.
     ///

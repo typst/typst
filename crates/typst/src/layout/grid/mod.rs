@@ -16,7 +16,7 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, Fold, Packed, Show, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, Dir, Fragment, LayoutMultiple, Length,
+    Abs, AlignElem, Axes, Dir, Fragment, FullAlignment, LayoutMultiple, Length,
     OuterHAlignment, OuterVAlignment, Regions, Rel, Sides, Sizing,
 };
 use crate::syntax::Span;
@@ -232,7 +232,7 @@ pub struct GridElem {
     /// )
     /// ```
     #[borrowed]
-    pub align: Celled<Smart<Alignment>>,
+    pub align: Celled<Smart<FullAlignment>>,
 
     /// How to [stroke]($stroke) the cells.
     ///
@@ -630,7 +630,7 @@ pub struct GridCell {
     pub fill: Smart<Option<Paint>>,
 
     /// The cell's alignment override.
-    pub align: Smart<Alignment>,
+    pub align: Smart<FullAlignment>,
 
     /// The cell's inset override.
     pub inset: Smart<Sides<Option<Rel<Length>>>>,
@@ -658,7 +658,7 @@ impl ResolvableCell for Packed<GridCell> {
         x: usize,
         y: usize,
         fill: &Option<Paint>,
-        align: Smart<Alignment>,
+        align: Smart<FullAlignment>,
         inset: Sides<Option<Rel<Length>>>,
         stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         styles: StyleChain,
@@ -752,7 +752,7 @@ impl From<Content> for GridCell {
 pub fn show_grid_cell(
     mut body: Content,
     inset: Smart<Sides<Option<Rel<Length>>>>,
-    align: Smart<Alignment>,
+    align: Smart<FullAlignment>,
 ) -> SourceResult<Content> {
     let inset = inset.unwrap_or_default().map(Option::unwrap_or_default);
 

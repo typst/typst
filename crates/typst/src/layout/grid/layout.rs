@@ -18,8 +18,8 @@ use crate::foundations::{
     StyleChain, Value,
 };
 use crate::layout::{
-    Abs, Alignment, Axes, Dir, Fr, Fragment, Frame, FrameItem, LayoutMultiple, Length,
-    Point, Regions, Rel, Sides, Size, Sizing,
+    Abs, Axes, Dir, Fr, Fragment, Frame, FrameItem, FullAlignment, LayoutMultiple,
+    Length, Point, Regions, Rel, Sides, Size, Sizing,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
@@ -269,7 +269,7 @@ pub trait ResolvableCell {
         x: usize,
         y: usize,
         fill: &Option<Paint>,
-        align: Smart<Alignment>,
+        align: Smart<FullAlignment>,
         inset: Sides<Option<Rel<Length>>>,
         stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
         styles: StyleChain,
@@ -331,7 +331,7 @@ impl CellGrid {
         gutter: Axes<&[Sizing]>,
         items: I,
         fill: &Celled<Option<Paint>>,
-        align: &Celled<Smart<Alignment>>,
+        align: &Celled<Smart<FullAlignment>>,
         inset: Sides<Option<Rel<Length>>>,
         stroke: &ResolvedCelled<Sides<Option<Option<Arc<Stroke>>>>>,
         engine: &mut Engine,

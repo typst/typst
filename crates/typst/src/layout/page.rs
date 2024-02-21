@@ -11,9 +11,9 @@ use crate::foundations::{
 };
 use crate::introspection::{Counter, CounterKey, ManualPageCounter};
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, ColumnsElem, Dir, Frame, HAlignment, LayoutMultiple,
-    Length, OuterVAlignment, Point, Ratio, Regions, Rel, Sides, Size, SpecificAlignment,
-    VAlignment,
+    Abs, AlignElem, Alignment, Axes, ColumnsElem, Dir, Frame, FullAlignment, HAlignment,
+    LayoutMultiple, Length, OuterVAlignment, Point, Ratio, Regions, Rel, Sides, Size,
+    SpecificAlignment, VAlignment,
 };
 
 use crate::model::Numbering;
@@ -425,7 +425,7 @@ impl Packed<PageElem> {
             // We interpret the Y alignment as selecting header or footer
             // and then ignore it for aligning the actual number.
             if let Some(x) = number_align.x() {
-                counter = counter.aligned(x.into());
+                counter = counter.aligned(FullAlignment::H(x));
             }
 
             counter
@@ -467,16 +467,16 @@ impl Packed<PageElem> {
                     let ascent = header_ascent.relative_to(margin.top);
                     pos = Point::with_x(margin.left);
                     area = Size::new(pw, margin.top - ascent);
-                    align = Alignment::BOTTOM;
+                    align = FullAlignment::V(VAlignment::Bottom);
                 } else if ptr::eq(marginal, &footer) {
                     let descent = footer_descent.relative_to(margin.bottom);
                     pos = Point::new(margin.left, size.y - margin.bottom + descent);
                     area = Size::new(pw, margin.bottom - descent);
-                    align = Alignment::TOP;
+                    align = FullAlignment::V(VAlignment::Top);
                 } else {
                     pos = Point::zero();
                     area = size;
-                    align = HAlignment::Center + VAlignment::Horizon;
+                    align = FullAlignment::Both(HAlignment::Center, VAlignment::Horizon);
                 };
 
                 let pod = Regions::one(area, Axes::splat(true));

@@ -6,8 +6,8 @@ use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{cast, elem, scope, Array, Content, Packed, Smart, StyleChain};
 use crate::layout::{
-    Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
-    LayoutMultiple, Length, Regions, Sizing, Spacing, VAlignment,
+    Axes, BlockElem, Cell, CellGrid, Em, Fragment, FullAlignment, GridLayouter,
+    HAlignment, LayoutMultiple, Length, Regions, Sizing, Spacing, VAlignment,
 };
 use crate::model::{Numbering, NumberingPattern, ParElem};
 use crate::text::TextElem;
@@ -178,8 +178,8 @@ pub struct EnumElem {
     /// 16. Sixteen
     /// 32. Thirty two
     /// ````
-    #[default(HAlignment::End + VAlignment::Top)]
-    pub number_align: Alignment,
+    #[default(FullAlignment::Both(HAlignment::End, VAlignment::Top))]
+    pub number_align: FullAlignment,
 
     /// The numbered list's items.
     ///
