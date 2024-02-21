@@ -21,9 +21,5 @@
 #block(width: 100%, height: 100%, fill: aqua.lighten(50%))
 
 ---
-// Error: 25-39 expected `top` or `bottom` for the vertical component, found horizon
+// Error: 25-39 expected `top` or `bottom`, found horizon
 #set page(number-align: left + horizon)
-
----
-// Error: 25-39 expected `top` or `bottom` for the vertical component, found horizon
-#set page(number-align: horizon + left)
