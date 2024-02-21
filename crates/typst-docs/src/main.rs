@@ -105,8 +105,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     eprintln!("Be warned: the JSON structure is not stable and may change at any time.");
     let json = serde_json::to_string_pretty(&root_pages)?;
+    // FIXME: This should probably be done in the resolver instead.
+    let json = json.replace("/docs/", "/");
     println!("{json}");
-
+    
     eprintln!("All done!");
     Ok(())
 }
