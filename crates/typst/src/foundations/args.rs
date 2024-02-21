@@ -42,7 +42,8 @@ use crate::syntax::{Span, Spanned};
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Args {
-    /// The span of the whole argument list.
+    /// The callsite span for the function. This is not the span of the argument
+    /// list itself, but of the whole function call.
     pub span: Span,
     /// The positional and named arguments.
     pub items: EcoVec<Arg>,
@@ -60,6 +61,14 @@ impl Args {
             })
             .collect();
         Self { span, items }
+    }
+
+    /// Attach a span to these arguments if they don't already have one.
+    pub fn spanned(mut self, span: Span) -> Self {
+        if self.span.is_detached() {
+            self.span = span;
+        }
+        self
     }
 
     /// Returns the number of remaining positional arguments.
@@ -345,8 +354,8 @@ pub trait IntoArgs {
 }
 
 impl IntoArgs for Args {
-    fn into_args(self, _: Span) -> Args {
-        self
+    fn into_args(self, fallback: Span) -> Args {
+        self.spanned(fallback)
     }
 }
 

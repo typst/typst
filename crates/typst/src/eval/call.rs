@@ -12,7 +12,7 @@ use crate::introspection::{Introspector, Locator};
 use crate::math::{Accent, AccentElem, LrElem};
 use crate::symbols::Symbol;
 use crate::syntax::ast::{self, AstNode};
-use crate::syntax::{Spanned, SyntaxNode};
+use crate::syntax::{Span, Spanned, SyntaxNode};
 use crate::text::TextElem;
 use crate::util::LazyHash;
 use crate::World;
@@ -40,7 +40,7 @@ impl Eval for ast::FuncCall<'_> {
             let field_span = field.span();
 
             let target = if is_mutating_method(&field) {
-                let mut args = args.eval(vm)?;
+                let mut args = args.eval(vm)?.spanned(span);
                 let target = target.access(vm)?;
 
                 // Only arrays and dictionaries have mutable methods.
@@ -59,7 +59,7 @@ impl Eval for ast::FuncCall<'_> {
                 access.target().eval(vm)?
             };
 
-            let mut args = args.eval(vm)?;
+            let mut args = args.eval(vm)?.spanned(span);
 
             // Handle plugins.
             if let Value::Plugin(plugin) = &target {
@@ -126,7 +126,7 @@ impl Eval for ast::FuncCall<'_> {
                 bail!(error);
             }
         } else {
-            (callee.eval(vm)?, args.eval(vm)?)
+            (callee.eval(vm)?, args.eval(vm)?.spanned(span))
         };
 
         // Handle math special cases for non-functions:
@@ -222,7 +222,9 @@ impl Eval for ast::Args<'_> {
             }
         }
 
-        Ok(Args { span: self.span(), items })
+        // We do *not* use the `self.span()` here because we want the callsite
+        // span to be one level higher (the whole function call).
+        Ok(Args { span: Span::detached(), items })
     }
 }
 
