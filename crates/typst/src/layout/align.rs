@@ -305,6 +305,20 @@ impl From<HAlignment> for Alignment {
     }
 }
 
+impl TryFrom<Alignment> for HAlignment {
+    type Error = EcoString;
+
+    fn try_from(value: Alignment) -> StrResult<Self> {
+        match value {
+            Alignment::H(h) => Ok(h),
+            v => bail!(
+                "expected `start`, `left`, `center`, `right`, or `end`, found {}",
+                v.repr()
+            ),
+        }
+    }
+}
+
 impl Resolve for HAlignment {
     type Output = FixedAlignment;
 
@@ -316,10 +330,7 @@ impl Resolve for HAlignment {
 cast! {
     HAlignment,
     self => Alignment::H(self).into_value(),
-    align: Alignment => match align {
-        Alignment::H(y) => y,
-        v => bail!("expected `start`, `left`, `center`, `right`, or `end`, found {}", v.repr()),
-    }
+    align: Alignment => Self::try_from(align)?,
 }
 
 /// A horizontal alignment which only allows `left`/`right` and `start`/`end`,
@@ -356,16 +367,24 @@ impl From<OuterHAlignment> for HAlignment {
     }
 }
 
+impl TryFrom<Alignment> for OuterHAlignment {
+    type Error = EcoString;
+
+    fn try_from(value: Alignment) -> StrResult<Self> {
+        match value {
+            Alignment::H(HAlignment::Start) => Ok(Self::Start),
+            Alignment::H(HAlignment::Left) => Ok(Self::Left),
+            Alignment::H(HAlignment::Right) => Ok(Self::Right),
+            Alignment::H(HAlignment::End) => Ok(Self::End),
+            v => bail!("expected `start`, `left`, `right`, or `end`, found {}", v.repr()),
+        }
+    }
+}
+
 cast! {
     OuterHAlignment,
     self => HAlignment::from(self).into_value(),
-    align: Alignment => match align {
-        Alignment::H(HAlignment::Start) => Self::Start,
-        Alignment::H(HAlignment::Left) => Self::Left,
-        Alignment::H(HAlignment::Right) => Self::Right,
-        Alignment::H(HAlignment::End) => Self::End,
-        v => bail!("expected `start`, `left`, `right`, or `end`, found {}", v.repr()),
-    }
+    align: Alignment => Self::try_from(align)?,
 }
 
 /// Where to align something vertically.
@@ -421,13 +440,21 @@ impl From<VAlignment> for Alignment {
     }
 }
 
+impl TryFrom<Alignment> for VAlignment {
+    type Error = EcoString;
+
+    fn try_from(value: Alignment) -> StrResult<Self> {
+        match value {
+            Alignment::V(v) => Ok(v),
+            v => bail!("expected `top`, `horizon`, or `bottom`, found {}", v.repr()),
+        }
+    }
+}
+
 cast! {
     VAlignment,
     self => Alignment::V(self).into_value(),
-    align: Alignment => match align {
-        Alignment::V(v) => v,
-        v => bail!("expected `top`, `horizon`, or `bottom`, found {}", v.repr()),
-    }
+    align: Alignment => Self::try_from(align)?,
 }
 
 /// A vertical alignment which only allows `top` and `bottom`, thus excluding
@@ -458,12 +485,14 @@ impl From<OuterVAlignment> for VAlignment {
     }
 }
 
-impl From<VAlignment> for OuterVAlignment {
-    fn from(value: VAlignment) -> Self {
+impl TryFrom<Alignment> for OuterVAlignment {
+    type Error = EcoString;
+
+    fn try_from(value: Alignment) -> StrResult<Self> {
         match value {
-            VAlignment::Top => OuterVAlignment::Top,
-            VAlignment::Bottom => OuterVAlignment::Bottom,
-            VAlignment::Horizon => unreachable!(),
+            Alignment::V(VAlignment::Top) => Ok(Self::Top),
+            Alignment::V(VAlignment::Bottom) => Ok(Self::Bottom),
+            v => bail!("expected `top` or `bottom`, found {}", v.repr()),
         }
     }
 }
@@ -471,11 +500,7 @@ impl From<VAlignment> for OuterVAlignment {
 cast! {
     OuterVAlignment,
     self => VAlignment::from(self).into_value(),
-    align: Alignment => match align {
-        Alignment::V(VAlignment::Top) => Self::Top,
-        Alignment::V(VAlignment::Bottom) => Self::Bottom,
-        v => bail!("expected `top` or `bottom`, found {}", v.repr()),
-    }
+    align: Alignment => Self::try_from(align)?,
 }
 
 /// An internal representation that combines horizontal or vertical alignments. The
@@ -530,10 +555,8 @@ where
 
 impl<H, V> Reflect for SpecificAlignment<H, V>
 where
-    H: Into<HAlignment> + Copy + Reflect,
-    V: Into<VAlignment> + Copy + Reflect,
-    HAlignment: Into<H>,
-    VAlignment: Into<V>,
+    H: Reflect,
+    V: Reflect,
 {
     fn input() -> CastInfo {
         H::input() + V::input()
@@ -560,27 +583,17 @@ where
 
 impl<H, V> FromValue for SpecificAlignment<H, V>
 where
-    H: Into<HAlignment> + Copy + FromValue,
-    V: Into<VAlignment> + Copy + FromValue,
-    HAlignment: Into<H>,
-    VAlignment: Into<V>,
+    H: Reflect + TryFrom<Alignment, Error = EcoString>,
+    V: Reflect + TryFrom<Alignment, Error = EcoString>,
 {
     fn from_value(value: Value) -> StrResult<Self> {
         if Alignment::castable(&value) {
             let align = Alignment::from_value(value)?;
             let result = match align {
-                Alignment::H(h) => {
-                    let h = h.into_value();
-                    Self::H(H::from_value(h)?)
-                }
-                Alignment::V(v) => {
-                    let v = v.into_value();
-                    Self::V(V::from_value(v)?)
-                }
+                Alignment::H(_) => Self::H(H::try_from(align)?),
+                Alignment::V(_) => Self::V(V::try_from(align)?),
                 Alignment::Both(h, v) => {
-                    let h = h.into_value();
-                    let v = v.into_value();
-                    Self::Both(H::from_value(h)?, V::from_value(v)?)
+                    Self::Both(H::try_from(h.into())?, V::try_from(v.into())?)
                 }
             };
             return Ok(result);
