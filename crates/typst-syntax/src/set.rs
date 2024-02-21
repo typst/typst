@@ -10,17 +10,16 @@ pub struct SyntaxSet(u128);
 
 impl SyntaxSet {
     /// Create a new set from a slice of kinds.
-    pub const fn new(slice: &[SyntaxKind]) -> Self {
-        let mut bits = 0;
-        let mut i = 0;
-        while i < slice.len() {
-            bits |= bit(slice[i]);
-            i += 1;
-        }
-        Self(bits)
+    pub const fn new() -> Self {
+        Self(0)
     }
 
     /// Insert a syntax kind into the set.
+    pub const fn add(self, kind: SyntaxKind) -> Self {
+        Self(self.0 | bit(kind))
+    }
+
+    /// Combine two syntax sets.
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
@@ -36,56 +35,53 @@ const fn bit(kind: SyntaxKind) -> u128 {
 }
 
 /// Syntax kinds that can start a statement.
-pub const STMT: SyntaxSet = SyntaxSet::new(&[
-    SyntaxKind::Let,
-    SyntaxKind::Set,
-    SyntaxKind::Show,
-    SyntaxKind::Import,
-    SyntaxKind::Include,
-    SyntaxKind::Return,
-]);
+pub const STMT: SyntaxSet = SyntaxSet::new()
+    .add(SyntaxKind::Let)
+    .add(SyntaxKind::Set)
+    .add(SyntaxKind::Show)
+    .add(SyntaxKind::Import)
+    .add(SyntaxKind::Include)
+    .add(SyntaxKind::Return);
 
 /// Syntax kinds that can start a markup expression.
-pub const MARKUP_EXPR: SyntaxSet = SyntaxSet::new(&[
-    SyntaxKind::Space,
-    SyntaxKind::Parbreak,
-    SyntaxKind::LineComment,
-    SyntaxKind::BlockComment,
-    SyntaxKind::Text,
-    SyntaxKind::Linebreak,
-    SyntaxKind::Escape,
-    SyntaxKind::Shorthand,
-    SyntaxKind::SmartQuote,
-    SyntaxKind::Raw,
-    SyntaxKind::Link,
-    SyntaxKind::Label,
-    SyntaxKind::Hash,
-    SyntaxKind::Star,
-    SyntaxKind::Underscore,
-    SyntaxKind::HeadingMarker,
-    SyntaxKind::ListMarker,
-    SyntaxKind::EnumMarker,
-    SyntaxKind::TermMarker,
-    SyntaxKind::RefMarker,
-    SyntaxKind::Dollar,
-    SyntaxKind::LeftBracket,
-    SyntaxKind::RightBracket,
-    SyntaxKind::Colon,
-]);
+pub const MARKUP_EXPR: SyntaxSet = SyntaxSet::new()
+    .add(SyntaxKind::Space)
+    .add(SyntaxKind::Parbreak)
+    .add(SyntaxKind::LineComment)
+    .add(SyntaxKind::BlockComment)
+    .add(SyntaxKind::Text)
+    .add(SyntaxKind::Linebreak)
+    .add(SyntaxKind::Escape)
+    .add(SyntaxKind::Shorthand)
+    .add(SyntaxKind::SmartQuote)
+    .add(SyntaxKind::Raw)
+    .add(SyntaxKind::Link)
+    .add(SyntaxKind::Label)
+    .add(SyntaxKind::Hash)
+    .add(SyntaxKind::Star)
+    .add(SyntaxKind::Underscore)
+    .add(SyntaxKind::HeadingMarker)
+    .add(SyntaxKind::ListMarker)
+    .add(SyntaxKind::EnumMarker)
+    .add(SyntaxKind::TermMarker)
+    .add(SyntaxKind::RefMarker)
+    .add(SyntaxKind::Dollar)
+    .add(SyntaxKind::LeftBracket)
+    .add(SyntaxKind::RightBracket)
+    .add(SyntaxKind::Colon);
 
 /// Syntax kinds that can start a math expression.
-pub const MATH_EXPR: SyntaxSet = SyntaxSet::new(&[
-    SyntaxKind::Hash,
-    SyntaxKind::MathIdent,
-    SyntaxKind::Text,
-    SyntaxKind::Shorthand,
-    SyntaxKind::Linebreak,
-    SyntaxKind::MathAlignPoint,
-    SyntaxKind::Escape,
-    SyntaxKind::Str,
-    SyntaxKind::Root,
-    SyntaxKind::Prime,
-]);
+pub const MATH_EXPR: SyntaxSet = SyntaxSet::new()
+    .add(SyntaxKind::Hash)
+    .add(SyntaxKind::MathIdent)
+    .add(SyntaxKind::Text)
+    .add(SyntaxKind::Shorthand)
+    .add(SyntaxKind::Linebreak)
+    .add(SyntaxKind::MathAlignPoint)
+    .add(SyntaxKind::Escape)
+    .add(SyntaxKind::Str)
+    .add(SyntaxKind::Root)
+    .add(SyntaxKind::Prime);
 
 /// Syntax kinds that can start a code expression.
 pub const CODE_EXPR: SyntaxSet = CODE_PRIMARY.union(UNARY_OP);
@@ -94,63 +90,81 @@ pub const CODE_EXPR: SyntaxSet = CODE_PRIMARY.union(UNARY_OP);
 pub const ATOMIC_CODE_EXPR: SyntaxSet = ATOMIC_CODE_PRIMARY;
 
 /// Syntax kinds that can start a code primary.
-pub const CODE_PRIMARY: SyntaxSet =
-    ATOMIC_CODE_PRIMARY.union(SyntaxSet::new(&[SyntaxKind::Underscore]));
+pub const CODE_PRIMARY: SyntaxSet = ATOMIC_CODE_PRIMARY.add(SyntaxKind::Underscore);
 
 /// Syntax kinds that can start an atomic code primary.
-pub const ATOMIC_CODE_PRIMARY: SyntaxSet = SyntaxSet::new(&[
-    SyntaxKind::Ident,
-    SyntaxKind::LeftBrace,
-    SyntaxKind::LeftBracket,
-    SyntaxKind::LeftParen,
-    SyntaxKind::Dollar,
-    SyntaxKind::Let,
-    SyntaxKind::Set,
-    SyntaxKind::Show,
-    SyntaxKind::If,
-    SyntaxKind::While,
-    SyntaxKind::For,
-    SyntaxKind::Import,
-    SyntaxKind::Include,
-    SyntaxKind::Break,
-    SyntaxKind::Continue,
-    SyntaxKind::Return,
-    SyntaxKind::None,
-    SyntaxKind::Auto,
-    SyntaxKind::Int,
-    SyntaxKind::Float,
-    SyntaxKind::Bool,
-    SyntaxKind::Numeric,
-    SyntaxKind::Str,
-    SyntaxKind::Label,
-    SyntaxKind::Raw,
-]);
+pub const ATOMIC_CODE_PRIMARY: SyntaxSet = SyntaxSet::new()
+    .add(SyntaxKind::Ident)
+    .add(SyntaxKind::LeftBrace)
+    .add(SyntaxKind::LeftBracket)
+    .add(SyntaxKind::LeftParen)
+    .add(SyntaxKind::Dollar)
+    .add(SyntaxKind::Let)
+    .add(SyntaxKind::Set)
+    .add(SyntaxKind::Show)
+    .add(SyntaxKind::If)
+    .add(SyntaxKind::While)
+    .add(SyntaxKind::For)
+    .add(SyntaxKind::Import)
+    .add(SyntaxKind::Include)
+    .add(SyntaxKind::Break)
+    .add(SyntaxKind::Continue)
+    .add(SyntaxKind::Return)
+    .add(SyntaxKind::None)
+    .add(SyntaxKind::Auto)
+    .add(SyntaxKind::Int)
+    .add(SyntaxKind::Float)
+    .add(SyntaxKind::Bool)
+    .add(SyntaxKind::Numeric)
+    .add(SyntaxKind::Str)
+    .add(SyntaxKind::Label)
+    .add(SyntaxKind::Raw);
 
 /// Syntax kinds that are unary operators.
-pub const UNARY_OP: SyntaxSet =
-    SyntaxSet::new(&[SyntaxKind::Plus, SyntaxKind::Minus, SyntaxKind::Not]);
+pub const UNARY_OP: SyntaxSet = SyntaxSet::new()
+    .add(SyntaxKind::Plus)
+    .add(SyntaxKind::Minus)
+    .add(SyntaxKind::Not);
 
 /// Syntax kinds that are binary operators.
-pub const BINARY_OP: SyntaxSet = SyntaxSet::new(&[
-    SyntaxKind::Plus,
-    SyntaxKind::Minus,
-    SyntaxKind::Star,
-    SyntaxKind::Slash,
-    SyntaxKind::And,
-    SyntaxKind::Or,
-    SyntaxKind::EqEq,
-    SyntaxKind::ExclEq,
-    SyntaxKind::Lt,
-    SyntaxKind::LtEq,
-    SyntaxKind::Gt,
-    SyntaxKind::GtEq,
-    SyntaxKind::Eq,
-    SyntaxKind::In,
-    SyntaxKind::PlusEq,
-    SyntaxKind::HyphEq,
-    SyntaxKind::StarEq,
-    SyntaxKind::SlashEq,
-]);
+pub const BINARY_OP: SyntaxSet = SyntaxSet::new()
+    .add(SyntaxKind::Plus)
+    .add(SyntaxKind::Minus)
+    .add(SyntaxKind::Star)
+    .add(SyntaxKind::Slash)
+    .add(SyntaxKind::And)
+    .add(SyntaxKind::Or)
+    .add(SyntaxKind::EqEq)
+    .add(SyntaxKind::ExclEq)
+    .add(SyntaxKind::Lt)
+    .add(SyntaxKind::LtEq)
+    .add(SyntaxKind::Gt)
+    .add(SyntaxKind::GtEq)
+    .add(SyntaxKind::Eq)
+    .add(SyntaxKind::In)
+    .add(SyntaxKind::PlusEq)
+    .add(SyntaxKind::HyphEq)
+    .add(SyntaxKind::StarEq)
+    .add(SyntaxKind::SlashEq);
+
+/// Syntax kinds that can start an argument in a function call.
+pub const ARRAY_OR_DICT_ITEM: SyntaxSet = CODE_EXPR.add(SyntaxKind::Dots);
+
+/// Syntax kinds that can start an argument in a function call.
+pub const ARG: SyntaxSet = CODE_EXPR.add(SyntaxKind::Dots);
+
+/// Syntax kinds that can start a parameter in a parameter list.
+pub const PARAM: SyntaxSet = PATTERN.add(SyntaxKind::Dots);
+
+/// Syntax kinds that can start a destructuring item.
+pub const DESTRUCTURING_ITEM: SyntaxSet = PATTERN.add(SyntaxKind::Dots);
+
+/// Syntax kinds that can start a pattern.
+pub const PATTERN: SyntaxSet =
+    PATTERN_LEAF.add(SyntaxKind::LeftParen).add(SyntaxKind::Underscore);
+
+/// Syntax kinds that can start a pattern leaf.
+pub const PATTERN_LEAF: SyntaxSet = ATOMIC_CODE_EXPR;
 
 #[cfg(test)]
 mod tests {
@@ -163,7 +177,7 @@ mod tests {
 
     #[test]
     fn test_set() {
-        let set = SyntaxSet::new(&[SyntaxKind::And, SyntaxKind::Or]);
+        let set = SyntaxSet::new().add(SyntaxKind::And).add(SyntaxKind::Or);
         assert!(set.contains(SyntaxKind::And));
         assert!(set.contains(SyntaxKind::Or));
         assert!(!set.contains(SyntaxKind::Not));

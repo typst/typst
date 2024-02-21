@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
-use comemo::{Prehashed, TrackedMut};
+use comemo::TrackedMut;
 use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 
@@ -12,7 +12,7 @@ use crate::foundations::{
     Type, Value,
 };
 use crate::syntax::{ast, Span, SyntaxNode};
-use crate::util::Static;
+use crate::util::{LazyHash, Static};
 
 #[doc(inline)]
 pub use typst_macros::func;
@@ -141,7 +141,7 @@ enum Repr {
     /// A function for an element.
     Element(Element),
     /// A user-defined closure.
-    Closure(Arc<Prehashed<Closure>>),
+    Closure(Arc<LazyHash<Closure>>),
     /// A nested function with pre-applied arguments.
     With(Arc<(Func, Args)>),
 }
@@ -485,7 +485,7 @@ impl Closure {
 
 impl From<Closure> for Func {
     fn from(closure: Closure) -> Self {
-        Repr::Closure(Arc::new(Prehashed::new(closure))).into()
+        Repr::Closure(Arc::new(LazyHash::new(closure))).into()
     }
 }
 

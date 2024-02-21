@@ -56,7 +56,7 @@ impl Access for ast::FuncCall<'_> {
             if is_accessor_method(&method) {
                 let span = self.span();
                 let world = vm.world();
-                let args = self.args().eval(vm)?;
+                let args = self.args().eval(vm)?.spanned(span);
                 let value = access.target().access(vm)?;
                 let result = call_method_access(value, &method, args, span);
                 let point = || Tracepoint::Call(Some(method.get().clone()));

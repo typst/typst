@@ -213,7 +213,7 @@ impl Show for Packed<OutlineElem> {
             let Some(entry) = OutlineEntry::from_outlinable(
                 engine,
                 self.span(),
-                elem.clone().into_inner(),
+                elem.clone(),
                 self.fill(styles),
             )?
             else {

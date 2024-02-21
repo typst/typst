@@ -6,11 +6,13 @@ pub mod fat;
 mod macros;
 mod bitset;
 mod deferred;
+mod hash;
 mod pico;
 mod scalar;
 
 pub use self::bitset::BitSet;
 pub use self::deferred::Deferred;
+pub use self::hash::LazyHash;
 pub use self::pico::PicoStr;
 pub use self::scalar::Scalar;
 

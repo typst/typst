@@ -1,4 +1,4 @@
-use comemo::{Prehashed, Tracked, TrackedMut};
+use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, EcoVec};
 
 use crate::diag::{bail, error, At, HintedStrResult, SourceResult, Trace, Tracepoint};
@@ -12,8 +12,9 @@ use crate::introspection::{Introspector, Locator};
 use crate::math::{Accent, AccentElem, LrElem};
 use crate::symbols::Symbol;
 use crate::syntax::ast::{self, AstNode};
-use crate::syntax::{Spanned, SyntaxNode};
+use crate::syntax::{Span, Spanned, SyntaxNode};
 use crate::text::TextElem;
+use crate::util::LazyHash;
 use crate::World;
 
 impl Eval for ast::FuncCall<'_> {
@@ -39,7 +40,7 @@ impl Eval for ast::FuncCall<'_> {
             let field_span = field.span();
 
             let target = if is_mutating_method(&field) {
-                let mut args = args.eval(vm)?;
+                let mut args = args.eval(vm)?.spanned(span);
                 let target = target.access(vm)?;
 
                 // Only arrays and dictionaries have mutable methods.
@@ -58,7 +59,7 @@ impl Eval for ast::FuncCall<'_> {
                 access.target().eval(vm)?
             };
 
-            let mut args = args.eval(vm)?;
+            let mut args = args.eval(vm)?.spanned(span);
 
             // Handle plugins.
             if let Value::Plugin(plugin) = &target {
@@ -125,7 +126,7 @@ impl Eval for ast::FuncCall<'_> {
                 bail!(error);
             }
         } else {
-            (callee.eval(vm)?, args.eval(vm)?)
+            (callee.eval(vm)?, args.eval(vm)?.spanned(span))
         };
 
         // Handle math special cases for non-functions:
@@ -192,13 +193,14 @@ impl Eval for ast::Args<'_> {
                     });
                 }
                 ast::Arg::Named(named) => {
+                    let expr = named.expr();
                     items.push(Arg {
                         span,
                         name: Some(named.name().get().clone().into()),
-                        value: Spanned::new(named.expr().eval(vm)?, named.expr().span()),
+                        value: Spanned::new(expr.eval(vm)?, expr.span()),
                     });
                 }
-                ast::Arg::Spread(expr) => match expr.eval(vm)? {
+                ast::Arg::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
                     Value::Array(array) => {
                         items.extend(array.into_iter().map(|value| Arg {
@@ -215,12 +217,14 @@ impl Eval for ast::Args<'_> {
                         }));
                     }
                     Value::Args(args) => items.extend(args.items),
-                    v => bail!(expr.span(), "cannot spread {}", v.ty()),
+                    v => bail!(spread.span(), "cannot spread {}", v.ty()),
                 },
             }
         }
 
-        Ok(Args { span: self.span(), items })
+        // We do *not* use the `self.span()` here because we want the callsite
+        // span to be one level higher (the whole function call).
+        Ok(Args { span: Span::detached(), items })
     }
 }
 
@@ -259,7 +263,7 @@ impl Eval for ast::Closure<'_> {
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn call_closure(
     func: &Func,
-    closure: &Prehashed<Closure>,
+    closure: &LazyHash<Closure>,
     world: Tracked<dyn World + '_>,
     introspector: Tracked<Introspector>,
     route: Tracked<Route>,
@@ -311,7 +315,6 @@ pub(crate) fn call_closure(
                 ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
                     vm.define(ident, args.expect::<Value>(&ident)?)
                 }
-                ast::Pattern::Normal(_) => unreachable!(),
                 pattern => {
                     crate::eval::destructure(
                         &mut vm,
@@ -320,8 +323,8 @@ pub(crate) fn call_closure(
                     )?;
                 }
             },
-            ast::Param::Sink(ident) => {
-                sink = Some(ident.name());
+            ast::Param::Spread(spread) => {
+                sink = Some(spread.sink_ident());
                 if let Some(sink_size) = sink_size {
                     sink_pos_values = Some(args.consume(sink_size)?);
                 }
@@ -336,10 +339,10 @@ pub(crate) fn call_closure(
         }
     }
 
-    if let Some(sink_name) = sink {
+    if let Some(sink) = sink {
         // Remaining args are captured regardless of whether the sink is named.
         let mut remaining_args = args.take();
-        if let Some(sink_name) = sink_name {
+        if let Some(sink_name) = sink {
             if let Some(sink_pos_values) = sink_pos_values {
                 remaining_args.items.extend(sink_pos_values);
             }
@@ -436,13 +439,15 @@ impl<'a> CapturesVisitor<'a> {
                 for param in expr.params().children() {
                     match param {
                         ast::Param::Pos(pattern) => {
-                            for ident in pattern.idents() {
+                            for ident in pattern.bindings() {
                                 self.bind(ident);
                             }
                         }
                         ast::Param::Named(named) => self.bind(named.name()),
-                        ast::Param::Sink(spread) => {
-                            self.bind(spread.name().unwrap_or_default())
+                        ast::Param::Spread(spread) => {
+                            if let Some(ident) = spread.sink_ident() {
+                                self.bind(ident);
+                            }
                         }
                     }
                 }
@@ -458,7 +463,7 @@ impl<'a> CapturesVisitor<'a> {
                     self.visit(init.to_untyped());
                 }
 
-                for ident in expr.kind().idents() {
+                for ident in expr.kind().bindings() {
                     self.bind(ident);
                 }
             }
@@ -471,7 +476,7 @@ impl<'a> CapturesVisitor<'a> {
                 self.internal.enter();
 
                 let pattern = expr.pattern();
-                for ident in pattern.idents() {
+                for ident in pattern.bindings() {
                     self.bind(ident);
                 }
 

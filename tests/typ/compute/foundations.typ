@@ -12,27 +12,27 @@
 
 ---
 // Test panic.
-// Error: 7-9 panicked
+// Error: 2-9 panicked
 #panic()
 
 ---
 // Test panic.
-// Error: 7-12 panicked with: 123
+// Error: 2-12 panicked with: 123
 #panic(123)
 
 ---
 // Test panic.
-// Error: 7-24 panicked with: "this is wrong"
+// Error: 2-24 panicked with: "this is wrong"
 #panic("this is wrong")
 
 ---
 // Test failing assertions.
-// Error: 8-16 assertion failed
+// Error: 2-16 assertion failed
 #assert(1 == 2)
 
 ---
 // Test failing assertions.
-// Error: 8-51 assertion failed: two is smaller than one
+// Error: 2-51 assertion failed: two is smaller than one
 #assert(2 < 1, message: "two is smaller than one")
 
 ---
@@ -42,22 +42,22 @@
 
 ---
 // Test failing assertions.
-// Error: 11-19 equality assertion failed: value 10 was not equal to 11
+// Error: 2-19 equality assertion failed: value 10 was not equal to 11
 #assert.eq(10, 11)
 
 ---
 // Test failing assertions.
-// Error: 11-55 equality assertion failed: 10 and 12 are not equal
+// Error: 2-55 equality assertion failed: 10 and 12 are not equal
 #assert.eq(10, 12, message: "10 and 12 are not equal")
 
 ---
 // Test failing assertions.
-// Error: 11-19 inequality assertion failed: value 11 was equal to 11
+// Error: 2-19 inequality assertion failed: value 11 was equal to 11
 #assert.ne(11, 11)
 
 ---
 // Test failing assertions.
-// Error: 11-57 inequality assertion failed: must be different from 11
+// Error: 2-57 inequality assertion failed: must be different from 11
 #assert.ne(11, 11, message: "must be different from 11")
 
 ---
@@ -86,7 +86,7 @@
 #eval("RR_1^NN", mode: "math", scope: (RR: math.NN, NN: math.RR))
 
 ---
-// Error: 7-12 expected identifier
+// Error: 7-12 expected pattern
 #eval("let")
 
 ---

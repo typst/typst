@@ -6,7 +6,7 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::Arc;
 
-use comemo::{Prehashed, Tracked};
+use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
@@ -40,7 +40,7 @@ use crate::syntax::{Span, Spanned};
 use crate::text::{
     FontStyle, Lang, LocalName, Region, SubElem, SuperElem, TextElem, WeightDelta,
 };
-use crate::util::{option_eq, NonZeroExt, PicoStr};
+use crate::util::{option_eq, LazyHash, NonZeroExt, PicoStr};
 use crate::World;
 
 /// A bibliography / reference listing.
@@ -438,7 +438,7 @@ fn format_biblatex_error(path: &str, src: &str, errors: Vec<BibLaTeXError>) -> E
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct CslStyle {
     name: Option<EcoString>,
-    style: Arc<Prehashed<citationberg::IndependentStyle>>,
+    style: Arc<LazyHash<citationberg::IndependentStyle>>,
 }
 
 impl CslStyle {
@@ -495,7 +495,7 @@ impl CslStyle {
         match hayagriva::archive::ArchivedStyle::by_name(name).map(ArchivedStyle::get) {
             Some(citationberg::Style::Independent(style)) => Ok(Self {
                 name: Some(name.into()),
-                style: Arc::new(Prehashed::new(style)),
+                style: Arc::new(LazyHash::new(style)),
             }),
             _ => bail!("unknown style: `{name}`"),
         }
@@ -506,7 +506,7 @@ impl CslStyle {
     pub fn from_data(data: &Bytes) -> StrResult<CslStyle> {
         let text = std::str::from_utf8(data.as_slice()).map_err(FileError::from)?;
         citationberg::IndependentStyle::from_xml(text)
-            .map(|style| Self { name: None, style: Arc::new(Prehashed::new(style)) })
+            .map(|style| Self { name: None, style: Arc::new(LazyHash::new(style)) })
             .map_err(|err| eco_format!("failed to load CSL style ({err})"))
     }
 
@@ -606,7 +606,7 @@ struct Generator<'a> {
     /// The document's bibliography.
     bibliography: Packed<BibliographyElem>,
     /// The document's citation groups.
-    groups: EcoVec<Prehashed<Content>>,
+    groups: EcoVec<Content>,
     /// Details about each group that are accumulated while driving hayagriva's
     /// bibliography driver and needed when processing hayagriva's output.
     infos: Vec<GroupInfo>,

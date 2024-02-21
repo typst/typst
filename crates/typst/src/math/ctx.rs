@@ -1,6 +1,5 @@
 use std::f64::consts::SQRT_2;
 
-use comemo::Prehashed;
 use ecow::EcoString;
 use rustybuzz::Feature;
 use ttf_parser::gsub::{AlternateSubstitution, SingleSubstitution, SubstitutionSubtable};
@@ -288,7 +287,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         // to extend as far as needed.
         let spaced = text.graphemes(true).nth(1).is_some();
         let text = TextElem::packed(text).spanned(span);
-        let par = ParElem::new(vec![Prehashed::new(text)]);
+        let par = ParElem::new(vec![text]);
         let frame = Packed::new(par)
             .spanned(span)
             .layout(self.engine, styles, false, Size::splat(Abs::inf()), false)?

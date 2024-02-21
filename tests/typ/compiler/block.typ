@@ -126,8 +126,7 @@
 
 // Should output `3`.
 #{
-  // Error: 6 expected identifier
-  // Error: 10 expected block
+  // Error: 7-10 expected pattern, found string
   for "v"
 
   // Error: 8 expected keyword `in`

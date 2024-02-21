@@ -1,7 +1,5 @@
 use std::fmt::{self, Debug, Formatter};
 
-use comemo::Prehashed;
-
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
@@ -106,7 +104,7 @@ pub struct ParElem {
     /// The paragraph's children.
     #[internal]
     #[variadic]
-    pub children: Vec<Prehashed<Content>>,
+    pub children: Vec<Content>,
 }
 
 impl Construct for ParElem {

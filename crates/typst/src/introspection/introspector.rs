@@ -4,7 +4,6 @@ use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::sync::RwLock;
 
-use comemo::Prehashed;
 use ecow::{eco_format, EcoVec};
 use indexmap::IndexMap;
 use smallvec::SmallVec;
@@ -22,7 +21,7 @@ pub struct Introspector {
     /// The number of pages in the document.
     pages: usize,
     /// All introspectable elements.
-    elems: IndexMap<Location, (Prehashed<Content>, Position)>,
+    elems: IndexMap<Location, (Content, Position)>,
     /// Maps labels to their indices in the element list. We use a smallvec such
     /// that if the label is unique, we don't need to allocate.
     labels: HashMap<Label, SmallVec<[usize; 1]>>,
@@ -66,7 +65,6 @@ impl Introspector {
                     if !self.elems.contains_key(&content.location().unwrap()) =>
                 {
                     let pos = pos.transform(ts);
-                    let content = Prehashed::new(content.clone());
                     let ret = self.elems.insert(
                         content.location().unwrap(),
                         (content.clone(), Position { page, point: pos }),
@@ -84,12 +82,12 @@ impl Introspector {
     }
 
     /// Iterate over all locatable elements.
-    pub fn all(&self) -> impl Iterator<Item = &Prehashed<Content>> + '_ {
+    pub fn all(&self) -> impl Iterator<Item = &Content> + '_ {
         self.elems.values().map(|(c, _)| c)
     }
 
     /// Get an element by its location.
-    fn get(&self, location: &Location) -> Option<&Prehashed<Content>> {
+    fn get(&self, location: &Location) -> Option<&Content> {
         self.elems.get(location).map(|(elem, _)| elem)
     }
 
@@ -101,11 +99,7 @@ impl Introspector {
     }
 
     /// Perform a binary search for `elem` among the `list`.
-    fn binary_search(
-        &self,
-        list: &[Prehashed<Content>],
-        elem: &Content,
-    ) -> Result<usize, usize> {
+    fn binary_search(&self, list: &[Content], elem: &Content) -> Result<usize, usize> {
         list.binary_search_by_key(&self.index(elem), |elem| self.index(elem))
     }
 }
@@ -113,7 +107,7 @@ impl Introspector {
 #[comemo::track]
 impl Introspector {
     /// Query for all matching elements.
-    pub fn query(&self, selector: &Selector) -> EcoVec<Prehashed<Content>> {
+    pub fn query(&self, selector: &Selector) -> EcoVec<Content> {
         let hash = crate::util::hash128(selector);
         if let Some(output) = self.queries.get(hash) {
             return output;
@@ -201,7 +195,7 @@ impl Introspector {
     }
 
     /// Query for the first element that matches the selector.
-    pub fn query_first(&self, selector: &Selector) -> Option<Prehashed<Content>> {
+    pub fn query_first(&self, selector: &Selector) -> Option<Content> {
         match selector {
             Selector::Location(location) => self.get(location).cloned(),
             _ => self.query(selector).first().cloned(),
@@ -209,7 +203,7 @@ impl Introspector {
     }
 
     /// Query for a unique element with the label.
-    pub fn query_label(&self, label: Label) -> StrResult<&Prehashed<Content>> {
+    pub fn query_label(&self, label: Label) -> StrResult<&Content> {
         let indices = self.labels.get(&label).ok_or_else(|| {
             eco_format!("label `{}` does not exist in the document", label.repr())
         })?;
@@ -268,14 +262,14 @@ impl Debug for Introspector {
 
 /// Caches queries.
 #[derive(Default)]
-struct QueryCache(RwLock<HashMap<u128, EcoVec<Prehashed<Content>>>>);
+struct QueryCache(RwLock<HashMap<u128, EcoVec<Content>>>);
 
 impl QueryCache {
-    fn get(&self, hash: u128) -> Option<EcoVec<Prehashed<Content>>> {
+    fn get(&self, hash: u128) -> Option<EcoVec<Content>> {
         self.0.read().unwrap().get(&hash).cloned()
     }
 
-    fn insert(&self, hash: u128, output: EcoVec<Prehashed<Content>>) {
+    fn insert(&self, hash: u128, output: EcoVec<Content>) {
         self.0.write().unwrap().insert(hash, output);
     }
 
