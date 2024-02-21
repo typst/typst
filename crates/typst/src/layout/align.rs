@@ -601,17 +601,17 @@ where
             let align = Alignment::from_value(value)?;
             let result = match align {
                 Alignment::H(x) => {
-                    let h_value = x.into_value();
-                    Self::H(H::from_value(h_value)?)
+                    let x = x.into_value();
+                    Self::H(H::from_value(x)?)
                 }
                 Alignment::V(y) => {
-                    let v_value = y.into_value();
-                    Self::V(V::from_value(v_value)?)
+                    let y = y.into_value();
+                    Self::V(V::from_value(y)?)
                 }
                 Alignment::Both(x, y) => {
-                    let h_value = x.into_value();
-                    let v_value = y.into_value();
-                    Self::Both(H::from_value(h_value)?, V::from_value(v_value)?)
+                    let x = x.into_value();
+                    let y = y.into_value();
+                    Self::Both(H::from_value(x)?, V::from_value(y)?)
                 }
             };
             return Ok(result);
