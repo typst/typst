@@ -48,6 +48,97 @@ static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
     // See https://corefonts.sourceforge.net/.
     "Arial-Black" => Exception::new()
         .weight(900),
+    // Noto fonts
+    "NotoNaskhArabicUISemi-Bold" => Exception::new()
+        .family("Noto Naskh Arabic UI")
+        .weight(600),
+    "NotoSansSoraSompengSemi-Bold" => Exception::new()
+        .family("Noto Sans Sora Sompeng")
+        .weight(600),
+    "NotoSans-DisplayBlackItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayCondensedBlackItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayCondensedBold" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayCondensedBoldItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayCondensedExtraBoldItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayCondensedExtraLightItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayCondensedItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayCondensedLightItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayCondensedMediumItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayCondensedSemiBoldItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayCondensedThinItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayExtraBoldItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayExtraCondensedBlackItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayExtraCondensedBold" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayExtraCondensedBoldItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayExtraCondensedExtraBoldItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayExtraCondensedExtraLightItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayExtraCondensedItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayExtraCondensedLightItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayExtraCondensedMediumItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayExtraCondensedSemiBoldItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayExtraCondensedThinItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayExtraLightItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayLightItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayMediumItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplaySemiBoldItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplaySemiCondensedBlackItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplaySemiCondensedBold" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplaySemiCondensedBoldItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplaySemiCondensedExtraBoldItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplaySemiCondensedExtraLightItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplaySemiCondensedItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplaySemiCondensedLightItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplaySemiCondensedMediumItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplaySemiCondensedSemiBoldItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplaySemiCondensedThinItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    "NotoSans-DisplayThinItalic" => Exception::new()
+        .family("Noto Sans Display"),
+    // The following three postscript names are only used in the version 2.007
+    // of the Noto Sans font. Other versions, while have different postscript
+    // name, happen to have correct metadata.
+    "NotoSerif-DisplayCondensedBold" => Exception::new()
+        .family("Noto Serif Display"),
+    "NotoSerif-DisplayExtraCondensedBold" => Exception::new()
+        .family("Noto Serif Display"),
+    "NotoSerif-DisplaySemiCondensedBold" => Exception::new()
+        .family("Noto Serif Display"),
+    // New Computer Modern
     "NewCM08-Book" => Exception::new()
         .family("New Computer Modern 08")
         .weight(450),
@@ -131,6 +222,7 @@ static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
         .weight(450),
     "NewCMUncial10-Regular" => Exception::new()
         .family("New Computer Modern Uncial"),
+    // Latin Modern
     "LMMono8-Regular" => Exception::new()
         .family("Latin Modern Mono 8"),
     "LMMono9-Regular" => Exception::new()
