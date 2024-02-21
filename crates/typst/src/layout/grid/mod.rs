@@ -10,7 +10,7 @@ use std::sync::Arc;
 use ecow::eco_format;
 use smallvec::{smallvec, SmallVec};
 
-use crate::diag::{SourceResult, StrResult, Trace, Tracepoint};
+use crate::diag::{bail, SourceResult, StrResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Array, Content, Fold, Packed, Show, Smart, StyleChain, Value,
@@ -19,6 +19,7 @@ use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Dir, Fragment, LayoutMultiple, Length,
     OuterHAlignment, OuterVAlignment, Regions, Rel, Sides, Sizing,
 };
+use crate::model::{TableCell, TableHLine, TableVLine};
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::util::NonZeroExt;
@@ -395,7 +396,24 @@ cast! {
         Self::VLine(vline) => vline.into_value(),
         Self::Cell(cell) => cell.into_value(),
     },
-    v: Content => v.into(),
+    v: Content => {
+        if v.is::<TableCell>() {
+            bail!(
+                "cannot use `table.cell` as a grid cell; use `grid.cell` instead"
+            );
+        }
+        if v.is::<TableHLine>() {
+            bail!(
+                "cannot use `table.hline` as a grid line; use `grid.hline` instead"
+            );
+        }
+        if v.is::<TableVLine>() {
+            bail!(
+                "cannot use `table.vline` as a grid line; use `grid.vline` instead"
+            );
+        }
+        v.into()
+    }
 }
 
 impl From<Content> for GridChild {
