@@ -128,6 +128,6 @@
 #{
   let f(..a, b, c, d) = none
 
-  // Error: 4-10 missing argument: d
+  // Error: 3-10 missing argument: d
   f(1, 2)
 }

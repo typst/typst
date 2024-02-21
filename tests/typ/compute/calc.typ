@@ -211,7 +211,7 @@
 #1.bit-rshift(-1)
 
 ---
-// Error: 10-16 zero to the power of zero is undefined
+// Error: 2-16 zero to the power of zero is undefined
 #calc.pow(0, 0)
 
 ---
@@ -219,7 +219,7 @@
 #calc.pow(2, 10000000000000000)
 
 ---
-// Error: 10-25 the result is too large
+// Error: 2-25 the result is too large
 #calc.pow(2, 2147483647)
 
 ---
@@ -227,7 +227,7 @@
 #calc.pow(2, calc.pow(2.0, 10000.0))
 
 ---
-// Error: 10-19 the result is not a real number
+// Error: 2-19 the result is not a real number
 #calc.pow(-1, 0.5)
 
 ---
@@ -259,7 +259,7 @@
 #calc.log(1, base: 0)
 
 ---
-// Error: 10-24 the result is not a real number
+// Error: 2-24 the result is not a real number
 #calc.log(10, base: -1)
 
 ---
@@ -268,7 +268,7 @@
 #test(calc.fact(5), 120)
 
 ---
-// Error: 11-15 the result is too large
+// Error: 2-15 the result is too large
 #calc.fact(21)
 
 ---
@@ -279,7 +279,7 @@
 #test(calc.perm(5, 6), 0)
 
 ---
-// Error: 11-19 the result is too large
+// Error: 2-19 the result is too large
 #calc.perm(21, 21)
 
 ---
@@ -311,11 +311,11 @@
 #test(calc.lcm(8, 0), 0)
 
 ---
-// Error: 10-41 the return value is too large
+// Error: 2-41 the result is too large
 #calc.lcm(15486487489457, 4874879896543)
 
 ---
-// Error: 10-12 expected at least one value
+// Error: 2-12 expected at least one value
 #calc.min()
 
 ---
@@ -339,7 +339,7 @@
 #test(range(10, 0, step: -3), (10, 7, 4, 1))
 
 ---
-// Error: 7-9 missing argument: end
+// Error: 2-9 missing argument: end
 #range()
 
 ---

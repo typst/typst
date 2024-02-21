@@ -35,7 +35,7 @@
 // Mix in hue-based space.
 #test(rgb(color.mix(red, blue, space: color.hsl)), rgb("#c408ff"))
 #test(rgb(color.mix((red, 50%), (blue, 100%), space: color.hsl)), rgb("#5100f8"))
-// Error: 15-51 cannot mix more than two colors in a hue-based space
+// Error: 6-51 cannot mix more than two colors in a hue-based space
 #rgb(color.mix(red, blue, white, space: color.hsl))
 
 ---
@@ -127,11 +127,11 @@
 #rgb("lol")
 
 ---
-// Error: 5-7 missing argument: red component
+// Error: 2-7 missing argument: red component
 #rgb()
 
 ---
-// Error: 5-11 missing argument: blue component
+// Error: 2-11 missing argument: blue component
 #rgb(0, 1)
 
 ---
@@ -181,7 +181,7 @@
 #envelope.fly
 
 ---
-// Error: 8-10 expected at least one variant
+// Error: 2-10 expected at least one variant
 #symbol()
 
 ---
@@ -223,7 +223,7 @@
 #str.from-unicode(-1)
 
 ---
-// Error: 18-28 0x110000 is not a valid codepoint
+// Error: 2-28 0x110000 is not a valid codepoint
 #str.from-unicode(0x110000) // 0x10ffff is the highest valid code point
 
 ---
@@ -284,15 +284,15 @@
 #test(datetime.today(offset: 2).display(), "1970-01-01")
 
 ---
-// Error: 10-12 at least one of date or time must be fully specified
+// Error: 2-12 at least one of date or time must be fully specified
 #datetime()
 
 ---
-// Error: 10-42 time is invalid
+// Error: 2-42 time is invalid
 #datetime(hour: 25, minute: 0, second: 0)
 
 ---
-// Error: 10-41 date is invalid
+// Error: 2-41 date is invalid
 #datetime(year: 2000, month: 2, day: 30)
 
 ---

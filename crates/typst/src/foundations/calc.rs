@@ -114,11 +114,9 @@ pub fn pow(
     };
 
     let result = match (base, exponent.v) {
-        (Num::Int(a), Num::Int(b)) if b >= 0 => a
-            .checked_pow(b as u32)
-            .map(Num::Int)
-            .ok_or("the result is too large")
-            .at(span)?,
+        (Num::Int(a), Num::Int(b)) if b >= 0 => {
+            a.checked_pow(b as u32).map(Num::Int).ok_or_else(too_large).at(span)?
+        }
         (a, b) => Num::Float(if a.float() == std::f64::consts::E {
             b.float().exp()
         } else if a.float() == 2.0 {
@@ -469,7 +467,7 @@ pub fn fact(
     /// The number whose factorial to calculate. Must be non-negative.
     number: u64,
 ) -> StrResult<i64> {
-    Ok(fact_impl(1, number).ok_or("the result is too large")?)
+    Ok(fact_impl(1, number).ok_or_else(too_large)?)
 }
 
 /// Calculates a permutation.
@@ -493,7 +491,7 @@ pub fn perm(
         return Ok(0);
     }
 
-    Ok(fact_impl(base - numbers + 1, base).ok_or("the result is too large")?)
+    Ok(fact_impl(base - numbers + 1, base).ok_or_else(too_large)?)
 }
 
 /// Calculates the product of a range of numbers. Used to calculate
@@ -528,7 +526,7 @@ pub fn binom(
     /// The lower coefficient. Must be non-negative.
     k: u64,
 ) -> StrResult<i64> {
-    Ok(binom_impl(n, k).ok_or("the result is too large")?)
+    Ok(binom_impl(n, k).ok_or_else(too_large)?)
 }
 
 /// Calculates a binomial coefficient, with `n` the upper coefficient and `k`
@@ -594,7 +592,7 @@ pub fn lcm(
     Ok(a.checked_div(gcd(a, b))
         .and_then(|gcd| gcd.checked_mul(b))
         .map(|v| v.abs())
-        .ok_or("the return value is too large")?)
+        .ok_or_else(too_large)?)
 }
 
 /// Rounds a number down to the nearest integer.
@@ -973,4 +971,10 @@ cast! {
     v: i64 => Self::Int(v),
     v: f64 => Self::Float(v),
     v: Angle => Self::Angle(v),
+}
+
+/// The error message when the result is too large to be represented.
+#[cold]
+fn too_large() -> &'static str {
+    "the result is too large"
 }

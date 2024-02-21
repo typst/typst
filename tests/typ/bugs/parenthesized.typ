@@ -31,7 +31,7 @@
 #test(f(a: _ => 5), 6)
 
 ---
-// Error: 18-20 missing argument: pattern parameter
+// Error: 17-20 missing argument: pattern parameter
 #let f(a: 10) = a() + 1
 #f(a: _ => 5)
 
