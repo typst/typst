@@ -344,6 +344,14 @@ impl OuterHAlignment {
     }
 }
 
+impl Resolve for OuterHAlignment {
+    type Output = FixedAlignment;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.fix(TextElem::dir_in(styles))
+    }
+}
+
 impl From<OuterHAlignment> for HAlignment {
     fn from(value: OuterHAlignment) -> Self {
         match value {
@@ -352,14 +360,6 @@ impl From<OuterHAlignment> for HAlignment {
             OuterHAlignment::Right => Self::Right,
             OuterHAlignment::End => Self::End,
         }
-    }
-}
-
-impl Resolve for OuterHAlignment {
-    type Output = FixedAlignment;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.fix(TextElem::dir_in(styles))
     }
 }
 
