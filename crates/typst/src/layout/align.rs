@@ -109,7 +109,7 @@ impl Alignment {
     /// The horizontal component.
     pub const fn x(self) -> Option<HAlignment> {
         match self {
-            Self::H(x) | Self::Both(x, _) => Some(x),
+            Self::H(h) | Self::Both(h, _) => Some(h),
             Self::V(_) => None,
         }
     }
@@ -117,7 +117,7 @@ impl Alignment {
     /// The vertical component.
     pub const fn y(self) -> Option<VAlignment> {
         match self {
-            Self::V(y) | Self::Both(_, y) => Some(y),
+            Self::V(v) | Self::Both(_, v) => Some(v),
             Self::H(_) => None,
         }
     }
@@ -171,9 +171,9 @@ impl Alignment {
     #[func(title = "Inverse")]
     pub const fn inv(self) -> Alignment {
         match self {
-            Self::H(x) => Self::H(x.inv()),
-            Self::V(y) => Self::V(y.inv()),
-            Self::Both(x, y) => Self::Both(x.inv(), y.inv()),
+            Self::H(h) => Self::H(h.inv()),
+            Self::V(v) => Self::V(v.inv()),
+            Self::Both(h, v) => Self::Both(h.inv(), v.inv()),
         }
     }
 }
@@ -189,7 +189,7 @@ impl Add for Alignment {
 
     fn add(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::H(x), Self::V(y)) | (Self::V(y), Self::H(x)) => Ok(x + y),
+            (Self::H(h), Self::V(v)) | (Self::V(v), Self::H(h)) => Ok(h + v),
             (Self::H(_), Self::H(_)) => bail!("cannot add two horizontal alignments"),
             (Self::V(_), Self::V(_)) => bail!("cannot add two vertical alignments"),
             (Self::H(_), Self::Both(..)) | (Self::Both(..), Self::H(_)) => {
@@ -208,9 +208,9 @@ impl Add for Alignment {
 impl Repr for Alignment {
     fn repr(&self) -> EcoString {
         match self {
-            Self::H(x) => x.repr(),
-            Self::V(y) => y.repr(),
-            Self::Both(x, y) => eco_format!("{} + {}", x.repr(), y.repr()),
+            Self::H(h) => h.repr(),
+            Self::V(v) => v.repr(),
+            Self::Both(h, v) => eco_format!("{} + {}", h.repr(), v.repr()),
         }
     }
 }
@@ -218,8 +218,8 @@ impl Repr for Alignment {
 impl Fold for Alignment {
     fn fold(self, outer: Self) -> Self {
         match (self, outer) {
-            (Self::H(x), Self::V(y) | Self::Both(_, y)) => Self::Both(x, y),
-            (Self::V(y), Self::H(x) | Self::Both(x, _)) => Self::Both(x, y),
+            (Self::H(h), Self::V(v) | Self::Both(_, v)) => Self::Both(h, v),
+            (Self::V(v), Self::H(h) | Self::Both(h, _)) => Self::Both(h, v),
             _ => self,
         }
     }
@@ -424,7 +424,7 @@ cast! {
     VAlignment,
     self => Alignment::V(self).into_value(),
     align: Alignment => match align {
-        Alignment::V(y) => y,
+        Alignment::V(v) => v,
         v => bail!("expected `top`, `horizon`, or `bottom`, found {}", v.repr()),
     }
 }
@@ -483,13 +483,7 @@ cast! {
 /// `SpecificAlignment<HAlignment, OuterVAlignment>` does not allow vertical alignment
 /// position "center", because `V = OuterVAlignment` doesn't have it.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum SpecificAlignment<H, V>
-where
-    H: Into<HAlignment> + Copy,
-    V: Into<VAlignment> + Copy,
-    HAlignment: Into<H>,
-    VAlignment: Into<V>,
-{
+pub enum SpecificAlignment<H, V> {
     H(H),
     V(V),
     Both(H, V),
@@ -497,15 +491,13 @@ where
 
 impl<H, V> SpecificAlignment<H, V>
 where
-    H: Into<HAlignment> + Copy,
-    V: Into<VAlignment> + Copy,
-    HAlignment: Into<H>,
-    VAlignment: Into<V>,
+    H: Copy,
+    V: Copy,
 {
     /// The horizontal component.
     pub const fn x(self) -> Option<H> {
         match self {
-            Self::H(x) | Self::Both(x, _) => Some(x),
+            Self::H(h) | Self::Both(h, _) => Some(h),
             Self::V(_) => None,
         }
     }
@@ -513,41 +505,23 @@ where
     /// The vertical component.
     pub const fn y(self) -> Option<V> {
         match self {
-            Self::V(y) | Self::Both(_, y) => Some(y),
+            Self::V(v) | Self::Both(_, v) => Some(v),
             Self::H(_) => None,
         }
     }
 }
 
-impl Add<OuterVAlignment> for HAlignment {
-    type Output = SpecificAlignment<HAlignment, OuterVAlignment>;
-
-    fn add(self, rhs: OuterVAlignment) -> Self::Output {
-        SpecificAlignment::Both(self, rhs)
-    }
-}
-
-impl Add<HAlignment> for OuterVAlignment {
-    type Output = SpecificAlignment<HAlignment, OuterVAlignment>;
-
-    fn add(self, rhs: HAlignment) -> Self::Output {
-        SpecificAlignment::Both(rhs, self)
-    }
-}
-
 impl<H, V> From<SpecificAlignment<H, V>> for Alignment
 where
-    H: Into<HAlignment> + Copy,
-    V: Into<VAlignment> + Copy,
-    HAlignment: Into<H>,
-    VAlignment: Into<V>,
+    HAlignment: From<H>,
+    VAlignment: From<V>,
 {
-    fn from(value: SpecificAlignment<H, V>) -> Alignment {
+    fn from(value: SpecificAlignment<H, V>) -> Self {
         type FromType<H, V> = SpecificAlignment<H, V>;
         match value {
-            FromType::H(x) => Alignment::H(x.into()),
-            FromType::V(y) => Alignment::V(y.into()),
-            FromType::Both(x, y) => Alignment::Both(x.into(), y.into()),
+            FromType::H(h) => Self::H(HAlignment::from(h)),
+            FromType::V(v) => Self::V(VAlignment::from(v)),
+            FromType::Both(h, v) => Self::Both(HAlignment::from(h), VAlignment::from(v)),
         }
     }
 }
@@ -574,25 +548,18 @@ where
 
 impl<H, V> IntoValue for SpecificAlignment<H, V>
 where
-    H: Into<HAlignment> + Copy + Reflect,
-    V: Into<VAlignment> + Copy + Reflect,
-    HAlignment: Into<H>,
-    VAlignment: Into<V>,
+    HAlignment: From<H>,
+    VAlignment: From<V>,
 {
     fn into_value(self) -> Value {
-        let alignment = match self {
-            Self::H(x) => Alignment::H(x.into()),
-            Self::V(y) => Alignment::V(y.into()),
-            Self::Both(x, y) => Alignment::Both(x.into(), y.into()),
-        };
-        alignment.into_value()
+        Alignment::from(self).into_value()
     }
 }
 
 impl<H, V> FromValue for SpecificAlignment<H, V>
 where
-    H: Into<HAlignment> + Copy + Reflect + FromValue,
-    V: Into<VAlignment> + Copy + Reflect + FromValue,
+    H: Into<HAlignment> + Copy + FromValue,
+    V: Into<VAlignment> + Copy + FromValue,
     HAlignment: Into<H>,
     VAlignment: Into<V>,
 {
@@ -600,18 +567,18 @@ where
         if Alignment::castable(&value) {
             let align = Alignment::from_value(value)?;
             let result = match align {
-                Alignment::H(x) => {
-                    let x = x.into_value();
-                    Self::H(H::from_value(x)?)
+                Alignment::H(h) => {
+                    let h = h.into_value();
+                    Self::H(H::from_value(h)?)
                 }
-                Alignment::V(y) => {
-                    let y = y.into_value();
-                    Self::V(V::from_value(y)?)
+                Alignment::V(v) => {
+                    let v = v.into_value();
+                    Self::V(V::from_value(v)?)
                 }
-                Alignment::Both(x, y) => {
-                    let x = x.into_value();
-                    let y = y.into_value();
-                    Self::Both(H::from_value(x)?, V::from_value(y)?)
+                Alignment::Both(h, v) => {
+                    let h = h.into_value();
+                    let v = v.into_value();
+                    Self::Both(H::from_value(h)?, V::from_value(v)?)
                 }
             };
             return Ok(result);

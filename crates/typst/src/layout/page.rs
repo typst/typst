@@ -221,7 +221,7 @@ pub struct PageElem {
     ///
     /// #lorem(30)
     /// ```
-    #[default(HAlignment::Center + OuterVAlignment::Bottom)]
+    #[default(SpecificAlignment::Both(HAlignment::Center, OuterVAlignment::Bottom))]
     pub number_align: SpecificAlignment<HAlignment, OuterVAlignment>,
 
     /// The page's header. Fills the top margin of each page.
