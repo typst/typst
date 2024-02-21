@@ -129,6 +129,15 @@ static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
         .family("Noto Sans Display"),
     "NotoSans-DisplayThinItalic" => Exception::new()
         .family("Noto Sans Display"),
+    // The following three postscript names are only used in the version 2.007
+    // of the Noto Sans font. Other versions, while have different postscript
+    // name, happen to have correct metadata.
+    "NotoSerif-DisplayCondensedBold" => Exception::new()
+        .family("Noto Serif Display"),
+    "NotoSerif-DisplayExtraCondensedBold" => Exception::new()
+        .family("Noto Serif Display"),
+    "NotoSerif-DisplaySemiCondensedBold" => Exception::new()
+        .family("Noto Serif Display"),
     // New Computer Modern
     "NewCM08-Book" => Exception::new()
         .family("New Computer Modern 08")
