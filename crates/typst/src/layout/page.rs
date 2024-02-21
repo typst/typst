@@ -11,9 +11,9 @@ use crate::foundations::{
 };
 use crate::introspection::{Counter, CounterKey, ManualPageCounter};
 use crate::layout::{
-    Abs, AlignElem, Alignment, Axes, ColumnsElem, Dir, Frame, FullAlignment, HAlignment,
-    LayoutMultiple, Length, OuterVAlignment, Point, Ratio, Regions, Rel, Sides, Size,
-    SpecificAlignment, VAlignment,
+    Abs, AlignElem, Alignment, Axes, ColumnsElem, ComposedAlignment, Dir, Frame,
+    FullAlignment, HAlignment, LayoutMultiple, Length, OuterVAlignment, Point, Ratio,
+    Regions, Rel, Sides, Size, VAlignment,
 };
 
 use crate::model::Numbering;
@@ -221,8 +221,8 @@ pub struct PageElem {
     ///
     /// #lorem(30)
     /// ```
-    #[default(SpecificAlignment::Both(HAlignment::Center, OuterVAlignment::Bottom))]
-    pub number_align: SpecificAlignment<HAlignment, OuterVAlignment>,
+    #[default(ComposedAlignment::Both(HAlignment::Center, OuterVAlignment::Bottom))]
+    pub number_align: ComposedAlignment<HAlignment, OuterVAlignment>,
 
     /// The page's header. Fills the top margin of each page.
     ///

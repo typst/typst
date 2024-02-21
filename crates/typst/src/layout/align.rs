@@ -105,24 +105,6 @@ pub enum Alignment {
     Both(HAlignment, VAlignment),
 }
 
-impl Alignment {
-    /// The horizontal component.
-    pub const fn x(self) -> Option<HAlignment> {
-        match self {
-            Self::H(h) | Self::Both(h, _) => Some(h),
-            Self::V(_) => None,
-        }
-    }
-
-    /// The vertical component.
-    pub const fn y(self) -> Option<VAlignment> {
-        match self {
-            Self::V(v) | Self::Both(_, v) => Some(v),
-            Self::H(_) => None,
-        }
-    }
-}
-
 #[scope]
 impl Alignment {
     pub const START: Self = Alignment::H(HAlignment::Start);
@@ -201,50 +183,10 @@ impl Repr for Alignment {
     }
 }
 
-impl Fold for Alignment {
-    fn fold(self, outer: Self) -> Self {
-        match (self, outer) {
-            (Self::H(h), Self::V(v) | Self::Both(_, v)) => Self::Both(h, v),
-            (Self::V(v), Self::H(h) | Self::Both(h, _)) => Self::Both(h, v),
-            _ => self,
-        }
-    }
-}
+// Below: internal representations of how things can be aligned and how alignments
+// can be composed together.
 
-// impl Resolve for Alignment {
-//     type Output = Axes<FixedAlignment>;
-
-//     fn resolve(self, styles: StyleChain) -> Self::Output {
-//         self.fix(TextElem::dir_in(styles))
-//     }
-// }
-
-impl From<Side> for Alignment {
-    fn from(side: Side) -> Self {
-        match side {
-            Side::Left => Self::LEFT,
-            Side::Top => Self::TOP,
-            Side::Right => Self::RIGHT,
-            Side::Bottom => Self::BOTTOM,
-        }
-    }
-}
-
-pub trait HAxis {
-    /// The inverse horizontal alignment.
-    fn inv(self) -> Self;
-    /// Resolve to the absolute axis alignment based on the horizontal direction.
-    fn fix(self, dir: Dir) -> FixedAlignment;
-}
-
-pub trait VAxis {
-    /// The inverse vertical alignment.
-    fn inv(self) -> Self;
-    /// Resolve to the absolute axis alignment.
-    fn fix(self) -> FixedAlignment;
-}
-
-/// Where to align something horizontally.
+/// An internal representation of where to align something horizontally.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum HAlignment {
     #[default]
@@ -255,7 +197,15 @@ pub enum HAlignment {
     End,
 }
 
-impl HAxis for HAlignment {
+/// Operations on the alignment axis.
+pub trait AlignmentAxis {
+    /// The inverse horizontal alignment.
+    fn inv(self) -> Self;
+    /// Resolve to the absolute axis alignment based on the horizontal direction.
+    fn fix(self, dir: Dir) -> FixedAlignment;
+}
+
+impl AlignmentAxis for HAlignment {
     /// The inverse horizontal alignment.
     fn inv(self) -> Self {
         match self {
@@ -333,8 +283,8 @@ cast! {
     align: Alignment => Self::try_from(align)?,
 }
 
-/// A horizontal alignment which only allows `left`/`right` and `start`/`end`,
-/// thus excluding `center`.
+/// An internal representation of a horizontal alignment which only allows
+/// `left`/`right` and `start`/`end`, thus excluding `center`.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum OuterHAlignment {
     #[default]
@@ -344,7 +294,7 @@ pub enum OuterHAlignment {
     End,
 }
 
-impl HAxis for OuterHAlignment {
+impl AlignmentAxis for OuterHAlignment {
     /// The inverse of the alignment.
     fn inv(self) -> Self {
         match self {
@@ -397,7 +347,7 @@ cast! {
     align: Alignment => Self::try_from(align)?,
 }
 
-/// Where to align something vertically.
+/// An internal representation of where to align something vertically.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum VAlignment {
     #[default]
@@ -406,7 +356,7 @@ pub enum VAlignment {
     Bottom,
 }
 
-impl VAxis for VAlignment {
+impl AlignmentAxis for VAlignment {
     /// The inverse vertical alignment.
     fn inv(self) -> Self {
         match self {
@@ -417,7 +367,7 @@ impl VAxis for VAlignment {
     }
 
     /// Resolve to the absolute axis alignment.
-    fn fix(self) -> FixedAlignment {
+    fn fix(self, _: Dir) -> FixedAlignment {
         match self {
             Self::Top => FixedAlignment::Start,
             Self::Horizon => FixedAlignment::Center,
@@ -461,14 +411,22 @@ impl TryFrom<Alignment> for VAlignment {
     }
 }
 
+impl Resolve for VAlignment {
+    type Output = FixedAlignment;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.fix(TextElem::dir_in(styles))
+    }
+}
+
 cast! {
     VAlignment,
     self => Alignment::V(self).into_value(),
     align: Alignment => Self::try_from(align)?,
 }
 
-/// A vertical alignment which only allows `top` and `bottom`, thus excluding
-/// `horizon`.
+/// An internal representation of a vertical alignment which only allows
+/// `top` and `bottom`, thus excluding `horizon`.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum OuterVAlignment {
     #[default]
@@ -476,7 +434,7 @@ pub enum OuterVAlignment {
     Bottom,
 }
 
-impl VAxis for OuterVAlignment {
+impl AlignmentAxis for OuterVAlignment {
     /// The inverse vertical alignment.
     fn inv(self) -> Self {
         match self {
@@ -486,7 +444,7 @@ impl VAxis for OuterVAlignment {
     }
 
     /// Resolve to the absolute axis alignment.
-    fn fix(self) -> FixedAlignment {
+    fn fix(self, _: Dir) -> FixedAlignment {
         match self {
             Self::Top => FixedAlignment::Start,
             Self::Bottom => FixedAlignment::End,
@@ -525,10 +483,10 @@ cast! {
 /// allowed alignment positions are designated by the type parameter `H` and `V`.
 ///
 /// This is not user-visible, but an internal type to impose type safety. For example,
-/// `SpecificAlignment<HAlignment, OuterVAlignment>` does not allow vertical alignment
+/// `ComposedAlignment<HAlignment, OuterVAlignment>` does not allow vertical alignment
 /// position "center", because `V = OuterVAlignment` doesn't have it.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum SpecificAlignment<H, V> {
+pub enum ComposedAlignment<H, V> {
     H(H),
     V(V),
     Both(H, V),
@@ -536,12 +494,12 @@ pub enum SpecificAlignment<H, V> {
 
 /// An internal representation where the full set of alignment positions
 /// are allowed.
-pub type FullAlignment = SpecificAlignment<HAlignment, VAlignment>;
+pub type FullAlignment = ComposedAlignment<HAlignment, VAlignment>;
 
-impl<H, V> SpecificAlignment<H, V>
+impl<H, V> ComposedAlignment<H, V>
 where
-    H: Default + Copy + HAxis,
-    V: Default + Copy + VAxis,
+    H: Default + Copy + AlignmentAxis,
+    V: Default + Copy + AlignmentAxis,
 {
     /// The horizontal component.
     pub const fn x(self) -> Option<H> {
@@ -563,12 +521,12 @@ where
     pub fn fix(self, text_dir: Dir) -> Axes<FixedAlignment> {
         Axes::new(
             self.x().unwrap_or_default().fix(text_dir),
-            self.y().unwrap_or_default().fix(),
+            self.y().unwrap_or_default().fix(text_dir),
         )
     }
 }
 
-impl<H, V> Default for SpecificAlignment<H, V>
+impl<H, V> Default for ComposedAlignment<H, V>
 where
     H: Default,
     V: Default,
@@ -578,7 +536,7 @@ where
     }
 }
 
-impl<H, V> Fold for SpecificAlignment<H, V>
+impl<H, V> Fold for ComposedAlignment<H, V>
 where
     H: Copy,
     V: Copy,
@@ -592,10 +550,10 @@ where
     }
 }
 
-impl<H, V> Resolve for SpecificAlignment<H, V>
+impl<H, V> Resolve for ComposedAlignment<H, V>
 where
-    H: Default + Copy + HAxis,
-    V: Default + Copy + VAxis,
+    H: Default + Copy + AlignmentAxis,
+    V: Default + Copy + AlignmentAxis,
 {
     type Output = Axes<FixedAlignment>;
 
@@ -604,13 +562,13 @@ where
     }
 }
 
-impl<H, V> From<SpecificAlignment<H, V>> for Alignment
+impl<H, V> From<ComposedAlignment<H, V>> for Alignment
 where
     HAlignment: From<H>,
     VAlignment: From<V>,
 {
-    fn from(value: SpecificAlignment<H, V>) -> Self {
-        type FromType<H, V> = SpecificAlignment<H, V>;
+    fn from(value: ComposedAlignment<H, V>) -> Self {
+        type FromType<H, V> = ComposedAlignment<H, V>;
         match value {
             FromType::H(h) => Self::H(HAlignment::from(h)),
             FromType::V(v) => Self::V(VAlignment::from(v)),
@@ -619,7 +577,7 @@ where
     }
 }
 
-impl<H, V> Reflect for SpecificAlignment<H, V>
+impl<H, V> Reflect for ComposedAlignment<H, V>
 where
     H: Reflect,
     V: Reflect,
@@ -637,7 +595,7 @@ where
     }
 }
 
-impl<H, V> IntoValue for SpecificAlignment<H, V>
+impl<H, V> IntoValue for ComposedAlignment<H, V>
 where
     HAlignment: From<H>,
     VAlignment: From<V>,
@@ -647,7 +605,7 @@ where
     }
 }
 
-impl<H, V> FromValue for SpecificAlignment<H, V>
+impl<H, V> FromValue for ComposedAlignment<H, V>
 where
     H: Reflect + TryFrom<Alignment, Error = EcoString>,
     V: Reflect + TryFrom<Alignment, Error = EcoString>,

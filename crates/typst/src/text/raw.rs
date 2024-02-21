@@ -417,7 +417,7 @@ impl Show for Packed<RawElem> {
         let mut realized = Content::sequence(seq);
         if self.block(styles) {
             // Align the text before inserting it into the block.
-            realized = realized.aligned(FullAlignment::H(self.align(styles).into()));
+            realized = realized.aligned(FullAlignment::H(self.align(styles)));
             realized =
                 BlockElem::new().with_body(Some(realized)).pack().spanned(self.span());
         }

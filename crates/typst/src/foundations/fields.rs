@@ -47,8 +47,16 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
                 }
             } else if let Some(align) = dynamic.downcast::<Alignment>() {
                 match field {
-                    "x" => align.x().into_value(),
-                    "y" => align.y().into_value(),
+                    "x" => (match align {
+                        Alignment::H(h) | Alignment::Both(h, _) => Some(*h),
+                        Alignment::V(_) => None,
+                    })
+                    .into_value(),
+                    "y" => (match align {
+                        Alignment::V(v) | Alignment::Both(_, v) => Some(*v),
+                        Alignment::H(_) => None,
+                    })
+                    .into_value(),
                     _ => return missing(),
                 }
             } else {

@@ -323,7 +323,12 @@ impl Side {
 
 cast! {
     Side,
-    self => Alignment::from(self).into_value(),
+    self => (match self {
+        Side::Left => Alignment::LEFT,
+        Side::Top => Alignment::TOP,
+        Side::Right => Alignment::RIGHT,
+        Side::Bottom => Alignment::BOTTOM,
+    }).into_value(),
     align: Alignment => match align {
         Alignment::LEFT => Self::Left,
         Alignment::RIGHT => Self::Right,
