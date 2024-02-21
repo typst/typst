@@ -192,13 +192,14 @@ impl Eval for ast::Args<'_> {
                     });
                 }
                 ast::Arg::Named(named) => {
+                    let expr = named.expr();
                     items.push(Arg {
                         span,
                         name: Some(named.name().get().clone().into()),
-                        value: Spanned::new(named.expr().eval(vm)?, named.expr().span()),
+                        value: Spanned::new(expr.eval(vm)?, expr.span()),
                     });
                 }
-                ast::Arg::Spread(expr) => match expr.eval(vm)? {
+                ast::Arg::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
                     Value::Array(array) => {
                         items.extend(array.into_iter().map(|value| Arg {
@@ -215,7 +216,7 @@ impl Eval for ast::Args<'_> {
                         }));
                     }
                     Value::Args(args) => items.extend(args.items),
-                    v => bail!(expr.span(), "cannot spread {}", v.ty()),
+                    v => bail!(spread.span(), "cannot spread {}", v.ty()),
                 },
             }
         }
@@ -311,7 +312,6 @@ pub(crate) fn call_closure(
                 ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
                     vm.define(ident, args.expect::<Value>(&ident)?)
                 }
-                ast::Pattern::Normal(_) => unreachable!(),
                 pattern => {
                     crate::eval::destructure(
                         &mut vm,
@@ -320,8 +320,8 @@ pub(crate) fn call_closure(
                     )?;
                 }
             },
-            ast::Param::Sink(ident) => {
-                sink = Some(ident.name());
+            ast::Param::Spread(spread) => {
+                sink = Some(spread.sink_ident());
                 if let Some(sink_size) = sink_size {
                     sink_pos_values = Some(args.consume(sink_size)?);
                 }
@@ -336,10 +336,10 @@ pub(crate) fn call_closure(
         }
     }
 
-    if let Some(sink_name) = sink {
+    if let Some(sink) = sink {
         // Remaining args are captured regardless of whether the sink is named.
         let mut remaining_args = args.take();
-        if let Some(sink_name) = sink_name {
+        if let Some(sink_name) = sink {
             if let Some(sink_pos_values) = sink_pos_values {
                 remaining_args.items.extend(sink_pos_values);
             }
@@ -436,13 +436,15 @@ impl<'a> CapturesVisitor<'a> {
                 for param in expr.params().children() {
                     match param {
                         ast::Param::Pos(pattern) => {
-                            for ident in pattern.idents() {
+                            for ident in pattern.bindings() {
                                 self.bind(ident);
                             }
                         }
                         ast::Param::Named(named) => self.bind(named.name()),
-                        ast::Param::Sink(spread) => {
-                            self.bind(spread.name().unwrap_or_default())
+                        ast::Param::Spread(spread) => {
+                            if let Some(ident) = spread.sink_ident() {
+                                self.bind(ident);
+                            }
                         }
                     }
                 }
@@ -458,7 +460,7 @@ impl<'a> CapturesVisitor<'a> {
                     self.visit(init.to_untyped());
                 }
 
-                for ident in expr.kind().idents() {
+                for ident in expr.kind().bindings() {
                     self.bind(ident);
                 }
             }
@@ -471,7 +473,7 @@ impl<'a> CapturesVisitor<'a> {
                 self.internal.enter();
 
                 let pattern = expr.pattern();
-                for ident in pattern.idents() {
+                for ident in pattern.bindings() {
                     self.bind(ident);
                 }
 

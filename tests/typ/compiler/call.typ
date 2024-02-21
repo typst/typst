@@ -75,8 +75,7 @@
 #f[1](2)
 
 ---
-// Error: 7 expected expression
-// Error: 8 expected expression
+// Error: 7-8 unexpected colon
 #func(:)
 
 // Error: 10-12 unexpected end of block comment

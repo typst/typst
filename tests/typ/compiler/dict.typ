@@ -110,7 +110,6 @@
 // Identified as dictionary due to initial colon.
 // The boolean key is allowed for now since it will only cause an error at the evaluation stage.
 // Error: 4-5 expected named or keyed pair, found integer
-// Error: 5 expected comma
 // Error: 17 expected expression
 #(:1 b:"", true:)
 
@@ -152,7 +151,7 @@
 
 ---
 // Error: 7-10 expected identifier, found group
-// Error: 12-14 expected identifier, found integer
+// Error: 12-14 expected pattern, found integer
 #let ((a): 10) = "world"
 
 ---

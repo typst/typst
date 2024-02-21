@@ -274,6 +274,38 @@
 #test(b, 1)
 
 ---
+// Test comma placement in destructuring assignment.
+#let array = (1, 2, 3)
+#((key: array.at(1)) = (key: "hi"))
+#test(array, (1, "hi", 3))
+
+#let array = (1, 2, 3)
+#((array.at(1)) = ("hi"))
+#test(array, (1, "hi", 3))
+
+#let array = (1, 2, 3)
+#((array.at(1),) = ("hi",))
+#test(array, (1, "hi", 3))
+
+#let array = (1, 2, 3)
+#((array.at(1)) = ("hi",))
+#test(array, (1, ("hi",), 3))
+
+---
+// Test nested destructuring assignment.
+#let a
+#let b
+#let c
+#(((a, b), (key: c)) = ((1, 2), (key: 3)))
+#test((a, b, c), (1, 2, 3))
+
+---
+#let array = (1, 2, 3)
+// Error: 3-17 cannot destructure string
+#((array.at(1),) = ("hi"))
+#test(array, (1, ("hi",), 3))
+
+---
 // Error: 3-6 cannot mutate a constant: box
 #(box = 1)
 

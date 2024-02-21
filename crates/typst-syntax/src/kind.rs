@@ -136,7 +136,7 @@ pub enum SyntaxKind {
     StarEq,
     /// The divide-assign operator: `/=`.
     SlashEq,
-    /// The spread operator: `..`.
+    /// Indicates a spread or sink: `..`.
     Dots,
     /// An arrow between a closure's parameters and body: `=>`.
     Arrow,

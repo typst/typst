@@ -61,11 +61,11 @@
 #test(f(1, 2, 3), 3)
 
 ---
-// Error: 13-19 cannot spread string
+// Error: 11-19 cannot spread string
 #calc.min(.."nope")
 
 ---
-// Error: 10-14 expected identifier, found boolean
+// Error: 10-14 expected pattern, found boolean
 #let f(..true) = none
 
 ---
@@ -90,11 +90,11 @@
 }
 
 ---
-// Error: 11-17 cannot spread dictionary into array
+// Error: 9-17 cannot spread dictionary into array
 #(1, 2, ..(a: 1))
 
 ---
-// Error: 5-11 cannot spread array into dictionary
+// Error: 3-11 cannot spread array into dictionary
 #(..(1, 2), a: 1)
 
 ---
