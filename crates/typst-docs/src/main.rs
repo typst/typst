@@ -2,11 +2,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use clap::Parser;
+use regex::Regex;
 use typst::model::Document;
 use typst::visualize::Color;
 use typst_docs::{provide, Html, Resolver};
 use typst_render::render;
-use regex::Regex;
 
 struct MyResolver<'a> {
     assets_dir: &'a Path,
@@ -109,7 +109,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // FIXME: This should probably be done in the resolver instead.
     let json = Regex::new(r#"([^\w\-])/docs/"#)?.replace_all(&json, "$1/");
     println!("{json}");
-    
+
     eprintln!("All done!");
     Ok(())
 }
