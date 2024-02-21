@@ -85,7 +85,8 @@ struct PdfContext<'a> {
     glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
     /// The number of glyphs for all referenced languages in the document.
     /// We keep track of this to determine the main document language.
-    languages: HashMap<Lang, usize>,
+    /// BTreeMap is used to write sorted list of languages to metadata.
+    languages: BTreeMap<Lang, usize>,
 
     /// Allocator for indirect reference IDs.
     alloc: Ref,
@@ -134,7 +135,7 @@ impl<'a> PdfContext<'a> {
             pdf: Pdf::new(),
             pages: vec![],
             glyph_sets: HashMap::new(),
-            languages: HashMap::new(),
+            languages: BTreeMap::new(),
             alloc,
             page_tree_ref,
             page_refs: vec![],
@@ -233,7 +234,7 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     info.finish();
     xmp.num_pages(ctx.document.pages.len() as u32);
     xmp.format("application/pdf");
-    xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())));
+    xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())).rev());
 
     // A unique ID for this instance of the document. Changes if anything
     // changes in the frames.
