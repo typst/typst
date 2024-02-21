@@ -1,10 +1,9 @@
-use std::{
-    fs::{create_dir_all, write},
-    path::{Path, PathBuf},
-};
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use clap::Parser;
-use typst::{model::Document, visualize::Color};
+use typst::model::Document;
+use typst::visualize::Color;
 use typst_docs::{provide, Html, Resolver};
 use typst_render::render;
 
