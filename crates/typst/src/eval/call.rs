@@ -1,4 +1,4 @@
-use comemo::{Prehashed, Tracked, TrackedMut};
+use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, EcoVec};
 
 use crate::diag::{bail, error, At, HintedStrResult, SourceResult, Trace, Tracepoint};
@@ -14,6 +14,7 @@ use crate::symbols::Symbol;
 use crate::syntax::ast::{self, AstNode};
 use crate::syntax::{Spanned, SyntaxNode};
 use crate::text::TextElem;
+use crate::util::LazyHash;
 use crate::World;
 
 impl Eval for ast::FuncCall<'_> {
@@ -260,7 +261,7 @@ impl Eval for ast::Closure<'_> {
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn call_closure(
     func: &Func,
-    closure: &Prehashed<Closure>,
+    closure: &LazyHash<Closure>,
     world: Tracked<dyn World + '_>,
     introspector: Tracked<Introspector>,
     route: Tracked<Route>,

@@ -151,7 +151,7 @@ impl Synthesize for Packed<RefElem> {
         let target = *elem.target();
         if !BibliographyElem::has(engine, target) {
             if let Ok(found) = engine.introspector.query_label(target).cloned() {
-                elem.push_element(Some(found.into_inner()));
+                elem.push_element(Some(found));
                 return Ok(());
             }
         }
