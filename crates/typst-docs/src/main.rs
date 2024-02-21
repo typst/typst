@@ -87,12 +87,12 @@ struct Args {
     /// assume that this output directory is served at `/assets/*`. All
     /// generated HTML references will use `/assets/image5.png` or similar.
     /// Files will be written to this directory like `${assets_dir}/image5.png`.
-    #[arg(short, long, default_value = "assets")]
+    #[arg(long, default_value = "assets")]
     assets_dir: PathBuf,
 
     /// Enable verbose logging. This will print out all the calls to the
     /// resolver and the paths of the generated assets.
-    #[arg(short, long)]
+    #[arg(long)]
     verbose: bool,
 }
 
