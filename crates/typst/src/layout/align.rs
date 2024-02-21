@@ -5,7 +5,8 @@ use ecow::{eco_format, EcoString};
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, scope, ty, Content, Fold, Packed, Repr, Resolve, Show, StyleChain,
+    cast, elem, func, scope, ty, CastInfo, Content, Fold, FromValue, IntoValue, Packed,
+    Reflect, Repr, Resolve, Show, StyleChain, Value,
 };
 use crate::layout::{Abs, Axes, Axis, Dir, Side};
 use crate::text::TextElem;
@@ -108,7 +109,7 @@ impl Alignment {
     /// The horizontal component.
     pub const fn x(self) -> Option<HAlignment> {
         match self {
-            Self::H(x) | Self::Both(x, _) => Some(x),
+            Self::H(h) | Self::Both(h, _) => Some(h),
             Self::V(_) => None,
         }
     }
@@ -116,7 +117,7 @@ impl Alignment {
     /// The vertical component.
     pub const fn y(self) -> Option<VAlignment> {
         match self {
-            Self::V(y) | Self::Both(_, y) => Some(y),
+            Self::V(v) | Self::Both(_, v) => Some(v),
             Self::H(_) => None,
         }
     }
@@ -188,7 +189,7 @@ impl Add for Alignment {
 
     fn add(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::H(x), Self::V(y)) | (Self::V(y), Self::H(x)) => Ok(x + y),
+            (Self::H(h), Self::V(v)) | (Self::V(v), Self::H(h)) => Ok(h + v),
             (Self::H(_), Self::H(_)) => bail!("cannot add two horizontal alignments"),
             (Self::V(_), Self::V(_)) => bail!("cannot add two vertical alignments"),
             (Self::H(_), Self::Both(..)) | (Self::Both(..), Self::H(_)) => {
@@ -207,9 +208,9 @@ impl Add for Alignment {
 impl Repr for Alignment {
     fn repr(&self) -> EcoString {
         match self {
-            Self::H(x) => x.repr(),
-            Self::V(y) => y.repr(),
-            Self::Both(x, y) => eco_format!("{} + {}", x.repr(), y.repr()),
+            Self::H(h) => h.repr(),
+            Self::V(v) => v.repr(),
+            Self::Both(h, v) => eco_format!("{} + {}", h.repr(), v.repr()),
         }
     }
 }
@@ -244,6 +245,8 @@ impl From<Side> for Alignment {
 }
 
 /// Where to align something horizontally.
+/// This is not user-visible, but an internal type to impose type safety. To
+/// exclude `center`, use `OuterHAlignment`.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum HAlignment {
     #[default]
@@ -321,8 +324,8 @@ cast! {
     }
 }
 
-/// A horizontal alignment which only allows `left`/`right` and `start`/`end`,
-/// thus excluding `center`.
+/// A horizontal alignment which only allows either ends, thus excluding `center`.
+/// This is not user-visible, but an internal type to impose type safety.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum OuterHAlignment {
     #[default]
@@ -330,6 +333,18 @@ pub enum OuterHAlignment {
     Left,
     Right,
     End,
+}
+
+impl OuterHAlignment {
+    /// Resolve the axis alignment based on the horizontal direction.
+    pub const fn fix(self, dir: Dir) -> FixedAlignment {
+        match (self, dir.is_positive()) {
+            (Self::Start, true) | (Self::End, false) => FixedAlignment::Start,
+            (Self::Left, _) => FixedAlignment::Start,
+            (Self::Right, _) => FixedAlignment::End,
+            (Self::End, true) | (Self::Start, false) => FixedAlignment::End,
+        }
+    }
 }
 
 impl From<OuterHAlignment> for HAlignment {
@@ -356,6 +371,8 @@ cast! {
 }
 
 /// Where to align something vertically.
+/// This is not user-visible, but an internal type to impose type safety. To
+/// exclude `horizon`, use `OuterVAlignment`.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum VAlignment {
     #[default]
@@ -417,13 +434,23 @@ cast! {
     }
 }
 
-/// A vertical alignment which only allows `top` and `bottom`, thus excluding
-/// `horizon`.
+/// A vertical alignment which only allows either ends, thus excluding `horizon`.
+/// This is not user-visible, but an internal type to impose type safety.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum OuterVAlignment {
     #[default]
     Top,
     Bottom,
+}
+
+impl OuterVAlignment {
+    /// Resolve the axis alignment based on the vertical direction.
+    pub const fn fix(self) -> FixedAlignment {
+        match self {
+            Self::Top => FixedAlignment::Start,
+            Self::Bottom => FixedAlignment::End,
+        }
+    }
 }
 
 impl From<OuterVAlignment> for VAlignment {
@@ -435,6 +462,16 @@ impl From<OuterVAlignment> for VAlignment {
     }
 }
 
+impl From<VAlignment> for OuterVAlignment {
+    fn from(value: VAlignment) -> Self {
+        match value {
+            VAlignment::Top => OuterVAlignment::Top,
+            VAlignment::Bottom => OuterVAlignment::Bottom,
+            VAlignment::Horizon => unreachable!(),
+        }
+    }
+}
+
 cast! {
     OuterVAlignment,
     self => VAlignment::from(self).into_value(),
@@ -442,6 +479,135 @@ cast! {
         Alignment::V(VAlignment::Top) => Self::Top,
         Alignment::V(VAlignment::Bottom) => Self::Bottom,
         v => bail!("expected `top` or `bottom`, found {}", v.repr()),
+    }
+}
+
+/// An internal representation that combines horizontal or vertical alignments.
+/// It allows combining an `HAlignment`/`OuterHAlignment` and a
+/// `VAlignment`/`OuterVAlignment`, or vice versa.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum SpecificAlignment<H, V>
+where
+    H: Into<HAlignment> + Copy,
+    V: Into<VAlignment> + Copy,
+    HAlignment: Into<H>,
+    VAlignment: Into<V>,
+{
+    H(H),
+    V(V),
+    Both(H, V),
+}
+
+impl<H, V> SpecificAlignment<H, V>
+where
+    H: Into<HAlignment> + Copy,
+    V: Into<VAlignment> + Copy,
+    HAlignment: Into<H>,
+    VAlignment: Into<V>,
+{
+    /// The horizontal component.
+    pub fn x(self) -> Option<HAlignment> {
+        match self {
+            Self::H(h) | Self::Both(h, _) => Some(h.into()),
+            Self::V(_) => None,
+        }
+    }
+
+    /// The vertical component.
+    pub fn y(self) -> Option<VAlignment> {
+        match self {
+            Self::V(v) | Self::Both(_, v) => Some(v.into()),
+            Self::H(_) => None,
+        }
+    }
+
+    /// Normalize the alignment to a LTR-TTB space.
+    pub fn fix(self, text_dir: Dir) -> Axes<FixedAlignment> {
+        Axes::new(
+            self.x().unwrap_or_default().fix(text_dir),
+            self.y().unwrap_or_default().fix(),
+        )
+    }
+}
+
+impl Add<OuterVAlignment> for HAlignment {
+    type Output = SpecificAlignment<HAlignment, OuterVAlignment>;
+
+    fn add(self, rhs: OuterVAlignment) -> Self::Output {
+        SpecificAlignment::Both(self, rhs)
+    }
+}
+
+impl Add<HAlignment> for OuterVAlignment {
+    type Output = SpecificAlignment<HAlignment, OuterVAlignment>;
+
+    fn add(self, rhs: HAlignment) -> Self::Output {
+        SpecificAlignment::Both(rhs, self)
+    }
+}
+
+impl<H, V> Reflect for SpecificAlignment<H, V>
+where
+    H: Into<HAlignment> + Copy + Reflect,
+    V: Into<VAlignment> + Copy + Reflect,
+    HAlignment: Into<H>,
+    VAlignment: Into<V>,
+{
+    fn input() -> CastInfo {
+        H::input() + V::input()
+    }
+
+    fn output() -> CastInfo {
+        H::output() + V::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        H::castable(value) || V::castable(value)
+    }
+}
+
+impl<H, V> IntoValue for SpecificAlignment<H, V>
+where
+    H: Into<HAlignment> + Copy + Reflect,
+    V: Into<VAlignment> + Copy + Reflect,
+    HAlignment: Into<H>,
+    VAlignment: Into<V>,
+{
+    fn into_value(self) -> Value {
+        let alignment = match self {
+            Self::H(h) => Alignment::H(h.into()),
+            Self::V(v) => Alignment::V(v.into()),
+            Self::Both(x, y) => Alignment::Both(x.into(), y.into()),
+        };
+        alignment.into_value()
+    }
+}
+
+impl<H> FromValue for SpecificAlignment<H, OuterVAlignment>
+where
+    H: Into<HAlignment> + Copy + Reflect,
+    HAlignment: Into<H>,
+{
+    fn from_value(value: Value) -> StrResult<Self> {
+        if Alignment::castable(&value) {
+            let align = Alignment::from_value(value)?;
+            let result = match align {
+                Alignment::H(h) => Self::H(h.into()),
+                Alignment::V(v) if matches!(v, VAlignment::Horizon) => {
+                    bail!("expected `top` or `bottom`, found {}", v.repr())
+                }
+                Alignment::V(v) => Self::V(v.into()),
+                Alignment::Both(_, v) if matches!(v, VAlignment::Horizon) => {
+                    bail!(
+                        "expected `top` or `bottom` for the vertical component, found {}",
+                        v.repr()
+                    );
+                }
+                Alignment::Both(h, v) => Self::Both(h.into(), v.into()),
+            };
+            return Ok(result);
+        }
+        Err(Self::error(&value))
     }
 }
 
