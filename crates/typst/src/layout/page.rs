@@ -431,7 +431,7 @@ impl Packed<PageElem> {
             counter
         }));
 
-        if matches!(number_align.y(), Some(VAlignment::Top)) {
+        if matches!(number_align.y(), Some(OuterVAlignment::Top)) {
             header = if header.is_some() { header } else { numbering_marginal };
         } else {
             footer = if footer.is_some() { footer } else { numbering_marginal };

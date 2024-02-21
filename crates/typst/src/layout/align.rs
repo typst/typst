@@ -503,27 +503,19 @@ where
     VAlignment: Into<V>,
 {
     /// The horizontal component.
-    pub fn x(self) -> Option<HAlignment> {
+    pub const fn x(self) -> Option<H> {
         match self {
-            Self::H(x) | Self::Both(x, _) => Some(x.into()),
+            Self::H(x) | Self::Both(x, _) => Some(x),
             Self::V(_) => None,
         }
     }
 
     /// The vertical component.
-    pub fn y(self) -> Option<VAlignment> {
+    pub const fn y(self) -> Option<V> {
         match self {
-            Self::V(y) | Self::Both(_, y) => Some(y.into()),
+            Self::V(y) | Self::Both(_, y) => Some(y),
             Self::H(_) => None,
         }
-    }
-
-    /// Normalize the alignment to a LTR-TTB space.
-    pub fn fix(self, text_dir: Dir) -> Axes<FixedAlignment> {
-        Axes::new(
-            self.x().unwrap_or_default().fix(text_dir),
-            self.y().unwrap_or_default().fix(),
-        )
     }
 }
 
@@ -540,6 +532,23 @@ impl Add<HAlignment> for OuterVAlignment {
 
     fn add(self, rhs: HAlignment) -> Self::Output {
         SpecificAlignment::Both(rhs, self)
+    }
+}
+
+impl<H, V> From<SpecificAlignment<H, V>> for Alignment
+where
+    H: Into<HAlignment> + Copy,
+    V: Into<VAlignment> + Copy,
+    HAlignment: Into<H>,
+    VAlignment: Into<V>,
+{
+    fn from(value: SpecificAlignment<H, V>) -> Alignment {
+        type FromType<H, V> = SpecificAlignment<H, V>;
+        match value {
+            FromType::H(x) => Alignment::H(x.into()),
+            FromType::V(y) => Alignment::V(y.into()),
+            FromType::Both(x, y) => Alignment::Both(x.into(), y.into()),
+        }
     }
 }
 
