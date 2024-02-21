@@ -6,6 +6,7 @@ use typst::model::Document;
 use typst::visualize::Color;
 use typst_docs::{provide, Html, Resolver};
 use typst_render::render;
+use regex::Regex;
 
 struct MyResolver<'a> {
     assets_dir: &'a Path,
@@ -106,7 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     eprintln!("Be warned: the JSON structure is not stable and may change at any time.");
     let json = serde_json::to_string_pretty(&root_pages)?;
     // FIXME: This should probably be done in the resolver instead.
-    let json = json.replace("/docs/", "/");
+    let json = Regex::new(r#"([^\w\-])/docs/"#)?.replace_all(&json, "$1/");
     println!("{json}");
     
     eprintln!("All done!");

@@ -15,7 +15,7 @@ name = "typst-docs"
 required-features = ["cli"]
 
 [features]
-cli = ["clap", "typst-render", "serde_json"]
+cli = ["clap", "typst-render", "serde_json", "regex"]
 
 [dependencies]
 typst = { workspace = true }
@@ -35,6 +35,7 @@ yaml-front-matter = { workspace = true }
 clap = { workspace = true, optional = true }
 typst-render = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
+regex = { workspace = true, optional = true }
 
 [lints]
 workspace = true
