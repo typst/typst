@@ -162,8 +162,9 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     let lang = ctx
         .languages
         .iter()
-        .max_by_key(|(&lang, &count)| (count, lang))
-        .map(|(&k, _)| k);
+        .rev()
+        .max_by_key(|(_, &count)| count)
+        .map(|(&l, _)| l);
 
     let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
         Direction::R2L
@@ -234,7 +235,7 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     info.finish();
     xmp.num_pages(ctx.document.pages.len() as u32);
     xmp.format("application/pdf");
-    xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())).rev());
+    xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())));
 
     // A unique ID for this instance of the document. Changes if anything
     // changes in the frames.
