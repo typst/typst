@@ -119,6 +119,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     tilde: [
         op: '∼',
         basic: '~',
+        dot: '⩪',
         eq: '≃',
         eq.not: '≄',
         eq.rev: '⋍',
