@@ -3,15 +3,16 @@ use std::sync::Arc;
 
 use ecow::eco_format;
 
-use crate::diag::{SourceResult, Trace, Tracepoint};
+use crate::diag::{bail, SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Content, Fold, Packed, Show, Smart, StyleChain,
 };
 use crate::layout::{
     show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Dir, Fragment,
-    GridItem, GridLayouter, LayoutMultiple, Length, LinePosition, OuterHAlignment,
-    OuterVAlignment, Regions, Rel, ResolvableCell, Sides, TrackSizings,
+    GridCell, GridHLine, GridItem, GridLayouter, GridVLine, LayoutMultiple, Length,
+    LinePosition, OuterHAlignment, OuterVAlignment, Regions, Rel, ResolvableCell, Sides,
+    TrackSizings,
 };
 use crate::model::Figurable;
 use crate::syntax::Span;
@@ -200,8 +201,8 @@ pub struct TableElem {
     /// )
     /// ```
     #[fold]
-    #[default(Sides::splat(Some(Abs::pt(5.0).into())))]
-    pub inset: Sides<Option<Rel<Length>>>,
+    #[default(Celled::Value(Sides::splat(Some(Abs::pt(5.0).into()))))]
+    pub inset: Celled<Sides<Option<Rel<Length>>>>,
 
     /// The contents of the table cells, plus any extra table lines specified
     /// with the [`table.hline`]($table.hline) and
@@ -282,7 +283,7 @@ impl LayoutMultiple for Packed<TableElem> {
             items,
             fill,
             align,
-            inset,
+            &inset,
             &stroke,
             engine,
             styles,
@@ -349,7 +350,24 @@ cast! {
         Self::VLine(vline) => vline.into_value(),
         Self::Cell(cell) => cell.into_value(),
     },
-    v: Content => v.into(),
+    v: Content => {
+        if v.is::<GridCell>() {
+            bail!(
+                "cannot use `grid.cell` as a table cell; use `table.cell` instead"
+            );
+        }
+        if v.is::<GridHLine>() {
+            bail!(
+                "cannot use `grid.hline` as a table line; use `table.hline` instead"
+            );
+        }
+        if v.is::<GridVLine>() {
+            bail!(
+                "cannot use `grid.vline` as a table line; use `table.vline` instead"
+            );
+        }
+        v.into()
+    }
 }
 
 impl From<Content> for TableChild {

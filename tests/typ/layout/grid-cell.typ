@@ -127,3 +127,7 @@
     [Jake], [49], [Epic]
   )
 }
+
+---
+// Error: 7-19 cannot use `table.cell` as a grid cell; use `grid.cell` instead
+#grid(table.cell[])
