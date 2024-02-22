@@ -204,7 +204,7 @@ where
             // Get the expected line stroke at this track by folding the
             // strokes of each user-specified line (with priority to the
             // user-specified line specified last).
-            let mut stroke = lines
+            let mut line_strokes = lines
                 .iter()
                 .filter(|line| {
                     line.position == expected_line_position
@@ -222,17 +222,15 @@ where
                             })
                             .unwrap_or_else(|| track >= gutter_factor * line.start)
                 })
-                .map(|line| line.stroke.clone())
-                .peekable();
+                .map(|line| line.stroke.clone());
 
             // Distinguish between unspecified stroke (None, if no lines
             // were matched above) and specified stroke of None (Some(None),
             // if some lines were matched and the one specified last had a
-            // stroke of None).
-            let stroke = stroke
-                .peek()
-                .is_some()
-                .then(|| stroke.fold(None, |acc, line_stroke| line_stroke.fold(acc)));
+            // stroke of None) by conditionally folding after 'next()'.
+            let line_stroke = line_strokes.next().map(|first_stroke| {
+                line_strokes.fold(first_stroke, |acc, line_stroke| line_stroke.fold(acc))
+            });
 
             // The function shall determine if it is appropriate to draw
             // the line at this position or not (i.e. whether or not it
@@ -249,7 +247,7 @@ where
             // (which indicates, in the context of 'std::iter::from_fn', that
             // our iterator isn't over yet, and this should be its next value).
             if let Some((stroke, priority)) =
-                line_stroke_at_track(grid, index, track, stroke)
+                line_stroke_at_track(grid, index, track, line_stroke)
             {
                 // We should draw at this position. Let's check if we were
                 // already drawing in the previous position.
