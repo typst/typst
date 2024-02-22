@@ -345,6 +345,22 @@
 )
 
 ---
+// Error: 7-20 cannot use `table.hline` as a grid line; use `grid.hline` instead
+#grid(table.hline())
+
+---
+// Error: 7-20 cannot use `table.vline` as a grid line; use `grid.vline` instead
+#grid(table.vline())
+
+---
+// Error: 8-20 cannot use `grid.hline` as a table line; use `table.hline` instead
+#table(grid.hline())
+
+---
+// Error: 8-20 cannot use `grid.vline` as a table line; use `table.vline` instead
+#table(grid.vline())
+
+---
 // Error: 3:3-3:31 line cannot end before it starts
 #grid(
   columns: 3,
