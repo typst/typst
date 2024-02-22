@@ -13,7 +13,9 @@ use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Em, FixedAlignment, Frame, LayoutMultiple,
     LayoutSingle, OuterHAlignment, Point, Regions, Size,
 };
-use crate::math::{scaled_font_size, LayoutMath, MathContext, MathSize, MathVariant};
+use crate::math::{
+    scaled_font_size, LayoutMath, MathContext, MathRunFrameBuilder, MathSize, MathVariant,
+};
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::syntax::Span;
 use crate::text::{
@@ -251,12 +253,11 @@ impl LayoutSingle for Packed<EquationElem> {
         let font = find_math_font(engine, styles, span)?;
 
         let mut ctx = MathContext::new(engine, styles, regions, &font);
-        let mut frame = ctx
+        let equation_builder = ctx
             .layout_into_run(self, styles)?
-            .multiline_frame_builder(&ctx, styles)
-            .build();
+            .multiline_frame_builder(&ctx, styles);
 
-        if let Some(numbering) = (**self).numbering(styles) {
+        let frame = if let Some(numbering) = (**self).numbering(styles) {
             let pod = Regions::one(regions.base(), Axes::splat(false));
             let number = Counter::of(EquationElem::elem())
                 .at(engine, self.location().unwrap())?
@@ -269,14 +270,16 @@ impl LayoutSingle for Packed<EquationElem> {
             let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
 
             add_equation_number(
-                &mut frame,
+                equation_builder,
                 number,
                 self.number_align(styles).resolve(styles),
                 AlignElem::alignment_in(styles).resolve(styles).x,
                 regions.size.x,
                 full_number_width,
-            );
-        }
+            )
+        } else {
+            equation_builder.build()
+        };
 
         Ok(frame)
     }
@@ -399,13 +402,14 @@ fn find_math_font(
 }
 
 fn add_equation_number(
-    equation: &mut Frame,
+    equation_builder: MathRunFrameBuilder,
     number: Frame,
     number_align: FixedAlignment,
     equation_align: FixedAlignment,
     region_size_x: Abs,
     full_number_width: Abs,
-) {
+) -> Frame {
+    let mut equation = equation_builder.build();
     let width = if region_size_x.is_finite() {
         region_size_x
     } else {
@@ -430,4 +434,6 @@ fn add_equation_number(
     let y = (equation.height() - number.height()) / 2.0;
 
     equation.push_frame(Point::new(x, y), number);
+
+    equation
 }

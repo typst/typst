@@ -154,9 +154,9 @@ impl MathRun {
         }
     }
 
-    /// Returns a builder that lays out the [`MathFragment`]s into a multi-row
-    /// [`Frame`]. The rows are aligned using the same set of alignment points
-    /// computed from them as a whole.
+    /// Returns a builder that lays out the [`MathFragment`]s into a possibly
+    /// multi-row [`Frame`]. The rows are aligned using the same set of alignment
+    /// points computed from them as a whole.
     pub fn multiline_frame_builder(
         self,
         ctx: &MathContext,
@@ -371,7 +371,7 @@ impl Iterator for LeftRightAlternator {
     }
 }
 
-/// How the rows should be aligned and merged into a [`Frame`].
+/// How the rows from the [`MathRun`] should be aligned and merged into a [`Frame`].
 pub struct MathRunFrameBuilder {
     /// The size of the resulting frame.
     size: Size,
