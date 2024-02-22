@@ -467,22 +467,22 @@ impl Packed<PageElem> {
                     let ascent = header_ascent.relative_to(margin.top);
                     pos = Point::with_x(margin.left);
                     area = Size::new(pw, margin.top - ascent);
-                    align = FullAlignment::V(VAlignment::Bottom);
+                    align = Alignment::BOTTOM;
                 } else if ptr::eq(marginal, &footer) {
                     let descent = footer_descent.relative_to(margin.bottom);
                     pos = Point::new(margin.left, size.y - margin.bottom + descent);
                     area = Size::new(pw, margin.bottom - descent);
-                    align = FullAlignment::V(VAlignment::Top);
+                    align = Alignment::TOP;
                 } else {
                     pos = Point::zero();
                     area = size;
-                    align = FullAlignment::Both(HAlignment::Center, VAlignment::Horizon);
+                    align = HAlignment::Center + VAlignment::Horizon;
                 };
 
                 let pod = Regions::one(area, Axes::splat(true));
                 let sub = content
                     .clone()
-                    .styled(AlignElem::set_alignment(align))
+                    .styled(AlignElem::set_alignment(align.into()))
                     .layout(engine, styles, pod)?
                     .into_frame();
 

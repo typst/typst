@@ -95,7 +95,7 @@ pub struct RotateElem {
     /// #box(rotate(30deg, origin: bottom + right, square()))
     /// ```
     #[fold]
-    #[default(FullAlignment::Both(HAlignment::Center, VAlignment::Horizon))]
+    #[default((HAlignment::Center + VAlignment::Horizon).into())]
     pub origin: FullAlignment,
 
     /// Whether the rotation impacts the layout.
@@ -183,7 +183,7 @@ pub struct ScaleElem {
     /// B#box(scale(75%, origin: bottom + left)[B])B
     /// ```
     #[fold]
-    #[default(FullAlignment::Both(HAlignment::Center, VAlignment::Horizon))]
+    #[default((HAlignment::Center + VAlignment::Horizon).into())]
     pub origin: FullAlignment,
 
     /// Whether the scaling impacts the layout.

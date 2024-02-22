@@ -2,7 +2,7 @@ use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Packed, Smart, StyleChain};
 use crate::layout::{
-    Axes, Em, Fragment, FullAlignment, HAlignment, LayoutMultiple, Length, Regions, Rel,
+    Alignment, Axes, Em, Fragment, FullAlignment, LayoutMultiple, Length, Regions, Rel,
     VAlignment,
 };
 use crate::realize::{Behave, Behaviour};
@@ -38,7 +38,7 @@ pub struct PlaceElem {
     /// that axis will be ignored, instead, the item will be placed in the
     /// origin of the axis.
     #[positional]
-    #[default(Smart::Custom(FullAlignment::H(HAlignment::Start)))]
+    #[default(Smart::Custom(Alignment::START.into()))]
     pub alignment: Smart<FullAlignment>,
 
     /// Whether the placed element has floating layout.
@@ -117,7 +117,7 @@ impl Packed<PlaceElem> {
         let child = self
             .body()
             .clone()
-            .aligned(alignment.unwrap_or_else(|| FullAlignment::H(HAlignment::Center)));
+            .aligned(alignment.unwrap_or_else(|| Alignment::CENTER.into()));
 
         let pod = Regions::one(base, Axes::splat(false));
         let frame = child.layout(engine, styles, pod)?.into_frame();

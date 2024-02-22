@@ -10,8 +10,8 @@ use crate::foundations::{
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
-    Abs, AlignElem, Axes, Dir, Em, FixedAlignment, Frame, FullAlignment, HAlignment,
-    LayoutMultiple, LayoutSingle, Point, Regions, Size,
+    Abs, AlignElem, Alignment, Axes, Dir, Em, FixedAlignment, Frame, LayoutMultiple,
+    LayoutSingle, Point, Regions, Size,
 };
 use crate::math::{scaled_font_size, LayoutMath, MathContext, MathSize, MathVariant};
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
@@ -155,7 +155,7 @@ impl ShowSet for Packed<EquationElem> {
     fn show_set(&self, styles: StyleChain) -> Styles {
         let mut out = Styles::new();
         if self.block(styles) {
-            out.set(AlignElem::set_alignment(FullAlignment::H(HAlignment::Center)));
+            out.set(AlignElem::set_alignment(Alignment::CENTER.into()));
             out.set(EquationElem::set_size(MathSize::Display));
         }
         out.set(TextElem::set_weight(FontWeight::from_number(450)));

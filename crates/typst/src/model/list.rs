@@ -4,8 +4,8 @@ use crate::foundations::{
     cast, elem, scope, Array, Content, Depth, Func, Packed, Smart, StyleChain, Value,
 };
 use crate::layout::{
-    Axes, BlockElem, Cell, CellGrid, Em, Fragment, FullAlignment, GridLayouter,
-    HAlignment, LayoutMultiple, Length, Regions, Sizing, Spacing, VAlignment,
+    Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
+    LayoutMultiple, Length, Regions, Sizing, Spacing, VAlignment,
 };
 use crate::model::ParElem;
 use crate::text::TextElem;
@@ -156,7 +156,7 @@ impl LayoutMultiple for Packed<ListElem> {
             .marker(styles)
             .resolve(engine, depth)?
             // avoid '#set align' interference with the list
-            .aligned(FullAlignment::Both(HAlignment::Start, VAlignment::Top));
+            .aligned((HAlignment::Start + VAlignment::Top).into());
 
         let mut cells = vec![];
         for item in self.children() {

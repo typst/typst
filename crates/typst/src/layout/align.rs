@@ -577,6 +577,16 @@ where
     }
 }
 
+impl From<Alignment> for FullAlignment {
+    fn from(value: Alignment) -> Self {
+        match value {
+            Alignment::H(h) => Self::H(h),
+            Alignment::V(v) => Self::V(v),
+            Alignment::Both(h, v) => Self::Both(h, v),
+        }
+    }
+}
+
 impl<H, V> Reflect for ComposedAlignment<H, V>
 where
     H: Reflect,
