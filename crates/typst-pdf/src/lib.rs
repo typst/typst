@@ -162,7 +162,6 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     let lang = ctx
         .languages
         .iter()
-        .rev()
         .max_by_key(|(_, &count)| count)
         .map(|(&l, _)| l);
 
