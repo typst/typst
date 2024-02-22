@@ -159,11 +159,7 @@ impl<'a> PdfContext<'a> {
 
 /// Write the document catalog.
 fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Datetime>) {
-    let lang = ctx
-        .languages
-        .iter()
-        .max_by_key(|(_, &count)| count)
-        .map(|(&l, _)| l);
+    let lang = ctx.languages.iter().max_by_key(|(_, &count)| count).map(|(&l, _)| l);
 
     let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
         Direction::R2L
