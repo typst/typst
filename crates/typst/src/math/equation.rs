@@ -210,12 +210,12 @@ impl Packed<EquationElem> {
         let font = find_math_font(engine, styles, self.span())?;
 
         let mut ctx = MathContext::new(engine, styles, regions, &font);
-        let rows = ctx.layout_into_row(self, styles)?;
+        let run = ctx.layout_into_run(self, styles)?;
 
-        let mut items = if rows.row_count() == 1 {
-            rows.into_par_items()
+        let mut items = if run.row_count() == 1 {
+            run.into_par_items()
         } else {
-            vec![MathParItem::Frame(rows.into_fragment(&ctx, styles).into_frame())]
+            vec![MathParItem::Frame(run.into_fragment(&ctx, styles).into_frame())]
         };
 
         for item in &mut items {
@@ -251,7 +251,10 @@ impl LayoutSingle for Packed<EquationElem> {
         let font = find_math_font(engine, styles, span)?;
 
         let mut ctx = MathContext::new(engine, styles, regions, &font);
-        let mut frame = ctx.layout_into_frame(self, styles)?;
+        let mut frame = ctx
+            .layout_into_run(self, styles)?
+            .multiline_frame_builder(&ctx, styles)
+            .build();
 
         if let Some(numbering) = (**self).numbering(styles) {
             let pod = Regions::one(regions.base(), Axes::splat(false));

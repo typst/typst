@@ -15,7 +15,7 @@ use crate::foundations::{Content, Packed, Smart, StyleChain};
 use crate::layout::{Abs, Axes, BoxElem, Em, Frame, LayoutMultiple, Regions, Size};
 use crate::math::{
     scaled_font_size, styled_char, EquationElem, FrameFragment, GlyphFragment,
-    LayoutMath, MathFragment, MathRow, MathSize, THICK,
+    LayoutMath, MathFragment, MathRun, MathSize, THICK,
 };
 use crate::model::ParElem;
 use crate::syntax::{is_newline, Span};
@@ -122,7 +122,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         self.fragments.extend(fragments);
     }
 
-    /// Layout the given element and return the resulting `MathFragment`s.
+    /// Layout the given element and return the resulting [`MathFragment`]s.
     pub fn layout_into_fragments(
         &mut self,
         elem: &dyn LayoutMath,
@@ -137,27 +137,26 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         Ok(std::mem::replace(&mut self.fragments, prev))
     }
 
-    /// Layout the given element and return the result as a `MathRow`.
-    pub fn layout_into_row(
+    /// Layout the given element and return the result as a [`MathRun`].
+    pub fn layout_into_run(
         &mut self,
         elem: &dyn LayoutMath,
         styles: StyleChain,
-    ) -> SourceResult<MathRow> {
-        let row = self.layout_into_fragments(elem, styles)?;
-        Ok(MathRow::new(row))
+    ) -> SourceResult<MathRun> {
+        Ok(MathRun::new(self.layout_into_fragments(elem, styles)?))
     }
 
     /// Layout the given element and return the result as a
-    /// unified `MathFragment`.
+    /// unified [`MathFragment`].
     pub fn layout_into_fragment(
         &mut self,
         elem: &dyn LayoutMath,
         styles: StyleChain,
     ) -> SourceResult<MathFragment> {
-        Ok(self.layout_into_row(elem, styles)?.into_fragment(self, styles))
+        Ok(self.layout_into_run(elem, styles)?.into_fragment(self, styles))
     }
 
-    /// Layout the given element and return the result as a `Frame`.
+    /// Layout the given element and return the result as a [`Frame`].
     pub fn layout_into_frame(
         &mut self,
         elem: &dyn LayoutMath,
@@ -166,7 +165,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         Ok(self.layout_into_fragment(elem, styles)?.into_frame())
     }
 
-    /// Layout the given `BoxElem` into a `Frame`.
+    /// Layout the given [`BoxElem`] into a [`Frame`].
     pub fn layout_box(
         &mut self,
         boxed: &Packed<BoxElem>,
@@ -177,7 +176,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         boxed.layout(self.engine, styles.chain(&local), self.regions)
     }
 
-    /// Layout the given `Content` into a `Frame`.
+    /// Layout the given [`Content`] into a [`Frame`].
     pub fn layout_content(
         &mut self,
         content: &Content,
@@ -190,7 +189,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             .into_frame())
     }
 
-    /// Layout the given `TextElem` into a `MathFragment`.
+    /// Layout the given [`TextElem`] into a [`MathFragment`].
     pub fn layout_text(
         &mut self,
         elem: &Packed<TextElem>,
@@ -238,7 +237,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 let c = styled_char(styles, c);
                 fragments.push(GlyphFragment::new(self, styles, c, span).into());
             }
-            let frame = MathRow::new(fragments).into_frame(self, styles);
+            let frame = MathRun::new(fragments).into_frame(self, styles);
             FrameFragment::new(self, styles, frame).with_text_like(true).into()
         } else {
             let local = [
@@ -263,7 +262,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                             .push(self.layout_complex_text(piece, span, styles)?.into());
                     }
                 }
-                let mut frame = MathRow::new(fragments).into_frame(self, styles);
+                let mut frame = MathRun::new(fragments).into_frame(self, styles);
                 let axis = scaled!(self, styles, axis_height);
                 frame.set_baseline(frame.height() / 2.0 + axis);
                 FrameFragment::new(self, styles, frame).into()
@@ -274,7 +273,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         Ok(fragment)
     }
 
-    /// Layout the given text string into a `FrameFragment`.
+    /// Layout the given text string into a [`FrameFragment`].
     fn layout_complex_text(
         &mut self,
         text: &str,
