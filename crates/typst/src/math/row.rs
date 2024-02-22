@@ -375,9 +375,9 @@ impl Iterator for LeftRightAlternator {
 pub struct MathRunFrameBuilder {
     /// The size of the resulting frame.
     size: Size,
-    /// Sub frames, and the positions where they should be pushed into
+    /// Sub frames for each row, and the positions where they should be pushed into
     /// the resulting frame.
-    frames: Vec<(Frame, Point)>,
+    pub frames: Vec<(Frame, Point)>,
 }
 
 impl MathRunFrameBuilder {

@@ -11,7 +11,7 @@ use crate::foundations::{
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Em, FixedAlignment, Frame, LayoutMultiple,
-    LayoutSingle, OuterHAlignment, Point, Regions, Size,
+    LayoutSingle, OuterHAlignment, Point, Regions, Size, SpecificAlignment, VAlignment,
 };
 use crate::math::{
     scaled_font_size, LayoutMath, MathContext, MathRunFrameBuilder, MathSize, MathVariant,
@@ -90,8 +90,8 @@ pub struct EquationElem {
     /// With natural units, we know:
     /// $ E^2 = m^2 + p^2 $
     /// ```
-    #[default(OuterHAlignment::End)]
-    pub number_align: OuterHAlignment,
+    #[default(SpecificAlignment::H(OuterHAlignment::End))]
+    pub number_align: SpecificAlignment<OuterHAlignment, VAlignment>,
 
     /// A supplement for the equation.
     ///
@@ -404,7 +404,7 @@ fn find_math_font(
 fn add_equation_number(
     equation_builder: MathRunFrameBuilder,
     number: Frame,
-    number_align: FixedAlignment,
+    number_align: Axes<FixedAlignment>,
     equation_align: FixedAlignment,
     region_size_x: Abs,
     full_number_width: Abs,
@@ -419,14 +419,14 @@ fn add_equation_number(
     let height = equation.height().max(number.height());
     equation.resize(Size::new(width, height), Axes::splat(equation_align));
 
-    let offset = match (equation_align, number_align) {
+    let offset = match (equation_align, number_align.x) {
         (FixedAlignment::Start, FixedAlignment::Start) => full_number_width,
         (FixedAlignment::End, FixedAlignment::End) => -full_number_width,
         _ => Abs::zero(),
     };
     equation.translate(Point::with_x(offset));
 
-    let x = match number_align {
+    let x = match number_align.x {
         FixedAlignment::Start => Abs::zero(),
         FixedAlignment::End => equation.width() - number.width(),
         _ => unreachable!(),
