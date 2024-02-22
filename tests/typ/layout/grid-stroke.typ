@@ -139,7 +139,7 @@
 ---
 // Line specification order priority
 // The last line should be blue, not red.
-// The middle line should have disappeared.
+// The middle aqua line should be gone due to the 'none' override.
 #grid(
   columns: 2,
   inset: 2pt,

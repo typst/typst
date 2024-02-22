@@ -130,7 +130,7 @@ where
             &CellGrid,
             usize,
             usize,
-            Option<Arc<Stroke<Abs>>>,
+            Option<Option<Arc<Stroke<Abs>>>>,
         ) -> Option<(Arc<Stroke<Abs>>, StrokePriority)>
         + 'grid,
     I: IntoIterator<Item = (usize, Abs)>,
@@ -204,7 +204,7 @@ where
             // Get the expected line stroke at this track by folding the
             // strokes of each user-specified line (with priority to the
             // user-specified line specified last).
-            let stroke = lines
+            let mut stroke = lines
                 .iter()
                 .filter(|line| {
                     line.position == expected_line_position
@@ -223,7 +223,16 @@ where
                             .unwrap_or_else(|| track >= gutter_factor * line.start)
                 })
                 .map(|line| line.stroke.clone())
-                .fold(None, |acc, line_stroke| line_stroke.fold(acc));
+                .peekable();
+
+            // Distinguish between unspecified stroke (None, if no lines
+            // were matched above) and specified stroke of None (Some(None),
+            // if some lines were matched and the one specified last had a
+            // stroke of None).
+            let stroke = stroke
+                .peek()
+                .is_some()
+                .then(|| stroke.fold(None, |acc, line_stroke| line_stroke.fold(acc)));
 
             // The function shall determine if it is appropriate to draw
             // the line at this position or not (i.e. whether or not it
@@ -301,9 +310,10 @@ where
 }
 
 /// Returns the correct stroke with which to draw a vline right before column
-/// 'x' when going through row 'y', given the stroke of the user-specified line
-/// at this position, if any. Also returns the stroke's drawing priority, which
-/// depends on its source.
+/// `x` when going through row `y`, given the stroke of the user-specified line
+/// at this position, if any (note that a stroke of `None` is unspecified,
+/// while `Some(None)` means specified to remove any stroke at this position).
+/// Also returns the stroke's drawing priority, which depends on its source.
 ///
 /// If the vline would go through a colspan, returns None (shouldn't be drawn).
 /// If the one (when at the border) or two (otherwise) cells to the left and
@@ -317,12 +327,12 @@ where
 /// stroke, as defined by user-specified lines (if any), is returned.
 ///
 /// The priority associated with the returned stroke follows the rules
-/// described in the docs for 'generate_line_segment'.
+/// described in the docs for `generate_line_segment`.
 pub(super) fn vline_stroke_at_row(
     grid: &CellGrid,
     x: usize,
     y: usize,
-    stroke: Option<Arc<Stroke<Abs>>>,
+    stroke: Option<Option<Arc<Stroke<Abs>>>>,
 ) -> Option<(Arc<Stroke<Abs>>, StrokePriority)> {
     if x != 0 && x != grid.cols.len() {
         // When the vline isn't at the border, we need to check if a colspan would
@@ -397,15 +407,16 @@ pub(super) fn vline_stroke_at_row(
     // Fold the line stroke and folded cell strokes, if possible.
     // Give priority to the explicit line stroke.
     // Otherwise, use whichever of the two isn't 'none' or unspecified.
-    let final_stroke = stroke.fold_or(cell_stroke);
+    let final_stroke = stroke.fold_or(Some(cell_stroke)).flatten();
 
     final_stroke.zip(Some(priority))
 }
 
-/// Returns the correct stroke with which to draw a hline on top of row 'y'
-/// when going through column 'x', given the stroke of the user-specified line
-/// at this position, if any. Also returns the stroke's drawing priority, which
-/// depends on its source.
+/// Returns the correct stroke with which to draw a hline on top of row `y`
+/// when going through column `x`, given the stroke of the user-specified line
+/// at this position, if any (note that a stroke of `None` is unspecified,
+/// while `Some(None)` means specified to remove any stroke at this position).
+/// Also returns the stroke's drawing priority, which depends on its source.
 ///
 /// If the one (when at the border) or two (otherwise) cells above and below
 /// the hline have bottom and top stroke overrides, respectively, then the
@@ -418,12 +429,12 @@ pub(super) fn vline_stroke_at_row(
 /// defined by user-specified lines (if any), is directly returned.
 ///
 /// The priority associated with the returned stroke follows the rules
-/// described in the docs for 'generate_line_segment'.
+/// described in the docs for `generate_line_segment`.
 pub(super) fn hline_stroke_at_column(
     grid: &CellGrid,
     y: usize,
     x: usize,
-    stroke: Option<Arc<Stroke<Abs>>>,
+    stroke: Option<Option<Arc<Stroke<Abs>>>>,
 ) -> Option<(Arc<Stroke<Abs>>, StrokePriority)> {
     // There are no rowspans yet, so no need to add a check here. The line will
     // always be drawn, if it has a stroke.
@@ -505,7 +516,7 @@ pub(super) fn hline_stroke_at_column(
     // Fold the line stroke and folded cell strokes, if possible.
     // Give priority to the explicit line stroke.
     // Otherwise, use whichever of the two isn't 'none' or unspecified.
-    let final_stroke = stroke.fold_or(cell_stroke);
+    let final_stroke = stroke.fold_or(Some(cell_stroke)).flatten();
 
     final_stroke.zip(Some(priority))
 }
