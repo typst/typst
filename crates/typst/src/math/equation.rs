@@ -80,17 +80,19 @@ pub struct EquationElem {
 
     /// The alignment of the equation numbering.
     ///
-    /// By default, the number is put at the `{end}` of the equation block. Both
-    /// `{start}` and `{end}` respects text direction; for absolute positioning,
-    /// use `{left}` or `{right}`.
+    /// By default, the alignment is `end+horizon`. For the horizontal
+    /// component, you can use `{right}`, `{left}`, or `{start}` and `{end}`
+    /// of the text direction; for the vertical component, you can use
+    /// `{top}`, `{horizon}`, or `{bottom}`.
     ///
     /// ```example
-    /// #set math.equation(numbering: "(1)", number-align: start)
+    /// #set math.equation(numbering: "(1)", number-align: bottom)
     ///
-    /// With natural units, we know:
-    /// $ E^2 = m^2 + p^2 $
+    /// We can calculate:
+    /// $ E &= sqrt(m_0^2 + p^2) \
+    ///     &approx 125 "GeV"    $
     /// ```
-    #[default(SpecificAlignment::H(OuterHAlignment::End))]
+    #[default(SpecificAlignment::Both(OuterHAlignment::End, VAlignment::Horizon))]
     pub number_align: SpecificAlignment<OuterHAlignment, VAlignment>,
 
     /// A supplement for the equation.
@@ -269,10 +271,20 @@ impl LayoutSingle for Packed<EquationElem> {
             static NUMBER_GUTTER: Em = Em::new(0.5);
             let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
 
+            let number_align = match self.number_align(styles) {
+                SpecificAlignment::H(h) => {
+                    SpecificAlignment::Both(h, VAlignment::Horizon)
+                }
+                SpecificAlignment::V(v) => {
+                    SpecificAlignment::Both(OuterHAlignment::End, v)
+                }
+                SpecificAlignment::Both(h, v) => SpecificAlignment::Both(h, v),
+            };
+
             add_equation_number(
                 equation_builder,
                 number,
-                self.number_align(styles).resolve(styles),
+                number_align.resolve(styles),
                 AlignElem::alignment_in(styles).resolve(styles).x,
                 regions.size.x,
                 full_number_width,
@@ -401,6 +413,21 @@ fn find_math_font(
     Ok(font)
 }
 
+/// A frame's size and insertion point relative to the parent frame.
+struct SizePoint {
+    size: Size,
+    point: Point,
+}
+
+impl SizePoint {
+    pub fn new(input: &(Frame, Point)) -> Self {
+        SizePoint { size: input.0.size(), point: input.1 }
+    }
+    pub fn with_size(size: Size) -> Self {
+        SizePoint { size, point: Point::zero() }
+    }
+}
+
 fn add_equation_number(
     equation_builder: MathRunFrameBuilder,
     number: Frame,
@@ -409,36 +436,60 @@ fn add_equation_number(
     region_size_x: Abs,
     full_number_width: Abs,
 ) -> Frame {
-    let row_geometries: Vec<_> = equation_builder
+    let first = equation_builder
         .frames
-        .iter()
-        .map(|(frame, point)| (frame.size(), point))
-        .collect();
-
+        .first()
+        .map_or(SizePoint::with_size(equation_builder.size), SizePoint::new);
+    let last = equation_builder
+        .frames
+        .last()
+        .map_or(SizePoint::with_size(equation_builder.size), SizePoint::new);
     let mut equation = equation_builder.build();
+
     let width = if region_size_x.is_finite() {
         region_size_x
     } else {
         equation.width() + 2.0 * full_number_width
     };
 
-    let height = equation.height().max(number.height());
-    let mut equation_offset =
-        equation.resize(Size::new(width, height), Axes::splat(equation_align));
-    let offset_from_number = Point::with_x(match (equation_align, number_align.x) {
+    let height = match number_align.y {
+        FixedAlignment::Start => {
+            let excess_above = (number.height() - first.size.y) / 2.0 - first.point.y;
+            equation.height() + Abs::zero().max(excess_above)
+        }
+        FixedAlignment::Center => equation.height().max(number.height()),
+        FixedAlignment::End => {
+            let excess_below =
+                (number.height() + last.size.y) / 2.0 - equation.height() + last.point.y;
+            equation.height() + Abs::zero().max(excess_below)
+        }
+    };
+    let resizing_offset = equation.resize(
+        Size::new(width, height),
+        Axes::<FixedAlignment>::new(equation_align, number_align.y.inv()),
+    );
+    equation.translate(Point::with_x(match (equation_align, number_align.x) {
         (FixedAlignment::Start, FixedAlignment::Start) => full_number_width,
         (FixedAlignment::End, FixedAlignment::End) => -full_number_width,
         _ => Abs::zero(),
-    });
-    equation.translate(offset_from_number);
-    equation_offset += offset_from_number;
+    }));
 
     let x = match number_align.x {
         FixedAlignment::Start => Abs::zero(),
         FixedAlignment::End => equation.width() - number.width(),
         _ => unreachable!(),
     };
-    let y = (equation.height() - number.height()) / 2.0;
+
+    let dy = |y: Abs, number: &Frame| (y - number.height()) / 2.0;
+    let y = match number_align.y {
+        FixedAlignment::Start => {
+            resizing_offset.y + first.point.y + dy(first.size.y, &number)
+        }
+        FixedAlignment::Center => dy(equation.height(), &number),
+        FixedAlignment::End => {
+            resizing_offset.y + last.point.y + dy(last.size.y, &number)
+        }
+    };
 
     equation.push_frame(Point::new(x, y), number);
 

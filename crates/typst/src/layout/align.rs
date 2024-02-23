@@ -667,6 +667,15 @@ impl FixedAlignment {
             Self::End => extent,
         }
     }
+
+    /// The inverse alignment.
+    pub const fn inv(self) -> Self {
+        match self {
+            Self::Start => Self::End,
+            Self::Center => Self::Center,
+            Self::End => Self::Start,
+        }
+    }
 }
 
 impl From<Side> for FixedAlignment {

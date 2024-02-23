@@ -374,7 +374,7 @@ impl Iterator for LeftRightAlternator {
 /// How the rows from the [`MathRun`] should be aligned and merged into a [`Frame`].
 pub struct MathRunFrameBuilder {
     /// The size of the resulting frame.
-    size: Size,
+    pub size: Size,
     /// Sub frames for each row, and the positions where they should be pushed into
     /// the resulting frame.
     pub frames: Vec<(Frame, Point)>,
