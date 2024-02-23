@@ -12,6 +12,7 @@ use typst_render::render;
 struct MyResolver<'a> {
     assets_dir: &'a Path,
     verbose: bool,
+    base: &'a str,
 }
 
 impl<'a> Resolver for MyResolver<'a> {
@@ -41,7 +42,7 @@ impl<'a> Resolver for MyResolver<'a> {
         let path = self.assets_dir.join(&filename);
         fs::create_dir_all(path.parent().expect("parent")).expect("create dir");
         pixmap.save_png(path.as_path()).expect("save png");
-        let src = format!("/assets/{filename}");
+        let src = format!("{}assets/{filename}", self.base);
         eprintln!("Generated example image {path:?}");
 
         if let Some(code) = source {
@@ -66,7 +67,7 @@ impl<'a> Resolver for MyResolver<'a> {
         fs::write(&path, data).expect("write image");
         eprintln!("Created {} byte image at {path:?}", data.len());
 
-        format!("/assets/{filename}")
+        format!("{}assets/{filename}", self.base)
     }
 
     fn link(&self, link: &str) -> Option<String> {
@@ -86,9 +87,10 @@ impl<'a> Resolver for MyResolver<'a> {
 struct Args {
     /// The generation process can produce additional assets. Namely images.
     /// This option controls where to spit them out. The HTML generation will
-    /// assume that this output directory is served at `/assets/*`. All
-    /// generated HTML references will use `/assets/image5.png` or similar.
-    /// Files will be written to this directory like `${assets_dir}/image5.png`.
+    /// assume that this output directory is served at `${base_url}/assets/*`.
+    /// The default is `assets`. For example, if the base URL is `/docs/` then
+    /// the gemerated HTML might look like `<img src="/docs/assets/foo.png">`
+    /// even though the `--assets-dir` was set to `/tmp/images` or something.
     #[arg(long, default_value = "assets")]
     assets_dir: PathBuf,
 
@@ -102,7 +104,9 @@ struct Args {
     /// `https://example.com/docs/` or a relative URL like `/docs/`. This is
     /// used as the base URL for the generated page's `.route` properties as
     /// well as cross-page links. The default is `/`. If a `/` trailing slash is
-    /// not present then it will be added.
+    /// not present then it will be added. This option also affects the HTML
+    /// asset references. For example: `--base /docs/` will generate
+    /// `<img src="/docs/assets/foo.png">`.
     #[arg(long, default_value = "/")]
     base: String,
 
@@ -122,6 +126,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let resolver = MyResolver {
         assets_dir: &args.assets_dir,
         verbose: args.verbose,
+        base: &base,
     };
     if args.verbose {
         eprintln!("resolver: {resolver:?}");
