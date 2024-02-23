@@ -87,6 +87,7 @@ pub struct FuncModel {
     pub keywords: &'static [&'static str],
     pub oneliner: &'static str,
     pub element: bool,
+    pub contextual: bool,
     pub details: Html,
     /// This example is only for nested function models. Others can have
     /// their example directly in their details.

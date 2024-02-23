@@ -2575,6 +2575,7 @@ dependencies = [
  "icu_provider_adapters",
  "icu_provider_blob",
  "icu_segmenter",
+ "if_chain",
  "image",
  "indexmap 2.1.0",
  "kamadak-exif",

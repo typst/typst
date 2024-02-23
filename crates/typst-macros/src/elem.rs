@@ -617,6 +617,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
             vtable:  <#ident as #foundations::Capable>::vtable,
             field_id: |name| name.parse().ok().map(|id: Fields| id as u8),
             field_name: |id| id.try_into().ok().map(Fields::to_str),
+            field_from_styles: <#ident as #foundations::Fields>::field_from_styles,
             local_name: #local_name,
             scope: #foundations::Lazy::new(|| #scope),
             params: #foundations::Lazy::new(|| ::std::vec![#(#params),*])
@@ -866,6 +867,20 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
         quote! { Fields::#enum_ident => #expr }
     });
 
+    // Fields that can be accessed using the `field_from_styles` method.
+    let field_from_styles_arms = element.visible_fields().map(|field| {
+        let Field { enum_ident, .. } = field;
+
+        let expr = if field.required || field.synthesized {
+            quote! { None }
+        } else {
+            let value = create_style_chain_access(field, false, quote!(None));
+            quote! { Some(#into_value(#value)) }
+        };
+
+        quote! { Fields::#enum_ident => #expr }
+    });
+
     // Sets fields from the style chain.
     let materializes = visible_non_ghost()
         .filter(|field| !field.required && !field.synthesized)
@@ -935,6 +950,14 @@ fn create_fields_impl(element: &Elem) -> TokenStream {
                 let id = Fields::try_from(id).ok()?;
                 match id {
                     #(#field_with_styles_arms,)*
+                    _ => None,
+                }
+            }
+
+            fn field_from_styles(id: u8, styles: #foundations::StyleChain) -> Option<#foundations::Value> {
+                let id = Fields::try_from(id).ok()?;
+                match id {
+                    #(#field_from_styles_arms,)*
                     _ => None,
                 }
             }

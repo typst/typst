@@ -5,7 +5,7 @@ use ecow::{eco_format, EcoString, EcoVec};
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{cast, func, Func, Str, Value};
+use crate::foundations::{cast, func, Context, Func, Str, Value};
 use crate::text::Case;
 
 /// Applies a numbering to a sequence of numbers.
@@ -35,6 +35,8 @@ use crate::text::Case;
 pub fn numbering(
     /// The engine.
     engine: &mut Engine,
+    /// The callsite context.
+    context: &Context,
     /// Defines how the numbering works.
     ///
     /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `一`, `壹`, `あ`, `い`, `ア`, `イ`, `א`, `가`,
@@ -66,7 +68,7 @@ pub fn numbering(
     #[variadic]
     numbers: Vec<usize>,
 ) -> SourceResult<Value> {
-    numbering.apply(engine, &numbers)
+    numbering.apply(engine, context, &numbers)
 }
 
 /// How to number a sequence of things.
@@ -80,10 +82,15 @@ pub enum Numbering {
 
 impl Numbering {
     /// Apply the pattern to the given numbers.
-    pub fn apply(&self, engine: &mut Engine, numbers: &[usize]) -> SourceResult<Value> {
+    pub fn apply(
+        &self,
+        engine: &mut Engine,
+        context: &Context,
+        numbers: &[usize],
+    ) -> SourceResult<Value> {
         Ok(match self {
             Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).into()),
-            Self::Func(func) => func.call(engine, numbers.iter().copied())?,
+            Self::Func(func) => func.call(engine, context, numbers.iter().copied())?,
         })
     }
 

@@ -304,9 +304,12 @@ pub struct HintedString {
     pub hints: Vec<EcoString>,
 }
 
-impl From<EcoString> for HintedString {
-    fn from(value: EcoString) -> Self {
-        Self { message: value, hints: vec![] }
+impl<S> From<S> for HintedString
+where
+    S: Into<EcoString>,
+{
+    fn from(value: S) -> Self {
+        Self { message: value.into(), hints: vec![] }
     }
 }
 

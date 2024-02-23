@@ -5,8 +5,8 @@ use crate::diag::{bail, error, At, HintedStrResult, SourceResult, Trace, Tracepo
 use crate::engine::Engine;
 use crate::eval::{Access, Eval, FlowEvent, Route, Tracer, Vm};
 use crate::foundations::{
-    call_method_mut, is_mutating_method, Arg, Args, Bytes, Closure, Content, Func,
-    IntoValue, NativeElement, Scope, Scopes, Value,
+    call_method_mut, is_mutating_method, Arg, Args, Bytes, Closure, Content, Context,
+    Func, IntoValue, NativeElement, Scope, Scopes, Value,
 };
 use crate::introspection::{Introspector, Locator};
 use crate::math::{Accent, AccentElem, LrElem};
@@ -165,7 +165,11 @@ impl Eval for ast::FuncCall<'_> {
 
         let callee = callee.cast::<Func>().at(callee_span)?;
         let point = || Tracepoint::Call(callee.name().map(Into::into));
-        let f = || callee.call(&mut vm.engine, args).trace(vm.world(), point, span);
+        let f = || {
+            callee
+                .call(&mut vm.engine, vm.context, args)
+                .trace(vm.world(), point, span)
+        };
 
         // Stacker is broken on WASM.
         #[cfg(target_arch = "wasm32")]
@@ -252,6 +256,11 @@ impl Eval for ast::Closure<'_> {
             node: self.to_untyped().clone(),
             defaults,
             captured,
+            num_pos_params: self
+                .params()
+                .children()
+                .filter(|p| matches!(p, ast::Param::Pos(_)))
+                .count(),
         };
 
         Ok(Value::Func(Func::from(closure).spanned(self.params().span())))
@@ -269,9 +278,13 @@ pub(crate) fn call_closure(
     route: Tracked<Route>,
     locator: Tracked<Locator>,
     tracer: TrackedMut<Tracer>,
+    context: &Context,
     mut args: Args,
 ) -> SourceResult<Value> {
-    let node = closure.node.cast::<ast::Closure>().unwrap();
+    let (name, params, body) = match closure.node.cast::<ast::Closure>() {
+        Some(node) => (node.name(), node.params(), node.body()),
+        None => (None, ast::Params::default(), closure.node.cast().unwrap()),
+    };
 
     // Don't leak the scopes from the call site. Instead, we use the scope
     // of captured variables we collected earlier.
@@ -289,27 +302,20 @@ pub(crate) fn call_closure(
     };
 
     // Prepare VM.
-    let mut vm = Vm::new(engine, scopes, node.span());
+    let mut vm = Vm::new(engine, context, scopes, body.span());
 
     // Provide the closure itself for recursive calls.
-    if let Some(name) = node.name() {
+    if let Some(name) = name {
         vm.define(name, Value::Func(func.clone()));
     }
 
-    // Parse the arguments according to the parameter list.
-    let num_pos_params = node
-        .params()
-        .children()
-        .filter(|p| matches!(p, ast::Param::Pos(_)))
-        .count();
-
     let num_pos_args = args.to_pos().len();
-    let sink_size = num_pos_args.checked_sub(num_pos_params);
+    let sink_size = num_pos_args.checked_sub(closure.num_pos_params);
 
     let mut sink = None;
     let mut sink_pos_values = None;
     let mut defaults = closure.defaults.iter();
-    for p in node.params().children() {
+    for p in params.children() {
         match p {
             ast::Param::Pos(pattern) => match pattern {
                 ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
@@ -354,7 +360,7 @@ pub(crate) fn call_closure(
     args.finish()?;
 
     // Handle control flow.
-    let output = node.body().eval(&mut vm)?;
+    let output = body.eval(&mut vm)?;
     match vm.flow {
         Some(FlowEvent::Return(_, Some(explicit))) => return Ok(explicit),
         Some(FlowEvent::Return(_, None)) => {}

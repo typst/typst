@@ -59,7 +59,7 @@ fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
 
     let values = analyze_expr(world, ancestor);
 
-    if let [value] = values.as_slice() {
+    if let [(value, _)] = values.as_slice() {
         if let Some(docs) = value.docs() {
             return Some(Tooltip::Text(plain_docs_sentence(docs)));
         }
@@ -78,7 +78,7 @@ fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
     let mut last = None;
     let mut pieces: Vec<EcoString> = vec![];
     let mut iter = values.iter();
-    for value in (&mut iter).take(Tracer::MAX_VALUES - 1) {
+    for (value, _) in (&mut iter).take(Tracer::MAX_VALUES - 1) {
         if let Some((prev, count)) = &mut last {
             if *prev == value {
                 *count += 1;

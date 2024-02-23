@@ -126,11 +126,12 @@ impl Packed<FootnoteElem> {
 impl Show for Packed<FootnoteElem> {
     #[typst_macros::time(name = "footnote", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let loc = self.declaration_location(engine).at(self.span())?;
+        let span = self.span();
+        let loc = self.declaration_location(engine).at(span)?;
         let numbering = self.numbering(styles);
         let counter = Counter::of(FootnoteElem::elem());
-        let num = counter.at(engine, loc)?.display(engine, numbering)?;
-        let sup = SuperElem::new(num).pack().spanned(self.span());
+        let num = counter.display_at_loc(engine, loc, styles, numbering)?;
+        let sup = SuperElem::new(num).pack().spanned(span);
         let loc = loc.variant(1);
         // Add zero-width weak spacing to make the footnote "sticky".
         Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc)))
@@ -266,6 +267,7 @@ pub struct FootnoteEntry {
 impl Show for Packed<FootnoteEntry> {
     #[typst_macros::time(name = "footnote.entry", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let span = self.span();
         let note = self.note();
         let number_gap = Em::new(0.05);
         let default = StyleChain::default();
@@ -273,15 +275,15 @@ impl Show for Packed<FootnoteEntry> {
         let counter = Counter::of(FootnoteElem::elem());
         let Some(loc) = note.location() else {
             bail!(
-                self.span(), "footnote entry must have a location";
+                span, "footnote entry must have a location";
                 hint: "try using a query or a show rule to customize the footnote instead"
             );
         };
 
-        let num = counter.at(engine, loc)?.display(engine, numbering)?;
+        let num = counter.display_at_loc(engine, loc, styles, numbering)?;
         let sup = SuperElem::new(num)
             .pack()
-            .spanned(self.span())
+            .spanned(span)
             .linked(Destination::Location(loc))
             .backlinked(loc.variant(1));
         Ok(Content::sequence([

@@ -7,8 +7,8 @@ use crate::realize::{Behave, Behaviour};
 /// Exposes a value to the query system without producing visible content.
 ///
 /// This element can be retrieved with the [`query`]($query) function and from
-/// the command with [`typst query`]($reference/meta/query/#cli-queries). Its
-/// purpose is to expose an arbitrary value to the introspection system. To
+/// the command line with [`typst query`]($reference/meta/query/#cli-queries).
+/// Its purpose is to expose an arbitrary value to the introspection system. To
 /// identify a metadata value among others, you can attach a [`label`]($label)
 /// to it and query for that label.
 ///
@@ -20,9 +20,9 @@ use crate::realize::{Behave, Behaviour};
 /// #metadata("This is a note") <note>
 ///
 /// // And find it from anywhere else.
-/// #locate(loc => {
-///   query(<note>, loc).first().value
-/// })
+/// #context {
+///   query(<note>).first().value
+/// }
 /// ```
 #[elem(Behave, Show, Locatable)]
 pub struct MetadataElem {

@@ -1,7 +1,8 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Depth, Func, Packed, Smart, StyleChain, Value,
+    cast, elem, scope, Array, Content, Context, Depth, Func, Packed, Smart, StyleChain,
+    Value,
 };
 use crate::layout::{
     Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
@@ -154,7 +155,7 @@ impl LayoutMultiple for Packed<ListElem> {
         let Depth(depth) = ListElem::depth_in(styles);
         let marker = self
             .marker(styles)
-            .resolve(engine, depth)?
+            .resolve(engine, styles, depth)?
             // avoid '#set align' interference with the list
             .aligned(HAlignment::Start + VAlignment::Top);
 
@@ -206,12 +207,19 @@ pub enum ListMarker {
 
 impl ListMarker {
     /// Resolve the marker for the given depth.
-    fn resolve(&self, engine: &mut Engine, depth: usize) -> SourceResult<Content> {
+    fn resolve(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        depth: usize,
+    ) -> SourceResult<Content> {
         Ok(match self {
             Self::Content(list) => {
                 list.get(depth % list.len()).cloned().unwrap_or_default()
             }
-            Self::Func(func) => func.call(engine, [depth])?.display(),
+            Self::Func(func) => func
+                .call(engine, &Context::new(None, Some(styles)), [depth])?
+                .display(),
         })
     }
 }

@@ -132,7 +132,7 @@
           "captures": { "1": { "name": "punctuation.definition.reference.typst" } }
         },
         {
-          "begin": "(#)(let|set|show)\\b",
+          "begin": "(#)(let|set|show|context)\\b",
           "end": "\n|(;)|(?=])",
           "beginCaptures": {
             "0": { "name": "keyword.other.typst" },
@@ -263,7 +263,7 @@
         },
         {
           "name": "keyword.other.typst",
-          "match": "\\b(let|as|in|set|show)\\b"
+          "match": "\\b(let|as|in|set|show|context)\\b"
         },
         {
           "name": "keyword.control.conditional.typst",

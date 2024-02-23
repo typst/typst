@@ -274,7 +274,7 @@ impl Synthesize for Packed<FigureElem> {
                 };
 
                 let target = descendant.unwrap_or_else(|| Cow::Borrowed(elem.body()));
-                Some(supplement.resolve(engine, [target])?)
+                Some(supplement.resolve(engine, styles, [target])?)
             }
         };
 
@@ -377,7 +377,11 @@ impl Refable for Packed<FigureElem> {
 }
 
 impl Outlinable for Packed<FigureElem> {
-    fn outline(&self, engine: &mut Engine) -> SourceResult<Option<Content>> {
+    fn outline(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Option<Content>> {
         if !self.outlined(StyleChain::default()) {
             return Ok(None);
         }
@@ -396,9 +400,12 @@ impl Outlinable for Packed<FigureElem> {
             (**self).counter(),
             self.numbering(),
         ) {
-            let numbers = counter
-                .at(engine, self.location().unwrap())?
-                .display(engine, numbering)?;
+            let numbers = counter.display_at_loc(
+                engine,
+                self.location().unwrap(),
+                styles,
+                numbering,
+            )?;
 
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');
@@ -483,7 +490,8 @@ pub struct FigureCaption {
     /// ```example
     /// #show figure.caption: it => [
     ///   #underline(it.body) |
-    ///   #it.supplement #it.counter.display(it.numbering)
+    ///   #it.supplement
+    ///   #context it.counter.display(it.numbering)
     /// ]
     ///
     /// #figure(
@@ -554,7 +562,7 @@ impl Show for Packed<FigureCaption> {
             self.counter(),
             self.figure_location(),
         ) {
-            let numbers = counter.at(engine, *location)?.display(engine, numbering)?;
+            let numbers = counter.display_at_loc(engine, *location, styles, numbering)?;
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');
             }

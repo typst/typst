@@ -1,5 +1,6 @@
+use crate::diag::HintedStrResult;
 use crate::engine::Engine;
-use crate::foundations::{func, Array, LocatableSelector, Value};
+use crate::foundations::{func, Array, Context, LocatableSelector, Value};
 use crate::introspection::Location;
 
 /// Finds elements in the document.
@@ -38,10 +39,9 @@ use crate::introspection::Location;
 /// >>>   margin: (top: 35pt, rest: 15pt),
 /// >>>   header-ascent: 12pt,
 /// >>> )
-/// #set page(header: locate(loc => {
+/// #set page(header: context {
 ///   let elems = query(
-///     selector(heading).before(loc),
-///     loc,
+///     selector(heading).before(here()),
 ///   )
 ///   let academy = smallcaps[
 ///     Typst Academy
@@ -52,7 +52,7 @@ use crate::introspection::Location;
 ///     let body = elems.last().body
 ///     academy + h(1fr) + emph(body)
 ///   }
-/// }))
+/// })
 ///
 /// = Introduction
 /// #lorem(23)
@@ -84,11 +84,11 @@ use crate::introspection::Location;
 ///
 /// ```example
 /// = Real
-/// #locate(loc => {
-///   let elems = query(heading, loc)
+/// #context {
+///   let elems = query(heading)
 ///   let count = elems.len()
 ///   count * [= Fake]
-/// })
+/// }
 /// ```
 ///
 /// # Command line queries
@@ -130,31 +130,29 @@ use crate::introspection::Location;
 /// $ typst query example.typ "<note>" --field value --one
 /// "This is a note"
 /// ```
-#[func]
+#[func(contextual)]
 pub fn query(
     /// The engine.
     engine: &mut Engine,
-    /// Can be an element function like a `heading` or `figure`, a `{<label>}`
-    /// or a more complex selector like `{heading.where(level: 1)}`.
+    /// The callsite context.
+    context: &Context,
+    /// Can be
+    /// - an element function like a `heading` or `figure`,
+    /// - a `{<label>}`,
+    /// - a more complex selector like `{heading.where(level: 1)}`,
+    /// - or `{selector(heading).before(here())}`.
     ///
-    /// Currently, only a subset of element functions is supported. Aside from
-    /// headings and figures, this includes equations, references and all
-    /// elements with an explicit label. As a result, you _can_ query for e.g.
-    /// [`strong`]($strong) elements, but you will find only those that have an
-    /// explicit label attached to them. This limitation will be resolved in the
-    /// future.
+    /// Only [locatable]($location/#locatable) element functions are supported.
     target: LocatableSelector,
-    /// Can be an arbitrary location, as its value is irrelevant for the
-    /// function's return value. Why is it required then? As noted before, Typst
-    /// has to evaluate parts of your code multiple times to determine the
-    /// values of all state. By only allowing this function within
-    /// [`locate`]($locate) calls, the amount of code that can depend on the
-    /// query's result is reduced. If you could call it directly at the top
-    /// level of a module, the evaluation of the whole module and its exports
-    /// could depend on the query's result.
-    location: Location,
-) -> Array {
-    let _ = location;
+    /// _Compatibility:_ This argument only exists for compatibility with
+    /// Typst 0.10 and lower and shouldn't be used anymore.
+    #[default]
+    location: Option<Location>,
+) -> HintedStrResult<Array> {
+    if location.is_none() {
+        context.introspect()?;
+    }
+
     let vec = engine.introspector.query(&target.0);
-    vec.into_iter().map(Value::Content).collect()
+    Ok(vec.into_iter().map(Value::Content).collect())
 }
