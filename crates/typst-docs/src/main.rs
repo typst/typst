@@ -8,6 +8,7 @@ use typst::visualize::Color;
 use typst_docs::{provide, Html, Resolver};
 use typst_render::render;
 
+#[derive(Debug)]
 struct MyResolver<'a> {
     assets_dir: &'a Path,
     verbose: bool,
@@ -91,6 +92,12 @@ struct Args {
     #[arg(long, default_value = "assets")]
     assets_dir: PathBuf,
 
+    /// Write the JSON output to this file. The default is `-` which is a
+    /// special value that means "write to standard output". If you want to
+    /// write to a file named `-` then use `./-`.
+    #[arg(long, default_value = "-")]
+    out_file: PathBuf,
+
     /// Enable verbose logging. This will print out all the calls to the
     /// resolver and the paths of the generated assets.
     #[arg(long)]
@@ -100,16 +107,25 @@ struct Args {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    let root_pages = provide(&MyResolver {
+    let resolver = MyResolver {
         assets_dir: args.assets_dir.as_path(),
         verbose: args.verbose,
-    });
+    };
+    if args.verbose {
+        eprintln!("resolver: {resolver:?}");
+    }
+    let pages = provide(&resolver);
+
     eprintln!("Be warned: the JSON structure is not stable and may change at any time.");
-    let json = serde_json::to_string_pretty(&root_pages)?;
+    let json = serde_json::to_string_pretty(&pages)?;
     // FIXME: This should probably be done in the resolver instead.
     let json = Regex::new(r#"([^\w\-])/docs/"#)?.replace_all(&json, "$1/");
-    println!("{json}");
 
-    eprintln!("All done!");
+    if args.out_file.to_string_lossy() == "-" {
+        println!("{json}");
+    } else {
+        fs::write(&args.out_file, &*json)?;
+    }
+
     Ok(())
 }
