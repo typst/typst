@@ -4,15 +4,15 @@ use typst::foundations::Func;
 use crate::{get_module, GROUPS, LIBRARY};
 
 /// Resolve an intra-doc link.
-pub fn resolve(link: &str) -> StrResult<String> {
+pub fn resolve(link: &str, base: &str) -> StrResult<String> {
     if link.starts_with('#') || link.starts_with("http") {
         return Ok(link.to_string());
     }
 
     let (head, tail) = split_link(link)?;
-    let mut route = match resolve_known(head) {
-        Some(route) => route.into(),
-        None => resolve_definition(head)?,
+    let mut route = match resolve_known(head, base) {
+        Some(route) => route,
+        None => resolve_definition(head, base)?,
     };
 
     if !tail.is_empty() {
@@ -35,24 +35,24 @@ fn split_link(link: &str) -> StrResult<(&str, &str)> {
 }
 
 /// Resolve a `$` link head to a known destination.
-fn resolve_known(head: &str) -> Option<&'static str> {
+fn resolve_known(head: &str, base: &str) -> Option<String> {
     Some(match head {
-        "$tutorial" => "/docs/tutorial",
-        "$reference" => "/docs/reference",
-        "$category" => "/docs/reference",
-        "$syntax" => "/docs/reference/syntax",
-        "$styling" => "/docs/reference/styling",
-        "$scripting" => "/docs/reference/scripting",
-        "$guides" => "/docs/guides",
-        "$packages" => "/docs/packages",
-        "$changelog" => "/docs/changelog",
-        "$community" => "/docs/community",
+        "$tutorial" => format!("{base}tutorial"),
+        "$reference" => format!("{base}reference"),
+        "$category" => format!("{base}reference"),
+        "$syntax" => format!("{base}reference/syntax"),
+        "$styling" => format!("{base}reference/styling"),
+        "$scripting" => format!("{base}reference/scripting"),
+        "$guides" => format!("{base}guides"),
+        "$packages" => format!("{base}packages"),
+        "$changelog" => format!("{base}changelog"),
+        "$community" => format!("{base}community"),
         _ => return None,
     })
 }
 
 /// Resolve a `$` link to a global definition.
-fn resolve_definition(head: &str) -> StrResult<String> {
+fn resolve_definition(head: &str, base: &str) -> StrResult<String> {
     let mut parts = head.trim_start_matches('$').split('.').peekable();
     let mut focus = &LIBRARY.global;
     let mut category = None;
@@ -76,8 +76,8 @@ fn resolve_definition(head: &str) -> StrResult<String> {
         group.category == category.name() && group.filter.iter().any(|func| func == name)
     }) {
         let mut route = format!(
-            "/docs/reference/{}/{}/#functions-{}",
-            group.category, group.name, name
+            "{}reference/{}/{}/#functions-{}",
+            base, group.category, group.name, name
         );
         if let Some(param) = parts.next() {
             route.push('-');
@@ -86,7 +86,7 @@ fn resolve_definition(head: &str) -> StrResult<String> {
         return Ok(route);
     }
 
-    let mut route = format!("/docs/reference/{}/{name}/", category.name());
+    let mut route = format!("{}reference/{}/{name}/", base, category.name());
     if let Some(next) = parts.next() {
         if value.field(next).is_ok() {
             route.push_str("#definitions-");
