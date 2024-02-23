@@ -1787,7 +1787,7 @@ impl<'a> GridLayouter<'a> {
             // regions to the current backlog to form the rowspan's expected
             // backlog.
             let rowspan_backlog: Vec<Abs>;
-            let (height, backlog, height_in_this_region, started_in_this_region);
+            let (height, backlog, height_in_this_region, frames_in_previous_regions);
             if rowspan == 1 {
                 // Not a rowspan, so the cell only occupies this row. Therefore:
                 // 1. When we measure the cell below, use the available height
@@ -1798,7 +1798,7 @@ impl<'a> GridLayouter<'a> {
                 height = self.regions.size.y;
                 backlog = self.regions.backlog;
                 height_in_this_region = Abs::zero();
-                started_in_this_region = true;
+                frames_in_previous_regions = 0;
             } else {
                 let last_spanned_auto_row = self
                     .grid
@@ -1848,7 +1848,7 @@ impl<'a> GridLayouter<'a> {
                     // Therefore, its initial height will be the height in its
                     // first spanned region, and the backlog will be the
                     // remaining heights plus the current backlog.
-                    started_in_this_region = false;
+                    frames_in_previous_regions = rowspan_other_heights.len() + 1;
                     rowspan_backlog = if unbreakable {
                         // No extra backlog if this is an unbreakable auto row.
                         // Ensure, when measuring, that the rowspan can be laid
@@ -1873,12 +1873,13 @@ impl<'a> GridLayouter<'a> {
 
                     (height, backlog) = (*rowspan_height, &rowspan_backlog);
                 } else {
-                    // The rowspan started in the current region.
+                    // The rowspan started in the current region, as its vector
+                    // of heights in regions is currently empty.
                     // Therefore, the height it has available at its first row
                     // will be the current available size, plus the size
                     // spanned in previous rows.
                     // The backlog will be the same as now.
-                    started_in_this_region = true;
+                    frames_in_previous_regions = 0;
                     height = height_in_this_region + self.regions.size.y;
                     backlog = &self.regions.backlog;
                 }
@@ -1890,7 +1891,7 @@ impl<'a> GridLayouter<'a> {
                 // Force cell to fit into a single region when the row is unbreakable.
                 let mut pod = Regions::one(Axes::new(width, height), Axes::splat(true));
                 pod.full = self.regions.full;
-                if started_in_this_region {
+                if frames_in_previous_regions == 0 {
                     vec![cell.measure(engine, self.styles, pod)?.into_frame()]
                 } else {
                     // Best effort to conciliate a breakable rowspan going
@@ -1921,11 +1922,7 @@ impl<'a> GridLayouter<'a> {
             // Skip frames from previous regions if applicable.
             let mut sizes = frames
                 .iter()
-                .skip(if !started_in_this_region {
-                    backlog.len() - self.regions.backlog.len()
-                } else {
-                    0
-                })
+                .skip(frames_in_previous_regions)
                 .map(|frame| frame.height())
                 .collect::<Vec<_>>();
 
