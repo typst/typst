@@ -255,14 +255,18 @@ impl Frame {
         }
     }
 
-    /// Resize the frame to a new size, distributing new space according to the
-    /// given alignments.
-    pub fn resize(&mut self, target: Size, align: Axes<FixedAlignment>) {
-        if self.size != target {
-            let offset = align.zip_map(target - self.size, FixedAlignment::position);
-            self.size = target;
-            self.translate(offset.to_point());
+    /// Adjust the frame's size, translate the original content by an offset
+    /// computed according to the given alignments, and return the amount of
+    /// offset.
+    pub fn resize(&mut self, target: Size, align: Axes<FixedAlignment>) -> Point {
+        if self.size == target {
+            return Point::zero();
         }
+        let offset =
+            align.zip_map(target - self.size, FixedAlignment::position).to_point();
+        self.size = target;
+        self.translate(offset);
+        offset
     }
 
     /// Move the baseline and contents of the frame by an offset.

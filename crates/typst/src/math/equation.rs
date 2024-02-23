@@ -409,6 +409,12 @@ fn add_equation_number(
     region_size_x: Abs,
     full_number_width: Abs,
 ) -> Frame {
+    let row_geometries: Vec<_> = equation_builder
+        .frames
+        .iter()
+        .map(|(frame, point)| (frame.size(), point))
+        .collect();
+
     let mut equation = equation_builder.build();
     let width = if region_size_x.is_finite() {
         region_size_x
@@ -417,14 +423,15 @@ fn add_equation_number(
     };
 
     let height = equation.height().max(number.height());
-    equation.resize(Size::new(width, height), Axes::splat(equation_align));
-
-    let offset = match (equation_align, number_align.x) {
+    let mut equation_offset =
+        equation.resize(Size::new(width, height), Axes::splat(equation_align));
+    let offset_from_number = Point::with_x(match (equation_align, number_align.x) {
         (FixedAlignment::Start, FixedAlignment::Start) => full_number_width,
         (FixedAlignment::End, FixedAlignment::End) => -full_number_width,
         _ => Abs::zero(),
-    };
-    equation.translate(Point::with_x(offset));
+    });
+    equation.translate(offset_from_number);
+    equation_offset += offset_from_number;
 
     let x = match number_align.x {
         FixedAlignment::Start => Abs::zero(),
