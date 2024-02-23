@@ -120,7 +120,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let resolver = MyResolver {
-        assets_dir: args.assets_dir.as_path(),
+        assets_dir: &args.assets_dir,
         verbose: args.verbose,
     };
     if args.verbose {
