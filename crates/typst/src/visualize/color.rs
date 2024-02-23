@@ -1916,8 +1916,8 @@ pub struct ChromaComponent(f32);
 
 cast! {
     ChromaComponent,
-    v: Ratio => Self((v.get() * 0.4) as f32),
     v: f64 => Self(v as f32),
+    v: Ratio => Self((v.get() * 0.4) as f32),
 }
 
 /// An integer or ratio component.
