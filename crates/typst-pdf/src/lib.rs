@@ -85,7 +85,8 @@ struct PdfContext<'a> {
     glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
     /// The number of glyphs for all referenced languages in the document.
     /// We keep track of this to determine the main document language.
-    languages: HashMap<Lang, usize>,
+    /// BTreeMap is used to write sorted list of languages to metadata.
+    languages: BTreeMap<Lang, usize>,
 
     /// Allocator for indirect reference IDs.
     alloc: Ref,
@@ -134,7 +135,7 @@ impl<'a> PdfContext<'a> {
             pdf: Pdf::new(),
             pages: vec![],
             glyph_sets: HashMap::new(),
-            languages: HashMap::new(),
+            languages: BTreeMap::new(),
             alloc,
             page_tree_ref,
             page_refs: vec![],
@@ -158,11 +159,7 @@ impl<'a> PdfContext<'a> {
 
 /// Write the document catalog.
 fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Datetime>) {
-    let lang = ctx
-        .languages
-        .iter()
-        .max_by_key(|(&lang, &count)| (count, lang))
-        .map(|(&k, _)| k);
+    let lang = ctx.languages.iter().max_by_key(|(_, &count)| count).map(|(&l, _)| l);
 
     let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
         Direction::R2L
