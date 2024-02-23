@@ -98,6 +98,14 @@ struct Args {
     #[arg(long, default_value = "-")]
     out_file: PathBuf,
 
+    /// The base URL for the documentation. This can be an absolute URL like
+    /// `https://example.com/docs/` or a relative URL like `/docs/`. This is
+    /// used as the base URL for the generated page's `.route` properties as
+    /// well as cross-page links. The default is `/`. If a `/` trailing slash is
+    /// not present then it will be added.
+    #[arg(long, default_value = "/")]
+    base: String,
+
     /// Enable verbose logging. This will print out all the calls to the
     /// resolver and the paths of the generated assets.
     #[arg(long)]
@@ -106,6 +114,10 @@ struct Args {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
+    let mut base = args.base.clone();
+    if !base.ends_with('/') {
+        base.push('/');
+    }
 
     let resolver = MyResolver {
         assets_dir: args.assets_dir.as_path(),
@@ -119,7 +131,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     eprintln!("Be warned: the JSON structure is not stable and may change at any time.");
     let json = serde_json::to_string_pretty(&pages)?;
     // FIXME: This should probably be done in the resolver instead.
-    let json = Regex::new(r#"([^\w\-])/docs/"#)?.replace_all(&json, "$1/");
+    let json = Regex::new(r#"([^\w\-])/docs/"#)?.replace_all(&json, format!("$1{}", base));
 
     if args.out_file.to_string_lossy() == "-" {
         println!("{json}");
