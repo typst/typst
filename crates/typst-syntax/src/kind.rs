@@ -4,7 +4,7 @@
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(u8)]
 pub enum SyntaxKind {
-    /// Markup.
+    /// The contents of a file or content block.
     Markup,
     /// Plain text without markup.
     Text,
@@ -136,7 +136,7 @@ pub enum SyntaxKind {
     StarEq,
     /// The divide-assign operator: `/=`.
     SlashEq,
-    /// The spread operator: `..`.
+    /// Indicates a spread or sink: `..`.
     Dots,
     /// An arrow between a closure's parameters and body: `=>`.
     Arrow,
@@ -182,7 +182,7 @@ pub enum SyntaxKind {
     /// The `as` keyword.
     As,
 
-    /// Code.
+    /// The contents of a code block.
     Code,
     /// An identifier: `it`.
     Ident,

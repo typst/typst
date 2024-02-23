@@ -13,13 +13,14 @@ use crate::diag::StrResult;
 use crate::eval::ops;
 use crate::foundations::{
     fields, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Dict,
-    Duration, FromValue, Func, IntoValue, Label, Module, NativeElement, NativeType,
-    NoneValue, Plugin, Reflect, Repr, Scope, Str, Styles, Type, Version,
+    Duration, Fold, FromValue, Func, IntoValue, Label, Module, NativeElement, NativeType,
+    NoneValue, Plugin, Reflect, Repr, Resolve, Scope, Str, Styles, Type, Version,
 };
 use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio, Rel};
 use crate::symbols::Symbol;
 use crate::syntax::{ast, Span};
 use crate::text::{RawElem, TextElem};
+use crate::util::ArcExt;
 use crate::visualize::{Color, Gradient, Pattern};
 
 /// A computational value.
@@ -667,6 +668,53 @@ primitive! { Args: "arguments", Args }
 primitive! { Type: "type", Type }
 primitive! { Module: "module", Module }
 primitive! { Plugin: "plugin", Plugin }
+
+impl<T: Reflect> Reflect for Arc<T> {
+    fn input() -> CastInfo {
+        T::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        T::castable(value)
+    }
+
+    fn error(found: &Value) -> EcoString {
+        T::error(found)
+    }
+}
+
+impl<T: Clone + IntoValue> IntoValue for Arc<T> {
+    fn into_value(self) -> Value {
+        Arc::take(self).into_value()
+    }
+}
+
+impl<T: FromValue> FromValue for Arc<T> {
+    fn from_value(value: Value) -> StrResult<Self> {
+        match value {
+            v if T::castable(&v) => Ok(Arc::new(T::from_value(v)?)),
+            _ => Err(Self::error(&value)),
+        }
+    }
+}
+
+impl<T: Clone + Resolve> Resolve for Arc<T> {
+    type Output = Arc<T::Output>;
+
+    fn resolve(self, styles: super::StyleChain) -> Self::Output {
+        Arc::new(Arc::take(self).resolve(styles))
+    }
+}
+
+impl<T: Clone + Fold> Fold for Arc<T> {
+    fn fold(self, outer: Self) -> Self {
+        Arc::new(Arc::take(self).fold(Arc::take(outer)))
+    }
+}
 
 #[cfg(test)]
 mod tests {

@@ -6,7 +6,6 @@ use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Deref, DerefMut};
 use std::sync::Arc;
 
-use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
 use smallvec::smallvec;
@@ -23,7 +22,7 @@ use crate::model::{Destination, EmphElem, StrongElem};
 use crate::realize::{Behave, Behaviour};
 use crate::syntax::Span;
 use crate::text::UnderlineElem;
-use crate::util::{fat, BitSet};
+use crate::util::{fat, BitSet, LazyHash};
 
 /// A piece of document content.
 ///
@@ -80,7 +79,7 @@ pub struct Content {
 
 /// The inner representation behind the `Arc`.
 #[derive(Hash)]
-struct Inner<T: ?Sized> {
+struct Inner<T: ?Sized + 'static> {
     /// An optional label attached to the element.
     label: Option<Label>,
     /// The element's location which identifies it in the layouted output.
@@ -91,7 +90,7 @@ struct Inner<T: ?Sized> {
     ///   recipe from the top of the style chain (counting from 1).
     lifecycle: BitSet,
     /// The element's raw data.
-    elem: T,
+    elem: LazyHash<T>,
 }
 
 impl Content {
@@ -102,7 +101,7 @@ impl Content {
                 label: None,
                 location: None,
                 lifecycle: BitSet::new(),
-                elem,
+                elem: elem.into(),
             }),
             span: Span::detached(),
         }
@@ -235,9 +234,9 @@ impl Content {
         let Some(first) = iter.next() else { return Self::empty() };
         let Some(second) = iter.next() else { return first };
         SequenceElem::new(
-            std::iter::once(Prehashed::new(first))
-                .chain(std::iter::once(Prehashed::new(second)))
-                .chain(iter.map(Prehashed::new))
+            std::iter::once(first)
+                .chain(std::iter::once(second))
+                .chain(iter)
                 .collect(),
         )
         .into()
@@ -379,7 +378,7 @@ impl Content {
             style_elem.styles.apply(styles);
             self
         } else {
-            StyledElem::new(Prehashed::new(self), styles).into()
+            StyledElem::new(self, styles).into()
         }
     }
 
@@ -620,11 +619,11 @@ impl Add for Content {
                 lhs
             }
             (Some(seq_lhs), None) => {
-                seq_lhs.children.push(Prehashed::new(rhs));
+                seq_lhs.children.push(rhs);
                 lhs
             }
             (None, Some(rhs_seq)) => {
-                rhs_seq.children.insert(0, Prehashed::new(lhs));
+                rhs_seq.children.insert(0, lhs);
                 rhs
             }
             (None, None) => Self::sequence([lhs, rhs]),
@@ -643,15 +642,12 @@ impl<'a> Add<&'a Self> for Content {
                 lhs
             }
             (Some(seq_lhs), None) => {
-                seq_lhs.children.push(Prehashed::new(rhs.clone()));
+                seq_lhs.children.push(rhs.clone());
                 lhs
             }
             (None, Some(_)) => {
                 let mut rhs = rhs.clone();
-                rhs.to_packed_mut::<SequenceElem>()
-                    .unwrap()
-                    .children
-                    .insert(0, Prehashed::new(lhs));
+                rhs.to_packed_mut::<SequenceElem>().unwrap().children.insert(0, lhs);
                 rhs
             }
             (None, None) => Self::sequence([lhs, rhs.clone()]),
@@ -713,7 +709,7 @@ impl<T: NativeElement> Bounds for T {
                 label: inner.label,
                 location: inner.location,
                 lifecycle: inner.lifecycle.clone(),
-                elem: self.clone(),
+                elem: LazyHash::with_hash(self.clone(), inner.elem.hash()),
             }),
             span,
         }
@@ -845,7 +841,7 @@ impl<T: NativeElement> Deref for Packed<T> {
         //   an element of type `T`.
         // - This downcast works the same way as dyn Any's does. We can't reuse
         //   that one because we don't want to pay the cost for every deref.
-        let elem = &self.0.inner.elem;
+        let elem = &*self.0.inner.elem;
         unsafe { &*(elem as *const dyn Bounds as *const T) }
     }
 }
@@ -858,7 +854,7 @@ impl<T: NativeElement> DerefMut for Packed<T> {
         // - We have guaranteed unique access thanks to `make_mut`.
         // - This downcast works the same way as dyn Any's does. We can't reuse
         //   that one because we don't want to pay the cost for every deref.
-        let elem = &mut self.0.make_mut().elem;
+        let elem = &mut *self.0.make_mut().elem;
         unsafe { &mut *(elem as *mut dyn Bounds as *mut T) }
     }
 }
@@ -874,7 +870,7 @@ impl<T: NativeElement + Debug> Debug for Packed<T> {
 pub struct SequenceElem {
     /// The elements.
     #[required]
-    pub children: Vec<Prehashed<Content>>,
+    pub children: Vec<Content>,
 }
 
 impl Debug for SequenceElem {
@@ -894,10 +890,7 @@ impl Default for SequenceElem {
 
 impl PartialEq for SequenceElem {
     fn eq(&self, other: &Self) -> bool {
-        self.children
-            .iter()
-            .map(|c| &**c)
-            .eq(other.children.iter().map(|c| &**c))
+        self.children.iter().eq(other.children.iter())
     }
 }
 
@@ -926,7 +919,7 @@ impl Repr for SequenceElem {
 pub struct StyledElem {
     /// The content.
     #[required]
-    pub child: Prehashed<Content>,
+    pub child: Content,
     /// The styles.
     #[required]
     pub styles: Styles,
@@ -943,7 +936,7 @@ impl Debug for StyledElem {
 
 impl PartialEq for StyledElem {
     fn eq(&self, other: &Self) -> bool {
-        *self.child == *other.child
+        self.child == other.child
     }
 }
 

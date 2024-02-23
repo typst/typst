@@ -125,22 +125,22 @@ Three
 #test(a, 1)
 #test(b, 4)
 
-// Error: 10-11 at most one binding per identifier is allowed
+// Error: 10-11 duplicate binding: a
 #let (a, a) = (1, 2)
 
-// Error: 12-15 at most one destructuring sink is allowed
+// Error: 12-15 only one destructuring sink is allowed
 #let (..a, ..a) = (1, 2)
 
-// Error: 12-13 at most one binding per identifier is allowed
+// Error: 12-13 duplicate binding: a
 #let (a, ..a) = (1, 2)
 
-// Error: 13-14 at most one binding per identifier is allowed
+// Error: 13-14 duplicate binding: a
 #let (a: a, a) = (a: 1, b: 2)
 
-// Error: 13-20 expected identifier, found function call
+// Error: 13-20 expected pattern, found function call
 #let (a, b: b.at(0)) = (a: 1, b: 2)
 
-// Error: 7-14 expected identifier or destructuring sink, found function call
+// Error: 7-14 expected pattern, found function call
 #let (a.at(0),) = (1,)
 
 ---
@@ -148,7 +148,7 @@ Three
 #let (a, b, c) = (1, 2)
 
 ---
-// Error: 6-20 not enough elements to destructure
+// Error: 7-10 not enough elements to destructure
 #let (..a, b, c, d) = (1, 2)
 
 ---
@@ -194,14 +194,32 @@ Three
 #test(a, 1)
 
 ---
+// Ref: false
+// Nested destructuring.
+#let ((a, b), (key: c)) = ((1, 2), (key: 3))
+#test((a, b, c), (1, 2, 3))
+
+---
+// Keyed destructuring is not currently supported.
+// Error: 7-18 expected pattern, found string
+#let ("spacy key": val) = ("spacy key": 123)
+#val
+
+---
+// Keyed destructuring is not currently supported.
+#let x = "spacy key"
+// Error: 7-10 expected identifier, found group
+#let ((x): v) = ("spacy key": 123)
+
+---
 // Trailing placeholders.
 // Error: 10-11 not enough elements to destructure
 #let (a, _, _, _, _) = (1,)
 #test(a, 1)
 
 ---
-// Error: 10-13 expected identifier, found string
-// Error: 18-19 expected identifier, found integer
+// Error: 10-13 expected pattern, found string
+// Error: 18-19 expected pattern, found integer
 #let (a: "a", b: 2) = (a: 1, b: 2)
 
 ---
@@ -213,18 +231,17 @@ Three
 #let (a, b: b) = (a: 1)
 
 ---
-// Error: 7-11 cannot destructure named elements from an array
+// Error: 7-11 cannot destructure named pattern from an array
 #let (a: a, b) = (1, 2, 3)
 
 ---
-// Error: 5 expected identifier
+// Error: 5 expected pattern
 #let
 
-// Error: 6 expected identifier
+// Error: 6 expected pattern
 #{let}
 
-// Error: 5 expected identifier
-// Error: 5 expected semicolon or line break
+// Error: 6-9 expected pattern, found string
 #let "v"
 
 // Error: 7 expected semicolon or line break
@@ -233,8 +250,7 @@ Three
 // Error: 9 expected expression
 #let v =
 
-// Error: 5 expected identifier
-// Error: 5 expected semicolon or line break
+// Error: 6-9 expected pattern, found string
 #let "v" = 1
 
 // Terminated because expression ends.
@@ -246,7 +262,7 @@ Three
 // Error: 11-12 unclosed delimiter
 #let v5 = (1, 2 + ; Five
 
-// Error: 9-13 expected identifier, found boolean
+// Error: 9-13 expected pattern, found boolean
 #let (..true) = false
 
 ---
@@ -257,7 +273,7 @@ Three
 // Error: 2-3 unexpected underscore
 #_
 
-// Error: 8-9 unexpected underscore
+// Error: 8-9 expected expression, found underscore
 #lorem(_)
 
 // Error: 3-4 expected expression, found underscore
@@ -275,9 +291,11 @@ Three
 
 // Error: 15 expected expression
 #let func(x) =
+
 ---
 // Error: 12 expected equals sign
 #let (func)(x)
+
 ---
 // Error: 12 expected equals sign
 // Error: 15-15 expected semicolon or line break

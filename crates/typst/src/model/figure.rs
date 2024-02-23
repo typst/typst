@@ -14,10 +14,10 @@ use crate::introspection::{
     Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
 };
 use crate::layout::{
-    Alignment, BlockElem, Em, HAlignment, Length, PlaceElem, VAlignment, VElem,
+    Alignment, BlockElem, Em, HAlignment, Length, OuterVAlignment, PlaceElem, VAlignment,
+    VElem,
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
-use crate::syntax::Spanned;
 use crate::text::{Lang, Region, TextElem};
 use crate::util::NonZeroExt;
 use crate::visualize::ImageElem;
@@ -310,10 +310,9 @@ impl Show for Packed<FigureElem> {
         // Build the caption, if any.
         if let Some(caption) = self.caption(styles) {
             let v = VElem::weak(self.gap(styles).into()).pack();
-            realized = if caption.position(styles) == VAlignment::Bottom {
-                realized + v + caption.pack()
-            } else {
-                caption.pack() + v + realized
+            realized = match caption.position(styles) {
+                OuterVAlignment::Top => caption.pack() + v + realized,
+                OuterVAlignment::Bottom => realized + v + caption.pack(),
             };
         }
 
@@ -458,17 +457,8 @@ pub struct FigureCaption {
     ///   )
     /// )
     /// ```
-    #[default(VAlignment::Bottom)]
-    #[parse({
-        let option: Option<Spanned<VAlignment>> = args.named("position")?;
-        if let Some(Spanned { v: align, span }) = option {
-            if align == VAlignment::Horizon {
-                bail!(span, "expected `top` or `bottom`");
-            }
-        }
-        option.map(|spanned| spanned.v)
-    })]
-    pub position: VAlignment,
+    #[default(OuterVAlignment::Bottom)]
+    pub position: OuterVAlignment,
 
     /// The separator which will appear between the number and body.
     ///

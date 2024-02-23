@@ -12,11 +12,11 @@ use crate::foundations::{
 use crate::introspection::{Counter, CounterKey, ManualPageCounter};
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, ColumnsElem, Dir, Frame, HAlignment, LayoutMultiple,
-    Length, Point, Ratio, Regions, Rel, Sides, Size, VAlignment,
+    Length, OuterVAlignment, Point, Ratio, Regions, Rel, Sides, Size, SpecificAlignment,
+    VAlignment,
 };
 
 use crate::model::Numbering;
-use crate::syntax::Spanned;
 use crate::text::TextElem;
 use crate::util::{NonZeroExt, Numeric, Scalar};
 use crate::visualize::Paint;
@@ -221,17 +221,8 @@ pub struct PageElem {
     ///
     /// #lorem(30)
     /// ```
-    #[default(HAlignment::Center + VAlignment::Bottom)]
-    #[parse({
-        let option: Option<Spanned<Alignment>> = args.named("number-align")?;
-        if let Some(Spanned { v: align, span }) = option {
-            if align.y() == Some(VAlignment::Horizon) {
-                bail!(span, "page number cannot be `horizon`-aligned");
-            }
-        }
-        option.map(|spanned| spanned.v)
-    })]
-    pub number_align: Alignment,
+    #[default(SpecificAlignment::Both(HAlignment::Center, OuterVAlignment::Bottom))]
+    pub number_align: SpecificAlignment<HAlignment, OuterVAlignment>,
 
     /// The page's header. Fills the top margin of each page.
     ///
@@ -440,7 +431,7 @@ impl Packed<PageElem> {
             counter
         }));
 
-        if matches!(number_align.y(), Some(VAlignment::Top)) {
+        if matches!(number_align.y(), Some(OuterVAlignment::Top)) {
             header = if header.is_some() { header } else { numbering_marginal };
         } else {
             footer = if footer.is_some() { footer } else { numbering_marginal };

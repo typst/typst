@@ -3,7 +3,6 @@ use std::fmt::Write;
 use std::hash::Hash;
 use std::ops::Add;
 
-use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use smallvec::SmallVec;
 use unicode_math_class::MathClass;
@@ -85,20 +84,6 @@ impl<T: Reflect> Reflect for Spanned<T> {
 }
 
 impl<T: NativeElement + Reflect> Reflect for Packed<T> {
-    fn input() -> CastInfo {
-        T::input()
-    }
-
-    fn output() -> CastInfo {
-        T::output()
-    }
-
-    fn castable(value: &Value) -> bool {
-        T::castable(value)
-    }
-}
-
-impl<T: Reflect> Reflect for Prehashed<T> {
     fn input() -> CastInfo {
         T::input()
     }
@@ -206,12 +191,6 @@ impl<T: IntoValue> IntoValue for Spanned<T> {
     }
 }
 
-impl<T: IntoValue + Hash + 'static> IntoValue for Prehashed<T> {
-    fn into_value(self) -> Value {
-        self.into_inner().into_value()
-    }
-}
-
 /// Cast a Rust type or result into a [`SourceResult<Value>`].
 ///
 /// Converts `T`, [`StrResult<T>`], or [`SourceResult<T>`] into
@@ -275,12 +254,6 @@ impl<T: NativeElement + FromValue> FromValue for Packed<T> {
         }
         let val = T::from_value(value)?;
         Ok(Packed::new(val))
-    }
-}
-
-impl<T: FromValue + Hash + 'static> FromValue for Prehashed<T> {
-    fn from_value(value: Value) -> StrResult<Self> {
-        Ok(Self::new(T::from_value(value)?))
     }
 }
 

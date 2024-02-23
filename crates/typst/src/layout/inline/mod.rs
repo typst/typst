@@ -1,7 +1,7 @@
 mod linebreak;
 mod shaping;
 
-use comemo::{Prehashed, Tracked, TrackedMut};
+use comemo::{Tracked, TrackedMut};
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
@@ -30,7 +30,7 @@ use crate::World;
 
 /// Layouts content inline.
 pub(crate) fn layout_inline(
-    children: &[Prehashed<Content>],
+    children: &[Content],
     engine: &mut Engine,
     styles: StyleChain,
     consecutive: bool,
@@ -40,7 +40,7 @@ pub(crate) fn layout_inline(
     #[comemo::memoize]
     #[allow(clippy::too_many_arguments)]
     fn cached(
-        children: &[Prehashed<Content>],
+        children: &[Content],
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
         route: Tracked<Route>,
@@ -404,7 +404,7 @@ impl<'a> Line<'a> {
 /// also performs string-level preprocessing like case transformations.
 #[allow(clippy::type_complexity)]
 fn collect<'a>(
-    children: &'a [Prehashed<Content>],
+    children: &'a [Content],
     engine: &mut Engine<'_>,
     styles: &'a StyleChain<'a>,
     region: Size,
@@ -414,7 +414,7 @@ fn collect<'a>(
     let mut quoter = SmartQuoter::new();
     let mut segments = Vec::with_capacity(2 + children.len());
     let mut spans = SpanMapper::new();
-    let mut iter = children.iter().map(|c| &**c).peekable();
+    let mut iter = children.iter().peekable();
 
     let first_line_indent = ParElem::first_line_indent_in(*styles);
     if !first_line_indent.is_zero()
@@ -539,7 +539,7 @@ fn collect<'a>(
 /// Prepare paragraph layout by shaping the whole paragraph.
 fn prepare<'a>(
     engine: &mut Engine,
-    children: &'a [Prehashed<Content>],
+    children: &'a [Content],
     text: &'a str,
     segments: Vec<(Segment<'a>, StyleChain<'a>)>,
     spans: SpanMapper,
@@ -752,7 +752,7 @@ fn is_compatible(a: Script, b: Script) -> bool {
 /// paragraph.
 fn shared_get<T: PartialEq>(
     styles: StyleChain<'_>,
-    children: &[Prehashed<Content>],
+    children: &[Content],
     getter: fn(StyleChain) -> T,
 ) -> Option<T> {
     let value = getter(styles);

@@ -36,7 +36,7 @@ pub struct OpElem {
 impl LayoutMath for Packed<OpElem> {
     #[typst_macros::time(name = "math.op", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        let fragment = ctx.layout_fragment(self.text(), styles)?;
+        let fragment = ctx.layout_into_fragment(self.text(), styles)?;
         let italics = fragment.italics_correction();
         let accent_attach = fragment.accent_attach();
         let text_like = fragment.is_text_like();

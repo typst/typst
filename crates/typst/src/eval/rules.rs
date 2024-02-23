@@ -23,7 +23,7 @@ impl Eval for ast::SetRule<'_> {
                 })
             })
             .at(target.span())?;
-        let args = self.args().eval(vm)?;
+        let args = self.args().eval(vm)?.spanned(self.span());
         Ok(target.set(&mut vm.engine, args)?.spanned(self.span()))
     }
 }

@@ -128,7 +128,8 @@
 ---
 // Test color '.components()' without conversions
 #test-repr(rgb(1, 2, 3, 4).components(), (0.39%, 0.78%, 1.18%, 1.57%))
-#test-repr(luma(40).components(), (15.69%, ))
+#test-repr(luma(40).components(), (15.69%, 100%))
+#test-repr(luma(40, 50%).components(), (15.69%, 50%))
 #test-repr(cmyk(4%, 5%, 6%, 7%).components(), (4%, 5%, 6%, 7%))
 #test-repr(oklab(10%, 0.2, 0.3).components(), (10%, 0.2, 0.3, 100%))
 #test-repr(oklch(10%, 0.2, 90deg).components(), (10%, 0.2, 90deg, 100%))

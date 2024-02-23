@@ -72,7 +72,7 @@ fn layout_underoverline(
             let gap = scaled!(ctx, styles, underbar_vertical_gap);
             extra_height = sep + bar_height + gap;
 
-            content = ctx.layout_fragment(body, styles)?;
+            content = ctx.layout_into_fragment(body, styles)?;
 
             line_pos = Point::with_y(content.height() + gap + bar_height / 2.0);
             content_pos = Point::zero();
@@ -85,7 +85,7 @@ fn layout_underoverline(
             extra_height = sep + bar_height + gap;
 
             let cramped = style_cramped();
-            content = ctx.layout_fragment(body, styles.chain(&cramped))?;
+            content = ctx.layout_into_fragment(body, styles.chain(&cramped))?;
 
             line_pos = Point::with_y(sep + bar_height / 2.0);
             content_pos = Point::with_y(extra_height);
@@ -260,7 +260,7 @@ fn layout_underoverspreader(
 ) -> SourceResult<()> {
     let font_size = scaled_font_size(ctx, styles);
     let gap = gap.at(font_size);
-    let body = ctx.layout_row(body, styles)?;
+    let body = ctx.layout_into_row(body, styles)?;
     let body_class = body.class();
     let body = body.into_fragment(ctx, styles);
     let glyph = GlyphFragment::new(ctx, styles, c, span);
@@ -280,7 +280,7 @@ fn layout_underoverspreader(
     rows.extend(
         annotation
             .as_ref()
-            .map(|annotation| ctx.layout_row(annotation, row_styles))
+            .map(|annotation| ctx.layout_into_row(annotation, row_styles))
             .transpose()?,
     );
 
@@ -290,7 +290,7 @@ fn layout_underoverspreader(
         baseline = rows.len() - 1;
     }
 
-    let frame = stack(ctx, styles, rows, FixedAlignment::Center, gap, baseline);
+    let frame = stack(rows, FixedAlignment::Center, gap, baseline);
     ctx.push(FrameFragment::new(ctx, styles, frame).with_class(body_class));
 
     Ok(())
@@ -301,8 +301,6 @@ fn layout_underoverspreader(
 /// Add a `gap` between each row and uses the baseline of the `baseline`th
 /// row for the whole frame.
 pub(super) fn stack(
-    ctx: &MathContext,
-    styles: StyleChain,
     rows: Vec<MathRow>,
     align: FixedAlignment,
     gap: Abs,
@@ -312,7 +310,7 @@ pub(super) fn stack(
     let AlignmentResult { points, width } = alignments(&rows);
     let rows: Vec<_> = rows
         .into_iter()
-        .map(|row| row.into_aligned_frame(ctx, styles, &points, align))
+        .map(|row| row.into_line_frame(&points, align))
         .collect();
 
     let mut y = Abs::zero();

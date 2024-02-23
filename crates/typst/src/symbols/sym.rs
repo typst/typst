@@ -119,6 +119,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     tilde: [
         op: '∼',
         basic: '~',
+        dot: '⩪',
         eq: '≃',
         eq.not: '≄',
         eq.rev: '⋍',
@@ -600,6 +601,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         r.stop: '⇥',
         r.stroked: '⇨',
         r.tail: '↣',
+        r.tilde: '⥲',
         r.triple: '⇛',
         r.twohead.bar: '⤅',
         r.twohead: '↠',
@@ -626,6 +628,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         l.stop: '⇤',
         l.stroked: '⇦',
         l.tail: '↢',
+        l.tilde: '⭉',
         l.triple: '⇚',
         l.twohead.bar: '⬶',
         l.twohead: '↞',

@@ -97,7 +97,9 @@ pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
     ctx.pdf
         .outline(root_id)
         .first(start_ref)
-        .last(Ref::new(ctx.alloc.get() - 1))
+        .last(Ref::new(
+            ctx.alloc.get() - tree.last().map(|child| child.len() as i32).unwrap_or(1),
+        ))
         .count(tree.len() as i32);
 
     Some(root_id)
@@ -152,10 +154,9 @@ fn write_outline_item(
         outline.prev(prev_rev);
     }
 
-    if !node.children.is_empty() {
-        let current_child = Ref::new(id.get() + 1);
-        outline.first(current_child);
-        outline.last(Ref::new(next_ref.get() - 1));
+    if let Some(last_immediate_child) = node.children.last() {
+        outline.first(Ref::new(id.get() + 1));
+        outline.last(Ref::new(next_ref.get() - last_immediate_child.len() as i32));
         outline.count(-(node.children.len() as i32));
     }
 

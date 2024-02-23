@@ -146,7 +146,7 @@ pub(crate) fn write_fonts(ctx: &mut PdfContext) {
 
         // Write the /ToUnicode character map, which maps glyph ids back to
         // unicode codepoints to enable copying out of the PDF.
-        let cmap = create_cmap(ttf, glyph_set);
+        let cmap = create_cmap(font, glyph_set);
         ctx.pdf.cmap(cmap_ref, &cmap.finish());
 
         // Subset and write the font's bytes.
@@ -198,10 +198,9 @@ fn subset_tag(glyphs: &BTreeMap<u16, EcoString>) -> EcoString {
 }
 
 /// Create a /ToUnicode CMap.
-fn create_cmap(
-    ttf: &ttf_parser::Face,
-    glyph_set: &mut BTreeMap<u16, EcoString>,
-) -> UnicodeCmap {
+fn create_cmap(font: &Font, glyph_set: &mut BTreeMap<u16, EcoString>) -> UnicodeCmap {
+    let ttf = font.ttf();
+
     // For glyphs that have codepoints mapping to them in the font's cmap table,
     // we prefer them over pre-existing text mappings from the document. Only
     // things that don't have a corresponding codepoint (or only a private-use
@@ -225,11 +224,11 @@ fn create_cmap(
         });
     }
 
-    // Produce a reverse mapping from glyphs to unicode strings.
+    // Produce a reverse mapping from glyphs' CIDs to unicode strings.
     let mut cmap = UnicodeCmap::new(CMAP_NAME, SYSTEM_INFO);
     for (&g, text) in glyph_set.iter() {
         if !text.is_empty() {
-            cmap.pair_with_multiple(g, text.chars());
+            cmap.pair_with_multiple(glyph_cid(font, g), text.chars());
         }
     }
 

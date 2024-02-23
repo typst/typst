@@ -452,7 +452,7 @@ impl LocalName for Packed<RawElem> {
             Lang::DUTCH => "Listing",
             Lang::ESTONIAN => "List",
             Lang::FILIPINO => "Listahan",
-            Lang::FINNISH => "Esimerkki",
+            Lang::FINNISH => "Listaus",
             Lang::FRENCH => "Liste",
             Lang::GERMAN => "Listing",
             Lang::GREEK => "Παράθεση",

@@ -19,7 +19,7 @@ pub(super) struct AlignmentResult {
     pub width: Abs,
 }
 
-/// Determine the position of the alignment points.
+/// Determine the positions of the alignment points, according to the input rows combined.
 pub(super) fn alignments(rows: &[MathRow]) -> AlignmentResult {
     let mut widths = Vec::<Abs>::new();
 

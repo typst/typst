@@ -118,7 +118,7 @@
   let types(x, y) = "[" + str(type(x)) + ", " + str(type(y)) + "]"
   test(types(14%, 12pt), "[ratio, length]")
 
-  // Error: 13-21 missing argument: y
+  // Error: 8-21 missing argument: y
   test(types("nope"), "[string, none]")
 }
 
@@ -171,24 +171,25 @@
 #let f((k: a, b), c: 3, (d,)) = (a, b, c, d)
 #test(f((k: 1, b: 2), (4,)), (1, 2, 3, 4))
 
-// Error: 22-23 duplicate parameter: a
-#let f((a: b), (c,), a) = none
-
-// Error: 8-14 expected identifier, found array
+// Error: 8-14 expected identifier, found destructuring pattern
 #let f((a, b): 0) = none
 
-// Error: 10-19 expected identifier, found destructuring pattern
+// Error: 10-19 expected pattern, found array
 #let f(..(a, b: c)) = none
 
-// Error: 10-16 expected identifier, found array
+// Error: 10-16 expected pattern, found array
 #let f(..(a, b)) = none
-
-// Error: 10-19 expected identifier, found destructuring pattern
-#let f(..(a, b: c)) = none
 
 ---
 // Error: 11-12 duplicate parameter: x
 #let f(x, x) = none
+
+---
+// Error: 21 expected comma
+// Error: 22-23 expected pattern, found integer
+// Error: 24-25 unexpected plus
+// Error: 26-27 expected pattern, found integer
+#let f = (x: () => 1 2 + 3) => 4
 
 ---
 // Error: 14-15 duplicate parameter: a
@@ -201,17 +202,18 @@
 #let f(a, ..a) = none
 
 ---
-// Error: 7-17 expected identifier, named pair or argument sink, found keyed pair
+// Error: 7-14 expected pattern, found string
 #((a, "named": b) => none)
 
 ---
-// Error: 10-15 expected identifier, found string
+// Error: 10-15 expected pattern, found string
 #let foo("key": b) = key
 
 ---
-// Error: 10-14 expected identifier, found `none`
+// Error: 10-14 expected pattern, found `none`
+// Hint: 10-14 keyword `none` is not allowed as an identifier; try `none_` instead
 #let foo(none: b) = key
 
 ---
-// Error: 11 expected comma
+// Error: 10-11 expected identifier, found underscore
 #let foo(_: 3) = none

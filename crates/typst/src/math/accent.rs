@@ -67,7 +67,7 @@ impl LayoutMath for Packed<AccentElem> {
     #[typst_macros::time(name = "math.accent", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
         let cramped = style_cramped();
-        let base = ctx.layout_fragment(self.base(), styles.chain(&cramped))?;
+        let base = ctx.layout_into_fragment(self.base(), styles.chain(&cramped))?;
 
         // Preserve class to preserve automatic spacing.
         let base_class = base.class();
