@@ -761,7 +761,7 @@ pub fn max(
 }
 
 /// Find the minimum or maximum of a sequence of values.
-fn minmax(
+pub(super) fn minmax(
     span: Span,
     values: Vec<Spanned<Value>>,
     goal: Ordering,

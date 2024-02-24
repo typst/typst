@@ -1,4 +1,4 @@
-use std::cmp;
+use std::cmp::{self, Ordering};
 use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError};
 
 use ecow::{eco_format, EcoString};
@@ -8,7 +8,7 @@ use crate::foundations::{cast, func, repr, scope, ty, Repr, Str, Value};
 use crate::layout::Angle;
 use crate::syntax::{Span, Spanned};
 
-use super::calc::Num;
+use super::calc::{minmax, Num};
 use super::float::f64Ext;
 
 /// A whole number.
@@ -387,7 +387,7 @@ impl i64 {
             .ok_or_else(too_large)?)
     }
 
-    /// Clamps a number between a minimum and maximum value.
+    /// Clamps an integer between a minimum and maximum value.
     ///
     /// ```example
     /// #assert.eq(5.clamp(0, 10), 5)
@@ -406,6 +406,44 @@ impl i64 {
             bail!(max.span, "max must be greater than or equal to min")
         }
         Ok(Num::Int(self).apply3(min, max.v, Ord::clamp, f64::clamp))
+    }
+
+    /// Determines the minimum of a sequence of numbers.
+    ///
+    /// ```example
+    /// #int.min(1, -3, -5, 20, 3, 6)
+    /// ```
+    #[func(title = "Minimum")]
+    pub fn min_(
+        self,
+        /// The callsite span.
+        span: Span,
+        /// The sequence of numbers from which to extract the minimum.
+        #[variadic]
+        values: Vec<Spanned<Value>>,
+    ) -> SourceResult<Value> {
+        let mut values = values;
+        values.insert(0, Spanned::new(Value::Int(self), span));
+        minmax(span, values, Ordering::Less)
+    }
+
+    /// Determines the maximum of a sequence of numbers.
+    ///
+    /// ```example
+    /// #int.max(1, -3, -5, 20, 3, 6)
+    /// ```
+    #[func(title = "Maximum")]
+    pub fn max_(
+        self,
+        /// The callsite span.
+        span: Span,
+        /// The sequence of numbers from which to extract the maximum.
+        #[variadic]
+        values: Vec<Spanned<Value>>,
+    ) -> SourceResult<Value> {
+        let mut values = values;
+        values.insert(0, Spanned::new(Value::Int(self), span));
+        minmax(span, values, Ordering::Greater)
     }
 
     /// Determines whether an integer is even.

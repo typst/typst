@@ -1,13 +1,14 @@
+use std::cmp::Ordering;
 use std::num::ParseFloatError;
 
 use ecow::{eco_format, EcoString};
 
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::foundations::{cast, func, repr, scope, ty, Repr, Str};
+use crate::foundations::{cast, func, repr, scope, ty, Repr, Str, Value};
 use crate::layout::{Angle, Ratio};
 use crate::syntax::{Span, Spanned};
 
-use super::calc::Num;
+use super::calc::{minmax, Num};
 
 /// A floating-point number.
 ///
@@ -495,6 +496,44 @@ impl f64 {
             bail!(max.span, "max must be greater than or equal to min")
         }
         Ok(self.clamp(min_float, max_float))
+    }
+
+    /// Determines the minimum of a sequence of numbers.
+    ///
+    /// ```example
+    /// #float.min(1.5, -3.5, -5.5, 20.5, 3.5, 6.5)
+    /// ```
+    #[func(title = "Minimum")]
+    pub fn min_(
+        self,
+        /// The callsite span.
+        span: Span,
+        /// The sequence of numbers from which to extract the minimum.
+        #[variadic]
+        values: Vec<Spanned<Value>>,
+    ) -> SourceResult<Value> {
+        let mut values = values;
+        values.insert(0, Spanned::new(Value::Float(self), span));
+        minmax(span, values, Ordering::Less)
+    }
+
+    /// Determines the maximum of a sequence of numbers.
+    ///
+    /// ```example
+    /// #float.max(1.5, -3.5, -5.5, 20.5, 3.5, 6.5)
+    /// ```
+    #[func(title = "Maximum")]
+    pub fn max_(
+        self,
+        /// The callsite span.
+        span: Span,
+        /// The sequence of numbers from which to extract the maximum.
+        #[variadic]
+        values: Vec<Spanned<Value>>,
+    ) -> SourceResult<Value> {
+        let mut values = values;
+        values.insert(0, Spanned::new(Value::Float(self), span));
+        minmax(span, values, Ordering::Greater)
     }
 
     /// Calculates the remainder of two numbers.
