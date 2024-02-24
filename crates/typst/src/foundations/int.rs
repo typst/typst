@@ -1,5 +1,6 @@
 use std::cmp::{self, Ordering};
 use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError};
+use std::ops::{Div, Rem};
 
 use ecow::{eco_format, EcoString};
 
@@ -291,6 +292,21 @@ impl i64 {
         f64Ext::log_(self as f64, span, base)
     }
 
+    /// Calculates the natural logarithm of a number, which must be strictly
+    /// positive.
+    ///
+    /// ```example
+    /// #45.ln()
+    /// ```
+    #[func(title = "Natural Logarithm")]
+    pub fn ln_(
+        self,
+        /// The callsite span.
+        span: Span,
+    ) -> SourceResult<f64> {
+        f64Ext::ln_(self as f64, span)
+    }
+
     /// Calculates the factorial of a number, which must be non-negative.
     ///
     /// ```example
@@ -468,6 +484,99 @@ impl i64 {
     #[func]
     pub fn odd(self) -> bool {
         self % 2 != 0
+    }
+
+    /// Calculates the remainder of two numbers.
+    ///
+    /// The value `x.rem(y)` always has the same sign as `x`, and is smaller
+    /// in magnitude than `y`.
+    ///
+    /// ```example
+    /// #7.rem(3) \
+    /// #7.rem(-3) \
+    /// #(-7).rem(3) \
+    /// #(-7).rem(-3) \
+    /// #3.rem(0.4)
+    /// ```
+    #[func(title = "Remainder")]
+    pub fn rem_(
+        self,
+        /// The divisor of the remainder.
+        divisor: Spanned<Num>,
+    ) -> SourceResult<Num> {
+        if divisor.v.float() == 0.0 {
+            bail!(divisor.span, "divisor must not be zero");
+        }
+        Ok(Num::Int(self).apply2(divisor.v, Rem::rem, Rem::rem))
+    }
+
+    /// Performs euclidean division of two numbers.
+    ///
+    /// The result of this computation is that of a division rounded to the integer
+    /// `{n}` such that the dividend is greater than or equal to `{n}` times the divisor.
+    ///
+    /// ```example
+    /// #7.div-euclid(3) \
+    /// #7.div-euclid(-3) \
+    /// #(-7).div-euclid(3) \
+    /// #(-7).div-euclid(-3) \
+    /// #3.div-euclid(0.4)
+    /// ```
+    #[func(title = "Euclidean Division")]
+    pub fn div_euclid_(
+        self,
+        /// The divisor of the division.
+        divisor: Spanned<Num>,
+    ) -> SourceResult<Num> {
+        if divisor.v.float() == 0.0 {
+            bail!(divisor.span, "divisor must not be zero");
+        }
+        Ok(Num::Int(self).apply2(divisor.v, i64::div_euclid, f64::div_euclid))
+    }
+
+    /// This calculates the least nonnegative remainder of a division.
+    ///
+    /// Warning: Due to a floating point round-off error, the remainder may equal the absolute
+    /// value of the divisor if the dividend is much smaller in magnitude than the divisor
+    /// and the dividend is negative. This only applies for floating point inputs.
+    ///
+    /// ```example
+    /// #7.rem-euclid(3) \
+    /// #7.rem-euclid(-3) \
+    /// #7.rem-euclid(3) \
+    /// #7.rem-euclid(-3) \
+    /// #3.rem-euclid(0.4)
+    /// ```
+    #[func(title = "Euclidean Remainder")]
+    pub fn rem_euclid_(
+        self,
+        /// The divisor of the remainder.
+        divisor: Spanned<Num>,
+    ) -> SourceResult<Num> {
+        if divisor.v.float() == 0.0 {
+            bail!(divisor.span, "divisor must not be zero");
+        }
+        Ok(Num::Int(self).apply2(divisor.v, i64::rem_euclid, f64::rem_euclid))
+    }
+
+    /// Calculates the quotient (floored division) of two numbers.
+    ///
+    /// ```example
+    /// $ "quo"(a, b) &= floor(a/b) \
+    ///   "quo"(14, 5) &= #14.quo(5) \
+    ///   "quo"(4, 0.4) &= #4.quo(0.4) $
+    /// ```
+    #[func(title = "Quotient")]
+    pub fn quo(
+        self,
+        /// The divisor of the quotient.
+        divisor: Spanned<Num>,
+    ) -> SourceResult<i64> {
+        if divisor.v.float() == 0.0 {
+            bail!(divisor.span, "divisor must not be zero");
+        }
+
+        Ok(Num::Int(self).apply2(divisor.v, Div::div, Div::div).floor())
     }
 
     /// Calculates the bitwise NOT of an integer.

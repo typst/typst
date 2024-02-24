@@ -609,10 +609,7 @@ pub fn floor(
     /// The number to round down.
     value: Num,
 ) -> i64 {
-    match value {
-        Num::Int(n) => n,
-        Num::Float(n) => n.floor() as i64,
-    }
+    value.floor()
 }
 
 /// Rounds a number up to the nearest integer.
@@ -945,6 +942,13 @@ impl Num {
         match self {
             Self::Int(v) => v as f64,
             Self::Float(v) => v,
+        }
+    }
+
+    pub(super) fn floor(self) -> i64 {
+        match self {
+            Num::Int(n) => n,
+            Num::Float(n) => n.floor() as i64,
         }
     }
 }
