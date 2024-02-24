@@ -51,6 +51,8 @@
 ---
 #test(calc.round(calc.e, digits: 2), 2.72)
 #test(calc.round(calc.pi, digits: 2), 3.14)
+#test(calc.e.round(digits: 2), 2.72)
+#test(calc.pi.round(digits: 2), 3.14)
 
 ---
 // Error: 6-10 expected boolean, float, string, or integer, found length
@@ -77,6 +79,13 @@
 #test(calc.abs(-3.14), 3.14)
 #test(calc.abs(50%), 50%)
 #test(calc.abs(-25%), 25%)
+#test((-3).abs(), 3)
+#test(3.abs(), 3)
+#test((-0.0).abs(), 0.0)
+#test(0.0.abs(), -0.0)
+#test((-3.14).abs(), 3.14)
+#test((-90deg).abs(), 90deg)
+#test(90deg.abs(), 90deg)
 
 ---
 // Error: 11-22 expected integer, float, length, angle, ratio, or fraction, found string
@@ -88,14 +97,18 @@
 #test(calc.odd(2), false)
 #test(calc.odd(-1), true)
 #test(calc.even(-11), false)
+#test(2.even(), true)
+#test(2.odd(), false)
+#test((-1).odd(), true)
+#test((-11).even(), false)
 
 ---
 // Test the `rem` function.
-#test(calc.rem(1, 1), 0)
-#test(calc.rem(5, 3), 2)
-#test(calc.rem(5, -3), 2)
-#test(calc.rem(22.5, 10), 2.5)
-#test(calc.rem(9, 4.5), 0)
+#test(1.rem(1), 0)
+#test(5.rem(3), 2)
+#test(5.rem(-3), 2)
+#test(22.5.rem(10), 2.5)
+#test(9.rem(4.5), 0)
 
 ---
 // Error: 14-15 divisor must not be zero
@@ -106,12 +119,25 @@
 #calc.rem(3.0, 0.0)
 
 ---
+// Error: 8-9 divisor must not be zero
+#5.rem(0)
+
+---
+// Error: 10-13 divisor must not be zero
+#3.0.rem(0.0)
+
+---
 // Test the `div-euclid` function.
 #test(calc.div-euclid(7, 3), 2)
 #test(calc.div-euclid(7, -3), -2)
 #test(calc.div-euclid(-7, 3), -3)
 #test(calc.div-euclid(-7, -3), 3)
 #test(calc.div-euclid(2.5, 2), 1)
+#test(7.div-euclid(3), 2)
+#test(7.div-euclid(-3), -2)
+#test((-7).div-euclid(3), -3)
+#test((-7).div-euclid(-3), 3)
+#test(2.5.div-euclid(2), 1)
 
 ---
 // Error: 21-22 divisor must not be zero
@@ -120,6 +146,14 @@
 ---
 // Error: 23-26 divisor must not be zero
 #calc.div-euclid(3.0, 0.0)
+
+---
+// Error: 15-16 divisor must not be zero
+#5.div-euclid(0)
+
+---
+// Error: 17-20 divisor must not be zero
+#3.0.div-euclid(0.0)
 
 ---
 // Test the `rem-euclid` function.
@@ -144,6 +178,11 @@
 #test(calc.quo(5, -3), -1)
 #test(calc.quo(22.5, 10), 2)
 #test(calc.quo(9, 4.5), 2)
+#test(1.quo(1), 1)
+#test(5.quo(3), 1)
+#test(5.quo(-3), -1)
+#test(22.5.quo(10), 2)
+#test(9.quo(4.5), 2)
 
 ---
 // Error: 14-15 divisor must not be zero
@@ -154,11 +193,23 @@
 #calc.quo(3.0, 0.0)
 
 ---
+// Error: 8-9 divisor must not be zero
+#5.quo(0)
+
+---
+// Error: 10-13 divisor must not be zero
+#3.0.quo(0.0)
+
+---
 // Test the `min` and `max` functions.
 #test(calc.min(2, -4), -4)
 #test(calc.min(3.5, 1e2, -0.1, 3), -0.1)
 #test(calc.max(-3, 11), 11)
 #test(calc.min("hi"), "hi")
+#test(2.min(-4), -4)
+#test(3.5.min(1e2, -0.1, 3), -0.1)
+#test((-3).max(11), 11)
+#test(3.5.max(1e2, -0.1, 3), 1e2)
 
 ---
 // Test the `pow`, `log`, `exp`, and `ln` functions.
@@ -166,6 +217,13 @@
 #test(calc.pow(2, 4), 16)
 #test(calc.exp(2), calc.pow(calc.e, 2))
 #test(calc.ln(10), calc.log(10, base: calc.e))
+#test(10.pow(0), 1)
+#test(2.pow(4), 16)
+#test(2.exp(), calc.e.pow(2))
+#test(10.ln(), 10.log(base: calc.e))
+#test(10.5.pow(0.0), 1)
+#test(2.0.pow(4), 16.0)
+#test(2.5.exp(), calc.e.pow(2.5))
 
 ---
 // Test the `bit-not`, `bit-and`, `bit-or` and `bit-xor` functions.
@@ -219,20 +277,40 @@
 #calc.pow(2, 10000000000000000)
 
 ---
+// Error: 8-25 exponent is too large
+#2.pow(10000000000000000)
+
+---
 // Error: 2-25 the result is too large
 #calc.pow(2, 2147483647)
+
+---
+// Error: 2-19 the result is too large
+#2.pow(2147483647)
 
 ---
 // Error: 14-36 exponent may not be infinite, subnormal, or NaN
 #calc.pow(2, calc.pow(2.0, 10000.0))
 
 ---
+// Error: 8-24 exponent may not be infinite, subnormal, or NaN
+#2.pow(2.0.pow(10000.0))
+
+---
 // Error: 2-19 the result is not a real number
 #calc.pow(-1, 0.5)
 
 ---
+// Error: 2-15 the result is not a real number
+#(-1).pow(0.5)
+
+---
 // Error: 12-14 cannot take square root of negative number
 #calc.sqrt(-1)
+
+---
+// Error: 2-13 cannot take square root of negative number
+#(-1).sqrt()
 
 ---
 #test(calc.root(12.0, 1), 12.0)
@@ -243,33 +321,67 @@
 #test(calc.root(100.0, -2), 0.1)
 
 ---
+#test(12.0.root(1), 12.0)
+#test(9.0.root(2), 3.0)
+#test(27.0.root(3), 3.0)
+#test((-27.0).root(3), -3.0)
+// 100^(-1/2) = (100^(1/2))^-1 = 1/sqrt(100)
+#test(100.0.root(-2), 0.1)
+
+---
 // Error: 17-18 cannot take the 0th root of a number
 #calc.root(1.0, 0)
+
+---
+// Error: 11-12 cannot take the 0th root of a number
+#1.0.root(0)
 
 ---
 // Error: 24-25 negative numbers do not have a real nth root when n is even
 #test(calc.root(-27.0, 4), -3.0)
 
 ---
+// Error: 20-21 negative numbers do not have a real nth root when n is even
+#test((-27.0).root(4), -3.0)
+
+---
 // Error: 11-13 value must be strictly positive
 #calc.log(-1)
+
+---
+// Error: 2-12 value must be strictly positive
+#(-1).log()
 
 ---
 // Error: 20-21 base may not be zero, NaN, infinite, or subnormal
 #calc.log(1, base: 0)
 
 ---
+// Error: 14-15 base may not be zero, NaN, infinite, or subnormal
+#1.log(base: 0)
+
+---
 // Error: 2-24 the result is not a real number
 #calc.log(10, base: -1)
+
+---
+// Error: 2-18 the result is not a real number
+#10.log(base: -1)
 
 ---
 // Test the `fact` function.
 #test(calc.fact(0), 1)
 #test(calc.fact(5), 120)
+#test(0.fact(), 1)
+#test(5.fact(), 120)
 
 ---
 // Error: 2-15 the result is too large
 #calc.fact(21)
+
+---
+// Error: 2-11 the result is too large
+#21.fact()
 
 ---
 // Test the `perm` function.
@@ -277,10 +389,18 @@
 #test(calc.perm(5, 3), 60)
 #test(calc.perm(5, 5), 120)
 #test(calc.perm(5, 6), 0)
+#test(0.perm(0), 1)
+#test(5.perm(3), 60)
+#test(5.perm(5), 120)
+#test(5.perm(6), 0)
 
 ---
 // Error: 2-19 the result is too large
 #calc.perm(21, 21)
+
+---
+// Error: 2-13 the result is too large
+#21.perm(21)
 
 ---
 // Test the `binom` function.
@@ -289,6 +409,11 @@
 #test(calc.binom(5, 5), 1)
 #test(calc.binom(5, 6), 0)
 #test(calc.binom(6, 2), 15)
+#test(0.binom(0), 1)
+#test(5.binom(3), 10)
+#test(5.binom(5), 1)
+#test(5.binom(6), 0)
+#test(6.binom(2), 15)
 
 ---
 // Test the `gcd` function.
@@ -299,6 +424,13 @@
 #test(calc.gcd(272557, 272557), 272557)
 #test(calc.gcd(0, 0), 0)
 #test(calc.gcd(7, 0), 7)
+#test(112.gcd(77), 7)
+#test(12.gcd(96), 12)
+#test(13.gcd(9), 1)
+#test(13.gcd(-9), 1)
+#test(272557.gcd(272557), 272557)
+#test(0.gcd(0), 0)
+#test(7.gcd(0), 7)
 
 ---
 // Test the `lcm` function.
@@ -309,10 +441,21 @@
 #test(calc.lcm(272557, 272557), 272557)
 #test(calc.lcm(0, 0), 0)
 #test(calc.lcm(8, 0), 0)
+#test(112.lcm(77), 1232)
+#test(12.lcm(96), 96)
+#test(13.lcm(9), 117)
+#test(13.lcm(-9), 117)
+#test(272557.lcm(272557), 272557)
+#test(0.lcm(0), 0)
+#test(8.lcm(0), 0)
 
 ---
 // Error: 2-41 the result is too large
 #calc.lcm(15486487489457, 4874879896543)
+
+---
+// Error: 2-35 the result is too large
+#15486487489457.lcm(4874879896543)
 
 ---
 // Error: 2-12 expected at least one value
@@ -321,6 +464,10 @@
 ---
 // Error: 14-18 cannot compare string and integer
 #calc.min(1, "hi")
+
+---
+// Error: 8-12 cannot compare string and integer
+#1.min("hi")
 
 ---
 // Error: 16-19 cannot compare 1pt with 1em
