@@ -2,6 +2,7 @@ use comemo::TrackedMut;
 use ecow::{eco_format, eco_vec, EcoString};
 use serde::{Deserialize, Serialize};
 
+use crate::diag::DiagnosticCategory::UnnecessaryImportRename;
 use crate::diag::{
     bail, error, warning, At, FileError, SourceResult, StrResult, Trace, Tracepoint,
 };
@@ -39,6 +40,7 @@ impl Eval for ast::ModuleImport<'_> {
                     // Warn on `import x as x`
                     vm.engine.tracer.warn(warning!(
                         new_name.span(),
+                        UnnecessaryImportRename,
                         "unnecessary import rename to same name",
                     ));
                 }
@@ -74,6 +76,7 @@ impl Eval for ast::ModuleImport<'_> {
                             {
                                 vm.engine.tracer.warn(warning!(
                                     renamed_item.new_name().span(),
+                                    UnnecessaryImportRename,
                                     "unnecessary import rename to same name",
                                 ));
                             }

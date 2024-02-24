@@ -78,16 +78,22 @@ macro_rules! __error {
 
 /// Construct a [`SourceDiagnostic`] with severity `Warning`.
 ///
+/// It is required to specify a category for the warning. This is used to group
+/// diagnostics by their category, so that they can be filtered and displayed
+/// separately.
+///
 /// You can also emit hints with the `; hint: "..."` syntax.
 ///
 /// ```
-/// warning!(span, "warning with a {}", "source result");
+/// warning!(span, FontFallback, "warning with a {}", "source result");
 /// warning!(
-///     span, "warning with a {}", "source result";
-///     hint: "hint 1"
+///     span, FontFallback, "warning with a {}", "source result";
+///     hint: "hint 1";
+///     category: FontFallback;
 /// );
 /// warning!(
-///     span, "warning with a {}", "source result";
+///     span, FontFallback,
+///     "warning with a {}", "source result";
 ///     hint: "hint 1";
 ///     hint: "hint 2";
 /// );
@@ -97,6 +103,7 @@ macro_rules! __error {
 macro_rules! __warning {
     (
         $span:expr,
+        $category:expr,
         $fmt:literal $(, $arg:expr)*
         $(; hint: $hint:literal $(, $hint_arg:expr)*)*
         $(,)?
@@ -104,7 +111,7 @@ macro_rules! __warning {
         $crate::diag::SourceDiagnostic::warning(
             $span,
             $crate::diag::eco_format!($fmt, $($arg),*),
-        ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
+        ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))* .with_category($category)
     };
 }
 
@@ -119,6 +126,18 @@ pub use {
 
 /// A result that can carry multiple source errors.
 pub type SourceResult<T> = Result<T, EcoVec<SourceDiagnostic>>;
+
+/// [`DiagnosticCategory`] for a [`SourceDiagnostic`].
+///
+/// This is used to group diagnostics by their category, so that they can be
+/// filtered and displayed separately.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum DiagnosticCategory {
+    ConsecutiveMarks,
+    FontFallback,
+    LayoutDivergence,
+    UnnecessaryImportRename,
+}
 
 /// An error or warning in a source file.
 ///
@@ -137,6 +156,8 @@ pub struct SourceDiagnostic {
     /// Additional hints to the user, indicating how this problem could be avoided
     /// or worked around.
     pub hints: EcoVec<EcoString>,
+    /// The category of the diagnostic.
+    pub category: Option<DiagnosticCategory>,
 }
 
 /// The severity of a [`SourceDiagnostic`].
@@ -157,6 +178,7 @@ impl SourceDiagnostic {
             trace: eco_vec![],
             message: message.into(),
             hints: eco_vec![],
+            category: None,
         }
     }
 
@@ -168,6 +190,7 @@ impl SourceDiagnostic {
             trace: eco_vec![],
             message: message.into(),
             hints: eco_vec![],
+            category: None,
         }
     }
 
@@ -187,6 +210,12 @@ impl SourceDiagnostic {
         self.hints.extend(hints);
         self
     }
+
+    /// Adds a category to the diagnostic.
+    pub fn with_category(mut self, category: DiagnosticCategory) -> Self {
+        self.category = Some(category);
+        self
+    }
 }
 
 impl From<SyntaxError> for SourceDiagnostic {
@@ -197,6 +226,7 @@ impl From<SyntaxError> for SourceDiagnostic {
             message: error.message,
             trace: eco_vec![],
             hints: error.hints,
+            category: None,
         }
     }
 }

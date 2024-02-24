@@ -9,6 +9,7 @@ use typst_syntax::Span;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::exceptions::find_exception;
+use crate::diag::DiagnosticCategory::FontFallback;
 use crate::eval::Tracer;
 use crate::text::{Font, FontStretch, FontStyle, FontVariant, FontWeight};
 use crate::warning;
@@ -113,12 +114,12 @@ impl FontBook {
         let res = self.find_best_variant(like, variant, ids);
         if let Some(res) = res {
             tracer.warn(warning!(
-                span, "Doesn't match any font! Using fallback font: {} {:?}", self.infos[res].family, self.infos[res].variant;
+                span, FontFallback, "Doesn't match any font! Using fallback font: {} {:?}", self.infos[res].family, self.infos[res].variant;
                 hint: "Consider adding a font that supports the characters in the text."
             ));
         } else {
             tracer.warn(warning!(
-                span, "Doesn't match any font!";
+                span, FontFallback, "Doesn't match any font!";
                 hint: "Consider adding a font that supports the characters in the text."
             ));
         }

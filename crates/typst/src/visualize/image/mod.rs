@@ -10,7 +10,7 @@ use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
-use comemo::{Prehashed, Tracked, TrackedMut};
+use comemo::{Tracked, TrackedMut};
 use ecow::EcoString;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
