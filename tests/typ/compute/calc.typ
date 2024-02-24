@@ -273,6 +273,14 @@
 #calc.pow(0, 0)
 
 ---
+// Error: 2-14 zero to the power of zero is undefined
+#0.0.pow(0.0)
+
+---
+// Error: 2-10 zero to the power of zero is undefined
+#0.pow(0)
+
+---
 // Error: 14-31 exponent is too large
 #calc.pow(2, 10000000000000000)
 

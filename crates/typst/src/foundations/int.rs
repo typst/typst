@@ -104,6 +104,9 @@ impl i64 {
                 let Ok(i) = i32::try_from(i) else {
                     bail!(exponent.span, "exponent is too large")
                 };
+                if self == 0 && i == 0 {
+                    bail!(span, "zero to the power of zero is undefined")
+                }
                 i
             }
             _ => {
