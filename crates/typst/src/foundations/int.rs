@@ -5,6 +5,7 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{cast, func, repr, scope, ty, Repr, Str, Value};
+use crate::layout::Angle;
 use crate::syntax::{Span, Spanned};
 
 use super::calc::Num;
@@ -132,6 +133,164 @@ impl i64 {
         f64Ext::exp_(self as f64, span)
     }
 
+    /// Calculates the square root of an integer. Must not be negative.
+    ///
+    /// ```example
+    /// #25.sqrt()
+    /// ```
+    #[func(title = "Square Root")]
+    pub fn sqrt(self) -> StrResult<f64> {
+        f64Ext::sqrt_(self as f64)
+    }
+
+    /// Calculates the real nth root of an integer.
+    ///
+    /// If the number is negative, then n must be odd.
+    ///
+    /// ```example
+    /// #16.root(4) \
+    /// #27.root(3)
+    /// ```
+    #[func]
+    pub fn root(
+        self,
+        /// Which root of the radicand to take
+        index: Spanned<i64>,
+    ) -> SourceResult<f64> {
+        f64Ext::root(self as f64, index)
+    }
+
+    /// Calculates the sine of an angle, interpreted as radians.
+    ///
+    /// ```example
+    /// #1.sin()
+    /// ```
+    #[func(title = "Sine")]
+    pub fn sin(self) -> f64 {
+        (self as f64).sin()
+    }
+
+    /// Calculates the cosine of an angle, interpreted as radians.
+    ///
+    /// ```example
+    /// #1.cos()
+    /// ```
+    #[func(title = "Cosine")]
+    pub fn cos(self) -> f64 {
+        (self as f64).cos()
+    }
+
+    /// Calculates the tangent of an angle, interpreted as radians.
+    ///
+    /// ```example
+    /// #1.tan()
+    /// ```
+    #[func(title = "Tangent")]
+    pub fn tan(self) -> f64 {
+        (self as f64).tan()
+    }
+
+    /// Calculates the arcsine of an integer, which must be between -1 and 1.
+    ///
+    /// ```example
+    /// #0.asin() \
+    /// #1.asin()
+    /// ```
+    #[func(title = "Arcsine")]
+    pub fn asin(self) -> StrResult<Angle> {
+        f64Ext::asin(self as f64)
+    }
+
+    /// Calculates the arccosine of an integer, which must be between -1 and 1.
+    ///
+    /// ```example
+    /// #0.acos() \
+    /// #1.acos()
+    /// ```
+    #[func(title = "Arccosine")]
+    pub fn acos(self) -> StrResult<Angle> {
+        f64Ext::acos(self as f64)
+    }
+
+    /// Calculates the arctangent of an integer.
+    ///
+    /// ```example
+    /// #0.atan() \
+    /// #1.atan()
+    /// ```
+    #[func(title = "Arctangent")]
+    pub fn atan(self) -> Angle {
+        f64Ext::atan(self as f64)
+    }
+
+    /// Calculates the four-quadrant arctangent of a coordinate.
+    ///
+    /// The arguments are `(x, y)`, not `(y, x)`.
+    ///
+    /// ```example
+    /// #int.atan2(1, 1) \
+    /// #int.atan2(-2, -3)
+    /// ```
+    #[func(title = "Four-quadrant Arctangent")]
+    pub fn atan2(
+        self,
+        /// The Y coordinate.
+        y: Num,
+    ) -> Angle {
+        f64Ext::atan2_(self as f64, y)
+    }
+
+    /// Calculates the hyperbolic sine of a hyperbolic angle.
+    ///
+    /// ```example
+    /// #1.sinh()
+    /// ```
+    #[func(title = "Hyperbolic Sine")]
+    pub fn sinh(self) -> f64 {
+        f64Ext::sinh(self as f64)
+    }
+
+    /// Calculates the hyperbolic cosine of a hyperbolic angle.
+    ///
+    /// ```example
+    /// #1.cosh()
+    /// ```
+    #[func(title = "Hyperbolic Cosine")]
+    pub fn cosh(self) -> f64 {
+        f64Ext::cosh(self as f64)
+    }
+
+    /// Calculates the hyperbolic tangent of a hyperbolic angle.
+    ///
+    /// ```example
+    /// #1.tanh()
+    /// ```
+    #[func(title = "Hyperbolic Tangent")]
+    pub fn tanh(self) -> f64 {
+        f64Ext::tanh(self as f64)
+    }
+
+    /// Calculates the logarithm of an integer, which must be strictly
+    /// positive.
+    ///
+    /// If the base is not specified, the logarithm is calculated in base 10.
+    ///
+    /// ```example
+    /// #100.log()
+    /// ```
+    #[func(title = "Logarithm")]
+    pub fn log(
+        self,
+        /// The callsite span.
+        span: Span,
+        /// The base of the logarithm. May not be zero.
+        #[named]
+        #[default(Spanned::new(10.0, Span::detached()))]
+        base: Spanned<f64>,
+    ) -> SourceResult<f64> {
+        f64Ext::log_(self as f64, span, base)
+    }
+
     /// Calculates the factorial of a number, which must be non-negative.
     ///
     /// ```example
@@ -226,6 +385,27 @@ impl i64 {
             .and_then(|gcd| gcd.checked_mul(b))
             .map(|v| v.abs())
             .ok_or_else(too_large)?)
+    }
+
+    /// Clamps a number between a minimum and maximum value.
+    ///
+    /// ```example
+    /// #assert.eq(5.clamp(0, 10), 5)
+    /// #assert.eq(5.clamp(6, 10), 6)
+    /// #5.clamp(0, 4)
+    /// ```
+    #[func]
+    pub fn clamp_(
+        self,
+        /// The inclusive minimum value.
+        min: Num,
+        /// The inclusive maximum value.
+        max: Spanned<Num>,
+    ) -> SourceResult<Num> {
+        if max.v.float() < min.float() {
+            bail!(max.span, "max must be greater than or equal to min")
+        }
+        Ok(Num::Int(self).apply3(min, max.v, Ord::clamp, f64::clamp))
     }
 
     /// Determines whether an integer is even.
