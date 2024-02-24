@@ -11,7 +11,8 @@ use crate::foundations::{
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Em, FixedAlignment, Frame, LayoutMultiple,
-    LayoutSingle, OuterHAlignment, Point, Regions, Size, SpecificAlignment, VAlignment,
+    LayoutSingle, OuterHAlignment, Point, Regions, Size, SpecificAlignment as SA,
+    VAlignment,
 };
 use crate::math::{
     scaled_font_size, LayoutMath, MathContext, MathRunFrameBuilder, MathSize, MathVariant,
@@ -80,7 +81,7 @@ pub struct EquationElem {
 
     /// The alignment of the equation numbering.
     ///
-    /// By default, the alignment is `end+horizon`. For the horizontal
+    /// By default, the alignment is `{end} + {horizon}`. For the horizontal
     /// component, you can use `{right}`, `{left}`, or `{start}` and `{end}`
     /// of the text direction; for the vertical component, you can use
     /// `{top}`, `{horizon}`, or `{bottom}`.
@@ -92,8 +93,8 @@ pub struct EquationElem {
     /// $ E &= sqrt(m_0^2 + p^2) \
     ///     &approx 125 "GeV"    $
     /// ```
-    #[default(SpecificAlignment::Both(OuterHAlignment::End, VAlignment::Horizon))]
-    pub number_align: SpecificAlignment<OuterHAlignment, VAlignment>,
+    #[default(SA::Both(OuterHAlignment::End, VAlignment::Horizon))]
+    pub number_align: SA<OuterHAlignment, VAlignment>,
 
     /// A supplement for the equation.
     ///
@@ -275,9 +276,9 @@ impl LayoutSingle for Packed<EquationElem> {
         let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
 
         let number_align = match self.number_align(styles) {
-            SpecificAlignment::H(h) => SpecificAlignment::Both(h, VAlignment::Horizon),
-            SpecificAlignment::V(v) => SpecificAlignment::Both(OuterHAlignment::End, v),
-            SpecificAlignment::Both(h, v) => SpecificAlignment::Both(h, v),
+            SA::H(h) => SA::Both(h, VAlignment::Horizon),
+            SA::V(v) => SA::Both(OuterHAlignment::End, v),
+            SA::Both(h, v) => SA::Both(h, v),
         };
 
         let frame = add_equation_number(
@@ -447,7 +448,6 @@ fn add_equation_number(
     } else {
         equation.width() + 2.0 * full_number_width
     };
-
     let height = match number_align.y {
         FixedAlignment::Start => {
             let excess_above = (number.height() - first.size.y) / 2.0 - first.point.y;
@@ -475,19 +475,17 @@ fn add_equation_number(
         FixedAlignment::End => equation.width() - number.width(),
         _ => unreachable!(),
     };
-
-    let dy = |y: Abs, number: &Frame| (y - number.height()) / 2.0;
+    let dh = |h1: Abs, h2: Abs| (h1 - h2) / 2.0;
     let y = match number_align.y {
         FixedAlignment::Start => {
-            resizing_offset.y + first.point.y + dy(first.size.y, &number)
+            resizing_offset.y + first.point.y + dh(first.size.y, number.height())
         }
-        FixedAlignment::Center => dy(equation.height(), &number),
+        FixedAlignment::Center => dh(equation.height(), number.height()),
         FixedAlignment::End => {
-            resizing_offset.y + last.point.y + dy(last.size.y, &number)
+            resizing_offset.y + last.point.y + dh(last.size.y, number.height())
         }
     };
 
     equation.push_frame(Point::new(x, y), number);
-
     equation
 }
