@@ -259,39 +259,35 @@ impl LayoutSingle for Packed<EquationElem> {
             .layout_into_run(self, styles)?
             .multiline_frame_builder(&ctx, styles);
 
-        let frame = if let Some(numbering) = (**self).numbering(styles) {
-            let pod = Regions::one(regions.base(), Axes::splat(false));
-            let number = Counter::of(EquationElem::elem())
-                .at(engine, self.location().unwrap())?
-                .display(engine, numbering)?
-                .spanned(span)
-                .layout(engine, styles, pod)?
-                .into_frame();
-
-            static NUMBER_GUTTER: Em = Em::new(0.5);
-            let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
-
-            let number_align = match self.number_align(styles) {
-                SpecificAlignment::H(h) => {
-                    SpecificAlignment::Both(h, VAlignment::Horizon)
-                }
-                SpecificAlignment::V(v) => {
-                    SpecificAlignment::Both(OuterHAlignment::End, v)
-                }
-                SpecificAlignment::Both(h, v) => SpecificAlignment::Both(h, v),
-            };
-
-            add_equation_number(
-                equation_builder,
-                number,
-                number_align.resolve(styles),
-                AlignElem::alignment_in(styles).resolve(styles).x,
-                regions.size.x,
-                full_number_width,
-            )
-        } else {
-            equation_builder.build()
+        let Some(numbering) = (**self).numbering(styles) else {
+            return Ok(equation_builder.build());
         };
+
+        let pod = Regions::one(regions.base(), Axes::splat(false));
+        let number = Counter::of(EquationElem::elem())
+            .at(engine, self.location().unwrap())?
+            .display(engine, numbering)?
+            .spanned(span)
+            .layout(engine, styles, pod)?
+            .into_frame();
+
+        static NUMBER_GUTTER: Em = Em::new(0.5);
+        let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
+
+        let number_align = match self.number_align(styles) {
+            SpecificAlignment::H(h) => SpecificAlignment::Both(h, VAlignment::Horizon),
+            SpecificAlignment::V(v) => SpecificAlignment::Both(OuterHAlignment::End, v),
+            SpecificAlignment::Both(h, v) => SpecificAlignment::Both(h, v),
+        };
+
+        let frame = add_equation_number(
+            equation_builder,
+            number,
+            number_align.resolve(styles),
+            AlignElem::alignment_in(styles).resolve(styles).x,
+            regions.size.x,
+            full_number_width,
+        );
 
         Ok(frame)
     }
