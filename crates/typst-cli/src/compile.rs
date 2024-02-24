@@ -7,7 +7,10 @@ use codespan_reporting::term;
 use ecow::{eco_format, EcoString};
 use parking_lot::RwLock;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
+use typst::diag::{
+    bail, group_warnings_by_category, group_warnings_by_package, sort_warnings, At,
+    Severity, SourceDiagnostic, StrResult,
+};
 use typst::eval::Tracer;
 use typst::foundations::Datetime;
 use typst::layout::Frame;
@@ -98,7 +101,11 @@ pub fn compile_once(
 
     let mut tracer = Tracer::new();
     let result = typst::compile(world, &mut tracer);
-    let warnings = tracer.warnings();
+    let mut warnings = tracer.warnings();
+    sort_warnings(
+        warnings.make_mut(),
+        typst::diag::WarningSortOrder::ByPackageAndCategory,
+    );
 
     match result {
         // Export the PDF / PNG.
@@ -321,25 +328,45 @@ pub fn print_diagnostics(
         config.display_style = term::DisplayStyle::Short;
     }
 
-    for diagnostic in warnings.iter().chain(errors) {
-        let diag = match diagnostic.severity {
-            Severity::Error => Diagnostic::error(),
-            Severity::Warning => Diagnostic::warning(),
+    for (package, warnings) in group_warnings_by_package(warnings) {
+        for (category, warnings) in group_warnings_by_category(warnings) {
+            for warning in warnings {
+                let diag = Diagnostic::warning()
+                    .with_message(warning.message.clone())
+                    .with_labels(label(world, warning.span).into_iter().collect())
+                    .with_notes(
+                        warning
+                            .hints
+                            .iter()
+                            .map(|e| (eco_format!("hint: {e}")).into())
+                            .collect(),
+                    )
+                    .with_notes(vec![format!(
+                        "package: {:?}, category: {:?}",
+                        package, category
+                    )]);
+
+                term::emit(&mut terminal::out(), &config, world, &diag)?;
+            }
         }
-        .with_message(diagnostic.message.clone())
-        .with_notes(
-            diagnostic
-                .hints
-                .iter()
-                .map(|e| (eco_format!("hint: {e}")).into())
-                .collect(),
-        )
-        .with_labels(label(world, diagnostic.span).into_iter().collect());
+    }
+
+    for error in errors {
+        let diag = Diagnostic::error()
+            .with_message(error.message.clone())
+            .with_notes(
+                error
+                    .hints
+                    .iter()
+                    .map(|e| (eco_format!("hint: {e}")).into())
+                    .collect(),
+            )
+            .with_labels(label(world, error.span).into_iter().collect());
 
         term::emit(&mut terminal::out(), &config, world, &diag)?;
 
         // Stacktrace-like helper diagnostics.
-        for point in &diagnostic.trace {
+        for point in &error.trace {
             let message = point.v.to_string();
             let help = Diagnostic::help()
                 .with_message(message)
