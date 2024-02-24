@@ -1,11 +1,14 @@
+use std::cmp;
 use std::num::{NonZeroI64, NonZeroIsize, NonZeroU64, NonZeroUsize, ParseIntError};
 
 use ecow::{eco_format, EcoString};
 
-use crate::{
-    diag::StrResult,
-    foundations::{cast, func, repr, scope, ty, Repr, Str, Value},
-};
+use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::foundations::{cast, func, repr, scope, ty, Repr, Str, Value};
+use crate::syntax::{Span, Spanned};
+
+use super::calc::Num;
+use super::float::f64Ext;
 
 /// A whole number.
 ///
@@ -67,6 +70,186 @@ impl i64 {
     #[func]
     pub fn signum(self) -> i64 {
         i64::signum(self)
+    }
+
+    /// Calculates the absolute value of an integer.
+    ///
+    /// ```example
+    /// #(-5).abs() \
+    /// #10.abs()
+    /// ```
+    #[func(title = "Absolute")]
+    pub fn abs(self) -> i64 {
+        i64::abs(self)
+    }
+
+    /// Raises an integer to some exponent.
+    ///
+    /// ```example
+    /// #2.pow(3)
+    /// #(-5).pow(3)
+    /// ```
+    #[func(title = "Power")]
+    pub fn pow_(
+        self,
+        /// The callsite span.
+        span: Span,
+        /// The exponent of the power.
+        exponent: Spanned<Num>,
+    ) -> SourceResult<Num> {
+        let exponent = match exponent.v {
+            Num::Int(i) if i >= 0 => {
+                let Ok(i) = i32::try_from(i) else {
+                    bail!(exponent.span, "exponent is too large")
+                };
+                i
+            }
+            _ => {
+                return f64Ext::pow(self as f64, span, exponent).map(Num::Float);
+            }
+        };
+
+        self.checked_pow(exponent as u32)
+            .map(Num::Int)
+            .ok_or_else(too_large)
+            .at(span)
+    }
+
+    /// Raises an integer to some exponent of e.
+    ///
+    /// ```example
+    /// #1.exp()
+    /// ```
+    #[func(title = "Exponential")]
+    pub fn exp(
+        self,
+        /// The callsite span.
+        span: Span,
+    ) -> SourceResult<f64> {
+        if i32::try_from(self).is_err() {
+            bail!(span, "exponent is too large")
+        }
+        f64Ext::exp_(self as f64, span)
+    }
+
+    /// Calculates the factorial of a number, which must be non-negative.
+    ///
+    /// ```example
+    /// #5.fact()
+    /// ```
+    #[func(title = "Factorial")]
+    pub fn fact(self) -> StrResult<i64> {
+        Ok(fact_impl(1, as_u64(self)?).ok_or_else(too_large)?)
+    }
+
+    /// Calculates a permutation. Both operands must be non-negative.
+    ///
+    /// Returns the `k`-permutation of `n`, or the number of ways to choose `k`
+    /// items from a set of `n` with regard to order.
+    ///
+    /// ```example
+    /// $ "perm"(n, k) &= n!/((n - k)!) \
+    ///   "perm"(5, 3) &= #5.perm(3) $
+    /// ```
+    #[func(title = "Permutation")]
+    pub fn perm(
+        self,
+        /// The number of permutations. Must be non-negative.
+        numbers: u64,
+    ) -> StrResult<i64> {
+        let base = as_u64(self)?;
+        // By convention.
+        if base < numbers {
+            return Ok(0);
+        }
+
+        Ok(fact_impl(base - numbers + 1, base).ok_or_else(too_large)?)
+    }
+
+    /// Calculates a binomial coefficient. Both operands must be non-negative.
+    ///
+    /// Returns the `k`-combination of `n`, or the number of ways to choose `k`
+    /// items from a set of `n` without regard to order.
+    ///
+    /// ```example
+    /// #10.binom(5)
+    /// #int.binom(10, 5)
+    /// ```
+    #[func(title = "Binomial")]
+    pub fn binom(
+        self,
+        /// The lower coefficient. Must be non-negative.
+        k: u64,
+    ) -> StrResult<i64> {
+        Ok(binom_impl(as_u64(self)?, k).ok_or_else(too_large)?)
+    }
+
+    /// Calculates the greatest common divisor of two integers.
+    ///
+    /// ```example
+    /// #7.gcd(42)
+    /// #int.gcd(7, 42)
+    /// ```
+    #[func(title = "Greatest Common Divisor")]
+    pub fn gcd(
+        self,
+        /// The second integer.
+        b: i64,
+    ) -> i64 {
+        let (mut a, mut b) = (self, b);
+        while b != 0 {
+            let temp = b;
+            b = a % b;
+            a = temp;
+        }
+
+        a.abs()
+    }
+
+    /// Calculates the least common multiple of two integers.
+    ///
+    /// ```example
+    /// #96.lcm(13)
+    /// ```
+    #[func(title = "Least Common Multiple")]
+    pub fn lcm(
+        self,
+        /// The second integer.
+        b: i64,
+    ) -> StrResult<i64> {
+        if self == b {
+            return Ok(self.abs());
+        }
+
+        Ok(self
+            .checked_div(i64Ext::gcd(self, b))
+            .and_then(|gcd| gcd.checked_mul(b))
+            .map(|v| v.abs())
+            .ok_or_else(too_large)?)
+    }
+
+    /// Determines whether an integer is even.
+    ///
+    /// ```example
+    /// #4.even() \
+    /// #5.even() \
+    /// #range(10).filter(int.even)
+    /// ```
+    #[func]
+    pub fn even(self) -> bool {
+        self % 2 == 0
+    }
+
+    /// Determines whether an integer is odd.
+    ///
+    /// ```example
+    /// #4.odd() \
+    /// #5.odd() \
+    /// #range(10).filter(int.odd)
+    /// ```
+    #[func]
+    pub fn odd(self) -> bool {
+        self % 2 != 0
     }
 
     /// Calculates the bitwise NOT of an integer.
@@ -195,7 +378,7 @@ impl i64 {
                 // Excessive logical right shift would be equivalent to setting
                 // all bits to zero. Using `.min(63)` is not enough for logical
                 // right shift, since `-1 >> 63` returns 1, whereas
-                // `calc.bit-rshift(-1, 64)` should return the same as
+                // `(-1).bit-rshift(64)` should return the same as
                 // `(-1 >> 63) >> 1`, which is zero.
                 0
             } else {
@@ -216,6 +399,45 @@ impl i64 {
             self >> shift
         }
     }
+}
+
+/// Calculates the product of a range of numbers. Used to calculate
+/// permutations. Returns None if the result is larger than `i64::MAX`
+fn fact_impl(start: u64, end: u64) -> Option<i64> {
+    // By convention
+    if end + 1 < start {
+        return Some(0);
+    }
+
+    let real_start: u64 = cmp::max(1, start);
+    let mut count: u64 = 1;
+    for i in real_start..=end {
+        count = count.checked_mul(i)?;
+    }
+
+    count.try_into().ok()
+}
+
+/// Calculates a binomial coefficient, with `n` the upper coefficient and `k`
+/// the lower coefficient. Returns `None` if the result is larger than
+/// `i64::MAX`
+fn binom_impl(n: u64, k: u64) -> Option<i64> {
+    if k > n {
+        return Some(0);
+    }
+
+    // By symmetry
+    let real_k = cmp::min(n - k, k);
+    if real_k == 0 {
+        return Some(1);
+    }
+
+    let mut result: u64 = 1;
+    for i in 0..real_k {
+        result = result.checked_mul(n - i)?.checked_div(i + 1)?;
+    }
+
+    result.try_into().ok()
 }
 
 impl Repr for i64 {
@@ -324,4 +546,20 @@ cast! {
         } else {
             "number too large"
         })?,
+}
+
+fn as_u64(num: i64) -> StrResult<u64> {
+    Ok(num.try_into().map_err(|_| {
+        if num == 0 {
+            "number must not be zero"
+        } else {
+            "number too large"
+        }
+    })?)
+}
+
+/// The error message when the result is too large to be represented.
+#[cold]
+fn too_large() -> &'static str {
+    "the result is too large"
 }

@@ -916,7 +916,7 @@ pub enum Num {
 }
 
 impl Num {
-    fn apply2(
+    pub(super) fn apply2(
         self,
         other: Self,
         int: impl FnOnce(i64, i64) -> i64,
@@ -928,7 +928,7 @@ impl Num {
         }
     }
 
-    fn apply3(
+    pub(super) fn apply3(
         self,
         other: Self,
         third: Self,
@@ -941,7 +941,7 @@ impl Num {
         }
     }
 
-    fn float(self) -> f64 {
+    pub(super) fn float(self) -> f64 {
         match self {
             Self::Int(v) => v as f64,
             Self::Float(v) => v,
