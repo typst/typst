@@ -210,7 +210,7 @@ impl Debug for VirtualPath {
 }
 
 /// Identifies a package.
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct PackageSpec {
     /// The namespace the package lives in.
     pub namespace: EcoString,

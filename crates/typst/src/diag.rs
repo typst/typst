@@ -10,6 +10,7 @@ use comemo::Tracked;
 use ecow::{eco_vec, EcoVec};
 
 use crate::syntax::{PackageSpec, Span, Spanned, SyntaxError};
+use crate::util::SliceExt;
 use crate::{World, WorldExt};
 
 /// Early-return with a [`StrResult`] or [`SourceResult`].
@@ -131,7 +132,7 @@ pub type SourceResult<T> = Result<T, EcoVec<SourceDiagnostic>>;
 ///
 /// This is used to group diagnostics by their category, so that they can be
 /// filtered and displayed separately.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub enum DiagnosticCategory {
     ConsecutiveMarks,
     FontFallback,
@@ -215,6 +216,12 @@ impl SourceDiagnostic {
     pub fn with_category(mut self, category: DiagnosticCategory) -> Self {
         self.category = Some(category);
         self
+    }
+
+    /// Get the package the diagnostic is part of. If the diagnostic is not part
+    /// of a package, returns `None`.
+    pub fn package(&self) -> Option<&'static PackageSpec> {
+        self.span.id()?.package()
     }
 }
 
@@ -533,4 +540,43 @@ pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> EcoString
         }
         err => eco_format!("failed to parse {format} ({err})"),
     }
+}
+
+pub enum WarningSortOrder {
+    /// Sort warnings by their category then by their package.
+    ByCategoryAndPackage,
+    /// Sort warnings by their package then by their category.
+    ByPackageAndCategory,
+}
+
+/// Sort a slice of diagnostics in place.
+pub fn sort_warnings(warnings: &mut [SourceDiagnostic], flavor: WarningSortOrder) {
+    match flavor {
+        WarningSortOrder::ByCategoryAndPackage => {
+            warnings.sort_by_key(|warning| (warning.category, warning.package()));
+        }
+        WarningSortOrder::ByPackageAndCategory => {
+            warnings.sort_by_key(|warning| (warning.package(), warning.category));
+        }
+    }
+}
+
+/// Group consecutive warnings by their package. The input slice must be sorted by
+/// package. See also [`sort_warnings`].
+///
+/// Returns an iterator over the warnings, grouped by their package.
+pub fn group_warnings_by_package(
+    warnings: &[SourceDiagnostic],
+) -> impl Iterator<Item = (Option<&'static PackageSpec>, &'_ [SourceDiagnostic])> {
+    warnings.group_by_key(|warning| warning.package())
+}
+
+/// Group consecutive warnings by their category. The input slice must be sorted by
+/// category. See also [`sort_warnings`].
+///
+/// Returns an iterator over the warnings, grouped by their category.
+pub fn group_warnings_by_category(
+    warnings: &[SourceDiagnostic],
+) -> impl Iterator<Item = (Option<DiagnosticCategory>, &'_ [SourceDiagnostic])> {
+    warnings.group_by_key(|warning| warning.category)
 }
