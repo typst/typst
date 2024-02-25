@@ -482,6 +482,10 @@
 #calc.max(1em, 1pt)
 
 ---
+// Error: 2-15 number must be at least zero
+#(-5).binom(6)
+
+---
 // Test the `range` function.
 #test(range(4), (0, 1, 2, 3))
 #test(range(1, 4), (1, 2, 3))

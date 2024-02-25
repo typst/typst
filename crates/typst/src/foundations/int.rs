@@ -882,8 +882,8 @@ cast! {
 
 fn as_u64(num: i64) -> StrResult<u64> {
     Ok(num.try_into().map_err(|_| {
-        if num == 0 {
-            "number must not be zero"
+        if num < 0 {
+            "number must be at least zero"
         } else {
             "number too large"
         }
