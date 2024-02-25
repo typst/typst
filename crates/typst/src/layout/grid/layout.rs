@@ -2124,7 +2124,7 @@ impl<'a> GridLayouter<'a> {
         // row) as needed. Therefore, consider it as part of the simulation.
         // At the end, we push it back.
         if let Some(modified_last_resolved_size) = resolved.pop() {
-            simulated_sizes.push(modified_last_resolved_size);
+            simulated_sizes.insert(0, modified_last_resolved_size);
         }
         // Prepare regions for simulation.
         let mut regions = self.regions;
