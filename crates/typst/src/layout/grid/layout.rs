@@ -2033,8 +2033,10 @@ impl<'a> GridLayouter<'a> {
                         excess_height -= removed_size;
                         excess_sizes.push(removed_size);
                     }
-                    if let Some(first_frame_size) = sizes.first_mut() {
-                        *first_frame_size -= excess_height;
+                    if excess_height > Abs::zero() {
+                        if let Some(first_frame_size) = sizes.first_mut() {
+                            *first_frame_size -= excess_height;
+                        }
                     }
                     // The excess sizes will be considered final and resolved
                     // below, since they won't be covered by any upcoming rows,
@@ -2454,7 +2456,9 @@ fn subtract_end_sizes(sizes: &mut Vec<Abs>, mut subtract: Abs) {
     while subtract > Abs::zero() && sizes.last().is_some_and(|&size| size <= subtract) {
         subtract -= sizes.pop().unwrap();
     }
-    if let Some(last_size) = sizes.last_mut() {
-        *last_size -= subtract;
+    if subtract > Abs::zero() {
+        if let Some(last_size) = sizes.last_mut() {
+            *last_size -= subtract;
+        }
     }
 }
