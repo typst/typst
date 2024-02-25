@@ -2034,9 +2034,15 @@ impl<'a> GridLayouter<'a> {
                         excess_sizes.push(removed_size);
                     }
                     if excess_height > Abs::zero() {
-                        if let Some(first_frame_size) = sizes.first_mut() {
-                            *first_frame_size -= excess_height;
-                        }
+                        // Don't subtract remaining excess height from the
+                        // first frame size. The idea is that, during
+                        // simulation, we will try to give the rowspan the full
+                        // requested size for the region, not just its excess
+                        // size. For this to work, we have to ensure the
+                        // rowspan will still request as much size on each
+                        // remaining region as before we started subtracting
+                        // the excess height.
+                        excess_sizes.push(excess_height);
                     }
                     // The excess sizes will be considered final and resolved
                     // below, since they won't be covered by any upcoming rows,
