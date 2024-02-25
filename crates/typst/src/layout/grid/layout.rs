@@ -1980,7 +1980,7 @@ impl<'a> GridLayouter<'a> {
                 // removed, therefore, in principle, the auto row expands
                 // considering that the gutter rows were all removed. Later we
                 // perform a simulation to try to correct that.
-                let mut will_be_covered_height: Abs = self
+                let (will_be_covered_height, spanned_gutter_height) = self
                     .grid
                     .rows
                     .iter()
@@ -1989,30 +1989,58 @@ impl<'a> GridLayouter<'a> {
                     .take(last_spanned_row - y)
                     .map(|(y, row)| match row {
                         Sizing::Rel(v) if !self.grid.has_gutter || y % 2 == 0 => {
-                            v.resolve(self.styles).relative_to(self.regions.base().y)
+                            let height =
+                                v.resolve(self.styles).relative_to(self.regions.base().y);
+                            if !self.grid.has_gutter || y % 2 == 0 {
+                                (height, Abs::zero())
+                            } else {
+                                (Abs::zero(), height)
+                            }
                         }
-                        _ => Abs::zero(),
+                        _ => (Abs::zero(), Abs::zero()),
                     })
-                    .sum();
+                    .fold(
+                        (Abs::zero(), Abs::zero()),
+                        |(acc_content, acc_gutter), (content, gutter)| {
+                            (acc_content + content, acc_gutter + gutter)
+                        },
+                    );
 
                 // Remove future frames which will already be covered by
-                // further rows spanned by this cell.
-                while will_be_covered_height > Abs::zero()
-                    && sizes.last().is_some_and(|&size| size <= will_be_covered_height)
-                {
-                    will_be_covered_height -= sizes.pop().unwrap();
-                }
-                // Subtract remaining height from the last frame.
-                if let Some(last_frame_size) = sizes.last_mut() {
-                    *last_frame_size -= will_be_covered_height;
-                }
+                // further rows spanned by this cell. Ignore gutter rows here
+                // at first (gutter rows are only considered later, through a
+                // simulation of the upcoming regions).
+                subtract_end_sizes(&mut sizes, will_be_covered_height);
 
                 // If the rowspan doesn't end at this row and the grid has
                 // gutter, we will need to run a simulation to find out how
                 // much to expand this row by later.
-                if parent_y + rowspan != y + 1 && self.grid.has_gutter {
-                    pending_rowspans.push((parent_y, rowspan, sizes));
-                    continue;
+                if parent_y + rowspan != y + 1
+                    && !sizes.is_empty()
+                    && self.grid.has_gutter
+                {
+                    // Height not covered by any upcoming rows, gutter or not.
+                    let mut excess_height =
+                        sizes.iter().copied().sum::<Abs>() - spanned_gutter_height;
+                    // Obtain the excess height on each frame from the start of
+                    // the rowspan.
+                    // TODO: Use some helper method like splice instead of this.
+                    let mut excess_sizes = vec![];
+                    while excess_height > Abs::zero()
+                        && sizes.first().is_some_and(|size| size <= &excess_height)
+                    {
+                        let removed_size = sizes.remove(0);
+                        excess_height -= removed_size;
+                        excess_sizes.push(removed_size);
+                    }
+                    if let Some(first_frame_size) = sizes.first_mut() {
+                        *first_frame_size -= excess_height;
+                    }
+                    // The excess sizes will be considered final and resolved
+                    // below, since they won't be covered by any upcoming rows,
+                    // regardless of our simulation's outcome.
+                    let rowspan_sizes = std::mem::replace(&mut sizes, excess_sizes);
+                    pending_rowspans.push((parent_y, rowspan, rowspan_sizes));
                 }
             }
 
@@ -2029,8 +2057,9 @@ impl<'a> GridLayouter<'a> {
 
         // Simulate the upcoming regions in order to predict how much we need
         // to expand this auto row for rowspans which span gutter.
-        if pending_rowspans.len() > 0 {
+        if !pending_rowspans.is_empty() {
             self.simulate_and_measure_rowspans_in_auto_row(
+                y,
                 &mut resolved,
                 &pending_rowspans,
             );
@@ -2045,6 +2074,7 @@ impl<'a> GridLayouter<'a> {
     /// and vector of requested sizes).
     fn simulate_and_measure_rowspans_in_auto_row(
         &self,
+        y: usize,
         resolved: &mut Vec<Abs>,
         pending_rowspans: &[(usize, usize, Vec<Abs>)],
     ) {
@@ -2052,18 +2082,20 @@ impl<'a> GridLayouter<'a> {
         // each rowspan into one simple vector of sizes, as if they were
         // all a single rowspan. These sizes will be appended to
         // 'resolved' once we finish our simulation.
-        let mut extra_rowspan_sizes: Vec<Abs> = vec![];
+        let mut simulated_sizes: Vec<Abs> = vec![];
+        let mut simulating_last_size = false;
         let last_resolved_size = if let Some(last_resolved_size) = resolved.pop() {
             // We will be updating the last resolved size (expanding the auto
             // row) as needed.
-            extra_rowspan_sizes.push(last_resolved_size);
+            simulated_sizes.push(last_resolved_size);
+            simulating_last_size = true;
             last_resolved_size
         } else {
             Abs::zero()
         };
         let mut max_spanned_row = y;
         for (parent_y, rowspan, sizes) in pending_rowspans {
-            let mut sizes = sizes.into_iter();
+            let mut sizes = sizes.iter();
             for (target, size) in resolved.iter_mut().zip(&mut sizes) {
                 // First, we update the already resolved sizes as required
                 // by this rowspan. Our simulation won't otherwise change
@@ -2072,16 +2104,17 @@ impl<'a> GridLayouter<'a> {
                 target.set_max(*size);
             }
             for (extra_rowspan_target, extra_size) in
-                extra_rowspan_sizes.iter_mut().zip(&mut sizes)
+                simulated_sizes.iter_mut().zip(&mut sizes)
             {
                 // The remaining sizes are exclusive to rowspans, since
                 // other cells in this row didn't require as many regions.
-                extra_rowspan_target.set_max(extra_size);
+                extra_rowspan_target.set_max(*extra_size);
             }
-            extra_rowspan_sizes.extend(sizes);
+            simulated_sizes.extend(sizes);
             max_spanned_row = max_spanned_row.max(parent_y + rowspan - 1);
         }
-        if extra_rowspan_sizes.len() == 1 && extra_rowspan_sizes[0] == last_resolved_size
+        if simulated_sizes.is_empty()
+            || simulating_last_size && simulated_sizes[0] == last_resolved_size
         {
             // The rowspans already fit in the already resolved sizes.
             // No need for simulation.
@@ -2096,79 +2129,87 @@ impl<'a> GridLayouter<'a> {
         // We're now at the (current) last region of this auto row.
         // Consider resolved height as already taken space.
         regions.size.y -= last_resolved_size;
-        let run_simulation = |max_regions: usize| {
+        let mut latest_amount_to_grow = Abs::zero();
+        // Try to simulate up to 5 times. If it doesn't stabilize, we give up.
+        for _attempt in 0..5 {
+            // The simulated regions.
             let mut regions = regions;
-            let mut region_count = 0;
+            // For this simulation attempt, we consider that the auto row has
+            // grown by the amount given in the latest one, and then see if the
+            // amount needed to grow changes later.
+            let mut amount_to_grow = latest_amount_to_grow;
+            while !amount_to_grow.is_zero() && regions.size.y < amount_to_grow {
+                amount_to_grow -= regions.size.y.max(Abs::zero());
+                regions.next();
+            }
+            regions.size.y -= amount_to_grow;
+            // Total height of spanned gutter (removed or not).
             let mut total_spanned_gutter = Abs::zero();
+            // Total height of removed spanned gutter rows.
+            let mut removed_gutter = Abs::zero();
+            // Height of the latest spanned gutter row.
+            // Zero if it was removed.
             let mut latest_spanned_gutter_height = Abs::zero();
-            let rows = self.grid.rows[y + 1..=max_spanned_row].iter().enumerate();
-            for (offset, row) in rows {
+            // Rows which we will be simulating.
+            let rows = &self.grid.rows[y + 1..=max_spanned_row];
+            for (offset, row) in rows.iter().enumerate() {
                 let spanned_y = y + 1 + offset;
                 let is_gutter = self.grid.has_gutter && spanned_y % 2 == 1;
                 match row {
+                    // Fixed-size rows are what we are interested in.
                     Sizing::Rel(v) => {
                         let height = v.resolve(self.styles).relative_to(regions.base().y);
-                        let mut skipped_region = false;
-                        while !regions.fits(height) && !regions.in_last() {
-                            region_count += 1;
-                            if region_count == max_regions {
-                                // Can't surpass the max regions for this
-                                // simulation attempt.
-                                return None;
-                            }
-                            skipped_region = true;
-                            regions.next();
-                        }
-                        if !skipped_region && is_gutter {
+                        if is_gutter {
                             total_spanned_gutter += height;
                             latest_spanned_gutter_height = height;
-                        } else if skipped_region && !is_gutter {
-                            // A non-gutter row was pushed to the next
-                            // region. Therefore, the immediately preceding
-                            // gutter row is removed.
-                            total_spanned_gutter -= latest_spanned_gutter_height;
+                        }
+                        while !regions.size.y.fits(height) && !regions.in_last() {
+                            // A row was pushed to the next region. Therefore,
+                            // the immediately preceding gutter row is removed.
+                            removed_gutter += latest_spanned_gutter_height;
+                            latest_spanned_gutter_height = Abs::zero();
+                            regions.next();
                         }
                     }
+                    // Non-fixed size rows are ignored during our simulation.
                     _ if is_gutter => {
                         latest_spanned_gutter_height = Abs::zero();
                     }
                     _ => {}
                 }
             }
-
-            Some(total_spanned_gutter)
-        };
-        // Function used to remove some height from the end of the extra sizes
-        // vector. In other words, we indicate that this auto row should expand
-        // less (precisely by the specific amount provided).
-        let reduce_predicted_sizes = |total_height_to_reduce| {
-            // Remove rowspan sizes smaller than the height to be reduced.
-            // Don't remove the first one.
-            while total_height_to_reduce > Abs::zero()
-                && (extra_rowspan_sizes.len() > 1 || resolved.is_empty())
-                && extra_rowspan_sizes
-                    .last()
-                    .is_some_and(|&size| size <= total_height_to_reduce)
-            {
-                total_height_to_reduce -= extra_rowspan_sizes.pop().unwrap();
-            }
-            // Subtract remaining height from the last region.
-            if let Some(last_frame_size) = extra_rowspan_sizes.last_mut() {
-                *last_frame_size -= total_height_to_reduce;
-                if extra_rowspan_sizes.len() == 1 && !resolved.is_empty() {
-                    // Cannot reduce below the last already resolved size.
-                    last_frame_size.set_max(last_resolved_size);
+            let amount_to_grow = removed_gutter;
+            if amount_to_grow == latest_amount_to_grow {
+                // The amount to grow has stabilized.
+                // Reduce sizes by the amount actually spanned by gutter.
+                subtract_end_sizes(
+                    &mut simulated_sizes,
+                    total_spanned_gutter - removed_gutter,
+                );
+                if simulating_last_size {
+                    // Ensure the first simulated size is at least as large as
+                    // the last resolved size (its initial value). As it was
+                    // already resolved before, we must not reduce below the
+                    // resolved size to avoid problems with non-rowspan cells.
+                    if let Some(first_simulated_size) = simulated_sizes.first_mut() {
+                        first_simulated_size.set_max(last_resolved_size);
+                    } else {
+                        simulated_sizes.push(last_resolved_size);
+                    }
                 }
+                break;
             }
-        };
-        // Run the simulation up to a maximum of two regions.
-        // TODO: Refactor this. We should probably consider height which will
-        // be occupied regardless of gutter's contribution.
-        if let Some(total_spanned_gutter) = run_simulation(2) {
-            reduce_predicted_sizes(total_spanned_gutter);
-            resolved.extend(extra_rowspan_sizes);
+            // The amount to grow the auto row by has changed since the last
+            // simulation. Let's try again or abort if we reached the max
+            // attempts.
+            latest_amount_to_grow = amount_to_grow
         }
-        resolved.extend(extra_rowspan_sizes);
+        // If the simulation didn't stabilize above, we will be pushing the
+        // unmodified vector of rowspan sizes, ignoring gutter. That means the
+        // auto row will expand more than it normally should. But we did try to
+        // ensure it wouldn't expand more than it should through the above
+        // simulation, to our best efforts.
+        resolved.extend(simulated_sizes);
     }
 
     /// Layout a row with relative height. Such a row cannot break across
@@ -2407,4 +2448,15 @@ fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
         offset += extent;
         offset
     })
+}
+
+/// Subtracts some size from the end of a vector of sizes.
+/// For example, subtracting 5pt from \[2pt, 1pt, 3pt\] will result in \[1pt\].
+fn subtract_end_sizes(sizes: &mut Vec<Abs>, mut subtract: Abs) {
+    while subtract > Abs::zero() && sizes.last().is_some_and(|&size| size <= subtract) {
+        subtract -= sizes.pop().unwrap();
+    }
+    if let Some(last_size) = sizes.last_mut() {
+        *last_size -= subtract;
+    }
 }
