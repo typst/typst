@@ -2118,6 +2118,11 @@ impl<'a> GridLayouter<'a> {
         {
             // The rowspans already fit in the already resolved sizes.
             // No need for simulation.
+            if simulating_last_size {
+                // Simulation cancelled; undo removal of the last resolved
+                // size.
+                resolved.push(last_resolved_size);
+            }
             return;
         }
         let mut regions = self.regions;
@@ -2202,7 +2207,7 @@ impl<'a> GridLayouter<'a> {
             // The amount to grow the auto row by has changed since the last
             // simulation. Let's try again or abort if we reached the max
             // attempts.
-            latest_amount_to_grow = amount_to_grow
+            latest_amount_to_grow = amount_to_grow;
         }
         // If the simulation didn't stabilize above, we will be pushing the
         // unmodified vector of rowspan sizes, ignoring gutter. That means the
