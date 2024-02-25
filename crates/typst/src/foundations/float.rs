@@ -107,6 +107,7 @@ pub struct ToFloat(f64);
 
 cast! {
     ToFloat,
+    v: f64 => Self(v),
     v: bool => Self(v as i64 as f64),
     v: i64 => Self(v as f64),
     v: Ratio => Self(v.get()),
@@ -114,7 +115,6 @@ cast! {
         parse_float(v.clone().into())
             .map_err(|_| eco_format!("invalid float: {}", v))?
     ),
-    v: f64 => Self(v),
 }
 
 fn parse_float(s: EcoString) -> Result<f64, ParseFloatError> {
