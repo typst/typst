@@ -133,7 +133,7 @@
 )
 
 ---
-#set page(height: 8em)
+#set page(height: 10em)
 #table(
   columns: 2,
   rows: (auto, auto, 3em),
@@ -144,7 +144,7 @@
 )
 
 ---
-#set page(height: 8em)
+#set page(height: 10em)
 #table(
   columns: 2,
   rows: (auto, auto, 3em),
