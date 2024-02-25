@@ -120,7 +120,7 @@ impl i64 {
             .at(span)
     }
 
-    /// Raises an integer to some exponent of e.
+    /// Raises e to the given integer as an exponent.
     ///
     /// ```example
     /// #1.exp()
@@ -295,7 +295,7 @@ impl i64 {
         f64Ext::log_(self as f64, span, base)
     }
 
-    /// Calculates the natural logarithm of a number, which must be strictly
+    /// Calculates the natural logarithm of an integer, which must be strictly
     /// positive.
     ///
     /// ```example
@@ -430,6 +430,7 @@ impl i64 {
     /// Determines the minimum of a sequence of numbers.
     ///
     /// ```example
+    /// #10.min(15, 3, 2)
     /// #int.min(1, -3, -5, 20, 3, 6)
     /// ```
     #[func(title = "Minimum")]
@@ -449,6 +450,7 @@ impl i64 {
     /// Determines the maximum of a sequence of numbers.
     ///
     /// ```example
+    /// #10.max(15, 3, 2)
     /// #int.max(1, -3, -5, 20, 3, 6)
     /// ```
     #[func(title = "Maximum")]

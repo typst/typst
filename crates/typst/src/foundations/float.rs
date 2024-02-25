@@ -154,7 +154,7 @@ impl f64 {
         Ok(result)
     }
 
-    /// Raises a floating point number to some exponent of e.
+    /// Raises e to the given floating point number as an exponent.
     ///
     /// ```example
     /// #2.0.exp()
@@ -330,7 +330,7 @@ impl f64 {
         f64::cosh(self)
     }
 
-    /// Calculates the hyperbolic tangent of an hyperbolic angle.
+    /// Calculates the hyperbolic tangent of a hyperbolic angle.
     ///
     /// ```example
     /// #1.5.tanh()
@@ -479,8 +479,8 @@ impl f64 {
     ///
     /// ```example
     /// #assert.eq(5.0.clamp(0.0, 10.0), 5.0)
-    /// #assert.eq(5.0.clamp(6.2, 10.0), 6.2)
-    /// #5.5.clamp(0.0, 4.0)
+    /// #assert.eq(5.0.clamp(6.2, 10), 6.2)
+    /// #5.5.clamp(0, 4)
     /// ```
     #[func]
     pub fn clamp_(
@@ -501,6 +501,7 @@ impl f64 {
     /// Determines the minimum of a sequence of numbers.
     ///
     /// ```example
+    /// #6.2.min(3.1, 6.8)
     /// #float.min(1.5, -3.5, -5.5, 20.5, 3.5, 6.5)
     /// ```
     #[func(title = "Minimum")]
@@ -520,6 +521,7 @@ impl f64 {
     /// Determines the maximum of a sequence of numbers.
     ///
     /// ```example
+    /// #6.2.max(3.1, 6.8)
     /// #float.max(1.5, -3.5, -5.5, 20.5, 3.5, 6.5)
     /// ```
     #[func(title = "Maximum")]
@@ -590,7 +592,7 @@ impl f64 {
     ///
     /// Warning: Due to a floating point round-off error, the remainder may equal the absolute
     /// value of the divisor if the dividend is much smaller in magnitude than the divisor
-    /// and the dividend is negative. This only applies for floating point inputs.
+    /// and the dividend is negative.
     ///
     /// ```example
     /// #7.0.rem-euclid(3.0) \
