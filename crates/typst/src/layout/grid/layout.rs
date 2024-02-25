@@ -2083,16 +2083,7 @@ impl<'a> GridLayouter<'a> {
         // all a single rowspan. These sizes will be appended to
         // 'resolved' once we finish our simulation.
         let mut simulated_sizes: Vec<Abs> = vec![];
-        let mut simulating_last_size = false;
-        let last_resolved_size = if let Some(last_resolved_size) = resolved.pop() {
-            // We will be updating the last resolved size (expanding the auto
-            // row) as needed.
-            simulated_sizes.push(last_resolved_size);
-            simulating_last_size = true;
-            last_resolved_size
-        } else {
-            Abs::zero()
-        };
+        let last_resolved_size = resolved.last().copied();
         let mut max_spanned_row = y;
         for (parent_y, rowspan, sizes) in pending_rowspans {
             let mut sizes = sizes.iter();
@@ -2113,27 +2104,29 @@ impl<'a> GridLayouter<'a> {
             simulated_sizes.extend(sizes);
             max_spanned_row = max_spanned_row.max(parent_y + rowspan - 1);
         }
-        if simulated_sizes.is_empty()
-            || simulating_last_size && simulated_sizes[0] == last_resolved_size
-        {
+        if simulated_sizes.is_empty() && resolved.last().copied() == last_resolved_size {
             // The rowspans already fit in the already resolved sizes.
             // No need for simulation.
-            if simulating_last_size {
-                // Simulation cancelled; undo removal of the last resolved
-                // size.
-                resolved.push(last_resolved_size);
-            }
             return;
         }
+        // We will be updating the last resolved size (expanding the auto
+        // row) as needed. Therefore, consider it as part of the simulation.
+        // At the end, we push it back.
+        if let Some(modified_last_resolved_size) = resolved.pop() {
+            simulated_sizes.push(modified_last_resolved_size);
+        }
+        // Prepare regions for simulation.
         let mut regions = self.regions;
         for _ in 0..resolved.len() {
             // Ensure we start at the region where we will expand the auto
             // row.
             regions.next();
         }
-        // We're now at the (current) last region of this auto row.
-        // Consider resolved height as already taken space.
-        regions.size.y -= last_resolved_size;
+        if let Some(original_last_resolved_size) = last_resolved_size {
+            // We're now at the (current) last region of this auto row.
+            // Consider resolved height as already taken space.
+            regions.size.y -= original_last_resolved_size;
+        }
         let mut latest_amount_to_grow = Abs::zero();
         // Try to simulate up to 5 times. If it doesn't stabilize, we give up.
         for _attempt in 0..5 {
@@ -2191,7 +2184,7 @@ impl<'a> GridLayouter<'a> {
                     &mut simulated_sizes,
                     total_spanned_gutter - removed_gutter,
                 );
-                if simulating_last_size {
+                if let Some(last_resolved_size) = last_resolved_size {
                     // Ensure the first simulated size is at least as large as
                     // the last resolved size (its initial value). As it was
                     // already resolved before, we must not reduce below the
