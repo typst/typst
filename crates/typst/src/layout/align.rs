@@ -453,8 +453,8 @@ impl Add<HAlignment> for VAlignment {
 impl Resolve for VAlignment {
     type Output = FixedAlignment;
 
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.fix(TextElem::dir_in(styles))
+    fn resolve(self, _: StyleChain) -> Self::Output {
+        self.fix(Dir::TTB)
     }
 }
 

@@ -11,8 +11,7 @@ use crate::foundations::{
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Em, FixedAlignment, Frame, LayoutMultiple,
-    LayoutSingle, OuterHAlignment, Point, Regions, Size, SpecificAlignment as SA,
-    VAlignment,
+    LayoutSingle, OuterHAlignment, Point, Regions, Size, SpecificAlignment, VAlignment,
 };
 use crate::math::{
     scaled_font_size, LayoutMath, MathContext, MathRunFrameBuilder, MathSize, MathVariant,
@@ -91,10 +90,10 @@ pub struct EquationElem {
     ///
     /// We can calculate:
     /// $ E &= sqrt(m_0^2 + p^2) \
-    ///     &approx 125 "GeV"    $
+    ///     &approx 125 "GeV" $
     /// ```
-    #[default(SA::Both(OuterHAlignment::End, VAlignment::Horizon))]
-    pub number_align: SA<OuterHAlignment, VAlignment>,
+    #[default(SpecificAlignment::Both(OuterHAlignment::End, VAlignment::Horizon))]
+    pub number_align: SpecificAlignment<OuterHAlignment, VAlignment>,
 
     /// A supplement for the equation.
     ///
@@ -276,9 +275,9 @@ impl LayoutSingle for Packed<EquationElem> {
         let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
 
         let number_align = match self.number_align(styles) {
-            SA::H(h) => SA::Both(h, VAlignment::Horizon),
-            SA::V(v) => SA::Both(OuterHAlignment::End, v),
-            SA::Both(h, v) => SA::Both(h, v),
+            SpecificAlignment::H(h) => SpecificAlignment::Both(h, VAlignment::Horizon),
+            SpecificAlignment::V(v) => SpecificAlignment::Both(OuterHAlignment::End, v),
+            SpecificAlignment::Both(h, v) => SpecificAlignment::Both(h, v),
         };
 
         let frame = add_equation_number(
