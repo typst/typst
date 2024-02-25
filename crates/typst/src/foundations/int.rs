@@ -9,8 +9,8 @@ use crate::foundations::{cast, func, repr, scope, ty, Repr, Str, Value};
 use crate::layout::Angle;
 use crate::syntax::{Span, Spanned};
 
-use super::calc::{minmax, Num};
-use super::float::f64Ext;
+use super::calc::minmax;
+use super::float::{f64Ext, Num};
 
 /// A whole number.
 ///
@@ -735,7 +735,7 @@ impl i64 {
 
 /// Calculates the product of a range of numbers. Used to calculate
 /// permutations. Returns None if the result is larger than `i64::MAX`
-fn fact_impl(start: u64, end: u64) -> Option<i64> {
+pub(super) fn fact_impl(start: u64, end: u64) -> Option<i64> {
     // By convention
     if end + 1 < start {
         return Some(0);
@@ -753,7 +753,7 @@ fn fact_impl(start: u64, end: u64) -> Option<i64> {
 /// Calculates a binomial coefficient, with `n` the upper coefficient and `k`
 /// the lower coefficient. Returns `None` if the result is larger than
 /// `i64::MAX`
-fn binom_impl(n: u64, k: u64) -> Option<i64> {
+pub(super) fn binom_impl(n: u64, k: u64) -> Option<i64> {
     if k > n {
         return Some(0);
     }

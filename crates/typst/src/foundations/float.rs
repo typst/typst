@@ -8,7 +8,7 @@ use crate::foundations::{cast, func, repr, scope, ty, Repr, Str, Value};
 use crate::layout::{Angle, Ratio};
 use crate::syntax::{Span, Spanned};
 
-use super::calc::{minmax, Num};
+use super::calc::minmax;
 
 /// A floating-point number.
 ///
@@ -659,4 +659,62 @@ cast! {
 
 fn parse_float(s: EcoString) -> Result<f64, ParseFloatError> {
     s.replace(repr::MINUS_SIGN, "-").parse()
+}
+
+/// A value which can be passed to functions that work with integers and floats.
+#[derive(Debug, Copy, Clone)]
+pub enum Num {
+    Int(i64),
+    Float(f64),
+}
+
+impl Num {
+    pub(super) fn apply2(
+        self,
+        other: Self,
+        int: impl FnOnce(i64, i64) -> i64,
+        float: impl FnOnce(f64, f64) -> f64,
+    ) -> Num {
+        match (self, other) {
+            (Self::Int(a), Self::Int(b)) => Num::Int(int(a, b)),
+            (a, b) => Num::Float(float(a.float(), b.float())),
+        }
+    }
+
+    pub(super) fn apply3(
+        self,
+        other: Self,
+        third: Self,
+        int: impl FnOnce(i64, i64, i64) -> i64,
+        float: impl FnOnce(f64, f64, f64) -> f64,
+    ) -> Num {
+        match (self, other, third) {
+            (Self::Int(a), Self::Int(b), Self::Int(c)) => Num::Int(int(a, b, c)),
+            (a, b, c) => Num::Float(float(a.float(), b.float(), c.float())),
+        }
+    }
+
+    pub(super) fn float(self) -> f64 {
+        match self {
+            Self::Int(v) => v as f64,
+            Self::Float(v) => v,
+        }
+    }
+
+    pub(super) fn floor(self) -> i64 {
+        match self {
+            Num::Int(n) => n,
+            Num::Float(n) => n.floor() as i64,
+        }
+    }
+}
+
+cast! {
+    Num,
+    self => match self {
+        Self::Int(v) => v.into_value(),
+        Self::Float(v) => v.into_value(),
+    },
+    v: i64 => Self::Int(v),
+    v: f64 => Self::Float(v),
 }
