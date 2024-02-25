@@ -1988,7 +1988,7 @@ impl<'a> GridLayouter<'a> {
                     .skip(y + 1)
                     .take(last_spanned_row - y)
                     .map(|(y, row)| match row {
-                        Sizing::Rel(v) if !self.grid.has_gutter || y % 2 == 0 => {
+                        Sizing::Rel(v) => {
                             let height =
                                 v.resolve(self.styles).relative_to(self.regions.base().y);
                             if !self.grid.has_gutter || y % 2 == 0 {
