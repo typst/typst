@@ -2026,23 +2026,26 @@ impl<'a> GridLayouter<'a> {
                     // the rowspan.
                     // TODO: Use some helper method like splice instead of this.
                     let mut excess_sizes = vec![];
-                    while excess_height > Abs::zero()
-                        && sizes.first().is_some_and(|size| size <= &excess_height)
-                    {
-                        let removed_size = sizes.remove(0);
-                        excess_height -= removed_size;
-                        excess_sizes.push(removed_size);
-                    }
-                    if excess_height > Abs::zero() {
-                        // Don't subtract remaining excess height from the
-                        // first frame size. The idea is that, during
-                        // simulation, we will try to give the rowspan the full
-                        // requested size for the region, not just its excess
-                        // size. For this to work, we have to ensure the
-                        // rowspan will still request as much size on each
-                        // remaining region as before we started subtracting
-                        // the excess height.
-                        excess_sizes.push(excess_height);
+                    for size in &mut sizes {
+                        if excess_height <= Abs::zero() {
+                            break;
+                        }
+                        if *size <= excess_height {
+                            let covered_size = std::mem::take(size);
+                            excess_height -= covered_size;
+                            excess_sizes.push(covered_size)
+                        } else {
+                            // Don't subtract remaining excess height from the
+                            // final covered frame's size. The idea is that,
+                            // during simulation, we will try to give the
+                            // rowspan the full requested size for the region,
+                            // not just its excess size. For this to work, we
+                            // have to ensure the rowspan will still request as
+                            // much size on each remaining region as before we
+                            // started subtracting the excess height.
+                            excess_sizes.push(excess_height);
+                            break;
+                        }
                     }
                     // The excess sizes will be considered final and resolved
                     // below, since they won't be covered by any upcoming rows,
