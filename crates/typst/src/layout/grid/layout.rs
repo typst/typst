@@ -1928,10 +1928,10 @@ impl<'a> GridLayouter<'a> {
         if !pending_rowspans.is_empty() {
             self.simulate_and_measure_rowspans_in_auto_row(
                 y,
-                unbreakable_rows_left,
-                row_group_data,
                 &mut resolved,
                 &pending_rowspans,
+                unbreakable_rows_left,
+                row_group_data,
                 engine,
             )?;
         }

@@ -244,10 +244,10 @@ impl<'a> GridLayouter<'a> {
     pub(super) fn simulate_and_measure_rowspans_in_auto_row(
         &self,
         y: usize,
-        unbreakable_rows_left: usize,
-        row_group_data: &UnbreakableRowGroup,
         resolved: &mut Vec<Abs>,
         pending_rowspans: &[(usize, usize, Vec<Abs>)],
+        unbreakable_rows_left: usize,
+        row_group_data: &UnbreakableRowGroup,
         engine: &mut Engine,
     ) -> SourceResult<()> {
         // To begin our simulation, we have to unify the sizes demanded by
