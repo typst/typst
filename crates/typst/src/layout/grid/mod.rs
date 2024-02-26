@@ -1,5 +1,6 @@
 mod layout;
 mod lines;
+mod rowspans;
 
 pub use self::layout::{Cell, CellGrid, Celled, GridItem, GridLayouter, ResolvableCell};
 pub use self::lines::LinePosition;
