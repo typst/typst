@@ -409,21 +409,6 @@ fn find_math_font(
     Ok(font)
 }
 
-/// A frame's size and insertion point relative to the parent frame.
-struct SizePoint {
-    size: Size,
-    point: Point,
-}
-
-impl SizePoint {
-    pub fn new(input: &(Frame, Point)) -> Self {
-        SizePoint { size: input.0.size(), point: input.1 }
-    }
-    pub fn with_size(size: Size) -> Self {
-        SizePoint { size, point: Point::zero() }
-    }
-}
-
 fn add_equation_number(
     equation_builder: MathRunFrameBuilder,
     number: Frame,
@@ -435,11 +420,15 @@ fn add_equation_number(
     let first = equation_builder
         .frames
         .first()
-        .map_or(SizePoint::with_size(equation_builder.size), SizePoint::new);
+        .map_or((equation_builder.size, Point::zero()), |(frame, point)| {
+            (frame.size(), *point)
+        });
     let last = equation_builder
         .frames
         .last()
-        .map_or(SizePoint::with_size(equation_builder.size), SizePoint::new);
+        .map_or((equation_builder.size, Point::zero()), |(frame, point)| {
+            (frame.size(), *point)
+        });
     let mut equation = equation_builder.build();
 
     let width = if region_size_x.is_finite() {
@@ -449,13 +438,15 @@ fn add_equation_number(
     };
     let height = match number_align.y {
         FixedAlignment::Start => {
-            let excess_above = (number.height() - first.size.y) / 2.0 - first.point.y;
+            let (size, point) = first;
+            let excess_above = (number.height() - size.y) / 2.0 - point.y;
             equation.height() + Abs::zero().max(excess_above)
         }
         FixedAlignment::Center => equation.height().max(number.height()),
         FixedAlignment::End => {
+            let (size, point) = last;
             let excess_below =
-                (number.height() + last.size.y) / 2.0 - equation.height() + last.point.y;
+                (number.height() + size.y) / 2.0 - equation.height() + point.y;
             equation.height() + Abs::zero().max(excess_below)
         }
     };
@@ -477,11 +468,13 @@ fn add_equation_number(
     let dh = |h1: Abs, h2: Abs| (h1 - h2) / 2.0;
     let y = match number_align.y {
         FixedAlignment::Start => {
-            resizing_offset.y + first.point.y + dh(first.size.y, number.height())
+            let (size, point) = first;
+            resizing_offset.y + point.y + dh(size.y, number.height())
         }
         FixedAlignment::Center => dh(equation.height(), number.height()),
         FixedAlignment::End => {
-            resizing_offset.y + last.point.y + dh(last.size.y, number.height())
+            let (size, point) = last;
+            resizing_offset.y + point.y + dh(size.y, number.height())
         }
     };
 

@@ -126,7 +126,7 @@ $ q &= ln sqrt(a b) \
 // A row with "-" only has a height that's smaller than the height of the
 // numbering's layout box. Note we use pattern "1" here, not "(1)", since
 // the parenthesis exceeds the numbering's layout box, due to the default
-// values of "top-edge" & "bottom-edge" of the TextElem that laid it out.
+// settings of top-edge and bottom-edge of the TextElem that laid it out.
 #set math.equation(numbering: "1", number-align: top)
 #box(
 $ - &- - \
