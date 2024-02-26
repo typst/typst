@@ -802,6 +802,13 @@ impl CellGrid {
             }
         })
     }
+
+    /// Checks if the track with the given index is gutter.
+    /// Does not check if the index is a valid track.
+    #[inline]
+    pub(super) fn is_gutter_track(&self, index: usize) -> bool {
+        self.has_gutter && index % 2 == 1
+    }
 }
 
 /// Given a cell's requested x and y, the vector with the resolved cell
@@ -989,7 +996,7 @@ impl<'a> GridLayouter<'a> {
             // Skip to next region if current one is full, but only for content
             // rows, not for gutter rows, and only if we aren't laying out an
             // unbreakable group of rows.
-            let is_content_row = !self.grid.has_gutter || y % 2 == 0;
+            let is_content_row = !self.grid.is_gutter_track(y);
             if self.unbreakable_rows_left == 0 && self.regions.is_full() && is_content_row
             {
                 self.finish_region(engine)?;
@@ -1844,7 +1851,7 @@ impl<'a> GridLayouter<'a> {
                     .fold(
                         (Abs::zero(), Abs::zero()),
                         |(acc_content, acc_gutter), (y, height)| {
-                            if !self.grid.has_gutter || y % 2 == 0 {
+                            if !self.grid.is_gutter_track(y) {
                                 (acc_content + height, acc_gutter)
                             } else {
                                 (acc_content, acc_gutter + height)
@@ -1969,7 +1976,7 @@ impl<'a> GridLayouter<'a> {
             self.finish_region(engine)?;
 
             // Don't skip multiple regions for gutter and don't push a row.
-            if self.grid.has_gutter && y % 2 == 1 {
+            if self.grid.is_gutter_track(y) {
                 return Ok(());
             }
         }
@@ -2082,12 +2089,10 @@ impl<'a> GridLayouter<'a> {
 
     /// Finish rows for one region.
     pub(super) fn finish_region(&mut self, engine: &mut Engine) -> SourceResult<()> {
-        if self.grid.has_gutter
-            && self.lrows.last().is_some_and(|row| {
-                let (Row::Frame(_, y) | Row::Fr(_, y)) = row;
-                y % 2 == 1
-            })
-        {
+        if self.lrows.last().is_some_and(|row| {
+            let (Row::Frame(_, y) | Row::Fr(_, y)) = row;
+            self.grid.is_gutter_track(*y)
+        }) {
             // Remove the last row in the region if it is a gutter row.
             self.lrows.pop().unwrap();
         }

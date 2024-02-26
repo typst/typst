@@ -298,7 +298,7 @@ impl<'a> GridLayouter<'a> {
                     break;
                 }
                 let spanned_y = y + 1 + offset;
-                let is_gutter = self.grid.has_gutter && spanned_y % 2 == 1;
+                let is_gutter = self.grid.is_gutter_track(spanned_y);
                 match row {
                     // Fixed-size rows are what we are interested in.
                     Sizing::Rel(v) => {
