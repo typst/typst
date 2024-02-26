@@ -9,7 +9,7 @@ use crate::introspection::{Meta, MetaElem};
 use crate::layout::{
     Abs, AlignElem, Axes, BlockElem, ColbreakElem, ColumnsElem, FixedAlignment, Fr,
     Fragment, Frame, FrameItem, LayoutMultiple, LayoutSingle, PlaceElem, Point, Regions,
-    Rel, Size, Spacing, VAlignment, VElem,
+    Rel, Size, Spacing, VElem,
 };
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
 use crate::util::Numeric;
@@ -311,7 +311,7 @@ impl<'a> FlowLayouter<'a> {
         let x_align = alignment.map_or(FixedAlignment::Center, |align| {
             align.x().unwrap_or_default().resolve(styles)
         });
-        let y_align = alignment.map(|align| align.y().map(VAlignment::fix));
+        let y_align = alignment.map(|align| align.y().map(|y| y.resolve(styles)));
         let mut frame = placed.layout(engine, styles, self.regions)?.into_frame();
         frame.meta(styles, false);
         let item = FlowItem::Placed { frame, x_align, y_align, delta, float, clearance };

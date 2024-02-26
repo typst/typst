@@ -14,10 +14,12 @@ use super::fragment::SpacingFragment;
 
 pub const TIGHT_LEADING: Em = Em::new(0.25);
 
+/// A linear collection of [`MathFragment`]s.
 #[derive(Debug, Default, Clone)]
-pub struct MathRow(Vec<MathFragment>);
+pub struct MathRun(Vec<MathFragment>);
 
-impl MathRow {
+impl MathRun {
+    /// Takes the given [`MathFragment`]s and do some basic processing.
     pub fn new(fragments: Vec<MathFragment>) -> Self {
         let iter = fragments.into_iter().peekable();
         let mut last: Option<usize> = None;
@@ -93,11 +95,7 @@ impl MathRow {
         self.0.iter()
     }
 
-    /// Extract the sublines of the row.
-    ///
-    /// It is very unintuitive, but in current state of things, a `MathRow` can
-    /// contain several actual rows. That function deconstructs it to "single"
-    /// rows. Hopefully this is only a temporary hack.
+    /// Split by linebreaks, and copy [`MathFragment`]s into rows.
     pub fn rows(&self) -> Vec<Self> {
         self.0
             .split(|frag| matches!(frag, MathFragment::Linebreak))
@@ -141,11 +139,10 @@ impl MathRow {
     }
 
     pub fn into_frame(self, ctx: &MathContext, styles: StyleChain) -> Frame {
-        let align = AlignElem::alignment_in(styles).resolve(styles).x;
         if !self.is_multiline() {
-            self.into_line_frame(&[], align)
+            self.into_line_frame(&[], AlignElem::alignment_in(styles).resolve(styles).x)
         } else {
-            self.multiline_frame_builder(ctx, styles, align).build()
+            self.multiline_frame_builder(ctx, styles).build()
         }
     }
 
@@ -157,14 +154,14 @@ impl MathRow {
         }
     }
 
-    /// Returns a builder that lays out `MathFragment`s into a multi-row frame. The set
-    /// of alignment points are computed from those rows combined.
+    /// Returns a builder that lays out the [`MathFragment`]s into a possibly
+    /// multi-row [`Frame`]. The rows are aligned using the same set of alignment
+    /// points computed from them as a whole.
     pub fn multiline_frame_builder(
         self,
         ctx: &MathContext,
         styles: StyleChain,
-        align: FixedAlignment,
-    ) -> MathRowFrameBuilder {
+    ) -> MathRunFrameBuilder {
         let rows: Vec<_> = self.rows();
         let row_count = rows.len();
         let alignments = alignments(&rows);
@@ -176,6 +173,7 @@ impl MathRow {
             TIGHT_LEADING.at(font_size)
         };
 
+        let align = AlignElem::alignment_in(styles).resolve(styles).x;
         let mut frames: Vec<(Frame, Point)> = vec![];
         let mut size = Size::zero();
         for (i, row) in rows.into_iter().enumerate() {
@@ -197,10 +195,11 @@ impl MathRow {
             frames.push((sub, pos));
         }
 
-        MathRowFrameBuilder { size, frames }
+        MathRunFrameBuilder { size, frames }
     }
 
-    /// Lay out `MathFragment`s into a one-row frame, with alignment points respected.
+    /// Lay out [`MathFragment`]s into a one-row [`Frame`], using the
+    /// caller-provided alignment points.
     pub fn into_line_frame(self, points: &[Abs], align: FixedAlignment) -> Frame {
         let ascent = self.ascent();
         let mut frame = Frame::soft(Size::new(Abs::zero(), ascent + self.descent()));
@@ -347,7 +346,7 @@ impl MathRow {
     }
 }
 
-impl<T: Into<MathFragment>> From<T> for MathRow {
+impl<T: Into<MathFragment>> From<T> for MathRun {
     fn from(fragment: T) -> Self {
         Self(vec![fragment.into()])
     }
@@ -372,17 +371,17 @@ impl Iterator for LeftRightAlternator {
     }
 }
 
-/// How the rows should be aligned and merged into a Frame.
-pub struct MathRowFrameBuilder {
+/// How the rows from the [`MathRun`] should be aligned and merged into a [`Frame`].
+pub struct MathRunFrameBuilder {
     /// The size of the resulting frame.
-    size: Size,
-    /// Sub frames, and the positions where they should be pushed into
+    pub size: Size,
+    /// Sub frames for each row, and the positions where they should be pushed into
     /// the resulting frame.
-    frames: Vec<(Frame, Point)>,
+    pub frames: Vec<(Frame, Point)>,
 }
 
-impl MathRowFrameBuilder {
-    /// Consumes the builder and returns a `Frame`.
+impl MathRunFrameBuilder {
+    /// Consumes the builder and returns a [`Frame`].
     pub fn build(self) -> Frame {
         let mut frame = Frame::soft(self.size);
         for (sub, pos) in self.frames.into_iter() {

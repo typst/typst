@@ -11,9 +11,11 @@ use crate::foundations::{
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Em, FixedAlignment, Frame, LayoutMultiple,
-    LayoutSingle, OuterHAlignment, Point, Regions, Size,
+    LayoutSingle, OuterHAlignment, Point, Regions, Size, SpecificAlignment, VAlignment,
 };
-use crate::math::{scaled_font_size, LayoutMath, MathContext, MathSize, MathVariant};
+use crate::math::{
+    scaled_font_size, LayoutMath, MathContext, MathRunFrameBuilder, MathSize, MathVariant,
+};
 use crate::model::{Numbering, Outlinable, ParElem, Refable, Supplement};
 use crate::syntax::Span;
 use crate::text::{
@@ -78,18 +80,20 @@ pub struct EquationElem {
 
     /// The alignment of the equation numbering.
     ///
-    /// By default, the number is put at the `{end}` of the equation block. Both
-    /// `{start}` and `{end}` respects text direction; for absolute positioning,
-    /// use `{left}` or `{right}`.
+    /// By default, the alignment is `{end} + {horizon}`. For the horizontal
+    /// component, you can use `{right}`, `{left}`, or `{start}` and `{end}`
+    /// of the text direction; for the vertical component, you can use
+    /// `{top}`, `{horizon}`, or `{bottom}`.
     ///
     /// ```example
-    /// #set math.equation(numbering: "(1)", number-align: start)
+    /// #set math.equation(numbering: "(1)", number-align: bottom)
     ///
-    /// With natural units, we know:
-    /// $ E^2 = m^2 + p^2 $
+    /// We can calculate:
+    /// $ E &= sqrt(m_0^2 + p^2) \
+    ///     &approx 125 "GeV" $
     /// ```
-    #[default(OuterHAlignment::End)]
-    pub number_align: OuterHAlignment,
+    #[default(SpecificAlignment::Both(OuterHAlignment::End, VAlignment::Horizon))]
+    pub number_align: SpecificAlignment<OuterHAlignment, VAlignment>,
 
     /// A supplement for the equation.
     ///
@@ -210,12 +214,12 @@ impl Packed<EquationElem> {
         let font = find_math_font(engine, styles, self.span())?;
 
         let mut ctx = MathContext::new(engine, styles, regions, &font);
-        let rows = ctx.layout_into_row(self, styles)?;
+        let run = ctx.layout_into_run(self, styles)?;
 
-        let mut items = if rows.row_count() == 1 {
-            rows.into_par_items()
+        let mut items = if run.row_count() == 1 {
+            run.into_par_items()
         } else {
-            vec![MathParItem::Frame(rows.into_fragment(&ctx, styles).into_frame())]
+            vec![MathParItem::Frame(run.into_fragment(&ctx, styles).into_frame())]
         };
 
         for item in &mut items {
@@ -251,29 +255,39 @@ impl LayoutSingle for Packed<EquationElem> {
         let font = find_math_font(engine, styles, span)?;
 
         let mut ctx = MathContext::new(engine, styles, regions, &font);
-        let mut frame = ctx.layout_into_frame(self, styles)?;
+        let equation_builder = ctx
+            .layout_into_run(self, styles)?
+            .multiline_frame_builder(&ctx, styles);
 
-        if let Some(numbering) = (**self).numbering(styles) {
-            let pod = Regions::one(regions.base(), Axes::splat(false));
-            let number = Counter::of(EquationElem::elem())
-                .at(engine, self.location().unwrap())?
-                .display(engine, numbering)?
-                .spanned(span)
-                .layout(engine, styles, pod)?
-                .into_frame();
+        let Some(numbering) = (**self).numbering(styles) else {
+            return Ok(equation_builder.build());
+        };
 
-            static NUMBER_GUTTER: Em = Em::new(0.5);
-            let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
+        let pod = Regions::one(regions.base(), Axes::splat(false));
+        let number = Counter::of(EquationElem::elem())
+            .at(engine, self.location().unwrap())?
+            .display(engine, numbering)?
+            .spanned(span)
+            .layout(engine, styles, pod)?
+            .into_frame();
 
-            add_equation_number(
-                &mut frame,
-                number,
-                self.number_align(styles).resolve(styles),
-                AlignElem::alignment_in(styles).resolve(styles).x,
-                regions.size.x,
-                full_number_width,
-            );
-        }
+        static NUMBER_GUTTER: Em = Em::new(0.5);
+        let full_number_width = number.width() + NUMBER_GUTTER.resolve(styles);
+
+        let number_align = match self.number_align(styles) {
+            SpecificAlignment::H(h) => SpecificAlignment::Both(h, VAlignment::Horizon),
+            SpecificAlignment::V(v) => SpecificAlignment::Both(OuterHAlignment::End, v),
+            SpecificAlignment::Both(h, v) => SpecificAlignment::Both(h, v),
+        };
+
+        let frame = add_equation_number(
+            equation_builder,
+            number,
+            number_align.resolve(styles),
+            AlignElem::alignment_in(styles).resolve(styles).x,
+            regions.size.x,
+            full_number_width,
+        );
 
         Ok(frame)
     }
@@ -396,35 +410,74 @@ fn find_math_font(
 }
 
 fn add_equation_number(
-    equation: &mut Frame,
+    equation_builder: MathRunFrameBuilder,
     number: Frame,
-    number_align: FixedAlignment,
+    number_align: Axes<FixedAlignment>,
     equation_align: FixedAlignment,
     region_size_x: Abs,
     full_number_width: Abs,
-) {
+) -> Frame {
+    let first = equation_builder
+        .frames
+        .first()
+        .map_or((equation_builder.size, Point::zero()), |(frame, point)| {
+            (frame.size(), *point)
+        });
+    let last = equation_builder
+        .frames
+        .last()
+        .map_or((equation_builder.size, Point::zero()), |(frame, point)| {
+            (frame.size(), *point)
+        });
+    let mut equation = equation_builder.build();
+
     let width = if region_size_x.is_finite() {
         region_size_x
     } else {
         equation.width() + 2.0 * full_number_width
     };
-
-    let height = equation.height().max(number.height());
-    equation.resize(Size::new(width, height), Axes::splat(equation_align));
-
-    let offset = match (equation_align, number_align) {
+    let height = match number_align.y {
+        FixedAlignment::Start => {
+            let (size, point) = first;
+            let excess_above = (number.height() - size.y) / 2.0 - point.y;
+            equation.height() + Abs::zero().max(excess_above)
+        }
+        FixedAlignment::Center => equation.height().max(number.height()),
+        FixedAlignment::End => {
+            let (size, point) = last;
+            let excess_below =
+                (number.height() + size.y) / 2.0 - equation.height() + point.y;
+            equation.height() + Abs::zero().max(excess_below)
+        }
+    };
+    let resizing_offset = equation.resize(
+        Size::new(width, height),
+        Axes::<FixedAlignment>::new(equation_align, number_align.y.inv()),
+    );
+    equation.translate(Point::with_x(match (equation_align, number_align.x) {
         (FixedAlignment::Start, FixedAlignment::Start) => full_number_width,
         (FixedAlignment::End, FixedAlignment::End) => -full_number_width,
         _ => Abs::zero(),
-    };
-    equation.translate(Point::with_x(offset));
+    }));
 
-    let x = match number_align {
+    let x = match number_align.x {
         FixedAlignment::Start => Abs::zero(),
         FixedAlignment::End => equation.width() - number.width(),
         _ => unreachable!(),
     };
-    let y = (equation.height() - number.height()) / 2.0;
+    let dh = |h1: Abs, h2: Abs| (h1 - h2) / 2.0;
+    let y = match number_align.y {
+        FixedAlignment::Start => {
+            let (size, point) = first;
+            resizing_offset.y + point.y + dh(size.y, number.height())
+        }
+        FixedAlignment::Center => dh(equation.height(), number.height()),
+        FixedAlignment::End => {
+            let (size, point) = last;
+            resizing_offset.y + point.y + dh(size.y, number.height())
+        }
+    };
 
     equation.push_frame(Point::new(x, y), number);
+    equation
 }

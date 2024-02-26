@@ -3,7 +3,7 @@ use crate::foundations::{elem, Content, Packed, StyleChain};
 use crate::layout::{Abs, Em, FixedAlignment, Frame, FrameItem, Point, Size};
 use crate::math::{
     alignments, scaled_font_size, style_cramped, style_for_subscript, AlignmentResult,
-    FrameFragment, GlyphFragment, LayoutMath, MathContext, MathRow, Scaled,
+    FrameFragment, GlyphFragment, LayoutMath, MathContext, MathRun, Scaled,
 };
 use crate::syntax::Span;
 use crate::text::TextElem;
@@ -260,13 +260,13 @@ fn layout_underoverspreader(
 ) -> SourceResult<()> {
     let font_size = scaled_font_size(ctx, styles);
     let gap = gap.at(font_size);
-    let body = ctx.layout_into_row(body, styles)?;
+    let body = ctx.layout_into_run(body, styles)?;
     let body_class = body.class();
     let body = body.into_fragment(ctx, styles);
     let glyph = GlyphFragment::new(ctx, styles, c, span);
     let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
 
-    let mut rows = vec![MathRow::new(vec![body]), stretched.into()];
+    let mut rows = vec![MathRun::new(vec![body]), stretched.into()];
 
     let (sup_style, sub_style);
     let row_styles = if reverse {
@@ -280,7 +280,7 @@ fn layout_underoverspreader(
     rows.extend(
         annotation
             .as_ref()
-            .map(|annotation| ctx.layout_into_row(annotation, row_styles))
+            .map(|annotation| ctx.layout_into_run(annotation, row_styles))
             .transpose()?,
     );
 
@@ -301,7 +301,7 @@ fn layout_underoverspreader(
 /// Add a `gap` between each row and uses the baseline of the `baseline`th
 /// row for the whole frame.
 pub(super) fn stack(
-    rows: Vec<MathRow>,
+    rows: Vec<MathRun>,
     align: FixedAlignment,
     gap: Abs,
     baseline: usize,
