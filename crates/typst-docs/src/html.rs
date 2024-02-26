@@ -307,7 +307,7 @@ impl<'a> Handler<'a> {
             return Ok(link);
         }
 
-        crate::link::resolve(link)
+        crate::link::resolve(link, self.resolver.base())
     }
 
     fn nesting(&self) -> usize {

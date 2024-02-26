@@ -78,14 +78,15 @@ static FONTS: Lazy<(Prehashed<FontBook>, Vec<Font>)> = Lazy::new(|| {
 /// Build documentation pages.
 pub fn provide(resolver: &dyn Resolver) -> Vec<PageModel> {
     vec![
-        markdown_page(resolver, "/docs/", "overview.md").with_route("/docs/"),
+        markdown_page(resolver, resolver.base(), "overview.md")
+            .with_route(resolver.base()),
         tutorial_pages(resolver),
         reference_pages(resolver),
         guide_pages(resolver),
         packages_page(resolver),
-        markdown_page(resolver, "/docs/", "changelog.md"),
-        markdown_page(resolver, "/docs/", "roadmap.md"),
-        markdown_page(resolver, "/docs/", "community.md"),
+        markdown_page(resolver, resolver.base(), "changelog.md"),
+        markdown_page(resolver, resolver.base(), "roadmap.md"),
+        markdown_page(resolver, resolver.base(), "community.md"),
     ]
 }
 
@@ -102,6 +103,9 @@ pub trait Resolver {
 
     /// Determine the commits between two tags.
     fn commits(&self, from: &str, to: &str) -> Vec<Commit>;
+
+    /// Get the base URL for the routes and links. This must end with a slash.
+    fn base(&self) -> &str;
 }
 
 /// Create a page from a markdown file.
@@ -128,25 +132,39 @@ fn markdown_page(
 
 /// Build the tutorial.
 fn tutorial_pages(resolver: &dyn Resolver) -> PageModel {
-    let mut page = markdown_page(resolver, "/docs/", "tutorial/welcome.md");
+    let mut page = markdown_page(resolver, resolver.base(), "tutorial/welcome.md");
     page.children = DOCS_DIR
         .get_dir("tutorial")
         .unwrap()
         .files()
         .filter(|file| file.path() != Path::new("tutorial/welcome.md"))
-        .map(|file| markdown_page(resolver, "/docs/tutorial/", file.path()))
+        .map(|file| {
+            markdown_page(resolver, &format!("{}tutorial/", resolver.base()), file.path())
+        })
         .collect();
     page
 }
 
 /// Build the reference.
 fn reference_pages(resolver: &dyn Resolver) -> PageModel {
-    let mut page = markdown_page(resolver, "/docs/", "reference/welcome.md");
+    let mut page = markdown_page(resolver, resolver.base(), "reference/welcome.md");
     page.children = vec![
-        markdown_page(resolver, "/docs/reference/", "reference/syntax.md")
-            .with_part("Language"),
-        markdown_page(resolver, "/docs/reference/", "reference/styling.md"),
-        markdown_page(resolver, "/docs/reference/", "reference/scripting.md"),
+        markdown_page(
+            resolver,
+            &format!("{}reference/", resolver.base()),
+            "reference/syntax.md",
+        )
+        .with_part("Language"),
+        markdown_page(
+            resolver,
+            &format!("{}reference/", resolver.base()),
+            "reference/styling.md",
+        ),
+        markdown_page(
+            resolver,
+            &format!("{}reference/", resolver.base()),
+            "reference/scripting.md",
+        ),
         category_page(resolver, FOUNDATIONS).with_part("Library"),
         category_page(resolver, MODEL),
         category_page(resolver, TEXT),
@@ -162,10 +180,18 @@ fn reference_pages(resolver: &dyn Resolver) -> PageModel {
 
 /// Build the guides section.
 fn guide_pages(resolver: &dyn Resolver) -> PageModel {
-    let mut page = markdown_page(resolver, "/docs/", "guides/welcome.md");
+    let mut page = markdown_page(resolver, resolver.base(), "guides/welcome.md");
     page.children = vec![
-        markdown_page(resolver, "/docs/guides/", "guides/guide-for-latex-users.md"),
-        markdown_page(resolver, "/docs/guides/", "guides/page-setup.md"),
+        markdown_page(
+            resolver,
+            &format!("{}guides/", resolver.base()),
+            "guides/guide-for-latex-users.md",
+        ),
+        markdown_page(
+            resolver,
+            &format!("{}guides/", resolver.base()),
+            "guides/page-setup.md",
+        ),
     ];
     page
 }
@@ -178,7 +204,7 @@ fn packages_page(resolver: &dyn Resolver) -> PageModel {
         .contents_utf8()
         .unwrap();
     PageModel {
-        route: "/docs/packages/".into(),
+        route: eco_format!("{}packages/", resolver.base()),
         title: "Packages".into(),
         description: "Packages for Typst.".into(),
         part: None,
@@ -191,7 +217,7 @@ fn packages_page(resolver: &dyn Resolver) -> PageModel {
 /// Create a page for a category.
 #[track_caller]
 fn category_page(resolver: &dyn Resolver, category: Category) -> PageModel {
-    let route = eco_format!("/docs/reference/{}/", category.name());
+    let route = eco_format!("{}reference/{}/", resolver.base(), category.name());
     let mut children = vec![];
     let mut items = vec![];
     let mut shorthands = None;
@@ -800,6 +826,10 @@ mod tests {
 
         fn commits(&self, _: &str, _: &str) -> Vec<Commit> {
             vec![]
+        }
+
+        fn base(&self) -> &str {
+            "/"
         }
     }
 }
