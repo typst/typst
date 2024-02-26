@@ -188,6 +188,11 @@ pub struct Cell {
     /// override their own stroke properties (and thus have less priority when
     /// defining with which stroke to draw grid lines around this cell).
     pub stroke_overridden: Sides<bool>,
+    /// Whether rows spanned by this cell can be placed in different pages.
+    /// When equal to [`Smart::Auto`], a cell spanning only fixed-size rows is
+    /// unbreakable, while a cell spanning at least one `auto`-sized row is
+    /// breakable.
+    pub breakable: Smart<bool>,
 }
 
 impl From<Content> for Cell {
@@ -200,6 +205,7 @@ impl From<Content> for Cell {
             rowspan: NonZeroUsize::ONE,
             stroke: Sides::splat(None),
             stroke_overridden: Sides::splat(false),
+            breakable: Smart::Auto,
         }
     }
 }
@@ -1865,7 +1871,7 @@ impl<'a> GridLayouter<'a> {
                 // and we can safely reduce how much the auto row expands by
                 // without using simulation.
                 let is_effectively_unbreakable_rowspan = self
-                    .is_unbreakable_rowspan(cell, y)
+                    .is_unbreakable_cell(cell, y)
                     || y + unbreakable_rows_left > last_spanned_row;
 
                 // If the rowspan doesn't end at this row and the grid has

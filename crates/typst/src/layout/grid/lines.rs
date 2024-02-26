@@ -606,7 +606,7 @@ pub(super) fn hline_stroke_at_column(
 mod test {
     use super::super::layout::{Entry, RowPiece};
     use super::*;
-    use crate::foundations::Content;
+    use crate::foundations::{Content, Smart};
     use crate::layout::{Cell, Sides, Sizing};
     use crate::util::NonZeroExt;
 
@@ -618,6 +618,7 @@ mod test {
             rowspan: NonZeroUsize::ONE,
             stroke: Sides::splat(Some(Arc::new(Stroke::default()))),
             stroke_overridden: Sides::splat(false),
+            breakable: Smart::Auto,
         }
     }
 
@@ -629,6 +630,7 @@ mod test {
             rowspan: NonZeroUsize::try_from(rowspan).unwrap(),
             stroke: Sides::splat(Some(Arc::new(Stroke::default()))),
             stroke_overridden: Sides::splat(false),
+            breakable: Smart::Auto,
         }
     }
 

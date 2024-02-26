@@ -549,6 +549,12 @@ pub struct TableCell {
     #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
+
+    /// Whether rows spanned by this cell can be placed in different pages.
+    /// When equal to `{auto}`, a cell spanning only fixed-size rows is
+    /// unbreakable, while a cell spanning at least one `{auto}`-sized row is
+    /// breakable.
+    pub breakable: Smart<bool>,
 }
 
 cast! {
@@ -576,6 +582,7 @@ impl ResolvableCell for Packed<TableCell> {
         let cell = &mut *self;
         let colspan = cell.colspan(styles);
         let rowspan = cell.rowspan(styles);
+        let breakable = cell.breakable(styles);
         let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
 
         let cell_stroke = cell.stroke(styles);
@@ -627,6 +634,7 @@ impl ResolvableCell for Packed<TableCell> {
             rowspan,
             stroke,
             stroke_overridden,
+            breakable,
         }
     }
 
