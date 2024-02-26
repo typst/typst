@@ -76,6 +76,10 @@ impl<'a> Resolver for CliResolver<'a> {
         }
         None
     }
+
+    fn base(&self) -> &str {
+        self.base
+    }
 }
 
 /// Generates the JSON representation of the documentation. This can be used to
@@ -134,8 +138,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     eprintln!("Be warned: the JSON structure is not stable and may change at any time.");
     let json = serde_json::to_string_pretty(&pages)?;
-    // FIXME: This should probably be done in the resolver instead.
-    let json = Regex::new(r#"([^\w\-])/docs/"#)?.replace_all(&json, format!("$1{base}"));
 
     if args.out_file.to_string_lossy() == "-" {
         println!("{json}");
