@@ -221,3 +221,11 @@
   fill: (x, y) => if calc.odd(x + y) { red.lighten(50%) } else { green },
   table.cell(x: 2, y: 6148914691236517206)[a],
 )
+
+---
+// Error: 3:3-3:45 cell would span an exceedingly large position
+// Hint: 3:3-3:45 try reducing the cell's rowspan or colspan
+#grid(
+  columns: 500,
+  grid.cell(rowspan: 6148914691236517206)[a]
+)
