@@ -9,13 +9,13 @@ use typst_docs::{provide, Html, Resolver};
 use typst_render::render;
 
 #[derive(Debug)]
-struct MyResolver<'a> {
+struct CliResolver<'a> {
     assets_dir: &'a Path,
     verbose: bool,
     base: &'a str,
 }
 
-impl<'a> Resolver for MyResolver<'a> {
+impl<'a> Resolver for CliResolver<'a> {
     fn commits(&self, from: &str, to: &str) -> Vec<typst_docs::Commit> {
         if self.verbose {
             eprintln!("commits({from}, {to})");
@@ -122,7 +122,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         base.push('/');
     }
 
-    let resolver = MyResolver {
+    let resolver = CliResolver {
         assets_dir: &args.assets_dir,
         verbose: args.verbose,
         base: &base,
