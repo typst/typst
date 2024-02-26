@@ -359,7 +359,10 @@ impl<'a> GridLayouter<'a> {
                             latest_spanned_gutter_height = height;
                         }
                         let mut skipped_region = false;
-                        while !regions.size.y.fits(height) && !regions.in_last() {
+                        while unbreakable_rows_left == 0
+                            && !regions.size.y.fits(height)
+                            && !regions.in_last()
+                        {
                             // A row was pushed to the next region. Therefore,
                             // the immediately preceding gutter row is removed.
                             extra_amount_to_grow += latest_spanned_gutter_height;
