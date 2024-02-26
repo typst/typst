@@ -63,6 +63,7 @@ use comemo::{Prehashed, Track, Tracked, Validate};
 use ecow::{EcoString, EcoVec};
 use typst_timing::{timed, TimingScope};
 
+use crate::diag::DiagnosticCategory::LayoutDivergence;
 use crate::diag::{warning, FileResult, SourceDiagnostic, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
@@ -147,7 +148,7 @@ fn typeset(
 
         if iter >= 5 {
             tracer.warn(warning!(
-                Span::detached(), "layout did not converge within 5 attempts";
+                Span::detached(), LayoutDivergence, "layout did not converge within 5 attempts";
                 hint: "check if any states or queries are updating themselves"
             ));
             break;

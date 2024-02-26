@@ -10,6 +10,7 @@ use comemo::Tracked;
 use ecow::{eco_vec, EcoVec};
 
 use crate::syntax::{PackageSpec, Span, Spanned, SyntaxError};
+use crate::util::SliceExt;
 use crate::{World, WorldExt};
 
 /// Early-return with a [`StrResult`] or [`SourceResult`].
@@ -78,16 +79,22 @@ macro_rules! __error {
 
 /// Construct a [`SourceDiagnostic`] with severity `Warning`.
 ///
+/// It is required to specify a category for the warning. This is used to group
+/// diagnostics by their category, so that they can be filtered and displayed
+/// separately.
+///
 /// You can also emit hints with the `; hint: "..."` syntax.
 ///
 /// ```
-/// warning!(span, "warning with a {}", "source result");
+/// warning!(span, FontFallback, "warning with a {}", "source result");
 /// warning!(
-///     span, "warning with a {}", "source result";
-///     hint: "hint 1"
+///     span, FontFallback, "warning with a {}", "source result";
+///     hint: "hint 1";
+///     category: FontFallback;
 /// );
 /// warning!(
-///     span, "warning with a {}", "source result";
+///     span, FontFallback,
+///     "warning with a {}", "source result";
 ///     hint: "hint 1";
 ///     hint: "hint 2";
 /// );
@@ -97,6 +104,7 @@ macro_rules! __error {
 macro_rules! __warning {
     (
         $span:expr,
+        $category:expr,
         $fmt:literal $(, $arg:expr)*
         $(; hint: $hint:literal $(, $hint_arg:expr)*)*
         $(,)?
@@ -104,7 +112,7 @@ macro_rules! __warning {
         $crate::diag::SourceDiagnostic::warning(
             $span,
             $crate::diag::eco_format!($fmt, $($arg),*),
-        ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))*
+        ) $(.with_hint($crate::diag::eco_format!($hint, $($hint_arg),*)))* .with_category($category)
     };
 }
 
@@ -119,6 +127,18 @@ pub use {
 
 /// A result that can carry multiple source errors.
 pub type SourceResult<T> = Result<T, EcoVec<SourceDiagnostic>>;
+
+/// [`DiagnosticCategory`] for a [`SourceDiagnostic`].
+///
+/// This is used to group diagnostics by their category, so that they can be
+/// filtered and displayed separately.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub enum DiagnosticCategory {
+    ConsecutiveMarks,
+    FontFallback,
+    LayoutDivergence,
+    UnnecessaryImportRename,
+}
 
 /// An error or warning in a source file.
 ///
@@ -137,6 +157,8 @@ pub struct SourceDiagnostic {
     /// Additional hints to the user, indicating how this problem could be avoided
     /// or worked around.
     pub hints: EcoVec<EcoString>,
+    /// The category of the diagnostic.
+    pub category: Option<DiagnosticCategory>,
 }
 
 /// The severity of a [`SourceDiagnostic`].
@@ -157,6 +179,7 @@ impl SourceDiagnostic {
             trace: eco_vec![],
             message: message.into(),
             hints: eco_vec![],
+            category: None,
         }
     }
 
@@ -168,6 +191,7 @@ impl SourceDiagnostic {
             trace: eco_vec![],
             message: message.into(),
             hints: eco_vec![],
+            category: None,
         }
     }
 
@@ -187,6 +211,18 @@ impl SourceDiagnostic {
         self.hints.extend(hints);
         self
     }
+
+    /// Adds a category to the diagnostic.
+    pub fn with_category(mut self, category: DiagnosticCategory) -> Self {
+        self.category = Some(category);
+        self
+    }
+
+    /// Get the package the diagnostic is part of. If the diagnostic is not part
+    /// of a package, returns `None`.
+    pub fn package(&self) -> Option<&'static PackageSpec> {
+        self.span.id()?.package()
+    }
 }
 
 impl From<SyntaxError> for SourceDiagnostic {
@@ -197,6 +233,7 @@ impl From<SyntaxError> for SourceDiagnostic {
             message: error.message,
             trace: eco_vec![],
             hints: error.hints,
+            category: None,
         }
     }
 }
@@ -503,4 +540,43 @@ pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> EcoString
         }
         err => eco_format!("failed to parse {format} ({err})"),
     }
+}
+
+pub enum WarningSortOrder {
+    /// Sort warnings by their category then by their package.
+    ByCategoryAndPackage,
+    /// Sort warnings by their package then by their category.
+    ByPackageAndCategory,
+}
+
+/// Sort a slice of diagnostics in place.
+pub fn sort_warnings(warnings: &mut [SourceDiagnostic], flavor: WarningSortOrder) {
+    match flavor {
+        WarningSortOrder::ByCategoryAndPackage => {
+            warnings.sort_by_key(|warning| (warning.category, warning.package()));
+        }
+        WarningSortOrder::ByPackageAndCategory => {
+            warnings.sort_by_key(|warning| (warning.package(), warning.category));
+        }
+    }
+}
+
+/// Group consecutive warnings by their package. The input slice must be sorted by
+/// package. See also [`sort_warnings`].
+///
+/// Returns an iterator over the warnings, grouped by their package.
+pub fn group_warnings_by_package(
+    warnings: &[SourceDiagnostic],
+) -> impl Iterator<Item = (Option<&'static PackageSpec>, &'_ [SourceDiagnostic])> {
+    warnings.group_by_key(|warning| warning.package())
+}
+
+/// Group consecutive warnings by their category. The input slice must be sorted by
+/// category. See also [`sort_warnings`].
+///
+/// Returns an iterator over the warnings, grouped by their category.
+pub fn group_warnings_by_category(
+    warnings: &[SourceDiagnostic],
+) -> impl Iterator<Item = (Option<DiagnosticCategory>, &'_ [SourceDiagnostic])> {
+    warnings.group_by_key(|warning| warning.category)
 }

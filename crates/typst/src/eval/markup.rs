@@ -1,3 +1,4 @@
+use crate::diag::DiagnosticCategory::ConsecutiveMarks;
 use crate::diag::{warning, SourceResult};
 use crate::eval::{Eval, Vm};
 use crate::foundations::{Content, Label, NativeElement, Smart, Unlabellable, Value};
@@ -134,7 +135,7 @@ impl Eval for ast::Strong<'_> {
             vm.engine
                 .tracer
                 .warn(warning!(
-                    self.span(), "no text within stars";
+                    self.span(), ConsecutiveMarks, "no text within stars";
                     hint: "using multiple consecutive stars (e.g. **) has no additional effect",
                 ));
         }
@@ -152,7 +153,7 @@ impl Eval for ast::Emph<'_> {
             vm.engine
                 .tracer
                 .warn(warning!(
-                    self.span(), "no text within underscores";
+                    self.span(), ConsecutiveMarks, "no text within underscores";
                     hint: "using multiple consecutive underscores (e.g. __) has no additional effect"
                 ));
         }

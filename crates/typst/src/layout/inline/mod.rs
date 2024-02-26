@@ -70,7 +70,7 @@ pub(crate) fn layout_inline(
         let p = prepare(&mut engine, children, &text, segments, spans, styles, region)?;
 
         // Break the paragraph into lines.
-        let lines = linebreak(&engine, &p, region.x - p.hang);
+        let lines = linebreak(&mut engine, &p, region.x - p.hang);
 
         // Stack the lines into one frame per region.
         finalize(&mut engine, &p, &lines, region, expand)
@@ -679,7 +679,7 @@ fn add_cjk_latin_spacing(items: &mut [Item]) {
 /// items for them.
 fn shape_range<'a>(
     items: &mut Vec<Item<'a>>,
-    engine: &Engine,
+    engine: &mut Engine,
     bidi: &BidiInfo<'a>,
     range: Range,
     spans: &SpanMapper,
@@ -690,7 +690,7 @@ fn shape_range<'a>(
     let region = TextElem::region_in(styles);
     let mut process = |range: Range, level: BidiLevel| {
         let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
-        let shaped = shape(
+        let shaped: ShapedText<'_> = shape(
             engine,
             range.start,
             &bidi.text[range],
@@ -764,7 +764,11 @@ fn shared_get<T: PartialEq>(
 }
 
 /// Find suitable linebreaks.
-fn linebreak<'a>(engine: &Engine, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
+fn linebreak<'a>(
+    engine: &mut Engine,
+    p: &'a Preparation<'a>,
+    width: Abs,
+) -> Vec<Line<'a>> {
     let linebreaks = p.linebreaks.unwrap_or_else(|| {
         if p.justify {
             Linebreaks::Optimized
@@ -783,7 +787,7 @@ fn linebreak<'a>(engine: &Engine, p: &'a Preparation<'a>, width: Abs) -> Vec<Lin
 /// lines greedily, always taking the longest possible line. This may lead to
 /// very unbalanced line, but is fast and simple.
 fn linebreak_simple<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &'a Preparation<'a>,
     width: Abs,
 ) -> Vec<Line<'a>> {
@@ -843,7 +847,7 @@ fn linebreak_simple<'a>(
 /// result is simply the layout determined for the last breakpoint at the end of
 /// text.
 fn linebreak_optimized<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &'a Preparation<'a>,
     width: Abs,
 ) -> Vec<Line<'a>> {
@@ -993,7 +997,7 @@ fn linebreak_optimized<'a>(
 
 /// Create a line which spans the given range.
 fn line<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &'a Preparation,
     mut range: Range,
     breakpoint: Breakpoint,

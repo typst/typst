@@ -5,6 +5,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use az::SaturatingAs;
+use comemo::TrackedMut;
 use ecow::EcoString;
 use rustybuzz::{ShapePlan, Tag, UnicodeBuffer};
 use unicode_script::{Script, UnicodeScript};
@@ -406,7 +407,7 @@ impl<'a> ShapedText<'a> {
     /// The text `range` is relative to the whole paragraph.
     pub fn reshape(
         &'a self,
-        engine: &Engine,
+        engine: &mut Engine,
         spans: &SpanMapper,
         text_range: Range<usize>,
     ) -> ShapedText<'a> {
@@ -441,17 +442,25 @@ impl<'a> ShapedText<'a> {
     }
 
     /// Push a hyphen to end of the text.
-    pub fn push_hyphen(&mut self, engine: &Engine, fallback: bool) {
+    pub fn push_hyphen(&mut self, engine: &mut Engine, fallback: bool) {
         let world = engine.world;
         let book = world.book();
-        let fallback_func = if fallback {
-            Some(|| book.select_fallback(None, self.variant, "-"))
+        let mut fallback_func = if fallback {
+            Some(|| {
+                book.select_fallback(
+                    None,
+                    self.variant,
+                    "-",
+                    TrackedMut::reborrow_mut(&mut engine.tracer),
+                    Span::detached(),
+                )
+            })
         } else {
             None
         };
         let mut chain = families(self.styles)
             .map(|family| book.select(family, self.variant))
-            .chain(fallback_func.iter().map(|f| f()))
+            .chain(fallback_func.iter_mut().map(|f| f()))
             .flatten();
 
         chain.find_map(|id| {
@@ -572,7 +581,7 @@ impl Debug for ShapedText<'_> {
 
 /// Holds shaping results and metadata common to all shaped segments.
 struct ShapingContext<'a, 'v> {
-    engine: &'a Engine<'v>,
+    engine: &'a mut Engine<'v>,
     spans: &'a SpanMapper,
     glyphs: Vec<ShapedGlyph>,
     used: Vec<Font>,
@@ -587,7 +596,7 @@ struct ShapingContext<'a, 'v> {
 /// Shape text into [`ShapedText`].
 #[allow(clippy::too_many_arguments)]
 pub(super) fn shape<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     base: usize,
     text: &'a str,
     spans: &SpanMapper,
@@ -661,7 +670,13 @@ fn shape_segment<'a>(
     if selection.is_none() && ctx.fallback {
         let first = ctx.used.first().map(Font::info);
         selection = book
-            .select_fallback(first, ctx.variant, text)
+            .select_fallback(
+                first,
+                ctx.variant,
+                text,
+                TrackedMut::reborrow_mut(&mut ctx.engine.tracer),
+                ctx.spans.span_at(base).0,
+            )
             .and_then(|id| world.font(id))
             .filter(|font| !ctx.used.contains(font));
     }
