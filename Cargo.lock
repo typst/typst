@@ -2667,7 +2667,6 @@ dependencies = [
  "include_dir",
  "once_cell",
  "pulldown-cmark",
- "regex",
  "serde",
  "serde_json",
  "serde_yaml 0.9.27",

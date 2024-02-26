@@ -2,7 +2,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use clap::Parser;
-use regex::Regex;
 use typst::model::Document;
 use typst::visualize::Color;
 use typst_docs::{provide, Html, Resolver};
