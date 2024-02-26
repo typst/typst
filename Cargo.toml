@@ -17,6 +17,8 @@ keywords = ["typst"]
 
 [workspace.dependencies]
 typst = { path = "crates/typst" }
+typst-assets = { path = "crates/typst-assets" }
+typst-assets-macro = { path = "crates/typst-assets-macro" }
 typst-cli = { path = "crates/typst-cli" }
 typst-docs = { path = "crates/typst-docs" }
 typst-ide = { path = "crates/typst-ide" }
@@ -26,6 +28,7 @@ typst-render = { path = "crates/typst-render" }
 typst-svg = { path = "crates/typst-svg" }
 typst-syntax = { path = "crates/typst-syntax" }
 typst-timing = { path = "crates/typst-timing" }
+anyhow = "1"
 az = "1.2"
 base64 = "0.21.2"
 bitflags = { version = "2", features = ["serde"] }
@@ -100,6 +103,7 @@ syn = { version = "2", features = ["full", "extra-traits"] }
 syntect = { version = "5", default-features = false, features = ["parsing", "regex-fancy", "plist-load", "yaml-load"] }
 tar = "0.4"
 tempfile = "3.7.0"
+termcolor = "1.4"
 time = { version = "0.3.20", features = ["formatting", "macros", "parsing"] }
 tiny-skia = "0.11"
 toml = { version = "0.8", default-features = false, features = ["parse", "display"] }

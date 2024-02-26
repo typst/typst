@@ -1,7 +1,6 @@
 use std::io::{self, IsTerminal, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use codespan_reporting::term::termcolor;
 use ecow::eco_format;
 use once_cell::sync::Lazy;
 use termcolor::{ColorChoice, WriteColor};

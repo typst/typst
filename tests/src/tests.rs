@@ -11,6 +11,7 @@ importantly, `test(x, y)` which will fail the test `if x != y`.
 */
 
 #![allow(clippy::comparison_chain)]
+
 mod metadata;
 
 use self::metadata::*;
@@ -47,8 +48,6 @@ const REF_DIR: &str = "ref";
 const PNG_DIR: &str = "png";
 const PDF_DIR: &str = "pdf";
 const SVG_DIR: &str = "svg";
-const FONT_DIR: &str = "../assets/fonts";
-const ASSET_DIR: &str = "../assets";
 
 /// Arguments that modify test behaviour.
 ///
@@ -124,6 +123,9 @@ impl Args {
 /// Tests all test files and prints a summary.
 fn main() {
     let args = Args::parse();
+
+    // Download all blobs at startup.
+    typst_assets::download_all().unwrap();
 
     // Create loader and context.
     let world = TestWorld::new(args.print);
@@ -269,17 +271,9 @@ struct FileSlot {
 
 impl TestWorld {
     fn new(print: PrintConfig) -> Self {
-        // Search for fonts.
-        let mut fonts = vec![];
-        for entry in WalkDir::new(FONT_DIR)
-            .sort_by_file_name()
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|entry| entry.file_type().is_file())
-        {
-            let data = fs::read(entry.path()).unwrap();
-            fonts.extend(Font::iter(data.into()));
-        }
+        let fonts: Vec<_> = typst_assets::fonts()
+            .flat_map(|data| Font::iter(data.unwrap().into()))
+            .collect();
 
         Self {
             print,
@@ -382,11 +376,13 @@ fn system_path(id: FileId) -> FileResult<PathBuf> {
 fn read(path: &Path) -> FileResult<Vec<u8>> {
     // Basically symlinks `assets/files` to `tests/files` so that the assets
     // are within the test project root.
-    let mut resolved = path.to_path_buf();
-    if path.starts_with("files/") {
-        resolved = Path::new(ASSET_DIR).join(path);
+    if let Ok(rest) = path.strip_prefix("files/") {
+        let filename = rest.to_string_lossy();
+        return typst_assets::get(&filename)
+            .map_err(|_| FileError::NotFound(path.into()));
     }
 
+    let resolved = path.to_path_buf();
     let f = |e| FileError::from_io(e, path);
     if fs::metadata(&resolved).map_err(f)?.is_dir() {
         Err(FileError::IsDirectory)

@@ -1,0 +1,27 @@
+[package]
+name = "typst-assets-macro"
+description = "Proc-macro for build time embedding of assets in Typst."
+version = { workspace = true }
+rust-version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+categories = { workspace = true }
+keywords = { workspace = true }
+
+[lib]
+proc-macro = true
+test = false
+doctest = false
+bench = false
+
+[dependencies]
+typst-assets = { workspace = true }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true }
+
+[lints]
+workspace = true

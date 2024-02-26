@@ -201,7 +201,9 @@ cd typst
 cargo build --release
 ```
 
-The optimized binary will be stored in `target/release/`.
+The optimized binary will be stored in `target/release/`. In the process of
+building the CLI, fonts for embedding into the binary will be downloaded from
+`typst.org`.
 
 Another good way to contribute is by [sharing packages][packages] with the
 community.

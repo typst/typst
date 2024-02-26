@@ -21,6 +21,7 @@ doc = false
 
 [dependencies]
 typst = { workspace = true }
+typst-assets-macro = { workspace = true }
 typst-macros = { workspace = true }
 typst-pdf = { workspace = true }
 typst-render = { workspace = true }
@@ -52,6 +53,7 @@ serde_yaml = { workspace = true }
 siphasher = { workspace = true }
 tar = { workspace = true }
 tempfile = { workspace = true }
+termcolor = { workspace = true }
 ureq = { workspace = true }
 xz2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }

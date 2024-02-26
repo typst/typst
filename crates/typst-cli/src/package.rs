@@ -2,7 +2,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use codespan_reporting::term::{self, termcolor};
+use codespan_reporting::term;
 use ecow::eco_format;
 use termcolor::WriteColor;
 use typst::diag::{PackageError, PackageResult};

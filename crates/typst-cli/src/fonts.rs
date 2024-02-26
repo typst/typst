@@ -5,6 +5,7 @@ use std::sync::OnceLock;
 use fontdb::{Database, Source};
 use typst::diag::StrResult;
 use typst::text::{Font, FontBook, FontInfo, FontVariant};
+use typst_assets_macro::include_asset;
 use typst_timing::TimingScope;
 
 use crate::args::FontsCommand;
@@ -119,26 +120,20 @@ impl FontSearcher {
             }
         };
 
-        macro_rules! add {
-            ($filename:literal) => {
-                process(include_bytes!(concat!("../../../assets/fonts/", $filename)));
-            };
-        }
-
         // Embed default fonts.
-        add!("LinLibertine_R.ttf");
-        add!("LinLibertine_RB.ttf");
-        add!("LinLibertine_RBI.ttf");
-        add!("LinLibertine_RI.ttf");
-        add!("NewCMMath-Book.otf");
-        add!("NewCMMath-Regular.otf");
-        add!("NewCM10-Regular.otf");
-        add!("NewCM10-Bold.otf");
-        add!("NewCM10-Italic.otf");
-        add!("NewCM10-BoldItalic.otf");
-        add!("DejaVuSansMono.ttf");
-        add!("DejaVuSansMono-Bold.ttf");
-        add!("DejaVuSansMono-Oblique.ttf");
-        add!("DejaVuSansMono-BoldOblique.ttf");
+        process(include_asset!("LinLibertine_R.ttf"));
+        process(include_asset!("LinLibertine_RB.ttf"));
+        process(include_asset!("LinLibertine_RBI.ttf"));
+        process(include_asset!("LinLibertine_RI.ttf"));
+        process(include_asset!("NewCMMath-Book.otf"));
+        process(include_asset!("NewCMMath-Regular.otf"));
+        process(include_asset!("NewCM10-Bold.otf"));
+        process(include_asset!("NewCM10-BoldItalic.otf"));
+        process(include_asset!("NewCM10-Italic.otf"));
+        process(include_asset!("NewCM10-Regular.otf"));
+        process(include_asset!("DejaVuSansMono-Bold.ttf"));
+        process(include_asset!("DejaVuSansMono-BoldOblique.ttf"));
+        process(include_asset!("DejaVuSansMono-Oblique.ttf"));
+        process(include_asset!("DejaVuSansMono.ttf"));
     }
 }

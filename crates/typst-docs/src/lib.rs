@@ -36,8 +36,6 @@ use typst::visualize::VISUALIZE;
 use typst::Library;
 
 static DOCS_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../docs");
-static FILE_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../assets/files");
-static FONT_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../assets/fonts");
 
 static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| {
     let mut groups: Vec<GroupData> = yaml("reference/groups.yml");
@@ -67,9 +65,8 @@ static LIBRARY: Lazy<Prehashed<Library>> = Lazy::new(|| {
 });
 
 static FONTS: Lazy<(Prehashed<FontBook>, Vec<Font>)> = Lazy::new(|| {
-    let fonts: Vec<_> = FONT_DIR
-        .files()
-        .flat_map(|file| Font::iter(file.contents().into()))
+    let fonts: Vec<_> = typst_assets::fonts()
+        .flat_map(|data| Font::iter(data.unwrap().into()))
         .collect();
     let book = FontBook::from_fonts(&fonts);
     (Prehashed::new(book), fonts)

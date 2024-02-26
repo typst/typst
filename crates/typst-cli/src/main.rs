@@ -17,9 +17,9 @@ use std::process::ExitCode;
 
 use clap::Parser;
 use codespan_reporting::term;
-use codespan_reporting::term::termcolor::WriteColor;
 use ecow::eco_format;
 use once_cell::sync::Lazy;
+use termcolor::WriteColor;
 
 use crate::args::{CliArguments, Command};
 use crate::timings::Timer;

@@ -1,0 +1,26 @@
+[package]
+name = "typst-assets"
+description = "Provides assets to other Typst crates."
+version = { workspace = true }
+rust-version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+categories = { workspace = true }
+keywords = { workspace = true }
+
+[lib]
+doctest = false
+bench = false
+
+[dependencies]
+anyhow = { workspace = true }
+native-tls = { workspace = true }
+rayon = { workspace = true }
+termcolor = { workspace = true }
+ureq = { workspace = true }
+
+[lints]
+workspace = true

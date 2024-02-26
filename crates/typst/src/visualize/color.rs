@@ -37,8 +37,8 @@ const ANGLE_EPSILON: f32 = 1e-5;
 /// to convert from CMYK to RGB. It is based on the CGATS TR 001-1995
 /// specification. See
 /// https://github.com/saucecontrol/Compact-ICC-Profiles#cmyk.
-static CGATS001_COMPACT_PROFILE: Lazy<Box<Profile>> = Lazy::new(|| {
-    let bytes = include_bytes!("../../assets/CGATS001Compat-v2-micro.icc");
+static CMYK_TO_XYZ: Lazy<Box<Profile>> = Lazy::new(|| {
+    let bytes = include_bytes!("../../data/CMYK-to-XYZ.icc");
     Profile::new_from_slice(bytes, false).unwrap()
 });
 
@@ -51,7 +51,7 @@ static SRGB_PROFILE: Lazy<Box<Profile>> = Lazy::new(|| {
 
 static TO_SRGB: Lazy<qcms::Transform> = Lazy::new(|| {
     qcms::Transform::new_to(
-        &CGATS001_COMPACT_PROFILE,
+        &CMYK_TO_XYZ,
         &SRGB_PROFILE,
         qcms::DataType::CMYK,
         qcms::DataType::RGB8,

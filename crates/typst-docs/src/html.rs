@@ -17,7 +17,7 @@ use typst::{Library, World};
 use unscanny::Scanner;
 use yaml_front_matter::YamlFrontMatter;
 
-use crate::{contributors, OutlineItem, Resolver, FILE_DIR, FONTS, LIBRARY};
+use crate::{contributors, OutlineItem, Resolver, FONTS, LIBRARY};
 
 /// HTML documentation.
 #[derive(Serialize)]
@@ -250,8 +250,8 @@ impl<'a> Handler<'a> {
     }
 
     fn handle_image(&self, link: &str) -> String {
-        if let Some(file) = FILE_DIR.get_file(link) {
-            self.resolver.image(link, file.contents())
+        if let Ok(data) = typst_assets::get(link) {
+            self.resolver.image(link, &data)
         } else if let Some(url) = self.resolver.link(link) {
             url
         } else {
@@ -451,10 +451,8 @@ impl World for DocWorld {
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
         assert!(id.package().is_none());
-        Ok(FILE_DIR
-            .get_file(id.vpath().as_rootless_path())
-            .unwrap_or_else(|| panic!("failed to load {:?}", id.vpath()))
-            .contents()
+        Ok(typst_assets::get(&id.vpath().as_rootless_path().to_string_lossy())
+            .unwrap_or_else(|_| panic!("failed to load {:?}", id.vpath()))
             .into())
     }
 

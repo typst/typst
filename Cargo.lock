@@ -81,6 +81,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.80"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ad32ce52e4161730f7098c077cd2ed6229b5804ccf99e5366be1ab72a98b4e1"
+
+[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2614,6 +2620,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "typst-assets"
+version = "0.10.0"
+dependencies = [
+ "anyhow",
+ "native-tls",
+ "rayon",
+ "termcolor",
+ "ureq",
+]
+
+[[package]]
+name = "typst-assets-macro"
+version = "0.10.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+ "typst-assets",
+]
+
+[[package]]
 name = "typst-cli"
 version = "0.10.0"
 dependencies = [
@@ -2645,7 +2672,9 @@ dependencies = [
  "siphasher 1.0.0",
  "tar",
  "tempfile",
+ "termcolor",
  "typst",
+ "typst-assets-macro",
  "typst-macros",
  "typst-pdf",
  "typst-render",
@@ -2673,6 +2702,7 @@ dependencies = [
  "syntect",
  "typed-arena",
  "typst",
+ "typst-assets",
  "typst-render",
  "unicode_names2",
  "unscanny",
@@ -2686,6 +2716,7 @@ dependencies = [
  "comemo",
  "libfuzzer-sys",
  "typst",
+ "typst-assets-macro",
  "typst-render",
  "typst-syntax",
 ]
@@ -2800,7 +2831,10 @@ dependencies = [
  "tiny-skia",
  "ttf-parser",
  "typst",
+ "typst-assets",
+ "typst-assets-macro",
  "typst-ide",
+ "typst-macros",
  "typst-pdf",
  "typst-render",
  "typst-svg",

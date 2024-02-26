@@ -7,10 +7,11 @@ use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook};
 use typst::visualize::Color;
 use typst::{Library, World};
+use typst_assets_macro::include_asset;
 use unscanny::Scanner;
 
 const TEXT: &str = include_str!("../typ/compiler/bench.typ");
-const FONT: &[u8] = include_bytes!("../../assets/fonts/LinLibertine_R.ttf");
+const FONT: &[u8] = include_asset!("LinLibertine_R.ttf");
 
 main!(
     bench_decode,
