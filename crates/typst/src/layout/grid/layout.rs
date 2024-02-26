@@ -2024,20 +2024,18 @@ impl<'a> GridLayouter<'a> {
                     .take(last_spanned_row - y)
                     .map(|(y, row)| match row {
                         Sizing::Rel(v) => {
-                            let height =
-                                v.resolve(self.styles).relative_to(self.regions.base().y);
-                            if !self.grid.has_gutter || y % 2 == 0 {
-                                (height, Abs::zero())
-                            } else {
-                                (Abs::zero(), height)
-                            }
+                            (y, v.resolve(self.styles).relative_to(self.regions.base().y))
                         }
-                        _ => (Abs::zero(), Abs::zero()),
+                        _ => (y, Abs::zero()),
                     })
                     .fold(
                         (Abs::zero(), Abs::zero()),
-                        |(acc_content, acc_gutter), (content, gutter)| {
-                            (acc_content + content, acc_gutter + gutter)
+                        |(acc_content, acc_gutter), (y, height)| {
+                            if !self.grid.has_gutter || y % 2 == 0 {
+                                (acc_content + height, acc_gutter)
+                            } else {
+                                (acc_content, acc_gutter + height)
+                            }
                         },
                     );
 
