@@ -173,3 +173,9 @@
 = Introduction
 = Background
 *Hi* _there_
+
+---
+// Test error when captured variable is assigned to.
+#let i = 0
+// Error: 11-12 variables from outside the context expression are read-only and cannot be modified
+#context (i = 1)

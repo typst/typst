@@ -3,7 +3,7 @@ use ecow::{eco_vec, EcoVec};
 use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult};
 use crate::eval::{ops, CapturesVisitor, Eval, Vm};
 use crate::foundations::{
-    Array, Closure, Content, ContextElem, Dict, Func, NativeElement, Str, Value,
+    Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement, Str, Value,
 };
 use crate::syntax::ast::{self, AstNode};
 
@@ -339,7 +339,7 @@ impl Eval for ast::Contextual<'_> {
 
         // Collect captured variables.
         let captured = {
-            let mut visitor = CapturesVisitor::new(Some(&vm.scopes));
+            let mut visitor = CapturesVisitor::new(Some(&vm.scopes), Capturer::Context);
             visitor.visit(body.to_untyped());
             visitor.finish()
         };

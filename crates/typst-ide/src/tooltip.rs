@@ -3,7 +3,7 @@ use std::fmt::Write;
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use typst::eval::{CapturesVisitor, Tracer};
-use typst::foundations::{repr, CastInfo, Repr, Value};
+use typst::foundations::{repr, Capturer, CastInfo, Repr, Value};
 use typst::layout::Length;
 use typst::model::Document;
 use typst::syntax::{ast, LinkedNode, Source, SyntaxKind};
@@ -120,7 +120,7 @@ fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
     }
 
     // Analyze the closure's captures.
-    let mut visitor = CapturesVisitor::new(None);
+    let mut visitor = CapturesVisitor::new(None, Capturer::Function);
     visitor.visit(parent);
 
     let captures = visitor.finish();

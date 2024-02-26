@@ -5,8 +5,8 @@ use crate::diag::{bail, error, At, HintedStrResult, SourceResult, Trace, Tracepo
 use crate::engine::Engine;
 use crate::eval::{Access, Eval, FlowEvent, Route, Tracer, Vm};
 use crate::foundations::{
-    call_method_mut, is_mutating_method, Arg, Args, Bytes, Closure, Content, Context,
-    Func, IntoValue, NativeElement, Scope, Scopes, Value,
+    call_method_mut, is_mutating_method, Arg, Args, Bytes, Capturer, Closure, Content,
+    Context, Func, IntoValue, NativeElement, Scope, Scopes, Value,
 };
 use crate::introspection::{Introspector, Locator};
 use crate::math::{Accent, AccentElem, LrElem};
@@ -246,7 +246,7 @@ impl Eval for ast::Closure<'_> {
 
         // Collect captured variables.
         let captured = {
-            let mut visitor = CapturesVisitor::new(Some(&vm.scopes));
+            let mut visitor = CapturesVisitor::new(Some(&vm.scopes), Capturer::Function);
             visitor.visit(self.to_untyped());
             visitor.finish()
         };
@@ -384,15 +384,17 @@ pub struct CapturesVisitor<'a> {
     external: Option<&'a Scopes<'a>>,
     internal: Scopes<'a>,
     captures: Scope,
+    capturer: Capturer,
 }
 
 impl<'a> CapturesVisitor<'a> {
     /// Create a new visitor for the given external scopes.
-    pub fn new(external: Option<&'a Scopes<'a>>) -> Self {
+    pub fn new(external: Option<&'a Scopes<'a>>, capturer: Capturer) -> Self {
         Self {
             external,
             internal: Scopes::new(None),
             captures: Scope::new(),
+            capturer,
         }
     }
 
@@ -536,7 +538,7 @@ impl<'a> CapturesVisitor<'a> {
                 return;
             };
 
-            self.captures.define_captured(ident, value.clone());
+            self.captures.define_captured(ident, value.clone(), self.capturer);
         }
     }
 }
@@ -554,7 +556,7 @@ mod tests {
         scopes.top.define("y", 0);
         scopes.top.define("z", 0);
 
-        let mut visitor = CapturesVisitor::new(Some(&scopes));
+        let mut visitor = CapturesVisitor::new(Some(&scopes), Capturer::Function);
         let root = parse(text);
         visitor.visit(&root);
 
