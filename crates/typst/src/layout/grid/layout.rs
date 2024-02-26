@@ -2039,6 +2039,16 @@ impl<'a> GridLayouter<'a> {
                         },
                     );
 
+                let is_unbreakable_rowspan = self.is_unbreakable_rowspan(cell, y);
+                let will_be_covered_height = if is_unbreakable_rowspan {
+                    // When the rowspan is unbreakable, its spanned gutter will
+                    // certainly be in the same region as all of its other
+                    // spanned rows, thus gutters won't be removed.
+                    will_be_covered_height + spanned_gutter_height
+                } else {
+                    will_be_covered_height
+                };
+
                 // Remove future frames which will already be covered by
                 // further rows spanned by this cell. Ignore gutter rows here
                 // at first (gutter rows are only considered later, through a
@@ -2047,10 +2057,16 @@ impl<'a> GridLayouter<'a> {
 
                 // If the rowspan doesn't end at this row and the grid has
                 // gutter, we will need to run a simulation to find out how
-                // much to expand this row by later.
+                // much to expand this row by later. This is because gutters
+                // spanned by this rowspan might be removed if they appear
+                // around a pagebreak, so the auto row might have to expand a
+                // bit more to compensate for the missing gutter height.
+                // However, unbreakable rowspans aren't affected by that
+                // problem.
                 if parent_y + rowspan != y + 1
                     && !sizes.is_empty()
                     && self.grid.has_gutter
+                    && !is_unbreakable_rowspan
                 {
                     // Height not covered by any upcoming rows, gutter or not.
                     let mut excess_height =
