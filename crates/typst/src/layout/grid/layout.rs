@@ -1656,6 +1656,19 @@ impl<'a> GridLayouter<'a> {
             // regions to the current backlog to form the rowspan's expected
             // backlog.
             let rowspan_backlog: Vec<Abs>;
+
+            // Each declaration, from left to right:
+            // 1. The height available to the cell in the first region.
+            // Usually, this will just be the size remaining in the current
+            // region.
+            // 2. The backlog of upcoming region heights to specify as
+            // available to the cell.
+            // 3. The total height of the cell covered by previously spanned
+            // rows in this region. This is used by rowspans to be able to tell
+            // how much the auto row needs to expand.
+            // 4. The amount of frames laid out by this cell in previous
+            // regions. When the cell isn't a rowspan, this is always zero.
+            // These frames are skipped after measuring.
             let (height, backlog, height_in_this_region, frames_in_previous_regions);
             if rowspan == 1 {
                 // Not a rowspan, so the cell only occupies this row. Therefore:
@@ -1705,9 +1718,9 @@ impl<'a> GridLayouter<'a> {
                     })
                     .sum();
 
-                // Make sure to also subtract the sizes of rows which were
-                // already measured, but not pushed to 'self.lrows' yet due to
-                // an unbreakable row group being currently simulated.
+                // If we're currently simulating an unbreakable row group, also
+                // consider the height of previously spanned rows which are in
+                // the row group but not yet laid out.
                 let unbreakable_height: Abs = previous_unbreakable_rows
                     .iter()
                     .filter(|(y, _)| (parent_y..parent_y + rowspan).contains(y))
@@ -1729,7 +1742,8 @@ impl<'a> GridLayouter<'a> {
                     // has at least one region height).
                     // Therefore, its initial height will be the height in its
                     // first spanned region, and the backlog will be the
-                    // remaining heights plus the current backlog.
+                    // remaining heights, plus the current region's size, plus
+                    // the current backlog.
                     frames_in_previous_regions = rowspan_other_heights.len() + 1;
                     rowspan_backlog = if unbreakable {
                         // No extra backlog if this is an unbreakable auto row.
@@ -1742,9 +1756,10 @@ impl<'a> GridLayouter<'a> {
                             .chain(std::iter::once(self.initial.y))
                             .collect::<Vec<_>>()
                     } else {
-                        // Join the rowspan's already laid out heights with the
-                        // current backlog to have the backlog we can predict
-                        // for it.
+                        // This auto row is breakable. Therefore, join the
+                        // rowspan's already laid out heights with the current
+                        // region's height and current backlog to ensure a good
+                        // level of accuracy in the measurements.
                         rowspan_other_heights
                             .iter()
                             .copied()
@@ -1757,10 +1772,11 @@ impl<'a> GridLayouter<'a> {
                 } else {
                     // The rowspan started in the current region, as its vector
                     // of heights in regions is currently empty.
-                    // Therefore, the height it has available at its first row
-                    // will be the current available size, plus the size
-                    // spanned in previous rows.
-                    // The backlog will be the same as now.
+                    // Therefore, the initial height it has available will be
+                    // the current available size, plus the size spanned in
+                    // previous rows in this region (and/or unbreakable row
+                    // group, if it's being simulated).
+                    // The backlog will be the same as the current one.
                     frames_in_previous_regions = 0;
                     height = height_in_this_region + self.regions.size.y;
                     backlog = &self.regions.backlog;
@@ -1774,15 +1790,21 @@ impl<'a> GridLayouter<'a> {
                 let mut pod = Regions::one(Axes::new(width, height), Axes::splat(true));
                 pod.full = self.regions.full;
                 if frames_in_previous_regions == 0 {
+                    // Cells which started at this region will only have a
+                    // single frame for measuring purposes - even if they're
+                    // breakable rowspans, as a best effort.
                     vec![cell.measure(engine, self.styles, pod)?.into_frame()]
                 } else {
-                    // Best effort to conciliate a breakable rowspan going
-                    // through an unbreakable auto row. Ensure it goes through
-                    // previously laid out regions, but stops at this one.
+                    // Best effort to conciliate a breakable rowspan which
+                    // started at a previous region going through an
+                    // unbreakable auto row. Ensure it goes through previously
+                    // laid out regions, but stops at this one when measuring.
                     pod.backlog = backlog;
                     cell.measure(engine, self.styles, pod)?.into_frames()
                 }
             } else {
+                // This row is breakable, so measure the cell normally, with
+                // the initial height and backlog determined previously.
                 let mut pod = self.regions;
                 pod.size = Axes::new(width, height);
                 pod.backlog = backlog;
@@ -1809,14 +1831,17 @@ impl<'a> GridLayouter<'a> {
                 .collect::<Vec<_>>();
 
             // Don't expand this row more than the cell needs.
-            // To do so, we must subtract, from the cell's expected height,
-            // the already resolved heights of its spanned rows. Note that this
-            // is the last spanned auto row, so all other auto rows were
-            // already resolved, as well as previous fractional rows.
+            // To figure out how much height the cell needs, we must first
+            // subtract, from the cell's expected height, the already resolved
+            // heights of its spanned rows. Note that this is the last spanned
+            // auto row, so all previous auto rows were already resolved, as
+            // well as fractional rows in previous regions.
             // Additionally, we subtract the heights of fixed-size rows which
-            // weren't resolved yet.
-            // Thus, only upcoming fractional rows won't be included in this
-            // calculation.
+            // weren't laid out yet, since those heights won't change in
+            // principle.
+            // Upcoming fractional rows are ignored.
+            // Upcoming gutter rows might be removed, so we need to simulate
+            // them.
             if rowspan > 1 {
                 // Subtract already covered height from previous rows in the
                 // current region, if applicable.
@@ -1868,10 +1893,10 @@ impl<'a> GridLayouter<'a> {
                         },
                     );
 
-                let is_unbreakable_rowspan = self.is_unbreakable_rowspan(cell, y);
-                let will_be_covered_height = if is_unbreakable_rowspan
-                    || y + unbreakable_rows_left > last_spanned_row
-                {
+                let is_effectively_unbreakable_rowspan = self
+                    .is_unbreakable_rowspan(cell, y)
+                    || y + unbreakable_rows_left > last_spanned_row;
+                let will_be_covered_height = if is_effectively_unbreakable_rowspan {
                     // When the rowspan is unbreakable, or all of its upcoming
                     // spanned rows are unbreakable, its spanned gutter will
                     // certainly be in the same region as all of its other
@@ -1879,6 +1904,9 @@ impl<'a> GridLayouter<'a> {
                     // safely reduce how much the auto row expands by.
                     will_be_covered_height + spanned_gutter_height
                 } else {
+                    // TODO: Perhaps we always need to simulate breakable
+                    // rowspans because of relative lengths being different
+                    // depending on the region.
                     will_be_covered_height
                 };
 
@@ -1899,8 +1927,7 @@ impl<'a> GridLayouter<'a> {
                 if y != last_spanned_row
                     && !sizes.is_empty()
                     && self.grid.has_gutter
-                    && !is_unbreakable_rowspan
-                    && y + unbreakable_rows_left <= last_spanned_row
+                    && !is_effectively_unbreakable_rowspan
                 {
                     // Height not covered by any upcoming rows, gutter or not.
                     let mut excess_height =
