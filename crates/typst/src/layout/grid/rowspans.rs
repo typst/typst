@@ -42,7 +42,7 @@ impl<'a> GridLayouter<'a> {
             };
             let first_column = self.rcols[x];
             let cell = self.grid.cell(x, y).unwrap();
-            let width = self.cell_spanned_width(x, cell.colspan.get());
+            let width = self.cell_spanned_width(cell, x);
 
             // Prepare regions.
             let size = Size::new(width, first_height);
@@ -87,8 +87,7 @@ impl<'a> GridLayouter<'a> {
                 dx += rcol;
                 continue;
             };
-            let rowspan = cell.rowspan.get();
-            let rowspan = if self.grid.has_gutter { 2 * rowspan - 1 } else { rowspan };
+            let rowspan = self.grid.effective_rowspan_of_cell(cell);
             if rowspan == 1 {
                 dx += rcol;
                 continue;
@@ -113,7 +112,7 @@ impl<'a> GridLayouter<'a> {
     /// rowspan. This only holds when the cell spans multiple rows, of which
     /// none are auto rows.
     pub(super) fn is_unbreakable_rowspan(&self, cell: &Cell, y: usize) -> bool {
-        let rowspan = cell.rowspan.get();
+        let rowspan = self.grid.effective_rowspan_of_cell(cell);
         // Unbreakable rowspans span more than one row and do not span any auto
         // rows.
         rowspan > 1
@@ -122,7 +121,7 @@ impl<'a> GridLayouter<'a> {
                 .rows
                 .iter()
                 .skip(y)
-                .take(if self.grid.has_gutter { 2 * rowspan - 1 } else { rowspan })
+                .take(rowspan)
                 .all(|&row| row != Sizing::Auto)
     }
 
@@ -162,10 +161,8 @@ impl<'a> GridLayouter<'a> {
                 let Some(cell) = self.grid.cell(x, y) else {
                     continue;
                 };
-                let rowspan = cell.rowspan.get();
+                let rowspan = self.grid.effective_rowspan_of_cell(cell);
                 if rowspan > 1 && self.is_unbreakable_rowspan(cell, y) {
-                    let rowspan =
-                        if self.grid.has_gutter { 2 * rowspan - 1 } else { rowspan };
                     // At least the next 'rowspan' rows should be grouped together,
                     // in the same page, as this rowspan can't be broken apart.
                     // Since the last row in a rowspan is never gutter, here we
