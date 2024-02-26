@@ -917,13 +917,6 @@ pub struct GridLayouter<'a> {
     /// future rows must be added to 'unbreakable_row_group' first before being
     /// pushed to 'lrows'.
     unbreakable_rows_left: usize,
-    /// Current group of unbreakable rows to layout in the same region.
-    /// This is a temporary buffer which will be appended to 'lrows' after the
-    /// full row group is defined. This ensures all rows in this buffer will
-    /// appear in the same region.
-    /// As an invariant, the last row in an unbreakable row group must NOT be a
-    /// gutter row.
-    unbreakable_row_group: Vec<Row>,
     /// Rowspans to layout after all regions were finished.
     rowspans: Vec<Rowspan>,
     /// The initial size of the current region before we started subtracting.
@@ -1000,7 +993,6 @@ impl<'a> GridLayouter<'a> {
             rrows: vec![],
             lrows: vec![],
             unbreakable_rows_left: 0,
-            unbreakable_row_group: vec![],
             rowspans: vec![],
             initial: regions.size,
             finished: vec![],
@@ -1657,10 +1649,10 @@ impl<'a> GridLayouter<'a> {
     fn simulate_unbreakable_row_group(
         &self,
         first_row: usize,
-        _engine: &mut Engine,
+        engine: &mut Engine,
     ) -> SourceResult<(usize, Abs)> {
         let mut group_height = Abs::zero();
-        let mut unbreakable_rows = 0;
+        let mut unbreakable_rows = vec![];
         let mut unbreakable_rows_left = 0;
         for (y, row) in self.grid.rows.iter().enumerate().skip(first_row) {
             for x in 0..self.grid.cols.len() {
@@ -1683,19 +1675,32 @@ impl<'a> GridLayouter<'a> {
             if unbreakable_rows_left == 0 {
                 break;
             }
-            group_height += match row {
+            let height = match row {
                 Sizing::Rel(v) => {
                     v.resolve(self.styles).relative_to(self.regions.base().y)
                 }
-                Sizing::Auto => todo!(),
+                Sizing::Auto => self
+                    .measure_auto_row(
+                        engine,
+                        y,
+                        false,
+                        true,
+                        group_height,
+                        &unbreakable_rows,
+                    )?
+                    .unwrap()
+                    .first()
+                    .copied()
+                    .unwrap_or_else(Abs::zero),
                 // Fractional rows don't matter when calculating the space
                 // needed for unbreakable rows
                 Sizing::Fr(_) => Abs::zero(),
             };
-            unbreakable_rows += 1;
+            group_height += height;
+            unbreakable_rows.push((y, height));
             unbreakable_rows_left -= 1;
         }
-        Ok((unbreakable_rows, group_height))
+        Ok((unbreakable_rows.len(), group_height))
     }
 
     /// Checks if the upcoming rows will be grouped together under an
@@ -1728,11 +1733,19 @@ impl<'a> GridLayouter<'a> {
 
         // Determine the size for each region of the row. If the first region
         // ends up empty for some column, skip the region and remeasure.
-        let mut resolved = match self.measure_auto_row(engine, y, true, unbreakable)? {
+        let mut resolved = match self.measure_auto_row(
+            engine,
+            y,
+            true,
+            unbreakable,
+            Abs::zero(),
+            &[],
+        )? {
             Some(resolved) => resolved,
             None => {
                 self.finish_region(engine)?;
-                self.measure_auto_row(engine, y, false, unbreakable)?.unwrap()
+                self.measure_auto_row(engine, y, false, unbreakable, Abs::zero(), &[])?
+                    .unwrap()
             }
         };
 
@@ -1775,12 +1788,19 @@ impl<'a> GridLayouter<'a> {
 
     /// Measure the regions sizes of an auto row. The option is always `Some(_)`
     /// if `can_skip` is false.
+    /// If `unbreakable` is true, this function shall only return a single
+    /// frame. Useful when an unbreakable rowspan crosses this auto row.
+    /// The `previous_unbreakable_*` options are used within the unbreakable
+    /// row group simulator to predict the height of the auto row if previous
+    /// rows in the group were placed in the same region.
     fn measure_auto_row(
-        &mut self,
+        &self,
         engine: &mut Engine,
         y: usize,
         can_skip: bool,
         unbreakable: bool,
+        previous_unbreakable_height: Abs,
+        previous_unbreakable_rows: &[(usize, Abs)],
     ) -> SourceResult<Option<Vec<Abs>>> {
         let mut resolved: Vec<Abs> = vec![];
         let mut pending_rowspans: Vec<(usize, usize, Vec<Abs>)> = vec![];
@@ -1812,10 +1832,12 @@ impl<'a> GridLayouter<'a> {
                 // Not a rowspan, so the cell only occupies this row. Therefore:
                 // 1. When we measure the cell below, use the available height
                 // remaining in the region as the height it has available.
+                // Ensure we subtract the height of previous rows in the
+                // unbreakable row group, if we're currently simulating it.
                 // 2. Also use the region's backlog when measuring.
                 // 3. No height occupied by this cell in this region so far.
                 // 4. Yes, this cell started in this region.
-                height = self.regions.size.y;
+                height = self.regions.size.y - previous_unbreakable_height;
                 backlog = self.regions.backlog;
                 height_in_this_region = Abs::zero();
                 frames_in_previous_regions = 0;
@@ -1839,7 +1861,7 @@ impl<'a> GridLayouter<'a> {
 
                 // Height of the rowspan covered by spanned rows in the current
                 // region.
-                height_in_this_region = self
+                let laid_out_height: Abs = self
                     .lrows
                     .iter()
                     .filter_map(|row| match row {
@@ -1853,6 +1875,17 @@ impl<'a> GridLayouter<'a> {
                         _ => None,
                     })
                     .sum();
+
+                // Make sure to also subtract the sizes of rows which were
+                // already measured, but not pushed to 'self.lrows' yet due to
+                // an unbreakable row group being currently simulated.
+                let unbreakable_height: Abs = previous_unbreakable_rows
+                    .iter()
+                    .filter(|(y, _)| (parent_y..parent_y + rowspan).contains(y))
+                    .map(|(_, height)| height)
+                    .sum();
+
+                height_in_this_region = laid_out_height + unbreakable_height;
 
                 // Ensure we will measure the rowspan with the correct heights.
                 // For that, we will gather the total height spanned by this
@@ -1956,29 +1989,9 @@ impl<'a> GridLayouter<'a> {
             // Thus, only upcoming fractional rows won't be included in this
             // calculation.
             if rowspan > 1 {
-                let last_spanned_row = parent_y + rowspan - 1;
                 // Subtract already covered height from previous rows in the
                 // current region, if applicable.
                 let mut already_covered_height = height_in_this_region;
-
-                // Make sure to also subtract the sizes of rows which were
-                // already laid out, but not pushed to 'self.lrows' yet due to
-                // an unbreakable row group being formed.
-                // TODO: Adapt for the new unbreakable implementation.
-                already_covered_height += self
-                    .unbreakable_row_group
-                    .iter()
-                    .filter_map(|row| match row {
-                        Row::Frame(frame, y)
-                            if (parent_y..=last_spanned_row).contains(y) =>
-                        {
-                            Some(frame.height())
-                        }
-                        // Either we have a row outside of the rowspan, or a
-                        // fractional row, whose size we can't really guess.
-                        _ => None,
-                    })
-                    .sum();
 
                 // Remove frames which were already covered by previous rows
                 // spanned by this cell.
@@ -1991,6 +2004,8 @@ impl<'a> GridLayouter<'a> {
                 if let Some(first_frame_size) = sizes.first_mut() {
                     *first_frame_size -= already_covered_height;
                 }
+
+                let last_spanned_row = parent_y + rowspan - 1;
 
                 // We can only predict the resolved size of upcoming fixed-size
                 // rows, but not fractional rows.
@@ -2095,6 +2110,8 @@ impl<'a> GridLayouter<'a> {
                 &pending_rowspans,
             );
         }
+
+        debug_assert!(!unbreakable || resolved.len() < 2);
 
         Ok(Some(resolved))
     }
