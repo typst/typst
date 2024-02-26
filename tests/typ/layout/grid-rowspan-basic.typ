@@ -106,6 +106,31 @@
 )
 
 ---
+// Excessive rowspan (no gutter)
+#set page(height: 10em)
+#table(
+  columns: 4,
+  fill: red,
+  [a], [b], table.cell(rowspan: 2)[c], [d],
+  table.cell(colspan: 2, stroke: (bottom: aqua))[e], table.cell(stroke: (bottom: aqua))[f],
+  table.cell(colspan: 2, rowspan: 10)[R1], table.cell(colspan: 2, rowspan: 10)[R2],
+  [b],
+)
+
+---
+// Excessive rowspan (with gutter)
+#set page(height: 10em)
+#table(
+  columns: 4,
+  gutter: 3pt,
+  fill: red,
+  [a], [b], table.cell(rowspan: 2)[c], [d],
+  table.cell(colspan: 2, stroke: (bottom: aqua))[e], table.cell(stroke: (bottom: aqua))[f],
+  table.cell(colspan: 2, rowspan: 10)[R1], table.cell(colspan: 2, rowspan: 10)[R2],
+  [b],
+)
+
+---
 // Fractional rows
 // They cause the auto row to expand more than needed.
 #set page(height: 10em)
@@ -130,27 +155,4 @@
   [a], [b], grid.cell(rowspan: 3, block(height: 4em, width: 1em, fill: orange)),
   [c], [d],
   [e], [f]
-)
-
----
-#set page(height: 10em)
-#table(
-  columns: 2,
-  rows: (auto, auto, 3em),
-  fill: red,
-  [a], table.cell(rowspan: 3, block(width: 50%, height: 10em, fill: orange) + place(bottom)[*ZD*]),
-  [e],
-  [f]
-)
-
----
-#set page(height: 10em)
-#table(
-  columns: 2,
-  rows: (auto, auto, 3em),
-  row-gutter: 1em,
-  fill: red,
-  [a], table.cell(rowspan: 3, block(width: 50%, height: 10em, fill: orange) + place(bottom)[*ZD*]),
-  [e],
-  [f]
 )
