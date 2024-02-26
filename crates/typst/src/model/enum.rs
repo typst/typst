@@ -230,7 +230,6 @@ impl LayoutMultiple for Packed<EnumElem> {
         let mut cells = vec![];
         let mut number = self.start(styles);
         let mut parents = EnumElem::parents_in(styles);
-        parents.reverse();
 
         let full = self.full(styles);
 
