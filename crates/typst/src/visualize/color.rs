@@ -1010,16 +1010,28 @@ impl Color {
         })
     }
 
-    /// Produces the negative of the color.
+    /// Produces the complementary color using a provided color space.
+    /// You can think of it as the opposite side on a color wheel.
+    ///
+    /// ```example
+    /// #square(fill: yellow)
+    /// #square(fill: yellow.negate())
+    /// ```
     #[func]
-    pub fn negate(self) -> Color {
-        match self {
+    pub fn negate(
+        self,
+        /// The color space used for the transformation. By default, a perceptual color space is used.
+        #[named]
+        #[default(ColorSpace::Oklab)]
+        space: ColorSpace,
+    ) -> Color {
+        match self.to_space(space) {
             Self::Luma(c) => Self::Luma(Luma::new(1.0 - c.luma, c.alpha)),
-            Self::Oklab(c) => Self::Oklab(Oklab::new(c.l, -c.a, -c.b, c.alpha)),
+            Self::Oklab(c) => Self::Oklab(Oklab::new(1.0 - c.l, -c.a, -c.b, c.alpha)),
             Self::Oklch(c) => Self::Oklch(Oklch::new(
-                c.l,
-                -c.chroma,
-                OklabHue::from_degrees(360.0 - c.hue.into_degrees()),
+                1.0 - c.l,
+                c.chroma,
+                OklabHue::from_degrees(c.hue.into_degrees() + 180.0),
                 c.alpha,
             )),
             Self::LinearRgb(c) => Self::LinearRgb(LinearRgb::new(
@@ -1033,13 +1045,13 @@ impl Color {
             }
             Self::Cmyk(c) => Self::Cmyk(Cmyk::new(1.0 - c.c, 1.0 - c.m, 1.0 - c.y, c.k)),
             Self::Hsl(c) => Self::Hsl(Hsl::new(
-                RgbHue::from_degrees(360.0 - c.hue.into_degrees()),
+                RgbHue::from_degrees(c.hue.into_degrees() + 180.0),
                 c.saturation,
                 c.lightness,
                 c.alpha,
             )),
             Self::Hsv(c) => Self::Hsv(Hsv::new(
-                RgbHue::from_degrees(360.0 - c.hue.into_degrees()),
+                RgbHue::from_degrees(c.hue.into_degrees() + 180.0),
                 c.saturation,
                 c.value,
                 c.alpha,
