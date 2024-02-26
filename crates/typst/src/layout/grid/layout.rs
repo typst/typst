@@ -1685,6 +1685,7 @@ impl<'a> GridLayouter<'a> {
                         y,
                         false,
                         true,
+                        unbreakable_rows_left,
                         group_height,
                         &unbreakable_rows,
                     )?
@@ -1738,14 +1739,23 @@ impl<'a> GridLayouter<'a> {
             y,
             true,
             unbreakable,
+            self.unbreakable_rows_left,
             Abs::zero(),
             &[],
         )? {
             Some(resolved) => resolved,
             None => {
                 self.finish_region(engine)?;
-                self.measure_auto_row(engine, y, false, unbreakable, Abs::zero(), &[])?
-                    .unwrap()
+                self.measure_auto_row(
+                    engine,
+                    y,
+                    false,
+                    unbreakable,
+                    self.unbreakable_rows_left,
+                    Abs::zero(),
+                    &[],
+                )?
+                .unwrap()
             }
         };
 
@@ -1793,12 +1803,14 @@ impl<'a> GridLayouter<'a> {
     /// The `previous_unbreakable_*` options are used within the unbreakable
     /// row group simulator to predict the height of the auto row if previous
     /// rows in the group were placed in the same region.
+    #[allow(clippy::too_many_arguments)]
     fn measure_auto_row(
         &self,
         engine: &mut Engine,
         y: usize,
         can_skip: bool,
         unbreakable: bool,
+        unbreakable_rows_left: usize,
         previous_unbreakable_height: Abs,
         previous_unbreakable_rows: &[(usize, Abs)],
     ) -> SourceResult<Option<Vec<Abs>>> {
@@ -2040,10 +2052,14 @@ impl<'a> GridLayouter<'a> {
                     );
 
                 let is_unbreakable_rowspan = self.is_unbreakable_rowspan(cell, y);
-                let will_be_covered_height = if is_unbreakable_rowspan {
-                    // When the rowspan is unbreakable, its spanned gutter will
+                let will_be_covered_height = if is_unbreakable_rowspan
+                    || y + unbreakable_rows_left > last_spanned_row
+                {
+                    // When the rowspan is unbreakable, or all of its upcoming
+                    // spanned rows are unbreakable, its spanned gutter will
                     // certainly be in the same region as all of its other
-                    // spanned rows, thus gutters won't be removed.
+                    // spanned rows, thus gutters won't be removed, and we can
+                    // safely reduce how much the auto row expands by.
                     will_be_covered_height + spanned_gutter_height
                 } else {
                     will_be_covered_height
@@ -2063,10 +2079,11 @@ impl<'a> GridLayouter<'a> {
                 // bit more to compensate for the missing gutter height.
                 // However, unbreakable rowspans aren't affected by that
                 // problem.
-                if parent_y + rowspan != y + 1
+                if y != last_spanned_row
                     && !sizes.is_empty()
                     && self.grid.has_gutter
                     && !is_unbreakable_rowspan
+                    && y + unbreakable_rows_left <= last_spanned_row
                 {
                     // Height not covered by any upcoming rows, gutter or not.
                     let mut excess_height =
