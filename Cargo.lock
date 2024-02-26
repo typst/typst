@@ -2660,6 +2660,7 @@ dependencies = [
 name = "typst-docs"
 version = "0.10.0"
 dependencies = [
+ "clap",
  "comemo",
  "ecow",
  "heck",
@@ -2667,10 +2668,12 @@ dependencies = [
  "once_cell",
  "pulldown-cmark",
  "serde",
+ "serde_json",
  "serde_yaml 0.9.27",
  "syntect",
  "typed-arena",
  "typst",
+ "typst-render",
  "unicode_names2",
  "unscanny",
  "yaml-front-matter",
