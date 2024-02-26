@@ -120,20 +120,21 @@ impl<'a> GridLayouter<'a> {
 
     /// Checks if the cell at a given position is the parent of an unbreakable
     /// rowspan. This only holds when the cell spans multiple rows, of which
-    /// none are auto rows.
-    pub(super) fn is_unbreakable_cell(&self, cell: &Cell, y: usize) -> bool {
+    /// none are auto rows; or when the user manually specified
+    /// 'breakable: false' for the cell.
+    pub(super) fn is_breakable_cell(&self, cell: &Cell, y: usize) -> bool {
         cell.breakable.unwrap_or_else(|| {
             let rowspan = self.grid.effective_rowspan_of_cell(cell);
             // Unbreakable rowspans span more than one row and do not span any auto
             // rows.
-            rowspan > 1
-                && self
+            rowspan == 1
+                || self
                     .grid
                     .rows
                     .iter()
                     .skip(y)
                     .take(rowspan)
-                    .all(|&row| row != Sizing::Auto)
+                    .any(|&row| row == Sizing::Auto)
         })
     }
 
@@ -225,7 +226,7 @@ impl<'a> GridLayouter<'a> {
                 continue;
             };
             let rowspan = self.grid.effective_rowspan_of_cell(cell);
-            if self.is_unbreakable_cell(cell, y) {
+            if !self.is_breakable_cell(cell, y) {
                 // At least the next 'rowspan' rows should be grouped together,
                 // in the same page, as this rowspan can't be broken apart.
                 // Since the last row in a rowspan is never gutter, here we

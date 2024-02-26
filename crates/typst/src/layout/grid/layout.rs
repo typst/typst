@@ -1870,8 +1870,7 @@ impl<'a> GridLayouter<'a> {
                 // of its other spanned rows, thus gutters won't be removed,
                 // and we can safely reduce how much the auto row expands by
                 // without using simulation.
-                let is_effectively_unbreakable_rowspan = self
-                    .is_unbreakable_cell(cell, y)
+                let is_effectively_unbreakable_rowspan = !self.is_breakable_cell(cell, y)
                     || y + unbreakable_rows_left > last_spanned_row;
 
                 // If the rowspan doesn't end at this row and the grid has
