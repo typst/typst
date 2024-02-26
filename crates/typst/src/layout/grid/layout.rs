@@ -9,7 +9,7 @@ use super::lines::{
     generate_line_segments, hline_stroke_at_column, vline_stroke_at_row, Line,
     LinePosition, LineSegment,
 };
-use super::rowspans::{subtract_end_sizes, Rowspan};
+use super::rowspans::{subtract_end_sizes, Rowspan, UnbreakableRowGroup};
 use crate::diag::{
     bail, At, Hint, HintedStrResult, HintedString, SourceResult, StrResult,
 };
@@ -1558,8 +1558,7 @@ impl<'a> GridLayouter<'a> {
             true,
             unbreakable,
             self.unbreakable_rows_left,
-            Abs::zero(),
-            &[],
+            &UnbreakableRowGroup::default(),
         )? {
             Some(resolved) => resolved,
             None => {
@@ -1570,8 +1569,7 @@ impl<'a> GridLayouter<'a> {
                     false,
                     unbreakable,
                     self.unbreakable_rows_left,
-                    Abs::zero(),
-                    &[],
+                    &UnbreakableRowGroup::default(),
                 )?
                 .unwrap()
             }
@@ -1618,10 +1616,9 @@ impl<'a> GridLayouter<'a> {
     /// if `can_skip` is false.
     /// If `unbreakable` is true, this function shall only return a single
     /// frame. Useful when an unbreakable rowspan crosses this auto row.
-    /// The `previous_unbreakable_*` options are used within the unbreakable
-    /// row group simulator to predict the height of the auto row if previous
-    /// rows in the group were placed in the same region.
-    #[allow(clippy::too_many_arguments)]
+    /// The `row_group_data` option is used within the unbreakable row group
+    /// simulator to predict the height of the auto row if previous rows in the
+    /// group were placed in the same region.
     pub(super) fn measure_auto_row(
         &self,
         engine: &mut Engine,
@@ -1629,8 +1626,7 @@ impl<'a> GridLayouter<'a> {
         can_skip: bool,
         unbreakable: bool,
         unbreakable_rows_left: usize,
-        previous_unbreakable_height: Abs,
-        previous_unbreakable_rows: &[(usize, Abs)],
+        row_group_data: &UnbreakableRowGroup,
     ) -> SourceResult<Option<Vec<Abs>>> {
         let mut resolved: Vec<Abs> = vec![];
         let mut pending_rowspans: Vec<(usize, usize, Vec<Abs>)> = vec![];
@@ -1679,7 +1675,7 @@ impl<'a> GridLayouter<'a> {
                 // 2. Also use the region's backlog when measuring.
                 // 3. No height occupied by this cell in this region so far.
                 // 4. Yes, this cell started in this region.
-                height = self.regions.size.y - previous_unbreakable_height;
+                height = self.regions.size.y - row_group_data.height;
                 backlog = self.regions.backlog;
                 height_in_this_region = Abs::zero();
                 frames_in_previous_regions = 0;
@@ -1721,7 +1717,8 @@ impl<'a> GridLayouter<'a> {
                 // If we're currently simulating an unbreakable row group, also
                 // consider the height of previously spanned rows which are in
                 // the row group but not yet laid out.
-                let unbreakable_height: Abs = previous_unbreakable_rows
+                let unbreakable_height: Abs = row_group_data
+                    .rows
                     .iter()
                     .filter(|(y, _)| (parent_y..parent_y + rowspan).contains(y))
                     .map(|(_, height)| height)
@@ -1982,7 +1979,7 @@ impl<'a> GridLayouter<'a> {
             self.simulate_and_measure_rowspans_in_auto_row(
                 y,
                 unbreakable_rows_left,
-                previous_unbreakable_height,
+                row_group_data,
                 &mut resolved,
                 &pending_rowspans,
                 engine,

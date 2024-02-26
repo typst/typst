@@ -27,6 +27,16 @@ pub(super) struct Rowspan {
     pub(super) heights: Vec<Abs>,
 }
 
+/// The output of the simulation of an unbreakable row group.
+#[derive(Default)]
+pub(super) struct UnbreakableRowGroup {
+    /// The rows in this group of unbreakable rows.
+    /// Includes their indices and their predicted heights.
+    pub(super) rows: Vec<(usize, Abs)>,
+    /// The total height of this row group.
+    pub(super) height: Abs,
+}
+
 impl<'a> GridLayouter<'a> {
     /// Layout rowspans over the already finished regions.
     /// We need to do this later once we already know the heights of all
@@ -135,14 +145,13 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
     ) -> SourceResult<()> {
         if self.unbreakable_rows_left == 0 {
-            let (unbreakable_rows, group_height) =
-                self.simulate_unbreakable_row_group(current_row, engine)?;
+            let row_group = self.simulate_unbreakable_row_group(current_row, engine)?;
 
             // Skip to fitting region.
-            while !self.regions.size.y.fits(group_height) && !self.regions.in_last() {
+            while !self.regions.size.y.fits(row_group.height) && !self.regions.in_last() {
                 self.finish_region(engine)?;
             }
-            self.unbreakable_rows_left = unbreakable_rows;
+            self.unbreakable_rows_left = row_group.rows.len();
         }
 
         Ok(())
@@ -155,9 +164,8 @@ impl<'a> GridLayouter<'a> {
         &self,
         first_row: usize,
         engine: &mut Engine,
-    ) -> SourceResult<(usize, Abs)> {
-        let mut group_height = Abs::zero();
-        let mut unbreakable_rows = vec![];
+    ) -> SourceResult<UnbreakableRowGroup> {
+        let mut row_group = UnbreakableRowGroup::default();
         let mut unbreakable_rows_left = 0;
         for (y, row) in self.grid.rows.iter().enumerate().skip(first_row) {
             let additional_unbreakable_rows = self.check_for_unbreakable_cells(y);
@@ -180,8 +188,7 @@ impl<'a> GridLayouter<'a> {
                         false,
                         true,
                         unbreakable_rows_left,
-                        group_height,
-                        &unbreakable_rows,
+                        &row_group,
                     )?
                     .unwrap()
                     .first()
@@ -191,8 +198,8 @@ impl<'a> GridLayouter<'a> {
                 // needed for unbreakable rows
                 Sizing::Fr(_) => Abs::zero(),
             };
-            group_height += height;
-            unbreakable_rows.push((y, height));
+            row_group.height += height;
+            row_group.rows.push((y, height));
             unbreakable_rows_left -= 1;
             if unbreakable_rows_left == 0 {
                 // This second check is necessary so we can tell distinct
@@ -202,7 +209,8 @@ impl<'a> GridLayouter<'a> {
                 break;
             }
         }
-        Ok((unbreakable_rows.len(), group_height))
+
+        Ok(row_group)
     }
 
     /// Checks if one or more of the cells at the given row are unbreakable.
@@ -237,7 +245,7 @@ impl<'a> GridLayouter<'a> {
         &self,
         y: usize,
         unbreakable_rows_left: usize,
-        previous_unbreakable_height: Abs,
+        row_group_data: &UnbreakableRowGroup,
         resolved: &mut Vec<Abs>,
         pending_rowspans: &[(usize, usize, Vec<Abs>)],
         engine: &mut Engine,
@@ -283,7 +291,7 @@ impl<'a> GridLayouter<'a> {
 
         // Prepare regions for simulation.
         let mut simulated_regions = self.regions;
-        simulated_regions.size.y -= previous_unbreakable_height;
+        simulated_regions.size.y -= row_group_data.height;
         for _ in 0..resolved.len() {
             // Ensure we start at the region where we will expand the auto
             // row.
@@ -329,9 +337,9 @@ impl<'a> GridLayouter<'a> {
 
                 if unbreakable_rows_left == 0 {
                     // Simulate unbreakable row groups
-                    let (unbreakable_rows, group_height) =
+                    let row_group =
                         self.simulate_unbreakable_row_group(spanned_y, engine)?;
-                    while !self.regions.size.y.fits(group_height)
+                    while !self.regions.size.y.fits(row_group.height)
                         && !self.regions.in_last()
                     {
                         extra_amount_to_grow += latest_spanned_gutter_height;
@@ -339,7 +347,7 @@ impl<'a> GridLayouter<'a> {
                         regions.next();
                     }
 
-                    unbreakable_rows_left = unbreakable_rows;
+                    unbreakable_rows_left = row_group.rows.len();
                 }
 
                 match row {
