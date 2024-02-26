@@ -1857,6 +1857,26 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 let last_spanned_row = parent_y + rowspan - 1;
+                let is_effectively_unbreakable_rowspan = self
+                    .is_unbreakable_rowspan(cell, y)
+                    || y + unbreakable_rows_left > last_spanned_row;
+
+                // If the rowspan doesn't end at this row and the grid has
+                // gutter, we will need to run a simulation to find out how
+                // much to expand this row by later. This is because gutters
+                // spanned by this rowspan might be removed if they appear
+                // around a pagebreak, so the auto row might have to expand a
+                // bit more to compensate for the missing gutter height.
+                // However, unbreakable rowspans aren't affected by that
+                // problem.
+                if y != last_spanned_row
+                    && !sizes.is_empty()
+                    && self.grid.has_gutter
+                    && !is_effectively_unbreakable_rowspan
+                {
+                    pending_rowspans.push((parent_y, rowspan, sizes));
+                    continue;
+                }
 
                 // We can only predict the resolved size of upcoming fixed-size
                 // rows, but not fractional rows.
@@ -1890,9 +1910,6 @@ impl<'a> GridLayouter<'a> {
                         },
                     );
 
-                let is_effectively_unbreakable_rowspan = self
-                    .is_unbreakable_rowspan(cell, y)
-                    || y + unbreakable_rows_left > last_spanned_row;
                 let will_be_covered_height = if is_effectively_unbreakable_rowspan {
                     // When the rowspan is unbreakable, or all of its upcoming
                     // spanned rows are unbreakable, its spanned gutter will
@@ -1912,54 +1929,6 @@ impl<'a> GridLayouter<'a> {
                 // at first (gutter rows are only considered later, through a
                 // simulation of the upcoming regions).
                 subtract_end_sizes(&mut sizes, will_be_covered_height);
-
-                // If the rowspan doesn't end at this row and the grid has
-                // gutter, we will need to run a simulation to find out how
-                // much to expand this row by later. This is because gutters
-                // spanned by this rowspan might be removed if they appear
-                // around a pagebreak, so the auto row might have to expand a
-                // bit more to compensate for the missing gutter height.
-                // However, unbreakable rowspans aren't affected by that
-                // problem.
-                if y != last_spanned_row
-                    && !sizes.is_empty()
-                    && self.grid.has_gutter
-                    && !is_effectively_unbreakable_rowspan
-                {
-                    // Height not covered by any upcoming rows, gutter or not.
-                    let mut excess_height =
-                        sizes.iter().copied().sum::<Abs>() - spanned_gutter_height;
-                    // Obtain the excess height on each frame from the start of
-                    // the rowspan.
-                    // TODO: Use some helper method like splice instead of this.
-                    let mut excess_sizes = vec![];
-                    for size in &mut sizes {
-                        if excess_height <= Abs::zero() {
-                            break;
-                        }
-                        if *size <= excess_height {
-                            let covered_size = std::mem::take(size);
-                            excess_height -= covered_size;
-                            excess_sizes.push(covered_size)
-                        } else {
-                            // Don't subtract remaining excess height from the
-                            // final covered frame's size. The idea is that,
-                            // during simulation, we will try to give the
-                            // rowspan the full requested size for the region,
-                            // not just its excess size. For this to work, we
-                            // have to ensure the rowspan will still request as
-                            // much size on each remaining region as before we
-                            // started subtracting the excess height.
-                            excess_sizes.push(excess_height);
-                            break;
-                        }
-                    }
-                    // The excess sizes will be considered final and resolved
-                    // below, since they won't be covered by any upcoming rows,
-                    // regardless of our simulation's outcome.
-                    let rowspan_sizes = std::mem::replace(&mut sizes, excess_sizes);
-                    pending_rowspans.push((parent_y, rowspan, rowspan_sizes));
-                }
             }
 
             let mut sizes = sizes.into_iter();

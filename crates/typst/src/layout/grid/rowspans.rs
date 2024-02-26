@@ -303,31 +303,21 @@ impl<'a> GridLayouter<'a> {
             simulated_regions.size.y -= original_last_resolved_size;
         }
 
-        // The max growable height, for now, will always correspond to the sum
-        // of all spanned gutter heights. This number is defined after the
-        // first simulation, at which we go through all gutter rows to define
-        // their total sum.
-        let mut max_growable_height = None;
+        let max_growable_height =
+            simulated_sizes.iter().sum::<Abs>() - last_resolved_size.unwrap_or_default();
         let mut amount_to_grow = Abs::zero();
         // Try to simulate up to 5 times. If it doesn't stabilize, we give up.
         for _attempt in 0..5 {
             let mut regions = simulated_regions;
-            let mut total_spanned_gutter_height = Abs::zero();
+            let mut total_spanned_height = Abs::zero();
             let mut unbreakable_rows_left = unbreakable_rows_left;
-
-            // Total height that changed, prompting the auto row to grow a bit
-            // more since the last simulation.
-            let mut extra_amount_to_grow = Abs::zero();
 
             // Height of the latest spanned gutter row.
             // Zero if it was removed.
             let mut latest_spanned_gutter_height = Abs::zero();
             let spanned_rows = &self.grid.rows[y + 1..=max_spanned_row];
             for (offset, row) in spanned_rows.iter().enumerate() {
-                if max_growable_height.is_some_and(|max_growable_height| {
-                    total_spanned_gutter_height + amount_to_grow + extra_amount_to_grow
-                        >= max_growable_height
-                }) {
+                if total_spanned_height + amount_to_grow >= max_growable_height {
                     // Stop the simulation, as we have already fully covered
                     // the height rowspans need.
                     break;
@@ -342,7 +332,7 @@ impl<'a> GridLayouter<'a> {
                     while !self.regions.size.y.fits(row_group.height)
                         && !self.regions.in_last()
                     {
-                        extra_amount_to_grow += latest_spanned_gutter_height;
+                        total_spanned_height -= latest_spanned_gutter_height;
                         latest_spanned_gutter_height = Abs::zero();
                         regions.next();
                     }
@@ -354,8 +344,8 @@ impl<'a> GridLayouter<'a> {
                     // Fixed-size rows are what we are interested in.
                     Sizing::Rel(v) => {
                         let height = v.resolve(self.styles).relative_to(regions.base().y);
+                        total_spanned_height += height;
                         if is_gutter {
-                            total_spanned_gutter_height += height;
                             latest_spanned_gutter_height = height;
                         }
                         let mut skipped_region = false;
@@ -365,7 +355,7 @@ impl<'a> GridLayouter<'a> {
                         {
                             // A row was pushed to the next region. Therefore,
                             // the immediately preceding gutter row is removed.
-                            extra_amount_to_grow += latest_spanned_gutter_height;
+                            total_spanned_height -= latest_spanned_gutter_height;
                             latest_spanned_gutter_height = Abs::zero();
                             skipped_region = true;
                             regions.next();
@@ -390,12 +380,11 @@ impl<'a> GridLayouter<'a> {
 
                 unbreakable_rows_left = unbreakable_rows_left.saturating_sub(1);
             }
-            let max_growable_height = max_growable_height.unwrap_or_else(|| {
-                max_growable_height = Some(total_spanned_gutter_height);
-                total_spanned_gutter_height
-            });
-            if extra_amount_to_grow.is_zero() {
-                // The amount to grow has stabilized.
+
+            let mut extra_amount_to_grow =
+                max_growable_height - total_spanned_height - amount_to_grow;
+            if extra_amount_to_grow <= Abs::zero() {
+                // The amount to grow is enough to fully cover the rowspan.
                 // Reduce sizes by the amount actually spanned by gutter.
                 subtract_end_sizes(
                     &mut simulated_sizes,
@@ -412,7 +401,8 @@ impl<'a> GridLayouter<'a> {
                         simulated_sizes.push(last_resolved_size);
                     }
                 }
-                break;
+                resolved.extend(simulated_sizes);
+                return Ok(());
             }
 
             // The amount to grow the auto row by has changed since the last
@@ -432,11 +422,27 @@ impl<'a> GridLayouter<'a> {
             simulated_regions.size.y -= extra_amount_to_grow;
         }
 
-        // If the simulation didn't stabilize above, we will be pushing the
-        // unmodified vector of rowspan sizes, ignoring gutter. That means the
-        // auto row will expand more than it normally should. But we did try to
-        // ensure it wouldn't expand more than it should through the above
-        // simulation, to our best efforts.
+        // If the simulation didn't stabilize above, we will just pretend all
+        // gutters were removed, as a best effort. That means the auto row will
+        // expand more than it normally should, but there isn't much we can do.
+        let will_be_covered_height = self
+            .grid
+            .rows
+            .iter()
+            .enumerate()
+            .skip(y + 1)
+            .take(max_spanned_row - y)
+            .filter(|(y, _)| !self.grid.is_gutter_track(*y))
+            .map(|(_, row)| match row {
+                Sizing::Rel(v) => {
+                    v.resolve(self.styles).relative_to(self.regions.base().y)
+                }
+                _ => Abs::zero(),
+            })
+            .sum();
+
+        subtract_end_sizes(&mut simulated_sizes, will_be_covered_height);
+
         resolved.extend(simulated_sizes);
 
         Ok(())
