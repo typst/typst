@@ -162,7 +162,7 @@ where
     // Note that the maximum index is always an odd number when there's gutter,
     // so we must check for it to ensure we don't give it the same treatment as
     // a line before a gutter track.
-    let expected_line_position = if grid.has_gutter && index % 2 == 1 && !is_max_index {
+    let expected_line_position = if grid.is_gutter_track(index) && !is_max_index {
         LinePosition::After
     } else {
         LinePosition::Before
