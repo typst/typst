@@ -1,5 +1,7 @@
 use std::num::NonZeroUsize;
 
+use smallvec::smallvec;
+
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
@@ -7,7 +9,9 @@ use crate::foundations::{
     Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
-use crate::layout::{BlockElem, Em, HElem, VElem};
+use crate::layout::{
+    BlockElem, Em, GridCell, GridElem, HElem, Sizing, TrackSizings, VElem,
+};
 use crate::model::{Numbering, Outlinable, Refable, Supplement};
 use crate::text::{FontWeight, Lang, LocalName, Region, SpaceElem, TextElem, TextSize};
 use crate::util::{option_eq, NonZeroExt};
@@ -121,6 +125,24 @@ pub struct HeadingElem {
     #[default(Smart::Auto)]
     pub bookmarked: Smart<bool>,
 
+    /// Whether subsequent heading lines should be indented and aligned
+    /// with the first one.
+    ///
+    /// ```example
+    /// #set heading(numbering: "1.")
+    ///
+    /// #heading[Multiline heading]
+    /// The second line of this heading
+    /// will be aligned to the left side of
+    /// the container element.
+    ///
+    /// #heading(multiline-indent: true)[Multiline heading]
+    /// The second line of this heading
+    /// will be aligned with the first.
+    /// ```
+    #[default(false)]
+    pub multiline_indent: bool,
+
     /// The heading's title.
     #[required]
     pub body: Content,
@@ -148,16 +170,33 @@ impl Synthesize for Packed<HeadingElem> {
 impl Show for Packed<HeadingElem> {
     #[typst_macros::time(name = "heading", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.body().clone();
+        let mut heading_element = self.body().clone();
+        let mut children = Vec::with_capacity(2);
+
         if let Some(numbering) = (**self).numbering(styles).as_ref() {
-            realized = Counter::of(HeadingElem::elem())
+            let numbering = Counter::of(HeadingElem::elem())
                 .at(engine, self.location().unwrap())?
                 .display(engine, numbering)?
-                .spanned(self.span())
-                + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
-                + realized;
+                .spanned(self.span());
+
+            if !self.multiline_indent(styles) {
+                heading_element = numbering
+                    + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
+                    + heading_element;
+            } else {
+                children.push(Packed::new(GridCell::new(numbering)));
+            };
         }
-        Ok(BlockElem::new().with_body(Some(realized)).pack().spanned(self.span()))
+
+        children.push(Packed::new(GridCell::new(heading_element)));
+
+        let container = GridElem::new(children)
+            .with_column_gutter(TrackSizings(smallvec![Em::new(0.3).into()]))
+            .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
+            .pack()
+            .spanned(self.span());
+
+        Ok(container)
     }
 }
 
