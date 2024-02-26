@@ -236,9 +236,12 @@ impl<'a> GridLayouter<'a> {
     pub(super) fn simulate_and_measure_rowspans_in_auto_row(
         &self,
         y: usize,
+        unbreakable_rows_left: usize,
+        previous_unbreakable_height: Abs,
         resolved: &mut Vec<Abs>,
         pending_rowspans: &[(usize, usize, Vec<Abs>)],
-    ) {
+        engine: &mut Engine,
+    ) -> SourceResult<()> {
         // To begin our simulation, we have to unify the sizes demanded by
         // each rowspan into one simple vector of sizes, as if they were
         // all a single rowspan. These sizes will be appended to
@@ -268,7 +271,7 @@ impl<'a> GridLayouter<'a> {
         if simulated_sizes.is_empty() && resolved.last().copied() == last_resolved_size {
             // The rowspans already fit in the already resolved sizes.
             // No need for simulation.
-            return;
+            return Ok(());
         }
 
         // We will be updating the last resolved size (expanding the auto
@@ -280,6 +283,7 @@ impl<'a> GridLayouter<'a> {
 
         // Prepare regions for simulation.
         let mut simulated_regions = self.regions;
+        simulated_regions.size.y -= previous_unbreakable_height;
         for _ in 0..resolved.len() {
             // Ensure we start at the region where we will expand the auto
             // row.
@@ -301,6 +305,7 @@ impl<'a> GridLayouter<'a> {
         for _attempt in 0..5 {
             let mut regions = simulated_regions;
             let mut total_spanned_gutter_height = Abs::zero();
+            let mut unbreakable_rows_left = unbreakable_rows_left;
 
             // Total height that changed, prompting the auto row to grow a bit
             // more since the last simulation.
@@ -321,6 +326,22 @@ impl<'a> GridLayouter<'a> {
                 }
                 let spanned_y = y + 1 + offset;
                 let is_gutter = self.grid.is_gutter_track(spanned_y);
+
+                if unbreakable_rows_left == 0 {
+                    // Simulate unbreakable row groups
+                    let (unbreakable_rows, group_height) =
+                        self.simulate_unbreakable_row_group(spanned_y, engine)?;
+                    while !self.regions.size.y.fits(group_height)
+                        && !self.regions.in_last()
+                    {
+                        extra_amount_to_grow += latest_spanned_gutter_height;
+                        latest_spanned_gutter_height = Abs::zero();
+                        regions.next();
+                    }
+
+                    unbreakable_rows_left = unbreakable_rows;
+                }
+
                 match row {
                     // Fixed-size rows are what we are interested in.
                     Sizing::Rel(v) => {
@@ -329,20 +350,34 @@ impl<'a> GridLayouter<'a> {
                             total_spanned_gutter_height += height;
                             latest_spanned_gutter_height = height;
                         }
+                        let mut skipped_region = false;
                         while !regions.size.y.fits(height) && !regions.in_last() {
                             // A row was pushed to the next region. Therefore,
                             // the immediately preceding gutter row is removed.
                             extra_amount_to_grow += latest_spanned_gutter_height;
                             latest_spanned_gutter_height = Abs::zero();
+                            skipped_region = true;
                             regions.next();
                         }
+                        if !skipped_region || !is_gutter {
+                            // No gutter at the top of a new region.
+                            regions.size.y -= height;
+                        }
                     }
-                    // Non-fixed size rows are ignored during our simulation.
-                    _ if is_gutter => {
+                    Sizing::Auto => {
+                        // We only simulate for rowspans which end at the
+                        // current auto row. Therefore, there won't be any
+                        // further auto rows.
+                        unreachable!();
+                    }
+                    // For now, we ignore fractional rows on simulation.
+                    Sizing::Fr(_) if is_gutter => {
                         latest_spanned_gutter_height = Abs::zero();
                     }
-                    _ => {}
+                    Sizing::Fr(_) => {}
                 }
+
+                unbreakable_rows_left = unbreakable_rows_left.saturating_sub(1);
             }
             let max_growable_height = max_growable_height.unwrap_or_else(|| {
                 max_growable_height = Some(total_spanned_gutter_height);
@@ -392,6 +427,8 @@ impl<'a> GridLayouter<'a> {
         // ensure it wouldn't expand more than it should through the above
         // simulation, to our best efforts.
         resolved.extend(simulated_sizes);
+
+        Ok(())
     }
 }
 

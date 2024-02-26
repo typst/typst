@@ -1981,9 +1981,12 @@ impl<'a> GridLayouter<'a> {
         if !pending_rowspans.is_empty() {
             self.simulate_and_measure_rowspans_in_auto_row(
                 y,
+                unbreakable_rows_left,
+                previous_unbreakable_height,
                 &mut resolved,
                 &pending_rowspans,
-            );
+                engine,
+            )?;
         }
 
         debug_assert!(!unbreakable || resolved.len() < 2);
