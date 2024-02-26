@@ -79,9 +79,8 @@ impl<'a> Resolver for MyResolver<'a> {
 }
 
 /// Generates the JSON representation of the documentation. This can be used to
-/// generate the HTML yourself. You are encouraged to post-process the generated
-/// JSON to rewrite links and other things to match your site's structure. Be
-/// warned: the JSON structure is not stable and may change at any time.
+/// generate the HTML yourself. Be warned: the JSON structure is not stable and
+/// may change at any time.
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
