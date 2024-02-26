@@ -1857,6 +1857,13 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 let last_spanned_row = parent_y + rowspan - 1;
+
+                // When the rowspan is unbreakable, or all of its upcoming
+                // spanned rows are in the same unbreakable row group, its
+                // spanned gutter will certainly be in the same region as all
+                // of its other spanned rows, thus gutters won't be removed,
+                // and we can safely reduce how much the auto row expands by
+                // without using simulation.
                 let is_effectively_unbreakable_rowspan = self
                     .is_unbreakable_rowspan(cell, y)
                     || y + unbreakable_rows_left > last_spanned_row;
@@ -1879,55 +1886,29 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 // We can only predict the resolved size of upcoming fixed-size
-                // rows, but not fractional rows.
+                // rows, but not fractional rows. In the future, we might be
+                // able to simulate and circumvent the problem with fractional
+                // rows. Relative rows are currently always measured relative
+                // to the first region as well.
                 // We can ignore auto rows since this is the last spanned auto
                 // row.
-                // Ignore the sizes of gutter rows for now as they might be
-                // removed, therefore, in principle, the auto row expands
-                // considering that the gutter rows were all removed. Later we
-                // perform a simulation to try to correct that.
-                let (will_be_covered_height, spanned_gutter_height) = self
+                let will_be_covered_height: Abs = self
                     .grid
                     .rows
                     .iter()
-                    .enumerate()
                     .skip(y + 1)
                     .take(last_spanned_row - y)
-                    .map(|(y, row)| match row {
+                    .map(|row| match row {
                         Sizing::Rel(v) => {
-                            (y, v.resolve(self.styles).relative_to(self.regions.base().y))
+                            v.resolve(self.styles).relative_to(self.regions.base().y)
                         }
-                        _ => (y, Abs::zero()),
+                        _ => Abs::zero(),
                     })
-                    .fold(
-                        (Abs::zero(), Abs::zero()),
-                        |(acc_content, acc_gutter), (y, height)| {
-                            if !self.grid.is_gutter_track(y) {
-                                (acc_content + height, acc_gutter)
-                            } else {
-                                (acc_content, acc_gutter + height)
-                            }
-                        },
-                    );
+                    .sum();
 
-                let will_be_covered_height = if is_effectively_unbreakable_rowspan {
-                    // When the rowspan is unbreakable, or all of its upcoming
-                    // spanned rows are unbreakable, its spanned gutter will
-                    // certainly be in the same region as all of its other
-                    // spanned rows, thus gutters won't be removed, and we can
-                    // safely reduce how much the auto row expands by.
-                    will_be_covered_height + spanned_gutter_height
-                } else {
-                    // TODO: Perhaps we always need to simulate breakable
-                    // rowspans because of relative lengths being different
-                    // depending on the region.
-                    will_be_covered_height
-                };
-
-                // Remove future frames which will already be covered by
-                // further rows spanned by this cell. Ignore gutter rows here
-                // at first (gutter rows are only considered later, through a
-                // simulation of the upcoming regions).
+                // Remove or reduce the sizes of the rowspan at future regions
+                // where it will already be covered by further rows spanned by
+                // it.
                 subtract_end_sizes(&mut sizes, will_be_covered_height);
             }
 
