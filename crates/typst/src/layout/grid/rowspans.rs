@@ -148,6 +148,9 @@ impl<'a> GridLayouter<'a> {
         Ok(())
     }
 
+    /// Simulates a group of unbreakable rows, starting with the index of the
+    /// first row in the group. Keeps adding rows to the group until none have
+    /// unbreakable cells in common.
     pub(super) fn simulate_unbreakable_row_group(
         &self,
         first_row: usize,
@@ -157,22 +160,13 @@ impl<'a> GridLayouter<'a> {
         let mut unbreakable_rows = vec![];
         let mut unbreakable_rows_left = 0;
         for (y, row) in self.grid.rows.iter().enumerate().skip(first_row) {
-            for x in 0..self.grid.cols.len() {
-                let Some(cell) = self.grid.cell(x, y) else {
-                    continue;
-                };
-                let rowspan = self.grid.effective_rowspan_of_cell(cell);
-                if rowspan > 1 && self.is_unbreakable_rowspan(cell, y) {
-                    // At least the next 'rowspan' rows should be grouped together,
-                    // in the same page, as this rowspan can't be broken apart.
-                    // Since the last row in a rowspan is never gutter, here we
-                    // satisfy the invariant that a gutter row won't be the last
-                    // row in the unbreakable row group after the remaining rows
-                    // are added.
-                    unbreakable_rows_left = unbreakable_rows_left.max(rowspan);
-                }
-            }
+            let additional_unbreakable_rows = self.check_for_unbreakable_cells(y);
+            unbreakable_rows_left =
+                unbreakable_rows_left.max(additional_unbreakable_rows);
             if unbreakable_rows_left == 0 {
+                // This check is in case the first row does not have any
+                // unbreakable cells. Therefore, no unbreakable row group
+                // is formed.
                 break;
             }
             let height = match row {
@@ -200,8 +194,39 @@ impl<'a> GridLayouter<'a> {
             group_height += height;
             unbreakable_rows.push((y, height));
             unbreakable_rows_left -= 1;
+            if unbreakable_rows_left == 0 {
+                // This second check is necessary so we can tell distinct
+                // but consecutive unbreakable row groups apart. If the
+                // unbreakable row group ended at this row, we stop before
+                // checking the next one.
+                break;
+            }
         }
         Ok((unbreakable_rows.len(), group_height))
+    }
+
+    /// Checks if one or more of the cells at the given row are unbreakable.
+    /// If so, returns the largest rowspan among the unbreakable cells;
+    /// the spanned rows must, as a result, be laid out in the same region.
+    pub(super) fn check_for_unbreakable_cells(&self, y: usize) -> usize {
+        let mut unbreakable_rows_left = 0;
+        for x in 0..self.grid.cols.len() {
+            let Some(cell) = self.grid.cell(x, y) else {
+                continue;
+            };
+            let rowspan = self.grid.effective_rowspan_of_cell(cell);
+            if rowspan > 1 && self.is_unbreakable_rowspan(cell, y) {
+                // At least the next 'rowspan' rows should be grouped together,
+                // in the same page, as this rowspan can't be broken apart.
+                // Since the last row in a rowspan is never gutter, here we
+                // satisfy the invariant that a gutter row won't be the last
+                // row in the unbreakable row group after the remaining rows
+                // are added.
+                unbreakable_rows_left = unbreakable_rows_left.max(rowspan);
+            }
+        }
+
+        unbreakable_rows_left
     }
 
     /// Performs a simulation to predict by how much height the last spanned
