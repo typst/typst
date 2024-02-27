@@ -1319,12 +1319,15 @@ impl<'a> GridLayouter<'a> {
                     // Even if the parent cell's fill was already drawn in a
                     // previous region, we must render it again in later
                     // regions.
+                    // Worth noting that 'parent_y <= row.y' is guaranteed by
+                    // our usage of 'effective_parent_cell_position', so there
+                    // is no risk of us checking a cell that does not span the
+                    // current row.
                     let is_local_parent_y = {
                         parent_y == row.y
-                            || parent_y < row.y
-                                && rows.iter().find(|row| row.y >= parent_y).is_some_and(
-                                    |first_spanned_row| first_spanned_row.y == row.y,
-                                )
+                            || rows.iter().find(|row| row.y >= parent_y).is_some_and(
+                                |first_spanned_row| first_spanned_row.y == row.y,
+                            )
                     };
 
                     // Ensure we are at the very first row spanned by the cell
