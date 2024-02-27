@@ -40,6 +40,8 @@ use syn::DeriveInput;
 /// You can customize some properties of the resulting function:
 /// - `scope`: Indicates that the function has an associated scope defined by
 ///   the `#[scope]` macro.
+/// - `contextual`: Indicates that the function makes use of context. This has
+///   no effect on the behaviour itself, but is used for the docs.
 /// - `name`: The functions's normal name (e.g. `min`). Defaults to the Rust
 ///   name in kebab-case.
 /// - `title`: The functions's title case name (e.g. `Minimum`). Defaults to the

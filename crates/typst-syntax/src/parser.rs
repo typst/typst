@@ -750,6 +750,7 @@ fn code_primary(p: &mut Parser, atomic: bool) {
         SyntaxKind::Let => let_binding(p),
         SyntaxKind::Set => set_rule(p),
         SyntaxKind::Show => show_rule(p),
+        SyntaxKind::Context => contextual(p, atomic),
         SyntaxKind::If => conditional(p),
         SyntaxKind::While => while_loop(p),
         SyntaxKind::For => for_loop(p),
@@ -887,6 +888,14 @@ fn show_rule(p: &mut Parser) {
     }
 
     p.wrap(m, SyntaxKind::ShowRule);
+}
+
+/// Parses a contextual expression: `context text.lang`.
+fn contextual(p: &mut Parser, atomic: bool) {
+    let m = p.marker();
+    p.assert(SyntaxKind::Context);
+    code_expr_prec(p, atomic, 0);
+    p.wrap(m, SyntaxKind::Contextual);
 }
 
 /// Parses an if-else conditional: `if x { y } else { z }`.

@@ -1,36 +1,96 @@
-use crate::diag::SourceResult;
+use crate::diag::{HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, func, Content, Func, NativeElement, Packed, Show, StyleChain,
+    cast, elem, func, Content, Context, Func, LocatableSelector, NativeElement, Packed,
+    Show, StyleChain, Value,
 };
-use crate::introspection::Locatable;
+use crate::introspection::{Locatable, Location};
 use crate::syntax::Span;
 
-/// Provides access to the location of content.
+/// Determines the location of an element in the document.
 ///
-/// This is useful in combination with [queries]($query), [counters]($counter),
-/// [state]($state), and [links]($link). See their documentation for more
-/// details.
+/// Takes a selector that must match exactly one element and returns that
+/// element's [`location`]($location). This location can, in particular, be used
+/// to retrieve the physical [`page`]($location.page) number and
+/// [`position`]($location.position) (page, x, y) for that element.
 ///
+/// # Examples
+/// Locating a specific element:
 /// ```example
-/// #locate(loc => [
-///   My location: \
-///   #loc.position()!
-/// ])
+/// #context [
+///   Introduction is at: \
+///   #locate(<intro>).position()
+/// ]
+///
+/// = Introduction <intro>
 /// ```
-#[func]
+///
+/// # Compatibility
+/// In Typst 0.10 and lower, the `locate` function took a closure that made the
+/// current location in the document available (like [`here`]($here) does now).
+/// Compatibility with the old way will remain for a while to give package
+/// authors time to upgrade. To that effect, `locate` detects whether it
+/// received a selector or a user-defined function and adjusts its semantics
+/// accordingly. This behaviour will be removed in the future.
+#[func(contextual)]
 pub fn locate(
+    /// The engine.
+    engine: &mut Engine,
+    /// The callsite context.
+    context: &Context,
     /// The span of the `locate` call.
     span: Span,
-    /// A function that receives a [`location`]($location). Its return value is
-    /// displayed in the document.
+    /// A selector that should match exactly one element. This element will be
+    /// located.
     ///
-    /// This function is called once for each time the content returned by
-    /// `locate` appears in the document. That makes it possible to generate
-    /// content that depends on its own location in the document.
-    func: Func,
-) -> Content {
-    LocateElem::new(func).pack().spanned(span)
+    /// Especially useful in combination with
+    /// - [`here`]($here) to locate the current context,
+    /// - a [`location`]($location) retrieved from some queried element via the
+    ///   [`location()`]($content.location) method on content.
+    selector: LocateInput,
+) -> HintedStrResult<LocateOutput> {
+    Ok(match selector {
+        LocateInput::Selector(selector) => {
+            LocateOutput::Location(selector.resolve_unique(engine.introspector, context)?)
+        }
+        LocateInput::Func(func) => {
+            LocateOutput::Content(LocateElem::new(func).pack().spanned(span))
+        }
+    })
+}
+
+/// Compatible input type.
+pub enum LocateInput {
+    Selector(LocatableSelector),
+    Func(Func),
+}
+
+cast! {
+    LocateInput,
+    v: Func => {
+        if v.element().is_some() {
+            Self::Selector(Value::Func(v).cast()?)
+        } else {
+            Self::Func(v)
+        }
+    },
+    v: LocatableSelector => Self::Selector(v),
+}
+
+/// Compatible output type.
+pub enum LocateOutput {
+    Location(Location),
+    Content(Content),
+}
+
+cast! {
+    LocateOutput,
+    self => match self {
+        Self::Location(v) => v.into_value(),
+        Self::Content(v) => v.into_value(),
+    },
+    v: Location => Self::Location(v),
+    v: Content => Self::Content(v),
 }
 
 /// Executes a `locate` call.
@@ -43,8 +103,9 @@ struct LocateElem {
 
 impl Show for Packed<LocateElem> {
     #[typst_macros::time(name = "locate", span = self.span())]
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let location = self.location().unwrap();
-        Ok(self.func().call(engine, [location])?.display())
+        let context = Context::new(Some(location), Some(styles));
+        Ok(self.func().call(engine, &context, [location])?.display())
     }
 }

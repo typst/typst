@@ -43,6 +43,7 @@ fn resolve_known(head: &str, base: &str) -> Option<String> {
         "$syntax" => format!("{base}reference/syntax"),
         "$styling" => format!("{base}reference/styling"),
         "$scripting" => format!("{base}reference/scripting"),
+        "$context" => format!("{base}reference/context"),
         "$guides" => format!("{base}guides"),
         "$packages" => format!("{base}packages"),
         "$changelog" => format!("{base}changelog"),

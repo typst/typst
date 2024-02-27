@@ -13,8 +13,9 @@ use smallvec::smallvec;
 use crate::diag::{SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, func, scope, ty, Dict, Element, Fields, IntoValue, Label, NativeElement,
-    Recipe, RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles, Value,
+    elem, func, scope, ty, Context, Dict, Element, Fields, IntoValue, Label,
+    NativeElement, Recipe, RecipeIndex, Repr, Selector, Str, Style, StyleChain, Styles,
+    Value,
 };
 use crate::introspection::{Location, Meta, MetaElem};
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
@@ -344,10 +345,11 @@ impl Content {
     pub fn styled_with_recipe(
         self,
         engine: &mut Engine,
+        context: &Context,
         recipe: Recipe,
     ) -> SourceResult<Self> {
         if recipe.selector.is_none() {
-            recipe.apply(engine, self)
+            recipe.apply(engine, context, self)
         } else {
             Ok(self.styled(recipe))
         }

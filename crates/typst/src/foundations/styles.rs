@@ -9,9 +9,10 @@ use smallvec::SmallVec;
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, ty, Content, Element, Func, NativeElement, Packed, Repr, Selector,
-    Show,
+    cast, elem, func, ty, Content, Context, Element, Func, NativeElement, Packed, Repr,
+    Selector, Show,
 };
+use crate::introspection::Locatable;
 use crate::syntax::Span;
 use crate::text::{FontFamily, FontList, TextElem};
 use crate::util::LazyHash;
@@ -24,10 +25,10 @@ use crate::util::LazyHash;
 /// styles defined by [set rules]($styling/#set-rules).
 ///
 /// ```example
-/// #let thing(body) = style(styles => {
-///   let size = measure(body, styles)
+/// #let thing(body) = context {
+///   let size = measure(body)
 ///   [Width of "#body" is #size.width]
-/// })
+/// }
 ///
 /// #thing[Hey] \
 /// #thing[Welcome]
@@ -48,7 +49,7 @@ pub fn style(
 }
 
 /// Executes a style access.
-#[elem(Show)]
+#[elem(Locatable, Show)]
 struct StyleElem {
     /// The function to call with the styles.
     #[required]
@@ -58,7 +59,8 @@ struct StyleElem {
 impl Show for Packed<StyleElem> {
     #[typst_macros::time(name = "style", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.func().call(engine, [styles.to_map()])?.display())
+        let context = Context::new(self.location(), Some(styles));
+        Ok(self.func().call(engine, &context, [styles.to_map()])?.display())
     }
 }
 
@@ -383,11 +385,16 @@ impl Recipe {
     }
 
     /// Apply the recipe to the given content.
-    pub fn apply(&self, engine: &mut Engine, content: Content) -> SourceResult<Content> {
+    pub fn apply(
+        &self,
+        engine: &mut Engine,
+        context: &Context,
+        content: Content,
+    ) -> SourceResult<Content> {
         let mut content = match &self.transform {
             Transformation::Content(content) => content.clone(),
             Transformation::Func(func) => {
-                let mut result = func.call(engine, [content.clone()]);
+                let mut result = func.call(engine, context, [content.clone()]);
                 if self.selector.is_some() {
                     let point = || Tracepoint::Show(content.func().name().into());
                     result = result.trace(engine.world, point, content.span());

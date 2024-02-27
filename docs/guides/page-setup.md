@@ -174,13 +174,13 @@ conditionally remove the header on the first page:
 
 ```typ
 >>> #set page("a5", margin: (x: 2.5cm, y: 3cm))
-#set page(header: locate(loc => {
-  if counter(page).at(loc).first() > 1 [
+#set page(header: context {
+  if counter(page).get().first() > 1 [
     _Lisa Strassner's Thesis_
     #h(1fr)
     National Academy of Sciences
   ]
-}))
+})
 
 #lorem(150)
 ```
@@ -206,12 +206,12 @@ such a label exists on the current page:
 
 ```typ
 >>> #set page("a5", margin: (x: 2.5cm, y: 3cm))
-#set page(header: locate(loc => {
-  let page-counter = counter(page)
-  let matches = query(<big-table>, loc)
-  let current = page-counter.at(loc)
+#set page(header: context {
+  let page-counter =
+  let matches = query(<big-table>)
+  let current = counter(page).get()
   let has-table = matches.any(m =>
-    page-counter.at(m.location()) == current
+    counter(page).at(m.location()) == current
   )
 
   if not has-table [
@@ -291,7 +291,7 @@ a custom footer with page numbers and more.
 
 ```example
 >>> #set page("iso-b6", margin: 1.75cm)
-#set page(footer: [
+#set page(footer: context [
   *American Society of Proceedings*
   #h(1fr)
   #counter(page).display(
@@ -314,21 +314,20 @@ circle for each page.
 
 ```example
 >>> #set page("iso-b6", margin: 1.75cm)
-#set page(footer: [
+#set page(footer: context [
   *Fun Typography Club*
   #h(1fr)
-  #counter(page).display(num => {
-    let circles = num * (
-      box(circle(
-        radius: 2pt,
-        fill: navy,
-      )),
-    )
-    box(
-      inset: (bottom: 1pt),
-      circles.join(h(1pt))
-    )
-  })
+  #let (num,) = counter(page).get()
+  #let circles = num * (
+    box(circle(
+      radius: 2pt,
+      fill: navy,
+    )),
+  )
+  #box(
+    inset: (bottom: 1pt),
+    circles.join(h(1pt))
+  )
 ])
 
 This page has a custom footer.
@@ -382,7 +381,7 @@ page counter, you can use the [`page`]($locate) method on the argument of the
 
 // This returns one even though the
 // page counter was incremented by 5.
-#locate(loc => loc.page())
+#context here().page()
 ```
 
 You can also obtain the page numbering pattern from the `{locate}` closure

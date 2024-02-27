@@ -8,8 +8,8 @@ use once_cell::sync::Lazy;
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, repr, scope, ty, Args, CastInfo, Content, Element, IntoArgs, Scope, Selector,
-    Type, Value,
+    cast, repr, scope, ty, Args, CastInfo, Content, Context, Element, IntoArgs, Scope,
+    Selector, Type, Value,
 };
 use crate::syntax::{ast, Span, SyntaxNode};
 use crate::util::{LazyHash, Static};
@@ -181,6 +181,14 @@ impl Func {
         }
     }
 
+    /// Whether the function is known to be contextual.
+    pub fn contextual(&self) -> Option<bool> {
+        match &self.repr {
+            Repr::Native(native) => Some(native.contextual),
+            _ => None,
+        }
+    }
+
     /// Get details about this function's parameters if available.
     pub fn params(&self) -> Option<&'static [ParamInfo]> {
         match &self.repr {
@@ -249,17 +257,27 @@ impl Func {
         }
     }
 
-    /// Call the function with the given arguments.
-    pub fn call(&self, engine: &mut Engine, args: impl IntoArgs) -> SourceResult<Value> {
-        self.call_impl(engine, args.into_args(self.span))
+    /// Call the function with the given context and arguments.
+    pub fn call<A: IntoArgs>(
+        &self,
+        engine: &mut Engine,
+        context: &Context,
+        args: A,
+    ) -> SourceResult<Value> {
+        self.call_impl(engine, context, args.into_args(self.span))
     }
 
     /// Non-generic implementation of `call`.
     #[typst_macros::time(name = "func call", span = self.span())]
-    fn call_impl(&self, engine: &mut Engine, mut args: Args) -> SourceResult<Value> {
+    fn call_impl(
+        &self,
+        engine: &mut Engine,
+        context: &Context,
+        mut args: Args,
+    ) -> SourceResult<Value> {
         match &self.repr {
             Repr::Native(native) => {
-                let value = (native.function)(engine, &mut args)?;
+                let value = (native.function)(engine, context, &mut args)?;
                 args.finish()?;
                 Ok(value)
             }
@@ -276,11 +294,12 @@ impl Func {
                 engine.route.track(),
                 engine.locator.track(),
                 TrackedMut::reborrow_mut(&mut engine.tracer),
+                context,
                 args,
             ),
             Repr::With(with) => {
                 args.items = with.1.items.iter().cloned().chain(args.items).collect();
-                with.0.call(engine, args)
+                with.0.call(engine, context, args)
             }
         }
     }
@@ -414,11 +433,12 @@ pub trait NativeFunc {
 /// Defines a native function.
 #[derive(Debug)]
 pub struct NativeFuncData {
-    pub function: fn(&mut Engine, &mut Args) -> SourceResult<Value>,
+    pub function: fn(&mut Engine, &Context, &mut Args) -> SourceResult<Value>,
     pub name: &'static str,
     pub title: &'static str,
     pub docs: &'static str,
     pub keywords: &'static [&'static str],
+    pub contextual: bool,
     pub scope: Lazy<Scope>,
     pub params: Lazy<Vec<ParamInfo>>,
     pub returns: Lazy<CastInfo>,
@@ -464,22 +484,22 @@ pub struct ParamInfo {
 /// A user-defined closure.
 #[derive(Debug, Hash)]
 pub struct Closure {
-    /// The closure's syntax node. Must be castable to `ast::Closure`.
+    /// The closure's syntax node. Must be either castable to `ast::Closure` or
+    /// `ast::Expr`. In the latter case, this is a synthesized closure without
+    /// any parameters (used by `context` expressions).
     pub node: SyntaxNode,
     /// Default values of named parameters.
     pub defaults: Vec<Value>,
     /// Captured values from outer scopes.
     pub captured: Scope,
+    /// The number of positional parameters in the closure.
+    pub num_pos_params: usize,
 }
 
 impl Closure {
     /// The name of the closure.
     pub fn name(&self) -> Option<&str> {
-        self.node
-            .cast::<ast::Closure>()
-            .unwrap()
-            .name()
-            .map(|ident| ident.as_str())
+        self.node.cast::<ast::Closure>()?.name().map(|ident| ident.as_str())
     }
 }
 

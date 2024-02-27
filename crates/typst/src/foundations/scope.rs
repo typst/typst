@@ -169,10 +169,15 @@ impl Scope {
     }
 
     /// Define a captured, immutable binding.
-    pub fn define_captured(&mut self, var: impl Into<EcoString>, value: impl IntoValue) {
+    pub fn define_captured(
+        &mut self,
+        var: impl Into<EcoString>,
+        value: impl IntoValue,
+        capturer: Capturer,
+    ) {
         self.map.insert(
             var.into(),
-            Slot::new(value.into_value(), Kind::Captured, self.category),
+            Slot::new(value.into_value(), Kind::Captured(capturer), self.category),
         );
     }
 
@@ -246,7 +251,16 @@ enum Kind {
     /// A normal, mutable binding.
     Normal,
     /// A captured copy of another variable.
-    Captured,
+    Captured(Capturer),
+}
+
+/// What the variable was captured by.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Capturer {
+    /// Captured by a function / closure.
+    Function,
+    /// Captured by a context expression.
+    Context,
 }
 
 impl Slot {
@@ -264,10 +278,14 @@ impl Slot {
     fn write(&mut self) -> StrResult<&mut Value> {
         match self.kind {
             Kind::Normal => Ok(&mut self.value),
-            Kind::Captured => {
+            Kind::Captured(capturer) => {
                 bail!(
-                    "variables from outside the function are \
-                     read-only and cannot be modified"
+                    "variables from outside the {} are \
+                     read-only and cannot be modified",
+                    match capturer {
+                        Capturer::Function => "function",
+                        Capturer::Context => "context expression",
+                    }
                 )
             }
         }

@@ -24,7 +24,7 @@ use crate::util::{option_eq, NonZeroExt};
 /// specify how you want your headings to be numbered with a
 /// [numbering pattern or function]($numbering).
 ///
-/// Independently from the numbering, Typst can also automatically generate an
+/// Independently of the numbering, Typst can also automatically generate an
 /// [outline]($outline) of all headings for you. To exclude one or more headings
 /// from this outline, you can set the `outlined` parameter to `{false}`.
 ///
@@ -136,7 +136,7 @@ impl Synthesize for Packed<HeadingElem> {
             Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => {
-                supplement.resolve(engine, [self.clone().pack()])?
+                supplement.resolve(engine, styles, [self.clone().pack()])?
             }
         };
 
@@ -148,16 +148,16 @@ impl Synthesize for Packed<HeadingElem> {
 impl Show for Packed<HeadingElem> {
     #[typst_macros::time(name = "heading", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let span = self.span();
         let mut realized = self.body().clone();
         if let Some(numbering) = (**self).numbering(styles).as_ref() {
             realized = Counter::of(HeadingElem::elem())
-                .at(engine, self.location().unwrap())?
-                .display(engine, numbering)?
-                .spanned(self.span())
+                .display_at_loc(engine, self.location().unwrap(), styles, numbering)?
+                .spanned(span)
                 + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;
         }
-        Ok(BlockElem::new().with_body(Some(realized)).pack().spanned(self.span()))
+        Ok(BlockElem::new().with_body(Some(realized)).pack().spanned(span))
     }
 }
 
@@ -212,16 +212,23 @@ impl Refable for Packed<HeadingElem> {
 }
 
 impl Outlinable for Packed<HeadingElem> {
-    fn outline(&self, engine: &mut Engine) -> SourceResult<Option<Content>> {
+    fn outline(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Option<Content>> {
         if !self.outlined(StyleChain::default()) {
             return Ok(None);
         }
 
         let mut content = self.body().clone();
         if let Some(numbering) = (**self).numbering(StyleChain::default()).as_ref() {
-            let numbers = Counter::of(HeadingElem::elem())
-                .at(engine, self.location().unwrap())?
-                .display(engine, numbering)?;
+            let numbers = Counter::of(HeadingElem::elem()).display_at_loc(
+                engine,
+                self.location().unwrap(),
+                styles,
+                numbering,
+            )?;
             content = numbers + SpaceElem::new().pack() + content;
         };
 

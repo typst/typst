@@ -3,8 +3,8 @@ use ecow::eco_format;
 use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Content, Func, IntoValue, Label, NativeElement, Packed, Show, Smart,
-    StyleChain, Synthesize,
+    cast, elem, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Show,
+    Smart, StyleChain, Synthesize,
 };
 use crate::introspection::{Counter, Locatable};
 use crate::math::EquationElem;
@@ -213,15 +213,19 @@ impl Show for Packed<RefElem> {
             .at(span)?;
 
         let loc = elem.location().unwrap();
-        let numbers = refable
-            .counter()
-            .at(engine, loc)?
-            .display(engine, &numbering.clone().trimmed())?;
+        let numbers = refable.counter().display_at_loc(
+            engine,
+            loc,
+            styles,
+            &numbering.clone().trimmed(),
+        )?;
 
         let supplement = match self.supplement(styles).as_ref() {
             Smart::Auto => refable.supplement(),
             Smart::Custom(None) => Content::empty(),
-            Smart::Custom(Some(supplement)) => supplement.resolve(engine, [elem])?,
+            Smart::Custom(Some(supplement)) => {
+                supplement.resolve(engine, styles, [elem])?
+            }
         };
 
         let mut content = numbers;
@@ -267,11 +271,14 @@ impl Supplement {
     pub fn resolve<T: IntoValue>(
         &self,
         engine: &mut Engine,
+        styles: StyleChain,
         args: impl IntoIterator<Item = T>,
     ) -> SourceResult<Content> {
         Ok(match self {
             Supplement::Content(content) => content.clone(),
-            Supplement::Func(func) => func.call(engine, args)?.display(),
+            Supplement::Func(func) => {
+                func.call(engine, &Context::new(None, Some(styles)), args)?.display()
+            }
         })
     }
 }

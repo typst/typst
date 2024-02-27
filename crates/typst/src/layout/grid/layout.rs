@@ -14,8 +14,8 @@ use crate::diag::{
 };
 use crate::engine::Engine;
 use crate::foundations::{
-    Array, CastInfo, Content, Fold, FromValue, Func, IntoValue, Reflect, Resolve, Smart,
-    StyleChain, Value,
+    Array, CastInfo, Content, Context, Fold, FromValue, Func, IntoValue, Reflect,
+    Resolve, Smart, StyleChain, Value,
 };
 use crate::layout::{
     Abs, Alignment, Axes, Dir, Fr, Fragment, Frame, FrameItem, LayoutMultiple, Length,
@@ -39,10 +39,19 @@ pub enum Celled<T> {
 
 impl<T: Default + Clone + FromValue> Celled<T> {
     /// Resolve the value based on the cell position.
-    pub fn resolve(&self, engine: &mut Engine, x: usize, y: usize) -> SourceResult<T> {
+    pub fn resolve(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        x: usize,
+        y: usize,
+    ) -> SourceResult<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
-            Self::Func(func) => func.call(engine, [x, y])?.cast().at(func.span())?,
+            Self::Func(func) => func
+                .call(engine, &Context::new(None, Some(styles)), [x, y])?
+                .cast()
+                .at(func.span())?,
             Self::Array(array) => x
                 .checked_rem(array.len())
                 .and_then(|i| array.get(i))
@@ -141,7 +150,7 @@ where
         Ok(match &self.0 {
             Celled::Value(value) => value.clone(),
             Celled::Func(func) => func
-                .call(engine, [x, y])?
+                .call(engine, &Context::new(None, Some(styles)), [x, y])?
                 .cast::<T>()
                 .at(func.span())?
                 .resolve(styles),
@@ -484,9 +493,9 @@ impl CellGrid {
             let cell = cell.resolve_cell(
                 x,
                 y,
-                &fill.resolve(engine, x, y)?,
-                align.resolve(engine, x, y)?,
-                inset.resolve(engine, x, y)?,
+                &fill.resolve(engine, styles, x, y)?,
+                align.resolve(engine, styles, x, y)?,
+                inset.resolve(engine, styles, x, y)?,
                 stroke.resolve(engine, styles, x, y)?,
                 styles,
             );
@@ -570,9 +579,9 @@ impl CellGrid {
                     let new_cell = T::default().resolve_cell(
                         x,
                         y,
-                        &fill.resolve(engine, x, y)?,
-                        align.resolve(engine, x, y)?,
-                        inset.resolve(engine, x, y)?,
+                        &fill.resolve(engine, styles, x, y)?,
+                        align.resolve(engine, styles, x, y)?,
+                        inset.resolve(engine, styles, x, y)?,
                         stroke.resolve(engine, styles, x, y)?,
                         styles,
                     );

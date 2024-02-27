@@ -29,22 +29,6 @@ impl Element {
         T::elem()
     }
 
-    /// Extract the field ID for the given field name.
-    pub fn field_id(&self, name: &str) -> Option<u8> {
-        if name == "label" {
-            return Some(255);
-        }
-        (self.0.field_id)(name)
-    }
-
-    /// Extract the field name for the given field ID.
-    pub fn field_name(&self, id: u8) -> Option<&'static str> {
-        if id == 255 {
-            return Some("label");
-        }
-        (self.0.field_name)(id)
-    }
-
     /// The element's normal name (e.g. `enum`).
     pub fn name(self) -> &'static str {
         self.0.name
@@ -120,6 +104,27 @@ impl Element {
     /// Details about the element's fields.
     pub fn params(&self) -> &'static [ParamInfo] {
         &(self.0).0.params
+    }
+
+    /// Extract the field ID for the given field name.
+    pub fn field_id(&self, name: &str) -> Option<u8> {
+        if name == "label" {
+            return Some(255);
+        }
+        (self.0.field_id)(name)
+    }
+
+    /// Extract the field name for the given field ID.
+    pub fn field_name(&self, id: u8) -> Option<&'static str> {
+        if id == 255 {
+            return Some("label");
+        }
+        (self.0.field_name)(id)
+    }
+
+    /// Extract the field name for the given field ID.
+    pub fn field_from_styles(&self, id: u8, styles: StyleChain) -> Option<Value> {
+        (self.0.field_from_styles)(id, styles)
     }
 
     /// The element's local name, if any.
@@ -222,6 +227,11 @@ pub trait Fields {
     /// Get the field with the given ID in the presence of styles.
     fn field_with_styles(&self, id: u8, styles: StyleChain) -> Option<Value>;
 
+    /// Get the field with the given ID from the styles.
+    fn field_from_styles(id: u8, styles: StyleChain) -> Option<Value>
+    where
+        Self: Sized;
+
     /// Resolve all fields with the styles and save them in-place.
     fn materialize(&mut self, styles: StyleChain);
 
@@ -260,6 +270,7 @@ pub struct NativeElementData {
     pub vtable: fn(capability: TypeId) -> Option<*const ()>,
     pub field_id: fn(name: &str) -> Option<u8>,
     pub field_name: fn(u8) -> Option<&'static str>,
+    pub field_from_styles: fn(u8, StyleChain) -> Option<Value>,
     pub local_name: Option<fn(Lang, Option<Region>) -> &'static str>,
     pub scope: Lazy<Scope>,
     pub params: Lazy<Vec<ParamInfo>>,

@@ -83,20 +83,19 @@
 
 ---
 // Test length `to-absolute` method.
-
 #set text(size: 12pt)
-#style(styles => {
-  test((6pt).to-absolute(styles), 6pt)
-  test((6pt + 10em).to-absolute(styles), 126pt)
-  test((10em).to-absolute(styles), 120pt)
-})
+#context {
+  test((6pt).to-absolute(), 6pt)
+  test((6pt + 10em).to-absolute(), 126pt)
+  test((10em).to-absolute(), 120pt)
+}
 
 #set text(size: 64pt)
-#style(styles => {
-  test((6pt).to-absolute(styles), 6pt)
-  test((6pt + 10em).to-absolute(styles), 646pt)
-  test((10em).to-absolute(styles), 640pt)
-})
+#context {
+  test((6pt).to-absolute(), 6pt)
+  test((6pt + 10em).to-absolute(), 646pt)
+  test((10em).to-absolute(), 640pt)
+}
 
 ---
 // Error: 2-21 cannot convert a length with non-zero em units (`-6pt + 10.5em`) to pt

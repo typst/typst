@@ -1,8 +1,10 @@
 use ecow::{eco_vec, EcoVec};
 
 use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult};
-use crate::eval::{ops, Eval, Vm};
-use crate::foundations::{Array, Content, Dict, Str, Value};
+use crate::eval::{ops, CapturesVisitor, Eval, Vm};
+use crate::foundations::{
+    Array, Capturer, Closure, Content, ContextElem, Dict, Func, NativeElement, Str, Value,
+};
 use crate::syntax::ast::{self, AstNode};
 
 impl Eval for ast::Code<'_> {
@@ -40,7 +42,11 @@ fn eval_code<'a>(
                 }
 
                 let tail = eval_code(vm, exprs)?.display();
-                Value::Content(tail.styled_with_recipe(&mut vm.engine, recipe)?)
+                Value::Content(tail.styled_with_recipe(
+                    &mut vm.engine,
+                    vm.context,
+                    recipe,
+                )?)
             }
             _ => expr.eval(vm)?,
         };
@@ -117,6 +123,7 @@ impl Eval for ast::Expr<'_> {
             Self::DestructAssign(v) => v.eval(vm),
             Self::Set(_) => bail!(forbidden("set")),
             Self::Show(_) => bail!(forbidden("show")),
+            Self::Contextual(v) => v.eval(vm).map(Value::Content),
             Self::Conditional(v) => v.eval(vm),
             Self::While(v) => v.eval(vm),
             Self::For(v) => v.eval(vm),
@@ -129,7 +136,7 @@ impl Eval for ast::Expr<'_> {
         .spanned(span);
 
         if vm.inspected == Some(span) {
-            vm.engine.tracer.value(v.clone());
+            vm.trace(v.clone());
         }
 
         Ok(v)
@@ -296,6 +303,56 @@ impl Eval for ast::FieldAccess<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = self.target().eval(vm)?;
         let field = self.field();
-        value.field(&field).at(field.span())
+
+        let err = match value.field(&field).at(field.span()) {
+            Ok(value) => return Ok(value),
+            Err(err) => err,
+        };
+
+        // Check whether this is a get rule field access.
+        if_chain::if_chain! {
+            if let Value::Func(func) = &value;
+            if let Some(element) = func.element();
+            if let Some(id) = element.field_id(&field);
+            let styles = vm.context.styles().at(field.span());
+            if let Some(value) = element.field_from_styles(
+                id,
+                styles.as_ref().map(|&s| s).unwrap_or_default(),
+            );
+            then {
+                // Only validate the context once we know that this is indeed
+                // a field from the style chain.
+                let _ = styles?;
+                return Ok(value);
+            }
+        }
+
+        Err(err)
+    }
+}
+
+impl Eval for ast::Contextual<'_> {
+    type Output = Content;
+
+    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let body = self.body();
+
+        // Collect captured variables.
+        let captured = {
+            let mut visitor = CapturesVisitor::new(Some(&vm.scopes), Capturer::Context);
+            visitor.visit(body.to_untyped());
+            visitor.finish()
+        };
+
+        // Define the closure.
+        let closure = Closure {
+            node: self.body().to_untyped().clone(),
+            defaults: vec![],
+            captured,
+            num_pos_params: 0,
+        };
+
+        let func = Func::from(closure).spanned(body.span());
+        Ok(ContextElem::new(func).pack())
     }
 }

@@ -753,10 +753,10 @@ fn test_autocomplete<'a>(
         {
             writeln!(output, "  Subtest {i} does not match expected completions.")
                 .unwrap();
-            write!(output, "  for annotation | ").unwrap();
+            write!(output, "  for annotation  | ").unwrap();
             print_annotation(output, source, line, annotation);
 
-            write!(output, "    Not contained  | ").unwrap();
+            write!(output, "    Not contained  // ").unwrap();
             for item in missing {
                 write!(output, "{item:?}, ").unwrap()
             }
@@ -772,10 +772,10 @@ fn test_autocomplete<'a>(
         {
             writeln!(output, "  Subtest {i} does not match expected completions.")
                 .unwrap();
-            write!(output, "  for annotation | ").unwrap();
+            write!(output, "  for annotation  | ").unwrap();
             print_annotation(output, source, line, annotation);
 
-            write!(output, "    Not excluded| ").unwrap();
+            write!(output, "    Not excluded  // ").unwrap();
             for item in undesired {
                 write!(output, "{item:?}, ").unwrap()
             }
@@ -850,12 +850,12 @@ fn test_diagnostics<'a>(
         *ok = false;
 
         for unexpected in unexpected_outputs {
-            write!(output, "    Not annotated | ").unwrap();
+            write!(output, "    Not annotated // ").unwrap();
             print_annotation(output, source, line, unexpected)
         }
 
         for missing in missing_outputs {
-            write!(output, "    Not emitted   | ").unwrap();
+            write!(output, "    Not emitted   // ").unwrap();
             print_annotation(output, source, line, missing)
         }
     }

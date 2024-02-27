@@ -4,7 +4,9 @@ use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{cast, elem, scope, Array, Content, Packed, Smart, StyleChain};
+use crate::foundations::{
+    cast, elem, scope, Array, Content, Context, Packed, Smart, StyleChain,
+};
 use crate::layout::{
     Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
     LayoutMultiple, Length, Regions, Sizing, Spacing, VAlignment,
@@ -242,9 +244,10 @@ impl LayoutMultiple for Packed<EnumElem> {
         for item in self.children() {
             number = item.number(styles).unwrap_or(number);
 
+            let context = Context::new(None, Some(styles));
             let resolved = if full {
                 parents.push(number);
-                let content = numbering.apply(engine, &parents)?.display();
+                let content = numbering.apply(engine, &context, &parents)?.display();
                 parents.pop();
                 content
             } else {
@@ -252,7 +255,7 @@ impl LayoutMultiple for Packed<EnumElem> {
                     Numbering::Pattern(pattern) => {
                         TextElem::packed(pattern.apply_kth(parents.len(), number))
                     }
-                    other => other.apply(engine, &[number])?.display(),
+                    other => other.apply(engine, &context, &[number])?.display(),
                 }
             };
 

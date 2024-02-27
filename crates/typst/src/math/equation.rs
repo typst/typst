@@ -161,7 +161,7 @@ impl Synthesize for Packed<EquationElem> {
             Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => {
-                supplement.resolve(engine, [self.clone().pack()])?
+                supplement.resolve(engine, styles, [self.clone().pack()])?
             }
         };
 
@@ -265,8 +265,7 @@ impl LayoutSingle for Packed<EquationElem> {
 
         let pod = Regions::one(regions.base(), Axes::splat(false));
         let number = Counter::of(EquationElem::elem())
-            .at(engine, self.location().unwrap())?
-            .display(engine, numbering)?
+            .display_at_loc(engine, self.location().unwrap(), styles, numbering)?
             .spanned(span)
             .layout(engine, styles, pod)?
             .into_frame();
@@ -357,7 +356,11 @@ impl Refable for Packed<EquationElem> {
 }
 
 impl Outlinable for Packed<EquationElem> {
-    fn outline(&self, engine: &mut Engine) -> SourceResult<Option<Content>> {
+    fn outline(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Option<Content>> {
         if !self.block(StyleChain::default()) {
             return Ok(None);
         }
@@ -375,10 +378,12 @@ impl Outlinable for Packed<EquationElem> {
             supplement += TextElem::packed("\u{a0}");
         }
 
-        let numbers = self
-            .counter()
-            .at(engine, self.location().unwrap())?
-            .display(engine, numbering)?;
+        let numbers = self.counter().display_at_loc(
+            engine,
+            self.location().unwrap(),
+            styles,
+            numbering,
+        )?;
 
         Ok(Some(supplement + numbers))
     }

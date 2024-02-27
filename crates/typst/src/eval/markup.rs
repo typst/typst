@@ -43,7 +43,7 @@ fn eval_markup<'a>(
                 }
 
                 let tail = eval_markup(vm, exprs)?;
-                seq.push(tail.styled_with_recipe(&mut vm.engine, recipe)?)
+                seq.push(tail.styled_with_recipe(&mut vm.engine, vm.context, recipe)?)
             }
             expr => match expr.eval(vm)? {
                 Value::Label(label) => {

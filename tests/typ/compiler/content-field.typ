@@ -17,10 +17,7 @@
 ---
 // Test it with query.
 #set raw(lang: "rust")
-#locate(loc => {
-  let elem = query(<myraw>, loc).first()
-  elem.lang
-})
+#context query(<myraw>).first().lang
 `raw` <myraw>
 
 ---
