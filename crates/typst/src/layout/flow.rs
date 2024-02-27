@@ -312,7 +312,7 @@ impl<'a> FlowLayouter<'a> {
             align.x().unwrap_or_default().resolve(styles)
         });
         let y_align = alignment.map(|align| align.y().map(|y| y.resolve(styles)));
-        let mut frame = placed.layout(engine, styles, self.regions)?.into_frame();
+        let mut frame = placed.layout(engine, styles, self.regions.base())?.into_frame();
         frame.meta(styles, false);
         let item = FlowItem::Placed { frame, x_align, y_align, delta, float, clearance };
         self.layout_item(engine, item)
@@ -427,9 +427,11 @@ impl<'a> FlowLayouter<'a> {
                 clearance,
                 ..
             } => {
-                // If the float doesn't fit, queue it for the next region.
-                if !self.regions.size.y.fits(frame.height() + clearance)
-                    && !self.regions.in_last()
+                // If there is a queued float in front or if the float doesn't
+                // fit, queue it for the next region.
+                if !self.pending_floats.is_empty()
+                    || (!self.regions.size.y.fits(frame.height() + clearance)
+                        && !self.regions.in_last())
                 {
                     self.pending_floats.push(item);
                     return Ok(());
