@@ -1610,15 +1610,12 @@ impl<'a> GridLayouter<'a> {
     /// Layout a row with automatic height. Such a row may break across multiple
     /// regions.
     fn layout_auto_row(&mut self, engine: &mut Engine, y: usize) -> SourceResult<()> {
-        let unbreakable = self.unbreakable_rows_left > 0;
-
         // Determine the size for each region of the row. If the first region
         // ends up empty for some column, skip the region and remeasure.
         let mut resolved = match self.measure_auto_row(
             engine,
             y,
             true,
-            unbreakable,
             self.unbreakable_rows_left,
             &UnbreakableRowGroup::default(),
         )? {
@@ -1629,7 +1626,6 @@ impl<'a> GridLayouter<'a> {
                     engine,
                     y,
                     false,
-                    unbreakable,
                     self.unbreakable_rows_left,
                     &UnbreakableRowGroup::default(),
                 )?
@@ -1676,8 +1672,9 @@ impl<'a> GridLayouter<'a> {
 
     /// Measure the regions sizes of an auto row. The option is always `Some(_)`
     /// if `can_skip` is false.
-    /// If `unbreakable` is true, this function shall only return a single
-    /// frame. Useful when an unbreakable rowspan crosses this auto row.
+    /// If `unbreakable_rows_left` is positive, this function shall only return
+    /// a single frame. Useful when an unbreakable rowspan crosses this auto
+    /// row.
     /// The `row_group_data` option is used within the unbreakable row group
     /// simulator to predict the height of the auto row if previous rows in the
     /// group were placed in the same region.
@@ -1686,10 +1683,10 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
         y: usize,
         can_skip: bool,
-        unbreakable: bool,
         unbreakable_rows_left: usize,
         row_group_data: &UnbreakableRowGroup,
     ) -> SourceResult<Option<Vec<Abs>>> {
+        let unbreakable = unbreakable_rows_left > 0;
         let mut resolved: Vec<Abs> = vec![];
         let mut pending_rowspans: Vec<(usize, usize, Vec<Abs>)> = vec![];
 

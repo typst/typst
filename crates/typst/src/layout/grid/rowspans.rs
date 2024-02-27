@@ -204,7 +204,6 @@ impl<'a> GridLayouter<'a> {
                         engine,
                         y,
                         false,
-                        true,
                         unbreakable_rows_left,
                         &row_group,
                     )?
