@@ -253,7 +253,7 @@ impl<'a> FlowLayouter<'a> {
         }
 
         if let Some(first) = lines.first() {
-            if !self.regions.size.y.fits(first.height()) && !self.regions.in_last() {
+            while !self.regions.size.y.fits(first.height()) && !self.regions.in_last() {
                 let carry: Vec<_> = self.items.drain(sticky..).collect();
                 self.finish_region(engine, false)?;
                 for item in carry {
@@ -400,7 +400,7 @@ impl<'a> FlowLayouter<'a> {
             FlowItem::Fractional(_) => {}
             FlowItem::Frame { ref frame, movable, .. } => {
                 let height = frame.height();
-                if !self.regions.size.y.fits(height) && !self.regions.in_last() {
+                while !self.regions.size.y.fits(height) && !self.regions.in_last() {
                     self.finish_region(engine, false)?;
                 }
 
@@ -613,7 +613,7 @@ impl<'a> FlowLayouter<'a> {
         self.initial = self.regions.size;
         self.has_footnotes = false;
 
-        // Try to place floats.
+        // Try to place floats into the next region.
         for item in std::mem::take(&mut self.pending_floats) {
             self.layout_item(engine, item)?;
         }

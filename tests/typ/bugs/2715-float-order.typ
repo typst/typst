@@ -1,4 +1,4 @@
-#set page(height: 170pt)
+#set page(height: 180pt)
 #set figure(placement: auto)
 
 #figure(
