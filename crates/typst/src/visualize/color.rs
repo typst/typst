@@ -1016,6 +1016,7 @@ impl Color {
     /// ```example
     /// #square(fill: yellow)
     /// #square(fill: yellow.negate())
+    /// #square(fill: yellow.negate(space: rgb))
     /// ```
     #[func]
     pub fn negate(
