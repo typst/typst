@@ -2,7 +2,7 @@ use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Packed, Smart, StyleChain};
 use crate::layout::{
-    Alignment, Axes, Em, Fragment, LayoutMultiple, Length, Regions, Rel, VAlignment,
+    Alignment, Axes, Em, Fragment, LayoutMultiple, Length, Regions, Rel, Size, VAlignment,
 };
 use crate::realize::{Behave, Behaviour};
 
@@ -93,11 +93,10 @@ impl Packed<PlaceElem> {
         &self,
         engine: &mut Engine,
         styles: StyleChain,
-        regions: Regions,
+        base: Size,
     ) -> SourceResult<Fragment> {
         // The pod is the base area of the region because for absolute
         // placement we don't really care about the already used area.
-        let base = regions.base();
         let float = self.float(styles);
         let alignment = self.alignment(styles);
 
