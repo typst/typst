@@ -989,7 +989,8 @@ pub struct GridLayouter<'a> {
     /// current unbreakable row group. While this is positive, no region breaks
     /// should occur.
     pub(super) unbreakable_rows_left: usize,
-    /// Rowspans to layout after all regions were finished.
+    /// Rowspans not yet laid out because not all of their spanned rows were
+    /// laid out yet.
     pub(super) rowspans: Vec<Rowspan>,
     /// The initial size of the current region before we started subtracting.
     pub(super) initial: Size,
