@@ -1026,7 +1026,7 @@ impl Color {
         #[default(ColorSpace::Oklab)]
         space: ColorSpace,
     ) -> Color {
-        match self.to_space(space) {
+        let result = match self.to_space(space) {
             Self::Luma(c) => Self::Luma(Luma::new(1.0 - c.luma, c.alpha)),
             Self::Oklab(c) => Self::Oklab(Oklab::new(1.0 - c.l, -c.a, -c.b, c.alpha)),
             Self::Oklch(c) => Self::Oklch(Oklch::new(
@@ -1057,7 +1057,8 @@ impl Color {
                 c.value,
                 c.alpha,
             )),
-        }
+        };
+        result.to_space(self.space())
     }
 
     /// Rotates the hue of the color by a given angle.
