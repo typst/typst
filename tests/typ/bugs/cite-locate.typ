@@ -17,7 +17,7 @@
   caption: [A pirate @arrgh in @intro],
 )
 
-#context [Citation @distress on page #locate(here(), accuracy: "page")]
+#context [Citation @distress on page #here().page()]
 
 #pagebreak()
 #bibliography("/files/works.bib", style: "chicago-notes")

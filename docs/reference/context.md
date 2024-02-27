@@ -128,7 +128,7 @@ and returns the position on the pages for that element.
 
 ```example
 Background is at: \
-#context locate(<back>)
+#context locate(<back>).position()
 
 = Introduction <intro>
 #lorem(5)

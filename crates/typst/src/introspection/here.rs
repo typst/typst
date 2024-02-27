@@ -23,7 +23,7 @@ use crate::introspection::Location;
 /// ```example
 /// #context [
 ///   I am located at
-///   #locate(here())
+///   #here().position()
 /// ]
 /// ```
 ///

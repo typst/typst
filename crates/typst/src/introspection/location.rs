@@ -46,22 +46,27 @@ impl Location {
 
 #[scope]
 impl Location {
-    /// **Deprecation planned:** This function is superseded by
-    /// [`locate`]($locate).
+    /// Returns the page number for this location.
     ///
     /// Note that this does not return the value of the [page counter]($counter)
     /// at this location, but the true page number (starting from one).
     ///
     /// If you want to know the value of the page counter, use
     /// `{counter(page).at(loc)}` instead.
+    ///
+    /// Can be used with [`here`]($here) to retrieve the physical page position
+    /// of the current context:
+    /// ```example
+    /// #context [
+    ///   I am located on
+    ///   page #here().page()
+    /// ]
+    /// ```
     #[func]
     pub fn page(self, engine: &mut Engine) -> NonZeroUsize {
         engine.introspector.page(self)
     }
 
-    /// **Deprecation planned:** This function is superseded by
-    /// [`locate`]($locate).
-    ///
     /// Returns a dictionary with the page number and the x, y position for this
     /// location. The page number starts at one and the coordinates are measured
     /// from the top-left of the page.

@@ -381,7 +381,7 @@ page counter, you can use the [`page`]($locate) method on the argument of the
 
 // This returns one even though the
 // page counter was incremented by 5.
-#context locate(here()).page
+#context here().page()
 ```
 
 You can also obtain the page numbering pattern from the `{locate}` closure

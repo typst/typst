@@ -1,45 +1,28 @@
-use std::num::NonZeroUsize;
-
 use crate::diag::{HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, Cast, Content, Context, Func, LocatableSelector, NativeElement,
-    Packed, Show, StyleChain, Value,
+    cast, elem, func, Content, Context, Func, LocatableSelector, NativeElement, Packed,
+    Show, StyleChain, Value,
 };
-use crate::introspection::Locatable;
-use crate::layout::Position;
+use crate::introspection::{Locatable, Location};
 use crate::syntax::Span;
 
-/// Determines the physical position of an element in the document.
+/// Determines the location of an element in the document.
 ///
-/// Takes a selector that must match exactly one element and returns a
-/// dictionary with the page number and the x, y position where this element
-/// ends up in the layout. The page number starts at one and the coordinates are
-/// measured from the top-left of the page.
-///
-/// If you want to display the current page number, refer to the documentation
-/// of the [`counter`]($counter) type. While `here` can be used to determine the
-/// physical page number, typically you want the logical page number that may,
-/// for instance, have been reset after a preface.
+/// Takes a selector that must match exactly one element and returns that
+/// element's [`location`]($location). This location can, in particular, be used
+/// to retrieve the physical [`page`]($location.page) number and
+/// [`position`]($location.position) (page, x, y) for that element.
 ///
 /// # Examples
 /// Locating a specific element:
 /// ```example
 /// #context [
 ///   Introduction is at: \
-///   #locate(<intro>)
+///   #locate(<intro>).position()
 /// ]
 ///
 /// = Introduction <intro>
-/// ```
-///
-/// Can be used with [`here`]($here) to retrieve the position of the current
-/// context:
-/// ```example
-/// #context [
-///   I am located at
-///   #locate(here())
-/// ]
 /// ```
 ///
 /// # Compatibility
@@ -65,46 +48,15 @@ pub fn locate(
     /// - a [`location`]($location) retrieved from some queried element via the
     ///   [`location()`]($content.location) method on content.
     selector: LocateInput,
-    /// The amount of precision with which to locate.
-    ///
-    /// If you only need the page number, you can allow Typst to skip
-    /// unnecessary work.
-    ///
-    /// ```example
-    /// Page: #context locate(
-    ///   here(),
-    ///   accuracy: "page",
-    /// )
-    /// ```
-    #[named]
-    #[default]
-    accuracy: LocateAccuracy,
 ) -> HintedStrResult<LocateOutput> {
     Ok(match selector {
         LocateInput::Selector(selector) => {
-            context.introspect()?;
-            let loc = selector.resolve_unique(engine.introspector, context)?;
-            match accuracy {
-                LocateAccuracy::Page => LocateOutput::Page(engine.introspector.page(loc)),
-                LocateAccuracy::Position => {
-                    LocateOutput::Position(engine.introspector.position(loc))
-                }
-            }
+            LocateOutput::Location(selector.resolve_unique(engine.introspector, context)?)
         }
         LocateInput::Func(func) => {
             LocateOutput::Content(LocateElem::new(func).pack().spanned(span))
         }
     })
-}
-
-/// The precision with which to locate.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
-pub enum LocateAccuracy {
-    /// Provides just the page (returns an integer).
-    Page,
-    /// Provides the page and x, y position (returns a dictionary).
-    #[default]
-    Position,
 }
 
 /// Compatible input type.
@@ -127,20 +79,17 @@ cast! {
 
 /// Compatible output type.
 pub enum LocateOutput {
-    Page(NonZeroUsize),
-    Position(Position),
+    Location(Location),
     Content(Content),
 }
 
 cast! {
     LocateOutput,
     self => match self {
-        Self::Page(v) => v.into_value(),
-        Self::Position(v) => v.into_value(),
+        Self::Location(v) => v.into_value(),
         Self::Content(v) => v.into_value(),
     },
-    v: NonZeroUsize => Self::Page(v),
-    v: Position => Self::Position(v),
+    v: Location => Self::Location(v),
     v: Content => Self::Content(v),
 }
 

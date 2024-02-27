@@ -32,13 +32,13 @@
 
 ---
 // Test `locate` + `here`.
-#context test(locate(here()).y, 10pt)
+#context test(here().position().y, 10pt)
 
 ---
 // Test `locate`.
 #v(10pt)
 = Introduction <intro>
-#context test(locate(<intro>).y, 20pt)
+#context test(locate(<intro>).position().y, 20pt)
 
 ---
 // Error: 10-25 label `<intro>` does not exist in the document
@@ -54,7 +54,7 @@
 ---
 #v(10pt)
 = Introduction <intro>
-#context test(locate(heading).y, 20pt)
+#context test(locate(heading).position().y, 20pt)
 
 ---
 // Error: 10-25 selector does not match any element
