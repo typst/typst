@@ -178,6 +178,9 @@ impl<'a> GridLayouter<'a> {
     /// Simulates a group of unbreakable rows, starting with the index of the
     /// first row in the group. Keeps adding rows to the group until none have
     /// unbreakable cells in common.
+    ///
+    /// This is used to figure out how much height the next unbreakable row
+    /// group (if any) needs.
     pub(super) fn simulate_unbreakable_row_group(
         &self,
         first_row: usize,
@@ -278,22 +281,27 @@ impl<'a> GridLayouter<'a> {
             let mut sizes = sizes.iter();
             for (target, size) in resolved.iter_mut().zip(&mut sizes) {
                 // First, we update the already resolved sizes as required
-                // by this rowspan. Our simulation won't otherwise change
-                // already resolved sizes, other than, perhaps, the last
-                // one.
+                // by this rowspan. No need to simulate this since the auto row
+                // will already expand throughout already resolved regions.
+                // Our simulation, therefore, won't otherwise change already
+                // resolved sizes, other than, perhaps, the last one (at the
+                // last currently resolved region, at which we can expand).
                 target.set_max(*size);
             }
-            for (extra_rowspan_target, extra_size) in
+            for (simulated_target, rowspan_size) in
                 simulated_sizes.iter_mut().zip(&mut sizes)
             {
                 // The remaining sizes are exclusive to rowspans, since
                 // other cells in this row didn't require as many regions.
-                extra_rowspan_target.set_max(*extra_size);
+                // We will perform a simulation to see how much of these sizes
+                // does the auto row actually need to expand by, and how much
+                // is already covered by upcoming rows spanned by the rowspans.
+                simulated_target.set_max(*rowspan_size);
             }
             simulated_sizes.extend(sizes);
             max_spanned_row = max_spanned_row.max(parent_y + rowspan - 1);
         }
-        if simulated_sizes.is_empty() && resolved.last().copied() == last_resolved_size {
+        if simulated_sizes.is_empty() && resolved.last() == last_resolved_size.as_ref() {
             // The rowspans already fit in the already resolved sizes.
             // No need for simulation.
             return Ok(());
@@ -307,6 +315,9 @@ impl<'a> GridLayouter<'a> {
         }
 
         // Prepare regions for simulation.
+        // If we're currently inside an unbreakable row group simulation,
+        // subtract the current row group height from the available space
+        // when simulating rowspans in said group.
         let mut simulated_regions = self.regions;
         simulated_regions.size.y -= row_group_data.height;
         for _ in 0..resolved.len() {
@@ -320,9 +331,21 @@ impl<'a> GridLayouter<'a> {
             simulated_regions.size.y -= original_last_resolved_size;
         }
 
+        // The max amount this row can expand will be the total size requested
+        // by rowspans which was not yet resolved. It is worth noting that,
+        // earlier, we pushed the last resolved size to 'simulated_sizes' as
+        // row expansion starts with it, so it's possible a rowspan requested
+        // to extend that size (we will see, through the simulation, if that's
+        // needed); however, we must subtract that resolved size from the total
+        // sum of sizes, as it was already resolved and thus the auto row will
+        // already grow by at least that much in the last resolved region (we
+        // would grow by the same size twice otherwise).
         let max_growable_height =
             simulated_sizes.iter().sum::<Abs>() - last_resolved_size.unwrap_or_default();
+
+        // The amount the row will effectively grow by.
         let mut amount_to_grow = Abs::zero();
+
         // Try to simulate up to 5 times. If it doesn't stabilize, we give up.
         for _attempt in 0..5 {
             let mut regions = simulated_regions;
@@ -343,7 +366,11 @@ impl<'a> GridLayouter<'a> {
                 let is_gutter = self.grid.is_gutter_track(spanned_y);
 
                 if unbreakable_rows_left == 0 {
-                    // Simulate unbreakable row groups
+                    // Simulate unbreakable row groups, and skip regions until
+                    // they fit. There is no risk of infinite recursion, as
+                    // no auto rows participate in the simulation, so the
+                    // unbreakable row group simulator won't recursively call
+                    // 'measure_auto_row' or (consequently) this function.
                     let row_group =
                         self.simulate_unbreakable_row_group(spanned_y, engine)?;
                     while !self.regions.size.y.fits(row_group.height)
@@ -378,7 +405,8 @@ impl<'a> GridLayouter<'a> {
                             regions.next();
                         }
                         if !skipped_region || !is_gutter {
-                            // No gutter at the top of a new region.
+                            // No gutter at the top of a new region, so don't
+                            // account for it if we just skipped a region.
                             regions.size.y -= height;
                         }
                     }
@@ -398,10 +426,39 @@ impl<'a> GridLayouter<'a> {
                 unbreakable_rows_left = unbreakable_rows_left.saturating_sub(1);
             }
 
+            // How much more we should grow, as per the current simulation
+            // attempt. Note that, in our simulations, we will only expand the
+            // auto row further and further - it won't shrink between
+            // iterations.
+            //
+            // In the first attempt, 'amount_to_grow' is zero, so the first
+            // suggested grow amount will be equal to
+            // 'max_growable_height - total_spanned_height'. That is, the row
+            // should expand precisely by the rowspan height not covered by
+            // further spanned rows. In the second attempt,
+            // 'max_growable_height - amount_to_grow' will be equal to the
+            // total spanned height of the previous attempt (and so on),
+            // meaning that, if 'total_spanned_height' for this attempt is
+            // smaller than the one for the previous attempt, we will stop as
+            // otherwise the auto row would be shrunk - we also stop if both
+            // were equal. In both cases, we can consider that the total height
+            // requested by rowspans was properly covered, since combining the
+            // already grown amount with the total height contributed by future
+            // rows gives us a number that is larger than or equal to the total
+            // size requested by rowspans, and thus we stop, as we found how
+            // much we have to grow by.
+            //
+            // A flaw of this approach is that we consider rowspans' content to
+            // be contiguous. That is, we treat rowspans' requested heights as
+            // a simple number, instead of properly using the vector of
+            // requested heights in each region. This can lead to some
+            // weirdness when using multi-page rowspans with content that
+            // reacts to the amount of space available, including paragraphs.
+            // However, this is probably the best we can do for now.
             let mut extra_amount_to_grow =
-                max_growable_height - total_spanned_height - amount_to_grow;
+                max_growable_height - amount_to_grow - total_spanned_height;
             if extra_amount_to_grow <= Abs::zero() {
-                // The amount to grow is enough to fully cover the rowspan.
+                // The amount to grow is enough to fully cover the rowspans.
                 // Reduce sizes by the amount actually spanned by gutter.
                 subtract_end_sizes(
                     &mut simulated_sizes,
@@ -423,7 +480,8 @@ impl<'a> GridLayouter<'a> {
             }
 
             // The amount to grow the auto row by has changed since the last
-            // simulation. Let's try again or abort if we reached the max
+            // simulation, but might not be enough yet to fully cover the
+            // rowspans. Let's try again or abort if we reached the max
             // attempts.
             amount_to_grow += extra_amount_to_grow;
 
