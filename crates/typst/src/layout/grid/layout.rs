@@ -1288,19 +1288,18 @@ impl<'a> GridLayouter<'a> {
                     // start drawing the cell's fill here. If not, we ignore
                     // the position `(x, row.y)`, as its fill will already have
                     // been rendered before.
-                    // NOTE: In the case of gutter rows, we have to check the
+                    //
+                    // Note: In the case of gutter rows, we have to check the
                     // row below before discarding them fully, because a
                     // gutter row might be the first row spanned by a rowspan
                     // in this region (e.g. if the first row was empty and
                     // therefore removed), so its fill could start in that
-                    // gutter row.
+                    // gutter row. That's why we use
+                    // 'effective_parent_cell_position'.
                     let Some(Axes { x: parent_x, y: parent_y }) =
-                        self.grid.parent_cell_position(
-                            x,
-                            row.y + if self.grid.has_gutter { row.y % 2 } else { 0 },
-                        )
+                        self.grid.effective_parent_cell_position(x, row.y)
                     else {
-                        // Ignore gutter columns.
+                        // Ignore gutter which isn't part of a merged cell.
                         dy += row.height;
                         continue;
                     };
@@ -1309,6 +1308,8 @@ impl<'a> GridLayouter<'a> {
                         // This isn't the first column spanned by the cell, so
                         // we already rendered its fill in a previous
                         // iteration of the outer loop. Skip.
+                        // This check also skips gutter columns, since
+                        // a parent cell is never part of gutter.
                         dy += row.height;
                         continue;
                     }
