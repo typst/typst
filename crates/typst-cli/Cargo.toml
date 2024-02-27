@@ -56,6 +56,9 @@ ureq = { workspace = true }
 xz2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
 
+[target.'cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios", target_os = "watchos", target_os = "tvos")))'.dependencies]
+openssl = { workspace = true, features = ["vendored"] }
+
 [build-dependencies]
 clap = { workspace = true, features = ["string"] }
 clap_complete = { workspace = true }
