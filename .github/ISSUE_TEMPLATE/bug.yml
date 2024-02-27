@@ -1,5 +1,5 @@
 name: 🐞 Compiler Bug Report
-description: For bugs of the Typst compiler
+description: For bugs in the Typst compiler
 title: Write a short and descriptive title!
 labels:
   - bug
