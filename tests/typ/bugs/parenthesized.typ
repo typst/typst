@@ -84,3 +84,15 @@
 // Here, `a` is not duplicate, where it was previously identified as one.
 #let f((a: b), (c,), a) = (a, b, c)
 #test(f((a: 1), (2,), 3), (3, 1, 2))
+
+---
+// Ensure that we can't have non-atomic closures.
+#let x = 1
+#let c = [#(x) => (1, 2)]
+#test(c.children.last(), [(1, 2)]))
+
+---
+// Ensure that we can't have non-atomic destructuring.
+#let x = 1
+#let c = [#() = ()]
+#test(c.children.last(), [()])
