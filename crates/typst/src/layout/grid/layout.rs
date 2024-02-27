@@ -1017,7 +1017,10 @@ pub struct RowPiece {
 /// Includes new rowspans found in this row.
 pub(super) enum Row {
     /// Finished row frame of auto or relative row with y index.
-    Frame(Frame, usize),
+    /// The last parameter indicates whether or not this is the last region
+    /// where this row is laid out, and it can only be false when a row uses
+    /// 'layout_multi_row', which in turn is only used by breakable auto rows.
+    Frame(Frame, usize, bool),
     /// Fractional row with y index.
     Fr(Fr, usize),
 }
@@ -1086,7 +1089,22 @@ impl<'a> GridLayouter<'a> {
         }
 
         self.finish_region(engine)?;
-        self.layout_rowspans(engine)?;
+
+        // Layout any missing rowspans.
+        // There are only two possibilities for rowspans not yet laid out
+        // (usually, a rowspan is laid out as soon as its last row, or any row
+        // after it, is laid out):
+        // 1. The rowspan was fully empty and only spanned fully empty auto
+        // rows, which were all prevented from being laid out. Those rowspans
+        // are ignored by 'layout_rowspan', and are not of any concern.
+        //
+        // 2. The rowspan's last row was an auto row at the last region which
+        // was not laid out, and no other rows were laid out after it. Those
+        // might still need to be laid out, so we check for them.
+        std::mem::take(&mut self.rowspans)
+            .into_iter()
+            .try_for_each(|rowspan| self.layout_rowspan(rowspan, None, engine))?;
+
         self.render_fills_strokes()
     }
 
@@ -1627,7 +1645,7 @@ impl<'a> GridLayouter<'a> {
         // Layout into a single region.
         if let &[first] = resolved.as_slice() {
             let frame = self.layout_single_row(engine, first, y)?;
-            self.push_row(frame, y);
+            self.push_row(frame, y, true);
             return Ok(());
         }
 
@@ -1647,7 +1665,7 @@ impl<'a> GridLayouter<'a> {
         let fragment = self.layout_multi_row(engine, &resolved, y)?;
         let len = fragment.len();
         for (i, frame) in fragment.into_iter().enumerate() {
-            self.push_row(frame, y);
+            self.push_row(frame, y, i + 1 == len);
             if i + 1 < len {
                 self.finish_region(engine)?;
             }
@@ -1747,7 +1765,7 @@ impl<'a> GridLayouter<'a> {
                     .lrows
                     .iter()
                     .filter_map(|row| match row {
-                        Row::Frame(frame, y)
+                        Row::Frame(frame, y, _)
                             if (parent_y..parent_y + rowspan).contains(y) =>
                         {
                             Some(frame.height())
@@ -2010,7 +2028,7 @@ impl<'a> GridLayouter<'a> {
             }
         }
 
-        self.push_row(frame, y);
+        self.push_row(frame, y, true);
 
         Ok(())
     }
@@ -2111,15 +2129,18 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Push a row frame into the current region.
-    fn push_row(&mut self, frame: Frame, y: usize) {
+    /// The 'is_last' parameter must be 'true' if this is the last frame which
+    /// will be pushed for this particular row. It can be 'false' for rows
+    /// spanning multiple regions.
+    fn push_row(&mut self, frame: Frame, y: usize, is_last: bool) {
         self.regions.size.y -= frame.height();
-        self.lrows.push(Row::Frame(frame, y));
+        self.lrows.push(Row::Frame(frame, y, is_last));
     }
 
     /// Finish rows for one region.
     pub(super) fn finish_region(&mut self, engine: &mut Engine) -> SourceResult<()> {
         if self.lrows.last().is_some_and(|row| {
-            let (Row::Frame(_, y) | Row::Fr(_, y)) = row;
+            let (Row::Frame(_, y, _) | Row::Fr(_, y)) = row;
             self.grid.is_gutter_track(*y)
         }) {
             // Remove the last row in the region if it is a gutter row.
@@ -2130,7 +2151,7 @@ impl<'a> GridLayouter<'a> {
         let mut fr = Fr::zero();
         for row in &self.lrows {
             match row {
-                Row::Frame(frame, _) => used += frame.height(),
+                Row::Frame(frame, _, _) => used += frame.height(),
                 Row::Fr(v, _) => fr += *v,
             }
         }
@@ -2150,12 +2171,12 @@ impl<'a> GridLayouter<'a> {
 
         // Place finished rows and layout fractional rows.
         for row in std::mem::take(&mut self.lrows) {
-            let (frame, y) = match row {
-                Row::Frame(frame, y) => (frame, y),
+            let (frame, y, is_last) = match row {
+                Row::Frame(frame, y, is_last) => (frame, y, is_last),
                 Row::Fr(v, y) => {
                     let remaining = self.regions.full - used;
                     let height = v.share(fr, remaining);
-                    (self.layout_single_row(engine, height, y)?, y)
+                    (self.layout_single_row(engine, height, y)?, y, true)
                 }
             };
 
@@ -2183,14 +2204,59 @@ impl<'a> GridLayouter<'a> {
                 }
                 let amount_missing_heights = (current_region + 1)
                     .saturating_sub(rowspan.heights.len() + rowspan.first_region);
+
                 // Ensure the vector of heights is long enough such that the
                 // last height is the one for the current region.
                 rowspan
                     .heights
                     .extend(std::iter::repeat(Abs::zero()).take(amount_missing_heights));
+
                 // Ensure that, in this region, the rowspan will span at least
                 // this row.
                 *rowspan.heights.last_mut().unwrap() += height;
+            }
+
+            // Layout any rowspans which end at this row, but only if this is
+            // this row's last frame (to avoid having the rowspan stop being
+            // laid out at the first frame of the row).
+            if is_last {
+                // We use a for loop over indices to avoid borrow checking
+                // problems (we need to mutate the rowspans vector, so we can't
+                // have an iterator actively borrowing it). We keep a separate
+                // 'i' variable so we can step the counter back after removing
+                // a rowspan (see explanation below).
+                let mut i = 0;
+                for _ in 0..self.rowspans.len() {
+                    let Some(rowspan) = self.rowspans.get(i) else {
+                        // Since we might remove rowspans from the rowspan
+                        // vector below, it's possible its length will be
+                        // reduced,  thus at some point we will go out of
+                        // bounds, because the loop will run for every index
+                        // from 0 to the original length of the vector (before
+                        // the loop started).
+                        break;
+                    };
+                    if rowspan.y + rowspan.rowspan <= y + 1 {
+                        // Rowspan ends at this or an earlier row, so we take
+                        // it from the rowspans vector and lay it out.
+                        // It's safe to pass the current region as a possible
+                        // region for the rowspan to be laid out in, even if
+                        // the rowspan's last row was at an earlier region,
+                        // because the rowspan won't have an entry for this
+                        // region in its 'heights' vector if it doesn't span
+                        // any rows in this region.
+                        //
+                        // Here we don't advance the index counter ('i') because
+                        // a new element we haven't checked yet in this loop
+                        // will take the index of the now removed element, so
+                        // we have to check the same index again in the next
+                        // iteration.
+                        let rowspan = self.rowspans.remove(i);
+                        self.layout_rowspan(rowspan, Some(&mut output), engine)?;
+                    } else {
+                        i += 1;
+                    }
+                }
             }
 
             output.push_frame(pos, frame);

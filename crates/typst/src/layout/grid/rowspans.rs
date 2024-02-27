@@ -2,7 +2,7 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::Resolve;
 use crate::layout::{
-    Abs, Axes, Cell, GridLayouter, LayoutMultiple, Point, Regions, Size, Sizing,
+    Abs, Axes, Cell, Frame, GridLayouter, LayoutMultiple, Point, Regions, Size, Sizing,
 };
 use crate::util::{MaybeReverseIter, Numeric};
 
@@ -38,46 +38,58 @@ pub(super) struct UnbreakableRowGroup {
 }
 
 impl<'a> GridLayouter<'a> {
-    /// Layout rowspans over the already finished regions.
-    /// We need to do this later once we already know the heights of all
-    /// spanned rows.
-    pub(super) fn layout_rowspans(&mut self, engine: &mut Engine) -> SourceResult<()> {
-        for rowspan_data in std::mem::take(&mut self.rowspans) {
-            let Rowspan {
-                x, y, dx, dy, first_region, region_full, heights, ..
-            } = rowspan_data;
-            let Some((&first_height, backlog)) = heights.split_first() else {
-                // Nothing to layout
-                continue;
-            };
-            let first_column = self.rcols[x];
-            let cell = self.grid.cell(x, y).unwrap();
-            let width = self.cell_spanned_width(cell, x);
+    /// Layout rowspans over the already finished regions, plus the current
+    /// region, if it wasn't finished yet (because we're being called from
+    /// 'finish_region', but note that this function is also called once after
+    /// all regions are finished, in which case 'current_region' is None).
+    ///
+    /// We need to do this only once we already know the heights of all
+    /// spanned rows, which is only possible after laying out the last row
+    /// spanned by the rowspan (or some row immediately after the last one).
+    pub(super) fn layout_rowspan(
+        &mut self,
+        rowspan_data: Rowspan,
+        current_region: Option<&mut Frame>,
+        engine: &mut Engine,
+    ) -> SourceResult<()> {
+        let Rowspan {
+            x, y, dx, dy, first_region, region_full, heights, ..
+        } = rowspan_data;
+        let Some((&first_height, backlog)) = heights.split_first() else {
+            // Nothing to layout
+            return Ok(());
+        };
+        let first_column = self.rcols[x];
+        let cell = self.grid.cell(x, y).unwrap();
+        let width = self.cell_spanned_width(cell, x);
 
-            // Prepare regions.
-            let size = Size::new(width, first_height);
-            let mut pod = Regions::one(size, Axes::splat(true));
-            pod.full = region_full;
-            pod.backlog = backlog;
+        // Prepare regions.
+        let size = Size::new(width, first_height);
+        let mut pod = Regions::one(size, Axes::splat(true));
+        pod.full = region_full;
+        pod.backlog = backlog;
 
-            // Push the layouted frames directly into the finished frames.
-            // At first, we draw the rowspan starting at its expected offset
-            // in the first region.
-            let mut pos = Point::new(dx, dy);
-            let fragment = cell.layout(engine, self.styles, pod)?;
-            for (finished, mut frame) in
-                self.finished.iter_mut().skip(first_region).zip(fragment)
-            {
-                if self.is_rtl {
-                    let offset = Point::with_x(-width + first_column);
-                    frame.translate(offset);
-                }
-                finished.push_frame(pos, frame);
-
-                // From the second region onwards, the rowspan's continuation
-                // starts at the very top.
-                pos.y = Abs::zero();
+        // Push the layouted frames directly into the finished frames.
+        // At first, we draw the rowspan starting at its expected offset
+        // in the first region.
+        let mut pos = Point::new(dx, dy);
+        let fragment = cell.layout(engine, self.styles, pod)?;
+        for (finished, mut frame) in self
+            .finished
+            .iter_mut()
+            .chain(current_region.into_iter())
+            .skip(first_region)
+            .zip(fragment)
+        {
+            if self.is_rtl {
+                let offset = Point::with_x(-width + first_column);
+                frame.translate(offset);
             }
+            finished.push_frame(pos, frame);
+
+            // From the second region onwards, the rowspan's continuation
+            // starts at the very top.
+            pos.y = Abs::zero();
         }
 
         Ok(())
