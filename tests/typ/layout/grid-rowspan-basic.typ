@@ -112,7 +112,7 @@
   columns: 4,
   fill: red,
   [a], [b], table.cell(rowspan: 2)[c], [d],
-  table.cell(colspan: 2, stroke: (bottom: aqua))[e], table.cell(stroke: (bottom: aqua))[f],
+  table.cell(colspan: 2, stroke: (bottom: aqua + 2pt))[e], table.cell(stroke: (bottom: aqua))[f],
   table.cell(colspan: 2, rowspan: 10)[R1], table.cell(colspan: 2, rowspan: 10)[R2],
   [b],
 )
@@ -125,7 +125,7 @@
   gutter: 3pt,
   fill: red,
   [a], [b], table.cell(rowspan: 2)[c], [d],
-  table.cell(colspan: 2, stroke: (bottom: aqua))[e], table.cell(stroke: (bottom: aqua))[f],
+  table.cell(colspan: 2, stroke: (bottom: aqua + 2pt))[e], table.cell(stroke: (bottom: aqua))[f],
   table.cell(colspan: 2, rowspan: 10)[R1], table.cell(colspan: 2, rowspan: 10)[R2],
   [b],
 )
@@ -178,4 +178,14 @@
   grid.cell(rowspan: 2)[n], [o], [p],
   [q], [r],
   [s], [t], [u]
+)
+
+---
+#table(
+    columns: 3,
+    rows: (auto, auto, auto, 2em),
+    gutter: 3pt,
+    table.cell(rowspan: 4)[a \ b\ c\ d\ e], [c], [d],
+    [e], table.cell(breakable: false, rowspan: 2)[f],
+    [g]
 )

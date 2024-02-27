@@ -1846,7 +1846,7 @@ impl<'a> GridLayouter<'a> {
 
             let frames = if unbreakable {
                 // Force cell to fit into a single region when the row is unbreakable.
-                let mut pod = Regions::one(Axes::new(width, height), Axes::splat(true));
+                let mut pod = Regions::one(Axes::new(width, height), self.regions.expand);
                 pod.full = self.regions.full;
                 if frames_in_previous_regions == 0 {
                     // Cells which started at this region will only have a
