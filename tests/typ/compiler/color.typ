@@ -83,3 +83,18 @@
 #test-repr(luma(20%).lighten(50%), luma(60%))
 #test-repr(luma(80%).darken(20%), luma(64%))
 #test-repr(luma(80%).negate(space: luma), luma(20%))
+
+---
+// Test alpha modification.
+// Ref: false
+#test-repr(luma(100%, 100%).transparentize(50%), luma(100%, 50%))
+#test-repr(luma(100%, 100%).transparentize(75%), luma(100%, 25%))
+#test-repr(luma(100%, 50%).transparentize(50%), luma(100%, 25%))
+#test-repr(luma(100%, 50%).transparentize(-50%), luma(100%, 75%))
+#test-repr(luma(100%, 0%).transparentize(-100%), luma(100%, 0%))
+
+#test-repr(luma(100%, 50%).opacify(50%), luma(100%, 75%))
+#test-repr(luma(100%, 50%).opacify(100%), luma(100%, 100%))
+#test-repr(luma(100%, 100%).opacify(100%), luma(100%, 100%))
+#test-repr(luma(100%, 50%).opacify(-50%), luma(100%, 25%))
+#test-repr(luma(100%, 0%).opacify(100%), luma(100%, 0%))

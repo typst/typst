@@ -6,7 +6,7 @@ use ecow::{eco_format, EcoString, EcoVec};
 use once_cell::sync::Lazy;
 use palette::encoding::{self, Linear};
 use palette::{
-    Darken, Desaturate, FromColor, Lighten, OklabHue, RgbHue, Saturate, ShiftHue,
+    Alpha, Darken, Desaturate, FromColor, Lighten, OklabHue, RgbHue, Saturate, ShiftHue,
 };
 use qcms::Profile;
 
@@ -1129,6 +1129,72 @@ impl Color {
         space: ColorSpace,
     ) -> StrResult<Color> {
         Self::mix_iter(colors, space)
+    }
+
+    /// Make a color more transparent by a given factor.
+    ///
+    /// This method is relative to the existing alpha value.
+    ///
+    /// ```example
+    /// #block(fill: red)[opaque]
+    /// #block(fill: red.transparentize(50%))[half red]
+    /// #block(fill: red.transparentize(75%))[quarter red]
+    /// ```
+    #[func]
+    pub fn transparentize(
+        self,
+        /// The factor to change the alpha value by.
+        factor: Ratio,
+    ) -> StrResult<Color> {
+        #[inline]
+        fn transform<C>(mut color: Alpha<C, f32>, factor: Ratio) -> Alpha<C, f32> {
+            color.alpha = (color.alpha * (1.0 - factor.get() as f32)).clamp(0.0, 1.0);
+            color
+        }
+
+        Ok(match self {
+            Color::Luma(c) => Color::Luma(transform(c, factor)),
+            Color::Oklab(c) => Color::Oklab(transform(c, factor)),
+            Color::Oklch(c) => Color::Oklch(transform(c, factor)),
+            Color::Rgb(c) => Color::Rgb(transform(c, factor)),
+            Color::LinearRgb(c) => Color::LinearRgb(transform(c, factor)),
+            Color::Cmyk(_) => bail!("CMYK does have an alpha component"),
+            Color::Hsl(c) => Color::Hsl(transform(c, factor)),
+            Color::Hsv(c) => Color::Hsv(transform(c, factor)),
+        })
+    }
+
+    /// Make a color more opaque by a given factor.
+    ///
+    /// This method is relative to the existing alpha value.
+    ///
+    /// ```example
+    /// #block(fill: red)[opaque]
+    /// #block(fill: red.opacify(50%))[half red]
+    /// #block(fill: red.opacify(75%))[quarter red]
+    /// ```
+    #[func]
+    pub fn opacify(
+        self,
+        /// The factor to change the alpha value by.
+        factor: Ratio,
+    ) -> StrResult<Color> {
+        #[inline]
+        fn transform<C>(mut color: Alpha<C, f32>, factor: Ratio) -> Alpha<C, f32> {
+            color.alpha = (color.alpha * (1.0 + factor.get() as f32)).clamp(0.0, 1.0);
+            color
+        }
+
+        Ok(match self {
+            Color::Luma(c) => Color::Luma(transform(c, factor)),
+            Color::Oklab(c) => Color::Oklab(transform(c, factor)),
+            Color::Oklch(c) => Color::Oklch(transform(c, factor)),
+            Color::Rgb(c) => Color::Rgb(transform(c, factor)),
+            Color::LinearRgb(c) => Color::LinearRgb(transform(c, factor)),
+            Color::Cmyk(_) => bail!("CMYK does have an alpha component"),
+            Color::Hsl(c) => Color::Hsl(transform(c, factor)),
+            Color::Hsv(c) => Color::Hsv(transform(c, factor)),
+        })
     }
 }
 
