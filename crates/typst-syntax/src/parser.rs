@@ -745,7 +745,7 @@ fn code_primary(p: &mut Parser, atomic: bool) {
 
         SyntaxKind::LeftBrace => code_block(p),
         SyntaxKind::LeftBracket => content_block(p),
-        SyntaxKind::LeftParen => expr_with_paren(p),
+        SyntaxKind::LeftParen => expr_with_paren(p, atomic),
         SyntaxKind::Dollar => equation(p),
         SyntaxKind::Let => let_binding(p),
         SyntaxKind::Set => set_rule(p),
@@ -1019,13 +1019,16 @@ fn return_stmt(p: &mut Parser) {
 }
 
 /// An expression that starts with a parenthesis.
-fn expr_with_paren(p: &mut Parser) {
+fn expr_with_paren(p: &mut Parser, atomic: bool) {
     // If we've seen this position before and have a memoized result, just use
     // it. See below for more explanation about this memoization.
     let start = p.current_start();
-    if let Some((range, end_point)) = p.memo.get(&start) {
-        p.nodes.extend(p.memo_arena[range.clone()].iter().cloned());
-        p.restore(end_point.clone());
+    if let Some((range, end_point)) = p.memo.get(&start).cloned() {
+        // Restore the end point first, so that it doesn't truncate our freshly
+        // pushed nodes. If the current length of `p.nodes` doesn't match what
+        // we had in the memoized run, this might otherwise happen.
+        p.restore(end_point);
+        p.nodes.extend(p.memo_arena[range].iter().cloned());
         return;
     }
 
@@ -1037,6 +1040,9 @@ fn expr_with_paren(p: &mut Parser) {
     // these are the most likely things. We can handle all of those in a single
     // pass.
     let kind = parenthesized_or_array_or_dict(p);
+    if atomic {
+        return;
+    }
 
     // If, however, '=>' or '=' follows, we must backtrack and reparse as either
     // a parameter list or a destructuring. To be able to do that, we created a
@@ -1550,6 +1556,7 @@ impl<'s> Parser<'s> {
         self.skip();
     }
 
+    #[track_caller]
     fn eat_and_get(&mut self) -> &mut SyntaxNode {
         let offset = self.nodes.len();
         self.save();
@@ -1619,6 +1626,7 @@ impl<'s> Parser<'s> {
         m.0 > 0 && self.nodes[m.0 - 1].kind().is_error()
     }
 
+    #[track_caller]
     fn post_process(&mut self, m: Marker) -> impl Iterator<Item = &mut SyntaxNode> {
         self.nodes[m.0..]
             .iter_mut()
@@ -1759,6 +1767,7 @@ impl<'s> Parser<'s> {
 
     /// Consume the given closing delimiter or produce an error for the matching
     /// opening delimiter at `open`.
+    #[track_caller]
     fn expect_closing_delimiter(&mut self, open: Marker, kind: SyntaxKind) {
         if !self.eat_if(kind) {
             self.nodes[open.0].convert_to_error("unclosed delimiter");
