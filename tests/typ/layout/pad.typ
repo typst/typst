@@ -22,7 +22,7 @@ Hi #box(pad(left: 10pt)[A]) there
 // Test that the pad element doesn't consume the whole region.
 #set page(height: 6cm)
 #align(left)[Before]
-#pad(10pt, image("/files/tiger.jpg"))
+#pad(10pt, image("/assets/images/tiger.jpg"))
 #align(right)[After]
 
 ---

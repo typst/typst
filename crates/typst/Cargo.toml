@@ -16,6 +16,7 @@ doctest = false
 bench = false
 
 [dependencies]
+typst-assets = { workspace = true }
 typst-macros = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }

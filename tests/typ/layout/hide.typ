@@ -4,15 +4,15 @@
 AB #h(1fr) CD \
 #hide[A]B #h(1fr) C#hide[D]
 ---
-Hidden: 
+Hidden:
 #hide[#line(length: 100%)]
 #line(length: 100%)
 ---
-Hidden: 
+Hidden:
 #hide(table(rows: 2, columns: 2)[a][b][c][d])
 #table(rows: 2, columns: 2)[a][b][c][d]
 ---
-Hidden: 
+Hidden:
 #hide[
   #polygon((20%, 0pt),
     (60%, 0pt),
@@ -30,7 +30,7 @@ Hidden:
   width: 100%,
 )
 
-Hidden: 
+Hidden:
 #hide[
 #grid(
   columns: (1fr, 1fr, 2fr),
@@ -53,7 +53,7 @@ Hidden:
 )
 ---
 
-Hidden: 
+Hidden:
 #hide[
 - 1
 - 2
@@ -71,6 +71,6 @@ Hidden:
 
 ---
 Hidden:
-#hide(image("/files/tiger.jpg", width: 5cm, height: 1cm,))
+#hide(image("/assets/images/tiger.jpg", width: 5cm, height: 1cm,))
 
-#image("/files/tiger.jpg", width: 5cm, height: 1cm,)
+#image("/assets/images/tiger.jpg", width: 5cm, height: 1cm,)

@@ -16,7 +16,7 @@ left toolbar and create a team. Finally, click on the new team and go to its
 settings by clicking 'manage team' next to the team name. Now you can invite
 your supervisor by email.
 
-![The team settings](3-advanced-team-settings.png)
+![The team settings](screenshots/3-advanced-team-settings.png)
 
 Next, move your project into the team: Open it, going to its settings by
 choosing the gear icon in the left toolbar and selecting your new team from the
@@ -489,7 +489,7 @@ We are now in compliance with all of these styles and can submit the paper to
 the conference! The finished paper looks like this:
 
 <img
-  src="3-advanced-paper.png"
+  src="screenshots/3-advanced-paper.png"
   alt="The finished paper"
   style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 100%; display: block; margin: 24px auto;"
 >

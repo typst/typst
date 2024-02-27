@@ -2603,6 +2603,7 @@ dependencies = [
  "ttf-parser",
  "two-face",
  "typed-arena",
+ "typst-assets",
  "typst-macros",
  "typst-syntax",
  "typst-timing",
@@ -2613,6 +2614,11 @@ dependencies = [
  "usvg",
  "wasmi",
 ]
+
+[[package]]
+name = "typst-assets"
+version = "0.10.0"
+source = "git+https://github.com/typst/typst-assets?rev=dbb8559#dbb8559bcbe7d493b942316773d55cc6eaeedd67"
 
 [[package]]
 name = "typst-cli"
@@ -2647,6 +2653,7 @@ dependencies = [
  "tar",
  "tempfile",
  "typst",
+ "typst-assets",
  "typst-macros",
  "typst-pdf",
  "typst-render",
@@ -2656,6 +2663,11 @@ dependencies = [
  "xz2",
  "zip",
 ]
+
+[[package]]
+name = "typst-dev-assets"
+version = "0.10.0"
+source = "git+https://github.com/typst/typst-dev-assets?rev=1dba4be#1dba4bea22e5e19597fbf5f321b047ff7626e2d0"
 
 [[package]]
 name = "typst-docs"
@@ -2674,6 +2686,8 @@ dependencies = [
  "syntect",
  "typed-arena",
  "typst",
+ "typst-assets",
+ "typst-dev-assets",
  "typst-render",
  "unicode_names2",
  "unscanny",
@@ -2687,6 +2701,7 @@ dependencies = [
  "comemo",
  "libfuzzer-sys",
  "typst",
+ "typst-assets",
  "typst-render",
  "typst-syntax",
 ]
@@ -2730,6 +2745,7 @@ dependencies = [
  "svg2pdf",
  "ttf-parser",
  "typst",
+ "typst-assets",
  "typst-macros",
  "typst-timing",
  "unicode-properties",
@@ -2801,6 +2817,8 @@ dependencies = [
  "tiny-skia",
  "ttf-parser",
  "typst",
+ "typst-assets",
+ "typst-dev-assets",
  "typst-ide",
  "typst-pdf",
  "typst-render",

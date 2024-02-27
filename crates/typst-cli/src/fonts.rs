@@ -107,8 +107,8 @@ impl FontSearcher {
     /// Add fonts that are embedded in the binary.
     #[cfg(feature = "embed-fonts")]
     fn add_embedded(&mut self) {
-        let mut process = |bytes: &'static [u8]| {
-            let buffer = typst::foundations::Bytes::from_static(bytes);
+        for data in typst_assets::fonts() {
+            let buffer = typst::foundations::Bytes::from_static(data);
             for (i, font) in Font::iter(buffer).enumerate() {
                 self.book.push(font.info().clone());
                 self.fonts.push(FontSlot {
@@ -117,28 +117,6 @@ impl FontSearcher {
                     font: OnceLock::from(Some(font)),
                 });
             }
-        };
-
-        macro_rules! add {
-            ($filename:literal) => {
-                process(include_bytes!(concat!("../../../assets/fonts/", $filename)));
-            };
         }
-
-        // Embed default fonts.
-        add!("LinLibertine_R.ttf");
-        add!("LinLibertine_RB.ttf");
-        add!("LinLibertine_RBI.ttf");
-        add!("LinLibertine_RI.ttf");
-        add!("NewCMMath-Book.otf");
-        add!("NewCMMath-Regular.otf");
-        add!("NewCM10-Regular.otf");
-        add!("NewCM10-Bold.otf");
-        add!("NewCM10-Italic.otf");
-        add!("NewCM10-BoldItalic.otf");
-        add!("DejaVuSansMono.ttf");
-        add!("DejaVuSansMono-Bold.ttf");
-        add!("DejaVuSansMono-Oblique.ttf");
-        add!("DejaVuSansMono-BoldOblique.ttf");
     }
 }

@@ -9,7 +9,7 @@ you create a new project on the Typst app. You'll be taken to the editor where
 you see two panels: A source panel where you compose your document and a
 preview panel where you see the rendered document.
 
-![Typst app screenshot](1-writing-app.png)
+![Typst app screenshot](screenshots/1-writing-app.png)
 
 You already have a good angle for your report in mind. So let's start by writing
 the introduction. Enter some text in the editor panel. You'll notice that the
@@ -77,7 +77,7 @@ click the button with the arrow in the top-right corner. This opens the upload
 dialog, in which you can pick files to upload from your computer. Select an
 image file for your report.
 
-![Upload dialog](1-writing-upload.png)
+![Upload dialog](screenshots/1-writing-upload.png)
 
 We have seen before that specific symbols (called _markup_) have specific
 meaning in Typst. We can use `=`, `-`, `+`, and `_` to create headings, lists

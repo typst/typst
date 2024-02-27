@@ -3,7 +3,7 @@
 ---
 #set page(width: 180pt)
 #set text(6pt)
-#set raw(syntaxes: "/files/SExpressions.sublime-syntax")
+#set raw(syntaxes: "/assets/syntaxes/SExpressions.sublime-syntax")
 
 ```sexp
 (defun factorial (x)

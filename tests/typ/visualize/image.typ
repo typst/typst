@@ -4,24 +4,24 @@
 // Test loading different image formats.
 
 // Load an RGBA PNG image.
-#image("/files/rhino.png")
+#image("/assets/images/rhino.png")
 
 // Load an RGB JPEG image.
 #set page(height: 60pt)
-#image("../../files/tiger.jpg")
+#image("../../assets/images/tiger.jpg")
 
 ---
 // Test configuring the size and fitting behaviour of images.
 
 // Set width and height explicitly.
-#box(image("/files/rhino.png", width: 30pt))
-#box(image("/files/rhino.png", height: 30pt))
+#box(image("/assets/images/rhino.png", width: 30pt))
+#box(image("/assets/images/rhino.png", height: 30pt))
 
 // Set width and height explicitly and force stretching.
-#image("/files/monkey.svg", width: 100%, height: 20pt, fit: "stretch")
+#image("/assets/images/monkey.svg", width: 100%, height: 20pt, fit: "stretch")
 
 // Make sure the bounding-box of the image is correct.
-#align(bottom + right, image("/files/tiger.jpg", width: 40pt, alt: "A tiger"))
+#align(bottom + right, image("/assets/images/tiger.jpg", width: 40pt, alt: "A tiger"))
 
 ---
 // Test all three fit modes.
@@ -30,24 +30,24 @@
   columns: (1fr, 1fr, 1fr),
   rows: 100%,
   gutter: 3pt,
-  image("/files/tiger.jpg", width: 100%, height: 100%, fit: "contain"),
-  image("/files/tiger.jpg", width: 100%, height: 100%, fit: "cover"),
-  image("/files/monkey.svg", width: 100%, height: 100%, fit: "stretch"),
+  image("/assets/images/tiger.jpg", width: 100%, height: 100%, fit: "contain"),
+  image("/assets/images/tiger.jpg", width: 100%, height: 100%, fit: "cover"),
+  image("/assets/images/monkey.svg", width: 100%, height: 100%, fit: "stretch"),
 )
 
 ---
 // Does not fit to remaining height of page.
 #set page(height: 60pt)
 Stuff
-#image("/files/rhino.png")
+#image("/assets/images/rhino.png")
 
 ---
 // Test baseline.
-A #box(image("/files/tiger.jpg", height: 1cm, width: 80%)) B
+A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 
 ---
 // Test advanced SVG features.
-#image("/files/pattern.svg")
+#image("/assets/images/pattern.svg")
 
 ---
 // Error: 8-29 file not found (searched at typ/visualize/path/does/not/exist)
@@ -58,8 +58,8 @@ A #box(image("/files/tiger.jpg", height: 1cm, width: 80%)) B
 #image("./image.typ")
 
 ---
-// Error: 2-25 failed to parse SVG (found closing tag 'g' instead of 'style' in line 4)
-#image("/files/bad.svg")
+// Error: 2-33 failed to parse SVG (found closing tag 'g' instead of 'style' in line 4)
+#image("/assets/images/bad.svg")
 
 ---
 // Test parsing from svg data
@@ -71,12 +71,12 @@ A #box(image("/files/tiger.jpg", height: 1cm, width: 80%)) B
 
 ---
 // Test format auto detect
-#image.decode(read("/files/tiger.jpg", encoding: none), width: 80%)
+#image.decode(read("/assets/images/tiger.jpg", encoding: none), width: 80%)
 
 ---
 // Test format manual
-#image.decode(read("/files/tiger.jpg", encoding: none), format: "jpg", width: 80%)
+#image.decode(read("/assets/images/tiger.jpg", encoding: none), format: "jpg", width: 80%)
 
 ---
-// Error: 2-83 failed to decode image (Format error decoding Png: Invalid PNG signature.)
-#image.decode(read("/files/tiger.jpg", encoding: none), format: "png", width: 80%)
+// Error: 2-91 failed to decode image (Format error decoding Png: Invalid PNG signature.)
+#image.decode(read("/assets/images/tiger.jpg", encoding: none), format: "png", width: 80%)

@@ -82,7 +82,7 @@ hitting the Escape key and opened again by typing `#` or hitting
 right arguments for functions. Most suggestions come with a small description of
 what they do.
 
-![Autocomplete panel](2-formatting-autocomplete.png)
+![Autocomplete panel](screenshots/2-formatting-autocomplete.png)
 
 ## Set up the page { #page-setup }
 Back to set rules: When writing a rule, you choose the function depending on

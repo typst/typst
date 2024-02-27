@@ -10,8 +10,6 @@ use typst::text::{Font, FontBook};
 use typst::visualize::Color;
 use typst::{Library, World};
 
-const FONT: &[u8] = include_bytes!("../../../assets/fonts/LinLibertine_R.ttf");
-
 struct FuzzWorld {
     library: Prehashed<Library>,
     book: Prehashed<FontBook>,
@@ -21,7 +19,8 @@ struct FuzzWorld {
 
 impl FuzzWorld {
     fn new(text: &str) -> Self {
-        let font = Font::new(FONT.into(), 0).unwrap();
+        let data = typst_assets::fonts().next().unwrap();
+        let font = Font::new(Bytes::from_static(data), 0).unwrap();
         let book = FontBook::from_fonts([&font]);
         Self {
             library: Prehashed::new(Library::default()),
