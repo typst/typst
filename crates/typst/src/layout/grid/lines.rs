@@ -332,50 +332,36 @@ pub(super) fn vline_stroke_at_row(
     y: usize,
     stroke: Option<Option<Arc<Stroke<Abs>>>>,
 ) -> Option<(Arc<Stroke<Abs>>, StrokePriority)> {
+    // When the vline isn't at the border, we need to check if a colspan would
+    // be present between columns 'x' and 'x-1' at row 'y', and thus overlap
+    // with the line.
+    // To do so, we analyze the cell right after this vline. If it is merged
+    // with a cell before this line (parent_x < x) which is at this row or
+    // above it (parent_y <= y), this means it would overlap with the vline,
+    // so the vline must not be drawn at this row.
     if x != 0 && x != grid.cols.len() {
-        // When the vline isn't at the border, we need to check if a colspan would
-        // be present between columns 'x' and 'x-1' at row 'y', and thus overlap
-        // with the line.
-        // To do so, we analyze the cell right after this vline. If it is merged
-        // with a cell before this line (parent_x < x) which is at this row or
-        // above it (parent_y <= y), this means it would overlap with the vline,
-        // so the vline must not be drawn at this row.
-        let first_adjacent_cell = if grid.has_gutter {
-            // Skip the gutters, if x or y represent gutter tracks.
-            // We would then analyze the cell one column after (if at a gutter
-            // column), and/or one row below (if at a gutter row), in order to
-            // check if it would be merged with a cell before the vline.
-            (x + x % 2, y + y % 2)
-        } else {
-            (x, y)
-        };
-        let Axes { x: parent_x, y: parent_y } = grid
-            .parent_cell_position(first_adjacent_cell.0, first_adjacent_cell.1)
-            .unwrap();
-
-        if parent_x < x && parent_y <= y {
-            // There is a colspan cell going through this vline's position,
-            // so don't draw it here.
-            return None;
+        // Use 'effective_parent_cell_position' to skip the gutters, if x or y
+        // represent gutter tracks.
+        // We would then analyze the cell one column after (if at a gutter
+        // column), and/or one row below (if at a gutter row), in order to
+        // check if it would be merged with a cell before the vline.
+        if let Some(Axes { x: parent_x, y: parent_y }) =
+            grid.effective_parent_cell_position(x, y)
+        {
+            if parent_x < x && parent_y <= y {
+                // There is a colspan cell going through this vline's position,
+                // so don't draw it here.
+                return None;
+            }
         }
     }
-
-    let cell_y = if grid.has_gutter {
-        // Skip the gutter row this vline is in.
-        // This is because positions before and after it, even if gutter, could
-        // be part of a rowspan, so we have to check the cell below.
-        // However, this is only valid if we're not in a gutter column.
-        y + y % 2
-    } else {
-        y
-    };
 
     let (left_cell_stroke, left_cell_prioritized) = x
         .checked_sub(1)
         .and_then(|left_x| {
             // Let's find the parent cell of the position before us, in order
             // to take its right stroke, even with gutter before us.
-            grid.parent_cell_position(left_x, cell_y)
+            grid.effective_parent_cell_position(left_x, y)
         })
         .filter(|Axes { y: parent_y, .. }| {
             // Only use the stroke of the cell before us but one row below
@@ -393,7 +379,7 @@ pub(super) fn vline_stroke_at_row(
     let (right_cell_stroke, right_cell_prioritized) = if x < grid.cols.len() {
         // Let's find the parent cell of the position after us, in order
         // to take its left stroke, even with gutter after us.
-        grid.parent_cell_position(x, cell_y)
+        grid.effective_parent_cell_position(x, y)
             .filter(|Axes { y: parent_y, .. }| {
                 // Only use the stroke of the cell after us but one row below
                 // if it is merged with a cell before this line's row.
@@ -476,69 +462,59 @@ pub(super) fn hline_stroke_at_column(
     x: usize,
     stroke: Option<Option<Arc<Stroke<Abs>>>>,
 ) -> Option<(Arc<Stroke<Abs>>, StrokePriority)> {
+    // When the hline isn't at the border, we need to check if a rowspan
+    // would be present between rows 'y' and 'y-1' at column 'x', and thus
+    // overlap with the line.
+    // To do so, we analyze the cell right below this hline. If it is
+    // merged with a cell above this line (parent_y < y) which is at this
+    // column or before it (parent_x <= x), this means it would overlap
+    // with the hline, so the hline must not be drawn at this column.
     if y != 0 && y != grid.rows.len() {
-        // When the hline isn't at the border, we need to check if a rowspan
-        // would be present between rows 'y' and 'y-1' at column 'x', and thus
-        // overlap with the line.
-        // To do so, we analyze the cell right below this hline. If it is
-        // merged with a cell above this line (parent_y < y) which is at this
-        // column or before it (parent_x <= x), this means it would overlap
-        // with the hline, so the hline must not be drawn at this column.
-        let first_adjacent_cell = if grid.has_gutter {
-            // Skip the gutters, if x or y represent gutter tracks.
-            // We would then analyze the cell one column after (if at a gutter
-            // column), and/or one row below (if at a gutter row), in order to
-            // check if it would be merged with a cell before the hline.
-            (x + x % 2, y + y % 2)
-        } else {
-            (x, y)
-        };
-        let Axes { x: parent_x, y: parent_y } = grid
-            .parent_cell_position(first_adjacent_cell.0, first_adjacent_cell.1)
-            .unwrap();
+        // Use 'effective_parent_cell_position' to skip the gutters, if x or y
+        // represent gutter tracks.
+        // We would then analyze the cell one column after (if at a gutter
+        // column), and/or one row below (if at a gutter row), in order to
+        // check if it would be merged with a cell before the hline.
+        if let Some(Axes { x: parent_x, y: parent_y }) =
+            grid.effective_parent_cell_position(x, y)
+        {
+            if parent_y < y && parent_x <= x {
+                // Get the first 'y' spanned by the possible rowspan in this region.
+                // The 'parent_y' row and any other spanned rows above 'y' could be
+                // missing from this region, which could have lead the check above
+                // to be triggered, even though there is no spanned row above the
+                // hline in the final layout of this region, and thus no overlap
+                // with the hline, allowing it to be drawn regardless of the
+                // theoretical presence of a rowspan going across its position.
+                let local_parent_y = rows
+                    .iter()
+                    .find(|row| row.y >= parent_y)
+                    .map(|row| row.y)
+                    .unwrap_or(y);
 
-        if parent_y < y && parent_x <= x {
-            // Get the first 'y' spanned by the possible rowspan in this region.
-            // The 'parent_y' row and any other spanned rows above 'y' could be
-            // missing from this region, which could have lead the check above
-            // to be triggered, even though there is no spanned row above the
-            // hline in the final layout of this region, and thus no overlap
-            // with the hline, allowing it to be drawn regardless of the
-            // theoretical presence of a rowspan going across its position.
-            let effective_parent_y = rows
-                .iter()
-                .find(|row| row.y >= parent_y)
-                .map(|row| row.y)
-                .unwrap_or(y);
-
-            if effective_parent_y < y {
-                // There is a rowspan cell going through this hline's position,
-                // so don't draw it here.
-                return None;
+                if local_parent_y < y {
+                    // There is a rowspan cell going through this hline's
+                    // position, so don't draw it here.
+                    return None;
+                }
             }
         }
     }
-
-    let cell_x = if grid.has_gutter {
-        // Skip the gutter column this hline is in.
-        // This is because positions above and below it, even if gutter, could
-        // be part of a colspan, so we have to check the following cell.
-        // However, this is only valid if we're not in a gutter row.
-        x + x % 2
-    } else {
-        x
-    };
 
     let (top_cell_stroke, top_cell_prioritized) = y
         .checked_sub(1)
         .and_then(|top_y| {
             // Let's find the parent cell of the position above us, in order
             // to take its bottom stroke, even when we're below gutter.
-            grid.parent_cell_position(cell_x, top_y)
+            grid.effective_parent_cell_position(x, top_y)
         })
         .filter(|Axes { x: parent_x, .. }| {
             // Only use the stroke of the cell above us but one column to the
             // right if it is merged with a cell before this line's column.
+            // If that is the case and the cell is a gutter cell merged with a
+            // cell both below and above this line, then there would be a
+            // rowspan crossing the line, which we have already checked for, so
+            // this condition is enough.
             // If the position above us is a simple non-merged cell, or the
             // parent of a colspan, this will also evaluate to true.
             parent_x <= &x
@@ -552,10 +528,17 @@ pub(super) fn hline_stroke_at_column(
     let (bottom_cell_stroke, bottom_cell_prioritized) = if y < grid.rows.len() {
         // Let's find the parent cell of the position below us, in order
         // to take its top stroke, even when we're above gutter.
-        grid.parent_cell_position(cell_x, y)
+        grid.effective_parent_cell_position(x, y)
             .filter(|Axes { x: parent_x, .. }| {
                 // Only use the stroke of the cell below us but one column to the
                 // right if it is merged with a cell before this line's column.
+                // If that is the case and the cell is also merged with a cell
+                // above this line, then there would be a rowspan crossing the
+                // line, which we have already checked for, so this condition is
+                // enough. That's true even if the cell below us is a gutter
+                // cell - if it were a rowspan, it would necessarily have to be
+                // merged with a cell above and before this line, causing it to
+                // not be drawn.
                 // If the position below us is a simple non-merged cell, or the
                 // parent of a colspan, this will also evaluate to true.
                 parent_x <= &x
