@@ -2058,7 +2058,8 @@ impl<'a> GridLayouter<'a> {
                     if self.grid.rows[y] == Sizing::Auto {
                         pod.full = self.regions.full;
                     }
-                    let mut frame = cell.layout(engine, self.styles, pod)?.into_frame();
+                    let frame = cell.layout(engine, self.styles, pod)?.into_frame();
+                    let mut pos = pos;
                     if self.is_rtl {
                         // In the grid, cell colspans expand to the right,
                         // so we're at the leftmost (lowest 'x') column
@@ -2069,8 +2070,8 @@ impl<'a> GridLayouter<'a> {
                         // over to unrelated cells to its right in RTL.
                         // We avoid this by ensuring the rendered cell starts at
                         // the very left of the cell, even with colspan > 1.
-                        let offset = Point::with_x(-width + rcol);
-                        frame.translate(offset);
+                        let offset = -width + rcol;
+                        pos.x += offset;
                     }
                     output.push_frame(pos, frame);
                 }
@@ -2112,10 +2113,11 @@ impl<'a> GridLayouter<'a> {
 
                     // Push the layouted frames into the individual output frames.
                     let fragment = cell.layout(engine, self.styles, pod)?;
-                    for (output, mut frame) in outputs.iter_mut().zip(fragment) {
+                    for (output, frame) in outputs.iter_mut().zip(fragment) {
+                        let mut pos = pos;
                         if self.is_rtl {
-                            let offset = Point::with_x(-width + rcol);
-                            frame.translate(offset);
+                            let offset = -width + rcol;
+                            pos.x += offset;
                         }
                         output.push_frame(pos, frame);
                     }

@@ -74,18 +74,21 @@ impl<'a> GridLayouter<'a> {
         // in the first region.
         let mut pos = Point::new(dx, dy);
         let fragment = cell.layout(engine, self.styles, pod)?;
-        for (finished, mut frame) in self
+        for (finished, frame) in self
             .finished
             .iter_mut()
             .chain(current_region.into_iter())
             .skip(first_region)
             .zip(fragment)
         {
-            if self.is_rtl {
-                let offset = Point::with_x(-width + first_column);
-                frame.translate(offset);
+            {
+                let mut pos = pos;
+                if self.is_rtl {
+                    let offset = -width + first_column;
+                    pos.x += offset;
+                }
+                finished.push_frame(pos, frame);
             }
-            finished.push_frame(pos, frame);
 
             // From the second region onwards, the rowspan's continuation
             // starts at the very top.
