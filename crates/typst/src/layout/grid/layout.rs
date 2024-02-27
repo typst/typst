@@ -985,11 +985,9 @@ pub struct GridLayouter<'a> {
     pub(super) rrows: Vec<Vec<RowPiece>>,
     /// Rows in the current region.
     pub(super) lrows: Vec<Row>,
-    /// The amount of unbreakable rows remaining to be added in the unbreakable
-    /// row group. When this is 0, no unbreakable row group is being built, and
-    /// the grid layout process continues normally. But when this is > 0, any
-    /// future rows must be added to 'unbreakable_row_group' first before being
-    /// pushed to 'lrows'.
+    /// The amount of unbreakable rows remaining to be laid out in the
+    /// current unbreakable row group. While this is positive, no region breaks
+    /// should occur.
     pub(super) unbreakable_rows_left: usize,
     /// Rowspans to layout after all regions were finished.
     pub(super) rowspans: Vec<Rowspan>,
