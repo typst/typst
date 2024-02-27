@@ -4,10 +4,9 @@ use std::str::FromStr;
 
 use ecow::{eco_format, EcoString, EcoVec};
 use once_cell::sync::Lazy;
-use palette::convert::FromColorUnclamped;
 use palette::encoding::{self, Linear};
 use palette::{
-    Darken, Desaturate, FromColor, Lighten, Okhsva, OklabHue, RgbHue, Saturate, ShiftHue,
+    Darken, Desaturate, FromColor, Lighten, OklabHue, RgbHue, Saturate, ShiftHue,
 };
 use qcms::Profile;
 
@@ -1318,10 +1317,8 @@ impl Color {
     pub fn to_luma(self) -> Self {
         Self::Luma(match self {
             Self::Luma(c) => c,
-            // Perform sRGB gamut mapping by converting to Okhsv first.
-            // This yields better results than clamping.
-            Self::Oklab(c) => Luma::from_color(Okhsva::from_color(c)),
-            Self::Oklch(c) => Luma::from_color(Okhsva::from_color(c)),
+            Self::Oklab(c) => Luma::from_color(c),
+            Self::Oklch(c) => Luma::from_color(c),
             Self::Rgb(c) => Luma::from_color(c),
             Self::LinearRgb(c) => Luma::from_color(c),
             Self::Cmyk(c) => Luma::from_color(c.to_rgba()),
@@ -1334,9 +1331,7 @@ impl Color {
         Self::Oklab(match self {
             Self::Luma(c) => Oklab::from_color(c),
             Self::Oklab(c) => c,
-            // No clamping is necessary for this conversion because the
-            // lightness property is the same for both Oklab and Oklch.
-            Self::Oklch(c) => Oklab::from_color_unclamped(c),
+            Self::Oklch(c) => Oklab::from_color(c),
             Self::Rgb(c) => Oklab::from_color(c),
             Self::LinearRgb(c) => Oklab::from_color(c),
             Self::Cmyk(c) => Oklab::from_color(c.to_rgba()),
@@ -1348,9 +1343,7 @@ impl Color {
     pub fn to_oklch(self) -> Self {
         Self::Oklch(match self {
             Self::Luma(c) => Oklch::from_color(c),
-            // No clamping is necessary for this conversion because the
-            // lightness property is the same for both Oklab and Oklch.
-            Self::Oklab(c) => Oklch::from_color_unclamped(c),
+            Self::Oklab(c) => Oklch::from_color(c),
             Self::Oklch(c) => c,
             Self::Rgb(c) => Oklch::from_color(c),
             Self::LinearRgb(c) => Oklch::from_color(c),
@@ -1363,10 +1356,8 @@ impl Color {
     pub fn to_rgb(self) -> Self {
         Self::Rgb(match self {
             Self::Luma(c) => Rgb::from_color(c),
-            // Perform sRGB gamut mapping by converting to Okhsv first.
-            // This yields better results than clamping.
-            Self::Oklab(c) => Rgb::from_color(Okhsva::from_color(c)),
-            Self::Oklch(c) => Rgb::from_color(Okhsva::from_color(c)),
+            Self::Oklab(c) => Rgb::from_color(c),
+            Self::Oklch(c) => Rgb::from_color(c),
             Self::Rgb(c) => c,
             Self::LinearRgb(c) => Rgb::from_linear(c),
             Self::Cmyk(c) => Rgb::from_color(c.to_rgba()),
@@ -1378,10 +1369,8 @@ impl Color {
     pub fn to_linear_rgb(self) -> Self {
         Self::LinearRgb(match self {
             Self::Luma(c) => LinearRgb::from_color(c),
-            // Perform sRGB gamut mapping by converting to Okhsv first.
-            // This yields better results than clamping.
-            Self::Oklab(c) => LinearRgb::from_color(Okhsva::from_color(c)),
-            Self::Oklch(c) => LinearRgb::from_color(Okhsva::from_color(c)),
+            Self::Oklab(c) => LinearRgb::from_color(c),
+            Self::Oklch(c) => LinearRgb::from_color(c),
             Self::Rgb(c) => LinearRgb::from_color(c),
             Self::LinearRgb(c) => c,
             Self::Cmyk(c) => LinearRgb::from_color(c.to_rgba()),
@@ -1393,10 +1382,8 @@ impl Color {
     pub fn to_cmyk(self) -> Self {
         Self::Cmyk(match self {
             Self::Luma(c) => Cmyk::from_luma(c),
-            // Perform sRGB gamut mapping by converting to Okhsv first.
-            // This yields better results than clamping.
-            Self::Oklab(c) => Cmyk::from_rgba(Rgb::from_color(Okhsva::from_color(c))),
-            Self::Oklch(c) => Cmyk::from_rgba(Rgb::from_color(Okhsva::from_color(c))),
+            Self::Oklab(c) => Cmyk::from_rgba(Rgb::from_color(c)),
+            Self::Oklch(c) => Cmyk::from_rgba(Rgb::from_color(c)),
             Self::Rgb(c) => Cmyk::from_rgba(c),
             Self::LinearRgb(c) => Cmyk::from_rgba(Rgb::from_linear(c)),
             Self::Cmyk(c) => c,
@@ -1408,10 +1395,8 @@ impl Color {
     pub fn to_hsl(self) -> Self {
         Self::Hsl(match self {
             Self::Luma(c) => Hsl::from_color(c),
-            // Perform sRGB gamut mapping by converting to Okhsv first.
-            // This yields better results than clamping.
-            Self::Oklab(c) => Hsl::from_color(Okhsva::from_color(c)),
-            Self::Oklch(c) => Hsl::from_color(Okhsva::from_color(c)),
+            Self::Oklab(c) => Hsl::from_color(c),
+            Self::Oklch(c) => Hsl::from_color(c),
             Self::Rgb(c) => Hsl::from_color(c),
             Self::LinearRgb(c) => Hsl::from_color(Rgb::from_linear(c)),
             Self::Cmyk(c) => Hsl::from_color(c.to_rgba()),
@@ -1423,10 +1408,8 @@ impl Color {
     pub fn to_hsv(self) -> Self {
         Self::Hsv(match self {
             Self::Luma(c) => Hsv::from_color(c),
-            // Perform sRGB gamut mapping by converting to Okhsv first.
-            // This yields better results than clamping.
-            Self::Oklab(c) => Hsv::from_color(Okhsva::from_color(c)),
-            Self::Oklch(c) => Hsv::from_color(Okhsva::from_color(c)),
+            Self::Oklab(c) => Hsv::from_color(c),
+            Self::Oklch(c) => Hsv::from_color(c),
             Self::Rgb(c) => Hsv::from_color(c),
             Self::LinearRgb(c) => Hsv::from_color(Rgb::from_linear(c)),
             Self::Cmyk(c) => Hsv::from_color(c.to_rgba()),
