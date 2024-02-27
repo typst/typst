@@ -11,7 +11,7 @@
 // Test color modification methods.
 #test(rgb(25, 35, 45).lighten(10%), rgb(48, 57, 66))
 #test(rgb(40, 30, 20).darken(10%), rgb(36, 27, 18))
-#test(rgb("#133337").negate(), rgb(236, 204, 200))
+#test(rgb("#133337").negate(space: rgb), rgb(236, 204, 200))
 #test(white.lighten(100%), white)
 
 // Color mixing, in Oklab space by default.
