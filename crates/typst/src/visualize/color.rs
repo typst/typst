@@ -1134,6 +1134,8 @@ impl Color {
     /// Make a color more transparent by a given factor.
     ///
     /// This method is relative to the existing alpha value.
+    /// If the scale is positive, calculates `alpha - alpha * scale`.
+    /// Negative scales behave like `color.opacify(-scale)`.
     ///
     /// ```example
     /// #block(fill: red)[opaque]
@@ -1144,57 +1146,30 @@ impl Color {
     pub fn transparentize(
         self,
         /// The factor to change the alpha value by.
-        factor: Ratio,
+        scale: Ratio,
     ) -> StrResult<Color> {
-        #[inline]
-        fn transform<C>(mut color: Alpha<C, f32>, factor: Ratio) -> Alpha<C, f32> {
-            color.alpha = (color.alpha * (1.0 - factor.get() as f32)).clamp(0.0, 1.0);
-            color
-        }
-
-        Ok(match self {
-            Color::Luma(c) => Color::Luma(transform(c, factor)),
-            Color::Oklab(c) => Color::Oklab(transform(c, factor)),
-            Color::Oklch(c) => Color::Oklch(transform(c, factor)),
-            Color::Rgb(c) => Color::Rgb(transform(c, factor)),
-            Color::LinearRgb(c) => Color::LinearRgb(transform(c, factor)),
-            Color::Cmyk(_) => bail!("CMYK does not have an alpha component"),
-            Color::Hsl(c) => Color::Hsl(transform(c, factor)),
-            Color::Hsv(c) => Color::Hsv(transform(c, factor)),
-        })
+        self.scale_alpha(-scale.get() as f32)
     }
 
-    /// Make a color more opaque by a given factor.
+    /// Make a color more opaque by a given scale.
     ///
     /// This method is relative to the existing alpha value.
+    /// If the scale is positive, calculates `alpha + scale - alpha * scale`.
+    /// Negative scales behave like `color.transparentize(-scale)`.
     ///
     /// ```example
-    /// #block(fill: red)[opaque]
-    /// #block(fill: red.opacify(50%))[half red]
-    /// #block(fill: red.opacify(75%))[quarter red]
+    /// #let half-red = red.transparentize(50%)
+    /// #block(fill: half-red.opacify(100%))[opaque]
+    /// #block(fill: half-red.opacify(50%))[three quarters red]
+    /// #block(fill: half-red.opacify(-50%))[one quarter red]
     /// ```
     #[func]
     pub fn opacify(
         self,
-        /// The factor to change the alpha value by.
-        factor: Ratio,
+        /// The scale to change the alpha value by.
+        scale: Ratio,
     ) -> StrResult<Color> {
-        #[inline]
-        fn transform<C>(mut color: Alpha<C, f32>, factor: Ratio) -> Alpha<C, f32> {
-            color.alpha = (color.alpha * (1.0 + factor.get() as f32)).clamp(0.0, 1.0);
-            color
-        }
-
-        Ok(match self {
-            Color::Luma(c) => Color::Luma(transform(c, factor)),
-            Color::Oklab(c) => Color::Oklab(transform(c, factor)),
-            Color::Oklch(c) => Color::Oklch(transform(c, factor)),
-            Color::Rgb(c) => Color::Rgb(transform(c, factor)),
-            Color::LinearRgb(c) => Color::LinearRgb(transform(c, factor)),
-            Color::Cmyk(_) => bail!("CMYK does not have an alpha component"),
-            Color::Hsl(c) => Color::Hsl(transform(c, factor)),
-            Color::Hsv(c) => Color::Hsv(transform(c, factor)),
-        })
+        self.scale_alpha(scale.get() as f32)
     }
 }
 
@@ -1331,6 +1306,30 @@ impl Color {
         }
 
         self
+    }
+
+    /// Scales the alpha value of a color by a given amount.
+    ///
+    /// For positive scales, computes `alpha + scale - alpha * scale`.
+    /// For non-positive scales, computes `alpha + alpha * scale`.
+    fn scale_alpha(self, scale: f32) -> StrResult<Color> {
+        #[inline]
+        fn transform<C>(mut color: Alpha<C, f32>, scale: f32) -> Alpha<C, f32> {
+            let factor = if scale > 0.0 { 1.0 - color.alpha } else { color.alpha };
+            color.alpha = (color.alpha + scale * factor).clamp(0.0, 1.0);
+            color
+        }
+
+        Ok(match self {
+            Color::Luma(c) => Color::Luma(transform(c, scale)),
+            Color::Oklab(c) => Color::Oklab(transform(c, scale)),
+            Color::Oklch(c) => Color::Oklch(transform(c, scale)),
+            Color::Rgb(c) => Color::Rgb(transform(c, scale)),
+            Color::LinearRgb(c) => Color::LinearRgb(transform(c, scale)),
+            Color::Cmyk(_) => bail!("CMYK does not have an alpha component"),
+            Color::Hsl(c) => Color::Hsl(transform(c, scale)),
+            Color::Hsv(c) => Color::Hsv(transform(c, scale)),
+        })
     }
 
     /// Converts the color to a vec of four floats.
