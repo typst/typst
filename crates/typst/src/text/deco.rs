@@ -5,12 +5,14 @@ use ttf_parser::{GlyphId, OutlineBuilder};
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Packed, Show, Smart, StyleChain};
-use crate::layout::{Abs, Corners, Em, Frame, FrameItem, Length, Point, Rel, Sides};
+use crate::layout::{
+    Abs, Corners, Em, Frame, FrameItem, Length, Point, Rel, Sides, Size,
+};
 use crate::syntax::Span;
 use crate::text::{
     BottomEdge, BottomEdgeMetric, TextElem, TextItem, TopEdge, TopEdgeMetric,
 };
-use crate::visualize::{Color, FixedStroke, Geometry, Paint, Stroke};
+use crate::visualize::{styled_rect, Color, FixedStroke, Geometry, Paint, Stroke};
 
 /// Underlines text.
 ///
@@ -406,18 +408,13 @@ pub(crate) fn decorate(
         &deco.line
     {
         let (top, bottom) = determine_edges(text, *top_edge, *bottom_edge);
-        let outset = Sides::new(
-            Rel::from(deco.extent - pos.x),
-            Rel::from(top + shift - pos.y),
-            Rel::from(deco.extent - pos.x),
-            Rel::from(-bottom),
-        );
-        frame.fill_and_stroke(
-            Some(fill.clone()),
-            stroke.clone(),
-            outset,
-            *radius,
-            Span::detached(),
+        let size = Size::new(width + 2.0 * deco.extent, top - bottom);
+        let rects = styled_rect(size, *radius, Some(fill.clone()), stroke.clone());
+        let origin = Point::new(pos.x - deco.extent, pos.y - top - shift);
+        frame.prepend_multiple(
+            rects
+                .into_iter()
+                .map(|shape| (origin, FrameItem::Shape(shape, Span::detached()))),
         );
         return;
     }
