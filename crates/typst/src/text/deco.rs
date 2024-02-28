@@ -409,7 +409,7 @@ pub(crate) fn decorate(
         let outset = Sides::new(
             Rel::from(deco.extent - pos.x),
             Rel::from(top + shift - pos.y),
-            Rel::from(pos.x + deco.extent),
+            Rel::from(deco.extent - pos.x),
             Rel::from(-bottom),
         );
         frame.fill_and_stroke(
