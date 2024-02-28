@@ -5,7 +5,7 @@ use ttf_parser::{GlyphId, OutlineBuilder};
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{elem, Content, Packed, Show, Smart, StyleChain};
-use crate::layout::{Abs, Em, Frame, FrameItem, Length, Point, Size};
+use crate::layout::{Abs, Corners, Em, Frame, FrameItem, Length, Point, Rel, Sides};
 use crate::syntax::Span;
 use crate::text::{
     BottomEdge, BottomEdgeMetric, TextElem, TextItem, TopEdge, TopEdgeMetric,
@@ -283,6 +283,12 @@ pub struct HighlightElem {
     #[default(Color::from_u8(0xFF, 0xFD, 0x11, 0xA1).into())]
     pub fill: Paint,
 
+    /// The highlight's border color. See the
+    /// [rectangle's documentation]($rect.stroke) for more details.
+    #[resolve]
+    #[fold]
+    pub stroke: Sides<Option<Option<Stroke>>>,
+
     /// The top end of the background rectangle.
     ///
     /// ```example
@@ -316,6 +322,12 @@ pub struct HighlightElem {
     #[resolve]
     pub extent: Length,
 
+    /// How much to round the highlight's corners. See the
+    /// [rectangle's documentation]($rect.radius) for more details.
+    #[resolve]
+    #[fold]
+    pub radius: Corners<Option<Rel<Length>>>,
+
     /// The content that should be highlighted.
     #[required]
     pub body: Content,
@@ -327,8 +339,13 @@ impl Show for Packed<HighlightElem> {
         Ok(self.body().clone().styled(TextElem::set_deco(smallvec![Decoration {
             line: DecoLine::Highlight {
                 fill: self.fill(styles),
+                stroke: self
+                    .stroke(styles)
+                    .unwrap_or_default()
+                    .map(|stroke| stroke.map(Stroke::unwrap_or_default)),
                 top_edge: self.top_edge(styles),
                 bottom_edge: self.bottom_edge(styles),
+                radius: self.radius(styles).unwrap_or_default(),
             },
             extent: self.extent(styles),
         }])))
@@ -348,10 +365,30 @@ pub struct Decoration {
 /// A kind of decorative line.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum DecoLine {
-    Underline { stroke: Stroke<Abs>, offset: Smart<Abs>, evade: bool, background: bool },
-    Strikethrough { stroke: Stroke<Abs>, offset: Smart<Abs>, background: bool },
-    Overline { stroke: Stroke<Abs>, offset: Smart<Abs>, evade: bool, background: bool },
-    Highlight { fill: Paint, top_edge: TopEdge, bottom_edge: BottomEdge },
+    Underline {
+        stroke: Stroke<Abs>,
+        offset: Smart<Abs>,
+        evade: bool,
+        background: bool,
+    },
+    Strikethrough {
+        stroke: Stroke<Abs>,
+        offset: Smart<Abs>,
+        background: bool,
+    },
+    Overline {
+        stroke: Stroke<Abs>,
+        offset: Smart<Abs>,
+        evade: bool,
+        background: bool,
+    },
+    Highlight {
+        fill: Paint,
+        stroke: Sides<Option<FixedStroke>>,
+        top_edge: TopEdge,
+        bottom_edge: BottomEdge,
+        radius: Corners<Rel<Abs>>,
+    },
 }
 
 /// Add line decorations to a single run of shaped text.
@@ -365,12 +402,23 @@ pub(crate) fn decorate(
 ) {
     let font_metrics = text.font.metrics();
 
-    if let DecoLine::Highlight { fill, top_edge, bottom_edge } = &deco.line {
+    if let DecoLine::Highlight { fill, stroke, top_edge, bottom_edge, radius } =
+        &deco.line
+    {
         let (top, bottom) = determine_edges(text, *top_edge, *bottom_edge);
-        let rect = Geometry::Rect(Size::new(width + 2.0 * deco.extent, top - bottom))
-            .filled(fill.clone());
-        let origin = Point::new(pos.x - deco.extent, pos.y - top - shift);
-        frame.prepend(origin, FrameItem::Shape(rect, Span::detached()));
+        let outset = Sides::new(
+            Rel::from(deco.extent - pos.x),
+            Rel::from(top + shift - pos.y),
+            Rel::from(pos.x + deco.extent),
+            Rel::from(-bottom),
+        );
+        frame.fill_and_stroke(
+            Some(fill.clone()),
+            stroke.clone(),
+            outset,
+            *radius,
+            Span::detached(),
+        );
         return;
     }
 
