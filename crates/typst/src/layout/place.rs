@@ -101,7 +101,7 @@ impl Packed<PlaceElem> {
         let alignment = self.alignment(styles);
 
         if float
-            && alignment.map_or(false, |align| {
+            && alignment.is_custom_and(|align| {
                 matches!(align.y(), None | Some(VAlignment::Horizon))
             })
         {

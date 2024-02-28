@@ -80,6 +80,17 @@ impl<T> Smart<T> {
         matches!(self, Self::Custom(_))
     }
 
+    /// Whether this is a `Smart::Custom(x)` and `f(x)` is true.
+    pub fn is_custom_and<F>(self, f: F) -> bool
+    where
+        F: Fn(T) -> bool,
+    {
+        match self {
+            Self::Auto => false,
+            Self::Custom(x) => f(x),
+        }
+    }
+
     /// Returns a `Smart<&T>` borrowing the inner `T`.
     pub fn as_ref(&self) -> Smart<&T> {
         match self {
@@ -88,9 +99,12 @@ impl<T> Smart<T> {
         }
     }
 
-    /// Returns a reference the contained custom value.
-    /// If the value is [`Smart::Auto`], `None` is returned.
-    pub fn as_custom(self) -> Option<T> {
+    /// Returns the contained custom value.
+    ///
+    /// If the value is [`Smart::Auto`], returns `None`.
+    ///
+    /// Equivalently, this just converts `Smart` to `Option`.
+    pub fn custom(self) -> Option<T> {
         match self {
             Self::Auto => None,
             Self::Custom(x) => Some(x),

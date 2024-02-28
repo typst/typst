@@ -680,7 +680,7 @@ fn shape_segment<'a>(
     let mut buffer = UnicodeBuffer::new();
     buffer.push_str(text);
     buffer.set_language(language(ctx.styles));
-    if let Some(script) = TextElem::script_in(ctx.styles).as_custom().and_then(|script| {
+    if let Some(script) = TextElem::script_in(ctx.styles).custom().and_then(|script| {
         rustybuzz::Script::from_iso15924_tag(Tag::from_bytes(script.as_bytes()))
     }) {
         buffer.set_script(script)
@@ -751,7 +751,7 @@ fn shape_segment<'a>(
         } else {
             // First, search for the end of the tofu sequence.
             let k = i;
-            while infos.get(i + 1).map_or(false, |info| info.glyph_id == 0) {
+            while infos.get(i + 1).is_some_and(|info| info.glyph_id == 0) {
                 i += 1;
             }
 
@@ -781,7 +781,7 @@ fn shape_segment<'a>(
 
             // Trim half-baked cluster.
             let remove = base + start..base + end;
-            while ctx.glyphs.last().map_or(false, |g| remove.contains(&g.range.start)) {
+            while ctx.glyphs.last().is_some_and(|g| remove.contains(&g.range.start)) {
                 ctx.glyphs.pop();
             }
 
@@ -866,7 +866,7 @@ fn track_and_space(ctx: &mut ShapingContext) {
 
         if glyphs
             .peek()
-            .map_or(false, |next| glyph.range.start != next.range.start)
+            .is_some_and(|next| glyph.range.start != next.range.start)
         {
             glyph.x_advance += tracking;
         }

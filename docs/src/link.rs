@@ -95,7 +95,7 @@ fn resolve_definition(head: &str, base: &str) -> StrResult<String> {
         } else if value
             .clone()
             .cast::<Func>()
-            .map_or(false, |func| func.param(next).is_some())
+            .is_ok_and(|func| func.param(next).is_some())
         {
             route.push_str("#parameters-");
             route.push_str(next);

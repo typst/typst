@@ -805,7 +805,7 @@ fn test_diagnostics<'a>(
     let mut actual_diagnostics = HashSet::new();
     for diagnostic in diagnostics {
         // Ignore diagnostics from other files.
-        if diagnostic.span.id().map_or(false, |id| id != source.id()) {
+        if diagnostic.span.id().is_some_and(|id| id != source.id()) {
             continue;
         }
 

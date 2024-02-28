@@ -231,7 +231,7 @@ impl Show for Packed<OutlineElem> {
             while ancestors
                 .last()
                 .and_then(|ancestor| ancestor.with::<dyn Outlinable>())
-                .map_or(false, |last| last.level() >= *level)
+                .is_some_and(|last| last.level() >= *level)
             {
                 ancestors.pop();
             }

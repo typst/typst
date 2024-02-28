@@ -351,7 +351,7 @@ fn func_model(
 
     let mut self_ = false;
     let mut params = func.params().unwrap();
-    if params.first().map_or(false, |first| first.name == "self") {
+    if params.first().is_some_and(|first| first.name == "self") {
         self_ = true;
         params = &params[1..];
     }

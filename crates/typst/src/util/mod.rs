@@ -152,7 +152,7 @@ pub fn option_eq<L, R>(left: Option<L>, other: R) -> bool
 where
     L: PartialEq<R>,
 {
-    left.map_or(false, |v| v == other)
+    left.is_some_and(|v| v == other)
 }
 
 /// A container around a static reference that is cheap to clone and hash.

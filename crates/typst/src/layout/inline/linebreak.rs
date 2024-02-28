@@ -78,7 +78,7 @@ pub(super) fn breakpoints<'a>(
             let (link, _) = link_prefix(tail);
             let end = last + link.len();
             linebreak_link(link, |i| f(last + i, Breakpoint::Normal));
-            while iter.peek().map_or(false, |&p| p < end) {
+            while iter.peek().is_some_and(|&p| p < end) {
                 iter.next();
             }
         }

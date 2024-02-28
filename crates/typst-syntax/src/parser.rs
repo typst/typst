@@ -1709,7 +1709,7 @@ impl<'s> Parser<'s> {
 
     fn unskip(&mut self) {
         if self.lexer.mode() != LexMode::Markup && self.prev_end != self.current_start {
-            while self.nodes.last().map_or(false, |last| last.kind().is_trivia()) {
+            while self.nodes.last().is_some_and(|last| last.kind().is_trivia()) {
                 self.nodes.pop();
             }
 

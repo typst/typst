@@ -601,12 +601,12 @@ impl<'a> Raw<'a> {
             let is_whitespace = |line: &&str| line.chars().all(char::is_whitespace);
 
             // Trims a sequence of whitespace followed by a newline at the start.
-            if lines.first().map_or(false, is_whitespace) {
+            if lines.first().is_some_and(is_whitespace) {
                 lines.remove(0);
             }
 
             // Trims a newline followed by a sequence of whitespace at the end.
-            if lines.last().map_or(false, is_whitespace) {
+            if lines.last().is_some_and(is_whitespace) {
                 lines.pop();
             }
         }

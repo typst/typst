@@ -306,7 +306,7 @@ impl Datetime {
     ) -> StrResult<Datetime> {
         Ok(engine
             .world
-            .today(offset.as_custom())
+            .today(offset.custom())
             .ok_or("unable to get the current date")?)
     }
 
