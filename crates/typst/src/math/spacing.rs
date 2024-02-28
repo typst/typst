@@ -31,8 +31,7 @@ pub(super) fn spacing(
         let width = size_ref.font_size().map_or(Abs::zero(), |size| v.at(size));
         Some(SpacingFragment { width, weak: false }.into())
     };
-    let script =
-        |f: &MathFragment| f.math_size().map_or(false, |s| s <= MathSize::Script);
+    let script = |f: &MathFragment| f.math_size().is_some_and(|s| s <= MathSize::Script);
 
     match (l.class(), r.class()) {
         // No spacing before punctuation; thin spacing after punctuation, unless

@@ -153,7 +153,7 @@ impl<'a> BehavedBuilder<'a> {
 
             // Store a suffix map for the next element if it has the same style
             // chain.
-            if iter.peek().map_or(false, |&(_, s2)| s == s2) {
+            if iter.peek().is_some_and(|&(_, s2)| s == s2) {
                 reuse = Some(suffix.clone());
             }
 

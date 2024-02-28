@@ -1178,7 +1178,7 @@ impl<'a> CompletionContext<'a> {
         parens: bool,
         docs: Option<&str>,
     ) {
-        let at = label.as_deref().map_or(false, |field| !is_ident(field));
+        let at = label.as_deref().is_some_and(|field| !is_ident(field));
         let label = label.unwrap_or_else(|| value.repr());
 
         let detail = docs.map(Into::into).or_else(|| match value {

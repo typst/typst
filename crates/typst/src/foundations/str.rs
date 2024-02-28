@@ -114,7 +114,7 @@ impl Str {
             .and_then(|v| usize::try_from(v).ok())
             .filter(|&v| v <= self.0.len());
 
-        if resolved.map_or(false, |i| !self.0.is_char_boundary(i)) {
+        if resolved.is_some_and(|i| !self.0.is_char_boundary(i)) {
             return Err(not_a_char_boundary(index));
         }
 
@@ -308,7 +308,7 @@ impl Str {
     ) -> bool {
         match pattern {
             StrPattern::Str(pat) => self.0.starts_with(pat.as_str()),
-            StrPattern::Regex(re) => re.find(self).map_or(false, |m| m.start() == 0),
+            StrPattern::Regex(re) => re.find(self).is_some_and(|m| m.start() == 0),
         }
     }
 

@@ -381,7 +381,7 @@ impl Recipe {
     pub fn applicable(&self, target: &Content, styles: StyleChain) -> bool {
         self.selector
             .as_ref()
-            .map_or(false, |selector| selector.matches(target, Some(styles)))
+            .is_some_and(|selector| selector.matches(target, Some(styles)))
     }
 
     /// Apply the recipe to the given content.
