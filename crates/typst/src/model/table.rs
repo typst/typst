@@ -204,6 +204,10 @@ pub struct TableElem {
     #[default(Celled::Value(Sides::splat(Some(Abs::pt(5.0).into()))))]
     pub inset: Celled<Sides<Option<Rel<Length>>>>,
 
+    /// The amount of rows from the start of the table which should be repeated
+    /// across pages. Zero to not repeat anything.
+    pub header_rows: usize,
+
     /// The contents of the table cells, plus any extra table lines specified
     /// with the [`table.hline`]($table.hline) and
     /// [`table.vline`]($table.vline) elements.
@@ -239,6 +243,7 @@ impl LayoutMultiple for Packed<TableElem> {
         let row_gutter = self.row_gutter(styles);
         let fill = self.fill(styles);
         let stroke = self.stroke(styles);
+        let header_rows = self.header_rows(styles);
 
         let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
@@ -285,6 +290,7 @@ impl LayoutMultiple for Packed<TableElem> {
             align,
             &inset,
             &stroke,
+            header_rows,
             engine,
             styles,
             self.span(),
