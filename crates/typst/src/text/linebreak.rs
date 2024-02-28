@@ -1,4 +1,6 @@
-use crate::foundations::{elem, Packed};
+use icu_segmenter::LineBreakWordOption;
+
+use crate::foundations::{elem, Cast, Packed};
 use crate::realize::{Behave, Behaviour};
 
 /// Inserts a line break.
@@ -40,5 +42,28 @@ pub struct LinebreakElem {
 impl Behave for Packed<LinebreakElem> {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Destructive
+    }
+}
+
+/// A word-break mode on text
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum WordBreak {
+    /// Words break according to their customary rules.
+    Normal,
+
+    /// Breaking is allowed within “words”.
+    BreakAll,
+
+    /// Breaking is forbidden within “words”.
+    KeepAll,
+}
+
+impl Into<LineBreakWordOption> for WordBreak {
+    fn into(self) -> LineBreakWordOption {
+        match self {
+            WordBreak::Normal => LineBreakWordOption::Normal,
+            WordBreak::BreakAll => LineBreakWordOption::BreakAll,
+            WordBreak::KeepAll => LineBreakWordOption::KeepAll,
+        }
     }
 }

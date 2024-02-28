@@ -464,6 +464,21 @@ pub struct TextElem {
     #[ghost]
     pub hyphenate: Hyphenate,
 
+    /// Controls whether the word can be soft-wrapped between letters.
+    ///
+    /// ```example
+    /// #set page(width: 20pt)
+    /// 각 줄의 마지막에 한글이 올 때
+    /// 줄 나눔 기준을 “글자” 또는 “어절” 단위로 한다.
+    ///
+    /// #set text(word-break: "keep-all")
+    /// 각 줄의 마지막에 한글이 올 때
+    /// 줄 나눔 기준을 “글자” 또는 “어절” 단위로 한다.
+    /// ```
+    #[default(WordBreak::Normal)]
+    #[ghost]
+    pub word_break: WordBreak,
+
     /// Whether to apply kerning.
     ///
     /// When enabled, specific letter pairings move closer together or further

@@ -24,6 +24,7 @@ use crate::model::{Linebreaks, ParElem};
 use crate::syntax::Span;
 use crate::text::{
     Lang, LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
+    WordBreak,
 };
 use crate::util::Numeric;
 use crate::World;
@@ -116,6 +117,8 @@ struct Preparation<'a> {
     spans: SpanMapper,
     /// Whether to hyphenate if it's the same for all children.
     hyphenate: Option<bool>,
+    /// The word break rule for text.
+    word_break: WordBreak,
     /// The text language if it's the same for all children.
     lang: Option<Lang>,
     /// The paragraph's resolved horizontal alignment.
@@ -617,6 +620,7 @@ fn prepare<'a>(
         items,
         spans,
         hyphenate: shared_get(styles, children, TextElem::hyphenate_in),
+        word_break: TextElem::word_break_in(styles),
         lang: shared_get(styles, children, TextElem::lang_in),
         align: AlignElem::alignment_in(styles).resolve(styles).x,
         justify: ParElem::justify_in(styles),
