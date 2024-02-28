@@ -15,6 +15,7 @@ name = "typst-docs"
 required-features = ["cli"]
 
 [features]
+default = ["cli"]
 cli = ["clap", "typst-render", "serde_json"]
 
 [dependencies]
