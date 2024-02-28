@@ -370,9 +370,7 @@ impl<'a> GridLayouter<'a> {
                     // 'measure_auto_row' or (consequently) this function.
                     let row_group =
                         self.simulate_unbreakable_row_group(spanned_y, engine)?;
-                    while !self.regions.size.y.fits(row_group.height)
-                        && !self.regions.in_last()
-                    {
+                    while !regions.size.y.fits(row_group.height) && !regions.in_last() {
                         total_spanned_height -= latest_spanned_gutter_height;
                         latest_spanned_gutter_height = Abs::zero();
                         regions.next();
