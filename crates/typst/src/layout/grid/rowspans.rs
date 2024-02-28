@@ -391,6 +391,96 @@ impl<'a> GridLayouter<'a> {
         }
     }
 
+    /// Used in `measure_auto_row` to prepare a rowspan's `sizes` vector.
+    /// Returns `true` if we'll need to run a simulation to more accurately
+    /// expand the auto row based on the rowspan's demanded size, or `false`
+    /// otherwise.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn prepare_rowspan_sizes(
+        &self,
+        auto_row_y: usize,
+        sizes: &mut Vec<Abs>,
+        cell: &Cell,
+        parent_y: usize,
+        rowspan: usize,
+        unbreakable_rows_left: usize,
+        measurement_data: &CellMeasurementData<'_>,
+    ) -> bool {
+        if sizes.len() <= 1
+            && sizes.first().is_some_and(|&first_frame_size| {
+                first_frame_size <= measurement_data.height_in_this_region
+            })
+        {
+            // Ignore a rowspan fully covered by rows in previous
+            // regions and/or in the current region.
+            sizes.clear();
+            return false;
+        }
+        if let Some(first_frame_size) = sizes.first_mut() {
+            // Subtract already covered height from the size requested
+            // by this rowspan to the auto row in the first region.
+            *first_frame_size = (*first_frame_size
+                - measurement_data.height_in_this_region)
+                .max(Abs::zero());
+        }
+
+        let last_spanned_row = parent_y + rowspan - 1;
+
+        // When the rowspan is unbreakable, or all of its upcoming
+        // spanned rows are in the same unbreakable row group, its
+        // spanned gutter will certainly be in the same region as all
+        // of its other spanned rows, thus gutters won't be removed,
+        // and we can safely reduce how much the auto row expands by
+        // without using simulation.
+        let is_effectively_unbreakable_rowspan =
+            !cell.breakable || auto_row_y + unbreakable_rows_left > last_spanned_row;
+
+        // If the rowspan doesn't end at this row and the grid has
+        // gutter, we will need to run a simulation to find out how
+        // much to expand this row by later. This is because gutters
+        // spanned by this rowspan might be removed if they appear
+        // around a pagebreak, so the auto row might have to expand a
+        // bit more to compensate for the missing gutter height.
+        // However, unbreakable rowspans aren't affected by that
+        // problem.
+        if auto_row_y != last_spanned_row
+            && !sizes.is_empty()
+            && self.grid.has_gutter
+            && !is_effectively_unbreakable_rowspan
+        {
+            return true;
+        }
+
+        // We can only predict the resolved size of upcoming fixed-size
+        // rows, but not fractional rows. In the future, we might be
+        // able to simulate and circumvent the problem with fractional
+        // rows. Relative rows are currently always measured relative
+        // to the first region as well.
+        // We can ignore auto rows since this is the last spanned auto
+        // row.
+        let will_be_covered_height: Abs = self
+            .grid
+            .rows
+            .iter()
+            .skip(auto_row_y + 1)
+            .take(last_spanned_row - auto_row_y)
+            .map(|row| match row {
+                Sizing::Rel(v) => {
+                    v.resolve(self.styles).relative_to(self.regions.base().y)
+                }
+                _ => Abs::zero(),
+            })
+            .sum();
+
+        // Remove or reduce the sizes of the rowspan at future regions
+        // where it will already be covered by further rows spanned by
+        // it.
+        subtract_end_sizes(sizes, will_be_covered_height);
+
+        // No need to run a simulation for this rowspan.
+        false
+    }
+
     /// Performs a simulation to predict by how much height the last spanned
     /// auto row will have to expand, given the current sizes of the auto row
     /// in each region and the pending rowspans' data (parent Y, rowspan amount
@@ -658,7 +748,7 @@ impl<'a> GridLayouter<'a> {
 
 /// Subtracts some size from the end of a vector of sizes.
 /// For example, subtracting 5pt from \[2pt, 1pt, 3pt\] will result in \[1pt\].
-pub(super) fn subtract_end_sizes(sizes: &mut Vec<Abs>, mut subtract: Abs) {
+fn subtract_end_sizes(sizes: &mut Vec<Abs>, mut subtract: Abs) {
     while subtract > Abs::zero() && sizes.last().is_some_and(|&size| size <= subtract) {
         subtract -= sizes.pop().unwrap();
     }
