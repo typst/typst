@@ -24,7 +24,6 @@ typst-dev-assets = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 heck = { workspace = true }
-include_dir = { workspace = true }
 once_cell = { workspace = true }
 pulldown-cmark = { workspace = true }
 serde = { workspace = true }

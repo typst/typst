@@ -9,14 +9,10 @@ pub use self::contribs::*;
 pub use self::html::*;
 pub use self::model::*;
 
-use std::path::Path;
-
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use heck::ToTitleCase;
-use include_dir::{include_dir, Dir};
 use once_cell::sync::Lazy;
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_yaml as yaml;
 use typst::diag::{bail, StrResult};
@@ -36,10 +32,15 @@ use typst::text::{Font, FontBook, TEXT};
 use typst::visualize::VISUALIZE;
 use typst::Library;
 
-static DOCS_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../docs");
+macro_rules! load {
+    ($path:literal) => {
+        include_str!(concat!("../", $path))
+    };
+}
 
 static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| {
-    let mut groups: Vec<GroupData> = yaml("reference/groups.yml");
+    let mut groups: Vec<GroupData> =
+        yaml::from_str(load!("reference/groups.yml")).unwrap();
     for group in &mut groups {
         if group.filter.is_empty() {
             group.filter = group
@@ -76,16 +77,16 @@ static FONTS: Lazy<(Prehashed<FontBook>, Vec<Font>)> = Lazy::new(|| {
 
 /// Build documentation pages.
 pub fn provide(resolver: &dyn Resolver) -> Vec<PageModel> {
+    let base = resolver.base();
     vec![
-        markdown_page(resolver, resolver.base(), "overview.md")
-            .with_route(resolver.base()),
+        md_page(resolver, base, load!("overview.md")).with_route(base),
         tutorial_pages(resolver),
         reference_pages(resolver),
         guide_pages(resolver),
         packages_page(resolver),
-        markdown_page(resolver, resolver.base(), "changelog.md"),
-        markdown_page(resolver, resolver.base(), "roadmap.md"),
-        markdown_page(resolver, resolver.base(), "community.md"),
+        md_page(resolver, base, load!("changelog.md")),
+        md_page(resolver, base, load!("roadmap.md")),
+        md_page(resolver, base, load!("community.md")),
     ]
 }
 
@@ -109,13 +110,8 @@ pub trait Resolver {
 
 /// Create a page from a markdown file.
 #[track_caller]
-fn markdown_page(
-    resolver: &dyn Resolver,
-    parent: &str,
-    path: impl AsRef<Path>,
-) -> PageModel {
+fn md_page(resolver: &dyn Resolver, parent: &str, md: &str) -> PageModel {
     assert!(parent.starts_with('/') && parent.ends_with('/'));
-    let md = DOCS_DIR.get_file(path).unwrap().contents_utf8().unwrap();
     let html = Html::markdown(resolver, md, Some(0));
     let title: EcoString = html.title().expect("chapter lacks a title").into();
     PageModel {
@@ -131,44 +127,26 @@ fn markdown_page(
 
 /// Build the tutorial.
 fn tutorial_pages(resolver: &dyn Resolver) -> PageModel {
-    let mut page = markdown_page(resolver, resolver.base(), "tutorial/welcome.md");
-    page.children = DOCS_DIR
-        .get_dir("tutorial")
-        .unwrap()
-        .files()
-        .filter(|file| file.path() != Path::new("tutorial/welcome.md"))
-        .map(|file| {
-            markdown_page(resolver, &format!("{}tutorial/", resolver.base()), file.path())
-        })
-        .collect();
+    let mut page = md_page(resolver, resolver.base(), load!("tutorial/welcome.md"));
+    let base = format!("{}tutorial/", resolver.base());
+    page.children = vec![
+        md_page(resolver, &base, load!("tutorial/1-writing.md")),
+        md_page(resolver, &base, load!("tutorial/2-formatting.md")),
+        md_page(resolver, &base, load!("tutorial/3-advanced.md")),
+        md_page(resolver, &base, load!("tutorial/4-template.md")),
+    ];
     page
 }
 
 /// Build the reference.
 fn reference_pages(resolver: &dyn Resolver) -> PageModel {
-    let mut page = markdown_page(resolver, resolver.base(), "reference/welcome.md");
+    let mut page = md_page(resolver, resolver.base(), load!("reference/welcome.md"));
+    let base = format!("{}reference/", resolver.base());
     page.children = vec![
-        markdown_page(
-            resolver,
-            &format!("{}reference/", resolver.base()),
-            "reference/syntax.md",
-        )
-        .with_part("Language"),
-        markdown_page(
-            resolver,
-            &format!("{}reference/", resolver.base()),
-            "reference/styling.md",
-        ),
-        markdown_page(
-            resolver,
-            &format!("{}reference/", resolver.base()),
-            "reference/scripting.md",
-        ),
-        markdown_page(
-            resolver,
-            &format!("{}reference/", resolver.base()),
-            "reference/context.md",
-        ),
+        md_page(resolver, &base, load!("reference/syntax.md")).with_part("Language"),
+        md_page(resolver, &base, load!("reference/styling.md")),
+        md_page(resolver, &base, load!("reference/scripting.md")),
+        md_page(resolver, &base, load!("reference/context.md")),
         category_page(resolver, FOUNDATIONS).with_part("Library"),
         category_page(resolver, MODEL),
         category_page(resolver, TEXT),
@@ -184,36 +162,28 @@ fn reference_pages(resolver: &dyn Resolver) -> PageModel {
 
 /// Build the guides section.
 fn guide_pages(resolver: &dyn Resolver) -> PageModel {
-    let mut page = markdown_page(resolver, resolver.base(), "guides/welcome.md");
+    let mut page = md_page(resolver, resolver.base(), load!("guides/welcome.md"));
+    let base = format!("{}guides/", resolver.base());
     page.children = vec![
-        markdown_page(
-            resolver,
-            &format!("{}guides/", resolver.base()),
-            "guides/guide-for-latex-users.md",
-        ),
-        markdown_page(
-            resolver,
-            &format!("{}guides/", resolver.base()),
-            "guides/page-setup.md",
-        ),
+        md_page(resolver, &base, load!("guides/guide-for-latex-users.md")),
+        md_page(resolver, &base, load!("guides/page-setup.md")),
     ];
     page
 }
 
 /// Build the packages section.
 fn packages_page(resolver: &dyn Resolver) -> PageModel {
-    let md = DOCS_DIR
-        .get_file("reference/packages.md")
-        .unwrap()
-        .contents_utf8()
-        .unwrap();
     PageModel {
         route: eco_format!("{}packages/", resolver.base()),
         title: "Packages".into(),
         description: "Packages for Typst.".into(),
         part: None,
         outline: vec![],
-        body: BodyModel::Packages(Html::markdown(resolver, md, Some(1))),
+        body: BodyModel::Packages(Html::markdown(
+            resolver,
+            load!("reference/packages.md"),
+            Some(1),
+        )),
         children: vec![],
     }
 }
@@ -718,13 +688,6 @@ fn get_module<'a>(parent: &'a Module, name: &str) -> StrResult<&'a Module> {
         Some(Value::Module(module)) => Ok(module),
         _ => bail!("module doesn't contain module `{name}`"),
     }
-}
-
-/// Load YAML from a path.
-#[track_caller]
-fn yaml<T: DeserializeOwned>(path: &str) -> T {
-    let file = DOCS_DIR.get_file(path).unwrap();
-    yaml::from_slice(file.contents()).unwrap()
 }
 
 /// Turn a title into an URL fragment.

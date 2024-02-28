@@ -250,7 +250,7 @@ impl<'a> Handler<'a> {
     }
 
     fn handle_image(&self, link: &str) -> String {
-        if let Some(data) = typst_dev_assets::get(link) {
+        if let Some(data) = typst_dev_assets::get_by_name(link) {
             self.resolver.image(link, data)
         } else if let Some(url) = self.resolver.link(link) {
             url
