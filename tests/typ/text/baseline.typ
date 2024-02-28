@@ -9,4 +9,4 @@ Our cockatoo was one of the
 that ever learned to mimic a human voice.
 
 ---
-Hey #box(baseline: 40%, image("/files/tiger.jpg", width: 1.5cm)) there!
+Hey #box(baseline: 40%, image("/assets/images/tiger.jpg", width: 1.5cm)) there!

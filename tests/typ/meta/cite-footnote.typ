@@ -2,4 +2,4 @@ Hello @netwok
 And again: @netwok
 
 #pagebreak()
-#bibliography("/files/works.bib", style: "chicago-notes")
+#bibliography("/assets/bib/works.bib", style: "chicago-notes")

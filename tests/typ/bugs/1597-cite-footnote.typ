@@ -9,4 +9,4 @@
 
 #footnote[@netwok]
 #show bibliography: none
-#bibliography("/files/works.bib")
+#bibliography("/assets/bib/works.bib")

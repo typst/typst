@@ -19,6 +19,8 @@ cli = ["clap", "typst-render", "serde_json"]
 
 [dependencies]
 typst = { workspace = true }
+typst-assets = { workspace = true, features = ["fonts"] }
+typst-dev-assets = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 heck = { workspace = true }

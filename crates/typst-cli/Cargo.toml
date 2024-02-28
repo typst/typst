@@ -21,6 +21,7 @@ doc = false
 
 [dependencies]
 typst = { workspace = true }
+typst-assets = { workspace = true, features = ["fonts"] }
 typst-macros = { workspace = true }
 typst-pdf = { workspace = true }
 typst-render = { workspace = true }

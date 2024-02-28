@@ -9,7 +9,7 @@
 #figure(
   placement: bottom,
   caption: [A glacier #footnote[Lots of Ice]],
-  image("/files/glacier.jpg", width: 80%),
+  image("/assets/images/glacier.jpg", width: 80%),
 )
 
 #lorem(40)
@@ -17,5 +17,5 @@
 #figure(
   placement: top,
   caption: [An important],
-  image("/files/diagram.svg", width: 80%),
+  image("/assets/images/diagram.svg", width: 80%),
 )

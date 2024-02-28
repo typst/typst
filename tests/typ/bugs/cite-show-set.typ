@@ -6,4 +6,4 @@ A @netwok @arrgh.
 B #cite(<netwok>) #cite(<arrgh>).
 
 #show bibliography: none
-#bibliography("/files/works.bib")
+#bibliography("/assets/bib/works.bib")

@@ -13,4 +13,4 @@
 @sharing
 @restful
 
-#bibliography("/files/works.bib")
+#bibliography("/assets/bib/works.bib")

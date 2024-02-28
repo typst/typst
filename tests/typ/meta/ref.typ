@@ -26,13 +26,13 @@ As seen in @intro, we proceed.
 
 = Intro
 #figure(
-  image("/files/cylinder.svg", height: 1cm),
+  image("/assets/images/cylinder.svg", height: 1cm),
   caption: [A cylinder.],
   supplement: "Fig",
 ) <fig1>
 
 #figure(
-  image("/files/tiger.jpg", height: 1cm),
+  image("/assets/images/tiger.jpg", height: 1cm),
   caption: [A tiger.],
   supplement: "Tig",
 ) <fig2>
