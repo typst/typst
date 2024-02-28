@@ -78,7 +78,7 @@
   [a], [b], table.cell(rowspan: 2)[c],
   table.cell(colspan: 2)[d],
   table.cell(colspan: 3, rowspan: 10)[a],
-  [b],
+  table.cell(colspan: 2)[b],
 )
 #table(
   columns: 3,
@@ -87,7 +87,7 @@
   [a], [b], table.cell(rowspan: 2)[c],
   table.cell(colspan: 2)[d],
   table.cell(colspan: 3, rowspan: 9)[a],
-  [b],
+  table.cell(colspan: 2)[b],
 )
 
 ---

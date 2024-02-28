@@ -1201,13 +1201,14 @@ impl<'a> GridLayouter<'a> {
             // Additionally, determine their indices (the indices of the
             // rows they are drawn on top of). In principle, this will
             // correspond to the rows' indices directly, except for the
-            // first and last hlines, which must be 0 and (amount of rows)
-            // respectively, as they are always drawn (due to being part of
-            // the table's border).
-            let hline_indices = std::iter::once(0)
-                .chain(rows.iter().map(|piece| piece.y).skip(1))
+            // last hline index, which must be (amount of rows) in order to
+            // draw the table's bottom border.
+            let hline_indices = rows
+                .iter()
+                .map(|piece| piece.y)
                 .chain(std::iter::once(self.grid.rows.len()));
 
+            let mut prev_y = None;
             for (y, dy) in hline_indices.zip(hline_offsets) {
                 let is_bottom_border = y == self.grid.rows.len();
                 let hlines_at_row = self
@@ -1224,7 +1225,31 @@ impl<'a> GridLayouter<'a> {
                     })
                     .map(|hlines| &**hlines)
                     .unwrap_or(&[]);
+
+                let hlines_at_row =
+                    hlines_at_row.iter().chain(if prev_y.is_none() && y != 0 {
+                        // For lines at the top of the region, give priority to
+                        // the lines at the top border.
+                        self.grid
+                            .hlines
+                            .first()
+                            .map(|top_border_lines| &**top_border_lines)
+                            .unwrap_or(&[])
+                    } else {
+                        // When not at the top of the region, no border lines to consider.
+                        &[]
+                    });
+
                 let tracks = self.rcols.iter().copied().enumerate();
+
+                // Normally, given an hline above row y, the row above it is
+                // 'y - 1' (if y > 0). However, sometimes that's not true, for
+                // example if 'y - 1' is in a previous region, or if 'y - 1'
+                // was an empty auto row which was removed. Therefore, we tell
+                // the hlines at this index which row is actually above them in
+                // the laid out region so they can include that row's bottom
+                // strokes in the folding process.
+                let local_top_y = prev_y;
 
                 // Determine all different line segments we have to draw in
                 // this row, and convert them to points and shapes.
@@ -1234,7 +1259,9 @@ impl<'a> GridLayouter<'a> {
                     y,
                     hlines_at_row,
                     is_bottom_border,
-                    |grid, y, x, stroke| hline_stroke_at_column(grid, rows, y, x, stroke),
+                    |grid, y, x, stroke| {
+                        hline_stroke_at_column(grid, rows, local_top_y, y, x, stroke)
+                    },
                 )
                 .map(|segment| {
                     let LineSegment { stroke, offset: dx, length, priority } = segment;
@@ -1254,6 +1281,8 @@ impl<'a> GridLayouter<'a> {
 
                 // Draw later (after we sort all lines below.)
                 lines.extend(segments);
+
+                prev_y = Some(y);
             }
 
             // Sort by increasing thickness, so that we draw larger strokes

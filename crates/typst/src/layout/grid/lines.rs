@@ -117,11 +117,11 @@ pub(super) struct LineSegment {
 /// number, and they must be iterable over pairs of (number, size). For
 /// vertical lines, for instance, 'tracks' would describe the rows in the
 /// current region, as pairs (row index, row height).
-pub(super) fn generate_line_segments<'grid, F, I>(
+pub(super) fn generate_line_segments<'grid, F, I, L>(
     grid: &'grid CellGrid,
     tracks: I,
     index: usize,
-    lines: &'grid [Line],
+    lines: L,
     is_max_index: bool,
     line_stroke_at_track: F,
 ) -> impl Iterator<Item = LineSegment> + 'grid
@@ -135,6 +135,8 @@ where
         + 'grid,
     I: IntoIterator<Item = (usize, Abs)>,
     I::IntoIter: 'grid,
+    L: IntoIterator<Item = &'grid Line>,
+    L::IntoIter: Clone + 'grid,
 {
     // The segment currently being drawn.
     //
@@ -194,6 +196,7 @@ where
     // interrupt the current segment one last time, to ensure the final segment
     // is always interrupted and yielded, if it wasn't interrupted earlier.
     let mut tracks = tracks.into_iter();
+    let lines = lines.into_iter();
     std::iter::from_fn(move || {
         // Each time this closure runs, we advance the track iterator as much
         // as possible before returning because the current segment was
@@ -205,7 +208,7 @@ where
             // strokes of each user-specified line (with priority to the
             // user-specified line specified last).
             let mut line_strokes = lines
-                .iter()
+                .clone()
                 .filter(|line| {
                     line.position == expected_line_position
                         && line
@@ -363,13 +366,6 @@ pub(super) fn vline_stroke_at_row(
             // to take its right stroke, even with gutter before us.
             grid.effective_parent_cell_position(left_x, y)
         })
-        .filter(|Axes { y: parent_y, .. }| {
-            // Only use the stroke of the cell before us but one row below
-            // if it is merged with a cell before this line's row.
-            // If the position before us is a simple non-merged cell, or the
-            // parent of a rowspan, this will also evaluate to true.
-            parent_y <= &y
-        })
         .map(|Axes { x: parent_x, y: parent_y }| {
             let left_cell = grid.cell(parent_x, parent_y).unwrap();
             (left_cell.stroke.right.clone(), left_cell.stroke_overridden.right)
@@ -380,13 +376,6 @@ pub(super) fn vline_stroke_at_row(
         // Let's find the parent cell of the position after us, in order
         // to take its left stroke, even with gutter after us.
         grid.effective_parent_cell_position(x, y)
-            .filter(|Axes { y: parent_y, .. }| {
-                // Only use the stroke of the cell after us but one row below
-                // if it is merged with a cell before this line's row.
-                // If the position after us is a simple non-merged cell, or the
-                // parent of a rowspan, this will also evaluate to true.
-                parent_y <= &y
-            })
             .map(|Axes { x: parent_x, y: parent_y }| {
                 let right_cell = grid.cell(parent_x, parent_y).unwrap();
                 (right_cell.stroke.left.clone(), right_cell.stroke_overridden.left)
@@ -434,6 +423,10 @@ pub(super) fn vline_stroke_at_row(
 /// while `Some(None)` means specified to remove any stroke at this position).
 /// Also returns the stroke's drawing priority, which depends on its source.
 ///
+/// The `local_top_y` parameter indicates which row is effectively on top of
+/// this hline at the current region. This is `None` if the hline is above the
+/// first row in the region, for instance.
+///
 /// If the one (when at the border) or two (otherwise) cells above and below
 /// the hline have bottom and top stroke overrides, respectively, then the
 /// cells' stroke overrides are folded together with the hline's stroke (with
@@ -458,6 +451,7 @@ pub(super) fn vline_stroke_at_row(
 pub(super) fn hline_stroke_at_column(
     grid: &CellGrid,
     rows: &[RowPiece],
+    local_top_y: Option<usize>,
     y: usize,
     x: usize,
     stroke: Option<Option<Arc<Stroke<Abs>>>>,
@@ -501,27 +495,24 @@ pub(super) fn hline_stroke_at_column(
         }
     }
 
-    let (top_cell_stroke, top_cell_prioritized) = y
-        .checked_sub(1)
+    // When the hline is at the top of the region and this isn't the first
+    // region, fold with the top stroke of the topmost cell at this column,
+    // that is, the top border.
+    let use_top_border_stroke = local_top_y.is_none() && y != 0;
+    let (top_cell_stroke, top_cell_prioritized) = local_top_y
+        .or(use_top_border_stroke.then_some(0))
         .and_then(|top_y| {
             // Let's find the parent cell of the position above us, in order
             // to take its bottom stroke, even when we're below gutter.
             grid.effective_parent_cell_position(x, top_y)
         })
-        .filter(|Axes { x: parent_x, .. }| {
-            // Only use the stroke of the cell above us but one column to the
-            // right if it is merged with a cell before this line's column.
-            // If that is the case and the cell is a gutter cell merged with a
-            // cell both below and above this line, then there would be a
-            // rowspan crossing the line, which we have already checked for, so
-            // this condition is enough.
-            // If the position above us is a simple non-merged cell, or the
-            // parent of a colspan, this will also evaluate to true.
-            parent_x <= &x
-        })
         .map(|Axes { x: parent_x, y: parent_y }| {
             let top_cell = grid.cell(parent_x, parent_y).unwrap();
-            (top_cell.stroke.bottom.clone(), top_cell.stroke_overridden.bottom)
+            if use_top_border_stroke {
+                (top_cell.stroke.top.clone(), top_cell.stroke_overridden.top)
+            } else {
+                (top_cell.stroke.bottom.clone(), top_cell.stroke_overridden.bottom)
+            }
         })
         .unwrap_or((None, false));
 
@@ -529,20 +520,6 @@ pub(super) fn hline_stroke_at_column(
         // Let's find the parent cell of the position below us, in order
         // to take its top stroke, even when we're above gutter.
         grid.effective_parent_cell_position(x, y)
-            .filter(|Axes { x: parent_x, .. }| {
-                // Only use the stroke of the cell below us but one column to the
-                // right if it is merged with a cell before this line's column.
-                // If that is the case and the cell is also merged with a cell
-                // above this line, then there would be a rowspan crossing the
-                // line, which we have already checked for, so this condition is
-                // enough. That's true even if the cell below us is a gutter
-                // cell - if it were a rowspan, it would necessarily have to be
-                // merged with a cell above and before this line, causing it to
-                // not be drawn.
-                // If the position below us is a simple non-merged cell, or the
-                // parent of a colspan, this will also evaluate to true.
-                parent_x <= &x
-            })
             .map(|Axes { x: parent_x, y: parent_y }| {
                 let bottom_cell = grid.cell(parent_x, parent_y).unwrap();
                 (bottom_cell.stroke.top.clone(), bottom_cell.stroke_overridden.top)
@@ -562,7 +539,9 @@ pub(super) fn hline_stroke_at_column(
     };
 
     let (prioritized_cell_stroke, deprioritized_cell_stroke) =
-        if top_cell_prioritized && !bottom_cell_prioritized {
+        if use_top_border_stroke || top_cell_prioritized && !bottom_cell_prioritized {
+            // Top border must always be prioritized, even if it did not
+            // request for that explicitly.
             (top_cell_stroke, bottom_cell_stroke)
         } else {
             // When both cells' strokes have the same priority, we default to
@@ -1305,7 +1284,12 @@ mod test {
                     &[],
                     y == grid.rows.len(),
                     |grid, y, x, stroke| hline_stroke_at_column(
-                        grid, &rows, y, x, stroke
+                        grid,
+                        &rows,
+                        y.checked_sub(1),
+                        y,
+                        x,
+                        stroke
                     )
                 )
                 .collect::<Vec<_>>(),
@@ -1493,7 +1477,12 @@ mod test {
                     ],
                     y == grid.rows.len(),
                     |grid, y, x, stroke| hline_stroke_at_column(
-                        grid, &rows, y, x, stroke
+                        grid,
+                        &rows,
+                        y.checked_sub(1),
+                        y,
+                        x,
+                        stroke
                     )
                 )
                 .collect::<Vec<_>>(),
@@ -1532,7 +1521,14 @@ mod test {
                 4,
                 &[],
                 4 == grid.rows.len(),
-                |grid, y, x, stroke| hline_stroke_at_column(grid, &rows, y, x, stroke)
+                |grid, y, x, stroke| hline_stroke_at_column(
+                    grid,
+                    &rows,
+                    if y == 4 { Some(2) } else { y.checked_sub(1) },
+                    y,
+                    x,
+                    stroke
+                )
             )
             .collect::<Vec<_>>()
         );
