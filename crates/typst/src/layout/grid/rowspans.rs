@@ -6,7 +6,7 @@ use crate::layout::{
 };
 use crate::util::{MaybeReverseIter, Numeric};
 
-use super::layout::Row;
+use super::layout::{points, Row};
 
 /// All information needed to layout a single rowspan.
 pub(super) struct Rowspan {
@@ -129,30 +129,26 @@ impl<'a> GridLayouter<'a> {
     pub(super) fn check_for_rowspans(&mut self, y: usize) {
         // We will compute the horizontal offset of each rowspan in advance.
         // For that reason, we must reverse the column order when using RTL.
-        let mut dx = Abs::zero();
-        for (x, &rcol) in self.rcols.iter().enumerate().rev_if(self.is_rtl) {
+        let offsets = points(self.rcols.iter().copied().rev_if(self.is_rtl));
+        for (x, dx) in (0..self.rcols.len()).rev_if(self.is_rtl).zip(offsets) {
             let Some(cell) = self.grid.cell(x, y) else {
-                dx += rcol;
                 continue;
             };
             let rowspan = self.grid.effective_rowspan_of_cell(cell);
-            if rowspan == 1 {
-                dx += rcol;
-                continue;
+            if rowspan > 1 {
+                // Rowspan detected. We will lay it out later.
+                self.rowspans.push(Rowspan {
+                    x,
+                    y,
+                    rowspan,
+                    dx,
+                    // The four fields below will be updated in 'finish_region'.
+                    dy: Abs::zero(),
+                    first_region: usize::MAX,
+                    region_full: Abs::zero(),
+                    heights: vec![],
+                });
             }
-            // Rowspan detected. We will lay it out later.
-            self.rowspans.push(Rowspan {
-                x,
-                y,
-                rowspan,
-                dx,
-                // The four fields below will be updated in 'finish_region'.
-                dy: Abs::zero(),
-                first_region: usize::MAX,
-                region_full: Abs::zero(),
-                heights: vec![],
-            });
-            dx += rcol;
         }
     }
 
