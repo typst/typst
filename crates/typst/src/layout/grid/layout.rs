@@ -1752,47 +1752,7 @@ impl<'a> GridLayouter<'a> {
             let cell = self.grid.cell(parent.x, parent.y).unwrap();
             let rowspan = self.grid.effective_rowspan_of_cell(cell);
 
-            // This variable is used to construct a custom backlog if the cell
-            // is a rowspan. When measuring, we join the heights from previous
-            // regions to the current backlog to form the rowspan's expected
-            // backlog.
-            let rowspan_backlog: Vec<Abs>;
-
-            // Each declaration, from top to bottom:
-            // 1. The height available to the cell in the first region.
-            // Usually, this will just be the size remaining in the current
-            // region.
-            // 2. The backlog of upcoming region heights to specify as
-            // available to the cell.
-            // 3. The full height of the first region of the cell.
-            // 4. The total height of the cell covered by previously spanned
-            // rows in this region. This is used by rowspans to be able to tell
-            // how much the auto row needs to expand.
-            // 5. The amount of frames laid out by this cell in previous
-            // regions. When the cell isn't a rowspan, this is always zero.
-            // These frames are skipped after measuring.
-            let (
-                height,
-                backlog,
-                full,
-                height_in_this_region,
-                frames_in_previous_regions,
-            );
-            if rowspan == 1 {
-                // Not a rowspan, so the cell only occupies this row. Therefore:
-                // 1. When we measure the cell below, use the available height
-                // remaining in the region as the height it has available.
-                // Ensure we subtract the height of previous rows in the
-                // unbreakable row group, if we're currently simulating it.
-                // 2. Also use the region's backlog when measuring.
-                // 3. No height occupied by this cell in this region so far.
-                // 4. Yes, this cell started in this region.
-                height = self.regions.size.y - row_group_data.height;
-                backlog = self.regions.backlog;
-                full = self.regions.full;
-                height_in_this_region = Abs::zero();
-                frames_in_previous_regions = 0;
-            } else {
+            if rowspan > 1 {
                 let last_spanned_auto_row = self
                     .grid
                     .rows
@@ -1809,105 +1769,26 @@ impl<'a> GridLayouter<'a> {
                     // spanned auto row.
                     continue;
                 }
-
-                // Height of the rowspan covered by spanned rows in the current
-                // region.
-                let laid_out_height: Abs = self
-                    .lrows
-                    .iter()
-                    .filter_map(|row| match row {
-                        Row::Frame(frame, y, _)
-                            if (parent.y..parent.y + rowspan).contains(y) =>
-                        {
-                            Some(frame.height())
-                        }
-                        // Either we have a row outside of the rowspan, or a
-                        // fractional row, whose size we can't really guess.
-                        _ => None,
-                    })
-                    .sum();
-
-                // If we're currently simulating an unbreakable row group, also
-                // consider the height of previously spanned rows which are in
-                // the row group but not yet laid out.
-                let unbreakable_height: Abs = row_group_data
-                    .rows
-                    .iter()
-                    .filter(|(y, _)| (parent.y..parent.y + rowspan).contains(y))
-                    .map(|(_, height)| height)
-                    .sum();
-
-                height_in_this_region = laid_out_height + unbreakable_height;
-
-                // Ensure we will measure the rowspan with the correct heights.
-                // For that, we will gather the total height spanned by this
-                // rowspan in previous regions.
-                if let Some((
-                    rowspan_full,
-                    [rowspan_height, rowspan_other_heights @ ..],
-                )) = self
-                    .rowspans
-                    .iter()
-                    .find(|data| data.x == parent.x && data.y == parent.y)
-                    .map(|data| (data.region_full, &*data.heights))
-                {
-                    // The rowspan started in a previous region (as it already
-                    // has at least one region height).
-                    // Therefore, its initial height will be the height in its
-                    // first spanned region, and the backlog will be the
-                    // remaining heights, plus the current region's size, plus
-                    // the current backlog.
-                    frames_in_previous_regions = rowspan_other_heights.len() + 1;
-                    rowspan_backlog = if !breakable {
-                        // No extra backlog if this is an unbreakable auto row.
-                        // Ensure, when measuring, that the rowspan can be laid
-                        // out through all spanned rows which were already laid
-                        // out so far, but don't go further than this region.
-                        rowspan_other_heights
-                            .iter()
-                            .copied()
-                            .chain(std::iter::once(self.initial.y))
-                            .collect::<Vec<_>>()
-                    } else {
-                        // This auto row is breakable. Therefore, join the
-                        // rowspan's already laid out heights with the current
-                        // region's height and current backlog to ensure a good
-                        // level of accuracy in the measurements.
-                        rowspan_other_heights
-                            .iter()
-                            .copied()
-                            .chain(std::iter::once(self.initial.y))
-                            .chain(self.regions.backlog.iter().copied())
-                            .collect::<Vec<_>>()
-                    };
-
-                    (height, backlog, full) =
-                        (*rowspan_height, &rowspan_backlog, rowspan_full);
-                } else {
-                    // The rowspan started in the current region, as its vector
-                    // of heights in regions is currently empty.
-                    // Therefore, the initial height it has available will be
-                    // the current available size, plus the size spanned in
-                    // previous rows in this region (and/or unbreakable row
-                    // group, if it's being simulated).
-                    // The backlog and full will be that of the current region.
-                    frames_in_previous_regions = 0;
-                    height = height_in_this_region + self.regions.size.y;
-                    backlog = self.regions.backlog;
-                    full = self.regions.full;
-                }
             }
 
-            let width = self.cell_spanned_width(cell, x);
+            let measurement_data = self.prepare_auto_row_cell_measurement(
+                parent,
+                cell,
+                breakable,
+                row_group_data,
+            );
+            let size = Axes::new(measurement_data.width, measurement_data.height);
+            let backlog =
+                measurement_data.backlog.unwrap_or(&*measurement_data.custom_backlog);
 
             let pod = if !breakable {
                 // Force cell to fit into a single region when the row is
                 // unbreakable, even when it is a breakable rowspan, as a best
                 // effort.
-                let mut pod = Regions::one(Axes::new(width, height), self.regions.expand);
-                pod.full = full;
+                let mut pod = Regions::one(size, self.regions.expand);
+                pod.full = measurement_data.full;
 
-                if frames_in_previous_regions > 0 {
+                if measurement_data.frames_in_previous_regions > 0 {
                     // Best effort to conciliate a breakable rowspan which
                     // started at a previous region going through an
                     // unbreakable auto row. Ensure it goes through previously
@@ -1920,9 +1801,9 @@ impl<'a> GridLayouter<'a> {
                 // This row is breakable, so measure the cell normally, with
                 // the initial height and backlog determined previously.
                 let mut pod = self.regions;
-                pod.size = Axes::new(width, height);
+                pod.size = size;
                 pod.backlog = backlog;
-                pod.full = full;
+                pod.full = measurement_data.full;
                 pod
             };
 
@@ -1931,7 +1812,8 @@ impl<'a> GridLayouter<'a> {
             // Skip the first region if one cell in it is empty. Then,
             // remeasure.
             if can_skip && breakable {
-                let mut relevant_frames = frames.iter().skip(frames_in_previous_regions);
+                let mut relevant_frames =
+                    frames.iter().skip(measurement_data.frames_in_previous_regions);
                 let first = relevant_frames.next();
                 let mut rest = relevant_frames;
                 if first.is_some_and(Frame::is_empty)
@@ -1944,7 +1826,7 @@ impl<'a> GridLayouter<'a> {
             // Skip frames from previous regions if applicable.
             let mut sizes = frames
                 .iter()
-                .skip(frames_in_previous_regions)
+                .skip(measurement_data.frames_in_previous_regions)
                 .map(|frame| frame.height())
                 .collect::<Vec<_>>();
 
@@ -1963,7 +1845,7 @@ impl<'a> GridLayouter<'a> {
             if rowspan > 1 {
                 // Subtract already covered height from previous rows in the
                 // current region, if applicable.
-                let mut already_covered_height = height_in_this_region;
+                let mut already_covered_height = measurement_data.height_in_this_region;
 
                 // Remove frames which were already covered by previous rows
                 // spanned by this cell.

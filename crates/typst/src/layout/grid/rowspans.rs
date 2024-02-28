@@ -2,9 +2,11 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::Resolve;
 use crate::layout::{
-    Abs, Axes, Frame, GridLayouter, LayoutMultiple, Point, Regions, Size, Sizing,
+    Abs, Axes, Cell, Frame, GridLayouter, LayoutMultiple, Point, Regions, Size, Sizing,
 };
 use crate::util::{MaybeReverseIter, Numeric};
+
+use super::layout::Row;
 
 /// All information needed to layout a single rowspan.
 pub(super) struct Rowspan {
@@ -35,6 +37,30 @@ pub(super) struct UnbreakableRowGroup {
     pub(super) rows: Vec<(usize, Abs)>,
     /// The total height of this row group.
     pub(super) height: Abs,
+}
+
+/// Data used to measure a cell in an auto row.
+pub(super) struct CellMeasurementData<'layouter> {
+    /// The available width for the cell across all regions.
+    pub(super) width: Abs,
+    /// The available height for the cell in its first region.
+    pub(super) height: Abs,
+    /// The backlog of heights available for the cell in later regions.
+    /// When this is `None`, the `custom_backlog` field should be used instead.
+    pub(super) backlog: Option<&'layouter [Abs]>,
+    /// If the backlog needs to be built from scratch instead of reusing the
+    /// one at the current region, which is the case of a multi-region rowspan
+    /// (needs to join its backlog of already laid out heights with the current
+    /// backlog), then this vector will store the new backlog.
+    pub(super) custom_backlog: Vec<Abs>,
+    /// The full height of the first region of the cell.
+    pub(super) full: Abs,
+    /// The total height of previous rows spanned by the cell in the current
+    /// region (so far).
+    pub(super) height_in_this_region: Abs,
+    /// The amount of previous regions spanned by the cell.
+    /// They are skipped for measurement purposes.
+    pub(super) frames_in_previous_regions: usize,
 }
 
 impl<'a> GridLayouter<'a> {
@@ -220,6 +246,149 @@ impl<'a> GridLayouter<'a> {
             .map(|cell| self.grid.effective_rowspan_of_cell(cell))
             .max()
             .unwrap_or(0)
+    }
+
+    /// Used by `measure_auto_row` to gather data needed to measure the cell.
+    pub(super) fn prepare_auto_row_cell_measurement(
+        &self,
+        parent: Axes<usize>,
+        cell: &Cell,
+        breakable: bool,
+        row_group_data: &UnbreakableRowGroup,
+    ) -> CellMeasurementData<'_> {
+        let rowspan = self.grid.effective_rowspan_of_cell(cell);
+
+        // This variable is used to construct a custom backlog if the cell
+        // is a rowspan. When measuring, we join the heights from previous
+        // regions to the current backlog to form the rowspan's expected
+        // backlog.
+        let mut rowspan_backlog: Vec<Abs> = vec![];
+
+        // Each declaration, from top to bottom:
+        // 1. The height available to the cell in the first region.
+        // Usually, this will just be the size remaining in the current
+        // region.
+        // 2. The backlog of upcoming region heights to specify as
+        // available to the cell.
+        // 3. The full height of the first region of the cell.
+        // 4. The total height of the cell covered by previously spanned
+        // rows in this region. This is used by rowspans to be able to tell
+        // how much the auto row needs to expand.
+        // 5. The amount of frames laid out by this cell in previous
+        // regions. When the cell isn't a rowspan, this is always zero.
+        // These frames are skipped after measuring.
+        let (height, backlog, full, height_in_this_region, frames_in_previous_regions);
+        if rowspan == 1 {
+            // Not a rowspan, so the cell only occupies this row. Therefore:
+            // 1. When we measure the cell below, use the available height
+            // remaining in the region as the height it has available.
+            // Ensure we subtract the height of previous rows in the
+            // unbreakable row group, if we're currently simulating it.
+            // 2. Also use the region's backlog when measuring.
+            // 3. No height occupied by this cell in this region so far.
+            // 4. Yes, this cell started in this region.
+            height = self.regions.size.y - row_group_data.height;
+            backlog = Some(self.regions.backlog);
+            full = self.regions.full;
+            height_in_this_region = Abs::zero();
+            frames_in_previous_regions = 0;
+        } else {
+            // Height of the rowspan covered by spanned rows in the current
+            // region.
+            let laid_out_height: Abs = self
+                .lrows
+                .iter()
+                .filter_map(|row| match row {
+                    Row::Frame(frame, y, _)
+                        if (parent.y..parent.y + rowspan).contains(y) =>
+                    {
+                        Some(frame.height())
+                    }
+                    // Either we have a row outside of the rowspan, or a
+                    // fractional row, whose size we can't really guess.
+                    _ => None,
+                })
+                .sum();
+
+            // If we're currently simulating an unbreakable row group, also
+            // consider the height of previously spanned rows which are in
+            // the row group but not yet laid out.
+            let unbreakable_height: Abs = row_group_data
+                .rows
+                .iter()
+                .filter(|(y, _)| (parent.y..parent.y + rowspan).contains(y))
+                .map(|(_, height)| height)
+                .sum();
+
+            height_in_this_region = laid_out_height + unbreakable_height;
+
+            // Ensure we will measure the rowspan with the correct heights.
+            // For that, we will gather the total height spanned by this
+            // rowspan in previous regions.
+            if let Some((rowspan_full, [rowspan_height, rowspan_other_heights @ ..])) =
+                self.rowspans
+                    .iter()
+                    .find(|data| data.x == parent.x && data.y == parent.y)
+                    .map(|data| (data.region_full, &*data.heights))
+            {
+                // The rowspan started in a previous region (as it already
+                // has at least one region height).
+                // Therefore, its initial height will be the height in its
+                // first spanned region, and the backlog will be the
+                // remaining heights, plus the current region's size, plus
+                // the current backlog.
+                frames_in_previous_regions = rowspan_other_heights.len() + 1;
+                rowspan_backlog = if !breakable {
+                    // No extra backlog if this is an unbreakable auto row.
+                    // Ensure, when measuring, that the rowspan can be laid
+                    // out through all spanned rows which were already laid
+                    // out so far, but don't go further than this region.
+                    rowspan_other_heights
+                        .iter()
+                        .copied()
+                        .chain(std::iter::once(self.initial.y))
+                        .collect::<Vec<_>>()
+                } else {
+                    // This auto row is breakable. Therefore, join the
+                    // rowspan's already laid out heights with the current
+                    // region's height and current backlog to ensure a good
+                    // level of accuracy in the measurements.
+                    rowspan_other_heights
+                        .iter()
+                        .copied()
+                        .chain(std::iter::once(self.initial.y))
+                        .chain(self.regions.backlog.iter().copied())
+                        .collect::<Vec<_>>()
+                };
+
+                height = *rowspan_height;
+                backlog = None;
+                full = rowspan_full;
+            } else {
+                // The rowspan started in the current region, as its vector
+                // of heights in regions is currently empty.
+                // Therefore, the initial height it has available will be
+                // the current available size, plus the size spanned in
+                // previous rows in this region (and/or unbreakable row
+                // group, if it's being simulated).
+                // The backlog and full will be that of the current region.
+                frames_in_previous_regions = 0;
+                height = height_in_this_region + self.regions.size.y;
+                backlog = Some(self.regions.backlog);
+                full = self.regions.full;
+            }
+        }
+
+        let width = self.cell_spanned_width(cell, parent.x);
+        CellMeasurementData {
+            width,
+            height,
+            backlog,
+            custom_backlog: rowspan_backlog,
+            full,
+            height_in_this_region,
+            frames_in_previous_regions,
+        }
     }
 
     /// Performs a simulation to predict by how much height the last spanned
