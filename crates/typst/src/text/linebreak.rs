@@ -59,7 +59,7 @@ pub enum WordBreak {
 }
 
 impl From<WordBreak> for LineBreakWordOption {
-    fn from(value: T) -> LineBreakWordOption {
+    fn from(value: WordBreak) -> LineBreakWordOption {
         match value {
             WordBreak::Normal => LineBreakWordOption::Normal,
             WordBreak::BreakAll => LineBreakWordOption::BreakAll,
