@@ -99,10 +99,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Checks if a row contains the beginning of one or more rowspan cells.
-    /// If so, adds them to the rowspan vector.
-    /// Additionally, if the rowspan cells are unbreakable, updates the
-    /// 'unbreakable_rows_left' counter such that the rows spanned by those
-    /// cells are laid out together, in the same region.
+    /// If so, adds them to the rowspans vector.
     pub(super) fn check_for_rowspans(&mut self, y: usize) {
         // We will compute the horizontal offset of each rowspan in advance.
         // For that reason, we must reverse the column order when using RTL.
