@@ -11,8 +11,8 @@
 #show figure: set image(width: 80%)
 
 = List of Figures
-#locate(it => {
-  let elements = query(selector(figure).after(it), it)
+#context {
+  let elements = query(selector(figure).after(here()))
   for it in elements [
     Figure
     #numbering(it.numbering,
@@ -21,10 +21,10 @@
     #box(width: 1fr, repeat[.])
     #counter(page).at(it.location()).first() \
   ]
-})
+}
 
 #figure(
-  image("/files/glacier.jpg"),
+  image("/assets/images/glacier.jpg"),
   caption: [Glacier melting],
 )
 
@@ -36,6 +36,6 @@
 )
 
 #figure(
-  image("/files/tiger.jpg"),
+  image("/assets/images/tiger.jpg"),
   caption: [Tiger world],
 )

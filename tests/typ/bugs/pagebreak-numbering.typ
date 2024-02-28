@@ -10,4 +10,3 @@ This and next page should not be numbered
 #counter(page).update(1)
 
 This page should
-

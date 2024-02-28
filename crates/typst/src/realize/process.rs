@@ -5,7 +5,7 @@ use smallvec::smallvec;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    Content, Packed, Recipe, RecipeIndex, Regex, Selector, Show, ShowSet, Style,
+    Content, Context, Packed, Recipe, RecipeIndex, Regex, Selector, Show, ShowSet, Style,
     StyleChain, Styles, Synthesize, Transformation,
 };
 use crate::introspection::{Locatable, Meta, MetaElem};
@@ -248,17 +248,20 @@ fn show(
 ) -> SourceResult<Content> {
     match step {
         // Apply a user-defined show rule.
-        ShowStep::Recipe(recipe, guard) => match &recipe.selector {
-            // If the selector is a regex, the `target` is guaranteed to be a
-            // text element. This invokes special regex handling.
-            Some(Selector::Regex(regex)) => {
-                let text = target.into_packed::<TextElem>().unwrap();
-                show_regex(engine, &text, regex, recipe, guard)
-            }
+        ShowStep::Recipe(recipe, guard) => {
+            let context = Context::new(target.location(), Some(styles));
+            match &recipe.selector {
+                // If the selector is a regex, the `target` is guaranteed to be a
+                // text element. This invokes special regex handling.
+                Some(Selector::Regex(regex)) => {
+                    let text = target.into_packed::<TextElem>().unwrap();
+                    show_regex(engine, &text, regex, recipe, guard, &context)
+                }
 
-            // Just apply the recipe.
-            _ => recipe.apply(engine, target.guarded(guard)),
-        },
+                // Just apply the recipe.
+                _ => recipe.apply(engine, &context, target.guarded(guard)),
+            }
+        }
 
         // If the verdict picks this step, the `target` is guaranteed to have a
         // built-in show rule.
@@ -269,13 +272,14 @@ fn show(
 /// Apply a regex show rule recipe to a target.
 fn show_regex(
     engine: &mut Engine,
-    elem: &Packed<TextElem>,
+    target: &Packed<TextElem>,
     regex: &Regex,
     recipe: &Recipe,
     index: RecipeIndex,
+    context: &Context,
 ) -> SourceResult<Content> {
     let make = |s: &str| {
-        let mut fresh = elem.clone();
+        let mut fresh = target.clone();
         fresh.push_text(s.into());
         fresh.pack()
     };
@@ -283,16 +287,16 @@ fn show_regex(
     let mut result = vec![];
     let mut cursor = 0;
 
-    let text = elem.text();
+    let text = target.text();
 
-    for m in regex.find_iter(elem.text()) {
+    for m in regex.find_iter(target.text()) {
         let start = m.start();
         if cursor < start {
             result.push(make(&text[cursor..start]));
         }
 
         let piece = make(m.as_str());
-        let transformed = recipe.apply(engine, piece)?;
+        let transformed = recipe.apply(engine, context, piece)?;
         result.push(transformed);
         cursor = m.end();
     }

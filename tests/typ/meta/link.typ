@@ -54,7 +54,7 @@ My cool #box(move(dx: 0.7cm, dy: 0.7cm, rotate(10deg, scale(200%, mylink))))
 // Link containing a block.
 #link("https://example.com/", block[
   My cool rhino
-  #box(move(dx: 10pt, image("/files/rhino.png", width: 1cm)))
+  #box(move(dx: 10pt, image("/assets/images/rhino.png", width: 1cm)))
 ])
 
 ---

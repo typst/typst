@@ -1,4 +1,4 @@
 #set page(width: 200pt)
 
 @Zee04
-#bibliography("/files/works_too.bib", style: "mla")
+#bibliography("/assets/bib/works_too.bib", style: "mla")

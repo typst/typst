@@ -45,7 +45,7 @@
 #show figure.caption: it => emph[
   #it.body
   (#it.supplement
-   #it.counter.display(it.numbering))
+   #context it.counter.display(it.numbering))
 ]
 
 #figure(

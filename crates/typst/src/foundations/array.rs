@@ -11,8 +11,8 @@ use crate::diag::{At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::eval::ops;
 use crate::foundations::{
-    cast, func, repr, scope, ty, Args, Bytes, CastInfo, FromValue, Func, IntoValue,
-    Reflect, Repr, Value, Version,
+    cast, func, repr, scope, ty, Args, Bytes, CastInfo, Context, FromValue, Func,
+    IntoValue, Reflect, Repr, Value, Version,
 };
 use crate::syntax::Span;
 
@@ -300,12 +300,14 @@ impl Array {
         &self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
         /// The function to apply to each item. Must return a boolean.
         searcher: Func,
     ) -> SourceResult<Option<Value>> {
         for item in self.iter() {
             if searcher
-                .call(engine, [item.clone()])?
+                .call(engine, context, [item.clone()])?
                 .cast::<bool>()
                 .at(searcher.span())?
             {
@@ -322,12 +324,14 @@ impl Array {
         &self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
         /// The function to apply to each item. Must return a boolean.
         searcher: Func,
     ) -> SourceResult<Option<i64>> {
         for (i, item) in self.iter().enumerate() {
             if searcher
-                .call(engine, [item.clone()])?
+                .call(engine, context, [item.clone()])?
                 .cast::<bool>()
                 .at(searcher.span())?
             {
@@ -397,12 +401,18 @@ impl Array {
         &self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
     ) -> SourceResult<Array> {
         let mut kept = EcoVec::new();
         for item in self.iter() {
-            if test.call(engine, [item.clone()])?.cast::<bool>().at(test.span())? {
+            if test
+                .call(engine, context, [item.clone()])?
+                .cast::<bool>()
+                .at(test.span())?
+            {
                 kept.push(item.clone())
             }
         }
@@ -416,10 +426,14 @@ impl Array {
         self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
         /// The function to apply to each item.
         mapper: Func,
     ) -> SourceResult<Array> {
-        self.into_iter().map(|item| mapper.call(engine, [item])).collect()
+        self.into_iter()
+            .map(|item| mapper.call(engine, context, [item]))
+            .collect()
     }
 
     /// Returns a new array with the values alongside their indices.
@@ -521,6 +535,8 @@ impl Array {
         self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
         /// The initial value to start with.
         init: Value,
         /// The folding function. Must have two parameters: One for the
@@ -529,7 +545,7 @@ impl Array {
     ) -> SourceResult<Value> {
         let mut acc = init;
         for item in self {
-            acc = folder.call(engine, [acc, item])?;
+            acc = folder.call(engine, context, [acc, item])?;
         }
         Ok(acc)
     }
@@ -581,11 +597,13 @@ impl Array {
         self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
     ) -> SourceResult<bool> {
         for item in self {
-            if test.call(engine, [item])?.cast::<bool>().at(test.span())? {
+            if test.call(engine, context, [item])?.cast::<bool>().at(test.span())? {
                 return Ok(true);
             }
         }
@@ -599,11 +617,13 @@ impl Array {
         self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
     ) -> SourceResult<bool> {
         for item in self {
-            if !test.call(engine, [item])?.cast::<bool>().at(test.span())? {
+            if !test.call(engine, context, [item])?.cast::<bool>().at(test.span())? {
                 return Ok(false);
             }
         }
@@ -714,6 +734,8 @@ impl Array {
         self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
         /// The callsite span.
         span: Span,
         /// If given, applies this function to the elements in the array to
@@ -726,7 +748,7 @@ impl Array {
         let mut key_of = |x: Value| match &key {
             // NOTE: We are relying on `comemo`'s memoization of function
             // evaluation to not excessively reevaluate the `key`.
-            Some(f) => f.call(engine, [x]),
+            Some(f) => f.call(engine, context, [x]),
             None => Ok(x),
         };
         vec.make_mut().sort_by(|a, b| {
@@ -762,6 +784,8 @@ impl Array {
         self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
         /// If given, applies this function to the elements in the array to
         /// determine the keys to deduplicate by.
         #[named]
@@ -771,7 +795,7 @@ impl Array {
         let mut key_of = |x: Value| match &key {
             // NOTE: We are relying on `comemo`'s memoization of function
             // evaluation to not excessively reevaluate the `key`.
-            Some(f) => f.call(engine, [x]),
+            Some(f) => f.call(engine, context, [x]),
             None => Ok(x),
         };
 

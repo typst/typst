@@ -5,13 +5,13 @@ use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use smallvec::{smallvec, SmallVec};
 
-use crate::diag::{At, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{
-    cast, elem, func, scope, select_where, ty, Array, Content, Element, Func, IntoValue,
-    Label, LocatableSelector, NativeElement, Packed, Repr, Selector, Show, Str,
-    StyleChain, Value,
+    cast, elem, func, scope, select_where, ty, Args, Array, Construct, Content, Context,
+    Element, Func, IntoValue, Label, LocatableSelector, NativeElement, Packed, Repr,
+    Selector, Show, Smart, Str, StyleChain, Value,
 };
 use crate::introspection::{Introspector, Locatable, Location, Locator, Meta};
 use crate::layout::{Frame, FrameItem, PageElem};
@@ -27,14 +27,30 @@ use crate::World;
 /// headings, figures, and more. Moreover, you can define custom counters for
 /// other things you want to count.
 ///
-/// # Displaying a counter { #displaying }
-/// To display the current value of the heading counter, you call the `counter`
-/// function with the `key` set to `heading` and then call the `display` method
-/// on the counter. To see any output, you also have to enable heading
-/// [numbering]($heading.numbering).
+/// Since counters change throughout the course of the document, their current
+/// value is _contextual_ It is recommended to read the chapter on
+/// [context]($context) before continuing here.
 ///
-/// The `display` method optionally takes an argument telling it how to format
-/// the counter. This can be a [numbering pattern or a function]($numbering).
+/// # Accessing a counter { #accessing }
+/// To access the raw value of a counter, we can use the [`get`]($counter.get)
+/// function. This function returns an [array]($array): Counters can have
+/// multiple levels (in the case of headings for sections, subsections, and so
+/// on), and each item in the array corresponds to one level.
+///
+/// ```example
+/// #set heading(numbering: "1.")
+///
+/// = Introduction
+/// Raw value of heading counter is
+/// #context counter(heading).get()
+/// ```
+///
+/// # Displaying a counter { #displaying }
+/// Often, we want to display the value of a counter in a more human-readable
+/// way. To do that, we can call the [`display`]($counter.display) function on
+/// the counter. This function retrieves the current counter value and formats
+/// it either with a provided or with an automatically inferred
+/// [numbering]($numbering).
 ///
 /// ```example
 /// #set heading(numbering: "1.")
@@ -43,25 +59,26 @@ use crate::World;
 /// Some text here.
 ///
 /// = Background
-/// The current value is:
-/// #counter(heading).display()
+/// The current value is: #context {
+///   counter(heading).display()
+/// }
 ///
-/// Or in roman numerals:
-/// #counter(heading).display("I")
+/// Or in roman numerals: #context {
+///   counter(heading).display("I")
+/// }
 /// ```
 ///
 /// # Modifying a counter { #modifying }
 /// To modify a counter, you can use the `step` and `update` methods:
 ///
 /// - The `step` method increases the value of the counter by one. Because
-///   counters can have multiple levels (in the case of headings for sections,
-///   subsections, and so on), the `step` method optionally takes a `level`
+///   counters can have multiple levels , it optionally takes a `level`
 ///   argument. If given, the counter steps at the given depth.
 ///
 /// - The `update` method allows you to arbitrarily modify the counter. In its
-///   basic form, you give it an integer (or multiple for multiple levels). For
-///   more flexibility, you can instead also give it a function that gets the
-///   current value and returns a new value.
+///   basic form, you give it an integer (or an array for multiple levels). For
+///   more flexibility, you can instead also give it a function that receives
+///   the current value and returns a new value.
 ///
 /// The heading counter is stepped before the heading is displayed, so
 /// `Analysis` gets the number seven even though the counter is at six after the
@@ -82,49 +99,10 @@ use crate::World;
 /// #counter(heading).step(level: 2)
 ///
 /// == Analysis
-/// Still at #counter(heading).display().
+/// Still at #context {
+///   counter(heading).display()
+/// }
 /// ```
-///
-/// To define your own counter, call the `counter` function with a string as a
-/// key. This key identifies the counter globally.
-///
-/// ```example
-/// #let mine = counter("mycounter")
-/// #mine.display() \
-/// #mine.step()
-/// #mine.display() \
-/// #mine.update(c => c * 3)
-/// #mine.display() \
-/// ```
-///
-/// # How to step
-/// When you define and use a custom counter, in general, you should first step
-/// the counter and then display it. This way, the stepping behaviour of a
-/// counter can depend on the element it is stepped for. If you were writing a
-/// counter for, let's say, theorems, your theorem's definition would thus first
-/// include the counter step and only then display the counter and the theorem's
-/// contents.
-///
-/// ```example
-/// #let c = counter("theorem")
-/// #let theorem(it) = block[
-///   #c.step()
-///   *Theorem #c.display():* #it
-/// ]
-///
-/// #theorem[$1 = 1$]
-/// #theorem[$2 < 3$]
-/// ```
-///
-/// The rationale behind this is best explained on the example of the heading
-/// counter: An update to the heading counter depends on the heading's level.
-/// By stepping directly before the heading, we can correctly step from `1` to
-/// `1.1` when encountering a level 2 heading. If we were to step after the
-/// heading, we wouldn't know what to step to.
-///
-/// Because counters should always be stepped before the elements they count,
-/// they always start at zero. This way, they are at one for the first display
-/// (which happens after the first step).
 ///
 /// # Page counter
 /// The page counter is special. It is automatically stepped at each pagebreak.
@@ -153,6 +131,49 @@ use crate::World;
 /// Arabic numbers.
 /// ```
 ///
+/// # Custom counters
+/// To define your own counter, call the `counter` function with a string as a
+/// key. This key identifies the counter globally.
+///
+/// ```example
+/// #let mine = counter("mycounter")
+/// #context mine.display() \
+/// #mine.step()
+/// #context mine.display() \
+/// #mine.update(c => c * 3)
+/// #context mine.display()
+/// ```
+///
+/// # How to step
+/// When you define and use a custom counter, in general, you should first step
+/// the counter and then display it. This way, the stepping behaviour of a
+/// counter can depend on the element it is stepped for. If you were writing a
+/// counter for, let's say, theorems, your theorem's definition would thus first
+/// include the counter step and only then display the counter and the theorem's
+/// contents.
+///
+/// ```example
+/// #let c = counter("theorem")
+/// #let theorem(it) = block[
+///   #c.step()
+///   *Theorem #context c.display():*
+///   #it
+/// ]
+///
+/// #theorem[$1 = 1$]
+/// #theorem[$2 < 3$]
+/// ```
+///
+/// The rationale behind this is best explained on the example of the heading
+/// counter: An update to the heading counter depends on the heading's level. By
+/// stepping directly before the heading, we can correctly step from `1` to
+/// `1.1` when encountering a level 2 heading. If we were to step after the
+/// heading, we wouldn't know what to step to.
+///
+/// Because counters should always be stepped before the elements they count,
+/// they always start at zero. This way, they are at one for the first display
+/// (which happens after the first step).
+///
 /// # Time travel
 /// Counters can travel through time! You can find out the final value of the
 /// counter before it is reached and even determine what the value was at any
@@ -162,17 +183,11 @@ use crate::World;
 /// #let mine = counter("mycounter")
 ///
 /// = Values
-/// #locate(loc => {
-///   let start-val = mine.at(loc)
-///   let elements = query(<intro>, loc)
-///   let intro-val = mine.at(
-///     elements.first().location()
-///   )
-///   let final-val = mine.final(loc)
-///   [Starts as: #start-val \
-///    Value at intro is: #intro-val \
-///    Final value is: #final-val \ ]
-/// })
+/// #context [
+///   Value here: #mine.get() \
+///   At intro: #mine.at(<intro>) \
+///   Final value: #mine.final()
+/// ]
 ///
 /// #mine.update(n => n + 3)
 ///
@@ -182,27 +197,6 @@ use crate::World;
 /// #mine.step()
 /// #mine.step()
 /// ```
-///
-/// Let's dissect what happens in the example above:
-///
-/// - We call [`locate`]($locate) to get access to the current location in the
-///   document. We then pass this location to our counter's `at` method to get
-///   its value at the current location. The `at` method always returns an array
-///   because counters can have multiple levels. As the counter starts at zero,
-///   the first value is thus `{(0,)}`.
-///
-/// - We now [`query`]($query) the document for all elements with the
-///   `{<intro>}` label. The result is an array from which we extract the first
-///   (and only) element's [location]($content.location). We then look up the
-///   value of the counter at that location. The first update to the counter
-///   sets it to `{0 + 3 = 3}`. At the introduction heading, the value is thus
-///   `{(3,)}`.
-///
-/// - Last but not least, we call the `final` method on the counter. It tells us
-///   what the counter's value will be at the end of the document. We also need
-///   to give it a location to prove that we are inside of a `locate` call, but
-///   which one doesn't matter. After the heading follow two calls to `step()`,
-///   so the final value is `{(5,)}`.
 ///
 /// # Other kinds of state { #other-state }
 /// The `counter` type is closely related to [state]($state) type. Read its
@@ -245,6 +239,41 @@ impl Counter {
             final_state.step(NonZeroUsize::ONE, final_delta);
         }
         Ok(CounterState(smallvec![at_state.first(), final_state.first()]))
+    }
+
+    /// Gets the value of the counter at the given location. Always returns an
+    /// array of integers, even if the counter has just one number.
+    pub fn at_loc(
+        &self,
+        engine: &mut Engine,
+        loc: Location,
+    ) -> SourceResult<CounterState> {
+        let sequence = self.sequence(engine)?;
+        let offset = engine
+            .introspector
+            .query(&self.selector().before(loc.into(), true))
+            .len();
+        let (mut state, page) = sequence[offset].clone();
+        if self.is_page() {
+            let delta = engine.introspector.page(loc).get().saturating_sub(page.get());
+            state.step(NonZeroUsize::ONE, delta);
+        }
+        Ok(state)
+    }
+
+    /// Displays the value of the counter at the given location.
+    pub fn display_at_loc(
+        &self,
+        engine: &mut Engine,
+        loc: Location,
+        styles: StyleChain,
+        numbering: &Numbering,
+    ) -> SourceResult<Content> {
+        let context = Context::new(Some(loc), Some(styles));
+        Ok(self
+            .at_loc(engine, loc)?
+            .display(engine, &context, numbering)?
+            .display())
     }
 
     /// Produce the whole sequence of counter states.
@@ -313,7 +342,7 @@ impl Counter {
 
     /// The selector relevant for this counter's updates.
     fn selector(&self) -> Selector {
-        let mut selector = select_where!(UpdateElem, Key => self.0.clone());
+        let mut selector = select_where!(CounterUpdateElem, Key => self.0.clone());
 
         if let CounterKey::Selector(key) = &self.0 {
             selector = Selector::Or(eco_vec![selector, key.clone()]);
@@ -325,6 +354,46 @@ impl Counter {
     /// Whether this is the page counter.
     fn is_page(&self) -> bool {
         self.0 == CounterKey::Page
+    }
+
+    /// Shared implementation of displaying between `counter.display` and
+    /// `DisplayElem`, which will be deprecated.
+    fn display_impl(
+        &self,
+        engine: &mut Engine,
+        location: Location,
+        numbering: Smart<Numbering>,
+        both: bool,
+        styles: Option<StyleChain>,
+    ) -> SourceResult<Value> {
+        let numbering = numbering
+            .as_custom()
+            .or_else(|| {
+                let styles = styles?;
+                let CounterKey::Selector(Selector::Elem(func, _)) = self.0 else {
+                    return None;
+                };
+
+                if func == HeadingElem::elem() {
+                    HeadingElem::numbering_in(styles).clone()
+                } else if func == FigureElem::elem() {
+                    FigureElem::numbering_in(styles).clone()
+                } else if func == EquationElem::elem() {
+                    EquationElem::numbering_in(styles).clone()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
+
+        let state = if both {
+            self.both(engine, location)?
+        } else {
+            self.at_loc(engine, location)?
+        };
+
+        let context = Context::new(Some(location), styles);
+        state.display(engine, &context, &numbering)
     }
 }
 
@@ -347,10 +416,38 @@ impl Counter {
         Self(key)
     }
 
-    /// Displays the current value of the counter.
-    #[func]
+    /// Retrieves the value of the counter at the current location. Always
+    /// returns an array of integers, even if the counter has just one number.
+    ///
+    /// This is equivalent to `{counter.at(here())}`.
+    #[func(contextual)]
+    pub fn get(
+        &self,
+        /// The engine.
+        engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
+        /// The callsite span.
+        span: Span,
+    ) -> SourceResult<CounterState> {
+        let loc = context.location().at(span)?;
+        self.at_loc(engine, loc)
+    }
+
+    /// Displays the current value of the counter with a numbering and returns
+    /// the formatted output.
+    ///
+    /// _Compatibility:_ For compatibility with Typst 0.10 and lower, this
+    /// function also works without an established context. Then, it will create
+    /// opaque contextual content rather than directly returning the output of
+    /// the numbering. This behaviour will be removed in a future release.
+    #[func(contextual)]
     pub fn display(
         self,
+        /// The engine.
+        engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
         /// The call span of the display.
         span: Span,
         /// A [numbering pattern or a function]($numbering), which specifies how
@@ -359,11 +456,11 @@ impl Counter {
         /// numbers varies, e.g. for the heading argument, you can use an
         /// [argument sink]($arguments).
         ///
-        /// If this is omitted, displays the counter with the numbering style
-        /// for the counted element or with the pattern `{"1.1"}` if no such
-        /// style exists.
+        /// If this is omitted or set to `{auto}`, displays the counter with the
+        /// numbering style for the counted element or with the pattern
+        /// `{"1.1"}` if no such style exists.
         #[default]
-        numbering: Option<Numbering>,
+        numbering: Smart<Numbering>,
         /// If enabled, displays the current and final top-level count together.
         /// Both can be styled through a single numbering pattern. This is used
         /// by the page numbering property to display the current and total
@@ -371,8 +468,70 @@ impl Counter {
         #[named]
         #[default(false)]
         both: bool,
-    ) -> Content {
-        DisplayElem::new(self, numbering, both).pack().spanned(span)
+    ) -> SourceResult<Value> {
+        if let Some(loc) = context.location {
+            self.display_impl(engine, loc, numbering, both, context.styles)
+        } else {
+            Ok(CounterDisplayElem::new(self, numbering, both)
+                .pack()
+                .spanned(span)
+                .into_value())
+        }
+    }
+
+    /// Retrieves the value of the counter at the given location. Always returns
+    /// an array of integers, even if the counter has just one number.
+    ///
+    /// The `selector` must match exactly one element in the document. The most
+    /// useful kinds of selectors for this are [labels]($label) and
+    /// [locations]($location).
+    ///
+    /// _Compatibility:_ For compatibility with Typst 0.10 and lower, this
+    /// function also works without a known context if the `selector` is a
+    /// location. This behaviour will be removed in a future release.
+    #[func(contextual)]
+    pub fn at(
+        &self,
+        /// The engine.
+        engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
+        /// The callsite span.
+        span: Span,
+        /// The place at which the counter's value should be retrieved.
+        selector: LocatableSelector,
+    ) -> SourceResult<CounterState> {
+        let loc = selector.resolve_unique(engine.introspector, context).at(span)?;
+        self.at_loc(engine, loc)
+    }
+
+    /// Retrieves the value of the counter at the end of the document. Always
+    /// returns an array of integers, even if the counter has just one number.
+    #[func(contextual)]
+    pub fn final_(
+        &self,
+        /// The engine.
+        engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
+        /// The callsite span.
+        span: Span,
+        /// _Compatibility:_ This argument only exists for compatibility with
+        /// Typst 0.10 and lower and shouldn't be used anymore.
+        #[default]
+        location: Option<Location>,
+    ) -> SourceResult<CounterState> {
+        if location.is_none() {
+            context.location().at(span)?;
+        }
+
+        let sequence = self.sequence(engine)?;
+        let (mut state, page) = sequence.last().unwrap().clone();
+        if self.is_page() {
+            let delta = engine.introspector.pages().get().saturating_sub(page.get());
+            state.step(NonZeroUsize::ONE, delta);
+        }
+        Ok(state)
     }
 
     /// Increases the value of the counter by one.
@@ -411,61 +570,7 @@ impl Counter {
         /// return the new value (integer or array).
         update: CounterUpdate,
     ) -> Content {
-        UpdateElem::new(self.0, update).pack().spanned(span)
-    }
-
-    /// Gets the value of the counter at the given location. Always returns an
-    /// array of integers, even if the counter has just one number.
-    #[func]
-    pub fn at(
-        &self,
-        /// The engine.
-        engine: &mut Engine,
-        /// The location at which the counter value should be retrieved. A
-        /// suitable location can be retrieved from [`locate`]($locate) or
-        /// [`query`]($query).
-        location: Location,
-    ) -> SourceResult<CounterState> {
-        let sequence = self.sequence(engine)?;
-        let offset = engine
-            .introspector
-            .query(&self.selector().before(location.into(), true))
-            .len();
-        let (mut state, page) = sequence[offset].clone();
-        if self.is_page() {
-            let delta =
-                engine.introspector.page(location).get().saturating_sub(page.get());
-            state.step(NonZeroUsize::ONE, delta);
-        }
-
-        Ok(state)
-    }
-
-    /// Gets the value of the counter at the end of the document. Always returns
-    /// an array of integers, even if the counter has just one number.
-    #[func]
-    pub fn final_(
-        &self,
-        /// The engine.
-        engine: &mut Engine,
-        /// Can be an arbitrary location, as its value is irrelevant for the
-        /// method's return value. Why is it required then? Typst has to
-        /// evaluate parts of your code multiple times to determine all counter
-        /// values. By only allowing this method within [`locate`]($locate)
-        /// calls, the amount of code that can depend on the method's result is
-        /// reduced. If you could call `final` directly at the top level of a
-        /// module, the evaluation of the whole module and its exports could
-        /// depend on the counter's value.
-        location: Location,
-    ) -> SourceResult<CounterState> {
-        let _ = location;
-        let sequence = self.sequence(engine)?;
-        let (mut state, page) = sequence.last().unwrap().clone();
-        if self.is_page() {
-            let delta = engine.introspector.pages().get().saturating_sub(page.get());
-            state.step(NonZeroUsize::ONE, delta);
-        }
-        Ok(state)
+        CounterUpdateElem::new(self.0, update).pack().spanned(span)
     }
 }
 
@@ -480,7 +585,8 @@ impl Repr for Counter {
 pub enum CounterKey {
     /// The page counter.
     Page,
-    /// Counts elements matching the given selectors. Only works for locatable
+    /// Counts elements matching the given selectors. Only works for
+    /// [locatable]($location/#locatable)
     /// elements or labels.
     Selector(Selector),
     /// Counts through manual counters with the same key.
@@ -517,7 +623,6 @@ impl Repr for CounterKey {
 }
 
 /// An update to perform on a counter.
-#[ty(cast)]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CounterUpdate {
     /// Set the counter to the specified state.
@@ -528,14 +633,8 @@ pub enum CounterUpdate {
     Func(Func),
 }
 
-impl Repr for CounterUpdate {
-    fn repr(&self) -> EcoString {
-        "..".into()
-    }
-}
-
 cast! {
-    type CounterUpdate,
+    CounterUpdate,
     v: CounterState => Self::Set(v),
     v: Func => Self::Func(v),
 }
@@ -570,8 +669,10 @@ impl CounterState {
             CounterUpdate::Set(state) => *self = state,
             CounterUpdate::Step(level) => self.step(level, 1),
             CounterUpdate::Func(func) => {
-                *self =
-                    func.call(engine, self.0.iter().copied())?.cast().at(func.span())?
+                *self = func
+                    .call(engine, &Context::none(), self.0.iter().copied())?
+                    .cast()
+                    .at(func.span())?
             }
         }
         Ok(())
@@ -600,9 +701,10 @@ impl CounterState {
     pub fn display(
         &self,
         engine: &mut Engine,
+        context: &Context,
         numbering: &Numbering,
-    ) -> SourceResult<Content> {
-        Ok(numbering.apply(engine, &self.0)?.display())
+    ) -> SourceResult<Value> {
+        numbering.apply(engine, context, &self.0)
     }
 }
 
@@ -616,78 +718,77 @@ cast! {
         .collect::<StrResult<_>>()?),
 }
 
-/// Executes a display of a state.
-#[elem(Locatable, Show)]
-struct DisplayElem {
-    /// The counter.
-    #[required]
-    counter: Counter,
-
-    /// The numbering to display the counter with.
-    #[required]
-    numbering: Option<Numbering>,
-
-    /// Whether to display both the current and final value.
-    #[required]
-    both: bool,
-}
-
-impl Show for Packed<DisplayElem> {
-    #[typst_macros::time(name = "counter.display", span = self.span())]
-    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        let location = self.location().unwrap();
-        let counter = self.counter();
-        let numbering = self
-            .numbering()
-            .clone()
-            .or_else(|| {
-                let CounterKey::Selector(Selector::Elem(func, _)) = counter.0 else {
-                    return None;
-                };
-
-                if func == HeadingElem::elem() {
-                    HeadingElem::numbering_in(styles).clone()
-                } else if func == FigureElem::elem() {
-                    FigureElem::numbering_in(styles).clone()
-                } else if func == EquationElem::elem() {
-                    EquationElem::numbering_in(styles).clone()
-                } else {
-                    None
-                }
-            })
-            .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
-
-        let state = if *self.both() {
-            counter.both(engine, location)?
-        } else {
-            counter.at(engine, location)?
-        };
-
-        state.display(engine, &numbering)
-    }
-}
-
 /// Executes an update of a counter.
-#[elem(Locatable, Show, Count)]
-struct UpdateElem {
+#[elem(Construct, Locatable, Show, Count)]
+struct CounterUpdateElem {
     /// The key that identifies the counter.
     #[required]
     key: CounterKey,
 
     /// The update to perform on the counter.
     #[required]
+    #[internal]
     update: CounterUpdate,
 }
 
-impl Show for Packed<UpdateElem> {
+impl Construct for CounterUpdateElem {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+impl Show for Packed<CounterUpdateElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }
 }
 
-impl Count for Packed<UpdateElem> {
+impl Count for Packed<CounterUpdateElem> {
     fn update(&self) -> Option<CounterUpdate> {
         Some(self.update.clone())
+    }
+}
+
+/// **Deprection planned.**
+///
+/// Executes a display of a counter.
+#[elem(Construct, Locatable, Show)]
+pub struct CounterDisplayElem {
+    /// The counter.
+    #[required]
+    #[internal]
+    counter: Counter,
+
+    /// The numbering to display the counter with.
+    #[required]
+    #[internal]
+    numbering: Smart<Numbering>,
+
+    /// Whether to display both the current and final value.
+    #[required]
+    #[internal]
+    both: bool,
+}
+
+impl Construct for CounterDisplayElem {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+impl Show for Packed<CounterDisplayElem> {
+    #[typst_macros::time(name = "counter.display", span = self.span())]
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        Ok(self
+            .counter
+            .display_impl(
+                engine,
+                self.location().unwrap(),
+                self.numbering.clone(),
+                self.both,
+                Some(styles),
+            )?
+            .display())
     }
 }
 
@@ -721,7 +822,9 @@ impl ManualPageCounter {
             match item {
                 FrameItem::Group(group) => self.visit(engine, &group.frame)?,
                 FrameItem::Meta(Meta::Elem(elem), _) => {
-                    let Some(elem) = elem.to_packed::<UpdateElem>() else { continue };
+                    let Some(elem) = elem.to_packed::<CounterUpdateElem>() else {
+                        continue;
+                    };
                     if *elem.key() == CounterKey::Page {
                         let mut state = CounterState(smallvec![self.logical]);
                         state.update(engine, elem.update.clone())?;

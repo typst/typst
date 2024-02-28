@@ -16,6 +16,7 @@ doctest = false
 bench = false
 
 [dependencies]
+typst-assets = { workspace = true }
 typst-macros = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
@@ -34,6 +35,7 @@ icu_provider = { workspace = true }
 icu_provider_adapters = { workspace = true }
 icu_provider_blob = { workspace = true }
 icu_segmenter = { workspace = true }
+if_chain = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }
 kamadak-exif = { workspace = true }

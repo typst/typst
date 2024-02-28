@@ -4,7 +4,7 @@
 // Test footnote in caption.
 Read the docs #footnote[https://typst.app/docs]!
 #figure(
-  image("/files/graph.png", width: 70%),
+  image("/assets/images/graph.png", width: 70%),
   caption: [
     A graph #footnote[A _graph_ is a structure with nodes and edges.]
   ]

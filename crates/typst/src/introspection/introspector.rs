@@ -202,6 +202,27 @@ impl Introspector {
         }
     }
 
+    /// Query for the first element that matches the selector.
+    pub fn query_unique(&self, selector: &Selector) -> StrResult<Content> {
+        match selector {
+            Selector::Location(location) => self
+                .get(location)
+                .cloned()
+                .ok_or_else(|| "element does not exist in the document".into()),
+            Selector::Label(label) => self.query_label(*label).cloned(),
+            _ => {
+                let elems = self.query(selector);
+                if elems.len() > 1 {
+                    bail!("selector matches multiple elements",);
+                }
+                elems
+                    .into_iter()
+                    .next()
+                    .ok_or_else(|| "selector does not match any element".into())
+            }
+        }
+    }
+
     /// Query for a unique element with the label.
     pub fn query_label(&self, label: Label) -> StrResult<&Content> {
         let indices = self.labels.get(&label).ok_or_else(|| {

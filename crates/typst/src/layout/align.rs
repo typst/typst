@@ -126,7 +126,7 @@ impl Alignment {
     pub fn fix(self, text_dir: Dir) -> Axes<FixedAlignment> {
         Axes::new(
             self.x().unwrap_or_default().fix(text_dir),
-            self.y().unwrap_or_default().fix(),
+            self.y().unwrap_or_default().fix(text_dir),
         )
     }
 }
@@ -244,6 +244,12 @@ impl From<Side> for Alignment {
     }
 }
 
+/// Alignment on this axis can be fixed to an absolute direction.
+pub trait FixAlignment {
+    /// Resolve to the absolute alignment.
+    fn fix(self, dir: Dir) -> FixedAlignment;
+}
+
 /// Where to align something horizontally.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum HAlignment {
@@ -266,9 +272,10 @@ impl HAlignment {
             Self::End => Self::Start,
         }
     }
+}
 
-    /// Resolve the axis alignment based on the horizontal direction.
-    pub const fn fix(self, dir: Dir) -> FixedAlignment {
+impl FixAlignment for HAlignment {
+    fn fix(self, dir: Dir) -> FixedAlignment {
         match (self, dir.is_positive()) {
             (Self::Start, true) | (Self::End, false) => FixedAlignment::Start,
             (Self::Left, _) => FixedAlignment::Start,
@@ -344,9 +351,8 @@ pub enum OuterHAlignment {
     End,
 }
 
-impl OuterHAlignment {
-    /// Resolve the axis alignment based on the horizontal direction.
-    pub const fn fix(self, dir: Dir) -> FixedAlignment {
+impl FixAlignment for OuterHAlignment {
+    fn fix(self, dir: Dir) -> FixedAlignment {
         match (self, dir.is_positive()) {
             (Self::Start, true) | (Self::End, false) => FixedAlignment::Start,
             (Self::Left, _) => FixedAlignment::Start,
@@ -413,9 +419,11 @@ impl VAlignment {
             Self::Bottom => Self::Top,
         }
     }
+}
 
-    /// Turns into a fixed alignment.
-    pub const fn fix(self) -> FixedAlignment {
+impl FixAlignment for VAlignment {
+    fn fix(self, _: Dir) -> FixedAlignment {
+        // The vertical alignment does not depend on text direction.
         match self {
             Self::Top => FixedAlignment::Start,
             Self::Horizon => FixedAlignment::Center,
@@ -439,6 +447,14 @@ impl Add<HAlignment> for VAlignment {
 
     fn add(self, rhs: HAlignment) -> Self::Output {
         Alignment::Both(rhs, self)
+    }
+}
+
+impl Resolve for VAlignment {
+    type Output = FixedAlignment;
+
+    fn resolve(self, _: StyleChain) -> Self::Output {
+        self.fix(Dir::TTB)
     }
 }
 
@@ -474,9 +490,9 @@ pub enum OuterVAlignment {
     Bottom,
 }
 
-impl OuterVAlignment {
-    /// Resolve the axis alignment based on the vertical direction.
-    pub const fn fix(self) -> FixedAlignment {
+impl FixAlignment for OuterVAlignment {
+    fn fix(self, _: Dir) -> FixedAlignment {
+        // The vertical alignment does not depend on text direction.
         match self {
             Self::Top => FixedAlignment::Start,
             Self::Bottom => FixedAlignment::End,
@@ -526,8 +542,8 @@ pub enum SpecificAlignment<H, V> {
 
 impl<H, V> SpecificAlignment<H, V>
 where
-    H: Copy,
-    V: Copy,
+    H: Default + Copy + FixAlignment,
+    V: Default + Copy + FixAlignment,
 {
     /// The horizontal component.
     pub const fn x(self) -> Option<H> {
@@ -543,6 +559,26 @@ where
             Self::V(v) | Self::Both(_, v) => Some(v),
             Self::H(_) => None,
         }
+    }
+
+    /// Normalize the alignment to a LTR-TTB space.
+    pub fn fix(self, text_dir: Dir) -> Axes<FixedAlignment> {
+        Axes::new(
+            self.x().unwrap_or_default().fix(text_dir),
+            self.y().unwrap_or_default().fix(text_dir),
+        )
+    }
+}
+
+impl<H, V> Resolve for SpecificAlignment<H, V>
+where
+    H: Default + Copy + FixAlignment,
+    V: Default + Copy + FixAlignment,
+{
+    type Output = Axes<FixedAlignment>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.fix(TextElem::dir_in(styles))
     }
 }
 
@@ -629,6 +665,15 @@ impl FixedAlignment {
             Self::Start => Abs::zero(),
             Self::Center => extent / 2.0,
             Self::End => extent,
+        }
+    }
+
+    /// The inverse alignment.
+    pub const fn inv(self) -> Self {
+        match self {
+            Self::Start => Self::End,
+            Self::Center => Self::Center,
+            Self::End => Self::Start,
         }
     }
 }

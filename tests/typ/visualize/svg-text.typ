@@ -4,7 +4,7 @@
 #set page(width: 250pt)
 
 #figure(
-  image("/files/diagram.svg"),
+  image("/assets/images/diagram.svg"),
   caption: [A textful diagram],
 )
 
@@ -13,6 +13,6 @@
 #show image: set text(font: ("Roboto", "Noto Serif CJK SC"))
 
 #figure(
-  image("/files/chinese.svg"),
+  image("/assets/images/chinese.svg"),
   caption: [Bilingual text]
 )

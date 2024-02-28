@@ -3,16 +3,25 @@ use std::num::NonZeroUsize;
 use ecow::EcoString;
 
 use crate::engine::Engine;
-use crate::foundations::{func, scope, ty, Dict, Repr};
+use crate::foundations::{func, scope, ty, Repr};
+use crate::layout::Position;
 use crate::model::Numbering;
 
 /// Identifies an element in the document.
 ///
 /// A location uniquely identifies an element in the document and lets you
 /// access its absolute position on the pages. You can retrieve the current
-/// location with the [`locate`]($locate) function and the location of a queried
+/// location with the [`here`]($here) function and the location of a queried
 /// or shown element with the [`location()`]($content.location) method on
 /// content.
+///
+/// # Locatable elements { #locatable }
+/// Currently, only a subset of element functions is locatable. Aside from
+/// headings and figures, this includes equations, references and all
+/// elements with an explicit label. As a result, you _can_ query for e.g.
+/// [`strong`]($strong) elements, but you will find only those that have an
+/// explicit label attached to them. This limitation will be resolved in the
+/// future.
 #[ty(scope)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Location {
@@ -37,27 +46,36 @@ impl Location {
 
 #[scope]
 impl Location {
-    /// Return the page number for this location.
+    /// Returns the page number for this location.
     ///
     /// Note that this does not return the value of the [page counter]($counter)
     /// at this location, but the true page number (starting from one).
     ///
     /// If you want to know the value of the page counter, use
     /// `{counter(page).at(loc)}` instead.
+    ///
+    /// Can be used with [`here`]($here) to retrieve the physical page position
+    /// of the current context:
+    /// ```example
+    /// #context [
+    ///   I am located on
+    ///   page #here().page()
+    /// ]
+    /// ```
     #[func]
     pub fn page(self, engine: &mut Engine) -> NonZeroUsize {
         engine.introspector.page(self)
     }
 
-    /// Return a dictionary with the page number and the x, y position for this
+    /// Returns a dictionary with the page number and the x, y position for this
     /// location. The page number starts at one and the coordinates are measured
     /// from the top-left of the page.
     ///
     /// If you only need the page number, use `page()` instead as it allows
     /// Typst to skip unnecessary work.
     #[func]
-    pub fn position(self, engine: &mut Engine) -> Dict {
-        engine.introspector.position(self).into()
+    pub fn position(self, engine: &mut Engine) -> Position {
+        engine.introspector.position(self)
     }
 
     /// Returns the page numbering pattern of the page at this location. This

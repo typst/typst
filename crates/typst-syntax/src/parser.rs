@@ -183,7 +183,8 @@ fn heading(p: &mut Parser) {
     p.assert(SyntaxKind::HeadingMarker);
     whitespace_line(p);
     markup(p, false, usize::MAX, |p| {
-        p.at_set(END) && (!p.at(SyntaxKind::Space) || p.peek() == SyntaxKind::Label)
+        p.at_set(END)
+            && (!p.at(SyntaxKind::Space) || p.lexer.clone().next() == SyntaxKind::Label)
     });
     p.wrap(m, SyntaxKind::Heading);
 }
@@ -666,7 +667,7 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) {
         }
 
         let at_field_or_method =
-            p.directly_at(SyntaxKind::Dot) && p.peek() == SyntaxKind::Ident;
+            p.directly_at(SyntaxKind::Dot) && p.lexer.clone().next() == SyntaxKind::Ident;
 
         if atomic && !at_field_or_method {
             break;
@@ -745,11 +746,12 @@ fn code_primary(p: &mut Parser, atomic: bool) {
 
         SyntaxKind::LeftBrace => code_block(p),
         SyntaxKind::LeftBracket => content_block(p),
-        SyntaxKind::LeftParen => expr_with_paren(p),
+        SyntaxKind::LeftParen => expr_with_paren(p, atomic),
         SyntaxKind::Dollar => equation(p),
         SyntaxKind::Let => let_binding(p),
         SyntaxKind::Set => set_rule(p),
         SyntaxKind::Show => show_rule(p),
+        SyntaxKind::Context => contextual(p, atomic),
         SyntaxKind::If => conditional(p),
         SyntaxKind::While => while_loop(p),
         SyntaxKind::For => for_loop(p),
@@ -889,6 +891,14 @@ fn show_rule(p: &mut Parser) {
     p.wrap(m, SyntaxKind::ShowRule);
 }
 
+/// Parses a contextual expression: `context text.lang`.
+fn contextual(p: &mut Parser, atomic: bool) {
+    let m = p.marker();
+    p.assert(SyntaxKind::Context);
+    code_expr_prec(p, atomic, 0);
+    p.wrap(m, SyntaxKind::Contextual);
+}
+
 /// Parses an if-else conditional: `if x { y } else { z }`.
 fn conditional(p: &mut Parser) {
     let m = p.marker();
@@ -1010,13 +1020,16 @@ fn return_stmt(p: &mut Parser) {
 }
 
 /// An expression that starts with a parenthesis.
-fn expr_with_paren(p: &mut Parser) {
+fn expr_with_paren(p: &mut Parser, atomic: bool) {
     // If we've seen this position before and have a memoized result, just use
     // it. See below for more explanation about this memoization.
     let start = p.current_start();
-    if let Some((range, end_point)) = p.memo.get(&start) {
-        p.nodes.extend(p.memo_arena[range.clone()].iter().cloned());
-        p.restore(end_point.clone());
+    if let Some((range, end_point)) = p.memo.get(&start).cloned() {
+        // Restore the end point first, so that it doesn't truncate our freshly
+        // pushed nodes. If the current length of `p.nodes` doesn't match what
+        // we had in the memoized run, this might otherwise happen.
+        p.restore(end_point);
+        p.nodes.extend(p.memo_arena[range].iter().cloned());
         return;
     }
 
@@ -1028,6 +1041,9 @@ fn expr_with_paren(p: &mut Parser) {
     // these are the most likely things. We can handle all of those in a single
     // pass.
     let kind = parenthesized_or_array_or_dict(p);
+    if atomic {
+        return;
+    }
 
     // If, however, '=>' or '=' follows, we must backtrack and reparse as either
     // a parameter list or a destructuring. To be able to do that, we created a
@@ -1216,30 +1232,32 @@ fn args(p: &mut Parser) {
 /// Parses a single argument in an argument list.
 fn arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>) {
     let m = p.marker();
+
+    // Parses a spreaded argument: `..args`.
     if p.eat_if(SyntaxKind::Dots) {
-        // Parses a spreaded argument: `..args`.
         code_expr(p);
         p.wrap(m, SyntaxKind::Spread);
-    } else if p.at(SyntaxKind::Ident) && p.peek() == SyntaxKind::Colon {
-        // Parses a named argument: `thickness: 12pt`.
-        let text = p.current_text();
-        p.assert(SyntaxKind::Ident);
-        if !seen.insert(text) {
-            p[m].convert_to_error(eco_format!("duplicate argument: {text}"));
+        return;
+    }
+
+    // Parses a normal positional argument or an argument name.
+    let was_at_expr = p.at_set(set::CODE_EXPR);
+    let text = p.current_text();
+    code_expr(p);
+
+    // Parses a named argument: `thickness: 12pt`.
+    if p.eat_if(SyntaxKind::Colon) {
+        // Recover from bad argument name.
+        if was_at_expr {
+            if p[m].kind() != SyntaxKind::Ident {
+                p[m].expected("identifier");
+            } else if !seen.insert(text) {
+                p[m].convert_to_error(eco_format!("duplicate argument: {text}"));
+            }
         }
-        p.assert(SyntaxKind::Colon);
+
         code_expr(p);
         p.wrap(m, SyntaxKind::Named);
-    } else {
-        // Parses a normal positional argument.
-        let at_expr = p.at_set(set::CODE_EXPR);
-        code_expr(p);
-
-        // Recover from bad named pair.
-        if at_expr && p.eat_if(SyntaxKind::Colon) {
-            p[m].expected("identifier");
-            code_expr(p);
-        }
     }
 }
 
@@ -1273,8 +1291,9 @@ fn params(p: &mut Parser) {
 /// Parses a single parameter in a parameter list.
 fn param<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>, sink: &mut bool) {
     let m = p.marker();
+
+    // Parses argument sink: `..sink`.
     if p.eat_if(SyntaxKind::Dots) {
-        // Parses argument sink: `..sink`.
         if p.at_set(set::PATTERN_LEAF) {
             pattern_leaf(p, false, seen, Some("parameter"));
         }
@@ -1282,24 +1301,22 @@ fn param<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>, sink: &mut bool) {
         if mem::replace(sink, true) {
             p[m].convert_to_error("only one argument sink is allowed");
         }
-    } else if p.at(SyntaxKind::Ident) && p.peek() == SyntaxKind::Colon {
-        // Parses named parameter: `thickness: 3pt`.
-        // We still use `pattern` even though we know it's just an identifier
-        // because it gives us duplicate parameter detection for free.
-        pattern(p, false, seen, Some("parameter"));
-        p.assert(SyntaxKind::Colon);
+        return;
+    }
+
+    // Parses a normal positional parameter or a parameter name.
+    let was_at_pat = p.at_set(set::PATTERN);
+    pattern(p, false, seen, Some("parameter"));
+
+    // Parses a named parameter: `thickness: 12pt`.
+    if p.eat_if(SyntaxKind::Colon) {
+        // Recover from bad parameter name.
+        if was_at_pat && p[m].kind() != SyntaxKind::Ident {
+            p[m].expected("identifier");
+        }
+
         code_expr(p);
         p.wrap(m, SyntaxKind::Named);
-    } else {
-        // Parses a normal position parameter.
-        let at_pat = p.at_set(set::PATTERN);
-        pattern(p, false, seen, Some("parameter"));
-
-        // Recover from bad named pair.
-        if at_pat && p.eat_if(SyntaxKind::Colon) {
-            p[m].expected("identifier");
-            code_expr(p);
-        }
     }
 }
 
@@ -1364,8 +1381,9 @@ fn destructuring_item<'s>(
     sink: &mut bool,
 ) {
     let m = p.marker();
+
+    // Parse destructuring sink: `..rest`.
     if p.eat_if(SyntaxKind::Dots) {
-        // Parse destructuring sink: `..rest`.
         if p.at_set(set::PATTERN_LEAF) {
             pattern_leaf(p, reassignment, seen, None);
         }
@@ -1373,23 +1391,27 @@ fn destructuring_item<'s>(
         if mem::replace(sink, true) {
             p[m].convert_to_error("only one destructuring sink is allowed");
         }
-    } else if p.at(SyntaxKind::Ident) && p.peek() == SyntaxKind::Colon {
-        // Parse named destructuring item.
-        p.assert(SyntaxKind::Ident);
-        p.assert(SyntaxKind::Colon);
+        return;
+    }
+
+    // Parse a normal positional pattern or a destructuring key.
+    let was_at_pat = p.at_set(set::PATTERN);
+    let checkpoint = p.checkpoint();
+    if !(p.eat_if(SyntaxKind::Ident) && p.at(SyntaxKind::Colon)) {
+        p.restore(checkpoint);
+        pattern(p, reassignment, seen, None);
+    }
+
+    // Parse named destructuring item.
+    if p.eat_if(SyntaxKind::Colon) {
+        // Recover from bad named destructuring.
+        if was_at_pat && p[m].kind() != SyntaxKind::Ident {
+            p[m].expected("identifier");
+        }
+
         pattern(p, reassignment, seen, None);
         p.wrap(m, SyntaxKind::Named);
         *maybe_just_parens = false;
-    } else {
-        // Parse positional destructuring item.
-        let at_pat = p.at_set(set::PATTERN);
-        pattern(p, reassignment, seen, None);
-
-        // Recover from bad named destructuring.
-        if at_pat && p.eat_if(SyntaxKind::Colon) {
-            p[m].expected("identifier");
-            pattern(p, reassignment, seen, None);
-        }
     }
 }
 
@@ -1523,10 +1545,6 @@ impl<'s> Parser<'s> {
         set.contains(self.current)
     }
 
-    fn peek(&self) -> SyntaxKind {
-        self.lexer.clone().next()
-    }
-
     fn eof(&self) -> bool {
         self.at(SyntaxKind::Eof)
     }
@@ -1541,6 +1559,7 @@ impl<'s> Parser<'s> {
         self.skip();
     }
 
+    #[track_caller]
     fn eat_and_get(&mut self) -> &mut SyntaxNode {
         let offset = self.nodes.len();
         self.save();
@@ -1610,6 +1629,7 @@ impl<'s> Parser<'s> {
         m.0 > 0 && self.nodes[m.0 - 1].kind().is_error()
     }
 
+    #[track_caller]
     fn post_process(&mut self, m: Marker) -> impl Iterator<Item = &mut SyntaxNode> {
         self.nodes[m.0..]
             .iter_mut()
@@ -1750,6 +1770,7 @@ impl<'s> Parser<'s> {
 
     /// Consume the given closing delimiter or produce an error for the matching
     /// opening delimiter at `open`.
+    #[track_caller]
     fn expect_closing_delimiter(&mut self, open: Marker, kind: SyntaxKind) {
         if !self.eat_if(kind) {
             self.nodes[open.0].convert_to_error("unclosed delimiter");

@@ -1,5 +1,7 @@
 use crate::diag::{At, SourceResult};
-use crate::foundations::{cast, elem, Content, Func, Packed, Resolve, Smart, StyleChain};
+use crate::foundations::{
+    cast, elem, Content, Context, Func, Packed, Resolve, Smart, StyleChain,
+};
 use crate::layout::{
     Abs, Angle, Frame, FrameItem, Length, Point, Ratio, Rel, Size, Transform,
 };
@@ -135,6 +137,7 @@ impl LayoutMath for Packed<CancelElem> {
             invert_first_line,
             &angle,
             body_size,
+            styles,
             span,
         )?;
 
@@ -144,8 +147,9 @@ impl LayoutMath for Packed<CancelElem> {
 
         if cross {
             // Draw the second line.
-            let second_line =
-                draw_cancel_line(ctx, length, stroke, true, &angle, body_size, span)?;
+            let second_line = draw_cancel_line(
+                ctx, length, stroke, true, &angle, body_size, styles, span,
+            )?;
 
             body.push_frame(center, second_line);
         }
@@ -180,6 +184,7 @@ cast! {
 }
 
 /// Draws a cancel line.
+#[allow(clippy::too_many_arguments)]
 fn draw_cancel_line(
     ctx: &mut MathContext,
     length_scale: Rel<Abs>,
@@ -187,6 +192,7 @@ fn draw_cancel_line(
     invert: bool,
     angle: &Smart<CancelAngle>,
     body_size: Size,
+    styles: StyleChain,
     span: Span,
 ) -> SourceResult<Frame> {
     let default = default_angle(body_size);
@@ -197,9 +203,10 @@ fn draw_cancel_line(
             // This specifies the absolute angle w.r.t y-axis clockwise.
             CancelAngle::Angle(v) => *v,
             // This specifies a function that takes the default angle as input.
-            CancelAngle::Func(func) => {
-                func.call(ctx.engine, [default])?.cast().at(span)?
-            }
+            CancelAngle::Func(func) => func
+                .call(ctx.engine, &Context::new(None, Some(styles)), [default])?
+                .cast()
+                .at(span)?,
         },
     };
 

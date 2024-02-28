@@ -12,7 +12,7 @@ All this is backed by a tightly integrated scripting language with built-in and
 user-defined functions.
 
 ## Modes
-Typst has three syntactical modes: Markup, math, and code. Markup mode is the 
+Typst has three syntactical modes: Markup, math, and code. Markup mode is the
 default in a Typst document, math mode lets you write mathematical formulas, and
 code mode lets you use Typst's scripting features.
 
@@ -111,6 +111,7 @@ a table listing all syntax that is available in code mode:
 | Show-set rule            | `{show par: set block(..)}`   | [Styling]($styling/#show-rules)    |
 | Show rule with function  | `{show raw: it => {..}}`      | [Styling]($styling/#show-rules)    |
 | Show-everything rule     | `{show: columns.with(2)}`     | [Styling]($styling/#show-rules)    |
+| Context expression       | `{context text.lang}`         | [Context]($context)                |
 | Conditional              | `{if x == 1 {..} else {..}}`  | [Scripting]($scripting/#conditionals) |
 | For loop                 | `{for x in (1, 2, 3) {..}}`   | [Scripting]($scripting/#loops)     |
 | While loop               | `{while x < 10 {..}}`         | [Scripting]($scripting/#loops)     |

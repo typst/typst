@@ -21,4 +21,4 @@ Die Tiefe eines Knotens _v_ ist die Länge des eindeutigen Weges von der Wurzel
 zu _v_, und die Höhe von _v_ ist die Länge eines längsten (absteigenden) Weges
 von _v_ zu einem Blatt. Die Höhe des Baumes ist die Höhe der Wurzel.
 
-#align(center, image("/files/graph.png", width: 75%))
+#align(center, image("/assets/images/graph.png", width: 75%))

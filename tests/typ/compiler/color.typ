@@ -8,7 +8,7 @@
   spacing: 1fr,
   rect(width: 1cm, fill: cmyk(69%, 11%, 69%, 41%)),
   rect(width: 1cm, fill: c),
-  rect(width: 1cm, fill: c.negate()),
+  rect(width: 1cm, fill: c.negate(space: cmyk)),
 )
 
 #for x in range(0, 11) {
@@ -82,4 +82,4 @@
 // Ref: false
 #test-repr(luma(20%).lighten(50%), luma(60%))
 #test-repr(luma(80%).darken(20%), luma(64%))
-#test-repr(luma(80%).negate(), luma(20%))
+#test-repr(luma(80%).negate(space: luma), luma(20%))

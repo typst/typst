@@ -159,6 +159,8 @@ pub enum SyntaxKind {
     Set,
     /// The `show` keyword.
     Show,
+    /// The `context` keyword.
+    Context,
     /// The `if` keyword.
     If,
     /// The `else` keyword.
@@ -232,6 +234,8 @@ pub enum SyntaxKind {
     SetRule,
     /// A show rule: `show heading: it => emph(it.body)`.
     ShowRule,
+    /// A contextual expression: `context text.lang`.
+    Contextual,
     /// An if-else conditional: `if x { y } else { z }`.
     Conditional,
     /// A while loop: `while x { y }`.
@@ -322,6 +326,7 @@ impl SyntaxKind {
                 | Self::Let
                 | Self::Set
                 | Self::Show
+                | Self::Context
                 | Self::If
                 | Self::Else
                 | Self::For
@@ -426,6 +431,7 @@ impl SyntaxKind {
             Self::Let => "keyword `let`",
             Self::Set => "keyword `set`",
             Self::Show => "keyword `show`",
+            Self::Context => "keyword `context`",
             Self::If => "keyword `if`",
             Self::Else => "keyword `else`",
             Self::For => "keyword `for`",
@@ -462,6 +468,7 @@ impl SyntaxKind {
             Self::LetBinding => "`let` expression",
             Self::SetRule => "`set` expression",
             Self::ShowRule => "`show` expression",
+            Self::Contextual => "`context` expression",
             Self::Conditional => "`if` expression",
             Self::WhileLoop => "while-loop expression",
             Self::ForLoop => "for-loop expression",

@@ -111,6 +111,20 @@ impl<T: Reflect> Reflect for StrResult<T> {
     }
 }
 
+impl<T: Reflect> Reflect for HintedStrResult<T> {
+    fn input() -> CastInfo {
+        T::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        T::castable(value)
+    }
+}
+
 impl<T: Reflect> Reflect for SourceResult<T> {
     fn input() -> CastInfo {
         T::input()
