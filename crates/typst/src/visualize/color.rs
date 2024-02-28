@@ -6,7 +6,7 @@ use ecow::{eco_format, EcoString, EcoVec};
 use once_cell::sync::Lazy;
 use palette::encoding::{self, Linear};
 use palette::{
-    Darken, Desaturate, FromColor, Lighten, OklabHue, RgbHue, Saturate, ShiftHue,
+    Alpha, Darken, Desaturate, FromColor, Lighten, OklabHue, RgbHue, Saturate, ShiftHue,
 };
 use qcms::Profile;
 
@@ -1128,6 +1128,47 @@ impl Color {
     ) -> StrResult<Color> {
         Self::mix_iter(colors, space)
     }
+
+    /// Makes a color more transparent by a given factor.
+    ///
+    /// This method is relative to the existing alpha value.
+    /// If the scale is positive, calculates `alpha - alpha * scale`.
+    /// Negative scales behave like `color.opacify(-scale)`.
+    ///
+    /// ```example
+    /// #block(fill: red)[opaque]
+    /// #block(fill: red.transparentize(50%))[half red]
+    /// #block(fill: red.transparentize(75%))[quarter red]
+    /// ```
+    #[func]
+    pub fn transparentize(
+        self,
+        /// The factor to change the alpha value by.
+        scale: Ratio,
+    ) -> StrResult<Color> {
+        self.scale_alpha(-scale)
+    }
+
+    /// Makes a color more opaque by a given scale.
+    ///
+    /// This method is relative to the existing alpha value.
+    /// If the scale is positive, calculates `alpha + scale - alpha * scale`.
+    /// Negative scales behave like `color.transparentize(-scale)`.
+    ///
+    /// ```example
+    /// #let half-red = red.transparentize(50%)
+    /// #block(fill: half-red.opacify(100%))[opaque]
+    /// #block(fill: half-red.opacify(50%))[three quarters red]
+    /// #block(fill: half-red.opacify(-50%))[one quarter red]
+    /// ```
+    #[func]
+    pub fn opacify(
+        self,
+        /// The scale to change the alpha value by.
+        scale: Ratio,
+    ) -> StrResult<Color> {
+        self.scale_alpha(scale)
+    }
 }
 
 impl Color {
@@ -1263,6 +1304,31 @@ impl Color {
         }
 
         self
+    }
+
+    /// Scales the alpha value of a color by a given amount.
+    ///
+    /// For positive scales, computes `alpha + scale - alpha * scale`.
+    /// For non-positive scales, computes `alpha + alpha * scale`.
+    fn scale_alpha(self, scale: Ratio) -> StrResult<Color> {
+        #[inline]
+        fn transform<C>(mut color: Alpha<C, f32>, scale: Ratio) -> Alpha<C, f32> {
+            let scale = scale.get() as f32;
+            let factor = if scale > 0.0 { 1.0 - color.alpha } else { color.alpha };
+            color.alpha = (color.alpha + scale * factor).clamp(0.0, 1.0);
+            color
+        }
+
+        Ok(match self {
+            Color::Luma(c) => Color::Luma(transform(c, scale)),
+            Color::Oklab(c) => Color::Oklab(transform(c, scale)),
+            Color::Oklch(c) => Color::Oklch(transform(c, scale)),
+            Color::Rgb(c) => Color::Rgb(transform(c, scale)),
+            Color::LinearRgb(c) => Color::LinearRgb(transform(c, scale)),
+            Color::Cmyk(_) => bail!("CMYK does not have an alpha component"),
+            Color::Hsl(c) => Color::Hsl(transform(c, scale)),
+            Color::Hsv(c) => Color::Hsv(transform(c, scale)),
+        })
     }
 
     /// Converts the color to a vec of four floats.
