@@ -338,25 +338,24 @@ impl<'a> GridLayouter<'a> {
                 // remaining heights, plus the current region's size, plus
                 // the current backlog.
                 frames_in_previous_regions = rowspan_other_heights.len() + 1;
+
+                let heights_up_to_current_region = rowspan_other_heights
+                    .iter()
+                    .copied()
+                    .chain(std::iter::once(self.initial.y));
+
                 rowspan_backlog = if !breakable {
                     // No extra backlog if this is an unbreakable auto row.
                     // Ensure, when measuring, that the rowspan can be laid
                     // out through all spanned rows which were already laid
                     // out so far, but don't go further than this region.
-                    rowspan_other_heights
-                        .iter()
-                        .copied()
-                        .chain(std::iter::once(self.initial.y))
-                        .collect::<Vec<_>>()
+                    heights_up_to_current_region.collect::<Vec<_>>()
                 } else {
                     // This auto row is breakable. Therefore, join the
                     // rowspan's already laid out heights with the current
                     // region's height and current backlog to ensure a good
                     // level of accuracy in the measurements.
-                    rowspan_other_heights
-                        .iter()
-                        .copied()
-                        .chain(std::iter::once(self.initial.y))
+                    heights_up_to_current_region
                         .chain(self.regions.backlog.iter().copied())
                         .collect::<Vec<_>>()
                 };
