@@ -189,9 +189,8 @@ pub struct Cell {
     /// defining with which stroke to draw grid lines around this cell).
     pub stroke_overridden: Sides<bool>,
     /// Whether rows spanned by this cell can be placed in different pages.
-    /// By default, a rowspan cell spanning only fixed-size rows is
-    /// unbreakable, while a non-rowspan cell or a cell spanning at least one
-    /// `auto`-sized row is breakable.
+    /// By default, a cell spanning only fixed-size rows is unbreakable, while
+    /// a cell spanning at least one `auto`-sized row is breakable.
     pub breakable: bool,
 }
 
@@ -381,19 +380,18 @@ impl CellGrid {
         let mut pending_vlines: Vec<(Span, Line)> = vec![];
         let has_gutter = gutter.any(|tracks| !tracks.is_empty());
 
-        // Resolve the breakability of a cell, based on whether or not it is a
-        // rowspan over an auto row.
+        // Resolve the breakability of a cell, based on whether or not it spans
+        // an auto row.
         let resolve_breakable = |y, rowspan| {
             let auto = Sizing::Auto;
             let zero = Sizing::Rel(Rel::zero());
-            rowspan == 1
-                || tracks
-                    .y
-                    .iter()
-                    .chain(std::iter::repeat(tracks.y.last().unwrap_or(&auto)))
-                    .skip(y)
-                    .take(rowspan)
-                    .any(|row| row == &Sizing::Auto)
+            tracks
+                .y
+                .iter()
+                .chain(std::iter::repeat(tracks.y.last().unwrap_or(&auto)))
+                .skip(y)
+                .take(rowspan)
+                .any(|row| row == &Sizing::Auto)
                 || gutter
                     .y
                     .iter()
