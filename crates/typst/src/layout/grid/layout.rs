@@ -1900,23 +1900,22 @@ impl<'a> GridLayouter<'a> {
 
             let width = self.cell_spanned_width(cell, x);
 
-            let frames = if !breakable {
-                // Force cell to fit into a single region when the row is unbreakable.
+            let pod = if !breakable {
+                // Force cell to fit into a single region when the row is
+                // unbreakable, even when it is a breakable rowspan, as a best
+                // effort.
                 let mut pod = Regions::one(Axes::new(width, height), self.regions.expand);
                 pod.full = full;
-                if frames_in_previous_regions == 0 {
-                    // Cells which started at this region will only have a
-                    // single frame for measuring purposes - even if they're
-                    // breakable rowspans, as a best effort.
-                    vec![cell.measure(engine, self.styles, pod)?.into_frame()]
-                } else {
+
+                if frames_in_previous_regions > 0 {
                     // Best effort to conciliate a breakable rowspan which
                     // started at a previous region going through an
                     // unbreakable auto row. Ensure it goes through previously
                     // laid out regions, but stops at this one when measuring.
                     pod.backlog = backlog;
-                    cell.measure(engine, self.styles, pod)?.into_frames()
                 }
+
+                pod
             } else {
                 // This row is breakable, so measure the cell normally, with
                 // the initial height and backlog determined previously.
@@ -1924,8 +1923,10 @@ impl<'a> GridLayouter<'a> {
                 pod.size = Axes::new(width, height);
                 pod.backlog = backlog;
                 pod.full = full;
-                cell.measure(engine, self.styles, pod)?.into_frames()
+                pod
             };
+
+            let frames = cell.measure(engine, self.styles, pod)?.into_frames();
 
             // Skip the first region if one cell in it is empty. Then,
             // remeasure.
@@ -2286,16 +2287,7 @@ impl<'a> GridLayouter<'a> {
                 // 'i' variable so we can step the counter back after removing
                 // a rowspan (see explanation below).
                 let mut i = 0;
-                for _ in 0..self.rowspans.len() {
-                    let Some(rowspan) = self.rowspans.get(i) else {
-                        // Since we might remove rowspans from the rowspan
-                        // vector below, it's possible its length will be
-                        // reduced,  thus at some point we will go out of
-                        // bounds, because the loop will run for every index
-                        // from 0 to the original length of the vector (before
-                        // the loop started).
-                        break;
-                    };
+                while let Some(rowspan) = self.rowspans.get(i) {
                     if rowspan.y + rowspan.rowspan <= y + 1 {
                         // Rowspan ends at this or an earlier row, so we take
                         // it from the rowspans vector and lay it out.
