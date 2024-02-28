@@ -577,12 +577,13 @@ impl ResolvableCell for Packed<TableCell> {
         align: Smart<Alignment>,
         inset: Sides<Option<Rel<Length>>>,
         stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
+        breakable: bool,
         styles: StyleChain,
     ) -> Cell {
         let cell = &mut *self;
         let colspan = cell.colspan(styles);
         let rowspan = cell.rowspan(styles);
-        let breakable = cell.breakable(styles);
+        let breakable = cell.breakable(styles).unwrap_or(breakable);
         let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
 
         let cell_stroke = cell.stroke(styles);
@@ -627,6 +628,7 @@ impl ResolvableCell for Packed<TableCell> {
                 }))
             }),
         );
+        cell.push_breakable(Smart::Custom(breakable));
         Cell {
             body: self.pack(),
             fill,

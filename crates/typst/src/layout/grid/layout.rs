@@ -189,10 +189,10 @@ pub struct Cell {
     /// defining with which stroke to draw grid lines around this cell).
     pub stroke_overridden: Sides<bool>,
     /// Whether rows spanned by this cell can be placed in different pages.
-    /// When equal to [`Smart::Auto`], a cell spanning only fixed-size rows is
-    /// unbreakable, while a cell spanning at least one `auto`-sized row is
-    /// breakable.
-    pub breakable: Smart<bool>,
+    /// By default, a rowspan cell spanning only fixed-size rows is
+    /// unbreakable, while a non-rowspan cell or a cell spanning at least one
+    /// `auto`-sized row is breakable.
+    pub breakable: bool,
 }
 
 impl From<Content> for Cell {
@@ -205,7 +205,7 @@ impl From<Content> for Cell {
             rowspan: NonZeroUsize::ONE,
             stroke: Sides::splat(None),
             stroke_overridden: Sides::splat(false),
-            breakable: Smart::Auto,
+            breakable: true,
         }
     }
 }
@@ -280,7 +280,8 @@ pub enum GridItem<T: ResolvableCell> {
 /// the table, and may have property overrides.
 pub trait ResolvableCell {
     /// Resolves the cell's fields, given its coordinates and default grid-wide
-    /// fill, align, inset and stroke properties.
+    /// fill, align, inset and stroke properties, plus the expected value of
+    /// the 'breakable' field.
     /// Returns a final Cell.
     #[allow(clippy::too_many_arguments)]
     fn resolve_cell(
@@ -291,6 +292,7 @@ pub trait ResolvableCell {
         align: Smart<Alignment>,
         inset: Sides<Option<Rel<Length>>>,
         stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
+        breakable: bool,
         styles: StyleChain,
     ) -> Cell;
 
@@ -378,6 +380,28 @@ impl CellGrid {
         // For consistency, only push vertical lines later as well.
         let mut pending_vlines: Vec<(Span, Line)> = vec![];
         let has_gutter = gutter.any(|tracks| !tracks.is_empty());
+
+        // Resolve the breakability of a cell, based on whether or not it is a
+        // rowspan over an auto row.
+        let resolve_breakable = |y, rowspan| {
+            let auto = Sizing::Auto;
+            let zero = Sizing::Rel(Rel::zero());
+            rowspan == 1
+                || tracks
+                    .y
+                    .iter()
+                    .chain(std::iter::repeat(tracks.y.last().unwrap_or(&auto)))
+                    .skip(y)
+                    .take(rowspan)
+                    .any(|row| row == &Sizing::Auto)
+                || gutter
+                    .y
+                    .iter()
+                    .chain(std::iter::repeat(gutter.y.last().unwrap_or(&zero)))
+                    .skip(y)
+                    .take(rowspan - 1)
+                    .any(|row_gutter| row_gutter == &Sizing::Auto)
+        };
 
         // We can't just use the cell's index in the 'cells' vector to
         // determine its automatic position, since cells could have arbitrary
@@ -517,6 +541,7 @@ impl CellGrid {
                 align.resolve(engine, styles, x, y)?,
                 inset.resolve(engine, styles, x, y)?,
                 stroke.resolve(engine, styles, x, y)?,
+                resolve_breakable(y, rowspan),
                 styles,
             );
 
@@ -609,6 +634,9 @@ impl CellGrid {
                         align.resolve(engine, styles, x, y)?,
                         inset.resolve(engine, styles, x, y)?,
                         stroke.resolve(engine, styles, x, y)?,
+                        // An absent entry replaced by an empty cell will
+                        // always have a rowspan of 1, and is thus breakable.
+                        true,
                         styles,
                     );
                     Ok(Entry::Cell(new_cell))
@@ -1969,8 +1997,8 @@ impl<'a> GridLayouter<'a> {
                 // of its other spanned rows, thus gutters won't be removed,
                 // and we can safely reduce how much the auto row expands by
                 // without using simulation.
-                let is_effectively_unbreakable_rowspan = !self.is_breakable_cell(cell, y)
-                    || y + unbreakable_rows_left > last_spanned_row;
+                let is_effectively_unbreakable_rowspan =
+                    !cell.breakable || y + unbreakable_rows_left > last_spanned_row;
 
                 // If the rowspan doesn't end at this row and the grid has
                 // gutter, we will need to run a simulation to find out how
