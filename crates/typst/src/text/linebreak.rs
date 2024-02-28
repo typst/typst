@@ -58,9 +58,9 @@ pub enum WordBreak {
     KeepAll,
 }
 
-impl Into<LineBreakWordOption> for WordBreak {
-    fn into(self) -> LineBreakWordOption {
-        match self {
+impl From<WordBreak> for LineBreakWordOption {
+    fn from(value: T) -> LineBreakWordOption {
+        match value {
             WordBreak::Normal => LineBreakWordOption::Normal,
             WordBreak::BreakAll => LineBreakWordOption::BreakAll,
             WordBreak::KeepAll => LineBreakWordOption::KeepAll,
