@@ -1158,7 +1158,7 @@ impl Color {
             Color::Oklch(c) => Color::Oklch(transform(c, factor)),
             Color::Rgb(c) => Color::Rgb(transform(c, factor)),
             Color::LinearRgb(c) => Color::LinearRgb(transform(c, factor)),
-            Color::Cmyk(_) => bail!("CMYK does have an alpha component"),
+            Color::Cmyk(_) => bail!("CMYK does not have an alpha component"),
             Color::Hsl(c) => Color::Hsl(transform(c, factor)),
             Color::Hsv(c) => Color::Hsv(transform(c, factor)),
         })
@@ -1191,7 +1191,7 @@ impl Color {
             Color::Oklch(c) => Color::Oklch(transform(c, factor)),
             Color::Rgb(c) => Color::Rgb(transform(c, factor)),
             Color::LinearRgb(c) => Color::LinearRgb(transform(c, factor)),
-            Color::Cmyk(_) => bail!("CMYK does have an alpha component"),
+            Color::Cmyk(_) => bail!("CMYK does not have an alpha component"),
             Color::Hsl(c) => Color::Hsl(transform(c, factor)),
             Color::Hsv(c) => Color::Hsv(transform(c, factor)),
         })
