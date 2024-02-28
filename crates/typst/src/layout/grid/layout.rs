@@ -1138,8 +1138,7 @@ impl<'a> GridLayouter<'a> {
         // rows, not for gutter rows, and only if we aren't laying out an
         // unbreakable group of rows.
         let is_content_row = !self.grid.is_gutter_track(y);
-        if self.unbreakable_rows_left == 0 && self.regions.is_full() && is_content_row
-        {
+        if self.unbreakable_rows_left == 0 && self.regions.is_full() && is_content_row {
             self.finish_region(engine)?;
         }
 
@@ -1704,18 +1703,27 @@ impl<'a> GridLayouter<'a> {
     fn layout_auto_row(&mut self, engine: &mut Engine, y: usize) -> SourceResult<()> {
         // Determine the size for each region of the row. If the first region
         // ends up empty for some column, skip the region and remeasure.
+        let header_height = self.header_height();
         let mut resolved = match self.measure_auto_row(
             engine,
             y,
             true,
+            header_height,
             self.unbreakable_rows_left,
             None,
         )? {
             Some(resolved) => resolved,
             None => {
                 self.finish_region(engine)?;
-                self.measure_auto_row(engine, y, false, self.unbreakable_rows_left, None)?
-                    .unwrap()
+                self.measure_auto_row(
+                    engine,
+                    y,
+                    false,
+                    header_height,
+                    self.unbreakable_rows_left,
+                    None,
+                )?
+                .unwrap()
             }
         };
 
@@ -1734,13 +1742,14 @@ impl<'a> GridLayouter<'a> {
         // Expand all but the last region.
         // Skip the first region if the space is eaten up by an fr row.
         let len = resolved.len();
+        let header_height = header_height.unwrap_or_default();
         for (region, target) in self
             .regions
             .iter()
             .zip(&mut resolved[..len - 1])
             .skip(self.lrows.iter().any(|row| matches!(row, Row::Fr(..))) as usize)
         {
-            target.set_max(region.y);
+            target.set_max(region.y - header_height);
         }
 
         // Layout into multiple regions.
@@ -1758,6 +1767,9 @@ impl<'a> GridLayouter<'a> {
 
     /// Measure the regions sizes of an auto row. The option is always `Some(_)`
     /// if `can_skip` is false.
+    /// The `header_height` must correspond to the header height of the current
+    /// region, if there's any. This is ignored if this is an unbreakable auto
+    /// row, so it can safely be `None` in that case.
     /// If `unbreakable_rows_left` is positive, this function shall only return
     /// a single frame. Useful when an unbreakable rowspan crosses this auto
     /// row.
@@ -1769,6 +1781,7 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
         y: usize,
         can_skip: bool,
+        header_height: Option<Abs>,
         unbreakable_rows_left: usize,
         row_group_data: Option<&UnbreakableRowGroup>,
     ) -> SourceResult<Option<Vec<Abs>>> {
@@ -1812,6 +1825,7 @@ impl<'a> GridLayouter<'a> {
             let measurement_data = self.prepare_auto_row_cell_measurement(
                 parent,
                 cell,
+                header_height,
                 breakable,
                 row_group_data,
             );
@@ -1842,6 +1856,15 @@ impl<'a> GridLayouter<'a> {
                 pod.size = size;
                 pod.backlog = backlog;
                 pod.full = measurement_data.full;
+
+                if let Some(last) = &mut pod.last {
+                    if let Some(header_height) = header_height {
+                        // Adapt the last region height to consider the header
+                        // height.
+                        *last -= header_height;
+                    }
+                }
+
                 pod
             };
 
@@ -1919,6 +1942,7 @@ impl<'a> GridLayouter<'a> {
                 y,
                 &mut resolved,
                 &pending_rowspans,
+                header_height,
                 unbreakable_rows_left,
                 row_group_data,
                 engine,
@@ -2184,7 +2208,11 @@ impl<'a> GridLayouter<'a> {
                         // we have to check the same index again in the next
                         // iteration.
                         let rowspan = self.rowspans.remove(i);
-                        self.layout_rowspan(rowspan, Some(&mut output), engine)?;
+                        self.layout_rowspan(
+                            rowspan,
+                            Some((&mut output, &rrows)),
+                            engine,
+                        )?;
                     } else {
                         i += 1;
                     }
