@@ -1013,7 +1013,6 @@ pub struct RowPiece {
 
 /// Produced by initial row layout, auto and relative rows are already finished,
 /// fractional rows not yet.
-/// Includes new rowspans found in this row.
 pub(super) enum Row {
     /// Finished row frame of auto or relative row with y index.
     /// The last parameter indicates whether or not this is the last region
