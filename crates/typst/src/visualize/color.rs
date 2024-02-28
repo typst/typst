@@ -1131,7 +1131,7 @@ impl Color {
         Self::mix_iter(colors, space)
     }
 
-    /// Make a color more transparent by a given factor.
+    /// Makes a color more transparent by a given factor.
     ///
     /// This method is relative to the existing alpha value.
     /// If the scale is positive, calculates `alpha - alpha * scale`.
@@ -1148,10 +1148,10 @@ impl Color {
         /// The factor to change the alpha value by.
         scale: Ratio,
     ) -> StrResult<Color> {
-        self.scale_alpha(-scale.get() as f32)
+        self.scale_alpha(-scale)
     }
 
-    /// Make a color more opaque by a given scale.
+    /// Makes a color more opaque by a given scale.
     ///
     /// This method is relative to the existing alpha value.
     /// If the scale is positive, calculates `alpha + scale - alpha * scale`.
@@ -1169,7 +1169,7 @@ impl Color {
         /// The scale to change the alpha value by.
         scale: Ratio,
     ) -> StrResult<Color> {
-        self.scale_alpha(scale.get() as f32)
+        self.scale_alpha(scale)
     }
 }
 
@@ -1312,9 +1312,10 @@ impl Color {
     ///
     /// For positive scales, computes `alpha + scale - alpha * scale`.
     /// For non-positive scales, computes `alpha + alpha * scale`.
-    fn scale_alpha(self, scale: f32) -> StrResult<Color> {
+    fn scale_alpha(self, scale: Ratio) -> StrResult<Color> {
         #[inline]
-        fn transform<C>(mut color: Alpha<C, f32>, scale: f32) -> Alpha<C, f32> {
+        fn transform<C>(mut color: Alpha<C, f32>, scale: Ratio) -> Alpha<C, f32> {
+            let scale = scale.get() as f32;
             let factor = if scale > 0.0 { 1.0 - color.alpha } else { color.alpha };
             color.alpha = (color.alpha + scale * factor).clamp(0.0, 1.0);
             color
