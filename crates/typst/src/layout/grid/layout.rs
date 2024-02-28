@@ -2102,9 +2102,14 @@ impl<'a> GridLayouter<'a> {
         }
 
         if let Some(header) = &self.grid.header {
-            if self.grid.rows.len() > header.end && self.lrows.len() <= header.end {
+            if self.grid.rows.len() > header.end
+                && self.lrows.len() <= header.end
+                && !self.regions.in_last()
+            {
                 // Header would be alone in this region. Skip this region.
                 self.lrows.clear();
+                self.finished.push(Frame::soft(Size::new(self.width, Abs::zero())));
+                self.rrows.push(vec![]);
                 self.regions.next();
                 self.initial = self.regions.size;
                 return Ok(());
