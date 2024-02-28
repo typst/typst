@@ -713,8 +713,8 @@ impl<'a> GridLayouter<'a> {
             while !extra_amount_to_grow.is_zero()
                 && simulated_regions.size.y < extra_amount_to_grow
             {
-                extra_amount_to_grow -= regions.size.y.max(Abs::zero());
-                regions.next();
+                extra_amount_to_grow -= simulated_regions.size.y.max(Abs::zero());
+                simulated_regions.next();
             }
             simulated_regions.size.y -= extra_amount_to_grow;
         }
