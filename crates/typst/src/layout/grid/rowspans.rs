@@ -554,6 +554,68 @@ impl<'a> GridLayouter<'a> {
             simulated_regions.size.y -= original_last_resolved_size;
         }
 
+        let simulations_stabilized = self.run_rowspan_simulation(
+            y,
+            max_spanned_row,
+            simulated_regions,
+            &mut simulated_sizes,
+            engine,
+            last_resolved_size,
+            unbreakable_rows_left,
+        )?;
+
+        if !simulations_stabilized {
+            // If the simulation didn't stabilize above, we will just pretend all
+            // gutters were removed, as a best effort. That means the auto row will
+            // expand more than it normally should, but there isn't much we can do.
+            let will_be_covered_height = self
+                .grid
+                .rows
+                .iter()
+                .enumerate()
+                .skip(y + 1)
+                .take(max_spanned_row - y)
+                .filter(|(y, _)| !self.grid.is_gutter_track(*y))
+                .map(|(_, row)| match row {
+                    Sizing::Rel(v) => {
+                        v.resolve(self.styles).relative_to(self.regions.base().y)
+                    }
+                    _ => Abs::zero(),
+                })
+                .sum();
+
+            subtract_end_sizes(&mut simulated_sizes, will_be_covered_height);
+        }
+
+        resolved.extend(simulated_sizes);
+
+        Ok(())
+    }
+
+    /// Performs a simulation of laying out multiple rowspans (consolidated
+    /// into a single vector of simulated sizes) ending in a certain auto row
+    /// in order to find out how much the auto row will need to expand to cover
+    /// the rowspans' requested sizes.
+    ///
+    /// Tries up to 5 times. If the simulations stabilize (two consecutive
+    /// attempts indicate the same amount for the auto row to expand), then
+    /// the simulated sizes are reduced by the total height that will be
+    /// covered by upcoming rows, meaning the remaining simulated sizes are how
+    /// much the auto row should grow by; and returns `true`.
+    ///
+    /// If the simulations don't stabilize (they return 5 different values),
+    /// aborts and returns `false`.
+    #[allow(clippy::too_many_arguments)]
+    fn run_rowspan_simulation(
+        &self,
+        y: usize,
+        max_spanned_row: usize,
+        mut simulated_regions: Regions<'_>,
+        simulated_sizes: &mut Vec<Abs>,
+        engine: &mut Engine,
+        last_resolved_size: Option<Abs>,
+        unbreakable_rows_left: usize,
+    ) -> SourceResult<bool> {
         // The max amount this row can expand will be the total size requested
         // by rowspans which was not yet resolved. It is worth noting that,
         // earlier, we pushed the last resolved size to 'simulated_sizes' as
@@ -681,10 +743,7 @@ impl<'a> GridLayouter<'a> {
             if extra_amount_to_grow <= Abs::zero() {
                 // The amount to grow is enough to fully cover the rowspans.
                 // Reduce sizes by the amount actually spanned by gutter.
-                subtract_end_sizes(
-                    &mut simulated_sizes,
-                    max_growable_height - amount_to_grow,
-                );
+                subtract_end_sizes(simulated_sizes, max_growable_height - amount_to_grow);
                 if let Some(last_resolved_size) = last_resolved_size {
                     // Ensure the first simulated size is at least as large as
                     // the last resolved size (its initial value). As it was
@@ -696,8 +755,7 @@ impl<'a> GridLayouter<'a> {
                         simulated_sizes.push(last_resolved_size);
                     }
                 }
-                resolved.extend(simulated_sizes);
-                return Ok(());
+                return Ok(true);
             }
 
             // The amount to grow the auto row by has changed since the last
@@ -718,30 +776,7 @@ impl<'a> GridLayouter<'a> {
             simulated_regions.size.y -= extra_amount_to_grow;
         }
 
-        // If the simulation didn't stabilize above, we will just pretend all
-        // gutters were removed, as a best effort. That means the auto row will
-        // expand more than it normally should, but there isn't much we can do.
-        let will_be_covered_height = self
-            .grid
-            .rows
-            .iter()
-            .enumerate()
-            .skip(y + 1)
-            .take(max_spanned_row - y)
-            .filter(|(y, _)| !self.grid.is_gutter_track(*y))
-            .map(|(_, row)| match row {
-                Sizing::Rel(v) => {
-                    v.resolve(self.styles).relative_to(self.regions.base().y)
-                }
-                _ => Abs::zero(),
-            })
-            .sum();
-
-        subtract_end_sizes(&mut simulated_sizes, will_be_covered_height);
-
-        resolved.extend(simulated_sizes);
-
-        Ok(())
+        Ok(false)
     }
 }
 
