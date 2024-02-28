@@ -255,7 +255,7 @@ pub enum GridItem<T: ResolvableCell> {
         stroke: Option<Arc<Stroke<Abs>>>,
         /// The span of the corresponding line element.
         span: Span,
-        /// The line's position. "before" here means on top of row 'y', while
+        /// The line's position. "before" here means on top of row `y`, while
         /// "after" means below it.
         position: LinePosition,
     },
@@ -268,7 +268,7 @@ pub enum GridItem<T: ResolvableCell> {
         stroke: Option<Arc<Stroke<Abs>>>,
         /// The span of the corresponding line element.
         span: Span,
-        /// The line's position. "before" here means to the left of column 'x',
+        /// The line's position. "before" here means to the left of column `x`,
         /// while "after" means to its right (both considering LTR).
         position: LinePosition,
     },
@@ -281,7 +281,7 @@ pub enum GridItem<T: ResolvableCell> {
 pub trait ResolvableCell {
     /// Resolves the cell's fields, given its coordinates and default grid-wide
     /// fill, align, inset and stroke properties, plus the expected value of
-    /// the 'breakable' field.
+    /// the `breakable` field.
     /// Returns a final Cell.
     #[allow(clippy::too_many_arguments)]
     fn resolve_cell(
@@ -867,9 +867,8 @@ impl CellGrid {
             // gutter cell by checking if its parent would come before (x, y).
             // Otherwise, no cell is merged with this gutter cell, and we
             // return None.
-            self.parent_cell_position(x + x % 2, y + y % 2).filter(
-                |Axes { x: parent_x, y: parent_y }| *parent_x <= x && *parent_y <= y,
-            )
+            self.parent_cell_position(x + x % 2, y + y % 2)
+                .filter(|&parent| parent.x <= x && parent.y <= y)
         } else {
             self.parent_cell_position(x, y)
         }
@@ -1045,7 +1044,7 @@ pub(super) enum Row {
     /// Finished row frame of auto or relative row with y index.
     /// The last parameter indicates whether or not this is the last region
     /// where this row is laid out, and it can only be false when a row uses
-    /// 'layout_multi_row', which in turn is only used by breakable auto rows.
+    /// `layout_multi_row`, which in turn is only used by breakable auto rows.
     Frame(Frame, usize, bool),
     /// Fractional row with y index.
     Fr(Fr, usize),
@@ -1105,9 +1104,7 @@ impl<'a> GridLayouter<'a> {
                 match self.grid.rows[y] {
                     Sizing::Auto => self.layout_auto_row(engine, y)?,
                     Sizing::Rel(v) => self.layout_relative_row(engine, v, y)?,
-                    Sizing::Fr(v) => {
-                        self.lrows.push(Row::Fr(v, y));
-                    }
+                    Sizing::Fr(v) => self.lrows.push(Row::Fr(v, y)),
                 }
             }
 
@@ -1127,9 +1124,9 @@ impl<'a> GridLayouter<'a> {
         // 2. The rowspan's last row was an auto row at the last region which
         // was not laid out, and no other rows were laid out after it. Those
         // might still need to be laid out, so we check for them.
-        std::mem::take(&mut self.rowspans)
-            .into_iter()
-            .try_for_each(|rowspan| self.layout_rowspan(rowspan, None, engine))?;
+        for rowspan in std::mem::take(&mut self.rowspans) {
+            self.layout_rowspan(rowspan, None, engine)?;
+        }
 
         self.render_fills_strokes()
     }
@@ -1251,10 +1248,9 @@ impl<'a> GridLayouter<'a> {
                         y / 2
                     })
                     .map(|hlines| &**hlines)
-                    .unwrap_or(&[]);
-
-                let hlines_at_row =
-                    hlines_at_row.iter().chain(if prev_y.is_none() && y != 0 {
+                    .unwrap_or(&[])
+                    .iter()
+                    .chain(if prev_y.is_none() && y != 0 {
                         // For lines at the top of the region, give priority to
                         // the lines at the top border.
                         self.grid
@@ -1263,7 +1259,10 @@ impl<'a> GridLayouter<'a> {
                             .map(|top_border_lines| &**top_border_lines)
                             .unwrap_or(&[])
                     } else {
-                        // When not at the top of the region, no border lines to consider.
+                        // When not at the top of the region, no border lines
+                        // to consider.
+                        // When at the top of the region but at the first row,
+                        // its own lines are already the border lines.
                         &[]
                     });
 
@@ -1352,46 +1351,37 @@ impl<'a> GridLayouter<'a> {
                     // therefore removed), so its fill could start in that
                     // gutter row. That's why we use
                     // 'effective_parent_cell_position'.
-                    let Some(Axes { x: parent_x, y: parent_y }) =
-                        self.grid.effective_parent_cell_position(x, row.y)
-                    else {
-                        // Ignore gutter which isn't part of a merged cell.
-                        dy += row.height;
-                        continue;
-                    };
+                    let parent = self
+                        .grid
+                        .effective_parent_cell_position(x, row.y)
+                        .filter(|parent| {
+                            // Ensure this is the first column spanned by the
+                            // cell before drawing its fill, otherwise we
+                            // already rendered its fill in a previous
+                            // iteration of the outer loop (and/or this is a
+                            // gutter column, which we ignore).
+                            //
+                            // Additionally, we should only draw the fill when
+                            // this row is the local parent Y for this cell,
+                            // that is, the first row spanned by the cell's
+                            // parent in this region, because if the parent
+                            // cell's fill was already drawn in a previous
+                            // region, we must render it again in later regions
+                            // spanned by that cell. Note that said condition
+                            // always holds when the current cell has a rowspan
+                            // of 1 and we're not currently at a gutter row.
+                            parent.x == x
+                                && (parent.y == row.y
+                                    || rows
+                                        .iter()
+                                        .find(|row| row.y >= parent.y)
+                                        .is_some_and(|first_spanned_row| {
+                                            first_spanned_row.y == row.y
+                                        }))
+                        });
 
-                    if parent_x != x {
-                        // This isn't the first column spanned by the cell, so
-                        // we already rendered its fill in a previous
-                        // iteration of the outer loop. Skip.
-                        // This check also skips gutter columns, since
-                        // a parent cell is never part of gutter.
-                        dy += row.height;
-                        continue;
-                    }
-
-                    // The "local parent Y" is the first row spanned by the
-                    // parent cell in this region.
-                    // Even if the parent cell's fill was already drawn in a
-                    // previous region, we must render it again in later
-                    // regions.
-                    // Worth noting that 'parent_y <= row.y' is guaranteed by
-                    // our usage of 'effective_parent_cell_position', so there
-                    // is no risk of us checking a cell that does not span the
-                    // current row.
-                    let is_local_parent_y = {
-                        parent_y == row.y
-                            || rows.iter().find(|row| row.y >= parent_y).is_some_and(
-                                |first_spanned_row| first_spanned_row.y == row.y,
-                            )
-                    };
-
-                    // Ensure we are at the very first row spanned by the cell
-                    // in this region before rendering fill. Note that this
-                    // will always be true if the current cell has rowspan == 1
-                    // and we're not currently handling a gutter row.
-                    if is_local_parent_y {
-                        let cell = self.grid.cell(parent_x, parent_y).unwrap();
+                    if let Some(parent) = parent {
+                        let cell = self.grid.cell(parent.x, parent.y).unwrap();
                         let fill = cell.fill.clone();
                         if let Some(fill) = fill {
                             let rowspan = self.grid.effective_rowspan_of_cell(cell);
@@ -1400,7 +1390,7 @@ impl<'a> GridLayouter<'a> {
                             } else {
                                 rows.iter()
                                     .filter(|row| {
-                                        (parent_y..parent_y + rowspan).contains(&row.y)
+                                        (parent.y..parent.y + rowspan).contains(&row.y)
                                     })
                                     .map(|row| row.height)
                                     .sum()
@@ -1520,16 +1510,14 @@ impl<'a> GridLayouter<'a> {
             let mut resolved = Abs::zero();
             for y in 0..self.grid.rows.len() {
                 // We get the parent cell in case this is a merged position.
-                let Some(Axes { x: parent_x, y: parent_y }) =
-                    self.grid.parent_cell_position(x, y)
-                else {
+                let Some(parent) = self.grid.parent_cell_position(x, y) else {
                     continue;
                 };
-                if parent_y != y {
+                if parent.y != y {
                     // Don't check the width of rowspans more than once.
                     continue;
                 }
-                let cell = self.grid.cell(parent_x, parent_y).unwrap();
+                let cell = self.grid.cell(parent.x, parent.y).unwrap();
                 let colspan = self.grid.effective_colspan_of_cell(cell);
                 if colspan > 1 {
                     let last_spanned_auto_col = self
@@ -1537,7 +1525,7 @@ impl<'a> GridLayouter<'a> {
                         .cols
                         .iter()
                         .enumerate()
-                        .skip(parent_x)
+                        .skip(parent.x)
                         .take(colspan)
                         .rev()
                         .find(|(_, col)| **col == Sizing::Auto)
@@ -1555,7 +1543,7 @@ impl<'a> GridLayouter<'a> {
                     && !all_frac_cols.is_empty()
                     && all_frac_cols
                         .iter()
-                        .all(|x| (parent_x..parent_x + colspan).contains(x))
+                        .all(|x| (parent.x..parent.x + colspan).contains(x))
                 {
                     // Additionally, as a heuristic, a colspan won't affect the
                     // size of auto columns if it already spans all fractional
@@ -1590,6 +1578,7 @@ impl<'a> GridLayouter<'a> {
                         }
                     })
                     .unwrap_or_else(|| self.regions.base().y);
+
                 // Don't expand this auto column more than the cell actually
                 // needs. To do this, we check how much the other, previously
                 // resolved columns provide to the cell in terms of width
@@ -1604,7 +1593,7 @@ impl<'a> GridLayouter<'a> {
                 // an auto column. One mitigation for this is the heuristic
                 // used above to not expand the last auto column spanned by a
                 // cell if it spans all fractional columns in a finite region.
-                let already_covered_width = self.cell_spanned_width(cell, parent_x);
+                let already_covered_width = self.cell_spanned_width(cell, parent.x);
 
                 let size = Size::new(available, height);
                 let pod = Regions::one(size, Axes::splat(false));
@@ -1745,24 +1734,22 @@ impl<'a> GridLayouter<'a> {
         unbreakable_rows_left: usize,
         row_group_data: &UnbreakableRowGroup,
     ) -> SourceResult<Option<Vec<Abs>>> {
-        let unbreakable = unbreakable_rows_left > 0;
+        let breakable = unbreakable_rows_left == 0;
         let mut resolved: Vec<Abs> = vec![];
         let mut pending_rowspans: Vec<(usize, usize, Vec<Abs>)> = vec![];
 
         for x in 0..self.rcols.len() {
             // Get the parent cell in case this is a merged position.
-            let Some(Axes { x: parent_x, y: parent_y }) =
-                self.grid.parent_cell_position(x, y)
-            else {
+            let Some(parent) = self.grid.parent_cell_position(x, y) else {
                 // Skip gutter columns.
                 continue;
             };
-            if parent_x != x {
+            if parent.x != x {
                 // Only check the height of a colspan once.
                 continue;
             }
             // The parent cell is never a gutter or merged position.
-            let cell = self.grid.cell(parent_x, parent_y).unwrap();
+            let cell = self.grid.cell(parent.x, parent.y).unwrap();
             let rowspan = self.grid.effective_rowspan_of_cell(cell);
 
             // This variable is used to construct a custom backlog if the cell
@@ -1811,7 +1798,7 @@ impl<'a> GridLayouter<'a> {
                     .rows
                     .iter()
                     .enumerate()
-                    .skip(parent_y)
+                    .skip(parent.y)
                     .take(rowspan)
                     .rev()
                     .find(|(_, &row)| row == Sizing::Auto)
@@ -1830,7 +1817,7 @@ impl<'a> GridLayouter<'a> {
                     .iter()
                     .filter_map(|row| match row {
                         Row::Frame(frame, y, _)
-                            if (parent_y..parent_y + rowspan).contains(y) =>
+                            if (parent.y..parent.y + rowspan).contains(y) =>
                         {
                             Some(frame.height())
                         }
@@ -1846,7 +1833,7 @@ impl<'a> GridLayouter<'a> {
                 let unbreakable_height: Abs = row_group_data
                     .rows
                     .iter()
-                    .filter(|(y, _)| (parent_y..parent_y + rowspan).contains(y))
+                    .filter(|(y, _)| (parent.y..parent.y + rowspan).contains(y))
                     .map(|(_, height)| height)
                     .sum();
 
@@ -1861,7 +1848,7 @@ impl<'a> GridLayouter<'a> {
                 )) = self
                     .rowspans
                     .iter()
-                    .find(|data| data.x == parent_x && data.y == parent_y)
+                    .find(|data| data.x == parent.x && data.y == parent.y)
                     .map(|data| (data.region_full, &*data.heights))
                 {
                     // The rowspan started in a previous region (as it already
@@ -1871,7 +1858,7 @@ impl<'a> GridLayouter<'a> {
                     // remaining heights, plus the current region's size, plus
                     // the current backlog.
                     frames_in_previous_regions = rowspan_other_heights.len() + 1;
-                    rowspan_backlog = if unbreakable {
+                    rowspan_backlog = if !breakable {
                         // No extra backlog if this is an unbreakable auto row.
                         // Ensure, when measuring, that the rowspan can be laid
                         // out through all spanned rows which were already laid
@@ -1913,7 +1900,7 @@ impl<'a> GridLayouter<'a> {
 
             let width = self.cell_spanned_width(cell, x);
 
-            let frames = if unbreakable {
+            let frames = if !breakable {
                 // Force cell to fit into a single region when the row is unbreakable.
                 let mut pod = Regions::one(Axes::new(width, height), self.regions.expand);
                 pod.full = full;
@@ -1942,7 +1929,7 @@ impl<'a> GridLayouter<'a> {
 
             // Skip the first region if one cell in it is empty. Then,
             // remeasure.
-            if can_skip && !unbreakable {
+            if can_skip && breakable {
                 let mut relevant_frames = frames.iter().skip(frames_in_previous_regions);
                 let first = relevant_frames.next();
                 let mut rest = relevant_frames;
@@ -1989,7 +1976,7 @@ impl<'a> GridLayouter<'a> {
                     *first_frame_size -= already_covered_height;
                 }
 
-                let last_spanned_row = parent_y + rowspan - 1;
+                let last_spanned_row = parent.y + rowspan - 1;
 
                 // When the rowspan is unbreakable, or all of its upcoming
                 // spanned rows are in the same unbreakable row group, its
@@ -2013,7 +2000,7 @@ impl<'a> GridLayouter<'a> {
                     && self.grid.has_gutter
                     && !is_effectively_unbreakable_rowspan
                 {
-                    pending_rowspans.push((parent_y, rowspan, sizes));
+                    pending_rowspans.push((parent.y, rowspan, sizes));
                     continue;
                 }
 
@@ -2068,7 +2055,7 @@ impl<'a> GridLayouter<'a> {
             )?;
         }
 
-        debug_assert!(!unbreakable || resolved.len() < 2);
+        debug_assert!(breakable || resolved.len() <= 1);
 
         Ok(Some(resolved))
     }
@@ -2202,8 +2189,8 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Push a row frame into the current region.
-    /// The 'is_last' parameter must be 'true' if this is the last frame which
-    /// will be pushed for this particular row. It can be 'false' for rows
+    /// The `is_last` parameter must be `true` if this is the last frame which
+    /// will be pushed for this particular row. It can be `false` for rows
     /// spanning multiple regions.
     fn push_row(&mut self, frame: Frame, y: usize, is_last: bool) {
         self.regions.size.y -= frame.height();

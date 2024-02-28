@@ -648,11 +648,11 @@ impl ResolvableCell for Packed<TableCell> {
         (**self).y(styles)
     }
 
-    fn colspan(&self, styles: StyleChain) -> std::num::NonZeroUsize {
+    fn colspan(&self, styles: StyleChain) -> NonZeroUsize {
         (**self).colspan(styles)
     }
 
-    fn rowspan(&self, styles: StyleChain) -> std::num::NonZeroUsize {
+    fn rowspan(&self, styles: StyleChain) -> NonZeroUsize {
         (**self).rowspan(styles)
     }
 

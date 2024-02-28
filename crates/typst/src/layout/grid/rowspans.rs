@@ -40,8 +40,8 @@ pub(super) struct UnbreakableRowGroup {
 impl<'a> GridLayouter<'a> {
     /// Layout rowspans over the already finished regions, plus the current
     /// region, if it wasn't finished yet (because we're being called from
-    /// 'finish_region', but note that this function is also called once after
-    /// all regions are finished, in which case 'current_region' is None).
+    /// `finish_region`, but note that this function is also called once after
+    /// all regions are finished, in which case `current_region` is None).
     ///
     /// We need to do this only once we already know the heights of all
     /// spanned rows, which is only possible after laying out the last row
@@ -55,8 +55,8 @@ impl<'a> GridLayouter<'a> {
         let Rowspan {
             x, y, dx, dy, first_region, region_full, heights, ..
         } = rowspan_data;
-        let Some((&first_height, backlog)) = heights.split_first() else {
-            // Nothing to layout
+        let [first_height, backlog @ ..] = heights.as_slice() else {
+            // Nothing to layout.
             return Ok(());
         };
         let first_column = self.rcols[x];
@@ -64,7 +64,7 @@ impl<'a> GridLayouter<'a> {
         let width = self.cell_spanned_width(cell, x);
 
         // Prepare regions.
-        let size = Size::new(width, first_height);
+        let size = Size::new(width, *first_height);
         let mut pod = Regions::one(size, Axes::splat(true));
         pod.full = region_full;
         pod.backlog = backlog;
@@ -214,24 +214,12 @@ impl<'a> GridLayouter<'a> {
     /// If so, returns the largest rowspan among the unbreakable cells;
     /// the spanned rows must, as a result, be laid out in the same region.
     pub(super) fn check_for_unbreakable_cells(&self, y: usize) -> usize {
-        let mut unbreakable_rows_left = 0;
-        for x in 0..self.grid.cols.len() {
-            let Some(cell) = self.grid.cell(x, y) else {
-                continue;
-            };
-            let rowspan = self.grid.effective_rowspan_of_cell(cell);
-            if !cell.breakable {
-                // At least the next 'rowspan' rows should be grouped together,
-                // in the same page, as this rowspan can't be broken apart.
-                // Since the last row in a rowspan is never gutter, here we
-                // satisfy the invariant that a gutter row won't be the last
-                // row in the unbreakable row group after the remaining rows
-                // are added.
-                unbreakable_rows_left = unbreakable_rows_left.max(rowspan);
-            }
-        }
-
-        unbreakable_rows_left
+        (0..self.grid.cols.len())
+            .filter_map(|x| self.grid.cell(x, y))
+            .filter(|cell| !cell.breakable)
+            .map(|cell| self.grid.effective_rowspan_of_cell(cell))
+            .max()
+            .unwrap_or(0)
     }
 
     /// Performs a simulation to predict by how much height the last spanned
