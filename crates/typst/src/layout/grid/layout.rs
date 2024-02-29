@@ -1092,11 +1092,14 @@ impl<'a> GridLayouter<'a> {
                 self.finish_region(engine)?;
             }
 
-            // Don't layout gutter rows at the top of a region.
-            if is_content_row || !self.lrows.is_empty() {
+            if is_content_row {
+                // Gutter rows have no rowspans or possibly unbreakable cells.
                 self.check_for_rowspans(y);
                 self.check_for_unbreakable_rows(y, engine)?;
+            }
 
+            // Don't layout gutter rows at the top of a region.
+            if is_content_row || !self.lrows.is_empty() {
                 match self.grid.rows[y] {
                     Sizing::Auto => self.layout_auto_row(engine, y)?,
                     Sizing::Rel(v) => self.layout_relative_row(engine, v, y)?,
