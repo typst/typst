@@ -439,6 +439,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     or: ['∨', big: '⋁', curly: '⋎', dot: '⟇', double: '⩔'],
     xor: ['⊕', big: '⨁'],
     models: '⊧',
+    forces: ['⊩', not: '⊮'],
     therefore: '∴',
     because: '∵',
     qed: '∎',
