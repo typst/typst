@@ -27,7 +27,7 @@ Hello
 #set document(title: [Hello])
 
 ---
-// Error: 10-12 can only be used in set rules
+// Error: 2-12 can only be used in set rules
 #document()
 
 ---

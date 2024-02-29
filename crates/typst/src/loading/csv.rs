@@ -16,7 +16,7 @@ use crate::World;
 ///
 /// # Example
 /// ```example
-/// #let results = csv("data.csv")
+/// #let results = csv("example.csv")
 ///
 /// #table(
 ///   columns: 2,

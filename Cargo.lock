@@ -1051,25 +1051,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "029d73f573d8e8d63e6d5020011d3255b28c3ba85d6cf870a07184ed23de9284"
 
 [[package]]
-name = "include_dir"
-version = "0.7.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18762faeff7122e89e0857b02f7ce6fcc0d101d5e9ad2ad7846cc01d61b7f19e"
-dependencies = [
- "include_dir_macros",
-]
-
-[[package]]
-name = "include_dir_macros"
-version = "0.7.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b139284b5cf57ecfa712bcc66950bb635b31aff41c188e8a4cfc758eca374a3f"
-dependencies = [
- "proc-macro2",
- "quote",
-]
-
-[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1173,6 +1154,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cee9c64da59eae3b50095c18d3e74f8b73c0b86d2792824ff01bbce68ba229ca"
 dependencies = [
  "wasm-bindgen",
+]
+
+[[package]]
+name = "kamadak-exif"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef4fc70d0ab7e5b6bafa30216a6b48705ea964cdfc29c050f2412295eba58077"
+dependencies = [
+ "mutate_once",
 ]
 
 [[package]]
@@ -1376,6 +1366,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "mutate_once"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16cf681a23b4d0a43fc35024c176437f9dcd818db34e0f42ab456a0ee5ad497b"
+
+[[package]]
 name = "native-tls"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1520,6 +1516,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
+name = "openssl-src"
+version = "300.1.6+3.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "439fac53e092cd7442a3660c85dde4643ab3b5bd39040912388dcdabf6b88085"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "openssl-sys"
 version = "0.9.99"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1527,6 +1532,7 @@ checksum = "22e1bf214306098e4832460f797824c05d25aacdf896f64a985fb0fd992454ae"
 dependencies = [
  "cc",
  "libc",
+ "openssl-src",
  "pkg-config",
  "vcpkg",
 ]
@@ -1733,6 +1739,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "portable-atomic"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7170ef9988bc169ba16dd36a7fa041e5c4cbeb6a35b76d4c03daded371eae7c0"
+
+[[package]]
 name = "postcard"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1778,6 +1790,12 @@ dependencies = [
  "memchr",
  "unicase",
 ]
+
+[[package]]
+name = "qcms"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edecfcd5d755a5e5d98e24cf43113e7cdaec5a070edd0f6b250c03a573da30fa"
 
 [[package]]
 name = "quick-xml"
@@ -2548,14 +2566,18 @@ dependencies = [
  "icu_provider_adapters",
  "icu_provider_blob",
  "icu_segmenter",
+ "if_chain",
  "image",
  "indexmap 2.1.0",
+ "kamadak-exif",
  "kurbo",
  "lipsum",
  "log",
  "once_cell",
  "palette",
  "phf",
+ "portable-atomic",
+ "qcms",
  "rayon",
  "regex",
  "roxmltree 0.19.0",
@@ -2572,6 +2594,7 @@ dependencies = [
  "ttf-parser",
  "two-face",
  "typed-arena",
+ "typst-assets",
  "typst-macros",
  "typst-syntax",
  "typst-timing",
@@ -2582,6 +2605,11 @@ dependencies = [
  "usvg",
  "wasmi",
 ]
+
+[[package]]
+name = "typst-assets"
+version = "0.10.0"
+source = "git+https://github.com/typst/typst-assets?rev=79e1c84#79e1c84788fb23f34755b8ebb300dcd9bc4af77f"
 
 [[package]]
 name = "typst-cli"
@@ -2603,6 +2631,7 @@ dependencies = [
  "notify",
  "once_cell",
  "open",
+ "openssl",
  "parking_lot",
  "pathdiff",
  "rayon",
@@ -2616,6 +2645,7 @@ dependencies = [
  "tar",
  "tempfile",
  "typst",
+ "typst-assets",
  "typst-macros",
  "typst-pdf",
  "typst-render",
@@ -2627,20 +2657,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "typst-dev-assets"
+version = "0.10.0"
+source = "git+https://github.com/typst/typst-dev-assets?rev=1dba4be#1dba4bea22e5e19597fbf5f321b047ff7626e2d0"
+
+[[package]]
 name = "typst-docs"
 version = "0.10.0"
 dependencies = [
+ "clap",
  "comemo",
  "ecow",
  "heck",
- "include_dir",
  "once_cell",
  "pulldown-cmark",
  "serde",
+ "serde_json",
  "serde_yaml 0.9.27",
  "syntect",
  "typed-arena",
  "typst",
+ "typst-assets",
+ "typst-dev-assets",
+ "typst-render",
  "unicode_names2",
  "unscanny",
  "yaml-front-matter",
@@ -2653,6 +2692,7 @@ dependencies = [
  "comemo",
  "libfuzzer-sys",
  "typst",
+ "typst-assets",
  "typst-render",
  "typst-syntax",
 ]
@@ -2696,6 +2736,7 @@ dependencies = [
  "svg2pdf",
  "ttf-parser",
  "typst",
+ "typst-assets",
  "typst-macros",
  "typst-timing",
  "unicode-properties",
@@ -2767,6 +2808,8 @@ dependencies = [
  "tiny-skia",
  "ttf-parser",
  "typst",
+ "typst-assets",
+ "typst-dev-assets",
  "typst-ide",
  "typst-pdf",
  "typst-render",

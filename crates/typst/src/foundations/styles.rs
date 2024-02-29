@@ -1,21 +1,21 @@
 use std::any::{Any, TypeId};
-use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
-use std::{iter, mem, ptr};
+use std::{mem, ptr};
 
-use comemo::Prehashed;
 use ecow::{eco_vec, EcoString, EcoVec};
 use smallvec::SmallVec;
 
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, func, ty, Content, Element, Func, NativeElement, Packed, Repr, Selector,
-    Show,
+    cast, elem, func, ty, Content, Context, Element, Func, NativeElement, Packed, Repr,
+    Selector, Show,
 };
+use crate::introspection::Locatable;
 use crate::syntax::Span;
 use crate::text::{FontFamily, FontList, TextElem};
+use crate::util::LazyHash;
 
 /// Provides access to active styles.
 ///
@@ -25,10 +25,10 @@ use crate::text::{FontFamily, FontList, TextElem};
 /// styles defined by [set rules]($styling/#set-rules).
 ///
 /// ```example
-/// #let thing(body) = style(styles => {
-///   let size = measure(body, styles)
+/// #let thing(body) = context {
+///   let size = measure(body)
 ///   [Width of "#body" is #size.width]
-/// })
+/// }
 ///
 /// #thing[Hey] \
 /// #thing[Welcome]
@@ -49,7 +49,7 @@ pub fn style(
 }
 
 /// Executes a style access.
-#[elem(Show)]
+#[elem(Locatable, Show)]
 struct StyleElem {
     /// The function to call with the styles.
     #[required]
@@ -59,14 +59,15 @@ struct StyleElem {
 impl Show for Packed<StyleElem> {
     #[typst_macros::time(name = "style", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.func().call(engine, [styles.to_map()])?.display())
+        let context = Context::new(self.location(), Some(styles));
+        Ok(self.func().call(engine, &context, [styles.to_map()])?.display())
     }
 }
 
 /// A list of style properties.
 #[ty(cast)]
 #[derive(Default, PartialEq, Clone, Hash)]
-pub struct Styles(EcoVec<Prehashed<Style>>);
+pub struct Styles(EcoVec<LazyHash<Style>>);
 
 impl Styles {
     /// Create a new, empty style list.
@@ -90,7 +91,7 @@ impl Styles {
     /// style map, `self` contributes the outer values and `value` is the inner
     /// one.
     pub fn set(&mut self, style: impl Into<Style>) {
-        self.0.push(Prehashed::new(style.into()));
+        self.0.push(LazyHash::new(style.into()));
     }
 
     /// Remove the style that was last set.
@@ -106,22 +107,20 @@ impl Styles {
 
     /// Apply one outer styles.
     pub fn apply_one(&mut self, outer: Style) {
-        self.0.insert(0, Prehashed::new(outer));
+        self.0.insert(0, LazyHash::new(outer));
     }
 
     /// Apply a slice of outer styles.
-    pub fn apply_slice(&mut self, outer: &[Prehashed<Style>]) {
+    pub fn apply_slice(&mut self, outer: &[LazyHash<Style>]) {
         self.0 = outer.iter().cloned().chain(mem::take(self).0).collect();
     }
 
     /// Add an origin span to all contained properties.
     pub fn spanned(mut self, span: Span) -> Self {
         for entry in self.0.make_mut() {
-            entry.update(|entry| {
-                if let Style::Property(property) = entry {
-                    property.span = Some(span);
-                }
-            });
+            if let Style::Property(property) = &mut **entry {
+                property.span = Some(span);
+            }
         }
         self
     }
@@ -148,15 +147,15 @@ impl Styles {
     }
 }
 
-impl From<Prehashed<Style>> for Styles {
-    fn from(style: Prehashed<Style>) -> Self {
+impl From<LazyHash<Style>> for Styles {
+    fn from(style: LazyHash<Style>) -> Self {
         Self(eco_vec![style])
     }
 }
 
 impl From<Style> for Styles {
     fn from(style: Style) -> Self {
-        Self(eco_vec![Prehashed::new(style)])
+        Self(eco_vec![LazyHash::new(style)])
     }
 }
 
@@ -263,8 +262,8 @@ impl Property {
     }
 
     /// Turn this property into prehashed style.
-    pub fn wrap(self) -> Prehashed<Style> {
-        Prehashed::new(Style::Property(self))
+    pub fn wrap(self) -> LazyHash<Style> {
+        LazyHash::new(Style::Property(self))
     }
 }
 
@@ -382,15 +381,20 @@ impl Recipe {
     pub fn applicable(&self, target: &Content, styles: StyleChain) -> bool {
         self.selector
             .as_ref()
-            .map_or(false, |selector| selector.matches(target, Some(styles)))
+            .is_some_and(|selector| selector.matches(target, Some(styles)))
     }
 
     /// Apply the recipe to the given content.
-    pub fn apply(&self, engine: &mut Engine, content: Content) -> SourceResult<Content> {
+    pub fn apply(
+        &self,
+        engine: &mut Engine,
+        context: &Context,
+        content: Content,
+    ) -> SourceResult<Content> {
         let mut content = match &self.transform {
             Transformation::Content(content) => content.clone(),
             Transformation::Func(func) => {
-                let mut result = func.call(engine, [content.clone()]);
+                let mut result = func.call(engine, context, [content.clone()]);
                 if self.selector.is_some() {
                     let point = || Tracepoint::Show(content.func().name().into());
                     result = result.trace(engine.world, point, content.span());
@@ -458,7 +462,7 @@ cast! {
 #[derive(Default, Clone, Copy, Hash)]
 pub struct StyleChain<'a> {
     /// The first link of this chain.
-    head: &'a [Prehashed<Style>],
+    head: &'a [LazyHash<Style>],
     /// The remaining links in the chain.
     tail: Option<&'a Self>,
 }
@@ -570,13 +574,13 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Iterate over the links of the chain.
-    fn links(self) -> Links<'a> {
+    pub fn links(self) -> Links<'a> {
         Links(Some(self))
     }
 
     /// Build owned styles from the suffix (all links beyond the `len`) of the
     /// chain.
-    fn suffix(self, len: usize) -> Styles {
+    pub fn suffix(self, len: usize) -> Styles {
         let mut suffix = Styles::new();
         let take = self.links().count().saturating_sub(len);
         for link in self.links().take(take) {
@@ -586,7 +590,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Remove the last link from the chain.
-    fn pop(&mut self) {
+    pub fn pop(&mut self) {
         *self = self.tail.copied().unwrap_or_default();
     }
 }
@@ -617,7 +621,7 @@ pub trait Chainable {
     fn chain<'a>(&'a self, outer: &'a StyleChain<'_>) -> StyleChain<'a>;
 }
 
-impl Chainable for Prehashed<Style> {
+impl Chainable for LazyHash<Style> {
     fn chain<'a>(&'a self, outer: &'a StyleChain<'_>) -> StyleChain<'a> {
         StyleChain {
             head: std::slice::from_ref(self),
@@ -626,7 +630,7 @@ impl Chainable for Prehashed<Style> {
     }
 }
 
-impl Chainable for [Prehashed<Style>] {
+impl Chainable for [LazyHash<Style>] {
     fn chain<'a>(&'a self, outer: &'a StyleChain<'_>) -> StyleChain<'a> {
         if self.is_empty() {
             *outer
@@ -636,7 +640,7 @@ impl Chainable for [Prehashed<Style>] {
     }
 }
 
-impl<const N: usize> Chainable for [Prehashed<Style>; N] {
+impl<const N: usize> Chainable for [LazyHash<Style>; N] {
     fn chain<'a>(&'a self, outer: &'a StyleChain<'_>) -> StyleChain<'a> {
         Chainable::chain(self.as_slice(), outer)
     }
@@ -650,7 +654,7 @@ impl Chainable for Styles {
 
 /// An iterator over the entries in a style chain.
 pub struct Entries<'a> {
-    inner: std::slice::Iter<'a, Prehashed<Style>>,
+    inner: std::slice::Iter<'a, LazyHash<Style>>,
     links: Links<'a>,
 }
 
@@ -672,210 +676,15 @@ impl<'a> Iterator for Entries<'a> {
 }
 
 /// An iterator over the links of a style chain.
-struct Links<'a>(Option<StyleChain<'a>>);
+pub struct Links<'a>(Option<StyleChain<'a>>);
 
 impl<'a> Iterator for Links<'a> {
-    type Item = &'a [Prehashed<Style>];
+    type Item = &'a [LazyHash<Style>];
 
     fn next(&mut self) -> Option<Self::Item> {
         let StyleChain { head, tail } = self.0?;
         self.0 = tail.copied();
         Some(head)
-    }
-}
-
-/// A sequence of items with associated styles.
-#[derive(Clone, Hash)]
-pub struct StyleVec<T> {
-    items: Vec<T>,
-    styles: Vec<(Styles, usize)>,
-}
-
-impl<T> StyleVec<T> {
-    /// Whether there are any items in the sequence.
-    pub fn is_empty(&self) -> bool {
-        self.items.is_empty()
-    }
-
-    /// Number of items in the sequence.
-    pub fn len(&self) -> usize {
-        self.items.len()
-    }
-
-    /// Insert an item in the front. The item will share the style of the
-    /// current first item.
-    ///
-    /// This method has no effect if the vector is empty.
-    pub fn push_front(&mut self, item: T) {
-        if !self.styles.is_empty() {
-            self.items.insert(0, item);
-            self.styles[0].1 += 1;
-        }
-    }
-
-    /// Map the contained items.
-    pub fn map<F, U>(&self, f: F) -> StyleVec<U>
-    where
-        F: FnMut(&T) -> U,
-    {
-        StyleVec {
-            items: self.items.iter().map(f).collect(),
-            styles: self.styles.clone(),
-        }
-    }
-
-    /// Iterate over references to the contained items and associated styles.
-    pub fn iter(&self) -> impl Iterator<Item = (&T, &Styles)> + '_ {
-        self.items().zip(
-            self.styles
-                .iter()
-                .flat_map(|(map, count)| iter::repeat(map).take(*count)),
-        )
-    }
-
-    /// Iterate over the contained items.
-    pub fn items(&self) -> std::slice::Iter<'_, T> {
-        self.items.iter()
-    }
-
-    /// Extract the contained items.
-    pub fn into_items(self) -> Vec<T> {
-        self.items
-    }
-
-    /// Iterate over the contained style lists. Note that zipping this with
-    /// `items()` does not yield the same result as calling `iter()` because
-    /// this method only returns lists once that are shared by consecutive
-    /// items. This method is designed for use cases where you want to check,
-    /// for example, whether any of the lists fulfills a specific property.
-    pub fn styles(&self) -> impl Iterator<Item = &Styles> {
-        self.styles.iter().map(|(map, _)| map)
-    }
-}
-
-impl<'a> StyleVec<Cow<'a, Content>> {
-    pub fn to_vec<F: From<Content>>(self) -> Vec<F> {
-        self.items
-            .into_iter()
-            .zip(
-                self.styles
-                    .iter()
-                    .flat_map(|(map, count)| iter::repeat(map).take(*count)),
-            )
-            .map(|(content, styles)| content.into_owned().styled_with_map(styles.clone()))
-            .map(F::from)
-            .collect()
-    }
-}
-
-impl<T> Default for StyleVec<T> {
-    fn default() -> Self {
-        Self { items: vec![], styles: vec![] }
-    }
-}
-
-impl<T> FromIterator<T> for StyleVec<T> {
-    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let items: Vec<_> = iter.into_iter().collect();
-        let styles = vec![(Styles::new(), items.len())];
-        Self { items, styles }
-    }
-}
-
-impl<T: Debug> Debug for StyleVec<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_list()
-            .entries(self.iter().map(|(item, styles)| {
-                crate::util::debug(|f| {
-                    styles.fmt(f)?;
-                    item.fmt(f)
-                })
-            }))
-            .finish()
-    }
-}
-
-/// Assists in the construction of a [`StyleVec`].
-#[derive(Debug)]
-pub struct StyleVecBuilder<'a, T> {
-    items: Vec<T>,
-    chains: Vec<(StyleChain<'a>, usize)>,
-}
-
-impl<'a, T> StyleVecBuilder<'a, T> {
-    /// Create a new style-vec builder.
-    pub fn new() -> Self {
-        Self { items: vec![], chains: vec![] }
-    }
-
-    /// Whether the builder is empty.
-    pub fn is_empty(&self) -> bool {
-        self.items.is_empty()
-    }
-
-    /// Push a new item into the style vector.
-    pub fn push(&mut self, item: T, styles: StyleChain<'a>) {
-        self.items.push(item);
-
-        if let Some((prev, count)) = self.chains.last_mut() {
-            if *prev == styles {
-                *count += 1;
-                return;
-            }
-        }
-
-        self.chains.push((styles, 1));
-    }
-
-    /// Iterate over the contained items.
-    pub fn elems(&self) -> std::slice::Iter<'_, T> {
-        self.items.iter()
-    }
-
-    /// Finish building, returning a pair of two things:
-    /// - a style vector of items with the non-shared styles
-    /// - a shared prefix chain of styles that apply to all items
-    pub fn finish(self) -> (StyleVec<T>, StyleChain<'a>) {
-        let mut iter = self.chains.iter();
-        let mut trunk = match iter.next() {
-            Some(&(chain, _)) => chain,
-            None => return Default::default(),
-        };
-
-        let mut shared = trunk.links().count();
-        for &(mut chain, _) in iter {
-            let len = chain.links().count();
-            if len < shared {
-                for _ in 0..shared - len {
-                    trunk.pop();
-                }
-                shared = len;
-            } else if len > shared {
-                for _ in 0..len - shared {
-                    chain.pop();
-                }
-            }
-
-            while shared > 0 && chain != trunk {
-                trunk.pop();
-                chain.pop();
-                shared -= 1;
-            }
-        }
-
-        let styles = self
-            .chains
-            .into_iter()
-            .map(|(chain, count)| (chain.suffix(shared), count))
-            .collect();
-
-        (StyleVec { items: self.items, styles }, trunk)
-    }
-}
-
-impl<'a, T> Default for StyleVecBuilder<'a, T> {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -929,15 +738,53 @@ impl<T: Fold> Fold for Option<T> {
 }
 
 impl<T> Fold for Vec<T> {
-    fn fold(mut self, outer: Self) -> Self {
-        self.extend(outer);
-        self
+    fn fold(self, mut outer: Self) -> Self {
+        outer.extend(self);
+        outer
     }
 }
 
 impl<T, const N: usize> Fold for SmallVec<[T; N]> {
-    fn fold(mut self, outer: Self) -> Self {
-        self.extend(outer);
-        self
+    fn fold(self, mut outer: Self) -> Self {
+        outer.extend(self);
+        outer
+    }
+}
+
+/// A variant of fold for foldable optional (`Option<T>`) values where an inner
+/// `None` value isn't respected (contrary to `Option`'s usual `Fold`
+/// implementation, with which folding with an inner `None` always returns
+/// `None`). Instead, when either of the `Option` objects is `None`, the other
+/// one is necessarily returned by `fold_or`. Normal folding still occurs when
+/// both values are `Some`, using `T`'s `Fold` implementation.
+///
+/// This is useful when `None` in a particular context means "unspecified"
+/// rather than "absent", in which case a specified value (`Some`) is chosen
+/// over an unspecified one (`None`), while two specified values are folded
+/// together.
+pub trait AlternativeFold {
+    /// Attempts to fold this inner value with an outer value. However, if
+    /// either value is `None`, returns the other one instead of folding.
+    fn fold_or(self, outer: Self) -> Self;
+}
+
+impl<T: Fold> AlternativeFold for Option<T> {
+    fn fold_or(self, outer: Self) -> Self {
+        match (self, outer) {
+            (Some(inner), Some(outer)) => Some(inner.fold(outer)),
+            // If one of values is `None`, return the other one instead of
+            // folding.
+            (inner, outer) => inner.or(outer),
+        }
+    }
+}
+
+/// A type that accumulates depth when folded.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Hash)]
+pub struct Depth(pub usize);
+
+impl Fold for Depth {
+    fn fold(self, outer: Self) -> Self {
+        Self(outer.0 + self.0)
     }
 }

@@ -3,28 +3,28 @@
 
 ---
 // Test reading plain text files
-#let data = read("/files/hello.txt")
+#let data = read("/assets/text/hello.txt")
 #test(data, "Hello, world!\n")
 
 ---
-// Error: 18-38 file not found (searched at files/missing.txt)
-#let data = read("/files/missing.txt")
+// Error: 18-44 file not found (searched at assets/text/missing.txt)
+#let data = read("/assets/text/missing.txt")
 
 ---
-// Error: 18-34 file is not valid utf-8
-#let data = read("/files/bad.txt")
+// Error: 18-40 file is not valid utf-8
+#let data = read("/assets/text/bad.txt")
 
 ---
 // Test reading CSV data.
 // Ref: true
 #set page(width: auto)
-#let data = csv("/files/zoo.csv")
+#let data = csv("/assets/data/zoo.csv")
 #let cells = data.at(0).map(strong) + data.slice(1).flatten()
 #table(columns: data.at(0).len(), ..cells)
 
 ---
 // Test reading CSV data with dictionary rows enabled.
-#let data = csv("/files/zoo.csv", row-type: dictionary)
+#let data = csv("/assets/data/zoo.csv", row-type: dictionary)
 #test(data.len(), 3)
 #test(data.at(0).Name, "Debby")
 #test(data.at(2).Weight, "150kg")
@@ -35,28 +35,28 @@
 #csv("nope.csv")
 
 ---
-// Error: 6-22 failed to parse CSV (found 3 instead of 2 fields in line 3)
-#csv("/files/bad.csv")
+// Error: 6-28 failed to parse CSV (found 3 instead of 2 fields in line 3)
+#csv("/assets/data/bad.csv")
 
 ---
 // Test error numbering with dictionary rows.
-// Error: 6-22 failed to parse CSV (found 3 instead of 2 fields in line 3)
-#csv("/files/bad.csv", row-type: dictionary)
+// Error: 6-28 failed to parse CSV (found 3 instead of 2 fields in line 3)
+#csv("/assets/data/bad.csv", row-type: dictionary)
 
 ---
 // Test reading JSON data.
-#let data = json("/files/zoo.json")
+#let data = json("/assets/data/zoo.json")
 #test(data.len(), 3)
 #test(data.at(0).name, "Debby")
 #test(data.at(2).weight, 150)
 
 ---
-// Error: 7-24 failed to parse JSON (expected value at line 3 column 14)
-#json("/files/bad.json")
+// Error: 7-30 failed to parse JSON (expected value at line 3 column 14)
+#json("/assets/data/bad.json")
 
 ---
 // Test reading TOML data.
-#let data = toml("/files/toml-types.toml")
+#let data = toml("/assets/data/toml-types.toml")
 #test(data.string, "wonderful")
 #test(data.integer, 42)
 #test(data.float, 3.14)
@@ -93,12 +93,12 @@
 ))
 
 ---
-// Error: 7-24 failed to parse TOML (expected `.`, `=` at line 1 column 16)
-#toml("/files/bad.toml")
+// Error: 7-30 failed to parse TOML (expected `.`, `=` at line 1 column 16)
+#toml("/assets/data/bad.toml")
 
 ---
 // Test reading YAML data
-#let data = yaml("/files/yaml-types.yaml")
+#let data = yaml("/assets/data/yaml-types.yaml")
 #test(data.len(), 9)
 #test(data.null_key, (none, none))
 #test(data.string, "text")
@@ -111,12 +111,12 @@
 #test(data.at("1"), "ok")
 
 ---
-// Error: 7-24 failed to parse YAML (did not find expected ',' or ']' at line 2 column 1, while parsing a flow sequence at line 1 column 18)
-#yaml("/files/bad.yaml")
+// Error: 7-30 failed to parse YAML (did not find expected ',' or ']' at line 2 column 1, while parsing a flow sequence at line 1 column 18)
+#yaml("/assets/data/bad.yaml")
 
 ---
 // Test reading XML data.
-#let data = xml("/files/data.xml")
+#let data = xml("/assets/data/hello.xml")
 #test(data, ((
   tag: "data",
   attrs: (:),
@@ -140,5 +140,5 @@
 ),))
 
 ---
-// Error: 6-22 failed to parse XML (found closing tag 'data' instead of 'hello' in line 3)
-#xml("/files/bad.xml")
+// Error: 6-28 failed to parse XML (found closing tag 'data' instead of 'hello' in line 3)
+#xml("/assets/data/bad.xml")

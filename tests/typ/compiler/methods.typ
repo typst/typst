@@ -83,20 +83,19 @@
 
 ---
 // Test length `to-absolute` method.
-
 #set text(size: 12pt)
-#style(styles => {
-  test((6pt).to-absolute(styles), 6pt)
-  test((6pt + 10em).to-absolute(styles), 126pt)
-  test((10em).to-absolute(styles), 120pt)
-})
+#context {
+  test((6pt).to-absolute(), 6pt)
+  test((6pt + 10em).to-absolute(), 126pt)
+  test((10em).to-absolute(), 120pt)
+}
 
 #set text(size: 64pt)
-#style(styles => {
-  test((6pt).to-absolute(styles), 6pt)
-  test((6pt + 10em).to-absolute(styles), 646pt)
-  test((10em).to-absolute(styles), 640pt)
-})
+#context {
+  test((6pt).to-absolute(), 6pt)
+  test((6pt + 10em).to-absolute(), 646pt)
+  test((10em).to-absolute(), 640pt)
+}
 
 ---
 // Error: 2-21 cannot convert a length with non-zero em units (`-6pt + 10.5em`) to pt
@@ -128,7 +127,8 @@
 ---
 // Test color '.components()' without conversions
 #test-repr(rgb(1, 2, 3, 4).components(), (0.39%, 0.78%, 1.18%, 1.57%))
-#test-repr(luma(40).components(), (15.69%, ))
+#test-repr(luma(40).components(), (15.69%, 100%))
+#test-repr(luma(40, 50%).components(), (15.69%, 50%))
 #test-repr(cmyk(4%, 5%, 6%, 7%).components(), (4%, 5%, 6%, 7%))
 #test-repr(oklab(10%, 0.2, 0.3).components(), (10%, 0.2, 0.3, 100%))
 #test-repr(oklch(10%, 0.2, 90deg).components(), (10%, 0.2, 90deg, 100%))
@@ -143,8 +143,8 @@
 #test(rgb(1, 2, 3).to-hex(), "#010203")
 #test(rgb(1, 2, 3, 4).to-hex(), "#01020304")
 #test(luma(40).to-hex(), "#282828")
-#test-repr(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e4e1df")
-#test-repr(rgb(cmyk(4%, 5%, 6%, 7%)).components(), (89.28%, 88.35%, 87.42%, 100%))
+#test-repr(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e0dcda")
+#test-repr(rgb(cmyk(4%, 5%, 6%, 7%)).components(), (87.84%, 86.27%, 85.49%, 100%))
 #test-repr(rgb(luma(40%)).components(alpha: false), (40%, 40%, 40%))
 #test-repr(cmyk(luma(40)).components(), (11.76%, 10.67%, 10.51%, 14.12%))
 #test-repr(cmyk(rgb(1, 2, 3)), cmyk(66.67%, 33.33%, 0%, 98.82%))

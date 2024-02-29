@@ -1,8 +1,9 @@
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    dict, elem, func, Content, Func, NativeElement, Packed, StyleChain,
+    dict, elem, func, Content, Context, Func, NativeElement, Packed, StyleChain,
 };
+use crate::introspection::Locatable;
 use crate::layout::{Fragment, LayoutMultiple, Regions, Size};
 use crate::syntax::Span;
 
@@ -14,15 +15,14 @@ use crate::syntax::Span;
 ///
 /// ```example
 /// #let text = lorem(30)
-/// #layout(size => style(styles => [
+/// #layout(size => [
 ///   #let (height,) = measure(
 ///     block(width: size.width, text),
-///     styles,
 ///   )
 ///   This text is #height high with
 ///   the current page width: \
 ///   #text
-/// ]))
+/// ])
 /// ```
 ///
 /// If the `layout` call is placed inside of a box width a width of `{800pt}`
@@ -63,7 +63,7 @@ pub fn layout(
 }
 
 /// Executes a `layout` call.
-#[elem(LayoutMultiple)]
+#[elem(Locatable, LayoutMultiple)]
 struct LayoutElem {
     /// The function to call with the outer container's (or page's) size.
     #[required]
@@ -81,9 +81,11 @@ impl LayoutMultiple for Packed<LayoutElem> {
         // Gets the current region's base size, which will be the size of the
         // outer container, or of the page if there is no such container.
         let Size { x, y } = regions.base();
+        let loc = self.location().unwrap();
+        let context = Context::new(Some(loc), Some(styles));
         let result = self
             .func()
-            .call(engine, [dict! { "width" => x, "height" => y }])?
+            .call(engine, &context, [dict! { "width" => x, "height" => y }])?
             .display();
         result.layout(engine, styles, regions)
     }

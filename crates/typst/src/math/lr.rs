@@ -47,7 +47,7 @@ impl LayoutMath for Packed<LrElem> {
             }
         }
 
-        let mut fragments = ctx.layout_fragments(body, styles)?;
+        let mut fragments = ctx.layout_into_fragments(body, styles)?;
         let axis = scaled!(ctx, styles, axis_height);
         let max_extent = fragments
             .iter()
@@ -115,7 +115,7 @@ pub struct MidElem {
 impl LayoutMath for Packed<MidElem> {
     #[typst_macros::time(name = "math.mid", span = self.span())]
     fn layout_math(&self, ctx: &mut MathContext, styles: StyleChain) -> SourceResult<()> {
-        let mut fragments = ctx.layout_fragments(self.body(), styles)?;
+        let mut fragments = ctx.layout_into_fragments(self.body(), styles)?;
 
         for fragment in &mut fragments {
             match fragment {

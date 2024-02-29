@@ -4,21 +4,21 @@
 // Count with string key.
 #let mine = counter("mine!")
 
-Final: #locate(loc => mine.final(loc).at(0)) \
+Final: #context mine.final().at(0) \
 #mine.step()
-First: #mine.display() \
+First: #context mine.display() \
 #mine.update(7)
-#mine.display("1 of 1", both: true) \
+#context mine.display("1 of 1", both: true) \
 #mine.step()
 #mine.step()
-Second: #mine.display("I")
+Second: #context mine.display("I")
 #mine.update(n => n * 2)
 #mine.step()
 
 ---
 // Count labels.
 #let label = <heya>
-#let count = counter(label).display()
+#let count = context counter(label).display()
 #let elem(it) = [#box(it) #label]
 
 #elem[hey, there!] #count \
@@ -31,17 +31,17 @@ Second: #mine.display("I")
 #counter(heading).step()
 
 = Alpha
-In #counter(heading).display()
+In #context counter(heading).display()
 == Beta
 
 #set heading(numbering: none)
 = Gamma
 #heading(numbering: "I.")[Delta]
 
-At Beta, it was #locate(loc => {
-  let it = query(heading, loc).find(it => it.body == [Beta])
+At Beta, it was #context {
+  let it = query(heading).find(it => it.body == [Beta])
   numbering(it.numbering, ..counter(heading).at(it.location()))
-})
+}
 
 ---
 // Count figures.

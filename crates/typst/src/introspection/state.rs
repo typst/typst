@@ -1,12 +1,13 @@
 use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
-use crate::diag::SourceResult;
+use crate::diag::{bail, At, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
 use crate::foundations::{
-    cast, elem, func, scope, select_where, ty, Content, Func, NativeElement, Packed,
-    Repr, Selector, Show, Str, StyleChain, Value,
+    cast, elem, func, scope, select_where, ty, Args, Construct, Content, Context, Func,
+    LocatableSelector, NativeElement, Packed, Repr, Selector, Show, Str, StyleChain,
+    Value,
 };
 use crate::introspection::{Introspector, Locatable, Location, Locator};
 use crate::syntax::Span;
@@ -22,6 +23,7 @@ use crate::World;
 /// outside the function are read-only and cannot be modified._
 ///
 /// ```typ
+/// // This doesn't work!
 /// #let x = 0
 /// #let compute(expr) = {
 ///   x = eval(
@@ -70,17 +72,18 @@ use crate::World;
 /// # Managing state in Typst { #state-in-typst }
 /// So what do we do instead? We use Typst's state management system. Calling
 /// the `state` function with an identifying string key and an optional initial
-/// value gives you a state value which exposes a few methods. The two most
-/// important ones are `display` and `update`:
+/// value gives you a state value which exposes a few function. The two most
+/// important ones are `get` and `update`:
 ///
-/// - The `display` method shows the current value of the state. You can
-///   optionally give it a function that receives the value and formats it in
-///   some way.
+/// - The [`get`]($state.get) function retrieves the current value of the state.
+///   Because the value can vary over the course of the document, it is a
+///   _contextual_ function that can only be used when [context]($context) is
+///   available.
 ///
-/// - The `update` method modifies the state. You can give it any value. If
-///   given a non-function value, it sets the state to that value. If given a
-///   function, that function receives the previous state and has to return the
-///   new state.
+/// - The [`update`]($state.update) function modifies the state. You can give it
+///   any value. If given a non-function value, it sets the state to that value.
+///   If given a function, that function receives the previous state and has to
+///   return the new state.
 ///
 /// Our initial example would now look like this:
 ///
@@ -90,7 +93,7 @@ use crate::World;
 ///   #s.update(x =>
 ///     eval(expr.replace("x", str(x)))
 ///   )
-///   New value is #s.display().
+///   New value is #context s.get().
 /// ]
 ///
 /// #compute("10") \
@@ -103,8 +106,8 @@ use crate::World;
 /// order. The `update` method returns content and its effect occurs at the
 /// position where the returned content is inserted into the document.
 ///
-/// As a result, we can now also store some of the computations in
-/// variables, but they still show the correct results:
+/// As a result, we can now also store some of the computations in variables,
+/// but they still show the correct results:
 ///
 /// ```example
 /// >>> #let s = state("x", 0)
@@ -112,7 +115,7 @@ use crate::World;
 /// >>>   #s.update(x =>
 /// >>>     eval(expr.replace("x", str(x)))
 /// >>>   )
-/// >>>   New value is #s.display().
+/// >>>   New value is #context s.get().
 /// >>> ]
 /// <<< ...
 ///
@@ -132,10 +135,9 @@ use crate::World;
 ///
 /// # Time Travel
 /// By using Typst's state management system you also get time travel
-/// capabilities! By combining the state system with [`locate`]($locate) and
-/// [`query`]($query), we can find out what the value of the state will be at
-/// any position in the document from anywhere else. In particular, the `at`
-/// method gives us the value of the state at any location and the `final`
+/// capabilities! We can find out what the value of the state will be at any
+/// position in the document from anywhere else. In particular, the `at` method
+/// gives us the value of the state at any particular location and the `final`
 /// methods gives us the value of the state at the end of the document.
 ///
 /// ```example
@@ -144,16 +146,12 @@ use crate::World;
 /// >>>   #s.update(x => {
 /// >>>     eval(expr.replace("x", str(x)))
 /// >>>   })
-/// >>>   New value is #s.display().
+/// >>>   New value is #context s.get().
 /// >>> ]
 /// <<< ...
 ///
 /// Value at `<here>` is
-/// #locate(loc => s.at(
-///   query(<here>, loc)
-///     .first()
-///     .location()
-/// ))
+/// #context s.at(<here>)
 ///
 /// #compute("10") \
 /// #compute("x + 3") \
@@ -171,21 +169,21 @@ use crate::World;
 /// a state, the results might never converge. The example below illustrates
 /// this. We initialize our state with `1` and then update it to its own final
 /// value plus 1. So it should be `2`, but then its final value is `2`, so it
-/// should be `3`, and so on. This example displays a finite value because
-/// Typst simply gives up after a few attempts.
+/// should be `3`, and so on. This example displays a finite value because Typst
+/// simply gives up after a few attempts.
 ///
 /// ```example
+/// // This is bad!
 /// #let s = state("x", 1)
-/// #locate(loc => {
-///   s.update(s.final(loc) + 1)
-/// })
-/// #s.display()
+/// #context s.update(s.final() + 1)
+/// #context s.get()
 /// ```
 ///
-/// In general, you should _typically_ not generate state updates from within
-/// `locate` calls or `display` calls of state or counters. Instead, pass a
-/// function to `update` that determines the value of the state based on its
-/// previous value.
+/// In general, you should try not to generate state updates from within context
+/// expressions. If possible, try to express your updates as non-contextual
+/// values or functions that compute the new value from the previous value.
+/// Sometimes, it cannot be helped, but in those cases it is up to you to ensure
+/// that the result converges.
 #[ty(scope)]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct State {
@@ -199,6 +197,16 @@ impl State {
     /// Create a new state identified by a key.
     pub fn new(key: Str, init: Value) -> State {
         Self { key, init }
+    }
+
+    /// Get the value of the state at the given location.
+    pub fn at_loc(&self, engine: &mut Engine, loc: Location) -> SourceResult<Value> {
+        let sequence = self.sequence(engine)?;
+        let offset = engine
+            .introspector
+            .query(&self.selector().before(loc.into(), true))
+            .len();
+        Ok(sequence[offset].clone())
     }
 
     /// Produce the whole sequence of states.
@@ -237,10 +245,12 @@ impl State {
         let mut stops = eco_vec![state.clone()];
 
         for elem in introspector.query(&self.selector()) {
-            let elem = elem.to_packed::<UpdateElem>().unwrap();
+            let elem = elem.to_packed::<StateUpdateElem>().unwrap();
             match elem.update() {
                 StateUpdate::Set(value) => state = value.clone(),
-                StateUpdate::Func(func) => state = func.call(&mut engine, [state])?,
+                StateUpdate::Func(func) => {
+                    state = func.call(&mut engine, &Context::none(), [state])?
+                }
             }
             stops.push(state.clone());
         }
@@ -250,7 +260,7 @@ impl State {
 
     /// The selector for this state's updates.
     fn selector(&self) -> Selector {
-        select_where!(UpdateElem, Key => self.key.clone())
+        select_where!(StateUpdateElem, Key => self.key.clone())
     }
 }
 
@@ -268,19 +278,69 @@ impl State {
         Self::new(key, init)
     }
 
-    /// Displays the current value of the state.
-    #[func]
-    pub fn display(
-        self,
-        /// The span of the `display` call.
+    /// Retrieves the value of the state at the current location.
+    ///
+    /// This is equivalent to `{state.at(here())}`.
+    #[func(contextual)]
+    pub fn get(
+        &self,
+        /// The engine.
+        engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
+        /// The callsite span.
         span: Span,
-        /// A function which receives the value of the state and can return
-        /// arbitrary content which is then displayed. If this is omitted, the
-        /// value is directly displayed.
+    ) -> SourceResult<Value> {
+        let loc = context.location().at(span)?;
+        self.at_loc(engine, loc)
+    }
+
+    /// Retrieves the value of the state at the given selector's unique match.
+    ///
+    /// The `selector` must match exactly one element in the document. The most
+    /// useful kinds of selectors for this are [labels]($label) and
+    /// [locations]($location).
+    ///
+    /// _Compatibility:_ For compatibility with Typst 0.10 and lower, this
+    /// function also works without a known context if the `selector` is a
+    /// location. This behaviour will be removed in a future release.
+    #[func(contextual)]
+    pub fn at(
+        &self,
+        /// The engine.
+        engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
+        /// The callsite span.
+        span: Span,
+        /// The place at which the state's value should be retrieved.
+        selector: LocatableSelector,
+    ) -> SourceResult<Value> {
+        let loc = selector.resolve_unique(engine.introspector, context).at(span)?;
+        self.at_loc(engine, loc)
+    }
+
+    /// Retrieves the value of the state at the end of the document.
+    #[func(contextual)]
+    pub fn final_(
+        &self,
+        /// The engine.
+        engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
+        /// The callsite span.
+        span: Span,
+        /// _Compatibility:_ This argument only exists for compatibility with
+        /// Typst 0.10 and lower and shouldn't be used anymore.
         #[default]
-        func: Option<Func>,
-    ) -> Content {
-        DisplayElem::new(self, func).pack().spanned(span)
+        location: Option<Location>,
+    ) -> SourceResult<Value> {
+        if location.is_none() {
+            context.location().at(span)?;
+        }
+
+        let sequence = self.sequence(engine)?;
+        Ok(sequence.last().unwrap().clone())
     }
 
     /// Update the value of the state.
@@ -301,47 +361,24 @@ impl State {
         /// to return the new state.
         update: StateUpdate,
     ) -> Content {
-        UpdateElem::new(self.key, update).pack().spanned(span)
+        StateUpdateElem::new(self.key, update).pack().spanned(span)
     }
 
-    /// Get the value of the state at the given location.
+    /// **Deprection planned:** Use [`get`]($state.get) instead.
+    ///
+    /// Displays the current value of the state.
     #[func]
-    pub fn at(
-        &self,
-        /// The engine.
-        engine: &mut Engine,
-        /// The location at which the state's value should be retrieved. A
-        /// suitable location can be retrieved from [`locate`]($locate) or
-        /// [`query`]($query).
-        location: Location,
-    ) -> SourceResult<Value> {
-        let sequence = self.sequence(engine)?;
-        let offset = engine
-            .introspector
-            .query(&self.selector().before(location.into(), true))
-            .len();
-        Ok(sequence[offset].clone())
-    }
-
-    /// Get the value of the state at the end of the document.
-    #[func]
-    pub fn final_(
-        &self,
-        /// The engine.
-        engine: &mut Engine,
-        /// Can be an arbitrary location, as its value is irrelevant for the
-        /// method's return value. Why is it required then? As noted before,
-        /// Typst has to evaluate parts of your code multiple times to determine
-        /// the values of all state. By only allowing this method within
-        /// [`locate`]($locate) calls, the amount of code that can depend on the
-        /// method's result is reduced. If you could call `final` directly at
-        /// the top level of a module, the evaluation of the whole module and
-        /// its exports could depend on the state's value.
-        location: Location,
-    ) -> SourceResult<Value> {
-        let _ = location;
-        let sequence = self.sequence(engine)?;
-        Ok(sequence.last().unwrap().clone())
+    pub fn display(
+        self,
+        /// The span of the `display` call.
+        span: Span,
+        /// A function which receives the value of the state and can return
+        /// arbitrary content which is then displayed. If this is omitted, the
+        /// value is directly displayed.
+        #[default]
+        func: Option<Func>,
+    ) -> Content {
+        StateDisplayElem::new(self, func).pack().spanned(span)
     }
 }
 
@@ -352,7 +389,6 @@ impl Repr for State {
 }
 
 /// An update to perform on a state.
-#[ty(cast)]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum StateUpdate {
     /// Set the state to the specified value.
@@ -361,56 +397,68 @@ pub enum StateUpdate {
     Func(Func),
 }
 
-impl Repr for StateUpdate {
-    fn repr(&self) -> EcoString {
-        "..".into()
-    }
-}
-
 cast! {
-    type StateUpdate,
+    StateUpdate,
     v: Func => Self::Func(v),
     v: Value => Self::Set(v),
 }
 
 /// Executes a display of a state.
-#[elem(Locatable, Show)]
-struct DisplayElem {
-    /// The state.
-    #[required]
-    state: State,
-
-    /// The function to display the state with.
-    #[required]
-    func: Option<Func>,
-}
-
-impl Show for Packed<DisplayElem> {
-    #[typst_macros::time(name = "state.display", span = self.span())]
-    fn show(&self, engine: &mut Engine, _: StyleChain) -> SourceResult<Content> {
-        let location = self.location().unwrap();
-        let value = self.state().at(engine, location)?;
-        Ok(match self.func() {
-            Some(func) => func.call(engine, [value])?.display(),
-            None => value.display(),
-        })
-    }
-}
-
-/// Executes a display of a state.
-#[elem(Locatable, Show)]
-struct UpdateElem {
+#[elem(Construct, Locatable, Show)]
+struct StateUpdateElem {
     /// The key that identifies the state.
     #[required]
     key: Str,
 
     /// The update to perform on the state.
     #[required]
+    #[internal]
     update: StateUpdate,
 }
 
-impl Show for Packed<UpdateElem> {
+impl Construct for StateUpdateElem {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+impl Show for Packed<StateUpdateElem> {
     fn show(&self, _: &mut Engine, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
+    }
+}
+
+/// **Deprection planned.**
+///
+/// Executes a display of a state.
+#[elem(Construct, Locatable, Show)]
+struct StateDisplayElem {
+    /// The state.
+    #[required]
+    #[internal]
+    state: State,
+
+    /// The function to display the state with.
+    #[required]
+    #[internal]
+    func: Option<Func>,
+}
+
+impl Show for Packed<StateDisplayElem> {
+    #[typst_macros::time(name = "state.display", span = self.span())]
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let location = self.location().unwrap();
+        let context = Context::new(Some(location), Some(styles));
+        let value = self.state().at_loc(engine, location)?;
+        Ok(match self.func() {
+            Some(func) => func.call(engine, &context, [value])?.display(),
+            None => value.display(),
+        })
+    }
+}
+
+impl Construct for StateDisplayElem {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
     }
 }

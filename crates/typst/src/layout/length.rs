@@ -4,8 +4,8 @@ use std::ops::{Add, Div, Mul, Neg};
 
 use ecow::{eco_format, EcoString};
 
-use crate::diag::{At, Hint, SourceResult};
-use crate::foundations::{func, scope, ty, Fold, Repr, Resolve, StyleChain, Styles};
+use crate::diag::{At, Hint, HintedStrResult, SourceResult};
+use crate::foundations::{func, scope, ty, Context, Fold, Repr, Resolve, StyleChain};
 use crate::layout::{Abs, Em};
 use crate::syntax::Span;
 use crate::util::Numeric;
@@ -137,32 +137,22 @@ impl Length {
     ///
     /// ```example
     /// #set text(size: 12pt)
-    /// #style(styles => [
-    ///   #(6pt).to-absolute(styles) \
-    ///   #(6pt + 10em).to-absolute(styles) \
-    ///   #(10em).to-absolute(styles)
-    /// ])
+    /// #context [
+    ///   #(6pt).to-absolute() \
+    ///   #(6pt + 10em).to-absolute() \
+    ///   #(10em).to-absolute()
+    /// ]
     ///
     /// #set text(size: 6pt)
-    /// #style(styles => [
-    ///   #(6pt).to-absolute(styles) \
-    ///   #(6pt + 10em).to-absolute(styles) \
-    ///   #(10em).to-absolute(styles)
-    /// ])
+    /// #context [
+    ///   #(6pt).to-absolute() \
+    ///   #(6pt + 10em).to-absolute() \
+    ///   #(10em).to-absolute()
+    /// ]
     /// ```
     #[func]
-    pub fn to_absolute(
-        &self,
-        /// The styles to resolve the length with.
-        ///
-        /// Since a length can use font-relative em units, resolving it to an
-        /// absolute length requires knowledge of the font size. This size is
-        /// provided through these styles. You can obtain the styles using
-        /// the [`style`]($style) function.
-        styles: Styles,
-    ) -> Length {
-        let styles = StyleChain::new(&styles);
-        self.resolve(styles).into()
+    pub fn to_absolute(&self, context: &Context) -> HintedStrResult<Length> {
+        Ok(self.resolve(context.styles()?).into())
     }
 }
 

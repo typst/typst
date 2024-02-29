@@ -66,7 +66,8 @@
 // Missing lvalue is not automatically none-initialized.
 #{
   let dict = (:)
-  // Error: 3-9 dictionary does not contain key "b" and no default value was specified
+  // Error: 3-9 dictionary does not contain key "b"
+  // Hint: 3-9 use `insert` to add or update values
   dict.b += 1
 }
 
@@ -81,6 +82,11 @@
 #dict.remove("c")
 #test("c" in dict, false)
 #test(dict, (a: 3, b: 1))
+
+---
+// Test dictionary constructor
+#dictionary(sys).at("version")
+#dictionary(sys).at("no_crash", default: none)
 
 ---
 // Test that removal keeps order.
@@ -104,7 +110,6 @@
 // Identified as dictionary due to initial colon.
 // The boolean key is allowed for now since it will only cause an error at the evaluation stage.
 // Error: 4-5 expected named or keyed pair, found integer
-// Error: 5 expected comma
 // Error: 17 expected expression
 #(:1 b:"", true:)
 
@@ -146,7 +151,7 @@
 
 ---
 // Error: 7-10 expected identifier, found group
-// Error: 12-14 expected identifier, found integer
+// Error: 12-14 expected pattern, found integer
 #let ((a): 10) = "world"
 
 ---

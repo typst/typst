@@ -1,7 +1,8 @@
-use crate::diag::SourceResult;
+use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{dict, func, Content, Dict, StyleChain, Styles};
+use crate::foundations::{dict, func, Content, Context, Dict, StyleChain, Styles};
 use crate::layout::{Abs, Axes, LayoutMultiple, Regions, Size};
+use crate::syntax::Span;
 
 /// Measures the layouted size of content.
 ///
@@ -28,10 +29,10 @@ use crate::layout::{Abs, Axes, LayoutMultiple, Regions, Size};
 /// the `measure` function.
 ///
 /// ```example
-/// #let thing(body) = style(styles => {
-///   let size = measure(body, styles)
+/// #let thing(body) = context {
+///   let size = measure(body)
 ///   [Width of "#body" is #size.width]
-/// })
+/// }
 ///
 /// #thing[Hey] \
 /// #thing[Welcome]
@@ -39,17 +40,26 @@ use crate::layout::{Abs, Axes, LayoutMultiple, Regions, Size};
 ///
 /// The measure function returns a dictionary with the entries `width` and
 /// `height`, both of type [`length`]($length).
-#[func]
+#[func(contextual)]
 pub fn measure(
     /// The engine.
     engine: &mut Engine,
+    /// The callsite context.
+    context: &Context,
+    /// The callsite span.
+    span: Span,
     /// The content whose size to measure.
     content: Content,
     /// The styles with which to layout the content.
-    styles: Styles,
+    #[default]
+    styles: Option<Styles>,
 ) -> SourceResult<Dict> {
+    let styles = match &styles {
+        Some(styles) => StyleChain::new(styles),
+        None => context.styles().at(span)?,
+    };
+
     let pod = Regions::one(Axes::splat(Abs::inf()), Axes::splat(false));
-    let styles = StyleChain::new(&styles);
     let frame = content.measure(engine, styles, pod)?.into_frame();
     let Size { x, y } = frame.size();
     Ok(dict! { "width" => x, "height" => y })

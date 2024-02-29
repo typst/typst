@@ -3,12 +3,11 @@ use std::fmt::Write;
 use std::hash::Hash;
 use std::ops::Add;
 
-use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use smallvec::SmallVec;
 use unicode_math_class::MathClass;
 
-use crate::diag::{At, SourceResult, StrResult};
+use crate::diag::{At, HintedStrResult, SourceResult, StrResult};
 use crate::foundations::{array, repr, NativeElement, Packed, Repr, Str, Type, Value};
 use crate::syntax::{Span, Spanned};
 
@@ -98,7 +97,7 @@ impl<T: NativeElement + Reflect> Reflect for Packed<T> {
     }
 }
 
-impl<T: Reflect> Reflect for Prehashed<T> {
+impl<T: Reflect> Reflect for StrResult<T> {
     fn input() -> CastInfo {
         T::input()
     }
@@ -112,7 +111,7 @@ impl<T: Reflect> Reflect for Prehashed<T> {
     }
 }
 
-impl<T: Reflect> Reflect for StrResult<T> {
+impl<T: Reflect> Reflect for HintedStrResult<T> {
     fn input() -> CastInfo {
         T::input()
     }
@@ -206,12 +205,6 @@ impl<T: IntoValue> IntoValue for Spanned<T> {
     }
 }
 
-impl<T: IntoValue + Hash + 'static> IntoValue for Prehashed<T> {
-    fn into_value(self) -> Value {
-        self.into_inner().into_value()
-    }
-}
-
 /// Cast a Rust type or result into a [`SourceResult<Value>`].
 ///
 /// Converts `T`, [`StrResult<T>`], or [`SourceResult<T>`] into
@@ -228,6 +221,12 @@ impl<T: IntoValue> IntoResult for T {
 }
 
 impl<T: IntoValue> IntoResult for StrResult<T> {
+    fn into_result(self, span: Span) -> SourceResult<Value> {
+        self.map(IntoValue::into_value).at(span)
+    }
+}
+
+impl<T: IntoValue> IntoResult for HintedStrResult<T> {
     fn into_result(self, span: Span) -> SourceResult<Value> {
         self.map(IntoValue::into_value).at(span)
     }
@@ -269,12 +268,6 @@ impl<T: NativeElement + FromValue> FromValue for Packed<T> {
         }
         let val = T::from_value(value)?;
         Ok(Packed::new(val))
-    }
-}
-
-impl<T: FromValue + Hash + 'static> FromValue for Prehashed<T> {
-    fn from_value(value: Value) -> StrResult<Self> {
-        Ok(Self::new(T::from_value(value)?))
     }
 }
 

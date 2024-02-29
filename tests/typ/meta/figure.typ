@@ -13,7 +13,7 @@ We can clearly see that @fig-cylinder and
 ) <tab-basic>
 
 #figure(
-  pad(y: -6pt, image("/files/cylinder.svg", height: 2cm)),
+  pad(y: -6pt, image("/assets/images/cylinder.svg", height: 2cm)),
   caption: [The basic shapes.],
   numbering: "I",
 ) <fig-cylinder>
@@ -30,7 +30,7 @@ We can clearly see that @fig-cylinder and
   table(
     columns: 2,
     [Second cylinder],
-    image("/files/cylinder.svg"),
+    image("/assets/images/cylinder.svg"),
   ),
   caption: "A table containing images."
 ) <fig-image-in-table>

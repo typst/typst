@@ -3,7 +3,7 @@ use std::ops::{Deref, Range};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use ecow::{eco_vec, EcoString, EcoVec};
+use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
 use crate::ast::AstNode;
 use crate::{FileId, Span, SyntaxKind};
@@ -177,14 +177,9 @@ impl SyntaxNode {
 }
 
 impl SyntaxNode {
-    /// Mark this node as erroneous.
-    pub(super) fn make_erroneous(&mut self) {
-        if let Repr::Inner(inner) = &mut self.0 {
-            Arc::make_mut(inner).erroneous = true;
-        }
-    }
-
     /// Convert the child to another kind.
+    ///
+    /// Don't use this for converting to an error!
     #[track_caller]
     pub(super) fn convert_to_kind(&mut self, kind: SyntaxKind) {
         debug_assert!(!kind.is_error());
@@ -195,10 +190,30 @@ impl SyntaxNode {
         }
     }
 
-    /// Convert the child to an error.
+    /// Convert the child to an error, if it isn't already one.
     pub(super) fn convert_to_error(&mut self, message: impl Into<EcoString>) {
-        let text = std::mem::take(self).into_text();
-        *self = SyntaxNode::error(message, text);
+        if !self.kind().is_error() {
+            let text = std::mem::take(self).into_text();
+            *self = SyntaxNode::error(message, text);
+        }
+    }
+
+    /// Convert the child to an error stating that the given thing was
+    /// expected, but the current kind was found.
+    pub(super) fn expected(&mut self, expected: &str) {
+        let kind = self.kind();
+        self.convert_to_error(eco_format!("expected {expected}, found {}", kind.name()));
+        if kind.is_keyword() && matches!(expected, "identifier" | "pattern") {
+            self.hint(eco_format!(
+                "keyword `{text}` is not allowed as an identifier; try `{text}_` instead",
+                text = self.text(),
+            ));
+        }
+    }
+
+    /// Convert the child to an error stating it was unexpected.
+    pub(super) fn unexpected(&mut self) {
+        self.convert_to_error(eco_format!("unexpected {}", self.kind().name()));
     }
 
     /// Assign spans to each node.

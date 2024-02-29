@@ -139,7 +139,7 @@ impl<'a> Route<'a> {
 impl<'a> Route<'a> {
     /// Whether the given id is part of the route.
     pub fn contains(&self, id: FileId) -> bool {
-        self.id == Some(id) || self.outer.map_or(false, |outer| outer.contains(id))
+        self.id == Some(id) || self.outer.is_some_and(|outer| outer.contains(id))
     }
 
     /// Whether the route's depth is less than or equal to the given depth.

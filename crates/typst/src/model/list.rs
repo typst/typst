@@ -1,7 +1,8 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, Func, Packed, Smart, StyleChain, Value,
+    cast, elem, scope, Array, Content, Context, Depth, Func, Packed, Smart, StyleChain,
+    Value,
 };
 use crate::layout::{
     Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
@@ -154,7 +155,7 @@ impl LayoutMultiple for Packed<ListElem> {
         let Depth(depth) = ListElem::depth_in(styles);
         let marker = self
             .marker(styles)
-            .resolve(engine, depth)?
+            .resolve(engine, styles, depth)?
             // avoid '#set align' interference with the list
             .aligned(HAlignment::Start + VAlignment::Top);
 
@@ -168,7 +169,6 @@ impl LayoutMultiple for Packed<ListElem> {
             ));
         }
 
-        let stroke = None;
         let grid = CellGrid::new(
             Axes::with_x(&[
                 Sizing::Rel(indent.into()),
@@ -179,7 +179,7 @@ impl LayoutMultiple for Packed<ListElem> {
             Axes::with_y(&[gutter.into()]),
             cells,
         );
-        let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
+        let layouter = GridLayouter::new(&grid, regions, styles, self.span());
 
         layouter.layout(engine)
     }
@@ -207,12 +207,19 @@ pub enum ListMarker {
 
 impl ListMarker {
     /// Resolve the marker for the given depth.
-    fn resolve(&self, engine: &mut Engine, depth: usize) -> SourceResult<Content> {
+    fn resolve(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        depth: usize,
+    ) -> SourceResult<Content> {
         Ok(match self {
             Self::Content(list) => {
                 list.get(depth % list.len()).cloned().unwrap_or_default()
             }
-            Self::Func(func) => func.call(engine, [depth])?.display(),
+            Self::Func(func) => func
+                .call(engine, &Context::new(None, Some(styles)), [depth])?
+                .display(),
         })
     }
 }
@@ -235,13 +242,4 @@ cast! {
         Self::Content(array.into_iter().map(Value::display).collect())
     },
     v: Func => Self::Func(v),
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Hash)]
-struct Depth(usize);
-
-impl Fold for Depth {
-    fn fold(self, outer: Self) -> Self {
-        Self(outer.0 + self.0)
-    }
 }

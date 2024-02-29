@@ -1,15 +1,16 @@
 use std::any::{Any, TypeId};
 use std::sync::Arc;
 
+use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 use smallvec::SmallVec;
 
-use crate::diag::{bail, StrResult};
+use crate::diag::{bail, HintedStrResult, StrResult};
 use crate::foundations::{
-    cast, func, repr, scope, ty, CastInfo, Content, Dict, Element, FromValue, Func,
-    Label, Reflect, Regex, Repr, Str, StyleChain, Type, Value,
+    cast, func, repr, scope, ty, CastInfo, Content, Context, Dict, Element, FromValue,
+    Func, Label, Reflect, Regex, Repr, Str, StyleChain, Type, Value,
 };
-use crate::introspection::{Locatable, Location};
+use crate::introspection::{Introspector, Locatable, Location};
 use crate::symbols::Symbol;
 use crate::text::TextElem;
 
@@ -66,11 +67,10 @@ pub use crate::__select_where as select_where;
 ///
 /// # Example
 /// ```example
-/// #locate(loc => query(
+/// #context query(
 ///   heading.where(level: 1)
-///     .or(heading.where(level: 2)),
-///   loc,
-/// ))
+///     .or(heading.where(level: 2))
+/// )
 ///
 /// = This will be found
 /// == So will this
@@ -140,7 +140,7 @@ impl Selector {
             Self::Label(label) => target.label() == Some(*label),
             Self::Regex(regex) => target
                 .to_packed::<TextElem>()
-                .map_or(false, |elem| regex.is_match(elem.text())),
+                .is_some_and(|elem| regex.is_match(elem.text())),
             Self::Can(cap) => target.func().can_type_id(*cap),
             Self::Or(selectors) => {
                 selectors.iter().any(move |sel| sel.matches(target, styles))
@@ -300,11 +300,29 @@ cast! {
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct LocatableSelector(pub Selector);
 
+impl LocatableSelector {
+    /// Resolve this selector into a location that is guaranteed to be unique.
+    pub fn resolve_unique(
+        &self,
+        introspector: Tracked<Introspector>,
+        context: &Context,
+    ) -> HintedStrResult<Location> {
+        match &self.0 {
+            Selector::Location(loc) => Ok(*loc),
+            other => {
+                context.introspect()?;
+                Ok(introspector.query_unique(other).map(|c| c.location().unwrap())?)
+            }
+        }
+    }
+}
+
 impl Reflect for LocatableSelector {
     fn input() -> CastInfo {
         CastInfo::Union(vec![
             CastInfo::Type(Type::of::<Label>()),
             CastInfo::Type(Type::of::<Func>()),
+            CastInfo::Type(Type::of::<Location>()),
             CastInfo::Type(Type::of::<Selector>()),
         ])
     }
@@ -314,7 +332,10 @@ impl Reflect for LocatableSelector {
     }
 
     fn castable(value: &Value) -> bool {
-        Label::castable(value) || Func::castable(value) || Selector::castable(value)
+        Label::castable(value)
+            || Func::castable(value)
+            || Location::castable(value)
+            || Selector::castable(value)
     }
 }
 

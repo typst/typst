@@ -10,7 +10,7 @@ use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
-use comemo::{Prehashed, Tracked};
+use comemo::Tracked;
 use ecow::EcoString;
 
 use crate::diag::{bail, At, SourceResult, StrResult};
@@ -27,7 +27,7 @@ use crate::loading::Readable;
 use crate::model::Figurable;
 use crate::syntax::{Span, Spanned};
 use crate::text::{families, Lang, LocalName, Region};
-use crate::util::{option_eq, Numeric};
+use crate::util::{option_eq, LazyHash, Numeric};
 use crate::visualize::Path;
 use crate::World;
 
@@ -299,7 +299,7 @@ pub enum ImageFit {
 ///
 /// Values of this type are cheap to clone and hash.
 #[derive(Clone, Hash, Eq, PartialEq)]
-pub struct Image(Arc<Prehashed<Repr>>);
+pub struct Image(Arc<LazyHash<Repr>>);
 
 /// The internal representation.
 #[derive(Hash)]
@@ -337,7 +337,7 @@ impl Image {
             }
         };
 
-        Ok(Self(Arc::new(Prehashed::new(Repr { kind, alt }))))
+        Ok(Self(Arc::new(LazyHash::new(Repr { kind, alt }))))
     }
 
     /// Create a possibly font-dependant image from a buffer and a format.
@@ -359,7 +359,7 @@ impl Image {
             }
         };
 
-        Ok(Self(Arc::new(Prehashed::new(Repr { kind, alt }))))
+        Ok(Self(Arc::new(LazyHash::new(Repr { kind, alt }))))
     }
 
     /// The raw image data.
@@ -379,17 +379,17 @@ impl Image {
     }
 
     /// The width of the image in pixels.
-    pub fn width(&self) -> u32 {
+    pub fn width(&self) -> f64 {
         match &self.0.kind {
-            ImageKind::Raster(raster) => raster.width(),
+            ImageKind::Raster(raster) => raster.width() as f64,
             ImageKind::Svg(svg) => svg.width(),
         }
     }
 
     /// The height of the image in pixels.
-    pub fn height(&self) -> u32 {
+    pub fn height(&self) -> f64 {
         match &self.0.kind {
-            ImageKind::Raster(raster) => raster.height(),
+            ImageKind::Raster(raster) => raster.height() as f64,
             ImageKind::Svg(svg) => svg.height(),
         }
     }

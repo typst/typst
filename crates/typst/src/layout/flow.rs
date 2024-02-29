@@ -1,17 +1,15 @@
 use std::fmt::{self, Debug, Formatter};
 
-use comemo::Prehashed;
-
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, NativeElement, Packed, Resolve, Smart, StyleChain,
+    elem, Content, NativeElement, Packed, Resolve, Smart, StyleChain, StyledElem,
 };
 use crate::introspection::{Meta, MetaElem};
 use crate::layout::{
     Abs, AlignElem, Axes, BlockElem, ColbreakElem, ColumnsElem, FixedAlignment, Fr,
     Fragment, Frame, FrameItem, LayoutMultiple, LayoutSingle, PlaceElem, Point, Regions,
-    Rel, Size, Spacing, VAlignment, VElem,
+    Rel, Size, Spacing, VElem,
 };
 use crate::model::{FootnoteElem, FootnoteEntry, ParElem};
 use crate::util::Numeric;
@@ -24,7 +22,7 @@ use crate::util::Numeric;
 pub struct FlowElem {
     /// The children that will be arranges into a flow.
     #[variadic]
-    pub children: Vec<Prehashed<Content>>,
+    pub children: Vec<Content>,
 }
 
 impl LayoutMultiple for Packed<FlowElem> {
@@ -43,12 +41,12 @@ impl LayoutMultiple for Packed<FlowElem> {
         }
 
         let mut layouter = FlowLayouter::new(regions, styles);
-        for mut child in self.children().iter().map(|c| &**c) {
+        for mut child in self.children().iter() {
             let outer = styles;
             let mut styles = styles;
-            if let Some((elem, map)) = child.to_styled() {
-                child = elem;
-                styles = outer.chain(map);
+            if let Some(styled) = child.to_packed::<StyledElem>() {
+                child = &styled.child;
+                styles = outer.chain(&styled.styles);
             }
 
             if child.is::<MetaElem>() {
@@ -255,7 +253,7 @@ impl<'a> FlowLayouter<'a> {
         }
 
         if let Some(first) = lines.first() {
-            if !self.regions.size.y.fits(first.height()) && !self.regions.in_last() {
+            while !self.regions.size.y.fits(first.height()) && !self.regions.in_last() {
                 let carry: Vec<_> = self.items.drain(sticky..).collect();
                 self.finish_region(engine, false)?;
                 for item in carry {
@@ -313,8 +311,8 @@ impl<'a> FlowLayouter<'a> {
         let x_align = alignment.map_or(FixedAlignment::Center, |align| {
             align.x().unwrap_or_default().resolve(styles)
         });
-        let y_align = alignment.map(|align| align.y().map(VAlignment::fix));
-        let mut frame = placed.layout(engine, styles, self.regions)?.into_frame();
+        let y_align = alignment.map(|align| align.y().map(|y| y.resolve(styles)));
+        let mut frame = placed.layout(engine, styles, self.regions.base())?.into_frame();
         frame.meta(styles, false);
         let item = FlowItem::Placed { frame, x_align, y_align, delta, float, clearance };
         self.layout_item(engine, item)
@@ -344,8 +342,8 @@ impl<'a> FlowLayouter<'a> {
         // How to align the block.
         let align = if let Some(align) = child.to_packed::<AlignElem>() {
             align.alignment(styles)
-        } else if let Some((_, local)) = child.to_styled() {
-            AlignElem::alignment_in(styles.chain(local))
+        } else if let Some(styled) = child.to_packed::<StyledElem>() {
+            AlignElem::alignment_in(styles.chain(&styled.styles))
         } else {
             AlignElem::alignment_in(styles)
         }
@@ -402,7 +400,7 @@ impl<'a> FlowLayouter<'a> {
             FlowItem::Fractional(_) => {}
             FlowItem::Frame { ref frame, movable, .. } => {
                 let height = frame.height();
-                if !self.regions.size.y.fits(height) && !self.regions.in_last() {
+                while !self.regions.size.y.fits(height) && !self.regions.in_last() {
                     self.finish_region(engine, false)?;
                 }
 
@@ -429,9 +427,11 @@ impl<'a> FlowLayouter<'a> {
                 clearance,
                 ..
             } => {
-                // If the float doesn't fit, queue it for the next region.
-                if !self.regions.size.y.fits(frame.height() + clearance)
-                    && !self.regions.in_last()
+                // If there is a queued float in front or if the float doesn't
+                // fit, queue it for the next region.
+                if !self.pending_floats.is_empty()
+                    || (!self.regions.size.y.fits(frame.height() + clearance)
+                        && !self.regions.in_last())
                 {
                     self.pending_floats.push(item);
                     return Ok(());
@@ -493,7 +493,7 @@ impl<'a> FlowLayouter<'a> {
         while self
             .items
             .last()
-            .map_or(false, |item| matches!(item, FlowItem::Absolute(_, true)))
+            .is_some_and(|item| matches!(item, FlowItem::Absolute(_, true)))
         {
             self.items.pop();
         }
@@ -613,7 +613,7 @@ impl<'a> FlowLayouter<'a> {
         self.initial = self.regions.size;
         self.has_footnotes = false;
 
-        // Try to place floats.
+        // Try to place floats into the next region.
         for item in std::mem::take(&mut self.pending_floats) {
             self.layout_item(engine, item)?;
         }
@@ -685,7 +685,7 @@ impl FlowLayouter<'_> {
             // together).
             if !force
                 && (k == 0 || movable)
-                && frames.first().map_or(false, Frame::is_empty)
+                && frames.first().is_some_and(Frame::is_empty)
             {
                 // Remove existing footnotes attempts because we need to
                 // move the item to the next page.

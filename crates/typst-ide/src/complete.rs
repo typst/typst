@@ -6,7 +6,7 @@ use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
     fields_on, format_str, mutable_methods_on, repr, AutoValue, CastInfo, Func, Label,
-    NoneValue, Repr, Scope, Type, Value,
+    NoneValue, Repr, Scope, StyleChain, Styles, Type, Value,
 };
 use typst::model::Document;
 use typst::syntax::{
@@ -128,6 +128,17 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
         if let Some(prev) = ctx.leaf.prev_leaf();
         if prev.kind() == SyntaxKind::Eq;
         if prev.parent_kind() == Some(SyntaxKind::LetBinding);
+        then {
+            ctx.from = ctx.cursor;
+            code_completions(ctx, false);
+            return true;
+        }
+    }
+
+    // Behind a half-completed context block: "#context |".
+    if_chain! {
+        if let Some(prev) = ctx.leaf.prev_leaf();
+        if prev.kind() == SyntaxKind::Context;
         then {
             ctx.from = ctx.cursor;
             code_completions(ctx, false);
@@ -333,10 +344,10 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
         if prev.is::<ast::Expr>();
         if prev.parent_kind() != Some(SyntaxKind::Markup) ||
            prev.prev_sibling_kind() == Some(SyntaxKind::Hash);
-        if let Some(value) = analyze_expr(ctx.world, &prev).into_iter().next();
+        if let Some((value, styles)) = analyze_expr(ctx.world, &prev).into_iter().next();
         then {
             ctx.from = ctx.cursor;
-            field_access_completions(ctx, &value);
+            field_access_completions(ctx, &value, &styles);
             return true;
         }
     }
@@ -348,10 +359,10 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
         if prev.kind() == SyntaxKind::Dot;
         if let Some(prev_prev) = prev.prev_sibling();
         if prev_prev.is::<ast::Expr>();
-        if let Some(value) = analyze_expr(ctx.world, &prev_prev).into_iter().next();
+        if let Some((value, styles)) = analyze_expr(ctx.world, &prev_prev).into_iter().next();
         then {
             ctx.from = ctx.leaf.offset();
-            field_access_completions(ctx, &value);
+            field_access_completions(ctx, &value, &styles);
             return true;
         }
     }
@@ -360,7 +371,11 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
 }
 
 /// Add completions for all fields on a value.
-fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
+fn field_access_completions(
+    ctx: &mut CompletionContext,
+    value: &Value,
+    styles: &Option<Styles>,
+) {
     for (name, value) in value.ty().scope().iter() {
         ctx.value_completion(Some(name.clone()), value, true, None);
     }
@@ -419,6 +434,23 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         Value::Dict(dict) => {
             for (name, value) in dict.iter() {
                 ctx.value_completion(Some(name.clone().into()), value, false, None);
+            }
+        }
+        Value::Func(func) => {
+            // Autocomplete get rules.
+            if let Some((elem, styles)) = func.element().zip(styles.as_ref()) {
+                for param in elem.params().iter().filter(|param| !param.required) {
+                    if let Some(value) = elem.field_id(param.name).and_then(|id| {
+                        elem.field_from_styles(id, StyleChain::new(styles))
+                    }) {
+                        ctx.value_completion(
+                            Some(param.name.into()),
+                            &value,
+                            false,
+                            None,
+                        );
+                    }
+                }
             }
         }
         Value::Plugin(plugin) => {
@@ -863,6 +895,12 @@ fn code_completions(ctx: &mut CompletionContext, hash: bool) {
     );
 
     ctx.snippet_completion(
+        "context expression",
+        "context ${}",
+        "Provides contextual data.",
+    );
+
+    ctx.snippet_completion(
         "let binding",
         "let ${name} = ${value}",
         "Saves a value in a variable.",
@@ -1060,9 +1098,11 @@ impl<'a> CompletionContext<'a> {
     /// Add completions for all available packages.
     fn package_completions(&mut self, all_versions: bool) {
         let mut packages: Vec<_> = self.world.packages().iter().collect();
-        packages.sort_by_key(|(spec, _)| (&spec.name, Reverse(spec.version)));
+        packages.sort_by_key(|(spec, _)| {
+            (&spec.namespace, &spec.name, Reverse(spec.version))
+        });
         if !all_versions {
-            packages.dedup_by_key(|(spec, _)| &spec.name);
+            packages.dedup_by_key(|(spec, _)| (&spec.namespace, &spec.name));
         }
         for (package, description) in packages {
             self.value_completion(
@@ -1140,7 +1180,7 @@ impl<'a> CompletionContext<'a> {
         parens: bool,
         docs: Option<&str>,
     ) {
-        let at = label.as_deref().map_or(false, |field| !is_ident(field));
+        let at = label.as_deref().is_some_and(|field| !is_ident(field));
         let label = label.unwrap_or_else(|| value.repr());
 
         let detail = docs.map(Into::into).or_else(|| match value {
@@ -1285,7 +1325,7 @@ impl<'a> CompletionContext<'a> {
             let mut sibling = Some(node.clone());
             while let Some(node) = &sibling {
                 if let Some(v) = node.cast::<ast::LetBinding>() {
-                    for ident in v.kind().idents() {
+                    for ident in v.kind().bindings() {
                         defined.insert(ident.get().clone());
                     }
                 }
@@ -1323,7 +1363,7 @@ impl<'a> CompletionContext<'a> {
                 if let Some(v) = parent.cast::<ast::ForLoop>() {
                     if node.prev_sibling_kind() != Some(SyntaxKind::In) {
                         let pattern = v.pattern();
-                        for ident in pattern.idents() {
+                        for ident in pattern.bindings() {
                             defined.insert(ident.get().clone());
                         }
                     }

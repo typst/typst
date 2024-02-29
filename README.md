@@ -120,7 +120,7 @@ Typst's CLI is available from different sources:
 
 - If you have a [Rust][rust] toolchain installed, you can also install the
   latest development version with
-  `cargo install --git https://github.com/typst/typst typst-cli`. Note that this
+  `cargo install --git https://github.com/typst/typst --locked typst-cli`. Note that this
   will be a "nightly" version that may be broken or not yet properly documented.
 
 - Nix users can use the `typst` package with `nix-shell -p typst` or build and

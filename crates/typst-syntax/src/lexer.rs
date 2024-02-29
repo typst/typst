@@ -562,11 +562,14 @@ impl Lexer<'_> {
 
     fn in_word(&self) -> bool {
         let wordy = |c: Option<char>| {
-            c.map_or(false, |c| {
+            c.is_some_and(|c| {
                 c.is_alphanumeric()
                     && !matches!(
                         c.script(),
-                        Script::Han | Script::Hiragana | Script::Katakana
+                        Script::Han
+                            | Script::Hiragana
+                            | Script::Katakana
+                            | Script::Hangul
                     )
             })
         };
@@ -756,7 +759,7 @@ impl Lexer<'_> {
         // Make sure not to confuse a range for the decimal separator.
         if c != '.'
             && !self.s.at("..")
-            && !self.s.scout(1).map_or(false, is_id_start)
+            && !self.s.scout(1).is_some_and(is_id_start)
             && self.s.eat_if('.')
             && base == 10
         {
@@ -834,6 +837,7 @@ fn keyword(ident: &str) -> Option<SyntaxKind> {
         "let" => SyntaxKind::Let,
         "set" => SyntaxKind::Set,
         "show" => SyntaxKind::Show,
+        "context" => SyntaxKind::Context,
         "if" => SyntaxKind::If,
         "else" => SyntaxKind::Else,
         "for" => SyntaxKind::For,
@@ -957,7 +961,7 @@ pub fn is_ident(string: &str) -> bool {
     let mut chars = string.chars();
     chars
         .next()
-        .map_or(false, |c| is_id_start(c) && chars.all(is_id_continue))
+        .is_some_and(|c| is_id_start(c) && chars.all(is_id_continue))
 }
 
 /// Whether a character can start an identifier.

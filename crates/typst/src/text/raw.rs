@@ -174,8 +174,9 @@ pub struct RawElem {
     /// The language to syntax-highlight in.
     ///
     /// Apart from typical language tags known from Markdown, this supports the
-    /// `{"typ"}` and `{"typc"}` tags for Typst markup and Typst code,
-    /// respectively.
+    /// `{"typ"}` and `{"typc"}` tags for
+    /// [Typst markup]($reference/syntax/#markup) and
+    /// [Typst code]($reference/syntax/#code), respectively.
     ///
     /// ````example
     /// ```typ
@@ -521,7 +522,7 @@ impl LocalName for Packed<RawElem> {
             Lang::DUTCH => "Listing",
             Lang::ESTONIAN => "List",
             Lang::FILIPINO => "Listahan",
-            Lang::FINNISH => "Esimerkki",
+            Lang::FINNISH => "Listaus",
             Lang::FRENCH => "Liste",
             Lang::GERMAN => "Listing",
             Lang::GREEK => "Παράθεση",

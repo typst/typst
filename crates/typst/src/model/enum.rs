@@ -4,7 +4,9 @@ use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
-use crate::foundations::{cast, elem, scope, Array, Content, Packed, Smart, StyleChain};
+use crate::foundations::{
+    cast, elem, scope, Array, Content, Context, Packed, Smart, StyleChain,
+};
 use crate::layout::{
     Alignment, Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
     LayoutMultiple, Length, Regions, Sizing, Spacing, VAlignment,
@@ -230,7 +232,6 @@ impl LayoutMultiple for Packed<EnumElem> {
         let mut cells = vec![];
         let mut number = self.start(styles);
         let mut parents = EnumElem::parents_in(styles);
-        parents.reverse();
 
         let full = self.full(styles);
 
@@ -243,9 +244,10 @@ impl LayoutMultiple for Packed<EnumElem> {
         for item in self.children() {
             number = item.number(styles).unwrap_or(number);
 
+            let context = Context::new(None, Some(styles));
             let resolved = if full {
                 parents.push(number);
-                let content = numbering.apply(engine, &parents)?.display();
+                let content = numbering.apply(engine, &context, &parents)?.display();
                 parents.pop();
                 content
             } else {
@@ -253,7 +255,7 @@ impl LayoutMultiple for Packed<EnumElem> {
                     Numbering::Pattern(pattern) => {
                         TextElem::packed(pattern.apply_kth(parents.len(), number))
                     }
-                    other => other.apply(engine, &[number])?.display(),
+                    other => other.apply(engine, &context, &[number])?.display(),
                 }
             };
 
@@ -271,7 +273,6 @@ impl LayoutMultiple for Packed<EnumElem> {
             number = number.saturating_add(1);
         }
 
-        let stroke = None;
         let grid = CellGrid::new(
             Axes::with_x(&[
                 Sizing::Rel(indent.into()),
@@ -282,7 +283,7 @@ impl LayoutMultiple for Packed<EnumElem> {
             Axes::with_y(&[gutter.into()]),
             cells,
         );
-        let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
+        let layouter = GridLayouter::new(&grid, regions, styles, self.span());
 
         layouter.layout(engine)
     }

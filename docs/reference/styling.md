@@ -81,9 +81,9 @@ in Typst. For maximum flexibility, you can instead write a show rule that
 defines how to format an element from scratch. To write such a show rule,
 replace the set rule after the colon with an arbitrary [function]($function).
 This function receives the element in question and can return arbitrary content.
-Different [fields]($scripting/#fields) are available on the element passed to
-the function. Below, we define a show rule that formats headings for a fantasy
-encyclopedia.
+The available [fields]($scripting/#fields) on the element passed to the function
+again match the parameters of the respective element function. Below, we define
+a show rule that formats headings for a fantasy encyclopedia.
 
 ```example
 #set heading(numbering: "(I)")
@@ -91,7 +91,9 @@ encyclopedia.
   #set align(center)
   #set text(font: "Inria Serif")
   \~ #emph(it.body)
-     #counter(heading).display() \~
+     #counter(heading).display(
+       it.numbering
+     ) \~
 ]
 
 = Dragon

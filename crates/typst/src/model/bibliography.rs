@@ -6,7 +6,7 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::Arc;
 
-use comemo::{Prehashed, Tracked};
+use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
@@ -29,7 +29,8 @@ use crate::foundations::{
 };
 use crate::introspection::{Introspector, Locatable, Location};
 use crate::layout::{
-    BlockElem, Em, GridCell, GridElem, HElem, PadElem, Sizing, TrackSizings, VElem,
+    BlockElem, Em, GridCell, GridChild, GridElem, HElem, PadElem, Sizing, TrackSizings,
+    VElem,
 };
 use crate::model::{
     CitationForm, CiteGroup, Destination, FootnoteElem, HeadingElem, LinkElem, ParElem,
@@ -39,7 +40,7 @@ use crate::syntax::{Span, Spanned};
 use crate::text::{
     FontStyle, Lang, LocalName, Region, SubElem, SuperElem, TextElem, WeightDelta,
 };
-use crate::util::{option_eq, NonZeroExt, PicoStr};
+use crate::util::{option_eq, LazyHash, NonZeroExt, PicoStr};
 use crate::World;
 
 /// A bibliography / reference listing.
@@ -237,11 +238,13 @@ impl Show for Packed<BibliographyElem> {
         if references.iter().any(|(prefix, _)| prefix.is_some()) {
             let mut cells = vec![];
             for (prefix, reference) in references {
-                cells.push(
+                cells.push(GridChild::Cell(
                     Packed::new(GridCell::new(prefix.clone().unwrap_or_default()))
                         .spanned(span),
-                );
-                cells.push(Packed::new(GridCell::new(reference.clone())).spanned(span));
+                ));
+                cells.push(GridChild::Cell(
+                    Packed::new(GridCell::new(reference.clone())).spanned(span),
+                ));
             }
 
             seq.push(VElem::new(row_gutter).with_weakness(3).pack());
@@ -435,7 +438,7 @@ fn format_biblatex_error(path: &str, src: &str, errors: Vec<BibLaTeXError>) -> E
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct CslStyle {
     name: Option<EcoString>,
-    style: Arc<Prehashed<citationberg::IndependentStyle>>,
+    style: Arc<LazyHash<citationberg::IndependentStyle>>,
 }
 
 impl CslStyle {
@@ -492,7 +495,7 @@ impl CslStyle {
         match hayagriva::archive::ArchivedStyle::by_name(name).map(ArchivedStyle::get) {
             Some(citationberg::Style::Independent(style)) => Ok(Self {
                 name: Some(name.into()),
-                style: Arc::new(Prehashed::new(style)),
+                style: Arc::new(LazyHash::new(style)),
             }),
             _ => bail!("unknown style: `{name}`"),
         }
@@ -503,7 +506,7 @@ impl CslStyle {
     pub fn from_data(data: &Bytes) -> StrResult<CslStyle> {
         let text = std::str::from_utf8(data.as_slice()).map_err(FileError::from)?;
         citationberg::IndependentStyle::from_xml(text)
-            .map(|style| Self { name: None, style: Arc::new(Prehashed::new(style)) })
+            .map(|style| Self { name: None, style: Arc::new(LazyHash::new(style)) })
             .map_err(|err| eco_format!("failed to load CSL style ({err})"))
     }
 
@@ -603,7 +606,7 @@ struct Generator<'a> {
     /// The document's bibliography.
     bibliography: Packed<BibliographyElem>,
     /// The document's citation groups.
-    groups: EcoVec<Prehashed<Content>>,
+    groups: EcoVec<Content>,
     /// Details about each group that are accumulated while driving hayagriva's
     /// bibliography driver and needed when processing hayagriva's output.
     infos: Vec<GroupInfo>,
@@ -776,7 +779,7 @@ impl<'a> Generator<'a> {
         let citations = self.display_citations(rendered);
         let references = self.display_references(rendered);
         let hanging_indent =
-            rendered.bibliography.as_ref().map_or(false, |b| b.hanging_indent);
+            rendered.bibliography.as_ref().is_some_and(|b| b.hanging_indent);
         Ok(Works { citations, references, hanging_indent })
     }
 
@@ -945,8 +948,8 @@ impl ElemRenderer<'_> {
         if let Some(prefix) = suf_prefix {
             const COLUMN_GUTTER: Em = Em::new(0.65);
             content = GridElem::new(vec![
-                Packed::new(GridCell::new(prefix)).spanned(self.span),
-                Packed::new(GridCell::new(content)).spanned(self.span),
+                GridChild::Cell(Packed::new(GridCell::new(prefix)).spanned(self.span)),
+                GridChild::Cell(Packed::new(GridCell::new(content)).spanned(self.span)),
             ])
             .with_columns(TrackSizings(smallvec![Sizing::Auto; 2]))
             .with_column_gutter(TrackSizings(smallvec![COLUMN_GUTTER.into()]))

@@ -393,10 +393,10 @@ fn layout_vec_body(
     let denom_style = style_for_denominator(styles);
     let mut flat = vec![];
     for child in column {
-        flat.push(ctx.layout_row(child, styles.chain(&denom_style))?);
+        flat.push(ctx.layout_into_run(child, styles.chain(&denom_style))?);
     }
 
-    Ok(stack(ctx, styles, flat, align, gap, 0))
+    Ok(stack(flat, align, gap, 0))
 }
 
 /// Layout the inner contents of a matrix.
@@ -455,7 +455,7 @@ fn layout_mat_body(
     let denom_style = style_for_denominator(styles);
     for (row, (ascent, descent)) in rows.iter().zip(&mut heights) {
         for (cell, col) in row.iter().zip(&mut cols) {
-            let cell = ctx.layout_row(cell, styles.chain(&denom_style))?;
+            let cell = ctx.layout_into_run(cell, styles.chain(&denom_style))?;
 
             ascent.set_max(cell.ascent());
             descent.set_max(cell.descent());
@@ -480,8 +480,7 @@ fn layout_mat_body(
         let mut y = Abs::zero();
 
         for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
-            let cell =
-                cell.into_aligned_frame(ctx, styles, &points, FixedAlignment::Center);
+            let cell = cell.into_line_frame(&points, FixedAlignment::Center);
             let pos = Point::new(
                 if points.is_empty() { x + (rcol - cell.width()) / 2.0 } else { x },
                 y + ascent - cell.ascent(),

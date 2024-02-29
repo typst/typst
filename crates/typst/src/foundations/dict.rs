@@ -7,8 +7,10 @@ use ecow::{eco_format, EcoString};
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::diag::StrResult;
-use crate::foundations::{array, func, repr, scope, ty, Array, Repr, Str, Value};
+use crate::diag::{Hint, HintedStrResult, StrResult};
+use crate::foundations::{
+    array, cast, func, repr, scope, ty, Array, Module, Repr, Str, Value,
+};
 use crate::syntax::is_ident;
 use crate::util::ArcExt;
 
@@ -83,15 +85,18 @@ impl Dict {
     }
 
     /// Mutably borrow the value the given `key` maps to.
-    pub fn at_mut(&mut self, key: &str) -> StrResult<&mut Value> {
+    pub fn at_mut(&mut self, key: &str) -> HintedStrResult<&mut Value> {
         Arc::make_mut(&mut self.0)
             .get_mut(key)
-            .ok_or_else(|| missing_key_no_default(key))
+            .ok_or_else(|| missing_key(key))
+            .hint("use `insert` to add or update values")
     }
 
     /// Remove the value if the dictionary contains the given key.
     pub fn take(&mut self, key: &str) -> StrResult<Value> {
-        Arc::make_mut(&mut self.0).remove(key).ok_or_else(|| missing_key(key))
+        Arc::make_mut(&mut self.0)
+            .shift_remove(key)
+            .ok_or_else(|| missing_key(key))
     }
 
     /// Whether the dictionary contains a specific key.
@@ -155,6 +160,23 @@ impl Dict {
 
 #[scope]
 impl Dict {
+    /// Converts a value into a dictionary.
+    ///
+    /// Note that this function is only intended for conversion of a
+    /// dictionary-like value to a dictionary, not for creation of a dictionary
+    /// from individual pairs. Use the dictionary syntax `(key: value)` instead.
+    ///
+    /// ```example
+    /// #dictionary(sys).at("version")
+    /// ```
+    #[func(constructor)]
+    pub fn construct(
+        /// The value that should be converted to a dictionary.
+        value: ToDict,
+    ) -> Dict {
+        value.0
+    }
+
     /// The number of pairs in the dictionary.
     #[func(title = "Length")]
     pub fn len(&self) -> usize {
@@ -232,6 +254,14 @@ impl Dict {
             .map(|(k, v)| Value::Array(array![k.clone(), v.clone()]))
             .collect()
     }
+}
+
+/// A value that can be cast to dictionary.
+pub struct ToDict(Dict);
+
+cast! {
+    ToDict,
+    v: Module => Self(v.scope().iter().map(|(k, v)| (Str::from(k.clone()), v.clone())).collect()),
 }
 
 impl Debug for Dict {
@@ -354,7 +384,7 @@ fn missing_key(key: &str) -> EcoString {
     eco_format!("dictionary does not contain key {}", key.repr())
 }
 
-/// The missing key access error message when no default was fiven.
+/// The missing key access error message when no default was given.
 #[cold]
 fn missing_key_no_default(key: &str) -> EcoString {
     eco_format!(

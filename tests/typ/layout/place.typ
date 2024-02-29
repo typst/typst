@@ -5,7 +5,7 @@
 #place(bottom + center)[© Typst]
 
 = Placement
-#place(right, image("/files/tiger.jpg", width: 1.8cm))
+#place(right, image("/assets/images/tiger.jpg", width: 1.8cm))
 Hi there. This is \
 a placed element. \
 Unfortunately, \

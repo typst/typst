@@ -1,7 +1,7 @@
 mod linebreak;
 mod shaping;
 
-use comemo::{Prehashed, Tracked, TrackedMut};
+use comemo::{Tracked, TrackedMut};
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
@@ -13,7 +13,7 @@ use self::shaping::{
 use crate::diag::{bail, SourceResult};
 use crate::engine::{Engine, Route};
 use crate::eval::Tracer;
-use crate::foundations::{Content, Packed, Resolve, Smart, StyleChain};
+use crate::foundations::{Content, Packed, Resolve, Smart, StyleChain, StyledElem};
 use crate::introspection::{Introspector, Locator, MetaElem};
 use crate::layout::{
     Abs, AlignElem, Axes, BoxElem, Dir, Em, FixedAlignment, Fr, Fragment, Frame, HElem,
@@ -30,7 +30,7 @@ use crate::World;
 
 /// Layouts content inline.
 pub(crate) fn layout_inline(
-    children: &[Prehashed<Content>],
+    children: &[Content],
     engine: &mut Engine,
     styles: StyleChain,
     consecutive: bool,
@@ -40,7 +40,7 @@ pub(crate) fn layout_inline(
     #[comemo::memoize]
     #[allow(clippy::too_many_arguments)]
     fn cached(
-        children: &[Prehashed<Content>],
+        children: &[Content],
         world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
         route: Tracked<Route>,
@@ -404,7 +404,7 @@ impl<'a> Line<'a> {
 /// also performs string-level preprocessing like case transformations.
 #[allow(clippy::type_complexity)]
 fn collect<'a>(
-    children: &'a [Prehashed<Content>],
+    children: &'a [Content],
     engine: &mut Engine<'_>,
     styles: &'a StyleChain<'a>,
     region: Size,
@@ -414,7 +414,7 @@ fn collect<'a>(
     let mut quoter = SmartQuoter::new();
     let mut segments = Vec::with_capacity(2 + children.len());
     let mut spans = SpanMapper::new();
-    let mut iter = children.iter().map(|c| &**c).peekable();
+    let mut iter = children.iter().peekable();
 
     let first_line_indent = ParElem::first_line_indent_in(*styles);
     if !first_line_indent.is_zero()
@@ -435,9 +435,9 @@ fn collect<'a>(
     while let Some(mut child) = iter.next() {
         let outer = styles;
         let mut styles = *styles;
-        if let Some((elem, local)) = child.to_styled() {
-            child = elem;
-            styles = outer.chain(local);
+        if let Some(styled) = child.to_packed::<StyledElem>() {
+            child = &styled.child;
+            styles = outer.chain(&styled.styles);
         }
 
         let segment = if child.is::<SpaceElem>() {
@@ -464,19 +464,16 @@ fn collect<'a>(
             Segment::Text(c.len_utf8())
         } else if let Some(elem) = child.to_packed::<SmartQuoteElem>() {
             let prev = full.len();
-            if SmartQuoteElem::enabled_in(styles) {
-                let quotes = SmartQuoteElem::quotes_in(styles);
-                let lang = TextElem::lang_in(styles);
-                let region = TextElem::region_in(styles);
+            if elem.enabled(styles) {
                 let quotes = SmartQuotes::new(
-                    quotes,
-                    lang,
-                    region,
-                    SmartQuoteElem::alternative_in(styles),
+                    elem.quotes(styles),
+                    TextElem::lang_in(styles),
+                    TextElem::region_in(styles),
+                    elem.alternative(styles),
                 );
-                let peeked = iter.peek().and_then(|child| {
-                    let child = if let Some((child, _)) = child.to_styled() {
-                        child
+                let peeked = iter.peek().and_then(|&child| {
+                    let child = if let Some(styled) = child.to_packed::<StyledElem>() {
+                        &styled.child
                     } else {
                         child
                     };
@@ -542,7 +539,7 @@ fn collect<'a>(
 /// Prepare paragraph layout by shaping the whole paragraph.
 fn prepare<'a>(
     engine: &mut Engine,
-    children: &'a [Prehashed<Content>],
+    children: &'a [Content],
     text: &'a str,
     segments: Vec<(Segment<'a>, StyleChain<'a>)>,
     spans: SpanMapper,
@@ -658,7 +655,7 @@ fn add_cjk_latin_spacing(items: &mut [Item]) {
             });
 
             // Case 1: CJ followed by a Latin character
-            if glyph.is_cj_script() && next.map_or(false, |g| g.is_letter_or_number()) {
+            if glyph.is_cj_script() && next.is_some_and(|g| g.is_letter_or_number()) {
                 // The spacing is default to 1/4 em, and can be shrunk to 1/8 em.
                 glyph.x_advance += Em::new(0.25);
                 glyph.adjustability.shrinkability.1 += Em::new(0.125);
@@ -666,7 +663,7 @@ fn add_cjk_latin_spacing(items: &mut [Item]) {
             }
 
             // Case 2: Latin followed by a CJ character
-            if glyph.is_cj_script() && prev.map_or(false, |g| g.is_letter_or_number()) {
+            if glyph.is_cj_script() && prev.is_some_and(|g| g.is_letter_or_number()) {
                 glyph.x_advance += Em::new(0.25);
                 glyph.x_offset += Em::new(0.25);
                 glyph.adjustability.shrinkability.0 += Em::new(0.125);
@@ -755,14 +752,14 @@ fn is_compatible(a: Script, b: Script) -> bool {
 /// paragraph.
 fn shared_get<T: PartialEq>(
     styles: StyleChain<'_>,
-    children: &[Prehashed<Content>],
+    children: &[Content],
     getter: fn(StyleChain) -> T,
 ) -> Option<T> {
     let value = getter(styles);
     children
         .iter()
-        .filter_map(|child| child.to_styled())
-        .all(|(_, local)| getter(styles.chain(local)) == value)
+        .filter_map(|child| child.to_packed::<StyledElem>())
+        .all(|styled| getter(styles.chain(&styled.styles)) == value)
         .then_some(value)
 }
 
@@ -1377,7 +1374,7 @@ fn reorder<'a>(line: &'a Line<'a>) -> (Vec<&Item<'a>>, bool) {
 
     // Compute the reordered ranges in visual order (left to right).
     let (levels, runs) = line.bidi.visual_runs(para, line.trimmed.clone());
-    let starts_rtl = levels.first().map_or(false, |level| level.is_rtl());
+    let starts_rtl = levels.first().is_some_and(|level| level.is_rtl());
 
     // Collect the reordered items.
     for run in runs {

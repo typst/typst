@@ -10,17 +10,19 @@ mod page;
 mod pattern;
 
 use std::cmp::Eq;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
 use std::sync::Arc;
 
 use base64::Engine;
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
-use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
-use typst::foundations::Datetime;
+use pdf_writer::writers::Destination;
+use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
+use typst::foundations::{Datetime, Label, NativeElement};
+use typst::introspection::Location;
 use typst::layout::{Abs, Dir, Em, Transform};
-use typst::model::Document;
+use typst::model::{Document, HeadingElem};
 use typst::text::{Font, Lang};
 use typst::util::Deferred;
 use typst::visualize::Image;
@@ -60,6 +62,7 @@ pub fn pdf(
     gradient::write_gradients(&mut ctx);
     extg::write_external_graphics_states(&mut ctx);
     pattern::write_patterns(&mut ctx);
+    write_named_destinations(&mut ctx);
     page::write_page_tree(&mut ctx);
     write_catalog(&mut ctx, ident, timestamp);
     ctx.pdf.finish()
@@ -82,7 +85,8 @@ struct PdfContext<'a> {
     glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
     /// The number of glyphs for all referenced languages in the document.
     /// We keep track of this to determine the main document language.
-    languages: HashMap<Lang, usize>,
+    /// BTreeMap is used to write sorted list of languages to metadata.
+    languages: BTreeMap<Lang, usize>,
 
     /// Allocator for indirect reference IDs.
     alloc: Ref,
@@ -115,6 +119,11 @@ struct PdfContext<'a> {
     pattern_map: Remapper<PdfPattern>,
     /// Deduplicates external graphics states used across the document.
     extg_map: Remapper<ExtGState>,
+
+    /// A sorted list of all named destinations.
+    dests: Vec<(Label, Ref)>,
+    /// Maps from locations to named destinations that point to them.
+    loc_to_dest: HashMap<Location, Label>,
 }
 
 impl<'a> PdfContext<'a> {
@@ -126,7 +135,7 @@ impl<'a> PdfContext<'a> {
             pdf: Pdf::new(),
             pages: vec![],
             glyph_sets: HashMap::new(),
-            languages: HashMap::new(),
+            languages: BTreeMap::new(),
             alloc,
             page_tree_ref,
             page_refs: vec![],
@@ -142,17 +151,15 @@ impl<'a> PdfContext<'a> {
             gradient_map: Remapper::new(),
             pattern_map: Remapper::new(),
             extg_map: Remapper::new(),
+            dests: vec![],
+            loc_to_dest: HashMap::new(),
         }
     }
 }
 
 /// Write the document catalog.
 fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Datetime>) {
-    let lang = ctx
-        .languages
-        .iter()
-        .max_by_key(|(&lang, &count)| (count, lang))
-        .map(|(&k, _)| k);
+    let lang = ctx.languages.iter().max_by_key(|(_, &count)| count).map(|(&l, _)| l);
 
     let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
         Direction::R2L
@@ -258,6 +265,17 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     catalog.viewer_preferences().direction(dir);
     catalog.metadata(meta_ref);
 
+    // Write the named destination tree.
+    let mut name_dict = catalog.names();
+    let mut dests_name_tree = name_dict.destinations();
+    let mut names = dests_name_tree.names();
+    for &(name, dest_ref, ..) in &ctx.dests {
+        names.insert(Str(name.as_str().as_bytes()), dest_ref);
+    }
+    names.finish();
+    dests_name_tree.finish();
+    name_dict.finish();
+
     // Insert the page labels.
     if !page_labels.is_empty() {
         let mut num_tree = catalog.page_labels();
@@ -273,6 +291,47 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
 
     if let Some(lang) = lang {
         catalog.lang(TextStr(lang.as_str()));
+    }
+
+    catalog.finish();
+}
+
+/// Fills in the map and vector for named destinations and writes the indirect
+/// destination objects.
+fn write_named_destinations(ctx: &mut PdfContext) {
+    let mut seen = HashSet::new();
+
+    // Find all headings that have a label and are the first among other
+    // headings with the same label.
+    let mut matches: Vec<_> = ctx
+        .document
+        .introspector
+        .query(&HeadingElem::elem().select())
+        .iter()
+        .filter_map(|elem| elem.location().zip(elem.label()))
+        .filter(|&(_, label)| seen.insert(label))
+        .collect();
+
+    // Named destinations must be sorted by key.
+    matches.sort_by_key(|&(_, label)| label);
+
+    for (loc, label) in matches {
+        let pos = ctx.document.introspector.position(loc);
+        let index = pos.page.get() - 1;
+        let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
+
+        if let Some(page) = ctx.pages.get(index) {
+            let dest_ref = ctx.alloc.bump();
+            let x = pos.point.x.to_f32();
+            let y = (page.size.y - y).to_f32();
+            ctx.dests.push((label, dest_ref));
+            ctx.loc_to_dest.insert(loc, label);
+            ctx.pdf
+                .indirect(dest_ref)
+                .start::<Destination>()
+                .page(page.id)
+                .xyz(x, y, None);
+        }
     }
 }
 

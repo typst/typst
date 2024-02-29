@@ -118,6 +118,7 @@ class Handler {
             'Typst.test-helper.preview',
             uri.path.split('/').pop()?.replace('.typ', '.png') ?? 'Test output',
             vscode.ViewColumn.Beside,
+            {enableFindWidget: true},
         )
         newPanel.onDidChangeViewState(() => {
             if (newPanel && newPanel.active && newPanel.visible) {

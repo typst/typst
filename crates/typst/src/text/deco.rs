@@ -276,12 +276,11 @@ impl Show for Packed<StrikeElem> {
 #[elem(Show)]
 pub struct HighlightElem {
     /// The color to highlight the text with.
-    /// (Default: 0xffff5f)
     ///
     /// ```example
     /// This is #highlight(fill: blue)[with blue].
     /// ```
-    #[default(Color::from_u8(0xFF, 0xFF, 0x5F, 0xFF).into())]
+    #[default(Color::from_u8(0xFF, 0xFD, 0x11, 0xA1).into())]
     pub fill: Paint,
 
     /// The top end of the background rectangle.
@@ -440,7 +439,7 @@ pub(crate) fn decorate(
 
         // Only do the costly segments intersection test if the line
         // intersects the bounding box.
-        let intersect = bbox.map_or(false, |bbox| {
+        let intersect = bbox.is_some_and(|bbox| {
             let y_min = -text.font.to_em(bbox.y_max).at(text.size);
             let y_max = -text.font.to_em(bbox.y_min).at(text.size);
             offset >= y_min && offset <= y_max

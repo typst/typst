@@ -2,7 +2,7 @@
 // Ref: false
 
 ---
-#let data = read("/files/rhino.png", encoding: none)
+#let data = read("/assets/images/rhino.png", encoding: none)
 #test(data.len(), 232243)
 #test(data.slice(0, count: 5), bytes((137, 80, 78, 71, 13)))
 #test(str(data.slice(1, 4)), "PNG")
@@ -28,5 +28,5 @@
 #bytes((a: 1))
 
 ---
-// Error: 8-15 expected bytes, array, or version, found string
+// Error: 8-15 expected array, bytes, or version, found string
 #array("hello")

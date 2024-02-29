@@ -2,4 +2,4 @@
 
 ---
 #pagebreak(weak: true)
-#bibliography("/files/works.bib")
+#bibliography("/assets/bib/works.bib")

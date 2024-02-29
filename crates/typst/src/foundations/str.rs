@@ -10,8 +10,8 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, dict, func, repr, scope, ty, Array, Bytes, Dict, Func, IntoValue, Label, Repr,
-    Type, Value, Version,
+    cast, dict, func, repr, scope, ty, Array, Bytes, Context, Dict, Func, IntoValue,
+    Label, Repr, Type, Value, Version,
 };
 use crate::layout::Alignment;
 use crate::syntax::{Span, Spanned};
@@ -114,7 +114,7 @@ impl Str {
             .and_then(|v| usize::try_from(v).ok())
             .filter(|&v| v <= self.0.len());
 
-        if resolved.map_or(false, |i| !self.0.is_char_boundary(i)) {
+        if resolved.is_some_and(|i| !self.0.is_char_boundary(i)) {
             return Err(not_a_char_boundary(index));
         }
 
@@ -308,7 +308,7 @@ impl Str {
     ) -> bool {
         match pattern {
             StrPattern::Str(pat) => self.0.starts_with(pat.as_str()),
-            StrPattern::Regex(re) => re.find(self).map_or(false, |m| m.start() == 0),
+            StrPattern::Regex(re) => re.find(self).is_some_and(|m| m.start() == 0),
         }
     }
 
@@ -424,6 +424,8 @@ impl Str {
         &self,
         /// The engine.
         engine: &mut Engine,
+        /// The callsite context.
+        context: &Context,
         /// The pattern to search for.
         pattern: StrPattern,
         /// The string to replace the matches with or a function that gets a
@@ -449,8 +451,10 @@ impl Str {
             match &replacement {
                 Replacement::Str(s) => output.push_str(s),
                 Replacement::Func(func) => {
-                    let piece =
-                        func.call(engine, [dict])?.cast::<Str>().at(func.span())?;
+                    let piece = func
+                        .call(engine, context, [dict])?
+                        .cast::<Str>()
+                        .at(func.span())?;
                     output.push_str(&piece);
                 }
             }

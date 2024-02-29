@@ -61,6 +61,32 @@
   [B],
 )
 
+#table(
+  columns: 3,
+  fill: (x, y) => (if y == 0 { aqua } else { orange }).darken(x * 15%),
+  inset: (x, y) => (left: if x == 0 { 0pt } else { 5pt }, right: if x == 0 { 5pt } else { 0pt }, y: if y == 0 { 0pt } else { 5pt }),
+  [A], [B], [C],
+  [A], [B], [C],
+)
+
+#table(
+  columns: 3,
+  inset: (0pt, 5pt, 10pt),
+  fill: (x, _) => aqua.darken(x * 15%),
+  [A], [B], [C],
+)
+
+---
+// Test inset folding
+#set table(inset: 10pt)
+#set table(inset: (left: 0pt))
+
+#table(
+  fill: red,
+  inset: (right: 0pt),
+  table.cell(inset: (top: 0pt))[a]
+)
+
 ---
 // Test interaction with gutters.
 #table(

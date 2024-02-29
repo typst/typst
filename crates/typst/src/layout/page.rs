@@ -6,17 +6,17 @@ use std::str::FromStr;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, AutoValue, Cast, Content, Dict, Fold, Func, NativeElement, Packed,
-    Resolve, Smart, StyleChain, Value,
+    cast, elem, AutoValue, Cast, Content, Context, Dict, Fold, Func, NativeElement,
+    Packed, Resolve, Smart, StyleChain, Value,
 };
-use crate::introspection::{Counter, CounterKey, ManualPageCounter};
+use crate::introspection::{Counter, CounterDisplayElem, CounterKey, ManualPageCounter};
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, ColumnsElem, Dir, Frame, HAlignment, LayoutMultiple,
-    Length, Point, Ratio, Regions, Rel, Sides, Size, VAlignment,
+    Length, OuterVAlignment, Point, Ratio, Regions, Rel, Sides, Size, SpecificAlignment,
+    VAlignment,
 };
 
 use crate::model::Numbering;
-use crate::syntax::Spanned;
 use crate::text::TextElem;
 use crate::util::{NonZeroExt, Numeric, Scalar};
 use crate::visualize::Paint;
@@ -221,17 +221,8 @@ pub struct PageElem {
     ///
     /// #lorem(30)
     /// ```
-    #[default(HAlignment::Center + VAlignment::Bottom)]
-    #[parse({
-        let option: Option<Spanned<Alignment>> = args.named("number-align")?;
-        if let Some(Spanned { v: align, span }) = option {
-            if align.y() == Some(VAlignment::Horizon) {
-                bail!(span, "page number cannot be `horizon`-aligned");
-            }
-        }
-        option.map(|spanned| spanned.v)
-    })]
-    pub number_align: Alignment,
+    #[default(SpecificAlignment::Both(HAlignment::Center, OuterVAlignment::Bottom))]
+    pub number_align: SpecificAlignment<HAlignment, OuterVAlignment>,
 
     /// The page's header. Fills the top margin of each page.
     ///
@@ -267,7 +258,7 @@ pub struct PageElem {
     /// #set page(
     ///   height: 100pt,
     ///   margin: 20pt,
-    ///   footer: [
+    ///   footer: context [
     ///     #set align(right)
     ///     #set text(8pt)
     ///     #counter(page).display(
@@ -369,7 +360,7 @@ impl Packed<PageElem> {
         let two_sided = margin.two_sided.unwrap_or(false);
         let margin = margin
             .sides
-            .map(|side| side.and_then(Smart::as_custom).unwrap_or(default))
+            .map(|side| side.and_then(Smart::custom).unwrap_or(default))
             .resolve(styles)
             .relative_to(size);
 
@@ -425,11 +416,13 @@ impl Packed<PageElem> {
                 Numbering::Func(_) => true,
             };
 
-            let mut counter = Counter::new(CounterKey::Page).display(
-                self.span(),
-                Some(numbering.clone()),
+            let mut counter = CounterDisplayElem::new(
+                Counter::new(CounterKey::Page),
+                Smart::Custom(numbering.clone()),
                 both,
-            );
+            )
+            .pack()
+            .spanned(self.span());
 
             // We interpret the Y alignment as selecting header or footer
             // and then ignore it for aligning the actual number.
@@ -440,7 +433,7 @@ impl Packed<PageElem> {
             counter
         }));
 
-        if matches!(number_align.y(), Some(VAlignment::Top)) {
+        if matches!(number_align.y(), Some(OuterVAlignment::Top)) {
             header = if header.is_some() { header } else { numbering_marginal };
         } else {
             footer = if footer.is_some() { footer } else { numbering_marginal };
@@ -521,7 +514,7 @@ impl Packed<PageElem> {
 }
 
 /// A finished page.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct Page {
     /// The frame that defines the page.
     pub frame: Frame,
@@ -533,7 +526,7 @@ pub struct Page {
 }
 
 /// Specification of the page's margins.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Margin {
     /// The margins for each side.
     pub sides: Sides<Option<Smart<Rel<Length>>>>,
@@ -549,6 +542,15 @@ impl Margin {
     }
 }
 
+impl Default for Margin {
+    fn default() -> Self {
+        Self {
+            sides: Sides::splat(Some(Smart::Auto)),
+            two_sided: None,
+        }
+    }
+}
+
 impl Fold for Margin {
     fn fold(self, outer: Self) -> Self {
         Margin {
@@ -561,22 +563,28 @@ impl Fold for Margin {
 cast! {
     Margin,
     self => {
+        let two_sided = self.two_sided.unwrap_or(false);
+        if !two_sided && self.sides.is_uniform() {
+            if let Some(left) = self.sides.left {
+                return left.into_value();
+            }
+        }
+
         let mut dict = Dict::new();
-        let mut handle = |key: &str, component: Value| {
-            let value = component.into_value();
-            if value != Value::None {
-                dict.insert(key.into(), value);
+        let mut handle = |key: &str, component: Option<Smart<Rel<Length>>>| {
+            if let Some(c) = component {
+                dict.insert(key.into(), c.into_value());
             }
         };
 
-        handle("top", self.sides.top.into_value());
-        handle("bottom", self.sides.bottom.into_value());
-        if self.two_sided.unwrap_or(false) {
-            handle("inside", self.sides.left.into_value());
-            handle("outside", self.sides.right.into_value());
+        handle("top", self.sides.top);
+        handle("bottom", self.sides.bottom);
+        if two_sided {
+            handle("inside", self.sides.left);
+            handle("outside", self.sides.right);
         } else {
-            handle("left", self.sides.left.into_value());
-            handle("right", self.sides.right.into_value());
+            handle("left", self.sides.left);
+            handle("right", self.sides.right);
         }
 
         Value::Dict(dict)
@@ -677,11 +685,15 @@ impl Marginal {
     pub fn resolve(
         &self,
         engine: &mut Engine,
+        styles: StyleChain,
         page: usize,
     ) -> SourceResult<Cow<'_, Content>> {
         Ok(match self {
             Self::Content(content) => Cow::Borrowed(content),
-            Self::Func(func) => Cow::Owned(func.call(engine, [page])?.display()),
+            Self::Func(func) => Cow::Owned(
+                func.call(engine, &Context::new(None, Some(styles)), [page])?
+                    .display(),
+            ),
         })
     }
 }

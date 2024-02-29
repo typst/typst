@@ -7,7 +7,7 @@ use crate::syntax::ast::{self, AstNode};
 
 /// Access an expression mutably.
 pub(crate) trait Access {
-    /// Access the value.
+    /// Access the expression's evaluated value mutably.
     fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value>;
 }
 
@@ -29,10 +29,12 @@ impl Access for ast::Expr<'_> {
 impl Access for ast::Ident<'_> {
     fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
         let span = self.span();
-        let value = vm.scopes.get_mut(&self).at(span)?;
         if vm.inspected == Some(span) {
-            vm.engine.tracer.value(value.clone());
+            if let Ok(value) = vm.scopes.get(&self).cloned() {
+                vm.trace(value);
+            }
         }
+        let value = vm.scopes.get_mut(&self).at(span)?;
         Ok(value)
     }
 }
@@ -56,7 +58,7 @@ impl Access for ast::FuncCall<'_> {
             if is_accessor_method(&method) {
                 let span = self.span();
                 let world = vm.world();
-                let args = self.args().eval(vm)?;
+                let args = self.args().eval(vm)?.spanned(span);
                 let value = access.target().access(vm)?;
                 let result = call_method_access(value, &method, args, span);
                 let point = || Tracepoint::Call(Some(method.get().clone()));
