@@ -28,9 +28,9 @@ pub enum SyntaxKind {
     Emph,
     /// Raw text with optional syntax highlighting: `` `...` ``.
     Raw,
-    /// A language tag at the start of raw element: ``typ ``.
+    /// A language tag at the start of raw text: ``typ ``.
     RawLang,
-    /// A raw delimiter in single or 3+ backticks: `` ` ``.
+    /// A raw delimiter consisting of 1 or 3+ backticks: `` ` ``.
     RawDelim,
     /// A sequence of whitespace to ignore in a raw block: `    `.
     RawTrimmed,
@@ -375,7 +375,7 @@ impl SyntaxKind {
             Self::Strong => "strong content",
             Self::Emph => "emphasized content",
             Self::Raw => "raw block",
-            Self::RawLang => "raw language",
+            Self::RawLang => "raw language tag",
             Self::RawTrimmed => "raw trimmed",
             Self::RawDelim => "raw delimiter",
             Self::Link => "link",

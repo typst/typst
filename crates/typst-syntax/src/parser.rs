@@ -119,10 +119,10 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::Link
         | SyntaxKind::Label => p.eat(),
 
-        SyntaxKind::RawDelim => raw(p),
         SyntaxKind::Hash => embedded_code_expr(p),
         SyntaxKind::Star => strong(p),
         SyntaxKind::Underscore => emph(p),
+        SyntaxKind::RawDelim => raw(p),
         SyntaxKind::HeadingMarker if *at_start => heading(p),
         SyntaxKind::ListMarker if *at_start => list_item(p),
         SyntaxKind::EnumMarker if *at_start => enum_item(p),
@@ -142,24 +142,6 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
     }
 
     *at_start = false;
-}
-
-/// Parses raw text with optional syntax highlighting: `` `...` ``.
-fn raw(p: &mut Parser) {
-    let m = p.marker();
-    p.enter(LexMode::Raw);
-
-    // Eats the delimiter.
-    p.eat_raw();
-    // Eats until the closing delimiter.
-    while !p.eof() && !p.at(SyntaxKind::RawDelim) {
-        p.eat_raw();
-    }
-    // Lex the next token after the raw block.
-    p.expect(SyntaxKind::RawDelim);
-
-    p.exit();
-    p.wrap(m, SyntaxKind::Raw);
 }
 
 /// Parses strong content: `*Strong*`.
@@ -188,6 +170,22 @@ fn emph(p: &mut Parser) {
     markup(p, false, 0, |p| p.at_set(END));
     p.expect_closing_delimiter(m, SyntaxKind::Underscore);
     p.wrap(m, SyntaxKind::Emph);
+}
+
+/// Parses raw text with optional syntax highlighting: `` `...` ``.
+fn raw(p: &mut Parser) {
+    let m = p.marker();
+    p.enter(LexMode::Raw);
+    p.assert(SyntaxKind::RawDelim);
+
+    // Eats until the closing delimiter.
+    while !p.eof() && !p.at(SyntaxKind::RawDelim) {
+        p.eat();
+    }
+
+    p.expect(SyntaxKind::RawDelim);
+    p.exit();
+    p.wrap(m, SyntaxKind::Raw);
 }
 
 /// Parses a section heading: `= Introduction`.
@@ -761,11 +759,11 @@ fn code_primary(p: &mut Parser, atomic: bool) {
                 p[m].expected("expression");
             }
         }
-        SyntaxKind::RawDelim => raw(p),
 
         SyntaxKind::LeftBrace => code_block(p),
         SyntaxKind::LeftBracket => content_block(p),
         SyntaxKind::LeftParen => expr_with_paren(p, atomic),
+        SyntaxKind::RawDelim => raw(p),
         SyntaxKind::Dollar => equation(p),
         SyntaxKind::Let => let_binding(p),
         SyntaxKind::Set => set_rule(p),
@@ -1714,11 +1712,6 @@ impl<'s> Parser<'s> {
         self.current_start = checkpoint.current_start;
         self.current = checkpoint.current;
         self.nodes.truncate(checkpoint.nodes);
-    }
-
-    fn eat_raw(&mut self) {
-        self.save();
-        self.lex();
     }
 
     fn skip(&mut self) {

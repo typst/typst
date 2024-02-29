@@ -4,7 +4,7 @@ use std::ops::Range;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use az::{CheckedAs, SaturatingAs};
+use az::SaturatingAs;
 use ecow::EcoString;
 use rustybuzz::{ShapePlan, Tag, UnicodeBuffer};
 use unicode_script::{Script, UnicodeScript};
@@ -268,22 +268,11 @@ impl<'a> ShapedText<'a> {
                     frame.size_mut().x += justification_left.at(self.size)
                         + justification_right.at(self.size);
 
-                    let span = if span_offset == 0 {
-                        shaped.span
-                    } else {
-                        let (span, offset) = shaped.span;
-
-                        // Check whether we can reach it with an `u16` offset.
-                        if let Some(offset) = span_offset
-                            .checked_as()
-                            .and_then(|span_offset: u16| offset.checked_add(span_offset))
-                        {
-                            (span, offset)
-                        } else {
-                            // If not, we detach the span.
-                            (Span::detached(), 0)
-                        }
-                    };
+                    // We may not be able to reach the offset completely if
+                    // it exceeds u16, but better to have a roughly correct
+                    // span offset than nothing.
+                    let mut span = shaped.span;
+                    span.1 = span.1.saturating_add(span_offset.saturating_as());
 
                     // |<---- a Glyph ---->|
                     //  -->|ShapedGlyph|<--

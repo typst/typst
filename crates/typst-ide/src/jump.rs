@@ -74,7 +74,7 @@ pub fn jump_from_click(
                         let Some(id) = span.id() else { continue };
                         let source = world.source(id).ok()?;
                         let node = source.find(span)?;
-                        let pos = if matches!(node.kind(), SyntaxKind::Text) {
+                        let pos = if node.kind() == SyntaxKind::Text {
                             let range = node.range();
                             let mut offset = range.start + usize::from(span_offset);
                             if (click.x - pos.x) > width / 2.0 {
@@ -116,7 +116,7 @@ pub fn jump_from_cursor(
     cursor: usize,
 ) -> Option<Position> {
     let node = LinkedNode::new(source.root()).leaf_at(cursor)?;
-    if !matches!(node.kind(), SyntaxKind::Text) {
+    if node.kind() != SyntaxKind::Text {
         return None;
     }
 

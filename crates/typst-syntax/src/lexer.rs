@@ -16,10 +16,10 @@ pub(super) struct Lexer<'s> {
     mode: LexMode,
     /// Whether the last token contained a newline.
     newline: bool,
+    /// The state held by raw line lexing.
+    raw: Vec<(SyntaxKind, usize)>,
     /// An error for the last token.
     error: Option<EcoString>,
-    /// The state holds by raw line lexing
-    raw_offsets: Vec<(SyntaxKind, usize)>,
 }
 
 /// What kind of tokens to emit.
@@ -31,7 +31,7 @@ pub(super) enum LexMode {
     Math,
     /// Keywords, literals and operators.
     Code,
-    /// Raw block.
+    /// The contents of a raw block.
     Raw,
 }
 
@@ -44,7 +44,7 @@ impl<'s> Lexer<'s> {
             mode,
             newline: false,
             error: None,
-            raw_offsets: Vec::new(),
+            raw: Vec::new(),
         }
     }
 
@@ -91,13 +91,12 @@ impl Lexer<'_> {
 /// Shared.
 impl Lexer<'_> {
     pub fn next(&mut self) -> SyntaxKind {
-        if matches!(self.mode, LexMode::Raw) {
-            return if let Some((kind, end)) = self.raw_offsets.pop() {
-                self.s.jump(end);
-                kind
-            } else {
-                SyntaxKind::Eof
+        if self.mode == LexMode::Raw {
+            let Some((kind, end)) = self.raw.pop() else {
+                return SyntaxKind::Eof;
             };
+            self.s.jump(end);
+            return kind;
         }
 
         self.newline = false;
@@ -239,239 +238,130 @@ impl Lexer<'_> {
     }
 
     fn raw(&mut self) -> SyntaxKind {
+        let start = self.s.cursor() - 1;
+        self.raw.clear();
+
+        // Determine number of opening backticks.
         let mut backticks = 1;
         while self.s.eat_if('`') {
             backticks += 1;
         }
-        let blocky = backticks >= 3;
 
+        // Special case for ``.
         if backticks == 2 {
-            self.raw_offsets.clear();
-            self.raw_offsets.push((SyntaxKind::RawDelim, self.s.cursor()));
-            self.s.uneat();
+            self.push_raw(SyntaxKind::RawDelim);
+            self.s.jump(start + 1);
             return SyntaxKind::RawDelim;
         }
 
-        /// The first pass determines following things.
-        struct FirstPass {
-            /// The tokens without dedent adjustment.
-            offsets: Vec<(SyntaxKind, usize)>,
-            /// The dedent level.
-            dedent: Option<usize>,
-            /// Whether the content should be trimmed a space at the end.
-            content_ends_with_backticks: bool,
-            /// The offset of language tag in the raw block.
-            lang: Option<usize>,
-            /// The end position of the raw block.
-            end_pos: usize,
+        // Find end of raw text.
+        let mut found = 0;
+        while found < backticks {
+            match self.s.eat() {
+                Some('`') => found += 1,
+                Some(_) => found = 0,
+                None => break,
+            }
         }
 
-        let FirstPass {
-            offsets,
-            dedent,
-            content_ends_with_backticks,
-            lang,
-            end_pos,
-        } = {
-            // Copies the scanner to determine the dedent level and the end position of the raw block.
-            let mut s = self.s;
+        if found != backticks {
+            return self.error("unclosed raw text");
+        }
 
-            // Reuses buffer.
-            let mut offsets = std::mem::take(&mut self.raw_offsets);
-            offsets.clear();
+        let end = self.s.cursor();
+        if backticks >= 3 {
+            self.blocky_raw(start, end, backticks);
+        } else {
+            // Single backtick needs no trimming or extra fancyness.
+            self.s.jump(end - backticks);
+            self.push_raw(SyntaxKind::Text);
+            self.s.jump(end);
+        }
 
-            // Parses lang if blocky.
-            let lang = {
-                if blocky && s.eat_if(is_id_start) {
-                    s.eat_while(is_id_continue);
-                    Some(s.cursor())
-                } else {
-                    None
-                }
-            };
+        // Closing delimiter.
+        self.push_raw(SyntaxKind::RawDelim);
 
-            // Trims an ascii space if blocky.
-            if blocky {
-                s.eat_if(' ');
-            }
+        // The saved tokens will be removed in reverse.
+        self.raw.reverse();
 
-            // A placeholder `RawTrimmed`
-            offsets.push((SyntaxKind::RawTrimmed, s.cursor()));
-
-            // Determines the end position of the raw block, also constructs the token offsets.
-            let mut accumulated_backticks = 0;
-            while accumulated_backticks < backticks {
-                match s.eat() {
-                    None => break,
-                    Some('`') => accumulated_backticks += 1,
-                    Some(c) => {
-                        accumulated_backticks = 0;
-
-                        if is_newline(c) {
-                            // The previous position of the char.
-                            let uneaten = s.cursor() - c.len_utf8();
-
-                            offsets.push((SyntaxKind::Text, uneaten));
-                            if c == '\r' {
-                                s.eat_if('\n');
-                            }
-                            offsets.push((SyntaxKind::RawTrimmed, s.cursor()));
-                        }
-                    }
-                }
-            }
-
-            let end_backticks = accumulated_backticks;
-            let end_pos = s.cursor();
-
-            // The last end position of the line in the raw block.
-            offsets.push((SyntaxKind::Text, end_pos - end_backticks));
-
-            if end_backticks != backticks {
-                // Restores the scanner and emits an error.
-                self.jump(end_pos);
-
-                // Returns the offsets buffer.
-                offsets.clear();
-                self.raw_offsets = offsets;
-
-                return self.error("unclosed raw text");
-            }
-
-            // Needs to trim an ascii space if it is blocky and the content ends with a backtick.
-            let content_ends_with_backticks = blocky && {
-                let text = s.get(offsets[0].1..offsets.last().unwrap().1);
-                text.trim_end().ends_with('`')
-            };
-
-            let dedent = blocky.then(|| {
-                let mut lines = offsets.as_slice().chunks_exact(2).map(|chunk| {
-                    let [trimmed, line] = chunk else { unreachable!() };
-                    s.get(trimmed.1..line.1)
-                });
-
-                let last_line = lines.next_back();
-
-                let dedents = lines
-                    .skip(1)
-                    .filter(|line| !line.chars().all(char::is_whitespace))
-                    // The line with the closing ``` is always taken into account
-                    .chain(last_line)
-                    .map(|line| line.chars().take_while(|c| c.is_whitespace()).count());
-
-                dedents.min()
-            });
-            let dedent = dedent.flatten();
-
-            FirstPass {
-                offsets,
-                dedent,
-                content_ends_with_backticks,
-                lang,
-                end_pos,
-            }
-        };
-
-        // The second pass calculates the jump stack of raw tokens.
-        let offsets = {
-            let mut offsets = offsets;
-
-            // Dedents based on column, but not for the first line.
-            if let Some(dedent) = dedent {
-                for chunk in offsets.chunks_exact_mut(2).skip(1) {
-                    let [trimmed, line] = chunk else { unreachable!() };
-
-                    let dedent = self.s.get(trimmed.1..line.1).chars().take(dedent);
-                    trimmed.1 += dedent.map(char::len_utf8).sum::<usize>();
-                }
-            }
-
-            fn trim_last_if_whitespace(
-                s: &Scanner<'_>,
-                offsets: &mut Vec<(SyntaxKind, usize)>,
-                content_ends_with_backticks: bool,
-            ) {
-                // Insufficient tokens
-                if offsets.len() < 2 {
-                    return;
-                }
-
-                // Gets the last line
-                let chunk = &offsets[offsets.len() - 2..];
-                let [(_, mut line_start), (_, mut line_end)] = chunk else {
-                    unreachable!()
-                };
-                if line_end < line_start {
-                    std::mem::swap(&mut line_end, &mut line_start);
-                }
-
-                let last_line = s.get(line_start..line_end);
-                if !last_line.chars().all(char::is_whitespace) {
-                    // There are three cases:
-                    // 1. When the last line are all whitespace.
-                    // 1.1. If the last line is empty, then the last char is a newline
-                    //     hence there is no an ascii space to trim at the end.
-                    // 1.2. If the last line is not empty, then we run into the case that
-                    //     `all_whitespace` is true, so all the chars are trimmed
-                    //     (including the last possible ascii space).
-                    // 2. When the last line are not all whitespace.
-                    //   Then we would hit the following conditions:
-                    //     trim an ascii space if `content_ends_with_backticks`
-                    if content_ends_with_backticks {
-                        let Some(last_char) = last_line.chars().last() else {
-                            return;
-                        };
-                        if last_char != ' ' {
-                            return;
-                        }
-
-                        offsets.last_mut().unwrap().1 -= last_char.len_utf8();
-                        offsets.push((SyntaxKind::RawTrimmed, line_end));
-                        return;
-                    }
-
-                    return;
-                }
-
-                offsets.pop();
-                offsets.pop();
-
-                // Reuses a trimmed token if it exists or creates a new one.
-                if let Some(trimmed) =
-                    offsets.last_mut().filter(|(kind, _)| *kind == SyntaxKind::RawTrimmed)
-                {
-                    trimmed.1 = trimmed.1.max(line_end);
-                } else {
-                    offsets.push((SyntaxKind::RawTrimmed, line_end));
-                }
-            }
-
-            // Trims a newline followed by a sequence of whitespace at the end.
-            trim_last_if_whitespace(&self.s, &mut offsets, content_ends_with_backticks);
-
-            // Sets the end position of the raw delim.
-            offsets.push((SyntaxKind::RawDelim, end_pos));
-
-            // Reverses the offsets to make it a stack.
-            offsets.reverse();
-
-            // Trims a sequence of whitespace followed by a newline at the start.
-            trim_last_if_whitespace(&self.s, &mut offsets, false);
-
-            if let Some(lang) = lang {
-                offsets.push((SyntaxKind::RawLang, lang));
-            }
-
-            offsets
-        };
-
-        self.raw_offsets = offsets;
+        // Opening delimiter.
+        self.s.jump(start + backticks);
         SyntaxKind::RawDelim
+    }
+
+    fn blocky_raw(&mut self, start: usize, end: usize, backticks: usize) {
+        // Language tag.
+        self.s.jump(start + backticks);
+        if self.s.eat_if(is_id_start) {
+            self.s.eat_while(is_id_continue);
+            self.push_raw(SyntaxKind::RawLang);
+        }
+
+        // Determine inner content between backticks and with trimmed
+        // single spaces (line trimming comes later).
+        self.s.eat_if(' ');
+        let mut inner = self.s.to(end - backticks);
+        if inner.trim_end().ends_with('`') {
+            inner = inner.strip_suffix(' ').unwrap_or(inner);
+        }
+
+        // Determine dedent level.
+        let lines = split_newlines(inner);
+        let dedent = lines
+            .iter()
+            .skip(1)
+            .filter(|line| !line.chars().all(char::is_whitespace))
+            // The line with the closing ``` is always taken into account
+            .chain(lines.last())
+            .map(|line| line.chars().take_while(|c| c.is_whitespace()).count())
+            .min()
+            .unwrap_or(0);
+
+        let is_whitespace = |line: &&str| line.chars().all(char::is_whitespace);
+        let starts_whitespace = lines.first().is_some_and(is_whitespace);
+        let ends_whitespace = lines.last().is_some_and(is_whitespace);
+
+        let mut lines = lines.into_iter();
+        let mut skipped = false;
+
+        // Trim whitespace + newline at start.
+        if starts_whitespace {
+            self.s.advance(lines.next().unwrap().len());
+            self.s.eat_newline();
+            skipped = true;
+        }
+        // Trim whitespace + newline at end.
+        if ends_whitespace {
+            lines.next_back();
+        }
+
+        // Add lines.
+        for (i, line) in lines.enumerate() {
+            let dedent = if i == 0 && !skipped { 0 } else { dedent };
+            let offset: usize = line.chars().take(dedent).map(char::len_utf8).sum();
+            self.s.advance(offset);
+            self.push_raw(SyntaxKind::RawTrimmed);
+            self.s.advance(line.len() - offset);
+            self.push_raw(SyntaxKind::Text);
+            self.s.eat_newline();
+        }
+
+        // Add final trimmed.
+        if self.s.cursor() < end - backticks {
+            self.s.jump(end - backticks);
+            self.push_raw(SyntaxKind::RawTrimmed);
+        }
+        self.s.jump(end);
+    }
+
+    fn push_raw(&mut self, kind: SyntaxKind) {
+        let end = self.s.cursor();
+        self.raw.push((kind, end));
     }
 
     fn link(&mut self) -> SyntaxKind {
         let (link, balanced) = link_prefix(self.s.after());
-        self.s.jump(self.s.cursor() + link.len());
+        self.s.advance(link.len());
 
         if !balanced {
             return self.error(
@@ -850,6 +740,25 @@ fn keyword(ident: &str) -> Option<SyntaxKind> {
         "as" => SyntaxKind::As,
         _ => return None,
     })
+}
+
+trait ScannerExt {
+    fn advance(&mut self, by: usize);
+    fn eat_newline(&mut self) -> bool;
+}
+
+impl ScannerExt for Scanner<'_> {
+    fn advance(&mut self, by: usize) {
+        self.jump(self.cursor() + by);
+    }
+
+    fn eat_newline(&mut self) -> bool {
+        let ate = self.eat_if(is_newline);
+        if ate && self.before().ends_with('\r') {
+            self.eat_if('\n');
+        }
+        ate
+    }
 }
 
 /// Whether a character will become a Space token in Typst

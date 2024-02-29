@@ -557,40 +557,42 @@ node! {
 
 impl<'a> Raw<'a> {
     /// The lines in the raw block.
-    pub fn lines(self) -> impl Iterator<Item = Text<'a>> {
+    pub fn lines(self) -> impl DoubleEndedIterator<Item = Text<'a>> {
         self.0.children().filter_map(SyntaxNode::cast)
     }
 
     /// An optional identifier specifying the language to syntax-highlight in.
-    pub fn lang(self) -> Option<&'a EcoString> {
-        let delim: RawDelim = self.0.cast_first_match()?;
-
+    pub fn lang(self) -> Option<RawLang<'a>> {
         // Only blocky literals are supposed to contain a language.
+        let delim: RawDelim = self.0.cast_first_match()?;
         if delim.0.len() < 3 {
             return Option::None;
         }
 
-        let lang: Option<RawLang> = self.0.cast_first_match();
-        lang.map(|lang| lang.0.text())
+        self.0.cast_first_match()
     }
 
     /// Whether the raw text should be displayed in a separate block.
     pub fn block(self) -> bool {
-        let Some(delim): Option<RawDelim> = self.0.cast_first_match() else {
-            return false;
-        };
-
-        let mut newlines = self.0.children().filter(|e| {
-            matches!(e.kind(), SyntaxKind::RawTrimmed) && e.text().chars().any(is_newline)
-        });
-
-        delim.0.len() >= 3 && newlines.next().is_some()
+        self.0
+            .cast_first_match()
+            .is_some_and(|delim: RawDelim| delim.0.len() >= 3)
+            && self.0.children().any(|e| {
+                e.kind() == SyntaxKind::RawTrimmed && e.text().chars().any(is_newline)
+            })
     }
 }
 
 node! {
     /// A language tag at the start of raw element: ``typ ``.
     RawLang
+}
+
+impl<'a> RawLang<'a> {
+    /// Get the language tag.
+    pub fn get(self) -> &'a EcoString {
+        self.0.text()
+    }
 }
 
 node! {

@@ -12,8 +12,8 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{At, FileError, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Args, Array, Bytes, Content, Fold, IntoValue, NativeElement,
-    Packed, PlainText, Show, ShowSet, Smart, StyleChain, Styles, Synthesize, Value,
+    cast, elem, scope, Args, Array, Bytes, Content, Fold, NativeElement, Packed,
+    PlainText, Show, ShowSet, Smart, StyleChain, Styles, Synthesize, Value,
 };
 use crate::layout::{BlockElem, Em, HAlignment};
 use crate::model::Figurable;
@@ -28,40 +28,8 @@ use crate::{syntax, World};
 
 // Shorthand for highlighter closures.
 type StyleFn<'a> =
-    &'a mut dyn FnMut(i64, &LinkedNode, Range<usize>, synt::Style) -> Content;
-type LineFn<'a> = &'a mut dyn FnMut(i64, Range<usize>, &mut Vec<Content>);
-
-/// The raw text.
-#[derive(Debug, Clone, Hash, PartialEq)]
-pub enum RawContent {
-    /// From a string.
-    Text(EcoString),
-    /// From lines of text.
-    Lines(EcoVec<(EcoString, Span)>),
-}
-
-impl RawContent {
-    /// Synthesizes the text content of the raw text.
-    pub fn content(&self) -> EcoString {
-        match self.clone() {
-            RawContent::Text(text) => text,
-            RawContent::Lines(lines) => {
-                let mut lines = lines.into_iter().map(|(s, _)| s);
-                if lines.len() <= 1 {
-                    lines.next().unwrap_or_default()
-                } else {
-                    lines.collect::<Vec<_>>().join("\n").into()
-                }
-            }
-        }
-    }
-}
-
-cast! {
-    RawContent,
-    self => IntoValue::into_value(self.content()),
-    v: EcoString => Self::Text(v),
-}
+    &'a mut dyn FnMut(usize, &LinkedNode, Range<usize>, synt::Style) -> Content;
+type LineFn<'a> = &'a mut dyn FnMut(usize, Range<usize>, &mut Vec<Content>);
 
 /// Raw text with optional syntax highlighting.
 ///
@@ -340,22 +308,17 @@ impl Packed<RawElem> {
                 lines.clone()
             }
             _ => {
-                let mut text = text.content();
+                let mut text = text.get();
                 if text.contains('\t') {
                     let tab_size = RawElem::tab_size_in(styles);
                     text = align_tabs(&text, tab_size);
                 }
-
                 let lines = split_newlines(&text);
-
-                lines
-                    .into_iter()
-                    .map(|line| (line.into(), Span::detached()))
-                    .collect()
+                lines.into_iter().map(|line| (line.into(), self.span())).collect()
             }
         };
-        let count = lines.len() as i64;
 
+        let count = lines.len() as i64;
         let lang = elem
             .lang(styles)
             .as_ref()
@@ -377,7 +340,7 @@ impl Packed<RawElem> {
 
         let mut seq = vec![];
         if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
-            let text = text.content();
+            let text = text.get();
             let root = match lang.as_deref() {
                 Some("typc") => syntax::parse_code(&text),
                 _ => syntax::parse(&text),
@@ -388,12 +351,11 @@ impl Packed<RawElem> {
                 LinkedNode::new(&root),
                 synt::Highlighter::new(theme),
                 &mut |i, _, range, style| {
-                    // find offset to previous newline or start of before range start
-                    // Note: dedent is already applied to the text
+                    // Find start of line.
+                    // Note: Dedent is already applied to the text
                     let span_offset = text[..range.start]
                         .rfind('\n')
-                        .map(|i| range.start - (i + 1))
-                        .unwrap_or(0);
+                        .map_or(0, |i| range.start - (i + 1));
                     styled(
                         &text[range],
                         foreground,
@@ -405,7 +367,7 @@ impl Packed<RawElem> {
                 &mut |i, range, line| {
                     seq.push(
                         Packed::new(RawLine::new(
-                            i + 1,
+                            (i + 1) as i64,
                             count,
                             EcoString::from(&text[range]),
                             Content::sequence(line.drain(..)),
@@ -426,11 +388,11 @@ impl Packed<RawElem> {
                 })
         }) {
             let mut highlighter = syntect::easy::HighlightLines::new(syntax, theme);
-            for (i, line) in lines.into_iter().enumerate() {
+            for (i, (line, line_span)) in lines.into_iter().enumerate() {
                 let mut line_content = vec![];
-                let mut line_inner_offset = 0usize;
+                let mut span_offset = 0;
                 for (style, piece) in highlighter
-                    .highlight_line(line.0.as_str(), syntax_set)
+                    .highlight_line(line.as_str(), syntax_set)
                     .into_iter()
                     .flatten()
                 {
@@ -438,31 +400,31 @@ impl Packed<RawElem> {
                         piece,
                         foreground,
                         style,
-                        line.1,
-                        line_inner_offset,
+                        line_span,
+                        span_offset,
                     ));
-                    line_inner_offset += piece.len();
+                    span_offset += piece.len();
                 }
 
                 seq.push(
                     Packed::new(RawLine::new(
                         i as i64 + 1,
                         count,
-                        line.0,
+                        line,
                         Content::sequence(line_content),
                     ))
-                    .spanned(line.1),
+                    .spanned(line_span),
                 );
             }
         } else {
-            seq.extend(lines.into_iter().enumerate().map(|(i, line)| {
+            seq.extend(lines.into_iter().enumerate().map(|(i, (line, line_span))| {
                 Packed::new(RawLine::new(
                     i as i64 + 1,
                     count,
-                    line.0.clone(),
-                    TextElem::packed(line.0).spanned(line.1),
+                    line.clone(),
+                    TextElem::packed(line).spanned(line_span),
                 ))
-                .spanned(line.1)
+                .spanned(line_span)
             }));
         };
 
@@ -548,8 +510,40 @@ impl Figurable for Packed<RawElem> {}
 
 impl PlainText for Packed<RawElem> {
     fn plain_text(&self, text: &mut EcoString) {
-        text.push_str(&self.text().content());
+        text.push_str(&self.text().get());
     }
+}
+
+/// The content of the raw text.
+#[derive(Debug, Clone, Hash, PartialEq)]
+pub enum RawContent {
+    /// From a string.
+    Text(EcoString),
+    /// From lines of text.
+    Lines(EcoVec<(EcoString, Span)>),
+}
+
+impl RawContent {
+    /// Returns or synthesizes the text content of the raw text.
+    fn get(&self) -> EcoString {
+        match self.clone() {
+            RawContent::Text(text) => text,
+            RawContent::Lines(lines) => {
+                let mut lines = lines.into_iter().map(|(s, _)| s);
+                if lines.len() <= 1 {
+                    lines.next().unwrap_or_default()
+                } else {
+                    lines.collect::<Vec<_>>().join("\n").into()
+                }
+            }
+        }
+    }
+}
+
+cast! {
+    RawContent,
+    self => self.get().into_value(),
+    v: EcoString => Self::Text(v),
 }
 
 /// A highlighted line of raw text.
@@ -606,7 +600,7 @@ struct ThemedHighlighter<'a> {
     /// The range of the current line.
     range: Range<usize>,
     /// The current line number.
-    line: i64,
+    line: usize,
     /// The function to style a piece of text.
     style_fn: StyleFn<'a>,
     /// The function to append a line.

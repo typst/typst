@@ -622,7 +622,8 @@ pub struct TextElem {
     #[required]
     pub text: EcoString,
 
-    /// The span offset of the text.
+    /// The offset of the text in the text syntax node referenced by this
+    /// element's span.
     #[internal]
     #[ghost]
     pub span_offset: usize,
