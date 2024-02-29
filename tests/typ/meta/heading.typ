@@ -46,20 +46,24 @@ multiline.
 #heading(level: 5)[Heading]
 
 ---
-// Set the starting offset.
+// Test setting the starting offset.
 #set heading(numbering: "1.1")
-= I'm still level one.
+#show heading.where(level: 2): set text(blue)
+= Level 1
 
-#heading(depth: 1)[We're like twins]
-#heading(level: 1)[We're like twins]
+#heading(depth: 1)[We're twins]
+#heading(level: 1)[We're twins]
+
+== Real level 2
 
 #set heading(offset: 1)
-= I'm actually level two!
+= Fake level 2
+== Fake level 3
 
 ---
-// passing level directly still overrides all other set values
+// Passing level directly still overrides all other set values
 #set heading(numbering: "1.1", offset: 1)
-#heading(level: 1)[I'm still level one.]
+#heading(level: 1)[Still level 1]
 
 ---
 // Edge cases.

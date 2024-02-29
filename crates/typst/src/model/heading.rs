@@ -46,12 +46,32 @@ use crate::util::{option_eq, NonZeroExt};
 /// can be set to configure the starting depth.
 #[elem(Locatable, Synthesize, Count, Show, ShowSet, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
-    /// The relative nesting depth of the heading, starting from *one*. This is
+    /// The absolute nesting depth of the heading, starting from one. If set
+    /// to `{auto}`, it is computed from `{offset + depth}`.
+    ///
+    /// This is primarily useful for usage in [show rules]($styling/#show-rules)
+    /// (either with [`where`]($function.where) selectors or by accessing the
+    /// level directly on a shown heading).
+    ///
+    /// ```example
+    /// #show heading.where(level: 2): set text(red)
+    ///
+    /// = Level 1
+    /// == Level 2
+    ///
+    /// #set heading(offset: 1)
+    /// = Also level 2
+    /// == Level 3
+    /// ```
+    pub level: Smart<NonZeroUsize>,
+
+    /// The relative nesting depth of the heading, starting from one. This is
     /// combined with `{offset}` to compute the actual `{level}`.
     ///
     /// This is set by the heading syntax, such that `[== Heading]` creates a
-    /// heading with depth 2, but its actual level is affected by the
-    /// `{offset}`.
+    /// heading with logical depth 2, but actual level `{offset + 2}`. If you
+    /// construct a heading manually, you should typically prefer this over
+    /// setting the absolute `level`.
     #[default(NonZeroUsize::ONE)]
     pub depth: NonZeroUsize,
 
@@ -59,27 +79,17 @@ pub struct HeadingElem {
     /// `{depth}` into its absolute `{level}`.
     ///
     /// ```example
-    /// #set heading(offset: 1, numbering: "1.1")
+    /// = Level 1
     ///
-    /// = Not Level 1
-    /// = Level 3
-    /// #heading(offset: 2, depth: 2)[I'm level 4]
+    /// #set heading(offset: 1, numbering: "1.1")
+    /// = Level 2
+    ///
+    /// #heading(offset: 2, depth: 2)[
+    ///   I'm level 4
+    /// ]
     /// ```
     #[default(0)]
     pub offset: usize,
-
-    /// The absolute nesting depth of the heading, starting from *one*. If set
-    /// to `{auto}`, it is computed from `{offset + depth}`.
-    ///
-    /// ```example
-    /// = I'm a chapter
-    ///
-    /// #set heading(offset: 1, numbering: "1.1")
-    ///
-    /// #heading(level: 1)[I'm a also chapter]
-    /// = I'm a section
-    /// ```
-    pub level: Smart<NonZeroUsize>,
 
     /// How to number the heading. Accepts a
     /// [numbering pattern or function]($numbering).
