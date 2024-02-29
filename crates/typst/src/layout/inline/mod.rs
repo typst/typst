@@ -445,10 +445,25 @@ fn collect<'a>(
             Segment::Text(1)
         } else if let Some(elem) = child.to_packed::<TextElem>() {
             let prev = full.len();
+            let dir = TextElem::dir_in(styles);
+            let outer_dir = TextElem::dir_in(*outer);
+            if dir != outer_dir {
+                // Insert `Explicit Directional Isolates`
+                match dir {
+                    Dir::LTR => full.push_str("\u{2066}"),
+                    Dir::RTL => full.push_str("\u{2067}"),
+                    _ => {}
+                }
+            }
+
             if let Some(case) = TextElem::case_in(styles) {
                 full.push_str(&case.apply(elem.text()));
             } else {
                 full.push_str(elem.text());
+            }
+
+            if dir != outer_dir {
+                full.push_str("\u{2069}"); // Insert `Pop Directional Isolate`
             }
             Segment::Text(full.len() - prev)
         } else if let Some(elem) = child.to_packed::<HElem>() {
