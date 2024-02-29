@@ -287,7 +287,7 @@ impl SpanMapper {
     fn span_at(&self, offset: usize) -> (Span, u16) {
         let mut cursor = 0;
         for &(len, span) in &self.0 {
-            if (cursor..=cursor + len).contains(&offset) {
+            if (cursor..cursor + len).contains(&offset) {
                 return (span, u16::try_from(offset - cursor).unwrap_or(0));
             }
             cursor += len;
