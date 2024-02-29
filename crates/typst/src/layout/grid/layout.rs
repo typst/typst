@@ -1768,7 +1768,7 @@ impl<'a> GridLayouter<'a> {
             );
             let size = Axes::new(measurement_data.width, measurement_data.height);
             let backlog =
-                measurement_data.backlog.unwrap_or(&*measurement_data.custom_backlog);
+                measurement_data.backlog.unwrap_or(&measurement_data.custom_backlog);
 
             let pod = if !breakable {
                 // Force cell to fit into a single region when the row is
