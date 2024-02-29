@@ -632,9 +632,7 @@ impl CellGrid {
                         align.resolve(engine, styles, x, y)?,
                         inset.resolve(engine, styles, x, y)?,
                         stroke.resolve(engine, styles, x, y)?,
-                        // An absent entry replaced by an empty cell will
-                        // always have a rowspan of 1, and is thus breakable.
-                        true,
+                        resolve_breakable(y, 1),
                         styles,
                     );
                     Ok(Entry::Cell(new_cell))
