@@ -51,7 +51,7 @@ pub enum WordBreak {
     /// Words break according to the languages' customary rules. For example,
     /// English do not prefer to break lines without space while
     /// Chinese/Japanese doesn't. See the the details in
-    /// <https://drafts.csswg.org/css-text-3/#valdef-line-break-normal>
+    /// `https://drafts.csswg.org/css-text-3/#valdef-line-break-normal`.
     Normal,
 
     /// Breaking is allowed within words.
