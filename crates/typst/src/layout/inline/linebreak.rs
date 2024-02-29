@@ -10,7 +10,7 @@ use super::Preparation;
 use crate::syntax::link_prefix;
 use crate::text::{Lang, TextElem, WordBreak};
 
-/// Create a general line break segmenter with word-break option.
+/// Create a general line break segmenter with a word break option.
 fn create_segmenter(word_break: WordBreak) -> LineSegmenter {
     let provider =
         BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU).unwrap();
@@ -20,7 +20,7 @@ fn create_segmenter(word_break: WordBreak) -> LineSegmenter {
         .unwrap()
 }
 
-/// Create a line break segmenter for Chinese/Japanese text with word-break option.
+/// Create a line break segmenter for Chinese/Japanese text with a word break option.
 fn create_cj_segmenter(word_break: WordBreak) -> LineSegmenter {
     let provider =
         BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU).unwrap();
