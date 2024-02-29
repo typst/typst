@@ -360,7 +360,7 @@ impl Packed<PageElem> {
         let two_sided = margin.two_sided.unwrap_or(false);
         let margin = margin
             .sides
-            .map(|side| side.and_then(Smart::as_custom).unwrap_or(default))
+            .map(|side| side.and_then(Smart::custom).unwrap_or(default))
             .resolve(styles)
             .relative_to(size);
 

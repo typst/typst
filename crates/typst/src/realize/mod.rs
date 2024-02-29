@@ -161,7 +161,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
 
         let keep = content
             .to_packed::<PagebreakElem>()
-            .map_or(false, |pagebreak| !pagebreak.weak(styles));
+            .is_some_and(|pagebreak| !pagebreak.weak(styles));
 
         self.interrupt_page(keep.then_some(styles), false)?;
 
@@ -427,7 +427,7 @@ impl<'a> ParBuilder<'a> {
             || content.is::<SmartQuoteElem>()
             || content
                 .to_packed::<EquationElem>()
-                .map_or(false, |elem| !elem.block(styles))
+                .is_some_and(|elem| !elem.block(styles))
             || content.is::<BoxElem>()
         {
             self.0.push(content, styles);

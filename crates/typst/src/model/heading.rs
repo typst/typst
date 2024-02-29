@@ -17,7 +17,7 @@ use crate::util::{option_eq, NonZeroExt};
 /// With headings, you can structure your document into sections. Each heading
 /// has a _level,_ which starts at one and is unbounded upwards. This level
 /// indicates the logical role of the following content (section, subsection,
-/// etc.)  A top-level heading indicates a top-level section of the document
+/// etc.) A top-level heading indicates a top-level section of the document
 /// (not the document's title).
 ///
 /// Typst can automatically number your headings for you. To enable numbering,
@@ -42,12 +42,54 @@ use crate::util::{option_eq, NonZeroExt};
 /// # Syntax
 /// Headings have dedicated syntax: They can be created by starting a line with
 /// one or multiple equals signs, followed by a space. The number of equals
-/// signs determines the heading's logical nesting depth.
+/// signs determines the heading's logical nesting depth. The `{offset}` field
+/// can be set to configure the starting depth.
 #[elem(Locatable, Synthesize, Count, Show, ShowSet, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
-    /// The logical nesting depth of the heading, starting from one.
+    /// The absolute nesting depth of the heading, starting from one. If set
+    /// to `{auto}`, it is computed from `{offset + depth}`.
+    ///
+    /// This is primarily useful for usage in [show rules]($styling/#show-rules)
+    /// (either with [`where`]($function.where) selectors or by accessing the
+    /// level directly on a shown heading).
+    ///
+    /// ```example
+    /// #show heading.where(level: 2): set text(red)
+    ///
+    /// = Level 1
+    /// == Level 2
+    ///
+    /// #set heading(offset: 1)
+    /// = Also level 2
+    /// == Level 3
+    /// ```
+    pub level: Smart<NonZeroUsize>,
+
+    /// The relative nesting depth of the heading, starting from one. This is
+    /// combined with `{offset}` to compute the actual `{level}`.
+    ///
+    /// This is set by the heading syntax, such that `[== Heading]` creates a
+    /// heading with logical depth 2, but actual level `{offset + 2}`. If you
+    /// construct a heading manually, you should typically prefer this over
+    /// setting the absolute `level`.
     #[default(NonZeroUsize::ONE)]
-    pub level: NonZeroUsize,
+    pub depth: NonZeroUsize,
+
+    /// The starting offset of each heading's level, used to turn its relative
+    /// `{depth}` into its absolute `{level}`.
+    ///
+    /// ```example
+    /// = Level 1
+    ///
+    /// #set heading(offset: 1, numbering: "1.1")
+    /// = Level 2
+    ///
+    /// #heading(offset: 2, depth: 2)[
+    ///   I'm level 4
+    /// ]
+    /// ```
+    #[default(0)]
+    pub offset: usize,
 
     /// How to number the heading. Accepts a
     /// [numbering pattern or function]($numbering).
@@ -126,6 +168,15 @@ pub struct HeadingElem {
     pub body: Content,
 }
 
+impl HeadingElem {
+    pub fn resolve_level(&self, styles: StyleChain) -> NonZeroUsize {
+        self.level(styles).unwrap_or_else(|| {
+            NonZeroUsize::new(self.offset(styles) + self.depth(styles).get())
+                .expect("overflow to 0 on NoneZeroUsize + usize")
+        })
+    }
+}
+
 impl Synthesize for Packed<HeadingElem> {
     fn synthesize(
         &mut self,
@@ -140,7 +191,9 @@ impl Synthesize for Packed<HeadingElem> {
             }
         };
 
-        self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
+        let elem = self.as_mut();
+        elem.push_level(Smart::Custom(elem.resolve_level(styles)));
+        elem.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
         Ok(())
     }
 }
@@ -163,7 +216,7 @@ impl Show for Packed<HeadingElem> {
 
 impl ShowSet for Packed<HeadingElem> {
     fn show_set(&self, styles: StyleChain) -> Styles {
-        let level = (**self).level(styles).get();
+        let level = (**self).resolve_level(styles).get();
         let scale = match level {
             1 => 1.4,
             2 => 1.2,
@@ -189,7 +242,7 @@ impl Count for Packed<HeadingElem> {
         (**self)
             .numbering(StyleChain::default())
             .is_some()
-            .then(|| CounterUpdate::Step((**self).level(StyleChain::default())))
+            .then(|| CounterUpdate::Step((**self).resolve_level(StyleChain::default())))
     }
 }
 
@@ -236,7 +289,7 @@ impl Outlinable for Packed<HeadingElem> {
     }
 
     fn level(&self) -> NonZeroUsize {
-        (**self).level(StyleChain::default())
+        (**self).resolve_level(StyleChain::default())
     }
 }
 

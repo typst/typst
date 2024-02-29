@@ -2,6 +2,7 @@
 
 ---
 // Test separation by script.
+#set text(font: ("Linux Libertine", "IBM Plex Sans Devanagari"))
 ABCअपार्टमेंट
 
 // This is how it should look like.
@@ -13,12 +14,12 @@ ABCअपार्टमेंट
 
 ---
 // A forced `latn` script inhibits Devanagari font features.
-#set text(script: "latn")
+#set text(font: ("Linux Libertine", "IBM Plex Sans Devanagari"), script: "latn")
 ABCअपार्टमेंट
 
 ---
 // A forced `deva` script enables Devanagari font features.
-#set text(script: "deva")
+#set text(font: ("Linux Libertine", "IBM Plex Sans Devanagari"), script: "deva")
 ABCअपार्टमेंट
 
 ---

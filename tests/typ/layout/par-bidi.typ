@@ -41,7 +41,7 @@ Lריווח #h(1cm) R
 ---
 // Test inline object.
 #set text(lang: "he")
-קרנפיםRh#box(image("/files/rhino.png", height: 11pt))inoחיים
+קרנפיםRh#box(image("/assets/images/rhino.png", height: 11pt))inoחיים
 
 ---
 // Test whether L1 whitespace resetting destroys stuff.

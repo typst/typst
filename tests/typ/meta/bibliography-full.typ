@@ -2,4 +2,4 @@
 
 ---
 #set page(paper: "a6", height: 170mm)
-#bibliography("/files/works.bib", full: true)
+#bibliography("/assets/bib/works.bib", full: true)

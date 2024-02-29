@@ -19,13 +19,13 @@ const OKLAB_B: Name<'static> = Name(b"B");
 
 // The ICC profiles.
 static SRGB_ICC_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(include_bytes!("icc/sRGB-v4.icc")));
+    Lazy::new(|| deflate(typst_assets::icc::S_RGB_V4));
 static GRAY_ICC_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(include_bytes!("icc/sGrey-v4.icc")));
+    Lazy::new(|| deflate(typst_assets::icc::S_GREY_V4));
 
 // The PostScript functions for color spaces.
 static OKLAB_DEFLATED: Lazy<Vec<u8>> =
-    Lazy::new(|| deflate(minify(include_str!("postscript/oklab.ps")).as_bytes()));
+    Lazy::new(|| deflate(minify(include_str!("oklab.ps")).as_bytes()));
 
 /// The color spaces present in the PDF document
 #[derive(Default)]

@@ -7,4 +7,4 @@ Nothing: #cite(<arrgh>, form: none)
 
 #cite(<netwok>, form: "prose") say stuff.
 
-#bibliography("/files/works.bib", style: "apa")
+#bibliography("/assets/bib/works.bib", style: "apa")

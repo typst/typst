@@ -367,7 +367,7 @@ impl Counter {
         styles: Option<StyleChain>,
     ) -> SourceResult<Value> {
         let numbering = numbering
-            .as_custom()
+            .custom()
             .or_else(|| {
                 let styles = styles?;
                 let CounterKey::Selector(Selector::Elem(func, _)) = self.0 else {

@@ -220,7 +220,7 @@ impl Show for Packed<BibliographyElem> {
 
             seq.push(
                 HeadingElem::new(title)
-                    .with_level(NonZeroUsize::ONE)
+                    .with_level(Smart::Custom(NonZeroUsize::ONE))
                     .pack()
                     .spanned(self.span()),
             );
@@ -779,7 +779,7 @@ impl<'a> Generator<'a> {
         let citations = self.display_citations(rendered);
         let references = self.display_references(rendered);
         let hanging_indent =
-            rendered.bibliography.as_ref().map_or(false, |b| b.hanging_indent);
+            rendered.bibliography.as_ref().is_some_and(|b| b.hanging_indent);
         Ok(Works { citations, references, hanging_indent })
     }
 

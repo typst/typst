@@ -655,7 +655,7 @@ fn add_cjk_latin_spacing(items: &mut [Item]) {
             });
 
             // Case 1: CJ followed by a Latin character
-            if glyph.is_cj_script() && next.map_or(false, |g| g.is_letter_or_number()) {
+            if glyph.is_cj_script() && next.is_some_and(|g| g.is_letter_or_number()) {
                 // The spacing is default to 1/4 em, and can be shrunk to 1/8 em.
                 glyph.x_advance += Em::new(0.25);
                 glyph.adjustability.shrinkability.1 += Em::new(0.125);
@@ -663,7 +663,7 @@ fn add_cjk_latin_spacing(items: &mut [Item]) {
             }
 
             // Case 2: Latin followed by a CJ character
-            if glyph.is_cj_script() && prev.map_or(false, |g| g.is_letter_or_number()) {
+            if glyph.is_cj_script() && prev.is_some_and(|g| g.is_letter_or_number()) {
                 glyph.x_advance += Em::new(0.25);
                 glyph.x_offset += Em::new(0.25);
                 glyph.adjustability.shrinkability.0 += Em::new(0.125);
@@ -1374,7 +1374,7 @@ fn reorder<'a>(line: &'a Line<'a>) -> (Vec<&Item<'a>>, bool) {
 
     // Compute the reordered ranges in visual order (left to right).
     let (levels, runs) = line.bidi.visual_runs(para, line.trimmed.clone());
-    let starts_rtl = levels.first().map_or(false, |level| level.is_rtl());
+    let starts_rtl = levels.first().is_some_and(|level| level.is_rtl());
 
     // Collect the reordered items.
     for run in runs {

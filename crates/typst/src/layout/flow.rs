@@ -493,7 +493,7 @@ impl<'a> FlowLayouter<'a> {
         while self
             .items
             .last()
-            .map_or(false, |item| matches!(item, FlowItem::Absolute(_, true)))
+            .is_some_and(|item| matches!(item, FlowItem::Absolute(_, true)))
         {
             self.items.pop();
         }
@@ -685,7 +685,7 @@ impl FlowLayouter<'_> {
             // together).
             if !force
                 && (k == 0 || movable)
-                && frames.first().map_or(false, Frame::is_empty)
+                && frames.first().is_some_and(Frame::is_empty)
             {
                 // Remove existing footnotes attempts because we need to
                 // move the item to the next page.

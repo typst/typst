@@ -55,7 +55,7 @@ pub(crate) fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
             // exists), or at most as deep as its actual nesting level in Typst
             // (not exceeding whichever is the most restrictive depth limit
             // of those two).
-            while children.last().map_or(false, |last| {
+            while children.last().is_some_and(|last| {
                 last_skipped_level.map_or(true, |l| last.level < l)
                     && last.level < leaf.level
             }) {
@@ -117,7 +117,7 @@ struct HeadingNode<'a> {
 impl<'a> HeadingNode<'a> {
     fn leaf(element: &'a Packed<HeadingElem>) -> Self {
         HeadingNode {
-            level: element.level(StyleChain::default()),
+            level: element.resolve_level(StyleChain::default()),
             // 'bookmarked' set to 'auto' falls back to the value of 'outlined'.
             bookmarked: element
                 .bookmarked(StyleChain::default())
