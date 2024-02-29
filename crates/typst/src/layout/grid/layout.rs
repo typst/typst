@@ -1663,19 +1663,13 @@ impl<'a> GridLayouter<'a> {
             y,
             true,
             self.unbreakable_rows_left,
-            &UnbreakableRowGroup::default(),
+            None,
         )? {
             Some(resolved) => resolved,
             None => {
                 self.finish_region(engine)?;
-                self.measure_auto_row(
-                    engine,
-                    y,
-                    false,
-                    self.unbreakable_rows_left,
-                    &UnbreakableRowGroup::default(),
-                )?
-                .unwrap()
+                self.measure_auto_row(engine, y, false, self.unbreakable_rows_left, None)?
+                    .unwrap()
             }
         };
 
@@ -1730,7 +1724,7 @@ impl<'a> GridLayouter<'a> {
         y: usize,
         can_skip: bool,
         unbreakable_rows_left: usize,
-        row_group_data: &UnbreakableRowGroup,
+        row_group_data: Option<&UnbreakableRowGroup>,
     ) -> SourceResult<Option<Vec<Abs>>> {
         let breakable = unbreakable_rows_left == 0;
         let mut resolved: Vec<Abs> = vec![];

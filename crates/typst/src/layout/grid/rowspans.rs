@@ -207,7 +207,7 @@ impl<'a> GridLayouter<'a> {
                         y,
                         false,
                         unbreakable_rows_left,
-                        &row_group,
+                        Some(&row_group),
                     )?
                     .unwrap()
                     .first()
@@ -217,6 +217,7 @@ impl<'a> GridLayouter<'a> {
                 // needed for unbreakable rows
                 Sizing::Fr(_) => Abs::zero(),
             };
+            let height = height.max(Abs::zero());
             row_group.height += height;
             row_group.rows.push((y, height));
             unbreakable_rows_left -= 1;
@@ -250,7 +251,7 @@ impl<'a> GridLayouter<'a> {
         parent: Axes<usize>,
         cell: &Cell,
         breakable: bool,
-        row_group_data: &UnbreakableRowGroup,
+        row_group_data: Option<&UnbreakableRowGroup>,
     ) -> CellMeasurementData<'_> {
         let rowspan = self.grid.effective_rowspan_of_cell(cell);
 
@@ -278,14 +279,16 @@ impl<'a> GridLayouter<'a> {
             // Not a rowspan, so the cell only occupies this row. Therefore:
             // 1. When we measure the cell below, use the available height
             // remaining in the region as the height it has available.
-            // Ensure we subtract the height of previous rows in the
-            // unbreakable row group, if we're currently simulating it.
+            // However, if we're simulating an unbreakable row group, pretend
+            // infinite space is available instead during simulation.
             // 2. Also use the region's backlog when measuring.
-            // 3. No height occupied by this cell in this region so far.
-            // 4. Yes, this cell started in this region.
-            height = self.regions.size.y - row_group_data.height;
+            // 3. Use the same full region height.
+            // 4. No height occupied by this cell in this region so far.
+            // 5. Yes, this cell started in this region.
+            height =
+                if row_group_data.is_some() { Abs::inf() } else { self.regions.size.y };
             backlog = Some(self.regions.backlog);
-            full = self.regions.full;
+            full = if row_group_data.is_some() { Abs::inf() } else { self.regions.full };
             height_in_this_region = Abs::zero();
             frames_in_previous_regions = 0;
         } else {
@@ -310,8 +313,8 @@ impl<'a> GridLayouter<'a> {
             // consider the height of previously spanned rows which are in
             // the row group but not yet laid out.
             let unbreakable_height: Abs = row_group_data
-                .rows
-                .iter()
+                .into_iter()
+                .flat_map(|row_group| &row_group.rows)
                 .filter(|(y, _)| (parent.y..parent.y + rowspan).contains(y))
                 .map(|(_, height)| height)
                 .sum();
@@ -335,10 +338,17 @@ impl<'a> GridLayouter<'a> {
                 // the current backlog.
                 frames_in_previous_regions = rowspan_other_heights.len() + 1;
 
+                // Exceptionally, if we're currently simulating an unbreakable
+                // row group, consider that we will have infinite space
+                // available.
                 let heights_up_to_current_region = rowspan_other_heights
                     .iter()
                     .copied()
-                    .chain(std::iter::once(self.initial.y));
+                    .chain(std::iter::once(if row_group_data.is_some() {
+                        Abs::inf()
+                    } else {
+                        self.initial.y
+                    }));
 
                 rowspan_backlog = if !breakable {
                     // No extra backlog if this is an unbreakable auto row.
@@ -367,10 +377,17 @@ impl<'a> GridLayouter<'a> {
                 // previous rows in this region (and/or unbreakable row
                 // group, if it's being simulated).
                 // The backlog and full will be that of the current region.
-                frames_in_previous_regions = 0;
-                height = height_in_this_region + self.regions.size.y;
+                // Exceptionally, if we're currently simulating an unbreakable
+                // row group, consider that we have infinite space available.
+                height = if row_group_data.is_some() {
+                    Abs::inf()
+                } else {
+                    height_in_this_region + self.regions.size.y
+                };
                 backlog = Some(self.regions.backlog);
-                full = self.regions.full;
+                full =
+                    if row_group_data.is_some() { Abs::inf() } else { self.regions.full };
+                frames_in_previous_regions = 0;
             }
         }
 
@@ -486,7 +503,7 @@ impl<'a> GridLayouter<'a> {
         resolved: &mut Vec<Abs>,
         pending_rowspans: &[(usize, usize, Vec<Abs>)],
         unbreakable_rows_left: usize,
-        row_group_data: &UnbreakableRowGroup,
+        row_group_data: Option<&UnbreakableRowGroup>,
         engine: &mut Engine,
     ) -> SourceResult<()> {
         // To begin our simulation, we have to unify the sizes demanded by
@@ -538,10 +555,18 @@ impl<'a> GridLayouter<'a> {
         // subtract the current row group height from the available space
         // when simulating rowspans in said group.
         let mut simulated_regions = self.regions;
-        simulated_regions.size.y -= row_group_data.height;
+        simulated_regions.size.y -= row_group_data
+            .map(|row_group| row_group.height)
+            .unwrap_or(Abs::zero())
+            .max(Abs::zero());
+
         for _ in 0..resolved.len() {
             // Ensure we start at the region where we will expand the auto
             // row.
+            // Note that we won't accidentally call '.next()' once more than
+            // desired (we won't skip the last resolved frame, where we will
+            // expand) because we popped the last resolved size from the
+            // resolved vector, above.
             simulated_regions.next();
         }
         if let Some(original_last_resolved_size) = last_resolved_size {
