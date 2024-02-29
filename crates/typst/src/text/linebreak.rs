@@ -45,7 +45,7 @@ impl Behave for Packed<LinebreakElem> {
     }
 }
 
-/// A word-break mode on text
+/// A word break mode on text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum WordBreak {
     /// Words break according to the languages' customary rules. For example,
