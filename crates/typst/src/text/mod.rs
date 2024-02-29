@@ -468,6 +468,15 @@ pub struct TextElem {
     ///
     /// ```example
     /// #set page(width: 20pt)
+    ///
+    /// #set text(word-break: "normal")
+    /// This is a long and Honorificabilitudinitatibus
+    /// califragilisticexpialidocious
+    /// #set text(word-break: "break-all")
+    /// This is a long and Honorificabilitudinitatibus
+    /// califragilisticexpialidocious
+    ///
+    /// #set text(word-break: "normal")
     /// 각 줄의 마지막에 한글이 올 때
     /// 줄 나눔 기준을 “글자” 또는 “어절” 단위로 한다.
     ///
