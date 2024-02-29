@@ -208,9 +208,9 @@ impl Eval for ast::Heading<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let level = self.level();
+        let depth = self.depth();
         let body = self.body().eval(vm)?;
-        Ok(HeadingElem::new(body).with_level(level).pack())
+        Ok(HeadingElem::new(body).with_depth(depth).pack())
     }
 }
 

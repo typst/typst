@@ -117,7 +117,7 @@ struct HeadingNode<'a> {
 impl<'a> HeadingNode<'a> {
     fn leaf(element: &'a Packed<HeadingElem>) -> Self {
         HeadingNode {
-            level: element.level(StyleChain::default()),
+            level: element.resolve_level(StyleChain::default()),
             // 'bookmarked' set to 'auto' falls back to the value of 'outlined'.
             bookmarked: element
                 .bookmarked(StyleChain::default())

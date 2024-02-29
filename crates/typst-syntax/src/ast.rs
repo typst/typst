@@ -695,7 +695,7 @@ impl<'a> Heading<'a> {
     }
 
     /// The section depth (number of equals signs).
-    pub fn level(self) -> NonZeroUsize {
+    pub fn depth(self) -> NonZeroUsize {
         self.0
             .children()
             .find(|node| node.kind() == SyntaxKind::HeadingMarker)

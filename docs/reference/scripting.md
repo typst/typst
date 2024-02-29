@@ -248,7 +248,7 @@ can be either:
 
 #let it = [= Heading]
 #it.body \
-#it.level
+#it.depth
 ```
 
 ## Methods

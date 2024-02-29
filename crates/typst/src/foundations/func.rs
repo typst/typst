@@ -341,6 +341,13 @@ impl Func {
 
     /// Returns a selector that filters for elements belonging to this function
     /// whose fields have the values of the given arguments.
+    ///
+    /// ```example
+    /// #show heading.where(level: 2): set text(blue)
+    /// = Section
+    /// == Subsection
+    /// === Sub-subection
+    /// ```
     #[func]
     pub fn where_(
         self,

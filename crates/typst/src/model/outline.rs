@@ -197,7 +197,7 @@ impl Show for Packed<OutlineElem> {
 
             seq.push(
                 HeadingElem::new(title)
-                    .with_level(NonZeroUsize::ONE)
+                    .with_depth(NonZeroUsize::ONE)
                     .pack()
                     .spanned(self.span()),
             );
