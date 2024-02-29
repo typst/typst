@@ -356,13 +356,7 @@ impl Packed<RawElem> {
                     let span_offset = text[..range.start]
                         .rfind('\n')
                         .map_or(0, |i| range.start - (i + 1));
-                    styled(
-                        &text[range],
-                        foreground,
-                        style,
-                        lines[i as usize].1,
-                        span_offset,
-                    )
+                    styled(&text[range], foreground, style, lines[i].1, span_offset)
                 },
                 &mut |i, range, line| {
                     seq.push(
@@ -372,7 +366,7 @@ impl Packed<RawElem> {
                             EcoString::from(&text[range]),
                             Content::sequence(line.drain(..)),
                         ))
-                        .spanned(lines[i as usize].1),
+                        .spanned(lines[i].1),
                     );
                 },
             )
