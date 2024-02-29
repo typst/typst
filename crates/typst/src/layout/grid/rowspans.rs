@@ -22,8 +22,8 @@ pub(super) struct Rowspan {
     pub(super) dy: Abs,
     /// The index of the first region this rowspan appears in.
     pub(super) first_region: usize,
-    // The full height in the first region this rowspan appears in, for
-    // relative sizing.
+    /// The full height in the first region this rowspan appears in, for
+    /// relative sizing.
     pub(super) region_full: Abs,
     /// The vertical space available for this rowspan in each region.
     pub(super) heights: Vec<Abs>,
