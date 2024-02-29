@@ -1180,7 +1180,7 @@ impl<'a> GridLayouter<'a> {
                         // lines before it, not after).
                         x / 2
                     })
-                    .map(|vlines| &**vlines)
+                    .map(Vec::as_slice)
                     .unwrap_or(&[]);
                 let tracks = rows.iter().map(|row| (row.y, row.height));
 
@@ -1246,17 +1246,13 @@ impl<'a> GridLayouter<'a> {
                         // these index operations.
                         y / 2
                     })
-                    .map(|hlines| &**hlines)
+                    .map(Vec::as_slice)
                     .unwrap_or(&[])
                     .iter()
                     .chain(if prev_y.is_none() && y != 0 {
                         // For lines at the top of the region, give priority to
                         // the lines at the top border.
-                        self.grid
-                            .hlines
-                            .first()
-                            .map(|top_border_lines| &**top_border_lines)
-                            .unwrap_or(&[])
+                        self.grid.hlines.first().map(Vec::as_slice).unwrap_or(&[])
                     } else {
                         // When not at the top of the region, no border lines
                         // to consider.
