@@ -48,7 +48,10 @@ impl Behave for Packed<LinebreakElem> {
 /// A word-break mode on text
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum WordBreak {
-    /// Words break according to their customary rules.
+    /// Words break according to the languages' customary rules. For example,
+    /// English do not prefer to break lines without space while
+    /// Chinese/Japanese doesn't. See the the details in
+    /// <https://drafts.csswg.org/css-text-3/#valdef-line-break-normal>
     Normal,
 
     /// Breaking is allowed within words.
