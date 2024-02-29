@@ -51,10 +51,10 @@ pub enum WordBreak {
     /// Words break according to their customary rules.
     Normal,
 
-    /// Breaking is allowed within “words”.
+    /// Breaking is allowed within words.
     BreakAll,
 
-    /// Breaking is forbidden within “words”.
+    /// Breaking is forbidden within words.
     KeepAll,
 }
 
