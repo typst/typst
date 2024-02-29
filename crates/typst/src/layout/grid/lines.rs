@@ -340,8 +340,9 @@ pub(super) fn vline_stroke_at_row(
     // with the line.
     // To do so, we analyze the cell right after this vline. If it is merged
     // with a cell before this line (parent.x < x) which is at this row or
-    // above it (parent.y <= y), this means it would overlap with the vline,
-    // so the vline must not be drawn at this row.
+    // above it (parent.y <= y, which is checked by
+    // 'effective_parent_cell_position'), this means it would overlap with the
+    // vline, so the vline must not be drawn at this row.
     if x != 0 && x != grid.cols.len() {
         // Use 'effective_parent_cell_position' to skip the gutters, if x or y
         // represent gutter tracks.
@@ -349,7 +350,7 @@ pub(super) fn vline_stroke_at_row(
         // column), and/or one row below (if at a gutter row), in order to
         // check if it would be merged with a cell before the vline.
         if let Some(parent) = grid.effective_parent_cell_position(x, y) {
-            if parent.x < x && parent.y <= y {
+            if parent.x < x {
                 // There is a colspan cell going through this vline's position,
                 // so don't draw it here.
                 return None;
@@ -459,8 +460,9 @@ pub(super) fn hline_stroke_at_column(
     // overlap with the line.
     // To do so, we analyze the cell right below this hline. If it is
     // merged with a cell above this line (parent.y < y) which is at this
-    // column or before it (parent.x <= x), this means it would overlap
-    // with the hline, so the hline must not be drawn at this column.
+    // column or before it (parent.x <= x, which is checked by
+    // 'effective_parent_cell_position'), this means it would overlap with the
+    // hline, so the hline must not be drawn at this column.
     if y != 0 && y != grid.rows.len() {
         // Use 'effective_parent_cell_position' to skip the gutters, if x or y
         // represent gutter tracks.
@@ -468,7 +470,7 @@ pub(super) fn hline_stroke_at_column(
         // column), and/or one row below (if at a gutter row), in order to
         // check if it would be merged with a cell before the hline.
         if let Some(parent) = grid.effective_parent_cell_position(x, y) {
-            if parent.y < y && parent.x <= x {
+            if parent.y < y {
                 // Get the first 'y' spanned by the possible rowspan in this region.
                 // The 'parent.y' row and any other spanned rows above 'y' could be
                 // missing from this region, which could have lead the check above
