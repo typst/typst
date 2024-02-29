@@ -1,5 +1,3 @@
-use comemo::Prehashed;
-
 use crate::diag::SourceResult;
 use crate::foundations::{elem, func, Content, NativeElement, Packed, StyleChain};
 use crate::layout::{Abs, Frame, FrameItem, Point, Size};
@@ -73,7 +71,7 @@ fn layout(
 
     // Layout radicand.
     let cramped = style_cramped();
-    let radicand = ctx.layout_frame(radicand, styles.chain(&cramped))?;
+    let radicand = ctx.layout_into_frame(radicand, styles.chain(&cramped))?;
 
     // Layout root symbol.
     let target = radicand.height() + thickness + gap;
@@ -82,9 +80,9 @@ fn layout(
         .frame;
 
     // Layout the index.
-    let sscript = Prehashed::new(EquationElem::set_size(MathSize::ScriptScript));
+    let sscript = EquationElem::set_size(MathSize::ScriptScript).wrap();
     let index = index
-        .map(|elem| ctx.layout_frame(elem, styles.chain(&sscript)))
+        .map(|elem| ctx.layout_into_frame(elem, styles.chain(&sscript)))
         .transpose()?;
 
     // TeXbook, page 443, item 11

@@ -6,11 +6,13 @@ pub mod fat;
 mod macros;
 mod bitset;
 mod deferred;
+mod hash;
 mod pico;
 mod scalar;
 
 pub use self::bitset::BitSet;
 pub use self::deferred::Deferred;
+pub use self::hash::LazyHash;
 pub use self::pico::PicoStr;
 pub use self::scalar::Scalar;
 
@@ -150,7 +152,7 @@ pub fn option_eq<L, R>(left: Option<L>, other: R) -> bool
 where
     L: PartialEq<R>,
 {
-    left.map_or(false, |v| v == other)
+    left.is_some_and(|v| v == other)
 }
 
 /// A container around a static reference that is cheap to clone and hash.

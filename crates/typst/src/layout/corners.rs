@@ -2,7 +2,8 @@ use std::fmt::{self, Debug, Formatter};
 
 use crate::diag::StrResult;
 use crate::foundations::{
-    CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve, StyleChain, Value,
+    AlternativeFold, CastInfo, Dict, Fold, FromValue, IntoValue, Reflect, Resolve,
+    StyleChain, Value,
 };
 use crate::layout::Side;
 use crate::util::Get;
@@ -80,6 +81,16 @@ impl<T> Corners<T> {
     }
 }
 
+impl<T> Corners<Option<T>> {
+    /// Unwrap-or-default the individual corners.
+    pub fn unwrap_or_default(self) -> Corners<T>
+    where
+        T: Default,
+    {
+        self.map(Option::unwrap_or_default)
+    }
+}
+
 impl<T> Get<Corner> for Corners<T> {
     type Component = T;
 
@@ -133,20 +144,21 @@ impl<T: Reflect> Reflect for Corners<Option<T>> {
     }
 }
 
-impl<T> IntoValue for Corners<T>
+impl<T> IntoValue for Corners<Option<T>>
 where
     T: PartialEq + IntoValue,
 {
     fn into_value(self) -> Value {
         if self.is_uniform() {
-            return self.top_left.into_value();
+            if let Some(top_left) = self.top_left {
+                return top_left.into_value();
+            }
         }
 
         let mut dict = Dict::new();
-        let mut handle = |key: &str, component: T| {
-            let value = component.into_value();
-            if value != Value::None {
-                dict.insert(key.into(), value);
+        let mut handle = |key: &str, component: Option<T>| {
+            if let Some(c) = component {
+                dict.insert(key.into(), c.into_value());
             }
         };
 
@@ -164,7 +176,7 @@ where
     T: FromValue + Clone,
 {
     fn from_value(mut value: Value) -> StrResult<Self> {
-        let keys = [
+        let expected_keys = [
             "top-left",
             "top-right",
             "bottom-right",
@@ -177,7 +189,9 @@ where
         ];
 
         if let Value::Dict(dict) = &mut value {
-            if dict.iter().any(|(key, _)| keys.contains(&key.as_str())) {
+            if dict.is_empty() {
+                return Ok(Self::splat(None));
+            } else if dict.iter().any(|(key, _)| expected_keys.contains(&key.as_str())) {
                 let mut take = |key| dict.take(key).ok().map(T::from_value).transpose();
                 let rest = take("rest")?;
                 let left = take("left")?.or_else(|| rest.clone());
@@ -199,13 +213,18 @@ where
                         .or_else(|| left.clone()),
                 };
 
-                dict.finish(&keys)?;
+                dict.finish(&expected_keys)?;
                 return Ok(corners);
             }
         }
 
         if T::castable(&value) {
             Ok(Self::splat(Some(T::from_value(value)?)))
+        } else if let Value::Dict(dict) = &value {
+            let keys = dict.iter().map(|kv| kv.0.as_str()).collect();
+            // Do not hint at expected_keys, because T may be castable from Dict
+            // objects with other sets of expected keys.
+            Err(Dict::unexpected_keys(keys, None))
         } else {
             Err(Self::error(&value))
         }
@@ -221,13 +240,11 @@ impl<T: Resolve> Resolve for Corners<T> {
 }
 
 impl<T: Fold> Fold for Corners<Option<T>> {
-    type Output = Corners<T::Output>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer).map(|(inner, outer)| match inner {
-            Some(value) => value.fold(outer),
-            None => outer,
-        })
+    fn fold(self, outer: Self) -> Self {
+        // Usually, folding an inner `None` with an `outer` preferres the
+        // explicit `None`. However, here `None` means unspecified and thus
+        // we want `outer`, so we use `fold_or` to opt into such behavior.
+        self.zip(outer).map(|(inner, outer)| inner.fold_or(outer))
     }
 }
 

@@ -7,17 +7,17 @@ use ecow::EcoString;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, select_where, Content, Element, Finalize, NativeElement, Packed,
-    Selector, Show, Smart, StyleChain, Synthesize,
+    cast, elem, scope, select_where, Content, Element, NativeElement, Packed, Selector,
+    Show, ShowSet, Smart, StyleChain, Styles, Synthesize,
 };
 use crate::introspection::{
     Count, Counter, CounterKey, CounterUpdate, Locatable, Location,
 };
 use crate::layout::{
-    Alignment, BlockElem, Em, HAlignment, Length, PlaceElem, VAlignment, VElem,
+    Alignment, BlockElem, Em, HAlignment, Length, OuterVAlignment, PlaceElem, VAlignment,
+    VElem,
 };
 use crate::model::{Numbering, NumberingPattern, Outlinable, Refable, Supplement};
-use crate::syntax::Spanned;
 use crate::text::{Lang, Region, TextElem};
 use crate::util::NonZeroExt;
 use crate::visualize::ImageElem;
@@ -101,7 +101,7 @@ use crate::visualize::ImageElem;
 ///   caption: [I'm up here],
 /// )
 /// ```
-#[elem(scope, Locatable, Synthesize, Count, Show, Finalize, Refable, Outlinable)]
+#[elem(scope, Locatable, Synthesize, Count, Show, ShowSet, Refable, Outlinable)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image]($image).
     #[required]
@@ -165,7 +165,6 @@ pub struct FigureElem {
     ///   supplement: [Atom],
     /// )
     /// ```
-    #[default(Smart::Auto)]
     pub kind: Smart<FigureKind>,
 
     /// The figure's supplement.
@@ -193,6 +192,7 @@ pub struct FigureElem {
     /// How to number the figure. Accepts a
     /// [numbering pattern or function]($numbering).
     #[default(Some(NumberingPattern::from_str("1").unwrap().into()))]
+    #[borrowed]
     pub numbering: Option<Numbering>,
 
     /// The vertical gap between the body and caption.
@@ -230,9 +230,7 @@ impl Synthesize for Packed<FigureElem> {
     ) -> SourceResult<()> {
         let span = self.span();
         let location = self.location();
-
         let elem = self.as_mut();
-        let placement = elem.placement(styles);
         let numbering = elem.numbering(styles);
 
         // Determine the figure's kind.
@@ -276,7 +274,7 @@ impl Synthesize for Packed<FigureElem> {
                 };
 
                 let target = descendant.unwrap_or_else(|| Cow::Borrowed(elem.body()));
-                Some(supplement.resolve(engine, [target])?)
+                Some(supplement.resolve(engine, styles, [target])?)
             }
         };
 
@@ -295,13 +293,10 @@ impl Synthesize for Packed<FigureElem> {
             caption.push_figure_location(location);
         }
 
-        elem.push_placement(placement);
-        elem.push_caption(caption);
         elem.push_kind(Smart::Custom(kind));
         elem.push_supplement(Smart::Custom(supplement.map(Supplement::Content)));
-        elem.push_numbering(numbering);
-        elem.push_outlined(elem.outlined(styles));
         elem.push_counter(Some(counter));
+        elem.push_caption(caption);
 
         Ok(())
     }
@@ -315,10 +310,9 @@ impl Show for Packed<FigureElem> {
         // Build the caption, if any.
         if let Some(caption) = self.caption(styles) {
             let v = VElem::weak(self.gap(styles).into()).pack();
-            realized = if caption.position(styles) == VAlignment::Bottom {
-                realized + v + caption.pack()
-            } else {
-                caption.pack() + v + realized
+            realized = match caption.position(styles) {
+                OuterVAlignment::Top => caption.pack() + v + realized,
+                OuterVAlignment::Bottom => realized + v + caption.pack(),
             };
         }
 
@@ -342,10 +336,11 @@ impl Show for Packed<FigureElem> {
     }
 }
 
-impl Finalize for Packed<FigureElem> {
-    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
-        // Allow breakable figures with `show figure: set block(breakable: true)`.
-        realized.styled(BlockElem::set_breakable(false))
+impl ShowSet for Packed<FigureElem> {
+    fn show_set(&self, _: StyleChain) -> Styles {
+        // Still allows breakable figures with
+        // `show figure: set block(breakable: true)`.
+        BlockElem::set_breakable(false).wrap().into()
     }
 }
 
@@ -371,17 +366,22 @@ impl Refable for Packed<FigureElem> {
     fn counter(&self) -> Counter {
         (**self)
             .counter()
-            .clone()
+            .cloned()
+            .flatten()
             .unwrap_or_else(|| Counter::of(FigureElem::elem()))
     }
 
-    fn numbering(&self) -> Option<Numbering> {
-        (**self).numbering(StyleChain::default())
+    fn numbering(&self) -> Option<&Numbering> {
+        (**self).numbering(StyleChain::default()).as_ref()
     }
 }
 
 impl Outlinable for Packed<FigureElem> {
-    fn outline(&self, engine: &mut Engine) -> SourceResult<Option<Content>> {
+    fn outline(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Option<Content>> {
         if !self.outlined(StyleChain::default()) {
             return Ok(None);
         }
@@ -393,15 +393,19 @@ impl Outlinable for Packed<FigureElem> {
         let mut realized = caption.body().clone();
         if let (
             Smart::Custom(Some(Supplement::Content(mut supplement))),
-            Some(counter),
+            Some(Some(counter)),
             Some(numbering),
         ) = (
             (**self).supplement(StyleChain::default()).clone(),
             (**self).counter(),
             self.numbering(),
         ) {
-            let location = self.location().unwrap();
-            let numbers = counter.at(engine, location)?.display(engine, &numbering)?;
+            let numbers = counter.display_at_loc(
+                engine,
+                self.location().unwrap(),
+                styles,
+                numbering,
+            )?;
 
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');
@@ -433,7 +437,7 @@ impl Outlinable for Packed<FigureElem> {
 ///   caption: [A rectangle],
 /// )
 /// ```
-#[elem(name = "caption", Synthesize, Show)]
+#[elem(name = "caption", Show)]
 pub struct FigureCaption {
     /// The caption's position in the figure. Either `{top}` or `{bottom}`.
     ///
@@ -460,17 +464,8 @@ pub struct FigureCaption {
     ///   )
     /// )
     /// ```
-    #[default(VAlignment::Bottom)]
-    #[parse({
-        let option: Option<Spanned<VAlignment>> = args.named("position")?;
-        if let Some(Spanned { v: align, span }) = option {
-            if align == VAlignment::Horizon {
-                bail!(span, "expected `top` or `bottom`");
-            }
-        }
-        option.map(|spanned| spanned.v)
-    })]
-    pub position: VAlignment,
+    #[default(OuterVAlignment::Bottom)]
+    pub position: OuterVAlignment,
 
     /// The separator which will appear between the number and body.
     ///
@@ -495,7 +490,8 @@ pub struct FigureCaption {
     /// ```example
     /// #show figure.caption: it => [
     ///   #underline(it.body) |
-    ///   #it.supplement #it.counter.display(it.numbering)
+    ///   #it.supplement
+    ///   #context it.counter.display(it.numbering)
     /// ]
     ///
     /// #figure(
@@ -512,23 +508,19 @@ pub struct FigureCaption {
 
     /// The figure's supplement.
     #[synthesized]
-    #[default(None)]
     pub supplement: Option<Content>,
 
     /// How to number the figure.
     #[synthesized]
-    #[default(None)]
     pub numbering: Option<Numbering>,
 
     /// The counter for the figure.
     #[synthesized]
-    #[default(None)]
     pub counter: Option<Counter>,
 
     /// The figure's location.
     #[internal]
     #[synthesized]
-    #[default(None)]
     pub figure_location: Option<Location>,
 }
 
@@ -554,27 +546,23 @@ impl FigureCaption {
     }
 }
 
-impl Synthesize for Packed<FigureCaption> {
-    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        let elem = self.as_mut();
-        elem.push_position(elem.position(styles));
-        elem.push_separator(Smart::Custom(elem.get_separator(styles)));
-        Ok(())
-    }
-}
-
 impl Show for Packed<FigureCaption> {
     #[typst_macros::time(name = "figure.caption", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body().clone();
 
-        if let (Some(mut supplement), Some(numbering), Some(counter), Some(location)) = (
-            self.supplement().clone(),
+        if let (
+            Some(Some(mut supplement)),
+            Some(Some(numbering)),
+            Some(Some(counter)),
+            Some(Some(location)),
+        ) = (
+            self.supplement().cloned(),
             self.numbering(),
             self.counter(),
             self.figure_location(),
         ) {
-            let numbers = counter.at(engine, *location)?.display(engine, numbering)?;
+            let numbers = counter.display_at_loc(engine, *location, styles, numbering)?;
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');
             }

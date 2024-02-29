@@ -1,7 +1,8 @@
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Array, Content, Fold, Func, Packed, Smart, StyleChain, Value,
+    cast, elem, scope, Array, Content, Context, Depth, Func, Packed, Smart, StyleChain,
+    Value,
 };
 use crate::layout::{
     Axes, BlockElem, Cell, CellGrid, Em, Fragment, GridLayouter, HAlignment,
@@ -124,6 +125,7 @@ pub struct ListElem {
     /// The nesting depth.
     #[internal]
     #[fold]
+    #[ghost]
     depth: Depth,
 }
 
@@ -150,10 +152,10 @@ impl LayoutMultiple for Packed<ListElem> {
                 .unwrap_or_else(|| *BlockElem::below_in(styles).amount())
         };
 
-        let depth = self.depth(styles);
+        let Depth(depth) = ListElem::depth_in(styles);
         let marker = self
             .marker(styles)
-            .resolve(engine, depth)?
+            .resolve(engine, styles, depth)?
             // avoid '#set align' interference with the list
             .aligned(HAlignment::Start + VAlignment::Top);
 
@@ -162,11 +164,11 @@ impl LayoutMultiple for Packed<ListElem> {
             cells.push(Cell::from(Content::empty()));
             cells.push(Cell::from(marker.clone()));
             cells.push(Cell::from(Content::empty()));
-            cells
-                .push(Cell::from(item.body().clone().styled(ListElem::set_depth(Depth))));
+            cells.push(Cell::from(
+                item.body().clone().styled(ListElem::set_depth(Depth(1))),
+            ));
         }
 
-        let stroke = None;
         let grid = CellGrid::new(
             Axes::with_x(&[
                 Sizing::Rel(indent.into()),
@@ -177,7 +179,7 @@ impl LayoutMultiple for Packed<ListElem> {
             Axes::with_y(&[gutter.into()]),
             cells,
         );
-        let layouter = GridLayouter::new(&grid, &stroke, regions, styles, self.span());
+        let layouter = GridLayouter::new(&grid, regions, styles, self.span());
 
         layouter.layout(engine)
     }
@@ -205,12 +207,19 @@ pub enum ListMarker {
 
 impl ListMarker {
     /// Resolve the marker for the given depth.
-    fn resolve(&self, engine: &mut Engine, depth: usize) -> SourceResult<Content> {
+    fn resolve(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        depth: usize,
+    ) -> SourceResult<Content> {
         Ok(match self {
             Self::Content(list) => {
                 list.get(depth % list.len()).cloned().unwrap_or_default()
             }
-            Self::Func(func) => func.call(engine, [depth])?.display(),
+            Self::Func(func) => func
+                .call(engine, &Context::new(None, Some(styles)), [depth])?
+                .display(),
         })
     }
 }
@@ -233,21 +242,4 @@ cast! {
         Self::Content(array.into_iter().map(Value::display).collect())
     },
     v: Func => Self::Func(v),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Hash)]
-struct Depth;
-
-cast! {
-    Depth,
-    self => Value::None,
-    _: Value => Self,
-}
-
-impl Fold for Depth {
-    type Output = usize;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        outer + 1
-    }
 }

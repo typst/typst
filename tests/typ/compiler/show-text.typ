@@ -14,6 +14,27 @@ Die Zeitung Der Spiegel existiert.
 TeX, LaTeX, LuaTeX and LuaLaTeX!
 
 ---
+// Test direct cycle.
+#show "Hello": text(red)[Hello]
+Hello World!
+
+---
+// Test replacing text with raw text.
+#show "rax": `rax`
+The register rax.
+
+---
+// Test indirect cycle.
+#show "Good": [Typst!]
+#show "Typst": [Fun!]
+#show "Fun": [Good!]
+
+#set text(ligatures: false)
+Good \
+Fun \
+Typst \
+
+---
 // Test that replacements happen exactly once.
 #show "A": [BB]
 #show "B": [CC]
@@ -67,6 +88,6 @@ World
 ---
 // Test absolute path in layout phase.
 
-#show "GRAPH": image("/files/graph.png")
+#show "GRAPH": image("/assets/images/graph.png")
 
 The GRAPH has nodes.

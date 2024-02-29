@@ -5,13 +5,13 @@
 
 = Details
 See also @arrgh #cite(<distress>, supplement: [p.~22]), @arrgh[p.~4], and @distress[p.~5].
-#bibliography("/files/works.bib")
+#bibliography("/assets/bib/works.bib")
 
 ---
 // Test unconventional order.
 #set page(width: 200pt)
 #bibliography(
-  "/files/works.bib",
+  "/assets/bib/works.bib",
   title: [Works to be cited],
   style: "chicago-author-date",
 )
@@ -29,7 +29,7 @@ And quark! @quark
 
 = Multiple Bibs
 Now we have multiple bibliographies containing @glacier-melt @keshav2007read
-#bibliography(("/files/works.bib", "/files/works_too.bib"))
+#bibliography(("/assets/bib/works.bib", "/assets/bib/works_too.bib"))
 
 ---
 // Test ambiguous reference.
@@ -37,8 +37,8 @@ Now we have multiple bibliographies containing @glacier-melt @keshav2007read
 
 // Error: 1-7 label occurs in the document and its bibliography
 @arrgh
-#bibliography("/files/works.bib")
+#bibliography("/assets/bib/works.bib")
 
 ---
-// Error: 15-55 duplicate bibliography keys: netwok, issue201, arrgh, quark, distress, glacier-melt, tolkien54, sharing, restful, mcintosh_anxiety, psychology25
-#bibliography(("/files/works.bib", "/files/works.bib"))
+// Error: 15-65 duplicate bibliography keys: netwok, issue201, arrgh, quark, distress, glacier-melt, tolkien54, DBLP:books/lib/Knuth86a, sharing, restful, mcintosh_anxiety, psychology25
+#bibliography(("/assets/bib/works.bib", "/assets/bib/works.bib"))

@@ -44,28 +44,13 @@
 
 ---
 // Test cyclic imports during layout.
-// Error: 14-37 maximum layout depth exceeded
-// Hint: 14-37 try to reduce the amount of nesting in your layout
+// Error: 2-38 maximum show rule depth exceeded
+// Hint: 2-38 check whether the show rule matches its own output
 #layout(_ => include "recursion.typ")
 
 ---
 // Test recursive show rules.
 // Error: 22-25 maximum show rule depth exceeded
 // Hint: 22-25 check whether the show rule matches its own output
-// Hint: 22-25 this is a current compiler limitation that will be resolved in the future
 #show math.equation: $x$
 $ x $
-
----
-// Error: 18-21 maximum show rule depth exceeded
-// Hint: 18-21 check whether the show rule matches its own output
-// Hint: 18-21 this is a current compiler limitation that will be resolved in the future
-#show "hey": box[hey]
-hey
-
----
-// Error: 14-19 maximum show rule depth exceeded
-// Hint: 14-19 check whether the show rule matches its own output
-// Hint: 14-19 this is a current compiler limitation that will be resolved in the future
-#show "hey": "hey"
-hey

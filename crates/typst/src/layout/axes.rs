@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Deref, Not};
 
 use crate::diag::bail;
-use crate::foundations::{array, cast, Array, Fold, Resolve, Smart, StyleChain};
+use crate::foundations::{array, cast, Array, Resolve, Smart, StyleChain};
 use crate::layout::{Abs, Dir, Length, Ratio, Rel};
 use crate::util::Get;
 
@@ -83,14 +83,6 @@ impl<T> Axes<T> {
         F: FnMut(&T) -> bool,
     {
         f(&self.x) && f(&self.y)
-    }
-
-    /// Filter the individual fields with a mask.
-    pub fn filter(self, mask: Axes<bool>) -> Axes<Option<T>> {
-        Axes {
-            x: if mask.x { Some(self.x) } else { None },
-            y: if mask.y { Some(self.y) } else { None },
-        }
     }
 }
 
@@ -196,16 +188,6 @@ cast! {
     },
     "horizontal" => Self::X,
     "vertical" => Self::Y,
-}
-
-impl<T> Axes<Option<T>> {
-    /// Unwrap the individual fields.
-    pub fn unwrap_or(self, other: Axes<T>) -> Axes<T> {
-        Axes {
-            x: self.x.unwrap_or(other.x),
-            y: self.y.unwrap_or(other.y),
-        }
-    }
 }
 
 impl<T> Axes<Smart<T>> {
@@ -323,16 +305,5 @@ impl<T: Resolve> Resolve for Axes<T> {
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         self.map(|v| v.resolve(styles))
-    }
-}
-
-impl<T: Fold> Fold for Axes<Option<T>> {
-    type Output = Axes<T::Output>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip_map(outer, |inner, outer| match inner {
-            Some(value) => value.fold(outer),
-            None => outer,
-        })
     }
 }

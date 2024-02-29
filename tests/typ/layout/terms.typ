@@ -22,6 +22,8 @@
   An important energy source
   for vegetarians.
 
+  And healthy!
+
 ---
 // Test style change.
 #set text(8pt)
@@ -29,6 +31,12 @@
 
 #set terms(hanging-indent: 30pt)
 / Second list: #lorem(5)
+
+---
+// Test RTL.
+#set text(8pt, dir: rtl)
+
+/ פרי: דבר טעים, אכיל. ומקור אנרגיה חשוב לצמחונים.
 
 ---
 // Test grid like show rule.

@@ -88,6 +88,32 @@ a
   [B],
 )
 
+#grid(
+  columns: 3,
+  fill: (x, y) => (if y == 0 { aqua } else { orange }).darken(x * 15%),
+  inset: (x, y) => (left: if x == 0 { 0pt } else { 5pt }, right: if x == 0 { 5pt } else { 0pt }, y: if y == 0 { 0pt } else { 5pt }),
+  [A], [B], [C],
+  [A], [B], [C],
+)
+
+#grid(
+  columns: 3,
+  inset: (0pt, 5pt, 10pt),
+  fill: (x, _) => aqua.darken(x * 15%),
+  [A], [B], [C],
+)
+
+---
+// Test inset folding
+#set grid(inset: 10pt)
+#set grid(inset: (left: 0pt))
+
+#grid(
+  fill: red,
+  inset: (right: 0pt),
+  grid.cell(inset: (top: 0pt))[a]
+)
+
 ---
 // Test interaction with gutters.
 #grid(

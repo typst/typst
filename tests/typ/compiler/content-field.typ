@@ -1,19 +1,27 @@
-// Tests for field introspection.
+// Tests content field access.
 
 ---
-// Verify that non-inherent fields are hidden if not set.
-#show figure: it => [
-  `repr(it)`: #repr(it) \
-  `it.has("gap"): `#repr(it.has("gap")) \
-]
+// Ensure that fields from set rules are materialized into the element before
+// a show rule runs.
+#set table(columns: (10pt, auto))
+#show table: it => it.columns
+#table[A][B][C][D]
 
-#figure[]
+---
+// Test it again with a different element.
+#set heading(numbering: "(I)")
+#show heading: set text(size: 11pt, weight: "regular")
+#show heading: it => it.numbering
+= Heading
 
-#figure([], gap: 1pt)
+---
+// Test it with query.
+#set raw(lang: "rust")
+#context query(<myraw>).first().lang
+`raw` <myraw>
 
 ---
 // Integrated test for content fields.
-
 #let compute(equation, ..vars) = {
   let vars = vars.named()
   let f(elem) = {

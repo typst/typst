@@ -3,8 +3,8 @@ use ecow::eco_format;
 use crate::diag::{bail, At, Hint, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, Content, Func, IntoValue, Label, NativeElement, Packed, Show, Smart,
-    StyleChain, Synthesize,
+    cast, elem, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Show,
+    Smart, StyleChain, Synthesize,
 };
 use crate::introspection::{Counter, Locatable};
 use crate::math::EquationElem;
@@ -151,7 +151,7 @@ impl Synthesize for Packed<RefElem> {
         let target = *elem.target();
         if !BibliographyElem::has(engine, target) {
             if let Ok(found) = engine.introspector.query_label(target).cloned() {
-                elem.push_element(Some(found.into_inner()));
+                elem.push_element(Some(found));
                 return Ok(());
             }
         }
@@ -163,78 +163,77 @@ impl Synthesize for Packed<RefElem> {
 impl Show for Packed<RefElem> {
     #[typst_macros::time(name = "ref", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(engine.delayed(|engine| {
-            let target = *self.target();
-            let elem = engine.introspector.query_label(target);
-            let span = self.span();
+        let target = *self.target();
+        let elem = engine.introspector.query_label(target);
+        let span = self.span();
 
-            if BibliographyElem::has(engine, target) {
-                if elem.is_ok() {
-                    bail!(span, "label occurs in the document and its bibliography");
-                }
-
-                return Ok(to_citation(self, engine, styles)?.pack().spanned(span));
+        if BibliographyElem::has(engine, target) {
+            if elem.is_ok() {
+                bail!(span, "label occurs in the document and its bibliography");
             }
 
-            let elem = elem.at(span)?;
+            return Ok(to_citation(self, engine, styles)?.pack().spanned(span));
+        }
 
-            if elem.func() == FootnoteElem::elem() {
-                return Ok(FootnoteElem::with_label(target).pack().spanned(span));
-            }
+        let elem = elem.at(span)?;
 
-            let elem = elem.clone();
-            let refable = elem
-                .with::<dyn Refable>()
-                .ok_or_else(|| {
-                    if elem.can::<dyn Figurable>() {
-                        eco_format!(
-                            "cannot reference {} directly, try putting it into a figure",
-                            elem.func().name()
-                        )
-                    } else {
-                        eco_format!("cannot reference {}", elem.func().name())
-                    }
-                })
-                .at(span)?;
+        if elem.func() == FootnoteElem::elem() {
+            return Ok(FootnoteElem::with_label(target).pack().spanned(span));
+        }
 
-            let numbering = refable
-                .numbering()
-                .ok_or_else(|| {
+        let elem = elem.clone();
+        let refable = elem
+            .with::<dyn Refable>()
+            .ok_or_else(|| {
+                if elem.can::<dyn Figurable>() {
                     eco_format!(
-                        "cannot reference {} without numbering",
+                        "cannot reference {} directly, try putting it into a figure",
                         elem.func().name()
                     )
-                })
-                .hint(eco_format!(
-                    "you can enable {} numbering with `#set {}(numbering: \"1.\")`",
-                    elem.func().name(),
-                    if elem.func() == EquationElem::elem() {
-                        "math.equation"
-                    } else {
-                        elem.func().name()
-                    }
-                ))
-                .at(span)?;
+                } else {
+                    eco_format!("cannot reference {}", elem.func().name())
+                }
+            })
+            .at(span)?;
 
-            let loc = elem.location().unwrap();
-            let numbers = refable
-                .counter()
-                .at(engine, loc)?
-                .display(engine, &numbering.trimmed())?;
+        let numbering = refable
+            .numbering()
+            .ok_or_else(|| {
+                eco_format!("cannot reference {} without numbering", elem.func().name())
+            })
+            .hint(eco_format!(
+                "you can enable {} numbering with `#set {}(numbering: \"1.\")`",
+                elem.func().name(),
+                if elem.func() == EquationElem::elem() {
+                    "math.equation"
+                } else {
+                    elem.func().name()
+                }
+            ))
+            .at(span)?;
 
-            let supplement = match self.supplement(styles).as_ref() {
-                Smart::Auto => refable.supplement(),
-                Smart::Custom(None) => Content::empty(),
-                Smart::Custom(Some(supplement)) => supplement.resolve(engine, [elem])?,
-            };
+        let loc = elem.location().unwrap();
+        let numbers = refable.counter().display_at_loc(
+            engine,
+            loc,
+            styles,
+            &numbering.clone().trimmed(),
+        )?;
 
-            let mut content = numbers;
-            if !supplement.is_empty() {
-                content = supplement + TextElem::packed("\u{a0}") + content;
+        let supplement = match self.supplement(styles).as_ref() {
+            Smart::Auto => refable.supplement(),
+            Smart::Custom(None) => Content::empty(),
+            Smart::Custom(Some(supplement)) => {
+                supplement.resolve(engine, styles, [elem])?
             }
+        };
 
-            Ok(content.linked(Destination::Location(loc)))
-        }))
+        let mut content = numbers;
+        if !supplement.is_empty() {
+            content = supplement + TextElem::packed("\u{a0}") + content;
+        }
+
+        Ok(content.linked(Destination::Location(loc)))
     }
 }
 
@@ -251,8 +250,11 @@ fn to_citation(
         },
     ));
 
+    if let Some(loc) = reference.location() {
+        elem.set_location(loc);
+    }
+
     elem.synthesize(engine, styles)?;
-    elem.set_location(reference.location().unwrap());
 
     Ok(elem)
 }
@@ -269,11 +271,14 @@ impl Supplement {
     pub fn resolve<T: IntoValue>(
         &self,
         engine: &mut Engine,
+        styles: StyleChain,
         args: impl IntoIterator<Item = T>,
     ) -> SourceResult<Content> {
         Ok(match self {
             Supplement::Content(content) => content.clone(),
-            Supplement::Func(func) => func.call(engine, args)?.display(),
+            Supplement::Func(func) => {
+                func.call(engine, &Context::new(None, Some(styles)), args)?.display()
+            }
         })
     }
 }
@@ -298,5 +303,5 @@ pub trait Refable {
     fn counter(&self) -> Counter;
 
     /// Returns the numbering of this element.
-    fn numbering(&self) -> Option<Numbering>;
+    fn numbering(&self) -> Option<&Numbering>;
 }

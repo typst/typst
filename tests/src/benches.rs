@@ -10,7 +10,6 @@ use typst::{Library, World};
 use unscanny::Scanner;
 
 const TEXT: &str = include_str!("../typ/compiler/bench.typ");
-const FONT: &[u8] = include_bytes!("../../assets/fonts/LinLibertine_R.ttf");
 
 main!(
     bench_decode,
@@ -87,9 +86,9 @@ struct BenchWorld {
 
 impl BenchWorld {
     fn new() -> Self {
-        let font = Font::new(FONT.into(), 0).unwrap();
+        let data = typst_assets::fonts().next().unwrap();
+        let font = Font::new(Bytes::from_static(data), 0).unwrap();
         let book = FontBook::from_fonts([&font]);
-
         Self {
             library: Prehashed::new(Library::default()),
             book: Prehashed::new(book),

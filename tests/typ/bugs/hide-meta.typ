@@ -7,7 +7,7 @@ A pirate. @arrgh \
 #set text(2pt)
 #hide[
   A @arrgh pirate.
-  #bibliography("/files/works.bib")
+  #bibliography("/assets/bib/works.bib")
 ]
 
 ---

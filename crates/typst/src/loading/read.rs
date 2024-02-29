@@ -16,7 +16,7 @@ use crate::World;
 /// # Example
 /// ```example
 /// An example for a HTML file: \
-/// #let text = read("data.html")
+/// #let text = read("example.html")
 /// #raw(text, lang: "html")
 ///
 /// Raw bytes:

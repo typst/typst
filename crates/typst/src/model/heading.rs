@@ -3,7 +3,7 @@ use std::num::NonZeroUsize;
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    elem, Content, Finalize, NativeElement, Packed, Show, Smart, StyleChain, Styles,
+    elem, Content, NativeElement, Packed, Show, ShowSet, Smart, StyleChain, Styles,
     Synthesize,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable};
@@ -24,7 +24,7 @@ use crate::util::{option_eq, NonZeroExt};
 /// specify how you want your headings to be numbered with a
 /// [numbering pattern or function]($numbering).
 ///
-/// Independently from the numbering, Typst can also automatically generate an
+/// Independently of the numbering, Typst can also automatically generate an
 /// [outline]($outline) of all headings for you. To exclude one or more headings
 /// from this outline, you can set the `outlined` parameter to `{false}`.
 ///
@@ -44,7 +44,7 @@ use crate::util::{option_eq, NonZeroExt};
 /// one or multiple equals signs, followed by a space. The number of equals
 /// signs determines the heading's logical nesting depth. The `{offset}` field
 /// can be set to configure the starting depth.
-#[elem(Locatable, Synthesize, Count, Show, Finalize, LocalName, Refable, Outlinable)]
+#[elem(Locatable, Synthesize, Count, Show, ShowSet, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
     /// The relative nesting depth of the heading, starting from *one*. This is
     /// combined with `{offset}` to compute the actual `{level}`.
@@ -177,38 +177,35 @@ impl Synthesize for Packed<HeadingElem> {
             Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => {
-                supplement.resolve(engine, [self.clone().pack()])?
+                supplement.resolve(engine, styles, [self.clone().pack()])?
             }
         };
 
         let elem = self.as_mut();
         elem.push_level(Smart::Custom(elem.resolve_level(styles)));
-        elem.push_numbering(elem.numbering(styles).clone());
         elem.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
-        elem.push_outlined(elem.outlined(styles));
-        elem.push_bookmarked(elem.bookmarked(styles));
-
         Ok(())
     }
 }
 
 impl Show for Packed<HeadingElem> {
     #[typst_macros::time(name = "heading", span = self.span())]
-    fn show(&self, _: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let span = self.span();
         let mut realized = self.body().clone();
         if let Some(numbering) = (**self).numbering(styles).as_ref() {
             realized = Counter::of(HeadingElem::elem())
-                .display(self.span(), Some(numbering.clone()), false)
-                .spanned(self.span())
+                .display_at_loc(engine, self.location().unwrap(), styles, numbering)?
+                .spanned(span)
                 + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;
         }
-        Ok(BlockElem::new().with_body(Some(realized)).pack().spanned(self.span()))
+        Ok(BlockElem::new().with_body(Some(realized)).pack().spanned(span))
     }
 }
 
-impl Finalize for Packed<HeadingElem> {
-    fn finalize(&self, realized: Content, styles: StyleChain) -> Content {
+impl ShowSet for Packed<HeadingElem> {
+    fn show_set(&self, styles: StyleChain) -> Styles {
         let level = (**self).resolve_level(styles).get();
         let scale = match level {
             1 => 1.4,
@@ -220,13 +217,13 @@ impl Finalize for Packed<HeadingElem> {
         let above = Em::new(if level == 1 { 1.8 } else { 1.44 }) / scale;
         let below = Em::new(0.75) / scale;
 
-        let mut styles = Styles::new();
-        styles.set(TextElem::set_size(TextSize(size.into())));
-        styles.set(TextElem::set_weight(FontWeight::BOLD));
-        styles.set(BlockElem::set_above(VElem::block_around(above.into())));
-        styles.set(BlockElem::set_below(VElem::block_around(below.into())));
-        styles.set(BlockElem::set_sticky(true));
-        realized.styled_with_map(styles)
+        let mut out = Styles::new();
+        out.set(TextElem::set_size(TextSize(size.into())));
+        out.set(TextElem::set_weight(FontWeight::BOLD));
+        out.set(BlockElem::set_above(VElem::block_around(above.into())));
+        out.set(BlockElem::set_below(VElem::block_around(below.into())));
+        out.set(BlockElem::set_sticky(true));
+        out
     }
 }
 
@@ -252,22 +249,29 @@ impl Refable for Packed<HeadingElem> {
         Counter::of(HeadingElem::elem())
     }
 
-    fn numbering(&self) -> Option<Numbering> {
-        (**self).numbering(StyleChain::default()).clone()
+    fn numbering(&self) -> Option<&Numbering> {
+        (**self).numbering(StyleChain::default()).as_ref()
     }
 }
 
 impl Outlinable for Packed<HeadingElem> {
-    fn outline(&self, engine: &mut Engine) -> SourceResult<Option<Content>> {
+    fn outline(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<Option<Content>> {
         if !self.outlined(StyleChain::default()) {
             return Ok(None);
         }
 
         let mut content = self.body().clone();
         if let Some(numbering) = (**self).numbering(StyleChain::default()).as_ref() {
-            let numbers = Counter::of(HeadingElem::elem())
-                .at(engine, self.location().unwrap())?
-                .display(engine, numbering)?;
+            let numbers = Counter::of(HeadingElem::elem()).display_at_loc(
+                engine,
+                self.location().unwrap(),
+                styles,
+                numbering,
+            )?;
             content = numbers + SpaceElem::new().pack() + content;
         };
 

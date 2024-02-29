@@ -45,7 +45,7 @@
 #show figure.caption: it => emph[
   #it.body
   (#it.supplement
-   #it.counter.display(it.numbering))
+   #context it.counter.display(it.numbering))
 ]
 
 #figure(
@@ -54,3 +54,11 @@
   caption: [Hi],
   supplement: [B],
 )
+
+---
+// Ref: false
+#set figure.caption(position: top)
+
+---
+// Error: 31-38 expected `top` or `bottom`, found horizon
+#set figure.caption(position: horizon)

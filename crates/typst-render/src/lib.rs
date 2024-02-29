@@ -352,7 +352,7 @@ fn render_bitmap_glyph(
     // and maybe also for Noto Color Emoji. And: Is the size calculation
     // correct?
     let h = text.size;
-    let w = (image.width() as f64 / image.height() as f64) * h;
+    let w = (image.width() / image.height()) * h;
     let dx = (raster.x as f32) / (image.width() as f32) * size;
     let dy = (raster.y as f32) / (image.height() as f32) * size;
     render_image(
@@ -465,12 +465,7 @@ fn render_outline_glyph(
             write_bitmap(canvas, &bitmap, &state, sampler)?;
         }
         Paint::Solid(color) => {
-            write_bitmap(
-                canvas,
-                &bitmap,
-                &state,
-                to_sk_color_u8_without_alpha(*color).premultiply(),
-            )?;
+            write_bitmap(canvas, &bitmap, &state, to_sk_color_u8(*color).premultiply())?;
         }
         Paint::Pattern(pattern) => {
             let pixmap = render_pattern_frame(&state, pattern);
@@ -548,7 +543,8 @@ fn write_bitmap<S: PaintSampler>(
                 let color = sampler.sample((x as _, y as _));
                 let color = bytemuck::cast(color);
                 let pi = (y * cw + x) as usize;
-                if cov == 255 {
+                // Fast path if color is opaque.
+                if cov == u8::MAX && color & 0xFF == 0xFF {
                     pixels[pi] = color;
                     continue;
                 }
@@ -742,7 +738,7 @@ fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
     let mut pixmap = sk::Pixmap::new(w, h)?;
     match image.kind() {
         ImageKind::Raster(raster) => {
-            let downscale = w < image.width();
+            let downscale = w < raster.width();
             let filter =
                 if downscale { FilterType::Lanczos3 } else { FilterType::CatmullRom };
             let buf = raster.dynamic().resize(w, h, filter);
@@ -771,17 +767,6 @@ fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
 trait PaintSampler: Copy {
     /// Sample the color at the `pos` in the pixmap.
     fn sample(self, pos: (u32, u32)) -> sk::PremultipliedColorU8;
-
-    /// Write the sampler to a pixmap.
-    fn write_to_pixmap(self, canvas: &mut sk::Pixmap) {
-        let width = canvas.width();
-        for x in 0..canvas.width() {
-            for y in 0..canvas.height() {
-                let color = self.sample((x, y));
-                canvas.pixels_mut()[(y * width + x) as usize] = color;
-            }
-        }
-    }
 }
 
 impl PaintSampler for sk::PremultipliedColorU8 {
@@ -835,7 +820,7 @@ impl PaintSampler for GradientSampler<'_> {
         self.transform_to_parent.map_point(&mut point);
 
         // Sample the gradient
-        to_sk_color_u8_without_alpha(self.gradient.sample_at(
+        to_sk_color_u8(self.gradient.sample_at(
             (point.x, point.y),
             (self.container_size.x.to_f32(), self.container_size.y.to_f32()),
         ))
@@ -1023,13 +1008,14 @@ fn render_pattern_frame(state: &State, pattern: &Pattern) -> sk::Pixmap {
 }
 
 fn to_sk_color(color: Color) -> sk::Color {
-    let [r, g, b, a] = color.to_rgb().to_vec4_u8();
-    sk::Color::from_rgba8(r, g, b, a)
+    let [r, g, b, a] = color.to_rgb().to_vec4();
+    sk::Color::from_rgba(r, g, b, a)
+        .expect("components must always be in the range [0..=1]")
 }
 
-fn to_sk_color_u8_without_alpha(color: Color) -> sk::ColorU8 {
-    let [r, g, b, _] = color.to_rgb().to_vec4_u8();
-    sk::ColorU8::from_rgba(r, g, b, 255)
+fn to_sk_color_u8(color: Color) -> sk::ColorU8 {
+    let [r, g, b, a] = color.to_rgb().to_vec4_u8();
+    sk::ColorU8::from_rgba(r, g, b, a)
 }
 
 fn to_sk_line_cap(cap: LineCap) -> sk::LineCap {

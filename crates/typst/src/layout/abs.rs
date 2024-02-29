@@ -4,7 +4,7 @@ use std::ops::{Add, Div, Mul, Neg, Rem};
 
 use ecow::EcoString;
 
-use crate::foundations::{cast, repr, Repr, Value};
+use crate::foundations::{cast, repr, Fold, Repr, Value};
 use crate::util::{Numeric, Scalar};
 
 /// An absolute length.
@@ -224,6 +224,12 @@ impl Sum for Abs {
 impl<'a> Sum<&'a Self> for Abs {
     fn sum<I: Iterator<Item = &'a Self>>(iter: I) -> Self {
         Self(iter.map(|s| s.0).sum())
+    }
+}
+
+impl Fold for Abs {
+    fn fold(self, _: Self) -> Self {
+        self
     }
 }
 

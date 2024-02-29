@@ -3,7 +3,7 @@
 ---
 #set page(width: 180pt)
 #set text(6pt)
-#set raw(theme: "/files/halcyon.tmTheme")
+#set raw(theme: "/assets/themes/halcyon.tmTheme")
 #show raw: it => {
   set text(fill: rgb("a2aabc"))
   rect(

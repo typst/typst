@@ -13,10 +13,9 @@
 #figure([Iguana], kind: "iguana", supplement: none)
 == I
 
-#let test-selector(selector, ref) = locate(loc => {
-  let elems = query(selector, loc)
-  test(elems.map(e => e.body), ref)
-})
+#let test-selector(selector, ref) = context {
+  test(query(selector).map(e => e.body), ref)
+}
 
 // Test `or`.
 #test-selector(

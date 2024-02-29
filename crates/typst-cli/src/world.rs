@@ -1,30 +1,37 @@
 use std::collections::HashMap;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
-use std::{fs, mem};
+use std::{fmt, fs, io, mem};
 
 use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
-use ecow::eco_format;
+use ecow::{eco_format, EcoString};
+use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-use typst::diag::{FileError, FileResult, StrResult};
+use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::{Library, World};
 use typst_timing::{timed, TimingScope};
 
-use crate::args::SharedArgs;
+use crate::args::{Input, SharedArgs};
 use crate::compile::ExportCache;
 use crate::fonts::{FontSearcher, FontSlot};
 use crate::package::prepare_package;
+
+/// Static `FileId` allocated for stdin.
+/// This is to ensure that a file is read in the correct way.
+static STDIN_ID: Lazy<FileId> =
+    Lazy::new(|| FileId::new_fake(VirtualPath::new("<stdin>")));
 
 /// A world that provides access to the operating system.
 pub struct SystemWorld {
     /// The working directory.
     workdir: Option<PathBuf>,
     /// The canonical path to the input file.
-    input: PathBuf,
+    input: Option<PathBuf>,
     /// The root relative to which absolute paths are resolved.
     root: PathBuf,
     /// The input path.
@@ -47,30 +54,44 @@ pub struct SystemWorld {
 
 impl SystemWorld {
     /// Create a new system world.
-    pub fn new(command: &SharedArgs) -> StrResult<Self> {
-        let mut searcher = FontSearcher::new();
-        searcher.search(&command.font_paths);
-
+    pub fn new(command: &SharedArgs) -> Result<Self, WorldCreationError> {
         // Resolve the system-global input path.
-        let input = command.input.canonicalize().map_err(|_| {
-            eco_format!("input file not found (searched at {})", command.input.display())
-        })?;
+        let input = match &command.input {
+            Input::Stdin => None,
+            Input::Path(path) => {
+                Some(path.canonicalize().map_err(|err| match err.kind() {
+                    io::ErrorKind::NotFound => {
+                        WorldCreationError::InputNotFound(path.clone())
+                    }
+                    _ => WorldCreationError::Io(err),
+                })?)
+            }
+        };
 
         // Resolve the system-global root directory.
         let root = {
             let path = command
                 .root
                 .as_deref()
-                .or_else(|| input.parent())
+                .or_else(|| input.as_deref().and_then(|i| i.parent()))
                 .unwrap_or(Path::new("."));
-            path.canonicalize().map_err(|_| {
-                eco_format!("root directory not found (searched at {})", path.display())
+            path.canonicalize().map_err(|err| match err.kind() {
+                io::ErrorKind::NotFound => {
+                    WorldCreationError::RootNotFound(path.to_path_buf())
+                }
+                _ => WorldCreationError::Io(err),
             })?
         };
 
-        // Resolve the virtual path of the main file within the project root.
-        let main_path = VirtualPath::within_root(&input, &root)
-            .ok_or("source file must be contained in project root")?;
+        let main = if let Some(path) = &input {
+            // Resolve the virtual path of the main file within the project root.
+            let main_path = VirtualPath::within_root(path, &root)
+                .ok_or(WorldCreationError::InputOutsideRoot)?;
+            FileId::new(None, main_path)
+        } else {
+            // Return the special id of STDIN otherwise
+            *STDIN_ID
+        };
 
         let library = {
             // Convert the input pairs to a dictionary.
@@ -83,11 +104,14 @@ impl SystemWorld {
             Library::builder().with_inputs(inputs).build()
         };
 
+        let mut searcher = FontSearcher::new();
+        searcher.search(&command.font_paths);
+
         Ok(Self {
             workdir: std::env::current_dir().ok(),
             input,
             root,
-            main: FileId::new(None, main_path),
+            main,
             library: Prehashed::new(library),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
@@ -130,8 +154,8 @@ impl SystemWorld {
     }
 
     /// Return the canonical path to the input file.
-    pub fn input(&self) -> &PathBuf {
-        &self.input
+    pub fn input(&self) -> Option<&PathBuf> {
+        self.input.as_ref()
     }
 
     /// Lookup a source file by id.
@@ -231,7 +255,7 @@ impl FileSlot {
     /// Retrieve the source for this file.
     fn source(&mut self, project_root: &Path) -> FileResult<Source> {
         self.source.get_or_init(
-            || system_path(project_root, self.id),
+            || read(self.id, project_root),
             |data, prev| {
                 let name = if prev.is_some() { "reparsing file" } else { "parsing file" };
                 let _scope = TimingScope::new(name, None);
@@ -249,7 +273,7 @@ impl FileSlot {
     /// Retrieve the file's bytes.
     fn file(&mut self, project_root: &Path) -> FileResult<Bytes> {
         self.file
-            .get_or_init(|| system_path(project_root, self.id), |data, _| Ok(data.into()))
+            .get_or_init(|| read(self.id, project_root), |data, _| Ok(data.into()))
     }
 }
 
@@ -283,7 +307,7 @@ impl<T: Clone> SlotCell<T> {
     /// Gets the contents of the cell or initialize them.
     fn get_or_init(
         &mut self,
-        path: impl FnOnce() -> FileResult<PathBuf>,
+        load: impl FnOnce() -> FileResult<Vec<u8>>,
         f: impl FnOnce(Vec<u8>, Option<T>) -> FileResult<T>,
     ) -> FileResult<T> {
         // If we accessed the file already in this compilation, retrieve it.
@@ -294,7 +318,7 @@ impl<T: Clone> SlotCell<T> {
         }
 
         // Read and hash the file.
-        let result = timed!("loading file", path().and_then(|p| read(&p)));
+        let result = timed!("loading file", load());
         let fingerprint = timed!("hashing file", typst::util::hash128(&result));
 
         // If the file contents didn't change, yield the old processed data.
@@ -329,8 +353,20 @@ fn system_path(project_root: &Path, id: FileId) -> FileResult<PathBuf> {
     id.vpath().resolve(root).ok_or(FileError::AccessDenied)
 }
 
-/// Read a file.
-fn read(path: &Path) -> FileResult<Vec<u8>> {
+/// Reads a file from a `FileId`.
+///
+/// If the ID represents stdin it will read from standard input,
+/// otherwise it gets the file path of the ID and reads the file from disk.
+fn read(id: FileId, project_root: &Path) -> FileResult<Vec<u8>> {
+    if id == *STDIN_ID {
+        read_from_stdin()
+    } else {
+        read_from_disk(&system_path(project_root, id)?)
+    }
+}
+
+/// Read a file from disk.
+fn read_from_disk(path: &Path) -> FileResult<Vec<u8>> {
     let f = |e| FileError::from_io(e, path);
     if fs::metadata(path).map_err(f)?.is_dir() {
         Err(FileError::IsDirectory)
@@ -339,8 +375,56 @@ fn read(path: &Path) -> FileResult<Vec<u8>> {
     }
 }
 
+/// Read from stdin.
+fn read_from_stdin() -> FileResult<Vec<u8>> {
+    let mut buf = Vec::new();
+    let result = io::stdin().read_to_end(&mut buf);
+    match result {
+        Ok(_) => (),
+        Err(err) if err.kind() == io::ErrorKind::BrokenPipe => (),
+        Err(err) => return Err(FileError::from_io(err, Path::new("<stdin>"))),
+    }
+    Ok(buf)
+}
+
 /// Decode UTF-8 with an optional BOM.
 fn decode_utf8(buf: &[u8]) -> FileResult<&str> {
     // Remove UTF-8 BOM.
     Ok(std::str::from_utf8(buf.strip_prefix(b"\xef\xbb\xbf").unwrap_or(buf))?)
+}
+
+/// An error that occurs during world construction.
+#[derive(Debug)]
+pub enum WorldCreationError {
+    /// The input file does not appear to exist.
+    InputNotFound(PathBuf),
+    /// The input file is not contained within the root folder.
+    InputOutsideRoot,
+    /// The root directory does not appear to exist.
+    RootNotFound(PathBuf),
+    /// Another type of I/O error.
+    Io(io::Error),
+}
+
+impl fmt::Display for WorldCreationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WorldCreationError::InputNotFound(path) => {
+                write!(f, "input file not found (searched at {})", path.display())
+            }
+            WorldCreationError::InputOutsideRoot => {
+                write!(f, "source file must be contained in project root")
+            }
+            WorldCreationError::RootNotFound(path) => {
+                write!(f, "root directory not found (searched at {})", path.display())
+            }
+            WorldCreationError::Io(err) => write!(f, "{err}"),
+        }
+    }
+}
+
+impl From<WorldCreationError> for EcoString {
+    fn from(err: WorldCreationError) -> Self {
+        eco_format!("{err}")
+    }
 }

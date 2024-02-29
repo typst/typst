@@ -8,8 +8,8 @@ use termcolor::WriteColor;
 use typst::diag::{PackageError, PackageResult};
 use typst::syntax::PackageSpec;
 
-use crate::color_stream;
 use crate::download::download_with_progress;
+use crate::terminal;
 
 /// Make a package available in the on-disk cache.
 pub fn prepare_package(spec: &PackageSpec) -> PackageResult<PathBuf> {
@@ -69,12 +69,12 @@ fn download_package(spec: &PackageSpec, package_dir: &Path) -> PackageResult<()>
 
 /// Print that a package downloading is happening.
 fn print_downloading(spec: &PackageSpec) -> io::Result<()> {
-    let mut w = color_stream();
     let styles = term::Styles::default();
 
-    w.set_color(&styles.header_help)?;
-    write!(w, "downloading")?;
+    let mut term_out = terminal::out();
+    term_out.set_color(&styles.header_help)?;
+    write!(term_out, "downloading")?;
 
-    w.reset()?;
-    writeln!(w, " {spec}")
+    term_out.reset()?;
+    writeln!(term_out, " {spec}")
 }

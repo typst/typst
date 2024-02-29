@@ -52,7 +52,7 @@ First!
   width: 20pt,
   height: 20pt,
   clip: true,
-  image("/files/rhino.png", width: 30pt)
+  image("/assets/images/rhino.png", width: 30pt)
 )
 ---
 // Test clipping with `radius`, but without `stroke`.
@@ -64,5 +64,5 @@ First!
   width: 20pt,
   height: 20pt,
   clip: true,
-  image("/files/rhino.png", width: 30pt)
+  image("/assets/images/rhino.png", width: 30pt)
 )

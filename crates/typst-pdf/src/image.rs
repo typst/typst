@@ -18,7 +18,7 @@ pub fn deferred_image(image: Image) -> Deferred<EncodedImage> {
     Deferred::new(move || match image.kind() {
         ImageKind::Raster(raster) => {
             let raster = raster.clone();
-            let (width, height) = (image.width(), image.height());
+            let (width, height) = (raster.width(), raster.height());
             let (data, filter, has_color) = encode_raster_image(&raster);
             let icc = raster.icc().map(deflate);
 

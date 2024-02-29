@@ -8,7 +8,7 @@
 #figure(
   placement: bottom,
   caption: [A glacier],
-  image("/files/glacier.jpg", width: 50%),
+  image("/assets/images/glacier.jpg", width: 50%),
 )
 #lorem(45)
 #figure(

@@ -15,6 +15,7 @@ mod metadata;
 
 use self::metadata::*;
 
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fmt::Write as _;
@@ -47,8 +48,6 @@ const REF_DIR: &str = "ref";
 const PNG_DIR: &str = "png";
 const PDF_DIR: &str = "pdf";
 const SVG_DIR: &str = "svg";
-const FONT_DIR: &str = "../assets/fonts";
-const ASSET_DIR: &str = "../assets";
 
 /// Arguments that modify test behaviour.
 ///
@@ -130,6 +129,7 @@ fn main() {
 
     println!("Running tests...");
     let results = WalkDir::new(TYP_DIR)
+        .sort_by_file_name()
         .into_iter()
         .par_bridge()
         .filter_map(|entry| {
@@ -268,17 +268,10 @@ struct FileSlot {
 
 impl TestWorld {
     fn new(print: PrintConfig) -> Self {
-        // Search for fonts.
-        let mut fonts = vec![];
-        for entry in WalkDir::new(FONT_DIR)
-            .sort_by_file_name()
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|entry| entry.file_type().is_file())
-        {
-            let data = fs::read(entry.path()).unwrap();
-            fonts.extend(Font::iter(data.into()));
-        }
+        let fonts: Vec<_> = typst_assets::fonts()
+            .chain(typst_dev_assets::fonts())
+            .flat_map(|data| Font::iter(Bytes::from_static(data)))
+            .collect();
 
         Self {
             print,
@@ -309,7 +302,7 @@ impl World for TestWorld {
             slot.source
                 .get_or_init(|| {
                     let buf = read(&system_path(id)?)?;
-                    let text = String::from_utf8(buf)?;
+                    let text = String::from_utf8(buf.into_owned())?;
                     Ok(Source::new(id, text))
                 })
                 .clone()
@@ -319,7 +312,12 @@ impl World for TestWorld {
     fn file(&self, id: FileId) -> FileResult<Bytes> {
         self.slot(id, |slot| {
             slot.buffer
-                .get_or_init(|| read(&system_path(id)?).map(Bytes::from))
+                .get_or_init(|| {
+                    read(&system_path(id)?).map(|cow| match cow {
+                        Cow::Owned(buf) => buf.into(),
+                        Cow::Borrowed(buf) => Bytes::from_static(buf),
+                    })
+                })
                 .clone()
         })
     }
@@ -378,19 +376,21 @@ fn system_path(id: FileId) -> FileResult<PathBuf> {
 }
 
 /// Read a file.
-fn read(path: &Path) -> FileResult<Vec<u8>> {
+fn read(path: &Path) -> FileResult<Cow<'static, [u8]>> {
     // Basically symlinks `assets/files` to `tests/files` so that the assets
     // are within the test project root.
-    let mut resolved = path.to_path_buf();
-    if path.starts_with("files/") {
-        resolved = Path::new(ASSET_DIR).join(path);
+    let resolved = path.to_path_buf();
+    if let Ok(suffix) = path.strip_prefix("assets/") {
+        return typst_dev_assets::get(&suffix.to_string_lossy())
+            .map(Cow::Borrowed)
+            .ok_or_else(|| FileError::NotFound(path.into()));
     }
 
     let f = |e| FileError::from_io(e, path);
     if fs::metadata(&resolved).map_err(f)?.is_dir() {
         Err(FileError::IsDirectory)
     } else {
-        fs::read(&resolved).map_err(f)
+        fs::read(&resolved).map(Cow::Owned).map_err(f)
     }
 }
 
@@ -752,10 +752,10 @@ fn test_autocomplete<'a>(
         {
             writeln!(output, "  Subtest {i} does not match expected completions.")
                 .unwrap();
-            write!(output, "  for annotation | ").unwrap();
+            write!(output, "  for annotation  | ").unwrap();
             print_annotation(output, source, line, annotation);
 
-            write!(output, "    Not contained  | ").unwrap();
+            write!(output, "    Not contained  // ").unwrap();
             for item in missing {
                 write!(output, "{item:?}, ").unwrap()
             }
@@ -771,10 +771,10 @@ fn test_autocomplete<'a>(
         {
             writeln!(output, "  Subtest {i} does not match expected completions.")
                 .unwrap();
-            write!(output, "  for annotation | ").unwrap();
+            write!(output, "  for annotation  | ").unwrap();
             print_annotation(output, source, line, annotation);
 
-            write!(output, "    Not excluded| ").unwrap();
+            write!(output, "    Not excluded  // ").unwrap();
             for item in undesired {
                 write!(output, "{item:?}, ").unwrap()
             }
@@ -805,7 +805,7 @@ fn test_diagnostics<'a>(
     let mut actual_diagnostics = HashSet::new();
     for diagnostic in diagnostics {
         // Ignore diagnostics from other files.
-        if diagnostic.span.id().map_or(false, |id| id != source.id()) {
+        if diagnostic.span.id().is_some_and(|id| id != source.id()) {
             continue;
         }
 
@@ -849,12 +849,12 @@ fn test_diagnostics<'a>(
         *ok = false;
 
         for unexpected in unexpected_outputs {
-            write!(output, "    Not annotated | ").unwrap();
+            write!(output, "    Not annotated // ").unwrap();
             print_annotation(output, source, line, unexpected)
         }
 
         for missing in missing_outputs {
-            write!(output, "    Not emitted   | ").unwrap();
+            write!(output, "    Not emitted   // ").unwrap();
             print_annotation(output, source, line, missing)
         }
     }
@@ -883,7 +883,7 @@ fn print_annotation(
         let start_col = 1 + source.byte_to_column(range.start).unwrap();
         let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
         let end_col = 1 + source.byte_to_column(range.end).unwrap();
-        write!(output, "{start_line}:{start_col}-{end_line}:{end_col}: ").unwrap();
+        write!(output, "{start_line}:{start_col}-{end_line}:{end_col} ").unwrap();
     }
     writeln!(output, "{text}").unwrap();
 }

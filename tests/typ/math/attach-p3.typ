@@ -11,8 +11,8 @@ $ scripts(sum)_1^2 != sum_1^2 $
 $ limits(integral)_a^b != integral_a^b $
 
 ---
-// Error: 30-34 unknown variable: oops
-$ attach(A, t: #locate(it => oops)) $
+// Error: 25-29 unknown variable: oops
+$ attach(A, t: #context oops) $
 
 ---
 // Show and let rules for limits and scripts

@@ -23,6 +23,10 @@ $a/b, display(a/b), display(a)/display(b), inline(a/b), script(a/b), sscript(a/b
 $h, bb(N), cal(R), Theta, italic(Theta), sans(Theta), sans(italic(Theta))$
 
 ---
+// Test hebrew exceptions.
+$aleph, beth, gimel, daleth$
+
+---
 // Test font fallback.
 $ よ and 🏳️‍🌈 $
 

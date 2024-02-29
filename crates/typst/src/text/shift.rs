@@ -2,7 +2,7 @@ use ecow::EcoString;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{elem, Content, Packed, Show, StyleChain};
+use crate::foundations::{elem, Content, Packed, SequenceElem, Show, StyleChain};
 use crate::layout::{Em, Length};
 use crate::text::{variant, SpaceElem, TextElem, TextSize};
 use crate::World;
@@ -134,9 +134,9 @@ fn search_text(content: &Content, sub: bool) -> Option<EcoString> {
         Some(' '.into())
     } else if let Some(elem) = content.to_packed::<TextElem>() {
         convert_script(elem.text(), sub)
-    } else if let Some(children) = content.to_sequence() {
+    } else if let Some(sequence) = content.to_packed::<SequenceElem>() {
         let mut full = EcoString::new();
-        for item in children {
+        for item in &sequence.children {
             match search_text(item, sub) {
                 Some(text) => full.push_str(&text),
                 None => return None,

@@ -65,6 +65,7 @@ pub struct CompileCommand {
     pub common: SharedArgs,
 
     /// Path to output file (PDF, PNG, or SVG)
+    #[clap(required_if_eq("input", "-"))]
     pub output: Option<PathBuf>,
 
     /// The format of the output file, inferred from the extension by default
@@ -121,8 +122,9 @@ pub enum SerializationFormat {
 /// Common arguments of compile, watch, and query.
 #[derive(Debug, Clone, Args)]
 pub struct SharedArgs {
-    /// Path to input Typst file
-    pub input: PathBuf,
+    /// Path to input Typst file, use `-` to read input from stdin
+    #[clap(value_parser = input_value_parser)]
+    pub input: Input,
 
     /// Configures the project root (for absolute paths)
     #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
@@ -153,6 +155,26 @@ pub struct SharedArgs {
         value_parser = clap::value_parser!(DiagnosticFormat)
     )]
     pub diagnostic_format: DiagnosticFormat,
+}
+
+/// An input that is either stdin or a real path.
+#[derive(Debug, Clone)]
+pub enum Input {
+    /// Stdin, represented by `-`.
+    Stdin,
+    /// A non-empty path.
+    Path(PathBuf),
+}
+
+/// The clap value parser used by `SharedArgs.input`
+fn input_value_parser(value: &str) -> Result<Input, clap::error::Error> {
+    if value.is_empty() {
+        Err(clap::Error::new(clap::error::ErrorKind::InvalidValue))
+    } else if value == "-" {
+        Ok(Input::Stdin)
+    } else {
+        Ok(Input::Path(value.into()))
+    }
 }
 
 /// Parses key/value pairs split by the first equal sign.

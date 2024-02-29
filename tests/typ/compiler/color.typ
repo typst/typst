@@ -8,7 +8,7 @@
   spacing: 1fr,
   rect(width: 1cm, fill: cmyk(69%, 11%, 69%, 41%)),
   rect(width: 1cm, fill: c),
-  rect(width: 1cm, fill: c.negate()),
+  rect(width: 1cm, fill: c.negate(space: cmyk)),
 )
 
 #for x in range(0, 11) {
@@ -82,4 +82,20 @@
 // Ref: false
 #test-repr(luma(20%).lighten(50%), luma(60%))
 #test-repr(luma(80%).darken(20%), luma(64%))
-#test-repr(luma(80%).negate(), luma(20%))
+#test-repr(luma(80%).negate(space: luma), luma(20%))
+
+---
+// Test alpha modification.
+// Ref: false
+#test-repr(luma(100%, 100%).transparentize(50%), luma(100%, 50%))
+#test-repr(luma(100%, 100%).transparentize(75%), luma(100%, 25%))
+#test-repr(luma(100%, 50%).transparentize(50%), luma(100%, 25%))
+#test-repr(luma(100%, 10%).transparentize(250%), luma(100%, 0%))
+#test-repr(luma(100%, 40%).transparentize(-50%), luma(100%, 70%))
+#test-repr(luma(100%, 0%).transparentize(-100%), luma(100%, 100%))
+
+#test-repr(luma(100%, 50%).opacify(50%), luma(100%, 75%))
+#test-repr(luma(100%, 20%).opacify(100%), luma(100%, 100%))
+#test-repr(luma(100%, 100%).opacify(250%), luma(100%, 100%))
+#test-repr(luma(100%, 50%).opacify(-50%), luma(100%, 25%))
+#test-repr(luma(100%, 0%).opacify(0%), luma(100%, 0%))

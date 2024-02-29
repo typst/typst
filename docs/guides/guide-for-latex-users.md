@@ -603,7 +603,7 @@ The example below
 This should be a good starting point! If you want to go further, why not create
 a reusable template?
 
-## Bibliographies { #bibliographies }
+## Bibliographies
 Typst includes a fully-featured bibliography system that is compatible with
 BibTeX files. You can continue to use your `.bib` literature libraries by
 loading them with the [`bibliography`]($bibliography) function. Another
@@ -627,7 +627,7 @@ use in prose (cf. `\citet` and `\textcite`) are available with
 
 You can find more information on the documentation page of the [`bibliography`]($bibliography) function.
 
-## Installation { #installation }
+## Installation
 You have two ways to use Typst: In [our web app](https://typst.app/signup/) or
 by [installing the compiler](https://github.com/typst/typst/releases) on your
 computer. When you use the web app, we provide a batteries-included

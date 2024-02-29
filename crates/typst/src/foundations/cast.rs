@@ -3,13 +3,12 @@ use std::fmt::Write;
 use std::hash::Hash;
 use std::ops::Add;
 
-use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use smallvec::SmallVec;
 use unicode_math_class::MathClass;
 
-use crate::diag::{At, SourceResult, StrResult};
-use crate::foundations::{repr, NativeElement, Packed, Repr, Type, Value};
+use crate::diag::{At, HintedStrResult, SourceResult, StrResult};
+use crate::foundations::{array, repr, NativeElement, Packed, Repr, Str, Type, Value};
 use crate::syntax::{Span, Spanned};
 
 #[rustfmt::skip]
@@ -43,11 +42,11 @@ pub trait Reflect {
     /// dynamic checks instead of optimized machine code for each type).
     fn castable(value: &Value) -> bool;
 
-    /// Produce an error message for an inacceptable value.
+    /// Produce an error message for an inacceptable value type.
     ///
     /// ```
     /// assert_eq!(
-    ///   <Int as Reflect>::error(Value::None),
+    ///   <Int as Reflect>::error(&Value::None),
     ///   "expected integer, found none",
     /// );
     /// ```
@@ -98,7 +97,7 @@ impl<T: NativeElement + Reflect> Reflect for Packed<T> {
     }
 }
 
-impl<T: Reflect> Reflect for Prehashed<T> {
+impl<T: Reflect> Reflect for StrResult<T> {
     fn input() -> CastInfo {
         T::input()
     }
@@ -112,7 +111,7 @@ impl<T: Reflect> Reflect for Prehashed<T> {
     }
 }
 
-impl<T: Reflect> Reflect for StrResult<T> {
+impl<T: Reflect> Reflect for HintedStrResult<T> {
     fn input() -> CastInfo {
         T::input()
     }
@@ -182,6 +181,12 @@ impl IntoValue for Value {
     }
 }
 
+impl IntoValue for (&Str, &Value) {
+    fn into_value(self) -> Value {
+        Value::Array(array![self.0.clone(), self.1.clone()])
+    }
+}
+
 impl<T: IntoValue + Clone> IntoValue for Cow<'_, T> {
     fn into_value(self) -> Value {
         self.into_owned().into_value()
@@ -197,12 +202,6 @@ impl<T: NativeElement + IntoValue> IntoValue for Packed<T> {
 impl<T: IntoValue> IntoValue for Spanned<T> {
     fn into_value(self) -> Value {
         self.v.into_value()
-    }
-}
-
-impl<T: IntoValue + Hash + 'static> IntoValue for Prehashed<T> {
-    fn into_value(self) -> Value {
-        self.into_inner().into_value()
     }
 }
 
@@ -222,6 +221,12 @@ impl<T: IntoValue> IntoResult for T {
 }
 
 impl<T: IntoValue> IntoResult for StrResult<T> {
+    fn into_result(self, span: Span) -> SourceResult<Value> {
+        self.map(IntoValue::into_value).at(span)
+    }
+}
+
+impl<T: IntoValue> IntoResult for HintedStrResult<T> {
     fn into_result(self, span: Span) -> SourceResult<Value> {
         self.map(IntoValue::into_value).at(span)
     }
@@ -263,12 +268,6 @@ impl<T: NativeElement + FromValue> FromValue for Packed<T> {
         }
         let val = T::from_value(value)?;
         Ok(Packed::new(val))
-    }
-}
-
-impl<T: FromValue + Hash + 'static> FromValue for Prehashed<T> {
-    fn from_value(value: Value) -> StrResult<Self> {
-        Ok(Self::new(T::from_value(value)?))
     }
 }
 

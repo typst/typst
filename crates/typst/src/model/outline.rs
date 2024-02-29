@@ -4,8 +4,8 @@ use std::str::FromStr;
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, select_where, Content, Finalize, Func, LocatableSelector,
-    NativeElement, Packed, Show, Smart, StyleChain,
+    cast, elem, scope, select_where, Content, Context, Func, LocatableSelector,
+    NativeElement, Packed, Show, ShowSet, Smart, StyleChain, Styles,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
 use crate::layout::{BoxElem, Fr, HElem, HideElem, Length, Rel, RepeatElem, Spacing};
@@ -57,7 +57,7 @@ use crate::util::{option_eq, NonZeroExt};
 /// `title` and `indent` parameters. If desired, however, it is possible to have
 /// more control over the outline's look and style through the
 /// [`outline.entry`]($outline.entry) element.
-#[elem(scope, keywords = ["Table of Contents"], Show, Finalize, LocalName)]
+#[elem(scope, keywords = ["Table of Contents"], Show, ShowSet, LocalName)]
 pub struct OutlineElem {
     /// The title of the outline.
     ///
@@ -213,8 +213,9 @@ impl Show for Packed<OutlineElem> {
             let Some(entry) = OutlineEntry::from_outlinable(
                 engine,
                 self.span(),
-                elem.clone().into_inner(),
+                elem.clone(),
                 self.fill(styles),
+                styles,
             )?
             else {
                 continue;
@@ -230,12 +231,19 @@ impl Show for Packed<OutlineElem> {
             while ancestors
                 .last()
                 .and_then(|ancestor| ancestor.with::<dyn Outlinable>())
-                .map_or(false, |last| last.level() >= *level)
+                .is_some_and(|last| last.level() >= *level)
             {
                 ancestors.pop();
             }
 
-            OutlineIndent::apply(indent, engine, &ancestors, &mut seq, self.span())?;
+            OutlineIndent::apply(
+                indent,
+                engine,
+                &ancestors,
+                &mut seq,
+                styles,
+                self.span(),
+            )?;
 
             // Add the overridable outline entry, followed by a line break.
             seq.push(entry.pack());
@@ -250,11 +258,12 @@ impl Show for Packed<OutlineElem> {
     }
 }
 
-impl Finalize for Packed<OutlineElem> {
-    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
-        realized
-            .styled(HeadingElem::set_outlined(false))
-            .styled(HeadingElem::set_numbering(None))
+impl ShowSet for Packed<OutlineElem> {
+    fn show_set(&self, _: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        out.set(HeadingElem::set_outlined(false));
+        out.set(HeadingElem::set_numbering(None));
+        out
     }
 }
 
@@ -301,7 +310,12 @@ impl LocalName for Packed<OutlineElem> {
 /// `#outline()` element.
 pub trait Outlinable: Refable {
     /// Produce an outline item for this element.
-    fn outline(&self, engine: &mut Engine) -> SourceResult<Option<Content>>;
+    fn outline(
+        &self,
+        engine: &mut Engine,
+
+        styles: StyleChain,
+    ) -> SourceResult<Option<Content>>;
 
     /// Returns the nesting level of this element.
     fn level(&self) -> NonZeroUsize {
@@ -323,6 +337,7 @@ impl OutlineIndent {
         engine: &mut Engine,
         ancestors: &Vec<&Content>,
         seq: &mut Vec<Content>,
+        styles: StyleChain,
         span: Span,
     ) -> SourceResult<()> {
         match indent {
@@ -337,10 +352,12 @@ impl OutlineIndent {
                     let ancestor_outlinable = ancestor.with::<dyn Outlinable>().unwrap();
 
                     if let Some(numbering) = ancestor_outlinable.numbering() {
-                        let numbers = ancestor_outlinable
-                            .counter()
-                            .at(engine, ancestor.location().unwrap())?
-                            .display(engine, &numbering)?;
+                        let numbers = ancestor_outlinable.counter().display_at_loc(
+                            engine,
+                            ancestor.location().unwrap(),
+                            styles,
+                            numbering,
+                        )?;
 
                         hidden += numbers + SpaceElem::new().pack();
                     };
@@ -363,8 +380,10 @@ impl OutlineIndent {
             // the returned content
             Some(Smart::Custom(OutlineIndent::Func(func))) => {
                 let depth = ancestors.len();
-                let LengthOrContent(content) =
-                    func.call(engine, [depth])?.cast().at(span)?;
+                let LengthOrContent(content) = func
+                    .call(engine, &Context::new(None, Some(styles)), [depth])?
+                    .cast()
+                    .at(span)?;
                 if !content.is_empty() {
                     seq.push(content);
                 }
@@ -468,12 +487,13 @@ impl OutlineEntry {
         span: Span,
         elem: Content,
         fill: Option<Content>,
+        styles: StyleChain,
     ) -> SourceResult<Option<Self>> {
         let Some(outlinable) = elem.with::<dyn Outlinable>() else {
             bail!(span, "cannot outline {}", elem.func().name());
         };
 
-        let Some(body) = outlinable.outline(engine)? else {
+        let Some(body) = outlinable.outline(engine, styles)? else {
             return Ok(None);
         };
 
@@ -484,9 +504,12 @@ impl OutlineEntry {
             .cloned()
             .unwrap_or_else(|| NumberingPattern::from_str("1").unwrap().into());
 
-        let page = Counter::new(CounterKey::Page)
-            .at(engine, location)?
-            .display(engine, &page_numbering)?;
+        let page = Counter::new(CounterKey::Page).display_at_loc(
+            engine,
+            location,
+            styles,
+            &page_numbering,
+        )?;
 
         Ok(Some(Self::new(outlinable.level(), elem, body, fill, page)))
     }

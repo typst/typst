@@ -4,7 +4,7 @@
 ---
 #let my = $pi$
 #let f1 = box(baseline: 10pt, [f])
-#let f2 = style(sty => f1)
+#let f2 = context f1
 #show math.vec: [nope]
 
 $ pi a $

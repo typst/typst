@@ -92,19 +92,24 @@
 
 ---
 // Destructuring without parentheses.
-// Error: 7 expected keyword `in`
-// Hint: 7 did you mean to use a destructuring pattern?
+// Error: 7-8 unexpected comma
+// Hint: 7-8 destructuring patterns must be wrapped in parentheses
 #for k, v in (a: 4, b: 5) {
   dont-care
 }
 
-// Error: 5 expected identifier
+// Error: 7-8 unexpected comma
+// Hint: 7-8 destructuring patterns must be wrapped in parentheses
+#for k, in () {}
+
+---
+// Error: 5 expected pattern
 #for
 
-// Error: 5 expected identifier
+// Error: 5 expected pattern
 #for//
 
-// Error: 6 expected identifier
+// Error: 6 expected pattern
 #{for}
 
 // Error: 7 expected keyword `in`
@@ -116,15 +121,15 @@
 // Error: 15 expected block
 #for v in iter
 
-// Error: 5 expected identifier
+// Error: 5 expected pattern
 #for
 v in iter {}
 
-// Error: 6 expected identifier
-// Error: 10 expected block
+// Error: 7-10 expected pattern, found string
+// Error: 16 expected block
 A#for "v" thing
 
-// Error: 5 expected identifier
+// Error: 6-9 expected pattern, found string
 #for "v" in iter {}
 
 // Error: 7 expected keyword `in`

@@ -9,20 +9,20 @@
 $ 2 + 3 $
 #s.update(double)
 
-Is: #s.display(),
-Was: #locate(location => {
-  let it = query(math.equation, location).first()
+Is: #context s.get(),
+Was: #context {
+  let it = query(math.equation).first()
   s.at(it.location())
-}).
+}.
 
 ---
 // Try same key with different initial value.
-#state("key", 2).display()
+#context state("key", 2).get()
 #state("key").update(x => x + 1)
-#state("key", 2).display()
-#state("key", 3).display()
+#context state("key", 2).get()
+#context state("key", 3).get()
 #state("key").update(x => x + 1)
-#state("key", 2).display()
+#context state("key", 2).get()
 
 ---
 #set page(width: 200pt)
@@ -30,15 +30,15 @@ Was: #locate(location => {
 
 #let ls = state("lorem", lorem(1000).split("."))
 #let loremum(count) = {
-  ls.display(list => list.slice(0, count).join(".").trim() + ".")
+  context ls.get().slice(0, count).join(".").trim() + "."
   ls.update(list => list.slice(count))
 }
 
 #let fs = state("fader", red)
 #let trait(title) = block[
-  #fs.display(color => text(fill: color)[
+  #context text(fill: fs.get())[
     *#title:* #loremum(1)
-  ])
+  ]
   #fs.update(color => color.lighten(30%))
 ]
 
@@ -52,5 +52,5 @@ Was: #locate(location => {
 // Warning: layout did not converge within 5 attempts
 // Hint: check if any states or queries are updating themselves
 #let s = state("s", 1)
-#locate(loc => s.update(s.final(loc) + 1))
-#s.display()
+#context s.update(s.final() + 1)
+#context s.get()

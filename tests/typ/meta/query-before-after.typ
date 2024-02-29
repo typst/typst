@@ -57,12 +57,11 @@
 
 #set heading(outlined: true, numbering: "1.")
 
-// This is purposefully an empty
-#locate(loc => [
+#context [
   Non-outlined elements:
-  #(query(selector(heading).and(heading.where(outlined: false)), loc)
+  #(query(selector(heading).and(heading.where(outlined: false)))
     .map(it => it.body).join(", "))
-])
+]
 
 #heading("A", outlined: false)
 #heading("B", outlined: true)

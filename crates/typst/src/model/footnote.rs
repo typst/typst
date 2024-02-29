@@ -4,8 +4,8 @@ use std::str::FromStr;
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, scope, Content, Finalize, Label, NativeElement, Packed, Show, Smart,
-    StyleChain, Synthesize,
+    cast, elem, scope, Content, Label, NativeElement, Packed, Show, ShowSet, Smart,
+    StyleChain, Styles,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Location};
 use crate::layout::{Abs, Em, HElem, Length, Ratio};
@@ -50,7 +50,7 @@ use crate::visualize::{LineElem, Stroke};
 /// apply to the footnote's content. See [here][issue] for more information.
 ///
 /// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
-#[elem(scope, Locatable, Synthesize, Show, Count)]
+#[elem(scope, Locatable, Show, Count)]
 pub struct FootnoteElem {
     /// How to number footnotes.
     ///
@@ -123,27 +123,18 @@ impl Packed<FootnoteElem> {
     }
 }
 
-impl Synthesize for Packed<FootnoteElem> {
-    fn synthesize(&mut self, _: &mut Engine, styles: StyleChain) -> SourceResult<()> {
-        let elem = self.as_mut();
-        elem.push_numbering(elem.numbering(styles).clone());
-        Ok(())
-    }
-}
-
 impl Show for Packed<FootnoteElem> {
     #[typst_macros::time(name = "footnote", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
-        Ok(engine.delayed(|engine| {
-            let loc = self.declaration_location(engine).at(self.span())?;
-            let numbering = self.numbering(styles);
-            let counter = Counter::of(FootnoteElem::elem());
-            let num = counter.at(engine, loc)?.display(engine, numbering)?;
-            let sup = SuperElem::new(num).pack().spanned(self.span());
-            let loc = loc.variant(1);
-            // Add zero-width weak spacing to make the footnote "sticky".
-            Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc)))
-        }))
+        let span = self.span();
+        let loc = self.declaration_location(engine).at(span)?;
+        let numbering = self.numbering(styles);
+        let counter = Counter::of(FootnoteElem::elem());
+        let num = counter.display_at_loc(engine, loc, styles, numbering)?;
+        let sup = SuperElem::new(num).pack().spanned(span);
+        let loc = loc.variant(1);
+        // Add zero-width weak spacing to make the footnote "sticky".
+        Ok(HElem::hole().pack() + sup.linked(Destination::Location(loc)))
     }
 }
 
@@ -188,7 +179,7 @@ cast! {
 /// #footnote[It's down here]
 /// has red text!
 /// ```
-#[elem(name = "entry", title = "Footnote Entry", Show, Finalize)]
+#[elem(name = "entry", title = "Footnote Entry", Show, ShowSet)]
 pub struct FootnoteEntry {
     /// The footnote for this entry. It's location can be used to determine
     /// the footnote counter state.
@@ -276,6 +267,7 @@ pub struct FootnoteEntry {
 impl Show for Packed<FootnoteEntry> {
     #[typst_macros::time(name = "footnote.entry", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
+        let span = self.span();
         let note = self.note();
         let number_gap = Em::new(0.05);
         let default = StyleChain::default();
@@ -283,15 +275,15 @@ impl Show for Packed<FootnoteEntry> {
         let counter = Counter::of(FootnoteElem::elem());
         let Some(loc) = note.location() else {
             bail!(
-                self.span(), "footnote entry must have a location";
+                span, "footnote entry must have a location";
                 hint: "try using a query or a show rule to customize the footnote instead"
             );
         };
 
-        let num = counter.at(engine, loc)?.display(engine, numbering)?;
+        let num = counter.display_at_loc(engine, loc, styles, numbering)?;
         let sup = SuperElem::new(num)
             .pack()
-            .spanned(self.span())
+            .spanned(span)
             .linked(Destination::Location(loc))
             .backlinked(loc.variant(1));
         Ok(Content::sequence([
@@ -303,13 +295,14 @@ impl Show for Packed<FootnoteEntry> {
     }
 }
 
-impl Finalize for Packed<FootnoteEntry> {
-    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
+impl ShowSet for Packed<FootnoteEntry> {
+    fn show_set(&self, _: StyleChain) -> Styles {
         let text_size = Em::new(0.85);
         let leading = Em::new(0.5);
-        realized
-            .styled(ParElem::set_leading(leading.into()))
-            .styled(TextElem::set_size(TextSize(text_size.into())))
+        let mut out = Styles::new();
+        out.set(ParElem::set_leading(leading.into()));
+        out.set(TextElem::set_size(TextSize(text_size.into())));
+        out
     }
 }
 

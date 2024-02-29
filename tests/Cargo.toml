@@ -8,6 +8,8 @@ publish = false
 
 [dev-dependencies]
 typst = { workspace = true }
+typst-assets = { workspace = true, features = ["fonts"] }
+typst-dev-assets = { workspace = true }
 typst-pdf = { workspace = true }
 typst-render = { workspace = true }
 typst-svg = { workspace = true }

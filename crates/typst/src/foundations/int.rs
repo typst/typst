@@ -229,10 +229,10 @@ pub struct ToInt(i64);
 
 cast! {
     ToInt,
+    v: i64 => Self(v),
     v: bool => Self(v as i64),
     v: f64 => Self(v as i64),
     v: Str => Self(parse_int(&v).map_err(|_| eco_format!("invalid integer: {}", v))?),
-    v: i64 => Self(v),
 }
 
 fn parse_int(mut s: &str) -> Result<i64, ParseIntError> {

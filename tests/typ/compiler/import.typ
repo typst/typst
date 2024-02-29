@@ -189,8 +189,8 @@
 
 ---
 // Some non-text stuff.
-// Error: 9-27 file is not valid utf-8
-#import "/files/rhino.png"
+// Error: 9-35 file is not valid utf-8
+#import "/assets/images/rhino.png"
 
 ---
 // Unresolved import.

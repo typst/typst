@@ -90,7 +90,7 @@ impl Lexer<'_> {
         self.error = None;
         let start = self.s.cursor();
         match self.s.eat() {
-            Some(c) if c.is_whitespace() => self.whitespace(start, c),
+            Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
             Some('/') if self.s.eat_if('/') => self.line_comment(),
             Some('/') if self.s.eat_if('*') => self.block_comment(),
             Some('*') if self.s.eat_if('/') => {
@@ -108,7 +108,7 @@ impl Lexer<'_> {
     }
 
     fn whitespace(&mut self, start: usize, c: char) -> SyntaxKind {
-        let more = self.s.eat_while(char::is_whitespace);
+        let more = self.s.eat_while(|c| is_space(c, self.mode));
         let newlines = match c {
             ' ' if more.is_empty() => 0,
             _ => count_newlines(self.s.from(start)),
@@ -341,11 +341,14 @@ impl Lexer<'_> {
 
     fn in_word(&self) -> bool {
         let wordy = |c: Option<char>| {
-            c.map_or(false, |c| {
+            c.is_some_and(|c| {
                 c.is_alphanumeric()
                     && !matches!(
                         c.script(),
-                        Script::Han | Script::Hiragana | Script::Katakana
+                        Script::Han
+                            | Script::Hiragana
+                            | Script::Katakana
+                            | Script::Hangul
                     )
             })
         };
@@ -535,7 +538,7 @@ impl Lexer<'_> {
         // Make sure not to confuse a range for the decimal separator.
         if c != '.'
             && !self.s.at("..")
-            && !self.s.scout(1).map_or(false, is_id_start)
+            && !self.s.scout(1).is_some_and(is_id_start)
             && self.s.eat_if('.')
             && base == 10
         {
@@ -613,6 +616,7 @@ fn keyword(ident: &str) -> Option<SyntaxKind> {
         "let" => SyntaxKind::Let,
         "set" => SyntaxKind::Set,
         "show" => SyntaxKind::Show,
+        "context" => SyntaxKind::Context,
         "if" => SyntaxKind::If,
         "else" => SyntaxKind::Else,
         "for" => SyntaxKind::For,
@@ -626,6 +630,15 @@ fn keyword(ident: &str) -> Option<SyntaxKind> {
         "as" => SyntaxKind::As,
         _ => return None,
     })
+}
+
+/// Whether a character will become a Space token in Typst
+#[inline]
+fn is_space(character: char, mode: LexMode) -> bool {
+    match mode {
+        LexMode::Markup => matches!(character, ' ' | '\t') || is_newline(character),
+        _ => character.is_whitespace(),
+    }
 }
 
 /// Whether a character is interpreted as a newline by Typst.
@@ -727,7 +740,7 @@ pub fn is_ident(string: &str) -> bool {
     let mut chars = string.chars();
     chars
         .next()
-        .map_or(false, |c| is_id_start(c) && chars.all(is_id_continue))
+        .is_some_and(|c| is_id_start(c) && chars.all(is_id_continue))
 }
 
 /// Whether a character can start an identifier.

@@ -9,6 +9,7 @@ cargo-fuzz = true
 
 [dependencies]
 typst = { workspace = true }
+typst-assets = { workspace = true, features = ["fonts"] }
 typst-render = { workspace = true }
 typst-syntax = { workspace = true }
 comemo = { workspace = true }

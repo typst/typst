@@ -4,7 +4,7 @@ use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, Args, Array, Construct, Content, Datetime, Packed, Smart, StyleChain,
-    Value,
+    StyledElem, Value,
 };
 use crate::introspection::{Introspector, ManualPageCounter};
 use crate::layout::{LayoutRoot, Page, PageElem};
@@ -82,17 +82,18 @@ impl LayoutRoot for Packed<DocumentElem> {
         while let Some(mut child) = iter.next() {
             let outer = styles;
             let mut styles = styles;
-            if let Some((elem, local)) = child.to_styled() {
-                styles = outer.chain(local);
-                child = elem;
+            if let Some(styled) = child.to_packed::<StyledElem>() {
+                child = &styled.child;
+                styles = outer.chain(&styled.styles);
             }
 
             if let Some(page) = child.to_packed::<PageElem>() {
                 let extend_to = iter.peek().and_then(|&next| {
-                    next.to_styled()
-                        .map_or(next, |(elem, _)| elem)
+                    *next
+                        .to_packed::<StyledElem>()
+                        .map_or(next, |styled| &styled.child)
                         .to_packed::<PageElem>()?
-                        .clear_to(styles)
+                        .clear_to()?
                 });
                 let run = page.layout(engine, styles, &mut page_counter, extend_to)?;
                 pages.extend(run);
@@ -103,10 +104,10 @@ impl LayoutRoot for Packed<DocumentElem> {
 
         Ok(Document {
             pages,
-            title: self.title(styles).map(|content| content.plain_text()),
-            author: self.author(styles).0,
-            keywords: self.keywords(styles).0,
-            date: self.date(styles),
+            title: DocumentElem::title_in(styles).map(|content| content.plain_text()),
+            author: DocumentElem::author_in(styles).0,
+            keywords: DocumentElem::keywords_in(styles).0,
+            date: DocumentElem::date_in(styles),
             introspector: Introspector::default(),
         })
     }
