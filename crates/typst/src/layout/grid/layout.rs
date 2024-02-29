@@ -1800,13 +1800,13 @@ impl<'a> GridLayouter<'a> {
 
             // Skip the first region if one cell in it is empty. Then,
             // remeasure.
-            if can_skip && breakable {
-                let mut relevant_frames =
-                    frames.iter().skip(measurement_data.frames_in_previous_regions);
-                let first = relevant_frames.next();
-                let mut rest = relevant_frames;
-                if first.is_some_and(Frame::is_empty)
-                    && rest.any(|frame| !frame.is_empty())
+            if let Some([first, rest @ ..]) =
+                frames.get(measurement_data.frames_in_previous_regions..)
+            {
+                if can_skip
+                    && breakable
+                    && first.is_empty()
+                    && rest.iter().any(|frame| !frame.is_empty())
                 {
                     return Ok(None);
                 }
