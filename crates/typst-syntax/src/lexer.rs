@@ -18,7 +18,6 @@ pub(super) struct Lexer<'s> {
     newline: bool,
     /// An error for the last token.
     error: Option<EcoString>,
-
     /// The state holds by raw line lexing
     raw_offsets: Vec<(SyntaxKind, usize)>,
 }
