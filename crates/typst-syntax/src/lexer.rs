@@ -327,7 +327,6 @@ impl Lexer<'_> {
         // Trim whitespace + newline at start.
         if starts_whitespace {
             self.s.advance(lines.next().unwrap().len());
-            self.s.eat_newline();
             skipped = true;
         }
         // Trim whitespace + newline at end.
@@ -339,11 +338,11 @@ impl Lexer<'_> {
         for (i, line) in lines.enumerate() {
             let dedent = if i == 0 && !skipped { 0 } else { dedent };
             let offset: usize = line.chars().take(dedent).map(char::len_utf8).sum();
+            self.s.eat_newline();
             self.s.advance(offset);
             self.push_raw(SyntaxKind::RawTrimmed);
             self.s.advance(line.len() - offset);
             self.push_raw(SyntaxKind::Text);
-            self.s.eat_newline();
         }
 
         // Add final trimmed.
