@@ -211,7 +211,6 @@ impl<'a> GridLayouter<'a> {
                 // needed for unbreakable rows
                 Sizing::Fr(_) => Abs::zero(),
             };
-            let height = height.max(Abs::zero());
             row_group.height += height;
             row_group.rows.push((y, height));
             unbreakable_rows_left -= 1;
@@ -546,10 +545,8 @@ impl<'a> GridLayouter<'a> {
         // subtract the current row group height from the available space
         // when simulating rowspans in said group.
         let mut simulated_regions = self.regions;
-        simulated_regions.size.y -= row_group_data
-            .map(|row_group| row_group.height)
-            .unwrap_or(Abs::zero())
-            .max(Abs::zero());
+        simulated_regions.size.y -=
+            row_group_data.map_or(Abs::zero(), |row_group| row_group.height);
 
         for _ in 0..resolved.len() {
             // Ensure we start at the region where we will expand the auto
