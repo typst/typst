@@ -157,7 +157,8 @@ impl FlowItem {
         match self {
             Self::Placed { float: false, .. } => true,
             Self::Frame { frame, .. } => {
-                frame.items().all(|(_, item)| matches!(item, FrameItem::Meta(..)))
+                frame.size().is_zero()
+                    && frame.items().all(|(_, item)| matches!(item, FrameItem::Meta(..)))
             }
             _ => false,
         }
