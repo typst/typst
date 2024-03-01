@@ -7,7 +7,7 @@ use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::diag::{At, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::eval::ops;
 use crate::foundations::{
@@ -722,6 +722,41 @@ impl Array {
         }
 
         Array(vec)
+    }
+
+    /// Splits an array into non-overlapping chunks, starting at the beginning,
+    /// ending with a single remainder chunk.
+    ///
+    /// All chunks but the last have `chunk_size` elements.
+    /// If `exact` is set to `{true}`, the remainder is dropped if it
+    /// contains less than `chunk_size` elements.
+    ///
+    /// ```example
+    /// #let array = (1, 2, 3, 4, 5, 6, 7, 8)
+    /// #array.chunks(3)
+    /// #array.chunks(3, exact: true)
+    /// ```
+    #[func]
+    pub fn chunks(
+        self,
+        /// How many elements each chunk may at most contain.
+        chunk_size: i64,
+        /// Whether to keep the remainder if its size is less than `chunk_size`.
+        #[named]
+        #[default(false)]
+        exact: bool,
+    ) -> StrResult<Array> {
+        if chunk_size <= 0 {
+            bail!("chunk size must be strictly greater than zero");
+        }
+
+        let to_array =
+            |chunk: &[Value]| chunk.iter().cloned().collect::<Array>().into_value();
+        if exact {
+            Ok(self.0.chunks_exact(chunk_size as usize).map(to_array).collect())
+        } else {
+            Ok(self.0.chunks(chunk_size as usize).map(to_array).collect())
+        }
     }
 
     /// Return a sorted version of this array, optionally by a given key

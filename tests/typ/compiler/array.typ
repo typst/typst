@@ -237,6 +237,26 @@
 #test((1, 2, "b").intersperse("a"), (1, "a", 2, "a", "b"))
 
 ---
+// Test the `chunks` method.
+#test(().chunks(10), ())
+#test((1, 2, 3).chunks(10), ((1, 2, 3),))
+#test((1, 2, 3, 4, 5, 6).chunks(3), ((1, 2, 3), (4, 5, 6)))
+#test((1, 2, 3, 4, 5, 6, 7, 8).chunks(3), ((1, 2, 3), (4, 5, 6), (7, 8)))
+
+#test(().chunks(10, exact: true), ())
+#test((1, 2, 3).chunks(10, exact: true), ())
+#test((1, 2, 3, 4, 5, 6).chunks(3, exact: true), ((1, 2, 3), (4, 5, 6)))
+#test((1, 2, 3, 4, 5, 6, 7, 8).chunks(3, exact: true), ((1, 2, 3), (4, 5, 6)))
+
+---
+// Error: 2-21 chunk size must be strictly greater than zero
+#(1, 2, 3).chunks(0)
+
+---
+// Error: 2-22 chunk size must be strictly greater than zero
+#(1, 2, 3).chunks(-5)
+
+---
 // Test the `sorted` method.
 #test(().sorted(), ())
 #test(().sorted(key: x => x), ())
