@@ -231,6 +231,7 @@ impl<'a> ShapedText<'a> {
         let decos = TextElem::deco_in(self.styles);
         let fill = TextElem::fill_in(self.styles);
         let stroke = TextElem::stroke_in(self.styles);
+        let span_offset = TextElem::span_offset_in(self.styles);
 
         for ((font, y_offset), group) in
             self.glyphs.as_ref().group_by_key(|g| (g.font.clone(), g.y_offset))
@@ -267,6 +268,12 @@ impl<'a> ShapedText<'a> {
                     frame.size_mut().x += justification_left.at(self.size)
                         + justification_right.at(self.size);
 
+                    // We may not be able to reach the offset completely if
+                    // it exceeds u16, but better to have a roughly correct
+                    // span offset than nothing.
+                    let mut span = shaped.span;
+                    span.1 = span.1.saturating_add(span_offset.saturating_as());
+
                     // |<---- a Glyph ---->|
                     //  -->|ShapedGlyph|<--
                     // +---+-----------+---+
@@ -293,7 +300,7 @@ impl<'a> ShapedText<'a> {
                         x_offset: shaped.x_offset + justification_left,
                         range: (shaped.range.start - range.start).saturating_as()
                             ..(shaped.range.end - range.start).saturating_as(),
-                        span: shaped.span,
+                        span,
                     }
                 })
                 .collect();

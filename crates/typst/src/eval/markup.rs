@@ -8,7 +8,9 @@ use crate::model::{
 };
 use crate::symbols::Symbol;
 use crate::syntax::ast::{self, AstNode};
-use crate::text::{LinebreakElem, RawElem, SmartQuoteElem, SpaceElem, TextElem};
+use crate::text::{
+    LinebreakElem, RawContent, RawElem, SmartQuoteElem, SpaceElem, TextElem,
+};
 
 impl Eval for ast::Markup<'_> {
     type Output = Content;
@@ -165,9 +167,10 @@ impl Eval for ast::Raw<'_> {
     type Output = Content;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        let mut elem = RawElem::new(self.text()).with_block(self.block());
+        let lines = self.lines().map(|line| (line.get().clone(), line.span())).collect();
+        let mut elem = RawElem::new(RawContent::Lines(lines)).with_block(self.block());
         if let Some(lang) = self.lang() {
-            elem.push_lang(Some(lang.into()));
+            elem.push_lang(Some(lang.get().clone()));
         }
         Ok(elem.pack())
     }
