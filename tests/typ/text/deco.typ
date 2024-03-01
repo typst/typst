@@ -59,6 +59,17 @@ We can also specify a customized value
 #highlight[abc #sym.integral]
 
 ---
+// Test highlight radius
+#highlight(radius: 3pt)[abc],
+#highlight(radius: 1em)[#lorem(5)]
+
+---
+// Test highlight stroke
+#highlight(stroke: 2pt + blue)[abc]
+#highlight(stroke: (top: blue, left: red, bottom: green, right: orange))[abc]
+#highlight(stroke: 1pt, radius: 3pt)[#lorem(5)]
+
+---
 // Test underline background
 #set underline(background: true, stroke: (thickness: 0.5em, paint: red, cap: "round"))
 #underline[This is in the background]
@@ -67,7 +78,6 @@ We can also specify a customized value
 // Test overline background
 #set overline(background: true, stroke: (thickness: 0.5em, paint: red, cap: "round"))
 #overline[This is in the background]
-
 
 ---
 // Test strike background
