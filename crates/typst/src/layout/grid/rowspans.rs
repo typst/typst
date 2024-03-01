@@ -64,10 +64,10 @@ pub(super) struct CellMeasurementData<'layouter> {
 }
 
 impl<'a> GridLayouter<'a> {
-    /// Layout rowspans over the already finished regions, plus the current
+    /// Layout a rowspan over the already finished regions, plus the current
     /// region, if it wasn't finished yet (because we're being called from
     /// `finish_region`, but note that this function is also called once after
-    /// all regions are finished, in which case `current_region` is None).
+    /// all regions are finished, in which case `current_region` is `None`).
     ///
     /// We need to do this only once we already know the heights of all
     /// spanned rows, which is only possible after laying out the last row
@@ -279,16 +279,15 @@ impl<'a> GridLayouter<'a> {
             // Not a rowspan, so the cell only occupies this row. Therefore:
             // 1. When we measure the cell below, use the available height
             // remaining in the region as the height it has available.
-            // However, if we're simulating an unbreakable row group, pretend
-            // infinite space is available instead during simulation.
+            // However, if the auto row is unbreakable, measure with infinite
+            // height instead to see how much content expands.
             // 2. Also use the region's backlog when measuring.
             // 3. Use the same full region height.
             // 4. No height occupied by this cell in this region so far.
             // 5. Yes, this cell started in this region.
-            height =
-                if row_group_data.is_some() { Abs::inf() } else { self.regions.size.y };
+            height = if breakable { self.regions.size.y } else { Abs::inf() };
             backlog = Some(self.regions.backlog);
-            full = if row_group_data.is_some() { Abs::inf() } else { self.regions.full };
+            full = if breakable { self.regions.full } else { Abs::inf() };
             height_in_this_region = Abs::zero();
             frames_in_previous_regions = 0;
         } else {
@@ -338,25 +337,18 @@ impl<'a> GridLayouter<'a> {
                 // the current backlog.
                 frames_in_previous_regions = rowspan_other_heights.len() + 1;
 
-                // Exceptionally, if we're currently simulating an unbreakable
-                // row group, consider that we will have infinite space
-                // available.
                 let heights_up_to_current_region = rowspan_other_heights
                     .iter()
                     .copied()
-                    .chain(std::iter::once(if row_group_data.is_some() {
-                        Abs::inf()
-                    } else {
+                    .chain(std::iter::once(if breakable {
                         self.initial.y
+                    } else {
+                        // When measuring unbreakable auto rows, infinite
+                        // height is available for content to expand.
+                        Abs::inf()
                     }));
 
-                rowspan_backlog = if !breakable {
-                    // No extra backlog if this is an unbreakable auto row.
-                    // Ensure, when measuring, that the rowspan can be laid
-                    // out through all spanned rows which were already laid
-                    // out so far, but don't go further than this region.
-                    heights_up_to_current_region.collect::<Vec<_>>()
-                } else {
+                rowspan_backlog = if breakable {
                     // This auto row is breakable. Therefore, join the
                     // rowspan's already laid out heights with the current
                     // region's height and current backlog to ensure a good
@@ -364,6 +356,12 @@ impl<'a> GridLayouter<'a> {
                     heights_up_to_current_region
                         .chain(self.regions.backlog.iter().copied())
                         .collect::<Vec<_>>()
+                } else {
+                    // No extra backlog if this is an unbreakable auto row.
+                    // Ensure, when measuring, that the rowspan can be laid
+                    // out through all spanned rows which were already laid
+                    // out so far, but don't go further than this region.
+                    heights_up_to_current_region.collect::<Vec<_>>()
                 };
 
                 height = *rowspan_height;
@@ -377,16 +375,15 @@ impl<'a> GridLayouter<'a> {
                 // previous rows in this region (and/or unbreakable row
                 // group, if it's being simulated).
                 // The backlog and full will be that of the current region.
-                // Exceptionally, if we're currently simulating an unbreakable
-                // row group, consider that we have infinite space available.
-                height = if row_group_data.is_some() {
-                    Abs::inf()
-                } else {
+                // However, use infinite height instead if we're measuring an
+                // unbreakable auto row.
+                height = if breakable {
                     height_in_this_region + self.regions.size.y
+                } else {
+                    Abs::inf()
                 };
                 backlog = Some(self.regions.backlog);
-                full =
-                    if row_group_data.is_some() { Abs::inf() } else { self.regions.full };
+                full = if breakable { self.regions.full } else { Abs::inf() };
                 frames_in_previous_regions = 0;
             }
         }
