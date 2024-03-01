@@ -424,7 +424,9 @@ pub(super) fn vline_stroke_at_row(
 ///
 /// The `local_top_y` parameter indicates which row is effectively on top of
 /// this hline at the current region. This is `None` if the hline is above the
-/// first row in the region, for instance.
+/// first row in the region, for instance. The `in_last_region` parameter
+/// indicates whether this is the last region of the table. If not and this is
+/// a line at the bottom border, the bottom border's line gains priority.
 ///
 /// If the one (when at the border) or two (otherwise) cells above and below
 /// the hline have bottom and top stroke overrides, respectively, then the
@@ -451,6 +453,7 @@ pub(super) fn hline_stroke_at_column(
     grid: &CellGrid,
     rows: &[RowPiece],
     local_top_y: Option<usize>,
+    in_last_region: bool,
     y: usize,
     x: usize,
     stroke: Option<Option<Arc<Stroke<Abs>>>>,
@@ -514,13 +517,28 @@ pub(super) fn hline_stroke_at_column(
         })
         .unwrap_or((None, false));
 
-    let (bottom_cell_stroke, bottom_cell_prioritized) = if y < grid.rows.len() {
+    // Use the bottom border stroke with priority if we're not in the last
+    // region, we have the last index, and (as a failsafe) we don't have the
+    // last row of cells above us.
+    let use_bottom_border_stroke = !in_last_region
+        && local_top_y.map_or(true, |top_y| top_y + 1 != grid.rows.len())
+        && y == grid.rows.len();
+    let bottom_y =
+        if use_bottom_border_stroke { grid.rows.len().saturating_sub(1) } else { y };
+    let (bottom_cell_stroke, bottom_cell_prioritized) = if bottom_y < grid.rows.len() {
         // Let's find the parent cell of the position below us, in order
         // to take its top stroke, even when we're above gutter.
-        grid.effective_parent_cell_position(x, y)
+        grid.effective_parent_cell_position(x, bottom_y)
             .map(|parent| {
                 let bottom_cell = grid.cell(parent.x, parent.y).unwrap();
-                (bottom_cell.stroke.top.clone(), bottom_cell.stroke_overridden.top)
+                if use_bottom_border_stroke {
+                    (
+                        bottom_cell.stroke.bottom.clone(),
+                        bottom_cell.stroke_overridden.bottom,
+                    )
+                } else {
+                    (bottom_cell.stroke.top.clone(), bottom_cell.stroke_overridden.top)
+                }
             })
             .unwrap_or((None, false))
     } else {
@@ -537,13 +555,17 @@ pub(super) fn hline_stroke_at_column(
     };
 
     let (prioritized_cell_stroke, deprioritized_cell_stroke) =
-        if use_top_border_stroke || top_cell_prioritized && !bottom_cell_prioritized {
+        if !use_bottom_border_stroke
+            && (use_top_border_stroke || top_cell_prioritized && !bottom_cell_prioritized)
+        {
             // Top border must always be prioritized, even if it did not
             // request for that explicitly.
             (top_cell_stroke, bottom_cell_stroke)
         } else {
             // When both cells' strokes have the same priority, we default to
             // prioritizing the bottom cell's top stroke.
+            // Additionally, the bottom border cell's stroke always has
+            // priority.
             (bottom_cell_stroke, top_cell_stroke)
         };
 
@@ -1285,6 +1307,7 @@ mod test {
                         grid,
                         &rows,
                         y.checked_sub(1),
+                        true,
                         y,
                         x,
                         stroke
@@ -1478,6 +1501,7 @@ mod test {
                         grid,
                         &rows,
                         y.checked_sub(1),
+                        true,
                         y,
                         x,
                         stroke
@@ -1523,6 +1547,7 @@ mod test {
                     grid,
                     &rows,
                     if y == 4 { Some(2) } else { y.checked_sub(1) },
+                    true,
                     y,
                     x,
                     stroke

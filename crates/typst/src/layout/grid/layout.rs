@@ -1133,7 +1133,10 @@ impl<'a> GridLayouter<'a> {
     /// Add lines and backgrounds.
     fn render_fills_strokes(mut self) -> SourceResult<Fragment> {
         let mut finished = std::mem::take(&mut self.finished);
-        for (frame, rows) in finished.iter_mut().zip(&self.rrows) {
+        let frame_amount = finished.len();
+        for ((frame_index, frame), rows) in
+            finished.iter_mut().enumerate().zip(&self.rrows)
+        {
             if self.rcols.is_empty() || rows.is_empty() {
                 continue;
             }
@@ -1272,6 +1275,11 @@ impl<'a> GridLayouter<'a> {
                 // strokes in the folding process.
                 let local_top_y = prev_y;
 
+                // When we're in the last region, the bottom border stroke
+                // doesn't necessarily gain priority like it does in previous
+                // regions.
+                let in_last_region = frame_index + 1 == frame_amount;
+
                 // Determine all different line segments we have to draw in
                 // this row, and convert them to points and shapes.
                 let segments = generate_line_segments(
@@ -1281,7 +1289,15 @@ impl<'a> GridLayouter<'a> {
                     hlines_at_row,
                     is_bottom_border,
                     |grid, y, x, stroke| {
-                        hline_stroke_at_column(grid, rows, local_top_y, y, x, stroke)
+                        hline_stroke_at_column(
+                            grid,
+                            rows,
+                            local_top_y,
+                            in_last_region,
+                            y,
+                            x,
+                            stroke,
+                        )
                     },
                 )
                 .map(|segment| {
