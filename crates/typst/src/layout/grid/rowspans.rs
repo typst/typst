@@ -88,6 +88,7 @@ impl<'a> GridLayouter<'a> {
         let first_column = self.rcols[x];
         let cell = self.grid.cell(x, y).unwrap();
         let width = self.cell_spanned_width(cell, x);
+        let dx = if self.is_rtl { dx - width + first_column } else { dx };
 
         // Prepare regions.
         let size = Size::new(width, *first_height);
@@ -107,14 +108,7 @@ impl<'a> GridLayouter<'a> {
             .skip(first_region)
             .zip(fragment)
         {
-            {
-                let mut pos = pos;
-                if self.is_rtl {
-                    let offset = -width + first_column;
-                    pos.x += offset;
-                }
-                finished.push_frame(pos, frame);
-            }
+            finished.push_frame(pos, frame);
 
             // From the second region onwards, the rowspan's continuation
             // starts at the very top.
