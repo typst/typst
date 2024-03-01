@@ -19,7 +19,7 @@ use crate::foundations::{
 use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio, Rel};
 use crate::symbols::Symbol;
 use crate::syntax::{ast, Span};
-use crate::text::{RawElem, TextElem};
+use crate::text::{RawContent, RawElem, TextElem};
 use crate::util::ArcExt;
 use crate::visualize::{Color, Gradient, Pattern};
 
@@ -209,7 +209,7 @@ impl Value {
             Self::Symbol(v) => TextElem::packed(v.get()),
             Self::Content(v) => v,
             Self::Module(module) => module.content(),
-            _ => RawElem::new(self.repr())
+            _ => RawElem::new(RawContent::Text(self.repr()))
                 .with_lang(Some("typc".into()))
                 .with_block(false)
                 .pack(),

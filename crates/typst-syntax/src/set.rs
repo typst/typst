@@ -15,7 +15,10 @@ impl SyntaxSet {
     }
 
     /// Insert a syntax kind into the set.
+    ///
+    /// You can only add kinds with discriminator < 128.
     pub const fn add(self, kind: SyntaxKind) -> Self {
+        assert!((kind as u8) < BITS);
         Self(self.0 | bit(kind))
     }
 
@@ -26,9 +29,11 @@ impl SyntaxSet {
 
     /// Whether the set contains the given syntax kind.
     pub const fn contains(&self, kind: SyntaxKind) -> bool {
-        (self.0 & bit(kind)) != 0
+        (kind as u8) < BITS && (self.0 & bit(kind)) != 0
     }
 }
+
+const BITS: u8 = 128;
 
 const fn bit(kind: SyntaxKind) -> u128 {
     1 << (kind as usize)
@@ -54,7 +59,7 @@ pub const MARKUP_EXPR: SyntaxSet = SyntaxSet::new()
     .add(SyntaxKind::Escape)
     .add(SyntaxKind::Shorthand)
     .add(SyntaxKind::SmartQuote)
-    .add(SyntaxKind::Raw)
+    .add(SyntaxKind::RawDelim)
     .add(SyntaxKind::Link)
     .add(SyntaxKind::Label)
     .add(SyntaxKind::Hash)
@@ -119,7 +124,7 @@ pub const ATOMIC_CODE_PRIMARY: SyntaxSet = SyntaxSet::new()
     .add(SyntaxKind::Numeric)
     .add(SyntaxKind::Str)
     .add(SyntaxKind::Label)
-    .add(SyntaxKind::Raw);
+    .add(SyntaxKind::RawDelim);
 
 /// Syntax kinds that are unary operators.
 pub const UNARY_OP: SyntaxSet = SyntaxSet::new()
@@ -170,11 +175,6 @@ pub const PATTERN_LEAF: SyntaxSet = ATOMIC_CODE_EXPR;
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_size() {
-        assert!((SyntaxKind::Eof as usize) < 128);
-    }
 
     #[test]
     fn test_set() {

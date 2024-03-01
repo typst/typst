@@ -17,7 +17,7 @@ use crate::foundations::{
 };
 use crate::layout::{BlockElem, Em, HAlignment};
 use crate::model::Figurable;
-use crate::syntax::{split_newlines, LinkedNode, Spanned};
+use crate::syntax::{split_newlines, LinkedNode, Span, Spanned};
 use crate::text::{
     FontFamily, FontList, Hyphenate, Lang, LinebreakElem, LocalName, Region,
     SmartQuoteElem, TextElem, TextSize,
@@ -27,8 +27,9 @@ use crate::visualize::Color;
 use crate::{syntax, World};
 
 // Shorthand for highlighter closures.
-type StyleFn<'a> = &'a mut dyn FnMut(&LinkedNode, Range<usize>, synt::Style) -> Content;
-type LineFn<'a> = &'a mut dyn FnMut(i64, Range<usize>, &mut Vec<Content>);
+type StyleFn<'a> =
+    &'a mut dyn FnMut(usize, &LinkedNode, Range<usize>, synt::Style) -> Content;
+type LineFn<'a> = &'a mut dyn FnMut(usize, Range<usize>, &mut Vec<Content>);
 
 /// Raw text with optional syntax highlighting.
 ///
@@ -101,7 +102,7 @@ pub struct RawElem {
     /// ```
     /// ````
     #[required]
-    pub text: EcoString,
+    pub text: RawContent,
 
     /// Whether the raw text is displayed as a separate block.
     ///
@@ -300,17 +301,24 @@ impl Packed<RawElem> {
     #[comemo::memoize]
     fn highlight(&self, styles: StyleChain) -> Vec<Packed<RawLine>> {
         let elem = self.as_ref();
-        let span = self.span();
 
-        let mut text = elem.text().clone();
-        if text.contains('\t') {
-            let tab_size = RawElem::tab_size_in(styles);
-            text = align_tabs(&text, tab_size);
-        }
+        let text = elem.text();
+        let lines = match text {
+            RawContent::Lines(lines) if !lines.iter().any(|(s, _)| s.contains('\t')) => {
+                lines.clone()
+            }
+            _ => {
+                let mut text = text.get();
+                if text.contains('\t') {
+                    let tab_size = RawElem::tab_size_in(styles);
+                    text = align_tabs(&text, tab_size);
+                }
+                let lines = split_newlines(&text);
+                lines.into_iter().map(|line| (line.into(), self.span())).collect()
+            }
+        };
 
-        let lines = split_newlines(&text);
         let count = lines.len() as i64;
-
         let lang = elem
             .lang(styles)
             .as_ref()
@@ -332,6 +340,7 @@ impl Packed<RawElem> {
 
         let mut seq = vec![];
         if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
+            let text = text.get();
             let root = match lang.as_deref() {
                 Some("typc") => syntax::parse_code(&text),
                 _ => syntax::parse(&text),
@@ -341,16 +350,23 @@ impl Packed<RawElem> {
                 &text,
                 LinkedNode::new(&root),
                 synt::Highlighter::new(theme),
-                &mut |_, range, style| styled(&text[range], foreground, style),
+                &mut |i, _, range, style| {
+                    // Find start of line.
+                    // Note: Dedent is already applied to the text
+                    let span_offset = text[..range.start]
+                        .rfind('\n')
+                        .map_or(0, |i| range.start - (i + 1));
+                    styled(&text[range], foreground, style, lines[i].1, span_offset)
+                },
                 &mut |i, range, line| {
                     seq.push(
                         Packed::new(RawLine::new(
-                            i + 1,
+                            (i + 1) as i64,
                             count,
                             EcoString::from(&text[range]),
                             Content::sequence(line.drain(..)),
                         ))
-                        .spanned(span),
+                        .spanned(lines[i].1),
                     );
                 },
             )
@@ -366,33 +382,43 @@ impl Packed<RawElem> {
                 })
         }) {
             let mut highlighter = syntect::easy::HighlightLines::new(syntax, theme);
-            for (i, line) in lines.into_iter().enumerate() {
+            for (i, (line, line_span)) in lines.into_iter().enumerate() {
                 let mut line_content = vec![];
-                for (style, piece) in
-                    highlighter.highlight_line(line, syntax_set).into_iter().flatten()
+                let mut span_offset = 0;
+                for (style, piece) in highlighter
+                    .highlight_line(line.as_str(), syntax_set)
+                    .into_iter()
+                    .flatten()
                 {
-                    line_content.push(styled(piece, foreground, style));
+                    line_content.push(styled(
+                        piece,
+                        foreground,
+                        style,
+                        line_span,
+                        span_offset,
+                    ));
+                    span_offset += piece.len();
                 }
 
                 seq.push(
                     Packed::new(RawLine::new(
                         i as i64 + 1,
                         count,
-                        EcoString::from(line),
+                        line,
                         Content::sequence(line_content),
                     ))
-                    .spanned(span),
+                    .spanned(line_span),
                 );
             }
         } else {
-            seq.extend(lines.into_iter().enumerate().map(|(i, line)| {
+            seq.extend(lines.into_iter().enumerate().map(|(i, (line, line_span))| {
                 Packed::new(RawLine::new(
                     i as i64 + 1,
                     count,
-                    EcoString::from(line),
-                    TextElem::packed(line),
+                    line.clone(),
+                    TextElem::packed(line).spanned(line_span),
                 ))
-                .spanned(span)
+                .spanned(line_span)
             }));
         };
 
@@ -478,8 +504,40 @@ impl Figurable for Packed<RawElem> {}
 
 impl PlainText for Packed<RawElem> {
     fn plain_text(&self, text: &mut EcoString) {
-        text.push_str(self.text());
+        text.push_str(&self.text().get());
     }
+}
+
+/// The content of the raw text.
+#[derive(Debug, Clone, Hash, PartialEq)]
+pub enum RawContent {
+    /// From a string.
+    Text(EcoString),
+    /// From lines of text.
+    Lines(EcoVec<(EcoString, Span)>),
+}
+
+impl RawContent {
+    /// Returns or synthesizes the text content of the raw text.
+    fn get(&self) -> EcoString {
+        match self.clone() {
+            RawContent::Text(text) => text,
+            RawContent::Lines(lines) => {
+                let mut lines = lines.into_iter().map(|(s, _)| s);
+                if lines.len() <= 1 {
+                    lines.next().unwrap_or_default()
+                } else {
+                    lines.collect::<Vec<_>>().join("\n").into()
+                }
+            }
+        }
+    }
+}
+
+cast! {
+    RawContent,
+    self => self.get().into_value(),
+    v: EcoString => Self::Text(v),
 }
 
 /// A highlighted line of raw text.
@@ -536,7 +594,7 @@ struct ThemedHighlighter<'a> {
     /// The range of the current line.
     range: Range<usize>,
     /// The current line number.
-    line: i64,
+    line: usize,
     /// The function to style a piece of text.
     style_fn: StyleFn<'a>,
     /// The function to append a line.
@@ -597,8 +655,12 @@ impl<'a> ThemedHighlighter<'a> {
 
                 let offset = self.node.range().start + len;
                 let token_range = offset..(offset + line.len());
-                self.current_line
-                    .push((self.style_fn)(&self.node, token_range, style));
+                self.current_line.push((self.style_fn)(
+                    self.line,
+                    &self.node,
+                    token_range,
+                    style,
+                ));
 
                 len += line.len() + 1;
             }
@@ -621,23 +683,33 @@ impl<'a> ThemedHighlighter<'a> {
 }
 
 /// Style a piece of text with a syntect style.
-fn styled(piece: &str, foreground: synt::Color, style: synt::Style) -> Content {
-    let mut body = TextElem::packed(piece);
+fn styled(
+    piece: &str,
+    foreground: synt::Color,
+    style: synt::Style,
+    span: Span,
+    span_offset: usize,
+) -> Content {
+    let mut body = TextElem::packed(piece).spanned(span);
+
+    if span_offset > 0 {
+        body = body.styled(TextElem::set_span_offset(span_offset));
+    }
 
     if style.foreground != foreground {
         body = body.styled(TextElem::set_fill(to_typst(style.foreground).into()));
     }
 
     if style.font_style.contains(synt::FontStyle::BOLD) {
-        body = body.strong();
+        body = body.strong().spanned(span);
     }
 
     if style.font_style.contains(synt::FontStyle::ITALIC) {
-        body = body.emph();
+        body = body.emph().spanned(span);
     }
 
     if style.font_style.contains(synt::FontStyle::UNDERLINE) {
-        body = body.underlined();
+        body = body.underlined().spanned(span);
     }
 
     body

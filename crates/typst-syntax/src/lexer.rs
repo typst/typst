@@ -16,6 +16,8 @@ pub(super) struct Lexer<'s> {
     mode: LexMode,
     /// Whether the last token contained a newline.
     newline: bool,
+    /// The state held by raw line lexing.
+    raw: Vec<(SyntaxKind, usize)>,
     /// An error for the last token.
     error: Option<EcoString>,
 }
@@ -29,6 +31,8 @@ pub(super) enum LexMode {
     Math,
     /// Keywords, literals and operators.
     Code,
+    /// The contents of a raw block.
+    Raw,
 }
 
 impl<'s> Lexer<'s> {
@@ -40,6 +44,7 @@ impl<'s> Lexer<'s> {
             mode,
             newline: false,
             error: None,
+            raw: Vec::new(),
         }
     }
 
@@ -86,6 +91,14 @@ impl Lexer<'_> {
 /// Shared.
 impl Lexer<'_> {
     pub fn next(&mut self) -> SyntaxKind {
+        if self.mode == LexMode::Raw {
+            let Some((kind, end)) = self.raw.pop() else {
+                return SyntaxKind::Eof;
+            };
+            self.s.jump(end);
+            return kind;
+        }
+
         self.newline = false;
         self.error = None;
         let start = self.s.cursor();
@@ -101,6 +114,7 @@ impl Lexer<'_> {
                 LexMode::Markup => self.markup(start, c),
                 LexMode::Math => self.math(start, c),
                 LexMode::Code => self.code(start, c),
+                LexMode::Raw => unreachable!(),
             },
 
             None => SyntaxKind::Eof,
@@ -224,15 +238,23 @@ impl Lexer<'_> {
     }
 
     fn raw(&mut self) -> SyntaxKind {
+        let start = self.s.cursor() - 1;
+        self.raw.clear();
+
+        // Determine number of opening backticks.
         let mut backticks = 1;
         while self.s.eat_if('`') {
             backticks += 1;
         }
 
+        // Special case for ``.
         if backticks == 2 {
-            return SyntaxKind::Raw;
+            self.push_raw(SyntaxKind::RawDelim);
+            self.s.jump(start + 1);
+            return SyntaxKind::RawDelim;
         }
 
+        // Find end of raw text.
         let mut found = 0;
         while found < backticks {
             match self.s.eat() {
@@ -246,12 +268,99 @@ impl Lexer<'_> {
             return self.error("unclosed raw text");
         }
 
-        SyntaxKind::Raw
+        let end = self.s.cursor();
+        if backticks >= 3 {
+            self.blocky_raw(start, end, backticks);
+        } else {
+            // Single backtick needs no trimming or extra fancyness.
+            self.s.jump(end - backticks);
+            self.push_raw(SyntaxKind::Text);
+            self.s.jump(end);
+        }
+
+        // Closing delimiter.
+        self.push_raw(SyntaxKind::RawDelim);
+
+        // The saved tokens will be removed in reverse.
+        self.raw.reverse();
+
+        // Opening delimiter.
+        self.s.jump(start + backticks);
+        SyntaxKind::RawDelim
+    }
+
+    fn blocky_raw(&mut self, start: usize, end: usize, backticks: usize) {
+        // Language tag.
+        self.s.jump(start + backticks);
+        if self.s.eat_if(is_id_start) {
+            self.s.eat_while(is_id_continue);
+            self.push_raw(SyntaxKind::RawLang);
+        }
+
+        // Determine inner content between backticks and with trimmed
+        // single spaces (line trimming comes later).
+        self.s.eat_if(' ');
+        let mut inner = self.s.to(end - backticks);
+        if inner.trim_end().ends_with('`') {
+            inner = inner.strip_suffix(' ').unwrap_or(inner);
+        }
+
+        // Determine dedent level.
+        let lines = split_newlines(inner);
+        let dedent = lines
+            .iter()
+            .skip(1)
+            .filter(|line| !line.chars().all(char::is_whitespace))
+            // The line with the closing ``` is always taken into account
+            .chain(lines.last())
+            .map(|line| line.chars().take_while(|c| c.is_whitespace()).count())
+            .min()
+            .unwrap_or(0);
+
+        let is_whitespace = |line: &&str| line.chars().all(char::is_whitespace);
+        let starts_whitespace = lines.first().is_some_and(is_whitespace);
+        let ends_whitespace = lines.last().is_some_and(is_whitespace);
+
+        let mut lines = lines.into_iter();
+        let mut skipped = false;
+
+        // Trim whitespace + newline at start.
+        if starts_whitespace {
+            self.s.advance(lines.next().unwrap().len());
+            skipped = true;
+        }
+        // Trim whitespace + newline at end.
+        if ends_whitespace {
+            lines.next_back();
+        }
+
+        // Add lines.
+        for (i, line) in lines.enumerate() {
+            let dedent = if i == 0 && !skipped { 0 } else { dedent };
+            let offset: usize = line.chars().take(dedent).map(char::len_utf8).sum();
+            self.s.eat_newline();
+            self.s.advance(offset);
+            self.push_raw(SyntaxKind::RawTrimmed);
+            self.s.advance(line.len() - offset);
+            self.push_raw(SyntaxKind::Text);
+        }
+
+        // Add final trimmed.
+        if self.s.cursor() < end - backticks {
+            self.s.jump(end - backticks);
+            self.push_raw(SyntaxKind::RawTrimmed);
+        }
+        self.s.jump(end);
+    }
+
+    fn push_raw(&mut self, kind: SyntaxKind) {
+        let end = self.s.cursor();
+        self.raw.push((kind, end));
     }
 
     fn link(&mut self) -> SyntaxKind {
         let (link, balanced) = link_prefix(self.s.after());
-        self.s.jump(self.s.cursor() + link.len());
+        self.s.advance(link.len());
 
         if !balanced {
             return self.error(
@@ -630,6 +739,25 @@ fn keyword(ident: &str) -> Option<SyntaxKind> {
         "as" => SyntaxKind::As,
         _ => return None,
     })
+}
+
+trait ScannerExt {
+    fn advance(&mut self, by: usize);
+    fn eat_newline(&mut self) -> bool;
+}
+
+impl ScannerExt for Scanner<'_> {
+    fn advance(&mut self, by: usize) {
+        self.jump(self.cursor() + by);
+    }
+
+    fn eat_newline(&mut self) -> bool {
+        let ate = self.eat_if(is_newline);
+        if ate && self.before().ends_with('\r') {
+            self.eat_if('\n');
+        }
+        ate
+    }
 }
 
 /// Whether a character will become a Space token in Typst

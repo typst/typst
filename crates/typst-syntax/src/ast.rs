@@ -8,9 +8,7 @@ use std::ops::Deref;
 use ecow::EcoString;
 use unscanny::Scanner;
 
-use crate::{
-    is_id_continue, is_id_start, is_newline, split_newlines, Span, SyntaxKind, SyntaxNode,
-};
+use crate::{is_newline, Span, SyntaxKind, SyntaxNode};
 
 /// A typed AST node.
 pub trait AstNode<'a>: Sized {
@@ -558,84 +556,48 @@ node! {
 }
 
 impl<'a> Raw<'a> {
-    /// The trimmed raw text.
-    pub fn text(self) -> EcoString {
-        let mut text = self.0.text().as_str();
-        let blocky = text.starts_with("```");
-        text = text.trim_matches('`');
-
-        // Trim tag, one space at the start, and one space at the end if the
-        // last non-whitespace char is a backtick.
-        if blocky {
-            let mut s = Scanner::new(text);
-            if s.eat_if(is_id_start) {
-                s.eat_while(is_id_continue);
-            }
-            text = s.after();
-            text = text.strip_prefix(' ').unwrap_or(text);
-            if text.trim_end().ends_with('`') {
-                text = text.strip_suffix(' ').unwrap_or(text);
-            }
-        }
-
-        // Split into lines.
-        let mut lines = split_newlines(text);
-
-        if blocky {
-            let dedent = lines
-                .iter()
-                .skip(1)
-                .filter(|line| !line.chars().all(char::is_whitespace))
-                // The line with the closing ``` is always taken into account
-                .chain(lines.last())
-                .map(|line| line.chars().take_while(|c| c.is_whitespace()).count())
-                .min()
-                .unwrap_or(0);
-
-            // Dedent based on column, but not for the first line.
-            for line in lines.iter_mut().skip(1) {
-                let offset = line.chars().take(dedent).map(char::len_utf8).sum();
-                *line = &line[offset..];
-            }
-
-            let is_whitespace = |line: &&str| line.chars().all(char::is_whitespace);
-
-            // Trims a sequence of whitespace followed by a newline at the start.
-            if lines.first().is_some_and(is_whitespace) {
-                lines.remove(0);
-            }
-
-            // Trims a newline followed by a sequence of whitespace at the end.
-            if lines.last().is_some_and(is_whitespace) {
-                lines.pop();
-            }
-        }
-
-        lines.join("\n").into()
+    /// The lines in the raw block.
+    pub fn lines(self) -> impl DoubleEndedIterator<Item = Text<'a>> {
+        self.0.children().filter_map(SyntaxNode::cast)
     }
 
     /// An optional identifier specifying the language to syntax-highlight in.
-    pub fn lang(self) -> Option<&'a str> {
-        let text = self.0.text();
-
+    pub fn lang(self) -> Option<RawLang<'a>> {
         // Only blocky literals are supposed to contain a language.
-        if !text.starts_with("```") {
+        let delim: RawDelim = self.0.cast_first_match()?;
+        if delim.0.len() < 3 {
             return Option::None;
         }
 
-        let inner = text.trim_start_matches('`');
-        let mut s = Scanner::new(inner);
-        s.eat_if(is_id_start).then(|| {
-            s.eat_while(is_id_continue);
-            s.before()
-        })
+        self.0.cast_first_match()
     }
 
     /// Whether the raw text should be displayed in a separate block.
     pub fn block(self) -> bool {
-        let text = self.0.text();
-        text.starts_with("```") && text.chars().any(is_newline)
+        self.0
+            .cast_first_match()
+            .is_some_and(|delim: RawDelim| delim.0.len() >= 3)
+            && self.0.children().any(|e| {
+                e.kind() == SyntaxKind::RawTrimmed && e.text().chars().any(is_newline)
+            })
     }
+}
+
+node! {
+    /// A language tag at the start of raw element: ``typ ``.
+    RawLang
+}
+
+impl<'a> RawLang<'a> {
+    /// Get the language tag.
+    pub fn get(self) -> &'a EcoString {
+        self.0.text()
+    }
+}
+
+node! {
+    /// A raw delimiter in single or 3+ backticks: `` ` ``.
+    RawDelim
 }
 
 node! {
