@@ -6,7 +6,7 @@ use crate::layout::{
 };
 use crate::util::MaybeReverseIter;
 
-use super::layout::{in_last_with_offset, points, Row, RowPiece};
+use super::layout::{in_last_with_offset, points, Header, Row, RowPiece};
 
 /// All information needed to layout a single rowspan.
 pub(super) struct Rowspan {
@@ -179,15 +179,16 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
     ) -> SourceResult<()> {
         if self.unbreakable_rows_left == 0 {
-            let row_group =
-                self.simulate_unbreakable_row_group(current_row, &self.regions, engine)?;
+            let row_group = self.simulate_unbreakable_row_group(
+                current_row,
+                None,
+                &self.regions,
+                engine,
+            )?;
 
             // Skip to fitting region.
             while !self.regions.size.y.fits(row_group.height)
-                && !in_last_with_offset(
-                    self.regions,
-                    self.header_height().unwrap_or_default(),
-                )
+                && !in_last_with_offset(self.regions, self.header_height)
             {
                 self.finish_region(engine)?;
             }
@@ -198,23 +199,30 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Simulates a group of unbreakable rows, starting with the index of the
-    /// first row in the group. Keeps adding rows to the group until none have
-    /// unbreakable cells in common.
+    /// first row in the group. If `amount_unbreakable_rows` is `None`, keeps
+    /// adding rows to the group until none have unbreakable cells in common.
+    /// Otherwise, adds specifically the given amount of rows to the group.
     ///
     /// This is used to figure out how much height the next unbreakable row
     /// group (if any) needs.
     pub(super) fn simulate_unbreakable_row_group(
         &self,
         first_row: usize,
+        amount_unbreakable_rows: Option<usize>,
         regions: &Regions<'_>,
         engine: &mut Engine,
     ) -> SourceResult<UnbreakableRowGroup> {
         let mut row_group = UnbreakableRowGroup::default();
-        let mut unbreakable_rows_left = 0;
+        let mut unbreakable_rows_left = amount_unbreakable_rows.unwrap_or(0);
         for (y, row) in self.grid.rows.iter().enumerate().skip(first_row) {
-            let additional_unbreakable_rows = self.check_for_unbreakable_cells(y);
-            unbreakable_rows_left =
-                unbreakable_rows_left.max(additional_unbreakable_rows);
+            if amount_unbreakable_rows.is_none() {
+                // When we don't set a fixed amount of unbreakable rows,
+                // determine the amount based on the rowspan of unbreakable
+                // cells in rows.
+                let additional_unbreakable_rows = self.check_for_unbreakable_cells(y);
+                unbreakable_rows_left =
+                    unbreakable_rows_left.max(additional_unbreakable_rows);
+            }
             if unbreakable_rows_left == 0 {
                 // This check is in case the first row does not have any
                 // unbreakable cells. Therefore, no unbreakable row group
@@ -233,9 +241,6 @@ impl<'a> GridLayouter<'a> {
                         engine,
                         y,
                         false,
-                        // Unbreakable auto rows don't use the header height
-                        // as they are measured with infinite height.
-                        None,
                         unbreakable_rows_left,
                         Some(&row_group),
                     )?
@@ -279,7 +284,6 @@ impl<'a> GridLayouter<'a> {
         &self,
         parent: Axes<usize>,
         cell: &Cell,
-        header_height: Option<Abs>,
         breakable: bool,
         row_group_data: Option<&UnbreakableRowGroup>,
     ) -> CellMeasurementData<'_> {
@@ -295,20 +299,18 @@ impl<'a> GridLayouter<'a> {
         // This function is used to subtract the expected header height from
         // each upcoming region size in the current backlog.
         let mut adapt_current_backlog_to_header = || {
-            if breakable {
-                // Only breakable auto rows need to update their backlogs based
-                // on the presence of a header, given that unbreakable auto
-                // rows don't depend on the backlog, as they only span one
-                // region.
-                if let Some(header_height) = header_height {
-                    // Subtract header height from all backlog entries.
-                    custom_backlog.extend(
-                        self.regions.backlog.iter().map(|&size| size - header_height),
-                    );
+            // Only breakable auto rows need to update their backlogs based
+            // on the presence of a header, given that unbreakable auto
+            // rows don't depend on the backlog, as they only span one
+            // region.
+            if breakable && self.grid.header.is_some() {
+                // Subtract header height from all backlog entries.
+                custom_backlog.extend(
+                    self.regions.backlog.iter().map(|&size| size - self.header_height),
+                );
 
-                    // Callees must use the custom backlog in this case.
-                    return None;
-                }
+                // Callees must use the custom backlog in this case.
+                return None;
             }
 
             // No need to change the backlog.
@@ -392,12 +394,11 @@ impl<'a> GridLayouter<'a> {
                 // the current backlog.
                 frames_in_previous_regions = rowspan_other_heights.len() + 1;
 
-                let header_height = header_height.unwrap_or_default();
                 let heights_up_to_current_region = rowspan_other_heights
                     .iter()
                     .copied()
                     .chain(std::iter::once(if breakable {
-                        self.initial.y - header_height
+                        self.initial.y - self.header_height
                     } else {
                         // When measuring unbreakable auto rows, infinite
                         // height is available for content to expand.
@@ -409,8 +410,11 @@ impl<'a> GridLayouter<'a> {
                     // rowspan's already laid out heights with the current
                     // region's height and current backlog to ensure a good
                     // level of accuracy in the measurements.
-                    let backlog =
-                        self.regions.backlog.iter().map(|&size| size - header_height);
+                    let backlog = self
+                        .regions
+                        .backlog
+                        .iter()
+                        .map(|&size| size - self.header_height);
 
                     heights_up_to_current_region.chain(backlog).collect::<Vec<_>>()
                 } else {
@@ -557,7 +561,6 @@ impl<'a> GridLayouter<'a> {
         y: usize,
         resolved: &mut Vec<Abs>,
         pending_rowspans: &[(usize, usize, Vec<Abs>)],
-        header_height: Option<Abs>,
         unbreakable_rows_left: usize,
         row_group_data: Option<&UnbreakableRowGroup>,
         engine: &mut Engine,
@@ -624,8 +627,7 @@ impl<'a> GridLayouter<'a> {
             simulated_regions.next();
         }
 
-        let header_height = header_height.unwrap_or_default();
-        simulated_regions.size.y -= header_height;
+        simulated_regions.size.y -= self.header_height;
 
         if let Some(original_last_resolved_size) = last_resolved_size {
             // We're now at the (current) last region of this auto row.
@@ -642,7 +644,6 @@ impl<'a> GridLayouter<'a> {
             &mut simulated_sizes,
             engine,
             last_resolved_size,
-            header_height,
             unbreakable_rows_left,
         )?;
 
@@ -733,7 +734,6 @@ impl<'a> GridLayouter<'a> {
         simulated_sizes: &mut Vec<Abs>,
         engine: &mut Engine,
         last_resolved_size: Option<Abs>,
-        header_height: Abs,
         unbreakable_rows_left: usize,
     ) -> SourceResult<bool> {
         // The max amount this row can expand will be the total size requested
@@ -782,15 +782,16 @@ impl<'a> GridLayouter<'a> {
                     // no auto rows participate in the simulation, so the
                     // unbreakable row group simulator won't recursively call
                     // 'measure_auto_row' or (consequently) this function.
-                    let row_group =
-                        self.simulate_unbreakable_row_group(spanned_y, &regions, engine)?;
+                    let row_group = self.simulate_unbreakable_row_group(
+                        spanned_y, None, &regions, engine,
+                    )?;
                     while !regions.size.y.fits(row_group.height)
-                        && !in_last_with_offset(regions, header_height)
+                        && !in_last_with_offset(regions, self.header_height)
                     {
                         total_spanned_height -= latest_spanned_gutter_height;
                         latest_spanned_gutter_height = Abs::zero();
                         regions.next();
-                        regions.size.y -= header_height;
+                        regions.size.y -= self.header_height;
                     }
 
                     unbreakable_rows_left = row_group.rows.len();
@@ -809,7 +810,7 @@ impl<'a> GridLayouter<'a> {
                         let mut skipped_region = false;
                         while unbreakable_rows_left == 0
                             && !regions.size.y.fits(height)
-                            && !in_last_with_offset(regions, header_height)
+                            && !in_last_with_offset(regions, self.header_height)
                         {
                             // A row was pushed to the next region. Therefore,
                             // the immediately preceding gutter row is removed.
@@ -817,7 +818,13 @@ impl<'a> GridLayouter<'a> {
                             latest_spanned_gutter_height = Abs::zero();
                             skipped_region = true;
                             regions.next();
-                            regions.size.y -= header_height;
+
+                            // Consume the header's height from the new region,
+                            // but don't consider it spanned. The rowspan
+                            // does not go over the header (as an invariant,
+                            // any rowspans spanning a header row are fully
+                            // contained within that header's rows).
+                            regions.size.y -= self.header_height;
                         }
 
                         if !skipped_region || !is_gutter {
@@ -912,7 +919,7 @@ impl<'a> GridLayouter<'a> {
             {
                 extra_amount_to_grow -= simulated_regions.size.y.max(Abs::zero());
                 simulated_regions.next();
-                simulated_regions.size.y -= header_height;
+                simulated_regions.size.y -= self.header_height;
             }
             simulated_regions.size.y -= extra_amount_to_grow;
         }
@@ -921,21 +928,22 @@ impl<'a> GridLayouter<'a> {
         Ok(false)
     }
 
-    /// The height of the header in the current region. Returns `None` if it
-    /// wasn't laid out yet.
-    pub(super) fn header_height(&self) -> Option<Abs> {
-        self.grid
-            .header
-            .as_ref()
-            .and_then(|header| self.lrows.get(0..header.end))
-            .map(|rows| {
-                rows.iter()
-                    .map(|row| match row {
-                        Row::Frame(frame, _, _) => frame.height(),
-                        Row::Fr(_, _) => Abs::zero(),
-                    })
-                    .sum::<Abs>()
-            })
+    /// Simulate the header height.
+    pub(super) fn simulate_header(
+        &self,
+        header: &Header,
+        engine: &mut Engine,
+    ) -> SourceResult<UnbreakableRowGroup> {
+        // Note that we assume the invariant that any rowspan in a header is
+        // fully contained within that header.
+        let header_row_group = self.simulate_unbreakable_row_group(
+            0,
+            Some(header.end),
+            &self.regions,
+            engine,
+        )?;
+
+        Ok(header_row_group)
     }
 }
 

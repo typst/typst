@@ -1047,6 +1047,13 @@ pub struct GridLayouter<'a> {
     pub(super) finished: Vec<Frame>,
     /// Whether this is an RTL grid.
     pub(super) is_rtl: bool,
+    /// The simulated header height.
+    /// This field is reset in `layout_header` and properly updated by
+    /// `layout_auto_row` and `layout_relative_row`, and should not be read
+    /// before all header rows are fully laid out. It is usually fine because
+    /// header rows themselves are unbreakable, and unbreakable rows do not
+    /// need to read this field at all.
+    pub(super) header_height: Abs,
     /// The span of the grid element.
     pub(super) span: Span,
 }
@@ -1100,6 +1107,7 @@ impl<'a> GridLayouter<'a> {
             initial: regions.size,
             finished: vec![],
             is_rtl: TextElem::dir_in(styles) == Dir::RTL,
+            header_height: Abs::zero(),
             span,
         }
     }
@@ -1109,6 +1117,18 @@ impl<'a> GridLayouter<'a> {
         self.measure_columns(engine)?;
 
         for y in 0..self.grid.rows.len() {
+            if let Some(header) = &self.grid.header {
+                if y < header.end {
+                    if y == 0 {
+                        // Use the appropriate function to layout header
+                        // rows.
+                        self.layout_header(header, engine)?;
+                    }
+                    // Skip header rows during normal layout.
+                    continue;
+                }
+            }
+
             self.layout_row(y, engine)?;
         }
 
@@ -1703,27 +1723,18 @@ impl<'a> GridLayouter<'a> {
     fn layout_auto_row(&mut self, engine: &mut Engine, y: usize) -> SourceResult<()> {
         // Determine the size for each region of the row. If the first region
         // ends up empty for some column, skip the region and remeasure.
-        let header_height = self.header_height();
         let mut resolved = match self.measure_auto_row(
             engine,
             y,
             true,
-            header_height,
             self.unbreakable_rows_left,
             None,
         )? {
             Some(resolved) => resolved,
             None => {
                 self.finish_region(engine)?;
-                self.measure_auto_row(
-                    engine,
-                    y,
-                    false,
-                    header_height,
-                    self.unbreakable_rows_left,
-                    None,
-                )?
-                .unwrap()
+                self.measure_auto_row(engine, y, false, self.unbreakable_rows_left, None)?
+                    .unwrap()
             }
         };
 
@@ -1736,20 +1747,29 @@ impl<'a> GridLayouter<'a> {
         if let &[first] = resolved.as_slice() {
             let frame = self.layout_single_row(engine, first, y)?;
             self.push_row(frame, y, true);
+
+            if self.grid.header.as_ref().is_some_and(|header| y < header.end) {
+                // Add to header height.
+                self.header_height += first;
+            }
+
             return Ok(());
         }
 
         // Expand all but the last region.
         // Skip the first region if the space is eaten up by an fr row.
         let len = resolved.len();
-        let header_height = header_height.unwrap_or_default();
-        for (region, target) in self
+        for ((i, region), target) in self
             .regions
             .iter()
+            .enumerate()
             .zip(&mut resolved[..len - 1])
             .skip(self.lrows.iter().any(|row| matches!(row, Row::Fr(..))) as usize)
         {
-            target.set_max(region.y - header_height);
+            // Subtract header height from the region height when it's not the
+            // first.
+            target
+                .set_max(region.y - if i > 0 { self.header_height } else { Abs::zero() });
         }
 
         // Layout into multiple regions.
@@ -1781,7 +1801,6 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
         y: usize,
         can_skip: bool,
-        header_height: Option<Abs>,
         unbreakable_rows_left: usize,
         row_group_data: Option<&UnbreakableRowGroup>,
     ) -> SourceResult<Option<Vec<Abs>>> {
@@ -1825,7 +1844,6 @@ impl<'a> GridLayouter<'a> {
             let measurement_data = self.prepare_auto_row_cell_measurement(
                 parent,
                 cell,
-                header_height,
                 breakable,
                 row_group_data,
             );
@@ -1858,11 +1876,12 @@ impl<'a> GridLayouter<'a> {
                 pod.full = measurement_data.full;
 
                 if let Some(last) = &mut pod.last {
-                    if let Some(header_height) = header_height {
-                        // Adapt the last region height to consider the header
-                        // height.
-                        *last -= header_height;
-                    }
+                    // Adapt the last region height to consider the header
+                    // height.
+                    // Header rows are unbreakable, so this code can only run
+                    // outside of a header, and thus with a complete header
+                    // height.
+                    *last -= self.header_height;
                 }
 
                 pod
@@ -1942,7 +1961,6 @@ impl<'a> GridLayouter<'a> {
                 y,
                 &mut resolved,
                 &pending_rowspans,
-                header_height,
                 unbreakable_rows_left,
                 row_group_data,
                 engine,
@@ -1965,6 +1983,11 @@ impl<'a> GridLayouter<'a> {
         let resolved = v.resolve(self.styles).relative_to(self.regions.base().y);
         let frame = self.layout_single_row(engine, resolved, y)?;
 
+        if self.grid.header.as_ref().is_some_and(|header| y < header.end) {
+            // Add to header height.
+            self.header_height += resolved;
+        }
+
         // Skip to fitting region, but only if we aren't part of an unbreakable
         // row group. We use 'in_last_with_offset' so our 'in_last' call
         // properly considers that a header would be added on each region
@@ -1972,10 +1995,7 @@ impl<'a> GridLayouter<'a> {
         let height = frame.height();
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(height)
-            && !in_last_with_offset(
-                self.regions,
-                self.header_height().unwrap_or_default(),
-            )
+            && !in_last_with_offset(self.regions, self.header_height)
         {
             self.finish_region(engine)?;
 
@@ -2109,15 +2129,11 @@ impl<'a> GridLayouter<'a> {
         if let Some(header) = &self.grid.header {
             if self.grid.rows.len() > header.end
                 && self.lrows.len() <= header.end
-                && !self.regions.in_last()
+                && !in_last_with_offset(self.regions, self.header_height)
             {
-                // Header would be alone in this region. Skip this region.
+                // Header would be alone in this region, but there are more
+                // rows beyond the header. Push an empty region.
                 self.lrows.clear();
-                self.finished.push(Frame::soft(Size::new(self.width, Abs::zero())));
-                self.rrows.push(vec![]);
-                self.regions.next();
-                self.initial = self.regions.size;
-                return Ok(());
             }
         }
 
@@ -2240,15 +2256,39 @@ impl<'a> GridLayouter<'a> {
         self.initial = self.regions.size;
 
         if let Some(header) = &self.grid.header {
-            // Header is unbreakable.
-            // Thus, no risk of 'finish_region' being recursively called from
-            // within 'layout_row'.
-            self.unbreakable_rows_left += header.end;
-            for y in 0..header.end {
-                self.layout_row(y, engine)?;
-            }
+            // Add a header to the new region.
+            self.layout_header(header, engine)?;
         }
 
+        Ok(())
+    }
+
+    /// Layouts the header's rows.
+    /// Skips regions as necessary.
+    fn layout_header(
+        &mut self,
+        header: &Header,
+        engine: &mut Engine,
+    ) -> SourceResult<()> {
+        let header_rows = self.simulate_header(header, engine)?;
+        while self.unbreakable_rows_left == 0
+            && !self.regions.size.y.fits(header_rows.height)
+            && !self.regions.in_last()
+        {
+            // Skip regions until we can place the header.
+            self.regions.next();
+        }
+
+        // Reset the header height for this region.
+        self.header_height = Abs::zero();
+
+        // Header is unbreakable.
+        // Thus, no risk of 'finish_region' being recursively called from
+        // within 'layout_row'.
+        self.unbreakable_rows_left += header.end;
+        for y in 0..header.end {
+            self.layout_row(y, engine)?;
+        }
         Ok(())
     }
 }
