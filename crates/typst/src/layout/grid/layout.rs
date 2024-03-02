@@ -1966,11 +1966,16 @@ impl<'a> GridLayouter<'a> {
         let frame = self.layout_single_row(engine, resolved, y)?;
 
         // Skip to fitting region, but only if we aren't part of an unbreakable
-        // row group.
+        // row group. We use 'in_last_with_offset' so our 'in_last' call
+        // properly considers that a header would be added on each region
+        // break.
         let height = frame.height();
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(height)
-            && !self.regions.in_last()
+            && !in_last_with_offset(
+                self.regions,
+                self.header_height().unwrap_or_default(),
+            )
         {
             self.finish_region(engine)?;
 
@@ -2258,4 +2263,14 @@ pub(super) fn points(
         offset += extent;
         offset
     })
+}
+
+/// Checks if the first region of a sequence of regions is the last usable
+/// region, assuming that the last region will always be occupied by some
+/// specific offset height, even after calling `.next()`, due to some
+/// additional logic which adds content automatically on each region turn (in
+/// our case, headers).
+pub(super) fn in_last_with_offset(regions: Regions<'_>, offset: Abs) -> bool {
+    regions.backlog.is_empty()
+        && regions.last.map_or(true, |height| regions.size.y + offset == height)
 }

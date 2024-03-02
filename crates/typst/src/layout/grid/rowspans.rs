@@ -6,7 +6,7 @@ use crate::layout::{
 };
 use crate::util::MaybeReverseIter;
 
-use super::layout::{points, Row, RowPiece};
+use super::layout::{in_last_with_offset, points, Row, RowPiece};
 
 /// All information needed to layout a single rowspan.
 pub(super) struct Rowspan {
@@ -183,7 +183,12 @@ impl<'a> GridLayouter<'a> {
                 self.simulate_unbreakable_row_group(current_row, &self.regions, engine)?;
 
             // Skip to fitting region.
-            while !self.regions.size.y.fits(row_group.height) && !self.regions.in_last() {
+            while !self.regions.size.y.fits(row_group.height)
+                && !in_last_with_offset(
+                    self.regions,
+                    self.header_height().unwrap_or_default(),
+                )
+            {
                 self.finish_region(engine)?;
             }
             self.unbreakable_rows_left = row_group.rows.len();
@@ -779,7 +784,9 @@ impl<'a> GridLayouter<'a> {
                     // 'measure_auto_row' or (consequently) this function.
                     let row_group =
                         self.simulate_unbreakable_row_group(spanned_y, &regions, engine)?;
-                    while !regions.size.y.fits(row_group.height) && !regions.in_last() {
+                    while !regions.size.y.fits(row_group.height)
+                        && !in_last_with_offset(regions, header_height)
+                    {
                         total_spanned_height -= latest_spanned_gutter_height;
                         latest_spanned_gutter_height = Abs::zero();
                         regions.next();
@@ -802,7 +809,7 @@ impl<'a> GridLayouter<'a> {
                         let mut skipped_region = false;
                         while unbreakable_rows_left == 0
                             && !regions.size.y.fits(height)
-                            && !regions.in_last()
+                            && !in_last_with_offset(regions, header_height)
                         {
                             // A row was pushed to the next region. Therefore,
                             // the immediately preceding gutter row is removed.
