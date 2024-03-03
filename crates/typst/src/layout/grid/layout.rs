@@ -2446,6 +2446,24 @@ impl<'a> GridLayouter<'a> {
         }
         Ok(())
     }
+
+    /// Simulate the header's group of rows.
+    pub(super) fn simulate_header(
+        &self,
+        header: &Header,
+        regions: &Regions<'_>,
+        engine: &mut Engine,
+    ) -> SourceResult<UnbreakableRowGroup> {
+        // Note that we assume the invariant that any rowspan in a header is
+        // fully contained within that header. Therefore, there won't be any
+        // unbreakable rowspans exceeding the header's rows, and we can safely
+        // assume that the amount of unbreakable rows following the first row
+        // in the header will be precisely the rows in the header.
+        let header_row_group =
+            self.simulate_unbreakable_row_group(0, Some(header.end), regions, engine)?;
+
+        Ok(header_row_group)
+    }
 }
 
 /// Turn an iterator of extents into an iterator of offsets before, in between,

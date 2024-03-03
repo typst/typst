@@ -6,7 +6,7 @@ use crate::layout::{
 };
 use crate::util::MaybeReverseIter;
 
-use super::layout::{in_last_with_offset, points, Header, Row, RowPiece};
+use super::layout::{in_last_with_offset, points, Row, RowPiece};
 
 /// All information needed to layout a single rowspan.
 pub(super) struct Rowspan {
@@ -991,21 +991,6 @@ impl<'a> GridLayouter<'a> {
 
         // Simulation didn't succeed in 5 attempts.
         Ok(false)
-    }
-
-    /// Simulate the header height.
-    pub(super) fn simulate_header(
-        &self,
-        header: &Header,
-        regions: &Regions<'_>,
-        engine: &mut Engine,
-    ) -> SourceResult<UnbreakableRowGroup> {
-        // Note that we assume the invariant that any rowspan in a header is
-        // fully contained within that header.
-        let header_row_group =
-            self.simulate_unbreakable_row_group(0, Some(header.end), regions, engine)?;
-
-        Ok(header_row_group)
     }
 }
 
