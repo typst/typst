@@ -450,6 +450,7 @@ impl CellGrid {
             let mut header_start = usize::MAX;
             let mut header_end = 0;
             let mut header_span = Span::detached();
+            let mut min_auto_index = 0;
 
             let (header_items, simple_item) = match child {
                 ResolvableGridChild::Header { repeat, span, items, .. } => {
@@ -461,10 +462,13 @@ impl CellGrid {
                     header_span = span;
                     repeat_header = repeat;
 
-                    // Skip to the next row to start the header.
-                    // FIXME: Consider not changing the auto index if no header
-                    // cells were fully automatically positioned.
-                    auto_index = auto_index.next_multiple_of(c);
+                    // If any cell in the header is automatically positioned,
+                    // have it skip to the next row. This is to avoid having a
+                    // header after a partially filled row just add cells to
+                    // that row instead of starting a new one.
+                    // FIXME: Revise this approach when headers can start from
+                    // arbitrary rows.
+                    min_auto_index = auto_index.next_multiple_of(c);
 
                     (Some(items), None)
                 }
@@ -568,6 +572,7 @@ impl CellGrid {
                         cell_y,
                         &resolved_cells,
                         &mut auto_index,
+                        min_auto_index,
                         c,
                     )
                     .at(cell_span)?
@@ -682,6 +687,8 @@ impl CellGrid {
                 }
 
                 if is_header {
+                    // Ensure each cell in a header is fully contained within
+                    // the header.
                     header_start = header_start.min(y);
                     header_end = header_end.max(y + rowspan);
                 }
@@ -700,19 +707,27 @@ impl CellGrid {
                 }
 
                 header = Some(Header {
-                    // Include the gutter below a header.
+                    // Repeat the gutter below a header (hence why we don't
+                    // subtract 1 from the gutter case).
+                    // Later on, we have to correct this number in case there
+                    // are no rows under the header (then the gutter below it
+                    // won't exist).
                     end: if has_gutter { 2 * header_end } else { header_end },
                 });
 
                 // Next automatically positioned cell goes under this header.
                 // FIXME: Consider only doing this if the header has any fully
-                // automatically positioned cells.
+                // automatically positioned cells. Otherwise,
+                // `resolve_cell_position` should be smart enough to skip
+                // upcoming headers.
                 // Additionally, consider that cells with just an 'x' override
                 // could end up going too far back and making previous
                 // non-header rows into header rows (maybe they should be
                 // placed at the first row that is fully empty or something).
                 // Nothing we can do when both 'x' and 'y' were overridden, of
                 // course.
+                // None of the above are concerns for now, as headers must
+                // start at the first row.
                 auto_index = auto_index.max(c * header_end);
             }
         }
@@ -1030,11 +1045,18 @@ impl CellGrid {
 /// positions, the `auto_index` counter (determines the position of the next
 /// `(auto, auto)` cell) and the amount of columns in the grid, returns the
 /// final index of this cell in the vector of resolved cells.
+///
+/// The `min_auto_index` parameter is used to bump the auto index to that value
+/// if it is currently smaller than it and a cell requests fully automatic
+/// positioning. Useful with headers: if a cell in a header has automatic
+/// positioning, it should start at the header's first row, and not at the end
+/// of the previous row.
 fn resolve_cell_position(
     cell_x: Smart<usize>,
     cell_y: Smart<usize>,
     resolved_cells: &[Option<Entry>],
     auto_index: &mut usize,
+    min_auto_index: usize,
     columns: usize,
 ) -> HintedStrResult<usize> {
     // Translates a (x, y) position to the equivalent index in the final cell vector.
@@ -1050,7 +1072,7 @@ fn resolve_cell_position(
         (Smart::Auto, Smart::Auto) => {
             // Let's find the first available position starting from the
             // automatic position counter, searching in row-major order.
-            let mut resolved_index = *auto_index;
+            let mut resolved_index = min_auto_index.max(*auto_index);
             while let Some(Some(_)) = resolved_cells.get(resolved_index) {
                 // Skip any non-absent cell positions (`Some(None)`) to
                 // determine where this cell will be placed. An out of bounds
