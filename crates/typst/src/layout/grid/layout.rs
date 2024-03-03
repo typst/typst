@@ -461,6 +461,11 @@ impl CellGrid {
                     header_span = span;
                     repeat_header = repeat;
 
+                    // Skip to the next row to start the header.
+                    // FIXME: Consider not changing the auto index if no header
+                    // cells were fully automatically positioned.
+                    auto_index = auto_index.next_multiple_of(c);
+
                     (Some(items), None)
                 }
                 ResolvableGridChild::Item(item) => (None, Some(item)),
@@ -682,7 +687,14 @@ impl CellGrid {
                 }
             }
 
-            if is_header && header_start < usize::MAX {
+            if is_header {
+                if header_start == usize::MAX {
+                    // Empty header: consider the header to be one row after
+                    // the latest auto index.
+                    header_start = auto_index.next_multiple_of(c) / c;
+                    header_end = header_start + 1;
+                }
+
                 if header_start != 0 {
                     bail!(header_span, "header must start at the first row");
                 }
@@ -690,6 +702,17 @@ impl CellGrid {
                 header = Some(Header {
                     end: if has_gutter { 2 * header_end - 1 } else { header_end },
                 });
+
+                // Next automatically positioned cell goes under this header.
+                // FIXME: Consider only doing this if the header has any fully
+                // automatically positioned cells.
+                // Additionally, consider that cells with just an 'x' override
+                // could end up going too far back and making previous
+                // non-header rows into header rows (maybe they should be
+                // placed at the first row that is fully empty or something).
+                // Nothing we can do when both 'x' and 'y' were overridden, of
+                // course.
+                auto_index = auto_index.max(c * header_end);
             }
         }
 
