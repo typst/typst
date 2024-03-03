@@ -27,9 +27,6 @@ pub type Hsl = palette::hsl::Hsla<encoding::Srgb, f32>;
 pub type Hsv = palette::hsv::Hsva<encoding::Srgb, f32>;
 pub type Luma = palette::luma::Lumaa<encoding::Srgb, f32>;
 
-/// Equivalent of [`std::f32::EPSILON`] but for hue angles.
-const ANGLE_EPSILON: f32 = 1e-5;
-
 /// The ICC profile used to convert from CMYK to RGB.
 ///
 /// This is a minimal CMYK profile that only contains the necessary information
@@ -752,122 +749,106 @@ impl Color {
         match self {
             Self::Luma(c) => {
                 if alpha {
-                    array![Ratio::new(c.luma as _), Ratio::new(c.alpha as _)]
+                    array![Ratio::new(c.luma.into()), Ratio::new(c.alpha.into())]
                 } else {
-                    array![Ratio::new(c.luma as _)]
+                    array![Ratio::new(c.luma.into())]
                 }
             }
             Self::Oklab(c) => {
                 if alpha {
                     array![
-                        Ratio::new(c.l as _),
-                        (c.a as f64 * 1000.0).round() / 1000.0,
-                        (c.b as f64 * 1000.0).round() / 1000.0,
-                        Ratio::new(c.alpha as _),
+                        Ratio::new(c.l.into()),
+                        f64::from(c.a),
+                        f64::from(c.b),
+                        Ratio::new(c.alpha.into()),
                     ]
                 } else {
-                    array![
-                        Ratio::new(c.l as _),
-                        (c.a as f64 * 1000.0).round() / 1000.0,
-                        (c.b as f64 * 1000.0).round() / 1000.0,
-                    ]
+                    array![Ratio::new(f64::from(c.l)), f64::from(c.a), f64::from(c.b),]
                 }
             }
             Self::Oklch(c) => {
                 if alpha {
                     array![
-                        Ratio::new(c.l as _),
-                        (c.chroma as f64 * 1000.0).round() / 1000.0,
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        ),
-                        Ratio::new(c.alpha as _),
+                        Ratio::new(c.l.into()),
+                        f64::from(c.chroma),
+                        hue_angle(c.hue.into_degrees()),
+                        Ratio::new(c.alpha.into()),
                     ]
                 } else {
                     array![
-                        Ratio::new(c.l as _),
-                        (c.chroma as f64 * 1000.0).round() / 1000.0,
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        ),
+                        Ratio::new(c.l.into()),
+                        f64::from(c.chroma),
+                        hue_angle(c.hue.into_degrees()),
                     ]
                 }
             }
             Self::LinearRgb(c) => {
                 if alpha {
                     array![
-                        Ratio::new(c.red as _),
-                        Ratio::new(c.green as _),
-                        Ratio::new(c.blue as _),
-                        Ratio::new(c.alpha as _),
+                        Ratio::new(c.red.into()),
+                        Ratio::new(c.green.into()),
+                        Ratio::new(c.blue.into()),
+                        Ratio::new(c.alpha.into()),
                     ]
                 } else {
                     array![
-                        Ratio::new(c.red as _),
-                        Ratio::new(c.green as _),
-                        Ratio::new(c.blue as _),
+                        Ratio::new(c.red.into()),
+                        Ratio::new(c.green.into()),
+                        Ratio::new(c.blue.into()),
                     ]
                 }
             }
             Self::Rgb(c) => {
                 if alpha {
                     array![
-                        Ratio::new(c.red as _),
-                        Ratio::new(c.green as _),
-                        Ratio::new(c.blue as _),
-                        Ratio::new(c.alpha as _),
+                        Ratio::new(c.red.into()),
+                        Ratio::new(c.green.into()),
+                        Ratio::new(c.blue.into()),
+                        Ratio::new(c.alpha.into()),
                     ]
                 } else {
                     array![
-                        Ratio::new(c.red as _),
-                        Ratio::new(c.green as _),
-                        Ratio::new(c.blue as _),
+                        Ratio::new(c.red.into()),
+                        Ratio::new(c.green.into()),
+                        Ratio::new(c.blue.into()),
                     ]
                 }
             }
             Self::Cmyk(c) => array![
-                Ratio::new(c.c as _),
-                Ratio::new(c.m as _),
-                Ratio::new(c.y as _),
-                Ratio::new(c.k as _),
+                Ratio::new(c.c.into()),
+                Ratio::new(c.m.into()),
+                Ratio::new(c.y.into()),
+                Ratio::new(c.k.into()),
             ],
             Self::Hsl(c) => {
                 if alpha {
                     array![
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        ),
-                        Ratio::new(c.saturation as _),
-                        Ratio::new(c.lightness as _),
-                        Ratio::new(c.alpha as _),
+                        hue_angle(c.hue.into_degrees()),
+                        Ratio::new(c.saturation.into()),
+                        Ratio::new(c.lightness.into()),
+                        Ratio::new(c.alpha.into()),
                     ]
                 } else {
                     array![
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        ),
-                        Ratio::new(c.saturation as _),
-                        Ratio::new(c.lightness as _),
+                        hue_angle(c.hue.into_degrees()),
+                        Ratio::new(c.saturation.into()),
+                        Ratio::new(c.lightness.into()),
                     ]
                 }
             }
             Self::Hsv(c) => {
                 if alpha {
                     array![
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        ),
-                        Ratio::new(c.saturation as _),
-                        Ratio::new(c.value as _),
-                        Ratio::new(c.alpha as _),
+                        hue_angle(c.hue.into_degrees()),
+                        Ratio::new(c.saturation.into()),
+                        Ratio::new(c.value.into()),
+                        Ratio::new(c.alpha.into()),
                     ]
                 } else {
                     array![
-                        Angle::deg(
-                            c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON) as _
-                        ),
-                        Ratio::new(c.saturation as _),
-                        Ratio::new(c.value as _),
+                        hue_angle(c.hue.into_degrees()),
+                        Ratio::new(c.saturation.into()),
+                        Ratio::new(c.value.into()),
                     ]
                 }
             }
@@ -1336,27 +1317,21 @@ impl Color {
         match self {
             Color::Luma(c) => [c.luma, c.luma, c.luma, c.alpha],
             Color::Oklab(c) => [c.l, c.a, c.b, c.alpha],
-            Color::Oklch(c) => [
-                c.l,
-                c.chroma,
-                c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON),
-                c.alpha,
-            ],
+            Color::Oklch(c) => {
+                [c.l, c.chroma, c.hue.into_degrees().rem_euclid(360.0), c.alpha]
+            }
             Color::Rgb(c) => [c.red, c.green, c.blue, c.alpha],
             Color::LinearRgb(c) => [c.red, c.green, c.blue, c.alpha],
             Color::Cmyk(c) => [c.c, c.m, c.y, c.k],
             Color::Hsl(c) => [
-                c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON),
+                c.hue.into_degrees().rem_euclid(360.0),
                 c.saturation,
                 c.lightness,
                 c.alpha,
             ],
-            Color::Hsv(c) => [
-                c.hue.into_degrees().rem_euclid(360.0 + ANGLE_EPSILON),
-                c.saturation,
-                c.value,
-                c.alpha,
-            ],
+            Color::Hsv(c) => {
+                [c.hue.into_degrees().rem_euclid(360.0), c.saturation, c.value, c.alpha]
+            }
         }
     }
 
@@ -1644,7 +1619,7 @@ impl Repr for Color {
 }
 
 fn hue_angle(degrees: f32) -> Angle {
-    Angle::deg(degrees.rem_euclid(360.0 + ANGLE_EPSILON) as _)
+    Angle::deg(degrees.rem_euclid(360.0).into())
 }
 
 impl PartialEq for Color {
