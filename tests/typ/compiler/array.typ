@@ -249,11 +249,11 @@
 #test((1, 2, 3, 4, 5, 6, 7, 8).chunks(3, exact: true), ((1, 2, 3), (4, 5, 6)))
 
 ---
-// Error: 2-21 chunk size must be strictly greater than zero
+// Error: 19-20 number must be positive
 #(1, 2, 3).chunks(0)
 
 ---
-// Error: 2-22 chunk size must be strictly greater than zero
+// Error: 19-21 number must be positive
 #(1, 2, 3).chunks(-5)
 
 ---
