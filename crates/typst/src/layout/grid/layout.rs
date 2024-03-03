@@ -703,7 +703,11 @@ impl CellGrid {
                 }
 
                 if header_start != 0 {
-                    bail!(header_span, "header must start at the first row");
+                    bail!(
+                        header_span,
+                        "header must start at the first row";
+                        hint: "remove any rows before the header"
+                    );
                 }
 
                 header = Some(Header {
