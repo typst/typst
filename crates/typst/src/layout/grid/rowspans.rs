@@ -627,6 +627,9 @@ impl<'a> GridLayouter<'a> {
             simulated_regions.next();
         }
 
+        // Subtract the initial header height, since that's the height we used
+        // when subtracting from the region backlog's heights while measuring
+        // cells.
         simulated_regions.size.y -= self.header_height;
 
         if let Some(original_last_resolved_size) = last_resolved_size {
@@ -763,6 +766,69 @@ impl<'a> GridLayouter<'a> {
             // Height of the latest spanned gutter row.
             // Zero if it was removed.
             let mut latest_spanned_gutter_height = Abs::zero();
+
+            let mut header_height = self.header_height;
+
+            let simulate_header_layout =
+                |regions: &mut Regions<'_>,
+                 header_height: &mut Abs,
+                 engine: &mut Engine| {
+                    if let Some(header) = &self.grid.header {
+                        // We can't just use the initial header height on each
+                        // region, because header height might vary depending
+                        // on region size if it contains rows with relative
+                        // lengths. Therefore, we re-simulate headers on each
+                        // new region.
+                        // It's true that, when measuring cells, we reduce each
+                        // height in the backlog to consider the initial header
+                        // height; however, our simulation checks what happens
+                        // AFTER the auto row, so we can just use the original
+                        // backlog from `self.regions`.
+                        let header_row_group =
+                            self.simulate_header(header, regions, engine)?;
+                        let mut skipped_region = false;
+
+                        // Skip until we reach a fitting region for this header.
+                        while !regions.size.y.fits(header_row_group.height)
+                            && !regions.in_last()
+                        {
+                            regions.next();
+                            skipped_region = true;
+                        }
+
+                        *header_height = if skipped_region {
+                            // Simulate headers again, at the new region, as
+                            // the full region height may change.
+                            self.simulate_header(header, regions, engine)?.height
+                        } else {
+                            header_row_group.height
+                        };
+
+                        // Consume the header's height from the new region,
+                        // but don't consider it spanned. The rowspan
+                        // does not go over the header (as an invariant,
+                        // any rowspans spanning a header row are fully
+                        // contained within that header's rows).
+                        regions.size.y -= *header_height;
+                    }
+
+                    SourceResult::Ok(())
+                };
+
+            let finish_region = |regions: &mut Regions<'_>,
+                                 total_spanned_height: &mut Abs,
+                                 latest_spanned_gutter_height: &mut Abs,
+                                 header_height: &mut Abs,
+                                 engine: &mut Engine| {
+                // If a row was pushed to the next region, the immediately
+                // preceding gutter row is removed.
+                *total_spanned_height -= *latest_spanned_gutter_height;
+                *latest_spanned_gutter_height = Abs::zero();
+                regions.next();
+
+                simulate_header_layout(regions, header_height, engine)
+            };
+
             let spanned_rows = &self.grid.rows[y + 1..=max_spanned_row];
             for (offset, row) in spanned_rows.iter().enumerate() {
                 if (total_spanned_height + amount_to_grow).fits(requested_rowspan_height)
@@ -788,10 +854,13 @@ impl<'a> GridLayouter<'a> {
                     while !regions.size.y.fits(row_group.height)
                         && !in_last_with_offset(regions, self.header_height)
                     {
-                        total_spanned_height -= latest_spanned_gutter_height;
-                        latest_spanned_gutter_height = Abs::zero();
-                        regions.next();
-                        regions.size.y -= self.header_height;
+                        finish_region(
+                            &mut regions,
+                            &mut total_spanned_height,
+                            &mut latest_spanned_gutter_height,
+                            &mut header_height,
+                            engine,
+                        )?;
                     }
 
                     unbreakable_rows_left = row_group.rows.len();
@@ -810,21 +879,17 @@ impl<'a> GridLayouter<'a> {
                         let mut skipped_region = false;
                         while unbreakable_rows_left == 0
                             && !regions.size.y.fits(height)
-                            && !in_last_with_offset(regions, self.header_height)
+                            && !in_last_with_offset(regions, header_height)
                         {
-                            // A row was pushed to the next region. Therefore,
-                            // the immediately preceding gutter row is removed.
-                            total_spanned_height -= latest_spanned_gutter_height;
-                            latest_spanned_gutter_height = Abs::zero();
-                            skipped_region = true;
-                            regions.next();
+                            finish_region(
+                                &mut regions,
+                                &mut total_spanned_height,
+                                &mut latest_spanned_gutter_height,
+                                &mut header_height,
+                                engine,
+                            )?;
 
-                            // Consume the header's height from the new region,
-                            // but don't consider it spanned. The rowspan
-                            // does not go over the header (as an invariant,
-                            // any rowspans spanning a header row are fully
-                            // contained within that header's rows).
-                            regions.size.y -= self.header_height;
+                            skipped_region = true;
                         }
 
                         if !skipped_region || !is_gutter {
@@ -932,16 +997,13 @@ impl<'a> GridLayouter<'a> {
     pub(super) fn simulate_header(
         &self,
         header: &Header,
+        regions: &Regions<'_>,
         engine: &mut Engine,
     ) -> SourceResult<UnbreakableRowGroup> {
         // Note that we assume the invariant that any rowspan in a header is
         // fully contained within that header.
-        let header_row_group = self.simulate_unbreakable_row_group(
-            0,
-            Some(header.end),
-            &self.regions,
-            engine,
-        )?;
+        let header_row_group =
+            self.simulate_unbreakable_row_group(0, Some(header.end), regions, engine)?;
 
         Ok(header_row_group)
     }

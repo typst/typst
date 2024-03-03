@@ -2370,7 +2370,7 @@ impl<'a> GridLayouter<'a> {
         header: &Header,
         engine: &mut Engine,
     ) -> SourceResult<()> {
-        let header_rows = self.simulate_header(header, engine)?;
+        let header_rows = self.simulate_header(header, &self.regions, engine)?;
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(header_rows.height)
             && !self.regions.in_last()
