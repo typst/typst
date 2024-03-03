@@ -156,7 +156,8 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
     ) -> SourceResult<()> {
         if self.unbreakable_rows_left == 0 {
-            let row_group = self.simulate_unbreakable_row_group(current_row, engine)?;
+            let row_group =
+                self.simulate_unbreakable_row_group(current_row, &self.regions, engine)?;
 
             // Skip to fitting region.
             while !self.regions.size.y.fits(row_group.height) && !self.regions.in_last() {
@@ -177,6 +178,7 @@ impl<'a> GridLayouter<'a> {
     pub(super) fn simulate_unbreakable_row_group(
         &self,
         first_row: usize,
+        regions: &Regions<'_>,
         engine: &mut Engine,
     ) -> SourceResult<UnbreakableRowGroup> {
         let mut row_group = UnbreakableRowGroup::default();
@@ -192,9 +194,12 @@ impl<'a> GridLayouter<'a> {
                 break;
             }
             let height = match row {
-                Sizing::Rel(v) => {
-                    v.resolve(self.styles).relative_to(self.regions.base().y)
-                }
+                Sizing::Rel(v) => v.resolve(self.styles).relative_to(regions.base().y),
+
+                // No need to pass the regions to the auto row, since
+                // unbreakable auto rows are always measured with infinite
+                // height, ignore backlog, and do not invoke the rowspan
+                // simulation procedure at all.
                 Sizing::Auto => self
                     .measure_auto_row(
                         engine,
@@ -711,7 +716,7 @@ impl<'a> GridLayouter<'a> {
                     // unbreakable row group simulator won't recursively call
                     // 'measure_auto_row' or (consequently) this function.
                     let row_group =
-                        self.simulate_unbreakable_row_group(spanned_y, engine)?;
+                        self.simulate_unbreakable_row_group(spanned_y, &regions, engine)?;
                     while !regions.size.y.fits(row_group.height) && !regions.in_last() {
                         total_spanned_height -= latest_spanned_gutter_height;
                         latest_spanned_gutter_height = Abs::zero();
