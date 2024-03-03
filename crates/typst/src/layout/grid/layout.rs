@@ -283,7 +283,7 @@ pub enum ResolvableGridItem<T: ResolvableCell> {
 
 /// Any grid child, which can be either a header or an item.
 pub enum ResolvableGridChild<T: ResolvableCell, I> {
-    Header { repeat: bool, items: I },
+    Header { repeat: bool, span: Span, items: I },
     Item(ResolvableGridItem<T>),
 }
 
@@ -371,7 +371,6 @@ impl CellGrid {
         align: &Celled<Smart<Alignment>>,
         inset: &Celled<Sides<Option<Rel<Length>>>>,
         stroke: &ResolvedCelled<Sides<Option<Option<Arc<Stroke>>>>>,
-        header_rows: usize,
         engine: &mut Engine,
         styles: StyleChain,
         span: Span,
@@ -395,6 +394,9 @@ impl CellGrid {
         // For consistency, only push vertical lines later as well.
         let mut pending_vlines: Vec<(Span, Line)> = vec![];
         let has_gutter = gutter.any(|tracks| !tracks.is_empty());
+
+        let mut header: Option<Header> = None;
+        let mut repeat_header = false;
 
         // Resolve the breakability of a cell, based on whether or not it spans
         // an auto row.
@@ -443,203 +445,251 @@ impl CellGrid {
             bail!(span, "too many cells or lines were given")
         };
         let mut resolved_cells: Vec<Option<Entry>> = Vec::with_capacity(child_count);
-        for item in children {
-            let cell = match item {
-                ResolvableGridChild::Item(ResolvableGridItem::HLine {
-                    y,
-                    start,
-                    end,
-                    stroke,
-                    span,
-                    position,
-                }) => {
-                    let y = y.unwrap_or_else(|| {
-                        // When no 'y' is specified for the hline, we place it
-                        // under the latest automatically positioned cell.
-                        // The current value of the auto index is always the
-                        // index of the latest automatically positioned cell
-                        // placed plus one (that's what we do in
-                        // 'resolve_cell_position'), so we subtract 1 to get
-                        // that cell's index, and place the hline below its
-                        // row. The exception is when the auto_index is 0,
-                        // meaning no automatically positioned cell was placed
-                        // yet. In that case, we place the hline at the top of
-                        // the table.
-                        auto_index
-                            .checked_sub(1)
-                            .map_or(0, |last_auto_index| last_auto_index / c + 1)
-                    });
-                    if end.is_some_and(|end| end.get() < start) {
-                        bail!(span, "line cannot end before it starts");
+        for child in children {
+            let mut is_header = false;
+            let mut header_start = usize::MAX;
+            let mut header_end = 0;
+            let mut header_span = Span::detached();
+
+            let (header_items, simple_item) = match child {
+                ResolvableGridChild::Header { repeat, span, items, .. } => {
+                    if header.is_some() {
+                        bail!(span, "cannot have more than one header");
                     }
-                    let line = Line { index: y, start, end, stroke, position };
 
-                    // Since the amount of rows is dynamic, delay placing
-                    // hlines until after all cells were placed so we can
-                    // properly verify if they are valid. Note that we can't
-                    // place hlines even if we already know they would be in a
-                    // valid row, since it's possible that we pushed pending
-                    // hlines in the same row as this one in previous
-                    // iterations, and we need to ensure that hlines from
-                    // previous iterations are pushed to the final vector of
-                    // hlines first - the order of hlines must be kept, as this
-                    // matters when determining which one "wins" in case of
-                    // conflict. Pushing the current hline before we push
-                    // pending hlines later would change their order!
-                    pending_hlines.push((span, line));
-                    continue;
+                    is_header = true;
+                    header_span = span;
+                    repeat_header = repeat;
+
+                    (Some(items), None)
                 }
-                ResolvableGridChild::Item(ResolvableGridItem::VLine {
-                    x,
-                    start,
-                    end,
-                    stroke,
-                    span,
-                    position,
-                }) => {
-                    let x = x.unwrap_or_else(|| {
-                        // When no 'x' is specified for the vline, we place it
-                        // after the latest automatically positioned cell.
-                        // The current value of the auto index is always the
-                        // index of the latest automatically positioned cell
-                        // placed plus one (that's what we do in
-                        // 'resolve_cell_position'), so we subtract 1 to get
-                        // that cell's index, and place the vline after its
-                        // column. The exception is when the auto_index is 0,
-                        // meaning no automatically positioned cell was placed
-                        // yet. In that case, we place the vline to the left of
-                        // the table.
-                        auto_index
-                            .checked_sub(1)
-                            .map_or(0, |last_auto_index| last_auto_index % c + 1)
-                    });
-                    if end.is_some_and(|end| end.get() < start) {
-                        bail!(span, "line cannot end before it starts");
-                    }
-                    let line = Line { index: x, start, end, stroke, position };
-
-                    // For consistency with hlines, we only push vlines to the
-                    // final vector of vlines after processing every cell.
-                    pending_vlines.push((span, line));
-                    continue;
-                }
-                ResolvableGridChild::Item(ResolvableGridItem::Cell(cell)) => cell,
-                ResolvableGridChild::Header { .. } => todo!(),
+                ResolvableGridChild::Item(item) => (None, Some(item)),
             };
-            let cell_span = cell.span();
-            // Let's calculate the cell's final position based on its
-            // requested position.
-            let resolved_index = {
-                let cell_x = cell.x(styles);
-                let cell_y = cell.y(styles);
-                resolve_cell_position(cell_x, cell_y, &resolved_cells, &mut auto_index, c)
-                    .at(cell_span)?
-            };
-            let x = resolved_index % c;
-            let y = resolved_index / c;
-            let colspan = cell.colspan(styles).get();
-            let rowspan = cell.rowspan(styles).get();
+            let items = header_items.into_iter().flatten().chain(simple_item.into_iter());
+            for item in items {
+                let cell = match item {
+                    ResolvableGridItem::HLine {
+                        y,
+                        start,
+                        end,
+                        stroke,
+                        span,
+                        position,
+                    } => {
+                        let y = y.unwrap_or_else(|| {
+                            // When no 'y' is specified for the hline, we place
+                            // it under the latest automatically positioned
+                            // cell.
+                            // The current value of the auto index is always
+                            // the index of the latest automatically positioned
+                            // cell placed plus one (that's what we do in
+                            // 'resolve_cell_position'), so we subtract 1 to
+                            // get that cell's index, and place the hline below
+                            // its row. The exception is when the auto_index is
+                            // 0, meaning no automatically positioned cell was
+                            // placed yet. In that case, we place the hline at
+                            // the top of the table.
+                            auto_index
+                                .checked_sub(1)
+                                .map_or(0, |last_auto_index| last_auto_index / c + 1)
+                        });
+                        if end.is_some_and(|end| end.get() < start) {
+                            bail!(span, "line cannot end before it starts");
+                        }
+                        let line = Line { index: y, start, end, stroke, position };
 
-            if colspan > c - x {
-                bail!(
-                    cell_span,
-                    "cell's colspan would cause it to exceed the available column(s)";
-                    hint: "try placing the cell in another position or reducing its colspan"
-                )
-            }
-
-            let Some(largest_index) = c
-                .checked_mul(rowspan - 1)
-                .and_then(|full_rowspan_offset| {
-                    resolved_index.checked_add(full_rowspan_offset)
-                })
-                .and_then(|last_row_pos| last_row_pos.checked_add(colspan - 1))
-            else {
-                bail!(
-                    cell_span,
-                    "cell would span an exceedingly large position";
-                    hint: "try reducing the cell's rowspan or colspan"
-                )
-            };
-
-            // Let's resolve the cell so it can determine its own fields
-            // based on its final position.
-            let cell = cell.resolve_cell(
-                x,
-                y,
-                &fill.resolve(engine, styles, x, y)?,
-                align.resolve(engine, styles, x, y)?,
-                inset.resolve(engine, styles, x, y)?,
-                stroke.resolve(engine, styles, x, y)?,
-                resolve_breakable(y, rowspan),
-                styles,
-            );
-
-            if largest_index >= resolved_cells.len() {
-                // Ensure the length of the vector of resolved cells is always
-                // a multiple of 'c' by pushing full rows every time. Here, we
-                // add enough absent positions (later converted to empty cells)
-                // to ensure the last row in the new vector length is
-                // completely filled. This is necessary so that those
-                // positions, even if not explicitly used at the end, are
-                // eventually susceptible to show rules and receive grid
-                // styling, as they will be resolved as empty cells in a second
-                // loop below.
-                let Some(new_len) = largest_index
-                    .checked_add(1)
-                    .and_then(|new_len| new_len.checked_add((c - new_len % c) % c))
-                else {
-                    bail!(cell_span, "cell position too large")
-                };
-
-                // Here, the cell needs to be placed in a position which
-                // doesn't exist yet in the grid (out of bounds). We will add
-                // enough absent positions for this to be possible. They must
-                // be absent as no cells actually occupy them (they can be
-                // overridden later); however, if no cells occupy them as we
-                // finish building the grid, then such positions will be
-                // replaced by empty cells.
-                resolved_cells.resize(new_len, None);
-            }
-
-            // The vector is large enough to contain the cell, so we can just
-            // index it directly to access the position it will be placed in.
-            // However, we still need to ensure we won't try to place a cell
-            // where there already is one.
-            let slot = &mut resolved_cells[resolved_index];
-            if slot.is_some() {
-                bail!(
-                    cell_span,
-                    "attempted to place a second cell at column {x}, row {y}";
-                    hint: "try specifying your cells in a different order"
-                );
-            }
-
-            *slot = Some(Entry::Cell(cell));
-
-            // Now, if the cell spans more than one row or column, we fill the
-            // spanned positions in the grid with Entry::Merged pointing to the
-            // original cell as its parent.
-            for rowspan_offset in 0..rowspan {
-                let spanned_y = y + rowspan_offset;
-                let first_row_index = resolved_index + c * rowspan_offset;
-                for (colspan_offset, slot) in
-                    resolved_cells[first_row_index..][..colspan].iter_mut().enumerate()
-                {
-                    let spanned_x = x + colspan_offset;
-                    if spanned_x == x && spanned_y == y {
-                        // This is the parent cell.
+                        // Since the amount of rows is dynamic, delay placing
+                        // hlines until after all cells were placed so we can
+                        // properly verify if they are valid. Note that we
+                        // can't place hlines even if we already know they
+                        // would be in a valid row, since it's possible that we
+                        // pushed pending hlines in the same row as this one in
+                        // previous iterations, and we need to ensure that
+                        // hlines from previous iterations are pushed to the
+                        // final vector of hlines first - the order of hlines
+                        // must be kept, as this matters when determining which
+                        // one "wins" in case of conflict. Pushing the current
+                        // hline before we push pending hlines later would
+                        // change their order!
+                        pending_hlines.push((span, line));
                         continue;
                     }
-                    if slot.is_some() {
-                        bail!(
-                            cell_span,
-                            "cell would span a previously placed cell at column {spanned_x}, row {spanned_y}";
-                            hint: "try specifying your cells in a different order or reducing the cell's rowspan or colspan"
-                        )
+                    ResolvableGridItem::VLine {
+                        x,
+                        start,
+                        end,
+                        stroke,
+                        span,
+                        position,
+                    } => {
+                        let x = x.unwrap_or_else(|| {
+                            // When no 'x' is specified for the vline, we place
+                            // it after the latest automatically positioned
+                            // cell.
+                            // The current value of the auto index is always
+                            // the index of the latest automatically positioned
+                            // cell placed plus one (that's what we do in
+                            // 'resolve_cell_position'), so we subtract 1 to
+                            // get that cell's index, and place the vline after
+                            // its column. The exception is when the auto_index
+                            // is 0, meaning no automatically positioned cell
+                            // was placed yet. In that case, we place the vline
+                            // to the left of the table.
+                            auto_index
+                                .checked_sub(1)
+                                .map_or(0, |last_auto_index| last_auto_index % c + 1)
+                        });
+                        if end.is_some_and(|end| end.get() < start) {
+                            bail!(span, "line cannot end before it starts");
+                        }
+                        let line = Line { index: x, start, end, stroke, position };
+
+                        // For consistency with hlines, we only push vlines to
+                        // the final vector of vlines after processing every
+                        // cell.
+                        pending_vlines.push((span, line));
+                        continue;
                     }
-                    *slot = Some(Entry::Merged { parent: resolved_index });
+                    ResolvableGridItem::Cell(cell) => cell,
+                };
+                let cell_span = cell.span();
+                // Let's calculate the cell's final position based on its
+                // requested position.
+                let resolved_index = {
+                    let cell_x = cell.x(styles);
+                    let cell_y = cell.y(styles);
+                    resolve_cell_position(
+                        cell_x,
+                        cell_y,
+                        &resolved_cells,
+                        &mut auto_index,
+                        c,
+                    )
+                    .at(cell_span)?
+                };
+                let x = resolved_index % c;
+                let y = resolved_index / c;
+                let colspan = cell.colspan(styles).get();
+                let rowspan = cell.rowspan(styles).get();
+
+                if colspan > c - x {
+                    bail!(
+                        cell_span,
+                        "cell's colspan would cause it to exceed the available column(s)";
+                        hint: "try placing the cell in another position or reducing its colspan"
+                    )
                 }
+
+                let Some(largest_index) = c
+                    .checked_mul(rowspan - 1)
+                    .and_then(|full_rowspan_offset| {
+                        resolved_index.checked_add(full_rowspan_offset)
+                    })
+                    .and_then(|last_row_pos| last_row_pos.checked_add(colspan - 1))
+                else {
+                    bail!(
+                        cell_span,
+                        "cell would span an exceedingly large position";
+                        hint: "try reducing the cell's rowspan or colspan"
+                    )
+                };
+
+                // Let's resolve the cell so it can determine its own fields
+                // based on its final position.
+                let cell = cell.resolve_cell(
+                    x,
+                    y,
+                    &fill.resolve(engine, styles, x, y)?,
+                    align.resolve(engine, styles, x, y)?,
+                    inset.resolve(engine, styles, x, y)?,
+                    stroke.resolve(engine, styles, x, y)?,
+                    resolve_breakable(y, rowspan),
+                    styles,
+                );
+
+                if largest_index >= resolved_cells.len() {
+                    // Ensure the length of the vector of resolved cells is
+                    // always a multiple of 'c' by pushing full rows every
+                    // time. Here, we add enough absent positions (later
+                    // converted to empty cells) to ensure the last row in the
+                    // new vector length is completely filled. This is
+                    // necessary so that those positions, even if not
+                    // explicitly used at the end, are eventually susceptible
+                    // to show rules and receive grid styling, as they will be
+                    // resolved as empty cells in a second loop below.
+                    let Some(new_len) = largest_index
+                        .checked_add(1)
+                        .and_then(|new_len| new_len.checked_add((c - new_len % c) % c))
+                    else {
+                        bail!(cell_span, "cell position too large")
+                    };
+
+                    // Here, the cell needs to be placed in a position which
+                    // doesn't exist yet in the grid (out of bounds). We will
+                    // add enough absent positions for this to be possible.
+                    // They must be absent as no cells actually occupy them
+                    // (they can be overridden later); however, if no cells
+                    // occupy them as we finish building the grid, then such
+                    // positions will be replaced by empty cells.
+                    resolved_cells.resize(new_len, None);
+                }
+
+                // The vector is large enough to contain the cell, so we can
+                // just index it directly to access the position it will be
+                // placed in. However, we still need to ensure we won't try to
+                // place a cell where there already is one.
+                let slot = &mut resolved_cells[resolved_index];
+                if slot.is_some() {
+                    bail!(
+                        cell_span,
+                        "attempted to place a second cell at column {x}, row {y}";
+                        hint: "try specifying your cells in a different order"
+                    );
+                }
+
+                *slot = Some(Entry::Cell(cell));
+
+                // Now, if the cell spans more than one row or column, we fill
+                // the spanned positions in the grid with Entry::Merged
+                // pointing to the original cell as its parent.
+                for rowspan_offset in 0..rowspan {
+                    let spanned_y = y + rowspan_offset;
+                    let first_row_index = resolved_index + c * rowspan_offset;
+                    for (colspan_offset, slot) in resolved_cells[first_row_index..]
+                        [..colspan]
+                        .iter_mut()
+                        .enumerate()
+                    {
+                        let spanned_x = x + colspan_offset;
+                        if spanned_x == x && spanned_y == y {
+                            // This is the parent cell.
+                            continue;
+                        }
+                        if slot.is_some() {
+                            bail!(
+                                cell_span,
+                                "cell would span a previously placed cell at column {spanned_x}, row {spanned_y}";
+                                hint: "try specifying your cells in a different order or reducing the cell's rowspan or colspan"
+                            )
+                        }
+                        *slot = Some(Entry::Merged { parent: resolved_index });
+                    }
+                }
+
+                if is_header {
+                    header_start = header_start.min(y);
+                    header_end = header_end.max(y + rowspan);
+                }
+            }
+
+            if is_header && header_start < usize::MAX {
+                if header_start != 0 {
+                    bail!(header_span, "header must start at the first row");
+                }
+
+                header = Some(Header {
+                    end: if has_gutter { 2 * header_end - 1 } else { header_end },
+                });
             }
         }
 
@@ -678,14 +728,6 @@ impl CellGrid {
         let mut vlines: Vec<Vec<Line>> = vec![];
         let mut hlines: Vec<Vec<Line>> = vec![];
         let row_amount = resolved_cells.len().div_ceil(c);
-
-        let header_rows =
-            if has_gutter { (2 * header_rows).saturating_sub(1) } else { header_rows };
-        if row_amount < header_rows {
-            bail!(span, "cannot have more header rows than rows");
-        }
-        let header =
-            if header_rows > 0 { Some(Header { end: header_rows }) } else { None };
 
         for (line_span, line) in pending_hlines {
             let y = line.index;
@@ -761,6 +803,9 @@ impl CellGrid {
             }
             vlines[x].push(line);
         }
+
+        // No point in storing the header if it shouldn't be repeated.
+        let header = header.filter(|_| repeat_header);
 
         Ok(Self::new_internal(tracks, gutter, vlines, hlines, header, resolved_cells))
     }

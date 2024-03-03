@@ -277,10 +277,6 @@ pub struct GridElem {
     #[fold]
     pub inset: Celled<Sides<Option<Rel<Length>>>>,
 
-    /// The amount of rows from the start of the grid which should be repeated
-    /// across pages. Zero to not repeat anything.
-    pub header_rows: usize,
-
     /// The contents of the grid cells, plus any extra grid lines specified
     /// with the [`grid.hline`]($grid.hline) and [`grid.vline`]($grid.vline)
     /// elements.
@@ -321,7 +317,6 @@ impl LayoutMultiple for Packed<GridElem> {
         let row_gutter = self.row_gutter(styles);
         let fill = self.fill(styles);
         let stroke = self.stroke(styles);
-        let header_rows = self.header_rows(styles);
 
         let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
@@ -330,6 +325,7 @@ impl LayoutMultiple for Packed<GridElem> {
         let children = self.children().iter().map(|child| match child {
             GridChild::Header(header) => ResolvableGridChild::Header {
                 repeat: header.repeat(styles),
+                span: header.span(),
                 items: header.children().iter().map(|child| child.to_resolvable(styles)),
             },
             GridChild::Item(item) => {
@@ -344,7 +340,6 @@ impl LayoutMultiple for Packed<GridElem> {
             align,
             &inset,
             &stroke,
-            header_rows,
             engine,
             styles,
             self.span(),
