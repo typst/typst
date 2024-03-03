@@ -181,7 +181,7 @@ impl Selector {
         Self::Or(others.into_iter().chain(Some(self)).collect())
     }
 
-    /// Selects all elements that match this and all of the the other selectors.
+    /// Selects all elements that match this and all of the other selectors.
     #[func]
     pub fn and(
         self,

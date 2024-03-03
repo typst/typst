@@ -12,7 +12,7 @@ use crate::World;
 ///
 /// The XML file is parsed into an array of dictionaries and strings. XML nodes
 /// can be elements or strings. Elements are represented as dictionaries with
-/// the the following keys:
+/// the following keys:
 ///
 /// - `tag`: The name of the element as a string.
 /// - `attrs`: A dictionary of the element's attributes as strings.

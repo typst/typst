@@ -920,7 +920,7 @@ fn nbsp_delta(font: &Font) -> Option<Em> {
     Some(font.advance(nbsp)? - font.advance(space)?)
 }
 
-/// Process the language and and region of a style chain into a
+/// Process the language and region of a style chain into a
 /// rustybuzz-compatible BCP 47 language.
 fn language(styles: StyleChain) -> rustybuzz::Language {
     let mut bcp: EcoString = TextElem::lang_in(styles).as_str().into();

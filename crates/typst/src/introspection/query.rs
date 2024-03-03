@@ -25,7 +25,7 @@ use crate::introspection::Location;
 ///
 /// - On the first page the query for all headings before the current location
 ///   yields an empty array: There are no previous headings. We check for this
-///   case and and just display "Typst Academy".
+///   case and just display "Typst Academy".
 ///
 /// - For the second page, we retrieve the last element from the query's result.
 ///   This is the latest heading before the current position and as such, it is

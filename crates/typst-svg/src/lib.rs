@@ -1279,7 +1279,7 @@ impl<T> Deduplicator<T> {
         })
     }
 
-    /// Iterate over the the elements alongside their ids.
+    /// Iterate over the elements alongside their ids.
     fn iter(&self) -> impl Iterator<Item = (Id, &T)> {
         self.vec
             .iter()

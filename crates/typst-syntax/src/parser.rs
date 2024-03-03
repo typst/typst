@@ -1161,7 +1161,7 @@ fn array_or_dict_item(p: &mut Parser, state: &mut GroupState) {
     let m = p.marker();
 
     if p.eat_if(SyntaxKind::Dots) {
-        // Parses a spreaded item: `..item`.
+        // Parses a spread item: `..item`.
         code_expr(p);
         p.wrap(m, SyntaxKind::Spread);
         state.maybe_just_parens = false;
@@ -1249,7 +1249,7 @@ fn args(p: &mut Parser) {
 fn arg<'s>(p: &mut Parser<'s>, seen: &mut HashSet<&'s str>) {
     let m = p.marker();
 
-    // Parses a spreaded argument: `..args`.
+    // Parses a spread argument: `..args`.
     if p.eat_if(SyntaxKind::Dots) {
         code_expr(p);
         p.wrap(m, SyntaxKind::Spread);
