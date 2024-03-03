@@ -745,12 +745,12 @@ impl Array {
         #[named]
         #[default(false)]
         exact: bool,
-    ) -> StrResult<Array> {
+    ) -> Array {
         let to_array = |chunk| Array::from(chunk).into_value();
         if exact {
-            Ok(self.0.chunks_exact(chunk_size.get()).map(to_array).collect())
+            self.0.chunks_exact(chunk_size.get()).map(to_array).collect()
         } else {
-            Ok(self.0.chunks(chunk_size.get()).map(to_array).collect())
+            self.0.chunks(chunk_size.get()).map(to_array).collect()
         }
     }
 
