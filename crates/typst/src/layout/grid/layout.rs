@@ -700,7 +700,8 @@ impl CellGrid {
                 }
 
                 header = Some(Header {
-                    end: if has_gutter { 2 * header_end - 1 } else { header_end },
+                    // Include the gutter below a header.
+                    end: if has_gutter { 2 * header_end } else { header_end },
                 });
 
                 // Next automatically positioned cell goes under this header.
@@ -828,7 +829,15 @@ impl CellGrid {
         }
 
         // No point in storing the header if it shouldn't be repeated.
-        let header = header.filter(|_| repeat_header);
+        let header = header.filter(|_| repeat_header).map(|mut header| {
+            // The header's last row can exceed the row amount in one case:
+            // If there is gutter and the header's last content row is also
+            // the last row in the grid. In that case, the extra row we
+            // added to the header end - in order to include the gutter
+            // below the header in repetitions - doesn't exist in the end.
+            header.end = header.end.min(row_amount);
+            header
+        });
 
         Ok(Self::new_internal(tracks, gutter, vlines, hlines, header, resolved_cells))
     }
