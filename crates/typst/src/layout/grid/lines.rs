@@ -554,9 +554,25 @@ pub(super) fn hline_stroke_at_column(
         StrokePriority::GridStroke
     };
 
+    // Top border stroke and header stroke are generally prioritized, unless
+    // they don't have explicit hline overrides and one or more user-provided
+    // hlines would appear at the same position, which then are prioritized.
+    let top_stroke_comes_from_header =
+        grid.header
+            .as_ref()
+            .zip(local_top_y)
+            .is_some_and(|(header, local_top_y)| {
+                // Ensure the row above us is a repeated header.
+                // FIXME: Make this check more robust when headers at arbitrary
+                // positions are added.
+                local_top_y + 1 == header.end && y != header.end
+            });
+
     let (prioritized_cell_stroke, deprioritized_cell_stroke) =
         if !use_bottom_border_stroke
-            && (use_top_border_stroke || top_cell_prioritized && !bottom_cell_prioritized)
+            && (use_top_border_stroke
+                || top_stroke_comes_from_header
+                || top_cell_prioritized && !bottom_cell_prioritized)
         {
             // Top border must always be prioritized, even if it did not
             // request for that explicitly.

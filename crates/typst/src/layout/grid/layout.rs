@@ -1389,18 +1389,20 @@ impl<'a> GridLayouter<'a> {
             let mut prev_y = None;
             for (y, dy) in hline_indices.zip(hline_offsets) {
                 let is_bottom_border = y == self.grid.rows.len();
+                let line_index = if !self.grid.has_gutter {
+                    y
+                } else if is_bottom_border {
+                    y / 2 + 1
+                } else {
+                    // Check the vlines loop for an explanation regarding
+                    // these index operations.
+                    y / 2
+                };
+
                 let hlines_at_row = self
                     .grid
                     .hlines
-                    .get(if !self.grid.has_gutter {
-                        y
-                    } else if is_bottom_border {
-                        y / 2 + 1
-                    } else {
-                        // Check the vlines loop for an explanation regarding
-                        // these index operations.
-                        y / 2
-                    })
+                    .get(line_index)
                     .map(Vec::as_slice)
                     .unwrap_or(&[])
                     .iter()
@@ -1408,6 +1410,30 @@ impl<'a> GridLayouter<'a> {
                         // For lines at the top of the region, give priority to
                         // the lines at the top border.
                         self.grid.hlines.first().map(Vec::as_slice).unwrap_or(&[])
+                    } else if let Some((header, prev_y)) =
+                        self.grid.header.as_ref().zip(prev_y)
+                    {
+                        let header_line_index = if self.grid.has_gutter {
+                            header.end / 2
+                        } else {
+                            header.end
+                        };
+                        if prev_y + 1 == header.end && line_index != header_line_index {
+                            // For lines below a header, give priority to the
+                            // lines originally below the header rather than
+                            // the lines of what's below the repeated header.
+                            // However, no need to do that when we're laying
+                            // out the header for the first time, since the
+                            // lines being normally laid out then will be
+                            // precisely the lines below the header.
+                            self.grid
+                                .hlines
+                                .get(header_line_index)
+                                .map(Vec::as_slice)
+                                .unwrap_or(&[])
+                        } else {
+                            &[]
+                        }
                     } else {
                         // When not at the top of the region, no border lines
                         // to consider.
