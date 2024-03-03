@@ -450,7 +450,7 @@ impl<'a> GridLayouter<'a> {
                 height = *rowspan_height;
                 backlog = None;
                 full = rowspan_full;
-                last = self.regions.last;
+                last = self.regions.last.map(|size| size - self.header_height);
             } else {
                 // The rowspan started in the current region, as its vector
                 // of heights in regions is currently empty.
