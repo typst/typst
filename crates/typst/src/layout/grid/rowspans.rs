@@ -44,9 +44,14 @@ pub(super) struct CellMeasurementData<'layouter> {
     /// The available width for the cell across all regions.
     pub(super) width: Abs,
     /// The available height for the cell in its first region.
+    /// Infinite when the auto row is unbreakable.
     pub(super) height: Abs,
     /// The backlog of heights available for the cell in later regions.
+    ///
     /// When this is `None`, the `custom_backlog` field should be used instead.
+    /// That's because, otherwise, this field would have to contain a reference
+    /// to the `custom_backlog` field, which isn't possible in Rust without
+    /// resorting to unsafe hacks.
     pub(super) backlog: Option<&'layouter [Abs]>,
     /// If the backlog needs to be built from scratch instead of reusing the
     /// one at the current region, which is the case of a multi-region rowspan
@@ -54,7 +59,11 @@ pub(super) struct CellMeasurementData<'layouter> {
     /// backlog), then this vector will store the new backlog.
     pub(super) custom_backlog: Vec<Abs>,
     /// The full height of the first region of the cell.
+    /// Infinite when the auto row is unbreakable.
     pub(super) full: Abs,
+    /// The height of the last repeated region to use in the measurement pod,
+    /// if any.
+    pub(super) last: Option<Abs>,
     /// The total height of previous rows spanned by the cell in the current
     /// region (so far).
     pub(super) height_in_this_region: Abs,
@@ -297,24 +306,29 @@ impl<'a> GridLayouter<'a> {
         let mut custom_backlog: Vec<Abs> = vec![];
 
         // This function is used to subtract the expected header height from
-        // each upcoming region size in the current backlog.
-        let mut adapt_current_backlog_to_header = || {
+        // each upcoming region size in the current backlog and last region.
+        let mut subtract_header_height_from_regions = || {
             // Only breakable auto rows need to update their backlogs based
             // on the presence of a header, given that unbreakable auto
             // rows don't depend on the backlog, as they only span one
             // region.
             if breakable && self.grid.header.is_some() {
-                // Subtract header height from all backlog entries.
-                custom_backlog.extend(
-                    self.regions.backlog.iter().map(|&size| size - self.header_height),
-                );
+                // Subtract header height from all upcoming regions when
+                // measuring the cell, including the last repeated region.
+                //
+                // This will update the 'custom_backlog' vector with the
+                // updated heights of the upcoming regions.
+                let mapped_regions = self.regions.map(&mut custom_backlog, |size| {
+                    Size::new(size.x, size.y - self.header_height)
+                });
 
-                // Callees must use the custom backlog in this case.
-                return None;
+                // Callees must use the custom backlog instead of the current
+                // backlog, so we return 'None'.
+                return (None, mapped_regions.last);
             }
 
-            // No need to change the backlog.
-            Some(self.regions.backlog)
+            // No need to change the backlog or last region.
+            (Some(self.regions.backlog), self.regions.last)
         };
 
         // Each declaration, from top to bottom:
@@ -324,26 +338,34 @@ impl<'a> GridLayouter<'a> {
         // 2. The backlog of upcoming region heights to specify as
         // available to the cell.
         // 3. The full height of the first region of the cell.
-        // 4. The total height of the cell covered by previously spanned
+        // 4. Height of the last repeated region to use in the measurement pod.
+        // 5. The total height of the cell covered by previously spanned
         // rows in this region. This is used by rowspans to be able to tell
         // how much the auto row needs to expand.
-        // 5. The amount of frames laid out by this cell in previous
+        // 6. The amount of frames laid out by this cell in previous
         // regions. When the cell isn't a rowspan, this is always zero.
         // These frames are skipped after measuring.
-        let (height, backlog, full, height_in_this_region, frames_in_previous_regions);
+        let height;
+        let backlog;
+        let full;
+        let last;
+        let height_in_this_region;
+        let frames_in_previous_regions;
+
         if rowspan == 1 {
             // Not a rowspan, so the cell only occupies this row. Therefore:
             // 1. When we measure the cell below, use the available height
             // remaining in the region as the height it has available.
             // However, if the auto row is unbreakable, measure with infinite
             // height instead to see how much content expands.
-            // 2. Use the region's backlog when measuring, however subtract the
-            // expected header height from each upcoming size.
+            // 2. Use the region's backlog and last region when measuring,
+            // however subtract the expected header height from each upcoming
+            // size, if there is a header.
             // 3. Use the same full region height.
             // 4. No height occupied by this cell in this region so far.
             // 5. Yes, this cell started in this region.
             height = if breakable { self.regions.size.y } else { Abs::inf() };
-            backlog = adapt_current_backlog_to_header();
+            (backlog, last) = subtract_header_height_from_regions();
             full = if breakable { self.regions.full } else { Abs::inf() };
             height_in_this_region = Abs::zero();
             frames_in_previous_regions = 0;
@@ -428,6 +450,7 @@ impl<'a> GridLayouter<'a> {
                 height = *rowspan_height;
                 backlog = None;
                 full = rowspan_full;
+                last = self.regions.last;
             } else {
                 // The rowspan started in the current region, as its vector
                 // of heights in regions is currently empty.
@@ -443,7 +466,7 @@ impl<'a> GridLayouter<'a> {
                 } else {
                     Abs::inf()
                 };
-                backlog = adapt_current_backlog_to_header();
+                (backlog, last) = subtract_header_height_from_regions();
                 full = if breakable { self.regions.full } else { Abs::inf() };
                 frames_in_previous_regions = 0;
             }
@@ -456,6 +479,7 @@ impl<'a> GridLayouter<'a> {
             backlog,
             custom_backlog,
             full,
+            last,
             height_in_this_region,
             frames_in_previous_regions,
         }

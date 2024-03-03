@@ -2022,15 +2022,7 @@ impl<'a> GridLayouter<'a> {
                 pod.size = size;
                 pod.backlog = backlog;
                 pod.full = measurement_data.full;
-
-                if let Some(last) = &mut pod.last {
-                    // Adapt the last region height to consider the header
-                    // height.
-                    // Header rows are unbreakable, so this code can only run
-                    // outside of a header, and thus with a complete header
-                    // height.
-                    *last -= self.header_height;
-                }
+                pod.last = measurement_data.last;
 
                 pod
             };
