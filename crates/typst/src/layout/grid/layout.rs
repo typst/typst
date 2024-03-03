@@ -250,7 +250,7 @@ pub(super) struct Header {
 
 /// A grid item, possibly affected by automatic cell positioning. Can be either
 /// a line or a cell.
-pub enum GridItem<T: ResolvableCell> {
+pub enum ResolvableGridItem<T: ResolvableCell> {
     /// A horizontal line in the grid.
     HLine {
         /// The row above which the horizontal line is drawn.
@@ -279,6 +279,12 @@ pub enum GridItem<T: ResolvableCell> {
     },
     /// A cell in the grid.
     Cell(T),
+}
+
+/// Any grid child, which can be either a header or an item.
+pub enum ResolvableGridChild<T: ResolvableCell, I> {
+    Header { repeat: bool, items: I },
+    Item(ResolvableGridItem<T>),
 }
 
 /// Used for cell-like elements which are aware of their final properties in
@@ -357,10 +363,10 @@ impl CellGrid {
     /// must implement Default in order to fill positions in the grid which
     /// weren't explicitly specified by the user with empty cells.
     #[allow(clippy::too_many_arguments)]
-    pub fn resolve<T, I>(
+    pub fn resolve<T, C, I>(
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
-        items: I,
+        children: C,
         fill: &Celled<Option<Paint>>,
         align: &Celled<Smart<Alignment>>,
         inset: &Celled<Sides<Option<Rel<Length>>>>,
@@ -372,8 +378,9 @@ impl CellGrid {
     ) -> SourceResult<Self>
     where
         T: ResolvableCell + Default,
-        I: IntoIterator<Item = GridItem<T>>,
-        I::IntoIter: ExactSizeIterator,
+        I: Iterator<Item = ResolvableGridItem<T>>,
+        C: IntoIterator<Item = ResolvableGridChild<T, I>>,
+        C::IntoIter: ExactSizeIterator,
     {
         // Number of content columns: Always at least one.
         let c = tracks.x.len().max(1);
@@ -420,24 +427,32 @@ impl CellGrid {
         let mut auto_index: usize = 0;
 
         // We have to rebuild the grid to account for arbitrary positions.
-        // Create at least 'items.len()' positions, since there could be at
-        // least 'items.len()' cells (if no explicit lines were specified),
+        // Create at least 'children.len()' positions, since there could be at
+        // least 'children.len()' cells (if no explicit lines were specified),
         // even though some of them might be placed in arbitrary positions and
         // thus cause the grid to expand.
         // Additionally, make sure we allocate up to the next multiple of 'c',
         // since each row will have 'c' cells, even if the last few cells
         // weren't explicitly specified by the user.
         // We apply '% c' twice so that the amount of cells potentially missing
-        // is zero when 'items.len()' is already a multiple of 'c' (thus
-        // 'items.len() % c' would be zero).
-        let items = items.into_iter();
-        let Some(item_count) = items.len().checked_add((c - items.len() % c) % c) else {
+        // is zero when 'children.len()' is already a multiple of 'c' (thus
+        // 'children.len() % c' would be zero).
+        let children = children.into_iter();
+        let Some(child_count) = children.len().checked_add((c - children.len() % c) % c)
+        else {
             bail!(span, "too many cells or lines were given")
         };
-        let mut resolved_cells: Vec<Option<Entry>> = Vec::with_capacity(item_count);
-        for item in items {
+        let mut resolved_cells: Vec<Option<Entry>> = Vec::with_capacity(child_count);
+        for item in children {
             let cell = match item {
-                GridItem::HLine { y, start, end, stroke, span, position } => {
+                ResolvableGridChild::Item(ResolvableGridItem::HLine {
+                    y,
+                    start,
+                    end,
+                    stroke,
+                    span,
+                    position,
+                }) => {
                     let y = y.unwrap_or_else(|| {
                         // When no 'y' is specified for the hline, we place it
                         // under the latest automatically positioned cell.
@@ -474,7 +489,14 @@ impl CellGrid {
                     pending_hlines.push((span, line));
                     continue;
                 }
-                GridItem::VLine { x, start, end, stroke, span, position } => {
+                ResolvableGridChild::Item(ResolvableGridItem::VLine {
+                    x,
+                    start,
+                    end,
+                    stroke,
+                    span,
+                    position,
+                }) => {
                     let x = x.unwrap_or_else(|| {
                         // When no 'x' is specified for the vline, we place it
                         // after the latest automatically positioned cell.
@@ -501,7 +523,8 @@ impl CellGrid {
                     pending_vlines.push((span, line));
                     continue;
                 }
-                GridItem::Cell(cell) => cell,
+                ResolvableGridChild::Item(ResolvableGridItem::Cell(cell)) => cell,
+                ResolvableGridChild::Header { .. } => todo!(),
             };
             let cell_span = cell.span();
             // Let's calculate the cell's final position based on its
