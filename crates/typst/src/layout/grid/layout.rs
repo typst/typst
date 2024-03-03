@@ -2398,10 +2398,7 @@ impl<'a> GridLayouter<'a> {
             pos.y += height;
         }
 
-        self.finished.push(output);
-        self.rrows.push(rrows);
-        self.regions.next();
-        self.initial = self.regions.size;
+        self.finish_region_internal(output, rrows);
 
         if let Some(header) = &self.grid.header {
             // Add a header to the new region.
@@ -2409,6 +2406,15 @@ impl<'a> GridLayouter<'a> {
         }
 
         Ok(())
+    }
+
+    /// Advances to the next region, registering the finished output and
+    /// resolved rows for the current region in the appropriate vectors.
+    fn finish_region_internal(&mut self, output: Frame, resolved_rows: Vec<RowPiece>) {
+        self.finished.push(output);
+        self.rrows.push(resolved_rows);
+        self.regions.next();
+        self.initial = self.regions.size;
     }
 
     /// Layouts the header's rows.
@@ -2423,8 +2429,9 @@ impl<'a> GridLayouter<'a> {
             && !self.regions.size.y.fits(header_rows.height)
             && !self.regions.in_last()
         {
-            // Skip regions until we can place the header.
-            self.regions.next();
+            // Advance regions without any output until we can place the
+            // header.
+            self.finish_region_internal(Frame::soft(Axes::splat(Abs::zero())), vec![]);
         }
 
         // Reset the header height for this region.
