@@ -114,9 +114,9 @@ impl ShapedGlyph {
     }
 
     pub fn is_cjk_punctuation(&self) -> bool {
-        self.is_cjk_left_aligned_punctuation(CjkPunctStyle::GbStyle)
+        self.is_cjk_left_aligned_punctuation(CjkPunctStyle::Gb)
             || self.is_cjk_right_aligned_punctuation()
-            || self.is_cjk_center_aligned_punctuation(CjkPunctStyle::GbStyle)
+            || self.is_cjk_center_aligned_punctuation(CjkPunctStyle::Gb)
     }
 
     /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
@@ -892,7 +892,7 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
     while let Some(glyph) = glyphs.next() {
         // CNS style needs not further adjustment.
-        if glyph.is_cjk_punctuation() && matches!(style, CjkPunctStyle::CnsStyle) {
+        if glyph.is_cjk_punctuation() && matches!(style, CjkPunctStyle::Cns) {
             continue;
         }
 
@@ -979,19 +979,19 @@ pub(super) const END_PUNCT_PAT: &[char] = &[
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum CjkPunctStyle {
     /// Standard GB/T 15834-2011, used mostly in mainland China.
-    GbStyle,
+    Gb,
     /// Standard by Taiwan Ministry of Education, used in Taiwan and Hong Kong.
-    CnsStyle,
+    Cns,
     /// Standard JIS X 4051, used in Japan.
-    JisStyle,
+    Jis,
 }
 
 pub(super) fn cjk_punct_style(lang: Lang, region: Option<Region>) -> CjkPunctStyle {
     match (lang, region.as_ref().map(Region::as_str)) {
-        (Lang::CHINESE, Some("TW" | "HK")) => CjkPunctStyle::CnsStyle,
-        (Lang::JAPANESE, _) => CjkPunctStyle::JisStyle,
+        (Lang::CHINESE, Some("TW" | "HK")) => CjkPunctStyle::Cns,
+        (Lang::JAPANESE, _) => CjkPunctStyle::Jis,
         // zh-CN, zh-SG, zh-MY use GB-style punctuation,
-        _ => CjkPunctStyle::GbStyle,
+        _ => CjkPunctStyle::Gb,
     }
 }
 
@@ -1029,13 +1029,12 @@ fn is_cjk_left_aligned_punctuation(
         return true;
     }
 
-    if matches!(style, GbStyle | JisStyle)
-        && matches!(c, '，' | '。' | '．' | '、' | '：' | '；')
+    if matches!(style, Gb | Jis) && matches!(c, '，' | '。' | '．' | '、' | '：' | '；')
     {
         return true;
     }
 
-    if matches!(style, GbStyle) && matches!(c, '？' | '！') {
+    if matches!(style, Gb) && matches!(c, '？' | '！') {
         // In GB style, exclamations and question marks are also left aligned and can be adjusted.
         // Note that they are not adjustable in other styles.
         return true;
@@ -1062,7 +1061,7 @@ fn is_cjk_right_aligned_punctuation(
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
 fn is_cjk_center_aligned_punctuation(c: char, style: CjkPunctStyle) -> bool {
-    if matches!(style, CjkPunctStyle::CnsStyle)
+    if matches!(style, CjkPunctStyle::Cns)
         && matches!(c, '，' | '。' | '．' | '、' | '：' | '；')
     {
         return true;
@@ -1087,7 +1086,7 @@ fn is_justifiable(
     stretchability: (Em, Em),
 ) -> bool {
     // punctuation style is not relevant here.
-    let style = CjkPunctStyle::GbStyle;
+    let style = CjkPunctStyle::Gb;
     is_space(c)
         || is_cj_script(c, script)
         || is_cjk_left_aligned_punctuation(c, x_advance, stretchability, style)
