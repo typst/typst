@@ -579,7 +579,6 @@ impl<'a> GridLayouter<'a> {
     /// auto row will have to expand, given the current sizes of the auto row
     /// in each region and the pending rowspans' data (parent Y, rowspan amount
     /// and vector of requested sizes).
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn simulate_and_measure_rowspans_in_auto_row(
         &self,
         y: usize,
