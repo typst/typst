@@ -151,7 +151,6 @@ impl RemoteReader {
         }
 
         self.display()?;
-        writeln!(&mut terminal::out())?;
 
         Ok(data)
     }
@@ -180,12 +179,12 @@ impl RemoteReader {
                     (remaining / speed) as u64
                 }));
                 writeln!(
-                    &mut terminal::out(),
+                    terminal::out(),
                     "{total_downloaded} / {download_size} ({percent:3.0} %) {speed_h} in {elapsed} ETA: {eta}",
                 )?;
             }
             None => writeln!(
-                &mut terminal::out(),
+                terminal::out(),
                 "Total downloaded: {total_downloaded} Speed: {speed_h} Elapsed: {elapsed}",
             )?,
         };

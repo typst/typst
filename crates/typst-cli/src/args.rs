@@ -46,6 +46,9 @@ pub enum Command {
     #[command(visible_alias = "w")]
     Watch(CompileCommand),
 
+    /// Initializes a new project from a template
+    Init(InitCommand),
+
     /// Processes an input file to extract provided metadata
     Query(QueryCommand),
 
@@ -87,6 +90,18 @@ pub struct CompileCommand {
     /// apart from file names and line numbers.
     #[arg(long = "timings", value_name = "OUTPUT_JSON")]
     pub timings: Option<Option<PathBuf>>,
+}
+
+/// Initializes a new project from a template
+#[derive(Debug, Clone, Parser)]
+pub struct InitCommand {
+    /// The template to use, e.g. `@preview/charged-ieee`
+    ///
+    /// Supports both local and published templates.
+    pub template: String,
+
+    /// The project directory, defaults to the template's name
+    pub dir: Option<String>,
 }
 
 /// Processes an input file to extract provided metadata

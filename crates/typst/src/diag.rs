@@ -9,7 +9,8 @@ use std::string::FromUtf8Error;
 use comemo::Tracked;
 use ecow::{eco_vec, EcoVec};
 
-use crate::syntax::{PackageSpec, Span, Spanned, SyntaxError};
+use crate::syntax::package::PackageSpec;
+use crate::syntax::{Span, Spanned, SyntaxError};
 use crate::{World, WorldExt};
 
 /// Early-return with a [`StrResult`] or [`SourceResult`].
@@ -497,7 +498,7 @@ pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> EcoString
         }
         roxmltree::Error::DuplicatedAttribute(attr, pos) => {
             eco_format!(
-                "failed to parse {format}: (duplicate attribute '{attr}' in line {})",
+                "failed to parse {format} (duplicate attribute '{attr}' in line {})",
                 pos.row
             )
         }

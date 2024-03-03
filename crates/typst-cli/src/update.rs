@@ -110,9 +110,9 @@ impl Release {
         };
 
         match download(&url) {
-            Ok(response) => response
-                .into_json()
-                .map_err(|err| eco_format!("unable to parse JSON response: {err}")),
+            Ok(response) => response.into_json().map_err(|err| {
+                eco_format!("failed to parse release information ({err})")
+            }),
             Err(ureq::Error::Status(404, _)) => {
                 bail!("release not found (searched at {url})")
             }

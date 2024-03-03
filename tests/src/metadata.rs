@@ -4,7 +4,8 @@ use std::ops::Range;
 use std::str::FromStr;
 
 use ecow::EcoString;
-use typst::syntax::{PackageVersion, Source};
+use typst::syntax::package::PackageVersion;
+use typst::syntax::Source;
 use unscanny::Scanner;
 
 /// Each test and subset may contain metadata.
