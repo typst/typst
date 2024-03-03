@@ -8,7 +8,7 @@ use crate::foundations::{repr, ty, Repr};
 use crate::layout::Abs;
 use crate::util::{Numeric, Scalar};
 
-/// Defines how the the remaining space in a layout is distributed.
+/// Defines how the remaining space in a layout is distributed.
 ///
 /// Each fractionally sized element gets space based on the ratio of its
 /// fraction to the sum of all fractions.

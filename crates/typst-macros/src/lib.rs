@@ -358,7 +358,7 @@ pub fn symbols(stream: BoundaryStream) -> BoundaryStream {
 /// - `#[time(span = ..)]` to record the span, which will be used for the
 ///   `EventKey`.
 ///
-/// By default, all tracing is ommited using the `wasm32` target flag.
+/// By default, all tracing is omitted using the `wasm32` target flag.
 /// This is done to avoid bloating the web app which doesn't need tracing.
 ///
 /// ```ignore
