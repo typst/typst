@@ -648,12 +648,12 @@ impl<'a> GridLayouter<'a> {
             // expand) because we popped the last resolved size from the
             // resolved vector, above.
             simulated_regions.next();
-        }
 
-        // Subtract the initial header height, since that's the height we used
-        // when subtracting from the region backlog's heights while measuring
-        // cells.
-        simulated_regions.size.y -= self.header_height;
+            // Subtract the initial header height, since that's the height we
+            // used when subtracting from the region backlog's heights while
+            // measuring cells.
+            simulated_regions.size.y -= self.header_height;
+        }
 
         if let Some(original_last_resolved_size) = last_resolved_size {
             // We're now at the (current) last region of this auto row.
