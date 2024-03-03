@@ -171,6 +171,17 @@
 )
 
 ---
+// Table with just a header should work normally
+#table(
+  columns: 2,
+  gutter: 3pt,
+  table.header(
+    [a], [b],
+    [c], [d]
+  )
+)
+
+---
 // Error: 3:3-3:19 header must start at the first row
 // Hint: 3:3-3:19 remove any rows before the header
 #grid(
