@@ -1062,7 +1062,9 @@ fn is_cjk_right_aligned_punctuation(
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
 fn is_cjk_center_aligned_punctuation(c: char, style: CjkPunctStyle) -> bool {
-    if matches!(style, CjkPunctStyle::CnsStyle) && matches!(c, '，' | '。' | '．' | '、' | '：' | '；') {
+    if matches!(style, CjkPunctStyle::CnsStyle)
+        && matches!(c, '，' | '。' | '．' | '、' | '：' | '；')
+    {
         return true;
     }
 
