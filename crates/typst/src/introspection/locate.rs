@@ -10,8 +10,8 @@ use crate::syntax::Span;
 /// Determines the location of an element in the document.
 ///
 /// Takes a selector that must match exactly one element and returns that
-/// element's [`location`]($location). This location can, in particular, be used
-/// to retrieve the physical [`page`]($location.page) number and
+/// element's [`location`]. This location can, in particular, be used to
+/// retrieve the physical [`page`]($location.page) number and
 /// [`position`]($location.position) (page, x, y) for that element.
 ///
 /// # Examples
@@ -27,7 +27,7 @@ use crate::syntax::Span;
 ///
 /// # Compatibility
 /// In Typst 0.10 and lower, the `locate` function took a closure that made the
-/// current location in the document available (like [`here`]($here) does now).
+/// current location in the document available (like [`here`] does now).
 /// Compatibility with the old way will remain for a while to give package
 /// authors time to upgrade. To that effect, `locate` detects whether it
 /// received a selector or a user-defined function and adjusts its semantics
@@ -44,8 +44,8 @@ pub fn locate(
     /// located.
     ///
     /// Especially useful in combination with
-    /// - [`here`]($here) to locate the current context,
-    /// - a [`location`]($location) retrieved from some queried element via the
+    /// - [`here`] to locate the current context,
+    /// - a [`location`] retrieved from some queried element via the
     ///   [`location()`]($content.location) method on content.
     selector: LocateInput,
 ) -> HintedStrResult<LocateOutput> {

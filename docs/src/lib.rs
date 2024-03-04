@@ -92,7 +92,8 @@ pub fn provide(resolver: &dyn Resolver) -> Vec<PageModel> {
 
 /// Resolve consumer dependencies.
 pub trait Resolver {
-    /// Try to resolve a link that the system cannot resolve itself.
+    /// Try to resolve a link. If this returns `None`, the system will try to
+    /// resolve the link itself.
     fn link(&self, link: &str) -> Option<String>;
 
     /// Produce an URL for an image file.

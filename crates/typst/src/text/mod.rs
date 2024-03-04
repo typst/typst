@@ -155,9 +155,9 @@ pub struct TextElem {
     /// available either in an italic or oblique style, the difference between
     /// italic and oblique style is rarely observable.
     ///
-    /// If you want to emphasize your text, you should do so using the
-    /// [emph]($emph) function instead. This makes it easy to adapt the style
-    /// later if you change your mind about how to signify the emphasis.
+    /// If you want to emphasize your text, you should do so using the [emph]
+    /// function instead. This makes it easy to adapt the style later if you
+    /// change your mind about how to signify the emphasis.
     ///
     /// ```example
     /// #text(font: "Linux Libertine", style: "italic")[Italic]
@@ -172,9 +172,8 @@ pub struct TextElem {
     /// that is closest in weight.
     ///
     /// If you want to strongly emphasize your text, you should do so using the
-    /// [strong]($strong) function instead. This makes it easy to adapt the
-    /// style later if you change your mind about how to signify the strong
-    /// emphasis.
+    /// [strong] function instead. This makes it easy to adapt the style later
+    /// if you change your mind about how to signify the strong emphasis.
     ///
     /// ```example
     /// #set text(font: "IBM Plex Sans")

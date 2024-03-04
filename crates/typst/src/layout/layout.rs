@@ -11,7 +11,7 @@ use crate::syntax::Span;
 /// (width and height).
 ///
 /// The given function must accept a single parameter, `size`, which is a
-/// dictionary with keys `width` and `height`, both of type [`length`]($length).
+/// dictionary with keys `width` and `height`, both of type [`length`.
 ///
 /// ```example
 /// #let text = lorem(30)
@@ -31,9 +31,8 @@ use crate::syntax::Span;
 /// page it receives the page's dimensions minus its margins. This is mostly
 /// useful in combination with [measurement]($measure).
 ///
-/// You can also use this function to resolve [`ratio`]($ratio) to fixed
-/// lengths. This might come in handy if you're building your own layout
-/// abstractions.
+/// You can also use this function to resolve [`ratio`] to fixed lengths. This
+/// might come in handy if you're building your own layout abstractions.
 ///
 /// ```example
 /// #layout(size => {
@@ -51,8 +50,8 @@ pub fn layout(
     /// A function to call with the outer container's size. Its return value is
     /// displayed in the document.
     ///
-    /// The container's size is given as a [dictionary]($dictionary) with the
-    /// keys `width` and `height`.
+    /// The container's size is given as a [dictionary] with the keys `width`
+    /// and `height`.
     ///
     /// This function is called once for each time the content returned by
     /// `layout` appears in the document. That makes it possible to generate

@@ -23,9 +23,9 @@ use crate::visualize::{LineElem, Stroke};
 ///
 /// To customize the appearance of the entry in the footnote listing, see
 /// [`footnote.entry`]($footnote.entry). The footnote itself is realized as a
-/// normal superscript, so you can use a set rule on the [`super`]($super)
-/// function to customize it. You can also apply a show rule to customize
-/// only the footnote marker (superscript number) in the running text.
+/// normal superscript, so you can use a set rule on the [`super`] function to
+/// customize it. You can also apply a show rule to customize only the footnote
+/// marker (superscript number) in the running text.
 ///
 /// # Example
 /// ```example
@@ -56,8 +56,8 @@ pub struct FootnoteElem {
     ///
     /// By default, the footnote numbering continues throughout your document.
     /// If you prefer per-page footnote numbering, you can reset the footnote
-    /// [counter]($counter) in the page [header]($page.header). In the future,
-    /// there might be a simpler way to achieve this.
+    /// [counter] in the page [header]($page.header). In the future, there might
+    /// be a simpler way to achieve this.
     ///
     /// ```example
     /// #set footnote(numbering: "*")

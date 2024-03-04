@@ -290,12 +290,12 @@ impl Color {
     ///
     /// A linear Oklab color is represented internally by an array of four
     /// components:
-    /// - lightness ([`ratio`]($ratio))
-    /// - a ([`float`]($float) or [`ratio`]($ratio).
+    /// - lightness ([`ratio`])
+    /// - a ([`float`] or [`ratio`].
     ///   Ratios are relative to `{0.4}`; meaning `{50%}` is equal to `{0.2}`)
-    /// - b ([`float`]($float) or [`ratio`]($ratio).
+    /// - b ([`float`] or [`ratio`].
     ///   Ratios are relative to `{0.4}`; meaning `{50%}` is equal to `{0.2}`)
-    /// - alpha ([`ratio`]($ratio))
+    /// - alpha ([`ratio`])
     ///
     /// These components are also available using the
     /// [`components`]($color.components) method.
@@ -349,11 +349,11 @@ impl Color {
     ///
     /// A linear Oklch color is represented internally by an array of four
     /// components:
-    /// - lightness ([`ratio`]($ratio))
-    /// - chroma ([`float`]($float) or [`ratio`]($ratio).
+    /// - lightness ([`ratio`])
+    /// - chroma ([`float`] or [`ratio`].
     ///   Ratios are relative to `{0.4}`; meaning `{50%}` is equal to `{0.2}`)
-    /// - hue ([`angle`]($angle))
-    /// - alpha ([`ratio`]($ratio))
+    /// - hue ([`angle`])
+    /// - alpha ([`ratio`])
     ///
     /// These components are also available using the
     /// [`components`]($color.components) method.
@@ -412,10 +412,10 @@ impl Color {
     ///
     /// A linear RGB(A) color is represented internally by an array of four
     /// components:
-    /// - red ([`ratio`]($ratio))
-    /// - green ([`ratio`]($ratio))
-    /// - blue ([`ratio`]($ratio))
-    /// - alpha ([`ratio`]($ratio))
+    /// - red ([`ratio`])
+    /// - green ([`ratio`])
+    /// - blue ([`ratio`])
+    /// - alpha ([`ratio`])
     ///
     /// These components are also available using the
     /// [`components`]($color.components) method.
@@ -469,10 +469,10 @@ impl Color {
     /// The color is specified in the sRGB color space.
     ///
     /// An RGB(A) color is represented internally by an array of four components:
-    /// - red ([`ratio`]($ratio))
-    /// - green ([`ratio`]($ratio))
-    /// - blue ([`ratio`]($ratio))
-    /// - alpha ([`ratio`]($ratio))
+    /// - red ([`ratio`])
+    /// - green ([`ratio`])
+    /// - blue ([`ratio`])
+    /// - alpha ([`ratio`])
     ///
     /// These components are also available using the [`components`]($color.components)
     /// method.
@@ -544,10 +544,10 @@ impl Color {
     /// the color.
     ///
     /// A CMYK color is represented internally by an array of four components:
-    /// - cyan ([`ratio`]($ratio))
-    /// - magenta ([`ratio`]($ratio))
-    /// - yellow ([`ratio`]($ratio))
-    /// - key ([`ratio`]($ratio))
+    /// - cyan ([`ratio`])
+    /// - magenta ([`ratio`])
+    /// - yellow ([`ratio`])
+    /// - key ([`ratio`])
     ///
     /// These components are also available using the
     /// [`components`]($color.components) method.
@@ -603,10 +603,10 @@ impl Color {
     /// while keeping perceived hue.
     ///
     /// An HSL color is represented internally by an array of four components:
-    /// - hue ([`angle`]($angle))
-    /// - saturation ([`ratio`]($ratio))
-    /// - lightness ([`ratio`]($ratio))
-    /// - alpha ([`ratio`]($ratio))
+    /// - hue ([`angle`])
+    /// - saturation ([`ratio`])
+    /// - lightness ([`ratio`])
+    /// - alpha ([`ratio`])
     ///
     /// These components are also available using the
     /// [`components`]($color.components) method.
@@ -662,10 +662,10 @@ impl Color {
     /// while keeping perceived hue.
     ///
     /// An HSV color is represented internally by an array of four components:
-    /// - hue ([`angle`]($angle))
-    /// - saturation ([`ratio`]($ratio))
-    /// - value ([`ratio`]($ratio))
-    /// - alpha ([`ratio`]($ratio))
+    /// - hue ([`angle`])
+    /// - saturation ([`ratio`])
+    /// - value ([`ratio`])
+    /// - alpha ([`ratio`])
     ///
     /// These components are also available using the
     /// [`components`]($color.components) method.
