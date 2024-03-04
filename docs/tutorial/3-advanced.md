@@ -125,17 +125,17 @@ supervisor, we'll add our own and their name.
 )
 ```
 
-The two author blocks are laid out next to each other. We use the
-[`grid`]($grid) function to create this layout. With a grid, we can control
-exactly how large each column is and which content goes into which cell. The
-`columns` argument takes an array of [relative lengths]($relative) or
-[fractions]($fraction). In this case, we passed it two equal fractional sizes,
-telling it to split the available space into two equal columns. We then passed
-two content arguments to the grid function. The first with our own details, and
-the second with our supervisors'. We again use the `align` function to center
-the content within the column. The grid takes an arbitrary number of content
-arguments specifying the cells. Rows are added automatically, but they can also
-be manually sized with the `rows` argument.
+The two author blocks are laid out next to each other. We use the [`grid`]
+function to create this layout. With a grid, we can control exactly how large
+each column is and which content goes into which cell. The `columns` argument
+takes an array of [relative lengths]($relative) or [fractions]($fraction). In
+this case, we passed it two equal fractional sizes, telling it to split the
+available space into two equal columns. We then passed two content arguments to
+the grid function. The first with our own details, and the second with our
+supervisors'. We again use the `align` function to center the content within the
+column. The grid takes an arbitrary number of content arguments specifying the
+cells. Rows are added automatically, but they can also be manually sized with
+the `rows` argument.
 
 Now, let's add the abstract. Remember that the conference wants the abstract to
 be set ragged and centered.
@@ -248,11 +248,10 @@ on another title, we can easily change it in one place.
 
 ## Adding columns and headings { #columns-and-headings }
 The paper above unfortunately looks like a wall of lead. To fix that, let's add
-some headings and switch our paper to a two-column layout. The
-[`columns`]($columns) function takes a number and content, and layouts the
-content into the specified number of columns. Since we want everything after the
-abstract to be in two columns, we need to apply the column function to our whole
-document.
+some headings and switch our paper to a two-column layout. The [`columns`]
+function takes a number and content, and layouts the content into the specified
+number of columns. Since we want everything after the abstract to be in two
+columns, we need to apply the column function to our whole document.
 
 Instead of wrapping the whole document in a giant function call, we can use an
 "everything" show rule. To write such a show rule, put a colon directly behind
@@ -386,8 +385,7 @@ function that gets passed the heading as a parameter. That parameter can be used
 as content but it also has some fields like `title`, `numbers`, and `level` from
 which we can compose a custom look. Here, we are center-aligning, setting the
 font weight to `{"regular"}` because headings are bold by default, and use the
-[`smallcaps`]($smallcaps) function to render the heading's title in small
-capitals.
+[`smallcaps`] function to render the heading's title in small capitals.
 
 The only remaining problem is that all headings look the same now. The
 "Motivation" and "Problem Statement" subsections ought to be italic run in
@@ -479,7 +477,8 @@ Let's review the conference's style guide:
 - The paper contains a single-column abstract and two-column main text ✓
 - The abstract should be centered ✓
 - The main text should be justified ✓
-- First level section headings should be centered, rendered in small caps and in 13pt ✓
+- First level section headings should be centered, rendered in small caps and in
+  13pt ✓
 - Second level headings are run-ins, italicized and have the same size as the
   body text ✓
 - Finally, the pages should be US letter sized, numbered in the center and the
@@ -496,7 +495,9 @@ the conference! The finished paper looks like this:
 
 ## Review
 You have now learned how to create headers and footers, how to use functions and
-scopes to locally override styles, how to create more complex layouts with the [`grid`]($grid) function and how to write show rules for individual functions, and the whole document. You also learned how to use the
+scopes to locally override styles, how to create more complex layouts with the
+[`grid`] function and how to write show rules for individual functions, and the
+whole document. You also learned how to use the
 [`where` selector]($styling/#show-rules) to filter the headings by their level.
 
 The paper was a great success! You've met a lot of like-minded researchers at

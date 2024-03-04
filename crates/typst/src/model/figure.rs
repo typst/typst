@@ -103,7 +103,7 @@ use crate::visualize::ImageElem;
 /// ```
 #[elem(scope, Locatable, Synthesize, Count, Show, ShowSet, Refable, Outlinable)]
 pub struct FigureElem {
-    /// The content of the figure. Often, an [image]($image).
+    /// The content of the figure. Often, an [image].
     #[required]
     pub body: Content,
 
@@ -143,12 +143,12 @@ pub struct FigureElem {
     /// If set to `{auto}`, the figure will try to automatically determine its
     /// kind based on the type of its body. Automatically detected kinds are
     /// [tables]($table) and [code]($raw). In other cases, the inferred kind is
-    /// that of an [image]($image).
+    /// that of an [image].
     ///
     /// Setting this to something other than `{auto}` will override the
     /// automatic detection. This can be useful if
     /// - you wish to create a custom figure type that is not an
-    ///   [image]($image), a [table]($table) or [code]($raw),
+    ///   [image], a [table] or [code]($raw),
     /// - you want to force the figure to use a specific counter regardless of
     ///   its content.
     ///
@@ -199,7 +199,7 @@ pub struct FigureElem {
     #[default(Em::new(0.65).into())]
     pub gap: Length,
 
-    /// Whether the figure should appear in an [`outline`]($outline) of figures.
+    /// Whether the figure should appear in an [`outline`] of figures.
     #[default(true)]
     pub outlined: bool,
 

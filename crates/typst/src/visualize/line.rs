@@ -41,7 +41,7 @@ pub struct LineElem {
     /// respected if `end` is `none`.
     pub angle: Angle,
 
-    /// How to [stroke]($stroke) the line.
+    /// How to [stroke] the line.
     ///
     /// ```example
     /// #set line(length: 100%)

@@ -211,10 +211,9 @@ pub struct RawElem {
     /// Applying a theme only affects the color of specifically highlighted
     /// text. It does not consider the theme's foreground and background
     /// properties, so that you retain control over the color of raw text. You
-    /// can apply the foreground color yourself with the [`text`]($text)
-    /// function and the background with a [filled block]($block.fill). You
-    /// could also use the [`xml`]($xml) function to extract these properties
-    /// from the theme.
+    /// can apply the foreground color yourself with the [`text`] function and
+    /// the background with a [filled block]($block.fill). You could also use
+    /// the [`xml`] function to extract these properties from the theme.
     ///
     /// ````example
     /// #set raw(theme: "halcyon.tmTheme")
@@ -542,7 +541,7 @@ cast! {
 
 /// A highlighted line of raw text.
 ///
-/// This is a helper element that is synthesized by [`raw`]($raw) elements.
+/// This is a helper element that is synthesized by [`raw`] elements.
 ///
 /// It allows you to access various properties of the line, such as the line
 /// number, the raw non-highlighted text, the highlighted text, and whether it

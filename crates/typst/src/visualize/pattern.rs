@@ -90,11 +90,10 @@ use crate::World;
 /// Typst determines the ancestor container as follows:
 /// - For shapes that are placed at the root/top level of the document, the
 ///   closest ancestor is the page itself.
-/// - For other shapes, the ancestor is the innermost [`block`]($block) or
-///   [`box`]($box) that contains the shape. This includes the boxes and blocks
-///   that are implicitly created by show rules and elements. For example, a
-///   [`rotate`]($rotate) will not affect the parent of a gradient, but a
-///   [`grid`]($grid) will.
+/// - For other shapes, the ancestor is the innermost [`block`] or [`box`] that
+///   contains the shape. This includes the boxes and blocks that are implicitly
+///   created by show rules and elements. For example, a [`rotate`] will not
+///   affect the parent of a gradient, but a [`grid`] will.
 #[ty(scope, cast)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Pattern(Arc<Repr>);

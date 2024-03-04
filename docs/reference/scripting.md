@@ -46,9 +46,9 @@ _blocks:_
   With content blocks, you can handle markup/content as a programmatic value,
   store it in variables and pass it to [functions]($function). Content
   blocks are delimited by square brackets and can contain arbitrary markup. A
-  content block results in a value of type [content]($content). An
-  arbitrary number of content blocks can be passed as trailing arguments to
-  functions. That is, `{list([A], [B])}` is equivalent to `{list[A][B]}`.
+  content block results in a value of type [content]. An arbitrary number of
+  content blocks can be passed as trailing arguments to functions. That is,
+  `{list([A], [B])}` is equivalent to `{list[A][B]}`.
 
 Content and code blocks can be nested arbitrarily. In the example below,
 `{[hello ]}` is joined with the output of  `{a + [ the ] + b}` yielding
@@ -189,14 +189,14 @@ together into one larger array.
 For loops can iterate over a variety of collections:
 
 - `{for value in array {..}}` \
-  Iterates over the items in the [array]($array). The destructuring syntax
-  described in [Let binding]($scripting/#bindings) can also be used here.
+  Iterates over the items in the [array]. The destructuring syntax described in
+  [Let binding]($scripting/#bindings) can also be used here.
 
 - `{for pair in dict {..}}` \
-  Iterates over the key-value pairs of the [dictionary]($dictionary).
-  The pairs can also be destructured by using `{for (key, value) in dict {..}}`.
-  It is more efficient than `{for pair in dict.pairs() {..}}` because it doesn't
-  create a temporary array of all key-value pairs.
+  Iterates over the key-value pairs of the [dictionary]. The pairs can also be
+  destructured by using `{for (key, value) in dict {..}}`. It is more efficient
+  than `{for pair in dict.pairs() {..}}` because it doesn't create a temporary
+  array of all key-value pairs.
 
 - `{for letter in "abc" {..}}` \
   Iterates over the characters of the [string]($str). Technically, it iterates
@@ -205,9 +205,9 @@ For loops can iterate over a variety of collections:
   codepoints, like a flag emoji.
 
 - `{for byte in bytes("😀") {..}}` \
-  Iterates over the [bytes]($bytes), which can be converted from a [string]($str)
-  or [read]($read) from a file without encoding. Each byte value is an
-  [integer]($int) between `{0}` and `{255}`.
+  Iterates over the [bytes], which can be converted from a [string]($str) or
+  [read] from a file without encoding. Each byte value is an [integer]($int)
+  between `{0}` and `{255}`.
 
 To control the execution of the loop, Typst provides the `{break}` and
 `{continue}` statements. The former performs an early exit from the loop while
@@ -233,10 +233,10 @@ The body of a loop can be a code or content block:
 ## Fields
 You can use _dot notation_ to access fields on a value. The value in question
 can be either:
-- a [dictionary]($dictionary) that has the specified key,
-- a [symbol]($symbol) that has the specified modifier,
-- a [module]($module) containing the specified definition,
-- [content]($content) consisting of an element that has the specified field. The
+- a [dictionary] that has the specified key,
+- a [symbol] that has the specified modifier,
+- a [module] containing the specified definition,
+- [content] consisting of an element that has the specified field. The
   available fields match the arguments of the
   [element function]($function/#element-functions) that were given when the
   element was constructed.
@@ -253,8 +253,8 @@ can be either:
 
 ## Methods
 A _method call_ is a convenient way to call a function that is scoped to a
-value's [type]($type). For example, we can call the [`str.len`]($str.len)
-function in the following two equivalent ways:
+value's [type]. For example, we can call the [`str.len`]($str.len) function in
+the following two equivalent ways:
 
 ```example
 #str.len("abc") is the same as
@@ -291,14 +291,12 @@ module can refer to the content and definitions of another module in multiple
 ways:
 
 - **Including:** `{include "bar.typ"}` \
-  Evaluates the file at the path `bar.typ` and returns the resulting
-  [content]($content).
+  Evaluates the file at the path `bar.typ` and returns the resulting [content].
 
 - **Import:** `{import "bar.typ"}` \
-  Evaluates the file at the path `bar.typ` and inserts the resulting
-  [module]($module) into the current scope as `bar` (filename without
-  extension). You can use the `as` keyword to rename the imported module:
-  `{import "bar.typ" as baz}`
+  Evaluates the file at the path `bar.typ` and inserts the resulting [module]
+  into the current scope as `bar` (filename without extension). You can use the
+  `as` keyword to rename the imported module: `{import "bar.typ" as baz}`
 
 - **Import items:** `{import "bar.typ": a, b}` \
   Evaluates the file at the path `bar.typ`, extracts the values of the variables
@@ -327,8 +325,7 @@ and a version.
 ```
 
 The `preview` namespace contains packages shared by the community. You can find
-a searchable list of available community packages in the [packages]($packages)
-section.
+a searchable list of available community packages in the [packages] section.
 
 If you are using Typst locally, you can also create your own system-local
 packages. For more details on this, see the

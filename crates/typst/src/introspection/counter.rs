@@ -28,14 +28,14 @@ use crate::World;
 /// other things you want to count.
 ///
 /// Since counters change throughout the course of the document, their current
-/// value is _contextual_ It is recommended to read the chapter on
-/// [context]($context) before continuing here.
+/// value is _contextual._ It is recommended to read the chapter on [context]
+/// before continuing here.
 ///
 /// # Accessing a counter { #accessing }
 /// To access the raw value of a counter, we can use the [`get`]($counter.get)
-/// function. This function returns an [array]($array): Counters can have
-/// multiple levels (in the case of headings for sections, subsections, and so
-/// on), and each item in the array corresponds to one level.
+/// function. This function returns an [array]: Counters can have multiple
+/// levels (in the case of headings for sections, subsections, and so on), and
+/// each item in the array corresponds to one level.
 ///
 /// ```example
 /// #set heading(numbering: "1.")
@@ -49,8 +49,7 @@ use crate::World;
 /// Often, we want to display the value of a counter in a more human-readable
 /// way. To do that, we can call the [`display`]($counter.display) function on
 /// the counter. This function retrieves the current counter value and formats
-/// it either with a provided or with an automatically inferred
-/// [numbering]($numbering).
+/// it either with a provided or with an automatically inferred [numbering].
 ///
 /// ```example
 /// #set heading(numbering: "1.")
@@ -199,7 +198,7 @@ use crate::World;
 /// ```
 ///
 /// # Other kinds of state { #other-state }
-/// The `counter` type is closely related to [state]($state) type. Read its
+/// The `counter` type is closely related to [state] type. Read its
 /// documentation for more details on state management in Typst and why it
 /// doesn't just use normal variables for counters.
 #[ty(scope)]
@@ -410,7 +409,7 @@ impl Counter {
         ///   label,
         /// - If this is an element function or selector, counts through its
         ///   elements,
-        /// - If this is the [`page`]($page) function, counts through pages.
+        /// - If this is the [`page`] function, counts through pages.
         key: CounterKey,
     ) -> Counter {
         Self(key)

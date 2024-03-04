@@ -18,8 +18,7 @@ use crate::text::TextElem;
 /// Produces a textual reference to a label. For example, a reference to a
 /// heading will yield an appropriate string such as "Section 1" for a reference
 /// to the first heading. The references are also links to the respective
-/// element. Reference syntax can also be used to [cite]($cite) from a
-/// bibliography.
+/// element. Reference syntax can also be used to [cite] from a bibliography.
 ///
 /// Referenceable elements include [headings]($heading), [figures]($figure),
 /// [equations]($math.equation), and [footnotes]($footnote). To create a custom
@@ -28,7 +27,7 @@ use crate::text::TextElem;
 /// might be a more direct way to define a custom referenceable element.
 ///
 /// If you just want to link to a labelled element and not get an automatic
-/// textual reference, consider using the [`link`]($link) function instead.
+/// textual reference, consider using the [`link`] function instead.
 ///
 /// # Example
 /// ```example
@@ -96,7 +95,7 @@ pub struct RefElem {
     /// The target label that should be referenced.
     ///
     /// Can be a label that is defined in the document or an entry from the
-    /// [`bibliography`]($bibliography).
+    /// [`bibliography`].
     #[required]
     pub target: Label,
 

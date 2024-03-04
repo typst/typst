@@ -25,7 +25,7 @@ provide instant previews.
 
 In the following, we will cover some of the most common questions a user
 switching from LaTeX will have when composing a document in Typst. If you prefer
-a step-by-step introduction to Typst, check out our [tutorial]($tutorial).
+a step-by-step introduction to Typst, check out our [tutorial].
 
 ## How do I create a new, empty document? { #getting-started }
 That's easy. You just create a new, empty text file (the file extension is
@@ -65,20 +65,20 @@ Emphasis (usually rendered as italic text) is expressed by enclosing text in
 Here is a list of common markup commands used in LaTeX and their Typst
 equivalents. You can also check out the [full syntax cheat sheet]($syntax).
 
-| Element          | LaTeX                     | Typst                  | See
-|:-----------------|:--------------------------|:-----------------------|:--------------------
-| Strong emphasis  | `\textbf{strong}`         | `[*strong*]`           | [`strong`]($strong) |
-| Emphasis         | `\emph{emphasis}`         | `[_emphasis_]`         | [`emph`]($emph)     |
-| Monospace / code | `\texttt{print(1)}`       | ``[`print(1)`]``       | [`raw`]($raw)       |
-| Link             | `\url{https://typst.app}` | `[https://typst.app/]` | [`link`]($link)     |
-| Label            | `\label{intro}`           | `[<intro>]`            | [`label`]($label)   |
-| Reference        | `\ref{intro}`             | `[@intro]`             | [`ref`]($ref)       |
-| Citation         | `\cite{humphrey97}`       | `[@humphrey97]`        | [`cite`]($cite)     |
-| Bullet list      | `itemize` environment     | `[- List]`             | [`list`]($list)     |
-| Numbered list    | `enumerate` environment   | `[+ List]`             | [`enum`]($enum)     |
-| Term list        | `description` environment | `[/ Term: List]`       | [`terms`]($terms)   |
-| Figure           | `figure` environment      | `figure` function      | [`figure`]($figure) |
-| Table            | `table` environment       | `table` function       | [`table`]($table)   |
+| Element          | LaTeX                     | Typst                  | See        |
+|:-----------------|:--------------------------|:-----------------------|:-----------|
+| Strong emphasis  | `\textbf{strong}`         | `[*strong*]`           | [`strong`] |
+| Emphasis         | `\emph{emphasis}`         | `[_emphasis_]`         | [`emph`]   |
+| Monospace / code | `\texttt{print(1)}`       | ``[`print(1)`]``       | [`raw`]    |
+| Link             | `\url{https://typst.app}` | `[https://typst.app/]` | [`link`]   |
+| Label            | `\label{intro}`           | `[<intro>]`            | [`label`]  |
+| Reference        | `\ref{intro}`             | `[@intro]`             | [`ref`]    |
+| Citation         | `\cite{humphrey97}`       | `[@humphrey97]`        | [`cite`]   |
+| Bullet list      | `itemize` environment     | `[- List]`             | [`list`]   |
+| Numbered list    | `enumerate` environment   | `[+ List]`             | [`enum`]   |
+| Term list        | `description` environment | `[/ Term: List]`       | [`terms`]  |
+| Figure           | `figure` environment      | `figure` function      | [`figure`] |
+| Table            | `table` environment       | `table` function       | [`table`]  |
 | Equation         | `$x$`, `align` / `equation` environments | `[$x$]`, `[$ x = y $]` | [`equation`]($math.equation) |
 
 [Lists]($list) do not rely on environments in Typst. Instead, they have
@@ -147,12 +147,12 @@ And finally a little loop:
 ]
 ```
 
-A function call always involves the name of the function ([`rect`]($rect),
-[`underline`]($underline), [`calc.max`]($calc.max), [`range`]($array.range))
-followed by parentheses (as opposed to LaTeX where the square brackets and curly
-braces are optional if the macro requires no arguments). The expected list of
-arguments passed within those parentheses depends on the concrete function and
-is specified in the [reference]($reference).
+A function call always involves the name of the function ([`rect`],
+[`underline`], [`calc.max`]($calc.max), [`range`]($array.range)) followed by
+parentheses (as opposed to LaTeX where the square brackets and curly braces are
+optional if the macro requires no arguments). The expected list of arguments
+passed within those parentheses depends on the concrete function and is
+specified in the [reference].
 
 ### Arguments
 A function can have multiple arguments. Some arguments are positional, i.e., you
@@ -177,10 +177,10 @@ Named arguments are similar to how some LaTeX environments are configured, for
 example, you would type `\begin{enumerate}[label={\alph*)}]` to start a list
 with the labels `a)`, `b)`, and so on.
 
-Often, you want to provide some [content]($content) to a function. For example,
-the LaTeX command `\underline{Alternative A}` would translate to
+Often, you want to provide some [content] to a function. For example, the LaTeX
+command `\underline{Alternative A}` would translate to
 `[#underline([Alternative A])]` in Typst. The square brackets indicate that a
-value is [content]($content). Within these brackets, you can use normal markup.
+value is [content]. Within these brackets, you can use normal markup.
 However, that's a lot of parentheses for a pretty simple construct. This is why
 you can also move trailing content arguments after the parentheses (and omit the
 parentheses if they would end up empty).
@@ -283,11 +283,11 @@ You can achieve the effects of LaTeX commands like `\textbf`, `\textsf`,
 `\rmfamily`, `\mdseries`, and `\itshape` with the [`font`]($text.font),
 [`style`]($text.style), and [`weight`]($text.weight) arguments of the `text`
 function. The text function can be used in a set rule (declaration style) or
-with a content argument. To replace `\textsc`, you can use the
-[`smallcaps`]($smallcaps) function, which renders its content argument as
-smallcaps. Should you want to use it declaration style (like `\scshape`), you
-can use an [_everything_ show rule]($styling/#show-rules) that applies the
-function to the rest of the scope:
+with a content argument. To replace `\textsc`, you can use the [`smallcaps`]
+function, which renders its content argument as smallcaps. Should you want to
+use it declaration style (like `\scshape`), you can use an
+[_everything_ show rule]($styling/#show-rules) that applies the function to the
+rest of the scope:
 
 ```example
 #show: smallcaps
@@ -433,23 +433,23 @@ Typst is "batteries included," so the equivalent of many popular LaTeX packages
 is built right-in. Below, we compiled a table with frequently loaded packages
 and their corresponding Typst functions.
 
-| LaTeX Package                   | Typst Alternative                                             |
-|:--------------------------------|:------------------------------------------------------------- |
-| graphicx, svg                   | [`image`]($image) function                                    |
-| tabularx                        | [`table`]($table), [`grid`]($grid) functions                  |
-| fontenc, inputenc, unicode-math | Just start writing!                                           |
-| babel, polyglossia              | [`text`]($text.lang) function: `[#set text(lang: "zh")]`      |
-| amsmath                         | [Math mode]($category/math)                                   |
+| LaTeX Package                   | Typst Alternative                          |
+|:--------------------------------|:-------------------------------------------|
+| graphicx, svg                   | [`image`] function                         |
+| tabularx                        | [`table`], [`grid`] functions              |
+| fontenc, inputenc, unicode-math | Just start writing!                        |
+| babel, polyglossia              | [`text`]($text.lang) function: `[#set text(lang: "zh")]` |
+| amsmath                         | [Math mode]($category/math)                |
 | amsfonts, amssymb               | [`sym`]($category/symbols) module and [syntax]($syntax/#math) |
-| geometry, fancyhdr              | [`page`]($page) function                                      |
+| geometry, fancyhdr              | [`page`] function                          |
 | xcolor                          | [`text`]($text.fill) function: `[#set text(fill: rgb("#0178A4"))]` |
-| hyperref                        | [`link`]($link) function                                      |
-| bibtex, biblatex, natbib        | [`cite`]($cite), [`bibliography`]($bibliography) functions    |
-| lstlisting, minted              | [`raw`]($raw) function and syntax                             |
+| hyperref                        | [`link`] function                          |
+| bibtex, biblatex, natbib        | [`cite`], [`bibliography`] functions       |
+| lstlisting, minted              | [`raw`] function and syntax                |
 | parskip                         | [`block`]($block.spacing) and [`par`]($par.first-line-indent) functions |
 | csquotes                        | Set the [`text`]($text.lang) language and type `["]` or `[']` |
-| caption                         | [`figure`]($figure) function                                  |
-| enumitem                        | [`list`]($list), [`enum`]($enum), [`terms`]($terms) functions |
+| caption                         | [`figure`] function                        |
+| enumitem                        | [`list`], [`enum`], [`terms`] functions    |
 
 Although _many_ things are built-in, not everything can be. That's why Typst has
 a built-in [package manager]($packages) where the community can share their
@@ -606,8 +606,7 @@ a reusable template?
 ## Bibliographies
 Typst includes a fully-featured bibliography system that is compatible with
 BibTeX files. You can continue to use your `.bib` literature libraries by
-loading them with the [`bibliography`]($bibliography) function. Another
-possibility is to use
+loading them with the [`bibliography`] function. Another possibility is to use
 [Typst's YAML-based native format](https://github.com/typst/hayagriva/blob/main/docs/file-format.md).
 
 Typst uses the Citation Style Language to define and process citation and
@@ -619,13 +618,14 @@ your own.
 
 You can cite an entry in your bibliography or reference a label in your document
 with the same syntax: `[@key]` (this would reference an entry called `key`).
-Alternatively, you can use the [`cite`]($cite) function.
+Alternatively, you can use the [`cite`] function.
 
 Alternative forms for your citation, such as year only and citations for natural
 use in prose (cf. `\citet` and `\textcite`) are available with
 [`[#cite(<key>, form: "prose")]`]($cite.form).
 
-You can find more information on the documentation page of the [`bibliography`]($bibliography) function.
+You can find more information on the documentation page of the [`bibliography`]
+function.
 
 ## Installation
 You have two ways to use Typst: In [our web app](https://typst.app/signup/) or

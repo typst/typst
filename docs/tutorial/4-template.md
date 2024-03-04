@@ -195,17 +195,17 @@ Next, we copy the code that generates title, abstract and authors from the
 previous chapter into the template, replacing the fixed details with the
 parameters.
 
-The new `authors` parameter expects an [array]($array) of
-[dictionaries]($dictionary) with the keys `name`, `affiliation` and `email`.
-Because we can have an arbitrary number of authors, we dynamically determine if
-we need one, two or three columns for the author list. First, we determine the
-number of authors using the [`.len()`]($array.len) method on the `authors`
-array. Then, we set the number of columns as the minimum of this count and
-three, so that we never create more than three columns. If there are more than
-three authors, a new row will be inserted instead. For this purpose, we have
-also added a `row-gutter` parameter to the `grid` function. Otherwise, the rows
-would be too close together. To extract the details about the authors from the
-dictionary, we use the [field access syntax]($scripting/#fields).
+The new `authors` parameter expects an [array] of [dictionaries]($dictionary)
+with the keys `name`, `affiliation` and `email`. Because we can have an
+arbitrary number of authors, we dynamically determine if we need one, two or
+three columns for the author list. First, we determine the number of authors
+using the [`.len()`]($array.len) method on the `authors` array. Then, we set the
+number of columns as the minimum of this count and three, so that we never
+create more than three columns. If there are more than three authors, a new row
+will be inserted instead. For this purpose, we have also added a `row-gutter`
+parameter to the `grid` function. Otherwise, the rows would be too close
+together. To extract the details about the authors from the dictionary, we use
+the [field access syntax]($scripting/#fields).
 
 We still have to provide an argument to the grid for each author: Here is where
 the array's [`map` method]($array.map) comes in handy. It takes a function as an

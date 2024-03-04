@@ -82,11 +82,10 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// Typst determines the ancestor container as follows:
 /// - For shapes that are placed at the root/top level of the document, the
 ///   closest ancestor is the page itself.
-/// - For other shapes, the ancestor is the innermost [`block`]($block) or
-///   [`box`]($box) that contains the shape. This includes the boxes and blocks
-///   that are implicitly created by show rules and elements. For example, a
-///   [`rotate`]($rotate) will not affect the parent of a gradient, but a
-///   [`grid`]($grid) will.
+/// - For other shapes, the ancestor is the innermost [`block`] or [`box`] that
+///   contains the shape. This includes the boxes and blocks that are implicitly
+///   created by show rules and elements. For example, a [`rotate`] will not
+///   affect the parent of a gradient, but a [`grid`] will.
 ///
 /// # Color spaces and interpolation
 /// Gradients can be interpolated in any color space. By default, gradients are
@@ -708,9 +707,9 @@ impl Gradient {
 
     /// Sample the gradient at a given position.
     ///
-    /// The position is either a position along the gradient (a [ratio]($ratio)
-    /// between `{0%}` and `{100%}`) or an [angle]($angle). Any value outside
-    /// of this range will be clamped.
+    /// The position is either a position along the gradient (a [ratio] between
+    /// `{0%}` and `{100%}`) or an [angle]. Any value outside of this range will
+    /// be clamped.
     #[func]
     pub fn sample(
         &self,

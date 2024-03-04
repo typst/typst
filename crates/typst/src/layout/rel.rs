@@ -10,9 +10,9 @@ use crate::util::Numeric;
 
 /// A length in relation to some known length.
 ///
-/// This type is a combination of a [length]($length) with a [ratio]($ratio). It
-/// results from addition and subtraction of a length and a ratio. Wherever a
-/// relative length is expected, you can also use a bare length or ratio.
+/// This type is a combination of a [length] with a [ratio]. It results from
+/// addition and subtraction of a length and a ratio. Wherever a relative length
+/// is expected, you can also use a bare length or ratio.
 ///
 /// # Example
 /// ```example

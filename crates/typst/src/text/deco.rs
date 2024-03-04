@@ -22,7 +22,7 @@ use crate::visualize::{styled_rect, Color, FixedStroke, Geometry, Paint, Stroke}
 /// ```
 #[elem(Show)]
 pub struct UnderlineElem {
-    /// How to [stroke]($stroke) the line.
+    /// How to [stroke] the line.
     ///
     /// If set to `{auto}`, takes on the text's color and a thickness defined in
     /// the current font.
@@ -108,7 +108,7 @@ impl Show for Packed<UnderlineElem> {
 /// ```
 #[elem(Show)]
 pub struct OverlineElem {
-    /// How to [stroke]($stroke) the line.
+    /// How to [stroke] the line.
     ///
     /// If set to `{auto}`, takes on the text's color and a thickness defined in
     /// the current font.
@@ -200,7 +200,7 @@ impl Show for Packed<OverlineElem> {
 /// ```
 #[elem(title = "Strikethrough", Show)]
 pub struct StrikeElem {
-    /// How to [stroke]($stroke) the line.
+    /// How to [stroke] the line.
     ///
     /// If set to `{auto}`, takes on the text's color and a thickness defined in
     /// the current font.
