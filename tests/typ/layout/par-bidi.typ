@@ -48,6 +48,13 @@ Lריווח #h(1cm) R
 الغالب #h(70pt) ن#" "ة
 
 ---
+// Test explicit dir
+#set text(dir: rtl)
+#text("8:00 - 9:00",dir:ltr) בבוקר
+#linebreak()
+ב #text("12:00 - 13:00",dir:ltr) בצהריים
+
+---
 // Test setting a vertical direction.
 // Ref: false
 
