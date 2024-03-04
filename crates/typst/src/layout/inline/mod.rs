@@ -7,7 +7,7 @@ use unicode_script::{Script, UnicodeScript};
 
 use self::linebreak::{breakpoints, Breakpoint};
 use self::shaping::{
-    is_gb_style, is_of_cj_script, shape, ShapedGlyph, ShapedText, BEGIN_PUNCT_PAT,
+    cjk_punct_style, is_of_cj_script, shape, ShapedGlyph, ShapedText, BEGIN_PUNCT_PAT,
     END_PUNCT_PAT,
 };
 use crate::diag::{bail, SourceResult};
@@ -1041,7 +1041,7 @@ fn line<'a>(
         justify |= text.ends_with('\u{2028}');
 
         // Deal with CJK punctuation at line ends.
-        let gb_style = is_gb_style(shaped.lang, shaped.region);
+        let gb_style = cjk_punct_style(shaped.lang, shaped.region);
         let maybe_adjust_last_glyph = trimmed.ends_with(END_PUNCT_PAT)
             || (p.cjk_latin_spacing && trimmed.ends_with(is_of_cj_script));
 
