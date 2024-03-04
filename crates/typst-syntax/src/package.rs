@@ -60,11 +60,11 @@ impl PackageManifest {
             ));
         }
 
-        if let Some(compiler) = self.package.compiler {
+        if let Some(required) = self.package.compiler {
             let current = PackageVersion::compiler();
-            if current < compiler {
+            if current < required {
                 return Err(eco_format!(
-                    "package requires typst {compiler} or newer \
+                    "package requires typst {required} or newer \
                      (current version is {current})"
                 ));
             }
