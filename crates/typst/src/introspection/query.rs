@@ -7,21 +7,18 @@ use crate::introspection::Location;
 ///
 /// The `query` functions lets you search your document for elements of a
 /// particular type or with a particular label. To use it, you first need to
-/// retrieve the current document location with the [`locate`]($locate)
-/// function.
+/// ensure that [context] is available.
 ///
-/// You can get the location of the elements returned by `query` with
-/// [`location`]($content.location).
-///
+
 /// # Finding elements
 /// In the example below, we create a custom page header that displays the text
 /// "Typst Academy" in small capitals and the current section title. On the
 /// first page, the section title is omitted because the header is before the
 /// first section heading.
 ///
-/// To realize this layout, we call `locate` and then query for all headings
-/// after the current location. The function we pass to locate is called twice
-/// in this case: Once per page.
+/// To realize this layout, we open a `context` and then query for all headings
+/// after the [current location]($here). The code within the context block
+/// runs twice: Once per page.
 ///
 /// - On the first page the query for all headings before the current location
 ///   yields an empty array: There are no previous headings. We check for this
@@ -46,7 +43,7 @@ use crate::introspection::Location;
 ///   let academy = smallcaps[
 ///     Typst Academy
 ///   ]
-///   if elems == () {
+///   if elems.len() == 0 {
 ///     align(right, academy)
 ///   } else {
 ///     let body = elems.last().body
@@ -64,6 +61,9 @@ use crate::introspection::Location;
 /// #lorem(15)
 /// ```
 ///
+/// You can get the location of the elements returned by `query` with
+/// [`location`]($content.location).
+///
 /// # A word of caution { #caution }
 /// To resolve all your queries, Typst evaluates and layouts parts of the
 /// document multiple times. However, there is no guarantee that your queries
@@ -80,7 +80,7 @@ use crate::introspection::Location;
 ///
 /// In general, you should try not to write queries that affect themselves. The
 /// same words of caution also apply to other introspection features like
-/// [counters]($counter) and [state]($state).
+/// [counters]($counter) and [state].
 ///
 /// ```example
 /// = Real
@@ -95,7 +95,7 @@ use crate::introspection::Location;
 /// You can also perform queries from the command line with the `typst query`
 /// command. This command executes an arbitrary query on the document and
 /// returns the resulting elements in serialized form. Consider the following
-/// `example.typ` file which contains some invisible [metadata]($metadata):
+/// `example.typ` file which contains some invisible [metadata]:
 ///
 /// ```typ
 /// #metadata("This is a note") <note>

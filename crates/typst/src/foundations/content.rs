@@ -67,7 +67,7 @@ use crate::util::{fat, BitSet, LazyHash};
 ///
 /// In the web app, you can hover over a content variable to see exactly which
 /// elements the content is composed of and what fields they have.
-/// Alternatively, you can inspect the output of the [`repr`]($repr) function.
+/// Alternatively, you can inspect the output of the [`repr`] function.
 #[ty(scope, cast)]
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
@@ -569,10 +569,9 @@ impl Content {
     }
 
     /// The location of the content. This is only available on content returned
-    /// by [query]($query) or provided by a
-    /// [show rule]($reference/styling/#show-rules), for other content it will
-    /// be `{none}`. The resulting location can be used with
-    /// [counters]($counter), [state]($state) and [queries]($query).
+    /// by [query] or provided by a [show rule]($reference/styling/#show-rules),
+    /// for other content it will be `{none}`. The resulting location can be
+    /// used with [counters]($counter), [state] and [queries]($query).
     #[func]
     pub fn location(&self) -> Option<Location> {
         self.inner.location

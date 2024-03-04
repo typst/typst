@@ -213,8 +213,8 @@ impl Datetime {
 impl Datetime {
     /// Creates a new datetime.
     ///
-    /// You can specify the [datetime]($datetime) using a year, month, day,
-    /// hour, minute, and second.
+    /// You can specify the [datetime] using a year, month, day, hour, minute,
+    /// and second.
     ///
     /// _Note_: Depending on which components of the datetime you specify, Typst
     /// will store it in one of the following three ways:

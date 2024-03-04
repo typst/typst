@@ -63,8 +63,7 @@ pub struct QuoteElem {
     /// Whether double quotes should be added around this quote.
     ///
     /// The double quotes used are inferred from the `quotes` property on
-    /// [smartquote]($smartquote), which is affected by the `lang` property on
-    /// [text]($text).
+    /// [smartquote], which is affected by the `lang` property on [text].
     ///
     /// - `{true}`: Wrap this quote in double quotes.
     /// - `{false}`: Do not wrap this quote in double quotes.
