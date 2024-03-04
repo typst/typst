@@ -134,10 +134,7 @@ impl<'a> GridLayouter<'a> {
                         .and_then(|rrows| rrows.get(0..header.end))
                         .unwrap_or(&[]);
 
-                    let header_height: Abs =
-                        header_rows.iter().map(|row| row.height).sum();
-
-                    header_height
+                    header_rows.iter().map(|row| row.height).sum()
                 } else {
                     // Without a header, start at the very top of the region.
                     Abs::zero()
