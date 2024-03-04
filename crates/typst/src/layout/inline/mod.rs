@@ -432,6 +432,8 @@ fn collect<'a>(
         segments.push((Segment::Spacing((-hang).into()), *styles));
     }
 
+    let outer_dir = TextElem::dir_in(*styles);
+
     while let Some(mut child) = iter.next() {
         let outer = styles;
         let mut styles = *styles;
@@ -446,9 +448,8 @@ fn collect<'a>(
         } else if let Some(elem) = child.to_packed::<TextElem>() {
             let prev = full.len();
             let dir = TextElem::dir_in(styles);
-            let outer_dir = TextElem::dir_in(*outer);
             if dir != outer_dir {
-                // Insert `Explicit Directional Isolates`
+                // Insert "Explicit Directional Isolate".
                 match dir {
                     Dir::LTR => full.push('\u{2066}'),
                     Dir::RTL => full.push('\u{2067}'),
@@ -463,7 +464,8 @@ fn collect<'a>(
             }
 
             if dir != outer_dir {
-                full.push('\u{2069}'); // Insert `Pop Directional Isolate`
+                // Insert "Pop Directional Isolate".
+                full.push('\u{2069}');
             }
             Segment::Text(full.len() - prev)
         } else if let Some(elem) = child.to_packed::<HElem>() {
