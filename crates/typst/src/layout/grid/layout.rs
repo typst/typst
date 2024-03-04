@@ -1246,8 +1246,6 @@ impl<'a> GridLayouter<'a> {
             if let Some(header) = &self.grid.header {
                 if y < header.end {
                     if y == 0 {
-                        // Use the appropriate function to layout header
-                        // rows.
                         self.layout_header(header, engine)?;
                     }
                     // Skip header rows during normal layout.
