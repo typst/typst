@@ -18,7 +18,6 @@ keywords = ["typst"]
 [workspace.dependencies]
 typst = { path = "crates/typst" }
 typst-cli = { path = "crates/typst-cli" }
-typst-docs = { path = "crates/typst-docs" }
 typst-ide = { path = "crates/typst-ide" }
 typst-macros = { path = "crates/typst-macros" }
 typst-pdf = { path = "crates/typst-pdf" }
@@ -29,7 +28,7 @@ typst-timing = { path = "crates/typst-timing" }
 typst-assets = { git = "https://github.com/typst/typst-assets", rev = "79e1c84" }
 typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "c63ab46" }
 az = "1.2"
-base64 = "0.21.2"
+base64 = "0.22"
 bitflags = { version = "2", features = ["serde"] }
 bytemuck = "1"
 chinese-number = { version = "0.7.2", default-features = false, features = ["number-to-chinese"] }
