@@ -48,6 +48,12 @@ static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
     // See https://corefonts.sourceforge.net/.
     "Arial-Black" => Exception::new()
         .weight(900),
+    // Fandol fonts designed for Chinese typesetting.
+    // See https://ctan.org/tex-archive/fonts/fandol/.
+    "FandolHei-Bold" => Exception::new()
+        .weight(700),
+    "FandolSong-Bold" => Exception::new()
+        .weight(700),
     // Noto fonts
     "NotoNaskhArabicUISemi-Bold" => Exception::new()
         .family("Noto Naskh Arabic UI")
