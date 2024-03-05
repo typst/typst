@@ -1957,9 +1957,6 @@ impl<'a> GridLayouter<'a> {
 
     /// Measure the regions sizes of an auto row. The option is always `Some(_)`
     /// if `can_skip` is false.
-    /// The `header_height` must correspond to the header height of the current
-    /// region, if there's any. This is ignored if this is an unbreakable auto
-    /// row, so it can safely be `None` in that case.
     /// If `unbreakable_rows_left` is positive, this function shall only return
     /// a single frame. Useful when an unbreakable rowspan crosses this auto
     /// row.
