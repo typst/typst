@@ -741,7 +741,7 @@ impl Color {
             }
             Self::Oklab(c) => {
                 if alpha {
-                    array![Ratio::new(c.l), c.a, c.b, Ratio::new(c.alpha),]
+                    array![Ratio::new(c.l), c.a, c.b, Ratio::new(c.alpha)]
                 } else {
                     array![Ratio::new(c.l), c.a, c.b]
                 }
@@ -755,7 +755,7 @@ impl Color {
                         Ratio::new(c.alpha),
                     ]
                 } else {
-                    array![Ratio::new(c.l), c.chroma, hue_angle(c.hue.into_degrees()),]
+                    array![Ratio::new(c.l), c.chroma, hue_angle(c.hue.into_degrees())]
                 }
             }
             Self::LinearRgb(c) => {
