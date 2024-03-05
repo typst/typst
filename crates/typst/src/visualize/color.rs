@@ -1302,9 +1302,9 @@ impl Color {
         self.to_vec4().map(|component| component as f32)
     }
 
-    /// Returns the color's RGB(A) representation as an array of 8-bit values.
+    /// Converts the color to a vec of four [`u8`]s.
     pub fn to_vec4_u8(&self) -> [u8; 4] {
-        self.to_rgb().to_vec4().map(|x| (x * 255.0).round() as u8)
+        self.to_vec4().map(|x| (x * 255.0).round() as u8)
     }
 
     pub fn to_space(self, space: ColorSpace) -> Self {
