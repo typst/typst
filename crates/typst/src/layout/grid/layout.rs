@@ -1410,38 +1410,61 @@ impl<'a> GridLayouter<'a> {
                 .map(|piece| piece.y)
                 .chain(std::iter::once(self.grid.rows.len()));
 
-            let mut prev_y = None;
-            for (y, dy) in hline_indices.zip(hline_offsets) {
-                let is_bottom_border = y == self.grid.rows.len();
-                let line_index = if !self.grid.has_gutter {
+            // Converts a row to the corresponding index in the vector of
+            // hlines.
+            let hline_index_of_row = |y: usize| {
+                if !self.grid.has_gutter {
                     y
-                } else if is_bottom_border {
+                } else if y == self.grid.rows.len() {
                     y / 2 + 1
                 } else {
                     // Check the vlines loop for an explanation regarding
                     // these index operations.
                     y / 2
-                };
+                }
+            };
 
-                let hlines_at_row = self
-                    .grid
+            let get_hlines_at = |y| {
+                self.grid
                     .hlines
-                    .get(line_index)
+                    .get(hline_index_of_row(y))
                     .map(Vec::as_slice)
                     .unwrap_or(&[])
-                    .iter()
-                    .chain(if prev_y.is_none() && y != 0 {
+            };
+
+            let mut prev_y = None;
+            for (y, dy) in hline_indices.zip(hline_offsets) {
+                let is_bottom_border = y == self.grid.rows.len();
+                let line_index = hline_index_of_row(y);
+
+                // If some grid rows were omitted between the previous resolved
+                // row and the current one, we ensure lines below the previous
+                // row don't "disappear" and are considered, albeit with less
+                // priority. However, don't do this when we're below a header,
+                // as it must have more priority instead of less, so it is
+                // chained later instead of before.
+                let prev_lines = prev_y
+                    .filter(|prev_y| {
+                        let logically_next_line_index = hline_index_of_row(prev_y + 1);
+
+                        logically_next_line_index != line_index
+                            && !self.grid.header.as_ref().is_some_and(|header| {
+                                hline_index_of_row(header.end)
+                                    == logically_next_line_index
+                            })
+                    })
+                    .map(|prev_y| get_hlines_at(prev_y + 1))
+                    .unwrap_or(&[]);
+
+                let hlines_at_row = prev_lines.iter().chain(get_hlines_at(y)).chain(
+                    if prev_y.is_none() && y != 0 {
                         // For lines at the top of the region, give priority to
                         // the lines at the top border.
-                        self.grid.hlines.first().map(Vec::as_slice).unwrap_or(&[])
+                        get_hlines_at(0)
                     } else if let Some((header, prev_y)) =
                         self.grid.header.as_ref().zip(prev_y)
                     {
-                        let header_line_index = if self.grid.has_gutter {
-                            header.end / 2
-                        } else {
-                            header.end
-                        };
+                        let header_line_index = hline_index_of_row(header.end);
                         if prev_y + 1 == header.end && line_index != header_line_index {
                             // For lines below a header, give priority to the
                             // lines originally below the header rather than
@@ -1450,11 +1473,7 @@ impl<'a> GridLayouter<'a> {
                             // out the header for the first time, since the
                             // lines being normally laid out then will be
                             // precisely the lines below the header.
-                            self.grid
-                                .hlines
-                                .get(header_line_index)
-                                .map(Vec::as_slice)
-                                .unwrap_or(&[])
+                            get_hlines_at(header.end)
                         } else {
                             &[]
                         }
@@ -1464,7 +1483,8 @@ impl<'a> GridLayouter<'a> {
                         // When at the top of the region but at the first row,
                         // its own lines are already the border lines.
                         &[]
-                    });
+                    },
+                );
 
                 let tracks = self.rcols.iter().copied().enumerate();
 
