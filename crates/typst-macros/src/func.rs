@@ -233,6 +233,7 @@ fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
     quote! {
         #[doc = #docs]
         #[allow(dead_code)]
+        #[allow(rustdoc::broken_intra_doc_links)]
         #item
 
         #[doc(hidden)]

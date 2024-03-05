@@ -114,18 +114,18 @@ impl ShapedGlyph {
     }
 
     pub fn is_cjk_punctuation(&self) -> bool {
-        self.is_cjk_left_aligned_punctuation(true)
+        self.is_cjk_left_aligned_punctuation(CjkPunctStyle::Gb)
             || self.is_cjk_right_aligned_punctuation()
-            || self.is_cjk_center_aligned_punctuation(true)
+            || self.is_cjk_center_aligned_punctuation(CjkPunctStyle::Gb)
     }
 
     /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
-    pub fn is_cjk_left_aligned_punctuation(&self, gb_style: bool) -> bool {
+    pub fn is_cjk_left_aligned_punctuation(&self, style: CjkPunctStyle) -> bool {
         is_cjk_left_aligned_punctuation(
             self.c,
             self.x_advance,
             self.stretchability(),
-            gb_style,
+            style,
         )
     }
 
@@ -135,8 +135,8 @@ impl ShapedGlyph {
     }
 
     /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
-    pub fn is_cjk_center_aligned_punctuation(&self, gb_style: bool) -> bool {
-        is_cjk_center_aligned_punctuation(self.c, gb_style)
+    pub fn is_cjk_center_aligned_punctuation(&self, style: CjkPunctStyle) -> bool {
+        is_cjk_center_aligned_punctuation(self.c, style)
     }
 
     /// Whether the glyph is a western letter or number.
@@ -146,7 +146,7 @@ impl ShapedGlyph {
             || self.c.is_ascii_digit()
     }
 
-    pub fn base_adjustability(&self, gb_style: bool) -> Adjustability {
+    pub fn base_adjustability(&self, style: CjkPunctStyle) -> Adjustability {
         let width = self.x_advance;
         if self.is_space() {
             Adjustability {
@@ -154,7 +154,7 @@ impl ShapedGlyph {
                 stretchability: (Em::zero(), width / 2.0),
                 shrinkability: (Em::zero(), width / 3.0),
             }
-        } else if self.is_cjk_left_aligned_punctuation(gb_style) {
+        } else if self.is_cjk_left_aligned_punctuation(style) {
             Adjustability {
                 stretchability: (Em::zero(), Em::zero()),
                 shrinkability: (Em::zero(), width / 2.0),
@@ -164,7 +164,7 @@ impl ShapedGlyph {
                 stretchability: (Em::zero(), Em::zero()),
                 shrinkability: (width / 2.0, Em::zero()),
             }
-        } else if self.is_cjk_center_aligned_punctuation(gb_style) {
+        } else if self.is_cjk_center_aligned_punctuation(style) {
             Adjustability {
                 stretchability: (Em::zero(), Em::zero()),
                 shrinkability: (width / 4.0, width / 4.0),
@@ -883,16 +883,16 @@ fn track_and_space(ctx: &mut ShapingContext) {
 /// Calculate stretchability and shrinkability of each glyph,
 /// and CJK punctuation adjustments according to Chinese Layout Requirements.
 fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<Region>) {
-    let gb_style = is_gb_style(lang, region);
+    let style = cjk_punct_style(lang, region);
 
     for glyph in &mut ctx.glyphs {
-        glyph.adjustability = glyph.base_adjustability(gb_style);
+        glyph.adjustability = glyph.base_adjustability(style);
     }
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
     while let Some(glyph) = glyphs.next() {
-        // Only GB style needs further adjustment.
-        if glyph.is_cjk_punctuation() && !gb_style {
+        // CNS style needs not further adjustment.
+        if glyph.is_cjk_punctuation() && matches!(style, CjkPunctStyle::Cns) {
             continue;
         }
 
@@ -976,11 +976,23 @@ pub(super) const END_PUNCT_PAT: &[char] = &[
     '〗', '〕', '］', '｝', '？', '！',
 ];
 
-pub(super) fn is_gb_style(lang: Lang, region: Option<Region>) -> bool {
-    // Most CJK variants, including zh-CN, ja-JP, zh-SG, zh-MY use GB-style punctuation,
-    // while zh-HK and zh-TW use alternative style. We default to use GB-style.
-    !(lang == Lang::CHINESE
-        && matches!(region.as_ref().map(Region::as_str), Some("TW" | "HK")))
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CjkPunctStyle {
+    /// Standard GB/T 15834-2011, used mostly in mainland China.
+    Gb,
+    /// Standard by Taiwan Ministry of Education, used in Taiwan and Hong Kong.
+    Cns,
+    /// Standard JIS X 4051, used in Japan.
+    Jis,
+}
+
+pub(super) fn cjk_punct_style(lang: Lang, region: Option<Region>) -> CjkPunctStyle {
+    match (lang, region.as_ref().map(Region::as_str)) {
+        (Lang::CHINESE, Some("TW" | "HK")) => CjkPunctStyle::Cns,
+        (Lang::JAPANESE, _) => CjkPunctStyle::Jis,
+        // zh-CN, zh-SG, zh-MY use GB-style punctuation,
+        _ => CjkPunctStyle::Gb,
+    }
 }
 
 /// Whether the glyph is a space.
@@ -1007,16 +1019,22 @@ fn is_cjk_left_aligned_punctuation(
     c: char,
     x_advance: Em,
     stretchability: (Em, Em),
-    gb_style: bool,
+    style: CjkPunctStyle,
 ) -> bool {
+    use CjkPunctStyle::*;
+
     // CJK quotation marks shares codepoints with latin quotation marks.
     // But only the CJK ones have full width.
     if matches!(c, '”' | '’') && x_advance + stretchability.1 == Em::one() {
         return true;
     }
 
-    if gb_style && matches!(c, '，' | '。' | '．' | '、' | '：' | '；' | '！' | '？')
+    if matches!(style, Gb | Jis) && matches!(c, '，' | '。' | '．' | '、' | '：' | '；')
     {
+        return true;
+    }
+
+    if matches!(style, Gb) && matches!(c, '？' | '！') {
         // In GB style, exclamations and question marks are also left aligned and can be adjusted.
         // Note that they are not adjustable in other styles.
         return true;
@@ -1042,13 +1060,16 @@ fn is_cjk_right_aligned_punctuation(
 }
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
-fn is_cjk_center_aligned_punctuation(c: char, gb_style: bool) -> bool {
-    if !gb_style && matches!(c, '，' | '。' | '．' | '、' | '：' | '；') {
+fn is_cjk_center_aligned_punctuation(c: char, style: CjkPunctStyle) -> bool {
+    if matches!(style, CjkPunctStyle::Cns)
+        && matches!(c, '，' | '。' | '．' | '、' | '：' | '；')
+    {
         return true;
     }
 
     // U+30FB: Katakana Middle Dot
-    matches!(c, '\u{30FB}')
+    // U+00B7: Middle Dot
+    matches!(c, '\u{30FB}' | '\u{00B7}')
 }
 
 /// Whether the glyph is justifiable.
@@ -1064,10 +1085,11 @@ fn is_justifiable(
     x_advance: Em,
     stretchability: (Em, Em),
 ) -> bool {
-    // GB style is not relevant here.
+    // punctuation style is not relevant here.
+    let style = CjkPunctStyle::Gb;
     is_space(c)
         || is_cj_script(c, script)
-        || is_cjk_left_aligned_punctuation(c, x_advance, stretchability, true)
+        || is_cjk_left_aligned_punctuation(c, x_advance, stretchability, style)
         || is_cjk_right_aligned_punctuation(c, x_advance, stretchability)
-        || is_cjk_center_aligned_punctuation(c, true)
+        || is_cjk_center_aligned_punctuation(c, style)
 }

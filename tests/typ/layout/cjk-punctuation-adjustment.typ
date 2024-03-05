@@ -9,6 +9,12 @@
 // because zh-TW does not follow GB style
 #set text(lang: "zh", region: "TW", font: "Noto Serif CJK TC")
 原來，你也玩《原神》！ ？
+
+#set text(lang: "zh", region: "CN", font: "Noto Serif CJK SC")
+「真的吗？」
+
+#set text(lang: "ja", font: "Noto Serif CJK JP")
+「本当に？」
 ---
 
 #set text(lang: "zh", region: "CN", font: "Noto Serif CJK SC")

@@ -5,10 +5,10 @@ description: |
 ---
 
 # Reference
-This reference documentation is a comprehensive guide to all of Typst's
-syntax, concepts, types, and functions. If you are completely new to Typst, we
-recommend starting with the [tutorial]($tutorial) and then coming back to
-the reference to learn more about Typst's features as you need them.
+This reference documentation is a comprehensive guide to all of Typst's syntax,
+concepts, types, and functions. If you are completely new to Typst, we recommend
+starting with the [tutorial] and then coming back to the reference to learn more
+about Typst's features as you need them.
 
 ## Language
 The reference starts with a language part that gives an overview over

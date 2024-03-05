@@ -10,8 +10,8 @@ use crate::text::{Lang, Region, TextElem};
 
 /// Cite a work from the bibliography.
 ///
-/// Before you starting citing, you need to add a [bibliography]($bibliography)
-/// somewhere in your document.
+/// Before you starting citing, you need to add a [bibliography] somewhere in
+/// your document.
 ///
 /// # Example
 /// ```example

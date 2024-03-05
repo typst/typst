@@ -20,9 +20,9 @@ use crate::util::LazyHash;
 /// Provides access to active styles.
 ///
 /// The styles are currently opaque and only useful in combination with the
-/// [`measure`]($measure) function. See its documentation for more details. In
-/// the future, the provided styles might also be directly accessed to look up
-/// styles defined by [set rules]($styling/#set-rules).
+/// [`measure`] function. See its documentation for more details. In the future,
+/// the provided styles might also be directly accessed to look up styles
+/// defined by [set rules]($styling/#set-rules).
 ///
 /// ```example
 /// #let thing(body) = context {

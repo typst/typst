@@ -40,16 +40,16 @@ pub struct LinkElem {
     ///
     /// - To link to another part of the document, `dest` can take one of three
     ///   forms:
-    ///   - A [label]($label) attached to an element. If you also want automatic
-    ///     text for the link based on the element, consider using a
+    ///   - A [label] attached to an element. If you also want automatic text
+    ///     for the link based on the element, consider using a
     ///     [reference]($ref) instead.
     ///
-    ///   - A [location]($locate) resulting from a [`locate`]($locate) call or
-    ///     [`query`]($query).
+    ///   - A [`location`] (typically retrieved from [`here`], [`locate`] or
+    ///     [`query`]).
     ///
     ///   - A dictionary with a `page` key of type [integer]($int) and `x` and
-    ///     `y` coordinates of type [length]($length). Pages are counted from
-    ///     one, and the coordinates are relative to the page's top left corner.
+    ///     `y` coordinates of type [length]. Pages are counted from one, and
+    ///     the coordinates are relative to the page's top left corner.
     ///
     /// ```example
     /// = Introduction <intro>

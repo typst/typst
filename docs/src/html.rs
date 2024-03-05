@@ -59,9 +59,27 @@ impl Html {
             | md::Options::ENABLE_STRIKETHROUGH
             | md::Options::ENABLE_HEADING_ATTRIBUTES;
 
+        // Convert `[foo]` to `[foo]($foo)`.
+        let mut link = |broken: md::BrokenLink| {
+            assert_eq!(
+                broken.link_type,
+                md::LinkType::Shortcut,
+                "unsupported link type: {:?}",
+                broken.link_type,
+            );
+
+            Some((
+                format!("${}", broken.reference.trim_matches('`')).into(),
+                broken.reference.into_string().into(),
+            ))
+        };
+
         let ids = Arena::new();
         let mut handler = Handler::new(text, resolver, nesting, &ids);
-        let mut events = md::Parser::new_ext(text, options).peekable();
+        let mut events =
+            md::Parser::new_with_broken_link_callback(text, options, Some(&mut link))
+                .peekable();
+
         let iter = std::iter::from_fn(|| loop {
             let mut event = events.next()?;
             handler.peeked = events.peek().and_then(|event| match event {
@@ -199,7 +217,13 @@ impl<'a> Handler<'a> {
             // Rewrite links.
             md::Event::Start(md::Tag::Link(ty, dest, _)) => {
                 assert!(
-                    matches!(ty, md::LinkType::Inline | md::LinkType::Reference),
+                    matches!(
+                        ty,
+                        md::LinkType::Inline
+                            | md::LinkType::Reference
+                            | md::LinkType::ShortcutUnknown
+                            | md::LinkType::Autolink
+                    ),
                     "unsupported link type: {ty:?}",
                 );
 

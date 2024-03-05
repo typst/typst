@@ -12,7 +12,7 @@ this roadmap will only list larger, more fundamental ones.
 Are you missing something on the roadmap? Typst relies on your feedback as a
 user to plan for and prioritize new features. Get started by filing a new issue
 on [GitHub](https://github.com/typst/typst/issues) or discuss your feature
-request with the [community]($community).
+request with the [community].
 
 ## Language and Compiler
 - **Structure and Styling**

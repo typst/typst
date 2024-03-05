@@ -35,7 +35,7 @@ use crate::visualize::{Paint, Stroke};
 /// more information.
 ///
 /// To give a table a caption and make it [referenceable]($ref), put it into a
-/// [figure]($figure).
+/// [figure].
 ///
 /// # Example
 ///
@@ -165,7 +165,7 @@ pub struct TableElem {
     #[borrowed]
     pub align: Celled<Smart<Alignment>>,
 
-    /// How to [stroke]($stroke) the cells.
+    /// How to [stroke] the cells.
     ///
     /// Strokes can be disabled by setting this to `{none}`.
     ///

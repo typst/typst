@@ -36,20 +36,20 @@ more about their syntax and usage.
 
 | Name               | Example                  | See                          |
 | ------------------ | ------------------------ | ---------------------------- |
-| Paragraph break    | Blank line               | [`parbreak`]($parbreak)      |
-| Strong emphasis    | `[*strong*]`             | [`strong`]($strong)          |
-| Emphasis           | `[_emphasis_]`           | [`emph`]($emph)              |
-| Raw text           | ``[`print(1)`]``         | [`raw`]($raw)                |
-| Link               | `[https://typst.app/]`   | [`link`]($link)              |
-| Label              | `[<intro>]`              | [`label`]($label)            |
-| Reference          | `[@intro]`               | [`ref`]($ref)                |
-| Heading            | `[= Heading]`            | [`heading`]($heading)        |
-| Bullet list        | `[- item]`               | [`list`]($list)              |
-| Numbered list      | `[+ item]`               | [`enum`]($enum)              |
-| Term list          | `[/ Term: description]`  | [`terms`]($terms)            |
+| Paragraph break    | Blank line               | [`parbreak`]                 |
+| Strong emphasis    | `[*strong*]`             | [`strong`]                   |
+| Emphasis           | `[_emphasis_]`           | [`emph`]                     |
+| Raw text           | ``[`print(1)`]``         | [`raw`]                      |
+| Link               | `[https://typst.app/]`   | [`link`]                     |
+| Label              | `[<intro>]`              | [`label`]                    |
+| Reference          | `[@intro]`               | [`ref`]                      |
+| Heading            | `[= Heading]`            | [`heading`]                  |
+| Bullet list        | `[- item]`               | [`list`]                     |
+| Numbered list      | `[+ item]`               | [`enum`]                     |
+| Term list          | `[/ Term: description]`  | [`terms`]                    |
 | Math               | `[$x^2$]`                | [Math]($category/math)       |
-| Line break         | `[\]`                    | [`linebreak`]($linebreak)    |
-| Smart quote        | `['single' or "double"]` | [`smartquote`]($smartquote)  |
+| Line break         | `[\]`                    | [`linebreak`]                |
+| Smart quote        | `['single' or "double"]` | [`smartquote`]               |
 | Symbol shorthand   | `[~, ---]`               | [Symbols]($category/symbols/sym) |
 | Code expression    | `[#rect(width: 1cm)]`    | [Scripting]($scripting/#expressions) |
 | Character escape   | `[Tweet at us \#ad]`     | [Below](#escapes)            |
@@ -70,7 +70,7 @@ follows:
 | Bottom attachment      | `[$x_1$]`                | [`attach`]($category/math/attach) |
 | Top attachment         | `[$x^2$]`                | [`attach`]($category/math/attach) |
 | Fraction               | `[$1 + (a+b)/5$]`        | [`frac`]($math.frac)     |
-| Line break             | `[$x \ y$]`              | [`linebreak`]($linebreak) |
+| Line break             | `[$x \ y$]`              | [`linebreak`]            |
 | Alignment point        | `[$x &= 2 \ &= 3$]`      | [Math]($category/math)   |
 | Variable access        | `[$#x$, $pi$]`           | [Math]($category/math)   |
 | Field access           | `[$arrow.r.long$]`       | [Scripting]($scripting/#fields) |
