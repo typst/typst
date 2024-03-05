@@ -498,7 +498,16 @@ impl CellGrid {
                             // 0, meaning no automatically positioned cell was
                             // placed yet. In that case, we place the hline at
                             // the top of the table.
+                            //
+                            // Exceptionally, the hline will be placed before
+                            // the minimum auto index if the current auto index
+                            // from previous iterations is smaller than the
+                            // minimum it should have for the current grid
+                            // child. Effectively, this means that a hline at
+                            // the start of a header will always appear above
+                            // that header's first row.
                             auto_index
+                                .max(min_auto_index)
                                 .checked_sub(1)
                                 .map_or(0, |last_auto_index| last_auto_index / c + 1)
                         });
@@ -544,8 +553,19 @@ impl CellGrid {
                             // is 0, meaning no automatically positioned cell
                             // was placed yet. In that case, we place the vline
                             // to the left of the table.
+                            //
+                            // Exceptionally, a vline is also placed to the
+                            // left of the table if the current auto index from
+                            // past iterations is smaller than the minimum auto
+                            // index. For example, this means that a vline at
+                            // the beginning of a header will be placed to its
+                            // left rather than after the previous
+                            // automatically positioned cell.
                             auto_index
                                 .checked_sub(1)
+                                .filter(|last_auto_index| {
+                                    last_auto_index >= &min_auto_index
+                                })
                                 .map_or(0, |last_auto_index| last_auto_index % c + 1)
                         });
                         if end.is_some_and(|end| end.get() < start) {
