@@ -1472,12 +1472,12 @@ impl Repr for Color {
         match self {
             Self::Luma(c) => {
                 if c.alpha == 1.0 {
-                    eco_format!("luma({})", Ratio::new(c.luma as _).repr())
+                    eco_format!("luma({})", Ratio::new(c.luma).repr())
                 } else {
                     eco_format!(
                         "luma({}, {})",
-                        Ratio::new(c.luma as _).repr(),
-                        Ratio::new(c.alpha as _).repr(),
+                        Ratio::new(c.luma).repr(),
+                        Ratio::new(c.alpha).repr(),
                     )
                 }
             }
@@ -1486,44 +1486,44 @@ impl Repr for Color {
                 if c.alpha == 1.0 {
                     eco_format!(
                         "color.linear-rgb({}, {}, {})",
-                        Ratio::new(c.red as _).repr(),
-                        Ratio::new(c.green as _).repr(),
-                        Ratio::new(c.blue as _).repr(),
+                        Ratio::new(c.red).repr(),
+                        Ratio::new(c.green).repr(),
+                        Ratio::new(c.blue).repr(),
                     )
                 } else {
                     eco_format!(
                         "color.linear-rgb({}, {}, {}, {})",
-                        Ratio::new(c.red as _).repr(),
-                        Ratio::new(c.green as _).repr(),
-                        Ratio::new(c.blue as _).repr(),
-                        Ratio::new(c.alpha as _).repr(),
+                        Ratio::new(c.red).repr(),
+                        Ratio::new(c.green).repr(),
+                        Ratio::new(c.blue).repr(),
+                        Ratio::new(c.alpha).repr(),
                     )
                 }
             }
             Self::Cmyk(c) => {
                 eco_format!(
                     "cmyk({}, {}, {}, {})",
-                    Ratio::new(c.c as _).repr(),
-                    Ratio::new(c.m as _).repr(),
-                    Ratio::new(c.y as _).repr(),
-                    Ratio::new(c.k as _).repr(),
+                    Ratio::new(c.c).repr(),
+                    Ratio::new(c.m).repr(),
+                    Ratio::new(c.y).repr(),
+                    Ratio::new(c.k).repr(),
                 )
             }
             Self::Oklab(c) => {
                 if c.alpha == 1.0 {
                     eco_format!(
                         "oklab({}, {}, {})",
-                        Ratio::new(c.l as _).repr(),
-                        repr::format_float_component(c.a as _),
-                        repr::format_float_component(c.b as _),
+                        Ratio::new(c.l).repr(),
+                        repr::format_float_component(c.a),
+                        repr::format_float_component(c.b),
                     )
                 } else {
                     eco_format!(
                         "oklab({}, {}, {}, {})",
-                        Ratio::new(c.l as _).repr(),
-                        repr::format_float_component(c.a as _),
-                        repr::format_float_component(c.b as _),
-                        Ratio::new(c.alpha as _).repr(),
+                        Ratio::new(c.l).repr(),
+                        repr::format_float_component(c.a),
+                        repr::format_float_component(c.b),
+                        Ratio::new(c.alpha).repr(),
                     )
                 }
             }
@@ -1531,17 +1531,17 @@ impl Repr for Color {
                 if c.alpha == 1.0 {
                     eco_format!(
                         "oklch({}, {}, {})",
-                        Ratio::new(c.l as _).repr(),
-                        repr::format_float_component(c.chroma as _),
+                        Ratio::new(c.l).repr(),
+                        repr::format_float_component(c.chroma),
                         hue_angle(c.hue.into_degrees()).repr(),
                     )
                 } else {
                     eco_format!(
                         "oklch({}, {}, {}, {})",
-                        Ratio::new(c.l as _).repr(),
-                        repr::format_float_component(c.chroma as _),
+                        Ratio::new(c.l).repr(),
+                        repr::format_float_component(c.chroma),
                         hue_angle(c.hue.into_degrees()).repr(),
-                        Ratio::new(c.alpha as _).repr(),
+                        Ratio::new(c.alpha).repr(),
                     )
                 }
             }
@@ -1550,16 +1550,16 @@ impl Repr for Color {
                     eco_format!(
                         "color.hsl({}, {}, {})",
                         hue_angle(c.hue.into_degrees()).repr(),
-                        Ratio::new(c.saturation as _).repr(),
-                        Ratio::new(c.lightness as _).repr(),
+                        Ratio::new(c.saturation).repr(),
+                        Ratio::new(c.lightness).repr(),
                     )
                 } else {
                     eco_format!(
                         "color.hsl({}, {}, {}, {})",
                         hue_angle(c.hue.into_degrees()).repr(),
-                        Ratio::new(c.saturation as _).repr(),
-                        Ratio::new(c.lightness as _).repr(),
-                        Ratio::new(c.alpha as _).repr(),
+                        Ratio::new(c.saturation).repr(),
+                        Ratio::new(c.lightness).repr(),
+                        Ratio::new(c.alpha).repr(),
                     )
                 }
             }
@@ -1568,16 +1568,16 @@ impl Repr for Color {
                     eco_format!(
                         "color.hsv({}, {}, {})",
                         hue_angle(c.hue.into_degrees()).repr(),
-                        Ratio::new(c.saturation as _).repr(),
-                        Ratio::new(c.value as _).repr(),
+                        Ratio::new(c.saturation).repr(),
+                        Ratio::new(c.value).repr(),
                     )
                 } else {
                     eco_format!(
                         "color.hsv({}, {}, {}, {})",
                         hue_angle(c.hue.into_degrees()).repr(),
-                        Ratio::new(c.saturation as _).repr(),
-                        Ratio::new(c.value as _).repr(),
-                        Ratio::new(c.alpha as _).repr(),
+                        Ratio::new(c.saturation).repr(),
+                        Ratio::new(c.value).repr(),
+                        Ratio::new(c.alpha).repr(),
                     )
                 }
             }
@@ -1799,7 +1799,7 @@ impl WeightedColor {
 
 cast! {
     WeightedColor,
-    self => array![self.color, Value::Float(self.weight as _)].into_value(),
+    self => array![self.color, Value::Float(self.weight )].into_value(),
     color: Color => Self { color, weight: 1.0 },
     v: Array => {
         let mut iter = v.into_iter();
