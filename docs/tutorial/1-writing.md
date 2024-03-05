@@ -85,7 +85,7 @@ and emphasized text, respectively. However, having a special symbol for
 everything we want to insert into our document would soon become cryptic and
 unwieldy. For this reason, Typst reserves markup symbols only for the most
 common things. Everything else is inserted with _functions._ For our image to
-show up on the page, we use Typst's [`image`]($image) function.
+show up on the page, we use Typst's [`image`] function.
 
 ```example
 #image("glacier.jpg")
@@ -116,9 +116,9 @@ page's width. We also could have specified an absolute value like `{1cm}` or
 `{0.7in}`.
 
 Just like text, the image is now aligned at the left side of the page by
-default. It's also lacking a caption. Let's fix that by using the
-[figure]($figure) function. This function takes the figure's contents as a
-positional argument and an optional caption as a named argument.
+default. It's also lacking a caption. Let's fix that by using the [figure]
+function. This function takes the figure's contents as a positional argument and
+an optional caption as a named argument.
 
 Within the argument list of the `figure` function, Typst is already in code
 mode. This means, you now have to remove the hash before the image function call.
@@ -178,8 +178,8 @@ valid kind of content.
 
 ## Adding a bibliography { #bibliography }
 As you write up your report, you need to back up some of your claims. You can
-add a bibliography to your document with the [`bibliography`]($bibliography)
-function. This function expects a path to a bibliography file.
+add a bibliography to your document with the [`bibliography`] function. This
+function expects a path to a bibliography file.
 
 Typst's native bibliography format is
 [Hayagriva](https://github.com/typst/hayagriva/blob/main/docs/file-format.md),
@@ -300,8 +300,7 @@ emphasize text, write lists, insert images, align content, and typeset
 mathematical expressions. You also learned about Typst's functions. There are
 many more kinds of content that Typst lets you insert into your document, such
 as [tables]($table), [shapes]($category/visualize), and [code blocks]($raw). You
-can peruse the [reference]($reference) to learn more about these and other
-features.
+can peruse the [reference] to learn more about these and other features.
 
 For the moment, you have completed writing your report. You have already saved a
 PDF by clicking on the download button in the top right corner. However, you

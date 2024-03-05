@@ -101,7 +101,14 @@ fn create(ty: &Type, item: Option<&syn::Item>) -> TokenStream {
         }
     };
 
+    let attr = item.map(|_| {
+        quote! {
+            #[allow(rustdoc::broken_intra_doc_links)]
+        }
+    });
+
     quote! {
+        #attr
         #item
         #cast
 

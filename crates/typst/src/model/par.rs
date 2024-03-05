@@ -47,8 +47,8 @@ pub struct ParElem {
     /// [text function's `hyphenate` property]($text.hyphenate) is set to
     /// `{auto}` and the current language is known.
     ///
-    /// Note that the current [alignment]($align) still has an effect on the
-    /// placement of the last line except if it ends with a
+    /// Note that the current [alignment]($align.alignment) still has an effect
+    /// on the placement of the last line except if it ends with a
     /// [justified line break]($linebreak.justify).
     #[ghost]
     #[default(false)]
@@ -85,8 +85,8 @@ pub struct ParElem {
     ///
     /// By typographic convention, paragraph breaks are indicated either by some
     /// space between paragraphs or by indented first lines. Consider reducing
-    /// the [paragraph spacing]($block.spacing) to the [`leading`] when
-    /// using this property (e.g. using
+    /// the [paragraph spacing]($block.spacing) to the [`leading`]($par.leading)
+    /// when using this property (e.g. using
     /// `[#show par: set block(spacing: 0.65em)]`).
     #[ghost]
     pub first_line_indent: Length,

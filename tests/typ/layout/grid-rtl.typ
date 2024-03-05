@@ -137,3 +137,44 @@
 #grid(
   [a], grid.vline(position: left)
 )
+
+---
+#set text(dir: rtl)
+
+#grid(
+  columns: 4,
+  fill: (x, y) => if calc.odd(x + y) { blue.lighten(50%) } else { blue.lighten(10%) },
+  inset: 5pt,
+  align: center,
+  grid.cell(rowspan: 2, fill: orange)[*Left*],
+  [Right A], [Right A], [Right A],
+  [Right B], grid.cell(colspan: 2, rowspan: 2, fill: orange.darken(10%))[B Wide],
+  [Left A], [Left A],
+  [Left B], [Left B], grid.cell(colspan: 2, rowspan: 3, fill: orange)[Wide and Long]
+)
+
+#table(
+  columns: 4,
+  fill: (x, y) => if calc.odd(x + y) { blue.lighten(50%) } else { blue.lighten(10%) },
+  inset: 5pt,
+  align: center,
+  gutter: 3pt,
+  table.cell(rowspan: 2, fill: orange)[*Left*],
+  [Right A], [Right A], [Right A],
+  [Right B], table.cell(colspan: 2, rowspan: 2, fill: orange.darken(10%))[B Wide],
+  [Left A], [Left A],
+  [Left B], [Left B], table.cell(colspan: 2, rowspan: 3, fill: orange)[Wide and Long]
+)
+
+---
+#set page(height: 10em)
+#set text(dir: rtl)
+#table(
+  columns: 2,
+  rows: (auto, auto, 3em),
+  row-gutter: 1em,
+  fill: red,
+  [a], table.cell(rowspan: 3, block(width: 50%, height: 10em, fill: orange) + place(bottom)[*ZD*]),
+  [e],
+  [f]
+)

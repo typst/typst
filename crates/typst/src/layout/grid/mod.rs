@@ -1,5 +1,6 @@
 mod layout;
 mod lines;
+mod rowspans;
 
 pub use self::layout::{Cell, CellGrid, Celled, GridItem, GridLayouter, ResolvableCell};
 pub use self::lines::LinePosition;
@@ -644,6 +645,10 @@ pub struct GridCell {
     #[default(NonZeroUsize::ONE)]
     pub colspan: NonZeroUsize,
 
+    /// The amount of rows spanned by this cell.
+    #[default(NonZeroUsize::ONE)]
+    pub rowspan: NonZeroUsize,
+
     /// The cell's fill override.
     pub fill: Smart<Option<Paint>>,
 
@@ -657,6 +662,12 @@ pub struct GridCell {
     #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
+
+    /// Whether rows spanned by this cell can be placed in different pages.
+    /// When equal to `{auto}`, a cell spanning only fixed-size rows is
+    /// unbreakable, while a cell spanning at least one `{auto}`-sized row is
+    /// breakable.
+    pub breakable: Smart<bool>,
 }
 
 cast! {
@@ -679,10 +690,13 @@ impl ResolvableCell for Packed<GridCell> {
         align: Smart<Alignment>,
         inset: Sides<Option<Rel<Length>>>,
         stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
+        breakable: bool,
         styles: StyleChain,
     ) -> Cell {
         let cell = &mut *self;
         let colspan = cell.colspan(styles);
+        let rowspan = cell.rowspan(styles);
+        let breakable = cell.breakable(styles).unwrap_or(breakable);
         let fill = cell.fill(styles).unwrap_or_else(|| fill.clone());
 
         let cell_stroke = cell.stroke(styles);
@@ -727,12 +741,15 @@ impl ResolvableCell for Packed<GridCell> {
                 }))
             }),
         );
+        cell.push_breakable(Smart::Custom(breakable));
         Cell {
             body: self.pack(),
             fill,
             colspan,
+            rowspan,
             stroke,
             stroke_overridden,
+            breakable,
         }
     }
 
@@ -746,6 +763,10 @@ impl ResolvableCell for Packed<GridCell> {
 
     fn colspan(&self, styles: StyleChain) -> NonZeroUsize {
         (**self).colspan(styles)
+    }
+
+    fn rowspan(&self, styles: StyleChain) -> NonZeroUsize {
+        (**self).rowspan(styles)
     }
 
     fn span(&self) -> Span {

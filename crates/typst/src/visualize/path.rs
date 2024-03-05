@@ -37,7 +37,7 @@ pub struct PathElem {
     /// rule](https://en.wikipedia.org/wiki/Nonzero-rule).
     pub fill: Option<Paint>,
 
-    /// How to [stroke]($stroke) the path. This can be:
+    /// How to [stroke] the path. This can be:
     ///
     /// Can be set to  `{none}` to disable the stroke or to `{auto}` for a
     /// stroke of `{1pt}` black if and if only if no fill is given.
@@ -56,8 +56,7 @@ pub struct PathElem {
     ///
     /// Each vertex can be defined in 3 ways:
     ///
-    /// - A regular point, as given to the [`line`]($line) or
-    ///   [`polygon`]($polygon) function.
+    /// - A regular point, as given to the [`line`] or [`polygon`] function.
     /// - An array of two points, the first being the vertex and the second
     ///   being the control point. The control point is expressed relative to
     ///   the vertex and is mirrored to get the second control point. The given

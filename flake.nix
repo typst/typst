@@ -37,9 +37,9 @@
             craneLib = crane.mkLib pkgs;
 
             # Typst files to include in the derivation.
-            # Here we include Rust files, assets and tests.
+            # Here we include Rust files, docs and tests.
             src = sourceByRegex ./. [
-              "(assets|crates|tests)(/.*)?"
+              "(docs|crates|tests)(/.*)?"
               ''Cargo\.(toml|lock)''
               ''build\.rs''
             ];

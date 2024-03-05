@@ -11,11 +11,10 @@ your report using Typst's styling system.
 
 ## Set rules
 As we have seen in the previous chapter, Typst has functions that _insert_
-content (e.g. the [`image`]($image) function) and others that _manipulate_
-content that they received as arguments (e.g. the [`align`]($align) function).
-The first impulse you might have when you want, for example, to justify the
-report, could be to look for a function that does that and wrap the complete
-document in it.
+content (e.g. the [`image`] function) and others that _manipulate_ content that
+they received as arguments (e.g. the [`align`] function). The first impulse you
+might have when you want, for example, to justify the report, could be to look
+for a function that does that and wrap the complete document in it.
 
 ```example
 #par(justify: true)[
@@ -38,9 +37,9 @@ do in Typst, there is special syntax for it: Instead of putting the content
 inside of the argument list, you can write it in square brackets directly after
 the normal arguments, saving on punctuation.
 
-As seen above, that works. The [`par`]($par) function justifies all paragraphs
-within it. However, wrapping the document in countless functions and applying
-styles selectively and in-situ can quickly become cumbersome.
+As seen above, that works. The [`par`] function justifies all paragraphs within
+it. However, wrapping the document in countless functions and applying styles
+selectively and in-situ can quickly become cumbersome.
 
 Fortunately, Typst has a more elegant solution. With _set rules,_ you can apply
 style properties to all occurrences of some kind of content. You write a set
@@ -89,13 +88,12 @@ Back to set rules: When writing a rule, you choose the function depending on
 what type of element you want to style. Here is a list of some functions that
 are commonly used in set rules:
 
-- [`text`]($text) to set font family, size, color, and other properties of text
-- [`page`]($page) to set the page size, margins, headers, enable columns, and
-  footers
-- [`par`]($par) to justify paragraphs, set line spacing, and more
-- [`heading`]($heading) to set the appearance of headings and enable numbering
-- [`document`]($document) to set the metadata contained in the PDF output, such
-  as title and author
+- [`text`] to set font family, size, color, and other properties of text
+- [`page`] to set the page size, margins, headers, enable columns, and footers
+- [`par`] to justify paragraphs, set line spacing, and more
+- [`heading`] to set the appearance of headings and enable numbering
+- [`document`] to set the metadata contained in the PDF output, such as title
+  and author
 
 Not all function parameters can be set. In general, only parameters that tell
 a function _how_ to do something can be set, not those that tell it _what_ to
@@ -149,24 +147,24 @@ behaviour of these natural structures.
 
 There are a few things of note here.
 
-First is the [`page`]($page) set rule. It receives two arguments: the page size
-and margins for the page. The page size is a string. Typst accepts
-[many standard page sizes,]($page.paper) but you can also specify a custom page
-size. The margins are specified as a [dictionary.]($dictionary) Dictionaries are
-a collection of key-value pairs. In this case, the keys are `x` and `y`, and the
+First is the [`page`] set rule. It receives two arguments: the page size and
+margins for the page. The page size is a string. Typst accepts [many standard
+page sizes,]($page.paper) but you can also specify a custom page size. The
+margins are specified as a [dictionary.]($dictionary) Dictionaries are a
+collection of key-value pairs. In this case, the keys are `x` and `y`, and the
 values are the horizontal and vertical margins, respectively. We could also have
 specified separate margins for each side by passing a dictionary with the keys
 `{left}`, `{right}`, `{top}`, and `{bottom}`.
 
-Next is the set [`text`]($text) set rule. Here, we set the font size to `{10pt}`
-and font family to `{"New Computer Modern"}`. The Typst app comes with many
-fonts that you can try for your document. When you are in the text function's
-argument list, you can discover the available fonts in the autocomplete panel.
+Next is the set [`text`] set rule. Here, we set the font size to `{10pt}` and
+font family to `{"New Computer Modern"}`. The Typst app comes with many fonts
+that you can try for your document. When you are in the text function's argument
+list, you can discover the available fonts in the autocomplete panel.
 
 We have also set the spacing between lines (a.k.a. leading): It is specified as
-a [length]($length) value, and we used the `em` unit to specify the leading
-relative to the size of the font: `{1em}` is equivalent to the current font size
-(which defaults to `{11pt}`).
+a [length] value, and we used the `em` unit to specify the leading relative to
+the size of the font: `{1em}` is equivalent to the current font size (which
+defaults to `{11pt}`).
 
 Finally, we have bottom aligned our image by adding a vertical alignment to our
 center alignment. Vertical and horizontal alignments can be combined with the
@@ -174,8 +172,7 @@ center alignment. Vertical and horizontal alignments can be combined with the
 
 ## A hint of sophistication { #sophistication }
 To structure our document more clearly, we now want to number our headings. We
-can do this by setting the `numbering` parameter of the [`heading`]($heading)
-function.
+can do this by setting the `numbering` parameter of the [`heading`] function.
 
 ```example
 >>> #set text(font: "New Computer Modern")
@@ -210,9 +207,9 @@ for our headings:
 #lorem(15)
 ```
 
-This example also uses the [`lorem`]($lorem) function to generate some
-placeholder text. This function takes a number as an argument and generates that
-many words of _Lorem Ipsum_ text.
+This example also uses the [`lorem`] function to generate some placeholder text.
+This function takes a number as an argument and generates that many words of
+_Lorem Ipsum_ text.
 
 <div class="info-box">
 

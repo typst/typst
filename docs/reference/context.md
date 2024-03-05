@@ -53,11 +53,10 @@ properly reacts to the current surroundings.
 #value
 ```
 
-Crucially, upon creation, `value` becomes opaque [content]($content) that we
-cannot peek into. It can only be resolved when placed somewhere because only
-then the context is known. The body of a context expression may be evaluated
-zero, one, or multiple times, depending on how many different places it is put
-into.
+Crucially, upon creation, `value` becomes opaque [content] that we cannot peek
+into. It can only be resolved when placed somewhere because only then the
+context is known. The body of a context expression may be evaluated zero, one,
+or multiple times, depending on how many different places it is put into.
 
 ## Location context
 Context can not only give us access to set rule values. It can also let us know
@@ -89,20 +88,19 @@ resolved numbers. Thus, we get the following result:
 #context counter(heading).get()
 ```
 
-For more flexibility, we can also use the [`here`]($here) function to directly
-extract the current [location]($location) from the context. The example below
+For more flexibility, we can also use the [`here`] function to directly extract
+the current [location] from the context. The example below
 demonstrates this:
 
 - We first have `{counter(heading).get()}`, which resolves to `{(2,)}` as
   before.
-- We then use the more powerful  [`counter.at`]($counter.at) with
-  [`here`]($here), which in combination is equivalent to `get`, and thus get
-  `{(2,)}`.
-- Finally, we use `at` with a [label]($label) to retrieve the value of the
-  counter at a _different_ location in the document, in our case that of the
-  introduction heading. This yields `{(1,)}`. Typst's context system gives us
-  time travel abilities and lets us retrieve the values of any counters and
-  states at _any_ location in the document.
+- We then use the more powerful  [`counter.at`] with [`here`], which in
+  combination is equivalent to `get`, and thus get `{(2,)}`.
+- Finally, we use `at` with a [label] to retrieve the value of the counter at a
+  _different_ location in the document, in our case that of the introduction
+  heading. This yields `{(1,)}`. Typst's context system gives us time travel
+  abilities and lets us retrieve the values of any counters and states at _any_
+  location in the document.
 
 ```example
 #set heading(numbering: "1.")
@@ -121,10 +119,10 @@ demonstrates this:
 ```
 
 As mentioned before, we can also use context to get the physical position of
-elements on the pages. We do this with the [`locate`]($locate) function, which
-works similarly to `counter.at`: It takes a location or other
-[selector]($selector) that resolves to a unique element (could also be a label)
-and returns the position on the pages for that element.
+elements on the pages. We do this with the [`locate`] function, which works
+similarly to `counter.at`: It takes a location or other [selector] that resolves
+to a unique element (could also be a label) and returns the position on the
+pages for that element.
 
 ```example
 Background is at: \
@@ -139,7 +137,7 @@ Background is at: \
 ```
 
 There are other functions that make use of the location context, most
-prominently [`query`]($query). Take a look at the
+prominently [`query`]. Take a look at the
 [introspection]($category/introspection) category for more details on those.
 
 ## Nested contexts

@@ -1271,7 +1271,7 @@ node! {
 }
 
 impl<'a> Spread<'a> {
-    /// The spreaded expression.
+    /// The spread expression.
     ///
     /// This should only be accessed if this `Spread` is contained in an
     /// `ArrayItem`, `DictItem`, or `Arg`.

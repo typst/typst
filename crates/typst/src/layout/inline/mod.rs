@@ -7,7 +7,7 @@ use unicode_script::{Script, UnicodeScript};
 
 use self::linebreak::{breakpoints, Breakpoint};
 use self::shaping::{
-    is_gb_style, is_of_cj_script, shape, ShapedGlyph, ShapedText, BEGIN_PUNCT_PAT,
+    cjk_punct_style, is_of_cj_script, shape, ShapedGlyph, ShapedText, BEGIN_PUNCT_PAT,
     END_PUNCT_PAT,
 };
 use crate::diag::{bail, SourceResult};
@@ -432,6 +432,8 @@ fn collect<'a>(
         segments.push((Segment::Spacing((-hang).into()), *styles));
     }
 
+    let outer_dir = TextElem::dir_in(*styles);
+
     while let Some(mut child) = iter.next() {
         let outer = styles;
         let mut styles = *styles;
@@ -445,10 +447,25 @@ fn collect<'a>(
             Segment::Text(1)
         } else if let Some(elem) = child.to_packed::<TextElem>() {
             let prev = full.len();
+            let dir = TextElem::dir_in(styles);
+            if dir != outer_dir {
+                // Insert "Explicit Directional Isolate".
+                match dir {
+                    Dir::LTR => full.push('\u{2066}'),
+                    Dir::RTL => full.push('\u{2067}'),
+                    _ => {}
+                }
+            }
+
             if let Some(case) = TextElem::case_in(styles) {
                 full.push_str(&case.apply(elem.text()));
             } else {
                 full.push_str(elem.text());
+            }
+
+            if dir != outer_dir {
+                // Insert "Pop Directional Isolate".
+                full.push('\u{2069}');
             }
             Segment::Text(full.len() - prev)
         } else if let Some(elem) = child.to_packed::<HElem>() {
@@ -1041,7 +1058,7 @@ fn line<'a>(
         justify |= text.ends_with('\u{2028}');
 
         // Deal with CJK punctuation at line ends.
-        let gb_style = is_gb_style(shaped.lang, shaped.region);
+        let gb_style = cjk_punct_style(shaped.lang, shaped.region);
         let maybe_adjust_last_glyph = trimmed.ends_with(END_PUNCT_PAT)
             || (p.cjk_latin_spacing && trimmed.ends_with(is_of_cj_script));
 

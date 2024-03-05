@@ -465,9 +465,9 @@ pub struct OutlineEntry {
     /// located in. When `{none}`, empty space is inserted in that gap instead.
     ///
     /// Note that, when using show rules to override outline entries, it is
-    /// recommended to wrap the filling content in a [`box`]($box) with
-    /// fractional width. For example, `{box(width: 1fr, repeat[-])}` would show
-    /// precisely as many `-` characters as necessary to fill a particular gap.
+    /// recommended to wrap the filling content in a [`box`] with fractional
+    /// width. For example, `{box(width: 1fr, repeat[-])}` would show precisely
+    /// as many `-` characters as necessary to fill a particular gap.
     #[required]
     pub fill: Option<Content>,
 

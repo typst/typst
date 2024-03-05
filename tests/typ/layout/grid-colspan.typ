@@ -81,7 +81,7 @@
 
 ---
 // Error: 4:8-4:32 cell would span a previously placed cell at column 2, row 0
-// Hint: 4:8-4:32 try specifying your cells in a different order or reducing the cell's colspan
+// Hint: 4:8-4:32 try specifying your cells in a different order or reducing the cell's rowspan or colspan
 #grid(
   columns: 3,
   grid.cell(x: 2, y: 0)[x],

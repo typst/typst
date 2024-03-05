@@ -25,8 +25,8 @@ use crate::util::{option_eq, NonZeroExt};
 /// [numbering pattern or function]($numbering).
 ///
 /// Independently of the numbering, Typst can also automatically generate an
-/// [outline]($outline) of all headings for you. To exclude one or more headings
-/// from this outline, you can set the `outlined` parameter to `{false}`.
+/// [outline] of all headings for you. To exclude one or more headings from this
+/// outline, you can set the `outlined` parameter to `{false}`.
 ///
 /// # Example
 /// ```example
@@ -122,7 +122,7 @@ pub struct HeadingElem {
     /// ```
     pub supplement: Smart<Option<Supplement>>,
 
-    /// Whether the heading should appear in the [outline]($outline).
+    /// Whether the heading should appear in the [outline].
     ///
     /// Note that this property, if set to `{true}`, ensures the heading is also
     /// shown as a bookmark in the exported PDF's outline (when exporting to
@@ -146,9 +146,9 @@ pub struct HeadingElem {
     ///
     /// The default value of `{auto}` indicates that the heading will only
     /// appear in the exported PDF's outline if its `outlined` property is set
-    /// to `{true}`, that is, if it would also be listed in Typst's
-    /// [outline]($outline). Setting this property to either `{true}` (bookmark)
-    /// or `{false}` (don't bookmark) bypasses that behaviour.
+    /// to `{true}`, that is, if it would also be listed in Typst's [outline].
+    /// Setting this property to either `{true}` (bookmark) or `{false}` (don't
+    /// bookmark) bypasses that behaviour.
     ///
     /// ```example
     /// #heading[Normal heading]

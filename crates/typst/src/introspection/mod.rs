@@ -43,7 +43,7 @@ use crate::realize::{Behave, Behaviour};
 /// of figures or headers which show the current chapter title.
 ///
 /// Most of the functions are _contextual._ It is recommended to read the chapter
-/// on [context]($context) before continuing here.
+/// on [context] before continuing here.
 #[category]
 pub static INTROSPECTION: Category;
 
