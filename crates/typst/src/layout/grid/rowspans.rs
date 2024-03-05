@@ -779,160 +779,18 @@ impl<'a> GridLayouter<'a> {
         // which, when used and combined with upcoming spanned rows, covers all
         // of the requested rowspan height, we give up.
         for _attempt in 0..5 {
-            let mut regions = simulated_regions;
-            let mut total_spanned_height = Abs::zero();
-            let mut unbreakable_rows_left = unbreakable_rows_left;
+            let rowspan_simulator =
+                RowspanSimulator::new(simulated_regions, self.header_height);
 
-            // Height of the latest spanned gutter row.
-            // Zero if it was removed.
-            let mut latest_spanned_gutter_height = Abs::zero();
-
-            let mut header_height = self.header_height;
-
-            let simulate_header_layout =
-                |regions: &mut Regions<'_>,
-                 header_height: &mut Abs,
-                 engine: &mut Engine| {
-                    if let Some(header) = &self.grid.header {
-                        // We can't just use the initial header height on each
-                        // region, because header height might vary depending
-                        // on region size if it contains rows with relative
-                        // lengths. Therefore, we re-simulate headers on each
-                        // new region.
-                        // It's true that, when measuring cells, we reduce each
-                        // height in the backlog to consider the initial header
-                        // height; however, our simulation checks what happens
-                        // AFTER the auto row, so we can just use the original
-                        // backlog from `self.regions`.
-                        let header_row_group =
-                            self.simulate_header(header, regions, engine)?;
-                        let mut skipped_region = false;
-
-                        // Skip until we reach a fitting region for this header.
-                        while !regions.size.y.fits(header_row_group.height)
-                            && !regions.in_last()
-                        {
-                            regions.next();
-                            skipped_region = true;
-                        }
-
-                        *header_height = if skipped_region {
-                            // Simulate headers again, at the new region, as
-                            // the full region height may change.
-                            self.simulate_header(header, regions, engine)?.height
-                        } else {
-                            header_row_group.height
-                        };
-
-                        // Consume the header's height from the new region,
-                        // but don't consider it spanned. The rowspan
-                        // does not go over the header (as an invariant,
-                        // any rowspans spanning a header row are fully
-                        // contained within that header's rows).
-                        regions.size.y -= *header_height;
-                    }
-
-                    SourceResult::Ok(())
-                };
-
-            let finish_region = |regions: &mut Regions<'_>,
-                                 total_spanned_height: &mut Abs,
-                                 latest_spanned_gutter_height: &mut Abs,
-                                 header_height: &mut Abs,
-                                 engine: &mut Engine| {
-                // If a row was pushed to the next region, the immediately
-                // preceding gutter row is removed.
-                *total_spanned_height -= *latest_spanned_gutter_height;
-                *latest_spanned_gutter_height = Abs::zero();
-                regions.next();
-
-                simulate_header_layout(regions, header_height, engine)
-            };
-
-            let spanned_rows = &self.grid.rows[y + 1..=max_spanned_row];
-            for (offset, row) in spanned_rows.iter().enumerate() {
-                if (total_spanned_height + amount_to_grow).fits(requested_rowspan_height)
-                {
-                    // Stop the simulation, as the combination of upcoming
-                    // spanned rows (so far) and the current amount the auto
-                    // row expands by has already fully covered the height the
-                    // rowspans need.
-                    break;
-                }
-                let spanned_y = y + 1 + offset;
-                let is_gutter = self.grid.is_gutter_track(spanned_y);
-
-                if unbreakable_rows_left == 0 {
-                    // Simulate unbreakable row groups, and skip regions until
-                    // they fit. There is no risk of infinite recursion, as
-                    // no auto rows participate in the simulation, so the
-                    // unbreakable row group simulator won't recursively call
-                    // 'measure_auto_row' or (consequently) this function.
-                    let row_group = self.simulate_unbreakable_row_group(
-                        spanned_y, None, &regions, engine,
-                    )?;
-                    while !regions.size.y.fits(row_group.height)
-                        && !in_last_with_offset(regions, self.header_height)
-                    {
-                        finish_region(
-                            &mut regions,
-                            &mut total_spanned_height,
-                            &mut latest_spanned_gutter_height,
-                            &mut header_height,
-                            engine,
-                        )?;
-                    }
-
-                    unbreakable_rows_left = row_group.rows.len();
-                }
-
-                match row {
-                    // Fixed-size spanned rows are what we are interested in.
-                    // They contribute a fixed amount of height to our rowspan.
-                    Sizing::Rel(v) => {
-                        let height = v.resolve(self.styles).relative_to(regions.base().y);
-                        total_spanned_height += height;
-                        if is_gutter {
-                            latest_spanned_gutter_height = height;
-                        }
-
-                        let mut skipped_region = false;
-                        while unbreakable_rows_left == 0
-                            && !regions.size.y.fits(height)
-                            && !in_last_with_offset(regions, header_height)
-                        {
-                            finish_region(
-                                &mut regions,
-                                &mut total_spanned_height,
-                                &mut latest_spanned_gutter_height,
-                                &mut header_height,
-                                engine,
-                            )?;
-
-                            skipped_region = true;
-                        }
-
-                        if !skipped_region || !is_gutter {
-                            // No gutter at the top of a new region, so don't
-                            // account for it if we just skipped a region.
-                            regions.size.y -= height;
-                        }
-                    }
-                    Sizing::Auto => {
-                        // We only simulate for rowspans which end at the
-                        // current auto row. Therefore, there won't be any
-                        // further auto rows.
-                        unreachable!();
-                    }
-                    // For now, we ignore fractional rows on simulation.
-                    Sizing::Fr(_) if is_gutter => {
-                        latest_spanned_gutter_height = Abs::zero();
-                    }
-                    Sizing::Fr(_) => {}
-                }
-
-                unbreakable_rows_left = unbreakable_rows_left.saturating_sub(1);
-            }
+            let total_spanned_height = rowspan_simulator.simulate_rowspan_layout(
+                y,
+                max_spanned_row,
+                amount_to_grow,
+                requested_rowspan_height,
+                unbreakable_rows_left,
+                self,
+                engine,
+            )?;
 
             // If the total height spanned by upcoming spanned rows plus the
             // current amount we predict the auto row will have to grow (from
@@ -1011,6 +869,189 @@ impl<'a> GridLayouter<'a> {
 
         // Simulation didn't succeed in 5 attempts.
         Ok(false)
+    }
+}
+
+/// Auxiliary structure holding state during rowspan simulation.
+struct RowspanSimulator<'a> {
+    /// The state of regions during the simulation.
+    regions: Regions<'a>,
+    /// The height of the header in the currently simulated region.
+    header_height: Abs,
+    /// The total spanned height so far in the simulation.
+    total_spanned_height: Abs,
+    /// Height of the latest spanned gutter row in the simulation.
+    /// Zero if it was removed.
+    latest_spanned_gutter_height: Abs,
+}
+
+impl<'a> RowspanSimulator<'a> {
+    /// Creates new rowspan simulation state with the given regions and initial
+    /// header height. Other fields should always start as zero.
+    fn new(regions: Regions<'a>, header_height: Abs) -> Self {
+        Self {
+            regions,
+            header_height,
+            total_spanned_height: Abs::zero(),
+            latest_spanned_gutter_height: Abs::zero(),
+        }
+    }
+
+    /// Calculates the total spanned height of the rowspan.
+    /// Stops calculating if, at any point in the simulation, the value of
+    /// `total_spanned_height + amount_to_grow` becomes larger than
+    /// `requested_rowspan_height`, as the results are not going to become any
+    /// more useful after that point.
+    #[allow(clippy::too_many_arguments)]
+    fn simulate_rowspan_layout(
+        mut self,
+        y: usize,
+        max_spanned_row: usize,
+        amount_to_grow: Abs,
+        requested_rowspan_height: Abs,
+        mut unbreakable_rows_left: usize,
+        layouter: &GridLayouter<'_>,
+        engine: &mut Engine,
+    ) -> SourceResult<Abs> {
+        let spanned_rows = &layouter.grid.rows[y + 1..=max_spanned_row];
+        for (offset, row) in spanned_rows.iter().enumerate() {
+            if (self.total_spanned_height + amount_to_grow).fits(requested_rowspan_height)
+            {
+                // Stop the simulation, as the combination of upcoming
+                // spanned rows (so far) and the current amount the auto
+                // row expands by has already fully covered the height the
+                // rowspans need.
+                return Ok(self.total_spanned_height);
+            }
+            let spanned_y = y + 1 + offset;
+            let is_gutter = layouter.grid.is_gutter_track(spanned_y);
+
+            if unbreakable_rows_left == 0 {
+                // Simulate unbreakable row groups, and skip regions until
+                // they fit. There is no risk of infinite recursion, as
+                // no auto rows participate in the simulation, so the
+                // unbreakable row group simulator won't recursively call
+                // 'measure_auto_row' or (consequently) this function.
+                let row_group = layouter.simulate_unbreakable_row_group(
+                    spanned_y,
+                    None,
+                    &self.regions,
+                    engine,
+                )?;
+                while !self.regions.size.y.fits(row_group.height)
+                    && !in_last_with_offset(self.regions, self.header_height)
+                {
+                    self.finish_region(layouter, engine)?;
+                }
+
+                unbreakable_rows_left = row_group.rows.len();
+            }
+
+            match row {
+                // Fixed-size spanned rows are what we are interested in.
+                // They contribute a fixed amount of height to our rowspan.
+                Sizing::Rel(v) => {
+                    let height =
+                        v.resolve(layouter.styles).relative_to(self.regions.base().y);
+                    self.total_spanned_height += height;
+                    if is_gutter {
+                        self.latest_spanned_gutter_height = height;
+                    }
+
+                    let mut skipped_region = false;
+                    while unbreakable_rows_left == 0
+                        && !self.regions.size.y.fits(height)
+                        && !in_last_with_offset(self.regions, self.header_height)
+                    {
+                        self.finish_region(layouter, engine)?;
+
+                        skipped_region = true;
+                    }
+
+                    if !skipped_region || !is_gutter {
+                        // No gutter at the top of a new region, so don't
+                        // account for it if we just skipped a region.
+                        self.regions.size.y -= height;
+                    }
+                }
+                Sizing::Auto => {
+                    // We only simulate for rowspans which end at the
+                    // current auto row. Therefore, there won't be any
+                    // further auto rows.
+                    unreachable!();
+                }
+                // For now, we ignore fractional rows on simulation.
+                Sizing::Fr(_) if is_gutter => {
+                    self.latest_spanned_gutter_height = Abs::zero();
+                }
+                Sizing::Fr(_) => {}
+            }
+
+            unbreakable_rows_left = unbreakable_rows_left.saturating_sub(1);
+        }
+
+        Ok(self.total_spanned_height)
+    }
+
+    fn simulate_header_layout(
+        &mut self,
+        layouter: &GridLayouter<'_>,
+        engine: &mut Engine,
+    ) -> SourceResult<()> {
+        if let Some(header) = &layouter.grid.header {
+            // We can't just use the initial header height on each
+            // region, because header height might vary depending
+            // on region size if it contains rows with relative
+            // lengths. Therefore, we re-simulate headers on each
+            // new region.
+            // It's true that, when measuring cells, we reduce each
+            // height in the backlog to consider the initial header
+            // height; however, our simulation checks what happens
+            // AFTER the auto row, so we can just use the original
+            // backlog from `self.regions`.
+            let header_row_group =
+                layouter.simulate_header(header, &self.regions, engine)?;
+            let mut skipped_region = false;
+
+            // Skip until we reach a fitting region for this header.
+            while !self.regions.size.y.fits(header_row_group.height)
+                && !self.regions.in_last()
+            {
+                self.regions.next();
+                skipped_region = true;
+            }
+
+            self.header_height = if skipped_region {
+                // Simulate headers again, at the new region, as
+                // the full region height may change.
+                layouter.simulate_header(header, &self.regions, engine)?.height
+            } else {
+                header_row_group.height
+            };
+
+            // Consume the header's height from the new region,
+            // but don't consider it spanned. The rowspan
+            // does not go over the header (as an invariant,
+            // any rowspans spanning a header row are fully
+            // contained within that header's rows).
+            self.regions.size.y -= self.header_height;
+        }
+
+        Ok(())
+    }
+
+    fn finish_region(
+        &mut self,
+        layouter: &GridLayouter<'_>,
+        engine: &mut Engine,
+    ) -> SourceResult<()> {
+        // If a row was pushed to the next region, the immediately
+        // preceding gutter row is removed.
+        self.total_spanned_height -= self.latest_spanned_gutter_height;
+        self.latest_spanned_gutter_height = Abs::zero();
+        self.regions.next();
+
+        self.simulate_header_layout(layouter, engine)
     }
 }
 
