@@ -49,7 +49,7 @@ static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
     "Arial-Black" => Exception::new()
         .weight(900),
     // Fandol fonts designed for Chinese typesetting.
-    // See https://ctan.org/tex-archive/fonts/fandol
+    // See https://ctan.org/tex-archive/fonts/fandol/.
     "FandolHei-Bold" => Exception::new()
         .weight(700),
     "FandolSong-Bold" => Exception::new()
