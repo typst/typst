@@ -1395,11 +1395,34 @@ impl<'a> GridLayouter<'a> {
             // in quadratic complexity.
             let mut lines = vec![];
 
+            // Which line position to look for in the list of lines for a
+            // track, such that placing lines with those positions will
+            // correspond to placing them before the given track index.
+            //
+            // If the index represents a gutter track, this means the list of
+            // lines will actually correspond to the list of lines in the
+            // previous index, so we must look for lines positioned after the
+            // previous index, and not before, to determine which lines should
+            // be placed before gutter.
+            //
+            // Note that the maximum index is always an odd number when
+            // there's gutter, so we must check for it to ensure we don't give
+            // it the same treatment as a line before a gutter track.
+            let expected_line_position = |index, is_max_index: bool| {
+                if self.grid.is_gutter_track(index) && !is_max_index {
+                    LinePosition::After
+                } else {
+                    LinePosition::Before
+                }
+            };
+
             // Render vertical lines.
             // Render them first so horizontal lines have priority later.
             for (x, dx) in points(self.rcols.iter().copied()).enumerate() {
                 let dx = if self.is_rtl { self.width - dx } else { dx };
                 let is_end_border = x == self.grid.cols.len();
+                let expected_vline_position = expected_line_position(x, is_end_border);
+
                 let vlines_at_column = self
                     .grid
                     .vlines
@@ -1428,8 +1451,10 @@ impl<'a> GridLayouter<'a> {
                         // lines before it, not after).
                         x / 2
                     })
-                    .map(Vec::as_slice)
-                    .unwrap_or(&[]);
+                    .into_iter()
+                    .flatten()
+                    .filter(|line| line.position == expected_vline_position);
+
                 let tracks = rows.iter().map(|row| (row.y, row.height));
 
                 // Determine all different line segments we have to draw in
@@ -1443,7 +1468,6 @@ impl<'a> GridLayouter<'a> {
                     tracks,
                     x,
                     vlines_at_column,
-                    is_end_border,
                     vline_stroke_at_row,
                 )
                 .map(|segment| {
@@ -1503,8 +1527,15 @@ impl<'a> GridLayouter<'a> {
 
             let mut prev_y = None;
             for (y, dy) in hline_indices.zip(hline_offsets) {
-                let is_bottom_border = y == self.grid.rows.len();
-                let line_index = hline_index_of_row(y);
+                // Position of lines below the row index in the previous iteration.
+                let expected_prev_line_position = prev_y
+                    .map(|prev_y| {
+                        expected_line_position(
+                            prev_y + 1,
+                            prev_y + 1 == self.grid.rows.len(),
+                        )
+                    })
+                    .unwrap_or(LinePosition::Before);
 
                 // If some grid rows were omitted between the previous resolved
                 // row and the current one, we ensure lines below the previous
@@ -1514,46 +1545,74 @@ impl<'a> GridLayouter<'a> {
                 // chained later instead of before.
                 let prev_lines = prev_y
                     .filter(|prev_y| {
-                        let logically_next_line_index = hline_index_of_row(prev_y + 1);
-
-                        logically_next_line_index != line_index
-                            && !self.grid.header.as_ref().is_some_and(|header| {
-                                hline_index_of_row(header.end)
-                                    == logically_next_line_index
-                            })
+                        prev_y + 1 != y
+                            && !self
+                                .grid
+                                .header
+                                .as_ref()
+                                .is_some_and(|header| prev_y + 1 == header.end)
                     })
                     .map(|prev_y| get_hlines_at(prev_y + 1))
                     .unwrap_or(&[]);
 
-                let hlines_at_row = prev_lines.iter().chain(get_hlines_at(y)).chain(
-                    if prev_y.is_none() && y != 0 {
-                        // For lines at the top of the region, give priority to
-                        // the lines at the top border.
-                        get_hlines_at(0)
-                    } else if let Some((header, prev_y)) =
-                        self.grid.header.as_ref().zip(prev_y)
-                    {
-                        let header_line_index = hline_index_of_row(header.end);
-                        if prev_y + 1 == header.end && line_index != header_line_index {
-                            // For lines below a header, give priority to the
-                            // lines originally below the header rather than
-                            // the lines of what's below the repeated header.
-                            // However, no need to do that when we're laying
-                            // out the header for the first time, since the
-                            // lines being normally laid out then will be
-                            // precisely the lines below the header.
-                            get_hlines_at(header.end)
-                        } else {
-                            &[]
-                        }
+                let expected_hline_position =
+                    expected_line_position(y, y == self.grid.rows.len());
+
+                let hlines_at_y = get_hlines_at(y)
+                    .iter()
+                    .filter(|line| line.position == expected_hline_position);
+
+                let top_border_hlines = if prev_y.is_none() && y != 0 {
+                    // For lines at the top of the region, give priority to
+                    // the lines at the top border.
+                    get_hlines_at(0)
+                } else {
+                    &[]
+                };
+
+                // The header lines, if any, will correspond to the lines under
+                // the previous row, so they function similarly to 'prev_lines'.
+                let expected_header_line_position = expected_prev_line_position;
+                let header_hlines = if let Some((header, prev_y)) =
+                    self.grid.header.as_ref().zip(prev_y)
+                {
+                    if prev_y + 1 != y && prev_y + 1 == header.end {
+                        // For lines below a header, give priority to the
+                        // lines originally below the header rather than
+                        // the lines of what's below the repeated header.
+                        // However, no need to do that when we're laying
+                        // out the header for the first time, since the
+                        // lines being normally laid out then will be
+                        // precisely the lines below the header.
+                        get_hlines_at(header.end)
                     } else {
-                        // When not at the top of the region, no border lines
-                        // to consider.
-                        // When at the top of the region but at the first row,
-                        // its own lines are already the border lines.
                         &[]
-                    },
-                );
+                    }
+                } else {
+                    &[]
+                };
+
+                // The effective hlines to be considered at this row index are
+                // chained in order of increasing priority:
+                // 1. Lines from the row right above us, if needed;
+                // 2. Lines from the current row (usually, only those are
+                // present);
+                // 3. Lines from the top border (above the top cells, hence
+                // 'before' position only);
+                // 4. Lines from the header above us, if present.
+                let hlines_at_row =
+                    prev_lines
+                        .iter()
+                        .filter(|line| line.position == expected_prev_line_position)
+                        .chain(hlines_at_y)
+                        .chain(
+                            top_border_hlines
+                                .iter()
+                                .filter(|line| line.position == LinePosition::Before),
+                        )
+                        .chain(header_hlines.iter().filter(|line| {
+                            line.position == expected_header_line_position
+                        }));
 
                 let tracks = self.rcols.iter().copied().enumerate();
 
@@ -1578,7 +1637,6 @@ impl<'a> GridLayouter<'a> {
                     tracks,
                     y,
                     hlines_at_row,
-                    is_bottom_border,
                     |grid, y, x, stroke| {
                         hline_stroke_at_column(
                             grid,
