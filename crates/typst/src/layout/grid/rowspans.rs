@@ -138,10 +138,11 @@ impl<'a> GridLayouter<'a> {
                         .get(i)
                         .map(Vec::as_slice)
                         .or(current_rrows)
-                        .and_then(|rrows| rrows.get(0..header.end))
-                        .unwrap_or(&[]);
+                        .unwrap_or(&[])
+                        .iter()
+                        .take_while(|row| row.y < header.end);
 
-                    header_rows.iter().map(|row| row.height).sum()
+                    header_rows.map(|row| row.height).sum()
                 } else {
                     // Without a header, start at the very top of the region.
                     Abs::zero()
