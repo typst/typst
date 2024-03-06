@@ -97,6 +97,9 @@ pub struct CompileCommand {
 pub struct InitCommand {
     /// The template to use, e.g. `@preview/charged-ieee`
     ///
+    /// You can specify the version by appending e.g. `:0.1.0`. If no version is
+    /// specified, Typst will default to the latest version.
+    ///
     /// Supports both local and published templates.
     pub template: String,
 

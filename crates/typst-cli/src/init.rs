@@ -16,8 +16,10 @@ pub fn init(command: &InitCommand) -> StrResult<()> {
     // Parse the package specification. If the user didn't specify the version,
     // we try to figure it out automatically by downloading the package index
     // or searching the disk.
-    let spec: PackageSpec = command.template.parse().or_else(|_| {
-        let spec: VersionlessPackageSpec = command.template.parse()?;
+    let spec: PackageSpec = command.template.parse().or_else(|err| {
+        // Try to parse without version, but prefer the error message of the
+        // normal package spec parsing if it fails.
+        let spec: VersionlessPackageSpec = command.template.parse().map_err(|_| err)?;
         let version = crate::package::determine_latest_version(&spec)?;
         StrResult::Ok(spec.at(version))
     })?;
@@ -25,13 +27,14 @@ pub fn init(command: &InitCommand) -> StrResult<()> {
     // Find or download the package.
     let package_path = crate::package::prepare_package(&spec)?;
 
-    // Parse the manifest and ensure that it is indeed a template.
+    // Parse the manifest.
     let manifest = parse_manifest(&package_path)?;
+    manifest.validate(&spec)?;
+
+    // Ensure that it is indeed a template.
     let Some(template) = &manifest.template else {
         bail!("package {spec} is not a template");
     };
-
-    manifest.validate(&spec)?;
 
     // Determine the directory at which we will create the project.
     let project_dir = Path::new(command.dir.as_deref().unwrap_or(&manifest.package.name));
