@@ -27,6 +27,13 @@ pub(super) struct Rowspan {
     pub(super) region_full: Abs,
     /// The vertical space available for this rowspan in each region.
     pub(super) heights: Vec<Abs>,
+    /// The index of the largest resolved spanned row so far.
+    /// Once a spanned row is resolved and its height added to `heights`, this
+    /// number is increased. Older rows, even if repeated through e.g. a
+    /// header, will no longer contribute height to this rowspan.
+    ///
+    /// This is `None` if no spanned rows were resolved in `finish_region` yet.
+    pub(super) max_resolved_row: Option<usize>,
 }
 
 /// The output of the simulation of an unbreakable row group.
@@ -170,6 +177,7 @@ impl<'a> GridLayouter<'a> {
                     first_region: usize::MAX,
                     region_full: Abs::zero(),
                     heights: vec![],
+                    max_resolved_row: None,
                 });
             }
         }

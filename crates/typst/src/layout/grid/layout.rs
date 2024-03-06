@@ -2397,6 +2397,9 @@ impl<'a> GridLayouter<'a> {
                 .rowspans
                 .iter_mut()
                 .filter(|rowspan| (rowspan.y..rowspan.y + rowspan.rowspan).contains(&y))
+                .filter(|rowspan| {
+                    rowspan.max_resolved_row.map_or(true, |max_row| y > max_row)
+                })
             {
                 // If the first region wasn't defined yet, it will have the the
                 // initial value of usize::MAX, so we can set it to the current
@@ -2423,43 +2426,47 @@ impl<'a> GridLayouter<'a> {
                 // Ensure that, in this region, the rowspan will span at least
                 // this row.
                 *rowspan.heights.last_mut().unwrap() += height;
+
+                if is_last {
+                    // Do not extend the rowspan through this row again, even
+                    // if it is repeated in a future region.
+                    rowspan.max_resolved_row = Some(y);
+                }
             }
 
-            // Layout any rowspans which end at this row, but only if this is
-            // this row's last frame (to avoid having the rowspan stop being
-            // laid out at the first frame of the row).
-            if is_last {
-                // We use a for loop over indices to avoid borrow checking
-                // problems (we need to mutate the rowspans vector, so we can't
-                // have an iterator actively borrowing it). We keep a separate
-                // 'i' variable so we can step the counter back after removing
-                // a rowspan (see explanation below).
-                let mut i = 0;
-                while let Some(rowspan) = self.rowspans.get(i) {
-                    if rowspan.y + rowspan.rowspan <= y + 1 {
-                        // Rowspan ends at this or an earlier row, so we take
-                        // it from the rowspans vector and lay it out.
-                        // It's safe to pass the current region as a possible
-                        // region for the rowspan to be laid out in, even if
-                        // the rowspan's last row was at an earlier region,
-                        // because the rowspan won't have an entry for this
-                        // region in its 'heights' vector if it doesn't span
-                        // any rows in this region.
-                        //
-                        // Here we don't advance the index counter ('i') because
-                        // a new element we haven't checked yet in this loop
-                        // will take the index of the now removed element, so
-                        // we have to check the same index again in the next
-                        // iteration.
-                        let rowspan = self.rowspans.remove(i);
-                        self.layout_rowspan(
-                            rowspan,
-                            Some((&mut output, &rrows)),
-                            engine,
-                        )?;
-                    } else {
-                        i += 1;
-                    }
+            // We use a for loop over indices to avoid borrow checking
+            // problems (we need to mutate the rowspans vector, so we can't
+            // have an iterator actively borrowing it). We keep a separate
+            // 'i' variable so we can step the counter back after removing
+            // a rowspan (see explanation below).
+            let mut i = 0;
+            while let Some(rowspan) = self.rowspans.get(i) {
+                // Layout any rowspans which end at this row, but only if this is
+                // this row's last frame (to avoid having the rowspan stop being
+                // laid out at the first frame of the row).
+                // Any rowspans ending before this row are laid out even
+                // on this row's first frame.
+                if rowspan.y + rowspan.rowspan < y + 1
+                    || rowspan.y + rowspan.rowspan == y + 1 && is_last
+                {
+                    // Rowspan ends at this or an earlier row, so we take
+                    // it from the rowspans vector and lay it out.
+                    // It's safe to pass the current region as a possible
+                    // region for the rowspan to be laid out in, even if
+                    // the rowspan's last row was at an earlier region,
+                    // because the rowspan won't have an entry for this
+                    // region in its 'heights' vector if it doesn't span
+                    // any rows in this region.
+                    //
+                    // Here we don't advance the index counter ('i') because
+                    // a new element we haven't checked yet in this loop
+                    // will take the index of the now removed element, so
+                    // we have to check the same index again in the next
+                    // iteration.
+                    let rowspan = self.rowspans.remove(i);
+                    self.layout_rowspan(rowspan, Some((&mut output, &rrows)), engine)?;
+                } else {
+                    i += 1;
                 }
             }
 
