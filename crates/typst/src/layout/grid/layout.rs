@@ -731,12 +731,11 @@ impl CellGrid {
                 }
 
                 header = Some(Header {
-                    // Repeat the gutter below a header (hence why we don't
-                    // subtract 1 from the gutter case).
                     // Later on, we have to correct this number in case there
-                    // are no rows under the header (then the gutter below it
-                    // won't exist).
-                    end: if has_gutter { 2 * header_end } else { header_end },
+                    // is gutter. But only once all cells have been analyzed
+                    // and the header has fully expanded in the fixup loop
+                    // below.
+                    end: header_end,
                 });
 
                 // Next automatically positioned cell goes under this header.
@@ -756,13 +755,35 @@ impl CellGrid {
             }
         }
 
-        // Replace absent entries by resolved empty cells, and produce a vector
-        // of 'Entry' from 'Option<Entry>' (final step).
+        // Fixup phase (final step in cell grid generation):
+        // 1. Replace absent entries by resolved empty cells, and produce a
+        // vector of 'Entry' from 'Option<Entry>'.
+        // 2. If any cells were added to the header's rows after the header's
+        // creation, ensure the header expands enough to accommodate them
+        // across all of their spanned rows.
         let resolved_cells = resolved_cells
             .into_iter()
             .enumerate()
             .map(|(i, cell)| {
                 if let Some(cell) = cell {
+                    if let Some((parent_cell, header)) =
+                        cell.as_cell().zip(header.as_mut())
+                    {
+                        let y = i / c;
+                        if y < header.end {
+                            // Ensure the header expands enough such that all
+                            // cells inside it, even those added later, are
+                            // fully contained within the header.
+                            // FIXME: check if start < y < end when start can
+                            // be != 0.
+                            // FIXME: when start can be != 0, decide what
+                            // happens when a cell after the header placed
+                            // above it tries to span the header (either error
+                            // or expand upwards).
+                            header.end = header.end.max(y + parent_cell.rowspan.get());
+                        }
+                    }
+
                     Ok(cell)
                 } else {
                     let x = i % c;
@@ -869,12 +890,30 @@ impl CellGrid {
 
         // No point in storing the header if it shouldn't be repeated.
         let header = header.filter(|_| repeat_header).map(|mut header| {
-            // The header's last row can exceed the row amount in one case:
-            // If there is gutter and the header's last content row is also
-            // the last row in the grid. In that case, the extra row we
-            // added to the header end - in order to include the gutter
-            // below the header in repetitions - doesn't exist in the end.
-            header.end = header.end.min(row_amount);
+            // Repeat the gutter below a header (hence why we don't
+            // subtract 1 from the gutter case).
+            // Don't do this if there are no rows under the header.
+            if has_gutter {
+                // - 'header.end' is always 'last y + 1'. The header stops
+                // before that row.
+                // - Therefore, '2 * header.end' will be 2 * (last y + 1),
+                // which is the adjusted index of the row before which the
+                // header stops, meaning it will still stop right before it
+                // even with gutter thanks to the multiplication below.
+                // - This means that it will span all rows up to
+                // '2 * (last y + 1) - 1 = 2 * last y + 1', which equates to
+                // the index of the gutter row right below the header, which is
+                // what we want (that gutter spacing should be repeated across
+                // pages to maintain uniformity).
+                header.end *= 2;
+
+                // If the header occupies the entire grid, ensure we don't
+                // include an extra gutter row when it doesn't exist, since
+                // the last row of the header is at the very bottom, therefore
+                // '2 * last y + 1' is not a valid index.
+                let row_amount = (2 * row_amount).saturating_sub(1);
+                header.end = header.end.min(row_amount);
+            }
             header
         });
 
