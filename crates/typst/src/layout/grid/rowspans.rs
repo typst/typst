@@ -120,8 +120,8 @@ impl<'a> GridLayouter<'a> {
             .finished
             .iter_mut()
             .chain(current_region.into_iter())
-            .enumerate()
             .skip(first_region)
+            .enumerate()
             .zip(fragment)
         {
             let dy = if i == 0 {
