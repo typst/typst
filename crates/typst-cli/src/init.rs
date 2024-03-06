@@ -31,6 +31,8 @@ pub fn init(command: &InitCommand) -> StrResult<()> {
         bail!("package {spec} is not a template");
     };
 
+    manifest.validate(&spec)?;
+
     // Determine the directory at which we will create the project.
     let project_dir = Path::new(command.dir.as_deref().unwrap_or(&manifest.package.name));
 
