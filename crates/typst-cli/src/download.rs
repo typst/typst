@@ -151,6 +151,7 @@ impl RemoteReader {
         }
 
         self.display()?;
+        writeln!(&mut terminal::out())?;
 
         Ok(data)
     }

@@ -106,5 +106,6 @@ fn print_summary(
     write!(out, "> ")?;
     out.reset()?;
     writeln!(out, "typst watch {}", template.entrypoint)?;
+    writeln!(out)?;
     Ok(())
 }
