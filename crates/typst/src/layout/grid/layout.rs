@@ -1576,7 +1576,10 @@ impl<'a> GridLayouter<'a> {
                 let header_hlines = if let Some((header, prev_y)) =
                     self.grid.header.as_ref().zip(prev_y)
                 {
-                    if prev_y + 1 != y && prev_y + 1 == header.end {
+                    if prev_y + 1 != y
+                        && prev_y + 1 == header.end
+                        && !self.grid.has_gutter
+                    {
                         // For lines below a header, give priority to the
                         // lines originally below the header rather than
                         // the lines of what's below the repeated header.
@@ -1584,6 +1587,11 @@ impl<'a> GridLayouter<'a> {
                         // out the header for the first time, since the
                         // lines being normally laid out then will be
                         // precisely the lines below the header.
+                        //
+                        // Additionally, we don't append header lines when
+                        // gutter is enabled, since, in that case, there will
+                        // be a gutter row between header and content, so no
+                        // lines should overlap.
                         get_hlines_at(header.end)
                     } else {
                         &[]
