@@ -40,7 +40,7 @@ pub struct Line {
 /// its index. This is mostly only relevant when gutter is used, since, then,
 /// the position after a track is not the same as before the next
 /// non-gutter track.
-#[derive(PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum LinePosition {
     /// The line should be drawn before its track (e.g. hline on top of a row).
     Before,
@@ -122,7 +122,6 @@ pub(super) fn generate_line_segments<'grid, F, I, L>(
     tracks: I,
     index: usize,
     lines: L,
-    is_max_index: bool,
     line_stroke_at_track: F,
 ) -> impl Iterator<Item = LineSegment> + 'grid
 where
@@ -153,22 +152,6 @@ where
 
     // How much to multiply line indices by to account for gutter.
     let gutter_factor = if grid.has_gutter { 2 } else { 1 };
-
-    // Which line position to look for in the given list of lines.
-    //
-    // If the index represents a gutter track, this means the list of lines
-    // parameter will actually correspond to the list of lines in the previous
-    // index, so we must look for lines positioned after the previous index,
-    // and not before, to determine which lines should be placed in gutter.
-    //
-    // Note that the maximum index is always an odd number when there's gutter,
-    // so we must check for it to ensure we don't give it the same treatment as
-    // a line before a gutter track.
-    let expected_line_position = if grid.is_gutter_track(index) && !is_max_index {
-        LinePosition::After
-    } else {
-        LinePosition::Before
-    };
 
     // Create an iterator of line segments, which will go through each track,
     // from start to finish, to create line segments and extend them until they
@@ -210,20 +193,18 @@ where
             let mut line_strokes = lines
                 .clone()
                 .filter(|line| {
-                    line.position == expected_line_position
-                        && line
-                            .end
-                            .map(|end| {
-                                // Subtract 1 from end index so we stop at the last
-                                // cell before it (don't cross one extra gutter).
-                                let end = if grid.has_gutter {
-                                    2 * end.get() - 1
-                                } else {
-                                    end.get()
-                                };
-                                (gutter_factor * line.start..end).contains(&track)
-                            })
-                            .unwrap_or_else(|| track >= gutter_factor * line.start)
+                    line.end
+                        .map(|end| {
+                            // Subtract 1 from end index so we stop at the last
+                            // cell before it (don't cross one extra gutter).
+                            let end = if grid.has_gutter {
+                                2 * end.get() - 1
+                            } else {
+                                end.get()
+                            };
+                            (gutter_factor * line.start..end).contains(&track)
+                        })
+                        .unwrap_or_else(|| track >= gutter_factor * line.start)
                 })
                 .map(|line| line.stroke.clone());
 
@@ -554,9 +535,25 @@ pub(super) fn hline_stroke_at_column(
         StrokePriority::GridStroke
     };
 
+    // Top border stroke and header stroke are generally prioritized, unless
+    // they don't have explicit hline overrides and one or more user-provided
+    // hlines would appear at the same position, which then are prioritized.
+    let top_stroke_comes_from_header =
+        grid.header
+            .as_ref()
+            .zip(local_top_y)
+            .is_some_and(|(header, local_top_y)| {
+                // Ensure the row above us is a repeated header.
+                // FIXME: Make this check more robust when headers at arbitrary
+                // positions are added.
+                local_top_y + 1 == header.end && y != header.end
+            });
+
     let (prioritized_cell_stroke, deprioritized_cell_stroke) =
         if !use_bottom_border_stroke
-            && (use_top_border_stroke || top_cell_prioritized && !bottom_cell_prioritized)
+            && (use_top_border_stroke
+                || top_stroke_comes_from_header
+                || top_cell_prioritized && !bottom_cell_prioritized)
         {
             // Top border must always be prioritized, even if it did not
             // request for that explicitly.
@@ -660,6 +657,7 @@ mod test {
             },
             vec![],
             vec![],
+            None,
             entries,
         )
     }
@@ -723,15 +721,8 @@ mod test {
             let tracks = rows.iter().map(|row| (row.y, row.height));
             assert_eq!(
                 expected_splits,
-                &generate_line_segments(
-                    &grid,
-                    tracks,
-                    x,
-                    &[],
-                    x == grid.cols.len(),
-                    vline_stroke_at_row
-                )
-                .collect::<Vec<_>>(),
+                &generate_line_segments(&grid, tracks, x, &[], vline_stroke_at_row)
+                    .collect::<Vec<_>>(),
             );
         }
     }
@@ -955,15 +946,8 @@ mod test {
             let tracks = rows.iter().map(|row| (row.y, row.height));
             assert_eq!(
                 expected_splits,
-                &generate_line_segments(
-                    &grid,
-                    tracks,
-                    x,
-                    &[],
-                    x == grid.cols.len(),
-                    vline_stroke_at_row
-                )
-                .collect::<Vec<_>>(),
+                &generate_line_segments(&grid, tracks, x, &[], vline_stroke_at_row)
+                    .collect::<Vec<_>>(),
             );
         }
     }
@@ -1144,7 +1128,6 @@ mod test {
                             position: LinePosition::After
                         },
                     ],
-                    x == grid.cols.len(),
                     vline_stroke_at_row
                 )
                 .collect::<Vec<_>>(),
@@ -1211,6 +1194,7 @@ mod test {
             },
             vec![],
             vec![],
+            None,
             entries,
         )
     }
@@ -1297,22 +1281,17 @@ mod test {
             let tracks = columns.iter().copied().enumerate();
             assert_eq!(
                 expected_splits,
-                &generate_line_segments(
-                    &grid,
-                    tracks,
-                    y,
-                    &[],
-                    y == grid.rows.len(),
-                    |grid, y, x, stroke| hline_stroke_at_column(
+                &generate_line_segments(&grid, tracks, y, &[], |grid, y, x, stroke| {
+                    hline_stroke_at_column(
                         grid,
                         &rows,
                         y.checked_sub(1),
                         true,
                         y,
                         x,
-                        stroke
+                        stroke,
                     )
-                )
+                })
                 .collect::<Vec<_>>(),
             );
         }
@@ -1496,7 +1475,6 @@ mod test {
                             position: LinePosition::After
                         },
                     ],
-                    y == grid.rows.len(),
                     |grid, y, x, stroke| hline_stroke_at_column(
                         grid,
                         &rows,
@@ -1542,7 +1520,6 @@ mod test {
                 columns.iter().copied().enumerate(),
                 4,
                 &[],
-                4 == grid.rows.len(),
                 |grid, y, x, stroke| hline_stroke_at_column(
                     grid,
                     &rows,

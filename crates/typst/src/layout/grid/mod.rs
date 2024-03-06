@@ -2,13 +2,16 @@ mod layout;
 mod lines;
 mod rowspans;
 
-pub use self::layout::{Cell, CellGrid, Celled, GridItem, GridLayouter, ResolvableCell};
+pub use self::layout::{
+    Cell, CellGrid, Celled, GridLayouter, ResolvableCell, ResolvableGridChild,
+    ResolvableGridItem,
+};
 pub use self::lines::LinePosition;
 
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use ecow::eco_format;
+use ecow::{eco_format, EcoString};
 use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, SourceResult, StrResult, Trace, Tracepoint};
@@ -20,7 +23,7 @@ use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Dir, Fragment, LayoutMultiple, Length,
     OuterHAlignment, OuterVAlignment, Regions, Rel, Sides, Sizing,
 };
-use crate::model::{TableCell, TableHLine, TableVLine};
+use crate::model::{TableCell, TableHLine, TableHeader, TableVLine};
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::util::NonZeroExt;
@@ -293,6 +296,9 @@ impl GridElem {
 
     #[elem]
     type GridVLine;
+
+    #[elem]
+    type GridHeader;
 }
 
 impl LayoutMultiple for Packed<GridElem> {
@@ -316,43 +322,20 @@ impl LayoutMultiple for Packed<GridElem> {
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
         // Use trace to link back to the grid when a specific cell errors
         let tracepoint = || Tracepoint::Call(Some(eco_format!("grid")));
-        let items = self.children().iter().map(|child| match child {
-            GridChild::HLine(hline) => GridItem::HLine {
-                y: hline.y(styles),
-                start: hline.start(styles),
-                end: hline.end(styles),
-                stroke: hline.stroke(styles),
-                span: hline.span(),
-                position: match hline.position(styles) {
-                    OuterVAlignment::Top => LinePosition::Before,
-                    OuterVAlignment::Bottom => LinePosition::After,
-                },
+        let children = self.children().iter().map(|child| match child {
+            GridChild::Header(header) => ResolvableGridChild::Header {
+                repeat: header.repeat(styles),
+                span: header.span(),
+                items: header.children().iter().map(|child| child.to_resolvable(styles)),
             },
-            GridChild::VLine(vline) => GridItem::VLine {
-                x: vline.x(styles),
-                start: vline.start(styles),
-                end: vline.end(styles),
-                stroke: vline.stroke(styles),
-                span: vline.span(),
-                position: match vline.position(styles) {
-                    OuterHAlignment::Left if TextElem::dir_in(styles) == Dir::RTL => {
-                        LinePosition::After
-                    }
-                    OuterHAlignment::Right if TextElem::dir_in(styles) == Dir::RTL => {
-                        LinePosition::Before
-                    }
-                    OuterHAlignment::Start | OuterHAlignment::Left => {
-                        LinePosition::Before
-                    }
-                    OuterHAlignment::End | OuterHAlignment::Right => LinePosition::After,
-                },
-            },
-            GridChild::Cell(cell) => GridItem::Cell(cell.clone()),
+            GridChild::Item(item) => {
+                ResolvableGridChild::Item(item.to_resolvable(styles))
+            }
         });
         let grid = CellGrid::resolve(
             tracks,
             gutter,
-            items,
+            children,
             fill,
             align,
             &inset,
@@ -385,50 +368,134 @@ cast! {
 /// Any child of a grid element.
 #[derive(Debug, PartialEq, Clone, Hash)]
 pub enum GridChild {
+    Header(Packed<GridHeader>),
+    Item(GridItem),
+}
+
+cast! {
+    GridChild,
+    self => match self {
+        Self::Header(header) => header.into_value(),
+        Self::Item(item) => item.into_value(),
+    },
+    v: Content => {
+        v.try_into()?
+    },
+}
+
+impl TryFrom<Content> for GridChild {
+    type Error = EcoString;
+    fn try_from(value: Content) -> StrResult<Self> {
+        if value.is::<TableHeader>() {
+            bail!("cannot use `table.header` as a grid header; use `grid.header` instead")
+        }
+
+        value
+            .into_packed::<GridHeader>()
+            .map(Self::Header)
+            .or_else(|value| GridItem::try_from(value).map(Self::Item))
+    }
+}
+
+/// A grid item, which is the basic unit of grid specification.
+#[derive(Debug, PartialEq, Clone, Hash)]
+pub enum GridItem {
     HLine(Packed<GridHLine>),
     VLine(Packed<GridVLine>),
     Cell(Packed<GridCell>),
 }
 
+impl GridItem {
+    fn to_resolvable(&self, styles: StyleChain) -> ResolvableGridItem<Packed<GridCell>> {
+        match self {
+            Self::HLine(hline) => ResolvableGridItem::HLine {
+                y: hline.y(styles),
+                start: hline.start(styles),
+                end: hline.end(styles),
+                stroke: hline.stroke(styles),
+                span: hline.span(),
+                position: match hline.position(styles) {
+                    OuterVAlignment::Top => LinePosition::Before,
+                    OuterVAlignment::Bottom => LinePosition::After,
+                },
+            },
+            Self::VLine(vline) => ResolvableGridItem::VLine {
+                x: vline.x(styles),
+                start: vline.start(styles),
+                end: vline.end(styles),
+                stroke: vline.stroke(styles),
+                span: vline.span(),
+                position: match vline.position(styles) {
+                    OuterHAlignment::Left if TextElem::dir_in(styles) == Dir::RTL => {
+                        LinePosition::After
+                    }
+                    OuterHAlignment::Right if TextElem::dir_in(styles) == Dir::RTL => {
+                        LinePosition::Before
+                    }
+                    OuterHAlignment::Start | OuterHAlignment::Left => {
+                        LinePosition::Before
+                    }
+                    OuterHAlignment::End | OuterHAlignment::Right => LinePosition::After,
+                },
+            },
+            Self::Cell(cell) => ResolvableGridItem::Cell(cell.clone()),
+        }
+    }
+}
+
 cast! {
-    GridChild,
+    GridItem,
     self => match self {
         Self::HLine(hline) => hline.into_value(),
         Self::VLine(vline) => vline.into_value(),
         Self::Cell(cell) => cell.into_value(),
     },
     v: Content => {
-        if v.is::<TableCell>() {
-            bail!(
-                "cannot use `table.cell` as a grid cell; use `grid.cell` instead"
-            );
-        }
-        if v.is::<TableHLine>() {
-            bail!(
-                "cannot use `table.hline` as a grid line; use `grid.hline` instead"
-            );
-        }
-        if v.is::<TableVLine>() {
-            bail!(
-                "cannot use `table.vline` as a grid line; use `grid.vline` instead"
-            );
-        }
-        v.into()
+        v.try_into()?
     }
 }
 
-impl From<Content> for GridChild {
-    fn from(value: Content) -> Self {
-        value
+impl TryFrom<Content> for GridItem {
+    type Error = EcoString;
+    fn try_from(value: Content) -> StrResult<Self> {
+        if value.is::<GridHeader>() {
+            bail!("cannot place a grid header within another header");
+        }
+        if value.is::<TableHeader>() {
+            bail!("cannot place a table header within another header");
+        }
+        if value.is::<TableCell>() {
+            bail!("cannot use `table.cell` as a grid cell; use `grid.cell` instead");
+        }
+        if value.is::<TableHLine>() {
+            bail!("cannot use `table.hline` as a grid line; use `grid.hline` instead");
+        }
+        if value.is::<TableVLine>() {
+            bail!("cannot use `table.vline` as a grid line; use `grid.vline` instead");
+        }
+
+        Ok(value
             .into_packed::<GridHLine>()
-            .map(GridChild::HLine)
-            .or_else(|value| value.into_packed::<GridVLine>().map(GridChild::VLine))
-            .or_else(|value| value.into_packed::<GridCell>().map(GridChild::Cell))
+            .map(Self::HLine)
+            .or_else(|value| value.into_packed::<GridVLine>().map(Self::VLine))
+            .or_else(|value| value.into_packed::<GridCell>().map(Self::Cell))
             .unwrap_or_else(|value| {
                 let span = value.span();
-                GridChild::Cell(Packed::new(GridCell::new(value)).spanned(span))
-            })
+                Self::Cell(Packed::new(GridCell::new(value)).spanned(span))
+            }))
     }
+}
+
+/// A repeatable grid header.
+#[elem(name = "header", title = "Grid Header")]
+pub struct GridHeader {
+    /// Whether this header should be repeated across pages.
+    #[default(true)]
+    pub repeat: bool,
+
+    /// The cells and lines within the header.
+    #[variadic]
+    pub children: Vec<GridItem>,
 }
 
 /// A horizontal line in the grid.

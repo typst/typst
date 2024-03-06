@@ -1,18 +1,18 @@
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use ecow::eco_format;
+use ecow::{eco_format, EcoString};
 
-use crate::diag::{bail, SourceResult, Trace, Tracepoint};
+use crate::diag::{bail, SourceResult, StrResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     cast, elem, scope, Content, Fold, Packed, Show, Smart, StyleChain,
 };
 use crate::layout::{
     show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Dir, Fragment,
-    GridCell, GridHLine, GridItem, GridLayouter, GridVLine, LayoutMultiple, Length,
-    LinePosition, OuterHAlignment, OuterVAlignment, Regions, Rel, ResolvableCell, Sides,
-    TrackSizings,
+    GridCell, GridHLine, GridHeader, GridLayouter, GridVLine, LayoutMultiple, Length,
+    LinePosition, OuterHAlignment, OuterVAlignment, Regions, Rel, ResolvableCell,
+    ResolvableGridChild, ResolvableGridItem, Sides, TrackSizings,
 };
 use crate::model::Figurable;
 use crate::syntax::Span;
@@ -221,6 +221,9 @@ impl TableElem {
 
     #[elem]
     type TableVLine;
+
+    #[elem]
+    type TableHeader;
 }
 
 impl LayoutMultiple for Packed<TableElem> {
@@ -244,43 +247,20 @@ impl LayoutMultiple for Packed<TableElem> {
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
         // Use trace to link back to the table when a specific cell errors
         let tracepoint = || Tracepoint::Call(Some(eco_format!("table")));
-        let items = self.children().iter().map(|child| match child {
-            TableChild::HLine(hline) => GridItem::HLine {
-                y: hline.y(styles),
-                start: hline.start(styles),
-                end: hline.end(styles),
-                stroke: hline.stroke(styles),
-                span: hline.span(),
-                position: match hline.position(styles) {
-                    OuterVAlignment::Top => LinePosition::Before,
-                    OuterVAlignment::Bottom => LinePosition::After,
-                },
+        let children = self.children().iter().map(|child| match child {
+            TableChild::Header(header) => ResolvableGridChild::Header {
+                repeat: header.repeat(styles),
+                span: header.span(),
+                items: header.children().iter().map(|child| child.to_resolvable(styles)),
             },
-            TableChild::VLine(vline) => GridItem::VLine {
-                x: vline.x(styles),
-                start: vline.start(styles),
-                end: vline.end(styles),
-                stroke: vline.stroke(styles),
-                span: vline.span(),
-                position: match vline.position(styles) {
-                    OuterHAlignment::Left if TextElem::dir_in(styles) == Dir::RTL => {
-                        LinePosition::After
-                    }
-                    OuterHAlignment::Right if TextElem::dir_in(styles) == Dir::RTL => {
-                        LinePosition::Before
-                    }
-                    OuterHAlignment::Start | OuterHAlignment::Left => {
-                        LinePosition::Before
-                    }
-                    OuterHAlignment::End | OuterHAlignment::Right => LinePosition::After,
-                },
-            },
-            TableChild::Cell(cell) => GridItem::Cell(cell.clone()),
+            TableChild::Item(item) => {
+                ResolvableGridChild::Item(item.to_resolvable(styles))
+            }
         });
         let grid = CellGrid::resolve(
             tracks,
             gutter,
-            items,
+            children,
             fill,
             align,
             &inset,
@@ -338,50 +318,138 @@ impl Figurable for Packed<TableElem> {}
 /// Any child of a table element.
 #[derive(Debug, PartialEq, Clone, Hash)]
 pub enum TableChild {
+    Header(Packed<TableHeader>),
+    Item(TableItem),
+}
+
+cast! {
+    TableChild,
+    self => match self {
+        Self::Header(header) => header.into_value(),
+        Self::Item(item) => item.into_value(),
+    },
+    v: Content => {
+        v.try_into()?
+    },
+}
+
+impl TryFrom<Content> for TableChild {
+    type Error = EcoString;
+
+    fn try_from(value: Content) -> StrResult<Self> {
+        if value.is::<GridHeader>() {
+            bail!(
+                "cannot use `grid.header` as a table header; use `table.header` instead"
+            )
+        }
+
+        value
+            .into_packed::<TableHeader>()
+            .map(Self::Header)
+            .or_else(|value| TableItem::try_from(value).map(Self::Item))
+    }
+}
+
+/// A table item, which is the basic unit of table specification.
+#[derive(Debug, PartialEq, Clone, Hash)]
+pub enum TableItem {
     HLine(Packed<TableHLine>),
     VLine(Packed<TableVLine>),
     Cell(Packed<TableCell>),
 }
 
+impl TableItem {
+    fn to_resolvable(&self, styles: StyleChain) -> ResolvableGridItem<Packed<TableCell>> {
+        match self {
+            Self::HLine(hline) => ResolvableGridItem::HLine {
+                y: hline.y(styles),
+                start: hline.start(styles),
+                end: hline.end(styles),
+                stroke: hline.stroke(styles),
+                span: hline.span(),
+                position: match hline.position(styles) {
+                    OuterVAlignment::Top => LinePosition::Before,
+                    OuterVAlignment::Bottom => LinePosition::After,
+                },
+            },
+            Self::VLine(vline) => ResolvableGridItem::VLine {
+                x: vline.x(styles),
+                start: vline.start(styles),
+                end: vline.end(styles),
+                stroke: vline.stroke(styles),
+                span: vline.span(),
+                position: match vline.position(styles) {
+                    OuterHAlignment::Left if TextElem::dir_in(styles) == Dir::RTL => {
+                        LinePosition::After
+                    }
+                    OuterHAlignment::Right if TextElem::dir_in(styles) == Dir::RTL => {
+                        LinePosition::Before
+                    }
+                    OuterHAlignment::Start | OuterHAlignment::Left => {
+                        LinePosition::Before
+                    }
+                    OuterHAlignment::End | OuterHAlignment::Right => LinePosition::After,
+                },
+            },
+            Self::Cell(cell) => ResolvableGridItem::Cell(cell.clone()),
+        }
+    }
+}
+
 cast! {
-    TableChild,
+    TableItem,
     self => match self {
         Self::HLine(hline) => hline.into_value(),
         Self::VLine(vline) => vline.into_value(),
         Self::Cell(cell) => cell.into_value(),
     },
     v: Content => {
-        if v.is::<GridCell>() {
-            bail!(
-                "cannot use `grid.cell` as a table cell; use `table.cell` instead"
-            );
+        v.try_into()?
+    },
+}
+
+impl TryFrom<Content> for TableItem {
+    type Error = EcoString;
+
+    fn try_from(value: Content) -> StrResult<Self> {
+        if value.is::<GridHeader>() {
+            bail!("cannot place a grid header within another header");
         }
-        if v.is::<GridHLine>() {
-            bail!(
-                "cannot use `grid.hline` as a table line; use `table.hline` instead"
-            );
+        if value.is::<TableHeader>() {
+            bail!("cannot place a table header within another header");
         }
-        if v.is::<GridVLine>() {
-            bail!(
-                "cannot use `grid.vline` as a table line; use `table.vline` instead"
-            );
+        if value.is::<GridCell>() {
+            bail!("cannot use `grid.cell` as a table cell; use `table.cell` instead");
         }
-        v.into()
+        if value.is::<GridHLine>() {
+            bail!("cannot use `grid.hline` as a table line; use `table.hline` instead");
+        }
+        if value.is::<GridVLine>() {
+            bail!("cannot use `grid.vline` as a table line; use `table.vline` instead");
+        }
+
+        Ok(value
+            .into_packed::<TableHLine>()
+            .map(Self::HLine)
+            .or_else(|value| value.into_packed::<TableVLine>().map(Self::VLine))
+            .or_else(|value| value.into_packed::<TableCell>().map(Self::Cell))
+            .unwrap_or_else(|value| {
+                let span = value.span();
+                Self::Cell(Packed::new(TableCell::new(value)).spanned(span))
+            }))
     }
 }
 
-impl From<Content> for TableChild {
-    fn from(value: Content) -> Self {
-        value
-            .into_packed::<TableHLine>()
-            .map(TableChild::HLine)
-            .or_else(|value| value.into_packed::<TableVLine>().map(TableChild::VLine))
-            .or_else(|value| value.into_packed::<TableCell>().map(TableChild::Cell))
-            .unwrap_or_else(|value| {
-                let span = value.span();
-                TableChild::Cell(Packed::new(TableCell::new(value)).spanned(span))
-            })
-    }
+/// A repeatable table header.
+#[elem(name = "header", title = "Table Header")]
+pub struct TableHeader {
+    /// Whether this header should be repeated across pages.
+    #[default(true)]
+    pub repeat: bool,
+
+    /// The cells and lines within the header.
+    #[variadic]
+    pub children: Vec<TableItem>,
 }
 
 /// A horizontal line in the table. See the docs for
