@@ -1264,6 +1264,16 @@ pub(super) enum Row {
     Fr(Fr, usize),
 }
 
+impl Row {
+    /// Returns the `y` index of this row.
+    fn index(&self) -> usize {
+        match self {
+            Self::Frame(_, y, _) => *y,
+            Self::Fr(_, y) => *y,
+        }
+    }
+}
+
 impl<'a> GridLayouter<'a> {
     /// Create a new grid layouter.
     ///
@@ -2336,17 +2346,18 @@ impl<'a> GridLayouter<'a> {
 
     /// Finish rows for one region.
     pub(super) fn finish_region(&mut self, engine: &mut Engine) -> SourceResult<()> {
-        if self.lrows.last().is_some_and(|row| {
-            let (Row::Frame(_, y, _) | Row::Fr(_, y)) = row;
-            self.grid.is_gutter_track(*y)
-        }) {
+        if self
+            .lrows
+            .last()
+            .is_some_and(|row| self.grid.is_gutter_track(row.index()))
+        {
             // Remove the last row in the region if it is a gutter row.
             self.lrows.pop().unwrap();
         }
 
         if let Some(header) = &self.grid.header {
             if self.grid.rows.len() > header.end
-                && self.lrows.len() <= header.end
+                && self.lrows.last().is_some_and(|row| row.index() < header.end)
                 && !in_last_with_offset(self.regions, self.header_height)
             {
                 // Header would be alone in this region, but there are more
