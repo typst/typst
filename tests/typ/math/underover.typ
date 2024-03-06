@@ -8,6 +8,10 @@ $ x = underbrace(
 ) $
 
 ---
+// Test braces.
+$ x = overbrace(1 + 2) $
+
+---
 // Test lines and brackets.
 $ x = overbracket(
   overline(underline(x + y)),
@@ -19,3 +23,15 @@ $ x = overbracket(
 $ underbracket([1, 2/3], "relevant stuff")
           arrow.l.r.double.long
   overbracket([4/5,6], "irrelevant stuff") $
+
+---
+// Test parentheses.
+$ underparen([1, 2/3], "relevant stuff")
+          arrow.l.r.double.long
+  overparen([4/5,6], "irrelevant stuff") $
+
+---
+// Test shells.
+$ undershell([1, 2/3], "relevant stuff")
+          arrow.l.r.double.long
+  overshell([4/5,6], "irrelevant stuff") $
