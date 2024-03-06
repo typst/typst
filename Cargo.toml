@@ -46,6 +46,7 @@ ecow = { version = "0.2", features = ["serde"] }
 env_proxy = "0.4"
 flate2 = "1"
 fontdb = { version = "0.16", default-features = false }
+fs_extra = "1.3"
 hayagriva = "0.5.1"
 heck = "0.4"
 hypher = "0.1.4"
@@ -115,7 +116,7 @@ unicode-properties = "0.1"
 unicode-script = "0.5"
 unicode-segmentation = "1"
 unscanny = "0.1"
-ureq = { version = "2", default-features = false, features = ["native-tls", "gzip"] }
+ureq = { version = "2", default-features = false, features = ["native-tls", "gzip", "json"] }
 usvg = { version = "0.38.0", default-features = false, features = ["text"] }
 walkdir = "2"
 wasmi = "0.31.0"

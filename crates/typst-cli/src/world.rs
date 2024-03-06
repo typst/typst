@@ -19,7 +19,6 @@ use typst_timing::{timed, TimingScope};
 use crate::args::{Input, SharedArgs};
 use crate::compile::ExportCache;
 use crate::fonts::{FontSearcher, FontSlot};
-use crate::package::prepare_package;
 
 /// Static `FileId` allocated for stdin.
 /// This is to ensure that a file is read in the correct way.
@@ -344,7 +343,7 @@ fn system_path(project_root: &Path, id: FileId) -> FileResult<PathBuf> {
     let buf;
     let mut root = project_root;
     if let Some(spec) = id.package() {
-        buf = prepare_package(spec)?;
+        buf = crate::package::prepare_package(spec)?;
         root = &buf;
     }
 

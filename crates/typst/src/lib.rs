@@ -72,7 +72,8 @@ use crate::foundations::{
 use crate::introspection::{Introspector, Locator};
 use crate::layout::{Alignment, Dir, LayoutRoot};
 use crate::model::Document;
-use crate::syntax::{FileId, PackageSpec, Source, Span};
+use crate::syntax::package::PackageSpec;
+use crate::syntax::{FileId, Source, Span};
 use crate::text::{Font, FontBook};
 use crate::visualize::Color;
 

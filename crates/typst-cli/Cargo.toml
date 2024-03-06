@@ -37,6 +37,7 @@ ecow = { workspace = true }
 env_proxy = { workspace = true }
 flate2 = { workspace = true }
 fontdb = { workspace = true, features = ["memmap", "fontconfig"] }
+fs_extra = { workspace = true }
 native-tls = { workspace = true }
 notify = { workspace = true }
 once_cell = { workspace = true }
@@ -53,6 +54,7 @@ serde_yaml = { workspace = true }
 siphasher = { workspace = true }
 tar = { workspace = true }
 tempfile = { workspace = true }
+toml = { workspace = true }
 ureq = { workspace = true }
 xz2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
@@ -78,7 +80,7 @@ default = ["embed-fonts"]
 embed-fonts = []
 
 # Permits the CLI to update itself without a package manager.
-self-update = ["dep:self-replace", "dep:xz2", "dep:zip", "ureq/json"]
+self-update = ["dep:self-replace", "dep:xz2", "dep:zip"]
 
 # Whether to vendor OpenSSL. Not applicable to Windows and macOS builds.
 vendor-openssl = ["openssl/vendored"]

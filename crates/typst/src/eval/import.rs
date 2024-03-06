@@ -1,14 +1,12 @@
 use comemo::TrackedMut;
 use ecow::{eco_format, eco_vec, EcoString};
-use serde::{Deserialize, Serialize};
 
-use crate::diag::{
-    bail, error, warning, At, FileError, SourceResult, StrResult, Trace, Tracepoint,
-};
+use crate::diag::{bail, error, warning, At, FileError, SourceResult, Trace, Tracepoint};
 use crate::eval::{eval, Eval, Vm};
 use crate::foundations::{Content, Module, Value};
 use crate::syntax::ast::{self, AstNode};
-use crate::syntax::{FileId, PackageSpec, PackageVersion, Span, VirtualPath};
+use crate::syntax::package::{PackageManifest, PackageSpec};
+use crate::syntax::{FileId, Span, VirtualPath};
 use crate::World;
 
 impl Eval for ast::ModuleImport<'_> {
@@ -136,7 +134,10 @@ fn import_package(vm: &mut Vm, spec: PackageSpec, span: Span) -> SourceResult<Mo
     // Evaluate the manifest.
     let manifest_id = FileId::new(Some(spec.clone()), VirtualPath::new("typst.toml"));
     let bytes = vm.world().file(manifest_id).at(span)?;
-    let manifest = PackageManifest::parse(&bytes).at(span)?;
+    let string = std::str::from_utf8(&bytes).map_err(FileError::from).at(span)?;
+    let manifest: PackageManifest = toml::from_str(string)
+        .map_err(|err| eco_format!("package manifest is malformed ({})", err.message()))
+        .at(span)?;
     manifest.validate(&spec).at(span)?;
 
     // Evaluate the entry point.
@@ -174,62 +175,4 @@ fn import_file(vm: &mut Vm, path: &str, span: Span) -> SourceResult<Module> {
         &source,
     )
     .trace(world, point, span)
-}
-
-/// A parsed package manifest.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-struct PackageManifest {
-    /// Details about the package itself.
-    package: PackageInfo,
-}
-
-/// The `package` key in the manifest.
-///
-/// More fields are specified, but they are not relevant to the compiler.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-struct PackageInfo {
-    /// The name of the package within its namespace.
-    name: EcoString,
-    /// The package's version.
-    version: PackageVersion,
-    /// The path of the entrypoint into the package.
-    entrypoint: EcoString,
-    /// The minimum required compiler version for the package.
-    compiler: Option<PackageVersion>,
-}
-
-impl PackageManifest {
-    /// Parse the manifest from raw bytes.
-    fn parse(bytes: &[u8]) -> StrResult<Self> {
-        let string = std::str::from_utf8(bytes).map_err(FileError::from)?;
-        toml::from_str(string).map_err(|err| {
-            eco_format!("package manifest is malformed: {}", err.message())
-        })
-    }
-
-    /// Ensure that this manifest is indeed for the specified package.
-    fn validate(&self, spec: &PackageSpec) -> StrResult<()> {
-        if self.package.name != spec.name {
-            bail!("package manifest contains mismatched name `{}`", self.package.name);
-        }
-
-        if self.package.version != spec.version {
-            bail!(
-                "package manifest contains mismatched version {}",
-                self.package.version
-            );
-        }
-
-        if let Some(compiler) = self.package.compiler {
-            let current = PackageVersion::compiler();
-            if current < compiler {
-                bail!(
-                    "package requires typst {compiler} or newer \
-                     (current version is {current})"
-                );
-            }
-        }
-
-        Ok(())
-    }
 }

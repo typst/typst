@@ -273,27 +273,27 @@ impl Status {
         let timestamp = chrono::offset::Local::now().format("%H:%M:%S");
         let color = self.color();
 
-        let mut term_out = terminal::out();
-        term_out.clear_screen()?;
+        let mut out = terminal::out();
+        out.clear_screen()?;
 
-        term_out.set_color(&color)?;
-        write!(term_out, "watching")?;
-        term_out.reset()?;
+        out.set_color(&color)?;
+        write!(out, "watching")?;
+        out.reset()?;
         match &command.common.input {
-            Input::Stdin => writeln!(term_out, " <stdin>"),
-            Input::Path(path) => writeln!(term_out, " {}", path.display()),
+            Input::Stdin => writeln!(out, " <stdin>"),
+            Input::Path(path) => writeln!(out, " {}", path.display()),
         }?;
 
-        term_out.set_color(&color)?;
-        write!(term_out, "writing to")?;
-        term_out.reset()?;
-        writeln!(term_out, " {}", output.display())?;
+        out.set_color(&color)?;
+        write!(out, "writing to")?;
+        out.reset()?;
+        writeln!(out, " {}", output.display())?;
 
-        writeln!(term_out)?;
-        writeln!(term_out, "[{timestamp}] {}", self.message())?;
-        writeln!(term_out)?;
+        writeln!(out)?;
+        writeln!(out, "[{timestamp}] {}", self.message())?;
+        writeln!(out)?;
 
-        term_out.flush()
+        out.flush()
     }
 
     fn message(&self) -> String {
