@@ -137,6 +137,11 @@ impl Symbol {
     /// Normalize an accent to a combining one. Keep it synced with the
     /// documenting table in accent.rs AccentElem.
     pub fn combining_accent(c: char) -> Option<char> {
+        // Certain non-combining marks are returned as such.
+        if matches!(c, '⏜' | '⏝' | '⎴' | '⎵' | '⏞' | '⏟' | '⏠' | '⏡') {
+            return Some(c);
+        }
+
         Some(match c {
             '\u{0300}' | '`' => '\u{0300}',
             '\u{0301}' | '´' => '\u{0301}',

@@ -51,6 +51,14 @@ pub struct AccentElem {
     /// | Circle        | `circle`        | `∘`       |
     /// | Double acute  | `acute.double`  | `˝`       |
     /// | Caron         | `caron`         | `ˇ`       |
+    /// | Top parenthesis  | `paren.t`    | `⏜`       |
+    /// | Bottom parenthesis  | `paren.b` | `⏝`       |
+    /// | Top brace     | `brace.t`       | `⏞`       |
+    /// | Bottom brace  | `brace.b`       | `⏟`       |
+    /// | Top bracket   | `bracket.t`     | `⎴`       |
+    /// | Bottom bracket | `bracket.b`    | `⎵`       |
+    /// | Top turtle shell | `turtle.t`   | `⏠`       |
+    /// | Bottom turtle shell | `turtle.b` | `⏡`       |
     /// | Right arrow   | `arrow`, `->`   | `→`       |
     /// | Left arrow    | `arrow.l`, `<-` | `←`       |
     /// | Left/Right arrow | `arrow.l.r`  | `↔`       |
