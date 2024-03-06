@@ -186,7 +186,7 @@ impl ColorEncode for ColorSpace {
     fn encode(&self, color: Color) -> [f32; 4] {
         match self {
             ColorSpace::Oklab | ColorSpace::Oklch | ColorSpace::Hsl | ColorSpace::Hsv => {
-                let [l, c, h, alpha] = color.to_oklch().to_vec4_f32();
+                let [l, c, h, alpha] = color.to_oklch().to_vec4();
                 // Clamp on Oklch's chroma, not Oklab's a\* and b\* as to not distort hue.
                 let c = c.clamp(0.0, 0.5);
                 // Convert cylindrical coordinates back to rectangular ones.
@@ -194,7 +194,7 @@ impl ColorEncode for ColorSpace {
                 let b = c * h.to_radians().sin();
                 [l, a + 0.5, b + 0.5, alpha]
             }
-            _ => color.to_space(*self).to_vec4_f32(),
+            _ => color.to_space(*self).to_vec4(),
         }
     }
 }
