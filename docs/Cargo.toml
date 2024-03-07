@@ -31,7 +31,6 @@ serde = { workspace = true }
 serde_yaml = { workspace = true }
 syntect = { workspace = true, features = ["html"] }
 typed-arena = { workspace = true }
-unicode_names2 = { workspace = true }
 unscanny = { workspace = true }
 yaml-front-matter = { workspace = true }
 clap = { workspace = true, optional = true }
