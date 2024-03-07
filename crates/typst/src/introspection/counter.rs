@@ -406,9 +406,10 @@ impl Counter {
         /// - If it is a string, creates a custom counter that is only affected
         ///   by manual updates,
         /// - If it is the [`page`] function, counts through pages,
-        /// - If it is a `{<label>}`, counts through all elements with that label,
-        /// - If it is an element function or other [selectors]($selector), counts
-        ///   through the matching elements.
+        /// - If it is a [selector], counts through elements that matches with the
+        ///   selector. For example,
+        ///   - provide an element function: counts elements of that type,
+        ///   - provide a [`{<label>}`]($label): counts elements with that label.
         key: CounterKey,
     ) -> Counter {
         Self::new(key)
