@@ -27,7 +27,7 @@ use crate::loading::Readable;
 use crate::model::Figurable;
 use crate::syntax::{Span, Spanned};
 use crate::text::{families, Lang, LocalName, Region};
-use crate::util::{option_eq, LazyHash, Numeric};
+use crate::util::{option_eq, LazyHash};
 use crate::visualize::Path;
 use crate::World;
 
@@ -198,20 +198,30 @@ impl LayoutSingle for Packed<ImageElem> {
         let region_ratio = region.x / region.y;
 
         // Find out whether the image is wider or taller than the target size.
-        let pxw = image.width() as f64;
-        let pxh = image.height() as f64;
+        let pxw = image.width();
+        let pxh = image.height();
         let px_ratio = pxw / pxh;
         let wide = px_ratio > region_ratio;
 
         // The space into which the image will be placed according to its fit.
         let target = if expand.x && expand.y {
+            // If both width and height are forced, take them.
             region
-        } else if expand.x || (!expand.y && wide && region.x.is_finite()) {
+        } else if expand.x {
+            // If just width is forced, take it.
             Size::new(region.x, region.y.min(region.x.safe_div(px_ratio)))
-        } else if region.y.is_finite() {
+        } else if expand.y {
+            // If just height is forced, take it.
             Size::new(region.x.min(region.y * px_ratio), region.y)
         } else {
-            Size::new(Abs::pt(pxw), Abs::pt(pxh))
+            // If neither is forced, take the natural image size at the image's
+            // DPI bounded by the available space.
+            let dpi = image.dpi().unwrap_or(Image::DEFAULT_DPI);
+            let natural = Axes::new(pxw, pxh).map(|v| Abs::inches(v / dpi));
+            Size::new(
+                natural.x.min(region.x).min(region.y * px_ratio),
+                natural.y.min(region.y).min(region.x.safe_div(px_ratio)),
+            )
         };
 
         // Compute the actual size of the fitted image.
@@ -219,7 +229,7 @@ impl LayoutSingle for Packed<ImageElem> {
         let fitted = match fit {
             ImageFit::Cover | ImageFit::Contain => {
                 if wide == (fit == ImageFit::Contain) {
-                    Size::new(target.x, target.x / px_ratio)
+                    Size::new(target.x, target.x.safe_div(px_ratio))
                 } else {
                     Size::new(target.y * px_ratio, target.y)
                 }
@@ -320,6 +330,10 @@ pub enum ImageKind {
 }
 
 impl Image {
+    /// When scaling an image to it's natural size, we default to this DPI
+    /// if the image doesn't contain DPI metadata.
+    pub const DEFAULT_DPI: f64 = 72.0;
+
     /// Create an image from a buffer and a format.
     #[comemo::memoize]
     #[typst_macros::time(name = "load image")]
@@ -391,6 +405,14 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.height() as f64,
             ImageKind::Svg(svg) => svg.height(),
+        }
+    }
+
+    /// The image's pixel density in pixels per inch, if known.
+    pub fn dpi(&self) -> Option<f64> {
+        match &self.0.kind {
+            ImageKind::Raster(raster) => raster.dpi(),
+            ImageKind::Svg(_) => None,
         }
     }
 

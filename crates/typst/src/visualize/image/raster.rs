@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::io;
 use std::sync::Arc;
@@ -22,6 +23,7 @@ struct Repr {
     format: RasterFormat,
     dynamic: image::DynamicImage,
     icc: Option<Vec<u8>>,
+    dpi: Option<f64>,
 }
 
 impl RasterImage {
@@ -46,11 +48,19 @@ impl RasterImage {
         }
         .map_err(format_image_error)?;
 
-        if let Some(rotation) = exif_rotation(&data) {
+        let exif = exif::Reader::new()
+            .read_from_container(&mut std::io::Cursor::new(&data))
+            .ok();
+
+        // Apply rotation from EXIF metadata.
+        if let Some(rotation) = exif.as_ref().and_then(exif_rotation) {
             apply_rotation(&mut dynamic, rotation);
         }
 
-        Ok(Self(Arc::new(Repr { data, format, dynamic, icc })))
+        // Extract pixel density.
+        let dpi = determine_dpi(&data, exif.as_ref());
+
+        Ok(Self(Arc::new(Repr { data, format, dynamic, icc, dpi })))
     }
 
     /// The raw image data.
@@ -71,6 +81,11 @@ impl RasterImage {
     /// The image's pixel height.
     pub fn height(&self) -> u32 {
         self.dynamic().height()
+    }
+
+    /// The image's pixel density in pixels per inch, if known.
+    pub fn dpi(&self) -> Option<f64> {
+        self.0.dpi
     }
 
     /// Access the underlying dynamic image.
@@ -133,13 +148,11 @@ impl TryFrom<image::ImageFormat> for RasterFormat {
     }
 }
 
-/// Get rotation from EXIF metadata.
-fn exif_rotation(data: &[u8]) -> Option<u32> {
-    let reader = exif::Reader::new();
-    let mut cursor = std::io::Cursor::new(data);
-    let exif = reader.read_from_container(&mut cursor).ok()?;
-    let orient = exif.get_field(exif::Tag::Orientation, exif::In::PRIMARY)?;
-    orient.value.get_uint(0)
+/// Try to get the rotation from the EXIF metadata.
+fn exif_rotation(exif: &exif::Exif) -> Option<u32> {
+    exif.get_field(exif::Tag::Orientation, exif::In::PRIMARY)?
+        .value
+        .get_uint(0)
 }
 
 /// Apply an EXIF rotation to a dynamic image.
@@ -163,10 +176,112 @@ fn apply_rotation(image: &mut DynamicImage, rotation: u32) {
     }
 }
 
+/// Try to determine the DPI (dots per inch) of the image.
+fn determine_dpi(data: &[u8], exif: Option<&exif::Exif>) -> Option<f64> {
+    // Try to extract the DPI from the EXIF metadata. If that doesn't yield
+    // anything, fall back to specialized procedures for extracting JPEG or PNG
+    // DPI metadata. GIF does not have any.
+    exif.and_then(exif_dpi)
+        .or_else(|| jpeg_dpi(data))
+        .or_else(|| png_dpi(data))
+}
+
+/// Try to get the DPI from the EXIF metadata.
+fn exif_dpi(exif: &exif::Exif) -> Option<f64> {
+    let axis = |tag| {
+        let dpi = exif.get_field(tag, exif::In::PRIMARY)?;
+        let exif::Value::Rational(rational) = &dpi.value else { return None };
+        Some(rational.first()?.to_f64())
+    };
+
+    [axis(exif::Tag::XResolution), axis(exif::Tag::YResolution)]
+        .into_iter()
+        .flatten()
+        .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
+}
+
+/// Tries to extract the DPI from raw JPEG data (by inspecting the JFIF APP0
+/// section).
+fn jpeg_dpi(data: &[u8]) -> Option<f64> {
+    let validate_at = |index: usize, expect: &[u8]| -> Option<()> {
+        data.get(index..)?.starts_with(expect).then_some(())
+    };
+    let u16_at = |index: usize| -> Option<u16> {
+        data.get(index..index + 2)?.try_into().ok().map(u16::from_be_bytes)
+    };
+
+    validate_at(0, b"\xFF\xD8\xFF\xE0\0")?;
+    validate_at(6, b"JFIF\0")?;
+    validate_at(11, b"\x01")?;
+
+    let len = u16_at(4)?;
+    if len < 16 {
+        return None;
+    }
+
+    let units = *data.get(13)?;
+    let x = u16_at(14)?;
+    let y = u16_at(16)?;
+    let dpu = x.max(y) as f64;
+
+    Some(match units {
+        1 => dpu,        // already inches
+        2 => dpu * 2.54, // cm -> inches
+        _ => return None,
+    })
+}
+
+/// Tries to extract the DPI from raw PNG data.
+fn png_dpi(mut data: &[u8]) -> Option<f64> {
+    let mut decoder = png::StreamingDecoder::new();
+    let dims = loop {
+        let (consumed, event) = decoder.update(data, &mut Vec::new()).ok()?;
+        match event {
+            png::Decoded::PixelDimensions(dims) => break dims,
+            // Bail as soon as there is anything data-like.
+            png::Decoded::ChunkBegin(_, png::chunk::IDAT)
+            | png::Decoded::ImageData
+            | png::Decoded::ImageEnd => return None,
+            _ => {}
+        }
+        data = data.get(consumed..)?;
+        if consumed == 0 {
+            return None;
+        }
+    };
+
+    let dpu = dims.xppu.max(dims.yppu) as f64;
+    match dims.unit {
+        png::Unit::Meter => Some(dpu * 0.0254), // meter -> inches
+        png::Unit::Unspecified => None,
+    }
+}
+
 /// Format the user-facing raster graphic decoding error message.
 fn format_image_error(error: image::ImageError) -> EcoString {
     match error {
         image::ImageError::Limits(_) => "file is too large".into(),
         err => eco_format!("failed to decode image ({err})"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{RasterFormat, RasterImage};
+    use crate::foundations::Bytes;
+
+    #[test]
+    fn test_image_dpi() {
+        #[track_caller]
+        fn test(path: &str, format: RasterFormat, dpi: f64) {
+            let data = typst_dev_assets::get(path).unwrap();
+            let bytes = Bytes::from_static(data);
+            let image = RasterImage::new(bytes, format).unwrap();
+            assert_eq!(image.dpi().map(f64::round), Some(dpi));
+        }
+
+        test("images/f2t.jpg", RasterFormat::Jpg, 220.0);
+        test("images/tiger.jpg", RasterFormat::Jpg, 72.0);
+        test("images/graph.png", RasterFormat::Png, 144.0);
     }
 }
