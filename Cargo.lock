@@ -858,14 +858,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94bf16dd62ea2bec617a6f8a3e1ba03107311783069a647787ac689d1f35321e"
 
 [[package]]
-name = "iai"
-version = "0.1.1"
-source = "git+https://github.com/typst/iai?rev=3f0f927#3f0f92736408ebce6545808b98e0cb2aea89b7dd"
-dependencies = [
- "cfg-if",
-]
-
-[[package]]
 name = "iana-time-zone"
 version = "0.1.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2789,7 +2781,6 @@ dependencies = [
  "clap",
  "comemo",
  "ecow",
- "iai",
  "once_cell",
  "oxipng",
  "rayon",
