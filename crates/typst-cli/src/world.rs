@@ -199,7 +199,7 @@ impl World for SystemWorld {
 
         let naive = match offset {
             None => now.naive_local(),
-            Some(o) => now.naive_utc() + chrono::Duration::hours(o),
+            Some(o) => now.naive_utc() + chrono::Duration::try_hours(o)?,
         };
 
         Datetime::from_ymd(
