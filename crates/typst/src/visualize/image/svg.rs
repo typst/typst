@@ -11,6 +11,7 @@ use crate::diag::{format_xml_like_error, StrResult};
 use crate::foundations::Bytes;
 use crate::layout::Axes;
 use crate::text::{FontVariant, FontWeight};
+use crate::visualize::Image;
 use crate::World;
 
 /// A decoded SVG.
@@ -29,8 +30,7 @@ impl SvgImage {
     /// Decode an SVG image without fonts.
     #[comemo::memoize]
     pub fn new(data: Bytes) -> StrResult<SvgImage> {
-        let opts = usvg::Options::default();
-        let tree = usvg::Tree::from_data(&data, &opts).map_err(format_usvg_error)?;
+        let tree = usvg::Tree::from_data(&data, &options()).map_err(format_usvg_error)?;
         Ok(Self(Arc::new(Repr {
             data,
             size: tree_size(&tree),
@@ -47,13 +47,8 @@ impl SvgImage {
         world: Tracked<dyn World + '_>,
         families: &[String],
     ) -> StrResult<SvgImage> {
-        // Disable usvg's default to "Times New Roman". Instead, we default to
-        // the empty family and later, when we traverse the SVG, we check for
-        // empty and non-existing family names and replace them with the true
-        // fallback family. This way, we can memoize SVG decoding with and without
-        // fonts if the SVG does not contain text.
-        let opts = usvg::Options { font_family: String::new(), ..Default::default() };
-        let mut tree = usvg::Tree::from_data(&data, &opts).map_err(format_usvg_error)?;
+        let mut tree =
+            usvg::Tree::from_data(&data, &options()).map_err(format_usvg_error)?;
         let mut font_hash = 0;
         if tree.has_text_nodes() {
             let (fontdb, hash) = load_svg_fonts(world, &mut tree, families);
@@ -123,6 +118,22 @@ impl Hash for Repr {
         // all used fonts gives us something similar.
         self.data.hash(state);
         self.font_hash.hash(state);
+    }
+}
+
+/// The conversion options.
+fn options() -> usvg::Options {
+    // Disable usvg's default to "Times New Roman". Instead, we default to
+    // the empty family and later, when we traverse the SVG, we check for
+    // empty and non-existing family names and replace them with the true
+    // fallback family. This way, we can memoize SVG decoding with and without
+    // fonts if the SVG does not contain text.
+    usvg::Options {
+        font_family: String::new(),
+        // We override the DPI here so that we get the correct the size when
+        // scaling the image to its natural size.
+        dpi: Image::DEFAULT_DPI as f32,
+        ..Default::default()
     }
 }
 
