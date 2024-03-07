@@ -122,5 +122,5 @@ fn shrink(size: Size, padding: Sides<Rel<Abs>>) -> Size {
 ///   <=> (1 - p.rel) * w = s + p.abs
 ///   <=> w = (s + p.abs) / (1 - p.rel)
 fn grow(size: Size, padding: Sides<Rel<Abs>>) -> Size {
-    size.zip_map(padding.sum_by_axis(), |s, p| (s + p.abs).safe_div(1.0 - p.rel.get()))
+    size.zip_map(padding.sum_by_axis(), |s, p| (s + p.abs) / (1.0 - p.rel.get()))
 }

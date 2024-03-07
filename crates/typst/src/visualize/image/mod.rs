@@ -209,7 +209,7 @@ impl LayoutSingle for Packed<ImageElem> {
             region
         } else if expand.x {
             // If just width is forced, take it.
-            Size::new(region.x, region.y.min(region.x.safe_div(px_ratio)))
+            Size::new(region.x, region.y.min(region.x / px_ratio))
         } else if expand.y {
             // If just height is forced, take it.
             Size::new(region.x.min(region.y * px_ratio), region.y)
@@ -220,7 +220,7 @@ impl LayoutSingle for Packed<ImageElem> {
             let natural = Axes::new(pxw, pxh).map(|v| Abs::inches(v / dpi));
             Size::new(
                 natural.x.min(region.x).min(region.y * px_ratio),
-                natural.y.min(region.y).min(region.x.safe_div(px_ratio)),
+                natural.y.min(region.y).min(region.x / px_ratio),
             )
         };
 
@@ -229,7 +229,7 @@ impl LayoutSingle for Packed<ImageElem> {
         let fitted = match fit {
             ImageFit::Cover | ImageFit::Contain => {
                 if wide == (fit == ImageFit::Contain) {
-                    Size::new(target.x, target.x.safe_div(px_ratio))
+                    Size::new(target.x, target.x / px_ratio)
                 } else {
                     Size::new(target.y * px_ratio, target.y)
                 }

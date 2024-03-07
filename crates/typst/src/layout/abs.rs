@@ -117,17 +117,6 @@ impl Abs {
     pub fn approx_eq(self, other: Self) -> bool {
         self == other || (self - other).to_raw().abs() < 1e-6
     }
-
-    /// Perform a checked division by a number, returning zero if the result
-    /// is not finite.
-    pub fn safe_div(self, number: f64) -> Self {
-        let result = self.to_raw() / number;
-        if result.is_finite() {
-            Self::raw(result)
-        } else {
-            Self::zero()
-        }
-    }
 }
 
 impl Numeric for Abs {
