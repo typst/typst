@@ -11,7 +11,6 @@ pub use self::model::*;
 
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
-use heck::ToTitleCase;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde_yaml as yaml;
@@ -663,8 +662,6 @@ fn symbols_model(resolver: &dyn Resolver, group: &GroupData) -> SymbolsModel {
                 math_shorthand: shorthand(typst::syntax::ast::Shorthand::MATH_LIST),
                 codepoint: c as u32,
                 accent: typst::symbols::Symbol::combining_accent(c).is_some(),
-                unicode_name: unicode_names2::name(c)
-                    .map(|s| s.to_string().to_title_case().into()),
                 alternates: symbol
                     .variants()
                     .filter(|(other, _)| other != &variant)

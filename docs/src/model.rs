@@ -159,7 +159,6 @@ pub struct SymbolModel {
     pub name: EcoString,
     pub codepoint: u32,
     pub accent: bool,
-    pub unicode_name: Option<EcoString>,
     pub alternates: Vec<EcoString>,
     pub markup_shorthand: Option<&'static str>,
     pub math_shorthand: Option<&'static str>,
