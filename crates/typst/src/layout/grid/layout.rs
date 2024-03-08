@@ -2644,12 +2644,14 @@ impl<'a> GridLayouter<'a> {
             }
         }
 
+        let mut laid_out_footer_start = None;
         if let Some(Repeatable::Repeated(footer)) = &self.grid.footer {
             // Don't layout the footer if it would be alone with the header in
             // the page, and don't layout it twice.
             if !footer_would_be_orphan
                 && !self.lrows.iter().any(|row| row.index() == footer.start)
             {
+                laid_out_footer_start = Some(footer.start);
                 self.layout_footer(footer, engine)?;
             }
         }
@@ -2745,8 +2747,12 @@ impl<'a> GridLayouter<'a> {
                 // laid out at the first frame of the row).
                 // Any rowspans ending before this row are laid out even
                 // on this row's first frame.
-                if rowspan.y + rowspan.rowspan < y + 1
-                    || rowspan.y + rowspan.rowspan == y + 1 && is_last
+                if laid_out_footer_start.map_or(true, |footer_start| {
+                    // If this is a footer row, then only lay out this rowspan
+                    // if the rowspan is contained within the footer.
+                    y < footer_start || rowspan.y >= footer_start
+                }) && (rowspan.y + rowspan.rowspan < y + 1
+                    || rowspan.y + rowspan.rowspan == y + 1 && is_last)
                 {
                     // Rowspan ends at this or an earlier row, so we take
                     // it from the rowspans vector and lay it out.
