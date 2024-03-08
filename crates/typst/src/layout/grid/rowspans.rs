@@ -194,16 +194,19 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
     ) -> SourceResult<()> {
         if self.unbreakable_rows_left == 0 {
+            // By default, the amount of unbreakable rows starting at the
+            // current row is dynamic and depends on the amount of upcoming
+            // unbreakable cells (with or without a rowspan setting).
             let mut amount_unbreakable_rows = None;
             if let Some(Repeatable::NotRepeated(header)) = &self.grid.header {
                 if current_row < header.end {
-                    // Non-repeated header, keep it unbreakable
+                    // Non-repeated header, so keep it unbreakable.
                     amount_unbreakable_rows = Some(header.end);
                 }
             }
             if let Some(Repeatable::NotRepeated(footer)) = &self.grid.footer {
                 if current_row >= footer.start {
-                    // Non-repeated footer, keep it unbreakable
+                    // Non-repeated footer, so keep it unbreakable.
                     amount_unbreakable_rows = Some(self.grid.rows.len() - footer.start);
                 }
             }
@@ -1082,7 +1085,7 @@ impl<'a> RowspanSimulator<'a> {
                 layouter.simulate_header(header, &self.regions, engine)?.height
             } else {
                 header_height
-            }
+            };
         }
 
         if let Some(Repeatable::Repeated(footer)) = &layouter.grid.footer {
@@ -1092,7 +1095,7 @@ impl<'a> RowspanSimulator<'a> {
                 layouter.simulate_footer(footer, &self.regions, engine)?.height
             } else {
                 footer_height
-            }
+            };
         }
 
         // Consume the header's and footer's heights from the new region,
