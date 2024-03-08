@@ -816,9 +816,11 @@ impl CellGrid {
                     child_span,
                     Footer {
                         // Later on, we have to correct this number in case there
-                        // is gutter. But only once all cells have been analyzed
-                        // and the header has fully expanded in the fixup loop
-                        // below.
+                        // is gutter, but only once all cells have been analyzed
+                        // and the header's and footer's exact boundaries are
+                        // known. That is because the gutter row immediately
+                        // before the footer might not be included as part of
+                        // the footer if it is contained within the header.
                         start: child_start,
                     },
                 ));
