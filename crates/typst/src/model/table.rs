@@ -250,13 +250,18 @@ impl LayoutMultiple for Packed<TableElem> {
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
         // Use trace to link back to the table when a specific cell errors
         let tracepoint = || Tracepoint::Call(Some(eco_format!("table")));
+        let resolve_item = |item: &TableItem| item.to_resolvable(styles);
         let children = self.children().iter().map(|child| match child {
             TableChild::Header(header) => ResolvableGridChild::Header {
                 repeat: header.repeat(styles),
                 span: header.span(),
-                items: header.children().iter().map(|child| child.to_resolvable(styles)),
+                items: header.children().iter().map(resolve_item),
             },
-            TableChild::Footer(_) => todo!(),
+            TableChild::Footer(footer) => ResolvableGridChild::Footer {
+                repeat: footer.repeat(styles),
+                span: footer.span(),
+                items: footer.children().iter().map(resolve_item),
+            },
             TableChild::Item(item) => {
                 ResolvableGridChild::Item(item.to_resolvable(styles))
             }
