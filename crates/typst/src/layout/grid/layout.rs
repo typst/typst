@@ -850,7 +850,7 @@ impl CellGrid {
                                     hint: "try reducing that cell's rowspan or moving the footer"
                                 );
                             }
-                            if y >= footer.start {
+                            if y >= footer.start && y < *end {
                                 // Expand the footer to include all rows
                                 // spanned by this cell.
                                 *end = (*end).max(cell_end);
