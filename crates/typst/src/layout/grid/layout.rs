@@ -781,8 +781,13 @@ impl CellGrid {
             if (is_header || is_footer) && child_start == usize::MAX {
                 // Empty header/footer: consider the header/footer to be
                 // one row after the latest auto index.
-                child_start = auto_index.next_multiple_of(c) / c;
+                child_start = auto_index.div_ceil(c);
                 child_end = child_start + 1;
+
+                if resolved_cells.len() <= c * child_start {
+                    // Ensure the automatically chosen row actually exists.
+                    resolved_cells.resize_with(c * (child_start + 1), || None);
+                }
             }
 
             if is_header {
