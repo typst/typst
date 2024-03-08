@@ -248,6 +248,12 @@ pub(super) struct Header {
     pub(super) end: usize,
 }
 
+/// A repeatable grid footer. Stops at the last row.
+pub(super) struct Footer {
+    /// The first row included in this footer.
+    pub(super) start: usize,
+}
+
 /// A grid item, possibly affected by automatic cell positioning. Can be either
 /// a line or a cell.
 pub enum ResolvableGridItem<T: ResolvableCell> {
@@ -341,6 +347,8 @@ pub struct CellGrid {
     pub(super) hlines: Vec<Vec<Line>>,
     /// The repeatable header of this grid.
     pub(super) header: Option<Header>,
+    /// The repeatable footer of this grid.
+    pub(super) footer: Option<Footer>,
     /// Whether this grid has gutters.
     pub(super) has_gutter: bool,
 }
@@ -980,6 +988,7 @@ impl CellGrid {
             vlines,
             hlines,
             header,
+            footer: None,
             has_gutter,
         }
     }
@@ -1239,6 +1248,9 @@ pub struct GridLayouter<'a> {
     /// header rows themselves are unbreakable, and unbreakable rows do not
     /// need to read this field at all.
     pub(super) header_height: Abs,
+    /// The simulated footer height for this region.
+    /// The simulation occurs before any rows are laid out for a region.
+    pub(super) footer_height: Abs,
     /// The span of the grid element.
     pub(super) span: Span,
 }
@@ -1303,6 +1315,7 @@ impl<'a> GridLayouter<'a> {
             finished: vec![],
             is_rtl: TextElem::dir_in(styles) == Dir::RTL,
             header_height: Abs::zero(),
+            footer_height: Abs::zero(),
             span,
         }
     }
@@ -1311,6 +1324,13 @@ impl<'a> GridLayouter<'a> {
     pub fn layout(mut self, engine: &mut Engine) -> SourceResult<Fragment> {
         self.measure_columns(engine)?;
 
+        if let Some(footer) = &self.grid.footer {
+            // Ensure rows in the first region will be aware of the possible
+            // presence of the footer.
+            self.prepare_footer(footer, engine)?;
+            self.regions.size.y -= self.footer_height;
+        }
+
         for y in 0..self.grid.rows.len() {
             if let Some(header) = &self.grid.header {
                 if y < header.end {
@@ -1318,6 +1338,15 @@ impl<'a> GridLayouter<'a> {
                         self.layout_header(header, engine)?;
                     }
                     // Skip header rows during normal layout.
+                    continue;
+                }
+            }
+
+            if let Some(footer) = &self.grid.footer {
+                if y >= footer.start {
+                    if y == footer.start {
+                        self.layout_footer(footer, engine)?;
+                    }
                     continue;
                 }
             }
@@ -2071,10 +2100,16 @@ impl<'a> GridLayouter<'a> {
             .zip(&mut resolved[..len - 1])
             .skip(self.lrows.iter().any(|row| matches!(row, Row::Fr(..))) as usize)
         {
-            // Subtract header height from the region height when it's not the
-            // first.
-            target
-                .set_max(region.y - if i > 0 { self.header_height } else { Abs::zero() });
+            // Subtract header and footer heights from the region height when
+            // it's not the first.
+            target.set_max(
+                region.y
+                    - if i > 0 {
+                        self.header_height + self.footer_height
+                    } else {
+                        Abs::zero()
+                    },
+            );
         }
 
         // Layout into multiple regions.
@@ -2284,12 +2319,12 @@ impl<'a> GridLayouter<'a> {
 
         // Skip to fitting region, but only if we aren't part of an unbreakable
         // row group. We use 'in_last_with_offset' so our 'in_last' call
-        // properly considers that a header would be added on each region
-        // break.
+        // properly considers that a header and a footer would be added on each
+        // region break.
         let height = frame.height();
         while self.unbreakable_rows_left == 0
             && !self.regions.size.y.fits(height)
-            && !in_last_with_offset(self.regions, self.header_height)
+            && !in_last_with_offset(self.regions, self.header_height + self.footer_height)
         {
             self.finish_region(engine)?;
 
@@ -2421,14 +2456,40 @@ impl<'a> GridLayouter<'a> {
             self.lrows.pop().unwrap();
         }
 
+        // If no rows other than the footer have been laid out so far, and
+        // there are rows beside the footer, then don't lay it out at all.
+        // This check doesn't apply, and is thus overridden, when there is a
+        // header.
+        let mut footer_would_be_orphan = self.lrows.is_empty()
+            && self.grid.footer.as_ref().is_some_and(|footer| footer.start != 0);
+
         if let Some(header) = &self.grid.header {
             if self.grid.rows.len() > header.end
+                && self
+                    .grid
+                    .footer
+                    .as_ref()
+                    .map_or(true, |footer| footer.start != header.end)
                 && self.lrows.last().is_some_and(|row| row.index() < header.end)
-                && !in_last_with_offset(self.regions, self.header_height)
+                && !in_last_with_offset(
+                    self.regions,
+                    self.header_height + self.footer_height,
+                )
             {
-                // Header would be alone in this region, but there are more
-                // rows beyond the header. Push an empty region.
+                // Header and footer would be alone in this region, but there are more
+                // rows beyond the header and the footer. Push an empty region.
                 self.lrows.clear();
+                footer_would_be_orphan = true;
+            }
+        }
+
+        if let Some(footer) = &self.grid.footer {
+            // Don't layout the footer if it would be alone with the header in
+            // the page, and don't layout it twice.
+            if !footer_would_be_orphan
+                && !self.lrows.iter().any(|row| row.index() == footer.start)
+            {
+                self.layout_footer(footer, engine)?;
             }
         }
 
@@ -2554,10 +2615,17 @@ impl<'a> GridLayouter<'a> {
 
         self.finish_region_internal(output, rrows);
 
+        if let Some(footer) = &self.grid.footer {
+            self.prepare_footer(footer, engine)?;
+        }
+
         if let Some(header) = &self.grid.header {
             // Add a header to the new region.
             self.layout_header(header, engine)?;
         }
+
+        // Ensure rows don't try to overrun the footer.
+        self.regions.size.y -= self.footer_height;
 
         Ok(())
     }
@@ -2579,17 +2647,29 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
     ) -> SourceResult<()> {
         let header_rows = self.simulate_header(header, &self.regions, engine)?;
+        let mut skipped_region = false;
         while self.unbreakable_rows_left == 0
-            && !self.regions.size.y.fits(header_rows.height)
+            && !self.regions.size.y.fits(header_rows.height + self.footer_height)
             && !self.regions.in_last()
         {
             // Advance regions without any output until we can place the
-            // header.
+            // header and the footer.
             self.finish_region_internal(Frame::soft(Axes::splat(Abs::zero())), vec![]);
+            skipped_region = true;
         }
 
         // Reset the header height for this region.
+        // It will be re-calculated when laying out each header row.
         self.header_height = Abs::zero();
+
+        if let Some(footer) = &self.grid.footer {
+            if skipped_region {
+                // Simulate the footer again; the region's 'full' might have
+                // changed.
+                self.footer_height =
+                    self.simulate_footer(footer, &self.regions, engine)?.height;
+            }
+        }
 
         // Header is unbreakable.
         // Thus, no risk of 'finish_region' being recursively called from
@@ -2617,6 +2697,78 @@ impl<'a> GridLayouter<'a> {
             self.simulate_unbreakable_row_group(0, Some(header.end), regions, engine)?;
 
         Ok(header_row_group)
+    }
+
+    /// Updates `self.footer_height` by simulating the footer, and skips to fitting region.
+    pub(super) fn prepare_footer(
+        &mut self,
+        footer: &Footer,
+        engine: &mut Engine,
+    ) -> SourceResult<()> {
+        let footer_height = self.simulate_footer(footer, &self.regions, engine)?.height;
+        let mut skipped_region = false;
+        while self.unbreakable_rows_left == 0
+            && !self.regions.size.y.fits(footer_height)
+            && !self.regions.in_last()
+        {
+            // Advance regions without any output until we can place the
+            // footer.
+            self.finish_region_internal(Frame::soft(Axes::splat(Abs::zero())), vec![]);
+            skipped_region = true;
+        }
+
+        self.footer_height = if skipped_region {
+            // Simulate the footer again; the region's 'full' might have
+            // changed.
+            self.simulate_footer(footer, &self.regions, engine)?.height
+        } else {
+            footer_height
+        };
+
+        Ok(())
+    }
+
+    /// Lays out all rows in the footer.
+    /// They are unbreakable.
+    pub(super) fn layout_footer(
+        &mut self,
+        footer: &Footer,
+        engine: &mut Engine,
+    ) -> SourceResult<()> {
+        // Ensure footer rows have their own height available.
+        // Won't change much as we're creating an unbreakable row group
+        // anyway, so this is mostly for correctness.
+        self.regions.size.y += self.footer_height;
+
+        let footer_len = self.grid.rows.len() - footer.start;
+        self.unbreakable_rows_left += footer_len;
+        for y in footer.start..self.grid.rows.len() {
+            self.layout_row(y, engine)?;
+        }
+
+        Ok(())
+    }
+
+    // Simulate the footer's group of rows.
+    pub(super) fn simulate_footer(
+        &self,
+        footer: &Footer,
+        regions: &Regions<'_>,
+        engine: &mut Engine,
+    ) -> SourceResult<UnbreakableRowGroup> {
+        // Note that we assume the invariant that any rowspan in a footer is
+        // fully contained within that footer. Therefore, there won't be any
+        // unbreakable rowspans exceeding the footer's rows, and we can safely
+        // assume that the amount of unbreakable rows following the first row
+        // in the footer will be precisely the rows in the footer.
+        let footer_row_group = self.simulate_unbreakable_row_group(
+            footer.start,
+            Some(self.grid.rows.len() - footer.start),
+            regions,
+            engine,
+        )?;
+
+        Ok(footer_row_group)
     }
 }
 
