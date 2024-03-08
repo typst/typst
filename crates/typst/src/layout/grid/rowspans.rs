@@ -6,7 +6,7 @@ use crate::layout::{
 };
 use crate::util::MaybeReverseIter;
 
-use super::layout::{in_last_with_offset, points, Row, RowPiece};
+use super::layout::{in_last_with_offset, points, Repeatable, Row, RowPiece};
 
 /// All information needed to layout a single rowspan.
 pub(super) struct Rowspan {
@@ -132,7 +132,7 @@ impl<'a> GridLayouter<'a> {
                 // The rowspan continuation starts after the header (thus,
                 // at a position after the sum of the laid out header
                 // rows).
-                if let Some(header) = &self.grid.header {
+                if let Some(Repeatable::Repeated(header)) = &self.grid.header {
                     let header_rows = self
                         .rrows
                         .get(i)
@@ -1034,17 +1034,19 @@ impl<'a> RowspanSimulator<'a> {
         // backlog to consider the initial header and footer heights; however,
         // our simulation checks what happens AFTER the auto row, so we can
         // just use the original backlog from `self.regions`.
-        let header_height = if let Some(header) = &layouter.grid.header {
-            layouter.simulate_header(header, &self.regions, engine)?.height
-        } else {
-            Abs::zero()
-        };
+        let header_height =
+            if let Some(Repeatable::Repeated(header)) = &layouter.grid.header {
+                layouter.simulate_header(header, &self.regions, engine)?.height
+            } else {
+                Abs::zero()
+            };
 
-        let footer_height = if let Some(footer) = &layouter.grid.footer {
-            layouter.simulate_footer(footer, &self.regions, engine)?.height
-        } else {
-            Abs::zero()
-        };
+        let footer_height =
+            if let Some(Repeatable::Repeated(footer)) = &layouter.grid.footer {
+                layouter.simulate_footer(footer, &self.regions, engine)?.height
+            } else {
+                Abs::zero()
+            };
 
         let mut skipped_region = false;
 
@@ -1056,7 +1058,7 @@ impl<'a> RowspanSimulator<'a> {
             skipped_region = true;
         }
 
-        if let Some(header) = &layouter.grid.header {
+        if let Some(Repeatable::Repeated(header)) = &layouter.grid.header {
             self.header_height = if skipped_region {
                 // Simulate headers again, at the new region, as
                 // the full region height may change.
@@ -1066,7 +1068,7 @@ impl<'a> RowspanSimulator<'a> {
             }
         }
 
-        if let Some(footer) = &layouter.grid.footer {
+        if let Some(Repeatable::Repeated(footer)) = &layouter.grid.footer {
             self.footer_height = if skipped_region {
                 // Simulate footers again, at the new region, as
                 // the full region height may change.
