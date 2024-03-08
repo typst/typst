@@ -1,8 +1,9 @@
 use std::fmt::{self, Debug, Formatter};
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
+use typst_macros::cast;
 
-use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult};
+use crate::diag::{bail, error, At, SourceDiagnostic, SourceResult, StrResult};
 use crate::foundations::{
     func, repr, scope, ty, Array, Dict, FromValue, IntoValue, Repr, Str, Value,
 };
@@ -256,6 +257,17 @@ impl Args {
     }
 }
 
+pub enum ArgumentKey {
+    Index(i64),
+    Name(Str),
+}
+
+cast! {
+    ArgumentKey,
+    v: i64 => Self::Index(v),
+    v: Str => Self::Name(v),
+}
+
 #[scope]
 impl Args {
     /// Construct spreadable arguments in place.
@@ -277,6 +289,29 @@ impl Args {
         arguments: Vec<Value>,
     ) -> Args {
         args.take()
+    }
+
+    /// Returns the positional argument at the specified index, or the named
+    /// argument with the specified name.
+    ///
+    /// If the key is an [integer]($int), this is equivalent to first calling
+    /// [`pos`]($arguments.pos) and then [`array.at`]. If it is a [string]($str),
+    /// this is equivalent to first calling [`named`]($arguments.named) and then
+    /// [`dictionary.at`].
+    #[func]
+    pub fn at(
+        &self,
+        /// The index or name of the argument to get.
+        key: ArgumentKey,
+        /// A default value to return if the key is invalid.
+        #[named]
+        default: Option<Value>,
+    ) -> StrResult<Value> {
+        match &key {
+            ArgumentKey::Index(index) => self.to_pos().at(*index, default).ok(),
+            ArgumentKey::Name(name) => self.to_named().at(name, default).ok(),
+        }
+        .ok_or_else(|| missing_key_no_default(key))
     }
 
     /// Returns the captured positional arguments as an array.
@@ -379,4 +414,17 @@ where
     fn into_args(self, fallback: Span) -> Args {
         Args::new(fallback, self)
     }
+}
+
+/// The missing key access error message when no default was given.
+#[cold]
+fn missing_key_no_default(key: ArgumentKey) -> EcoString {
+    eco_format!(
+        "arguments do not contain key {} \
+         and no default value was specified",
+        match key {
+            ArgumentKey::Index(i) => i.repr(),
+            ArgumentKey::Name(name) => name.repr(),
+        }
+    )
 }
