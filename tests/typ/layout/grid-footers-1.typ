@@ -75,6 +75,20 @@
 )
 
 ---
+// Ensure footer properly expands
+#grid(
+    columns: 2,
+    [a], [],
+    [b], [],
+    grid.cell(x: 1, y: 3, rowspan: 4)[b],
+    grid.cell(y: 2, rowspan: 2)[a],
+    grid.footer(),
+    grid.cell(y: 4)[d],
+    grid.cell(y: 5)[e],
+    grid.cell(y: 6)[f]
+)
+
+---
 // Error: 2:3-2:19 footer must end at the last row
 #grid(
   grid.footer([a]),
