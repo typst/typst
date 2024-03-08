@@ -17,7 +17,7 @@
 
 ---
 // Orphan header prevention test
-#set page(height: 14em)
+#set page(height: 13em)
 #v(8em)
 #grid(
   columns: 3,
