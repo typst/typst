@@ -266,7 +266,7 @@ pub(super) enum Repeatable<T> {
 impl<T> Repeatable<T> {
     /// Gets the value inside this repeatable, regardless of whether
     /// it repeats.
-    fn unwrap(&self) -> &T {
+    pub(super) fn unwrap(&self) -> &T {
         match self {
             Self::Repeated(repeated) => repeated,
             Self::NotRepeated(not_repeated) => not_repeated,
@@ -274,7 +274,7 @@ impl<T> Repeatable<T> {
     }
 
     /// Returns `Some` if the value is repeated, `None` otherwise.
-    pub(crate) fn as_repeated(&self) -> Option<&T> {
+    pub(super) fn as_repeated(&self) -> Option<&T> {
         match self {
             Self::Repeated(repeated) => Some(repeated),
             Self::NotRepeated(_) => None,

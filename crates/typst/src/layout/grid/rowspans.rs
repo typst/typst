@@ -194,9 +194,23 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
     ) -> SourceResult<()> {
         if self.unbreakable_rows_left == 0 {
+            let mut amount_unbreakable_rows = None;
+            if let Some(Repeatable::NotRepeated(header)) = &self.grid.header {
+                if current_row < header.end {
+                    // Non-repeated header, keep it unbreakable
+                    amount_unbreakable_rows = Some(header.end);
+                }
+            }
+            if let Some(Repeatable::NotRepeated(footer)) = &self.grid.footer {
+                if current_row >= footer.start {
+                    // Non-repeated footer, keep it unbreakable
+                    amount_unbreakable_rows = Some(self.grid.rows.len() - footer.start);
+                }
+            }
+
             let row_group = self.simulate_unbreakable_row_group(
                 current_row,
-                None,
+                amount_unbreakable_rows,
                 &self.regions,
                 engine,
             )?;
