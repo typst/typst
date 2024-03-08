@@ -717,9 +717,12 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
     let fill_transform = ctx.state.transforms(Size::zero(), pos);
     ctx.set_fill(&text.fill, true, fill_transform);
     if let Some(stroke) = &text.stroke {
-        ctx.set_stroke(stroke, true, fill_transform);
-        ctx.content
-            .set_text_rendering_mode(pdf_writer::types::TextRenderingMode::FillStroke);
+        if stroke.thickness.to_f32() > 0.0 {
+            ctx.set_stroke(stroke, true, fill_transform);
+            ctx.content.set_text_rendering_mode(
+                pdf_writer::types::TextRenderingMode::FillStroke,
+            );
+        }
     }
     ctx.set_font(&text.font, text.size);
     ctx.set_opacities(text.stroke.as_ref(), Some(&text.fill));
@@ -765,6 +768,13 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
     items.finish();
     positioned.finish();
     ctx.content.end_text();
+    if let Some(stroke) = &text.stroke {
+        if stroke.thickness.to_f32() > 0.0 {
+            ctx.set_stroke(stroke, false, fill_transform);
+            ctx.content
+                .set_text_rendering_mode(pdf_writer::types::TextRenderingMode::Fill);
+        }
+    }
 }
 
 /// Encode a geometrical shape into the content stream.
