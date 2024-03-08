@@ -336,7 +336,10 @@ impl<'a> GridLayouter<'a> {
             // on the presence of a header or footer, given that unbreakable
             // auto rows don't depend on the backlog, as they only span one
             // region.
-            if breakable && (self.grid.header.is_some() || self.grid.footer.is_some()) {
+            if breakable
+                && (matches!(self.grid.header, Some(Repeatable::Repeated(_)))
+                    || matches!(self.grid.footer, Some(Repeatable::Repeated(_))))
+            {
                 // Subtract header and footer height from all upcoming regions
                 // when measuring the cell, including the last repeated region.
                 //
