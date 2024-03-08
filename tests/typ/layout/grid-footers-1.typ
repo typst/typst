@@ -17,7 +17,7 @@
 
 ---
 // Disable repetition
-#set page(width: auto, height: 15em)
+#set page(width: auto, height: 16em)
 #table(
   columns: 5,
   align: center + horizon,
