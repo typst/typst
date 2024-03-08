@@ -2625,7 +2625,10 @@ impl<'a> GridLayouter<'a> {
         // This check doesn't apply, and is thus overridden, when there is a
         // header.
         let mut footer_would_be_orphan = self.lrows.is_empty()
-            && !self.regions.in_last()
+            && !in_last_with_offset(
+                self.regions,
+                self.header_height + self.footer_height,
+            )
             && self
                 .grid
                 .footer
