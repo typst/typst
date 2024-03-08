@@ -1475,7 +1475,10 @@ impl<'a> GridLayouter<'a> {
             // Ensure rows in the first region will be aware of the possible
             // presence of the footer.
             self.prepare_footer(footer, engine)?;
-            self.regions.size.y -= self.footer_height;
+            if matches!(self.grid.header, None | Some(Repeatable::NotRepeated(_))) {
+                // No repeatable header, so we won't subtract it later.
+                self.regions.size.y -= self.footer_height;
+            }
         }
 
         for y in 0..self.grid.rows.len() {
@@ -1483,6 +1486,7 @@ impl<'a> GridLayouter<'a> {
                 if y < header.end {
                     if y == 0 {
                         self.layout_header(header, engine)?;
+                        self.regions.size.y -= self.footer_height;
                     }
                     // Skip header rows during normal layout.
                     continue;
