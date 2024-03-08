@@ -2654,7 +2654,7 @@ impl<'a> GridLayouter<'a> {
             // Don't layout the footer if it would be alone with the header in
             // the page, and don't layout it twice.
             if !footer_would_be_orphan
-                && !self.lrows.iter().any(|row| row.index() == footer.start)
+                && self.lrows.iter().all(|row| row.index() < footer.start)
             {
                 laid_out_footer_start = Some(footer.start);
                 self.layout_footer(footer, engine)?;
