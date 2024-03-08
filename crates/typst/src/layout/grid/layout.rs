@@ -847,8 +847,8 @@ impl CellGrid {
         // vector of 'Entry' from 'Option<Entry>'.
         // 2. If any cells were added to the header's rows after the header's
         // creation, ensure the header expands enough to accommodate them
-        // across all of their spanned rows.
-        // 3. If any cells try to span a footer, error.
+        // across all of their spanned rows. Same for the footer.
+        // 3. If any cells before the footer try to span it, error.
         let resolved_cells = resolved_cells
             .into_iter()
             .enumerate()
@@ -859,15 +859,15 @@ impl CellGrid {
                         {
                             let y = i / c;
                             if y < header.end {
-                                // Ensure the header expands enough such that all
-                                // cells inside it, even those added later, are
-                                // fully contained within the header.
+                                // Ensure the header expands enough such that
+                                // all cells inside it, even those added later,
+                                // are fully contained within the header.
                                 // FIXME: check if start < y < end when start can
                                 // be != 0.
                                 // FIXME: when start can be != 0, decide what
                                 // happens when a cell after the header placed
-                                // above it tries to span the header (either error
-                                // or expand upwards).
+                                // above it tries to span the header (either
+                                // error or expand upwards).
                                 header.end = header.end.max(y + parent_cell.rowspan.get());
                             }
                         }
@@ -877,6 +877,13 @@ impl CellGrid {
                             let y = i / c;
                             let cell_end = y + parent_cell.rowspan.get();
                             if y < footer.start && cell_end > footer.start {
+                                // Don't allow a cell before the footer to span
+                                // it. Surely, we could move the footer to
+                                // start at where this cell starts, so this is
+                                // more of a design choice, as it's unlikely
+                                // for the user to intentionally include a cell
+                                // before the footer spanning it but not
+                                // being repeated with it.
                                 bail!(
                                     *footer_span,
                                     "footer would conflict with a cell placed before it at column {x} row {y}";
@@ -885,7 +892,8 @@ impl CellGrid {
                             }
                             if y >= footer.start && y < *end {
                                 // Expand the footer to include all rows
-                                // spanned by this cell.
+                                // spanned by this cell, as it is inside the
+                                // footer.
                                 *end = (*end).max(cell_end);
                             }
                         }
@@ -1008,16 +1016,16 @@ impl CellGrid {
                     // header stops, meaning it will still stop right before it
                     // even with gutter thanks to the multiplication below.
                     // - This means that it will span all rows up to
-                    // '2 * (last y + 1) - 1 = 2 * last y + 1', which equates to
-                    // the index of the gutter row right below the header, which is
-                    // what we want (that gutter spacing should be repeated across
-                    // pages to maintain uniformity).
+                    // '2 * (last y + 1) - 1 = 2 * last y + 1', which equates
+                    // to the index of the gutter row right below the header,
+                    // which is what we want (that gutter spacing should be
+                    // repeated across pages to maintain uniformity).
                     header.end *= 2;
 
                     // If the header occupies the entire grid, ensure we don't
                     // include an extra gutter row when it doesn't exist, since
-                    // the last row of the header is at the very bottom, therefore
-                    // '2 * last y + 1' is not a valid index.
+                    // the last row of the header is at the very bottom,
+                    // therefore '2 * last y + 1' is not a valid index.
                     let row_amount = (2 * row_amount).saturating_sub(1);
                     header.end = header.end.min(row_amount);
                 }
