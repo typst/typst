@@ -65,6 +65,17 @@
 )
 
 ---
+#table(
+    gutter: 3pt,
+    table.header(
+        table.cell(stroke: red)[Hello]
+    ),
+    table.footer(
+        table.cell(stroke: aqua)[Bye]
+    )
+)
+
+---
 // Footer's top stroke should win when repeated, but lose at the last page.
 #set page(height: 10em)
 #table(
