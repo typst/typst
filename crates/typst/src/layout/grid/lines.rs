@@ -549,8 +549,17 @@ pub(super) fn hline_stroke_at_column(
                 local_top_y + 1 == header.end && y != header.end
             });
 
+    // Prioritize the footer's top stroke as well where applicable.
+    let bottom_stroke_comes_from_footer = grid.footer.as_ref().is_some_and(|footer| {
+        // Ensure the row below us is a repeated footer.
+        // FIXME: Make this check more robust when footers at arbitrary
+        // positions are added.
+        local_top_y.unwrap_or(0) + 1 != footer.start && y == footer.start
+    });
+
     let (prioritized_cell_stroke, deprioritized_cell_stroke) =
         if !use_bottom_border_stroke
+            && !bottom_stroke_comes_from_footer
             && (use_top_border_stroke
                 || top_stroke_comes_from_header
                 || top_cell_prioritized && !bottom_cell_prioritized)
@@ -562,7 +571,7 @@ pub(super) fn hline_stroke_at_column(
             // When both cells' strokes have the same priority, we default to
             // prioritizing the bottom cell's top stroke.
             // Additionally, the bottom border cell's stroke always has
-            // priority.
+            // priority. Same for stroke above footers.
             (bottom_cell_stroke, top_cell_stroke)
         };
 
