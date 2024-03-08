@@ -1044,20 +1044,26 @@ impl CellGrid {
                 if footer_end != row_amount {
                     bail!(footer_span, "footer must end at the last row");
                 }
-                if header
-                    .as_ref()
-                    .map(Repeatable::unwrap)
-                    .is_some_and(|header| header.end > footer.start)
-                {
-                    bail!(footer_span, "header and footer must not have common rows");
-                }
+
+                let header_end =
+                    header.as_ref().map(Repeatable::unwrap).map(|header| header.end);
+
                 if has_gutter {
                     // Convert the footer's start index to post-gutter coordinates.
                     footer.start *= 2;
 
                     // Include the gutter right before the footer, unless there is
-                    // none.
-                    footer.start = footer.start.saturating_sub(1);
+                    // none, or the gutter is already included in the header (no
+                    // rows between the header and the footer).
+                    if header_end
+                        .map_or(true, |header_end| header_end != footer.start)
+                    {
+                        footer.start = footer.start.saturating_sub(1);
+                    }
+                }
+
+                if header_end.is_some_and(|header_end| header_end > footer.start) {
+                    bail!(footer_span, "header and footer must not have common rows");
                 }
 
                 Ok(footer)
