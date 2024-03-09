@@ -54,10 +54,10 @@ impl<'a> Context<'a> {
 /// it isn't available.
 fn require<T>(val: Option<T>) -> HintedStrResult<T> {
     val.ok_or("can only be used when context is known")
-    .hint("try wrapping this in a context expression")
-    .hint(
-        "the context expression should wrap everything that depends on this function",
-    )
+        .hint("try wrapping this in a context expression")
+        .hint(
+            "the context expression should wrap everything that depends on this function",
+        )
 }
 
 /// Executes a `context` block.
