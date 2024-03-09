@@ -196,7 +196,7 @@ fn main() {
 fn library() -> Library {
     #[func]
     fn test(context: &Context, lhs: Value, rhs: Value) -> StrResult<NoneValue> {
-        if !equal(context, &lhs, &rhs) {
+        if !equal(context, &lhs, &rhs)? {
             bail!("Assertion failed: {} != {}", lhs.repr(), rhs.repr());
         }
         Ok(NoneValue)

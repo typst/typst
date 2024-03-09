@@ -452,12 +452,12 @@ pub fn or(lhs: Value, rhs: Value) -> StrResult<Value> {
 
 /// Compute whether two values are equal.
 pub fn eq(context: &Context, lhs: Value, rhs: Value) -> StrResult<Value> {
-    Ok(Value::Bool(equal(context, &lhs, &rhs)))
+    Ok(Value::Bool(equal(context, &lhs, &rhs)?))
 }
 
 /// Compute whether two values are unequal.
 pub fn neq(context: &Context, lhs: Value, rhs: Value) -> StrResult<Value> {
-    Ok(Value::Bool(!equal(context, &lhs, &rhs)))
+    Ok(Value::Bool(!equal(context, &lhs, &rhs)?))
 }
 
 macro_rules! comparison {
@@ -476,9 +476,9 @@ comparison!(gt, ">", Ordering::Greater);
 comparison!(geq, ">=", Ordering::Greater | Ordering::Equal);
 
 /// Determine whether two values are equal.
-pub fn equal(context: &Context, lhs: &Value, rhs: &Value) -> bool {
+pub fn equal(context: &Context, lhs: &Value, rhs: &Value) -> StrResult<bool> {
     use Value::*;
-    match (lhs, rhs) {
+    Ok(match (lhs, rhs) {
         // Compare reflexively.
         (None, None) => true,
         (Auto, Auto) => true,
@@ -486,7 +486,7 @@ pub fn equal(context: &Context, lhs: &Value, rhs: &Value) -> bool {
         (Int(a), Int(b)) => a == b,
         (Float(a), Float(b)) => a == b,
         (Length(a), Length(b)) => {
-            a.try_to_absolute(context) == b.try_to_absolute(context)
+            try_eq_values(&a.try_to_absolute(context), &b.try_to_absolute(context))?
         }
         (Angle(a), Angle(b)) => a == b,
         (Ratio(a), Ratio(b)) => a == b,
@@ -513,7 +513,8 @@ pub fn equal(context: &Context, lhs: &Value, rhs: &Value) -> bool {
         // Some technically different things should compare equal.
         (&Int(i), &Float(f)) | (&Float(f), &Int(i)) => i as f64 == f,
         (&Length(len), &Relative(rel)) | (&Relative(rel), &Length(len)) => {
-            len.try_to_absolute(context) == rel.abs && rel.rel.is_zero()
+            try_eq_values(len.try_to_absolute(context), &rel.abs.try_to_absolute(context))?
+                && rel.rel.is_zero()
         }
         (&Ratio(rat), &Relative(rel)) | (&Relative(rel), &Ratio(rat)) => {
             rat == rel.rel && rel.abs.is_zero()
@@ -523,7 +524,13 @@ pub fn equal(context: &Context, lhs: &Value, rhs: &Value) -> bool {
         (Type(ty), Str(str)) | (Str(str), Type(ty)) => ty.compat_name() == str.as_str(),
 
         _ => false,
-    }
+    })
+}
+
+/// Tries to test if two values are equal using their [`PartialOrd`]
+/// implementation.
+fn try_eq_values<T: PartialOrd + Repr>(a: &T, b: &T) -> StrResult<bool> {
+    Ok(try_cmp_values(a, b)? == Ordering::Equal)
 }
 
 /// Compare two values.

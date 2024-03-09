@@ -197,7 +197,7 @@ impl assert {
         #[named]
         message: Option<EcoString>,
     ) -> StrResult<NoneValue> {
-        if !equal(context, &left, &right) {
+        if !equal(context, &left, &right)? {
             if let Some(message) = message {
                 bail!("equality assertion failed: {message}");
             } else {
@@ -232,7 +232,7 @@ impl assert {
         #[named]
         message: Option<EcoString>,
     ) -> StrResult<NoneValue> {
-        if equal(context, &left, &right) {
+        if equal(context, &left, &right)? {
             if let Some(message) = message {
                 bail!("inequality assertion failed: {message}");
             } else {

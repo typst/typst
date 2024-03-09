@@ -303,7 +303,7 @@ impl Repr for Value {
 
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
-        ops::equal(&Context::none(), self, other)
+        ops::equal(&Context::none(), self, other).unwrap_or(false)
     }
 }
 

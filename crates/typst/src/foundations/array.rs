@@ -820,6 +820,8 @@ impl Array {
         engine: &mut Engine,
         /// The callsite context.
         context: Tracked<Context>,
+        /// The callsite span.
+        span: Span,
         /// If given, applies this function to the elements in the array to
         /// determine the keys to deduplicate by.
         #[named]
@@ -844,7 +846,7 @@ impl Array {
             }
 
             for second in out.iter() {
-                if ops::equal(context, &key, &key_of(second.clone())?) {
+                if ops::equal(context, &key, &key_of(second.clone())?).at(span)? {
                     continue 'outer;
                 }
             }
