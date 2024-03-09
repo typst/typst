@@ -6,7 +6,7 @@ use std::ops::{Div, Rem};
 
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::eval::ops;
-use crate::foundations::{cast, func, IntoValue, Module, Scope, Value};
+use crate::foundations::{cast, func, Context, IntoValue, Module, Scope, Value};
 use crate::layout::{Angle, Fr, Length, Ratio};
 use crate::syntax::{Span, Spanned};
 
@@ -732,6 +732,8 @@ pub fn clamp(
 /// ```
 #[func(title = "Minimum")]
 pub fn min(
+    /// The callsite context.
+    context: &Context,
     /// The callsite span.
     span: Span,
     /// The sequence of values from which to extract the minimum.
@@ -739,7 +741,7 @@ pub fn min(
     #[variadic]
     values: Vec<Spanned<Value>>,
 ) -> SourceResult<Value> {
-    minmax(span, values, Ordering::Less)
+    minmax(context, span, values, Ordering::Less)
 }
 
 /// Determines the maximum of a sequence of values.
@@ -750,6 +752,8 @@ pub fn min(
 /// ```
 #[func(title = "Maximum")]
 pub fn max(
+    /// The callsite context.
+    context: &Context,
     /// The callsite span.
     span: Span,
     /// The sequence of values from which to extract the maximum.
@@ -757,11 +761,12 @@ pub fn max(
     #[variadic]
     values: Vec<Spanned<Value>>,
 ) -> SourceResult<Value> {
-    minmax(span, values, Ordering::Greater)
+    minmax(context, span, values, Ordering::Greater)
 }
 
 /// Find the minimum or maximum of a sequence of values.
 fn minmax(
+    context: &Context,
     span: Span,
     values: Vec<Spanned<Value>>,
     goal: Ordering,
@@ -772,7 +777,7 @@ fn minmax(
     };
 
     for Spanned { v, span } in iter {
-        let ordering = ops::compare(&v, &extremum).at(span)?;
+        let ordering = ops::compare(context, &v, &extremum).at(span)?;
         if ordering == goal {
             extremum = v;
         }

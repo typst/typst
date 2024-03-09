@@ -88,6 +88,12 @@ impl Length {
         .hint(eco_format!("use `length.abs.{unit}()` instead to ignore its em component"))
         .at(span)
     }
+
+    /// Same as [`Self::to_absolute`], except this returns the original
+    /// (non-absolute) length when `to_absolute` fails.
+    pub fn try_to_absolute(self, context: &Context) -> Self {
+        self.to_absolute(context).ok().unwrap_or(self)
+    }
 }
 
 #[scope]
