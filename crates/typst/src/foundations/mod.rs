@@ -74,7 +74,7 @@ use ecow::EcoString;
 
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::engine::Engine;
-use crate::eval::EvalMode;
+use crate::eval::{equal, EvalMode};
 use crate::syntax::Spanned;
 
 /// Foundational types and functions.
@@ -186,6 +186,8 @@ impl assert {
     /// ```
     #[func(title = "Assert Equal")]
     pub fn eq(
+        /// The callsite context.
+        context: &Context,
         /// The first value to compare.
         left: Value,
         /// The second value to compare.
@@ -195,7 +197,7 @@ impl assert {
         #[named]
         message: Option<EcoString>,
     ) -> StrResult<NoneValue> {
-        if left != right {
+        if !equal(context, &left, &right) {
             if let Some(message) = message {
                 bail!("equality assertion failed: {message}");
             } else {
@@ -219,6 +221,8 @@ impl assert {
     /// ```
     #[func(title = "Assert Not Equal")]
     pub fn ne(
+        /// The callsite context.
+        context: &Context,
         /// The first value to compare.
         left: Value,
         /// The second value to compare.
@@ -228,7 +232,7 @@ impl assert {
         #[named]
         message: Option<EcoString>,
     ) -> StrResult<NoneValue> {
-        if left == right {
+        if equal(context, &left, &right) {
             if let Some(message) = message {
                 bail!("inequality assertion failed: {message}");
             } else {
