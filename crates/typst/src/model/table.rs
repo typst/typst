@@ -34,7 +34,7 @@ use crate::visualize::{Paint, Stroke};
 /// of related data points or similar or whether you are just want to enhance
 /// your presentation by arranging unrelated content in a grid. In the former
 /// case, a table is the right choice, while in the latter case, a grid is more
-/// appropriate. Furthermore, Typst will annote its output in the future such
+/// appropriate. Furthermore, Typst will annotate its output in the future such
 /// that screenreaders will annouce content in `table` as tabular while a grid's
 /// content will be announced no different than multiple content blocks in the
 /// document flow.
@@ -491,10 +491,13 @@ impl TryFrom<Content> for TableItem {
 
 /// A repeatable table header.
 ///
-/// You should wrap your tables heading rows in this function even if you do not
+/// You should wrap your tables' heading rows in this function even if you do not
 /// plan to wrap your table across pages because Typst will use this function to
 /// attach accessibility metadata to tables in the future and ensure universal
 /// access to your document.
+///
+/// You can use the `repeat` parameter to control whether your table's header
+/// will be repeated across pages.
 ///
 /// ```example
 /// #set page(height: 11.5em)
