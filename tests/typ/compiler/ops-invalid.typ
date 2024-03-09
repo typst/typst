@@ -31,7 +31,39 @@
 
 ---
 // Error: 3-14 cannot compare 1em with 10pt
+// Hint: 3-14 try wrapping this in a `context` expression
+// Hint: 3-14 the `context` expression should wrap everything that depends on this function
+#(1em == 10pt)
+
+---
+// Error: 3-14 cannot compare 1em with 10pt
+// Hint: 3-14 try wrapping this in a `context` expression
+// Hint: 3-14 the `context` expression should wrap everything that depends on this function
+#(1em != 10pt)
+
+---
+// Error: 3-14 cannot compare 1em with 10pt
+// Hint: 3-14 try wrapping this in a `context` expression
+// Hint: 3-14 the `context` expression should wrap everything that depends on this function
 #(1em <= 10pt)
+
+---
+// Error: 3-13 cannot compare 1em with 10pt
+// Hint: 3-13 try wrapping this in a `context` expression
+// Hint: 3-13 the `context` expression should wrap everything that depends on this function
+#(1em < 10pt)
+
+---
+// Error: 3-13 cannot compare 1em with 10pt
+// Hint: 3-13 try wrapping this in a `context` expression
+// Hint: 3-13 the `context` expression should wrap everything that depends on this function
+#(1em > 10pt)
+
+---
+// Error: 3-14 cannot compare 1em with 10pt
+// Hint: 3-14 try wrapping this in a `context` expression
+// Hint: 3-14 the `context` expression should wrap everything that depends on this function
+#(1em >= 10pt)
 
 ---
 // Error: 3-22 cannot compare 2.2 with NaN

@@ -193,27 +193,6 @@
 #context test(12pt - 3.7em, 12pt - 3.7 * 20pt)
 #context test(1em > 19.999pt, true)
 #context test(1em < 20.001pt, true)
-
----
-// Error: 3-14 cannot compare 1em with 10pt
-#(1em == 10pt)
-
----
-// Error: 3-14 cannot compare 1em with 10pt
-#(1em != 10pt)
-
----
-// Error: 3-14 cannot compare 1em with 10pt
-#(1em <= 10pt)
-
----
-// Error: 3-13 cannot compare 1em with 10pt
-#(1em < 10pt)
-
----
-// Error: 3-13 cannot compare 1em with 10pt
-#(1em > 10pt)
-
----
-// Error: 3-14 cannot compare 1em with 10pt
-#(1em >= 10pt)
+#context test(calc.max(1em, 8pt), 1em)
+#context test(calc.max(1em, 8pt), 20pt)
+#context test(calc.min(1em, 8pt), 8pt)
