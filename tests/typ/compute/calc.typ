@@ -324,8 +324,8 @@
 
 ---
 // Error: 16-19 cannot compare 1pt with 1em
-// Hint: 16-19 try wrapping this in a `context` expression
-// Hint: 16-19 the `context` expression should wrap everything that depends on this function
+// Hint: 16-19 try wrapping this in a context expression
+// Hint: 16-19 the context expression should wrap everything that depends on this function
 #calc.max(1em, 1pt)
 
 ---

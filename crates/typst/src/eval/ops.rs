@@ -590,8 +590,8 @@ fn try_cmp_values<T: PartialOrd + Repr>(
         .ok_or_else(|| eco_format!("cannot compare {} with {}", a.repr(), b.repr()));
     if suggest_context {
         r
-            .hint("try wrapping this in a `context` expression")
-            .hint("the `context` expression should wrap everything that depends on this function")
+            .hint("try wrapping this in a context expression")
+            .hint("the context expression should wrap everything that depends on this function")
     } else {
         Ok(r?)
     }

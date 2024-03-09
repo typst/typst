@@ -331,8 +331,8 @@
 
 ---
 // Error: 2-26 cannot compare 3em with 2pt
-// Hint: 2-26 try wrapping this in a `context` expression
-// Hint: 2-26 the `context` expression should wrap everything that depends on this function
+// Hint: 2-26 try wrapping this in a context expression
+// Hint: 2-26 the context expression should wrap everything that depends on this function
 #(1pt, 2pt, 3em).sorted()
 
 ---

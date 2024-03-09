@@ -477,7 +477,7 @@ impl SyntaxKind {
             Self::LetBinding => "`let` expression",
             Self::SetRule => "`set` expression",
             Self::ShowRule => "`show` expression",
-            Self::Contextual => "`context` expression",
+            Self::Contextual => "context expression",
             Self::Conditional => "`if` expression",
             Self::WhileLoop => "while-loop expression",
             Self::ForLoop => "for-loop expression",

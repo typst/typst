@@ -79,15 +79,15 @@
 ---
 // Test `state.at` outside of context.
 // Error: 2-26 can only be used when context is known
-// Hint: 2-26 try wrapping this in a `context` expression
-// Hint: 2-26 the `context` expression should wrap everything that depends on this function
+// Hint: 2-26 try wrapping this in a context expression
+// Hint: 2-26 the context expression should wrap everything that depends on this function
 #state("key").at(<label>)
 
 ---
 // Test `counter.at` outside of context.
 // Error: 2-28 can only be used when context is known
-// Hint: 2-28 try wrapping this in a `context` expression
-// Hint: 2-28 the `context` expression should wrap everything that depends on this function
+// Hint: 2-28 try wrapping this in a context expression
+// Hint: 2-28 the context expression should wrap everything that depends on this function
 #counter("key").at(<label>)
 
 ---
@@ -142,8 +142,8 @@
 
 ---
 // Error: 7-11 can only be used when context is known
-// Hint: 7-11 try wrapping this in a `context` expression
-// Hint: 7-11 the `context` expression should wrap everything that depends on this function
+// Hint: 7-11 try wrapping this in a context expression
+// Hint: 7-11 the context expression should wrap everything that depends on this function
 #text.lang
 
 ---
