@@ -19,7 +19,7 @@ use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
 use pdf_writer::writers::Destination;
 use pdf_writer::{Finish, Name, Pdf, Ref, Str, TextStr};
-use typst::foundations::{Datetime, Label, NativeElement};
+use typst::foundations::{Datetime, Label, NativeElement, Smart};
 use typst::introspection::Location;
 use typst::layout::{Abs, Dir, Em, Transform};
 use typst::model::{Document, HeadingElem};
@@ -39,12 +39,17 @@ use crate::pattern::PdfPattern;
 ///
 /// Returns the raw bytes making up the PDF file.
 ///
-/// The `ident` parameter shall be a string that uniquely and stably identifies
-/// the document. It should not change between compilations of the same
-/// document. Its hash will be used to create a PDF document identifier (the
-/// identifier itself is not leaked). If `ident` is `None`, a hash of the
-/// document is used instead (which means that it _will_ change across
-/// compilations).
+/// The `ident` parameter, if given, shall be a string that uniquely and stably
+/// identifies the document. It should not change between compilations of the
+/// same document.  **If you cannot provide such a stable identifier, just pass
+/// `Smart::Auto` rather than trying to come up with one.** The CLI, for
+/// example, does not have a well-defined notion of a long-lived project and as
+/// such just passes `Smart::Auto`.
+///
+/// If an `ident` is given, the hash of it will be used to create a PDF document
+/// identifier (the identifier itself is not leaked). If `ident` is `Auto`, a
+/// hash of the document's title and author is used instead (which is reasonably
+/// unique and stable).
 ///
 /// The `timestamp`, if given, is expected to be the creation date of the
 /// document as a UTC datetime. It will only be used if `set document(date: ..)`
@@ -52,7 +57,7 @@ use crate::pattern::PdfPattern;
 #[typst_macros::time(name = "pdf")]
 pub fn pdf(
     document: &Document,
-    ident: Option<&str>,
+    ident: Smart<&str>,
     timestamp: Option<Datetime>,
 ) -> Vec<u8> {
     let mut ctx = PdfContext::new(document);
@@ -158,7 +163,7 @@ impl<'a> PdfContext<'a> {
 }
 
 /// Write the document catalog.
-fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Datetime>) {
+fn write_catalog(ctx: &mut PdfContext, ident: Smart<&str>, timestamp: Option<Datetime>) {
     let lang = ctx.languages.iter().max_by_key(|(_, &count)| count).map(|(&l, _)| l);
 
     let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
@@ -236,18 +241,25 @@ fn write_catalog(ctx: &mut PdfContext, ident: Option<&str>, timestamp: Option<Da
     // changes in the frames.
     let instance_id = hash_base64(&ctx.pdf.as_bytes());
 
-    if let Some(ident) = ident {
-        // A unique ID for the document that stays stable across compilations.
-        let doc_id = hash_base64(&("PDF-1.7", ident));
-        xmp.document_id(&doc_id);
-        xmp.instance_id(&instance_id);
-        ctx.pdf
-            .set_file_id((doc_id.clone().into_bytes(), instance_id.into_bytes()));
+    // Determine the document's ID. It should be as stable as possible.
+    const PDF_VERSION: &str = "PDF-1.7";
+    let doc_id = if let Smart::Custom(ident) = ident {
+        // We were provided with a stable ID. Yay!
+        hash_base64(&(PDF_VERSION, ident))
+    } else if ctx.document.title.is_some() && !ctx.document.author.is_empty() {
+        // If not provided from the outside, but title and author were given, we
+        // compute a hash of them, which should be reasonably stable and unique.
+        hash_base64(&(PDF_VERSION, &ctx.document.title, &ctx.document.author))
     } else {
-        // This is not spec-compliant, but some PDF readers really want an ID.
-        let bytes = instance_id.into_bytes();
-        ctx.pdf.set_file_id((bytes.clone(), bytes));
-    }
+        // The user provided no usable metadata which we can use as an `/ID`.
+        instance_id.clone()
+    };
+
+    // Write IDs.
+    xmp.document_id(&doc_id);
+    xmp.instance_id(&instance_id);
+    ctx.pdf
+        .set_file_id((doc_id.clone().into_bytes(), instance_id.into_bytes()));
 
     xmp.rendition_class(RenditionClass::Proof);
     xmp.pdf_version("1.7");

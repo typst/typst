@@ -9,7 +9,7 @@ use parking_lot::RwLock;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use typst::diag::{bail, At, Severity, SourceDiagnostic, StrResult};
 use typst::eval::Tracer;
-use typst::foundations::Datetime;
+use typst::foundations::{Datetime, Smart};
 use typst::layout::Frame;
 use typst::model::Document;
 use typst::syntax::{FileId, Source, Span};
@@ -157,18 +157,13 @@ fn export(
         OutputFormat::Svg => {
             export_image(world, document, command, watching, ImageExportFormat::Svg)
         }
-        OutputFormat::Pdf => export_pdf(document, command, world),
+        OutputFormat::Pdf => export_pdf(document, command),
     }
 }
 
 /// Export to a PDF.
-fn export_pdf(
-    document: &Document,
-    command: &CompileCommand,
-    world: &SystemWorld,
-) -> StrResult<()> {
-    let ident = world.input().map(|i| i.to_string_lossy());
-    let buffer = typst_pdf::pdf(document, ident.as_deref(), now());
+fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
+    let buffer = typst_pdf::pdf(document, Smart::Auto, now());
     let output = command.output();
     fs::write(output, buffer)
         .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;
