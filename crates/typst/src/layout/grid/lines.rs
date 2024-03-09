@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use super::layout::{CellGrid, RowPiece};
+use super::layout::{CellGrid, Repeatable, RowPiece};
 use crate::foundations::{AlternativeFold, Fold};
 use crate::layout::Abs;
 use crate::visualize::Stroke;
@@ -538,19 +538,33 @@ pub(super) fn hline_stroke_at_column(
     // Top border stroke and header stroke are generally prioritized, unless
     // they don't have explicit hline overrides and one or more user-provided
     // hlines would appear at the same position, which then are prioritized.
-    let top_stroke_comes_from_header =
-        grid.header
-            .as_ref()
-            .zip(local_top_y)
-            .is_some_and(|(header, local_top_y)| {
-                // Ensure the row above us is a repeated header.
-                // FIXME: Make this check more robust when headers at arbitrary
-                // positions are added.
-                local_top_y + 1 == header.end && y != header.end
-            });
+    let top_stroke_comes_from_header = grid
+        .header
+        .as_ref()
+        .and_then(Repeatable::as_repeated)
+        .zip(local_top_y)
+        .is_some_and(|(header, local_top_y)| {
+            // Ensure the row above us is a repeated header.
+            // FIXME: Make this check more robust when headers at arbitrary
+            // positions are added.
+            local_top_y + 1 == header.end && y != header.end
+        });
+
+    // Prioritize the footer's top stroke as well where applicable.
+    let bottom_stroke_comes_from_footer = grid
+        .footer
+        .as_ref()
+        .and_then(Repeatable::as_repeated)
+        .is_some_and(|footer| {
+            // Ensure the row below us is a repeated footer.
+            // FIXME: Make this check more robust when footers at arbitrary
+            // positions are added.
+            local_top_y.unwrap_or(0) + 1 != footer.start && y == footer.start
+        });
 
     let (prioritized_cell_stroke, deprioritized_cell_stroke) =
         if !use_bottom_border_stroke
+            && !bottom_stroke_comes_from_footer
             && (use_top_border_stroke
                 || top_stroke_comes_from_header
                 || top_cell_prioritized && !bottom_cell_prioritized)
@@ -562,7 +576,7 @@ pub(super) fn hline_stroke_at_column(
             // When both cells' strokes have the same priority, we default to
             // prioritizing the bottom cell's top stroke.
             // Additionally, the bottom border cell's stroke always has
-            // priority.
+            // priority. Same for stroke above footers.
             (bottom_cell_stroke, top_cell_stroke)
         };
 
@@ -657,6 +671,7 @@ mod test {
             },
             vec![],
             vec![],
+            None,
             None,
             entries,
         )
@@ -1194,6 +1209,7 @@ mod test {
             },
             vec![],
             vec![],
+            None,
             None,
             entries,
         )

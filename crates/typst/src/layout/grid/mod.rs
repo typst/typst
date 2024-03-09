@@ -23,7 +23,7 @@ use crate::layout::{
     Abs, AlignElem, Alignment, Axes, Dir, Fragment, LayoutMultiple, Length,
     OuterHAlignment, OuterVAlignment, Regions, Rel, Sides, Sizing,
 };
-use crate::model::{TableCell, TableHLine, TableHeader, TableVLine};
+use crate::model::{TableCell, TableFooter, TableHLine, TableHeader, TableVLine};
 use crate::syntax::Span;
 use crate::text::TextElem;
 use crate::util::NonZeroExt;
@@ -299,6 +299,9 @@ impl GridElem {
 
     #[elem]
     type GridHeader;
+
+    #[elem]
+    type GridFooter;
 }
 
 impl LayoutMultiple for Packed<GridElem> {
@@ -322,11 +325,17 @@ impl LayoutMultiple for Packed<GridElem> {
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
         // Use trace to link back to the grid when a specific cell errors
         let tracepoint = || Tracepoint::Call(Some(eco_format!("grid")));
+        let resolve_item = |item: &GridItem| item.to_resolvable(styles);
         let children = self.children().iter().map(|child| match child {
             GridChild::Header(header) => ResolvableGridChild::Header {
                 repeat: header.repeat(styles),
                 span: header.span(),
-                items: header.children().iter().map(|child| child.to_resolvable(styles)),
+                items: header.children().iter().map(resolve_item),
+            },
+            GridChild::Footer(footer) => ResolvableGridChild::Footer {
+                repeat: footer.repeat(styles),
+                span: footer.span(),
+                items: footer.children().iter().map(resolve_item),
             },
             GridChild::Item(item) => {
                 ResolvableGridChild::Item(item.to_resolvable(styles))
@@ -369,6 +378,7 @@ cast! {
 #[derive(Debug, PartialEq, Clone, Hash)]
 pub enum GridChild {
     Header(Packed<GridHeader>),
+    Footer(Packed<GridFooter>),
     Item(GridItem),
 }
 
@@ -376,6 +386,7 @@ cast! {
     GridChild,
     self => match self {
         Self::Header(header) => header.into_value(),
+        Self::Footer(footer) => footer.into_value(),
         Self::Item(item) => item.into_value(),
     },
     v: Content => {
@@ -389,10 +400,14 @@ impl TryFrom<Content> for GridChild {
         if value.is::<TableHeader>() {
             bail!("cannot use `table.header` as a grid header; use `grid.header` instead")
         }
+        if value.is::<TableFooter>() {
+            bail!("cannot use `table.footer` as a grid footer; use `grid.footer` instead")
+        }
 
         value
             .into_packed::<GridHeader>()
             .map(Self::Header)
+            .or_else(|value| value.into_packed::<GridFooter>().map(Self::Footer))
             .or_else(|value| GridItem::try_from(value).map(Self::Item))
     }
 }
@@ -459,10 +474,16 @@ impl TryFrom<Content> for GridItem {
     type Error = EcoString;
     fn try_from(value: Content) -> StrResult<Self> {
         if value.is::<GridHeader>() {
-            bail!("cannot place a grid header within another header");
+            bail!("cannot place a grid header within another header or footer");
         }
         if value.is::<TableHeader>() {
-            bail!("cannot place a table header within another header");
+            bail!("cannot place a table header within another header or footer");
+        }
+        if value.is::<GridFooter>() {
+            bail!("cannot place a grid footer within another footer or header");
+        }
+        if value.is::<TableFooter>() {
+            bail!("cannot place a table footer within another footer or header");
         }
         if value.is::<TableCell>() {
             bail!("cannot use `table.cell` as a grid cell; use `grid.cell` instead");
@@ -494,6 +515,18 @@ pub struct GridHeader {
     pub repeat: bool,
 
     /// The cells and lines within the header.
+    #[variadic]
+    pub children: Vec<GridItem>,
+}
+
+/// A repeatable grid footer.
+#[elem(name = "footer", title = "Grid Footer")]
+pub struct GridFooter {
+    /// Whether this footer should be repeated across pages.
+    #[default(true)]
+    pub repeat: bool,
+
+    /// The cells and lines within the footer.
     #[variadic]
     pub children: Vec<GridItem>,
 }

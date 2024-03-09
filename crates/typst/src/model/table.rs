@@ -10,8 +10,8 @@ use crate::foundations::{
 };
 use crate::layout::{
     show_grid_cell, Abs, Alignment, Axes, Cell, CellGrid, Celled, Dir, Fragment,
-    GridCell, GridHLine, GridHeader, GridLayouter, GridVLine, LayoutMultiple, Length,
-    LinePosition, OuterHAlignment, OuterVAlignment, Regions, Rel, ResolvableCell,
+    GridCell, GridFooter, GridHLine, GridHeader, GridLayouter, GridVLine, LayoutMultiple,
+    Length, LinePosition, OuterHAlignment, OuterVAlignment, Regions, Rel, ResolvableCell,
     ResolvableGridChild, ResolvableGridItem, Sides, TrackSizings,
 };
 use crate::model::Figurable;
@@ -224,6 +224,9 @@ impl TableElem {
 
     #[elem]
     type TableHeader;
+
+    #[elem]
+    type TableFooter;
 }
 
 impl LayoutMultiple for Packed<TableElem> {
@@ -247,11 +250,17 @@ impl LayoutMultiple for Packed<TableElem> {
         let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
         // Use trace to link back to the table when a specific cell errors
         let tracepoint = || Tracepoint::Call(Some(eco_format!("table")));
+        let resolve_item = |item: &TableItem| item.to_resolvable(styles);
         let children = self.children().iter().map(|child| match child {
             TableChild::Header(header) => ResolvableGridChild::Header {
                 repeat: header.repeat(styles),
                 span: header.span(),
-                items: header.children().iter().map(|child| child.to_resolvable(styles)),
+                items: header.children().iter().map(resolve_item),
+            },
+            TableChild::Footer(footer) => ResolvableGridChild::Footer {
+                repeat: footer.repeat(styles),
+                span: footer.span(),
+                items: footer.children().iter().map(resolve_item),
             },
             TableChild::Item(item) => {
                 ResolvableGridChild::Item(item.to_resolvable(styles))
@@ -319,6 +328,7 @@ impl Figurable for Packed<TableElem> {}
 #[derive(Debug, PartialEq, Clone, Hash)]
 pub enum TableChild {
     Header(Packed<TableHeader>),
+    Footer(Packed<TableFooter>),
     Item(TableItem),
 }
 
@@ -326,6 +336,7 @@ cast! {
     TableChild,
     self => match self {
         Self::Header(header) => header.into_value(),
+        Self::Footer(footer) => footer.into_value(),
         Self::Item(item) => item.into_value(),
     },
     v: Content => {
@@ -342,10 +353,16 @@ impl TryFrom<Content> for TableChild {
                 "cannot use `grid.header` as a table header; use `table.header` instead"
             )
         }
+        if value.is::<GridFooter>() {
+            bail!(
+                "cannot use `grid.footer` as a table footer; use `table.footer` instead"
+            )
+        }
 
         value
             .into_packed::<TableHeader>()
             .map(Self::Header)
+            .or_else(|value| value.into_packed::<TableFooter>().map(Self::Footer))
             .or_else(|value| TableItem::try_from(value).map(Self::Item))
     }
 }
@@ -413,10 +430,16 @@ impl TryFrom<Content> for TableItem {
 
     fn try_from(value: Content) -> StrResult<Self> {
         if value.is::<GridHeader>() {
-            bail!("cannot place a grid header within another header");
+            bail!("cannot place a grid header within another header or footer");
         }
         if value.is::<TableHeader>() {
-            bail!("cannot place a table header within another header");
+            bail!("cannot place a table header within another header or footer");
+        }
+        if value.is::<GridFooter>() {
+            bail!("cannot place a grid footer within another footer or header");
+        }
+        if value.is::<TableFooter>() {
+            bail!("cannot place a table footer within another footer or header");
         }
         if value.is::<GridCell>() {
             bail!("cannot use `grid.cell` as a table cell; use `table.cell` instead");
@@ -448,6 +471,18 @@ pub struct TableHeader {
     pub repeat: bool,
 
     /// The cells and lines within the header.
+    #[variadic]
+    pub children: Vec<TableItem>,
+}
+
+/// A repeatable table footer.
+#[elem(name = "footer", title = "Table Footer")]
+pub struct TableFooter {
+    /// Whether this footer should be repeated across pages.
+    #[default(true)]
+    pub repeat: bool,
+
+    /// The cells and lines within the footer.
     #[variadic]
     pub children: Vec<TableItem>,
 }
