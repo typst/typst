@@ -25,14 +25,26 @@ use crate::visualize::{Paint, Stroke};
 /// Tables are used to arrange content in cells. Cells can contain arbitrary
 /// content, including multiple paragraphs and are specified in row-major order.
 /// Because tables are just grids with different defaults for some cell
-/// properties (notably `stroke` and `inset`), refer to the
-/// [grid documentation]($grid) for more information on how to size the table
-/// tracks and specify the cell appearance properties.
+/// properties (notably `stroke` and `inset`), refer to the [grid
+/// documentation]($grid) for more information on how to size the table tracks
+/// and specify the cell appearance properties.
 ///
-/// Note that, to override a particular cell's properties or apply show rules
-/// on table cells, you can use the [`table.cell`]($table.cell) element (but
-/// not `grid.cell`, which is exclusive to grids). See its documentation for
-/// more information.
+/// If you are unsure whether you should be using a table or a grid, consider
+/// whether the content you are arranging semantically belongs together as a set
+/// of related data points or similar or whether you are just want to enhance
+/// your presentation by arranging unrelated content in a grid. In the former
+/// case, a table is the right choice, while in the latter case, a grid is more
+/// appropriate. Furthermore, Typst will annotate its output in the future such
+/// that screenreaders will annouce content in `table` as tabular while a grid's
+/// content will be announced no different than multiple content blocks in the
+/// document flow.
+///
+/// Note that, to override a particular cell's properties or apply show rules on
+/// table cells, you can use the [`table.cell`]($table.cell) element. See its
+/// documentation for more information.
+///
+/// Although the `table` and the `grid` share most properties, set and show
+/// rules on one of them do not affect the other.
 ///
 /// To give a table a caption and make it [referenceable]($ref), put it into a
 /// [figure].
@@ -45,7 +57,9 @@ use crate::visualize::{Paint, Stroke};
 ///   columns: (1fr, auto, auto),
 ///   inset: 10pt,
 ///   align: horizon,
-///   [], [*Area*], [*Parameters*],
+///   table.header(
+///     [], [*Area*], [*Parameters*],
+///   ),
 ///   image("cylinder.svg"),
 ///   $ pi h (D^2 - d^2) / 4 $,
 ///   [
@@ -63,33 +77,44 @@ use crate::visualize::{Paint, Stroke};
 /// the appearance and the position of each cell.
 ///
 /// ```example
-/// #set page(width: auto)
+/// >>> #set page(width: auto)
+/// >>> #set text(font: "IBM Plex Sans")
+/// >>> #let gray = rgb("#565565")
+/// >>>
+/// #set table(
+///   stroke: none,
+///   gutter: 0.2em,
+///   fill: (x, y) =>
+///     if x == 0 or y == 0 { gray },
+///   inset: (right: 1.5em),
+/// )
+///
 /// #show table.cell: it => {
 ///   if it.x == 0 or it.y == 0 {
 ///     set text(white)
 ///     strong(it)
 ///   } else if it.body == [] {
 ///     // Replace empty cells with 'N/A'
-///     pad(rest: it.inset)[_N/A_]
+///     pad(..it.inset)[_N/A_]
 ///   } else {
 ///     it
 ///   }
 /// }
 ///
+/// #let a = table.cell(
+///   fill: green.lighten(60%),
+/// )[A]
+/// #let b = table.cell(
+///   fill: aqua.lighten(60%),
+/// )[B]
+///
 /// #table(
-///   fill: (x, y) => if x == 0 or y == 0 { gray.darken(50%) },
 ///   columns: 4,
 ///   [], [Exam 1], [Exam 2], [Exam 3],
-///   ..([John], [Mary], [Jake], [Robert]).map(table.cell.with(x: 0)),
 ///
-///   // Mary got grade A on Exam 3.
-///   table.cell(x: 3, y: 2, fill: green)[A],
-///
-///   // Everyone got grade A on Exam 2.
-///   ..(table.cell(x: 2, fill: green)[A],) * 4,
-///
-///   // Robert got grade B on other exams.
-///   ..(table.cell(y: 4, fill: aqua)[B],) * 2,
+///   [John], [], a, [],
+///   [Mary], [], a, a,
+///   [Robert], b, a, b,
 /// )
 /// ```
 #[elem(scope, LayoutMultiple, LocalName, Figurable)]
@@ -157,7 +182,7 @@ pub struct TableElem {
     /// ```example
     /// #table(
     ///   columns: 3,
-    ///   align: (x, y) => (left, center, right).at(x),
+    ///   align: (left, center, right),
     ///   [Hello], [Hello], [Hello],
     ///   [A], [B], [C],
     /// )
@@ -172,10 +197,11 @@ pub struct TableElem {
     /// If it is necessary to place lines which can cross spacing between cells
     /// produced by the `gutter` option, or to override the stroke between
     /// multiple specific cells, consider specifying one or more of
-    /// [`table.hline`]($table.hline) and [`table.vline`]($table.vline) alongside
-    /// your table cells.
+    /// [`table.hline`]($table.hline) and [`table.vline`]($table.vline)
+    /// alongside your table cells.
     ///
-    /// See the [grid documentation]($grid) for more information on stroke.
+    /// See the [grid documentation]($grid.stroke) for more information on
+    /// strokes.
     #[resolve]
     #[fold]
     #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
@@ -464,6 +490,49 @@ impl TryFrom<Content> for TableItem {
 }
 
 /// A repeatable table header.
+///
+/// You should wrap your tables' heading rows in this function even if you do not
+/// plan to wrap your table across pages because Typst will use this function to
+/// attach accessibility metadata to tables in the future and ensure universal
+/// access to your document.
+///
+/// You can use the `repeat` parameter to control whether your table's header
+/// will be repeated across pages.
+///
+/// ```example
+/// #set page(height: 11.5em)
+/// #set table(
+///   fill: (x, y) =>
+///     if x == 0 or y == 0 {
+///       gray.lighten(40%)
+///     },
+///   align: right,
+/// )
+///
+/// #show table.cell.where(x: 0): strong
+/// #show table.cell.where(y: 0): strong
+///
+/// #table(
+///   columns: 4,
+///   table.header(
+///     [], [Blue chip],
+///     [Fresh IPO], [Penny st'k],
+///   ),
+///   table.cell(
+///     rowspan: 6,
+///     align: horizon,
+///     rotate(-90deg, reflow: true)[
+///       *USD / day*
+///     ],
+///   ),
+///   [0.20], [104], [5],
+///   [3.17], [108], [4],
+///   [1.59], [84],  [1],
+///   [0.26], [98],  [15],
+///   [0.01], [195], [4],
+///   [7.34], [57],  [2],
+/// )
+/// ```
 #[elem(name = "header", title = "Table Header")]
 pub struct TableHeader {
     /// Whether this header should be repeated across pages.
@@ -476,6 +545,13 @@ pub struct TableHeader {
 }
 
 /// A repeatable table footer.
+///
+/// Just like the [`table.header`]($table.header) element, the footer can repeat
+/// itself on every page of the table. This is useful for improving legibility
+/// by adding the column labels in both the header and footer of a large table,
+/// totals, or other information that should be visible on every page.
+///
+/// No other table cells may be placed after the footer.
 #[elem(name = "footer", title = "Table Footer")]
 pub struct TableFooter {
     /// Whether this footer should be repeated across pages.
@@ -487,17 +563,42 @@ pub struct TableFooter {
     pub children: Vec<TableItem>,
 }
 
-/// A horizontal line in the table. See the docs for
-/// [`grid.hline`]($grid.hline) for more information regarding how to use this
-/// element's fields.
+/// A horizontal line in the table.
 ///
 /// Overrides any per-cell stroke, including stroke specified through the
-/// table's `stroke` field. Can cross spacing between cells created through
-/// the table's `column-gutter` option.
+/// table's `stroke` field. Can cross spacing between cells created through the
+/// table's [`column-gutter`]($table.column-gutter) option.
+///
+/// Use this function instead of the table's `stroke` field if you want to
+/// manually place a horizontal line at a specific position in a single table.
+/// Consider using [table's `stroke`]($table.stroke) field or [`table.cell`'s
+/// `stroke`]($table.cell.stroke) field instead if the line you want to place is
+/// part of all your tables' designs.
+///
+/// ```example
+/// #set table.hline(stroke: .6pt)
+///
+/// #table(
+///   stroke: none,
+///   columns: (auto, 1fr),
+///   [09:00], [Badge pick up],
+///   [09:45], [Opening Keynote],
+///   [10:30], [Talk: Typst's Future],
+///   [11:15], [Session: Good PRs],
+///   table.hline(start: 1),
+///   [Noon], [_Lunch break_],
+///   table.hline(start: 1),
+///   [14:00], [Talk: Tracked Layout],
+///   [15:00], [Talk: Automations],
+///   [16:00], [Workshop: Tables],
+///   table.hline(),
+///   [19:00], [Day 1 Attendee Mixer],
+/// )
+/// ```
 #[elem(name = "hline", title = "Table Horizontal Line")]
 pub struct TableHLine {
     /// The row above which the horizontal line is placed (zero-indexed).
-    /// Functions identically to the `y` field in [`grid.hline`]($grid.hline).
+    /// Functions identically to the `y` field in [`grid.hline`]($grid.hline.y).
     pub y: Smart<usize>,
 
     /// The column at which the horizontal line starts (zero-indexed, inclusive).
@@ -531,8 +632,14 @@ pub struct TableHLine {
 /// for more information regarding how to use this element's fields.
 ///
 /// Overrides any per-cell stroke, including stroke specified through the
-/// table's `stroke` field. Can cross spacing between cells created through
-/// the table's `row-gutter` option.
+/// table's `stroke` field. Can cross spacing between cells created through the
+/// table's [`row-gutter`]($table.row-gutter) option.
+///
+/// Similar to [`table.hline`]($table.hline), use this function if you want to
+/// manually place a vertical line at a specific position in a single table and
+/// use the [table's `stroke`]($table.stroke) field or [`table.cell`'s
+/// `stroke`]($table.cell.stroke) field instead if the line you want to place is
+/// part of all your tables' designs.
 #[elem(name = "vline", title = "Table Vertical Line")]
 pub struct TableVLine {
     /// The column before which the horizontal line is placed (zero-indexed).
@@ -571,50 +678,85 @@ pub struct TableVLine {
     pub position: OuterHAlignment,
 }
 
-/// A cell in the table. Use this to either override table properties for a
-/// particular cell, or in show rules to apply certain styles to multiple cells
-/// at once.
+/// A cell in the table. Use this to position a cell manually or to apply
+/// styling. To do the latter, you can either use the function to override the
+/// properties for a particular cell, or use it in show rules to apply certain
+/// styles to multiple cells at once.
+///
+/// Perhaps the most important use-case of `{table.cell}` is to make a cell span
+/// multiple columns or rows with the `colspan` and `rowspan` fields.
+///
+/// ```example
+/// >>> #set page(width: auto)
+/// >>> #show table.cell.where(y: 0): strong
+/// >>> #set table(
+/// >>>   stroke: (x, y) => if y == 0 {
+/// >>>     (bottom: 0.7pt + black)
+/// >>>   },
+/// >>>   align: (x, y) =>
+/// >>>     if x > 0 { center }
+/// >>>     else { left }
+/// >>> )
+/// #table(
+///   columns: 3,
+///   table.header(
+///     [Substance],
+///     [Subcritical °C],
+///     [Supercritical °C],
+///   ),
+///   [Hydrochloric Acid],
+///   [12.0], [92.1],
+///   [Sodium Myreth Sulfate],
+///   [16.6], [104],
+///   [Potassium Hydroxide],
+///   table.cell(colspan: 2)[24.7],
+/// )
+/// ```
 ///
 /// For example, you can override the fill, alignment or inset for a single
 /// cell:
 ///
 /// ```example
+/// >>> #set page(width: auto)
+/// // You can also import those.
+/// #import table: cell, header
+///
 /// #table(
 ///   columns: 2,
-///   fill: green,
-///   align: right,
-///   [*Name*], [*Data*],
-///   table.cell(fill: blue)[J.], [Organizer],
-///   table.cell(align: center)[K.], [Leader],
-///   [M.], table.cell(inset: 0pt)[Player]
+///   align: center,
+///   header(
+///     [*Trip progress*],
+///     [*Itinerary*],
+///   ),
+///   cell(
+///     align: right,
+///     fill: fuchsia.lighten(80%),
+///     [🚗],
+///   ),
+///   [Get in, folks!],
+///   [🚗], [Eat curbside hotdog],
+///   cell(align: left)[🌴🚗],
+///   cell(
+///     inset: 0.06em,
+///     text(1.62em)[🛖🌅🌊],
+///   ),
 /// )
 /// ```
 ///
-/// You may also apply a show rule on `table.cell` to style all cells at once,
-/// which allows you, for example, to apply styles based on a cell's position:
+/// You may also apply a show rule on `table.cell` to style all cells at once.
+/// Combined with selectors, this allows you to apply styles based on a cell's
+/// position:
 ///
 /// ```example
-/// #show table.cell: it => {
-///   if it.y == 0 {
-///     // First row is bold
-///     strong(it)
-///   } else if it.x == 1 {
-///     // Second column is italicized
-///     // (except at the first row)
-///     emph(it)
-///   } else {
-///     // Remaining cells aren't changed
-///     it
-///   }
-/// }
+/// #show table.cell.where(x: 0): strong
 ///
 /// #table(
 ///   columns: 3,
 ///   gutter: 3pt,
-///   [Name], [Age], [Info],
-///   [John], [52], [Nice],
-///   [Mary], [50], [Cool],
-///   [Jake], [49], [Epic]
+///   [Name], [Age], [Strength],
+///   [Hannes], [36], [Grace],
+///   [Irma], [50], [Resourcefulness],
+///   [Vikram], [49], [Perseverance],
 /// )
 /// ```
 #[elem(name = "cell", title = "Table Cell", Show)]
@@ -631,9 +773,6 @@ pub struct TableCell {
     /// Functions identically to the `y` field in [`grid.cell`]($grid.cell).
     pub y: Smart<usize>,
 
-    /// The cell's fill override.
-    pub fill: Smart<Option<Paint>>,
-
     /// The amount of columns spanned by this cell.
     #[default(NonZeroUsize::ONE)]
     pub colspan: NonZeroUsize,
@@ -642,13 +781,16 @@ pub struct TableCell {
     #[default(NonZeroUsize::ONE)]
     rowspan: NonZeroUsize,
 
-    /// The cell's alignment override.
+    /// The cell's [fill]($table.fill) override.
+    pub fill: Smart<Option<Paint>>,
+
+    /// The cell's [alignment]($table.align) override.
     pub align: Smart<Alignment>,
 
-    /// The cell's inset override.
+    /// The cell's [inset]($table.inset) override.
     pub inset: Smart<Sides<Option<Rel<Length>>>>,
 
-    /// The cell's stroke override.
+    /// The cell's [stroke]($table.stroke) override.
     #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
