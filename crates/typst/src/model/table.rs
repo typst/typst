@@ -544,9 +544,9 @@ pub struct TableHeader {
 /// A repeatable table footer.
 ///
 /// Just like the [`table.header`]($table.header) element, the footer can repeat
-/// itself on every page of the table. This is useful for repeating the header
-/// in large table, totals, or other information that should be visible on every
-/// page.
+/// itself on every page of the table. This is useful for improving legibility
+/// by adding the column labels in both the header and footer of a large table,
+/// totals, or other information that should be visible on every page.
 ///
 /// No other table cells may be placed after the footer.
 #[elem(name = "footer", title = "Table Footer")]
