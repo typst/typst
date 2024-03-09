@@ -179,7 +179,7 @@ pub enum Expr<'a> {
     Closure(Closure<'a>),
     /// A let binding: `let x = 1`.
     Let(LetBinding<'a>),
-    //// A destructuring assignment: `(x, y) = (1, 2)`.
+    /// A destructuring assignment: `(x, y) = (1, 2)`.
     DestructAssign(DestructAssignment<'a>),
     /// A set rule: `set text(...)`.
     Set(SetRule<'a>),
@@ -844,6 +844,7 @@ node! {
 }
 
 impl MathPrimes<'_> {
+    /// The number of grouped primes.
     pub fn count(self) -> usize {
         self.0
             .children()

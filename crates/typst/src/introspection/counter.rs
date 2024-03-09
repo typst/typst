@@ -748,9 +748,9 @@ impl Count for Packed<CounterUpdateElem> {
     }
 }
 
-/// **Deprection planned.**
-///
 /// Executes a display of a counter.
+///
+/// **Deprecation planned.**
 #[elem(Construct, Locatable, Show)]
 pub struct CounterDisplayElem {
     /// The counter.

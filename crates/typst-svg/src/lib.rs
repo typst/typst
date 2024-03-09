@@ -1,3 +1,5 @@
+//! Rendering of Typst documents into SVG images.
+
 use std::collections::HashMap;
 use std::f32::consts::TAU;
 use std::fmt::{self, Display, Formatter, Write};

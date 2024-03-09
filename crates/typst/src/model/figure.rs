@@ -425,9 +425,9 @@ impl Outlinable for Packed<FigureElem> {
 /// specific kind.
 ///
 /// In addition to its `pos` and `body`, the `caption` also provides the
-/// figure's `kind`, `supplement`, `counter`, `numbering`, and `location` as
-/// fields. These parts can be used in [`where`]($function.where) selectors and
-/// show rules to build a completely custom caption.
+/// figure's `kind`, `supplement`, `counter`, and `numbering` as fields. These
+/// parts can be used in [`where`]($function.where) selectors and show rules to
+/// build a completely custom caption.
 ///
 /// ```example
 /// #show figure.caption: emph

@@ -419,10 +419,12 @@ show rule.
 </div>
 
 In the web app, you can choose from predefined templates or even
-create your own using the template wizard. You can also check out the
+create your own using the template wizard. Locally, you can use the
+`typst init` CLI to create a new project from a template. Check out
+[the list of templates]($packages/?templates) published in the official package
+manager. You can also take a look at the
 [`awesome-typst` repository](https://github.com/qjcg/awesome-typst) to find
-templates made by the community. We plan to add support for templates to Typst's
-package manager in the future.
+community templates that aren't yet available as packages.
 
 You can also [create your own, custom templates.]($tutorial/making-a-template)
 They are shorter and more readable than the corresponding LaTeX `.sty` files by
@@ -453,12 +455,12 @@ and their corresponding Typst functions.
 
 Although _many_ things are built-in, not everything can be. That's why Typst has
 a built-in [package manager]($packages) where the community can share their
-creations and automations. Let's take, for instance, the _tablex_ package: This
-package allows you to customize your tables in ways the built-in table does not
-yet support. To use tablex in your document, you can just write:
+creations and automations. Let's take, for instance, the _cetz_ package: This
+package allows you to create complex drawings and plots. To use cetz in your
+document, you can just write:
 
 ```typ
-#import "@preview/tablex:0.0.5": tablex, gridx
+#import "@preview/cetz:0.2.1"
 ```
 
 (The `@preview` is a _namespace_ that is used while the package manager is still

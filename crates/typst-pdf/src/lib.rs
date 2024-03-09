@@ -1,4 +1,4 @@
-//! Exporting into PDF documents.
+//! Exporting of Typst documents into PDFs.
 
 mod color;
 mod extg;

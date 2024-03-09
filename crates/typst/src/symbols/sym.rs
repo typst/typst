@@ -400,7 +400,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     // Calculus.
     infinity: '∞',
     oo: '∞',
-    diff: '∂', // deprecated (don't forget to delete later)
+    diff: '∂', // Deprecation planned
     partial: '∂',
     gradient: '∇',
     nabla: '∇',
