@@ -186,7 +186,7 @@ pub struct GridElem {
     /// How to fill the cells.
     ///
     /// This can be a color or a function that returns a color. The function is
-    /// passed the cells' column and row index, starting at zero. This can be
+    /// passed the cells' column and row indices, starting at zero. This can be
     /// used to implement striped grids.
     ///
     /// ```example
@@ -210,7 +210,7 @@ pub struct GridElem {
     ///
     /// This can either be a single alignment, an array of alignments
     /// (corresponding to each column) or a function that returns an alignment.
-    /// The function is passed the cells' column and row index, starting at
+    /// The function is passed the cells' column and row indices, starting at
     /// zero. If set to `{auto}`, the outer alignment is used.
     ///
     /// You can find an example for this argument at the
