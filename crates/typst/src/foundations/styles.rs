@@ -19,16 +19,13 @@ use crate::util::LazyHash;
 
 /// Provides access to active styles.
 ///
-/// The styles are currently opaque and only useful in combination with the
-/// [`measure`] function. See its documentation for more details. In the future,
-/// the provided styles might also be directly accessed to look up styles
-/// defined by [set rules]($styling/#set-rules).
+/// **Deprecation planned.** Use [context] instead.
 ///
 /// ```example
-/// #let thing(body) = context {
-///   let size = measure(body)
+/// #let thing(body) = style(styles => {
+///   let size = measure(body, styles)
 ///   [Width of "#body" is #size.width]
-/// }
+/// })
 ///
 /// #thing[Hey] \
 /// #thing[Welcome]

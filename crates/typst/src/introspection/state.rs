@@ -364,9 +364,9 @@ impl State {
         StateUpdateElem::new(self.key, update).pack().spanned(span)
     }
 
-    /// **Deprection planned:** Use [`get`]($state.get) instead.
-    ///
     /// Displays the current value of the state.
+    ///
+    /// **Deprecation planned:** Use [`get`]($state.get) instead.
     #[func]
     pub fn display(
         self,
@@ -428,9 +428,9 @@ impl Show for Packed<StateUpdateElem> {
     }
 }
 
-/// **Deprection planned.**
-///
 /// Executes a display of a state.
+///
+/// **Deprecation planned.**
 #[elem(Construct, Locatable, Show)]
 struct StateDisplayElem {
     /// The state.

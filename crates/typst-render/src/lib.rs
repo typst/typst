@@ -1,4 +1,4 @@
-//! Rendering into raster images.
+//! Rendering of Typst documents into raster images.
 
 use std::io::Read;
 use std::sync::Arc;
