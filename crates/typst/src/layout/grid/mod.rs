@@ -651,7 +651,7 @@ pub struct GridVLine {
 /// positioning it within the grid. You can also use this function in show rules
 /// to apply certain styles to multiple cells at once.
 ///
-/// For example, you can override the position and stoke for a single cell:
+/// For example, you can override the position and stroke for a single cell:
 ///
 /// ```example
 /// >>> #set page(width: auto)
