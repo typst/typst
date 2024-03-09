@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::cmp::Ordering::Equal;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg};
 
@@ -199,6 +200,8 @@ impl PartialOrd for Length {
             self.abs.partial_cmp(&other.abs)
         } else if self.abs.is_zero() && other.abs.is_zero() {
             self.em.partial_cmp(&other.em)
+        } else if self == other {
+            Some(Equal)
         } else {
             None
         }

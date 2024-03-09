@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 
 use ecow::eco_format;
 
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{bail, At, Hint, HintedStrResult, SourceResult, StrResult};
 use crate::eval::{access_dict, Access, Eval, Vm};
 use crate::foundations::{format_str, Context, Datetime, IntoValue, Regex, Repr, Value};
 use crate::layout::{Alignment, Length, Rel};
@@ -55,11 +55,11 @@ impl Eval for ast::Binary<'_> {
     }
 }
 
-/// Apply a basic binary operation that requires a context.
+/// Apply a basic binary operation that may require a context.
 fn apply_contextual_binary(
     binary: ast::Binary,
     vm: &mut Vm,
-    op: fn(&Context, Value, Value) -> StrResult<Value>,
+    op: fn(&Context, Value, Value) -> HintedStrResult<Value>,
 ) -> SourceResult<Value> {
     let lhs = binary.lhs().eval(vm)?;
     let rhs = binary.rhs().eval(vm)?;
@@ -113,7 +113,7 @@ fn apply_assignment(
 /// Bail with a type mismatch error.
 macro_rules! mismatch {
     ($fmt:expr, $($value:expr),* $(,)?) => {
-        return Err(eco_format!($fmt, $($value.ty()),*))
+        return Err(eco_format!($fmt, $($value.ty()),*).into())
     };
 }
 
@@ -451,19 +451,19 @@ pub fn or(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Compute whether two values are equal.
-pub fn eq(context: &Context, lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn eq(context: &Context, lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     Ok(Value::Bool(equal(context, &lhs, &rhs)?))
 }
 
 /// Compute whether two values are unequal.
-pub fn neq(context: &Context, lhs: Value, rhs: Value) -> StrResult<Value> {
+pub fn neq(context: &Context, lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     Ok(Value::Bool(!equal(context, &lhs, &rhs)?))
 }
 
 macro_rules! comparison {
     ($name:ident, $op:tt, $($pat:tt)*) => {
         /// Compute how a value compares with another value.
-        pub fn $name(context: &Context, lhs: Value, rhs: Value) -> StrResult<Value> {
+        pub fn $name(context: &Context, lhs: Value, rhs: Value) -> HintedStrResult<Value> {
             let ordering = compare(context, &lhs, &rhs)?;
             Ok(Value::Bool(matches!(ordering, $($pat)*)))
         }
@@ -476,7 +476,7 @@ comparison!(gt, ">", Ordering::Greater);
 comparison!(geq, ">=", Ordering::Greater | Ordering::Equal);
 
 /// Determine whether two values are equal.
-pub fn equal(context: &Context, lhs: &Value, rhs: &Value) -> StrResult<bool> {
+pub fn equal(context: &Context, lhs: &Value, rhs: &Value) -> HintedStrResult<bool> {
     use Value::*;
     Ok(match (lhs, rhs) {
         // Compare reflexively.
@@ -486,7 +486,7 @@ pub fn equal(context: &Context, lhs: &Value, rhs: &Value) -> StrResult<bool> {
         (Int(a), Int(b)) => a == b,
         (Float(a), Float(b)) => a == b,
         (Length(a), Length(b)) => {
-            try_eq_values(&a.try_to_absolute(context), &b.try_to_absolute(context))?
+            try_eq_values(&a.try_to_absolute(context), &b.try_to_absolute(context), true)?
         }
         (Angle(a), Angle(b)) => a == b,
         (Ratio(a), Ratio(b)) => a == b,
@@ -513,8 +513,11 @@ pub fn equal(context: &Context, lhs: &Value, rhs: &Value) -> StrResult<bool> {
         // Some technically different things should compare equal.
         (&Int(i), &Float(f)) | (&Float(f), &Int(i)) => i as f64 == f,
         (&Length(len), &Relative(rel)) | (&Relative(rel), &Length(len)) => {
-            try_eq_values(len.try_to_absolute(context), &rel.abs.try_to_absolute(context))?
-                && rel.rel.is_zero()
+            try_eq_values(
+                &len.try_to_absolute(context),
+                &rel.abs.try_to_absolute(context),
+                true,
+            )? && rel.rel.is_zero()
         }
         (&Ratio(rat), &Relative(rel)) | (&Relative(rel), &Ratio(rat)) => {
             rat == rel.rel && rel.abs.is_zero()
@@ -529,36 +532,42 @@ pub fn equal(context: &Context, lhs: &Value, rhs: &Value) -> StrResult<bool> {
 
 /// Tries to test if two values are equal using their [`PartialOrd`]
 /// implementation.
-fn try_eq_values<T: PartialOrd + Repr>(a: &T, b: &T) -> StrResult<bool> {
-    Ok(try_cmp_values(a, b)? == Ordering::Equal)
+fn try_eq_values<T: PartialOrd + Repr>(
+    a: &T,
+    b: &T,
+    suggest_context: bool,
+) -> HintedStrResult<bool> {
+    Ok(try_cmp_values(a, b, suggest_context)? == Ordering::Equal)
 }
 
 /// Compare two values.
-pub fn compare(context: &Context, lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
+pub fn compare(context: &Context, lhs: &Value, rhs: &Value) -> HintedStrResult<Ordering> {
     use Value::*;
     Ok(match (lhs, rhs) {
         (Bool(a), Bool(b)) => a.cmp(b),
         (Int(a), Int(b)) => a.cmp(b),
-        (Float(a), Float(b)) => try_cmp_values(a, b)?,
-        (Length(a), Length(b)) => {
-            try_cmp_values(&a.try_to_absolute(context), &b.try_to_absolute(context))?
-        }
+        (Float(a), Float(b)) => try_cmp_values(a, b, false)?,
+        (Length(a), Length(b)) => try_cmp_values(
+            &a.try_to_absolute(context),
+            &b.try_to_absolute(context),
+            true,
+        )?,
         (Angle(a), Angle(b)) => a.cmp(b),
         (Ratio(a), Ratio(b)) => a.cmp(b),
-        (Relative(a), Relative(b)) => try_cmp_values(a, b)?,
+        (Relative(a), Relative(b)) => try_cmp_values(a, b, false)?,
         (Fraction(a), Fraction(b)) => a.cmp(b),
         (Version(a), Version(b)) => a.cmp(b),
         (Str(a), Str(b)) => a.cmp(b),
 
         // Some technically different things should be comparable.
-        (Int(a), Float(b)) => try_cmp_values(&(*a as f64), b)?,
-        (Float(a), Int(b)) => try_cmp_values(a, &(*b as f64))?,
+        (Int(a), Float(b)) => try_cmp_values(&(*a as f64), b, false)?,
+        (Float(a), Int(b)) => try_cmp_values(a, &(*b as f64), false)?,
         (Length(a), Relative(b)) if b.rel.is_zero() => {
-            try_cmp_values(&a.try_to_absolute(context), &b.abs)?
+            try_cmp_values(&a.try_to_absolute(context), &b.abs, true)?
         }
         (Ratio(a), Relative(b)) if b.abs.is_zero() => a.cmp(&b.rel),
         (Relative(a), Length(b)) if a.rel.is_zero() => {
-            try_cmp_values(&a.abs, &b.try_to_absolute(context))?
+            try_cmp_values(&a.abs, &b.try_to_absolute(context), true)?
         }
         (Relative(a), Ratio(b)) if a.abs.is_zero() => a.rel.cmp(b),
 
@@ -571,9 +580,21 @@ pub fn compare(context: &Context, lhs: &Value, rhs: &Value) -> StrResult<Orderin
 }
 
 /// Try to compare two values.
-fn try_cmp_values<T: PartialOrd + Repr>(a: &T, b: &T) -> StrResult<Ordering> {
-    a.partial_cmp(b)
-        .ok_or_else(|| eco_format!("cannot compare {} with {}", a.repr(), b.repr()))
+fn try_cmp_values<T: PartialOrd + Repr>(
+    a: &T,
+    b: &T,
+    suggest_context: bool,
+) -> HintedStrResult<Ordering> {
+    let r = a
+        .partial_cmp(b)
+        .ok_or_else(|| eco_format!("cannot compare {} with {}", a.repr(), b.repr()));
+    if suggest_context {
+        r
+            .hint("try wrapping this in a `context` expression")
+            .hint("the `context` expression should wrap everything that depends on this function")
+    } else {
+        Ok(r?)
+    }
 }
 
 /// Try to compare two datetimes.
@@ -583,7 +604,11 @@ fn try_cmp_datetimes(a: &Datetime, b: &Datetime) -> StrResult<Ordering> {
 }
 
 /// Try to compare arrays of values lexicographically.
-fn try_cmp_arrays(context: &Context, a: &[Value], b: &[Value]) -> StrResult<Ordering> {
+fn try_cmp_arrays(
+    context: &Context,
+    a: &[Value],
+    b: &[Value],
+) -> HintedStrResult<Ordering> {
     a.iter()
         .zip(b.iter())
         .find_map(|(first, second)| {

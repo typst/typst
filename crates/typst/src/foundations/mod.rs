@@ -71,8 +71,9 @@ pub use {
 };
 
 use ecow::EcoString;
+use typst_syntax::Span;
 
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::eval::{equal, EvalMode};
 use crate::syntax::Spanned;
@@ -188,6 +189,8 @@ impl assert {
     pub fn eq(
         /// The callsite context.
         context: &Context,
+        /// The callsite span.
+        span: Span,
         /// The first value to compare.
         left: Value,
         /// The second value to compare.
@@ -196,12 +199,13 @@ impl assert {
         /// of the compared values.
         #[named]
         message: Option<EcoString>,
-    ) -> StrResult<NoneValue> {
-        if !equal(context, &left, &right)? {
+    ) -> SourceResult<NoneValue> {
+        if !equal(context, &left, &right).at(span)? {
             if let Some(message) = message {
-                bail!("equality assertion failed: {message}");
+                bail!(span, "equality assertion failed: {message}");
             } else {
                 bail!(
+                    span,
                     "equality assertion failed: value {} was not equal to {}",
                     left.repr(),
                     right.repr()
@@ -223,6 +227,8 @@ impl assert {
     pub fn ne(
         /// The callsite context.
         context: &Context,
+        /// The callsite span.
+        span: Span,
         /// The first value to compare.
         left: Value,
         /// The second value to compare.
@@ -231,12 +237,13 @@ impl assert {
         /// of the compared values.
         #[named]
         message: Option<EcoString>,
-    ) -> StrResult<NoneValue> {
-        if equal(context, &left, &right)? {
+    ) -> SourceResult<NoneValue> {
+        if equal(context, &left, &right).at(span)? {
             if let Some(message) = message {
-                bail!("inequality assertion failed: {message}");
+                bail!(span, "inequality assertion failed: {message}");
             } else {
                 bail!(
+                    span,
                     "inequality assertion failed: value {} was equal to {}",
                     left.repr(),
                     right.repr()

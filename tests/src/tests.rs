@@ -30,13 +30,13 @@ use comemo::{Prehashed, Track};
 use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use tiny_skia as sk;
-use typst::diag::{bail, FileError, FileResult, Severity, SourceDiagnostic, StrResult};
+use typst::diag::{At, bail, FileError, FileResult, Severity, SourceDiagnostic, SourceResult, StrResult};
 use typst::eval::{equal, Tracer};
 use typst::foundations::{func, Bytes, Context, Datetime, NoneValue, Repr, Smart, Value};
 use typst::introspection::Meta;
 use typst::layout::{Abs, Frame, FrameItem, Margin, Page, PageElem, Transform};
 use typst::model::Document;
-use typst::syntax::{FileId, Source, SyntaxNode, VirtualPath};
+use typst::syntax::{FileId, Source, Span, SyntaxNode, VirtualPath};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::visualize::Color;
 use typst::{Library, World, WorldExt};
@@ -195,9 +195,9 @@ fn main() {
 
 fn library() -> Library {
     #[func]
-    fn test(context: &Context, lhs: Value, rhs: Value) -> StrResult<NoneValue> {
-        if !equal(context, &lhs, &rhs)? {
-            bail!("Assertion failed: {} != {}", lhs.repr(), rhs.repr());
+    fn test(context: &Context, span: Span, lhs: Value, rhs: Value) -> SourceResult<NoneValue> {
+        if !equal(context, &lhs, &rhs).at(span)? {
+            bail!(span, "Assertion failed: {} != {}", lhs.repr(), rhs.repr());
         }
         Ok(NoneValue)
     }
