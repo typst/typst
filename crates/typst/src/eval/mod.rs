@@ -16,6 +16,7 @@ mod vm;
 
 pub use self::call::*;
 pub use self::import::*;
+pub use self::ops::equal;
 pub use self::tracer::*;
 pub use self::vm::*;
 

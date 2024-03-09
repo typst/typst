@@ -31,8 +31,8 @@ use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use tiny_skia as sk;
 use typst::diag::{bail, FileError, FileResult, Severity, SourceDiagnostic, StrResult};
-use typst::eval::Tracer;
-use typst::foundations::{func, Bytes, Datetime, NoneValue, Repr, Smart, Value};
+use typst::eval::{equal, Tracer};
+use typst::foundations::{func, Bytes, Context, Datetime, NoneValue, Repr, Smart, Value};
 use typst::introspection::Meta;
 use typst::layout::{Abs, Frame, FrameItem, Margin, Page, PageElem, Transform};
 use typst::model::Document;
@@ -195,8 +195,8 @@ fn main() {
 
 fn library() -> Library {
     #[func]
-    fn test(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
-        if lhs != rhs {
+    fn test(context: &Context, lhs: Value, rhs: Value) -> StrResult<NoneValue> {
+        if !equal(context, &lhs, &rhs) {
             bail!("Assertion failed: {} != {}", lhs.repr(), rhs.repr());
         }
         Ok(NoneValue)

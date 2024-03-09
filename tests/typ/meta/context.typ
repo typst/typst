@@ -179,3 +179,17 @@
 #let i = 0
 // Error: 11-12 variables from outside the context expression are read-only and cannot be modified
 #context (i = 1)
+
+---
+// Test contextual comparisons.
+// noref
+#context test(text.size, 1em)
+#context test(text.size - 5pt, 1em - 5pt)
+#context test(text.size - 5pt != 1em, true)
+#context test(1em, 10pt)
+#set text(size: 2em)
+#context test(text.size, 1em)
+#context test(text.size, 20pt)
+#context test(12pt - 3.7em, 12pt - 3.7 * 20pt)
+#context test(1em > 19.999pt, true)
+#context test(1em < 20.001pt, true)
