@@ -37,13 +37,14 @@ use crate::visualize::{Paint, Stroke};
 /// create complex layouts.
 ///
 /// While the grid and table elements work very similarly, they are intended for
-/// different use cases and carry different semantics. The grid is intended for
-/// presentational and layout purposes, while the [`{table}`]($table) element is
-/// intended for, in broad terms, presenting multiple related data points. In
-/// the future, Typst will annote its output such that screenreaders will
-/// annouce content in `table` as tabular while a grid's content will be
-/// announced no different than multiple content blocks in the document flow.
-/// Set and show rules on one of these elements do not affect the other.
+/// different use cases and carry different semantics. The grid element is
+/// intended for presentational and layout purposes, while the
+/// [`{table}`]($table) element is intended for, in broad terms, presenting
+/// multiple related data points. In the future, Typst will annote its output
+/// such that screenreaders will annouce content in `table` as tabular while a
+/// grid's content will be announced no different than multiple content blocks
+/// in the document flow. Set and show rules on one of these elements do not
+/// affect the other.
 ///
 /// A grid's sizing is determined by the track sizes specified in the arguments.
 /// Because each of the sizing parameters accepts the same values, we will
@@ -552,6 +553,11 @@ pub struct GridHeader {
 }
 
 /// A repeatable grid footer.
+///
+/// Just like the [`grid.header`]($grid.header) element, the footer can repeat
+/// itself on every page of the table.
+///
+/// No other grid cells may be placed after the footer.
 #[elem(name = "footer", title = "Grid Footer")]
 pub struct GridFooter {
     /// Whether this footer should be repeated across pages.
