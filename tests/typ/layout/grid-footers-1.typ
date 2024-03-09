@@ -56,39 +56,27 @@
 
 ---
 #table(
-    table.header(
-        table.cell(stroke: red)[Hello]
-    ),
-    table.footer(
-        table.cell(stroke: aqua)[Bye]
-    )
+  table.header(table.cell(stroke: red)[Hello]),
+  table.footer(table.cell(stroke: aqua)[Bye]),
 )
 
 ---
 #table(
-    gutter: 3pt,
-    table.header(
-        table.cell(stroke: red)[Hello]
-    ),
-    table.footer(
-        table.cell(stroke: aqua)[Bye]
-    )
+  gutter: 3pt,
+  table.header(table.cell(stroke: red)[Hello]),
+  table.footer(table.cell(stroke: aqua)[Bye]),
 )
 
 ---
 // Footer's top stroke should win when repeated, but lose at the last page.
 #set page(height: 10em)
 #table(
-    stroke: green,
-    table.header(
-        table.cell(stroke: red)[Hello]
-    ),
-    table.cell(stroke: yellow)[Hi],
-    table.cell(stroke: yellow)[Bye],
-    table.cell(stroke: yellow)[Ok],
-    table.footer(
-        [Bye],
-    )
+  stroke: green,
+  table.header(table.cell(stroke: red)[Hello]),
+  table.cell(stroke: yellow)[Hi],
+  table.cell(stroke: yellow)[Bye],
+  table.cell(stroke: yellow)[Ok],
+  table.footer[Bye],
 )
 
 ---
@@ -98,38 +86,35 @@
   rows: (30%, 30%, auto),
   [C],
   [C],
-  table.footer(
-    [*A*],
-    [*B*]
-  )
+  table.footer[*A*][*B*],
 )
 
 ---
 #grid(
   grid.footer(grid.cell(y: 2)[b]),
   grid.cell(y: 0)[a],
-  grid.cell(y: 1)[c]
+  grid.cell(y: 1)[c],
 )
 
 ---
 // Ensure footer properly expands
 #grid(
-    columns: 2,
-    [a], [],
-    [b], [],
-    grid.cell(x: 1, y: 3, rowspan: 4)[b],
-    grid.cell(y: 2, rowspan: 2)[a],
-    grid.footer(),
-    grid.cell(y: 4)[d],
-    grid.cell(y: 5)[e],
-    grid.cell(y: 6)[f]
+  columns: 2,
+  [a], [],
+  [b], [],
+  grid.cell(x: 1, y: 3, rowspan: 4)[b],
+  grid.cell(y: 2, rowspan: 2)[a],
+  grid.footer(),
+  grid.cell(y: 4)[d],
+  grid.cell(y: 5)[e],
+  grid.cell(y: 6)[f],
 )
 
 ---
 // Error: 2:3-2:19 footer must end at the last row
 #grid(
   grid.footer([a]),
-  [b]
+  [b],
 )
 
 ---
@@ -137,7 +122,7 @@
 #grid(
   columns: 2,
   grid.footer([a]),
-  [b]
+  [b],
 )
 
 ---
@@ -147,7 +132,7 @@
   columns: 2,
   grid.header(),
   grid.footer([a]),
-  grid.cell(x: 1, y: 0, rowspan: 2)[a]
+  grid.cell(x: 1, y: 0, rowspan: 2)[a],
 )
 
 ---
@@ -155,21 +140,21 @@
 #grid(
   [a],
   grid.footer([a]),
-  grid.footer([b])
+  grid.footer([b]),
 )
 
 ---
 // Error: 3:3-3:20 cannot use `table.footer` as a grid footer; use `grid.footer` instead
 #grid(
   [a],
-  table.footer([a])
+  table.footer([a]),
 )
 
 ---
 // Error: 3:3-3:19 cannot use `grid.footer` as a table footer; use `table.footer` instead
 #table(
   [a],
-  grid.footer([a])
+  grid.footer([a]),
 )
 
 ---

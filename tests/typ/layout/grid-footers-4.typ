@@ -25,26 +25,18 @@
 #table(
   table(
     [a\ b\ c\ d],
-    table.footer(
-      [b]
-    ),
+    table.footer[b],
   ),
-  table.footer(
-    [a]
-  )
+  table.footer[a],
 )
 
 ---
 #set page(height: 12em)
 #table(
   [a\ b\ c\ d],
-  table.footer(
-    table(
-      [c],
-      [d],
-      table.footer(
-        [b]
-      )
-    )
-  )
+  table.footer(table(
+    [c],
+    [d],
+    table.footer[b],
+  ))
 )
