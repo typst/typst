@@ -53,7 +53,7 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// - `{auto}`: The track will be sized to fit its contents. It will be at most
 ///   as large as the remaining space. If there is more than one `{auto}` track
-///   which, and together they claim more than the available space, the `{auto}`
+///   width, and together they claim more than the available space, the `{auto}`
 ///   tracks will fairly distribute the available space among themselves.
 ///
 /// - A fixed or relative length (e.g. `{10pt}` or `{20% - 1cm}`): The track
@@ -72,8 +72,8 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// # Examples
 /// The example below demonstrates the different track sizing options. It also
-/// shows how you can use [`grid.cell`]($grid.cell) in to make an individual
-/// cell span two grid tracks.
+/// shows how you can use [`grid.cell`]($grid.cell) to make an individual cell
+/// span two grid tracks.
 ///
 /// ```example
 /// // We use `rect` to emphasize the
