@@ -29,8 +29,6 @@ static STDIN_ID: Lazy<FileId> =
 pub struct SystemWorld {
     /// The working directory.
     workdir: Option<PathBuf>,
-    /// The canonical path to the input file.
-    input: Option<PathBuf>,
     /// The root relative to which absolute paths are resolved.
     root: PathBuf,
     /// The input path.
@@ -108,7 +106,6 @@ impl SystemWorld {
 
         Ok(Self {
             workdir: std::env::current_dir().ok(),
-            input,
             root,
             main,
             library: Prehashed::new(library),
@@ -150,11 +147,6 @@ impl SystemWorld {
             slot.reset();
         }
         self.now.take();
-    }
-
-    /// Return the canonical path to the input file.
-    pub fn input(&self) -> Option<&PathBuf> {
-        self.input.as_ref()
     }
 
     /// Lookup a source file by id.

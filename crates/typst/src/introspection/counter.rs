@@ -213,7 +213,7 @@ impl Counter {
 
     /// The counter for the given element.
     pub fn of(func: Element) -> Self {
-        Self::construct(CounterKey::Selector(Selector::Elem(func, None)))
+        Self::new(CounterKey::Selector(Selector::Elem(func, None)))
     }
 
     /// Gets the current and final value of the state combined in one state.
@@ -405,14 +405,14 @@ impl Counter {
         ///
         /// - If it is a string, creates a custom counter that is only affected
         ///   by manual updates,
-        /// - If this is a `{<label>}`, counts through all elements with that
-        ///   label,
-        /// - If this is an element function or selector, counts through its
-        ///   elements,
-        /// - If this is the [`page`] function, counts through pages.
+        /// - If it is the [`page`] function, counts through pages,
+        /// - If it is a [selector], counts through elements that matches with the
+        ///   selector. For example,
+        ///   - provide an element function: counts elements of that type,
+        ///   - provide a [`{<label>}`]($label): counts elements with that label.
         key: CounterKey,
     ) -> Counter {
-        Self(key)
+        Self::new(key)
     }
 
     /// Retrieves the value of the counter at the current location. Always

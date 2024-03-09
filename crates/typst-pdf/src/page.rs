@@ -4,7 +4,7 @@ use std::num::NonZeroUsize;
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::{
     ActionType, AnnotationFlags, AnnotationType, ColorSpaceOperand, LineCapStyle,
-    LineJoinStyle, NumberingStyle,
+    LineJoinStyle, NumberingStyle, TextRenderingMode,
 };
 use pdf_writer::writers::{PageLabel, Resources};
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
@@ -456,6 +456,7 @@ struct State {
     external_graphics_state: Option<ExtGState>,
     stroke: Option<FixedStroke>,
     stroke_space: Option<Name<'static>>,
+    text_rendering_mode: TextRenderingMode,
 }
 
 impl State {
@@ -471,6 +472,7 @@ impl State {
             external_graphics_state: None,
             stroke: None,
             stroke_space: None,
+            text_rendering_mode: TextRenderingMode::Fill,
         }
     }
 
@@ -653,6 +655,13 @@ impl PageContext<'_, '_> {
     pub fn reset_stroke_color_space(&mut self) {
         self.state.stroke_space = None;
     }
+
+    fn set_text_rendering_mode(&mut self, mode: TextRenderingMode) {
+        if self.state.text_rendering_mode != mode {
+            self.content.set_text_rendering_mode(mode);
+            self.state.text_rendering_mode = mode;
+        }
+    }
 }
 
 /// Encode a frame into the content stream.
@@ -714,13 +723,25 @@ fn write_text(ctx: &mut PageContext, pos: Point, text: &TextItem) {
         let segment = &text.text[g.range()];
         glyph_set.entry(g.id).or_insert_with(|| segment.into());
     }
+
     let fill_transform = ctx.state.transforms(Size::zero(), pos);
     ctx.set_fill(&text.fill, true, fill_transform);
-    if let Some(stroke) = &text.stroke {
+
+    let stroke = text.stroke.as_ref().and_then(|stroke| {
+        if stroke.thickness.to_f32() > 0.0 {
+            Some(stroke)
+        } else {
+            None
+        }
+    });
+
+    if let Some(stroke) = stroke {
         ctx.set_stroke(stroke, true, fill_transform);
-        ctx.content
-            .set_text_rendering_mode(pdf_writer::types::TextRenderingMode::FillStroke);
+        ctx.set_text_rendering_mode(TextRenderingMode::FillStroke);
+    } else {
+        ctx.set_text_rendering_mode(TextRenderingMode::Fill);
     }
+
     ctx.set_font(&text.font, text.size);
     ctx.set_opacities(text.stroke.as_ref(), Some(&text.fill));
     ctx.content.begin_text();

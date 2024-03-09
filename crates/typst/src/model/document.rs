@@ -51,6 +51,9 @@ pub struct DocumentElem {
     ///
     /// The year component must be at least zero in order to be embedded into a
     /// PDF.
+    ///
+    /// If you want to create byte-by-byte reproducible PDFs, set this to
+    /// something other than `{auto}`.
     #[ghost]
     pub date: Smart<Option<Datetime>>,
 

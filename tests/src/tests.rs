@@ -501,7 +501,7 @@ fn test(
         if let Some(pdf_path) = pdf_path {
             let pdf_data = typst_pdf::pdf(
                 &document,
-                Some(&format!("typst-test: {}", name.display())),
+                Smart::Custom(&format!("typst-test: {}", name.display())),
                 world.today(Some(0)),
             );
             fs::create_dir_all(pdf_path.parent().unwrap()).unwrap();

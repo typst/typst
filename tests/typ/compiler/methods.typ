@@ -126,17 +126,32 @@
 
 ---
 // Test color '.components()' without conversions
-#test-repr(rgb(1, 2, 3, 4).components(), (0.39%, 0.78%, 1.18%, 1.57%))
-#test-repr(luma(40).components(), (15.69%, 100%))
-#test-repr(luma(40, 50%).components(), (15.69%, 50%))
-#test-repr(cmyk(4%, 5%, 6%, 7%).components(), (4%, 5%, 6%, 7%))
-#test-repr(oklab(10%, 0.2, 0.3).components(), (10%, 0.2, 0.3, 100%))
-#test-repr(oklch(10%, 0.2, 90deg).components(), (10%, 0.2, 90deg, 100%))
-#test-repr(oklab(10%, 50%, 75%).components(), (10%, 0.2, 0.3, 100%))
-#test-repr(oklch(10%, 50%, 90deg).components(), (10%, 0.2, 90deg, 100%))
-#test-repr(color.linear-rgb(10%, 20%, 30%).components(), (10%, 20%, 30%, 100%))
-#test-repr(color.hsv(10deg, 20%, 30%).components(), (10deg, 20%, 30%, 100%))
-#test-repr(color.hsl(10deg, 20%, 30%).components(), (10deg, 20%, 30%, 100%))
+
+#let test-components(col, ref, has-alpha: true) = {
+  // Perform an approximate scalar comparison.
+  let are-equal((a, b)) = {
+    let to-float(x) = if type(x) == angle { x.rad() } else { float(x) }
+    let epsilon = 1e-4 // The maximum error between both numbers
+    assert.eq(type(a), type(b))
+    calc.abs(to-float(a) - to-float(b)) < epsilon
+  }
+  
+  let ref-without-alpha = if has-alpha { ref.slice(0, -1) } else { ref }
+  assert.eq(col.components().len(), ref.len())
+  assert(col.components().zip(ref).all(are-equal))
+  assert(col.components(alpha: false).zip(ref-without-alpha).all(are-equal))
+}
+#test-components(rgb(1, 2, 3, 4), (0.39%, 0.78%, 1.18%, 1.57%))
+#test-components(luma(40), (15.69%, 100%))
+#test-components(luma(40, 50%), (15.69%, 50%))
+#test-components(cmyk(4%, 5%, 6%, 7%), (4%, 5%, 6%, 7%), has-alpha: false)
+#test-components(oklab(10%, 0.2, 0.4), (10%, 0.2, 0.4, 100%))
+#test-components(oklch(10%, 0.2, 90deg), (10%, 0.2, 90deg, 100%))
+#test-components(oklab(10%, 50%, 200%), (10%, 0.2, 0.8, 100%))
+#test-components(oklch(10%, 50%, 90deg), (10%, 0.2, 90deg, 100%))
+#test-components(color.linear-rgb(10%, 20%, 30%), (10%, 20%, 30%, 100%))
+#test-components(color.hsv(10deg, 20%, 30%), (10deg, 20%, 30%, 100%))
+#test-components(color.hsl(10deg, 20%, 30%), (10deg, 20%, 30%, 100%))
 
 ---
 // Test color conversions.
@@ -144,9 +159,9 @@
 #test(rgb(1, 2, 3, 4).to-hex(), "#01020304")
 #test(luma(40).to-hex(), "#282828")
 #test-repr(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e0dcda")
-#test-repr(rgb(cmyk(4%, 5%, 6%, 7%)).components(), (87.84%, 86.27%, 85.49%, 100%))
-#test-repr(rgb(luma(40%)).components(alpha: false), (40%, 40%, 40%))
-#test-repr(cmyk(luma(40)).components(), (11.76%, 10.67%, 10.51%, 14.12%))
+#test-repr(rgb(cmyk(4%, 5%, 6%, 7%)), rgb(87.84%, 86.27%, 85.49%, 100%))
+#test-repr(rgb(luma(40%)), rgb(40%, 40%, 40%))
+#test-repr(cmyk(luma(40)), cmyk(11.76%, 10.67%, 10.51%, 14.12%))
 #test-repr(cmyk(rgb(1, 2, 3)), cmyk(66.67%, 33.33%, 0%, 98.82%))
 #test-repr(luma(rgb(1, 2, 3)), luma(0.73%))
 #test-repr(color.hsl(luma(40)), color.hsl(0deg, 0%, 15.69%))
@@ -155,11 +170,11 @@
 #test-repr(color.linear-rgb(rgb(1, 2, 3)), color.linear-rgb(0.03%, 0.06%, 0.09%))
 #test-repr(color.hsl(rgb(1, 2, 3)), color.hsl(-150deg, 50%, 0.78%))
 #test-repr(color.hsv(rgb(1, 2, 3)), color.hsv(-150deg, 66.67%, 1.18%))
-#test-repr(oklab(luma(40)).components(), (27.68%, 0.0, 0.0, 100%))
-#test-repr(oklab(rgb(1, 2, 3)).components(), (8.23%, -0.004, -0.007, 100%))
-#test-repr(oklch(oklab(40%, 0.2, 0.2)).components(), (40%, 0.283, 45deg, 100%))
-#test-repr(oklch(luma(40)).components(), (27.68%, 0.0, 72.49deg, 100%))
-#test-repr(oklch(rgb(1, 2, 3)).components(), (8.23%, 0.008, 240.75deg, 100%))
+#test-repr(oklab(luma(40)), oklab(27.68%, 0.0, 0.0, 100%))
+#test-repr(oklab(rgb(1, 2, 3)), oklab(8.23%, -0.004, -0.007, 100%))
+#test-repr(oklch(oklab(40%, 0.2, 0.2)), oklch(40%, 0.283, 45deg, 100%))
+#test-repr(oklch(luma(40)), oklch(27.68%, 0.0, 72.49deg, 100%))
+#test-repr(oklch(rgb(1, 2, 3)), oklch(8.23%, 0.008, 240.75deg, 100%))
 
 ---
 // Test gradient functions.
