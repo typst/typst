@@ -13,7 +13,7 @@ use crate::foundations::{repr, ty, Content, Scope, Value};
 /// [import and include syntaxes]($scripting/#modules). Alternatively, it is
 /// possible to convert a module to a dictionary, and therefore access its
 /// contents dynamically, using the
-/// [dictionary constructor]($dictionary#constructor).
+/// [dictionary constructor]($dictionary/#constructor).
 ///
 /// # Example
 /// ```example
