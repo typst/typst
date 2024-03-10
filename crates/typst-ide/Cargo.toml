@@ -21,6 +21,7 @@ typst = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 if_chain = { workspace = true }
+log = { workspace = true }
 serde = { workspace = true }
 unscanny = { workspace = true }
 

@@ -62,6 +62,7 @@ kamadak-exif = "0.5"
 kurbo = "0.9" # in sync with usvg
 libfuzzer-sys = "0.4"
 lipsum = "0.9"
+log = "0.4"
 miniz_oxide = "0.7"
 native-tls = "0.2"
 notify = "6"
