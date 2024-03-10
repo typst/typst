@@ -1,42 +1,65 @@
 use std::io::{self, IsTerminal, Write};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
 
 use codespan_reporting::term::termcolor;
-use ecow::eco_format;
-use once_cell::sync::Lazy;
+use crossterm as ct;
+use minus::Pager;
+use parking_lot::Mutex;
 use termcolor::{ColorChoice, WriteColor};
-use typst::diag::StrResult;
 
+use crate::args::{Command, PaginationChoice};
 use crate::ARGS;
+
+static OUTPUT: OnceLock<TermOutInner> = OnceLock::new();
+
+pub fn init() {
+    let color_choice = match ARGS.color {
+        clap::ColorChoice::Auto if std::io::stderr().is_terminal() => ColorChoice::Auto,
+        clap::ColorChoice::Always => ColorChoice::Always,
+        _ => ColorChoice::Never,
+    };
+
+    let use_pager = match ARGS.pager {
+        PaginationChoice::Auto => {
+            color_choice != ColorChoice::Never
+                && matches!(ARGS.command, Command::Watch(_))
+                && std::io::stdout().is_terminal()
+        }
+        PaginationChoice::Never => false,
+        PaginationChoice::Always => true,
+    };
+
+    let output = if use_pager {
+        let pager = Pager::new();
+        std::thread::spawn({
+            let pager = pager.clone();
+            move || minus::dynamic_paging(pager).expect("tried to initialize pager")
+        });
+        Output::Pager { buffer: Mutex::new(String::new()), pager }
+    } else {
+        Output::Direct(termcolor::StandardStream::stderr(color_choice))
+    };
+    // We can safely ignore the returned result because the set value is always the same.
+    let _ = OUTPUT.set(TermOutInner { output, color_choice });
+}
 
 /// Returns a handle to the optionally colored terminal output.
 pub fn out() -> TermOut {
-    static OUTPUT: Lazy<TermOutInner> = Lazy::new(TermOutInner::new);
-    TermOut { inner: &OUTPUT }
+    TermOut {
+        inner: OUTPUT.get().expect("output was not initialized yet"),
+    }
 }
 
 /// The stuff that has to be shared between instances of [`TermOut`].
 struct TermOutInner {
-    stream: termcolor::StandardStream,
-    in_alternate_screen: AtomicBool,
+    output: Output,
+    color_choice: ColorChoice,
 }
 
-impl TermOutInner {
-    fn new() -> Self {
-        let color_choice = match ARGS.color {
-            clap::ColorChoice::Auto if std::io::stderr().is_terminal() => {
-                ColorChoice::Auto
-            }
-            clap::ColorChoice::Always => ColorChoice::Always,
-            _ => ColorChoice::Never,
-        };
-
-        let stream = termcolor::StandardStream::stderr(color_choice);
-        TermOutInner {
-            stream,
-            in_alternate_screen: AtomicBool::new(false),
-        }
-    }
+/// The type of output stream.
+enum Output {
+    Direct(termcolor::StandardStream),
+    Pager { buffer: Mutex<String>, pager: Pager },
 }
 
 /// A utility that allows users to write colored terminal output.
@@ -48,96 +71,95 @@ pub struct TermOut {
 }
 
 impl TermOut {
-    /// Initialize a handler that listens for Ctrl-C signals.
-    /// This is used to exit the alternate screen that might have been opened.
-    pub fn init_exit_handler(&mut self) -> StrResult<()> {
-        // We can safely ignore the error as the only thing this handler would do
-        // is leave an alternate screen if none was opened; not very important.
-        let mut term_out = self.clone();
-        ctrlc::set_handler(move || {
-            let _ = term_out.leave_alternate_screen();
-
-            // Exit with the exit code standard for Ctrl-C exits[^1].
-            // There doesn't seem to be another standard exit code for Windows,
-            // so we just use the same one there.
-            // [^1]: https://tldp.org/LDP/abs/html/exitcodes.html
-            std::process::exit(128 + 2);
-        })
-        .map_err(|err| eco_format!("failed to initialize exit handler ({err})"))
-    }
-
     /// Clears the entire screen.
     pub fn clear_screen(&mut self) -> io::Result<()> {
-        // We don't want to clear anything that is not a TTY.
-        if self.inner.stream.supports_color() {
-            let mut stream = self.inner.stream.lock();
-            // Clear the screen and then move the cursor to the top left corner.
-            write!(stream, "\x1B[2J\x1B[1;1H")?;
-            stream.flush()?;
+        // We only want to clear the screen inside the pager.
+        if let Output::Pager { buffer, pager } = &self.inner.output {
+            buffer.lock().clear();
+            pager.set_text(String::new()).map_err(io::Error::other)?;
         }
         Ok(())
     }
 
     /// Clears the previously written line.
     pub fn clear_last_line(&mut self) -> io::Result<()> {
-        // We don't want to clear anything that is not a TTY.
-        if self.inner.stream.supports_color() {
-            // First, move the cursor up `lines` lines.
-            // Then, clear everything between between the cursor to end of screen.
-            let mut stream = self.inner.stream.lock();
-            write!(stream, "\x1B[1F\x1B[0J")?;
-            stream.flush()?;
-        }
-        Ok(())
-    }
-
-    /// Enters the alternate screen if none was opened already.
-    pub fn enter_alternate_screen(&mut self) -> io::Result<()> {
-        if self.inner.stream.supports_color()
-            && !self.inner.in_alternate_screen.load(Ordering::Acquire)
-        {
-            let mut stream = self.inner.stream.lock();
-            write!(stream, "\x1B[?1049h")?;
-            stream.flush()?;
-            self.inner.in_alternate_screen.store(true, Ordering::Release);
-        }
-        Ok(())
-    }
-
-    /// Leaves the alternate screen if it is already open.
-    pub fn leave_alternate_screen(&mut self) -> io::Result<()> {
-        if self.inner.stream.supports_color()
-            && self.inner.in_alternate_screen.load(Ordering::Acquire)
-        {
-            let mut stream = self.inner.stream.lock();
-            write!(stream, "\x1B[?1049l")?;
-            stream.flush()?;
-            self.inner.in_alternate_screen.store(false, Ordering::Release);
+        match &self.inner.output {
+            Output::Direct(out) => {
+                // We don't want to clear anything that is not a TTY.
+                if self.supports_color() {
+                    ct::execute!(
+                        out.lock(),
+                        ct::cursor::MoveToPreviousLine(1),
+                        ct::terminal::Clear(ct::terminal::ClearType::FromCursorDown),
+                    )?;
+                }
+            }
+            Output::Pager { buffer, pager } => {
+                let mut buffer = buffer.lock();
+                // Compute the index of the last newline.
+                // By splitting off the last newline, we make sure that the previous line
+                // is still deleted, even if there is a trailing newline.
+                let newline_idx =
+                    buffer[..buffer.len() - 1].rfind('\n').map_or(0, |x| x + 1);
+                buffer.truncate(newline_idx);
+                pager.set_text(buffer.clone()).map_err(io::Error::other)?;
+            }
         }
         Ok(())
     }
 }
 
-impl Write for TermOut {
+impl io::Write for TermOut {
+    /// Write a buffer into this output, returning the number of bytes written.
+    ///
+    /// # Panics
+    /// If the input is not completely UTF-8 encoded.
+    /// This is not ideal, but there is otherwise no way to support
+    /// [`termcolor::WriteColor`] and [`minus::Pager`] at the same time.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.inner.stream.lock().write(buf)
+        match &self.inner.output {
+            Output::Direct(out) => out.lock().write(buf),
+            Output::Pager { buffer, pager } => {
+                let str_buf = std::str::from_utf8(buf)
+                    .expect("we should never output non UTF-8 content");
+                pager.push_str(str_buf).map_err(io::Error::other)?;
+                buffer.lock().push_str(str_buf);
+                Ok(str_buf.len())
+            }
+        }
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.inner.stream.lock().flush()
+        match &self.inner.output {
+            Output::Direct(out) => out.lock().flush(),
+            Output::Pager { .. } => Ok(()),
+        }
     }
 }
 
 impl WriteColor for TermOut {
     fn supports_color(&self) -> bool {
-        self.inner.stream.supports_color()
+        match &self.inner.output {
+            Output::Direct(out) => out.supports_color(),
+            Output::Pager { .. } => self.inner.color_choice != ColorChoice::Never,
+        }
     }
 
     fn set_color(&mut self, spec: &termcolor::ColorSpec) -> io::Result<()> {
-        self.inner.stream.lock().set_color(spec)
+        if self.supports_color() {
+            let mut buf = termcolor::Buffer::ansi();
+            buf.set_color(spec)?;
+            self.write_all(buf.as_slice())?;
+        }
+        Ok(())
     }
 
     fn reset(&mut self) -> io::Result<()> {
-        self.inner.stream.lock().reset()
+        if self.supports_color() {
+            let mut buf = termcolor::Buffer::ansi();
+            buf.reset()?;
+            self.write_all(buf.as_slice())?;
+        }
+        Ok(())
     }
 }

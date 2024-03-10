@@ -31,13 +31,14 @@ chrono = { workspace = true }
 clap = { workspace = true }
 codespan-reporting = { workspace = true }
 comemo = { workspace = true }
-ctrlc = { workspace = true }
+crossterm = { workspace = true }
 dirs = { workspace = true }
 ecow = { workspace = true }
 env_proxy = { workspace = true }
 flate2 = { workspace = true }
 fontdb = { workspace = true, features = ["memmap", "fontconfig"] }
 fs_extra = { workspace = true }
+minus = { workspace = true, features = ["dynamic_output", "search"] }
 native-tls = { workspace = true }
 notify = { workspace = true }
 once_cell = { workspace = true }

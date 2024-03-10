@@ -29,9 +29,29 @@ pub struct CliArguments {
     )]
     pub color: ColorChoice,
 
+    /// Decide when a pager should be used.
+    #[clap(long, value_name = "WHEN", default_value_t = PaginationChoice::Auto)]
+    pub pager: PaginationChoice,
+
     /// Path to a custom CA certificate to use when making network requests.
     #[clap(long = "cert", env = "TYPST_CERT")]
     pub cert: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum PaginationChoice {
+    Auto,
+    Never,
+    Always,
+}
+
+impl fmt::Display for PaginationChoice {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.to_possible_value()
+            .expect("no values are skipped")
+            .get_name()
+            .fmt(f)
+    }
 }
 
 /// What to do.
