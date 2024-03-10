@@ -486,7 +486,16 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     refmark: '※',
     servicemark: '℠',
     maltese: '✠',
-    suit: [club: '♣', diamond: '♦', heart: '♥', spade: '♠'],
+    suit: [
+        club.filled: '♣',
+        club.stroked: '♧',
+        diamond.filled: '♦',
+        diamond.stroked: '♢',
+        heart.filled: '♥',
+        heart.stroked: '♡',
+        spade.filled: '♠',
+        spade.stroked: '♤',
+    ],
 
     // Shapes.
     bullet: '•',
