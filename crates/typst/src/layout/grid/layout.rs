@@ -1755,9 +1755,21 @@ impl<'a> GridLayouter<'a> {
                 // row don't "disappear" and are considered, albeit with less
                 // priority. However, don't do this when we're below a header,
                 // as it must have more priority instead of less, so it is
-                // chained later instead of before.
+                // chained later instead of before. The exception is when the
+                // last row in the header is removed, in which case we append
+                // both the lines under the row above us and also (later) the
+                // lines under the header's (removed) last row.
                 let prev_lines = prev_y
-                    .filter(|prev_y| prev_y + 1 != y && !is_under_repeated_header)
+                    .filter(|prev_y| {
+                        prev_y + 1 != y
+                            && (!is_under_repeated_header
+                                || self
+                                    .grid
+                                    .header
+                                    .as_ref()
+                                    .and_then(Repeatable::as_repeated)
+                                    .is_some_and(|header| prev_y + 1 != header.end))
+                    })
                     .map(|prev_y| get_hlines_at(prev_y + 1))
                     .unwrap_or(&[]);
 
@@ -1782,8 +1794,7 @@ impl<'a> GridLayouter<'a> {
                 let header_hlines = if let Some((Repeatable::Repeated(header), prev_y)) =
                     self.grid.header.as_ref().zip(prev_y)
                 {
-                    if prev_y + 1 != y
-                        && is_under_repeated_header
+                    if is_under_repeated_header
                         && (!self.grid.has_gutter
                             || matches!(
                                 self.grid.rows[prev_y],
