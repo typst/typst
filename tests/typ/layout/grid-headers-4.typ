@@ -58,7 +58,7 @@
 )
 
 ---
-// Test header stroke priority edge case
+// Test header stroke priority edge case (last header row removed)
 #set page(height: 8em)
 #table(
   columns: 2,
@@ -68,4 +68,32 @@
     [c], [d],
   ),
   ..(table.cell(stroke: aqua)[d],) * 8,
+)
+
+---
+// Yellow line should be kept here
+#set text(6pt)
+#table(
+  column-gutter: 3pt,
+  inset: 1pt,
+  table.header(
+    [a],
+    table.hline(stroke: yellow),
+  ),
+  table.cell(rowspan: 2)[b]
+)
+
+---
+// Red line should be kept here
+#set page(height: 6em)
+#set text(6pt)
+#table(
+  column-gutter: 3pt,
+  inset: 1pt,
+  table.header(
+    table.hline(stroke: red, position: bottom),
+    [a],
+  ),
+  [a],
+  table.cell(stroke: aqua)[b]
 )
