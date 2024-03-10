@@ -1788,9 +1788,7 @@ impl<'a> GridLayouter<'a> {
                     &[]
                 };
 
-                // The header lines, if any, will correspond to the lines under
-                // the previous row, so they function similarly to 'prev_lines'.
-                let expected_header_line_position = expected_prev_line_position;
+                let mut expected_header_line_position = LinePosition::Before;
                 let header_hlines = if let Some((Repeatable::Repeated(header), prev_y)) =
                     self.grid.header.as_ref().zip(prev_y)
                 {
@@ -1817,6 +1815,10 @@ impl<'a> GridLayouter<'a> {
                         // header has a size of zero, which happens when only
                         // column-gutter is specified, for example. In that
                         // case, we still repeat the line under the gutter.
+                        expected_header_line_position = expected_line_position(
+                            header.end,
+                            header.end == self.grid.rows.len(),
+                        );
                         get_hlines_at(header.end)
                     } else {
                         &[]
