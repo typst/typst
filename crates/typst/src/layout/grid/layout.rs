@@ -646,6 +646,8 @@ impl CellGrid {
                     ResolvableGridItem::Cell(cell) => cell,
                 };
                 let cell_span = cell.span();
+                let colspan = cell.colspan(styles).get();
+                let rowspan = cell.rowspan(styles).get();
                 // Let's calculate the cell's final position based on its
                 // requested position.
                 let resolved_index = {
@@ -654,6 +656,8 @@ impl CellGrid {
                     resolve_cell_position(
                         cell_x,
                         cell_y,
+                        colspan,
+                        rowspan,
                         &resolved_cells,
                         &mut auto_index,
                         min_auto_index,
@@ -663,8 +667,6 @@ impl CellGrid {
                 };
                 let x = resolved_index % c;
                 let y = resolved_index / c;
-                let colspan = cell.colspan(styles).get();
-                let rowspan = cell.rowspan(styles).get();
 
                 if colspan > c - x {
                     bail!(
@@ -1284,9 +1286,12 @@ impl CellGrid {
 /// positioning. Useful with headers: if a cell in a header has automatic
 /// positioning, it should start at the header's first row, and not at the end
 /// of the previous row.
+#[allow(clippy::too_many_arguments)]
 fn resolve_cell_position(
     cell_x: Smart<usize>,
     cell_y: Smart<usize>,
+    colspan: usize,
+    rowspan: usize,
     resolved_cells: &[Option<Entry>],
     auto_index: &mut usize,
     min_auto_index: usize,
@@ -1316,7 +1321,18 @@ fn resolve_cell_position(
 
             // Ensure the next cell with automatic position will be
             // placed after this one (maybe not immediately after).
-            *auto_index = resolved_index + 1;
+            //
+            // The calculation below also affects the position of the upcoming
+            // automatically-positioned lines.
+            *auto_index = if colspan == columns {
+                // The cell occupies all columns, so no cells can be placed
+                // after it until all of its rows have been spanned.
+                resolved_index + colspan * rowspan
+            } else {
+                // The next cell will have to be placed at least after its
+                // spanned columns.
+                resolved_index + colspan
+            };
 
             Ok(resolved_index)
         }
