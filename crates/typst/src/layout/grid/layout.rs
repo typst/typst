@@ -1731,6 +1731,25 @@ impl<'a> GridLayouter<'a> {
                     })
                     .unwrap_or(LinePosition::Before);
 
+                // FIXME: In the future, directly specify in 'self.rrows' when
+                // we place a repeated header rather than its original rows.
+                // That would let us remove most of those verbose checks, both
+                // in 'lines.rs' and here. Those checks also aren't fully
+                // accurate either, since they will also trigger when some rows
+                // have been removed between the header and what's below it.
+                let is_under_repeated_header = self
+                    .grid
+                    .header
+                    .as_ref()
+                    .and_then(Repeatable::as_repeated)
+                    .zip(prev_y)
+                    .is_some_and(|(header, prev_y)| {
+                        // Note: 'y == header.end' would mean we're right below
+                        // the NON-REPEATED header, so that case should return
+                        // false.
+                        prev_y < header.end && y > header.end
+                    });
+
                 // If some grid rows were omitted between the previous resolved
                 // row and the current one, we ensure lines below the previous
                 // row don't "disappear" and are considered, albeit with less
@@ -1738,15 +1757,7 @@ impl<'a> GridLayouter<'a> {
                 // as it must have more priority instead of less, so it is
                 // chained later instead of before.
                 let prev_lines = prev_y
-                    .filter(|prev_y| {
-                        prev_y + 1 != y
-                            && !self
-                                .grid
-                                .header
-                                .as_ref()
-                                .and_then(Repeatable::as_repeated)
-                                .is_some_and(|header| prev_y + 1 == header.end)
-                    })
+                    .filter(|prev_y| prev_y + 1 != y && !is_under_repeated_header)
                     .map(|prev_y| get_hlines_at(prev_y + 1))
                     .unwrap_or(&[]);
 
@@ -1772,8 +1783,12 @@ impl<'a> GridLayouter<'a> {
                     self.grid.header.as_ref().zip(prev_y)
                 {
                     if prev_y + 1 != y
-                        && prev_y + 1 == header.end
-                        && !self.grid.has_gutter
+                        && is_under_repeated_header
+                        && (!self.grid.has_gutter
+                            || matches!(
+                                self.grid.rows[prev_y],
+                                Sizing::Rel(length) if length.is_zero()
+                            ))
                     {
                         // For lines below a header, give priority to the
                         // lines originally below the header rather than
@@ -1783,10 +1798,14 @@ impl<'a> GridLayouter<'a> {
                         // lines being normally laid out then will be
                         // precisely the lines below the header.
                         //
-                        // Additionally, we don't append header lines when
-                        // gutter is enabled, since, in that case, there will
-                        // be a gutter row between header and content, so no
-                        // lines should overlap.
+                        // Additionally, we don't repeat lines above the row
+                        // below the header when gutter is enabled, since, in
+                        // that case, there will be a gutter row between header
+                        // and content, so no lines should overlap. The
+                        // exception is when the gutter at the end of the
+                        // header has a size of zero, which happens when only
+                        // column-gutter is specified, for example. In that
+                        // case, we still repeat the line under the gutter.
                         get_hlines_at(header.end)
                     } else {
                         &[]
