@@ -350,14 +350,16 @@ impl Packed<RawElem> {
                 LinkedNode::new(&root),
                 synt::Highlighter::new(theme),
                 &mut |i, _, range, style| {
-                    // Find start of line.
+                    // Find span and start of line.
                     // Note: Dedent is already applied to the text
+                    let span = lines.get(i).map_or_else(Span::detached, |l| l.1);
                     let span_offset = text[..range.start]
                         .rfind('\n')
                         .map_or(0, |i| range.start - (i + 1));
-                    styled(&text[range], foreground, style, lines[i].1, span_offset)
+                    styled(&text[range], foreground, style, span, span_offset)
                 },
                 &mut |i, range, line| {
+                    let span = lines.get(i).map_or_else(Span::detached, |l| l.1);
                     seq.push(
                         Packed::new(RawLine::new(
                             (i + 1) as i64,
@@ -365,7 +367,7 @@ impl Packed<RawElem> {
                             EcoString::from(&text[range]),
                             Content::sequence(line.drain(..)),
                         ))
-                        .spanned(lines[i].1),
+                        .spanned(span),
                     );
                 },
             )
