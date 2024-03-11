@@ -547,7 +547,7 @@ pub(super) fn hline_stroke_at_column(
             // Ensure the row above us is a repeated header.
             // FIXME: Make this check more robust when headers at arbitrary
             // positions are added.
-            local_top_y + 1 == header.end && y != header.end
+            local_top_y < header.end && y > header.end
         });
 
     // Prioritize the footer's top stroke as well where applicable.
@@ -559,7 +559,7 @@ pub(super) fn hline_stroke_at_column(
             // Ensure the row below us is a repeated footer.
             // FIXME: Make this check more robust when footers at arbitrary
             // positions are added.
-            local_top_y.unwrap_or(0) + 1 != footer.start && y == footer.start
+            local_top_y.unwrap_or(0) + 1 < footer.start && y >= footer.start
         });
 
     let (prioritized_cell_stroke, deprioritized_cell_stroke) =
