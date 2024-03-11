@@ -164,7 +164,7 @@ pub struct GridElem {
     #[borrowed]
     pub rows: TrackSizings,
 
-    /// The gaps between rows & columns.
+    /// The gaps between rows and columns.
     ///
     /// If there are more gutters than defined sizes, the last gutter is repeated.
     #[external]
@@ -185,9 +185,9 @@ pub struct GridElem {
 
     /// How to fill the cells.
     ///
-    /// This can be a color or a function that returns a color. The function is
-    /// passed the cells' column and row indices, starting at zero. This can be
-    /// used to implement striped grids.
+    /// This can be a color or a function that returns a color. The function
+    /// receives the cells' column and row indices, starting from zero. This can
+    /// be used to implement striped grids.
     ///
     /// ```example
     /// #grid(
@@ -210,7 +210,7 @@ pub struct GridElem {
     ///
     /// This can either be a single alignment, an array of alignments
     /// (corresponding to each column) or a function that returns an alignment.
-    /// The function is passed the cells' column and row indices, starting at
+    /// The function receives the cells' column and row indices, starting from
     /// zero. If set to `{auto}`, the outer alignment is used.
     ///
     /// You can find an example for this argument at the
