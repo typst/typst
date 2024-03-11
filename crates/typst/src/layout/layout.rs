@@ -11,7 +11,7 @@ use crate::syntax::Span;
 /// (width and height).
 ///
 /// The given function must accept a single parameter, `size`, which is a
-/// dictionary with keys `width` and `height`, both of type [`length`.
+/// dictionary with keys `width` and `height`, both of type [`length`].
 ///
 /// ```example
 /// #let text = lorem(30)

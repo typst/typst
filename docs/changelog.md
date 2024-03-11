@@ -114,7 +114,7 @@ description: |
   - Fixed width adjustment of JIS-style Japanse punctuation
   - Fixed Finnish translation of "Listing"
   - Fixed Z-ordering of multiple text decorations (underlines, etc.)
-  - Fixed a bug due to with text [features]($text.features) could not be
+  - Fixed a bug due to which text [features]($text.features) could not be
     overridden in consecutive set rules
 
 - Model
