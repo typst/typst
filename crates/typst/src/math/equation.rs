@@ -80,7 +80,7 @@ pub struct EquationElem {
 
     /// The alignment of the equation numbering.
     ///
-    /// By default, the alignment is `{end} + {horizon}`. For the horizontal
+    /// By default, the alignment is `{end + horizon}`. For the horizontal
     /// component, you can use `{right}`, `{left}`, or `{start}` and `{end}`
     /// of the text direction; for the vertical component, you can use
     /// `{top}`, `{horizon}`, or `{bottom}`.

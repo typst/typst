@@ -53,7 +53,7 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// - `{auto}`: The track will be sized to fit its contents. It will be at most
 ///   as large as the remaining space. If there is more than one `{auto}` track
-///   which, and together they claim more than the available space, the `{auto}`
+///   width, and together they claim more than the available space, the `{auto}`
 ///   tracks will fairly distribute the available space among themselves.
 ///
 /// - A fixed or relative length (e.g. `{10pt}` or `{20% - 1cm}`): The track
@@ -72,8 +72,8 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// # Examples
 /// The example below demonstrates the different track sizing options. It also
-/// shows how you can use [`grid.cell`]($grid.cell) in to make an individual
-/// cell span two grid tracks.
+/// shows how you can use [`grid.cell`]($grid.cell) to make an individual cell
+/// span two grid tracks.
 ///
 /// ```example
 /// // We use `rect` to emphasize the
@@ -164,7 +164,7 @@ pub struct GridElem {
     #[borrowed]
     pub rows: TrackSizings,
 
-    /// The gaps between rows & columns.
+    /// The gaps between rows and columns.
     ///
     /// If there are more gutters than defined sizes, the last gutter is repeated.
     #[external]
@@ -185,9 +185,9 @@ pub struct GridElem {
 
     /// How to fill the cells.
     ///
-    /// This can be a color or a function that returns a color. The function is
-    /// passed the cells' column and row index, starting at zero. This can be
-    /// used to implement striped grids.
+    /// This can be a color or a function that returns a color. The function
+    /// receives the cells' column and row indices, starting from zero. This can
+    /// be used to implement striped grids.
     ///
     /// ```example
     /// #grid(
@@ -210,7 +210,7 @@ pub struct GridElem {
     ///
     /// This can either be a single alignment, an array of alignments
     /// (corresponding to each column) or a function that returns an alignment.
-    /// The function is passed the cells' column and row index, starting at
+    /// The function receives the cells' column and row indices, starting from
     /// zero. If set to `{auto}`, the outer alignment is used.
     ///
     /// You can find an example for this argument at the
@@ -607,8 +607,8 @@ pub struct GridHLine {
 
     /// The line's stroke.
     ///
-    /// Specifying `{none}` interrupts previous hlines placed across this
-    /// line's range, but does not affect per-cell stroke or vlines.
+    /// Specifying `{none}` removes any lines previously placed across this
+    /// line's range, including hlines or per-cell stroke below it.
     #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
@@ -662,8 +662,8 @@ pub struct GridVLine {
 
     /// The line's stroke.
     ///
-    /// Specifying `{none}` interrupts previous vlines placed across this
-    /// line's range, but does not affect per-cell stroke or hlines.
+    /// Specifying `{none}` removes any lines previously placed across this
+    /// line's range, including vlines or per-cell stroke below it.
     #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]

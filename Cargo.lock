@@ -2626,7 +2626,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml 0.9.32",
- "siphasher 1.0.0",
  "tar",
  "tempfile",
  "toml",

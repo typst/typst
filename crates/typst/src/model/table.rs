@@ -129,8 +129,8 @@ pub struct TableElem {
     #[borrowed]
     pub rows: TrackSizings,
 
-    /// The gaps between rows & columns. See the [grid documentation]($grid) for
-    /// more information on gutters.
+    /// The gaps between rows and columns. See the [grid documentation]($grid)
+    /// for more information on gutters.
     #[external]
     pub gutter: TrackSizings,
 
@@ -151,13 +151,15 @@ pub struct TableElem {
 
     /// How to fill the cells.
     ///
-    /// This can be a color or a function that returns a color. The function is
-    /// passed the cells' column and row index, starting at zero. This can be
-    /// used to implement striped tables.
+    /// This can be a color or a function that returns a color. The function
+    /// receives the cells' column and row indices, starting from zero. This can
+    /// be used to implement striped tables.
     ///
     /// ```example
     /// #table(
-    ///   fill: (col, _) => if calc.odd(col) { luma(240) } else { white },
+    ///   fill: (col, _) =>
+    ///     if calc.odd(col) { luma(240) }
+    ///     else { white },
     ///   align: (col, row) =>
     ///     if row == 0 { center }
     ///     else if col == 0 { left }
@@ -176,8 +178,8 @@ pub struct TableElem {
     ///
     /// This can either be a single alignment, an array of alignments
     /// (corresponding to each column) or a function that returns an alignment.
-    /// The function is passed the cells' column and row index, starting at zero.
-    /// If set to `{auto}`, the outer alignment is used.
+    /// The function receives the cells' column and row indices, starting from
+    /// zero. If set to `{auto}`, the outer alignment is used.
     ///
     /// ```example
     /// #table(
@@ -610,8 +612,8 @@ pub struct TableHLine {
 
     /// The line's stroke.
     ///
-    /// Specifying `{none}` interrupts previous hlines placed across this
-    /// line's range, but does not affect per-cell stroke or vlines.
+    /// Specifying `{none}` removes any lines previously placed across this
+    /// line's range, including hlines or per-cell stroke below it.
     #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
@@ -655,8 +657,8 @@ pub struct TableVLine {
 
     /// The line's stroke.
     ///
-    /// Specifying `{none}` interrupts previous vlines placed across this
-    /// line's range, but does not affect per-cell stroke or hlines.
+    /// Specifying `{none}` removes any lines previously placed across this
+    /// line's range, including vlines or per-cell stroke below it.
     #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
@@ -683,8 +685,8 @@ pub struct TableVLine {
 /// properties for a particular cell, or use it in show rules to apply certain
 /// styles to multiple cells at once.
 ///
-/// Perhaps the most important use-case of `{table.cell}` is to make a cell span
-/// multiple columns or rows with the `colspan` and `rowspan` fields.
+/// Perhaps the most important use case of `{table.cell}` is to make a cell span
+/// multiple columns and/or rows with the `colspan` and `rowspan` fields.
 ///
 /// ```example
 /// >>> #set page(width: auto)
