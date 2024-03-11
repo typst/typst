@@ -607,8 +607,8 @@ pub struct GridHLine {
 
     /// The line's stroke.
     ///
-    /// Specifying `{none}` interrupts previous hlines placed across this
-    /// line's range, but does not affect per-cell stroke or vlines.
+    /// Specifying `{none}` removes any lines previously placed across this
+    /// line's range, including hlines or per-cell stroke below it.
     #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
@@ -662,8 +662,8 @@ pub struct GridVLine {
 
     /// The line's stroke.
     ///
-    /// Specifying `{none}` interrupts previous vlines placed across this
-    /// line's range, but does not affect per-cell stroke or hlines.
+    /// Specifying `{none}` removes any lines previously placed across this
+    /// line's range, including vlines or per-cell stroke below it.
     #[resolve]
     #[fold]
     #[default(Some(Arc::new(Stroke::default())))]
