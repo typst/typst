@@ -1,6 +1,8 @@
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
+use comemo::Track;
+
 use crate::diag::{bail, At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -381,7 +383,7 @@ impl OutlineIndent {
             Some(Smart::Custom(OutlineIndent::Func(func))) => {
                 let depth = ancestors.len();
                 let LengthOrContent(content) = func
-                    .call(engine, &Context::new(None, Some(styles)), [depth])?
+                    .call(engine, Context::new(None, Some(styles)).track(), [depth])?
                     .cast()
                     .at(span)?;
                 if !content.is_empty() {

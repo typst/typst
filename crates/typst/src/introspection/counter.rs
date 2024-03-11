@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
-use comemo::{Tracked, TrackedMut};
+use comemo::{Track, Tracked, TrackedMut};
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use smallvec::{smallvec, SmallVec};
 
@@ -271,7 +271,7 @@ impl Counter {
         let context = Context::new(Some(loc), Some(styles));
         Ok(self
             .at_loc(engine, loc)?
-            .display(engine, &context, numbering)?
+            .display(engine, context.track(), numbering)?
             .display())
     }
 
@@ -392,7 +392,7 @@ impl Counter {
         };
 
         let context = Context::new(Some(location), styles);
-        state.display(engine, &context, &numbering)
+        state.display(engine, context.track(), &numbering)
     }
 }
 
@@ -425,7 +425,7 @@ impl Counter {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The callsite span.
         span: Span,
     ) -> SourceResult<CounterState> {
@@ -446,7 +446,7 @@ impl Counter {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The call span of the display.
         span: Span,
         /// A [numbering pattern or a function]($numbering), which specifies how
@@ -468,8 +468,8 @@ impl Counter {
         #[default(false)]
         both: bool,
     ) -> SourceResult<Value> {
-        if let Some(loc) = context.location {
-            self.display_impl(engine, loc, numbering, both, context.styles)
+        if let Ok(loc) = context.location() {
+            self.display_impl(engine, loc, numbering, both, context.styles().ok())
         } else {
             Ok(CounterDisplayElem::new(self, numbering, both)
                 .pack()
@@ -494,7 +494,7 @@ impl Counter {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The callsite span.
         span: Span,
         /// The place at which the counter's value should be retrieved.
@@ -512,7 +512,7 @@ impl Counter {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The callsite span.
         span: Span,
         /// _Compatibility:_ This argument only exists for compatibility with
@@ -669,7 +669,7 @@ impl CounterState {
             CounterUpdate::Step(level) => self.step(level, 1),
             CounterUpdate::Func(func) => {
                 *self = func
-                    .call(engine, &Context::none(), self.0.iter().copied())?
+                    .call(engine, Context::none().track(), self.0.iter().copied())?
                     .cast()
                     .at(func.span())?
             }
@@ -700,7 +700,7 @@ impl CounterState {
     pub fn display(
         &self,
         engine: &mut Engine,
-        context: &Context,
+        context: Tracked<Context>,
         numbering: &Numbering,
     ) -> SourceResult<Value> {
         numbering.apply(engine, context, &self.0)

@@ -21,14 +21,14 @@ pub struct Vm<'a> {
     /// A span that is currently under inspection.
     pub(crate) inspected: Option<Span>,
     /// Data that is contextually made accessible to code behind the scenes.
-    pub(crate) context: &'a Context<'a>,
+    pub(crate) context: Tracked<'a, Context<'a>>,
 }
 
 impl<'a> Vm<'a> {
     /// Create a new virtual machine.
     pub fn new(
         engine: Engine<'a>,
-        context: &'a Context<'a>,
+        context: Tracked<'a, Context<'a>>,
         scopes: Scopes<'a>,
         target: Span,
     ) -> Self {
@@ -55,6 +55,6 @@ impl<'a> Vm<'a> {
     pub fn trace(&mut self, value: Value) {
         self.engine
             .tracer
-            .value(value.clone(), self.context.styles.map(|s| s.to_map()));
+            .value(value.clone(), self.context.styles().ok().map(|s| s.to_map()));
     }
 }

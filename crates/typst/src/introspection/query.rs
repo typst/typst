@@ -1,3 +1,5 @@
+use comemo::Tracked;
+
 use crate::diag::HintedStrResult;
 use crate::engine::Engine;
 use crate::foundations::{func, Array, Context, LocatableSelector, Value};
@@ -135,7 +137,7 @@ pub fn query(
     /// The engine.
     engine: &mut Engine,
     /// The callsite context.
-    context: &Context,
+    context: Tracked<Context>,
     /// Can be
     /// - an element function like a `heading` or `figure`,
     /// - a `{<label>}`,

@@ -1,3 +1,5 @@
+use comemo::Track;
+
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
@@ -84,7 +86,7 @@ impl LayoutMultiple for Packed<LayoutElem> {
         let context = Context::new(Some(loc), Some(styles));
         let result = self
             .func()
-            .call(engine, &context, [dict! { "width" => x, "height" => y }])?
+            .call(engine, context.track(), [dict! { "width" => x, "height" => y }])?
             .display();
         result.layout(engine, styles, regions)
     }

@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use comemo::Track;
 use smallvec::{smallvec, SmallVec};
 
 use crate::diag::{bail, SourceResult};
@@ -247,7 +248,8 @@ impl LayoutMultiple for Packed<EnumElem> {
             let context = Context::new(None, Some(styles));
             let resolved = if full {
                 parents.push(number);
-                let content = numbering.apply(engine, &context, &parents)?.display();
+                let content =
+                    numbering.apply(engine, context.track(), &parents)?.display();
                 parents.pop();
                 content
             } else {
@@ -255,7 +257,7 @@ impl LayoutMultiple for Packed<EnumElem> {
                     Numbering::Pattern(pattern) => {
                         TextElem::packed(pattern.apply_kth(parents.len(), number))
                     }
-                    other => other.apply(engine, &context, &[number])?.display(),
+                    other => other.apply(engine, context.track(), &[number])?.display(),
                 }
             };
 

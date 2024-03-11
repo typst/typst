@@ -1,3 +1,4 @@
+use comemo::Track;
 use ecow::eco_format;
 
 use crate::diag::{bail, At, Hint, SourceResult};
@@ -275,9 +276,9 @@ impl Supplement {
     ) -> SourceResult<Content> {
         Ok(match self {
             Supplement::Content(content) => content.clone(),
-            Supplement::Func(func) => {
-                func.call(engine, &Context::new(None, Some(styles)), args)?.display()
-            }
+            Supplement::Func(func) => func
+                .call(engine, Context::new(None, Some(styles)).track(), args)?
+                .display(),
         })
     }
 }

@@ -3,6 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::{mem, ptr};
 
+use comemo::{Track, Tracked};
 use ecow::{eco_vec, EcoString, EcoVec};
 use smallvec::SmallVec;
 
@@ -57,7 +58,10 @@ impl Show for Packed<StyleElem> {
     #[typst_macros::time(name = "style", span = self.span())]
     fn show(&self, engine: &mut Engine, styles: StyleChain) -> SourceResult<Content> {
         let context = Context::new(self.location(), Some(styles));
-        Ok(self.func().call(engine, &context, [styles.to_map()])?.display())
+        Ok(self
+            .func()
+            .call(engine, context.track(), [styles.to_map()])?
+            .display())
     }
 }
 
@@ -385,7 +389,7 @@ impl Recipe {
     pub fn apply(
         &self,
         engine: &mut Engine,
-        context: &Context,
+        context: Tracked<Context>,
         content: Content,
     ) -> SourceResult<Content> {
         let mut content = match &self.transform {

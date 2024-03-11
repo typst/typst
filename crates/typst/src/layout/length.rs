@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg};
 
+use comemo::Tracked;
 use ecow::{eco_format, EcoString};
 
 use crate::diag::{At, Hint, HintedStrResult, SourceResult};
@@ -151,7 +152,7 @@ impl Length {
     /// ]
     /// ```
     #[func]
-    pub fn to_absolute(&self, context: &Context) -> HintedStrResult<Length> {
+    pub fn to_absolute(&self, context: Tracked<Context>) -> HintedStrResult<Length> {
         Ok(self.resolve(context.styles()?).into())
     }
 }
