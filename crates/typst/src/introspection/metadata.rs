@@ -37,6 +37,8 @@ impl Show for Packed<MetadataElem> {
     }
 }
 
+// TODO: Metadata shows as empty content, so this behaviour is unnecessary. It
+// can be removed once 0.11 has landed.
 impl Behave for Packed<MetadataElem> {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Invisible

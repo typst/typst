@@ -68,7 +68,7 @@ impl Behave for Packed<HElem> {
         } else if self.weak(StyleChain::default()) {
             Behaviour::Weak(1)
         } else {
-            Behaviour::Invisible
+            Behaviour::Ignorant
         }
     }
 
@@ -166,7 +166,7 @@ impl Behave for Packed<VElem> {
         } else if self.weakness(StyleChain::default()) > 0 {
             Behaviour::Weak(self.weakness(StyleChain::default()))
         } else {
-            Behaviour::Invisible
+            Behaviour::Ignorant
         }
     }
 
