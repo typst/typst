@@ -67,7 +67,7 @@ pub struct CompileCommand {
     #[clap(flatten)]
     pub common: SharedArgs,
 
-    /// Path to output file (PDF, PNG, or SVG)
+    /// Path to output file (PDF, PNG, or SVG), use `-` to write output to stdout
     #[clap(required_if_eq("input", "-"), value_parser = ValueParser::new(output_value_parser))]
     pub output: Option<Output>,
 
