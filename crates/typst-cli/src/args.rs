@@ -17,8 +17,7 @@ pub struct CliArguments {
     #[command(subcommand)]
     pub command: Command,
 
-    /// Set when to use color.
-    /// auto = use color if a capable terminal is detected
+    /// Decide when to use color.
     #[clap(
         long,
         value_name = "WHEN",
