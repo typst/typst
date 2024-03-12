@@ -10,9 +10,9 @@ use codespan_reporting::term::{self, termcolor};
 use ecow::eco_format;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as _};
 use same_file::is_same_file;
-use typst::diag::StrResult;
+use typst::diag::{bail, StrResult};
 
-use crate::args::{CompileCommand, Input};
+use crate::args::{CompileCommand, Input, Output};
 use crate::compile::compile_once;
 use crate::timings::Timer;
 use crate::world::{SystemWorld, WorldCreationError};
@@ -26,8 +26,12 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
         .enter_alternate_screen()
         .map_err(|err| eco_format!("failed to enter alternate screen ({err})"))?;
 
+    let Output::Path(output) = command.output() else {
+        bail!("cannot write to output in watch mode");
+    };
+
     // Create a file system watcher.
-    let mut watcher = Watcher::new(command.output())?;
+    let mut watcher = Watcher::new(output)?;
 
     // Create the world that serves sources, files, and fonts.
     // Additionally, if any files do not exist, wait until they do.

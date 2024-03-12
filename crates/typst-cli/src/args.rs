@@ -68,8 +68,8 @@ pub struct CompileCommand {
     pub common: SharedArgs,
 
     /// Path to output file (PDF, PNG, or SVG)
-    #[clap(required_if_eq("input", "-"))]
-    pub output: Option<PathBuf>,
+    #[clap(required_if_eq("input", "-"), value_parser = ValueParser::new(output_value_parser))]
+    pub output: Option<Output>,
 
     /// The format of the output file, inferred from the extension by default
     #[arg(long = "format", short = 'f')]
@@ -184,6 +184,24 @@ pub enum Input {
     Path(PathBuf),
 }
 
+/// An input that is either stdin or a real path.
+#[derive(Debug, Clone)]
+pub enum Output {
+    /// Stdout, represented by `-`.
+    Stdout,
+    /// A non-empty path.
+    Path(PathBuf),
+}
+
+impl Output {
+    pub fn display(&self) -> String {
+        match self {
+            Output::Stdout => "stdout".to_string(),
+            Output::Path(path) => path.display().to_string(),
+        }
+    }
+}
+
 /// The clap value parser used by `SharedArgs.input`
 fn input_value_parser(value: &str) -> Result<Input, clap::error::Error> {
     if value.is_empty() {
@@ -192,6 +210,15 @@ fn input_value_parser(value: &str) -> Result<Input, clap::error::Error> {
         Ok(Input::Stdin)
     } else {
         Ok(Input::Path(value.into()))
+    }
+}
+
+/// The clap value parser used by `SharedArgs.input`
+fn output_value_parser(value: &str) -> Result<Output, clap::error::Error> {
+    if value == "-" {
+        Ok(Output::Stdout)
+    } else {
+        Ok(Output::Path(value.into()))
     }
 }
 
