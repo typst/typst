@@ -128,7 +128,16 @@ impl<'a> GridLayouter<'a> {
             // page height, at least at its first region. This is consistent
             // with how it is measured, and with how non-rowspan cells behave
             // in auto rows.
-            pod.full = region_full;
+            //
+            // The exception is when the cell is unbreakable, in which case it
+            // is always measured with infinite height.
+            pod.full = if cell.breakable {
+                region_full
+            } else {
+                // FIXME: Also use inf() if the last spanned auto row is
+                // unbreakable and within the first region.
+                Abs::inf()
+            };
         }
 
         // Push the layouted frames directly into the finished frames.
