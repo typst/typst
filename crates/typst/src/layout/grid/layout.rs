@@ -2588,14 +2588,13 @@ impl<'a> GridLayouter<'a> {
                     let width = self.cell_spanned_width(cell, x);
                     let size = Size::new(width, height);
                     let mut pod = Regions::one(size, Axes::splat(true));
-                    if self.grid.rows[y] == Sizing::Auto {
-                        pod.full = if self.unbreakable_rows_left == 0 {
-                            self.regions.full
-                        } else {
-                            // Cells at unbreakable auto rows are measured with
-                            // infinite height.
-                            Abs::inf()
-                        };
+                    if self.grid.rows[y] == Sizing::Auto
+                        && self.unbreakable_rows_left == 0
+                    {
+                        // Cells at unbreakable auto rows are measured with
+                        // infinite height, so we keep their full heights
+                        // restricted to the row's height.
+                        pod.full = self.regions.full;
                     }
                     let frame = cell.layout(engine, self.styles, pod)?.into_frame();
                     let mut pos = pos;
