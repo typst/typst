@@ -293,7 +293,7 @@ fn export_image_page(
 impl Output {
     fn write(&self, buffer: &[u8]) -> StrResult<()> {
         match self {
-            Output::Stdout => std::io::stdout().write_all(&buffer),
+            Output::Stdout => std::io::stdout().write_all(buffer),
             Output::Path(path) => fs::write(path, buffer),
         }
         .map_err(|err| eco_format!("{err}"))?;
