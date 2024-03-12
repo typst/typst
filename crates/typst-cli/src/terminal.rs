@@ -1,4 +1,5 @@
 use std::io::{self, IsTerminal, Write};
+use std::path::Path;
 use std::sync::OnceLock;
 
 use codespan_reporting::term::termcolor;
@@ -31,6 +32,7 @@ pub fn init() {
 
     let output = if use_pager {
         let pager = Pager::new();
+        pager.set_prompt(args_to_string()).expect("failed to set prompt");
         std::thread::spawn({
             let pager = pager.clone();
             move || minus::dynamic_paging(pager).expect("tried to initialize pager")
@@ -162,4 +164,22 @@ impl WriteColor for TermOut {
         }
         Ok(())
     }
+}
+
+/// Converts the command line arguments to a human-readable string.
+///
+/// - Only uses the file name (`/bin/typst` becomes `typst`).
+/// - Non-unicode characters are replaced by [`std::char::REPLACEMENT_CHARACTER`].
+/// - File names are escaped (that sadly includes backslashes, which is suboptimal).
+fn args_to_string() -> String {
+    let mut args = std::env::args_os();
+    let cmd = args
+        .next()
+        .map(|cmd| Path::new(&cmd).file_name().unwrap_or(&cmd).to_os_string());
+    cmd.into_iter()
+        .chain(args)
+        .map(|arg| arg.to_string_lossy().escape_default().to_string())
+        .map(|arg| if arg.contains(' ') { format!("'{arg}'") } else { arg })
+        .collect::<Vec<_>>()
+        .join(" ")
 }

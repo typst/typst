@@ -1395,7 +1395,6 @@ dependencies = [
  "crossterm",
  "once_cell",
  "parking_lot",
- "regex",
  "textwrap",
  "thiserror",
 ]
