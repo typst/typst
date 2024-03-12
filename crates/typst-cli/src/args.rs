@@ -193,12 +193,13 @@ pub enum Output {
     Path(PathBuf),
 }
 
-impl Output {
-    pub fn display(&self) -> String {
-        match self {
+impl Display for Output {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let s = match self {
             Output::Stdout => "stdout".to_string(),
             Output::Path(path) => path.display().to_string(),
-        }
+        };
+        write!(f, "{s}")
     }
 }
 

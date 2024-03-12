@@ -291,7 +291,7 @@ impl Status {
         out.set_color(&color)?;
         write!(out, "writing to")?;
         out.reset()?;
-        writeln!(out, " {}", output.display())?;
+        writeln!(out, " {output}")?;
 
         writeln!(out)?;
         writeln!(out, "[{timestamp}] {}", self.message())?;
