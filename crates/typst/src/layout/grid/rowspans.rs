@@ -96,7 +96,15 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
     ) -> SourceResult<()> {
         let Rowspan {
-            x, y, dx, dy, first_region, region_full, heights, ..
+            x,
+            y,
+            rowspan,
+            dx,
+            dy,
+            first_region,
+            region_full,
+            heights,
+            ..
         } = rowspan_data;
         let [first_height, backlog @ ..] = heights.as_slice() else {
             // Nothing to layout.
@@ -110,8 +118,18 @@ impl<'a> GridLayouter<'a> {
         // Prepare regions.
         let size = Size::new(width, *first_height);
         let mut pod = Regions::one(size, Axes::splat(true));
-        pod.full = region_full;
         pod.backlog = backlog;
+
+        if self.grid.rows[y..][..rowspan]
+            .iter()
+            .any(|spanned_row| spanned_row == &Sizing::Auto)
+        {
+            // If the rowspan spans an auto row, it will see '100%' as the full
+            // page height, at least at its first region. This is consistent
+            // with how it is measured, and with how non-rowspan cells behave
+            // in auto rows.
+            pod.full = region_full;
+        }
 
         // Push the layouted frames directly into the finished frames.
         let fragment = cell.layout(engine, self.styles, pod)?;
