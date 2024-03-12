@@ -184,7 +184,7 @@ pub enum Input {
     Path(PathBuf),
 }
 
-/// An input that is either stdin or a real path.
+/// An output that is either stdout or a real path.
 #[derive(Debug, Clone)]
 pub enum Output {
     /// Stdout, represented by `-`.
@@ -213,9 +213,12 @@ fn input_value_parser(value: &str) -> Result<Input, clap::error::Error> {
     }
 }
 
-/// The clap value parser used by `SharedArgs.input`
+/// The clap value parser used by `CompileCommand.output`
 fn output_value_parser(value: &str) -> Result<Output, clap::error::Error> {
-    if value == "-" {
+    // Empty value also handled by clap for `Option<Output>`
+    if value.is_empty() {
+        Err(clap::Error::new(clap::error::ErrorKind::InvalidValue))
+    } else if value == "-" {
         Ok(Output::Stdout)
     } else {
         Ok(Output::Path(value.into()))

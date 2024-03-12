@@ -167,14 +167,10 @@ fn export(
 /// Export to a PDF.
 fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let buffer = typst_pdf::pdf(document, Smart::Auto, now());
-    if let Output::Path(output) = command.output() {
-        fs::write(output, buffer)
-            .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;
-    } else {
-        std::io::stdout()
-            .write(&buffer)
-            .map_err(|err| eco_format!("failed to write PDF file to output ({err})"))?;
-    }
+    command
+        .output()
+        .write(&buffer)
+        .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;
     Ok(())
 }
 
@@ -198,7 +194,7 @@ enum ImageExportFormat {
     Svg,
 }
 
-/// Export to one or multiple PNGs.
+/// Export to one or multiple images.
 fn export_image(
     world: &mut SystemWorld,
     document: &Document,
@@ -267,6 +263,7 @@ fn export_image(
     Ok(())
 }
 
+/// Export single image.
 fn export_image_page(
     command: &CompileCommand,
     frame: &Frame,

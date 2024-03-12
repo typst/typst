@@ -27,7 +27,7 @@ pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
         .map_err(|err| eco_format!("failed to enter alternate screen ({err})"))?;
 
     let Output::Path(output) = command.output() else {
-        bail!("cannot write to output in watch mode");
+        bail!("cannot write document to output in watch mode");
     };
 
     // Create a file system watcher.
