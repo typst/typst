@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
-use comemo::TrackedMut;
+use comemo::{Tracked, TrackedMut};
 use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 
@@ -261,7 +261,7 @@ impl Func {
     pub fn call<A: IntoArgs>(
         &self,
         engine: &mut Engine,
-        context: &Context,
+        context: Tracked<Context>,
         args: A,
     ) -> SourceResult<Value> {
         self.call_impl(engine, context, args.into_args(self.span))
@@ -272,7 +272,7 @@ impl Func {
     fn call_impl(
         &self,
         engine: &mut Engine,
-        context: &Context,
+        context: Tracked<Context>,
         mut args: Args,
     ) -> SourceResult<Value> {
         match &self.repr {
@@ -440,7 +440,7 @@ pub trait NativeFunc {
 /// Defines a native function.
 #[derive(Debug)]
 pub struct NativeFuncData {
-    pub function: fn(&mut Engine, &Context, &mut Args) -> SourceResult<Value>,
+    pub function: fn(&mut Engine, Tracked<Context>, &mut Args) -> SourceResult<Value>,
     pub name: &'static str,
     pub title: &'static str,
     pub docs: &'static str,

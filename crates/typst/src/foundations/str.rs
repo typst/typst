@@ -3,6 +3,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref, Range};
 
+use comemo::Tracked;
 use ecow::EcoString;
 use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
@@ -425,7 +426,7 @@ impl Str {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The pattern to search for.
         pattern: StrPattern,
         /// The string to replace the matches with or a function that gets a

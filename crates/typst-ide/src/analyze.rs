@@ -67,8 +67,12 @@ pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
     };
 
     let context = Context::none();
-    let mut vm =
-        Vm::new(engine, &context, Scopes::new(Some(world.library())), Span::detached());
+    let mut vm = Vm::new(
+        engine,
+        context.track(),
+        Scopes::new(Some(world.library())),
+        Span::detached(),
+    );
     typst::eval::import(&mut vm, source, Span::detached(), true)
         .ok()
         .map(Value::Module)

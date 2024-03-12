@@ -1,5 +1,6 @@
 use std::cell::OnceCell;
 
+use comemo::{Track, Tracked};
 use smallvec::smallvec;
 
 use crate::diag::SourceResult;
@@ -255,11 +256,11 @@ fn show(
                 // text element. This invokes special regex handling.
                 Some(Selector::Regex(regex)) => {
                     let text = target.into_packed::<TextElem>().unwrap();
-                    show_regex(engine, &text, regex, recipe, guard, &context)
+                    show_regex(engine, &text, regex, recipe, guard, context.track())
                 }
 
                 // Just apply the recipe.
-                _ => recipe.apply(engine, &context, target.guarded(guard)),
+                _ => recipe.apply(engine, context.track(), target.guarded(guard)),
             }
         }
 
@@ -276,7 +277,7 @@ fn show_regex(
     regex: &Regex,
     recipe: &Recipe,
     index: RecipeIndex,
-    context: &Context,
+    context: Tracked<Context>,
 ) -> SourceResult<Content> {
     let make = |s: &str| {
         let mut fresh = target.clone();

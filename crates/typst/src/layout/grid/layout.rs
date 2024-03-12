@@ -3,6 +3,7 @@ use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
+use comemo::Track;
 use ecow::eco_format;
 
 use super::lines::{
@@ -50,7 +51,7 @@ impl<T: Default + Clone + FromValue> Celled<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
             Self::Func(func) => func
-                .call(engine, &Context::new(None, Some(styles)), [x, y])?
+                .call(engine, Context::new(None, Some(styles)).track(), [x, y])?
                 .cast()
                 .at(func.span())?,
             Self::Array(array) => x
@@ -151,7 +152,7 @@ where
         Ok(match &self.0 {
             Celled::Value(value) => value.clone(),
             Celled::Func(func) => func
-                .call(engine, &Context::new(None, Some(styles)), [x, y])?
+                .call(engine, Context::new(None, Some(styles)).track(), [x, y])?
                 .cast::<T>()
                 .at(func.span())?
                 .resolve(styles),
