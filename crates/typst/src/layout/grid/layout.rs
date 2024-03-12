@@ -848,10 +848,12 @@ impl CellGrid {
         }
 
         // If the user specified cells occupying less rows than the given rows,
-        // this will be the amount of missing rows until all given rows were
-        // created.
-        let missing_given_rows =
-            tracks.y.len().saturating_sub(resolved_cells.len().div_ceil(c));
+        // we shall expand the grid so that it has at least the given amount of
+        // rows.
+        let Some(expected_total_cells) = c.checked_mul(tracks.y.len()) else {
+            bail!(span, "too many rows were specified");
+        };
+        let missing_cells = expected_total_cells.saturating_sub(resolved_cells.len());
 
         // Fixup phase (final step in cell grid generation):
         // 1. Replace absent entries by resolved empty cells, and produce a
@@ -864,7 +866,7 @@ impl CellGrid {
         // 4. If any cells before the footer try to span it, error.
         let resolved_cells = resolved_cells
             .into_iter()
-            .chain(std::iter::repeat_with(|| None).take(c * missing_given_rows))
+            .chain(std::iter::repeat_with(|| None).take(missing_cells))
             .enumerate()
             .map(|(i, cell)| {
                 if let Some(cell) = cell {
