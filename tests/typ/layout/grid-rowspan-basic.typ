@@ -230,3 +230,13 @@
   [f],
   [g]
 )
+
+---
+// Block below shouldn't expand to the end of the page, but stay within its
+// rows' boundaries.
+#set page(height: 9em)
+#table(
+  rows: 1.5em,
+  table.cell(rowspan: 2, block(width: 2em, height: 100%, fill: red)),
+  [a]
+)
