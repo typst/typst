@@ -1281,7 +1281,7 @@ fn commit(
     }
 
     // Determine how much additional space is needed.
-    // The justicication_ratio is for the first step justification,
+    // The justification_ratio is for the first step justification,
     // extra_justification is for the last step.
     // For more info on multi-step justification, see Procedures for Inter-
     // Character Space Expansion in W3C document Chinese Layout Requirements.
