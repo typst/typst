@@ -427,7 +427,10 @@ impl CellGrid {
         // validity, since the amount of rows isn't known until all items were
         // analyzed in the for loop below.
         // We keep their spans so we can report errors later.
-        let mut pending_hlines: Vec<(Span, Line)> = vec![];
+        // The additional boolean indicates whether the hline had an automatic
+        // 'y' index, and is used to change the index of hlines at the top of a
+        // header or footer.
+        let mut pending_hlines: Vec<(Span, Line, bool)> = vec![];
 
         // For consistency, only push vertical lines later as well.
         let mut pending_vlines: Vec<(Span, Line)> = vec![];
@@ -495,6 +498,8 @@ impl CellGrid {
             let mut child_end = 0;
             let mut child_span = Span::detached();
             let mut start_new_row = false;
+            let mut first_index_of_top_hlines = usize::MAX;
+            let mut first_index_of_non_top_hlines = usize::MAX;
 
             let (header_footer_items, simple_item) = match child {
                 ResolvableGridChild::Header { repeat, span, items, .. } => {
@@ -514,6 +519,10 @@ impl CellGrid {
                     // arbitrary rows.
                     start_new_row = true;
 
+                    // Any hlines at the top of the header will start at this
+                    // index.
+                    first_index_of_top_hlines = pending_hlines.len();
+
                     (Some(items), None)
                 }
                 ResolvableGridChild::Footer { repeat, span, items, .. } => {
@@ -530,6 +539,10 @@ impl CellGrid {
                     // footer after a partially filled row just add cells to
                     // that row instead of starting a new one.
                     start_new_row = true;
+
+                    // Any hlines at the top of the footer will start at this
+                    // index.
+                    first_index_of_top_hlines = pending_hlines.len();
 
                     (Some(items), None)
                 }
@@ -550,13 +563,8 @@ impl CellGrid {
                         span,
                         position,
                     } => {
+                        let has_auto_y = y.is_auto();
                         let y = y.unwrap_or_else(|| {
-                            let auto_index = if start_new_row {
-                                find_next_empty_row(&resolved_cells, auto_index, c)
-                            } else {
-                                auto_index
-                            };
-
                             // When no 'y' is specified for the hline, we place
                             // it under the latest automatically positioned
                             // cell.
@@ -599,7 +607,7 @@ impl CellGrid {
                         // one "wins" in case of conflict. Pushing the current
                         // hline before we push pending hlines later would
                         // change their order!
-                        pending_hlines.push((span, line));
+                        pending_hlines.push((span, line, has_auto_y));
                         continue;
                     }
                     ResolvableGridItem::VLine {
@@ -788,6 +796,14 @@ impl CellGrid {
                         // the header or footer.
                         start_new_row = false;
                     }
+
+                    if !start_new_row {
+                        // From now on, upcoming hlines won't be at the top of
+                        // the child, as the first automatically positioned
+                        // cell was placed.
+                        first_index_of_non_top_hlines =
+                            first_index_of_non_top_hlines.min(pending_hlines.len());
+                    }
                 }
             }
 
@@ -841,6 +857,22 @@ impl CellGrid {
             }
 
             if is_header || is_footer {
+                let amount_hlines = pending_hlines.len();
+                for (_, top_hline, has_auto_y) in pending_hlines
+                    .get_mut(
+                        first_index_of_top_hlines
+                            ..first_index_of_non_top_hlines.min(amount_hlines),
+                    )
+                    .unwrap_or(&mut [])
+                {
+                    if *has_auto_y {
+                        // Move this hline to the top of the child, as it was
+                        // placed before the first automatically positioned cell
+                        // and had an automatic index.
+                        top_hline.index = child_start;
+                    }
+                }
+
                 // Next automatically positioned cell goes under this header.
                 // FIXME: Consider only doing this if the header has any fully
                 // automatically positioned cells. Otherwise,
@@ -955,7 +987,7 @@ impl CellGrid {
         let mut hlines: Vec<Vec<Line>> = vec![];
         let row_amount = resolved_cells.len().div_ceil(c);
 
-        for (line_span, line) in pending_hlines {
+        for (line_span, line, _) in pending_hlines {
             let y = line.index;
             if y > row_amount {
                 bail!(line_span, "cannot place horizontal line at invalid row {y}");
