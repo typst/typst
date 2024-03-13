@@ -19,7 +19,6 @@ use std::process::ExitCode;
 use clap::Parser;
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::WriteColor;
-use ecow::eco_format;
 use once_cell::sync::Lazy;
 
 use crate::args::{CliArguments, Command};
@@ -46,13 +45,7 @@ fn main() -> ExitCode {
         Command::Update(command) => crate::update::update(command),
     };
 
-    // Leave the alternate screen if it was opened. This operation is done here
-    // so that it is executed prior to printing the final error.
-    let res_leave = terminal::out()
-        .leave_alternate_screen()
-        .map_err(|err| eco_format!("failed to leave alternate screen ({err})"));
-
-    if let Some(msg) = res.err().or(res_leave.err()) {
+    if let Err(msg) = res {
         set_failed();
         print_error(&msg).expect("failed to print error");
     }
