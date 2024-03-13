@@ -120,24 +120,16 @@ impl<'a> GridLayouter<'a> {
         let mut pod = Regions::one(size, Axes::splat(true));
         pod.backlog = backlog;
 
-        if self.grid.rows[y..][..rowspan]
-            .iter()
-            .any(|spanned_row| spanned_row == &Sizing::Auto)
+        if cell.breakable
+            && self.grid.rows[y..][..rowspan]
+                .iter()
+                .any(|spanned_row| spanned_row == &Sizing::Auto)
         {
-            // If the rowspan spans an auto row, it will see '100%' as the full
-            // page height, at least at its first region. This is consistent
-            // with how it is measured, and with how non-rowspan cells behave
-            // in auto rows.
-            //
-            // The exception is when the cell is unbreakable, in which case it
-            // is always measured with infinite height.
-            pod.full = if cell.breakable {
-                region_full
-            } else {
-                // FIXME: Also use inf() if the last spanned auto row is
-                // unbreakable and within the first region.
-                Abs::inf()
-            };
+            // If the rowspan spans an auto row and is breakable, it will see
+            // '100%' as the full page height, at least at its first region.
+            // This is consistent with how it is measured, and with how
+            // non-rowspan cells behave in auto rows.
+            pod.full = region_full;
         }
 
         // Push the layouted frames directly into the finished frames.
