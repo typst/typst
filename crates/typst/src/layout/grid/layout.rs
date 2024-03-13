@@ -494,7 +494,7 @@ impl CellGrid {
             let mut child_start = usize::MAX;
             let mut child_end = 0;
             let mut child_span = Span::detached();
-            let mut min_auto_index = 0;
+            let mut start_new_row = false;
 
             let (header_footer_items, simple_item) = match child {
                 ResolvableGridChild::Header { repeat, span, items, .. } => {
@@ -512,7 +512,7 @@ impl CellGrid {
                     // that row instead of starting a new one.
                     // FIXME: Revise this approach when headers can start from
                     // arbitrary rows.
-                    min_auto_index = auto_index.next_multiple_of(c);
+                    start_new_row = true;
 
                     (Some(items), None)
                 }
@@ -529,7 +529,7 @@ impl CellGrid {
                     // have it skip to the next row. This is to avoid having a
                     // footer after a partially filled row just add cells to
                     // that row instead of starting a new one.
-                    min_auto_index = auto_index.next_multiple_of(c);
+                    start_new_row = true;
 
                     (Some(items), None)
                 }
@@ -551,6 +551,12 @@ impl CellGrid {
                         position,
                     } => {
                         let y = y.unwrap_or_else(|| {
+                            let auto_index = if start_new_row {
+                                find_next_empty_row(&resolved_cells, auto_index, c)
+                            } else {
+                                auto_index
+                            };
+
                             // When no 'y' is specified for the hline, we place
                             // it under the latest automatically positioned
                             // cell.
@@ -572,7 +578,6 @@ impl CellGrid {
                             // the start of a header will always appear above
                             // that header's first row. Similarly for footers.
                             auto_index
-                                .max(min_auto_index)
                                 .checked_sub(1)
                                 .map_or(0, |last_auto_index| last_auto_index / c + 1)
                         });
@@ -620,17 +625,15 @@ impl CellGrid {
                             // to the left of the table.
                             //
                             // Exceptionally, a vline is also placed to the
-                            // left of the table if the current auto index from
-                            // past iterations is smaller than the minimum auto
-                            // index. For example, this means that a vline at
+                            // left of the table if we should start a new row
+                            // for the next automatically positioned cell.
+                            // For example, this means that a vline at
                             // the beginning of a header will be placed to its
                             // left rather than after the previous
                             // automatically positioned cell. Same for footers.
                             auto_index
                                 .checked_sub(1)
-                                .filter(|last_auto_index| {
-                                    last_auto_index >= &min_auto_index
-                                })
+                                .filter(|_| !start_new_row)
                                 .map_or(0, |last_auto_index| last_auto_index % c + 1)
                         });
                         if end.is_some_and(|end| end.get() < start) {
@@ -661,7 +664,7 @@ impl CellGrid {
                         rowspan,
                         &resolved_cells,
                         &mut auto_index,
-                        min_auto_index,
+                        &mut start_new_row,
                         c,
                     )
                     .at(cell_span)?
@@ -778,12 +781,20 @@ impl CellGrid {
                     // contained within it.
                     child_start = child_start.min(y);
                     child_end = child_end.max(y + rowspan);
+
+                    if start_new_row && child_start <= auto_index.div_ceil(c) {
+                        // No need to start a new row as we already include
+                        // the row of the next automatically positioned cell in
+                        // the header or footer.
+                        start_new_row = false;
+                    }
                 }
             }
 
             if (is_header || is_footer) && child_start == usize::MAX {
                 // Empty header/footer: consider the header/footer to be
-                // one row after the latest auto index.
+                // at the next empty row after the latest auto index.
+                auto_index = find_next_empty_row(&resolved_cells, auto_index, c);
                 child_start = auto_index.div_ceil(c);
                 child_end = child_start + 1;
 
@@ -1293,11 +1304,10 @@ impl CellGrid {
 /// `(auto, auto)` cell) and the amount of columns in the grid, returns the
 /// final index of this cell in the vector of resolved cells.
 ///
-/// The `min_auto_index` parameter is used to bump the auto index to that value
-/// if it is currently smaller than it and a cell requests fully automatic
-/// positioning. Useful with headers: if a cell in a header has automatic
-/// positioning, it should start at the header's first row, and not at the end
-/// of the previous row.
+/// The `start_new_row` parameter is used to ensure that, if this cell is
+/// fully automatically positioned, it should start a new, empty row. This is
+/// useful for headers and footers, which must start at their own rows, without
+/// interference from previous cells.
 #[allow(clippy::too_many_arguments)]
 fn resolve_cell_position(
     cell_x: Smart<usize>,
@@ -1306,7 +1316,7 @@ fn resolve_cell_position(
     rowspan: usize,
     resolved_cells: &[Option<Entry>],
     auto_index: &mut usize,
-    min_auto_index: usize,
+    start_new_row: &mut bool,
     columns: usize,
 ) -> HintedStrResult<usize> {
     // Translates a (x, y) position to the equivalent index in the final cell vector.
@@ -1322,13 +1332,22 @@ fn resolve_cell_position(
         (Smart::Auto, Smart::Auto) => {
             // Let's find the first available position starting from the
             // automatic position counter, searching in row-major order.
-            let mut resolved_index = min_auto_index.max(*auto_index);
-            while let Some(Some(_)) = resolved_cells.get(resolved_index) {
-                // Skip any non-absent cell positions (`Some(None)`) to
-                // determine where this cell will be placed. An out of bounds
-                // position (thus `None`) is also a valid new position (only
-                // requires expanding the vector).
-                resolved_index += 1;
+            let mut resolved_index = *auto_index;
+            if *start_new_row {
+                resolved_index =
+                    find_next_empty_row(resolved_cells, resolved_index, columns);
+
+                // Next cell won't have to start a new row if we just did that,
+                // in principle.
+                *start_new_row = false;
+            } else {
+                while let Some(Some(_)) = resolved_cells.get(resolved_index) {
+                    // Skip any non-absent cell positions (`Some(None)`) to
+                    // determine where this cell will be placed. An out of
+                    // bounds position (thus `None`) is also a valid new
+                    // position (only requires expanding the vector).
+                    resolved_index += 1;
+                }
             }
 
             // Ensure the next cell with automatic position will be
@@ -1399,6 +1418,25 @@ fn resolve_cell_position(
                 .hint("try specifying your cells in a different order")
         }
     }
+}
+
+/// Computes the index of the first cell in the next empty row in the grid,
+/// starting with the given initial index.
+fn find_next_empty_row(
+    resolved_cells: &[Option<Entry>],
+    initial_index: usize,
+    columns: usize,
+) -> usize {
+    let mut resolved_index = initial_index.next_multiple_of(columns);
+    while resolved_cells
+        .get(resolved_index..resolved_index + columns)
+        .is_some_and(|row| row.iter().any(Option::is_some))
+    {
+        // Skip non-empty rows.
+        resolved_index += columns;
+    }
+
+    resolved_index
 }
 
 /// Performs grid layout.
