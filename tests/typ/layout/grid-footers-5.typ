@@ -61,7 +61,6 @@
 
 ---
 // Table should be just one row. [c] appears at the third column.
-// Line appears at the bottom.
 #set page(margin: 2pt)
 #set text(6pt)
 #table(
@@ -70,6 +69,7 @@
   table.cell(y: 0)[a],
   table.footer(
     table.hline(stroke: red),
+    table.hline(y: 1, stroke: aqua),
     table.cell(y: 0)[b],
     [c]
   )
