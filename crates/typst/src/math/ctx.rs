@@ -11,7 +11,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
-use crate::foundations::{Content, Packed, Smart, StyleChain};
+use crate::foundations::{Content, Packed, StyleChain};
 use crate::layout::{Abs, Axes, BoxElem, Em, Frame, LayoutMultiple, Regions, Size};
 use crate::math::{
     scaled_font_size, styled_char, EquationElem, FrameFragment, GlyphFragment,
@@ -202,7 +202,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         let fragment = if let Some(mut glyph) = chars
             .next()
             .filter(|_| chars.next().is_none())
-            .map(|c| styled_char(styles, c))
+            .map(|c| styled_char(styles, c, true))
             .and_then(|c| GlyphFragment::try_new(self, styles, c, span))
         {
             // A single letter that is available in the math font.
@@ -234,7 +234,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             // Numbers aren't that difficult.
             let mut fragments = vec![];
             for c in text.chars() {
-                let c = styled_char(styles, c);
+                let c = styled_char(styles, c, false);
                 fragments.push(GlyphFragment::new(self, styles, c, span).into());
             }
             let frame = MathRun::new(fragments).into_frame(self, styles);
@@ -244,13 +244,13 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)),
                 TextElem::set_bottom_edge(BottomEdge::Metric(BottomEdgeMetric::Bounds)),
                 TextElem::set_size(TextSize(scaled_font_size(self, styles).into())),
-                EquationElem::set_italic(Smart::Custom(false)),
             ]
             .map(|p| p.wrap());
 
             // Anything else is handled by Typst's standard text layout.
             let styles = styles.chain(&local);
-            let text: EcoString = text.chars().map(|c| styled_char(styles, c)).collect();
+            let text: EcoString =
+                text.chars().map(|c| styled_char(styles, c, false)).collect();
             if text.contains(is_newline) {
                 let mut fragments = vec![];
                 for (i, piece) in text.split(is_newline).enumerate() {
