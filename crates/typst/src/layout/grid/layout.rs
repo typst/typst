@@ -565,6 +565,16 @@ impl CellGrid {
                     } => {
                         let has_auto_y = y.is_auto();
                         let y = y.unwrap_or_else(|| {
+                            // Avoid placing the hline inside consecutive
+                            // rowspans occupying all columns, as it'd just
+                            // disappear, at least when there's no column
+                            // gutter.
+                            skip_auto_index_through_fully_merged_rows(
+                                &resolved_cells,
+                                &mut auto_index,
+                                c,
+                            );
+
                             // When no 'y' is specified for the hline, we place
                             // it under the latest automatically positioned
                             // cell.
@@ -1469,6 +1479,34 @@ fn find_next_empty_row(
     }
 
     resolved_index
+}
+
+/// Fully merged rows under the cell of latest auto index indicate rowspans
+/// occupying all columns, so we skip the auto index until the shortest rowspan
+/// ends, such that, in the resulting row, we will be able to place an
+/// automatically positioned cell - and, in particular, hlines under it. The
+/// idea is that an auto hline will be placed after the shortest such rowspan.
+/// Otherwise, the hline would just be placed under the first row of those
+/// rowspans and disappear (except at the presence of column gutter).
+fn skip_auto_index_through_fully_merged_rows(
+    resolved_cells: &[Option<Entry>],
+    auto_index: &mut usize,
+    columns: usize,
+) {
+    // If the auto index isn't currently at the start of a row, that means
+    // there's still at least one auto position left in the row, ignoring
+    // cells with manual positions, so we wouldn't have a problem in placing
+    // further cells or, in this case, hlines here.
+    if *auto_index % columns == 0 {
+        while resolved_cells
+            .get(*auto_index..*auto_index + columns)
+            .is_some_and(|row| {
+                row.iter().all(|entry| matches!(entry, Some(Entry::Merged { .. })))
+            })
+        {
+            *auto_index += columns;
+        }
+    }
 }
 
 /// Performs grid layout.
