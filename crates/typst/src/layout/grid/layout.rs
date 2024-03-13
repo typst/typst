@@ -2591,9 +2591,9 @@ impl<'a> GridLayouter<'a> {
                     if self.grid.rows[y] == Sizing::Auto
                         && self.unbreakable_rows_left == 0
                     {
-                        // Cells at unbreakable auto rows are measured with
-                        // infinite height, so we keep their full heights
-                        // restricted to the row's height.
+                        // Cells at breakable auto rows have lengths relative
+                        // to the entire page, unlike cells in unbreakable auto
+                        // rows.
                         pod.full = self.regions.full;
                     }
                     let frame = cell.layout(engine, self.styles, pod)?.into_frame();
