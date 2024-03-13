@@ -236,7 +236,8 @@
 // rows' boundaries.
 #set page(height: 9em)
 #table(
-  rows: 1.5em,
+  rows: (1em, 1em, 1fr, 1fr, auto),
+  table.cell(rowspan: 2, block(width: 2em, height: 100%, fill: red)),
   table.cell(rowspan: 2, block(width: 2em, height: 100%, fill: red)),
   [a]
 )
