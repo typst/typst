@@ -10,12 +10,16 @@ use super::layout::{in_last_with_offset, points, Repeatable, Row, RowPiece};
 
 /// All information needed to layout a single rowspan.
 pub(super) struct Rowspan {
-    // First column of this rowspan.
+    /// First column of this rowspan.
     pub(super) x: usize,
-    // First row of this rowspan.
+    /// First row of this rowspan.
     pub(super) y: usize,
-    // Amount of rows spanned by the cell at (x, y).
+    /// Amount of rows spanned by the cell at (x, y).
     pub(super) rowspan: usize,
+    /// Whether all rows of the rowspan are part of an unbreakable row group.
+    /// This is true e.g. in headers and footers, regardless of what the user
+    /// specified for the parent cell's `breakable` field.
+    pub(super) is_effectively_unbreakable: bool,
     /// The horizontal offset of this rowspan in all regions.
     pub(super) dx: Abs,
     /// The vertical offset of this rowspan in the first region.
@@ -96,7 +100,16 @@ impl<'a> GridLayouter<'a> {
         engine: &mut Engine,
     ) -> SourceResult<()> {
         let Rowspan {
-            x, y, dx, dy, first_region, region_full, heights, ..
+            x,
+            y,
+            rowspan,
+            is_effectively_unbreakable,
+            dx,
+            dy,
+            first_region,
+            region_full,
+            heights,
+            ..
         } = rowspan_data;
         let [first_height, backlog @ ..] = heights.as_slice() else {
             // Nothing to layout.
@@ -110,8 +123,19 @@ impl<'a> GridLayouter<'a> {
         // Prepare regions.
         let size = Size::new(width, *first_height);
         let mut pod = Regions::one(size, Axes::splat(true));
-        pod.full = region_full;
         pod.backlog = backlog;
+
+        if !is_effectively_unbreakable
+            && self.grid.rows[y..][..rowspan]
+                .iter()
+                .any(|spanned_row| spanned_row == &Sizing::Auto)
+        {
+            // If the rowspan spans an auto row and is breakable, it will see
+            // '100%' as the full page height, at least at its first region.
+            // This is consistent with how it is measured, and with how
+            // non-rowspan cells behave in auto rows.
+            pod.full = region_full;
+        }
 
         // Push the layouted frames directly into the finished frames.
         let fragment = cell.layout(engine, self.styles, pod)?;
@@ -172,6 +196,9 @@ impl<'a> GridLayouter<'a> {
                     x,
                     y,
                     rowspan,
+                    // The field below will be updated in
+                    // 'check_for_unbreakable_rows'.
+                    is_effectively_unbreakable: !cell.breakable,
                     dx,
                     // The four fields below will be updated in 'finish_region'.
                     dy: Abs::zero(),
@@ -227,7 +254,27 @@ impl<'a> GridLayouter<'a> {
             {
                 self.finish_region(engine)?;
             }
+
+            // Update unbreakable rows left.
             self.unbreakable_rows_left = row_group.rows.len();
+        }
+
+        if self.unbreakable_rows_left > 1 {
+            // Mark rowspans as effectively unbreakable where applicable
+            // (if all of their spanned rows would be in the same unbreakable
+            // row group).
+            // Not needed if only one unbreakable row is left, since, then,
+            // no rowspan will be effectively unbreakable, at least necessarily.
+            // Note that this function is called after 'check_for_rowspans' and
+            // potentially updates the amount of remaining unbreakable rows, so
+            // it wouldn't be accurate to only check for this condition in that
+            // function. We need to check here instead.
+            for rowspan_data in
+                self.rowspans.iter_mut().filter(|rowspan| rowspan.y == current_row)
+            {
+                rowspan_data.is_effectively_unbreakable |=
+                    self.unbreakable_rows_left >= rowspan_data.rowspan;
+            }
         }
 
         Ok(())

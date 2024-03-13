@@ -2599,7 +2599,12 @@ impl<'a> GridLayouter<'a> {
                     let width = self.cell_spanned_width(cell, x);
                     let size = Size::new(width, height);
                     let mut pod = Regions::one(size, Axes::splat(true));
-                    if self.grid.rows[y] == Sizing::Auto {
+                    if self.grid.rows[y] == Sizing::Auto
+                        && self.unbreakable_rows_left == 0
+                    {
+                        // Cells at breakable auto rows have lengths relative
+                        // to the entire page, unlike cells in unbreakable auto
+                        // rows.
                         pod.full = self.regions.full;
                     }
                     let frame = cell.layout(engine, self.styles, pod)?.into_frame();
