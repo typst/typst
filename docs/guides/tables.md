@@ -304,7 +304,7 @@ below the first row:
 
 ```example
 >>> #show table.cell.where(y: 0): strong
-#set table(stroke: (_, y) = if y == 0 { (bottom: 1pt) })
+#set table(stroke: (_, y) => if y == 0 { (bottom: 1pt) })
 
 <<< // Table as seen above
 >>> #table(
