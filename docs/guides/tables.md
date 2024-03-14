@@ -568,6 +568,151 @@ rows, since it is the last entry in the array.
 
 ## How to import data into a table? { #import-data }
 
+Often, you need to put data that you obtained elsewhere in a table. Sometimes,
+this is from Microsoft Excel or Google Sheets, sometimes this is from a dataset
+on the web. Fortunately, Typst can load many [common file
+formats]($category/data-loading) so you can use scripting to include their data
+in a table.
+
+The most common file format for tabular data is CSV. You can obtain a CSV file
+from Excel by choosing "Save as" in the _File_ menu and choosing the file format
+"CSV UTF-8 (Comma-delimited) (.csv)". Save the file and, if you are using the
+web app, upload it to your project.
+
+In our case, we will be building a table about Moore's Law. For this purpose, we
+are using a statistic with [how many transistors the average microprocessor
+consists of per year from Our World in
+Data](https://ourworldindata.org/grapher/transistors-per-microprocessor). Let's
+start by pressing the "Download" button to get a CSV file with the raw data.
+
+Be sure to move the file to your project or somewhere Typst can see it if you
+are using the CLI. Once you did that, we can open the file to see how it is
+structured:
+
+```csv
+Entity,Code,Year,Transistors per microprocessor
+World,OWID_WRL,1971,2308.2417
+World,OWID_WRL,1972,3554.5222
+World,OWID_WRL,1974,6097.5625
+```
+
+The file starts with a header and contains four columns: Entity (which is to
+whom the metric applies), Code, the year, and transistors per microprocessor.
+Only the last two columns change between each row, so we can disregard "Entity"
+and "Code".
+
+First, let's start by loading this file with the [`csv`]($csv) function. It
+accepts the file name of the file we want to load as a string argument:
+
+```typ
+#let moore = csv("moore.csv")
+```
+
+We have loaded our file (assuming we named it `moore.csv`) and [bound
+it]($scripting/#bindings) to the new variable `moore`. This will not produce any
+output, so there's nothing to see yet. If we want to examine what Typst loaded,
+we can either hover the name of the variable in the web app or print some
+elements from the array:
+
+```example
+#let moore = csv("moore.csv")
+
+#moore.slice(0, 3)
+```
+
+The [`slice`]($array.slice) method the first three elements in the array (with
+the indices 0, 1, and 2) with these arguments. We can see that each row is its
+own array with one element per cell.
+
+Now, let's write a loop that will output an array of content that we can use
+with the table function.
+
+```example
+#let moore = csv("moore.csv")
+
+#table(
+  columns: 2,
+  ..for year in moore {
+    (year.at(2), year.at(3))
+  }
+)
+```
+
+The example above uses a loop that iterates over the rows in our CSV file and
+returns an array for each iteration. We could just write `year` in the body of
+the loop but then we would also get the first two columns which we want to
+discard. Instead, we create a new array containing the third and fourth column
+only. Because Typst will concatenate the array results of the various loop
+iterations, we get a one-dimensional array in which the year column and the
+number of transistors alternate. Hence, we can insert the array as cells. For
+this we use the [spread operator]($syntax) (`..`). By prefixing an array, or, in
+our case an expression that yields an arry, with two dots, we tell Typst that
+the array should be used as positional arguments. This is how we get our table.
+
+We can use the `map`, `slice` and `flatten` array method to write this in a more
+compact, functional style:
+
+```typ
+#let moore = csv("moore.csv").map(m => m.slice(2))
+
+#table(
+   columns: moore.at(0).len(),
+   ..moore.flatten(),
+)
+```
+
+This example renders the same as the previous one, but first uses a
+[`map`]($array.map) function to change each row of the data. We pass a function
+to map that gets run on each row of the CSV and returns a new value to replace
+that row with. We use it to discard the first two columns with `slice`. Then, we
+spread the data in the `table` function. However, we need to pass a
+one-dimensional array and `moore`'s value is two-dimensional (that means that
+each of its row values contains an array with the cell data). That's why we call
+`flatten` which converts it to a one-dimensional array. We also read the number
+of columns from the file itself.
+
+Now that we have nice code for our table, we should try to also make the table
+itself nice! The transistor counts go from millions in 1995 to trillions in 2021
+and changes are difficult to see with so many digits. We could try to present
+our data logarithmically to make it more digestible:
+
+```example
+#let moore = csv("moore.csv").slice(1).map(m => {
+  let sliced = m.slice(2)
+  let log = calc.log(
+    float(sliced.at(1))
+  )
+  sliced.at(1) = str(calc.round(log, digits: 2))
+
+  sliced
+})
+
+#show table.cell.where(x: 0): strong
+
+#table(
+   columns: moore.at(0).len(),
+   align: right,
+   stroke: (_, y) => if y == 0 { (bottom: rgb("4D4C5B")) },
+   fill: (_, y) => if calc.odd(y) {rgb("D7D9E0")},
+
+   table.header[Year][Transistor count ($log_10$)],
+   ..moore.flatten(),
+)
+```
+
+In this example, we first drop the header row from the data since we are adding
+our own. Then, we discard all but the last two columns as above. We then convert
+the string in the fourth column to a floating point number, calculate its
+logarithm and store it in the variable `log`. Finally, we round it to two
+digits, convert it to a string, and store it back in the array. Then, that array
+is returned and replaces the original row. In our table, we have added our
+custom header that tells the reader that we've applied a logarithm to the
+values. Then, we spread the flattened data as above.
+
+We also styled the table with [stripes](#striped-rows-and-columns), a
+[stroke](#strokes) below the first row, and a bold first column. Click on the
+links to go to the relevant guide sections and see how its done!
+
 ## How to rotate a table? { #rotate-table }
 
 ## How to merge cells? { #merge-cells }
