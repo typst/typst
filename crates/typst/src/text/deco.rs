@@ -280,13 +280,21 @@ pub struct HighlightElem {
     /// The color to highlight the text with.
     ///
     /// ```example
-    /// This is #highlight(fill: blue)[with blue].
+    /// This is #highlight(
+    ///   fill: blue
+    /// )[highlighted with blue].
     /// ```
     #[default(Color::from_u8(0xFF, 0xFD, 0x11, 0xA1).into())]
     pub fill: Paint,
 
     /// The highlight's border color. See the
     /// [rectangle's documentation]($rect.stroke) for more details.
+    ///
+    /// ```example
+    /// This is a #highlight(
+    ///   stroke: fuchsia
+    /// )[stroked highlighting].
+    /// ```
     #[resolve]
     #[fold]
     pub stroke: Sides<Option<Option<Stroke>>>,
@@ -326,6 +334,12 @@ pub struct HighlightElem {
 
     /// How much to round the highlight's corners. See the
     /// [rectangle's documentation]($rect.radius) for more details.
+    ///
+    /// ```example
+    /// Listen #highlight(
+    ///   radius: 5pt, extent: 2pt
+    /// )[carefully], it will be on the test.
+    /// ```
     #[resolve]
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
