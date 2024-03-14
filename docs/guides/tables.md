@@ -24,7 +24,7 @@ their reference page]($table). And if you are looking for a table of contents,
 the reference page of the [`outline` function]($outline) is the right place to
 learn more.
 
-## How do I create a basic table? { #basic-tables }
+## How to create a basic table? { #basic-tables }
 
 In order to create a table in Typst, use the [`table` function]($table). For a
 basic table, you need to tell the table function two things:
@@ -371,7 +371,6 @@ one intersection highlighted.
 
 ```example
 >>> #set page(width: 16cm)
-
 #table(
   columns: 3,
   stroke: (x: none),
@@ -411,14 +410,8 @@ For example, this is a set rule that draws all horizontal lines except for the
 very first and last line.
 
 ```example
-#show table.cell: it => if it.x == 0 and it.y > 0 {
-  set text(style: "italic")
-  it
-} else {
-  it
-}
-
-#show table.cell.where(y: 0): strong
+#show table.cell.where(x: 0): set text(style: "italic")
+#show table.cell.where(y: 0): set text(style: "normal", weight: "bold")
 #set table(stroke: (_, y) => if y > 0 { (top: 0.8pt) })
 
 #table(
@@ -611,8 +604,8 @@ accepts the file name of the file we want to load as a string argument:
 We have loaded our file (assuming we named it `moore.csv`) and [bound
 it]($scripting/#bindings) to the new variable `moore`. This will not produce any
 output, so there's nothing to see yet. If we want to examine what Typst loaded,
-we can either hover the name of the variable in the web app or print some
-elements from the array:
+we can either hover the name of the variable in the web app or print some items
+from the array:
 
 ```example
 #let moore = csv("moore.csv")
@@ -620,9 +613,9 @@ elements from the array:
 #moore.slice(0, 3)
 ```
 
-The [`slice`]($array.slice) method the first three elements in the array (with
-the indices 0, 1, and 2) with these arguments. We can see that each row is its
-own array with one element per cell.
+The [`slice`]($array.slice) method return the first three items in the array
+(with the indices 0, 1, and 2) with these arguments. We can see that each row is
+its own array with one item per cell.
 
 Now, let's write a loop that will output an array of content that we can use
 with the table function.
@@ -647,29 +640,29 @@ iterations, we get a one-dimensional array in which the year column and the
 number of transistors alternate. Hence, we can insert the array as cells. For
 this we use the [spread operator]($syntax) (`..`). By prefixing an array, or, in
 our case an expression that yields an arry, with two dots, we tell Typst that
-the array should be used as positional arguments. This is how we get our table.
+the array's items should be used as positional arguments.
 
-We can use the `map`, `slice` and `flatten` array method to write this in a more
-compact, functional style:
+We can also use the `map`, `slice` and `flatten` array methods to write this in
+a more compact, functional style:
 
 ```typ
-#let moore = csv("moore.csv").map(m => m.slice(2))
+#let moore = csv("moore.csv")
 
 #table(
-   columns: moore.at(0).len(),
-   ..moore.flatten(),
+   columns: moore.first().len(),
+   ..moore.map(m => m.slice(2)).flatten(),
 )
 ```
 
-This example renders the same as the previous one, but first uses a
+This example renders the same as the previous one, but first uses the
 [`map`]($array.map) function to change each row of the data. We pass a function
 to map that gets run on each row of the CSV and returns a new value to replace
 that row with. We use it to discard the first two columns with `slice`. Then, we
-spread the data in the `table` function. However, we need to pass a
+spread the data into the `table` function. However, we need to pass a
 one-dimensional array and `moore`'s value is two-dimensional (that means that
 each of its row values contains an array with the cell data). That's why we call
-`flatten` which converts it to a one-dimensional array. We also read the number
-of columns from the file itself.
+`flatten` which converts it to a one-dimensional array. We also extract the
+number of columns from the data itself.
 
 Now that we have nice code for our table, we should try to also make the table
 itself nice! The transistor counts go from millions in 1995 to trillions in 2021
@@ -678,42 +671,164 @@ our data logarithmically to make it more digestible:
 
 ```example
 #let moore = csv("moore.csv").slice(1).map(m => {
-  let sliced = m.slice(2)
-  let log = calc.log(
-    float(sliced.at(1))
-  )
-  sliced.at(1) = str(calc.round(log, digits: 2))
-
-  sliced
+  let (.., year, count) = m
+  let log = calc.log(float(count))
+  let rounded = str(calc.round(log, digits: 2))
+  (year, rounded)
 })
 
 #show table.cell.where(x: 0): strong
 
 #table(
-   columns: moore.at(0).len(),
+   columns: moore.first().len(),
    align: right,
-   stroke: (_, y) => if y == 0 { (bottom: rgb("4D4C5B")) },
-   fill: (_, y) => if calc.odd(y) {rgb("D7D9E0")},
+   fill: (_, y) => if calc.odd(y) { rgb("D7D9E0") },
+   stroke: none,
 
    table.header[Year][Transistor count ($log_10$)],
+   table.hline(stroke: rgb("4D4C5B")),
    ..moore.flatten(),
 )
 ```
 
 In this example, we first drop the header row from the data since we are adding
-our own. Then, we discard all but the last two columns as above. We then convert
-the string in the fourth column to a floating point number, calculate its
-logarithm and store it in the variable `log`. Finally, we round it to two
-digits, convert it to a string, and store it back in the array. Then, that array
-is returned and replaces the original row. In our table, we have added our
-custom header that tells the reader that we've applied a logarithm to the
-values. Then, we spread the flattened data as above.
+our own. Then, we discard all but the last two columns as above. We do this by
+[destructuring]($scripting/#bindings) the array `m`, discarding all but the two
+last items. We then convert the string in `count` to a floating point number,
+calculate its logarithm and store it in the variable `log`. Finally, we round it
+to two digits, convert it to a string, and store it in the variable `rounded`.
+Then, we return an array with `year` and `rounded` that replaces the original
+row. In our table, we have added our custom header that tells the reader that
+we've applied a logarithm to the values. Then, we spread the flattened data as
+above.
 
 We also styled the table with [stripes](#striped-rows-and-columns), a
-[stroke](#strokes) below the first row, and a bold first column. Click on the
-links to go to the relevant guide sections and see how its done!
+[stroke](#strokes) below the first row, aligning everything right, and a bold
+first column. Click on the links to go to the relevant guide sections and see
+how its done!
 
 ## How to rotate a table? { #rotate-table }
+
+When tables get a large number of columns, a portrait paper orientation can
+quickly get cramped. Hence, you'll sometimes want to switch your tables to
+landscape orientation. There are two ways to accomplish this in Typst:
+
+- If you want to rotate only the table but not the other content of the page and
+  the page itself, use the [`rotate` function]($rotate) with the `reflow`
+  argument set to `{true}`.
+- If you want to rotate the whole page the table is on, you can use the [`page`
+  element]($page) with its `flipped` argument set to `{true}`. The header,
+  footer, and page number will now also appear on the long edge of the page.
+  This has the advantage that the table will appear right side up when read on a
+  computer, but it also means that a page in your document has different
+  dimensions than all the others, which can be jarring to your readers.
+
+Below, we will demonstrate both techniques with a student gradebook table.
+
+First, we rotate the table on the page. The example also places some text on the
+right of the table.
+
+```example
+#set page("a5", numbering: "— 1 —")
+>>> #set page(margin: auto)
+#show: columns.with(2)
+
+#show table.cell.where(y: 0): set text(weight: "bold")
+
+#rotate(-90deg,
+  reflow: true,
+
+  table(
+    columns: (1fr, ..(5 * (auto,))),
+    inset: (x: .6em,),
+    stroke: (_, y) => (
+      x: 1pt,
+      top: if y <= 1 { 1pt } else { 0pt },
+      bottom: 1pt,
+    ),
+    align: (x, _) =>
+      if x == 0 or x == 5 { left } else { right },
+
+    table.header(
+      [Student Name],
+      [Assignment 1], [Assignment 2],
+      [Mid-term], [Final Exam],
+      [Total Grade],
+    ),
+    [Jane Smith], [78%], [82%], [75%], [80%], [B],
+    [Alex Johnson], [90%], [95%], [94%], [96%], [A+],
+    [John Doe], [85%], [90%], [88%], [92%], [A],
+    [Maria Garcia], [88%], [84%], [89%], [85%], [B+],
+    [Zhang Wei], [93%], [89%], [90%], [91%], [A-],
+    [Marina Musterfrau], [96%], [91%], [74%], [69%], [B-],
+  ),
+)
+
+#lorem(80)
+```
+
+
+What we have here is a two-column document on ISO A5 paper with page numbers on
+the bottom. The table has six columns and contains a few customizations to
+[stroke](#strokes), alignment and spacing. But the most important part is that
+the table is wrapped in a call to the `rotate` function with the `reflow`
+argument being `true`. This will make the table rotate 90 degrees
+counterclockwise. The reflow argument is needed so that the table's rotation
+affects the layout. If it was omitted, Typst would layout the page as if the
+table was not rotated.
+
+The example also shows how to produce many columns of the same size: After the
+initial `{1fr}` column, we spread an array with five `{auto}` items that we
+create by multiplying an array with one `{auto}` item by five.
+
+The second example shows how to rotate the whole page so the table stays
+upright:
+
+```example
+#set page("a5", numbering: "— 1 —")
+>>> #set page(margin: auto)
+#show table.cell.where(y: 0): set text(weight: "bold")
+
+#page(flipped: true)[
+  #table(
+    columns: (1fr, ..(5 * (auto,))),
+    inset: (x: .6em,),
+    stroke: (_, y) => (
+      x: 1pt,
+      top: if y <= 1 { 1pt } else { 0pt },
+      bottom: 1pt,
+    ),
+    align: (x, _) =>
+      if x == 0 or x == 5 { left } else { right },
+
+    table.header(
+      [Student Name],
+      [Assignment 1], [Assignment 2],
+      [Mid-term], [Final Exam],
+      [Total Grade],
+    ),
+    [Jane Smith], [78%], [82%], [75%], [80%], [B],
+    [Alex Johnson], [90%], [95%], [94%], [96%], [A+],
+    [John Doe], [85%], [90%], [88%], [92%], [A],
+    [Maria Garcia], [88%], [84%], [89%], [85%], [B+],
+    [Zhang Wei], [93%], [89%], [90%], [91%], [A-],
+    [Marina Musterfrau], [96%], [91%], [74%], [69%], [B-],
+  )
+
+  #pad(x: 15%, top: 1.5em)[
+    = Winter 2023/24 results
+    #lorem(80)
+  ]
+]
+```
+
+Here, we take the same table and the other content we want to set with it and
+put it in a call to the `page` function with while supplying `{true}` as the
+`flipped` argument. This will instruct Typst create new pages with width and
+height swapped and place the contents of the function call on the new page.
+Notice how the page number is also on the long edge of the paper now. At the
+bottom of the page, we use the [`pad`]($pad) function to constrain the width of
+the paragraph to achieve a nice and legible line length.
 
 ## How to merge cells? { #merge-cells }
 
@@ -727,4 +842,4 @@ links to go to the relevant guide sections and see how its done!
 
 ## How to align the contents of the cells in my table? { #alignment }
 
-## What if I need a the table function for something that isn't a table? { #grid }
+## What if I need the table function for something that isn't a table? { #grid }
