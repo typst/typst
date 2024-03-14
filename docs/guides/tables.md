@@ -40,7 +40,7 @@ ingredients for a cookie recipe:
   columns: 2,
   [*Amount*], [*Ingredient*],
   [360g], [Baking flour],
-  [250g], [Butter (room temperature)],
+  [250g], [Butter (room temp.)],
   [150g], [Brown sugar],
   [100g], [Cane sugar],
   [100g], [70% cocoa chocolate],
@@ -78,7 +78,7 @@ screenreader:
   table.header[*Amount*][*Ingredient*],
   [360g], [Baking flour],
 <<<  // ... the remaining cells
->>>  [250g], [Butter (room temperature)],
+>>>  [250g], [Butter (room temp.)],
 >>>  [150g], [Brown sugar],
 >>>  [100g], [Cane sugar],
 >>>  [100g], [70% cocoa chocolate],
@@ -101,7 +101,7 @@ quickly becomes useful if your document contains multiple tables!
   table.header[Amount][Ingredient],
   [360g], [Baking flour],
 <<<  // ... the remaining cells
->>>  [250g], [Butter (room temperature)],
+>>>  [250g], [Butter (room temp.)],
 >>>  [150g], [Brown sugar],
 >>>  [100g], [Cane sugar],
 >>>  [100g], [70% cocoa chocolate],
@@ -269,22 +269,161 @@ This turns off all vertical strokes and leaves the horizontal strokes in place.
 To achieve the reverse effect (only horizontal strokes), set the stroke argument
 to `(y: none)` instead.
 
-If you want to excert more control, for example to draw only the first
-horizontal line or omit the outer lines, you can specify a function here
-instead. The function should return a stroke given the zero-indexed x and y
-position of the current cell. You should only need these functions if you are a
-template author, do not use a template, or need to heavily customize your
-tables. Otherwise, your template should set appropriate default table strokes.
+[Further down in the guide](#stroke-functions), we cover how to use a function
+in the stroke argument to customize all strokes individually. This is how you
+achieve more complex stroking patterns.
+
+### Adding individual lines in the table { #individual-strokes }
+
+If you want to add a single horizontal or vertical line in your table, for
+example to seperate a group of rows, you can use the
+[`table.hline`]($table.hline) and [`table.vline`]($table.vline) elements for
+horizontal and vertical lines, respectively. Add them to the argument list of
+the `table` function just like you would add individual cells and a header.
+
+Let's take a look at the example from the reference:
+
+```example
+#set table.hline(stroke: .6pt)
+
+#table(
+  stroke: none,
+  columns: (auto, 1fr),
+  // Morning schedule abridged.
+  [14:00], [Talk: Tracked Layout],
+  [15:00], [Talk: Automations],
+  [16:00], [Workshop: Tables],
+  table.hline(),
+  [19:00], [Day 1 Attendee Mixer],
+)
+```
+
+In this example, you can see that we have placed a call to `table.hline` between
+the cells, producing a horizontal line at that spot. We also used a set rule on
+the element to reduce its stroke width to make it fit better with the weight of
+the font.
+
+By default, Typst places horizontal and vertical lines after the current row or
+column, depending on their position in the argument list. You can also manually
+move them to a different position by adding the `y` (for `hline`) or `x` (for
+`vline`) argument. For example, the code below would produce the same result:
+
+```typ
+#set table.hline(stroke: .6pt)
+
+#table(
+  stroke: none,
+  columns: (auto, 1fr),
+  // Morning schedule abridged.
+  table.hline(y: 3),
+  [14:00], [Talk: Tracked Layout],
+  [15:00], [Talk: Automations],
+  [16:00], [Workshop: Tables],
+  [19:00], [Day 1 Attendee Mixer],
+)
+```
+
+Let's imagine you are working with a template that shows none of the table
+strokes but one between the first and second row. Now, since you also have
+labels in the first column, you want to add a vertical line. However, you do not
+want this vertical line to cross into the top row. You can achieve this with the
+`start` argument:
+
+```example
+>>> #set page(width: 12cm)
+>>> #show table.cell.where(y: 0): strong
+>>> #set table(stroke: (_, y) => if y == 0 { (bottom: 1pt) })
+#show table.cell.where(x: 0): smallcaps
+
+#table(
+  columns: (auto, 1fr, 1fr, 1fr),
+  align: (x, _) => if x > 0 { right } else { left },
+
+  table.vline(x: 1, start: 1),
+  table.header[Trainset][Top Speed][Length][Weight],
+  [TGV Réseau], [320 km/h], [200m], [383t],
+  [ICE 403], [330 km/h], [201m], [409t],
+  [Shinkansen N700], [300 km/h], [405m], [700t],
+)
+```
+
+In this example, we have added `table.vline` at the start of our positional
+argument list. But because the line is not supposed to go to the left of the
+first column, we specified the `x` argument as `1`. We also set the `start`
+argument to `1` so that the line does only start after the first row.
+
+This example also contains two more things: We use the align argument with a
+function not unlike those in the next subsection to right-align the data in all
+but the first column and use a show-rule to make the first column of table cells
+appear in small caps.
+
+### Overriding the strokes of a single cell { #cell-stroke-override }
+
+Imagine you want to change the stroke around a single cell. Maybe your cell is
+very important and needs highlighting! For this scenario, there is the
+[`table.cell` function]($table.cell). Instead of adding your content directly in
+the argument list of the table, you wrap it in a `table.cell` call. Now, you can
+use `table.cell`'s argument list to override the table properties, such as the
+stroke, for this cell only.
+
+Here's an example with a matrix of two of the Big Five personality factors, with
+one intersection highlighted.
+
+```example
+>>> #set page(width: 16cm)
+
+#table(
+  columns: 3,
+  stroke: (x: none),
+
+  [], [*High Neuroticism*], [*Low Neuroticism*],
+
+  [*High Agreeableness*],
+  table.cell(stroke: orange + 2pt)[
+    _Sensitive_ \ Prone to emotional distress but very empathetic.
+  ],
+  [_Compassionate_ \ Caring and stable, often seen as a supportive figure.],
+
+  [*Low Agreeableness*],
+  [_Contentious_ \ 	Competitive and easily agitated.],
+  [_Detached_ \ Independent and calm, may appear aloof.],
+)
+```
+
+Above, you can see that we used the `table.cell` element in the table's argument
+list and passed the cell content to it. We have used the arguments to set a
+wider orange stroke. Despite the fact that we disabled vertical strokes in the
+table, the orange stroke appeared on all sides of the modified cell, showing
+that the table's stroke configuration is discarded.
+
+### Complex document-wide stroke customization { #stroke-functions }
+
+This section is about customizing all lines at once in one or multiple tables.
+This allows you to draw only the first horizontal line or omit the outer lines,
+without knowing how many cells the table has. This is achieved by providing a
+function for the table's `stroke` parameter. The function should return a stroke
+given the zero-indexed x and y position of the current cell. You should only
+need these functions if you are a template author, do not use a template, or
+need to heavily customize your tables. Otherwise, your template should set
+appropriate default table strokes.
 
 For example, this is a set rule that draws all horizontal lines except for the
 very first and last line.
 
 ```example
+#show table.cell: it => if it.x == 0 and it.y > 0 {
+  set text(style: "italic")
+  it
+} else {
+  it
+}
+
 #show table.cell.where(y: 0): strong
 #set table(stroke: (_, y) => if y > 0 { (top: 0.8pt) })
 
 #table(
   columns: 3,
+  align: center + horizon,
   table.header[Technique][Advantage][Drawback],
   [Diegetic], [Immersive], [May be contrived],
   [Extradiegetic], [Breaks immersion], [Obstrusive],
@@ -303,12 +442,20 @@ Let's try a few more stroking functions. The next function will only draw a line
 below the first row:
 
 ```example
+>>> #show table.cell: it => if it.x == 0 and it.y > 0 {
+>>>   set text(style: "italic")
+>>>   it
+>>> } else {
+>>>   it
+>>> }
+>>>
 >>> #show table.cell.where(y: 0): strong
 #set table(stroke: (_, y) => if y == 0 { (bottom: 1pt) })
 
 <<< // Table as seen above
 >>> #table(
 >>>   columns: 3,
+>>>   align: center + horizon,
 >>>   table.header[Technique][Advantage][Drawback],
 >>>   [Diegetic], [Immersive], [May be contrived],
 >>>   [Extradiegetic], [Breaks immersion], [Obstrusive],
@@ -323,6 +470,13 @@ we'll return `none` implicitly.
 The next example shows how to draw all but the outer lines:
 
 ```example
+>>> #show table.cell: it => if it.x == 0 and it.y > 0 {
+>>>   set text(style: "italic")
+>>>   it
+>>> } else {
+>>>   it
+>>> }
+>>>
 >>> #show table.cell.where(y: 0): strong
 #set table(stroke: (x, y) => (
   left: if x > 0 { .8pt },
@@ -332,6 +486,7 @@ The next example shows how to draw all but the outer lines:
 <<< // Table as seen above
 >>> #table(
 >>>   columns: 3,
+>>>   align: center + horizon,
 >>>   table.header[Technique][Advantage][Drawback],
 >>>   [Diegetic], [Immersive], [May be contrived],
 >>>   [Extradiegetic], [Breaks immersion], [Obstrusive],
@@ -347,6 +502,13 @@ Finally, here is a table that draws all lines except for the vertical lines in
 the first row. It looks a bit like a calendar.
 
 ```example
+>>> #show table.cell: it => if it.x == 0 and it.y > 0 {
+>>>   set text(style: "italic")
+>>>   it
+>>> } else {
+>>>   it
+>>> }
+>>>
 >>> #show table.cell.where(y: 0): strong
 #set table(stroke: (x, y) => (
   left: if x == 0 or y > 0 { 1pt } else { 0pt },
@@ -358,6 +520,7 @@ the first row. It looks a bit like a calendar.
 <<< // Table as seen above
 >>> #table(
 >>>   columns: 3,
+>>>   align: center + horizon,
 >>>   table.header[Technique][Advantage][Drawback],
 >>>   [Diegetic], [Immersive], [May be contrived],
 >>>   [Extradiegetic], [Breaks immersion], [Obstrusive],
@@ -376,6 +539,33 @@ because there is no `top` line that could suppress it.
 
 ### How to achieve a double line? { #double-stroke }
 
+Typst does not yet have a native way to draw double strokes, but there are
+multiple ways to emulate them, for example with [patterns]($pattern). We will
+show a different workaround in this section: Table gutters.
+
+Tables can space their cells apart using the `gutter` argument. When a gutter is
+applied, a stroke is drawn on each of the now seperated cells. Now, we need to
+selectively add gutter between the rows or columns for which we want to draw a
+double line. The `row-gutter` and `column-gutter` arguments allow us to do this.
+They accept arrays of gutter values. Let's take a look at an example:
+
+```example
+#table(
+  columns: 3,
+  stroke: (x: none),
+  row-gutter: (2.2pt, auto),
+  table.header[Date][Exercise Type][Calories Burned],
+  [2023-03-15], [Swimming], [400],
+  [2023-03-17], [Weightlifting], [250],
+  [2023-03-18], [Yoga], [200],
+)
+```
+
+We can see that we used an array for `row-gutter` that specifies a `{2.2pt}` gap
+between the first and second row. It then continues with `auto` (which is the
+default, in this case `{0pt}` gutter) which will be the gutter between all other
+rows, since it is the last entry in the array.
+
 ## How to import data into a table? { #import-data }
 
 ## How to rotate a table? { #rotate-table }
@@ -383,6 +573,8 @@ because there is no `top` line that could suppress it.
 ## How to merge cells? { #merge-cells }
 
 ## How to get a striped table? { #striped-rows-and-columns }
+
+### Changing the table cell's fill based on contents { #custom-cell-fill }
 
 ## How do I caption and reference my table? { #captions-and-references }
 
