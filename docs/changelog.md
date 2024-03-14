@@ -243,8 +243,6 @@ description: |
 - Command line interface
   - Added support for passing [inputs]($category/foundations/sys) via a CLI flag
   - When passing the filename `-`, Typst will now read input from stdin
-  - The watch mode now uses the alternate screen so that the original state of
-    the terminal is restored when exiting
   - Now uses the system-native TLS implementation for network fetching which
     should be generally more robust
   - Watch mode will now properly detect when a previously missing file is
