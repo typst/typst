@@ -832,6 +832,77 @@ the paragraph to achieve a nice and legible line length.
 
 ## How to merge cells? { #merge-cells }
 
+When a table contains logical groupings or the same data in multiple adjacent
+cells, merging multiple cells in a single, larger cell can be advantageous.
+Another use case for cell groups are table headers with multiple rows: That way,
+you can group for example a sales data table by quarter in the first row and by
+months in the second row.
+
+A merged cell spans multiple rows and / or columns. You can achieve it with the
+[`table.cell`]($table.cell) function's `rowspan` and `colspan` arguments: Just
+specify how many rows or columns you want your cell to span.
+
+The example below contains a attendance calendar for an office with in-person
+and remote days for each team member. To make the table more glanceable, we
+merge adjacent cells with the same value:
+
+```example
+>>> #set page(width: 22cm)
+#let ofi = [Office]
+#let rem = [_Remote_]
+#let lea = [*On leave*]
+
+#show table.cell.where(y: 0): set text(
+  fill: white, weight: "bold"
+)
+
+#table(
+  columns: 6 * (1fr,),
+  align: (x, y) =>
+    if y == 0 { bottom } else { horizon } +
+    if x == 0 or y == 0 { left } else { center },
+  stroke: (x, y) =>
+    if y == 0 and x > 0 {
+      (left: white, rest: black)
+    } else { 1pt },
+  fill: (_, y) => if y == 0 { black },
+
+  table.header(
+    [Team member],
+    [Monday],
+    [Tuesday],
+    [Wednesday],
+    [Thursday],
+    [Friday]
+  ),
+  [Evelyn Archer],
+    table.cell(colspan: 2, ofi),
+    table.cell(colspan: 2, rem),
+    ofi,
+  [Lila Montgomery],
+    table.cell(colspan: 5, lea),
+  [Nolan Pearce],
+    rem,
+    table.cell(colspan: 2, ofi),
+    rem,
+    ofi,
+)
+```
+
+In the example, we first define variables with "Office", "Remote", and "On
+leave" so we don't have to write these labels out every time. We can then use
+these variables in the table body either directly or in a `table.cell` call if
+the team member spends multiple consecutive days in office, remote, or off.
+
+The example also contains a black header (created with `table`'s `fill`
+argument) with white strokes (`table`'s `stroke` argument) and white text (set
+by the `table.cell` set rule). Finally, we align all the content of all table
+cells in the body in their vertical (_`{horizon}`_) and horizontal
+(_`{center}`_) center. If you want to know more about the functions passed to
+`align`, `stroke`, and `fill`, you can check out the sections on
+[alignment](#alignment), [strokes](#stroke-functions), and [striped
+tables](#striped-rows-and-columns).
+
 ## How to get a striped table? { #striped-rows-and-columns }
 
 ### Changing the table cell's fill based on contents { #custom-cell-fill }
