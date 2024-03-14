@@ -905,6 +905,149 @@ tables](#striped-rows-and-columns).
 
 ## How to get a striped table? { #striped-rows-and-columns }
 
+Many tables use striped rows or columns instead of strokes to differentiate
+between rows and columns. This effect is often called _zebra stripes._ Tables
+with zebra stripes are popular in Business and commercial Data Analytics
+applications, while academic applications tend to use strokes instead.
+
+To add zebra stripes to a table, we use the `table` function's `fill` argument.
+It can take three kinds of arguments:
+
+- A single color (this can also be a gradient or a pattern) to fill all cells
+  with. Because we want some cells to have another color, this is not useful if
+  we want to build zebra tables.
+- An array with colors which Typst cycles through for each column. We can use an
+  array with two elements to get striped columns.
+- A function that takes the horizontal coordinate `x` and the vertical
+  coordinate `y` of a cell and returns its fill. We can use this to create
+  horizontal stripes or [checkerboard patterns]($grid.cell).
+
+Let's start with an example of a horizontally striped table:
+
+```example
+>>> #set page(width: 16cm)
+#set text(font: "IBM Plex Sans")
+#show table.cell.where(x: 1): set text(weight: "medium")
+#show table.cell.where(y: 0): set text(weight: "bold")
+
+#let frame(stroke) = (x, y) => (
+  left: if x > 0 { 0pt } else { stroke },
+  right: stroke,
+  top: if y < 2 { stroke } else { 0pt },
+  bottom: stroke,
+)
+
+#set table(
+  fill: (rgb("EAF2F5"), none),
+  stroke: frame(rgb("21222C")),
+)
+
+#table(
+  columns: (1fr, 1fr, 1fr, 1fr),
+
+  table.header[Month][Title][Author][Genre],
+  [January], [The Great Gatsby],
+    [F. Scott Fitzgerald], [Classic],
+  [February], [To Kill a Mockingbird],
+    [Harper Lee], [Drama],
+  [March], [1984],
+    [George Orwell], [Dystopian],
+  [April], [The Catcher in the Rye],
+    [J.D. Salinger], [Coming-of-Age],
+)
+```
+
+This example shows a book club reading list. Because setting the stripes itself
+is easy we also added some other styles to make it look nice. The line
+`{fill: (rgb("EAF2F5"), none)}` in `table`'s set rule is all that is needed to
+add striped columns . It tells Typst to alternate between coloring columns with
+a light blue (in the [`rgb`]($color.rgb) function call) and nothing (`{none}`).
+
+The other code in the example provides a dark blue [stroke](#stroke-functions)
+around the table and below the first line and emboldens the first row and the
+column with the book title.
+
+Let's next look at how we can change only the set rule to achieve horizontal
+stripes instead:
+
+```example
+>>> #set page(width: 16cm)
+>>> #set text(font: "IBM Plex Sans")
+>>> #show table.cell.where(x: 1): set text(weight: "medium")
+>>> #show table.cell.where(y: 0): set text(weight: "bold")
+>>>
+>>> #let frame(stroke) = (x, y) => (
+>>>   left: if x > 0 { 0pt } else { stroke },
+>>>   right: stroke,
+>>>   top: if y < 2 { stroke } else { 0pt },
+>>>   bottom: stroke,
+>>> )
+>>>
+#set table(
+  fill: (_, y) => if calc.odd(y) { rgb("EAF2F5") },
+  stroke: frame(rgb("21222C")),
+)
+>>>
+>>> #table(
+>>>   columns: (1fr, 1fr, 1fr, 1fr),
+>>>
+>>>   table.header[Month][Title][Author][Genre],
+>>>   [January], [The Great Gatsby],
+>>>     [F. Scott Fitzgerald], [Classic],
+>>>   [February], [To Kill a Mockingbird],
+>>>     [Harper Lee], [Drama],
+>>>   [March], [1984],
+>>>     [George Orwell], [Dystopian],
+>>>   [April], [The Catcher in the Rye],
+>>>     [J.D. Salinger], [Coming-of-Age],
+>>> )
+```
+
+We just need to replace the set rule from the previous example with this one and
+get horizontal stripes instead. Here, we are passing a function in `fill`. It
+discards the horizontal coordinate with an underscore and then checks if the
+vertical coordinate `y` of the cell is odd. If so, the cell gets a light blue
+fill, otherwise, no fill is returned.
+
+Of course, you can make this function arbitrarily complex. For example, if you
+want to stripe the rows with a light and darker shade of blue, you could do
+something like this:
+
+```example
+>>> #set page(width: 16cm)
+>>> #set text(font: "IBM Plex Sans")
+>>> #show table.cell.where(x: 1): set text(weight: "medium")
+>>> #show table.cell.where(y: 0): set text(weight: "bold")
+>>>
+>>> #let frame(stroke) = (x, y) => (
+>>>   left: if x > 0 { 0pt } else { stroke },
+>>>   right: stroke,
+>>>   top: if y < 2 { stroke } else { 0pt },
+>>>   bottom: stroke,
+>>> )
+>>>
+#set table(
+  fill: (_, y) =>
+    (none, rgb("EAF2F5"), rgb("DDEAEF"))
+      .at(calc.rem(y, 3)),
+  stroke: frame(rgb("21222C")),
+)
+>>>
+>>> #table(
+>>>   columns: (1fr, 1fr, 1fr, 1fr),
+>>>
+>>>   table.header[Month][Title][Author][Genre],
+>>>   [January], [The Great Gatsby],
+>>>     [F. Scott Fitzgerald], [Classic],
+>>>   [February], [To Kill a Mockingbird],
+>>>     [Harper Lee], [Drama],
+>>>   [March], [1984],
+>>>     [George Orwell], [Dystopian],
+>>>   [April], [The Catcher in the Rye],
+>>>     [J.D. Salinger], [Coming-of-Age],
+>>> )
+```
+
 ### Changing the table cell's fill based on contents { #custom-cell-fill }
 
 ## How do I caption and reference my table? { #captions-and-references }
