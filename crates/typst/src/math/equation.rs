@@ -176,6 +176,8 @@ impl ShowSet for Packed<EquationElem> {
         if self.block(styles) {
             out.set(AlignElem::set_alignment(Alignment::CENTER));
             out.set(EquationElem::set_size(MathSize::Display));
+        } else {
+            out.set(EquationElem::set_size(MathSize::Text));
         }
         out.set(TextElem::set_weight(FontWeight::from_number(450)));
         out.set(TextElem::set_font(FontList(vec![FontFamily::new(
