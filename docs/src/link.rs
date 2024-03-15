@@ -87,10 +87,10 @@ fn resolve_definition(head: &str, base: &str) -> StrResult<String> {
         return Ok(route);
     }
 
-    let mut route = format!("{}reference/{}/{name}/", base, category.name());
+    let mut route = format!("{}reference/{}/{name}", base, category.name());
     if let Some(next) = parts.next() {
         if let Ok(field) = value.field(next) {
-            route.push_str("#definitions-");
+            route.push_str("/#definitions-");
             route.push_str(next);
             if let Some(next) = parts.next() {
                 if field.cast::<Func>().is_ok_and(|func| func.param(next).is_some()) {
@@ -103,7 +103,7 @@ fn resolve_definition(head: &str, base: &str) -> StrResult<String> {
             .cast::<Func>()
             .is_ok_and(|func| func.param(next).is_some())
         {
-            route.push_str("#parameters-");
+            route.push_str("/#parameters-");
             route.push_str(next);
         } else {
             bail!("field {next} not found");
