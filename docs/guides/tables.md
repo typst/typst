@@ -174,7 +174,7 @@ remainder of the space on the page. If you wanted to instead change the second
 column to be a bit more spacious, you could replace its entry in the `columns`
 array with a value like `6em`.
 
-## How to adjust the table strokes? { #strokes }
+## How to adjust the lines in a table? { #strokes }
 
 By default, Typst adds strokes between each row and column of a table. You can
 adjust these strokes in a variety of ways. Which one is the most practical
@@ -1101,47 +1101,56 @@ For example, here is a list of all German presidents, with the cell borders
 colored in the color of their party.
 
 ```example
+>>> #set page(width: 10cm)
 #set text(font: "Roboto")
 
-#let cdu(name) = table.cell(fill: black, text(fill: white, name))
-#let spd(name) = table.cell(fill: red, text(fill: white, name))
-#let fdp(name) = table.cell(fill: yellow, name)
+#let cdu(name) = ([CDU], table.cell(fill: black)[
+  #set text(fill: white)
+  #name
+])
+#let spd(name) = ([SPD], table.cell(fill: red)[
+  #set text(fill: white)
+  #name
+])
+#let fdp(name) = ([FDP], table.cell(fill: yellow, name))
 
 #table(
-  columns: (auto, 1fr),
+  columns: (auto, auto, 1fr),
   stroke: (x: none),
 
-  table.header[Tenure][President],
-  [1949-1959], fdp[Theodor Heuss],
-  [1959-1969], cdu[Heinrich Lübke],
-  [1969-1974], spd[Gustav Heinemann],
-  [1974-1979], fdp[Walter Scheel],
-  [1979-1984], cdu[Karl Carstens],
-  [1984-1994], cdu[Richard von Weizsäcker],
-  [1994-1999], cdu[Roman Herzog],
-  [1999-2004], spd[Johannes Rau],
-  [2004-2010], cdu[Horst Köhler],
-  [2010-2012], cdu[Christian Wulff],
-  [2012-2017], [Joachim Gauck],
-  [2017-],     spd[Frank-Walter-Steinmeier],
+  table.header[Tenure][Party][President],
+  [1949-1959], ..fdp[Theodor Heuss],
+  [1959-1969], ..cdu[Heinrich Lübke],
+  [1969-1974], ..spd[Gustav Heinemann],
+  [1974-1979], ..fdp[Walter Scheel],
+  [1979-1984], ..cdu[Karl Carstens],
+  [1984-1994], ..cdu[Richard von Weizsäcker],
+  [1994-1999], ..cdu[Roman Herzog],
+  [1999-2004], ..spd[Johannes Rau],
+  [2004-2010], ..cdu[Horst Köhler],
+  [2010-2012], ..cdu[Christian Wulff],
+  [2012-2017], [n/a], [Joachim Gauck],
+  [2017-],     ..spd[Frank-Walter-Steinmeier],
 )
 ```
 
 In this example, we make use of variables because there only have been a total
 of three parties whose members have become president (and one unaffiliated
 president). Their colors will repeat multiple times, so we store a function that
-produces a table cell with that party's color and a name (`cdu`, `spd`, and
-`fdp`). We then use these functions in the `table` argument list instead of
-directly adding the name. We could also write something like `{table.cell(fill:
-yellow)[Theodor Heuss]}` for each cell directly in the `table`'s argument list,
-but that becomes unreadable, especially for the parties whose colors are dark so
-that they require white text. We also delete vertical strokes and set the font
-to Roboto.
+produces an array with their party's name and a table cell with that party's
+color and the president's name (`cdu`, `spd`, and `fdp`). We then use these
+functions in the `table` argument list instead of directly adding the name. We
+use the [spread operator]($syntax) `..` to make each field of the array the
+functions return a single cell. We could also write something like
+`{[FDP], table.cell(fill: yellow)[Theodor Heuss]}` for each cell directly in the
+`table`'s argument list, but that becomes unreadable, especially for the parties
+whose colors are dark so that they require white text. We also delete vertical
+strokes and set the font to Roboto.
 
-This example has one caveat: Communicating important data using color only, like
-in the example above, is a bad accessability practice. It disadvantages users
-with vision impairment and is in violation of universal access standards, such
-as the
+The party column and the cell color in this example communicate redundant
+information on purpose: Communicating important data using color only, like in
+the example above, is a bad accessability practice. It disadvantages users with
+vision impairment and is in violation of universal access standards, such as the
 [WCAG 2.1 Success Criterion 1.4.1](https://www.w3.org/WAI/WCAG21/Understanding/use-of-color.html).
 To improve your table, you should add a column printing the party name.
 Alternatively, you could make sure to choose a color-blindness friendly palette
@@ -1149,8 +1158,8 @@ and mark up your cells with an additional label that screen readers can read out
 loud. The latter feature is not currently supported by Typst, but will be added
 in a future release. You can check how colors look for color-blind readers with
 [this Chrome extension](https://chromewebstore.google.com/detail/colorblindly/floniaahmccleoclneebhhmnjgdfijgg),
-[Photoshop](https://helpx.adobe.com/photoshop/using/proofing-colors.html),
-or [GIMP](https://docs.gimp.org/2.10/en/gimp-display-filter-dialog.html).
+[Photoshop](https://helpx.adobe.com/photoshop/using/proofing-colors.html), or
+[GIMP](https://docs.gimp.org/2.10/en/gimp-display-filter-dialog.html).
 
 ## How do I caption and reference my table? { #captions-and-references }
 
@@ -1180,9 +1189,9 @@ Let's take a look at a captioned table and how to reference it in prose:
     [Voltage], [220V ± 5%], [218V], [Pass],
     [Current], [5A ± 0.5A], [4.2A], [Fail],
   ),
-) <probeA>
+) <probe-a>
 
-The results from @probeA show that the design is not yet optimal.
+The results from @probe-a show that the design is not yet optimal.
 We will show how its performance can be improved in this section.
 ```
 
@@ -1194,14 +1203,155 @@ is only needed when calling a function in markup mode, when code mode is already
 active in a argument list. We also add the caption as a named argument above (or
 below) the table.
 
-After the figure call, we put a label in angle brackets (`[<probeA>]`). This
+After the figure call, we put a label in angle brackets (`[<probe-a>]`). This
 tells Typst to remember this function and make it referenceable under this name
 throughout your document. We can then reference it in prose by using the at sign
-and the label name `[@probeA]`. Typst will print a nicely formatted reference
+and the label name `[@probe-a]`. Typst will print a nicely formatted reference
 and automatically update the label if the table's number changes.
 
 ## How to break a table across pages? { #pagebreaks }
 
+It is best to contain a table on a single page. However, some tables just have
+many rows, so breaking them across pages becomes unavoidable. Fortunately, Typst
+supports breaking tables across pages out-of-the-box. If you are using the
+[`table.header`]($table.header) and [`table.footer` ]($table.footer) functions,
+their contents will be repeated on each page as the first and last rows,
+respectively. If you want to disable this behavior, you can set `repeat` to
+`{false}` on either of them.
+
+If you have placed your table inside of a [figure]($figure), it becomes unable
+to break across pages by default. However, you can change this behavior. Let's
+take a look:
+
+```example
+#set page(width: 9cm, height: 7cm)
+#show figure: set block(breakable: true)
+#show table.cell.where(y: 0): set text(weight: "bold")
+
+#figure(
+  caption: [Training regimen for Marathon],
+  table(
+    columns: 3,
+    fill: (_, y) => if y == 0 { gray.lighten(75%) },
+
+    table.header[Week][Distance (km)][Time (hh:mm:ss)],
+    [1],[5],[00:30:00],
+    [2],[7],[00:45:00],
+    [3],[10],[01:00:00],
+    [4],[12],[01:10:00],
+    [5],[15],[01:25:00],
+    [6],[18],[01:40:00],
+    [7],[20],[01:50:00],
+    [...],[...],[...],
+    table.footer[_Goal_][_42.195_][_02:45:00_],
+  )
+)
+```
+
+A figure automatically produces a [block]($block) which cannot break by default.
+However, we can reconfigure the block of the figure using a show rule to make it
+`breakable`. Now, the figure spans multiple pages with the headers and footers
+repeating.
+
 ## How to align the contents of the cells in my table? { #alignment }
 
+You can use multiple mechanisms to align the content in your table. You can
+either use the `table` function's `align` argument to set the alignment for your
+whole table (or use it in a set rule to set the alignment for tables throughout
+your document) or the [`align`]($align) function (or `table.cell`'s `align`
+argument) to override the alignment of a single cell.
+
+When using the `table` function's align argument, you can choose between three
+methods to specify an [alignment]($alignment):
+
+- Just specify a single alignment like `right` (aligns in the top-right corner)
+  or `center + horizon` (centers all cell content). This changes the alignment
+  of all cells.
+- Provide an array. Typst will cycle through this array for each column.
+- Provide a function that is passed the horizontal `x` and vertical `y`
+  coordinate of a cell and returns an alignment. This is useful if you want to
+  change the alignment based on the row count.
+
+For example, this travel itinerary right-aligns the day column and left-aligns
+everything else by providing an array in the `align` argument:
+
+```example
+>>> #set page(width: 12cm)
+#show table.cell.where(y: 0): set text(weight: "bold")
+#set text(font: "IBM Plex Sans")
+
+#table(
+  columns: 4,
+  align: (right, left, left, left),
+  fill: (_, y) => if calc.odd(y) { green.lighten(90%) },
+  stroke: none,
+
+  table.header[Day][Location][Hotel or Apartment][Activities],
+  [1], [Paris, France], [Hotel de L'Europe], [Arrival, Evening River Cruise],
+  [2], [Paris, France], [Hotel de L'Europe], [Louvre Museum, Eiffel Tower],
+  [3], [Lyon, France], [Lyon City Hotel], [City Tour, Local Cuisine Tasting],
+  [4], [Geneva, Switzerland], [Lakeview Inn], [Lake Geneva, Red Cross Museum],
+  [5], [Zermatt, Switzerland], [Alpine Lodge], [Visit Matterhorn, Skiing],
+)
+```
+
+However, this example does not yet look perfect — the header cells should be
+bottom-aligned. Let's use a function instead to do so:
+
+```example
+>>> #set page(width: 12cm)
+#show table.cell.where(y: 0): set text(weight: "bold")
+#set text(font: "IBM Plex Sans")
+
+#table(
+  columns: 4,
+  align: (x, y) =>
+    if x == 0 { right } else { left } +
+    if y == 0 { bottom } else { top },
+  fill: (_, y) => if calc.odd(y) { green.lighten(90%) },
+  stroke: none,
+
+  table.header[Day][Location][Hotel or Apartment][Activities],
+  [1], [Paris, France], [Hotel de L'Europe], [Arrival, Evening River Cruise],
+  [2], [Paris, France], [Hotel de L'Europe], [Louvre Museum, Eiffel Tower],
+<<<  // ... remaining days omitted
+>>>  [3], [Lyon, France], [Lyon City Hotel], [City Tour, Local Cuisine Tasting],
+>>>  [4], [Geneva, Switzerland], [Lakeview Inn], [Lake Geneva, Red Cross Museum],
+>>>  [5], [Zermatt, Switzerland], [Alpine Lodge], [Visit Matterhorn, Skiing],
+)
+```
+
+In the function, we calculate a horizontal and vertical alignment based on
+whether we are in the first column (`{x == 0}`) or the first row (`{y == 0}`)
+and use that we can add up horizontal and vertical alignments with `+` to
+receive a single, two-dimensional alignment.
+
+You can find an example of using `table.cell` to change a single cell's
+alignment on [its reference page]($table.cell).
+
 ## What if I need the table function for something that isn't a table? { #grid }
+
+Tabular layouts of content can be useful not only for matrices of closely
+related data, like shown in the examples throughout this guide, but also for
+presentational purposes. Typst differentiates between grids that are for layout
+and presentational purposes only and tables, in which the arrangement of the
+cells itself conveys information.
+
+To make this difference clear to other software and allow templates to heavily
+style tables, Typst has two functions for grid and table layout:
+
+- The [`table`]($table) function explained throughout this guide which is
+  intended for tabular data.
+- The [`grid`]($grid) function which is intended for presentational purposes and
+  page layout.
+
+Both elements work the same way and have the same arguments. You can apply
+everything you have learned about tables in this guide to grids. There are only
+three differences:
+
+- You'll need to use the [`grid.cell`], [`grid.vline`], and [`grid.hline`]
+  elements instead of [`table.cell`], [`table.vline`], and [`table.hline`].
+- The grid has different defaults: It draws no strokes by default and has no
+  spacing (`inset`) inside of its cells.
+- Elements like `figure` do not react to grids since they are supposed to have
+  no semantical bearing on the document structure.
