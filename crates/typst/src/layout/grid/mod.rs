@@ -191,8 +191,8 @@ pub struct GridElem {
     ///
     /// ```example
     /// #grid(
-    ///   fill: (col, row) =>
-    ///     if calc.even(col + row) { luma(230) }
+    ///   fill: (x, y) =>
+    ///     if calc.even(x + y) { luma(230) }
     ///     else { white },
     ///   align: center + horizon,
     ///   columns: 4,

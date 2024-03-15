@@ -419,8 +419,8 @@ show rule.
 In the web app, you can choose from predefined templates or even
 create your own using the template wizard. Locally, you can use the
 `typst init` CLI to create a new project from a template. Check out
-[the list of templates]($packages/?templates) published in the official package
-manager. You can also take a look at the
+[the list of templates]($universe/search/?kind=templates) published on Typst
+Universe, our official package ecosystem. You can also take a look at the
 [`awesome-typst` repository](https://github.com/qjcg/awesome-typst) to find
 community templates that aren't yet available as packages.
 
@@ -452,7 +452,7 @@ and their corresponding Typst functions.
 | enumitem                        | [`list`], [`enum`], [`terms`] functions    |
 
 Although _many_ things are built-in, not everything can be. That's why Typst has
-a built-in [package manager]($packages) where the community can share their
+a built-in [package manager]($universe) where the community can share their
 creations and automations. Let's take, for instance, the _cetz_ package: This
 package allows you to create complex drawings and plots. To use cetz in your
 document, you can just write:

@@ -7,7 +7,8 @@ description: |
 # Changelog
 ## Unreleased
 - Tables (thanks to [@PgBiel](https://github.com/PgBiel))
-  - Tables are now _much_ more flexible
+  - Tables are now _much_ more flexible, read the new
+    [table guide]($guides/table-guide) to get started
   - Added [`table.cell`] element for per-cell configuration
   - Cells can now span multiple [columns]($table.cell.colspan) or
     [rows]($table.cell.rowspan)
@@ -24,13 +25,13 @@ description: |
   - You can now use template packages to get started with new projects. Click
     _Start from template_ on the web app's dashboard and choose your preferred
     template or run the `typst init <template>` command in the CLI. You can
-    [browse the available templates here]($packages/?templates).
+    [browse the available templates here]($universe/search/?kind=templates).
   - Switching templates after the fact has become easier. You can just import a
     styling function from a different template package.
   - Package authors can now submit their own templates to the
     [package repository](https://github.com/typst/packages). Share a template
-    for a paper, your school, or an original work to help the community get a
-    head start on their projects.
+    for a paper, your institution, or an original work to help the community get
+    a head start on their projects.
   - Templates and packages are now organized by category and discipline. Filter
     packages by either taxonomy in the _Start from template_ wizard. If you are
     a package author, take a look at the new documentation for
@@ -49,7 +50,7 @@ description: |
   - Added contextual function [`here`] to retrieve the [location] of the current
     context
   - The [`locate`] function now returns the location of a selector's unique
-    match. Its old behaviour has been replaced by context expressions and only
+    match. Its old behavior has been replaced by context expressions and only
     remains temporarily available for compatibility.
   - The [`counter.at`] and [`state.at`] methods are now more flexible: They
     directly accept any kind of [locatable]($location/#locatable) selector with
@@ -59,7 +60,7 @@ description: |
     should not be used anymore without context. (Deprecation planned)
   - The [`state.display`] function should not be used anymore, use [`state.get`]
     instead (Deprecation planned)
-  - The `location` arguments of [`query`], [`counter.final`], and
+  - The `location` argument of [`query`], [`counter.final`], and
     [`state.final`] should not be used anymore (Deprecation planned)
   - The [`styles`]($measure.styles) argument of the `measure` function should
     not be used anymore (Deprecation planned)
@@ -75,8 +76,8 @@ description: |
   - Show-set rules on the same element
     (e.g. `{show heading.where(level: 1): set heading(numbering: "1.")}`) now
     work properly
-  - Setting properties on an element within a transformational show rule (e.g..
-    `{show heading: it => { set heading(..): it }}`) is **not** supported
+  - Setting properties on an element within a transformational show rule (e.g.
+    `{show heading: it => { set heading(..); it }}`) is **not** supported
     anymore (previously it also only worked sometimes); use show-set rules
     instead (**Breaking change**)
   - Text show rules that match their own output now work properly
@@ -88,8 +89,9 @@ description: |
   - [And]($selector.and) and [or]($selector.or) selectors can now be used with
     show rules
   - Errors within show rules and context expressions are now ignored in all but
-    the last introspection iteration, in line with the behaviour of the old
+    the last introspection iteration, in line with the behavior of the old
     [`locate`]
+  - Fixed a bug where document set rules were allowed after content
 
 - Layout
   - Added `reflow` argument to [`rotate`]($rotate) and [`scale`]($scale) which
@@ -102,6 +104,8 @@ description: |
   - Fixed usage of [`h`] and [`v`] in [stacks]($stack)
   - Invisible content like a counter update will no longer force a visible
     block for just itself
+  - Fixed a bug with horizontal spacing followed by invisible content (like a
+    counter update) directly at the start of a paragraph
 
 - Text
   - Added [`stroke`]($text.stroke) property for text
@@ -111,7 +115,7 @@ description: |
   - The [text direction]($text.dir) can now be overridden within a paragraph
   - Fixed Danish [smart quotes]($smartquote)
   - Fixed font fallback next to a line break
-  - Fixed width adjustment of JIS-style Japanse punctuation
+  - Fixed width adjustment of JIS-style Japanese punctuation
   - Fixed Finnish translation of "Listing"
   - Fixed Z-ordering of multiple text decorations (underlines, etc.)
   - Fixed a bug due to which text [features]($text.features) could not be
@@ -119,11 +123,13 @@ description: |
 
 - Model
   - Added [`depth`]($heading.depth) and [`offset`]($heading.offset) arguments to
-    heading to increase or decrease the heading level for a bunch of content
+    heading to increase or decrease the heading level for a bunch of content;
+    the heading syntax now sets `depth` rather than `level`
+    (**Breaking change**)
   - List [markers]($list.marker) now cycle by default
   - The [`quote`] function now more robustly selects the correct quotes based on
     language and nesting
-  - Fixed indents bugs related to default show rule of [terms]
+  - Fixed indent bugs related to the default show rule of [terms]
 
 - Math
   - Inline equations now automatically linebreak at appropriate places
@@ -134,6 +140,7 @@ description: |
   - [Primes]($math.primes) are now always attached as [scripts]($math.scripts)
     by default
   - Exposed [`math.primes`] element which backs the `[$f'$]` syntax in math
+  - Math mode is not affected by [`strong`] and [`emph`] anymore
   - Fixed [`attach`]($math.attach) under [fractions]($math.frac)
   - Fixed that [`math.class`] did not affect smart limit placement
   - Fixed weak spacing in [`lr`]($math.lr) groups
@@ -179,7 +186,7 @@ description: |
 
 - Syntax
   - Added support for nested [destructuring patterns]($scripting/#bindings)
-  - Special spaces (like thin or no-breaking spaces) are now parsed literally
+  - Special spaces (like thin or non-breaking spaces) are now parsed literally
     instead of being collapsed into normal spaces (**Breaking change**)
   - Korean text can now use emphasis syntax without adding spaces
     (**Breaking change**)
@@ -255,6 +262,7 @@ description: |
   - Added `--vendor-openssl` to CLI to configure whether to link OpenSSL
     statically instead of dynamically (not applicable to Windows and Apple
     platforms)
+  - Removed old tracing (and its verbosity) flag from the CLI
   - Added new `--timings` flag which supersedes the old flamegraph profiling in
     the CLI
   - Added minimal CLI to `typst-docs` crate for extracting the language and
@@ -837,7 +845,7 @@ description: |
 ## Version 0.6.0 (June 30, 2023) { #v0.6.0 }
 - Package Management
   - Typst now has built-in [package management]($scripting/#packages)
-  - You can import [published]($packages) community packages or create and use
+  - You can import [published]($universe) community packages or create and use
     [system-local](https://github.com/typst/packages#local-packages) ones
   - Published packages are also supported in the web app
 
