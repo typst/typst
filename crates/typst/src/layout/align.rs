@@ -607,7 +607,7 @@ where
     }
 
     fn output() -> CastInfo {
-        H::output() + V::output()
+        Alignment::output()
     }
 
     fn castable(value: &Value) -> bool {
