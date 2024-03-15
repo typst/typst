@@ -5,7 +5,7 @@ description: |
 ---
 
 # Changelog
-## Unreleased
+## Version 0.11.0 (March 15, 2024) { #v0.11.0 }
 - Tables (thanks to [@PgBiel](https://github.com/PgBiel))
   - Tables are now _much_ more flexible, read the new
     [table guide]($guides/table-guide) to get started
@@ -270,6 +270,8 @@ description: |
   - The `typst_pdf::export` function's `ident` argument switched from `Option`
     to `Smart`. It should only be set to `Smart::Custom` if you can provide
     a stable identifier (like the web app can). The CLI sets `Smart::Auto`.
+
+<contributors from="v0.10.0" to="v0.11.0" />
 
 ## Version 0.10.0 (December 4, 2023) { #v0.10.0 }
 - Bibliography management

@@ -2510,7 +2510,7 @@ checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
 
 [[package]]
 name = "typst"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "az",
  "bitflags 2.4.2",
@@ -2571,12 +2571,13 @@ dependencies = [
 
 [[package]]
 name = "typst-assets"
-version = "0.10.0"
-source = "git+https://github.com/typst/typst-assets?rev=4d1211a#4d1211ab5ba8a02992a7362000e6dd422d44dd68"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f13f85360328da54847dd7fefaf272dfa5b6d1fdeb53f32938924c39bf5b2c6c"
 
 [[package]]
 name = "typst-cli"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "chrono",
  "clap",
@@ -2621,12 +2622,12 @@ dependencies = [
 
 [[package]]
 name = "typst-dev-assets"
-version = "0.10.0"
-source = "git+https://github.com/typst/typst-dev-assets?rev=2eec695#2eec695af4b8b32c079e549b78c64ef7ff5d5fff"
+version = "0.11.0"
+source = "git+https://github.com/typst/typst-dev-assets?tag=v0.11.0#e0ef7ad46f28a440c41bc8e78563ace86cc02678"
 
 [[package]]
 name = "typst-docs"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "clap",
  "comemo",
@@ -2649,7 +2650,7 @@ dependencies = [
 
 [[package]]
 name = "typst-fuzz"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "comemo",
  "libfuzzer-sys",
@@ -2661,7 +2662,7 @@ dependencies = [
 
 [[package]]
 name = "typst-ide"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "comemo",
  "ecow",
@@ -2674,7 +2675,7 @@ dependencies = [
 
 [[package]]
 name = "typst-macros"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -2684,7 +2685,7 @@ dependencies = [
 
 [[package]]
 name = "typst-pdf"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "base64 0.22.0",
  "bytemuck",
@@ -2708,7 +2709,7 @@ dependencies = [
 
 [[package]]
 name = "typst-render"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "bytemuck",
  "comemo",
@@ -2727,7 +2728,7 @@ dependencies = [
 
 [[package]]
 name = "typst-svg"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "base64 0.22.0",
  "comemo",
@@ -2743,7 +2744,7 @@ dependencies = [
 
 [[package]]
 name = "typst-syntax"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "comemo",
  "ecow",
@@ -2758,7 +2759,7 @@ dependencies = [
 
 [[package]]
 name = "typst-tests"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "clap",
  "comemo",
@@ -2781,7 +2782,7 @@ dependencies = [
 
 [[package]]
 name = "typst-timing"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "parking_lot",
  "serde",
