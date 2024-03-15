@@ -171,6 +171,303 @@ the page. If you wanted to instead change the second column to be a bit more
 spacious, you could replace its entry in the `columns` array with a value like
 `6em`.
 
+## How to caption and reference my table? { #captions-and-references }
+A table is just as valuable as the information your readers draw from it. You
+can enhance the effectiveness of both your prose and your table by making a
+clear connection between the two with a cross-reference. Typst can help you with
+this with automatic [references]($ref) and the [`figure` function]($figure).
+
+Just like with images, wrapping a table in a `figure` function allows you to add
+a caption and a label, so you can reference the figure elsewhere. Wrapping your
+table in a figure also lets you use the figure's `placement` parameter to float
+it to the top or bottom of a page.
+
+Let's take a look at a captioned table and how to reference it in prose:
+
+```example
+>>> #set page(width: 14cm)
+#show table.cell.where(y: 0): set text(weight: "bold")
+
+#figure(
+  caption: [Probe results for design A],
+  table(
+    columns: 4,
+    stroke: none,
+
+    table.header[Test Item][Specification][Test Result][Compliance],
+    [Voltage], [220V ± 5%], [218V], [Pass],
+    [Current], [5A ± 0.5A], [4.2A], [Fail],
+  ),
+) <probe-a>
+
+The results from @probe-a show that the design is not yet optimal.
+We will show how its performance can be improved in this section.
+```
+
+The example shows how to wrap a table in a figure, set a caption and a label,
+and how to reference that label. We start by using the `figure` function. It
+expects the contents of the figure as a positional argument. We just put the
+table function call in its argument list, omitting the `#` character because it
+is only needed when calling a function in markup mode, when code mode is already
+active in a argument list. We also add the caption as a named argument above (or
+below) the table.
+
+After the figure call, we put a label in angle brackets (`[<probe-a>]`). This
+tells Typst to remember this function and make it referenceable under this name
+throughout your document. We can then reference it in prose by using the at sign
+and the label name `[@probe-a]`. Typst will print a nicely formatted reference
+and automatically update the label if the table's number changes.
+
+## How to get a striped table? { #fills }
+Many tables use striped rows or columns instead of strokes to differentiate
+between rows and columns. This effect is often called _zebra stripes._ Tables
+with zebra stripes are popular in Business and commercial Data Analytics
+applications, while academic applications tend to use strokes instead.
+
+To add zebra stripes to a table, we use the `table` function's `fill` argument.
+It can take three kinds of arguments:
+
+- A single color (this can also be a gradient or a pattern) to fill all cells
+  with. Because we want some cells to have another color, this is not useful if
+  we want to build zebra tables.
+- An array with colors which Typst cycles through for each column. We can use an
+  array with two elements to get striped columns.
+- A function that takes the horizontal coordinate `x` and the vertical
+  coordinate `y` of a cell and returns its fill. We can use this to create
+  horizontal stripes or [checkerboard patterns]($grid.cell).
+
+Let's start with an example of a horizontally striped table:
+
+```example
+>>> #set page(width: 16cm)
+#set text(font: "IBM Plex Sans")
+#show table.cell.where(x: 1): set text(weight: "medium")
+#show table.cell.where(y: 0): set text(weight: "bold")
+
+#let frame(stroke) = (x, y) => (
+  left: if x > 0 { 0pt } else { stroke },
+  right: stroke,
+  top: if y < 2 { stroke } else { 0pt },
+  bottom: stroke,
+)
+
+#set table(
+  fill: (rgb("EAF2F5"), none),
+  stroke: frame(rgb("21222C")),
+)
+
+#table(
+  columns: (0.4fr, 1fr, 1fr, 1fr),
+
+  table.header[Month][Title][Author][Genre],
+  [January], [The Great Gatsby],
+    [F. Scott Fitzgerald], [Classic],
+  [February], [To Kill a Mockingbird],
+    [Harper Lee], [Drama],
+  [March], [1984],
+    [George Orwell], [Dystopian],
+  [April], [The Catcher in the Rye],
+    [J.D. Salinger], [Coming-of-Age],
+)
+```
+
+This example shows a book club reading list. Because setting the stripes itself
+is easy we also added some other styles to make it look nice. The line
+`{fill: (rgb("EAF2F5"), none)}` in `table`'s set rule is all that is needed to
+add striped columns. It tells Typst to alternate between coloring columns with a
+light blue (in the [`rgb`]($color.rgb) function call) and nothing (`{none}`).
+
+The other code in the example provides a dark blue [stroke](#stroke-functions)
+around the table and below the first line and emboldens the first row and the
+column with the book title.
+
+Let's next look at how we can change only the set rule to achieve horizontal
+stripes instead:
+
+```example
+>>> #set page(width: 16cm)
+>>> #set text(font: "IBM Plex Sans")
+>>> #show table.cell.where(x: 1): set text(weight: "medium")
+>>> #show table.cell.where(y: 0): set text(weight: "bold")
+>>>
+>>> #let frame(stroke) = (x, y) => (
+>>>   left: if x > 0 { 0pt } else { stroke },
+>>>   right: stroke,
+>>>   top: if y < 2 { stroke } else { 0pt },
+>>>   bottom: stroke,
+>>> )
+>>>
+#set table(
+  fill: (_, y) => if calc.odd(y) { rgb("EAF2F5") },
+  stroke: frame(rgb("21222C")),
+)
+>>>
+>>> #table(
+>>>   columns: (0.4fr, 1fr, 1fr, 1fr),
+>>>
+>>>   table.header[Month][Title][Author][Genre],
+>>>   [January], [The Great Gatsby],
+>>>     [F. Scott Fitzgerald], [Classic],
+>>>   [February], [To Kill a Mockingbird],
+>>>     [Harper Lee], [Drama],
+>>>   [March], [1984],
+>>>     [George Orwell], [Dystopian],
+>>>   [April], [The Catcher in the Rye],
+>>>     [J.D. Salinger], [Coming-of-Age],
+>>> )
+```
+
+We just need to replace the set rule from the previous example with this one and
+get horizontal stripes instead. Here, we are passing a function in `fill`. It
+discards the horizontal coordinate with an underscore and then checks if the
+vertical coordinate `y` of the cell is odd. If so, the cell gets a light blue
+fill, otherwise, no fill is returned.
+
+Of course, you can make this function arbitrarily complex. For example, if you
+want to stripe the rows with a light and darker shade of blue, you could do
+something like this:
+
+```example
+>>> #set page(width: 16cm)
+>>> #set text(font: "IBM Plex Sans")
+>>> #show table.cell.where(x: 1): set text(weight: "medium")
+>>> #show table.cell.where(y: 0): set text(weight: "bold")
+>>>
+>>> #let frame(stroke) = (x, y) => (
+>>>   left: if x > 0 { 0pt } else { stroke },
+>>>   right: stroke,
+>>>   top: if y < 2 { stroke } else { 0pt },
+>>>   bottom: stroke,
+>>> )
+>>>
+#set table(
+  fill: (_, y) =>
+    (none, rgb("EAF2F5"), rgb("DDEAEF"))
+      .at(calc.rem(y, 3)),
+  stroke: frame(rgb("21222C")),
+)
+>>>
+>>> #table(
+>>>   columns: (0.4fr, 1fr, 1fr, 1fr),
+>>>
+>>>   table.header[Month][Title][Author][Genre],
+>>>   [January], [The Great Gatsby],
+>>>     [F. Scott Fitzgerald], [Classic],
+>>>   [February], [To Kill a Mockingbird],
+>>>     [Harper Lee], [Drama],
+>>>   [March], [1984],
+>>>     [George Orwell], [Dystopian],
+>>>   [April], [The Catcher in the Rye],
+>>>     [J.D. Salinger], [Coming-of-Age],
+>>> )
+```
+
+This example shows an alternative approach to write our fill function. The
+function uses an array with three colors and then cycles between its values for
+each row by indexing the array.
+
+Finally, here is a bonus example that uses the stroke to achieve striped rows:
+
+```example
+>>> #set page(width: 16cm)
+>>> #set text(font: "IBM Plex Sans")
+>>> #show table.cell.where(x: 1): set text(weight: "medium")
+>>> #show table.cell.where(y: 0): set text(weight: "bold")
+>>>
+>>> #let frame(stroke) = (x, y) => (
+>>>   left: if x > 0 { 0pt } else { stroke },
+>>>   right: stroke,
+>>>   top: if y < 2 { stroke } else { 0pt },
+>>>   bottom: stroke,
+>>> )
+>>>
+#set table(
+  stroke: (x, y) => (
+    y: 1pt,
+    left: if x > 0 { 0pt } else if calc.even(y) { 1pt },
+    right: if calc.even(y) { 1pt },
+  ),
+)
+>>>
+>>> #table(
+>>>   columns: (0.4fr, 1fr, 1fr, 1fr),
+>>>
+>>>   table.header[Month][Title][Author][Genre],
+>>>   [January], [The Great Gatsby],
+>>>     [F. Scott Fitzgerald], [Classic],
+>>>   [February], [To Kill a Mockingbird],
+>>>     [Harper Lee], [Drama],
+>>>   [March], [1984],
+>>>     [George Orwell], [Dystopian],
+>>>   [April], [The Catcher in the Rye],
+>>>     [J.D. Salinger], [Coming-of-Age],
+>>> )
+```
+
+### Manually overriding a cell's fill color { #fill-override }
+Sometimes, the fill of a cell needs not to vary based on its position in the
+table, but rather based on its contents. We can use the [`table.cell`
+element]($table.cell) in the `table`s parameter list to wrap a cell's content
+and override its fill.
+
+For example, here is a list of all German presidents, with the cell borders
+colored in the color of their party.
+
+```example
+>>> #set page(width: 10cm)
+#set text(font: "Roboto")
+
+#let cdu(name) = ([CDU], table.cell(fill: black, text(fill: white, name)))
+#let spd(name) = ([SPD], table.cell(fill: red, text(fill: white, name)))
+#let fdp(name) = ([FDP], table.cell(fill: yellow, name))
+
+#table(
+  columns: (auto, auto, 1fr),
+  stroke: (x: none),
+
+  table.header[Tenure][Party][President],
+  [1949-1959], ..fdp[Theodor Heuss],
+  [1959-1969], ..cdu[Heinrich Lübke],
+  [1969-1974], ..spd[Gustav Heinemann],
+  [1974-1979], ..fdp[Walter Scheel],
+  [1979-1984], ..cdu[Karl Carstens],
+  [1984-1994], ..cdu[Richard von Weizsäcker],
+  [1994-1999], ..cdu[Roman Herzog],
+  [1999-2004], ..spd[Johannes Rau],
+  [2004-2010], ..cdu[Horst Köhler],
+  [2010-2012], ..cdu[Christian Wulff],
+  [2012-2017], [n/a], [Joachim Gauck],
+  [2017-],     ..spd[Frank-Walter-Steinmeier],
+)
+```
+
+In this example, we make use of variables because there only have been a total
+of three parties whose members have become president (and one unaffiliated
+president). Their colors will repeat multiple times, so we store a function that
+produces an array with their party's name and a table cell with that party's
+color and the president's name (`cdu`, `spd`, and `fdp`). We then use these
+functions in the `table` argument list instead of directly adding the name. We
+use the [spread operator]($arguments/#spreading) `..` to make each field of the
+array the functions return a single cell. We could also write something like
+`{[FDP], table.cell(fill: yellow)[Theodor Heuss]}` for each cell directly in the
+`table`'s argument list, but that becomes unreadable, especially for the parties
+whose colors are dark so that they require white text. We also delete vertical
+strokes and set the font to Roboto.
+
+The party column and the cell color in this example communicate redundant
+information on purpose: Communicating important data using color only, like in
+the example above, is a bad accessibility practice. It disadvantages users with
+vision impairment and is in violation of universal access standards, such as the
+[WCAG 2.1 Success Criterion 1.4.1](https://www.w3.org/WAI/WCAG21/Understanding/use-of-color.html).
+To improve your table, you should add a column printing the party name.
+Alternatively, you could make sure to choose a color-blindness friendly palette
+and mark up your cells with an additional label that screen readers can read out
+loud. The latter feature is not currently supported by Typst, but will be added
+in a future release. You can check how colors look for color-blind readers with
+[this Chrome extension](https://chromewebstore.google.com/detail/colorblindly/floniaahmccleoclneebhhmnjgdfijgg),
+[Photoshop](https://helpx.adobe.com/photoshop/using/proofing-colors.html), or
+[GIMP](https://docs.gimp.org/2.10/en/gimp-display-filter-dialog.html).
+
 ## How to adjust the lines in a table? { #strokes }
 By default, Typst adds strokes between each row and column of a table. You can
 adjust these strokes in a variety of ways. Which one is the most practical
@@ -268,7 +565,7 @@ to `(y: none)` instead.
 in the stroke argument to customize all strokes individually. This is how you
 achieve more complex stroking patterns.
 
-### Adding individual lines in the table { #individual-strokes }
+### Adding individual lines in the table { #individual-lines }
 If you want to add a single horizontal or vertical line in your table, for
 example to separate a group of rows, you can use the [`table.hline`] and
 [`table.vline`] elements for horizontal and vertical lines, respectively. Add
@@ -351,7 +648,7 @@ function not unlike those in the next subsection to right-align the data in all
 but the first column and use a show-rule to make the first column of table cells
 appear in small caps.
 
-### Overriding the strokes of a single cell { #cell-stroke-override }
+### Overriding the strokes of a single cell { #stroke-override }
 Imagine you want to change the stroke around a single cell. Maybe your cell is
 very important and needs highlighting! For this scenario, there is the
 [`table.cell` function]($table.cell). Instead of adding your content directly in
@@ -550,6 +847,316 @@ between the first and second row. It then continues with `auto` (which is the
 default, in this case `{0pt}` gutter) which will be the gutter between all other
 rows, since it is the last entry in the array.
 
+## How to align the contents of the cells in my table? { #alignment }
+You can use multiple mechanisms to align the content in your table. You can
+either use the `table` function's `align` argument to set the alignment for your
+whole table (or use it in a set rule to set the alignment for tables throughout
+your document) or the [`align`] function (or `table.cell`'s `align` argument) to
+override the alignment of a single cell.
+
+When using the `table` function's align argument, you can choose between three
+methods to specify an [alignment]:
+
+- Just specify a single alignment like `right` (aligns in the top-right corner)
+  or `center + horizon` (centers all cell content). This changes the alignment
+  of all cells.
+- Provide an array. Typst will cycle through this array for each column.
+- Provide a function that is passed the horizontal `x` and vertical `y`
+  coordinate of a cell and returns an alignment. This is useful if you want to
+  change the alignment based on the row count.
+
+For example, this travel itinerary right-aligns the day column and left-aligns
+everything else by providing an array in the `align` argument:
+
+```example
+>>> #set page(width: 12cm)
+#show table.cell.where(y: 0): set text(weight: "bold")
+#set text(font: "IBM Plex Sans")
+
+#table(
+  columns: 4,
+  align: (right, left, left, left),
+  fill: (_, y) => if calc.odd(y) { green.lighten(90%) },
+  stroke: none,
+
+  table.header[Day][Location][Hotel or Apartment][Activities],
+  [1], [Paris, France], [Hotel de L'Europe], [Arrival, Evening River Cruise],
+  [2], [Paris, France], [Hotel de L'Europe], [Louvre Museum, Eiffel Tower],
+  [3], [Lyon, France], [Lyon City Hotel], [City Tour, Local Cuisine Tasting],
+  [4], [Geneva, Switzerland], [Lakeview Inn], [Lake Geneva, Red Cross Museum],
+  [5], [Zermatt, Switzerland], [Alpine Lodge], [Visit Matterhorn, Skiing],
+)
+```
+
+However, this example does not yet look perfect — the header cells should be
+bottom-aligned. Let's use a function instead to do so:
+
+```example
+>>> #set page(width: 12cm)
+#show table.cell.where(y: 0): set text(weight: "bold")
+#set text(font: "IBM Plex Sans")
+
+#table(
+  columns: 4,
+  align: (x, y) =>
+    if x == 0 { right } else { left } +
+    if y == 0 { bottom } else { top },
+  fill: (_, y) => if calc.odd(y) { green.lighten(90%) },
+  stroke: none,
+
+  table.header[Day][Location][Hotel or Apartment][Activities],
+  [1], [Paris, France], [Hotel de L'Europe], [Arrival, Evening River Cruise],
+  [2], [Paris, France], [Hotel de L'Europe], [Louvre Museum, Eiffel Tower],
+<<<  // ... remaining days omitted
+>>>  [3], [Lyon, France], [Lyon City Hotel], [City Tour, Local Cuisine Tasting],
+>>>  [4], [Geneva, Switzerland], [Lakeview Inn], [Lake Geneva, Red Cross Museum],
+>>>  [5], [Zermatt, Switzerland], [Alpine Lodge], [Visit Matterhorn, Skiing],
+)
+```
+
+In the function, we calculate a horizontal and vertical alignment based on
+whether we are in the first column (`{x == 0}`) or the first row (`{y == 0}`)
+and use that we can add up horizontal and vertical alignments with `+` to
+receive a single, two-dimensional alignment.
+
+You can find an example of using `table.cell` to change a single cell's
+alignment on [its reference page]($table.cell).
+
+## How to merge cells? { #merge-cells }
+When a table contains logical groupings or the same data in multiple adjacent
+cells, merging multiple cells in a single, larger cell can be advantageous.
+Another use case for cell groups are table headers with multiple rows: That way,
+you can group for example a sales data table by quarter in the first row and by
+months in the second row.
+
+A merged cell spans multiple rows and / or columns. You can achieve it with the
+[`table.cell`] function's `rowspan` and `colspan` arguments: Just specify how
+many rows or columns you want your cell to span.
+
+The example below contains a attendance calendar for an office with in-person
+and remote days for each team member. To make the table more glanceable, we
+merge adjacent cells with the same value:
+
+```example
+>>> #set page(width: 22cm)
+#let ofi = [Office]
+#let rem = [_Remote_]
+#let lea = [*On leave*]
+
+#show table.cell.where(y: 0): set text(
+  fill: white, weight: "bold"
+)
+
+#table(
+  columns: 6 * (1fr,),
+  align: (x, y) =>
+    if y == 0 { bottom } else { horizon } +
+    if x == 0 or y == 0 { left } else { center },
+  stroke: (x, y) =>
+    if y == 0 and x > 0 {
+      (left: white, rest: black)
+    } else { 1pt },
+  fill: (_, y) => if y == 0 { black },
+
+  table.header(
+    [Team member],
+    [Monday],
+    [Tuesday],
+    [Wednesday],
+    [Thursday],
+    [Friday]
+  ),
+  [Evelyn Archer],
+    table.cell(colspan: 2, ofi),
+    table.cell(colspan: 2, rem),
+    ofi,
+  [Lila Montgomery],
+    table.cell(colspan: 5, lea),
+  [Nolan Pearce],
+    rem,
+    table.cell(colspan: 2, ofi),
+    rem,
+    ofi,
+)
+```
+
+In the example, we first define variables with "Office", "Remote", and "On
+leave" so we don't have to write these labels out every time. We can then use
+these variables in the table body either directly or in a `table.cell` call if
+the team member spends multiple consecutive days in office, remote, or off.
+
+The example also contains a black header (created with `table`'s `fill`
+argument) with white strokes (`table`'s `stroke` argument) and white text (set
+by the `table.cell` set rule). Finally, we align all the content of all table
+cells in the body in their vertical (_`{horizon}`_) and horizontal
+(_`{center}`_) center. If you want to know more about the functions passed to
+`align`, `stroke`, and `fill`, you can check out the sections on [alignment],
+[strokes](#stroke-functions), and [striped tables](#striped-rows-and-columns).
+
+## How to rotate a table? { #rotate-table }
+When tables have many columns, a portrait paper orientation can quickly get
+cramped. Hence, you'll sometimes want to switch your tables to landscape
+orientation. There are two ways to accomplish this in Typst:
+
+- If you want to rotate only the table but not the other content of the page and
+  the page itself, use the [`rotate` function]($rotate) with the `reflow`
+  argument set to `{true}`.
+- If you want to rotate the whole page the table is on, you can use the [`page`
+  element]($page) with its `flipped` argument set to `{true}`. The header,
+  footer, and page number will now also appear on the long edge of the page.
+  This has the advantage that the table will appear right side up when read on a
+  computer, but it also means that a page in your document has different
+  dimensions than all the others, which can be jarring to your readers.
+
+Below, we will demonstrate both techniques with a student grade book table.
+
+First, we rotate the table on the page. The example also places some text on the
+right of the table.
+
+```example
+#set page("a5", numbering: "— 1 —")
+>>> #set page(margin: auto)
+#show: columns.with(2)
+
+#show table.cell.where(y: 0): set text(weight: "bold")
+
+#rotate(-90deg,
+  reflow: true,
+
+  table(
+    columns: (1fr, ..(5 * (auto,))),
+    inset: (x: .6em,),
+    stroke: (_, y) => (
+      x: 1pt,
+      top: if y <= 1 { 1pt } else { 0pt },
+      bottom: 1pt,
+    ),
+    align: (x, _) =>
+      if x == 0 or x == 5 { left } else { right },
+
+    table.header(
+      [Student Name],
+      [Assignment 1], [Assignment 2],
+      [Mid-term], [Final Exam],
+      [Total Grade],
+    ),
+    [Jane Smith], [78%], [82%], [75%], [80%], [B],
+    [Alex Johnson], [90%], [95%], [94%], [96%], [A+],
+    [John Doe], [85%], [90%], [88%], [92%], [A],
+    [Maria Garcia], [88%], [84%], [89%], [85%], [B+],
+    [Zhang Wei], [93%], [89%], [90%], [91%], [A-],
+    [Marina Musterfrau], [96%], [91%], [74%], [69%], [B-],
+  ),
+)
+
+#lorem(80)
+```
+
+
+What we have here is a two-column document on ISO A5 paper with page numbers on
+the bottom. The table has six columns and contains a few customizations to
+[stroke](#strokes), alignment and spacing. But the most important part is that
+the table is wrapped in a call to the `rotate` function with the `reflow`
+argument being `true`. This will make the table rotate 90 degrees
+counterclockwise. The reflow argument is needed so that the table's rotation
+affects the layout. If it was omitted, Typst would lay out the page as if the
+table was not rotated.
+
+The example also shows how to produce many columns of the same size: After the
+initial `{1fr}` column, we spread an array with five `{auto}` items that we
+create by multiplying an array with one `{auto}` item by five.
+
+The second example shows how to rotate the whole page, so the table stays
+upright:
+
+```example
+#set page("a5", numbering: "— 1 —")
+>>> #set page(margin: auto)
+#show table.cell.where(y: 0): set text(weight: "bold")
+
+#page(flipped: true)[
+  #table(
+    columns: (1fr, ..(5 * (auto,))),
+    inset: (x: .6em,),
+    stroke: (_, y) => (
+      x: 1pt,
+      top: if y <= 1 { 1pt } else { 0pt },
+      bottom: 1pt,
+    ),
+    align: (x, _) =>
+      if x == 0 or x == 5 { left } else { right },
+
+    table.header(
+      [Student Name],
+      [Assignment 1], [Assignment 2],
+      [Mid-term], [Final Exam],
+      [Total Grade],
+    ),
+    [Jane Smith], [78%], [82%], [75%], [80%], [B],
+    [Alex Johnson], [90%], [95%], [94%], [96%], [A+],
+    [John Doe], [85%], [90%], [88%], [92%], [A],
+    [Maria Garcia], [88%], [84%], [89%], [85%], [B+],
+    [Zhang Wei], [93%], [89%], [90%], [91%], [A-],
+    [Marina Musterfrau], [96%], [91%], [74%], [69%], [B-],
+  )
+
+  #pad(x: 15%, top: 1.5em)[
+    = Winter 2023/24 results
+    #lorem(80)
+  ]
+]
+```
+
+Here, we take the same table and the other content we want to set with it and
+put it in a call to the `page` function with while supplying `{true}` as the
+`flipped` argument. This will instruct Typst create new pages with width and
+height swapped and place the contents of the function call on the new page.
+Notice how the page number is also on the long edge of the paper now. At the
+bottom of the page, we use the [`pad`] function to constrain the width of the
+paragraph to achieve a nice and legible line length.
+
+## How to break a table across pages? { #table-across-pages }
+It is best to contain a table on a single page. However, some tables just have
+many rows, so breaking them across pages becomes unavoidable. Fortunately, Typst
+supports breaking tables across pages out-of-the-box. If you are using the
+[`table.header`] and [`table.footer`] functions, their contents will be repeated
+on each page as the first and last rows, respectively. If you want to disable
+this behavior, you can set `repeat` to `{false}` on either of them.
+
+If you have placed your table inside of a [figure], it becomes unable to break
+across pages by default. However, you can change this behavior. Let's take a
+look:
+
+```example
+#set page(width: 9cm, height: 7cm)
+#show figure: set block(breakable: true)
+#show table.cell.where(y: 0): set text(weight: "bold")
+
+#figure(
+  caption: [Training regimen for Marathon],
+  table(
+    columns: 3,
+    fill: (_, y) => if y == 0 { gray.lighten(75%) },
+
+    table.header[Week][Distance (km)][Time (hh:mm:ss)],
+    [1],[5],[00:30:00],
+    [2],[7],[00:45:00],
+    [3],[10],[01:00:00],
+    [4],[12],[01:10:00],
+    [5],[15],[01:25:00],
+    [6],[18],[01:40:00],
+    [7],[20],[01:50:00],
+    [...],[...],[...],
+    table.footer[_Goal_][_42.195_][_02:45:00_],
+  )
+)
+```
+
+A figure automatically produces a [block] which cannot break by default.
+However, we can reconfigure the block of the figure using a show rule to make it
+`breakable`. Now, the figure spans multiple pages with the headers and footers
+repeating.
+
 ## How to import data into a table? { #import-data }
 Often, you need to put data that you obtained elsewhere in a table. Sometimes,
 this is from Microsoft Excel or Google Sheets, sometimes this is from a dataset
@@ -697,614 +1304,7 @@ We also styled the table with [stripes](#striped-rows-and-columns), a
 first column. Click on the links to go to the relevant guide sections and see
 how it's done!
 
-## How to rotate a table? { #rotate-table }
-When tables have many columns, a portrait paper orientation can quickly get
-cramped. Hence, you'll sometimes want to switch your tables to landscape
-orientation. There are two ways to accomplish this in Typst:
-
-- If you want to rotate only the table but not the other content of the page and
-  the page itself, use the [`rotate` function]($rotate) with the `reflow`
-  argument set to `{true}`.
-- If you want to rotate the whole page the table is on, you can use the [`page`
-  element]($page) with its `flipped` argument set to `{true}`. The header,
-  footer, and page number will now also appear on the long edge of the page.
-  This has the advantage that the table will appear right side up when read on a
-  computer, but it also means that a page in your document has different
-  dimensions than all the others, which can be jarring to your readers.
-
-Below, we will demonstrate both techniques with a student grade book table.
-
-First, we rotate the table on the page. The example also places some text on the
-right of the table.
-
-```example
-#set page("a5", numbering: "— 1 —")
->>> #set page(margin: auto)
-#show: columns.with(2)
-
-#show table.cell.where(y: 0): set text(weight: "bold")
-
-#rotate(-90deg,
-  reflow: true,
-
-  table(
-    columns: (1fr, ..(5 * (auto,))),
-    inset: (x: .6em,),
-    stroke: (_, y) => (
-      x: 1pt,
-      top: if y <= 1 { 1pt } else { 0pt },
-      bottom: 1pt,
-    ),
-    align: (x, _) =>
-      if x == 0 or x == 5 { left } else { right },
-
-    table.header(
-      [Student Name],
-      [Assignment 1], [Assignment 2],
-      [Mid-term], [Final Exam],
-      [Total Grade],
-    ),
-    [Jane Smith], [78%], [82%], [75%], [80%], [B],
-    [Alex Johnson], [90%], [95%], [94%], [96%], [A+],
-    [John Doe], [85%], [90%], [88%], [92%], [A],
-    [Maria Garcia], [88%], [84%], [89%], [85%], [B+],
-    [Zhang Wei], [93%], [89%], [90%], [91%], [A-],
-    [Marina Musterfrau], [96%], [91%], [74%], [69%], [B-],
-  ),
-)
-
-#lorem(80)
-```
-
-
-What we have here is a two-column document on ISO A5 paper with page numbers on
-the bottom. The table has six columns and contains a few customizations to
-[stroke](#strokes), alignment and spacing. But the most important part is that
-the table is wrapped in a call to the `rotate` function with the `reflow`
-argument being `true`. This will make the table rotate 90 degrees
-counterclockwise. The reflow argument is needed so that the table's rotation
-affects the layout. If it was omitted, Typst would lay out the page as if the
-table was not rotated.
-
-The example also shows how to produce many columns of the same size: After the
-initial `{1fr}` column, we spread an array with five `{auto}` items that we
-create by multiplying an array with one `{auto}` item by five.
-
-The second example shows how to rotate the whole page, so the table stays
-upright:
-
-```example
-#set page("a5", numbering: "— 1 —")
->>> #set page(margin: auto)
-#show table.cell.where(y: 0): set text(weight: "bold")
-
-#page(flipped: true)[
-  #table(
-    columns: (1fr, ..(5 * (auto,))),
-    inset: (x: .6em,),
-    stroke: (_, y) => (
-      x: 1pt,
-      top: if y <= 1 { 1pt } else { 0pt },
-      bottom: 1pt,
-    ),
-    align: (x, _) =>
-      if x == 0 or x == 5 { left } else { right },
-
-    table.header(
-      [Student Name],
-      [Assignment 1], [Assignment 2],
-      [Mid-term], [Final Exam],
-      [Total Grade],
-    ),
-    [Jane Smith], [78%], [82%], [75%], [80%], [B],
-    [Alex Johnson], [90%], [95%], [94%], [96%], [A+],
-    [John Doe], [85%], [90%], [88%], [92%], [A],
-    [Maria Garcia], [88%], [84%], [89%], [85%], [B+],
-    [Zhang Wei], [93%], [89%], [90%], [91%], [A-],
-    [Marina Musterfrau], [96%], [91%], [74%], [69%], [B-],
-  )
-
-  #pad(x: 15%, top: 1.5em)[
-    = Winter 2023/24 results
-    #lorem(80)
-  ]
-]
-```
-
-Here, we take the same table and the other content we want to set with it and
-put it in a call to the `page` function with while supplying `{true}` as the
-`flipped` argument. This will instruct Typst create new pages with width and
-height swapped and place the contents of the function call on the new page.
-Notice how the page number is also on the long edge of the paper now. At the
-bottom of the page, we use the [`pad`] function to constrain the width of the
-paragraph to achieve a nice and legible line length.
-
-## How to merge cells? { #merge-cells }
-When a table contains logical groupings or the same data in multiple adjacent
-cells, merging multiple cells in a single, larger cell can be advantageous.
-Another use case for cell groups are table headers with multiple rows: That way,
-you can group for example a sales data table by quarter in the first row and by
-months in the second row.
-
-A merged cell spans multiple rows and / or columns. You can achieve it with the
-[`table.cell`] function's `rowspan` and `colspan` arguments: Just specify how
-many rows or columns you want your cell to span.
-
-The example below contains a attendance calendar for an office with in-person
-and remote days for each team member. To make the table more glanceable, we
-merge adjacent cells with the same value:
-
-```example
->>> #set page(width: 22cm)
-#let ofi = [Office]
-#let rem = [_Remote_]
-#let lea = [*On leave*]
-
-#show table.cell.where(y: 0): set text(
-  fill: white, weight: "bold"
-)
-
-#table(
-  columns: 6 * (1fr,),
-  align: (x, y) =>
-    if y == 0 { bottom } else { horizon } +
-    if x == 0 or y == 0 { left } else { center },
-  stroke: (x, y) =>
-    if y == 0 and x > 0 {
-      (left: white, rest: black)
-    } else { 1pt },
-  fill: (_, y) => if y == 0 { black },
-
-  table.header(
-    [Team member],
-    [Monday],
-    [Tuesday],
-    [Wednesday],
-    [Thursday],
-    [Friday]
-  ),
-  [Evelyn Archer],
-    table.cell(colspan: 2, ofi),
-    table.cell(colspan: 2, rem),
-    ofi,
-  [Lila Montgomery],
-    table.cell(colspan: 5, lea),
-  [Nolan Pearce],
-    rem,
-    table.cell(colspan: 2, ofi),
-    rem,
-    ofi,
-)
-```
-
-In the example, we first define variables with "Office", "Remote", and "On
-leave" so we don't have to write these labels out every time. We can then use
-these variables in the table body either directly or in a `table.cell` call if
-the team member spends multiple consecutive days in office, remote, or off.
-
-The example also contains a black header (created with `table`'s `fill`
-argument) with white strokes (`table`'s `stroke` argument) and white text (set
-by the `table.cell` set rule). Finally, we align all the content of all table
-cells in the body in their vertical (_`{horizon}`_) and horizontal
-(_`{center}`_) center. If you want to know more about the functions passed to
-`align`, `stroke`, and `fill`, you can check out the sections on [alignment],
-[strokes](#stroke-functions), and [striped tables](#striped-rows-and-columns).
-
-## How to get a striped table? { #striped-rows-and-columns }
-Many tables use striped rows or columns instead of strokes to differentiate
-between rows and columns. This effect is often called _zebra stripes._ Tables
-with zebra stripes are popular in Business and commercial Data Analytics
-applications, while academic applications tend to use strokes instead.
-
-To add zebra stripes to a table, we use the `table` function's `fill` argument.
-It can take three kinds of arguments:
-
-- A single color (this can also be a gradient or a pattern) to fill all cells
-  with. Because we want some cells to have another color, this is not useful if
-  we want to build zebra tables.
-- An array with colors which Typst cycles through for each column. We can use an
-  array with two elements to get striped columns.
-- A function that takes the horizontal coordinate `x` and the vertical
-  coordinate `y` of a cell and returns its fill. We can use this to create
-  horizontal stripes or [checkerboard patterns]($grid.cell).
-
-Let's start with an example of a horizontally striped table:
-
-```example
->>> #set page(width: 16cm)
-#set text(font: "IBM Plex Sans")
-#show table.cell.where(x: 1): set text(weight: "medium")
-#show table.cell.where(y: 0): set text(weight: "bold")
-
-#let frame(stroke) = (x, y) => (
-  left: if x > 0 { 0pt } else { stroke },
-  right: stroke,
-  top: if y < 2 { stroke } else { 0pt },
-  bottom: stroke,
-)
-
-#set table(
-  fill: (rgb("EAF2F5"), none),
-  stroke: frame(rgb("21222C")),
-)
-
-#table(
-  columns: (0.4fr, 1fr, 1fr, 1fr),
-
-  table.header[Month][Title][Author][Genre],
-  [January], [The Great Gatsby],
-    [F. Scott Fitzgerald], [Classic],
-  [February], [To Kill a Mockingbird],
-    [Harper Lee], [Drama],
-  [March], [1984],
-    [George Orwell], [Dystopian],
-  [April], [The Catcher in the Rye],
-    [J.D. Salinger], [Coming-of-Age],
-)
-```
-
-This example shows a book club reading list. Because setting the stripes itself
-is easy we also added some other styles to make it look nice. The line
-`{fill: (rgb("EAF2F5"), none)}` in `table`'s set rule is all that is needed to
-add striped columns. It tells Typst to alternate between coloring columns with a
-light blue (in the [`rgb`]($color.rgb) function call) and nothing (`{none}`).
-
-The other code in the example provides a dark blue [stroke](#stroke-functions)
-around the table and below the first line and emboldens the first row and the
-column with the book title.
-
-Let's next look at how we can change only the set rule to achieve horizontal
-stripes instead:
-
-```example
->>> #set page(width: 16cm)
->>> #set text(font: "IBM Plex Sans")
->>> #show table.cell.where(x: 1): set text(weight: "medium")
->>> #show table.cell.where(y: 0): set text(weight: "bold")
->>>
->>> #let frame(stroke) = (x, y) => (
->>>   left: if x > 0 { 0pt } else { stroke },
->>>   right: stroke,
->>>   top: if y < 2 { stroke } else { 0pt },
->>>   bottom: stroke,
->>> )
->>>
-#set table(
-  fill: (_, y) => if calc.odd(y) { rgb("EAF2F5") },
-  stroke: frame(rgb("21222C")),
-)
->>>
->>> #table(
->>>   columns: (0.4fr, 1fr, 1fr, 1fr),
->>>
->>>   table.header[Month][Title][Author][Genre],
->>>   [January], [The Great Gatsby],
->>>     [F. Scott Fitzgerald], [Classic],
->>>   [February], [To Kill a Mockingbird],
->>>     [Harper Lee], [Drama],
->>>   [March], [1984],
->>>     [George Orwell], [Dystopian],
->>>   [April], [The Catcher in the Rye],
->>>     [J.D. Salinger], [Coming-of-Age],
->>> )
-```
-
-We just need to replace the set rule from the previous example with this one and
-get horizontal stripes instead. Here, we are passing a function in `fill`. It
-discards the horizontal coordinate with an underscore and then checks if the
-vertical coordinate `y` of the cell is odd. If so, the cell gets a light blue
-fill, otherwise, no fill is returned.
-
-Of course, you can make this function arbitrarily complex. For example, if you
-want to stripe the rows with a light and darker shade of blue, you could do
-something like this:
-
-```example
->>> #set page(width: 16cm)
->>> #set text(font: "IBM Plex Sans")
->>> #show table.cell.where(x: 1): set text(weight: "medium")
->>> #show table.cell.where(y: 0): set text(weight: "bold")
->>>
->>> #let frame(stroke) = (x, y) => (
->>>   left: if x > 0 { 0pt } else { stroke },
->>>   right: stroke,
->>>   top: if y < 2 { stroke } else { 0pt },
->>>   bottom: stroke,
->>> )
->>>
-#set table(
-  fill: (_, y) =>
-    (none, rgb("EAF2F5"), rgb("DDEAEF"))
-      .at(calc.rem(y, 3)),
-  stroke: frame(rgb("21222C")),
-)
->>>
->>> #table(
->>>   columns: (0.4fr, 1fr, 1fr, 1fr),
->>>
->>>   table.header[Month][Title][Author][Genre],
->>>   [January], [The Great Gatsby],
->>>     [F. Scott Fitzgerald], [Classic],
->>>   [February], [To Kill a Mockingbird],
->>>     [Harper Lee], [Drama],
->>>   [March], [1984],
->>>     [George Orwell], [Dystopian],
->>>   [April], [The Catcher in the Rye],
->>>     [J.D. Salinger], [Coming-of-Age],
->>> )
-```
-
-This example shows an alternative approach to write our fill function. The
-function uses an array with three colors and then cycles between its values for
-each row by indexing the array.
-
-Finally, here is a bonus example that uses the stroke to achieve striped rows:
-
-```example
->>> #set page(width: 16cm)
->>> #set text(font: "IBM Plex Sans")
->>> #show table.cell.where(x: 1): set text(weight: "medium")
->>> #show table.cell.where(y: 0): set text(weight: "bold")
->>>
->>> #let frame(stroke) = (x, y) => (
->>>   left: if x > 0 { 0pt } else { stroke },
->>>   right: stroke,
->>>   top: if y < 2 { stroke } else { 0pt },
->>>   bottom: stroke,
->>> )
->>>
-#set table(
-  stroke: (x, y) => (
-    y: 1pt,
-    left: if x > 0 { 0pt } else if calc.even(y) { 1pt },
-    right: if calc.even(y) { 1pt },
-  ),
-)
->>>
->>> #table(
->>>   columns: (0.4fr, 1fr, 1fr, 1fr),
->>>
->>>   table.header[Month][Title][Author][Genre],
->>>   [January], [The Great Gatsby],
->>>     [F. Scott Fitzgerald], [Classic],
->>>   [February], [To Kill a Mockingbird],
->>>     [Harper Lee], [Drama],
->>>   [March], [1984],
->>>     [George Orwell], [Dystopian],
->>>   [April], [The Catcher in the Rye],
->>>     [J.D. Salinger], [Coming-of-Age],
->>> )
-```
-
-### Manually overriding a cell's fill color { #custom-cell-fill }
-Sometimes, the fill of a cell needs not to vary based on its position in the
-table, but rather based on its contents. We can use the [`table.cell`
-element]($table.cell) in the `table`s parameter list to wrap a cell's content
-and override its fill.
-
-For example, here is a list of all German presidents, with the cell borders
-colored in the color of their party.
-
-```example
->>> #set page(width: 10cm)
-#set text(font: "Roboto")
-
-#let cdu(name) = ([CDU], table.cell(fill: black, text(fill: white, name)))
-#let spd(name) = ([SPD], table.cell(fill: red, text(fill: white, name)))
-#let fdp(name) = ([FDP], table.cell(fill: yellow, name))
-
-#table(
-  columns: (auto, auto, 1fr),
-  stroke: (x: none),
-
-  table.header[Tenure][Party][President],
-  [1949-1959], ..fdp[Theodor Heuss],
-  [1959-1969], ..cdu[Heinrich Lübke],
-  [1969-1974], ..spd[Gustav Heinemann],
-  [1974-1979], ..fdp[Walter Scheel],
-  [1979-1984], ..cdu[Karl Carstens],
-  [1984-1994], ..cdu[Richard von Weizsäcker],
-  [1994-1999], ..cdu[Roman Herzog],
-  [1999-2004], ..spd[Johannes Rau],
-  [2004-2010], ..cdu[Horst Köhler],
-  [2010-2012], ..cdu[Christian Wulff],
-  [2012-2017], [n/a], [Joachim Gauck],
-  [2017-],     ..spd[Frank-Walter-Steinmeier],
-)
-```
-
-In this example, we make use of variables because there only have been a total
-of three parties whose members have become president (and one unaffiliated
-president). Their colors will repeat multiple times, so we store a function that
-produces an array with their party's name and a table cell with that party's
-color and the president's name (`cdu`, `spd`, and `fdp`). We then use these
-functions in the `table` argument list instead of directly adding the name. We
-use the [spread operator]($arguments/#spreading) `..` to make each field of the
-array the functions return a single cell. We could also write something like
-`{[FDP], table.cell(fill: yellow)[Theodor Heuss]}` for each cell directly in the
-`table`'s argument list, but that becomes unreadable, especially for the parties
-whose colors are dark so that they require white text. We also delete vertical
-strokes and set the font to Roboto.
-
-The party column and the cell color in this example communicate redundant
-information on purpose: Communicating important data using color only, like in
-the example above, is a bad accessibility practice. It disadvantages users with
-vision impairment and is in violation of universal access standards, such as the
-[WCAG 2.1 Success Criterion 1.4.1](https://www.w3.org/WAI/WCAG21/Understanding/use-of-color.html).
-To improve your table, you should add a column printing the party name.
-Alternatively, you could make sure to choose a color-blindness friendly palette
-and mark up your cells with an additional label that screen readers can read out
-loud. The latter feature is not currently supported by Typst, but will be added
-in a future release. You can check how colors look for color-blind readers with
-[this Chrome extension](https://chromewebstore.google.com/detail/colorblindly/floniaahmccleoclneebhhmnjgdfijgg),
-[Photoshop](https://helpx.adobe.com/photoshop/using/proofing-colors.html), or
-[GIMP](https://docs.gimp.org/2.10/en/gimp-display-filter-dialog.html).
-
-## How do I caption and reference my table? { #captions-and-references }
-A table is just as valuable as the information your readers draw from it. You
-can enhance the effectiveness of both your prose and your table by making a
-clear connection between the two with a cross-reference. Typst can help you with
-this with automatic [references]($ref) and the [`figure` function]($figure).
-
-Just like with images, wrapping a table in a `figure` function allows you to add
-a caption and a label, so you can reference the figure elsewhere. Wrapping your
-table in a figure also lets you use the figure's `placement` parameter to float
-it to the top or bottom of a page.
-
-Let's take a look at a captioned table and how to reference it in prose:
-
-```example
->>> #set page(width: 14cm)
-#show table.cell.where(y: 0): set text(weight: "bold")
-
-#figure(
-  caption: [Probe results for design A],
-  table(
-    columns: 4,
-    stroke: none,
-
-    table.header[Test Item][Specification][Test Result][Compliance],
-    [Voltage], [220V ± 5%], [218V], [Pass],
-    [Current], [5A ± 0.5A], [4.2A], [Fail],
-  ),
-) <probe-a>
-
-The results from @probe-a show that the design is not yet optimal.
-We will show how its performance can be improved in this section.
-```
-
-The example shows how to wrap a table in a figure, set a caption and a label,
-and how to reference that label. We start by using the `figure` function. It
-expects the contents of the figure as a positional argument. We just put the
-table function call in its argument list, omitting the `#` character because it
-is only needed when calling a function in markup mode, when code mode is already
-active in a argument list. We also add the caption as a named argument above (or
-below) the table.
-
-After the figure call, we put a label in angle brackets (`[<probe-a>]`). This
-tells Typst to remember this function and make it referenceable under this name
-throughout your document. We can then reference it in prose by using the at sign
-and the label name `[@probe-a]`. Typst will print a nicely formatted reference
-and automatically update the label if the table's number changes.
-
-## How to break a table across pages? { #pagebreaks }
-It is best to contain a table on a single page. However, some tables just have
-many rows, so breaking them across pages becomes unavoidable. Fortunately, Typst
-supports breaking tables across pages out-of-the-box. If you are using the
-[`table.header`] and [`table.footer`] functions, their contents will be repeated
-on each page as the first and last rows, respectively. If you want to disable
-this behavior, you can set `repeat` to `{false}` on either of them.
-
-If you have placed your table inside of a [figure], it becomes unable to break
-across pages by default. However, you can change this behavior. Let's take a
-look:
-
-```example
-#set page(width: 9cm, height: 7cm)
-#show figure: set block(breakable: true)
-#show table.cell.where(y: 0): set text(weight: "bold")
-
-#figure(
-  caption: [Training regimen for Marathon],
-  table(
-    columns: 3,
-    fill: (_, y) => if y == 0 { gray.lighten(75%) },
-
-    table.header[Week][Distance (km)][Time (hh:mm:ss)],
-    [1],[5],[00:30:00],
-    [2],[7],[00:45:00],
-    [3],[10],[01:00:00],
-    [4],[12],[01:10:00],
-    [5],[15],[01:25:00],
-    [6],[18],[01:40:00],
-    [7],[20],[01:50:00],
-    [...],[...],[...],
-    table.footer[_Goal_][_42.195_][_02:45:00_],
-  )
-)
-```
-
-A figure automatically produces a [block] which cannot break by default.
-However, we can reconfigure the block of the figure using a show rule to make it
-`breakable`. Now, the figure spans multiple pages with the headers and footers
-repeating.
-
-## How to align the contents of the cells in my table? { #alignment }
-You can use multiple mechanisms to align the content in your table. You can
-either use the `table` function's `align` argument to set the alignment for your
-whole table (or use it in a set rule to set the alignment for tables throughout
-your document) or the [`align`] function (or `table.cell`'s `align` argument) to
-override the alignment of a single cell.
-
-When using the `table` function's align argument, you can choose between three
-methods to specify an [alignment]:
-
-- Just specify a single alignment like `right` (aligns in the top-right corner)
-  or `center + horizon` (centers all cell content). This changes the alignment
-  of all cells.
-- Provide an array. Typst will cycle through this array for each column.
-- Provide a function that is passed the horizontal `x` and vertical `y`
-  coordinate of a cell and returns an alignment. This is useful if you want to
-  change the alignment based on the row count.
-
-For example, this travel itinerary right-aligns the day column and left-aligns
-everything else by providing an array in the `align` argument:
-
-```example
->>> #set page(width: 12cm)
-#show table.cell.where(y: 0): set text(weight: "bold")
-#set text(font: "IBM Plex Sans")
-
-#table(
-  columns: 4,
-  align: (right, left, left, left),
-  fill: (_, y) => if calc.odd(y) { green.lighten(90%) },
-  stroke: none,
-
-  table.header[Day][Location][Hotel or Apartment][Activities],
-  [1], [Paris, France], [Hotel de L'Europe], [Arrival, Evening River Cruise],
-  [2], [Paris, France], [Hotel de L'Europe], [Louvre Museum, Eiffel Tower],
-  [3], [Lyon, France], [Lyon City Hotel], [City Tour, Local Cuisine Tasting],
-  [4], [Geneva, Switzerland], [Lakeview Inn], [Lake Geneva, Red Cross Museum],
-  [5], [Zermatt, Switzerland], [Alpine Lodge], [Visit Matterhorn, Skiing],
-)
-```
-
-However, this example does not yet look perfect — the header cells should be
-bottom-aligned. Let's use a function instead to do so:
-
-```example
->>> #set page(width: 12cm)
-#show table.cell.where(y: 0): set text(weight: "bold")
-#set text(font: "IBM Plex Sans")
-
-#table(
-  columns: 4,
-  align: (x, y) =>
-    if x == 0 { right } else { left } +
-    if y == 0 { bottom } else { top },
-  fill: (_, y) => if calc.odd(y) { green.lighten(90%) },
-  stroke: none,
-
-  table.header[Day][Location][Hotel or Apartment][Activities],
-  [1], [Paris, France], [Hotel de L'Europe], [Arrival, Evening River Cruise],
-  [2], [Paris, France], [Hotel de L'Europe], [Louvre Museum, Eiffel Tower],
-<<<  // ... remaining days omitted
->>>  [3], [Lyon, France], [Lyon City Hotel], [City Tour, Local Cuisine Tasting],
->>>  [4], [Geneva, Switzerland], [Lakeview Inn], [Lake Geneva, Red Cross Museum],
->>>  [5], [Zermatt, Switzerland], [Alpine Lodge], [Visit Matterhorn, Skiing],
-)
-```
-
-In the function, we calculate a horizontal and vertical alignment based on
-whether we are in the first column (`{x == 0}`) or the first row (`{y == 0}`)
-and use that we can add up horizontal and vertical alignments with `+` to
-receive a single, two-dimensional alignment.
-
-You can find an example of using `table.cell` to change a single cell's
-alignment on [its reference page]($table.cell).
-
-## What if I need the table function for something that isn't a table? { #grid }
+## What if I need the table function for something that isn't a table? { #table-and-grid }
 Tabular layouts of content can be useful not only for matrices of closely
 related data, like shown in the examples throughout this guide, but also for
 presentational purposes. Typst differentiates between grids that are for layout
