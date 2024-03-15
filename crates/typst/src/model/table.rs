@@ -160,12 +160,12 @@ pub struct TableElem {
     ///
     /// ```example
     /// #table(
-    ///   fill: (col, _) =>
-    ///     if calc.odd(col) { luma(240) }
+    ///   fill: (x, _) =>
+    ///     if calc.odd(x) { luma(240) }
     ///     else { white },
-    ///   align: (col, row) =>
-    ///     if row == 0 { center }
-    ///     else if col == 0 { left }
+    ///   align: (x, y) =>
+    ///     if y == 0 { center }
+    ///     else if x == 0 { left }
     ///     else { right },
     ///   columns: 4,
     ///   [], [*Q1*], [*Q2*], [*Q3*],

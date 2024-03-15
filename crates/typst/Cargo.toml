@@ -10,6 +10,7 @@ edition = { workspace = true }
 homepage = { workspace = true }
 repository = { workspace = true }
 license = { workspace = true }
+readme = { workspace = true }
 
 [lib]
 doctest = false

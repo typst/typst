@@ -10,10 +10,10 @@ authors = ["The Typst Project Developers"]
 edition = "2021"
 homepage = "https://typst.app"
 repository = "https://github.com/typst/typst"
-readme = "README.md"
 license = "Apache-2.0"
 categories = ["compilers"]
 keywords = ["typst"]
+readme = "README.md"
 
 [workspace.dependencies]
 typst = { path = "crates/typst" }
