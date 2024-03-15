@@ -20,12 +20,6 @@ use crate::{print_error, terminal};
 
 /// Execute a watching compilation command.
 pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
-    // Enter the alternate screen and handle Ctrl-C ourselves.
-    terminal::out().init_exit_handler()?;
-    terminal::out()
-        .enter_alternate_screen()
-        .map_err(|err| eco_format!("failed to enter alternate screen ({err})"))?;
-
     // Create a file system watcher.
     let mut watcher = Watcher::new(command.output())?;
 

@@ -257,8 +257,14 @@ impl<'a> FlowLayouter<'a> {
 
                 let carry: Vec<_> = self.items.drain(sticky..).collect();
                 self.finish_region(engine, false)?;
+                let in_last = self.regions.in_last();
+
                 for item in carry {
                     self.layout_item(engine, item)?;
+                }
+
+                if in_last {
+                    break;
                 }
             }
         }
