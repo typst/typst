@@ -69,14 +69,14 @@ pub struct HeadingElem {
     /// combined with `{offset}` to compute the actual `{level}`.
     ///
     /// This is set by the heading syntax, such that `[== Heading]` creates a
-    /// heading with logical depth 2, but actual level `{offset + 2}`. If you
+    /// heading with logical depth of 2, but actual level `{offset + 2}`. If you
     /// construct a heading manually, you should typically prefer this over
-    /// setting the absolute `level`.
+    /// setting the absolute level.
     #[default(NonZeroUsize::ONE)]
     pub depth: NonZeroUsize,
 
-    /// The starting offset of each heading's level, used to turn its relative
-    /// `{depth}` into its absolute `{level}`.
+    /// The starting offset of each heading's `{level}`, used to turn its
+    /// relative `{depth}` into its absolute `{level}`.
     ///
     /// ```example
     /// = Level 1
@@ -126,7 +126,7 @@ pub struct HeadingElem {
     ///
     /// Note that this property, if set to `{true}`, ensures the heading is also
     /// shown as a bookmark in the exported PDF's outline (when exporting to
-    /// PDF). To change that behaviour, use the `bookmarked` property.
+    /// PDF). To change that behavior, use the `bookmarked` property.
     ///
     /// ```example
     /// #outline()
@@ -148,7 +148,7 @@ pub struct HeadingElem {
     /// appear in the exported PDF's outline if its `outlined` property is set
     /// to `{true}`, that is, if it would also be listed in Typst's [outline].
     /// Setting this property to either `{true}` (bookmark) or `{false}` (don't
-    /// bookmark) bypasses that behaviour.
+    /// bookmark) bypasses that behavior.
     ///
     /// ```example
     /// #heading[Normal heading]
