@@ -69,9 +69,9 @@ pub struct HeadingElem {
     /// combined with `{offset}` to compute the actual `{level}`.
     ///
     /// This is set by the heading syntax, such that `[== Heading]` creates a
-    /// heading with logical `{depth}` of `{2}`, but the actual `{level}` is
-    /// `{offset + 2}`. If you construct a heading manually, you should
-    /// typically prefer this over setting the absolute `{level}`.
+    /// heading with logical depth of 2, but actual level `{offset + 2}`. If you
+    /// construct a heading manually, you should typically prefer this over
+    /// setting the absolute level.
     #[default(NonZeroUsize::ONE)]
     pub depth: NonZeroUsize,
 
