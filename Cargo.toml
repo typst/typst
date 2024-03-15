@@ -26,7 +26,7 @@ typst-svg = { path = "crates/typst-svg" }
 typst-syntax = { path = "crates/typst-syntax" }
 typst-timing = { path = "crates/typst-timing" }
 typst-assets = { git = "https://github.com/typst/typst-assets", rev = "4d1211a" }
-typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "c63ab46" }
+typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "2eec695" }
 az = "1.2"
 base64 = "0.22"
 bitflags = { version = "2", features = ["serde"] }

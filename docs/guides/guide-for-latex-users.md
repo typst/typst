@@ -10,8 +10,6 @@ out Typst. We will explore the main differences between these two systems from a
 user perspective. Although Typst is not built upon LaTeX and has a different
 syntax, you will learn how to use your LaTeX skills to get a head start.
 
-<!-- Mention that Typst is not built upon LaTeX -->
-
 Just like LaTeX, Typst is a markup-based typesetting system: You compose your
 document in a text file and mark it up with commands and other syntax. Then, you
 use a compiler to typeset the source file into a PDF. However, Typst also

@@ -11,3 +11,4 @@ propose other topics for guides!
 ## List of Guides
 - [Guide for LaTeX users]($guides/guide-for-latex-users)
 - [Page setup guide]($guides/page-setup-guide)
+- [Table guide]($guides/table-guide)
