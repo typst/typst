@@ -4,16 +4,15 @@ description: |
   explains all you need to know about tables in Typst.
 ---
 
-# Table guide { # }
-
+# Table guide
 Tables are a great way to present data to your readers in an easily readable,
 compact, and organized manner. They are not only used for numerical values, but
-also survery responses, task planning, schedules, and more. Because of this wide
+also survey responses, task planning, schedules, and more. Because of this wide
 set of possible applications, there is no single best way to lay out a table.
 Instead, think about how your table can best serve your readers given its
 structure, the data you want to highlight, and your document's design.
 
-Typst can help you with your tables by automatting styling, importing data from
+Typst can help you with your tables by automating styling, importing data from
 other applications, and more! This guide takes you through a few of the most
 common questions you may have when adding a table to your document with Typst.
 Feel free to skip to the section most relevant to you – we designed this guide
@@ -25,7 +24,6 @@ the reference page of the [`outline` function]($outline) is the right place to
 learn more.
 
 ## How to create a basic table? { #basic-tables }
-
 In order to create a table in Typst, use the [`table` function]($table). For a
 basic table, you need to tell the table function two things:
 
@@ -69,8 +67,8 @@ fits all of your content.
 It is best to wrap the header row of your table in the (`table.header`
 function)[$table.header]. This way, you or your template can automatically style
 the header of all your tables. The header function will also allow future
-versions of Typst to make the output more accessible to users with a
-screenreader:
+versions of Typst to make the output more accessible to users with a screen
+reader:
 
 ```example
 #table(
@@ -121,7 +119,6 @@ Congratulations, you have created your first table! Now you can proceed to
 striped rows](#striped-rows-and-columns), and more!
 
 ## How to change the column sizes? { #column-sizes }
-
 If you create a table and specify the number of columns, Typst will make each
 column large enough to fit its largest cell. Often, you want something
 different, for example, to make a table span the whole width of the page. You
@@ -131,10 +128,10 @@ argument. There are a few different ways to specify column widths:
 - First, there is `{auto}`. This is the default behavior and tells Typst to grow
   the column to fit its content. If there is not enough space, Typst will try
   its best to distribute the space among the `{auto}`-sized columns.
-- [Lengths]($length) like `{6cm}`, `{0.7in}`, or `{120pt}`. As usual,
-  you can also use a font-dependent `em` unit. This is a multiple of your
-  current font size. This is useful if you want to size your table so that
-  it always fits about the same amount of text, independant of font size.
+- [Lengths]($length) like `{6cm}`, `{0.7in}`, or `{120pt}`. As usual, you can
+  also use a font-dependent `em` unit. This is a multiple of your current font
+  size. This is useful if you want to size your table so that it always fits
+  about the same amount of text, independent of font size.
 - A [relative length in percent]($relative) such as `{40%}`. This will make the
   column take up `{40%}` of the total horizontal space available to the table,
   so either the inner width of the page or the table's container. Be mindful
@@ -166,16 +163,15 @@ the last column is `1fr` wide as to fill the whole page.
 )
 ```
 
-Here, we have passed our list of column lengths as an [array]($array), enclosed
-in round parentheses, with its elements seperated by commas. The first two
-columns are automatically sized, so that they take on the size of their
-content and the third column is sized as `1fr` so that it fills up the
-remainder of the space on the page. If you wanted to instead change the second
-column to be a bit more spacious, you could replace its entry in the `columns`
-array with a value like `6em`.
+Here, we have passed our list of column lengths as an [array], enclosed in round
+parentheses, with its elements separated by commas. The first two columns are
+automatically sized, so that they take on the size of their content and the
+third column is sized as `1fr` so that it fills up the remainder of the space on
+the page. If you wanted to instead change the second column to be a bit more
+spacious, you could replace its entry in the `columns` array with a value like
+`6em`.
 
 ## How to adjust the lines in a table? { #strokes }
-
 By default, Typst adds strokes between each row and column of a table. You can
 adjust these strokes in a variety of ways. Which one is the most practical
 depends on the modification you want to make and your intent:
@@ -186,12 +182,11 @@ depends on the modification you want to make and your intent:
   argument]($table.cell.stroke).
 - Do you want to customize all lines in a single table? Use the `table`
   function's [stroke]($table.stroke) argument when calling the table function.
-- Do you want to change, add, or remove the stroke around a single cell? Use
-  the `table.cell` element in the argument list of your table call.
+- Do you want to change, add, or remove the stroke around a single cell? Use the
+  `table.cell` element in the argument list of your table call.
 - Do you want to change, add, or remove a single horizontal or vertical stroke
-  in a single table? Use the [`table.hline`]($table.hline) and
-  [`table.vline`]($table.vline) elements in the argument list of your table
-  call.
+  in a single table? Use the [`table.hline`] and [`table.vline`] elements in the
+  argument list of your table call.
 
 We will go over all of these options with examples next! First, we will tackle
 the `table` function's [stroke]($table.stroke) argument. Here, you can adjust
@@ -211,8 +206,8 @@ Let's start by modifying the color and thickness of the stroke:
 
 This makes the table lines a bit less wide and uses a bluish gray. You can see
 that we added a width in point to a color to achieve our customized stroke. This
-addition yields a value of the [_stroke type_]($stroke). Alternatively, you
-can use the dictionary representation for strokes which allows you to access
+addition yields a value of the [_stroke type_]($stroke). Alternatively, you can
+use the dictionary representation for strokes which allows you to access
 advanced features such as dashed lines.
 
 The previous example showed how to use the stroke argument in the table
@@ -274,12 +269,11 @@ in the stroke argument to customize all strokes individually. This is how you
 achieve more complex stroking patterns.
 
 ### Adding individual lines in the table { #individual-strokes }
-
 If you want to add a single horizontal or vertical line in your table, for
-example to seperate a group of rows, you can use the
-[`table.hline`]($table.hline) and [`table.vline`]($table.vline) elements for
-horizontal and vertical lines, respectively. Add them to the argument list of
-the `table` function just like you would add individual cells and a header.
+example to separate a group of rows, you can use the [`table.hline`] and
+[`table.vline`] elements for horizontal and vertical lines, respectively. Add
+them to the argument list of the `table` function just like you would add
+individual cells and a header.
 
 Let's take a look at the example from the reference:
 
@@ -358,7 +352,6 @@ but the first column and use a show-rule to make the first column of table cells
 appear in small caps.
 
 ### Overriding the strokes of a single cell { #cell-stroke-override }
-
 Imagine you want to change the stroke around a single cell. Maybe your cell is
 very important and needs highlighting! For this scenario, there is the
 [`table.cell` function]($table.cell). Instead of adding your content directly in
@@ -396,7 +389,6 @@ table, the orange stroke appeared on all sides of the modified cell, showing
 that the table's stroke configuration is discarded.
 
 ### Complex document-wide stroke customization { #stroke-functions }
-
 This section is about customizing all lines at once in one or multiple tables.
 This allows you to draw only the first horizontal line or omit the outer lines,
 without knowing how many cells the table has. This is achieved by providing a
@@ -522,22 +514,21 @@ the first row. It looks a bit like a calendar.
 ```
 
 This example is a bit more complex. We start by drawing all the strokes on the
-right of the cells. But this means that we have drawn strokes in the top row too
-that we don't need! We use the fact that `left` will override `right` and only
-draw the left line if we are not in the first row or if we are in the first
-column. In all other cases, we explicitly remove the left line. Finally, we draw
-the horizontal lines by first setting the bottom line and then for the first two
-rows with the `top` key, suppressing all other top lines. The last line appears
-because there is no `top` line that could suppress it.
+right of the cells. But this means that we have drawn strokes in the top row,
+too, and we don't need those! We use the fact that `left` will override `right`
+and only draw the left line if we are not in the first row or if we are in the
+first column. In all other cases, we explicitly remove the left line. Finally,
+we draw the horizontal lines by first setting the bottom line and then for the
+first two rows with the `top` key, suppressing all other top lines. The last
+line appears because there is no `top` line that could suppress it.
 
 ### How to achieve a double line? { #double-stroke }
-
 Typst does not yet have a native way to draw double strokes, but there are
 multiple ways to emulate them, for example with [patterns]($pattern). We will
 show a different workaround in this section: Table gutters.
 
 Tables can space their cells apart using the `gutter` argument. When a gutter is
-applied, a stroke is drawn on each of the now seperated cells. Now, we need to
+applied, a stroke is drawn on each of the now separated cells. Now, we need to
 selectively add gutter between the rows or columns for which we want to draw a
 double line. The `row-gutter` and `column-gutter` arguments allow us to do this.
 They accept arrays of gutter values. Let's take a look at an example:
@@ -560,11 +551,10 @@ default, in this case `{0pt}` gutter) which will be the gutter between all other
 rows, since it is the last entry in the array.
 
 ## How to import data into a table? { #import-data }
-
 Often, you need to put data that you obtained elsewhere in a table. Sometimes,
 this is from Microsoft Excel or Google Sheets, sometimes this is from a dataset
 on the web. Fortunately, Typst can load many [common file
-formats]($category/data-loading) so you can use scripting to include their data
+formats]($category/data-loading), so you can use scripting to include their data
 in a table.
 
 The most common file format for tabular data is CSV. You can obtain a CSV file
@@ -594,8 +584,8 @@ whom the metric applies), Code, the year, and transistors per microprocessor.
 Only the last two columns change between each row, so we can disregard "Entity"
 and "Code".
 
-First, let's start by loading this file with the [`csv`]($csv) function. It
-accepts the file name of the file we want to load as a string argument:
+First, let's start by loading this file with the [`csv`] function. It accepts
+the file name of the file we want to load as a string argument:
 
 ```typ
 #let moore = csv("moore.csv")
@@ -613,7 +603,7 @@ from the array:
 #moore.slice(0, 3)
 ```
 
-The [`slice`]($array.slice) method return the first three items in the array
+The [`slice`]($array.slice) method returns the first three items in the array
 (with the indices 0, 1, and 2) with these arguments. We can see that each row is
 its own array with one item per cell.
 
@@ -633,14 +623,14 @@ with the table function.
 
 The example above uses a loop that iterates over the rows in our CSV file and
 returns an array for each iteration. We could just write `year` in the body of
-the loop but then we would also get the first two columns which we want to
+the loop, but then we would also get the first two columns which we want to
 discard. Instead, we create a new array containing the third and fourth column
 only. Because Typst will concatenate the array results of the various loop
 iterations, we get a one-dimensional array in which the year column and the
 number of transistors alternate. Hence, we can insert the array as cells. For
-this we use the [spread operator]($syntax) (`..`). By prefixing an array, or, in
-our case an expression that yields an arry, with two dots, we tell Typst that
-the array's items should be used as positional arguments.
+this we use the [spread operator]($arguments/#spreading) (`..`). By prefixing an
+array, or, in our case an expression that yields an array, with two dots, we
+tell Typst that the array's items should be used as positional arguments.
 
 We can also use the `map`, `slice` and `flatten` array methods to write this in
 a more compact, functional style:
@@ -705,13 +695,12 @@ above.
 We also styled the table with [stripes](#striped-rows-and-columns), a
 [stroke](#strokes) below the first row, aligning everything right, and a bold
 first column. Click on the links to go to the relevant guide sections and see
-how its done!
+how it's done!
 
 ## How to rotate a table? { #rotate-table }
-
-When tables get a large number of columns, a portrait paper orientation can
-quickly get cramped. Hence, you'll sometimes want to switch your tables to
-landscape orientation. There are two ways to accomplish this in Typst:
+When tables have many columns, a portrait paper orientation can quickly get
+cramped. Hence, you'll sometimes want to switch your tables to landscape
+orientation. There are two ways to accomplish this in Typst:
 
 - If you want to rotate only the table but not the other content of the page and
   the page itself, use the [`rotate` function]($rotate) with the `reflow`
@@ -723,7 +712,7 @@ landscape orientation. There are two ways to accomplish this in Typst:
   computer, but it also means that a page in your document has different
   dimensions than all the others, which can be jarring to your readers.
 
-Below, we will demonstrate both techniques with a student gradebook table.
+Below, we will demonstrate both techniques with a student grade book table.
 
 First, we rotate the table on the page. The example also places some text on the
 right of the table.
@@ -774,14 +763,14 @@ the bottom. The table has six columns and contains a few customizations to
 the table is wrapped in a call to the `rotate` function with the `reflow`
 argument being `true`. This will make the table rotate 90 degrees
 counterclockwise. The reflow argument is needed so that the table's rotation
-affects the layout. If it was omitted, Typst would layout the page as if the
+affects the layout. If it was omitted, Typst would lay out the page as if the
 table was not rotated.
 
 The example also shows how to produce many columns of the same size: After the
 initial `{1fr}` column, we spread an array with five `{auto}` items that we
 create by multiplying an array with one `{auto}` item by five.
 
-The second example shows how to rotate the whole page so the table stays
+The second example shows how to rotate the whole page, so the table stays
 upright:
 
 ```example
@@ -827,11 +816,10 @@ put it in a call to the `page` function with while supplying `{true}` as the
 `flipped` argument. This will instruct Typst create new pages with width and
 height swapped and place the contents of the function call on the new page.
 Notice how the page number is also on the long edge of the paper now. At the
-bottom of the page, we use the [`pad`]($pad) function to constrain the width of
-the paragraph to achieve a nice and legible line length.
+bottom of the page, we use the [`pad`] function to constrain the width of the
+paragraph to achieve a nice and legible line length.
 
 ## How to merge cells? { #merge-cells }
-
 When a table contains logical groupings or the same data in multiple adjacent
 cells, merging multiple cells in a single, larger cell can be advantageous.
 Another use case for cell groups are table headers with multiple rows: That way,
@@ -839,8 +827,8 @@ you can group for example a sales data table by quarter in the first row and by
 months in the second row.
 
 A merged cell spans multiple rows and / or columns. You can achieve it with the
-[`table.cell`]($table.cell) function's `rowspan` and `colspan` arguments: Just
-specify how many rows or columns you want your cell to span.
+[`table.cell`] function's `rowspan` and `colspan` arguments: Just specify how
+many rows or columns you want your cell to span.
 
 The example below contains a attendance calendar for an office with in-person
 and remote days for each team member. To make the table more glanceable, we
@@ -899,12 +887,10 @@ argument) with white strokes (`table`'s `stroke` argument) and white text (set
 by the `table.cell` set rule). Finally, we align all the content of all table
 cells in the body in their vertical (_`{horizon}`_) and horizontal
 (_`{center}`_) center. If you want to know more about the functions passed to
-`align`, `stroke`, and `fill`, you can check out the sections on
-[alignment](#alignment), [strokes](#stroke-functions), and [striped
-tables](#striped-rows-and-columns).
+`align`, `stroke`, and `fill`, you can check out the sections on [alignment],
+[strokes](#stroke-functions), and [striped tables](#striped-rows-and-columns).
 
 ## How to get a striped table? { #striped-rows-and-columns }
-
 Many tables use striped rows or columns instead of strokes to differentiate
 between rows and columns. This effect is often called _zebra stripes._ Tables
 with zebra stripes are popular in Business and commercial Data Analytics
@@ -960,8 +946,8 @@ Let's start with an example of a horizontally striped table:
 This example shows a book club reading list. Because setting the stripes itself
 is easy we also added some other styles to make it look nice. The line
 `{fill: (rgb("EAF2F5"), none)}` in `table`'s set rule is all that is needed to
-add striped columns . It tells Typst to alternate between coloring columns with
-a light blue (in the [`rgb`]($color.rgb) function call) and nothing (`{none}`).
+add striped columns. It tells Typst to alternate between coloring columns with a
+light blue (in the [`rgb`]($color.rgb) function call) and nothing (`{none}`).
 
 The other code in the example provides a dark blue [stroke](#stroke-functions)
 around the table and below the first line and emboldens the first row and the
@@ -1091,7 +1077,6 @@ Finally, here is a bonus example that uses the stroke to achieve striped rows:
 ```
 
 ### Manually overriding a cell's fill color { #custom-cell-fill }
-
 Sometimes, the fill of a cell needs not to vary based on its position in the
 table, but rather based on its contents. We can use the [`table.cell`
 element]($table.cell) in the `table`s parameter list to wrap a cell's content
@@ -1104,14 +1089,8 @@ colored in the color of their party.
 >>> #set page(width: 10cm)
 #set text(font: "Roboto")
 
-#let cdu(name) = ([CDU], table.cell(fill: black)[
-  #set text(fill: white)
-  #name
-])
-#let spd(name) = ([SPD], table.cell(fill: red)[
-  #set text(fill: white)
-  #name
-])
+#let cdu(name) = ([CDU], table.cell(fill: black, text(fill: white, name)))
+#let spd(name) = ([SPD], table.cell(fill: red, text(fill: white, name)))
 #let fdp(name) = ([FDP], table.cell(fill: yellow, name))
 
 #table(
@@ -1140,8 +1119,8 @@ president). Their colors will repeat multiple times, so we store a function that
 produces an array with their party's name and a table cell with that party's
 color and the president's name (`cdu`, `spd`, and `fdp`). We then use these
 functions in the `table` argument list instead of directly adding the name. We
-use the [spread operator]($syntax) `..` to make each field of the array the
-functions return a single cell. We could also write something like
+use the [spread operator]($arguments/#spreading) `..` to make each field of the
+array the functions return a single cell. We could also write something like
 `{[FDP], table.cell(fill: yellow)[Theodor Heuss]}` for each cell directly in the
 `table`'s argument list, but that becomes unreadable, especially for the parties
 whose colors are dark so that they require white text. We also delete vertical
@@ -1149,7 +1128,7 @@ strokes and set the font to Roboto.
 
 The party column and the cell color in this example communicate redundant
 information on purpose: Communicating important data using color only, like in
-the example above, is a bad accessability practice. It disadvantages users with
+the example above, is a bad accessibility practice. It disadvantages users with
 vision impairment and is in violation of universal access standards, such as the
 [WCAG 2.1 Success Criterion 1.4.1](https://www.w3.org/WAI/WCAG21/Understanding/use-of-color.html).
 To improve your table, you should add a column printing the party name.
@@ -1162,14 +1141,13 @@ in a future release. You can check how colors look for color-blind readers with
 [GIMP](https://docs.gimp.org/2.10/en/gimp-display-filter-dialog.html).
 
 ## How do I caption and reference my table? { #captions-and-references }
-
 A table is just as valuable as the information your readers draw from it. You
 can enhance the effectiveness of both your prose and your table by making a
 clear connection between the two with a cross-reference. Typst can help you with
-this with automatic [references](ref) and the [`figure` function]($figure).
+this with automatic [references]($ref) and the [`figure` function]($figure).
 
 Just like with images, wrapping a table in a `figure` function allows you to add
-a caption and a label so you can reference the figure elsewhere. Wrapping your
+a caption and a label, so you can reference the figure elsewhere. Wrapping your
 table in a figure also lets you use the figure's `placement` parameter to float
 it to the top or bottom of a page.
 
@@ -1210,18 +1188,16 @@ and the label name `[@probe-a]`. Typst will print a nicely formatted reference
 and automatically update the label if the table's number changes.
 
 ## How to break a table across pages? { #pagebreaks }
-
 It is best to contain a table on a single page. However, some tables just have
 many rows, so breaking them across pages becomes unavoidable. Fortunately, Typst
 supports breaking tables across pages out-of-the-box. If you are using the
-[`table.header`]($table.header) and [`table.footer` ]($table.footer) functions,
-their contents will be repeated on each page as the first and last rows,
-respectively. If you want to disable this behavior, you can set `repeat` to
-`{false}` on either of them.
+[`table.header`] and [`table.footer`] functions, their contents will be repeated
+on each page as the first and last rows, respectively. If you want to disable
+this behavior, you can set `repeat` to `{false}` on either of them.
 
-If you have placed your table inside of a [figure]($figure), it becomes unable
-to break across pages by default. However, you can change this behavior. Let's
-take a look:
+If you have placed your table inside of a [figure], it becomes unable to break
+across pages by default. However, you can change this behavior. Let's take a
+look:
 
 ```example
 #set page(width: 9cm, height: 7cm)
@@ -1248,21 +1224,20 @@ take a look:
 )
 ```
 
-A figure automatically produces a [block]($block) which cannot break by default.
+A figure automatically produces a [block] which cannot break by default.
 However, we can reconfigure the block of the figure using a show rule to make it
 `breakable`. Now, the figure spans multiple pages with the headers and footers
 repeating.
 
 ## How to align the contents of the cells in my table? { #alignment }
-
 You can use multiple mechanisms to align the content in your table. You can
 either use the `table` function's `align` argument to set the alignment for your
 whole table (or use it in a set rule to set the alignment for tables throughout
-your document) or the [`align`]($align) function (or `table.cell`'s `align`
-argument) to override the alignment of a single cell.
+your document) or the [`align`] function (or `table.cell`'s `align` argument) to
+override the alignment of a single cell.
 
 When using the `table` function's align argument, you can choose between three
-methods to specify an [alignment]($alignment):
+methods to specify an [alignment]:
 
 - Just specify a single alignment like `right` (aligns in the top-right corner)
   or `center + horizon` (centers all cell content). This changes the alignment
@@ -1330,7 +1305,6 @@ You can find an example of using `table.cell` to change a single cell's
 alignment on [its reference page]($table.cell).
 
 ## What if I need the table function for something that isn't a table? { #grid }
-
 Tabular layouts of content can be useful not only for matrices of closely
 related data, like shown in the examples throughout this guide, but also for
 presentational purposes. Typst differentiates between grids that are for layout
@@ -1340,10 +1314,10 @@ cells itself conveys information.
 To make this difference clear to other software and allow templates to heavily
 style tables, Typst has two functions for grid and table layout:
 
-- The [`table`]($table) function explained throughout this guide which is
-  intended for tabular data.
-- The [`grid`]($grid) function which is intended for presentational purposes and
-  page layout.
+- The [`table`] function explained throughout this guide which is intended for
+  tabular data.
+- The [`grid`] function which is intended for presentational purposes and page
+  layout.
 
 Both elements work the same way and have the same arguments. You can apply
 everything you have learned about tables in this guide to grids. There are only
