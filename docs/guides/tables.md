@@ -943,7 +943,7 @@ Let's start with an example of a horizontally striped table:
 )
 
 #table(
-  columns: (1fr, 1fr, 1fr, 1fr),
+  columns: (0.4fr, 1fr, 1fr, 1fr),
 
   table.header[Month][Title][Author][Genre],
   [January], [The Great Gatsby],
@@ -989,7 +989,7 @@ stripes instead:
 )
 >>>
 >>> #table(
->>>   columns: (1fr, 1fr, 1fr, 1fr),
+>>>   columns: (0.4fr, 1fr, 1fr, 1fr),
 >>>
 >>>   table.header[Month][Title][Author][Genre],
 >>>   [January], [The Great Gatsby],
@@ -1034,7 +1034,7 @@ something like this:
 )
 >>>
 >>> #table(
->>>   columns: (1fr, 1fr, 1fr, 1fr),
+>>>   columns: (0.4fr, 1fr, 1fr, 1fr),
 >>>
 >>>   table.header[Month][Title][Author][Genre],
 >>>   [January], [The Great Gatsby],
@@ -1048,9 +1048,157 @@ something like this:
 >>> )
 ```
 
-### Changing the table cell's fill based on contents { #custom-cell-fill }
+This example shows an alternative approach to write our fill function. The
+function uses an array with three colors and then cycles between its values for
+each row by indexing the array.
+
+Finally, here is a bonus example that uses the stroke to achieve striped rows:
+
+```example
+>>> #set page(width: 16cm)
+>>> #set text(font: "IBM Plex Sans")
+>>> #show table.cell.where(x: 1): set text(weight: "medium")
+>>> #show table.cell.where(y: 0): set text(weight: "bold")
+>>>
+>>> #let frame(stroke) = (x, y) => (
+>>>   left: if x > 0 { 0pt } else { stroke },
+>>>   right: stroke,
+>>>   top: if y < 2 { stroke } else { 0pt },
+>>>   bottom: stroke,
+>>> )
+>>>
+#set table(
+  stroke: (x, y) => (
+    y: 1pt,
+    left: if x > 0 { 0pt } else if calc.even(y) { 1pt },
+    right: if calc.even(y) { 1pt },
+  ),
+)
+>>>
+>>> #table(
+>>>   columns: (0.4fr, 1fr, 1fr, 1fr),
+>>>
+>>>   table.header[Month][Title][Author][Genre],
+>>>   [January], [The Great Gatsby],
+>>>     [F. Scott Fitzgerald], [Classic],
+>>>   [February], [To Kill a Mockingbird],
+>>>     [Harper Lee], [Drama],
+>>>   [March], [1984],
+>>>     [George Orwell], [Dystopian],
+>>>   [April], [The Catcher in the Rye],
+>>>     [J.D. Salinger], [Coming-of-Age],
+>>> )
+```
+
+### Manually overriding a cell's fill color { #custom-cell-fill }
+
+Sometimes, the fill of a cell needs not to vary based on its position in the
+table, but rather based on its contents. We can use the [`table.cell`
+element]($table.cell) in the `table`s parameter list to wrap a cell's content
+and override its fill.
+
+For example, here is a list of all German presidents, with the cell borders
+colored in the color of their party.
+
+```example
+#set text(font: "Roboto")
+
+#let cdu(name) = table.cell(fill: black, text(fill: white, name))
+#let spd(name) = table.cell(fill: red, text(fill: white, name))
+#let fdp(name) = table.cell(fill: yellow, name)
+
+#table(
+  columns: (auto, 1fr),
+  stroke: (x: none),
+
+  table.header[Tenure][President],
+  [1949-1959], fdp[Theodor Heuss],
+  [1959-1969], cdu[Heinrich Lübke],
+  [1969-1974], spd[Gustav Heinemann],
+  [1974-1979], fdp[Walter Scheel],
+  [1979-1984], cdu[Karl Carstens],
+  [1984-1994], cdu[Richard von Weizsäcker],
+  [1994-1999], cdu[Roman Herzog],
+  [1999-2004], spd[Johannes Rau],
+  [2004-2010], cdu[Horst Köhler],
+  [2010-2012], cdu[Christian Wulff],
+  [2012-2017], [Joachim Gauck],
+  [2017-],     spd[Frank-Walter-Steinmeier],
+)
+```
+
+In this example, we make use of variables because there only have been a total
+of three parties whose members have become president (and one unaffiliated
+president). Their colors will repeat multiple times, so we store a function that
+produces a table cell with that party's color and a name (`cdu`, `spd`, and
+`fdp`). We then use these functions in the `table` argument list instead of
+directly adding the name. We could also write something like `{table.cell(fill:
+yellow)[Theodor Heuss]}` for each cell directly in the `table`'s argument list,
+but that becomes unreadable, especially for the parties whose colors are dark so
+that they require white text. We also delete vertical strokes and set the font
+to Roboto.
+
+This example has one caveat: Communicating important data using color only, like
+in the example above, is a bad accessability practice. It disadvantages users
+with vision impairment and is in violation of universal access standards, such
+as the
+[WCAG 2.1 Success Criterion 1.4.1](https://www.w3.org/WAI/WCAG21/Understanding/use-of-color.html).
+To improve your table, you should add a column printing the party name.
+Alternatively, you could make sure to choose a color-blindness friendly palette
+and mark up your cells with an additional label that screen readers can read out
+loud. The latter feature is not currently supported by Typst, but will be added
+in a future release. You can check how colors look for color-blind readers with
+[this Chrome extension](https://chromewebstore.google.com/detail/colorblindly/floniaahmccleoclneebhhmnjgdfijgg),
+[Photoshop](https://helpx.adobe.com/photoshop/using/proofing-colors.html),
+or [GIMP](https://docs.gimp.org/2.10/en/gimp-display-filter-dialog.html).
 
 ## How do I caption and reference my table? { #captions-and-references }
+
+A table is just as valuable as the information your readers draw from it. You
+can enhance the effectiveness of both your prose and your table by making a
+clear connection between the two with a cross-reference. Typst can help you with
+this with automatic [references](ref) and the [`figure` function]($figure).
+
+Just like with images, wrapping a table in a `figure` function allows you to add
+a caption and a label so you can reference the figure elsewhere. Wrapping your
+table in a figure also lets you use the figure's `placement` parameter to float
+it to the top or bottom of a page.
+
+Let's take a look at a captioned table and how to reference it in prose:
+
+```example
+>>> #set page(width: 14cm)
+#show table.cell.where(y: 0): set text(weight: "bold")
+
+#figure(
+  caption: [Probe results for design A],
+  table(
+    columns: 4,
+    stroke: none,
+
+    table.header[Test Item][Specification][Test Result][Compliance],
+    [Voltage], [220V ± 5%], [218V], [Pass],
+    [Current], [5A ± 0.5A], [4.2A], [Fail],
+  ),
+) <probeA>
+
+The results from @probeA show that the design is not yet optimal.
+We will show how its performance can be improved in this section.
+```
+
+The example shows how to wrap a table in a figure, set a caption and a label,
+and how to reference that label. We start by using the `figure` function. It
+expects the contents of the figure as a positional argument. We just put the
+table function call in its argument list, omitting the `#` character because it
+is only needed when calling a function in markup mode, when code mode is already
+active in a argument list. We also add the caption as a named argument above (or
+below) the table.
+
+After the figure call, we put a label in angle brackets (`[<probeA>]`). This
+tells Typst to remember this function and make it referenceable under this name
+throughout your document. We can then reference it in prose by using the at sign
+and the label name `[@probeA]`. Typst will print a nicely formatted reference
+and automatically update the label if the table's number changes.
 
 ## How to break a table across pages? { #pagebreaks }
 
