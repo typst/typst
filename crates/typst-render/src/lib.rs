@@ -1080,7 +1080,7 @@ impl OutlineBuilder for WrappedPathBuilder {
     }
 }
 
-/// Additional methods for [`Length`].
+/// Additional methods for [`Abs`].
 trait AbsExt {
     /// Convert to a number of points as f32.
     fn to_f32(self) -> f32;

@@ -50,7 +50,7 @@ impl LayoutMath for Packed<RootElem> {
 /// Layout a root.
 ///
 /// TeXbook page 443, page 360
-/// See also: https://www.w3.org/TR/mathml-core/#radicals-msqrt-mroot
+/// See also: <https://www.w3.org/TR/mathml-core/#radicals-msqrt-mroot>
 fn layout(
     ctx: &mut MathContext,
     styles: StyleChain,
