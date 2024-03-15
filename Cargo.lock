@@ -2622,7 +2622,7 @@ dependencies = [
 [[package]]
 name = "typst-dev-assets"
 version = "0.10.0"
-source = "git+https://github.com/typst/typst-dev-assets?branch=table-guide#f4987168fcb16c51a78b165b77ad0ea779dae21f"
+source = "git+https://github.com/typst/typst-dev-assets?rev=2eec695#2eec695af4b8b32c079e549b78c64ef7ff5d5fff"
 
 [[package]]
 name = "typst-docs"
