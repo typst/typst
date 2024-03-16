@@ -709,7 +709,7 @@ pub struct GridVLine {
 ///   align: center + horizon,
 ///
 ///   [♜], [♞], [♝], [♛], [♚], [♝], [♞], [♜],
-///   [♟], [♟], [♟], [♟], [],   [♟], [♟], [♟],
+///   [♟], [♟], [♟], [♟], [],  [♟], [♟], [♟],
 ///   grid.cell(
 ///     x: 4, y: 3,
 ///     stroke: blue.transparentize(60%)
