@@ -24,6 +24,9 @@ use crate::visualize::{Paint, Stroke};
 ///
 /// Tables are used to arrange content in cells. Cells can contain arbitrary
 /// content, including multiple paragraphs and are specified in row-major order.
+/// For a hands-on explanation of all the ways you can use and customize tables
+/// in Typst, check out the [table guide]($guides/table-guide).
+///
 /// Because tables are just grids with different defaults for some cell
 /// properties (notably `stroke` and `inset`), refer to the [grid
 /// documentation]($grid) for more information on how to size the table tracks
@@ -157,12 +160,12 @@ pub struct TableElem {
     ///
     /// ```example
     /// #table(
-    ///   fill: (col, _) =>
-    ///     if calc.odd(col) { luma(240) }
+    ///   fill: (x, _) =>
+    ///     if calc.odd(x) { luma(240) }
     ///     else { white },
-    ///   align: (col, row) =>
-    ///     if row == 0 { center }
-    ///     else if col == 0 { left }
+    ///   align: (x, y) =>
+    ///     if y == 0 { center }
+    ///     else if x == 0 { left }
     ///     else { right },
     ///   columns: 4,
     ///   [], [*Q1*], [*Q2*], [*Q3*],

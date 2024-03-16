@@ -32,7 +32,7 @@ pub type Luma = palette::luma::Lumaa<encoding::Srgb, f32>;
 /// This is a minimal CMYK profile that only contains the necessary information
 /// to convert from CMYK to RGB. It is based on the CGATS TR 001-1995
 /// specification. See
-/// https://github.com/saucecontrol/Compact-ICC-Profiles#cmyk.
+/// <https://github.com/saucecontrol/Compact-ICC-Profiles#cmyk>.
 static CMYK_TO_XYZ: Lazy<Box<Profile>> =
     Lazy::new(|| Profile::new_from_slice(typst_assets::icc::CMYK_TO_XYZ, false).unwrap());
 

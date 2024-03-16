@@ -1,3 +1,5 @@
+use comemo::Tracked;
+
 use crate::diag::{At, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{dict, func, Content, Context, Dict, StyleChain, Styles};
@@ -43,7 +45,7 @@ pub fn measure(
     /// The engine.
     engine: &mut Engine,
     /// The callsite context.
-    context: &Context,
+    context: Tracked<Context>,
     /// The callsite span.
     span: Span,
     /// The content whose size to measure.

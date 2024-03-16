@@ -10,6 +10,7 @@ edition = { workspace = true }
 homepage = { workspace = true }
 repository = { workspace = true }
 license = { workspace = true }
+readme = { workspace = true }
 
 [[bin]]
 name = "typst"
@@ -31,7 +32,6 @@ chrono = { workspace = true }
 clap = { workspace = true }
 codespan-reporting = { workspace = true }
 comemo = { workspace = true }
-ctrlc = { workspace = true }
 dirs = { workspace = true }
 ecow = { workspace = true }
 env_proxy = { workspace = true }

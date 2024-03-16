@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use chinese_number::{ChineseCase, ChineseCountMethod, ChineseVariant, NumberToChinese};
+use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 
 use crate::diag::SourceResult;
@@ -36,7 +37,7 @@ pub fn numbering(
     /// The engine.
     engine: &mut Engine,
     /// The callsite context.
-    context: &Context,
+    context: Tracked<Context>,
     /// Defines how the numbering works.
     ///
     /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `一`, `壹`, `あ`, `い`, `ア`, `イ`, `א`, `가`,
@@ -85,7 +86,7 @@ impl Numbering {
     pub fn apply(
         &self,
         engine: &mut Engine,
-        context: &Context,
+        context: Tracked<Context>,
         numbers: &[usize],
     ) -> SourceResult<Value> {
         Ok(match self {

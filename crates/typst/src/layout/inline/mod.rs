@@ -1281,7 +1281,7 @@ fn commit(
     }
 
     // Determine how much additional space is needed.
-    // The justicication_ratio is for the first step justification,
+    // The justification_ratio is for the first step justification,
     // extra_justification is for the last step.
     // For more info on multi-step justification, see Procedures for Inter-
     // Character Space Expansion in W3C document Chinese Layout Requirements.
@@ -1415,7 +1415,7 @@ fn reorder<'a>(line: &'a Line<'a>) -> (Vec<&Item<'a>>, bool) {
 /// How much a character should hang into the end margin.
 ///
 /// For more discussion, see:
-/// https://recoveringphysicist.com/21/
+/// <https://recoveringphysicist.com/21/>
 fn overhang(c: char) -> f64 {
     match c {
         // Dashes.

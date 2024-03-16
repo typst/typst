@@ -1,3 +1,5 @@
+use comemo::Track;
+
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
@@ -218,7 +220,7 @@ impl ListMarker {
                 list.get(depth % list.len()).cloned().unwrap_or_default()
             }
             Self::Func(func) => func
-                .call(engine, &Context::new(None, Some(styles)), [depth])?
+                .call(engine, Context::new(None, Some(styles)).track(), [depth])?
                 .display(),
         })
     }

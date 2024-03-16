@@ -3,6 +3,7 @@ use std::fmt::{Debug, Formatter};
 use std::num::{NonZeroI64, NonZeroUsize};
 use std::ops::{Add, AddAssign};
 
+use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -301,7 +302,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         searcher: Func,
     ) -> SourceResult<Option<Value>> {
@@ -325,7 +326,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         searcher: Func,
     ) -> SourceResult<Option<i64>> {
@@ -402,7 +403,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
     ) -> SourceResult<Array> {
@@ -427,7 +428,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The function to apply to each item.
         mapper: Func,
     ) -> SourceResult<Array> {
@@ -536,7 +537,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The initial value to start with.
         init: Value,
         /// The folding function. Must have two parameters: One for the
@@ -598,7 +599,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
     ) -> SourceResult<bool> {
@@ -618,7 +619,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
         test: Func,
     ) -> SourceResult<bool> {
@@ -765,7 +766,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The callsite span.
         span: Span,
         /// If given, applies this function to the elements in the array to
@@ -815,7 +816,7 @@ impl Array {
         /// The engine.
         engine: &mut Engine,
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// If given, applies this function to the elements in the array to
         /// determine the keys to deduplicate by.
         #[named]

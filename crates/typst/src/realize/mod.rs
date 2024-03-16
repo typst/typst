@@ -416,6 +416,9 @@ struct ParBuilder<'a>(BehavedBuilder<'a>);
 impl<'a> ParBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
         if content.is::<MetaElem>() {
+            // TODO: This could probably just be `self.0.is_empty()` since no
+            // weak or invisible elements can be at the start of the builder. It
+            // can be removed once 0.11 has landed.
             if self.0.has_strong_elements(false) {
                 self.0.push(content, styles);
                 return true;

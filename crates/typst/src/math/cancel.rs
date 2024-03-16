@@ -1,3 +1,5 @@
+use comemo::Track;
+
 use crate::diag::{At, SourceResult};
 use crate::foundations::{
     cast, elem, Content, Context, Func, Packed, Resolve, Smart, StyleChain,
@@ -204,7 +206,7 @@ fn draw_cancel_line(
             CancelAngle::Angle(v) => *v,
             // This specifies a function that takes the default angle as input.
             CancelAngle::Func(func) => func
-                .call(ctx.engine, &Context::new(None, Some(styles)), [default])?
+                .call(ctx.engine, Context::new(None, Some(styles)).track(), [default])?
                 .cast()
                 .at(span)?,
         },
