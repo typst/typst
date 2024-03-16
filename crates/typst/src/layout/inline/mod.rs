@@ -1415,7 +1415,7 @@ fn reorder<'a>(line: &'a Line<'a>) -> (Vec<&Item<'a>>, bool) {
 /// How much a character should hang into the end margin.
 ///
 /// For more discussion, see:
-/// https://recoveringphysicist.com/21/
+/// <https://recoveringphysicist.com/21/>
 fn overhang(c: char) -> f64 {
     match c {
         // Dashes.
