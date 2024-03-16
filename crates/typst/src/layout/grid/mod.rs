@@ -701,8 +701,8 @@ pub struct GridVLine {
 ///
 /// #grid(
 ///   fill: (x, y) => rgb(
-///     if calc.odd(x + y) { "EFF0F3" }
-///     else { "7F8396" }
+///     if calc.odd(x + y) { "7F8396" }
+///     else { "EFF0F3" }
 ///   ),
 ///   columns: (1em,) * 8,
 ///   rows: 1em,
