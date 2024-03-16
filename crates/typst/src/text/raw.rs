@@ -15,12 +15,12 @@ use crate::foundations::{
     cast, elem, scope, Args, Array, Bytes, Content, Fold, NativeElement, Packed,
     PlainText, Show, ShowSet, Smart, StyleChain, Styles, Synthesize, Value,
 };
-use crate::layout::{BlockElem, Em, HAlignment};
+use crate::layout::{BlockElem, Dir, Em, HAlignment};
 use crate::model::Figurable;
 use crate::syntax::{split_newlines, LinkedNode, Span, Spanned};
 use crate::text::{
     FontFamily, FontList, Hyphenate, Lang, LinebreakElem, LocalName, Region,
-    SmartQuoteElem, TextElem, TextSize,
+    SmartQuoteElem, TextDir, TextElem, TextSize,
 };
 use crate::util::option_eq;
 use crate::visualize::Color;
@@ -263,6 +263,33 @@ pub struct RawElem {
     /// Allows more styling control in `show` rules.
     #[synthesized]
     pub lines: Vec<Packed<RawLine>>,
+
+    /// The dominant direction for text and inline objects. Possible values are:
+    ///
+    /// - `{auto}`: Automatically infer the direction from the `lang` property.
+    /// - `{ltr}`: Layout text from left to right.
+    /// - `{rtl}`: Layout text from right to left.
+    ///
+    /// When writing in right-to-left scripts like Arabic or Hebrew, you should
+    /// set the [text language]($text.lang) or direction. While individual runs
+    /// of text are automatically layouted in the correct direction, setting the
+    /// dominant direction gives the bidirectional reordering algorithm the
+    /// necessary information to correctly place punctuation and inline objects.
+    /// Furthermore, setting the direction affects the alignment values `start`
+    /// and `end`, which are equivalent to `left` and `right` in `ltr` text and
+    /// the other way around in `rtl` text.
+    ///
+    /// If you set this to `rtl` and experience bugs or in some way bad looking
+    /// output, please do get in touch with us through the
+    /// [contact form](https://typst.app/contact) or our
+    /// [Discord server]($community/#discord)!
+    ///
+    /// ```example
+    /// #set text(dir: rtl)
+    /// هذا عربي.
+    /// ```
+    #[resolve]
+    pub dir: TextDir,
 }
 
 #[scope]
@@ -433,6 +460,15 @@ impl Show for Packed<RawElem> {
         let lines = self.lines().map(|v| v.as_slice()).unwrap_or_default();
 
         let mut seq = EcoVec::with_capacity((2 * lines.len()).saturating_sub(1));
+
+        let dir = RawElem::dir_in(styles);
+        // Insert "Explicit Directional Isolate".
+        match dir {
+            Dir::LTR => seq.push(TextElem::new("\u{2066}".into()).pack()),
+            Dir::RTL => seq.push(TextElem::new("\u{2067}".into()).pack()),
+            _ => {}
+        }
+
         for (i, line) in lines.iter().enumerate() {
             if i != 0 {
                 seq.push(LinebreakElem::new().pack());
@@ -440,6 +476,9 @@ impl Show for Packed<RawElem> {
 
             seq.push(line.clone().pack());
         }
+
+        // Insert "Pop Directional Isolate".
+        seq.push(TextElem::new("\u{2069}".into()).pack());
 
         let mut realized = Content::sequence(seq);
         if self.block(styles) {
