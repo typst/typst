@@ -223,8 +223,11 @@ impl Array {
         self.0.pop().ok_or_else(array_is_empty)
     }
 
-    /// Inserts a value into the array at the specified index. Fails with an
-    /// error if the index is out of bounds.
+    /// Inserts a value into the array at the specified index, shifting all
+    /// subsequent elements to the right. Fails with an error if the index is
+    /// out of bounds.
+    ///
+    /// To replace an element of an array, use [`at`]($array.at).
     #[func]
     pub fn insert(
         &mut self,
