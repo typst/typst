@@ -46,6 +46,7 @@ use crate::layout::Em;
 use crate::layout::{Abs, Axis, Dir, Length, Rel};
 use crate::model::ParElem;
 use crate::syntax::Spanned;
+use crate::util::Scalar;
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
 
 /// Text styling.
@@ -71,6 +72,22 @@ pub(super) fn define(global: &mut Scope) {
     global.define_func::<upper>();
     global.define_func::<smallcaps>();
     global.define_func::<lorem>();
+}
+
+#[derive(PartialEq, Clone, Copy, Debug, Hash)]
+pub struct Cost(Scalar);
+
+impl Cost {
+    pub fn get(self) -> f64 {
+        self.0.get()
+    }
+}
+
+cast! {
+    Cost,
+    self => Value::Float(self.0.get()),
+
+    v: f64 => Self(Scalar::new(v)),
 }
 
 /// Customizes the look and layout of text in a variety of ways.
@@ -462,6 +479,21 @@ pub struct TextElem {
     #[resolve]
     #[ghost]
     pub hyphenate: Hyphenate,
+
+    /// The "cost" of hyphenation when laying out text.
+    /// A higher cost means the layout engine will hyphenate less often.
+    ///
+    /// When justifying text, a higher hyphenation cost can result in more variation
+    /// in justification spacing in order to avoid hyphenation.
+    ///
+    /// The default cost is an acceptable balance, but some may find that it hyphenates too eagerly.
+    /// A cost of `10.0` may work better for such contexts.
+    pub hyphenation_cost: Option<Cost>,
+
+    pub runt_cost: Option<Cost>,
+
+    #[default(true)]
+    pub prevent_widows_and_orphans: bool,
 
     /// Whether to apply kerning.
     ///

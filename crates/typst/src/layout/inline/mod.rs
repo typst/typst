@@ -116,6 +116,11 @@ struct Preparation<'a> {
     spans: SpanMapper,
     /// Whether to hyphenate if it's the same for all children.
     hyphenate: Option<bool>,
+    /// See `linebreak_optimized` for the meaning of this cost parameter.
+    hyphenation_cost: Option<f64>,
+    /// See `linebreak_optimized` for the meaning of this cost parameter.
+    runt_cost: Option<f64>,
+    prevent_widows_and_orphans: bool,
     /// The text language if it's the same for all children.
     lang: Option<Lang>,
     /// The paragraph's resolved horizontal alignment.
@@ -634,6 +639,18 @@ fn prepare<'a>(
         items,
         spans,
         hyphenate: shared_get(styles, children, TextElem::hyphenate_in),
+        hyphenation_cost: shared_get(styles, children, TextElem::hyphenation_cost_in)
+            .flatten()
+            .map(|x| x.get()),
+        runt_cost: shared_get(styles, children, TextElem::runt_cost_in)
+            .flatten()
+            .map(|x| x.get()),
+        prevent_widows_and_orphans: shared_get(
+            styles,
+            children,
+            TextElem::prevent_widows_and_orphans_in,
+        )
+        .unwrap_or(true),
         lang: shared_get(styles, children, TextElem::lang_in),
         align: AlignElem::alignment_in(styles).resolve(styles).x,
         justify: ParElem::justify_in(styles),
@@ -875,11 +892,14 @@ fn linebreak_optimized<'a>(
     }
 
     // Cost parameters.
-    const HYPH_COST: Cost = 0.5;
-    const RUNT_COST: Cost = 0.5;
+    const DEFAULT_HYPH_COST: Cost = 0.5;
+    const DEFAULT_RUNT_COST: Cost = 0.5;
     const CONSECUTIVE_DASH_COST: Cost = 0.3;
     const MAX_COST: Cost = 1_000_000.0;
     const MIN_RATIO: f64 = -1.0;
+
+    let hyph_cost = p.hyphenation_cost.unwrap_or(DEFAULT_HYPH_COST);
+    let runt_cost = p.runt_cost.unwrap_or(DEFAULT_RUNT_COST);
 
     // Dynamic programming table.
     let mut active = 0;
@@ -964,12 +984,23 @@ fn linebreak_optimized<'a>(
 
             // Penalize runts.
             if k == i + 1 && eof {
-                cost += RUNT_COST;
+                cost += runt_cost;
             }
 
             // Penalize hyphens.
             if breakpoint == Breakpoint::Hyphen {
-                cost += HYPH_COST;
+                cost += hyph_cost;
+            }
+
+            if pred
+                .line
+                .items()
+                .next()
+                .and_then(|item| item.text())
+                .and_then(|text| text.glyphs.first())
+                .map_or(false, |glyph| glyph.c == '—')
+            {
+                cost += 10.0;
             }
 
             // In Knuth paper, cost = (1 + 100|r|^3 + p)^2 + a,
@@ -1210,19 +1241,21 @@ fn finalize(
         .map(|line| commit(engine, p, line, width, region.y))
         .collect::<SourceResult<_>>()?;
 
-    // Prevent orphans.
-    if frames.len() >= 2 && !frames[1].is_empty() {
-        let second = frames.remove(1);
-        let first = &mut frames[0];
-        merge(first, second, p.leading);
-    }
+    if p.prevent_widows_and_orphans {
+        // Prevent orphans.
+        if frames.len() >= 2 && !frames[1].is_empty() {
+            let second = frames.remove(1);
+            let first = &mut frames[0];
+            merge(first, second, p.leading);
+        }
 
-    // Prevent widows.
-    let len = frames.len();
-    if len >= 2 && !frames[len - 2].is_empty() {
-        let second = frames.pop().unwrap();
-        let first = frames.last_mut().unwrap();
-        merge(first, second, p.leading);
+        // Prevent widows.
+        let len = frames.len();
+        if len >= 2 && !frames[len - 2].is_empty() {
+            let second = frames.pop().unwrap();
+            let first = frames.last_mut().unwrap();
+            merge(first, second, p.leading);
+        }
     }
 
     Ok(Fragment::frames(frames))
