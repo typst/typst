@@ -498,16 +498,16 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Dyn(a), Dyn(b)) => a == b,
 
         // Some technically different things should compare equal.
-        (&Int(a), &Float(b)) => a as f64 == b,
-        (&Float(a), &Int(b)) => a == b as f64,
-        (&Length(a), &Relative(b)) => a == b.abs && b.rel.is_zero(),
-        (&Ratio(a), &Relative(b)) => a == b.rel && b.abs.is_zero(),
-        (&Relative(a), &Length(b)) => a.abs == b && a.rel.is_zero(),
-        (&Relative(a), &Ratio(b)) => a.rel == b && a.abs.is_zero(),
+        (&Int(i), &Float(f)) | (&Float(f), &Int(i)) => i as f64 == f,
+        (&Length(len), &Relative(rel)) | (&Relative(rel), &Length(len)) => {
+            len == rel.abs && rel.rel.is_zero()
+        }
+        (&Ratio(rat), &Relative(rel)) | (&Relative(rel), &Ratio(rat)) => {
+            rat == rel.rel && rel.abs.is_zero()
+        }
 
         // Type compatibility.
-        (Type(a), Str(b)) => a.compat_name() == b.as_str(),
-        (Str(a), Type(b)) => a.as_str() == b.compat_name(),
+        (Type(ty), Str(str)) | (Str(str), Type(ty)) => ty.compat_name() == str.as_str(),
 
         _ => false,
     }
