@@ -100,10 +100,10 @@ impl<T: Numeric + Debug> Debug for Rel<T> {
 
 impl<T: Numeric + Repr> Repr for Rel<T> {
     fn repr(&self) -> EcoString {
-        match (self.rel.is_zero(), self.abs.is_zero()) {
-            (false, false) => eco_format!("{} + {}", self.rel.repr(), self.abs.repr()),
-            (false, true) => self.rel.repr(),
-            (true, _) => self.abs.repr(),
+        if self.rel.ge(&Ratio::zero()) {
+            eco_format!("{} + {}", self.abs.repr(), self.rel.repr())
+        } else {
+            eco_format!("{} - {}", self.abs.repr(), self.rel.abs().repr())
         }
     }
 }
