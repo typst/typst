@@ -117,13 +117,12 @@ static TO_SRGB: Lazy<qcms::Transform> = Lazy::new(|| {
 ///   columns: 9,
 ///   gutter: 10pt,
 ///   ..colors.map(name => {
-///       let c = eval(name)
-///       let cp = c.components()
-///       let x = cp.sum() / cp.len()
-///       set text(fill: white) if x < 50%
-///       set square(stroke: black) if c == white
+///       let col = eval(name)
+///       let luminance = luma(col).components().first()
+///       set text(fill: white) if luminance < 50%
+///       set square(stroke: black) if col == white
 ///       set align(center + horizon)
-///       square(size: 50pt,  fill: c, name)
+///       square(size: 50pt,  fill: col, name)
 ///   })
 /// )
 /// ```
@@ -736,7 +735,7 @@ impl Color {
     ///
     /// ```example
     /// // note that the alpha component is included by default
-    /// #(rgb(40%, 60%, 80%).components() == (40%, 60%, 80%, 100%))
+    /// #rgb(40%, 60%, 80%).components()
     /// ```
     #[func]
     pub fn components(
