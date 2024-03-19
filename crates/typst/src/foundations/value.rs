@@ -736,7 +736,7 @@ mod tests {
         test(Abs::pt(5.5), "5.5pt");
         test(Angle::deg(90.0), "90deg");
         test(Ratio::one() / 2.0, "50%");
-        test(Ratio::new(0.3) + Length::from(Abs::cm(2.0)), "56.69pt + 30%");
+        test(Ratio::new(0.3) + Length::from(Abs::cm(2.0)), "30% + 56.69pt");
         test(Fr::one() * 7.55, "7.55fr");
 
         // Collections.
