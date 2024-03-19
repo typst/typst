@@ -2572,8 +2572,7 @@ dependencies = [
 [[package]]
 name = "typst-assets"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f13f85360328da54847dd7fefaf272dfa5b6d1fdeb53f32938924c39bf5b2c6c"
+source = "git+https://github.com/Heinenen/typst-assets?branch=translation#c133eb2d7473ab9f4b7d9a29531564886b363559"
 
 [[package]]
 name = "typst-cli"
