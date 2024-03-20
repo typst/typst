@@ -491,11 +491,11 @@ impl Str {
     #[func]
     pub fn trim(
         &self,
-        /// The pattern to search for.
+        /// The pattern to search for. If `{none}`, trims white spaces.
         #[default]
         pattern: Option<StrPattern>,
-        /// Can be `start` or `end` to only trim the start or end of the string.
-        /// If omitted, both sides are trimmed.
+        /// Can be `{start}` or `{end}` to only trim the start or end of the
+        /// string. If omitted, both sides are trimmed.
         #[named]
         at: Option<StrSide>,
         /// Whether to repeatedly removes matches of the pattern or just once.
