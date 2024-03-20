@@ -387,7 +387,7 @@ impl Content {
 
     /// Queries the content tree for all elements that match the given selector.
     ///
-    /// Elements produced in `show` rules will not be included in the results.
+    /// Elements produced in show rules will not be included in the results.
     pub fn query(&self, selector: Selector) -> Vec<Content> {
         let mut results = Vec::new();
         self.traverse(&mut |element| {
@@ -401,7 +401,7 @@ impl Content {
     /// Queries the content tree for the first element that match the given
     /// selector.
     ///
-    /// Elements produced in `show` rules will not be included in the results.
+    /// Elements produced in show rules will not be included in the results.
     pub fn query_first(&self, selector: Selector) -> Option<Content> {
         let mut result = None;
         self.traverse(&mut |element| {

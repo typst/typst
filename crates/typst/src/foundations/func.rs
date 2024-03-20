@@ -493,7 +493,7 @@ pub struct ParamInfo {
 pub struct Closure {
     /// The closure's syntax node. Must be either castable to `ast::Closure` or
     /// `ast::Expr`. In the latter case, this is a synthesized closure without
-    /// any parameters (used by context expressions).
+    /// any parameters (used by `context` expressions).
     pub node: SyntaxNode,
     /// Default values of named parameters.
     pub defaults: Vec<Value>,

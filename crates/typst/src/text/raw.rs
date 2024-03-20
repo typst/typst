@@ -260,7 +260,7 @@ pub struct RawElem {
     /// The stylized lines of raw text.
     ///
     /// Made accessible for the [`raw.line` element]($raw.line).
-    /// Allows more styling control in `show` rules.
+    /// Allows more styling control in show rules.
     #[synthesized]
     pub lines: Vec<Packed<RawLine>>,
 }
