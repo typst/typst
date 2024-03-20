@@ -3,6 +3,7 @@ use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+use comemo::Track;
 
 use ecow::{eco_format, EcoString};
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
@@ -303,13 +304,13 @@ impl Repr for Value {
 
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
-        ops::equal(&Context::none(), self, other).unwrap_or(false)
+        ops::equal(Context::none().track(), self, other).unwrap_or(false)
     }
 }
 
 impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        ops::compare(&Context::none(), self, other).ok()
+        ops::compare(Context::none().track(), self, other).ok()
     }
 }
 

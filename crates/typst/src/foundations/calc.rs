@@ -1,5 +1,6 @@
 //! Calculations and processing of numeric values.
 
+use comemo::Tracked;
 use std::cmp;
 use std::cmp::Ordering;
 use std::ops::{Div, Rem};
@@ -733,7 +734,7 @@ pub fn clamp(
 #[func(title = "Minimum")]
 pub fn min(
     /// The callsite context.
-    context: &Context,
+    context: Tracked<Context>,
     /// The callsite span.
     span: Span,
     /// The sequence of values from which to extract the minimum.
@@ -753,7 +754,7 @@ pub fn min(
 #[func(title = "Maximum")]
 pub fn max(
     /// The callsite context.
-    context: &Context,
+    context: Tracked<Context>,
     /// The callsite span.
     span: Span,
     /// The sequence of values from which to extract the maximum.
@@ -766,7 +767,7 @@ pub fn max(
 
 /// Find the minimum or maximum of a sequence of values.
 fn minmax(
-    context: &Context,
+    context: Tracked<Context>,
     span: Span,
     values: Vec<Spanned<Value>>,
     goal: Ordering,

@@ -33,6 +33,7 @@ mod ty;
 mod value;
 mod version;
 
+use comemo::Tracked;
 pub use self::args::*;
 pub use self::array::*;
 pub use self::auto::*;
@@ -188,7 +189,7 @@ impl assert {
     #[func(title = "Assert Equal")]
     pub fn eq(
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The callsite span.
         span: Span,
         /// The first value to compare.
@@ -226,7 +227,7 @@ impl assert {
     #[func(title = "Assert Not Equal")]
     pub fn ne(
         /// The callsite context.
-        context: &Context,
+        context: Tracked<Context>,
         /// The callsite span.
         span: Span,
         /// The first value to compare.

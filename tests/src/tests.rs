@@ -26,7 +26,7 @@ use std::sync::{OnceLock, RwLock};
 use std::{env, fs};
 
 use clap::Parser;
-use comemo::{Prehashed, Track};
+use comemo::{Prehashed, Track, Tracked};
 use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use tiny_skia as sk;
@@ -198,7 +198,7 @@ fn main() {
 fn library() -> Library {
     #[func]
     fn test(
-        context: &Context,
+        context: Tracked<Context>,
         span: Span,
         lhs: Value,
         rhs: Value,

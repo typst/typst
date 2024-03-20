@@ -92,7 +92,7 @@ impl Length {
 
     /// Same as [`Self::to_absolute`], except this returns the original
     /// (non-absolute) length when `to_absolute` fails.
-    pub fn try_to_absolute(self, context: &Context) -> Self {
+    pub fn try_to_absolute(self, context: Tracked<Context>) -> Self {
         self.to_absolute(context).ok().unwrap_or(self)
     }
 }

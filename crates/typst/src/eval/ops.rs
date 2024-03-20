@@ -1,5 +1,6 @@
 //! Operations on values.
 
+use comemo::Tracked;
 use std::cmp::Ordering;
 
 use ecow::eco_format;
@@ -56,10 +57,10 @@ impl Eval for ast::Binary<'_> {
 }
 
 /// Apply a basic binary operation that may require a context.
-fn apply_contextual_binary(
+fn apply_contextual_binary<'a>(
     binary: ast::Binary,
-    vm: &mut Vm,
-    op: fn(&Context, Value, Value) -> HintedStrResult<Value>,
+    vm: &'a mut Vm,
+    op: fn(Tracked<'a, Context<'a>>, Value, Value) -> HintedStrResult<Value>,
 ) -> SourceResult<Value> {
     let lhs = binary.lhs().eval(vm)?;
     let rhs = binary.rhs().eval(vm)?;
@@ -451,19 +452,19 @@ pub fn or(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Compute whether two values are equal.
-pub fn eq(context: &Context, lhs: Value, rhs: Value) -> HintedStrResult<Value> {
+pub fn eq(context: Tracked<Context>, lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     Ok(Value::Bool(equal(context, &lhs, &rhs)?))
 }
 
 /// Compute whether two values are unequal.
-pub fn neq(context: &Context, lhs: Value, rhs: Value) -> HintedStrResult<Value> {
+pub fn neq(context: Tracked<Context>, lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     Ok(Value::Bool(!equal(context, &lhs, &rhs)?))
 }
 
 macro_rules! comparison {
     ($name:ident, $op:tt, $($pat:tt)*) => {
         /// Compute how a value compares with another value.
-        pub fn $name(context: &Context, lhs: Value, rhs: Value) -> HintedStrResult<Value> {
+        pub fn $name(context: Tracked<Context>, lhs: Value, rhs: Value) -> HintedStrResult<Value> {
             let ordering = compare(context, &lhs, &rhs)?;
             Ok(Value::Bool(matches!(ordering, $($pat)*)))
         }
@@ -476,7 +477,11 @@ comparison!(gt, ">", Ordering::Greater);
 comparison!(geq, ">=", Ordering::Greater | Ordering::Equal);
 
 /// Determine whether two values are equal.
-pub fn equal(context: &Context, lhs: &Value, rhs: &Value) -> HintedStrResult<bool> {
+pub fn equal(
+    context: Tracked<Context>,
+    lhs: &Value,
+    rhs: &Value,
+) -> HintedStrResult<bool> {
     use Value::*;
     Ok(match (lhs, rhs) {
         // Compare reflexively.
@@ -541,7 +546,11 @@ fn try_eq_values<T: PartialOrd + Repr>(
 }
 
 /// Compare two values.
-pub fn compare(context: &Context, lhs: &Value, rhs: &Value) -> HintedStrResult<Ordering> {
+pub fn compare(
+    context: Tracked<Context>,
+    lhs: &Value,
+    rhs: &Value,
+) -> HintedStrResult<Ordering> {
     use Value::*;
     Ok(match (lhs, rhs) {
         (Bool(a), Bool(b)) => a.cmp(b),
@@ -605,7 +614,7 @@ fn try_cmp_datetimes(a: &Datetime, b: &Datetime) -> StrResult<Ordering> {
 
 /// Try to compare arrays of values lexicographically.
 fn try_cmp_arrays(
-    context: &Context,
+    context: Tracked<Context>,
     a: &[Value],
     b: &[Value],
 ) -> HintedStrResult<Ordering> {
