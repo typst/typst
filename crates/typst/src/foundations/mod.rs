@@ -33,7 +33,6 @@ mod ty;
 mod value;
 mod version;
 
-use comemo::Tracked;
 pub use self::args::*;
 pub use self::array::*;
 pub use self::auto::*;
@@ -62,6 +61,7 @@ pub use self::styles::*;
 pub use self::ty::*;
 pub use self::value::*;
 pub use self::version::*;
+use comemo::Tracked;
 
 #[rustfmt::skip]
 #[doc(hidden)]

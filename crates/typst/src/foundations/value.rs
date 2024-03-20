@@ -1,9 +1,9 @@
+use comemo::Track;
 use std::any::{Any, TypeId};
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
-use comemo::Track;
 
 use ecow::{eco_format, EcoString};
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
