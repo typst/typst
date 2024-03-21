@@ -115,7 +115,7 @@ fn print_summary(
         template.entrypoint.to_string()
     };
 
-    writeln!(out, "typst watch {}", entrypoint)?;
+    writeln!(out, "typst watch {entrypoint}")?;
     writeln!(out)?;
     Ok(())
 }
