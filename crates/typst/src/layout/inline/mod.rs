@@ -1145,7 +1145,10 @@ fn line<'a>(
                     // If the first glyph is a CJK punctuation, we want to shrink it.
                     let shrink_amount = first_glyph.shrinkability().0;
                     let glyph = reshaped.glyphs.to_mut().first_mut().unwrap();
-                    glyph.shrink_left(shrink_amount);
+                    // No need to add `stretchability` of the first CJK punctuation glyph to avoid stretching in line adjustment.
+                    glyph.x_offset -= shrink_amount;
+                    glyph.x_advance -= shrink_amount;
+                    glyph.adjustability.shrinkability.0 -= shrink_amount;
                     let amount_abs = shrink_amount.at(reshaped.size);
                     reshaped.width -= amount_abs;
                     width -= amount_abs;
