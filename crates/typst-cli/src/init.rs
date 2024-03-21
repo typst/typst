@@ -108,7 +108,14 @@ fn print_summary(
     out.set_color(&gray)?;
     write!(out, "> ")?;
     out.reset()?;
-    writeln!(out, "typst watch \"{}\"", template.entrypoint)?;
+    
+    let entrypoint: String = if template.entrypoint.contains(' ') {
+        format!("\"{}\"", template.entrypoint)
+    } else {
+        template.entrypoint.to_string()
+    };
+    
+    writeln!(out, "typst watch {}", entrypoint)?;
     writeln!(out)?;
     Ok(())
 }
