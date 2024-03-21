@@ -108,7 +108,7 @@ fn print_summary(
     out.set_color(&gray)?;
     write!(out, "> ")?;
     out.reset()?;
-    writeln!(out, "typst watch {}", template.entrypoint)?;
+    writeln!(out, "typst watch \"{}\"", template.entrypoint)?;
     writeln!(out)?;
     Ok(())
 }
