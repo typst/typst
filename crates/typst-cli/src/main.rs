@@ -26,7 +26,7 @@ use crate::timings::Timer;
 
 thread_local! {
     /// The CLI's exit code.
-    static EXIT: Cell<ExitCode> = Cell::new(ExitCode::SUCCESS);
+    static EXIT: Cell<ExitCode> = const { Cell::new(ExitCode::SUCCESS) };
 }
 
 /// The parsed commandline arguments.
