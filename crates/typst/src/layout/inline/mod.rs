@@ -189,7 +189,7 @@ enum Segment<'a> {
     /// Horizontal spacing between other segments.
     Spacing(Spacing),
     /// A mathematical equation.
-    Equation(&'a Packed<EquationElem>, Vec<MathParItem>),
+    Equation(Vec<MathParItem>),
     /// A box with arbitrary content.
     Box(&'a Packed<BoxElem>, bool),
     /// Metadata.
@@ -205,7 +205,7 @@ impl Segment<'_> {
             Self::Box(_, frac) => {
                 (if frac { SPACING_REPLACE } else { OBJ_REPLACE }).len_utf8()
             }
-            Self::Equation(_, ref par_items) => {
+            Self::Equation(ref par_items) => {
                 par_items.iter().map(MathParItem::text).map(char::len_utf8).sum()
             }
             Self::Meta => 0,
@@ -521,7 +521,7 @@ fn collect<'a>(
                 frame.meta(styles, false);
             }
             full.extend(items.iter().map(MathParItem::text));
-            Segment::Equation(elem, items)
+            Segment::Equation(items)
         } else if let Some(elem) = child.to_packed::<BoxElem>() {
             let frac = elem.width(styles).is_fractional();
             full.push(if frac { SPACING_REPLACE } else { OBJ_REPLACE });
@@ -592,7 +592,7 @@ fn prepare<'a>(
                     items.push(Item::Fractional(v, None));
                 }
             },
-            Segment::Equation(_, par_items) => {
+            Segment::Equation(par_items) => {
                 for item in par_items {
                     match item {
                         MathParItem::Space(s) => items.push(Item::Absolute(s)),
