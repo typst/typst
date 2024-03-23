@@ -6,6 +6,9 @@ on:
   release:
     types: [published]
 
+env:
+  RUST_VERSION: "1.77.0"  # also change RUST_VERSION in ci.yml
+
 jobs:
   build-release:
     name: release ${{ matrix.target }}
@@ -37,7 +40,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - uses: dtolnay/rust-toolchain@1.77.0
+    - uses: dtolnay/rust-toolchain@${{ env.RUST_VERSION }}
       with:
         target: ${{ matrix.target }}
 

@@ -4,6 +4,8 @@ on: [push, pull_request, merge_group]
 env:
   RUSTFLAGS: "-Dwarnings"
   RUSTDOCFLAGS: "-Dwarnings"
+  RUST_VERSION: "1.77.0"     # also change RUST_VERSION in release.yml
+  RUST_VERSION_MIN: "1.74.0" # also change rust-version in Cargo.toml
 
 jobs:
   # This allows us to have one branch protection rule for the full test matrix.
@@ -29,7 +31,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.77.0
+      - uses: dtolnay/rust-toolchain@${{ env.RUST_VERSION }}
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace --no-fail-fast
 
@@ -38,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.77.0
+      - uses: dtolnay/rust-toolchain@${{ env.RUST_VERSION }}
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
@@ -51,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.74.0
+      - uses: dtolnay/rust-toolchain@${{ env.RUST_VERSION_MIN }}
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace
 
