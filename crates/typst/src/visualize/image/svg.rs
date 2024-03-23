@@ -2,12 +2,14 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use comemo::Tracked;
+use comemo::{Tracked, TrackedMut};
 use ecow::EcoString;
 use siphasher::sip128::Hasher128;
+use typst_syntax::Span;
 use usvg::{Node, PostProcessingSteps, TreeParsing, TreePostProc};
 
 use crate::diag::{format_xml_like_error, StrResult};
+use crate::eval::Tracer;
 use crate::foundations::Bytes;
 use crate::layout::Axes;
 use crate::text::{FontVariant, FontWeight};
@@ -46,12 +48,14 @@ impl SvgImage {
         data: Bytes,
         world: Tracked<dyn World + '_>,
         families: &[String],
+        tracer: TrackedMut<Tracer>,
+        span: Span,
     ) -> StrResult<SvgImage> {
         let mut tree =
             usvg::Tree::from_data(&data, &options()).map_err(format_usvg_error)?;
         let mut font_hash = 0;
         if tree.has_text_nodes() {
-            let (fontdb, hash) = load_svg_fonts(world, &mut tree, families);
+            let (fontdb, hash) = load_svg_fonts(world, &mut tree, families, tracer, span);
             tree.postprocess(PostProcessingSteps::default(), &fontdb);
             font_hash = hash;
         }
@@ -142,6 +146,8 @@ fn load_svg_fonts(
     world: Tracked<dyn World + '_>,
     tree: &mut usvg::Tree,
     families: &[String],
+    mut tracer: TrackedMut<Tracer>,
+    img_span: Span,
 ) -> (fontdb::Database, u128) {
     let book = world.book();
     let mut fontdb = fontdb::Database::new();
@@ -183,8 +189,11 @@ fn load_svg_fonts(
                     // and the current document font families.
                     let mut like = None;
                     for family in span.font.families.iter().chain(families) {
-                        let Some(id) = book.select(&family.to_lowercase(), variant)
-                        else {
+                        let Some(id) = book.select(
+                            &family.to_lowercase(),
+                            variant,
+                            Some((TrackedMut::reborrow_mut(&mut tracer), img_span)),
+                        ) else {
                             continue;
                         };
                         let Some(info) = book.info(id) else { continue };
@@ -199,7 +208,12 @@ fn load_svg_fonts(
                     }
 
                     // If we didn't find a match, select a fallback font.
-                    if let Some(id) = book.select_fallback(like, variant, text) {
+                    if let Some(id) = book.select_fallback(
+                        like,
+                        variant,
+                        text,
+                        Some((TrackedMut::reborrow_mut(&mut tracer), img_span)),
+                    ) {
                         if let Some(usvg_family) = load_into_db(id) {
                             span.font.families = vec![usvg_family];
                         }
