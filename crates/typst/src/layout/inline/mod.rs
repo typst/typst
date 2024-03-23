@@ -1085,9 +1085,7 @@ fn line<'a>(
                         // Compression of punctuation marks at line start or line end
                         let shrink_amount = last_glyph.shrinkability().1;
                         let punct = reshaped.glyphs.to_mut().last_mut().unwrap();
-                        // No need to add `stretchability` of the last CJK punctuation glyph to avoid stretching in line adjustment.
-                        punct.x_advance -= shrink_amount;
-                        punct.adjustability.shrinkability.1 -= shrink_amount;
+                        punct.shrink_right(shrink_amount);
                         reshaped.width -= shrink_amount.at(reshaped.size);
                     } else if p.cjk_latin_spacing
                         && last_glyph.is_cj_script()
@@ -1145,10 +1143,7 @@ fn line<'a>(
                     // If the first glyph is a CJK punctuation, we want to shrink it.
                     let shrink_amount = first_glyph.shrinkability().0;
                     let glyph = reshaped.glyphs.to_mut().first_mut().unwrap();
-                    // No need to add `stretchability` of the first CJK punctuation glyph to avoid stretching in line adjustment.
-                    glyph.x_offset -= shrink_amount;
-                    glyph.x_advance -= shrink_amount;
-                    glyph.adjustability.shrinkability.0 -= shrink_amount;
+                    glyph.shrink_left(shrink_amount);
                     let amount_abs = shrink_amount.at(reshaped.size);
                     reshaped.width -= amount_abs;
                     width -= amount_abs;
