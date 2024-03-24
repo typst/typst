@@ -121,6 +121,7 @@ impl Lexer<'_> {
         }
     }
 
+    /// Eat whitespaces greedily, and returns the SyntaxKind of the eaten.
     fn whitespace(&mut self, start: usize, c: char) -> SyntaxKind {
         let more = self.s.eat_while(|c| is_space(c, self.mode));
         let newlines = match c {
@@ -760,7 +761,7 @@ impl ScannerExt for Scanner<'_> {
     }
 }
 
-/// Whether a character will become a Space token in Typst
+/// Whether a character will become a [`SyntaxKind::Space`] token.
 #[inline]
 fn is_space(character: char, mode: LexMode) -> bool {
     match mode {

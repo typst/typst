@@ -1755,10 +1755,17 @@ impl<'s> Parser<'s> {
             && self.lexer.newline()
             && match self.newline_modes.last() {
                 Some(NewlineMode::Continue) => false,
-                Some(NewlineMode::Contextual) => !matches!(
-                    self.lexer.clone().next(),
-                    SyntaxKind::Else | SyntaxKind::Dot
-                ),
+                Some(NewlineMode::Contextual) => {
+                    let mut cloned_lexer = self.lexer.clone();
+                    let next = loop {
+                        let next = cloned_lexer.next();
+                        if next.is_trivia() {
+                            continue;
+                        }
+                        break next;
+                    };
+                    !matches!(next, SyntaxKind::Else | SyntaxKind::Dot)
+                }
                 Some(NewlineMode::Stop) => true,
                 None => false,
             }
