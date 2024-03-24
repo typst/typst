@@ -1751,6 +1751,8 @@ impl<'s> Parser<'s> {
     fn lex(&mut self) {
         self.current_start = self.lexer.cursor();
         self.current = self.lexer.next();
+
+        // Special cases to handle newlines in code mode.
         if self.lexer.mode() == LexMode::Code
             && self.lexer.newline()
             && match self.newline_modes.last() {
