@@ -121,6 +121,16 @@ impl Lexer<'_> {
         }
     }
 
+    pub fn next_non_trivia(&mut self) -> SyntaxKind {
+        loop {
+            let next = self.next();
+            if next.is_trivia() {
+                continue;
+            }
+            break next;
+        }
+    }
+
     /// Eat whitespaces greedily, and returns the SyntaxKind of the eaten.
     fn whitespace(&mut self, start: usize, c: char) -> SyntaxKind {
         let more = self.s.eat_while(|c| is_space(c, self.mode));
