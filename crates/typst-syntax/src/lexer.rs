@@ -127,10 +127,10 @@ impl Lexer<'_> {
     pub fn next_non_trivia(&mut self) -> SyntaxKind {
         loop {
             let next = self.next();
-            if next.is_trivia() {
-                continue;
+            // Loop is terminatable, since SyntaxKind::Eof is not a trivia.
+            if !next.is_trivia() {
+                break next;
             }
-            break next;
         }
     }
 

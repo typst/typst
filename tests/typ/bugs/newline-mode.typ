@@ -64,3 +64,11 @@ else {
   /* comment */
     .clusters()
 }
+
+---
+#let foo(x) = {
+  if x < 0 { "negative" }
+  // comment
+  else { "non-negative" }
+}
+#foo(1)
