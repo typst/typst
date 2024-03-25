@@ -45,7 +45,6 @@ use crate::foundations::{
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::model::ParElem;
 use crate::syntax::Spanned;
-use crate::util::Scalar;
 use crate::visualize::{Color, Paint, RelativeTo, Stroke};
 
 /// Text styling.
