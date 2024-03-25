@@ -592,16 +592,9 @@ fn math_args(p: &mut Parser) {
     p.wrap(m, SyntaxKind::Args);
 }
 
-/// Wrap math function arguments in a "Math" SyntaxKind to combine adjacent expressions.
-/// We don't wrap when `exprs == 1`, as there is only one expression and the grouping is
-/// not needed.
-///
-/// Note that `exprs` might be 0 if we are in 2D mode with trivia before a comma i.e.
-/// `mat(; ,)`. This would create an empty Math element at the same level as the array
-/// breaking the AST.
 fn maybe_wrap_in_math(p: &mut Parser, arg: Marker, named: Option<Marker>) {
     let exprs = p.post_process(arg).filter(|node| node.is::<ast::Expr>()).count();
-    if exprs > 1 {
+    if exprs != 1 {
         p.wrap(arg, SyntaxKind::Math);
     }
 
