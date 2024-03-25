@@ -10,8 +10,10 @@ use crate::foundations::{
     NativeElement, Packed, Show, ShowSet, Smart, StyleChain, Styles,
 };
 use crate::introspection::{Counter, CounterKey, Locatable};
-use crate::layout::{BoxElem, Fr, HElem, HideElem, Length, Rel, RepeatElem, Spacing};
-use crate::model::{Destination, HeadingElem, NumberingPattern, ParbreakElem, Refable};
+use crate::layout::{BoxElem, Em, Fr, HElem, HideElem, Length, Rel, RepeatElem, Spacing};
+use crate::model::{
+    Destination, HeadingElem, NumberingPattern, ParElem, ParbreakElem, Refable,
+};
 use crate::syntax::Span;
 use crate::text::{Lang, LinebreakElem, LocalName, Region, SpaceElem, TextElem};
 use crate::util::{option_eq, NonZeroExt};
@@ -265,6 +267,7 @@ impl ShowSet for Packed<OutlineElem> {
         let mut out = Styles::new();
         out.set(HeadingElem::set_outlined(false));
         out.set(HeadingElem::set_numbering(None));
+        out.set(ParElem::set_first_line_indent(Em::new(0.0).into()));
         out
     }
 }
