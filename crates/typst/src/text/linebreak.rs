@@ -1,4 +1,6 @@
-use crate::foundations::{elem, Packed};
+use icu_segmenter::LineBreakWordOption;
+
+use crate::foundations::{elem, Cast, Packed};
 use crate::realize::{Behave, Behaviour};
 
 /// Inserts a line break.
@@ -40,5 +42,31 @@ pub struct LinebreakElem {
 impl Behave for Packed<LinebreakElem> {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Destructive
+    }
+}
+
+/// A word break mode on text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum WordBreak {
+    /// Words break according to the languages' customary rules. For example,
+    /// English do not prefer to break lines without space while
+    /// Chinese/Japanese doesn't. See the the details in
+    /// `https://drafts.csswg.org/css-text-3/#valdef-line-break-normal`.
+    Normal,
+
+    /// Breaking is allowed within words.
+    BreakAll,
+
+    /// Breaking is forbidden within words.
+    KeepAll,
+}
+
+impl From<WordBreak> for LineBreakWordOption {
+    fn from(value: WordBreak) -> LineBreakWordOption {
+        match value {
+            WordBreak::Normal => LineBreakWordOption::Normal,
+            WordBreak::BreakAll => LineBreakWordOption::BreakAll,
+            WordBreak::KeepAll => LineBreakWordOption::KeepAll,
+        }
     }
 }

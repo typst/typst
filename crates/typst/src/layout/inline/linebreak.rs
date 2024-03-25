@@ -3,30 +3,36 @@ use icu_properties::LineBreak;
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
-use icu_segmenter::LineSegmenter;
+use icu_segmenter::{LineBreakOptions, LineSegmenter};
 use once_cell::sync::Lazy;
 
 use super::Preparation;
 use crate::syntax::link_prefix;
-use crate::text::{Lang, TextElem};
+use crate::text::{Lang, TextElem, WordBreak};
 
-/// The general line break segmenter.
-static SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
+/// Create a general line break segmenter with a word break option.
+fn create_segmenter(word_break: WordBreak) -> LineSegmenter {
     let provider =
         BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU).unwrap();
-    LineSegmenter::try_new_lstm_with_buffer_provider(&provider).unwrap()
-});
+    let mut options = LineBreakOptions::default();
+    options.word_option = word_break.into();
+    LineSegmenter::try_new_lstm_with_options_with_buffer_provider(&provider, options)
+        .unwrap()
+}
 
-/// The line break segmenter for Chinese/Japanese text.
-static CJ_SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
+/// Create a line break segmenter for Chinese/Japanese text with a word break option.
+fn create_cj_segmenter(word_break: WordBreak) -> LineSegmenter {
     let provider =
         BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU).unwrap();
     let cj_blob =
         BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU_CJ_SEGMENT)
             .unwrap();
     let cj_provider = ForkByKeyProvider::new(cj_blob, provider);
-    LineSegmenter::try_new_lstm_with_buffer_provider(&cj_provider).unwrap()
-});
+    let mut options = LineBreakOptions::default();
+    options.word_option = word_break.into();
+    LineSegmenter::try_new_lstm_with_options_with_buffer_provider(&cj_provider, options)
+        .unwrap()
+}
 
 /// The Unicode line break properties for each code point.
 static LINEBREAK_DATA: Lazy<CodePointMapData<LineBreak>> = Lazy::new(|| {
@@ -64,8 +70,8 @@ pub(super) fn breakpoints<'a>(
     let hyphenate = p.hyphenate != Some(false);
     let lb = LINEBREAK_DATA.as_borrowed();
     let segmenter = match p.lang {
-        Some(Lang::CHINESE | Lang::JAPANESE) => &CJ_SEGMENTER,
-        _ => &SEGMENTER,
+        Some(Lang::CHINESE | Lang::JAPANESE) => create_cj_segmenter(p.word_break),
+        _ => create_segmenter(p.word_break),
     };
 
     let mut last = 0;
