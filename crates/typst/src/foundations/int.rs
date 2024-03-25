@@ -261,7 +261,14 @@ macro_rules! unsigned_int {
     ($($ty:ty)*) => {
         $(cast! {
             $ty,
-            self => Value::Int(self as _),
+            self => if let Ok(int) = i64::try_from(self) {
+                Value::Int(int)
+            } else {
+                // Some u64 are too large to be cast as i64
+                // In that case, we accept that there may be a
+                // precision loss, and use a floating point number
+                Value::Float(self as _)
+            },
             v: i64 => v.try_into().map_err(|_| {
                 if v < 0 {
                     "number must be at least zero"
