@@ -17,10 +17,10 @@ use crate::World;
 /// numbers.
 ///
 /// Be aware that integers larger than 2<sup>63</sup>-1 will be converted to
-/// floating point numbers, which may give an approximative value.
+/// floating point numbers, which may result in an approximative value.
 ///
-/// The function returns a dictionary, an array or any other type, depending on
-/// the JSON file.
+/// The function returns a dictionary, an array or, depending on the JSON file,
+/// another JSON data type.
 ///
 /// The JSON files in the example contain objects with the keys `temperature`,
 /// `unit`, and `weather`.

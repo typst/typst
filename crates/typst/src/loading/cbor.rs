@@ -16,7 +16,7 @@ use crate::World;
 /// whether they are whole numbers.
 ///
 /// Be aware that integers larger than 2<sup>63</sup>-1 will be converted to
-/// floating point numbers, which may give an approximative value.
+/// floating point numbers, which may result in an approximative value.
 #[func(scope, title = "CBOR")]
 pub fn cbor(
     /// The engine.
