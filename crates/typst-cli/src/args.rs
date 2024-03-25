@@ -90,6 +90,12 @@ pub struct CompileCommand {
     /// apart from file names and line numbers.
     #[arg(long = "timings", value_name = "OUTPUT_JSON")]
     pub timings: Option<Option<PathBuf>>,
+
+    /// Zero padding of the file number in the output file name
+    ///
+    /// This is only used when the output is rendered as many files
+    #[arg(long="zero-pad", action = clap::ArgAction::Set, default_value_t = true)]
+    pub zero_pad: bool,
 }
 
 /// Initializes a new project from a template

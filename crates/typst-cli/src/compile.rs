@@ -208,7 +208,11 @@ fn export_image(
     // Find a number width that accommodates all pages. For instance, the
     // first page should be numbered "001" if there are between 100 and
     // 999 pages.
-    let width = 1 + document.pages.len().checked_ilog10().unwrap_or(0) as usize;
+    let width = 1 + if command.zero_pad {
+        document.pages.len().checked_ilog10().unwrap_or(0) as usize
+    } else {
+        0
+    };
 
     let cache = world.export_cache();
 
