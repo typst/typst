@@ -592,9 +592,23 @@ fn math_args(p: &mut Parser) {
     p.wrap(m, SyntaxKind::Args);
 }
 
+/// Wrap math function arguments in a "Math" SyntaxKind to combine adjacent expressions
+/// or create blank content.
+///
+/// We don't wrap when `exprs == 1`, as there is only one expression, so the grouping
+/// isn't needed.
+///
+/// Note that `exprs` might be 0 if we have whitespace or trivia before a comma i.e.
+/// `mat(; ,)` or `sin(x, , , ,)`. This would create an empty Math element before that
+/// trivia if we called `p.wrap()` -- breaking the expected AST for 2-d arguments -- so
+/// we instead manually wrap to our current marker using `p.wrap_within()`.
 fn maybe_wrap_in_math(p: &mut Parser, arg: Marker, named: Option<Marker>) {
     let exprs = p.post_process(arg).filter(|node| node.is::<ast::Expr>()).count();
-    if exprs != 1 {
+    if exprs == 0 {
+        // This wraps the argument *after* any trivia in an empty Math element.
+        // This causes empty arguments to have actual convent instead of nothing at all.
+        p.wrap_within(arg, p.marker(), SyntaxKind::Math);
+    } else if exprs > 1 {
         p.wrap(arg, SyntaxKind::Math);
     }
 

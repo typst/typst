@@ -10,7 +10,6 @@ $ pi(a,b,) $
 ---
 // Test 2-d arguments with whitespace/trivia between commas.
 $ mat(;,) $ // this one is fine
-// Error: 8-8 expected array, found content
 $ mat(; ,) $
 $ mat(;/**/,) $
 $ mat(;
