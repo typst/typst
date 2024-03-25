@@ -49,3 +49,44 @@ It's a #emph[Tree]beard.
 #set page(width: 60pt)
 #set text(hyphenate: true)
 #h(6pt) networks, the rest.
+
+---
+#set page(height: 60pt)
+
+#let sample = lorem(12)
+
+#sample
+#pagebreak()
+#set text(prevent-widows-and-orphans: false)
+#sample
+
+---
+#set par(justify: true)
+
+#let sample = [please avoid runts in this text.]
+
+#sample
+#pagebreak()
+#set text(runt-cost: 10000%)
+#sample
+
+---
+#set par(justify: true)
+#set text(size: 6pt)
+
+#let sample = [a a a a a a a a a a a a a a a a a a a a a a a a a]
+
+#sample
+#pagebreak()
+#set text(runt-cost: 0%)
+#sample
+
+---
+#set par(justify: true)
+
+#let sample = [we've increase the hyphenation cost.]
+
+#sample
+#pagebreak()
+#set text(hyphenation-cost: 10000%)
+#sample
