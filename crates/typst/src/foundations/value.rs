@@ -1,3 +1,4 @@
+use comemo::Track;
 use std::any::{Any, TypeId};
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
@@ -12,9 +13,10 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::diag::StrResult;
 use crate::eval::ops;
 use crate::foundations::{
-    fields, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Dict,
-    Duration, Fold, FromValue, Func, IntoValue, Label, Module, NativeElement, NativeType,
-    NoneValue, Plugin, Reflect, Repr, Resolve, Scope, Str, Styles, Type, Version,
+    fields, repr, Args, Array, AutoValue, Bytes, CastInfo, Content, Context, Datetime,
+    Dict, Duration, Fold, FromValue, Func, IntoValue, Label, Module, NativeElement,
+    NativeType, NoneValue, Plugin, Reflect, Repr, Resolve, Scope, Str, Styles, Type,
+    Version,
 };
 use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio, Rel};
 use crate::symbols::Symbol;
@@ -302,13 +304,13 @@ impl Repr for Value {
 
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
-        ops::equal(self, other)
+        ops::equal(Context::none().track(), self, other).unwrap_or(false)
     }
 }
 
 impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        ops::compare(self, other).ok()
+        ops::compare(Context::none().track(), self, other).ok()
     }
 }
 

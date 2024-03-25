@@ -788,7 +788,7 @@ impl Array {
         vec.make_mut().sort_by(|a, b| {
             // Until we get `try` blocks :)
             match (key_of(a.clone()), key_of(b.clone())) {
-                (Ok(a), Ok(b)) => ops::compare(&a, &b).unwrap_or_else(|err| {
+                (Ok(a), Ok(b)) => ops::compare(context, &a, &b).unwrap_or_else(|err| {
                     if result.is_ok() {
                         result = Err(err).at(span);
                     }
@@ -820,6 +820,8 @@ impl Array {
         engine: &mut Engine,
         /// The callsite context.
         context: Tracked<Context>,
+        /// The callsite span.
+        span: Span,
         /// If given, applies this function to the elements in the array to
         /// determine the keys to deduplicate by.
         #[named]
@@ -844,7 +846,7 @@ impl Array {
             }
 
             for second in out.iter() {
-                if ops::equal(&key, &key_of(second.clone())?) {
+                if ops::equal(context, &key, &key_of(second.clone())?).at(span)? {
                     continue 'outer;
                 }
             }

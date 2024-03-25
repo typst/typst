@@ -79,15 +79,15 @@
 ---
 // Test `state.at` outside of context.
 // Error: 2-26 can only be used when context is known
-// Hint: 2-26 try wrapping this in a `context` expression
-// Hint: 2-26 the `context` expression should wrap everything that depends on this function
+// Hint: 2-26 try wrapping this in a context expression
+// Hint: 2-26 the context expression should wrap everything that depends on this function
 #state("key").at(<label>)
 
 ---
 // Test `counter.at` outside of context.
 // Error: 2-28 can only be used when context is known
-// Hint: 2-28 try wrapping this in a `context` expression
-// Hint: 2-28 the `context` expression should wrap everything that depends on this function
+// Hint: 2-28 try wrapping this in a context expression
+// Hint: 2-28 the context expression should wrap everything that depends on this function
 #counter("key").at(<label>)
 
 ---
@@ -142,8 +142,8 @@
 
 ---
 // Error: 7-11 can only be used when context is known
-// Hint: 7-11 try wrapping this in a `context` expression
-// Hint: 7-11 the `context` expression should wrap everything that depends on this function
+// Hint: 7-11 try wrapping this in a context expression
+// Hint: 7-11 the context expression should wrap everything that depends on this function
 #text.lang
 
 ---
@@ -179,3 +179,20 @@
 #let i = 0
 // Error: 11-12 variables from outside the context expression are read-only and cannot be modified
 #context (i = 1)
+
+---
+// Test contextual comparisons.
+// noref
+#context test(text.size, 1em)
+#context test(text.size - 5pt, 1em - 5pt)
+#context test(text.size - 5pt != 1em, true)
+#context test(1em, 10pt)
+#set text(size: 2em)
+#context test(text.size, 1em)
+#context test(text.size, 20pt)
+#context test(12pt - 3.7em, 12pt - 3.7 * 20pt)
+#context test(1em > 19.999pt, true)
+#context test(1em < 20.001pt, true)
+#context test(calc.max(1em, 8pt), 1em)
+#context test(calc.max(1em, 8pt), 20pt)
+#context test(calc.min(1em, 8pt), 8pt)

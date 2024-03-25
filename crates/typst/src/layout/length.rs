@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::cmp::Ordering::Equal;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg};
 
@@ -87,6 +88,12 @@ impl Length {
         ))
         .hint(eco_format!("use `length.abs.{unit}()` instead to ignore its em component"))
         .at(span)
+    }
+
+    /// Same as [`Self::to_absolute`], except this returns the original
+    /// (non-absolute) length when `to_absolute` fails.
+    pub fn try_to_absolute(self, context: Tracked<Context>) -> Self {
+        self.to_absolute(context).ok().unwrap_or(self)
     }
 }
 
@@ -193,6 +200,8 @@ impl PartialOrd for Length {
             self.abs.partial_cmp(&other.abs)
         } else if self.abs.is_zero() && other.abs.is_zero() {
             self.em.partial_cmp(&other.em)
+        } else if self == other {
+            Some(Equal)
         } else {
             None
         }
