@@ -898,8 +898,8 @@ fn linebreak_optimized<'a>(
     const MAX_COST: Cost = 1_000_000.0;
     const MIN_RATIO: f64 = -1.0;
 
-    let hyph_cost = p.hyphenation_cost.unwrap_or(DEFAULT_HYPH_COST);
-    let runt_cost = p.runt_cost.unwrap_or(DEFAULT_RUNT_COST);
+    let hyph_cost = p.hyphenation_cost.unwrap_or(1.0) * DEFAULT_HYPH_COST;
+    let runt_cost = p.runt_cost.unwrap_or(1.0) * DEFAULT_RUNT_COST;
 
     // Dynamic programming table.
     let mut active = 0;

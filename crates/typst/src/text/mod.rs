@@ -42,8 +42,7 @@ use crate::foundations::{
     cast, category, elem, Args, Array, Cast, Category, Construct, Content, Dict, Fold,
     NativeElement, Never, PlainText, Repr, Resolve, Scope, Set, Smart, StyleChain,
 };
-use crate::layout::Em;
-use crate::layout::{Abs, Axis, Dir, Length, Rel};
+use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::model::ParElem;
 use crate::syntax::Spanned;
 use crate::util::Scalar;
@@ -72,22 +71,6 @@ pub(super) fn define(global: &mut Scope) {
     global.define_func::<upper>();
     global.define_func::<smallcaps>();
     global.define_func::<lorem>();
-}
-
-#[derive(PartialEq, Clone, Copy, Debug, Hash)]
-pub struct Cost(Scalar);
-
-impl Cost {
-    pub fn get(self) -> f64 {
-        self.0.get()
-    }
-}
-
-cast! {
-    Cost,
-    self => Value::Float(self.0.get()),
-
-    v: f64 => Self(Scalar::new(v)),
 }
 
 /// Customizes the look and layout of text in a variety of ways.
@@ -482,16 +465,44 @@ pub struct TextElem {
 
     /// The "cost" of hyphenation when laying out text.
     /// A higher cost means the layout engine will hyphenate less often.
+    /// Costs are specified as a ratio of the default cost,
+    /// so `50%` will make text layout twice as eager to hyphenate,
+    /// while `200%` (or 2) will make it half as eager.
     ///
-    /// When justifying text, a higher hyphenation cost can result in more variation
-    /// in justification spacing in order to avoid hyphenation.
+    /// Hyphenation is generally avoided by placing the whole word on the next line,
+    /// so a higher runt cost can result in awkward justification spacing.
     ///
-    /// The default cost is an acceptable balance, but some may find that it hyphenates too eagerly.
-    /// A cost of `10.0` may work better for such contexts.
-    pub hyphenation_cost: Option<Cost>,
+    /// The default cost is an acceptable balance,
+    /// but some may find that it hyphenates too eagerly,
+    /// breaking the flow of dense prose.
+    /// A cost of 6 (six times the normal cost) may work better for such contexts.
+    pub hyphenation_cost: Option<Ratio>,
 
-    pub runt_cost: Option<Cost>,
+    /// The "cost" of runts (lines with a single word) when laying out text.
+    /// A higher cost means the layout engine will try harder to avoid runts.
+    /// Costs are specified as a ratio of the default cost,
+    /// so `50%` will make text layout try half as hard to avoid runts,
+    /// while `200%` (or 2) will make it try twice as hard.
+    ///
+    /// Runts are avoided by placing more or fewer words on previous lines,
+    /// so a higher runt cost can result in more awkward in justification spacing.
+    ///
+    /// The default cost is an acceptable balance,
+    /// but some may find that it produces too many runts,
+    /// which some style guides strongly discourage.
+    /// A cost of 6 (six times the normal cost) may work better for such contexts.
+    pub runt_cost: Option<Ratio>,
 
+    /// Whether to prevent widows (single line of paragraph on the next page)
+    /// and orphans (single line of paragraph on the previous page).
+    ///
+    /// Text layout prevents widows and orphans by default
+    /// because they are generally discouraged by style guides.
+    /// However, in some contexts they should not be avoided because
+    /// the prevention method, which moves a line to the next page,
+    /// can result in an uneven number of lines between pages,
+    /// which leads to asymmetry and breaking the flow of dense prose.
+    /// This option allows disabling any such modification.
     #[default(true)]
     pub prevent_widows_and_orphans: bool,
 
