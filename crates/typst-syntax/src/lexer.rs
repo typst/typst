@@ -27,9 +27,9 @@ pub(super) struct Lexer<'s> {
 pub(super) enum LexMode {
     /// Text and markup.
     Markup,
-    /// Math atoms, operators, etc.
+    /// Math mode, i.e. those in `$ .. $`.
     Math,
-    /// Keywords, literals and operators.
+    /// Code mode, e.g. `#let a = 1`, `#{ ... }`.
     Code,
     /// The contents of a raw block.
     Raw,
@@ -88,8 +88,11 @@ impl Lexer<'_> {
     }
 }
 
-/// Shared.
+/// Shared methods with all [`LexMode`].
 impl Lexer<'_> {
+    /// Proceed to the next token and return its [`SyntaxKind`].
+    ///
+    /// Note: the token could be a trivia. Use `next_non_trivia` if needed.
     pub fn next(&mut self) -> SyntaxKind {
         if self.mode == LexMode::Raw {
             let Some((kind, end)) = self.raw.pop() else {
@@ -121,6 +124,17 @@ impl Lexer<'_> {
         }
     }
 
+    pub fn next_non_trivia(&mut self) -> SyntaxKind {
+        loop {
+            let next = self.next();
+            // Loop is terminatable, since SyntaxKind::Eof is not a trivia.
+            if !next.is_trivia() {
+                break next;
+            }
+        }
+    }
+
+    /// Eat whitespace characters greedily.
     fn whitespace(&mut self, start: usize, c: char) -> SyntaxKind {
         let more = self.s.eat_while(|c| is_space(c, self.mode));
         let newlines = match c {
@@ -760,7 +774,7 @@ impl ScannerExt for Scanner<'_> {
     }
 }
 
-/// Whether a character will become a Space token in Typst
+/// Whether a character will become a [`SyntaxKind::Space`] token.
 #[inline]
 fn is_space(character: char, mode: LexMode) -> bool {
     match mode {
