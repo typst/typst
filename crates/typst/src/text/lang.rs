@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use ecow::EcoString;
@@ -26,11 +27,13 @@ impl Lang {
     pub const FRENCH: Self = Self(*b"fr ", 2);
     pub const GERMAN: Self = Self(*b"de ", 2);
     pub const GREEK: Self = Self(*b"gr ", 2);
+    pub const HUNGARIAN: Self = Self(*b"hu ", 2);
     pub const ITALIAN: Self = Self(*b"it ", 2);
     pub const JAPANESE: Self = Self(*b"ja ", 2);
     pub const NYNORSK: Self = Self(*b"nn ", 2);
     pub const POLISH: Self = Self(*b"pl ", 2);
     pub const PORTUGUESE: Self = Self(*b"pt ", 2);
+    pub const ROMANIAN: Self = Self(*b"ro ", 2);
     pub const RUSSIAN: Self = Self(*b"ru ", 2);
     pub const SERBIAN: Self = Self(*b"sr ", 2);
     pub const SLOVENIAN: Self = Self(*b"sl ", 2);
@@ -39,8 +42,6 @@ impl Lang {
     pub const TURKISH: Self = Self(*b"tr ", 2);
     pub const UKRAINIAN: Self = Self(*b"ua ", 2);
     pub const VIETNAMESE: Self = Self(*b"vi ", 2);
-    pub const HUNGARIAN: Self = Self(*b"hu ", 2);
-    pub const ROMANIAN: Self = Self(*b"ro ", 2);
 
     /// Return the language code as an all lowercase string slice.
     pub fn as_str(&self) -> &str {
@@ -159,8 +160,13 @@ cast! {
 
 /// The name with which an element is referenced.
 pub trait LocalName {
+    /// Get the key of an element in order to get its localized name.
+    fn key() -> &'static str;
+
     /// Get the name in the given language and (optionally) region.
-    fn local_name(lang: Lang, region: Option<Region>) -> &'static str;
+    fn local_name(lang: Lang, region: Option<Region>) -> &'static str {
+        localized_str(lang, region, Self::key())
+    }
 
     /// Gets the local name from the style chain.
     fn local_name_in(styles: StyleChain) -> &'static str
@@ -169,6 +175,58 @@ pub trait LocalName {
     {
         Self::local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
     }
+}
+
+#[comemo::memoize]
+fn parse_language_bundle(
+    lang: Lang,
+    region: Option<Region>,
+) -> Result<HashMap<&'static str, &'static str>, &'static str> {
+    let language_tuple =
+        typst_assets::translations().find(|it| it.0 == lang_str(lang, region));
+    if language_tuple.is_none() {
+        return Ok(HashMap::new());
+    }
+    let language_file = language_tuple.unwrap().1;
+
+    let mut bundle = HashMap::new();
+    let lines = language_file.trim().lines();
+    for line in lines {
+        if line.trim().starts_with('#') {
+            continue;
+        }
+        let (key, val) = line
+            .split_once('=')
+            .ok_or("Malformed translation file: line without \"=\"")?;
+        let (key, val) = (key.trim(), val.trim());
+        if val.is_empty() {
+            return Err("Malformed translation file: empty translation value");
+        }
+        let duplicate = bundle.insert(key.trim(), val.trim());
+        if duplicate.is_some() {
+            return Err("Malformed translation file: duplicate key");
+        }
+    }
+    Ok(bundle)
+}
+
+#[comemo::memoize]
+pub fn localized_str(lang: Lang, region: Option<Region>, key: &str) -> &'static str {
+    let lang_region_bundle = parse_language_bundle(lang, region).unwrap();
+    if let Some(str) = lang_region_bundle.get(key) {
+        return str;
+    }
+    let lang_bundle = parse_language_bundle(lang, None).unwrap();
+    if let Some(str) = lang_bundle.get(key) {
+        return str;
+    }
+    let english_bundle = parse_language_bundle(lang, None).unwrap();
+    english_bundle.get(key).unwrap()
+}
+
+fn lang_str(lang: Lang, region: Option<Region>) -> String {
+    lang.as_str().to_string()
+        + &region.map_or_else(String::new, |r| String::from("-") + r.as_str())
 }
 
 #[cfg(test)]
