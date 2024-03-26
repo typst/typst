@@ -180,17 +180,31 @@
 #"123".replace("123", (1, 2, 3))
 
 ---
-// Test the `trim` method.
+// Test the `trim` method; the pattern is not provided.
 #let str = "Typst, LaTeX, Word, InDesign"
 #let array = ("Typst", "LaTeX", "Word", "InDesign")
 #test(str.split(",").map(s => s.trim()), array)
 #test("".trim(), "")
+#test("  ".trim(), "")
+#test("\t".trim(), "")
+#test("\n".trim(), "")
+#test("\t \n".trim(), "")
 #test(" abc ".trim(at: start), "abc ")
+#test("\tabc ".trim(at: start), "abc ")
+#test("abc\n".trim(at: end), "abc")
 #test(" abc ".trim(at: end, repeat: true), " abc")
 #test("  abc".trim(at: start, repeat: false), "abc")
+
+---
+// Test the `trim` method; the pattern is a string.
 #test("aabcaa".trim("a", repeat: false), "abca")
 #test("aabca".trim("a", at: start), "bca")
 #test("aabcaa".trim("a", at: end, repeat: false), "aabca")
+#test(" abc\n".trim("\n"), " abc")
+#test("whole".trim("whole", at: start), "")
+
+---
+// Test the `trim` method; the pattern is a regex.
 #test("".trim(regex(".")), "")
 #test("123abc456".trim(regex("\d")), "abc")
 #test("123abc456".trim(regex("\d"), repeat: false), "23abc45")
@@ -201,6 +215,12 @@
 #test("123abc456".trim(regex("\d+"), at: end, repeat: false), "123abc")
 #test("123abc456".trim(regex("\d{1,2}$"), repeat: false), "123abc4")
 #test("hello world".trim(regex(".")), "")
+#test("12306".trim(regex("\d"), at: start), "")
+#test("12306abc".trim(regex("\d"), at: start), "abc")
+#test("whole".trim(regex("whole"), at: start), "")
+#test("12306".trim(regex("\d"), at: end), "")
+#test("abc12306".trim(regex("\d"), at: end), "abc")
+#test("whole".trim(regex("whole"), at: end), "")
 
 ---
 // Error: 17-21 expected either `start` or `end`
