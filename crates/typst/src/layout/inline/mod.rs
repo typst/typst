@@ -73,7 +73,8 @@ pub(crate) fn layout_inline(
         let lines = linebreak(&engine, &p, region.x - p.hang);
 
         // Stack the lines into one frame per region.
-        finalize(&mut engine, &p, &lines, region, expand)
+        let shrink = ParElem::shrink_in(styles);
+        finalize(&mut engine, &p, &lines, region, expand, shrink)
     }
 
     let fragment = cached(
@@ -1191,6 +1192,7 @@ fn finalize(
     lines: &[Line],
     region: Size,
     expand: bool,
+    shrink: bool,
 ) -> SourceResult<Fragment> {
     // Determine the paragraph's width: Full width of the region if we
     // should expand or there's fractional spacing, fit-to-width otherwise.
@@ -1207,7 +1209,7 @@ fn finalize(
     // Stack the lines into one frame per region.
     let mut frames: Vec<Frame> = lines
         .iter()
-        .map(|line| commit(engine, p, line, width, region.y))
+        .map(|line| commit(engine, p, line, width, region.y, shrink))
         .collect::<SourceResult<_>>()?;
 
     // Prevent orphans.
@@ -1243,6 +1245,7 @@ fn commit(
     line: &Line,
     width: Abs,
     full: Abs,
+    can_shrink: bool,
 ) -> SourceResult<Frame> {
     let mut remaining = width - line.width - p.hang;
     let mut offset = Abs::zero();
@@ -1291,7 +1294,7 @@ fn commit(
 
     let shrink = line.shrinkability();
     let stretch = line.stretchability();
-    if remaining < Abs::zero() && shrink > Abs::zero() {
+    if remaining < Abs::zero() && shrink > Abs::zero() && can_shrink {
         // Attempt to reduce the length of the line, using shrinkability.
         justification_ratio = (remaining / shrink).max(-1.0);
         remaining = (remaining + shrink).min(Abs::zero());
