@@ -272,10 +272,7 @@ impl Lexer<'_> {
         if backticks >= 3 {
             self.blocky_raw(start, end, backticks);
         } else {
-            // Single backtick needs no trimming or extra fancyness.
-            self.s.jump(end - backticks);
-            self.push_raw(SyntaxKind::Text);
-            self.s.jump(end);
+            self.inline_raw(start, end, backticks);
         }
 
         // Closing delimiter.
@@ -353,6 +350,19 @@ impl Lexer<'_> {
         self.s.jump(end);
     }
 
+    fn inline_raw(&mut self, start: usize, end: usize, backticks: usize) {
+        self.s.jump(start + backticks);
+        let inner = self.s.to(end - backticks);
+        for line in split_newlines(inner).into_iter() {
+            self.s.eat_newline();
+            self.push_raw(SyntaxKind::RawTrimmed);
+            self.s.advance(line.len());
+            self.push_raw(SyntaxKind::Text);
+        }
+        self.s.jump(end);
+    }
+
+    /// Push the current cursor as a breakpoint that marks the end of a segment.
     fn push_raw(&mut self, kind: SyntaxKind) {
         let end = self.s.cursor();
         self.raw.push((kind, end));
@@ -818,7 +828,7 @@ pub fn link_prefix(text: &str) -> (&str, bool) {
     (s.before(), brackets.is_empty())
 }
 
-/// Split text at newlines.
+/// Split text at newlines. These newline characters are not kept.
 pub fn split_newlines(text: &str) -> Vec<&str> {
     let mut s = Scanner::new(text);
     let mut lines = Vec::new();
