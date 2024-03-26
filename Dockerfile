@@ -9,3 +9,4 @@ RUN apk add --update musl-dev openssl-dev openssl-libs-static \
 FROM alpine:latest
 WORKDIR /root/
 COPY --from=build  /app/target/release/typst /bin
+ENTRYPOINT [ "/bin/typst" ]
