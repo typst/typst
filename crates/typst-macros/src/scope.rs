@@ -144,7 +144,8 @@ fn rewrite_primitive_base(item: &syn::ItemImpl, ident: &syn::Ident) -> TokenStre
     let ident_ext = quote::format_ident!("{ident}Ext");
     let self_ty = &item.self_ty;
     quote! {
-        trait #ident_ext {
+        #[allow(non_snake_case)]
+        pub(super) trait #ident_ext {
             #(#sigs)*
         }
 

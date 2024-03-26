@@ -1,6 +1,5 @@
 //! Calculations and processing of numeric values.
 
-use std::cmp;
 use std::cmp::Ordering;
 use std::ops::{Div, Rem};
 
@@ -9,6 +8,9 @@ use crate::eval::ops;
 use crate::foundations::{cast, func, IntoValue, Module, Scope, Value};
 use crate::layout::{Angle, Fr, Length, Ratio};
 use crate::syntax::{Span, Spanned};
+
+use super::float::Num;
+use super::int::{binom_impl, fact_impl};
 
 /// A module with calculation definitions.
 pub fn module() -> Module {
@@ -192,9 +194,9 @@ pub fn sqrt(
 /// ```
 #[func]
 pub fn root(
-    /// The expression to take the root of
+    /// The expression to take the root of.
     radicand: f64,
-    /// Which root of the radicand to take
+    /// Which root of the radicand to take.
     index: Spanned<i64>,
 ) -> SourceResult<f64> {
     if index.v == 0 {
@@ -304,7 +306,7 @@ pub fn asin(
 /// ```
 #[func(title = "Arccosine")]
 pub fn acos(
-    /// The number whose arcsine to calculate. Must be between -1 and 1.
+    /// The number whose arccosine to calculate. Must be between -1 and 1.
     value: Spanned<Num>,
 ) -> SourceResult<Angle> {
     let val = value.v.float();
@@ -374,7 +376,7 @@ pub fn cosh(
     value.cosh()
 }
 
-/// Calculates the hyperbolic tangent of an hyperbolic angle.
+/// Calculates the hyperbolic tangent of a hyperbolic angle.
 ///
 /// ```example
 /// #calc.tanh(0) \
@@ -494,23 +496,6 @@ pub fn perm(
     Ok(fact_impl(base - numbers + 1, base).ok_or_else(too_large)?)
 }
 
-/// Calculates the product of a range of numbers. Used to calculate
-/// permutations. Returns None if the result is larger than `i64::MAX`
-fn fact_impl(start: u64, end: u64) -> Option<i64> {
-    // By convention
-    if end + 1 < start {
-        return Some(0);
-    }
-
-    let real_start: u64 = cmp::max(1, start);
-    let mut count: u64 = 1;
-    for i in real_start..=end {
-        count = count.checked_mul(i)?;
-    }
-
-    count.try_into().ok()
-}
-
 /// Calculates a binomial coefficient.
 ///
 /// Returns the `k`-combination of `n`, or the number of ways to choose `k`
@@ -527,28 +512,6 @@ pub fn binom(
     k: u64,
 ) -> StrResult<i64> {
     Ok(binom_impl(n, k).ok_or_else(too_large)?)
-}
-
-/// Calculates a binomial coefficient, with `n` the upper coefficient and `k`
-/// the lower coefficient. Returns `None` if the result is larger than
-/// `i64::MAX`
-fn binom_impl(n: u64, k: u64) -> Option<i64> {
-    if k > n {
-        return Some(0);
-    }
-
-    // By symmetry
-    let real_k = cmp::min(n - k, k);
-    if real_k == 0 {
-        return Some(1);
-    }
-
-    let mut result: u64 = 1;
-    for i in 0..real_k {
-        result = result.checked_mul(n - i)?.checked_div(i + 1)?;
-    }
-
-    result.try_into().ok()
 }
 
 /// Calculates the greatest common divisor of two integers.
@@ -609,10 +572,7 @@ pub fn floor(
     /// The number to round down.
     value: Num,
 ) -> i64 {
-    match value {
-        Num::Int(n) => n,
-        Num::Float(n) => n.floor() as i64,
-    }
+    value.floor()
 }
 
 /// Rounds a number up to the nearest integer.
@@ -761,7 +721,7 @@ pub fn max(
 }
 
 /// Find the minimum or maximum of a sequence of values.
-fn minmax(
+pub(super) fn minmax(
     span: Span,
     values: Vec<Spanned<Value>>,
     goal: Ordering,
@@ -906,57 +866,6 @@ pub fn quo(
     }
 
     Ok(floor(dividend.apply2(divisor.v, Div::div, Div::div)))
-}
-
-/// A value which can be passed to functions that work with integers and floats.
-#[derive(Debug, Copy, Clone)]
-pub enum Num {
-    Int(i64),
-    Float(f64),
-}
-
-impl Num {
-    fn apply2(
-        self,
-        other: Self,
-        int: impl FnOnce(i64, i64) -> i64,
-        float: impl FnOnce(f64, f64) -> f64,
-    ) -> Num {
-        match (self, other) {
-            (Self::Int(a), Self::Int(b)) => Num::Int(int(a, b)),
-            (a, b) => Num::Float(float(a.float(), b.float())),
-        }
-    }
-
-    fn apply3(
-        self,
-        other: Self,
-        third: Self,
-        int: impl FnOnce(i64, i64, i64) -> i64,
-        float: impl FnOnce(f64, f64, f64) -> f64,
-    ) -> Num {
-        match (self, other, third) {
-            (Self::Int(a), Self::Int(b), Self::Int(c)) => Num::Int(int(a, b, c)),
-            (a, b, c) => Num::Float(float(a.float(), b.float(), c.float())),
-        }
-    }
-
-    fn float(self) -> f64 {
-        match self {
-            Self::Int(v) => v as f64,
-            Self::Float(v) => v,
-        }
-    }
-}
-
-cast! {
-    Num,
-    self => match self {
-        Self::Int(v) => v.into_value(),
-        Self::Float(v) => v.into_value(),
-    },
-    v: i64 => Self::Int(v),
-    v: f64 => Self::Float(v),
 }
 
 /// A value that can be passed to a trigonometric function.

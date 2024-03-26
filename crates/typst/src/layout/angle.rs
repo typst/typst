@@ -59,26 +59,6 @@ impl Angle {
         self.to_raw() / unit.raw_scale()
     }
 
-    /// The absolute value of the this angle.
-    pub fn abs(self) -> Self {
-        Self::raw(self.to_raw().abs())
-    }
-
-    /// Get the sine of this angle in radians.
-    pub fn sin(self) -> f64 {
-        self.to_rad().sin()
-    }
-
-    /// Get the cosine of this angle in radians.
-    pub fn cos(self) -> f64 {
-        self.to_rad().cos()
-    }
-
-    /// Get the tangent of this angle in radians.
-    pub fn tan(self) -> f64 {
-        self.to_rad().tan()
-    }
-
     /// Get the quadrant of the Cartesian plane that this angle lies in.
     ///
     /// The angle is automatically normalized to the range `0deg..=360deg`.
@@ -114,6 +94,51 @@ impl Angle {
     #[func(name = "deg", title = "Degrees")]
     pub fn to_deg(self) -> f64 {
         self.to_unit(AngleUnit::Deg)
+    }
+
+    /// Calculates the absolute value of an angle.
+    ///
+    /// ```example
+    /// #(-90deg).abs() \
+    /// #90deg.abs()
+    /// ```
+    #[func(title = "Absolute")]
+    pub fn abs(self) -> Angle {
+        Self::raw(self.to_raw().abs())
+    }
+
+    /// Calculates the sine of an angle.
+    ///
+    /// ```example
+    /// #assert.eq(90deg.sin(), -270deg.sin()) \
+    /// #1.5rad.sin() \
+    /// #90deg.sin()
+    /// ```
+    #[func(title = "Sine")]
+    pub fn sin(self) -> f64 {
+        self.to_rad().sin()
+    }
+
+    /// Calculates the cosine of an angle.
+    ///
+    /// ```example
+    /// #1.5rad.cos() \
+    /// #90deg.cos()
+    /// ```
+    #[func(title = "Cosine")]
+    pub fn cos(self) -> f64 {
+        self.to_rad().cos()
+    }
+
+    /// Calculates the tangent of an angle.
+    ///
+    /// ```example
+    /// #1.5rad.tan() \
+    /// #90deg.tan()
+    /// ```
+    #[func(title = "Tangent")]
+    pub fn tan(self) -> f64 {
+        self.to_rad().tan()
     }
 }
 
