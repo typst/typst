@@ -1186,7 +1186,7 @@ fn line<'a>(
 }
 
 /// Combine layouted lines into one frame per region.
-fn finalize<'a>(
+fn finalize(
     engine: &mut Engine,
     p: &Preparation,
     lines: &[Line],
@@ -1239,7 +1239,7 @@ fn merge(first: &mut Frame, second: Frame, leading: Abs) {
 }
 
 /// Commit to a line and build its frame.
-fn commit<'a>(
+fn commit(
     engine: &mut Engine,
     p: &Preparation,
     line: &Line,

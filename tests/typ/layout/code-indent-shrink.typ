@@ -21,10 +21,6 @@
 ---
 // Leading spaces in normal paragraphs should still
 // be shrunken
-Reference line
+~~~~No shrinking here
 
-~~Two leading nbsp
-
-~~~~Reference
-
-~~~~More~non~breaking~spaces
+~~~~The~spaces~on~this~line~shrink
