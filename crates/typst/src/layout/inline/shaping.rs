@@ -189,14 +189,12 @@ impl ShapedGlyph {
         self.x_offset -= amount;
         self.x_advance -= amount;
         self.adjustability.shrinkability.0 -= amount;
-        self.adjustability.stretchability.0 += amount;
     }
 
     /// Shrink the width of glyph on the right side.
     pub fn shrink_right(&mut self, amount: Em) {
         self.x_advance -= amount;
         self.adjustability.shrinkability.1 -= amount;
-        self.adjustability.stretchability.1 += amount;
     }
 }
 
