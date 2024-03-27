@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use chrono::{Datelike, Timelike};
+use chrono::{Datelike, NaiveDateTime, Timelike};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
 use ecow::{eco_format, EcoString};
@@ -170,9 +170,16 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     Ok(())
 }
 
+/// Get time passed as environment variable
+fn passed_time() -> Option<NaiveDateTime> {
+    let passed_string = option_env!("SOURCE_DATE_EPOCH")?;
+    let epoch = passed_string.parse::<i64>().ok()?;
+    chrono::DateTime::from_timestamp(epoch, 0).map(|date| date.naive_utc())
+}
+
 /// Get the current date and time in UTC.
 fn now() -> Option<Datetime> {
-    let now = chrono::Local::now().naive_utc();
+    let now = passed_time().unwrap_or(chrono::Local::now().naive_utc());
     Datetime::from_ymd_hms(
         now.year(),
         now.month().try_into().ok()?,
