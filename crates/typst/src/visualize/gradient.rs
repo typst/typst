@@ -1249,7 +1249,11 @@ fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> C
 
     let (col_0, pos_0) = stops[low - 1];
     let (col_1, pos_1) = stops[low];
-    let t = (t - pos_0.get()) / (pos_1.get() - pos_0.get());
+    let mut delta = pos_1.get() - pos_0.get();
+    if delta == 0.0 {
+        delta = 1.0;
+    }
+    let t = (t - pos_0.get()) / delta;
 
     Color::mix_iter(
         [WeightedColor::new(col_0, 1.0 - t), WeightedColor::new(col_1, t)],
