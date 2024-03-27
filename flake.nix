@@ -19,6 +19,10 @@
 
     perSystem = { self', pkgs, lib, ... }:
       let
+        cargo_version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).workspace.package.version;
+        typst_revision = self.shortRev or "dirty";
+        typst_version = "${cargo_version} (${typst_revision})";
+
         # Generate the typst package for the given nixpkgs instance.
         packageFor = pkgs:
           let
@@ -78,14 +82,14 @@
             '';
 
             GEN_ARTIFACTS = "artifacts";
-            TYPST_VERSION =
-              let
-                rev = self.shortRev or "dirty";
-                version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).workspace.package.version;
-              in
-              "${version} (${rev})";
+            TYPST_VERSION = typst_version;
 
-            meta.mainProgram = "typst";
+            meta = {
+              description = "Typst, a markup-based typesetting system that is powerful and easy to learn";
+              homepage = "https://typst.app";
+              license = lib.licenses.asl20;
+              mainProgram = "typst";
+            };
           });
 
         typst = packageFor pkgs;
@@ -96,6 +100,23 @@
         packages = {
           default = typst;
           typst-dev = self'.packages.default;
+          oci-typst = pkgs.dockerTools.buildLayeredImage {
+            name = "typst";
+            tag = cargo_version;
+            contents = [ typst ];
+            config = {
+              Entrypoint = [ "typst" ];
+              Labels = {
+                "org.opencontainers.image.description" = self'.packages.default.meta.description;
+                "org.opencontainers.image.licenses" = self'.packages.default.meta.license.spdxId;
+                "org.opencontainers.image.revision" = typst_revision;
+                "org.opencontainers.image.source" = "https://github.com/typst/typst";
+                "org.opencontainers.image.title" = "Typst";
+                "org.opencontainers.image.url" = self'.packages.default.meta.homepage;
+                "org.opencontainers.image.version" = cargo_version;
+              };
+            };
+          };
         };
 
         overlayAttrs = builtins.removeAttrs self'.packages [ "default" ];
