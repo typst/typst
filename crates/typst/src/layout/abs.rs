@@ -121,9 +121,9 @@ impl Abs {
     /// Returns a number that represent the sign of this length
     pub fn signum(self) -> Self {
         if self.0.get().is_sign_negative() {
-            return Self::raw(-1.0);
+            Self::raw(-1.0)
         } else {
-            return Self::raw(1.0);
+            Self::raw(1.0)
         }
     }
 }
