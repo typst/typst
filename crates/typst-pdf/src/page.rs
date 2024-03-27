@@ -827,9 +827,7 @@ fn write_shape(ctx: &mut PageContext, pos: Point, shape: &Shape) {
         Geometry::Rect(size) => {
             let w = size.x.to_f32();
             let h = size.y.to_f32();
-            if w > 0.0 && h > 0.0 {
-                ctx.content.rect(x, y, w, h);
-            }
+            ctx.content.rect(x, y, w, h);
         }
         Geometry::Path(ref path) => {
             write_path(ctx, x, y, path);
