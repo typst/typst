@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::{fmt, fs, io, mem};
 
-use chrono::{DateTime, Datelike, Local};
+use chrono::{DateTime, Datelike, Utc};
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
@@ -42,8 +42,9 @@ pub struct SystemWorld {
     /// Maps file ids to source files and buffers.
     slots: Mutex<HashMap<FileId, FileSlot>>,
     /// The current datetime if requested. This is stored here to ensure it is
-    /// always the same within one compilation. Reset between compilations.
-    now: OnceLock<DateTime<Local>>,
+    /// always the same within one compilation.
+    /// Reset between compilations if not fixed.
+    today: Today,
     /// The export cache, used for caching output files in `typst watch`
     /// sessions.
     export_cache: ExportCache,
@@ -104,6 +105,11 @@ impl SystemWorld {
         let mut searcher = FontSearcher::new();
         searcher.search(&command.font_paths);
 
+        let today = match command.source_date_epoch {
+            Some(time) => Today::Fixed(time),
+            None => Today::System(OnceLock::new()),
+        };
+
         Ok(Self {
             workdir: std::env::current_dir().ok(),
             root,
@@ -112,7 +118,7 @@ impl SystemWorld {
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
             slots: Mutex::new(HashMap::new()),
-            now: OnceLock::new(),
+            today,
             export_cache: ExportCache::new(),
         })
     }
@@ -146,7 +152,9 @@ impl SystemWorld {
         for slot in self.slots.get_mut().values_mut() {
             slot.reset();
         }
-        self.now.take();
+        if let Today::System(time_lock) = &mut self.today {
+            time_lock.take();
+        }
     }
 
     /// Lookup a source file by id.
@@ -187,11 +195,14 @@ impl World for SystemWorld {
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
-        let now = self.now.get_or_init(chrono::Local::now);
+        let today = match &self.today {
+            Today::Fixed(time) => time,
+            Today::System(time) => time.get_or_init(Utc::now),
+        };
 
         let naive = match offset {
-            None => now.naive_local(),
-            Some(o) => now.naive_utc() + chrono::Duration::try_hours(o)?,
+            None => today.naive_local(),
+            Some(o) => today.naive_utc() + chrono::Duration::try_hours(o)?,
         };
 
         Datetime::from_ymd(
@@ -382,6 +393,15 @@ fn read_from_stdin() -> FileResult<Vec<u8>> {
 fn decode_utf8(buf: &[u8]) -> FileResult<&str> {
     // Remove UTF-8 BOM.
     Ok(std::str::from_utf8(buf.strip_prefix(b"\xef\xbb\xbf").unwrap_or(buf))?)
+}
+
+/// The current date and time.
+enum Today {
+    /// The date and time if the environment `SOURCE_DATE_EPOCH` is set.
+    /// Used for reproducible builds.
+    Fixed(DateTime<Utc>),
+    /// The current date and time if the time is not externally fixed.
+    System(OnceLock<DateTime<Utc>>),
 }
 
 /// An error that occurs during world construction.

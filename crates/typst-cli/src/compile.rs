@@ -166,7 +166,10 @@ fn export(
 
 /// Export to a PDF.
 fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
-    let buffer = typst_pdf::pdf(document, Smart::Auto, now());
+    let timestamp = convert_datetime(
+        command.common.source_date_epoch.unwrap_or_else(chrono::Utc::now),
+    );
+    let buffer = typst_pdf::pdf(document, Smart::Auto, timestamp);
     command
         .output()
         .write(&buffer)
@@ -174,16 +177,15 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     Ok(())
 }
 
-/// Get the current date and time in UTC.
-fn now() -> Option<Datetime> {
-    let now = chrono::Local::now().naive_utc();
+/// Convert [`chrono::DateTime`] to [`Datetime`]
+fn convert_datetime(date_time: chrono::DateTime<chrono::Utc>) -> Option<Datetime> {
     Datetime::from_ymd_hms(
-        now.year(),
-        now.month().try_into().ok()?,
-        now.day().try_into().ok()?,
-        now.hour().try_into().ok()?,
-        now.minute().try_into().ok()?,
-        now.second().try_into().ok()?,
+        date_time.year(),
+        date_time.month().try_into().ok()?,
+        date_time.day().try_into().ok()?,
+        date_time.hour().try_into().ok()?,
+        date_time.minute().try_into().ok()?,
+        date_time.second().try_into().ok()?,
     )
 }
 
