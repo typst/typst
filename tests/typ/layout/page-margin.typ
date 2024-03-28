@@ -18,3 +18,12 @@
 
 // Ensure that specific margins override general margins.
 #[#set page(margin: (rest: 0pt, left: 20pt)); Overridden]
+
+---
+// Test the margin accessor in context
+#set page(margin: (x: 8pt, y: 4pt))
+#context page.margin
+
+---
+// Test the margin constructor
+#context margina((top: 8pt, rest: auto)).left

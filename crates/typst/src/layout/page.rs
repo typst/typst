@@ -8,14 +8,14 @@ use comemo::Track;
 use crate::diag::{bail, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    cast, elem, AutoValue, Cast, Content, Context, Dict, Fold, Func, NativeElement,
-    Packed, Resolve, Smart, StyleChain, Value,
+    cast, elem, Cast, Content, Context, Func, NativeElement, Packed, Resolve, Smart,
+    StyleChain,
 };
 use crate::introspection::{Counter, CounterDisplayElem, CounterKey, ManualPageCounter};
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, ColumnsElem, Dir, Frame, HAlignment, LayoutMultiple,
-    Length, OuterVAlignment, Point, Ratio, Regions, Rel, Sides, Size, SpecificAlignment,
-    VAlignment,
+    Length, Margina, OuterVAlignment, Point, Ratio, Regions, Rel, Size,
+    SpecificAlignment, VAlignment,
 };
 
 use crate::model::Numbering;
@@ -142,7 +142,7 @@ pub struct PageElem {
     /// )
     /// ```
     #[fold]
-    pub margin: Margin,
+    pub margin: Margina,
 
     /// On which side the pages will be bound.
     ///
@@ -525,116 +525,6 @@ pub struct Page {
     /// The logical page number (controlled by `counter(page)` and may thus not
     /// match the physical number).
     pub number: usize,
-}
-
-/// Specification of the page's margins.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Margin {
-    /// The margins for each side.
-    pub sides: Sides<Option<Smart<Rel<Length>>>>,
-    /// Whether to swap `left` and `right` to make them `inside` and `outside`
-    /// (when to swap depends on the binding).
-    pub two_sided: Option<bool>,
-}
-
-impl Margin {
-    /// Create an instance with four equal components.
-    pub fn splat(value: Option<Smart<Rel<Length>>>) -> Self {
-        Self { sides: Sides::splat(value), two_sided: None }
-    }
-}
-
-impl Default for Margin {
-    fn default() -> Self {
-        Self {
-            sides: Sides::splat(Some(Smart::Auto)),
-            two_sided: None,
-        }
-    }
-}
-
-impl Fold for Margin {
-    fn fold(self, outer: Self) -> Self {
-        Margin {
-            sides: self.sides.fold(outer.sides),
-            two_sided: self.two_sided.fold(outer.two_sided),
-        }
-    }
-}
-
-cast! {
-    Margin,
-    self => {
-        let two_sided = self.two_sided.unwrap_or(false);
-        if !two_sided && self.sides.is_uniform() {
-            if let Some(left) = self.sides.left {
-                return left.into_value();
-            }
-        }
-
-        let mut dict = Dict::new();
-        let mut handle = |key: &str, component: Option<Smart<Rel<Length>>>| {
-            if let Some(c) = component {
-                dict.insert(key.into(), c.into_value());
-            }
-        };
-
-        handle("top", self.sides.top);
-        handle("bottom", self.sides.bottom);
-        if two_sided {
-            handle("inside", self.sides.left);
-            handle("outside", self.sides.right);
-        } else {
-            handle("left", self.sides.left);
-            handle("right", self.sides.right);
-        }
-
-        Value::Dict(dict)
-    },
-    _: AutoValue => Self::splat(Some(Smart::Auto)),
-    v: Rel<Length> => Self::splat(Some(Smart::Custom(v))),
-    mut dict: Dict => {
-        let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
-
-        let rest = take("rest")?;
-        let x = take("x")?.or(rest);
-        let y = take("y")?.or(rest);
-        let top = take("top")?.or(y);
-        let bottom = take("bottom")?.or(y);
-        let outside = take("outside")?;
-        let inside = take("inside")?;
-        let left = take("left")?;
-        let right = take("right")?;
-
-        let implicitly_two_sided = outside.is_some() || inside.is_some();
-        let implicitly_not_two_sided = left.is_some() || right.is_some();
-        if implicitly_two_sided && implicitly_not_two_sided {
-            bail!("`inside` and `outside` are mutually exclusive with `left` and `right`");
-        }
-
-        // - If 'implicitly_two_sided' is false here, then
-        //   'implicitly_not_two_sided' will be guaranteed to be true
-        //    due to the previous two 'if' conditions.
-        // - If both are false, this means that this margin change does not
-        //   affect lateral margins, and thus shouldn't make a difference on
-        //   the 'two_sided' attribute of this margin.
-        let two_sided = (implicitly_two_sided || implicitly_not_two_sided)
-            .then_some(implicitly_two_sided);
-
-        dict.finish(&[
-            "left", "top", "right", "bottom", "outside", "inside", "x", "y", "rest",
-        ])?;
-
-        Margin {
-            sides: Sides {
-                left: inside.or(left).or(x),
-                top,
-                right: outside.or(right).or(x),
-                bottom,
-            },
-            two_sided,
-        }
-    }
 }
 
 /// Specification of the page's binding.

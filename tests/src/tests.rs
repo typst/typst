@@ -34,7 +34,7 @@ use typst::diag::{bail, FileError, FileResult, Severity, SourceDiagnostic, StrRe
 use typst::eval::Tracer;
 use typst::foundations::{func, Bytes, Datetime, NoneValue, Repr, Smart, Value};
 use typst::introspection::Meta;
-use typst::layout::{Abs, Frame, FrameItem, Margin, Page, PageElem, Transform};
+use typst::layout::{Abs, Frame, FrameItem, Margina, Page, PageElem, Transform};
 use typst::model::Document;
 use typst::syntax::{FileId, Source, SyntaxNode, VirtualPath};
 use typst::text::{Font, FontBook, TextElem, TextSize};
@@ -231,7 +231,7 @@ fn library() -> Library {
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(120.0).into())));
     lib.styles.set(PageElem::set_height(Smart::Auto));
-    lib.styles.set(PageElem::set_margin(Margin::splat(Some(Smart::Custom(
+    lib.styles.set(PageElem::set_margin(Margina::splat(Some(Smart::Custom(
         Abs::pt(10.0).into(),
     )))));
     lib.styles.set(TextElem::set_size(TextSize(Abs::pt(10.0).into())));
