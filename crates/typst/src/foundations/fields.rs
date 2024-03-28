@@ -4,7 +4,7 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
 use crate::foundations::{IntoValue, Type, Value, Version};
-use crate::layout::Margina;
+use crate::layout::Margin;
 use crate::layout::{Alignment, Length, Rel};
 use crate::visualize::Stroke;
 
@@ -52,7 +52,7 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
                     "y" => align.y().into_value(),
                     _ => return missing(),
                 }
-            } else if let Some(margin) = dynamic.downcast::<Margina>() {
+            } else if let Some(margin) = dynamic.downcast::<Margin>() {
                 match field {
                     "left" => margin.left().into_value(),
                     "top" => margin.top().into_value(),
@@ -94,7 +94,7 @@ pub fn fields_on(ty: Type) -> &'static [&'static str] {
         &["paint", "thickness", "cap", "join", "dash", "miter-limit"]
     } else if ty == Type::of::<Alignment>() {
         &["x", "y"]
-    } else if ty == Type::of::<Margina>() {
+    } else if ty == Type::of::<Margin>() {
         &["left", "top", "right", "bottom"]
     } else {
         &[]

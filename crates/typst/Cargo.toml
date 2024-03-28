@@ -22,7 +22,6 @@ typst-macros = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
 az = { workspace = true }
-backtrace = { workspace = true }
 bitflags = { workspace = true }
 chinese-number = { workspace = true }
 ciborium = { workspace = true }

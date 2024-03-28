@@ -14,8 +14,8 @@ use crate::foundations::{
 use crate::introspection::{Counter, CounterDisplayElem, CounterKey, ManualPageCounter};
 use crate::layout::{
     Abs, AlignElem, Alignment, Axes, ColumnsElem, Dir, Frame, HAlignment, LayoutMultiple,
-    Length, Margina, OuterVAlignment, Point, Ratio, Regions, Rel, Size,
-    SpecificAlignment, VAlignment,
+    Length, Margin, OuterVAlignment, Point, Ratio, Regions, Rel, Size, SpecificAlignment,
+    VAlignment,
 };
 
 use crate::model::Numbering;
@@ -105,28 +105,7 @@ pub struct PageElem {
     #[default(false)]
     pub flipped: bool,
 
-    /// The page's margins.
-    ///
-    /// - `{auto}`: The margins are set automatically to 2.5/21 times the smaller
-    ///   dimension of the page. This results in 2.5cm margins for an A4 page.
-    /// - A single length: The same margin on all sides.
-    /// - A dictionary: With a dictionary, the margins can be set individually.
-    ///   The dictionary can contain the following keys in order of precedence:
-    ///   - `top`: The top margin.
-    ///   - `right`: The right margin.
-    ///   - `bottom`: The bottom margin.
-    ///   - `left`: The left margin.
-    ///   - `inside`: The margin at the inner side of the page (where the
-    ///     [binding]($page.binding) is).
-    ///   - `outside`: The margin at the outer side of the page (opposite to the
-    ///     [binding]($page.binding)).
-    ///   - `x`: The horizontal margins.
-    ///   - `y`: The vertical margins.
-    ///   - `rest`: The margins on all sides except those for which the
-    ///     dictionary explicitly sets a size.
-    ///
-    /// The values for `left` and `right` are mutually exclusive with
-    /// the values for `inside` and `outside`.
+    /// The page's [margin]($margin).
     ///
     /// ```example
     /// #set page(
@@ -142,7 +121,7 @@ pub struct PageElem {
     /// )
     /// ```
     #[fold]
-    pub margin: Margina,
+    pub margin: Margin,
 
     /// On which side the pages will be bound.
     ///

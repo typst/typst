@@ -742,7 +742,7 @@ const TYPE_ORDER: &[&str] = &[
     "alignment",
     "alignment2d",
     "stroke",
-    "margina",
+    "margin",
 ];
 
 /// Data about a collection of functions.

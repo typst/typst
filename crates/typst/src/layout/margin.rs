@@ -1,16 +1,13 @@
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::foundations::{
-    cast, func, scope, ty, Args, AutoValue, Dict, Fold, FromValue, IntoValue, Repr,
-    Resolve, Smart, StyleChain, Value,
+    cast, func, scope, ty, Args, AutoValue, Dict, Fold, IntoValue, Repr, Smart, Value,
 };
 use crate::layout::{Length, Rel, Sides};
 use ecow::{eco_format, EcoString};
 
-type MarginLength = Option<Smart<Rel<Length>>>;
+type MarginLength = Smart<Rel<Length>>;
 
 /// Defines a page's margin.
-///
-/// Specification of a margin.
 ///
 /// A margin has four components: left, top, right, bottom. To construct a
 /// `margin` you may provide multiple forms of arguments:
@@ -43,23 +40,23 @@ type MarginLength = Option<Smart<Rel<Length>>>;
 /// the context.
 #[ty(scope, cast)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Margina {
+pub struct Margin {
     /// The margins for each side.
-    pub sides: Sides<MarginLength>,
+    pub sides: Sides<Option<MarginLength>>,
     /// Whether to swap `left` and `right` to make them `inside` and `outside`
     /// (when to swap depends on the binding).
     pub two_sided: Option<bool>,
 }
 
-impl Margina {
+impl Margin {
     /// Create an instance with four equal components.
-    pub fn splat(value: MarginLength) -> Self {
+    pub fn splat(value: Option<MarginLength>) -> Self {
         Self { sides: Sides::splat(value), two_sided: None }
     }
 }
 
 #[scope]
-impl Margina {
+impl Margin {
     #[func(constructor)]
     pub fn construct(
         /// The real arguments (the other arguments are just for the docs, this
@@ -95,12 +92,12 @@ impl Margina {
         /// the values for `inside` and `outside`.
         #[external]
         dict: Dict,
-    ) -> SourceResult<Margina> {
-        if let Some(margin) = args.eat::<Margina>()? {
+    ) -> SourceResult<Margin> {
+        if let Some(margin) = args.eat::<Margin>()? {
             return Ok(margin);
         }
 
-        if let Some(_) = args.eat::<AutoValue>()? {
+        if args.eat::<AutoValue>()?.is_some() {
             return Ok(Self::splat(Some(Smart::Auto)));
         }
 
@@ -108,8 +105,8 @@ impl Margina {
             return Ok(Self::splat(Some(Smart::Custom(v))));
         }
 
-        fn take(args: &mut Args, arg: &str) -> SourceResult<MarginLength> {
-            Ok(args.named::<Smart<Rel<Length>>>(arg)?)
+        fn take(args: &mut Args, arg: &str) -> SourceResult<Option<MarginLength>> {
+            args.named::<MarginLength>(arg)
         }
 
         let rest = take(args, "rest")?;
@@ -122,63 +119,43 @@ impl Margina {
         let left = take(args, "left")?;
         let right = take(args, "right")?;
 
-        let implicitly_two_sided = outside.is_some() || inside.is_some();
-        let implicitly_not_two_sided = left.is_some() || right.is_some();
-        if implicitly_two_sided && implicitly_not_two_sided {
-            bail!(
-                args.span,
-                "`inside` and `outside` are mutually exclusive with `left` and `right`"
-            );
+        let res =
+            construct_margin_from_data([x, top, bottom, outside, inside, left, right]);
+
+        match res {
+            Ok(margin) => Ok(margin),
+            Err(s) => bail!(args.span, "{}", s),
         }
-
-        // - If 'implicitly_two_sided' is false here, then
-        //   'implicitly_not_two_sided' will be guaranteed to be true
-        //    due to the previous two 'if' conditions.
-        // - If both are false, this means that this margin change does not
-        //   affect lateral margins, and thus shouldn't make a difference on
-        //   the 'two_sided' attribute of this margin.
-        let two_sided = (implicitly_two_sided || implicitly_not_two_sided)
-            .then_some(implicitly_two_sided);
-
-        return Ok(Self {
-            sides: Sides {
-                left: inside.or(left).or(x),
-                top,
-                right: outside.or(right).or(x),
-                bottom,
-            },
-            two_sided,
-        });
     }
 
     #[func]
-    pub fn left(&self) -> MarginLength {
+    pub fn left(&self) -> Option<MarginLength> {
         self.sides.left
     }
 
     #[func]
-    pub fn top(&self) -> MarginLength {
+    pub fn top(&self) -> Option<MarginLength> {
         self.sides.top
     }
 
     #[func]
-    pub fn right(&self) -> MarginLength {
+    pub fn right(&self) -> Option<MarginLength> {
         self.sides.right
     }
 
     #[func]
-    pub fn bottom(&self) -> MarginLength {
+    pub fn bottom(&self) -> Option<MarginLength> {
         self.sides.bottom
     }
 }
 
-impl Repr for Margina {
+impl Repr for Margin {
     fn repr(&self) -> EcoString {
-        eco_format!("margin()") // TODO
+        eco_format!("margin{}", self.into_value().repr())
     }
 }
 
-impl Default for Margina {
+impl Default for Margin {
     fn default() -> Self {
         Self {
             sides: Sides::splat(Some(Smart::Auto)),
@@ -187,7 +164,7 @@ impl Default for Margina {
     }
 }
 
-impl Fold for Margina {
+impl Fold for Margin {
     fn fold(self, outer: Self) -> Self {
         Self {
             sides: self.sides.fold(outer.sides),
@@ -196,17 +173,9 @@ impl Fold for Margina {
     }
 }
 
-impl Resolve for Margina {
-    type Output = Margina;
-
-    fn resolve(self, _: StyleChain) -> Self::Output {
-        Self { sides: self.sides, two_sided: self.two_sided }
-    }
-}
-
 // Specifies a margin.
 cast! {
-    Margina,
+    Margin,
     self => {
         let two_sided = self.two_sided.unwrap_or(false);
         if !two_sided && self.sides.is_uniform() {
@@ -216,7 +185,7 @@ cast! {
         }
 
         let mut dict = Dict::new();
-        let mut handle = |key: &str, component: Option<Smart<Rel<Length>>>| {
+        let mut handle = |key: &str, component: Option<MarginLength>| {
             if let Some(c) = component {
                 dict.insert(key.into(), c.into_value());
             }
@@ -224,12 +193,11 @@ cast! {
 
         handle("top", self.sides.top);
         handle("bottom", self.sides.bottom);
+        handle("left", self.sides.left);
+        handle("right", self.sides.right);
         if two_sided {
             handle("inside", self.sides.left);
             handle("outside", self.sides.right);
-        } else {
-            handle("left", self.sides.left);
-            handle("right", self.sides.right);
         }
 
         Value::Dict(dict)
@@ -249,33 +217,39 @@ cast! {
         let left = take("left")?;
         let right = take("right")?;
 
-        let implicitly_two_sided = outside.is_some() || inside.is_some();
-        let implicitly_not_two_sided = left.is_some() || right.is_some();
-        if implicitly_two_sided && implicitly_not_two_sided {
-            bail!("`inside` and `outside` are mutually exclusive with `left` and `right`");
-        }
-
-        // - If 'implicitly_two_sided' is false here, then
-        //   'implicitly_not_two_sided' will be guaranteed to be true
-        //    due to the previous two 'if' conditions.
-        // - If both are false, this means that this margin change does not
-        //   affect lateral margins, and thus shouldn't make a difference on
-        //   the 'two_sided' attribute of this margin.
-        let two_sided = (implicitly_two_sided || implicitly_not_two_sided)
-            .then_some(implicitly_two_sided);
-
         dict.finish(&[
             "left", "top", "right", "bottom", "outside", "inside", "x", "y", "rest",
         ])?;
 
-        Self {
-            sides: Sides {
-                left: inside.or(left).or(x),
-                top,
-                right: outside.or(right).or(x),
-                bottom,
-            },
-            two_sided,
-        }
+        construct_margin_from_data([x, top, bottom, outside, inside, left, right])?
     }
+}
+
+fn construct_margin_from_data(
+    [x, top, bottom, outside, inside, left, right]: [Option<MarginLength>; 7],
+) -> StrResult<Margin> {
+    let implicitly_two_sided = outside.is_some() || inside.is_some();
+    let implicitly_not_two_sided = left.is_some() || right.is_some();
+    if implicitly_two_sided && implicitly_not_two_sided {
+        bail!("`inside` and `outside` are mutually exclusive with `left` and `right`");
+    }
+
+    // - If 'implicitly_two_sided' is false here, then
+    //   'implicitly_not_two_sided' will be guaranteed to be true
+    //    due to the previous two 'if' conditions.
+    // - If both are false, this means that this margin change does not
+    //   affect lateral margins, and thus shouldn't make a difference on
+    //   the 'two_sided' attribute of this margin.
+    let two_sided = (implicitly_two_sided || implicitly_not_two_sided)
+        .then_some(implicitly_two_sided);
+
+    Ok(Margin {
+        sides: Sides {
+            left: inside.or(left).or(x),
+            top,
+            right: outside.or(right).or(x),
+            bottom,
+        },
+        two_sided,
+    })
 }
