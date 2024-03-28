@@ -3,7 +3,6 @@
 use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
-use crate::foundations::context::backtrace;
 use crate::foundations::{IntoValue, Type, Value, Version};
 use crate::layout::Margina;
 use crate::layout::{Alignment, Length, Rel};
@@ -80,7 +79,6 @@ fn no_fields(ty: Type) -> EcoString {
 /// The missing field error message.
 #[cold]
 fn missing_field(ty: Type, field: &str) -> EcoString {
-    backtrace(255);
     eco_format!("{ty} does not contain field \"{field}\"")
 }
 

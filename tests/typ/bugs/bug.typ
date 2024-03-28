@@ -6,4 +6,4 @@
 #context page.margin
 
 // #context stroke(red).paint2
-#context margina((x: 8pt, y: 4pt)).left
+#context margina((x: 8pt, y: 4pt)).bottom

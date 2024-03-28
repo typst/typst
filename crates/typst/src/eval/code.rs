@@ -74,8 +74,6 @@ impl Eval for ast::Expr<'_> {
             error!(span, "{} is only allowed directly in code and content blocks", name)
         };
 
-        println!("Eval for ast::Expr self: {:?}", self);
-
         let v = match self {
             Self::Text(v) => v.eval(vm).map(Value::Content),
             Self::Space(v) => v.eval(vm).map(Value::Content),
@@ -353,8 +351,6 @@ impl Eval for ast::Contextual<'_> {
             captured,
             num_pos_params: 0,
         };
-
-        println!("ast::Contextual, {:?}", closure.node);
 
         let func = Func::from(closure).spanned(body.span());
         Ok(ContextElem::new(func).pack())
