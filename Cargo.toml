@@ -28,6 +28,7 @@ typst-timing = { path = "crates/typst-timing", version = "0.11.0" }
 typst-assets = "0.11.0"
 typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "ee8ae61cca138dc92f9d818fc7f2fc046d0148c5" }
 az = "1.2"
+backtrace = "0.3"
 base64 = "0.22"
 bitflags = { version = "2", features = ["serde"] }
 bytemuck = "1"

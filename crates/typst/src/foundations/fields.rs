@@ -3,7 +3,9 @@
 use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
+use crate::foundations::context::backtrace;
 use crate::foundations::{IntoValue, Type, Value, Version};
+use crate::layout::Margina;
 use crate::layout::{Alignment, Length, Rel};
 use crate::visualize::Stroke;
 
@@ -51,6 +53,14 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
                     "y" => align.y().into_value(),
                     _ => return missing(),
                 }
+            } else if let Some(margin) = dynamic.downcast::<Margina>() {
+                match field {
+                    "left" => margin.left().into_value(),
+                    "top" => margin.top().into_value(),
+                    "right" => margin.right().into_value(),
+                    "bottom" => margin.bottom().into_value(),
+                    _ => return missing(),
+                }
             } else {
                 return nope();
             }
@@ -70,6 +80,7 @@ fn no_fields(ty: Type) -> EcoString {
 /// The missing field error message.
 #[cold]
 fn missing_field(ty: Type, field: &str) -> EcoString {
+    backtrace(255);
     eco_format!("{ty} does not contain field \"{field}\"")
 }
 
@@ -85,6 +96,8 @@ pub fn fields_on(ty: Type) -> &'static [&'static str] {
         &["paint", "thickness", "cap", "join", "dash", "miter-limit"]
     } else if ty == Type::of::<Alignment>() {
         &["x", "y"]
+    } else if ty == Type::of::<Margina>() {
+        &["left", "top", "right", "bottom"]
     } else {
         &[]
     }

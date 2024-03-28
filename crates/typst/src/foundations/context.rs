@@ -7,6 +7,32 @@ use crate::foundations::{
 };
 use crate::introspection::{Locatable, Location};
 
+use backtrace::{Backtrace, BacktraceFrame, BacktraceSymbol};
+pub fn backtrace(level: usize) {
+    let (trace, curr_file, curr_line) = (Backtrace::new(), file!(), line!());
+    let symbols =
+        trace
+            .frames()
+            .iter()
+            .flat_map(BacktraceFrame::symbols)
+            .skip_while(|s| {
+                s.filename().map(|p| !p.ends_with(curr_file)).unwrap_or(true)
+                    || s.lineno() != Some(curr_line)
+            });
+    println!("backtrace() is called from..");
+    for (i, sym) in symbols.enumerate() {
+        if i > level {
+            break;
+        }
+        println!(
+            "{i}: {:?}:{:?}\n\t\x1b[2m{:?}\x1b[0m",
+            BacktraceSymbol::filename(sym).unwrap_or(std::path::Path::new("(none)")),
+            BacktraceSymbol::lineno(sym).unwrap_or(0),
+            BacktraceSymbol::name(sym),
+        );
+    }
+}
+
 /// Data that is contextually made available to code.
 ///
 /// _Contextual_ functions and expressions require the presence of certain
@@ -53,6 +79,7 @@ impl<'a> Context<'a> {
 /// Extracts an optional piece of context, yielding an error with hints if
 /// it isn't available.
 fn require<T>(val: Option<T>) -> HintedStrResult<T> {
+    // backtrace(5);
     val.ok_or("can only be used when context is known")
     .hint("try wrapping this in a `context` expression")
     .hint(

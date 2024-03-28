@@ -5,6 +5,7 @@ use ecow::{eco_format, EcoString};
 use indexmap::IndexMap;
 
 use crate::diag::{bail, HintedStrResult, HintedString, StrResult};
+use crate::foundations::context::backtrace;
 use crate::foundations::{
     Element, Func, IntoValue, Module, NativeElement, NativeFunc, NativeFuncData,
     NativeType, Type, Value,
@@ -79,6 +80,7 @@ impl<'a> Scopes<'a> {
 /// The error message when a variable is not found.
 #[cold]
 fn unknown_variable(var: &str) -> HintedString {
+    backtrace(255);
     let mut res = HintedString {
         message: eco_format!("unknown variable: {}", var),
         hints: vec![],

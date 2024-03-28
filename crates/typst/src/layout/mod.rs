@@ -19,6 +19,7 @@ mod inline;
 #[path = "layout.rs"]
 mod layout_;
 mod length;
+mod margin;
 #[path = "measure.rs"]
 mod measure_;
 mod pad;
@@ -52,6 +53,7 @@ pub use self::grid::*;
 pub use self::hide::*;
 pub use self::layout_::*;
 pub use self::length::*;
+pub use self::margin::*;
 pub use self::measure_::*;
 pub use self::pad::*;
 pub use self::page::*;
@@ -96,6 +98,7 @@ pub fn define(global: &mut Scope) {
     global.define_type::<Fr>();
     global.define_type::<Dir>();
     global.define_type::<Alignment>();
+    global.define_type::<Margina>();
     global.define_elem::<PageElem>();
     global.define_elem::<PagebreakElem>();
     global.define_elem::<VElem>();
