@@ -4,8 +4,7 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
 use crate::foundations::{IntoValue, Type, Value, Version};
-use crate::layout::Margin;
-use crate::layout::{Alignment, Length, Rel};
+use crate::layout::{Alignment, Length, Margin, Rel};
 use crate::visualize::Stroke;
 
 /// Try to access a field on a value.

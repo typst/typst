@@ -1,4 +1,4 @@
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::foundations::{
     cast, func, scope, ty, Args, AutoValue, Dict, Fold, IntoValue, Repr, Smart, Value,
 };
@@ -119,13 +119,8 @@ impl Margin {
         let left = take(args, "left")?;
         let right = take(args, "right")?;
 
-        let res =
-            construct_margin_from_data([x, top, bottom, outside, inside, left, right]);
-
-        match res {
-            Ok(margin) => Ok(margin),
-            Err(s) => bail!(args.span, "{}", s),
-        }
+        construct_margin_from_data([x, top, bottom, outside, inside, left, right])
+            .at(args.span)
     }
 
     #[func]
