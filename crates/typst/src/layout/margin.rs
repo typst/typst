@@ -9,29 +9,7 @@ type MarginLength = Smart<Rel<Length>>;
 
 /// Defines a page's margin.
 ///
-/// A margin has four components: left, top, right, bottom. To construct a
-/// `margin` you may provide multiple forms of arguments:
-///
-/// - `{auto}`: The margins are set automatically to 2.5/21 times the smaller
-///   dimension of the page. This results in 2.5cm margins for an A4 page.
-/// - A single length: The same margin on all sides.
-/// - A dictionary: With a dictionary, the margins can be set individually.
-///   The dictionary can contain the following keys in order of precedence:
-///   - `left`: The left margin.
-///   - `top`: The top margin.
-///   - `right`: The right margin.
-///   - `bottom`: The bottom margin.
-///   - `inside`: The margin at the inner side of the page (where the
-///     [binding]($page.binding) is).
-///   - `outside`: The margin at the outer side of the page (opposite to the
-///     [binding]($page.binding)).
-///   - `x`: The horizontal margins.
-///   - `y`: The vertical margins.
-///   - `rest`: The margins on all sides except those for which the
-///     dictionary explicitly sets a size.
-///
-/// The values for `left` and `right` are mutually exclusive with
-/// the values for `inside` and `outside`.
+/// A margin has four components: left, top, right, bottom.
 ///
 /// You can provide a `{margin}` object to any function that expects a margin.
 /// Also, on a `margin` object, you can access the fields of top, bottom, left,
@@ -57,6 +35,19 @@ impl Margin {
 
 #[scope]
 impl Margin {
+    /// Converts a value to a margin or constructs a margin with the given
+    /// parameters.
+    ///
+    /// Note that in most cases you do not need to convert values to margin in
+    /// order to use them, as they will be converted automatically.
+    ///
+    /// ```example
+    /// #set page(margin: 1em)
+    /// #context page.margin \
+    /// #set page(margin: (x: 8pt, y: 4pt))
+    /// #context page.margin.top \
+    /// #context margin(inside: 1em).left
+    /// ```
     #[func(constructor)]
     pub fn construct(
         /// The real arguments (the other arguments are just for the docs, this
@@ -172,13 +163,6 @@ impl Fold for Margin {
 cast! {
     Margin,
     self => {
-        let two_sided = self.two_sided.unwrap_or(false);
-        if !two_sided && self.sides.is_uniform() {
-            if let Some(left) = self.sides.left {
-                return left.into_value();
-            }
-        }
-
         let mut dict = Dict::new();
         let mut handle = |key: &str, component: Option<MarginLength>| {
             if let Some(c) = component {
@@ -190,7 +174,7 @@ cast! {
         handle("bottom", self.sides.bottom);
         handle("left", self.sides.left);
         handle("right", self.sides.right);
-        if two_sided {
+        if self.two_sided.unwrap_or(false) {
             handle("inside", self.sides.left);
             handle("outside", self.sides.right);
         }
