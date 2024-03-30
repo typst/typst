@@ -33,6 +33,7 @@ pub fn category(_: TokenStream, item: syn::Item) -> Result<TokenStream> {
 }
 
 /// Parse a bare `pub static CATEGORY: Category;` item.
+#[allow(dead_code)]
 pub struct BareStatic {
     pub attrs: Vec<Attribute>,
     pub vis: Visibility,
