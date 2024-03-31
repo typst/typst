@@ -235,7 +235,7 @@ macro_rules! delegate_for_ptr {
     ($W:ident for $ptr:ty) => {
         impl<$W: World> World for $ptr
         where
-            $ptr: Deref<Target = W>,
+            $ptr: Deref<Target = $W>,
         {
             fn library(&self) -> &Prehashed<Library> {
                 self.deref().library()
