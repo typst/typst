@@ -7,7 +7,7 @@ use heck::{ToKebabCase, ToTitleCase};
 use pulldown_cmark as md;
 use serde::{Deserialize, Serialize};
 use typed_arena::Arena;
-use typst::diag::{FileResult, StrResult};
+use typst::diag::{bail, FileResult, StrResult};
 use typst::eval::Tracer;
 use typst::foundations::{Bytes, Datetime};
 use typst::layout::{Abs, Point, Size};
@@ -489,5 +489,9 @@ impl World for DocWorld {
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
         Some(Datetime::from_ymd(1970, 1, 1).unwrap())
+    }
+
+    fn run_shell_command(&self, _command: &str) -> StrResult<String> {
+        bail!("who would run commands here?")
     }
 }

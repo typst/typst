@@ -221,12 +221,12 @@ impl World for SystemWorld {
         } else {
             bail!("we don't support this operating system, tough luck");
         };
-        cmd.arg(&command);
+        cmd.arg(command);
         let output = cmd
             .output()
             .map_err(|err| eco_format!("failed to run command `{}` ({err})", command))?;
         let output_str = String::from_utf8(output.stdout)
-            .map_err(|err| eco_format!("Command did not output valid UTF-8 ({err})"))?;
+            .map_err(|err| eco_format!("command did not output valid UTF-8 ({err})"))?;
         Ok(output_str)
     }
 }

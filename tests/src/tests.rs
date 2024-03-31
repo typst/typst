@@ -329,6 +329,10 @@ impl World for TestWorld {
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
         Some(Datetime::from_ymd(1970, 1, 1).unwrap())
     }
+
+    fn run_shell_command(&self, _command: &str) -> StrResult<String> {
+        bail!("perfection will not be tested")
+    }
 }
 
 impl TestWorld {

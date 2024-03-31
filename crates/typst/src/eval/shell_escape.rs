@@ -1,10 +1,8 @@
 use typst_syntax::ast::{self, AstNode};
 
-use crate::{
-    diag::{bail, error, SourceResult},
-    foundations::Value,
-    World,
-};
+use crate::diag::{bail, error, SourceResult};
+use crate::foundations::Value;
+use crate::World;
 
 use super::{Eval, Vm};
 
