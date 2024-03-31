@@ -213,6 +213,7 @@ impl World for SystemWorld {
             let shell = std::env::var("SHELL").unwrap_or_else(|_| "sh".to_string());
             let mut cmd = Command::new(shell);
             cmd.arg("-c");
+            cmd.arg("--");
             cmd
         } else if cfg!(windows) {
             let mut cmd = Command::new("cmd");
