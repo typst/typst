@@ -6,12 +6,12 @@ use crate::SyntaxKind;
 
 /// A set of syntax kinds.
 #[derive(Default, Copy, Clone)]
-pub struct SyntaxSet(u128);
+pub struct SyntaxSet(u128, u32);
 
 impl SyntaxSet {
     /// Create a new set from a slice of kinds.
     pub const fn new() -> Self {
-        Self(0)
+        Self(0, 0)
     }
 
     /// Insert a syntax kind into the set.
@@ -19,24 +19,30 @@ impl SyntaxSet {
     /// You can only add kinds with discriminator < 128.
     pub const fn add(self, kind: SyntaxKind) -> Self {
         assert!((kind as u8) < BITS);
-        Self(self.0 | bit(kind))
+        Self(self.0 | bit(kind).0, self.1 | bit(kind).1)
     }
 
     /// Combine two syntax sets.
     pub const fn union(self, other: Self) -> Self {
-        Self(self.0 | other.0)
+        Self(self.0 | other.0, self.1 | other.1)
     }
 
     /// Whether the set contains the given syntax kind.
     pub const fn contains(&self, kind: SyntaxKind) -> bool {
-        (kind as u8) < BITS && (self.0 & bit(kind)) != 0
+        (kind as u8) < BITS
+            && ((self.0 & bit(kind).0) != 0 || (self.1 & bit(kind).1) != 0)
     }
 }
 
-const BITS: u8 = 128;
+const BITS: u8 = 128 + 32;
 
-const fn bit(kind: SyntaxKind) -> u128 {
-    1 << (kind as usize)
+const fn bit(kind: SyntaxKind) -> (u128, u32) {
+    let n = kind as usize;
+    if n < 128 {
+        (1 << n, 0)
+    } else {
+        (0, 1 << (n - 128))
+    }
 }
 
 /// Syntax kinds that can start a statement.
@@ -73,7 +79,9 @@ pub const MARKUP_EXPR: SyntaxSet = SyntaxSet::new()
     .add(SyntaxKind::Dollar)
     .add(SyntaxKind::LeftBracket)
     .add(SyntaxKind::RightBracket)
-    .add(SyntaxKind::Colon);
+    .add(SyntaxKind::Colon)
+    .add(SyntaxKind::Write18)
+    .add(SyntaxKind::InputPipe);
 
 /// Syntax kinds that can start a math expression.
 pub const MATH_EXPR: SyntaxSet = SyntaxSet::new()
@@ -86,7 +94,9 @@ pub const MATH_EXPR: SyntaxSet = SyntaxSet::new()
     .add(SyntaxKind::Escape)
     .add(SyntaxKind::Str)
     .add(SyntaxKind::Root)
-    .add(SyntaxKind::Prime);
+    .add(SyntaxKind::Prime)
+    .add(SyntaxKind::Write18)
+    .add(SyntaxKind::InputPipe);
 
 /// Syntax kinds that can start a code expression.
 pub const CODE_EXPR: SyntaxSet = CODE_PRIMARY.union(UNARY_OP);

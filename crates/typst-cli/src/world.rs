@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::OnceLock;
 use std::{fmt, fs, io, mem};
 
@@ -9,7 +10,7 @@ use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-use typst::diag::{FileError, FileResult};
+use typst::diag::{bail, FileError, FileResult, StrResult};
 use typst::foundations::{Bytes, Datetime, Dict, IntoValue};
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
@@ -47,6 +48,8 @@ pub struct SystemWorld {
     /// The export cache, used for caching output files in `typst watch`
     /// sessions.
     export_cache: ExportCache,
+    /// whether shell escape is enabled.
+    shell_escape: bool,
 }
 
 impl SystemWorld {
@@ -114,6 +117,7 @@ impl SystemWorld {
             slots: Mutex::new(HashMap::new()),
             now: OnceLock::new(),
             export_cache: ExportCache::new(),
+            shell_escape: command.shell_escape,
         })
     }
 
@@ -199,6 +203,31 @@ impl World for SystemWorld {
             naive.month().try_into().ok()?,
             naive.day().try_into().ok()?,
         )
+    }
+
+    fn run_shell_command(&self, command: &str) -> StrResult<String> {
+        if !self.shell_escape {
+            bail!("--shell-escape must be enabled for this to work");
+        }
+        let mut cmd = if cfg!(unix) {
+            let shell = std::env::var("SHELL").unwrap_or_else(|_| "sh".to_string());
+            let mut cmd = Command::new(shell);
+            cmd.arg("-c");
+            cmd
+        } else if cfg!(windows) {
+            let mut cmd = Command::new("cmd");
+            cmd.arg("/C");
+            cmd
+        } else {
+            bail!("we don't support this operating system, tough luck");
+        };
+        cmd.arg(&command);
+        let output = cmd
+            .output()
+            .map_err(|err| eco_format!("failed to run command `{}` ({err})", command))?;
+        let output_str = String::from_utf8(output.stdout)
+            .map_err(|err| eco_format!("Command did not output valid UTF-8 ({err})"))?;
+        Ok(output_str)
     }
 }
 

@@ -11,6 +11,7 @@ mod import;
 mod markup;
 mod math;
 mod rules;
+mod shell_escape;
 mod tracer;
 mod vm;
 

@@ -203,6 +203,10 @@ pub enum Expr<'a> {
     Continue(LoopContinue<'a>),
     /// A return from a function: `return`, `return x + 1`.
     Return(FuncReturn<'a>),
+    /// It's Write18, I don't have to explain it that often, do I?
+    Write18(Write18<'a>),
+    /// Run a shell command and insert the output into the document.
+    InputPipe(InputPipe<'a>),
 }
 
 impl<'a> Expr<'a> {
@@ -273,6 +277,8 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::LoopBreak => node.cast().map(Self::Break),
             SyntaxKind::LoopContinue => node.cast().map(Self::Continue),
             SyntaxKind::FuncReturn => node.cast().map(Self::Return),
+            SyntaxKind::Write18 => node.cast().map(Self::Write18),
+            SyntaxKind::InputPipe => node.cast().map(Self::InputPipe),
             _ => Option::None,
         }
     }
@@ -336,6 +342,8 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::Break(v) => v.to_untyped(),
             Self::Continue(v) => v.to_untyped(),
             Self::Return(v) => v.to_untyped(),
+            Self::Write18(v) => v.to_untyped(),
+            Self::InputPipe(v) => v.to_untyped(),
         }
     }
 }
@@ -2133,5 +2141,56 @@ impl<'a> FuncReturn<'a> {
     /// The expression to return.
     pub fn body(self) -> Option<Expr<'a>> {
         self.0.cast_last_match()
+    }
+}
+
+node! {
+    Write18
+}
+
+impl<'a> Write18<'a> {
+    pub fn command(&self) -> String {
+        // Yes, this is ugly.
+        let mut inner = self
+            .0
+            .text()
+            .strip_prefix("\\immediate")
+            .unwrap_or(self.0.text())
+            .strip_prefix("\\write18{")
+            .unwrap()
+            .strip_suffix('}')
+            .unwrap();
+        // Unescape the input.
+        let mut buf = String::new();
+        while let Some(idx) = inner.find('\\') {
+            buf.push_str(&inner[..idx]);
+            inner = &inner[idx + 1..];
+        }
+        buf.push_str(inner);
+        buf
+    }
+}
+
+node! {
+    InputPipe
+}
+
+impl<'a> InputPipe<'a> {
+    pub fn command(&self) -> String {
+        let mut inner = self
+            .0
+            .text()
+            .strip_prefix("\\input|\"")
+            .unwrap()
+            .strip_suffix('"')
+            .unwrap();
+        // Unescape the input.
+        let mut buf = String::new();
+        while let Some(idx) = inner.find('\\') {
+            buf.push_str(&inner[..idx]);
+            inner = &inner[idx + 1..];
+        }
+        buf.push_str(inner);
+        buf
     }
 }

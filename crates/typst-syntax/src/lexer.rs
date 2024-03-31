@@ -229,6 +229,39 @@ impl Lexer<'_> {
             return SyntaxKind::Escape;
         }
 
+        if self.s.eat_if("immediate\\write18{") || self.s.eat_if("write18{") {
+            loop {
+                let Some(c) = self.s.peek() else {
+                    return self.error("`\\write18{…}` must end with curly brace");
+                };
+                self.s.eat();
+                if c == '}' {
+                    break;
+                }
+                if c == '\\' {
+                    self.s.eat();
+                }
+            }
+
+            return SyntaxKind::Write18;
+        }
+        if self.s.eat_if("input|\"") {
+            loop {
+                let Some(c) = self.s.peek() else {
+                    return self.error("`\\input|\"…\"` must end with double quotes");
+                };
+                self.s.eat();
+                if c == '"' {
+                    break;
+                }
+                if c == '\\' {
+                    self.s.eat();
+                }
+            }
+
+            return SyntaxKind::InputPipe;
+        }
+
         if self.s.done() || self.s.at(char::is_whitespace) {
             SyntaxKind::Linebreak
         } else {

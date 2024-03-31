@@ -267,10 +267,16 @@ pub enum SyntaxKind {
     /// A destructuring assignment expression: `(x, y) = (1, 2)`.
     DestructAssignment,
 
+    /// Run a shell command.
+    Write18,
+    /// Run a shell command and insert the output into the document.
+    InputPipe,
+
     /// A line comment: `// ...`.
     LineComment,
     /// A block comment: `/* ... */`.
     BlockComment,
+
     /// An invalid sequence of characters.
     Error,
     /// The end of the file.
@@ -490,6 +496,8 @@ impl SyntaxKind {
             Self::FuncReturn => "`return` expression",
             Self::Destructuring => "destructuring pattern",
             Self::DestructAssignment => "destructuring assignment expression",
+            Self::Write18 => "write18 command",
+            Self::InputPipe => "write18 command",
             Self::LineComment => "line comment",
             Self::BlockComment => "block comment",
             Self::Error => "syntax error",

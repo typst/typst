@@ -53,6 +53,7 @@ pub mod symbols;
 pub mod text;
 pub mod visualize;
 
+use diag::StrResult;
 #[doc(inline)]
 pub use typst_syntax as syntax;
 
@@ -229,6 +230,9 @@ pub trait World {
     fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
         &[]
     }
+
+    /// Executes a shell command and returns the output.
+    fn run_shell_command(&self, command: &str) -> StrResult<String>;
 }
 
 /// Helper methods on [`World`] implementations.

@@ -157,6 +157,10 @@ pub struct SharedArgs {
     )]
     pub inputs: Vec<(String, String)>,
 
+    /// Whether to enable the execution of shell commands.
+    #[clap(long = "shell-escape")]
+    pub shell_escape: bool,
+
     /// Adds additional directories to search for fonts
     #[clap(
         long = "font-path",

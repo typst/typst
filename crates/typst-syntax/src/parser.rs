@@ -138,6 +138,8 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::TermMarker
         | SyntaxKind::Colon => p.convert(SyntaxKind::Text),
 
+        SyntaxKind::Write18 | SyntaxKind::InputPipe => p.eat(),
+
         _ => {}
     }
 
@@ -353,6 +355,11 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
                 while p.eat_if_direct(SyntaxKind::Prime) {}
                 p.wrap(m2, SyntaxKind::MathPrimes);
             }
+        }
+
+        SyntaxKind::Write18 | SyntaxKind::InputPipe => {
+            continuable = true;
+            p.eat();
         }
 
         _ => p.expected("expression"),
