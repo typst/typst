@@ -229,17 +229,24 @@ fn write_page(ctx: &mut PdfContext, i: usize, resources_ref: Ref) {
 
 /// Write the page labels.
 pub(crate) fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
+    // If there is no page labeled, we skip the writing
+    if !ctx.pages.iter().any(|p| {
+        p.label
+            .as_ref()
+            .is_some_and(|l| l.prefix.is_some() || l.style.is_some())
+    }) {
+        return Vec::new();
+    }
+
     let mut result = vec![];
+    let empty_label = PdfPageLabel::default();
     let mut prev: Option<&PdfPageLabel> = None;
 
     for (i, page) in ctx.pages.iter().enumerate() {
         let nr = NonZeroUsize::new(1 + i).unwrap();
-        let Some(label) = &page.label else { continue };
-
-        // Don't create a label if neither style nor prefix are specified.
-        if label.prefix.is_none() && label.style.is_none() {
-            continue;
-        }
+        // If there are pages with empty labels between labeled pages, we must
+        // write empty PageLabel entries.
+        let label = page.label.as_ref().unwrap_or(&empty_label);
 
         if let Some(pre) = prev {
             if label.prefix == pre.prefix
