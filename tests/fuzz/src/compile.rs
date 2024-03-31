@@ -2,7 +2,7 @@
 
 use comemo::Prehashed;
 use libfuzzer_sys::fuzz_target;
-use typst::diag::{FileError, FileResult};
+use typst::diag::{bail, FileError, FileResult, StrResult};
 use typst::eval::Tracer;
 use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source};
@@ -58,6 +58,10 @@ impl World for FuzzWorld {
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
         None
+    }
+
+    fn run_shell_command(&self, _command: &str) -> StrResult<String> {
+        bail!("lol")
     }
 }
 
