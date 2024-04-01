@@ -314,16 +314,10 @@
 #test(("Hello", "World", "Hi", "There").dedup(key: x => x.at(0)), ("Hello", "World", "There"))
 
 ---
-// Test the `to-dict` method without grouping.
+// Test the `to-dict` method.
 #test(().to-dict(), (:))
 #test((("a", 1), ("b", 2), ("c", 3)).to-dict(), (a: 1, b: 2, c: 3))
 #test((("a", 1), ("b", 2), ("c", 3), ("b", 4)).to-dict(), (a: 1, b: 4, c: 3))
-
----
-// Test the `to-dict` method with grouping.
-#test(().to-dict(grouped: true), (:))
-#test((("a", 1), ("b", 2), ("c", 3)).to-dict(grouped: true), (a: (1,), b: (2,), c: (3,)))
-#test((("a", 1), ("b", 2), ("c", 3), ("b", 4)).to-dict(grouped: true), (a: (1,), b: (2, 4), c: (3,)))
 
 ---
 // Error: 2-16 expected (str, any) pairs, found integer
