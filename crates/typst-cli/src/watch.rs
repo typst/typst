@@ -21,7 +21,7 @@ use crate::{print_error, terminal};
 /// Execute a watching compilation command.
 pub fn watch(mut timer: Timer, mut command: CompileCommand) -> StrResult<()> {
     let Output::Path(output) = command.output() else {
-        bail!("cannot write document to output in watch mode");
+        bail!("cannot write document to stdout in watch mode");
     };
 
     // Create a file system watcher.

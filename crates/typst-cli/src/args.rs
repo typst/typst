@@ -75,7 +75,8 @@ pub struct CompileCommand {
     #[arg(long = "format", short = 'f')]
     pub format: Option<OutputFormat>,
 
-    /// Opens the output file using the default viewer after compilation
+    /// Opens the output file using the default viewer after compilation.
+    /// Ignored if output is stdout
     #[arg(long = "open")]
     pub open: Option<Option<String>>,
 
@@ -195,11 +196,10 @@ pub enum Output {
 
 impl Display for Output {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Output::Stdout => "stdout".to_string(),
-            Output::Path(path) => path.display().to_string(),
-        };
-        write!(f, "{s}")
+        match self {
+            Output::Stdout => f.pad("stdout"),
+            Output::Path(path) => path.display().fmt(f),
+        }
     }
 }
 

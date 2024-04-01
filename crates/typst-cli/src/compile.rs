@@ -296,8 +296,7 @@ impl Output {
             Output::Stdout => std::io::stdout().write_all(buffer),
             Output::Path(path) => fs::write(path, buffer),
         }
-        .map_err(|err| eco_format!("{err}"))?;
-        Ok(())
+        .map_err(|err| eco_format!("{err}"))
     }
 }
 
