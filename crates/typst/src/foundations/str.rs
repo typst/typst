@@ -535,7 +535,7 @@ impl Str {
             }
             Some(StrPattern::Regex(re)) => {
                 let s = self.as_str();
-                let mut last = None; // The last match's off-by-one end.
+                let mut last = None;
                 let mut range = 0..s.len();
 
                 for m in re.find_iter(s) {
