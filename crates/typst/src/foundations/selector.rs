@@ -15,10 +15,6 @@ use crate::symbols::Symbol;
 use crate::text::TextElem;
 
 /// A helper macro to create a field selector used in [`Selector::Elem`]
-///
-/// ```ignore
-/// select_where!(SequenceElem, Children => vec![]);
-/// ```
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __select_where {

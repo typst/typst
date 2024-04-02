@@ -136,7 +136,7 @@ pub fn ty(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 ///
 /// This implements `NativeElement` for the given type.
 ///
-/// ```
+/// ```ignore
 /// /// A section heading.
 /// #[elem(Show, Count)]
 /// struct HeadingElem {

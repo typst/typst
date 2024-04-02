@@ -232,6 +232,7 @@ impl Parse for BlockWithReturn {
 }
 
 /// Parse a bare `type Name;` item.
+#[allow(dead_code)]
 pub struct BareType {
     pub attrs: Vec<Attribute>,
     pub type_token: Token![type],

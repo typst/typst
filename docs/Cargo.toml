@@ -6,13 +6,10 @@ authors = { workspace = true }
 edition = { workspace = true }
 publish = false
 
-[lib]
-doctest = false
-bench = false
-
 [[bin]]
 name = "typst-docs"
 required-features = ["cli"]
+doc = false
 
 [features]
 default = ["cli"]
